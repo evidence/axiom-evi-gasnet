@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2004/10/08 07:47:15 $
-# $Revision: 1.13 $
+#     $Date: 2004/10/14 09:05:02 $
+# $Revision: 1.14 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -41,11 +41,13 @@ my @tmpfiles = ();
 # Probe for which MPI is running
     my $mpirun_cmd  = $spawncmd;
        $mpirun_cmd  =~ s/\s-.*/ -help/;
+       $mpirun_cmd  =~ s/\s%[A-Za-z]+//; # required for Cray MPI
     my $mpirun_help = `$mpirun_cmd 2>&1`;
     my $is_lam      = ($mpirun_help =~ m|LAM/MPI|);
     my $is_mpich_nt = ($mpirun_help =~ m|MPIRun|);
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
     my $is_mvich    = ($mpirun_help =~ m|MVICH|);
+    my $is_cray_mpi = ($mpirun_help =~ m|Psched|);
 
     if ($is_lam) {
 	# pass env as "-x A,B,C"
@@ -66,6 +68,12 @@ my @tmpfiles = ();
 	%envfmt = ( 'pre' => $envprog,
 		    'val' => "'"
 		  );
+    } elsif ($is_cray_mpi) {
+	# cannot reliably use /usr/bin/env at all when running via aprun 
+        # (the binary doesnt support placed execution)
+	# however, the OS already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1
+                  );
     } else {
 	# pass env as "/usr/bin/env A=1 B=2 C=3"
 	# Our nearly universal default
@@ -224,6 +232,9 @@ sub expand {
         if (defined $envfmt{post}) {
 	    push @envargs, $envfmt{post};
         }
+	if (defined $envfmt{noenv}) {
+	    @envargs = ();
+	}
     }
 
     # Special case for the mpich spawner
