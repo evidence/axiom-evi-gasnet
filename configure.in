@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/13 03:54:27 $
-# $Revision: 1.121 $
+#     $Date: 2004/03/16 00:04:56 $
+# $Revision: 1.122 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.121 $)
+AC_REVISION($Revision: 1.122 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1092,6 +1092,25 @@ if test $have_vapi = yes; then
   GASNET_ENV_DEFAULT(VAPI_LIBDIR, $MTHOME/lib)
   GASNET_ENV_DEFAULT(VAPI_LIBS, -lvapi -lmtl_common -lmosal -lmpga)
 
+  # Assemble any extra flags needed at library build time
+  VAPI_LIBCFLAGS=''
+  if test "$gasnet_cv_cc_family" != "GNU"; then
+    AC_MSG_CHECKING(if $CC supports GNU variadic preprocessor macros)
+    AC_TRY_COMPILE([
+	extern void bar1(int a);
+	extern void bar3(int a, int b, int c);
+	#define foo1(A, B...) bar1(A, ## B)	/* expect the comma to disappear */
+	#define foo3(A, B...) bar3(A, ## B)	/* expect the comma to remain */
+    ],[
+	foo1(1);
+	foo3(1, 2, 3);
+    ],AC_MSG_RESULT(yes),[
+      # Work aroung bug #522 by omitting mtl_log.h
+      AC_MSG_RESULT(no)
+      VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -DH_MTL_LOG_H"
+    ])
+  fi
+
   AC_MSG_CHECKING(for working VAPI configuration)
   if test "$mpi_test_worked" != yes; then
     if test "$enabled_mpi" = yes; then
@@ -1103,7 +1122,7 @@ if test $have_vapi = yes; then
 
   OLDCFLAGS="$CFLAGS"
   OLDLIBS="$LIBS"
-  CFLAGS="-I$VAPI_INCLUDE"
+  CFLAGS="-I$VAPI_INCLUDE $VAPI_LIBCFLAGS"
   LIBS="-L$VAPI_LIBDIR $VAPI_LIBS"
   # try to compile and link a simple VAPI program
   AC_TRY_LINK( [
@@ -1142,6 +1161,7 @@ fi
 AC_SUBST(VAPI_INCLUDE)
 AC_SUBST(VAPI_LIBDIR)
 AC_SUBST(VAPI_LIBS)
+AC_SUBST(VAPI_LIBCFLAGS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
 if test "$have_vapi" = yes ; then
   CONDUITS="$CONDUITS vapi"
