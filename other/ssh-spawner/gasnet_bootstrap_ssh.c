@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/03/30 21:03:02 $
- * $Revision: 1.28 $
+ *     $Date: 2005/03/30 22:14:51 $
+ * $Revision: 1.29 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -608,7 +608,8 @@ static void configure_ssh(void) {
   char *ssh_argv0;
   char **ssh_options = NULL;
   int is_openssh = 0;
-  int i, argi, optcount;
+  int optcount = 0;
+  int i, argi;
 
   /* Determine the ssh command */
   if ((env_string = getenv(ENV_PREFIX "SSH_CMD")) != NULL && strlen(env_string)) {
