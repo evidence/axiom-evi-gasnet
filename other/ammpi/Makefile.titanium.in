@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.titanium.in,v $
-#     $Date: 2004/08/26 04:53:48 $
-# $Revision: 1.8 $
+#     $Date: 2004/10/10 03:05:03 $
+# $Revision: 1.9 $
 # Description: setup necessary variables needed by Makefile
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -14,6 +14,9 @@ testdir = $(srcdir)/../amxtests
 CC = @MPI_CC@
 ccdebugflags = @MPI_CFLAGS@ -g 
 ccoptflags =   @MPI_CFLAGS@ 
+
+@ENABLED_DEBUG_TRUE@  ccflags = $(set_debug_ccflags)
+@ENABLED_DEBUG_FALSE@ ccflags = $(set_opt_ccflags)
 
 # system utilities
 ranlib = @RANLIB@

@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.titanium.in,v $
-#     $Date: 2004/08/26 04:53:50 $
-# $Revision: 1.7 $
+#     $Date: 2004/10/10 03:05:05 $
+# $Revision: 1.8 $
 # Description: setup necessary variables needed by Makefile
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -22,6 +22,11 @@ ccdebugflags = @TCBUILD_CFLAGS_COMMON@ @TCBUILD_CFLAGS_DEBUG@ $(otherflags)
 ccoptflags = @TCBUILD_CFLAGS_COMMON@ @TCBUILD_CFLAGS_OPTIMIZE@ $(otherflags)
 cxxdebugflags = @GENERIC_CXXFLAGS@ @CXXFLAGSE@ @CXXFLAGSDIAG@ -O0 -g $(otherflags)
 cxxoptflags = -O @GENERIC_CXXFLAGS@ @CXXFLAGSE@ @CXXFLAGSDIAG@ $(otherflags)
+
+@ENABLED_DEBUG_TRUE@  ccflags = $(set_debug_ccflags)
+@ENABLED_DEBUG_TRUE@  cxxflags = $(set_debug_cxxflags)
+@ENABLED_DEBUG_FALSE@ ccflags = $(set_opt_ccflags)
+@ENABLED_DEBUG_FALSE@ cxxflags = $(set_opt_cxxflags)
 
 # system utilities
 ranlib = @RANLIB@

@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_inttypes.h,v $ */
-/*      $Date: 2004/09/27 09:52:57 $ */
-/*  $Revision: 1.9 $ */
+/*      $Date: 2004/10/10 03:05:01 $ */
+/*  $Revision: 1.10 $ */
 /*  Description: portable_inttypes.h  */
 /*  Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> */
 
@@ -86,7 +86,7 @@
       typedef          int     intptr_t; 
       typedef unsigned int    uintptr_t; 
     #endif
-  #elif defined(AIX) || defined(DARWIN) || defined(SOLARIS) || defined(FREEBSD) || defined(HPUX) || defined(NETBSD)
+  #elif defined(AIX) || defined(DARWIN) || defined(SOLARIS) || defined(FREEBSD) || defined(HPUX) || defined(NETBSD) || defined(CRAYX1)
     /* These OS's have a reliable inttypes.h and lack a way to prevent redefinition of
      * the types we are interested in w/o excluding other important
      * things like all of the <type>_{MIN,MAX} values one expects to

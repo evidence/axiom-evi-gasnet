@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2004/10/08 09:04:36 $
- * $Revision: 1.21 $
+ *     $Date: 2004/10/10 03:05:03 $
+ * $Revision: 1.22 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -432,7 +432,7 @@ tryagain:
         repeatcnt++;
         if (AMMPI_DEBUG_VERBOSE || (repeatcnt & reportmask) == 0) {
           reportmask = (reportmask << 1) | 0x1;
-          fprintf(stderr, "Out of request send buffers. polling...(has happenned %i times)\n", repeatcnt); fflush(stderr);
+          fprintf(stderr, "*** AMMPI WARNING: Out of request send buffers. polling...(has happenned %i times)\n", repeatcnt); fflush(stderr);
         }
       }
     #endif
@@ -456,7 +456,7 @@ tryagain:
         !newtmpIndexArray || !newtmpStatusArray) AMMPI_RETURN_ERR(RESOURCE); /* out of mem */
 
     #if AMMPI_DEBUG
-      fprintf(stderr, "Out of reply send buffers. growing pool...\n"); fflush(stderr);
+      fprintf(stderr, "*** AMMPI WARNING: Out of reply send buffers. growing pool...\n"); fflush(stderr);
     #endif
 
     /* copy old values & preserve ordering */
