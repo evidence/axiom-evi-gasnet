@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2004/10/06 09:25:24 $
- * $Revision: 1.21 $
+ *     $Date: 2005/01/13 10:06:03 $
+ * $Revision: 1.22 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -37,13 +37,18 @@ typedef struct _gasnete_op_t {
 } gasnete_op_t;
 
 /* for compactness, eops address each other in the free list using a gasnete_eopaddr_t */ 
-typedef struct _gasnete_eopaddr_t {
-  uint8_t bufferidx;
-  uint8_t eopidx;
+typedef union _gasnete_eopaddr_t {
+  struct {
+    uint8_t _bufferidx;
+    uint8_t _eopidx;
+  } compaddr;
+  uint16_t fulladdr;
 } gasnete_eopaddr_t;
+#define bufferidx compaddr._bufferidx
+#define eopidx compaddr._eopidx
 
-#define gasnete_eopaddr_equal(addr1,addr2) (*(uint16_t*)&(addr1) == *(uint16_t*)&(addr2))
-#define gasnete_eopaddr_isnil(addr) (*(uint16_t*)&(addr) == *(uint16_t*)&(EOPADDR_NIL))
+#define gasnete_eopaddr_equal(addr1,addr2) ((addr1).fulladdr == (addr2).fulladdr)
+#define gasnete_eopaddr_isnil(addr) ((addr).fulladdr == EOPADDR_NIL.fulladdr)
 
 /* -------------------------------------------------------------------------- */
 /* Explicit ops, used when operations are known to require only one send in
