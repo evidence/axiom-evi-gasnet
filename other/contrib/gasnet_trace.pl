@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/09/23 22:20:59 $
-# $Revision: 1.21 $
+#     $Date: 2004/09/23 23:07:49 $
+# $Revision: 1.22 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -204,68 +204,50 @@ sub parse_tracefile
     # Flag for internal region
     my $inRegion;
     while (<TRACEFILE>) {
-	    if ($opt_internal) {
-	        # If in region, skip unless we have a leaveregion
-	        if (/GASNET_TRACE_LEAVEREGION/) {
-	            $inRegion = 0;
-	            next;
-	        }
-	        next if $inRegion;
+    	if ($opt_internal) {
+    	    # If in region, skip unless we have a leaveregion
+	    if (/GASNET_TRACE_LEAVEREGION/) {
+	        $inRegion = 0;
+	        next;
+	    }
+	    next if $inRegion;
             # Set the flag for entering a region
-	        if (/GASNET_TRACE_ENTERREGION/) {
-	            $inRegion = 1;
-	            next;
-	        }
+	    if (/GASNET_TRACE_ENTERREGION/) {
+	        $inRegion = 1;
+	        next;
 	    }
+	}
 	    
-	    # Actual info
-	    my ($thread, $src, $pgb, $type, $sz);
-	    $counter++;
-	    if ($counter > 100000) {
-	        print STDERR ".";
-	        $counter = 0;
-	    }
-	    if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(PUT|GET|BARRIER)(.*):\D+(\d+)/) { 
+	# Actual info
+	my ($thread, $src, $pgb, $type, $sz);
+	$counter++;
+	if ($counter > 100000) {
+	    print STDERR ".";
+	    $counter = 0;
+	}
+	if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(PUT|GET|BARRIER)(.*):\D+(\d+)/) { 
             ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
             # filter out lines that are not going to be in the report
-	        next unless $reports{$pgb};
+            next unless $reports{$pgb};
             if ($pgb =~ /PUT|GET/) {
-	            $type = ($type =~ /_LOCAL$/) ? "LOCAL" : "GLOBAL";
+	        $type = ($type =~ /_LOCAL$/) ? "LOCAL" : "GLOBAL";
             	# filter by type to increase performance
             	next unless !$filters{$type}; 
             } elsif ($pgb =~ /BARRIER/) {
-	            $type =~ s/^_//;
-		        next unless ($type =~ /NOTIFYWAIT|WAIT/);	# discard unknowns
+	        $type =~ s/^_//;
+                next unless ($type =~ /NOTIFYWAIT|WAIT/);	# discard unknowns
                 next unless !$filters{$type};
                 $thread = $nodes{$thread};
             }
-	    } else {
-	        next;
-	    }
-        update_data($thread, $src, $pgb, $type, $sz);
+        } else {
+            next;
+	}
+	push @{$data{$pgb}{$src}{$type}{$thread}}, $sz;	
     }
     
     print STDERR "\n";
 }
-                
-sub update_data
-{
-    my ($thread, $src, $pgb, $type, $sz) = @_;        
-    if (!$data{$pgb}{$src}{$type}{$thread}) { # first record
-        push @{$data{$pgb}{$src}{$type}{$thread}}, ($sz, $sz, $sz, $sz, 1);        
-    } else {
-        my ($max, $min, $avg, $total, $totalc) = 
-            @{$data{$pgb}{$src}{$type}{$thread}};
-        $max = $max > $sz ? $max : $sz;
-        $min = $min < $sz ? $min : $sz;
-        $total += $sz;
-        $totalc += 1;
-        $avg = $total / $totalc;
-        @{$data{$pgb}{$src}{$type}{$thread}} 
-            = ($max, $min, $avg, $total, $totalc);
-        
-    }
-}
+
 
 # subroutine to canonicalize the msg size
 # e.g -> 14336->14K, 2516582->2.4M
@@ -321,9 +303,13 @@ sub convert_report
 
     	    	my ($max, $min, $avg, $total, $totalc);
     	    	foreach my $thread (keys %{$data{$pgb}{$line}{$type}}) {
+    	    	    # change the raw sizes to max, min, avg, total, totalc;
+    	    	    @{$data{$pgb}{$line}{$type}{$thread}} 
+    	    	        = get_minmax(@{$data{$pgb}{$line}{$type}{$thread}}); 
+    	    	    
     	    	    # For Barrier $thread is actually the node number
     	    	    my ($tmax, $tmin, $tavg, $ttotal, $ttotalc) 
-			 = @{$data{$pgb}{$line}{$type}{$thread}};
+			= @{$data{$pgb}{$line}{$type}{$thread}};
     	    	    $max = $max > $tmax ? $max : $tmax;
     	    	    $min = ($min > $tmin || !$min) ? $tmin : $min;
     	    	    if ($pgb =~ /BARRIER/) {
@@ -343,6 +329,26 @@ sub convert_report
     }
 }
 
+# get an array of raw msg sizes, return an array of max, min, avg, total and totalc
+sub get_minmax 
+{
+    my @msgs = @_;
+    my ($max, $min, $avg, $total, $totalc);
+    $max = $msgs[0];
+    $min = $msgs[0];
+    foreach my $sz (@msgs) {
+        if ($sz > $max) {
+            $max = $sz;
+        } 
+        if ($sz < $min) {
+            $min = $sz;
+        }
+        $total += $sz;
+    }
+    $totalc = scalar @msgs;
+    $avg = $total / $totalc;
+    return ($max, $min, $avg, $total, $totalc);         
+}
 
 # report_sorting criterion
 #######################
