@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.9 2002/07/07 13:38:26 csbell Exp $
- * $Date: 2002/07/07 13:38:26 $
- * $Revision: 1.9 $
+/* $Id: gasnet_core_help.h,v 1.10 2002/08/07 20:01:19 csbell Exp $
+ * $Date: 2002/08/07 20:01:19 $
+ * $Revision: 1.10 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -49,6 +49,8 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_AM_SIZE		12 
 #define GASNETC_AM_LEN		(1<<GASNETC_AM_SIZE)
 #define GASNETC_AM_PACKET	(GASNETC_AM_LEN-8)
+
+#define GASNETC_LONG_OFFSET	4096	/* XXX page size */
 #define GASNETC_SYS_SIZE	5
 #define GASNETC_AM_MAX_ARGS	16
 #define GASNETC_AM_MAX_HANDLERS 256
@@ -68,6 +70,34 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_MMAP_GRANULARITY	(4<<20)
 #define GASNETC_MMAP_INITIAL_SIZE	(2<<30)
 #define GASNETC_MMAP_DEBUG_VERBOSE	1
+
+/* CRUST macros for Turkey Sandwich Algorithm */
+/* Actual requests for moving the Crust may return various values
+ * CRUST_OK                 local node could register enough memory to satisfy
+ *                          request
+ *
+ * CRUST_SEGMENT_PINNNED    allows the client to ignore crust requests and limit
+ *                          puts/gets to a boundscheck in the segment since all
+ *                          the segment is pinned.
+ *
+ * CRUST_CANT_PIN           allows the client to flag a node as unable to satisfy
+ *                          further requests for more pinned memory.  From then
+ *                          on, all messaging should use the core API if
+ *                          puts/gets are in the turkey.
+ *
+ * CRUST_EXCEEDED_THRESHOLD means the current request to pin memory was too
+ *                          large for the algorithm's notion of reasonable
+ *                          pinned size.  The client will have to use AM to
+ *                          satisfy the put/get but may still attempt further
+ *                          crust move requests (unlike the irreversible
+ *                          CRUST_CANT_PIN case).
+ *
+ */
+#define GASNETC_CRUST_OK		 0
+#define GASNETC_CRUST_SEGMENT_PINNED	 1
+#define GASNETC_CRUST_CANT_PIN		 2
+#define GASNETC_CRUST_EXCEEDED_THRESHOLD 3
+#define GASNETC_SEGMENT_ALL_PINNED	((uintptr_t)-1)
 
 #define GASNETC_AM_SHORT_ARGS_OFF	4
 #define GASNETC_AM_MEDIUM_ARGS_OFF	4
@@ -100,6 +130,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 		(3*GASNETC_AM_PACKET + GASNETC_AM_PACKET -      \
 		 GASNETC_AM_LONG_HEADER_LEN(GASNETC_AM_MAX_ARGS))
 
+#define GASNETC_AM_MAX_NON_DMA_PAYLOAD	((GM_MTU-8)-GASNETC_AM_MEDIUM_MAX)
 /* -------------------------------------------------------------------------- */
 #define GASNETC_AM_NUMARGS(c)   (((c) >> 1) & 0x1f)
 #define GASNETC_SYS_INDEX(c)	((c) & 0x3f) 
@@ -118,6 +149,10 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_ALIGN(p,P)	((uintptr_t)(p)&~ ((uintptr_t)(P)-1))
 #define GASNETC_GMNODE(id,port) gasnetc_gm_nodes_search(gm_ntoh_u16((id)), \
 				    (uint16_t) gm_ntoh_u8((port)))
+#define GASNETC_ID_FROM_TOKEN(token)	\
+	    (gm_ntoh_u16((gasnetc_bufdesc_t *)(token)->e->recv.sender_node_id))
+#define GASNETC_PORT_FROM_TOKEN(token)	\
+	    (gm_ntoh_u16((gasnetc_bufdesc_t *)(token)->e->recv.sender_port_id))
 /* -------------------------------------------------------------------------- */
 #define GASNETC_ASSERT_AMSHORT(buf, type, handler, args, req) 		\
 	do { 	assert(buf != NULL); 					\

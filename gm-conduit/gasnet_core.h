@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.7 2002/07/07 13:38:25 csbell Exp $
- * $Date: 2002/07/07 13:38:25 $
- * $Revision: 1.7 $
+/* $Id: gasnet_core.h,v 1.8 2002/08/07 20:01:19 csbell Exp $
+ * $Date: 2002/08/07 20:01:19 $
+ * $Revision: 1.8 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -199,15 +199,11 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...);
 
-#ifndef GASNETC_DYNAMIC_REGISTRATION
-#define gasnetc_AMRequestLongAsyncM	gasnetc_AMRequestLongM
-#else
 extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destination node */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...);
-#endif
 extern int gasnetc_AMReplyShortM( 
                             gasnet_token_t token,       /* token provided on handler entry */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 

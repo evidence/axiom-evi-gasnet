@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.17 2002/07/07 13:38:26 csbell Exp $
- * $Date: 2002/07/07 13:38:26 $
- * $Revision: 1.17 $
+/* $Id: gasnet_core_misc.c,v 1.18 2002/08/07 20:01:19 csbell Exp $
+ * $Date: 2002/08/07 20:01:19 $
+ * $Revision: 1.18 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -766,3 +766,4 @@ gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasnetc_handler_fn_t func)
 	}
 	return GASNET_OK;
 }
+
