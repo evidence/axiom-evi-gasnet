@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/27 15:34:44 $
-# $Revision: 1.232 $
+#     $Date: 2005/02/28 00:17:34 $
+# $Revision: 1.233 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.232 $)
+AC_REVISION($Revision: 1.233 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1903,6 +1903,31 @@ case "$target_os" in
     [ AC_MSG_RESULT(broken) 
       AC_DEFINE(BROKEN_LINUX_ASM_ATOMIC_H)
     ] )
+    if test "$have_cxx" = 1; then
+      # Do the same check for CXX as well
+      AC_LANG_SAVE
+      AC_LANG_CPLUSPLUS
+      AC_MSG_CHECKING(for broken asm/atomic.h with c++)
+      AC_TRY_LINK( [
+        #include <asm/bitops.h>
+        #include <asm/system.h>
+        #include <asm/atomic.h>
+      ], [
+        atomic_t v;
+        atomic_set(&v,5);
+        atomic_inc(&v);
+        #ifdef cmpxchg /* cmpxchg may fail to link when optimizations are disabled */
+        do {
+          volatile int x = 1;
+          cmpxchg(&x, 1, 2);
+        } while (0);
+        #endif
+      ], AC_MSG_RESULT(ok),
+      [ AC_MSG_RESULT(broken) 
+        AC_DEFINE(BROKEN_LINUX_ASM_ATOMIC_H)
+      ] )
+      AC_LANG_RESTORE
+    fi
     ;;
 esac
 
