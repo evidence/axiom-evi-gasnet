@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/06/09 00:02:36 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/10 00:30:59 $
+ * $Revision: 1.3 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -36,9 +36,8 @@ void gasnetc_checkinit() {
 */
 /* called at startup to check configuration sanity */
 static void gasnetc_check_config() {
-  assert(GASNET_MAXNODES <= AMMPI_MAX_SPMDPROCS);
-  assert(AMMPI_MAX_NUMHANDLERS >= 256);
-  assert(AMMPI_MAX_SEGLENGTH == GASNET_SEGSIZE_EVERYTHING);
+  /* (???) add code to do some sanity checks on the number of nodes, handlers
+   * and/or segment sizes */ 
 }
 
 static int gasnetc_init(int *argc, char ***argv, 
