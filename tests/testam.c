@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testmisc.c                             $
- *     $Date: 2003/08/28 06:23:46 $
- * $Revision: 1.4 $
+ *     $Date: 2003/08/31 12:38:56 $
+ * $Revision: 1.5 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -155,10 +155,10 @@ int main(int argc, char **argv) {
   peer = (mynode + 1) % gasnet_nodes();
   sender = mynode % 2 == 0;
 
-  { gasnet_seginfo_t *si = malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
+  { gasnet_seginfo_t *si = test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
     GASNET_Safe(gasnet_getSegmentInfo(si, gasnet_nodes()));
     peerseg = si[peer].addr;
-    free(si);
+    test_free(si);
   }
 
   if (mynode == 0) {

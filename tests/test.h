@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2003/08/28 06:23:46 $
- * $Revision: 1.14 $
+ *     $Date: 2003/08/31 12:38:56 $
+ * $Revision: 1.15 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -72,6 +72,25 @@ uint64_t test_checksum(void *p, int numbytes) {
   GASNET_Safe(gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS)); \
 } while (0)
 
+static void *_test_malloc(size_t sz, char *curloc) {
+  void *ptr;
+  gasnet_hold_interrupts();
+  ptr = malloc(sz);
+  gasnet_resume_interrupts();
+  if (ptr == NULL) {
+    fprintf(stderr,"*** ERROR: Failed to malloc(%i) bytes at %s\n",sz,curloc);
+    abort();
+  }
+  return ptr;
+}
+#define test_malloc(sz) _test_malloc((sz), __FILE__ ":" _STRINGIFY(__LINE__))
+static void test_free(void *ptr) {
+  gasnet_hold_interrupts();
+  free(ptr);
+  gasnet_resume_interrupts();
+}
+
+
 #ifdef IRIX
   #define PAGESZ 16384
 #elif defined(OSF) || defined(__alpha__)
@@ -101,7 +120,7 @@ uint64_t test_checksum(void *p, int numbytes) {
     static gasnet_seginfo_t *si = NULL;
     if (si == NULL) {
       int i;
-      gasnet_seginfo_t *s = malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
+      gasnet_seginfo_t *s = test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
       GASNET_Safe(gasnet_getSegmentInfo(s, gasnet_nodes()));
       for (i=0; i < gasnet_nodes(); i++) {
         assert(s[i].size >= TEST_SEGSZ);

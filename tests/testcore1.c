@@ -1,6 +1,6 @@
-/* $Id: testcore1.c,v 1.5 2003/04/28 17:26:27 welcome Exp $
- * $Date: 2003/04/28 17:26:27 $
- * $Revision: 1.5 $
+/* $Id: testcore1.c,v 1.6 2003/08/31 12:38:56 bonachea Exp $
+ * $Date: 2003/08/31 12:38:56 $
+ * $Revision: 1.6 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -103,8 +103,7 @@ monoseed_init(int num)
 	uint64_t	chksum;
 
 	if (myproc % 2 == 0) {
-		_mseed = (monoseed_t *) malloc(sizeof(monoseed_t) * num);
-		assert(_mseed != NULL);
+		_mseed = (monoseed_t *) test_malloc(sizeof(monoseed_t) * num);
 		srandom(time(0));
 
 		for (i = 0; i < num; i++) {
@@ -250,11 +249,7 @@ main(int argc, char **argv)
 	TESTSafe(numprocs % 2 == 0, ("Need an even number of threads\n"));
 	peerproc = (myproc % 2) ? myproc-1 : myproc+1;
 
-	seginfo_table = (gasnet_seginfo_t *) malloc(sizeof(gasnet_seginfo_t) * numprocs);
-	if (seginfo_table == NULL) {
-		printf("Cannot allocate seginfo_table.\n");
-		gasnet_exit(1);
-	}
+	seginfo_table = (gasnet_seginfo_t *) test_malloc(sizeof(gasnet_seginfo_t) * numprocs);
 
 	printf("%d> starting monoseed_init(%d)\n", myproc, iters);
 	monoseed_init(iters);

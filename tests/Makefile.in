@@ -1,13 +1,16 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.8 2003/08/25 09:52:34 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.9 2003/08/31 12:38:56 bonachea Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
 
 all:
 	@echo This Makefile is not intended to be called directly
-	@echo do a "make tests-seq" or "make tests-par" within the core directory
+	@echo do a "make tests-seq" or "make tests-par" within the conduit directory
 
+configfile=/dev/null # must be overridden by caller
 include $(configfile)
+
+@USE_MPI_CONDUIT_TRUE@ MPI_TEST = testmpi
 
 testprograms_seq =  \
 	testam      \
@@ -25,7 +28,8 @@ testprograms_seq =  \
 testprograms_parsync =  \
 
 testprograms_par =  \
-	testthreads
+	testthreads \
+	$(MPI_TEST)
 
 testprograms = $(testprograms_seq) $(testprograms_parsync) $(testprograms_par)
 
@@ -52,6 +56,12 @@ testlogGP: force delay.o
 	$(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $@.o delay.o $(GASNET_LIBS)
 delay.o: $(srcdir)/delay.c
 	$(GASNET_CC) -O0 -c -o $@ $(srcdir)/$*.c
+
+# testmpi must be compiled like an MPI program with GASNet support
+testmpi: force
+	@MPI_CC@ -I$(srcdir) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) @MPI_CFLAGS@ -c -o $@.o $(srcdir)/$@.c
+	@MPI_CC@ $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ $(GASNET_LIBS)
+	
 
 # This is a model for how GASNet clients should be built:
 test% : force

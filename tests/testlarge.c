@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testlarge.c                                 $
- *     $Date: 2003/08/28 06:23:46 $
- * $Revision: 1.6 $
+ *     $Date: 2003/08/31 12:38:56 $
+ * $Revision: 1.7 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -208,11 +208,7 @@ void bulk_test_nb(int iters) {GASNET_BEGIN_FUNCTION();
 	int iamsender = (myproc % 2 == 0);
 	int iamreceiver = !iamsender;
     
-	handles = (gasnet_handle_t *) malloc(sizeof(gasnet_handle_t) * iters);
-	if (handles == NULL) {
-		printf("Cannot allocate handles for non blocking operations.\n");
-		gasnet_exit(1);
-	}
+	handles = (gasnet_handle_t *) test_malloc(sizeof(gasnet_handle_t) * iters);
 
 	for (payload = min_payload; payload <= max_payload; payload *= 2) {
 		init_stat(&stput, payload);
@@ -257,7 +253,7 @@ void bulk_test_nb(int iters) {GASNET_BEGIN_FUNCTION();
 
 	}
 
-	free(handles);
+	test_free(handles);
 }
 
 
@@ -300,17 +296,13 @@ int main(int argc, char **argv)
 
 	min_payload = 16;
 	max_payload = TEST_SEGSZ;
-	msgbuf = (void *) malloc(max_payload);
-	if (msgbuf == NULL) {
-		printf("Cannot allocate %d bytes for temporary storage.\n", max_payload);
-		gasnet_exit(1);
-	}
+	msgbuf = (void *) test_malloc(max_payload);
 
 	bulk_test(iters);
 	bulk_test_nbi(iters);
 	bulk_test_nb(iters);
 
-	free(msgbuf);
+	test_free(msgbuf);
 
     gasnet_exit(0);
 

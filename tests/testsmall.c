@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2002/12/19 18:31:54 $
- * $Revision: 1.5 $
+ *     $Date: 2003/08/31 12:38:56 $
+ * $Revision: 1.6 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -385,11 +385,7 @@ void oneway_nb_test(int iters, int nbytes)
 	/* initialize statistics */
 	init_stat(&st, nbytes);
 	
-	handles = (gasnet_handle_t*) malloc(sizeof(gasnet_handle_t) * iters);
-	if (handles == NULL) {
-		printf("Cannot allocate handles for non blocking operations.\n");
-		gasnet_exit(1);
-	}
+	handles = (gasnet_handle_t*) test_malloc(sizeof(gasnet_handle_t) * iters);
 	
 	memset(srcmem, 0, nbytes);
 	memset(msgbuf, 1, nbytes);
@@ -442,7 +438,7 @@ void oneway_nb_test(int iters, int nbytes)
 		print_stat(myproc, &st, "get_nb throughput", PRINT_THROUGHPUT);
 	}	
 	
-	free(handles);
+	test_free(handles);
 }
 
 int main(int argc, char **argv)

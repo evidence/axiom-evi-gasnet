@@ -1,4 +1,4 @@
-/* $Id: testthreads.c,v 1.7 2003/08/30 10:43:05 csbell Exp $
+/* $Id: testthreads.c,v 1.8 2003/08/31 12:38:56 bonachea Exp $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -45,7 +45,8 @@ typedef void (*testfunc_t)(threaddata_t *);
 typedef gasnet_handlerarg_t harg_t;
 
 /* configurable parameters */
-int	iters = 50;
+#define DEFAULT_ITERS 50
+int	iters = DEFAULT_ITERS;
 int	sleep_min_us = 1;
 int	sleep_max_us = 250000;
 int	amiters_max = 50;
@@ -89,9 +90,22 @@ void	test_get(threaddata_t *tdata);
 void	test_amshort(threaddata_t *tdata);
 void	test_ammedium(threaddata_t *tdata);
 void	test_amlong(threaddata_t *tdata);
+#if TEST_MPI
+void init_test_mpi(int *argc, char ***argv);
+void attach_test_mpi();
+void mpi_barrier(threaddata_t *tdata);
+void test_mpi(threaddata_t *tdata);
+
+void mpi_handler(gasnet_token_t token, harg_t tid, harg_t sz);
+void mpi_probehandler(gasnet_token_t token, harg_t tid);
+void mpi_replyhandler(gasnet_token_t token, harg_t tid);
+#endif
 
 testfunc_t	test_functions_all[] = {
 	test_sleep, test_put, test_get, test_amshort, test_ammedium, test_amlong
+#if TEST_MPI
+        , test_mpi
+#endif
 };
 
 #define NUM_FUNCTIONS	(sizeof(test_functions_all)/sizeof(testfunc_t))
@@ -119,6 +133,9 @@ void	pong_longhandler(gasnet_token_t token, void *buf, size_t nbytes,
 #define hidx_pong_medhandler     204
 #define hidx_ping_longhandler    205
 #define hidx_pong_longhandler    206
+#define hidx_mpi_handler         207
+#define hidx_mpi_probehandler    208
+#define hidx_mpi_replyhandler    209
 
 gasnet_handlerentry_t htable[] = { 
 	{ hidx_ping_shorthandler,  ping_shorthandler  },
@@ -127,20 +144,28 @@ gasnet_handlerentry_t htable[] = {
 	{ hidx_pong_medhandler,    pong_medhandler    },
 	{ hidx_ping_longhandler,   ping_longhandler   },
 	{ hidx_pong_longhandler,   pong_longhandler   },
+      #if TEST_MPI
+	{ hidx_mpi_handler,        mpi_handler        },
+	{ hidx_mpi_probehandler,   mpi_probehandler   },
+	{ hidx_mpi_replyhandler,   mpi_replyhandler   },
+      #endif
 };
 #define HANDLER_TABLE_SIZE (sizeof(htable)/sizeof(gasnet_handlerentry_t))
 
 void
 usage(char *progname)
 {
-	printf("usage: %s [ -pgmlv ] [ -i <iters> ] <threads_per_node>\n\n", progname);
+	printf("usage: %s [ -pgalvt ] [ -i <iters> ] <threads_per_node>\n\n", progname);
 	printf("<threads_per_node> must be between 1 and %i       \n",TEST_MAXTHREADS);
-	printf("no options means -pgml                        \n");
+	printf("no options means run all tests with %i iterations\n",DEFAULT_ITERS);
 	printf("options:                                      \n");
 	printf("  -p  use puts                                   \n");
 	printf("  -g  use puts                                   \n");
-	printf("  -m  use Active Messages                        \n");
+	printf("  -a  use Active Messages                        \n");
 	printf("  -l  use local Active Messages                  \n");
+      #if TEST_MPI
+	printf("  -m  use MPI calls                              \n");
+      #endif
 	printf("  -v  output information about actions taken     \n");
 	printf("  -t  include AM handler actions with -v         \n");
 	printf("  -i <iters> use <iters> iterations per thread   \n\n");
@@ -154,19 +179,27 @@ main(int argc, char **argv)
 	int 		threads = 1;
 	int		i;
 	pthread_t	*tids;
+        char *getopt_str;
+        int opt_p=0, opt_g=0, opt_a=0, opt_m=0;
 
-        int opt_p=0, opt_g=0, opt_m=0;
+        #if TEST_MPI
+          init_test_mpi(&argc, &argv);
+          getopt_str = "pgamlvti:";
+        #else
+          getopt_str = "pgalvti:";
+        #endif
 
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(htable, HANDLER_TABLE_SIZE,
 		    TEST_SEGSZ, TEST_MINHEAPOFFSET));
         TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
 
-	while ((i = getopt (argc, argv, "pgmlvti:")) != EOF) {
+	while ((i = getopt (argc, argv, getopt_str)) != EOF) {
           switch (i) {
 		case 'p': opt_p = 1; break;
 		case 'g': opt_g = 1; break;
-		case 'm': opt_m = 1; break;
+		case 'a': opt_a = 1; break;
+                case 'm': opt_m = 1; break;
 		case 'l': AM_loopback = 1; break;
 		case 'i': iters = atoi(optarg); break;
                 case 'v': verbose = 1; break;
@@ -178,11 +211,14 @@ main(int argc, char **argv)
 
         if (opt_p) test_functions[functions_num++] = test_put;
         if (opt_g) test_functions[functions_num++] = test_get;
-        if (opt_m) {
+        if (opt_a) {
           test_functions[functions_num++] = test_amshort;
           test_functions[functions_num++] = test_ammedium;
           test_functions[functions_num++] = test_amlong;
         }
+        #if TEST_MPI
+          if (opt_m) test_functions[functions_num++] = test_mpi;
+        #endif
         if (amtrace) verbose = 1;
 
 	/* Assume all test functions if no option is passed */
@@ -208,20 +244,25 @@ main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
+        /* limit sizes to a reasonable size */
+        #define LIMIT(sz) MIN(sz,4194304)
         { int sz = 0;
-          sizes[sz++] = gasnet_AMMaxMedium()-1;
-          sizes[sz++] = gasnet_AMMaxMedium();
-          sizes[sz++] = gasnet_AMMaxMedium()+1;
-          sizes[sz++] = gasnet_AMMaxLongRequest()-1;
-          sizes[sz++] = gasnet_AMMaxLongRequest();
-          sizes[sz++] = gasnet_AMMaxLongRequest()+1;
-          sizes[sz++] = gasnet_AMMaxLongReply()-1;
-          sizes[sz++] = gasnet_AMMaxLongReply();
-          sizes[sz++] = gasnet_AMMaxLongReply()+1;
+          sizes[sz++] = LIMIT(gasnet_AMMaxMedium()-1);
+          sizes[sz++] = LIMIT(gasnet_AMMaxMedium());
+          sizes[sz++] = LIMIT(gasnet_AMMaxMedium()+1);
+          sizes[sz++] = LIMIT(gasnet_AMMaxLongRequest()-1);
+          sizes[sz++] = LIMIT(gasnet_AMMaxLongRequest());
+          sizes[sz++] = LIMIT(gasnet_AMMaxLongRequest()+1);
+          sizes[sz++] = LIMIT(gasnet_AMMaxLongReply()-1);
+          sizes[sz++] = LIMIT(gasnet_AMMaxLongReply());
+          sizes[sz++] = LIMIT(gasnet_AMMaxLongReply()+1);
           assert(sizes[sz] == 0);
         }
 
 	alloc_thread_data(threads);
+        #if TEST_MPI
+          attach_test_mpi();
+        #endif
 
 	{
 		int 	i;
@@ -295,33 +336,10 @@ alloc_thread_data(int threads)
 	nodes = gasnet_nodes();
 	tot_threads = nodes * threads;
 
-	tt_tids = (pthread_t *) malloc(sizeof(pthread_t) * threads);
-	if (tt_tids == NULL) {
-		printf("couldn't allocate thread id array\n");
-		exit(EXIT_FAILURE);
-	}
-
-	tt_thread_map = (gasnet_node_t *) 
-		malloc(sizeof(gasnet_node_t) * tot_threads);
-	if (tt_thread_map == NULL) {
-		printf("could't allocate thread mapping array\n");
-		exit(EXIT_FAILURE);
-	}
-
-	tt_thread_data = (threaddata_t *) 
-		malloc(sizeof(threaddata_t) * threads);
-	if (tt_thread_data == NULL) {
-		printf("could't allocate thread data array\n");
-		exit(EXIT_FAILURE);
-	}
-
-	tt_addr_map = (void **)
-		malloc(sizeof(void *) * tot_threads);
-
-	if (tt_addr_map == NULL) {
-		printf("could't allocate thread address array\n");
-		exit(EXIT_FAILURE);
-	}
+	tt_tids = (pthread_t *) test_malloc(sizeof(pthread_t) * threads);
+	tt_thread_map = (gasnet_node_t *) test_malloc(sizeof(gasnet_node_t) * tot_threads);
+	tt_thread_data = (threaddata_t *) test_malloc(sizeof(threaddata_t) * threads);
+	tt_addr_map = (void **) test_malloc(sizeof(void *) * tot_threads);
 
 	/* Initialize the thread to node map array and local thread data */
 	{
@@ -359,10 +377,10 @@ alloc_thread_data(int threads)
 void
 free_thread_data()
 {
-	free(tt_tids);
-	free(tt_thread_map);
-	free(tt_addr_map);
-	free(tt_thread_data);
+	test_free(tt_tids);
+	test_free(tt_thread_map);
+	test_free(tt_addr_map);
+	test_free(tt_thread_data);
 }
 
 /* Cheap (but functional!) pthread + gasnet barrier */
@@ -543,7 +561,7 @@ test_get(threaddata_t *tdata)
 	(AM_loopback ? 						\
 		(rand() % 2 == 0 ? tdata->tid_peer		\
 				 : tdata->tid_peer_local)	\
-	: tdata->tid_peer);
+	: tdata->tid_peer)
 
 void
 test_amshort(threaddata_t *tdata)
