@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/01/24 15:14:42 $
- * $Revision: 1.48 $
+ *     $Date: 2004/01/28 12:30:04 $
+ * $Revision: 1.49 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -533,7 +533,7 @@ gasneti_stattime_t starttime;
       sli->linenum = linenum;
     }
     GASNET_INLINE_MODIFIER(gasneti_trace_getsourceline)
-    void gasneti_trace_getsourceline(const char **filename, int *linenum) {
+    void gasneti_trace_getsourceline(const char **filename, unsigned int *linenum) {
       gasneti_srclineinfo_t *sli = gasneti_mysrclineinfo();
       *filename = sli->filename;
       *linenum = sli->linenum;
@@ -542,7 +542,7 @@ gasneti_stattime_t starttime;
     const char *gasneti_srcfilename = NULL;
     unsigned int gasneti_srclinenum = 0;
     GASNET_INLINE_MODIFIER(gasneti_trace_getsourceline)
-    void gasneti_trace_getsourceline(const char **filename, int *linenum) {
+    void gasneti_trace_getsourceline(const char **filename, unsigned int *linenum) {
       *filename = gasneti_srcfilename;
       *linenum = gasneti_srclinenum;
     }
