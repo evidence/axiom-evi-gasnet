@@ -930,6 +930,9 @@ thread layout of all the runtimes we examined).  All elements of the
 'images' array must be non-zero.  For use in the descriptions that
 follow, define NImages := SUM(i=0..gasnet_nodes(), images[i]).
 NImages must be less than or equal to SSIZE_MAX (as defined by POSIX).
+A NULL pointer for the 'images' argument indicates a single image
+per GASNet node.  Note that in a GASNET_SEQ configuration is is still
+legal to specify nodes with a image count greater than one.
 
 There is a 'flag' value of GASNET_COLL_AGGREGATE which can be used to
 request that consecutive non-blocking collective initiation calls be
