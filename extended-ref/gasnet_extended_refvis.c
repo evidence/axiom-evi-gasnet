@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_refbarrier.c                  $
- *     $Date: 2004/05/01 11:59:26 $
- * $Revision: 1.4 $
+ *     $Date: 2004/05/22 13:45:27 $
+ * $Revision: 1.5 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -86,6 +86,7 @@
       case gasnete_synctype_nbi:                                                      \
         return GASNET_INVALID_HANDLE;                                                 \
       default: gasneti_fatalerror("bad synctype");                                    \
+        return GASNET_INVALID_HANDLE; /* avoid warning on MIPSPro */                  \
     }                                                                                 \
   } while(0)
 
@@ -525,6 +526,7 @@ extern gasnet_handle_t gasnete_puti(gasnete_synctype_t synctype,
     }
   #endif
   gasneti_fatalerror("failure in GASNETE_PUTI_SELECTOR - should never reach here");
+  return GASNET_INVALID_HANDLE; /* avoid warning on MIPSPro */
 }
 #endif
 
@@ -552,6 +554,7 @@ extern gasnet_handle_t gasnete_geti(gasnete_synctype_t synctype,
     }
   #endif
   gasneti_fatalerror("failure in GASNETE_GETI_SELECTOR - should never reach here");
+  return GASNET_INVALID_HANDLE; /* avoid warning on MIPSPro */
 }
 #endif
 /*---------------------------------------------------------------------------------*/
@@ -1137,6 +1140,7 @@ extern gasnet_handle_t gasnete_puts(gasnete_synctype_t synctype,
     }
   #endif
   gasneti_fatalerror("failure in GASNETE_PUTS_SELECTOR - should never reach here");
+  return GASNET_INVALID_HANDLE; /* avoid warning on MIPSPro */
 }
 #endif
 
@@ -1173,6 +1177,7 @@ extern gasnet_handle_t gasnete_gets(gasnete_synctype_t synctype,
     }
   #endif
   gasneti_fatalerror("failure in GASNETE_GETS_SELECTOR - should never reach here");
+  return GASNET_INVALID_HANDLE; /* avoid warning on MIPSPro */
 }
 #endif
 
