@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/08/03 17:39:31 $
- * $Revision: 1.35 $
+ *     $Date: 2004/08/03 18:41:20 $
+ * $Revision: 1.36 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -186,8 +186,8 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 /* ------------------------------------------------------------------------------------ */
 /* Conditionally compiled memory barriers -
 
-   gasneti_sync_{reads,writes} are like gasneti_local_{rmb,wmb} except that when not
-   using threads we want them to compile away to nothing, and when compiling for
+   gasneti_sync_{reads,writes,mem} are like gasneti_local_{rmb,wmb,mb} except that when
+   not using threads we want them to compile away to nothing, and when compiling for
    threads on a uniprocessor we want only a compiler optimization barrier
 */
 
@@ -208,6 +208,16 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
     #define gasneti_sync_reads() gasneti_compiler_fence()
   #else
     #define gasneti_sync_reads() gasneti_local_rmb()
+  #endif
+#endif
+
+#ifndef gasneti_sync_mem
+  #if !GASNETI_THREADS
+    #define gasneti_sync_mem() /* NO-OP */
+  #elif GASNETI_UNI_BUILD
+    #define gasneti_sync_mem() gasneti_compiler_fence()
+  #else
+    #define gasneti_sync_mem() gasneti_local_mb()
   #endif
 #endif
 
