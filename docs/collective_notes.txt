@@ -746,8 +746,8 @@ assume a commutative operator.
 Because we cannot assume a single image environment we must deal with
 the possibility that a client-provided function may not have the same
 address on all nodes.  To deal with this issue the function for a
-computational collective is passed as a handle of type
-gasnet_coll_fn_handle_t.  Similar to AM handler ids, these handles
+computational collective is passed as an integer valued handle.
+Similar to AM handler ids, these handles
 provide a mechanism to ensure that all the nodes can unambiguously
 refer to the same function on different nodes.  Additionally, by
 creating these handles before they are referenced, we can safely
@@ -762,27 +762,25 @@ performed in the gasnet_coll_init() call.  These handles are "global".
 Once registered on a given node, the same handle can be used by any
 thread on that node and can be safely passed between nodes.
 
-The same handle space is used for the functions passed to reduction,
+The same handle table is used for the functions passed to reduction,
 prefix reduction and (when implemented) sort collectives.  The
 reduction and prefix reduction take functions with the same signature,
-while sort does not.  To deal with this (and to allow easy extension
-if additional computational collective are added) registration of a
-function specifies which "type" of function is being registered.  Use
-of a function handle in the "wrong type" of collective call has
-undefined results.
+while sort does not.  Use of a function handle in the "wrong type" of
+collective call has undefined results.
 
 Some functions are safe to call from an AM handler context while
 others are not.  Some reduction functions are commutative while others
 may not be.  Both of these properties are considered to be features of
 the functions, rather than the collective calls in which they
-are used.  Therefore they are flags to the registration of a function.
+are used.  Therefore there are flags to the registration of a function.
 The corresponding flags are GASNET_COLL_AMSAFE and
 GASNET_COLL_NONCOMM.  The affect of specifying the NONCOMM flag for
 a sort function is undefined.
 
 Unlike the registration of AM handlers, we are not permitting the
-client to specify any of the handles.  They will all be assigned by
-GASNet.
+client to specify the handles.  The handles are simply the position
+of a each function in the handler table, and are not explictly returned
+from the registration operation.
 
 To implement application-provided functions requires a level of
 indirection.  Because one cannot typically know how many distinct
@@ -797,21 +795,6 @@ in this scenario the GASNet-client will also need to track in-flight
 collectives that use app-provided functions to ensure that a cache
 entry is never evicted while in use (unbounded tables would eliminate
 eviction, but may still be undesirable).
-
-typedef enum {
-    GASNET_COLL_FN_TYPE_REDUCE,
-    GASNET_COLL_FN_TYPE_SORT
-} gasnet_coll_fn_type_t;
-
-typedef void (*gasnet_coll_fn_t)();
-
-typedef struct {
-    gasnet_coll_fn_handle_t	handle;	/* output only */
-    gasnet_coll_fn_t		fnptr;
-    gasnet_coll_fn_type_t	type;
-    unsigned int		flags;
-} gasnet_coll_fn_entry_t;
-
 
 ** Status of a GASNet sort collective
 
@@ -988,6 +971,13 @@ aggregation.
 
 * PROTOTYPES:
 
+typedef void (*gasnet_coll_fn_t)();
+
+typedef struct {
+    gasnet_coll_fn_t		fnptr;
+    unsigned int		flags;
+} gasnet_coll_fn_entry_t;
+
 /* gasnet_coll_init: Initialize GASNet collectives
  *
  *  images:	Array of gasnet_nodes() elements giving the number of
@@ -997,15 +987,15 @@ aggregation.
  *		the functions which can be invoked for the
  *		computational collectives.  This may safely differ
  *		in contents (but not size) across nodes.
- *		Upon return the 'handle' field of each entry is set
- *		to the value that must be passed to the collective.
+ *		The client my safely reuse the associated memory after
+ *		this call has returned.
  *  fn_count:	The number of entries in 'fn_tbl'.  Must agree across
  *		all nodes or the behavior is undefined.
  *  init_flags:	Presently unused.  Must be 0.
  */
 void
 gasnet_coll_init(const size_t images[],
-                 gasnet_coll_fn_entry_t fn_tbl[], size_t fn_count,
+                 const gasnet_coll_fn_entry_t fn_tbl[], size_t fn_count,
                  int init_flags);
 
 
@@ -1325,58 +1315,50 @@ gasnet_coll_handle_t gasnet_coll_reduce_nb(
 	gasnet_node_t dstnode, void *dst,
 	void *src, size_t src_blksz, size_t src_offset,
 	size_t elem_size, size_t elem_count,
-	gasnet_coll_fn_handle_t func, int func_arg,
-	int flags);	
+	int func, int func_arg, int flags);	
 gasnet_coll_handle_t gasnet_coll_reducem_nb(
 	gasnet_team_handle_t team,
 	gasnet_node_t dstnode, void *dst,
 	void * const srclist[], size_t src_blksz, size_t src_offset,
 	size_t elem_size, size_t elem_count,
-	gasnet_coll_fn_handle_t func, int func_arg,
-	int flags);
+	int func, int func_arg, int flags);
 void gasnet_coll_reduce(
 	gasnet_team_handle_t team,
 	gasnet_node_t dstnode, void *dst,
 	void *src, size_t src_blksz, size_t src_offset,
 	size_t elem_size, size_t elem_count,
-	gasnet_coll_fn_handle_t func, int func_arg,
-	int flags);	
+	gasnet_int func, int func_arg, int flags);	
 void gasnet_coll_reducem(
 	gasnet_team_handle_t team,
 	gasnet_node_t dstnode, void *dst,
 	void * const srclist[], size_t src_blksz, size_t src_offset,
 	size_t elem_size, size_t elem_count,
-	gasnet_coll_fn_handle_t func, int func_arg,
-	int flags);
+	gasnet_int func, int func_arg, int flags);
 
 gasnet_coll_handle_t gasnet_coll_prefix_reduce_nb(
 	gasnet_team_handle_t team,
 	void *dst, size_t dst_blksz, size_t dst_offset,
 	void *src, size_t src_blksz, size_t src_offset,
 	size_t elem_size, size_t elem_count,
-	gasnet_coll_fn_handle_t func, int func_arg,
-	int flags);	
+	int func, int func_arg, int flags);	
 gasnet_coll_handle_t gasnet_coll_prefix_reducem_nb(
 	gasnet_team_handle_t team,
 	void * const dstlist[], size_t dst_blksz, size_t dst_offset,
 	void * const srclist[], size_t src_blksz, size_t src_offset,
 	size_t elem_size, size_t elem_count,
-	gasnet_coll_fn_handle_t func, int func_arg,
-	int flags);	
+	int func, int func_arg, int flags);	
 void gasnet_coll_prefix_reduce(
 	gasnet_team_handle_t team,
 	void *dst, size_t dst_blksz, size_t dst_offset,
 	void *src, size_t src_blksz, size_t src_offset,
 	size_t elem_size, size_t elem_count,
-	gasnet_coll_fn_handle_t func, int func_arg,
-	int flags);	
+	int func, int func_arg, int flags);	
 void gasnet_coll_prefix_reducem(
 	gasnet_team_handle_t team,
 	void * const dstlist[], size_t dst_blksz, size_t dst_offset,
 	void * const srclist[], size_t src_blksz, size_t src_offset,
 	size_t elem_size, size_t elem_count,
-	gasnet_coll_fn_handle_t func, int func_arg,
-	int flags);	
+	int func, int func_arg, int flags);	
 
 =============================================================================
 END OF CURRENT PROPOSAL
