@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2002/09/18 08:41:46 $
- * $Revision: 1.5 $
+ *     $Date: 2002/10/26 08:31:21 $
+ * $Revision: 1.6 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -422,14 +422,16 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     }
     else {
       if (topofheap + minheapoffset > (uintptr_t)segbase) {
-        int maxsegsz;
+        uintptr_t maxsegsz;
+        void *endofseg = (void *)((uintptr_t)gasneti_segment.addr + gasneti_segment.size);
         /* we're too close to the heap - readjust to prevent collision 
            note this allows us to return different segsizes on diff nodes
            (even when we are using GASNET_ALIGNED_SEGMENTS)
          */
         segbase = (void *)(topofheap + minheapoffset);
-        maxsegsz = ((uintptr_t)gasneti_segment.addr + gasneti_segment.size) - (uintptr_t)segbase;
-        if (maxsegsz <= 0) gasneti_fatalerror("minheapoffset too large to accomodate a segment");
+        if (segbase >= endofseg) 
+          gasneti_fatalerror("minheapoffset too large to accomodate a segment");
+        maxsegsz = (uintptr_t)endofseg - (uintptr_t)segbase;
         if (segsize > maxsegsz) {
           GASNETI_TRACE_PRINTF(I, ("WARNING: gasneti_segmentAttach() reducing requested segsize (%lu=>%lu) to accomodate minheapoffset",
             segsize, maxsegsz));

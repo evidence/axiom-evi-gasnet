@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2002/10/23 00:47:28 $
- * $Revision: 1.3 $
+ *     $Date: 2002/10/26 08:31:21 $
+ * $Revision: 1.4 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -11,6 +11,8 @@
 
 #ifndef _GASNET_TRACE_H
 #define _GASNET_TRACE_H
+
+#include <stdio.h>
 
 BEGIN_EXTERNC
 
