@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/03/25 20:41:28 $
- * $Revision: 1.24 $
+ *     $Date: 2005/03/28 21:02:01 $
+ * $Revision: 1.25 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -50,8 +50,8 @@
    The process corresponding to gasnet node zero is the root of this
    tree, but it also has a parent: the original process started by the
    user (or upcrun, etc.), the "master" process.  This allows for the
-   possibility that the spawner is launched that is not one of the
-   compute nodes.
+   possibility that the spawner is launched somewhere other than a
+   compute node, such as a front end node.
 
    In addition to the tree of ssh connections, there is a TCP socket
    created between each process and its parent (including between the
@@ -138,9 +138,13 @@
 
 #define OUT_DEGREE 32
 #define USE_LOCAL_SPAWN 1
+#define FLAT_TREE 0 /* "flat" collectives not yet implemented */
 
 #ifndef USE_LOCAL_SPAWN
   #define USE_LOCAL_SPAWN 0
+#endif
+#ifndef FLAT_TREE
+  #define FLAT_TREE 0
 #endif
 
 #define WHITESPACE " \t\n\r"
@@ -166,6 +170,7 @@ extern char **environ;
   static size_t master_env_len = 0;
   static struct child {
     int			sock;
+    int			is_local;
     volatile pid_t	pid;	/* pid of ssh (reset to zero by reaper) */
     gasnet_node_t	rank;
     gasnet_node_t	procs;	/* size in procs of subtree rooted at this child */
@@ -174,6 +179,7 @@ extern char **environ;
   } *child = NULL;
   static int children = 0;
   static volatile int accepted = 0;
+  int finalized = 0;
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
   static gasnet_node_t tree_procs = (gasnet_node_t)(-1L);
@@ -181,8 +187,11 @@ extern char **environ;
   static int parent = -1; /* socket */
   static int mypid;
 /* Master only */
-  static volatile int exit_status = -1;
+  static volatile int exit_status = 0;
   static gasnet_node_t nnodes = 0;	/* nodes, as distinct from procs */
+  static pid_t *all_pids;
+
+static void gather_pids(void);
 
 static void do_verbose(const char *fmt, ...) __attribute__((__format__ (__printf__, 1, 2)));
 static void do_verbose(const char *fmt, ...)
@@ -231,48 +240,64 @@ static char *sappendf(char *s, const char *fmt, ...)
   return s;
 }
 
-/* master forwards signals to root if possible */
-static void sigforward(int sig)
-{
-  int sent = 0;
-  pid_t root_pid = child ? child[0].pid : 0;
+/* Note that these are fired off asynchronously */
+static void signal_one(const char *rem_host, pid_t rem_pid, int sig) {
+  /* XXX: could avoid ssh for local case */
+  pid_t pid;
+ 
   gasneti_assert(is_master);
+  gasneti_assert(rem_host != NULL);
 
-  if (root_pid) {
-    BOOTSTRAP_VERBOSE(("Master forwarding signal %d\n", sig));
-    gasneti_reghandler(sig, &sigforward);
-    sent = (kill(root_pid, sig) == 0);
-  }
-  if (!sent) {
-    BOOTSTRAP_VERBOSE(("Master resending signal %d to self\n", sig));
-    gasneti_reghandler(sig, SIG_DFL);
-    raise(sig);
+  if (rem_pid == 0) return;
+
+  pid = fork();
+  if (pid < 0) {
+    gasneti_fatalerror("fork() failed");
+  } else if (pid == 0) {
+    BOOTSTRAP_VERBOSE(("Sending signal %d to %s:%d\n", sig, rem_host, (int)rem_pid));
+    (void)close(STDIN_FILENO);
+    (void)close(STDOUT_FILENO);
+    (void)close(STDERR_FILENO);
+    ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
+    ssh_argv[ssh_argc+1] = sappendf(NULL, "sh -c 'kill -s %d %d >/dev/null 2>&1'", sig, rem_pid);
+    execvp(ssh_argv[0], ssh_argv);
+    gasneti_fatalerror("execvp(ssh kill) failed");
   }
 }
 
-static void reaper(int sig)
+static void signal_all(int sig)
 {
-  pid_t pid;
-  int status;
+  gasnet_node_t p_quot = nproc / nnodes;
+  gasnet_node_t p_rem = nproc % nnodes;
+  gasnet_node_t j, rank;
 
-  gasneti_reghandler(sig, &reaper);
-  while((pid = waitpid(-1,&status,WNOHANG)) > 0) {
-    if (child) {
-      int j;
-      for (j = 0; j < children; ++j) {
-        if (pid == child[j].pid) {
-	  child[j].pid = 0;
-	  if (child[j].rank == 0 && WIFEXITED(status)) {
-	    exit_status = WEXITSTATUS(status);
-	  }
-	  break;
-        }
-      }
+  gasneti_assert(is_master);
+
+  for (j = 0, rank = 0; j < nnodes; ++j) {
+    gasnet_node_t i;
+    for (i = p_quot + ((j<p_rem)?1:0); i != 0; --i, ++rank) {
+      signal_one(nodelist[j], all_pids[rank], sig);
     }
   }
+}
 
-  if (accepted < children) {
-    gasneti_fatalerror("One or more processes died before setup was completed");
+/* master forwards signals if possible */
+static void sigforward(int sig)
+{
+  gasneti_assert(is_master);
+
+  if (child && child[0].pid) {
+    BOOTSTRAP_VERBOSE(("Master forwarding signal %d\n", sig));
+    gasneti_reghandler(sig, &sigforward);
+#if 1
+    signal_one(nodelist[0], all_pids[0], sig);
+#else
+    signal_all(sig);
+#endif
+  } else {
+    BOOTSTRAP_VERBOSE(("Master resending signal %d to self\n", sig));
+    gasneti_reghandler(sig, SIG_DFL);
+    raise(sig);
   }
 }
 
@@ -287,10 +312,12 @@ static void do_oob(unsigned char exitcode) {
 			;
   int j;
 
-  send(parent, &exitcode, 1, flags);
+  if (!is_master) {
+    send(parent, &exitcode, 1, flags);
+  }
   if (child) {
     for (j = 0; j < children; ++j) {
-      send(child[j].sock, &exitcode, 1, flags);
+      (void)send(child[j].sock, &exitcode, 1, flags);
     }
   }
 }
@@ -306,6 +333,42 @@ static void do_abort(unsigned char exitcode) {
   abort();
 
   /* NOT REACHED */
+}
+
+static void reaper(int sig)
+{
+  pid_t pid;
+  int status;
+
+  gasneti_reghandler(sig, &reaper);
+  while((pid = waitpid(-1,&status,WNOHANG)) > 0) {
+    if (child) {
+      int j;
+      for (j = 0; j < children; ++j) {
+        if (pid == child[j].pid) {
+	  if (!finalized) {
+	    BOOTSTRAP_VERBOSE(("Process %d exited before finalize\n",child[j].rank));
+	    if (is_master) {
+	      exit_status = -1;
+	      signal_all(SIGTERM);
+	    } else {
+	      do_abort(255);
+	    }
+	  }
+          (void)close(child[j].sock);
+	  child[j].pid = 0;
+	  if (exit_status == 0 && WIFEXITED(status)) {
+	    exit_status = WEXITSTATUS(status);
+	  }
+	  break;
+        }
+      }
+    }
+  }
+
+  if (accepted < children) {
+    gasneti_fatalerror("One or more processes died before setup was completed");
+  }
 }
 
 static void sigurg_handler(int sig)
@@ -362,9 +425,9 @@ static void do_read(int fd, void *buf, size_t len)
     if_pf (rc <= 0) {
       do_oob(255);
       if (rc == 0) {
-        gasneti_fatalerror("unexpected EOF from read(ctrl_socket)");
+        gasneti_fatalerror("unexpected EOF from read(ctrl_socket) on process %d", is_master ? -1 : (int)myproc);
       } else {
-        gasneti_fatalerror("read(ctrl_socket) returned errno=%d", errno);
+        gasneti_fatalerror("read(ctrl_socket) returned errno=%d on process %d", errno, is_master ? -1 : (int)myproc);
       }
     }
     p += rc;
@@ -862,9 +925,10 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
 static void spawn_one(const char *argv0, gasnet_node_t child_id, const char *myhost) {
   const char *host = child[child_id].nodelist ? child[child_id].nodelist[0] : NULL;
   pid_t pid;
-
+  int is_local = (USE_LOCAL_SPAWN && (!host || !strcmp(host, myhost)));
 
   child[child_id].pid = pid = fork();
+
   if (pid < 0) {
     gasneti_fatalerror("fork() failed");
   } else if (pid == 0) {
@@ -874,7 +938,7 @@ static void spawn_one(const char *argv0, gasnet_node_t child_id, const char *myh
         gasneti_fatalerror("dup2(STDIN_FILENO, /dev/null) failed");
       }
     }
-    if (USE_LOCAL_SPAWN && (!host || !strcmp(host, myhost))) {
+    if (is_local) {
       /* XXX: if we are clever enough, we might be able to "unwind" w/o the exec() */
       BOOTSTRAP_VERBOSE(("Process %d spawning process %d on %s via fork()\n",
 			 (is_master ? -1 : (int)myproc),
@@ -925,6 +989,7 @@ static void do_master(int argc, char **argv) {
   int status = -1;
   int argi=1;
   int j;
+  int live;
 
   is_master = 1;
   gasneti_reghandler(SIGURG, &sigurg_handler);
@@ -973,19 +1038,67 @@ static void do_master(int argc, char **argv) {
   gasneti_reghandler(SIGPIPE, &sigforward);
 
   /* Configure child(ren) */
-  children = 1;
-  child = gasneti_calloc(children, sizeof(struct child));
-  child[0].rank = 0;
-  child[0].procs = nproc;
-  child[0].nodes = nnodes;
-  child[0].nodelist = nodelist;
+  #if FLAT_TREE
+  {
+    gasnet_node_t p_quot = nproc / nnodes;
+    gasnet_node_t p_rem = nproc % nnodes;
+    gasnet_node_t rank;
 
-  /* Start the root process */
+    children = nproc;
+    child = gasneti_calloc(children, sizeof(struct child));
+    for (j = 0, rank = 0; j < nnodes; ++j) {
+      gasnet_node_t i;
+      for (i = p_quot + ((j<p_rem)?1:0); i != 0; --i, ++rank) {
+        child[j].rank = rank;
+        child[j].procs = 1;
+        child[j].nodes = 1;
+        child[j].nodelist = nodelist+j;
+      }
+    }
+  }
+  #else
+    children = 1;
+    child = gasneti_calloc(children, sizeof(struct child));
+    child[0].rank = 0;
+    child[0].procs = nproc;
+    child[0].nodes = nnodes;
+    child[0].nodelist = nodelist;
+  #endif
+
+  /* Start the process(es) */
   do_spawn(argc, argv, myhost);
 
-  while (child[0].pid) {
-    pause();
+  /* Locate all procs */
+  gather_pids();
+
+  /* Wait on the child(ren) */
+#if FLAT_TREE
+  do {
+    live = 0;
+    for (j = 0; j < children; ++j) {
+      if (child[j].pid) ++live;
+    }
+    if (live) pause();
+  } while (live);
+  /* XXX: don't ever set finalized */
+#else
+  {
+    char cmd;
+    ssize_t rc;
+    do {
+      rc = read(child[0].sock, &cmd, sizeof(cmd));
+      if (rc == sizeof(cmd)) {
+        gasneti_assert(cmd == 'F');
+        finalized = 1;
+        cmd = 'G';
+        (void)write(child[0].sock, &cmd, sizeof(cmd));
+      }
+    } while ((rc < 0) && (errno == EINTR));
+    while (child[0].pid) {
+      pause();
+    }
   }
+#endif
 
   exit (exit_status);
 }
@@ -1072,6 +1185,8 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     do_spawn(*argc_p, *argv_p, nodelist[0]);
   }
 
+  gather_pids();
+
   *nodes_p = nproc;
   *mynode_p = myproc;
 }
@@ -1123,6 +1238,25 @@ static void do_bcast0(size_t len, void *dest) {
   }
 }
 
+static void gather_pids(void)
+{
+  if (is_master) {
+    all_pids = gasneti_malloc(sizeof(pid_t) * nproc);
+    do_read(child[0].sock, all_pids, sizeof(pid_t) * nproc);
+  } else {
+    pid_t *pids = gasneti_malloc(sizeof(pid_t) * tree_procs);
+
+    /* Collect rows from our subtree (gather) */
+    do_gather0(&mypid, sizeof(pid_t), pids);
+
+    if (!myproc) {
+      do_write(parent, pids, sizeof(pid_t) * nproc);
+    }
+
+    gasneti_free(pids);
+  }
+}
+
 /*----------------------------------------------------------------------------------------------*/
 
 /* gasneti_bootstrapInit
@@ -1157,7 +1291,22 @@ void gasneti_bootstrapInit(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, 
  * Waits for children to exit.
  */
 void gasneti_bootstrapFini(void) {
+  static const char F = 'F';
+  char cmd;
   int j;
+
+  for (j = 0; j < children; ++j) {
+    do_read(child[j].sock, &cmd, sizeof(cmd));
+    gasneti_assert(cmd == 'F');
+  }
+  finalized = 1;
+  do_write(parent, &F, sizeof(F));
+  if (!myproc) {
+    do_read(parent, &cmd, sizeof(cmd));
+    gasneti_assert(cmd == 'G');
+  }
+  do_bcast0(sizeof(cmd), &cmd);
+  gasneti_assert(cmd == 'G');
 
   if (child) {
     for (j = 0; j < children; ++j) {
