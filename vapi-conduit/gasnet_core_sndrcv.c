@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2004/07/23 22:36:57 $
- * $Revision: 1.51 $
+ *     $Date: 2004/08/13 00:17:55 $
+ * $Revision: 1.52 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -750,7 +750,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
 			  int dest, gasnet_handler_t handler,
 			  void *src_addr, int nbytes, void *dst_addr,
 			  int numargs, gasnetc_counter_t *mem_oust,
-			  gasnetc_counter_t *req_oust, va_list argptr) {
+			  gasnetc_counter_t *req_oust, va_list *argptrptr) {
   gasnetc_sreq_t *sreq;
   gasnetc_buffer_t *buf;
   gasnet_handlerarg_t *args;
@@ -839,7 +839,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
  
   /* copy args */
   for (i=0; i <numargs; ++i) {
-    args[i] = va_arg(argptr, gasnet_handlerarg_t);
+    args[i] = va_arg(*argptrptr, gasnet_handlerarg_t);
   }
 
   /* generate flags */
@@ -879,7 +879,6 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     retval = GASNET_OK;
   }
 
-  va_end(argptr);
   GASNETI_RETURN(retval);
 }
 
@@ -1701,7 +1700,7 @@ extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 
   return gasnetc_ReqRepGeneric(category, 1, dest, handler,
                                src_addr, nbytes, dst_addr,
-                               numargs, mem_oust, NULL, argptr);
+                               numargs, mem_oust, NULL, &argptr);
 }
 
 extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
@@ -1718,7 +1717,7 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 
   retval = gasnetc_ReqRepGeneric(category, 0, GASNETC_MSG_SRCIDX(rbuf->rbuf_flags), handler,
 				 src_addr, nbytes, dst_addr,
-				 numargs, mem_oust, NULL, argptr);
+				 numargs, mem_oust, NULL, &argptr);
 
   rbuf->rbuf_needReply = 0;
   return retval;
@@ -1737,7 +1736,7 @@ extern int gasnetc_RequestSystem(gasnet_node_t dest,
 
   va_start(argptr, numargs);
   retval = gasnetc_ReqRepGeneric(gasnetc_System, 1, dest, handler,
-				 NULL, 0, NULL, numargs, NULL, req_oust, argptr);
+				 NULL, 0, NULL, numargs, NULL, req_oust, &argptr);
   va_end(argptr);
   return retval;
 }
@@ -1759,7 +1758,7 @@ extern int gasnetc_ReplySystem(gasnet_token_t token,
 
   va_start(argptr, numargs);
   retval = gasnetc_ReqRepGeneric(gasnetc_System, 0, dest, handler,
-				 NULL, 0, NULL, numargs, NULL, req_oust, argptr);
+				 NULL, 0, NULL, numargs, NULL, req_oust, &argptr);
   va_end(argptr);
 
   rbuf->rbuf_needReply = 0;
