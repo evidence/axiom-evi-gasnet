@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2005/03/15 13:54:50 $
- * $Revision: 1.25 $
+ *     $Date: 2005/04/06 06:59:14 $
+ * $Revision: 1.26 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -400,7 +400,7 @@ extern int AMMPI_SPMDExit(int exitcode) {
   for (i = 0; i < AMMPI_SPMDNUMPROCS; i++) {
     en_t remoteName;
     if (AM_GetTranslationName(AMMPI_SPMDEndpoint, i, &remoteName) == AM_OK &&
-        !enEqual(remoteName, AMMPI_SPMDName)) {
+        !AMMPI_enEqual(remoteName, AMMPI_SPMDName)) {
       if (AMMPI_SendControlMessage(AMMPI_SPMDEndpoint, remoteName, 2, (int32_t)'E', (int32_t)exitcode) != AM_OK)
         ErrMessage("Failed to AMMPI_SendControlMessage in AMMPI_SPMDExit()");
     }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2005/03/15 13:54:50 $
- * $Revision: 1.24 $
+ *     $Date: 2005/04/06 06:59:14 $
+ * $Revision: 1.25 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -28,7 +28,7 @@ const ammpi_stats_t AMMPI_initial_stats = /* the initial state for stats type */
               };
 
 /* ------------------------------------------------------------------------------------ */
-extern int enEqual(en_t en1, en_t en2) {
+extern int AMMPI_enEqual(en_t en1, en_t en2) {
   return (en1.mpirank == en2.mpirank && en1.mpitag == en2.mpitag);
 }
 /*------------------------------------------------------------------------------------

@@ -178,6 +178,31 @@ run-testexit: force
 	fi
 	@$(MAKE) do-run-testexit	
 
+check-exports: $(libraries)
+	@echo Checking libgasnet exports...
+	@for lib in $(libraries) ; do                                               \
+	  failed=0 ;                                                                \
+	  echo ;                                                                    \
+	  echo $$lib: ;                                                             \
+	  nm --defined-only $$lib |                                                 \
+	    grep -v -e ' [_]*gasnetc_' -e ' [_]*gasneti_' -e ' [_]*gasnete_'        \
+		    -e ' [_]*gasnet_' -e ' [_]*gasnett_'                            \
+		    -e ' [_]*fh_' -e ' [_]*firehose_'                               \
+		    -e ' [_]*fhi_' -e ' [_]*fhc_' -e ' [_]*fhsmp_' -e ' [_]*fhuni_' \
+		    -e __FUNCTION__ -e __PRETTY_FUNCTION__ |                        \
+	    @AWK@ ' /^[0-9a-fA-F]+ [[:upper:]]/ { print $$0 }' > .$$lib.exp;        \
+	  if test -s .$$lib.exp ; then                                              \
+	    cat .$$lib.exp ;                                                        \
+	    echo FAILED ;                                                           \
+	    failed=1 ;                                                              \
+	  else                                                                      \
+	    echo PASSED ;                                                           \
+	  fi ;                                                                      \
+	  rm -f .$$lib.exp ;                                                        \
+	done ; exit $$failed
+
+check: check-exports tests-par
+
 force:
 
 do-clean-local: tests-clean

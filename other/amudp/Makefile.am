@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2005/03/15 13:54:52 $
-# $Revision: 1.22 $
+#     $Date: 2005/04/06 06:59:16 $
+# $Revision: 1.23 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -160,6 +160,26 @@ apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h $(headers)
 if USE_UDP_CONDUIT
 clean-local:
 	rm -f libamudp.a $(testprograms:%=%$(EXESUFFIX)) *.o core
+
+check-exports: libamudp.a
+	@echo Checking libamudp exports...
+	@lib=libamudp.a ; \
+            nm --defined-only $$lib |                                               \
+            grep -v -e ' [_]*amudp_' -e ' [_]*AMUDP_' -e ' [_]*AM_'                 \
+                    -e ' [_]*gasnett_' -e ' [_]*gasneti_'                           \
+                    -e __FUNCTION__ -e __PRETTY_FUNCTION__ |                        \
+            @AWK@ ' /^[0-9a-fA-F]+ [[:upper:]]/ { print $$0 }' > .$$lib.exp;        \
+          if test -s .$$lib.exp ; then                                              \
+            cat .$$lib.exp ;                                                        \
+            echo FAILED ;                                                           \
+            failed=1 ;                                                              \
+          else                                                                      \
+            echo PASSED ;                                                           \
+          fi ;                                                                      \
+          rm -f .$$lib.exp ;                                                        \
+          exit $$failed
+
+check: tests
 endif
 
 force:
