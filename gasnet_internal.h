@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/08/15 09:49:38 $
- * $Revision: 1.9 $
+ *     $Date: 2002/08/21 04:09:43 $
+ * $Revision: 1.10 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -95,7 +95,9 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
       #define extern static
     #endif
     #include <asm/atomic.h>
-    #undef extern
+    #ifdef __alpha__
+      #undef extern
+    #endif
     typedef atomic_t gasneti_atomic_t;
     #define gasneti_atomic_increment(p) atomic_inc(p)
     #define gasneti_atomic_read(p)      atomic_read(p)
