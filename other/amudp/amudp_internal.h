@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2005/03/15 13:54:52 $
- * $Revision: 1.16 $
+ *     $Date: 2005/03/15 18:43:57 $
+ * $Revision: 1.17 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -141,12 +141,12 @@ static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf_
   extern void (*gasnett_debug_free_fn)(void *ptr, const char *curloc);
   static void *_AMUDP_malloc(size_t sz, const char *curloc) {
     void *ret = malloc(sz);
-    if_pf(!ret) { ErrMessage("Failed to malloc(%i) at %s", sz, curloc); abort(); }
+    if_pf(!ret) { ErrMessage("Failed to malloc(%lu) at %s", (unsigned long)sz, curloc); abort(); }
     return ret;
   }
   static void *_AMUDP_calloc(size_t N, size_t S, const char *curloc) {
     void *ret = calloc(N,S);
-    if_pf(!ret) { ErrMessage("Failed to calloc(%i,%i) at %s", N,S, curloc); abort(); }
+    if_pf(!ret) { ErrMessage("Failed to calloc(%lu,%lu) at %s", (unsigned long)N, (unsigned long)S, curloc); abort(); }
     return ret;
   }
   static void _AMUDP_free(void *ptr, const char *curloc) {
