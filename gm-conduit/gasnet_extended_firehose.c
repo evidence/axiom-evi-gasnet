@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.26 2003/10/08 06:06:55 csbell Exp $
- * $Date: 2003/10/08 06:06:55 $
+/* $Id: gasnet_extended_firehose.c,v 1.27 2003/10/08 21:53:51 csbell Exp $
+ * $Date: 2003/10/08 21:53:51 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -197,19 +197,16 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 	pop->starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
 	#endif
 
-	/* First pin remotely, so that the local pin can overlap some of the
-	 * time to fulfill the remote pin request.  The remote pin is
-	 * asynchronous and the local pin is synchronous. */
-	firehose_remote_pin(node, (uintptr_t) dest, nbytes,
-	    0, (firehose_request_t *) &(pop->req_remote), NULL,
-	    gasnete_fh_request_put, pop);
+	/* If we were dealing with implicit put, increment the iop */
+	if (pop->iop != NULL)
+		pop->iop->initiated_put_cnt++;
 
 	pop->req_local = 
 	    firehose_local_pin((uintptr_t) src, nbytes, NULL);
 
-	/* If we were dealing with implicit put, increment the iop */
-	if (pop->iop != NULL)
-		pop->iop->initiated_put_cnt++;
+	firehose_remote_pin(node, (uintptr_t) dest, nbytes,
+	    0, (firehose_request_t *) &(pop->req_remote), NULL,
+	    gasnete_fh_request_put, pop);
 
 	return (gasnete_op_t *) pop;
 }
@@ -552,7 +549,13 @@ gasnete_firehose_get(void *dest, gasnet_node_t node, void *src,
 	gop->fh_stats = fh_onesided;
 	#endif
 
-	/* First send the remote pin then issue the local pin */
+	if (iop != NULL)
+		iop->initiated_get_cnt++;
+
+	/* Always pin locally before sending the remote pin request. */
+	gop->req_local = 
+	    firehose_local_pin((uintptr_t) dest, nbytes, NULL);
+
 	args.local_addr  = (uintptr_t) dest;
 	args.remote_addr = (uintptr_t) src;
 	args.nbytes      = nbytes;
@@ -561,12 +564,6 @@ gasnete_firehose_get(void *dest, gasnet_node_t node, void *src,
 	    FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK,
 	    (firehose_request_t *) &(gop->req_remote), &args,
 	    gasnete_fh_request_get, gop);
-
-	gop->req_local = 
-	    firehose_local_pin((uintptr_t) dest, nbytes, NULL);
-
-	if (iop != NULL)
-		iop->initiated_get_cnt++;
 
 	return (gasnete_op_t *) gop;
 }
