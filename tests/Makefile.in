@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.35 2004/07/17 10:06:18 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.36 2004/07/19 13:06:11 bonachea Exp $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -51,6 +51,7 @@ testprograms_parsync =  \
 # tests that should only be built in PAR mode
 testprograms_par =  \
 	testthreads \
+	testcontend \
 	$(MPI_TEST)
 
 testprograms = $(testprograms_seq) $(testprograms_parsync) $(testprograms_par)

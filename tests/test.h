@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/07/17 16:56:35 $
- * $Revision: 1.31 $
+ *     $Date: 2004/07/19 13:06:11 $
+ * $Revision: 1.32 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -237,8 +237,9 @@ int64_t test_calibrate_delay(int iters, int64_t *time_p)
 		for (i = 0; i < iters; i++) { test_delay(loops); }
 		end = TIME();
 		time = end - begin;
-                assert(time > 0);
-		ratio = target / (float)time;
+                assert(time >= 0);
+                if (time == 0) ratio = 2.0;/* handle systems with very high granularity clocks */
+                else ratio = target / (float)time;
                 caliters++;
                 if (caliters > TEST_DELAY_CALIBRATION_LIMIT) {
                   fprintf(stderr,"ERROR: test_calibrate_delay(%i,%i) failed to converge after %i iterations.\n",
@@ -287,6 +288,13 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
         "-----------------------------------------------------------------------\n"
         ,debug,trace,stats);
     }
+    #ifdef GASNETT_USING_GETTIMEOFDAY
+      fprintf(stderr, 
+        "WARNING: using gettimeofday() for timing measurement - all short-term time measurements\n"             
+        "WARNING: will be very rough and include significant timer overheads\n");
+    #endif
+    fprintf(stderr, "Timer granularity: <= %.3f us, overhead: ~ %.3f us\n",
+     gasnett_timer_granularityus(), gasnett_timer_overheadus());
   }
   BARRIER();
 }
