@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/12/01 19:48:17 $
- * $Revision: 1.29 $
+ *     $Date: 2003/12/01 20:13:17 $
+ * $Revision: 1.30 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1261,7 +1261,7 @@ extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
 				  void *src_addr, int nbytes, void *dst_addr,
 				  int numargs, gasneti_atomic_t *mem_oust, va_list argptr) {
-  gasnetc_poll_both();	/* ensure progress */
+  gasnetc_poll_rcv();	/* ensure progress */
 
   return gasnetc_ReqRepGeneric(category, 1, /* need */ 1, /* grant */ 0,
 			       dest, handler,
@@ -1297,7 +1297,7 @@ extern int gasnetc_RequestSystem(gasnet_node_t dest,
   int retval;
   va_list argptr;
 
-  gasnetc_poll_both();	/* ensure progress (should this really be done _here_?) */
+  gasnetc_poll_rcv();	/* ensure progress */
 
   GASNETC_TRACE_SYSTEM_REQUEST(dest,handler,numargs);
 
