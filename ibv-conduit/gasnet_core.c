@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/01/07 17:39:36 $
- * $Revision: 1.63 $
+ *     $Date: 2005/01/09 07:28:21 $
+ * $Revision: 1.64 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -426,7 +426,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     
   /* Setup for gasneti_getenv() (must come before gasneti_trace_init() */
   gasneti_setupGlobalEnvironment(gasnetc_nodes, gasnetc_mynode, 
-                                 gasnetc_bootstrapAllgather, gasnetc_bootstrapBroadcast);
+                                 gasnetc_bootstrapExchange, gasnetc_bootstrapBroadcast);
 
   /* Now enable tracing of all the following steps */
   gasneti_trace_init(*argc, *argv);
@@ -801,7 +801,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     /* Find the local min-of-maxes over the pinning limits */
     all_info = gasneti_malloc(gasnetc_nodes * sizeof(gasnetc_pin_info_t));
-    gasnetc_bootstrapAllgather(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
+    gasnetc_bootstrapExchange(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
     for (i = 0; i < gasnetc_nodes; i++) {
       gasnetc_pin_info.memory  = MIN(gasnetc_pin_info.memory,  all_info[i].memory );
       gasnetc_pin_info.regions = MIN(gasnetc_pin_info.regions, all_info[i].regions);
@@ -822,7 +822,7 @@ static int gasnetc_init(int *argc, char ***argv) {
                         &gasnetc_MaxGlobalSegmentSize,
                         gasnetc_pin_info.memory,
                         gasnetc_nodes,
-                        &gasnetc_bootstrapAllgather);
+                        &gasnetc_bootstrapExchange);
   }
   #elif GASNET_SEGMENT_LARGE
   {
@@ -831,7 +831,7 @@ static int gasnetc_init(int *argc, char ***argv) {
                         &gasnetc_MaxGlobalSegmentSize,
                         (uintptr_t)(-1),
                         gasnetc_nodes,
-                        &gasnetc_bootstrapAllgather);
+                        &gasnetc_bootstrapExchange);
   }
   #elif GASNET_SEGMENT_EVERYTHING
   {
@@ -1020,7 +1020,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #elif GASNETC_PIN_SEGMENT
   {
     /* allocate the segment and exchange seginfo */
-    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapAllgather);
+    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapExchange);
     segbase = gasnetc_seginfo[gasnetc_mynode].addr;
     segsize = gasnetc_seginfo[gasnetc_mynode].size;
 
@@ -1036,7 +1036,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
       rkeys = gasneti_calloc(gasnetc_nodes,sizeof(VAPI_rkey_t));
       gasneti_assert(rkeys != NULL);
-      gasnetc_bootstrapAllgather(&gasnetc_seg_reg.rkey, sizeof(VAPI_rkey_t), rkeys);
+      gasnetc_bootstrapExchange(&gasnetc_seg_reg.rkey, sizeof(VAPI_rkey_t), rkeys);
       for (i=0;i<gasnetc_nodes;i++) {
         gasnetc_cep[i].rkey = rkeys[i];
       }
@@ -1046,7 +1046,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #else	/* just allocate the segment but don't pin it */
   {
     /* allocate the segment and exchange seginfo */
-    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapAllgather);
+    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapExchange);
     segbase = gasnetc_seginfo[gasnetc_mynode].addr;
     segsize = gasnetc_seginfo[gasnetc_mynode].size;
   }

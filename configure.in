@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/01/07 17:39:34 $
-# $Revision: 1.212 $
+#     $Date: 2005/01/09 07:28:19 $
+# $Revision: 1.213 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.212 $)
+AC_REVISION($Revision: 1.213 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1438,10 +1438,11 @@ GASNET_IF_ENABLED_WITH_AUTO(vapi, Enable/disable the CONDUIT_DESC (auto-detected
   [enabled_vapi=yes;force_vapi=yes],
   enabled_vapi=no,
   enabled_vapi=yes)
-GASNET_IF_ENABLED_WITH_AUTO(vapi-bootstrap-ssh, [Enable/disable the EXPERIMENTAL ssh-based bootstrap for vapi conduit],
-  enabled_vapi_bootstrap_ssh=yes,
-  enabled_vapi_bootstrap_ssh=no,
-  enabled_vapi_bootstrap_ssh=no)
+GASNET_IF_ENABLED_WITH_AUTO(vapi-bootstrap-ssh,
+  [Enable/disable the EXPERIMENTAL ssh-based bootstrap for vapi conduit (default no)],
+  [enabled_vapi_bootstrap_ssh=yes;enabled_vapi_bootstrap_mpi=no],
+  [enabled_vapi_bootstrap_ssh=no ;enabled_vapi_bootstrap_mpi=yes],
+  [enabled_vapi_bootstrap_ssh=no ;enabled_vapi_bootstrap_mpi=yes])
 if test "$force_vapi$have_pthread" = yesno; then
   AC_MSG_ERROR([vapi-conduit requires pthread support but pthreads $pthread_reason])
 fi
@@ -1449,7 +1450,7 @@ if test "$enabled_vapi$have_pthread" = yesno; then
   enabled_vapi=no
   AC_MSG_WARN([vapi-conduit requires pthread support but pthreads $pthread_reason - disabling vapi])
 fi
-if test "$enabled_vapi_bootstrap_ssh" = no; then
+if test "$enabled_vapi_bootstrap_mpi" = yes; then
   if test "$force_vapi$have_mpi" = yesno; then
     AC_MSG_ERROR([vapi-conduit requires MPI support and MPI $mpi_reason]);
   fi
@@ -1492,7 +1493,7 @@ if test "$enabled_vapi" = yes; then
   if test "$gasnet_cv_cc_family" = "GNU" -a "$segconfig" != fast; then
     # If using firehose we need to disable certain gcc optimizations.
     # See bug #350 for an example of why firehose needs this.
-    # See bug #596 for evidence that VAPi is affected by this.
+    # See bug #596 for evidence that VAPI is affected by this.
     VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -fno-strict-aliasing"
   fi
 
@@ -1556,17 +1557,18 @@ if test "$enabled_vapi" = yes; then
       if test "$enabled_vapi_force_poll_lock" = yes; then
         AC_DEFINE(GASNETC_VAPI_FORCE_POLL_LOCK)
       fi
-  fi
-fi
-if test "$have_vapi" = yes; then
-  # Configure corrrect CC and LD
-  if test "$enabled_vapi_bootstrap_ssh" = no; then
-    VAPI_LD="$MPI_CC"
-    VAPI_LDFLAGS="$MPI_CFLAGS"
-    VAPI_LIBS="$MPI_LIBS $VAPI_LIBS"
-  else
-    VAPI_LD="$CC"
-    VAPI_LDFLAGS="$CFLAGS"
+
+    # Configure corrrect CC and LD based on bootstrap choice
+    if test "$enabled_vapi_bootstrap_ssh" = yes; then
+      AC_CHECK_HEADERS(netinet/tcp.h)
+      VAPI_LD="$CC"
+      VAPI_LDFLAGS="$CFLAGS"
+    fi
+    if test "$enabled_vapi_bootstrap_mpi" = yes; then
+      VAPI_LD="$MPI_CC"
+      VAPI_LDFLAGS="$MPI_CFLAGS"
+      VAPI_LIBS="$MPI_LIBS $VAPI_LIBS"
+    fi
   fi
 fi
 AC_SUBST(VAPI_INCLUDE)
@@ -1576,6 +1578,8 @@ AC_SUBST(VAPI_LIBCFLAGS)
 AC_SUBST(VAPI_LD)
 AC_SUBST(VAPI_LDFLAGS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
+AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH,test "$enabled_vapi_bootstrap_ssh" = yes)
+AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$enabled_vapi_bootstrap_mpi" = yes)
 if test "$have_vapi" = yes ; then
   CONDUITS="$CONDUITS vapi"
   CONDUIT_REPORT(ON)
@@ -1583,8 +1587,6 @@ else
   CONDUIT_REPORT(OFF)
 fi
 popdef([CONDUIT_DESC])
-AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH,test "$enabled_vapi_bootstrap_ssh" = yes)
-AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$enabled_vapi_bootstrap_ssh$mpi_test_worked" = noyes)
 #--------------------------------------------------------------------------------------------------------
 # SHMEM configuration
 

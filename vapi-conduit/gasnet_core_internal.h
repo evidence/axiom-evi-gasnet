@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/11/29 22:57:13 $
- * $Revision: 1.55 $
+ *     $Date: 2005/01/09 07:28:21 $
+ * $Revision: 1.56 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -624,11 +624,11 @@ typedef struct {
 } gasnetc_memreg_t;
 
 /* Bootstrap helper routines in gasnet_bootstrap_*.c */
-extern void gasnetc_bootstrapInit(int *argc, char ***argv, gasnet_node_t *nodes, gasnet_node_t *mynode);
+extern void gasnetc_bootstrapInit(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p);
 extern void gasnetc_bootstrapFini(void);
 extern void gasnetc_bootstrapAbort(int exitcode) GASNET_NORETURN;
 extern void gasnetc_bootstrapBarrier(void);
-extern void gasnetc_bootstrapAllgather(void *src, size_t len, void *dest);
+extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
 extern void gasnetc_bootstrapAlltoall(void *src, size_t len, void *dest);
 extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode);
 

@@ -1,3 +1,13 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
+ *     $Date: 2005/01/09 07:28:21 $
+ * $Revision: 1.3 $
+ * Description: GASNet ssh-based bootstrapper for vapi-conduit
+ * Copyright 2004, The Regents of the University of California
+ * Terms of use are as specified in license.txt
+ */
+#include <gasnet.h>
+#include <gasnet_internal.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -7,13 +17,118 @@
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <netinet/in.h>
+#if HAVE_NETINET_TCP_H
+#include <netinet/tcp.h>
+#endif
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
 
-#include <gasnet.h>
-#include <gasnet_internal.h>
+/* NOTES
 
+   This is a ssh-based (or rsh is you want) spawner for GASNet.  It is
+   intended to be conduit-neutral.
+  
+   In the interest of scalability the ssh processes are started up in
+   a balanced N-ary tree, where N is determined at compile-time (the
+   value of "ARY", set below.  Typically we want this value to be
+   resonably large, since deep trees would result in multiple steps
+   of forwarding for standard I/O (which is performed entirely by the
+   ssh processes at this point).
+
+   The process corresponding to gasnet node zero is the root of this
+   tree, but it also has a parent: the original process started by the
+   user (or upcrun, etc.), the "master" process.  This allows for the
+   possibility that the spawner is launched that is not one of the
+   compute nodes.
+
+   In addition to the tree of ssh connections, there is a TCP socket
+   created between each process and its parent (including between the
+   root and the master).  This socket is used for control information,
+   during startup.  For instance, the root receives the environment
+   from the master process over this socket (a subsequent call to
+   gasneti_setupGlobalEnvironment(), not done in this file, will then
+   distribute that to the remaining processes.).
+
+   The control sockets are used to send each process only a portion of
+   the list of host names.  Rather than send the entire list, each processs
+   receives only its own host name and that of any children it may have in
+   the tree.
+
+   The spawner is able to (in most cases) avoid orphaned processes
+   by using TCP out-of-band data to generate a SIGURG.  The handler for
+   this signal will send the out-of-band data both up and down the tree
+   before exiting.
+
+   If a child has the same hostname as its parent, it will be started
+   directly, rather than via ssh.
+
+   The tree structure is used to provide scalable implementations of
+   the following "service" routines for use during the bootstrap, as
+   required in the template-conduit:
+      extern void gasnetc_bootstrapBarrier(void);
+      extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
+      extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode);
+   
+   Additionally, the following is useful (at least in vapi-conduit)
+   for exchanging endpoint identifiers in a scalable manner:
+      extern void gasnetc_bootstrapAlltoall(void *src, size_t len, void *dest);
+
+   If demand exists, scalable Scatter and Gather are possible.
+
+   The following are needed to handle startup and termination:
+      extern void gasnetc_bootstrapInit(int *argc_p, char ***argv_p,
+                                        gasnet_node_t *nodes_p,
+                                        gasnet_node_t *mynode_p);
+      extern void gasnetc_bootstrapFini(void);
+      extern void gasnetc_bootstrapAbort(int exitcode);
+   In the case of normal termination, all nodes should call
+   gasnetc_bootstrapFini() before they call exit().  In the event that
+   gasnet is unable to arrange for an orderly shutdown, a call to
+   gasnetc_bootstrapAbort() will try to force all processes to exit
+   with the given exit code.
+
+   To control the spawner, there are a few environment variables, all
+   of which are processed only by the master process (which send the
+   relavent information on to the others via the control sockets).
+   Assuming ENV_PREFIX is #defined to "GASNET_" (the default):
+     GASNET_SSH_CMD:
+       The ssh (or rsh) command.  This should just be something like
+       "ssh" or "/usr/local/bin/ssh2", without arguments.
+     GASNET_SSH_OPTIONS:
+       This is a string containing the "fixed" arguments to the ssh
+       command.  This list will (currently) split on whitespace without
+       regard to any quotes.  Keep in mind that for OpenSSH
+         -o Option=Value
+       works fine, even though the docs lead one to want to use
+         -o 'Option Value'
+     GASNET_SSH_NODEFILE:
+       If this variable is set, it is taken to be a file containing
+       hostnames (or IPs), one per line.  Leading whitespace is OK.
+       The hostname ends at the first whitespace character (or end
+       of line), and anything remaining on the line (such as a CPU
+       count) will be ignored.  Comment lines beginning with '#' are
+       ignored.
+     GASNET_SSH_HOSTS:
+       Only if GASNET_SSH_NODEFILE is NOT set, this variable will be taken
+       as a list of hosts.  Legal delimiters for the list include commas
+       and whitespace (among others).
+
+   XXX: still to do
+   + SIGNAL PROPAGATION FROM MASTER TO ROOT
+   + Local startup doesn't need the "sh -c".
+   + Should probably send the ENTIRE environment to node 0, rather than
+     just sending the GASNET ones and those given on the command line.
+   + Should consider allowing quoted whitespace in SSH_OPTIONS.  We really
+     don't want to invoke system() because that leads to all sorts of
+     possible questions about proper amounts of quoting.
+   + Should look carefully at udp-conduit for hints on arguments to ssh,
+     especially for OpenSSH.
+   + Implement "custom" spawner in the spirit of udp-conduit.
+   + Look at udp-conduit for things missing from this list. :-)
+
+ */
+  
 #define ARY 8
 
 #define USE_LOCAL_SPAWN 1
@@ -22,22 +137,13 @@
   #define USE_LOCAL_SPAWN 0
 #endif
 
-#define SSH_SERVERS_DELIM_CHARS  " ,/;:"
-#define SSH_NODEFILE_DELIM_CHARS " \t\n\r"
-#define SSH_OPTIONS_DELIM_CHARS  " \t\n\r"
+#define WHITESPACE " \t\n\r"
+#define SSH_SERVERS_DELIM_CHARS  ",/;:" WHITESPACE
 
 extern char **environ;
-#define ENV_PREFIX "GASNET_"
-
-enum {
-  CMD_BARRIER_UP,
-  CMD_BARRIER_DOWN
-};
-
-typedef struct hostlist_t_ {
-  size_t	len;
-  char		*name;
-} hostlist_t;
+#ifndef ENV_PREFIX
+  #define ENV_PREFIX "GASNET_"
+#endif
 
 static gasnet_node_t nproc = (gasnet_node_t)(-1L);
 static gasnet_node_t myproc = (gasnet_node_t)(-1L);
@@ -48,7 +154,7 @@ static int devnull = -1;
 static int listener = -1;
 static int listen_port = -1;
 static int children = 0;
-static hostlist_t *hostlist;
+static char **hostlist;
 static char **env_vars;
 
 static char **ssh_argv = NULL;
@@ -120,26 +226,41 @@ static void reaper(int sig)
   }
 }
 
-static void do_abort(void)
+static void do_abort(unsigned char exitcode) GASNET_NORETURN;
+static void do_abort(unsigned char exitcode)
 {
-  static const char c = 0xff;
   int j;
 
   gasneti_reghandler(SIGURG, SIG_IGN);
-  gasneti_reghandler(SIGABRT, SIG_DFL);
 
-  send(parent.sock, &c, 1, MSG_OOB);
+  send(parent.sock, &exitcode, 1, MSG_OOB);
   for (j = 0; j < children; ++j) {
-    send(child[j].sock, &c, 1, MSG_OOB);
+    send(child[j].sock, &exitcode, 1, MSG_OOB);
   }
 
+  _exit(exitcode);
+
+  gasneti_reghandler(SIGABRT, SIG_DFL);
   abort();
   /* NOT REACHED */
 }
 
 static void sigurg_handler(int sig)
 {
-  do_abort();
+  unsigned char exitcode = 255;
+  int j;
+
+  /* We need to read our single byte of urgent data here.
+   * Since we don't know which socket sent it, we just
+   * try them all.  MSG_OOB is supposed to always be
+   * non-blocking.  If multiple sockets have OOB data
+   * pending, we don't care which one we read.
+   */
+  (void)recv(parent.sock, &exitcode, 1, MSG_OOB);
+  for (j = 0; j < children; ++j) {
+    (void)recv(child[j].sock, &exitcode, 1, MSG_OOB);
+  }
+  do_abort(exitcode);
   /* NOT REACHED */
 }
 
@@ -177,18 +298,18 @@ static ssize_t do_read(int fd, void *buf, size_t len)
   return len ? -1 : 0;
 }
 
-static ssize_t do_read_string(int fd, char **string_p) {
+static char *do_read_string(int fd) {
+  char *result = NULL;
   size_t len;
 
   do_read(fd, &len, sizeof(size_t));
   if (len) {
-    char *tmp = gasneti_malloc(len + 1);
-    do_read(fd, tmp, len);
-    tmp[len] = '\0';
-    *string_p = tmp;
+    result = gasneti_malloc(len + 1);
+    do_read(fd, result, len);
+    result[len] = '\0';
   }
 
-  return len;
+  return result;
 }
 
 static char *quote_arg(const char *arg) {
@@ -260,7 +381,7 @@ static void build_hostlist(void)
   gasnet_node_t i;
   const char *env_string;
 
-  hostlist = gasneti_malloc(nproc * sizeof(hostlist_t));
+  hostlist = gasneti_malloc(nproc * sizeof(char *));
 
   if ((env_string = getenv(ENV_PREFIX "SSH_NODEFILE")) != NULL && strlen(env_string)) {
     FILE *fp;
@@ -270,56 +391,54 @@ static void build_hostlist(void)
       gasneti_fatalerror("fopen(%s)\n", env_string);
     }
 
-    for (i = 0; i < nproc; ++i) {
-      char buf[256];
+    for (i = 0; i < nproc;) {
+      static char buf[1024];
+      char *p;
 
-      if (!fgets(buf, 256, fp)) {
+      if (!fgets(buf, sizeof(buf), fp)) {
 	/* ran out of lines */
         gasneti_fatalerror("Out of hosts in file %s\n", env_string);
       }
-
-      buf[strcspn(buf, SSH_NODEFILE_DELIM_CHARS)] = '\0';
-      hostlist[i].len  = strlen(buf);
-      hostlist[i].name = gasneti_strdup(buf);
+ 
+      p = buf;
+      while (*p && strchr(WHITESPACE, *p)) ++p; /* eat leading whitespace */
+      if (*p != '#') {
+        p[strcspn(p, WHITESPACE)] = '\0';
+        hostlist[i] = gasneti_strdup(p);
+	++i;
+      }
     }
 
     fclose(fp);
   } else if ((env_string = getenv(ENV_PREFIX "SSH_SERVERS")) != NULL && strlen(env_string)) {
-    char **names = list_to_array(env_string, SSH_SERVERS_DELIM_CHARS);
+    hostlist = list_to_array(env_string, SSH_SERVERS_DELIM_CHARS);
     for (i = 0; i < nproc; ++i) {
-      char *p = names[i];
-      if (!p) {
+      if (hostlist[i] == NULL) {
         gasneti_fatalerror("Out of hosts in SSH_SERVERS\n");
       }
-      hostlist[i].len  = strlen(p);
-      hostlist[i].name = p;
     }
-
-    gasneti_free(names);
   } else {
     gasneti_fatalerror("No " ENV_PREFIX "SSH_NODEFILE or " ENV_PREFIX "SSH_SERVERS in environment\n");
   }
 }
 
-static void send_hostlist(int s, int count, const hostlist_t *list) {
+static void send_hostlist(int s, int count, char * const * list) {
   gasnet_node_t i;
-  size_t len;
 
+  /* length of list is already known to the recipient */
   for (i = 0; i < count; ++i) {
-    len = list[i].len;
-    do_write(s, &len, sizeof(size_t));
-    do_write(s, list[i].name, len);
+    do_write_string(s, list[i]);
   }
 }
 
 static void recv_hostlist(int s, int count) {
   gasnet_node_t i;
 
-  hostlist = gasneti_malloc(count * sizeof(hostlist_t));
+  hostlist = gasneti_malloc(count * sizeof(char *));
   for (i = 0; i < count; ++i) {
-    hostlist[i].len = do_read_string(s, &(hostlist[i].name));
+    hostlist[i] = do_read_string(s);
   }
-  hostlist -= myproc; /* offset */
+  hostlist -= myproc; /* offset for ease of indexing */
 }
 
 static void send_env(int s, char **list) {
@@ -357,7 +476,7 @@ static void send_env(int s, char **list) {
 static void recv_env(int s) {
   char *p;
 
-  while (do_read_string(s, &p)) {
+  while ((p = do_read_string(s)) != NULL) {
     if (putenv(p) < 0) {
       gasneti_fatalerror("putenv(%s) failed\n", p);
     }
@@ -379,7 +498,7 @@ static void recv_ssh_argv(int s) {
   do_read(s, &ssh_argc, sizeof(int));
   ssh_argv = gasneti_calloc(ssh_argc+3, sizeof(char *));
   for (i = 0; i < ssh_argc; ++i) {
-    do_read_string(s, &ssh_argv[i]);
+    ssh_argv[i] = do_read_string(s);
   }
 }
 
@@ -424,6 +543,7 @@ static void post_spawn(int count) {
     gasnet_node_t size, rank;
     struct sockaddr_in sock_addr;
     socklen_t addr_len;
+    static const int one = 1;
     int id;
     int s;
 
@@ -431,6 +551,7 @@ static void post_spawn(int count) {
       gasneti_fatalerror("accept() failed\n");
     }
     (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
+    (void)setsockopt(parent.sock, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
     if (do_read(s, &id, sizeof(int)) < 0) {
       gasneti_fatalerror("do_read(id) failed\n");
     }
@@ -460,7 +581,9 @@ static void post_spawn(int count) {
 static void do_connect(int child_id) {
   struct sockaddr_in sock_addr;
   socklen_t addr_len;
+  static const int one = 1;
   struct hostent *h = gethostbyname(parent.name);
+
   if (h == NULL) {
     gasneti_fatalerror("gethostbyname(%s) failed\n", parent.name);
   }
@@ -475,6 +598,7 @@ static void do_connect(int child_id) {
     gasneti_fatalerror("connect() failed\n");
   }
   (void)ioctl(parent.sock, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
+  (void)setsockopt(parent.sock, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
   do_write(parent.sock, &child_id, sizeof(int));
   do_read(parent.sock, &myproc, sizeof(gasnet_node_t));
   do_read(parent.sock, &nproc, sizeof(gasnet_node_t));
@@ -488,11 +612,8 @@ static void do_connect(int child_id) {
 
 static pid_t spawn_one(const char *host, const char *argv0, int child_id, const char *myhost, const char *args)
 {
-  char *shell_cmd;
   pid_t pid;
 
-  shell_cmd = sappendf(NULL, "cd %s && exec %s -slave %s %d %d %s",
-			cwd, argv0, myhost, listen_port, child_id, args);
   pid = fork();
   if (pid < 0) {
     gasneti_fatalerror("fork() failed\n");
@@ -503,16 +624,20 @@ static pid_t spawn_one(const char *host, const char *argv0, int child_id, const 
       }
     }
     if (USE_LOCAL_SPAWN && !strcmp(host, myhost)) {
+      /* XXX: don't need the shell here.  Should just dup our own args. */
+      char *shell_cmd = sappendf(NULL, "exec %s -slave %s %d %d %s",
+				 argv0, myhost, listen_port, child_id, args);
       execlp("sh", "sh", "-c", shell_cmd, NULL);
       gasneti_fatalerror("execlp(sh) failed\n");
     } else {
+      char *shell_cmd = sappendf(NULL, "cd %s; exec %s -slave %s %d %d %s",
+				 cwd, argv0, myhost, listen_port, child_id, args);
       ssh_argv[ssh_argc] = (/* noconst */ char *)host;
       ssh_argv[ssh_argc+1] = shell_cmd;
       execvp(ssh_argv[0], ssh_argv);
       gasneti_fatalerror("execvp(ssh) failed\n");
     }
   }
-  gasneti_free(shell_cmd);
 
   return pid;
 }
@@ -537,7 +662,7 @@ static void do_master(int argc, char **argv) {
   }
   if ((env_string = getenv(ENV_PREFIX "SSH_OPTIONS")) != NULL && strlen(env_string)) {
     /* XXX: no whitespace in SSH_OPTIONS */
-    if ((ssh_options = list_to_array(env_string, SSH_OPTIONS_DELIM_CHARS)) != NULL) {
+    if ((ssh_options = list_to_array(env_string, WHITESPACE)) != NULL) {
       while (ssh_options[ssh_argc]) ++ssh_argc;
     }
   }
@@ -556,7 +681,7 @@ static void do_master(int argc, char **argv) {
   build_hostlist();
   pre_spawn();
 
-  pid = spawn_one(hostlist[0].name, argv[0], -1, myhost, stringify_args(argc-1, argv+1));
+  pid = spawn_one(hostlist[0], argv[0], -1, myhost, stringify_args(argc-1, argv+1));
   if (pid <= 0) {
     gasneti_fatalerror("spawn_one(0) failed\n");
   }
@@ -605,7 +730,7 @@ static void do_slave(int child_id, int argc, char **argv)
 
   for (j = 0; j < children; ++j) {
     i = child[j].rank;
-    child[j].pid = spawn_one(hostlist[i].name, argv[0], j, hostlist[myproc].name, args);
+    child[j].pid = spawn_one(hostlist[i], argv[0], j, hostlist[myproc], args);
   }
   post_spawn(children);
 }
@@ -678,37 +803,35 @@ void gasnetc_bootstrapFini(void) {
 }
 
 void gasnetc_bootstrapAbort(int exitcode) {
-  do_abort();
+  do_abort((unsigned char)exitcode);
   /* NOT REACHED */
 }
 
 void gasnetc_bootstrapBarrier(void) {
-  int j;
-  char cmd;
+  static const int zero = 0;
+  static const int one = 1;
+  int cmd, j;
 
   /* UP */
   for (j = 0; j < children; ++j) {
     do_read(child[j].sock, &cmd, sizeof(cmd));
-    gasneti_assert(cmd == CMD_BARRIER_UP);
+    gasneti_assert(cmd == zero);
   }
   if (myproc) {
-    cmd = CMD_BARRIER_UP;
-    do_write(parent.sock, &cmd, sizeof(cmd));
+    do_write(parent.sock, &zero, sizeof(zero));
   }
 
   /* DOWN */
-  cmd = CMD_BARRIER_DOWN;
   if (myproc) {
     do_read(parent.sock, &cmd, sizeof(cmd));
-    gasneti_assert(cmd == CMD_BARRIER_DOWN);
+    gasneti_assert(cmd == one);
   }
   for (j = 0; j < children; ++j) {
-    gasneti_assert(cmd == CMD_BARRIER_DOWN);
-    do_write(child[j].sock, &cmd, sizeof(cmd));
+    do_write(child[j].sock, &one, sizeof(one));
   }
 }
 
-void gasnetc_bootstrapAllgather(void *src, size_t len, void *dest) {
+void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   int j;
 
   /* Forward data up the tree */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_bootstrap_mpi.c,v $
- *     $Date: 2004/12/15 23:19:41 $
- * $Revision: 1.8 $
+ *     $Date: 2005/01/09 07:28:21 $
+ * $Revision: 1.9 $
  * Description: GASNet vapi conduit implementation, mpi bootstrap code
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -77,7 +77,7 @@ void gasnetc_bootstrapBarrier(void) {
   gasneti_assert(err == MPI_SUCCESS);
 }
 
-void gasnetc_bootstrapAllgather(void *src, size_t len, void *dest) {
+void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   int err;
 
   err = MPI_Allgather(src, len, MPI_CHAR, dest, len, MPI_CHAR, gasnetc_mpi_comm);
