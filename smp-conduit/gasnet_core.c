@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/20 22:04:37 $
- * $Revision: 1.32 $
+ *     $Date: 2005/03/02 14:54:49 $
+ * $Revision: 1.33 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,31 +23,6 @@ static void gasnetc_atexit(void);
 #define GASNETC_MAX_NUMHANDLERS   256
 typedef void (*gasnetc_handler_fn_t)();  /* prototype for handler function */
 gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
-
-extern void fn0() {}
-extern void fn1() {}
-extern void fn2() {}
-extern void fn3() {}
-extern void fn4() {}
-extern void fn5() {}
-extern void fn6() {}
-extern void fn7() {}
-extern void fn8() {}
-extern void fn9() {}
-
-void (*(fn[]))() = {
-  fn0,
-  fn1,
-  fn2,
-  fn3,
-  fn4,
-  fn5,
-  fn6,
-  fn7,
-  fn8,
-  fn9
-};
-
 
 /* ------------------------------------------------------------------------------------ */
 /*
