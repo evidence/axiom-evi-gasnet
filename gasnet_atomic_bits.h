@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/06/17 03:07:43 $
- * $Revision: 1.10 $
+ *     $Date: 2003/06/21 11:21:22 $
+ * $Revision: 1.11 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -182,7 +182,7 @@
       int _gasneti_atomic_decrement_and_test(volatile uint32_t *ctr) {                                                       \
 	unsigned char c;
         __asm__ __volatile__(
-	        MPLOCKED "decl %0; sete %1"
+	        _STRINGIFY(MPLOCKED) "decl %0; sete %1"
 	        :"=m" (*ctr), "=qm" (c)
 	        :"m" (*ctr) : "memory");
         return (c != 0);
