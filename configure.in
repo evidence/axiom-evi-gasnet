@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/04/25 11:32:18 $
-# $Revision: 1.51 $
+#     $Date: 2003/04/26 13:38:11 $
+# $Revision: 1.52 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.51 $)
+AC_REVISION($Revision: 1.52 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -511,7 +511,7 @@ if test $supported_ammpi = yes; then
         ;;
     *) 
       # unknown OS - if user doesn't provide info, nothing we can do
-      GASNET_ENV_DEFAULT(MPI_CC, )
+      GASNET_ENV_DEFAULT(MPI_CC, mpicc)
       GASNET_ENV_DEFAULT(MPI_CFLAGS, $BUILDCONFIG_DEFINES $MISC_CFLAGS $CFLAGS)
       GASNET_ENV_DEFAULT(MPI_LIBS, )
       GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
