@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/07/08 03:09:17 $
- * $Revision: 1.11 $
+ *     $Date: 2002/08/05 10:15:55 $
+ * $Revision: 1.12 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -360,8 +360,7 @@ extern int gasnetc_AMRequestShortM(
 
     retval = ###;
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMRequestMediumM( 
@@ -382,8 +381,7 @@ extern int gasnetc_AMRequestMediumM(
 
     retval = ###;
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination node */
@@ -411,8 +409,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 
     retval = ###;
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destination node */
@@ -440,8 +437,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 
     retval = ###;
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMReplyShortM( 
@@ -459,8 +455,7 @@ extern int gasnetc_AMReplyShortM(
 
     retval = ###;
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMReplyMediumM( 
@@ -479,8 +474,7 @@ extern int gasnetc_AMReplyMediumM(
 
     retval = ###;
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 extern int gasnetc_AMReplyLongM( 
@@ -511,8 +505,7 @@ extern int gasnetc_AMReplyLongM(
 
     retval = ###;
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  GASNETI_RETURN(retval);
 }
 
 /* ------------------------------------------------------------------------------------ */
