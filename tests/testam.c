@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.15 $
+ *     $Date: 2005/03/12 11:21:16 $
+ * $Revision: 1.16 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -152,7 +152,6 @@ int main(int argc, char **argv) {
 
   if (mynode == 0) {
       printf("Running AM performance test with %i iterations...\n",iters);
-      printf("GASNET_CONFIG:%s\n",GASNET_CONFIG_STRING);
       printf("%-50s    Total time    Avg. time\n"
              "%-50s    ----------    ---------\n", "", "");
       fflush(stdout);

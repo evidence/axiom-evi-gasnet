@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.15 $
+ *     $Date: 2005/03/12 11:21:16 $
+ * $Revision: 1.16 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -107,7 +107,6 @@ int main(int argc, char **argv) {
 
   if (mynode == 0) {
       printf("Running misc performance test with %i iterations...\n",iters);
-      printf("GASNET_CONFIG:%s\n",GASNET_CONFIG_STRING);
       printf("%-50s    Total time    Avg. time\n"
              "%-50s    ----------    ---------\n", "", "");
       fflush(stdout);
@@ -130,7 +129,7 @@ int main(int argc, char **argv) {
     postop;                                              \
     end = ticktime();                                    \
     BARRIER();                                           \
-    if ((desc) && ((char*)(desc))[0])                    \
+    if (((const char *)(desc)) && ((char*)(desc))[0])    \
       report((desc), tickcvt(end - start), iters);       \
     else report(#op, tickcvt(end - start), iters);       \
   }

@@ -1,12 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/02/28 17:38:00 $
- * $Revision: 1.23 $
+ *     $Date: 2005/03/12 11:21:16 $
+ * $Revision: 1.24 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 #define TEST_GASNET_TOOLS_ONLY
+#define GASNETT_MAIN
 #include "test.h"
 
 #include <ctype.h>

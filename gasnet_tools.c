@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/03/08 22:08:54 $
- * $Revision: 1.94 $
+ *     $Date: 2005/03/12 11:21:10 $
+ * $Revision: 1.95 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1569,7 +1569,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
       }
       gasneti_fatalerror("gasneti_malloc(%d) failed (%lu bytes allocated): %s", 
         (int)nbytes, (unsigned long)gasneti_memalloc_cnt, 
-        (curloc == NULL ? "" : curloc));
+        (curloc == NULL ? (const char *)"" : curloc));
     } else {
       uint32_t gasneti_endpost_ref = GASNETI_MEM_ENDPOST;
       gasneti_mutex_lock(&gasneti_memalloc_lock);

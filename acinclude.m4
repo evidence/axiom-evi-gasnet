@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/02/14 12:42:36 $
-dnl $Revision: 1.55 $
+dnl     $Date: 2005/03/12 11:21:10 $
+dnl $Revision: 1.56 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -872,7 +872,8 @@ AC_REQUIRE_CPP
 AC_CACHE_CHECK(for $1 compiler family, $3, [
   $3=unknown
 
-  GASNET_IFDEF(__GNUC__, $3=GNU)
+  GASNET_IFDEF(__GNUC__, $3=GNU) dnl Note this one must precede many of those below
+  GASNET_IFDEF(__PATHCC__, $3=Pathscale)
   GASNET_IFDEF(__PGI, $3=PGI)
   GASNET_IFDEF(__xlC__, $3=XLC)
   GASNET_IFDEF(__KCC, $3=KAI)

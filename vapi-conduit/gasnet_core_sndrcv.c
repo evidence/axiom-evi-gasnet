@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/10 17:19:45 $
- * $Revision: 1.74 $
+ *     $Date: 2005/03/12 11:21:18 $
+ * $Revision: 1.75 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -903,7 +903,7 @@ static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
   GASNETC_TRACE_WAIT_BEGIN();
   VAPI_ret_t vstat;
 
-  (void)gasnetc_rcv_reap(INT_MAX, &gasnetc_rcv_thread_rbuf);
+  (void)gasnetc_rcv_reap((int)(unsigned int)-1, &gasnetc_rcv_thread_rbuf);
 
   vstat = VAPI_req_comp_notif(gasnetc_hca, gasnetc_rcv_cq, VAPI_NEXT_COMP);
 
@@ -916,7 +916,7 @@ static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
     }
   }
 
-  (void)gasnetc_rcv_reap(INT_MAX, &gasnetc_rcv_thread_rbuf);
+  (void)gasnetc_rcv_reap((int)(unsigned int)-1, &gasnetc_rcv_thread_rbuf);
   GASNETC_TRACE_WAIT_END(RCV_THREAD_WAKE);
 #else
   gasneti_fatalerror("unexpected call to gasnetc_rcv_thread");

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
- *     $Date: 2005/02/14 05:13:36 $
- * $Revision: 1.7 $
+ *     $Date: 2005/03/12 11:21:12 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,7 +20,7 @@ gasneti_memveclist_stats_t gasnete_memveclist_stats(size_t count, gasnet_memvec_
   gasneti_memveclist_stats_t retval;
   size_t minsz = (size_t)-1, maxsz = 0;
   uintptr_t totalsz = 0;
-  char *minaddr = (char *)(uintptr_t)-1;
+  char *minaddr = (char *)(intptr_t)(uintptr_t)-1;
   char *maxaddr = (char *)0;
   size_t i;
   for (i = 0; i < count; i++) {
@@ -45,7 +45,7 @@ gasneti_memveclist_stats_t gasnete_memveclist_stats(size_t count, gasnet_memvec_
 GASNET_INLINE_MODIFIER(gasnete_addrlist_stats)
 gasneti_addrlist_stats_t gasnete_addrlist_stats(size_t count, void * const *list, size_t len) {
   gasneti_addrlist_stats_t retval;
-  char *minaddr = (char *)(uintptr_t)-1;
+  char *minaddr = (char *)(intptr_t)(uintptr_t)-1;
   char *maxaddr = (char *)0;
   size_t i;
   for (i = 0; i < count; i++) {

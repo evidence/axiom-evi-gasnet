@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.3 $
+ *     $Date: 2005/03/12 11:21:16 $
+ * $Revision: 1.4 $
  * Description: MG-like neighbour exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -311,7 +311,7 @@ void _print_stat(nbour_t *nb, int myproc, stat_struct_t *st, const char *name)
 			continue;
 		    procavg = ((double)nb->stats0[i].time)/nb->stats0[i].iters;
 		    devmean = (double)cattimes[c] - procavg;
-		    sumsq += devmean*devmean; //pow((double)cattimes[c] - procavg, 2.0);
+		    sumsq += devmean*devmean; /*pow((double)cattimes[c] - procavg, 2.0);*/
 		}
 		divm = sumsq / (catcount[c]-1);
 		stdev[c] = sqrt(divm);
@@ -613,7 +613,7 @@ setupGrid(nbour_t *nb, int dimsz)
 
     /* Setup the number of blocks per grid element in each dimension. Total
      * elements per dimension contains an extra two boundary elements */
-    nb->elemsPerDim = elemsPerDim = dimsz;//(2<<(unsigned)level);
+    nb->elemsPerDim = elemsPerDim = dimsz;/*(2<<(unsigned)level);*/
     totelemsPerDim = elemsPerDim + 2;
     nb->totalSize = 1;
 

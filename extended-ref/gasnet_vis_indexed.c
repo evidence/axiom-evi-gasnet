@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_indexed.c,v $
- *     $Date: 2005/02/24 19:18:16 $
- * $Revision: 1.10 $
+ *     $Date: 2005/03/12 11:21:12 $
+ * $Revision: 1.11 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -751,7 +751,7 @@ extern gasnet_handle_t gasnete_geti(gasnete_synctype_t synctype,
       uint8_t *_dstptr_start[GASNETE_DIRECT_DIMS];                     \
       uint8_t ** const dstptr_start = (dim <= GASNETE_DIRECT_DIMS ?    \
          _dstptr_start : gasneti_malloc(sizeof(uint8_t *)*dim));       \
-      size_t *_idx[GASNETE_DIRECT_DIMS];                               \
+      size_t _idx[GASNETE_DIRECT_DIMS];                                \
       size_t * const idx = (dim <= GASNETE_DIRECT_DIMS ?               \
          _idx : gasneti_malloc(sizeof(size_t)*dim));                   \
       for (curdim = 0; curdim < dim; curdim++) {                       \

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2004/11/12 18:58:31 $
- * $Revision: 1.37 $
+ *     $Date: 2005/03/12 11:21:10 $
+ * $Revision: 1.38 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -434,8 +434,10 @@ BEGIN_EXTERNC
     if (GASNETI_TRACE_ENABLED(D)) {                                                                              \
       char * dstlist_str = (char *)gasneti_extern_malloc(gasneti_format_addrlist_bufsz(dstcount));               \
       char * srclist_str = (char *)gasneti_extern_malloc(gasneti_format_addrlist_bufsz(srccount));               \
-      gasneti_addrlist_stats_t dststats = gasneti_format_addrlist(dstlist_str, (dstcount), (dstlist), (dstlen)); \
-      gasneti_addrlist_stats_t srcstats = gasneti_format_addrlist(srclist_str, (srccount), (srclist), (srclen)); \
+      gasneti_addrlist_stats_t dststats =                                                                        \
+              gasneti_format_addrlist(dstlist_str, (dstcount), (void * const *)(dstlist), (dstlen));             \
+      gasneti_addrlist_stats_t srcstats =                                                                        \
+              gasneti_format_addrlist(srclist_str, (srccount), (void * const *)(srclist), (srclen));             \
       uintptr_t totalsz = ((uintptr_t)(dstcount))*(dstlen);                                                      \
       GASNETI_TRACE_EVENT_VAL(type,name,totalsz);                                                                \
       GASNETI_TRACE_PRINTF(D,(#name ": (%i data bytes) node=%i\n"                                                \

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/01/23 00:18:41 $
- * $Revision: 1.24 $
+ *     $Date: 2005/03/12 11:21:10 $
+ * $Revision: 1.25 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -99,7 +99,12 @@ BEGIN_EXTERNC
   #define GASNETT_TRACE_PRINTF  _gasnett_trace_printf
   /*GASNET_INLINE_MODIFIER(_gasnett_trace_printf) 
    * causes many warnings because vararg fns cannot be inlined */
-  static void _gasnett_trace_printf(const char *format, ...) { return; }
+  static void _gasnett_trace_printf(const char *_format, ...) { 
+    #ifdef __PGI
+      va_list _ap; va_start(_ap,_format); va_end(_ap); /* avoid a silly warning */
+    #endif
+    return; 
+  }
 #endif
 
 #if defined(_INCLUDED_GASNET_H) && defined(GASNET_STATS)
