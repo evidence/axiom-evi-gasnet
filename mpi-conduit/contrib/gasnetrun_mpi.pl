@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v 1.10 2004/07/19 23:45:08 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v 1.11 2004/08/05 00:11:16 phargrov Exp $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -43,6 +43,7 @@ my @tmpfiles = ();
     my $is_lam      = ($mpirun_help =~ m|LAM/MPI|);
     my $is_mpich_nt = ($mpirun_help =~ m|MPIRun|);
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
+    my $is_mvich    = ($mpirun_help =~ m|MVICH|);
 
     if ($is_lam) {
 	# pass env as "-x A,B,C"
@@ -53,9 +54,16 @@ my @tmpfiles = ();
 	# pass env as "-env A=1|B=2|C=3"
 	%envfmt = ( 'pre' => '-env',
 		    'join' => '|',
-		    'val' => 1
+		    'val' => ''
 		  );
 	$find_exe = 0;
+    } elsif ($is_mvich) {
+	# pass env as "/usr/bin/env 'A=1' 'B=2' 'C=3'"
+        my $envprog = `which env`;
+  	chomp $envprog;
+	%envfmt = ( 'pre' => $envprog,
+		    'val' => "'"
+		  );
     } else {
 	# pass env as "/usr/bin/env A=1 B=2 C=3"
 	# Our nearly universal default
@@ -65,7 +73,7 @@ my @tmpfiles = ();
   	  chomp $envprog;
         }
 	%envfmt = ( 'pre' => $envprog,
-		    'val' => 1
+		    'val' => ''
 		  );
     }
 
@@ -104,23 +112,6 @@ sub expand {
     @$arr_ref = @tmp;
   }
 }
-
-# Function to apply shell quoting for spaces and metachars.
-# Only used for human readable output
-sub do_quote
-{
-    $_ = shift;
-
-    if (m/[\\`" !#&*$()<>|]/) {
-	if (m/'/) { s/'/'\\''/; }
-	return "'$_'";
-    } elsif (m/'/) {
-	return '"' . $_ . '"';
-    } else {
-	return $_;
-    }
-}
-	
 
 # We need to parse our command-line arguments
     while (@ARGV > 0) {
@@ -211,7 +202,8 @@ sub do_quote
     if (@envvars) {
         # pair the variables with their values if desired
         if (defined $envfmt{val}) {
-	    @envargs = map { "$_=$ENV{$_}" } @envargs;
+	    my $q = $envfmt{val};
+	    @envargs = map { "$_=$q$ENV{$_}$q" } @envargs;
         }
         # join them into a single argument if desired
         if (defined $envfmt{join}) {
@@ -302,7 +294,7 @@ EOF
                               $_;
                           }
 			} split(" ", $spawncmd);
-    print("running: ", join(' ', (map { do_quote $_; } @spawncmd)), "\n")
+    print("running: ", join(' ', @spawncmd), "\n")
 	if ($verbose);
     exit(0) if ($dryrun);
 
