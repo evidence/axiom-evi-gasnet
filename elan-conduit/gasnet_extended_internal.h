@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended_internal.h         $
- *     $Date: 2002/09/13 13:41:42 $
- * $Revision: 1.3 $
+ *     $Date: 2002/10/03 14:30:34 $
+ * $Revision: 1.4 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -178,7 +178,7 @@ void gasnete_op_free(gasnete_op_t *op);
    }                                                                        \
  } while (0)
 
-#define GASNETE_HANDLER_BASE  100 /* reserve 100-199 for the extended API */
+#define GASNETE_HANDLER_BASE  64 /* reserve 64-127 for the extended API */
 #define _hidx_gasnete_barrier_notify_reqh   (GASNETE_HANDLER_BASE+0) 
 #define _hidx_gasnete_barrier_done_reqh     (GASNETE_HANDLER_BASE+1)
 #define _hidx_gasnete_get_reqh              (GASNETE_HANDLER_BASE+2)

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.24 2002/08/30 03:17:55 bonachea Exp $
- * $Date: 2002/08/30 03:17:55 $
+/* $Id: gasnet_core.c,v 1.25 2002/10/03 14:30:37 bonachea Exp $
+ * $Date: 2002/10/03 14:30:37 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -296,12 +296,12 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 		assert(ctable && cdtable);
 		while (ctable[c_len].fnptr) c_len++; /* calc len */
 		while (cdtable[cd_len].fnptr) cd_len++; /* calc len */
-		if (gasnetc_reghandlers(ctable, c_len, 1, 99, 0, &c_numreg)
+		if (gasnetc_reghandlers(ctable, c_len, 1, 63, 0, &c_numreg)
 		    != GASNET_OK)
 			GASNETI_RETURN_ERRR(RESOURCE,
 			    "Error registering core API handlers");
 		assert(c_numreg == c_len);
-		if (gasnetc_reghandlers(cdtable, cd_len, 1+c_len, 99, 0, 
+		if (gasnetc_reghandlers(cdtable, cd_len, 1+c_len, 63, 0, 
 		    &cd_numreg) != GASNET_OK)
 			GASNETI_RETURN_ERRR(RESOURCE,
 			    "Error registering core RDMA API handlers");
@@ -318,13 +318,13 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	
 		while (ertable[er_len].fnptr) er_len++; /* calc len */
 		while (etable[e_len].fnptr) e_len++; /* calc len */
-		if (gasnetc_reghandlers(ertable, er_len, 100, 199, 0, 
+		if (gasnetc_reghandlers(ertable, er_len, 64, 127, 0, 
 		    &er_numreg) != GASNET_OK)
 			GASNETI_RETURN_ERRR(RESOURCE,
 			    "Error registering extended reference API handlers");
 	    	assert(er_numreg == er_len);
 	
-		if (gasnetc_reghandlers(etable, e_len, 100+er_len, 199, 0, 
+		if (gasnetc_reghandlers(etable, e_len, 64+er_len, 127, 0, 
 		    &e_numreg) != GASNET_OK)
 			GASNETI_RETURN_ERRR(RESOURCE,
 			    "Error registering extended API handlers");
@@ -336,11 +336,11 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
     int numreg2 = 0;
 
     /*  first pass - assign all fixed-index handlers */
-    if (gasnetc_reghandlers(table, numentries, 200, 255, 0, &numreg1) != GASNET_OK)
+    if (gasnetc_reghandlers(table, numentries, 128, 255, 0, &numreg1) != GASNET_OK)
       GASNETI_RETURN_ERRR(RESOURCE,"Error registering fixed-index client handlers");
 
     /*  second pass - fill in dontcare-index handlers */
-    if (gasnetc_reghandlers(table, numentries, 200, 255, 1, &numreg2) != GASNET_OK)
+    if (gasnetc_reghandlers(table, numentries, 128, 255, 1, &numreg2) != GASNET_OK)
       GASNETI_RETURN_ERRR(RESOURCE,"Error registering fixed-index client handlers");
 
     assert(numreg1 + numreg2 == numentries);
@@ -349,7 +349,8 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
   /* ------------------------------------------------------------------------------------ */
   /*  register fatal signal handlers */
 
-  /*  (...) catch fatal signals and convert to SIGQUIT */
+  /*  catch fatal signals and convert to SIGQUIT */
+  gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */

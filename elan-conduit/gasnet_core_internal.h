@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/09/13 13:41:42 $
- * $Revision: 1.7 $
+ *     $Date: 2002/10/03 14:30:34 $
+ * $Revision: 1.8 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -58,7 +58,7 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
  } while (0)
 
 /* ------------------------------------------------------------------------------------ */
-#define GASNETC_HANDLER_BASE  1 /* reserve 1-99 for the core API */
+#define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
 /*
 #define _hidx_                              (GASNETC_HANDLER_BASE+)
 */

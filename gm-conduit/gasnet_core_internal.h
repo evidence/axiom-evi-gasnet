@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.31 2002/08/23 12:47:54 csbell Exp $
- * $Date: 2002/08/23 12:47:54 $
- * $Revision: 1.31 $
+/* $Id: gasnet_core_internal.h,v 1.32 2002/10/03 14:30:37 bonachea Exp $
+ * $Date: 2002/10/03 14:30:37 $
+ * $Revision: 1.32 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -94,7 +94,7 @@ extern gasneti_mutex_t	gasnetc_lock_reqpool;
 extern gasneti_mutex_t	gasnetc_lock_amreq;
 /* -------------------------------------------------------------------------- */
 /* Core-specific AMs */
-#define GASNETC_HANDLER_BASE  1 /* reserve 1-99 for the core API */
+#define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
 #define _hidx_gasnetc_am_medcopy		(GASNETC_HANDLER_BASE+0) 
 #ifdef GASNETC_FIREHOSE
 #define _hidx_gasnetc_firehose_move_reqh	(GASNETC_HANDLER_BASE+1) 

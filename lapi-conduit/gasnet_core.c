@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/07/03 19:41:24 $
- * $Revision: 1.1 $
+ *     $Date: 2002/10/03 14:30:38 $
+ * $Revision: 1.2 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -256,8 +256,8 @@ static int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	assert(ctable);
 	for (i = 0; ctable[i].fnptr; i++) {
 	    assert(ctable[i].index);
-	    /*  ensure all core API handlers have pre-assigned index 1..99 */
-	    assert(ctable[i].index >= 1 && ctable[i].index <= 99);
+	    /*  ensure all core API handlers have pre-assigned index 1..63 */
+	    assert(ctable[i].index >= 1 && ctable[i].index <= 63);
 	    /* discover duplicates */
 	    assert(checkuniqhandler[ctable[i].index] == 0);
 	    checkuniqhandler[ctable[i].index] = 1;
@@ -274,8 +274,8 @@ static int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	for (i = 0; etable[i].fnptr; i++) {
 	    int ix = etable[i].index;
 	    assert(etable[i].index);
-	    /*  ensure all extended API handlers have pre-assigned index 100..199 */
-	    assert(etable[i].index >= 100 && etable[i].index <= 199);
+	    /*  ensure all extended API handlers have pre-assigned index 64..127 */
+	    assert(etable[i].index >= 64 && etable[i].index <= 127);
 	    /* discover duplicates */
 	    assert(checkuniqhandler[etable[i].index] == 0);
 	    checkuniqhandler[etable[i].index] = 1;
@@ -287,13 +287,13 @@ static int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     if (table) { /*  client handlers */
 	int i;
     
-	if (numentries > 56) 
-	    GASNETI_RETURN_ERRR(BAD_ARG, "client tried to register too many handlers (limit=56)");
+	if (numentries > 128) 
+	    GASNETI_RETURN_ERRR(BAD_ARG, "client tried to register too many handlers (limit=128)");
 
 	/*  first pass - assign all fixed-index handlers */
 	for (i = 0; i < numentries; i++) {
 	    if (table[i].index) {
-		assert(table[i].index >= 200 && table[i].index <= 255);
+		assert(table[i].index >= 128 && table[i].index <= 255);
 		assert(table[i].fnptr);
 		/* discover duplicates */
 		assert(checkuniqhandler[table[i].index] == 0);
@@ -306,7 +306,7 @@ static int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	    if (!table[i].index) {
 		gasnet_handler_t tmp;
 		assert(table[i].fnptr);
-		for (tmp=200; tmp < 255; tmp++) {
+		for (tmp=128; tmp < 255; tmp++) {
 		    if (checkuniqhandler[tmp] == 0) break;
 		}
 		/* given numentries < 56, this should never happen, but check.. */

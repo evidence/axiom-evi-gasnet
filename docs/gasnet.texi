@@ -40,7 +40,7 @@
 @c ------------------------------------------------------------------------------------
 @c Macros:
 
-@set VERSION 0.7draft1
+@set VERSION 0.7draft2
 @set RELEASEDATE July 2nd, 2002
 
 @ifnottex
@@ -146,9 +146,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/09/07 07:33:41 $
+@subtitle $Date: 2002/10/03 14:30:33 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.11 $ 
+@subtitle $Revision: 1.12 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/09/07 07:33:41 $
-@*$Revision: 1.11 $ 
+@*$Date: 2002/10/03 14:30:33 $
+@*$Revision: 1.12 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.nersc.gov/}
 @HR
@@ -598,7 +598,7 @@ call the active-message request functions in the core API need not register
 any handlers, and may pass a @code{NULL} pointer for @var{table}. Clients wishing to 
 register some handlers should fill in @var{table} with function pointers and 
 the desired handler index (or index 0 for "don't-care") - note that handlers 
-0..199 are reserved for GASNet internal use, and handlers 200..255 are 
+0..127 are reserved for GASNet internal use, and handlers 128..255 are 
 available for client-provided handlers. Once @code{gasnet_attach()} returns, any 
 "don't care" handler indexes in the table will be modified in place to 
 reflect the handler index assigned for each handler - the assignment 
@@ -617,8 +617,9 @@ should be less than or equal to the value returned by @code{gasnet_getMaxLocalSe
 @var{minheapoffset} specifies the minimum amount of virtual memory space (in bytes)
 to leave between the end of the current memory heap and the beginning of the 
 remote-access memory segment (on some systems the size of this offset 
-may limit the total future growth of the
-local memory heap, on other systems it may be irrelevant). Note that specifying a large
+may limit the total future growth of the local memory heap, on other systems it may be irrelevant). 
+All nodes are required to pass the same value for @var{minheapoffset}.
+Note that specifying a large
 @var{minheapoffset} may limit the possible size of the remote-access segment on some systems.
 Passing a @var{segsize} of zero disables the remote-access segment for this node, meaning
 other nodes cannot access it with remote-memory operations and this node 

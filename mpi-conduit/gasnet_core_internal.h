@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_internal.h              $
- *     $Date: 2002/09/08 14:25:13 $
- * $Revision: 1.6 $
+ *     $Date: 2002/10/03 14:30:39 $
+ * $Revision: 1.7 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -94,7 +94,7 @@ int gasneti_checkAMreturn(int retcode, const char *fncallstr,
  } while (0)
 
 /* ------------------------------------------------------------------------------------ */
-#define GASNETC_HANDLER_BASE  1 /* reserve 1-99 for the core API */
+#define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
 /*#define _hidx_       (GASNETC_HANDLER_BASE+0) */
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
