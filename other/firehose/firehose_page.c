@@ -2074,6 +2074,8 @@ fh_am_move_reph_inner(gasnet_token_t token, void *addr,
 	numpend = 
 	    fhi_FlushPendingRequests(node, regions, r_new, &pendCallbacks);
 
+	FH_TABLE_UNLOCK;
+
 	if (numpend > 0) {
 		#ifdef FIREHOSE_COMPLETION_IN_HANDLER
 		fh_completion_callback_t	*ccb, *ccb2;
@@ -2093,7 +2095,6 @@ fh_am_move_reph_inner(gasnet_token_t token, void *addr,
 		FH_POLLQ_UNLOCK;
 		#endif
 	}
-	FH_TABLE_UNLOCK;
 
 	return;
 }
