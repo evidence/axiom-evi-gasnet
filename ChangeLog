@@ -2,7 +2,44 @@ GASNet ChangeLog
 ----------------
 
 ----------------------------------------------------------------------
-04-17-2002 : Release 1.1
+06-28-2003 : Release 1.2
+
+* Greatly increased the number of platforms supported - notably, this release
+  adds support for FreeBSD, IRIX, HPUX, Solaris, MSWindows-Cygwin and Mac OSX,
+  as well as the SunPro, MIPSPro, Portland Group and Intel C compilers. See the
+  top-level README for the complete list of supported platforms.
+
+* Added the smp-conduit, which implements pure loopback to support GASNet
+  clients on platforms lacking a network.
+
+* Remove 256-node scalability limit - mpi, elan and lapi conduits now
+  theoretically scale to 2^31 nodes. gm conduit scales to 2^16 nodes.
+
+* Merge v0.7 of AMMPI - improved latency performance, better scalability, and
+  fixes for LAM/MPI
+
+* Fix bug 120 - gasnet_exit now reliably kills the entire job on all conduits
+  in various collective and non-collective invocation situations.
+
+* New switches GASNETE_PUTGET_ALWAYSLOCAL and GASNETE_PUTGET_ALWAYSREMOTE which
+  optimize away the locality check for put/gets implemented by
+  gasnete_islocal() 
+
+* Updates to the tracing system - separate statistics from tracing to allow
+  finer user control controlled by new environment variables - GASNET_STATSMASK
+  and GASNET_STATSFILE
+
+* Major cleanup to the gm-conduit bootstrap code
+
+* Internal structural changes to gasnet_extended.h to provide more flexibility
+  for conduit overrides
+
+* Minor wording clarifications to the GASNet spec
+
+* Many minor bug fixes
+
+----------------------------------------------------------------------
+04-17-2003 : Release 1.1
 
 * Added lots of conduit user and design documentation
 * Fix bugs with gasnet_register_value_t functionality, in some cases garbage 
