@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.9 2002/08/19 01:29:19 csbell Exp $
- * $Date: 2002/08/19 01:29:19 $
- * $Revision: 1.9 $
+/* $Id: gasnet_core_fwd.h,v 1.10 2002/08/22 02:09:39 csbell Exp $
+ * $Date: 2002/08/22 02:09:39 $
+ * $Revision: 1.10 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -18,18 +18,18 @@
 #define GASNET_CORE_NAME         GM
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
 
-#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD	4096
-
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 #define GASNET_ALIGNED_SEGMENTS	1
 #define GASNET_MAXNODES		1024
+
+/* no detection for these yet */
 #define PAGE_SIZE	4096
 #define PAGE_SHIFT	12
+
+/* only have firehose for now */
 #define GASNETC_FIREHOSE
-#define GASNETC_PINNED_STACK_PAGES	40
-#define GASNETC_BUCKET_SIZE		4*PAGE_SIZE
-#define GASNETC_BUCKET_SHIFT		14
+
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_help.h) */

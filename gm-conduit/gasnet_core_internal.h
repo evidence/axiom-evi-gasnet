@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.27 2002/08/21 01:03:03 csbell Exp $
- * $Date: 2002/08/21 01:03:03 $
- * $Revision: 1.27 $
+/* $Id: gasnet_core_internal.h,v 1.28 2002/08/22 02:09:39 csbell Exp $
+ * $Date: 2002/08/22 02:09:39 $
+ * $Revision: 1.28 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -47,6 +47,21 @@
     #define gasneti_atomic_decrement(p) atomic_subtract_int((p),1)
   #endif
 #endif
+
+#ifdef GASNETC_FIREHOSE
+#define GASNETC_PINNED_STACK_PAGES	40
+#ifndef GASNETC_BUCKET_SIZE
+#define GASNETC_BUCKET_SIZE		4*PAGE_SIZE
+#endif
+#ifndef GASNETC_BUCKET_SHIFT
+#define GASNETC_BUCKET_SHIFT		14
+#endif
+#define GASNETC_NUM_BUCKETS(addr,len)	(assert(addr%GASNETC_BUCKET_SIZE==0),\
+					(GASNETI_PAGE_ROUNDUP(len,           \
+					GASNETC_BUCKET_SIZE)-addr)>>         \
+					GASNETC_BUCKET_SHIFT)
+
+#endif /* GASNETC_FIREHOSE */
 
 extern gasnet_seginfo_t *gasnetc_seginfo;
 

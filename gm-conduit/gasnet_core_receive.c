@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.19 2002/08/21 01:03:03 csbell Exp $
- * $Date: 2002/08/21 01:03:03 $
- * $Revision: 1.19 $
+/* $Id: gasnet_core_receive.c,v 1.20 2002/08/22 02:09:39 csbell Exp $
+ * $Date: 2002/08/22 02:09:39 $
+ * $Revision: 1.20 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -648,12 +648,10 @@ gasnetc_callback_lo_rdma(struct gm_port *p, void *ctx, gm_status_t status)
 	assert(bufd->dest_addr > 0);
 	assert(bufd->rdma_len > 0);
 	/* tell core plugins that the rdma is done */
-	gasneti_mutex_unlock(&gasnetc_lock_gm);
 	if (bufd->source_addr != 0)
 		gasnetc_done_pinned(gasnetc_mynode, bufd->source_addr, 
 		    bufd->rdma_len);
 	gasnetc_done_pinned(bufd->node, bufd->dest_addr, bufd->rdma_len);
-	gasneti_mutex_lock(&gasnetc_lock_gm);
 	gasnetc_token_lo_release();
 	GASNETI_TRACE_PRINTF(C, 
 	    ("callback_lo_rdma stoks.lo = %d", _gmc.stoks.lo));
@@ -671,12 +669,10 @@ gasnetc_callback_lo_bufd_rdma(struct gm_port *p, void *ctx, gm_status_t status)
 	GASNETI_TRACE_PRINTF(C, ("!!! callback bufd = %p", (void *) bufd));
 	assert(bufd->dest_addr > 0);
 	assert(bufd->rdma_len > 0);
-	gasneti_mutex_unlock(&gasnetc_lock_gm);
 	if (bufd->source_addr != 0)
 		gasnetc_done_pinned(gasnetc_mynode, bufd->source_addr, 
 		    bufd->rdma_len);
 	gasnetc_done_pinned(bufd->node, bufd->dest_addr, bufd->rdma_len);
-	gasneti_mutex_lock(&gasnetc_lock_gm);
 	gasnetc_callback_generic(p, ctx, status);
 	gasnetc_token_lo_release();
 	GASNETI_TRACE_PRINTF(C, 
@@ -716,7 +712,6 @@ gasnetc_callback_hi_rdma(struct gm_port *p, void *ctx,
 	bufd = (gasnetc_bufdesc_t *) ctx;
 	assert(bufd->node < gasnetc_nodes);
 	assert(bufd->rdma_len > 0);
-	gasneti_mutex_unlock(&gasnetc_lock_gm);
 	if (bufd->source_addr != 0) {
 		GASNETI_TRACE_PRINTF(C, 
 		    ("callback_hi_rdma: local done_pinned(%d, %p, %d)",
@@ -732,7 +727,6 @@ gasnetc_callback_hi_rdma(struct gm_port *p, void *ctx,
 		    bufd->node, (void *)bufd->source_addr, bufd->rdma_len));
 		gasnetc_done_pinned(bufd->node, bufd->dest_addr, bufd->rdma_len);
 	}
-	gasneti_mutex_lock(&gasnetc_lock_gm);
 	gasnetc_token_hi_release();
 	GASNETI_TRACE_PRINTF(C, 
 	    ("callback_hi_rdma stoks.hi = %d", _gmc.stoks.hi));

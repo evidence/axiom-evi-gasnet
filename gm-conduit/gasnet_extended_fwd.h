@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2002/08/20 11:51:23 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/22 02:09:39 $
+ * $Revision: 1.3 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -17,8 +17,9 @@
 #define GASNET_EXTENDED_NAME         REFERENCE
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
 
-#define GASNETE_PUT_NON_DMA_CUTOFF	16384	
-#define GASNETE_GET_NON_DMA_CUTOFF	16384
+#define GASNETE_PUT_NON_DMA_CUTOFF	0	
+#define GASNETE_GET_NON_DMA_CUTOFF	8192
+#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD	8192
 
 #define _GASNET_HANDLE_T
 /*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */
