@@ -21,6 +21,33 @@ else
   AC_MSG_RESULT(yes)
 fi])
 
+
+dnl add file to list of executable outputs that should be marked +x
+dnl would be nice to use AC_CONFIG_COMMANDS() for each file, but autoconf 2.53
+dnl  stupidly fails to execute commands having the same tag as a config output file
+dnl  on subsequent calls to config.status
+AC_DEFUN(GASNET_FIX_EXEC,[
+  gasnet_exec_list="$gasnet_exec_list $1"
+])
+
+dnl ensure the "default" command is run on every invocation of config.status
+AC_DEFUN(GASNET_FIX_EXEC_SETUP,[[
+  dnl round-about method ensure autoconf 2.53 picks up depfiles command
+  if test "\${config_commands+set}" != set ; then
+    config_commands="default"
+  fi
+  CONFIG_COMMANDS="\$config_commands"
+  gasnet_exec_list="$gasnet_exec_list"
+]])
+
+AC_DEFUN(GASNET_FIX_EXEC_OUTPUT,[[
+  for file in $gasnet_exec_list; do
+   case "$CONFIG_FILES" in
+     *${file}*) chmod +x ${file} ;;
+   esac
+  done
+]])
+
 AC_DEFUN(GASNET_LIBGCC,[
 AC_REQUIRE([AC_PROG_CC])
 AC_CACHE_CHECK(for libgcc link flags, gasnet_cv_lib_gcc,
@@ -183,12 +210,6 @@ GASNET_check_lib_old_ldflags="$LDFLAGS"
 LDFLAGS="$LD_FLAGS $5"
 AC_CHECK_LIB($1, $2, $3, $4, $6)
 LDFLAGS="$GASNET_check_lib_old_ldflags"])
-
-
-AC_DEFUN(GASNET_FIX_EXEC,[[
-case "$CONFIG_FILES" in
-  *$1*) chmod +x $1 ;;
-esac]])
 
 
 dnl GASNET_TRY_CFLAG(flags, action-if-supported, action-if-not-supported)
