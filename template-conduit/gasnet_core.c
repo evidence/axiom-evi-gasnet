@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/07/04 03:01:47 $
- * $Revision: 1.8 $
+ *     $Date: 2002/07/04 12:05:34 $
+ * $Revision: 1.9 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -240,15 +240,18 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
 
   #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-    /* (###) add code here to choose and register a segment 
-       (ensuring alignment across all nodes if this conduit sets GASNET_ALIGNED_SEGMENTS==1) */
-
-    assert(((uintptr_t)segbase) % pagesize == 0);
-    assert(segsize % pagesize == 0);
+    if (segsize == 0) segbase = NULL; /* no segment */
+    else {
+      /* (###) add code here to choose and register a segment 
+         (ensuring alignment across all nodes if this conduit sets GASNET_ALIGNED_SEGMENTS==1) */
+      assert(((uintptr_t)segbase) % pagesize == 0);
+      assert(segsize % pagesize == 0);
+    }
   #else
     /* GASNET_SEGMENT_EVERYTHING */
     segbase = (void *)0;
     segsize = (uintptr_t)-1;
+    /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
   #endif
 
   /* ------------------------------------------------------------------------------------ */

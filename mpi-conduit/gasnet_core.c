@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/07/04 02:40:23 $
- * $Revision: 1.6 $
+ *     $Date: 2002/07/04 12:05:33 $
+ * $Revision: 1.7 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -272,17 +272,20 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /*  register segment  */
 
     #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-      /* TODO: fix this to allocate dynamically using mmap fixed */
-      segbase = gasnetc_uglyevilhack;
+      if (segsize == 0) segbase = NULL; /* no segment */
+      else {
+        /* TODO: fix this to allocate dynamically using mmap fixed */
+        segbase = gasnetc_uglyevilhack;
 
-      /*  ensure page-alignment of base */
-      if ((((uintptr_t)segbase) % pagesize) != 0) {
-        uint8_t *mem = (uint8_t *)segbase;
-        segbase = (void *) (mem + (pagesize - (((uintptr_t)mem) % pagesize)));
+        /*  ensure page-alignment of base */
+        if ((((uintptr_t)segbase) % pagesize) != 0) {
+          uint8_t *mem = (uint8_t *)segbase;
+          segbase = (void *) (mem + (pagesize - (((uintptr_t)mem) % pagesize)));
+        }
+
+        assert(((uintptr_t)segbase) % pagesize == 0);
+        assert(segsize % pagesize == 0);
       }
-
-      assert(((uintptr_t)segbase) % pagesize == 0);
-      assert(segsize % pagesize == 0);
     #else
       /* GASNET_SEGMENT_EVERYTHING */
       segbase = (void *)0;
@@ -290,8 +293,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     #endif
 
     /*  AMMPI allows arbitrary registration with no further action  */
-    retval = AM_SetSeg(gasnetc_endpoint, segbase, segsize);
-    if (retval != AM_OK) INITERR(RESOURCE, "AM_SetSeg() failed");
+    if (segbase) {
+      retval = AM_SetSeg(gasnetc_endpoint, segbase, segsize);
+      if (retval != AM_OK) INITERR(RESOURCE, "AM_SetSeg() failed");
+    }
 
     /* use gasneti_malloc_inhandler during bootstrapping because we can't assume the 
        hold/resume interrupts functions are operational yet */
