@@ -29,5 +29,20 @@ gasnet_extended_firehose.c	Extended firehose provides all put/get
 				gasnet_core_firehose.c 
 gasnet_extended_turkey.c	Extended turkey provides all put/get functions
 				for the turkey sandwich algorithms and supplies
-				AM reply handlers to plug into
+				AM reply handlers to plug into 
 				gasnet_core_turkey.c
+				(not implemented or committed yet).
+
+Tags:
+	GM_RENDEZVOUS:	gm-conduit specific tag, which uses a snapshot from Oct
+			2002 and implements rendezvous instead of firehose.
+			This was needed in a firehose paper showing performance
+			characteristics and comparing the algorithm to a
+			rendezvous approach.
+			
+			From a current gasnet checkout, in gm-conduit
+			directory, run
+			% cvs up -PAd -r GM_RENDEZVOUS
+			Note that some minor code changes might be required in
+			order to have this version of the gm-conduit compile.
+

@@ -1,8 +1,11 @@
-/*************************************************************************
- * Myricom MPICH-GM ch_gm backend                                        *
- * Copyright (c) 2001 by Myricom, Inc.                                   *
- * All rights reserved.                                                  *
- *************************************************************************/
+/* $Id: gasnet_core_conf.c,v 1.2 2003/01/28 05:43:48 csbell Exp $
+ * $Date: 2003/01/28 05:43:48 $
+ * Description: GASNet GM conduit Implementation
+ * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
+ * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
+/* Much of the code below is taken from Myricom's MPICH bootstrap code */
 
 #include <gasnet_core_internal.h>
 #include <netdb.h>

@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.18 2003/01/14 04:33:02 csbell Exp $
- * $Date: 2003/01/14 04:33:02 $
+/* $Id: gasnet_extended_firehose.c,v 1.19 2003/01/28 05:43:48 csbell Exp $
+ * $Date: 2003/01/28 05:43:48 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,17 +23,12 @@
 #define GASNETE_FH_HAVE_TOKEN		0
 #define GASNETE_FH_POLL_TOKEN		1
 
-extern uintptr_t	*gasnetc_firehose_buf;
-extern size_t		 gasnetc_firehose_buf_num;
-extern gasneti_mutex_t	 gasnetc_lock_fh_victim;
-extern gasneti_mutex_t	 gasnetc_lock_fh_hash;
-
 extern void	gasnetc_done_pinned(gasnet_node_t, uintptr_t, size_t);
 extern void	gasnetc_callback_ambuffer(struct gm_port *, void *, gm_status_t);
 extern void	gasnetc_bucket_pin_by_addr(uintptr_t, size_t);
 extern void	gasnetc_bucket_unpin_by_addr(uintptr_t, size_t);
-extern int	gasnetc_firehose_build_list(gasnet_node_t, uintptr_t, size_t, 
-					    size_t *, size_t *);
+extern int	gasnetc_firehose_build_list(uintptr_t *, gasnet_node_t, 
+			uintptr_t, unsigned int, unsigned int *, unsigned int *);
 extern void	gasnetc_firehose_decrement_refcount(gasnet_node_t, uintptr_t, 
 						    size_t);
 extern void	gasnete_firehose_move_done(void *);
@@ -161,7 +156,8 @@ void
 gasnete_firehose_callback_pop(struct gm_port *p, void *context, 
 			      gm_status_t status)
 {
-	gasnete_eop_t	*eop = (gasnete_eop_t *) context;
+	gasnete_eop_t		*eop = (gasnete_eop_t *) context;
+	gasneti_stattime_t      starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(eop != NULL);
@@ -196,8 +192,6 @@ gasnete_firehose_callback_pop(struct gm_port *p, void *context,
 		gasnetc_done_pinned(gasnetc_mynode, eop->src, eop->len);
 	}
 
-	GASNETE_FIREHOSE_TRACE_PUTGET(eop, PUT);
-
 	if (eop->iop != NULL) {
 		gasneti_atomic_increment(&(eop->iop->completed_put_cnt));
 		GASNETI_TRACE_PRINTF(C, ("iop increment at %p", (void *) eop));
@@ -206,6 +200,11 @@ gasnete_firehose_callback_pop(struct gm_port *p, void *context,
 	else {
 		GASNETI_TRACE_PRINTF(C, ("eop markdone at %p", (void *) eop));
 	}
+
+	GASNETI_TRACE_EVENT_TIME(C, FIREHOSE_MOVE_LOCAL,
+		    GASNETI_STATTIME_NOW_IFENABLED(C)-starttime);
+
+	GASNETE_FIREHOSE_TRACE_PUTGET(eop, PUT);
 	return;
 }
 
@@ -237,16 +236,60 @@ gasnete_firehose_put_using_directed(gasnete_eop_t *pop, int poll)
 	return;
 }
 
+/* Helper to allocate/reallocate space to hold firehose bucket list */
+GASNET_INLINE_MODIFIER(gasnete_firehose_buf_alloc)
+uintptr_t *
+gasnete_firehose_buf_alloc(size_t num_buckets GASNETE_THREAD_FARG)
+{
+	uintptr_t	*buf;
+
+	gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+
+	assert(num_buckets*sizeof(uintptr_t) < gasnet_AMMaxMedium());
+
+	if (mythread->fh_num < num_buckets) {
+		GASNETI_TRACE_PRINTF(C,
+		    ("Firehose (re)alloc bucket buffer (%d->%d buckets)",
+		     mythread->fh_num, num_buckets));
+		if (mythread->fh_buf != NULL)
+			gasneti_free(mythread->fh_buf);
+		buf = (uintptr_t *) 
+		    gasneti_malloc(num_buckets * sizeof(uintptr_t));
+		if (buf == NULL)
+			gasneti_fatalerror(
+			    "Couldn't allocate firehose bucket list buffer\n");
+		else {
+			mythread->fh_buf = buf;
+			mythread->fh_num = num_buckets;
+		}
+	}
+
+	return mythread->fh_buf;
+}
+
+GASNET_INLINE_MODIFIER(gasnete_firehose_buf_free)
+void
+gasnete_firehose_buf_free(size_t num_buckets GASNETE_THREAD_FARG)
+{
+	gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+
+	gasneti_free(mythread->fh_buf);
+}
+
 /* ------------------------------------------------------------------------ */
 /* 
  * Puts
  */
 GASNET_INLINE_MODIFIER(gasnete_firehose_move_for_put)
 void
-gasnete_firehose_move_for_put(gasnete_eop_t *pop)
+gasnete_firehose_move_for_put(gasnete_eop_t *pop GASNETE_THREAD_FARG)
 {
-	size_t		num_buckets, tot_buckets;
-	size_t		new_buckets, old_buckets;
+	unsigned int	num_buckets, tot_buckets;
+	unsigned int	new_buckets, old_buckets;
+	uintptr_t	*fh_buf;
+	#if defined(TRACE) || defined(STATS)
+	gasneti_stattime_t      starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
+	#endif
 
 	assert(pop->len > 0);
 	assert(pop->node < gasnete_nodes);
@@ -255,31 +298,18 @@ gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 	num_buckets = GASNETC_NUM_BUCKETS(
 	    GASNETI_ALIGNDOWN(pop->dest, GASNETC_BUCKET_SIZE), 
 	    pop->dest+pop->len);
-	tot_buckets = num_buckets*2;
-	/* XXX need better runtime support for cases where num firehoses > than
-	 * we can support in a single medium
-	 */
-	assert(sizeof(uintptr_t)*tot_buckets < gasnet_AMMaxMedium());
 
-	if (gasnetc_firehose_buf_num < tot_buckets) {
-		void	*old_buf;
-		gasneti_mutex_lock(&gasnetc_lock_fh_hash);
-		if (gasnetc_firehose_buf_num < tot_buckets) {
-		       	old_buf = gasnetc_firehose_buf;
-			gasnetc_firehose_buf_num = tot_buckets;
-			gasnetc_firehose_buf = (uintptr_t *)
-			    gasneti_malloc(sizeof(uintptr_t) * tot_buckets);
-			if (old_buf != NULL)
-				gasneti_free(old_buf);
-		}
-		gasneti_mutex_unlock(&gasnetc_lock_fh_hash);
-	}
+	/* When obtaining a buffer, always assume that we need an equal number
+	 * of bucket replacements */
+	fh_buf = gasnete_firehose_buf_alloc(num_buckets*2 GASNETE_THREAD_PASS); 
 
-	if (gasnetc_firehose_build_list(pop->node, pop->dest, num_buckets,
-	    &old_buckets, &new_buckets)) {
+	if ((tot_buckets = 
+	    gasnetc_firehose_build_list(fh_buf, pop->node, pop->dest, num_buckets,
+	        &new_buckets, &old_buckets))) {
+
 		assert(gasneti_handleridx(gasnete_firehose_move_reph) > 0);
 		#ifdef GASNETC_FIREHOSE_TRACE
-		if (new_buckets+old_buckets == 1)
+		if (tot_buckets == 1)
 			pop->fh_stats = fh_one;
 		else
 			pop->fh_stats = fh_many;
@@ -287,22 +317,25 @@ gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 		#ifdef TRACE
 		{
 			int i;
-			for (i = 0; i < new_buckets; i++)
+			for (i = 0; i < num_buckets; i++)
 				GASNETI_TRACE_PRINTF(C, 
 				    ("Firehose move new %d=%p",
-				    i, (void *) gasnetc_firehose_buf[i]));
-			for (i = 0; i < old_buckets; i++)
+				    i, (void *) fh_buf[i]));
+			for (i = num_buckets; i < num_buckets+old_buckets; i++)
 				GASNETI_TRACE_PRINTF(C, 
 				    ("Firehose move old %d=%p",
-				    i, (void *) gasnetc_firehose_buf[i]));
+				    i-num_buckets, (void *) fh_buf[i]));
 		}
 		#endif
+
+		GASNETI_TRACE_EVENT_TIME(C, FIREHOSE_BUILD_LIST_TIME,
+		    GASNETI_STATTIME_NOW_IFENABLED(C)-starttime);
+
 		MEDIUM_REQ(4, 5, 
 		   (pop->node, gasneti_handleridx(gasnetc_firehose_move_reqh),
-		    (void *) gasnetc_firehose_buf, 
-		    (num_buckets + old_buckets)*sizeof(uintptr_t),
-		    new_buckets, old_buckets, num_buckets*sizeof(uintptr_t), 
-		    PACK((void *) pop)));
+		    (void *) fh_buf, 
+		    (num_buckets+old_buckets)*sizeof(uintptr_t),
+		    new_buckets, old_buckets, num_buckets, PACK((void *) pop)));
 	}
 	else {
 		/* all firehoses are remote pinned buckets */
@@ -343,7 +376,7 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 	/* Pin locally, incrementing reference counts where necessary */
 	gasnetc_bucket_pin_by_addr((uintptr_t) src, nbytes);
 
-	gasnete_firehose_move_for_put(pop);
+	gasnete_firehose_move_for_put(pop GASNETE_THREAD_PASS);
 	return (gasnete_op_t *) pop;
 }
 
@@ -416,7 +449,7 @@ gasnete_firehose_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
 	#endif
 	GASNETE_FAST_UNALIGNED_MEMCPY(bufd->sendbuf, src, nbytes);
 
-	gasnete_firehose_move_for_put(pop);
+	gasnete_firehose_move_for_put(pop GASNETE_THREAD_PASS);
 	return (gasnete_op_t *) pop;
 }
 

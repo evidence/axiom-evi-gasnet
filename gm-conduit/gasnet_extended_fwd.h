@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2003/01/27 15:06:47 $
- * $Revision: 1.13 $
+ *     $Date: 2003/01/28 05:43:48 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,6 +106,18 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 		local buckets touched for puts/gets)	\
 	VAL(C, BUCKET_VICTIM_UNPINS, 			\
 		number of bucket unpins in victim FIFO) \
+	VAL(C, BUCKET_VICTIM_COUNT, 			\
+		number of buckets in victim FIFO)	\
+	TIME(C, FIREHOSE_MOVE_TIME, unpin+pin time in   \
+		firehose handler)			\
+	TIME(C, FIREHOSE_BUILD_LIST_TIME, time to build \
+		firehose list)				\
+	TIME(C, FIREHOSE_MOVE_LOCAL, local bookkeeping	\
+		in firehose reply handler)		\
+	TIME(C, FIREHOSE_UNPIN_TIME, unpin time in	\
+		firehose handler)			\
+	TIME(C, FIREHOSE_PIN_TIME, pin time in firehose \
+		handler)				\
 	TIME(C, FIREHOSE_PUT_ONE, puts one fh move)	\
 	TIME(C, FIREHOSE_PUT_MANY, puts many fh moves)	\
 	TIME(C, FIREHOSE_PUT_ONESIDED, puts one-sided)  \

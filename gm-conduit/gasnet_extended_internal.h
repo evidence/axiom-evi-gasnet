@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2002/12/19 18:35:50 $
- * $Revision: 1.8 $
+ *     $Date: 2003/01/28 05:43:48 $
+ * $Revision: 1.9 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -96,6 +96,11 @@ typedef struct _gasnete_threaddata_t {
 	/* pointer reserved for use by the core */
 	void			*gasnetc_threaddata;
 	gasnete_threadidx_t	threadidx;
+
+#ifdef GASNETC_FIREHOSE
+	uintptr_t		*fh_buf;
+	size_t			fh_num;
+#endif
 
 	int eop_num_bufs;	/*  number of valid buffer entries */
 	gasnete_eop_t		*eop_bufs[256]; /*  buffers of eops */
