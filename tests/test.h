@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2004/08/31 13:44:28 $
- * $Revision: 1.35 $
+ *     $Date: 2004/09/01 20:20:54 $
+ * $Revision: 1.36 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -166,6 +166,7 @@ static void test_free(void *ptr) {
 
 #define PAGESZ GASNETT_PAGESIZE
 #define alignup(a,b) ((((a)+(b)-1)/(b))*(b))
+#define alignup_ptr(a,b) ((void *)(((((uintptr_t)(a))+(b)-1)/(b))*(b)))
 
 #if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
   #ifndef TEST_MAXTHREADS
@@ -195,6 +196,7 @@ static void test_free(void *ptr) {
 #endif
 
 #ifdef GASNET_SEGMENT_EVERYTHING
+  /* NOTE: this assumes static data is aligned across nodes! */
   uint8_t _hidden_seg[TEST_SEGSZ+PAGESZ];
   #define TEST_SEG(node) ((void *)(((uint8_t*)_hidden_seg) + \
     (((((uintptr_t)_hidden_seg)%PAGESZ) == 0)? 0 :           \
