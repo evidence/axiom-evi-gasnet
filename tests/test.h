@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2004/09/14 05:48:35 $
- * $Revision: 1.38 $
+ *     $Date: 2004/09/17 22:30:53 $
+ * $Revision: 1.39 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,8 +81,13 @@ static uint64_t test_checksum(void *p, int numbytes) {
 }
 
 #if defined(_AIX) && defined(__cplusplus)
-  /* g++ 3.3 on AIX omits this for some stupid reason */
-  int vsnprintf(char * s, size_t n, const char * format, va_list ap);
+  /* AIX's stdio.h won't provide prototypes for snprintf() and vsnprintf()
+   * by default since they are in C99 but not C89.
+   */
+  extern int snprintf(char * s, size_t n, const char * format, ...)
+					__attribute__((__format__ (__printf__, 3, 4)));
+  extern int vsnprintf(char * s, size_t n, const char * format, va_list ap)
+					__attribute__((__format__ (__printf__, 3, 0)));
 #endif
 static void _MSG(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
 static void _MSG(const char *format, ...) {

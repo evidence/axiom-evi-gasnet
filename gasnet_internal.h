@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2004/09/02 22:53:02 $
- * $Revision: 1.56 $
+ *     $Date: 2004/09/17 22:30:51 $
+ * $Revision: 1.57 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,9 +9,9 @@
 #ifndef _GASNET_INTERNAL_H
 #define _GASNET_INTERNAL_H
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -19,6 +19,16 @@
 #include <gasnet_tools.h>
 
 BEGIN_EXTERNC
+
+#if defined(_AIX)
+  /* AIX's stdio.h won't provide prototypes for snprintf() and vsnprintf()
+   * by default since they are in C99 but not C89.
+   */
+  extern int snprintf(char * s, size_t n, const char * format, ...)
+					__attribute__((__format__ (__printf__, 3, 4)));
+  extern int vsnprintf(char * s, size_t n, const char * format, va_list ap)
+					__attribute__((__format__ (__printf__, 3, 0)));
+#endif
 
 #ifdef __SUNPRO_C
   #pragma error_messages(off, E_END_OF_LOOP_CODE_NOT_REACHED)
