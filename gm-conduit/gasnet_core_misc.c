@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.25 2002/10/13 19:01:13 csbell Exp $
- * $Date: 2002/10/13 19:01:13 $
- * $Revision: 1.25 $
+/* $Id: gasnet_core_misc.c,v 1.26 2002/10/27 00:57:06 csbell Exp $
+ * $Date: 2002/10/27 00:57:06 $
+ * $Revision: 1.26 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -165,21 +165,22 @@ gasnetc_sendbuf_init()
 		_gmc.bd_ptr[i].sendbuf = (void *)
 		    ((uint8_t *) _gmc.dma_bufs + (i<<GASNETC_AM_SIZE));
 	}
+	/* fifo_max is the last possible fifo index */
+	_gmc.reqs_pool_cur = _gmc.reqs_pool_max = stoks-2;
+
 	/* stoks-1 AMRequest send in FIFO */
 	for (i = rtoks, j = 0; i < rtoks+stoks-1; i++, j++)
 		_gmc.reqs_pool[j] = i;
-
-	/* fifo_max is the last possible fifo element */
-	_gmc.reqs_pool_cur = _gmc.reqs_pool_max = j-1;
+	assert(j-1 == _gmc.reqs_pool_max);
 
 	/* use the omitted send token for the AMReply buf */
 	_gmc.AMReplyBuf = &_gmc.bd_ptr[i]; 
 	_gmc.scratchBuf = (void *) ((uint8_t *) _gmc.dma_bufs + 
 			    ((++i)<<GASNETC_AM_SIZE));
 	_gmc.ReplyCount = 0;
-#if GASNETC_RROBIN_BUFFERS > 1
+	#if GASNETC_RROBIN_BUFFERS > 1
 	_gmc.RRobinCount = 0;
-#endif
+	#endif
 }
 
 void

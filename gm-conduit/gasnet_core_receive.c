@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.22 2002/10/03 18:06:56 csbell Exp $
- * $Date: 2002/10/03 18:06:56 $
- * $Revision: 1.22 $
+/* $Id: gasnet_core_receive.c,v 1.23 2002/10/27 00:57:06 csbell Exp $
+ * $Date: 2002/10/27 00:57:06 $
+ * $Revision: 1.23 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -242,9 +242,9 @@ gasnetc_process_AMRequest(uint8_t *ptr, gm_recv_event_t *e)
 			    (void *) _gmc.AMReplyBuf, (void *) bufd));
 			/* The received buffer becomes the new AMReplyBuf */
 			_gmc.AMReplyBuf = bufd;
-			gasneti_mutex_unlock(&gasnetc_lock_amreq);
 			GASNETC_BUFDESC_OPT_UNSET(bufd, 
 			    GASNETC_FLAG_AMREQUEST_MEDIUM);
+			gasneti_mutex_unlock(&gasnetc_lock_amreq);
 		}
 		/*
 		GASNETC_BUFDESC_OPT_UNSET(bufd, 
@@ -531,19 +531,6 @@ gasnetc_callback_error(gm_status_t status, gasnetc_bufdesc_t *bufd)
 	return;
 }
 
-GASNET_INLINE_MODIFIER(gasnetc_provide_request_pool)
-void
-gasnetc_provide_request_pool(gasnetc_bufdesc_t *bufd)
-{
-	gasneti_mutex_lock(&gasnetc_lock_reqpool);
-	_gmc.reqs_pool_cur++;
-	GASNETI_TRACE_PRINTF(C, ("gasnetc_callback:\t"
-	    "buffer to Pool (%d/%d)", _gmc.reqs_pool_cur,
-	    _gmc.reqs_pool_max) );
-	_gmc.reqs_pool[_gmc.reqs_pool_cur] = bufd->id;
-	gasneti_mutex_unlock(&gasnetc_lock_reqpool);
-}
-
 /*
  * Callback functions for hi and lo token bounded functions.  Since these
  * functions are called from gm_unknown(), they already own a GM lock
@@ -564,6 +551,7 @@ gasnetc_callback_generic_inner(struct gm_port *p, void *context, gm_status_t sta
 	bufd->len = 0;
 	GASNETC_BUFDESC_OPT_RESET(bufd);
 	assert(bufd->sendbuf != NULL);
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 
 	/* Either give the buffer back to the receive queue if some replies
 	 * where in flight or give it back to the AMRequest pool 
@@ -593,17 +581,25 @@ gasnetc_callback_generic_inner(struct gm_port *p, void *context, gm_status_t sta
 			gasnetc_provide_AMRequest_buffer(bufd->sendbuf);
 		}
 		else {
-			if_pf (_gmc.reqs_pool_cur >= _gmc.reqs_pool_max)
-				gasneti_fatalerror("Send FIFO overflow");
-			gasnetc_provide_request_pool(bufd);
+			gasneti_mutex_lock(&gasnetc_lock_reqpool);
+			if (_gmc.reqs_pool_cur < _gmc.reqs_pool_max) {
+				_gmc.reqs_pool_cur++;
+				_gmc.reqs_pool[_gmc.reqs_pool_cur] = bufd->id;
+				GASNETI_TRACE_PRINTF(C, ("gasnetc_callback:\t"
+	    			    "buffer to Pool (%d/%d) ReplyCount=%d", 
+				    _gmc.reqs_pool_cur, _gmc.reqs_pool_max, 
+				    _gmc.ReplyCount) );
+			}
+			gasneti_mutex_unlock(&gasnetc_lock_reqpool);
 		}
-		#if GASNETC_RROBIN_BUFFERS > 1
+
+	#if GASNETC_RROBIN_BUFFERS > 1
 			if (_gmc.RRobinCount == GASNETC_RROBIN_BUFFERS-1)
 				_gmc.RRobinCount = 0;
 			else
 				_gmc.RRobinCount++;
-		#endif
 	}
+	#endif
 }
 
 extern void

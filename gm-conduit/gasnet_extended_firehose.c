@@ -20,6 +20,7 @@
 extern uintptr_t	*gasnetc_firehose_buf;
 extern size_t		 gasnetc_firehose_buf_num;
 extern gasneti_mutex_t	 gasnetc_lock_fh_victim;
+extern gasneti_mutex_t	 gasnetc_lock_fh_hash;
 
 extern void	gasnetc_done_pinned(gasnet_node_t, uintptr_t, size_t);
 extern void	gasnetc_callback_ambuffer(struct gm_port *, void *, gm_status_t);
@@ -119,7 +120,7 @@ LONG_HANDLER(gasnete_firehose_get_dma_reph,1,2,
 
 /* ------------------------------------------------------------------------ */
 /*
- * Firehose callback functions
+ * Firehose callback function
  */
 
 void
@@ -216,16 +217,20 @@ gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 	 */
 	assert(sizeof(uintptr_t)*tot_buckets < gasnet_AMMaxMedium());
 
-	gasneti_mutex_lock(&gasnetc_lock_fh_victim);
-	/* May have to regrow the firehose buffer */
 	if (gasnetc_firehose_buf_num < tot_buckets) {
-		if (gasnetc_firehose_buf != NULL)
-			free(gasnetc_firehose_buf);
-		gasnetc_firehose_buf_num = tot_buckets;
-		gasnetc_firehose_buf = (uintptr_t *)
-		    gasneti_malloc(sizeof(uintptr_t) * tot_buckets);
+		void	*old_buf;
+		gasneti_mutex_lock(&gasnetc_lock_fh_hash);
+		if (gasnetc_firehose_buf_num < tot_buckets) {
+		       	old_buf = gasnetc_firehose_buf;
+			gasnetc_firehose_buf_num = tot_buckets;
+			gasnetc_firehose_buf = (uintptr_t *)
+			    gasneti_malloc(sizeof(uintptr_t) * tot_buckets);
+			if (old_buf != NULL)
+				gasneti_free(old_buf);
+		}
+		gasneti_mutex_unlock(&gasnetc_lock_fh_hash);
 	}
-
+	
 	if (gasnetc_firehose_build_list(pop->node, pop->dest, num_buckets,
 	    &old_buckets, &new_buckets)) {
 		assert(gasneti_handleridx(gasnete_firehose_move_reph) > 0);
@@ -258,7 +263,6 @@ gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 	/* If we were dealing with implicit put, increment the iop */
 	if (pop->iop != NULL)
 		pop->iop->initiated_put_cnt++;
-	gasneti_mutex_unlock(&gasnetc_lock_fh_victim);
 	return;
 }
 

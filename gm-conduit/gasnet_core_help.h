@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.16 2002/10/03 18:06:56 csbell Exp $
- * $Date: 2002/10/03 18:06:56 $
- * $Revision: 1.16 $
+/* $Id: gasnet_core_help.h,v 1.17 2002/10/27 00:57:06 csbell Exp $
+ * $Date: 2002/10/27 00:57:06 $
+ * $Revision: 1.17 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -60,7 +60,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
  * Setting it to 3 means give priority to Send Pool once out of three
  * Setting it to 1 or 0 disables any priority: buffers will always be 
  * given back to the receive queue if replies were sent */
-#define GASNETC_RROBIN_BUFFERS	3
+#define GASNETC_RROBIN_BUFFERS	1
 /* MMAP_INITIAL_SIZE controls the desired size to kick off the binary
  * search for valid mmaps
  * MMAP_GRANULARITY controls the binary search for possible mmap
@@ -278,15 +278,6 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_GM_RECV_PTR(e,fast)				\
 	(fast) ? (uint8_t *) gm_ntohp((e)->recv.message) :	\
 	    (uint8_t *) gm_ntohp((e)->recv.buffer)
-
-#define GASNETC_REQUEST_POOL_PROVIDE_BUFFER(bufd) do {            \
-		GASNETC_REQUEST_POOL_MUTEX_LOCK;                  \
-		_gmc.reqs_pool_cur++;                             \
-		GASNETI_TRACE_PRINTF(C, ("gasnetc_callback:\t"    \
-		    "buffer to Pool (%d/%d)", _gmc.reqs_pool_cur, \
-		    _gmc.reqs_pool_max) );                        \
-		_gmc.reqs_pool[_gmc.reqs_pool_cur] = bufd->id;    \
-		GASNETC_REQUEST_POOL_MUTEX_UNLOCK; } while (0)
 
 #define GASNETC_SYSHEADER_WRITE(buf, index)				\
 	*((uint8_t *)(buf)) = (0xc0 | ((index) & 0x3f))
