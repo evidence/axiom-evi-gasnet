@@ -1,15 +1,11 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/01 14:24:57 $
-# $Revision: 1.1 $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.2 2002/06/10 13:56:10 bonachea Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-if HAVE_PTHREAD
 thread_defines = @GASNET_THREAD_DEFINES@
-endif
 
 INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir)        \
            -I$(top_srcdir)/extended-ref  
@@ -74,19 +70,27 @@ clean-local:
 	@$(MAKE) -f $(top_srcdir)/tests/Makefile clean
 
 headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h 
+makefile_fragments = <conduitname>-seq.mak <conduitname>-parsync.mak <conduitname>-par.mak
 
 install-data-local: $(headers)
 	$(mkinstalldirs) $(includedir)/<conduitname>-conduit
 	@list='$(headers)'; for p in $$list; do \
 	  if test -f $$p; then \
-	    filename=`basename $$p` \
+	    filename=`basename $$p`; \
 	    echo " $(INSTALL_DATA) $$p $(includedir)/<conduitname>-conduit/$$filename"; \
 	    $(INSTALL_DATA) $$p $(includedir)/<conduitname>-conduit/$$filename; \
 	  else :; fi; \
 	done
+	@list='$(makefile_fragments)'; for p in $$list; do \
+	  if test -f $$p; then \
+	    filename=`basename $$p`; \
+	    echo " grep -v "###NOINSTALL###" $$p > $(includedir)/<conduitname>-conduit/$$filename"; \
+	    grep -v "###NOINSTALL###" $$p > $(includedir)/<conduitname>-conduit/$$filename; \
+	  else :; fi; \
+	done
 
 uninstall-local:
-	rm -f $(includedir)/<conduitname>-conduit/*.h
+	rm -f $(includedir)/<conduitname>-conduit/*.h $(includedir)/<conduitname>-conduit/*.mak
 
 endif
 
@@ -94,28 +98,20 @@ tests:
 	@echo You must specify one of tests-seq, tests-par or tests-parsync
 	@exit 1
 
-TESTLIBS = $(LIBGCC) $(LIBS) $(LIBM)
-
 tests-seq: force libgasnet-<conduitname>-seq.a
 	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
 	  srcdir="$(top_srcdir)/tests"			     \
-	  COMPILE="$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_SEQ" \
-	  LINK="$(CC) $(CFLAGS)"                     \
-	  LINKEND="-L$(top_builddir)/<conduitname>-conduit -lgasnet-<conduitname>-seq $(TESTLIBS)" 
+	  configfile="<conduitname>-seq.mak"
+
+tests-parsync: force libgasnet-<conduitname>-parsync.a
+	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
+	  srcdir="$(top_srcdir)/tests"			     \
+	  configfile="<conduitname>-parsync.mak"
 
 tests-par: force libgasnet-<conduitname>-par.a
 	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
 	  srcdir="$(top_srcdir)/tests"			     \
-	  COMPILE="$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines)" \
-	  LINK="$(CC) $(CFLAGS)"                     \
-	  LINKEND="-L$(top_builddir)/<conduitname>-conduit -lgasnet-<conduitname>-par $(TESTLIBS) $(GASNET_THREAD_LIBS)" 
-
-tests-parsync: force libgasnet-<conduitname>-parsync.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	         \
-	  srcdir="$(top_srcdir)/tests"			         \
-	  COMPILE="$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines)" \
-	  LINK="$(CC) $(CFLAGS)"                     \
-	  LINKEND="-L$(top_builddir)/<conduitname>-conduit -lgasnet-<conduitname>-parsync $(TESTLIBS) $(GASNET_THREAD_LIBS) " 
+	  configfile="<conduitname>-par.mak"
 
 force:
 	

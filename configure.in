@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/07 21:23:37 $
-# $Revision: 1.3 $
+#     $Date: 2002/06/10 13:56:08 $
+# $Revision: 1.4 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.3 $)
+AC_REVISION($Revision: 1.4 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -25,6 +25,13 @@ AM_INIT_AUTOMAKE(GASNet, 0.2, no-define)
 AC_PREFIX_DEFAULT(/usr/local/gasnet)
 AM_CONFIG_HEADER(gasnet_config.h)
 
+# Save useful directory names
+TOP_SRCDIR=`cd ${srcdir} && pwd`
+TOP_BUILDDIR=`pwd`
+INSTALL_PREFIX=${prefix}
+AC_SUBST(TOP_SRCDIR)
+AC_SUBST(TOP_BUILDDIR)
+AC_SUBST(INSTALL_PREFIX)
 
 ########################################################################
 ##
@@ -225,6 +232,8 @@ fi
 # Machine defs
 
 AC_DEFINE(UNIX)
+GASNET_THREAD_DEFINES=""
+GASNET_THREAD_LIBS=""
 case "$target_os" in
   solaris*)  
 	AC_DEFINE(SOLARIS)
@@ -235,9 +244,6 @@ case "$target_os" in
         elif test "$have_solthread" = yes ; then
           GASNET_THREAD_DEFINES="-D_REENTRANT"
           GASNET_THREAD_LIBS="-lthread"
-        else 
-	  GASNET_THREAD_DEFINES=""
-          GASNET_THREAD_LIBS=""
         fi
         ;;
   linux*) 
@@ -677,6 +683,9 @@ AC_SUBST(LDFLAGS)
 AC_OUTPUT(
 Makefile
 mpi-conduit/Makefile
+mpi-conduit/mpi-seq.mak
+mpi-conduit/mpi-parsync.mak
+mpi-conduit/mpi-par.mak
 other/Makefile
 other/ammpi/Makefile
 config-aux/Makefile

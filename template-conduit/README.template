@@ -17,6 +17,11 @@ To use the template:
   <conduitname> => your conduit name, all in lower-case
   (be sure not to insert any extraneous space characters around the names)
 
+* Rename the following files: (replace "template" with your lower-case conduit name)
+    template-par.mak.in
+    template-parsync.mak.in
+    template-seq.mak.in
+
 * Add your new directory to the top-level Makefile and any necessary
 configuration checks to the configure.in script. You should create an
 AM_CONDITIONAL() called USE_<CONDUITNAME>_CONDUIT and use it to control the
