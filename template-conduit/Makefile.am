@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.10 2003/02/25 14:24:59 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.11 2003/03/26 22:50:50 bonachea Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -23,7 +23,10 @@ othersourcefiles =                             \
       $(top_srcdir)/gasnet_internal.c          \
       $(top_srcdir)/extended-ref/gasnet_extended.c 
 
-EXTRA_DIST = $(filelist)
+### template users: Delete the README.template line below and the README.template file 
+EXTRA_DIST = $(filelist) \
+	README.template \
+	README
 
 libgasnet_sources = $(srcdir)/gasnet_core.c $(othersourcefiles)
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \

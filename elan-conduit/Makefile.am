@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.10 2003/02/25 14:24:34 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.11 2003/03/26 22:50:47 bonachea Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt 
@@ -28,7 +28,8 @@ filelist =                       \
 othersourcefiles =                             \
       $(top_srcdir)/gasnet_internal.c          
 
-EXTRA_DIST = $(filelist)
+EXTRA_DIST = $(filelist) \
+	README
 
 libgasnet_sources =                  \
       $(srcdir)/gasnet_core.c        \
