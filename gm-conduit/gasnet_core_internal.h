@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.6 2002/06/14 22:12:31 csbell Exp $
- * $Date: 2002/06/14 22:12:31 $
- * $Revision: 1.6 $
+/* $Id: gasnet_core_internal.h,v 1.7 2002/06/16 06:34:11 csbell Exp $
+ * $Date: 2002/06/16 06:34:11 $
+ * $Revision: 1.7 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -67,7 +67,7 @@ typedef struct gasnetc_bufdesc gasnetc_bufdesc_t;
 gasnetc_bufdesc_t * 	gasnetc_AMRequestBuf_block();
 
 void	gasnetc_tokensend_AMRequest(void *, uint16_t, uint32_t, uint32_t, 
-		gm_send_completion_callback_t, void *, uint64_t);
+		gm_send_completion_callback_t, void *, uintptr_t);
 int	gasnetc_gm_nodes_compare(const void *, const void *);
 void	gasnetc_sendbuf_init();
 void	gasnetc_sendbuf_finalize();
@@ -107,7 +107,7 @@ struct gasnetc_bufdesc {
 	uint8_t	flag;		/* bufdesc flags as defined above */
 
 	/* AMReply/AMRequest fields */
-	uint64_t	dest_addr;	/* directed_send address */
+	uintptr_t	dest_addr;	/* directed_send address */
 	off_t		rdma_off;	/* rdma_off for AMLong */
 
 	/* AMReply only fields */
@@ -131,8 +131,8 @@ struct gasnetc_gm_nodes_rev {
 } gasnetc_gm_nodes_rev_t;
 
 /* Global GM Core type */
-static
-struct _gm_core_global {
+typedef
+struct _gasnetc_state {
 	gasnetc_token_t		token;
 	int			ReplyCount;
 	gasnetc_handler_fn_t	handlers[GASNETC_AM_MAX_HANDLERS];
@@ -155,8 +155,9 @@ struct _gm_core_global {
 
 	void		*reqsbuf;	/* DMAd portion of send buffers */
 	struct gm_port	*port;		/* GM port structure */
-}	
-_gmc;
+} gasnetc_state_t;	
+
+extern gasnetc_state_t	_gmc;
 
 GASNET_INLINE_MODIFIER(gasnetc_portid)
 uint16_t
@@ -303,7 +304,7 @@ gasnetc_gm_send_AMRequest(void *buf, uint16_t len,
 		uint32_t id, uint32_t port, 
 		gm_send_completion_callback_t callback,
 		void *callback_ptr,
-		uint64_t dest_addr)
+		uintptr_t dest_addr)
 {
 	assert(buf != NULL);
 	assert(len <= GASNETC_AM_LEN); 

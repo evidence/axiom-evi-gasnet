@@ -1,13 +1,12 @@
-/* $Id: gasnet_core_misc.c,v 1.6 2002/06/14 22:12:31 csbell Exp $
- * $Date: 2002/06/14 22:12:31 $
- * $Revision: 1.6 $
+/* $Id: gasnet_core_misc.c,v 1.7 2002/06/16 06:34:11 csbell Exp $
+ * $Date: 2002/06/16 06:34:11 $
+ * $Revision: 1.7 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #include <gasnet_core_internal.h>
-#include <stdlib.h>
 
 #define	_BUFSZ	127
 #define BOARD	0
@@ -64,8 +63,10 @@ gasnetc_sendbuf_init()
 		gasneti_malloc(_gmc.bd_list_num * sizeof(gasnetc_bufdesc_t));
 
 	for (i = 0; i < _gmc.bd_list_num; i++) {
-		_gmc.bd_ptr[i*GASNETC_AM_LEN].id = i;
-		_gmc.bd_ptr[i*GASNETC_AM_LEN].sendbuf = 
+		assert(i*sizeof(gasnetc_bufdesc_t) < 
+			_gmc.bd_list_num*sizeof(gasnetc_bufdesc_t));
+		_gmc.bd_ptr[i].id = i;
+		_gmc.bd_ptr[i].sendbuf = 
 			_gmc.dma_bufs + i*GASNETC_AM_LEN;
 	}
 	/* give the first buffer to AMReplyBuf */
@@ -79,13 +80,13 @@ gasnetc_sendbuf_init()
 
 	for (i = 1; i <= rtoks_hi; i++) { 
 		gm_provide_receive_buffer(_gmc.port,
-			_gmc.bd_ptr + (i+stoks)*GASNETC_AM_LEN,
+			_gmc.dma_bufs + (i+stoks)*GASNETC_AM_LEN,
 			GASNETC_AM_SIZE, GM_HIGH_PRIORITY);
 	}
 
 	for (i += 1; i <= rtoks; i++) {
 		gm_provide_receive_buffer(_gmc.port,
-			_gmc.bd_ptr + (i+stoks)*GASNETC_AM_LEN,
+			_gmc.dma_bufs + (i+stoks)*GASNETC_AM_LEN,
 			GASNETC_AM_SIZE, GM_LOW_PRIORITY);
 	}
 
@@ -126,7 +127,7 @@ void
 gasnetc_tokensend_AMRequest(void *buf, uint16_t len, 
 		uint32_t id, uint32_t port,
 		gm_send_completion_callback_t callback, 
-		void *callback_ptr, uint64_t dest_addr)
+		void *callback_ptr, uintptr_t dest_addr)
 {
 	int sent = 0;
 
@@ -169,10 +170,10 @@ gasnetc_AMRequestBuf_block()
 		}
 	}
 
-	assert(_gmc.bd_ptr[bufd_idx*sizeof(gasnetc_bufdesc_t)].sendbuf !=NULL);
+	assert(_gmc.bd_ptr[bufd_idx].sendbuf !=NULL);
 
 	return (gasnetc_bufdesc_t *) 
-		&_gmc.bd_ptr[bufd_idx*sizeof(gasnetc_bufdesc_t)];
+		&_gmc.bd_ptr[bufd_idx];
 }
 
 int
@@ -219,18 +220,21 @@ gasnetc_gmpiconf_init()
 				"invalid number of nodes in GMPI config file");
 
 			_gmc.gm_nodes = (gasnetc_gm_nodes_t *) 
-				gasneti_malloc_inhandler(numnodes*
+				gasneti_malloc(numnodes*
 					sizeof(gasnetc_gm_nodes_t));
 
 			_gmc.gm_nodes_rev = (gasnetc_gm_nodes_rev_t *) 
-				gasneti_malloc_inhandler(numnodes *
+				gasneti_malloc(numnodes *
 					sizeof(gasnetc_gm_nodes_rev_t));
 
 			hostnames = (char **)
-				gasneti_malloc_inhandler((numnodes+1) *
-					MAXHOSTNAMELEN);
-
-			hostnames[numnodes+1] = NULL;
+				gasneti_malloc((numnodes+1) * 
+					sizeof(char *));
+			hostnames[numnodes] = NULL;
+			for (i = 0; i < numnodes; i++) {
+				hostnames[i] =
+				gasneti_malloc(MAXHOSTNAMELEN);
+			}
 			lnum++;
 	      	}
 
@@ -240,6 +244,8 @@ gasnetc_gmpiconf_init()
 					GASNETI_RETURN_ERRR(
 					RESOURCE, 
 					"Invalid GM port");
+
+				assert(gmhost != NULL);
 
 				_gmc.gm_nodes[lnum-1].port = gmportnum;
 				memcpy(hostnames[lnum-1], 
@@ -252,6 +258,9 @@ gasnetc_gmpiconf_init()
 					thisnode = lnum-1;
 					thisport = gmportnum;
 				}
+			}
+                        else {
+				printf("couldn't parse: %s\n", line);
 			}
 			lnum++;
 		}
@@ -291,6 +300,8 @@ gasnetc_gmpiconf_init()
 	}
 	gasnetc_mynode = thisnode;
 	gasnetc_nodes = numnodes;
+	for (i = 0; i < numnodes; i++)
+		gasneti_free_inhandler(hostnames[i]);
 	gasneti_free_inhandler(hostnames);
 
 	/* sort out the gm_nodes_rev for bsearch, glibc qsort uses recursion,
@@ -317,7 +328,7 @@ gasnetc_AM_InitHandler()
 int
 gasnetc_AM_SetHandler(gasnet_handler_t handler, gasnetc_handler_fn_t func)
 {
-	if (handler == NULL || func == NULL)
+	if (!handler || func == NULL)
 		GASNETI_RETURN_ERRR(BAD_ARG,
 			"Invalid handler paramaters set");
 		

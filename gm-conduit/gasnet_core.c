@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.6 2002/06/14 03:40:38 csbell Exp $
- * $Date: 2002/06/14 03:40:38 $
+/* $Id: gasnet_core.c,v 1.7 2002/06/16 06:34:11 csbell Exp $
+ * $Date: 2002/06/16 06:34:11 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -20,6 +20,7 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable();
 
 gasnet_node_t gasnetc_mynode = -1;
 gasnet_node_t gasnetc_nodes = 0;
+gasnetc_state_t _gmc;
 
 gasnet_seginfo_t *gasnetc_seginfo = NULL;
 
@@ -35,7 +36,6 @@ void gasnetc_checkinit() {
   if (!gasnetc_init_done)
     gasneti_fatalerror("Illegal call to GASNet before gasnet_init() initialization");
 }
-
 
 
 /* ------------------------------------------------------------------------------------ */
@@ -90,6 +90,8 @@ static int gasnetc_init(int *argc, char ***argv,
 #else
   if (gasnetc_gmpiconf_init() != GASNET_OK)
 	  GASNETI_RETURN_ERRR(RESOURCE, "GMPI-based init failed");
+  gasnetc_sendbuf_init();
+  assert(_gmc.gm_nodes != NULL);
 #endif
   /* GMCORE END */
 
@@ -196,6 +198,7 @@ static int gasnetc_init(int *argc, char ***argv,
   gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
   /* (...) add code here to fill in gasnetc_seginfo with segment info from all the nodes */
 
+#if 0
   assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
          gasnetc_seginfo[gasnetc_mynode].size == segsize);
 
@@ -213,12 +216,12 @@ static int gasnetc_init(int *argc, char ***argv,
       }
     }
   #endif
+#endif
 
   sleep(3);	/* XXX smile for now. . */
 
   /*  init complete */
   gasnetc_init_done = 1;
-
   return GASNET_OK;
 }
 
@@ -306,7 +309,7 @@ extern int gasnetc_AMRequestShortM(
   len = gasnetc_write_AMBufferShort(bufd->sendbuf, handler, numargs, argptr, 1);
   gasnetc_tokensend_AMRequest(bufd->sendbuf, len, 
 		  gasnetc_nodeid(dest), gasnetc_portid(dest),
-		  gasnetc_callback_AMReply, (void *)bufd, NULL);
+		  gasnetc_callback_AMReply, (void *)bufd, 0);
   /* GMCORE END */
 
   va_end(argptr);
@@ -335,7 +338,7 @@ extern int gasnetc_AMRequestMediumM(
   len = gasnetc_write_AMBufferMedium(bufd->sendbuf, handler, numargs, argptr, nbytes, source_addr, 1);
   gasnetc_tokensend_AMRequest(bufd->sendbuf, len, 
 		  gasnetc_portid(dest), gasnetc_nodeid(dest),
-		  gasnetc_callback_AMReply, (void *)bufd, NULL);
+		  gasnetc_callback_AMReply, (void *)bufd, 0);
   /* GMCORE END */
 
   va_end(argptr);
@@ -401,7 +404,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   }
 
   gasnetc_tokensend_AMRequest(bufd->sendbuf, len, id, port, 
-		    gasnetc_callback_AMReply, (void *)bufd, NULL);
+		    gasnetc_callback_AMReply, (void *)bufd, 0);
   /* GMCORE END */
 
   va_end(argptr);
