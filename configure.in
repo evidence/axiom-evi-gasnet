@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/06/11 01:04:16 $
-# $Revision: 1.62 $
+#     $Date: 2003/06/12 12:26:29 $
+# $Revision: 1.63 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.62 $)
+AC_REVISION($Revision: 1.63 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -160,7 +160,7 @@ case "$gasnet_cv_cc_family" in
 esac
 
 case "$gasnet_cv_cc_family" in
-  GNU)  CCDEBUGFLAGS="-g3 -Wall -Wno-unused -Wpointer-arith -Wnested-externs" 
+  GNU)  CCDEBUGFLAGS="-g3 -Wall -Wno-unused -Wpointer-arith -Wnested-externs -Wno-missing-braces" 
         #CCDEBUGFLAGS="$CCDEBUGFLAGS -ansi -U__STRICT_ANSI__"
   ;;
   *)    CCDEBUGFLAGS="-g" ;;
@@ -221,6 +221,18 @@ case "$segconfig" in
 esac
 
 GASNET_LIBGCC
+
+########################################################################
+# hunt for 16-, 32-, and 64-bit integer types
+# Check sizes
+AC_CHECK_SIZEOF(char, $cross_char)
+AC_CHECK_SIZEOF(short, $cross_short)
+AC_CHECK_SIZEOF(int, $cross_int)
+AC_CHECK_SIZEOF(long, $cross_long)
+AC_CHECK_SIZEOF(long long, $cross_long_long)
+AC_CHECK_SIZEOF(void *, $cross_void_P)
+
+AC_CHECK_HEADERS(inttypes.h)
 
 
 ########################################################################
@@ -997,20 +1009,6 @@ GASNET_TRY_CACHE_LINK(for __func__, cc_has_func,
 [const char* p = __func__;],
 AC_DEFINE(HAVE_FUNC))
 
-
-########################################################################
-
-# hunt for 16-, 32-, and 64-bit integer types
-
-# Check sizes
-AC_CHECK_SIZEOF(char, $cross_char)
-AC_CHECK_SIZEOF(short, $cross_short)
-AC_CHECK_SIZEOF(int, $cross_int)
-AC_CHECK_SIZEOF(long, $cross_long)
-AC_CHECK_SIZEOF(long long, $cross_long_long)
-AC_CHECK_SIZEOF(void *, $cross_void_P)
-
-AC_CHECK_HEADERS(inttypes.h)
 
 ########################################################################
 ##
