@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/05/25 15:28:11 $
-# $Revision: 1.143 $
+#     $Date: 2004/05/27 06:30:26 $
+# $Revision: 1.144 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.143 $)
+AC_REVISION($Revision: 1.144 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -247,7 +247,17 @@ case "$gasnet_cv_cc_family" in
 esac
 
 GASNET_IF_ENABLED(debug, Build GASNet in a debugging mode, 
-  [ CFLAGS="$CCDEBUGFLAGS"
+  [ echo "-----------------------------------------------------------------------"
+    echo " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING"
+    echo ""
+    echo " Configuring the system for global, forced debugging mode. "
+    echo " This usually has a SERIOUS impact on performance, so you should NOT"
+    echo " trust any performance numbers obtained from programs built"
+    echo " using this GASNet installation!!!"
+    echo ""
+    echo " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING"
+    echo "-----------------------------------------------------------------------" 
+    CFLAGS="$CCDEBUGFLAGS"
     BUILDCONFIG_DEFINES="-DGASNET_DEBUG"
     BUILDCONFIG="debug"
     enabled_debug=yes],
