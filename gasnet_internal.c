@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/06/25 23:32:24 $
- * $Revision: 1.58 $
+ *     $Date: 2004/07/08 09:09:22 $
+ * $Revision: 1.59 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -693,8 +693,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
       } else {
         /*  first time we've seen this thread - need to set it up */
         gasneti_srclineinfo_t *srclineinfo = gasneti_calloc(1,sizeof(gasneti_srclineinfo_t));
-        int retval = pthread_setspecific(gasneti_srclineinfo_key, srclineinfo);
-        gasneti_assert(!retval);
+        gasneti_assert_zeroret(pthread_setspecific(gasneti_srclineinfo_key, srclineinfo));
         return srclineinfo;
       }
     }
@@ -1019,9 +1018,7 @@ extern void gasneti_trace_init(int argc, char **argv) {
   }
 
   #if GASNET_TRACE && GASNETI_CLIENT_THREADS
-  { int retval = pthread_key_create(&gasneti_srclineinfo_key, NULL);
-    if (retval) gasneti_fatalerror("In gasnete_init(), pthread_key_create()=%s",strerror(retval));
-  }
+    gasneti_assert_zeroret(pthread_key_create(&gasneti_srclineinfo_key, NULL));
   #endif
 
   { time_t ltime;

@@ -429,7 +429,7 @@ HANDLERS(16)
   ALLAM_HANDLERS_ID(16)
 
 #define ALLAM_REQ_ID(num, partner)  do {                                                                                 \
-  int buf[1];                                                                                                            \
+  static int buf[1]; /* must be static to satisfy data lifetime reqt for RequestLongAsync */                             \
   RequestShort(num,(ENDPOINT partner,  SHORT_##num##REQ_HANDLER AA##num));                                               \
   buf[0] = num;                                                                                                          \
   RequestMedium(num,(ENDPOINT partner, MEDIUM_##num##REQ_HANDLER, buf, sizeof(int) AA##num));                            \

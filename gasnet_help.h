@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/06/25 23:32:03 $
- * $Revision: 1.28 $
+ *     $Date: 2004/07/08 09:09:22 $
+ * $Revision: 1.29 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,6 +83,25 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #define gasneti_assert(expr) ((void)0)
 #else
   #define gasneti_assert(expr) gasneti_assert_always(expr)
+#endif
+
+/* gasneti_assert_zeroret(), gasneti_assert_nzeroret():
+ * evaluate an expression (always), and in debug mode additionally 
+ * assert that it returns zero or non-zero
+ * useful for making system calls and checking the result
+ */
+#if GASNET_DEBUG
+  #define gasneti_assert_zeroret(op) do {                                     \
+    int retval = op;                                                          \
+    if_pf(retval) gasneti_fatalerror(#op": %s(%i)",strerror(retval), retval); \
+  } while (0)
+  #define gasneti_assert_nzeroret(op) do {                                     \
+    int retval = op;                                                           \
+    if_pf(!retval) gasneti_fatalerror(#op": %s(%i)",strerror(retval), retval); \
+  } while (0)
+#else
+  #define gasneti_assert_zeroret(op)  op
+  #define gasneti_assert_nzeroret(op) op
 #endif
 
 #if GASNET_DEBUG
@@ -237,13 +256,12 @@ extern int gasneti_wait_mode; /* current waitmode hint */
     #else
       #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, (uintptr_t)GASNETI_MUTEX_NOOWNER }
     #endif
-    #define gasneti_mutex_lock(pl) do {                                                   \
-              int retval;                                                                 \
-              gasneti_assert((pl)->owner != GASNETI_THREADIDQUERY());                     \
-              retval = pthread_mutex_lock(&((pl)->lock));                                 \
-              if (retval) gasneti_fatalerror("pthread_mutex_lock()=%s",strerror(retval)); \
-              gasneti_assert((pl)->owner == (uintptr_t)GASNETI_MUTEX_NOOWNER);            \
-              (pl)->owner = GASNETI_THREADIDQUERY();                                      \
+    #define gasneti_mutex_lock(pl) do {                                        \
+              int retval;                                                      \
+              gasneti_assert((pl)->owner != GASNETI_THREADIDQUERY());          \
+              gasneti_assert_zeroret(pthread_mutex_lock(&((pl)->lock)));       \
+              gasneti_assert((pl)->owner == (uintptr_t)GASNETI_MUTEX_NOOWNER); \
+              (pl)->owner = GASNETI_THREADIDQUERY();                           \
             } while (0)
     GASNET_INLINE_MODIFIER(gasneti_mutex_trylock)
     int gasneti_mutex_trylock(gasneti_mutex_t *pl) {
@@ -256,23 +274,19 @@ extern int gasneti_wait_mode; /* current waitmode hint */
               (pl)->owner = GASNETI_THREADIDQUERY();
               return 0;
     }
-    #define gasneti_mutex_unlock(pl) do {                                                   \
-              int retval;                                                                   \
-              gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY());                       \
-              (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER;                               \
-              retval = pthread_mutex_unlock(&((pl)->lock));                                 \
-              if (retval) gasneti_fatalerror("pthread_mutex_unlock()=%s",strerror(retval)); \
+    #define gasneti_mutex_unlock(pl) do {                                  \
+              int retval;                                                  \
+              gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY());      \
+              (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER;              \
+              gasneti_assert_zeroret(pthread_mutex_unlock(&((pl)->lock))); \
             } while (0)
-    #define gasneti_mutex_init(pl) do {                                                   \
-              int retval = pthread_mutex_init(&((pl)->lock),NULL);                        \
-              if (retval) gasneti_fatalerror("pthread_mutex_init()=%s",strerror(retval)); \
-              (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER;                             \
+    #define gasneti_mutex_init(pl) do {                                       \
+              gasneti_assert_zeroret(pthread_mutex_init(&((pl)->lock),NULL)); \
+              (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER;                 \
             } while (0)
-    #define gasneti_mutex_destroy(pl) do {                                                   \
-              int retval = pthread_mutex_destroy(&((pl)->lock));                             \
-              if (retval) gasneti_fatalerror("pthread_mutex_destroy()=%s",strerror(retval)); \
-            } while (0)
-  #else
+    #define gasneti_mutex_destroy(pl) \
+              gasneti_assert_zeroret(pthread_mutex_destroy(&((pl)->lock)))
+  #else /* GASNET_DEBUG non-pthread (error-check-only) mutexes */
     typedef struct {
       volatile int owner;
     } gasneti_mutex_t;
@@ -298,7 +312,7 @@ extern int gasneti_wait_mode; /* current waitmode hint */
   #endif
   #define gasneti_mutex_assertlocked(pl)    gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY())
   #define gasneti_mutex_assertunlocked(pl)  gasneti_assert((pl)->owner != GASNETI_THREADIDQUERY())
-#else
+#else /* non-debug mutexes */
   #if GASNETI_USE_TRUE_MUTEXES
     #include <pthread.h>
     typedef pthread_mutex_t           gasneti_mutex_t;
@@ -318,17 +332,69 @@ extern int gasneti_wait_mode; /* current waitmode hint */
   #else
     typedef char           gasneti_mutex_t;
     #define GASNETI_MUTEX_INITIALIZER '\0'
-    #define gasneti_mutex_lock(pl)    
+    #define gasneti_mutex_lock(pl)    ((void)0)
     #define gasneti_mutex_trylock(pl) 0
-    #define gasneti_mutex_unlock(pl)  
-    #define gasneti_mutex_init(pl)
-    #define gasneti_mutex_destroy(pl)
+    #define gasneti_mutex_unlock(pl)  ((void)0)
+    #define gasneti_mutex_init(pl)    ((void)0)
+    #define gasneti_mutex_destroy(pl) ((void)0)
   #endif
-  #define gasneti_mutex_assertlocked(pl)
-  #define gasneti_mutex_assertunlocked(pl)
+  #define gasneti_mutex_assertlocked(pl)    ((void)0)
+  #define gasneti_mutex_assertunlocked(pl)  ((void)0)
+#endif
+
+/* gasneti_cond_t Condition variables - 
+   Provides pthread_cond-like functionality, with error checking
+  GASNETI_COND_INITIALIZER - value to statically initialize a gasneti_cond_t
+  gasneti_cond_init(gasneti_cond_t *pc) - dynamically initialize a gasneti_cond_t   
+  gasneti_cond_destroy(gasneti_cond_t *pc) - reclaim a gasneti_cond_t
+  gasneti_cond_signal(gasneti_cond_t *pc) - 
+    signal at least one waiter on a gasneti_cond_t, while holding the associated mutex
+  gasneti_cond_broadcast(gasneti_cond_t *pc) - 
+    signal all current waiters on a gasneti_cond_t, while holding the associated mutex
+  gasneti_cond_wait(gasneti_cond_t *pc, gasneti_mutex_t *pl) - 
+    release gasneti_mutex_t pl (which must be held) and block WITHOUT POLLING 
+    until gasneti_cond_t pc is signalled by another thread, or until the system
+    decides to wake this thread for no good reason (which it may or may not do).
+    It's an error to wait if there is only one thread, and can easily lead to 
+    deadlock if the last thread goes to sleep. No thread may call wait unless it
+    can guarantee that (A) some other thread is still polling and (B) some other
+    thread will eventually signal it to wake up. The system may or may not also 
+    randomly signal threads to wake up for no good reason, so upon awaking the thread
+    MUST verify using its own means that the condition it was waiting for 
+    has actually been signalled.
+    Upon wakeup for any reason, the mutex will be reacquired before returning.
+*/
+
+#if GASNETI_USE_TRUE_MUTEXES
+  typedef pthread_cond_t            gasneti_cond_t;
+
+  #define GASNETI_COND_INITIALIZER    PTHREAD_COND_INITIALIZER
+  #define gasneti_cond_init(pc)       gasneti_assert_zeroret(pthread_cond_init(pc))
+  #define gasneti_cond_destroy(pc)    gasneti_assert_zeroret(pthread_cond_destroy(pc))
+  #define gasneti_cond_signal(pc)     gasneti_assert_zeroret(pthread_cond_signal(pc))
+  #define gasneti_cond_broadcast(pc)  gasneti_assert_zeroret(pthread_cond_broadcast(pc))
+  #if GASNET_DEBUG
+    #define gasneti_cond_wait(pc,pl)  do {                    \
+      gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY()); \
+      (pl)->owner = GASNETI_MUTEX_NOOWNER;                    \
+      gasneti_assert_zeroret(pthread_cond_wait(pc, pl));      \
+      gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);   \
+      (pl)->owner = GASNETI_THREADIDQUERY();                  \
+    } while (0)
+  #else
+    #define gasneti_cond_wait(pc,pl)  gasneti_assert_zeroret(pthread_cond_wait(pc, pl))
+  #endif
+#else
+  typedef char           gasneti_cond_t;
+  #define GASNETI_COND_INITIALIZER  '\0'
+  #define gasneti_cond_init(pc)       ((void)0)
+  #define gasneti_cond_destroy(pc)    ((void)0)
+  #define gasneti_cond_signal(pc)     ((void)0)
+  #define gasneti_cond_broadcast(pc)  ((void)0)
+  #define gasneti_cond_wait(pc,pl) \
+      gasneti_fatalerror("There's only one thread: waiting on condition variable => deadlock")
 #endif
 /* ------------------------------------------------------------------------------------ */
-
 
 /* high-performance timer library */
 #include <gasnet_timer.h>

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/05/19 07:35:42 $
- * $Revision: 1.46 $
+ *     $Date: 2004/07/08 09:09:32 $
+ * $Revision: 1.47 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -630,8 +630,7 @@ extern int gasnetc_AMReplyLongM(
         static gasneti_mutex_t errcheck_setup = GASNETI_MUTEX_INITIALIZER;
         gasneti_mutex_lock(&errcheck_setup);
         if (gasnetc_hsl_errcheckinfo_firsttime) { 
-          int retval = pthread_key_create(&gasnetc_hsl_errcheckinfo, NULL);
-          if (retval) gasneti_fatalerror("Failure in pthread_key_create()=%s",strerror(retval));
+          gasneti_assert_zeroret(pthread_key_create(&gasnetc_hsl_errcheckinfo, NULL));
           gasneti_local_membar();
           gasnetc_hsl_errcheckinfo_firsttime = 0;
         }
@@ -655,8 +654,7 @@ extern int gasnetc_AMReplyLongM(
           hsl_errcheck_cnt++;
         gasneti_mutex_unlock(&hsl_errcheck_tablelock);
         memcpy(info, &_info_init, sizeof(gasnetc_hsl_errcheckinfo_t));
-        retval = pthread_setspecific(gasnetc_hsl_errcheckinfo, info);
-        if (retval) gasneti_fatalerror("Failure in pthread_setspecific()=%s",strerror(retval));
+        gasneti_assert_zeroret(pthread_setspecific(gasnetc_hsl_errcheckinfo, info));
         return info;
       }
     }

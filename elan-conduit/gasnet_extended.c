@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/06/25 20:04:16 $
- * $Revision: 1.36 $
+ *     $Date: 2004/07/08 09:09:24 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -205,14 +205,10 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
       return threaddata;
     }
 
-    /*  first time we've seen this thread - need to set it up */
-    { int retval;
-      gasnete_threaddata_t *threaddata = gasnete_new_threaddata();
-
-      retval = pthread_setspecific(gasnete_threaddata, threaddata);
-      gasneti_assert(!retval);
-      return threaddata;
-    }
+    /* first time we've seen this thread - need to set it up */
+    threaddata = gasnete_new_threaddata();
+    gasneti_assert_zeroret(pthread_setspecific(gasnete_threaddata, threaddata));
+    return threaddata;
   }
 #else
   #define gasnete_mythread() (gasnete_threadtable[0])
@@ -237,10 +233,8 @@ extern void gasnete_init() {
   gasnete_check_config(); /*  check for sanity */
 
   #if GASNETI_CLIENT_THREADS
-  {/*  TODO: we could provide a non-NULL destructor and reap data structures from exiting threads */
-    int retval = pthread_key_create(&gasnete_threaddata, NULL);
-    if (retval) gasneti_fatalerror("In gasnete_init(), pthread_key_create()=%s",strerror(retval));
-  }
+    /*  TODO: we could provide a non-NULL destructor and reap data structures from exiting threads */
+    gasneti_assert_zeroret(pthread_key_create(&gasnete_threaddata, NULL));
   #endif
 
   gasnete_mynode = gasnet_mynode();
