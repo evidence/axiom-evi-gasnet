@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/11/09 16:22:09 $
- * $Revision: 1.15 $
+ *     $Date: 2003/11/10 10:06:30 $
+ * $Revision: 1.16 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -87,7 +87,7 @@
 #define _STRINGIFY_HELPER(x) #x
 #define _STRINGIFY(x) _STRINGIFY_HELPER(x)
 
-#define AMMPI_LIBRARY_VERSION      0.7
+#define AMMPI_LIBRARY_VERSION      0.8
 #define AMMPI_LIBRARY_VERSION_STR  _STRINGIFY(AMMPI_LIBRARY_VERSION)
 
 /* naming policy:

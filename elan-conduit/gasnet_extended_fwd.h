@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2003/10/24 01:37:29 $
- * $Revision: 1.12 $
+ *     $Date: 2003/11/10 10:06:25 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 #ifndef _GASNET_EXTENDED_FWD_H
 #define _GASNET_EXTENDED_FWD_H
 
-#define GASNET_EXTENDED_VERSION      1.2
+#define GASNET_EXTENDED_VERSION      1.3
 #define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
 #define GASNET_EXTENDED_NAME         ELAN
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
