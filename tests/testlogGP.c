@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2004/01/05 05:01:24 $
- * $Revision: 1.13 $
+ *     $Date: 2004/01/23 10:35:05 $
+ * $Revision: 1.14 $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -84,20 +84,27 @@ int calibrate_delay(int iters, int64_t *time_p)
 	return loops;
 }
 
-void init_stat(stat_struct_t *st, int sz)
+#define init_stat \
+  GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _init_stat
+#define update_stat \
+  GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _update_stat
+#define print_stat \
+  GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _print_stat
+
+void _init_stat(stat_struct_t *st, int sz)
 {
 	st->iters = 0;
 	st->datasize = sz;
 	st->time = 0;
 }
 
-void update_stat(stat_struct_t *st, int64_t temptime, int iters)
+void _update_stat(stat_struct_t *st, int64_t temptime, int iters)
 {
 	st->iters += iters;
 	st->time += temptime;
 } 
 
-void print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
+void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 {
 	switch (operation) {
 	case PRINT_EEL:

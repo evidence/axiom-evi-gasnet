@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2004/01/21 10:08:17 $
- * $Revision: 1.13 $
+ *     $Date: 2004/01/23 10:35:03 $
+ * $Revision: 1.14 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -97,6 +97,30 @@ BEGIN_EXTERNC
 
 #ifndef GASNETI_STATS_ECHOED_TO_TRACEFILE
 #define GASNETI_STATS_ECHOED_TO_TRACEFILE 1
+#endif
+
+#if GASNET_TRACE
+  /* GASNETI_TRACE_SETSOURCELINE(filename, linenum): 
+     set the current "high-level" source file and line for the current thread
+     to the given value. This information is used to dump out current line information
+     into the tracefile along with each trace message.
+     Passing a NULL filename implies no change to the current filename
+   */
+  #if GASNETI_CLIENT_THREADS
+    extern void gasneti_trace_setsourceline(const char *filename, unsigned int linenum);
+  #else
+    extern const char *gasneti_srcfilename;
+    extern unsigned int gasneti_srclinenum;
+    GASNET_INLINE_MODIFIER(gasneti_trace_setsourceline)
+    void gasneti_trace_setsourceline(const char *filename, unsigned int linenum) {
+      if_pt (filename) gasneti_srcfilename = filename;
+      gasneti_srclinenum = linenum;
+    }
+  #endif
+    #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) \
+      (GASNETI_TRACE_ENABLED(N) ? gasneti_trace_setsourceline(filename, linenum) : ((void)0))
+#else
+  #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) ((void)0)
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -339,7 +363,7 @@ extern void gasneti_trace_init();
 extern void gasneti_trace_finish();
 
 /* defines all the types */
-#define GASNETI_ALLTYPES "GPSBLAICD"
+#define GASNETI_ALLTYPES "GPSBLAICDN"
 
 
 /* GASNETI_ALL_STATS lists all the statistics values we gather, 

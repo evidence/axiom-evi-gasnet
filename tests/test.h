@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/01/05 05:01:24 $
- * $Revision: 1.20 $
+ *     $Date: 2004/01/23 10:35:05 $
+ * $Revision: 1.21 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,6 +11,7 @@
 #define _TEST_H
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
@@ -71,11 +72,22 @@ uint64_t test_checksum(void *p, int numbytes) {
  return result;
 }
 
+static void _MSG(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
+static void _MSG(const char *format, ...) {
+  #define BUFSZ 1024
+  char output[BUFSZ];
+  va_list argptr;
+  va_start(argptr, format); /*  pass in last argument */
+    { int sz = vsnprintf(output, BUFSZ, format, argptr);
+      assert(sz <= BUFSZ);
+      if (sz >= (BUFSZ-5)) strcpy(output+(BUFSZ-5),"...");
+    }
+  va_end(argptr);
+  printf("node %i/%i %s\n", (int)gasnet_mynode(), (int)gasnet_nodes(), output); 
+  fflush(stdout);
+}
 
-#define MSG(s) do {                                                         \
-  printf("node %i/%i %s\n", (int)gasnet_mynode(), (int)gasnet_nodes(), s);  \
-  fflush(stdout);                                                           \
-  } while(0)
+#define MSG GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _MSG
 
 #define BARRIER() do {                                                \
   gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            \

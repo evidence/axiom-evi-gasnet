@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/01/19 12:57:30 $
- * $Revision: 1.46 $
+ *     $Date: 2004/01/23 10:35:03 $
+ * $Revision: 1.47 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -485,6 +485,48 @@ gasneti_stattime_t starttime;
   static void gasneti_stats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
   static void gasneti_tracestats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
 
+  /* line number control */
+  #if GASNETI_CLIENT_THREADS
+    static pthread_key_t gasneti_srclineinfo_key; 
+    typedef struct {
+      const char *filename;
+      unsigned int linenum;
+    } gasneti_srclineinfo_t;
+    GASNET_INLINE_MODIFIER(gasneti_mysrclineinfo)
+    gasneti_srclineinfo_t *gasneti_mysrclineinfo() {
+      gasneti_srclineinfo_t *srclineinfo = pthread_getspecific(gasneti_srclineinfo_key);
+      if_pt (srclineinfo) {
+        gasneti_memcheck(srclineinfo);
+        return srclineinfo;
+      } else {
+        /*  first time we've seen this thread - need to set it up */
+        gasneti_srclineinfo_t *srclineinfo = gasneti_calloc(1,sizeof(gasneti_srclineinfo_t));
+        int retval = pthread_setspecific(gasneti_srclineinfo_key, srclineinfo);
+        gasneti_assert(!retval);
+        return srclineinfo;
+      }
+    }
+    void gasneti_trace_setsourceline(const char *filename, unsigned int linenum) {
+      gasneti_srclineinfo_t *sli = gasneti_mysrclineinfo();
+      if_pt (filename) sli->filename = filename;
+      sli->linenum = linenum;
+    }
+    GASNET_INLINE_MODIFIER(gasneti_trace_getsourceline)
+    void gasneti_trace_getsourceline(const char **filename, int *linenum) {
+      gasneti_srclineinfo_t *sli = gasneti_mysrclineinfo();
+      *filename = sli->filename;
+      *linenum = sli->linenum;
+    }
+  #else
+    const char *gasneti_srcfilename = NULL;
+    unsigned int gasneti_srclinenum = 0;
+    GASNET_INLINE_MODIFIER(gasneti_trace_getsourceline)
+    void gasneti_trace_getsourceline(const char **filename, int *linenum) {
+      *filename = gasneti_srcfilename;
+      *linenum = gasneti_srclinenum;
+    }
+  #endif
+
   static char *gasneti_getbuf() {
     int bufidx;
 
@@ -564,13 +606,21 @@ gasneti_stattime_t starttime;
     gasneti_mutex_assertlocked(&gasneti_tracelock);
     gasneti_assert(fp);
     if (traceheader) {
+      char srclinestr[255];
+      srclinestr[0] ='\0';
+      if (GASNETI_TRACE_ENABLED(N)) {
+        const char *filename; 
+        unsigned int linenum;
+        gasneti_trace_getsourceline(&filename, &linenum);
+        if (filename) sprintf(srclinestr," [%s:%i]", filename, linenum);
+      }
       #if GASNETI_THREADS
-        fprintf(fp, "%i(%x) %8.6fs> (%c) %s%s", 
-          (int)gasnet_mynode(), (int)(uintptr_t)pthread_self(), time, *type, msg,
-          (msg[strlen(msg)-1]=='\n'?"":"\n"));
+        fprintf(fp, "%i(%x) %8.6fs>%s (%c) %s%s", 
+          (int)gasnet_mynode(), (int)(uintptr_t)pthread_self(), time, srclinestr, *type,
+          msg, (msg[strlen(msg)-1]=='\n'?"":"\n"));
       #else
-        fprintf(fp, "%i %8.6fs> (%c) %s%s", (int)gasnet_mynode(), time, *type, msg,
-                (msg[strlen(msg)-1]=='\n'?"":"\n"));
+        fprintf(fp, "%i %8.6fs>%s (%c) %s%s", (int)gasnet_mynode(), time, srclinestr, *type,
+          msg, (msg[strlen(msg)-1]=='\n'?"":"\n"));
       #endif
     } else {
         fprintf(fp, "%i> (%c) %s%s", (int)gasnet_mynode(), *type, msg,
@@ -758,6 +808,12 @@ extern void gasneti_trace_init() {
     #endif
         gasneti_statsfile = NULL;
   }
+
+  #if GASNET_TRACE && GASNETI_CLIENT_THREADS
+  { int retval = pthread_key_create(&gasneti_srclineinfo_key, NULL);
+    if (retval) gasneti_fatalerror("In gasnete_init(), pthread_key_create()=%s",strerror(retval));
+  }
+  #endif
 
   { time_t ltime;
     char temp[255];

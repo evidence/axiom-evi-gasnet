@@ -177,6 +177,7 @@ Optional environment variable settings:
      I - informational messages about system status or performance alerts
      C - conduit-specific (low-level) messages
      D - Detailed message data for gets/puts/AMreqrep
+     N - Line number information from client source files
   default: (all of the above)
 
  GASNET_STATSMASK - specify the types of statistics to collect and report

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testalign.c                                 $
- *     $Date: 2004/01/12 18:48:51 $
- * $Revision: 1.2 $
+ *     $Date: 2004/01/23 10:35:05 $
+ * $Revision: 1.3 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -38,7 +38,14 @@ int peerproc;
 char *rembuf;
 char *locbuf;
 
-void init_stat(stat_struct_t *st, int sz, int al)
+#define init_stat \
+    GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _init_stat
+#define update_stat \
+    GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _update_stat
+#define print_stat \
+    GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _print_stat
+
+void _init_stat(stat_struct_t *st, int sz, int al)
 {
 	st->iters = 0;
 	st->alignment = al;
@@ -46,13 +53,13 @@ void init_stat(stat_struct_t *st, int sz, int al)
 	st->time = 0;
 }
 
-void update_stat(stat_struct_t *st, uint64_t temptime, int iters)
+void _update_stat(stat_struct_t *st, uint64_t temptime, int iters)
 {
 	st->iters += iters;
 	st->time += temptime;
 } 
 
-void print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
+void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 {
 	switch (operation) {
 	case PRINT_LATENCY:
