@@ -25,7 +25,9 @@ $pwd = &Cwd::cwd();
 $delay_rexec = 0;
 $np = 1;
 $use_shmem = 1;
-$rexec = "/usr/bin/ssh";
+$ssh_exec = "/usr/bin/ssh";
+$rsh_exec = "/usr/bin/rsh";
+$rexec = "$ssh_exec";
 $rexec_reaper = 1;
 # May have to change the arch
 $arch = "LINUX";
@@ -75,7 +77,7 @@ sub clean_up {
 	$pid_reaper = fork;
 	if ($pid_reaper == 0) {
 	  if ($verbose) {
-	    print ("\t@rexec_flags $hosts[$z] -n kill -9 $remote_pids[$z] 2>/dev/null\n");
+	    print ("\t\@rexec_flags $hosts[$z] -n kill -9 $remote_pids[$z] 2>/dev/null\n");
 	  }
 	  exec (@rexec_flags, $hosts[$z], '-n', "kill -9 $remote_pids[$z]", "2>/dev/null");
 	}
@@ -218,6 +220,8 @@ sub usage {
   print (STDERR "        but always good to have an option to force it.\n");
   print (STDERR "   -machinefile <file>   Specifies a machine file, There is no default\n");
   print (STDERR "   --gexec         The spawner is gexec.\n");
+  print (STDERR "   --ssh           The spawner is ssh.\n");
+  print (STDERR "   --rsh           The spawner is rsh.\n");
   print (STDERR "   --gm-no-shmem   Disable the shared memory support (enabled by default).\n");
   print (STDERR "   --gm-numa-shmem Enable shared memory only for processes sharing the same Myrinet interface.\n");
   print (STDERR "   --gm-wait <n>   Wait <n> seconds between each spawning step.\n");
@@ -268,6 +272,12 @@ while (@ARGV > 0) {
   } elsif ($_ eq '--gexec') {
     $use_gexec = 1;
     $rexec = $gexec;
+  } elsif ($_ eq '--ssh') {
+    $use_gexec = 0;
+    $rexec = $ssh_exec;
+  } elsif ($_ eq '--rsh') {
+    $use_gexec = 0;
+    $rexec = $rsh_exec;
   } elsif ($_ eq '--gm-no-shmem') {
     $use_shmem = 0;
   } elsif ($_ eq '--gm-numa-shmem') {
