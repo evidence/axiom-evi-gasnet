@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/13 19:03:57 $
-# $Revision: 1.172 $
+#     $Date: 2004/08/13 20:25:15 $
+# $Revision: 1.173 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.172 $)
+AC_REVISION($Revision: 1.173 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1121,10 +1121,10 @@ if test "$enabled_lapi" = yes; then
   AC_MSG_CHECKING([IBM SP Switch hardware availability/version])
   have_fed="no"
   have_col="no"
-  if lscfg -l sni0 | grep -- sni0 > /dev/null 2>&1 ; then
+  if (lscfg -l sni0 | grep -- sni0 ) > /dev/null 2>&1 ; then
     have_fed="yes"
   fi
-  if lscfg -l css0 | grep -- css0 > /dev/null 2>&1; then
+  if (lscfg -l css0 | grep -- css0 ) > /dev/null 2>&1; then
     have_col="yes"
   fi
   if test "${have_fed}${have_col}" = "yesyes"; then
