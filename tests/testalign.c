@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testalign.c                                 $
- *     $Date: 2004/01/07 20:38:15 $
- * $Revision: 1.1 $
+ *     $Date: 2004/01/12 18:48:51 $
+ * $Revision: 1.2 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -17,7 +17,7 @@
 #include <fcntl.h>
 #include "test.h"
 
-#define XFERLEN	(32*1024)
+#define DEFAULT_SZ	(32*1024)
 
 #define PRINT_LATENCY 0
 #define PRINT_THROUGHPUT 1
@@ -256,6 +256,7 @@ int main(int argc, char **argv)
 {
     int arg;
     int iters = 0;
+    int size = 0;
     int i, j;
    
     /* call startup */
@@ -272,16 +273,19 @@ int main(int argc, char **argv)
         insegment = 0;
         ++arg;
     }
-    if (argc > arg+1) {
-        printf("Usage: %s [-in|-out] (iters) \n"
+    if (argc > arg+2) {
+        printf("Usage: %s [-in|-out] (iters) (size)\n"
                "  The 'in' or 'out' option selects whether the initiator-side\n"
                "  memory is in the GASNet segment or not (default it not).\n",
                argv[0]);
         gasnet_exit(1);
     }
 
-    if (argc > arg) iters = atoi(argv[arg]);
+    if (argc > arg) iters = atoi(argv[arg++]);
     if (!iters) iters = 1;
+
+    if (argc > arg) size = atoi(argv[arg++]);
+    if (!size) size = DEFAULT_SZ;
 
     /* get SPMD info */
     myproc = gasnet_mynode();
@@ -304,14 +308,14 @@ int main(int argc, char **argv)
     if (insegment) {
     	locbuf = (void *)TEST_MYSEG();
     } else {
-	/* XFERLEN + 1 page of alignment + initial alignment padding of PAGESZ-1 */
-	uintptr_t tmp = (uintptr_t) test_malloc(XFERLEN + 2 * PAGESZ - 1);
+	/* size + 1 page of alignment + initial alignment padding of PAGESZ-1 */
+	uintptr_t tmp = (uintptr_t) test_malloc(size + 2 * PAGESZ - 1);
 	locbuf = (void *)((tmp + PAGESZ - 1) & ~(PAGESZ - 1));
     }
 
-      for (j = 1; j <= PAGESZ; j *= 2) oneway_test(iters, XFERLEN, j);
-      for (j = 1; j <= PAGESZ; j *= 2) oneway_nbi_test(iters, XFERLEN, j);
-      for (j = 1; j <= PAGESZ; j *= 2) oneway_nb_test(iters, XFERLEN, j);
+      for (j = 1; j <= PAGESZ; j *= 2) oneway_test(iters, size, j);
+      for (j = 1; j <= PAGESZ; j *= 2) oneway_nbi_test(iters, size, j);
+      for (j = 1; j <= PAGESZ; j *= 2) oneway_nb_test(iters, size, j);
 
     gasnet_exit(0);
 
