@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_refcoll.c $
- *     $Date: 2004/08/12 21:34:22 $
- * $Revision: 1.6 $
+ *     $Date: 2004/08/13 19:23:48 $
+ * $Revision: 1.7 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -118,6 +118,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
     *handle = 1;
   }
 
+  /* NOTE: caller is responsible for a gasneti_flush_reads() on success */
   extern int gasnete_coll_handle_done(gasnet_coll_handle_t handle GASNETE_THREAD_FARG) {
     int result = 0;
     gasneti_assert(handle != GASNET_COLL_INVALID_HANDLE);
@@ -134,6 +135,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 #endif
 
 #ifndef gasnete_coll_try_sync
+  /* NOTE: caller is responsible for a gasneti_flush_reads() on success */
   extern int
   gasnete_coll_try_sync(gasnet_coll_handle_t handle GASNETE_THREAD_FARG) {
     gasneti_assert(handle != GASNET_COLL_INVALID_HANDLE); /* caller must check */
@@ -146,6 +148,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 #endif
 
 #ifndef gasnete_coll_try_sync_some
+  /* Note caller is responsible for a gasneti_flush_reads() on success */
   extern int
   gasnete_coll_try_sync_some(gasnet_coll_handle_t *phandle, size_t numhandles GASNETE_THREAD_FARG) {
     int empty = 1;
@@ -172,6 +175,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 #endif
 
 #ifndef gasnete_coll_try_sync_all
+  /* NOTE: caller is responsible for a gasneti_flush_reads() on success */
   extern int
   gasnete_coll_try_sync_all(gasnet_coll_handle_t *phandle, size_t numhandles GASNETE_THREAD_FARG) {
     int result = GASNET_OK;
@@ -914,6 +918,7 @@ extern int gasnete_coll_generic_syncnb(gasnete_coll_generic_data_t *data GASNETE
   return result;
 }
 
+/* NOTE: caller is responsible for a gasneti_sync_reads() if they read any transferred data.  */
 extern int gasnete_coll_generic_coll_sync(gasnet_coll_handle_t *p, size_t count GASNETE_THREAD_FARG) {
   int result = 1;
   int i;

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_coll.h                 $
- *     $Date: 2004/07/23 22:36:41 $
- * $Revision: 1.5 $
+ *     $Date: 2004/08/13 19:23:48 $
+ * $Revision: 1.6 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -483,6 +483,8 @@ int _gasnet_coll_try_sync(gasnet_coll_handle_t handle GASNETE_THREAD_FARG) {
   int result = GASNET_OK;
   if_pt (handle != GASNET_COLL_INVALID_HANDLE) {
     result = gasnete_coll_try_sync(handle GASNETE_THREAD_PASS);
+    if (result)
+      gasneti_sync_reads();
   }
   GASNETI_TRACE_COLL_TRYSYNC(COLL_TRY_SYNC,result);
   return result;
@@ -494,6 +496,8 @@ extern int gasnete_coll_try_sync_some(gasnet_coll_handle_t *phandle, size_t numh
 GASNET_INLINE_MODIFIER(_gasnet_coll_try_sync_some)
 int _gasnet_coll_try_sync_some(gasnet_coll_handle_t *phandle, size_t numhandles GASNETE_THREAD_FARG) {
   int result = gasnete_coll_try_sync_some(phandle, numhandles GASNETE_THREAD_PASS);
+  if (result)
+    gasneti_sync_reads();
   GASNETI_TRACE_COLL_TRYSYNC(COLL_TRY_SYNC_SOME,result);
   return result;
 }
@@ -504,6 +508,8 @@ extern int gasnete_coll_try_sync_all(gasnet_coll_handle_t *phandle, size_t numha
 GASNET_INLINE_MODIFIER(_gasnet_coll_try_sync_all)
 int _gasnet_coll_try_sync_all(gasnet_coll_handle_t *phandle, size_t numhandles GASNETE_THREAD_FARG) {
   int result = gasnete_coll_try_sync_all(phandle, numhandles GASNETE_THREAD_PASS);
+  if (result)
+    gasneti_sync_reads();
   GASNETI_TRACE_COLL_TRYSYNC(COLL_TRY_SYNC_ALL,result);
   return result;
 }
