@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/07/26 09:03:24 $
- * $Revision: 1.62 $
+ *     $Date: 2004/07/29 20:22:18 $
+ * $Revision: 1.64 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -774,21 +774,21 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
   /* format a block of data into a string and return it - 
      caller should not deallocate string, they are recycled automatically
    */
-  extern char *gasneti_formatdata(void *p, int nbytes) { 
+  extern char *gasneti_formatdata(void *p, size_t nbytes) { 
     uint8_t *data = (uint8_t *)p;
     char *output = gasneti_getbuf();
     *output = '\0';
     if (nbytes <= 8) { /* fits on one line */
-      int i;
+      size_t i;
       for (i=0; i < nbytes; i++) {
         char temp[5];
         sprintf(temp,"%02x ",(int)data[i]);
         strcat(output, temp);
       }
     } else {
-      int line;
-      int col;
-      int byteidx = 0;
+      size_t line;
+      size_t col;
+      size_t byteidx = 0;
       strcat(output,"\n");
       for (line=0;line<MAX_LINES && byteidx<nbytes;line++) {
         char nicefmt[BYTES_PER_LINE+1];
