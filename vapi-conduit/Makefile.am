@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.14 2004/02/10 11:30:07 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.15 2004/02/10 19:11:38 bonachea Exp $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -11,7 +11,8 @@ thread_defines = @GASNET_THREAD_DEFINES@
 # XXX: As long as we use MPI for bootstrapping
 CC = @MPI_CC@
 
-if !GASNET_SEGMENT_FAST
+if GASNET_SEGMENT_FAST
+else
 fh_srcdir = $(top_srcdir)/other/firehose
 fh_include = -I$(fh_srcdir)
 fh_deps = firehose_fwd.h $(fh_srcdir)/firehose.h $(fh_srcdir)/firehose_internal.h
