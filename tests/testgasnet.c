@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2005/03/16 12:11:51 $
- * $Revision: 1.26 $
+ *     $Date: 2005/03/18 19:02:20 $
+ * $Revision: 1.27 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -246,8 +246,8 @@ void doit(int partner, int *partnerseg) {
     for (i=0; i < 100; i++) {
       unsigned int tmp1 = (unsigned int)gasnet_get_val(partner, partnerbase2+i, sizeof(unsigned char));
       unsigned int tmp2 = (unsigned int)gasnet_get_val(partner, partnerbase2+i+200, sizeof(unsigned char));
-      if (tmp1 != (unsigned int)(100 + mynode + i) || 
-          tmp2 != (unsigned int)(100 + mynode + i)) {
+      if (tmp1 != (unsigned char)(100 + mynode + i) || 
+          tmp2 != (unsigned char)(100 + mynode + i)) {
         MSG("*** ERROR - FAILED CHAR VALUE TEST 1!!!");
         printf("node %i/%i  i=%i tmp1=%i tmp2=%i (100 + mynode + i)=%i\n", 
           (int)gasnet_mynode(), (int)gasnet_nodes(), 
@@ -261,7 +261,7 @@ void doit(int partner, int *partnerseg) {
       }
       for (i=0; i < 100; i++) {
         unsigned int tmp = (unsigned int)gasnet_wait_syncnb_valget(handles[i]);
-        if (tmp != (unsigned int)(100 + mynode + i)) {
+        if (tmp != (unsigned char)(100 + mynode + i)) {
           MSG("*** ERROR - FAILED CHAR VALUE TEST 2!!!");
           printf("node %i/%i  i=%i tmp1=%i (100 + mynode + i)=%i\n", 
             (int)gasnet_mynode(), (int)gasnet_nodes(), 
