@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/04/28 22:28:52 $
-# $Revision: 1.53 $
+#     $Date: 2003/04/28 22:35:57 $
+# $Revision: 1.54 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.53 $)
+AC_REVISION($Revision: 1.54 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -106,6 +106,14 @@ GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc 2.96 compiler, [
 
 if test "$ac_cv_c_bigendian" = 'yes'; then
   ENDIANNESS="-DBIG_ENDIAN"
+  # avoid warnings from re-defining LITTLE_ENDIAN
+  GASNET_TRY_CACHE_CHECK(for BIG_ENDIAN in sys/types.h, cc_bigend_systypes,
+    [#include <sys/types.h>
+     #ifndef BIG_ENDIAN
+       #error not defined
+     #endif
+    ], [], 
+    ENDIANNESS="")
 else
   ENDIANNESS="-DLITTLE_ENDIAN=1234"
   # avoid warnings from re-defining LITTLE_ENDIAN
