@@ -9,7 +9,6 @@ use Getopt::Long;
 
 my $opt_sort;
 my $opt_output;
-my $opt_long;
 my $opt_help;
 my $opt_report;
 
@@ -20,7 +19,6 @@ my (%data, %report);
 GetOptions (
     'h|?|help'		=> \$opt_help,
     'sort=s'		=> \$opt_sort,
-    'l'		        => \$opt_long,
     'o=s'		=> \$opt_output,
     'report=s'		=> \$opt_report
 );
@@ -59,7 +57,6 @@ Usage:	gasnet_trace [options] trace-file(s)
 
 Options:
     -h -? -help		See this message.
-    -l		        Use detailed listing (shows get/put/barrier type).
     -o [filename]	Output results to file.  Default is STDOUT.
     -report [r1][r2]..	One or more capital letters to indicate which 
                         reports to generate: P(PUT), G(GET), and/or B(BARRIER).
@@ -235,19 +232,11 @@ sub trace_output
     # Print out 
     print "\n$pgb REPORT:\n";
     
-    if ($opt_long) {
-        $handle->format_name("SHOWTYPE");
-    	print <<EOF
+    $handle->format_name("SHOWTYPE");
+    print <<EOF;
 NO     SOURCE  LINE  TYPE          MSG:(min    max     avg     total)    CALLS  
 ==============================================================================    	
 EOF
-    } else {
-        $handle->format_name("DEFAULT");
-    	print <<EOF
-NO      SOURCE LINE      MSG:(min        max       avg         total)    CALLS  
-==============================================================================
-EOF
-    }
     
     # Setting up variables;
     my ($rank, $src_num, $source, $lnum, $type, $min, $max, $avg, $total, $calls);
@@ -274,12 +263,6 @@ EOF
     
 # formats
 ########################
-
-    format DEFAULT = 
-@<<  @>>>>>>> @>>>>     @>>>>>>>>   @>>>>>>>>    @>>>>>>>>   @>>>>>>>>  @>>>>>
-$rank, $source, $lnum, $min, $max, $avg, $total, $calls
-.
-
 
     format SHOWTYPE = 
 @<<  @>>>>>>> @>>>> @<<<<<<<<<  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
