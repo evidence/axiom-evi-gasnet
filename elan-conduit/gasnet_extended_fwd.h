@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended_fwd.h                  $
- *     $Date: 2002/08/18 08:38:46 $
- * $Revision: 1.1 $
+ *     $Date: 2002/09/02 23:18:37 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -61,7 +61,7 @@
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */
 #define CONDUIT_EXTENDED_STATS(CNT,VAL,TIME) \
-        CNT(C, DYNAMIC_THREADLOOKUP, )           
+        CNT(C, DYNAMIC_THREADLOOKUP, cnt)           
 
 
 #endif

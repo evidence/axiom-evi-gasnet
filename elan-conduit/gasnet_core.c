@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/08/30 03:17:54 $
- * $Revision: 1.6 $
+ *     $Date: 2002/09/02 23:18:37 $
+ * $Revision: 1.7 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -9,7 +9,6 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
-#include <gasnet_extended_internal.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -87,7 +86,7 @@ static void gasnetc_check_config() {
     if (result != 2 || major != ELAN_VERSION_MAJOR || minor != ELAN_VERSION_MINOR)
       gasneti_fatalerror("unexpected elan library version.\n"
                          " Expected: libelan %i.%i\n"
-                         " Actual  : %s", ELAN_VERSION_MAJOR, ELAN_VERSION_MINOR, ver);
+                         " Actual  : libelan %s", ELAN_VERSION_MAJOR, ELAN_VERSION_MINOR, ver);
   }
 
   assert(sizeof(gasnetc_shortmsg_t) == GASNETC_SHORT_HEADERSZ);

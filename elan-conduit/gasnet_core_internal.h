@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/08/18 08:38:46 $
- * $Revision: 1.4 $
+ *     $Date: 2002/09/02 23:18:37 $
+ * $Revision: 1.5 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -23,6 +23,8 @@
 #define ELAN_VER_1_2
 #elif ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR == 3
 #define ELAN_VER_1_3
+#elif ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR == 4
+#define ELAN_VER_1_4
 #else
 #error unknown elan version
 #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/08/31 09:36:48 $
- * $Revision: 1.12 $
+ *     $Date: 2002/09/02 23:18:33 $
+ * $Revision: 1.13 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -164,6 +164,12 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
 
 size_t gasneti_getSystemPageSize();
 
+#if !defined(CRAYT3E)
+  extern gasnet_seginfo_t gasneti_mmap_segment_search();
+  extern void gasneti_mmap_fixed(void *segbase, size_t segsize);
+  extern void gasneti_munmap(void *segbase, size_t segsize);
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasneti_ErrorName)
 char *gasneti_ErrorName(int errval) {
@@ -263,7 +269,11 @@ extern int gasneti_VerboseErrors;
   #define GASNETI_MUTEX_NOOWNER       -1
   #ifndef GASNETI_THREADIDQUERY
     /* allow conduit override of thread-id query */
-    #define GASNETI_THREADIDQUERY()   (gasnete_mythread()->threadidx)
+    #ifdef GASNET_PAR
+      #define GASNETI_THREADIDQUERY()   ((int)pthread_self())
+    #else
+      #define GASNETI_THREADIDQUERY()   (0)
+    #endif
   #endif
   #ifdef GASNET_PAR
     #include <pthread.h>

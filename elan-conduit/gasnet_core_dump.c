@@ -1,13 +1,12 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_dump.c                  $
- *     $Date: 2002/08/18 08:38:46 $
- * $Revision: 1.4 $
+ *     $Date: 2002/09/02 23:18:37 $
+ * $Revision: 1.5 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #include <gasnet.h>
 #include <gasnet_core_internal.h>
-#include <gasnet_extended_internal.h>
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_dump_base() {

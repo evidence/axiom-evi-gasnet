@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2002/08/19 11:10:27 $
- * $Revision: 1.1 $
+ *     $Date: 2002/09/02 23:18:33 $
+ * $Revision: 1.2 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -404,7 +404,7 @@ extern void gasneti_trace_finish();
         TIME(S, WAIT_SYNCNBI_PUTS, waittime)              \
         VAL(S, END_NBI_ACCESSREGION, numops)              \
                                                           \
-        CNT(B, BARRIER_NOTIFY, )                          \
+        CNT(B, BARRIER_NOTIFY, cnt)                       \
         TIME(B, BARRIER_NOTIFYWAIT, notify-wait interval) \
         TIME(B, BARRIER_WAIT, waittime)                   \
         VAL(B, BARRIER_TRY, success)                      \
@@ -412,20 +412,20 @@ extern void gasneti_trace_finish();
         TIME(L, HSL_LOCK, waittime)                       \
         TIME(L, HSL_UNLOCK, holdtime)                     \
                                                           \
-        CNT(A, AMREQUEST_SHORT, )                         \
-        CNT(A, AMREQUEST_MEDIUM, )                        \
-        CNT(A, AMREQUEST_LONG, )                          \
-        CNT(A, AMREQUEST_LONGASYNC, )                     \
-        CNT(A, AMREPLY_SHORT, )                           \
-        CNT(A, AMREPLY_MEDIUM, )                          \
-        CNT(A, AMREPLY_LONG, )                            \
+        CNT(A, AMREQUEST_SHORT, cnt)                      \
+        CNT(A, AMREQUEST_MEDIUM, cnt)                     \
+        CNT(A, AMREQUEST_LONG, cnt)                       \
+        CNT(A, AMREQUEST_LONGASYNC, cnt)                  \
+        CNT(A, AMREPLY_SHORT, cnt)                        \
+        CNT(A, AMREPLY_MEDIUM, cnt)                       \
+        CNT(A, AMREPLY_LONG, cnt)                         \
                                                           \
-        CNT(A, AMREQUEST_SHORT_HANDLER, )                 \
-        CNT(A, AMREQUEST_MEDIUM_HANDLER, )                \
-        CNT(A, AMREQUEST_LONG_HANDLER, )                  \
-        CNT(A, AMREPLY_SHORT_HANDLER, )                   \
-        CNT(A, AMREPLY_MEDIUM_HANDLER, )                  \
-        CNT(A, AMREPLY_LONG_HANDLER, )                    \
+        CNT(A, AMREQUEST_SHORT_HANDLER, cnt)              \
+        CNT(A, AMREQUEST_MEDIUM_HANDLER, cnt)             \
+        CNT(A, AMREQUEST_LONG_HANDLER, cnt)               \
+        CNT(A, AMREPLY_SHORT_HANDLER, cnt)                \
+        CNT(A, AMREPLY_MEDIUM_HANDLER, cnt)               \
+        CNT(A, AMREPLY_LONG_HANDLER, cnt)                 \
                                                           \
         CONDUIT_CORE_STATS(CNT,VAL,TIME)                  \
         CONDUIT_EXTENDED_STATS(CNT,VAL,TIME)
