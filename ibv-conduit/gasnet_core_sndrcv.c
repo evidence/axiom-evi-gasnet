@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/07/14 22:26:11 $
- * $Revision: 1.3 $
+ *     $Date: 2003/07/15 18:45:53 $
+ * $Revision: 1.4 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -559,7 +559,6 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
   uint32_t flags = comp->imm_data;
   gasnetc_cep_t *cep = &gasnetc_cep[GASNETC_MSG_SRCIDX(flags)];
   gasnetc_rbuf_t *spare;
-  int needReply;
 
   /* If possible, post a replacement buffer right away. */
   spare = (*spare_p) ? (*spare_p) : gasnetc_get_rbuf();
@@ -577,17 +576,15 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
      * take place:
      *   1) Assume that all the rbuf posted to the cep have been consumed by AMs
      *   2) Assume the current AM is a request
-     *   3) Assume the request handler sends a reply
+     *   3) Either the request handler or this function sends a reply
      *  then     
      *   4) The peer receives the reply and thus receives a credit
      *   5) The credit allows the peer to send us another AM request
-     *   6) This additional request arrives before the current request handler completes
-     *      (which would allow the current rbuf to be reposted to the cep).
+     *   6) This additional request arrives before the current rbuf is reposted to the cep
      *   7) The HCA is unable, until the current rbuf is reposted, to complete the transfer
      *   8) IB's RNR (Reciever Not Ready) flow-control kicks in, stalling our peer's send queue
      *  Fortunetely this is not only an unlikely occurance, it is also non-fatal.
-     *  Once the current AM request handler completes (which it must do in finite time without
-     *  depending on external events) the rbuf will be reposted and the stall will end.
+     *  Eventually, the rbuf will be reposted and the stall will end.
      */
   }
 
@@ -595,16 +592,15 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
   gasnetc_processPacket(rbuf, flags);
 
   /* Finalize flow control */
-  needReply = rbuf->needReply;
+  if_pf (rbuf->needReply) {
+    int retval = gasnetc_ReplySystem((gasnet_token_t)rbuf, 1, gasneti_handleridx(gasnetc_SYS_ack), 0 /* no args */);
+    assert(retval == GASNET_OK);
+  }
   if_pf (!spare) {
     /* This is the fallback (reduced performance) case.
      * Because no replacement rbuf was posted earlier, we must repost the recv'd rbuf now.
      */
     gasnetc_rcv_post(cep, rbuf, GASNETC_MSG_CREDIT(flags));
-  }
-  if_pf (needReply) {
-    int retval = gasnetc_ReplySystem((gasnet_token_t)rbuf, 1, gasneti_handleridx(gasnetc_SYS_ack), 0 /* no args */);
-    assert(retval == GASNET_OK);
   }
 }
 
