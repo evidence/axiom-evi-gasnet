@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2004/12/21 20:00:13 $
- * $Revision: 1.63 $
+ *     $Date: 2005/02/02 18:05:26 $
+ * $Revision: 1.64 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -952,7 +952,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
    * This way we can be sure that we never hold the last pinned buffer
    * while spinning on the rcv queue waiting for credits.
    */
-  if (isReq) {
+  if (isReq && (dest != gasnetc_mynode)) {
     gasnetc_sema_t *sema = &gasnetc_cep[dest].am_sema;
     GASNETC_STAT_EVENT(GET_AMREQ_CREDIT);
 
@@ -1432,11 +1432,8 @@ extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
     gasnetc_sema_init(&cep->am_sema, gasnetc_am_oust_pp);
     gasnetc_sema_init(&cep->sq_sema, gasnetc_op_oust_pp);
   } else {
-    /* Even the loopback AMs are restricted by credits, so we make this limit LARGE.
-     * Since the handlers run synchronously, this just limits the number of threads
-     * which are sending AM Requests to no more than 1 Million :-)
-     */
-    gasnetc_sema_init(&cep->am_sema, 1000000);
+    /* Should never use these for loopback */
+    gasnetc_sema_init(&cep->am_sema, 0);
     gasnetc_sema_init(&cep->sq_sema, 0);
   }
 }
