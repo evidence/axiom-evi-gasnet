@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2002/12/19 18:35:44 $
- * $Revision: 1.7 $
+ *     $Date: 2003/01/11 22:46:40 $
+ * $Revision: 1.8 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,6 +9,12 @@
 #ifndef _GASNET_H
 #define _GASNET_H
 #define _IN_GASNET_H
+#define _INCLUDED_GASNET_H
+#ifdef _INCLUDED_GASNET_TOOLS_H
+  #error Applications that use both GASNet and GASNet tools must   \
+         include gasnet.h before gasnet_tools.h and must include   \
+         _both_ headers in any files that need either header
+#endif
 
 /* Usage:
    see the GASNet specification for details on how to use the GASNet interface
@@ -161,6 +167,24 @@
   typedef void *gasnet_threadinfo_t;
 #endif
 
+#ifndef GASNET_PAGESIZE
+  #ifdef GASNETI_PAGESIZE
+    #define GASNET_PAGESIZE GASNETI_PAGESIZE
+  #elif defined(CRAYT3E)
+    /* on Cray: shmemalign allocates mem aligned across nodes, 
+        but there seems to be no fixed page size (man pagesize)
+        this is probably because they don't support VM
+       actual page size is set separately for each linker section, 
+        ranging from 512KB(default) to 8MB
+       Here we return 1 to reflect the lack of page alignment constraints
+   */
+
+    #define GASNET_PAGESIZE 1
+  #else
+    #error GASNET_PAGESIZE unknown and not set by conduit
+  #endif
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 /* extended types */
 
@@ -186,7 +210,10 @@ typedef void *gasnet_threadinfo_t;
 
 /* ------------------------------------------------------------------------------------ */
 
+/* Main core header */
 #include <gasnet_core.h>
+
+/* Main extended header */
 #include <gasnet_extended.h>
 
 /* ------------------------------------------------------------------------------------ */

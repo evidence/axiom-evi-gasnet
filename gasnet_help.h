@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2002/12/26 03:43:15 $
- * $Revision: 1.12 $
+ *     $Date: 2003/01/11 22:46:40 $
+ * $Revision: 1.13 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -55,17 +55,6 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 
 /* tracing utilities */
 #include <gasnet_trace.h>
-
-/* get atomicops */
-#include <gasnet_tools.h>
-
-#ifndef gasneti_memsync
-  #ifdef GASNETI_THREADS
-    #define gasneti_memsync() gasneti_local_membar()
-  #else
-    #define gasneti_memsync() 
-  #endif
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 

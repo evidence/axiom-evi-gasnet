@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.29 2003/01/07 17:30:36 csbell Exp $
- * $Date: 2003/01/07 17:30:36 $
- * $Revision: 1.29 $
+/* $Id: gasnet_core_misc.c,v 1.30 2003/01/11 22:46:45 bonachea Exp $
+ * $Date: 2003/01/11 22:46:45 $
+ * $Revision: 1.30 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -60,7 +60,7 @@ gasnetc_mmap_segment_search(gasnet_seginfo_t *segment, size_t len,
 		/* Unless we've already found a working segment, don't narrow
 		 * in a smaller segment yet */
 		newlen = 
-		    GASNETI_PAGE_ROUNDUP(len-offset, GASNETC_SEGMENT_ALIGN);
+		    GASNETI_ALIGNUP(len-offset, GASNETC_SEGMENT_ALIGN);
 	}
 	else {
 		#if GASNETC_MMAP_DEBUG_VERBOSE
@@ -76,7 +76,7 @@ gasnetc_mmap_segment_search(gasnet_seginfo_t *segment, size_t len,
 		munmap (mmap_addr, len);
 		offset /= 2;
 		newlen = 
-		    GASNETI_PAGE_ROUNDUP(len+offset, GASNETC_SEGMENT_ALIGN);
+		    GASNETI_ALIGNUP(len+offset, GASNETC_SEGMENT_ALIGN);
 	}
 	return gasnetc_mmap_segment_search(segment, newlen, offset);
 }
@@ -428,7 +428,7 @@ gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
 	 * still lead to a functional algorithm, but much less optimal due to
 	 * swapping */
 	_gmc.pinnable_local = maxphysmem = 
-	    GASNETI_PAGE_ALIGN(
+	    GASNETI_ALIGNDOWN(
 	        GASNETC_FIREHOSE_PHYSMEM_RATIO * gasnetc_get_physmem(),
 	        GASNETC_BUCKET_SIZE);
 
@@ -467,7 +467,7 @@ gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
 
 		/* Align the global segment before broadcasting it */
 		segceil = 
-		    (uintptr_t) GASNETI_PAGE_ALIGN(segceil, GASNETC_PAGE_SIZE);
+		    (uintptr_t) GASNETI_PAGE_ALIGNDOWN(segceil);
 		segsize = segceil - (uintptr_t)segbase;
 		if (segceil < (uintptr_t) segbase)
 			segsize = 0;

@@ -40,7 +40,7 @@
 @c ------------------------------------------------------------------------------------
 @c Macros:
 
-@set VERSION 1.1
+@set VERSION 1.2
 @set RELEASEDATE October 27th, 2002
 
 @ifnottex
@@ -139,7 +139,7 @@ creating GASNet clients or implementations. The authoritative version of the GAS
 is maintained by Dan Bonachea and any proposed changes should be submitted for review.
 @end quotation
 
-Published by LBNL NERSC FTG and U.C. Berkeley
+Published by LBNL FTG and U.C. Berkeley
 @end macro
 
 @c ------------------------------------------------------------------------------------
@@ -147,9 +147,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/12/19 18:35:46 $
+@subtitle $Date: 2003/01/11 22:46:41 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.16 $ 
+@subtitle $Revision: 1.17 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -187,10 +187,10 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/12/19 18:35:46 $
-@*$Revision: 1.16 $ 
+@*$Date: 2003/01/11 22:46:41 $
+@*$Revision: 1.17 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
-@*@uref{http://upc.nersc.gov/}
+@*@uref{http://upc.lbl.gov/}
 @HR
 @COPYRIGHTTEXT
 @HR
@@ -445,6 +445,11 @@ GASNet job
 defined by the GASNet implementation to the value 1 if @code{gasnet_attach()} 
 guarantees that the remote-access memory segment will be aligned at the same virtual 
 address on all nodes. Defined to 0 otherwise.
+
+@item GASNET_PAGESIZE
+a preprocessor constant integer which provides the memory granularity size used for
+various GASNet parameters which are required to be page-aligned. On many systems this
+will be the system page size.
 @end ftable
 
 @c ------------------------------------------------------------------------------------
@@ -609,7 +614,7 @@ location of the remote-access memory data segment for the local node that
 will be used for all remote accesses (i.e. using the data transfer functions 
 of the extended API) or as the target of any Long active-messages in 
 the core API. The client passes the desired size of this area in bytes as 
-@var{segsize}, which must be a multiple of the system page size, and 
+@var{segsize}, which must be a multiple of @code{GASNET_PAGESIZE}, and 
 should be less than or equal to the value returned by @code{gasnet_getMaxLocalSegmentSize()}.
 @var{minheapoffset} specifies the minimum amount of virtual memory space (in bytes)
 to leave between the end of the current memory heap and the beginning of the 
@@ -627,7 +632,7 @@ whose pages are currently unused (e.g. by calling @code{mmap}).
 The actual remote-access segment size achieved may be less than @var{segsize} if insufficient 
 system resources are available - the exact size and location of the segment 
 for all nodes should be queried after attach using @code{gasnet_getSegmentInfo()}. 
-The segment assignment is guaranteed to have a page-aligned base address and size, 
+The segment assignment is guaranteed to have a @code{GASNET_PAGESIZE}-aligned base address and size, 
 but may differ in size across nodes, according to the requested segment sizes and 
 system resource availability.
 GASNet will not initialize data within the memory segment in any way, nor 
@@ -704,7 +709,7 @@ that may be provided to @code{gasnet_attach()} under the current configuration.
 The return value of this function may depend on 
 current system resource usage, and may return different values on different nodes
 of a job, according to current system utilization. The value returned will 
-always be an even multiple of the system page size.
+always be an even multiple of @code{GASNET_PAGESIZE}.
 
 The value returned is an optimistic approximation of the segment size 
 which can be acquired by @code{gasnet_attach()} - the actual size achieved can be queried 

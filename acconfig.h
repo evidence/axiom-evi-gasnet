@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2003/01/03 00:33:28 $ */
-/*  $Revision: 1.12 $ */
+/*      $Date: 2003/01/11 22:46:40 $ */
+/*  $Revision: 1.13 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -45,6 +45,9 @@
 
 /* Linux asm/atomic.h broken */
 #undef BROKEN_LINUX_ASM_ATOMIC_H
+
+/* auto-detected mmap data page size */
+#undef GASNETI_PAGESIZE
 
 /* various OS and machine definitions */
 #undef UNIX

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/26 03:43:17 $
- * $Revision: 1.17 $
+ *     $Date: 2003/01/11 22:46:42 $
+ * $Revision: 1.18 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -154,23 +154,22 @@ static void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   #endif
 }
 
-static uintptr_t gasnetc_searchElanSeglength(void *base, uintptr_t lowsz, uintptr_t highsz, uintptr_t pagesize) {
+static uintptr_t gasnetc_searchElanSeglength(void *base, uintptr_t lowsz, uintptr_t highsz) {
   uintptr_t sz;
   if (lowsz == highsz) return 0;
-  sz = GASNETI_PAGE_ROUNDUP((lowsz + (highsz - lowsz) / 2), pagesize);
+  sz = GASNETI_PAGE_ALIGNUP((lowsz + (highsz - lowsz) / 2));
   if (elan_addressable(STATE(), base, sz)) {
-    uintptr_t temp = gasnetc_searchElanSeglength(base, sz, highsz, pagesize);
+    uintptr_t temp = gasnetc_searchElanSeglength(base, sz, highsz);
     if (temp) return temp;
     else return sz;
   } else {
     if (sz == highsz) return 0;
-    else return gasnetc_searchElanSeglength(base, lowsz, sz, pagesize);
+    else return gasnetc_searchElanSeglength(base, lowsz, sz);
   }
 }
 /* return the length of the contiguous, elan-mapped memory segment starting at base */
 static uintptr_t gasnetc_ElanSeglength(void *base) {
-  size_t pagesize = gasneti_getSystemPageSize();
-  return gasnetc_searchElanSeglength(base, 0, (uintptr_t)1<<32, pagesize);
+  return gasnetc_searchElanSeglength(base, 0, (uintptr_t)1<<32);
 }
 
 static int gasnetc_init(int *argc, char ***argv) {
@@ -318,7 +317,6 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 /* ------------------------------------------------------------------------------------ */
 extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
                           uintptr_t segsize, uintptr_t minheapoffset) {
-  size_t pagesize = gasneti_getSystemPageSize();
   void *segbase = NULL;
   
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%i, minheapoffset=%i)",
@@ -342,12 +340,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   /*  check argument sanity */
   #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-    if ((segsize % pagesize) != 0) 
+    if ((segsize % GASNET_PAGESIZE) != 0) 
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
     if (segsize > gasnetc_getMaxLocalSegmentSize()) 
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
-    if ((minheapoffset % pagesize) != 0) /* round up the minheapoffset to page sz */
-      minheapoffset = ((minheapoffset / pagesize) + 1) * pagesize;
+    if ((minheapoffset % GASNET_PAGESIZE) != 0) /* round up the minheapoffset to page sz */
+      minheapoffset = ((minheapoffset / GASNET_PAGESIZE) + 1) * GASNET_PAGESIZE;
   #else
     segsize = 0;
     minheapoffset = 0;
@@ -415,7 +413,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       if (segsize == 0) segbase = NULL; /* no segment */
       else {
           segbase = gasnetc_static_segment;
-          segbase = (void *)((((uintptr_t)segbase) + (pagesize-1)) & ~(pagesize-1));
+          segbase = (void *)((((uintptr_t)segbase) + (GASNET_PAGESIZE-1)) & ~(GASNET_PAGESIZE-1));
           assert(((uintptr_t)segbase) + segsize <= 
                  ((uintptr_t)gasnetc_static_segment) + sizeof(gasnetc_static_segment));
       }
@@ -453,26 +451,26 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
           #ifdef GASNET_SEGMENT_FAST
             assert(maxsz <= gasnetc_remappableMem.size); /* guaranteed by init */
           #endif
-          { int pagesAvail = gasnetc_remappableMem.size / pagesize;
+          { int pagesAvail = gasnetc_remappableMem.size / GASNET_PAGESIZE;
             uint8_t *pfrom = (uint8_t *)gasnetc_remappableMem.addr;
             uint8_t *pto = (uint8_t *)segbase;
             if (pfrom+gasnetc_remappableMem.size > pto && 
                 pfrom+gasnetc_remappableMem.size < pto + segsize) /* two areas overlap */
-              pagesAvail -= (pfrom+gasnetc_remappableMem.size-pto)/pagesize;
+              pagesAvail -= (pfrom+gasnetc_remappableMem.size-pto)/GASNET_PAGESIZE;
             while (pagesAvail) {
               int numpages = 0;
               int size = 0;
               uint8_t *elanBase = NULL;
               while (pto < (uint8_t *)segbase+maxsz && /* skip mapped pages */
-                     elan_addressable(STATE(), pto, pagesize)) pto += pagesize;
+                     elan_addressable(STATE(), pto, GASNET_PAGESIZE)) pto += GASNET_PAGESIZE;
 
               /* find length of run of unmapped pages */
-              while (numpages < pagesAvail && pto + numpages*pagesize < (uint8_t *)segbase+maxsz && 
-                !elan_addressable(STATE(), pto + numpages*pagesize, pagesize)) numpages++;
+              while (numpages < pagesAvail && pto + numpages*GASNET_PAGESIZE < (uint8_t *)segbase+maxsz && 
+                !elan_addressable(STATE(), pto + numpages*GASNET_PAGESIZE, GASNET_PAGESIZE)) numpages++;
               if (numpages == 0) break;
 
               elanBase = (uint8_t *)(uintptr_t)elan_main2elan(STATE(), pfrom);
-              size = numpages*pagesize;
+              size = numpages*GASNET_PAGESIZE;
               assert((uint8_t *)(uintptr_t)elan_main2elan(STATE(), pfrom + size - 1) == elanBase + size - 1);
 
               /* TODO: this remapping needs to be done for each rail */
@@ -502,16 +500,16 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 			         GASNETI_LADDRSTR(pto), (uint32_t)(uintptr_t)elanBase, size, errno, strerror(errno));
 
               pagesAvail -= numpages;
-              pto += numpages*pagesize;
-              pfrom += numpages*pagesize;
+              pto += numpages*GASNET_PAGESIZE;
+              pfrom += numpages*GASNET_PAGESIZE;
             }
             assert(elan_addressable(STATE(), segbase, MIN(maxsz,gasnetc_remappableMem.size)));
           }
         }
       }
     #endif
-    assert(((uintptr_t)segbase) % pagesize == 0);
-    assert(segsize % pagesize == 0);
+    assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
+    assert(segsize % GASNET_PAGESIZE == 0);
   #else
     /* GASNET_SEGMENT_EVERYTHING - 
        on elan we just use the default elan mappings and drop back to AM for

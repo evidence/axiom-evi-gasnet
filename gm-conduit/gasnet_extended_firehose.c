@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.16 2002/12/19 18:35:50 bonachea Exp $
- * $Date: 2002/12/19 18:35:50 $
+/* $Id: gasnet_extended_firehose.c,v 1.17 2003/01/11 22:46:45 bonachea Exp $
+ * $Date: 2003/01/11 22:46:45 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -244,7 +244,7 @@ gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 	assert(OPSTATE(pop) == OPSTATE_INFLIGHT);
 
 	num_buckets = GASNETC_NUM_BUCKETS(
-	    GASNETI_PAGE_ALIGN(pop->dest, GASNETC_BUCKET_SIZE), 
+	    GASNETI_ALIGNDOWN(pop->dest, GASNETC_BUCKET_SIZE), 
 	    pop->dest+pop->len);
 	tot_buckets = num_buckets*2;
 	/* XXX need better runtime support for cases where num firehoses > than

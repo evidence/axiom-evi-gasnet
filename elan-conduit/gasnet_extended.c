@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/12/26 03:43:17 $
- * $Revision: 1.15 $
+ *     $Date: 2003/01/11 22:46:42 $
+ * $Revision: 1.16 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -207,6 +207,10 @@ static void gasnete_check_config() {
   assert(sizeof(uint64_t) == 8);
 
   assert(sizeof(uintptr_t) >= sizeof(void *));
+
+  /* check GASNET_PAGESIZE is a power of 2 and > 0 */
+  assert(GASNET_PAGESIZE > 0 && 
+         (GASNET_PAGESIZE & (GASNET_PAGESIZE - 1)) == 0);
 
   assert(SIZEOF_GASNET_REGISTER_VALUE_T == sizeof(gasnet_register_value_t));
   assert(sizeof(int) == SIZEOF_GASNET_REGISTER_VALUE_T);

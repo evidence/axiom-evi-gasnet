@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_firehose.c,v 1.17 2003/01/07 17:30:36 csbell Exp $
- * $Date: 2003/01/07 17:30:36 $
+/* $Id: gasnet_core_firehose.c,v 1.18 2003/01/11 22:46:45 bonachea Exp $
+ * $Date: 2003/01/11 22:46:45 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -462,7 +462,7 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 	       GASNETC_FIREHOSE_MAXVICTIM_RATIO <= 1);
 
 	/* Get the maxvictim parameters from the environment */
-	fh_maxvictim = GASNETI_PAGE_ALIGN(
+	fh_maxvictim = GASNETI_ALIGNDOWN(
 	    (uintptr_t) gasnetc_getenv_numeric("GASNETGM_FIREHOSE_MAXVICTIM"),
 	    GASNETC_BUCKET_SIZE);
 
@@ -470,7 +470,7 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 		_gmc.fh_maxvictim = fh_maxvictim;
 	else
 		_gmc.fh_maxvictim =  (uintptr_t)
-		    GASNETI_PAGE_ALIGN(_gmc.pinnable_global *
+		    GASNETI_ALIGNDOWN(_gmc.pinnable_global *
 	    	        GASNETC_FIREHOSE_MAXVICTIM_RATIO, GASNETC_BUCKET_SIZE);
 
 	gasnetc_bucket_victim_max = _gmc.fh_maxvictim >> GASNETC_BUCKET_SHIFT;
@@ -519,8 +519,8 @@ gasnetc_bucket_pin_stack()
 	assert(&stack_addr2 < &stack_addr);
 	*/
 	stack_top = 
-	    GASNETI_PAGE_ROUNDUP((uintptr_t)&stack_addr, GASNETC_PAGE_SIZE);
-	va_top = GASNETI_PAGE_ALIGN((uintptr_t)-1, GASNETC_PAGE_SIZE);
+	    GASNETI_PAGE_ALIGNUP((uintptr_t)&stack_addr);
+	va_top = GASNETI_PAGE_ALIGNDOWN((uintptr_t)-1);
 
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose stack addresses: va_top=%p, stack_top=%p", 
@@ -529,13 +529,13 @@ gasnetc_bucket_pin_stack()
 	gasnetc_stackaddr_hi = MIN(va_top, stack_top);
 
 	stack_bottom = (uintptr_t)&stack_addr - 
-	    (GASNETC_PINNED_STACK_PAGES*GASNETC_PAGE_SIZE);
+	    (GASNETC_PINNED_STACK_PAGES*GASNET_PAGESIZE);
 	gasnetc_stackaddr_lo = 
-	    GASNETI_PAGE_ALIGN(stack_bottom, GASNETC_PAGE_SIZE);
+	    GASNETI_PAGE_ALIGNDOWN(stack_bottom);
 
 	GASNETI_TRACE_PRINTF(C, ("Firehose register stack: %d pages (%p-%p)",
 	    ((unsigned) gasnetc_stackaddr_hi-gasnetc_stackaddr_lo)/
-	    GASNETC_PAGE_SIZE,
+	    GASNET_PAGESIZE,
 	    (void *) gasnetc_stackaddr_lo, (void *) gasnetc_stackaddr_hi));
 
 	GASNETC_LOCK_GM;
@@ -1002,7 +1002,7 @@ gasnetc_bucket_pin_by_addr(uintptr_t src, size_t nbytes)
 	size_t		num_buckets;
 	unsigned int	num_pinned;
 
-	bucket_addr = GASNETI_PAGE_ALIGN(src, GASNETC_BUCKET_SIZE);
+	bucket_addr = GASNETI_ALIGNDOWN(src, GASNETC_BUCKET_SIZE);
 	num_buckets = GASNETC_NUM_BUCKETS(bucket_addr, src+nbytes);
 	num_pinned = gasnetc_bucket_trypin_by_bucket(bucket_addr, num_buckets);
 
@@ -1022,7 +1022,7 @@ gasnetc_bucket_unpin_by_addr(uintptr_t src, size_t nbytes)
 	size_t		num_buckets;
 
 	gasneti_mutex_assertunlocked(&gasnetc_lock_gm);
-	bucket_addr = GASNETI_PAGE_ALIGN(src, GASNETC_BUCKET_SIZE);
+	bucket_addr = GASNETI_ALIGNDOWN(src, GASNETC_BUCKET_SIZE);
 	num_buckets = GASNETC_NUM_BUCKETS(bucket_addr,src+nbytes);
 	gasnetc_bucket_tryunpin_by_bucket(bucket_addr, num_buckets);
 }
@@ -1188,7 +1188,7 @@ gasnetc_firehose_init(uintptr_t	segsize)
 	assert(gasnetc_bucket_initialized);
 
 	/* Get the firehose M parameter if set in the * environment */
-	fh_M = GASNETI_PAGE_ALIGN(
+	fh_M = GASNETI_ALIGNDOWN(
 	    (uintptr_t) gasnetc_getenv_numeric("GASNETGM_FIREHOSE_M"),
 	    GASNETC_BUCKET_SIZE);
 
@@ -1211,7 +1211,7 @@ gasnetc_firehose_init(uintptr_t	segsize)
 		_gmc.fh_M = fh_M;
 	else 
 		_gmc.fh_M = (uintptr_t) 
-			GASNETI_PAGE_ALIGN(_gmc.pinnable_global *
+			GASNETI_ALIGNDOWN(_gmc.pinnable_global *
 		    	    (1-GASNETC_FIREHOSE_MAXVICTIM_RATIO), 
 			    GASNETC_BUCKET_SIZE);
 
@@ -1550,7 +1550,7 @@ gasnetc_firehose_build_list(gasnet_node_t node, uintptr_t dest,
 	GASNETC_UNLOCK_FH_HASH;
 	#endif
 
-	bucket_addr = GASNETI_PAGE_ALIGN(dest, GASNETC_BUCKET_SIZE);
+	bucket_addr = GASNETI_ALIGNDOWN(dest, GASNETC_BUCKET_SIZE);
 	firehose_old_buf = gasnetc_firehose_buf + num_buckets;
 	i = 0;
 	j = 0;
@@ -1647,7 +1647,7 @@ gasnetc_firehose_decrement_refcount(gasnet_node_t node, uintptr_t dest,
 	int		i;
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm); /* gm callback only */
-	bucket_cur = GASNETI_PAGE_ALIGN(dest, GASNETC_BUCKET_SIZE);
+	bucket_cur = GASNETI_ALIGNDOWN(dest, GASNETC_BUCKET_SIZE);
 	num_buckets = GASNETC_NUM_BUCKETS(bucket_cur,dest+nbytes);
 
 	for (i = 0; i < num_buckets; i++) {
@@ -1758,7 +1758,7 @@ gasnetc_bucket_is_pinned_by_addr(uintptr_t src, size_t nbytes)
 	unsigned int	i, ispinned, bidx;
 
 	ispinned = 1;
-	bucket_addr = GASNETI_PAGE_ALIGN(src, GASNETC_BUCKET_SIZE);
+	bucket_addr = GASNETI_ALIGNDOWN(src, GASNETC_BUCKET_SIZE);
 	num_buckets = GASNETC_NUM_BUCKETS(bucket_addr,src+nbytes);
 	bidx = GASNETC_BDESC_INDEX_FROM_ADDR(bucket_addr);
 
@@ -1792,7 +1792,7 @@ gasnetc_firehose_is_pinned_by_addr(gasnet_node_t node, uintptr_t ptr,
 	gasneti_mutex_assertunlocked(&gasnetc_lock_fh_victim);
 	gasneti_mutex_assertunlocked(&gasnetc_lock_fh_hash);
 
-	bucket_addr = GASNETI_PAGE_ALIGN(ptr, GASNETC_BUCKET_SIZE);
+	bucket_addr = GASNETI_ALIGNDOWN(ptr, GASNETC_BUCKET_SIZE);
 	num_buckets = GASNETC_NUM_BUCKETS(bucket_addr,ptr+nbytes);
 
 	for (i = 0; i < num_buckets; i++) {
@@ -1860,7 +1860,7 @@ gasnetc_done_pinned(gasnet_node_t node, uintptr_t ptr, size_t nbytes)
 		    ("Firehose done_pinned local (%p,%d bytes)", 
 		    (void *)ptr, nbytes));
 
-		bucket_addr = GASNETI_PAGE_ALIGN(ptr, GASNETC_BUCKET_SIZE);
+		bucket_addr = GASNETI_ALIGNDOWN(ptr, GASNETC_BUCKET_SIZE);
 		num_buckets = GASNETC_NUM_BUCKETS(bucket_addr,ptr+nbytes);
 
 		GASNETI_TRACE_PRINTF(C, ("Firehose bucket_done (%p,%d bytes)", 
@@ -1877,7 +1877,7 @@ gasnetc_done_pinned(gasnet_node_t node, uintptr_t ptr, size_t nbytes)
 		    (unsigned) node, (void *)ptr, nbytes));
 
 		assert(node < gasnetc_nodes);
-		bucket_addr = GASNETI_PAGE_ALIGN(ptr, GASNETC_BUCKET_SIZE);
+		bucket_addr = GASNETI_ALIGNDOWN(ptr, GASNETC_BUCKET_SIZE);
 		num_buckets = GASNETC_NUM_BUCKETS(bucket_addr, ptr+nbytes);
 
 		for (i = 0; i < num_buckets; i++) {

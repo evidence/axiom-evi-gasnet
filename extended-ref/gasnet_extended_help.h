@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2003/01/04 06:16:12 $
- * $Revision: 1.8 $
+ *     $Date: 2003/01/11 22:46:44 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -149,6 +149,16 @@ extern gasnet_seginfo_t *gasnete_seginfo;
   #endif
 #endif
 
+/* get membar */
+#include <gasnet_atomicops.h>
+
+#ifndef gasneti_memsync
+  #ifdef GASNETI_THREADS
+    #define gasneti_memsync() gasneti_local_membar()
+  #else
+    #define gasneti_memsync() 
+  #endif
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* thread-id optimization support */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2003/01/04 06:16:10 $
- * $Revision: 1.3 $
+ *     $Date: 2003/01/11 22:46:40 $
+ * $Revision: 1.4 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,6 +8,13 @@
 #ifndef _GASNET_TOOLS_H
 #define _GASNET_TOOLS_H
 #define _IN_GASNET_TOOLS_H
+#define _INCLUDED_GASNET_TOOLS_H
+#if !defined(_INCLUDED_GASNET_H) && \
+    (defined(GASNET_SEQ) || defined(GASNET_PARSYNC) || defined(GASNET_PAR))
+  #error Applications that use both GASNet and GASNet tools must   \
+         include gasnet.h before gasnet_tools.h and must include   \
+         _both_ headers in ALL files that need either header  
+#endif
 
 #include <gasnet_config.h>
 #include <gasnet_basic.h>
@@ -38,12 +45,24 @@
 #define gasnett_atomic_set(p,v)      gasneti_atomic_set(p,v) 
 #define gasnett_atomic_increment(p)  gasneti_atomic_increment(p)
 #define gasnett_atomic_decrement(p)  gasneti_atomic_decrement(p)
+#define gasnett_atomic_decrement_and_test(p)  \
+                                     gasneti_atomic_decrement_and_test(p)
 
 /* portable memory barrier */
 
 #define gasnett_local_membar()       gasneti_local_membar()
 
 /* ------------------------------------------------------------------------------------ */
+
+/* misc */
+
+#ifdef HAVE_SCHED_YIELD
+   #include <sched.h>
+   #define gasnett_sched_yield() sched_yield()
+#else
+   #include <unistd.h>
+   #define gasnett_sched_yield() sleep(0)
+#endif
 
 #undef _IN_GASNET_TOOLS_H
 #endif

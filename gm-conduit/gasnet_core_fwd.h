@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.15 2003/01/04 15:17:25 csbell Exp $
- * $Date: 2003/01/04 15:17:25 $
- * $Revision: 1.15 $
+/* $Id: gasnet_core_fwd.h,v 1.16 2003/01/11 22:46:45 bonachea Exp $
+ * $Date: 2003/01/11 22:46:45 $
+ * $Revision: 1.16 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -23,14 +23,6 @@
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 #define GASNET_ALIGNED_SEGMENTS	1
 #define GASNET_MAXNODES		1024
-
-/* Find the page size on linux/freebsd */
-#ifdef FREEBSD
-   /* already defined in param.h */
-#elif defined(LINUX)
-   #include </usr/include/asm/page.h>
-#endif
-#define GASNETC_PAGE_SIZE	PAGE_SIZE
 
 /* only have firehose for now */
 #define GASNETC_FIREHOSE

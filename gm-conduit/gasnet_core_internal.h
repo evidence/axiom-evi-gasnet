@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.39 2003/01/07 17:30:36 csbell Exp $
- * $Date: 2003/01/07 17:30:36 $
- * $Revision: 1.39 $
+/* $Id: gasnet_core_internal.h,v 1.40 2003/01/11 22:46:45 bonachea Exp $
+ * $Date: 2003/01/11 22:46:45 $
+ * $Revision: 1.40 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -42,7 +42,7 @@
 #ifdef GASNETC_FIREHOSE
 #define GASNETC_PINNED_STACK_PAGES	40
 #ifndef GASNETC_BUCKET_SIZE
-#define GASNETC_BUCKET_SIZE		PAGE_SIZE
+#define GASNETC_BUCKET_SIZE		GASNET_PAGESIZE
 #endif
 #ifndef GASNETC_BUCKET_SHIFT
 #define GASNETC_BUCKET_SHIFT		12
@@ -63,13 +63,13 @@
 /* define to be the fraction in physical memory to leave lazily pinned */
 #define GASNETC_BUCKET_VICTIM_MAX_SIZE	0.5
 #define GASNETC_NUM_BUCKETS(addr,len)	(assert(addr%GASNETC_BUCKET_SIZE==0),\
-					(GASNETI_PAGE_ROUNDUP(len,           \
+					(GASNETI_ALIGNUP(len,                \
 					GASNETC_BUCKET_SIZE)-addr)>>         \
 					GASNETC_BUCKET_SHIFT)
 
 #define GASNETC_SEGMENT_ALIGN	GASNETC_BUCKET_SIZE
 #else
-#define GASNETC_SEGMENT_ALIGN	GASNETC_PAGE_SIZE
+#define GASNETC_SEGMENT_ALIGN	GASNET_PAGESIZE
 #endif /* GASNETC_FIREHOSE */
 
 extern gasnet_seginfo_t *gasnetc_seginfo;

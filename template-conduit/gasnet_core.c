@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/19 18:35:56 $
- * $Revision: 1.20 $
+ *     $Date: 2003/01/11 22:46:49 $
+ * $Revision: 1.21 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -173,7 +173,6 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 /* ------------------------------------------------------------------------------------ */
 extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
                           uintptr_t segsize, uintptr_t minheapoffset) {
-  size_t pagesize = gasneti_getSystemPageSize();
   void *segbase = NULL;
   
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%i, minheapoffset=%i)",
@@ -186,12 +185,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   /*  check argument sanity */
   #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-    if ((segsize % pagesize) != 0) 
+    if ((segsize % GASNET_PAGESIZE) != 0) 
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
     if (segsize > gasnetc_getMaxLocalSegmentSize()) 
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
-    if ((minheapoffset % pagesize) != 0) /* round up the minheapoffset to page sz */
-      minheapoffset = ((minheapoffset / pagesize) + 1) * pagesize;
+    if ((minheapoffset % GASNET_PAGESIZE) != 0) /* round up the minheapoffset to page sz */
+      minheapoffset = ((minheapoffset / GASNET_PAGESIZE) + 1) * GASNET_PAGESIZE;
   #else
     segsize = 0;
     minheapoffset = 0;
@@ -260,8 +259,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
          (ensuring alignment across all nodes if this conduit sets GASNET_ALIGNED_SEGMENTS==1) 
          you can use gasneti_segmentAttach() here if you used gasneti_segmentInit() above
       */
-      assert(((uintptr_t)segbase) % pagesize == 0);
-      assert(segsize % pagesize == 0);
+      assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
+      assert(segsize % GASNET_PAGESIZE == 0);
     }
   #else
     /* GASNET_SEGMENT_EVERYTHING */

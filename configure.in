@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/01/05 04:44:00 $
-# $Revision: 1.28 $
+#     $Date: 2003/01/11 22:46:40 $
+# $Revision: 1.29 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.28 $)
+AC_REVISION($Revision: 1.29 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -209,7 +209,39 @@ AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
 
 AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
 
+########################################################################
+##
+##  Page size
+##
 
+if test "$GASNETI_PAGESIZE" = ""; then
+GASNET_TRY_CACHE_RUN_EXPR(PAGESIZE, PAGESIZE,
+  [ #include <limits.h> ], [ (PAGESIZE>0?PAGESIZE:(exit(1),0)) ], GASNETI_PAGESIZE)
+fi
+
+if test "$GASNETI_PAGESIZE" = ""; then
+GASNET_TRY_CACHE_RUN_EXPR(PAGE_SIZE, PAGE_SIZE,
+  [ #include <limits.h> ], [ (PAGE_SIZE>0?PAGE_SIZE:(exit(1),0)) ], GASNETI_PAGESIZE)
+fi
+
+if test "$GASNETI_PAGESIZE" = ""; then
+GASNET_TRY_CACHE_RUN_EXPR([sysconf(_SC_PAGESIZE)], _SC_PAGESIZE,
+  [ #include <unistd.h> ], [ (sysconf(_SC_PAGESIZE)>0?sysconf(_SC_PAGESIZE):(exit(1),0)) ], GASNETI_PAGESIZE)
+fi
+
+if test "$GASNETI_PAGESIZE" = ""; then
+GASNET_TRY_CACHE_RUN_EXPR([sysconf(_SC_PAGE_SIZE)], _SC_PAGE_SIZE,
+  [ #include <unistd.h> ], [ (sysconf(_SC_PAGE_SIZE)>0?sysconf(_SC_PAGE_SIZE):(exit(1),0)) ], GASNETI_PAGESIZE)
+fi
+
+if test "$GASNETI_PAGESIZE" = ""; then
+GASNET_TRY_CACHE_RUN_EXPR([getpagesize()], getpagesize,
+  [ #include <unistd.h> ], [ (getpagesize()>0?getpagesize():(exit(1),0)) ], GASNETI_PAGESIZE)
+fi
+
+if test "$GASNETI_PAGESIZE" != ""; then
+  AC_DEFINE_UNQUOTED(GASNETI_PAGESIZE,$GASNETI_PAGESIZE)
+fi
 
 ########################################################################
 ##
@@ -465,6 +497,9 @@ if test $supported_ammpi = yes; then
         AC_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi-* backends)
 	MPI_CC=$CC
         have_mpi=no
+	if test "$enabled_mpi" = yes ; then
+	  AC_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
+	fi
       fi 
       ;;
   esac

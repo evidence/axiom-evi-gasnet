@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.30 2003/01/07 17:30:36 csbell Exp $
- * $Date: 2003/01/07 17:30:36 $
+/* $Id: gasnet_core.c,v 1.31 2003/01/11 22:46:45 bonachea Exp $
+ * $Date: 2003/01/11 22:46:45 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -268,7 +268,6 @@ extern int
 gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	       uintptr_t minheapoffset)
 {
-	size_t pagesize;
 	int retval = GASNET_OK, i = 0;
 
 	GASNETI_TRACE_PRINTF(C,
@@ -282,13 +281,12 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 		GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already attached");
 
 	#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-	pagesize = gasneti_getSystemPageSize();
-	if ((segsize % pagesize) != 0) 
+	if ((segsize % GASNET_PAGESIZE) != 0) 
 		GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
 	if (segsize > gasnetc_getMaxLocalSegmentSize()) 
 		GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
 	minheapoffset = 
-	    GASNETI_PAGE_ROUNDUP(minheapoffset, GASNETC_SEGMENT_ALIGN);
+	    GASNETI_ALIGNUP(minheapoffset, GASNETC_SEGMENT_ALIGN);
 	#else
 	segsize = 0;
 	minheapoffset = 0;
@@ -384,7 +382,7 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
     else {
       if (gasnetc_munmap_segment(&_gmc.segment_mmap) != GASNET_OK)
 	      gasneti_fatalerror("could not unmap initial mmap segment");
-      _gmc.segment_mmap.size = GASNETI_PAGE_ROUNDUP(segsize, GASNETC_SEGMENT_ALIGN);
+      _gmc.segment_mmap.size = GASNETI_ALIGNUP(segsize, GASNETC_SEGMENT_ALIGN);
       if (gasnetc_mmap_segment(&_gmc.segment_mmap) != GASNET_OK)
 	      gasneti_fatalerror("could not re-map segment after unmapping initial segment");
       _gmc.segment_base = (void *) _gmc.segment_mmap.addr;

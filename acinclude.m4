@@ -196,12 +196,33 @@ if test "$gasnet_cv_$2" = yes; then
   $5
 fi])
 
+dnl run a program for a success/failure
+dnl GASNET_TRY_CACHE_RUN(description,cache_name,program,action-on-success)
 AC_DEFUN(GASNET_TRY_CACHE_RUN,[
 AC_CACHE_CHECK($1, gasnet_cv_$2,
-AC_TRY_RUN([$3], gasnet_cv_$2=yes, gasnet_cv_$2=no))
+AC_TRY_RUN([$3], gasnet_cv_$2=yes, gasnet_cv_$2=no, AC_ERROR(no default value for cross compiling)))
 if test "$gasnet_cv_$2" = yes; then
   :
   $4
+fi])
+
+dnl run a program to extract the value of a runtime expression
+dnl GASNET_TRY_CACHE_RUN(description,cache_name,headers,expression,result_variable)
+AC_DEFUN(GASNET_TRY_CACHE_RUN_EXPR,[
+AC_CACHE_CHECK($1, gasnet_cv_$2,
+AC_TRY_RUN([
+  #include "confdefs.h"
+  #include <stdio.h>
+  $3
+  main() {
+    FILE *f=fopen("conftestval", "w");
+    if (!f) exit(1);
+    fprintf(f, "%d\n", (int)($4));
+    exit(0);
+  }], gasnet_cv_$2=`cat conftestval`, gasnet_cv_$2=no, AC_ERROR(no default value for cross compiling)))
+if test "$gasnet_cv_$2" != no; then
+  :
+  $5=$gasnet_cv_$2
 fi])
 
 

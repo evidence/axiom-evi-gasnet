@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/01/04 06:16:10 $
- * $Revision: 1.28 $
+ *     $Date: 2003/01/11 22:46:40 $
+ * $Revision: 1.29 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -64,15 +64,16 @@ void gasneti_free_inhandler(void *ptr) {
 }
 /* ------------------------------------------------------------------------------------ */
 /* page alignment macros */
-#define GASNETI_PAGE_ALIGN(p,P) ((uintptr_t)(p)&~ ((uintptr_t)(P)-1))
-#define GASNETI_PAGE_ROUNDUP(p,P) (GASNETI_PAGE_ALIGN((uintptr_t)(p)+((P)-1), P))
+#define GASNETI_ALIGNDOWN(p,P)    ((uintptr_t)(p)&~((uintptr_t)(P)-1))
+#define GASNETI_ALIGNUP(p,P)     (GASNETI_ALIGNDOWN((uintptr_t)(p)+((P)-1),P))
+
+#define GASNETI_PAGE_ALIGNDOWN(p) (GASNETI_ALIGNDOWN(p,GASNET_PAGESIZE))
+#define GASNETI_PAGE_ALIGNUP(p)   (GASNETI_ALIGNUP(p,GASNET_PAGESIZE))
 /* ------------------------------------------------------------------------------------ */
 
 extern void gasneti_freezeForDebugger();
 /* ------------------------------------------------------------------------------------ */
 /* memory segment registration and management */
-
-size_t gasneti_getSystemPageSize();
 
 typedef void (*gasneti_sighandlerfn_t)(int);
 void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler);

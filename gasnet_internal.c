@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/01/05 04:44:00 $
- * $Revision: 1.23 $
+ *     $Date: 2003/01/11 22:46:40 $
+ * $Revision: 1.24 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -70,28 +70,6 @@ char *gasneti_build_loc_str(const char *funcname, const char *filename, int line
   else
     sprintf(loc,"%s:%i", filename, linenum);
   return loc;
-}
-/* ------------------------------------------------------------------------------------ */
-size_t gasneti_getSystemPageSize() {
-  #ifdef CRAYT3E
-    /* on Cray: shmemalign allocates mem aligned across nodes, 
-        but there seems to be no fixed page size (man pagesize)
-        this is probably because they don't support VM
-       actual page size is set separately for each linker section, 
-        ranging from 512KB(default) to 8MB
-       Here we return 1 to reflect the lack of page alignment constraints
-   */
-    return 1;
-  #elif 1
-    size_t pagesz = getpagesize();
-    assert(pagesz > 0);
-    return pagesz;
-  #else
-    /* alternate method that works on many systems */
-    size_t pagesz = sysconf(_SC_PAGE_SIZE)
-    assert(pagesz > 0);
-    return pagesz;
-  #endif
 }
 /* ------------------------------------------------------------------------------------ */
 static volatile int gasnet_frozen = TRUE;
@@ -319,7 +297,7 @@ gasneti_stattime_t starttime;
           if (traceheader) {
             #ifdef GASNETI_THREADS
               fprintf(gasneti_tracefile, "%i(%x) %8.6fs> (%c) %s%s", 
-                gasnet_mynode(), (uintptr_t)pthread_self(), time, *type, msg,
+                (int)gasnet_mynode(), (uintptr_t)pthread_self(), time, *type, msg,
                 (msg[strlen(msg)-1]=='\n'?"":"\n"));
             #else
               fprintf(gasneti_tracefile, "%i %8.6fs> (%c) %s%s", gasnet_mynode(), time, *type, msg,

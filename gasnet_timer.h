@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2003/01/04 06:16:10 $
- * $Revision: 1.5 $
+ *     $Date: 2003/01/11 22:46:40 $
+ * $Revision: 1.6 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -87,8 +87,12 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
 #elif defined(CRAYT3E)
-  #include <sys/machinfo.h>
-  long    _rtc();
+  #ifdef __GNUC__
+    #define _rtc rtclock
+  #else
+    #include <sys/machinfo.h>
+    long    _rtc();
+  #endif
 
   typedef uint64_t gasneti_stattime_t;
   #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
