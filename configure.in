@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/07/29 20:22:18 $
-# $Revision: 1.158 $
+#     $Date: 2004/07/29 22:08:10 $
+# $Revision: 1.159 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.158 $)
+AC_REVISION($Revision: 1.159 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -127,7 +127,7 @@ fi
 #
 
 case "$gasnet_cv_cc_family" in
-  GNU)  GASNET_GCC296CHECK(CC)
+  GNU)  GASNET_GCC_VERSION_CHECK(CC)
         oldCFLAGS="$CFLAGS"
         CFLAGS="-O3"
         # -finline-limit not available on gcc 2.95
@@ -671,7 +671,7 @@ if test $enabled_udp = yes; then
   GASNET_UDP_LIBS=""
   case "$gasnet_cv_cxx_family" in
     GNU) 
-       GASNET_GCC296CHECK(CXX)
+       GASNET_GCC_VERSION_CHECK(CXX)
        oldCXXFLAGS="$CXXFLAGS"  
        GASNET_GET_GNUWARNINGFLAGS(CXX)
        MISC_CXXFLAGS="$CXXFLAGS" 

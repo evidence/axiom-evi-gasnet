@@ -10,8 +10,8 @@ AUTOCONF_VERSION=`echo $AUTOCONF_VERSION_STR | $AWK -F. '{ printf("%i%i",[$]1,[$
 AC_MSG_RESULT($AUTOCONF_VERSION_STR)
 ])
 
-dnl GASNET_GCC296CHECK(type)  type=CC or CXX
-AC_DEFUN([GASNET_GCC296CHECK],[
+dnl GASNET_GCC_VERSION_CHECK(type)  type=CC or CXX
+AC_DEFUN([GASNET_GCC_VERSION_CHECK],[
 AC_MSG_CHECKING(known buggy compilers)
 AC_TRY_COMPILE([
 #if __GNUC__ == 2 && __GNUC_MINOR__ == 96 && __GNUC_PATCHLEVEL__ == 0
@@ -28,6 +28,23 @@ GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc/g++ 2.96 compile
   ],[
   AC_MSG_ERROR([$gcc296msg \
   You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc296 flag.])
+])
+])
+AC_TRY_COMPILE([
+#if __GNUC__ == 3 && __GNUC_MINOR__ == 2 && __GNUC_PATCHLEVEL__ <= 2
+# error
+#endif
+],[ ], [ AC_MSG_RESULT(ok) ],[
+AC_MSG_RESULT([$1] is gcc 3.2.0-2)
+gcc32msg="Use of gcc/g++ 3.2.0-2 for compiling this software is strongly discouraged. \
+This version has a serious known bug in the optimizer regarding structure copying, \
+which may lead to bad code and incorrect runtime behavior when optimization is enabled. \
+Consider using \$[$1] to select a different compiler."
+GASNET_IF_ENABLED(allow-gcc32, Allow the use of the known broken gcc/g++ 3.2.0-2 compiler, [
+  AC_MSG_WARN([$gcc32msg])
+  ],[
+  AC_MSG_ERROR([$gcc32msg \
+  You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc32 flag.])
 ])
 ])
 ])
