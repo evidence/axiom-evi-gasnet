@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/06/14 01:54:59 $
- * $Revision: 1.6 $
+ *     $Date: 2002/06/25 18:55:12 $
+ * $Revision: 1.7 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -167,6 +167,8 @@ static int gasnetc_init(int *argc, char ***argv,
   /* ------------------------------------------------------------------------------------ */
   /*  gather segment information */
 
+  /* use gasneti_malloc_inhandler during bootstrapping because we can't assume the 
+     hold/resume interrupts functions are operational yet */
   gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
   /* (###) add code here to fill in gasnetc_seginfo with segment info from all the nodes */
 
@@ -204,11 +206,13 @@ extern int gasnet_init(int *argc, char ***argv,
   int retval = gasnetc_init(argc, argv, table, numentries, segbase, segsize, allowFaults);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   gasnete_init();
+  gasneti_trace_init();
   return GASNET_OK;
 }
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_exit(int exitcode) {
+  gasneti_trace_finish();
   /* (###) add code here to terminate the job across all nodes */
   abort();
 }
@@ -270,6 +274,7 @@ extern int gasnetc_AMRequestShortM(
   va_list argptr;
   GASNETC_CHECKINIT();
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -291,6 +296,7 @@ extern int gasnetc_AMRequestMediumM(
   va_list argptr;
   GASNETC_CHECKINIT();
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -319,6 +325,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
            ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
+  GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -347,6 +354,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
            ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
+  GASNETI_TRACE_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -365,6 +373,7 @@ extern int gasnetc_AMReplyShortM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
+  GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -384,6 +393,7 @@ extern int gasnetc_AMReplyMediumM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
+  GASNETI_TRACE_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -415,6 +425,7 @@ extern int gasnetc_AMReplyLongM(
            ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
+  GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -485,6 +496,9 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
 
   #ifdef GASNETI_THREADS
   { int retval; 
+    #if defined(STATS) || defined(TRACE)
+      gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
+    #endif
     #if GASNETC_HSL_SPINLOCK
       do {
         retval = pthread_mutex_trylock(&(hsl->lock));
@@ -494,7 +508,14 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
     #endif
     if (retval) 
       gasneti_fatalerror("In gasnetc_hsl_lock(), pthread_mutex_lock()=%i",strerror(retval));
+    #if defined(STATS) || defined(TRACE)
+      hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+      GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, hsl->acquiretime-startlock);
+    #endif
   }
+  #elif defined(STATS) || defined(TRACE)
+    hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+    GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, 0);
   #endif
 
   /* (###) conduits with interrupt-based handler dispatch need to add code here to 
@@ -510,6 +531,8 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
            re-enable handler interrupts on _this_ thread, (if this is the outermost
            HSL lock release and we're not inside an enclosing no-interrupt section)
    */
+
+  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW()-hsl->acquiretime);
 
   #ifdef GASNETI_THREADS
   { int retval = pthread_mutex_unlock(&(hsl->lock));

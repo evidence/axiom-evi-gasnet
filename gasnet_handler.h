@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_handler.h                                $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/25 18:55:09 $
+ * $Revision: 1.2 $
  * Description: GASNet Helpers for using bit-width-independent AM handlers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -116,12 +116,8 @@
   #define PACK(ptr) ((gasnet_handlerarg_t)ptr)
   #define UNPACK(a0) ((void *)a0)
 #elif defined(GASNETI_PTR64)
-  #define MAKEWORD(hi,lo) ((((uint64_t)(hi)) << 32) | (((uint64_t)(lo)) & 0xFFFFFFFF))
-  #define HIWORD(arg)     ((uint32_t)(((uint64_t)(arg)) >> 32))
-  #define LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
-
-  #define PACK(ptr) ((gasnet_handlerarg_t)HIWORD(ptr)), ((gasnet_handlerarg_t)LOWORD(ptr))
-  #define UNPACK2(a0,a1) ((void *)MAKEWORD(a0,a1))
+  #define PACK(ptr) ((gasnet_handlerarg_t)GASNETI_HIWORD(ptr)), ((gasnet_handlerarg_t)GASNETI_LOWORD(ptr))
+  #define UNPACK2(a0,a1) ((void *)GASNETI_MAKEWORD(a0,a1))
 #endif
 
 #if defined(GASNETI_PTR32)

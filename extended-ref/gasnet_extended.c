@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/06/14 01:54:55 $
- * $Revision: 1.4 $
+ *     $Date: 2002/06/25 18:55:10 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -59,6 +59,7 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
 #ifdef GASNETI_THREADS
   extern gasnete_threaddata_t *gasnete_mythread() {
     gasnete_threaddata_t *threaddata = pthread_getspecific(gasnete_threaddata);
+    GASNETI_TRACE_EVENT(C, DYNAMIC_THREADLOOKUP);
     if_pt (threaddata) return threaddata;
 
     /*  first time we've seen this thread - need to set it up */
@@ -114,6 +115,7 @@ static void gasnete_check_config() {
 }
 
 extern void gasnete_init() {
+  GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
   assert(gasnete_nodes == 0); /*  make sure we haven't been called before */
 
   gasnete_check_config(); /*  check for sanity */
@@ -706,6 +708,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 extern void            gasnete_begin_nbi_accessregion(int allowrecursion GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *iop = gasnete_iop_new(mythread); /*  push an iop  */
+  GASNETI_TRACE_PRINTF(S,("BEGIN_NBI_ACCESSREGION"));
   #ifdef DEBUG
     if (!allowrecursion && mythread->current_iop->next != NULL)
       gasneti_fatalerror("VIOLATION: tried to initiate a recursive NBI access region");
@@ -717,6 +720,7 @@ extern void            gasnete_begin_nbi_accessregion(int allowrecursion GASNETE
 extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *iop = mythread->current_iop; /*  pop an iop */
+  GASNETI_TRACE_EVENT_VAL(S,END_NBI_ACCESSREGION,iop->initiated_get_cnt + iop->initiated_put_cnt);
   #ifdef DEBUG
     if (iop->next == NULL)
       gasneti_fatalerror("VIOLATION: call to gasnete_end_nbi_accessregion() outside access region");
@@ -779,6 +783,9 @@ static int volatile barrier_flags; /*  local barrier flags */
 static int volatile barrier_phase = 0;  /*  2-phase operation to improve pipelining */
 static int volatile barrier_response_done[2] = { 0, 0 }; /*  non-zero when barrier is complete */
 static int volatile barrier_response_mismatch[2] = { 0, 0 }; /*  non-zero if we detected a mismatch */
+#if defined(STATS) || defined(TRACE)
+  static gasneti_stattime_t barrier_notifytime; /* for statistical purposes */ 
+#endif
 
 /*  global state on P0 */
 #define GASNETE_BARRIER_MASTER (gasnete_nodes-1)
@@ -846,6 +853,11 @@ extern void gasnete_barrier_notify(int id, int flags) {
   if_pf(barrier_splitstate == INSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
+  GASNETI_TRACE_PRINTF(B, ("BARRIER_NOTIFY(id=%i,flags=%i)", id, flags));
+  #if defined(STATS) || defined(TRACE)
+    barrier_notifytime = GASNETI_STATTIME_NOW_IFENABLED(B);
+  #endif
+
   barrier_value = id;
   barrier_flags = flags;
   phase = !barrier_phase; /*  enter new phase */
@@ -864,14 +876,21 @@ extern void gasnete_barrier_notify(int id, int flags) {
 
 
 extern int gasnete_barrier_wait(int id, int flags) {
+  #if defined(STATS) || defined(TRACE)
+    gasneti_stattime_t wait_start = GASNETI_STATTIME_NOW_IFENABLED(B);
+  #endif
   int phase = barrier_phase;
   if_pf(barrier_splitstate == OUTSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
+
+  GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_STATTIME_NOW()-barrier_notifytime);
 
   /*  wait for response */
   while (!barrier_response_done[phase]) {
     gasnete_barrier_kick();
   }
+
+  GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW()-wait_start);
 
   /*  update state */
   barrier_splitstate = OUTSIDE_BARRIER;
@@ -890,10 +909,14 @@ extern int gasnete_barrier_try(int id, int flags) {
 
   gasnete_barrier_kick();
 
-  if (barrier_response_done[barrier_phase])
+  if (barrier_response_done[barrier_phase]) {
+    GASNETI_TRACE_EVENT_VAL(B,BARRIER_TRY,1);
     return gasnete_barrier_wait(id, flags);
-  else
+  }
+  else {
+    GASNETI_TRACE_EVENT_VAL(B,BARRIER_TRY,0);
     return GASNET_ERR_NOT_READY;
+  }
 }
 /* ------------------------------------------------------------------------------------ */
 /*

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2002/06/14 00:27:55 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/25 18:55:12 $
+ * $Revision: 1.4 $
  * Description: GASNet header for <conduitname> conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -105,14 +105,30 @@ typedef struct _gasnet_hsl_t {
     char _dummy; /* prevent an illegal empty structure decl */
   #endif
 
+  #if defined(STATS) || defined(TRACE)
+    gasneti_stattime_t acquiretime;
+  #endif
+
   ### /* more state may be required for conduits using interrupts */
 } gasnet_hsl_t;
 
 #ifdef GASNETI_THREADS
-  #define GASNET_HSL_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, ### }
-#else
-  #define GASNET_HSL_INITIALIZER { 0, ### }
+  #define GASNETC_LOCK_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
+#else 
+  #define GASNETC_LOCK_MUTEX_INIT 0
 #endif
+
+#if defined(STATS) || defined(TRACE)
+  #define GASNETC_LOCK_STAT_INIT ,0 
+#else
+  #define GASNETC_LOCK_STAT_INIT  
+#endif
+
+#define GASNET_HSL_INITIALIZER { \
+  GASNETC_LOCK_MUTEX_INIT        \
+  GASNETC_LOCK_STAT_INIT         \
+  ###                            \
+  }
 
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl);

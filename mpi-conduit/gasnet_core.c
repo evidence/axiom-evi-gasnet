@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/06/14 01:54:58 $
- * $Revision: 1.4 $
+ *     $Date: 2002/06/25 18:55:11 $
+ * $Revision: 1.5 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -225,6 +225,8 @@ static int gasnetc_init(int *argc, char ***argv,
       if (retval != AM_OK) INITERR(RESOURCE, "AM_SetSeg() failed");
     }
 
+    /* use gasneti_malloc_inhandler during bootstrapping because we can't assume the 
+       hold/resume interrupts functions are operational yet */
     gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
     assert(gasneti_atomic_read(&segsrecvd) == 0);
     /* ------------------------------------------------------------------------------------ */
@@ -297,6 +299,7 @@ extern int gasnet_init(int *argc, char ***argv,
   int retval = gasnetc_init(argc, argv, table, numentries, segbase, segsize, allowFaults);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   gasnete_init();
+  gasneti_trace_init();
   return GASNET_OK;
 }
 
@@ -317,6 +320,7 @@ SHORT_HANDLER(gasnetc_get_seginfo_req,2,4,
               (token, UNPACK2(a0, a1), UNPACK2(a2, a3)));
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_exit(int exitcode) {
+  gasneti_trace_finish();
   AMMPI_SPMDExit(exitcode);
   abort();
 }
@@ -383,6 +387,7 @@ extern int gasnetc_AMRequestShortM(
   GASNETC_CHECKINIT();
   CHECKCALLNIS();
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AMLOCK();
       retval = GASNETI_AM_SAFE_NORETURN(
@@ -404,6 +409,7 @@ extern int gasnetc_AMRequestMediumM(
   GASNETC_CHECKINIT();
   CHECKCALLNIS();
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AMLOCK();
       retval = GASNETI_AM_SAFE_NORETURN(
@@ -426,7 +432,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   va_list argptr;
   GASNETC_CHECKINIT();
   CHECKCALLNIS();
-  
+
   gasnetc_boundscheck(dest, dest_addr, nbytes);
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
@@ -435,6 +441,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
   dest_offset = ((uintptr_t)dest_addr) - ((uintptr_t)gasnetc_seginfo[dest].addr);
 
+  GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AMLOCK();
       retval = GASNETI_AM_SAFE_NORETURN(
@@ -455,6 +462,7 @@ extern int gasnetc_AMReplyShortM(
   int retval;
   va_list argptr;
   CHECKCALLHSL();
+  GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     retval = GASNETI_AM_SAFE_NORETURN(
               AMMPI_ReplyVA(token, handler, numargs, argptr));
@@ -471,6 +479,7 @@ extern int gasnetc_AMReplyMediumM(
   int retval;
   va_list argptr;
   CHECKCALLHSL();
+  GASNETI_TRACE_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     retval = GASNETI_AM_SAFE_NORETURN(
               AMMPI_ReplyIVA(token, handler, source_addr, nbytes, numargs, argptr));
@@ -501,6 +510,7 @@ extern int gasnetc_AMReplyLongM(
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
   dest_offset = ((uintptr_t)dest_addr) - ((uintptr_t)gasnetc_seginfo[dest].addr);
 
+  GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     retval = GASNETI_AM_SAFE_NORETURN(
               AMMPI_ReplyXferVA(token, handler, source_addr, nbytes, dest_offset, numargs, argptr));
@@ -671,6 +681,9 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
 
   #ifdef GASNETI_THREADS
   { int retval; 
+    #if defined(STATS) || defined(TRACE)
+      gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
+    #endif
     #if GASNETC_HSL_SPINLOCK
       do {
         retval = pthread_mutex_trylock(&(hsl->lock));
@@ -680,8 +693,16 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
     #endif
     if (retval) 
       gasneti_fatalerror("In gasnetc_hsl_lock(), pthread_mutex_lock()=%i",strerror(retval));
+    #if defined(STATS) || defined(TRACE)
+      hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+      GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, hsl->acquiretime-startlock);
+    #endif
   }
+  #elif defined(STATS) || defined(TRACE)
+    hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+    GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, 0);
   #endif
+
 
   #ifdef GASNETC_HSL_ERRCHECK
   { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
@@ -718,6 +739,8 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
     info->locksheld = hsl->next;
   }
   #endif
+
+  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW()-hsl->acquiretime);
 
   #ifdef GASNETI_THREADS
   { int retval = pthread_mutex_unlock(&(hsl->lock));

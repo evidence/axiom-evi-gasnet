@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_fwd.h                   $
- *     $Date: 2002/06/14 01:54:58 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/25 18:55:11 $
+ * $Revision: 1.3 $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -30,5 +30,8 @@
 #define GASNET_ERR_NOT_READY            (_GASNET_ERR_BASE+4)
 #define GASNET_ERR_BARRIER_MISMATCH     (_GASNET_ERR_BASE+5)
 
+  /* this can be used to add conduit-specific 
+     statistical collection values (see gasnet_help.h) */
+#define CONDUIT_CORE_STATS(CNT,VAL,TIME) 
 
 #endif

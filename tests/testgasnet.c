@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/25 18:55:14 $
+ * $Revision: 1.2 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -45,7 +45,8 @@ int main(int argc, char **argv) {
   BARRIER();
   /*  blocking list test */
   #define iters 100
-  { gasnet_handle_t handles[iters];
+  { GASNET_BEGIN_FUNCTION();
+    gasnet_handle_t handles[iters];
     int val1;
     int vals[iters];
     int success = 1;
@@ -71,6 +72,7 @@ int main(int argc, char **argv) {
   BARRIER();
 
   { /*  implicit test */
+    GASNET_BEGIN_FUNCTION();
     int vals[100];
     int i, success=1;
     for (i=0; i < 100; i++) {

@@ -25,6 +25,8 @@ option when maintaining several build trees on the same source tree).
 debugger options and also enables extensive error checking in the MPI conduit,
 which is useful for debugging GASNet clients (but should not be used for
 performance testing). 
+    --enable-trace - turn on GASNet tracing (see usage info in gasnet_help.h)
+    --enable-stats - turn on GASNet statistical collection (see usage info in gasnet_help.h)
   Configure will detect various interesting features about your system and
 compilers, including which GASNet conduits are supported.
 

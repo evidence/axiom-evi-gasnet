@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.h                       $
- *     $Date: 2002/06/12 23:40:22 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/25 18:55:11 $
+ * $Revision: 1.3 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -119,6 +119,11 @@ typedef struct _gasnet_hsl_t {
   #else
     char _dummy; /* prevent an illegal empty structure decl */
   #endif
+
+  #if defined(STATS) || defined(TRACE)
+    gasneti_stattime_t acquiretime;
+  #endif
+
   #ifdef GASNETC_HSL_ERRCHECK
     uint64_t tag;
     int islocked;
@@ -127,21 +132,29 @@ typedef struct _gasnet_hsl_t {
   #endif
 } gasnet_hsl_t;
 
-#ifdef GASNETC_HSL_ERRCHECK
-  #ifdef GASNETI_THREADS
-    #define GASNET_HSL_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, \
-                                     GASNETC_HSL_ERRCHECK_TAGINIT, 0, 0, NULL }
-  #else
-    #define GASNET_HSL_INITIALIZER { 0, \
-                                     GASNETC_HSL_ERRCHECK_TAGINIT, 0, 0, NULL }
-  #endif
-#else
-  #ifdef GASNETI_THREADS
-    #define GASNET_HSL_INITIALIZER { PTHREAD_MUTEX_INITIALIZER }
-  #else
-    #define GASNET_HSL_INITIALIZER { 0 }
-  #endif
+#ifdef GASNETI_THREADS
+  #define GASNETC_LOCK_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
+#else 
+  #define GASNETC_LOCK_MUTEX_INIT 0
 #endif
+
+#if defined(STATS) || defined(TRACE)
+  #define GASNETC_LOCK_STAT_INIT ,0 
+#else
+  #define GASNETC_LOCK_STAT_INIT  
+#endif
+
+#ifdef GASNETC_HSL_ERRCHECK
+  #define GASNETC_LOCK_ERRCHECK_INIT , GASNETC_HSL_ERRCHECK_TAGINIT, 0, 0, NULL
+#else
+  #define GASNETC_LOCK_ERRCHECK_INIT 
+#endif
+
+#define GASNET_HSL_INITIALIZER { \
+  GASNETC_LOCK_MUTEX_INIT        \
+  GASNETC_LOCK_STAT_INIT         \
+  GASNETC_LOCK_ERRCHECK_INIT     \
+  }
 
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl);

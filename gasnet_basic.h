@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/06/20 09:49:12 $
- * $Revision: 1.7 $
+ *     $Date: 2002/06/25 18:55:09 $
+ * $Revision: 1.8 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -146,6 +146,11 @@
 #ifndef MAX
 #define MAX(x,y)  ((x)>(y)?(x):(y))
 #endif
+
+/* splitting and reassembling 64-bit quantities */
+#define GASNETI_MAKEWORD(hi,lo) ((((uint64_t)(hi)) << 32) | (((uint64_t)(lo)) & 0xFFFFFFFF))
+#define GASNETI_HIWORD(arg)     ((uint32_t)(((uint64_t)(arg)) >> 32))
+#define GASNETI_LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
 
 #define GASNETI_PRAGMA(x) _Pragma ( #x )
 
