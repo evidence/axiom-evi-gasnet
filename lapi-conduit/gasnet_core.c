@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/11/28 01:12:33 $
- * $Revision: 1.8 $
+ *     $Date: 2002/12/02 20:45:06 $
+ * $Revision: 1.9 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -172,7 +172,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     {
 	char *mode = NULL;
 	if ( (mode=getenv("GASNET_LAPI_MODE")) != NULL ) {
-	    if (strcmp(mode,"POLLING")) {
+	    if (strcmp(mode,"POLLING") == 0) {
 		gasnetc_lapi_default_mode = gasnetc_Polling;
 	    }
 	}
