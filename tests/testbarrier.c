@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2002/07/04 03:01:49 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/30 03:27:23 $
+ * $Revision: 1.3 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -31,8 +31,8 @@ int main(int argc, char **argv) {
 
   start = TIME();
   for (i=0; i < iters; i++) {
-    gasnete_barrier_notify(i, 0);            
-    GASNET_Safe(gasnete_barrier_wait(i, 0)); 
+    gasnet_barrier_notify(i, 0);            
+    GASNET_Safe(gasnet_barrier_wait(i, 0)); 
   }
   total = TIME() - start;
 

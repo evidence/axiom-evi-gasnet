@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2002/08/02 09:07:50 $
- * $Revision: 1.4 $
+ *     $Date: 2002/08/30 03:27:23 $
+ * $Revision: 1.5 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -143,23 +143,23 @@ int main(int argc, char **argv) {
     int i, success=1;
     int vals[300];
 
-    gasnet_memset(partner, partnerseg, 0xAA, 100*sizeof(int));
-    gasnet_wait_syncnb(gasnet_memset_nb(partner, partnerseg+100, 0xBB, 100*sizeof(int)));
-    gasnet_memset_nbi(partner, partnerseg+200, 0xCC, 100*sizeof(int));
+    gasnet_memset(partner, partnerseg, 0x55, 100*sizeof(int));
+    gasnet_wait_syncnb(gasnet_memset_nb(partner, partnerseg+100, 0x66, 100*sizeof(int)));
+    gasnet_memset_nbi(partner, partnerseg+200, 0x77, 100*sizeof(int));
     gasnet_wait_syncnbi_puts();
 
     gasnet_get(&vals, partner, partnerseg, 300*sizeof(int));
 
     for (i=0; i < 100; i++) {
-      if (vals[i] != ((int)0xAAAAAAAAAAAAAAAAull)) {
+      if (vals[i] != ((int)0x5555555555555555ull)) {
         MSG("*** ERROR - FAILED MEMSET TEST!!!");
         success = 0;
       }
-      if (vals[i+100] != ((int)0xBBBBBBBBBBBBBBBBull)) {
+      if (vals[i+100] != ((int)0x6666666666666666ull)) {
         MSG("*** ERROR - FAILED MEMSET TEST!!!");
         success = 0;
       }
-      if (vals[i+200] != ((int)0xCCCCCCCCCCCCCCCCull)) {
+      if (vals[i+200] != ((int)0x7777777777777777ull)) {
         MSG("*** ERROR - FAILED MEMSET TEST!!!");
         success = 0;
       }
