@@ -167,9 +167,7 @@ fh_hash_destroy(fh_hash_t *hash)
 void *
 fh_hash_find(fh_hash_t *hash, fh_int_t key)
 {
-	fh_int_t	key2;
 	void		*val;
-	fh_int_t	inc = 0;
 	fh_int_t	keyhash = inthash(key) & hash->fh_mask;
 
 	val = hash->fh_table[keyhash];
@@ -189,7 +187,6 @@ void *
 fh_hash_insert(fh_hash_t *hash, fh_int_t key, void *newval)
 {
 	fh_int_t	keyhash;
-	fh_int_t	inc = 0;
 	void		*val;
 
 	keyhash = inthash(key) & hash->fh_mask;

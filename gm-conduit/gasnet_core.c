@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.42 2003/09/10 02:19:26 csbell Exp $
- * $Date: 2003/09/10 02:19:26 $
+/* $Id: gasnet_core.c,v 1.43 2003/09/12 20:14:06 csbell Exp $
+ * $Date: 2003/09/12 20:14:06 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -74,8 +74,6 @@ gasnetc_init(int *argc, char ***argv)
 	if (gasnetc_getconf() != GASNET_OK)
 		gasneti_fatalerror("Couldn't bootstrap system");
 
-	gasneti_trace_init();
-
 	gasnetc_AllocPinnedBufs();
 
 	/* When not using everything, we must find the largest segment possible
@@ -101,6 +99,8 @@ gasnetc_init(int *argc, char ***argv)
 	#endif
 
 	gasneti_init_done = 1;
+	gasneti_trace_init();
+
 	return GASNET_OK;
 }
 
@@ -205,7 +205,7 @@ extern int
 gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	       uintptr_t minheapoffset)
 {
-	int retval = GASNET_OK, i = 0, fidx = 0;
+	int i = 0, fidx = 0;
 
 	GASNETI_TRACE_PRINTF(C,
 	    ("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
@@ -702,7 +702,6 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t node,        /* destination nod
 	int	retval;
 	va_list	argptr;
 
-	gasnetc_bufdesc_t	*bufd;
 	GASNETI_CHECKINIT();
   
 	gasnetc_boundscheck(node, dest_addr, nbytes);
@@ -851,7 +850,6 @@ gasnetc_GMSend_bufd(gasnetc_bufdesc_t *bufd)
 {
 	uintptr_t			send_ptr;
 	uint32_t			len;
-	gm_send_completion_callback_t	callback;
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(bufd != NULL);
@@ -1061,7 +1059,6 @@ extern int gasnetc_AMReplyLongM(
 		int numargs, ...)
 {
 	int	retval;
-	int	hdr_len;
 	va_list	argptr;
 	gasnet_node_t		dest;
 	gasnetc_bufdesc_t 	*bufd;
@@ -1196,7 +1193,6 @@ gasnetc_AMReplyLongAsyncM(
 		int numargs, ...)
 {
 	int	retval;
-	int	hdr_len;
 	va_list	argptr;
 	unsigned int		len;
 	gasnet_node_t		dest;
@@ -1584,6 +1580,7 @@ gasnetc_bootstrapGatherSend(void *data, size_t len)
 
 		GASNETC_SYSHEADER_WRITE(hdr, GASNETC_SYS_BROADCAST);
 		if (len > 0 && data != NULL) {
+			assert(len < 4096);
 			memcpy(gasnetc_bootstrapGather_buf, data, len);
 			memcpy(payload, gasnetc_bootstrapGather_buf, 
 					len*gasnetc_nodes);
@@ -1682,7 +1679,7 @@ int
 gasnetc_gmport_allocate(int *board, int *port)
 {
 	struct gm_port	*p;
-	unsigned int	port_id, board_id, i;
+	unsigned int	port_id, board_id;
 	gm_status_t	status;
 
 	gm_init();

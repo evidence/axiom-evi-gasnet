@@ -50,7 +50,7 @@ extern gasneti_mutex_t		fh_pollq_lock;
 #define FH_SIZE_ALIGN(addr,len)	(GASNETI_ALIGNUP(addr+len, FH_BUCKET_SIZE)-\
 				 GASNETI_ALIGNDOWN(addr, FH_BUCKET_SIZE))
 #define FH_NUM_BUCKETS(addr,len)(FH_SIZE_ALIGN(addr,len)>>FH_BUCKET_SHIFT)
-#define FH_ASSERT_BUCKET_ADDR(bucket) (bucket % FH_BUCKET_SIZE == 0)
+#define FH_ASSERT_BUCKET_ADDR(bucket) (assert((bucket) % FH_BUCKET_SIZE == 0))
 
 /* fh_bucket_t
  *

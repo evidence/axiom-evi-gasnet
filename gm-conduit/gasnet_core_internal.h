@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.46 2003/09/10 02:19:26 csbell Exp $
- * $Date: 2003/09/10 02:19:26 $
- * $Revision: 1.46 $
+/* $Id: gasnet_core_internal.h,v 1.47 2003/09/12 20:14:06 csbell Exp $
+ * $Date: 2003/09/12 20:14:06 $
+ * $Revision: 1.47 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -378,7 +378,7 @@ GASNET_INLINE_MODIFIER(gasnetc_bufdesc_from_token)
 gasnetc_bufdesc_t *
 gasnetc_bufdesc_from_token(gasnet_token_t token)
 {
-	gasnetc_bufdesc_t *bufd, *bufd_r;
+	gasnetc_bufdesc_t *bufd;
 
 	bufd = (gasnetc_bufdesc_t *) token;
 	assert(bufd != NULL);

@@ -66,10 +66,19 @@ static int	fhi_regpool_numbig = 0;
  *    
  * For example, new_r = { regA, regB } and new_num = 2.
  *
- * regA = 5 buckets, 3 unpinned to form 10101
- * regB = 3 buckets, 2 unpinned to form 101
+ * regA = 5 buckets, 3 unpinned of the form 10101
+ * regB = 3 buckets, 2 unpinned of the form 101
  *
- * (5+3+1)/2 = 5
+ * yields a calulation of (5+1)/2 + (3+1)/2 = 3 + 2  = 5
+ *
+ * Another example, new_r = { regA, regB, regC } and new_num = 3.
+ *
+ * regA = 1 unpinned bucket
+ * regB = 1 unpinned bucket
+ * regC = 1 unpinned bucket
+ *
+ * yields a calculation of 3 * (1+1)/2 = 3 * 1 = 3
+ *
  */
 
 #define FH_MIN_REGIONS_FOR_BUCKETS(buckets)	(((buckets)+1)>>1)
@@ -505,11 +514,6 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 				FH_NUM_BUCKETS(regions[i].addr,regions[i].len);
 
 		}
-		/* Initialize bucket freelist with the total amount of buckets
-		 * to be pinned */
-		fh_bucket_init_freelist(firehoses
-			+ fhc_MaxVictimBuckets + b_prepinned);
-
 		/* Now add all the prepinned buckets and marked them as
 		 * prepinned (which makes acquire/release of each bucket a
 		 * no-op */
@@ -576,7 +580,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 			    "minimum %d (%d buckets)", maxvictim_min,
 			    maxvictim_min >> FH_BUCKET_SHIFT);
 
-		if_pf (M + m_prepinned < M_min)
+		if_pf (M - m_prepinned < M_min)
 			gasneti_fatalerror("Too many buckets passed on initial"
 			    " pinned bucket list (%d) for current "
 			    "GASNET_FIREHOSE_M parameter (%d)", 
@@ -603,14 +607,16 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		fhc_RemoteBucketsUsed[i] = 0;
 	}
 
+	/* Initialize bucket freelist with the total amount of buckets
+	 * to be pinned */
+	fh_bucket_init_freelist(firehoses + fhc_MaxVictimBuckets + b_prepinned);
+
 	/* 
 	 * Set fields in the firehose information type, according to the limits
 	 * established by the firehose parameters.
 	 */
 	{
-		unsigned	firehose_limits = 
-				    fhc_RemoteBucketsM * FH_BUCKET_SIZE;
-		unsigned	med_regions, med_buckets, new_buckets;
+		unsigned	med_regions, med_buckets;
 		unsigned	med_maxbytes, fh_maxbytes;
 
 		med_regions = (gasnet_AMMaxMedium() 
@@ -668,7 +674,6 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 void
 fh_fini_plugin()
 {
-	int	i;
 	fhi_RegionPool_t	*rpool;
 
 	while (!FH_STAILQ_EMPTY(&fhi_regpool_list)) {
@@ -727,15 +732,8 @@ fhi_AllocRegionPool(b_num)
 			if_pf (rpool->regions == NULL)
 				gasneti_fatalerror("malloc in RegionPool");
 
-			FH_STAILQ_INSERT_HEAD(&fhi_regpool_list, rpool);
-			assert(!FH_STAILQ_EMPTY(&fhi_regpool_list));
-			assert(FH_STAILQ_FIRST(&fhi_regpool_list) == rpool);
-
-			/*
-			 * This time, the freelist should hit an allocation
-			 */
 			fhi_regpool_num++;
-			return fhi_AllocRegionPool(b_num);
+			return rpool;
 		}
 	}
 	else {
@@ -1008,6 +1006,7 @@ fhi_AcquireLocalRegionsList(gasnet_node_t node, firehose_region_t *region,
 	buckets_topin = 0;
 	rpool->regions_num = 0;
 	rpool->buckets_num = 0;
+	next_addr = (uintptr_t) -1;
 
 	for (i = 0, j = -1; i < reg_num; i++) {
 
@@ -1034,15 +1033,18 @@ fhi_AcquireLocalRegionsList(gasnet_node_t node, firehose_region_t *region,
 				if (j >= 0 && bucket_addr == next_addr)
 					reg[j].len += FH_BUCKET_SIZE;
 				else {
+					assert(rpool->len >
+						sizeof(firehose_region_t) *
+							rpool->regions_num);
 					++j;
 					reg[j].addr = bucket_addr;
 					reg[j].len  = FH_BUCKET_SIZE;
 					rpool->regions_num++;
 				}
-				rpool->buckets_num++;
-			}
 
-			next_addr = bucket_addr + FH_BUCKET_SIZE;
+				rpool->buckets_num++;
+				next_addr = bucket_addr + FH_BUCKET_SIZE;
+			}
 		}
 	}
 
@@ -1112,7 +1114,7 @@ _fhi_FreeVictim(int buckets, firehose_region_t *reg, fh_fifoq_t *fifo_head)
 {
 	int		i, j;
 	fh_bucket_t	*bd;
-	uintptr_t	next_addr;
+	uintptr_t	next_addr = 0;
 
 	FH_TABLE_ASSERT_LOCKED;
 
@@ -1186,7 +1188,6 @@ fhi_CoalesceBuckets(uintptr_t *bucket_list, size_t num_buckets,
 		firehose_region_t *regions)
 {
 	int		i, j = -1; /* new buckets created */
-	fh_bucket_t	*bd;
 	uintptr_t	addr_next = 0, bucket_addr;
 
 	FH_TABLE_ASSERT_LOCKED;
@@ -1349,7 +1350,7 @@ fhi_FlushPendingRequests(gasnet_node_t node, firehose_region_t *region,
 	fh_bucket_t	*bd, *bdi;
 	int		i;
 
-	fh_completion_callback_t	*ccb, *ccbn;
+	fh_completion_callback_t	*ccb;
 	firehose_request_t		*req;
 
 	FH_TABLE_ASSERT_LOCKED;	/* uses fh_temp_bucket_ptrs */
@@ -1472,7 +1473,7 @@ void
 fh_release_local_region(firehose_request_t *request)
 {
 	firehose_region_t	reg;
-	int			b_unpin, b_total, b_num;
+	int			b_total;
 
 	FH_TABLE_ASSERT_LOCKED;
 
@@ -1610,7 +1611,6 @@ fh_acquire_remote_region(gasnet_node_t node, firehose_region_t *reg,
 			 firehose_request_t *ureq)
 {
 	int			 notpinned, new_r = 0;
-	fh_bucket_t		 *bd;
 	firehose_request_t	 *req;
 	fh_completion_callback_t  ccb;
 
@@ -1641,13 +1641,14 @@ fh_acquire_remote_region(gasnet_node_t node, firehose_region_t *reg,
 	     "flags=0x%x)",
 	     node, req->addr, req->len, notpinned, req->flags));
 
-	/* In moving remote regions, none of the temp arrays can be used, as
+	/* 
+	 * In moving remote regions, none of the temp arrays can be used, as
 	 * the AM call has to be done without holding the TABLE lock.  For this
 	 * reason, alloca() is used to acquire a temporary array of regions.
 	 */
 
 	if (notpinned > 0) {
-		int			i, replace_b, old_r = 0, free_b;
+		int			replace_b, old_r = 0, free_b;
 		void			*reg_alloc;
 		firehose_region_t	*reg_alloc_new, *reg_alloc_old;
 		int			args_len = 0;
@@ -1734,7 +1735,6 @@ fh_acquire_remote_region(gasnet_node_t node, firehose_region_t *reg,
 void
 fh_release_remote_region(firehose_request_t *request)
 {
-	int		i;
 	uintptr_t	end_addr, bucket_addr;
 	fh_bucket_t	*bd;
 
@@ -1775,6 +1775,7 @@ fh_am_move_reqh_inner(gasnet_token_t token, void *addr,
 {
 	firehose_region_t	*new_reg, *old_reg;
 	fhi_RegionPool_t	*rpool;
+	int			i, r_alloc;
 
 	gasneti_stattime_t      movetime = GASNETI_STATTIME_NOW_IFENABLED(C);
 	gasneti_stattime_t      unpintime;
@@ -1797,7 +1798,15 @@ fh_am_move_reqh_inner(gasnet_token_t token, void *addr,
 
 	GASNETI_TRACE_PRINTF(C, ("Firehose move request: new=%d, old=%d",
 			r_new, r_old));
-	rpool = fhi_AllocRegionPool( FH_MIN_REGIONS_FOR_BUCKETS(b_new) );
+
+	/* Loop over the new regions to count the worst case number of
+	 * regions we will need to describe their unpinned subset. */
+	for (i=0, r_alloc=0; i < r_new; ++i) {
+		r_alloc += FH_MIN_REGIONS_FOR_BUCKETS(
+			   FH_NUM_BUCKETS(
+				new_reg[i].addr, new_reg[i].len));
+	}
+	rpool = fhi_AllocRegionPool(r_alloc);
 	fhi_AcquireLocalRegionsList(node, new_reg, r_new, rpool);
 
 	/* The next function may overcommit the fifo before the call to
@@ -1831,10 +1840,10 @@ fh_am_move_reqh_inner(gasnet_token_t token, void *addr,
 			firehose_remote_callback(node, 
 			    (const firehose_region_t *) new_reg, r_new);
 
-			MEDIUM_REP(2,3,(token,
+			MEDIUM_REP(1,1,(token,
 			    fh_handleridx(fh_am_move_reph),
 			    new_reg, sizeof(firehose_region_t) * r_new,
-			    r_new, PACK(request_type)));
+			    r_new));
 	
 		#else
 			/* TODO. . solve MALLOC ? */
@@ -1866,10 +1875,9 @@ fh_am_move_reqh_inner(gasnet_token_t token, void *addr,
 		#endif
 	}
 	else {
-		MEDIUM_REP(2,3,(token,
+		MEDIUM_REP(1,1,(token,
 		    fh_handleridx(fh_am_move_reph),
-		    new_reg, sizeof(firehose_region_t) * r_new,
-		    r_new, PACK(request_type)));
+		    new_reg, sizeof(firehose_region_t) * r_new, r_new));
 	}
 
 	return;
@@ -1886,18 +1894,13 @@ GASNET_INLINE_MODIFIER(fh_am_move_reph_inner)
 void
 fh_am_move_reph_inner(gasnet_token_t token, void *addr,
 		      size_t nbytes,
-		      gasnet_handlerarg_t r_new,
-		      void *request_type)
+		      gasnet_handlerarg_t r_new)
 {
 	firehose_region_t	*regions = (firehose_region_t *) addr;
-	firehose_request_t	*req = (firehose_request_t *) request_type;
 	fh_pollq_t		pendCallbacks;
 	int			numpend;
 	gasnet_node_t		node;
 
-	fh_completion_callback_t	*ccb;
-
-	assert(request_type != NULL);
 	gasnet_AMGetMsgSource(token, &node);
 
 	FH_TABLE_LOCK;
@@ -1912,7 +1915,7 @@ fh_am_move_reph_inner(gasnet_token_t token, void *addr,
 
 	if (numpend > 0) {
 		#ifdef FIREHOSE_COMPLETION_IN_HANDLER
-		fh_completion_callback_t	*ccb2;
+		fh_completion_callback_t	*ccb, *ccb2;
 
 		ccb = FH_STAILQ_FIRST(&pendCallbacks);
 		while (ccb != NULL) {
@@ -1922,7 +1925,6 @@ fh_am_move_reph_inner(gasnet_token_t token, void *addr,
 			ccb = ccb2;
 		}
 		#else
-		fh_callback_t	*cb;
 		
 		FH_POLLQ_LOCK;
 		FH_STAILQ_MERGE(&fh_CallbackFifo, &pendCallbacks);
@@ -1934,18 +1936,17 @@ fh_am_move_reph_inner(gasnet_token_t token, void *addr,
 
 	return;
 }
-MEDIUM_HANDLER(fh_am_move_reph,2,3,
-              (token,addr,nbytes, a0, UNPACK(a1)     ),
-              (token,addr,nbytes, a0, UNPACK2(a1, a2)));
+MEDIUM_HANDLER(fh_am_move_reph,1,1,
+              (token,addr,nbytes, a0),
+              (token,addr,nbytes, a0));
 
 
 void
 fh_send_firehose_reply(fh_remote_callback_t *rc)
 {
-	MEDIUM_REQ(2,3,
+	MEDIUM_REQ(1,1,
 	    (rc->node, fh_handleridx(fh_am_move_reph),
-	    rc->pin_list, rc->reply_len, rc->pin_list_num, 
-	    PACK(rc->request)));
+	    rc->pin_list, rc->reply_len, rc->pin_list_num));
 }
 
 void

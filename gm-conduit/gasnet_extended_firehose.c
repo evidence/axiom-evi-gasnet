@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.22 2003/09/10 02:19:26 csbell Exp $
- * $Date: 2003/09/10 02:19:26 $
+/* $Id: gasnet_extended_firehose.c,v 1.23 2003/09/12 20:14:07 csbell Exp $
+ * $Date: 2003/09/12 20:14:07 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -128,6 +128,8 @@ gasnete_fh_callback_put(struct gm_port *p, void *context,
 		fhreqs[1] = pop->req_local;
 		numreqs++;
 	}
+
+	/* printf("%d> fh_callback_put: _gmc.port = %p\n", gasnetc_mynode, _gmc.port); */
 
 	GASNETE_GM_SET_IN_UNKNOWN();
 	firehose_release(fhreqs, numreqs);
@@ -401,6 +403,17 @@ extern int firehose_remote_callback(gasnet_node_t node,
 	gasneti_mutex_lock(&gasnetc_lock_gm);
 	gasnetc_token_lo_poll();
 
+	/*
+	printf("%d> GM_PUT_rev: (%p,%d) -> (%p,%d)\n", gasnetc_mynode,
+	    (void *) args->remote_addr, args->nbytes, 
+	    (void *) args->local_addr, args->nbytes);
+	    */
+
+	GASNETI_TRACE_PRINTF(C, 
+	    ("Firehose RDMA PUT(rev) %p <- (%d,%p) (%d bytes)", 
+	     (void *) args->local_addr, node, (void *) args->remote_addr, 
+	     args->nbytes));
+
 	GASNETC_GM_PUT(_gmc.port, (void *) args->remote_addr,
 	   (gm_remote_ptr_t) args->local_addr, (unsigned long) args->nbytes,
 	   GM_LOW_PRIORITY, gasnetc_nodeid(node), gasnetc_portid(node),
@@ -420,8 +433,6 @@ gasnete_fh_callback_get(struct gm_port *p, void *context,
 			      gm_status_t status)
 {
 	gasnete_eop_t			*gop = (gasnete_eop_t *) context;
-	const firehose_request_t	*fhreqs[2];
-	int				numreqs = 1;
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(gop != NULL);
@@ -435,6 +446,8 @@ gasnete_fh_callback_get(struct gm_port *p, void *context,
 	GASNETE_GM_SET_IN_UNKNOWN();
 	gasnete_get_fh_done(gop);
 	GASNETE_GM_UNSET_IN_UNKNOWN();
+
+	/* printf("%d> fh_callback_get: _gmc.port = %p\n", gasnetc_mynode, _gmc.port); */
 
 	return;
 }
@@ -541,14 +554,14 @@ gasnete_fh_request_get(void *_gop, firehose_request_t *req, int allLocalHit)
 	 * used a DMA put to complete the get request.  Just release and mark
 	 * done. */
 	else {
-		gasnete_get_fh_done(gop, 0);
+		gasnete_get_fh_done(gop);
 	}
 
 	return;
 }
 #endif
 
-GASNET_INLINE_MODIFIER(gasnete_firehose_get_bulk)
+GASNET_INLINE_MODIFIER(gasnete_firehose_get)
 gasnet_handle_t
 gasnete_firehose_get(void *dest, gasnet_node_t node, void *src, 
 		     size_t nbytes, gasnete_iop_t *iop GASNETE_THREAD_FARG)
@@ -578,6 +591,9 @@ gasnete_firehose_get(void *dest, gasnet_node_t node, void *src,
 	if (iop != NULL)
 		iop->initiated_get_cnt++;
 
+	/*
+	printf("%d> GET_ARGS (dest=%p,src=%p,len=%d)\n", gasnetc_mynode, dest, src, nbytes);
+	*/
 	args.local_addr  = (uintptr_t) dest;
 	args.remote_addr = (uintptr_t) src;
 	args.nbytes      = nbytes;

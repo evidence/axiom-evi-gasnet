@@ -80,10 +80,6 @@ void
 firehose_fini()
 {
 	int	i;
-	/* XXX to be completed 
-	 * - free the bucket and firehose tables
-	 */
-
 	/* Free the per-node firehose FIFO queues and counters */
 	gasneti_free(fh_RemoteNodeFifo);
 
@@ -230,7 +226,6 @@ firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 		    firehose_remotecallback_args_t *remote_args,
 		    firehose_completed_fn_t callback, void *context)
 {
-	firehose_private_t	*priv;
 	firehose_region_t	region;
 	firehose_request_t	*req = NULL;
 
@@ -280,9 +275,6 @@ firehose_try_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 	FH_TABLE_LOCK;
 
 	if (fh_region_ispinned(node, addr, len)) {
-		uintptr_t	bucket_addr, end_addr;
-		fh_bucket_t	*bd;
-
 		req = fh_request_new(ureq);
 		req->node = node;
 		req->addr = addr;

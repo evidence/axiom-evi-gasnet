@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.30 2003/09/10 02:19:26 csbell Exp $
- * $Date: 2003/09/10 02:19:26 $
- * $Revision: 1.30 $
+/* $Id: gasnet_core_receive.c,v 1.31 2003/09/12 20:14:06 csbell Exp $
+ * $Date: 2003/09/12 20:14:06 $
+ * $Revision: 1.31 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -308,7 +308,6 @@ gasnetc_process_AMSystem(gasnetc_bufdesc_t *bufd)
 {
 	uint8_t		*hdr, msg;
 	uint8_t		*payload;
-	gasnet_node_t	node;
 	size_t		len, paylen = 0;
 
 	len = bufd->len;
@@ -322,8 +321,10 @@ gasnetc_process_AMSystem(gasnetc_bufdesc_t *bufd)
 			assert(gasnetc_mynode == 0 || (printf("mynode == %d\n", gasnetc_mynode),0));
 			if (len > 4) {
 				paylen = len - 4;
+				assert(bufd->node*paylen+paylen < 4096);
 				memcpy(gasnetc_bootstrapGather_buf + 
 				       bufd->node*paylen, payload, paylen);
+
 			}
 			gasnetc_bootstrapGather_recvd++;
 			GASNETI_TRACE_PRINTF(C, 
