@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/01/07 17:39:36 $
-# $Revision: 1.29 $
+#     $Date: 2005/01/14 02:04:44 $
+# $Revision: 1.30 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -24,20 +24,20 @@ fh_srcs =                          \
 endif
 
 if VAPI_BOOTSTRAP_MPI
-# If using MPI for bootstrap (currently the only option) then we
-# need to compile this one object with MPI_CC.
-# Note that the 'force' ensures we always rebuild w/ the correct thread model
+# If using MPI for bootstrap then we must compile this one object with MPI_CC.
 mpi_objs = $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o
-$(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: $(srcdir)/gasnet_bootstrap_mpi.c force
+$(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: $(srcdir)/gasnet_bootstrap_mpi.c
 	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) -o $@ -c $<
+mpi_subdirs = contrib
 endif
 
 if VAPI_BOOTSTRAP_SSH
 ssh_srcs = $(srcdir)/gasnet_bootstrap_ssh.c
+ssh_cflags = -DGASNETI_CONDUIT_GETENV=gasnetc_bootstrapGetenv
 endif
 
 # any conduit-specific subdirectories containing Makefile.am's
-SUBDIRS = contrib
+SUBDIRS = $(mpi_subdirs)
 
 # complete list of files in the conduit directory
 # include all headers, documentation, etc. 
@@ -69,7 +69,8 @@ CONDUIT_SOURCELIST =                 \
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
 # VAPI conduit always needs GASNET_THREAD_DEFINES
-CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ $(fh_include) @VAPI_LIBCFLAGS@ @GASNET_THREAD_DEFINES@
+CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ $(fh_include) $(ssh_cflags) \
+			 @VAPI_LIBCFLAGS@ @GASNET_THREAD_DEFINES@
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = 
@@ -88,7 +89,12 @@ CONDUIT_SPECIAL_OBJS = $(mpi_objs)
 #   %P = program executable name
 #   %N = requested node count
 #   %A = program arguments
+if VAPI_BOOTSTRAP_MPI
 CONDUIT_RUNCMD = @TOP_BUILDDIR@/vapi-conduit/contrib/gasnetrun_vapi -np %N %P %A
+endif
+if VAPI_BOOTSTRAP_SSH
+CONDUIT_RUNCMD = %P %N %A
+endif
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =

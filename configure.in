@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/01/09 23:23:11 $
-# $Revision: 1.214 $
+#     $Date: 2005/01/14 02:04:42 $
+# $Revision: 1.215 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.214 $)
+AC_REVISION($Revision: 1.215 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1438,11 +1438,25 @@ GASNET_IF_ENABLED_WITH_AUTO(vapi, Enable/disable the CONDUIT_DESC (auto-detected
   [enabled_vapi=yes;force_vapi=yes],
   enabled_vapi=no,
   enabled_vapi=yes)
-GASNET_IF_ENABLED_WITH_AUTO(vapi-bootstrap-ssh,
-  [Enable/disable the EXPERIMENTAL ssh-based bootstrap for vapi conduit (default no)],
-  [enabled_vapi_bootstrap_ssh=yes;enabled_vapi_bootstrap_mpi=no],
-  [enabled_vapi_bootstrap_ssh=no ;enabled_vapi_bootstrap_mpi=yes],
-  [enabled_vapi_bootstrap_ssh=no ;enabled_vapi_bootstrap_mpi=yes])
+with_vapi_bootstrap_mpi=no
+with_vapi_bootstrap_ssh=no
+GASNET_WITH(vapi-bootstrap,
+   [VAPI job bootstrap mechanism ("ssh" or "mpi", default is mpi)],
+   [case "$withval" in
+      yes) AC_MSG_ERROR([--with-vapi-bootstrap requires an argument ("ssh" or "mpi")])
+	   ;;
+      ssh) with_vapi_bootstrap_ssh=yes
+	   ;;
+      mpi) with_vapi_bootstrap_mpi=yes
+	   ;;
+      *)   AC_MSG_ERROR([--with-vapi-bootstrap argument must be "ssh" or "mpi"])
+	   ;;
+    esac],
+   [AC_MSG_ERROR([--with-vapi-bootstrap argument must be "ssh" or "mpi"])],
+   [with_vapi_bootstrap_mpi=yes])
+if test "$with_vapi_bootstrap_ssh$with_vapi_bootstrap_mpi" = yesyes; then
+  AC_MSG_ERROR([conflicting --with-vapi-bootstrap options given])
+fi
 if test "$force_vapi$have_pthread" = yesno; then
   AC_MSG_ERROR([vapi-conduit requires pthread support but pthreads $pthread_reason])
 fi
@@ -1450,13 +1464,13 @@ if test "$enabled_vapi$have_pthread" = yesno; then
   enabled_vapi=no
   AC_MSG_WARN([vapi-conduit requires pthread support but pthreads $pthread_reason - disabling vapi])
 fi
-if test "$enabled_vapi_bootstrap_mpi" = yes; then
+if test "$with_vapi_bootstrap_mpi" = yes; then
   if test "$force_vapi$have_mpi" = yesno; then
-    AC_MSG_ERROR([vapi-conduit requires MPI support and MPI $mpi_reason]);
+    AC_MSG_ERROR([--with-vapi-bootstrap=mpi requires MPI support and MPI $mpi_reason]);
   fi
   if test "$enabled_vapi$have_mpi" = yesno; then
     enabled_vapi=no
-    AC_MSG_WARN([vapi-conduit requires MPI support and MPI $mpi_reason - disabling vapi])
+    AC_MSG_WARN([--with-vapi-bootstrap=mpi requires MPI support and MPI $mpi_reason - disabling vapi])
   fi
 fi
 if test "$enabled_vapi" = yes; then
@@ -1559,13 +1573,12 @@ if test "$enabled_vapi" = yes; then
       fi
 
     # Configure corrrect flags/vars (inc. CC and LD) based on bootstrap choice
-    if test "$enabled_vapi_bootstrap_ssh" = yes; then
+    if test "$with_vapi_bootstrap_ssh" = yes; then
       AC_CHECK_HEADERS(netinet/tcp.h)
       VAPI_LD="$CC"
       VAPI_LDFLAGS="$CFLAGS"
-      VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -DGASNETI_CONDUIT_GETENV=gasnetc_bootstrapGetenv"
     fi
-    if test "$enabled_vapi_bootstrap_mpi" = yes; then
+    if test "$with_vapi_bootstrap_mpi" = yes; then
       VAPI_LD="$MPI_CC"
       VAPI_LDFLAGS="$MPI_CFLAGS"
       VAPI_LIBS="$MPI_LIBS $VAPI_LIBS"
@@ -1579,8 +1592,8 @@ AC_SUBST(VAPI_LIBCFLAGS)
 AC_SUBST(VAPI_LD)
 AC_SUBST(VAPI_LDFLAGS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
-AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH,test "$enabled_vapi_bootstrap_ssh" = yes)
-AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$enabled_vapi_bootstrap_mpi" = yes)
+AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH,test "$with_vapi_bootstrap_ssh" = yes)
+AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$with_vapi_bootstrap_mpi" = yes)
 if test "$have_vapi" = yes ; then
   CONDUITS="$CONDUITS vapi"
   CONDUIT_REPORT(ON)
