@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2005/03/12 11:21:16 $
- * $Revision: 1.25 $
+ *     $Date: 2005/03/16 12:11:51 $
+ * $Revision: 1.26 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -97,7 +97,7 @@ int main(int argc, char **argv) {
   assert(TEST_SEGSZ >= 2*sizeof(int)*NUMHANDLERS_PER_TYPE);
 
   if (!gasnet_mynode())
-	print_testname("testam", gasnet_nodes());
+	print_testname("testgasnet", gasnet_nodes());
 
   MSG("running...");
 
