@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/10/24 01:37:28 $
-# $Revision: 1.85 $
+#     $Date: 2003/11/06 02:17:06 $
+# $Revision: 1.86 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.85 $)
+AC_REVISION($Revision: 1.86 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -916,6 +916,18 @@ if test $have_vapi = yes; then
     AC_ERROR(build test failed: I don't know how to build VAPI programs on your system)
     have_vapi=no
   fi
+
+  GASNET_IF_ENABLED_WITH_AUTO(vapi-inline-puts, [See vapi-conduit/README (enabled by default)], 
+    enabled_vapi_inline_puts=yes, enabled_vapi_inline_puts=no, enabled_vapi_inline_puts=yes)
+    if test "$enabled_vapi_inline_puts" = yes; then
+      AC_DEFINE(GASNETC_VAPI_ENABLE_INLINE_PUTS)
+    fi
+
+  GASNET_IF_ENABLED_WITH_AUTO(vapi-force-poll-lock, [See vapi-conduit/README (disabled by default)], 
+    enabled_vapi_force_poll_lock=yes, enabled_vapi_force_poll_lock=no, enabled_vapi_force_poll_lock=no)
+    if test "$enabled_vapi_force_poll_lock" = yes; then
+      AC_DEFINE(GASNETC_VAPI_FORCE_POLL_LOCK)
+    fi
 fi
 
 AC_SUBST(VAPI_INCLUDE)
