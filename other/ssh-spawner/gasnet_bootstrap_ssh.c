@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/15 04:51:54 $
- * $Revision: 1.15 $
+ *     $Date: 2005/01/15 04:58:01 $
+ * $Revision: 1.16 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -723,11 +723,13 @@ static void pre_spawn(count) {
   if (devnull < 0) {
     gasneti_fatalerror("open(/dev/null) failed");
   }
+  (void)fcntl(devnull, F_SETFD, FD_CLOEXEC);
 
   /* Create listening socket */
   if ((listener = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
     gasneti_fatalerror("listener = socket() failed");
   }
+  (void)fcntl(listener, F_SETFD, FD_CLOEXEC);
   sock_addr.sin_family = AF_INET;
   sock_addr.sin_port = 0;
   sock_addr.sin_addr.s_addr = INADDR_ANY;
@@ -760,6 +762,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
     if ((s = accept(listener, (struct sockaddr *)&sock_addr, &addr_len)) < 0) {
       gasneti_fatalerror("accept() failed");
     }
+    (void)fcntl(s, F_SETFD, FD_CLOEXEC);
     (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
     (void)setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
     do_read(s, &child_id, sizeof(gasnet_node_t));
@@ -822,6 +825,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
   if (connect(parent, (struct sockaddr *)&sock_addr, addr_len) < 0) {
     gasneti_fatalerror("connect(host=%s, port=%d) failed w/ errno=%d", parent_name, parent_port, errno);
   }
+  (void)fcntl(parent, F_SETFD, FD_CLOEXEC);
   (void)ioctl(parent, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
   (void)setsockopt(parent, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
   do_write(parent, &child_id, sizeof(gasnet_node_t));
@@ -856,6 +860,7 @@ static void spawn_one(const char *argv0, gasnet_node_t child_id, const char *myh
       }
     }
     if (USE_LOCAL_SPAWN && (!host || !strcmp(host, myhost))) {
+      /* XXX: if we are clever enough, we might be able to "unwind" w/o the exec() */
       BOOTSTRAP_VERBOSE(("Process %d spawning process %d on %s via fork()\n",
 			 (is_master ? -1 : (int)myproc),
 			 (int)child[child_id].rank, myhost));
