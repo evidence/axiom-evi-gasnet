@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.29 2004/06/21 05:15:42 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.30 2004/06/21 10:37:24 bonachea Exp $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -21,7 +21,6 @@ Makefile: @TOP_SRCDIR@/tests/Makefile.in
 	CONFIG_HEADERS= CONFIG_FILES=tests/Makefile ./config.status
 
 @USE_MPI_CONDUIT_TRUE@ MPI_TEST = testmpi
-@HAVE_CXX_TRUE@ CXX_TEST = testcxx
 
 # tests that can be built in any mode
 # in order of most useful execution
@@ -41,8 +40,8 @@ testprograms_seq =      \
         testhsl         \
         testbarrierconf \
         testbarrierlate \
-	$(CXX_TEST)     \
-	testtools   
+	testtools       \
+	$(CONDUIT_TESTS)
 
 # tests that should only be built in PARSYNC and PAR modes
 testprograms_parsync =  \
