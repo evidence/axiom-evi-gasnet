@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/gasnetrun_gm.pl,v $
-#     $Date: 2005/02/02 19:37:52 $
-# $Revision: 1.20 $
+#     $Date: 2005/02/24 06:35:35 $
+# $Revision: 1.21 $
 #
 # Included here as a contrib/ from the mpich 1.2.5..10 mpirun script,
 # since this is the closest thing myricom ships to a spawner interface.
@@ -151,6 +151,8 @@ sub clean_up {
   while (wait != -1) {
     ;
   }
+
+  unlink $ENV{"GASNET_NODEFILE"} if ($ENV{"GASNET_RM_NODEFILE"});
 }
 
 
