@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.6 2002/12/19 18:35:53 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.7 2003/01/05 04:44:06 bonachea Exp $
 # Description: Makefile for GASNet MPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -29,8 +29,8 @@ libgasnet_sources = $(srcdir)/gasnet_core.c     \
 		    $(othersourcefiles)
 
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
-                         $(top_srcdir)/*.h                \
-                         $(top_srcdir)/extended-ref/*.h       \
+                         $(top_srcdir)/*.[ch]             \
+                         $(top_srcdir)/extended-ref/*.h   \
 			 $(top_srcdir)/other/ammpi/*.h
 
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
@@ -72,7 +72,7 @@ all: libs
 	
 clean-local: 
 	rm -f $(libgasnet_objects) $(libraries) *.o core
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile clean       \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile clean     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="/dev/null"
 
@@ -107,17 +107,17 @@ tests:
 	@exit 1
 
 tests-seq: force libgasnet-mpi-seq.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="mpi-seq.mak"
 
 tests-parsync: force libgasnet-mpi-parsync.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="mpi-parsync.mak"
 
 tests-par: force libgasnet-mpi-par.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="mpi-par.mak"
 

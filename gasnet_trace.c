@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/01/04 06:16:10 $
- * $Revision: 1.22 $
+ *     $Date: 2003/01/05 04:44:00 $
+ * $Revision: 1.23 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,7 +109,7 @@ static void _freezeForDebugger(int depth) {
 extern void gasneti_freezeForDebugger() {
   char name[255];
   gethostname(name, 255);
-  fprintf(stderr,"GASNet node frozen for debugger: host=%s  pid=%i\n", name, getpid()); 
+  fprintf(stderr,"GASNet node frozen for debugger: host=%s  pid=%i\n", name, (int)getpid()); 
   fflush(stderr);
   _freezeForDebugger(0);
 }

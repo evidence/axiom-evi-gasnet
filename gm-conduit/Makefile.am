@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.14 2003/01/04 15:17:25 csbell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.15 2003/01/05 04:44:03 bonachea Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -32,7 +32,7 @@ libgasnet_sources = $(srcdir)/gasnet_core.c $(srcdir)/gasnet_core_receive.c \
 		    $(srcdir)/gasnet_extended_ref.c \
 		    $(srcdir)/gasnet_extended_firehose.c $(othersourcefiles)
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
-                         $(top_srcdir)/*.h
+                         $(top_srcdir)/*.[ch]
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o \
 		    gasnet_core_receive.o gasnet_core_misc.o \
 		    gasnet_core_conf.o gasnet_extended_op.o \
@@ -76,7 +76,7 @@ all: libs
 	
 clean-local: 
 	rm -f $(libgasnet_objects) $(libraries) *.o core
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile clean       \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile clean     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="/dev/null"
 
@@ -113,17 +113,17 @@ tests:
 	@exit 1
 
 tests-seq: force libgasnet-gm-seq.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="gm-seq.mak"
 
 tests-parsync: force libgasnet-gm-parsync.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="gm-parsync.mak"
 
 tests-par: force libgasnet-gm-par.a
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile tests	     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="gm-par.mak"
 

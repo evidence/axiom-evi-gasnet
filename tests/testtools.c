@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testtools.c                                    $
- *     $Date: 2003/01/04 06:16:14 $
- * $Revision: 1.2 $
+ *     $Date: 2003/01/05 04:44:08 $
+ * $Revision: 1.3 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -140,7 +140,7 @@ gasnett_atomic_t x1 = gasnett_atomic_init(10000);
 gasnett_atomic_t x2 = gasnett_atomic_init(10000);
 
 void * thread_fn(void *arg) {
-  int id = (int) arg;
+  int id = (int)(uintptr_t)arg;
   int i;
   int iters=10;
   int iters2=1000;

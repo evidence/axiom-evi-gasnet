@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Attic/Makefile,v 1.7 2003/01/03 00:33:30 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.1 2003/01/05 04:44:08 bonachea Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -27,8 +27,8 @@ clean:
 
 # testtools is a special minimal case for an app that just uses GASNet tools
 testtools: force
-	cc $(GASNET_INCLUDES) -DHAVE_PTHREAD_H -c -o $@.o $(srcdir)/$@.c
-	cc -o $@ $@.o -lpthread -lm
+	@CC@ $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@ -DHAVE_PTHREAD_H -c -o $@.o $(srcdir)/$@.c
+	@CC@ -o $@ $@.o @GASNET_THREAD_LIBS@ @LIBM@
 
 # This is a model for how GASNet clients should be built:
 test% : force

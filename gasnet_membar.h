@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/01/04 06:16:10 $
- * $Revision: 1.3 $
+ *     $Date: 2003/01/05 04:44:00 $
+ * $Revision: 1.4 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,7 +14,13 @@
 #define _GASNET_ATOMICOPS_H
 
 /* ------------------------------------------------------------------------------------ */
-/* portable atomic increment/decrement */
+/* portable atomic increment/decrement 
+   these provide a special datatype (gasneti_atomic_t) with a set of atomic ops
+   atomicity is guaranteed only if ALL accesses to the gasneti_atomic_t data happen
+    through the provided operations (i.e. it is an error to directly access the 
+    contents of a gasneti_atomic_t), and if the gasneti_atomic_t data is only  
+    addressable by the current process (e.g. not in a System V shared memory segment)
+ */
 
 #if defined(SOLARIS) || defined(CRAYT3E) || defined(__PGI) || \
     (defined(OSF) && !defined(__DECC))
@@ -176,9 +182,9 @@
 
 /* a local memory barrier - ensure all previous stores to local mem
    from this proc are globally completed across this SMP 
-   (i.e. all reads issued from any CPU subsequent to this call
+   (i.e. all loads issued from any CPU subsequent to this call
       returning will see the new value for any previously issued
-      writes from this proc)
+      stores from this proc)
  */
 #ifdef __GNUC__
   #define GASNETI_ASM(mnemonic) asm volatile (#mnemonic : : : "memory")
@@ -186,7 +192,7 @@
   #include <c_asm.h>
   #define GASNETI_ASM(mnemonic) asm(#mnemonic)
 #elif defined(MIPSPRO_COMPILER)
-  #define GASNETI_ASM(mnemonic)  /* broken - doesn't have inline assembly */
+  #define GASNETI_ASM(mnemonic)  /* TODO: broken - doesn't have inline assembly */
 #else
   #define GASNETI_ASM(mnemonic) asm { mnemonic }
 #endif
