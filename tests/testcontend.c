@@ -1,4 +1,4 @@
-/* $Id: testcontend.c,v 1.1 2004/07/17 17:00:47 bonachea Exp $
+/* $Id: testcontend.c,v 1.2 2004/07/31 05:06:08 bonachea Exp $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -80,6 +80,16 @@ gasnet_handlerentry_t htable[] = {
 
 #define SPINPOLL_UNTIL(cond) do { while (!(cond)) gasnet_AMPoll(); } while (0)
 
+#define BARRIER_UNTIL(cond) do {                                           \
+      if (mythread == 0) SPINPOLL_UNTIL(cond);                             \
+      else if (mythread == 1) {                                            \
+        /* one thread sits in barrier during test */                       \
+        gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            \
+        GASNET_Safe(gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS)); \
+      }                                                                    \
+  } while (0)
+
+    
 int _havereport = 0;
 char _reportstr[255];
 const char *getreport() {
@@ -101,8 +111,10 @@ void report(gasnett_tick_t ticks) {
 #define AMPINGPONG(fnname, POLLUNTIL)                                                   \
   void * fnname(void *args) {                                                           \
     int mythread = (int)(intptr_t)args;                                                 \
+    static int nonzero_present = 0;                                                     \
     gasnett_tick_t start, end;                                                          \
     signal_done = 0;                                                                    \
+    if (mythread != 0) nonzero_present = 1;                                             \
     thread_barrier();                                                                   \
     if (mythread == 0) {                                                                \
       int i;                                                                            \
@@ -115,10 +127,16 @@ void report(gasnett_tick_t ticks) {
       end = gasnett_ticks_now();                                                        \
       GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_markdone_shorthandler));            \
       GASNET_Safe(gasnet_AMRequestShort0(gasnet_mynode(), hidx_markdone_shorthandler)); \
+      if (!nonzero_present) {                                                           \
+        mythread = 1; /* ensure it runs once, impersonating thread1 */                  \
+        POLLUNTIL(signal_done);                                                         \
+        mythread = 0;                                                                   \
+      }                                                                                 \
     } else {                                                                            \
       POLLUNTIL(signal_done);                                                           \
     }                                                                                   \
     thread_barrier();                                                                   \
+    nonzero_present = 0;                                                                \
     if (mythread == 0 && amactive) report(end-start);                                   \
     return NULL;                                                                        \
   }
@@ -126,12 +144,16 @@ void report(gasnett_tick_t ticks) {
 AMPINGPONG(ampingpong_poll_active, SPINPOLL_UNTIL)
 AMPINGPONG(ampingpong_block_active, GASNET_BLOCKUNTIL)
 
+AMPINGPONG(ampingpong_barrier_active, BARRIER_UNTIL)
+
 #define PUTGETPINGPONG(fnname, POLLUNTIL, putgetstmt)                                   \
   void * fnname(void *args) {                                                           \
     int64_t tmp = 0;                                                                    \
     int mythread = (int)(intptr_t)args;                                                 \
+    static int nonzero_present = 0;                                                     \
     gasnett_tick_t start, end;                                                          \
     signal_done = 0;                                                                    \
+    if (mythread != 0) nonzero_present = 1;                                             \
     thread_barrier();                                                                   \
     if (mythread == 0) {                                                                \
       int i;                                                                            \
@@ -143,18 +165,58 @@ AMPINGPONG(ampingpong_block_active, GASNET_BLOCKUNTIL)
       end = gasnett_ticks_now();                                                        \
       GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_markdone_shorthandler));            \
       GASNET_Safe(gasnet_AMRequestShort0(gasnet_mynode(), hidx_markdone_shorthandler)); \
+      if (!nonzero_present) {                                                           \
+        mythread = 1; /* ensure it runs once, impersonating thread1 */                  \
+        POLLUNTIL(signal_done);                                                         \
+        mythread = 0;                                                                   \
+      }                                                                                 \
     } else {                                                                            \
       POLLUNTIL(signal_done);                                                           \
+    }                                                                                   \
+    thread_barrier();                                                                   \
+    nonzero_present = 0;                                                                \
+    if (mythread == 0 && amactive) report(end-start);                                   \
+    return NULL;                                                                        \
+  }
+
+PUTGETPINGPONG(put_poll_active, SPINPOLL_UNTIL, gasnet_put(peer, peerseg, &tmp, 8))
+PUTGETPINGPONG(get_poll_active, SPINPOLL_UNTIL, gasnet_get(&tmp, peer, peerseg, 8))
+PUTGETPINGPONG(put_block_active, GASNET_BLOCKUNTIL, gasnet_put(peer, peerseg, &tmp, 8))
+PUTGETPINGPONG(get_block_active, GASNET_BLOCKUNTIL, gasnet_get(&tmp, peer, peerseg, 8))
+
+PUTGETPINGPONG(put_barrier_active, BARRIER_UNTIL, gasnet_put(peer, peerseg, &tmp, 8))
+PUTGETPINGPONG(get_barrier_active, BARRIER_UNTIL, gasnet_get(&tmp, peer, peerseg, 8))
+
+#define PGFIGHT(fnname, putgetstmt_loner, putgetstmt_rest)                              \
+  void * fnname(void *args) {                                                           \
+    int64_t tmp = 0;                                                                    \
+    int mythread = (int)(intptr_t)args;                                                 \
+    gasnett_tick_t start, end;                                                          \
+    signal_done = 0;                                                                    \
+    thread_barrier();                                                                   \
+    if (mythread == 0) {                                                                \
+      int i;                                                                            \
+      start = gasnett_ticks_now();                                                      \
+      for (i = 0; i < iters; i++) {                                                     \
+        putgetstmt_loner;                                                               \
+      }                                                                                 \
+      end = gasnett_ticks_now();                                                        \
+      GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_markdone_shorthandler));            \
+      GASNET_Safe(gasnet_AMRequestShort0(gasnet_mynode(), hidx_markdone_shorthandler)); \
+    } else {                                                                            \
+      while(!signal_done) {                                                             \
+        putgetstmt_rest;                                                                \
+      }                                                                                 \
     }                                                                                   \
     thread_barrier();                                                                   \
     if (mythread == 0 && amactive) report(end-start);                                   \
     return NULL;                                                                        \
   }                                                                                     \
 
-PUTGETPINGPONG(put_poll_active, SPINPOLL_UNTIL, gasnet_put(peer, peerseg, &tmp, 8));
-PUTGETPINGPONG(get_poll_active, SPINPOLL_UNTIL, gasnet_get(&tmp, peer, peerseg, 8));
-PUTGETPINGPONG(put_block_active, GASNET_BLOCKUNTIL, gasnet_put(peer, peerseg, &tmp, 8));
-PUTGETPINGPONG(get_block_active, GASNET_BLOCKUNTIL, gasnet_get(&tmp, peer, peerseg, 8));
+PGFIGHT(put_put_active, gasnet_put(peer, peerseg, &tmp, 8), gasnet_put(peer, peerseg, &tmp, 8))
+PGFIGHT(put_get_active, gasnet_put(peer, peerseg, &tmp, 8), gasnet_get(&tmp, peer, peerseg, 8))
+PGFIGHT(get_put_active, gasnet_get(&tmp, peer, peerseg, 8), gasnet_put(peer, peerseg, &tmp, 8))
+PGFIGHT(get_get_active, gasnet_get(&tmp, peer, peerseg, 8), gasnet_get(&tmp, peer, peerseg, 8))
 
 void * poll_passive(void *args) {
   int mythread = (int)(intptr_t)args;
@@ -172,6 +234,18 @@ void * block_passive(void *args) {
   thread_barrier();
   return NULL;
 }
+void * barrier_passive(void *args) {
+  int mythread = (int)(intptr_t)args;
+  signal_done = 0;
+  thread_barrier();
+  while (!signal_done) gasnet_AMPoll();
+  if (mythread == 0) { /* match the barrier the active side is waiting for */
+    gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);
+    GASNET_Safe(gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS));
+  }
+  thread_barrier();
+  return NULL;
+}
 
 typedef struct {
   const char *desc;
@@ -185,19 +259,58 @@ fntable_t fntable[] = {
   { "gasnet_put vs. spin-AMPoll()", put_poll_active, poll_passive },
   { "gasnet_put vs. BLOCKUNTIL",    put_block_active, block_passive },
   { "gasnet_get vs. spin-AMPoll()", get_poll_active, poll_passive },
-  { "gasnet_get vs. BLOCKUNTIL",    get_block_active, block_passive }
+  { "gasnet_get vs. BLOCKUNTIL",    get_block_active, block_passive },
+  { "gasnet_put vs. gasnet_put",    put_put_active, poll_passive },
+  { "gasnet_put vs. gasnet_get",    put_get_active, poll_passive },
+  { "gasnet_get vs. gasnet_put",    get_put_active, poll_passive },
+  { "gasnet_get vs. gasnet_get",    get_get_active, poll_passive },
+  { "AM Ping-pong vs. local barrier", ampingpong_barrier_active, barrier_passive },
+  { "gasnet_put vs. local barrier",   put_barrier_active, barrier_passive },
+  { "gasnet_get vs. local barrier",   get_barrier_active, barrier_passive },
 };
 #define NUM_FUNC (sizeof(fntable)/sizeof(fntable_t))
+int tcountentries;
+threadcnt_t *tcount;
 
-int
-main(int argc, char **argv)
-{
-	int 		maxthreads = 4;
-	int		i;
-        int             fnidx;
-	pthread_t	*tids;
-        int             tcountentries;
-        threadcnt_t     *tcount, *ptcount;
+void *workerthread(void *args) {
+  int fnidx;
+  int mythread = (int)(intptr_t)args;
+  for (fnidx = 0; fnidx < NUM_FUNC; fnidx++) {
+    int tcountpos;
+
+    thread_barrier();
+    if (mythread == 0 && gasnet_mynode() == 0) {
+        MSG("--------------------------------------------------------------------------");
+        MSG("Running test %s", fntable[fnidx].desc);
+        MSG("--------------------------------------------------------------------------");
+        MSG(" Active-end threads\tPassive-end threads\tIterTime\tTotalTime");
+        MSG("--------------------------------------------------------------------------");
+    }
+
+    for (tcountpos = 0; tcountpos < tcountentries; tcountpos++) {
+      threadmain_t mainfn = amactive ? fntable[fnidx].activefunc : fntable[fnidx].passivefunc;
+      int participating_threads = amactive ? tcount[tcountpos].activecnt : tcount[tcountpos].passivecnt;
+      thread_barrier();
+      if (mythread < participating_threads) mainfn(args);
+      else { /* match barriers */
+        thread_barrier();
+        thread_barrier();
+      }
+      thread_barrier();
+      if (mythread == 0 && amactive) { 
+        const char *rpt = getreport();
+        if (rpt) MSG("\t   %d\t\t\t  %d\t\t%s", 
+          tcount[tcountpos].activecnt, tcount[tcountpos].passivecnt, rpt);
+      }
+    }
+  }
+  return NULL;
+}
+int main(int argc, char **argv) {
+	int maxthreads = 4;
+	int i;
+	pthread_t *tids;
+        threadcnt_t *ptcount;
 
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(htable, HANDLER_TABLE_SIZE,
@@ -231,44 +344,25 @@ main(int argc, char **argv)
 
         peerseg = TEST_SEG(peer);
 
-        for (fnidx = 0; fnidx < NUM_FUNC; fnidx++) {
-	  int 	tcountpos;
+        threads = maxthreads;
+        /* create all worker threads */
+	for (i = 1; i < maxthreads; i++) {
+          pthread_attr_t attr;
+          pthread_attr_init(&attr);
+          pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+          if (pthread_create(&tt_tids[i], &attr, workerthread, (void *)(intptr_t)i) != 0) { MSG("Error forking threads\n"); gasnet_exit(-1); }
+	}
+
+        workerthread(0);
+
+        /* reap all worker threads */
+	for (i = 1; i < maxthreads; i++) {
 	  void	*ret;
-
-          if (gasnet_mynode() == 0) {
-            MSG("--------------------------------------------------------------------------");
-            MSG("Running test %s", fntable[fnidx].desc);
-            MSG("--------------------------------------------------------------------------");
-            MSG(" Active-end threads\tPassive-end threads\tIterTime\tTotalTime");
-            MSG("--------------------------------------------------------------------------");
-          }
-          BARRIER();
-          for (tcountpos = 0; tcountpos < tcountentries; tcountpos++) {
-            threadmain_t mainfn = amactive ? fntable[fnidx].activefunc : fntable[fnidx].passivefunc;
-            threads = amactive ? tcount[tcountpos].activecnt : tcount[tcountpos].passivecnt;
-            BARRIER();
-	    for (i = 0; i < threads; i++) {
-              pthread_attr_t attr;
-              pthread_attr_init(&attr);
-              pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-              if (pthread_create(&tt_tids[i], &attr, mainfn, (void *)(intptr_t)i) != 0) { MSG("Error forking threads\n"); gasnet_exit(-1); }
-	    }
-
-	    for (i = 0; i < threads; i++) {
-              if (pthread_join(tt_tids[i], &ret) != 0) { MSG("Error joining threads\n"); gasnet_exit(-1); }
-	    }
-            BARRIER();
-            { const char *rpt = getreport();
-              if (rpt) MSG("\t   %d\t\t\t  %d\t\t%s", 
-                tcount[tcountpos].activecnt, tcount[tcountpos].passivecnt, rpt);
-            }
-          }
+          if (pthread_join(tt_tids[i], &ret) != 0) { MSG("Error joining threads\n"); gasnet_exit(-1); }
 	}
 
         BARRIER();
-
-	MSG("Tests complete");
-
+	if (gasnet_mynode() == 0) MSG("Tests complete");
         BARRIER();
 
 	gasnet_exit(0);
@@ -277,8 +371,7 @@ main(int argc, char **argv)
 }
 
 /* Cheap (but functional!) pthread + gasnet barrier */
-void
-thread_barrier() {
+void thread_barrier() { 
         static pthread_mutex_t	barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
         static pthread_cond_t	barrier_cond = PTHREAD_COND_INITIALIZER;
         static volatile int	barrier_count = 0;
