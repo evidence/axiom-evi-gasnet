@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/08/07 12:39:49 $
- * $Revision: 1.50 $
+ *     $Date: 2004/08/11 21:35:27 $
+ * $Revision: 1.51 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -413,6 +413,7 @@
 	"40a2fff4"	/*    bne-	0b		*/ \
 	"4c00012c"	/*    isync			*/ \
       }
+      #pragma reg_killed_by gasneti_atomic_inc_32
 
       static void gasneti_atomic_dec_32(int32_t volatile *v);
       #pragma mc_func gasneti_atomic_dec_32 {\
@@ -423,6 +424,7 @@
 	"40a2fff4"	/*    bne-	0b		*/ \
 	"4c00012c"	/*    isync			*/ \
       }
+      #pragma reg_killed_by gasneti_atomic_dec_32
 
       static int32_t gasneti_atomic_decandfetch_32(int32_t volatile *v);
       #pragma mc_func gasneti_atomic_decandfetch_32 {\
@@ -435,6 +437,7 @@
 	"7c431378"	/*    mr	r3,r2		*/ \
 	/* RETURN in r3 = result after dec */ \
       }
+      #pragma reg_killed_by gasneti_atomic_decandfetch_32
 
       typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
       #define gasneti_atomic_increment(p) (gasneti_atomic_inc_32(&((p)->ctr)))
