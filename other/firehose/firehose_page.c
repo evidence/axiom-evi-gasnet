@@ -1182,7 +1182,7 @@ fhi_AcquireLocalRegionsList(gasnet_node_t node, firehose_region_t *region,
 				 * The bucket is already pinned, increment refc
 				 */
 				fh_bucket_acquire(node, bd);
-				assert(bd->fh_tqe_next == (fh_bucket_t *) -1);
+				assert(bd->fh_tqe_next == FH_USED_TAG);
 			}
 			else {
 				/* The bucket is not pinned, see if the
@@ -1734,7 +1734,7 @@ fhi_TryAcquireRemoteRegion(gasnet_node_t node, firehose_request_t *req,
 			 * allocate it */
 			if (FH_IS_REMOTE_PENDING(bd)) {
 				assert(bd->fh_tqe_next != NULL && 
-				       bd->fh_tqe_next != (fh_bucket_t *) -1);
+				       bd->fh_tqe_next != FH_USED_TAG);
 
 				if (!(req->flags & FH_FLAG_PENDING)) {
 					assert(req->internal == NULL);

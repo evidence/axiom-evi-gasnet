@@ -594,7 +594,7 @@ fh_bucket_add(gasnet_node_t node, uintptr_t bucket_addr)
 	}
 
 	entry->fh_key = FH_KEYMAKE(bucket_addr, node);
-	entry->fh_tqe_next = (fh_bucket_t *) -1;
+	FH_SET_USED(entry);
 
 	fh_hash_insert(fh_BucketTable, entry->fh_key, entry);
 	assert(fh_bucket_lookup(node, bucket_addr) == entry);
@@ -608,7 +608,7 @@ fh_bucket_remove(fh_bucket_t *entry)
 	fh_bucket_t *bucket;
 
 	FH_TABLE_ASSERT_LOCKED;
-	entry->fh_tqe_next = (fh_bucket_t *) -1;
+	FH_SET_USED(entry);
 	bucket = fh_hash_insert(fh_BucketTable, entry->fh_key, NULL);
 	assert(entry == bucket);
 	memset(bucket, 0, sizeof(fh_bucket_t));
