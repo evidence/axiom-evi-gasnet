@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/03/10 17:19:45 $
- * $Revision: 1.66 $
+ *     $Date: 2005/03/15 03:13:32 $
+ * $Revision: 1.67 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,16 +52,25 @@ extern gasneti_atomic_t gasnetc_exit_running;
 /* ------------------------------------------------------------------------------------ */
 
 typedef struct {
+#if GASNETI_STATS_OR_TRACE
+  gasneti_stattime_t	stamp;
+#endif
   gasnet_handlerarg_t	args[GASNETC_MAX_ARGS];	
 } gasnetc_shortmsg_t;
 
 typedef struct {
+#if GASNETI_STATS_OR_TRACE
+  gasneti_stattime_t	stamp;
+#endif
   uint16_t		nBytes;
   uint16_t		_pad0;
   gasnet_handlerarg_t	args[GASNETC_MAX_ARGS];	
 } gasnetc_medmsg_t;
 
 typedef struct {
+#if GASNETI_STATS_OR_TRACE
+  gasneti_stattime_t	stamp;
+#endif
   uintptr_t		destLoc;
   uint32_t		nBytes;
   gasnet_handlerarg_t	args[GASNETC_MAX_ARGS];	
@@ -69,6 +78,9 @@ typedef struct {
 
 typedef union {
   uint8_t		raw[GASNETC_BUFSZ];
+#if GASNETI_STATS_OR_TRACE
+  gasneti_stattime_t	stamp;
+#endif
   gasnetc_shortmsg_t	shortmsg;
   gasnetc_medmsg_t	medmsg;
   gasnetc_longmsg_t	longmsg;
@@ -570,7 +582,6 @@ extern int		gasnetc_op_oust_limit;
 extern int		gasnetc_op_oust_pp;
 extern int		gasnetc_am_oust_limit;
 extern int		gasnetc_am_oust_pp;
-extern int		gasnetc_am_spares;
 extern int		gasnetc_bbuf_limit;
 extern int		gasnetc_use_poll_lock;
 extern int		gasnetc_use_rcv_thread;

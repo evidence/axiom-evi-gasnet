@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/03/11 19:59:18 $
- * $Revision: 1.76 $
+ *     $Date: 2005/03/15 03:13:32 $
+ * $Revision: 1.77 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,21 +35,12 @@ GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_COR
 #define GASNETC_DEFAULT_PORT_NUM	0		/* 0 = use lowest-numbered active port */
 
 /* Limits on in-flight (sent but not acknowledged) RDMA Ops */
-#define GASNETC_DEFAULT_OP_OUST_LIMIT	1024	/* Max RDMA ops outstanding at source */
-#define GASNETC_DEFAULT_OP_OUST_PP	64	/* Max RDMA ops outstanding to each peer */
+#define GASNETC_DEFAULT_OP_OUST_LIMIT	1024	/* Max ops (RMDA + AM) outstanding at source */
+#define GASNETC_DEFAULT_OP_OUST_PP	64	/* Max ops (RMDA + AM) outstanding to each peer */
 
 /* Limits on in-flight (sent but not acknowledged) AM Requests */
-#define GASNETC_DEFAULT_AM_OUST_LIMIT	32767	/* Max requests outstanding at source (NOT FULLY IMPLEMENTED) */
-#define GASNETC_DEFAULT_AM_OUST_PP	32	/* Max requests outstanding to each peer */
-
-/* Spare AM buffers used to accelerate flow control */
-#if GASNETC_CLI_PAR
-  #define GASNETC_DEFAULT_AM_SPARES	4	/* assume <= 4 threads in GASNet */
-#elif GASNETC_VAPI_RCV_THREAD
-  #define GASNETC_DEFAULT_AM_SPARES	2	/* single client + AM recv thread */
-#else
-  #define GASNETC_DEFAULT_AM_SPARES	1	/* just a single client thread */
-#endif
+#define GASNETC_DEFAULT_AM_OUST_LIMIT	1024	/* Max AM requests outstanding at source */
+#define GASNETC_DEFAULT_AM_OUST_PP	32	/* Max AM requests outstanding to each peer */
 
 /* Limit on prepinned send bounce buffers */
 #define GASNETC_DEFAULT_BBUF_LIMIT	1024	/* Max bounce buffers prepinned */
@@ -103,7 +94,6 @@ int		gasnetc_op_oust_limit;
 int		gasnetc_op_oust_pp;
 int		gasnetc_am_oust_limit;
 int		gasnetc_am_oust_pp;
-int		gasnetc_am_spares;
 int		gasnetc_bbuf_limit;
 
 /* Maximum pinning capabilities of the HCA */
@@ -345,7 +335,6 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_OP_OUST_PP, GASNETC_DEFAULT_OP_OUST_PP, 1);
   GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_OUST_LIMIT, GASNETC_DEFAULT_AM_OUST_LIMIT, 1);
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_OUST_PP, GASNETC_DEFAULT_AM_OUST_PP, 1);
-  GASNETC_ENVINT(gasnetc_am_spares, GASNET_AM_SPARES, GASNETC_DEFAULT_AM_SPARES, 1);
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_LIMIT, GASNETC_DEFAULT_BBUF_LIMIT, 1);
   gasnetc_use_rcv_thread = gasneti_getenv_yesno_withdefault("GASNET_RCV_THREAD", GASNETC_DEFAULT_RCV_THREAD); /* Bug 1012 - right default? */
   if (gasnetc_use_rcv_thread && !GASNETC_VAPI_RCV_THREAD) {
@@ -396,7 +385,6 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_OP_OUST_PP    = %d", gasnetc_op_oust_pp));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_OUST_LIMIT = %d", gasnetc_am_oust_limit));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_OUST_PP    = %d", gasnetc_am_oust_pp));
-  GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_SPARES     = %d", gasnetc_am_spares));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_BBUF_LIMIT    = %d", gasnetc_bbuf_limit));
 #if GASNETC_VAPI_RCV_THREAD
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_RCV_THREAD    = %d (%sabled)", gasnetc_use_rcv_thread,

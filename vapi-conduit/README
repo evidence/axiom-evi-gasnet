@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.16 $
+$Revision: 1.17 $
 
 @ TOC: @
 @ Section: Bootstrapping @
@@ -77,9 +77,9 @@ $Revision: 1.16 $
     information on configuring GASNet for a particular MPI.  Note that
     you must compile mpi-conduit as well (even if you never plan to use
     it).
-  + Since that MPI is only used in gasnet_init(), gasnet_attach() and
-    gasnet_exit() and not for any GASNet communications.  Therefore
-    it is acceptable to use a TCP/IP based MPI such as MPICH or LAM/MPI.
+  + MPI is only used in gasnet_init(), gasnet_attach() and gasnet_exit()
+    and not for any GASNet cals between attach and exit.  Therefore it is
+    acceptable to use a TCP/IP based MPI such as MPICH or LAM/MPI.
 
 @ Section: Build-time Configuration @
 
@@ -195,7 +195,7 @@ $Revision: 1.16 $
     on each node.
     The default value is 64.
     Reducing this parameter may limit small message throughput.  If you
-    believe your small message throughput is too small, you may try
+    believe your small message throughput is too low, you may try
     increasing this value.
 
   + GASNET_OP_OUST_LIMIT
@@ -210,7 +210,7 @@ $Revision: 1.16 $
     as min(GASNET_OP_OUST_LIMIT, GASNET_OP_OUST_PP*(N-1)), on each node.
     The default value is 1024.
     Reducing this parameter may limit small message throughput.  If you
-    believe your small message throughput is too small, you may try
+    believe your small message throughput is too low, you may try
     increasing this value.
 
   + GASNET_AM_OUST_PP
@@ -220,51 +220,24 @@ $Revision: 1.16 $
     the matching Reply has not yet been processed for AM flow control
     (described in another section of this README).
     This is the number of receive buffers which must be preposted to each
-    endpoint for AM Requests.  With the current flow-control scheme the
-    same number of additional receive buffers are needed to accept replies.
+    endpoint for AM Requests.
     Thus, the memory consumed for the receive work queues and the receive
     completion queue each scale as GASNET_AM_OUST_PP*(N-1) on each node.
-    The default value is 32.  (256KB*(N-1) for receive buffers)
+    The default value is 32 (128KB*(N-1) for receive buffers).
     Reducing this parameter may limit Active Message throughput.  If you
-    believe your Active Message throughput is too small, you may try
+    believe your Active Message throughput is too low, you may try
     increasing this value.
 
   + GASNET_AM_OUST_LIMIT
     This give the integer number of outstanding AM Requests which can
     be in-flight simultaneously from each node, with "in-flight" defined
     as in GASNET_AM_OUST_PP.
-    With the current flow-control scheme this parameter is not yet fully
-    implemented.  Intended to control the size of the receive completion
-    queue, this parameter will be used with the "dynamic flow-control"
-    scheme (elsewhere in this README).  For now it is an error to set
-    this parameter to anything smaller than GASNET_AM_OUST_PP*(N-1), and
-    values larger than that are clipped to this value.
-    The default is 32767, and represents the limit of 65535 completion
-    queue entries supported by the InfiniHost firmware.
+    This is the number of receive buffers which must be allocated for
+    posting to an endpoint for the AM Reply which follows each AM Request.
+    The default is 1024 (4MB for reply buffers).
     Reducing this parameter may limit Active Message throughput.  If you
-    believe your Active Message throughput is too small, you may try
+    believe your Active Message throughput is too low, you may try
     increasing this value.
-
-  + GASNET_AM_SPARES
-    This gives the number of "spare" receive buffers which are allocated
-    in addition to those needed to satisfy the settings of the parameters
-    GASNET_AM_OUST_PP and GASNET_AM_OUST_LIMIT.  These spare receive
-    buffers are used while running AM handlers, to aid the flow-control
-    process.
-    Because a "spare" receive buffer is used while an AM handler is
-    running, this parameter limits the number of AM handlers which can
-    run concurrently before resorting to copying of an incoming AM to
-    a temporary space.
-    Since a given thread can only run one handler at a time, values of
-    GASNET_AM_SPARES larger than the number of threads running concurrently
-    in GASNet offer no extra benefit.  So, the default value depends on
-    the threading configuration.  When compiled for GASNET_PARSYNC or
-    GASNET_SEQ, the default is 2 to allow for a single client thread in
-    GASNet plus the internal AM receive thread.  When compiled for
-    GASNET_PAR, the default is 4.  Reducing this parameter may limit the
-    performance of concurrent servicing of Active Messages in a GASNET_PAR
-    configuration.  If you have many application threads you may wish to
-    increase this value to as large as (num_threads + 1).
 
   + GASNET_BBUF_LIMIT
     This gives the maximum number of pre-pinned bounce buffers allocated
@@ -312,10 +285,9 @@ $Revision: 1.16 $
   and every REQUEST has exactly one matching REPLY, then M becomes a
   limit on the number of un-acknowledged REQUESTS in flight on an
   endpoint.  If we want to avoid RNR conditions, then we should start
-  with M credits and 2*M preposted recv buffers on each endpoint.  The
-  factor of 2 is because we can consume M of the buffers on the peer's
-  endpoint with our REQUESTs and an additional M for REPLYs to her
-  REQUESTS.
+  with M credits and M preposted recv buffers on each endpoint.  This
+  allows for only the receipt of M REQUESTS.  In addition, a recv buffer
+  will be posted on demand for a REPLY just before sending each REQUEST.
 
   It is a simple matter to count the credits when a REPLY is received
   and to poll for credits when needed to send a REQUEST.  It is also
@@ -326,19 +298,20 @@ $Revision: 1.16 $
   "system category" handler, gasnetc_SYS_ack, which doesn't even run
   a handler.
 
-  To avoid a window of time between when we send a reply (credit) and
+  To avoid a window of time between when we send a REPLY (credit) and
   when we post the recv buffer, we must post the replacement recv
   buffer BEFORE running an AM REQUEST handler.  To do this we keep a
-  pool of unposted recv buffers.  So, when we recv an AM, we grab a
-  free recv buffer from the pool and post it to the endpoint, and run
-  the handler.  We send an implicit reply if the AM was a REQUEST and
-  the handler didn't send any REPLY.  Finally we take the recv buffer
+  pool of unposted recv buffers (also used for the on-demand posting
+  of buffers needed for REPLIES).  So, when we recv an AM REQUEST, we
+  grab a free recv buffer from the pool and post it to the endpoint,
+  and only then run the handler.  We send an implicit reply if a REQUEST
+  handler didn't send any REPLY.  Finally we take the recv buffer
   containing the just-processed AM and we return it to the unposted
   pool.
 
   There is a corner case we must deal with when there are no spares
   left in the unposted pool.  In this case we will copy the received
-  message into a temporary (non-pinned) buffer before processing it.
+  REQUEST into a temporary (non-pinned) buffer before processing it.
   This allows us to repost the recv buffer immediately.  Since the
   temporary buffer is not pinned, it cannot be used for receives.
   Therefore, we free the temporary buffer when the handler is done,
@@ -649,15 +622,3 @@ The average case is somewhere between these two.
       CPU copies HCA_mem->host_mem
 
   Of course I can't get a program to allocate from HCA memory!
-
-+ Adaptive flow-control for AMs.
-  In this mode we'd prepost just M recv buffers to each QP if we want to
-  have up to M AM's outstanding per peer, rather than 2*M as we do now.
-  The present use of 2*M ensures one available for each matching reply
-  (though coming in the opposite direction).  Since the buffers for the
-  replies are needed LOCALLY, we can be adaptive and post one extra
-  buffer before each AM request rather than preposting them.
-  We need to maintain a shared pool of these unposted buffers and be
-  prepared to poll for them to become available along with polling
-  for available credits.  This pool would probably be combined with
-  the pool of "spares".
