@@ -1,67 +1,141 @@
-Goals of the design:
+* Goals of the design:
 
-1) Must be asynchronous, with distinct initiation and finalization
+** 1) Must be asynchronous, with distinct initiation and finalization
 calls.
 
-2) Must be "suitable" for implementing the UPC collectives.
+** 2) Must be "suitable" for implementing the UPC collectives.
 Specifically, we need to be able to enforce at least the minimum
 input/output constraints of the upc sync_mode.
 
-3) Must be suitable for use on all (reasonable) GASNet platforms,
-including those with unaligned segments, progress via polling only, etc.
+** 3) Must be suitable for use on all (reasonable) GASNet platforms,
+including those with unaligned segments, progress via polling only,
+etc.
 
-4) Must be suitable for use in heirarchical implementations on CLUMPS
-(both pthreaded and SysV)
+** 4) Must be suitable for use in heirarchical implementations on
+CLUMPS (both pthreaded and SysV)
 
-5) Must be "efficient" in terms of syncronization - for instance avoid
-use of a full barrier where point-to-point synchronization is faster
-and still sufficient for correctness.  Of course, this goal will be
-achieved differently on each platform and the reference version need
-not be infinitely tunable.
+** 5) Must be "efficient" in terms of syncronization - for instance
+avoid use of a full barrier where point-to-point synchronization is
+faster and still sufficient for correctness.  Of course, this goal
+will be achieved differently on each platform and the reference
+version need not be infinitely tunable.
 
-6) Must admit optimizations using likely hardware features where appropriate
-(barriers, broadcast, RMDA-atomics).
+** 6) Must admit optimizations using likely hardware features where
+appropriate (barriers, broadcast, RMDA-atomics).
 
-7) Must NOT break any existing GASNet semantics.
+** 7) Must NOT break any existing GASNet semantics.
 
-8) MAY assume calls are, in fact, collective with single-valued
-arguments.  (Verification of arguments in a debug build sounds useful,
-but an optimized build can't afford extra communication to verify
-this).
+** 8) MAY assume that calls which initiate collective calls are, in
+fact, collective with calls made in the same order on all nodes.
 
-9) MAY perform "extra" communication and/or computation where there is
-some net savings (examples include implementing upc_all_scatter() with
-a broadcast and then discarding some of the data at each node, or use
-of full barriers where hardware support makes them superior to
-pairwise synchronization.)
+** 9) Must allow for address (and related) arguments which are not
+"single-valued" in the sense used by the UPC-spec.  For instance, when
+implementing the Titanium exchange operation we have an operation
+which is similar to a upc_all_gather_all, except that each node knows
+only its own source and destination addresses, not the addresses on
+the other addresses.  It is reasonable to expect that GASNet can move
+the addresses around more efficiently than a network-independent
+GASNet client.  (With AMs, GASnet might even move the data w/o ever
+moving the addresses.)
+
+** 10) MAY perform "extra" communication and/or computation where
+there is some net savings (examples include implementing
+upc_all_scatter() with a broadcast and then discarding some of the
+data at each node, or use of full barriers where hardware support
+makes them superior to pairwise synchronization.)
 
 
+* Collective and barriers
 
-One of the most obvious questions when designing async collectives is
-what the semantic should be for syncing them.  While I have no
-motivation other than simplicity, I suggest that the OUT portion of
-the UPC sync_flags (or a GASNet near equivalent) define three possible
-conditions:
+At present it is not legal for GASNet collectives and barriers to be
+outstanding simultaneously.  This means that collectives may not be
+initiated between gasnet_barrier_notify() and the following _try() or
+_wait(), and collectives initiated before a gasnet_barrier_notify()
+call must also be synced before it.
 
-+ NOSYNC: The sync can succeed at any time so long as the last thread
-  to sync does not do so until all data movement has completed.
+We may relax this constraint in a future specification.
 
-+ MYSYNC: The sync can succeed as soon as all data movement has
-  completed to and from local data areas specified in the call (note
-  that movement to or from buffers internal to the implementation
-  and local to the node might still be taking place, for instance in
-  tree-based broadcasts).
 
-+ ALLSYNC: The sync can succeed as soon as all data movement has
-  completed to and from all data areas specified in the call.  This is
-  weaker than a full barrier, since the equivalent of a zero-byte
-  broadcast is sufficient.
+* Collective and handlers
 
-In implementing the UPC collectives it is clear that all three of
-these are useful.  If we do implement them then I'd assume the
-initiation call would specify exactly one of them (probably just
-passing the upc sync mode).  However, I think the following names are
-more appropriate (where the prefix is TBD):
+GASNet collectives may not be initiated or synchronized from within AM
+handlers.  This constraint will NOT be relaxed.
+
+
+* Handles
+
+All GASNet collective initiation functions will have blocking and
+explicit-handle non-blocking versions.  The blocking versions exist
+because in some cases hardware support (such as the blocking hardware
+barrier in elan) can implement them more efficiently than the trivial
+one-liner.  We omit implict-handle operations because we anticipate
+collectives will be used primarily by library authors with the number
+of outstanding operations being small and known at compile time, not
+by code generators where the number of operations may be potentially
+large and unknown at compile time.
+
+For many reasons we desire to have a handle type which is distinct
+from the gasnet_handle_t used for Extended API.  For the moment I'm
+assuming a gasnet_all_* prefix for functions.  So we introduce
+"gasnet_all_handle_t" and "GASNET_ALL_INVALID_HANDLE" to the GASNet
+specification.  Meanings are MOSTLY analagous to the existing explicit
+handle, except that they are per-node, not per-thread.  We keep the
+semantic that a call which is intended to initate a non-blocking
+collective can return GASNET_ALL_INVALID_HANDLE if the operation was
+completed synchronously.  We also keep the rule that the invalid
+handle is all zero bits.
+
+As with gasnet_handle_t, a gasnet_all_handle_t is "dead" once it has
+been succesfully synced and may not be used in future synchronization
+operations.
+
+
+* Synchronization modes
+
+In order to efficiently implement the UPC collectives, the GASNet
+collectives will include the same nine sync modes that are described
+in the UPC collectives specification (though names and binary
+representations need not follow UPC).  To keep the synchronization
+calls lightweight, the syncronization mode will be passed to the
+initiation function, but not to the synchronization function.
+
+Here, using the UPC naming, are the three input sync modes given in
+terms of GASNet semantics:
+
++ IN_NOSYNC: All data movement may begin on any GASNet node as soon as
+any node has entered the collective initiation function.
+
++ IN_MYSYNC: Each block of data movement may begin as soon as both its
+source and destination nodes have entered the collective initiation
+function.
+
++ IN_ALLSYNC: Data movement may begin only when all nodes have entered
+the collective initiation function.
+
+Here are the three output sync modes, with the corresponding GASNet
+semantics:
+
++ OUT_NOSYNC: The sync of a collective handle can succeed at any time
+  so long as the last thread to sync does not do so until all data
+  movement has completed.
+
++ OUT_MYSYNC: The sync of a collective handle can succeed as soon as
+  all data movement has completed to and from local data areas
+  specified in the call (note that movement to or from buffers
+  internal to the implementation and local to the node might still be
+  taking place, for instance in tree-based broadcasts).
+
++ OUT_ALLSYNC: The sync of a collective handle can succeed as soon as
+  all data movement has completed to and from all data areas specified
+  in the call.  This is weaker than a full barrier, since the
+  equivalent of a zero-byte broadcast is sufficient.
+
+In the presence of partial information (see Partial Information,
+below) the decriptions above "all data areas specified in the call"
+means the union of the information available from all nodes.
+
+For the output syncs, I think the following names are more appropriate
+to GASNet than the UPC names (where the prefix is TBD):
 
 + UPC_OUT_ALLSYNC -> *_ALL    implies all buffers are safe for reuse.
 + UPC_OUT_MYSYNC  -> *_LOCAL  implies local buffers are reusable
@@ -69,25 +143,164 @@ more appropriate (where the prefix is TBD):
                               until the last thread enters the next
                               collective (barrier included)
 
-The argument I would make for offering all three would be that
-otherwise we must have one that is either sometimes too strong or
-sometimes too weak.  Too strong could hurt efficiency/scaling.  Too
-weak would require one or more additional GASNet calls to follow the
-sync in order to perform the synchronization.  This would necessarily
-be less efficient than combining the data movement and synchronization
-where possible (i.e. signaling-stores and/or signalling-loads).  So I
-think all three are justified.  I can't think of any others that can
-be compactly defined, so I'd say this is a good set.
 
-In terms of other semantics, I am not sure if we want to impose the
-UPC requirement that collective not be used between the NOTIFY and
-WAIT portions of a barrier.  Certainly that condition would allow us
-to use the barrier (when appropriate) for implementing the
-collectives.  I would say I don't know if this requirement actually
-hurts applications or not.  I guess this depends on what non-UPC
-gasnet clients will need from us.
+* Bulk vs. non-bulk data reuse
+
+Consistent with the VIS (Vector, Indexed and Strided) interface, the
+collectives are specified only for "bulk" data lifetimes.  This means
+that if the client reads or writes source or destination memory areas
+between the initiation and synchronization of that memory, the results
+are undefined.  As noted in "Synchronization Modes" the point at which
+the memory (as opposed to the collective operation) is considered
+synchronized depends on the synchronization mode.
+
++ _OUT_ALLSYNC: memory on all nodes is synchronized when the
+collective operation is synchronized on any node.
+
++ _OUT_MYSYNC: memory on each node is synchronized when the
+collective operation is synchronized on the same node.
+
++ _OUT_NOSYNC: memory is synchronized when the collective operation is
+synchronized on all nodes.
 
 
+* Bulk vs. non-bulk alignment
+
+The GASNet collectives for data movement do not assume any data
+alignment (consistent with UPC and with the GASNet-VIS interface).
+
+The computational collectives (reduce, prefix_reduce and sort)
+requires alignment correct for the operation's data type.
+
+
+* Synchronization calls
+
+We'll support the same family of explicit handle try and wait calls as
+for the gets and puts.  See the section "Synchronization Modes" for a
+description of what success of a sync call implies.
+
+void gasnet_all_wait_sync(gasnet_all_handle_t handle);
+int gasnet_all_try_sync(gasnet_all_handle_t handle);
+
+void gasnet_all_wait_sync_all(gasnet_all_handle_t *handles, size_t n);
+int gasnet_all_try_sync_all(gasnet_all_handle_t *handles, size_t n);
+
+void gasnet_all_wait_sync_some(gasnet_all_handle_t *handles, size_t n);
+int gasnet_all_try_sync_some(gasnet_all_handle_t *handles, size_t n);
+
+Synchronization of a GASNet collective is NOT itself a collective
+operation and the returns from the synchronization calls on individual
+nodes may occur as early as permitted by the sync mode argument passed
+to the collective initiation function.
+
+
+* Metadata lifetime
+
+Where arguments are passed by reference to the collective initiation
+functions, the argument values must remain unchanged beween the
+initiation and synchronization of the collective operation on the node
+owning the referenced memory.  If this meta data lies in the GASNet
+segment, clients should take care to prevent remote modification of
+the metadata, especially since a remote node may sync before the local
+node has finished with the metadata.
+
+
+* Progess
+
+We expect the non-blocking collectives to make progress in
+gasnet_AMPoll().
+
+
+* Collectives and threads
+
+Collectives must be initiated in the same order on all nodes.  To
+execute a collective operation the collective initiation functions
+should be called exactly once (i.e. by one representative thread) on
+each node.  To disambiguate the order in which collectives are
+initated by multi-threaded clients, the client must serialize its own
+calls to the collective initiation functions to ensure that only one
+thread is ever inside a GASNet collective initiation function at a
+time.
+
+The type gasnet_handle_t specifies a handle which maybe synchronized
+from any thread, regardless of which thread initiated the collective.
+However, the collective synchronization calls may not be called for
+the *same* handle simultaneously from multiple threads.
+
+
+* Data segment
+
+For the present we want to implement only cases where the source and
+destination of the data movement collectives are in the GASNet
+segment.  However, we also wish to allow a path for extension.  So, we
+specify the following flags
+
+ + *_DST_IN_SEGMENT -> If set, this bit is an assertion by the client
+   that the destination address argument(s) to this collective
+   operation lie in the GASNet segment.
+
+ + *_SRC_IN_SEGMENT -> If set, this bit is an assertion by the client
+   that the source address argument(s) to this collective operation
+   lie in the GASNet segment.
+
+It is an error to set either of these flag bits when any portion of
+the corresponding memory lies outside the GASNet segment.
+
+The current specification *REQUIRES* that these bits are *BOTH* set,
+and thus currently only supports collective operations on data within
+the GASNet segment.  This restriction should be relaxed in some future
+revision.
+
+
+* "Single-valued" arguments
+
+To implement things like Titanium's Exchance operation, we want a
+mechanism to deal with the case that not all nodes know all addresses.
+One approach would be to require the client to move addresses around
+to construct a call to the GASNet collectives which is "single-valed"
+in the sense used in the specification of the UPC collectives.
+However, there exist a number of implementation choices which would
+allow the GASNet conduit to perform collectives with only partial
+information on each node, and to do so more efficiently than having
+the client perform a gather_all just to collect the single-valued
+arguments.  We also want to be able to use the fact that a client
+implementing the UPC collectives *will* provide us with single-valued
+arguments.
+
+The GASNet collectives are *NOT* limited to being called with
+single-valued arguments.  We propose to have flag(s) (possibly
+separate ones for source and destination arguments), indicating which
+arguments to the collective initiation function are "known" values,
+and which must be obtained from the arguments provided on other nodes.
+
+ + *_LOCAL -> The arguments provided by the local initiation call
+ include correct local addresses, but not correct remote addresses.
+ No assertion is made as to the correctness of arguments provided by
+ remote nodes.
+
+ + *_GLOBAL -> The arguments provided by the local initiation call
+ include correct local and remote addresses.
+ No assertion is made as to the correctness of arguments provided by
+ remote nodes.
+
+ + *_SINGLE -> The arguments provided by the initiation calls on all
+ nodes include correct local and remote addresses.
+ 
+There is no restriction on how _LOCAL and _GLOBAL may mix within a
+single collective operation: some nodes may have only _LOCAL knowledge
+while others in the same operation may have _GLOBAL knowledge.  On any
+node speficying _GLOBAL, the remote addresses must agree with those
+provided as local addresses on the coresponding nodes.
+
+If any node calls with the _SINGLE flags, then all nodes must do so,
+and all addresses must agree across all nodes.
+
+The 'nbytes', 'root' (for broadcast, scatter and gather) and
+synchronization mode must agree across all nodes regardless of the
+_LOCAL, _GLOBAL or _SINGLE flag.
+
+
+* OUTSTANDING: "Single address"
 At the 2/19 UPC group meeting we (Dan and Paul) talked about having a
 variable number of addresses (dst of broadcast, scatter, gather_all, exchange
 and permute; and src of gather, gather_all, exchange and permute).
@@ -101,122 +314,79 @@ for dealing with CLUMPS where multiple UPC threads live on a single
 gasnet node with distinct heaps in the same address space.  As to the
 ordering of such an array in this case, I expect node-major ordering
 makes the work easier in both UPCR and GASNet.  Of course we want to
-avoid the multiplication and division, so we can encode this
-differently, as will be seen later.
+avoid the multiplication and division when we encode this).
 
-When passing this array there is the same question about lifetime that
-has come up in discussion of the scatter/gather metadata.  I am
-prepared to adopt the same lifetime for the collectives as gets
-selected for scatter/gather.  However, when there is only a single
-address across all nodes, I wonder about the forcing of that single
-address to a memory location (with possible lifetime issues) when it
-could very well be a function argument in a register instead.  For
-this reason, I am in favor of having separate functions for the single
-and multiple address cases.  For the functions gather_all, exchange
-and permute which have both multiple source nodes and multiple
-destination nodes I'd be in favor of 2 flavors each: single valued
-src&dst or multiple valued src&dst, but no single-src multi-dst or
-visa-versa.
+There are (at least) five ways one might realistically want to pass
+source or destination addresses:
 
-There is a question of where (gets or puts) we categorize the
-collectives with respect to syncing NBIs.  I don't have an answer, so
-I'm going to talk about just the _nb versions for now.  In this case I
-don't see a fundamental reason why we MUST have the same handle type
-as the GETS and PUTS in GASNet, but I can see how implementations
-might be simpler if there was a distict handle type.  For now I'm
-going to assume the same type, so we can sync collectives togther with
-other operations.
+ + Single -> one virtual address valid on all nodes
+   This is the case for the UPC relocalization collectives with
+   aligned GASNet segments and a heirarchical collectives
+   implementation for multiple threads within a node (including the
+   trivial case of 1 thread per node).
 
+ + N -> one virtual address per GASNet node
+   This is the case for the UPC collectives with unaligned GASNet
+   segments and a heirarchical thread implementation.
 
-The alignment question of bulk vs. non-bulk doesn't seem too imporant
-to me yet, as I can't see that any implementations we have so far have
-made any great advantage of the alignment requirement of the
-non-bulks.  For the moment, I'm assumimg we'll want both due to the
-difference in reusability of source buffers in the non-blocking cases.
-I generally don't wish to support the non-bulk versions for the
-non-blocking collectives, due to the potential buffering requirement.
-However, I will bow to pressure if applied politely.
+ + M -> M vitrual addresses, all valid on all nodes
+   This is the case for aligned segments but without a heirarchical
+   implementation of the collectives.  In this case the GASNet
+   implementation is taking care of reading or writting multiple UPC
+   shared heaps per node.
 
+  + M*N -> M virtual addresses per GASNet node
+    This is unaligned segments and no heiarchical collectives.
 
-Collective cannot be initiated or synced from handler context.  This
-is consistent with the other operations in the Exteneded API.
+  + Arbirtrary
+    The M and M*N work for a constant thread-per-node value of M, but
+    not for a non-uniform thread layout (like 5 threads on 2 nodes).
+    This could cover this case with some sort of vector of (node,
+    addr) pairs.
 
-I am going to suggest a thread-semantic of "collectives must be
-initiated in the same order on all nodes" restriction.  However, we
-need to think a bit about what this imposes on threaded clients.  With
-GASNET_SEQ and GASNET_PARSYNC this restriction does not have any
-ambiguity associated with it (even for conduits w/ internal threads
-since collectives are prohibited in handlers).  However, for
-GASNET_PAR it is conceivable that even with a heirarchical collectives
-implementation, two threads might be running in distinct collective
-initiation calls creating a potential ambiguity as to which was
-initiated "first".  To see this, imagine two UPC collectives
-back-to-back with NOSYNC/NOSYNC.  In a possible heirarchical
-implementation thread 0 would enter the first UPC collective, mark it
-as started and then call the gasnet initiation function and the O/S
-de-schedules the thread before any code is executed in gasnet.  Thread
-1 arrives at the same collective, sees that it is marked started, sees
-no syncronization is required, and continues to enter the next
-collective and invoke its corresponding gasnet call, which is now seen
-out-or-order by gasnet.
+For now I'm trying to specify "1" and "N" before I worry about the
+other variants.
 
-I see two solutions to the race above.  One is to require all threads
-to invoke the gasnet collective.  I am against that because so far we
-don't do any acurate tracking of how many threads exist (there can be
-some we've not yet seen), and because it is not consistent with the
-existing barrier.  So, the other solution is to simply put the burden
-on the client, out-lawing the heirarchical implementation sketched in
-the previous example.  I suggest stealing the semantic currently in
-the GASNet spec for the barrier: "Note that to execute a collective
-operation the collective initiation functions should be called exactly
-once (i.e. by one representative thread) on each node.  The client
-must serialize its own calls to the collective initiation functions to
-ensure that only one thread is ever inside a GASNet collective
-initiation function at a time."
+Note that there are interesting interactions w/ the _LOCAL, _GLOBAL
+and _SINGLE address flags.
 
-While the paragraph above, I realize that following the corresponding
-restriction on gasnet_barrier_try() might need to be applied to
-whatever function we'd use to syncronize the collectives.  This sounds
-like a pretty good argument AGAINST using the existing gasnet_handle_t
-and its associated try/wait sync calls - since we don't want to force
-their serialization.  Of course only one thread should ever be syncing
-on the corresponding handle anyway, so this might not be an issue.
-But since we explicitly allow that gasnet implementation might, during
-a sync call, complete operations from other threads, we should be
-certain that we don't break any existing implementations (unless they
-are already considered broken).  I think that for now I envision the
-serialization of the initiation functions to be sufficient, but I
-don't understand enough about the possible try/wait sync issues to
-know for certain if we'll have thread problems w/o a distinct handle.
+* OUTSTANDING: Variable contributions
 
-Of course we could go all the way to the extream of only allowing a
-single collective operation to be outstanding on a given node and thus
-not need a handle (just as the barrier does not).  However, I am
-strongly against that as it would prevent overlap when executing complex
-collectives which are built from simpler ones.
+What about calls where each node may contribute a different sized
+source to a gather or gather_all, or different sized dest to a scatter
+(with a proper constraint on the sums).
+
+* OUTSTANDING: Computational collectives
+
+Other than "aligned data w/ bulk lifetime" we've not specified
+anything for reduce, prefix_reduce or sort.
 
 
-There is the progress question.  It must be fully correct to call the
-initiation function and the blocking sync function w/ no interleaving
-any other GASNet calls.  Additionally, we don't want the initiation
-function to block trying to enforce a UPC_IN_ALLSYNC or UPC_IN_MSYNC
-condition.  However, we also want some chance of making progress
-between the initiation and finalization, even on a pure polling
-implementation.  For this reason, I think it appropriate that progess
-by polled for in gasnet_AMPoll(), including the one embedded in the
-trysync calls.  Of course this could also not block, but wouldn't need
-to if it was going to simply issue a GET, PUT or AMRequest in response
-to the change in value of some flag in memory (presumably changed by
-an AM or as the result of some signaling-store mechanism).  I have
-already submitted to Dan the patches I believe are needed to poll the
-existing barrier implementation from AMPoll, and believe it will also
-allow the same progress for the other collective operations.
 
 
-Here is a starting point for discussion of the broadcast operation:
 
-gasnet_handle_t
-gasnet_broadcast_nb_bulk(void *dest, gasnet_node_t node, void *src,
+EXAMPLE(s) (NOT UP TO DATE):
+
+/* All 9 sync modes can be encoded using 4 bits.
+   Note I'm taking the opposite stand from the UPC specs and making
+   0 = no synchronization required */
+#define GASNET_ALL_SYNC_IN_NONE	  0
+#define GASNET_ALL_SYNC_IN_LOCAL  1
+#define GASNET_ALL_SYNC_IN_ALL    2
+#define GASNET_ALL_SYNC_OUT_NONE  0
+#define GASNET_ALL_SYNC_OUT_LOCAL 4
+#define GASNET_ALL_SYNC_OUT_ALL   8
+
+/* Arguments are correct for where?
+   Note we use this separately for sources and destinations */
+#define GASNET_ALL_ADDRS_LOCAL    0
+#define GASNET_ALL_ADDRS_GLOBAL   1
+#define GASNET_ALL_ADDRS_SINGLE   2
+
+typedef SOME_OPAQUE_THINGY gasnet_all_handle_t;
+
+gasnet_all_handle_t
+gasnet_all_broadcast_nb(void *dest, gasnet_node_t node, void *src,
 			 size_t nbytes, gasnet_sync_t sync_mode);
 
 gasnet_handle_t
