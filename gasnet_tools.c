@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/06/04 22:44:38 $
- * $Revision: 1.55 $
+ *     $Date: 2004/06/25 20:04:14 $
+ * $Revision: 1.56 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1092,6 +1092,8 @@ extern void gasneti_trace_init(int argc, char **argv) {
 AGGR(G);
 AGGR(P);
 AGGR(S);
+AGGR(W);
+AGGR(X);
 AGGR(B);
 AGGR(L);
 AGGR(A);
@@ -1195,6 +1197,18 @@ extern void gasneti_trace_finish() {
             (int)p->maxval,
             (int)p->sumval);
       }
+      if (GASNETI_STATS_ENABLED(W)) {
+        gasneti_stat_intval_t *w = &AGGRNAME(intval,W);
+        if (!w->count)
+          gasneti_stats_printf("%-25s  %6i","Total collectives:",0);
+        else
+          gasneti_stats_printf("%-25s  %6i  avg/min/max/total sz = %i/%i/%i/%i", "Total collectives:",
+            (int)w->count,
+            (int)CALC_AVG(w->sumval, w->count),
+            (int)w->minval,
+            (int)w->maxval,
+            (int)w->sumval);
+      }
       if (GASNETI_STATS_ENABLED(S)) {
         gasneti_stat_intval_t *try_succ = &AGGRNAME(intval,S);
         gasneti_stat_timeval_t *wait_time = &AGGRNAME(timeval,S);
@@ -1209,6 +1223,25 @@ extern void gasneti_trace_finish() {
         else
           gasneti_stats_printf("%-25s  %6i  avg/min/max/total waittime (us) = %i/%i/%i/%i", 
             "Total wait sync. calls:", ((int)wait_time->count),
+            (int)GASNETI_STATTIME_TO_US(CALC_AVG(wait_time->sumval, wait_time->count)),
+            (int)GASNETI_STATTIME_TO_US(wait_time->minval),
+            (int)GASNETI_STATTIME_TO_US(wait_time->maxval),
+            (int)GASNETI_STATTIME_TO_US(wait_time->sumval));
+      }
+      if (GASNETI_STATS_ENABLED(X)) {
+        gasneti_stat_intval_t *try_succ = &AGGRNAME(intval,X);
+        gasneti_stat_timeval_t *wait_time = &AGGRNAME(timeval,X);
+        if (!try_succ->count)
+          gasneti_stats_printf("%-25s  %6i","Total coll. try syncs:",0);
+        else
+          gasneti_stats_printf("%-25s  %6i  collective try success rate = %f%%  \n",
+            "Total coll. try syncs:",  ((int)try_succ->count),
+            (float)(CALC_AVG((float)try_succ->sumval, try_succ->count) * 100.0));
+        if (!wait_time->count)
+          gasneti_stats_printf("%-25s  %6i","Total coll. wait syncs:",0);
+        else
+          gasneti_stats_printf("%-25s  %6i  avg/min/max/total waittime (us) = %i/%i/%i/%i", 
+            "Total coll. wait syncs:", ((int)wait_time->count),
             (int)GASNETI_STATTIME_TO_US(CALC_AVG(wait_time->sumval, wait_time->count)),
             (int)GASNETI_STATTIME_TO_US(wait_time->minval),
             (int)GASNETI_STATTIME_TO_US(wait_time->maxval),

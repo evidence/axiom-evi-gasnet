@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.30 2004/06/21 10:37:24 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.31 2004/06/25 20:04:24 phargrov Exp $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -40,8 +40,10 @@ testprograms_seq =      \
         testhsl         \
         testbarrierconf \
         testbarrierlate \
-	testtools       \
-	$(CONDUIT_TESTS)
+        testtools       \
+        testcoll        \
+        $(CONDUIT_TESTS)
+  
 
 # tests that should only be built in PARSYNC and PAR modes
 testprograms_parsync =  \

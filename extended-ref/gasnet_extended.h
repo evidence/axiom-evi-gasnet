@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2004/05/17 22:36:25 $
- * $Revision: 1.24 $
+ *     $Date: 2004/06/25 20:04:18 $
+ * $Revision: 1.25 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -768,6 +768,15 @@ extern int gasnete_barrier_try(int id, int flags);
 
 /* Vector, Indexed & Strided put/gets declared in separate header */
 #include "gasnet_extended_vis.h"
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Collectives:
+  =========================
+*/
+
+/* Collective operations declared in separate header */
+#include "gasnet_extended_coll.h"
 
 /* ------------------------------------------------------------------------------------ */
 
