@@ -1128,7 +1128,7 @@ gasneti_cond_wait_mutex(gasneti_cond_t *cond, gasneti_mutex_t *lock)
 
 Broadcast:
 ==========
-  In [1] we learn how to construct an optimal schedule for broadcast.  The
+  In [Karp93] we learn how to construct an optimal schedule for broadcast.  The
 tree can be built knowing only the ratio A=ELL/max(O_s,g).  Using a heap data
 structure one can determine the tree structure for a P-node broadcast in
 O(log(P!)) time.  Note that O(P) < O(log(P!)) < O(P*log(P)), so the cost to
@@ -1138,11 +1138,12 @@ schedule independently).
   For the case of A>>1 the communication is latency dominant and the optimal
 broadcast is the naive one in which the root sends data to each other node in
 sequence.  For the case of A near 1, the optimal tree shape is a Binomial
-tree[2].  Here are, for P=8, model results for the "EEL" of a broadcast with
-four different tree shapes on three different networks.  Note that these are
-in us and are directly comparable between networks.  However, they are just
-model results, not real timings.  The "Flat" tree is the one-level tree of
-the naive broadcast.  The percentages are relative to the optimal.
+tree [Kielmann99].  Here are, for P=8, model results for the "EEL" of a
+broadcast with four different tree shapes on three different networks.  Note
+that these are in us and are directly comparable between networks.  However,
+they are just model results, not real timings.  The "Flat" tree is the
+one-level tree of the naive broadcast.  The percentages are relative to the
+optimal.
 
 		gm		vapi		mpi-conduit
 Optimal		21		24		334
@@ -1172,9 +1173,7 @@ I am planning to examine the use of the optimal broadcast tree to do a
 tree-based scatter.  However, the fact that timings will NOT remain fixed as
 the payload is changed (sending more data near the root than at the leaves)
 means that the simple method for building such trees is only approximately
-applicable.  There is work proving that building optimal schedules for some
-tree-structured problems is NP-hard[4].  However, I don't yet know if this
-particular problem is one of them or not.
+applicable.
 
 
 Gather:
@@ -1190,18 +1189,18 @@ Exchange:
 
 The final data placement is equivalent to doing P scatters, one with each
 node as the root.  In a simple LogP model where we can only send a single data
-item per communication operation, the optimal[1] is to perform P naive scatters
-in lock-step, but chosing the order of each node's sends so each node receives
-exactly once per step.  The simplest such ordering is for node p to send to
-((p+1) mod P), ((p+2) mod P),... ((p+P-1) mod P).
+item per communication operation, the optimal [Karp93] is to perform P naive
+scatters in lock-step, but chosing the order of each node's sends so each node
+receives exactly once per step.  The simplest such ordering is for node p to
+send to ((p+1) mod P), ((p+2) mod P),... ((p+P-1) mod P).
 
 
 Gather_All:
 ===========
 
 The final data placement is equivalent to doing P broadcasts.  In the LogP
-model with single-item sends the optimal[1] is the same as described above
-for Exchange, but with the same data item instead of distinct ones.
+model with single-item sends the optimal [Karp93] is the same as described
+above for Exchange, but with the same data item instead of distinct ones.
 
 If we allow a node to send more than a single data item per send, then we can
 improve on the methods above.  If we divide the communication into ceil(lg(P))
@@ -1213,8 +1212,8 @@ that all P <= 2^i items are received at each node (and with a little care we
 can even avoid sending the "surplus" 2^i-P that exists when P is not a power
 of two).  The ordering for this is that in round i (starting from 0) node p
 will send to node ((p+2^i) mod P).  As it happens, this is exactly the same
-communication pattern used in the Dissemination barrier[3; sec 3.3], but now
-we are also moving real data.
+communication pattern used in the Dissemination barrier [Mellor-Crummey91;
+sec 3.3], but now we are also moving real data.
 
 For small P the Exchange-like algorithm is faster, even if we assume the
 timings are constant as the payload size grows in each round.  As the ratio A
@@ -1239,12 +1238,12 @@ by which GASNet can do any better than the use of Puts.
 Reduce:
 =======
 
-As noted in [1], the optimal communication pattern for reduction in the LogP
-model is the same tree as for Broadcast.  The order and direction of the comms
-are reversed and the data elements moving are partial "sums" from each subtree.
-There is no big concern over unequal contributions here, since each node must
-contribute exactly 1 or 0 "sums" to the total reduction.  The associativity
-requirement on operators makes things easier for us.
+As noted in [Karp93], the optimal communication pattern for reduction in the
+LogP model is the same tree as for Broadcast.  The order and direction of the
+comms are reversed and the data elements moving are partial "sums" from each
+subtree.  There is no big concern over unequal contributions here, since each
+node must contribute exactly 1 or 0 "sums" to the total reduction.  The
+associativity requirement on operators makes things easier for us.
 
 The UPC_NONCOMM_FUNC case might take a little extra work, since it would
 restrict the trees we could legally use.  I've not tried to figure out what
@@ -1278,10 +1277,65 @@ I have yet to start searching for literature specific to this problem, so
 there may be methods much better than the Gather+Scatter desribed above.
 
 
+=============================================================================
+
 Biblography:
-[1]  Karp, Sahay, Santos and Schauser "Optimal Broadcast and Summation in the LogP Model"
-[2]  Kielmann, Hofman, Bal, Plaat and Bhoedjang "MagPIe: MPI's Collective
-     Communication Opaertaions for Clustered Wide Area Systems."
-[3]  Mellor-Crummey and Scott "Algorithms for Scalable Synchronization on
-     Shared-Memory Multiprocessors."
-[4]  Verriet "Scheduling tree-structured programs in the LogP model"
+
+@inproceedings{Karp93,
+ author = {Richard M. Karp and Abhijit Sahay and Eunice E. Santos and Klaus
+Erik Schauser},
+ title = {Optimal broadcast and summation in the LogP model},
+ booktitle = {Proceedings of the fifth annual ACM symposium on Parallel
+algorithms and architectures},
+ year = {1993},
+ isbn = {0-89791-599-2},
+ pages = {142--153},
+ location = {Velen, Germany},
+ doi = {http://doi.acm.org/10.1145/165231.165250},
+ publisher = {ACM Press},
+}
+
+@inproceedings{Kielmann99,
+ author = {Thilo Kielmann and Rutger F. H. Hofman and Henri E. Bal and Aske
+Plaat and Raoul A. F. Bhoedjang},
+ title = {MagPIe: MPI's collective communication operations for clustered wide
+area systems},
+ booktitle = {Proceedings of the seventh ACM SIGPLAN symposium on Principles
+and practice of parallel programming},
+ year = {1999},
+ isbn = {1-58113-100-3},
+ pages = {131--140},
+ location = {Atlanta, Georgia, United States},
+ doi = {http://doi.acm.org/10.1145/301104.301116},
+ publisher = {ACM Press},
+ }
+
+@article{Mellor-Crummey91,
+ author = {John M. Mellor-Crummey and Michael L. Scott},
+ title = {Algorithms for scalable synchronization on shared-memory
+multiprocessors},
+ journal = {ACM Trans. Comput. Syst.},
+ volume = {9},
+ number = {1},
+ year = {1991},
+ issn = {0734-2071},
+ pages = {21--65},
+ doi = {http://doi.acm.org/10.1145/103727.103729},
+ publisher = {ACM Press},
+ }
+
+@article{Santos02,
+ author = {Eunice E. Santos},
+ title = {Optimal and efficient algorithms for summing and prefix summing on
+parallel machines},
+ journal = {J. Parallel Distrib. Comput.},
+ volume = {62},
+ number = {4},
+ year = {2002},
+ issn = {0743-7315},
+ pages = {517--543},
+ doi = {http://dx.doi.org/10.1006/jpdc.2000.1698},
+ publisher = {Academic Press, Inc.},
+}
+
+Verriet "Scheduling tree-structured programs in the LogP model"
