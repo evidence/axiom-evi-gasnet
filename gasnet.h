@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2004/09/20 12:10:48 $
- * $Revision: 1.30 $
+ *     $Date: 2005/02/06 04:34:41 $
+ * $Revision: 1.31 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -275,10 +275,11 @@ const char *gasnet_ErrorDesc(int errval) {
         this is probably because they don't support VM
        actual page size is set separately for each linker section, 
         ranging from 512KB(default) to 8MB
-       Here we return 1 to reflect the lack of page alignment constraints
+       Here we return 8 to reflect the lack of page alignment constraints
+       (for basic sanity, we want page alignment >= reqd double alignment)
    */
 
-    #define GASNET_PAGESIZE 1
+    #define GASNET_PAGESIZE 8
   #else
     #error GASNET_PAGESIZE unknown and not set by conduit
   #endif

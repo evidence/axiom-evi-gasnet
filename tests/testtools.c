@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2004/12/13 17:06:25 $
- * $Revision: 1.16 $
+ *     $Date: 2005/02/06 04:34:43 $
+ * $Revision: 1.17 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,7 @@
 #ifdef HAVE_PTHREAD_H
   #include <pthread.h>
   #define NUM_THREADS 10
+  gasnett_atomic_t thread_flag[NUM_THREADS];
 #endif
 
 
@@ -158,6 +159,9 @@ int main() {
     int i;
     pthread_t threadid[NUM_THREADS];
 
+    for(i=0;i<NUM_THREADS;i++) gasnett_atomic_set(thread_flag+i,1);
+    gasnett_local_mb();
+
     for(i=0;i<NUM_THREADS;i++) {
       pthread_attr_t attr;   
       pthread_attr_init(&attr);   
@@ -192,6 +196,11 @@ void * thread_fn(void *arg) {
   int i;
   int iters=10;
   int iters2=1000;
+ 
+  /* sanity check */
+  if (!gasnett_atomic_decrement_and_test(thread_flag+id)) {
+      printf("ERROR: thread %i failed sanity check\n", id);
+  }
 
   if (id == 0) printf("parallel atomic-op barrier test...\n");
 

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/05 03:32:43 $
-# $Revision: 1.223 $
+#     $Date: 2005/02/06 04:34:41 $
+# $Revision: 1.224 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.223 $)
+AC_REVISION($Revision: 1.224 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -571,6 +571,7 @@ case "$target_os" in
 	  ], [
 	    GASNET_MACHINE_DEFINES="$GASNET_MACHINE_DEFINES -DCRAYT3E"
 	    AC_DEFINE(CRAYT3E)
+	    use_pthreads=no  # pthreads are horribly broken on the T3E
 	  ])
         GASNET_TRY_CACHE_CHECK(for Cray X1, cc_is_x1, [], [
             #ifndef __crayx1
@@ -934,9 +935,11 @@ if test $enabled_mpi = yes; then
         case "$target_cpu" in
           alphaev5) BASIC_MPI_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM"  # T3E
                     GASNET_ENV_DEFAULT(MPIRUN_CMD, mpprun -n %N %C)
+    	            GASNET_ENV_DEFAULT(MPI_LIBS, )
           ;;
           *)        BASIC_MPI_CFLAGS="-hnomessage=236 $LIBCM" # X1
                     GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
+    	            GASNET_ENV_DEFAULT(MPI_LIBS, -lpthread)
           ;;
         esac
 	if test "$BUILDCONFIG" = "optimize" ; then
@@ -945,7 +948,6 @@ if test $enabled_mpi = yes; then
     	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
 	fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
-    	GASNET_ENV_DEFAULT(MPI_LIBS, -lpthread)
         ;;
     mtx*)
     	GASNET_ENV_DEFAULT(MPI_CC, cc)
@@ -2083,10 +2085,8 @@ GASNET_PATH_PROGS(DIRNAME, $DIRNAME dirname, dirname)
 # Some platforms are lacking readlink, and we currently do not require it
 AC_PATH_PROGS(READLINK, $READLINK readlink)
 # other optional commands
-TIMECMD="${TIMECMD:-/usr/bin/time}"
-AC_PATH_PROGS(TIMECMD, $TIMECMD time)
-ENVCMD="${ENVCMD:-/usr/bin/env}"
-AC_PATH_PROGS(ENVCMD, $ENVCMD env)
+AC_PATH_PROGS(TIMECMD, $TIMECMD time, , /usr/bin:${PATH})
+AC_PATH_PROGS(ENVCMD, $ENVCMD env, , /usr/bin/:${PATH})
 
 AC_SUBST(BOURNE_SHELL)
 AC_SUBST(AR)
