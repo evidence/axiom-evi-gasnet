@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/04/02 00:55:56 $
- * $Revision: 1.87 $
+ *     $Date: 2005/04/02 01:07:43 $
+ * $Revision: 1.88 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -73,8 +73,6 @@ typedef struct {
  * Note that use of the freelist will overwrite the first sizeof(gasneti_freelist_ptr_t) bytes.
  */
 typedef struct {
-  gasneti_freelist_ptr_t	linkage;
-
   /* Communication end point */
   gasnetc_cep_t			*cep;
 
