@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2004/03/08 19:27:05 $
- * $Revision: 1.9 $
+ *     $Date: 2004/03/09 21:52:56 $
+ * $Revision: 1.10 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@ int main(int argc, char **argv) {
   int mynode, nodes, iters=0;
   int64_t start,total,delay_us;
   int64_t min_time, max_time, avg_time;
-  int delay_loops;
+  int delay_loops = 0;
   int result;
   int j, i = 0;
 
