@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.34 2004/03/10 00:34:28 phargrov Exp $
- * $Date: 2004/03/10 00:34:28 $
+/* $Id: gasnet_extended_firehose.c,v 1.35 2004/06/25 21:04:19 phargrov Exp $
+ * $Date: 2004/06/25 21:04:19 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -169,7 +169,7 @@ gasnete_fh_request_put(void *_pop, const firehose_request_t *req,
 
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose directed send(%p): (%d,%p) <- %p (%d bytes)", 
-	     pop, (unsigned) pop->req_remote.node, (void *) pop->dest, 
+	     (void *) pop, (unsigned) pop->req_remote.node, (void *) pop->dest, 
 	     (void *) pop->src, pop->len));
 
 	GASNETC_GM_PUT(
@@ -451,7 +451,7 @@ gasnete_fh_request_get(void *_gop, const firehose_request_t *req,
 
 		GASNETI_TRACE_PRINTF(C, 
 		    ("Firehose RDMA GET(op=%p): %p <- (%d,%p) (%d bytes)", 
-		     gop, (void *) gop->dest, (unsigned) node, 
+		     (void *) gop, (void *) gop->dest, (unsigned) node, 
 		     (void *) gop->src, gop->len));
 	
 		gasneti_mutex_unlock(&gasnetc_lock_gm);
@@ -462,7 +462,7 @@ gasnete_fh_request_get(void *_gop, const firehose_request_t *req,
 		 * as done */
 		GASNETI_TRACE_PRINTF(C, 
 		    ("Firehose RDMA GET w/ PutRev (op=%p): %p <- (%d,%p) (%d bytes)", 
-		     gop, (void *) gop->dest, (unsigned) node, 
+		     (void *) gop, (void *) gop->dest, (unsigned) node, 
 		     (void *) gop->src, gop->len));
 
 		gasnete_get_fh_done(gop);
