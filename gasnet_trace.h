@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2002/10/31 00:40:41 $
- * $Revision: 1.5 $
+ *     $Date: 2002/11/28 01:26:48 $
+ * $Revision: 1.6 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -387,6 +387,8 @@ extern void gasneti_trace_finish();
         VAL(G, GET_NBI_BULK, sz)                          \
         VAL(G, GET_VAL, sz)                               \
                                                           \
+        VAL(G, GET_LOCAL, sz)                          \
+        VAL(G, GET_BULK_LOCAL, sz)                     \
         VAL(G, GET_NB_LOCAL, sz)                          \
         VAL(G, GET_NB_BULK_LOCAL, sz)                     \
         VAL(G, GET_NB_VAL_LOCAL, sz)                      \
@@ -407,6 +409,8 @@ extern void gasneti_trace_finish();
         VAL(P, MEMSET_NB, sz)                             \
         VAL(P, MEMSET_NBI, sz)                            \
                                                           \
+        VAL(P, PUT_LOCAL, sz)                          \
+        VAL(P, PUT_BULK_LOCAL, sz)                     \
         VAL(P, PUT_NB_LOCAL, sz)                          \
         VAL(P, PUT_NB_BULK_LOCAL, sz)                     \
         VAL(P, PUT_NB_VAL_LOCAL, sz)                      \
@@ -414,6 +418,7 @@ extern void gasneti_trace_finish();
         VAL(P, PUT_NBI_BULK_LOCAL, sz)                    \
         VAL(P, PUT_NBI_VAL_LOCAL, sz)                     \
         VAL(P, PUT_VAL_LOCAL, sz)                         \
+        VAL(P, MEMSET_LOCAL, sz)                       \
         VAL(P, MEMSET_NB_LOCAL, sz)                       \
         VAL(P, MEMSET_NBI_LOCAL, sz)                      \
                                                           \
