@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2004/10/24 05:36:36 $
-# $Revision: 1.45 $
+#     $Date: 2005/02/04 14:19:16 $
+# $Revision: 1.46 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -231,8 +231,9 @@ testbarrierlate: delay.o
 testbarrierlate_extraobjs = delay.o
 
 # delay function, used by multiple tests
+# need to deliberately exclude optimization for this object file
 delay.o: force
-	$(GASNET_CC) $(GASNET_INCLUDES) -c -o $@ $(srcdir)/$*.c
+	$(GASNET_CC) $(GASNET_INCLUDES) $(GASNET_MISC_CFLAGS) -c -o $@ $(srcdir)/$*.c
 
 # testmpi must be compiled like an MPI program with GASNet support
 testmpi: force
