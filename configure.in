@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/13 18:39:56 $
-# $Revision: 1.171 $
+#     $Date: 2004/08/13 19:03:57 $
+# $Revision: 1.172 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.171 $)
+AC_REVISION($Revision: 1.172 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -810,9 +810,9 @@ if test $enabled_mpi = yes; then
     	GASNET_ENV_DEFAULT(MPI_CC, mpcc)
 	BASIC_MPI_CFLAGS=""
 	if test "$BUILDCONFIG" = "optimize" ; then
-    	  BASIC_MPI_CFLAGS"-O3 -qstrict -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1 $BASIC_MPI_CFLAGS"
+    	  BASIC_MPI_CFLAGS="-O3 -qstrict -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1 $BASIC_MPI_CFLAGS"
 	else
-    	  BASIC_MPI_CFLAGS"-g $BASIC_MPI_CFLAGS"
+    	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
 	fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, [-Wl,-bbigtoc])
@@ -822,9 +822,9 @@ if test $enabled_mpi = yes; then
 	GASNET_ENV_DEFAULT(MPI_CC, cc)
 	BASIC_MPI_CFLAGS="-msg_disable extrasemi"
         if test "$BUILDCONFIG" = "optimize" ; then
-          BASIC_MPI_CFLAGS"-fast -noifo -O4 -tune host -inline speed $BASIC_MPI_CFLAGS"
+          BASIC_MPI_CFLAGS="-fast -noifo -O4 -tune host -inline speed $BASIC_MPI_CFLAGS"
         else
-          BASIC_MPI_CFLAGS"-g $BASIC_MPI_CFLAGS"
+          BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
         fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
         GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan -lrt)
@@ -843,9 +843,9 @@ if test $enabled_mpi = yes; then
           ;;
         esac
 	if test "$BUILDCONFIG" = "optimize" ; then
-    	  BASIC_MPI_CFLAGS"-O2 $BASIC_MPI_CFLAGS"
+    	  BASIC_MPI_CFLAGS="-O2 $BASIC_MPI_CFLAGS"
 	else
-    	  BASIC_MPI_CFLAGS"-g $BASIC_MPI_CFLAGS"
+    	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
 	fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, -lpthread)
