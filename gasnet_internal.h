@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/07/08 03:09:15 $
- * $Revision: 1.8 $
+ *     $Date: 2002/08/15 09:49:38 $
+ * $Revision: 1.9 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -249,7 +249,71 @@ extern int gasneti_VerboseErrors;
   } while (0)
 
 /* ------------------------------------------------------------------------------------ */
-
+/* Error checking system mutexes -
+     wrapper around pthread mutexes that provides extra support for 
+     error checking when DEBUG is defined
+   gasneti_mutex_lock(&lock)/gasneti_mutex_unlock(&lock) - 
+     lock and unlock (checks for recursive locking errors)
+   gasneti_mutex_assertlocked(&lock)/gasneti_mutex_assertunlocked(&lock) - 
+     allow functions to assert a given lock is held / not held by the current thread
+ */
+#ifdef DEBUG
+  #define GASNETI_MUTEX_NOOWNER       -1
+  #ifdef GASNETI_THREADS
+    #ifndef GASNETI_THREADIDQUERY
+      /* allow conduit override of thread-id query */
+      #define GASNETI_THREADIDQUERY()   (gasnete_mythread()->threadidx)
+    #endif
+    #include <pthread.h>
+    typedef struct {
+      pthread_mutex_t lock;
+      int owner;
+    } gasneti_mutex_t;
+    #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, GASNETI_MUTEX_NOOWNER }
+    #define gasneti_mutex_lock(pl) do {                       \
+              assert((pl)->owner != GASNETI_THREADIDQUERY()); \
+              pthread_mutex_lock(&((pl)->lock));              \
+              assert((pl)->owner == GASNETI_MUTEX_NOOWNER);   \
+              (pl)->owner = GASNETI_THREADIDQUERY();          \
+            } while (0)
+    #define gasneti_mutex_unlock(pl) do {                     \
+              assert((pl)->owner == GASNETI_THREADIDQUERY()); \
+              (pl)->owner = GASNETI_MUTEX_NOOWNER;            \
+              pthread_mutex_unlock(&((pl)->lock));            \
+            } while (0)
+  #else
+    typedef struct {
+      int owner;
+    } gasneti_mutex_t;
+    #define GASNETI_MUTEX_INITIALIZER   { GASNETI_MUTEX_NOOWNER }
+    #define gasneti_mutex_lock(pl) do {                     \
+              assert((pl)->owner == GASNETI_MUTEX_NOOWNER); \
+              (pl)->owner = 0;                              \
+            } while (0)
+    #define gasneti_mutex_unlock(pl) do {          \
+              assert((pl)->owner == 0);            \
+              (pl)->owner = GASNETI_MUTEX_NOOWNER; \
+            } while (0)
+  #endif
+  #define gasneti_mutex_assertlocked(pl)    assert((pl)->owner == 0)
+  #define gasneti_mutex_assertunlocked(pl)  assert((pl)->owner == GASNETI_MUTEX_NOOWNER)
+#else
+  #ifdef GASNETI_THREADS
+    #include <pthread.h>
+    typedef pthread_mutex_t           gasneti_mutex_t;
+    #define GASNETI_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+    #define gasneti_mutex_lock(pl)    pthread_mutex_lock(pl)
+    #define gasneti_mutex_unlock(pl)  pthread_mutex_unlock(pl)
+  #else
+    typedef char           gasneti_mutex_t;
+    #define GASNETI_MUTEX_INITIALIZER '\0'
+    #define gasneti_mutex_lock(pl)    
+    #define gasneti_mutex_unlock(pl)  
+  #endif
+  #define gasneti_mutex_assertlocked(pl)
+  #define gasneti_mutex_assertunlocked(pl)
+#endif
+/* ------------------------------------------------------------------------------------ */
 
 END_EXTERNC
 
