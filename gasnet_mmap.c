@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2003/01/11 22:46:40 $
- * $Revision: 1.10 $
+ *     $Date: 2003/04/28 23:03:36 $
+ * $Revision: 1.11 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -395,7 +395,7 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
             uintptr_t segstart = 
                 ((uintptr_t)gasneti_segexch[i].seginfo.addr + gasneti_segexch[i].seginfo.size) - 
                  gasneti_segexch[i].segsize_request;
-            assert(gasneti_segexch[i].segsize_request >= 0);
+            /*assert(gasneti_segexch[i].segsize_request >= 0); True by typing */
             assert(segstart >= gasneti_maxbase);
             if (segstart < minsegstart) minsegstart = segstart;
           }
