@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2005/01/26 19:37:49 $
- * $Revision: 1.34 $
+ *     $Date: 2005/03/08 22:08:54 $
+ * $Revision: 1.35 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -67,14 +67,15 @@
 
 #ifdef __MTA__
    #include <machine/runtime.h>
-   #define gasneti_sched_yield() mta_yield()
+   #define _gasneti_sched_yield() mta_yield()
 #elif defined(HAVE_SCHED_YIELD)
    #include <sched.h>
-   #define gasneti_sched_yield() sched_yield()
+   #define _gasneti_sched_yield() sched_yield()
 #else
    #include <unistd.h>
-   #define gasneti_sched_yield() sleep(0)
+   #define _gasneti_sched_yield() (sleep(0),0)
 #endif
+#define gasneti_sched_yield() _gasneti_sched_yield()
 
 #include <stddef.h> /* get standard types, esp size_t */
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/03/02 19:03:56 $
- * $Revision: 1.47 $
+ *     $Date: 2005/03/08 22:08:54 $
+ * $Revision: 1.48 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -155,13 +155,19 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
  * useful for making system calls and checking the result
  */
 #if GASNET_DEBUG
-  #define gasneti_assert_zeroret(op) do {                                        \
-    int _retval = (op);                                                          \
-    if_pf(_retval) gasneti_fatalerror(#op": %s(%i)",strerror(_retval), _retval); \
+  #define gasneti_assert_zeroret(op) do {                   \
+    int _retval = (op);                                     \
+    if_pf(_retval)                                          \
+      gasneti_fatalerror(#op": %s(%i), errno=%s(%i) at %s", \
+        strerror(_retval), _retval, strerror(errno), errno, \
+        gasneti_current_loc);                               \
   } while (0)
-  #define gasneti_assert_nzeroret(op) do {                                        \
-    int _retval = (op);                                                           \
-    if_pf(!_retval) gasneti_fatalerror(#op": %s(%i)",strerror(_retval), _retval); \
+  #define gasneti_assert_nzeroret(op) do {                  \
+    int _retval = (op);                                     \
+    if_pf(!_retval)                                         \
+      gasneti_fatalerror(#op": %s(%i), errno=%s(%i) at %s", \
+        strerror(_retval), _retval, errno, strerror(errno), \
+        gasneti_current_loc);                               \
   } while (0)
 #else
   #define gasneti_assert_zeroret(op)  op
@@ -191,6 +197,8 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #define GASNETI_CHECKATTACH()  ((void)0)
 #endif
 
+#undef  gasneti_sched_yield
+#define gasneti_sched_yield() gasneti_assert_zeroret(_gasneti_sched_yield())
 
 /* conduits may replace the following types, 
    but they should at least include all the following fields */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/03/02 19:03:56 $
- * $Revision: 1.93 $
+ *     $Date: 2005/03/08 22:08:54 $
+ * $Revision: 1.94 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1461,29 +1461,29 @@ extern void gasneti_trace_finish() {
   GASNETI_ALL_STATS(DEF_CTR, DEF_INTVAL, DEF_TIMEVAL)
 
 static gasneti_mutex_t gasneti_statlock = GASNETI_MUTEX_INITIALIZER;
-#define STAT_LOCK() gasneti_mutex_lock(&gasneti_statlock);
-#define STAT_UNLOCK() gasneti_mutex_unlock(&gasneti_statlock);
+#define GASNETI_STAT_LOCK()   gasneti_mutex_lock(&gasneti_statlock);
+#define GASNETI_STAT_UNLOCK() gasneti_mutex_unlock(&gasneti_statlock);
 
 extern void gasneti_stat_count_accumulate(gasneti_statctr_t *pctr) {
-  STAT_LOCK();
+  GASNETI_STAT_LOCK();
     (*pctr)++;
-  STAT_UNLOCK();
+  GASNETI_STAT_UNLOCK();
 }
 extern void gasneti_stat_intval_accumulate(gasneti_stat_intval_t *pintval, gasneti_statctr_t val) {
-  STAT_LOCK();
+  GASNETI_STAT_LOCK();
     pintval->count++;
     pintval->sumval += val;
     if_pf (val > pintval->maxval) pintval->maxval = val;
     if_pf (val < pintval->minval) pintval->minval = val;
-  STAT_UNLOCK();
+  GASNETI_STAT_UNLOCK();
 }
 extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gasneti_stattime_t val) {
-  STAT_LOCK();
+  GASNETI_STAT_LOCK();
     pintval->count++;
     pintval->sumval += val;
     if_pf (val > pintval->maxval) pintval->maxval = val;
     if_pf (val < pintval->minval) pintval->minval = val;
-  STAT_UNLOCK();
+  GASNETI_STAT_UNLOCK();
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
