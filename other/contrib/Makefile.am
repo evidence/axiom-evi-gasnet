@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/06 06:04:09 $
-# $Revision: 1.1 $
+#     $Date: 2004/08/18 22:27:42 $
+# $Revision: 1.2 $
 # Description: Makefile for GASNet other/contrib
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -25,7 +25,7 @@ all-local: gasnet_trace $(builddir)/gasnet_trace.pl
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@$(MAKE) -C $(top_builddir)/other perlstart
 
-gasnet_trace: $(top_builddir)/other/perlstart
+gasnet_trace: $(top_builddir)/other/perlstart $(builddir)/gasnet_trace.pl
 
 $(builddir)/gasnet_trace.pl: force
 	@if test "`cd $(top_builddir);@PWD_PROG@`" != "`cd $(top_srcdir);@PWD_PROG@`"; then \
