@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlarge.c,v $
- *     $Date: 2004/09/22 09:53:08 $
- * $Revision: 1.21 $
+ *     $Date: 2004/09/27 09:53:03 $
+ * $Revision: 1.22 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -296,7 +296,7 @@ int main(int argc, char **argv)
     if (help || argc > arg+2) {
         printf("Usage: %s [-in|-out] (iters) (maxsz)\n"
                "  The 'in' or 'out' option selects whether the initiator-side\n"
-               "  memory is in the GASNet segment or not (default it not).\n",
+               "  memory is in the GASNet segment or not (default it not).\n"
                "  The -f option enables 'first/last' mode, where the first/last\n"
                "  nodes communicate with each other, while all other nodes sit idle.\n",
                argv[0]);

@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2004/09/24 07:06:49 $
-dnl $Revision: 1.44 $
+dnl     $Date: 2004/09/27 09:52:55 $
+dnl $Revision: 1.45 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -701,18 +701,21 @@ AC_DEFUN([GASNET_FAMILY_CACHE_CHECK],[
 AC_REQUIRE_CPP
 AC_CACHE_CHECK(for $1 compiler family, $3, [
   $3=unknown
+
   GASNET_IFDEF(__GNUC__, $3=GNU)
   GASNET_IFDEF(__PGI, $3=PGI)
   GASNET_IFDEF(__xlC__, $3=XLC)
   GASNET_IFDEF(__KCC, $3=KAI)
-  GASNET_IFDEF(__SUNPRO_C, $3=Sun)  dnl Sun C
-  GASNET_IFDEF(__SUNPRO_CC, $3=Sun) dnl Sun C++
+  GASNET_IFDEF(__SUNPRO_C, $3=Sun)  # Sun C
+  GASNET_IFDEF(__SUNPRO_CC, $3=Sun) # Sun C++
   GASNET_IFDEF(_CRAYC, $3=Cray)
   GASNET_IFDEF(__INTEL_COMPILER, $3=Intel)
   GASNET_IFDEF(__DECC, $3=Compaq)
+  GASNET_IFDEF(__HP_cc, $3=HP)  # HP C
+  GASNET_IFDEF(__HP_aCC, $3=HP) # HP aCC (C++)
+
   if test "$$3" = "unknown"; then
     GASNET_IFDEF(mips, $3=MIPS)
-    GASNET_IFDEF(__hpux, $3=HP)
     GASNET_IFDEF(_SX, $3=NEC)
   fi
 ])

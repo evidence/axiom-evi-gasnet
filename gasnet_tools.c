@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2004/09/20 20:24:12 $
- * $Revision: 1.76 $
+ *     $Date: 2004/09/27 09:52:55 $
+ * $Revision: 1.77 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -206,7 +206,7 @@ extern void gasneti_close_streams() {
 #define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
 #elif defined(_CRAYT3E)
 #define _SC_NPROCESSORS_ONLN _SC_CRAY_MAXPES
-#elif defined(__APPLE__) || defined(FREEBSD)
+#elif defined(__APPLE__) || defined(FREEBSD) || defined(NETBSD)
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
@@ -216,7 +216,7 @@ extern int gasneti_cpu_count() {
   static int hwprocs = -1;
   if (hwprocs >= 0) return hwprocs;
 
-  #if defined(__APPLE__) || defined(FREEBSD)
+  #if defined(__APPLE__) || defined(FREEBSD) || defined(NETBSD)
       {
         int mib[2];
         size_t len;
@@ -1094,7 +1094,7 @@ extern void gasneti_trace_init(int argc, char **argv) {
     for (i=0; i < argc; i++) { 
       char *q = argv[i];
       int hasspace = 0;
-      for (;*q;q++) if (isspace(*q)) hasspace = 1;
+      for (;*q;q++) if (isspace((int)*q)) hasspace = 1;
       if (hasspace) sprintf(p, "'%s'", argv[i]);
       else sprintf(p, "%s", argv[i]);
       if (i < argc-1) strcat(p, " ");

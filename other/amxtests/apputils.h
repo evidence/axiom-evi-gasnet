@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.h,v $
- *     $Date: 2004/08/26 04:53:53 $
- * $Revision: 1.11 $
+ *     $Date: 2004/09/27 09:53:01 $
+ * $Revision: 1.12 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -119,5 +119,4 @@ void writeSync();
 #endif
 
 END_EXTERNC
-
 #endif

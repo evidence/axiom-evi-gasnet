@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
-//     $Date: 2004/08/26 04:53:50 $
-// $Revision: 1.6 $
+//     $Date: 2004/09/27 09:52:59 $
+// $Revision: 1.7 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -64,16 +64,11 @@ SOCKET listen_socket(struct sockaddr* saddr, bool allowshared) {
   }
 //------------------------------------------------------------------------------------
 // addr-length argument type fiasco..
-#if defined(LINUX)
+#if defined(LINUX) || defined(FREEBSD) || defined(AIX) || \
+    defined(SOLARIS) || defined(NETBSD)
 #  define LENGTH_PARAM socklen_t
 #elif defined(OSF1)
 #  define LENGTH_PARAM unsigned long
-#elif defined(FREEBSD)
-#  define LENGTH_PARAM socklen_t
-#elif defined(AIX)
-#  define LENGTH_PARAM socklen_t
-#elif defined(SOLARIS)
-#  define LENGTH_PARAM socklen_t
 #else
 #  define LENGTH_PARAM int
 #endif

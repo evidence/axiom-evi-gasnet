@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2004/09/20 20:24:12 $
- * $Revision: 1.58 $
+ *     $Date: 2004/09/27 09:52:55 $
+ * $Revision: 1.59 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,15 +120,18 @@ extern void gasneti_check_config_postattach();
 #ifdef malloc
 #undef malloc
 #endif
-#define malloc !!! ERROR: GASNet conduit code must use gasneti_malloc !!!
+#define malloc_error !!! ERROR: GASNet conduit code must use gasneti_malloc !!!
+#define malloc() malloc_error
 #ifdef calloc
 #undef calloc
 #endif
-#define calloc !!! ERROR: GASNet conduit code must use gasneti_calloc !!!
+#define calloc_error !!! ERROR: GASNet conduit code must use gasneti_calloc !!!
+#define calloc() calloc_error
 #ifdef free
 #undef free
 #endif
-#define free   !!! ERROR: GASNet conduit code must use gasneti_free   !!!
+#define free_error   !!! ERROR: GASNet conduit code must use gasneti_free   !!!
+#define free() free_error
 
 #include <assert.h>
 #undef assert

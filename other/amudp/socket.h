@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/socket.h,v $
- *      $Date: 2004/08/26 04:53:50 $
- *  $Revision: 1.5 $
+ *      $Date: 2004/09/27 09:52:59 $
+ *  $Revision: 1.6 $
  *  Description: portable header socket functions
  *  (c) Scott McPeak, 1998-1999, Modified by Dan Bonachea
  */
@@ -113,7 +113,7 @@ typedef fd_set FD_SET;
 
 
 /*  resolve disagreements about types of arguments to misc. functions */
-#if defined(LINUX) || defined(FREEBSD) || defined(SOLARIS) || (defined(AIX) && defined(_AIX51))
+#if defined(LINUX) || defined(FREEBSD) || defined(NETBSD) || defined(SOLARIS) || (defined(AIX) && defined(_AIX51))
 #  define GETSOCKNAME_LENGTH_T socklen_t
 #  define GETSOCKOPT_LENGTH_T socklen_t
 #elif defined(AIX)

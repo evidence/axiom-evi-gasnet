@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/09/24 07:06:49 $
-# $Revision: 1.192 $
+#     $Date: 2004/09/27 09:52:55 $
+# $Revision: 1.193 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.192 $)
+AC_REVISION($Revision: 1.193 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -179,6 +179,7 @@ case "$gasnet_cv_cc_family" in
   ;;
   Sun)  CCOPTFLAGS="-fast -xO5" ;;
   Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
+  HP) CCOPTFLAGS="-O3" ;;
   MIPS) CCOPTFLAGS="-O3" ;;
   XLC)  #CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=-1" ;; # -O5 == -O3 w/ intra-procedural analysis, maxmem=-1 is default for -O3 or higher
         CCOPTFLAGS="-O3 -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1" ;; # -O5 causes linker to hang on Titanium 
@@ -471,6 +472,12 @@ case "$target_os" in
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
         GASNET_THREAD_LIBS="-pthread -lc_r"
 	;;
+  netbsd*) 
+	AC_DEFINE(NETBSD)
+	GASNET_MACHINE_DEFINES="-DNETBSD"
+	GASNET_THREAD_DEFINES="-D_REENTRANT"
+        GASNET_THREAD_LIBS="-pthread -lc_r"
+	;;
   cygwin*) 
 	AC_DEFINE(CYGWIN)
 	GASNET_MACHINE_DEFINES="-DCYGWIN"
@@ -699,6 +706,7 @@ if test $enabled_udp = yes; then
     PGI)   MISC_CXXFLAGS="-w -Masmkeyword" ;; # apparently has no way to indep control warnings
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
     MIPS)  MISC_CXXFLAGS="-diag_error 1035 -diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
+    HP) MISC_CXXFLAGS="+W749" ;;
     Intel) MISC_CXXFLAGS="-wd654 -wd1125 -wd279" ;;
     XLC)
      case "$target_os" in
@@ -1576,6 +1584,12 @@ case "$gasnet_cv_cc_family" in
   Compaq) # force __inline on Compaq C, because it's the most effective
     AC_DEFINE(CC_INLINE_MODIFIER, __inline)
     inlinemod=__inline
+  ;;
+  HP) # __inline crashes HP C when optimizations are disabled
+    if test "$BUILDCONFIG" = "debug" ; then
+      AC_DEFINE(CC_INLINE_MODIFIER, [ ])
+      inlinemod=" "
+    fi
   ;;
 esac
 if test "$inlinemod" = ""; then

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testgetput.c,v $
- *     $Date: 2004/08/26 04:53:53 $
- * $Revision: 1.6 $
+ *     $Date: 2004/09/27 09:53:01 $
+ * $Revision: 1.7 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
         printf("Proc %i GET TEST FAILED : sum = %i   verify = %i\n", myproc, sum, verify);
         fflush(stdout);
         }
-      #if DEBUG
+      #if VERBOSE
         else {
           printf("Proc %i verified.\n", myproc);
           fflush(stdout);
@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
           break;
           }
         }
-      #if DEBUG
+      #if VERBOSE
         if (i == numprocs) {
           printf("Proc %i verified.\n", myproc);
           fflush(stdout);

@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2004/08/26 04:53:28 $ */
-/*  $Revision: 1.36 $ */
+/*      $Date: 2004/09/27 09:52:55 $ */
+/*  $Revision: 1.37 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -75,6 +75,7 @@
 #undef UNIX
 #undef LINUX
 #undef FREEBSD
+#undef NETBSD
 #undef SOLARIS
 #undef UNICOS
 #undef CRAYT3E
