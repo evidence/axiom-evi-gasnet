@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/21 18:02:08 $
- * $Revision: 1.10 $
+ *     $Date: 2003/08/22 20:50:16 $
+ * $Revision: 1.11 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -71,10 +71,20 @@ typedef struct {
  *  File-scoped variables
  * ------------------------------------------------------------------------------------ */
 
-static gasnetc_sbuf_t			*gasnetc_sbuf_alloc, *gasnetc_sbuf_free;
-static gasnetc_mutex_t			gasnetc_sbuf_lock = GASNETC_MUTEX_INITIALIZER;
-static gasnetc_rbuf_t			*gasnetc_rbuf_alloc, *gasnetc_rbuf_free;
-static gasnetc_mutex_t			gasnetc_rbuf_lock = GASNETC_MUTEX_INITIALIZER;
+static gasnetc_sbuf_t			*gasnetc_sbuf_alloc;
+static gasnetc_rbuf_t			*gasnetc_rbuf_alloc;
+#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+  /* pointer value is volatile */
+  static gasnetc_sbuf_t	* volatile	gasnetc_sbuf_head;
+  static gasnetc_sbuf_t	* volatile	gasnetc_sbuf_tail;
+  static gasnetc_rbuf_t	* volatile	gasnetc_rbuf_head;
+  static gasnetc_rbuf_t	* volatile	gasnetc_rbuf_tail;
+#else
+  static gasnetc_sbuf_t			*gasnetc_sbuf_free;
+  static gasnetc_rbuf_t			*gasnetc_rbuf_free;
+  static gasnetc_mutex_t		gasnetc_sbuf_lock = GASNETC_MUTEX_INITIALIZER;
+  static gasnetc_mutex_t		gasnetc_rbuf_lock = GASNETC_MUTEX_INITIALIZER;
+#endif
 #if GASNETC_RCV_THREAD
   static EVAPI_compl_handler_hndl_t	gasnetc_rcv_handler;
 #endif
@@ -129,6 +139,21 @@ static gasnetc_mutex_t			gasnetc_rbuf_lock = GASNETC_MUTEX_INITIALIZER;
 
 GASNET_INLINE_MODIFIER(gasnetc_get_rbuf)
 gasnetc_rbuf_t *gasnetc_get_rbuf(void) {
+#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+  gasnetc_rbuf_t *rbuf = NULL;
+  gasnetc_rbuf_t *next;
+                                                                                                             
+  do {
+    if_pf (gasnetc_rbuf_head == gasnetc_rbuf_tail) {
+      return NULL;
+    }
+    rbuf = gasnetc_rbuf_head;
+    assert(rbuf != NULL);
+    next = rbuf->next;
+  } while (!next || !gasneti_atomic_swap_ptr(&rbuf->next, next, NULL));
+  gasnetc_rbuf_head = next;
+  gasneti_local_membar(); /* ??? needed ??? */
+#else
   gasnetc_rbuf_t *rbuf;
 
   gasnetc_mutex_lock(&gasnetc_rbuf_lock, GASNETC_CLI_PAR);
@@ -137,6 +162,7 @@ gasnetc_rbuf_t *gasnetc_get_rbuf(void) {
     gasnetc_rbuf_free = rbuf->next;
   }
   gasnetc_mutex_unlock(&gasnetc_rbuf_lock, GASNETC_CLI_PAR);
+#endif
 
   return rbuf;
 }
@@ -144,10 +170,22 @@ gasnetc_rbuf_t *gasnetc_get_rbuf(void) {
 GASNET_INLINE_MODIFIER(gasnetc_put_rbuf)
 void gasnetc_put_rbuf(gasnetc_rbuf_t *rbuf) {
   if (rbuf) {
+#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+    gasnetc_rbuf_t *old_tail;
+
+    rbuf->next = NULL;
+    do {
+      old_tail = gasnetc_rbuf_tail;
+    } while (!gasneti_atomic_swap_ptr(&gasnetc_rbuf_tail, old_tail, rbuf));
+    assert(old_tail->next == NULL);
+    old_tail->next = rbuf;
+    gasneti_local_membar(); /* ??? needed ??? */
+#else
     gasnetc_mutex_lock(&gasnetc_rbuf_lock, GASNETC_CLI_PAR);
     rbuf->next = gasnetc_rbuf_free;
     gasnetc_rbuf_free = rbuf;
     gasnetc_mutex_unlock(&gasnetc_rbuf_lock, GASNETC_CLI_PAR);
+#endif
   }
 }
 
@@ -251,14 +289,25 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
 
 /* free a list of send buffers */
 GASNET_INLINE_MODIFIER(gasnetc_put_sbuf)
-void gasnetc_put_sbuf(gasnetc_sbuf_t *head, gasnetc_sbuf_t *tail) {
-  /* Add the list segment to the free list */
-  gasnetc_mutex_lock(&gasnetc_sbuf_lock, GASNETC_ANY_PAR);
-  tail->next = gasnetc_sbuf_free;
-  gasnetc_sbuf_free = head;
-  gasnetc_mutex_unlock(&gasnetc_sbuf_lock, GASNETC_ANY_PAR);
-}
+void gasnetc_put_sbuf(gasnetc_sbuf_t *my_head, gasnetc_sbuf_t *my_tail) {
+#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+  gasnetc_sbuf_t *old_tail;
 
+  my_tail->next = NULL;
+  do {
+    old_tail = gasnetc_sbuf_tail;
+  } while (!gasneti_atomic_swap_ptr(&gasnetc_sbuf_tail, old_tail, my_tail));
+  assert(old_tail->next == NULL);
+  old_tail->next = my_head;
+  gasneti_local_membar(); /* ??? needed ??? */
+#else
+  gasnetc_mutex_lock(&gasnetc_sbuf_lock, GASNETC_ANY_PAR);
+  my_tail->next = gasnetc_sbuf_free;
+  gasnetc_sbuf_free = my_head;
+  gasnetc_mutex_unlock(&gasnetc_sbuf_lock, GASNETC_ANY_PAR);
+#endif
+}
+  
 /* Try to pull completed entries from the send CQ (if any). */
 static int gasnetc_snd_reap(int limit, gasnetc_sbuf_t **tail_p) {
   VAPI_ret_t vstat;
@@ -352,6 +401,20 @@ gasnetc_sbuf_t *gasnetc_get_sbuf(void) {
     }
 
     /* try to get an unused sbuf from the free list */
+#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+    {
+      gasnetc_sbuf_t *tmp;
+
+      sbuf = gasnetc_sbuf_head;
+      assert(sbuf != NULL);
+      tmp = sbuf->next;
+      if_pt (tmp && gasneti_atomic_swap_ptr(&sbuf->next, tmp, NULL)) {
+        gasnetc_sbuf_head = tmp;
+        gasneti_local_membar(); /* ??? needed ??? */
+        break;	/* Have an sbuf - leave the loop */
+      }
+    }
+#else
     gasnetc_mutex_lock(&gasnetc_sbuf_lock, GASNETC_ANY_PAR);
     sbuf = gasnetc_sbuf_free;
     if (sbuf != NULL) {
@@ -360,6 +423,7 @@ gasnetc_sbuf_t *gasnetc_get_sbuf(void) {
       break;	/* Have an sbuf - leave the loop */
     }
     gasnetc_mutex_unlock(&gasnetc_sbuf_lock, GASNETC_ANY_PAR);
+#endif
 
     /* be kind */
     gasneti_sched_yield();
@@ -747,7 +811,13 @@ extern void gasnetc_sndrcv_init(void) {
       rbuf[i].next               = &rbuf[i + 1];
     }
     rbuf[count - 1].next = NULL;
-    gasnetc_rbuf_alloc = gasnetc_rbuf_free = rbuf;
+    gasnetc_rbuf_alloc = rbuf;
+#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+    gasnetc_rbuf_head = &rbuf[0];
+    gasnetc_rbuf_tail = &rbuf[count - 1];
+#else
+    gasnetc_rbuf_free = rbuf;
+#endif
     #if GASNETC_RCV_THREAD
       gasnetc_rcv_thread_rbuf = gasnetc_get_rbuf();
     #endif
@@ -778,7 +848,13 @@ extern void gasnetc_sndrcv_init(void) {
     sbuf[i].next   = &sbuf[i + 1];
   }
   sbuf[count - 1].next = NULL;
-  gasnetc_sbuf_alloc = gasnetc_sbuf_free = sbuf;
+  gasnetc_sbuf_alloc = sbuf;
+#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+  gasnetc_sbuf_head = &sbuf[0];
+  gasnetc_sbuf_tail = &sbuf[count - 1];
+#else
+  gasnetc_sbuf_free = sbuf;
+#endif
 }
 
 extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
