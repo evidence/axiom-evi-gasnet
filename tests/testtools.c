@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/02/14 12:42:50 $
- * $Revision: 1.18 $
+ *     $Date: 2005/02/23 13:17:21 $
+ * $Revision: 1.19 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,8 +19,18 @@
   #include <pthread.h>
   #define NUM_THREADS 10
   gasnett_atomic_t thread_flag[NUM_THREADS];
+  int valX[NUM_THREADS];
+  int valY[NUM_THREADS];
 #endif
 
+int iters = 0;
+
+int errs = 0;
+#define ERR(msg) do {                                        \
+  printf("ERROR: %s (at %s:%i)\n", msg, __FILE__, __LINE__); \
+  fflush(stdout);                                            \
+  errs++;                                                    \
+  } while (0)
 
 static int64_t mygetMicrosecondTimeStamp(void)
 {
@@ -37,7 +47,12 @@ static int64_t mygetMicrosecondTimeStamp(void)
 
 void * thread_fn(void *arg);
 
-int main() {
+int main(int argc, char **argv) {
+
+  if (argc > 1) iters = atoi(argv[1]);
+  if (iters < 1) iters = 100;
+
+  printf("Running testtools with %i iterations\n", iters);
 
   #if defined(GASNETT_PAGESIZE) && defined(GASNETT_PAGESHIFT)
     if (0x1 << GASNETT_PAGESHIFT != GASNETT_PAGESIZE)
@@ -55,9 +70,9 @@ int main() {
     gasnett_tick_t ticktimemin = GASNETT_TICK_MIN;
     gasnett_tick_t ticktimemax = GASNETT_TICK_MAX;
 
-    if (!(ticktimemin < ticktimemax)) printf("ERROR: !(min < max)\n");
-    if (!(gasnett_ticks_now() > ticktimemin)) printf("ERROR: !(now > min)\n");
-    if (!(gasnett_ticks_now() < ticktimemax)) printf("ERROR: !(now < max)\n");
+    if (!(ticktimemin < ticktimemax)) ERR("!(min < max)");
+    if (!(gasnett_ticks_now() > ticktimemin)) ERR("!(now > min)");
+    if (!(gasnett_ticks_now() < ticktimemax)) ERR("!(now < max)");
 
     for (i=0; i < 3; i++) {
       int time, timeref;
@@ -76,7 +91,7 @@ int main() {
 
       if (abs( (gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start)) - 
                gasnett_ticks_to_us(end - start) ) > 1)
-        printf("ERROR: ticks_to_us(A) - ticks_to_us(B) != ticks_to_us(A-B)\n");
+        ERR("ticks_to_us(A) - ticks_to_us(B) != ticks_to_us(A-B)");
 
     }
     {
@@ -94,7 +109,7 @@ int main() {
   printf("Testing local membar...\n");
   { /* local membar */
     int i;
-    for (i=0;i<100;i++) {
+    for (i=0;i<iters;i++) {
       gasnett_local_mb();
     }
   }
@@ -102,7 +117,7 @@ int main() {
   printf("Testing local write membar...\n");
   { /* local membar */
     int i;
-    for (i=0;i<100;i++) {
+    for (i=0;i<iters;i++) {
       gasnett_local_wmb();
     }
   }
@@ -110,7 +125,7 @@ int main() {
   printf("Testing local read membar...\n");
   { /* local membar */
     int i;
-    for (i=0;i<100;i++) {
+    for (i=0;i<iters;i++) {
       gasnett_local_rmb();
     }
   }
@@ -119,38 +134,52 @@ int main() {
   { /* we can't really test atomicity without spinning threads, 
        but we can at least test simple operations  */
     int i = 0;
-    gasnett_atomic_t var = gasnett_atomic_init(100);
+    gasnett_atomic_t var = gasnett_atomic_init(iters);
 
-    if (gasnett_atomic_read(&var) != 100)
-      printf("ERROR: gasnett_atomic_init/gasnett_atomic_read got wrong value\n");
+    if (gasnett_atomic_read(&var) != iters)
+      ERR("gasnett_atomic_init/gasnett_atomic_read got wrong value");
 
-    gasnett_atomic_set(&var, 200);
-    if (gasnett_atomic_read(&var) != 200)
-      printf("ERROR: gasnett_atomic_set/gasnett_atomic_read got wrong value\n");
+    gasnett_atomic_set(&var, 2*iters);
+    if (gasnett_atomic_read(&var) != 2*iters)
+      ERR("gasnett_atomic_set/gasnett_atomic_read got wrong value");
 
-    for (i=1;i<=100;i++) {
+    for (i=1;i<=iters;i++) {
       gasnett_atomic_increment(&var);
-      if (gasnett_atomic_read(&var) != 200 + i)
-        printf("ERROR: gasnett_atomic_increment got wrong value\n");
+      if (gasnett_atomic_read(&var) != 2*iters + i)
+        ERR("gasnett_atomic_increment got wrong value");
     }
 
-    for (i=99;i>=0;i--) {
+    for (i=iters-1;i>=0;i--) {
       gasnett_atomic_decrement(&var);
-      if (gasnett_atomic_read(&var) != 200 + i)
-        printf("ERROR: gasnett_atomic_decrement got wrong value\n");
+      if (gasnett_atomic_read(&var) != 2*iters + i)
+        ERR("gasnett_atomic_decrement got wrong value");
     }
 
-    gasnett_atomic_set(&var,100);
-    for (i=99;i>=1;i--) {
+    for (i=1;i<=iters;i++) {
+      gasnett_atomic_set(&var, i);
+      gasnett_atomic_increment(&var);
+      if (gasnett_atomic_read(&var) != i+1)
+        ERR("gasnett_atomic_set/gasnett_atomic_increment got wrong value");
+    }
+
+    for (i=1;i<=iters;i++) {
+      gasnett_atomic_set(&var, i);
+      gasnett_atomic_decrement(&var);
+      if (gasnett_atomic_read(&var) != i-1)
+        ERR("gasnett_atomic_set/gasnett_atomic_decrement got wrong value");
+    }
+
+    gasnett_atomic_set(&var,iters);
+    for (i=iters-1;i>=1;i--) {
       if (gasnett_atomic_decrement_and_test(&var))
-        printf("ERROR: gasnett_atomic_decrement_and_test got wrong value\n");
+        ERR("gasnett_atomic_decrement_and_test got wrong value");
       if (gasnett_atomic_read(&var) != i)
-        printf("ERROR: gasnett_atomic_decrement_and_test set wrong value\n");
+        ERR("gasnett_atomic_decrement_and_test set wrong value");
     }
     if (!gasnett_atomic_decrement_and_test(&var))
-      printf("ERROR: gasnett_atomic_decrement_and_test got wrong value at zero\n");
+      ERR("gasnett_atomic_decrement_and_test got wrong value at zero");
     if (gasnett_atomic_read(&var) != 0)
-      printf("ERROR: gasnett_atomic_decrement_and_test set wrong value at zero\n");
+      ERR("gasnett_atomic_decrement_and_test set wrong value at zero");
   }
 
 #ifdef HAVE_PTHREAD_H
@@ -181,7 +210,7 @@ int main() {
 #endif
 
   printf("Done.\n");
-  return 0;
+  return (errs > 0 ? 1 : 0);
 }
 
 #ifdef HAVE_PTHREAD_H
@@ -197,8 +226,7 @@ gasnett_atomic_t x5 = gasnett_atomic_init(10000);
 void * thread_fn(void *arg) {
   int id = (int)(uintptr_t)arg;
   int i;
-  int iters=10;
-  int iters2=1000;
+  int iters2=100*iters;
  
   /* sanity check */
   if (!gasnett_atomic_decrement_and_test(thread_flag+id)) {
@@ -218,7 +246,7 @@ void * thread_fn(void *arg) {
     while (gasnett_atomic_read(&up) < 2*NUM_THREADS) gasnett_sched_yield(); 
 
     if (gasnett_atomic_read(&up) != 2*NUM_THREADS)
-      printf("ERROR: count-up post-barrier read\n");
+      ERR("count-up post-barrier read");
 
     /* simple count-down barrier */
     gasnett_atomic_decrement(&down);
@@ -230,7 +258,7 @@ void * thread_fn(void *arg) {
     while (gasnett_atomic_read(&down) > 0) gasnett_sched_yield(); 
 
     if (gasnett_atomic_read(&down) != 0)
-      printf("ERROR: count-down post-barrier read\n");
+      ERR("count-down post-barrier read");
   }
   
   if (id == 0) printf("parallel atomic-op pounding test...\n");
@@ -247,13 +275,12 @@ void * thread_fn(void *arg) {
   while (gasnett_atomic_read(&up) < 2*NUM_THREADS) gasnett_sched_yield(); 
 
   if (gasnett_atomic_read(&x1) != 10000+iters2*NUM_THREADS)
-    printf("ERROR: pounding inc test mismatch\n");
+    ERR("pounding inc test mismatch");
 
   if (gasnett_atomic_read(&x2) != 10000-iters2*NUM_THREADS)
-    printf("ERROR: pounding dec test mismatch\n");
+    ERR("pounding dec test mismatch");
 
   if (id == 0) printf("parallel dec-test pounding test...\n");
-
 
   gasnett_atomic_set(&x3, NUM_THREADS);
   gasnett_atomic_set(&x4, 0);
@@ -265,8 +292,8 @@ void * thread_fn(void *arg) {
   for (i=0;i<iters;i++) {
     if (gasnett_atomic_decrement_and_test(&x3)) { /* I won */
       gasnett_atomic_increment(&x5); /* tally win */
-      if (gasnett_atomic_read(&x3) != 0) printf("ERROR: pounding dec-test mismatch x3\n");
-      if (gasnett_atomic_read(&x4) != 0) printf("ERROR: pounding dec-test mismatch x4\n");
+      if (gasnett_atomic_read(&x3) != 0) ERR("pounding dec-test mismatch x3");
+      if (gasnett_atomic_read(&x4) != 0) ERR("pounding dec-test mismatch x4");
       gasnett_atomic_set(&x4, NUM_THREADS); /* go */
     } else {
       while (gasnett_atomic_read(&x4) == 0) gasnett_sched_yield(); /* I lost - wait */
@@ -274,8 +301,8 @@ void * thread_fn(void *arg) {
 
     if (gasnett_atomic_decrement_and_test(&x4)) { /* I won */
       gasnett_atomic_increment(&x5); /* tally win */
-      if (gasnett_atomic_read(&x3) != 0) printf("ERROR: pounding dec-test mismatch x3\n");
-      if (gasnett_atomic_read(&x4) != 0) printf("ERROR: pounding dec-test mismatch x4\n");
+      if (gasnett_atomic_read(&x3) != 0) ERR(" pounding dec-test mismatch x3");
+      if (gasnett_atomic_read(&x4) != 0) ERR("pounding dec-test mismatch x4");
       gasnett_atomic_set(&x3, NUM_THREADS); /* go */
     } else {
       while (gasnett_atomic_read(&x3) == 0) gasnett_sched_yield(); /* I lost - wait */
@@ -283,11 +310,75 @@ void * thread_fn(void *arg) {
   }
 
   if (gasnett_atomic_read(&x5) != 2*iters)
-    printf("ERROR: pounding dec-test mismatch\n");
+    ERR("pounding dec-test mismatch");
 
   gasnett_atomic_increment(&up);
   while (gasnett_atomic_read(&up) < 4*NUM_THREADS) gasnett_sched_yield(); 
 
+  if (id == 0) printf("parallel word-tearing test...\n");
+
+  gasnett_atomic_set(&x3, 0);
+  gasnett_atomic_set(&x4, 0);
+  gasnett_atomic_set(&x5, 0); 
+
+  gasnett_atomic_increment(&up);
+  while (gasnett_atomic_read(&up) < 5*NUM_THREADS) gasnett_sched_yield(); 
+
+  if (NUM_THREADS <= 100) {  /* need 2*NUM_THREADS + 1 < 255 to prevent byte overflow */
+    uint32_t x = id + 1;
+    uint32_t myval = (x << 24) | (x << 16) | (x << 8) | x;
+    for (i=0;i<iters2;i++) {
+      uint32_t v;
+      gasnett_atomic_set(&x3, myval);
+      gasnett_atomic_set(&x4, myval);
+      gasnett_atomic_set(&x5, myval);
+      gasnett_atomic_increment(&x4);
+      gasnett_atomic_decrement(&x5);
+      v = gasnett_atomic_read(&x3);
+      if (((v >> 24) & 0xFF) != (v & 0xFF) ||
+          ((v >> 16) & 0xFF) != (v & 0xFF) ||
+          ((v >>  8) & 0xFF) != (v & 0xFF)) 
+          ERR("observed word tearing on gasnett_atomic_set");
+      v = gasnett_atomic_read(&x4); 
+      /* bottom byte may have increased by up to NUM_THREADS, but high bytes must be same */
+      if (((v >> 24) & 0xFF) != ((v >>  8) & 0xFF) ||
+          ((v >> 16) & 0xFF) != ((v >>  8) & 0xFF)) 
+          ERR("observed word tearing on gasnett_atomic_set/gasnett_atomic_increment");
+      v = gasnett_atomic_read(&x5); 
+      v += NUM_THREADS;
+      /* bottom byte may have decreased by by  to NUM_THREADS, but high bytes must be same */
+      if (((v >> 24) & 0xFF) != ((v >>  8) & 0xFF) ||
+          ((v >> 16) & 0xFF) != ((v >>  8) & 0xFF)) 
+          ERR("observed word tearing on gasnett_atomic_set/gasnett_atomic_decrement");
+    }
+  }
+
+  gasnett_atomic_increment(&up);
+  while (gasnett_atomic_read(&up) < 6*NUM_THREADS) gasnett_sched_yield(); 
+
+  if (id == 0) printf("parallel membar test...\n");
+  valX[id] = 0;
+  valY[id] = 0;
+
+  gasnett_atomic_increment(&up);
+  while (gasnett_atomic_read(&up) < 7*NUM_THREADS) gasnett_sched_yield(); 
+
+  { int partner = (id + 1) % NUM_THREADS;
+    int lx, ly;
+    for (i=0;i<iters2;i++) {
+      valX[id] = i;
+      gasnett_local_wmb();
+      valY[id] = i;
+
+      ly = valY[partner];
+      gasnett_local_rmb();
+      lx = valX[partner];
+      if (lx < ly) ERR("mismatch in gasnett_local_wmb/gasnett_local_rmb test");
+    }
+  }
+
+  gasnett_atomic_increment(&up);
+  while (gasnett_atomic_read(&up) < 8*NUM_THREADS) gasnett_sched_yield(); 
 
   return NULL;
 }

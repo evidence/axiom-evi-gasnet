@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/14 23:43:07 $
-# $Revision: 1.228 $
+#     $Date: 2005/02/23 13:17:19 $
+# $Revision: 1.229 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.228 $)
+AC_REVISION($Revision: 1.229 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -574,13 +574,13 @@ case "$target_os" in
   unicos*)
 	AC_DEFINE(UNICOS)
         GASNET_MACHINE_DEFINES="-DUNICOS"
-        GASNET_THREAD_DEFINES="-D_REENTRANT"
         GASNET_THREAD_LIBS="-lpthread"
 	GASNET_TRY_CACHE_CHECK(for Cray T3E, cc_is_t3e, [], [
 	    #ifndef _CRAYT3E
 	      #error not Cray T3E
 	    #endif
 	  ], [
+            GASNET_THREAD_DEFINES="-D_REENTRANT"
 	    GASNET_MACHINE_DEFINES="$GASNET_MACHINE_DEFINES -DCRAYT3E"
 	    AC_DEFINE(CRAYT3E)
 	    use_pthreads=no  # pthreads are horribly broken on the T3E
@@ -590,6 +590,7 @@ case "$target_os" in
               #error not Cray X1
             #endif
           ], [
+            GASNET_THREAD_DEFINES="-D_REENTRANT -hthreadsafe"
             GASNET_MACHINE_DEFINES="$GASNET_MACHINE_DEFINES -DCRAYX1"
             AC_DEFINE(CRAYX1)
           ])

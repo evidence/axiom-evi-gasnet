@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/02/18 07:40:52 $
- * $Revision: 1.44 $
+ *     $Date: 2005/02/23 13:17:21 $
+ * $Revision: 1.45 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,18 +30,17 @@
 #include <gasnet.h>
 #include <gasnet_tools.h>
 
-#define GASNET_Safe(fncall) do {                            \
-    int retval;                                             \
-    if ((retval = fncall) != GASNET_OK) {                   \
-            fprintf(stderr, "ERROR calling: %s\n"           \
-                   " at: %s:%i\n"                           \
-                   " error: %s (%s)\n",                     \
-                   #fncall, __FILE__, __LINE__,             \
-                   gasnet_ErrorName(retval),                \
-                   gasnet_ErrorDesc(retval));               \
-            fflush(stderr);                                 \
-            gasnet_exit(retval);                            \
-    }                                                       \
+#define GASNET_Safe(fncall) do {                                     \
+    int _retval;                                                     \
+    if ((_retval = fncall) != GASNET_OK) {                           \
+      fprintf(stderr, "ERROR calling: %s\n"                          \
+                   " at: %s:%i\n"                                    \
+                   " error: %s (%s)\n",                              \
+              #fncall, __FILE__, __LINE__,                           \
+              gasnet_ErrorName(_retval), gasnet_ErrorDesc(_retval)); \
+      fflush(stderr);                                                \
+      gasnet_exit(_retval);                                          \
+    }                                                                \
   } while(0)
 
 #ifndef MIN
@@ -105,6 +104,16 @@ static void _MSG(const char *format, ...) {
 
 #define MSG GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _MSG
 
+#define check_zeroret(op) do {                                  \
+  int _retval = (op);                                           \
+  if_pf(_retval) MSG(#op": %s(%i)",strerror(_retval), _retval); \
+} while (0)
+
+#define check_nzeroret(op) do {                                  \
+  int _retval = (op);                                            \
+  if_pf(!_retval) MSG(#op": %s(%i)",strerror(_retval), _retval); \
+} while (0)
+
 #define BARRIER() do {                                                \
   gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            \
   GASNET_Safe(gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS)); \
@@ -117,21 +126,31 @@ static void _MSG(const char *format, ...) {
       static pthread_cond_t barrier_cond = PTHREAD_COND_INITIALIZER;
       static volatile unsigned int barrier_count = 0;
       static int volatile phase = 0;
-      pthread_mutex_lock(&barrier_mutex);
+      check_zeroret(pthread_mutex_lock(&barrier_mutex));
+      #ifdef __crayx1
+        /* this should not be necessary, but broken pthreads impl on x1 
+            segfaults in pthread_cond_broadcast otherwise */
+        { static int firsttime = 1;
+          if (firsttime) {
+            check_zeroret(pthread_cond_init(&barrier_cond, NULL));
+            firsttime = 0;
+          }  
+        }
+      #endif
       barrier_count++;
       if (barrier_count < local_pthread_count) {
         int myphase = phase;
         while (myphase == phase) {
-          pthread_cond_wait(&barrier_cond, &barrier_mutex);
+          check_zeroret(pthread_cond_wait(&barrier_cond, &barrier_mutex));
         }
       } else {  
         /* Now do the gasnet barrier */
         if (doGASNetbarrier) BARRIER();
         barrier_count = 0;
         phase = !phase;
-        pthread_cond_broadcast(&barrier_cond);
+        check_zeroret(pthread_cond_broadcast(&barrier_cond));
       }       
-      pthread_mutex_unlock(&barrier_mutex);
+      check_zeroret(pthread_mutex_unlock(&barrier_mutex));
   }
   #define PTHREAD_BARRIER(local_pthread_count)      \
     test_pthread_barrier(local_pthread_count, 1)

@@ -1,4 +1,4 @@
-/* $Id: testcas.c,v 1.7 2005/02/17 13:19:21 bonachea Exp $
+/* $Id: testcas.c,v 1.8 2005/02/23 13:17:21 bonachea Exp $
  *
  * Description: GASNet atomic CAS.
  *   The test verifies the atomic compare-and-swap on platforms which support it.
@@ -42,7 +42,9 @@ static gasneti_atomic_t counter2 = gasneti_atomic_init(0);
 static int iters = DEFAULT_ITERS;
 static int threads = DEFAULT_THREADS;
 
-static gasneti_atomic_t my_lock = gasneti_atomic_init(0);
+#ifdef GASNETI_HAVE_SPINLOCK
+  static gasneti_atomic_t my_lock = GASNETI_SPINLOCK_INITIALIZER;
+#endif
 
 static void *
 threadmain(void *args)

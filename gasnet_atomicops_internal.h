@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2005/02/20 10:13:26 $
- * $Revision: 1.11 $
+ *     $Date: 2005/02/23 13:17:19 $
+ * $Revision: 1.12 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -143,6 +143,16 @@
      }
      #define GASNETI_HAVE_ATOMIC_CAS 1
   #endif
+#elif defined(__crayx1) /* This works on X1, but NOT the T3E */
+    GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
+    int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, long oldval, long newval) {
+      long result;
+      gasneti_atomic_presync();
+      result = _amo_acswap(p, oldval, newval);
+      gasneti_atomic_postsync();
+      return (result == oldval); 
+    }
+    #define GASNETI_HAVE_ATOMIC_CAS 1
 #elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
     #if defined(__xlC__)
       static int32_t gasneti_atomic_swap_not_32(volatile int32_t *v, int32_t oldval, int32_t newval);

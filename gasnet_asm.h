@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2005/02/23 01:03:58 $
- * $Revision: 1.61 $
+ *     $Date: 2005/02/23 13:17:19 $
+ * $Revision: 1.62 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,7 +36,6 @@
     defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
     defined(_SX)       || /* NEC SX-6 atomics not available to user code? */ \
     defined(__hppa)    || /* PA-RISC seems to have no atomic ops */          \
-    defined(__crayx1)  || /* X1 atomics currently broken */                  \
     (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) /* haven't implemented atomics for PGI */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
@@ -380,24 +379,19 @@
   #elif defined(__crayx1) /* This works on X1, but NOT the T3E */
     #include <intrinsics.h>
     typedef volatile long gasneti_atomic_t;
-    /* DOB: man pages for atomic ops claim gsync is required for using atomic ops,
-       but trying to do so leads to crashes. Using atomic ops without gync gives
-       incorrect results (testtools fails)
+    /* man pages for atomic ops claim gsync is required for using atomic ops,
+       but it's unclear when exactly it is required for our purposes - 
+       experimentally determined using testtools that it's only required after the amo.
+       Note gsync call MUST be _gsync(0x1) - the manpage docs are gratuitiously wrong, 
+       everything else gives a bus error
      */
-    #if 1
-      #define gasneti_atomic_presync()  ((void)0)
-      #define gasneti_atomic_postsync() ((void)0)
-    #elif 0
-      #define gasneti_atomic_presync()  _gsync(0)
-      #define gasneti_atomic_postsync() _gsync(0)
-    #else
-      #define gasneti_atomic_presync()  _msync_msp(0)
-      #define gasneti_atomic_postsync() _msync_msp(0)
-    #endif
+    #define gasneti_atomic_presync()  ((void)0)
+    #define gasneti_atomic_postsync()  _gsync(0x1)
+
     #define gasneti_atomic_increment(p)	\
       (gasneti_atomic_presync(),_amo_aadd((p),(long)1),gasneti_atomic_postsync())
     #define gasneti_atomic_decrement(p)	\
-      (gasneti_atomic_presync(),_amo_aadd((p),(long)1),gasneti_atomic_postsync())
+      (gasneti_atomic_presync(),_amo_aadd((p),(long)-1),gasneti_atomic_postsync())
     #define gasneti_atomic_read(p)      (*(p))
     #define gasneti_atomic_set(p,v)     (*(p) = (v))
     #define gasneti_atomic_init(v)      (v)
@@ -405,7 +399,7 @@
     int gasneti_atomic_decrement_and_test(gasneti_atomic_t *p) {
        int retval;
        gasneti_atomic_presync();
-       retval = _amo_afadd((p),(long)-1) == 0;
+       retval = (_amo_afadd((p),(long)-1) == 1);
        gasneti_atomic_postsync();
        return retval;
     }
