@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2005/02/17 13:19:26 $
- * $Revision: 1.30 $
+ *     $Date: 2005/03/16 19:29:04 $
+ * $Revision: 1.31 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -458,10 +458,13 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
 extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
 
+#if GASNETC_PIN_SEGMENT
   if ((GASNETE_MEMSET_PUT_LIMIT != 0 ) && (nbytes <= GASNETE_MEMSET_PUT_LIMIT)) {
     /* XXX check error returns */
     gasnetc_rdma_memset(node, dest, val, nbytes, &eop->req_oust);
-  } else {
+  } else
+#endif
+  {
     gasnetc_counter_inc(&eop->req_oust);
     GASNETI_SAFE(
       SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
@@ -578,10 +581,13 @@ extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *iop = mythread->current_iop;
 
+#if GASNETC_PIN_SEGMENT
   if ((GASNETE_MEMSET_PUT_LIMIT != 0 ) && (nbytes <= GASNETE_MEMSET_PUT_LIMIT)) {
     /* XXX check error returns */
     gasnetc_rdma_memset(node, dest, val, nbytes, &iop->put_req_oust);
-  } else {
+  } else
+#endif
+  {
     gasnetc_counter_inc(&iop->put_req_oust);
     GASNETI_SAFE(
       SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
@@ -700,10 +706,13 @@ extern void gasnete_memset (gasnet_node_t node, void *dest, int val,
 		            size_t nbytes GASNETE_THREAD_FARG) {
   gasnetc_counter_t req_oust = GASNETC_COUNTER_INITIALIZER;
 
+#if GASNETC_PIN_SEGMENT
   if ((GASNETE_MEMSET_PUT_LIMIT != 0 ) && (nbytes <= GASNETE_MEMSET_PUT_LIMIT)) {
     /* XXX check error returns */
     gasnetc_rdma_memset(node, dest, val, nbytes, &req_oust);
-  } else {
+  } else
+#endif
+  {
     gasnetc_counter_inc(&req_oust);
     GASNETI_SAFE(
       SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
