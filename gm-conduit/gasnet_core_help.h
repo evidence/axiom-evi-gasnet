@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.23 2003/10/24 01:37:32 bonachea Exp $
- * $Date: 2003/10/24 01:37:32 $
- * $Revision: 1.23 $
+/* $Id: gasnet_core_help.h,v 1.24 2003/11/03 19:45:31 csbell Exp $
+ * $Date: 2003/11/03 19:45:31 $
+ * $Revision: 1.24 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -29,11 +29,21 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 
 /* -------------------------------------------------------------------------- */
 /* A few more obscure configurable parameters.                                */
-#define GASNETC_GM_MAXPORTS	8
+#define GASNETC_GM_MAXPORTS	gm_num_ports(NULL)
 #define GASNETC_GM_MAXBOARDS	3
 
 #if defined(GM_API_VERSION_2_0) && GM_API_VERSION >= GM_API_VERSION_2_0
 #define GASNETC_GM_2
+#endif
+
+/* Amount of physical memory that is pinnable. . reported to be 
+ * 70% by Myricom.  We use 60% to be safe. */
+#define GASNETC_PHYSMEM_PINNABLE_RATIO       0.6
+
+#ifdef GASNET_SEGMENT_FAST
+#define GASNETC_SEGMENT_PINNED	1
+#else 
+#define GASNETC_SEGMENT_PINNED	0
 #endif
 
 /* Puts changed to gm_put in the GM 2.x API revision */

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.32 2003/10/24 01:37:32 bonachea Exp $
- * $Date: 2003/10/24 01:37:32 $
- * $Revision: 1.32 $
+/* $Id: gasnet_core_receive.c,v 1.33 2003/11/03 19:45:31 csbell Exp $
+ * $Date: 2003/11/03 19:45:31 $
+ * $Revision: 1.33 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -26,7 +26,7 @@ gasnetc_node_lookup(uint16_t sender_node_id, uint16_t sender_port_id)
 
 	if_pf (!sender_node_id) GASNETI_RETURN_ERRR(BAD_ARG, 
 						"Wrong GM sender_node_id");
-	if_pf (sender_port_id < 1 || sender_port_id > 8)
+	if_pf (sender_port_id < 1 || sender_port_id >= GASNETC_GM_MAXPORTS)
 			GASNETI_RETURN_ERRR(BAD_ARG,
 						"Wrong GM sender_port_id");
 	gm_node_sender.id = sender_node_id;
@@ -139,7 +139,7 @@ gasnetc_AMPoll()
 			gasneti_mutex_unlock(&gasnetc_lock_gm);
 			
 			ptr = (uint8_t *) bufd->buf;
-			if (GASNETC_AM_IS_SYSTEM(ptr[0])) {
+			if_pf (GASNETC_AM_IS_SYSTEM(ptr[0])) {
 				gasnetc_process_AMSystem(bufd);
 
 				gasneti_mutex_lock(&gasnetc_lock_gm);
@@ -297,11 +297,11 @@ gasnetc_process_AMReply(gasnetc_bufdesc_t *bufd)
 	return;
 }
 
-extern uint8_t	gasnetc_bootstrapGather_buf[];
-extern int	gasnetc_bootstrapGather_recvd;
-extern int	gasnetc_bootstrapGather_sent;
-extern int	gasnetc_bootstrapBroadcast_recvd;
-extern int	gasnetc_bootstrapBroadcast_sent;
+extern uint8_t  gasnetc_bootstrapGather_buf[2][4096];
+volatile int	gasnetc_bootstrapGather_recvd[2];
+volatile int	gasnetc_bootstrapBroadcast_recvd[2];
+volatile int	gasnetc_bootstrapGather_sent;
+volatile int	gasnetc_bootstrapBroadcast_sent;
 
 void
 gasnetc_process_AMSystem(gasnetc_bufdesc_t *bufd)
@@ -309,6 +309,7 @@ gasnetc_process_AMSystem(gasnetc_bufdesc_t *bufd)
 	uint8_t		*hdr, msg;
 	uint8_t		*payload;
 	size_t		len, paylen = 0;
+	uint16_t	phase;
 
 	len = bufd->len;
 	hdr = (uint8_t *) bufd->buf;
@@ -318,28 +319,42 @@ gasnetc_process_AMSystem(gasnetc_bufdesc_t *bufd)
 
 	switch (msg) {
 		case GASNETC_SYS_GATHER:
-			gasneti_assert(gasnetc_mynode == 0 || (printf("mynode == %d\n", gasnetc_mynode),0));
+			phase = *((uint16_t *) hdr + 1);
+			gasneti_assert(phase == 0 || phase == 1);
 			if (len > 4) {
 				paylen = len - 4;
 				gasneti_assert(bufd->node*paylen+paylen < 4096);
-				memcpy(gasnetc_bootstrapGather_buf + 
-				       bufd->node*paylen, payload, paylen);
 
+				memcpy(gasnetc_bootstrapGather_buf[phase]
+				    + bufd->node*paylen, payload, paylen);
 			}
-			gasnetc_bootstrapGather_recvd++;
+
+			gasnetc_bootstrapGather_recvd[phase]++;
+			#if 0
+			printf("0> %s phase from node %d (counter=%d)\n",
+					phase ? "odd" : "even", bufd->node,
+					gasnetc_bootstrapGather_recvd[phase]);
+			#endif
+			
 			GASNETI_TRACE_PRINTF(C, 
 			    ("AMSystem Gather Received (node=%d,msg=0x%x,"
 			     "paylen=%d)", bufd->node, msg, paylen));
 			break;
 
 		case GASNETC_SYS_BROADCAST:
-			gasneti_assert(gasnetc_mynode != 0);
+			phase = *((uint16_t *) hdr + 1);
 			if (len > 4) {
 				paylen = len - 4;
-				memcpy(gasnetc_bootstrapGather_buf, 
-						payload, paylen);
+				memcpy(gasnetc_bootstrapGather_buf[phase],
+				    payload, paylen);
 			}
-			gasnetc_bootstrapBroadcast_recvd++;
+			gasnetc_bootstrapBroadcast_recvd[phase]++;
+			gasneti_assert(
+			    gasnetc_bootstrapBroadcast_recvd[phase] == 1);
+			#if 0
+			printf("%d> GOT phase %s BROADCAST!\n", gasnetc_mynode,
+					phase ? "odd" : "even");
+			#endif
 			GASNETI_TRACE_PRINTF(C, 
 			    ("AMSystem Broadcast Received (node=%d,msg=0x%x,"
 			     "paylen=%d)", bufd->node, msg, paylen));

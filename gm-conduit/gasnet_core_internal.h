@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.50 2003/10/24 01:37:32 bonachea Exp $
- * $Date: 2003/10/24 01:37:32 $
- * $Revision: 1.50 $
+/* $Id: gasnet_core_internal.h,v 1.51 2003/11/03 19:45:31 csbell Exp $
+ * $Date: 2003/11/03 19:45:31 $
+ * $Revision: 1.51 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -88,10 +88,9 @@ int	gasnetc_alloc_nodemap(int);
 int	gasnetc_gmport_allocate(int *board, int *port);
 
 /* 3 bootstrapping methods */
-int	gasnetc_getconf_conffile();
-int	gasnetc_getconf_BNR();
-int	gasnetc_getconf_sockets();
-int	gasnetc_getconf();
+void	gasnetc_getconf_conffile();
+void	gasnetc_getconf_mpiexec();
+void	gasnetc_getconf();
 
 uintptr_t 	gasnetc_getPhysMem();
 void		gasnetc_am_medcopy(gasnet_token_t token, void *addr, 
@@ -236,8 +235,7 @@ struct _gasnetc_state {
 	gasnetc_bufdesc_t	*fifo_bd_tail;
 
 	/* Bootstrap parameters for TCP-assisted bootstrap */
-	unsigned int	master_port1;	/* GM port for master */
-	unsigned int	master_port2;	/* GM port for master */
+	unsigned int	master_port;	/* GM port for master */
 	unsigned int	my_id;
 	unsigned int	my_port;
 	unsigned int	my_board;
@@ -246,6 +244,7 @@ struct _gasnetc_state {
 	uintptr_t	pinnable_global;
 
 	struct sockaddr_in	master_addr;
+	struct sockaddr_in	slave_addr;
 
 
 	void		*reqsbuf;	/* DMAd portion of send buffers */
