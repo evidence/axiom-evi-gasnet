@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/02/18 13:32:15 $
- * $Revision: 1.71 $
+ *     $Date: 2005/04/06 09:35:14 $
+ * $Revision: 1.72 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -215,7 +215,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 	gasnetc_max_lapi_uhdr_size = GASNETC_TOKEN_SIZE;
     }
     if (gasnetc_max_lapi_data_size < GASNETC_AM_MAX_LONG) {
-	gasneti_fatalerror("Must recompile with GASNETC_AM_MAX_LONG <= %u",
+	gasneti_fatalerror("Must recompile with GASNETC_AM_MAX_LONG <= %lu",
 			   gasnetc_max_lapi_data_size);
     }
 
