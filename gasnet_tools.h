@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2004/10/16 19:19:47 $
- * $Revision: 1.23 $
+ *     $Date: 2005/01/23 00:18:41 $
+ * $Revision: 1.24 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -77,6 +77,7 @@
   #define GASNETT_PAGESHIFT GASNETI_PAGESHIFT
 #endif
 
+#define GASNETT_INLINE_MODIFIER(fnname) GASNET_INLINE_MODIFIER(fnname) 
 
 /* ------------------------------------------------------------------------------------ */
 
