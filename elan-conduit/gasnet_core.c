@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core.c                  $
- *     $Date: 2004/05/19 07:35:36 $
- * $Revision: 1.40 $
+ *     $Date: 2004/08/01 09:22:41 $
+ * $Revision: 1.41 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,7 +22,12 @@
 
   /* signal used to propagate exit notification across job using RMS global signalling */
   #ifndef GASNETC_REMOTEEXIT_SIGNAL
-    #define GASNETC_REMOTEEXIT_SIGNAL  SIGUSR1
+    #ifdef SIGURG
+      /* give preference to SIGURG, because SIGUSR1 kills the entire job on bsub (PNNL) */
+      #define GASNETC_REMOTEEXIT_SIGNAL  SIGURG
+    #else
+      #define GASNETC_REMOTEEXIT_SIGNAL  SIGUSR1
+    #endif
   #endif
   static void gasnetc_remoteexithandler(int sig);
 #endif
