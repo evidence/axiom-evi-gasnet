@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/07/08 13:00:31 $
-# $Revision: 1.14 $
+#     $Date: 2002/07/27 21:29:21 $
+# $Revision: 1.15 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.14 $)
+AC_REVISION($Revision: 1.15 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -175,6 +175,9 @@ GASNET_IF_ENABLED(debug, Build GASNet in a debugging mode,
   [ CFLAGS="$CCOPTFLAGS"
     BUILDCONFIGFLAGS="-DNDEBUG"
     BUILDCONFIG="optimize"])
+
+GASNET_IF_ENABLED(gasnet-quiet, Build GASNet lib w/o debug messages, 
+  [ BUILDCONFIGFLAGS="$BUILDCONFIGFLAGS -DGASNET_QUIET"], [])
 
 GASNET_IF_ENABLED(trace, Build GASNet with tracing enabled, 
   BUILDCONFIGFLAGS="$BUILDCONFIGFLAGS -DTRACE", )

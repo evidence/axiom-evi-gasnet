@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2002/06/16 09:19:26 $
- * $Revision: 1.2 $
+ *     $Date: 2002/07/27 21:29:25 $
+ * $Revision: 1.3 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -55,7 +55,7 @@ static void freezeForDebugger() {
   _freezeForDebugger(0);
 }
 
-#ifdef DEBUG
+#if DEBUG_VERBOSE
   #define DEBUG_MSG(msg)  do { fprintf(stderr,"slave %i: %s\n", AMMPI_SPMDMYPROC, msg); fflush(stderr); } while(0)
 #else
   #define DEBUG_MSG(msg)  do {} while(0) /* prevent silly warnings about empty statements */
@@ -165,7 +165,7 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
   assert(AMMPI_SPMDNUMPROCS > 0);
   assert(AMMPI_SPMDMYPROC >= 0 && AMMPI_SPMDMYPROC < AMMPI_SPMDNUMPROCS);
 
-  #ifdef DEBUG
+  #if DEBUG_VERBOSE
     fprintf(stderr, "slave %i/%i starting...\n", AMMPI_SPMDMYPROC, AMMPI_SPMDNUMPROCS);
     fflush(stderr);
   #endif
@@ -258,7 +258,7 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
 
   MPI_SAFE(MPI_Barrier(AMMPI_SPMDMPIComm)); /* wait for all control handlers to be registered */
 
-  #ifdef DEBUG
+  #if DEBUG_VERBOSE
   { char temp[80];
     tag_t tag;
     AM_GetTag(AMMPI_SPMDEndpoint, &tag);
