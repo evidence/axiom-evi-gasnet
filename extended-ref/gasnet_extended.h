@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2003/02/18 03:01:05 $
- * $Revision: 1.15 $
+ *     $Date: 2003/05/13 19:05:37 $
+ * $Revision: 1.16 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -378,7 +378,7 @@ int _gasnet_try_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
   gasnet_AMPoll(); /* ensure at least one poll */                                                \
   gasnete_pollwhile(gasnete_try_syncnbi_gets(GASNETE_THREAD_GET_ALONE) == GASNET_ERR_NOT_READY); \
   gasnete_pollwhile(gasnete_try_syncnbi_puts(GASNETE_THREAD_GET_ALONE) == GASNET_ERR_NOT_READY); \
-  GASNETI_TRACE_WAITSYNC_END(WAIT_SYNCNBI_PUTS);                                                 \
+  GASNETI_TRACE_WAITSYNC_END(WAIT_SYNCNBI_ALL);                                                 \
   } while (0)
         
 /* ------------------------------------------------------------------------------------ */
