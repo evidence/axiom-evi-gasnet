@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/11/09 03:32:53 $
- * $Revision: 1.14 $
+ *     $Date: 2003/11/09 16:22:09 $
+ * $Revision: 1.15 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -26,7 +26,7 @@
 #ifndef _INTTYPES_DEFINED
 #define _INTTYPES_DEFINED
 #if defined(WIN32)
-  typedef __int8             int8_t;
+  typedef signed __int8      int8_t;
   typedef unsigned __int8   uint8_t;
   typedef __int16           int16_t;
   typedef unsigned __int16 uint16_t;
@@ -37,7 +37,7 @@
 
   typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
 #elif defined(CRAYT3E)
-  typedef char               int8_t;
+  typedef signed char        int8_t;
   typedef unsigned char     uint8_t;
   typedef short             int16_t; /* This is 32-bits, should be 16 !!! */
   typedef unsigned short   uint16_t; /* This is 32-bits, should be 16 !!! */
