@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_eager.c,v $
- *     $Date: 2004/08/26 04:53:34 $
- * $Revision: 1.8 $
+ *     $Date: 2004/09/24 19:28:58 $
+ * $Revision: 1.9 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -780,6 +780,7 @@ extern void gasnete_coll_init(const size_t images[],
 	gasneti_handler_tableentry_no_bits(gasnete_coll_p2p_eager_reqh)
 
     /* Put up to gasnet_AMMaxLongRequest() bytes, signalling the recipient */
+    /* Returns as soon as local buffer is reusable */
     void gasnete_coll_p2p_signalling_put(gasnete_coll_op_t *op, gasnet_node_t dstnode, void *dst,
 					 void *src, size_t nbytes, uint32_t offset, uint32_t state) {
       uint32_t team_id = gasnete_coll_team_id(op->team);
@@ -789,6 +790,19 @@ extern void gasnete_coll_init(const size_t images[],
       GASNETE_SAFE(
 	LONG_REQ(4,4,(dstnode, gasneti_handleridx(gasnete_coll_p2p_put_reqh),
 		      src, nbytes, dst, team_id, op->sequence, offset, state)));
+    }
+
+    /* Put up to gasnet_AMMaxLongRequest() bytes, signalling the recipient */
+    /* Returns immediately even if the local buffer is not yet reusable */
+    void gasnete_coll_p2p_signalling_putAsync(gasnete_coll_op_t *op, gasnet_node_t dstnode, void *dst,
+					      void *src, size_t nbytes, uint32_t offset, uint32_t state) {
+      uint32_t team_id = gasnete_coll_team_id(op->team);
+
+      gasneti_assert(nbytes <= gasnet_AMMaxLongRequest());
+
+      GASNETE_SAFE(
+	LONGASYNC_REQ(4,4,(dstnode, gasneti_handleridx(gasnete_coll_p2p_put_reqh),
+			   src, nbytes, dst, team_id, op->sequence, offset, state)));
     }
 
     /* Send data to be buffered by the recipient */

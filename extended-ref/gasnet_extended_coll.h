@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/Attic/gasnet_extended_coll.h,v $
- *     $Date: 2004/09/14 05:48:33 $
- * $Revision: 1.10 $
+ *     $Date: 2004/09/24 19:28:58 $
+ * $Revision: 1.11 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -200,6 +200,8 @@ extern gasnete_coll_p2p_t *gasnete_coll_p2p_get(uint32_t team_id, uint32_t seque
 extern void gasnete_coll_p2p_destroy(gasnete_coll_p2p_t *p2p);
 extern void gasnete_coll_p2p_signalling_put(gasnete_coll_op_t *op, gasnet_node_t dstnode, void *dst,
                                             void *src, size_t nbytes, uint32_t pos, uint32_t state);
+extern void gasnete_coll_p2p_signalling_putAsync(gasnete_coll_op_t *op, gasnet_node_t dstnode, void *dst,
+						 void *src, size_t nbytes, uint32_t pos, uint32_t state);
 
 /* Treat the eager buffer space at dstnode as an array of elements of length 'size'.
  * Copy 'count' elements to that buffer, starting at element 'offset' at the destination.
