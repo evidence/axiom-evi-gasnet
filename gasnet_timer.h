@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/02/11 01:14:13 $
- * $Revision: 1.30 $
+ *     $Date: 2005/02/28 00:21:15 $
+ * $Revision: 1.31 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -226,6 +226,88 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
           char *p = strchr(input,':');
 	  double MHz = 0.0;
           if (p) MHz = atof(p+1);
+          assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
+          Tick = 1. / MHz;
+          break;
+        }
+      }
+      fclose(fp);
+      assert(Tick != 0.0);
+      firstTime = 0;
+    }
+    return (uint64_t)(st * Tick);
+  }
+  #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
+  #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
+#elif 0 && defined(LINUX) && defined(__GNUC__) && defined(__PPC__)
+  /* DISABLED FOR NOW.
+   *
+   * This code shows how to get the 64-bit "timebase" register on both 32- and
+   * 64-bit PowerPC CPUs.  Unfortunetly, there is no reliable way for us to get
+   * its frequency.  The processor docs say the frequency is implementation
+   * dependent.  Indeed I find CPUs where it is 1/2 of the reported CPU
+   * frequency and others where it is 1/4.  Docs indicate that for yet another
+   * it is a fixed 66MHz regardless of CPU frequency.
+   *
+   * The Linux kernel uses this counter for its implementation of gettimeofday
+   * and thus does some boot time measurements against hardware of known (or
+   * programmable) frequency.  I find that only on SOME kernels on SOME models
+   * does the Linux kernel choose to share this information with us (via
+   * /proc/cpuinfo) as shown in the stattime_to_us given here.
+   *
+   * I suppose we can calibrate the frequency of this counter against
+   * gettimeofday(), but to be accurate may require an unreasonably long delay
+   * the first time we convert to microseconds.  A possible way to keep the 
+   * delay low is to assume that the frequency is either 66MHz or the CPU
+   * frequency (in /proc/cpuinfo) divided by some small integer (1..16?).
+   * That should be possible to do with reasonable accuracy with a delay of no
+   * more than a few hundred microseconds on the first call.
+   *
+   * -PHH Feb 27, 2005
+   */
+  #include <stdio.h>
+  #include <stdlib.h>
+  #include <string.h>
+  #include <math.h>
+  typedef uint64_t gasneti_stattime_t;
+  GASNET_INLINE_MODIFIER(gasneti_stattime_now)
+  uint64_t gasneti_stattime_now (void) {
+    uint64_t ret;
+    #if defined(__PPC64__)
+      __asm__ __volatile__("mftb %0"
+                           : "=r" (ret)
+                           : /* no inputs */); 
+    #else
+      /* Note we must read hi twice to protect against wrap of lo */
+      uint32_t o_hi, hi, lo;
+      __asm__ __volatile__("0: \n\t"
+		           "mftbu %0\n\t"
+			   "mftbl %1\n\t"
+			   "mftbu %2\n\t"
+			   "cmpw  %0, %2\n\t"
+			   "bne- 0b\n\t"
+                           : "=r" (o_hi), "=r" (lo), "=r" (hi)
+                           : /* no inputs */); 
+      ret = ((uint64_t)hi << 32) | lo;
+    #endif
+    return ret;
+  } 
+  GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
+  uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
+    static int firstTime = 1;
+    static double Tick = 0.0;
+    if_pf (firstTime) {
+      FILE *fp = fopen("/proc/cpuinfo","r");
+      char input[255];
+      if (!fp) {
+        fprintf(stderr,"*** ERROR: Failure in fopen('/proc/cpuinfo','r')=%s",strerror(errno));
+        abort();
+      }
+      while (!feof(fp) && fgets(input, 255, fp)) {
+        if (strstr(input,"timebase")) {
+          char *p = strchr(input,':');
+	  double MHz = 0.0;
+          if (p) MHz = atof(p+1) * 1e-6;
           assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
           Tick = 1. / MHz;
           break;
