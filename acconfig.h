@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/04/05 09:30:42 $ */
-/*  $Revision: 1.26 $ */
+/*      $Date: 2004/04/10 08:39:35 $ */
+/*  $Revision: 1.27 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -24,6 +24,9 @@
 
 /* have mmap() */
 #undef HAVE_MMAP
+
+/* --with-segment-mmap-max value (if given) */
+#undef GASNETI_MMAP_MAX_SIZE
 
 /* has usleep() */
 #undef HAVE_USLEEP

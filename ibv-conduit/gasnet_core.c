@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/04/06 16:15:03 $
- * $Revision: 1.47 $
+ *     $Date: 2004/04/10 08:39:36 $
+ * $Revision: 1.48 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -236,8 +236,6 @@ static unsigned long gasnetc_get_physpages()
 #endif
 
 /* Some stuff not exported from gasnet_mmap.c: */
-#define GASNETI_MMAP_MAX_SIZE   ((((size_t)2)<<30) - GASNET_PAGESIZE)  /* ~2 GB */
-#define GASNETI_MMAP_GRANULARITY  (((size_t)2)<<21)  /* 4 MB */
 extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz);
 
 /* Search for largest region we can allocate and pin */
@@ -265,7 +263,7 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
     }
   }
   #endif
-  si = gasneti_mmap_segment_search(MIN(pages*GASNET_PAGESIZE, GASNETI_MMAP_MAX_SIZE));
+  si = gasneti_mmap_segment_search(MIN(pages*GASNET_PAGESIZE, GASNETI_MMAP_LIMIT));
 
   if (si.addr == NULL) return 0;
 

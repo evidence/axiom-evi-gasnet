@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2004/03/31 14:18:04 $
- * $Revision: 1.21 $
+ *     $Date: 2004/04/10 08:39:35 $
+ * $Revision: 1.22 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,19 +18,6 @@
 
 #ifdef HAVE_MMAP
 #include <sys/mman.h>
-/* ------------------------------------------------------------------------------------ */
-/* MMAP_INITIAL_SIZE controls the maz size segment attempted by the mmap binary search
- * MMAP_GRANULARITY is the minimum increment used by the mmap binary search
- */
-#ifndef GASNETI_MMAP_MAX_SIZE
-  /* can't use a full 2 GB due to sign bit problems 
-     on the int argument to mmap() for some 32-bit systems
-   */
-  #define GASNETI_MMAP_MAX_SIZE	  ((((size_t)2)<<30) - GASNET_PAGESIZE)  /* 2 GB */
-#endif
-#ifndef GASNETI_MMAP_GRANULARITY
-  #define GASNETI_MMAP_GRANULARITY  (((size_t)2)<<21)  /* 4 MB */
-#endif
 
 #if defined(IRIX)
   #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_SGI_ANYADDR | MAP_AUTORESRV)
@@ -57,7 +44,7 @@
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-static void *gasneti_mmap_internal(void *segbase, size_t segsize) {
+static void *gasneti_mmap_internal(void *segbase, uintptr_t segsize) {
   static int gasneti_mmapfd = -1;
   gasneti_stattime_t t1, t2;
   void	*ptr;
@@ -106,14 +93,14 @@ static void *gasneti_mmap_internal(void *segbase, size_t segsize) {
   }
   return ptr;
 }
-extern void gasneti_mmap_fixed(void *segbase, size_t segsize) {
+extern void gasneti_mmap_fixed(void *segbase, uintptr_t segsize) {
   gasneti_mmap_internal(segbase, segsize);
 }
-extern void *gasneti_mmap(size_t segsize) {
+extern void *gasneti_mmap(uintptr_t segsize) {
   return gasneti_mmap_internal(NULL, segsize);
 }
 /* ------------------------------------------------------------------------------------ */
-extern void gasneti_munmap(void *segbase, size_t segsize) {
+extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
   gasneti_stattime_t t1, t2;
   gasneti_assert(segsize > 0);
   t1 = GASNETI_STATTIME_NOW();
@@ -137,7 +124,7 @@ extern void gasneti_munmap(void *segbase, size_t segsize) {
 }
 /* ------------------------------------------------------------------------------------ */
 /* binary search for segment - returns location, not mmaped */
-static gasnet_seginfo_t gasneti_mmap_binary_segsrch(size_t lowsz, size_t highsz) {
+static gasnet_seginfo_t gasneti_mmap_binary_segsrch(uintptr_t lowsz, uintptr_t highsz) {
   gasnet_seginfo_t si;
 
   if (highsz - lowsz <= GASNETI_MMAP_GRANULARITY) {
@@ -163,7 +150,7 @@ static gasnet_seginfo_t gasneti_mmap_binary_segsrch(size_t lowsz, size_t highsz)
   }
 }
 /* descending linear search for segment - returns location mmaped */
-static gasnet_seginfo_t gasneti_mmap_lineardesc_segsrch(size_t highsz) {
+static gasnet_seginfo_t gasneti_mmap_lineardesc_segsrch(uintptr_t highsz) {
   gasnet_seginfo_t si;
   si.addr = MAP_FAILED;
   si.size = highsz;
@@ -178,7 +165,7 @@ static gasnet_seginfo_t gasneti_mmap_lineardesc_segsrch(size_t highsz) {
   return si;
 }
 /* ascending linear search for segment - returns location, not mmaped */
-static gasnet_seginfo_t gasneti_mmap_linearasc_segsrch(size_t highsz) {
+static gasnet_seginfo_t gasneti_mmap_linearasc_segsrch(uintptr_t highsz) {
   gasnet_seginfo_t si;
   gasnet_seginfo_t last_si = { NULL, 0 };
   si.size = GASNET_PAGESIZE;
