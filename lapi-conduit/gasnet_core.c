@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/08/07 23:53:12 $
- * $Revision: 1.55 $
+ *     $Date: 2004/08/15 16:16:26 $
+ * $Revision: 1.56 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -60,7 +60,6 @@ gasnet_seginfo_t *gasnetc_seginfo = NULL;
  * -------------------------------------------------------------------
  */
 lapi_handle_t  gasnetc_lapi_context;
-lapi_info_t    gasnetc_lapi_info;
 int            gasnetc_max_lapi_uhdr_size;
 #if defined(__64BIT__)
 ulong          gasnetc_max_lapi_data_size;
@@ -142,6 +141,7 @@ static void gasnetc_bootstrapBarrier() {
 static int gasnetc_init(int *argc, char ***argv) {
     int task_id;
     int num_tasks;
+    lapi_info_t    gasnetc_lapi_info;
 
     /*  check system sanity */
     gasnetc_check_config();
@@ -662,7 +662,7 @@ extern void gasnetc_exit(int exitcode) {
 	}
 
 	/* wait for local completion so arg to Amsend does not go out of scope */
-	GASNETC_WAITCNTR(&cntr,0,NULL);
+	GASNETC_WAITCNTR(&cntr,gasnetc_nodes-1,NULL);
     	    
 #if GASNETC_VERBOSE_EXIT
 	fprintf(stderr,">> GASNET_EXIT[%d]: Finished sending exit AMs\n",gasnetc_mynode);
