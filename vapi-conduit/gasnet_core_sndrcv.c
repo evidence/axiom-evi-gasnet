@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/15 03:13:32 $
- * $Revision: 1.76 $
+ *     $Date: 2005/03/16 19:50:27 $
+ * $Revision: 1.77 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -946,6 +946,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   size_t msg_len;
   int retval, i;
   int use_inline = 0;
+  #if !GASNETC_PIN_SEGMENT
+    gasnetc_counter_t rdma_oust = GASNETC_COUNTER_INITIALIZER;
+  #endif
 
   /* FIRST, if using firehose then Long requests may need AMs for moves.
    * Thus we do any RDMA before getting credits.
@@ -953,13 +956,21 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   if ((category == gasnetc_Long) && nbytes) {
     if (dest == gasneti_mynode) {
       memcpy(dst_addr, src_addr, nbytes);
-    } else if (!GASNETC_PIN_SEGMENT && token) {
-      /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s).
-       * We'll send it like a Medium below.
-       */
     } else {
       /* XXX check for error returns */
-      (void)gasnetc_rdma_put(dest, src_addr, dst_addr, nbytes, mem_oust, NULL);
+      #if GASNETC_PIN_SEGMENT
+	/* Remote segment is pinned and we can count on point-to-point ordering */
+        (void)gasnetc_rdma_put(dest, src_addr, dst_addr, nbytes, mem_oust, NULL);
+      #else
+	/* We can't count on point-to-point ordering, so we'll block before sending the header */
+	if (!token) {
+          (void)gasnetc_rdma_put(dest, src_addr, dst_addr, nbytes, mem_oust, &rdma_oust);
+	} else {
+	  /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s).
+	   * We'll send it like a Medium below.
+	   */
+	}
+      #endif
     }
   }
 
@@ -1085,6 +1096,14 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       gasnetc_counter_inc(req_oust);
       sreq->req_oust = req_oust;
     }
+
+    #if !GASNETC_PIN_SEGMENT
+      /* Wait for RDMA of Long payload if any */
+      if (!gasnetc_counter_done(&rdma_oust)) {
+	gasneti_assert(!token); /* must not get here for a Reply */
+        gasnetc_counter_wait_aux(&rdma_oust, 0);
+      }
+    #endif
 
     if_pt (use_inline) {
       gasnetc_snd_post_inline(sreq, sr_desc);
