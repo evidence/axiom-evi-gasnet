@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/04/01 07:27:33 $
- * $Revision: 1.29 $
+ *     $Date: 2003/04/01 12:27:23 $
+ * $Revision: 1.30 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -549,9 +549,9 @@ extern void gasneti_trace_finish() {
         if (!try_succ->count)
           gasneti_trace_printf("%-25s  %6i","Total try sync. calls:",0);
         else
-          gasneti_trace_printf("%-25s  %6i  try success rate = %f%%  \n"
+          gasneti_trace_printf("%-25s  %6i  try success rate = %f%%  \n",
             "Total try sync. calls:",  ((int)try_succ->count),
-            CALC_AVG((double)try_succ->sumval, try_succ->count) * 100.0);
+            (float)(CALC_AVG((float)try_succ->sumval, try_succ->count) * 100.0));
         if (!wait_time->count)
           gasneti_trace_printf("%-25s  %6i","Total wait sync. calls:",0);
         else
