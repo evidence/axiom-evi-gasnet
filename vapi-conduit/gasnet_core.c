@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/25 19:55:31 $
- * $Revision: 1.12 $
+ *     $Date: 2003/08/25 21:06:34 $
+ * $Revision: 1.13 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -288,10 +288,10 @@ static int gasnetc_init(int *argc, char ***argv) {
   assert(remote_addr != NULL);
 
   /* open the hca and get port & lid values */
-  /* XXX: should also check args/env for non-default HCA and port */
   {
     VAPI_hca_vendor_t hca_vendor;
 
+    /* XXX: also need to check env/args for HCA ID and/or use enumeration */
     vstat = VAPI_open_hca(GASNETC_HCA_ID, &gasnetc_hca);
     if (vstat != VAPI_OK) {
       vstat = EVAPI_get_hca_hndl(GASNETC_HCA_ID, &gasnetc_hca);
@@ -301,22 +301,28 @@ static int gasnetc_init(int *argc, char ***argv) {
     vstat = VAPI_query_hca_cap(gasnetc_hca, &hca_vendor, &gasnetc_hca_cap);
     assert(vstat == VAPI_OK && "Unable to query HCA capabilities");
 
-    for (port = 1; port <= gasnetc_hca_cap.phys_port_num; ++port) {
-      vstat = VAPI_query_hca_port_prop(gasnetc_hca, port, &gasnetc_hca_port);
+    /* XXX: also need to check env/args for port number */
+    #if GASNETC_HCA_PORT
+      vstat = VAPI_query_hca_port_prop(gasnetc_hca, GASNETC_HCA_PORT, &gasnetc_hca_port);
       assert(vstat == VAPI_OK);
+      assert(gasnetc_hca_port.state == PORT_ACTIVE);
+    #else
+      for (port = 1; port <= gasnetc_hca_cap.phys_port_num; ++port) {
+        vstat = VAPI_query_hca_port_prop(gasnetc_hca, port, &gasnetc_hca_port);
+        assert(vstat == VAPI_OK);
 
-      if (gasnetc_hca_port.state == PORT_ACTIVE) {
-	break;
+        if (gasnetc_hca_port.state == PORT_ACTIVE) {
+	  break;
+        }
       }
-    }
-
-    assert(port <= gasnetc_hca_cap.phys_port_num && "No ACTIVE ports found");
+      assert(port <= gasnetc_hca_cap.phys_port_num && "No ACTIVE ports found");
+    #endif
   }
 
   /* check hca and port properties */
   assert(gasnetc_hca_cap.max_num_qp >= gasnetc_nodes);
-  assert(gasnetc_hca_cap.max_qp_ous_wr >= GASNETC_SND_WQE);
-  assert(gasnetc_hca_cap.max_qp_ous_wr >= GASNETC_RCV_WQE);
+  assert(gasnetc_hca_cap.max_qp_ous_wr >= GASNETC_OP_OUST_PP);
+  assert(gasnetc_hca_cap.max_qp_ous_wr >= GASNETC_AM_OUST_PP * 2);
   assert(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_SND_SG);
   assert(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_RCV_SG);
   assert(gasnetc_hca_cap.max_num_sg_ent_rd >= 1);		/* RDMA Read support required */
@@ -328,8 +334,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     assert(gasnetc_hca_cap.max_ee_ous_rd_atom >= 1);		/* RDMA Read support required */
   #endif
   assert(gasnetc_hca_cap.max_num_cq >= 2);
-  assert(gasnetc_hca_cap.max_num_ent_cq >= GASNETC_SND_CQ_SIZE);
-  assert(gasnetc_hca_cap.max_num_ent_cq >= GASNETC_RCV_CQ_SIZE);
+  assert(gasnetc_hca_cap.max_num_ent_cq >= GASNETC_OP_OUST_LIMIT);
+  assert(gasnetc_hca_cap.max_num_ent_cq >= GASNETC_AM_OUST_LIMIT * 2); /* request + reply == 2 */
   #if defined(GASNET_SEGMENT_EVERYTHING)
     assert(gasnetc_hca_cap.max_num_mr >= (3+gasnetc_nodes));	/* rcv bufs, snd bufs, segment, n*fh */
   #else
@@ -350,8 +356,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     VAPI_qp_init_attr_t	qp_init_attr;
     VAPI_qp_prop_t	qp_prop;
 
-    qp_init_attr.cap.max_oust_wr_rq = GASNETC_RCV_WQE;
-    qp_init_attr.cap.max_oust_wr_sq = GASNETC_SND_WQE;
+    qp_init_attr.cap.max_oust_wr_rq = GASNETC_AM_OUST_PP * 2;
+    qp_init_attr.cap.max_oust_wr_sq = GASNETC_OP_OUST_PP;
     qp_init_attr.cap.max_sg_size_rq = GASNETC_RCV_SG;
     qp_init_attr.cap.max_sg_size_sq = GASNETC_SND_SG;
     qp_init_attr.pd_hndl            = gasnetc_pd;
@@ -368,8 +374,8 @@ static int gasnetc_init(int *argc, char ***argv) {
       /* create the QP */
       vstat = VAPI_create_qp(gasnetc_hca, &qp_init_attr, &gasnetc_cep[i].qp_handle, &qp_prop);
       assert(vstat == VAPI_OK);
-      assert(qp_prop.cap.max_oust_wr_rq >= GASNETC_RCV_WQE);
-      assert(qp_prop.cap.max_oust_wr_sq >= GASNETC_SND_WQE);
+      assert(qp_prop.cap.max_oust_wr_rq >= GASNETC_AM_OUST_PP * 2);
+      assert(qp_prop.cap.max_oust_wr_sq >= GASNETC_OP_OUST_PP);
 
       local_addr[i].lid = gasnetc_hca_port.lid;
       local_addr[i].qp_num = qp_prop.qp_num;

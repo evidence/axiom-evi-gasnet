@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/08/23 00:23:39 $
- * $Revision: 1.14 $
+ *     $Date: 2003/08/25 21:06:34 $
+ * $Revision: 1.15 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -213,18 +213,22 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* ------------------------------------------------------------------------------------ */
 
-#define GASNETC_HCA_ID  "InfiniHost0"
-#define GASNETC_RCV_CQ_SIZE 65535   	/* maximum unreaped entries on a rcv CQ */
-#define GASNETC_SND_CQ_SIZE 1024   	/* maximum unreaped entries on a snd CQ */
+/* Default HCA and Port */
+#define GASNETC_HCA_ID		"InfiniHost0"
+#define GASNETC_HCA_PORT	0		/* 0 = use lowest-numbered active port */
 
-#define GASNETC_SND_WQE 16		/* maximum queued entries on a snd work queue */
+/* Limits on in-flight (sent but not acknowledged) RDMA Ops */
+#define GASNETC_OP_OUST_LIMIT	1024	/* Max RDMA ops outstanding at source */
+#define GASNETC_OP_OUST_PP	16	/* Max RDMA ops outstanding to each peer */
+
+/* Limits on in-flight (sent but not acknowledged) AM Requests */
+#define GASNETC_AM_OUST_LIMIT	32767	/* Max requests outstanding at source (NOT FULLY IMPLEMENTED) */
+#define GASNETC_AM_OUST_PP	4	/* Max requests outstanding to each peer */
+#define GASNETC_AM_SPARES	4	/* Spare AM buffers used to accelerate flow control */
+
+/* Scatter-gather segments.  Only 1 makes sense right now */
 #define GASNETC_SND_SG  1               /* maximum number of segments to gather on send */
-
-#define GASNETC_RCV_WQE 8               /* maximum queued entries on a rcv work queue */
 #define GASNETC_RCV_SG  1               /* maximum number of segments to scatter on rcv */
-
-#define GASNETC_RCV_SPARES   8          /* number of spares used to accelerate AM flow control */
-
 
 /* Define non-zero to enable a progress thread for receiving AMs . */
 #define GASNETC_RCV_THREAD		1
@@ -433,14 +437,27 @@ int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
   return retval;
 }
 
+#if DEBUG
+  GASNET_INLINE_MODIFIER(gasnetc_sema_check)
+  void gasnetc_sema_check(gasnetc_sema_t *s, int limit) {
+    uint32_t old = gasneti_atomic_read(&(s->count));
+
+    assert((old >= 0) && (old <= limit));
+  }
+  
+  #define GASNETC_SEMA_CHECK(S, L)	gasnetc_sema_check((S),(L))
+#else
+  #define GASNETC_SEMA_CHECK(S, L)
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 
 /* Structure for a cep (connection end-point)
  * Include whatever per-node data we need.
  */
 typedef struct {
-  gasnetc_sema_t	send_sema;
-  gasnetc_sema_t	credit_sema;
+  gasnetc_sema_t	op_sema;	/* control in-flight RDMA ops */
+  gasnetc_sema_t	am_sema;	/* control in-flight AM Requests */
   VAPI_qp_hndl_t	qp_handle;
   #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
     /* RKey for the segment, registered at attach time */

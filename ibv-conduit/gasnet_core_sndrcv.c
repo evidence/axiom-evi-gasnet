@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/25 18:53:42 $
- * $Revision: 1.13 $
+ *     $Date: 2003/08/25 21:06:34 $
+ * $Revision: 1.14 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -17,6 +17,11 @@
 #include <sched.h>
 #include <limits.h>
 
+/* ------------------------------------------------------------------------------------ *
+ *  Configuration                                                                       *
+ * ------------------------------------------------------------------------------------ */
+
+#define GASNETC_LOCK_FREE_QUEUES GASNETI_HAVE_ATOMIC_SWAP_PTR
 
 /* ------------------------------------------------------------------------------------ *
  *  Global variables                                                                    *
@@ -49,8 +54,8 @@ typedef struct _gasnetc_sbuf_t {
   struct _gasnetc_sbuf_t	*next;
   gasnetc_buffer_t		*buffer;
 
-  /* Send semaphore for the corresponding CEP */
-  gasnetc_sema_t		*send_sema;
+  /* RDMA Op semaphore for the corresponding CEP */
+  gasnetc_sema_t		*op_sema;
 
   /* Completion counters */
   gasneti_atomic_t		*mem_oust;	/* source memory refs outstanding */
@@ -73,7 +78,7 @@ typedef struct {
 
 static gasnetc_sbuf_t			*gasnetc_sbuf_alloc;
 static gasnetc_rbuf_t			*gasnetc_rbuf_alloc;
-#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+#if GASNETC_LOCK_FREE_QUEUES
   /* pointer value is volatile */
   static gasnetc_sbuf_t	* volatile	gasnetc_sbuf_head;
   static gasnetc_sbuf_t	* volatile	gasnetc_sbuf_tail;
@@ -139,7 +144,7 @@ static gasnetc_rbuf_t			*gasnetc_rbuf_alloc;
 
 GASNET_INLINE_MODIFIER(gasnetc_get_rbuf)
 gasnetc_rbuf_t *gasnetc_get_rbuf(void) {
-#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+#if GASNETC_LOCK_FREE_QUEUES
   gasnetc_rbuf_t *rbuf = NULL;
   gasnetc_rbuf_t *next;
                                                                                                              
@@ -170,7 +175,7 @@ gasnetc_rbuf_t *gasnetc_get_rbuf(void) {
 GASNET_INLINE_MODIFIER(gasnetc_put_rbuf)
 void gasnetc_put_rbuf(gasnetc_rbuf_t *rbuf) {
   if (rbuf) {
-#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+#if GASNETC_LOCK_FREE_QUEUES
     gasnetc_rbuf_t *old_tail;
 
     rbuf->next = NULL;
@@ -202,8 +207,8 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, int credit) {
   
   vstat = VAPI_post_rr(gasnetc_hca, cep->qp_handle, &rbuf->rr_desc);
   if (credit) {
-    gasnetc_sema_up(&cep->credit_sema);
-    assert(gasneti_atomic_read(&(cep->credit_sema.count)) <= GASNETC_RCV_WQE / 2);
+    gasnetc_sema_up(&cep->am_sema);
+    GASNETC_SEMA_CHECK(&(cep->am_sema), GASNETC_AM_OUST_PP);
   }
 
   if_pt (vstat == VAPI_OK)
@@ -290,7 +295,7 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
 /* free a list of send buffers */
 GASNET_INLINE_MODIFIER(gasnetc_put_sbuf)
 void gasnetc_put_sbuf(gasnetc_sbuf_t *my_head, gasnetc_sbuf_t *my_tail) {
-#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+#if GASNETC_LOCK_FREE_QUEUES
   gasnetc_sbuf_t *old_tail;
 
   my_tail->next = NULL;
@@ -328,7 +333,8 @@ static int gasnetc_snd_reap(int limit, gasnetc_sbuf_t **tail_p) {
         gasnetc_sbuf_t *sbuf = (gasnetc_sbuf_t *)(uintptr_t)comp.id;
         if_pt (sbuf) {
 	  /* resource accounting */
-	  gasnetc_sema_up(sbuf->send_sema);
+	  gasnetc_sema_up(sbuf->op_sema);
+          GASNETC_SEMA_CHECK(sbuf->op_sema, GASNETC_OP_OUST_PP);
 
 	  /* complete bounced RMDA read, if any */
 	  if (sbuf->addr) {
@@ -401,7 +407,7 @@ gasnetc_sbuf_t *gasnetc_get_sbuf(void) {
     }
 
     /* try to get an unused sbuf from the free list */
-#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+#if GASNETC_LOCK_FREE_QUEUES
     {
       gasnetc_sbuf_t *tmp;
 
@@ -575,14 +581,14 @@ void gasnetc_pre_snd(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sbuf_t *sb
   req->sr_desc.comp_type = VAPI_SIGNALED;		/* XXX: is this correct? */
   req->sr_desc.sg_lst_p  = &req->sr_sg;
   req->sr_desc.set_se    = FALSE;			/* XXX: is this correct? */
-  sbuf->send_sema = &(cep->send_sema);
+  sbuf->op_sema = &(cep->op_sema);
 
   /* loop until space is available on the SQ */
-  if_pf (!gasnetc_sema_trydown(&cep->send_sema, GASNETC_ANY_PAR)) {
+  if_pf (!gasnetc_sema_trydown(&cep->op_sema, GASNETC_ANY_PAR)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
         gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(&cep->send_sema, GASNETC_ANY_PAR));
+    } while (!gasnetc_sema_trydown(&cep->op_sema, GASNETC_ANY_PAR));
     GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
   }
 }
@@ -663,7 +669,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
    * the rcv queue waiting for credits.
    */
   if (credits_needed) {
-    gasnetc_sema_t *sema = &gasnetc_cep[dest].credit_sema;
+    gasnetc_sema_t *sema = &gasnetc_cep[dest].am_sema;
     GASNETI_TRACE_EVENT(C,GET_AMREQ_CREDIT);
 
     /* XXX: We don't want to deal with liveness and fairness issues for multi-credit
@@ -781,8 +787,8 @@ extern void gasnetc_sndrcv_init(void) {
   /*
    * setup RCV resources
    */
-  count = GASNETC_RCV_WQE * (gasnetc_nodes - 1) + GASNETC_RCV_SPARES;
-  assert(count <= GASNETC_RCV_CQ_SIZE);
+  count = (GASNETC_AM_OUST_PP * 2) * (gasnetc_nodes - 1) + GASNETC_AM_SPARES;
+  assert(count <= GASNETC_AM_OUST_LIMIT);
 
   /* create the RCV CQ */
   vstat = VAPI_create_cq(gasnetc_hca, count, &gasnetc_rcv_cq, &act_size);
@@ -790,6 +796,10 @@ extern void gasnetc_sndrcv_init(void) {
   assert(act_size >= count);
 
   if (gasnetc_nodes > 1) {
+    #if GASNETC_LOCK_FREE_QUEUES
+      count++;		/* non-empty queue always wastes one */
+    #endif
+
     #if GASNETC_RCV_THREAD
       /* create the RCV thread */
       vstat = EVAPI_set_comp_eventh(gasnetc_hca, gasnetc_rcv_cq, &gasnetc_rcv_thread,
@@ -826,7 +836,7 @@ extern void gasnetc_sndrcv_init(void) {
       }
     }
     rbuf->next = NULL;
-#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+#if GASNETC_LOCK_FREE_QUEUES
     gasnetc_rbuf_head = gasnetc_rbuf_alloc;
     gasnetc_rbuf_tail = rbuf;
 #else
@@ -840,12 +850,16 @@ extern void gasnetc_sndrcv_init(void) {
   /*
    * setup SND resources
    */
-  count = MIN(GASNETC_SND_CQ_SIZE, GASNETC_SND_WQE * gasnetc_nodes);
+  count = MIN(GASNETC_OP_OUST_LIMIT, GASNETC_OP_OUST_PP * gasnetc_nodes);
 
   /* create the SND CQ */
   vstat = VAPI_create_cq(gasnetc_hca, count, &gasnetc_snd_cq, &act_size);
   assert(vstat == VAPI_OK);
   assert(act_size >= count);
+
+  #if GASNETC_LOCK_FREE_QUEUES
+    count++;		/* non-empty queue always wastes one */
+  #endif
 
   /* Allocated pinned memory for bounce buffers */
   buf = gasnetc_alloc_pinned(count * sizeof(gasnetc_buffer_t),
@@ -867,7 +881,7 @@ extern void gasnetc_sndrcv_init(void) {
     }
   }
   sbuf->next = NULL;
-#if GASNETI_HAVE_ATOMIC_SWAP_PTR
+#if GASNETC_LOCK_FREE_QUEUES
   gasnetc_sbuf_head = (gasnetc_sbuf_t *)gasnetc_sbuf_alloc;
   gasnetc_sbuf_tail = sbuf;
 #else
@@ -879,18 +893,25 @@ extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
   int i;
   
   if (cep != &gasnetc_cep[gasnetc_mynode]) {
-    for (i = 0; i < GASNETC_RCV_WQE; ++i) {
+    /* XXX:
+     * Currently preposting one for each incomming request and one for
+     * each possible reply.  Later hope to post the reply buffers on-demand.
+     * That will allow us to run with
+     *   GASNETC_AM_OUST_LIMIT < (gasnetc_nodes - 1)*GASNETC_AM_OUST_PP
+     */
+    for (i = 0; i < 2 * GASNETC_AM_OUST_PP; ++i) {
       gasnetc_rcv_post(cep, gasnetc_get_rbuf(), 0);
     }
 
-    gasnetc_sema_init(&cep->credit_sema, GASNETC_RCV_WQE / 2);
-    gasnetc_sema_init(&cep->send_sema, GASNETC_SND_WQE);
+    gasnetc_sema_init(&cep->am_sema, GASNETC_AM_OUST_PP);
+    gasnetc_sema_init(&cep->op_sema, GASNETC_OP_OUST_PP);
   } else {
     /* Even the loopback AMs are restricted by credits, so we make this limit LARGE.
      * Since the handlers run synchronously, this just limits the number of threads
      * which are sending AM Requests to no more than 1 Million :-)
      */
-    gasnetc_sema_init(&cep->credit_sema, 1000000);
+    gasnetc_sema_init(&cep->am_sema, 1000000);
+    gasnetc_sema_init(&cep->op_sema, 0);
   }
 }
 
