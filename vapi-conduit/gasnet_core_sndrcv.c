@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/23 00:23:39 $
- * $Revision: 1.12 $
+ *     $Date: 2003/08/25 18:53:42 $
+ * $Revision: 1.13 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -563,6 +563,13 @@ void gasnetc_pre_snd(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sbuf_t *sb
   /* check for attempted loopback traffic */
   assert(cep != &gasnetc_cep[gasnetc_mynode]);
 
+  /* check for reasonable message sizes
+   * With SEND 0-bytes triggers a Mellanox bug
+   * With RDMA ops, 0-bytes makes no sense.
+   */
+  assert(req->sr_sg.len != 0);
+  assert(req->sr_sg.len <= gasnetc_hca_port.max_msg_sz);
+
   /* setup some invariant fields */
   req->sr_desc.id        = (uintptr_t)sbuf;
   req->sr_desc.comp_type = VAPI_SIGNALED;		/* XXX: is this correct? */
@@ -646,7 +653,10 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   int retval, i;
   int use_inline = 0;
 
+  assert(!isReq || (credits_granted == 0));
   assert((credits_granted == 0) || (credits_granted == 1));
+  assert(isReq || (credits_needed == 0));
+  assert((credits_needed == 0) || (credits_needed == 1));
 
   /* FIRST, get any flow-control credits needed for AM Requests.
    * This way we can be sure that we never hold the last sbuf while spinning on
