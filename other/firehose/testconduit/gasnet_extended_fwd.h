@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2004/07/15 01:29:24 $
- * $Revision: 1.22 $
+ *     $Date: 2004/07/15 01:29:30 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,20 +10,14 @@
   #error This file is not meant to be included directly- clients should include gasnet.h
 #endif
 
-#include <gm.h>
-
 #ifndef _GASNET_EXTENDED_FWD_H
 #define _GASNET_EXTENDED_FWD_H
 
 #define GASNET_EXTENDED_VERSION      1.5
 #define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
-#define GASNET_EXTENDED_NAME         GM
+#define GASNET_EXTENDED_NAME         FIREHOSETEST
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
 
-#define _GASNET_HANDLE_T
-/*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */
-struct _gasnete_op_t;
-typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
 
 #if GASNETI_CLIENT_THREADS
@@ -84,23 +78,16 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
   #define GASNET_BEGIN_FUNCTION() GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
 #endif
 
-#if GASNETI_CLIENT_THREADS
-#define GASNETE_GM_IN_UNKNOWN()		((gasnete_mythread())->in_gm_unknown)
-#define GASNETE_GM_SET_IN_UNKNOWN()	((gasnete_mythread())->in_gm_unknown = 1)
-#define GASNETE_GM_UNSET_IN_UNKNOWN()	((gasnete_mythread())->in_gm_unknown = 0)
-#else
-#define GASNETE_GM_IN_UNKNOWN()		1
-#define GASNETE_GM_SET_IN_UNKNOWN()
-#define GASNETE_GM_UNSET_IN_UNKNOWN()
-#endif
-
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */
 #define CONDUIT_EXTENDED_STATS(CNT,VAL,TIME) 		\
         GASNETI_REFVIS_STATS(CNT,VAL,TIME)              \
-        GASNETI_REFCOLL_STATS(CNT,VAL,TIME)             \
         CNT(C, DYNAMIC_THREADLOOKUP, cnt)		\
-	VAL(C, FIREHOSE_MOVES, firehoses moved for puts)\
+	CNT(C, FIREHOSE_REMOTE_HITS, remote firehose hits) \
+	CNT(C, FIREHOSE_REMOTE_MISSES, remote firehose misses) \
+	CNT(C, FIREHOSE_LOCAL_HITS, local firehose hits) \
+	CNT(C, FIREHOSE_LOCAL_MISSES, local firehose misses) \
+	\
 	VAL(C, FIREHOSE_MOVE_OLD_BUCKETS,		\
 		number of replacement firhoses)		\
 	CNT(C, FIREHOSE_VICTIM_POLLS,			\
@@ -115,10 +102,6 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 		number of bucket unpins in victim FIFO) \
 	VAL(C, BUCKET_VICTIM_COUNT, 			\
 		number of buckets in victim FIFO)	\
-	VAL(C, FIREHOSE_LOCALPIN_PAGES,			\
-		number of pages pinned locally)		\
-	VAL(C, FIREHOSE_LOCALUNPIN_PAGES,		\
-		number of pages unpinned locally)	\
 	TIME(C, FIREHOSE_MOVE_TIME, unpin+pin time in   \
 		firehose handler)			\
 	TIME(C, FIREHOSE_BUILD_LIST_TIME, time to build \
