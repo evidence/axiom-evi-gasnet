@@ -18,6 +18,8 @@ CXXFLAGS = @CXXFLAGS@ @MISC_CXXFLAGS@
 platform_defines = @GASNET_MACHINE_DEFINES@ @BUILDCONFIG_DEFINES@ -DAMUDP_ENV_PREFIX=GASNET
 platform_libraries = @LIBS@ @GASNET_UDP_LIBS@
 
+VPATH = $(srcdir)
+testdir = $(srcdir)/../amxtests
 INCLUDES = -I$(srcdir) ${platform_defines}
 compile = ${CC} ${CCFLAGS} ${INCLUDES}
 cxxcompile = ${CXX} ${CXXFLAGS} ${INCLUDES}
@@ -44,7 +46,6 @@ libamudp_a_SOURCES = \
 	amudp_reqrep.cpp	\
 	amudp_spawn.cpp		\
 	amudp_spmd.cpp		\
-	apputils.h		\
 	exc.cpp			\
 	sig.cpp			\
 	socklist.cpp		\
@@ -60,6 +61,7 @@ EXTRA_DIST =        \
     testbulk.c      \
     testgetput.c    \
     testlatency.c   \
+    testlatencyM.c  \
     testping.c      \
     testreadwrite.c \
     testreduce.c    
@@ -79,6 +81,7 @@ testprograms =    		\
     testbounce    		\
     testbulk      		\
     testlatency   		\
+    testlatencyM   		\
     testping      		\
     testreduce			\
     $(testprograms_ILP32only)
@@ -99,6 +102,7 @@ AMUDP_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
 	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
 	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
+	./testlatencyM $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 64
 	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
 	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
 	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
@@ -108,8 +112,14 @@ if PLATFORM_ILP32
 	./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 
 endif
 
-%.o: %.c apputils.h $(headers)
-	${compile} -o $@ -c -DAMUDP $<
+test%.o : $(testdir)/test%.c $(testdir)/apputils.h ${headers}
+	${compile} -DAMUDP -I$(testdir) -c $< -o $@
+
+apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h ${headers}
+	${compile} -DAMUDP -I$(testdir) -c $(testdir)/apputils.c -o apputils.o
+
+%.o: %.c $(headers)
+	${compile} -o $@ -c $<
 
 %.o: %.cpp $(headers)
 	${cxxcompile} -o $@ -c $<

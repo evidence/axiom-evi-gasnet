@@ -61,9 +61,6 @@ int main(int argc, char **argv) {
 
   AMX_VerboseErrors = 1;
 
-  if (argc > 3) msgsz = atoi(argv[3]);
-  if (!msgsz) msgsz = 1;
-
   /* call startup */
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
                             0, &networkpid, &eb, &ep));
@@ -86,6 +83,9 @@ int main(int argc, char **argv) {
       default: printf("polling must be 'P' or 'B'..\n"); AMX_SPMDExit(1);
       }
     }
+
+  if (argc > 3) msgsz = atoi(argv[3]);
+  if (!msgsz) msgsz = 1;
 
   if (myproc == 0) numleft = (numprocs-1)*iters;
   else numleft = iters;

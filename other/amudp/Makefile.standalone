@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMUDP/Makefile                                         $
-#     $Date: 2004/01/28 03:46:53 $
-# $Revision: 1.5 $
+#     $Date: 2004/01/28 11:43:53 $
+# $Revision: 1.6 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -29,7 +29,7 @@ link = $(CXX) ${cxxflags} ${platform_defines} ${includes}
 linkend = ${libraries}
 
 # all the test executables
-testprograms = testam testgetput testreadwrite testping testbulk testbounce testreduce testlatency
+testprograms = testam testgetput testreadwrite testping testbulk testbounce testreduce testlatency testlatencyM
 
 # all the library objects and headers
 objects=amudp_ep.o amudp_reqrep.o amudp_spmd.o amudp_spawn.o exc.o sig.o socklist.o sockutil.o
@@ -51,8 +51,14 @@ tests: apputils.o ${testprograms}
     eval "echo placing whomp-shared binaries... ; /bin/cp -f ${testprograms} /export/home/${USER} ; cd /export/home/${USER} ; chmod a+rx ${testprograms}"'
 
 # method to convert .cpp to .o (more reliable than ".cpp.o" method)
+test%.o : $(testdir)/test%.c ${headers}
+	${Ccompile} -DAMUDP -I$(testdir) $< -o $@
+	
+apputils.o : $(testdir)/apputils.c ${headers}
+	${Ccompile} -DAMUDP -I$(testdir) $(testdir)/apputils.c -o apputils.o
+	
 %.o : %.c ${headers}
-	${Ccompile} -DAMUDP $< -o $@
+	${Ccompile} $< -o $@
 
 %.o : %.cpp ${headers}
 	${CXXcompile} $< -o $@
@@ -68,9 +74,19 @@ veryclean: clean
 	@echo Done verycleaning.
 
 # make a distribution
-dist:
-	rm -f dist.tar.gz
-	tar -cvhf dist.tar dist && gzip -9 dist.tar
+amxdist:
+	@sh -x -c ' \
+         VERSION=`grep "#define AMUDP_LIBRARY_VERSION" $(srcdir)/amudp.h | head -1 | awk '"'"'{ print $$3 }'"'"'` \
+         export VERSION ; \
+         echo "+++ Building distribution for AMUDP version $$(VERSION) +++" && \
+	 rm -Rf amudp$${VERSION}.tar.gz amudp$${VERSION} && \
+         mkdir amudp$${VERSION} && \
+         cp $(srcdir)/Makefile* $(srcdir)/*.[ch]* $(testdir)/*.[ch]* amudp$${VERSION} && \
+         rm -f amudp$${VERSION}/Makefile.in amudp$${VERSION}/Makefile.titanium && \
+         tar -cvhf amudp$${VERSION}.tar amudp$${VERSION} && gzip -9 amudp$${VERSION}.tar && \
+         rm -Rf amudp$${VERSION} && \
+         echo "+++ amudp$${VERSION}.tar.gz is ready for distribution +++" \
+        '
 
 # ---------- test programs -------------
 test% : test%.o apputils.o libamudp.a ${ueth_libraries}
@@ -86,6 +102,7 @@ AMUDP_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
 	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
 	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
+	./testlatencyM $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 64
 	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
 	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
 	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)

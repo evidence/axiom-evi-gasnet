@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/01/28 03:46:51 $
-# $Revision: 1.4 $
+#     $Date: 2004/01/28 11:43:51 $
+# $Revision: 1.5 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -32,6 +32,7 @@ testprograms =                  \
     testbounce                  \
     testbulk                    \
     testlatency                 \
+    testlatencyM                \
     testping                    \
     testreduce                  \
     $(testprograms_ILP32only)
@@ -54,11 +55,14 @@ libammpi.a: ${objects}
 tests: apputils.o ${testprograms}
 
 # method to convert .cpp to .o (more reliable than ".cpp.o" method)
-%.o : %.c ${headers}
-	${Ccompile} -DAMMPI $< -o $@
+test%.o : $(testdir)/test%.c $(testdir)/apputils.h ${headers}
+	${Ccompile} -DAMMPI -I$(testdir) $< -o $@
 
-%.o : %.cpp ${headers}
-	${CXXcompile} $< -o $@
+apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h ${headers}
+	${Ccompile} -DAMMPI -I$(testdir) $(testdir)/apputils.c -o apputils.o
+
+%.o : %.c ${headers}
+	${Ccompile} $< -o $@
 
 # delete compiling byproducts
 clean:
@@ -68,6 +72,20 @@ veryclean: clean
 	rm -f ${testprograms} ${testprograms_ILP32only_all} libammpi.a
 	@echo Done verycleaning.
 
+# make a distribution
+amxdist:
+	@sh -x -c ' \
+         VERSION=`grep "#define AMMPI_LIBRARY_VERSION" $(srcdir)/ammpi.h | head -1 | awk '"'"'{ print $$3 }'"'"'` \
+         export VERSION ; \
+         echo "+++ Building distribution for AMMPI version $$(VERSION) +++" && \
+         rm -Rf ammpi$${VERSION}.tar.gz ammpi$${VERSION} && \
+         mkdir ammpi$${VERSION} && \
+         cp $(srcdir)/Makefile* $(srcdir)/*.[ch]* $(testdir)/*.[ch]* ammpi$${VERSION} && \
+         rm -f ammpi$${VERSION}/Makefile.in ammpi$${VERSION}/Makefile.titanium && \
+         tar -cvhf ammpi$${VERSION}.tar ammpi$${VERSION} && gzip -9 ammpi$${VERSION}.tar && \
+         rm -Rf ammpi$${VERSION} && \
+         echo "+++ ammpi$${VERSION}.tar.gz is ready for distribution +++" \
+        '
 
 # ---------- test programs -------------
 test% : test%.o apputils.o libammpi.a ${libufxp}
@@ -83,6 +101,7 @@ AMMPI_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
 	$(TEST_RUNCMD) ./testping $(TEST_ITERS) $(TEST_MODE)
 	$(TEST_RUNCMD) ./testlatency $(TEST_ITERS) $(TEST_MODE)
+	$(TEST_RUNCMD) ./testlatencyM $(TEST_ITERS) $(TEST_MODE) 64
 	$(TEST_RUNCMD) ./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
 	$(TEST_RUNCMD) ./testamudp $(TEST_ITERS) $(TEST_MODE)
 	$(TEST_RUNCMD) ./testbounce $(TEST_ITERS) $(TEST_MODE) 

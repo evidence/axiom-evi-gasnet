@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/12/11 20:19:51 $
-# $Revision: 1.5 $
+#     $Date: 2004/01/28 11:43:50 $
+# $Revision: 1.6 $
 # Description: Makefile for GASNet other 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -13,6 +13,7 @@ SUBDIRS =          \
 	amudp
 
 EXTRA_DIST =       \
+	amxtests   \
 	firehose   \
 	perlstart
 

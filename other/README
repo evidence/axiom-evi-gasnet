@@ -31,6 +31,12 @@ If you make fixes or changes to the code in that directory,
 please email them to Dan Bonachea <bonachea@cs.berkeley.edu>.
 
 ------------------------------------------------------------------
+AMXTESTS
+
+The amxtests directory contains the test suite for the stand-alone
+AMUDP and AMMPI products.
+
+------------------------------------------------------------------
 FIREHOSE
 
 The firehose directory contains an implementation of the firehose 
