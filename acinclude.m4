@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2004/09/23 22:16:06 $
-dnl $Revision: 1.43 $
+dnl     $Date: 2004/09/24 07:06:49 $
+dnl $Revision: 1.44 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -500,28 +500,31 @@ else
 fi
 ])
 
-dnl GASNET_CHECK_COMPILER_SANITY NAME CC CFLAGS CPPFLAGS INCLUDES ERRMSG
+dnl GASNET_CHECK_OPTIMIZEDDEBUG CCVAR CFLAGSVAR EXTRAARGS INCLUDES 
 dnl Ensure the compiler CC doesn't create a conflict between
 dnl optimization and debugging.
-AC_DEFUN([GASNET_CHECK_COMPILER_SANITY],[
-  AC_MSG_CHECKING([$1 for debug vs. optimize conflict])
+AC_DEFUN([GASNET_CHECK_OPTIMIZEDDEBUG],[
+ if test "$enable_debug" = "yes" ; then
+  AC_MSG_CHECKING([$1 for debug vs. optimize compilation conflict])
+  AC_LANG_SAVE
+  AC_LANG_C
   OLDCC="$CC"
   OLDCFLAGS="$CFLAGS"
-  OLDCPPFLAGS="$CPPFLAGS"
-  CC="$2"
-  CFLAGS="$3"
-  CPPFLAGS="$4"
-  AC_TRY_COMPILE( $5 [
-    #if defined(GASNET_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
+  CC="$[$1]"
+  CFLAGS="$[$2] $3"
+  AC_TRY_COMPILE( [
+    $4
+    #if defined(__OPTIMIZE__) || defined(NDEBUG)
 	choke me
     #endif
   ], [ ], [ AC_MSG_RESULT(no) ], [
     AC_MSG_RESULT([yes])
-    AC_MSG_ERROR([$6])
+    AC_MSG_ERROR([User requested --enable-debug but $1 or $2 has enabled optimization (-O) or disabled assertions (-DNDEBUG). Try setting $1='$[$1] -O0 -UNDEBUG' or changing $2])
   ])
   CC="$OLDCC"
   CFLAGS="$OLDCFLAGS"
-  CPPFLAGS="$OLDCPPFLAGS"
+  AC_LANG_RESTORE
+ fi
 ])
 
 AC_DEFUN([GASNET_TRY_CACHE_CHECK],[

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/09/24 03:46:57 $
-# $Revision: 1.191 $
+#     $Date: 2004/09/24 07:06:49 $
+# $Revision: 1.192 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.191 $)
+AC_REVISION($Revision: 1.192 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -296,6 +296,8 @@ GASNET_IF_ENABLED_WITH_AUTO(stats, Build GASNet with statistical collection enab
   if test "$enabled_stats" = yes; then
     BUILDCONFIG_DEFINES="$BUILDCONFIG_DEFINES -DGASNET_STATS"
   fi
+
+GASNET_CHECK_OPTIMIZEDDEBUG(CC,CFLAGS,[$CPPFLAGS $MISC_CFLAGS $MISC_CPPFLAGS $BUILDCONFIG_DEFINES],[])
 
 #AC_SUBST(CFLAGS)	      # opt/debug flags
 AC_SUBST(MISC_CFLAGS)	      # warning suppression and other misc C flags
@@ -719,6 +721,7 @@ if test $enabled_udp = yes; then
   else
     CXXFLAGS="$CXXDEBUGFLAGS"
   fi
+  GASNET_CHECK_OPTIMIZEDDEBUG(CXX,CXXFLAGS,[$CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES],[])
   AC_SUBST(MISC_CXXFLAGS)
 
   AC_LANG_RESTORE
@@ -924,10 +927,9 @@ if test $enabled_mpi = yes; then
         # -DAMMPI_COEXIST_WITH_AM must be included whenever ammpi.h is compiled, or not at all
         MPI_DEFINES="$MPI_DEFINES -DAMMPI_COEXIST_WITH_AM"
       fi
-      GASNET_CHECK_COMPILER_SANITY(MPI_CC, [$MPI_CC], [$MPI_CFLAGS], [], [
-	#include <stdlib.h>
-	#include <mpi.h>
-      ],[User requested --enable-debug but mpicc has enabled optimization (-O) or disabled assertions (-DNDEBUG).  Try setting MPI_CC='$MPI_CC -O0 -UNDEBUG', changing MPI_CFLAGS, or passing --disable-mpi.])
+      GASNET_CHECK_OPTIMIZEDDEBUG(MPI_CC,MPI_CFLAGS,[], [ 
+        #include <mpi.h>
+      ])
   else
       AC_MSG_RESULT(no)
       AC_MSG_WARN(build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details)
