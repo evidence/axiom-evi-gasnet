@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/07/29 22:08:10 $
-# $Revision: 1.159 $
+#     $Date: 2004/07/30 05:32:07 $
+# $Revision: 1.160 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.159 $)
+AC_REVISION($Revision: 1.160 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -130,9 +130,12 @@ case "$gasnet_cv_cc_family" in
   GNU)  GASNET_GCC_VERSION_CHECK(CC)
         oldCFLAGS="$CFLAGS"
         CFLAGS="-O3"
-        # -finline-limit not available on gcc 2.95
-        GASNET_TRY_CFLAG([-finline-limit=10000],
-                         [CFLAGS="$CFLAGS -finline-limit=10000"])
+	# prefer the --param inliner options, which give us finer control
+        GASNET_TRY_CFLAG([--param max-inline-insns-single=10000 --param max-inline-insns=100000],
+                         [CFLAGS="$CFLAGS --param max-inline-insns-single=10000 --param max-inline-insns=100000"],
+          GASNET_TRY_CFLAG([-finline-limit=10000],
+                           [CFLAGS="$CFLAGS -finline-limit=10000"])
+	)
 	# gcc 3.4+ require new flags to enable full inlining
         GASNET_TRY_CFLAG([--param inline-unit-growth=10000],
                          [CFLAGS="$CFLAGS --param inline-unit-growth=10000"])
@@ -161,7 +164,7 @@ case "$gasnet_cv_cc_family" in
         CCOPTFLAGS="$CFLAGS"
         CFLAGS="$oldCFLAGS"
   ;;
-  Sun)  CCOPTFLAGS="-xO5" ;;
+  Sun)  CCOPTFLAGS="-fast -xO5" ;;
   Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
   MIPS) CCOPTFLAGS="-O3" ;;
   XLC)  #CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=-1" ;; # -O5 == -O3 w/ intra-procedural analysis, maxmem=-1 is default for -O3 or higher
@@ -766,52 +769,18 @@ if test $enabled_mpi = yes; then
   have_mpi=yes # start by assuming they have it
   case "$target_os" in
     solaris*)  
-        if test "$enable_now" = "yes" ; then
-          # this config is for AMMPI-over-MPI-over-AMNOW (Berkeley NOW cluster)
-    	  # (not meant as a production platform)
-          # Use Sun cc (man acc to see options)
-    	  GASNET_ENV_DEFAULT(MPI_CC, /usr/sww/opt/SUNWspro/bin/cc)
-	  BASIC_MPI_CFLAGS="-DAMMPI_COEXIST_WITH_AM \
-		-I/usr/now/am2/include -I/usr/now/include -I/usr/now/mpi/mpich/include \
-		-w"
-	  if test "$BUILDCONFIG" = "optimize" ; then
-    	    GASNET_ENV_DEFAULT(MPI_CFLAGS,  $BASIC_MPI_CFLAGS \
-		-dalign -xarch=v8plusa -xchip=ultra -fast -xtarget=native -xO5)
-	  else
-    	    GASNET_ENV_DEFAULT(MPI_CFLAGS, $BASIC_MPI_CFLAGS -g -w)
-	  fi
-    	  GASNET_ENV_DEFAULT(MPI_LIBS, -lposix4 \
-              -L/usr/now/mpi/mpich/lib/solaris/am2 -L/usr/now/lib\
-              -L/usr/now/am2/lib -lmpi -lens -lglunix -lam2 -lthread\
-              -lsocket -lnsl)
-	  GASNET_ENV_DEFAULT(MPIRUN_CMD, glurun -%N %C)
-	  CFLAGS="$CFLAGS -DAMMPI_COEXIST_WITH_AM"
-        else
-          # I don't have access to a Solaris cluster with MPI (other than NOW) 
-          # but these seem like sane defaults
-    	  GASNET_ENV_DEFAULT(MPI_CC, mpicc)
-    	  GASNET_ENV_DEFAULT(MPI_CFLAGS, $MISC_CFLAGS $CFLAGS)
-    	  GASNET_ENV_DEFAULT(MPI_LIBS, )
-	  GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
-        fi
+        # I don't have access to a Solaris cluster with MPI (other than NOW) 
+        # but these seem like sane defaults
+    	GASNET_ENV_DEFAULT(MPI_CC, mpicc)
+    	GASNET_ENV_DEFAULT(MPI_CFLAGS, $MISC_CFLAGS $CFLAGS)
+    	GASNET_ENV_DEFAULT(MPI_LIBS, )
+	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
     linux*) 
+    	GASNET_ENV_DEFAULT(MPI_CC, mpicc)
     	GASNET_ENV_DEFAULT(MPI_CFLAGS, $CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, )
-        if test "$enable_millennium" = yes; then
-
-          #mpi_loc=/usr/mill/bin  # TCP/IP implementation
-          # Millennium has screwy mpirun syntax to assure distinct nodes on TCP/IP p4 device
-	  #GASNET_ENV_DEFAULT(MPIRUN_CMD, ${mpi_loc}/mpirun -np %N -nodes %N %C)
-
-          mpi_loc=/usr/mill/pkg/mpich-1.2.1..7-gm/bin  # GM-based implementation
-	  GASNET_ENV_DEFAULT(MPIRUN_CMD, ${mpi_loc}/mpirun -np %N %C)
-
-    	  GASNET_ENV_DEFAULT(MPI_CC, ${mpi_loc}/mpicc)
-        else
-    	  GASNET_ENV_DEFAULT(MPI_CC, mpicc)
-	  GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
-        fi
+	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
     irix*)
 	# use SGI native MPI library
