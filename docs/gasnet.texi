@@ -1,8 +1,8 @@
 \input texinfo   @c -*-texinfo-*-
 @c %**start of header
 @c   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/docs/gasnet.texi,v $
-@c     $Date: 2004/08/26 04:53:30 $
-@c $Revision: 1.35 $
+@c     $Date: 2004/09/20 12:10:50 $
+@c $Revision: 1.36 $
 @c Description: GASNet specification
 @c Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 @c Terms of use are as specified in license.txt
@@ -46,7 +46,7 @@
 @c ------------------------------------------------------------------------------------
 @c Macros:
 
-@set VERSION 1.6
+@set VERSION 1.7draft
 @set RELEASEDATE August 19th, 2004
 
 @ifnottex
@@ -164,9 +164,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2004/08/26 04:53:30 $
+@subtitle $Date: 2004/09/20 12:10:50 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.35 $ 
+@subtitle $Revision: 1.36 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -204,8 +204,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2004/08/26 04:53:30 $
-@*$Revision: 1.35 $ 
+@*$Date: 2004/09/20 12:10:50 $
+@*$Revision: 1.36 $ 
 @ifnothtml
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @end ifnothtml
@@ -490,7 +490,7 @@ scanned for within a binary executable which is statically linked with GASNet.
 
 @item GASNET_MAXNODES
 an integer representing the maximum number of nodes supported in a single 
-GASNet job
+GASNet job. This value must be representable as a @code{gasnet_node_t}.
 
 @item GASNET_ALIGNED_SEGMENTS
 defined by the GASNet implementation to the value 1 if @code{gasnet_attach()} 
