@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2002/06/16 09:19:26 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/19 10:56:51 $
+ * $Revision: 1.3 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -462,8 +462,9 @@ extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *num
           (*numUserHandlersRun)++;
 
           if (isrequest && !status->replyIssued) {
+            va_list va_dummy; /* dummy value */
             /*  user didn't reply, so issue an auto-reply */
-            if (AMMPI_ReplyGeneric(ammpi_Short, buf, 0, 0, 0, 0, 0, NULL, ammpi_system_autoreply, 0) 
+            if (AMMPI_ReplyGeneric(ammpi_Short, buf, 0, 0, 0, 0, 0, va_dummy, ammpi_system_autoreply, 0) 
                 != AM_OK) /*  should never happen - don't return here to prevent leaking buffer */
               ErrMessage("Failed to issue auto reply in AMMPI_ServiceIncomingMessages");
             }

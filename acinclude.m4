@@ -163,6 +163,9 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
   GASNET_IFDEF(_CRAYC, $3=Cray)
   GASNET_IFDEF(__INTEL_COMPILER, $3=Intel)
   if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__digital__, $3=Compaq)
+  fi
+  if test "$$3" = "unknown"; then
     GASNET_IFDEF(mips, $3=MIPS)
   fi
 ])

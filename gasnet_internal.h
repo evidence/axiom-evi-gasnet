@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/06/16 05:06:38 $
- * $Revision: 1.4 $
+ *     $Date: 2002/06/19 10:56:50 $
+ * $Revision: 1.5 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -114,6 +114,22 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
     #define gasneti_atomic_read(p)      ((p)->ctr)
     #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
     #define gasneti_atomic_init(v)      { (v) }
+  #elif defined(OSF)
+   #if 1
+    #include <sys/machine/builtins.h>
+    typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
+    #define gasneti_atomic_increment(p) (__ATOMIC_INCREMENT_LONG(&((p)->ctr)))
+    #define gasneti_atomic_read(p)      ((p)->ctr)
+    #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+    #define gasneti_atomic_init(v)      { (v) }
+   #else
+    #include <sys/systm.h>
+    typedef struct { volatile int ctr; } gasneti_atomic_t;
+    #define gasneti_atomic_increment(p) (atomic_incl(&((p)->ctr)))
+    #define gasneti_atomic_read(p)      ((p)->ctr)
+    #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+    #define gasneti_atomic_init(v)      { (v) }
+   #endif
   #elif defined(IRIX)
     #include <mutex.h>
     typedef __uint32_t gasneti_atomic_t;

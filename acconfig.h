@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/06/13 10:15:10 $ */
-/*  $Revision: 1.4 $ */
+/*      $Date: 2002/06/19 10:56:50 $ */
+/*  $Revision: 1.5 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 
@@ -47,6 +47,7 @@
 #undef UNICOS
 #undef CRAYT3E
 #undef AIX
+#undef OSF
 #undef IRIX
 #undef CYGWIN
 

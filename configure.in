@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/13 10:15:10 $
-# $Revision: 1.8 $
+#     $Date: 2002/06/19 10:56:50 $
+# $Revision: 1.9 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.8 $)
+AC_REVISION($Revision: 1.9 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -148,6 +148,7 @@ case "$tc_cv_cc_family" in
   Cray) CCOPTFLAGS="-O2 -hnomessage=236 -htaskprivate $LIBCM" ;; # DOB: -O3 is unstable on Cray cc
   MIPS) CCOPTFLAGS="-O3 -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
   XLC)  CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=8192" ;; # -O5 == -O3 w/ intra-procedural analysis
+  Compaq) CCOPTFLAGS="-O4 -msg_disable extrasemi -tune host" ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
 
@@ -155,6 +156,7 @@ case "$tc_cv_cc_family" in
   GNU)  CCDEBUGFLAGS="-g3 -ansi -U__STRICT_ANSI__ -Wall -Wno-unused" ;;
   Cray) CCDEBUGFLAGS="-g -hnomessage=236 -htaskprivate $LIBCM" ;;
   MIPS) CCDEBUGFLAGS="-g -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
+  Compaq) CCDEBUGFLAGS="-g -msg_disable extrasemi" ;;
   *)    CCDEBUGFLAGS="-g" ;;
 esac
 
@@ -182,7 +184,7 @@ GASNET_LIBGCC
 ## POSIX threads
 #
 OLDLIBS="$LIBS"
-AC_SEARCH_LIBS(pthread_create, pthread, have_pthread=yes, have_pthread=no)
+AC_SEARCH_LIBS(pthread_create, [pthread pthreads], have_pthread=yes, have_pthread=no)
 LIBS="$OLDLIBS"
 
 AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
@@ -284,6 +286,14 @@ case "$target_os" in
         if test "$have_pthread" = yes ; then
           GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE"
           GASNET_THREAD_LIBS=-lpthread""
+        fi
+	;;
+  osf*)
+	AC_DEFINE(OSF)
+	GASNET_MACHINE_DEFINES="-DOSF"
+        if test "$have_pthread" = yes ; then
+          GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE"
+          GASNET_THREAD_LIBS="-pthread -lpthreads"
         fi
 	;;
   unicos*)
@@ -410,6 +420,17 @@ if test $supported_ammpi = yes; then
 	fi
     	GASNET_ENV_DEFAULT(MPI_LIBS, [-Wl,-bbigtoc])
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, poe %C -nodes %N -tasks_per_node 1 -rmpool 1 -euilib us -retry 1 -retrycount 10000)
+        ;;
+    osf*)
+	GASNET_ENV_DEFAULT(MPI_CC, cc)
+	BASIC_MPI_CFLAGS="-msg_disable extrasemi $BUILDCONFIGFLAGS"
+        if test "$BUILDCONFIG" = "optimize" ; then
+          GASNET_ENV_DEFAULT(MPI_CFLAGS, -O4 -tune host $BASIC_MPI_CFLAGS)
+        else
+          GASNET_ENV_DEFAULT(MPI_CFLAGS, -g $BASIC_MPI_CFLAGS)
+        fi
+        GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan)
+        GASNET_ENV_DEFAULT(MPIRUN_CMD, prun -N %N %C)
         ;;
     unicos*)
         # Cray cc - need to enable private global vars and disable a silly warning
