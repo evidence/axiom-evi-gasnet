@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.57 2004/04/06 16:14:54 phargrov Exp $
- * $Date: 2004/04/06 16:14:54 $
+/* $Id: gasnet_core.c,v 1.58 2004/04/24 09:30:05 bonachea Exp $
+ * $Date: 2004/04/24 09:30:05 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2434,12 +2434,14 @@ gasnetc_SysBroadcastAlloc_reph(gasnet_token_t token, gasnet_handlerarg_t phase)
     gasnetc_bootstrapGather_allocdone[phase]++;
 
     #ifdef GASNET_TRACE
+      {
 	gasnet_node_t   node;
 	gasnet_AMGetMsgSource(token, &node);
 
 	GASNETC_BOOTTRACE_PRINTF(C, 
 	    ("AMSystem BroadcastAlloc Received (node=%d,phase=%d,cnt=%d)\n", 
 	    node, phase, gasnetc_bootstrapGather_allocdone[phase]));
+      }
     #endif
 }
 void
