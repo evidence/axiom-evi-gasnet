@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/30 22:58:25 $
- * $Revision: 1.44 $
+ *     $Date: 2004/08/01 09:54:44 $
+ * $Revision: 1.45 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -647,7 +647,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
       GASNETI_TRACE_EVENT(C, EXHAUSTED_ELAN_MEMORY);
       GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
     }
-  }
+  } else UNLOCK_ELAN_WEAK();
 #endif
 
   /* use AM */
@@ -719,7 +719,7 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
       GASNETI_TRACE_EVENT(C, EXHAUSTED_ELAN_MEMORY);
       GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
     }
-  }
+  } else UNLOCK_ELAN_WEAK();
 #endif
 
   /* use AM */
@@ -992,7 +992,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
       UNLOCK_ELAN_WEAK();
       GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
     }
-  }
+  } else UNLOCK_ELAN_WEAK();
 #endif
 
   /* use AM */
@@ -1117,7 +1117,7 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
       UNLOCK_ELAN_WEAK();
       GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
     }
-  }
+  } else UNLOCK_ELAN_WEAK();
 #endif
 
   /* use AM */
