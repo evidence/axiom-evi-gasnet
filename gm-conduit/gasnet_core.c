@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2004/10/13 00:18:47 $
- * $Revision: 1.75 $
+ * $Date: 2005/02/01 16:44:50 $
+ * $Revision: 1.76 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -83,7 +83,7 @@ gasnetc_init(int *argc, char ***argv)
 	#endif
 
 	gasnetc_registerSysHandlers();
-	gasnetc_getconf();
+	gasnetc_getconf(argc, argv);
 	gasnetc_AllocPinnedBufs();
 	gasnetc_AllocGatherBufs();
 
@@ -1046,12 +1046,18 @@ static void gasnetc_exit_body(void) {
   alarm(10);
   {
     if (graceful) {
-	/* XXX */
+	#ifdef GASNETC_GM_MPI_COMPAT
+	  gasneti_bootstrapFini();
+	#endif
     } else {
-      /* We couldn't reach our peers, so hope the bootstrap code can kill the entire job */
-      gasneti_reghandler(SIGABRT, SIG_DFL);
-      abort();
-      /* NOT REACHED */
+	#ifdef GASNETC_GM_MPI_COMPAT
+	  gasneti_bootstrapAbort(exitcode);
+	#else
+	  /* We couldn't reach our peers, so hope the bootstrap code can kill the entire job */
+	  gasneti_reghandler(SIGABRT, SIG_DFL);
+	  abort();
+	  /* NOT REACHED */
+	#endif
     }
   }
 

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_internal.h,v $
- * $Date: 2004/10/06 09:25:24 $
- * $Revision: 1.63 $
+ * $Date: 2005/02/01 16:44:50 $
+ * $Revision: 1.64 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -14,6 +14,9 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_extended_internal.h>
+#ifdef GASNETC_GM_MPI_COMPAT
+  #include <gasnet_bootstrap_internal.h>
+#endif
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <errno.h>
@@ -101,7 +104,10 @@ int	gasnetc_gmport_allocate(int *board, int *port);
 /* 3 bootstrapping methods */
 void	gasnetc_getconf_conffile();
 void	gasnetc_getconf_mpiexec();
-void	gasnetc_getconf();
+void	gasnetc_getconf(int *argc, char ***argv);
+#ifdef GASNETC_GM_MPI_COMPAT
+void	gasnetc_getconf_bootmpi(int *argc, char ***argv);
+#endif
 
 uintptr_t 	gasnetc_getPhysMem();
 void		gasnetc_am_medcopy(gasnet_token_t token, void *addr, 

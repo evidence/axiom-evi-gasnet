@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
- * $Date: 2004/10/02 11:03:48 $
- * $Revision: 1.18 $
+ * $Date: 2005/02/01 16:44:50 $
+ * $Revision: 1.19 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -526,16 +526,91 @@ gasnetc_getconf_mpiexec()
 	return;
 }
 
-extern void
-gasnetc_getconf ()
+#ifdef GASNETC_GM_MPI_COMPAT
+#include <gasnet_bootstrap_internal.h>
+void
+gasnetc_getconf_bootmpi(int *argc, char ***argv)
 {
-	setbuf (stdout, NULL);
-	setbuf (stderr, NULL);
+    unsigned int    port_id = 0, board_id = 0;
+    unsigned int    temp_id;
+    unsigned int    my_idport[2];
+    unsigned int    *global_idport;
+    int		    i;
 
+    gasneti_bootstrapInit(argc, argv, &gasnetc_nodes, &gasnetc_mynode);
+
+    if (!gasnetc_gmport_allocate((int*)&board_id, (int*)&port_id))
+	gasneti_fatalerror("%d: Can't obtain GM port", gasnetc_mynode);
+
+    _gmc.my_port = port_id;
+
+    /* get the GM node id */
+    if (gm_get_node_id (_gmc.port, &_gmc.my_id) != GM_SUCCESS)
+	gasneti_fatalerror(
+	    "%d: Can't get local GM node id", gasnetc_mynode);
+
+    #ifdef GASNETC_GM_2
+    /* GM2 only stores local node ids, so a global has to be obtained */
+    if (gm_node_id_to_global_id(_gmc.port, _gmc.my_id, &(_gmc.my_id)) != GM_SUCCESS)
+	gasneti_fatalerror("Couldn't get GM global node id");
+    #endif
+
+    /* allocate space for node mapping */
+    if (!gasnetc_alloc_nodemap(gasnetc_nodes))
+	gasneti_fatalerror("%d: Can't allocate node mapping", gasnetc_mynode);
+
+    if ((global_idport = 
+       gasneti_malloc(sizeof(unsigned int)*2*gasnetc_nodes)) == NULL)
+	gasneti_fatalerror("%d: Can't allocate node mapping", gasnetc_mynode);
+
+    /* exchange port, id information */
+    my_idport[0] = _gmc.my_id;
+    my_idport[1] = _gmc.my_port;
+    gasneti_bootstrapExchange(&my_idport, sizeof(unsigned int)*2, global_idport);
+
+    for (i = 0; i < gasnetc_nodes; i++) {
+
+	temp_id = global_idport[i*2];
+	_gmc.gm_nodes[i].port = 
+	    _gmc.gm_nodes_rev[i].port = (uint16_t) global_idport[i*2+1];
+	_gmc.gm_nodes_rev[i].node = i;
+
+	#ifdef GASNETC_GM_2
+	if (gm_global_id_to_node_id(_gmc.port, temp_id, &temp_id) != GM_SUCCESS)
+	    gasneti_fatalerror(
+	      "%d> couldn't translate GM global node id (%u) for gasnet node id %d", 
+	      gasnetc_mynode, (unsigned) temp_id, i);
+	#endif
+
+	_gmc.gm_nodes[i].id = _gmc.gm_nodes_rev[i].id = (uint16_t) temp_id;
+    }
+    /* check consistency */
+    if (_gmc.gm_nodes[gasnetc_mynode].port != _gmc.my_port)
+	gasneti_fatalerror( "%d: inconsistency in data collected from MPI spawner",
+			    gasnetc_mynode);
+
+    qsort(_gmc.gm_nodes_rev, gasnetc_nodes, sizeof(gasnetc_gm_nodes_rev_t), 
+	  gasnetc_gm_nodes_compare);
+
+    gasneti_free(global_idport);
+    return;
+}
+#endif
+
+extern void
+gasnetc_getconf (int *argc, char ***argv)
+{
+    setbuf (stdout, NULL);
+    setbuf (stderr, NULL);
+
+    #ifdef GASNETC_GM_MPI_COMPAT
+	gasnetc_getconf_bootmpi(argc, argv);
+    #else
 	if (getenv("GMPI_MAGIC"))
-		gasnetc_getconf_mpiexec();
+	    gasnetc_getconf_mpiexec();
 	else
-		gasnetc_getconf_conffile();
+	    gasnetc_getconf_conffile();
+    #endif
 
-	return;
+    return;
 }
