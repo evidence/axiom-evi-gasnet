@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/07/26 18:21:38 $
-# $Revision: 1.154 $
+#     $Date: 2004/07/28 20:07:59 $
+# $Revision: 1.155 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.154 $)
+AC_REVISION($Revision: 1.155 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -554,12 +554,15 @@ if test "$use_pthreads" != "no"; then
   LIBS="$OLDLIBS"
   CFLAGS="$OLDCFLAGS"
   AC_MSG_RESULT($have_pthread)
+else
+  pthread_reason="was disabled"
 fi
 if test "$use_pthreads$have_pthread" = "yesno" ; then
   AC_MSG_ERROR([--enable-pthreads passed but no working pthreads support found])
 fi
 if test "$use_pthreads$have_pthread" = "tryno" ; then
   AC_MSG_WARN([No working pthreads support found - disabling pthreads support])
+  pthread_reason="appear to be missing or broken"
 fi
 
 if test "$have_pthread" = no ; then
@@ -929,6 +932,11 @@ if test $enabled_mpi = yes; then
   if test "$force_mpi$have_mpi" = yesno ; then
     AC_MSG_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
   fi
+  if test "$have_mpi" = no ; then
+    mpi_reason="was not found"
+  fi
+else
+  mpi_reason="was disabled"
 fi
 AC_SUBST(MPI_CC) # compiler to be used to build AMMPI, and linker for AMMPI-based backends
 AC_SUBST(MPI_CFLAGS) # compiler flags (optimization, includes, etc) to be used with above compiler when building AMMPI
@@ -1062,11 +1070,11 @@ GASNET_IF_ENABLED_WITH_AUTO(lapi, Enable the CONDUIT_DESC (auto-detected),
   enabled_lapi=no,
   enabled_lapi=yes)
 if test "$force_lapi$have_pthread" = yesno; then
-  AC_MSG_ERROR([lapi-conduit requires pthread support and pthreads appear to be broken])
+  AC_MSG_ERROR([lapi-conduit requires pthread support but pthreads $pthread_reason])
 fi
 if test "$enabled_lapi$have_pthread" = yesno; then
   enabled_lapi=no
-  AC_MSG_WARN([lapi-conduit requires pthread support and pthreads appear to be broken - disabling lapi])
+  AC_MSG_WARN([lapi-conduit requires pthread support but pthreads $pthread_reason - disabling lapi])
 fi
 if test "$enabled_lapi" = yes; then
   AC_MSG_CHECKING(for working LAPI configuration)
@@ -1218,29 +1226,18 @@ GASNET_IF_ENABLED_WITH_AUTO(vapi, Enable/disable the CONDUIT_DESC (auto-detected
   enabled_vapi=no,
   enabled_vapi=yes)
 if test "$force_vapi$have_pthread" = yesno; then
-  AC_MSG_ERROR([vapi-conduit requires pthread support and pthreads appear to be broken])
+  AC_MSG_ERROR([vapi-conduit requires pthread support but pthreads $pthread_reason])
 fi
 if test "$enabled_vapi$have_pthread" = yesno; then
   enabled_vapi=no
-  AC_MSG_WARN([vapi-conduit requires pthread support and pthreads appear to be broken - disabling vapi])
+  AC_MSG_WARN([vapi-conduit requires pthread support but pthreads $pthread_reason - disabling vapi])
 fi
-if test "$enabled_vapi" = yes; then
-  # Sort out the MPI dependence
-  AC_MSG_CHECKING([for MPI (required to start VAPI programs)])
-  if test "$have_mpi" = yes; then
-    AC_MSG_RESULT(ok)
-  else
-    if test "$enabled_mpi" = no; then
-      reason="disabled"
-    else
-      reason="not found"
-    fi
-    AC_MSG_RESULT([$reason - VAPI auto-detection skipped.]);
-    if test "$force_vapi" = yes; then
-      AC_MSG_ERROR([User requested --enable-vapi but required MPI support was $reason.]);
-    fi
-    enabled_vapi=no
-  fi
+if test "$force_vapi$have_mpi" = yesno; then
+  AC_MSG_ERROR([vapi-conduit requires MPI support and MPI $mpi_reason]);
+fi
+if test "$enabled_vapi$have_mpi" = yesno; then
+  enabled_vapi=no
+  AC_MSG_WARN([vapi-conduit requires MPI support and MPI $mpi__reason - disabling vapi])
 fi
 if test "$enabled_vapi" = yes; then
   # Start by assuming we do have VAPI
