@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/10/08 07:47:11 $
- * $Revision: 1.66 $
+ *     $Date: 2005/01/14 20:05:58 $
+ * $Revision: 1.67 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -231,7 +231,7 @@ static int gasnetc_init(int *argc, char ***argv) {
      * communicate this?  Env variable?
      */
     {
-	char *mode = gasneti_getenv_withdefault("GASNET_LAPI_MODE", "INTERRUPT");
+	char *mode = gasneti_getenv_withdefault("GASNET_LAPI_MODE", _STRINGIFY(GASNET_LAPI_MODE_DEFAULT));
         char tmp[255];
         int i;
         strncpy(tmp, mode, 255);

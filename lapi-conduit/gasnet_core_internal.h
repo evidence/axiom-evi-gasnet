@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/09/20 20:24:16 $
- * $Revision: 1.34 $
+ *     $Date: 2005/01/14 20:05:58 $
+ * $Revision: 1.35 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -169,6 +169,9 @@ typedef struct gasnetc_token_rec {
                       + offsetof(gasnetc_msg_t,args) \
                       + (narg)*sizeof(gasnet_handlerarg_t)
 
+#ifndef GASNET_LAPI_MODE_DEFAULT
+#define GASNET_LAPI_MODE_DEFAULT POLLING
+#endif
 
 /* --------------------------------------------------------------------
  * A simple spinlock implementation
