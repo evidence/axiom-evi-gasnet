@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2004/11/01 21:43:18 $
- * $Revision: 1.59 $
+ *     $Date: 2004/11/02 00:13:42 $
+ * $Revision: 1.60 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1162,6 +1162,7 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   GASNETI_TRACE_EVENT_VAL(C, RDMA_GET_BOUNCE, nbytes);
 
   gasneti_assert(nbytes != 0);
+  gasneti_assert(req_oust != NULL);
 
   /* Use full bounce buffers until just one buffer worth of data remains */
   while (nbytes > GASNETC_BUFSZ) {
@@ -1169,6 +1170,10 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
     sreq->cep  = cep;
     sreq->addr = (void *)dst;
     sreq->len  = GASNETC_BUFSZ;
+
+    /* We must set counters on all chunks since order of completion is uncertain */
+    sreq->req_oust = req_oust;
+    gasnetc_counter_inc(req_oust);
 
     sr_desc->opcode      = VAPI_RDMA_READ;
     sr_desc->remote_addr = src;
@@ -1192,10 +1197,8 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   sreq->cep  = cep;
   sreq->addr = (void *)dst;
   sreq->len  = nbytes;
-  if (req_oust) {
-    gasnetc_counter_inc(req_oust);
-    sreq->req_oust = req_oust;
-  }
+  sreq->req_oust = req_oust;
+  gasnetc_counter_inc(req_oust);
 
   sr_desc->opcode      = VAPI_RDMA_READ;
   sr_desc->remote_addr = src;
@@ -1219,6 +1222,7 @@ static void gasnetc_do_get_zerocp(gasnetc_cep_t *cep, VAPI_lkey_t lkey, VAPI_rke
   GASNETI_TRACE_EVENT_VAL(C, RDMA_GET_ZEROCP, nbytes);
 
   gasneti_assert(nbytes != 0);
+  gasneti_assert(req_oust != NULL);
 
   /* Use max-sized messages until just one msg worth of data remains */
   if_pf (nbytes > max_sz) {
@@ -1247,10 +1251,8 @@ static void gasnetc_do_get_zerocp(gasnetc_cep_t *cep, VAPI_lkey_t lkey, VAPI_rke
 
   sreq = gasnetc_get_sreq(0);
   sreq->cep = cep;
-  if (req_oust) {
-    gasnetc_counter_inc(req_oust);
-    sreq->req_oust = req_oust;
-  }
+  sreq->req_oust = req_oust;
+  gasnetc_counter_inc(req_oust);
 
   sr_desc->opcode      = VAPI_RDMA_READ;
   sr_desc->remote_addr = src;
@@ -1547,6 +1549,7 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
   uintptr_t dst = (uintptr_t)dst_ptr;
 
   gasneti_assert(nbytes != 0);
+  gasneti_assert(req_oust != NULL);
 
   do {
     size_t count = nbytes;	/* in/out parameter to gasnetc_in_segment() */
@@ -1791,6 +1794,7 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
   GASNETI_TRACE_EVENT_VAL(C, RDMA_GET_FH, nbytes);
 
   gasneti_assert(nbytes != 0);
+  gasneti_assert(req_oust != NULL);
 
   do {
     gasnetc_sreq_t *sreq = gasnetc_get_sreq(0);
@@ -1800,10 +1804,8 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     sreq->opcode = VAPI_RDMA_READ;
  
     /* We must set counters on all chunks since order of completion is uncertain */
-    if (req_oust) {
-      gasnetc_counter_inc(req_oust);
-      sreq->req_oust = req_oust;
-    }
+    sreq->req_oust = req_oust;
+    gasnetc_counter_inc(req_oust);
 
     count = gasnetc_fh_helper(0, node, sreq, dst, src, nbytes);
 
