@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_internal.h              $
- *     $Date: 2003/04/05 06:39:43 $
- * $Revision: 1.9 $
+ *     $Date: 2003/06/29 02:33:07 $
+ * $Revision: 1.10 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,7 +83,7 @@ int gasneti_checkAMreturn(int retcode, const char *fncallstr,
    if_pf (gasneti_VerboseErrors && retcode != GASNET_OK) {                               \
      char msg[1024];                                         \
      sprintf(msg, "\nGASNet encountered an error: %s(%i)\n", \
-        gasneti_ErrorName(retcode), retcode);                \
+        gasnet_ErrorName(retcode), retcode);                 \
      GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
    }                                                         \
  } while (0)

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.44 2003/06/09 06:02:38 csbell Exp $
- * $Date: 2003/06/09 06:02:38 $
- * $Revision: 1.44 $
+/* $Id: gasnet_core_internal.h,v 1.45 2003/06/29 02:33:04 bonachea Exp $
+ * $Date: 2003/06/29 02:33:04 $
+ * $Revision: 1.45 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -87,7 +87,7 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
    if_pf (gasneti_VerboseErrors && retcode != GASNET_OK) {   \
      char msg[1024];                                         \
      sprintf(msg, "\nGASNet encountered an error: %s(%i)\n", \
-        gasneti_ErrorName(retcode), retcode);                \
+        gasnet_ErrorName(retcode), retcode);                 \
      GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
    }                                                         \
  } while (0)
