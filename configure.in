@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/03/25 20:41:26 $
-# $Revision: 1.246 $
+#     $Date: 2005/04/06 09:08:54 $
+# $Revision: 1.247 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.246 $)
+AC_REVISION($Revision: 1.247 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -60,6 +60,17 @@ else
   AC_MSG_WARN([cannot find a version of GNU make - if you encounter make problems, install GNU make and/or set \$GMAKE to indicate where it's located])
 fi
 AC_SUBST(GMAKE)
+
+# we do not require nm
+AC_PATH_PROG(NM, $NM nm, nm utility)
+AC_MSG_CHECKING(for GNU nm)
+if test "`${NM:-nm} --version 2>&1 | grep GNU`" = "" ; then
+  gnu_nm=no
+else
+  gnu_nm=yes
+fi
+AC_MSG_RESULT($gnu_nm)
+AM_CONDITIONAL(GNU_NM, test "$gnu_nm" = "yes")
 
 ########################################################################
 ##
@@ -2175,6 +2186,7 @@ AC_PATH_PROGS(ENVCMD, $ENVCMD env, , /usr/bin/:${PATH})
 
 AC_SUBST(BOURNE_SHELL)
 AC_SUBST(AR)
+AC_SUBST(NM)
 AC_SUBST(RANLIB)
 AC_SUBST(BASENAME)
 AC_SUBST(DIRNAME)

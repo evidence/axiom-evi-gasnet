@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2005/04/06 06:59:16 $
-# $Revision: 1.23 $
+#     $Date: 2005/04/06 09:09:00 $
+# $Revision: 1.24 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -161,10 +161,11 @@ if USE_UDP_CONDUIT
 clean-local:
 	rm -f libamudp.a $(testprograms:%=%$(EXESUFFIX)) *.o core
 
+if GNU_NM
 check-exports: libamudp.a
 	@echo Checking libamudp exports...
 	@lib=libamudp.a ; \
-            nm --defined-only $$lib |                                               \
+            @NM@ --defined-only $$lib |                                             \
             grep -v -e ' [_]*amudp_' -e ' [_]*AMUDP_' -e ' [_]*AM_'                 \
                     -e ' [_]*gasnett_' -e ' [_]*gasneti_'                           \
                     -e __FUNCTION__ -e __PRETTY_FUNCTION__ |                        \
@@ -178,6 +179,10 @@ check-exports: libamudp.a
           fi ;                                                                      \
           rm -f .$$lib.exp ;                                                        \
           exit $$failed
+else
+check-exports: libamudp.a
+	@echo check-exports test SKIPPED
+endif
 
 check: tests
 endif

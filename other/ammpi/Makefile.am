@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.am,v $
-#     $Date: 2005/04/06 06:59:14 $
-# $Revision: 1.25 $
+#     $Date: 2005/04/06 09:08:58 $
+# $Revision: 1.26 $
 # Description: Makefile for AMMPI/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -134,10 +134,11 @@ endif
 	$(compile) -DAMMPI -o $@ -c $<
 
 if USE_MPI_CONDUIT
+if GNU_NM
 check-exports: libammpi.a
 	@echo Checking libammpi exports...
 	@lib=libammpi.a ; \
-            nm --defined-only $$lib |                                               \
+            @NM@ --defined-only $$lib |                                               \
             grep -v -e ' [_]*ammpi_' -e ' [_]*AMMPI_' -e ' [_]*AM_'                 \
                     -e ' [_]*gasnett_' -e ' [_]*gasneti_'                           \
                     -e __FUNCTION__ -e __PRETTY_FUNCTION__ |                        \
@@ -151,6 +152,10 @@ check-exports: libammpi.a
           fi ;                                                                      \
           rm -f .$$lib.exp ;                                                        \
           exit $$failed
+else
+check-exports: libammpi.a
+	@echo check-exports test SKIPPED
+endif
 
 check: check-exports tests
 
