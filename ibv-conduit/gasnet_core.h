@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.h                  $
- *     $Date: 2004/03/06 14:24:00 $
- * $Revision: 1.15 $
+ *     $Date: 2004/03/18 00:38:16 $
+ * $Revision: 1.16 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -268,14 +268,12 @@ extern int gasnetc_AMReplyLongM(
 
 extern int gasnetc_RequestSystem( 
                             gasnet_node_t dest,       /* destination node */
-			    int credits_needed,       /* number of credits consumed locally */
 			    gasnetc_counter_t *req_oust, /* counter to wait for send */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             int numargs, ...);
 
 extern int gasnetc_ReplySystem( 
                             gasnet_token_t token,     /* token provided on handler entry */
-			    int credits_granted,      /* number of credits (0 or 1) granted remotely */
 			    gasnetc_counter_t *req_oust, /* counter to wait for send */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             int numargs, ...);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/03/16 20:04:17 $
- * $Revision: 1.44 $
+ *     $Date: 2004/03/18 00:38:16 $
+ * $Revision: 1.45 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1096,7 +1096,7 @@ static void gasnetc_exit_role_reqh(gasnet_token_t token, gasnet_handlerarg_t *ar
                 ? GASNETC_EXIT_ROLE_MASTER : GASNETC_EXIT_ROLE_SLAVE;
 
   /* Inform the requester of the outcome. */
-  rc = gasnetc_ReplySystem(token, 1, NULL, gasneti_handleridx(gasnetc_SYS_exit_role_rep),
+  rc = gasnetc_ReplySystem(token, NULL, gasneti_handleridx(gasnetc_SYS_exit_role_rep),
 			   1, (gasnet_handlerarg_t)result);
   gasneti_assert(rc == GASNET_OK);
 }
@@ -1156,7 +1156,7 @@ static int gasnetc_get_exit_role()
     int rc;
 
     /* Don't know our role yet.  So, send a system-category AM Request to determine our role */
-    rc = gasnetc_RequestSystem(GASNETC_ROOT_NODE, 1, NULL,
+    rc = gasnetc_RequestSystem(GASNETC_ROOT_NODE, NULL,
 		    	       gasneti_handleridx(gasnetc_SYS_exit_role_req), 0);
     gasneti_assert(rc == GASNET_OK);
 
@@ -1303,7 +1303,7 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
 
     if ((gasneti_getMicrosecondTimeStamp() - start_time) > timeout_us) return -1;
 
-    rc = gasnetc_RequestSystem(i, 1, NULL,
+    rc = gasnetc_RequestSystem(i, NULL,
 		    	       gasneti_handleridx(gasnetc_SYS_exit_req),
 			       1, (gasnet_handlerarg_t)exitcode);
     if (rc != GASNET_OK) return -1;
@@ -1562,7 +1562,7 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
   (void)gasneti_atomic_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE);
 
   /* Send a reply so the master knows we are reachable */
-  rc = gasnetc_ReplySystem(token, 1, &gasnetc_exit_repl_oust,
+  rc = gasnetc_ReplySystem(token, &gasnetc_exit_repl_oust,
 		  	   gasneti_handleridx(gasnetc_SYS_exit_rep), /* no args */ 0);
   gasneti_assert(rc == GASNET_OK);
 
