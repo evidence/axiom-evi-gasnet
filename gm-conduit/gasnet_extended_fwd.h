@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2002/11/03 15:48:10 $
- * $Revision: 1.8 $
+ *     $Date: 2002/11/30 17:17:01 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -93,12 +93,18 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define CONDUIT_EXTENDED_STATS(CNT,VAL,TIME) 		\
         CNT(C, DYNAMIC_THREADLOOKUP, cnt)		\
 	VAL(C, FIREHOSE_MOVES, firehoses moved for puts)\
+	VAL(C, FIREHOSE_MOVE_OLD_BUCKETS,		\
+		number of replacement firhoses)		\
+	CNT(C, FIREHOSE_VICTIM_POLLS,			\
+		number of firehoses recovered by poll)	\
 	VAL(C, FIREHOSE_TOUCHED, 			\
 		firehoses touched for puts)		\
 	VAL(C, BUCKET_LOCAL_PINS,			\
 		local buckets pinned for puts/gets)	\
 	VAL(C, BUCKET_LOCAL_TOUCHED, 			\
 		local buckets touched for puts/gets)	\
+	VAL(C, BUCKET_VICTIM_UNPINS, 			\
+		number of bucket unpins in victim FIFO) \
 	TIME(C, FIREHOSE_PUT_ONE, puts one fh move)	\
 	TIME(C, FIREHOSE_PUT_MANY, puts many fh moves)	\
 	TIME(C, FIREHOSE_PUT_ONESIDED, puts one-sided)  \

@@ -831,6 +831,7 @@ gasnetc_bucket_tryunpin_by_bucket_inner(uintptr_t bucket_addr,
 			/* hold the victim lock long enough to mark the buckets
 			 * as unpinned */
 			gasneti_mutex_lock(&gasnetc_lock_bucket_victim);
+			GASNETI_TRACE_EVENT_VAL(C, BUCKET_VICTIM_UNPINS, num);
 			GASNETI_TRACE_PRINTF(C, ("Firehose local bucket (%p) - "
 			    "must deregister remaining %d buckets "
 			    "(victim FIFO count=%d,max=%d)", 
@@ -978,11 +979,14 @@ typedef uintptr_t	gasnetc_fh_key_t;
 static gasnetc_fh_data_t	*gasnetc_fh_victims;
 static size_t			*gasnetc_fh_victim_count;
 static struct gm_hash		*gasnetc_fh_hash;
+unsigned long			 gasnetc_fh_hash_num;
 static size_t			 gasnetc_fh_num;
 static gasneti_atomic_t		*gasnetc_fh_used;
 
 uintptr_t	*gasnetc_firehose_buf = NULL;
 size_t		 gasnetc_firehose_buf_num = 0;
+unsigned long	__hash_elems = 0;
+unsigned long	__tot_hash_elems = 0;
 
 gasneti_mutex_t	gasnetc_lock_fh_hash   = GASNETI_MUTEX_INITIALIZER;
 gasneti_mutex_t	gasnetc_lock_fh_victim = GASNETI_MUTEX_INITIALIZER;
@@ -1027,9 +1031,16 @@ extern void	gasnetc_firehose_decrement_refcount(gasnet_node_t, uintptr_t,
 						(fhptr)->bucket_refcount++)
 #define GASNETC_FH_REFC_DEC(fhptr)	(assert(GASNETC_FH_REFC(fhptr) != 0),  \
 						(fhptr)->bucket_refcount--)
+#define GASNETC_FH_REFC_ADDR_SET(fhptr, addr)				       \
+					((fhptr)->bucket_refcount = (addr) |   \
+					 GASNETC_FH_REFC(fhptr))
 #define GASNETC_FH_REFC_SET(fhptr,d)	(assert(d <= GASNETC_FH_REFC_MASK),    \
 						(fhptr)->bucket_refcount =     \
 						(GASNETC_FH_ADDR(fhptr) | d))
+#define GASNETC_FH_REFC_INIT(fhptr,addr,d)				       \
+					(assert(d <= GASNETC_FH_REFC_MASK),    \
+					 	(fhptr)->bucket_refcount =     \
+						(addr) | (d))
 #define GASNETC_FH_REFC_ZERO(fhptr)	((fhptr)->bucket_refcount &=           \
 						GASNETC_FH_ADDR_MASK)
 #define GASNETC_FH_REFC_ISZERO(fhptr)	(GASNETC_FH_REFC(fhptr) == 0)
@@ -1051,8 +1062,18 @@ gasnetc_firehose_init(uintptr_t	segsize)
 		if (segsize > max_pinnable)
 			segsize = max_pinnable;
 	#else
-		/* SEGMENT_EVERYTHING always assumes max_pinnable */
-		segsize = max_pinnable;
+		#ifdef GASNETC_FIREHOSE_M_SIZE
+			segsize = GASNETC_FIREHOSE_M_SIZE;
+			if (segsize > max_pinnable) {
+				fprintf(stderr, 
+				    "GASNETC_FIREHOSE_M_SIZE is too large\n");
+				fflush(stderr);
+				gasnetc_exit(-1);
+			}
+		#else
+			/* SEGMENT_EVERYTHING always assumes max_pinnable */
+			segsize = max_pinnable;
+		#endif
 	#endif
 
 	
@@ -1083,7 +1104,8 @@ gasnetc_firehose_init(uintptr_t	segsize)
 	 * key is the bucket address ORed with the gasnet node number */
 	gasnetc_fh_hash = 
 	    gm_create_hash(gm_hash_compare_ptrs, gm_hash_hash_ptr,
-	    0, sizeof(gasnetc_fh_data_t), firehoses, 0);
+	    0, sizeof(gasnetc_fh_data_t), (unsigned) firehoses*1.2, 0);
+	__tot_hash_elems = (unsigned) firehoses*1.2;
 	if (gasnetc_fh_hash == NULL)
 		gasneti_fatalerror("could not create firehose hash!\n");
 	gasnetc_fh_num = gasnetc_nodes == 1 ? (size_t) firehoses :
@@ -1181,7 +1203,7 @@ gasnetc_firehose_unpin(gasnetc_fh_key_t key)
 	}
 	else {
 		GASNETI_TRACE_PRINTF(C, 
-		    ("Firehose remove key: %p NOT in hash!\n"));
+		    ("Firehose remove key: %p NOT in hash!\n", (void *) key));
 		gasneti_fatalerror("Firehose bucket not found in hash");
 	}
 	gasneti_mutex_unlock(&gasnetc_lock_fh_hash);
@@ -1232,10 +1254,18 @@ gasnetc_firehose_add(gasnetc_fh_key_t key)
 	}
 	else {
 		data.next = NULL;
-		GASNETC_FH_REFC_SET(&data, 1);
+		GASNETC_FH_REFC_INIT(&data, GASNETC_FH_KEY_ADDR(key), 1);
 		GASNETI_TRACE_PRINTF(C, ("Firehose add key: %p", (void *)key));
 		status = 
 		    gm_hash_insert(gasnetc_fh_hash, (void *)key, (void *)&data);
+
+		__hash_elems++;
+		if (__hash_elems > __tot_hash_elems) {
+			fprintf(stderr, "Hash table overflow! elems/tot = %d/%d\n",
+			    __hash_elems, __tot_hash_elems);
+			fflush(stderr);
+			gasnetc_exit(-1);
+		}
 		assert(GASNETC_FH_REFC((gasnetc_fh_data_t *)
 	    	    gm_hash_find(gasnetc_fh_hash, (void *)key)) == 1);
 		if (status != GM_SUCCESS)
@@ -1260,6 +1290,7 @@ gasnetc_fh_data_t *
 gasnetc_firehose_find_freevictim(gasnet_node_t node)
 {
 	gasnetc_fh_data_t	*data, *data_tmp;
+	gasnetc_fh_key_t	key;
 
 	assert(node > 0 && node < gasnetc_nodes);
 	gasneti_mutex_assertlocked(&gasnetc_lock_fh_victim);
@@ -1269,15 +1300,24 @@ gasnetc_firehose_find_freevictim(gasnet_node_t node)
 		 * its reference count.  It's important to set the next pointer
 		 * to NULL */
 		data_tmp = data->next;
-		data->next = data_tmp->next;
+		data->next = data->next->next;
 		data_tmp->next = NULL;
+		gasnetc_fh_victim_count[node]--;
+		key = GASNETC_FH_KEY(GASNETC_FH_ADDR(data_tmp), node);
 
+		if (gm_hash_find(gasnetc_fh_hash, (void *)key) == NULL) {
+			fprintf(stderr, 
+			    "in fifo queue, doesn't exist key=%p count=%d\n", 
+			    key, gasnetc_fh_victim_count[node]);
+			fflush(stderr);
+			gasnetc_exit(-1);
+		}
 		/* If the reference count is zero, we can safely reuse this
 		 * firehose, or else just remove the element from the FIFO
 		 * and keep looking for a refcount==0
 		 */
-		if (GASNETC_FH_REFC_ISZERO(data_tmp)) {
-			gasnetc_fh_victim_count[node]--;
+		if ((gm_hash_find(gasnetc_fh_hash, (void *) key) != NULL) && 
+		    GASNETC_FH_REFC_ISZERO(data_tmp)) {
 			return data_tmp;
 		}
 	} 
@@ -1363,6 +1403,7 @@ gasnetc_firehose_build_list(gasnet_node_t node, uintptr_t dest,
 				    GASNETC_FH_KEY(bucket_cur,node)))
 					continue;
 			}
+			GASNETI_TRACE_EVENT(C, FIREHOSE_VICTIM_POLLS);
 			/* By now, we really know we need to move the firehose
 			 * to the new location */
 			vic_addr = GASNETC_FH_ADDR(victim);
@@ -1377,6 +1418,7 @@ gasnetc_firehose_build_list(gasnet_node_t node, uintptr_t dest,
 				gasneti_fatalerror(
 				    "key doesn't exist in firehose hash");
 			}
+			__hash_elems--;
 			gasneti_mutex_unlock(&gasnetc_lock_fh_hash);
 			firehose_old_buf[i] = vic_addr;
 			i++;
@@ -1461,6 +1503,8 @@ gasnetc_firehose_move_reqh_inner(gasnet_token_t token, void *addr,
 	    old_buckets, new_buckets));
 
 	if (old_buckets > 0) {
+		GASNETI_TRACE_EVENT_VAL(C, FIREHOSE_MOVE_OLD_BUCKETS, 
+		    old_buckets);
 		assert(old_bucket_off > 0);
 		old_bucket_list = (uintptr_t *) addr + old_bucket_off;
 		gasnetc_bucket_unpin_by_list(old_bucket_list, old_buckets);

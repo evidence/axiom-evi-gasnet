@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.34 2002/10/28 06:06:24 csbell Exp $
- * $Date: 2002/10/28 06:06:24 $
- * $Revision: 1.34 $
+/* $Id: gasnet_core_internal.h,v 1.35 2002/11/30 17:17:01 csbell Exp $
+ * $Date: 2002/11/30 17:17:01 $
+ * $Revision: 1.35 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -59,7 +59,7 @@
 /* define to the maximum fraction of physical memory occupied by victim pages */
 #define GASNETC_BUCKET_SEGMENT_MAX_SIZE 0.7
 /* define to be the fraction in physical memory to leave lazily pinned */
-#define GASNETC_BUCKET_VICTIM_MAX_SIZE	0.3
+#define GASNETC_BUCKET_VICTIM_MAX_SIZE	0.5
 #define GASNETC_NUM_BUCKETS(addr,len)	(assert(addr%GASNETC_BUCKET_SIZE==0),\
 					(GASNETI_PAGE_ROUNDUP(len,           \
 					GASNETC_BUCKET_SIZE)-addr)>>         \

@@ -49,6 +49,7 @@ extern void	gasnete_firehose_move_done(void *);
 			    FIREHOSE_ ## putget ## _MANY, 	\
 			    GASNETI_STATTIME_NOW_IFENABLED(C)-	\
 			    eop->starttime); break;		\
+		default: break;					\
 	    }							\
 	    eop->fh_stats = fh_none;				\
 	} while (0)
