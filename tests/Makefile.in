@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/03/10 09:17:49 $
-# $Revision: 1.52 $
+#     $Date: 2005/03/13 12:49:03 $
+# $Revision: 1.53 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -130,6 +130,9 @@ run-tests: force
 	fi ; done ;                                                                     \
 	echo $$line ;                                                                   \
 	echo " Running $(CONDUIT_NAME)-conduit tests:" ;                                \
+        if test "$(TESTS)" ; then                                                       \
+          tests_to_run="$(TESTS)" ; tests_to_ignore="" ;                                \
+	fi ;                                                                            \
 	for file in $$tests_to_run ; do echo "   $$file" ; done ;                       \
 	if test "$$tests_to_ignore" ; then                                              \
 	  echo " Ignoring tests: $$tests_to_ignore" ;                                   \
