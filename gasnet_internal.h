@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/08/30 08:51:42 $
- * $Revision: 1.38 $
+ *     $Date: 2003/09/02 21:19:46 $
+ * $Revision: 1.39 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -69,6 +69,47 @@ extern int gasneti_attach_done; /*  true after attach */
 #define malloc !!! ERROR: GASNet conduit code must use gasneti_malloc !!!
 #define calloc !!! ERROR: GASNet conduit code must use gasneti_calloc !!!
 #define free   !!! ERROR: GASNet conduit code must use gasneti_free   !!!
+/* ------------------------------------------------------------------------------------ */
+/* Version of strdup() which is compatible w/ gasneti_free(), instead of plain free() */
+GASNET_INLINE_MODIFIER(gasneti_strdup)
+char *gasneti_strdup(const char *s) {
+  char *retval;
+
+  if_pf (s == NULL) {
+    /* special case to avoid strlen(NULL) */
+    retval = (char *)gasneti_malloc(1);
+    retval[0] = '\0';
+  } else {
+    size_t sz = strlen(s) + 1;
+    retval = (char *)memcpy((char *)gasneti_malloc(sz), s, sz);
+  }
+
+  return retval;
+}
+/* Like gasneti_strdup, but copy is limited to at most n characters.
+ * Note allocation is upto n+1 bytes, due to the '\0' termination.
+ */
+GASNET_INLINE_MODIFIER(gasneti_strndup)
+char *gasneti_strndup(const char *s, size_t n) {
+  char *retval;
+
+  if_pf ((s == NULL) || (n == 0)) {
+    /* special case to avoid strlen(NULL) */
+    retval = (char *)gasneti_malloc(1);
+    retval[0] = '\0';
+  } else {
+    size_t len = strlen(s);
+
+    if (len > n) { len = n; }
+    retval = gasneti_malloc(len + 1);
+    retval[len] = '\0';  /* memcpy won't overwrite this byte */
+
+    (void)memcpy(retval, s, len);
+  }
+
+  return retval;
+}
+
 /* ------------------------------------------------------------------------------------ */
 /* page alignment macros */
 #define GASNETI_ALIGNDOWN(p,P)    ((uintptr_t)(p)&~((uintptr_t)(P)-1))
