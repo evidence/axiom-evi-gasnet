@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/07/25 11:12:12 $
-# $Revision: 1.152 $
+#     $Date: 2004/07/26 17:27:28 $
+# $Revision: 1.153 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.152 $)
+AC_REVISION($Revision: 1.153 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -40,22 +40,14 @@ GASNET_GET_AUTOCONF_VERSION()
 
 ########################################################################
 ##
-##  Site-Specific Prefabricated Collections of Settings
+##  Misc configure option processing
 ##
 
-## Berkeley Millennium cluster
-
-#AC_MSG_CHECKING(for Berkeley Millennium cluster)
-#AC_ARG_ENABLE(millennium,
-#GASNET_OPTION_HELP(enable-millennium, use known directories for Berkeley Millennium cluster),
-#,[case "`hostname`" in
-#  *.Millennium.Berkeley.EDU) enable_millennium=yes ;;
-#  *) enable_millennium=no ;;
-#esac])
-#if test "$enable_millennium" = yes; then
-#fi
-#AC_MSG_RESULT($enable_millennium)
-
+#     default: support pthreads if library found
+#     --enable-pthreads: fail if pthreads lib not found 
+#     --disable-pthreads: don't even look for pthreads library 
+GASNET_IF_ENABLED_WITH_AUTO(pthreads, support pthreaded GASNet clients,
+                 [use_pthreads="yes"], [use_pthreads="no"], [use_pthreads="try"])
 
 ########################################################################
 ##
@@ -189,6 +181,7 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         ]GASNET_TRY_[$1]FLAG[([-Wnested-externs],[[$1]FLAGS="$[$1]FLAGS -Wnested-externs"])
         ]GASNET_TRY_[$1]FLAG[([-Wwrite-strings],[[$1]FLAGS="$[$1]FLAGS -Wwrite-strings"])
         ]GASNET_TRY_[$1]FLAG[([-Wmissing-format-attribute],[[$1]FLAGS="$[$1]FLAGS -Wmissing-format-attribute"])
+	if test "$use_pthreads" != "no" ; then
         # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
 	AC_MSG_CHECKING(for buggy pthread.h mutex initializers)
         old[$1]FLAGS="$[$1]FLAGS"
@@ -201,8 +194,12 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
           [pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;],
           [AC_MSG_RESULT(ok)], [AC_MSG_RESULT(buggy)
           ]GASNET_TRY_[$1]FLAG[([-Wno-missing-braces],[old[$1]FLAGS="$old[$1]FLAGS -Wno-missing-braces"])],
-          [AC_MSG_ERROR(failure while checking for buggy pthread.h mutexes)]
+          [#bug611: ignore failures here, which may be due to broken/missing pthreads support
+           #AC_MSG_ERROR(failure while checking for buggy pthread.h mutexes)
+	   AC_MSG_RESULT(failure - ignored)
+          ]
         )
+	fi
         [$1]FLAGS="$old[$1]FLAGS"
         case "$target_os" in 
           solaris*) # hide pragma warnings in system header files included by absolute path
@@ -546,21 +543,33 @@ AC_SUBST(EXESUFFIX)
 
 ## POSIX threads
 #             
-OLDLIBS="$LIBS"   
-LIBS="$LIBS $GASNET_THREAD_LIBS"
-AC_SEARCH_LIBS(pthread_create, [pthread pthreads c_r], have_pthread=yes, have_pthread=no)
-case "$target_os" in
-  hpux*) have_pthread=yes ;; # test fails on HPUX due to signature mismatch
-esac        
-LIBS="$OLDLIBS"
+have_pthread=no
+if test "$use_pthreads" != "no"; then
+  AC_MSG_CHECKING([for working pthreads support])
+  OLDLIBS="$LIBS"   
+  OLDCFLAGS="$CFLAGS"
+  CFLAGS="$CFLAGS $GASNET_THREAD_DEFINES"
+  LIBS="$LIBS $GASNET_THREAD_LIBS"
+  AC_TRY_LINK( [ #include <pthread.h> ], [ pthread_create(NULL,NULL,NULL,NULL); ], [have_pthread=yes])
+  LIBS="$OLDLIBS"
+  CFLAGS="$OLDCFLAGS"
+  AC_MSG_RESULT($have_pthread)
+fi
+if test "$use_pthreads$have_pthread" = "yesno" ; then
+  AC_MSG_ERROR([--enable-pthreads passed but no working pthreads support found])
+fi
+if test "$use_pthreads$have_pthread" = "tryno" ; then
+  AC_MSG_WARN([No working pthreads support found - disabling pthreads support])
+fi
 
 if test "$have_pthread" = no ; then
   GASNET_THREAD_DEFINES=""
   GASNET_THREAD_LIBS=""
-  AC_MSG_WARN(No pthreads support found - disabling pthreads)
 fi
           
 AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
+PTHREADS="$have_pthread"
+AC_SUBST(PTHREADS)
 
 ## Solaris threads
 
@@ -1051,7 +1060,13 @@ pushdef([CONDUIT_DESC],[LAPI (IBM SP) network conduit (lapi)])
 GASNET_IF_ENABLED(lapi, Enable the CONDUIT_DESC, 
   have_lapi=yes,
   have_lapi=no)
-
+if test "$force_lapi$have_pthread" = yesno; then
+  AC_MSG_ERROR([lapi-conduit requires pthread support and pthreads appear to be broken])
+fi
+if test "$enabled_lapi$have_pthread" = yesno; then
+  enabled_lapi=no
+  AC_MSG_WARN([lapi-conduit requires pthread support and pthreads appear to be broken - disabling lapi])
+fi
 if test $have_lapi = yes; then
   AC_MSG_CHECKING(for working LAPI configuration)
   OLDLIBS="$LIBS"
@@ -1203,6 +1218,13 @@ GASNET_IF_ENABLED_WITH_AUTO(vapi, Enable/disable the CONDUIT_DESC (auto-detected
   [enabled_vapi=yes;force_vapi=yes],
   enabled_vapi=no,
   enabled_vapi=yes)
+if test "$force_vapi$have_pthread" = yesno; then
+  AC_MSG_ERROR([vapi-conduit requires pthread support and pthreads appear to be broken])
+fi
+if test "$enabled_vapi$have_pthread" = yesno; then
+  enabled_vapi=no
+  AC_MSG_WARN([vapi-conduit requires pthread support and pthreads appear to be broken - disabling vapi])
+fi
 if test "$enabled_vapi" = yes; then
   # Sort out the MPI dependence
   AC_MSG_CHECKING([for MPI (required to start VAPI programs)])

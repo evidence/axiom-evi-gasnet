@@ -15,8 +15,7 @@ headers = $(top_srcdir)/extended-ref/*.h $(srcdir)/*.h $(CONDUIT_EXTRAHEADERS)
 
 makefile_fragments =                \
         $(CONDUIT_NAME)-seq.mak     \
-        $(CONDUIT_NAME)-parsync.mak \
-	$(CONDUIT_NAME)-par.mak
+@HAVE_PTHREAD_TRUE@  $(CONDUIT_NAME)-parsync.mak $(CONDUIT_NAME)-par.mak
 
 @GASNET_SEGMENT_FAST_TRUE@GASNET_SEGMENT_STR="FAST"
 @GASNET_SEGMENT_LARGE_TRUE@GASNET_SEGMENT_STR="LARGE"
@@ -58,7 +57,7 @@ libgasnet_dependencies =                  \
         $(top_srcdir)/*.[ch]              \
         $(top_srcdir)/extended-ref/*.[ch] \
 	$(top_srcdir)/other/*.h           \
-        $(CONDUIT_SOURCELIST)             \
+	$(CONDUIT_SOURCELIST)             \
 	$(CONDUIT_EXTRAHEADERS)           \
 	$(CONDUIT_EXTRADEPS)
 
@@ -80,9 +79,11 @@ do-libgasnet-seq: $(libgasnet_dependencies) $(CONDUIT_SEQ_HOOK)
 	@$(MAKE) THREAD_MODEL=SEQ LIBGASNET_THREAD_DEFINES= do-libgasnet
 
 do-libgasnet-par: $(libgasnet_dependencies) $(CONDUIT_PAR_HOOK)
+	@@HAVE_PTHREAD_FALSE@$(MAKE) do-pthreads-error
 	@$(MAKE) THREAD_MODEL=PAR LIBGASNET_THREAD_DEFINES="$(thread_defines)" do-libgasnet
 
 do-libgasnet-parsync: $(libgasnet_dependencies) $(CONDUIT_PARSYNC_HOOK)
+	@@HAVE_PTHREAD_FALSE@$(MAKE) do-pthreads-error
 	@$(MAKE) THREAD_MODEL=PARSYNC LIBGASNET_THREAD_DEFINES="$(thread_defines)" do-libgasnet
 
 # test targets 
@@ -179,6 +180,11 @@ do-error:
 	@echo "       try re-running configure with --enable-$(CONDUIT_NAME)"
 	@exit 1
 
+do-pthreads-error: 
+	@echo "ERROR: pthreads support was not detected at configure time"
+	@echo "       try re-running configure with --enable-pthreads"
+	@exit 1
+
 $(top_builddir)/other/Makefile-conduit.mak: $(top_srcdir)/other/Makefile-conduit.mak.in
 	$(MAKE) -C $(top_builddir)/other Makefile-conduit.mak
 
@@ -198,9 +204,11 @@ $(CONDUIT_NAME)-seq.mak: conduit.mak $(top_builddir)/other/fragment-head.mak $(t
 	$(MAKE) do-make-fragment thread_model=seq THREAD_MODEL=SEQ
 
 $(CONDUIT_NAME)-par.mak: conduit.mak $(top_builddir)/other/fragment-head.mak $(top_builddir)/other/fragment-body.mak 
+	@@HAVE_PTHREAD_FALSE@$(MAKE) do-pthreads-error
 	$(MAKE) do-make-fragment thread_model=par THREAD_MODEL=PAR
 
 $(CONDUIT_NAME)-parsync.mak: conduit.mak $(top_builddir)/other/fragment-head.mak $(top_builddir)/other/fragment-body.mak 
+	@@HAVE_PTHREAD_FALSE@$(MAKE) do-pthreads-error
 	$(MAKE) do-make-fragment thread_model=parsync THREAD_MODEL=PARSYNC
 
 do-make-fragment: force
