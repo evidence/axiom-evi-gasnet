@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/08/06 23:35:00 $
- * $Revision: 1.49 $
+ *     $Date: 2004/08/07 12:39:49 $
+ * $Revision: 1.50 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -672,6 +672,7 @@
    #define gasneti_local_wmb() _memory_barrier()
    #define gasneti_local_rmb() _memory_barrier()
    #define gasneti_local_mb() _memory_barrier()
+   #define gasneti_compiler_fence() do { int volatile x = 0; } while (0)
 #elif defined(__crayx1)
    /* Many memory barrier intrinsics on the X1, but none seem to match what we
     * need in a local (scalar-scalar) membar */
@@ -680,6 +681,7 @@
      static int volatile x;
      x = 1;
    }
+   #define gasneti_compiler_fence() gasneti_local_wmb()
 #elif defined(_SX)
    GASNET_INLINE_MODIFIER(gasneti_local_wmb)
    void gasneti_local_wmb(void) {
