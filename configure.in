@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/16 07:21:52 $
-# $Revision: 1.125 $
+#     $Date: 2004/03/17 01:16:34 $
+# $Revision: 1.126 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.125 $)
+AC_REVISION($Revision: 1.126 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -242,17 +242,18 @@ case "$gasnet_cv_cc_family" in
   Intel) MISC_CFLAGS="-wd279" ;;
   PGI) MISC_CFLAGS="-Masmkeyword" ;;
   Sun) MISC_CFLAGS="-errtags" ;; # show warning tag ids in warnings
+  XLC) MISC_CFLAGS="-qsuppress=1500-010" ;; # 1500-010 = infinite loop (such as in our tests)
   *)    MISC_CFLAGS="" ;;
 esac
 
 case "$gasnet_cv_cc_family" in
   XLC) MISC_CPPFLAGS="-qcpluscmt" ;; # tell preprocessor to allow C++-style comments
   Sun) MISC_CPPFLAGS="-xCC" ;; # C++ comments
-  *)    MISC_CPPFLAGS="" ;;
-esac
-
-case "$gasnet_cv_cc_family"."$target_os" in
-    GNU.darwin*) MISC_CPPFLAGS="-no-cpp-precomp -Wno-long-double $MISC_CPPFLAGS" ;; 
+  GNU)
+    case "$target_os" in
+      darwin*) MISC_CPPFLAGS="-no-cpp-precomp -Wno-long-double" ;; 
+    esac ;;
+  *)  MISC_CPPFLAGS="" ;;
 esac
 
 GASNET_IF_ENABLED(debug, Build GASNet in a debugging mode, 
@@ -1481,12 +1482,7 @@ case "$target_os" in
     # Darwin linker complains about symbols defined in multiple dynamic libs.
     # This is a minor annoyance in some cases, however it becomes a fatal error
     # when linking with the mpich libs.
-    case "$gasnet_cv_cc_family" in
-      GNU)  LDFLAGS="$LDFLAGS -multiply_defined suppress"
-      ;;
-      XLC)  LDFLAGS="$LDFLAGS -Wl,-multiply_defined,suppress"
-      ;;
-    esac
+    LDFLAGS="$LDFLAGS -Wl,-multiply_defined,suppress"
   ;;
 esac
 AC_SUBST(LDFLAGS)
