@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2004/10/21 20:56:50 $
- * $Revision: 1.82 $
+ *     $Date: 2004/11/10 15:43:35 $
+ * $Revision: 1.83 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -67,6 +67,15 @@ GASNETI_IDENT(gasneti_IdentString_libraryConfig, "$GASNetConfig: (libgasnet.a) "
 
 GASNETI_IDENT(gasneti_IdentString_BuildTimestamp, 
              "$GASNetBuildTimestamp: " __DATE__ " " __TIME__ " $");
+
+GASNETI_IDENT(gasneti_IdentString_BuildID, 
+             "$GASNetBuildId: " GASNETI_BUILD_ID " $");
+GASNETI_IDENT(gasneti_IdentString_ConfigureArgs, 
+             "$GASNetConfigureArgs: " GASNETI_CONFIGURE_ARGS " $");
+GASNETI_IDENT(gasneti_IdentString_SystemTuple, 
+             "$GASNetSystemTuple: " GASNETI_SYSTEM_TUPLE " $");
+GASNETI_IDENT(gasneti_IdentString_SystemName, 
+             "$GASNetSystemName: " GASNETI_SYSTEM_NAME " $");
 
 int gasneti_init_done = 0; /*  true after init */
 int gasneti_attach_done = 0; /*  true after attach */
@@ -149,10 +158,6 @@ extern void gasneti_check_config_postattach() {
 
   gasneti_assert_always(gasnet_nodes() >= 1);
   gasneti_assert_always(gasnet_mynode() < gasnet_nodes());
-
-  GASNETI_TRACE_PRINTF(I,("GASNET_CONFIG_STRING: %s", GASNET_CONFIG_STRING));
-  GASNETI_TRACE_PRINTF(I,("gasnet_mynode(): %i", (int)gasnet_mynode()));
-  GASNETI_TRACE_PRINTF(I,("gasnet_nodes(): %i", (int)gasnet_nodes()));
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -1087,6 +1092,7 @@ extern void gasneti_trace_init(int argc, char **argv) {
   const char *tracetypes = NULL;
   const char *statstypes = NULL;
 
+  starttime = GASNETI_STATTIME_NOW();
   { /* setup tracefile */
     char *tracefilename = gasneti_getenv_withdefault("GASNET_TRACEFILE","");
     char *statsfilename = gasneti_getenv_withdefault("GASNET_STATSFILE","");
@@ -1164,6 +1170,15 @@ extern void gasneti_trace_init(int argc, char **argv) {
     #endif
   }
 
+  gasneti_tracestats_printf("GASNET_CONFIG_STRING: %s", GASNET_CONFIG_STRING);
+  gasneti_tracestats_printf("GASNet build timestamp:   " __DATE__ " " __TIME__);
+  gasneti_tracestats_printf("GASNet configure args:    " GASNETI_CONFIGURE_ARGS);
+  gasneti_tracestats_printf("GASNet configure buildid: " GASNETI_BUILD_ID);
+  gasneti_tracestats_printf("GASNet system tuple:      " GASNETI_SYSTEM_TUPLE);
+  gasneti_tracestats_printf("GASNet configure system:  " GASNETI_SYSTEM_NAME);
+  gasneti_tracestats_printf("gasnet_mynode(): %i", (int)gasnet_mynode());
+  gasneti_tracestats_printf("gasnet_nodes(): %i", (int)gasnet_nodes());
+
   #if GASNET_NDEBUG
   { char *NDEBUG_warning =
      "WARNING: tracing/statistical collection may adversely affect application performance.";
@@ -1188,7 +1203,6 @@ extern void gasneti_trace_init(int argc, char **argv) {
   if (!gasneti_statsfile && !gasneti_tracefile)
     memset(gasneti_statstypes, 0, 256);
 
-    starttime = GASNETI_STATTIME_NOW();
   #endif
 }
 

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/11/02 07:10:47 $
-# $Revision: 1.209 $
+#     $Date: 2004/11/10 15:43:35 $
+# $Revision: 1.210 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.209 $)
+AC_REVISION($Revision: 1.210 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -27,16 +27,10 @@ AM_INIT_AUTOMAKE(GASNet, 1.5, no-define)
 AC_PREFIX_DEFAULT(/usr/local)
 AM_CONFIG_HEADER(gasnet_config.h)
 
-# Save useful directory names
-GASNET_PATH_PROGS(PWD_PROG, pwd, pwd)
-TOP_SRCDIR=`cd ${srcdir} && ${PWD_PROG}` # don't trust shell's builtin pwd, because it may include symlinks
-TOP_BUILDDIR=`${PWD_PROG}`
-AC_SUBST(TOP_SRCDIR)
-AC_SUBST(TOP_BUILDDIR)
+GASNET_START_CONFIGURE([AWK])
+GASNET_DEFINE_CONFIGURE_VARS([GASNETI])
 
-GASNET_RESTORE_AUTOCONF_ENV([CC CXX CFLAGS CXXFLAGS CPPFLAGS LIBS MAKE GMAKE AR RANLIB REXEC AWK])
 AC_PROG_AWK
-GASNET_GET_AUTOCONF_VERSION()
 
 ########################################################################
 ##
