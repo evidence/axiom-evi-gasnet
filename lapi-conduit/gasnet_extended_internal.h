@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2005/01/13 10:38:36 $
- * $Revision: 1.10 $
+ *     $Date: 2005/01/13 12:55:36 $
+ * $Revision: 1.11 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,8 +56,18 @@ typedef struct {
     gasneti_assert_always((GASNET_BARRIERFLAG_MISMATCH | GASNET_BARRIERFLAG_ANONYMOUS) == 0x3); \
   } while (0)
 
+/* bypass LAPI for sending loopback AMSend messages in barrier
+   saves some LAPI overhead, adds some of our own locking overhead
+ */
 #ifndef GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND
 #define GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND 1
+#endif
+
+/* implement barrier synchronization using LAPI Gfence
+   makes barrier_notify entirely blocking
+ */
+#ifndef GASNETE_BARRIER_USE_GFENCE
+#define GASNETE_BARRIER_USE_GFENCE 1
 #endif
 
 /* ------------------------------------------------------------------------------------ */
