@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/10/21 23:59:28 $
-# $Revision: 1.26 $
+#     $Date: 2004/10/25 23:39:19 $
+# $Revision: 1.27 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -103,8 +103,19 @@ if (!$opt_report) {
     $opt_report="GET,PUT,BARRIER";
 } 
 
-while (@ARGV) {
+ARG: while (@ARGV) {
     my $arg = pop @ARGV;
+    if ($arg =~ /%/) {
+      for (my $i=0; ; $i++) {
+	my $targ = $arg;
+	$targ =~ s/%/$i/g;
+	if (-f $targ) {
+	  unshift @ARGV, $targ;
+	} else {
+	  next ARG;
+	}
+      }
+    }
     parse_threadinfo($arg);
     parse_tracefile($arg);
 }
