@@ -1,13 +1,13 @@
 #  $Archive:: /Ti/AMUDP/Makefile                                         $
-#     $Date: 2003/12/11 20:19:53 $
-# $Revision: 1.1 $
+#     $Date: 2003/12/17 10:12:24 $
+# $Revision: 1.2 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
-# uncomment one of the two lines below based on environment
+# Set host system to the appropriate value to get the right prebaked Makefile
 
-#include Makefile.${OSTYPE}.${MACHTYPE} # use prebaked Makefiles
-include ./src/Makefile.titanium # work within Titanium's autoconf build infrastructure
+HOSTSYSTEM=${OSTYPE}.${MACHTYPE}
+include Makefile.${HOSTSYSTEM} 
 
 # Uncomment one set of lines below to get debug or release configuration 
 

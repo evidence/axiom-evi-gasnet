@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/12/11 20:19:56 $
- * $Revision: 1.1 $
+ *     $Date: 2003/12/17 10:12:26 $
+ * $Revision: 1.2 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -107,6 +107,11 @@ static int gasnetc_init(int *argc, char ***argv) {
        networkdepth = atoi(getenv("GASNET_NETWORKDEPTH"));
     }
 
+    #if defined(GASNET_CSPAWN_CMD)
+      if (!getenv("GASNET_CSPAWN_CMD")) /* set configure default cspawn cmd */
+        putenv("GASNET_CSPAWN_CMD="GASNET_CSPAWN_CMD);
+    #endif
+
     /* parse node count from command line */
     if (*argc < 2) {
       fprintf(stderr, "GASNet: Missing parallel node count\n");
@@ -196,15 +201,15 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_mynode = AMUDP_SPMDMyProc();
     gasnetc_nodes = AMUDP_SPMDNumProcs();
 
+    /* enable tracing */
+    gasneti_trace_init();
+    GASNETI_AM_SAFE(AMUDP_SPMDSetExitCallback(gasnetc_traceoutput));
+
     /* for local spawn, assume we want to wait-block */
     if (getenv("GASNET_SPAWNFN") && *getenv("GASNET_SPAWNFN") == 'L') { 
       GASNETI_TRACE_PRINTF(C,("setting gasnet_set_waitmode(GASNET_WAIT_BLOCK) for localhost spawn"));
       gasnet_set_waitmode(GASNET_WAIT_BLOCK);
     }
-
-    /* enable tracing */
-    gasneti_trace_init();
-    GASNETI_AM_SAFE(AMUDP_SPMDSetExitCallback(gasnetc_traceoutput));
 
     #if GASNET_DEBUG_VERBOSE
       fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.h                                     $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+ *     $Date: 2003/12/17 10:12:24 $
+ * $Revision: 1.2 $
  * Description: AMUDP Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -50,7 +50,7 @@ extern int AMUDP_SPMDExit(int exitcode);
    */
 
 extern int AMUDP_SPMDSetExitCallback(void (*fp)(int));
-  /* register a function to be called when AMMPI_SPMDExit is called by any node
+  /* register a function to be called when AMUDP_SPMDExit is called by any node
    * exit code is passed
    */
 extern void (*AMUDP_SPMDkillmyprocess)(int);

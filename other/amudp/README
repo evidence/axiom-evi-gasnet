@@ -1,9 +1,0 @@
-This directory contains a snapshot of AMUDP, a software layer 
-written by Dan Bonachea <bonachea@cs.berkeley.edu> that provides 
-AM2 functionality over UDP. The authoritative version of AMUDP
-is located here:
-
-http://www.cs.berkeley.edu/~bonachea/amudp
-
-If you make fixes or changes to the code in this directory, 
-please email them to Dan Bonachea <bonachea@cs.berkeley.edu>.

@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/12/12 07:26:31 $
-# $Revision: 1.99 $
+#     $Date: 2003/12/17 10:12:20 $
+# $Revision: 1.100 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.99 $)
+AC_REVISION($Revision: 1.100 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -103,29 +103,35 @@ GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc 2.96 compiler, [
 ])
 ])
 
-if test "$ac_cv_c_bigendian" = 'yes'; then
-  ENDIANNESS="-DBIG_ENDIAN"
-  # avoid warnings from re-defining BIG_ENDIAN
-  GASNET_TRY_CACHE_CHECK(for BIG_ENDIAN in sys/types.h, cc_bigend_systypes,
-    [#include <sys/types.h>
-     #ifndef BIG_ENDIAN
-       #error not defined
-     #endif
-    ], [], 
-    ENDIANNESS="")
-else
-  ENDIANNESS="-DLITTLE_ENDIAN=1234"
-  # avoid warnings from re-defining LITTLE_ENDIAN
-  GASNET_TRY_CACHE_CHECK(for LITTLE_ENDIAN in stdlib.h, cc_littleend_stdlib,
-    [#include <stdlib.h>
-     #ifndef LITTLE_ENDIAN
-       #error not defined
-     #endif
-    ], [], 
-    ENDIANNESS="")
-fi
-AC_SUBST(ENDIANNESS)
 AC_SUBST(CC)
+
+## DOB: this is more trouble than it's worth because so many OS's define
+## LITTLE_ENDIAN or BIG_ENDIAN in random and sultry header files
+## Code with access to gasnet_config.h should use #if defined(WORDS_BIGENDIAN)
+## If we ever decide we need this (to support other code) then we 
+## can reintroduce this define with a fresh prefix
+dnl if test "$ac_cv_c_bigendian" = 'yes'; then
+dnl   ENDIANNESS="-DBIG_ENDIAN"
+dnl   # avoid warnings from re-defining BIG_ENDIAN
+dnl   GASNET_TRY_CACHE_CHECK(for BIG_ENDIAN in sys/types.h, cc_bigend_systypes,
+dnl     [#include <sys/types.h>
+dnl      #ifndef BIG_ENDIAN
+dnl        #error not defined
+dnl      #endif
+dnl     ], [], 
+dnl     ENDIANNESS="")
+dnl else
+dnl   ENDIANNESS="-DLITTLE_ENDIAN=1234"
+dnl   # avoid warnings from re-defining LITTLE_ENDIAN
+dnl   GASNET_TRY_CACHE_CHECK(for LITTLE_ENDIAN in stdlib.h, cc_littleend_stdlib,
+dnl     [#include <stdlib.h>
+dnl      #ifndef LITTLE_ENDIAN
+dnl        #error not defined
+dnl      #endif
+dnl     ], [], 
+dnl     ENDIANNESS="")
+dnl fi
+dnl AC_SUBST(ENDIANNESS)
 
 ## specific compiler families
 
@@ -497,21 +503,31 @@ fi
 am__fastdepCXX_TRUE='#'
 am__fastdepCXX_FALSE=
 # Configure AMUDP
-GASNET_IF_ENABLED_WITH_AUTO(udp, Enable the portable UDP network conduit (off by default),
+GASNET_IF_ENABLED_WITH_AUTO(udp, Enable the portable UDP network conduit (on by default),
   [enabled_udp=yes;force_udp=yes],
   enabled_udp=no,
-  enabled_udp=no)
+  enabled_udp=yes)
 if test $enabled_udp = yes; then
 
   # Do C++ configuration
+  AC_LANG_SAVE
+
   AC_PROG_CXX
   AC_PROG_CXXCPP
+
+  AC_LANG_CPLUSPLUS
+  GASNET_FAMILY_CACHE_CHECK(C++, CXX, gasnet_cv_cxx_family)
+  case "$gasnet_cv_cxx_family" in
+    PGI)   MISC_CXXFLAGS="-w" ;; # apparently has no way to indep control warnings
+    KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
+    MIPS)  MISC_CXXFLAGS="-diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
+    Intel) MISC_CXXFLAGS="-wd654 -wd1125 -wd279" ;;
+    Cray)  MISC_CXXFLAGS="-hnomessage=611:997 -hnew_for_init" ;;
+  esac  
   AC_SUBST(CXX)
   AC_SUBST(CXXFLAGS)
+  AC_SUBST(MISC_CXXFLAGS)
 
-  AC_LANG_SAVE
-  AC_LANG_CPLUSPLUS
-  GASNET_FAMILY_CACHE_CHECK(C++, CXX, tc_cv_cxx_family)
   AC_LANG_RESTORE
 
   case "$ac_cv_sizeof_void_p" in

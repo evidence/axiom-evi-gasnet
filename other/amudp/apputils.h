@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/apputils.h                                       $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+ *     $Date: 2003/12/17 10:12:24 $
+ * $Revision: 1.2 $
  * Description: Application utilities on AMUDP
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -74,7 +74,7 @@ void printGlobalStats();
   extern int64_t getCurrentTimeMicrosec();
 #endif
 
-#ifndef AMMPI_OMIT_READWRITE
+#ifndef AMUDP_OMIT_READWRITE
 uint32_t getWord(int proc, void *addr);
 void putWord(int proc, void *addr, uint32_t val);
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/10/31 12:21:03 $
- * $Revision: 1.44 $
+ *     $Date: 2003/12/17 10:12:20 $
+ * $Revision: 1.45 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,9 +32,11 @@ extern int gasneti_attach_done; /*  true after attach */
   extern void *_gasneti_malloc(size_t nbytes, char *curloc);
   extern void _gasneti_free(void *ptr, char *curloc);
   extern void *_gasneti_calloc(size_t N, size_t S, char *curloc);
+  extern size_t _gasneti_memcheck(void *ptr, char *curloc, int isfree);
   #define gasneti_malloc(nbytes) _gasneti_malloc(nbytes, __FILE__ ":" _STRINGIFY(__LINE__))
   #define gasneti_calloc(N,S)    _gasneti_calloc(N,S, __FILE__ ":" _STRINGIFY(__LINE__))
   #define gasneti_free(ptr)	 _gasneti_free(ptr, __FILE__ ":" _STRINGIFY(__LINE__))
+  #define gasneti_memcheck(ptr)  _gasneti_memcheck(ptr, __FILE__ ":" _STRINGIFY(__LINE__), 0)
 #else
   GASNET_INLINE_MODIFIER(gasneti_malloc)
   void *gasneti_malloc(size_t nbytes) {
@@ -60,6 +62,7 @@ extern int gasneti_attach_done; /*  true after attach */
     memset(ptr,0,nbytes);
     return ptr;
   }
+  #define gasneti_memcheck(ptr)
 #endif
 /* Beware - in debug mode, 
    gasneti_malloc/gasneti_calloc/gasneti_free are NOT

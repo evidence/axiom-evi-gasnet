@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_reqrep.cpp                                 $
- *     $Date: 2003/12/15 12:17:17 $
- * $Revision: 1.2 $
+ *     $Date: 2003/12/17 10:12:24 $
+ * $Revision: 1.3 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -206,8 +206,8 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
  */
 #if defined(WIN32) || defined(CYGWIN)
   #define BROKEN_IOCTL 1
-#elif defined(AIX)
-  #define BROKEN_IOCTL 1 // AIX is broken too...
+#elif defined(AIX) || defined(IRIX)
+  #define BROKEN_IOCTL 1 // seems AIX and IRIX are broken too...
 #else 
   #define BROKEN_IOCTL 0
 #endif
@@ -226,8 +226,11 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
           /* this workaround is a HACK that lets us decide if we truly have a bulk message */
           static char *junk = NULL;
           int retval;
-          if (!junk) junk = (char *)malloc(AMUDP_MAX_NETWORK_MSG);
-          retval = recvfrom(ep->s, junk, AMUDP_MAX_NETWORK_MSG, MSG_PEEK, NULL, NULL);
+          /* MUST use AMUDP_MAXBULK_NETWORK_MSG here, because some OS's blatently ignore
+             the message buffer len and happily overflow the input buffer in recvfrom()
+           */
+          if (!junk) junk = (char *)malloc(AMUDP_MAXBULK_NETWORK_MSG);
+          retval = recvfrom(ep->s, junk, AMUDP_MAXBULK_NETWORK_MSG, MSG_PEEK, NULL, NULL);
           if (retval == SOCKET_ERROR && 
             #ifdef WIN32
               WSAGetLastError() != WSAEMSGSIZE)
@@ -256,7 +259,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         freebuf = &ep->rxBuf[ep->rxFreeIdx];
         #if USE_TRUE_BULK_XFERS
           #if !BROKEN_IOCTL
-            /* can't so this check when ioctl is broken */
+            /* can't do this check when ioctl is broken */
             if (bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
               char x;
               int retval = recvfrom(ep->s, (char *)&x, 1, MSG_PEEK, NULL, NULL);

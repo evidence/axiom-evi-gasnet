@@ -13,11 +13,10 @@ endif
 CC = @MPI_CC@
 CFLAGS = @MPI_CFLAGS@ $(apputils_flags)
 
-endianness = @ENDIANNESS@
 platform_defines = @GASNET_MACHINE_DEFINES@ -DAMMPI_DISABLE_AMTAGS
 platform_libraries = @LIBS@ @MPI_LIBS@
 
-INCLUDES = -I$(srcdir) ${platform_defines} $(endianness)
+INCLUDES = -I$(srcdir) ${platform_defines}
 link = $(CC) ${CFLAGS} ${platform_defines} ${INCLUDES} 
 linkend = ${platform_libraries}
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/11/07 19:32:47 $
- * $Revision: 1.43 $
+ *     $Date: 2003/12/17 10:12:20 $
+ * $Revision: 1.44 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -235,6 +235,22 @@ void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler) {
       gasneti_reghandler(gasneti_signals[i].signum, handler);
   }
 }
+
+extern int gasneti_set_waitmode(int wait_mode) {
+  char *desc;
+  GASNETI_CHECKINIT();
+  switch (wait_mode) {
+    case GASNET_WAIT_SPIN:      desc = "GASNET_WAIT_SPIN"; break;
+    case GASNET_WAIT_BLOCK:     desc = "GASNET_WAIT_BLOCK"; break;
+    case GASNET_WAIT_SPINBLOCK: desc = "GASNET_WAIT_SPINBLOCK"; break;
+    default:
+      GASNETI_RETURN_ERRR(BAD_ARG, "illegal wait mode");
+  }
+  GASNETI_TRACE_PRINTF(I, ("gasnet_set_waitmode(%s)", desc));
+  gasneti_wait_mode = wait_mode;
+  return GASNET_OK;
+}
+
 /* ------------------------------------------------------------------------------------ */
 /* Global environment variable handling */
 
@@ -948,7 +964,45 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
   #define GASNETI_MEM_HEADERSZ    16     
   #define GASNETI_MEM_TAILSZ      4     
   #define GASNETI_MEM_EXTRASZ     (GASNETI_MEM_HEADERSZ+GASNETI_MEM_TAILSZ)     
-  static uint32_t gasneti_endpost_ref = GASNETI_MEM_ENDPOST;
+
+  /* assert the integrity of given memory block and return size of the user object */
+  extern size_t _gasneti_memcheck(void *ptr, char *curloc, int isfree) {
+    uint32_t beginpost = *(((uint32_t *)ptr)-1);
+    size_t nbytes = *(((uint32_t *)ptr)-2);
+    char *allocptr = (void *)(uintptr_t)*(((uint64_t *)ptr)-2);
+    uint32_t endpost = 0;
+    char *corruptstr = NULL;
+    if (nbytes > gasneti_memalloc_maxbytes || 
+      ((uintptr_t)ptr)+nbytes > gasneti_memalloc_maxloc) {
+      allocptr = NULL; /* bad nbytes, don't trust allocptr */
+      nbytes = 0;
+    } else memcpy(&endpost,((char*)ptr)+nbytes,4);
+
+    if (beginpost == GASNETI_MEM_FREEMARK) {
+      if (isfree)
+        corruptstr = "detected a duplicate gasneti_free() or memory corruption";
+      else
+        corruptstr = "gasneti_memcheck() called on freed memory (may indicate memory corruption)";
+    } else if (beginpost != GASNETI_MEM_BEGINPOST || endpost != GASNETI_MEM_ENDPOST) {
+      if (isfree)
+        corruptstr = "gasneti_free() detected bad ptr or memory corruption";
+      else
+        corruptstr = "gasneti_memcheck() detected bad ptr or memory corruption";
+    }
+
+    if (corruptstr != NULL) {
+      if (allocptr != NULL && memchr(allocptr,'\0',255) == 0) /* allocptr may be bad */
+        allocptr = '\0'; 
+      gasneti_fatalerror("%s\n   ptr="GASNETI_LADDRFMT", nbytes=%i%s%s%s%s",
+           corruptstr,
+           GASNETI_LADDRSTR(ptr), nbytes,
+           (allocptr!=NULL?",\n   allocated at: ":""), (allocptr!=NULL?allocptr:""),
+           (curloc!=NULL?",\n   freed at: ":""), (curloc!=NULL?curloc:"")
+           );
+    }
+    return nbytes;
+  }
+
   /* get access to system malloc/free */
   #undef malloc
   #undef free
@@ -961,6 +1015,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
         nbytes, (unsigned long)gasneti_memalloc_cnt, 
         (curloc == NULL ? "" : curloc));
     } else {
+      uint32_t gasneti_endpost_ref = GASNETI_MEM_ENDPOST;
       gasneti_mutex_lock(&gasneti_memalloc_lock);
       gasneti_memalloc_cnt += nbytes+GASNETI_MEM_EXTRASZ;
       gasneti_mutex_unlock(&gasneti_memalloc_lock);
@@ -974,43 +1029,19 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
       ret = (void *)(((uintptr_t)ret) + GASNETI_MEM_HEADERSZ);
     }
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
+    gasneti_memcheck(ret);
     return ret;
   }
 
   extern void _gasneti_free(void *ptr, char *curloc) {
+    size_t nbytes;
     if_pf (ptr == NULL) return;
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
-    { uint32_t beginpost = *(((uint32_t *)ptr)-1);
-      size_t nbytes = *(((uint32_t *)ptr)-2);
-      char *allocptr = (void *)(uintptr_t)*(((uint64_t *)ptr)-2);
-      uint32_t endpost = 0;
-      char *corruptstr = NULL;
-      if (nbytes > gasneti_memalloc_maxbytes || 
-        ((uintptr_t)ptr)+nbytes > gasneti_memalloc_maxloc) {
-        allocptr = NULL; /* bad nbytes, don't trust allocptr */
-        nbytes = 0;
-      } else memcpy(&endpost,((char*)ptr)+nbytes,4);
-
-      if (beginpost == GASNETI_MEM_FREEMARK)
-        corruptstr = "detected a duplicate gasneti_free() or memory corruption";
-      else if (beginpost != GASNETI_MEM_BEGINPOST || endpost != GASNETI_MEM_ENDPOST) 
-        corruptstr = "gasneti_free() detected bad ptr or memory corruption";
-
-      if (corruptstr != NULL) {
-        if (allocptr != NULL && memchr(allocptr,'\0',255) == 0) /* allocptr may be bad */
-          allocptr = '\0'; 
-        gasneti_fatalerror("%s\n   ptr="GASNETI_LADDRFMT", nbytes=%i%s%s%s%s",
-             corruptstr,
-             GASNETI_LADDRSTR(ptr), nbytes,
-             (allocptr!=NULL?",\n   allocated at: ":""), (allocptr!=NULL?allocptr:""),
-             (curloc!=NULL?",\n   freed at: ":""), (curloc!=NULL?curloc:"")
-             );
-      }
-      *(((uint32_t *)ptr)-1) = GASNETI_MEM_FREEMARK;
-      gasneti_mutex_lock(&gasneti_memalloc_lock);
-      gasneti_memalloc_cnt -= nbytes+GASNETI_MEM_EXTRASZ;
-      gasneti_mutex_unlock(&gasneti_memalloc_lock);
-    }
+    nbytes = _gasneti_memcheck(ptr, curloc, 1);
+    *(((uint32_t *)ptr)-1) = GASNETI_MEM_FREEMARK;
+    gasneti_mutex_lock(&gasneti_memalloc_lock);
+    gasneti_memalloc_cnt -= nbytes+GASNETI_MEM_EXTRASZ;
+    gasneti_mutex_unlock(&gasneti_memalloc_lock);
     free(((uint32_t *)ptr)-4);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
   }

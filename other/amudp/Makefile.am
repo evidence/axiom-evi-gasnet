@@ -1,6 +1,6 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 # NOTE: This Makefile is used to tie in with the GASNet build infrastructure
-#       the stand-alone AMMPI product doesn't currently provide an automake framework
+#       the stand-alone AMUDP product doesn't currently provide an automake framework
 
 AUTOMAKE_OPTIONS = foreign 1.4 no-dependencies
 
@@ -11,15 +11,14 @@ else
 endif
 
 CC  = @CC@
-CCFLAGS = $(apputils_flags)
+CCFLAGS = @CFLAGS@ @MISC_CFLAGS@ $(apputils_flags)
 CXX = @CXX@
-CXXFLAGS = @CXXFLAGS@
+CXXFLAGS = @CXXFLAGS@ @MISC_CXXFLAGS@
 
-endianness = @ENDIANNESS@
 platform_defines = @GASNET_MACHINE_DEFINES@ @BUILDCONFIG_DEFINES@ -DAMUDP_DISABLE_AMTAGS -DAMUDP_ENV_PREFIX=GASNET
 platform_libraries = @LIBS@ @GASNET_UDP_LIBS@
 
-INCLUDES = -I$(srcdir) ${platform_defines} $(endianness)
+INCLUDES = -I$(srcdir) ${platform_defines}
 compile = ${CC} ${CCFLAGS} ${INCLUDES}
 link = $(CXX) ${CXXFLAGS} ${INCLUDES} 
 linkend = ${platform_libraries}

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2003/11/10 10:06:22 $
- * $Revision: 1.20 $
+ *     $Date: 2003/12/17 10:12:20 $
+ * $Revision: 1.21 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -219,10 +219,11 @@ char *gasnet_ErrorDesc(int errval) {
 
 #ifndef _GASNET_WAITMODE
 #define _GASNET_WAITMODE
-#define GASNET_WAIT_SPIN      0 /* contend aggressively for CPU resources while waiting (spin) */
-#define GASNET_WAIT_BLOCK     1 /* yield CPU resources immediately while waiting (block) */
-#define GASNET_WAIT_SPINBLOCK 2 /* spin for an implementation-dependent period, then block */
-#define gasnet_set_waitmode(wait_mode) (gasneti_wait_mode = wait_mode, GASNET_OK)
+  #define GASNET_WAIT_SPIN      0 /* contend aggressively for CPU resources while waiting (spin) */
+  #define GASNET_WAIT_BLOCK     1 /* yield CPU resources immediately while waiting (block) */
+  #define GASNET_WAIT_SPINBLOCK 2 /* spin for an implementation-dependent period, then block */
+  extern int gasneti_set_waitmode(int wait_mode);
+  #define gasnet_set_waitmode(wait_mode) gasneti_set_waitmode(wait_mode)
 #endif
 
 /* ------------------------------------------------------------------------------------ */

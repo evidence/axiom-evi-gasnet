@@ -26,4 +26,5 @@ rm -f Makefile.in              \
       vapi-conduit/contrib/Makefile.in   \
       other/Makefile.in        \
       other/ammpi/Makefile.in  \
+      other/amudp/Makefile.in  \
       tests/Makefile

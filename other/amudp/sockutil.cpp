@@ -1,6 +1,6 @@
 //  $Archive:: /Ti/AMUDP/sockutil.cpp                                     $
-//     $Date: 2003/12/11 20:19:53 $
-// $Revision: 1.1 $
+//     $Date: 2003/12/17 10:12:24 $
+// $Revision: 1.2 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -362,13 +362,9 @@ bool isValidIP(const char* buf) {
   int d = atoi(buf);
   if (d > 255 || d < 0) return false;
   while (isdigit(*buf)) buf++;
-  const char* p = buf;
   while (isspace(*buf)) buf++;
   if (*buf != '\0') return false;
 
-  #if 0
-    *p = '\0'; // trim trailing space
-  #endif
   return true;
   }
 //-------------------------------------------------------------------------------------

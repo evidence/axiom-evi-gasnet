@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+ *     $Date: 2003/12/17 10:12:24 $
+ * $Revision: 1.2 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -94,7 +94,11 @@
 #ifdef UETH
 #define AMUDP_MAX_LONG     (AMUDP_MAX_MEDIUM*256)  /* max. data size for xfer and get operations >= 8192 */
 #else
-#define AMUDP_MAX_LONG     65000  /* max. UDP datagram */
+#ifdef IRIX
+  #define AMUDP_MAX_LONG     61000  /* max. UDP datagram on IRIX is apparently 61412 */
+#else
+  #define AMUDP_MAX_LONG     65000  /* max. UDP datagram */
+#endif
 #endif
 
 #define AMUDP_MAX_NUMHANDLERS      256  /* max. handler-table entries >= 256 */
