@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_eager.c,v $
- *     $Date: 2005/02/27 15:34:46 $
- * $Revision: 1.26 $
+ *     $Date: 2005/03/25 03:29:02 $
+ * $Revision: 1.27 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -4307,7 +4307,6 @@ static int gasnete_coll_pf_gallM_Gath(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
 	gasnet_coll_handle_t *h;
         int flags = op->flags;
 	gasnet_team_handle_t team = op->team;
-	void * const *p = args->dstlist;
 	void * const *srclist = args->srclist;
 	size_t nbytes = args->nbytes;
 	gasnet_image_t i;
@@ -4320,9 +4319,18 @@ static int gasnete_coll_pf_gallM_Gath(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
 		  GASNET_COLL_DST_IN_SEGMENT | GASNET_COLL_SRC_IN_SEGMENT);
 	flags |= (GASNET_COLL_IN_NOSYNC | GASNET_COLL_OUT_NOSYNC);
 
-        for (i = 0; i < gasnete_coll_total_images; ++i, ++h, ++p) {
-          *h = gasnete_coll_gatherM_nb(team, i, *p, srclist, nbytes, flags GASNETE_THREAD_PASS);
-        }
+	if (op->flags & GASNET_COLL_SINGLE) {
+	  void * const *p = args->dstlist;
+          for (i = 0; i < gasnete_coll_total_images; ++i, ++h, ++p) {
+            *h = gasnete_coll_gatherM_nb(team, i, *p, srclist, nbytes, flags GASNETE_THREAD_PASS);
+          }
+        } else {
+	  void * const *p = &GASNETE_COLL_MY_1ST_IMAGE(args->dstlist,GASNET_COLL_LOCAL);
+          for (i = 0; i < gasnete_coll_total_images; ++i, ++h) {
+            *h = gasnete_coll_gatherM_nb(team, i, *p, srclist, nbytes, flags GASNETE_THREAD_PASS);
+	    if (gasnete_coll_image_is_local(i)) ++p;
+          }
+	}
       } else {
 	break;	/* Stalled until owner thread initiates gathers */
       }
@@ -4536,28 +4544,50 @@ static int gasnete_coll_pf_exchgM_Gath(gasnete_coll_op_t *op GASNETE_THREAD_FARG
 	size_t nbytes = args->nbytes;
         gasnet_image_t i, j;
 
-	data->private_data = gasneti_malloc(gasnete_coll_total_images * sizeof(gasnet_coll_handle_t) +
-				       gasnete_coll_total_images * gasnete_coll_total_images * sizeof(void *));
-	h = (gasnet_coll_handle_t *)data->private_data;
-	srclist = gasnete_coll_scale_ptr(data->private_data, sizeof(gasnet_coll_handle_t), gasnete_coll_total_images);
-
-	/* XXX: A better design would not need N^2 temporary space */
-	p = srclist;
-	for (i = 0; i < gasnete_coll_total_images; ++i) {
-	  q = args->srclist;
-	  for (j = 0; j < gasnete_coll_total_images; ++j, ++p, ++q) {
-	    *p = gasnete_coll_scale_ptr(*q, i, nbytes);
-	  }
-	}
-
         flags &= (GASNET_COLL_SINGLE | GASNET_COLL_LOCAL |
 		  GASNET_COLL_DST_IN_SEGMENT | GASNET_COLL_SRC_IN_SEGMENT);
 	flags |= (GASNET_COLL_IN_NOSYNC | GASNET_COLL_OUT_NOSYNC);
 
-	p = srclist;
-	q = args->dstlist;
-        for (i = 0; i < gasnete_coll_total_images; ++i, ++h, ++q, p += gasnete_coll_total_images) {
-          *h = gasnete_coll_gatherM_nb(team, i, *q, p, nbytes, flags GASNETE_THREAD_PASS);
+	if (op->flags & GASNET_COLL_SINGLE) {
+	  data->private_data = gasneti_malloc(gasnete_coll_total_images * sizeof(gasnet_coll_handle_t) +
+				       gasnete_coll_total_images * gasnete_coll_total_images * sizeof(void *));
+	  h = (gasnet_coll_handle_t *)data->private_data;
+	  srclist = gasnete_coll_scale_ptr(data->private_data, sizeof(gasnet_coll_handle_t), gasnete_coll_total_images);
+
+	  /* XXX: A better design would not need N^2 temporary space */
+	  p = srclist;
+	  for (i = 0; i < gasnete_coll_total_images; ++i) {
+	    q = args->srclist;
+	    for (j = 0; j < gasnete_coll_total_images; ++j, ++p, ++q) {
+	      *p = gasnete_coll_scale_ptr(*q, i, nbytes);
+	    }
+	  }
+
+	  p = srclist;
+	  q = args->dstlist;
+          for (i = 0; i < gasnete_coll_total_images; ++i, ++h, ++q, p += gasnete_coll_total_images) {
+            *h = gasnete_coll_gatherM_nb(team, i, *q, p, nbytes, flags GASNETE_THREAD_PASS);
+          }
+	} else {
+	  data->private_data = gasneti_malloc(gasnete_coll_total_images * sizeof(gasnet_coll_handle_t) +
+				       gasnete_coll_total_images * gasnete_coll_my_images * sizeof(void *));
+	  h = (gasnet_coll_handle_t *)data->private_data;
+	  srclist = gasnete_coll_scale_ptr(data->private_data, sizeof(gasnet_coll_handle_t), gasnete_coll_total_images);
+
+	  p = srclist;
+	  for (i = 0; i < gasnete_coll_total_images; ++i) {
+	    q = args->srclist;
+	    for (j = 0; j < gasnete_coll_my_images; ++j, ++p, ++q) {
+	      *p = gasnete_coll_scale_ptr(*q, i, nbytes);
+	    }
+	  }
+
+	  p = srclist;
+	  q = args->dstlist;
+          for (i = 0; i < gasnete_coll_total_images; ++i, ++h, p += gasnete_coll_my_images) {
+            *h = gasnete_coll_gatherM_nb(team, i, *q, p, nbytes, flags GASNETE_THREAD_PASS);
+	    if (gasnete_coll_image_is_local(i)) ++q;
+          }
         }
       } else {
 	break;	/* Stalled until owner thread initiates gathers */
