@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/05/19 07:35:40 $
- * $Revision: 1.51 $
+ *     $Date: 2004/05/28 17:11:46 $
+ * $Revision: 1.52 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -194,15 +194,6 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_nodes = (gasnet_node_t)num_tasks;
 
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_UHDR_SZ, &gasnetc_max_lapi_uhdr_size));
-#ifdef GASNET_LAPI_UHDR_WORKAROUND
-    /* apparent bug in (New) PE 4.1 version of LAPI.  LAPI_Qenv advertises
-     * a max uhdr size of 1956 bytes, but we get SEGV errors if the total
-     * uhdr size is greater than 1KB.  Since this includes space for
-     * a LAPI header, we have found (through experimentation) that 932
-     * bytes works.
-     */
-    gasnetc_max_lapi_uhdr_size = 932;
-#endif
 #if defined(__64BIT__)
     /* PSSP 3.4 is broken, LAPI_Qenv requires an int* arg but LAPI defines
      * the max data size as a ulong with value requiring 64 bit field
@@ -212,8 +203,12 @@ static int gasnetc_init(int *argc, char ***argv) {
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_DATA_SZ, &gasnetc_max_lapi_data_size));
 #endif
 #if 0
-    fprintf(stderr,"MAX LAPI UHDR SIZE = %d\n",gasnetc_max_lapi_uhdr_size);
-    fprintf(stderr,"MAX LAPI DATA SIZE = %ld\n",(ulong)gasnetc_max_lapi_data_size);
+    if (task_id == 0) {
+	fprintf(stderr,"GASNET TOKEN SIZE  = %d\n",GASNETC_TOKEN_SIZE);
+	fprintf(stderr,"GASNET TOKEN REC   = %d\n",sizeof(gasnetc_token_t));
+	fprintf(stderr,"MAX LAPI UHDR SIZE = %d\n",gasnetc_max_lapi_uhdr_size);
+	fprintf(stderr,"MAX LAPI DATA SIZE = %ld\n",(ulong)gasnetc_max_lapi_data_size);
+    }
 #endif
     if (sizeof(gasnetc_token_t) > gasnetc_max_lapi_uhdr_size) {
 	gasneti_fatalerror("gasnetc_token_t is %d bytes > max lapi uhdr %d",
