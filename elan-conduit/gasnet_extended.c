@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/11/11 04:47:20 $
- * $Revision: 1.11 $
+ *     $Date: 2002/11/21 05:39:36 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1344,11 +1344,23 @@ typedef struct {
 static gasnete_barrier_state_t *barrier_state = NULL;
 static int volatile barrier_blocking = 0;
 int gasnete_barrier_poll(void *handle, unsigned int *ready) {
-  if (barrier_blocking) {
+  if_pf (barrier_blocking) {
     UNLOCK_ELAN_WEAK();
+      barrier_blocking = 0;
+      GASNETI_TRACE_EVENT(C, POLL_CALLBACK_BARRIER);
       gasnet_AMPoll(); 
+      barrier_blocking = 1;
     LOCK_ELAN_WEAK();
-  }
+  } 
+  else /* use _GASNETI_STAT_EVENT to avoid elan locking problems */
+    _GASNETI_STAT_EVENT(C, POLL_CALLBACK_NOOP); 
+  #if 0 && (defined(TRACE) || defined(STATS))
+    else {
+      UNLOCK_ELAN_WEAK();
+        GASNETI_TRACE_EVENT(C, POLL_CALLBACK_NOOP);
+      LOCK_ELAN_WEAK();
+    }
+  #endif
   return 0; /* return 0 => don't delay the elan blocking */
 }
 
@@ -1358,6 +1370,10 @@ static void gasnete_barrier_init() {
   #else
     barrier_state = elan_gallocMain(BASE(), GROUP(), 64, sizeof(gasnete_barrier_state_t));
   #endif
+  if_pf(barrier_state == NULL) 
+    gasneti_fatalerror("error allocating barrier_state buffer in gasnete_barrier_init()");
+  barrier_state->barrier_value = 0;
+  barrier_state->barrier_flags = 0;
 
   elan_addPollFn(STATE(), (ELAN_POLLFN)gasnete_barrier_poll, NULL);
 }

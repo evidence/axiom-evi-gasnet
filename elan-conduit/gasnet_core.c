@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/11/11 04:47:20 $
- * $Revision: 1.13 $
+ *     $Date: 2002/11/21 05:39:36 $
+ * $Revision: 1.14 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -130,6 +130,8 @@ static void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   #else
     temp = elan_gallocMain(BASE(), GROUP(), 64, gasnetc_nodes*len);
   #endif
+  if_pf(temp == NULL) 
+    gasneti_fatalerror("error on elan_gallocMain in gasnetc_bootstrapExchange()");
 
   /* send info to 0 */
   evt = elan_put(STATE(), src, temp + gasnetc_mynode*len, len, 0);
@@ -207,6 +209,14 @@ static int gasnetc_init(int *argc, char ***argv) {
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
       gasnetc_mynode, gasnetc_nodes); fflush(stderr);
   #endif
+
+  if (!BASE()->group_hwbcast) {
+    char const *msg = "WARNING: Hardware broadcasts/barriers are currently disabled."
+      "This could be a result of environment settings, site configuration, or non-contiguous node allocation."
+      "This is likely to affect barrier performance.";
+    GASNETI_TRACE_PRINTF(I,("%s",msg));
+    fprintf(stderr,"%s\n",msg);
+  }
 
   #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
     #if GASNETC_USE_STATIC_SEGMENT

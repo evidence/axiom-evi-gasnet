@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/09/09 21:58:22 $
- * $Revision: 1.8 $
+ *     $Date: 2002/11/21 05:39:36 $
+ * $Revision: 1.9 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -241,7 +241,11 @@ extern void gasnetc_initbufs() {
   #else
     gasnetc_queue = elan_gallocQueue(BASE(),GROUP());
   #endif
+  if_pf(gasnetc_queue == NULL) 
+    gasneti_fatalerror("error on elan_gallocQueue in gasnetc_initbufs()");
   gasnetc_mainqueue = elan_mainQueueInit(STATE(), gasnetc_queue, gasnetc_queuesz, GASNETC_ELAN_MAX_QUEUEMSG);
+  if_pf(gasnetc_mainqueue == NULL) 
+    gasneti_fatalerror("error on elan_mainQueueInit in gasnetc_initbufs()");
 
   { /* setup buffers */
     gasnetc_bufdesc_t *txdesc = elan_allocMain(STATE(), 8, gasnetc_queuesz*sizeof(gasnetc_bufdesc_t));
