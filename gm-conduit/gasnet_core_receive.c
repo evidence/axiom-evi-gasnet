@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.5 2002/06/14 03:40:38 csbell Exp $
- * $Date: 2002/06/14 03:40:38 $
- * $Revision: 1.5 $
+/* $Id: gasnet_core_receive.c,v 1.6 2002/06/14 22:12:31 csbell Exp $
+ * $Date: 2002/06/14 22:12:31 $
+ * $Revision: 1.6 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -24,7 +24,7 @@
 /* Three processing functions called from gasnetc_poll() */
 void	gasnetc_process_AMRequest(gm_recv_event_t *, int);
 void	gasnetc_process_AMReply(gm_recv_event_t *, int);
-void	gasnetc_process_AMSystem(gm_recv_event_t *);
+void	gasnetc_process_AMSystem(gm_recv_event_t *, int);
 
 void	gasnetc_callback_error(gm_status_t status, gasnetc_bufdesc_t *bufd);
 
@@ -71,7 +71,7 @@ gasnetc_AMPoll()
 				ptr = gm_ntohp(e->recv.buffer);
 
 			if (*(uint8_t *)ptr & AM_SYSTEM)
-				gasnetc_process_AMSystem(e);
+				gasnetc_process_AMSystem(e, fast);
 			else
 				gasnetc_process_AMRequest(e, fast);
 			return GASNET_OK;
@@ -88,8 +88,8 @@ gasnetc_AMPoll()
 /* 
  * Three processing functions called from gasnetc_receive 
  * From gasnetc_AMPoll()
- *      - <e> contains the event as returned by gm_receive()
- *      - <fast> tells if a message or buffer is available
+ * <e> contains the event as returned by gm_receive()
+ * <fast> tells if a message or buffer is available
  */
 
 void
@@ -98,6 +98,7 @@ gasnetc_process_AMRequest(gm_recv_event_t *e, int fast)
 	gasnetc_bufdesc_t	*bufd;
 	void			*recv_buf;
 	uint8_t			handler_idx, numargs;
+	uintptr_t		dest_addr;
 	uint16_t		len;
 
 	/* Get either 'message' or 'buffer' from recv'd event */
@@ -107,7 +108,7 @@ gasnetc_process_AMRequest(gm_recv_event_t *e, int fast)
 
 	handler_idx = AM_INDEX((uint8_t *)recv_buf);
 	numargs = AM_NUMARGS((uint8_t *)recv_buf);
-	len = gm_ntoh_u32(e->recv.length);
+	len = (uint16_t) gm_ntoh_u32(e->recv.length);
 
 	assert(bufd->sendbuf == gm_ntohp(e->recv.buffer));
 	assert(len >= 2); /* minimum AM message */
@@ -119,13 +120,6 @@ gasnetc_process_AMRequest(gm_recv_event_t *e, int fast)
 				recv_buf + GASNETC_AM_SHORT_HEADER_LEN(numargs),
 				numargs);
 			break;
-		case AM_LONG:
-			GASNETC_RUN_HANDLER_LONG(_gmc.handlers[handler_idx],
-				(void *) bufd, 
-				recv_buf + GASNETC_AM_MEDIUM_HEADER_LEN(numargs),
-				numargs, recv_buf, 
-				len - GASNETC_AM_LONG_HEADER_LEN(numargs));
-			break;
 		case AM_MEDIUM:
 			GASNETC_BUFDESC_FLAG_SET(bufd->flag, 
 					FLAG_AMREQUEST_MEDIUM);
@@ -135,14 +129,26 @@ gasnetc_process_AMRequest(gm_recv_event_t *e, int fast)
 				numargs, recv_buf, 
 				len - GASNETC_AM_MEDIUM_HEADER_LEN(numargs));
 			break;
+		case AM_LONG:
+			GASNETC_AMDESTADDR_READ((uint32_t *)recv_buf + 2, 
+					dest_addr);
+			GASNETC_RUN_HANDLER_LONG(_gmc.handlers[handler_idx],
+				(void *) bufd, 
+				recv_buf + GASNETC_AM_MEDIUM_HEADER_LEN(numargs),
+				numargs, dest_addr, 
+				len - GASNETC_AM_LONG_HEADER_LEN(numargs));
+			break;
 		default:
-			abort();
+			gasneti_fatalerror("AMRequest type unknown 0x%x, fatal",
+				AM_TYPE((uint8_t *)recv_buf));
 	}
 
-	/* Always give the buffer back if no AMReply was called */
-	if (bufd->flag & FLAG_CALLED_REPLY) {
-		if (bufd->flag & FLAG_AMREQUEST_MEDIUM)
+	/* Unlock the AMMEDIUM_REQUEST lock if it was required */
+	if ((bufd->flag & FLAG_CALLED_REPLY) && 
+		(bufd->flag & FLAG_AMREQUEST_MEDIUM))
 			GASNETC_AMMEDIUM_REQUEST_MUTEX_UNLOCK;
+	/* Always give the buffer back if no AMReply was called */
+	else {
 		GASNETC_GM_MUTEX_LOCK;
 		gm_provide_receive_buffer(_gmc.port, gm_ntohp(e->recv.buffer), 
 			GASNETC_AM_SIZE, GM_LOW_PRIORITY);
@@ -158,6 +164,7 @@ gasnetc_process_AMReply(gm_recv_event_t *e, int fast)
 	gasnetc_bufdesc_t	*bufd;
 	uint8_t			*recv_buf;
 	uint8_t			handler_idx, numargs;
+	uintptr_t		dest_addr;
 	uint16_t		len;
 
 	/* processing an AM message includes extracting
@@ -174,9 +181,8 @@ gasnetc_process_AMReply(gm_recv_event_t *e, int fast)
 		GASNETC_BUFDESC_PTR(gm_ntohp(e->recv.buffer));
 	handler_idx = AM_INDEX(recv_buf);
 	numargs = AM_NUMARGS(recv_buf);
-	len = gm_ntoh_u32(e->recv.length);
+	len = (uint16_t) gm_ntoh_u32(e->recv.length);
 
-	assert(bufd != NULL);
 	assert(bufd->sendbuf == gm_ntohp(e->recv.buffer));
 	assert(len >= 2); /* minimum AM message */
 
@@ -187,13 +193,6 @@ gasnetc_process_AMReply(gm_recv_event_t *e, int fast)
 				recv_buf + GASNETC_AM_SHORT_HEADER_LEN(numargs),
 				numargs);
 			break;
-		case AM_LONG:
-			GASNETC_RUN_HANDLER_LONG(_gmc.handlers[handler_idx],
-				(void *) bufd, 
-				recv_buf + GASNETC_AM_MEDIUM_HEADER_LEN(numargs),
-				numargs, recv_buf, 
-				len - GASNETC_AM_LONG_HEADER_LEN(numargs));
-			break;
 		case AM_MEDIUM:
 			GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers[handler_idx],
 				(void *) bufd, 
@@ -201,8 +200,18 @@ gasnetc_process_AMReply(gm_recv_event_t *e, int fast)
 				numargs, recv_buf, 
 				len - GASNETC_AM_MEDIUM_HEADER_LEN(numargs));
 			break;
+		case AM_LONG:
+			GASNETC_AMDESTADDR_READ((uint32_t *)recv_buf + 2, 
+					dest_addr);
+			GASNETC_RUN_HANDLER_LONG(_gmc.handlers[handler_idx],
+				(void *) bufd, 
+				recv_buf + GASNETC_AM_MEDIUM_HEADER_LEN(numargs),
+				numargs, recv_buf, 
+				len - GASNETC_AM_LONG_HEADER_LEN(numargs));
+			break;
 		default:
-			abort();
+			gasneti_fatalerror("AMRequest type unknown 0x%x, fatal",
+				AM_TYPE((uint8_t *)recv_buf));
 	}
 	GASNETC_GM_MUTEX_LOCK;
 	gm_provide_receive_buffer(_gmc.port, gm_ntohp(e->recv.buffer), 
@@ -213,7 +222,7 @@ gasnetc_process_AMReply(gm_recv_event_t *e, int fast)
 
 /* Undefined for the moment. . */
 void
-gasnetc_process_AMSystem(gm_recv_event_t *e)
+gasnetc_process_AMSystem(gm_recv_event_t *e, int fast)
 {
 	/* handler-specific code which is system-specific */
 	return;
@@ -242,14 +251,16 @@ gasnetc_callback_generic(struct gm_port *p, void *context, gm_status_t status)
 		gm_provide_receive_buffer(_gmc.port, bufd->sendbuf,
 				GASNETC_AM_SIZE, GM_LOW_PRIORITY);
 	else {
-		if (_gmc.reqs_fifo_cur < _gmc.reqs_fifo_max-1) {
-			GASNETC_REQUEST_FIFO_MUTEX_LOCK;
-			if_pt (_gmc.reqs_fifo_cur < _gmc.reqs_fifo_max-1) 
-				_gmc.reqs_fifo[++_gmc.reqs_fifo_cur] = bufd->id;
-			GASNETC_REQUEST_FIFO_MUTEX_UNLOCK;
-		}
+		if_pf (_gmc.reqs_fifo_cur < _gmc.reqs_fifo_max-1)
+			gasneti_fatalerror(
+				"gasnetc_callback: Send FIFO overflow (?)\n");
+		GASNETC_REQUEST_FIFO_MUTEX_LOCK;
+		if_pt (_gmc.reqs_fifo_cur < _gmc.reqs_fifo_max-1) 
+			_gmc.reqs_fifo[++_gmc.reqs_fifo_cur] = bufd->id;
+		GASNETC_REQUEST_FIFO_MUTEX_UNLOCK;
 	}
 }
+
 /* For now, we wont support any resending for GM_SEND_TIMED_OUT,
  * so this function is limited to simply printing error messages
  * and aborting.  Interpretation of these messages comes from GM's
@@ -265,6 +276,7 @@ gasnetc_callback_error(gm_status_t status, gasnetc_bufdesc_t *bufd)
 
 	if (bufd->e != NULL)
 		snprintf(dest_msg, 63, "AMReply to %hd port %hd",
+				(uint16_t)
 				gm_ntoh_u16(bufd->e->recv.sender_node_id),
 				(uint16_t) 
 				gm_ntoh_u8(bufd->e->recv.sender_port_id));
@@ -291,10 +303,7 @@ gasnetc_callback_error(gm_status_t status, gasnetc_bufdesc_t *bufd)
 			snprintf(reason, 127,
 				"Unknown GM error. . %s", dest_msg);
 	}
-
-	fprintf(stderr, "%s\n", reason);
-	fflush(stderr);
-	abort();
+	gasneti_fatalerror("gasnetc_callback: %s", reason);
 }
 			
 
@@ -307,10 +316,8 @@ gasnetc_callback_AMRequest(struct gm_port *p, void *context, gm_status_t status)
 }
 
 void
-gasnetc_callback_AMRequest_NOP(struct gm_port *p, void *context, 
-				gm_status_t status)
+gasnetc_callback_AMRequest_NOP(struct gm_port *p, void *c, gm_status_t status)
 {
-	gasnetc_callback_generic(p, context, status);
 	gasnetc_token_lo_release();
 }
 

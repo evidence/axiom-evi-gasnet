@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.5 2002/06/14 03:40:38 csbell Exp $
- * $Date: 2002/06/14 03:40:38 $
- * $Revision: 1.5 $
+/* $Id: gasnet_core_internal.h,v 1.6 2002/06/14 22:12:31 csbell Exp $
+ * $Date: 2002/06/14 22:12:31 $
+ * $Revision: 1.6 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -25,10 +25,10 @@
 #ifdef LINUX
 #include <asm/param.h> /* MAXHOSTNAMELEN */
 #else
- #ifdef FREEBSD	 /* sys/param.h defines its own min/max */
- #undef MIN
- #undef MAX
- #endif
+  #ifdef FREEBSD	 /* sys/param.h defines its own min/max */
+  #undef MIN
+  #undef MAX
+  #endif
 #include <sys/param.h>
 #endif
 #if !defined(GASNET_SEQ) && !defined(FREEBSD)
@@ -65,19 +65,19 @@ typedef struct gasnetc_bufdesc gasnetc_bufdesc_t;
 
 /* Forward declaration for miscellaneous functions used by GM core */
 gasnetc_bufdesc_t * 	gasnetc_AMRequestBuf_block();
-void			gasnetc_tokensend_AMRequest(void *, uint16_t, uint32_t, 
-				uint32_t, gm_send_completion_callback_t, 
-				void *, uint64_t);
-int			gasnetc_gm_nodes_compare(const void *, const void *);
-void			gasnetc_sendbuf_init();
-void			gasnetc_sendbuf_finalize();
-int			gasnetc_gmpiconf_init();
+
+void	gasnetc_tokensend_AMRequest(void *, uint16_t, uint32_t, uint32_t, 
+		gm_send_completion_callback_t, void *, uint64_t);
+int	gasnetc_gm_nodes_compare(const void *, const void *);
+void	gasnetc_sendbuf_init();
+void	gasnetc_sendbuf_finalize();
+int	gasnetc_gmpiconf_init();
 
 /* GM Callback functions */
-void	gasnetc_callback_AMRequest(struct gm_port *, void *, gm_status_t);
+void	gasnetc_callback_AMRequest    (struct gm_port *, void *, gm_status_t);
 void	gasnetc_callback_AMRequest_NOP(struct gm_port *, void *, gm_status_t);
-void	gasnetc_callback_AMReply(struct gm_port *, void *, gm_status_t);
-void	gasnetc_callback_AMReply_NOP(struct gm_port *, void *, gm_status_t);
+void	gasnetc_callback_AMReply      (struct gm_port *, void *, gm_status_t);
+void	gasnetc_callback_AMReply_NOP  (struct gm_port *, void *, gm_status_t);
 
 /*
  * These are GM tokens, represented by the type
@@ -86,7 +86,7 @@ void	gasnetc_callback_AMReply_NOP(struct gm_port *, void *, gm_status_t);
  *
  */
 typedef
-struct {
+struct gasnetc_token {
 	int	max;
 	int	hi;
 	int	lo;
@@ -179,20 +179,25 @@ gasnetc_nodeid(gasnet_node_t node)
 extern pthread_mutex_t	_gasnetc_lock_gm;
 extern pthread_mutex_t	_gasnetc_lock_reqfifo;
 extern pthread_mutex_t	_gasnetc_lock_amreq;
+#ifdef DEBUG
 #define _GASNETC_MUTEX_LOCK(m) do { \
 		int ret = pthread_mutex_lock(&m); assert(!ret); } while (0)
 #define _GASNETC_MUTEX_UNLOCK(m) do { \
 		int ret = pthread_mutex_unlock(&m); assert(!ret); } while (0)
-#define GASNETC_GM_MUTEX_LOCK	_GASNETC_MUTEX_LOCK(_gasnetc_lock_gm);
-#define GASNETC_GM_MUTEX_UNLOCK _GASNETC_MUTEX_UNLOCK(_gasnetc_lock_gm);
+#else
+#define _GASNETC_MUTEX_LOCK(m) pthread_mutex_lock(&m)
+#define _GASNETC_MUTEX_UNLOCK(m) pthread_mutex_unlock(&m)
+#endif
+#define GASNETC_GM_MUTEX_LOCK	_GASNETC_MUTEX_LOCK(_gasnetc_lock_gm)
+#define GASNETC_GM_MUTEX_UNLOCK _GASNETC_MUTEX_UNLOCK(_gasnetc_lock_gm)
 #define GASNETC_REQUEST_FIFO_MUTEX_LOCK \
-		_GASNETC_MUTEX_LOCK(_gasnetc_lock_reqfifo);
+		_GASNETC_MUTEX_LOCK(_gasnetc_lock_reqfifo)
 #define GASNETC_REQUEST_FIFO_MUTEX_UNLOCK \
-		_GASNETC_MUTEX_UNLOCK(_gasnetc_lock_reqfifo);
+		_GASNETC_MUTEX_UNLOCK(_gasnetc_lock_reqfifo)
 #define GASNETC_AMMEDIUM_REQUEST_MUTEX_LOCK \
-		_GASNETC_MUTEX_LOCK(_gasnetc_lock_amreq);
+		_GASNETC_MUTEX_LOCK(_gasnetc_lock_amreq)
 #define GASNETC_AMMEDIUM_REQUEST_MUTEX_UNLOCK \
-		_GASNETC_MUTEX_UNLOCK(_gasnetc_lock_amreq);
+		_GASNETC_MUTEX_UNLOCK(_gasnetc_lock_amreq)
 #else
 #define GASNETC_GM_MUTEX_LOCK
 #define GASNETC_GM_MUTEX_UNLOCK
@@ -241,6 +246,10 @@ gasnetc_token_hi_release()
 	_gmc.token.hi -= 1;
 	_gmc.token.total -= 1;
 }
+
+/* gasnetc_tokenc_lo_acquire() is solely represented in
+ * gasnetc_AMRequestBuf_block();
+ */
 
 GASNET_INLINE_MODIFIER(gasnetc_token_lo_release)
 void
@@ -330,24 +339,23 @@ GASNET_INLINE_MODIFIER(gasnetc_fifo_remove)
 void
 gasnetc_fifo_remove()
 {
-	gasnetc_bufdesc_t	*buf;
-
 	assert(_gmc.fifo_bd_head != NULL);
 	assert(_gmc.fifo_bd_tail != NULL);
-	buf = _gmc.fifo_bd_head;
 
-	/* Handle AMLongReply, leave it in the queue in order to
-	 * let the next send be the header send
+	/* AMLongReplies queue up a AMShort along with a
+	 * directed_send.  Once the directed send is done,
+	 * we simply leave the descriptor in the queue so
+	 * an AMShort may follow
 	 */
-	if (buf->rdma_off > 0) {
-		buf->rdma_off = 0;
+	if (_gmc.fifo_bd_head->rdma_off > 0) {
+		_gmc.fifo_bd_head->rdma_off = 0;
 		return;
 	}
 
 	if (_gmc.fifo_bd_head == _gmc.fifo_bd_tail)
 		_gmc.fifo_bd_head = _gmc.fifo_bd_tail = NULL;
 	else 
-		_gmc.fifo_bd_head = buf->next;
+		_gmc.fifo_bd_head = _gmc.fifo_bd_head->next;
 }
 
 GASNET_INLINE_MODIFIER(gasnetc_fifo_insert)
@@ -357,10 +365,10 @@ gasnetc_fifo_insert(gasnetc_bufdesc_t *buf)
 	/* Insert at end of queue and update head/tail */
 	assert(buf != NULL);
 	buf->next = NULL;
-	if (_gmc.fifo_bd_head == NULL || _gmc.fifo_bd_tail == NULL)
+	if ((_gmc.fifo_bd_head == NULL) || (_gmc.fifo_bd_tail == NULL))
 		_gmc.fifo_bd_head = _gmc.fifo_bd_tail = buf;
 	else {
-		(_gmc.fifo_bd_tail)->next = buf;
+		_gmc.fifo_bd_tail->next = buf;
 		_gmc.fifo_bd_tail = buf;
 	}
 	return;
@@ -378,11 +386,17 @@ gasnetc_fifo_progress()
 {
 	while (gasnetc_fifo_head() && GASNETC_TOKEN_HI_AVAILABLE()) {
 		GASNETC_GM_MUTEX_LOCK;
-		if (gasnetc_token_hi_acquire()) {
+		if_pt (gasnetc_token_hi_acquire()) {
 			gasnetc_bufdesc_t *bufd = gasnetc_fifo_head();
 			gasnetc_gm_send_AMReply(bufd);
 			gasnetc_fifo_remove();
 		}
+#if defined(DEBUG) && defined(GASNETI_THREADS)
+		else {
+			fprintf(stderr,
+				"gasnetc_fifo_progress() lock interrupted.\n");
+		}
+#endif
 		GASNETC_GM_MUTEX_UNLOCK;
 	}
 }
@@ -401,8 +415,8 @@ gasnetc_write_AMBufferShort(	void *buf,
 {
 	GASNETC_ASSERT_AMSHORT(buf, AM_SHORT, handler, numargs, req);
 
-	GASNETC_AMHEADER_WRITE(buf, AM_SHORT, numargs, req);
-	GASNETC_AMHANDLER_WRITE(buf+1, handler);
+	GASNETC_AMHEADER_WRITE((uint8_t *)buf, AM_SHORT, numargs, req);
+	GASNETC_AMHANDLER_WRITE((uint8_t *)buf + 1, handler);
 	GASNETC_ARGS_WRITE((uint32_t *)buf + 1, argptr, numargs);
 
 	assert(GASNETC_AM_SHORT_HEADER_LEN(numargs) <= GASNETC_AM_LEN);
@@ -430,21 +444,21 @@ gasnetc_write_AMBufferMedium(	void *buf,
 	GASNETC_ASSERT_AMMEDIUM(buf, AM_MEDIUM, handler, numargs,
 				request, nbytes, source_addr);
 
-	GASNETC_AMHEADER_WRITE(buf, AM_MEDIUM, numargs, request);
-	GASNETC_AMHANDLER_WRITE(buf+1, handler);
+	GASNETC_AMHEADER_WRITE((uint8_t *)buf, AM_MEDIUM, numargs, request);
+	GASNETC_AMHANDLER_WRITE((uint8_t *)buf+1, handler);
 	GASNETC_AMLENGTH_WRITE((uint16_t *)buf + 1, nbytes);
 	GASNETC_ARGS_WRITE((uint32_t *)buf + 1, argptr, numargs);
 	GASNETC_AMPAYLOAD_WRITE(buf_payload, source_addr, nbytes);
 
-	assert(GASNETC_AM_MEDIUM_HEADER_LEN(numargs)+ nbytes <= GASNETC_AM_LEN);
-	return GASNETC_AM_MEDIUM_HEADER_LEN(numargs) + nbytes;
+	assert(GASNETC_AM_MEDIUM_HEADER_LEN(numargs)+nbytes <= GASNETC_AM_LEN);
+	return GASNETC_AM_MEDIUM_HEADER_LEN(numargs)+nbytes;
 }
 
 /* 
  * This writes a Long sized buffer header and returns the number of
  * bytes written 
  *
- * |header(1)|handler(1)|pad(2)|len(4)|dest_addr(8)|args(0..64)|payload(0..?)
+ * |header(1)|handler(1)|pad(2)|len(4)|dest_addr(4/8)|args(0..64)|payload(0..?)
  *
  */
 GASNET_INLINE_MODIFIER(gasnetc_write_AMBufferLong)
@@ -460,11 +474,11 @@ gasnetc_write_AMBufferLong(	void *buf,
 	GASNETC_ASSERT_AMLONG(buf, AM_LONG, handler, numargs,
 				request, nbytes, source_addr, dest_addr);
 
-	GASNETC_AMHEADER_WRITE(buf, AM_LONG, numargs, request);
-	GASNETC_AMHANDLER_WRITE(buf+1, handler);
+	GASNETC_AMHEADER_WRITE((uint8_t *)buf, AM_LONG, numargs, request);
+	GASNETC_AMHANDLER_WRITE((uint8_t *)buf+1, handler);
 
 	GASNETC_AMLENGTH_WRITE4((uint32_t *)buf + 1, nbytes);
-	GASNETC_AMDESTADDR_WRITE((uint32_t *)buf + 2, dest_addr); 
+	GASNETC_AMDESTADDR_WRITE((uint32_t *) buf + 2, dest_addr); 
 	GASNETC_ARGS_WRITE((uint32_t *)buf + 4, argptr, numargs);
 
 	assert(GASNETC_AM_LONG_HEADER_LEN(numargs) <= GASNETC_AM_LEN);
@@ -484,21 +498,20 @@ GASNET_INLINE_MODIFIER(gasnetc_gm_nodes_search)
 gasnet_node_t
 gasnetc_gm_nodes_search(gasnetc_bufdesc_t *bufd)
 {
-	uint16_t		sender_node_id;
-	gasnetc_gm_nodes_rev_t	*gm_node;
+	gasnetc_gm_nodes_rev_t	gm_node_sender, *gm_node;
 
-	if (!bufd->e) GASNETI_RETURN_ERRR(BAD_ARG, "No GM receive event");
-	sender_node_id = gm_ntoh_u16(bufd->e->recv.sender_node_id);
-	if (!sender_node_id) GASNETI_RETURN_ERRR(BAD_ARG, 
+	if_pf (!bufd->e) GASNETI_RETURN_ERRR(BAD_ARG, "No GM receive event");
+	gm_node_sender.id = gm_ntoh_u16(bufd->e->recv.sender_node_id);
+	if_pf (!gm_node_sender.id) GASNETI_RETURN_ERRR(BAD_ARG, 
 						"No GM sender_node_id");
 	gm_node = (gasnetc_gm_nodes_rev_t *)
-		bsearch((void *) &sender_node_id, 
+		bsearch((void *) &gm_node_sender,
 			(const void *) _gmc.gm_nodes_rev,
 			(size_t) gasnetc_nodes,
 			sizeof(gasnetc_gm_nodes_rev_t),
 			gasnetc_gm_nodes_compare);
 	if_pf(gm_node == NULL)
-		GASNETI_RETURN_ERRR(RESOURCE, "GM id unknown to job! fatal");
+		gasneti_fatalerror("gasnetc_gm_nodes_search() GM id unknown");
 	return gm_node->node;
 }
 

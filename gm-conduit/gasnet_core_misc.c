@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.5 2002/06/14 03:40:38 csbell Exp $
- * $Date: 2002/06/14 03:40:38 $
- * $Revision: 1.5 $
+/* $Id: gasnet_core_misc.c,v 1.6 2002/06/14 22:12:31 csbell Exp $
+ * $Date: 2002/06/14 22:12:31 $
+ * $Revision: 1.6 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -9,7 +9,7 @@
 #include <gasnet_core_internal.h>
 #include <stdlib.h>
 
-#define	_BUFSZ	128
+#define	_BUFSZ	127
 #define BOARD	0
 #ifdef DEBUG
 #define DPRINTF(x)      printf x; fflush(stdout)
@@ -59,7 +59,7 @@ gasnetc_sendbuf_init()
 				gasneti_current_loc);
 
 	gm_register_memory(_gmc.port, _gmc.dma_bufs, 
-			GASNETC_AM_LEN * _gmc.token.max);
+			GASNETC_AM_LEN * _gmc.bd_list_num);
 	_gmc.bd_ptr = (gasnetc_bufdesc_t *)
 		gasneti_malloc(_gmc.bd_list_num * sizeof(gasnetc_bufdesc_t));
 
@@ -68,15 +68,13 @@ gasnetc_sendbuf_init()
 		_gmc.bd_ptr[i*GASNETC_AM_LEN].sendbuf = 
 			_gmc.dma_bufs + i*GASNETC_AM_LEN;
 	}
-
 	/* give the first buffer to AMReplyBuf */
 	_gmc.AMReplyBuf = _gmc.bd_ptr;
-	_gmc.AMReplyBuf->sendbuf = _gmc.dma_bufs;
 
 	/* Indexes for buffer descriptors 
 	 * 0      : AMReplyBuf buffer DMA (although unused through index) 
-	 * 1-stoks: Send buffer DMA (up to 1-stoks-1 used by AMReply) 
-	 * stoks-stoks+rtoks_hi:  Receive buffer DMAs
+	 * 1,stoks: Send buffer DMA (up to 1-stoks-1 used by AMReply) 
+	 * stoks,stoks+rtoks_hi:  Receive buffer DMAs
 	 */
 
 	for (i = 1; i <= rtoks_hi; i++) { 
@@ -85,7 +83,7 @@ gasnetc_sendbuf_init()
 			GASNETC_AM_SIZE, GM_HIGH_PRIORITY);
 	}
 
-	for (i = rtoks_lo+1; i <= rtoks; i++) {
+	for (i += 1; i <= rtoks; i++) {
 		gm_provide_receive_buffer(_gmc.port,
 			_gmc.bd_ptr + (i+stoks)*GASNETC_AM_LEN,
 			GASNETC_AM_SIZE, GM_LOW_PRIORITY);
@@ -95,7 +93,7 @@ gasnetc_sendbuf_init()
 	 * Fix the FIFO for AMRequests, using an array-based stack up to
 	 * stoks - 1
 	 */ 
-	_gmc.reqs_fifo = gasneti_malloc(sizeof(int) * stoks-1);
+	_gmc.reqs_fifo = (int *) gasneti_malloc(sizeof(int) * stoks-1);
 
 	for (i = 0; i < stoks-1; i++)
 		_gmc.reqs_fifo[i] = i+1;
@@ -130,7 +128,7 @@ gasnetc_tokensend_AMRequest(void *buf, uint16_t len,
 		gm_send_completion_callback_t callback, 
 		void *callback_ptr, uint64_t dest_addr)
 {
-	int	sent = 0;
+	int sent = 0;
 
 	while (!sent) {
 		while (!GASNETC_TOKEN_LO_AVAILABLE())
@@ -161,7 +159,7 @@ gasnetc_AMRequestBuf_block()
 			gasnetc_AMPoll();
 
 		GASNETC_REQUEST_FIFO_MUTEX_LOCK;
-		if (_gmc.reqs_fifo_cur > 0) {
+		if_pt (_gmc.reqs_fifo_cur > 0) {
 			bufd_idx = _gmc.reqs_fifo[--_gmc.reqs_fifo_cur];
 			GASNETC_REQUEST_FIFO_MUTEX_UNLOCK;
 		}
@@ -170,6 +168,8 @@ gasnetc_AMRequestBuf_block()
 			gasnetc_AMPoll();
 		}
 	}
+
+	assert(_gmc.bd_ptr[bufd_idx*sizeof(gasnetc_bufdesc_t)].sendbuf !=NULL);
 
 	return (gasnetc_bufdesc_t *) 
 		&_gmc.bd_ptr[bufd_idx*sizeof(gasnetc_bufdesc_t)];
@@ -180,9 +180,9 @@ gasnetc_gmpiconf_init()
 {
 
 	FILE		*fp;
-	char		line[_BUFSZ];
+	char		line[_BUFSZ+1];
 	char		gmconf[_BUFSZ+1];
-	char		gmhost[_BUFSZ+1], hostname[_BUFSZ+1];
+	char		gmhost[_BUFSZ+1], hostname[MAXHOSTNAMELEN+1];
 	char		**hostnames;
 	char		*homedir;
 	int		lnum = 0, gmportnum, i;
