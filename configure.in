@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/11/06 02:17:06 $
-# $Revision: 1.86 $
+#     $Date: 2003/11/07 19:08:13 $
+# $Revision: 1.87 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.86 $)
+AC_REVISION($Revision: 1.87 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1168,11 +1168,32 @@ case "$target_os" in
             RANLIB="ranlib -X64"
         fi
         ;;
+    osf*)
+        # Tru64 has a default /bin/sh that emits error msgs for missing
+        # commands, even when 2>/dev/null passed.  Use posix shell instead.
+        if test -x /usr/bin/posix/sh; then
+            BOURNE_SHELL="/usr/bin/posix/sh"
+        fi
+        ;;
 esac
 dnl     Store full paths, so we find right ones even if users have
 dnl     some other version in their path
+if test x"$BOURNE_SHELL" = x; then
+    BOURNE_SHELL="/bin/sh"
+fi
+
+GASNET_PATH_PROGS(PERL, perl5 perl, perl)
+MIN_PERL_VERSION="5.005"
+AC_MSG_CHECKING(for perl version $MIN_PERL_VERSION or later)
+if $PERL -e "require $MIN_PERL_VERSION;" 2>&AC_FD_CC; then
+  AC_MSG_RESULT(yes)
+else
+  AC_MSG_ERROR(cannot find perl $MIN_PERL_VERSION or later)
+fi
 GASNET_PATH_PROGS(AR, $AR ar gar, archiver)
 GASNET_PATH_PROGS(RANLIB, $RANLIB ranlib, ranlib)
+AC_SUBST(BOURNE_SHELL)
+AC_SUBST(PERL)
 AC_SUBST(AR)
 AC_SUBST(RANLIB)
 
@@ -1220,6 +1241,7 @@ gm-conduit/gm-seq.mak
 gm-conduit/gm-parsync.mak
 gm-conduit/gm-par.mak
 gm-conduit/contrib/Makefile
+gm-conduit/contrib/gasnetrun_gm
 
 lapi-conduit/Makefile
 lapi-conduit/lapi-seq.mak
