@@ -30,22 +30,39 @@ AC_SUBST(LIBGCC)
 dnl GASNET_ENV_DEFAULT(envvar-name, default-value)
 dnl  load an environment variable, using default value if it's missing from env.
 dnl  caches the results to guarantee reconfig gets the originally loaded value
+dnl  also adds a --with-foo-bar= option for the env variable FOO_BAR
 AC_DEFUN(GASNET_ENV_DEFAULT,[
+  pushdef([lowerdashname],patsubst(translit([$1],'A-Z','a-z'), _, -))
+  pushdef([lowerscorename],patsubst(translit([$1],'A-Z','a-z'), -, _))
+
   AC_MSG_CHECKING(for $1 in environment)
 
-  envval_src="cached"
+  dnl create the help prompt just once
+  ifdef(with_expanded_[$1], [], [
+    AC_ARG_WITH(lowerdashname, 
+       GASNET_OPTION_HELP(with-[]lowerdashname[]=, value for [$1]), 
+      [], [])
+  ])
+  define(with_expanded_[$1], [set])
+
+  envval_src_[$1]="cached"
   AC_CACHE_VAL(gasnet_cv_envvar_$1, [
-    case "$[$1]" in
-      '') gasnet_cv_envvar_$1="[$2]"
-	  envval_src=default
-	  ;;
-      *)  gasnet_cv_envvar_$1="$[$1]"
-	  envval_src=given
-    esac
+      case "$[$1]" in
+	'') if test "$with_[]lowerscorename" != ""; then
+	      gasnet_cv_envvar_$1="$with_[]lowerscorename"
+	      envval_src_[$1]=given
+	    else
+	      gasnet_cv_envvar_$1="[$2]"
+	      envval_src_[$1]=default
+	    fi 
+	    ;;
+	*)  gasnet_cv_envvar_$1="$[$1]"
+	    envval_src_[$1]=given
+      esac
   ])
 
   [$1]="$gasnet_cv_envvar_$1"
-  case "$envval_src" in
+  case "$envval_src_[$1]" in
       'cached')
 	  AC_MSG_RESULT([using cached value \"$[$1]\"]) ;;
       'default')
@@ -54,6 +71,9 @@ AC_DEFUN(GASNET_ENV_DEFAULT,[
 	  AC_MSG_RESULT([yes, using \"$[$1]\"]) ;;
       *) AC_MSG_ERROR(_GASNET_ENV_DEFAULT broken)
   esac
+
+  popdef([lowerdashname])
+  popdef([lowerscorename])
 ])
 
 dnl GASNET_RESTORE_AUTOCONF_ENV(env1 env2 env3) 
