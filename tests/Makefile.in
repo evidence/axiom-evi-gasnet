@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.38 2004/08/03 12:30:01 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.39 2004/08/13 00:23:16 phargrov Exp $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -78,7 +78,7 @@ TEST_NODES=2
 TEST_PARAMS=                    \
    testcore1_args="1000";       \
    testrand_args="1024";        \
-   testlogGP_args="1000 65536"; \
+   testlogGP_args="1000 8 65536";\
    testthreads_args="-a 2";	\
    testmisc_nodes="1";		\
    $(EXTRA_PARAMS)
