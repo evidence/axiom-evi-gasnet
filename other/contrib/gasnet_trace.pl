@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/09/16 21:34:02 $
-# $Revision: 1.20 $
+#     $Date: 2004/09/23 22:20:59 $
+# $Revision: 1.21 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -150,18 +150,35 @@ EOF
 sub parse_threadinfo
 {
     open (TRACEFILE, $_[0]) or die "Could not open $_[0]: $!\n";
+    print STDERR "Parsing thread info for $_[0]..\n";
+    my %thread_seen;
     
     while (<TRACEFILE>) {
-        next unless /MAGIC/;
-        m/^(\S+).*I am thread\s(\d+).*on node\s(\d+) of (\d+)\s.*<(.+)>$/;
-        $threads{$1} = $2;
-        $nodes{$1} = $3;
-        $node_threads{$3}++;
-        $job_nodes{$5} = $4;
-        $job_seen{$5}++;
-        if ($job_uniq{$5,$2}++) {
-            print STDERR "WARNING: duplicate tracing data for thread $2 of job $5\n";
-	}
+        next unless /MAGIC/ || /\(B\)/; 
+        if (/MAGIC/) {
+            m/^(\S+).*I am thread\s(\d+).*on node\s(\d+) of (\d+)\s.*<(.+)>$/;
+            $threads{$1} = $2;
+            $nodes{$1} = $3;
+            $node_threads{$3}++;
+            $thread_seen{$1}++;
+            # for error checking of total nodes/threads
+            $job_nodes{$5} = $4;
+            $job_seen{$5}++;
+            if ($job_uniq{$5,$2}++) {
+                print STDERR "WARNING: duplicate tracing data for thread $2 of job $5\n";
+	        }
+	    }
+	    # After the first barrier of magic lines for each node, stop parsing
+	    # for that node
+	    if (/\(B\)/) {
+	        m/^(\S+)/;
+	        next unless (scalar keys %thread_seen);
+	        foreach my $key (keys %thread_seen) {
+		        next unless $thread_seen{$key};
+	        }
+	        # By now magic lines of every thread seen have been processed 
+	        return;
+	    }		    
     }	       
 
 }
@@ -170,6 +187,9 @@ sub parse_tracefile
 {
     
     open (TRACEFILE, $_[0]) or die "Could not open $_[0]: $!\n";
+    print STDERR "Parsing tracefile for $_[0]..";
+    
+    # FILTERS for reports and types
     my %filters, my %reports;
     foreach my $filter (split /,/, $opt_filter) {
     	$filters{$filter}++;
@@ -178,27 +198,54 @@ sub parse_tracefile
     	$reports{$report}++;
     }
     
+    # Counter for progress indication
+    my $counter;
+    
+    # Flag for internal region
+    my $inRegion;
     while (<TRACEFILE>) {
-        my ($thread, $src, $pgb, $type, $sz);
-	if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(PUT|GET|BARRIER)(.*):\D+(\d+)/) { 
+	    if ($opt_internal) {
+	        # If in region, skip unless we have a leaveregion
+	        if (/GASNET_TRACE_LEAVEREGION/) {
+	            $inRegion = 0;
+	            next;
+	        }
+	        next if $inRegion;
+            # Set the flag for entering a region
+	        if (/GASNET_TRACE_ENTERREGION/) {
+	            $inRegion = 1;
+	            next;
+	        }
+	    }
+	    
+	    # Actual info
+	    my ($thread, $src, $pgb, $type, $sz);
+	    $counter++;
+	    if ($counter > 100000) {
+	        print STDERR ".";
+	        $counter = 0;
+	    }
+	    if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(PUT|GET|BARRIER)(.*):\D+(\d+)/) { 
             ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
             # filter out lines that are not going to be in the report
-	    next unless $reports{$pgb};
+	        next unless $reports{$pgb};
             if ($pgb =~ /PUT|GET/) {
-	        $type = ($type =~ /_LOCAL$/) ? "LOCAL" : "GLOBAL";
+	            $type = ($type =~ /_LOCAL$/) ? "LOCAL" : "GLOBAL";
             	# filter by type to increase performance
             	next unless !$filters{$type}; 
             } elsif ($pgb =~ /BARRIER/) {
-	        $type =~ s/^_//;
-		next unless ($type =~ /NOTIFYWAIT|WAIT/);	# discard unknowns
+	            $type =~ s/^_//;
+		        next unless ($type =~ /NOTIFYWAIT|WAIT/);	# discard unknowns
                 next unless !$filters{$type};
                 $thread = $nodes{$thread};
             }
-	} else {
-	    next;
-	}
+	    } else {
+	        next;
+	    }
         update_data($thread, $src, $pgb, $type, $sz);
     }
+    
+    print STDERR "\n";
 }
                 
 sub update_data
