@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/06/13 10:15:10 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/14 03:40:37 $
+ * $Revision: 1.3 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -19,27 +19,42 @@ BEGIN_EXTERNC
 #include <gasnet.h>
 
 /*  safe memory allocation/deallocation */
-GASNET_INLINE_MODIFIER(gasneti_malloc)
-void *gasneti_malloc(size_t nbytes) {
+GASNET_INLINE_MODIFIER(_gasneti_malloc)
+void *_gasneti_malloc(size_t nbytes, char *curloc) {
   void *ret = NULL;
   gasnet_hold_interrupts();
   ret = malloc(nbytes);
-  assert(ret);
+  if_pf (ret == NULL)
+    gasneti_fatalerror("malloc(%d) failed: %s", nbytes, 
+      curloc == NULL ? "" : curloc);
   gasnet_resume_interrupts();
   return ret;
 }
+#ifdef DEBUG
+#define gasneti_malloc(nbytes)	_gasneti_malloc(nbytes, gasneti_current_loc)
+#else
+#define gasneti_malloc(nbytes)	_gasneti_malloc(nbytes, NULL)
+#endif
 GASNET_INLINE_MODIFIER(gasneti_free)
 void gasneti_free(void *ptr) {
   gasnet_hold_interrupts();
   free(ptr);
   gasnet_resume_interrupts();
 }
-GASNET_INLINE_MODIFIER(gasneti_malloc_inhandler)
-void *gasneti_malloc_inhandler(size_t nbytes) {
-  void *ret = malloc(nbytes);
-  assert(ret);
+GASNET_INLINE_MODIFIER(_gasneti_malloc_inhandler)
+void *_gasneti_malloc_inhandler(size_t nbytes, char *curloc) {
+  void *ret = NULL;
+  ret = malloc(nbytes);
+  if_pf (ret == NULL)
+    gasneti_fatalerror("malloc_inhandler(%d) failed: %s", 
+      nbytes, curloc == NULL ? "" : curloc);
   return ret;
 }
+#ifdef DEBUG
+#define gasneti_malloc_inhandler(nbytes) _gasneti_malloc_inhandler(nbytes, gasneti_current_loc)
+#else
+#define gasneti_malloc_inhandler(nbytes) _gasneti_malloc_inhandler(nbytes, NULL)
+#endif
 GASNET_INLINE_MODIFIER(gasneti_free_inhandler)
 void gasneti_free_inhandler(void *ptr) {
   free(ptr);

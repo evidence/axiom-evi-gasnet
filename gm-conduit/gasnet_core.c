@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.5 2002/06/14 01:54:57 bonachea Exp $
- * $Date: 2002/06/14 01:54:57 $
+/* $Id: gasnet_core.c,v 1.6 2002/06/14 03:40:38 csbell Exp $
+ * $Date: 2002/06/14 03:40:38 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -173,27 +173,28 @@ static int gasnetc_init(int *argc, char ***argv,
   /* ------------------------------------------------------------------------------------ */
   /*  register fatal signal handlers */
 
-  /*  (???) catch fatal signals and convert to SIGQUIT */
+  /*  (...) catch fatal signals and convert to SIGQUIT */
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
 
   if (segbase == GASNET_SEGBASE_ANY) {
-    /*  (???) choose a segment for the user of size segsize and allocate/register it,
+    /*  (...) choose a segment for the user of size segsize and allocate/register it,
               save base in segbase
     */
   } else {
-    /*  (???) allocate/register the client requested segment in (segbase,segsize) */
+    /*  (...) allocate/register the client requested segment in (segbase,segsize) */
   }
 
-  assert(segbase % pagesize == 0);
-  assert(segsize % pagesize == 0);
+  /*
+  assert((segbase % pagesize) == 0);
+  */
 
   /* ------------------------------------------------------------------------------------ */
   /*  gather segment information */
 
   gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
-  /* (???) add code here to fill in gasnetc_seginfo with segment info from all the nodes */
+  /* (...) add code here to fill in gasnetc_seginfo with segment info from all the nodes */
 
   assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
          gasnetc_seginfo[gasnetc_mynode].size == segsize);
@@ -276,17 +277,6 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 
   assert(sourceid < gasnetc_nodes);
   *srcindex = sourceid;
-  return GASNET_OK;
-}
-
-extern int gasnetc_AMPoll() {
-  int retval;
-  GASNETC_CHECKINIT();
-
-  /* GMCORE BEGIN */
-  gasnetc_poll();
-  /* GMCORE END */
-
   return GASNET_OK;
 }
 

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.4 2002/06/13 10:09:33 csbell Exp $
- * $Date: 2002/06/13 10:09:33 $
- * $Revision: 1.4 $
+/* $Id: gasnet_core_receive.c,v 1.5 2002/06/14 03:40:38 csbell Exp $
+ * $Date: 2002/06/14 03:40:38 $
+ * $Revision: 1.5 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -31,8 +31,8 @@ void	gasnetc_callback_error(gm_status_t status, gasnetc_bufdesc_t *bufd);
 /* 
  * make progress in the receive queue
  */
-void
-gasnetc_poll()
+int
+gasnetc_AMPoll()
 {
 	gm_recv_event_t	*e;
 	int		fast = 0;
@@ -45,7 +45,7 @@ gasnetc_poll()
 
 	switch(gm_ntohc(e->recv.type)) {
 		case GM_NO_RECV_EVENT:
-			return;
+			return GASNET_OK;
 
 		case GM_FAST_RECV_EVENT:
 		case GM_FAST_HIGH_RECV_EVENT:
@@ -61,7 +61,7 @@ gasnetc_poll()
 				ptr = gm_ntohp(e->recv.buffer);
 
 			gasnetc_process_AMReply(e, fast);
-			return;
+			return GASNET_OK;
 
 		case GM_RECV_EVENT:
 			GASNETC_GM_MUTEX_UNLOCK;
@@ -74,7 +74,7 @@ gasnetc_poll()
 				gasnetc_process_AMSystem(e);
 			else
 				gasnetc_process_AMRequest(e, fast);
-			return;
+			return GASNET_OK;
 
 		default:
 			gm_unknown(_gmc.port, e);
@@ -82,14 +82,12 @@ gasnetc_poll()
 	GASNETC_GM_MUTEX_UNLOCK;
 
 	gasnetc_fifo_progress();
+	return GASNET_OK;
 }
 
 /* 
  * Three processing functions called from gasnetc_receive 
- */
-
-/*
- * From gasnetc_receive() to handle incoming AMRequests
+ * From gasnetc_AMPoll()
  *      - <e> contains the event as returned by gm_receive()
  *      - <fast> tells if a message or buffer is available
  */
@@ -98,14 +96,12 @@ void
 gasnetc_process_AMRequest(gm_recv_event_t *e, int fast)
 {
 	gasnetc_bufdesc_t	*bufd;
-	int			buf_idx;
 	void			*recv_buf;
 	uint8_t			handler_idx, numargs;
 	uint16_t		len;
 
 	/* Get either 'message' or 'buffer' from recv'd event */
 	GASNETC_ASSIGN_RECV_BUF(e, recv_buf, fast);
-
 	bufd = (gasnetc_bufdesc_t *) 
 		GASNETC_BUFDESC_PTR(gm_ntohp(e->recv.buffer));
 
@@ -113,8 +109,7 @@ gasnetc_process_AMRequest(gm_recv_event_t *e, int fast)
 	numargs = AM_NUMARGS((uint8_t *)recv_buf);
 	len = gm_ntoh_u32(e->recv.length);
 
-	assert(bufd != NULL);
-	assert(bufd->sendbuf == e->recv.buffer);
+	assert(bufd->sendbuf == gm_ntohp(e->recv.buffer));
 	assert(len >= 2); /* minimum AM message */
 
 	switch (AM_TYPE((uint8_t *)recv_buf)) {

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.4 2002/06/13 10:09:33 csbell Exp $
- * $Date: 2002/06/13 10:09:33 $
- * $Revision: 1.4 $
+/* $Id: gasnet_core_misc.c,v 1.5 2002/06/14 03:40:38 csbell Exp $
+ * $Date: 2002/06/14 03:40:38 $
+ * $Revision: 1.5 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -16,7 +16,6 @@
 #else
 #define DPRINTF(x)
 #endif
-
 
 /*
  * Memory management for token_lo buffers (AMRequests)
@@ -39,11 +38,12 @@ gasnetc_sendbuf_init()
 
 	/* We need to allocate the following types of buffers
 	 *
-	 * 1. 1 AMReplyBuf DMA
+	 * 1. 1 AMReplyBuf DMA (for serialized AMReply following
+	 *    an AMMediumRequest)
 	 * 2. stoks send DMA buffers
 	 * 3. rtoks receive DMA buffers
 	 *
-	 * each of these have a buffer_desc_t attached to them.
+	 * each of these have a bufdesc_t attached to them.
 	 */
 
 	_gmc.bd_list_num = 1 + rtoks + stoks;
@@ -51,8 +51,13 @@ gasnetc_sendbuf_init()
 	/* 
 	 * Allocate and register DMA buffers 
 	 */ 
+
 	_gmc.dma_bufs = gm_alloc_pages(GASNETC_AM_LEN * _gmc.bd_list_num);
-	if (_gmc.dma_bufs == NULL) exit(-1);
+	if_pf (_gmc.dma_bufs == NULL)
+		gasneti_fatalerror("gm_alloc_pages(%d) %s",
+				GASNETC_AM_LEN * _gmc.bd_list_num,
+				gasneti_current_loc);
+
 	gm_register_memory(_gmc.port, _gmc.dma_bufs, 
 			GASNETC_AM_LEN * _gmc.token.max);
 	_gmc.bd_ptr = (gasnetc_bufdesc_t *)
@@ -129,7 +134,7 @@ gasnetc_tokensend_AMRequest(void *buf, uint16_t len,
 
 	while (!sent) {
 		while (!GASNETC_TOKEN_LO_AVAILABLE())
-			gasnetc_poll();
+			gasnetc_AMPoll();
 
 		GASNETC_GM_MUTEX_LOCK;
 		if (GASNETC_TOKEN_LO_AVAILABLE()) {
@@ -153,7 +158,7 @@ gasnetc_AMRequestBuf_block()
 
 	while (bufd_idx < 0) {
 		while (_gmc.reqs_fifo_cur < 1)
-			gasnetc_poll();
+			gasnetc_AMPoll();
 
 		GASNETC_REQUEST_FIFO_MUTEX_LOCK;
 		if (_gmc.reqs_fifo_cur > 0) {
@@ -162,7 +167,7 @@ gasnetc_AMRequestBuf_block()
 		}
 		else {
 			GASNETC_REQUEST_FIFO_MUTEX_UNLOCK;  /* can't get bufd */
-			gasnetc_poll();
+			gasnetc_AMPoll();
 		}
 	}
 
@@ -271,7 +276,7 @@ gasnetc_gmpiconf_init()
 		      gm_host_name_to_node_id(p, hostnames[i]);
 
 		if (_gmc.gm_nodes[i].id == GM_NO_SUCH_NODE_ID) {
-			fprintf(stderr, "%s has no id! Check mapper\n",
+			fprintf(stderr, "%d has no id! Check mapper\n",
 					_gmc.gm_nodes[i].id);
 			GASNETI_RETURN_ERRR(RESOURCE, 
 				"Unknown GMid or GM mapper down");
@@ -336,4 +341,5 @@ gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasnetc_handler_fn_t func)
 			return GASNET_OK;
 		}
 	}
+	return GASNET_OK;
 }

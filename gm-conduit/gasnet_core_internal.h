@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.4 2002/06/13 10:09:32 csbell Exp $
- * $Date: 2002/06/13 10:09:32 $
- * $Revision: 1.4 $
+/* $Id: gasnet_core_internal.h,v 1.5 2002/06/14 03:40:38 csbell Exp $
+ * $Date: 2002/06/14 03:40:38 $
+ * $Revision: 1.5 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -12,7 +12,16 @@
 #include <gasnet.h>
 #include <gasnet_internal.h>
 #include "gasnet_core_types.h"
-#include <gm.h>
+#if defined(__i386__) && !defined(i386)	/* fix gm. cpu detection */
+#define i386
+#endif
+#ifdef __GNUC__
+  #define inline __inline__
+  #include <gm.h>
+  #undef inline
+#else
+  #include <gm.h>
+#endif
 #ifdef LINUX
 #include <asm/param.h> /* MAXHOSTNAMELEN */
 #else
@@ -69,9 +78,6 @@ void	gasnetc_callback_AMRequest(struct gm_port *, void *, gm_status_t);
 void	gasnetc_callback_AMRequest_NOP(struct gm_port *, void *, gm_status_t);
 void	gasnetc_callback_AMReply(struct gm_port *, void *, gm_status_t);
 void	gasnetc_callback_AMReply_NOP(struct gm_port *, void *, gm_status_t);
-
-/* prototype for handler function */
-typedef void (*gasnetc_handler_fn_t)();
 
 /*
  * These are GM tokens, represented by the type
@@ -247,15 +253,14 @@ gasnetc_token_lo_release()
 
 /* GM gm_send/gm_directed_send wrapper for AMReply */
 GASNET_INLINE_MODIFIER(gasnetc_gm_send_AMReply)
-int
+void
 gasnetc_gm_send_AMReply(gasnetc_bufdesc_t *bufd)
 {
 	assert(bufd != NULL);
 	assert(bufd->sendbuf != NULL);
 	assert(bufd->len > 0);
 	assert(bufd->e != NULL);
-	assert(bufd->e->recv.sender_node_id > 0);
-	assert(bufd->e->recv.sender_port_id >= 0);
+	assert(gm_ntoh_u16(bufd->e->recv.sender_node_id) > 0);
 
 	if (bufd->rdma_off > 0) {
 		gm_directed_send_with_callback(_gmc.port, 
@@ -284,7 +289,7 @@ gasnetc_gm_send_AMReply(gasnetc_bufdesc_t *bufd)
 
 /* GM gm_send/gm_directed_send wrapper for AMRequest */
 GASNET_INLINE_MODIFIER(gasnetc_gm_send_AMRequest)
-int
+void
 gasnetc_gm_send_AMRequest(void *buf, uint16_t len,
 		uint32_t id, uint32_t port, 
 		gm_send_completion_callback_t callback,
@@ -295,7 +300,7 @@ gasnetc_gm_send_AMRequest(void *buf, uint16_t len,
 	assert(len <= GASNETC_AM_LEN); 
 	assert(id > 0);
 	assert(port >= 0);
-	assert(callack != NULL);
+	assert(callback != NULL);
 
 	if (dest_addr > 0)
 		gm_directed_send_with_callback(_gmc.port, 
@@ -408,7 +413,7 @@ gasnetc_write_AMBufferShort(	void *buf,
  * This writes a Medium sized buffer and returns the number of
  * bytes written in total to the buffer
  *
- * |header(1)|handler(1)|len(2)|args(0..64)|payload(0..??)
+ * |header(1)|handler(1)|len(2)|args(0..64)|payload(0..?)
  */
 GASNET_INLINE_MODIFIER(gasnetc_write_AMBufferMedium)
 uint16_t
@@ -439,7 +444,7 @@ gasnetc_write_AMBufferMedium(	void *buf,
  * This writes a Long sized buffer header and returns the number of
  * bytes written 
  *
- * |header(1)|handler(1)|pad(2)|len(4)|dest_addr(8)|args(0..64)|payload(0..??)
+ * |header(1)|handler(1)|pad(2)|len(4)|dest_addr(8)|args(0..64)|payload(0..?)
  *
  */
 GASNET_INLINE_MODIFIER(gasnetc_write_AMBufferLong)

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.2 2002/06/13 10:09:32 csbell Exp $
- * $Date: 2002/06/13 10:09:32 $
- * $Revision: 1.2 $
+/* $Id: gasnet_core_help.h,v 1.3 2002/06/14 03:40:38 csbell Exp $
+ * $Date: 2002/06/14 03:40:38 $
+ * $Revision: 1.3 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -19,6 +19,10 @@ BEGIN_EXTERNC
 
 extern gasnet_node_t 		gasnetc_mynode;
 extern gasnet_node_t 		gasnetc_nodes;
+
+/* prototype for handler function */
+typedef void (*gasnetc_handler_fn_t)();
+
 
 /* AM Header stores the following fields
  *
@@ -59,10 +63,9 @@ extern gasnet_node_t 		gasnetc_nodes;
 
 #define GASNETC_ASSERT_AMSHORT(buf, type, handler, args, req) 		\
 	do { 	assert(buf != NULL); 					\
-		assert(am_type >= AM_SHORT && am_type <= AM_SYSTEM);	\
-		assert(request == 0 || request == 1);			\
+		assert(type >= AM_SHORT && type <= AM_SYSTEM);		\
+		assert(req == 0 || req == 1);				\
 		assert(numargs >= 0 && numargs <= 16);			\
-		assert(handler >= 0 && handler <= 255);			\
 	} while (0)
 
 #define GASNETC_ASSERT_AMMEDIUM(buf, type, handler, args, req, len, src) \

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.3 2002/06/13 10:09:32 csbell Exp $
- * $Date: 2002/06/13 10:09:32 $
- * $Revision: 1.3 $
+/* $Id: gasnet_core.h,v 1.4 2002/06/14 03:40:38 csbell Exp $
+ * $Date: 2002/06/14 03:40:38 $
+ * $Revision: 1.4 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -32,9 +32,6 @@ BEGIN_EXTERNC
   #define GASNETC_CHECKINIT()
 #endif
 
-//struct gasnetc_bufdesc;
-//typedef struct gasnetc_bufdesc *gasnet_token_t;
-
 /* ------------------------------------------------------------------------------------ */
 /*
   Initialization
@@ -51,7 +48,7 @@ extern void gasnetc_exit(int exitcode) GASNET_NORETURN;
 #define gasnet_exit gasnetc_exit
 
 /* this need not be a macro - some conduits may need to query system resources */
-#define gasnet_getMaxNativeSegmentSize() ??? 
+#define gasnet_getMaxNativeSegmentSize() 64*1024*1024 
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -71,6 +68,10 @@ gasnet_node_t gasnet_nodes() {
   GASNETC_CHECKINIT();
   return gasnetc_nodes;
 }
+
+extern void	gasnetc_AM_InitHandler();
+extern int	gasnetc_AM_SetHandler(gasnet_handler_t, gasnetc_handler_fn_t);
+extern int	gasnetc_AM_SetHandlerAny(gasnet_handler_t *, gasnetc_handler_fn_t);
 
 #define gasnet_getSegmentInfo gasnetc_getSegmentInfo
 
