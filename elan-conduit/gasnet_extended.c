@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/09/13 13:41:42 $
- * $Revision: 1.7 $
+ *     $Date: 2002/09/16 12:26:37 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -100,13 +100,13 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
 #define GASNETE_USE_ELAN_PUTGET 1
 #endif
 
-/* true to use elan hardware supported barrier (may cause deadlock) */
+/* true to use elan hardware supported barrier */
 #ifndef GASNETE_USE_ELAN_BARRIER
-#define GASNETE_USE_ELAN_BARRIER 0
+  #define GASNETE_USE_ELAN_BARRIER 1
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-#if !GASNETE_USE_ELAN_BARRIER
+#if GASNETE_USE_ELAN_BARRIER
   static void gasnete_barrier_init();
 #endif
 
@@ -1326,18 +1326,35 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
 static enum { OUTSIDE_BARRIER, INSIDE_BARRIER } barrier_splitstate = OUTSIDE_BARRIER;
 
 #if GASNETE_USE_ELAN_BARRIER
+#ifdef ELAN_VER_1_2
+  typedef int (*ELAN_POLLFN)(void *handle, unsigned int *ready);
+  extern void elan_addPollFn(ELAN_STATE *elan_state, ELAN_POLLFN, void *handle);
+#endif
 typedef struct {
   int volatile barrier_value;
   int volatile barrier_flags;
 } gasnete_barrier_state_t;
 static gasnete_barrier_state_t *barrier_state = NULL;
-static void gasnete_barrier_init() {
-#ifdef ELAN_VER_1_2
-  barrier_state = elan_gallocMain(BASE()->galloc, GROUP(), 64, sizeof(gasnete_barrier_state_t));
-#else
-  barrier_state = elan_gallocMain(BASE(), GROUP(), 64, sizeof(gasnete_barrier_state_t));
-#endif
+static int volatile barrier_blocking = 0;
+int gasnete_barrier_poll(void *handle, unsigned int *ready) {
+  if (barrier_blocking) {
+    UNLOCK_ELAN_WEAK();
+      gasnet_AMPoll(); 
+    LOCK_ELAN_WEAK();
+  }
+  return 0; /* return 0 => don't delay the elan blocking */
 }
+
+static void gasnete_barrier_init() {
+  #ifdef ELAN_VER_1_2
+    barrier_state = elan_gallocMain(BASE()->galloc, GROUP(), 64, sizeof(gasnete_barrier_state_t));
+  #else
+    barrier_state = elan_gallocMain(BASE(), GROUP(), 64, sizeof(gasnete_barrier_state_t));
+  #endif
+
+  elan_addPollFn(STATE(), (ELAN_POLLFN)gasnete_barrier_poll, NULL);
+}
+
 extern void gasnete_barrier_notify(int id, int flags) {
   if_pf(barrier_splitstate == INSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
@@ -1352,20 +1369,21 @@ extern void gasnete_barrier_notify(int id, int flags) {
 
   if (gasnete_nodes > 1) {
     LOCK_ELAN_WEAK();
-    elan_hbcast(GROUP(), barrier_state, sizeof(gasnete_barrier_state_t), 0, 1);
-    if ((flags == 0 && barrier_state->barrier_value != id) || 
-        flags == GASNET_BARRIERFLAG_MISMATCH) { /* detected a mismatch - tell everybody */
-      int i;
-      for (i=0; i < gasnete_nodes; i++) {
-        int mismatch = GASNET_BARRIERFLAG_MISMATCH;
-        /* TODO: assumes mismatch is elan-addressable */
-        elan_wait(elan_put(STATE(), &mismatch, (int *)&(barrier_state->barrier_flags),
-                           sizeof(int), i), ELAN_POLL_EVENT);
+      barrier_blocking = 1; /* allow polling while inside blocking barriers */
+      elan_hbcast(GROUP(), barrier_state, sizeof(gasnete_barrier_state_t), 0, 1);
+      if_pf (flags != barrier_state->barrier_flags || /* TODO: this requires all threads to agree on flags */
+         (flags == 0 && barrier_state->barrier_value != id) || 
+          flags == GASNET_BARRIERFLAG_MISMATCH) { /* detected a mismatch - tell everybody */
+        int i;
+        barrier_state->barrier_flags = GASNET_BARRIERFLAG_MISMATCH;
+        for (i=0; i < gasnete_nodes; i++) {
+          elan_wait(elan_put(STATE(), (int *)&(barrier_state->barrier_flags), 
+                                      (int *)&(barrier_state->barrier_flags),
+                                      sizeof(int), i), ELAN_POLL_EVENT);
+        }
       }
-    }
-    /* TODO: this causes deadlock because we're blocking here without polling AM -
-             use elan_addPollFn() to fix it */
-    elan_hgsync(GROUP()); /* TODO: this holds the elan lock for a potentially long time */
+      elan_hgsync(GROUP()); 
+      barrier_blocking = 0; 
     UNLOCK_ELAN_WEAK();
   } 
 
@@ -1386,7 +1404,9 @@ extern int gasnete_barrier_wait(int id, int flags) {
 
   /*  update state */
   barrier_splitstate = OUTSIDE_BARRIER;
-  if_pf(barrier_state->barrier_flags == GASNET_ERR_BARRIER_MISMATCH) 
+  if_pf(barrier_state->barrier_flags == GASNET_ERR_BARRIER_MISMATCH ||
+        flags != barrier_state->barrier_flags ||
+        id != barrier_state->barrier_value) 
     return GASNET_ERR_BARRIER_MISMATCH;
   else 
     return GASNET_OK;
