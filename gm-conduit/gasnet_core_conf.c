@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_conf.c,v 1.10 2004/06/25 21:04:19 phargrov Exp $
- * $Date: 2004/06/25 21:04:19 $
+/* $Id: gasnet_core_conf.c,v 1.11 2004/07/15 07:17:54 csbell Exp $
+ * $Date: 2004/07/15 07:17:54 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -34,7 +34,7 @@
 
 static
 char *
-gasnetc_gexec_hostname(char *buf, size_t buflen, gasnet_node_t nodeid)
+gasnetc_gexec_ip(char *buf, size_t buflen, gasnet_node_t nodeid)
 {
 	char	*svrs, *rank, *c, *e, *hostname;
 	int	id, procs, i, len;
@@ -205,17 +205,23 @@ gasnetc_getconf_mpiexec()
 		char		*slave;
 		char		buf[256];
 
+		struct sockaddr_in  sin;
+
 		slave = getenv("GMPI_SLAVE");
 		if (slave == NULL || *slave == '\0') {
-			slave = gasnetc_gexec_hostname(buf, 256, 
-					gasnetc_mynode);
+			slave = gasnetc_gexec_ip(buf, 256, gasnetc_mynode);
 
 			if (slave == NULL)
 				gasneti_fatalerror(
 				    "Can't identify local hostname");
 		}
 
-		slave_he = gethostbyname(slave);
+		sin.sin_family = AF_INET;
+		sin.sin_addr.s_addr = inet_addr(slave);
+
+		slave_he = gethostbyaddr((char *)&(sin.sin_addr),
+		    sizeof(sin.sin_addr), (int)sin.sin_family);
+
 		if (slave_he == NULL)
 			gasneti_fatalerror("%d> can't get hostname for %s",
 					gasnetc_mynode, slave);
@@ -258,11 +264,16 @@ gasnetc_getconf_mpiexec()
 		    "%d> Can't open second socket", gasnetc_mynode);
 	else {
 		struct hostent		*master_he;
+		struct sockaddr_in	sin;
 		gm_u64_t 		start_time, stop_time;
 		ssize_t			b;
 		int			junk;
 
-		master_he = gethostbyname (master);
+		sin.sin_family = AF_INET;
+		sin.sin_addr.s_addr = inet_addr(master);
+
+		master_he = gethostbyaddr((char *)&(sin.sin_addr),
+		    sizeof(sin.sin_addr), (int)sin.sin_family);
 
 		if (master_he == NULL)
 			gasneti_fatalerror("%d> can't get hostname for %s",
