@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2004/08/26 04:53:40 $
- * $Revision: 1.9 $
+ *     $Date: 2005/01/13 10:38:36 $
+ * $Revision: 1.10 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,13 +39,26 @@ typedef struct {
 
 /* LAPI header handler argument for barrier operations */
 typedef struct {
-    int phase;
     int value;
-    int flags;
-    int mismatch;
-    int is_notify;
-    int src;
+    uint8_t wireflags;
 } gasnete_barrier_uhdr_t;
+
+#define GASNETE_WIREFLAGS_FLAGS(wf)    ((wf) & 0x3)
+#define GASNETE_WIREFLAGS_PHASE(wf)    (((wf) & 0x4) >> 2)
+#define GASNETE_WIREFLAGS_ISNOTIFY(wf) ((wf) & 0x8)
+
+#define GASNETE_WIREFLAGS_SET(flags, phase, isnotify) \
+    (  ((flags) & 0x3)       |                        \
+      (((phase) & 0x1) << 2) |                        \
+      (((isnotify) & 0x1) << 3) )
+
+#define GASNETE_WIREFLAGS_SANITYCHECK() do {                                                    \
+    gasneti_assert_always((GASNET_BARRIERFLAG_MISMATCH | GASNET_BARRIERFLAG_ANONYMOUS) == 0x3); \
+  } while (0)
+
+#ifndef GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND
+#define GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND 1
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*  reasonable upper-bound on L2 cache line size (don't make this too big) */
@@ -62,13 +75,18 @@ typedef struct _gasnete_op_t {
 } gasnete_op_t;
 
 /* for compactness, eops address each other in the free list using a gasnete_eopaddr_t */ 
-typedef struct _gasnete_eopaddr_t {
-    uint8_t bufferidx;
-    uint8_t eopidx;
+typedef union _gasnete_eopaddr_t {
+  struct {
+    uint8_t _bufferidx;
+    uint8_t _eopidx;
+  } compaddr;
+  uint16_t fulladdr;
 } gasnete_eopaddr_t;
+#define bufferidx compaddr._bufferidx
+#define eopidx compaddr._eopidx
 
-#define gasnete_eopaddr_equal(addr1,addr2) (*(uint16_t*)&(addr1) == *(uint16_t*)&(addr2))
-#define gasnete_eopaddr_isnil(addr) (*(uint16_t*)&(addr) == *(uint16_t*)&(EOPADDR_NIL))
+#define gasnete_eopaddr_equal(addr1,addr2) ((addr1).fulladdr == (addr2).fulladdr)
+#define gasnete_eopaddr_isnil(addr) ((addr).fulladdr == EOPADDR_NIL.fulladdr)
 
 typedef struct _gasnete_eop_t {
     uint8_t flags;                  /*  state flags */

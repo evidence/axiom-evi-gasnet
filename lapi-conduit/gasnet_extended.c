@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2004/10/16 19:19:55 $
- * $Revision: 1.36 $
+ *     $Date: 2005/01/13 10:38:36 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -101,6 +101,7 @@ static void gasnete_check_config() {
   gasneti_check_config_postattach();
 
   gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
+  GASNETE_WIREFLAGS_SANITYCHECK();
 }
 
 extern void gasnete_init() {
@@ -1078,32 +1079,26 @@ static enum { OUTSIDE_BARRIER, INSIDE_BARRIER } barrier_splitstate = OUTSIDE_BAR
 static int volatile barrier_value; /*  local barrier value */
 static int volatile barrier_flags; /*  local barrier flags */
 static int volatile barrier_phase = 0;  /*  2-phase operation to improve pipelining */
-static int volatile barrier_response_done[2] = { 0, 0 }; /*  non-zero when barrier is complete */
-static int volatile barrier_response_mismatch[2] = { 0, 0 }; /*  non-zero if we detected a mismatch */
+static int volatile barrier_response_done[2] = { 0, 0 }; /*  non-zero when barrier is complete 
+                                                             also has mismatch bit set if root detected mismatch */
 #if GASNETI_STATS_OR_TRACE
 static gasneti_stattime_t barrier_notifytime; /* for statistical purposes */ 
 #endif
 
 /*  global state on P0 */
 #define GASNETE_BARRIER_MASTER (gasnete_nodes-1)
-static gasnet_hsl_t barrier_lock = GASNET_HSL_INITIALIZER;
+static gasneti_mutex_t barrier_lock = GASNETI_MUTEX_INITIALIZER;
 static int volatile barrier_consensus_value[2]; /*  consensus barrier value */
 static int volatile barrier_consensus_value_present[2] = { 0, 0 }; /*  consensus barrier value found */
-static int volatile barrier_consensus_mismatch[2] = { 0, 0 }; /*  non-zero if we detected a mismatch */
+static int volatile barrier_consensus_mismatch[2] = { 0, 0 }; /*  mismatch bit set if root detected a mismatch */
 static int volatile barrier_count[2] = { 0, 0 }; /*  count of how many remotes have notified (on P0) */
-/* static lapi counters used to eliminate alloc and free of uhdr structure
- * during "broadcast" that barrier has been reached.  Its probably not necessary
- * to have two of these, but to be on the safe side...
- */
-static gasnete_barrier_uhdr_t barrier_uhdr[2];
 
 /* LAPI Completion handler scheduled by HH on master node when the last node
  * has performed the notify.
  * Job is to send done message to all other nodes.
  */
-void gasnete_lapi_barrier_ch(lapi_handle_t *context, void* user_info)
-{
-    gasnete_barrier_uhdr_t *uhdr = (gasnete_barrier_uhdr_t*)user_info;
+void gasnete_lapi_barrier_ch(lapi_handle_t *context, void* user_info) {
+    gasnete_barrier_uhdr_t * const uhdr = (gasnete_barrier_uhdr_t*)user_info;
     int i;
 
     /* Note: uhdr is a pointer to a static structure.  It will not
@@ -1114,12 +1109,13 @@ void gasnete_lapi_barrier_ch(lapi_handle_t *context, void* user_info)
      * we do not have to protect re-use of this uhdr by waiting
      * on a local counter variable.
      */
-    uhdr->is_notify = 0;
-    uhdr->src = gasnete_mynode;
-
-    GASNETI_TRACE_PRINTF(B,("BARRIER_CH: phase %d, value %d, flags %d, mismatch %d, g_val %d, g_count %d",
-			    uhdr->phase,uhdr->value,uhdr->flags,uhdr->mismatch,
-			    barrier_consensus_value[uhdr->phase],barrier_count[uhdr->phase]));
+    #if GASNET_TRACE
+      { const int phase = GASNETE_WIREFLAGS_PHASE(uhdr->wireflags);
+        const int flags = GASNETE_WIREFLAGS_FLAGS(uhdr->wireflags);
+        GASNETI_TRACE_PRINTF(B,("BARRIER_CH: phase %d, value %d, flags %d",
+			        phase, uhdr->value, flags));
+      }
+    #endif
 
     /* inform all nodes (except local node) that barrier is complete */
     gasneti_suspend_spinpollers();
@@ -1136,125 +1132,142 @@ void gasnete_lapi_barrier_ch(lapi_handle_t *context, void* user_info)
 
 /* LAPI header handler to implement both notify and done requests on remote node */
 void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
-			      ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo)
-{
-    gasnete_barrier_uhdr_t *u = (gasnete_barrier_uhdr_t*)uhdr;
-    int phase = u->phase;
-    int value = u->value;
-    int is_done = !u->is_notify;
+			      ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo) {
+    gasnete_barrier_uhdr_t const * const u = (gasnete_barrier_uhdr_t*)uhdr;
+    const uint8_t wf = u->wireflags;
+    const int value = u->value;
+    const int phase = GASNETE_WIREFLAGS_PHASE(wf);
+    const int is_notify = GASNETE_WIREFLAGS_ISNOTIFY(wf);
 
-    GASNETI_TRACE_PRINTF(B,("BARRIER_HH: node %d, src %d, notify %d, phase %d, value %d, flags %d, mismatch %d, g_val %d, g_count %d",
-			    gasnete_mynode,u->src,u->is_notify,u->phase,u->value,u->flags,u->mismatch,
-			    barrier_consensus_value[u->phase],barrier_count[u->phase]));
+    GASNETI_TRACE_PRINTF(B,("BARRIER_HH: node %d, notify %d, phase %d, value %d, wireflags %d, g_val %d, g_count %d",
+			    gasnete_mynode,is_notify,phase,value,GASNETE_WIREFLAGS_FLAGS(wf),
+			    barrier_consensus_value[phase],barrier_count[phase]));
 
     *comp_h = NULL;
     *uinfo = NULL;
 
-    if (u->is_notify) {
+    if (is_notify) {
 	/* this is a notify header handler call */
 	gasneti_assert(gasnete_mynode == GASNETE_BARRIER_MASTER);
 
-	/* Do we need a lock here?  Don't think so.  Header handlers are
+      #if GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND
+        gasneti_mutex_lock(&barrier_lock);
+      #else
+	/* Don't need a lock here because header handlers are
 	 * run by LAPI dispatcher and thus guaranteed to run one-at-a-time.
 	 * Varibles read and updated here are only done so in this function.
 	 */
-	{
-	    int count = barrier_count[phase];
-	    if (!(u->flags & (GASNET_BARRIERFLAG_ANONYMOUS|GASNET_BARRIERFLAG_MISMATCH)) && 
-                !barrier_consensus_value_present[phase]) {
-		barrier_consensus_value[phase] = (int)value;
+      #endif
+        {   const int flags = GASNETE_WIREFLAGS_FLAGS(wf);
+	    const int count = barrier_count[phase] + 1;
+	    if (!(flags & (GASNET_BARRIERFLAG_ANONYMOUS|GASNET_BARRIERFLAG_MISMATCH)) && 
+                !barrier_consensus_value_present[phase]) { /* first named notify to arrive */
+		barrier_consensus_value[phase] = value;
 		barrier_consensus_value_present[phase] = 1;
-	    } else if ((u->flags & GASNET_BARRIERFLAG_MISMATCH) ||
-		       (!(u->flags & GASNET_BARRIERFLAG_ANONYMOUS) 
-                        && barrier_consensus_value[phase] != (int)value)) {
-		barrier_consensus_mismatch[phase] = 1;
+	    } else if_pf ((flags & GASNET_BARRIERFLAG_MISMATCH) ||
+		       (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) 
+                       && barrier_consensus_value[phase] != value)) { /* mismatch reported or detected */
+		barrier_consensus_mismatch[phase] = GASNET_BARRIERFLAG_MISMATCH;
 	    }
-	    barrier_count[phase] = count+1;
+	    barrier_count[phase] = count; /* update count */
 
-	    if (barrier_count[phase] == gasnete_nodes) {
-		/* schedule completion handler to notify all nodes that
-		 * the barrier has been reached.
-		 * Question: can we use a static uhdr?
+	    if (count == gasnete_nodes) {
+		/* schedule completion handler to notify all nodes that barrier has been reached.
+		 * use a static uhdr to avoid allocation cost, phased to ensure race-freedom
 		 */
-		gasnete_barrier_uhdr_t *uch = (gasnete_barrier_uhdr_t*)&barrier_uhdr[phase];
-		uch->phase = phase;
-		uch->value = value;
-		uch->mismatch = barrier_consensus_mismatch[phase];
-		uch->is_notify = 0;
-		uch->src = gasnete_mynode;
-		uch->flags = -1;
+                static gasnete_barrier_uhdr_t barrier_uhdr[2] = /* init .phase, which never changes */
+                  { {0, GASNETE_WIREFLAGS_SET(0, 0, 0)} , {0, GASNETE_WIREFLAGS_SET(0, 1, 0)} }; 
+		gasnete_barrier_uhdr_t * const uch = (gasnete_barrier_uhdr_t*)&barrier_uhdr[phase];
+                const int mismatch = barrier_consensus_mismatch[phase];
+                const int wireflags = GASNETE_WIREFLAGS_SET(mismatch, phase, 0);
+
+                gasneti_assert(phase == barrier_phase);
+
+		uch->value = barrier_consensus_value[phase];
+                uch->wireflags = wireflags;
 		*uinfo = (void*)uch;
 		*comp_h = gasnete_lapi_barrier_ch;
-		/* update the local state below.  Note that the completion
-		 * handler will not send an AM to this node
+		/* Perform local state update to get the effects of a local done handler  
+                 * Note that the completion handler will not send an AM to this node
 		 */
-		is_done = 1;
-		u->mismatch = uch->mismatch;
+	        barrier_response_done[phase] = 1 | mismatch;
+
 		GASNETI_TRACE_PRINTF(B,("BARRIER_HH: REACHED %d, mismatch %d, SCHEDULING CH",
-					gasnete_nodes,uch->mismatch));
+					gasnete_nodes, 
+                                        GASNETE_WIREFLAGS_FLAGS(uch->wireflags)&GASNET_BARRIERFLAG_MISMATCH));
 	    }
 	}
-    };
-
-    if (is_done) {
+      #if GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND
+        gasneti_mutex_unlock(&barrier_lock);
+      #endif
+    } else {
 	/* this is a done header handler call... update local state */
 	gasneti_assert(phase == barrier_phase);
 
-	barrier_response_mismatch[phase] = u->mismatch;
-        gasneti_sync_writes(); /* ensure mimatch committed before signal */
-	barrier_response_done[phase] = 1;
+        /* local mismatch and done signals are folded into the same variable write,
+           to avoid the need for a local write barrier here between the two writes */
+	barrier_response_done[phase] = 1 | (GASNETE_WIREFLAGS_FLAGS(u->wireflags)&GASNET_BARRIERFLAG_MISMATCH);
     }
     return NULL;
 }
 
 extern void gasnete_barrier_notify(int id, int flags) {
-    int phase;
-    gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
-    if_pf(barrier_splitstate == INSIDE_BARRIER) 
-	gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
+  gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
+  if_pf(barrier_splitstate == INSIDE_BARRIER) 
+      gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
-    GASNETI_TRACE_PRINTF(B, ("BARRIER_NOTIFY(id=%i,flags=%i)", id, flags));
+  GASNETI_TRACE_PRINTF(B, ("BARRIER_NOTIFY(id=%i,flags=%i)", id, flags));
 #if GASNETI_STATS_OR_TRACE
-    barrier_notifytime = GASNETI_STATTIME_NOW_IFENABLED(B);
+  barrier_notifytime = GASNETI_STATTIME_NOW_IFENABLED(B);
 #endif
 
+  {
+    const int phase = !barrier_phase; /*  enter new phase */
+    barrier_phase = phase;
     barrier_value = id;
     barrier_flags = flags;
-    phase = !barrier_phase; /*  enter new phase */
-    barrier_phase = phase;
 
     if (gasnete_nodes > 1) {
-	gasnete_barrier_uhdr_t uhdr;
-	lapi_cntr_t o_cntr;
-	int cur_cntr;
+      /* use a static uhdr to avoid allocation cost, phased to ensure race-freedom */
+      static gasnete_barrier_uhdr_t _uhdr[2]; 
+      gasnete_barrier_uhdr_t * const uhdr = &_uhdr[phase];
 
-	uhdr.is_notify = 1;
-	uhdr.phase = phase;
-	uhdr.value = barrier_value;
-	uhdr.flags = flags;
-	uhdr.src = gasnete_mynode;
-	uhdr.mismatch = 999;
-	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &o_cntr, 0));
-	
-	/*  send notify msg to 0 */
+      uhdr->value = barrier_value;
+      uhdr->wireflags = GASNETE_WIREFLAGS_SET(flags, phase, 1);
+
+      /*  send notify msg to master */
+      /* tradeoff: we can check if mynode == GASNETE_BARRIER_MASTER and bypass some LAPI
+         overhead for a loopback AM notification by invoking the header handler directly, 
+         but this implies we need a lock in the header handler to ensure correctness
+       */
+    #if GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND
+      if (gasnete_mynode == GASNETE_BARRIER_MASTER) {
+        static uint uhdrlen = sizeof(gasnete_barrier_uhdr_t);
+        static ulong msglen = 0;
+        compl_hndlr_t *comp_h = NULL;
+        void *uinfo = NULL;
+        gasnete_lapi_barrier_hh(&gasnetc_lapi_context, uhdr, &uhdrlen,
+                                &msglen, &comp_h, &uinfo);
+        if (comp_h) (*comp_h)(&gasnetc_lapi_context, uinfo);
+      } else 
+    #endif
+      {
         gasneti_suspend_spinpollers();
 	GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context,
 				   (unsigned int)GASNETE_BARRIER_MASTER,
 				   gasnete_remote_barrier_hh[GASNETE_BARRIER_MASTER],
-				   &uhdr, sizeof(gasnete_barrier_uhdr_t), NULL, 0,
-				   NULL, &o_cntr, NULL));
+				   uhdr, sizeof(gasnete_barrier_uhdr_t), NULL, 0,
+				   NULL, NULL, NULL));
         gasneti_resume_spinpollers();
-	/* wait for local completion */
-	GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
-	gasneti_assert(cur_cntr == 0);
+      }
     } else {
-	barrier_response_mismatch[phase] = (flags & GASNET_BARRIERFLAG_MISMATCH);
-	barrier_response_done[phase] = 1;
+	barrier_response_done[phase] = 1 | (flags & GASNET_BARRIERFLAG_MISMATCH);
     }
 
     /*  update state */
     barrier_splitstate = INSIDE_BARRIER;
     gasneti_sync_writes(); /* ensure all state changes committed before return */
+  }
 }
 
 
@@ -1282,17 +1295,18 @@ extern int gasnete_barrier_wait(int id, int flags) {
 	barrier_consensus_value_present[phase] = 0;
     }
     
-    /*  update local state */
-    barrier_splitstate = OUTSIDE_BARRIER;
-    barrier_response_done[phase] = 0;
-    gasneti_sync_writes(); /* ensure all state changes committed before return */
-    if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != barrier_value) || 
-	  flags != barrier_flags || 
-	  barrier_response_mismatch[phase]) {
-        barrier_response_mismatch[phase] = 0;
-        return GASNET_ERR_BARRIER_MISMATCH;
+    { const int global_mismatch = barrier_response_done[phase] & GASNET_BARRIERFLAG_MISMATCH;
+      /*  update local state */
+      barrier_splitstate = OUTSIDE_BARRIER;
+      barrier_response_done[phase] = 0;
+      gasneti_sync_writes(); /* ensure all state changes committed before return */
+      if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != barrier_value) || /* local mismatch */
+	    flags != barrier_flags || 
+            global_mismatch) { /* global mismatch */
+          return GASNET_ERR_BARRIER_MISMATCH;
+      }
+      else return GASNET_OK;
     }
-    else return GASNET_OK;
 }
 
 extern int gasnete_barrier_try(int id, int flags) {
