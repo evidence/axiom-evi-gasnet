@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/09/13 17:17:50 $
- * $Revision: 1.36 $
+ *     $Date: 2003/09/23 13:48:47 $
+ * $Revision: 1.37 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -232,6 +232,10 @@ static int gasnetc_init(int *argc, char ***argv) {
 	/* polling mode, turn off interrupts */
 	GASNETC_LCHECK(LAPI_Senv(gasnetc_lapi_context, INTERRUPT_SET, 0));
     }
+
+    #ifdef NDEBUG
+      GASNETC_LCHECK(LAPI_Senv(gasnetc_lapi_context, ERROR_CHK, 0));   /* Turn error checking off */
+    #endif
 
     /* collect remote addresses of header handler function */
     gasnetc_remote_req_hh = (void**)gasneti_malloc(num_tasks*sizeof(void*));
@@ -484,7 +488,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasneti_attach_done = 1;
     gasnetc_bootstrapBarrier();
 
-    GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
+    GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete. GASNET_LAPI_MODE=%s",
+          (gasnetc_lapi_default_mode == gasnetc_Polling ? "POLLING" : "INTERRUPT")));
 
     {
 	int i;
