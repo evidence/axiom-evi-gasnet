@@ -12,21 +12,22 @@ AC_MSG_RESULT($AUTOCONF_VERSION_STR)
 
 dnl GASNET_GCC_VERSION_CHECK(type)  type=CC or CXX
 AC_DEFUN([GASNET_GCC_VERSION_CHECK],[
-AC_MSG_CHECKING(known buggy compilers)
+AC_MSG_CHECKING(for known buggy compilers)
+badgccmsg=""
 AC_TRY_COMPILE([
 #if __GNUC__ == 2 && __GNUC_MINOR__ == 96 && __GNUC_PATCHLEVEL__ == 0
 # error
 #endif
-],[ ], [ AC_MSG_RESULT(ok) ],[
+],[ ], [:], [
 AC_MSG_RESULT([$1] is gcc 2.96)
-gcc296msg="Use of gcc/g++ 2.96 for compiling this software is strongly discouraged. \
+badgccmsg="Use of gcc/g++ 2.96 for compiling this software is strongly discouraged. \
 It is not an official GNU release and has many serious known bugs, especially \
 in the optimizer, which may lead to bad code and incorrect runtime behavior. \
 Consider using \$[$1] to select a different compiler."
 GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc/g++ 2.96 compiler, [
-  AC_MSG_WARN([$gcc296msg])
+  AC_MSG_WARN([$badgccmsg])
   ],[
-  AC_MSG_ERROR([$gcc296msg \
+  AC_MSG_ERROR([$badgccmsg \
   You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc296 flag.])
 ])
 ])
@@ -34,19 +35,22 @@ AC_TRY_COMPILE([
 #if __GNUC__ == 3 && __GNUC_MINOR__ == 2 && __GNUC_PATCHLEVEL__ <= 2
 # error
 #endif
-],[ ], [ AC_MSG_RESULT(ok) ],[
+],[ ], [:], [
 AC_MSG_RESULT([$1] is gcc 3.2.0-2)
-gcc32msg="Use of gcc/g++ 3.2.0-2 for compiling this software is strongly discouraged. \
+badgccmsg="Use of gcc/g++ 3.2.0-2 for compiling this software is strongly discouraged. \
 This version has a serious known bug in the optimizer regarding structure copying, \
 which may lead to bad code and incorrect runtime behavior when optimization is enabled. \
 Consider using \$[$1] to select a different compiler."
 GASNET_IF_ENABLED(allow-gcc32, Allow the use of the known broken gcc/g++ 3.2.0-2 compiler, [
-  AC_MSG_WARN([$gcc32msg])
+  AC_MSG_WARN([$badgccmsg])
   ],[
-  AC_MSG_ERROR([$gcc32msg \
+  AC_MSG_ERROR([$badgccmsg \
   You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc32 flag.])
 ])
 ])
+if test -z "$badgccmsg"; then
+  AC_MSG_RESULT(ok)
+fi
 ])
 
 AC_DEFUN([GASNET_FIX_SHELL],[
