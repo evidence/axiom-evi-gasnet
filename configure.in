@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/02/10 01:16:21 $
-# $Revision: 1.31 $
+#     $Date: 2003/02/17 05:58:43 $
+# $Revision: 1.32 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.31 $)
+AC_REVISION($Revision: 1.32 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -138,7 +138,7 @@ case "$gasnet_cv_cc_family" in
   MIPS) CCOPTFLAGS="-O3 -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
   XLC)  #CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=8192" ;; # -O5 == -O3 w/ intra-procedural analysis
         CCOPTFLAGS="-O3 -qsmp=noauto -qmaxmem=8192" ;; # -O5 causes linker to hang on Titanium
-  Compaq) CCOPTFLAGS="-O4 -msg_disable extrasemi -tune host" ;;
+  Compaq) CCOPTFLAGS="-O4 -msg_disable extrasemi -tune host -inline all" ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
 
@@ -780,6 +780,12 @@ AC_CHECK_FUNCS(setenv putenv)
 # Try to discover the C compiler's inline modifier
 
 inlinemod=""
+case "$gasnet_cv_cc_family" in
+  Compaq) # force __inline on Compaq C, because it's the most effective
+    AC_DEFINE(CC_INLINE_MODIFIER, __inline)
+    inlinemod=__inline
+  ;;
+esac
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for inline modifier, cc_modinline,
     [inline int dummy() { return 1; }], [],
