@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/08/09 07:51:54 $
- * $Revision: 1.16 $
+ *     $Date: 2004/08/09 18:32:24 $
+ * $Revision: 1.17 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -107,6 +107,7 @@ static void gasnete_ambarrier_kick() {
 
   if_pt (step != ambarrier_size) {
     if (ambarrier_step_done[phase][step]) {
+      gasneti_sync_reads(); /* ensure we read up-to-date values in the following conditional */
       if_pf (ambarrier_mismatch[phase] ||
 	     ((ambarrier_flags == 0) && 
 	      ambarrier_recv_value_present[phase] &&
@@ -117,7 +118,7 @@ static void gasnete_ambarrier_kick() {
       ++step;
       if (step == ambarrier_size) {
 	/* We have the last recv.  There is nothing more to send. */
-	gasneti_sync_writes();
+	gasneti_sync_writes(); /* flush state before the write below to ambarrier_step */
       } else {
         gasnet_node_t peer;
 	gasnet_handlerarg_t value = ambarrier_value;
@@ -222,9 +223,7 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-ambarrier_notifytime);
 
   /*  wait for response */
-  if (ambarrier_step != ambarrier_size) {
-    GASNET_BLOCKUNTIL((gasnete_ambarrier_kick(), (ambarrier_step == ambarrier_size)));
-  }
+  GASNET_BLOCKUNTIL((gasnete_ambarrier_kick(), (ambarrier_step == ambarrier_size)));
 
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-wait_start);
 
@@ -420,8 +419,7 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-ambarrier_notifytime);
 
   /*  wait for response */
-  if (!ambarrier_response_done[phase])
-    GASNET_BLOCKUNTIL((gasnete_ambarrier_kick(), ambarrier_response_done[phase]));
+  GASNET_BLOCKUNTIL((gasnete_ambarrier_kick(), ambarrier_response_done[phase]));
 
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-wait_start);
 
