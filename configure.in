@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/17 20:18:40 $
-# $Revision: 1.177 $
+#     $Date: 2004/08/17 21:40:55 $
+# $Revision: 1.178 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.177 $)
+AC_REVISION($Revision: 1.178 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -66,6 +66,17 @@ else
   AC_MSG_WARN(cannot find a version of GNU make - if you encounter make problems, install GNU make and/or set \$GMAKE to indicate where it's located)
 fi
 AC_SUBST(GMAKE)
+
+########################################################################
+##
+##  Perl
+##
+## We do this early so we can use "$PERL -e" for complex configure tests.
+GASNET_PROG_PERL
+AC_SUBST(PERL)
+PERLSTART=$TOP_BUILDDIR/other/perlstart
+AC_SUBST_FILE(PERLSTART)
+
 
 ########################################################################
 ##
@@ -1702,7 +1713,6 @@ if test x"$BOURNE_SHELL" = x; then
     BOURNE_SHELL="/bin/sh"
 fi
 
-GASNET_PROG_PERL
 GASNET_PATH_PROGS(AR, $AR ar gar, archiver)
 #AC_PROG_RANLIB
 GASNET_PATH_PROGS(RANLIB, $RANLIB ranlib touch, ranlib)
@@ -1712,7 +1722,6 @@ GASNET_PATH_PROGS(DIRNAME, $DIRNAME dirname, dirname)
 AC_PATH_PROGS(READLINK, $READLINK readlink)
 
 AC_SUBST(BOURNE_SHELL)
-AC_SUBST(PERL)
 AC_SUBST(AR)
 AC_SUBST(RANLIB)
 AC_SUBST(BASENAME)
@@ -1746,9 +1755,6 @@ case "$target_os" in
   ;;
 esac
 AC_SUBST(LDFLAGS)
-
-PERLSTART=$TOP_BUILDDIR/other/perlstart
-AC_SUBST_FILE(PERLSTART)
 
 # Figure out how to install config files
 GASNET_SET_INSTALL_CMD
