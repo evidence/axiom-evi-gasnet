@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/09/09 00:36:07 $
- * $Revision: 1.15 $
+ *     $Date: 2003/09/09 18:02:14 $
+ * $Revision: 1.16 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -328,26 +328,30 @@
  #ifndef __GNUC__
    /* The GASNETI_ASM() macro takes one argument and then stringifies it
     * for all but the default case.  However, we want to emit asm with
-    * commas (too many macro arguments).
+    * commas (too many macro arguments) or with no instruction (too
+    * few macro arguments).
     * So, we just need to assume GCC for now.  The GASNETI_ASM macro
     * might get changed to take a string argument, but I don't know what
     * platforms that might break.  -PHH 2003.09.08
     */
    #error Not certain how to emit proper memory barrier assembly on your compiler.
- #endif
- #ifdef GASNETI_UNI_BUILD
-   #define gasneti_local_membar()
+ #elif defined(GASNETI_UNI_BUILD)
+   /* Prevent gcc from reordering across this point. */
+   GASNET_INLINE_MODIFIER(gasneti_local_membar)
+   void gasneti_local_membar(void) {
+     asm volatile ("" : : : "memory");
+   }
  #else
    /* Prevent both gcc and the CPU from reordering across this point.
     *
     * Note that MMX, SSE and SSE2 instructions which move memory are *NOT* ordered by
     * this sequence, and must instead have the appropriate [lsm]fence instruction(s).
-    * Authors of MMX memcpy and similar code must therefore take care not to rely on
-    * gasneti_local_membar() in conjunction with these instruction sets.
+    * Authors of MMX-based memcpy and similar code must therefore take care not to
+    * rely on gasneti_local_membar() in conjunction with these instruction sets.
     */
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     /* The instruction here can be any locked read-modify-write.
+     /* The instruction here can be any locked read-modify-write operation.
       * This one is chosen because it does not change any registers and is
       * available on all the Intel and clone CPUs.
       */
@@ -356,7 +360,15 @@
  #endif
 #elif defined(__ia64__) /* Itanium */
     #ifdef GASNETI_UNI_BUILD
-      #define gasneti_local_membar()
+       #ifndef __GNUC__
+         #error Not certain how to construct a proper memory barrier on your compiler.
+       #else
+         /* Prevent gcc from reordering across this point. */
+         GASNET_INLINE_MODIFIER(gasneti_local_membar)
+         void gasneti_local_membar(void) {
+           asm volatile ("" : : : "memory");
+         }
+       #endif
     #else
       /* mf may cause an illegal instruction trap on uniprocessor kernel */
       GASNET_INLINE_MODIFIER(gasneti_local_membar)
