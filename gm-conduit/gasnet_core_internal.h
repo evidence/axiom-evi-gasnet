@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.26 2002/08/20 11:51:23 csbell Exp $
- * $Date: 2002/08/20 11:51:23 $
- * $Revision: 1.26 $
+/* $Id: gasnet_core_internal.h,v 1.27 2002/08/21 01:03:03 csbell Exp $
+ * $Date: 2002/08/21 01:03:03 $
+ * $Revision: 1.27 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -12,6 +12,7 @@
 #include <gasnet.h>
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
+#include <gasnet_extended_internal.h>
 #include <sys/mman.h>	/* mmap */
 #include <errno.h>
 #if defined(__i386__) && !defined(i386)	/* fix gm. cpu detection */
@@ -34,9 +35,17 @@
   #endif
 #include <sys/param.h>
 #endif
-/* FreeBSD links against its own libc_r */
-#if defined(GASNETI_THREADS) && !defined(FREEBSD)
-#include <pthread.h>
+
+#ifdef GASNETI_USE_GENERIC_ATOMICOPS
+  #define gasneti_atomic_decrement(p) (gasnet_hsl_lock(&gasneti_atomicop_lock), \
+                                      ((p)->ctr)--,                             \
+                                       gasnet_hsl_unlock(&gasneti_atomicop_lock))
+#else
+  #if defined(LINUX)
+    #define gasneti_atomic_decrement(p) atomic_dec(p)
+  #elif defined(FREEBSD)
+    #define gasneti_atomic_decrement(p) atomic_subtract_int((p),1)
+  #endif
 #endif
 
 extern gasnet_seginfo_t *gasnetc_seginfo;

@@ -1,11 +1,11 @@
-/* $Id: gasnet_core_receive.c,v 1.18 2002/08/20 11:51:23 csbell Exp $
- * $Date: 2002/08/20 11:51:23 $
- * $Revision: 1.18 $
+/* $Id: gasnet_core_receive.c,v 1.19 2002/08/21 01:03:03 csbell Exp $
+ * $Date: 2002/08/21 01:03:03 $
+ * $Revision: 1.19 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
-#include "gasnet_core_internal.h"
+#include <gasnet_core_internal.h>
 
 extern int gasnetc_init_done;
 extern int gasnetc_attach_done;
