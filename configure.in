@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/07/28 20:47:56 $
-# $Revision: 1.156 $
+#     $Date: 2004/07/28 21:33:56 $
+# $Revision: 1.157 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.156 $)
+AC_REVISION($Revision: 1.157 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1239,7 +1239,7 @@ if test "$force_vapi$have_mpi" = yesno; then
 fi
 if test "$enabled_vapi$have_mpi" = yesno; then
   enabled_vapi=no
-  AC_MSG_WARN([vapi-conduit requires MPI support and MPI $mpi__reason - disabling vapi])
+  AC_MSG_WARN([vapi-conduit requires MPI support and MPI $mpi_reason - disabling vapi])
 fi
 if test "$enabled_vapi" = yes; then
   # Start by assuming we do have VAPI
