@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/09/07 07:33:44 $
- * $Revision: 1.14 $
+ *     $Date: 2002/09/08 14:25:13 $
+ * $Revision: 1.15 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -27,11 +27,6 @@ uintptr_t gasnetc_MaxLocalSegmentSize = 0;
 uintptr_t gasnetc_MaxGlobalSegmentSize = 0;
 
 gasnet_seginfo_t *gasnetc_seginfo = NULL;
-static gasnet_seginfo_t gasnetc_segment = {0,0}; /* local segment info */
-static uintptr_t gasnetc_myheapend = 0; /* top of my malloc heap */
-static uintptr_t gasnetc_maxheapend = 0; /* top of max malloc heap */
-static uintptr_t gasnetc_maxbase = 0; /* start of segment overlap region */
-static gasneti_atomic_t segsrecvd = gasneti_atomic_init(0); /*  used for bootstrapping */
 eb_t gasnetc_bundle;
 ep_t gasnetc_endpoint;
 
@@ -66,6 +61,10 @@ static void gasnetc_check_config() {
   assert(AMMPI_MAX_SEGLENGTH == (uintptr_t)-1);
 }
 
+void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
+  GASNETI_AM_SAFE_NORETURN(AMMPI_SPMDAllGather(src, dest, len));
+}
+
 #define INITERR(type, reason) do {                                      \
    if (gasneti_VerboseErrors) {                                         \
      fprintf(stderr, "GASNet initialization encountered an error: %s\n" \
@@ -75,13 +74,6 @@ static void gasnetc_check_config() {
    retval = GASNET_ERR_ ## type;                                        \
    goto done;                                                           \
  } while (0)
-
-typedef struct {
-  gasnet_seginfo_t seginfo;
-  uintptr_t heapend;
-  uintptr_t segsize_request; /* during gasnet_attach only */
-} gasnetc_segexch_t;
-static gasnetc_segexch_t *gasnetc_segexch = NULL; /* exchanged segment information */
 
 static int gasnetc_init(int *argc, char ***argv) {
   int retval = GASNET_OK;
@@ -123,86 +115,10 @@ static int gasnetc_init(int *argc, char ***argv) {
     #endif
 
     #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-    { int i;
-      size_t pagesize = gasneti_getSystemPageSize();
-      gasnetc_segexch_t se;
-      gasnetc_segexch = (gasnetc_segexch_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnetc_segexch_t));
-
-      #ifdef HAVE_MMAP
-        gasnetc_segment = gasneti_mmap_segment_search();
-        GASNETI_TRACE_PRINTF(C, ("My segment: addr="GASNETI_LADDRFMT"  sz=%lu",
-          GASNETI_LADDRSTR(gasnetc_segment.addr), (unsigned long)gasnetc_segment.size));
-
-        se.seginfo = gasnetc_segment;
-        gasnetc_myheapend = (uintptr_t)sbrk(0);
-        if (gasnetc_myheapend == -1) gasneti_fatalerror("Failed to sbrk(0):%s",strerror(errno));
-        gasnetc_myheapend = GASNETI_PAGE_ROUNDUP(gasnetc_myheapend, pagesize);
-        se.heapend = gasnetc_myheapend;
-        se.segsize_request = 0;
-
-        /* gather the sbrk info and mmap segment location */
-        GASNETI_AM_SAFE(AMMPI_SPMDAllGather(&se, gasnetc_segexch, sizeof(gasnetc_segexch_t)));
-
-        /* compute bounding-box of segment location */
-        { uintptr_t maxbase = 0;
-          uintptr_t maxsize = 0;
-          uintptr_t minsize = (uintptr_t)-1;
-          uintptr_t minend = (uintptr_t)-1;
-          uintptr_t maxheapend = 0;
-          /* compute various stats across nodes */
-          for (i=0;i < gasnetc_nodes; i++) {
-            if (gasnetc_segexch[i].heapend > maxheapend)
-              maxheapend = gasnetc_segexch[i].heapend;
-            if (((uintptr_t)gasnetc_segexch[i].seginfo.addr) > maxbase)
-              maxbase = (uintptr_t)gasnetc_segexch[i].seginfo.addr;
-            if (gasnetc_segexch[i].seginfo.size > maxsize)
-              maxsize = gasnetc_segexch[i].seginfo.size;
-            if (gasnetc_segexch[i].seginfo.size < minsize)
-              minsize = gasnetc_segexch[i].seginfo.size;
-            if ((uintptr_t)gasnetc_segexch[i].seginfo.addr + gasnetc_segexch[i].seginfo.size < minend)
-              minend = (uintptr_t)gasnetc_segexch[i].seginfo.addr + gasnetc_segexch[i].seginfo.size;
-          }
-          GASNETI_TRACE_PRINTF(C, ("Segment stats: "
-              "maxsize = %lu   "
-              "minsize = %lu   "
-              "maxbase = "GASNETI_LADDRFMT"   "
-              "minend = "GASNETI_LADDRFMT"   "
-              "maxheapend = "GASNETI_LADDRFMT"   ",
-              (unsigned long)maxsize, (unsigned long)minsize,
-              GASNETI_LADDRSTR(maxbase), GASNETI_LADDRSTR(minend), GASNETI_LADDRSTR(maxheapend)
-              ));
-
-          gasnetc_maxheapend = maxheapend;
-          gasnetc_maxbase = maxbase;
-          #if GASNET_ALIGNED_SEGMENTS
-            if (maxbase >= minend) { /* no overlap - maybe should be a fatal error... */
-              GASNETI_TRACE_PRINTF(I, ("WARNING: unable to locate overlapping mmap segments in gasnetc_init()"));
-              gasnetc_MaxLocalSegmentSize = 0;
-              gasnetc_MaxGlobalSegmentSize = 0;
-            } else {
-              gasnetc_MaxLocalSegmentSize = ((uintptr_t)gasnetc_segment.addr + gasnetc_segment.size) - maxbase;
-              gasnetc_MaxGlobalSegmentSize = minend - maxbase;
-            }
-          #else
-            gasnetc_MaxLocalSegmentSize = gasnetc_segment.size;
-            gasnetc_MaxGlobalSegmentSize = minsize;
-          #endif
-        }
-      #else /* !HAVE_MMAP */
-        #if GASNET_ALIGNED_SEGMENTS
-          #error bad config: cannot have GASNET_ALIGNED_SEGMENTS when !HAVE_MMAP
-        #endif
-        /* TODO: T3E doesn't support mmap - find a way to determine a true max seg sz */
-        gasnetc_MaxLocalSegmentSize =  GASNETC_MAX_MALLOCSEGMENT_SZ;
-        gasnetc_MaxGlobalSegmentSize = GASNETC_MAX_MALLOCSEGMENT_SZ;
-      #endif
-      GASNETI_TRACE_PRINTF(C, ("gasnetc_MaxLocalSegmentSize = %lu   "
-                         "gasnetc_MaxGlobalSegmentSize = %lu",
-                         (unsigned long)gasnetc_MaxLocalSegmentSize, 
-                         (unsigned long)gasnetc_MaxGlobalSegmentSize));
-      assert(gasnetc_MaxLocalSegmentSize % pagesize == 0);
-      assert(gasnetc_MaxGlobalSegmentSize % pagesize == 0);
-    }
+      gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize, 
+                          &gasnetc_MaxGlobalSegmentSize,
+                          gasnetc_nodes,
+                          &gasnetc_bootstrapExchange);
     #elif defined(GASNET_SEGMENT_EVERYTHING)
       gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
       gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
@@ -358,110 +274,32 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* ------------------------------------------------------------------------------------ */
     /*  register segment  */
 
+    /* use gasneti_malloc_inhandler during bootstrapping because we can't assume the 
+       hold/resume interrupts functions are operational yet */
+    gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
+
     #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-      #ifdef HAVE_MMAP
-      { /* TODO: this assumes heap grows up */
-        uintptr_t topofheap;
-        #if GASNET_ALIGNED_SEGMENTS
-          #if GASNETC_USE_HIGHSEGMENT
-            { /* the segsizes requested may differ across nodes, so in order to 
-                 place the segment as high as possible while maintaining alignment, 
-                 we need another all-to-all to calculate the new aligned base address
-               */
-              gasnetc_segexch_t se;
-              uintptr_t minsegstart = (uintptr_t)-1;
-              int i;
-
-              /* gather the segsize info again */
-              se.seginfo = gasnetc_segment;
-              se.heapend = gasnetc_myheapend;
-              se.segsize_request = segsize;
-              GASNETI_AM_SAFE(AMMPI_SPMDAllGather(&se, gasnetc_segexch, sizeof(gasnetc_segexch_t)));
-
-              for (i=0;i<gasnetc_nodes;i++) {
-                uintptr_t segstart = 
-                    ((uintptr_t)gasnetc_segexch[i].seginfo.addr + gasnetc_segexch[i].seginfo.size) - 
-                     gasnetc_segexch[i].segsize_request;
-                assert(gasnetc_segexch[i].segsize_request >= 0);
-                assert(segstart >= gasnetc_maxbase);
-                if (segstart < minsegstart) minsegstart = segstart;
-              }
-
-              segbase = (void *)minsegstart;
-            }
-          #else
-            segbase = (void *)gasnetc_maxbase;
-          #endif
-          topofheap = gasnetc_maxheapend;
-        #else
-          topofheap = gasnetc_myheapend;
-          #if GASNETC_USE_HIGHSEGMENT
-            segbase = (void *)((uintptr_t)gasnetc_segment.addr + gasnetc_segment.size - segsize);
-          #else
-            segbase = gasnetc_segment.addr;
-          #endif
-        #endif
-
-        if (segsize == 0) { /* no segment */
-          gasneti_munmap(gasnetc_segment.addr, gasnetc_segment.size);
-          gasnetc_segment.addr = segbase = NULL; 
-          gasnetc_segment.size = 0;
-        }
-        else {
-          if (topofheap + minheapoffset > (uintptr_t)segbase) {
-            int maxsegsz;
-            /* we're too close to the heap - readjust to prevent collision 
-               note this allows us to return different segsizes on diff nodes
-               (even when we are using GASNET_ALIGNED_SEGMENTS)
-             */
-            segbase = (void *)(topofheap + minheapoffset);
-            maxsegsz = ((uintptr_t)gasnetc_segment.addr + gasnetc_segment.size) - (uintptr_t)segbase;
-            if (maxsegsz <= 0) gasneti_fatalerror("minheapoffset too large to accomodate a segment");
-            if (segsize > maxsegsz) {
-              GASNETI_TRACE_PRINTF(I, ("WARNING: gasnet_attach() reducing requested segsize (%lu=>%lu) to accomodate minheapoffset",
-                segsize, maxsegsz));
-              segsize = maxsegsz;
-            }
-          }
-
-          /* trim final segment if required */
-          if (gasnetc_segment.addr != segbase || gasnetc_segment.size != segsize) {
-            assert(segbase >= gasnetc_segment.addr &&
-                   (uintptr_t)segbase + segsize <= (uintptr_t)gasnetc_segment.addr + gasnetc_segment.size);
-            gasneti_munmap(gasnetc_segment.addr, gasnetc_segment.size);
-            gasneti_mmap_fixed(segbase, segsize);
-            gasnetc_segment.addr = segbase;
-            gasnetc_segment.size = segsize;
-          }
+      gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapExchange);
+    #else /* GASNET_SEGMENT_EVERYTHING */
+      { int i;
+        for (i=0;i<gasnetc_nodes;i++) {
+          gasnetc_seginfo[i].addr = (void *)0;
+          gasnetc_seginfo[i].size = (uintptr_t)-1;
         }
       }
-      #else /* !HAVE_MMAP */
-        /* TODO: this is broken on the T3E, which doesn't support mmap */
-        segbase = malloc(segsize);
-        while (!segbase) {
-          segsize = GASNETI_PAGE_ALIGN(segsize/2, pagesize);
-          segbase = malloc(segsize);
-        }
-      #endif
-      assert(((uintptr_t)segbase) % pagesize == 0);
-      assert(segsize % pagesize == 0);
-      GASNETI_TRACE_PRINTF(C, ("Final segment: segbase="GASNETI_LADDRFMT"  segsize=%lu",
-        GASNETI_LADDRSTR(segbase), (unsigned long)segsize));
-    #else /* GASNET_SEGMENT_EVERYTHING */
-      segbase = (void *)0;
-      segsize = (uintptr_t)-1;
     #endif
+    segbase = gasnetc_seginfo[gasnetc_mynode].addr;
+    segsize = gasnetc_seginfo[gasnetc_mynode].size;
 
     /*  AMMPI allows arbitrary registration with no further action  */
     if (segbase) {
       retval = AM_SetSeg(gasnetc_endpoint, segbase, segsize);
       if (retval != AM_OK) INITERR(RESOURCE, "AM_SetSeg() failed");
     }
-
-    /* use gasneti_malloc_inhandler during bootstrapping because we can't assume the 
-       hold/resume interrupts functions are operational yet */
-    gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
-    assert(gasneti_atomic_read(&segsrecvd) == 0);
+    #ifdef GASNETC_HSL_ERRCHECK
+      GASNETI_AM_SAFE(AMMPI_SetHandlerCallbacks(gasnetc_endpoint,
+        gasnetc_enteringHandler_hook, gasnetc_leavingHandler_hook));
+    #endif
     /* ------------------------------------------------------------------------------------ */
     /*  primary attach complete */
     gasnetc_attach_done = 1;
@@ -470,52 +308,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   AMUNLOCK();
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete\n"));
-
-  #ifdef GASNETC_HSL_ERRCHECK
-    GASNETI_AM_SAFE(AMMPI_SetHandlerCallbacks(gasnetc_endpoint,
-      gasnetc_enteringHandler_hook, gasnetc_leavingHandler_hook));
-  #endif
-  /* ------------------------------------------------------------------------------------ */
-  /*  gather segment information */
-
-  #if 0
-    /*  everybody exchange segment info - not very scalable, but screw it, this is startup */
-    /*  (here we also discover if AM is broken) */
-    { int i;
-      for (i=0; i < gasnetc_nodes; i++) {
-        GASNETC_SAFE(SHORT_REQ(2,4,(i, gasneti_handleridx(gasnetc_get_seginfo_req), 
-                                PACK(segbase), PACK(segsize))));
-      }
-    }
-
-    while (gasneti_atomic_read(&segsrecvd) != gasnetc_nodes) {
-      GASNETC_SAFE(gasnet_AMPoll());
-    }
-  #else
-    /* use MPI_AllGather here for better scalability */
-    { gasnetc_segexch_t se;
-      int i;
-      memset(&se,0,sizeof(se));
-      se.seginfo.addr = segbase;
-      se.seginfo.size = segsize;
-      GASNETI_AM_SAFE(AMMPI_SPMDAllGather(&se, gasnetc_segexch, sizeof(gasnetc_segexch_t)));
-      for (i=0; i < gasnetc_nodes; i++) {
-        gasnetc_seginfo[i] = gasnetc_segexch[i].seginfo;
-      }
-    }
-  #endif
-
-  assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
-         gasnetc_seginfo[gasnetc_mynode].size == segsize);
-
-  #if GASNET_ALIGNED_SEGMENTS == 1
-    { int i; /*  check that segments are aligned */
-      for (i=0; i < gasnetc_nodes; i++) {
-        if (gasnetc_seginfo[i].size != 0 && gasnetc_seginfo[i].addr != segbase) 
-          gasneti_fatalerror("Failed to acquire aligned segments for GASNET_ALIGNED_SEGMENTS");
-      }
-    }
-  #endif
 
   gasnete_init(); /* init the extended API */
 
@@ -529,21 +321,6 @@ done: /*  error return while locked */
   AMUNLOCK();
   GASNETI_RETURN(retval);
 }
-/* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnetc_get_seginfo_req_inner)
-void gasnetc_get_seginfo_req_inner(gasnet_token_t token, 
-  void *segbase, void *_segsize) {
-  uintptr_t segsize = (uintptr_t)_segsize;
-  gasnet_node_t srcindex;
-  int retval = gasnetc_AMGetMsgSource(token, &srcindex);
-  assert(retval == GASNET_OK);
-  gasnetc_seginfo[srcindex].addr = segbase;
-  gasnetc_seginfo[srcindex].size = segsize;
-  gasneti_atomic_increment(&segsrecvd);
-}
-SHORT_HANDLER(gasnetc_get_seginfo_req,2,4, 
-              (token, UNPACK(a0),     UNPACK(a1)    ),
-              (token, UNPACK2(a0, a1), UNPACK2(a2, a3)));
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_exit(int exitcode) {
   gasneti_trace_finish();
@@ -1010,7 +787,6 @@ static gasnet_handlerentry_t const gasnetc_handlers[] = {
   /* ptr-width independent handlers */
 
   /* ptr-width dependent handlers */
-  gasneti_handler_tableentry_with_bits(gasnetc_get_seginfo_req),
 
   { 0, NULL }
 };

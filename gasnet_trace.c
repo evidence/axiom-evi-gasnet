@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/09/07 07:33:40 $
- * $Revision: 1.13 $
+ *     $Date: 2002/09/08 14:25:12 $
+ * $Revision: 1.14 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -521,7 +521,5 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
-#ifdef HAVE_MMAP
-  #define GASNETI_GASNET_INTERNAL_C
-  #include "gasnet_mmap.c"
-#endif
+#define GASNETI_GASNET_INTERNAL_C
+#include "gasnet_mmap.c"

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/09/07 07:33:40 $
- * $Revision: 1.14 $
+ *     $Date: 2002/09/08 14:25:12 $
+ * $Revision: 1.15 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -64,7 +64,7 @@ void gasneti_free_inhandler(void *ptr) {
 /* ------------------------------------------------------------------------------------ */
 /* page alignment macros */
 #define GASNETI_PAGE_ALIGN(p,P) ((uintptr_t)(p)&~ ((uintptr_t)(P)-1))
-#define GASNETI_PAGE_ROUNDUP(p,P) (GASNETI_PAGE_ALIGN((p)+((P)-1), P))
+#define GASNETI_PAGE_ROUNDUP(p,P) (GASNETI_PAGE_ALIGN((uintptr_t)(p)+((P)-1), P))
 /* ------------------------------------------------------------------------------------ */
 /* portable microsecond granularity wall-clock timer */
 extern int64_t gasneti_getMicrosecondTimeStamp(void);
@@ -161,6 +161,7 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
   #endif
 #endif
 /* ------------------------------------------------------------------------------------ */
+/* memory segment registration and management */
 
 size_t gasneti_getSystemPageSize();
 
@@ -169,6 +170,23 @@ size_t gasneti_getSystemPageSize();
   extern void gasneti_mmap_fixed(void *segbase, size_t segsize);
   extern void gasneti_munmap(void *segbase, size_t segsize);
 #endif
+
+#ifndef GASNETI_MAX_MALLOCSEGMENT_SZ
+#define GASNETI_MAX_MALLOCSEGMENT_SZ (100*1048576) /* Max segment sz to use when mmap not avail */
+#endif
+#ifndef GASNETI_USE_HIGHSEGMENT
+#define GASNETI_USE_HIGHSEGMENT 1  /* use the high end of mmap segments */
+#endif
+
+typedef void (*gasneti_bootstrapExchangefn_t)(void *src, size_t len, void *dest);
+
+void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize, 
+                         uintptr_t *MaxGlobalSegmentSize,
+                         gasnet_node_t numnodes,
+                         gasneti_bootstrapExchangefn_t exchangefn);
+void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
+                           gasnet_seginfo_t *seginfo,
+                           gasneti_bootstrapExchangefn_t exchangefn);
 
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasneti_ErrorName)

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/08/30 03:17:56 $
- * $Revision: 1.14 $
+ *     $Date: 2002/09/08 14:25:14 $
+ * $Revision: 1.15 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -88,6 +88,12 @@ static int gasnetc_init(int *argc, char ***argv) {
 
       /* (###) Add code here to find the MIN(MaxLocalSegmentSize) over all nodes */
       gasnetc_MaxGlobalSegmentSize = ###;
+
+      /* it may be appropriate to use gasneti_segmentInit() here to set 
+         gasnetc_MaxLocalSegmentSize and gasnetc_MaxGlobalSegmentSize,
+         if your conduit can use memory anywhere in the address space
+         (you may want to tune GASNETI_MMAP_MAX_SIZE to limit the max size)
+      */
     }
   #elif defined(GASNET_SEGMENT_EVERYTHING)
     gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
@@ -243,7 +249,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     if (segsize == 0) segbase = NULL; /* no segment */
     else {
       /* (###) add code here to choose and register a segment 
-         (ensuring alignment across all nodes if this conduit sets GASNET_ALIGNED_SEGMENTS==1) */
+         (ensuring alignment across all nodes if this conduit sets GASNET_ALIGNED_SEGMENTS==1) 
+         you can use gasneti_segmentAttach() here if you used gasneti_segmentInit() above
+      */
       assert(((uintptr_t)segbase) % pagesize == 0);
       assert(segsize % pagesize == 0);
     }

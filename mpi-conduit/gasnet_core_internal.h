@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_internal.h              $
- *     $Date: 2002/09/07 07:33:44 $
- * $Revision: 1.5 $
+ *     $Date: 2002/09/08 14:25:13 $
+ * $Revision: 1.6 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -14,8 +14,6 @@
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
 #define GASNETC_NISTIMEOUT_WARNING_THRESHOLD 1000000 /* us for timeout warning under HSL_ERRCHECK */
-#define GASNETC_USE_HIGHSEGMENT 1  /* use the high end of mmap segment */
-#define GASNETC_MAX_MALLOCSEGMENT_SZ (100*1048576) /* Max segment sz to use when mmap not avail */
 
 #if defined(DEBUG) && !defined(GASNET_QUIET)
   #define DEBUG_VERBOSE               1
@@ -97,7 +95,7 @@ int gasneti_checkAMreturn(int retcode, const char *fncallstr,
 
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-99 for the core API */
-#define _hidx_gasnetc_get_seginfo_req       (GASNETC_HANDLER_BASE+0) 
+/*#define _hidx_       (GASNETC_HANDLER_BASE+0) */
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
 
