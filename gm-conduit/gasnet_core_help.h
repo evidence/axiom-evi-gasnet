@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.27 2004/03/18 03:48:50 csbell Exp $
- * $Date: 2004/03/18 03:48:50 $
- * $Revision: 1.27 $
+/* $Id: gasnet_core_help.h,v 1.28 2004/03/18 09:24:18 bonachea Exp $
+ * $Date: 2004/03/18 09:24:18 $
+ * $Revision: 1.28 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -166,7 +166,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_TRACE_MEDIUM(reqrep, type, dest, token, idx, args, sAddr,len)  \
 		GASNETI_TRACE_PRINTF(C,("%s%s\t%d token="GASNETI_LADDRFMT" index=%d args=%d "\
 			"src="GASNETI_LADDRFMT" len=%d", #reqrep, #type, dest,               \
-			GASNETI_LADDRSTR(token), idx, args, GASNETI_LADDRSTR(sAddr), len))
+			GASNETI_LADDRSTR(token), idx, args, GASNETI_LADDRSTR(sAddr), (int)(len)))
 
 #define GASNETC_TRACE_SYSTEM GASNETC_TRACE_MEDIUM
 
