@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/02/24 19:18:11 $
- * $Revision: 1.46 $
+ *     $Date: 2005/03/02 19:03:56 $
+ * $Revision: 1.47 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -187,8 +187,8 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #define GASNETI_CHECKINIT()    gasneti_checkinit()
   #define GASNETI_CHECKATTACH()  gasneti_checkattach()
 #else
-  #define GASNETI_CHECKINIT()
-  #define GASNETI_CHECKATTACH()
+  #define GASNETI_CHECKINIT()    ((void)0)
+  #define GASNETI_CHECKATTACH()  ((void)0)
 #endif
 
 
@@ -765,22 +765,14 @@ extern int gasneti_wait_mode; /* current waitmode hint */
 #define _GASNET_MYNODE
 #define _GASNET_MYNODE_DEFAULT
   extern gasnet_node_t gasneti_mynode;
-  GASNET_INLINE_MODIFIER(gasnet_mynode)
-  gasnet_node_t gasnet_mynode() {
-    GASNETI_CHECKINIT();
-    return gasneti_mynode;
-  }
+  #define gasnet_mynode() (GASNETI_CHECKINIT(), (gasnet_node_t)gasneti_mynode)
 #endif
 
 #ifndef _GASNET_NODES
 #define _GASNET_NODES
 #define _GASNET_NODES_DEFAULT
   extern gasnet_node_t gasneti_nodes;
-  GASNET_INLINE_MODIFIER(gasnet_nodes)
-  gasnet_node_t gasnet_nodes() {
-    GASNETI_CHECKINIT();
-    return gasneti_nodes;
-  }
+  #define gasnet_nodes() (GASNETI_CHECKINIT(), (gasnet_node_t)gasneti_nodes)
 #endif
 
 #ifndef _GASNET_GETMAXSEGMENTSIZE
@@ -792,16 +784,10 @@ extern int gasneti_wait_mode; /* current waitmode hint */
   #else
     extern uintptr_t gasneti_MaxLocalSegmentSize;
     extern uintptr_t gasneti_MaxGlobalSegmentSize;
-    GASNET_INLINE_MODIFIER(gasnet_getMaxLocalSegmentSize)
-    uintptr_t gasnet_getMaxLocalSegmentSize() {
-      GASNETI_CHECKINIT();
-      return gasneti_MaxLocalSegmentSize;
-    }
-    GASNET_INLINE_MODIFIER(gasnet_getMaxGlobalSegmentSize)
-    uintptr_t gasnet_getMaxGlobalSegmentSize() {
-      GASNETI_CHECKINIT();
-      return gasneti_MaxGlobalSegmentSize;
-    }
+    #define gasnet_getMaxLocalSegmentSize() \
+            (GASNETI_CHECKINIT(), (uintptr_t)gasneti_MaxLocalSegmentSize)
+    #define gasnet_MaxGlobalSegmentSize() \
+            (GASNETI_CHECKINIT(), (uintptr_t)gasneti_MaxGlobalSegmentSize)
   #endif
 #endif
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2005/02/28 10:23:10 $
- * $Revision: 1.13 $
+ *     $Date: 2005/03/02 19:04:00 $
+ * $Revision: 1.14 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -18,14 +18,30 @@
 #endif
 
 int mynode = 0;
+int iters=0;
+void *myseg = NULL;
+int accuracy = 0;
 
 void report(const char *desc, int64_t totaltime, int iters) {
   if (mynode == 0) {
-      printf("%-50s: %8.3f sec  %8.3f us/iter\n",
-        desc, ((float)totaltime)/1000000, ((float)totaltime)/iters);
+      char format[80];
+      sprintf(format, "%%-50s: %%%i.%if sec  %%%i.%if us/iter\n", 
+              (4+accuracy), accuracy, (4+accuracy), accuracy);
+      printf(format, desc, ((float)totaltime)/1000000, ((float)totaltime)/iters);
       fflush(stdout);
   }
 }
+
+/* placed in a function to avoid excessive inlining */
+gasnett_tick_t ticktime() { return gasnett_ticks_now(); }
+uint64_t tickcvt(gasnett_tick_t ticks) { return gasnett_ticks_to_us(ticks); }
+
+void doit1();
+void doit2();
+void doit3();
+void doit4();
+void doit5();
+void doit6();
 /* ------------------------------------------------------------------------------------ */
 #define hidx_null_shorthandler        201
 #define hidx_justreply_shorthandler   202
@@ -62,9 +78,6 @@ void justreply_longhandler(gasnet_token_t token, void *buf, size_t nbytes) {
    the GASNet layer itself
  */
 int main(int argc, char **argv) {
-  int iters=0;
-  int i = 0;
-  void *myseg = NULL;
   gasnet_handlerentry_t htable[] = { 
     { hidx_null_shorthandler,       null_shorthandler },
     { hidx_justreply_shorthandler,  justreply_shorthandler },
@@ -87,6 +100,9 @@ int main(int argc, char **argv) {
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 100000;
 
+  if (argc > 2) accuracy = atoi(argv[2]);
+  if (!accuracy) accuracy = 3;
+
   if (mynode == 0) {
       printf("Running misc performance test with %i iterations...\n",iters);
       printf("GASNET_CONFIG:%s\n",GASNET_CONFIG_STRING);
@@ -95,32 +111,40 @@ int main(int argc, char **argv) {
       fflush(stdout);
   }
 
-  /* ------------------------------------------------------------------------------------ */
-  { GASNET_BEGIN_FUNCTION();
+  doit1();
+  MSG("done.");
 
-    char p[1];
-    gasnet_hsl_t hsl = GASNET_HSL_INITIALIZER;
-    gasnett_atomic_t a = gasnett_atomic_init(0);
-    int32_t temp = 0;
-    int8_t bigtemp[1024];
-    gasnet_handle_t handles[8];
+  gasnet_exit(0);
+  return 0;
+}
 
-    for (i=0;i<8;i++) handles[i] = GASNET_INVALID_HANDLE;
+#define TIME_OPERATION_FULL(desc, preop, op, postop)     \
+  { gasnett_tick_t start,end;  /* use ticks interface */ \
+    int i, _iters = iters;     /* for best accuracy */   \
+    BARRIER();                                           \
+    start = ticktime();                                  \
+    preop;                                               \
+    for (i=0; i < _iters; i++) { op; }                   \
+    postop;                                              \
+    end = ticktime();                                    \
+    BARRIER();                                           \
+    if ((desc) && ((char*)(desc))[0])                    \
+      report((desc), tickcvt(end - start), iters);       \
+    else report(#op, tickcvt(end - start), iters);       \
+  }
+#define TIME_OPERATION(desc, op) TIME_OPERATION_FULL(desc, {}, op, {})
 
-    #define TIME_OPERATION_FULL(desc, preop, op, postop) \
-      { int64_t start,end;                               \
-        BARRIER();                                       \
-        start = TIME();                                  \
-        preop;                                           \
-        for (i=0; i < iters; i++) { op; }                \
-        postop;                                          \
-        end = TIME();                                    \
-        BARRIER();                                       \
-        if ((desc) && ((char*)(desc))[0])                \
-          report((desc), end - start, iters);            \
-        else report(#op, end - start, iters);            \
-      }
-    #define TIME_OPERATION(desc, op) TIME_OPERATION_FULL(desc, {}, op, {})
+char p[1];
+gasnet_hsl_t hsl = GASNET_HSL_INITIALIZER;
+gasnett_atomic_t a = gasnett_atomic_init(0);
+int32_t temp = 0;
+int8_t bigtemp[1024];
+gasnet_handle_t handles[8];
+
+/* ------------------------------------------------------------------------------------ */
+void doit1() { GASNET_BEGIN_FUNCTION();
+
+    { int i; for (i=0;i<8;i++) handles[i] = GASNET_INVALID_HANDLE; }
 
     TIME_OPERATION("Tester overhead", {});
     
@@ -145,7 +169,10 @@ int main(int argc, char **argv) {
     TIME_OPERATION("Loopback do nothing AM long request-reply",
       { gasnet_AMRequestLong0(mynode, hidx_justreply_medhandler, p, 0, myseg); });
 
-    /* ------------------------------------------------------------------------------------ */
+    doit2();
+}
+/* ------------------------------------------------------------------------------------ */
+void doit2() { GASNET_BEGIN_FUNCTION();
 
     TIME_OPERATION("hold/resume interrupts",
       { gasnet_hold_interrupts(); gasnet_resume_interrupts(); });
@@ -169,7 +196,10 @@ int main(int argc, char **argv) {
     TIME_OPERATION("gasnett_atomic_decrement", gasnett_atomic_decrement(&a));
     TIME_OPERATION("gasnett_atomic_decrement_and_test", gasnett_atomic_decrement_and_test(&a));
 
-    /* ------------------------------------------------------------------------------------ */
+    doit3();
+}
+/* ------------------------------------------------------------------------------------ */
+void doit3() { GASNET_BEGIN_FUNCTION();
 
     TIME_OPERATION("local 4-byte gasnet_put",
       { gasnet_put(mynode, myseg, &temp, 4); });
@@ -204,7 +234,10 @@ int main(int argc, char **argv) {
     TIME_OPERATION("local 1024-byte gasnet_put_bulk",
       { gasnet_put_bulk(mynode, myseg, &bigtemp, 1024); });
 
-    /* ------------------------------------------------------------------------------------ */
+    doit4();
+}
+/* ------------------------------------------------------------------------------------ */
+void doit4() { GASNET_BEGIN_FUNCTION();
 
     TIME_OPERATION("local 4-byte gasnet_get",
       { gasnet_get(&temp, mynode, myseg, 4); });
@@ -237,7 +270,10 @@ int main(int argc, char **argv) {
     TIME_OPERATION("local 1024-byte gasnet_get_bulk",
       { gasnet_get_bulk(&bigtemp, mynode, myseg, 1024); });
 
-    /* ------------------------------------------------------------------------------------ */
+    doit5();
+}
+/* ------------------------------------------------------------------------------------ */
+void doit5() { GASNET_BEGIN_FUNCTION();
 
     { int32_t temp1 = 0;
       int32_t temp2 = 0;
@@ -254,7 +290,10 @@ int main(int argc, char **argv) {
         { memcpy(temp1, temp2, 1024); });
     }
 
-    /* ------------------------------------------------------------------------------------ */
+    doit6();
+}
+/* ------------------------------------------------------------------------------------ */
+void doit6() { GASNET_BEGIN_FUNCTION();
 
     TIME_OPERATION("do-nothing gasnet_wait_syncnb()",
       { gasnet_wait_syncnb(GASNET_INVALID_HANDLE);  });
@@ -298,18 +337,12 @@ int main(int argc, char **argv) {
       });
 
     TIME_OPERATION("single-node barrier",
-      { gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            
-        gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS); 
+      { gasnet_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            
+        gasnet_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS); 
       });
     if (gasnet_nodes() > 1)
       MSG0("Note: this is actually the barrier time for %i nodes, "
            "since you're running with more than one node.\n", (int)gasnet_nodes());
-  /* ------------------------------------------------------------------------------------ */
-
-  }
-
-  MSG("done.");
-
-  gasnet_exit(0);
-  return 0;
 }
+/* ------------------------------------------------------------------------------------ */
+

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/02/28 21:34:46 $
- * $Revision: 1.47 $
+ *     $Date: 2005/03/02 19:04:00 $
+ * $Revision: 1.48 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -375,9 +375,9 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
 
 /* ------------------------------------------------------------------------------------ */
 /* barriers */
-#define BARRIER() do {                                                \
-  gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            \
-  GASNET_Safe(gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS)); \
+#define BARRIER() do {                                              \
+  gasnet_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            \
+  GASNET_Safe(gasnet_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS)); \
 } while (0)
 
 #if defined(GASNET_PAR) || defined(GASNET_PARSYNC)

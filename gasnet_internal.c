@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/02/19 05:00:53 $
- * $Revision: 1.92 $
+ *     $Date: 2005/03/02 19:03:56 $
+ * $Revision: 1.93 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -183,6 +183,34 @@ extern void gasneti_check_config_postattach() {
   gasneti_assert_always(gasnet_mynode() < gasnet_nodes());
 }
 
+/* ------------------------------------------------------------------------------------ */
+#ifndef _GASNET_ERRORNAME
+extern const char *gasnet_ErrorName(int errval) {
+  switch (errval) {
+    case GASNET_OK:           return "GASNET_OK";      
+    case GASNET_ERR_NOT_INIT: return "GASNET_ERR_NOT_INIT";      
+    case GASNET_ERR_BAD_ARG:  return "GASNET_ERR_BAD_ARG";       
+    case GASNET_ERR_RESOURCE: return "GASNET_ERR_RESOURCE";      
+    case GASNET_ERR_BARRIER_MISMATCH: return "GASNET_ERR_BARRIER_MISMATCH";      
+    case GASNET_ERR_NOT_READY: return "GASNET_ERR_NOT_READY";      
+    default: return "*unknown*";
+  }
+}
+#endif
+
+#ifndef _GASNET_ERRORDESC
+extern const char *gasnet_ErrorDesc(int errval) {
+  switch (errval) {
+    case GASNET_OK:           return "No error";      
+    case GASNET_ERR_NOT_INIT: return "GASNet message layer not initialized"; 
+    case GASNET_ERR_BAD_ARG:  return "Invalid function parameter passed";    
+    case GASNET_ERR_RESOURCE: return "Problem with requested resource";      
+    case GASNET_ERR_BARRIER_MISMATCH: return "Barrier id's mismatched";      
+    case GASNET_ERR_NOT_READY: return "Non-blocking operation not complete";      
+    default: return "no description available";
+  }
+}
+#endif
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_fatalerror(const char *msg, ...) {
   va_list argptr;
