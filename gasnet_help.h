@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/02/17 13:18:51 $
- * $Revision: 1.44 $
+ *     $Date: 2005/02/23 21:15:27 $
+ * $Revision: 1.45 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -141,13 +141,13 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
  * useful for making system calls and checking the result
  */
 #if GASNET_DEBUG
-  #define gasneti_assert_zeroret(op) do {                                     \
-    int retval = op;                                                          \
-    if_pf(retval) gasneti_fatalerror(#op": %s(%i)",strerror(retval), retval); \
+  #define gasneti_assert_zeroret(op) do {                                        \
+    int _retval = (op);                                                          \
+    if_pf(_retval) gasneti_fatalerror(#op": %s(%i)",strerror(_retval), _retval); \
   } while (0)
-  #define gasneti_assert_nzeroret(op) do {                                     \
-    int retval = op;                                                           \
-    if_pf(!retval) gasneti_fatalerror(#op": %s(%i)",strerror(retval), retval); \
+  #define gasneti_assert_nzeroret(op) do {                                        \
+    int _retval = (op);                                                           \
+    if_pf(!_retval) gasneti_fatalerror(#op": %s(%i)",strerror(_retval), _retval); \
   } while (0)
 #else
   #define gasneti_assert_zeroret(op)  op
@@ -156,14 +156,14 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 
 /* make a GASNet core API call - if it fails, print error message and abort */
 #ifndef GASNETI_SAFE
-#define GASNETI_SAFE(fncall) do {                                           \
-   int retcode = (fncall);                                                  \
-   if_pf (retcode != (int)GASNET_OK) {                                      \
-     gasneti_fatalerror("\nGASNet encountered an error: %s(%i)\n"           \
-        "  while calling: %s\n"                                             \
-        "  at %s",                                                          \
-        gasnet_ErrorName(retcode), retcode, #fncall, gasneti_current_loc);  \
-   }                                                                        \
+#define GASNETI_SAFE(fncall) do {                                            \
+   int _retcode = (fncall);                                                  \
+   if_pf (_retcode != (int)GASNET_OK) {                                      \
+     gasneti_fatalerror("\nGASNet encountered an error: %s(%i)\n"            \
+        "  while calling: %s\n"                                              \
+        "  at %s",                                                           \
+        gasnet_ErrorName(_retcode), _retcode, #fncall, gasneti_current_loc); \
+   }                                                                         \
  } while (0)
 #endif
 
@@ -330,7 +330,6 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
       #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, GASNETI_MUTEX_NOOWNER }
     #endif
     #define gasneti_mutex_lock(pl) do {                                        \
-              int retval;                                                      \
               gasneti_assert((pl)->owner != GASNETI_THREADIDQUERY());          \
               gasneti_assert_zeroret(pthread_mutex_lock(&((pl)->lock)));       \
               gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);            \
@@ -348,7 +347,6 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
               return 0;
     }
     #define gasneti_mutex_unlock(pl) do {                                  \
-              int retval;                                                  \
               gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY());      \
               (pl)->owner = GASNETI_MUTEX_NOOWNER;                         \
               gasneti_assert_zeroret(pthread_mutex_unlock(&((pl)->lock))); \
