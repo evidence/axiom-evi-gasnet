@@ -316,7 +316,9 @@ struct name {				\
 	FH_STAILQ_LAST(head1) = FH_STAILQ_LAST(head2);			\
 } while (0)
 
-/* Double remove anywhere in the list */
+/* Double remove anywhere in the list.  The membar at the end prevents a
+ * reordering bug that occurs on gcc when the optimizer has strict aliasing
+ * enabled.  We are on the lookout to see if this happens elsewhere. */
 #define FH_TAILQ_REMOVE(head, elem) do {				\
 	if (FH_TAILQ_NEXT(elem) != NULL)				\
 		FH_TAILQ_PREV(FH_TAILQ_NEXT(elem)) = 			\
@@ -324,6 +326,7 @@ struct name {				\
 	else								\
 		FH_TAILQ_LAST(head) = FH_TAILQ_PREV(elem);		\
 	*(FH_TAILQ_PREV(elem)) = FH_TAILQ_NEXT(elem);			\
+	gasneti_local_membar();						\
 } while (0)
 
 /* Single remove from head only */
