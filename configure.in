@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/09/13 17:17:46 $
-# $Revision: 1.80 $
+#     $Date: 2003/09/17 20:15:40 $
+# $Revision: 1.81 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.80 $)
+AC_REVISION($Revision: 1.81 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -465,7 +465,6 @@ GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (defaul
         #else
           #error Make the AC_TRY_COMPILE fail (SMP)
         #endif
-        static int dummy() { return 0; } /* ensure C file is non-empty */
     ], [], [ uni_build=yes ], [ uni_build=no ])
     fi
     AC_MSG_RESULT($uni_build)
