@@ -110,7 +110,7 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
     * Solaris/SPARC/gcc,SunProC/32,64: smp, mpi
     * Solaris/x86/gcc/32: smp, #
 
-    * MSWindows-Cygwin/x86/gcc/32: smp, #
+    * MSWindows-Cygwin/x86/gcc/32/: smp, mpi (MPICH.NT)
 
     * MacOSX/PowerPC/gcc/32: smp, mpi
 
