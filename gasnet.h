@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2002/07/04 02:40:20 $
- * $Revision: 1.5 $
+ *     $Date: 2002/10/27 02:39:27 $
+ * $Revision: 1.6 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -49,9 +49,6 @@
 /* basic utilities used in the headers */
 #include <gasnet_basic.h>
 
-/* ensure that client links the correct library */
-#define gasnet_init _CONCAT(gasnet_init_GASNET_,GASNET_CONFIG)
-
 /* ------------------------------------------------------------------------------------ */
 /* check segment configuration */
 
@@ -63,6 +60,13 @@
   #define GASNETI_SEGMENT_CONFIG EVERYTHING
 #else
   #error Segment configuration must be exactly one of (GASNET_SEGMENT_FAST, GASNET_SEGMENT_LARGE, GASNET_SEGMENT_EVERYTHING) 
+#endif
+
+/* ensure that client links the correct library */
+#ifdef GASNET_SEGMENT_EVERYTHING
+  #define gasnet_init _CONCAT(_CONCAT(gasnet_init_GASNET_,GASNET_CONFIG),GASNETI_SEGMENT_CONFIG)
+#else
+  #define gasnet_init _CONCAT(gasnet_init_GASNET_,GASNET_CONFIG)
 #endif
 
 /* ------------------------------------------------------------------------------------ */
