@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/11/06 02:17:07 $
- * $Revision: 1.23 $
+ *     $Date: 2003/11/11 23:36:37 $
+ * $Revision: 1.24 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -223,8 +223,11 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* ------------------------------------------------------------------------------------ */
 
-/* Scatter-gather segments.  Only 1 makes sense right now */
-#define GASNETC_SND_SG  1               /* maximum number of segments to gather on send */
+/* Scatter-gather segments.
+ * Only 1 makes sense right now for normal use.
+ * Additional SG space in the SND WQ is used for inline puts
+ */
+#define GASNETC_SND_SG  14               /* maximum number of segments to gather on send */
 #define GASNETC_RCV_SG  1               /* maximum number of segments to scatter on rcv */
 
 /* Define non-zero to enable a progress thread for receiving AMs . */
@@ -235,14 +238,14 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 #if GASNETC_VAPI_ENABLE_INLINE_PUTS
   /* AM req/rep <= this size will be done w/ VAPI-level copy, 0 disables */
-  #define GASNETC_AM_INLINE_LIMIT	72
+  #define GASNETC_AM_INLINE_LIMIT	370
 #else
   #define GASNETC_AM_INLINE_LIMIT	0
 #endif
 
 #if GASNETC_VAPI_ENABLE_INLINE_PUTS
   /* puts <= this size will be done w/ VAPI-level copy, 0 disables */
-  #define GASNETC_PUT_INLINE_LIMIT	72
+  #define GASNETC_PUT_INLINE_LIMIT	370
 #else
   #define GASNETC_PUT_INLINE_LIMIT	0
 #endif
