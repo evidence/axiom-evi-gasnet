@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2003/10/24 01:37:37 $
- * $Revision: 1.12 $
+ *     $Date: 2003/12/01 06:37:03 $
+ * $Revision: 1.13 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -40,7 +40,7 @@ static volatile int ammpi_frozen = TRUE;
 static void _freezeForDebugger(int depth) {
   if (!depth) _freezeForDebugger(1);
   else {
-    volatile int i;
+    volatile int i = 0;
     while (ammpi_frozen) {
       i++;
       sleep(1);
