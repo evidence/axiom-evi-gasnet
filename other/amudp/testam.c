@@ -340,18 +340,12 @@ int main(int argc, char **argv) {
   ep_t ep;
   uint64_t networkpid;
   int partner;
-  int iters=0, depth=0, polling = 1, i;
+  int iters=0, polling = 1, i;
   int buf[1];
 
   AMX_VerboseErrors = 1;
 
-  if (argc < 3) {
-    printf("Usage: %s numprocs spawnfn (iters) (Poll/Block) (netdepth)\n", argv[0]);
-    exit(1);
-    }
-
-  if (argc > 5) depth = atoi(argv[5]);
-  if (!depth) depth = 4;
+  CHECKARGS(argc, argv, 1, 2, "iters (Poll/Block)");
 
 #if defined(AMUDP)
   putenv((char*)"A=A");
@@ -363,8 +357,7 @@ int main(int argc, char **argv) {
 
   /* call startup */
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            0, depth, NULL, 
-                            &networkpid, &eb, &ep));
+                            0, &networkpid, &eb, &ep));
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 1;

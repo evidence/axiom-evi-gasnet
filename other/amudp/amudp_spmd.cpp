@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.cpp                                   $
- *     $Date: 2004/01/19 12:57:33 $
- * $Revision: 1.3 $
+ *     $Date: 2004/01/28 03:46:53 $
+ * $Revision: 1.4 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -293,7 +293,11 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     /* defaulting */
     if (networkdepth < 0) AMUDP_RETURN_ERR(BAD_ARG);
-    if (networkdepth == 0) networkdepth = AMUDP_DEFAULT_NETWORKDEPTH;
+    if (networkdepth == 0) {
+      const char *netdepth_str = AMUDP_getenv_prefixed("NETWORKDEPTH");
+      if (netdepth_str) networkdepth = atoi(netdepth_str);
+      if (networkdepth <= 0) networkdepth = AMUDP_DEFAULT_NETWORKDEPTH;
+    }
 
     if (nproc == 0) { /* default to read from args */
       if (*argc > 1) nproc = atoi((*argv)[1]);

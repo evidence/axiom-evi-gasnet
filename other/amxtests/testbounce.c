@@ -86,21 +86,15 @@ int main(int argc, char **argv) {
   uint64_t networkpid;
   int64_t begin, end, total;
   int polling = 1;
-  int depth = 0;
   int iters = 0;
 
   AMX_VerboseErrors = 1;
 
-  if (argc < 3) {
-    printf("Usage: %s (iters) (Poll/Block)\n", argv[0]);
-    exit(1);
-    }
-
-  if (!depth) depth = 4;
+  CHECKARGS(argc, argv, 1, 2, "iters (Poll/Block)");
 
   /* call startup */
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            depth, &networkpid, &eb, &ep));
+                            0, &networkpid, &eb, &ep));
 
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, LARGE_REQ_HANDLER, large_request_handler));

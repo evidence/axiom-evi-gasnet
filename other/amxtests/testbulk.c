@@ -64,24 +64,17 @@ int main(int argc, char **argv) {
   int64_t begin, end, total;
   int polling = 1;
   int fullduplex = 0;
-  int depth = 0;
   int rightguy;
   uint32_t *srcmem;
   int iters = 0;
 
   AMX_VerboseErrors = 1;
 
-  if (argc < 2) {
-    printf("Usage: %s iters (bulkmsgsize) (Poll/Block) (netdepth) (Half/Full)\n", argv[0]);
-    exit(1);
-    }
-
-  if (argc > 4) depth = atoi(argv[4]);
-  if (!depth) depth = 4;
+  CHECKARGS(argc, argv, 1, 4, "iters (bulkmsgsize) (Poll/Block) (Half/Full)");
 
   /* call startup */
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            depth, &networkpid, &eb, &ep));
+                            0, &networkpid, &eb, &ep));
 
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, BULK_REQ_HANDLER, bulk_request_handler));
@@ -104,8 +97,8 @@ int main(int argc, char **argv) {
       default: printf("polling must be 'P' or 'B'..\n"); AMX_SPMDExit(1);
       }
     }
-  if (argc > 5) {
-    switch(argv[5][0]) {
+  if (argc > 4) {
+    switch(argv[4][0]) {
       case 'h': case 'H': fullduplex = 0; break;
       case 'f': case 'F': fullduplex = 1; break;
       default: printf("duplex must be H or F..\n"); AMX_SPMDExit(1);

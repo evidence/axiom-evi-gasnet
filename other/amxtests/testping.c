@@ -27,7 +27,7 @@ static void ping_reply_handler(void *token) {
   numleft--;
   }
 
-/* usage: testping  numprocs  spawnfn  iters  P/B  depth
+/* usage: testping  numprocs  spawnfn  iters  P/B
  */
 int main(int argc, char **argv) {
   eb_t eb;
@@ -37,21 +37,14 @@ int main(int argc, char **argv) {
   int polling = 1;
   int k;
   int iters = 0;
-  int depth = 0;
 
-  if (argc < 2) {
-    printf("Usage: %s (iters) (Poll/Block) (netdepth)\n", argv[0]);
-    exit(1);
-    }
+  CHECKARGS(argc, argv, 1, 2, "iters (Poll/Block)");
 
   AMX_VerboseErrors = 1;
 
-  if (argc > 3) depth = atoi(argv[3]);
-  if (!depth) depth = 4;
-
   /* call startup */
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            depth, &networkpid, &eb, &ep));
+                            0, &networkpid, &eb, &ep));
 
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, PING_REQ_HANDLER, ping_request_handler));

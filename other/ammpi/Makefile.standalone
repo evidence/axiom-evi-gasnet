@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/01/27 09:19:10 $
-# $Revision: 1.3 $
+#     $Date: 2004/01/28 03:46:51 $
+# $Revision: 1.4 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -73,3 +73,19 @@ veryclean: clean
 test% : test%.o apputils.o libammpi.a ${libufxp}
 	${link} -o $@ $< apputils.o -L. -lammpi ${linkend}
 
+TEST_NODES=2
+TEST_RUNCMD=mpirun -np $(TEST_NODES)
+TEST_ITERS=100
+TEST_MODE=P
+TEST_DEPTH=32
+TEST_DUPLEX=H
+AMMPI_NETWORKDEPTH=$(TEST_DEPTH)
+run-tests: tests
+	$(TEST_RUNCMD) ./testping $(TEST_ITERS) $(TEST_MODE)
+	$(TEST_RUNCMD) ./testlatency $(TEST_ITERS) $(TEST_MODE)
+	$(TEST_RUNCMD) ./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
+	$(TEST_RUNCMD) ./testamudp $(TEST_ITERS) $(TEST_MODE)
+	$(TEST_RUNCMD) ./testbounce $(TEST_ITERS) $(TEST_MODE) 
+	$(TEST_RUNCMD) ./testreduce 
+	if test -x ./testgetput ; then $(TEST_RUNCMD) ./testgetput $(TEST_ITERS) ; fi
+	if test -x ./testreadwrite ; then $(TEST_RUNCMD) ./testreadwrite $(TEST_ITERS) ; fi

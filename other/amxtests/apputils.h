@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/apputils.h                                       $
- *     $Date: 2004/01/27 09:09:34 $
- * $Revision: 1.8 $
+ *     $Date: 2004/01/28 03:46:51 $
+ * $Revision: 1.9 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -70,6 +70,21 @@
         AM_Safe(AM_WaitSema(eb));                   \
         AM_Safe(AM_Poll(eb));                       \
         } while (0)
+
+#if defined(AMUDP)
+  #define LEADING_ARGS      2
+  #define LEADING_ARGS_STR  " numprocs spawnfn"
+#else
+  #define LEADING_ARGS      0
+  #define LEADING_ARGS_STR  ""
+#endif
+
+#define CHECKARGS(argc, argv, minargs, maxargs, usagestr) do {                    \
+  if ((argc) < (minargs)+LEADING_ARGS+1 || (argc) > (maxargs)+LEADING_ARGS+1 ) {  \
+    fprintf(stderr, "Usage: %s%s %s\n", (argv)[0], LEADING_ARGS_STR, (usagestr)); \
+    fflush(stderr);                                                               \
+    exit(-1);                                                                     \
+  } } while (0)
 
 /* app can define this before including to move our handlers 
    NO - that doesn't work unless apputils.c is recompiled */

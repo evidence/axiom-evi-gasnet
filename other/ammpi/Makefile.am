@@ -1,7 +1,6 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 # NOTE: This Makefile is used to tie in with the GASNet build infrastructure
 #       the stand-alone AMMPI product doesn't currently provide an automake framework
-#       to build a stand-alone installation, use "make -f Makefile.standalone"
 
 AUTOMAKE_OPTIONS = foreign 1.4 no-dependencies
 
@@ -73,6 +72,25 @@ tests: apputils.o ${testprograms}
 test%: test%.o apputils.o libammpi.a 
 	${link} -o $@ $< apputils.o -L. -lammpi ${linkend}
 
+TEST_NODES=2
+TEST_RUNCMD=mpirun -np $(TEST_NODES)
+TEST_ITERS=100
+TEST_MODE=P
+TEST_DEPTH=32
+TEST_DUPLEX=H
+AMMPI_NETWORKDEPTH=$(TEST_DEPTH)
+run-tests: tests
+	$(TEST_RUNCMD) ./testping $(TEST_ITERS) $(TEST_MODE)
+	$(TEST_RUNCMD) ./testlatency $(TEST_ITERS) $(TEST_MODE)
+	$(TEST_RUNCMD) ./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
+	$(TEST_RUNCMD) ./testam $(TEST_ITERS) $(TEST_MODE)
+	$(TEST_RUNCMD) ./testbounce $(TEST_ITERS) $(TEST_MODE) 
+	$(TEST_RUNCMD) ./testreduce 
+if PLATFORM_ILP32
+	$(TEST_RUNCMD) ./testgetput $(TEST_ITERS) 
+	$(TEST_RUNCMD) ./testreadwrite $(TEST_ITERS) 
+endif
+
 %.o: %.c apputils.h ammpi.h ammpi_spmd.h ammpi_internal.h
 	${compile} -DAMMPI -o $@ -c $<
 
@@ -83,5 +101,5 @@ endif
 
 force:
 
-.PHONY: force clean-local
+.PHONY: force clean-local tests run-tests
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.h                                     $
- *     $Date: 2004/01/19 12:57:32 $
- * $Revision: 1.8 $
+ *     $Date: 2004/01/28 03:46:51 $
+ * $Revision: 1.9 $
  * Description: AMMPI Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -82,8 +82,8 @@ extern int AMMPI_SPMDBroadcast(void *buf, size_t len, int rootid);
 #define AMX_SPMDIsWorker          AMMPI_SPMDIsWorker
 #define AMX_SPMDAllGather         AMMPI_SPMDAllGather
 
-/* TODO */
-#define AMX_SPMDStartup           AMMPI_SPMDStartup
+#define AMX_SPMDStartup(pargc, pargv, networkdepth, pnetworkpid, peb, pep) \
+      AMMPI_SPMDStartup((pargc), (pargv), (networkdepth), (pnetworkpid), (peb), (pep))
 
 END_EXTERNC
 

@@ -1,7 +1,6 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 # NOTE: This Makefile is used to tie in with the GASNet build infrastructure
 #       the stand-alone AMUDP product doesn't currently provide an automake framework
-#       to build a stand-alone installation, use "make -f Makefile.standalone"
 
 AUTOMAKE_OPTIONS = foreign 1.4 no-dependencies
 
@@ -96,11 +95,12 @@ TEST_SPAWNFN=L
 TEST_MODE=P
 TEST_DEPTH=32
 TEST_DUPLEX=H
+AMUDP_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
-	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
-	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
-	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DEPTH) $(TEST_DUPLEX)
-	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
+	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
+	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
+	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
 	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
 	./testreduce $(TEST_NODES) $(TEST_SPAWNFN) 
 if PLATFORM_ILP32
@@ -121,5 +121,5 @@ endif
 
 force:
 
-.PHONY: force clean-local tests
+.PHONY: force clean-local tests run-tests
 

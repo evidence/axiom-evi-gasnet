@@ -19,15 +19,11 @@ int main(int argc, char **argv) {
 
   AMX_VerboseErrors = 1;
 
-  if (argc < 3) {
-    printf("Usage: %s numprocs spawnfn\n", argv[0]);
-    exit(1);
-    }
+  CHECKARGS(argc, argv, 0, 0, "");
 
   /* call startup */
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            0, 0, NULL, 
-                            &networkpid, &eb, &ep));
+                            0, &networkpid, &eb, &ep));
 
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, REDUCE_HANDLER, reduce_request_handler));

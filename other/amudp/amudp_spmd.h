@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.h                                     $
- *     $Date: 2004/01/19 12:57:33 $
- * $Revision: 1.3 $
+ *     $Date: 2004/01/28 03:46:53 $
+ * $Revision: 1.4 $
  * Description: AMUDP Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -119,8 +119,8 @@ extern amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[];
 #define AMX_SPMDIsWorker          AMUDP_SPMDIsWorker
 #define AMX_SPMDAllGather         AMUDP_SPMDAllGather
 
-/* TODO */
-#define AMX_SPMDStartup           AMUDP_SPMDStartup
+#define AMX_SPMDStartup(pargc, pargv, networkdepth, pnetworkpid, peb, pep) \
+      AMUDP_SPMDStartup((pargc), (pargv), 0, (networkdepth), NULL, (pnetworkpid), (peb), (pep))
 
 END_EXTERNC
 

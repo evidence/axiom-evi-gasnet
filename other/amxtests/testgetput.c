@@ -12,10 +12,7 @@ int main(int argc, char **argv) {
   int k;
   int iters = 0;
 
-  if (argc < 2) {
-    printf("Usage: %s iters\n", argv[0]);
-    exit(1);
-    }
+  CHECKARGS(argc, argv, 1, 1, "iters");
 
   AMX_VerboseErrors = 1;
 

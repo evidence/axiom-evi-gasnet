@@ -46,7 +46,7 @@ void mywait(int polling) {
     }
 }
 
-/* usage: testlatency  numprocs  spawnfn  iters  P/B  depth msgsz
+/* usage: testlatency  numprocs  spawnfn  iters  P/B msgsz
  */
 int main(int argc, char **argv) {
   uint64_t networkpid;
@@ -54,26 +54,19 @@ int main(int argc, char **argv) {
   int polling = 1;
   int k;
   int iters = 0;
-  int depth = 0;
   int msgsz = 0;
   char *msg=NULL;
 
-  if (argc < 2) {
-    printf("Usage: %s (iters) (Poll/Block) (netdepth) (msgsize)\n", argv[0]);
-    exit(1);
-    }
+  CHECKARGS(argc, argv, 1, 3, "iters (Poll/Block) (msgsize)");
 
   AMX_VerboseErrors = 1;
 
-  if (argc > 3) depth = atoi(argv[3]);
-  if (!depth) depth = 4;
-
-  if (argc > 4) msgsz = atoi(argv[4]);
+  if (argc > 3) msgsz = atoi(argv[3]);
   if (!msgsz) msgsz = 1;
 
   /* call startup */
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            depth, &networkpid, &eb, &ep));
+                            0, &networkpid, &eb, &ep));
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, PING_REQ_HANDLER, ping_request_handler));
   AM_Safe(AM_SetHandler(ep, PING_REP_HANDLER, ping_reply_handler));

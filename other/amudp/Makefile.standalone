@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMUDP/Makefile                                         $
-#     $Date: 2004/01/27 09:19:11 $
-# $Revision: 1.4 $
+#     $Date: 2004/01/28 03:46:53 $
+# $Revision: 1.5 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -82,11 +82,12 @@ TEST_SPAWNFN=L
 TEST_MODE=P
 TEST_DEPTH=32
 TEST_DUPLEX=H
+AMUDP_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
-	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
-	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
-	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DEPTH) $(TEST_DUPLEX)
-	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
+	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
+	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
+	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
 	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
 	./testreduce $(TEST_NODES) $(TEST_SPAWNFN)
 	if test -x ./testgetput ; then ./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; fi

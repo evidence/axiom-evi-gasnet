@@ -19,10 +19,7 @@ int main(int argc, char **argv) {
 
   AMX_VerboseErrors = 1;
 
-  if (argc > 1) {
-    printf("Usage: %s\n", argv[0]);
-    exit(1);
-    }
+  CHECKARGS(argc, argv, 0, 0, "");
 
   /* call startup */
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
