@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.8 2002/06/18 02:21:46 csbell Exp $
- * $Date: 2002/06/18 02:21:46 $
- * $Revision: 1.8 $
+/* $Id: gasnet_core_internal.h,v 1.9 2002/06/19 04:51:55 csbell Exp $
+ * $Date: 2002/06/19 04:51:55 $
+ * $Revision: 1.9 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -8,10 +8,12 @@
 
 #ifndef _GASNET_CORE_INTERNAL_H
 #define _GASNET_CORE_INTERNAL_H
+#define AM_DUMP
 
 #include <gasnet.h>
 #include <gasnet_internal.h>
 #include "gasnet_core_types.h"
+#include <sys/mman.h>	/* mmap */
 #if defined(__i386__) && !defined(i386)	/* fix gm. cpu detection */
 #define i386
 #endif
@@ -26,15 +28,15 @@
 #include <asm/param.h> /* MAXHOSTNAMELEN */
 #else
   #ifdef FREEBSD	 /* sys/param.h defines its own min/max */
+  #include <sys/types.h> /* mmap on FreeBSD */
   #undef MIN
-  #undef MAX
+  #undef MAX 
   #endif
 #include <sys/param.h>
 #endif
 #if !defined(GASNET_SEQ) && !defined(FREEBSD)
 #include <pthread.h>
 #endif
-#define AM_DUMP
 
 extern gasnet_seginfo_t *gasnetc_seginfo;
 
@@ -61,18 +63,47 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 
 #define GASNETC_AM_LEN	4096
 #define GASNETC_AM_SIZE	12
+#define GASNETC_SYS_SIZE 5
+#define GASNETC_AM_SHORT	0x00
+#define GASNETC_AM_MEDIUM	0x01
+#define GASNETC_AM_LONG		0x02
+#define GASNETC_AM_SYSTEM	0x03
 #define GASNETC_AM_NUMARGS(buf) (((buf) >> 1) & 0x1f)
+#define GASNETC_SYS_INDEX(buf)	((buf) & 0x3f) 
 #define GASNETC_AM_TYPE(buf)    (((buf) >> 6) & 0x03)
-#define GASNETC_AM_TYPE_STRING(buf)                                     \
-                (GASNETC_AM_TYPE(buf) == 0 ? "Short" :                  \
-                        (GASNETC_AM_TYPE(buf) == 1 ? "Medium" :         \
-                                (GASNETC_AM_TYPE(buf) == 2 ? "Long" :   \
-                                        "Error!")))
+#define GASNETC_AM_TYPE_STRING(buf)                                            \
+                (GASNETC_AM_TYPE(buf) == GASNETC_AM_SHORT ? "Short" :	       \
+                        (GASNETC_AM_TYPE(buf) == GASNETC_AM_MEDIUM ? "Medium": \
+                                (GASNETC_AM_TYPE(buf) == GASNETC_AM_LONG ?     \
+				 "Long" : "Error!")))
+#define GASNETC_ALIGN(p,P)	((uintptr_t)(p)&~ ((uintptr_t)(P)-1))
+/* System message types */
+typedef
+enum gasnetc_sysmsg {
+	_NO_MSG = 0,
+	SBRK_TOP = 1,
+	SBRK_BASE = 2,
+	BARRIER_GATHER = 3,
+	BARRIER_NOTIFY = 4,
+	_LAST_ONE = 5,
+}
+gasnetc_sysmsg_t;
+
+const
+struct _gasnetc_sysmsg_types {
+	const char	msg[32];
+	size_t		len;
+} gasnetc_sysmsg_types[] =
+	{ { "Top of Local Heap", 2*sizeof(uintptr_t) },
+	  { "Top of Global Heaps, Base", 2*sizeof(uintptr_t) },
+	  { "Barrier Gather at 0", 1 },
+	  { "Barrier Notify from 0", 1 } };
 
 typedef struct gasnetc_bufdesc gasnetc_bufdesc_t;
 
 /* Forward declaration for miscellaneous functions used by GM core */
 gasnetc_bufdesc_t * 	gasnetc_AMRequestBuf_block();
+gasnetc_sysmsg_t	gasnetc_SysPoll(void *context);
 
 void	gasnetc_tokensend_AMRequest(void *, uint16_t, uint32_t, uint32_t, 
 		gm_send_completion_callback_t, void *, uintptr_t);
@@ -80,6 +111,10 @@ int	gasnetc_gm_nodes_compare(const void *, const void *);
 void	gasnetc_sendbuf_init();
 void	gasnetc_sendbuf_finalize();
 int	gasnetc_gmpiconf_init();
+void 	*gasnetc_segment_gather(uintptr_t);
+void	gasnetc_gm_send_AMSystem_broadcast(void *, size_t, 
+		gm_send_completion_callback_t, void *, int);
+void	gasnetc_SysBarrier();
 
 /* GM Callback functions */
 void	gasnetc_callback_AMRequest    (struct gm_port *, void *, gm_status_t);
@@ -151,6 +186,10 @@ struct _gasnetc_state {
 	gasnetc_bufdesc_t	*bd_ptr;
 	int			bd_list_num;
 	void			*dma_bufs;	/* All DMA bufs */
+
+	void			*scratchBuf;
+	size_t			scratchBuf_len;
+	int			init_state;
 
 	/* FIFO AMRequest send queue */
 	int		*reqs_fifo;
@@ -319,7 +358,7 @@ gasnetc_gm_send_AMReply(gasnetc_bufdesc_t *bufd)
 /* GM gm_send/gm_directed_send wrapper for AMRequest */
 GASNET_INLINE_MODIFIER(gasnetc_gm_send_AMRequest)
 void
-gasnetc_gm_send_AMRequest(void *buf, uint16_t len,
+gasnetc_gm_send_AMRequest(void *buf, size_t len,
 		uint32_t id, uint32_t port, 
 		gm_send_completion_callback_t callback,
 		void *callback_ptr,
@@ -328,14 +367,13 @@ gasnetc_gm_send_AMRequest(void *buf, uint16_t len,
 	assert(buf != NULL);
 	assert(len <= GASNETC_AM_LEN); 
 	assert(id > 0);
-	assert(port >= 0);
 	assert(callback != NULL);
 
 #ifdef AM_DUMP
         printf("S> AMRequest%s (%d:%d) args %d index %d\n", 
 		GASNETC_AM_TYPE_STRING(*((uint8_t *)buf)),
 		id, port, GASNETC_AM_NUMARGS(*((uint8_t *)buf)),
-                (uint32_t) *((uint8_t *)buf + 1));
+               	(uint32_t) *((uint8_t *)buf + 1));
         fflush(stdout);
 #endif
 	if (dest_addr > 0)
@@ -358,6 +396,65 @@ gasnetc_gm_send_AMRequest(void *buf, uint16_t len,
 			port,
 			callback,
 			callback_ptr);
+}
+
+GASNET_INLINE_MODIFIER(gasnetc_gm_send_AMSystem)
+void
+gasnetc_gm_send_AMSystem(void *buf, size_t len,
+		uint32_t id, uint32_t port, 
+		gm_send_completion_callback_t callback,
+		void *callback_ptr)
+{
+	assert(buf != NULL);
+	assert(len >= 1); 
+	assert(id > 0);
+	assert(callback != NULL);
+
+#ifdef AM_DUMP
+	printf("S> AMSystem (%d:%d) index %d\n", id, port,
+		GASNETC_SYS_INDEX(*((uint8_t *)buf)));
+        fflush(stdout);
+#endif
+	gm_send_with_callback(_gmc.port, buf, GASNETC_SYS_SIZE, len, 
+			GM_HIGH_PRIORITY, id, port, callback, callback_ptr);
+}
+
+
+
+
+/* Allocate segments */
+GASNET_INLINE_MODIFIER(gasnetc_segment_alloc)
+void *
+gasnetc_segment_alloc(void *segbase, size_t segsize)
+{
+	void	*ptr;
+
+#ifdef DEBUG
+	printf("mmap(0x%x, %d)\n", (uintptr_t) segbase, segsize);
+#endif
+	ptr = mmap(segbase, segsize, PROT_READ|PROT_WRITE, MAP_ANON, -1, 0);
+	if (ptr == MAP_FAILED || segbase != ptr) 
+		gasneti_fatalerror("mmap failed at 0x%x for size %d\n",
+			(uintptr_t) segbase, segsize);
+	return ptr;
+}
+
+/* Allocate segments */
+GASNET_INLINE_MODIFIER(gasnetc_segment_register)
+void
+gasnetc_segment_register(void *segbase, size_t segsize)
+{
+	void		*ptr;
+	gm_status_t	status;
+
+#ifdef DEBUG
+	printf("gm_register_memory(0x%x, %d)\n", (uintptr_t) segbase, segsize);
+#endif
+	if (gm_register_memory(_gmc.port, segbase, (gm_size_t) segsize) !=
+			GM_SUCCESS)
+		gasneti_fatalerror("gm_register_memory failed at 0x%x for size "
+			"%d\n", (uintptr_t) segbase, segsize);
+	return;
 }
 
 #define gasnetc_fifo_head()	_gmc.fifo_bd_head
@@ -523,14 +620,13 @@ gasnetc_write_AMBufferBulk(void *dest, void *src, size_t nbytes)
 
 GASNET_INLINE_MODIFIER(gasnetc_gm_nodes_search)
 gasnet_node_t
-gasnetc_gm_nodes_search(gasnetc_bufdesc_t *bufd)
+gasnetc_gm_nodes_search(uint16_t sender_node_id)
 {
 	gasnetc_gm_nodes_rev_t	gm_node_sender, *gm_node;
 
-	if_pf (!bufd->e) GASNETI_RETURN_ERRR(BAD_ARG, "No GM receive event");
-	gm_node_sender.id = gm_ntoh_u16(bufd->e->recv.sender_node_id);
-	if_pf (!gm_node_sender.id) GASNETI_RETURN_ERRR(BAD_ARG, 
-						"No GM sender_node_id");
+	if_pf (!sender_node_id) GASNETI_RETURN_ERRR(BAD_ARG, 
+						"Wrong GM sender_node_id");
+	gm_node_sender.id = sender_node_id;
 	gm_node = (gasnetc_gm_nodes_rev_t *)
 		bsearch((void *) &gm_node_sender,
 			(const void *) _gmc.gm_nodes_rev,

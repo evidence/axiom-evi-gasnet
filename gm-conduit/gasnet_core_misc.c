@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.8 2002/06/18 02:21:46 csbell Exp $
- * $Date: 2002/06/18 02:21:46 $
- * $Revision: 1.8 $
+/* $Id: gasnet_core_misc.c,v 1.9 2002/06/19 04:51:55 csbell Exp $
+ * $Date: 2002/06/19 04:51:55 $
+ * $Revision: 1.9 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -15,7 +15,6 @@
 #else
 #define DPRINTF(x)
 #endif
-#define AM_DUMP
 
 /*
  * Memory management for token_lo buffers (AMRequests)
@@ -180,6 +179,151 @@ gasnetc_AMRequestBuf_block()
 		&_gmc.bd_ptr[bufd_idx];
 }
 
+/* XXX this is not thread-safe yet. . */
+void
+gasnetc_SysBarrier()
+{
+	int		count = 1;
+	uintptr_t	*scratchPtr;
+
+	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
+
+	if (gasnetc_mynode == 0) {
+		while (count < gasnetc_nodes) {
+			gm_provide_receive_buffer(_gmc.port, 
+				(void *) &scratchPtr, GASNETC_SYS_SIZE, 
+				GM_HIGH_PRIORITY);
+			if (gasnetc_SysPoll((void *)-1) != BARRIER_GATHER)
+				gasneti_fatalerror("System Barrier did not "
+					"receive a BARRIER_GATHER! fatal");
+		}
+		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
+				(uint8_t) BARRIER_NOTIFY);
+		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 1,
+			gasnetc_callback_AMReply_NOP, NULL, 0);
+		return;
+	}
+	else {
+		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
+				(uint8_t) BARRIER_GATHER);
+		gasnetc_gm_send_AMSystem((void *) scratchPtr, 1,
+			_gmc.gm_nodes[0].id, _gmc.gm_nodes[0].port, 
+			gasnetc_callback_AMReply_NOP, NULL);
+
+		if (gasnetc_SysPoll(NULL) != BARRIER_NOTIFY)
+			gasneti_fatalerror("expected BARRIER_NOTIFY, fatal");
+		return;
+	}
+}
+			
+/* XXX this is not thread-safe yet. . */
+void
+gasnetc_gm_send_AMSystem_broadcast(void *buf, size_t len,
+		gm_send_completion_callback_t callback,
+		void *callback_ptr, int recover)
+{
+	int			i;
+	int			token_hi;
+	gasnetc_sysmsg_t	sysmsg;
+
+	assert(buf != NULL);
+	assert(len >= 1);
+	assert(callback != NULL);
+	assert(gasnetc_mynode == 0);
+
+	if (recover) 
+		token_hi = _gmc.token.hi;
+
+	for (i = 1; i < gasnetc_nodes; i++) {
+		while (!gasnetc_token_hi_acquire()) {
+			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
+				gasneti_fatalerror("AMSystem_broadcast: "
+					"unexpected message while "
+					"recuperating tokens");
+		}
+		gasnetc_gm_send_AMSystem(buf, len, _gmc.gm_nodes[i].id,
+				_gmc.gm_nodes[i].port, callback, callback_ptr);
+	}
+
+	if (recover) {
+		while (_gmc.token.hi != token_hi) {
+			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
+				gasneti_fatalerror("AMSystem_broadcast: "
+					"unexpected message while "
+					"recuperating tokens");
+		}
+	}
+	return;
+}
+
+/* Allocate segments */
+void *
+gasnetc_segment_gather(uintptr_t sbrk_local)
+{
+	uintptr_t	*scratchPtr;
+	uintptr_t	sbrk_global;
+	size_t		pagesize;
+
+	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
+	pagesize = gasneti_getSystemPageSize();
+
+	assert((_gmc.token.hi == 0) && (_gmc.token.total == 0));
+	assert(_gmc.gm_nodes[0].id > 0);
+
+	if (gasnetc_mynode == 0) {
+		int count = 1;
+		uintptr_t sbrk_high = GASNETC_ALIGN(sbrk(0), pagesize);
+#ifdef DEBUG
+		printf("SBRK(0) = 0x%x, aligned to 0x%x\n",
+				(uintptr_t) sbrk(0), sbrk_high);
+#endif
+		while (count < gasnetc_nodes) {
+			gm_provide_receive_buffer(_gmc.port, 
+				(void *) &scratchPtr, GASNETC_SYS_SIZE, 
+				GM_HIGH_PRIORITY);
+			if (gasnetc_SysPoll((void *) &sbrk_global) != SBRK_TOP)
+				gasneti_fatalerror("expected SBRK_TOP, fatal");
+			if (sbrk_global > sbrk_high)
+				sbrk_high = sbrk_global;
+		}
+#ifdef DEBUG
+		printf("SBRK HIGH = 0x%x\n", sbrk_high);
+#endif
+		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
+				(uint8_t) SBRK_BASE);
+		scratchPtr[1] = sbrk_high;
+		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
+			2*sizeof(uintptr_t), gasnetc_callback_AMReply_NOP, 
+			NULL, 0);
+
+		return (void *) sbrk_high;
+	}
+	else {
+		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
+				(uint8_t) SBRK_TOP);
+
+		if (sbrk_local == 0) {
+			scratchPtr[1] = GASNETC_ALIGN(sbrk(0), pagesize);
+#ifdef DEBUG
+			printf("SBRK(0) = 0x%x, aligned to 0x%x\n",
+				(uintptr_t) sbrk(0), scratchPtr[1]);
+#endif
+		}
+		else
+			scratchPtr[1] = sbrk_local;
+		assert(scratchPtr[1] > 0);
+
+		gasnetc_gm_send_AMSystem((void *) scratchPtr, 
+			2*sizeof(uintptr_t), _gmc.gm_nodes[0].id, 
+			_gmc.gm_nodes[0].port, gasnetc_callback_AMReply_NOP, 
+			NULL);
+
+		if (gasnetc_SysPoll((void *) &sbrk_global) != SBRK_BASE)
+			gasneti_fatalerror("expected SBRK_BASE, fatal");
+		return (void *) sbrk_global;
+	}
+}
+
 int
 gasnetc_gmpiconf_init()
 {
@@ -252,7 +396,7 @@ gasnetc_gmpiconf_init()
 				assert(gmhost != NULL);
 
 				_gmc.gm_nodes[lnum-1].port = gmportnum;
-				memcpy(hostnames[lnum-1], 
+				memcpy(&hostnames[lnum-1][0], 
 					(void *)gmhost, MAXHOSTNAMELEN);
 
 				if (strcasecmp(gmhost, hostname) == 0) {

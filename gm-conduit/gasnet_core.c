@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.8 2002/06/18 02:21:46 csbell Exp $
- * $Date: 2002/06/18 02:21:46 $
+/* $Id: gasnet_core.c,v 1.9 2002/06/19 04:51:55 csbell Exp $
+ * $Date: 2002/06/19 04:51:55 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -26,7 +26,7 @@ gasnet_seginfo_t *gasnetc_seginfo = NULL;
 
 int gasnetc_init_done = 0; /*  true after init */
 
-#ifdef GASNET_PAR
+#ifdef GASNETI_THREADS
 pthread_mutex_t _gasnetc_lock_gm = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t _gasnetc_lock_reqfifo = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t _gasnetc_lock_amreq = PTHREAD_MUTEX_INITIALIZER;
@@ -178,27 +178,35 @@ static int gasnetc_init(int *argc, char ***argv,
   /*  (...) catch fatal signals and convert to SIGQUIT */
 
   /* ------------------------------------------------------------------------------------ */
+  /*  gather the highest sbrk(0) for all nodes */
+  
+  /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
 
   if (segbase == GASNET_SEGBASE_ANY) {
-    /*  (...) choose a segment for the user of size segsize and allocate/register it,
-              save base in segbase
-    */
-  } else {
-    /*  (...) allocate/register the client requested segment in (segbase,segsize) */
-  }
+    /* alignment guarenteed by segment_gather(0) */
+    void *mem = gasnetc_segment_gather(0);
 
-  /*
-  assert((segbase % pagesize) == 0);
-  */
+    mem = gasnetc_segment_alloc(mem, segsize);
+    gasnetc_segment_register(mem, segsize);
+    segbase = mem;
+  } else {
+    void *mem = gasnetc_segment_alloc(segbase, segsize);
+    gasnetc_segment_register(mem, segsize);
+  }
 
   /* ------------------------------------------------------------------------------------ */
   /*  gather segment information */
 
   gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
-  /* (...) add code here to fill in gasnetc_seginfo with segment info from all the nodes */
+  {
+    int i;
+    for (i = 0; i < gasnetc_nodes; i++) {
+      gasnetc_seginfo[i].addr = segbase;
+      gasnetc_seginfo[i].size = segsize;
+    }
+  }
 
-#if 0
   assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
          gasnetc_seginfo[gasnetc_mynode].size == segsize);
 
@@ -216,9 +224,8 @@ static int gasnetc_init(int *argc, char ***argv,
       }
     }
   #endif
-#endif
 
-  sleep(3);	/* XXX smile for now. . */
+  gasnetc_SysBarrier();
 
   /*  init complete */
   gasnetc_init_done = 1;
@@ -275,7 +282,8 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 
   /* GMCORE BEGIN */
   bufd = (gasnetc_bufdesc_t *) token;
-  sourceid = gasnetc_gm_nodes_search(bufd);
+  if_pf (!bufd->e) GASNETI_RETURN_ERRR(BAD_ARG, "No GM receive event");
+  sourceid = gasnetc_gm_nodes_search(gm_ntoh_u16(bufd->e->recv.sender_node_id));
   /* GMCORE END */
 
   assert(sourceid < gasnetc_nodes);
@@ -307,9 +315,6 @@ extern int gasnetc_AMRequestShortM(
   retval = 1;
   bufd = gasnetc_AMRequestBuf_block();
   len = gasnetc_write_AMBufferShort(bufd->sendbuf, handler, numargs, argptr, 1);
-#ifdef AM_DUMP
-  printf("AMRequestShort dump = 0x%x\n", *(unsigned char *) bufd->sendbuf);
-#endif
   gasnetc_tokensend_AMRequest(bufd->sendbuf, len, 
 		  gasnetc_nodeid(dest), gasnetc_portid(dest),
 		  gasnetc_callback_AMRequest, (void *)bufd, 0);
