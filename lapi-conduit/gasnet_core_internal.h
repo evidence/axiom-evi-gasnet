@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/08/07 23:53:12 $
- * $Revision: 1.27 $
+ *     $Date: 2004/08/07 23:57:06 $
+ * $Revision: 1.28 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -221,8 +221,8 @@ extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, 
   #endif
   
   #if !GASNETC_LAPIWAIT_SPIN_SUSPRESM
-    #undef gasneti_suspend_spinpollers() 
-    #undef gasneti_resume_spinpollers()
+    #undef gasneti_suspend_spinpollers
+    #undef gasneti_resume_spinpollers
     #define gasneti_suspend_spinpollers() gasneti_suspend_spinpollers_check()
     #define gasneti_resume_spinpollers()  gasneti_resume_spinpollers_check()
   #endif
