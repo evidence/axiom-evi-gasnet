@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/06 19:36:03 $
- * $Revision: 1.34 $
+ *     $Date: 2005/04/06 22:08:50 $
+ * $Revision: 1.35 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -118,15 +118,19 @@
 
  */
 
-#define OUT_DEGREE 32
-#define USE_LOCAL_SPAWN 1
-#define FLAT_TREE 0 /* "flat" collectives not yet implemented */
-
-#ifndef USE_LOCAL_SPAWN
-  #define USE_LOCAL_SPAWN 0
+/* Defaults if conduit has not set these values */
+#ifndef GASNETI_BOOTSTRAP_OUT_DEGREE
+  #define GASNETI_BOOTSTRAP_OUT_DEGREE 32
 #endif
-#ifndef FLAT_TREE
-  #define FLAT_TREE 0
+#ifndef GASNETI_BOOTSTRAP_LOCAL_SPAWN
+  #define GASNETI_BOOTSTRAP_LOCAL_SPAWN 0
+#endif
+#ifndef GASNETI_BOOTSTRAP_FLAT_TREE
+  #define GASNETI_BOOTSTRAP_FLAT_TREE 0
+#endif
+
+#if GASNETI_BOOTSTRAP_FLAT_TREE
+  #error "flat collectives not yet implemented"
 #endif
 
 #define WHITESPACE " \t\n\r"
@@ -1057,7 +1061,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
 static void spawn_one(gasnet_node_t child_id, const char *myhost) {
   const char *host = child[child_id].nodelist ? child[child_id].nodelist[0] : NULL;
   pid_t pid;
-  int is_local = (USE_LOCAL_SPAWN && (!host || !strcmp(host, myhost)));
+  int is_local = (GASNETI_BOOTSTRAP_LOCAL_SPAWN && (!host || !strcmp(host, myhost)));
 
   child[child_id].pid = pid = fork();
 
@@ -1196,7 +1200,7 @@ static void do_master(int argc, char **argv) {
   gasneti_reghandler(SIGPIPE, &sigforward);
 
   /* Configure child(ren) */
-  #if FLAT_TREE
+  #if GASNETI_BOOTSTRAP_FLAT_TREE
   {
     gasnet_node_t p_quot = nproc / nnodes;
     gasnet_node_t p_rem = nproc % nnodes;
@@ -1231,7 +1235,7 @@ static void do_master(int argc, char **argv) {
   gather_pids();
 
   /* Wait on the child(ren) */
-#if FLAT_TREE
+#if GASNETI_BOOTSTRAP_FLAT_TREE
   /* XXX: Finalize unimplemented */
 #else
   {
@@ -1291,7 +1295,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   /* Start any children */
   if (tree_procs > 1) {
     gasnet_node_t p_quot, p_rem; /* quotient and remainder of nproc/nodes */
-    gasnet_node_t n_quot, n_rem; /* quotient and remainder of nodes/OUT_DEGREE */
+    gasnet_node_t n_quot, n_rem; /* quotient and remainder of nodes/GASNETI_BOOTSTRAP_OUT_DEGREE */
     gasnet_node_t local_procs; /* the local processes (proc-per-node), excluding self */
     gasnet_node_t rank, j;
     char **sublist;
@@ -1303,7 +1307,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     p_rem -= (p_rem?1:0);
 
     /* Children = (local_procs other than self) + (child nodes) */
-    children = local_procs + MIN(OUT_DEGREE, (tree_nodes - 1));
+    children = local_procs + MIN(GASNETI_BOOTSTRAP_OUT_DEGREE, (tree_nodes - 1));
     child = gasneti_calloc(children, sizeof(struct child));
     rank = myproc + 1;
 
@@ -1316,8 +1320,8 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     }
 
     /* Map out the child nodes */
-    n_quot = (tree_nodes - 1) / OUT_DEGREE;
-    n_rem = (tree_nodes - 1) % OUT_DEGREE;
+    n_quot = (tree_nodes - 1) / GASNETI_BOOTSTRAP_OUT_DEGREE;
+    n_rem = (tree_nodes - 1) % GASNETI_BOOTSTRAP_OUT_DEGREE;
     sublist = nodelist + 1;
     for (j = local_procs; rank < (myproc + tree_procs); j++) {
       gasnet_node_t nodes = n_quot + (n_rem?1:0);
