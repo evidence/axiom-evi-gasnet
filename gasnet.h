@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2003/05/22 09:21:20 $
- * $Revision: 1.13 $
+ *     $Date: 2003/05/24 02:16:51 $
+ * $Revision: 1.14 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -114,7 +114,7 @@
 
 #ifndef GASNET_MAXNODES
   /*  an integer representing the maximum number of nodes supported in a single GASNet job */
-  #define GASNET_MAXNODES 255
+  #define GASNET_MAXNODES (0x7FFFFFFFu)
 #endif
 
 #ifndef GASNET_ALIGNED_SEGMENTS

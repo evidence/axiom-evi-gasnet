@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/05/22 09:21:24 $
- * $Revision: 1.27 $
+ *     $Date: 2003/05/24 02:16:55 $
+ * $Revision: 1.28 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -782,7 +782,7 @@ extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentrie
     if (!gasnetc_attach_done) GASNETI_RETURN_ERR(NOT_INIT);
     if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
     memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
-    memcpy(seginfo_table, gasnetc_seginfo, gasnetc_nodes*sizeof(gasnet_seginfo_t));
+    memcpy(seginfo_table, gasnetc_seginfo, numentries*sizeof(gasnet_seginfo_t));
     return GASNET_OK;
 }
 

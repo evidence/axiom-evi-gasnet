@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.36 2003/05/22 09:21:23 bonachea Exp $
- * $Date: 2003/05/22 09:21:23 $
+/* $Id: gasnet_core.c,v 1.37 2003/05/24 02:16:54 bonachea Exp $
+ * $Date: 2003/05/24 02:16:54 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -479,7 +479,7 @@ extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentrie
   if (!gasnetc_init_done) GASNETI_RETURN_ERR(NOT_INIT);
   if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
   memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
-  memcpy(seginfo_table, gasnetc_seginfo, gasnetc_nodes*sizeof(gasnet_seginfo_t));
+  memcpy(seginfo_table, gasnetc_seginfo, numentries*sizeof(gasnet_seginfo_t));
   return GASNET_OK;
 }
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2003/01/04 06:16:14 $
- * $Revision: 1.9 $
+ *     $Date: 2003/05/24 02:17:00 $
+ * $Revision: 1.10 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -108,10 +108,13 @@ uint64_t test_checksum(void *p, int numbytes) {
      (PAGESZ-(((uintptr_t)_hidden_seg)%PAGESZ)))))          
 #else
   static void *_test_getseg(gasnet_node_t node) {
-    gasnet_seginfo_t si[GASNET_MAXNODES];
-    GASNET_Safe(gasnet_getSegmentInfo((gasnet_seginfo_t*)&si, GASNET_MAXNODES));
+    gasnet_seginfo_t *si = malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
+    void *ptr;
+    GASNET_Safe(gasnet_getSegmentInfo(si, gasnet_nodes()));
     assert(si[gasnet_mynode()].size >= TEST_SEGSZ && si[node].size >= TEST_SEGSZ);
-    return si[node].addr;
+    ptr = si[node].addr;
+    free(si);
+    return ptr;
   }
   #define TEST_SEG(node) (_test_getseg(node))
 #endif

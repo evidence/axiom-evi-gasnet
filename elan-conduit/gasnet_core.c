@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/05/22 09:21:21 $
- * $Revision: 1.23 $
+ *     $Date: 2003/05/24 02:16:52 $
+ * $Revision: 1.24 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -644,10 +644,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         retval = rms_prgsignal(resourceid, SIGQUIT);
         if (retval) gasneti_fatalerror("rms_prgsignal(%i,SIGQUIT) failed: %s", resourceid, strerror(errno));
       #else
-        { int ids[GASNET_MAXNODES];
+        { int *ids = malloc(gasnetc_nodes*sizeof(int));
           int nids = 0;
           int i;
-          retval = rms_prgids(GASNET_MAXNODES, ids, &nids);
+          retval = rms_prgids(gasnetc_nodes, ids, &nids);
           if (retval) gasneti_fatalerror("rms_prgids failed: %s", strerror(errno));
           if (nids != gasnetc_nodes) 
             gasneti_fatalerror("rms_prgids returned only %i ids, expected %i", 
@@ -658,6 +658,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
               if (retval) gasneti_fatalerror("rms_prgsignal(%i,SIGQUIT) failed: %s", ids[i], strerror(errno));
             }
           }
+          free(ids);
         raise(SIGQUIT);
         }
       #endif
@@ -842,7 +843,7 @@ extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentrie
   if (!gasnetc_attach_done) GASNETI_RETURN_ERR(NOT_INIT);
   if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
   memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
-  memcpy(seginfo_table, gasnetc_seginfo, gasnetc_nodes*sizeof(gasnet_seginfo_t));
+  memcpy(seginfo_table, gasnetc_seginfo, numentries*sizeof(gasnet_seginfo_t));
   return GASNET_OK;
 }
 
