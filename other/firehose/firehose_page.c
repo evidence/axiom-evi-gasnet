@@ -301,16 +301,23 @@ fh_region_partial(gasnet_node_t node, firehose_region_t *region)
 			break;
 		}
 	}
+	addr = tmp_addr;
 
 	if_pf (tmp_addr == 0) {
 		/* No pinned pages found in the requested region */
 		return 0;
 	}
 
-	addr = tmp_addr;
-	len  = (end_addr - tmp_addr) + 1;
+	/* Search remainder of the interval, limiting the resulting length */
+	len  = (end_addr - tmp_addr) + 1;	/* bytes remaining */
+	if (is_local) {
+		len = MIN(len, fhc_MaxVictimBuckets << FH_BUCKET_SHIFT);
+	} else {
+		len = MIN(len, fhc_MaxRemoteBuckets << FH_BUCKET_SHIFT);
+	}
+	end_addr = tmp_addr + (len - 1);
 
-	tmp_addr += FH_BUCKET_SIZE;
+	tmp_addr += FH_BUCKET_SIZE;	/* first page known pinned */
 	if_pt (tmp_addr != 0) { /* guards against wrap around */
        		FH_FOREACH_BUCKET(tmp_addr, end_addr, bucket_addr) {
                		bd = fh_bucket_lookup(node, bucket_addr);

@@ -452,11 +452,19 @@ firehose_poll(void);
  *
  * The pin size limit in firehose_info_t are:
  * + max_RemotePinSize - the maximum value of the 'len' argument to the
- *   remote pinning functions firehose_remote_pin(),
- *   firehose_try_remote_pin() and firehose_partial_remote_pin().
+ *   remote pinning functions firehose_remote_pin() and
+ *   firehose_try_remote_pin().
  * + max_LocalPinSize - the maximum value of the 'len' argument to the
- *   local pinning functions firehose_local_pin(),
- *   firehose_try_local_pin() and firehose_partial_local_pin().
+ *   local pinning functions firehose_local_pin() and
+ *   firehose_try_local_pin().
+ *
+ * The 'len' argument to the firehose_partial_*_pin() functions is not
+ * limited by the max_*PinSize parameters.  However, the request_t's
+ * they return will have length bounded by the appropriate max_*PinSize.
+ *
+ * Note that for all the firehose_*_pin functions the pair (addr, len)
+ * must be well formed, meaning that the closed interval [addr,
+ * addr + (len-1)] must not "wrap around" the address space.
  *
  * Let an "operation" denote the collection of request_t's owned by a
  * client such that they will eventually reach firehose_release()
