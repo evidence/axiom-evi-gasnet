@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/08/26 19:13:02 $
-# $Revision: 1.18 $
+#     $Date: 2004/09/12 01:01:28 $
+# $Revision: 1.19 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -277,10 +277,6 @@ sub convert_report
     	    	}
 		die "INTERNAL ERROR" unless $totalc;
     	    	$avg = $total / $totalc;
-    	    	if ($pgb =~ /BARRIER/) {
-		    die "INTERNAL ERROR" unless scalar (keys %nodes);
-    	    	    $totalc = $totalc / (scalar (keys %nodes));
-                }
     	    	my @entry = ($line, $type, $max, $min, $avg, $total, $totalc);
 		push @{$report{$pgb}}, \@entry; 
     	    }
@@ -381,14 +377,13 @@ sub trace_output
     
 
     print <<EOF;
-NO     SOURCE  LINE  TYPE          MSG:(min    max     avg     total)    CALLS  
-==============================================================================    	
+SOURCE         LINE  TYPE          MSG:(min    max     avg     total)     CALLS  
+===============================================================================    	
 EOF
     
     # Setting up variables;
-    my ($rank, $src_num, $source, $lnum, $type, $min, $max, $avg, $total, $calls);
+    my ($src_num, $source, $lnum, $type, $min, $max, $avg, $total, $calls);
     my ($threadnum, $tmin, $tmax, $tavg, $ttotal, $tcalls);
-    $rank = 1;
 
     if (!$report{$pgb}) {
         print "NONE\n";
@@ -409,15 +404,14 @@ EOF
         
         # Options for showing the full file name
         if ($opt_full) {
-	    printf "%3d %s\n", $rank, $source;
+	    printf "%s\n", $source;
 	    $handle->format_name("FULL");             
         }
         else {
-            $source = substr $source, -10, 10;
+            $source = substr $source, -14, 14;
             $handle->format_name("DEFAULT");
         }
         write($handle);
-        $rank++;
         
         if ($opt_thread) {
             foreach my $thread (sort keys %{$data{$pgb}{$src_num}{$type}}) {
@@ -438,18 +432,14 @@ EOF
     	    }
     	}
         
-        # Current max number of ranks is 999
-        if ($rank >= 1000) {
-            return;
-	}
     }
     
 # formats
 ########################
 
     format DEFAULT = 
-@>> @<<<<<<<<< @>>>> @>>>>>>>>>  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
-$rank, $source, $lnum, $type, $min, $max, $avg, $total, $calls
+@<<<<<<<<<<<<< @>>>> @>>>>>>>>>  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
+$source, $lnum, $type, $min, $max, $avg, $total, $calls
 .
 
     format FULL = 
