@@ -16,9 +16,6 @@
 #include "gasnet.h"
 #include "test.h"
 
-DECLARE_ALIGNED_SEG(4096*16);
-
-
 #define GASNET_HEADNODE 0
 #define PRINT_LATENCY 0
 #define PRINT_THROUGHPUT 1
@@ -257,10 +254,9 @@ int main(int argc, char **argv)
 {
     int iters = 0;
    
-    int *seg = (int*)MYSEG();
- 
     /* call startup */
-    GASNET_Safe(gasnet_init(&argc, &argv, NULL, 0, MYSEG(), SEGSZ(), 0));
+    GASNET_Safe(gasnet_init(&argc, &argv));
+    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
 
     /* parse arguments */
     if (argc < 2) {
@@ -295,9 +291,10 @@ int main(int argc, char **argv)
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
     
     tgtmem = (void *) seginfo_table[peerproc].addr;
+    assert(seginfo_table[peerproc].size == TEST_SEGSZ);
 
 	min_payload = 16;
-	max_payload = SEGSZ();
+	max_payload = TEST_SEGSZ;
 	msgbuf = (void *) malloc(max_payload);
 	if (msgbuf == NULL) {
 		printf("Cannot allocate %d bytes for temporary storage.\n", max_payload);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2002/06/25 09:54:44 $
- * $Revision: 1.5 $
+ *     $Date: 2002/07/04 03:01:49 $
+ * $Revision: 1.6 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -96,6 +96,11 @@ uint64_t test_checksum(void *p, int numbytes) {
   #define PAGESZ 4096
 #endif
 
+
+#define TEST_SEGSZ          (64*1024)
+#define TEST_MINHEAPOFFSET  (128*PAGESZ)
+
+#if 0
 /* declare a properly page-aligned, globally-aligned static memory area with given size
  */
 #define DECLARE_ALIGNED_SEG(requestedsegsz)             \
@@ -110,5 +115,6 @@ uint64_t test_checksum(void *p, int numbytes) {
 
 #define MYSEG() (_get_seg())
 #define SEGSZ() (_segsz)
+#endif
 
 #endif

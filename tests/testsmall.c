@@ -14,7 +14,6 @@
 #include "gasnet.h"
 #include "test.h"
 
-DECLARE_ALIGNED_SEG(PAGESZ);
 
 
 
@@ -438,10 +437,9 @@ int main(int argc, char **argv)
     int iters = 0;
     int i, j;
    
-    int *seg = (int*)MYSEG();
- 
     /* call startup */
-    GASNET_Safe(gasnet_init(&argc, &argv, NULL, 0, MYSEG(), SEGSZ(), 0));
+    GASNET_Safe(gasnet_init(&argc, &argv));
+    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
 
     /* parse arguments */
     if (argc < 2) {
@@ -476,6 +474,7 @@ int main(int argc, char **argv)
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
     
     tgtmem = (void *) seginfo_table[peerproc].addr;
+    assert(seginfo_table[peerproc].size == TEST_SEGSZ);
 
 	for (j = 1; j <= 2048; j *= 2)  roundtrip_test(iters, j); 
 

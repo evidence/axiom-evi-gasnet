@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testhsl.c                                 $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/07/04 03:01:49 $
+ * $Revision: 1.2 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -8,8 +8,6 @@
 #include <gasnet.h>
 
 #include <test.h>
-
-DECLARE_ALIGNED_SEG(PAGESZ);
 
 gasnet_hsl_t globallock = GASNET_HSL_INITIALIZER;
 void badhandler1(gasnet_token_t token) {
@@ -36,8 +34,9 @@ int main(int argc, char **argv) {
     { 255, donothing }
   };
 
-  GASNET_Safe(gasnet_init(&argc, &argv, htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), 
-    MYSEG(), SEGSZ(), 0));
+  GASNET_Safe(gasnet_init(&argc, &argv));
+  GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), 
+                            TEST_SEGSZ, TEST_MINHEAPOFFSET));
 
   MSG("running...");
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/07/04 03:01:47 $
+ * $Revision: 1.2 $
  * Description: GASNet <conduitname> conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -17,6 +17,12 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
+
+#ifdef DEBUG
+  #define DEBUG_VERBOSE               1
+#else
+  #define DEBUG_VERBOSE               0
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* make a GASNet call - if it fails, print error message and return */
