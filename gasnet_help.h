@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2003/10/24 01:37:28 $
- * $Revision: 1.17 $
+ *     $Date: 2003/10/31 12:21:03 $
+ * $Revision: 1.18 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -75,6 +75,33 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #define GASNETI_CHECKINIT()
   #define GASNETI_CHECKATTACH()
 #endif
+
+/* Blocking functions */
+extern int gasneti_wait_mode; /* current waitmode hint */
+#define GASNETI_WAITHOOK() \
+  if (gasneti_wait_mode != GASNET_WAIT_SPIN) gasneti_sched_yield()
+
+/* busy-waits, with no implicit polling (cnd should include an embedded poll)
+   differs from GASNET_BLOCKUNTIL because it may be waiting for an event
+     caused by the receipt of a non-AM message
+ */
+#ifndef gasneti_waitwhile
+#define gasneti_waitwhile(cnd) while (cnd) GASNETI_WAITHOOK()
+#endif
+#define gasneti_waituntil(cnd) gasneti_waitwhile(!(cnd)) 
+
+/* busy-wait, with implicit polling */
+#ifndef gasneti_pollwhile
+#define gasneti_pollwhile(cnd) do { \
+    if (!(cnd)) break;              \
+    gasnet_AMPoll();                \
+    while (cnd) {                   \
+      GASNETI_WAITHOOK();           \
+      gasnet_AMPoll();              \
+    }                               \
+  } while (0)
+#endif
+#define gasneti_polluntil(cnd) gasneti_pollwhile(!(cnd)) 
 
 /* ------------------------------------------------------------------------------------ */
 /* Error checking system mutexes -

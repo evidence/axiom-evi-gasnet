@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/<conduitname>-conduit/gasnet_core.h                  $
- *     $Date: 2003/10/24 01:37:41 $
- * $Revision: 1.11 $
+ *     $Date: 2003/10/31 12:21:13 $
+ * $Revision: 1.12 $
  * Description: GASNet header for <conduitname> conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -168,7 +168,7 @@ extern int gasnetc_AMPoll();
 #define gasnet_AMPoll          gasnetc_AMPoll
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
-#define GASNET_BLOCKUNTIL(cond) while (!(cond)) gasnet_AMPoll()
+#define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)
 
 /* ------------------------------------------------------------------------------------ */
 /*

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/10/24 01:37:28 $
- * $Revision: 1.41 $
+ *     $Date: 2003/10/31 12:21:03 $
+ * $Revision: 1.42 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,6 +53,8 @@ extern void gasneti_checkattach() {
    if (!gasneti_attach_done)
     gasneti_fatalerror("Illegal call to GASNet before gasnet_attach() initialization");
 }
+
+int gasneti_wait_mode = GASNET_WAIT_SPIN;
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_fatalerror(char *msg, ...) {

@@ -147,9 +147,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2003/08/26 05:02:27 $
+@subtitle $Date: 2003/10/31 12:21:04 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.28 $ 
+@subtitle $Revision: 1.29 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2003/08/26 05:02:27 $
-@*$Revision: 1.28 $ 
+@*$Date: 2003/10/31 12:21:04 $
+@*$Revision: 1.29 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 @*@uref{http://upc.lbl.gov/}
@@ -1267,7 +1267,6 @@ The @var{token} argument must be the token passed into the handler on entry.
 Returns @code{GASNET_OK} on success.
 @end deftypefn
 
-
 @c ------------------------------------------------------------------------------------
 @node Atomicity Control
 @section Atomicity Control
@@ -2204,8 +2203,12 @@ last call to @code{gasnet_barrier_notify()} on this node.
 @end deftypefn
 
 @c ------------------------------------------------------------------------------------
+@node Threading support
+@section Threading support
+
+@c ------------------------------------------------------------------------------------
 @node Thread-identification optimization:
-@section Thread-identification optimization:
+@subsection Thread-identification optimization:
 
 When compiled in the @code{GASNET_PAR} or @code{GASNET_PARSYNC} configurations, GASNet is 
 capable of handling multiple client threads. It is likely that GASNet 
@@ -2266,6 +2269,31 @@ on some implementations.
 It has behavior equivalent to @code{GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())}, 
 however some implementations may choose to lazily postpone performing thread discovery 
 until the first place where it is actually needed.
+
+@c ------------------------------------------------------------------------------------
+@node Thread management
+@subsection Thread management
+
+@FN gasnet_set_waitmode
+@deftypefn {} {int} gasnet_set_waitmode (int @var{wait_mode})
+
+Optional call which gives the GASNet implementation a hint about how
+aggressively threads within blocking GASNet calls should contend for 
+CPU resources. @var{wait_mode} must be one of the following recognized values:
+
+@ftable @code
+@item GASNET_WAIT_SPIN
+contend aggressively for CPU resources while waiting (spin)
+@item GASNET_WAIT_BLOCK
+yield CPU resources immediately while waiting (block)
+@item GASNET_WAIT_SPINBLOCK
+spin for an implementation-dependent period, then block
+@end ftable
+
+Wait mode is a per-node hint which is permitted to differ across GASNet nodes.
+
+Returns @code{GASNET_OK} on success.
+@end deftypefn
 
 @c ------------------------------------------------------------------------------------
 @HR

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.15 2003/10/24 01:37:32 bonachea Exp $
- * $Date: 2003/10/24 01:37:32 $
- * $Revision: 1.15 $
+/* $Id: gasnet_core.h,v 1.16 2003/10/31 12:21:08 bonachea Exp $
+ * $Date: 2003/10/31 12:21:08 $
+ * $Revision: 1.16 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -170,7 +170,7 @@ extern int gasnetc_AMPoll();
 #define gasnet_AMPoll          gasnetc_AMPoll
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
-#define GASNET_BLOCKUNTIL(cond) while (!(cond)) gasnet_AMPoll()
+#define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)
 
 /* ------------------------------------------------------------------------------------ */
 /*

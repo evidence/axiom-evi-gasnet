@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.h                  $
- *     $Date: 2003/10/24 01:37:34 $
- * $Revision: 1.9 $
+ *     $Date: 2003/10/31 12:21:10 $
+ * $Revision: 1.10 $
  * Description: GASNet header for lapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -175,15 +175,15 @@ if (!(cond)) { \
 	/* turn off interrupt mode before polling */ \
 	LAPI_Senv(gasnetc_lapi_context, INTERRUPT_SET, 0); \
     } \
-    while (!(cond)) gasnet_AMPoll(); \
+    gasneti_polluntil(cond); \
     if (gasnetc_lapi_default_mode == gasnetc_Interrupt) { \
 	/* turn it back on after polling is complete */ \
 	LAPI_Senv(gasnetc_lapi_context, INTERRUPT_SET, 1); \
     } \
 }
 
-/* Origional Implementation:
-#define GASNET_BLOCKUNTIL(cond) while (!(cond)) gasnet_AMPoll()
+/* Original Implementation:
+#define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)
 */
 
 /* ------------------------------------------------------------------------------------ */
