@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2004/01/05 05:01:27 $
- * $Revision: 1.13 $
+ *     $Date: 2004/02/09 23:03:32 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,6 +25,10 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
 #endif
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
+
+#if !defined(GASNETC_PIN_SEGMENT) && GASNETE_MEMSET_PUT_LIMIT
+  #error "GASNETE_MEMSET_PUT_LIMIT must be zero when GASNETC_PIN_SEGMENT is disabled"
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*

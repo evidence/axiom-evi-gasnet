@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.12 2004/02/09 22:49:39 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.13 2004/02/09 23:03:32 phargrov Exp $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -11,8 +11,24 @@ thread_defines = @GASNET_THREAD_DEFINES@
 # XXX: As long as we use MPI for bootstrapping
 CC = @MPI_CC@
 
-INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir) -I$(top_srcdir)/extended-ref -I@VAPI_INCLUDE@
-	   
+if !GASNET_SEGMENT_FAST
+fh_srcdir = $(top_srcdir)/other/firehose
+fh_include = -I$(fh_srcdir)
+fh_deps = firehose_fwd.h $(fh_srcdir)/firehose.h $(fh_srcdir)/firehose_internal.h
+fh_srcs =                     \
+      $(srcdir)/gasnet_firehose.c   \
+      $(fh_srcdir)/firehose.c       \
+      $(fh_srcdir)/firehose_hash.c  \
+      $(fh_srcdir)/firehose_region.c
+fh_objs =                     \
+      gasnet_firehose.o \
+      firehose.o        \
+      firehose_hash.o   \
+      firehose_region.o
+endif
+                                                                                                              
+INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir) -I$(top_srcdir)/extended-ref \
+           -I@VAPI_INCLUDE@ $(fh_include)
 
 filelist =                   \
       gasnet_core.c          \
@@ -26,10 +42,14 @@ filelist =                   \
       gasnet_extended_fwd.h  \
       gasnet_extended_internal.h
 
+fh_filelist =                    \
+      gasnet_firehose.c \
+      firehose_fwd.h
+
 othersourcefiles =                             \
       $(top_srcdir)/gasnet_internal.c
 
-EXTRA_DIST = $(filelist) README license.txt
+EXTRA_DIST = $(filelist) $(fh_filelist) README license.txt
 
 SUBDIRS = contrib
 
@@ -38,12 +58,15 @@ libgasnet_sources =                    \
       $(srcdir)/gasnet_core_sndrcv.c   \
       $(srcdir)/gasnet_bootstrap_mpi.c \
       $(srcdir)/gasnet_extended.c \
-      $(othersourcefiles)
+      $(othersourcefiles) \
+      $(fh_srcs)
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.[ch]             \
                          $(top_srcdir)/extended-ref/gasnet_extended_refbarrier.c \
-                         $(top_srcdir)/extended-ref/*.h       
-libgasnet_objects = gasnet_core.o gasnet_core_sndrcv.o gasnet_bootstrap_mpi.o gasnet_internal.o gasnet_extended.o
+                         $(top_srcdir)/extended-ref/*.h   \
+                         $(fh_deps)
+libgasnet_objects = gasnet_core.o gasnet_core_sndrcv.o gasnet_bootstrap_mpi.o \
+                    gasnet_internal.o gasnet_extended.o $(fh_objs)
 
 if HAVE_PTHREAD
 threaded_libraries = libgasnet-vapi-par.a libgasnet-vapi-parsync.a
