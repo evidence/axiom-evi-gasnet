@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.4 2002/06/14 03:40:38 csbell Exp $
- * $Date: 2002/06/14 03:40:38 $
- * $Revision: 1.4 $
+/* $Id: gasnet_core.h,v 1.5 2002/06/26 21:03:29 csbell Exp $
+ * $Date: 2002/06/26 21:03:29 $
+ * $Revision: 1.5 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -68,10 +68,6 @@ gasnet_node_t gasnet_nodes() {
   GASNETC_CHECKINIT();
   return gasnetc_nodes;
 }
-
-extern void	gasnetc_AM_InitHandler();
-extern int	gasnetc_AM_SetHandler(gasnet_handler_t, gasnetc_handler_fn_t);
-extern int	gasnetc_AM_SetHandlerAny(gasnet_handler_t *, gasnetc_handler_fn_t);
 
 #define gasnet_getSegmentInfo gasnetc_getSegmentInfo
 
