@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2002/06/20 09:49:15 $
- * $Revision: 1.4 $
+ *     $Date: 2002/06/25 09:54:44 $
+ * $Revision: 1.5 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -63,6 +63,17 @@ static int64_t mygetMicrosecondTimeStamp(void)
     }
     retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
     return retval;
+}
+
+uint64_t test_checksum(void *p, int numbytes) {
+ uint8_t *buf = (uint8_t *)p;
+ uint64_t result = 0;
+ int i;
+ for (i=0;i<numbytes;i++) {
+   result = ((result << 8) | ((result >> 56) & 0xFF) ) ^ *buf;
+   buf++;
+ }
+ return result;
 }
 
 /* return a microsecond time-stamp */
