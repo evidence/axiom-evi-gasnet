@@ -1,12 +1,15 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/03/23 23:37:06 $
- * $Revision: 1.22 $
+ *     $Date: 2005/03/24 21:33:39 $
+ * $Revision: 1.23 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
+
+/* XXX: Disabling PR_SET_PDEATHSIG trick since it hard locks the pcp-i machines!!! */
+#undef HAVE_PR_SET_PDEATHSIG
 
 #include <stdlib.h>
 #include <stdio.h>
