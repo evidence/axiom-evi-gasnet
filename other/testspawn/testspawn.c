@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/testspawn/testspawn.c,v $
- *     $Date: 2005/01/18 23:26:23 $
- * $Revision: 1.2 $
+ *     $Date: 2005/01/21 22:05:53 $
+ * $Revision: 1.3 $
  * Description: 
  * Copyright 2005, Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -10,11 +10,12 @@
 
 #include <gasnet.h>
 #include <gasnet_internal.h>
+#include <gasnet_core_internal.h>
 
 gasnet_node_t gasnetc_nodes = (gasnet_node_t)(-1);
 gasnet_node_t gasnetc_mynode = (gasnet_node_t)(-1);
 
-int main(int argc, const char **argv) {
+int main(int argc, char **argv) {
   gasnet_node_t *array1, *array2;
   gasnet_node_t i, j;
 
