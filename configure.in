@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/12 23:08:09 $
-# $Revision: 1.119 $
+#     $Date: 2004/03/13 00:20:07 $
+# $Revision: 1.120 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.119 $)
+AC_REVISION($Revision: 1.120 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -925,11 +925,21 @@ if test $have_gm = yes; then
       AC_MSG_ERROR(build test failed: I don't know how to build GM programs on your system)
       have_gm=no
     fi
+    # GM conduit was shown to break horribly on some versions of gcc, because
+    # of our reuse of memory storage in firehose.  We disable strict aliasing
+    # altogether as the problem appears and disappears across gcc3 minor
+    # versions.
+    if test "$gasnet_cv_cc_family" = "GNU"; then
+	GM_NO_ALIAS="-fno-strict-aliasing"
+    else
+	GM_NO_ALIAS=""
+    fi
   fi
 fi
 
 AC_SUBST(GM_INCLUDE)
 AC_SUBST(GM_LIB)
+AC_SUBST(GM_NO_ALIAS)
 AM_CONDITIONAL(USE_GM_CONDUIT, test "$have_gm" = yes)
 if test "$have_gm" = yes ; then
   CONDUITS="$CONDUITS gm"
