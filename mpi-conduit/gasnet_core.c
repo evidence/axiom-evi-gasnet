@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/05 00:00:02 $
+ * $Revision: 1.2 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -65,9 +65,10 @@ static void gasnetc_check_config() {
      fprintf(stderr, "gasnetc_init() encountered an error: %s\n"\
       "  at %s:%i\n",                                           \
       #reason, __FILE__, __LINE__);                             \
-     retval = GASNET_ERR_ ## type;                              \
-     goto done;                                                 \
    }                                                            \
+   retval = GASNET_ERR_ ## type;                                \
+   goto done;                                                   \
+                                                                \
  } while (0)
 
 static int gasnetc_init(int *argc, char ***argv, 
