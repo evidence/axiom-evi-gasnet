@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2004/07/29 20:22:22 $
- * $Revision: 1.21 $
+ *     $Date: 2004/08/03 17:39:33 $
+ * $Revision: 1.22 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -150,26 +150,6 @@ extern gasnet_seginfo_t *gasnete_seginfo;
   #endif
 #endif
 
-/* get membar */
-#include <gasnet_atomicops.h>
-
-/* gasneti_sync_{reads,writes} are like the rmb/wmb except that when not using threads
- * we want them to compile away, leaving not even a compiler optimization barrier
- */
-#ifndef gasneti_sync_writes
-  #if GASNETI_THREADS
-    #define gasneti_sync_writes() gasneti_local_wmb()
-  #else
-    #define gasneti_sync_writes() 
-  #endif
-#endif
-#ifndef gasneti_sync_reads
-  #if GASNETI_THREADS
-    #define gasneti_sync_reads() gasneti_local_rmb()
-  #else
-    #define gasneti_sync_reads() 
-  #endif
-#endif
 
 /* gasnete_loopback{get,put}_memsync() go after a get or put is done with both source
  * and destination on the local node.  This is only done if GASNet was configured

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/08/02 20:21:13 $
- * $Revision: 1.46 $
+ *     $Date: 2004/08/03 17:39:31 $
+ * $Revision: 1.47 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -505,8 +505,11 @@
    All oustanding loads and stores must be completed before any subsequent ones
    may begin.
 
+ gasneti_compiler_fence:
+   A barrier to compiler optimizations that would reorder any memory references across
+   this point in the code.
 
-  Note that for all four memory barriers, we require only that a given architecture's
+  Note that for all five memory barriers, we require only that a given architecture's
   "normal" loads and stores are ordered as required.  "Extended" instructions such as
   MMX, SSE, SSE2, Altivec and vector ISAs on various other machines often bypass some
   or all of the machine's memory hierarchy and therefore may not be ordered by the same
@@ -515,10 +518,9 @@
 
   To reduce duplicated assembly code and needless empty macros the following are the
   default behaviors unless a given arch/compiler defines something else.
-   + gasneti_local_compilerfence() defaults to an empty "volatile" asm section
+   + gasneti_compiler_fence() defaults to an empty "volatile" asm section
    + gasneti_local_memflush() is implemented on all architectures
-   + gasneti_local_wmb() defaults to gasneti_local_memflush() unless we are building
-       specifically for a uniprocessor (in which case it is only a compiler fence).
+   + gasneti_local_wmb() defaults to gasneti_local_memflush()
    + gasneti_local_rmb() defaults to just a compiler fence, as only a few architectures
        need more than this
    + gasneti_local_mb() defaults to { gasneti_local_wmb(); gasneti_local_rmb(); }.
@@ -551,29 +553,6 @@
   #error "Don't know how to use inline assembly for your compiler"
 #endif
 
-#if defined(__xlC__)  
-/* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly
- * you have to hard-code the opcodes in a pragma that defines an assembly 
- * function - see /usr/include/sys/atomic_op.h on AIX for examples
- * opcodes can be aquired by placing the mnemonics in inline.s and running:
- * as -sinline.lst inline.s
- */ 
-#pragma mc_func _gasneti_do_wmb { \
-  "7c0004ac" /* sync (same opcode used for dcs)*/ \
-}
-#pragma reg_killed_by _gasneti_do_wmb
-#pragma mc_func _gasneti_do_rmb { \
-  "4c00012c" /* isync (instruction sync to squash speculative loads) */ \
-}
-#pragma reg_killed_by _gasneti_do_rmb
-#pragma mc_func _gasneti_do_compilerfence { "" }
-#pragma reg_killed_by _gasneti_do_compilerfence
-GASNET_INLINE_MODIFIER(_gasneti_local_compilerfence)
-void _gasneti_local_compilerfence(void) {
-   _gasneti_do_compilerfence();
-}
-#define gasneti_local_compilerfence _gasneti_local_compilerfence
-#endif
 
 #if defined(__sparc__) || defined(__sparc) || defined(sparc)
  GASNET_INLINE_MODIFIER(gasneti_local_memflush)
@@ -617,10 +596,10 @@ void _gasneti_local_compilerfence(void) {
    #ifdef __INTEL_COMPILER
       /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
       #include <ia64intrin.h>
-      #define gasneti_local_compilerfence() \
+      #define gasneti_compiler_fence() \
              __memory_barrier() /* compiler optimization barrier */
       #define gasneti_local_memflush() do {      \
-        gasneti_local_compilerfence();           \
+        gasneti_compiler_fence();           \
         __mf();  /* memory fence instruction */  \
       } while (0)
    #else
@@ -630,38 +609,32 @@ void _gasneti_local_compilerfence(void) {
         GASNETI_ASM("mf");
       }
    #endif
-#elif defined(_POWER) /* IBM SP POWER2, POWER3 */
+#elif defined(_POWER) || (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__))
+ /* (_POWER) == IBM SP POWER[234]
+  * (__APPLE__ && __MACH__ && __ppc__) == Darwin, OS/X
+  */
  #ifdef __xlC__
-   GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-   void gasneti_local_memflush(void) {
-     _gasneti_do_wmb(); 
+   /* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly
+    * you have to hard-code the opcodes in a pragma that defines an assembly 
+    * function - see /usr/include/sys/atomic_op.h on AIX for examples
+    * opcodes can be aquired by placing the mnemonics in inline.s and running:
+    * as -sinline.lst inline.s
+    */ 
+   #pragma mc_func _gasneti_do_memflush { \
+     "7c0004ac" /* sync (same opcode used for dcs) */ \
    }
-   GASNET_INLINE_MODIFIER(_gasneti_local_rmb)
-   void _gasneti_local_rmb(void) {
-     _gasneti_do_rmb(); 
+   #pragma reg_killed_by _gasneti_do_memflush
+   #define gasneti_local_memflush() _gasneti_do_memflush()
+
+   #pragma mc_func _gasneti_do_rmb { \
+     "4c00012c" /* isync (instruction sync to squash speculative loads) */ \
    }
- #else
-   GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-   void gasneti_local_memflush(void) {
-     GASNETI_ASM("dcs");
-   }
-   GASNET_INLINE_MODIFIER(_gasneti_local_rmb)
-   void _gasneti_local_rmb(void) {
-     GASNETI_ASM("isync");
-   }
- #endif
- #define gasneti_local_rmb() _gasneti_local_rmb()
-#elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__) /* Darwin, OS/X */
- /* Identical to IBM SP, except for the sync vs dcs assembler mnemonic w/ gcc */
- #ifdef __xlC__
-   GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-   void gasneti_local_memflush(void) {
-     _gasneti_do_wmb(); 
-   }
-   GASNET_INLINE_MODIFIER(_gasneti_local_rmb)
-   void _gasneti_local_rmb(void) {
-     _gasneti_do_rmb(); 
-   }
+   #pragma reg_killed_by _gasneti_do_rmb
+   #define gasneti_local_rmb() _gasneti_do_rmb()
+
+   #pragma mc_func _gasneti_do_compilerfence { "" }
+   #pragma reg_killed_by _gasneti_do_compilerfence
+   #define gasneti_compiler_fence() _gasneti_do_compilerfence()
  #else
    GASNET_INLINE_MODIFIER(gasneti_local_memflush)
    void gasneti_local_memflush(void) {
@@ -671,8 +644,8 @@ void _gasneti_local_compilerfence(void) {
    void _gasneti_local_rmb(void) {
      GASNETI_ASM("isync");
    }
+   #define gasneti_local_rmb() _gasneti_local_rmb()
  #endif
- #define gasneti_local_rmb() _gasneti_local_rmb()
 #elif defined(__alpha) && defined(__osf__)
  #if 1
    GASNET_INLINE_MODIFIER(gasneti_local_memflush)
@@ -698,21 +671,10 @@ void _gasneti_local_compilerfence(void) {
    #define gasneti_local_mb() __MB()
  #endif
 #elif defined(_CRAYT3E) /* Takes care of e-regs also */
-  #include <intrinsics.h>
-  GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-  void gasneti_local_memflush(void) {
-    _memory_barrier();
-  }
-  GASNET_INLINE_MODIFIER(_gasneti_local_rmb)
-  void _gasneti_local_rmb(void) {
-    _memory_barrier();
-  }
-  #define gasneti_local_rmb() _gasneti_local_rmb()
-  GASNET_INLINE_MODIFIER(_gasneti_local_mb)
-  void _gasneti_local_mb(void) {
-    _memory_barrier();
-  }
-  #define gasneti_local_mb() _gasneti_local_mb()
+   #include <intrinsics.h>
+   #define gasneti_local_memflush() _memory_barrier()
+   #define gasneti_local_rmb() _memory_barrier()
+   #define gasneti_local_mb() _memory_barrier()
 #elif defined(__crayx1)
    /* Many memory barrier intrinsics on the X1, but none seem to match what we
     * need in a local (scalar-scalar) membar */
@@ -733,35 +695,24 @@ void _gasneti_local_compilerfence(void) {
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif
 
-/* Default gasneti_local_compilerfence() */
-#ifndef gasneti_local_compilerfence
-  #define gasneti_local_compilerfence() GASNETI_ASM("")
+/* Default gasneti_compiler_fence() */
+#ifndef gasneti_compiler_fence
+  #define gasneti_compiler_fence() GASNETI_ASM("")
 #endif
 
 /* Default gasneti_local_wmb() */
 #ifndef gasneti_local_wmb
-  #if defined(GASNETI_UNI_BUILD)
-    /* UNI-processor: Only need a compiler barrier */
-    GASNET_INLINE_MODIFIER(gasneti_local_wmb)
-    void gasneti_local_wmb(void) { gasneti_local_compilerfence(); }
-  #else
-    /* SMP-safe: Default is wmb same as memflush */
-    #define gasneti_local_wmb() gasneti_local_memflush()
-  #endif
+  #define gasneti_local_wmb() gasneti_local_memflush()
 #endif
 
 /* Default gasneti_local_rmb() */
 #ifndef gasneti_local_rmb
-  /* Default is just a compiler barrier */
-  GASNET_INLINE_MODIFIER(gasneti_local_rmb)
-  void gasneti_local_rmb(void) { gasneti_local_compilerfence(); }
+  #define gasneti_local_rmb() gasneti_compiler_fence()
 #endif
 
 /* Default gasneti_local_mb() */
 #ifndef gasneti_local_mb
-  /* Default is just wmb + rmb */
-  GASNET_INLINE_MODIFIER(gasneti_local_mb)
-  void gasneti_local_mb(void) { gasneti_local_wmb(); gasneti_local_rmb(); }
+  #define gasneti_local_mb() do { gasneti_local_wmb(); gasneti_local_rmb(); } while (0)
 #endif
 
 #ifndef gasneti_spinloop_hint

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.h                  $
- *     $Date: 2004/07/29 00:41:02 $
- * $Revision: 1.21 $
+ *     $Date: 2004/08/03 17:39:41 $
+ * $Revision: 1.22 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -171,12 +171,7 @@ void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) {
   if_pf (!gasnetc_counter_done(counter)) {
     gasnetc_counter_wait_aux(counter, handler_context);
   }
-  /* gasneti_sync_reads() not yet defined */
-  #if GASNETI_THREADS
-    gasneti_local_rmb();
-  #else
-    /* NOTHING */
-  #endif
+  gasneti_sync_reads();
 } 
 /* ------------------------------------------------------------------------------------ */
 /*

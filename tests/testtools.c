@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testtools.c                                    $
- *     $Date: 2004/08/02 07:52:53 $
- * $Revision: 1.11 $
+ *     $Date: 2004/08/03 17:39:39 $
+ * $Revision: 1.12 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -85,6 +85,14 @@ int main() {
           granularity < 0.5*overhead)
         printf("ERROR: nonsensical timer overhead/granularity measurements:\n"
                "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
+    }
+  }
+
+  printf("Testing local membar...\n");
+  { /* local membar */
+    int i;
+    for (i=0;i<100;i++) {
+      gasnett_local_mb();
     }
   }
 

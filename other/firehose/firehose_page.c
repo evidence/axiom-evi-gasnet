@@ -1440,7 +1440,7 @@ inner_again:
 	    else if (*dacount >= FH_DACOUNT_MAX) {
 	        *myda = fh_da[node] = 1;
 		fh_dacount++;
-	        gasneti_local_wmb();
+	        gasneti_sync_writes();
 	    }
 
 	    /* unlock, poll, yield, lock and try again */

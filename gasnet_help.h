@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/07/30 02:39:04 $
- * $Revision: 1.34 $
+ *     $Date: 2004/08/03 17:39:31 $
+ * $Revision: 1.35 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -181,6 +181,34 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
         VAL(W, COLL_EXCHANGE_NB, sz)          \
         VAL(W, COLL_EXCHANGE_M, sz)           \
         VAL(W, COLL_EXCHANGE_M_NB, sz)
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Conditionally compiled memory barriers -
+
+   gasneti_sync_{reads,writes} are like gasneti_local_{rmb,wmb} except that when not
+   using threads we want them to compile away to nothing, and when compiling for
+   threads on a uniprocessor we want only a compiler optimization barrier
+*/
+
+#ifndef gasneti_sync_writes
+  #if !GASNETI_THREADS
+    #define gasneti_sync_writes() /* NO-OP */
+  #elif GASNETI_UNI_BUILD
+    #define gasneti_sync_writes() gasneti_compiler_fence()
+  #else
+    #define gasneti_sync_writes() gasneti_local_wmb()
+  #endif
+#endif
+
+#ifndef gasneti_sync_reads
+  #if !GASNETI_THREADS
+    #define gasneti_sync_reads() /* NO-OP */
+  #elif GASNETI_UNI_BUILD
+    #define gasneti_sync_reads() gasneti_compiler_fence()
+  #else
+    #define gasneti_sync_reads() gasneti_local_rmb()
+  #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -493,7 +521,7 @@ extern int gasneti_wait_mode; /* current waitmode hint */
     /* prevent optimizer from hoisting the condition check out of */  \
     /* the enclosing spin loop - this is our way of telling the */    \
     /* optimizer "the wholse world could change here" */              \
-    gasneti_local_compilerfence();                                    \
+    gasneti_compiler_fence();                                         \
     gasneti_spinloop_hint();                                          \
   } while (0)
 

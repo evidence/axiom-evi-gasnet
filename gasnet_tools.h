@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2004/08/02 20:21:13 $
- * $Revision: 1.15 $
+ *     $Date: 2004/08/03 17:39:31 $
+ * $Revision: 1.16 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -55,6 +55,7 @@
 #define gasnett_local_wmb()          gasneti_local_wmb()
 #define gasnett_local_rmb()          gasneti_local_rmb()
 #define gasnett_local_mb()           gasneti_local_mb()
+#define gasnett_compiler_fence()     gasneti_compiler_fence()
 
 /* tight spin loop CPU hint */
 #define gasnett_spinloop_hint()      gasneti_spinloop_hint() 

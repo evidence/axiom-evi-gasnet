@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core.h                  $
- *     $Date: 2004/07/25 09:01:59 $
- * $Revision: 1.12 $
+ *     $Date: 2004/08/03 17:39:37 $
+ * $Revision: 1.13 $
  * Description: GASNet header for smp conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -173,7 +173,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
     while (!(cond)) {                \
       GASNETI_WAITHOOK();            \
     }                                \
-    gasneti_local_rmb();             \
+    gasneti_sync_reads();            \
   } while (0)
 
 /* ------------------------------------------------------------------------------------ */
