@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/13 12:14:04 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -24,6 +24,10 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNET_INVALID_HANDLE ((gasnet_handle_t)0)
 
 #ifdef GASNETI_THREADS
+  #define GASNETI_THREADINFO_OPT
+#endif
+
+#ifdef GASNETI_THREADINFO_OPT
   /* Here we use a clever trick - GASNET_GET_THREADINFO() uses the sizeof(gasneti_threadinfo_available)
       to determine whether gasneti_threadinfo_cache was bound a value posted by GASNET_POST_THREADINFO()
       of if it bound to the globally declared dummy variables. 
@@ -45,7 +49,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
   #define GASNET_GET_THREADINFO()                  \
     ( (sizeof(gasnete_threadinfo_available) == 1) ? \
       (gasnet_threadinfo_t)gasnete_mythread() :    \
-      (gasnet_threadinfo_t)gasnete_threadinfo_cache )
+      (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache )
 
   /* the gasnet_threadinfo_t pointer points to a thread data-structure owned by
      the extended API, whose first element is a pointer reserved

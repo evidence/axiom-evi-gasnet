@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/13 12:14:04 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -23,13 +23,24 @@ extern gasnet_seginfo_t *gasnete_seginfo;
 
 #ifdef GASNETI_THREADS
   struct _gasnete_threaddata_t;
+  /* TODO: mark this as a pure function for other compilers */
   extern struct _gasnete_threaddata_t *gasnete_mythread() __attribute__ ((const));
+  #if defined(__xlC__)
+    #if 1
+      #pragma options pure=gasnete_mythread
+    #else
+      #pragma isolated_call(gasnete_mythread)
+    #endif
+  #endif
 #endif
 
 #define gasnete_islocal(nodeid) (nodeid == gasnete_mynode)
 #define gasnete_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,e)
 
-/* busy-waits */
+/* busy-waits, with no implicit polling (cnd should include an embedded poll)
+   differs from GASNET_BLOCKUNTIL because it may be waiting for an event
+     caused by the receipt of a non-AM message
+ */
 #define gasnete_waituntil(cnd) gasnete_waitwhile(!(cnd)) 
 #define gasnete_waitwhile(cnd) do { /* could add something here */ } while (cnd) 
 
@@ -100,6 +111,25 @@ extern gasnet_seginfo_t *gasnete_seginfo;
   } } while (0)
 
 
+/* ------------------------------------------------------------------------------------ */
+/* thread-id optimization support */
+#ifdef GASNETI_THREADINFO_OPT
+  #define GASNETE_THREAD_FARG_ALONE   gasnet_threadinfo_t const _threadinfo
+  #define GASNETE_THREAD_FARG         , GASNETE_THREAD_FARG_ALONE
+  #define GASNETE_THREAD_GET_ALONE    GASNET_GET_THREADINFO()
+  #define GASNETE_THREAD_GET          , GASNETE_THREAD_GET_ALONE
+  #define GASNETE_THREAD_PASS_ALONE   (_threadinfo)
+  #define GASNETE_THREAD_PASS         , GASNETE_THREAD_PASS_ALONE
+  #define GASNETE_MYTHREAD            ((gasnete_threaddata_t *)_threadinfo)
+#else
+  #define GASNETE_THREAD_FARG_ALONE   
+  #define GASNETE_THREAD_FARG         
+  #define GASNETE_THREAD_GET_ALONE   
+  #define GASNETE_THREAD_GET         
+  #define GASNETE_THREAD_PASS_ALONE   
+  #define GASNETE_THREAD_PASS         
+  #define GASNETE_MYTHREAD            (gasnete_mythread())
+#endif
 /* ------------------------------------------------------------------------------------ */
 
 END_EXTERNC
