@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/26 23:04:25 $
- * $Revision: 1.16 $
+ *     $Date: 2003/08/27 00:44:20 $
+ * $Revision: 1.17 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -989,7 +989,11 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     req.sr_desc.sg_lst_len  = 1;
     req.sr_desc.fence       = TRUE;
     req.sr_desc.remote_addr = dst;
-    req.sr_desc.r_key       = cep->rkey;	/* XXX: change for non-FAST */
+#if defined(GASNET_SEGMENT_FAST)
+    req.sr_desc.r_key       = cep->rkey;
+#else
+    /* (###) implement firehose */
+#endif
 
     if (req_oust) {
       gasneti_atomic_increment(req_oust);
@@ -1090,7 +1094,11 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     req.sr_desc.sg_lst_len  = 1;
     req.sr_desc.fence       = FALSE;
     req.sr_desc.remote_addr = src;
-    req.sr_desc.r_key       = cep->rkey;	/* XXX: change for non-FAST */
+#if defined(GASNET_SEGMENT_FAST)
+    req.sr_desc.r_key       = cep->rkey;
+#else
+    /* (###) implement firehose */
+#endif
 
     if (req_oust) {
       gasneti_atomic_increment(req_oust);
@@ -1147,7 +1155,11 @@ extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, 
     req.sr_desc.sg_lst_len  = 1;
     req.sr_desc.fence       = TRUE;
     req.sr_desc.remote_addr = dst;
-    req.sr_desc.r_key       = cep->rkey;	/* XXX: change for non-FAST */
+#if defined(GASNET_SEGMENT_FAST)
+    req.sr_desc.r_key       = cep->rkey;
+#else
+    /* (###) implement firehose */
+#endif
     req.sr_sg.addr = (uintptr_t)sbuf->buffer;
     req.sr_sg.len  = count;
     req.sr_sg.lkey = gasnetc_snd_reg.lkey;

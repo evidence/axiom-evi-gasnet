@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/27 00:36:50 $
- * $Revision: 1.16 $
+ *     $Date: 2003/08/27 00:44:20 $
+ * $Revision: 1.17 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,10 @@
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
+
+#if defined(GASNET_SEGMENT_LARGE) || defined(GASNET_SEGMENT_EVERYTHING)
+  #warning "I don't do LARGE or EVERYTHING yet - almost certain to hang at runtime!!"
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -68,7 +72,7 @@ VAPI_hca_hndl_t	gasnetc_hca;
 VAPI_hca_cap_t	gasnetc_hca_cap;
 VAPI_hca_port_t	gasnetc_hca_port;
 VAPI_pd_hndl_t	gasnetc_pd;
-#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
+#if defined(GASNET_SEGMENT_FAST)
   gasnetc_memreg_t	gasnetc_seg_reg;
 #endif
 
@@ -127,12 +131,12 @@ static void gasnetc_check_config() {
 }
 
 extern gasnetc_memreg_t *gasnetc_local_reg(uintptr_t start, uintptr_t end) {
-  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
+  #if defined(GASNET_SEGMENT_FAST)
     if ((start >= gasnetc_seg_reg.start) && (end <= gasnetc_seg_reg.end)) {
       return &gasnetc_seg_reg;
     }
   #else
-    #error "I don't do EVERYTHING yet"
+    /* (###) implement firehose */
   #endif
 
   if ((start >= gasnetc_rcv_reg.start) && (end <= gasnetc_rcv_reg.end)) {
@@ -151,7 +155,7 @@ GASNET_INLINE_MODIFIER(gasnetc_is_pinned_remote)
 int gasnetc_is_pinned_remote(gasnet_node_t node, uintptr_t start, size_t len) {
   uintptr_t	end = (start + (len - 1)); /* subtact 1 first, to avoid overflows */
 
-  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
+  #if defined(GASNET_SEGMENT_FAST)
   {
     /* check if the range is entirely in the remotely pinned segment */
     uintptr_t segbase = (uintptr_t)gasnetc_seginfo[node].addr;
@@ -162,7 +166,7 @@ int gasnetc_is_pinned_remote(gasnet_node_t node, uintptr_t start, size_t len) {
     }
   }
   #else
-    #error "I don't do EVERYTHING yet"
+    /* (###) implement firehose */
   #endif
 
   /* Not pinned */
@@ -500,7 +504,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   assert(gasnetc_hca_cap.max_num_cq >= 2);
   assert(gasnetc_hca_cap.max_num_ent_cq >= gasnetc_op_oust_limit);
   assert(gasnetc_hca_cap.max_num_ent_cq >= gasnetc_am_oust_limit * 2); /* request + reply == 2 */
-  #if defined(GASNET_SEGMENT_EVERYTHING)
+  #if defined(GASNET_SEGMENT_LARGE) || defined(GASNET_SEGMENT_EVERYTHING)
     assert(gasnetc_hca_cap.max_num_mr >= (3+gasnetc_nodes));	/* rcv bufs, snd bufs, segment, n*fh */
   #else
     assert(gasnetc_hca_cap.max_num_mr >= 3);			/* rcv bufs, snd bufs, segment */
@@ -638,11 +642,19 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasnetc_mynode, gasnetc_nodes); fflush(stderr);
   #endif
 
-  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
+  #if defined(GASNET_SEGMENT_FAST)
   {
     gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize,
                         &gasnetc_MaxGlobalSegmentSize,
                         gasnetc_max_pinnable(),
+                        gasnetc_nodes,
+                        &gasnetc_bootstrapAllgather);
+  }
+  #elif defined(GASNET_SEGMENT_LARGE)
+  {
+    gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize,
+                        &gasnetc_MaxGlobalSegmentSize,
+                        (uintptr_t)(-1),
                         gasnetc_nodes,
                         &gasnetc_bootstrapAllgather);
   }
@@ -805,7 +817,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
      hold/resume interrupts functions are operational yet */
   gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
 
-  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
+  #if defined(GASNET_SEGMENT_FAST)
+  {
     /* allocate the segment and exchange seginfo */
     gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapAllgather);
     segbase = gasnetc_seginfo[gasnetc_mynode].addr;
@@ -829,16 +842,28 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       }
       free(rkeys);
     }
+  }
+  #elif defined(GASNET_SEGMENT_LARGE)
+  {
+    /* allocate the segment and exchange seginfo */
+    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapAllgather);
+    segbase = gasnetc_seginfo[gasnetc_mynode].addr;
+    segsize = gasnetc_seginfo[gasnetc_mynode].size;
+
+    /* (###) add any code here needed to setup firehose support */
+  }
   #elif defined(GASNET_SEGMENT_EVERYTHING)
-    { int i;
-      for (i=0;i<gasnetc_nodes;i++) {
-        gasnetc_seginfo[i].addr = (void *)0;
-        gasnetc_seginfo[i].size = (uintptr_t)-1;
-      }
+  {
+    int i;
+    for (i=0;i<gasnetc_nodes;i++) {
+      gasnetc_seginfo[i].addr = (void *)0;
+      gasnetc_seginfo[i].size = (uintptr_t)-1;
     }
     segbase = (void *)0;
     segsize = (uintptr_t)-1;
-    /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
+
+    /* (###) add any code here needed to setup firehose support */
+  }
   #endif
 
   /* ------------------------------------------------------------------------------------ */
@@ -1261,9 +1286,11 @@ static void gasnetc_exit_body(void) {
       VAPI_destroy_qp(gasnetc_hca, gasnetc_cep[i].qp_handle);
     }
     gasnetc_sndrcv_fini();
+#if defined(GASNET_SEGMENT_FAST)
     if (gasnetc_attach_done) {
       gasnetc_unpin(&gasnetc_seg_reg);
     }
+#endif
     (void)VAPI_dealloc_pd(gasnetc_hca, gasnetc_pd);
 #if !GASNETC_RCV_THREAD	/* can't release from inside the RCV thread */
     (void)EVAPI_release_hca_hndl(gasnetc_hca);
