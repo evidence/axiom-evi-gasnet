@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2003/05/24 02:17:00 $
- * $Revision: 1.10 $
+ *     $Date: 2003/06/16 09:57:38 $
+ * $Revision: 1.11 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -55,17 +55,23 @@ static char *_ErrorDesc(int errval) {
     }                                                       \
   } while(0)
 
-static int64_t mygetMicrosecondTimeStamp(void)
-{
-    int64_t retval;
-    struct timeval tv;
-    if (gettimeofday(&tv, NULL)) {
-	perror("gettimeofday");
-	abort();
-    }
-    retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
-    return retval;
-}
+/* return a microsecond time-stamp */
+#ifdef FORCE_GETTIMEOFDAY
+  static int64_t mygetMicrosecondTimeStamp(void) {
+      int64_t retval;
+      struct timeval tv;
+      if (gettimeofday(&tv, NULL)) {
+	  perror("gettimeofday");
+	  abort();
+      }
+      retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
+      return retval;
+  }
+  #define TIME() mygetMicrosecondTimeStamp()
+#else
+  #include <gasnet_tools.h>
+  #define TIME() gasnett_ticks_to_us(gasnett_ticks_now()) 
+#endif
 
 uint64_t test_checksum(void *p, int numbytes) {
  uint8_t *buf = (uint8_t *)p;
@@ -78,8 +84,6 @@ uint64_t test_checksum(void *p, int numbytes) {
  return result;
 }
 
-/* return a microsecond time-stamp */
-#define TIME() mygetMicrosecondTimeStamp()
 
 #define MSG(s) do {                                                              \
   printf("node %i/%i %s\n", gasnet_mynode(), gasnet_nodes(), s); fflush(stdout); \
