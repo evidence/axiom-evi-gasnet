@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/08/26 04:53:55 $
-# $Revision: 1.17 $
+#     $Date: 2004/08/26 19:13:02 $
+# $Revision: 1.18 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -176,13 +176,10 @@ sub parse_tracefile
 	if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(PUT|GET|BARRIER)(.*):\D+(\d+)/) { 
             ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
             if ($pgb =~ /PUT|GET/) {
-	      if ($type =~ /_LOCAL$/) {
-                $type = "LOCAL";
-	      } else {
-	        $type = "GLOBAL";
-	      }
+	        $type = ($type =~ /_LOCAL$/) ? "LOCAL" : "GLOBAL";
             } elsif ($pgb =~ /BARRIER/) {
 	        $type =~ s/^_//;
+		next unless ($type =~ /NOTIFYWAIT|WAIT/);	# discard unknowns
                 $thread = $nodes{$thread};
             }
 	} else {
@@ -278,8 +275,10 @@ sub convert_report
     	    	        $totalc += $ttotalc;
                     }		
     	    	}
+		die "INTERNAL ERROR" unless $totalc;
     	    	$avg = $total / $totalc;
     	    	if ($pgb =~ /BARRIER/) {
+		    die "INTERNAL ERROR" unless scalar (keys %nodes);
     	    	    $totalc = $totalc / (scalar (keys %nodes));
                 }
     	    	my @entry = ($line, $type, $max, $min, $avg, $total, $totalc);
