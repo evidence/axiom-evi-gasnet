@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/06/30 12:45:26 $
- * $Revision: 1.37 $
+ *     $Date: 2004/07/18 16:51:38 $
+ * $Revision: 1.38 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -171,12 +171,15 @@
         }
       #elif defined(__ia64__)
         #if GASNET_DEBUG
+          #include <stdio.h>
+          #include <stdlib.h>
           #define GASNETI_CMPXCHG_BUGCHECK_DECL  int _cmpxchg_bugcheck_count = 128;
           #define GASNETI_CMPXCHG_BUGCHECK(v) do {                                         \
               if (_cmpxchg_bugcheck_count-- <= 0) {                                        \
                 void *ip;                                                                  \
                 asm ("mov %0=ip" : "=r"(ip));                                              \
-                gasneti_fatalerror("CMPXCHG_BUGCHECK: stuck at %p on word %p\n", ip, (v)); \
+                fprintf(stderr,"CMPXCHG_BUGCHECK: stuck at %p on word %p\n", ip, (v));     \
+                abort();                                                                   \
               }                                                                            \
             } while (0)
         #else
