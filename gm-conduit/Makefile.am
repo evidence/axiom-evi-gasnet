@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/02/01 16:44:50 $
-# $Revision: 1.47 $
+#     $Date: 2005/04/05 07:55:10 $
+# $Revision: 1.48 $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -76,6 +76,10 @@ CONDUIT_EXTRADEPS = $(fh_srcdir)/*.h $(mpi_hdrs)
 # using a special, conduit-specific command. These should also be included as
 # forced targets in this file, and should probably use LIBINCLUDES/LIBDEFINES
 CONDUIT_SPECIAL_OBJS = $(mpi_objs)
+
+# bug 1036: ensure .rodata section in executable is actually writeable, because GM
+# registration fails on read-only virtual pages
+CONDUIT_SPECIAL_POSTCC_CMD = objcopy --set-section-flags .rodata=contents,alloc,load,data firehose.o
 
 # the default job spawn command to be used for "make run-tests"
 # The following substitutions are performed:

@@ -74,6 +74,7 @@ do-libgasnet: $(CONDUIT_SPECIAL_OBJS)
 	@mkdir -p .$(THREAD_MODEL)
 	@libgasnet_objects="$(libgasnet_objects)" ; libgasnet_objects=`echo $$libgasnet_objects` ; \
 	pwd=`@PWD_PROG@` ; cmd="$(CC) $(LIBCFLAGS) -c $(libgasnet_sources) && \
+        eval $(CONDUIT_SPECIAL_POSTCC_CMD) && \
 	$(AR) cru $$pwd/libgasnet-$(CONDUIT_NAME)-$(THREAD_MODEL_LC).a $$libgasnet_objects && \
 	$(RANLIB) $$pwd/libgasnet-$(CONDUIT_NAME)-$(THREAD_MODEL_LC).a && \
 	rm -f $$libgasnet_objects" ; \

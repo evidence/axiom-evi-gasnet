@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2004/08/26 04:53:57 $
- * $Revision: 1.17 $
+ *     $Date: 2005/04/05 07:55:14 $
+ * $Revision: 1.18 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,6 +10,9 @@
 
 static firehose_request_t *fh_request_new(firehose_request_t *ureq);
 static void fh_request_free(firehose_request_t *req);
+
+/* bug 1036: ensure we have at least one .rodata symbol in firehose.o */
+const int fh_dummy_rodata_writable = 1;
 
 /* ##################################################################### */
 /* LOCKS, FIFOS, ETC.                                                    */
