@@ -270,15 +270,17 @@ firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 		 * callback will be subsequently called from within the
 		 * firehose library */
 
-		if (!(flags & FIREHOSE_FLAG_RETURN_IF_PINNED)) {
+		if (flags & FIREHOSE_FLAG_RETURN_IF_PINNED) {
+			return req;
+		}
+		else {
 			GASNETI_TRACE_PRINTF(C, 
 			    ("Firehoses pinned, callback"));
 			callback(context, req, 1);
 		}
-		return req;
 	}
-	else
-		return NULL;
+
+	return NULL;
 }
 
 extern const firehose_request_t *
