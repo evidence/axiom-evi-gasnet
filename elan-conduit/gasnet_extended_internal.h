@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended_internal.h         $
- *     $Date: 2002/12/19 18:35:47 $
- * $Revision: 1.5 $
+ *     $Date: 2003/02/27 03:29:17 $
+ * $Revision: 1.6 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,7 +23,6 @@
 #else
   #define GASNETE_USE_PGCTRL_NBI  0
 #endif
-#define GASNETE_MAX_PUTGET_NBI    256
 
 typedef uint8_t gasnete_threadidx_t;
 
@@ -64,7 +63,7 @@ typedef struct _gasnete_eop_t {
 } gasnete_eop_t;
 
 typedef struct {
-  ELAN_EVENT  *evt_lst[GASNETE_MAX_PUTGET_NBI]; 
+  ELAN_EVENT  **evt_lst; 
   int          evt_cnt;
 } gasnete_putgetctrl;
 
@@ -72,8 +71,8 @@ typedef struct _gasnete_iop_t {
   uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
   uint16_t _unused;
-  int initiated_get_cnt;     /*  count of get ops initiated */
   int initiated_put_cnt;     /*  count of put ops initiated */
+  int initiated_get_cnt;     /*  count of get ops initiated */
 
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
@@ -86,11 +85,11 @@ typedef struct _gasnete_iop_t {
   gasnete_eop_t *elan_putbb_list; /* list of bounce-buffered elan put eops */
   gasnete_eop_t *elan_getbb_list; /* list of bounce-buffered elan get eops */
 
-  /*  make sure the counters live on different cache lines for SMP's */
-  uint8_t pad[GASNETE_CACHE_LINE_BYTES - 4*sizeof(void*) - sizeof(int)]; 
-
-  gasneti_atomic_t completed_get_cnt;     /*  count of get ops completed */
+  /*  make sure the completion counters live on a cache line by themselves for SMP's */
+  uint8_t _pad[GASNETE_CACHE_LINE_BYTES - 4*sizeof(void*) - sizeof(int)]; 
   gasneti_atomic_t completed_put_cnt;     /*  count of put ops completed */
+  gasneti_atomic_t completed_get_cnt;     /*  count of get ops completed */
+  uint8_t _pad2[GASNETE_CACHE_LINE_BYTES - 2*sizeof(gasneti_atomic_t)]; 
 } gasnete_iop_t;
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2003/02/18 03:01:03 $
- * $Revision: 1.18 $
+ *     $Date: 2003/02/27 03:29:17 $
+ * $Revision: 1.19 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,7 +56,7 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
   get_nbi:
     if elan-addressable dest
       use a simple elan_get and add ELAN_EVENT to pgctrl 
-        (spin-poll if more than GASNETE_MAX_PUTGET_NBI(256) outstanding) 
+        (spin-poll if more than GASNETE_DEFAULT_NBI_THROTTLE(256) outstanding) 
     else if < GASNETE_MAX_COPYBUFFER_SZ and mem available
       use a elan bouncebuf dest with an eop and add to nbi linked-list
     else 
@@ -65,7 +65,7 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
   put_nbi:
     if bulk and elan-addressable src or < GASNETC_ELAN_SMALLPUTSZ (128)
       use a simple elan_put and add ELAN_EVENT to pgctrl 
-        (spin-poll if more than GASNETE_MAX_PUTGET_NBI(256) outstanding) 
+        (spin-poll if more than GASNETE_DEFAULT_NBI_THROTTLE(256) outstanding) 
     else if < GASNETE_MAX_COPYBUFFER_SZ and mem available
       copy to a elan bouncebuf src with an eop and add to nbi linked-list
     else 
@@ -85,6 +85,11 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
   static int     gasnete_pgctrl_throttle = 64;  /* limit number of concurrent DMA's (must be <= 64) */
   static E3_Addr gasnete_pgctrl_devent = 0;     /* remote elan3 event to fire */
   static int     gasnete_pgctrl_rail = 0;       /* rail to use (local or remote?) */
+#else
+  #ifndef GASNETE_DEFAULT_NBI_THROTTLE
+    #define GASNETE_DEFAULT_NBI_THROTTLE    256
+  #endif
+  static int gasnete_nbi_throttle = GASNETE_DEFAULT_NBI_THROTTLE;
 #endif
 
 /* the size threshold where gets/puts stop using medium messages and start using longs */
@@ -252,6 +257,12 @@ extern void gasnete_init() {
   gasnete_seginfo = (gasnet_seginfo_t*)gasneti_malloc(sizeof(gasnet_seginfo_t)*gasnete_nodes);
   gasnet_getSegmentInfo(gasnete_seginfo, gasnete_nodes);
 
+  if (gasnet_getenv("GASNET_NBI_THROTTLE")) {
+    gasnete_nbi_throttle = atoi(gasnet_getenv("GASNET_NBI_THROTTLE"));
+    if (gasnete_nbi_throttle < 1) gasnete_nbi_throttle = GASNETE_DEFAULT_NBI_THROTTLE;
+    else GASNETI_TRACE_PRINTF(C,("Set gasnete_nbi_throttle = %i", gasnete_nbi_throttle));
+  }
+
   { gasnete_threaddata_t *threaddata = NULL;
     gasnete_eop_t *eop = NULL;
     #ifdef GASNETI_THREADS
@@ -383,7 +394,12 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
     assert(iop->threadidx == thread->threadidx);
   } else {
-    iop = (gasnete_iop_t *)gasneti_malloc(sizeof(gasnete_iop_t));
+    int sz = sizeof(gasnete_iop_t);
+    #if !GASNETE_USE_PGCTRL_NBI
+      assert(sizeof(gasnete_iop_t) % sizeof(void*) == 0);
+      sz += 2*gasnete_nbi_throttle*sizeof(ELAN_EVENT*);
+    #endif
+    iop = (gasnete_iop_t *)gasneti_malloc(sz);
     SET_OPTYPE((gasnete_op_t *)iop, OPTYPE_IMPLICIT);
     iop->threadidx = thread->threadidx;
   }
@@ -397,7 +413,9 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     iop->elan_pgctrl = NULL
   #else
     iop->putctrl.evt_cnt = 0;
+    iop->putctrl.evt_lst = (ELAN_EVENT *)(iop+1);
     iop->getctrl.evt_cnt = 0;
+    iop->getctrl.evt_lst = iop->putctrl.evt_lst + gasnete_nbi_throttle;
   #endif
 
   iop->elan_putbb_list = NULL;
@@ -869,24 +887,26 @@ static int gasnete_putgetctrl_done(gasnete_putgetctrl *pgctrl) {
 
 /* add a put or get to the control - assumes elan lock held */
 static void gasnete_putgetctrl_save(gasnete_putgetctrl *pgctrl, ELAN_EVENT *evt) {
+  ELAN_EVENT ** evt_lst;
   ASSERT_ELAN_LOCKED_WEAK();
-  assert(pgctrl && evt);
-  while (pgctrl->evt_cnt == GASNETE_MAX_PUTGET_NBI) {
+  assert(pgctrl && evt && pgctrl->evt_cnt <= gasnete_nbi_throttle);
+  evt_lst = pgctrl->evt_lst;
+  while (pgctrl->evt_cnt == gasnete_nbi_throttle) {
     int i;
     for (i=0; i < pgctrl->evt_cnt; i++) {
-      if (elan_poll(pgctrl->evt_lst[i], 1)) {
+      if (elan_poll(evt_lst[i], 1)) {
         pgctrl->evt_cnt--;
-        pgctrl->evt_lst[i] = pgctrl->evt_lst[pgctrl->evt_cnt];
+        evt_lst[i] = evt_lst[pgctrl->evt_cnt];
         i--;
       }
     }
-    if (pgctrl->evt_cnt == GASNETE_MAX_PUTGET_NBI) {
+    if (pgctrl->evt_cnt == gasnete_nbi_throttle) {
       UNLOCK_ELAN_WEAK();
       gasnetc_AMPoll();
       LOCK_ELAN_WEAK();
     }
   }
-  pgctrl->evt_lst[pgctrl->evt_cnt] = evt;
+  evt_lst[pgctrl->evt_cnt] = evt;
   pgctrl->evt_cnt++;
 }
 /* return a list containing some pending putgetbb eops (NULL if done) - assumes elan lock held */
@@ -1173,6 +1193,10 @@ static int gasnete_iop_gets_done(gasnete_iop_t *iop) {
   ASSERT_ELAN_UNLOCKED();
   if (gasneti_atomic_read(&(iop->completed_get_cnt)) == iop->initiated_get_cnt) {
     int retval = TRUE;
+    if_pf (iop->initiated_get_cnt > 65000) { /* make sure we don't overflow the counters */
+      gasneti_atomic_set(&(iop->completed_get_cnt), 0);
+      iop->initiated_get_cnt = 0;
+    }
     #if !GASNETE_USE_PGCTRL_NBI
       if (iop->getctrl.evt_cnt || iop->elan_getbb_list)
     #endif
@@ -1199,6 +1223,10 @@ static int gasnete_iop_puts_done(gasnete_iop_t *iop) {
   ASSERT_ELAN_UNLOCKED();
   if (gasneti_atomic_read(&(iop->completed_put_cnt)) == iop->initiated_put_cnt) {
     int retval = TRUE;
+    if_pf (iop->initiated_put_cnt > 65000) { /* make sure we don't overflow the counters */
+      gasneti_atomic_set(&(iop->completed_put_cnt), 0);
+      iop->initiated_put_cnt = 0;
+    }
     #if !GASNETE_USE_PGCTRL_NBI
       if (iop->putctrl.evt_cnt || iop->elan_putbb_list)
     #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/02/18 03:01:07 $
- * $Revision: 1.8 $
+ *     $Date: 2003/02/27 03:29:21 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -782,10 +782,13 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&iop->get_cntr,&cnt));
 	    assert(cnt <= iop->initiated_get_cnt);
 	}
-	if (iop->initiated_get_cnt == cnt) 
+        if (iop->initiated_get_cnt == cnt) {
+            if (cnt > 65000) { /* make sure we don't overflow the counters */
+	      GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->get_cntr,0));
+              iop->initiated_get_cnt = 0;
+            }
 	    return GASNET_OK;
-	else
-	    return GASNET_ERR_NOT_READY;
+        } else return GASNET_ERR_NOT_READY;
     }
 }
 
@@ -806,10 +809,13 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&iop->put_cntr,&cnt));
 	    assert(cnt <= iop->initiated_put_cnt);
 	}
-	if (iop->initiated_put_cnt == cnt)
+        if (iop->initiated_put_cnt == cnt) {
+          if (cnt > 65000) { /* make sure we don't overflow the counters */
+	      GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->put_cntr,0));
+              iop->initiated_put_cnt = 0;
+            }
 	    return GASNET_OK;
-	else
-	    return GASNET_ERR_NOT_READY;
+        } else return GASNET_ERR_NOT_READY;
     }
 }
 
