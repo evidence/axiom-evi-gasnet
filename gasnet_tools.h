@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2004/08/03 17:39:31 $
- * $Revision: 1.16 $
+ *     $Date: 2004/08/25 06:35:03 $
+ * $Revision: 1.17 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,10 +83,12 @@
 /* misc internal GASNet things we wish to expose when available */
 #if defined(_INCLUDED_GASNET_H) && defined(GASNET_TRACE)
   #define GASNETT_TRACE_SETSOURCELINE GASNETI_TRACE_SETSOURCELINE
+  #define GASNETT_TRACE_GETSOURCELINE GASNETI_TRACE_GETSOURCELINE
   #define GASNETT_TRACE_PRINTF  _gasnett_trace_printf
   extern void _gasnett_trace_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
 #else
-  #define GASNETT_TRACE_SETSOURCELINE 
+  #define GASNETT_TRACE_SETSOURCELINE(file,line) 
+  #define GASNETT_TRACE_GETSOURCELINE(pfile,pline) 
   #define GASNETT_TRACE_PRINTF  _gasnett_trace_printf
   /*GASNET_INLINE_MODIFIER(_gasnett_trace_printf) 
    * causes many warnings because vararg fns cannot be inlined */
