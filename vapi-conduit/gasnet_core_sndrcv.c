@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2004/02/13 22:24:51 $
- * $Revision: 1.46 $
+ *     $Date: 2004/03/03 20:49:42 $
+ * $Revision: 1.47 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1666,9 +1666,6 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     src += count;
     dst += count;
     nbytes -= count;
-
-    /* After the first chunk either we are done, or dst is bucket-aligned */
-    gasneti_assert(!nbytes || !(dst & (FH_BUCKET_SIZE - 1)));
   } while (nbytes);
 
   return 0;
@@ -1704,9 +1701,6 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     src += count;
     dst += count;
     nbytes -= count;
-
-    /* After the first chunk either we are done, or src is bucket-aligned */
-    gasneti_assert(!nbytes || !(src & (FH_BUCKET_SIZE - 1)));
   } while (nbytes);
 
   return 0;
