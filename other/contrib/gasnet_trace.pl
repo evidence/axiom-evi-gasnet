@@ -105,6 +105,7 @@ trace_output(*STDOUT, "BARRIER") if $opt_report =~ /B/;
 sub usage 
 {
     print <<EOF;
+GASNet trace file summarization script, v1.0
 Usage:  gasnet_trace [options] trace-file(s)
 
 Options:
@@ -154,7 +155,7 @@ sub parse_tracefile
     while (<TRACEFILE>) {
         my ($thread, $src, $pgb, $type, $sz);
         # Handling Local put/get (under the H category).
-        if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\(H\)\s+(PUT|GET).*:\D+(\d+)/) {
+        if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPG]\)\s+(PUT|GET).*_LOCAL:\D+(\d+)/) {
             ($thread, $src, $pgb, $sz) = ($1, $2, $3, $4);
             $type = "LOCAL";
             update_data($thread, $src, $pgb, $type, $sz);
