@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/10/07 23:28:11 $
-# $Revision: 1.196 $
+#     $Date: 2004/10/08 05:55:55 $
+# $Revision: 1.197 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.196 $)
+AC_REVISION($Revision: 1.197 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1530,10 +1530,13 @@ if test $enabled_shmem = yes; then
 	GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /usr/include)
 	GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /usr/lib)
         GASNET_ENV_DEFAULT(SHMEM_LIBS, "-lsma")
+      else
+        AC_MSG_RESULT(unknown)
+        have_shmem=no
       fi
       ;;
     *)
-      AC_MSG_RESULT(Unknown)
+      AC_MSG_RESULT(unknown)
       have_shmem=no
       ;;
   esac
