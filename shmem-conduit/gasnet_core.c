@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/23 08:25:47 $
- * $Revision: 1.11 $
+ *     $Date: 2005/03/15 13:54:54 $
+ * $Revision: 1.12 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -776,7 +776,7 @@ extern int gasnetc_AMRequestShortM(
   GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
-  gasnetc_AMPoll();
+  gasneti_AMPoll();
 
 #if 0 && defined(CRAYX1)
   myidx = gasnetc_AMQueueRequest(dest);
@@ -839,7 +839,7 @@ extern int gasnetc_AMRequestMediumM(
     /* add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
-  gasnetc_AMPoll();
+  gasneti_AMPoll();
 
   /* Write args and pack a header */
   _amstub.args[0] = GASNETC_AMHEADER_PACK(
@@ -897,7 +897,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
              and send the active message 
      */
 
-  gasnetc_AMPoll();
+  gasneti_AMPoll();
 
   /* Write args and pack a header */
   _amstub.args[0] = GASNETC_AMHEADER_PACK(

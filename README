@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.51 $
+$Revision: 1.52 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -176,18 +176,29 @@ although we generally recommend the vendor C compiler for performance reasons.
 Recognized Environment Variables
 ================================
 
-* GASNET_FREEZE - set to 1 to make GASNet pause and wait for a debugger to attach on
+* GASNET_FREEZE: set to 1 to make GASNet pause and wait for a debugger to attach on
  startup
 
 * GASNET_TRACEFILE, GASNET_TRACEMASK, GASNET_STATSFILE, GASNET_STATSMASK, 
-  GASNET_TRACEFLUSH, GASNET_TRACELOCAL - control tracing & statistical features, 
+  GASNET_TRACEFLUSH, GASNET_TRACELOCAL: control tracing & statistical features, 
  if enabled at configure time.  See usage information below.
 
-* GASNET_VERBOSEENV - output information about environment variable settings
+* GASNET_VERBOSEENV: output information about environment variable settings
  read by the conduit that affect conduit behavior.
 
-* GASNET_MALLOC_EXTRACHECK - in GASNET_DEBUG mode, enable extra-paranoid checking
- for memory corruption (at a cost in performance)
+* GASNET_MALLOC_EXTRACHECK: in GASNET_DEBUG mode, set to 1 to enable
+ extra-paranoid checking for memory corruption (at a cost in performance)
+
+* GASNET_MALLOC_INIT: When set to a value between 0 and 255 in GASNET_DEBUG
+ mode, every byte of allocated memory is initialized to that value. This can be
+ useful for detecting use of uninitialized data.
+
+* GASNET_MALLOC_CLOBBER: When set to a value between 0 and 255 in GASNET_DEBUG
+ mode, every byte of freed memory is overwritten with that value. This can be
+ useful for detecting use of freed data.
+
+* GASNET_MALLOC_LEAKALL:  in GASNET_DEBUG mode, set to 1 to leak all freed
+ objects, ensuring they are not re-allocated during subsequent mallocs.
 
 * see conduit-specific documentation in conduit directories for more settings
 

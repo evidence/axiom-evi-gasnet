@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/03/15 01:27:18 $
- * $Revision: 1.26 $
+ *     $Date: 2005/03/15 13:54:48 $
+ * $Revision: 1.27 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -141,7 +141,7 @@ BEGIN_EXTERNC
 
   #if GASNET_DEBUG
     #define gasnett_debug_malloc(sz)      gasneti_extern_malloc(sz) 
-    #define gasnett_debug_realloc(ptr,sz)    gasneti_extern_realloc((ptr),(sz))
+    #define gasnett_debug_realloc(ptr,sz) gasneti_extern_realloc((ptr),(sz))
     #define gasnett_debug_calloc(N,S)     gasneti_extern_calloc((N),(S))
     #define gasnett_debug_free(ptr)       gasneti_extern_free(ptr)  
     #define gasnett_debug_strdup(s)       gasneti_extern_strdup(s)

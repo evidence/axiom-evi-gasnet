@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/03/15 01:27:18 $
- * $Revision: 1.96 $
+ *     $Date: 2005/03/15 13:54:48 $
+ * $Revision: 1.97 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -171,8 +171,6 @@ extern void gasneti_check_config_preinit() {
   }
 }
 
-extern int gasneti_memalloc_extracheck;
-
 extern void gasneti_check_config_postattach() {
   gasneti_check_config_preinit();
 
@@ -185,9 +183,6 @@ extern void gasneti_check_config_postattach() {
   gasneti_assert_always(gasnet_nodes() >= 1);
   gasneti_assert_always(gasnet_mynode() < gasnet_nodes());
   gasneti_memcheck_all();
-  #if GASNET_DEBUG
-    gasneti_memalloc_extracheck = gasneti_getenv_yesno_withdefault("GASNET_MALLOC_EXTRACHECK", 0);
-  #endif
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -1514,17 +1509,36 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
   static uint64_t gasneti_memalloc_objects = 0;
   static size_t   gasneti_memalloc_maxbytes = 0;
   static uintptr_t gasneti_memalloc_maxloc = 0;
-  int gasneti_memalloc_extracheck = 0;
+  static int gasneti_memalloc_extracheck = 0;
+  static int gasneti_memalloc_init = -1;
+  static int gasneti_memalloc_clobber = -1;
+  static int gasneti_memalloc_leakall = -1;
+  static int gasneti_memalloc_envisinit = 0;
   static gasneti_mutex_t gasneti_memalloc_lock = GASNETI_MUTEX_INITIALIZER;
   static gasneti_memalloc_desc_t *gasneti_memalloc_pos = NULL;
   #define GASNETI_MEM_BEGINPOST   ((uint64_t)0xDEADBABEDEADBABEllu)
-  #define GASNETI_MEM_ENDPOST     ((uint64_t)0xCAFED00DCAFED00Dllu)
+  #define GASNETI_MEM_ENDPOST     ((uint64_t)0xCAFEDEEDCAFEDEEDllu)
   #define GASNETI_MEM_FREEMARK    ((uint64_t)0xBEEFEFADBEEFEFADllu)
   #define GASNETI_MEM_HEADERSZ    (sizeof(gasneti_memalloc_desc_t))
   #define GASNETI_MEM_TAILSZ      8     
   #define GASNETI_MEM_EXTRASZ     (GASNETI_MEM_HEADERSZ+GASNETI_MEM_TAILSZ)     
   #define GASNETI_MEM_MALLOCALIGN 4
   #define gasneti_looksaligned(p) (!(((uintptr_t)(p)) & (GASNETI_MEM_MALLOCALIGN-1)))
+
+  GASNET_INLINE_MODIFIER(gasneti_memalloc_envinit)
+  void gasneti_memalloc_envinit() {
+    if (!gasneti_memalloc_envisinit) {
+      gasneti_mutex_lock(&gasneti_memalloc_lock);
+        if (!gasneti_memalloc_envisinit && gasneti_init_done) {
+          gasneti_memalloc_extracheck = gasneti_getenv_yesno_withdefault("GASNET_MALLOC_EXTRACHECK", 0);
+          gasneti_memalloc_init = atoi(gasneti_getenv_withdefault("GASNET_MALLOC_INIT","-1"));
+          gasneti_memalloc_clobber = atoi(gasneti_getenv_withdefault("GASNET_MALLOC_CLOBBER","-1"));
+          gasneti_memalloc_leakall = gasneti_getenv_yesno_withdefault("GASNET_MALLOC_LEAKALL", 0);
+          gasneti_memalloc_envisinit = 1;
+        }
+      gasneti_mutex_unlock(&gasneti_memalloc_lock);
+    }
+  }
 
   extern void _gasneti_memcheck_one(const char *curloc) {
     if (gasneti_memalloc_extracheck) _gasneti_memcheck_all(curloc);
@@ -1616,6 +1630,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
   #undef free
   static void *_gasneti_malloc_inner(int allowfail, size_t nbytes, const char *curloc) {
     void *ret = NULL;
+    gasneti_memalloc_envinit();
     _gasneti_memcheck_one(curloc);
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
@@ -1660,6 +1675,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
         }
       gasneti_mutex_unlock(&gasneti_memalloc_lock);
       ret = desc+1;
+      if (gasneti_memalloc_init >= 0) memset(ret, gasneti_memalloc_init, nbytes);
     }
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     _gasneti_memcheck(ret,curloc,0);
@@ -1675,6 +1691,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
   extern void _gasneti_free(void *ptr, const char *curloc) {
     size_t nbytes;
     gasneti_memalloc_desc_t *desc;
+    gasneti_memalloc_envinit();
     _gasneti_memcheck_one(curloc);
     if_pf (ptr == NULL) return;
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
@@ -1694,7 +1711,8 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
       }
     gasneti_mutex_unlock(&gasneti_memalloc_lock);
     desc->beginpost = GASNETI_MEM_FREEMARK;
-    free(desc);
+    if (gasneti_memalloc_clobber >= 0) memset(desc+1, gasneti_memalloc_clobber, nbytes);
+    if (gasneti_memalloc_leakall <= 0) free(desc);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
   }
 
@@ -1739,5 +1757,17 @@ extern char *_gasneti_extern_strdup(const char *s GASNETI_CURLOCFARG) {
 extern char *_gasneti_extern_strndup(const char *s, size_t n GASNETI_CURLOCFARG) {
   return _gasneti_strndup(s,n GASNETI_CURLOCPARG);
 }
+
+#if GASNET_DEBUG
+  extern void *(*gasnett_debug_malloc_fn)(size_t sz GASNETI_CURLOCFARG);
+  extern void *(*gasnett_debug_calloc_fn)(size_t N, size_t S GASNETI_CURLOCFARG);
+  extern void (*gasnett_debug_free_fn)(void *ptr GASNETI_CURLOCFARG);
+  void *(*gasnett_debug_malloc_fn)(size_t sz GASNETI_CURLOCFARG) =
+         &_gasneti_extern_malloc;
+  void *(*gasnett_debug_calloc_fn)(size_t N, size_t S GASNETI_CURLOCFARG) =
+         &_gasneti_extern_calloc;
+  void (*gasnett_debug_free_fn)(void *ptr GASNETI_CURLOCFARG) =
+         &_gasneti_extern_free;
+#endif
 
 /* don't put anything here - malloc stuff must come last */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2005/01/22 15:11:48 $
- * $Revision: 1.22 $
+ *     $Date: 2005/03/15 13:54:52 $
+ * $Revision: 1.23 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -262,7 +262,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
           /* MUST use AMUDP_MAXBULK_NETWORK_MSG here, because some OS's blatently ignore
              the message buffer len and happily overflow the input buffer in recvfrom()
            */
-          if_pf (!junk) junk = (char *)malloc(AMUDP_MAXBULK_NETWORK_MSG);
+          if_pf (!junk) junk = (char *)AMUDP_malloc(AMUDP_MAXBULK_NETWORK_MSG);
           retval = recvfrom(ep->s, junk, AMUDP_MAXBULK_NETWORK_MSG, MSG_PEEK, NULL, NULL);
           if (retval == SOCKET_ERROR && 
             #ifdef WINSOCK
