@@ -30,6 +30,12 @@ if test "$ac_cv_header_[]lowername" = "yes"; then
   AC_MSG_CHECKING(for location of $1)
   header_pathname=`echo "#include <$1>" > conftest.c ; $CPP conftest.c | grep $1 | head -1`
   header_pathname=`echo $header_pathname | $AWK '{ printf("%s",[$]3); }'`
+  if test -z "$header_pathname"; then
+    # IBM xlc doesn't always emit include file name in output: try /usr/include
+    if test -r /usr/include/$1; then
+        header_pathname="\"/usr/include/$1\""
+    fi
+  fi
   AC_MSG_RESULT($header_pathname)
   have=1
 else
