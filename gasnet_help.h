@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2002/06/28 07:36:05 $
- * $Revision: 1.5 $
+ *     $Date: 2002/07/08 13:00:31 $
+ * $Revision: 1.6 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -279,12 +279,18 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 
 /* ------------------------------------------------------------------------------------ */
 /* Internal implementation of statistical/tracing output */
+
 typedef uint64_t gasneti_statctr_t;
 #define GASNETI_STATCTR_MIN ((gasneti_statctr_t)0)
 #define GASNETI_STATCTR_MAX ((gasneti_statctr_t)-1)
 
 /* high-granularity, low-overhead system timers */
-#ifdef AIX
+#if defined(GASNETC_CONDUIT_SPECIFIC_TIMERS)
+  #if !defined(GASNETI_STATTIME_MIN) || !defined(GASNETI_STATTIME_MAX) || \
+      !defined(GASNETI_STATTIME_TO_US) || !defined(GASNETI_STATTIME_NOW)
+    #error Incomplete conduit-specific timer impl.
+  #endif
+#elif defined(AIX)
   #include <sys/time.h>
   #include <sys/systemcfg.h>
 

@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/07/04 02:40:20 $
-# $Revision: 1.13 $
+#     $Date: 2002/07/08 13:00:31 $
+# $Revision: 1.14 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.13 $)
+AC_REVISION($Revision: 1.14 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -604,6 +604,36 @@ AC_SUBST(GM_INCLUDE)
 AC_SUBST(GM_LIB)
 AM_CONDITIONAL(USE_GM_CONDUIT, test "$have_gm$gm_test_worked" = yesyes)
 
+#--------------------------------------------------------------------------------------------------------
+# LAPI configuration
+
+GASNET_IF_ENABLED(lapi, Enable the LAPI (IBM SP) network conduit, 
+  have_lapi=yes,
+  have_lapi=no)
+
+# TODO: add a build configuration test here
+lapi_test_worked=yes
+
+AM_CONDITIONAL(USE_LAPI_CONDUIT, test "$have_lapi$lapi_test_worked" = yesyes)
+
+#--------------------------------------------------------------------------------------------------------
+# ELAN configuration
+
+GASNET_IF_ENABLED(elan, Enable the elan (Quadrics) network conduit, 
+  have_elan=yes,
+  have_elan=no)
+
+# TODO: add a build configuration test here
+elan_test_worked=yes
+
+# the default locations are /usr/opt/rms/include and /usr/lib
+ELAN_INCLUDE="/usr/opt/rms/include"
+ELAN_LIBS="-lelan -lelan3"
+
+AC_SUBST(ELAN_INCLUDE)
+AC_SUBST(ELAN_LIBS)
+AM_CONDITIONAL(USE_ELAN_CONDUIT, test "$have_elan$elan_test_worked" = yesyes)
+
 ########################################################################
 
 # Check for alloca in C code
@@ -806,6 +836,16 @@ gm-conduit/Makefile
 gm-conduit/gm-seq.mak
 gm-conduit/gm-parsync.mak
 gm-conduit/gm-par.mak
+
+lapi-conduit/Makefile
+lapi-conduit/lapi-seq.mak
+lapi-conduit/lapi-parsync.mak
+lapi-conduit/lapi-par.mak
+
+elan-conduit/Makefile
+elan-conduit/elan-seq.mak
+elan-conduit/elan-parsync.mak
+elan-conduit/elan-par.mak
 
 other/Makefile
 other/ammpi/Makefile
