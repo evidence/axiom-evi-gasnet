@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/12/11 00:59:35 $
- * $Revision: 1.9 $
+ *     $Date: 2002/12/11 19:53:36 $
+ * $Revision: 1.10 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -29,7 +29,11 @@ extern lapi_info_t        gasnetc_lapi_info;
 extern int                gasnetc_lapi_errno;
 extern char               gasnetc_lapi_msg[];
 extern int                gasnetc_max_lapi_uhdr_size;
+#if defined(__64BIT__)
+extern ulong              gasnetc_max_lapi_data_size;
+#else
 extern int                gasnetc_max_lapi_data_size;
+#endif
 extern void**             gasnetc_remote_req_hh;
 extern void**             gasnetc_remote_reply_hh;
 
@@ -103,10 +107,15 @@ typedef struct {
  *
  * --------------------------------------------------------------------
  */
+#if defined(__64BIT__)
+#define GASNETC_TOKEN_PAD GASNETC_UHDR_SIZE - 2*sizeof(void*)
+#else
+#define GASNETC_TOKEN_PAD GASNETC_UHDR_SIZE - sizeof(void*)
+#endif
 typedef struct gasnetc_token_rec {
     struct gasnetc_token_rec  *next;
     union {
-	char             pad[GASNETC_UHDR_SIZE];
+	char             pad[GASNETC_TOKEN_PAD];
 	gasnetc_msg_t    msg;
     } buf;
 } gasnetc_token_t;

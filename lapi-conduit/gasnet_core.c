@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/11 00:59:35 $
- * $Revision: 1.15 $
+ *     $Date: 2002/12/11 19:53:36 $
+ * $Revision: 1.16 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -53,7 +53,11 @@ void gasnetc_checkattach() {
 lapi_handle_t  gasnetc_lapi_context;
 lapi_info_t    gasnetc_lapi_info;
 int            gasnetc_max_lapi_uhdr_size;
+#if defined(__64BIT__)
+ulong          gasnetc_max_lapi_data_size;
+#else
 int            gasnetc_max_lapi_data_size;
+#endif
 
 /* NOTE: this is not thread-safe */
 int            gasnetc_lapi_errno;
@@ -115,7 +119,6 @@ static void gasnetc_bootstrapBarrier() {
 static int gasnetc_init(int *argc, char ***argv) {
     int task_id;
     int num_tasks;
-    unsigned int max_payload;
 
     /*  check system sanity */
     gasnetc_check_config();
@@ -154,7 +157,19 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_nodes = (gasnet_node_t)num_tasks;
 
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_UHDR_SZ, &gasnetc_max_lapi_uhdr_size));
+#if defined(__64BIT__)
+    /* PSSP 3.4 is broken, LAPI_Qenv requires an int* arg but LAPI defines
+     * the max data size as a ulong with value requiring 64 bit field
+     */
+    gasnetc_max_lapi_data_size = LAPI_MAX_MSG_SZ;
+#else
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_DATA_SZ, &gasnetc_max_lapi_data_size));
+#endif
+#if 0
+    fprintf(stderr,"MAX LAPI UHDR SIZE = %d\n",gasnetc_max_lapi_uhdr_size);
+    fprintf(stderr,"MAX LAPI DATA SIZE = %ld\n",(ulong)gasnetc_max_lapi_data_size);
+    fprintf(stderr,"sizeof(gasnet_token_t) = %d\n",sizeof(gasnetc_token_t));
+#endif
     if (sizeof(gasnetc_token_t) > gasnetc_max_lapi_uhdr_size) {
 	gasneti_fatalerror("gasnetc_token_t is %d bytes > max lapi uhdr %d",
 			   sizeof(gasnetc_token_t),gasnetc_max_lapi_uhdr_size);
@@ -163,12 +178,6 @@ static int gasnetc_init(int *argc, char ***argv) {
 	gasneti_fatalerror("Must recompile with GASNETC_AM_MAX_LONG <= %d",
 			   gasnetc_max_lapi_data_size);
     }
-    max_payload = sizeof(gasnetc_token_t) - TOKEN_LEN(GASNETC_AM_MAX_ARGS);
-    if (GASNETC_AM_MAX_MEDIUM > max_payload) {
-	fprintf(stderr,"WARNING: MAX_MEDIUM %d > max_payload %d\n",
-		GASNETC_AM_MAX_MEDIUM,max_payload);
-    }
-    
 
     /* Do we want to use polling or interrupt mode?  How to
      * communicate this?  Env variable?

@@ -36,16 +36,25 @@ Complete:
 ToDo List
 =========
 * BUGS:  Got a SEGV during a testlarge when using extended API over the 
-  GASNET CORE.  This happened once, but unable to re-produce it.
-  Is there still a spinlock problem with the token (uhdr) freelist code?
-  Note that this test has the effect of issuing a LARGE number of medium
-  AM calls because get target buffer is not within access region.
-  We see 70000 uhdr (tokens) in use at a time.  They are only allocated
-  in lots of 256 tokens each so thats a ton of additional allocation.
-  Generally, we will use the extended API using direct LAPI calls and
-  so this will not be an issue.
+  GASNET CORE.  If set MAX_MEDIUM to 740 and run testlarge 5000, when
+  it attempts to get_nbi 5000 64K messages this requires to remote
+  task to send over 300000 medium replies.  We get a segv on the 
+  receiving task.  I can't tell if we are seeing a LAPI-conduit bug
+  of if we have over-run some internal LAPI limit.  If we up the
+  size of MAX_MEDIUM to a more reasonable 16K, the code runs without
+  problems.
 
-* Cleanup max medium message size code.
+* Compile and test in 64 bit mode.
+  NOTE: Started this.  Must figure out how to tell the confirure
+  script how to add "-q64" to CFLAGS in Makefiles and how to
+  run the configure compile tests with -q64.  
+  Currently, I run configure, hand edit gasnet_config.h to define
+  the proper SIZEOF macros and edit the Makefiles to add the
+  -q64 option to CFLAGS and the '-X 32_64" option to the archive
+  commands (to create the libraries).
+  Got things to compile and run the test suite in 64 bit mode
+  using the LAPI extended API.  When trying to use the extended-ref
+  over the LAPI core, testcore either hung or hit an infinite loop.
 
 * CLEANUP of barrier code in extended api:
   - remove extranious fields of barrier_uhdr structure
