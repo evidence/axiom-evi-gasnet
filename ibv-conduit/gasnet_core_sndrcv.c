@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/10 00:08:06 $
- * $Revision: 1.71 $
+ *     $Date: 2005/03/10 02:07:13 $
+ * $Revision: 1.72 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -902,6 +902,7 @@ static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
 			       VAPI_cq_hndl_t	cq_hndl,
 			       void		*context) {
   GASNETC_TRACE_WAIT_BEGIN();
+#if 0
   VAPI_ret_t vstat;
 
   (void)gasnetc_rcv_reap(INT_MAX, &gasnetc_rcv_thread_rbuf);
@@ -918,6 +919,7 @@ static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
   }
 
   (void)gasnetc_rcv_reap(INT_MAX, &gasnetc_rcv_thread_rbuf);
+#endif
   GASNETC_TRACE_WAIT_END(RCV_THREAD_WAKE);
 }
 #endif

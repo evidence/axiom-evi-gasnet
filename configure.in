@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/03/10 00:08:04 $
-# $Revision: 1.235 $
+#     $Date: 2005/03/10 02:07:11 $
+# $Revision: 1.236 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.235 $)
+AC_REVISION($Revision: 1.236 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1678,7 +1678,7 @@ if test "$enabled_vapi" = yes; then
       fi
 
     GASNET_IF_ENABLED_WITH_AUTO(vapi-rcv-thread, [See vapi-conduit/README (enabled by default)], 
-      enabled_vapi_rcv_thread=yes, enabled_vapi_rcv_thread=no, enabled_vapi_rcv_thread=no)
+      enabled_vapi_rcv_thread=yes, enabled_vapi_rcv_thread=no, enabled_vapi_rcv_thread=yes)
       if test "$enabled_vapi_rcv_thread" = yes; then
         AC_DEFINE(GASNETC_VAPI_RCV_THREAD)
       fi
