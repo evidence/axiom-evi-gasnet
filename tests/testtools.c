@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2004/10/23 09:59:18 $
- * $Revision: 1.14 $
+ *     $Date: 2004/10/24 02:27:43 $
+ * $Revision: 1.15 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -299,5 +299,10 @@ GASNETT_IDENT(GASNetT_IdentString_PthCnt, "$UPCRDefaultPthreadCount: 1 $");
 #else
   GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=, $");
 #endif
+/* Ditto for Titanium tcrun */
+GASNETT_IDENT(GASNetT_TiBackend_IdentString,
+ "$TitaniumBackend: sequential $");
+GASNETT_IDENT(GASNetT_TiCompiler_IdentString,          
+ "$TitaniumCompilerFlags: *** GASNet test *** -g $");
 
 #endif
