@@ -25,6 +25,7 @@ extern int	gasnetc_firehose_build_list(gasnet_node_t, uintptr_t, size_t,
 					    size_t *, size_t *);
 extern void	gasnetc_firehose_decrement_refcount(gasnet_node_t, uintptr_t, 
 						    size_t);
+extern void	gasnete_firehose_move_done(void *);
 /* ------------------------------------------------------------------------ */
 /* FIFO operations */
 gasneti_mutex_t	 gasnete_fifo_lock = GASNETI_MUTEX_INITIALIZER;
@@ -43,37 +44,30 @@ gasnete_fifo_enqueue(gasnete_eop_t *eop)
 }
 
 GASNET_INLINE_MODIFIER(gasnete_fifo_dequeue)
-gasnete_eop_t *
+void
 gasnete_fifo_dequeue()
 {
 	gasnete_eop_t *eop;
 
+	assert(gasnete_fifo_head != NULL);
 	gasneti_mutex_lock(&gasnete_fifo_lock);
-	eop = gasnete_fifo_head;
-	if (gasnete_fifo_head != NULL)
-		gasnete_fifo_head = gasnete_fifo_head->next;
+	gasnete_fifo_head = gasnete_fifo_head->next;
 	gasneti_mutex_unlock(&gasnete_fifo_lock);
-	return eop;
 }
+
+extern void
+gasnete_firehose_move_done(void *context)
+{
+	gasnete_eop_t *eop = (gasnete_eop_t *) context;
+	GASNETI_TRACE_PRINTF(C, ("Firehose move done in extended"));
+	gasnete_fifo_enqueue(eop);
+}
+
 
 /* ------------------------------------------------------------------------ */
 /* 
  * Extended AM Handlers 
  */
-/*
- * AM Handler: Firehose move reply handler, called by the core Firehose request
- *             handler 
- */
-GASNET_INLINE_MODIFIER(gasnete_firehose_move_reph_inner)
-void
-gasnete_firehose_move_reph_inner(gasnet_token_t token, void *context)
-{
-	gasnete_eop_t	*pop = (gasnete_eop_t *) context;
-	gasnete_fifo_enqueue(pop);
-}
-SHORT_HANDLER(gasnete_firehose_move_reph,1,2,
-             (token, UNPACK(a0)     ),
-             (token, UNPACK2(a0, a1)));
 /*
  * AM Handler: Request to get into a pinned memory location
  */
@@ -100,14 +94,20 @@ GASNET_INLINE_MODIFIER(gasnete_firehose_get_dma_reph_inner)
 void
 gasnete_firehose_get_dma_reph_inner(gasnet_token_t token, void *op)
 {
-	gasnete_eop_t	*pop;
+	gasnete_eop_t	*eop;
 
-	pop = (gasnete_eop_t *) op;
-	assert(pop->src > 0 && pop->len > 0);
-	gasnetc_bucket_unpin_by_addr(pop->src,pop->len);
-	if (pop->iop != NULL)
-		gasneti_atomic_increment(&(pop->iop->completed_get_cnt));
+	eop = (gasnete_eop_t *) op;
+	assert(eop->src > 0 && eop->len > 0);
+	gasnetc_bucket_unpin_by_addr(eop->src,eop->len);
 	gasnete_op_markdone((gasnete_op_t *) op, 1);
+	if (eop->iop != NULL) {
+		gasneti_atomic_increment(&(eop->iop->completed_get_cnt));
+		GASNETI_TRACE_PRINTF(C, ("iop increment at %p", (void *) op));
+		gasnete_op_free((gasnete_op_t *) eop);
+	}
+	else {
+		GASNETI_TRACE_PRINTF(C, ("eop markdone at %p", (void *) op));
+	}
 }
 LONG_HANDLER(gasnete_firehose_get_dma_reph,1,2, 
     (token, UNPACK(a0)    ),
@@ -122,23 +122,31 @@ void
 gasnete_firehose_callback_pop(struct gm_port *p, void *context, 
 			      gm_status_t status)
 {
-	gasnete_eop_t	*pop = (gasnete_eop_t *) context;
+	gasnete_eop_t	*eop = (gasnete_eop_t *) context;
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
-	assert(pop != NULL);
-	assert(pop->node < gasnete_nodes);
+	assert(eop != NULL);
+	assert(eop->node < gasnete_nodes);
 	if_pf (status != GM_SUCCESS)
 	    gasnetc_callback_error(status, NULL);
+	gasnetc_token_lo_release();
+	GASNETI_TRACE_PRINTF(C, ("Firehose callback directed send(%p), stoks.lo=%d", 
+	   eop, _gmc.stoks.lo));
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose decrement refcount for (%p,%d) on node %d\n",
-	     (void *) pop->dest, pop->len, (unsigned) pop->node));
-	gasnetc_firehose_decrement_refcount(pop->node, pop->dest, pop->len);
-	gasnetc_token_lo_release();
+	     (void *) eop->dest, eop->len, (unsigned) eop->node));
+	gasnetc_firehose_decrement_refcount(eop->node, eop->dest, eop->len);
 	/* If this was associated to an iop, increment put completed count */
-	if (pop->iop != NULL)
-		gasneti_atomic_increment(&(pop->iop->completed_put_cnt));
-	gasnete_op_markdone((gasnete_op_t *)pop, 0);
-	GASNETI_TRACE_PRINTF(C, ("Firehose callback directed send(%p)", pop));
+	gasnete_op_markdone((gasnete_op_t *)eop, 0);
+	if (eop->iop != NULL) {
+		gasneti_atomic_increment(&(eop->iop->completed_put_cnt));
+		GASNETI_TRACE_PRINTF(C, ("iop increment at %p", (void *) eop));
+		gasnete_op_free((gasnete_op_t *) eop);
+	}
+	else {
+		GASNETI_TRACE_PRINTF(C, ("eop markdone at %p", (void *) eop));
+	}
+	return;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -210,22 +218,25 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, size_t nbyt
 
 	if (gasnetc_firehose_build_list(node, (uintptr_t)dest, num_buckets,
 	    &old_buckets, &new_buckets)) {
-		pop->iop = iop;
 		assert(gasneti_handleridx(gasnete_firehose_move_reph) > 0);
 		#ifdef TRACE
 		{
 			int i;
-			for (i = 0; i < num_buckets; i++)
-				GASNETI_TRACE_PRINTF(C, ("Firehose move %d=%p",
+			for (i = 0; i < new_buckets; i++)
+				GASNETI_TRACE_PRINTF(C, 
+				    ("Firehose move new %d=%p",
+				    i, (void *) gasnetc_firehose_buf[i]));
+			for (i = 0; i < old_buckets; i++)
+				GASNETI_TRACE_PRINTF(C, 
+				    ("Firehose move old %d=%p",
 				    i, (void *) gasnetc_firehose_buf[i]));
 		}
 		#endif
-		MEDIUM_REQ(5, 6, 
+		MEDIUM_REQ(4, 5, 
 		   (node, gasneti_handleridx(gasnetc_firehose_move_reqh),
 		    (void *) gasnetc_firehose_buf, 
 		    (num_buckets + old_buckets)*sizeof(uintptr_t),
-		    gasneti_handleridx(gasnete_firehose_move_reph),
-		    new_buckets, old_buckets, num_buckets, 
+		    new_buckets, old_buckets, num_buckets*sizeof(uintptr_t), 
 		    PACK((void *) pop)));
 	}
 	else {
@@ -236,11 +247,10 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, size_t nbyt
 		gasneti_mutex_unlock(&gasnetc_lock_gm);
 	}
 	/* If we were dealing with implicit put, increment the iop */
+	pop->iop = iop;
 	if (pop->iop != NULL)
 		iop->initiated_put_cnt++;
 	gasneti_mutex_unlock(&gasnetc_lock_fh_victim);
-	GASNETI_TRACE_PRINTF(C, ("firehose_put_bulk returns handle=%p",
-	    (void *) pop));
 	return ((gasnete_op_t *) pop);
 }
 
@@ -340,10 +350,9 @@ gasnete_firehose_get_bulk(void *dest, gasnet_node_t node, void *src,
 	gop->src = (uintptr_t) src;
 	gop->len = nbytes;
 	gasnetc_bucket_pin_by_addr((uintptr_t) src, nbytes);
-	if (iop != NULL) {
-		gop->iop = iop;
+	gop->iop = iop;
+	if (iop != NULL)
 		iop->initiated_get_cnt++;
-	}
 	SHORT_REQ(4, 7,
 	    (node, gasneti_handleridx(gasnete_firehose_get_dma_reqh), nbytes,
 	     PACK(dest), PACK(src), PACK(gop)));
@@ -391,13 +400,15 @@ gasnete_fifo_progress()
 	gasnete_eop_t	*eop;
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
-	while ((eop = gasnete_fifo_dequeue()) != NULL) {
+	while (gasnete_fifo_head != NULL) {
 		GASNETI_TRACE_PRINTF(C, ("Firehose fifo progress drain 1"));
 		if (!gasnetc_token_lo_acquire())
 			return;
+		eop = gasnete_fifo_head;
 		gasnete_firehose_put_using_directed(eop->node, 
 		    eop->dest, (void *)eop->src, eop->len, eop, 
 		    GASNETE_FH_HAVE_TOKEN);
+		gasnete_fifo_dequeue();
 	}
 }
 /* ------------------------------------------------------------------------------------ */
@@ -406,7 +417,6 @@ gasnete_fifo_progress()
   =========
 */
 static gasnet_handlerentry_t const gasnete_handlers[] = {
-  gasneti_handler_tableentry_with_bits(gasnete_firehose_move_reph),
   gasneti_handler_tableentry_with_bits(gasnete_firehose_get_dma_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_firehose_get_dma_reph),
 

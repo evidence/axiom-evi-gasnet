@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.25 2002/08/19 01:29:19 csbell Exp $
- * $Date: 2002/08/19 01:29:19 $
- * $Revision: 1.25 $
+/* $Id: gasnet_core_internal.h,v 1.26 2002/08/20 11:51:23 csbell Exp $
+ * $Date: 2002/08/20 11:51:23 $
+ * $Revision: 1.26 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -65,6 +65,7 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 #define _hidx_gasnetc_am_medcopy		(GASNETC_HANDLER_BASE+0) 
 #ifdef GASNETC_FIREHOSE
 #define _hidx_gasnetc_firehose_move_reqh	(GASNETC_HANDLER_BASE+1) 
+#define _hidx_gasnetc_firehose_move_reph	(GASNETC_HANDLER_BASE+2) 
 #endif
 #define _hidx_					(GASNETC_HANDLER_BASE+)
 
@@ -157,7 +158,7 @@ gasnetc_token_t;
 #define GASNETC_FLAG_AMREQUEST_MEDIUM	0x02
 #define GASNETC_FLAG_LONG_SEND		0x04
 #define GASNETC_FLAG_DMA_SEND		0x08
-#define GASNETC_FLAG_EXTENDED_DMA_SEND	0x0a
+#define GASNETC_FLAG_EXTENDED_DMA_SEND	0x10
 #define GASNETC_BUFDESC_OPT_ISSET(b,o)	((b)->flag & (o))
 #define GASNETC_BUFDESC_OPT_SET(b,f)	((b)->flag = ((b)->flag | (f))) 
 #define GASNETC_BUFDESC_OPT_UNSET(b,f)	((b)->flag = ((b)->flag & ~(f))) 
@@ -369,13 +370,16 @@ GASNET_INLINE_MODIFIER(gasnetc_bufdesc_from_token)
 gasnetc_bufdesc_t *
 gasnetc_bufdesc_from_token(gasnet_token_t token)
 {
-	gasnetc_bufdesc_t *bufd, *bufd_temp;
+	gasnetc_bufdesc_t *bufd;
 
 	bufd = (gasnetc_bufdesc_t *) token;
 	assert(bufd != NULL);
 	assert(bufd->gm_id > 0);
     	GASNETC_BUFDESC_OPT_SET(bufd, GASNETC_FLAG_REPLY);
 	if (GASNETC_BUFDESC_OPT_ISSET(bufd, GASNETC_FLAG_AMREQUEST_MEDIUM)) {
+		GASNETI_TRACE_PRINTF(C, 
+		    ("AMMedium LOCK: (bufd %p -> AMReplyBuf %p)", 
+		    (void *) bufd, (void *) _gmc.AMReplyBuf));
 		gasneti_mutex_lock(&gasnetc_lock_amreq);
 		_gmc.AMReplyBuf->gm_id = bufd->gm_id;
 		_gmc.AMReplyBuf->gm_port = bufd->gm_port;
@@ -450,12 +454,17 @@ gasnetc_gm_send_bufd(gasnetc_bufdesc_t *bufd)
 		else
 			send_ptr = (uintptr_t) bufd->sendbuf + bufd->rdma_off;
 
+		callback = gasnetc_callback_hi_rdma;
+		/*
 		if (GASNETC_BUFDESC_OPT_ISSET(bufd, 
 		    GASNETC_FLAG_EXTENDED_DMA_SEND))
 			callback = gasnetc_callback_hi;
 		else
 			callback = gasnetc_callback_hi_rdma;
-
+		*/
+		GASNETI_TRACE_PRINTF(C, ("gm_directed (%d,%p <- %p,%d bytes)",
+		    bufd->node, (void *) bufd->dest_addr, (void *) send_ptr,
+		    bufd->rdma_len));
 		gm_directed_send_with_callback(_gmc.port, 
 		    (void *) send_ptr,
 		    (gm_remote_ptr_t) bufd->dest_addr,
@@ -482,6 +491,8 @@ gasnetc_gm_send_bufd(gasnetc_bufdesc_t *bufd)
 	}
 	assert(GASNETC_AM_IS_REPLY(*((uint8_t *) bufd->sendbuf)));
 	assert(len <= GASNETC_AM_PACKET);
+	GASNETI_TRACE_PRINTF(C, ("gm_send (gm id %d <- %p,%d bytes)",
+	    (unsigned) bufd->gm_id, (void *) send_ptr, len));
 	gm_send_with_callback(_gmc.port, 
 		(void *) send_ptr,
 		GASNETC_AM_SIZE,
@@ -632,6 +643,7 @@ gasnetc_fifo_insert(gasnetc_bufdesc_t *bufd)
 		_gmc.fifo_bd_tail->next = bufd;
 		_gmc.fifo_bd_tail = bufd;
 	}
+	GASNETI_TRACE_PRINTF(C, ("QUEUEd bufd has flags %d", bufd->flag));
 	return;
 }
 
@@ -650,15 +662,27 @@ gasnetc_fifo_progress()
 		if_pt (gasnetc_token_hi_acquire()) { 
 			gasnetc_bufdesc_t *bufd = gasnetc_fifo_head();
 			assert(bufd->gm_id > 0);
-			GASNETI_TRACE_PRINTF(C, ("queued to token=%p, buf=%p %hd:%hd", 
-			    bufd, bufd->sendbuf, bufd->gm_id, bufd->gm_port));
-			gasnetc_gm_send_bufd(bufd);
-			if (bufd->rdma_len > 0) {
+			GASNETI_TRACE_PRINTF(C, 
+			    ("queued to token=%p, buf=%p, flags=%d %hd:%hd", 
+			    bufd, bufd->sendbuf, bufd->flag, bufd->gm_id, 
+			    bufd->gm_port));
+			if (GASNETC_BUFDESC_OPT_ISSET(bufd, 
+			    GASNETC_FLAG_EXTENDED_DMA_SEND | 
+			    GASNETC_FLAG_DMA_SEND |
+			    GASNETC_FLAG_LONG_SEND)) {
+
+				gasnetc_gm_send_bufd(bufd);
+				if (GASNETC_BUFDESC_OPT_ISSET(bufd, 
+				    GASNETC_FLAG_EXTENDED_DMA_SEND))
+					bufd->dest_addr = 0;
 				GASNETI_TRACE_PRINTF(C, ("??? sent Reply Payload"));
-				bufd->rdma_len = 0;
-				bufd->dest_addr = 0;
+				GASNETC_BUFDESC_OPT_UNSET(bufd, 
+				    GASNETC_FLAG_EXTENDED_DMA_SEND | 
+				    GASNETC_FLAG_DMA_SEND |
+				    GASNETC_FLAG_LONG_SEND);
 			}
 			else {
+				gasnetc_gm_send_bufd(bufd);
 				GASNETI_TRACE_PRINTF(C, ("??? sent Reply Header"));
 				gasnetc_fifo_remove();
 			}

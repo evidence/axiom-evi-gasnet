@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.21 2002/08/19 01:29:19 csbell Exp $
- * $Date: 2002/08/19 01:29:19 $
+/* $Id: gasnet_core.c,v 1.22 2002/08/20 11:51:23 csbell Exp $
+ * $Date: 2002/08/20 11:51:23 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1045,11 +1045,14 @@ gasnetc_AMReplyLongAsyncM(
 	GASNETC_BUFDESC_OPT_SET(bufd, 
 	    GASNETC_FLAG_EXTENDED_DMA_SEND | GASNETC_FLAG_DMA_SEND);
 
+	GASNETI_TRACE_PRINTF(C, ("AsyncReply has flags %d", bufd->flag));
 	gasneti_mutex_lock(&gasnetc_lock_gm);
 	if (gasnetc_token_hi_acquire()) {
+		GASNETI_TRACE_PRINTF(C, ("??? sent Reply Payload"));
         	gasnetc_gm_send_bufd(bufd);
 		GASNETC_BUFDESC_OPT_UNSET(bufd, 
 		    GASNETC_FLAG_EXTENDED_DMA_SEND | GASNETC_FLAG_DMA_SEND);
+		bufd->dest_addr = 0;
 		if (gasnetc_token_hi_acquire()) {
 			GASNETC_AMTRACE_ReplyLong(Send);
 			gasnetc_gm_send_bufd(bufd);
@@ -1062,6 +1065,7 @@ gasnetc_AMReplyLongAsyncM(
 	else {
 		GASNETC_AMTRACE_ReplyLong(Queued);
 		gasnetc_fifo_insert(bufd);
+		GASNETI_TRACE_PRINTF(C, ("??? queued Payload has flags %d", bufd->flag));
 	}
 	gasneti_mutex_unlock(&gasnetc_lock_gm);
 	va_end(argptr);
