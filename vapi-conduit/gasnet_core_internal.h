@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/01/09 23:23:13 $
- * $Revision: 1.57 $
+ *     $Date: 2005/01/09 23:49:38 $
+ * $Revision: 1.58 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -631,8 +631,6 @@ extern void gasnetc_bootstrapBarrier(void);
 extern void gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
 extern void gasnetc_bootstrapAlltoall(void *src, size_t len, void *dest);
 extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode);
-extern const char *gasnetc_bootstrapGetenv(const char *var);
-/* GASNETI_CONDUIT_GET is optionally defined to gasnetc_bootstrapGetenv() in CONDUIT_EXTRALIBCFLAGS */
 
 /* Routines in gasnet_core_sndrcv.c */
 extern void gasnetc_sndrcv_init(void);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/09 23:23:13 $
- * $Revision: 1.6 $
+ *     $Date: 2005/01/09 23:49:38 $
+ * $Revision: 1.7 $
  * Description: GASNet ssh-based bootstrapper for vapi-conduit
  * Copyright 2004, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -146,28 +146,32 @@ extern char **environ;
   #define ENV_PREFIX "GASNET_"
 #endif
 
-static gasnet_node_t nproc = (gasnet_node_t)(-1L);
-static gasnet_node_t myproc = (gasnet_node_t)(-1L);
-static gasnet_node_t tree_size = (gasnet_node_t)(-1L);
-static char cwd[1024];
-static int mypid;
-static int rootpid = 0;		/* only on master */
-static int children = 0;	/* only on slaves */
-static int devnull = -1;
-static int listener = -1;
-static int listen_port = -1;
-static char **hostlist;
-static char **ssh_argv = NULL;
-static char *master_env = NULL;
-static size_t master_env_len = 0;
-static int ssh_argc;
-static int parent = -1; /* socket */
-static struct {
-  volatile pid_t	pid;	/* pid of ssh (reset to zero by reaper) */
-  gasnet_node_t		rank;
-  gasnet_node_t		size;	/* size of subtree rooted at this child */
-  int			sock;
-} child[ARY];
+/* Master & slaves */
+  static int is_master = 0;
+  static gasnet_node_t nproc = (gasnet_node_t)(-1L);
+  static char cwd[1024];
+  static int devnull = -1;
+  static int listener = -1;
+  static int listen_port = -1;
+  static char **hostlist;
+  static char **ssh_argv = NULL;
+  static int ssh_argc;
+  static char *master_env = NULL;
+  static size_t master_env_len = 0;
+/* Slaves only */
+  static gasnet_node_t myproc = (gasnet_node_t)(-1L);
+  static gasnet_node_t tree_size = (gasnet_node_t)(-1L);
+  static int parent = -1; /* socket */
+  static struct {
+    volatile pid_t	pid;	/* pid of ssh (reset to zero by reaper) */
+    gasnet_node_t		rank;
+    gasnet_node_t		size;	/* size of subtree rooted at this child */
+    int			sock;
+  } child[ARY];
+  static int children = 0;
+  static int mypid;
+/* Master only */
+  static int rootpid = 0;
 
 static char *sappendf(char *s, const char *fmt, ...) __attribute__((__format__ (__printf__, 2, 3)));
 static char *sappendf(char *s, const char *fmt, ...)
@@ -209,7 +213,7 @@ static char *sappendf(char *s, const char *fmt, ...)
 static void sigforward(int sig)
 {
   gasneti_reghandler(sig, &sigforward);
-  if (rootpid) {
+  if (is_master && rootpid) {
     kill(rootpid, sig);
   }
 }
@@ -446,7 +450,7 @@ static void send_env(int s) {
     size_t rlen = strlen(ENV_PREFIX "SSH_");
     size_t count;
 
-    gasneti_assert(rootpid); /* == we are master */
+    gasneti_assert(is_master);
 
     /* First pass over environment to get its size */
     master_env_len = 1; /* for the doubled \0 at the end */
@@ -574,8 +578,10 @@ static void post_spawn(int count, int argc, char * const *argv) {
     if ((s = accept(listener, (struct sockaddr *)&sock_addr, &addr_len)) < 0) {
       gasneti_fatalerror("accept() failed\n");
     }
-    (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
-    (void)setsockopt(parent, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
+    if (!is_master) {
+      (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
+    }
+    (void)setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
     if (do_read(s, &id, sizeof(int)) < 0) {
       gasneti_fatalerror("do_read(id) failed\n");
     }
@@ -624,6 +630,8 @@ static void do_connect(int child_id, const char *parent_name, int parent_port, i
   static const int one = 1;
   struct hostent *h = gethostbyname(parent_name);
 
+  gasneti_assert(!is_master);
+
   if (h == NULL) {
     gasneti_fatalerror("gethostbyname(%s) failed\n", parent_name);
   }
@@ -658,7 +666,7 @@ static pid_t spawn_one(const char *host, const char *argv0, int child_id, const 
     gasneti_fatalerror("fork() failed\n");
   } else if (pid == 0) {
     /* For all children except the root do </dev/null */
-    if (child_id >= 0) {
+    if (!is_master) {
       if (dup2(STDIN_FILENO, devnull) < 0) {
         gasneti_fatalerror("dup2(STDIN_FILENO, /dev/null) failed\n");
       }
@@ -689,6 +697,8 @@ static void do_master(int argc, char **argv) {
   char *ssh_argv0;
   char **ssh_options = NULL;
   int i;
+
+  is_master = 1;
 
   if (gethostname(myhost, sizeof(myhost)) < 0) {
     gasneti_fatalerror("gethostname() failed\n");
@@ -743,6 +753,8 @@ static void do_slave(int child_id, const char *parent_name, int parent_port, int
   gasnet_node_t i, quot, rem;
   const char *args;
   int j;
+
+  is_master = 0;
 
   mypid = getpid();
   gasneti_reghandler(SIGURG, &sigurg_handler);
@@ -983,7 +995,7 @@ void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode)
  * Fetch a variable from the environment on the master node.
  * (more or less copied from amudp_spmd.cpp)
  */
-const char *gasnetc_bootstrapGetenv(const char *var) {
+char *gasnetc_bootstrapGetenv(const char *var) {
   if (master_env && var && (*var != '\0')) {
     char *p = master_env;
     size_t len = strlen(var);

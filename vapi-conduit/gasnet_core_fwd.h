@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2004/11/10 15:44:21 $
- * $Revision: 1.16 $
+ *     $Date: 2005/01/09 23:49:38 $
+ * $Revision: 1.17 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -82,5 +82,9 @@ typedef uint8_t gasnet_handler_t;
      (e.g. with a signal) to run AM handlers (interrupt-based handler dispatch)
    */
 /* #define GASNETC_USE_INTERRUPTS 1 */
+
+/* GASNETI_CONDUIT_GET is optionally defined to gasnetc_bootstrapGetenv() in CONDUIT_EXTRALIBCFLAGS */
+extern char *gasnetc_bootstrapGetenv(const char *var);
+
 
 #endif
