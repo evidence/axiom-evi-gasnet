@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2004/09/27 09:52:59 $
- * $Revision: 1.14 $
+ *     $Date: 2004/10/04 17:05:28 $
+ * $Revision: 1.15 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -233,7 +233,7 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
       recvAll(s, buf, sz);
       buf[sz] = '\0';
       #if AMUDP_DEBUG_VERBOSE
-        fprintf(fd, "got some output: %s\n", buf);
+        fprintf(fd, "got some output: %s%s", buf, (buf[sz-1]=='\n'?"":"\n"));
       #else
         fwrite(buf, sz, 1, fd);
       #endif
@@ -398,7 +398,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     const char *masterHostname = getMyHostName();
     #if AMUDP_DEBUG_VERBOSE
-      printf("master host name: %s\n", masterHostname);
+      printf("master host name: %s\n", masterHostname); fflush(stdout);
     #endif
 
     // TCP socket lists
@@ -589,7 +589,8 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                   char temp[80];
                   printf(" P#%i:\t%s", j, AMUDP_enStr(AMUDP_SPMDTranslationTable[j].name, temp));
                   printf("\ttag: %s\n", AMUDP_tagStr(AMUDP_SPMDTranslationTable[j].tag, temp));
-                  }
+                }
+                fflush(stdout);
               #endif
               }
             }
@@ -757,6 +758,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                 if (!socklibend()) ErrMessage("master failed to socklibend()");
                 #if AMUDP_DEBUG_VERBOSE
                   printf("Exiting after AMUDP_SPMDExit(%i)...\n", exitCode);
+                  fflush(stdout);
                 #endif
                 exit(exitCode);
                 break;
@@ -1210,6 +1212,7 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
             }
           #if AMUDP_DEBUG_VERBOSE
             printf("Exiting after exit signal from master (%i)...\n", exitCode);
+            fflush(stdout);
           #endif
           AMUDP_SPMDShutdown(exitCode);
           break;
