@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2002/10/26 08:31:21 $
- * $Revision: 1.6 $
+ *     $Date: 2002/11/11 10:26:47 $
+ * $Revision: 1.7 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -421,7 +421,9 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
       segbase = NULL; 
     }
     else {
-      if (topofheap + minheapoffset > (uintptr_t)segbase) {
+      /* check if segment is above the heap (in its path) and too close */
+      if ((((uintptr_t)segbase + segsize) > topofheap) &&
+        (topofheap + minheapoffset > (uintptr_t)segbase)) {
         uintptr_t maxsegsz;
         void *endofseg = (void *)((uintptr_t)gasneti_segment.addr + gasneti_segment.size);
         /* we're too close to the heap - readjust to prevent collision 

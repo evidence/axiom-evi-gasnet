@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2002/09/09 21:58:22 $
- * $Revision: 1.3 $
+ *     $Date: 2002/11/11 10:26:49 $
+ * $Revision: 1.4 $
  * Description: GASNet header for elan conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -51,6 +51,7 @@ extern uint64_t gasnetc_clock();
 /* ------------------------------------------------------------------------------------ */
 
 #define GASNETC_TRACE_FINISH()  gasnetc_trace_finish()
+extern void gasnetc_trace_finish();
 
 #define GASNETC_USE_INTERRUPTS  0
 
