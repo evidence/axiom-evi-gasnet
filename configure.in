@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/03 22:29:28 $
-# $Revision: 1.162 $
+#     $Date: 2004/08/04 00:23:34 $
+# $Revision: 1.163 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.162 $)
+AC_REVISION($Revision: 1.163 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1272,14 +1272,29 @@ if test "$enabled_vapi" = yes; then
     have_vapi=no
   fi
 
-
   # Check for conflict
   if test "$force_vapi$have_vapi" = yesno; then
     AC_MSG_ERROR([User requested --enable-vapi but I don't know how to build VAPI programs for your system.])
   fi
 
-
   if test "$have_vapi" = yes; then
+    AC_MSG_CHECKING(for VAPI FMR support)
+    OLDCFLAGS="$CFLAGS"
+    OLDLIBS="$LIBS"
+    CFLAGS="-I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS"
+    LIBS="-L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS"
+    AC_TRY_LINK( [
+      #include <vapi.h>
+      #include <evapi.h>
+    ], [{
+      VAPI_hca_hndl_t my_hca;
+      EVAPI_fmr_hndl_t handles[1];
+      EVAPI_unmap_fmr(my_hca, 1, handles);
+    }], [ AC_DEFINE(HAVE_VAPI_FMR)
+          AC_MSG_RESULT(yes) ], [ AC_MSG_RESULT(no) ] )
+    CFLAGS="$OLDCFLAGS"
+    LIBS="$OLDLIBS"
+
     # Collect some VAPI-specifc configure options
     GASNET_IF_ENABLED_WITH_AUTO(vapi-inline-puts, [See vapi-conduit/README (enabled by default)], 
       enabled_vapi_inline_puts=yes, enabled_vapi_inline_puts=no, enabled_vapi_inline_puts=yes)
