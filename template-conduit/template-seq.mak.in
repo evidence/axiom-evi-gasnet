@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Attic/template-seq.mak.in,v 1.8 2003/04/10 00:23:04 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Attic/template-seq.mak.in,v 1.9 2003/05/11 01:19:31 bonachea Exp $
 # Description: Makefile fragment for <CONDUITNAME> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -49,6 +49,7 @@ GASNET_LIBS =            \
     $(GASNET_LIBDIRS)    \
     -lgasnet-<conduitname>-seq     \
     @LIBGCC@             \
+    @LIBS@               \
     @LIBM@
 
 # ----------------------------------------------------------------------

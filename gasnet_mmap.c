@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2003/05/11 01:08:56 $
- * $Revision: 1.13 $
+ *     $Date: 2003/05/11 01:19:23 $
+ * $Revision: 1.14 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,8 +83,10 @@ static void *gasneti_mmap_internal(void *segbase, size_t segsize) {
         (ptr == MAP_FAILED?strerror(errno):"")));
 
   if (ptr == MAP_FAILED && errno != ENOMEM) {
-    #ifdef CYGWIN
+    #if defined(CYGWIN)
       if (errno != EACCES) /* Cygwin stupidly returns EACCES for insuff mem */
+    #elif defined(SOLARIS)
+      if (errno != EAGAIN) /* Solaris stupidly returns EAGAIN for insuff mem */
     #endif
     gasneti_fatalerror("unexpected error in mmap%s for size %lu: %s\n", 
                        (segbase == NULL?"":" fixed"),

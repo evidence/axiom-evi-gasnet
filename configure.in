@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/05/11 01:08:56 $
-# $Revision: 1.57 $
+#     $Date: 2003/05/11 01:19:23 $
+# $Revision: 1.58 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.57 $)
+AC_REVISION($Revision: 1.58 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -821,6 +821,7 @@ AC_SUBST(ALLOCA_IN_C)
 OLDLIBS="$LIBS"
 # sin should be in everyone's libm if they've got one.
 AC_CHECK_LIB(m, sin, LIBM="-lm", LIBM="")
+AC_SUBST(LIBS)
 AC_SUBST(LIBM)
 
 LIBS="$OLDLIBS"
