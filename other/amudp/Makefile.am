@@ -82,6 +82,24 @@ tests: ${testprograms}
 test%: test%.o apputils.o libamudp.a 
 	${link} -o $@ $< apputils.o -L. -lamudp ${linkend}
 
+TEST_NODES=2
+TEST_ITERS=100
+TEST_SPAWNFN=L
+TEST_MODE=P
+TEST_DEPTH=32
+TEST_DUPLEX=H
+run-tests: tests
+	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DEPTH) $(TEST_DUPLEX)
+	./testamudp $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
+	./testreduce $(TEST_NODES) $(TEST_SPAWNFN) 
+if PLATFORM_ILP32
+	./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 
+	./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 
+endif
+
 %.o: %.c apputils.h amudp.h amudp_spmd.h
 	${compile} -o $@ -c $<
 

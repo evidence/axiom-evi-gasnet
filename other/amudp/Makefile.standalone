@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMUDP/Makefile                                         $
-#     $Date: 2003/12/19 13:48:10 $
-# $Revision: 1.1 $
+#     $Date: 2003/12/24 08:03:28 $
+# $Revision: 1.2 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -75,4 +75,20 @@ dist:
 # ---------- test programs -------------
 test% : test%.o apputils.o libamudp.a ${ueth_libraries}
 	${link} -o $@ $< apputils.o -L. -lamudp ${linkend}
+
+TEST_NODES=2
+TEST_ITERS=100
+TEST_SPAWNFN=L
+TEST_MODE=P
+TEST_DEPTH=32
+TEST_DUPLEX=H
+run-tests: tests
+	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DEPTH) $(TEST_DUPLEX)
+	./testamudp $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
+	./testreduce $(TEST_NODES) $(TEST_SPAWNFN)
+	if test -x ./testgetput ; then ./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; fi
+	if test -x ./testreadwrite ; then ./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; fi
 
