@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2005/03/17 22:19:14 $
- * $Revision: 1.24 $
+ *     $Date: 2005/04/06 01:56:13 $
+ * $Revision: 1.25 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -52,9 +52,13 @@ static int sendPacket(ep_t ep, amudp_buf_t *packet, int packetlength, en_t desta
   #endif
 
   #if AMUDP_DEBUG_VERBOSE
-    if (AMUDP_getenv_prefixed("VERBOSE_SEND")) { 
-      char temp[80];
-      fprintf(stderr, "sending packet to (%s)\n", AMUDP_enStr(destaddress, temp)); fflush(stderr);
+    { static int firsttime = 1;
+      static int verbosesend = 0;
+      if (firsttime) { verbosesend = AMUDP_getenv_prefixed("VERBOSE_SEND"); firsttime = 0; }
+      if (verbosesend) { 
+        char temp[80];
+        fprintf(stderr, "sending packet to (%s)\n", AMUDP_enStr(destaddress, temp)); fflush(stderr);
+      }
     }
   #endif
 

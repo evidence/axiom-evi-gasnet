@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2005/03/15 13:54:52 $
- * $Revision: 1.9 $
+ *     $Date: 2005/04/06 01:56:13 $
+ * $Revision: 1.10 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -197,9 +197,9 @@ extern void AMUDP_growSocketRecvBufferSize(ep_t ep, int targetsize) {
         #endif
         }
       if (temp >= targetsize) {
-        #if AMUDP_DEBUG_VERBOSE
+        if (!AMUDP_SilentMode) {
           fprintf(stderr, "UDP recv buffer successfully set to %i bytes\n", targetsize); fflush(stderr);
-        #endif
+        }
         ep->socketRecvBufferSize = temp;
         break; /* success */
         }

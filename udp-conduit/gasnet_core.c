@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/17 13:19:24 $
- * $Revision: 1.19 $
+ *     $Date: 2005/04/06 01:56:15 $
+ * $Revision: 1.20 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -174,9 +174,6 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_freezeForDebugger();
 
     AMUDP_VerboseErrors = gasneti_VerboseErrors;
-    #if !GASNET_DEBUG_VERBOSE
-      AMUDP_SilentMode = 1;
-    #endif
     AMUDP_SPMDkillmyprocess = gasneti_killmyprocess;
 
     /*  perform job spawn */
