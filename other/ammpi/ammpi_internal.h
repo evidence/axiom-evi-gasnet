@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2003/05/22 04:30:12 $
- * $Revision: 1.9 $
+ *     $Date: 2003/06/11 01:31:19 $
+ * $Revision: 1.10 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -102,6 +102,9 @@ BEGIN_EXTERNC
  *------------------------------------------------------------------------------------ */
 #ifdef _MSC_VER
   #pragma warning(disable: 4127)
+#endif
+#ifdef __SUNPRO_C
+  #pragma error_messages(off, E_END_OF_LOOP_CODE_NOT_REACHED)
 #endif
 static char *AMMPI_ErrorName(int errval) {
   switch (errval) {
