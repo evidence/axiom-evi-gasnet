@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/lapi-seq.mak.in,v 1.3 2002/11/14 01:35:55 welcome Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/lapi-seq.mak.in,v 1.4 2002/12/09 05:02:23 bonachea Exp $
 # Description: Makefile fragment for LAPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -39,9 +39,12 @@ GASNET_LD = @CC@
 GASNET_LDFLAGS = @CFLAGS@
 
 # libraries that GASNet clients should append to link line
+# LAPI needs -lpthread, even for GASNET_SEQ
 GASNET_LIBS =            \
     $(GASNET_LIBDIRS)    \
     -lgasnet-lapi-seq     \
+    @GASNET_THREAD_LIBS@  \
+    -llapi_r             \
     @LIBGCC@             \
     @LIBM@
 
