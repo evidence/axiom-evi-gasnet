@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_refbarrier.c                  $
- *     $Date: 2004/05/22 13:45:27 $
- * $Revision: 1.5 $
+ *     $Date: 2004/06/06 18:10:52 $
+ * $Revision: 1.6 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -62,6 +62,12 @@
 */
 #ifndef GASNETE_DIRECT_DIMS
 #define GASNETE_DIRECT_DIMS 15
+#endif
+
+/* GASNETE_RANDOM_SELECTOR: use random VIS algorithm selection 
+  (mostly useful for correctness debugging) */
+#ifndef GASNETE_RANDOM_SELECTOR
+#define GASNETE_RANDOM_SELECTOR 0
 #endif
 
 /*---------------------------------------------------------------------------------*/
@@ -273,11 +279,11 @@ extern gasnet_handle_t gasnete_putv(gasnete_synctype_t synctype,
   }
 
   /* select algorithm */
-  #ifdef GASNETE_PUTV_SELECTOR
-    GASNETE_PUTV_SELECTOR(synctype,dstnode,dstcount,dstlist,srccount,srclist);
-  #else
-    return gasnete_putv_ref_indiv(synctype,dstnode,dstcount,dstlist,srccount,srclist GASNETE_THREAD_PASS);
+  #ifndef GASNETE_PUTV_SELECTOR
+    #define GASNETE_PUTV_SELECTOR(synctype,dstnode,dstcount,dstlist,srccount,srclist) \
+      return gasnete_putv_ref_indiv(synctype,dstnode,dstcount,dstlist,srccount,srclist GASNETE_THREAD_PASS)
   #endif
+  GASNETE_PUTV_SELECTOR(synctype,dstnode,dstcount,dstlist,srccount,srclist);
   gasneti_fatalerror("failure in GASNETE_PUTV_SELECTOR - should never reach here");
 }
 #endif
@@ -297,11 +303,11 @@ extern gasnet_handle_t gasnete_getv(gasnete_synctype_t synctype,
   }
 
   /* select algorithm */
-  #ifdef GASNETE_GETV_SELECTOR
-    GASNETE_GETV_SELECTOR(synctype,dstcount,dstlist,srcnode,srccount,srclist);
-  #else
-    return gasnete_getv_ref_indiv(synctype,dstcount,dstlist,srcnode,srccount,srclist GASNETE_THREAD_PASS);
+  #ifndef GASNETE_GETV_SELECTOR
+    #define GASNETE_GETV_SELECTOR(synctype,dstcount,dstlist,srcnode,srccount,srclist) \
+      return gasnete_getv_ref_indiv(synctype,dstcount,dstlist,srcnode,srccount,srclist GASNETE_THREAD_PASS)
   #endif
+  GASNETE_GETV_SELECTOR(synctype,dstcount,dstlist,srcnode,srccount,srclist);
   gasneti_fatalerror("failure in GASNETE_GETV_SELECTOR - should never reach here");
 }
 #endif
@@ -515,16 +521,21 @@ extern gasnet_handle_t gasnete_puti(gasnete_synctype_t synctype,
   }
 
   /* select algorithm */
-  #ifdef GASNETE_PUTI_SELECTOR
-    GASNETE_PUTI_SELECTOR(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen);
-  #else
-    switch (rand() % 2) {
-      case 0:
-        return gasnete_puti_ref_indiv(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen GASNETE_THREAD_PASS);
-      case 1:
-        return gasnete_puti_ref_vector(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen GASNETE_THREAD_PASS);
-    }
+  #ifndef GASNETE_PUTI_SELECTOR
+    #if GASNETE_RANDOM_SELECTOR
+      #define GASNETE_PUTI_SELECTOR(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen) do {                        \
+        switch (rand() % 2) {                                                                                                     \
+          case 0:                                                                                                                 \
+            return gasnete_puti_ref_indiv(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen GASNETE_THREAD_PASS);  \
+          case 1:                                                                                                                 \
+            return gasnete_puti_ref_vector(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen GASNETE_THREAD_PASS); \
+        } } while (0)
+    #else
+      #define GASNETE_PUTI_SELECTOR(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen) \
+        return gasnete_puti_ref_indiv(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen GASNETE_THREAD_PASS)
+    #endif
   #endif
+  GASNETE_PUTI_SELECTOR(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen);
   gasneti_fatalerror("failure in GASNETE_PUTI_SELECTOR - should never reach here");
   return GASNET_INVALID_HANDLE; /* avoid warning on MIPSPro */
 }
@@ -543,16 +554,21 @@ extern gasnet_handle_t gasnete_geti(gasnete_synctype_t synctype,
   }
 
   /* select algorithm */
-  #ifdef GASNETE_GETI_SELECTOR
-    GASNETE_GETI_SELECTOR(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen);
-  #else
-    switch (rand() % 2) {
-      case 0:
-        return gasnete_geti_ref_indiv(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen GASNETE_THREAD_PASS);
-      case 1:
-        return gasnete_geti_ref_vector(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen GASNETE_THREAD_PASS);
-    }
+  #ifndef GASNETE_GETI_SELECTOR
+    #if GASNETE_RANDOM_SELECTOR
+      #define GASNETE_GETI_SELECTOR(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen) do {                        \
+        switch (rand() % 2) {                                                                                                     \
+          case 0:                                                                                                                 \
+            return gasnete_geti_ref_indiv(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen GASNETE_THREAD_PASS);  \
+          case 1:                                                                                                                 \
+            return gasnete_geti_ref_vector(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen GASNETE_THREAD_PASS); \
+        } } while (0)
+    #else
+      #define GASNETE_GETI_SELECTOR(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen) \
+        return gasnete_geti_ref_indiv(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen GASNETE_THREAD_PASS)
+    #endif
   #endif
+  GASNETE_GETI_SELECTOR(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen);
   gasneti_fatalerror("failure in GASNETE_GETI_SELECTOR - should never reach here");
   return GASNET_INVALID_HANDLE; /* avoid warning on MIPSPro */
 }
@@ -1127,18 +1143,23 @@ extern gasnet_handle_t gasnete_puts(gasnete_synctype_t synctype,
   }
 
   /* select algorithm */
-  #ifdef GASNETE_PUTS_SELECTOR
-    GASNETE_PUTS_SELECTOR(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels);
-  #else
-    switch (rand() % 3) {
-      case 0:
-        return gasnete_puts_ref_indiv(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);
-      case 1:
-        return gasnete_puts_ref_vector(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);
-      case 2:
-        return gasnete_puts_ref_indexed(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);
-    }
+  #ifndef GASNETE_PUTS_SELECTOR
+    #if GASNETE_RANDOM_SELECTOR
+      #define GASNETE_PUTS_SELECTOR(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels) do {                         \
+        switch (rand() % 3) {                                                                                                               \
+          case 0:                                                                                                                           \
+            return gasnete_puts_ref_indiv(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);   \
+          case 1:                                                                                                                           \
+            return gasnete_puts_ref_vector(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);  \
+          case 2:                                                                                                                           \
+            return gasnete_puts_ref_indexed(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS); \
+        } } while (0)
+    #else
+      #define GASNETE_PUTS_SELECTOR(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels) \
+        return gasnete_puts_ref_indiv(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS)
+    #endif
   #endif
+  GASNETE_PUTS_SELECTOR(synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels);
   gasneti_fatalerror("failure in GASNETE_PUTS_SELECTOR - should never reach here");
   return GASNET_INVALID_HANDLE; /* avoid warning on MIPSPro */
 }
@@ -1164,18 +1185,23 @@ extern gasnet_handle_t gasnete_gets(gasnete_synctype_t synctype,
   }
 
   /* select algorithm */
-  #ifdef GASNETE_GETS_SELECTOR
-    GASNETE_GETS_SELECTOR(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels);
-  #else
-    switch (rand() % 3) {
-      case 0:
-        return gasnete_gets_ref_indiv(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);
-      case 1:
-        return gasnete_gets_ref_vector(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);
-      case 2:
-        return gasnete_gets_ref_indexed(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);
-    }
+  #ifndef GASNETE_GETS_SELECTOR
+    #if GASNETE_RANDOM_SELECTOR
+      #define GASNETE_GETS_SELECTOR(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels) do {                         \
+        switch (rand() % 3) {                                                                                                               \
+          case 0:                                                                                                                           \
+            return gasnete_gets_ref_indiv(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);   \
+          case 1:                                                                                                                           \
+            return gasnete_gets_ref_vector(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS);  \
+          case 2:                                                                                                                           \
+            return gasnete_gets_ref_indexed(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS); \
+        } } while (0)
+    #else 
+      #define GASNETE_GETS_SELECTOR(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels) \
+        return gasnete_gets_ref_indiv(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS)
+    #endif
   #endif
+  GASNETE_GETS_SELECTOR(synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels);
   gasneti_fatalerror("failure in GASNETE_GETS_SELECTOR - should never reach here");
   return GASNET_INVALID_HANDLE; /* avoid warning on MIPSPro */
 }
