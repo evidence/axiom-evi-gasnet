@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/18 07:40:50 $
- * $Revision: 1.9 $
+ *     $Date: 2005/02/18 13:32:25 $
+ * $Revision: 1.10 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -599,7 +599,7 @@ gasnetc_AMProcess(gasnetc_am_header_t *hdr, uint32_t *args /* header */)
 		    else
 			GASNETI_TRACE_AMSHORT_REPHANDLER(
 			    hdr->handler,token,numargs,pargs);
-		    GASNETC_RUN_HANDLER_SHORT(handler,token,pargs,numargs);
+		    GASNETI_RUN_HANDLER_SHORT(handler,token,pargs,numargs);
 		}
 		break;
 	    case GASNETC_AMMED_T:
@@ -614,7 +614,7 @@ gasnetc_AMProcess(gasnetc_am_header_t *hdr, uint32_t *args /* header */)
 		    else
 			GASNETI_TRACE_AMMEDIUM_REPHANDLER(
 			    hdr->handler,token,pdata,nbytes,numargs,pargs);
-		    GASNETC_RUN_HANDLER_MEDIUM(handler,token,pargs,numargs,
+		    GASNETI_RUN_HANDLER_MEDIUM(handler,token,pargs,numargs,
 					       pdata, nbytes);
 		}
 		break;
@@ -630,7 +630,7 @@ gasnetc_AMProcess(gasnetc_am_header_t *hdr, uint32_t *args /* header */)
 		    else
 			GASNETI_TRACE_AMLONG_REPHANDLER(
 			    hdr->handler,token,pdata,nbytes,numargs,pargs);
-		    GASNETC_RUN_HANDLER_LONG(handler,token,pargs,numargs,
+		    GASNETI_RUN_HANDLER_LONG(handler,token,pargs,numargs,
 					     pdata,nbytes);
 		}
 		break;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/02/17 13:19:26 $
- * $Revision: 1.68 $
+ *     $Date: 2005/02/18 13:32:29 $
+ * $Revision: 1.69 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -270,7 +270,7 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
           GASNETI_TRACE_AMSHORT_REQHANDLER(handler_id, rbuf, numargs, args);
         else
           GASNETI_TRACE_AMSHORT_REPHANDLER(handler_id, rbuf, numargs, args);
-        RUN_HANDLER_SHORT(handler_fn,rbuf,args,numargs);
+        GASNETI_RUN_HANDLER_SHORT(handler_fn,rbuf,args,numargs);
       }
       break;
 
@@ -284,7 +284,7 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
           GASNETI_TRACE_AMMEDIUM_REQHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
         else
           GASNETI_TRACE_AMMEDIUM_REPHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
-        RUN_HANDLER_MEDIUM(handler_fn,rbuf,args,numargs,data,nbytes);
+        GASNETI_RUN_HANDLER_MEDIUM(handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;
 
@@ -304,7 +304,7 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
 	  #endif
           GASNETI_TRACE_AMLONG_REPHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
 	}
-        RUN_HANDLER_LONG(handler_fn,rbuf,args,numargs,data,nbytes);
+        GASNETI_RUN_HANDLER_LONG(handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;
 

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/02/17 13:18:57 $
- * $Revision: 1.80 $
+ * $Date: 2005/02/18 13:32:13 $
+ * $Revision: 1.81 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1238,7 +1238,7 @@ gasnetc_AMRequestShortM(gasnet_node_t dest, gasnet_handler_t handler,
 	if (dest == gasneti_mynode) { /* local handler */
 		int argbuf[GASNETC_AM_MAX_ARGS];
 		GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
-		GASNETC_RUN_HANDLER_SHORT(_gmc.handlers[handler], (void *) -1, 
+		GASNETI_RUN_HANDLER_SHORT(_gmc.handlers[handler], (void *) -1, 
 					  argbuf, numargs);
 	}
 	else {
@@ -1278,10 +1278,11 @@ extern int gasnetc_AMRequestMediumM(
   if (dest == gasneti_mynode) { /* local handler */
     void *loopbuf;
     int argbuf[GASNETC_AM_MAX_ARGS];
-    loopbuf = gasnetc_alloca(nbytes);
+    loopbuf = gasnetc_alloca(nbytes+8);
+    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, 8);
     memcpy(loopbuf, source_addr, nbytes);
     GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
-    GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers[handler], (void *) -1,
+    GASNETI_RUN_HANDLER_MEDIUM(_gmc.handlers[handler], (void *) -1,
 				argbuf, numargs, loopbuf, nbytes);
   }
   else {
@@ -1446,7 +1447,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 
 		GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
 		GASNETC_AMPAYLOAD_WRITE(dest_addr, source_addr, nbytes);
-		GASNETC_RUN_HANDLER_LONG(_gmc.handlers[handler], (void *) -1, 
+		GASNETI_RUN_HANDLER_LONG(_gmc.handlers[handler], (void *) -1, 
 		    argbuf, numargs, dest_addr, nbytes);
 	}
 	else {
@@ -1511,7 +1512,7 @@ gasnetc_AMRequestLongAsyncM(
 
 		GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
 		GASNETC_AMPAYLOAD_WRITE(dest_addr, source_addr, nbytes);
-		GASNETC_RUN_HANDLER_LONG(_gmc.handlers[handler], (void *) -1, 
+		GASNETI_RUN_HANDLER_LONG(_gmc.handlers[handler], (void *) -1, 
 		    argbuf, numargs, dest_addr, nbytes);
 
 		va_end(argptr);
@@ -1592,7 +1593,8 @@ extern int gasnetc_RequestSystem(
   if (dest == gasneti_mynode) { /* local handler */
     void *loopbuf;
     int argbuf[GASNETC_AM_MAX_ARGS];
-    loopbuf = gasnetc_alloca(nbytes);
+    loopbuf = gasnetc_alloca(nbytes+8);
+    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, 8);
     memcpy(loopbuf, source_addr, nbytes);
     GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
     GASNETC_RUN_HANDLER_SYSTEM(_gmc.syshandlers[handler], (void *) -1,
@@ -1760,7 +1762,7 @@ gasnetc_AMReplyShortM(gasnet_token_t token, gasnet_handler_t handler,
 	if ((void *)token == (void*)-1) { /* local handler */
 		int argbuf[GASNETC_AM_MAX_ARGS];
 		GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
-		GASNETC_RUN_HANDLER_SHORT(_gmc.handlers[handler], 
+		GASNETI_RUN_HANDLER_SHORT(_gmc.handlers[handler], 
 				(void *) token, argbuf, numargs);
 	}
 	else {
@@ -1801,10 +1803,11 @@ extern int gasnetc_AMReplyMediumM(
   if ((void *)token == (void *)-1) { /* local handler */
     int argbuf[GASNETC_AM_MAX_ARGS];
     void *loopbuf;
-    loopbuf = gasnetc_alloca(nbytes);
+    loopbuf = gasnetc_alloca(nbytes+8);
+    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, 8);
     memcpy(loopbuf, source_addr, nbytes);
     GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
-    GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers[handler], (void *) token,
+    GASNETI_RUN_HANDLER_MEDIUM(_gmc.handlers[handler], (void *) token,
 				argbuf, numargs, loopbuf, nbytes);
   }
   else {
@@ -1860,7 +1863,7 @@ extern int gasnetc_AMReplyLongM(
 		GASNETC_AMTRACE_ReplyLong(Loopbk);
 		GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
 		GASNETC_AMPAYLOAD_WRITE(dest_addr, source_addr, nbytes);
-		GASNETC_RUN_HANDLER_LONG(_gmc.handlers[handler], (void *)token, 
+		GASNETI_RUN_HANDLER_LONG(_gmc.handlers[handler], (void *)token, 
 		    argbuf, numargs, dest_addr, nbytes);
 	}
 	else {
@@ -2050,7 +2053,8 @@ int gasnetc_ReplySystem(
   if ((void *)token == (void *)-1) { /* local handler */
     void *loopbuf;
     int argbuf[GASNETC_AM_MAX_ARGS];
-    loopbuf = gasnetc_alloca(nbytes);
+    loopbuf = gasnetc_alloca(nbytes+8);
+    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, 8);
     memcpy(loopbuf, source_addr, nbytes);
     GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
     GASNETC_RUN_HANDLER_SYSTEM(_gmc.syshandlers[handler], (void *) token,

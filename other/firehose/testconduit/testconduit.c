@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/testconduit/Attic/testconduit.c,v $
- *     $Date: 2005/02/17 13:19:05 $
- * $Revision: 1.6 $
+ *     $Date: 2005/02/18 13:32:21 $
+ * $Revision: 1.7 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -227,7 +227,7 @@ gasnetc_AMRequestShortM(
 	smap.node = dest;
 	smap.fd = -42;
 	SOCK_LOCK;
-	RUN_HANDLER_SHORT(gasnetc_handlers[handler], (void *) &smap, pArg, numargs);
+	GASNETI_RUN_HANDLER_SHORT(gasnetc_handlers[handler], (void *) &smap, pArg, numargs);
 	SOCK_UNLOCK;
     }
     else {
@@ -282,7 +282,7 @@ gasnetc_AMReplyShortM(
 	gasnetc_sockmap_t smap;
 	smap.node = node;
 	smap.fd = -42;
-	RUN_HANDLER_SHORT(gasnetc_handlers[handler], (void *) &smap, pArg, numargs);
+	GASNETI_RUN_HANDLER_SHORT(gasnetc_handlers[handler], (void *) &smap, pArg, numargs);
     }
     else {
 	SOCK_LOCK;
@@ -341,7 +341,7 @@ gasnetc_AMRequestMediumM(
 	smap.node = dest;
 	smap.fd = -42;
 	SOCK_LOCK;
-	RUN_HANDLER_MEDLONG(gasnetc_handlers[handler], (void *) &smap, 
+	GASNETI_RUN_HANDLER_MEDIUM(gasnetc_handlers[handler], (void *) &smap, 
 			    pArg, numargs, source_addr, nbytes);
 	SOCK_UNLOCK;
     }
@@ -412,7 +412,7 @@ gasnetc_AMReplyMediumM(
 	gasnetc_sockmap_t smap;
 	smap.node = node;
 	smap.fd = -42;
-	RUN_HANDLER_MEDLONG(gasnetc_handlers[handler], (void *) &smap, 
+	GASNETI_RUN_HANDLER_MEDIUM(gasnetc_handlers[handler], (void *) &smap, 
 			    pArg, numargs, source_addr, nbytes);
     }
     else {
@@ -501,11 +501,11 @@ gasnetc_AMPoll()
 		continue;
 
 	    if (sd.hdr & AM_SHORT) {
-		RUN_HANDLER_SHORT(gasnetc_handlers[sd.handler_idx], 
+		GASNETI_RUN_HANDLER_SHORT(gasnetc_handlers[sd.handler_idx], 
 				  (void *) &smap, sd.argptr, sd.numargs);
 	    }
 	    else {
-                RUN_HANDLER_MEDLONG(gasnetc_handlers[sd.handler_idx], 
+                GASNETI_RUN_HANDLER_MEDIUM(gasnetc_handlers[sd.handler_idx], 
 			(void *) &smap, sd.argptr, sd.numargs, sd.payptr, sd.paylen);
 	    }
 	}

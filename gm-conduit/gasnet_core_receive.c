@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_receive.c,v $
- * $Date: 2005/02/14 05:13:38 $
- * $Revision: 1.38 $
+ * $Date: 2005/02/18 13:32:13 $
+ * $Revision: 1.39 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -206,7 +206,7 @@ gasnetc_process_AMRequest(gasnetc_bufdesc_t *bufd)
 			GASNETC_TRACE_SHORT(AMRecv, RequestShort, bufd->node,
 			    bufd, handler_idx, GASNETC_AM_NUMARGS(*ptr));
 			argptr = (int32_t *) &ptr[GASNETC_AM_SHORT_ARGS_OFF];
-			GASNETC_RUN_HANDLER_SHORT(_gmc.handlers[handler_idx],
+			GASNETI_RUN_HANDLER_SHORT(_gmc.handlers[handler_idx],
 			    (void *) bufd, argptr, numargs);
 			break;
 
@@ -218,7 +218,7 @@ gasnetc_process_AMRequest(gasnetc_bufdesc_t *bufd)
 			argptr = (int32_t *) &ptr[GASNETC_AM_MEDIUM_ARGS_OFF];
 
 			BUFD_SET(bufd, BUFD_REQMEDIUM);
-			GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers[handler_idx],
+			GASNETI_RUN_HANDLER_MEDIUM(_gmc.handlers[handler_idx],
 			    (void *) bufd, argptr, numargs, 
 			    (void *) (ptr + GASNETC_AM_MEDIUM_HEADER_LEN(numargs)), 
 			    len - GASNETC_AM_MEDIUM_HEADER_LEN(numargs));
@@ -231,7 +231,7 @@ gasnetc_process_AMRequest(gasnetc_bufdesc_t *bufd)
 			    dest_addr, len-GASNETC_AM_LONG_HEADER_LEN(numargs));
 			argptr = (int32_t *) &ptr[GASNETC_AM_LONG_ARGS_OFF];
 			len = *((uint32_t *) &ptr[4]);
-			GASNETC_RUN_HANDLER_LONG(_gmc.handlers[handler_idx],
+			GASNETI_RUN_HANDLER_LONG(_gmc.handlers[handler_idx],
 			    (void *) bufd, argptr, numargs, dest_addr, len);
 			break;
 
@@ -267,7 +267,7 @@ gasnetc_process_AMReply(gasnetc_bufdesc_t *bufd)
 			GASNETC_TRACE_SHORT(AMRecv, ReplyShort, bufd->node,
 			    bufd, handler_idx, GASNETC_AM_NUMARGS(*ptr));
 			argptr = (int32_t *) &ptr[GASNETC_AM_SHORT_ARGS_OFF];
-			GASNETC_RUN_HANDLER_SHORT(_gmc.handlers[handler_idx],
+			GASNETI_RUN_HANDLER_SHORT(_gmc.handlers[handler_idx],
 			    (void *) bufd, argptr, numargs);
 			break;
 
@@ -277,7 +277,7 @@ gasnetc_process_AMReply(gasnetc_bufdesc_t *bufd)
 			    ptr + GASNETC_AM_MEDIUM_HEADER_LEN(numargs), 
 			    len - GASNETC_AM_MEDIUM_HEADER_LEN(numargs)); 
 			argptr = (int32_t *) &ptr[GASNETC_AM_MEDIUM_ARGS_OFF];
-			GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers[handler_idx],
+			GASNETI_RUN_HANDLER_MEDIUM(_gmc.handlers[handler_idx],
 			    (void *) bufd, argptr, numargs,
 			    (void *)(ptr + GASNETC_AM_MEDIUM_HEADER_LEN(numargs)), 
 			    len - GASNETC_AM_MEDIUM_HEADER_LEN(numargs)); 
@@ -290,7 +290,7 @@ gasnetc_process_AMReply(gasnetc_bufdesc_t *bufd)
 			    bufd, handler_idx, GASNETC_AM_NUMARGS(*ptr), 0, 
 			    dest_addr, len);
 			argptr = (int32_t *) &ptr[GASNETC_AM_LONG_ARGS_OFF];
-			GASNETC_RUN_HANDLER_LONG(_gmc.handlers[handler_idx],
+			GASNETI_RUN_HANDLER_LONG(_gmc.handlers[handler_idx],
 			    (void *) bufd, argptr, numargs, dest_addr, len);
 			break;
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core_internal.c,v $
- *     $Date: 2005/02/14 05:13:50 $
- * $Revision: 1.8 $
+ *     $Date: 2005/02/18 13:32:23 $
+ * $Revision: 1.9 $
  * Description: GASNet sci conduit c-file for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -1055,67 +1055,6 @@ void gasnetc_ht_add_handler (void * func_ptr, int index)
         }
 }
 
-/********************************************************
-					 Handler Running
-********************************************************/
-/*  Runs the short message handler */
-void gasnetc_run_handler_short (gasnet_token_t token, void* func_ptr, int numargs, gasnet_handlerarg_t *args)
-{
-      if (func_ptr != NULL)
-      {
-            switch (numargs)
-            {
-                  case 0: (*(gasnetc_handler_short)func_ptr)(token); break;
-		  case 1: (*(gasnetc_handler_short)func_ptr)(token, args[0]); break;
-                  case 2: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1]); break;
-                  case 3: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2]); break;
-                  case 4: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3]); break;
-                  case 5: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4]); break;
-                  case 6: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5]); break;
-                  case 7: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break;
-                  case 8: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break;
-                  case 9: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]); break;
-                  case 10: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]); break;
-                  case 11: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]); break;
-                  case 12: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]); break;
-                  case 13: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]); break;
-                  case 14: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break;
-                  case 15: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break;
-                  case 16: (*(gasnetc_handler_short)func_ptr)(token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break;
-                  default: abort();
-            }
-      }
-}
-
-/*  Runs medium/long message handler */
-void gasnetc_run_handler_mediumlong (gasnet_token_t token, void* func_ptr, int numargs, gasnet_handlerarg_t *args, void *payload, size_t payload_size)
-{
-      if (func_ptr != NULL)
-      {
-            switch (numargs)
-	    {
-                  case 0: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size); break;
-                  case 1: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0]); break;
-                  case 2: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1]); break;
-                  case 3: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2]); break;
-                  case 4: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3]); break;
-                  case 5: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4]); break;
-                  case 6: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5]); break;
-                  case 7: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break;
-                  case 8: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break;
-                  case 9: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]); break;
-                  case 10: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]); break;
-                  case 11: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]); break;
-                  case 12: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]); break;
-                  case 13: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]); break;
-                  case 14: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break;
-                  case 15: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break;
-                  case 16: (*(gasnetc_handler_mediumlong)func_ptr)(token, payload, payload_size, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break;
-                  default: abort();
-            }
-      }
-}
-
 void gasnetc_sci_handle_msg (gasnet_node_t sender_id, uint8_t msg_number, uint8_t msg_AM_type)
 {
       gasnetc_sci_token_t reply_token;
@@ -1129,7 +1068,7 @@ void gasnetc_sci_handle_msg (gasnet_node_t sender_id, uint8_t msg_number, uint8_
           int msg_numargs = gasnetc_get_msg_num_arg (Short_msg->header);
           void *func_ptr = gasnetc_ht_get_handler (gasnetc_get_msg_handler (Short_msg->header));
 
-          gasnetc_run_handler_short (handler_token, func_ptr, msg_numargs, Short_msg->args);
+          GASNETI_RUN_HANDLER_SHORT(func_ptr, handler_token, Short_msg->args, msg_numargs);
           break;
         }
         case GASNETC_SCI_MEDIUM: {
@@ -1140,7 +1079,7 @@ void gasnetc_sci_handle_msg (gasnet_node_t sender_id, uint8_t msg_number, uint8_
           // void *msg_payload = ((uint8_t *) Medium_msg) + sizeof (gasnetc_Long_header_t);
           void *msg_payload = ((uint8_t *) Medium_msg) + Medium_msg->header_size;
 
-          gasnetc_run_handler_mediumlong (handler_token, func_ptr, msg_numargs, Medium_msg->args, msg_payload, Medium_msg->payload_size);
+          GASNETI_RUN_HANDLER_MEDIUM(func_ptr, handler_token, Medium_msg->args, msg_numargs, msg_payload, Medium_msg->payload_size);
           break;
         }
         case GASNETC_SCI_LONG: {
@@ -1176,7 +1115,7 @@ void gasnetc_sci_handle_msg (gasnet_node_t sender_id, uint8_t msg_number, uint8_
                 }
           }
 
-          gasnetc_run_handler_mediumlong (handler_token, func_ptr, msg_numargs, Long_msg->args, Long_msg->payload, Long_msg->payload_size);
+          GASNETI_RUN_HANDLER_LONG(func_ptr, handler_token, Long_msg->args, msg_numargs, Long_msg->payload, Long_msg->payload_size);
           break;
       }
       default:

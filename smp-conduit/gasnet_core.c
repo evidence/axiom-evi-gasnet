@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/17 13:19:17 $
- * $Revision: 1.28 $
+ *     $Date: 2005/02/18 13:32:27 $
+ * $Revision: 1.29 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -392,7 +392,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
           GASNETI_TRACE_AMSHORT_REQHANDLER(handler, desc, numargs, pargs);
         else
           GASNETI_TRACE_AMSHORT_REPHANDLER(handler, desc, numargs, pargs);
-        RUN_HANDLER_SHORT(gasnetc_handler[handler],desc,pargs,numargs);
+        GASNETI_RUN_HANDLER_SHORT(gasnetc_handler[handler],desc,pargs,numargs);
       }
     break;
     case gasnetc_Medium:
@@ -400,8 +400,10 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
         void **corethreadinfo = gasnetc_mythread();
         uint8_t *buf = NULL;
         gasneti_assert(corethreadinfo);
-        if (!*corethreadinfo) 
-          *corethreadinfo = gasneti_malloc(sizeof(gasnetc_threadinfo_t));
+        if (!*corethreadinfo) { /* ensure 8-byte alignment of medium payload */
+          void *tmp = gasneti_malloc(sizeof(gasnetc_threadinfo_t)+8);
+          *corethreadinfo = (void*)GASNETI_ALIGNUP(tmp,8);
+        }
         if (isReq) buf = ((gasnetc_threadinfo_t *)*corethreadinfo)->requestBuf;
         else       buf = ((gasnetc_threadinfo_t *)*corethreadinfo)->replyBuf;
 
@@ -411,7 +413,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
           GASNETI_TRACE_AMMEDIUM_REQHANDLER(handler, desc, buf, nbytes, numargs, pargs);
         else
           GASNETI_TRACE_AMMEDIUM_REPHANDLER(handler, desc, buf, nbytes, numargs, pargs);
-        RUN_HANDLER_MEDIUM(gasnetc_handler[handler],desc,pargs,numargs,buf,nbytes);
+        GASNETI_RUN_HANDLER_MEDIUM(gasnetc_handler[handler],desc,pargs,numargs,buf,nbytes);
       }
     break;
     case gasnetc_Long:
@@ -422,7 +424,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
           GASNETI_TRACE_AMLONG_REQHANDLER(handler, desc, dest_ptr, nbytes, numargs, pargs);
         else
           GASNETI_TRACE_AMLONG_REPHANDLER(handler, desc, dest_ptr, nbytes, numargs, pargs);
-        RUN_HANDLER_LONG(gasnetc_handler[handler],desc,pargs,numargs,dest_ptr,nbytes);
+        GASNETI_RUN_HANDLER_LONG(gasnetc_handler[handler],desc,pargs,numargs,dest_ptr,nbytes);
       }
     break;
     default: abort();

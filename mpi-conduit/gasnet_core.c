@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/17 13:19:01 $
- * $Revision: 1.58 $
+ *     $Date: 2005/02/18 13:32:17 $
+ * $Revision: 1.59 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -391,6 +391,8 @@ extern void gasnetc_exit(int exitcode) {
   Job Environment Queries
   =======================
 */
+extern int gasneti_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries);
+
 extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
   CHECKCALLNIS();
   return gasneti_getSegmentInfo(seginfo_table, numentries);

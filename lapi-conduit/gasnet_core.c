@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/02/17 13:18:59 $
- * $Revision: 1.70 $
+ *     $Date: 2005/02/18 13:32:15 $
+ * $Revision: 1.71 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -783,7 +783,7 @@ extern int gasnetc_AMRequestShortM(
 #if GASNETC_ENABLE_LOOPBACK
     if (dest == gasneti_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
-	RUN_HANDLER_SHORT(pfn,token,&msg->args[0],numargs);
+	GASNETI_RUN_HANDLER_SHORT(pfn,token,&msg->args[0],numargs);
 	GASNETI_RETURN(GASNET_OK);
     }
 #endif
@@ -880,7 +880,7 @@ extern int gasnetc_AMRequestMediumM(
 	    destloc = gasneti_malloc(nbytes > 0 ? nbytes : 1);
 	    memcpy(destloc,source_addr,nbytes);
 	}
-	RUN_HANDLER_MEDIUM(pfn,token,&msg->args[0],numargs,destloc,nbytes);
+	GASNETI_RUN_HANDLER_MEDIUM(pfn,token,&msg->args[0],numargs,destloc,nbytes);
 	if (! udata_packed) {
 	    gasneti_free(destloc);
 	}
@@ -971,7 +971,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	/* must do local copy of data from source to dest */
 	memcpy((char*)dest_addr,source_addr,nbytes);
-	RUN_HANDLER_LONG(pfn,token,&msg->args[0],numargs,dest_addr,nbytes);
+	GASNETI_RUN_HANDLER_LONG(pfn,token,&msg->args[0],numargs,dest_addr,nbytes);
 	GASNETI_RETURN(GASNET_OK);
     }
 #endif
@@ -1074,7 +1074,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 	 * else messes with it.
 	 */
 	msg->uhdrLoc = (uintptr_t)NULL;
-	RUN_HANDLER_LONG(pfn,token,&msg->args[0],numargs,dest_addr,nbytes);
+	GASNETI_RUN_HANDLER_LONG(pfn,token,&msg->args[0],numargs,dest_addr,nbytes);
 	gasnetc_uhdr_free(token);
 	GASNETI_RETURN(GASNET_OK);
     }
@@ -1158,7 +1158,7 @@ extern int gasnetc_AMReplyShortM(
 #if GASNETC_ENABLE_LOOPBACK
     if (requester == gasneti_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
-	RUN_HANDLER_SHORT(pfn,token,&msg->args[0],numargs);
+	GASNETI_RUN_HANDLER_SHORT(pfn,token,&msg->args[0],numargs);
 	GASNETI_RETURN(GASNET_OK);
     }
 #endif
@@ -1254,7 +1254,7 @@ extern int gasnetc_AMReplyMediumM(
 	} else {
 	    destloc = udata_start;
 	}
-	RUN_HANDLER_MEDIUM(pfn,token,&msg->args[0],numargs,destloc,nbytes);
+	GASNETI_RUN_HANDLER_MEDIUM(pfn,token,&msg->args[0],numargs,destloc,nbytes);
 	if (nbytes > udata_avail) {
 	    gasneti_free(destloc);
 	}
@@ -1342,7 +1342,7 @@ extern int gasnetc_AMReplyLongM(
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	/* copy from source to dest, then execute handler */
 	memcpy((char*)dest_addr,source_addr,nbytes);
-	RUN_HANDLER_LONG(pfn,token,&msg->args[0],numargs,dest_addr,nbytes);
+	GASNETI_RUN_HANDLER_LONG(pfn,token,&msg->args[0],numargs,dest_addr,nbytes);
 	GASNETI_RETURN(GASNET_OK);
     }
 #endif
@@ -1772,14 +1772,14 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
     switch (cat) {
     case gasnetc_Short:
 	/* can run the AM handler in-line */
-	RUN_HANDLER_SHORT(am_func,token,am_args,numargs);
+	GASNETI_RUN_HANDLER_SHORT(am_func,token,am_args,numargs);
 	done = 1;
 	break;
     case gasnetc_Medium:
 	if (is_packed) {
 	    /* can run the AM handler in-line, data payload is packed in uhdr */
 	    void *srcloc = (void*)&msg->args[numargs];
-	    RUN_HANDLER_MEDIUM(am_func,token,am_args,numargs,srcloc,msg->dataLen);
+	    GASNETI_RUN_HANDLER_MEDIUM(am_func,token,am_args,numargs,srcloc,msg->dataLen);
 	    done = 1;
 	} else {
 	    /* data payload not in uhdr, alloc space of it */
@@ -1797,7 +1797,7 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 	     */
 	    void* udata_start = (void*)&msg->args[numargs];
 	    memcpy(destloc,udata_start,msg->dataLen);
-	    RUN_HANDLER_LONG(am_func,token,am_args,numargs,destloc,msg->dataLen);
+	    GASNETI_RUN_HANDLER_LONG(am_func,token,am_args,numargs,destloc,msg->dataLen);
 	    done = 1;
 	}
 	break;
@@ -1979,7 +1979,7 @@ void gasnetc_run_handler(gasnetc_token_t *token)
     /* run the GASNET handler */
     switch (msg_type) {
     case gasnetc_Short:
-	RUN_HANDLER_SHORT(am_func,token,am_args,numargs);
+	GASNETI_RUN_HANDLER_SHORT(am_func,token,am_args,numargs);
 	break;
 	
     case gasnetc_Medium:
@@ -1987,7 +1987,7 @@ void gasnetc_run_handler(gasnetc_token_t *token)
 	    /* data is cached in this uhdr */
 	    dataptr = (void*)&msg->args[numargs];
 	}
-	RUN_HANDLER_MEDIUM(am_func,token,am_args,numargs,dataptr,datalen);
+	GASNETI_RUN_HANDLER_MEDIUM(am_func,token,am_args,numargs,dataptr,datalen);
 	/* need to free this data memory (allocated in header handler) */
 	if (! is_packed) {
 	    /* we allocated a buffer for the payload in the header handler */
@@ -1997,7 +1997,7 @@ void gasnetc_run_handler(gasnetc_token_t *token)
 
     case gasnetc_Long:
     case gasnetc_AsyncLong:
-	RUN_HANDLER_LONG(am_func,token,am_args,numargs,dataptr,datalen);
+	GASNETI_RUN_HANDLER_LONG(am_func,token,am_args,numargs,dataptr,datalen);
 	/* Note that the memory specified by dataptr and datalen must
 	 * be in the segment registered on this node.
 	 */

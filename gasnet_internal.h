@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/02/17 13:18:51 $
- * $Revision: 1.64 $
+ *     $Date: 2005/02/18 13:32:07 $
+ * $Revision: 1.65 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -377,6 +377,83 @@ extern int gasneti_VerboseErrors;
    }                                                         \
  } while (0)
 
+/* ------------------------------------------------------------------------------------ */
+/* utility macros for dispatching AM handlers */
+
+typedef void (*gasneti_HandlerShort) (gasnet_token_t token, ...);
+typedef void (*gasneti_HandlerMedium)(gasnet_token_t token, void *buf, size_t nbytes, ...);
+typedef void (*gasneti_HandlerLong)  (gasnet_token_t token, void *buf, size_t nbytes, ...);
+
+/* ------------------------------------------------------------------------------------ */
+#define GASNETI_RUN_HANDLER_SHORT(phandlerfn, token, pArgs, numargs) do {               \
+  gasneti_assert(phandlerfn);                                                           \
+  if (numargs == 0) (*(gasneti_HandlerShort)phandlerfn)((void *)token);                 \
+  else {                                                                                \
+    gasnet_handlerarg_t *_args = (gasnet_handlerarg_t *)(pArgs); /* eval only once */   \
+    switch (numargs) {                                                                  \
+      case 1:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0]); break; \
+      case 2:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1]); break;\
+      case 3:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2]); break; \
+      case 4:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3]); break; \
+      case 5:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4]); break; \
+      case 6:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5]); break; \
+      case 7:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6]); break; \
+      case 8:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7]); break; \
+      case 9:  (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8]); break; \
+      case 10: (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9]); break; \
+      case 11: (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10]); break; \
+      case 12: (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11]); break; \
+      case 13: (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11], _args[12]); break; \
+      case 14: (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11], _args[12], _args[13]); break; \
+      case 15: (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11], _args[12], _args[13], _args[14]); break; \
+      case 16: (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11], _args[12], _args[13], _args[14], _args[15]); break; \
+      default: abort();                                                                 \
+      }                                                                                 \
+    }                                                                                   \
+  } while (0)
+/* ------------------------------------------------------------------------------------ */
+#define _GASNETI_RUN_HANDLER_MEDLONG(phandlerfn, token, pArgs, numargs, pData, datalen) do { \
+  gasneti_assert(phandlerfn);                                                                \
+  if (numargs == 0) (*phandlerfn)(token, pData, datalen);                                    \
+  else {                                                                                     \
+    gasnet_handlerarg_t *_args = (gasnet_handlerarg_t *)(pArgs); /* eval only once */        \
+    switch (numargs) {                                                                       \
+      case 1:  (*phandlerfn)(token, pData, datalen, _args[0]); break;                        \
+      case 2:  (*phandlerfn)(token, pData, datalen, _args[0], _args[1]); break;              \
+      case 3:  (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2]); break;    \
+      case 4:  (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3]); break; \
+      case 5:  (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4]); break; \
+      case 6:  (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5]); break; \
+      case 7:  (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6]); break; \
+      case 8:  (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7]); break; \
+      case 9:  (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8]); break; \
+      case 10: (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9]); break; \
+      case 11: (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10]); break; \
+      case 12: (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11]); break; \
+      case 13: (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11], _args[12]); break; \
+      case 14: (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11], _args[12], _args[13]); break; \
+      case 15: (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11], _args[12], _args[13], _args[14]); break; \
+      case 16: (*phandlerfn)(token, pData, datalen, _args[0], _args[1], _args[2], _args[3], _args[4], _args[5], _args[6], _args[7], _args[8], _args[9], _args[10], _args[11], _args[12], _args[13], _args[14], _args[15]); break; \
+      default: abort();                                                                 \
+      }                                                                                 \
+    }                                                                                   \
+  } while (0)
+
+/* we guarantee double-word alignment for data payload of medium xfers 
+ */
+#ifdef GASNETI_DISABLE_MEDBUF_ALIGNMENT_CHECK
+  #define _GASNETI_MEDBUF_ALIGNMENT_CHECK(pData)
+#else
+  #define _GASNETI_MEDBUF_ALIGNMENT_CHECK(pData) \
+    gasneti_assert(((uintptr_t)pData) % 8 == 0)
+#endif
+
+#define GASNETI_RUN_HANDLER_MEDIUM(phandlerfn, token, pArgs, numargs, pData, datalen) do {                                               \
+    _GASNETI_MEDBUF_ALIGNMENT_CHECK(pData);                                                                                              \
+    _GASNETI_RUN_HANDLER_MEDLONG((gasneti_HandlerMedium)phandlerfn, (gasnet_token_t)token, pArgs, numargs, (void *)pData, (int)datalen); \
+  } while (0)
+#define GASNETI_RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen) \
+  _GASNETI_RUN_HANDLER_MEDLONG((gasneti_HandlerLong)phandlerfn, (gasnet_token_t)token, pArgs, numargs, (void *)pData, (int)datalen)
 /* ------------------------------------------------------------------------------------ */
 
 END_EXTERNC
