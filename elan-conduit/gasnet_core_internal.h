@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/10/03 14:30:34 $
- * $Revision: 1.8 $
+ *     $Date: 2002/10/21 02:43:38 $
+ * $Revision: 1.9 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -262,12 +262,22 @@ extern gasneti_mutex_t gasnetc_sendfifoLock;
 
 /* (UN)LOCK_ELAN_WEAK is used when we only need mutual exclusion for the
    purposes of an elan call (which quadrics claims are all thread-safe)
+   OK - so apparently the elan library is only threadsafe starting in v1.4
  */
 #ifdef GASNETI_THREADS
-  #define LOCK_ELAN_WEAK()
-  #define UNLOCK_ELAN_WEAK()
-  #define ASSERT_ELAN_LOCKED_WEAK()
+  #if defined(ELAN_VER_1_2) || defined(ELAN_VER_1_3)
+    /* use real locks to provide thread-safety */
+    #define LOCK_ELAN_WEAK()    LOCK_ELAN()
+    #define UNLOCK_ELAN_WEAK()  UNLOCK_ELAN()
+    #define ASSERT_ELAN_LOCKED_WEAK() gasneti_mutex_assertlocked(&gasnetc_elanLock)
+  #else
+    /* elan library v1.4+ thread-safe - no weak locking required */
+    #define LOCK_ELAN_WEAK()
+    #define UNLOCK_ELAN_WEAK()
+    #define ASSERT_ELAN_LOCKED_WEAK()
+  #endif
 #else
+  /* doesn't actually lock anything - just preserves debug checking */
   #define LOCK_ELAN_WEAK()    LOCK_ELAN()
   #define UNLOCK_ELAN_WEAK()  UNLOCK_ELAN()
   #define ASSERT_ELAN_LOCKED_WEAK() gasneti_mutex_assertlocked(&gasnetc_elanLock)
