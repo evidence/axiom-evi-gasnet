@@ -40,7 +40,7 @@
 @c ------------------------------------------------------------------------------------
 @c Macros:
 
-@set VERSION 1.3
+@set VERSION 1.4pre
 @set RELEASEDATE April 17th, 2003
 
 @ifnottex
@@ -147,9 +147,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2003/04/17 11:48:02 $
+@subtitle $Date: 2003/06/09 12:08:54 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.22 $ 
+@subtitle $Revision: 1.23 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2003/04/17 11:48:02 $
-@*$Revision: 1.22 $ 
+@*$Date: 2003/06/09 12:08:54 $
+@*$Revision: 1.23 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.lbl.gov/}
 @HR
@@ -715,7 +715,7 @@ that may be provided to @code{gasnet_attach()} under the current configuration.
 The return value of this function may depend on 
 current system resource usage, and may return different values on different nodes
 of a job, according to current system utilization. The value returned will 
-always be an even multiple of @code{GASNET_PAGESIZE}.
+always be a multiple of @code{GASNET_PAGESIZE}.
 
 The value returned is an optimistic approximation of the segment size 
 which can be acquired by @code{gasnet_attach()} - the actual size achieved can be queried 
@@ -799,9 +799,11 @@ typedef struct @{
 Query the segment base addresses and sizes for all the nodes in the job. 
 @var{seginfo_table} is an array of @code{gasnet_seginfo_t} 
 (and @var{numentries} is the number of entries in the table). 
-The value of @var{numentries} should be at least @code{gasnet_nodes()}.
 GASNet fills in the table with the remote-access segment base address and size 
-in bytes for each node (including the local one).
+in bytes for each node whose index is less than @var{numentries}.
+The value of @var{numentries} is usually equal to @code{gasnet_nodes()}, but is permitted
+to be greater (in which case higher array entries are left untouched) or less (in which case
+the higher-numbered nodes are not reported).
 This is a non-collective operation.
 Returns @code{GASNET_OK} on success.
 
@@ -820,7 +822,8 @@ Has the same semantics as the POSIX @code{getenv()} call, except it queries the
 system-specific environment which was used to spawn the job (e.g. the 
 environment of the spawning console). Calling POSIX @code{getenv()} directly on 
 some implementations may not correctly return values reflecting the 
-environment that initiated the job spawn, consequently GASNet applications
+environment that initiated the job spawn, consequently GASNet clients wishing to
+query a consistent snapshot of the spawning environment across nodes
 should never call @code{getenv()} directly. The semantics of POSIX @code{setenv()} 
 are undefined in GASNet jobs (specifically, it will probably fail to 
 propagate changes across nodes). 
