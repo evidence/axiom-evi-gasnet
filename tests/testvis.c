@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testvis.c                              $
- *     $Date: 2004/03/04 13:03:50 $
- * $Revision: 1.2 $
+ *     $Date: 2004/03/05 14:29:43 $
+ * $Revision: 1.3 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,8 +18,14 @@
 
 #define MAX_VECLEN  100
 #define MAX_IDXLEN  8192
+
+/* VEC_SZ sets the size/offset alignment of all data accesses
+   we support sizes 1, 4 and 8
+   1 provides the most general test of aligned and unaligned accesses
+   8 provides the best detection and diagnostics of erroneous data movements by the conduit
+ */
 #ifndef VEC_SZ
-#define VEC_SZ 8
+#define VEC_SZ 1
 #endif
 #if VEC_SZ == 8
   #define VEC_T       uint64_t
@@ -42,6 +48,7 @@
 #else
   #error unknown VEC_SZ
 #endif
+
 #define NUM_AREAS   4
 #define MAX_STRIDEDIM  20
 #define MAX_CHUNKSZ 256
