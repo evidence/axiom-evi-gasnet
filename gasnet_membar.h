@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/03/09 02:20:50 $
- * $Revision: 1.31 $
+ *     $Date: 2004/03/16 22:25:31 $
+ * $Revision: 1.32 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,7 +37,6 @@
     defined(HPUX)    || /* HPUX seems to have no atomic ops */  \
     defined(__crayx1) || /* X1 atomics currently broken */ \
     (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) || /* haven't implemented atomics for PGI */ \
-    (defined(__MACH__) && defined(__APPLE__) && !defined(__GNUC__)) || /* we careth not about performance on OSX */ \
     (defined(OSF) && !defined(__DECC) && !defined(__GNUC__)) /* only implemented for these compilers */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
@@ -366,24 +365,38 @@
     #define gasneti_atomic_read(p)      ((p)->ctr)
     #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
     #define gasneti_atomic_init(v)      { (v) }
-  #elif defined(__MACH__) && defined(__APPLE__) && defined(__GNUC__)
-    static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
-      register int32_t volatile * addr = (int32_t volatile *)v;
-      register int32_t result;
-      __asm__ __volatile__ ( 
-        "0:\t" 
-        "lwarx    %0,0,%1 \n\t" 
-        "add%I2   %0,%0,%2 \n\t"
-        #ifdef __PPC405__
-          "sync \n\t"
-        #endif
-        "stwcx.   %0,0,%1 \n\t"
-        "bne-     0b" 
-        : "=&b"(result)		/* constraint b = not in r0 */
-        : "r" (addr), "Ir"(op) 
-        : "cr0", "memory");
-      return result;
-    }
+  #elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
+    #if defined(__xlC__)
+      static int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op);
+      #pragma mc_func gasneti_atomic_addandfetch_32 { \
+	/* Precondition: v in r3, op in r4 */ \
+	           /* 0:                */ \
+	"7c401828" /* lwarx   r2,0,r3   */ \
+	"7c422214" /* add     r2,r2,r4  */ \
+	"7c40192d" /* stwcx.  r2,0,r3   */ \
+	"40a2fff4" /* bne-    0x0       */ \
+	"4c00012c" /* isync             */ \
+	"60430000" /* ori     r3,r2,0x0 */ \
+	/* Postcondition: result in r3 */ \
+      }
+      #pragma reg_killed_by gasneti_atomic_addandfetch_32 gr2-gr4
+    #else
+      static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
+        register int32_t volatile * addr = (int32_t volatile *)v;
+        register int32_t result;
+        __asm__ __volatile__ ( 
+          "0:\t" 
+          "lwarx    %0,0,%1 \n\t" 
+          "add%I2   %0,%0,%2 \n\t"
+          "stwcx.   %0,0,%1 \n\t"
+          "bne-     0b \n\t" 
+          "isync"
+          : "=&b"(result)		/* constraint b = not in r0 */
+          : "r" (addr), "Ir"(op) 
+          : "cr0", "memory");
+        return result;
+      }
+    #endif
     typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
     #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
     #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
@@ -539,11 +552,18 @@
      GASNETI_ASM("dcs");
    }
  #endif
-#elif defined(_POWERPC) || defined(__POWERPC__) /* __POWERPC__ == OSX */
+#elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__) /* Darwin, OS/X */
+ #ifdef __xlC__
+   GASNET_INLINE_MODIFIER(gasneti_local_membar)
+   void gasneti_local_membar(void) {
+     _gasneti_do_sync(); 
+   }
+ #else
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
      GASNETI_ASM("sync");
    }
+ #endif
 #elif defined(__alpha) && defined(__osf__)
  #if 1
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
