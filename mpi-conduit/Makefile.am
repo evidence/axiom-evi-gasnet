@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.24 2004/03/12 11:03:51 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.25 2004/03/12 21:55:40 phargrov Exp $
 # Description: Makefile for GASNet mpi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -31,6 +31,9 @@ CONDUIT_SOURCELIST =          \
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
 CONDUIT_EXTRALIBCFLAGS = -I$(top_srcdir)/other/ammpi
+CONDUIT_EXTRALIBCFLAGS_SEQ = 
+CONDUIT_EXTRALIBCFLAGS_PAR =
+CONDUIT_EXTRALIBCFLAGS_PARSYNC =
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = $(top_srcdir)/other/ammpi/*.h 
@@ -45,7 +48,7 @@ $(top_builddir)/other/ammpi/libammpi.a:
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as
 # forced targets in this file, and should probably use LIBINCLUDES/LIBDEFINES
-CONDUIT_SPECIAL_OBJS=
+CONDUIT_SPECIAL_OBJS = 
 
 # the default job spawn command to be used for "make run-tests"
 # The following substitutions are performed:
