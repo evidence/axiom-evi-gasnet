@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/01/11 22:46:40 $
- * $Revision: 1.5 $
+ *     $Date: 2003/02/20 14:53:31 $
+ * $Revision: 1.6 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,9 +32,12 @@
       atomically decrement *p, return non-zero iff the new value is 0
  */
 
-#if defined(SOLARIS) || defined(CRAYT3E) || defined(__PGI) || \
-    (defined(OSF) && !defined(__DECC))
-  #define GASNETI_USE_GENERIC_ATOMICOPS /* TODO: no atomic ops on T3e? */
+#if defined(SOLARIS) || /* SPARC seems to have no atomic ops */ \
+    defined(CRAYT3E) || /* TODO: no atomic ops on T3e? */       \
+    defined(__PGI) ||   /* Portland Group compiler doesn't support asm */ \
+    (defined(OSF) && !defined(__DECC)) ||  /* OSF atomics are compiler built-ins */ \
+    defined(__INTEL_COMPILER) /* Intel compiler doesn't support asm (contrary to docs) */
+  #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
 
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
