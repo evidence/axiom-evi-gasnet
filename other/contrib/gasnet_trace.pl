@@ -54,8 +54,9 @@ my $opt_sort;
 my $opt_output;
 my $opt_help;
 my $opt_report;
+my $opt_thread;
 
-my (%data, %report);
+my (%data, %report, %thread_match);
 # Getting the Options
 ########################
 
@@ -63,7 +64,8 @@ GetOptions (
     'h|?|help'		=> \$opt_help,
     'sort=s'		=> \$opt_sort,
     'o=s'		=> \$opt_output,
-    'report=s'		=> \$opt_report
+    'report=s'		=> \$opt_report,
+    't|thread'		=> \$opt_thread
 );
 
 # The main routine
@@ -109,6 +111,7 @@ Options:
                         and MAX refer to message size: for BARRIERS, to time
                         spent in barrier).  Default: sort by SRC (source
                         file/line). 
+    -t -thread  	Output detailed information for each thread.
 EOF
     exit(-1);
 } 	
@@ -125,20 +128,25 @@ sub parse_tracefile
     open (TRACEFILE, $_[0]) or die "Could not open $_[0]: $!\n";
     
     while (<TRACEFILE>) {
-        next unless (/\[([^\]]+)\]\s+\([$opt_report]\)\s+(.*)_(.*):\D+(\d+)/); 
-        
-        my ($src, $pgb, $type, $sz) = ($1, $2, $3, $4);
-        if (!$data{$pgb}{$src}{$type}) { # first record
-            push @{$data{$pgb}{$src}{$type}}, ($sz, $sz, $sz, $sz, 1);
+        if (/MAGIC/) {
+	    (/^(\S+).*I am thread\s(\d+)/);
+	    $thread_match{$1} = $2;
+	    next;		    
+	}            
+        next unless (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([$opt_report]\)\s+(.*)_(.*):\D+(\d+)/); 
+        my ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
+        if (!$data{$pgb}{$src}{$type}{$thread}) { # first record
+            push @{$data{$pgb}{$src}{$type}{$thread}}, ($sz, $sz, $sz, $sz, 1);
         } else {
-            my ($max, $min, $avg, $total, $totalc) = @{$data{$pgb}{$src}{$type}};
+            my ($max, $min, $avg, $total, $totalc) = 
+            	@{$data{$pgb}{$src}{$type}{$thread}};
             $max = $max > $sz ? $max : $sz;
             $min = $min < $sz ? $min : $sz;
             $total += $sz;
             $totalc += 1;
             $avg = $total / $totalc;
-            @{$data{$pgb}{$src}{$type}} = ($max, $min, $avg, $total, $totalc);
-	    #my @debug = @{$data{$pgb}{$src}{$type}};
+            @{$data{$pgb}{$src}{$type}{$thread}} 
+            	= ($max, $min, $avg, $total, $totalc);
         }
     }
 }
@@ -194,7 +202,19 @@ sub flatten
     foreach my $pgb (keys %data) {
     	foreach my $line (keys %{$data{$pgb}}) {
     	    foreach my $type (keys %{$data{$pgb}{$line}}) {
-    	    	my @entry = ($line, $type, @{$data{$pgb}{$line}{$type}});
+
+    	    	my ($max, $min, $avg, $total, $totalc);
+    	    	foreach my $thread (keys %{$data{$pgb}{$line}{$type}}) {
+    	    	    my ($tmax, $tmin, $tavg, $ttotal, $ttotalc) 
+			 = @{$data{$pgb}{$line}{$type}{$thread}};
+    	    	    $max = $max > $tmax ? $max : $tmax;
+    	    	    $min = ($min > $tmin || !$min) ? $tmin : $min;
+    	    	    $total += $ttotal;
+    	    	    $totalc += $ttotalc;
+    	    	}
+    	    	$avg = $total / $totalc;
+
+    	    	my @entry = ($line, $type, $max, $min, $avg, $total, $totalc);
 		push @{$report{$pgb}}, \@entry; 
     	    }
     	}
@@ -275,7 +295,7 @@ sub trace_output
     # Print out 
     print "\n$pgb REPORT:\n";
     
-    $handle->format_name("SHOWTYPE");
+
     print <<EOF;
 NO     SOURCE  LINE  TYPE          MSG:(min    max     avg     total)    CALLS  
 ==============================================================================    	
@@ -283,7 +303,7 @@ EOF
     
     # Setting up variables;
     my ($rank, $src_num, $source, $lnum, $type, $min, $max, $avg, $total, $calls);
-    
+    my ($threadnum, $tmin, $tmax, $tavg, $ttotal, $tcalls);
     $rank = 1;
 
     if (!$report{$pgb}) {
@@ -296,8 +316,26 @@ EOF
         $min = shorten($min, $pgb);
         $avg = shorten($avg, $pgb);
         $total = shorten($total, $pgb);
+        $handle->format_name("SHOWTYPE");
         write($handle);
         $rank++;
+        
+        if ($opt_thread) {
+            foreach my $thread (sort keys %{$data{$pgb}{$src_num}{$type}}) {
+            	
+            	$threadnum = $thread_match{$thread};
+            	($tmax, $tmin, $tavg, $ttotal, $tcalls) = 
+            	    @{$data{$pgb}{$src_num}{$type}{$thread}};
+    		$tmax = shorten($tmax, $pgb);
+		$tmin = shorten($tmin, $pgb);
+    		$tavg = shorten($tavg, $pgb);
+		$ttotal = shorten($ttotal, $pgb);
+
+    		$handle->format_name("THREAD");
+    		write($handle);
+    	    }
+    	}
+        
         # Current max number of ranks is 999
         if ($rank >= 1000) {
             return;
@@ -311,7 +349,11 @@ EOF
 @<<  @>>>>>>> @>>>> @<<<<<<<<<  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
 $rank, $source, $lnum, $type, $min, $max, $avg, $total, $calls
 .
-
+    
+    format THREAD =
+           Thread @>>> :        @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
+$threadnum, $tmin, $tmax, $tavg, $ttotal, $tcalls
+.
 }
 
         
