@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2004/09/05 08:08:52 $
- * $Revision: 1.72 $
+ *     $Date: 2004/09/12 01:57:47 $
+ * $Revision: 1.73 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -857,11 +857,9 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
     return retval;
   }
 
-  #define GASNETI_TRACEFILE_FLUSH(fp) do {               \
-    static int autoflush = -1;                           \
-    if_pf (autoflush == -1)                              \
-      autoflush = !!gasnet_getenv("GASNET_TRACEFLUSH");  \
-    if (autoflush) fflush(fp);                           \
+  static int gasneti_autoflush = 0;
+  #define GASNETI_TRACEFILE_FLUSH(fp) do {  \
+    if (gasneti_autoflush) fflush(fp);      \
   } while (0)
 
   /* private helper for gasneti_trace/stats_output */
@@ -1043,6 +1041,8 @@ extern void gasneti_trace_init(int argc, char **argv) {
       types++;
     }
   }
+
+  gasneti_autoflush = !!gasnet_getenv("GASNET_TRACEFLUSH");
 
   { /* setup tracefile */
     char *tracefilename = gasnet_getenv("GASNET_TRACEFILE");
