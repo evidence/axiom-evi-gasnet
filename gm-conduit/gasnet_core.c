@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.33 2003/03/10 01:10:10 csbell Exp $
- * $Date: 2003/03/10 01:10:10 $
+/* $Id: gasnet_core.c,v 1.34 2003/03/31 09:03:08 bonachea Exp $
+ * $Date: 2003/03/31 09:03:08 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -247,8 +247,8 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	int retval = GASNET_OK, i = 0;
 
 	GASNETI_TRACE_PRINTF(C,
-	    ("gasnetc_attach(table (%i entries), segsize=%i, minheapoffset=%i)",
-	    numentries, (int)segsize, (int)minheapoffset));
+	    ("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
+	    numentries, (unsigned long)segsize, (unsigned long)minheapoffset));
 
 	if (!gasnetc_init_done) 
 		GASNETI_RETURN_ERRR(NOT_INIT,

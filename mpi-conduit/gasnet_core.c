@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/01/11 22:46:48 $
- * $Revision: 1.23 $
+ *     $Date: 2003/03/31 09:03:10 $
+ * $Revision: 1.24 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -69,8 +69,8 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
 #define INITERR(type, reason) do {                                      \
    if (gasneti_VerboseErrors) {                                         \
      fprintf(stderr, "GASNet initialization encountered an error: %s\n" \
-      "  at %s\n",                                                      \
-      #reason, gasneti_current_loc);                                    \
+      "  in %s at %s:%i\n",                                             \
+      #reason, GASNETI_CURRENT_FUNCTION,  __FILE__, __LINE__);          \
    }                                                                    \
    retval = GASNET_ERR_ ## type;                                        \
    goto done;                                                           \
@@ -209,8 +209,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   int retval = GASNET_OK;
   void *segbase = NULL;
   
-  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%i, minheapoffset=%i)",
-                          numentries, (int)segsize, (int)minheapoffset));
+  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
+                          numentries, (unsigned long)segsize, (unsigned long)minheapoffset));
   AMLOCK();
     if (!gasnetc_init_done) 
       INITERR(NOT_INIT, "GASNet attach called before init");

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/03/01 23:46:46 $
- * $Revision: 1.19 $
+ *     $Date: 2003/03/31 09:03:06 $
+ * $Revision: 1.20 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -319,8 +319,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
                           uintptr_t segsize, uintptr_t minheapoffset) {
   void *segbase = NULL;
   
-  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%i, minheapoffset=%i)",
-                          numentries, (int)segsize, (int)minheapoffset));
+  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
+                          numentries, (unsigned long)segsize, (unsigned long)minheapoffset));
 
   if (!gasnetc_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet attach called before init");
