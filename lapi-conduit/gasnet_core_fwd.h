@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_fwd.h              $
- *     $Date: 2004/08/18 17:46:49 $
- * $Revision: 1.13 $
+ *     $Date: 2004/08/23 17:40:58 $
+ * $Revision: 1.14 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,14 +25,19 @@
     */
 #  ifndef GASNETC_LAPI_VERSION_A
 #    define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
-#  elif GASNETC_LAPI_VERSION_A < 2
-#    define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
-#  elif GASNETC_LAPI_VERSION_B < 3
-#    define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
-#  elif GASNETC_LAPI_VERSION_C < 2
-#    define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#  elif GASNETC_LAPI_VERSION_A <= 2
+#    if GASNETC_LAPI_VERSION_A < 2
+#      define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#    elif GASNETC_LAPI_VERSION_B <= 3
+#      if GASNETC_LAPI_VERSION_B < 3
+#        define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#      elif GASNETC_LAPI_VERSION_C <= 2
+#        define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#      endif
+#    endif
 #  endif
-#else
+#endif
+#ifndef GASNETC_LAPI_FED_POLLBUG_WORKAROUND
 #  define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 0
 #endif
 
