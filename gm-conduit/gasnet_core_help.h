@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.10 2002/08/07 20:01:19 csbell Exp $
- * $Date: 2002/08/07 20:01:19 $
- * $Revision: 1.10 $
+/* $Id: gasnet_core_help.h,v 1.11 2002/08/08 06:53:26 csbell Exp $
+ * $Date: 2002/08/08 06:53:26 $
+ * $Revision: 1.11 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -37,6 +37,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
  * Header
  */
 
+#define TRACE
 
 #define GASNETC_AM_SHORT	0x00
 #define GASNETC_AM_MEDIUM	0x01
@@ -46,7 +47,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define	GASNETC_AM_REPLY	0x00
 #define GASNETC_AM_REQUEST	0x01
 
-#define GASNETC_AM_SIZE		12 
+#define GASNETC_AM_SIZE		16
 #define GASNETC_AM_LEN		(1<<GASNETC_AM_SIZE)
 #define GASNETC_AM_PACKET	(GASNETC_AM_LEN-8)
 
@@ -104,12 +105,12 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_AM_LONG_ARGS_OFF	(8+sizeof(uintptr_t))
 
 #define GASNETC_AM_MEDIUM_HEADER_PAD(numargs) (((numargs)%2==1) ? 0 : 4)
-/* XXX need something at compile time for sizeof(uintptr_t) */
+#ifdef GASNETI_PTR32
 #define GASNETC_AM_LONG_PAD(numargs) (((numargs)%2==1) ? 0 : 4)
-/* The case for uintptr_t = 8 bytes would be the opposite:
- * See Long Header description in gasnetc_write_AMBufferLong
- * #define GASNETC_AM_LONG_PAD(numargs) (((numargs)%2==0) ? 0 : 4)
- */
+#elif GASNETI_PTR64
+#define GASNETC_AM_LONG_PAD(numargs) (((numargs)%2==0) ? 0 : 4)
+#endif
+
 #define GASNETC_AM_SHORT_HEADER_LEN(numargs)                     \
 			((numargs)*4 + GASNETC_AM_SHORT_ARGS_OFF)
 #define GASNETC_AM_MEDIUM_HEADER_LEN(numargs)                     \
@@ -120,15 +121,12 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 			+ GASNETC_AM_LONG_PAD(numargs))
 
 /* -------------------------------------------------------------------------- */
+/* Maximum sizes for mediums and Longs */
 #define GASNETC_AM_MEDIUM_MAX                                     \
 		(GASNETC_AM_PACKET -                              \
 		 GASNETC_AM_MEDIUM_HEADER_LEN(GASNETC_AM_MAX_ARGS))
-#define GASNETC_AM_LONG_REPLY_MAX	                        \
-		(GASNETC_AM_PACKET -                            \
-		 GASNETC_AM_LONG_HEADER_LEN(GASNETC_AM_MAX_ARGS))
-#define GASNETC_AM_LONG_REQUEST_MAX                             \
-		(3*GASNETC_AM_PACKET + GASNETC_AM_PACKET -      \
-		 GASNETC_AM_LONG_HEADER_LEN(GASNETC_AM_MAX_ARGS))
+#define GASNETC_AM_LONG_REPLY_MAX   (GASNETC_AM_LEN - GASNETC_LONG_OFFSET)
+#define GASNETC_AM_LONG_REQUEST_MAX (3*GASNETC_AM_LEN - GASNETC_LONG_OFFSET)
 
 #define GASNETC_AM_MAX_NON_DMA_PAYLOAD	((GM_MTU-8)-GASNETC_AM_MEDIUM_MAX)
 /* -------------------------------------------------------------------------- */
@@ -171,7 +169,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_ASSERT_AMLONG(buf, type, handler, args, req, len, src, dest) \
 	do {	GASNETC_ASSERT_AMMEDIUM(buf, type, handler, args, req, len,  \
 			                src);				     \
-		assert(dest != NULL);					     \
+		assert(dest != 0);					     \
 	} while (0)
 
 /* -------------------------------------------------------------------------- */
@@ -333,6 +331,17 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 
 #define GASNETC_AMPAYLOAD_WRITE(dest, src, len)	memcpy((dest),(src),(len))
 #define GASNETC_AMPAYLOAD_READ GASNETC_AMPAYLOAD_WRITE
+
+#if defined(GASNETI_PTR32)
+#define GASNETC_ARGPTR_NUM	1
+#define GASNETC_ARGPTR(ptr, addr)	((int32_t) *(ptr) = (int32_t) addr)
+#elif defined(GASNETI_PTR64)
+#define GASNETC_ARGPTR_NUM	2
+#define GASNETC_ARGPTR(ptr, addr)					    \
+	do { (int32_t) *((int32_t *)ptr) = (int32_t) GASNETI_HIWORD(addr);  \
+	     (int32_t) *((int32_t *)ptr+1) = (int32_t) GASNETI_LOWORD(addr);\
+	   } while (0)
+#endif
 
 /* -------------------------------------------------------------------------- */
 #define GASNETC_RUN_HANDLER_SHORT(pfn, token, pArgs, numargs) do { 	       \

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.18 2002/08/07 20:01:19 csbell Exp $
- * $Date: 2002/08/07 20:01:19 $
- * $Revision: 1.18 $
+/* $Id: gasnet_core_misc.c,v 1.19 2002/08/08 06:53:26 csbell Exp $
+ * $Date: 2002/08/08 06:53:26 $
+ * $Revision: 1.19 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -245,7 +245,7 @@ gasnetc_gm_nodes_compare(const void *k1, const void *k2)
 }
 
 void
-gasnetc_tokensend_AMRequest(void *buf, uint16_t len, 
+gasnetc_tokensend_AMRequest(void *buf, uint32_t len, 
 		uint32_t id, uint32_t port,
 		gm_send_completion_callback_t callback, 
 		void *callback_ptr, uintptr_t dest_addr)

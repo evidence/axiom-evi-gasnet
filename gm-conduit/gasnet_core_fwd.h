@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.6 2002/08/07 20:01:19 csbell Exp $
- * $Date: 2002/08/07 20:01:19 $
- * $Revision: 1.6 $
+/* $Id: gasnet_core_fwd.h,v 1.7 2002/08/08 06:53:26 csbell Exp $
+ * $Date: 2002/08/08 06:53:26 $
+ * $Revision: 1.7 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -17,6 +17,8 @@
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         GM
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
+
+#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD	4096
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */

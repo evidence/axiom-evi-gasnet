@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.13 2002/07/07 13:38:26 csbell Exp $
- * $Date: 2002/07/07 13:38:26 $
- * $Revision: 1.13 $
+/* $Id: gasnet_core_receive.c,v 1.14 2002/08/08 06:53:26 csbell Exp $
+ * $Date: 2002/08/08 06:53:26 $
+ * $Revision: 1.14 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -165,7 +165,7 @@ gasnetc_process_AMRequest(uint8_t *ptr, gm_recv_event_t *e)
 	gasnetc_bufdesc_t	*bufd;
 	uint8_t			handler_idx, numargs;
 	uintptr_t		dest_addr;
-	uint16_t		len;
+	uint32_t		len;
 	int32_t			*argptr;
 
 	/* match the buffer provided by GM with our list of bufdesc_t */
@@ -177,7 +177,7 @@ gasnetc_process_AMRequest(uint8_t *ptr, gm_recv_event_t *e)
 	bufd->e = e;
 	handler_idx = ptr[1];
 	numargs = GASNETC_AM_NUMARGS(*ptr);
-	len = (uint16_t) gm_ntoh_u32(e->recv.length);
+	len = (uint32_t) gm_ntoh_u32(e->recv.length);
 	assert(len >= 2); /* minimum AM message */
 	assert(numargs <= GASNETC_AM_MAX_ARGS); /* maximum AM args */
 
@@ -251,7 +251,7 @@ gasnetc_process_AMReply(uint8_t *ptr, gm_recv_event_t *e)
 	gasnetc_bufdesc_t	*bufd;
 	uint8_t			handler_idx, numargs;
 	uintptr_t		dest_addr;
-	uint16_t		len;
+	uint32_t		len;
 	int32_t			*argptr;
 
 	/* match the buffer provided by GM with our list of bufdesc_t */
@@ -263,7 +263,7 @@ gasnetc_process_AMReply(uint8_t *ptr, gm_recv_event_t *e)
 	bufd->e = e;
 	handler_idx = ptr[1];
 	numargs = GASNETC_AM_NUMARGS(*ptr);
-	len = (uint16_t) gm_ntoh_u32(e->recv.length);
+	len = (uint32_t) gm_ntoh_u32(e->recv.length);
 	assert(len >= 2); /* minimum AM message */
 	assert(numargs <= GASNETC_AM_MAX_ARGS); /* maximum AM args */
 
