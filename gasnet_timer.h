@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2003/10/24 01:37:28 $
- * $Revision: 1.12 $
+ *     $Date: 2004/01/03 20:06:47 $
+ * $Revision: 1.13 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -122,10 +122,15 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
 #elif defined(SOLARIS)
   #include <sys/time.h>
-  typedef uint64_t gasneti_stattime_t;
+  typedef hrtime_t gasneti_stattime_t;
+  GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
+  uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
+    assert(sizeof(gasneti_stattime_t) == 8);
+    return (*(uint64_t*)&st)/1000;
+  }
   #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
-  #define GASNETI_STATTIME_TO_US(st)  ((st)/1000)
+  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)(((uint64_t)-1)>>1))
+  #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gethrtime())
 #elif defined(LINUX) && defined(__GNUC__) && defined(__i386__)
   #include <stdio.h>
