@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2004/07/28 20:47:58 $
- * $Revision: 1.20 $
+ *     $Date: 2004/07/29 20:22:22 $
+ * $Revision: 1.21 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -178,6 +178,16 @@ extern gasnet_seginfo_t *gasnete_seginfo;
  * program order.
  * The get_memsync belongs after the memory copy to ensure that if the value(s) read
  * is used to predicate any subsequent reads, that the reads are done in program order.
+ * Note that because gasnet_gets may read multiple words, it's possible that the 
+ * values fetched in a multi-word get may reflect concurrent strict writes by other CPU's 
+ * in a way that appears to violate program order, eg:
+ *  CPU0: gasnet_put_val(mynode,&A[0],someval,1) ; gasnet_put_val(mynode,&A[1],someval,1); 
+ *  CPU1: gasnet_get(dest,mynode,&A[0],someval,2) ; // may see updated A[1] but not A[0]
+ * but there doesn't seem to be much we can do about that (adding another rmb before the
+ * get does not solve the problem, because the two puts may globally complete in the middle
+ * of the get's execution, after copying A[0] but before copying A[1]). It's a fundamental
+ * result of the fact that multi-word gasnet put/gets are not performed atomically 
+ * (and for performance reasons, cannot be).
  */
 #ifdef GASNETI_MEMSYNC_ON_LOOPBACK
   #define gasnete_loopbackput_memsync() gasneti_local_wmb()

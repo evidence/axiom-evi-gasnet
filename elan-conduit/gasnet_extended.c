@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/29 00:38:55 $
- * $Revision: 1.41 $
+ *     $Date: 2004/07/29 20:22:20 $
+ * $Revision: 1.42 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -442,6 +442,13 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
             SET_OPSTATE((gasnete_eop_t *)op, OPSTATE_COMPLETE);
           } 
         if (!have_elanLock) UNLOCK_ELAN_WEAK();
+        /* ensure we do a read memory barrier if the eop was completed by the NIC, 
+           even in the absence of threads (when threads are present, it is 
+           performed by the caller)
+         */
+        #if !GASNETI_THREADS
+          gasneti_local_rmb()
+        #endif
         return result;
       }
       case OPCAT_AMGET:
