@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.33 2004/03/05 10:39:45 csbell Exp $
- * $Date: 2004/03/05 10:39:45 $
+/* $Id: gasnet_extended_firehose.c,v 1.34 2004/03/10 00:34:28 phargrov Exp $
+ * $Date: 2004/03/10 00:34:28 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -532,7 +532,7 @@ gasnete_fh_request_get(void *_gop, const firehose_request_t *req, int allLocalHi
 	else {
 		GASNETI_TRACE_PRINTF(C, 
 		    ("Firehose RDMA GET w/ PutRev (%p): %p <- (%d,%p) (%d bytes)", 
-		     gop, (void *) gop->dest, (unsigned) node, 
+		     gop, (void *) gop->dest, (unsigned) req->node, 
 		     (void *) gop->src, gop->len));
 
 		gasnete_get_fh_done(gop);
