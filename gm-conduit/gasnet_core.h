@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.5 2002/06/26 21:03:29 csbell Exp $
- * $Date: 2002/06/26 21:03:29 $
- * $Revision: 1.5 $
+/* $Id: gasnet_core.h,v 1.6 2002/06/30 00:32:50 csbell Exp $
+ * $Date: 2002/06/30 00:32:50 $
+ * $Revision: 1.6 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -105,13 +105,30 @@ typedef struct _gasnet_hsl_t {
   #else
     char _dummy; /* prevent an illegal empty structure decl */
   #endif
+
+  #if defined(STATS) || defined(TRACE)
+    gasneti_stattime_t acquiretime;
+  #endif
+
+  /* more state may be required for conduits using interrupts */
 } gasnet_hsl_t;
 
 #ifdef GASNETI_THREADS
-  #define GASNET_HSL_INITIALIZER { PTHREAD_MUTEX_INITIALIZER }
-#else
-  #define GASNET_HSL_INITIALIZER { 0 }
+  #define GASNETC_LOCK_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
+#else 
+  #define GASNETC_LOCK_MUTEX_INIT 0
 #endif
+
+#if defined(STATS) || defined(TRACE)
+  #define GASNETC_LOCK_STAT_INIT ,0 
+#else
+  #define GASNETC_LOCK_STAT_INIT  
+#endif
+
+#define GASNET_HSL_INITIALIZER { \
+  GASNETC_LOCK_MUTEX_INIT        \
+  GASNETC_LOCK_STAT_INIT         \
+  }
 
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl);

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.4 2002/06/26 21:03:29 csbell Exp $
- * $Date: 2002/06/26 21:03:29 $
- * $Revision: 1.4 $
+/* $Id: gasnet_core_help.h,v 1.5 2002/06/30 00:32:50 csbell Exp $
+ * $Date: 2002/06/30 00:32:50 $
+ * $Revision: 1.5 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -27,33 +27,35 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 
 /* AM Header stores the following fields
  *
- * 0b01234567
+ * 0b76543210
  *
- * 0-1: AM Message type (00=small, 01=medium, 10=long, 11=system)
- * 2-6: AM Number of arguments (00000=0, 00001=1, 00010=2, ...)
- * 7:   AM Request/Reply (0=request, 1=reply)
+ * 7-6: AM Message type (00=small, 01=medium, 10=long, 11=system)
+ * 5-1: AM Number of arguments (00000=0, 00001=1, 00010=2, ...)
+ * 0:   AM Request/Reply (0=request, 1=reply)
  *
  * AM Index stores the handler index and is one byte next to the 
  * Header
  */
+
 
 #define GASNETC_AM_SHORT	0x00
 #define GASNETC_AM_MEDIUM	0x01
 #define GASNETC_AM_LONG		0x02
 #define GASNETC_AM_SYSTEM	0x03
 
-#define GASNETC_AM_REQUEST	0x00
-#define	GASNETC_AM_REPLY	0x01
+#define	GASNETC_AM_REPLY	0x00
+#define GASNETC_AM_REQUEST	0x01
 
-#define GASNETC_AM_LEN  	4096 
 #define GASNETC_AM_SIZE		12 
+#define GASNETC_AM_LEN		(1<<GASNETC_AM_SIZE)
+#define GASNETC_AM_PACKET	(GASNETC_AM_LEN-8)
 #define GASNETC_SYS_SIZE	5
 #define GASNETC_AM_MAX_ARGS	16
 #define GASNETC_AM_MAX_HANDLERS 255
 
 #define GASNETC_AM_SHORT_ARGS_OFF	4
 #define GASNETC_AM_MEDIUM_ARGS_OFF	4
-#define GASNETC_AM_LONG_ARGS_OFF	8+sizeof(uintptr_t)
+#define GASNETC_AM_LONG_ARGS_OFF	(8+sizeof(uintptr_t))
 
 #define GASNETC_AM_MEDIUM_HEADER_PAD(numargs) (((numargs)%2==1) ? 0 : 4)
 /* XXX need something at compile time for sizeof(uintptr_t) */
@@ -72,22 +74,26 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 			+ GASNETC_AM_LONG_PAD(numargs))
 
 /* -------------------------------------------------------------------------- */
-#define GASNETC_AM_SMALL_MAX                                            \
-			GASNETC_AM_SHORT_HEADER_LEN(GASNETC_AM_MAX_ARGS)
-#define GASNETC_AM_MEDIUM_MAX                                             \
-	GASNETC_AM_LEN - GASNETC_AM_MEDIUM_HEADER_LEN(GASNETC_AM_MAX_ARGS)
-#define GASNETC_AM_LONG_REPLY_MAX	                                \
-	GASNETC_AM_LEN - GASNETC_AM_LONG_HEADER_LEN(GASNETC_AM_MAX_ARGS)
-#define GASNETC_AM_LONG_REQUEST_MAX                            \
-		3*GASNETC_AM_LEN + GASNETC_AM_LEN -            \
-		GASNETC_AM_LONG_HEADER_LEN(GASNETC_AM_MAX_ARGS)
+#define GASNETC_AM_MEDIUM_MAX                                     \
+		(GASNETC_AM_PACKET -                              \
+		 GASNETC_AM_MEDIUM_HEADER_LEN(GASNETC_AM_MAX_ARGS))
+#define GASNETC_AM_LONG_REPLY_MAX	                        \
+		(GASNETC_AM_PACKET -                            \
+		 GASNETC_AM_LONG_HEADER_LEN(GASNETC_AM_MAX_ARGS))
+#define GASNETC_AM_LONG_REQUEST_MAX                             \
+		(3*GASNETC_AM_PACKET + GASNETC_AM_PACKET -      \
+		 GASNETC_AM_LONG_HEADER_LEN(GASNETC_AM_MAX_ARGS))
 
 /* -------------------------------------------------------------------------- */
-#define GASNETC_AM_NUMARGS(buf) (((buf) >> 1) & 0x1f)
-#define GASNETC_SYS_INDEX(buf)	((buf) & 0x3f) 
-#define GASNETC_AM_TYPE(buf)    (((buf) >> 6) & 0x03)
-#define GASNETC_AM_IS_SYSTEM(buf) ((GASNETC_AM_TYPE(buf)&GASNETC_AM_SYSTEM)    \
-		== GASNETC_AM_SYSTEM)
+#define GASNETC_AM_NUMARGS(c)   (((c) >> 1) & 0x1f)
+#define GASNETC_SYS_INDEX(c)	((c) & 0x3f) 
+#define GASNETC_AM_TYPE(c)      ((c) >> 6)
+#define GASNETC_AM_IS_SYSTEM(c)  ((GASNETC_AM_SYSTEM & ((c)>>6)) == \
+		                  GASNETC_AM_SYSTEM)
+#define GASNETC_AM_IS_REQUEST(c) (!GASNETC_AM_IS_SYSTEM((c)) && \
+		                  ((c) & GASNETC_AM_REQUEST))
+#define GASNETC_AM_IS_REPLY(c)   (!GASNETC_AM_IS_SYSTEM((c)) && \
+		                  !((c) & GASNETC_AM_REQUEST))
 #define GASNETC_AM_TYPE_STRING(buf)                                            \
                 (GASNETC_AM_TYPE(buf) == GASNETC_AM_SHORT ? "Short" :	       \
                         (GASNETC_AM_TYPE(buf) == GASNETC_AM_MEDIUM ? "Medium": \
@@ -119,16 +125,11 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 
 /* -------------------------------------------------------------------------- */
 /* Debug, tracing */
-#ifdef DEBUG
-#ifdef DEBUG_TRACE
-#define GASNETI_TRACE_PRINTF(type,args) do {				       \
-	printf("%d> ", gasnetc_mynode); printf args; printf("\n"); } while (0)
-#else
-#define GASNETI_TRACE_PRINTF(type,args)
-#endif
-
+#ifdef TRACE
 #define _GASNETC_GMNODE_REPLY gasnetc_gm_nodes_search(			       \
-				gm_ntoh_u16((bufd)->e->recv.sender_node_id))
+				gm_ntoh_u16((bufd)->e->recv.sender_node_id),   \
+				(uint16_t)                                     \
+				    gm_ntoh_u8((bufd)->e->recv.sender_port_id))
 
 /* Generic Trace debug for AM handlers (gasnet_core) or elsewhere */
 #define GASNETC_TRACE_SHORT(reqrep, type, dest, token, idx, args)	       \
@@ -218,6 +219,16 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #endif
 
 /* -------------------------------------------------------------------------- */
+#define GASNETC_ASSERT_BUFDESC_PTR(bufd, ptr) do {                   \
+		assert((bufd)->id ==                                 \
+		    (((ptr) - _gmc.dma_bufs) >> GASNETC_AM_SIZE));   \
+		} while (0)
+#define GASNETC_BUFDESC_PTR(x) &_gmc.bd_ptr[                              \
+				(((x) - _gmc.dma_bufs) >> GASNETC_AM_SIZE)]
+#define GASNETC_GM_RECV_PTR(e,fast)				\
+	(fast) ? (uint8_t *) gm_ntohp((e)->recv.message) :	\
+	    (uint8_t *) gm_ntohp((e)->recv.buffer)
+
 #define GASNETC_SYSHEADER_WRITE(buf, index)				\
 	*((uint8_t *)(buf)) = (0xc0 | ((index) & 0x3f))
 
@@ -227,12 +238,6 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_AMHEADER_WRITE(buf, type, args, req) 			       \
 	*((uint8_t *)(buf)) = (((uint8_t)(type)<< 6) | ((uint8_t)(args)<< 1) | \
 				        ((uint8_t)(req) & 0x01) )
-#define GASNETC_AMHEADER_READ(buf, type, args, req)		\
-	do {	(uint8_t)(type) = (*((uint8_t *)(buf)) & 0xc0);	\
-		(uint8_t)(args) = (*((uint8_t *)(buf)) & 0x3e);	\
-		(uint8_t)(req)  = (*((uint8_t *)(buf)) & 0x01);	\
-	} while (0)
-
 #define GASNETC_AMHANDLER_WRITE(buf, handler)				\
 	*((uint8_t *)(buf)) = (uint8_t)(handler)
 #define GASNETC_AMHANDLER_READ(buf, handler)				\
