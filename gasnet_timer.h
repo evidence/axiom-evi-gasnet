@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2004/06/21 05:15:40 $
- * $Revision: 1.17 $
+ *     $Date: 2004/08/04 00:48:25 $
+ * $Revision: 1.18 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -147,7 +147,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gethrtime())
 #endif
-#elif defined(LINUX) && defined(__GNUC__) && defined(__i386__)
+#elif defined(LINUX) && defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
   #include <stdio.h>
   #include <stdlib.h>
   #include <string.h>
@@ -158,9 +158,19 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   GASNET_INLINE_MODIFIER(gasneti_stattime_now)
   uint64_t gasneti_stattime_now (void) {
     unsigned long long ret;
-    __asm__ __volatile__("rdtsc"
-                        : "=A" (ret)
-                        : /* no inputs */); 
+    #if defined(__i386__)
+      __asm__ __volatile__("rdtsc"
+                           : "=A" (ret)
+                           : /* no inputs */); 
+    #elif defined(__x86_64__)
+      uint32_t lo, hi;
+      __asm__ __volatile__("rdtsc"
+                           : "=a" (lo), "=d" (hi)
+                           : /* no inputs */); 
+      ret = ((uint64_t)lo) | (((uint64_t)hi)<<32);
+    #else
+      #error "unsupported CPU"
+    #endif
     return ret;
   } 
   GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
