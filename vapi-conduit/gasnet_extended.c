@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2004/07/17 17:00:51 $
- * $Revision: 1.21 $
+ *     $Date: 2004/07/23 22:36:57 $
+ * $Revision: 1.22 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -373,7 +373,7 @@ void gasnete_getmed_reph_inner(gasnet_token_t token,
   void *addr, size_t nbytes,
   void *dest, void *counter) {
   GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
-  gasneti_memsync();
+  gasneti_sync_writes();
   gasnete_done_reph_inner(token, counter);
 }
 MEDIUM_HANDLER(gasnete_getmed_reph,2,4,
@@ -414,7 +414,7 @@ GASNET_INLINE_MODIFIER(gasnete_put_reqh_inner)
 void gasnete_put_reqh_inner(gasnet_token_t token, 
   void *addr, size_t nbytes, void *dest, void *counter) {
   GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
-  gasneti_memsync();
+  gasneti_sync_writes();
   GASNETE_DONE(token, counter);
 }
 MEDIUM_HANDLER(gasnete_put_reqh,2,4, 
@@ -425,7 +425,7 @@ GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
 void gasnete_memset_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t val, gasnet_handlerarg_t nbytes, void *dest, void *counter) {
   memset(dest, (int)(uint32_t)val, nbytes);
-  gasneti_memsync();
+  gasneti_sync_writes();
   GASNETE_DONE(token, counter);
 }
 SHORT_HANDLER(gasnete_memset_reqh,4,6,

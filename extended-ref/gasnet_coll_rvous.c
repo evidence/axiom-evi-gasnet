@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_refcoll.c $
- *     $Date: 2004/07/17 17:00:31 $
- * $Revision: 1.4 $
+ *     $Date: 2004/07/23 22:36:41 $
+ * $Revision: 1.5 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -743,7 +743,7 @@ extern void gasnete_coll_init(const size_t images[],
       gasnete_coll_p2p_t *p2p = gasnete_coll_p2p_get(team_id, sequence);
 
       if (nbytes) {
-	gasneti_memsync();
+	gasneti_sync_writes();
       }
 
       p2p->state[offset] = state;
@@ -761,7 +761,7 @@ extern void gasnete_coll_init(const size_t images[],
 
       if (size) {
 	GASNETE_FAST_UNALIGNED_MEMCPY(p2p->data + offset*size, buf, nbytes);
-	gasneti_memsync();
+	gasneti_sync_writes();
       }
 
       for (i = 0; i < count; ++i, ++offset) {

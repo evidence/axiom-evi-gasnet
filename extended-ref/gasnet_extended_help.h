@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2004/05/17 22:36:25 $
- * $Revision: 1.18 $
+ *     $Date: 2004/07/23 22:36:41 $
+ * $Revision: 1.19 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -153,16 +153,28 @@ extern gasnet_seginfo_t *gasnete_seginfo;
 /* get membar */
 #include <gasnet_atomicops.h>
 
-#ifndef gasneti_memsync
+/* gasneti_sync_{reads,writes} are like the rmb/wmb except that when not using threads
+ * we want them to compile away, leaving not even a compiler optimization barrier
+ */
+#ifndef gasneti_sync_writes
   #if GASNETI_THREADS
-    #define gasneti_memsync() gasneti_local_membar()
+    #define gasneti_sync_writes() gasneti_local_wmb()
   #else
-    #define gasneti_memsync() 
+    /* Nothing, not even a compiler optimization barrier */
+    #define gasneti_sync_writes() 
+  #endif
+#endif
+
+#ifndef gasneti_sync_reads
+  #if GASNETI_THREADS
+    #define gasneti_sync_reads() gasneti_local_rmb()
+  #else
+    #define gasneti_sync_reads() 
   #endif
 #endif
 
 #ifdef GASNETI_MEMSYNC_ON_LOOPBACKPUT
-  #define gasnete_loopbackput_memsync() gasneti_memsync()
+  #define gasnete_loopbackput_memsync() gasneti_local_wmb()
 #else
   #define gasnete_loopbackput_memsync() 
 #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/sci-conduit/gasnet_core.c                  $
- *     $Date: 2004/07/16 13:38:25 $
- * $Revision: 1.3 $
+ *     $Date: 2004/07/23 22:36:51 $
+ * $Revision: 1.4 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -53,7 +53,7 @@ void gasnetc_sci_call_exit(unsigned int sig)
 
         if(test == 0)
         {
-                gasneti_local_membar();
+                gasneti_local_wmb();
                 gasnetc_exit(sig);
         }
 }

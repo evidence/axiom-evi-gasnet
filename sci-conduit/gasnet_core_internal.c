@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/sci-conduit/gasnet_core_internal.c         $
- *     $Date: 2004/07/17 17:00:41 $
- * $Revision: 1.4 $
+ *     $Date: 2004/07/23 22:36:51 $
+ * $Revision: 1.5 $
  * Description: GASNet sci conduit c-file for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -1373,7 +1373,7 @@ int gasnetc_SM_transfer (gasnet_node_t dest, uint8_t msg_number, uint8_t msg_typ
         remote_msg_flag_addr[gasnetc_nodes * GASNETC_SCI_MAX_REQUEST_MSG * 2] = GASNETC_SCI_TRUE;  /*  Write global ready bit */
 
         /* force memory mapped I/O to happen now */
-        gasneti_local_membar_force();
+        gasneti_local_memflush();
 
         return GASNET_OK;
 }

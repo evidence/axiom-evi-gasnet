@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/17 17:00:29 $
- * $Revision: 1.38 $
+ *     $Date: 2004/07/23 22:36:39 $
+ * $Revision: 1.39 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -517,7 +517,7 @@ void gasnete_get_reph_inner(gasnet_token_t token,
   void *addr, size_t nbytes,
   void *dest, void *op) {
   GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
-  gasneti_memsync();
+  gasneti_sync_writes();
   gasnete_op_markdone((gasnete_op_t *)op, 1);
 }
 MEDIUM_HANDLER(gasnete_get_reph,2,4,
@@ -541,7 +541,7 @@ GASNET_INLINE_MODIFIER(gasnete_getlong_reph_inner)
 void gasnete_getlong_reph_inner(gasnet_token_t token, 
   void *addr, size_t nbytes, 
   void *op) {
-  gasneti_memsync();
+  gasneti_sync_writes();
   gasnete_op_markdone((gasnete_op_t *)op, 1);
 }
 LONG_HANDLER(gasnete_getlong_reph,1,2,
@@ -553,7 +553,7 @@ void gasnete_put_reqh_inner(gasnet_token_t token,
   void *addr, size_t nbytes,
   void *dest, void *op) {
   GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
-  gasneti_memsync();
+  gasneti_sync_writes();
   GASNETE_SAFE(
     SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));
@@ -566,7 +566,7 @@ GASNET_INLINE_MODIFIER(gasnete_putlong_reqh_inner)
 void gasnete_putlong_reqh_inner(gasnet_token_t token, 
   void *addr, size_t nbytes,
   void *op) {
-  gasneti_memsync();
+  gasneti_sync_writes();
   GASNETE_SAFE(
     SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));
@@ -579,7 +579,7 @@ GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
 void gasnete_memset_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t val, gasnet_handlerarg_t nbytes, void *dest, void *op) {
   memset(dest, (int)(uint32_t)val, nbytes);
-  gasneti_memsync();
+  gasneti_sync_writes();
   GASNETE_SAFE(
     SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));
@@ -1517,7 +1517,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
 
   /*  update state */
   barrier_splitstate = INSIDE_BARRIER;
-  gasneti_memsync(); /* ensure all state changes committed before return */
+  gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
 extern int gasnete_barrier_wait(int id, int flags) {
@@ -1533,7 +1533,7 @@ extern int gasnete_barrier_wait(int id, int flags) {
 
   /*  update state */
   barrier_splitstate = OUTSIDE_BARRIER;
-  gasneti_memsync(); /* ensure all state changes committed before return */
+  gasneti_sync_writes(); /* ensure all state changes committed before return */
   if_pf(barrier_state->barrier_flags == GASNET_ERR_BARRIER_MISMATCH ||
         flags != barrier_state->barrier_flags ||
         (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != barrier_state->barrier_value)) 
