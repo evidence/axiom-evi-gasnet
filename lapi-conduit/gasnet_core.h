@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2002/07/03 19:41:24 $
- * $Revision: 1.1 $
+ *     $Date: 2002/11/14 01:35:55 $
+ * $Revision: 1.2 $
  * Description: GASNet header for lapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -26,9 +26,12 @@ BEGIN_EXTERNC
 
 #ifdef DEBUG
   void gasnetc_checkinit();
+  void gasnetc_checkattach();
   #define GASNETC_CHECKINIT()    gasnetc_checkinit()
+  #define GASNETC_CHECKATTACH()  gasnetc_checkattach()
 #else
   #define GASNETC_CHECKINIT()
+  #define GASNETC_CHECKATTACH()
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -38,16 +41,19 @@ BEGIN_EXTERNC
 */
 /* gasnet_init not inlined or renamed because we use redef-name trick on  
    it to ensure proper version linkage */
-extern int gasnet_init(int *argc, char ***argv, 
-                gasnet_handlerentry_t *table, int numentries, 
-                void *segbase, uintptr_t segsize,
-		int allowFaults);
+extern int gasnet_init(int *argc, char ***argv);
+
+extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
+                          uintptr_t segsize, uintptr_t minheapoffset);
+#define gasnet_attach gasnetc_attach
 
 extern void gasnetc_exit(int exitcode) GASNET_NORETURN;
 #define gasnet_exit gasnetc_exit
 
-/* this need not be a macro - some conduits may need to query system resources */
-#define gasnet_getMaxNativeSegmentSize() ### 
+extern uintptr_t gasnetc_getMaxLocalSegmentSize();
+extern uintptr_t gasnetc_getMaxGlobalSegmentSize();
+#define gasnet_getMaxLocalSegmentSize   gasnetc_getMaxLocalSegmentSize 
+#define gasnet_getMaxGlobalSegmentSize gasnetc_getMaxGlobalSegmentSize 
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -73,10 +79,6 @@ gasnet_node_t gasnet_nodes() {
 GASNET_INLINE_MODIFIER(gasnet_getenv)
 char *gasnet_getenv(const char *s) {
   GASNETC_CHECKINIT();
-  /* On the SP, all command line args and environment
-   * variables are forwarded to each task constructed
-   * by POE.  Just use the normal getenv call.
-   */
   return getenv(s);
 }
 
@@ -85,10 +87,8 @@ char *gasnet_getenv(const char *s) {
   No-interrupt sections
   =====================
 */
-/* conduit may or may not need this based on whether interrupts are used
-   for running handlers */
-/* LAPI does not need them */
-#if 0
+/* conduit may or may not need this based on whether interrupts are used for running handlers */
+#if GASNETC_NEED_IBH
   extern void gasnetc_hold_interrupts();
   extern void gasnetc_resume_interrupts();
 
@@ -115,7 +115,7 @@ typedef struct _gasnet_hsl_t {
     gasneti_stattime_t acquiretime;
   #endif
 
-  ### /* more state may be required for conduits using interrupts */
+    /* put additional state here */
 } gasnet_hsl_t;
 
 #ifdef GASNETI_THREADS
@@ -133,7 +133,7 @@ typedef struct _gasnet_hsl_t {
 #define GASNET_HSL_INITIALIZER { \
   GASNETC_LOCK_MUTEX_INIT        \
   GASNETC_LOCK_STAT_INIT         \
-  ###                            \
+  /* init additional state here */  \
   }
 
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
@@ -151,10 +151,10 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
   ==========================
 */
 
-#define gasnet_AMMaxArgs()          ((size_t)###)
-#define gasnet_AMMaxMedium()        ((size_t)###)
-#define gasnet_AMMaxLongRequest()   ((size_t)###)
-#define gasnet_AMMaxLongReply()     ((size_t)###)
+#define gasnet_AMMaxArgs()          ((size_t)GASNETC_AM_MAX_ARGS)
+#define gasnet_AMMaxMedium()        ((size_t)GASNETC_AM_MAX_MEDIUM)
+#define gasnet_AMMaxLongRequest()   ((size_t)GASNETC_AM_MAX_LONG)
+#define gasnet_AMMaxLongReply()     ((size_t)GASNETC_AM_MAX_LONG)
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -167,7 +167,23 @@ extern int gasnetc_AMPoll();
 #define gasnet_AMPoll          gasnetc_AMPoll
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
+/* switch to LAPI polling mode before polling */
+#define GASNET_BLOCKUNTIL(cond) \
+if (!(cond)) { \
+    if (gasnetc_lapi_default_mode == gasnetc_Interrupt) { \
+	/* turn off interrupt mode before polling */ \
+	LAPI_Senv(gasnetc_lapi_context, INTERRUPT_SET, 0); \
+    } \
+    while (!(cond)) gasnet_AMPoll(); \
+    if (gasnetc_lapi_default_mode == gasnetc_Interrupt) { \
+	/* turn it back on after polling is complete */ \
+	LAPI_Senv(gasnetc_lapi_context, INTERRUPT_SET, 1); \
+    } \
+}
+
+/* Origional Implementation:
 #define GASNET_BLOCKUNTIL(cond) while (!(cond)) gasnet_AMPoll()
+*/
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -250,7 +266,7 @@ extern int gasnetc_AMReplyLongM(
 #define gasnet_AMRequestShort8(dest, handler, a0, a1, a2, a3, a4, a5, a6, a7) \
        gasnetc_AMRequestShortM(dest, handler, 8, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7)
 
-#define gasnet_AMRequestShort9 (dest, handler, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
+#define gasnet_AMRequestShort9(dest, handler, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
         gasnetc_AMRequestShortM(dest, handler,  9, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8)
 #define gasnet_AMRequestShort10(dest, handler, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
         gasnetc_AMRequestShortM(dest, handler, 10, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9)
@@ -288,7 +304,7 @@ extern int gasnetc_AMReplyLongM(
 #define gasnet_AMRequestMedium8(dest, handler, source_addr, nbytes, a0, a1, a2, a3, a4, a5, a6, a7) \
        gasnetc_AMRequestMediumM(dest, handler, source_addr, nbytes, 8, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7)
 
-#define gasnet_AMRequestMedium9 (dest, handler, source_addr, nbytes, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
+#define gasnet_AMRequestMedium9(dest, handler, source_addr, nbytes, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
         gasnetc_AMRequestMediumM(dest, handler, source_addr, nbytes,  9, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8)
 #define gasnet_AMRequestMedium10(dest, handler, source_addr, nbytes, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
         gasnetc_AMRequestMediumM(dest, handler, source_addr, nbytes, 10, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9)
@@ -326,7 +342,7 @@ extern int gasnetc_AMReplyLongM(
 #define gasnet_AMRequestLong8(dest, handler, source_addr, nbytes, dest_addr, a0, a1, a2, a3, a4, a5, a6, a7) \
        gasnetc_AMRequestLongM(dest, handler, source_addr, nbytes, dest_addr, 8, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7)
 
-#define gasnet_AMRequestLong9 (dest, handler, source_addr, nbytes, dest_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
+#define gasnet_AMRequestLong9(dest, handler, source_addr, nbytes, dest_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
         gasnetc_AMRequestLongM(dest, handler, source_addr, nbytes, dest_addr,  9, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8)
 #define gasnet_AMRequestLong10(dest, handler, source_addr, nbytes, dest_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
         gasnetc_AMRequestLongM(dest, handler, source_addr, nbytes, dest_addr, 10, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9)
@@ -344,6 +360,9 @@ extern int gasnetc_AMReplyLongM(
 #define gasnet_AMRequestLong16(dest, handler, source_addr, nbytes, dest_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
         gasnetc_AMRequestLongM(dest, handler, source_addr, nbytes, dest_addr, 16, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9, (gasnet_handlerarg_t)a10, (gasnet_handlerarg_t)a11, (gasnet_handlerarg_t)a12, (gasnet_handlerarg_t)a13, (gasnet_handlerarg_t)a14, (gasnet_handlerarg_t)a15)
 /* ------------------------------------------------------------------------------------ */
+/* MLW:  Modified to call the gasnet_AMRequestLongM function rather than
+ *       the gasnet_AMRequestLongAsyncM function
+ */
 #define gasnet_AMRequestLongAsync0(dest, handler, source_addr, nbytes, dest_addr) \
        gasnetc_AMRequestLongAsyncM(dest, handler, source_addr, nbytes, dest_addr, 0)
 #define gasnet_AMRequestLongAsync1(dest, handler, source_addr, nbytes, dest_addr, a0) \
@@ -364,7 +383,7 @@ extern int gasnetc_AMReplyLongM(
 #define gasnet_AMRequestLongAsync8(dest, handler, source_addr, nbytes, dest_addr, a0, a1, a2, a3, a4, a5, a6, a7) \
        gasnetc_AMRequestLongAsyncM(dest, handler, source_addr, nbytes, dest_addr, 8, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7)
 
-#define gasnet_AMRequestLongAsync9 (dest, handler, source_addr, nbytes, dest_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
+#define gasnet_AMRequestLongAsync9(dest, handler, source_addr, nbytes, dest_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
         gasnetc_AMRequestLongAsyncM(dest, handler, source_addr, nbytes, dest_addr,  9, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8)
 #define gasnet_AMRequestLongAsync10(dest, handler, source_addr, nbytes, dest_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
         gasnetc_AMRequestLongAsyncM(dest, handler, source_addr, nbytes, dest_addr, 10, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9)
@@ -404,7 +423,7 @@ extern int gasnetc_AMReplyLongM(
 #define gasnet_AMReplyShort8(token, handler, a0, a1, a2, a3, a4, a5, a6, a7) \
        gasnetc_AMReplyShortM(token, handler, 8, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7)
 
-#define gasnet_AMReplyShort9 (token, handler, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
+#define gasnet_AMReplyShort9(token, handler, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
         gasnetc_AMReplyShortM(token, handler,  9, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8)
 #define gasnet_AMReplyShort10(token, handler, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
         gasnetc_AMReplyShortM(token, handler, 10, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9)
@@ -442,7 +461,7 @@ extern int gasnetc_AMReplyLongM(
 #define gasnet_AMReplyMedium8(token, handler, source_addr, nbytes, a0, a1, a2, a3, a4, a5, a6, a7) \
        gasnetc_AMReplyMediumM(token, handler, source_addr, nbytes, 8, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7)
 
-#define gasnet_AMReplyMedium9 (token, handler, source_addr, nbytes, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
+#define gasnet_AMReplyMedium9(token, handler, source_addr, nbytes, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
         gasnetc_AMReplyMediumM(token, handler, source_addr, nbytes,  9, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8)
 #define gasnet_AMReplyMedium10(token, handler, source_addr, nbytes, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
         gasnetc_AMReplyMediumM(token, handler, source_addr, nbytes, 10, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9)
@@ -480,7 +499,7 @@ extern int gasnetc_AMReplyLongM(
 #define gasnet_AMReplyLong8(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7) \
        gasnetc_AMReplyLongM(token, handler, source_addr, nbytes, token_addr, 8, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7)
 
-#define gasnet_AMReplyLong9 (token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
+#define gasnet_AMReplyLong9(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
         gasnetc_AMReplyLongM(token, handler, source_addr, nbytes, token_addr,  9, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8)
 #define gasnet_AMReplyLong10(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
         gasnetc_AMReplyLongM(token, handler, source_addr, nbytes, token_addr, 10, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9)
