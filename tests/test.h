@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.34 $
+ *     $Date: 2004/08/31 13:44:28 $
+ * $Revision: 1.35 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -69,7 +69,7 @@
   #define TIME() gasnett_ticks_to_us(gasnett_ticks_now()) 
 #endif
 
-uint64_t test_checksum(void *p, int numbytes) {
+static uint64_t test_checksum(void *p, int numbytes) {
  uint8_t *buf = (uint8_t *)p;
  uint64_t result = 0;
  int i;
@@ -221,7 +221,7 @@ static void test_free(void *ptr) {
 
 #define TEST_MYSEG()          (TEST_SEG(gasnet_mynode()))
 
-int _test_rand(int low, int high) {
+static int _test_rand(int low, int high) {
   int result;
   assert(low <= high);
   result = low+(int)(((double)(high-low+1))*rand()/(RAND_MAX+1.0));
@@ -256,7 +256,7 @@ extern void test_delay(int64_t n);	 /* in delay.o */
  * actual achieved delay for 'iters' calls to "delay(*time_p)".
  * The 'time_p' is given in microseconds.
  */
-int64_t test_calibrate_delay(int iters, int64_t *time_p) 
+static int64_t test_calibrate_delay(int iters, int64_t *time_p) 
 {
 	int64_t begin, end, time;
 	float target = *time_p;
