@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/11/08 15:18:30 $
-# $Revision: 1.88 $
+#     $Date: 2003/11/08 23:34:16 $
+# $Revision: 1.89 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.88 $)
+AC_REVISION($Revision: 1.89 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1218,6 +1218,8 @@ case "$target_os" in
 esac
 AC_SUBST(LDFLAGS)
 
+PERLSTART=$TOP_SRCDIR/other/perlstart
+AC_SUBST_FILE(PERLSTART)
 
 ########################################################################
 ##
@@ -1225,6 +1227,8 @@ AC_SUBST(LDFLAGS)
 ##
 
 GASNET_SAVE_AUTOCONF_ENV()
+
+GASNET_FIX_EXEC(gm-conduit/contrib/gasnetrun_gm)
 
 # Files added here should also be added to ./unBootstrap
 
@@ -1267,4 +1271,7 @@ other/Makefile
 other/ammpi/Makefile
 tests/Makefile
 config-aux/Makefile
+,
+GASNET_FIX_EXEC_OUTPUT(), GASNET_FIX_EXEC_SETUP()
 )
+
