@@ -97,7 +97,7 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
 			gasneti_fatalerror("firehose_init: prepinned "
 					"region is not a multiple of firehose "
 					"bucket size in length (len = %d)",
-					region->len);
+					(int) region->len);
 	}
                                                                                 
 
@@ -1179,7 +1179,7 @@ fh_am_move_reqh_inner(gasnet_token_t token, void *addr, size_t nbytes,
 				    new_reg,
 				    sizeof(firehose_region_t) * r_new,
 				    r_new,
-				    context));
+				    PACK(context)));
 	
 		#else
 			/* TODO. . solve MALLOC ? */
@@ -1217,7 +1217,7 @@ fh_am_move_reqh_inner(gasnet_token_t token, void *addr, size_t nbytes,
 			    new_reg,
 			    sizeof(firehose_region_t) * r_new,
 			    r_new,
-			    context));
+			    PACK(context)));
 	}
 
 	return;
@@ -1294,7 +1294,7 @@ fh_send_firehose_reply(fh_remote_callback_t *rc)
 	MEDIUM_REQ(2,3,
 	    (rc->node, fh_handleridx(fh_am_move_reph),
 	     rc->pin_list, rc->reply_len, rc->pin_list_num,
-	     rc->context));
+	     PACK(rc->context)));
 }
 
 gasnet_handlerentry_t fh_am_handlers[] = {

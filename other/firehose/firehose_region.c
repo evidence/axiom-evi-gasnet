@@ -800,7 +800,7 @@ fhi_hang_callback(firehose_private_t *priv, firehose_request_t *req,
     GASNETI_TRACE_PRINTF(C, ("Firehose Pending ADD priv=%p "
                              "(%p,%d), req=%p", priv,
                              (void *) FH_BADDR(priv),
-			     FH_NODE(priv->bucket),
+			     (int) FH_NODE(priv->bucket),
                              req));
 
     req->flags |= FH_FLAG_PENDING;
@@ -880,7 +880,7 @@ fh_acquire_remote_region(firehose_request_t *req,
 		    flags,
 		    1,
 		    num_unpin,
-		    priv));
+		    PACK(priv)));
     }
     else if_pf (FH_IS_REMOTE_PENDING(priv)) {
 	/* HIT Pending */
@@ -1000,7 +1000,7 @@ fh_find_pending_callbacks(gasnet_node_t node, firehose_region_t *region,
 		GASNETI_TRACE_PRINTF(C,
 			    ("Firehose Pending Request (%p,%d) "
 			     "enqueued %p for callback", 
-			     (void *) req->addr, req->len, req));
+			     (void *) req->addr, (int) req->len, req));
 		callspend++;
 
 		ccb = next;
@@ -1266,10 +1266,12 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 
 		GASNETI_TRACE_PRINTF(C, 
 		    ("MaxLocalPinSize=%d\tMaxRemotePinSize=%d", 
-		    fhinfo->max_LocalPinSize, fhinfo->max_RemotePinSize));
+		    (int) fhinfo->max_LocalPinSize,
+                    (int) fhinfo->max_RemotePinSize));
 		GASNETI_TRACE_PRINTF(C, 
 		    ("MaxLocalRegions=%d\tMaxRemoteRegions=%d", 
-		    fhinfo->max_LocalRegions, fhinfo->max_RemoteRegions));
+		    (int) fhinfo->max_LocalRegions,
+                    (int) fhinfo->max_RemoteRegions));
 	}
 
 	return;
@@ -1309,7 +1311,7 @@ fh_move_request(gasnet_node_t node,
 	FH_TABLE_LOCK;
 
 	GASNETI_TRACE_PRINTF(C, ("Firehose move request: new=%d, old=%d",
-			r_new, r_old));
+                                 (int) r_new, (int)r_old));
 
 	gasneti_assert(r_new == 1);	/* a feature of FIREHOSE_REGION */
 

@@ -412,7 +412,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 			gasneti_fatalerror("Too many buckets passed on initial"
 			    " pinned bucket list (%d) for current "
 			    "GASNET_FIREHOSE_M parameter (%lu)", 
-			    b_prepinned, M);
+			    (int) b_prepinned, M);
 	}
 
 	/* 
@@ -493,13 +493,14 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 
 		GASNETI_TRACE_PRINTF(C, 
 		    ("Firehose M=%ld (fh=%ld)\tprepinned=%ld (buckets=%d)",
-		    M, firehoses, m_prepinned, b_prepinned));
+		    M, firehoses, m_prepinned, (int) b_prepinned));
 		GASNETI_TRACE_PRINTF(C, ("Firehose Maxvictim=%ld (fh=%d)",
 		    maxvictim, fhc_MaxVictimBuckets));
 
 		GASNETI_TRACE_PRINTF(C, 
 		    ("MaxLocalPinSize=%d\tMaxRemotePinSize=%d", 
-		    fhinfo->max_LocalPinSize, fhinfo->max_RemotePinSize));
+		    (int) fhinfo->max_LocalPinSize,
+                    (int) fhinfo->max_RemotePinSize));
 	}
 
 	/*
@@ -647,7 +648,7 @@ fhi_ReleaseLocalRegionsList(int local_ref, firehose_region_t *reg,
 
 		GASNETI_TRACE_PRINTF(C, 
 		    ("Firehose ReleaseLocalRegions ("GASNETI_LADDRFMT", %d)",
-		    GASNETI_LADDRSTR(reg[i].addr), reg[i].len));
+		    GASNETI_LADDRSTR(reg[i].addr), (int)reg[i].len));
 				
  		FH_FOREACH_BUCKET_REV(reg[i].addr, end_addr, bucket_addr) 
 		{
@@ -986,7 +987,7 @@ fh_find_pending_callbacks(gasnet_node_t node, firehose_region_t *region,
 
 			GASNETI_TRACE_PRINTF(C,
 			    ("Firehose Pending FLUSH bd=%p (%p,%d), req=%p",
-			     bd, (void *) FH_BADDR(bd), FH_NODE(bd), req));
+			     bd, (void *) FH_BADDR(bd), (int) FH_NODE(bd), req));
 
 			/* Assume no other buckets are pending */
 			req->flags &= ~FH_FLAG_PENDING;
@@ -1020,7 +1021,7 @@ fh_find_pending_callbacks(gasnet_node_t node, firehose_region_t *region,
 				GASNETI_TRACE_PRINTF(C,
 				    ("Firehose Pending Request (%p,%d) "
 				     "enqueued  %p for callback", 
-				     (void *) req->addr, req->len, req));
+				     (void *) req->addr, (int) req->len, req));
 				callspend++;
 			}
 
@@ -1140,7 +1141,8 @@ fhi_TryAcquireRemoteRegion(firehose_request_t *req,
 					GASNETI_TRACE_PRINTF(C,
 			    		    ("Firehose Pending ADD bd=%p "
 					     "(%p,%d), req=%p", bd, 
-					     (void *) FH_BADDR(bd), FH_NODE(bd), 
+					     (void *) FH_BADDR(bd),
+					     (int) FH_NODE(bd), 
 					     req));
 				}
 				FH_BUCKET_REFC(bd)->refc_r++;
@@ -1235,9 +1237,10 @@ fh_acquire_remote_region(firehose_request_t *req,
 	notpinned = fhi_TryAcquireRemoteRegion(req, &ccb, &new_r);
 
 	GASNETI_TRACE_PRINTF(C, 
-	    ("Firehose Request Remote on %d ("GASNETI_LADDRFMT",%d) (%d buckets unpinned, "
-	     "flags=0x%x)",
-	     node, GASNETI_LADDRSTR(req->addr), req->len, notpinned, req->flags));
+	    ("Firehose Request Remote on %d ("GASNETI_LADDRFMT",%d) "
+	     "(%d buckets unpinned, flags=0x%x)",
+	     node, GASNETI_LADDRSTR(req->addr), (int) req->len,
+	     notpinned, req->flags));
 
 	/* 
 	 * In moving remote regions, none of the temp arrays can be used, as
@@ -1310,7 +1313,7 @@ fh_acquire_remote_region(firehose_request_t *req,
 			    flags,
 			    new_r,
 			    old_r,
-			    NULL));
+			    PACK(NULL)));
 	}
 	else {
 		/* Only set the PINNED flag if the request is not set on any
@@ -1344,8 +1347,11 @@ fh_release_remote_region(firehose_request_t *request)
 
 	end_addr = request->addr + request->len - 1;
 
-	GASNETI_TRACE_PRINTF(C, ("Firehose release_remote_region("GASNETI_LADDRFMT", %d) "GASNETI_LADDRFMT,
-	    GASNETI_LADDRSTR(request->addr), request->len, GASNETI_LADDRSTR(request)));
+	GASNETI_TRACE_PRINTF(C, ("Firehose release_remote_region("
+				 GASNETI_LADDRFMT", %d) "GASNETI_LADDRFMT,
+				 GASNETI_LADDRSTR(request->addr),
+				 (int) request->len,
+				 GASNETI_LADDRSTR(request)));
 	/* Process region in reverse order so regions can be later coalesced in
 	 * the proper order (lower to higher address) from the FIFO */
 	FH_FOREACH_BUCKET_REV(request->addr, end_addr, bucket_addr) {
@@ -1377,7 +1383,7 @@ fh_move_request(gasnet_node_t node,
 	FH_TABLE_LOCK;
 
 	GASNETI_TRACE_PRINTF(C, ("Firehose move request: new=%d, old=%d",
-			r_new, r_old));
+				 (int) r_new, (int) r_old));
 
 	/* Loop over the new regions to count the worst case number of
 	 * regions we will need to describe their unpinned subset. */
@@ -1390,7 +1396,7 @@ fh_move_request(gasnet_node_t node,
 	fhi_AcquireLocalRegionsList(0, new_reg, r_new, rpool);
 
 	GASNETI_TRACE_PRINTF(C, ("Firehose move request: pin new=%d",
-			rpool->buckets_num));
+				 (int) rpool->buckets_num));
 
 	/* The next function may overcommit the fifo before the call to
 	 * actually pin new regions is issued. */

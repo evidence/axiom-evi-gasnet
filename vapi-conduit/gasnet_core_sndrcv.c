@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2004/02/09 23:03:32 $
- * $Revision: 1.42 $
+ *     $Date: 2004/02/11 00:04:39 $
+ * $Revision: 1.43 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -277,9 +277,9 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
 	args = buf->medmsg.args;
 
         if (GASNETC_MSG_ISREQUEST(flags))
-          GASNETI_TRACE_AMMEDIUM_REQHANDLER(handler_id, rbuf, data, nbytes, numargs, args);
+          GASNETI_TRACE_AMMEDIUM_REQHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
         else
-          GASNETI_TRACE_AMMEDIUM_REPHANDLER(handler_id, rbuf, data, nbytes, numargs, args);
+          GASNETI_TRACE_AMMEDIUM_REPHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
         RUN_HANDLER_MEDIUM(handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;
@@ -290,9 +290,9 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
         data = (void *)(buf->longmsg.destLoc);
 	args = buf->longmsg.args;
         if (GASNETC_MSG_ISREQUEST(flags))
-          GASNETI_TRACE_AMLONG_REQHANDLER(handler_id, rbuf, data, nbytes, numargs, args);
+          GASNETI_TRACE_AMLONG_REQHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
         else
-          GASNETI_TRACE_AMLONG_REPHANDLER(handler_id, rbuf, data, nbytes, numargs, args);
+          GASNETI_TRACE_AMLONG_REPHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
         RUN_HANDLER_LONG(handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;

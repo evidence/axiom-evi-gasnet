@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/02/09 23:03:32 $
- * $Revision: 1.33 $
+ *     $Date: 2004/02/11 00:04:39 $
+ * $Revision: 1.34 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -346,6 +346,8 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 /* Lock ops that depend on the level of concurrency */
 #define gasnetc_mutex_t                      gasneti_mutex_t
 #define GASNETC_MUTEX_INITIALIZER            GASNETI_MUTEX_INITIALIZER
+#define gasnetc_mutex_init                   gasneti_mutex_init
+#define gasnetc_mutex_destroy                gasneti_mutex_destroy
 #define gasnetc_mutex_lock(X,C)              if (C) { gasneti_mutex_lock(X); }
 #define gasnetc_mutex_unlock(X,C)            if (C) { gasneti_mutex_unlock(X); }
 #define gasnetc_mutex_assertlocked(X,C)      if (C) { gasneti_mutex_assertlocked(X); }
