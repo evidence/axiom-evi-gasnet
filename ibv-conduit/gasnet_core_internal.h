@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/03/09 02:20:51 $
- * $Revision: 1.39 $
+ *     $Date: 2004/03/17 00:16:01 $
+ * $Revision: 1.40 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -333,25 +333,38 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
       return retval;
     }
     #define GASNETI_HAVE_ATOMIC_SWAP 1
-  #else
-    #define GASNETI_HAVE_ATOMIC_SWAP 0
   #endif
-#elif (defined (_POWERPC) || defined(__POWERPC__)) && defined(__GNUC__)
-  GASNET_INLINE_MODIFIER(gasneti_atomic_swap)
-  int gasneti_atomic_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
-    register uint32_t result;
-    register uint32_t temp;
+#elif (defined (__ppc__) || defined(_POWERPC)) 
+  #if defined(__xlC__)
+    /* See GNUC version for some explanation of the assembly */
+    static int gasneti_atomic_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval);
+    #pragma mc_func gasneti_atomic_swap { \
+	/* Precondition: r3=p, r4=oldval, r5=newval */ \
+	"7c001828" /*    lwarx   r0,0,r3       */ \
+	"7c002000" /*    cmpw    r0,r4         */ \
+	"4082000c" /*    bne-    1f            */ \
+	"7ca0192d" /*    stwcx.  r5,0,r3       */ \
+	"4c00012c" /*    isync                 */ \
+	"7c000026" /* 1: mfcr    r0            */ \
+	"54031ffe" /*    rlwinm  r3,r0,3,31,31 */ \
+	/* Postcondition: result in r3 */ \
+    }
+    #pragma reg_killed_by gasneti_atomic_swap gr0, gr3
+    #define GASNETI_HAVE_ATOMIC_SWAP 1
+  #elif defined(__GNUC__)
+    GASNET_INLINE_MODIFIER(gasneti_atomic_swap)
+    int gasneti_atomic_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+      register uint32_t result;
+      register uint32_t temp;
 
-    __asm__ __volatile__ ( 
+      __asm__ __volatile__ ( 
 	"lwarx    %1,0,%2 \n\t" 	/* load to temp */
 	"cmpw     cr0,%1,%3 \n\t"	/* compare temp to oldval */
 	"bne-     1f \n\t"		/* branch on mismatch */
-	#ifdef __PPC405__ 
-	  "sync \n\t" 
-	#endif 
-	"stwcx.   %4,0,%2 \n"	 	/* store newval */
+	"stwcx.   %4,0,%2 \n\t"	 	/* store newval */
+	"isync \n" 
 	"1:\t"
-	/* convert condition code to int w/ additional branch: */
+	/* convert condition code to int w/o any additional branch: */
 	"mfcr     %1 \n\t"		/* move CR to temp */
 	"rlwinm   %0,%1,3,31,31"	/* extract the CR0[EQ] bit from temp */
 	: "=&r"(result), "=&r"(temp)
@@ -359,14 +372,16 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 	: "cr0", "memory"); 
 
       return result; 
-  } 
-  #define GASNETI_HAVE_ATOMIC_SWAP 1
-#else
+    } 
+    #define GASNETI_HAVE_ATOMIC_SWAP 1
+  #endif
+#endif
+#ifndef GASNETI_HAVE_ATOMIC_SWAP
   #define GASNETI_HAVE_ATOMIC_SWAP 0
 #endif
 
 #if !GASNETI_HAVE_ATOMIC_SWAP
-  #warning "It would be a good idea to add gasneti_atomic_swap for your arch/OS"
+  #warning "It would be a good idea to add gasneti_atomic_swap for your arch/OS/compiler"
 #endif 
 
 /* ------------------------------------------------------------------------------------ */
