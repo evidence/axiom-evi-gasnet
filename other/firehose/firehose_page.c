@@ -1710,7 +1710,7 @@ fhi_TryAcquireRemoteRegion(gasnet_node_t node, firehose_request_t *req,
 					FH_TRACE_BUCKET(bd, PENDADD);
 
 					GASNETI_TRACE_PRINTF(C,
-			    		    ("Firehose Pending ADD bd=%d "
+			    		    ("Firehose Pending ADD bd=%p "
 					     "(%p,%d), req=%p", bd, 
 					     (void *) FH_BADDR(bd), FH_NODE(bd), 
 					     req));
