@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2003/06/29 08:09:45 $
- * $Revision: 1.16 $
+ *     $Date: 2003/09/10 02:19:26 $
+ * $Revision: 1.17 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,18 +10,15 @@
   #error This file is not meant to be included directly- clients should include gasnet.h
 #endif
 
+#include <gm.h>
+
 #ifndef _GASNET_EXTENDED_FWD_H
 #define _GASNET_EXTENDED_FWD_H
 
-#define GASNET_EXTENDED_VERSION      1.2
+#define GASNET_EXTENDED_VERSION      1.5
 #define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
 #define GASNET_EXTENDED_NAME         GM
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
-
-#define GASNETE_PUT_NON_DMA_CUTOFF	0	
-#define GASNETE_PUT_NON_BULK_CUTOFF	GASNETC_AM_LEN
-#define GASNETE_GET_NON_DMA_CUTOFF	8192
-#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD	8192
 
 #define _GASNET_HANDLE_T
 /*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */
@@ -87,10 +84,18 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
   #define GASNET_BEGIN_FUNCTION() GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
 #endif
 
+#ifdef GASNETI_THREADS
+#define GASNETE_GM_IN_UNKNOWN()		((gasnete_mythread())->in_gm_unknown)
+#define GASNETE_GM_SET_IN_UNKNOWN()	((gasnete_mythread())->in_gm_unknown = 1)
+#define GASNETE_GM_UNSET_IN_UNKNOWN()	((gasnete_mythread())->in_gm_unknown = 0)
+#else
+#define GASNETE_GM_IN_UNKNOWN()		1
+#define GASNETE_GM_SET_IN_UNKNOWN()
+#define GASNETE_GM_UNSET_IN_UNKNOWN()
+#endif
 
   /* this can be used to add statistical collection values 
      specific to the extended API implementation (see gasnet_help.h) */
-#ifdef GASNETC_FIREHOSE	
 #define CONDUIT_EXTENDED_STATS(CNT,VAL,TIME) 		\
         CNT(C, DYNAMIC_THREADLOOKUP, cnt)		\
 	VAL(C, FIREHOSE_MOVES, firehoses moved for puts)\
@@ -124,10 +129,6 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 	TIME(C, FIREHOSE_GET_ONE, gets one fh move)	\
 	TIME(C, FIREHOSE_GET_MANY, gets many fh moves)	\
 	TIME(C, FIREHOSE_GET_ONESIDED, gets one-sided)
-#else
-#define CONDUIT_EXTENDED_STATS(CNT,VAL,TIME) 		\
-        CNT(C, DYNAMIC_THREADLOOKUP, cnt)           
-#endif
 
 
 #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2003/06/29 02:33:04 $
- * $Revision: 1.11 $
+ *     $Date: 2003/09/10 02:19:26 $
+ * $Revision: 1.12 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -13,6 +13,7 @@
 #include <gasnet.h>
 #include <gasnet_handler.h>
 #include <gasnet_internal.h>
+#include <firehose.h>
 
 /* ------------------------------------------------------------------------------------ */
 /*  reasonable upper-bound on L2 cache line size (don't make this too big) */
@@ -52,12 +53,20 @@ typedef struct _gasnete_eop_t {
 	uint8_t		flags;	/*  state flags */
 
 	gasnete_threadidx_t	threadidx;  /*  thread that owns me */
+
+	const firehose_request_t	*req_local;
+	const firehose_request_t	req_remote;
+
+	/* XXX to be removed.
 	gasnet_node_t		node;
+	*/
 	uintptr_t		dest;
 	uintptr_t		src;
 	uint32_t		len;
+
 	struct _gasnete_iop_t	*iop;
 	struct _gasnete_eop_t	*next;		/* when used in FIFO */
+
 	#ifdef GASNETC_FIREHOSE_TRACE
 	gasnetc_fh_stats_t	fh_stats;
 	gasneti_stattime_t	starttime;
@@ -97,14 +106,11 @@ typedef struct _gasnete_threaddata_t {
 	void			*gasnetc_threaddata;
 	gasnete_threadidx_t	threadidx;
 
-#ifdef GASNETC_FIREHOSE
-	uintptr_t		*fh_buf;
-	size_t			fh_num;
-#endif
-
 	int eop_num_bufs;	/*  number of valid buffer entries */
 	gasnete_eop_t		*eop_bufs[256]; /*  buffers of eops */
 	gasnete_eopaddr_t	eop_free;   /*  free list of eops */
+
+	int	in_gm_unknown;
 
 	/*  stack of iops - head is active iop servicing new implicit ops */
 	gasnete_iop_t *current_iop;  
@@ -231,11 +237,8 @@ int gasnete_extref_barrier_try(int id, int flags);
 #define _hidx_gasnete_extref_putlong_reqh		(GASNETE_HANDLER_BASE+7)
 #define _hidx_gasnete_extref_memset_reqh		(GASNETE_HANDLER_BASE+8)
 #define _hidx_gasnete_extref_markdone_reph		(GASNETE_HANDLER_BASE+9)
-#ifdef GASNETC_FIREHOSE
-#define _hidx_gasnete_firehose_move_reph		(GASNETE_HANDLER_BASE+10)
-#define _hidx_gasnete_firehose_get_dma_reqh		(GASNETE_HANDLER_BASE+11)
-#define _hidx_gasnete_firehose_get_dma_reph		(GASNETE_HANDLER_BASE+12)
-#elif defined(GASNETC_TURKEY)
-#error not implemented yet
-#endif
+
+#define _hidx_gasnete_get_dma_reqh			(GASNETE_HANDLER_BASE+10)
+#define _hidx_gasnete_get_dma_reph			(GASNETE_HANDLER_BASE+11)
+
 #endif
