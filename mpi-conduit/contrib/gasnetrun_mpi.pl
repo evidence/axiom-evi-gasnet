@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/02/05 03:32:47 $
-# $Revision: 1.16 $
+#     $Date: 2005/02/09 21:58:33 $
+# $Revision: 1.17 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -32,6 +32,7 @@ my $dryrun = 0;
 my $exename = undef;
 my $find_exe = 1;	# should we find full path of executable?
 my $tmpdir = undef;
+my $nodefile = $ENV{'GASNET_NODEFILE'} || $ENV{'PBS_NODEFILE'};
 my @tmpfiles = ();
 
 # Define how to pass the environment vars
@@ -345,6 +346,8 @@ EOF
 			      } else {
 				  $numproc;
 			      }
+			  } elsif ($_ eq '%H') {
+                              $nodefile or die "gasnetrun: %H appears in MPIRUN_CMD, but GASNET_NODEFILE is not set in the environment\n";
 			  } elsif ($_ eq '%P') {
                               (@envargs, $exename);
                           } elsif ($_ eq '%A') {
