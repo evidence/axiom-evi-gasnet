@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/29 20:22:20 $
- * $Revision: 1.42 $
+ *     $Date: 2004/07/30 22:09:51 $
+ * $Revision: 1.43 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -447,7 +447,7 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
            performed by the caller)
          */
         #if !GASNETI_THREADS
-          gasneti_local_rmb()
+          gasneti_local_rmb();
         #endif
         return result;
       }
