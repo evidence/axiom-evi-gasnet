@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/06 06:09:38 $
- * $Revision: 1.32 $
+ *     $Date: 2005/04/06 17:46:34 $
+ * $Revision: 1.33 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -163,7 +163,7 @@ extern char **environ;
   static int children = 0;
   static volatile int accepted = 0;
   int finalized = 0;
-  static volatile int live = 0;
+  gasneti_atomic_t live = gasneti_atomic_init(0);
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
   static gasnet_node_t tree_procs = (gasnet_node_t)(-1L);
@@ -171,7 +171,7 @@ extern char **environ;
   static int parent = -1; /* socket */
   static int mypid;
 /* Master only */
-  static volatile int exit_status = -1;
+  static volatile int exit_status = 0;
   static gasnet_node_t nnodes = 0;	/* nodes, as distinct from procs */
   static pid_t *all_pids;
 
@@ -282,7 +282,7 @@ static void kill_one(const char *rem_host, pid_t rem_pid) {
     gasneti_fatalerror("execvp(ssh kill) failed");
   }
   BOOTSTRAP_VERBOSE(("[-1] Pid %d killing %s:%d\n", pid, rem_host, (int)rem_pid));
-  ++live;
+  gasneti_atomic_increment(&live);
 }
 
 static void clean_up(void)
@@ -333,7 +333,7 @@ static void signal_one(const char *rem_host, pid_t rem_pid, int sig) {
     execvp(ssh_argv[0], ssh_argv);
     gasneti_fatalerror("execvp(ssh kill) failed");
   }
-  ++live;
+  gasneti_atomic_increment(&live);
 }
 
 static void signal_all(int sig)
@@ -410,26 +410,36 @@ static void do_abort(unsigned char exitcode) {
 static void reap_one(pid_t pid, int status)
 {
   gasneti_assert(pid);
-  --live;
-  BOOTSTRAP_VERBOSE(("[%d] Reaped pid %d (%d left)\n", is_master ? -1 : myproc, (int)pid, live));
+
+  gasneti_atomic_decrement(&live);
+  BOOTSTRAP_VERBOSE(("[%d] Reaped pid %d (%d left)\n",
+		     is_master ? -1 : myproc, (int)pid, (int)gasneti_atomic_read(&live)));
+
   if (child) {
     int j;
 
     for (j = 0; j < children; ++j) {
       if (pid == child[j].pid) {
         (void)close(child[j].sock);
-	if (exit_status == -1 && WIFEXITED(status)) {
-	  exit_status = WEXITSTATUS(status);
-	}
-        if (finalized) {
-	  BOOTSTRAP_VERBOSE(("[%d] Process %d exited\n", is_master ? -1 : myproc, child[j].rank));
+	if (WIFEXITED(status)) {
+	  if (exit_status == 0) exit_status = WEXITSTATUS(status);
+	  BOOTSTRAP_VERBOSE(("[%d] Process %d exited with status %d\n",
+				  is_master ? -1 : myproc, child[j].rank, WEXITSTATUS(status)));
+	} else if (WIFSIGNALED(status)) {
+	  if (exit_status == 0) exit_status = WTERMSIG(status);
+	  BOOTSTRAP_VERBOSE(("[%d] Process %d died with signal %d\n",
+				  is_master ? -1 : myproc, child[j].rank, WTERMSIG(status)));
 	} else {
+	  BOOTSTRAP_VERBOSE(("[%d] Process %d exited with status unknown\n",
+				  is_master ? -1 : myproc, child[j].rank));
+	}
+        if (!finalized) {
 	  BOOTSTRAP_VERBOSE(("[%d] Process %d exited before finalize\n", is_master ? -1 : myproc, child[j].rank));
 	  finalized = 1; /* avoid reentrance */
 	  if (is_master) {
 	    clean_up();
 	  } else {
-	    do_abort(exit_status);
+	    do_abort(-1);
 	  }
 	}
 	break;
@@ -450,6 +460,28 @@ static void reaper(int sig)
   gasneti_reghandler(sig, &reaper);
   while((pid = waitpid(-1,&status,WNOHANG)) > 0) {
     reap_one(pid, status);
+  }
+}
+
+static void wait_for_all(void)
+{
+  sigset_t child_set;
+  sigset_t old_set;
+
+  sigemptyset(&child_set);
+  sigaddset(&child_set, SIGCHLD);
+  sigprocmask(SIG_BLOCK, &child_set, &old_set);
+
+  /* Call reaper() to collect any children that may have exited before
+   * we got here.
+   * Also calls gasneti_reghandler(SIGCHLD, &reaper) for us.
+   */
+  reaper(SIGCHLD);
+
+  while (gasneti_atomic_read(&live)) {
+    BOOTSTRAP_VERBOSE(("[%d] Sigsuspend with %d children left\n",
+			    is_master ? -1 : myproc, gasneti_atomic_read(&live)));
+    sigsuspend(&old_set);
   }
 }
 
@@ -1066,7 +1098,7 @@ static void spawn_one(gasnet_node_t child_id, const char *myhost) {
       gasneti_fatalerror("execvp(ssh) failed");
     }
   }
-  ++live;
+  gasneti_atomic_increment(&live);
 }
 
 static void do_spawn(int argc, char **argv, char *myhost) {
@@ -1218,22 +1250,9 @@ static void do_master(int argc, char **argv) {
 #endif
 
   /* Wait for all children to terminate */
-  {
-    sigset_t child_set;
-    sigset_t old_set;
+  wait_for_all();
 
-    sigemptyset(&child_set);
-    sigaddset(&child_set, SIGCHLD);
-    sigprocmask(SIG_BLOCK, &child_set, &old_set);
-    gasneti_reghandler(SIGCHLD, &reaper);
-
-    while (live) {
-      BOOTSTRAP_VERBOSE(("[-1] Sigsuspend with %d children left\n", live));
-      sigsuspend(&old_set);
-    }
-  }
-
-  BOOTSTRAP_VERBOSE(("[-1] Exit w/ code %d\n", exit_status));
+  BOOTSTRAP_VERBOSE(("[-1] Exit with status %d\n", (int)(unsigned char)exit_status));
   exit (exit_status);
 }
 
@@ -1457,16 +1476,8 @@ void gasneti_bootstrapFini(void) {
   (void)close(parent);
 
 #if GASNET_DEBUG
-  {
-    /* Wait for all children to exit */
-    int status;
-    pid_t pid;
-    gasneti_reghandler(SIGCHLD, SIG_DFL);
-    while (((pid = waitpid(-1,&status,0)) > 0) ||
-	   ((pid < 0) && (errno == EINTR))) {
-      reap_one(pid, status);
-    }
-  }
+  /* Wait for all children to exit */
+  wait_for_all();
 #endif
 }
 
