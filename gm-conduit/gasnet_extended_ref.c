@@ -323,12 +323,12 @@ void gasnete_extref_put_nbi_inner(gasnet_node_t node, void *dest, void *src, siz
         if (isbulk) {
           GASNETE_SAFE(
             LONGASYNC_REQ(1,2,(node, gasneti_handleridx(gasnete_extref_putlong_reqh),
-                          src, chunksz, dest,
+                          psrc, chunksz, pdest,
                           PACK(op))));
         } else {
           GASNETE_SAFE(
             LONG_REQ(1,2,(node, gasneti_handleridx(gasnete_extref_putlong_reqh),
-                          src, chunksz, dest,
+                          psrc, chunksz, pdest,
                           PACK(op))));
         }
         nbytes -= chunksz;

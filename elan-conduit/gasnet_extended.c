@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/09/17 10:01:21 $
- * $Revision: 1.9 $
+ *     $Date: 2002/10/06 14:17:52 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1099,12 +1099,12 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
         if (isbulk) {
           GASNETE_SAFE(
             LONGASYNC_REQ(1,2,(node, gasneti_handleridx(gasnete_putlong_reqh),
-                          src, chunksz, dest,
+                          psrc, chunksz, pdest,
                           PACK(iop))));
         } else {
           GASNETE_SAFE(
             LONG_REQ(1,2,(node, gasneti_handleridx(gasnete_putlong_reqh),
-                          src, chunksz, dest,
+                          psrc, chunksz, pdest,
                           PACK(iop))));
         }
         nbytes -= chunksz;
