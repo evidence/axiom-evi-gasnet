@@ -63,7 +63,9 @@ libgasnet_dependencies =                  \
 	$(CONDUIT_EXTRAHEADERS)           \
 	$(CONDUIT_EXTRADEPS)
 
-EXTRA_DIST = $(CONDUIT_FILELIST)
+EXTRA_DIST = $(CONDUIT_FILELIST) README
+
+docdir = $(datadir)/doc/gasnet
 
 # library targets 
 THREAD_MODEL=SEQ
@@ -198,9 +200,13 @@ do-install-data-local: force $(headers) $(makefile_fragments)
 	    @GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/$(CONDUIT_NAME)-conduit/$$filename; \
 	  else :; fi; \
 	done
+	$(mkinstalldirs) $(DESTDIR)$(docdir)
+	cp -f $(top_srcdir)/README $(DESTDIR)$(docdir)/README
+	cp -f $(srcdir)/README $(DESTDIR)$(docdir)/README-$(CONDUIT_NAME)
 
 do-uninstall-local:
 	rm -f $(DESTDIR)$(includedir)/$(CONDUIT_NAME)-conduit/*.h $(DESTDIR)$(includedir)/$(CONDUIT_NAME)-conduit/*.mak
+	rm -Rf $(DESTDIR)$(docdir)
 
 do-error: 
 	@echo "ERROR: $(CONDUIT_NAME)-conduit support was not detected at configure time"

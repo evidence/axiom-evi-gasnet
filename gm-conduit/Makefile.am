@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v $
-#     $Date: 2004/08/26 04:53:36 $
-# $Revision: 1.45 $
+#     $Date: 2004/10/09 14:54:02 $
+# $Revision: 1.46 $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -31,8 +31,7 @@ CONDUIT_FILELIST =               \
       gasnet_extended_op.c       \
       gasnet_extended_ref.c      \
       firehose_fwd.h		 \
-      license.txt                \
-      README
+      license.txt                
 
 # list of conduit core and extended .c source files 
 # to be compiled into libgasnet on the compiler command line

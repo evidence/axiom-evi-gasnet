@@ -1,10 +1,11 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.42 $
+$Revision: 1.43 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
-file. For GASNet licensing and usage terms, see license.txt.
+file. For documentation on a particular GASNet conduit, see the README file
+in the conduit directory. For GASNet licensing and usage terms, see license.txt.
 
 Building and Installing GASNet
 ==============================
@@ -393,7 +394,7 @@ All GASNet conduit code is required to meet the following coding standards:
 * GASNet conduit code should never call any of the following functions 
   directly:
    malloc, calloc, free, str(n)dup, assert, sched_yield, 
-   (un)setenv, mmap, pthread_*
+   getenv, (un)setenv, mmap, pthread_*
   Instead, you should use the gasneti_* wrapper functions of the same name.
 
 * Use gasneti_fatalerror() to signal fatal errors - the arguments work

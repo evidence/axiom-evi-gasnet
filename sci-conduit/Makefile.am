@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/Makefile.am,v $
-#     $Date: 2004/08/26 04:54:01 $
-# $Revision: 1.6 $
+#     $Date: 2004/10/09 14:54:14 $
+# $Revision: 1.7 $
 # Description: Makefile for GASNet sci conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -22,8 +22,7 @@ CONDUIT_FILELIST =           \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
       gasnet_core_internal.h \
-      gasnet_core_internal.c \
-      README                 
+      gasnet_core_internal.c 
 
 # list of conduit core and extended .c source files 
 # to be compiled into libgasnet on the compiler command line

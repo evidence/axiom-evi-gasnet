@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v $
-#     $Date: 2004/08/26 04:54:05 $
-# $Revision: 1.18 $
+#     $Date: 2004/10/09 14:54:17 $
+# $Revision: 1.19 $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -21,8 +21,7 @@ CONDUIT_FILELIST =           \
       gasnet_core.h          \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
-      gasnet_core_internal.h \
-      README
+      gasnet_core_internal.h 
 
 # list of conduit core and extended .c source files 
 # to be compiled into libgasnet on the compiler command line
