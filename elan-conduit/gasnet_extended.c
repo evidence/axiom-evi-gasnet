@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2004/11/24 01:13:10 $
- * $Revision: 1.51 $
+ *     $Date: 2005/01/14 00:16:28 $
+ * $Revision: 1.52 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,7 +23,7 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
   /* pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
   static gasneti_threadkey_t gasnete_threaddata = GASNETI_THREADKEY_INITIALIZER;
 #endif
-static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
+static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
 /* 
