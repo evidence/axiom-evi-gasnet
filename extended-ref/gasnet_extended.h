@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2002/08/02 09:07:49 $
- * $Revision: 1.6 $
+ *     $Date: 2002/08/30 05:03:01 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -61,6 +61,8 @@ gasnet_handle_t _gasnet_get_nb      (void *dest, gasnet_node_t node, void *src, 
   GASNETI_TRACE_GET(GET_NB,dest,node,src,nbytes);
   if_pf (nbytes == 0) return GASNET_INVALID_HANDLE;
   gasnete_boundscheck(node, src, nbytes);
+  gasnete_aligncheck(src, nbytes);
+  gasnete_aligncheck(dest, nbytes);
   if_pf (gasnete_islocal(node)) {
     GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes);
     return GASNET_INVALID_HANDLE;
@@ -75,6 +77,8 @@ gasnet_handle_t _gasnet_put_nb      (gasnet_node_t node, void *dest, void *src, 
   GASNETI_TRACE_PUT(PUT_NB,node,dest,src,nbytes);
   if_pf (nbytes == 0) return GASNET_INVALID_HANDLE;
   gasnete_boundscheck(node, dest, nbytes);
+  gasnete_aligncheck(src, nbytes);
+  gasnete_aligncheck(dest, nbytes);
   if_pf (gasnete_islocal(node)) {
     GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes);
     return GASNET_INVALID_HANDLE;
@@ -198,6 +202,8 @@ void _gasnet_get_nbi      (void *dest, gasnet_node_t node, void *src, size_t nby
   GASNETI_TRACE_GET(GET_NBI,dest,node,src,nbytes);
   if_pf (nbytes == 0) return;
   gasnete_boundscheck(node, src, nbytes);
+  gasnete_aligncheck(src, nbytes);
+  gasnete_aligncheck(dest, nbytes);
   if_pf (gasnete_islocal(node)) 
     GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes);
   else 
@@ -211,6 +217,8 @@ void _gasnet_put_nbi      (gasnet_node_t node, void *dest, void *src, size_t nby
   GASNETI_TRACE_PUT(PUT_NBI,node,dest,src,nbytes);
   if_pf (nbytes == 0) return;
   gasnete_boundscheck(node, dest, nbytes);
+  gasnete_aligncheck(src, nbytes);
+  gasnete_aligncheck(dest, nbytes);
   if_pf (gasnete_islocal(node)) 
     GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes);
   else 
@@ -366,6 +374,7 @@ void _gasnet_put_val(gasnet_node_t node, void *dest, gasnet_register_value_t val
   GASNETI_TRACE_PUT(PUT_VAL,node,dest,&value,nbytes);
   assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
   gasnete_boundscheck(node, dest, nbytes);
+  gasnete_aligncheck(dest, nbytes);
   if_pf (gasnete_islocal(node)) 
     GASNETE_VALUE_ASSIGN(dest, value, nbytes);
   else {
@@ -381,6 +390,7 @@ gasnet_handle_t _gasnet_put_nb_val (gasnet_node_t node, void *dest, gasnet_regis
   GASNETI_TRACE_PUT(PUT_NB_VAL,node,dest,&value,nbytes);
   assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
   gasnete_boundscheck(node, dest, nbytes);
+  gasnete_aligncheck(dest, nbytes);
   if_pf (gasnete_islocal(node)) {
     GASNETE_VALUE_ASSIGN(dest, value, nbytes);
     return GASNET_INVALID_HANDLE;
@@ -398,6 +408,7 @@ void _gasnet_put_nbi_val(gasnet_node_t node, void *dest, gasnet_register_value_t
   GASNETI_TRACE_PUT(PUT_NBI_VAL,node,dest,&value,nbytes);
   assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
   gasnete_boundscheck(node, dest, nbytes);
+  gasnete_aligncheck(dest, nbytes);
   if_pf (gasnete_islocal(node)) 
     GASNETE_VALUE_ASSIGN(dest, value, nbytes);
   else {
@@ -418,6 +429,7 @@ gasnet_register_value_t _gasnet_get_val (gasnet_node_t node, void *src, size_t n
   GASNETI_TRACE_GET(GET_VAL,NULL,node,src,nbytes);
   assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
   gasnete_boundscheck(node, src, nbytes);
+  gasnete_aligncheck(src, nbytes);
   if_pf (gasnete_islocal(node)) {
     switch (nbytes) {
       case sizeof(uint8_t):  return (gasnet_register_value_t)*((uint8_t  *)(src)); 

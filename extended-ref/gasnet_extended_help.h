@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2002/06/16 09:25:10 $
- * $Revision: 1.4 $
+ *     $Date: 2002/08/30 05:03:01 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -111,6 +111,39 @@ extern gasnet_seginfo_t *gasnete_seginfo;
     }                                                                   \
                                                                         \
   } } while (0)
+
+#ifdef NDEBUG
+  #define gasnete_aligncheck(ptr,nbytes)
+#else
+  #if 0
+    #define gasnete_aligncheck(ptr,nbytes) do {       \
+        if ((nbytes) <= 8 && (nbytes) % 2 == 0)       \
+          assert(((uintptr_t)(ptr)) % (nbytes) == 0); \
+      } while (0)
+  #else
+    static uint8_t _gasnete_aligncheck[600];
+    #define gasnete_aligncheck(ptr,nbytes) do {                                         \
+        uint8_t *_gasnete_alignbuf =                                                    \
+          (uint8_t *)((((uintptr_t)&_gasnete_aligncheck) + 0xFF) & ~((uintptr_t)0xFF)); \
+        uintptr_t offset = ((uintptr_t)(ptr)) & 0xFF;                                   \
+        uint8_t *p = _gasnete_alignbuf + offset;                                        \
+        assert(p >= _gasnete_aligncheck &&                                              \
+              (p + 8) < (_gasnete_aligncheck+sizeof(_gasnete_aligncheck)));             \
+        /* NOTE: a runtime bus error in this code indicates the relevant pointer        \
+            was not "properly aligned for accessing objects of size nbytes", as         \
+            required by the GASNet spec for src/dest addresses in non-bulk puts/gets    \
+         */                                                                             \
+        switch (nbytes) {                                                               \
+          case 1: *(uint8_t *)p = 0; break;                                             \
+        OMIT_ON_CRAYC(                                                                  \
+          case 2: *(uint16_t *)p = 0; break;                                            \
+        )                                                                               \
+          case 4: *(uint32_t *)p = 0; break;                                            \
+          case 8: *(uint64_t *)p = 0; break;                                            \
+        }                                                                               \
+      } while (0)
+  #endif
+#endif
 
 
 /* ------------------------------------------------------------------------------------ */
