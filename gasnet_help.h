@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/03/08 22:08:54 $
- * $Revision: 1.48 $
+ *     $Date: 2005/03/15 01:27:18 $
+ * $Revision: 1.49 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,10 +56,55 @@ extern int gasneti_getenv_yesno_withdefault(const char *keyname, int defaultval)
 extern void gasneti_setenv(const char *key, const char *value);
 extern void gasneti_unsetenv(const char *key);
 
-/* extern versions of gasneti_{malloc,free,strdup} for use in public headers */
-extern void *gasneti_extern_malloc(size_t sz);
-extern void gasneti_extern_free(void *p);
-extern char *gasneti_extern_strdup(const char *s);
+typedef struct { 
+  uintptr_t used_bytes;
+  uintptr_t num_objects;
+} gasneti_heapstats_t;
+
+#if GASNET_DEBUG
+  #define GASNETI_CURLOCFARG , const char *curloc
+  #define GASNETI_CURLOCAARG , __FILE__ ":" _STRINGIFY(__LINE__)
+  #define GASNETI_CURLOCPARG , curloc
+  extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int isfree);
+  extern void _gasneti_memcheck_one(const char *curloc);
+  extern void _gasneti_memcheck_all(const char *curloc);
+  #define gasneti_memcheck(ptr)  (gasneti_assert(ptr != NULL), \
+         (void)_gasneti_memcheck(ptr, __FILE__ ":" _STRINGIFY(__LINE__), 0)) 
+  #define gasneti_memcheck_one() _gasneti_memcheck_one(__FILE__ ":" _STRINGIFY(__LINE__))
+  #define gasneti_memcheck_all() _gasneti_memcheck_all(__FILE__ ":" _STRINGIFY(__LINE__))
+  extern int gasneti_getheapstats(gasneti_heapstats_t *pstat);
+#else
+  #define GASNETI_CURLOCFARG 
+  #define GASNETI_CURLOCAARG 
+  #define GASNETI_CURLOCPARG 
+  #define gasneti_memcheck(ptr)   ((void)0)
+  #define gasneti_memcheck_one()  ((void)0)
+  #define gasneti_memcheck_all()  ((void)0)
+  #define gasneti_getheapstats(pstat) (memset(pstat, 0, sizeof(gasneti_heapstats_t)),1)
+#endif
+
+/* extern versions of gasnet malloc fns for use in public headers */
+extern void *_gasneti_extern_malloc(size_t sz 
+             GASNETI_CURLOCFARG) __attribute__((__malloc__));
+extern void *_gasneti_extern_realloc(void *ptr, size_t sz 
+             GASNETI_CURLOCFARG);
+extern void *_gasneti_extern_calloc(size_t N, size_t S 
+             GASNETI_CURLOCFARG) __attribute__((__malloc__));
+extern void _gasneti_extern_free(void *ptr
+             GASNETI_CURLOCFARG);
+extern char *_gasneti_extern_strdup(const char *s
+              GASNETI_CURLOCFARG) __attribute__((__malloc__));
+extern char *_gasneti_extern_strndup(const char *s, size_t n 
+              GASNETI_CURLOCFARG) __attribute__((__malloc__));
+#ifdef __SUNPRO_C
+  #pragma returns_new_memory(_gasneti_extern_malloc, _gasneti_extern_calloc, _gasneti_extern_strdup, _gasneti_extern_strndup)
+#endif
+#define gasneti_extern_malloc(sz)      _gasneti_extern_malloc((sz) GASNETI_CURLOCAARG)
+#define gasneti_extern_realloc(ptr,sz) _gasneti_extern_realloc((ptr), (sz) GASNETI_CURLOCAARG)
+#define gasneti_extern_calloc(N,S)     _gasneti_extern_calloc((N),(S) GASNETI_CURLOCAARG)
+#define gasneti_extern_free(ptr)       _gasneti_extern_free((ptr) GASNETI_CURLOCAARG)
+#define gasneti_extern_strdup(s)       _gasneti_extern_strdup((s) GASNETI_CURLOCAARG)
+#define gasneti_extern_strndup(s,n)    _gasneti_extern_strndup((s),(n) GASNETI_CURLOCAARG)
 
 #if defined(__GNUC__) || defined(__FUNCTION__)
   #define GASNETI_CURRENT_FUNCTION __FUNCTION__
@@ -641,7 +686,8 @@ static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
   #endif
 
   #if !GASNETI_THROTTLE_POLLERS 
-    #define gasneti_AMPoll() (gasneti_AMPoll_spinpollers_check(), gasnetc_AMPoll())
+    #define gasneti_AMPoll() (gasneti_AMPoll_spinpollers_check(), \
+                              gasneti_memcheck_one(), gasnetc_AMPoll())
     #define gasneti_suspend_spinpollers() gasneti_suspend_spinpollers_check()
     #define gasneti_resume_spinpollers()  gasneti_resume_spinpollers_check()
   #else
@@ -676,6 +722,7 @@ static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
     int gasneti_AMPoll() {
        int retval;
        gasneti_AMPoll_spinpollers_check();
+       gasneti_memcheck_one();
        if (gasneti_atomic_read(&gasneti_throttle_haveusefulwork) > 0) 
          return GASNET_OK; /* another thread sending - skip the poll */
        if (gasneti_mutex_trylock(&gasneti_throttle_spinpoller) != 0)

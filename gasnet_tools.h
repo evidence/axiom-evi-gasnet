@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/03/12 11:21:10 $
- * $Revision: 1.25 $
+ *     $Date: 2005/03/15 01:27:18 $
+ * $Revision: 1.26 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -139,6 +139,19 @@ BEGIN_EXTERNC
   #define gasnett_threadkey_get_noinit(key)         gasneti_threadkey_get_noinit(key)
   #define gasnett_threadkey_set_noinit(key,newval)  gasneti_threadkey_set_noinit(key,newval)
 
+  #if GASNET_DEBUG
+    #define gasnett_debug_malloc(sz)      gasneti_extern_malloc(sz) 
+    #define gasnett_debug_realloc(ptr,sz)    gasneti_extern_realloc((ptr),(sz))
+    #define gasnett_debug_calloc(N,S)     gasneti_extern_calloc((N),(S))
+    #define gasnett_debug_free(ptr)       gasneti_extern_free(ptr)  
+    #define gasnett_debug_strdup(s)       gasneti_extern_strdup(s)
+    #define gasnett_debug_strndup(s,n)    gasneti_extern_strndup(s,n)
+    #define gasnett_debug_memcheck(ptr)   gasneti_memcheck(ptr)
+    #define gasnett_debug_memcheck_one()  gasneti_memcheck_one()
+    #define gasnett_debug_memcheck_all()  gasneti_memcheck_all()
+    #define gasnett_heapstats_t           gasneti_heapstats_t
+    #define gasnett_getheapstats(pstat)   gasneti_getheapstats(pstat)
+  #endif
 #else
   #define gasnett_cpu_count()     abort()
   #define gasnett_mmap(sz)        abort()

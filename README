@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.50 $
+$Revision: 1.51 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -185,6 +185,9 @@ Recognized Environment Variables
 
 * GASNET_VERBOSEENV - output information about environment variable settings
  read by the conduit that affect conduit behavior.
+
+* GASNET_MALLOC_EXTRACHECK - in GASNET_DEBUG mode, enable extra-paranoid checking
+ for memory corruption (at a cost in performance)
 
 * see conduit-specific documentation in conduit directories for more settings
 
