@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/01 20:02:53 $
- * $Revision: 1.31 $
+ *     $Date: 2005/04/06 06:09:38 $
+ * $Revision: 1.32 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -154,7 +154,7 @@ extern char **environ;
   static struct child {
     int			sock;
     int			is_local;
-    volatile pid_t	pid;	/* pid of ssh (or locally exec()ed app) */
+    pid_t		pid;	/* pid of ssh (or locally exec()ed app) */
     gasnet_node_t	rank;
     gasnet_node_t	procs;	/* size in procs of subtree rooted at this child */
     gasnet_node_t	nodes;	/* size in nodes of subtree rooted at this child */
@@ -163,6 +163,7 @@ extern char **environ;
   static int children = 0;
   static volatile int accepted = 0;
   int finalized = 0;
+  static volatile int live = 0;
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
   static gasnet_node_t tree_procs = (gasnet_node_t)(-1L);
@@ -269,11 +270,10 @@ static void kill_one(const char *rem_host, pid_t rem_pid) {
   if (pid < 0) {
     gasneti_fatalerror("fork() failed");
   } else if (pid == 0) {
-    BOOTSTRAP_VERBOSE(("Killing %s:%d\n", rem_host, (int)rem_pid));
-    (void)close(STDIN_FILENO);
+    (void)dup2(STDIN_FILENO, devnull);
 #if !GASNET_DEBUG
-    (void)close(STDOUT_FILENO);
-    (void)close(STDERR_FILENO);
+    (void)dup2(STDOUT_FILENO, devnull);
+    (void)dup2(STDERR_FILENO, devnull);
 #endif
     ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
     ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -kill %d",
@@ -281,6 +281,8 @@ static void kill_one(const char *rem_host, pid_t rem_pid) {
     execvp(ssh_argv[0], ssh_argv);
     gasneti_fatalerror("execvp(ssh kill) failed");
   }
+  BOOTSTRAP_VERBOSE(("[-1] Pid %d killing %s:%d\n", pid, rem_host, (int)rem_pid));
+  ++live;
 }
 
 static void clean_up(void)
@@ -322,7 +324,7 @@ static void signal_one(const char *rem_host, pid_t rem_pid, int sig) {
   if (pid < 0) {
     gasneti_fatalerror("fork() failed");
   } else if (pid == 0) {
-    BOOTSTRAP_VERBOSE(("Sending signal %d to %s:%d\n", sig, rem_host, (int)rem_pid));
+    BOOTSTRAP_VERBOSE(("[-1] Sending signal %d to %s:%d\n", sig, rem_host, (int)rem_pid));
     (void)close(STDIN_FILENO);
     (void)close(STDOUT_FILENO);
     (void)close(STDERR_FILENO);
@@ -331,6 +333,7 @@ static void signal_one(const char *rem_host, pid_t rem_pid, int sig) {
     execvp(ssh_argv[0], ssh_argv);
     gasneti_fatalerror("execvp(ssh kill) failed");
   }
+  ++live;
 }
 
 static void signal_all(int sig)
@@ -358,14 +361,14 @@ static void sigforward(int sig)
   gasneti_reghandler(sig, SIG_DFL);
 
   if (child) {
-    BOOTSTRAP_VERBOSE(("Master forwarding signal %d\n", sig));
+    BOOTSTRAP_VERBOSE(("[-1] Forwarding signal %d\n", sig));
 #if 0
     signal_one(nodelist[0], all_pids[0], sig);
 #else
     signal_all(sig);
 #endif
   } else {
-    BOOTSTRAP_VERBOSE(("Master resending signal %d to self\n", sig));
+    BOOTSTRAP_VERBOSE(("[-1] Resending signal %d to self\n", sig));
     raise(sig);
   }
 }
@@ -406,7 +409,9 @@ static void do_abort(unsigned char exitcode) {
 
 static void reap_one(pid_t pid, int status)
 {
-  BOOTSTRAP_VERBOSE(("Process %d reaped pid %d\n", is_master ? -1 : (int)mypid, (int)pid));
+  gasneti_assert(pid);
+  --live;
+  BOOTSTRAP_VERBOSE(("[%d] Reaped pid %d (%d left)\n", is_master ? -1 : myproc, (int)pid, live));
   if (child) {
     int j;
 
@@ -417,9 +422,9 @@ static void reap_one(pid_t pid, int status)
 	  exit_status = WEXITSTATUS(status);
 	}
         if (finalized) {
-	  BOOTSTRAP_VERBOSE(("Process %d exited\n", child[j].rank));
+	  BOOTSTRAP_VERBOSE(("[%d] Process %d exited\n", is_master ? -1 : myproc, child[j].rank));
 	} else {
-	  BOOTSTRAP_VERBOSE(("Process %d exited before finalize\n", child[j].rank));
+	  BOOTSTRAP_VERBOSE(("[%d] Process %d exited before finalize\n", is_master ? -1 : myproc, child[j].rank));
 	  finalized = 1; /* avoid reentrance */
 	  if (is_master) {
 	    clean_up();
@@ -442,7 +447,6 @@ static void reaper(int sig)
   pid_t pid;
   int status;
 
-  gasneti_assert(!is_master);
   gasneti_reghandler(sig, &reaper);
   while((pid = waitpid(-1,&status,WNOHANG)) > 0) {
     reap_one(pid, status);
@@ -453,6 +457,8 @@ static void sigurg_handler(int sig)
 {
   unsigned char exitcode = 255;
   int j;
+
+  BOOTSTRAP_VERBOSE(("[%d] Received SIGURG\n", is_master ? -1 : (int)myproc));
 
   /* We need to read our single byte of urgent data here.
    * Since we don't know which socket sent it, we just
@@ -503,9 +509,9 @@ static void do_read(int fd, void *buf, size_t len)
     if_pf (rc <= 0) {
       do_oob(255);
       if (rc == 0) {
-        gasneti_fatalerror("unexpected EOF from read(ctrl_socket) on process %d", is_master ? -1 : (int)myproc);
+        gasneti_fatalerror("[%d] Unexpected EOF from read(ctrl_socket)", is_master ? -1 : (int)myproc);
       } else {
-        gasneti_fatalerror("read(ctrl_socket) returned errno=%d on process %d", errno, is_master ? -1 : (int)myproc);
+        gasneti_fatalerror("[%d] read(ctrl_socket) returned errno=%d", is_master ? -1 : (int)myproc, errno);
       }
     }
     p += rc;
@@ -894,7 +900,7 @@ static void pre_spawn(count) {
   }
 
   /* Open /dev/null */
-  devnull = open("/dev/null", O_RDONLY);
+  devnull = open("/dev/null", O_RDWR);
   if (devnull < 0) {
     gasneti_fatalerror("open(/dev/null) failed");
   }
@@ -1013,7 +1019,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
   recv_nodelist(parent, tree_nodes);
   recv_ssh_argv(parent);
   recv_argv(parent, argc_p, argv_p);
-  BOOTSTRAP_VERBOSE(("Process %d connected\n", myproc));
+  BOOTSTRAP_VERBOSE(("[%d] connected\n", myproc));
 }
 
 static void spawn_one(gasnet_node_t child_id, const char *myhost) {
@@ -1034,7 +1040,7 @@ static void spawn_one(gasnet_node_t child_id, const char *myhost) {
     }
     if (is_local) {
       /* XXX: if we are clever enough, we might be able to "unwind" w/o the exec() */
-      BOOTSTRAP_VERBOSE(("Process %d spawning process %d on %s via fork()\n",
+      BOOTSTRAP_VERBOSE(("[%d] spawning process %d on %s via fork()\n",
 			 (is_master ? -1 : (int)myproc),
 			 (int)child[child_id].rank, myhost));
       execlp(argv0, argv0, "-slave", "localhost",
@@ -1048,7 +1054,7 @@ static void spawn_one(gasnet_node_t child_id, const char *myhost) {
 	/* If parent exits before us (an abnormal condition) then we exit too */
 	(void)prctl(PR_SET_PDEATHSIG, SIGHUP);
       #endif
-      BOOTSTRAP_VERBOSE(("Process %d spawning process %d on %s via %s\n",
+      BOOTSTRAP_VERBOSE(("[%d] spawning process %d on %s via %s\n",
 			 (is_master ? -1 : (int)myproc),
 			 (int)child[child_id].rank, host, ssh_argv[0]));
       ssh_argv[ssh_argc] = (/* noconst */ char *)host;
@@ -1060,6 +1066,7 @@ static void spawn_one(gasnet_node_t child_id, const char *myhost) {
       gasneti_fatalerror("execvp(ssh) failed");
     }
   }
+  ++live;
 }
 
 static void do_spawn(int argc, char **argv, char *myhost) {
@@ -1212,14 +1219,21 @@ static void do_master(int argc, char **argv) {
 
   /* Wait for all children to terminate */
   {
-    int status;
-    pid_t pid;
-    while (((pid = waitpid(-1,&status,0)) > 0) ||
-	   ((pid < 0) && (errno == EINTR))) {
-      reap_one(pid, status);
+    sigset_t child_set;
+    sigset_t old_set;
+
+    sigemptyset(&child_set);
+    sigaddset(&child_set, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &child_set, &old_set);
+    gasneti_reghandler(SIGCHLD, &reaper);
+
+    while (live) {
+      BOOTSTRAP_VERBOSE(("[-1] Sigsuspend with %d children left\n", live));
+      sigsuspend(&old_set);
     }
   }
 
+  BOOTSTRAP_VERBOSE(("[-1] Exit w/ code %d\n", exit_status));
   exit (exit_status);
 }
 
