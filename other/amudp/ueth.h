@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMUDP/ueth.h                                           $
- *     $Date: 2003/12/17 10:12:24 $
- * $Revision: 1.1 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/ueth.h,v $
+ *     $Date: 2004/08/26 04:53:50 $
+ * $Revision: 1.2 $
  * Description: UETH interface to ISTORE-specific hardware driver
  * Copyright 2000, Dan Hettena <danielh@cs.berkeley.edu>
  *                 and Dan Bonachea <bonachea@cs.berkeley.edu>

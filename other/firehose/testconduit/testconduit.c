@@ -1,3 +1,10 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/testconduit/Attic/testconduit.c,v $
+ *     $Date: 2004/08/26 04:53:59 $
+ * $Revision: 1.3 $
+ * Description: 
+ * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 #include <sys/types.h>
 #include <sys/socket.h> 
 #include <sys/fcntl.h>

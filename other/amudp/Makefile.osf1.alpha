@@ -1,6 +1,6 @@
-#  $Archive::                                                            $
-#     $Date: 2004/08/18 08:58:06 $
-# $Revision: 1.1 $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Attic/Makefile.osf1.alpha,v $
+#     $Date: 2004/08/26 04:53:50 $
+# $Revision: 1.2 $
 # Description: IBM SP2 Makefile fragment
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 

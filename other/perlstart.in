@@ -1,4 +1,11 @@
 # @configure_input@
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/perlstart.in,v $
+#     $Date: 2004/08/26 04:53:46 $
+# $Revision: 1.10 $
+# Description: 
+# Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
+# Terms of use are as specified in license.txt
+#
 # perlstart usage info: 
 # create a script.in file with the following contents (minus leading #'s)
 #      #!@BOURNE_SHELL@

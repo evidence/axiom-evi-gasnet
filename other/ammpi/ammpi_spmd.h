@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMMPI/ammpi_spmd.h                                     $
- *     $Date: 2004/02/13 18:00:16 $
- * $Revision: 1.10 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.h,v $
+ *     $Date: 2004/08/26 04:53:48 $
+ * $Revision: 1.11 $
  * Description: AMMPI Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2004/07/19 13:06:09 $
- * $Revision: 1.16 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
+ *     $Date: 2004/08/26 04:53:48 $
+ * $Revision: 1.17 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

@@ -1,4 +1,10 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
+#     $Date: 2004/08/26 04:53:50 $
+# $Revision: 1.18 $
+# Description: Makefile for AMUDP/GASNet 
+# Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
+# Terms of use are as specified in license.txt
 # NOTE: This Makefile is used to tie in with the GASNet build infrastructure
 #       the stand-alone AMUDP product doesn't currently provide an automake framework
 

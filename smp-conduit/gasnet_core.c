@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core.c                  $
- *     $Date: 2004/07/17 17:00:43 $
- * $Revision: 1.21 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
+ *     $Date: 2004/08/26 04:54:05 $
+ * $Revision: 1.22 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2004/08/06 23:35:00 $
- * $Revision: 1.54 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
+ *     $Date: 2004/08/26 04:53:28 $
+ * $Revision: 1.55 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

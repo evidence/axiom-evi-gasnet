@@ -1,3 +1,8 @@
+dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
+dnl     $Date: 2004/08/26 04:53:28 $
+dnl $Revision: 1.42 $
+dnl Description: m4 macros
+dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
 
 dnl determine the autoconf version used to build configure script 

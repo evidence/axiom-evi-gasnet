@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/08/09 18:32:24 $
- * $Revision: 1.17 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
+ *     $Date: 2004/08/26 04:53:34 $
+ * $Revision: 1.18 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

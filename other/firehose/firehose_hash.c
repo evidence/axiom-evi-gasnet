@@ -1,3 +1,10 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_hash.c,v $
+ *     $Date: 2004/08/26 04:53:57 $
+ * $Revision: 1.8 $
+ * Description: 
+ * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 #include <stdlib.h>
 #include <stdio.h>
 

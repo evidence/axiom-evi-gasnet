@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2004/03/31 14:18:10 $
- * $Revision: 1.18 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
+ *     $Date: 2004/08/26 04:53:48 $
+ * $Revision: 1.19 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

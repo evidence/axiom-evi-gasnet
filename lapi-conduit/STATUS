@@ -1,3 +1,7 @@
+lapi-conduit status
+===================
+$Revision: 1.9 $
+
 * * * 08/18/2004
 * This version does not yet take advantage of new LAPI functionality
   with the exception of using LAPI_Msgpoll rather than LAPI_Probe

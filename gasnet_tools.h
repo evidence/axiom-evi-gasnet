@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2004/08/25 06:35:03 $
- * $Revision: 1.17 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
+ *     $Date: 2004/08/26 04:53:28 $
+ * $Revision: 1.18 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

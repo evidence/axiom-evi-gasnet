@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/08/11 21:35:27 $
- * $Revision: 1.51 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
+ *     $Date: 2004/08/26 04:53:28 $
+ * $Revision: 1.52 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

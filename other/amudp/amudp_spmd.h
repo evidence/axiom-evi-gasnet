@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMUDP/amudp_spmd.h                                     $
- *     $Date: 2004/04/05 06:44:23 $
- * $Revision: 1.6 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.h,v $
+ *     $Date: 2004/08/26 04:53:50 $
+ * $Revision: 1.7 $
  * Description: AMUDP Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/extended/gasnet_extended_sg.h                 $
- *     $Date: 2004/06/23 22:06:12 $
- * $Revision: 1.5 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
+ *     $Date: 2004/08/26 04:53:34 $
+ * $Revision: 1.6 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

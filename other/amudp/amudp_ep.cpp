@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMUDP/amudp_ep.cpp                                     $
- *     $Date: 2004/02/13 18:00:18 $
- * $Revision: 1.4 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
+ *     $Date: 2004/08/26 04:53:50 $
+ * $Revision: 1.5 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

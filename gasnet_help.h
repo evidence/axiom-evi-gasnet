@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/08/03 18:41:20 $
- * $Revision: 1.36 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
+ *     $Date: 2004/08/26 04:53:28 $
+ * $Revision: 1.37 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.31 2004/08/07 23:10:30 csbell Exp $
- * $Date: 2004/08/07 23:10:30 $
- * $Revision: 1.31 $
+/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_help.h,v $
+ * $Date: 2004/08/26 04:53:36 $
+ * $Revision: 1.32 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>

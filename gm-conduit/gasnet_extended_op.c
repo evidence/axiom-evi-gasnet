@@ -1,6 +1,6 @@
-/* $Id: gasnet_extended_op.c,v 1.10 2004/07/15 01:29:24 csbell Exp $
- * $Date: 2004/07/15 01:29:24 $
- * $Revision: 1.10 $
+/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_op.c,v $
+ * $Date: 2004/08/26 04:53:36 $
+ * $Revision: 1.11 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>

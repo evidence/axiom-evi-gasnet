@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2004/07/29 00:38:57 $
- * $Revision: 1.24 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
+ *     $Date: 2004/08/26 04:54:13 $
+ * $Revision: 1.25 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

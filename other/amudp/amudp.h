@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2004/08/18 06:53:46 $
- * $Revision: 1.14 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
+ *     $Date: 2004/08/26 04:53:50 $
+ * $Revision: 1.15 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

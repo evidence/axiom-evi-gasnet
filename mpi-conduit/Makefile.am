@@ -1,5 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.29 2004/08/08 10:34:33 bonachea Exp $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v $
+#     $Date: 2004/08/26 04:53:42 $
+# $Revision: 1.30 $
 # Description: Makefile for GASNet mpi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt

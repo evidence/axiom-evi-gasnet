@@ -1,10 +1,13 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
+ *     $Date: 2004/08/26 04:53:57 $
+ * $Revision: 1.18 $
+ * Description: Internal Header file
+ * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 #include <inttypes.h>
 #include <gasnet_internal.h>	/* gasnet mutex */
 #include <gasnet_handler.h>
-
-/* 
- * firehose_internal.h: Internal Header file
- */
 
 /*
  * If we are building against a threaded client, firehose-smp support needs to

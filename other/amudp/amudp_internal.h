@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMUDP/amudp_internal.h                                 $
- *     $Date: 2004/04/03 02:52:22 $
- * $Revision: 1.5 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
+ *     $Date: 2004/08/26 04:53:50 $
+ * $Revision: 1.6 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2004/08/18 06:53:44 $
- * $Revision: 1.24 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
+ *     $Date: 2004/08/26 04:53:48 $
+ * $Revision: 1.25 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

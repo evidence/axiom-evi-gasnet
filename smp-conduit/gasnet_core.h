@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core.h                  $
- *     $Date: 2004/08/03 17:39:37 $
- * $Revision: 1.13 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.h,v $
+ *     $Date: 2004/08/26 04:54:05 $
+ * $Revision: 1.14 $
  * Description: GASNet header for smp conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

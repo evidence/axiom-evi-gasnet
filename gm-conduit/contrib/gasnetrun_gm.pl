@@ -1,4 +1,7 @@
 #!/usr/bin/perl
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/gasnetrun_gm.pl,v $
+#     $Date: 2004/08/26 04:53:38 $
+# $Revision: 1.18 $
 #
 # Included here as a contrib/ from the mpich 1.2.5..10 mpirun script,
 # since this is the closest thing myricom ships to a spawner interface.

@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/08/03 23:49:26 $
- * $Revision: 1.54 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
+ *     $Date: 2004/08/26 04:54:13 $
+ * $Revision: 1.55 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

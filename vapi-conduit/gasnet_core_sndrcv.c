@@ -1,6 +1,6 @@
-/*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2004/08/13 18:31:16 $
- * $Revision: 1.53 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
+ *     $Date: 2004/08/26 04:54:13 $
+ * $Revision: 1.54 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt

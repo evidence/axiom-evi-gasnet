@@ -1,5 +1,11 @@
 \input texinfo   @c -*-texinfo-*-
 @c %**start of header
+@c   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/docs/gasnet.texi,v $
+@c     $Date: 2004/08/26 04:53:30 $
+@c $Revision: 1.35 $
+@c Description: GASNet specification
+@c Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
+@c Terms of use are as specified in license.txt
 @setfilename gasnet.info
 @settitle GASNet Specification
 @syncodeindex tp fn
@@ -158,9 +164,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2004/08/18 09:37:49 $
+@subtitle $Date: 2004/08/26 04:53:30 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.34 $ 
+@subtitle $Revision: 1.35 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -198,8 +204,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2004/08/18 09:37:49 $
-@*$Revision: 1.34 $ 
+@*$Date: 2004/08/26 04:53:30 $
+@*$Revision: 1.35 $ 
 @ifnothtml
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @end ifnothtml

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
-#  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/25 20:30:57 $
-# $Revision: 1.181 $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
+#     $Date: 2004/08/26 04:53:28 $
+# $Revision: 1.182 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.181 $)
+AC_REVISION($Revision: 1.182 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)

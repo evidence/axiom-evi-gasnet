@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/07/17 17:00:29 $
- * $Revision: 1.20 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
+ *     $Date: 2004/08/26 04:53:32 $
+ * $Revision: 1.21 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

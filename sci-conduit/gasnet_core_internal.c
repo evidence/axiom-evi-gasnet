@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/sci-conduit/gasnet_core_internal.c         $
- *     $Date: 2004/08/05 06:48:41 $
- * $Revision: 1.6 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core_internal.c,v $
+ *     $Date: 2004/08/26 04:54:01 $
+ * $Revision: 1.7 $
  * Description: GASNet sci conduit c-file for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>

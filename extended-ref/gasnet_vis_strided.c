@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_refbarrier.c                  $
- *     $Date: 2004/08/06 23:35:02 $
- * $Revision: 1.7 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_strided.c,v $
+ *     $Date: 2004/08/26 04:53:34 $
+ * $Revision: 1.8 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

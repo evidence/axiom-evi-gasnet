@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/tests/testhsl.c                                 $
- *     $Date: 2004/08/02 07:52:53 $
- * $Revision: 1.6 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
+ *     $Date: 2004/08/26 04:54:09 $
+ * $Revision: 1.7 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

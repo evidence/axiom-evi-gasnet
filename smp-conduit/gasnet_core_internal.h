@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/10/24 01:37:40 $
- * $Revision: 1.5 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core_internal.h,v $
+ *     $Date: 2004/08/26 04:54:05 $
+ * $Revision: 1.6 $
  * Description: GASNet smp conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

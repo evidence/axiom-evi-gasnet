@@ -1,4 +1,6 @@
-/* $Id: testthreads.c,v 1.15 2004/08/02 07:52:53 bonachea Exp $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
+ *     $Date: 2004/08/26 04:54:09 $
+ * $Revision: 1.16 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of

@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2004/06/25 20:04:26 $
- * $Revision: 1.14 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_internal.h,v $
+ *     $Date: 2004/08/26 04:54:13 $
+ * $Revision: 1.15 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

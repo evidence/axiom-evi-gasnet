@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2004/08/04 23:50:36 $
- * $Revision: 1.19 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
+ *     $Date: 2004/08/26 04:53:28 $
+ * $Revision: 1.20 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

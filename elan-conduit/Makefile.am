@@ -1,5 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.27 2004/08/08 10:34:27 bonachea Exp $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v $
+#     $Date: 2004/08/26 04:53:32 $
+# $Revision: 1.28 $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt

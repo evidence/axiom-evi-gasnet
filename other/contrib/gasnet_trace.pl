@@ -1,6 +1,10 @@
 #! /usr/bin/env perl
 
 #############################################################
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
+#     $Date: 2004/08/26 04:53:55 $
+# $Revision: 1.17 $
+#
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
 #

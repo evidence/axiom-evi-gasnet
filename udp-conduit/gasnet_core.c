@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/07/17 17:00:49 $
- * $Revision: 1.12 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
+ *     $Date: 2004/08/26 04:54:11 $
+ * $Revision: 1.13 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

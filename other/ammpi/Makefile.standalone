@@ -1,6 +1,6 @@
-#  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/18 06:53:44 $
-# $Revision: 1.13 $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.standalone,v $
+#     $Date: 2004/08/26 04:53:48 $
+# $Revision: 1.14 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 

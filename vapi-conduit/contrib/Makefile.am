@@ -1,5 +1,7 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/Makefile.am,v 1.6 2004/03/13 03:54:43 bonachea Exp $
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/Makefile.am,v $
+#     $Date: 2004/08/26 04:54:15 $
+# $Revision: 1.7 $
 # Description: Makefile for GASNet VAPI spawner
 # Terms of use are as specified in vapi-conduit/license.txt
 

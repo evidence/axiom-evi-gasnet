@@ -1,3 +1,10 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
+ *     $Date: 2004/08/26 04:53:57 $
+ * $Revision: 1.8 $
+ * Description: 
+ * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
+ * Terms of use are as specified in license.txt
+ */
 #include <firehose.h>
 #include <firehose_internal.h>
 #include <gasnet.h>

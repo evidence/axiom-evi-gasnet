@@ -1,6 +1,6 @@
-//  $Archive:: /Ti/AMUDP/sockutil.cpp                                     $
-//     $Date: 2004/03/31 14:18:12 $
-// $Revision: 1.5 $
+//   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
+//     $Date: 2004/08/26 04:53:50 $
+// $Revision: 1.6 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 

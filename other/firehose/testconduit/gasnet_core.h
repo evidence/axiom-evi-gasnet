@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.2 2004/07/15 01:29:30 csbell Exp $
- * $Date: 2004/07/15 01:29:30 $
- * $Revision: 1.2 $
+/* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/testconduit/Attic/gasnet_core.h,v $
+ * $Date: 2004/08/26 04:53:59 $
+ * $Revision: 1.3 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>

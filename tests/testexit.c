@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2004/08/03 12:30:01 $
- * $Revision: 1.10 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
+ *     $Date: 2004/08/26 04:54:09 $
+ * $Revision: 1.11 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

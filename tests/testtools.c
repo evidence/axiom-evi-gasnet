@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/tests/testtools.c                                    $
- *     $Date: 2004/08/03 17:39:39 $
- * $Revision: 1.12 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
+ *     $Date: 2004/08/26 04:54:09 $
+ * $Revision: 1.13 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,3 +1,4 @@
+$Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/license.txt,v 1.2 2004/08/26 04:53:40 bonachea Exp $
 All files in this directory (except where otherwise noted) are subject to the
 following licensing terms: 
 

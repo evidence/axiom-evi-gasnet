@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.h                  $
- *     $Date: 2004/08/16 23:04:32 $
- * $Revision: 1.17 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.h,v $
+ *     $Date: 2004/08/26 04:53:40 $
+ * $Revision: 1.18 $
  * Description: GASNet header for lapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

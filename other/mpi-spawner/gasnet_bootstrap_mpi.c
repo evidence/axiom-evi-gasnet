@@ -1,6 +1,6 @@
-/*  $Archive:: gasnet/vapi-conduit/gasnet_bootstrap_mpi.c                  $
- *     $Date: 2004/08/03 19:26:01 $
- * $Revision: 1.5 $
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/mpi-spawner/gasnet_bootstrap_mpi.c,v $
+ *     $Date: 2004/08/26 04:54:13 $
+ * $Revision: 1.6 $
  * Description: GASNet vapi conduit implementation, mpi bootstrap code
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
