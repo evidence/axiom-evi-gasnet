@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/06/27 11:49:19 $
- * $Revision: 1.5 $
+ *     $Date: 2002/06/29 13:44:27 $
+ * $Revision: 1.6 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -282,8 +282,11 @@ extern void gasneti_trace_init() {
       , tracefilename);
 
     { time_t ltime;
+      char temp[255];
       time(&ltime); 
-      gasneti_trace_printf("Program starting at: %s", ctime(&ltime));
+      strcpy(temp, ctime(&ltime));
+      if (temp[strlen(temp)-1] == '\n') temp[strlen(temp)-1] = '\0';
+      gasneti_trace_printf("Program starting at: %s", temp);
       gasneti_trace_printf("GASNET_TRACEMASK: %s", tracetypes);
     }
 
@@ -301,6 +304,29 @@ extern void gasneti_trace_init() {
       gasneti_trace_printf("WARNING: using gettimeofday() for timing measurement - "
         "all short-term time measurements will be very rough and include significant timer overheads");
     #endif
+    { int i, ticks, iters = 1000, minticks = 10;
+      gasneti_stattime_t min = GASNETI_STATTIME_MAX;
+      gasneti_stattime_t start = GASNETI_STATTIME_NOW();
+      gasneti_stattime_t last = start;
+      for (i=0,ticks=0; i < iters || ticks < minticks; i++) {
+        gasneti_stattime_t x = GASNETI_STATTIME_NOW();
+        gasneti_stattime_t curr = (x - last);
+        if (curr > 0) { 
+          ticks++;
+          if (curr < min) min = curr;
+        }
+        last = x;
+      }
+      { int granularity = (int)GASNETI_STATTIME_TO_US(min);
+        double overhead = ((double)(GASNETI_STATTIME_TO_US(last)-GASNETI_STATTIME_TO_US(start)))/i;
+        if (granularity == 0)
+          gasneti_trace_printf("Timer granularity: < 1 us, overhead: ~ %.3f us",
+            overhead);
+        else
+          gasneti_trace_printf("Timer granularity: ~ %i us, overhead: ~ %.3f us",
+            granularity, overhead);
+      }
+    }
   }
 
     starttime = GASNETI_STATTIME_NOW();
