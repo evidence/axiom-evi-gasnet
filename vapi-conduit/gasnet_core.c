@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/01/21 10:08:29 $
- * $Revision: 1.37 $
+ *     $Date: 2004/01/26 22:57:40 $
+ * $Revision: 1.38 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1156,9 +1156,9 @@ static void gasnetc_exit_sighandler(int sig) {
     static const char msg2[] = " received during exit... goodbye\n";
     char digit;
 
-    write(STDERR_FILENO, msg1, sizeof(msg1));
+    write(STDERR_FILENO, msg1, sizeof(msg1) - 1);
 
-    /* assume sig < 1000 */
+    /* assume sig < 100 */
     if (sig > 9) {
       digit = '0' + ((sig / 10) % 10);
       write(STDERR_FILENO, &digit, 1);
@@ -1166,7 +1166,7 @@ static void gasnetc_exit_sighandler(int sig) {
     digit = '0' + (sig % 10);
     write(STDERR_FILENO, &digit, 1);
     
-    write(STDERR_FILENO, msg2, sizeof(msg2));
+    write(STDERR_FILENO, msg2, sizeof(msg2) - 1);
   }
   #endif
 
