@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_eager.c,v $
- *     $Date: 2004/09/24 20:15:52 $
- * $Revision: 1.10 $
+ *     $Date: 2004/09/24 20:55:43 $
+ * $Revision: 1.11 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,9 +51,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
     gasneti_fatalerror("Illegal call to GASNet collectives before gasnet_coll_init()\n");
   }
 
-  /* XXX: temporary limitations: */
-  gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-  gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+  /* XXX: temporary limitation: */
   gasneti_assert(team == GASNET_TEAM_ALL);
 
   #if gasnet_DEBUG
@@ -1249,6 +1247,10 @@ gasnete_coll_generic_broadcast_nb(gasnet_team_handle_t team,
     {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
       /* Choose algorithm based on arguments */
       if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
 	if (nbytes <= eager_limit) {
@@ -1572,6 +1574,10 @@ gasnete_coll_generic_broadcastM_nb(gasnet_team_handle_t team,
     {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
       /* Choose algorithm based on arguments */
       if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
 	if (nbytes <= eager_limit) {
@@ -1872,6 +1878,10 @@ gasnete_coll_generic_scatter_nb(gasnet_team_handle_t team,
 			    gasnet_node_t srcnode, void *src,
 			    size_t nbytes, int flags GASNETE_THREAD_FARG) {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
+
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
 
       /* Choose algorithm based on arguments */
       if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
@@ -2264,6 +2274,10 @@ gasnete_coll_generic_scatterM_nb(gasnet_team_handle_t team,
     {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
       /* Choose algorithm based on arguments */
       if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
 	if (nbytes <= eager_limit) {
@@ -2588,6 +2602,10 @@ gasnete_coll_generic_gather_nb(gasnet_team_handle_t team,
 			   void *src,
 			   size_t nbytes, int flags GASNETE_THREAD_FARG) {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
+
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
 
       /* Choose algorithm based on arguments */
       if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
@@ -2963,6 +2981,10 @@ gasnete_coll_generic_gatherM_nb(gasnet_team_handle_t team,
 			    size_t nbytes, int flags GASNETE_THREAD_FARG) {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
       /* Choose algorithm based on arguments */
       if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
 	if (nbytes <= eager_limit) {
@@ -3072,6 +3094,10 @@ gasnete_coll_generic_gather_all_nb(gasnet_team_handle_t team,
     gasnete_coll_gather_all_nb(gasnet_team_handle_t team,
 			       void *dst, void *src,
 			       size_t nbytes, int flags GASNETE_THREAD_FARG) {
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
       /* XXX: multiple choice here */
       return gasnete_coll_gall_Gath(team, dst, src, nbytes, flags GASNETE_THREAD_PASS);
     }
@@ -3174,6 +3200,10 @@ gasnete_coll_generic_gather_allM_nb(gasnet_team_handle_t team,
     gasnete_coll_gather_allM_nb(gasnet_team_handle_t team,
 				void * const dstlist[], void * const srclist[],
 				size_t nbytes, int flags GASNETE_THREAD_FARG) {
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
       /* XXX: multiple choice here */
       return gasnete_coll_gallM_Gath(team, dstlist, srclist, nbytes, flags GASNETE_THREAD_PASS);
     }
@@ -3273,6 +3303,10 @@ gasnete_coll_generic_exchange_nb(gasnet_team_handle_t team,
     gasnete_coll_exchange_nb(gasnet_team_handle_t team,
 			     void *dst, void *src,
 			     size_t nbytes, int flags GASNETE_THREAD_FARG) {
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
       /* XXX: multiple choice here */
       return gasnete_coll_exchg_Gath(team, dst, src, nbytes, flags GASNETE_THREAD_PASS);
     }
@@ -3389,6 +3423,10 @@ gasnete_coll_generic_exchangeM_nb(gasnet_team_handle_t team,
     gasnete_coll_exchangeM_nb(gasnet_team_handle_t team,
 			      void * const dstlist[], void * const srclist[],
 			      size_t nbytes, int flags GASNETE_THREAD_FARG) {
+      /* XXX: temporary limitations: */
+      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
       /* XXX: multiple choice here */
       return gasnete_coll_exchgM_Gath(team, dstlist, srclist, nbytes, flags GASNETE_THREAD_PASS);
     }
