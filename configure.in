@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/12/24 08:03:26 $
-# $Revision: 1.102 $
+#     $Date: 2003/12/29 04:20:53 $
+# $Revision: 1.103 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.102 $)
+AC_REVISION($Revision: 1.103 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -178,11 +178,13 @@ case "$gasnet_cv_cc_family" in
   Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
   Intel) MISC_CFLAGS="-wd279" ;;
   PGI) MISC_CFLAGS="-Masmkeyword" ;;
+  Sun) MISC_CFLAGS="-errtags" ;; # show warning tag ids in warnings
   *)    MISC_CFLAGS="" ;;
 esac
 
 case "$gasnet_cv_cc_family" in
   XLC) MISC_CPPFLAGS="-qcpluscmt" ;; # tell preprocessor to allow C++-style comments
+  Sun) MISC_CPPFLAGS="-xCC" ;; # C++ comments
   *)    MISC_CPPFLAGS="" ;;
 esac
 
