@@ -316,7 +316,7 @@ AC_REQUIRE([AC_PROG_AWK])
 AC_REQUIRE([GASNET_GETFULLPATH_CHECK])
 if test "$cv_prefix[]_gfp_disable" = ""; then
   gasnet_gfp_progname=`echo "$$1" | $AWK -F' ' '{ print [$]1 }'`
-  gasnet_gfp_progargs=`echo "$$1" | $AWK -F' ' '{ for (i=2;i<=NF;i++) print $i; }'`
+  gasnet_gfp_progargs=`echo "$$1" | $AWK -F' ' 'BEGIN { ORS=" "; } { for (i=2;i<=NF;i++) print $i; }'`
   gasnet_gfp_progname0=`echo "$gasnet_gfp_progname" | $AWK '{ print sub[]str([$]0,1,1) }'`
   if test "$gasnet_gfp_progname0" != "/" ; then
     cv_prefix[]_gfp_fullprogname_$1=
