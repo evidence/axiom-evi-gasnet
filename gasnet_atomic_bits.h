@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/06/21 11:21:22 $
- * $Revision: 1.11 $
+ *     $Date: 2003/09/03 18:44:50 $
+ * $Revision: 1.12 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -31,6 +31,23 @@
     gasneti_atomic_decrement_and_test(p) 
       atomically decrement *p, return non-zero iff the new value is 0
  */
+
+/* Determine if we are on an SMP or not */
+#if defined(__linux__)
+  #include <linux/config.h>
+  #ifdef HAVE__BOOT_KERNEL_H
+    #include </boot/kernel.h>
+  #endif
+  #if !defined(CONFIG_SMP) && \
+      !(defined(__BOOT_KERNEL_SMP) && (__BOOT_KERNEL_SMP == 1)) && \
+      !LINUX_SMP_KERNEL
+    #define GASNETI_UNI_KERNEL
+  #endif
+#elif defined(__FreeBSD__)
+  #if !defined(SMP)
+    #define GASNETI_UNI_KERNEL
+  #endif
+#endif
 
 #if defined(SOLARIS) || /* SPARC seems to have no atomic ops */ \
     defined(CRAYT3E) || /* TODO: no atomic ops on T3e? */       \
@@ -107,16 +124,10 @@
     #ifdef BROKEN_LINUX_ASM_ATOMIC_H
       /* some versions of the linux kernel ship with a broken atomic.h
          this code based on a non-broken version of the header */
-      #include <linux/config.h>
-      #ifdef HAVE__BOOT_KERNEL_H
-        #include </boot/kernel.h>
-      #endif
-      #if defined(CONFIG_SMP) || \
-         (defined(__BOOT_KERNEL_SMP) && (__BOOT_KERNEL_SMP == 1)) || \
-         LINUX_SMP_KERNEL
-        #define GASNETI_LOCK "lock ; "
-      #else
+      #ifdef GASNETI_UNI_KERNEL
         #define GASNETI_LOCK ""
+      #else
+        #define GASNETI_LOCK "lock ; "
       #endif
 
       #ifndef __i386__
@@ -310,17 +321,6 @@
 #pragma mc_func _gasneti_do_sync { \
   "7c0004ac" /* sync (same opcode used for dcs)*/ \
 }
-#endif
-
-#if defined(__linux__)
-  #include <linux/config.h>
-  #if !defined(__SMP__) && !defined(CONFIG_SMP)
-    #define GASNETI_UNI_KERNEL
-  #endif
-#elif defined(__FreeBSD__)
-  #if !defined(SMP)
-    #define GASNETI_UNI_KERNEL
-  #endif
 #endif
 
 #if defined(__sparc__) || defined(__sparc) || defined(sparc)
