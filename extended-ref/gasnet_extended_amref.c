@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2004/01/05 05:01:13 $
- * $Revision: 1.33 $
+ *     $Date: 2004/01/12 08:18:25 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -661,7 +661,7 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 
 extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-  gasnete_iop_t *op = mythread->current_iop;
+  gasnete_iop_t * const op = mythread->current_iop;
   if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
     op->initiated_get_cnt++;
   
@@ -671,7 +671,6 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     return;
   } else {
     int chunksz;
-    int msgsent=0;
     gasnet_handler_t reqhandler;
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
@@ -691,7 +690,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
         chunksz = gasnet_AMMaxMedium();
       }
     for (;;) {
-      msgsent++;
+      op->initiated_get_cnt++;
       if (nbytes > chunksz) {
         GASNETE_SAFE(
           SHORT_REQ(4,7,(node, reqhandler, 
@@ -706,7 +705,6 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
         break;
       }
     }
-    op->initiated_get_cnt += msgsent;
     return;
   }
 }
@@ -714,7 +712,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
 GASNET_INLINE_MODIFIER(gasnete_put_nbi_inner)
 void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nbytes, int isbulk GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-  gasnete_iop_t *op = mythread->current_iop;
+  gasnete_iop_t * const op = mythread->current_iop;
 
   if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
     op->initiated_put_cnt++;
@@ -742,11 +740,10 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
     return;
   } else {
     int chunksz = gasnet_AMMaxLongRequest();
-    int msgsent=0;
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
     for (;;) {
-      msgsent++;
+      op->initiated_put_cnt++;
       if (nbytes > chunksz) {
         if (isbulk) {
           GASNETE_SAFE(
@@ -777,7 +774,6 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
         break;
       }
     }
-    op->initiated_put_cnt += msgsent;
     return;
   }
 }

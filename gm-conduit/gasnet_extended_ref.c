@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_ref.c,v 1.10 2004/01/05 05:01:14 bonachea Exp $
- * $Date: 2004/01/05 05:01:14 $
+/* $Id: gasnet_extended_ref.c,v 1.11 2004/01/12 08:18:26 bonachea Exp $
+ * $Date: 2004/01/12 08:18:26 $
  * Description: GASNet GM conduit Extended API Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -245,17 +245,16 @@ gasnet_handle_t gasnete_extref_memset_nb   (gasnet_node_t node, void *dest, int 
 
 void gasnete_extref_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-  gasnete_iop_t *op = mythread->current_iop;
+  gasnete_iop_t * const iop = mythread->current_iop;
   if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
-    op->initiated_get_cnt++;
+    iop->initiated_get_cnt++;
   
     GASNETE_SAFE(
       SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_extref_get_reqh), 
-                   (gasnet_handlerarg_t)nbytes, PACK(dest), PACK(src), PACK(op))));
+                   (gasnet_handlerarg_t)nbytes, PACK(dest), PACK(src), PACK(iop))));
     return;
   } else {
     int chunksz;
-    int msgsent=0;
     gasnet_handler_t reqhandler;
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
@@ -275,22 +274,21 @@ void gasnete_extref_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
         chunksz = gasnet_AMMaxMedium();
       }
     for (;;) {
-      msgsent++;
+      iop->initiated_get_cnt++;
       if (nbytes > chunksz) {
         GASNETE_SAFE(
           SHORT_REQ(4,7,(node, reqhandler, 
-                       (gasnet_handlerarg_t)chunksz, PACK(pdest), PACK(psrc), PACK(op))));
+                       (gasnet_handlerarg_t)chunksz, PACK(pdest), PACK(psrc), PACK(iop))));
         nbytes -= chunksz;
         psrc += chunksz;
         pdest += chunksz;
       } else {
         GASNETE_SAFE(
           SHORT_REQ(4,7,(node, reqhandler, 
-                       (gasnet_handlerarg_t)nbytes, PACK(pdest), PACK(psrc), PACK(op))));
+                       (gasnet_handlerarg_t)nbytes, PACK(pdest), PACK(psrc), PACK(iop))));
         break;
       }
     }
-    op->initiated_get_cnt += msgsent;
     return;
   }
 }
@@ -298,50 +296,49 @@ void gasnete_extref_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
 GASNET_INLINE_MODIFIER(gasnete_extref_put_nbi_inner)
 void gasnete_extref_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nbytes, int isbulk GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-  gasnete_iop_t *op = mythread->current_iop;
+  gasnete_iop_t * const iop = mythread->current_iop;
 
   if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
-    op->initiated_put_cnt++;
+    iop->initiated_put_cnt++;
 
     GASNETE_SAFE(
       MEDIUM_REQ(2,4,(node, gasneti_handleridx(gasnete_extref_put_reqh),
                     src, nbytes,
-                    PACK(dest), PACK(op))));
+                    PACK(dest), PACK(iop))));
     return;
   } else if (nbytes <= gasnet_AMMaxLongRequest()) {
-    op->initiated_put_cnt++;
+    iop->initiated_put_cnt++;
 
     if (isbulk) {
       GASNETE_SAFE(
         LONGASYNC_REQ(1,2,(node, gasneti_handleridx(gasnete_extref_putlong_reqh),
                       src, nbytes, dest,
-                      PACK(op))));
+                      PACK(iop))));
     } else {
       GASNETE_SAFE(
         LONG_REQ(1,2,(node, gasneti_handleridx(gasnete_extref_putlong_reqh),
                       src, nbytes, dest,
-                      PACK(op))));
+                      PACK(iop))));
     }
 
     return;
   } else {
     int chunksz = gasnet_AMMaxLongRequest();
-    int msgsent=0;
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
     for (;;) {
-      msgsent++;
+      iop->initiated_put_cnt++;
       if (nbytes > chunksz) {
         if (isbulk) {
           GASNETE_SAFE(
             LONGASYNC_REQ(1,2,(node, gasneti_handleridx(gasnete_extref_putlong_reqh),
                           psrc, chunksz, pdest,
-                          PACK(op))));
+                          PACK(iop))));
         } else {
           GASNETE_SAFE(
             LONG_REQ(1,2,(node, gasneti_handleridx(gasnete_extref_putlong_reqh),
                           psrc, chunksz, pdest,
-                          PACK(op))));
+                          PACK(iop))));
         }
         nbytes -= chunksz;
         psrc += chunksz;
@@ -351,17 +348,16 @@ void gasnete_extref_put_nbi_inner(gasnet_node_t node, void *dest, void *src, siz
           GASNETE_SAFE(
             LONGASYNC_REQ(1,2,(node, gasneti_handleridx(gasnete_extref_putlong_reqh),
                           psrc, nbytes, pdest,
-                          PACK(op))));
+                          PACK(iop))));
         } else {
           GASNETE_SAFE(
             LONG_REQ(1,2,(node, gasneti_handleridx(gasnete_extref_putlong_reqh),
                           psrc, nbytes, pdest,
-                          PACK(op))));
+                          PACK(iop))));
         }
         break;
       }
     }
-    op->initiated_put_cnt += msgsent;
     return;
   }
 }
