@@ -202,8 +202,8 @@ struct _firehose_private_t {
 /* ##################################################################### */
 
 void	fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions, 
-		       firehose_region_t *prepinned_regions, size_t num_reg,
-		       firehose_info_t *info);
+		       const firehose_region_t *prepinned_regions,
+                       size_t num_reg, firehose_info_t *info);
 void	fh_fini_plugin();
 
 /* ##################################################################### */

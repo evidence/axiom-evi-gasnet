@@ -651,7 +651,7 @@ fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 
 void
 fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions, 
-	      firehose_region_t *regions, size_t num_reg,
+	      const firehose_region_t *regions, size_t num_reg,
 	      firehose_info_t *fhinfo)
 {
 	int		i;

@@ -38,8 +38,8 @@ fh_hash_t	*fh_RegionTable;
 
 extern void
 firehose_init(uintptr_t max_pinnable_memory, size_t max_regions, 
-	      firehose_region_t *prepinned_regions, size_t num_reg,
-	      firehose_info_t *info)
+	      const firehose_region_t *prepinned_regions,
+              size_t num_reg, firehose_info_t *info)
 {
 	int	i;
 
