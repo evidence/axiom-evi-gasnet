@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2004/10/07 23:28:15 $
- * $Revision: 1.4 $
+ *     $Date: 2004/10/13 00:18:50 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -130,10 +130,11 @@ typedef uintptr_t gasnet_register_value_t;
 
   #define _GASNETE_INLINE_VECTOR_LOOP(dest,src,nbytes,shift,type)   \
 	do {							    \
-	    unsigned long i, sz = ((unsigned long)nbytes)>>shift;   \
-	    _Pragma("CRI ivdep");				    \
-	    for (i=0; i<sz; i++) 				    \
+	    unsigned long i, sz;				    \
+	    sz = ((unsigned long)(nbytes))>>(shift);		    \
+	    for (i=0; i<sz; i++) { 				    \
 		((type *)dest)[i] = ((type *)src)[i];		    \
+	    }							    \
 	} while (0)
 
   #define _GASNETE_INLINE_VECTOR_LDST(dest,src,nbytes,bulk)	    \
@@ -151,9 +152,9 @@ typedef uintptr_t gasnet_register_value_t;
 #endif
 
 #ifdef CRAYX1
-#define _GASNETE_CRAYX1_ONLY(x)  (x)
+#define _GASNETE_CRAYX1_ONLY(x)  x
 #else
-#define _GASNETE_CRAYX1_ONLY(x)    
+#define _GASNETE_CRAYX1_ONLY(x)
 #endif
 	    
 #define _gasnete_global_ldst(dest,src,nbytes)			    \
@@ -195,7 +196,7 @@ typedef uintptr_t gasnet_register_value_t;
 		case 16:					    \
 		    pDest[0] = pSrc[0];	pDest[1] = pSrc[1];	    \
 		    break;					    \
-		);						    \
+		)						    \
 		case 8:						    \
 		    pDest[0] = pSrc[0];				    \
 		    break;					    \
@@ -256,7 +257,7 @@ typedef uintptr_t gasnet_register_value_t;
 		    break;					    \
 		default:					    \
 		    if (_GASNETE_DESTSRC_ALIGNED(dest,src,0x7) &&   \
-			nbytest <= 256 && !(nbytes&0x7))	    \
+			nbytes <= 256 && !(nbytes&0x7))	            \
 			_GASNETE_INLINE_VECTOR_LOOP(dest,src,nbytes,\
 					               3,uint64_t); \
 		    else					    \
