@@ -1,8 +1,8 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/mpi-spawner/gasnet_bootstrap_mpi.c,v $
- *     $Date: 2005/01/10 20:47:25 $
- * $Revision: 1.11 $
- * Description: GASNet vapi conduit implementation, mpi bootstrap code
- * Copyright 2003, LBNL
+ *     $Date: 2005/01/15 00:23:20 $
+ * $Revision: 1.12 $
+ * Description: GASNet conduit-independent mpi-based spawner
+ * Copyright 2003, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 
@@ -16,7 +16,7 @@
 static MPI_Comm gasnetc_mpi_comm;
 static int gasnetc_mpi_preinitialized = 0;
 
-void gasnetc_bootstrapInit(int *argc, char ***argv, gasnet_node_t *nodes, gasnet_node_t *mynode) {
+void gasneti_bootstrapInit(int *argc, char ***argv, gasnet_node_t *nodes, gasnet_node_t *mynode) {
   MPI_Group world;
   int err;
   int tmp;
@@ -47,11 +47,11 @@ void gasnetc_bootstrapInit(int *argc, char ***argv, gasnet_node_t *nodes, gasnet
   *mynode = tmp;
 
   gasneti_setupGlobalEnvironment(*nodes, *mynode,
-				 &gasnetc_bootstrapExchange,
-				 &gasnetc_bootstrapBroadcast);
+				 &gasneti_bootstrapExchange,
+				 &gasneti_bootstrapBroadcast);
 }
 
-void gasnetc_bootstrapFini(void) {
+void gasneti_bootstrapFini(void) {
   int err;
 
   err = MPI_Comm_free(&gasnetc_mpi_comm);
@@ -67,7 +67,7 @@ void gasnetc_bootstrapFini(void) {
   }
 }
 
-void gasnetc_bootstrapAbort(int exitcode) {
+void gasneti_bootstrapAbort(int exitcode) {
   (void) MPI_Abort(gasnetc_mpi_comm, exitcode);
 
   gasneti_reghandler(SIGABRT, SIG_DFL);
@@ -75,28 +75,28 @@ void gasnetc_bootstrapAbort(int exitcode) {
   /* NOT REACHED */
 }
 
-void gasnetc_bootstrapBarrier(void) {
+void gasneti_bootstrapBarrier(void) {
   int err;
 
   err = MPI_Barrier(gasnetc_mpi_comm);
   gasneti_assert(err == MPI_SUCCESS);
 }
 
-void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
+void gasneti_bootstrapExchange(void *src, size_t len, void *dest) {
   int err;
 
   err = MPI_Allgather(src, len, MPI_CHAR, dest, len, MPI_CHAR, gasnetc_mpi_comm);
   gasneti_assert(err == MPI_SUCCESS);
 }
 
-void gasnetc_bootstrapAlltoall(void *src, size_t len, void *dest) {
+void gasneti_bootstrapAlltoall(void *src, size_t len, void *dest) {
   int err;
 
   err = MPI_Alltoall(src, len, MPI_CHAR, dest, len, MPI_CHAR, gasnetc_mpi_comm);
   gasneti_assert(err == MPI_SUCCESS);
 }
 
-void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode) {
+void gasneti_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode) {
   int err;
   
   if (gasnetc_mynode == rootnode) {

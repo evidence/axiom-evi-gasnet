@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/01/14 02:04:44 $
-# $Revision: 1.30 $
+#     $Date: 2005/01/15 00:23:24 $
+# $Revision: 1.31 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -14,7 +14,7 @@ if GASNET_SEGMENT_FAST
 else
 # only use firehose for segment large/everything
 fh_srcdir = $(top_srcdir)/other/firehose
-fh_include = -I$(fh_srcdir)
+fh_cflags = -I$(fh_srcdir)
 fh_deps = $(fh_srcdir)/*.h
 fh_srcs =                          \
       $(srcdir)/gasnet_firehose.c  \
@@ -25,15 +25,21 @@ endif
 
 if VAPI_BOOTSTRAP_MPI
 # If using MPI for bootstrap then we must compile this one object with MPI_CC.
+mpi_srcdir = $(top_srcdir)/other/mpi-spawner
+mpi_cflags = -I$(mpi_srcdir)
+mpi_srcs = $(mpi_srcdir)/gasnet_bootstrap_mpi.c
+mpi_deps = $(mpi_srcdir)/gasnet_bootstrap_fwd.h
 mpi_objs = $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o
-$(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: $(srcdir)/gasnet_bootstrap_mpi.c
-	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) -o $@ -c $<
+$(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: $(mpi_srcs) $(mpi_deps)
+	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) -o $@ -c $(mpi_srcs)
 mpi_subdirs = contrib
 endif
 
 if VAPI_BOOTSTRAP_SSH
-ssh_srcs = $(srcdir)/gasnet_bootstrap_ssh.c
-ssh_cflags = -DGASNETI_CONDUIT_GETENV=gasnetc_bootstrapGetenv
+ssh_srcdir = $(top_srcdir)/other/ssh-spawner
+ssh_cflags = -I$(ssh_srcdir)
+ssh_srcs = $(ssh_srcdir)/gasnet_bootstrap_ssh.c
+ssh_deps = $(ssh_srcdir)/gasnet_bootstrap_fwd.h
 endif
 
 # any conduit-specific subdirectories containing Makefile.am's
@@ -52,8 +58,6 @@ CONDUIT_FILELIST =               \
       gasnet_extended.c          \
       gasnet_extended_fwd.h      \
       gasnet_extended_internal.h \
-      gasnet_bootstrap_mpi.c     \
-      gasnet_bootstrap_ssh.c     \
       gasnet_firehose.c          \
       firehose_fwd.h             \
       license.txt                
@@ -69,7 +73,7 @@ CONDUIT_SOURCELIST =                 \
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
 # VAPI conduit always needs GASNET_THREAD_DEFINES
-CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ $(fh_include) $(ssh_cflags) \
+CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ $(fh_cflags) $(ssh_cflags) $(mpi_cflags)\
 			 @VAPI_LIBCFLAGS@ @GASNET_THREAD_DEFINES@
 
 # additional conduit header files to install from external, non-standard directories
@@ -77,7 +81,7 @@ CONDUIT_EXTRAHEADERS =
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(fh_deps)
+CONDUIT_EXTRADEPS = $(fh_deps) $(mpi_deps) $(ssh_deps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as

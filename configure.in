@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/01/14 02:04:42 $
-# $Revision: 1.215 $
+#     $Date: 2005/01/15 00:23:16 $
+# $Revision: 1.216 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.215 $)
+AC_REVISION($Revision: 1.216 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1575,22 +1575,24 @@ if test "$enabled_vapi" = yes; then
     # Configure corrrect flags/vars (inc. CC and LD) based on bootstrap choice
     if test "$with_vapi_bootstrap_ssh" = yes; then
       AC_CHECK_HEADERS(netinet/tcp.h)
-      VAPI_LD="$CC"
-      VAPI_LDFLAGS="$CFLAGS"
+      VAPI_BOOT_SSH=''
+    else
+      VAPI_BOOT_SSH='#'
     fi
     if test "$with_vapi_bootstrap_mpi" = yes; then
-      VAPI_LD="$MPI_CC"
-      VAPI_LDFLAGS="$MPI_CFLAGS"
       VAPI_LIBS="$MPI_LIBS $VAPI_LIBS"
+      VAPI_BOOT_MPI=''
+    else
+      VAPI_BOOT_MPI='#'
     fi
   fi
 fi
+AC_SUBST(VAPI_BOOT_SSH)
+AC_SUBST(VAPI_BOOT_MPI)
 AC_SUBST(VAPI_INCLUDE)
 AC_SUBST(VAPI_LIBDIR)
 AC_SUBST(VAPI_LIBS)
 AC_SUBST(VAPI_LIBCFLAGS)
-AC_SUBST(VAPI_LD)
-AC_SUBST(VAPI_LDFLAGS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
 AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH,test "$with_vapi_bootstrap_ssh" = yes)
 AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$with_vapi_bootstrap_mpi" = yes)

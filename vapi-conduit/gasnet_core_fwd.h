@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2005/01/09 23:49:38 $
- * $Revision: 1.17 $
+ *     $Date: 2005/01/15 00:23:24 $
+ * $Revision: 1.18 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,6 +36,8 @@
 typedef uint16_t gasnet_node_t;
 #define _GASNET_HANDLER_T
 typedef uint8_t gasnet_handler_t;
+
+#include <gasnet_bootstrap_fwd.h>	/* After definition of gasnet_node_t */
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
@@ -82,9 +84,5 @@ typedef uint8_t gasnet_handler_t;
      (e.g. with a signal) to run AM handlers (interrupt-based handler dispatch)
    */
 /* #define GASNETC_USE_INTERRUPTS 1 */
-
-/* GASNETI_CONDUIT_GET is optionally defined to gasnetc_bootstrapGetenv() in CONDUIT_EXTRALIBCFLAGS */
-extern char *gasnetc_bootstrapGetenv(const char *var);
-
 
 #endif

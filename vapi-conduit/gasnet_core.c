@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/01/12 01:22:12 $
- * $Revision: 1.66 $
+ *     $Date: 2005/01/15 00:23:24 $
+ * $Revision: 1.67 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -422,7 +422,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 
   /* Initialize the bootstrapping support */
-  gasnetc_bootstrapInit(argc, argv, &gasnetc_nodes, &gasnetc_mynode);
+  gasneti_bootstrapInit(argc, argv, &gasnetc_nodes, &gasnetc_mynode);
     
   /* Now enable tracing of all the following steps */
   gasneti_trace_init(*argc, *argv);
@@ -669,7 +669,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
 
   /* exchange endpoint info for connecting */
-  gasnetc_bootstrapAlltoall(local_addr, sizeof(gasnetc_addr_t), remote_addr);
+  gasneti_bootstrapAlltoall(local_addr, sizeof(gasnetc_addr_t), remote_addr);
 
   /* connect the endpoints */
   {
@@ -727,7 +727,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     }
 
     /* QPs must reach RTR before their peer can advance to RTS */
-    gasnetc_bootstrapBarrier();
+    gasneti_bootstrapBarrier();
 
     /* advance RTR -> RTS */
     QP_ATTR_MASK_CLR_ALL(qp_mask);
@@ -795,7 +795,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     /* Find the local min-of-maxes over the pinning limits */
     all_info = gasneti_malloc(gasnetc_nodes * sizeof(gasnetc_pin_info_t));
-    gasnetc_bootstrapExchange(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
+    gasneti_bootstrapExchange(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
     for (i = 0; i < gasnetc_nodes; i++) {
       gasnetc_pin_info.memory  = MIN(gasnetc_pin_info.memory,  all_info[i].memory );
       gasnetc_pin_info.regions = MIN(gasnetc_pin_info.regions, all_info[i].regions);
@@ -816,7 +816,7 @@ static int gasnetc_init(int *argc, char ***argv) {
                         &gasnetc_MaxGlobalSegmentSize,
                         gasnetc_pin_info.memory,
                         gasnetc_nodes,
-                        &gasnetc_bootstrapExchange);
+                        &gasneti_bootstrapExchange);
   }
   #elif GASNET_SEGMENT_LARGE
   {
@@ -825,7 +825,7 @@ static int gasnetc_init(int *argc, char ***argv) {
                         &gasnetc_MaxGlobalSegmentSize,
                         (uintptr_t)(-1),
                         gasnetc_nodes,
-                        &gasnetc_bootstrapExchange);
+                        &gasneti_bootstrapExchange);
   }
   #elif GASNET_SEGMENT_EVERYTHING
   {
@@ -840,7 +840,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* Done earlier to allow tracing */
     gasneti_init_done = 1;  
   #endif
-  gasnetc_bootstrapBarrier();
+  gasneti_bootstrapBarrier();
 
   return GASNET_OK;
 }
@@ -1014,7 +1014,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #elif GASNETC_PIN_SEGMENT
   {
     /* allocate the segment and exchange seginfo */
-    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapExchange);
+    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasneti_bootstrapExchange);
     segbase = gasnetc_seginfo[gasnetc_mynode].addr;
     segsize = gasnetc_seginfo[gasnetc_mynode].size;
 
@@ -1030,7 +1030,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
       rkeys = gasneti_calloc(gasnetc_nodes,sizeof(VAPI_rkey_t));
       gasneti_assert(rkeys != NULL);
-      gasnetc_bootstrapExchange(&gasnetc_seg_reg.rkey, sizeof(VAPI_rkey_t), rkeys);
+      gasneti_bootstrapExchange(&gasnetc_seg_reg.rkey, sizeof(VAPI_rkey_t), rkeys);
       for (i=0;i<gasnetc_nodes;i++) {
         gasnetc_cep[i].rkey = rkeys[i];
       }
@@ -1040,7 +1040,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #else	/* just allocate the segment but don't pin it */
   {
     /* allocate the segment and exchange seginfo */
-    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapExchange);
+    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasneti_bootstrapExchange);
     segbase = gasnetc_seginfo[gasnetc_mynode].addr;
     segsize = gasnetc_seginfo[gasnetc_mynode].size;
   }
@@ -1113,7 +1113,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* ------------------------------------------------------------------------------------ */
   /*  primary attach complete */
   gasneti_attach_done = 1;
-  gasnetc_bootstrapBarrier();
+  gasneti_bootstrapBarrier();
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
 
@@ -1132,7 +1132,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasnete_init(); /* init the extended API */
 
   /* ensure extended API is initialized across nodes */
-  gasnetc_bootstrapBarrier();
+  gasneti_bootstrapBarrier();
 
   return GASNET_OK;
 }
@@ -1622,10 +1622,10 @@ static void gasnetc_exit_body(void) {
   alarm(10);
   {
     if (graceful) {
-      gasnetc_bootstrapFini();
+      gasneti_bootstrapFini();
     } else {
       /* We couldn't reach our peers, so hope the bootstrap code can kill the entire job */
-      gasnetc_bootstrapAbort(exitcode);
+      gasneti_bootstrapAbort(exitcode);
       /* NOT REACHED */
     }
   }
