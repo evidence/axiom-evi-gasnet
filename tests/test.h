@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/03/02 19:04:00 $
- * $Revision: 1.48 $
+ *     $Date: 2005/03/10 23:26:08 $
+ * $Revision: 1.49 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -247,6 +247,8 @@ static void test_free(void *ptr) {
 /* Functions for obtaining calibrated delays */
 
 #ifdef TEST_DELAY
+/* NOTE: If you #define TEST_DELAY, be certain Makefile.in shows you depend on delay.o */
+
 extern void test_delay(int64_t n);	 /* in delay.o */
 
 /* smallest number of delay loops to try in calibration */

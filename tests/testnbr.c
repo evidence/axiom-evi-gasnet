@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2005/03/10 09:17:49 $
- * $Revision: 1.1 $
+ *     $Date: 2005/03/10 23:26:08 $
+ * $Revision: 1.2 $
  * Description: MG-like neighbour exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -31,7 +31,6 @@ uintptr_t maxsegmentsz;
     #define TEST_SEGSZ_EXPR ((uintptr_t)maxsegmentsz)
   #endif
 #endif
-#define TEST_DELAY
 #include "test.h"
 
 typedef struct {
