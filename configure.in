@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/07/03 22:21:03 $
-# $Revision: 1.72 $
+#     $Date: 2003/07/07 03:53:10 $
+# $Revision: 1.73 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.72 $)
+AC_REVISION($Revision: 1.73 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -311,7 +311,9 @@ case "$target_os" in
 	AC_DEFINE(SOLARIS)
 	GASNET_MACHINE_DEFINES="-DSOLARIS" 
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
-        GASNET_THREAD_LIBS="" # static linking fails with -lpthread
+        # on some systems static linking fails with -lpthread, 
+        # but need it or pthread_create will fail at runtime
+        GASNET_THREAD_LIBS="-lpthread" 
         ;;
   linux*) 
 	AC_DEFINE(LINUX)
