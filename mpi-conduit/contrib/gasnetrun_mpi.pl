@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v 1.8 2004/05/27 19:44:17 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v 1.9 2004/06/08 19:59:15 bonachea Exp $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -253,6 +253,8 @@ EOF
                               (@envargs, $exename);
                           } elsif (m/^%A$/) {
 			      (@ARGV);
+                          } elsif (m/^%V$/) {
+			      $verbose?("-v"):();
 			  } else {
                               $_;
                           }
