@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/06/29 01:48:09 $
- * $Revision: 1.34 $
+ *     $Date: 2003/07/02 08:36:59 $
+ * $Revision: 1.35 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -229,6 +229,11 @@ extern int gasneti_VerboseErrors;
               retval = pthread_mutex_unlock(&((pl)->lock));   \
               assert(!retval);                                \
             } while (0)
+    #define gasneti_mutex_init(pl) do {                       \
+              pthread_mutex_init(&((pl)->lock),NULL);         \
+             (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER; \
+            } while (0)
+    #define gasneti_mutex_destroy(pl)  pthread_mutex_destroy(&((pl)->lock))
   #else
     typedef struct {
       volatile int owner;
@@ -242,6 +247,10 @@ extern int gasneti_VerboseErrors;
               assert((pl)->owner == GASNETI_THREADIDQUERY()); \
               (pl)->owner = GASNETI_MUTEX_NOOWNER;            \
             } while (0)
+    #define gasneti_mutex_init(pl) do {                       \
+              (pl)->owner = GASNETI_MUTEX_NOOWNER;            \
+            } while (0)
+    #define gasneti_mutex_destroy(pl)
   #endif
   #define gasneti_mutex_assertlocked(pl)    assert((pl)->owner == GASNETI_THREADIDQUERY())
   #define gasneti_mutex_assertunlocked(pl)  assert((pl)->owner != GASNETI_THREADIDQUERY())
@@ -250,21 +259,17 @@ extern int gasneti_VerboseErrors;
     #include <pthread.h>
     typedef pthread_mutex_t           gasneti_mutex_t;
     #define GASNETI_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
-    #if 1
-      #define gasneti_mutex_lock(pl)  do {        \
-          int retval = pthread_mutex_trylock(pl); \
-          if (!retval) break;                     \
-          assert(retval == EBUSY);                \
-        } while (1)
-    #else
-      #define gasneti_mutex_lock(pl)  pthread_mutex_lock(pl)
-    #endif
+    #define gasneti_mutex_lock(pl)  pthread_mutex_lock(pl)
     #define gasneti_mutex_unlock(pl)  pthread_mutex_unlock(pl)
+    #define gasneti_mutex_init(pl)  pthread_mutex_init((pl),NULL)
+    #define gasneti_mutex_destroy(pl)  pthread_mutex_destroy(pl)
   #else
     typedef char           gasneti_mutex_t;
     #define GASNETI_MUTEX_INITIALIZER '\0'
     #define gasneti_mutex_lock(pl)    
     #define gasneti_mutex_unlock(pl)  
+    #define gasneti_mutex_init(pl)
+    #define gasneti_mutex_destroy(pl)
   #endif
   #define gasneti_mutex_assertlocked(pl)
   #define gasneti_mutex_assertunlocked(pl)
