@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/04/05 18:37:43 $
- * $Revision: 1.33 $
+ *     $Date: 2004/04/22 09:19:54 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,7 +137,7 @@ extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
   
 /* ------------------------------------------------------------------------------------ */
 #if GASNETE_USE_ELAN_BARRIER
-  static void gasnete_barrier_init();
+  extern void gasnete_barrier_init();
 #endif
 
 GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GASNET_EXTENDED_VERSION_STR " $");
@@ -302,9 +302,7 @@ extern void gasnete_init() {
     gasnete_op_markdone((gasnete_op_t *)eop, 0);
     gasnete_op_free((gasnete_op_t *)eop);
   }
-  #if GASNETE_USE_ELAN_BARRIER
-    gasnete_barrier_init();
-  #endif
+  gasnete_barrier_init();
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -1484,7 +1482,7 @@ int gasnete_barrier_poll(void *handle, unsigned int *ready) {
   return 0; /* return 0 => don't delay the elan blocking */
 }
 
-static void gasnete_barrier_init() {
+extern void gasnete_barrier_init() {
   #ifdef ELAN_VER_1_2
     barrier_state = elan_gallocMain(BASE()->galloc, GROUP(), 64, sizeof(gasnete_barrier_state_t));
   #else
