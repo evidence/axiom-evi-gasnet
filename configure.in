@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/12/11 20:19:48 $
-# $Revision: 1.98 $
+#     $Date: 2003/12/12 07:26:31 $
+# $Revision: 1.99 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.98 $)
+AC_REVISION($Revision: 1.99 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -493,6 +493,9 @@ if test "$uni_build" = yes; then
 fi
 
 #---------------------------------------------------------------------------------------------------------------
+# Hack-around to prevent a bogus autoconf 2.58 bug when AC_PROG_CXX is called conditionally below
+am__fastdepCXX_TRUE='#'
+am__fastdepCXX_FALSE=
 # Configure AMUDP
 GASNET_IF_ENABLED_WITH_AUTO(udp, Enable the portable UDP network conduit (off by default),
   [enabled_udp=yes;force_udp=yes],
