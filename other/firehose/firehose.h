@@ -441,11 +441,11 @@ firehose_poll(void);
  * firehose_release() on the request_t.
  *
  * The region limits in firehose_info_t can be described in terms of the
- * union of the * local or remote request_t's owned by a client at any
+ * union of the local or remote request_t's owned by a client at any
  * given instant.
  * + max_RemoteRegions - the maximum number of distinct regions
- *   pinned by the union of all the request_t's referencing remote
- *   nodes.
+ *   pinned by the union of all the request_t's which reference any
+ *   given remote node.
  * + max_LocalRegions - the maximum number of distinct regions pinned
  *   by the union of all the request_t's referencing the local node.
  * If any of these values is zero then that limit is not imposed.
