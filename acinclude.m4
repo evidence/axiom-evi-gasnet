@@ -1,5 +1,14 @@
 dnl Terms of use are as specified in license.txt
 
+dnl determine the autoconf version used to build configure script 
+AC_DEFUN(GASNET_GET_AUTOCONF_VERSION,[
+AC_MSG_CHECKING(autoconf version)
+dnl AUTOCONF_VERSION=`cat ${srcdir}/configure | perl -e '{ while (<STDIN>) { if (m/enerated.*utoconf.*([[0-9]]+)\.([[0-9]]+).*/) { print "[$]1.[$]2\n"; exit 0 } } }'`
+AUTOCONF_VERSION_STR=`cat ${srcdir}/configure | awk '/.*enerated.*utoconf.*([[0-9]]+).([[0-9]]+).*/ { [match]([$]0,"[[0-9]]+.[[0-9]]+"); print [substr]([$]0,RSTART,RLENGTH); exit 0 } '`
+AUTOCONF_VERSION=`echo $AUTOCONF_VERSION_STR | awk -F. '{ printf("%i%i",[$]1,[$]2); }'`
+AC_MSG_RESULT($AUTOCONF_VERSION_STR)
+])
+
 AC_DEFUN(GASNET_FIX_SHELL,[
 AC_MSG_CHECKING(for good shell)
 if test "$BASH" = '' && test `uname` = HP-UX; then
@@ -148,6 +157,9 @@ AC_SUBST_FILE($1)])
 AC_DEFUN(GASNET_CHECK_PROGS,[
 case "$$1" in
   '') AC_CHECK_PROGS($1,$2)
+      ;;
+  *) AC_MSG_CHECKING(for $3)
+     AC_MSG_RESULT($$1)
       ;;
 esac
 case "$$1" in

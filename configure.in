@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/03/29 01:11:34 $
-# $Revision: 1.42 $
+#     $Date: 2003/03/29 05:04:00 $
+# $Revision: 1.43 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.42 $)
+AC_REVISION($Revision: 1.43 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -34,6 +34,7 @@ AC_SUBST(TOP_SRCDIR)
 AC_SUBST(TOP_BUILDDIR)
 AC_SUBST(INSTALL_PREFIX)
 
+GASNET_GET_AUTOCONF_VERSION()
 GASNET_RESTORE_AUTOCONF_ENV([CC CXX CFLAGS CXXFLAGS CPPFLAGS LIBS MAKE GMAKE AR RANLIB REXEC])
 
 ########################################################################
@@ -165,6 +166,7 @@ case "$gasnet_cv_cc_family" in
   Cray) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; 
   MIPS) MISC_CFLAGS="-diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
   Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
+  XLC) MISC_CFLAGS="-qcpluscmt" ;;
   *)    MISC_CFLAGS="" ;;
 esac
 
