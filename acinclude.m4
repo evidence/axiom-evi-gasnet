@@ -107,7 +107,9 @@ AC_DEFUN(GASNET_SAVE_AUTOCONF_ENV,[
   done
 ])
 
-AC_DEFUN(GASNET_OPTION_HELP,[  --$1 substr([                     ],len($1))$2])
+dnl doesn't work properly on newer versions of autoconf - I have no idea why
+dnl _DEFUN(GASNET_OPTION_HELP,[  --$1 substr([                     ],len($1))$2])
+AC_DEFUN(GASNET_OPTION_HELP,[  --$1  $2])
 
 AC_DEFUN(GASNET_IF_ENABLED,[
 AC_ARG_ENABLE($1,GASNET_OPTION_HELP(enable-$1,$2))
