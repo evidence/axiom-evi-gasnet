@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/07/25 09:01:55 $
- * $Revision: 1.41 $
+ *     $Date: 2004/07/26 09:03:24 $
+ * $Revision: 1.42 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -48,31 +48,32 @@
   #define gasneti_atomic_read(p)      ((p)->ctr)
   #define gasneti_atomic_init(v)      { (v) }
   #ifdef _INCLUDED_GASNET_H
-    extern gasnet_hsl_t gasneti_atomicop_lock;
+    extern void *gasneti_patomicop_lock; /* bug 693: avoid header dependency cycle */
 
-    #define gasneti_atomic_set(p,v) do {           \
-        gasnet_hsl_lock(&gasneti_atomicop_lock);   \
-        (p)->ctr = (v);                            \
-        gasnet_hsl_unlock(&gasneti_atomicop_lock); \
+    #define gasneti_atomic_set(p,v) do {                          \
+        gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
+        (p)->ctr = (v);                                           \
+        gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock); \
       } while (0)
-    #define gasneti_atomic_increment(p) do {       \
-        gasnet_hsl_lock(&gasneti_atomicop_lock);   \
-        ((p)->ctr)++;                              \
-        gasnet_hsl_unlock(&gasneti_atomicop_lock); \
+    #define gasneti_atomic_increment(p) do {                      \
+        gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
+        ((p)->ctr)++;                                             \
+        gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock); \
       } while (0)
-    #define gasneti_atomic_decrement(p) do {       \
-        gasnet_hsl_lock(&gasneti_atomicop_lock);   \
-        ((p)->ctr)--;                              \
-        gasnet_hsl_unlock(&gasneti_atomicop_lock); \
+    #define gasneti_atomic_decrement(p) do {                      \
+        gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
+        ((p)->ctr)--;                                             \
+        gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock); \
       } while (0)
-    GASNET_INLINE_MODIFIER(gasneti_atomic_decrement_and_test)
-    int gasneti_atomic_decrement_and_test(gasneti_atomic_t *p) {
-      uint32_t newval;
-      gasnet_hsl_lock(&gasneti_atomicop_lock);
-      newval = p->ctr - 1;
-      p->ctr = newval;
-      gasnet_hsl_unlock(&gasneti_atomicop_lock);
-      return (newval == 0);
+    extern int gasneti_atomic_decrement_and_test(gasneti_atomic_t *p);
+    #define GASNETI_GENERIC_DEC_AND_TEST_DEF                     \
+    int gasneti_atomic_decrement_and_test(gasneti_atomic_t *p) { \
+      uint32_t newval;                                           \
+      gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);    \
+      newval = p->ctr - 1;                                       \
+      p->ctr = newval;                                           \
+      gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock);  \
+      return (newval == 0);                                      \
     }
   #elif defined(_REENTRANT) || defined(_THREAD_SAFE) || \
         defined(PTHREAD_MUTEX_INITIALIZER) ||           \
