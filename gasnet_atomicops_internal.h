@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2005/02/23 13:17:19 $
- * $Revision: 1.12 $
+ *     $Date: 2005/02/23 20:58:18 $
+ * $Revision: 1.13 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -153,7 +153,7 @@
       return (result == oldval); 
     }
     #define GASNETI_HAVE_ATOMIC_CAS 1
-#elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
+#elif (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(LINUX) && defined(__PPC__))
     #if defined(__xlC__)
       static int32_t gasneti_atomic_swap_not_32(volatile int32_t *v, int32_t oldval, int32_t newval);
       #pragma mc_func gasneti_atomic_swap_not_32 {\
