@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/09 22:16:55 $
-# $Revision: 1.113 $
+#     $Date: 2004/03/09 23:28:52 $
+# $Revision: 1.114 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.113 $)
+AC_REVISION($Revision: 1.114 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1043,6 +1043,7 @@ GASNET_IF_ENABLED(vapi, Enable the VAPI (Mellanox InfiniBand) network conduit,
   have_vapi=no)
 
 if test $have_vapi = yes; then
+  GASNET_ENV_DEFAULT(MTHOME, "/usr/mellanox")
   GASNET_ENV_DEFAULT(VAPI_INCLUDE, "$MTHOME/include")
   GASNET_ENV_DEFAULT(VAPI_LIBDIR, "$MTHOME/lib")
   GASNET_ENV_DEFAULT(VAPI_LIBS, [-lvapi -lmtl_common -lmosal -lmpga])
@@ -1092,6 +1093,9 @@ if test $have_vapi = yes; then
     if test "$enabled_vapi_force_poll_lock" = yes; then
       AC_DEFINE(GASNETC_VAPI_FORCE_POLL_LOCK)
     fi
+
+  # This will be an option someday.  It is mandatory now.
+  AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI, true)
 fi
 
 AC_SUBST(VAPI_INCLUDE)

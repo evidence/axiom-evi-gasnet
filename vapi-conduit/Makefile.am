@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.17 2004/03/04 05:37:45 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.18 2004/03/09 23:28:54 phargrov Exp $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -8,8 +8,8 @@ AUTOMAKE_OPTIONS = foreign 1.4
 
 thread_defines = @GASNET_THREAD_DEFINES@
 
-# XXX: As long as we use MPI for bootstrapping
-CC = @MPI_CC@
+CC = @CC@
+MPI_CC = @MPI_CC@
 
 if GASNET_SEGMENT_FAST
 else
@@ -27,6 +27,12 @@ fh_objs =                     \
       firehose_hash.o   \
       firehose_region.o
 endif
+
+if VAPI_BOOTSTRAP_MPI
+mpi_srcs = $(srcdir)/gasnet_bootstrap_mpi.c
+mpi_deps = $(mpi_srcs)
+mpi_objs = gasnet_bootstrap_mpi.o
+endif
                                                                                                               
 INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir) -I$(top_srcdir)/extended-ref \
            -I@VAPI_INCLUDE@ $(fh_include)
@@ -34,7 +40,6 @@ INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir) -I$(top_srcdir)/extende
 filelist =                   \
       gasnet_core.c          \
       gasnet_core_sndrcv.c   \
-      gasnet_bootstrap_mpi.c \
       gasnet_core.h          \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
@@ -43,31 +48,35 @@ filelist =                   \
       gasnet_extended_fwd.h  \
       gasnet_extended_internal.h
 
-fh_filelist =                    \
+mpi_filelist =               \
+      gasnet_bootstrap_mpi.c
+
+fh_filelist =                \
       gasnet_firehose.c \
       firehose_fwd.h
 
 othersourcefiles =                             \
       $(top_srcdir)/gasnet_internal.c
 
-EXTRA_DIST = $(filelist) $(fh_filelist) README license.txt
+EXTRA_DIST = $(filelist) $(mpi_filelist) $(fh_filelist) README license.txt
 
 SUBDIRS = contrib
 
 libgasnet_sources =                    \
       $(srcdir)/gasnet_core.c          \
       $(srcdir)/gasnet_core_sndrcv.c   \
-      $(srcdir)/gasnet_bootstrap_mpi.c \
       $(srcdir)/gasnet_extended.c \
       $(othersourcefiles) \
       $(fh_srcs)
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.[ch]             \
                          $(top_srcdir)/extended-ref/*.[ch] \
+                         $(mpi_deps)\
                          $(fh_deps)
 
-libgasnet_objects = gasnet_core.o gasnet_core_sndrcv.o gasnet_bootstrap_mpi.o \
-                    gasnet_internal.o gasnet_extended.o $(fh_objs)
+libgasnet_objects = gasnet_core.o gasnet_core_sndrcv.o \
+                    gasnet_internal.o gasnet_extended.o \
+                    $(mpi_objs) $(fh_objs)
 
 if HAVE_PTHREAD
 threaded_libraries = libgasnet-vapi-par.a libgasnet-vapi-parsync.a
@@ -80,21 +89,31 @@ libgasnet_vapi_seq_a_SOURCES =
 VPATH=$(srcdir)
 
 LIBCFLAGS = @CFLAGS@ @MISC_CFLAGS@ @BUILDCONFIG_DEFINES@ @GASNET_MACHINE_DEFINES@ $(INCLUDES)
+MPI_LIBCFLAGS = @MPI_CFLAGS@ $(INCLUDES)
 
 libgasnet-vapi-seq.a: $(libgasnet_dependencies)
 	$(CC) $(LIBCFLAGS) -DGASNET_SEQ $(thread_defines) -c $(libgasnet_sources)
+if VAPI_BOOTSTRAP_MPI
+	$(MPI_CC) $(MPI_LIBCFLAGS) -DGASNET_SEQ $(thread_defines) -c $(mpi_srcs)
+endif
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-vapi-par.a: $(libgasnet_dependencies)
 	$(CC) $(LIBCFLAGS) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
+if VAPI_BOOTSTRAP_MPI
+	$(MPI_CC) $(MPI_LIBCFLAGS) -DGASNET_PAR $(thread_defines) -c $(mpi_srcs)
+endif
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-vapi-parsync.a: $(libgasnet_dependencies)
 	$(CC) $(LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
+if VAPI_BOOTSTRAP_MPI
+	$(MPI_CC) $(MPI_LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(mpi_srcs)
+endif
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
