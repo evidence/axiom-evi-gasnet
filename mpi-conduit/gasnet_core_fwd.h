@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_fwd.h                   $
- *     $Date: 2003/05/25 02:06:26 $
- * $Revision: 1.9 $
+ *     $Date: 2003/06/29 01:48:12 $
+ * $Revision: 1.10 $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,9 +33,9 @@
 /*  override default error values to use those defined by AMMPI */
 #define _GASNET_ERRORS
 #define _GASNET_ERR_BASE 10000
-#define GASNET_ERR_NOT_INIT             AM_ERR_NOT_INIT
-#define GASNET_ERR_RESOURCE             AM_ERR_RESOURCE
-#define GASNET_ERR_BAD_ARG              AM_ERR_BAD_ARG
+#define GASNET_ERR_NOT_INIT             1
+#define GASNET_ERR_RESOURCE             3
+#define GASNET_ERR_BAD_ARG              2
 #define GASNET_ERR_NOT_READY            (_GASNET_ERR_BASE+4)
 #define GASNET_ERR_BARRIER_MISMATCH     (_GASNET_ERR_BASE+5)
 

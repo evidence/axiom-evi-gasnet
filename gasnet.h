@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2003/05/24 02:16:51 $
- * $Revision: 1.14 $
+ *     $Date: 2003/06/29 01:48:09 $
+ * $Revision: 1.15 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -146,6 +146,38 @@
   #define GASNET_ERR_BAD_ARG              (_GASNET_ERR_BASE+3)
   #define GASNET_ERR_NOT_READY            (_GASNET_ERR_BASE+4)
   #define GASNET_ERR_BARRIER_MISMATCH     (_GASNET_ERR_BASE+5)
+#endif
+
+#ifndef _GASNET_ERRORNAME
+#define _GASNET_ERRORNAME
+GASNET_INLINE_MODIFIER(gasnet_ErrorName)
+char *gasnet_ErrorName(int errval) {
+  switch (errval) {
+    case GASNET_OK:           return "GASNET_OK";      
+    case GASNET_ERR_NOT_INIT: return "GASNET_ERR_NOT_INIT";      
+    case GASNET_ERR_BAD_ARG:  return "GASNET_ERR_BAD_ARG";       
+    case GASNET_ERR_RESOURCE: return "GASNET_ERR_RESOURCE";      
+    case GASNET_ERR_BARRIER_MISMATCH: return "GASNET_ERR_BARRIER_MISMATCH";      
+    case GASNET_ERR_NOT_READY: return "GASNET_ERR_NOT_READY";      
+    default: return "*unknown*";
+  }
+}
+#endif
+
+#ifndef _GASNET_ERRORDESC
+#define _GASNET_ERRORDESC
+GASNET_INLINE_MODIFIER(gasnet_ErrorDesc)
+char *gasnet_ErrorDesc(int errval) {
+  switch (errval) {
+    case GASNET_OK:           return "No error";      
+    case GASNET_ERR_NOT_INIT: return "GASNet message layer not initialized"; 
+    case GASNET_ERR_BAD_ARG:  return "Invalid function parameter passed";    
+    case GASNET_ERR_RESOURCE: return "Problem with requested resource";      
+    case GASNET_ERR_BARRIER_MISMATCH: return "Barrier id's mismatched";      
+    case GASNET_ERR_NOT_READY: return "Non-blocking operation not complete";      
+    default: return "no description available";
+  }
+}
 #endif
 
 /* ------------------------------------------------------------------------------------ */

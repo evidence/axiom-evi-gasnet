@@ -147,9 +147,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2003/06/09 12:08:54 $
+@subtitle $Date: 2003/06/29 01:48:10 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.23 $ 
+@subtitle $Revision: 1.24 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -187,9 +187,10 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2003/06/09 12:08:54 $
-@*$Revision: 1.23 $ 
+@*$Date: 2003/06/29 01:48:10 $
+@*$Revision: 1.24 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
+@*@uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 @*@uref{http://upc.lbl.gov/}
 @HR
 @COPYRIGHTTEXT
@@ -391,6 +392,19 @@ If any node of a GASNet job crashes, aborts, or suffers a fatal hardware
 error, GASNet should make every attempt to ensure that the remaining nodes 
 of the job are terminated in a timely manner to prevent creation of orphaned 
 processes. 
+
+@FNH gasnet_ErrorName, gasnet_ErrorDesc
+@FNI gasnet_ErrorName
+@FNI gasnet_ErrorDesc
+@deftypefn {} {char *} gasnet_ErrorName (int @var{errval})
+@deftypefnx {} {char *} gasnet_ErrorDesc (int @var{errval})
+
+@code{gasnet_ErrorName()} and @code{gasnet_ErrorDesc()} convert the GASNet 
+error number @var{errval} into a string containing the name or description 
+(respectively) of the given error number. The client must not modify the
+string returned.
+
+@end deftypefn
 
 @c ------------------------------------------------------------------------------------
 @section GASNet Types

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/06/11 04:45:34 $
- * $Revision: 1.30 $
+ *     $Date: 2003/06/29 01:48:12 $
+ * $Revision: 1.31 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -62,6 +62,10 @@ static void gasnetc_check_config() {
   assert(GASNET_MAXNODES <= AMMPI_MAX_SPMDPROCS);
   assert(AMMPI_MAX_NUMHANDLERS >= 256);
   assert(AMMPI_MAX_SEGLENGTH == (uintptr_t)-1);
+
+  assert(GASNET_ERR_NOT_INIT == AM_ERR_NOT_INIT);
+  assert(GASNET_ERR_RESOURCE == AM_ERR_RESOURCE);
+  assert(GASNET_ERR_BAD_ARG  == AM_ERR_BAD_ARG);
 }
 
 void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {

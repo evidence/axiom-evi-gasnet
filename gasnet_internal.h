@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/06/11 04:45:27 $
- * $Revision: 1.33 $
+ *     $Date: 2003/06/29 01:48:09 $
+ * $Revision: 1.34 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -122,32 +122,6 @@ void gasneti_setupGlobalEnvironment(gasnet_node_t numnodes, gasnet_node_t mynode
                                      gasneti_bootstrapBroadcastfn_t broadcastfn);
 
 /* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasneti_ErrorName)
-char *gasneti_ErrorName(int errval) {
-  switch (errval) {
-    case GASNET_OK:           return "GASNET_OK";      
-    case GASNET_ERR_NOT_INIT: return "GASNET_ERR_NOT_INIT";      
-    case GASNET_ERR_BAD_ARG:  return "GASNET_ERR_BAD_ARG";       
-    case GASNET_ERR_RESOURCE: return "GASNET_ERR_RESOURCE";      
-    case GASNET_ERR_BARRIER_MISMATCH: return "GASNET_ERR_BARRIER_MISMATCH";      
-    case GASNET_ERR_NOT_READY: return "GASNET_ERR_NOT_READY";      
-    default: return "*unknown*";
-    }
-  }
-GASNET_INLINE_MODIFIER(gasneti_ErrorDesc)
-char *gasneti_ErrorDesc(int errval) {
-  switch (errval) {
-    case GASNET_OK:           return "No error";      
-    case GASNET_ERR_NOT_INIT: return "GASNet message layer not initialized"; 
-    case GASNET_ERR_BAD_ARG:  return "Invalid function parameter passed";    
-    case GASNET_ERR_RESOURCE: return "Problem with requested resource";      
-    case GASNET_ERR_BARRIER_MISMATCH: return "Barrier id's mismatched";      
-    case GASNET_ERR_NOT_READY: return "Non-blocking operation not complete";      
-    default: return "no description available";
-    }
-  }
-
-/* ------------------------------------------------------------------------------------ */
 /* macros for returning errors that allow verbose error tracking */
 extern int gasneti_VerboseErrors;
 #define GASNETI_RETURN_ERR(type) do {                                        \
@@ -155,41 +129,41 @@ extern int gasneti_VerboseErrors;
     fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_%s (%s)\n" \
       "  at %s:%i\n"                                                         \
       ,GASNETI_CURRENT_FUNCTION                                              \
-      , #type, gasneti_ErrorDesc(GASNET_ERR_##type), __FILE__, __LINE__);    \
+      , #type, gasnet_ErrorDesc(GASNET_ERR_##type), __FILE__, __LINE__);     \
     fflush(stderr);                                                          \
     }                                                                        \
   return GASNET_ERR_ ## type;                                                \
   } while (0)
 #define GASNETI_RETURN_ERRF(type, fromfn) do {                                     \
-  if (gasneti_VerboseErrors) {                                                       \
-    fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_%s (%s)\n"       \
+  if (gasneti_VerboseErrors) {                                                     \
+    fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_%s (%s)\n"      \
       "  from function %s\n"                                                       \
       "  at %s:%i\n"                                                               \
       ,GASNETI_CURRENT_FUNCTION                                                    \
-      , #type, gasneti_ErrorDesc(GASNET_ERR_##type), #fromfn, __FILE__, __LINE__); \
+      , #type, gasnet_ErrorDesc(GASNET_ERR_##type), #fromfn, __FILE__, __LINE__);  \
     fflush(stderr);                                                                \
     }                                                                              \
   return GASNET_ERR_ ## type;                                                      \
   } while (0)
-#define GASNETI_RETURN_ERRR(type, reason) do {                                    \
-  if (gasneti_VerboseErrors) {                                                               \
-    fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_%s (%s)\n"               \
+#define GASNETI_RETURN_ERRR(type, reason) do {                                             \
+  if (gasneti_VerboseErrors) {                                                             \
+    fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_%s (%s)\n"              \
       "  at %s:%i\n"                                                                       \
       "  reason: %s\n"                                                                     \
       ,GASNETI_CURRENT_FUNCTION                                                            \
-      , #type, gasneti_ErrorDesc(GASNET_ERR_##type), __FILE__, __LINE__, reason); \
+      , #type, gasnet_ErrorDesc(GASNET_ERR_##type), __FILE__, __LINE__, reason);           \
     fflush(stderr);                                                                        \
     }                                                                                      \
   return GASNET_ERR_ ## type;                                                              \
   } while (0)
 #define GASNETI_RETURN_ERRFR(type, fromfn, reason) do {                                    \
-  if (gasneti_VerboseErrors) {                                                               \
-    fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_%s (%s)\n"               \
+  if (gasneti_VerboseErrors) {                                                             \
+    fprintf(stderr, "GASNet %s returning an error code: GASNET_ERR_%s (%s)\n"              \
       "  from function %s\n"                                                               \
       "  at %s:%i\n"                                                                       \
       "  reason: %s\n"                                                                     \
       ,GASNETI_CURRENT_FUNCTION                                                            \
-      , #type, gasneti_ErrorDesc(GASNET_ERR_##type), #fromfn, __FILE__, __LINE__, reason); \
+      , #type, gasnet_ErrorDesc(GASNET_ERR_##type), #fromfn, __FILE__, __LINE__, reason);  \
     fflush(stderr);                                                                        \
     }                                                                                      \
   return GASNET_ERR_ ## type;                                                              \
@@ -201,7 +175,7 @@ extern int gasneti_VerboseErrors;
     fprintf(stderr, "GASNet %s returning an error code: %s (%s)\n"           \
       "  at %s:%i\n"                                                         \
       ,GASNETI_CURRENT_FUNCTION                                              \
-      , gasneti_ErrorName(val), gasneti_ErrorDesc(val), __FILE__, __LINE__); \
+      , gasnet_ErrorName(val), gasnet_ErrorDesc(val), __FILE__, __LINE__);   \
     fflush(stderr);                                                          \
     }                                                                        \
   return val;                                                                \
