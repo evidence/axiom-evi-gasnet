@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/08/26 04:53:40 $
- * $Revision: 1.33 $
+ *     $Date: 2004/09/20 20:24:16 $
+ * $Revision: 1.34 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -168,6 +168,30 @@ typedef struct gasnetc_token_rec {
 #define TOKEN_LEN(narg) offsetof(gasnetc_token_t,msg) \
                       + offsetof(gasnetc_msg_t,args) \
                       + (narg)*sizeof(gasnet_handlerarg_t)
+
+
+/* --------------------------------------------------------------------
+ * A simple spinlock implementation
+ * Implemented as either a true spinlock or a mutex
+ * --------------------------------------------------------------------
+ */
+
+#if GASNETC_USE_SPINLOCKS
+  #if !GASNETI_HAVE_SPINLOCK
+    #error Missing required spinlock support
+  #endif
+  #define gasnetc_spinlock_init(lock)     gasneti_spinlock_init((lock))
+  #define gasnetc_spinlock_destroy(lock)  gasneti_spinlock_destroy((lock))
+  #define gasnetc_spinlock_lock(lock)     gasneti_spinlock_lock((lock))
+  #define gasnetc_spinlock_unlock(lock)   gasneti_spinlock_unlock((lock))
+  #define gasnetc_spinlock_trylock(lock)  gasneti_spinlock_trylock((lock))
+#else  /* Use pthread mutex for spinlock */
+  #define gasnetc_spinlock_init(lock)     gasneti_mutex_init((lock))
+  #define gasnetc_spinlock_destroy(lock)  gasneti_mutex_destroy((lock))
+  #define gasnetc_spinlock_lock(lock)     gasneti_mutex_lock((lock))
+  #define gasnetc_spinlock_unlock(lock)   gasneti_mutex_unlock((lock))
+  #define gasnetc_spinlock_trylock(lock)  gasneti_mutex_trylock((lock))
+#endif
 
 /* --------------------------------------------------------------------
  * A freelist structure for the re-use of gasnetc_buf_t structures.
