@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2002/10/06 10:07:56 $
- * $Revision: 1.7 $
+ *     $Date: 2002/10/23 10:34:28 $
+ * $Revision: 1.8 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -140,7 +140,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
  * the only complication here is we want data to be double-word aligned, so we may add
  * an extra unused 4-byte argument to make sure the data lands on a double-word boundary
  */
-#define HEADER_EVEN_WORDLENGTH  (((int)((&((ammpi_buf_t *)NULL)->_Data)-1))%8==0?1:0)
+#define HEADER_EVEN_WORDLENGTH  (((int)(uintptr_t)((&((ammpi_buf_t *)NULL)->_Data)-1))%8==0?1:0)
 #define ACTUAL_NUM_ARGS(pMsg) (AMMPI_MSG_NUMARGS(pMsg)%2==0?       \
                             AMMPI_MSG_NUMARGS(pMsg)+!HEADER_EVEN_WORDLENGTH:  \
                             AMMPI_MSG_NUMARGS(pMsg)+HEADER_EVEN_WORDLENGTH)

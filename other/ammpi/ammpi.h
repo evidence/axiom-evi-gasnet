@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2002/09/18 10:50:54 $
- * $Revision: 1.4 $
+ *     $Date: 2002/10/23 10:34:28 $
+ * $Revision: 1.5 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -179,9 +179,9 @@ typedef struct ammpi_buf {
   ammpi_bufstatus_t status;
   } ammpi_buf_t;
 
-#define AMMPI_MIN_NETWORK_MSG ((int)&((ammpi_buf_t *)NULL)->_Data[0])
-#define AMMPI_MAX_SMALL_NETWORK_MSG ((int)&((ammpi_buf_t *)NULL)->_Data[(4*AMMPI_MAX_SHORT)])
-#define AMMPI_MAX_NETWORK_MSG ((int)&((ammpi_buf_t *)NULL)->_Data[(4*AMMPI_MAX_SHORT)+AMMPI_MAX_LONG])
+#define AMMPI_MIN_NETWORK_MSG ((int)(uintptr_t)&((ammpi_buf_t *)NULL)->_Data[0])
+#define AMMPI_MAX_SMALL_NETWORK_MSG ((int)(uintptr_t)&((ammpi_buf_t *)NULL)->_Data[(4*AMMPI_MAX_SHORT)])
+#define AMMPI_MAX_NETWORK_MSG ((int)(uintptr_t)&((ammpi_buf_t *)NULL)->_Data[(4*AMMPI_MAX_SHORT)+AMMPI_MAX_LONG])
 
 /* ------------------------------------------------------------------------------------ */
 /* Complex user-visible types */

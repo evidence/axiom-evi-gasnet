@@ -9,6 +9,7 @@ if [ \
     -a -r $srcdir/Makefile.in \
     -a -r $srcdir/aclocal.m4 \
     -a -r $srcdir/configure \
+    -a "$1" != "y" \
     ]; then
     echo 'The "Bootstrap" script need only be used on a'
     echo 'completely clean, fresh source tree.  After the'
