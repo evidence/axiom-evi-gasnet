@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2003/03/01 23:46:46 $
- * $Revision: 1.12 $
+ *     $Date: 2003/08/24 11:49:51 $
+ * $Revision: 1.13 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -152,7 +152,9 @@ static gasnetc_bufdesc_t *gasnetc_tportCheckRx() {
   ASSERT_ELAN_LOCKED();
 
   if (desc && elan_tportRxDone(desc->event)) {
-    int sender,tag,size;
+    int sender,tag;
+    ELAN_SIZE_T size;
+
     gasnetc_buf_t *buf = elan_tportRxWait(desc->event, &sender, &tag, &size);
     desc->buf = buf;
     desc->event = NULL;
@@ -224,13 +226,18 @@ extern void gasnetc_initbufs() {
                                       BASE()->tport_nslots,
                                       BASE()->tport_smallmsg,
                                       BASE()->tport_bigmsg,
+    #if ELAN_VERSION_GE(1,4,8)
+                                      BASE()->tport_stripemsg,
+    #endif
                                       BASE()->waitType,
                                       BASE()->retryCount
-    #if ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR >= 2
-                                      ,
-                                      &(BASE()->shm_key),
+    #if ELAN_VERSION_GE(1,2,0)
+                                    , &(BASE()->shm_key),
                                       BASE()->shm_fifodepth,
                                       BASE()->shm_fragsize
+    #endif
+    #if ELAN_VERSION_GE(1,4,8)
+                                    , 0 /* flags */
     #endif
                                       );
 
@@ -244,7 +251,11 @@ extern void gasnetc_initbufs() {
   #endif
   if_pf(gasnetc_queue == NULL) 
     gasneti_fatalerror("error on elan_gallocQueue in gasnetc_initbufs()");
-  gasnetc_mainqueue = elan_mainQueueInit(STATE(), gasnetc_queue, gasnetc_queuesz, GASNETC_ELAN_MAX_QUEUEMSG);
+  gasnetc_mainqueue = elan_mainQueueInit(STATE(), gasnetc_queue, gasnetc_queuesz, GASNETC_ELAN_MAX_QUEUEMSG
+    #if ELAN_VERSION_GE(1,4,8)
+                                      , 0 /* flags */
+    #endif
+    );
   if_pf(gasnetc_mainqueue == NULL) 
     gasneti_fatalerror("error on elan_mainQueueInit in gasnetc_initbufs()");
 

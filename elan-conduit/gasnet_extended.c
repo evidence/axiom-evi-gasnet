@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2003/06/11 04:45:29 $
- * $Revision: 1.23 $
+ *     $Date: 2003/08/24 11:49:51 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1475,7 +1475,11 @@ static void gasnete_barrier_init() {
   barrier_state->barrier_value = 0;
   barrier_state->barrier_flags = 0;
 
-  elan_addPollFn(STATE(), (ELAN_POLLFN)gasnete_barrier_poll, NULL);
+  #if ELAN_VERSION_GE(1,4,8)
+    elan_addProgressFn(STATE(), (ELAN_PROGFN)gasnete_barrier_poll, NULL);
+  #else
+    elan_addPollFn(STATE(), (ELAN_POLLFN)gasnete_barrier_poll, NULL);
+  #endif
 }
 
 extern void gasnete_barrier_notify(int id, int flags) {

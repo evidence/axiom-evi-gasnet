@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/08/10 09:42:51 $
-# $Revision: 1.75 $
+#     $Date: 2003/08/24 11:49:50 $
+# $Revision: 1.76 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.75 $)
+AC_REVISION($Revision: 1.76 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -771,7 +771,15 @@ if test $have_elan = yes; then
     #include <stdlib.h>
     #include <elan/elan.h>
   ], [
-    elan_baseInit();
+   #ifdef QSNETLIBS_VERSION_CODE
+     #if QSNETLIBS_VERSION_CODE >= QSNETLIBS_VERSION(1,4,10)
+       elan_baseInit(0);
+     #else
+       elan_baseInit();
+     #endif
+   #else
+     elan_baseInit();
+   #endif
   ], [ elan_test_worked=yes ], [ elan_test_worked=no ] )
   CFLAGS="$OLDCFLAGS"
   LIBS="$OLDLIBS"
@@ -791,7 +799,7 @@ if test $have_elan = yes; then
       subver=0
     fi
     AC_MSG_RESULT("${majorver}.${minorver}.${subver}")
-    ELAN_FLAGS="-DELAN_VERSION_MAJOR=${majorver} -DELAN_VERSION_MINOR=${minorver}"
+    ELAN_FLAGS="-DELAN_VERSION_MAJOR=${majorver} -DELAN_VERSION_MINOR=${minorver} -DELAN_VERSION_SUB=${subver}"
   else
     AC_MSG_RESULT(no)
     ELAN_FLAGS=""

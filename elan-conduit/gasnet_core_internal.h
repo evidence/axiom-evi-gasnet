@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/06/29 02:33:01 $
- * $Revision: 1.15 $
+ *     $Date: 2003/08/24 11:49:51 $
+ * $Revision: 1.16 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,20 +14,32 @@
 
 #include <elan/elan.h>
 
-#ifndef ELAN_VERSION_MAJOR
-#define ELAN_VERSION_MAJOR 1
+#if !defined(ELAN_VERSION_MAJOR) || !defined(ELAN_VERSION_MINOR) || !defined(ELAN_VERSION_SUB)
+  #error Must define ELAN_VERSION_MAJOR, ELAN_VERSION_MINOR and ELAN_VERSION_SUB
 #endif
-#ifndef ELAN_VERSION_MINOR
-#define ELAN_VERSION_MINOR 3
+#ifndef QSNETLIBS_VERSION
+  #define QSNETLIBS_VERSION(a,b,c)	(((a) << 16) + ((b) << 8) + (c))
 #endif
 #if ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR == 2
-#define ELAN_VER_1_2
+  #define ELAN_VER_1_2
+  #define ELAN_VERSION_CODE     QSNETLIBS_VERSION(1,2,0)
 #elif ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR == 3
-#define ELAN_VER_1_3
+  #define ELAN_VER_1_3
+  #define ELAN_VERSION_CODE     QSNETLIBS_VERSION(1,3,0)
 #elif ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR == 4
-#define ELAN_VER_1_4
+  #define ELAN_VER_1_4
+  #define ELAN_VERSION_CODE     QSNETLIBS_VERSION_CODE
 #else
-#error unknown elan version
+  #error unknown elan version
+#endif
+
+#define ELAN_VERSION_GE(a,b,c) (ELAN_VERSION_CODE >= QSNETLIBS_VERSION(a,b,c))
+#define ELAN_VERSION_LT(a,b,c) (ELAN_VERSION_CODE <  QSNETLIBS_VERSION(a,b,c))
+
+#if ELAN_VERSION_GE(1,4,8)
+  #define ELAN_SIZE_T size_t
+#else
+  #define ELAN_SIZE_T int
 #endif
 
 extern gasnet_seginfo_t *gasnetc_seginfo;

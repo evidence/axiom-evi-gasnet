@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/11 09:32:02 $
- * $Revision: 1.27 $
+ *     $Date: 2003/08/24 11:49:51 $
+ * $Revision: 1.28 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -204,8 +204,19 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 
   /* add code here to bootstrap the nodes for your conduit */
-
-  gasnetc_elan_base = elan_baseInit();
+  #if ELAN_VERSION_GE(1,4,10)
+    /* TODO: we may want to pass ELAN_MULTI_CONTEXT here:
+      "Setting the ELAN_MULTI_CONTEXT flag in elan_baseInit will generate 4 contexts 
+       per process. The first is used for the stack and heap. Each additional context 
+       supports an additional 4 GB of address space. Note however that a small amount 
+       of space is required by the system in each context. You can allocate seven 512MB 
+       regions by not 8.
+       The variable LIBELAN_NATTACH can be used to control the number of contexts allocated. Values of 3 and 4 are recommended. "
+    */
+    gasnetc_elan_base = elan_baseInit(0);
+  #else
+    gasnetc_elan_base = elan_baseInit();
+  #endif
   assert(gasnetc_elan_base);
   /*  check system sanity */
   gasnetc_check_config();
@@ -238,7 +249,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasnetc_mynode, gasnetc_nodes); fflush(stderr);
   #endif
 
-  if (!BASE()->group_hwbcast) {
+  #if ELAN_VERSION_GE(1,4,8)
+    if (!(BASE()->group_flags & ELAN_HWBCAST)) {
+  #else
+    if (!BASE()->group_hwbcast) {
+  #endif
     char const *msg = "WARNING: Hardware broadcasts/barriers are currently disabled."
       "This could be a result of environment settings, site configuration, or non-contiguous node allocation."
       "This is likely to affect barrier performance.";
@@ -484,6 +499,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
               TODO: this strategy likely needs modification on systems where the stack
                 sits above the heap and grows towards it in a single elan-mapped area
 
+              TODO: we can use elan_addMapping() here instead on 1.4.10-1 and newer
              constraints -
               libelan (and our code) assumes the mappings are identical across nodes, 
                 so we need update the mappings collectively
