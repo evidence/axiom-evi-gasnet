@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/07 00:15:12 $
-# $Revision: 1.167 $
+#     $Date: 2004/08/07 23:10:28 $
+# $Revision: 1.168 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.167 $)
+AC_REVISION($Revision: 1.168 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1026,6 +1026,42 @@ if test $enabled_gm = yes; then
         GM_NO_ALIAS="-fno-strict-aliasing"
     else
         GM_NO_ALIAS=""
+    fi
+
+    # Only test if working GM config
+    if test $have_gm = yes; then
+      GASNET_IF_ENABLED(broken-gm, Allow 2.x GM versions with broken RDMA gets,
+        [AC_DEFINE(GASNETC_GM_ENABLE_BROKEN_VERSIONS) 
+	 allow_broken_gm=yes],
+        [allow_broken_gm=no])
+
+      # Now test to see if the targetted GM is a broken one 
+      # broken gm builds
+      AC_MSG_CHECKING(for broken GM 2.x RDMA gets build)
+      OLDCFLAGS="$CFLAGS"
+      OLDLIBS="$LIBS"
+      CFLAGS="-I$GM_INCLUDE -L$GM_LIB"
+      LIBS="-lgm"
+      AC_TRY_COMPILE([], [
+        #include <gm.h>
+        #if GM_API_VERSION_2_0 &&                                 \
+           ((GM_API_VERSION_2_1_0 && GM_API_VERSION < 0x20102) || \
+             GM_API_VERSION < 0x2000c)
+          #error GM build is broken
+	#endif
+        ], [ gm_build_broken=no ], [ gm_build_broken=yes ])
+      if test "$gm_build_broken" = yes; then
+        if test "$allow_broken_gm" = no; then
+          AC_MSG_RESULT(yes)
+	  AC_MSG_ERROR(Detected a broken GM 2.x RDMA gets build. See gm-conduit/README)
+	else
+          AC_MSG_RESULT(yes which disables RDMA gets)
+	fi
+      else
+          AC_MSG_RESULT(no)
+      fi
+      CFLAGS="$OLDCFLAGS"
+      LIBS="$OLDLIBS"
     fi
   fi
   if test "$force_gm$have_gm" = yesno ; then

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.64 2004/08/03 23:49:24 phargrov Exp $
- * $Date: 2004/08/03 23:49:24 $
+/* $Id: gasnet_core.c,v 1.65 2004/08/07 23:10:30 csbell Exp $
+ * $Date: 2004/08/07 23:10:30 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -248,6 +248,18 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	printf("%d> starting attach\n", gasnetc_mynode);
 	fflush(stdout);
 	#endif
+
+	#if GASNETC_GM_RDMA_GETS_BROKEN && GASNETC_GM_ENABLE_BROKEN_VERSIONS
+	{
+	    char *nowarn = getenv("GASNET_GM_NO_RDMAGET_WARNING");
+	    if (nowarn == NULL || *nowarn == '\0') {
+		fprintf(stderr, 
+		    "GASNet/GM support for RDMA gets are disabled because of a "
+		    "broken 2.x GM build -- your drivers should be updated\n");
+	    }
+	}
+	#endif
+
 	GASNETI_TRACE_PRINTF(C,
 	    ("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
 	    numentries, (unsigned long)segsize, (unsigned long)minheapoffset));

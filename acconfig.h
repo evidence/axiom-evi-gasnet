@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/08/04 00:23:34 $ */
-/*  $Revision: 1.32 $ */
+/*      $Date: 2004/08/07 23:10:28 $ */
+/*  $Revision: 1.33 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -91,6 +91,9 @@
 #undef GASNET_SEGMENT_FAST
 #undef GASNET_SEGMENT_LARGE
 #undef GASNET_SEGMENT_EVERYTHING
+
+/* GASNet gm-conduit broken 2.x versions */
+#undef GASNETC_GM_ENABLE_BROKEN_VERSIONS
 
 /* GASNet vapi-conduit features and bug work-arounds */
 #undef HAVE_VAPI_FMR

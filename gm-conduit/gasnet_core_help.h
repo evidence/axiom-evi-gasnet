@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.30 2004/07/19 00:15:26 csbell Exp $
- * $Date: 2004/07/19 00:15:26 $
- * $Revision: 1.30 $
+/* $Id: gasnet_core_help.h,v 1.31 2004/08/07 23:10:30 csbell Exp $
+ * $Date: 2004/08/07 23:10:30 $
+ * $Revision: 1.31 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -15,15 +15,6 @@
 #define _GASNET_CORE_HELP_H
 
 BEGIN_EXTERNC
-
-/* 
- * Set the following to 1 here or prior to including this file in order to to
- * disable RDMA gets altogether.  This may be required if stability problems
- * are encountered.
- */
-#ifndef GASNETC_DISABLE_RDMA_GETS
-  #define GASNETC_DISABLE_RDMA_GETS   0
-#endif
 
 #include <gasnet_help.h>
 #include <gm.h>
@@ -83,7 +74,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
     #define GASNETC_GM_RDMA_GETS_BROKEN 1
 #endif
 /* Enable GM gets only if we have GM 2 API and a version that's not broken */
-#if !defined(GASNETC_GM_2) || GASNETC_GM_RDMA_GETS_BROKEN || GASNETC_DISABLE_RDMA_GETS
+#if !defined(GASNETC_GM_2) || GASNETC_GM_RDMA_GETS_BROKEN
   #define GASNETC_RDMA_GETS		0
   #define GASNETE_GET_NON_DMA_CUTOFF	8192
 #else
