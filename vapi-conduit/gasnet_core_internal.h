@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/08/11 21:15:31 $
- * $Revision: 1.9 $
+ *     $Date: 2003/08/11 22:38:48 $
+ * $Revision: 1.10 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -43,8 +43,14 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 #define _hidx_             (GASNETC_HANDLER_BASE+)
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
+/* System-category handlers.
+ * These form a separate AM handler space and are available even before _attach()
+ */
 #define _hidx_gasnetc_SYS_ack             0
-#define _hidx_gasnetc_SYS_exit            1
+#define _hidx_gasnetc_SYS_exit_role_req   1
+#define _hidx_gasnetc_SYS_exit_role_rep   2
+#define _hidx_gasnetc_SYS_exit_req        3
+#define _hidx_gasnetc_SYS_exit_rep        4
 
 /* ------------------------------------------------------------------------------------ */
 

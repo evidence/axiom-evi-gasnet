@@ -158,7 +158,9 @@ On June 24, 2003 vapi-conduit now passes all 9 (I added two recently)
 of the cases in testexit.  By "Pass" I mean that the entire gasnet job
 (tested up to 8-way across my 4 dual-processor machines) terminates
 with no orphans, and with tracing properly finalized (if tracing is
-enabled).
+enabled).  On August 11, 2003 the graceful exit code was revised to
+send O(N) network traffic in the worstcase, as opposed to the O(N^2)
+required in all cases in the first implementation.
 
 Additionally, the exit code is properly propagated through the
 bootstrap, to yield a correct exit code for the parallel job as a
@@ -209,34 +211,43 @@ be certain that the correct exit code is still generated.
 
 Once the signal handlers are established, _body closes down the
 tracing and stats gathering and flushes stdout and stderr.  Then _body
-calls gasnetc_exit_barrier with a timeout value which scales with the
-number of nodes.  This _exit_barrier uses a system-category AM (one
-which is available even between gasnet_init() and gasnet_attach()) to
-send a remote exit request to all of its peers.  This exit request
-includes the exit code saved by _head.  Once it has sent the AM to all
-other nodes, _exit_barrier polls the counter maintained by the
-corresponding request handler, to wait until is has received an exit
-request AM from each peer.  This AM serves two purposes.  One is to
-ensure that in the non-collective exit cases, all nodes are informed
-of the exit and will make a best effort to exit with the first exit
-code they hear.  The second is to determine when this "best effort"
-has failed, for instance because one or more nodes have become wedged
-and are not responding to the network.  This is the reason for the
-timeout passed to _exit_barrier.  In addition to the alarm() which is
-pending in case we get wedged, the _exit_barrier code is polling the
-time to indicate failure if the timeout (which is less than the
-alarm() value) is reached before the barrier can be completed.
+calls gasnetc_get_exit_role() to "elect" a master node for the exit.
+This is done with an alarm() timer in force.  The use of an "election"
+with a timeout ensures that we will exit, even if node 0 is wedged.
+The election of a master proceeds by sending a system-category AM
+request to node 0, and spinning to wait for a corresponding reply,
+which will indicated if the local node is the "master" or a "slave"
+in the coordination of the graceful exit.  The logic on node 0
+ensures that the first "candidate" is always made the master, not
+waiting for multiple AMs to arrive.  Additionally the slave nodes
+may, under circumstances described below, know before entering
+gasnetc_get_exit_role() that they are slaves, and will not bother
+to send an AMRequest to node 0.  In either case gasnetc_get_exit_role()
+indicates to _body which role the local node is to assume.
 
-Regardless of whether the barrier completed successfully, _body next
-proceeds to shutdown the transport and release the conduit's
-resources.  This is, again, protected by an alarm() in case we get
-wedged.  Once the transport resources are released, _body flushes
+From _body, the single master node will enter gasnetc_exit_master() and
+will begin sending an remote exit request (system-category AM, so this
+will all work between _init and _attach) to each peer.  Then the master
+waits (with timout, of course) for a reply from each peer.  This request
+conveys the desired exit code to each node.  It also will wake them out
+of a spin-loop, barrier, or other case where they were not yet aware of
+the need to exit.  In the handler for the exit request, a node will send
+a reply back to the master, so it knows all the nodes are reachable.  It
+will set its role to "slave" and, if no exit is in-progress, it will start
+the exit proceedure, as described later.  From _body, the slave nodes all
+call gasnetc_exit_slave(), which simply spins until the remore exit request
+has arrived from the master.
+
+Regardless of whether the sending of exit requests and replies completed
+within the timeout, _body proceeds to shutdown the transport and release
+the conduit's resources.  This is, again, protected by an alarm() in case
+we get wedged.  Once the transport resources are released, _body flushes
 stdout and stderr one last time and closes stdin, stdout and stderr.
-Finally, _body shuts down its bootstrap support.  If the _exit_barrier
+Finally, _body shuts down its bootstrap support.  If the coordination
 was completed within the timeout, then the gasnetc_bootstrapFini()
 routine is called indicating that we'll not be making any more calls
 to the bootstrap code and expect to exit shortly.  However, if the
-barrier did timeout we call gasnetc_bootstrapAbort(exitcode).  This
+coordination did timeout we call gasnetc_bootstrapAbort(exitcode).  This
 call is meant to request that the bootstrap terminate our job "with
 prejudice" since we failed to coordinate a graceful shutdown on our
 own.  We do this to try to avoid orphans, but risk lots of unsightly
@@ -262,7 +273,8 @@ graceful shutdown of a pthread process is done in an atexit handler,
 which _exit() skips.  At least on Linux pthreads I am observing that
 without this step, there are sometimes orphan threads left around, or
 worse failure to terminate the job if it is the main thread left
-running.
+running.  (There is some belief that this behavior is a BUG, and should
+be explored further.)
 
 Given the routines gasnetc_exit_{head,body,tail}() the code for the
 three types of exit are pretty trivial.  In particular, gasnetc_exit()
@@ -284,16 +296,12 @@ possible raise(), we proceed to call gasnetc_exit_body() and _tail to
 complete the (hopefully) graceful exit of the gasnet job.
 
 It is important to note that if we get a remote exit request that
-initiates an exit, then we are doing a lot of stuff from a request
-handler that we should not normally do.  For one thing we are sending
-(gasnetc_nodes - 1) requests and making a bunch of potentially
-blocking calls.  Most significantly, we will NEVER return from the
-handler in this case.  However, the design of the AM code in VAPI
-conduit ensures that this *should* actually work without deadlock.
-For one, we never run handlers from signal context or with locks held.
-Thus we can expect a "clean" set of locks.  Furthermore, we explicitly
-skip the requests-can-only-reply-at-most-once checks when dealing with
-the special "system-category" AMs.
+initiates an exit, then we will never return from the handler.
+However, the design of the AM code in VAPI conduit ensures that this
+will actually work without deadlock.  For one, we never run handlers
+from signal context or with locks held.  Thus we can expect a
+"clean" set of locks.  Furthermore, we don't expect to do anything
+useful with the network once the request handler calls _body anyway.
 
 The atexit handler just calls _head and _body before returning to
 allow the exit to complete.  In this case we have a little problem
@@ -305,9 +313,18 @@ becomes the exit code for the parallel job.  Therefore, using zero
 here gives the specified exit code from the parallel job for both
 collective and non-collective returns from main.
 
-(See the TO DO for notes on how the exit barrier stage can be made
-more scalable).
+In the best case one node is way ahead of the others and can win the
+master election and send remote exit requests before the others attempt
+the election.  In this case the coordinated shutdown needs 1 round-trip
+for the election, followed by (N-1) round-trips for the remote exit
+request/reply, for a total of 2*N AMs sent.
 
+In the worst case all nodes attempt the election at roughly the same time
+and a full N round-trips take place for the election, followed by (N-1)
+round trips for the remote exit request/reply, for a total of 4*N-2 AMs
+sent.
+
+The average case is somewhere between these two.
 
 @ Section: TO DO @
 
@@ -382,76 +399,9 @@ more scalable).
   prepared to poll for them to become available along with polling
   for available credits.
 
-+ More scalable graceful exit code
++ Implement a firehose-page client for VAPI to do SEGMENT_EVERYTHING.
+  Once that works, I need to implement firehose-region instead.
 
-  On 6/26/2003, in response to the description of the graceful exit
-  code, Dan Bonachea wrote:
-  [snip]
-  > I'm a little worried about the scalability of the solution you
-  > describe above - it sounds like on a collective exit it will
-  > trigger a flurry of messages (all-to-all N^2 messages, which is
-  > about the worst way to implement barrier that one can imagine, and
-  > I'm not even sure that barrier is what you really want here).
-  >
-  > Is there any way to make this smarter? It seems like once a node
-  > has received an exit message from another node, it can assume that
-  > other node is also sending the message to the N other nodes, and
-  > forgo sending them itself. This should result in much fewer
-  > messages being sent during a collective exit and still accomplish
-  > the same thing, unless I'm missing something?
-  >
-  > If you really need to know that all nodes have acknowledged the
-  > pending shutdown (in order to invoke a more forceful exit
-  > otherwise), a better way is probably to keep a centralized flag on
-  > node 0 which is incremented atomically by a request handler in
-  > order to acquire the right to send shutdown messages (and nodes
-  > only try if they haven't received any shutdown messages yet). The
-  > node that wins the race sends shutdown messages to each node, and
-  > after all have been acknowledged sends another round of messages
-  > to each node to inform them the shutdown is graceful. If a given
-  > node fails to contact node 0 or never gets the second message
-  > within a timeout can assume the shutdown is abortive. This
-  > approach results in exactly 2+2N AM messages for non-collective
-  > exit and up to 4N AM messages in the worst case for collective
-  > exit (although usually closer to 2+2N).
- [snip]
-
-  I acknowledge the scalability problems and will try to address it
-  later, probably based on what you describe.  My existing system was
-  easy to write and thus I could be more confident in its correctness.
-
-  I _think_ that a barrier is required here because of the
-  connection-oriented nature of the conduit.  If I start shutting down
-  the transport at one end of the connection while the other end is
-  still trying to send, I will get a flood of messages on the system
-  console and probably an abort() in the sender (I can see this now
-  only very rarely with just 4 nodes).  Of course, I've not yet
-  implemented the send-queue drain which is needed to avoid this
-  entirely, but once it _is_ implemented, I'll think I'll need the
-  barrier.
-
-  I agree that using an atomic counter on a "root node" to elect a
-  shutdown coordinator node makes sense and should produce an O(N)
-  bound on AM messages in all cases.  However, I get different counts
-  (including AMs to self), because of the final "this is graceful"
-  message that forms the end of the barrier.
-
-  Non-collective case:
-    2       for round-trip to root node to become the coordinator
-    2*(N-1) for round-trips to notify all nodes except self of the
-            shutdown and get acknowledgment
-    (N-1)   to notify all peers that exit is "graceful"
-  = 3N - 1
-
-  Collective worst case:
-    2*N     for all N to make round trips asking to become coordinator
-    2*(N-1) for coordinator to notify others and they acknowledge
-    (N-1)   to announce this exit is "graceful"
-  = 5N - 3
-
-  Collective best-case looks like non-collective case when one node
-  (most likely the root node?) wins the race to become coordinator and
-  starts sending out notifications so quickly that the other nodes
-  will never even try to become "coordinator".
-
-  Collective average-case is somewhere in between.
++ Learn more about VAPI "fast memory regions" and how they differ from
+  normal memory registration.  This may be vital to a decent implementation
+  of the firehose algorithm(s).
