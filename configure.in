@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/01/15 00:23:16 $
-# $Revision: 1.216 $
+#     $Date: 2005/01/18 20:08:40 $
+# $Revision: 1.217 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.216 $)
+AC_REVISION($Revision: 1.217 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1574,7 +1574,6 @@ if test "$enabled_vapi" = yes; then
 
     # Configure corrrect flags/vars (inc. CC and LD) based on bootstrap choice
     if test "$with_vapi_bootstrap_ssh" = yes; then
-      AC_CHECK_HEADERS(netinet/tcp.h)
       VAPI_BOOT_SSH=''
     else
       VAPI_BOOT_SSH='#'
@@ -1770,6 +1769,11 @@ else
   CONDUIT_REPORT(OFF)
 fi
 popdef([CONDUIT_DESC])
+
+########################################################################
+# Configure conduit-independent spawners
+
+AC_CHECK_HEADERS(netinet/tcp.h)	# needed by ssh spawner
 
 ########################################################################
 
