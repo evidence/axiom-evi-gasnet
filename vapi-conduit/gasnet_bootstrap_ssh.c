@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/11 00:33:23 $
- * $Revision: 1.9 $
+ *     $Date: 2005/01/11 00:39:36 $
+ * $Revision: 1.10 $
  * Description: GASNet ssh-based bootstrapper for vapi-conduit
  * Copyright 2004, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -560,9 +560,10 @@ static char ** parse_nodefile(const char *filename) {
 static char ** parse_servers(const char *list) {
   static const char *delims = SSH_SERVERS_DELIM_CHARS;
   char **result = NULL;
-  char *string = gasneti_strdup(list);
+  char *string, *alloc;
   gasnet_node_t i;
 
+  alloc = string = gasneti_strdup(list);
   result = gasneti_malloc(nnodes * sizeof(char *));
   BOOTSTRAP_VERBOSE(("Parsing servers list '%s'\n", string));
   for (i = 0; i < nnodes; ++i) {
@@ -577,7 +578,7 @@ static char ** parse_servers(const char *list) {
     result[i] = strdup(p);
     BOOTSTRAP_VERBOSE(("\t'%s'\n", result[i]));
   }
-  gasneti_free(string);
+  gasneti_free(alloc);
 
   return result;
 }
