@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/02/05 03:32:45 $
-# $Revision: 1.31 $
+#     $Date: 2005/04/03 01:05:34 $
+# $Revision: 1.32 $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -55,7 +55,8 @@ CONDUIT_SPECIAL_OBJS =
 #   %P = program executable name
 #   %N = requested node count
 #   %A = program arguments
-CONDUIT_RUNCMD = @ENVCMD@ MP_FENCE=-- poe %P -nodes %N -tasks_per_node 1 -rmpool 1 -msg_api LAPI -euilib us -retry 1 -retrycount 10000 -- %A
+#   %Q: Bug1039 - poe requires overquoting
+CONDUIT_RUNCMD = @ENVCMD@ MP_FENCE=-- poe %P -nodes %N -tasks_per_node 1 -rmpool 1 -msg_api LAPI -euilib us -retry 1 -retrycount 10000 -- %Q
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =

@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/03/20 16:32:08 $
-# $Revision: 1.54 $
+#     $Date: 2005/04/03 01:05:36 $
+# $Revision: 1.55 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -109,12 +109,14 @@ testprograms_nongasnet = \
 	testtools
 
 CONDUIT_NAME_UC=`echo $(CONDUIT_NAME) | @AWK@  '{print toupper($$0)}'`
-awk_cmdbuild={  gsub("'"'"%C"'"'", "'"'"%P %A"'"'");       \
+awk_cmdbuild={  qargs="'"'"$$args"'"'"; gsub("'"'"\x22"'"'","'"'"\x5C\x22"'"'",qargs); \
+                gsub("'"'"%C"'"'", "'"'"%P %A"'"'");       \
 		gsub("'"'"%P"'"'", "'"'"./$$file"'"'");    \
 		gsub("'"'"%L"'"'", "'"'"DUMMY"'"'");       \
 		gsub("'"'"%V "'"'","'"'""'"'");            \
 		gsub("'"'"%N"'"'", "'"'"$$nodes"'"'");     \
-		gsub("'"'"%A"'"'", "'"'"$$args"'"'"); print }
+		gsub("'"'"%A"'"'", "'"'"$$args"'"'");      \
+		gsub("'"'"%Q"'"'", qargs); print }
 perl_threadscan=print $$1 if (/\\\$$GASNetThreadModel: GASNET_([^ ]*) \\\$$/);
 
 run-tests: force
