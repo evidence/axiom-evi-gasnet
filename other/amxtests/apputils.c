@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/apputils.c                                       $
- *     $Date: 2002/06/16 09:19:26 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/20 09:49:14 $
+ * $Revision: 1.3 $
  * Description: Application utilities on AMMPI
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -157,6 +157,13 @@ extern void outputTimerStats() {
   }
 }
 /* ------------------------------------------------------------------------------------ */
+#define REQ_32BITPTRS() do { \
+  if (sizeof(void *) != 4) { \
+    fprintf(stderr,"This test not supported on 64-bit ptr architectures.\n"); \
+    fflush(stderr); \
+    abort(); \
+  }} while(0)
+/* ------------------------------------------------------------------------------------ */
 /*  synchronous gets and puts */
 static void get_reply_handler(void *token, int ctr, int dest, int val) {
   uint32_t *pctr;
@@ -183,6 +190,7 @@ static void get_request_handler(void *token, int ctr, int dest, int addr) {
 uint32_t getWord(int proc, void *addr) {
   volatile uint32_t getdone = FALSE;
   volatile uint32_t getval = 0;
+  REQ_32BITPTRS();
   AM_Safe(AM_Request3(ep, proc, GET_REQ_HANDLER, 
                       (int)&getdone, (int)&getval, (int)addr));
   while (!getdone) AM_PollBlock(eb);
@@ -210,6 +218,7 @@ static void put_request_handler(void *token, int ctr, int dest, int val) {
 
 void putWord(int proc, void *addr, uint32_t val) {
   volatile uint32_t putdone = FALSE;
+  REQ_32BITPTRS();
   AM_Safe(AM_Request3(ep, proc, PUT_REQ_HANDLER, 
                       (int)&putdone, (int)addr, (int)val));
   while (!putdone) AM_PollBlock(eb);
@@ -242,6 +251,7 @@ static void read_request_handler(void *token, int ctr, int dest, int addr) {
 
 
 void readWord(void *destaddr, int proc, void *addr) {
+  REQ_32BITPTRS();
   AM_Safe(AM_Request3(ep, proc, READ_REQ_HANDLER, 
                       (int)&readCtr, (int)destaddr, (int)addr));
   readCtr++;
@@ -273,6 +283,7 @@ static void write_request_handler(void *token, int ctr, int dest, int val) {
   }
 
 void writeWord(int proc, void *addr, uint32_t val) {
+  REQ_32BITPTRS();
   AM_Safe(AM_Request3(ep, proc, WRITE_REQ_HANDLER, 
                       (int)&writeCtr, (int)addr, (int)val));
   writeCtr++;

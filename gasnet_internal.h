@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/06/19 10:56:50 $
- * $Revision: 1.5 $
+ *     $Date: 2002/06/20 09:49:12 $
+ * $Revision: 1.6 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -87,7 +87,12 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
                                        gasnet_hsl_unlock(&gasneti_atomicop_lock))
 #else
   #if defined(LINUX)
+    #ifdef __alpha__
+      /* work-around for a puzzling header bug in alpha Linux */
+      #define extern static
+    #endif
     #include <asm/atomic.h>
+    #undef extern
     typedef atomic_t gasneti_atomic_t;
     #define gasneti_atomic_increment(p) atomic_inc(p)
     #define gasneti_atomic_read(p)      atomic_read(p)

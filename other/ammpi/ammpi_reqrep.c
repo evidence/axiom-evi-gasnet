@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2002/06/19 10:56:51 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/20 09:49:14 $
+ * $Revision: 1.4 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -148,7 +148,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
 #define GET_PACKET_LENGTH(pbuf)                                       \
   (((char *)&pbuf->_Data[4*ACTUAL_NUM_ARGS(&pbuf->Msg) + pbuf->Msg.nBytes]) - ((char *)pbuf))
 #define PREDICT_PACKET_LENGTH(nArgs,nBytes)  /* conservative estimate of packet size */  \
-  ((int)(char *)&(((ammpi_buf_t*)NULL)->_Data[4*(nArgs+1) + nBytes]))
+  ((int)(uintptr_t)(char *)&(((ammpi_buf_t*)NULL)->_Data[4*(nArgs+1) + nBytes]))
 #define GET_PACKET_DATA(pbuf)                                         \
   (&pbuf->_Data[4*ACTUAL_NUM_ARGS(&pbuf->Msg)])
 #define GET_PACKET_ARGS(pbuf)                                         \
@@ -208,7 +208,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
     }                                                                                   \
   } while (0)
 #define RUN_HANDLER_MEDIUM(phandlerfn, token, pArgs, numargs, pData, datalen) do {      \
-    assert(((int)pData) % 8 == 0);  /* we guarantee double-word alignment for data payload of medium xfers */ \
+    assert(((uintptr_t)pData) % 8 == 0);  /* we guarantee double-word alignment for data payload of medium xfers */ \
     _RUN_HANDLER_MEDLONG((AMMPI_HandlerMedium)phandlerfn, (void *)token, pArgs, numargs, (void *)pData, (int)datalen); \
     } while(0)
 #define RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen)             \

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2002/06/19 10:56:53 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/20 09:49:15 $
+ * $Revision: 1.4 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -79,7 +79,7 @@ static int64_t mygetMicrosecondTimeStamp(void)
 
 #ifdef IRIX
   #define PAGESZ 16384
-#elif defined(OSF)
+#elif defined(OSF) || defined(__alpha__)
   #define PAGESZ 8192
 #else
   #define PAGESZ 4096

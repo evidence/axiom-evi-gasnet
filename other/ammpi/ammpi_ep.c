@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2002/06/16 09:19:26 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/20 09:49:14 $
+ * $Revision: 1.3 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1023,17 +1023,17 @@ extern int AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalys
   #endif
 
     /* Message breakdown */
-    AMMPI_MAX_SHORT*sizeof(int),
+    (int)(AMMPI_MAX_SHORT*sizeof(int)),
       (int)stats->RequestsSent[ammpi_Short], (int)stats->RepliesSent[ammpi_Short], 
       (stats->RequestsSent[ammpi_Short]+stats->RepliesSent[ammpi_Short] > 0 ?
         ((float)(int64_t)stats->DataBytesSent[ammpi_Short]) / 
         ((float)(int64_t)(stats->RequestsSent[ammpi_Short]+stats->RepliesSent[ammpi_Short])) : 0.0),
-    AMMPI_MAX_SHORT*sizeof(int) + AMMPI_MAX_MEDIUM,
+    (int)(AMMPI_MAX_SHORT*sizeof(int) + AMMPI_MAX_MEDIUM),
       (int)stats->RequestsSent[ammpi_Medium], (int)stats->RepliesSent[ammpi_Medium], 
       (stats->RequestsSent[ammpi_Medium]+stats->RepliesSent[ammpi_Medium] > 0 ?
         ((float)(int64_t)stats->DataBytesSent[ammpi_Medium]) / 
         ((float)(int64_t)(stats->RequestsSent[ammpi_Medium]+stats->RepliesSent[ammpi_Medium])) : 0.0),
-    AMMPI_MAX_SHORT*sizeof(int) + AMMPI_MAX_LONG,
+    (int)(AMMPI_MAX_SHORT*sizeof(int) + AMMPI_MAX_LONG),
       (int)stats->RequestsSent[ammpi_Long], (int)stats->RepliesSent[ammpi_Long], 
       (stats->RequestsSent[ammpi_Long]+stats->RepliesSent[ammpi_Long] > 0 ?
         ((float)(int64_t)stats->DataBytesSent[ammpi_Long]) / 

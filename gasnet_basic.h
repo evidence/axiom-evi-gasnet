@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/06/16 09:25:09 $
- * $Revision: 1.6 $
+ *     $Date: 2002/06/20 09:49:12 $
+ * $Revision: 1.7 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -205,8 +205,13 @@
 
 /* if with branch prediction */
 #ifndef if_pf
-  #define if_pf(cond) if (PREDICT_FALSE((int)(cond)))
-  #define if_pt(cond) if (PREDICT_TRUE((int)(cond)))
+  /* cast to uintptr_t avoids warnings on some compilers about passing 
+     non-integer arguments to __builtin_expect(), and we don't use (int)
+     because on some systems this is smaller than (void*) and causes 
+     other warnings
+   */
+  #define if_pf(cond) if (PREDICT_FALSE((uintptr_t)(cond)))
+  #define if_pt(cond) if (PREDICT_TRUE((uintptr_t)(cond)))
 #endif
 
 #endif
