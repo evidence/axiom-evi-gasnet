@@ -132,6 +132,9 @@ if PLATFORM_ILP32
 	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	@echo TESTREADWRITE
 	$(TEST_RUNCMD) ./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS)
+endif
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTS COMPLETE
 
 test%.o : $(testdir)/test%.c $(testdir)/apputils.h ${headers}
 	${compile} -DAMUDP -I$(testdir) -c $< -o $@
