@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/10/30 02:44:10 $
-# $Revision: 1.207 $
+#     $Date: 2004/10/30 03:24:45 $
+# $Revision: 1.208 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.207 $)
+AC_REVISION($Revision: 1.208 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1340,12 +1340,19 @@ if test $enabled_elan = yes; then
   OLDCFLAGS="$CFLAGS"
   OLDLIBS="$LIBS"
   CFLAGS="-I$ELAN_INCLUDE"
-  AC_CHECK_HEADERS(rms/rmsapi.h)
+  # librmscall used by any elan program, librms also used on older systems
   RMSLIBS="-lrmscall"
   AC_CHECK_LIB(rms, main, RMSLIBS="$RMSLIBS -lrms")
+  # rmsapi is used for RMS signalling exit
+  AC_CHECK_HEADERS(rms/rmsapi.h)
   AC_CHECK_LIB(rmsapi, rms_killResource, 
      AC_DEFINE(HAVE_RMS_KILLRESOURCE)
      RMSLIBS="$RMSLIBS -lrmsapi")
+  # slurm is used for SLURM signalling exit
+  AC_CHECK_HEADERS(slurm/slurm.h)
+  AC_CHECK_LIB(slurm, slurm_kill_job, 
+     AC_DEFINE(HAVE_SLURM_KILL_JOB)
+     RMSLIBS="$RMSLIBS -lslurm")
   GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan $ELANDEVLIB $RMSLIBS)
   LIBS="$ELAN_LIBS"
   AC_MSG_CHECKING(for working ELAN configuration)

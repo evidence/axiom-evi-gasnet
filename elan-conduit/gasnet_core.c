@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/10/30 02:44:12 $
- * $Revision: 1.49 $
+ *     $Date: 2004/10/30 03:24:47 $
+ * $Revision: 1.50 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,6 +22,9 @@
 #if GASNETC_USE_SIGNALING_EXIT
   #if HAVE_RMS_RMSAPI_H
     #include <rms/rmsapi.h> /* for RMS calls in gasnetc_exit */
+  #endif
+  #if HAVE_SLURM_SLURM_H
+    #include <slurm/slurm.h> /* for slurm calls in gasnetc_exit */
   #endif
   /* signal used to propagate exit notification across job using RMS global signalling */
   #ifndef GASNETC_REMOTEEXIT_SIGNAL
@@ -629,6 +632,7 @@ static void gasnetc_atexit(void) {
     char *p;
     int resourceid, retval;
 
+  #if HAVE_RMS_KILLRESOURCE
     batchid = gasnet_getenv("RMS_RESOURCEID");
     if (!batchid) gasneti_fatalerror("failed to getenv(RMS_RESOURCEID)");
 
@@ -652,7 +656,18 @@ static void gasnetc_atexit(void) {
       retval = rms_killResource(resourceid, sig); /* global signal */
       gasneti_fatalerror("rms_killResource(%i) failed twice: %s", resourceid, rms_errorString(retval));
     }
+  #elif HAVE_SLURM_KILL_JOB
+    batchid = gasnet_getenv("SLURM_JOBID");
+    if (!batchid) gasneti_fatalerror("failed to getenv(SLURM_JOBID)");
 
+    resourceid = atoi(batchid);
+    if (resourceid <= 0) gasneti_fatalerror("bad SLURM_JOBID: %s", batchid);
+    retval = slurm_kill_job(resourceid, sig, 0); /* global signal */
+    if (retval) 
+      gasneti_fatalerror("slurm_kill_job(%i) failed: %s", resourceid, slurm_strerror(slurm_get_errno()));
+  #else
+    #error unknown signalling exit mechanism..
+  #endif
     gasneti_sched_yield(); /* allow signal to propagate */
 
     #if 0

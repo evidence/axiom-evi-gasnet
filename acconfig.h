@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2004/10/30 02:44:10 $ */
-/*  $Revision: 1.40 $ */
+/*      $Date: 2004/10/30 03:24:45 $ */
+/*  $Revision: 1.41 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -121,6 +121,8 @@
 /* GASNet elan-conduit specific */
 #undef HAVE_RMS_RMSAPI_H
 #undef HAVE_RMS_KILLRESOURCE
+#undef HAVE_SLURM_SLURM_H
+#undef HAVE_SLURM_KILL_JOB
 
 @BOTTOM@
 
