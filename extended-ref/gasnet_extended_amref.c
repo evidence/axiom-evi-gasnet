@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/06/25 18:55:10 $
- * $Revision: 1.5 $
+ *     $Date: 2002/07/17 08:54:32 $
+ * $Revision: 1.6 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -313,6 +313,47 @@ void gasnete_op_free(gasnete_op_t *op) {
   }
 }
 
+/* ------------------------------------------------------------------------------------ */
+/*
+ * Design/Approach for gets/puts in Extended Reference API in terms of Core
+ * ========================================================================
+ *
+ * The extended API implements gasnet_put and gasnet_put_nbi differently, 
+ * all in terms of 'nbytes', the number of bytes to be transferred as 
+ * payload.
+ *
+ * The core usually implements AMSmall and AMMedium as host-side copies and
+ * AMLongs are implemented according to the implementation.  Some conduits 
+ * may optimize AMLongRequest/AMLongRequestAsync/AMLongReply with DMA
+ * operations.
+ *
+ * gasnet_put_bulk is translated to a gasnete_put_nb_bulk + sync
+ * gasnet_get_bulk is translated to a gasnete_get_nb_bulk + sync
+ *
+ * gasnete_put_nb_bulk translates to
+ *    AMMedium(payload) if nbytes < AMMaxMedium
+ *    AMLongRequest(payload) if nbytes < AMMaxLongRequest
+ *    gasnete_put_nbi_bulk(payload) otherwise
+ * gasnete_get_nb_bulk translates to
+ *    AMSmall request + AMMedium(payload) if nbytes < AMMaxMedium
+ *    gasnete_get_nbi_bulk() otherwise
+ *
+ * gasnete_put_nbi_bulk translates to
+ *    AMMedium(payload) if nbytes < AMMaxMedium
+ *    AMLongAsyncRequest(payload) if nbytes < AMMaxLongRequest
+ *    chunks of AMMaxLongRequest with AMLongAsyncRequest() otherwise
+ * gasnete_get_nbi_bulk translates to
+ *    AMSmall request + AMMedium(payload) if nbytes < AMMaxMedium
+ *    chunks of AMMaxMedium with AMSmall request + AMMedium() otherwise
+ *
+ * The current implementation uses AMLongs for puts if the destination is
+ * within the registered GASNet segment.  It is not leveraged for get
+ * operations since the spec says that gets may be received anywhere in
+ * the virtual memory space.  Future revisions will attempt to do a
+ * boundscheck in the region of memory being targetted for the get and
+ * will leverage LongReplies if possible.
+ *
+ */
 /* ------------------------------------------------------------------------------------ */
 /*
   Non-blocking memory-to-memory transfers (explicit handle)
