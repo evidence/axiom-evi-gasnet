@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/05/01 14:18:49 $ */
-/*  $Revision: 1.28 $ */
+/*      $Date: 2004/05/17 22:36:23 $ */
+/*  $Revision: 1.29 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -57,6 +57,9 @@
 
 /* forcing UP build, even if build platform is a multi-processor */
 #undef GASNETI_UNI_BUILD
+
+/* force a memory barrier after a GASNet local (loopback) put */
+#undef GASNETI_MEMSYNC_ON_LOOPBACKPUT
 
 /* auto-detected mmap data page size */
 #undef GASNETI_PAGESIZE
