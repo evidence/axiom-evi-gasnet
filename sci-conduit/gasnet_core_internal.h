@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/sci-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/07/16 13:38:25 $
- * $Revision: 1.3 $
+ *     $Date: 2004/08/05 06:48:41 $
+ * $Revision: 1.4 $
  * Description: GASNet sci conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -48,7 +48,7 @@ typedef struct
         uint16_t header; /*  handler (8 bits) + msg type (1 bit, request/reply) + AM type (2 bits) + num_arg (5 bits) */
                          /*  msg type: 0 = request; 1 = reply; */
                          /*  AM type: 0 = short; 1 = medium; 2 = long; 3 = control (basic return msg to free mls); */
-        uint16_t _pad; 
+        uint16_t header_size; /* only 1 byte is needed as the longest header is < 80 */
 	uint32_t payload_size;
 	gasnet_handlerarg_t args[16];
 } gasnetc_ShortMedium_header_t;
@@ -56,7 +56,7 @@ typedef struct
 typedef struct
 {
 	uint16_t header;
-        uint16_t _pad; 
+        uint16_t header_size;
 	uint32_t payload_size;
 	void * payload;
 	gasnet_handlerarg_t args[16];
@@ -108,12 +108,11 @@ typedef void (*gasnetc_handler_mediumlong)(gasnet_token_t token, void *buf, size
 #define GASNETC_SCI_MAX_REQUEST_MSG			2
 #define GASNETC_SCI_MAX_HANDLER_NUMBER		256
 #ifdef GASNETI_PTR64
-	#define GASNETC_SCI_COMMAND_MESSAGE_SIZE	(1024+80) /*  max medium payload size + size of the longest header -- 64-bit machines*/
+	#define GASNETC_SCI_COMMAND_MESSAGE_SIZE	(2048+80) /*  max medium payload size + size of the longest header -- 64-bit machines*/
 #else
-	#define GASNETC_SCI_COMMAND_MESSAGE_SIZE	(1024+76) /*  max medium payload size + size of the longest header*/
+	#define GASNETC_SCI_COMMAND_MESSAGE_SIZE	(2048+76) /*  max medium payload size + size of the longest header*/
 #endif
-#define GASNETC_SCI_MODE_SWITCH_SIZE		1024        /*  exact size for max medium payload */
-#define GASNETC_SCI_NUM_DMA_QUEUE			2
+#define GASNETC_SCI_NUM_DMA_QUEUE			1
 #define GASNETC_SCI_MAX_DMA_QUEUE_USAGE		1
 #define GASNETC_SCI_REQUEST					0
 #define GASNETC_SCI_REPLY					1
@@ -380,10 +379,11 @@ uint8_t gasnetc_get_msg_num_arg (uint16_t header)
 GASNET_INLINE_MODIFIER(gasnetc_construct_ShortMedium_command)
 void gasnetc_construct_ShortMedium_command (gasnetc_ShortMedium_header_t *temp, gasnet_handler_t handler,
                                                                                         uint8_t msg_type, uint8_t AM_type, size_t size, uint8_t num_args, gasnet_handlerarg_t args[],
-                                                                                        uint8_t msg_number)
+                                                                                        uint16_t header_size)
 {
         int i;
         temp->header = (((((handler<<1) | msg_type)<<2) | AM_type)<<5) | num_args;
+        temp->header_size = header_size;
         temp->payload_size = size;
         for (i = 0; i < num_args; i++)
         {
@@ -395,10 +395,11 @@ void gasnetc_construct_ShortMedium_command (gasnetc_ShortMedium_header_t *temp, 
 GASNET_INLINE_MODIFIER(gasnetc_construct_Long_command)
 void gasnetc_construct_Long_command (gasnetc_Long_header_t *temp, gasnet_handler_t handler, uint8_t msg_type, void *payload,
                                                                          size_t size, uint8_t num_args, gasnet_handlerarg_t args[],
-                                                                         uint8_t msg_number)
+                                                                         uint16_t header_size)
 {
         int i;
         temp->header = (((((handler<<1) | msg_type)<<2) | GASNETC_SCI_LONG)<<5) | num_args;
+        temp->header_size = header_size;
         temp->payload_size = size;
         temp->payload = payload;
         for (i = 0; i < num_args; i++)

@@ -33,7 +33,7 @@ PrintHelp()
  echo ""
  echo "	-spawn <[rsh, ssh]>	: choose either rsh or ssh as the spawner, default is rsh"
  echo ""
- echo "	-E VAR1[,VAR2...]	: indicate environment variables to propagate"
+ echo "	-E VAR1[,VAR2...]       : indicate environment variables to propagate"
  echo ""
  echo "	-v			: verbose operation"
  echo ""
@@ -72,9 +72,9 @@ do
 	shift 2
 	;;
     -E)
-	USERENV=$2
-	shift 2
-	;;
+        USERENV=$2
+        shift 2
+        ;;
     -v)
 	VERBOSE=1
 	shift 1
@@ -108,27 +108,37 @@ if [ $PROG ]
 	exit 1
 fi
 
+#We need the absolute directory of the program
+#if there was no / in the program variable, DIR==PROG, so use the
+# current working directory as the absolute path to the program
+
 if [ $PROG == $DIR ]
 then
 	DIR=$PWD
 fi
 
+#if the user used ./<programname>, we still need the absolute path
+# so use the current working directory
 if [ $DIR == '.' ]
 then 
 	DIR=$PWD
 fi
 
 # ensure we have a canonical absolute path
+PWD=`cd $PWD ; pwd`
 DIR=`cd $DIR ; pwd`
 
 #echo "spawner is: $RSH"
 
 #check and see if there is a machine file
 #if not, there had better be a jobs file
+#if machine file was specified but is blank, there's a problem
 if [ $MFILE ]
  then
 	if ! test -e "$MFILE" ; then
 	  echo "ERROR: machine file '$MFILE' does not exist! Exiting..."
+	  echo ""
+	  PrintHelp
 	  exit 1
 	fi
  else
@@ -142,6 +152,7 @@ if [ $MFILE ]
 		else
 			echo "Cannot find jobs or machines file"
 			echo "Need to define either jobs file or machines file to continue"
+			PrintHelp
 			exit 1
 		fi
 	fi
@@ -150,10 +161,10 @@ fi
 #check if number of nodes has been specified
 if [  "$NUMBER_NODES" == '' ]
  then
-	echo "ERROR: Number of nodes is not specified. Exiting..."
-	echo ""
-	PrintHelp
-	exit 1
+        echo "ERROR: Number of nodes is not specified. Exiting..."
+        echo ""
+        PrintHelp
+        exit 1
 fi
 
 #echo "Program Name is : $PROG"
@@ -167,12 +178,14 @@ fi
 
 #echo "Reading host info"
 
+#strip the first column, then the second column
+# the first column should be all the hostnames to use
+# the second column should be all the SCI Ids of the hostnames in column 1
 if [ $MFILE ]
 then
 	HOSTS=`cat $MFILE | @AWK@ 'NF==0 {exit} {print $1}'`
 	SCI_IDS=`cat $MFILE | @AWK@ 'NF==0 {exit} {print $2}'`
 fi
-
 
 #note, if jobs file is defined, it overwrites the variables set by machines file
 if [ $JOB_FILE ]
@@ -198,6 +211,11 @@ fi
 #first get rid of all the \n and \r characters and replace with spaces
 SCI_IDS=`echo "$SCI_IDS" | @AWK@ '{ print gensub(/\n/, " ", "g") }'`
 SCI_IDS=`echo "$SCI_IDS" | @AWK@ '{ print gensub(/\r/, " ", "g") }'`
+
+#this code has terrible logrithmic time. It will take O(n^2), where n is the
+# number of nodes to use. Probably need to look into changing this. While 
+# this is not in the performance critical path, startup could be rather 
+# slow for a large number of machines
 
 i=0
 for h in $HOSTS
@@ -228,6 +246,7 @@ done
 #echo $FILE
 
 #write the file information into a global location near the program
+# we assume an NFS-like file structure so that this file will be available to all nodes
 
 cd $DIR
 rm -f gasnet_nodes.sci
@@ -246,6 +265,7 @@ fi
 
 #we need to gather any GASNET environment variables set on this machine and propogate
 # them to all the executing machines
+# use the env command as the default shell may be different on every machine
 
 ENV=/usr/bin/env
 if ! test -x $ENV ; then
@@ -257,19 +277,25 @@ if ! test -x $ENV ; then
 fi
 
 # round-up user requested environment variables
-USERENV=`echo "$USERENV" | awk -F, 'BEGIN{ORS=" "}{for(i=1;i<=NF;i++) { print "-e ^"$i"="; } }'`
+USERENV=`echo "$USERENV" | @AWK@ -F, 'BEGIN{ORS=" "}{for(i=1;i<=NF;i++) { print "-e ^"$i"="; } }'`
 SYSTEMENV="-e ^GASNET_"
 
 EXPORT=`$ENV | grep $USERENV $SYSTEMENV | @AWK@ -F= 'BEGIN{ORS=""; print "'"$ENV "'"}{print $1"='"'"'"$2"'"'"' "; }'`
 
+#if EXPORT is == ENV only, set EXPORT as empty since there are no variables to propogate
+if [ "$EXPORT" == "$ENV" ] 
+then
+	EXPORT=""
+fi
+
 # now with that information, we need to log into every machine and start 
 # the initialization program. 
 
-#First we need to extract the first machine in the list, this will be the
-# gasnet node 0. This machine should also be equal to the hostname of the
-# machine on which this script is running. We will not rsh into this machine,
-# rather we will start it last and have the script wait until it has completed
-# the program before the script then ends.
+#We need to extract the first machine in the list, this will be the
+# gasnet node 0.  We will rsh into this machine last. That way
+# the script will wait until the program has completed
+# the program before the script ends. This way ctrl+c will kill the program.
+
 
 TEMP_HOSTS=$HOSTS
 HOSTS=""
@@ -322,14 +348,15 @@ fi
 # EXIT before any actual execution, used for testing how things work above
 #exit
 
+#NOTE: here we add "./" in front of $PROG
 i=1
 for h in $HOSTS
  do
 	if (( $i < $NUMBER_NODES ))
 	 then
-		$RSH $h "cd $DIR; $EXPORT $PROG $ARGS ; exit;"&
+		$RSH $h "cd $PWD; $EXPORT $DIR/$PROG $ARGS ; exit;"&
 	        if [ $VERBOSE ] ; then
-		  echo "$RSH $h -- cd $DIR; $EXPORT $PROG $ARGS ; exit;"
+		  echo "$RSH $h -- cd $PWD; $EXPORT $DIR/$PROG $ARGS ; exit;"
 		fi
 		i=`expr $i + 1`
 		#echo "i equal to $i"
@@ -344,8 +371,8 @@ fi
 
 #start the program on this host
 if [ $VERBOSE ] ; then
-  echo "$RSH $FIRST -- cd $DIR; $EXPORT $PROG $ARGS ; exit;"
+  echo "$RSH $FIRST -- cd $PWD; $EXPORT $DIR/$PROG $ARGS ; exit;"
 fi
-$RSH $FIRST "cd $DIR; $EXPORT $PROG $ARGS ; exit;"
+$RSH $FIRST "cd $PWD; $EXPORT $DIR/$PROG $ARGS ; exit;"
 
 
