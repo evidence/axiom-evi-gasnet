@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2004/09/25 00:16:20 $
- * $Revision: 1.12 $
+ *     $Date: 2004/09/25 01:55:43 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -472,7 +472,7 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
  */
 #ifdef gasnete_coll_in_segment
   /* Keep the conduit-specific override */
-#elif GASNET_SEGMENT_EVERYTHING
+#elif defined(GASNET_SEGMENT_EVERYTHING) || defined(GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET)
   #define gasnete_coll_in_segment(_node,_addr,_len)	1
 #else
   #define gasnete_coll_in_segment(_node,_addr,_len)                                \
