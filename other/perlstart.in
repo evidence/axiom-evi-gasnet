@@ -32,7 +32,7 @@ while  test "$link" && \
   newpath="$link";
   newdir=`"$dirname" ${newpath}`;
   newname=`"$basename" ${newpath}`;
-  dir=`cd ${dir} >/dev/null 2>&1; cd ${newdir} >/dev/null 2>&1; pwd`;
+  dir=`cd ${dir} >/dev/null 2>&1; cd ${newdir} >/dev/null 2>&1; @PWD_PROG@`;
   scriptname="${dir}/${newname}";
 
   oldlink="$link"
@@ -47,6 +47,10 @@ while  test "$link" && \
     link=
   fi
 done
+
+# be sure we always use a full path
+dir=`"$dirname" ${scriptname}`;
+scriptname=`cd ${dir} >/dev/null 2>&1; @PWD_PROG@`/`"$basename" ${scriptname}`;
 
 exec '@PERL@' $PERLSTART_FLAGS "${scriptname}.pl" "$@"
 
