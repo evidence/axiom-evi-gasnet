@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/02/12 11:29:15 $
- * $Revision: 1.88 $
+ *     $Date: 2005/02/14 05:13:32 $
+ * $Revision: 1.89 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -601,7 +601,7 @@ extern char *gasneti_getenv(const char *keyname) {
  */
 #ifndef GASNETI_ENV_OUTPUT_NODE
 #define GASNETI_ENV_OUTPUT_NODE() \
-        (gasnetc_mynode == 0 || gasnetc_mynode == (gasnet_node_t)-1)
+        (gasneti_mynode == 0 || gasneti_mynode == (gasnet_node_t)-1)
 #endif
 
 static char *_gasneti_getenv_withdefault(const char *keyname, const char *defaultval, int yesno) {

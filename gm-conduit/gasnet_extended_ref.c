@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_ref.c,v $
- * $Date: 2004/08/26 04:53:36 $
- * $Revision: 1.16 $
+ * $Date: 2005/02/14 05:13:38 $
+ * $Revision: 1.17 $
  * Description: GASNet GM conduit Extended API Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -260,12 +260,12 @@ void gasnete_extref_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
     #if GASNETE_USE_LONG_GETS
-      /* TODO: optimize this check by caching segment upper-bound in gasnete_seginfo */
-      gasneti_memcheck(gasnete_seginfo);
-      if (dest >= gasnete_seginfo[gasnete_mynode].addr &&
+      /* TODO: optimize this check by caching segment upper-bound in gasneti_seginfo */
+      gasneti_memcheck(gasneti_seginfo);
+      if (dest >= gasneti_seginfo[gasneti_mynode].addr &&
          (((uintptr_t)dest) + nbytes) <= 
-          (((uintptr_t)gasnete_seginfo[gasnete_mynode].addr) +
-                       gasnete_seginfo[gasnete_mynode].size)) {
+          (((uintptr_t)gasneti_seginfo[gasneti_mynode].addr) +
+                       gasneti_seginfo[gasneti_mynode].size)) {
         chunksz = gasnet_AMMaxLongReply();
         reqhandler = gasneti_handleridx(gasnete_extref_getlong_reqh);
       }

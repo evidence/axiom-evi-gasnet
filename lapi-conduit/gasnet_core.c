@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/02/12 11:29:23 $
- * $Revision: 1.68 $
+ *     $Date: 2005/02/14 05:13:40 $
+ * $Revision: 1.69 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -168,8 +168,8 @@ static int gasnetc_init(int *argc, char ***argv) {
 	gasneti_fatalerror("Invalid LAPI id: %d, must be < %d",
 			   task_id,GASNET_MAXNODES);
     }
-    gasnetc_mynode = (gasnet_node_t)task_id;
-    gasnetc_nodes = (gasnet_node_t)num_tasks;
+    gasneti_mynode = (gasnet_node_t)task_id;
+    gasneti_nodes = (gasnet_node_t)num_tasks;
 
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_UHDR_SZ, &gasnetc_max_lapi_uhdr_size));
 
@@ -178,7 +178,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     {
 	char *gas_ver = getenv("GASNET_LAPI_VERSION");
-	int to_stderr = (gasnetc_mynode == 0) && 
+	int to_stderr = (gasneti_mynode == 0) && 
           (((gas_ver != NULL) && (gas_ver[0] != '0')) || !!getenv("GASNET_VERBOSEENV"));
 	char buf[80];
 
@@ -266,7 +266,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     
 #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
-	    gasnetc_mynode, gasnetc_nodes); fflush(stderr);
+	    gasneti_mynode, gasneti_nodes); fflush(stderr);
 #endif
 
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
@@ -446,7 +446,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* ------------------------------------------------------------------------------------ */
     /*  register segment  */
 
-    gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasnetc_nodes*sizeof(gasnet_seginfo_t));
+    gasneti_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
 
 #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     if (segsize == 0) segbase = NULL; /* no segment */
@@ -456,9 +456,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	   you can use gasneti_segmentAttach() here if you used gasneti_segmentInit() above
 	*/
 	gasneti_assert(segsize % GASNET_PAGESIZE == 0);
-	gasneti_segmentAttach(segsize,minheapoffset,gasnetc_seginfo,gasnetc_lapi_exchange);
-	segbase = gasnetc_seginfo[gasnetc_mynode].addr;
-	segsize = gasnetc_seginfo[gasnetc_mynode].size;
+	gasneti_segmentAttach(segsize,minheapoffset,gasneti_seginfo,gasnetc_lapi_exchange);
+	segbase = gasneti_seginfo[gasneti_mynode].addr;
+	segsize = gasneti_seginfo[gasneti_mynode].size;
 	gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
 	gasneti_assert(segsize % GASNET_PAGESIZE == 0);
     }
@@ -466,12 +466,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* GASNET_SEGMENT_EVERYTHING */
     {
 	int i;
-	for (i=0;i<gasnetc_nodes;i++) {
-	    gasnetc_seginfo[i].addr = (void *)0;
-	    gasnetc_seginfo[i].size = (uintptr_t)-1;
+	for (i=0;i<gasneti_nodes;i++) {
+	    gasneti_seginfo[i].addr = (void *)0;
+	    gasneti_seginfo[i].size = (uintptr_t)-1;
 	}
-	segbase = gasnetc_seginfo[gasnetc_mynode].addr;
-	segsize = gasnetc_seginfo[gasnetc_mynode].size;
+	segbase = gasneti_seginfo[gasneti_mynode].addr;
+	segsize = gasneti_seginfo[gasneti_mynode].size;
     }
 #endif
 
@@ -485,17 +485,17 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     {
 	int i;
-	for (i = 0; i < gasnetc_nodes; i++) {
+	for (i = 0; i < gasneti_nodes; i++) {
 	    GASNETI_TRACE_PRINTF(C,("For node %d seginfo.addr = "GASNETI_LADDRFMT" seginfo.size = %lu",
-				    i,GASNETI_LADDRSTR(gasnetc_seginfo[i].addr),
-				    (unsigned long)gasnetc_seginfo[i].size));
+				    i,GASNETI_LADDRSTR(gasneti_seginfo[i].addr),
+				    (unsigned long)gasneti_seginfo[i].size));
 	}
     }
 
 #if GASNET_ALIGNED_SEGMENTS == 1
     { int i; /*  check that segments are aligned */
-    for (i=0; i < gasnetc_nodes; i++) {
-        if (gasnetc_seginfo[i].size != 0 && gasnetc_seginfo[i].addr != segbase) 
+    for (i=0; i < gasneti_nodes; i++) {
+        if (gasneti_seginfo[i].size != 0 && gasneti_seginfo[i].addr != segbase) 
 	    gasneti_fatalerror("Failed to acquire aligned segments for GASNET_ALIGNED_SEGMENTS");
     }
     }
@@ -518,7 +518,7 @@ static void gasnetc_exit_cleanup(void) {
 			    gasnetc_uhdr_freelist.numalloc));
 #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"GASNETC_EXIT: NODE %d UHDR_BUF HWM %d, numfree %d, numalloc %d\n",
-	    gasnetc_mynode,
+	    gasneti_mynode,
 	    gasnetc_uhdr_freelist.high_water_mark,
 	    gasnetc_uhdr_freelist.numfree,
 	    gasnetc_uhdr_freelist.numalloc);
@@ -532,7 +532,7 @@ static int amexit_exitcode = 0;
 void gasnetc_sigalarm_handler(int sig)
 {
 #if GASNETC_VERBOSE_EXIT
-    fprintf(stderr,">> GASNET_SIGALARM_HNDLR[%d]: called\n",gasnetc_mynode);
+    fprintf(stderr,">> GASNET_SIGALARM_HNDLR[%d]: called\n",gasneti_mynode);
     fflush(stderr);
 #endif
     gasneti_reghandler(SIGQUIT, SIG_DFL);
@@ -595,8 +595,8 @@ extern void gasnetc_exit(int exitcode) {
     }
 
 #if GASNETC_VERBOSE_EXIT
-    fprintf(stderr,">> GASNET_EXIT[%d]: reset sigquit,sigusr1,sigterm\n",gasnetc_mynode);
-    fprintf(stderr,">> GASNET_EXIT[%d]: setting 5 second alarm\n",gasnetc_mynode);
+    fprintf(stderr,">> GASNET_EXIT[%d]: reset sigquit,sigusr1,sigterm\n",gasneti_mynode);
+    fprintf(stderr,">> GASNET_EXIT[%d]: setting 5 second alarm\n",gasneti_mynode);
     fflush(stderr);
 #endif
 
@@ -604,7 +604,7 @@ extern void gasnetc_exit(int exitcode) {
     /* sleep a variable amount of time, attempting to avoid everyone
      * spraying AM messages to each other at once.
      */
-    usleep((gasnetc_mynode % 10) * 100000 );
+    usleep((gasneti_mynode % 10) * 100000 );
 
     /* Experience has shown that using AMs in error cases may hang
      * in many situations.  Register an alarm handler here which
@@ -619,7 +619,7 @@ extern void gasnetc_exit(int exitcode) {
     if (gasnetc_got_exit_signal) {
 	/* async exit, got shutdown AM from remote node */
 #if GASNETC_VERBOSE_EXIT
-	fprintf(stderr,">> GASNET_EXIT[%d]: async exit\n",gasnetc_mynode);
+	fprintf(stderr,">> GASNET_EXIT[%d]: async exit\n",gasneti_mynode);
 	fflush(stderr);
 #endif
 	
@@ -634,12 +634,12 @@ extern void gasnetc_exit(int exitcode) {
 	gasnetc_got_exit_signal = 1;
 
 #if GASNETC_VERBOSE_EXIT
-	fprintf(stderr,">> GASNET_EXIT[%d]: Sending exit AM to all others\n",gasnetc_mynode);
+	fprintf(stderr,">> GASNET_EXIT[%d]: Sending exit AM to all others\n",gasneti_mynode);
 	fflush(stderr);
 #endif
 	LAPI_Setcntr(gasnetc_lapi_context,&cntr,0);
-	for (node=0; node < gasnetc_nodes; node++) {
-	    if (node == gasnetc_mynode) continue;
+	for (node=0; node < gasneti_nodes; node++) {
+	    if (node == gasneti_mynode) continue;
 	    GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, node,
 			       gasnetc_remote_amexit_hh[node],
 			       (void*)&exitcode, sizeof(exitcode), NULL, 0,
@@ -647,26 +647,26 @@ extern void gasnetc_exit(int exitcode) {
 	}
 
 	/* wait for local completion so arg to Amsend does not go out of scope */
-	GASNETC_WAITCNTR(&cntr,gasnetc_nodes-1,NULL);
+	GASNETC_WAITCNTR(&cntr,gasneti_nodes-1,NULL);
     	    
 #if GASNETC_VERBOSE_EXIT
-	fprintf(stderr,">> GASNET_EXIT[%d]: Finished sending exit AMs\n",gasnetc_mynode);
+	fprintf(stderr,">> GASNET_EXIT[%d]: Finished sending exit AMs\n",gasneti_mynode);
 	fflush(stderr);
 #endif
     }
 
 #if GASNETC_VERBOSE_EXIT
-    fprintf(stderr,">> GASNET_EXIT[%d]: Start LAPI_Gfence\n",gasnetc_mynode);
+    fprintf(stderr,">> GASNET_EXIT[%d]: Start LAPI_Gfence\n",gasneti_mynode);
     fflush(stderr);
 #endif
     LAPI_Gfence(gasnetc_lapi_context);
 #if GASNETC_VERBOSE_EXIT
-    fprintf(stderr,">> GASNET_EXIT[%d]: Start LAPI_Term\n",gasnetc_mynode);
+    fprintf(stderr,">> GASNET_EXIT[%d]: Start LAPI_Term\n",gasneti_mynode);
     fflush(stderr);
 #endif
     LAPI_Term(gasnetc_lapi_context);
 #if GASNETC_VERBOSE_EXIT
-    fprintf(stderr,">> GASNET_EXIT[%d]: cancel alarm and exit\n",gasnetc_mynode);
+    fprintf(stderr,">> GASNET_EXIT[%d]: cancel alarm and exit\n",gasneti_mynode);
     fflush(stderr);
 #endif
     /* cancel previous alarm and exit normally */
@@ -692,7 +692,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
     /* (###) add code here to write the source index into sourceid */
     sourceid = ((gasnetc_token_t*)token)->msg.sourceId;
 
-    gasneti_assert(sourceid < gasnetc_nodes);
+    gasneti_assert(sourceid < gasneti_nodes);
     *srcindex = sourceid;
     return GASNET_OK;
 }
@@ -762,7 +762,7 @@ extern int gasnetc_AMRequestShortM(
     va_list argptr;
 
     GASNETI_CHECKATTACH();
-    if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
     gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
     GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
 
@@ -770,7 +770,7 @@ extern int gasnetc_AMRequestShortM(
     msg = &token->msg;
 
     msg->handlerId = handler;
-    msg->sourceId = gasnetc_mynode;
+    msg->sourceId = gasneti_mynode;
     GASNETC_MSG_SETFLAGS(msg,1,gasnetc_Short,0,numargs);
     msg->destLoc = (uintptr_t)NULL;
     msg->dataLen = (size_t)0;
@@ -785,7 +785,7 @@ extern int gasnetc_AMRequestShortM(
 
     /* Do Loopback check here */
 #if GASNETC_ENABLE_LOOPBACK
-    if (dest == gasnetc_mynode) {
+    if (dest == gasneti_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	RUN_HANDLER_SHORT(pfn,token,&msg->args[0],numargs);
 	GASNETI_RETURN(GASNET_OK);
@@ -840,7 +840,7 @@ extern int gasnetc_AMRequestMediumM(
     va_list argptr;
 
     GASNETI_CHECKATTACH();
-    if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
     gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
     if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
     GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
@@ -849,7 +849,7 @@ extern int gasnetc_AMRequestMediumM(
     msg = &token->msg;
 
     msg->handlerId = handler;
-    msg->sourceId = gasnetc_mynode;
+    msg->sourceId = gasneti_mynode;
     GASNETC_MSG_SETFLAGS(msg,1,gasnetc_Medium,0,numargs);
     msg->destLoc = (uintptr_t)NULL;
     msg->dataLen = (size_t)nbytes;
@@ -875,7 +875,7 @@ extern int gasnetc_AMRequestMediumM(
 
     /* Do Loopback check here */
 #if GASNETC_ENABLE_LOOPBACK
-    if (dest == gasnetc_mynode) {
+    if (dest == gasneti_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	void *destloc;
 	if (udata_packed) {
@@ -941,13 +941,13 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     va_list argptr;
 
     GASNETI_CHECKATTACH();
-    gasnetc_boundscheck(dest, dest_addr, nbytes);
-    if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+    gasneti_boundscheck(dest, dest_addr, nbytes);
+    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
     gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
     if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-    if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
+    if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasneti_seginfo[dest].addr) ||
 	   ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
+           ((uintptr_t)gasneti_seginfo[dest].addr) + gasneti_seginfo[dest].size) 
 	GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
     GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
@@ -956,7 +956,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     msg = &token->msg;
 
     msg->handlerId = handler;
-    msg->sourceId = gasnetc_mynode;
+    msg->sourceId = gasneti_mynode;
     GASNETC_MSG_SETFLAGS(msg,1,gasnetc_Long,0,numargs);
     msg->destLoc = (uintptr_t)dest_addr;
     msg->dataLen = (size_t)nbytes;
@@ -974,7 +974,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 
     /* Do Loopback check here */
 #if GASNETC_ENABLE_LOOPBACK
-    if (dest == gasnetc_mynode) {
+    if (dest == gasneti_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	/* must do local copy of data from source to dest */
 	memcpy((char*)dest_addr,source_addr,nbytes);
@@ -1039,13 +1039,13 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     lapi_cntr_t *p_cntr = NULL;
     GASNETI_CHECKATTACH();
   
-    gasnetc_boundscheck(dest, dest_addr, nbytes);
-    if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+    gasneti_boundscheck(dest, dest_addr, nbytes);
+    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
     gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
     if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-    if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
+    if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasneti_seginfo[dest].addr) ||
 	   ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
+           ((uintptr_t)gasneti_seginfo[dest].addr) + gasneti_seginfo[dest].size) 
 	GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
     GASNETI_TRACE_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
@@ -1053,7 +1053,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     token = gasnetc_uhdr_alloc();
     msg = &token->msg;
     msg->handlerId = handler;
-    msg->sourceId = gasnetc_mynode;
+    msg->sourceId = gasneti_mynode;
     GASNETC_MSG_SETFLAGS(msg,1,gasnetc_AsyncLong,0,numargs);
     msg->destLoc = (uintptr_t)dest_addr;
     msg->dataLen = (size_t)nbytes;
@@ -1075,7 +1075,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 
     /* Do Loopback check here */
 #if GASNETC_ENABLE_LOOPBACK
-    if (dest == gasnetc_mynode) {
+    if (dest == gasneti_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	/* must do local copy of data from source to dest */
 	memcpy((char*)dest_addr,source_addr,nbytes);
@@ -1155,7 +1155,7 @@ extern int gasnetc_AMReplyShortM(
      */
     GASNETC_MSG_SETFLAGS(msg,0,gasnetc_Short,0,numargs);
     msg->handlerId = handler;
-    msg->sourceId = gasnetc_mynode;
+    msg->sourceId = gasneti_mynode;
     msg->destLoc = (uintptr_t)NULL;
     msg->dataLen = 0;
     /* do NOT modify the contents of uhdrLoc... needed at origin */
@@ -1166,7 +1166,7 @@ extern int gasnetc_AMReplyShortM(
     va_end(argptr);
 
 #if GASNETC_ENABLE_LOOPBACK
-    if (requester == gasnetc_mynode) {
+    if (requester == gasneti_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	RUN_HANDLER_SHORT(pfn,token,&msg->args[0],numargs);
 	GASNETI_RETURN(GASNET_OK);
@@ -1233,7 +1233,7 @@ extern int gasnetc_AMReplyMediumM(
      */
     GASNETC_MSG_SETFLAGS(msg,0,gasnetc_Medium,0,numargs);
     msg->handlerId = handler;
-    msg->sourceId = gasnetc_mynode;
+    msg->sourceId = gasneti_mynode;
     msg->destLoc = (uintptr_t)NULL;
     msg->dataLen = nbytes;
     /* do NOT modify the contents of uhdrLoc... needed at origin */
@@ -1255,7 +1255,7 @@ extern int gasnetc_AMReplyMediumM(
     }
 
 #if GASNETC_ENABLE_LOOPBACK
-    if (requester == gasnetc_mynode) {
+    if (requester == gasneti_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	void *destloc;
 	if (nbytes > udata_avail) {
@@ -1322,13 +1322,13 @@ extern int gasnetc_AMReplyLongM(
   
     retval = gasnet_AMGetMsgSource(token, &dest);
     if (retval != GASNET_OK) GASNETI_RETURN(retval);
-    gasnetc_boundscheck(dest, dest_addr, nbytes);
-    if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+    gasneti_boundscheck(dest, dest_addr, nbytes);
+    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
     gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
     if_pf (nbytes > gasnet_AMMaxLongReply()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-    if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
+    if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasneti_seginfo[dest].addr) ||
 	   ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
+           ((uintptr_t)gasneti_seginfo[dest].addr) + gasneti_seginfo[dest].size) 
 	GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
     GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);
@@ -1336,7 +1336,7 @@ extern int gasnetc_AMReplyLongM(
     /* re-use the token passed to us */
     GASNETC_MSG_SETFLAGS(msg,0,gasnetc_Long,0,numargs);
     msg->handlerId = handler;
-    msg->sourceId = gasnetc_mynode;
+    msg->sourceId = gasneti_mynode;
     msg->destLoc = (uintptr_t)dest_addr;
     msg->dataLen = nbytes;
     /* do NOT modify the contents of uhdrLoc... needed at origin */
@@ -1351,7 +1351,7 @@ extern int gasnetc_AMReplyLongM(
 
 
 #if GASNETC_ENABLE_LOOPBACK
-    if (dest == gasnetc_mynode) {
+    if (dest == gasneti_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	/* copy from source to dest, then execute handler */
 	memcpy((char*)dest_addr,source_addr,nbytes);
@@ -1618,7 +1618,7 @@ void gasnetc_lapi_err_handler(lapi_handle_t *context, int *error_code,
  * Dest is an array of the same kind of data structures, one element
  * for each gasnet node.
  * 
- * Each node puts a copy of its src into the dest[gasnetc_mynode]
+ * Each node puts a copy of its src into the dest[gasneti_mynode]
  * on every other node.
  * --------------------------------------------------------------------------
  */
@@ -1627,7 +1627,7 @@ void gasnetc_lapi_exchange(void *src, size_t len, void *dest)
     void **dest_addr_tab;
     lapi_cntr_t c_cntr;
     int  node;
-    int  num_nodes = (int)gasnetc_nodes;
+    int  num_nodes = (int)gasneti_nodes;
     int  cur_val;
 
     /* First, need to determine address of dest on each node,
@@ -1639,7 +1639,7 @@ void gasnetc_lapi_exchange(void *src, size_t len, void *dest)
     /* Now, put my src value into all remote dest arrays */
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&c_cntr,0));
     for (node = 0; node < num_nodes; node++) {
-	void *ra = (void*)((char*)(dest_addr_tab[node]) + gasnetc_mynode*len);
+	void *ra = (void*)((char*)(dest_addr_tab[node]) + gasneti_mynode*len);
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context,node,len,ra,
 				src,NULL,NULL,&c_cntr));
     }
@@ -1983,7 +1983,7 @@ void gasnetc_run_handler(gasnetc_token_t *token)
 
     if (am_func == NULL) {
 	gasneti_fatalerror("lapi_AMch: node %d, invalid handler index %d",
-			   gasnetc_mynode,func_ix);
+			   gasneti_mynode,func_ix);
     }
 
     /* run the GASNET handler */

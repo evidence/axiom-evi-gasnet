@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/02/12 11:29:21 $
- * $Revision: 1.32 $
+ *     $Date: 2005/02/14 05:13:38 $
+ * $Revision: 1.33 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,7 +120,7 @@ extern void gasnete_init() {
 
 	gasnete_check_config(); /* check for sanity */
 
-	gasneti_assert(gasnete_nodes >= 1 && gasnete_mynode < gasnete_nodes);
+	gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
 
 	{ 
 		gasnete_threaddata_t *threaddata = NULL;
@@ -327,7 +327,7 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnet_valget_handle_t retval;
   gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
-  gasnete_boundscheck(node, src, nbytes);
+  gasneti_boundscheck(node, src, nbytes);
   if (mythread->valget_free) {
     retval = mythread->valget_free;
     mythread->valget_free = retval->next;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/mpi-spawner/gasnet_bootstrap_mpi.c,v $
- *     $Date: 2005/01/15 00:23:20 $
- * $Revision: 1.12 $
+ *     $Date: 2005/02/14 05:13:46 $
+ * $Revision: 1.13 $
  * Description: GASNet conduit-independent mpi-based spawner
  * Copyright 2003, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -99,7 +99,7 @@ void gasneti_bootstrapAlltoall(void *src, size_t len, void *dest) {
 void gasneti_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode) {
   int err;
   
-  if (gasnetc_mynode == rootnode) {
+  if (gasneti_mynode == rootnode) {
     memcpy(dest, src, len);
   }
   err = MPI_Bcast(dest, len, MPI_CHAR, rootnode, gasnetc_mpi_comm);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/12 11:29:41 $
- * $Revision: 1.17 $
+ *     $Date: 2005/02/14 05:13:58 $
+ * $Revision: 1.18 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -187,8 +187,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     if (retval != AM_OK) INITERR(RESOURCE, "slave AMUDP_SPMDStartup() failed");
     gasneti_init_done = 1; /* enable early to allow tracing */
 
-    gasnetc_mynode = AMUDP_SPMDMyProc();
-    gasnetc_nodes = AMUDP_SPMDNumProcs();
+    gasneti_mynode = AMUDP_SPMDMyProc();
+    gasneti_nodes = AMUDP_SPMDNumProcs();
 
     /* enable tracing */
     gasneti_trace_init(*argc, *argv);
@@ -202,7 +202,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     #if GASNET_DEBUG_VERBOSE
       fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
-        gasnetc_mynode, gasnetc_nodes); fflush(stderr);
+        gasneti_mynode, gasneti_nodes); fflush(stderr);
     #endif
 
     #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
@@ -361,20 +361,20 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* ------------------------------------------------------------------------------------ */
     /*  register segment  */
 
-    gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasnetc_nodes*sizeof(gasnet_seginfo_t));
+    gasneti_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
 
     #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
-      gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapExchange);
+      gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasnetc_bootstrapExchange);
     #else /* GASNET_SEGMENT_EVERYTHING */
       { int i;
-        for (i=0;i<gasnetc_nodes;i++) {
-          gasnetc_seginfo[i].addr = (void *)0;
-          gasnetc_seginfo[i].size = (uintptr_t)-1;
+        for (i=0;i<gasneti_nodes;i++) {
+          gasneti_seginfo[i].addr = (void *)0;
+          gasneti_seginfo[i].size = (uintptr_t)-1;
         }
       }
     #endif
-    segbase = gasnetc_seginfo[gasnetc_mynode].addr;
-    segsize = gasnetc_seginfo[gasnetc_mynode].size;
+    segbase = gasneti_seginfo[gasneti_mynode].addr;
+    segsize = gasneti_seginfo[gasneti_mynode].size;
 
     /*  AMUDP allows arbitrary registration with no further action  */
     if (segsize) {
@@ -510,7 +510,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   retval = GASNETI_AM_SAFE_NORETURN(AMUDP_GetSourceId(token, &sourceid));
 
   if (retval) {
-    gasneti_assert(sourceid >= 0 && sourceid < gasnetc_nodes);
+    gasneti_assert(sourceid >= 0 && sourceid < gasneti_nodes);
     *srcindex = sourceid;
     return GASNET_OK;
   } else GASNETI_RETURN_ERR(RESOURCE);
@@ -539,7 +539,7 @@ extern int gasnetc_AMRequestShortM(
   int retval;
   va_list argptr;
   GASNETI_CHECKATTACH();
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AMLOCK_TOSEND();
@@ -560,7 +560,7 @@ extern int gasnetc_AMRequestMediumM(
   int retval;
   va_list argptr;
   GASNETI_CHECKATTACH();
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AMLOCK_TOSEND();
@@ -584,13 +584,13 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   va_list argptr;
   GASNETI_CHECKATTACH();
 
-  gasnetc_boundscheck(dest, dest_addr, nbytes);
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
+  gasneti_boundscheck(dest, dest_addr, nbytes);
+  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasneti_seginfo[dest].addr) ||
          ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
+           ((uintptr_t)gasneti_seginfo[dest].addr) + gasneti_seginfo[dest].size) 
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-  dest_offset = ((uintptr_t)dest_addr) - ((uintptr_t)gasnetc_seginfo[dest].addr);
+  dest_offset = ((uintptr_t)dest_addr) - ((uintptr_t)gasneti_seginfo[dest].addr);
 
   GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
@@ -652,13 +652,13 @@ extern int gasnetc_AMReplyLongM(
   
   retval = gasnet_AMGetMsgSource(token, &dest);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasnetc_boundscheck(dest, dest_addr, nbytes);
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
+  gasneti_boundscheck(dest, dest_addr, nbytes);
+  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasneti_seginfo[dest].addr) ||
          ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
+           ((uintptr_t)gasneti_seginfo[dest].addr) + gasneti_seginfo[dest].size) 
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-  dest_offset = ((uintptr_t)dest_addr) - ((uintptr_t)gasnetc_seginfo[dest].addr);
+  dest_offset = ((uintptr_t)dest_addr) - ((uintptr_t)gasneti_seginfo[dest].addr);
 
   GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */

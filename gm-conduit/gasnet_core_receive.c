@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_receive.c,v $
- * $Date: 2004/08/26 04:53:36 $
- * $Revision: 1.37 $
+ * $Date: 2005/02/14 05:13:38 $
+ * $Revision: 1.38 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -33,7 +33,7 @@ gasnetc_node_lookup(uint16_t sender_node_id, uint16_t sender_port_id)
 	gm_node_sender.port = sender_port_id;
 	gm_node = (gasnetc_gm_nodes_rev_t *)
 		bsearch((void *) &gm_node_sender,
-		    (const void *) _gmc.gm_nodes_rev, (size_t) gasnetc_nodes,
+		    (const void *) _gmc.gm_nodes_rev, (size_t) gasneti_nodes,
 		    sizeof(gasnetc_gm_nodes_rev_t), gasnetc_gm_nodes_compare);
 	if_pf(gm_node == NULL)
 		gasneti_fatalerror("gasnetc_node_lookup() GM id unknown");
@@ -58,7 +58,7 @@ gasnetc_bufdesc_from_event(gm_recv_event_t *e)
 	bufd->node	  = gasnetc_node_lookup(bufd->gm_id, bufd->gm_port);
 	bufd->ran_reply   = NULL;
 
-	gasneti_assert(bufd->node < gasnetc_nodes);
+	gasneti_assert(bufd->node < gasneti_nodes);
 	gasneti_assert(bufd->len <= GASNETC_AM_PACKET);
 
 	return bufd;
@@ -463,7 +463,7 @@ gasnetc_release_rdma(gasnetc_bufdesc_t *bufd)
 	int				numreqs = 1;
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
-	gasneti_assert(bufd->node < gasnetc_nodes);
+	gasneti_assert(bufd->node < gasneti_nodes);
 	gasneti_assert(bufd->remote_req != NULL);
 
 	/* Release firehose on regions (remote and possibly local) */
@@ -519,7 +519,7 @@ gasnetc_callback_hi_rdma(struct gm_port *p, void *ctx,
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 
 	gasneti_assert(bufd != NULL);
-	gasneti_assert(bufd->node < gasnetc_nodes);
+	gasneti_assert(bufd->node < gasneti_nodes);
 	gasneti_assert(bufd->payload_len > 0);
 	gasneti_assert(bufd->local_req == NULL);
 

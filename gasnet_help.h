@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/02/12 11:29:15 $
- * $Revision: 1.42 $
+ *     $Date: 2005/02/14 05:13:32 $
+ * $Revision: 1.43 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -92,12 +92,6 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
                                             gasneti_seginfo[_node].size),                                 \
                            gasneti_current_loc);                                                          \
     } while(0)
-#endif
-#ifndef gasnetc_boundscheck
-#define gasnetc_boundscheck gasneti_boundscheck
-#endif
-#ifndef gasnete_boundscheck
-#define gasnete_boundscheck gasneti_boundscheck
 #endif
 
 /* gasneti_assert_always():
@@ -725,9 +719,6 @@ extern int gasneti_wait_mode; /* current waitmode hint */
     GASNETI_CHECKINIT();
     return gasneti_mynode;
   }
-  /* convenience macros */
-  #define gasnetc_mynode gasneti_mynode
-  #define gasnete_mynode gasneti_mynode
 #endif
 
 #ifndef _GASNET_NODES
@@ -739,9 +730,6 @@ extern int gasneti_wait_mode; /* current waitmode hint */
     GASNETI_CHECKINIT();
     return gasneti_nodes;
   }
-  /* convenience macros */
-  #define gasnetc_nodes gasneti_nodes
-  #define gasnete_nodes gasneti_nodes
 #endif
 
 #ifndef _GASNET_GETMAXSEGMENTSIZE
@@ -776,8 +764,6 @@ extern int gasneti_wait_mode; /* current waitmode hint */
 #ifndef _GASNETI_SEGINFO
 #define _GASNETI_SEGINFO
 #define _GASNETI_SEGINFO_DEFAULT
-  #define gasnete_seginfo gasneti_seginfo
-  #define gasnetc_seginfo gasneti_seginfo
   extern gasnet_seginfo_t *gasneti_seginfo;
 #endif
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/02/12 11:29:17 $
- * $Revision: 1.53 $
+ *     $Date: 2005/02/14 05:13:34 $
+ * $Revision: 1.54 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -232,7 +232,7 @@ extern void gasnete_init() {
 
   gasnete_check_config(); /*  check for sanity */
 
-  gasneti_assert(gasnete_nodes >= 1 && gasnete_mynode < gasnete_nodes);
+  gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
 
   gasnete_nbi_throttle = atoi(
     gasneti_getenv_withdefault("GASNET_NBI_THROTTLE", _STRINGIFY(GASNETE_DEFAULT_NBI_THROTTLE)));
@@ -328,9 +328,9 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t cons
       gasnete_eopaddr_t addr = thread->eop_free;
 
       #if 0
-      if (gasnete_mynode == 0)
+      if (gasneti_mynode == 0)
         for (i=0;i<256;i++) {                                   
-          fprintf(stderr,"%i:  %i: next=%i\n",gasnete_mynode,i,buf[i].addr.eopidx);
+          fprintf(stderr,"%i:  %i: next=%i\n",gasneti_mynode,i,buf[i].addr.eopidx);
           fflush(stderr);
         }
         sleep(5);
@@ -999,12 +999,12 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
     #if GASNETE_USE_LONG_GETS
-      /* TODO: optimize this check by caching segment upper-bound in gasnete_seginfo */
-      gasneti_memcheck(gasnete_seginfo);
-      if (dest >= gasnete_seginfo[gasnete_mynode].addr &&
+      /* TODO: optimize this check by caching segment upper-bound in gasneti_seginfo */
+      gasneti_memcheck(gasneti_seginfo);
+      if (dest >= gasneti_seginfo[gasneti_mynode].addr &&
          (((uintptr_t)dest) + nbytes) < 
-          (((uintptr_t)gasnete_seginfo[gasnete_mynode].addr) +
-                       gasnete_seginfo[gasnete_mynode].size)) {
+          (((uintptr_t)gasneti_seginfo[gasneti_mynode].addr) +
+                       gasneti_seginfo[gasneti_mynode].size)) {
         chunksz = gasnet_AMMaxLongReply();
         reqhandler = gasneti_handleridx(gasnete_getlong_reqh);
         GASNETI_TRACE_EVENT_VAL(C,GET_AMLONG,nbytes);
@@ -1361,7 +1361,7 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnet_valget_handle_t retval;
   gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
-  gasnete_boundscheck(node, src, nbytes);
+  gasneti_boundscheck(node, src, nbytes);
   if (mythread->valget_free) {
     retval = mythread->valget_free;
     mythread->valget_free = retval->next;
@@ -1492,7 +1492,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
   barrier_state[phase+2].barrier_value = id;
   barrier_state[phase+2].barrier_flags = flags;
 
-  if (gasnete_nodes > 1) {
+  if (gasneti_nodes > 1) {
     LOCK_ELAN_WEAK();
     barrier_blocking = 1; /* allow polling while inside blocking barriers */
     #if GASNETE_FAST_ELAN_BARRIER
@@ -1505,7 +1505,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
         if_pf(flags & GASNET_BARRIERFLAG_MISMATCH) { /* notify all of local mismatch */
           int i;
           barrier_state[phase+2].barrier_flags = GASNET_BARRIERFLAG_MISMATCH;
-          for (i=0; i < gasnete_nodes; i++) {
+          for (i=0; i < gasneti_nodes; i++) {
             elan_wait(elan_put(STATE(), (int *)&(barrier_state[phase+2].barrier_flags), 
                                         (int *)&(barrier_state[phase+2].barrier_flags),
                                         sizeof(int), i), ELAN_POLL_EVENT);
@@ -1530,7 +1530,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
           elan_wait(elan_put(STATE(), (int *)&(barrier_state[phase+4].barrier_value), 
                                       (int *)&(barrier_state[phase+4].barrier_value),
                                       sizeof(int), 0), ELAN_POLL_EVENT);
-          for (i=0; i < gasnete_nodes; i++) { /* notify all of reelection */
+          for (i=0; i < gasneti_nodes; i++) { /* notify all of reelection */
             elan_wait(elan_put(STATE(), (int *)&(barrier_state[phase+4].barrier_flags), 
                                         (int *)&(barrier_state[phase+4].barrier_flags),
                                         sizeof(int), i), ELAN_POLL_EVENT);
@@ -1542,7 +1542,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
               (flags & GASNET_BARRIERFLAG_MISMATCH)) { /* detected a mismatch - tell everybody */
           int i;
           barrier_state[phase+2].barrier_flags = GASNET_BARRIERFLAG_MISMATCH;
-          for (i=0; i < gasnete_nodes; i++) {
+          for (i=0; i < gasneti_nodes; i++) {
             elan_wait(elan_put(STATE(), (int *)&(barrier_state[phase+2].barrier_flags), 
                                         (int *)&(barrier_state[phase+2].barrier_flags),
                                         sizeof(int), i), ELAN_POLL_EVENT);

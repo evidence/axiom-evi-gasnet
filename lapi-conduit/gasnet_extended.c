@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/02/12 11:29:23 $
- * $Revision: 1.40 $
+ *     $Date: 2005/02/14 05:13:40 $
+ * $Revision: 1.41 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,15 +109,15 @@ extern void gasnete_init() {
 
     gasnete_check_config(); /*  check for sanity */
 
-    gasneti_assert(gasnete_nodes >= 1 && gasnete_mynode < gasnete_nodes);
+    gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
 
     /* Exchange LAPI addresses here */
-    gasnete_remote_memset_hh = (void**)gasneti_malloc(gasnete_nodes*sizeof(void*));
+    gasnete_remote_memset_hh = (void**)gasneti_malloc(gasneti_nodes*sizeof(void*));
     GASNETC_LCHECK(LAPI_Address_init(gasnetc_lapi_context,
 				     (void*)&gasnete_lapi_memset_hh,
 				     gasnete_remote_memset_hh));
 
-    gasnete_remote_barrier_hh = (void**)gasneti_malloc(gasnete_nodes*sizeof(void*));
+    gasnete_remote_barrier_hh = (void**)gasneti_malloc(gasneti_nodes*sizeof(void*));
     GASNETC_LCHECK(LAPI_Address_init(gasnetc_lapi_context,
 				     (void*)&gasnete_lapi_barrier_hh,
 				     gasnete_remote_barrier_hh));
@@ -217,9 +217,9 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
 	    gasnete_eopaddr_t addr = thread->eop_free;
 
 #if 0
-	    if (gasnete_mynode == 0)
+	    if (gasneti_mynode == 0)
 		for (i=0;i<256;i++) {                                   
-		    fprintf(stderr,"%i:  %i: next=%i\n",gasnete_mynode,i,buf[i].addr.eopidx);
+		    fprintf(stderr,"%i:  %i: next=%i\n",gasneti_mynode,i,buf[i].addr.eopidx);
 		    fflush(stderr);
 		}
 	    sleep(5);
@@ -1010,7 +1010,7 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src,
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnet_valget_handle_t retval;
     gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
-    gasnete_boundscheck(node, src, nbytes);
+    gasneti_boundscheck(node, src, nbytes);
     if (mythread->valget_free) {
 	retval = mythread->valget_free;
 	mythread->valget_free = retval->next;
@@ -1081,7 +1081,7 @@ static gasneti_stattime_t barrier_notifytime; /* for statistical purposes */
 #endif
 
 /*  global state on P0 */
-#define GASNETE_BARRIER_MASTER (gasnete_nodes-1)
+#define GASNETE_BARRIER_MASTER (gasneti_nodes-1)
 static gasneti_mutex_t barrier_lock = GASNETI_MUTEX_INITIALIZER;
 static int volatile barrier_consensus_value[2]; /*  consensus barrier value */
 static int volatile barrier_consensus_value_present[2] = { 0, 0 }; /*  consensus barrier value found */
@@ -1124,8 +1124,8 @@ void gasnete_lapi_barrier_ch(lapi_handle_t *context, void* user_info) {
 
     /* inform all nodes (except local node) that barrier is complete */
     gasneti_suspend_spinpollers();
-    for (i=0; i < gasnete_nodes; i++) {
-	if ( i == gasnete_mynode ) continue;
+    for (i=0; i < gasneti_nodes; i++) {
+	if ( i == gasneti_mynode ) continue;
 	GASNETC_LCHECK(LAPI_Amsend(*context, (unsigned int)i,
 				   gasnete_remote_barrier_hh[i],
 				   uhdr, sizeof(gasnete_barrier_uhdr_t), NULL, 0,
@@ -1140,7 +1140,7 @@ void gasnete_lapi_barrier_ch(lapi_handle_t *context, void* user_info) {
     #undef _GASNETE_BARRIER_COMPLETION
     #if GASNETE_BARRIER_USE_GFENCE
       { int cur_cntr = 0;          
-        GASNETC_WAITCNTR(&comp_cntr,gasnete_nodes-1,&cur_cntr);
+        GASNETC_WAITCNTR(&comp_cntr,gasneti_nodes-1,&cur_cntr);
         gasneti_assert(cur_cntr == 0);
       }
     #endif
@@ -1159,7 +1159,7 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
     #endif
 
     GASNETI_TRACE_PRINTF(B,("BARRIER_HH: node %d, notify %d, phase %d, value %d, wireflags %d, g_val %d, g_count %d",
-			    gasnete_mynode,is_notify,phase,value,GASNETE_WIREFLAGS_FLAGS(wf),
+			    gasneti_mynode,is_notify,phase,value,GASNETE_WIREFLAGS_FLAGS(wf),
 			    barrier_consensus_value[phase],barrier_count[phase]));
 
     *comp_h = NULL;
@@ -1167,7 +1167,7 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 
     if (is_notify) {
 	/* this is a notify header handler call */
-	gasneti_assert(gasnete_mynode == GASNETE_BARRIER_MASTER);
+	gasneti_assert(gasneti_mynode == GASNETE_BARRIER_MASTER);
 
       #if GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND
         gasneti_mutex_lock(&barrier_lock);
@@ -1197,7 +1197,7 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
           #if GASNETE_BARRIER_USE_GFENCE
             if (mismatch_firstdetect) {
           #else
-	    if (count == gasnete_nodes) {
+	    if (count == gasneti_nodes) {
           #endif
 		/* schedule completion handler to notify all nodes that barrier has been reached.
 		 * use a static uhdr to avoid allocation cost, phased to ensure race-freedom
@@ -1222,7 +1222,7 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 	        barrier_response_done[phase] = 1 | mismatch;
 
 		GASNETI_TRACE_PRINTF(B,("BARRIER_HH: REACHED %d, mismatch %d, SCHEDULING CH",
-					gasnete_nodes, 
+					gasneti_nodes, 
                                         GASNETE_WIREFLAGS_FLAGS(uch->wireflags)&GASNET_BARRIERFLAG_MISMATCH));
 	    }
 	}
@@ -1258,7 +1258,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
     barrier_value = id;
     barrier_flags = flags;
 
-    if (gasnete_nodes > 1) {
+    if (gasneti_nodes > 1) {
     #if GASNETE_BARRIER_USE_GFENCE
       if (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) ||
           (flags & GASNET_BARRIERFLAG_MISMATCH)) 
@@ -1277,7 +1277,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
          but this implies we need a lock in the header handler to ensure correctness
        */
     #if GASNETE_BARRIER_BYPASS_LOOPBACK_AMSEND
-      if (gasnete_mynode == GASNETE_BARRIER_MASTER) {
+      if (gasneti_mynode == GASNETE_BARRIER_MASTER) {
         static uint uhdrlen = sizeof(gasnete_barrier_uhdr_t);
         static ulong msglen = 0;
         compl_hndlr_t *comp_h = NULL;
@@ -1351,7 +1351,7 @@ extern int gasnete_barrier_wait(int id, int flags) {
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW()-wait_start);
 
     /* if this is the master node, reset the global state */
-    if (gasnete_mynode == GASNETE_BARRIER_MASTER) {
+    if (gasneti_mynode == GASNETE_BARRIER_MASTER) {
 	barrier_count[phase] = 0;
 	barrier_consensus_mismatch[phase] = 0;
 	barrier_consensus_value_present[phase] = 0;

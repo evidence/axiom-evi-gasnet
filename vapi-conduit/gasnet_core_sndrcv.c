@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/02/02 22:04:33 $
- * $Revision: 1.65 $
+ *     $Date: 2005/02/14 05:14:00 $
+ * $Revision: 1.66 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -141,7 +141,7 @@ static gasnetc_sema_t			gasnetc_cq_sema;
  (gasneti_assert(!((isreq) & ~1)),              \
   gasneti_assert(!((cat) & ~3)),                \
   gasneti_assert((nargs) <= GASNETC_MAX_ARGS),  \
-  gasneti_assert((srcidx) < gasnetc_nodes),     \
+  gasneti_assert((srcidx) < gasneti_nodes),     \
   (uint32_t)(  (((srcidx) & 0x3fff) << 16)      \
 	     | (((hand)   & 0xff  ) << 8 )      \
 	     | (((nargs)  & 0x1f  ) << 3 )      \
@@ -216,7 +216,7 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, int credit) {
   gasneti_assert(rbuf);
 
   /* check for attempted loopback traffic */
-  gasneti_assert(cep != &gasnetc_cep[gasnetc_mynode]);
+  gasneti_assert(cep != &gasnetc_cep[gasneti_mynode]);
   
   vstat = VAPI_post_rr(gasnetc_hca, cep->qp_handle, &rbuf->rr_desc);
   if (credit) {
@@ -298,7 +298,7 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
           GASNETI_TRACE_AMLONG_REQHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
         } else {
 	  #if !GASNETC_PIN_SEGMENT
-	    if (GASNETC_MSG_SRCIDX(flags) != gasnetc_mynode) {
+	    if (GASNETC_MSG_SRCIDX(flags) != gasneti_mynode) {
 	      /* No RDMA for ReplyLong.  So, must relocate the payload. */
 	      memcpy(data, GASNETC_MSG_LONG_DATA(buf, numargs), nbytes);
 	    }
@@ -417,10 +417,10 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 	break;	/* can't exit since we can be called in exit path */
       } else {
 #if 1 
-        fprintf(stderr, "@ %d> snd comp.status=%d comp.opcode=%d\n", gasnetc_mynode, comp.status, comp.opcode);
+        fprintf(stderr, "@ %d> snd comp.status=%d comp.opcode=%d\n", gasneti_mynode, comp.status, comp.opcode);
         while((vstat = VAPI_poll_cq(gasnetc_hca, gasnetc_rcv_cq, &comp)) == VAPI_OK) {
 	  if (comp.status != VAPI_WR_FLUSH_ERR) {
-            fprintf(stderr, "@ %d> - rcv comp.status=%d\n", gasnetc_mynode, comp.status);
+            fprintf(stderr, "@ %d> - rcv comp.status=%d\n", gasneti_mynode, comp.status);
 	  }
         }
 #endif
@@ -522,10 +522,10 @@ static int gasnetc_rcv_reap(int limit, gasnetc_rbuf_t **spare_p) {
 	break;	/* can't exit since we can be called in exit path */
       } else {
 #if 1
-        fprintf(stderr, "@ %d> rcv comp.status=%d\n", gasnetc_mynode, comp.status);
+        fprintf(stderr, "@ %d> rcv comp.status=%d\n", gasneti_mynode, comp.status);
         while((vstat = VAPI_poll_cq(gasnetc_hca, gasnetc_snd_cq, &comp)) == VAPI_OK) {
 	  if (comp.status != VAPI_WR_FLUSH_ERR) {
-            fprintf(stderr, "@ %d> - snd comp.status=%d\n", gasnetc_mynode, comp.status);
+            fprintf(stderr, "@ %d> - snd comp.status=%d\n", gasneti_mynode, comp.status);
 	  }
         }
 #endif
@@ -652,7 +652,7 @@ void gasnetc_snd_validate(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int cou
 
   gasneti_assert(sreq);
   gasneti_assert(sreq->cep);
-  gasneti_assert(sreq->cep != &gasnetc_cep[gasnetc_mynode]); /* detects loopback */
+  gasneti_assert(sreq->cep != &gasnetc_cep[gasneti_mynode]); /* detects loopback */
   gasneti_assert(sr_desc);
   gasneti_assert(count > 0);
   gasneti_assert(type);
@@ -939,7 +939,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
    * Thus we do any RDMA before getting credits.
    */
   if ((category == gasnetc_Long) && nbytes) {
-    if (dest == gasnetc_mynode) {
+    if (dest == gasneti_mynode) {
       memcpy(dst_addr, src_addr, nbytes);
     } else if (!GASNETC_PIN_SEGMENT && !isReq) {
       /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s).
@@ -955,7 +955,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
    * This way we can be sure that we never hold the last pinned buffer
    * while spinning on the rcv queue waiting for credits.
    */
-  if (isReq && (dest != gasnetc_mynode)) {
+  if (isReq && (dest != gasneti_mynode)) {
     gasnetc_sema_t *sema = &gasnetc_cep[dest].am_sema;
     GASNETC_STAT_EVENT(GET_AMREQ_CREDIT);
 
@@ -997,7 +997,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     args = buf->longmsg.args;
     buf->longmsg.destLoc = (uintptr_t)dst_addr;
     buf->longmsg.nBytes  = nbytes;
-    if (!GASNETC_PIN_SEGMENT && nbytes && (dest != gasnetc_mynode) && !isReq) {
+    if (!GASNETC_PIN_SEGMENT && nbytes && (dest != gasneti_mynode) && !isReq) {
       /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s) */
       memcpy(GASNETC_MSG_LONG_DATA(buf, numargs), src_addr, nbytes);
       msg_len = GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
@@ -1019,9 +1019,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   }
 
   /* generate flags */
-  flags = GASNETC_MSG_GENFLAGS(isReq, category, numargs, handler, gasnetc_mynode);
+  flags = GASNETC_MSG_GENFLAGS(isReq, category, numargs, handler, gasneti_mynode);
 
-  if (dest == gasnetc_mynode) {
+  if (dest == gasneti_mynode) {
     /* process loopback AM */
     gasnetc_rbuf_t	rbuf;
 
@@ -1335,15 +1335,15 @@ extern void gasnetc_sndrcv_init(void) {
   /*
    * setup RCV resources
    */
-  gasneti_assert(gasnetc_am_oust_pp * (gasnetc_nodes - 1) <= gasnetc_am_oust_limit);
-  count = (gasnetc_am_oust_pp * 2) * (gasnetc_nodes - 1) + gasnetc_am_spares;
+  gasneti_assert(gasnetc_am_oust_pp * (gasneti_nodes - 1) <= gasnetc_am_oust_limit);
+  count = (gasnetc_am_oust_pp * 2) * (gasneti_nodes - 1) + gasnetc_am_spares;
 
   /* create the RCV CQ */
   vstat = VAPI_create_cq(gasnetc_hca, count, &gasnetc_rcv_cq, &act_size);
   GASNETC_VAPI_CHECK(vstat, "from VAPI_create_cq(rcv_cq)");
   gasneti_assert(act_size >= count);
 
-  if (gasnetc_nodes > 1) {
+  if (gasneti_nodes > 1) {
     #if GASNETC_RCV_THREAD
       /* create the RCV thread */
       vstat = EVAPI_set_comp_eventh(gasnetc_hca, gasnetc_rcv_cq, &gasnetc_rcv_thread,
@@ -1386,7 +1386,7 @@ extern void gasnetc_sndrcv_init(void) {
   /*
    * setup SND resources
    */
-  count = MIN(gasnetc_op_oust_limit, gasnetc_op_oust_pp * (gasnetc_nodes - 1));
+  count = MIN(gasnetc_op_oust_limit, gasnetc_op_oust_pp * (gasneti_nodes - 1));
   gasnetc_op_oust_limit = count;
   gasnetc_sema_init(&gasnetc_cq_sema, count);
 
@@ -1396,7 +1396,7 @@ extern void gasnetc_sndrcv_init(void) {
   gasneti_assert(act_size >= count);
 
   /* Allocated pinned memory for bounce buffers */
-  count = MIN(gasnetc_bbuf_limit, gasnetc_op_oust_pp * gasnetc_nodes);
+  count = MIN(gasnetc_bbuf_limit, gasnetc_op_oust_pp * gasneti_nodes);
   gasnetc_bbuf_limit = count;
   buf = gasnetc_alloc_pinned(count * sizeof(gasnetc_buffer_t),
 			     VAPI_EN_LOCAL_WRITE, &gasnetc_snd_reg);
@@ -1421,12 +1421,12 @@ extern void gasnetc_sndrcv_init(void) {
 extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
   int i;
   
-  if (cep != &gasnetc_cep[gasnetc_mynode]) {
+  if (cep != &gasnetc_cep[gasneti_mynode]) {
     /* XXX:
      * Currently preposting one for each incomming request and one for
      * each possible reply.  Later hope to post the reply buffers on-demand.
      * That will allow us to run with
-     *   gasnetc_am_oust_limit < (gasnetc_nodes - 1)*gasnetc_am_oust_pp
+     *   gasnetc_am_oust_limit < (gasneti_nodes - 1)*gasnetc_am_oust_pp
      */
     for (i = 0; i < 2 * gasnetc_am_oust_pp; ++i) {
       gasnetc_rcv_post(cep, gasneti_freelist_get(&gasnetc_rbuf_freelist), 0);
@@ -1444,7 +1444,7 @@ extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
 extern void gasnetc_sndrcv_fini(void) {
   VAPI_ret_t vstat;
 
-  if (gasnetc_nodes > 1) {
+  if (gasneti_nodes > 1) {
     #if GASNETC_RCV_THREAD
       vstat = EVAPI_clear_comp_eventh(gasnetc_hca, gasnetc_rcv_handler);
       GASNETC_VAPI_CHECK(vstat, "from EVAPI_clear_comp_eventh()");
@@ -1471,7 +1471,7 @@ extern void gasnetc_sndrcv_fini(void) {
 extern void gasnetc_sndrcv_fini_cep(gasnetc_cep_t *cep) {
   VAPI_ret_t vstat;
 
-  if (cep != &gasnetc_cep[gasnetc_mynode]) {
+  if (cep != &gasnetc_cep[gasneti_mynode]) {
     vstat = VAPI_destroy_qp(gasnetc_hca, cep->qp_handle);
     GASNETC_VAPI_CHECK(vstat, "from VAPI_destroy_qp()");
   }
@@ -1965,7 +1965,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 
   sourceid = GASNETC_MSG_SRCIDX(flags);
 
-  gasneti_assert(sourceid < gasnetc_nodes);
+  gasneti_assert(sourceid < gasneti_nodes);
   *srcindex = sourceid;
   return GASNET_OK;
 }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2004/11/24 01:13:10 $
- * $Revision: 1.22 $
+ *     $Date: 2005/02/14 05:13:34 $
+ * $Revision: 1.23 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -446,7 +446,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
           desc->buf = buf;
         }
         else {
-          desc = gasnetc_tportGetTxBuf(dest != gasnetc_mynode);
+          desc = gasnetc_tportGetTxBuf(dest != gasneti_mynode);
           buf = desc->buf;
         }
         pargs = (gasnet_handlerarg_t *)(&(buf->medmsg)+1);
@@ -469,14 +469,14 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   }
   GASNETC_MSG_SETFLAGS(&(buf->msg), isReq, category, numargs);
   buf->msg.handlerId = handler;
-  buf->msg.sourceId = gasnetc_mynode;
+  buf->msg.sourceId = gasneti_mynode;
   { int i;
     for(i=0; i < numargs; i++) {
       pargs[i] = (gasnet_handlerarg_t)va_arg(argptr, int);
     }
   }
 
-  if (dest == gasnetc_mynode) {
+  if (dest == gasneti_mynode) {
     if (category == gasnetc_Long) memcpy(dest_ptr, source_addr, nbytes);
     gasnetc_processPacket(desc);
     if (desc != &_descbuf) {
@@ -531,7 +531,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
       }
       else {
         desc->event = elan_tportTxStart(TPORT(), 0, dest, 
-                                        gasnetc_mynode, 0, 
+                                        gasneti_mynode, 0, 
                                         &(buf->medmsg), msgsz);
       }
     UNLOCK_ELAN_WEAK();

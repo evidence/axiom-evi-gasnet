@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2005/02/12 11:29:19 $
- * $Revision: 1.45 $
+ *     $Date: 2005/02/14 05:13:36 $
+ * $Revision: 1.46 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -111,7 +111,7 @@ extern void gasnete_init() {
 
   gasnete_check_config(); /*  check for sanity */
 
-  gasneti_assert(gasnete_nodes >= 1 && gasnete_mynode < gasnete_nodes);
+  gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
 
   { gasnete_threaddata_t *threaddata = NULL;
     gasnete_eop_t *eop = NULL;
@@ -201,9 +201,9 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
       gasnete_eopaddr_t addr = thread->eop_free;
 
       #if 0
-      if (gasnete_mynode == 0)
+      if (gasneti_mynode == 0)
         for (i=0;i<256;i++) {                                   
-          fprintf(stderr,"%i:  %i: next=%i\n",gasnete_mynode,i,buf[i].addr.eopidx);
+          fprintf(stderr,"%i:  %i: next=%i\n",gasneti_mynode,i,buf[i].addr.eopidx);
           fflush(stderr);
         }
         sleep(5);
@@ -635,12 +635,12 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
     #if GASNETE_USE_LONG_GETS
-      /* TODO: optimize this check by caching segment upper-bound in gasnete_seginfo */
-      gasneti_memcheck(gasnete_seginfo);
-      if (dest >= gasnete_seginfo[gasnete_mynode].addr &&
+      /* TODO: optimize this check by caching segment upper-bound in gasneti_seginfo */
+      gasneti_memcheck(gasneti_seginfo);
+      if (dest >= gasneti_seginfo[gasneti_mynode].addr &&
          (((uintptr_t)dest) + nbytes) < 
-          (((uintptr_t)gasnete_seginfo[gasnete_mynode].addr) +
-                       gasnete_seginfo[gasnete_mynode].size)) {
+          (((uintptr_t)gasneti_seginfo[gasneti_mynode].addr) +
+                       gasneti_seginfo[gasneti_mynode].size)) {
         chunksz = gasnet_AMMaxLongReply();
         reqhandler = gasneti_handleridx(gasnete_getlong_reqh);
       }
@@ -866,7 +866,7 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnet_valget_handle_t retval;
   gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
-  gasnete_boundscheck(node, src, nbytes);
+  gasneti_boundscheck(node, src, nbytes);
   if (mythread->valget_free) {
     retval = mythread->valget_free;
     mythread->valget_free = retval->next;

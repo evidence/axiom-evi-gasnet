@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2005/02/12 11:29:33 $
- * $Revision: 1.5 $
+ *     $Date: 2005/02/14 05:13:52 $
+ * $Revision: 1.6 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,12 +78,12 @@ gasnete_init()
     int	    i;
 
     GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
-    gasneti_assert(gasnete_nodes == 0); /* we haven't been called before */
+    gasneti_assert(gasneti_nodes == 0); /* we haven't been called before */
 
     gasneti_assert(GASNETC_POW_2(GASNETE_MAX_HANDLES));
 
-    gasneti_assert(gasnete_nodes >= 1 && gasnete_mynode < gasnete_nodes);
-    gasnete_segment_base = (intptr_t) gasnete_seginfo[gasnete_mynode].addr;
+    gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
+    gasnete_segment_base = (intptr_t) gasneti_seginfo[gasneti_mynode].addr;
 
     for (i = 0; i < GASNETE_MAX_HANDLES; i++)
 	gasnete_handles[i] = GASNETE_HANDLE_DONE;
@@ -465,7 +465,7 @@ gasnete_barrier_notify(int id, int flags)
      * is in a failure, non-optimized code path.
      */
     if (flags & GASNET_BARRIERFLAG_MISMATCH) {
-	for (i=0; i < gasnete_nodes; i++) 
+	for (i=0; i < gasneti_nodes; i++) 
 	    *((int *)shmem_ptr(&barrier_mismatch[barrier_phase], i)) = 1;
     }
     else if (!(flags & GASNET_BARRIERFLAG_ANONYMOUS)) {
@@ -482,7 +482,7 @@ gasnete_barrier_notify(int id, int flags)
 	 * failure, non-optimized path.
 	 */
 	if_pf (curval != BARRIER_INITVAL && curval != id) {
-	    for (i=0; i < gasnete_nodes; i++)
+	    for (i=0; i < gasneti_nodes; i++)
 		*((int *)shmem_ptr(&barrier_mismatch[barrier_phase], i)) = 1;
 	}
     }
@@ -532,11 +532,11 @@ gasnete_barrier_wait(int id, int flags)
 	local_mismatch = 1;
     }
 
-    if (gasnete_mynode == 0) {
+    if (gasneti_mynode == 0) {
 	long volatile *not_ctr = &barrier_notify_ctr[barrier_phase];
 
 	/* Wait until all nodes have updated value */
-	GASNET_BLOCKUNTIL(*not_ctr == gasnete_nodes);
+	GASNET_BLOCKUNTIL(*not_ctr == gasneti_nodes);
 	*not_ctr = 0;
 
 	/*
@@ -549,7 +549,7 @@ gasnete_barrier_wait(int id, int flags)
 	    *done_ctr = 1;
 	#else
 	    //GASNETC_VECTORIZE
-	    for (i=0; i < gasnete_nodes; i++) 
+	    for (i=0; i < gasneti_nodes; i++) 
 		#ifdef CRAYX1
 		    *((long *) GASNETE_TRANSLATE_X1(done_ctr, i)) = 1;
 		#else

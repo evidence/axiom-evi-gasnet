@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/12 11:29:35 $
- * $Revision: 1.26 $
+ *     $Date: 2005/02/14 05:13:54 $
+ * $Revision: 1.27 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,11 +39,11 @@ static void gasnetc_check_config() {
 }
 
 void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
-  gasneti_assert(gasnetc_nodes == 1); /* trivial because we only have one node */
+  gasneti_assert(gasneti_nodes == 1); /* trivial because we only have one node */
   memmove(dest, src, len);
 }
 void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode) {
-  gasneti_assert(gasnetc_nodes == 1); /* trivial because we only have one node */
+  gasneti_assert(gasneti_nodes == 1); /* trivial because we only have one node */
   gasneti_assert(rootnode == 0);
   memmove(dest, src, len);
 }
@@ -57,7 +57,7 @@ static void gasnetc_bootstrapBarrier() {
      If your underlying spawning or batch system provides barrier functionality,
       that would probably be a good choice for this
    */
-  gasneti_assert(gasnetc_nodes == 1); /* trivial because we only have one node */
+  gasneti_assert(gasneti_nodes == 1); /* trivial because we only have one node */
 }
 
 static int gasnetc_init(int *argc, char ***argv) {
@@ -77,15 +77,15 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* add code here to bootstrap the nodes for your conduit */
 
-  gasnetc_mynode = 0;
-  gasnetc_nodes = 1;
+  gasneti_mynode = 0;
+  gasneti_nodes = 1;
 
   /* enable tracing */
   gasneti_trace_init(*argc, *argv);
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
-      gasnetc_mynode, gasnetc_nodes); fflush(stderr);
+      gasneti_mynode, gasneti_nodes); fflush(stderr);
   #endif
 
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
@@ -109,7 +109,7 @@ static int gasnetc_init(int *argc, char ***argv) {
        If your job system already always propagates environment variables to all the compute
         nodes, then you probably don't need this.
      */
-    gasneti_setupGlobalEnvironment(gasnetc_nodes, gasnetc_mynode, 
+    gasneti_setupGlobalEnvironment(gasneti_nodes, gasneti_mynode, 
                                    gasnetc_bootstrapExchange, gasnetc_bootstrapBroadcast);
   #endif
 
@@ -252,29 +252,29 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
 
-  gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasnetc_nodes*sizeof(gasnet_seginfo_t));
+  gasneti_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
 
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
-    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapExchange);
-    gasneti_assert(((uintptr_t)gasnetc_seginfo[gasnetc_mynode].addr) % GASNET_PAGESIZE == 0);
-    gasneti_assert(gasnetc_seginfo[gasnetc_mynode].size % GASNET_PAGESIZE == 0);
+    gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasnetc_bootstrapExchange);
+    gasneti_assert(((uintptr_t)gasneti_seginfo[gasneti_mynode].addr) % GASNET_PAGESIZE == 0);
+    gasneti_assert(gasneti_seginfo[gasneti_mynode].size % GASNET_PAGESIZE == 0);
   #else
     /* GASNET_SEGMENT_EVERYTHING */
     { int i;
-      for (i=0;i<gasnetc_nodes;i++) {
-        gasnetc_seginfo[i].addr = (void *)0;
-        gasnetc_seginfo[i].size = (uintptr_t)-1;
+      for (i=0;i<gasneti_nodes;i++) {
+        gasneti_seginfo[i].addr = (void *)0;
+        gasneti_seginfo[i].size = (uintptr_t)-1;
       }
     }
   #endif
-  segbase = gasnetc_seginfo[gasnetc_mynode].addr;
-  segsize = gasnetc_seginfo[gasnetc_mynode].size;
+  segbase = gasneti_seginfo[gasneti_mynode].addr;
+  segsize = gasneti_seginfo[gasneti_mynode].size;
 
   /* ------------------------------------------------------------------------------------ */
   /*  gather segment information */
 
   /*  add code here to gather the segment assignment info into 
-           gasnetc_seginfo on each node (may be possible to use AMShortRequest here)
+           gasneti_seginfo on each node (may be possible to use AMShortRequest here)
    */
 
   /* ------------------------------------------------------------------------------------ */
@@ -284,13 +284,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
 
-  gasneti_assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
-         gasnetc_seginfo[gasnetc_mynode].size == segsize);
+  gasneti_assert(gasneti_seginfo[gasneti_mynode].addr == segbase &&
+         gasneti_seginfo[gasneti_mynode].size == segsize);
 
   #if GASNET_ALIGNED_SEGMENTS == 1
     { int i; /*  check that segments are aligned */
-      for (i=0; i < gasnetc_nodes; i++) {
-        if (gasnetc_seginfo[i].size != 0 && gasnetc_seginfo[i].addr != segbase) 
+      for (i=0; i < gasneti_nodes; i++) {
+        if (gasneti_seginfo[i].size != 0 && gasneti_seginfo[i].addr != segbase) 
           gasneti_fatalerror("Failed to acquire aligned segments for GASNET_ALIGNED_SEGMENTS");
       }
     }
@@ -345,7 +345,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   /* add code here to write the source index into sourceid */
   sourceid = 0;
 
-  gasneti_assert(sourceid < gasnetc_nodes);
+  gasneti_assert(sourceid < gasneti_nodes);
   *srcindex = sourceid;
   return GASNET_OK;
 }
@@ -377,7 +377,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   gasnetc_bufdesc_t *desc = &_descbuf;
   gasnet_handlerarg_t pargs[GASNETC_MAX_ARGS];
 
-  gasneti_assert(dest == gasnetc_mynode);
+  gasneti_assert(dest == gasneti_mynode);
   gasneti_assert(numargs >= 0 && numargs <= GASNETC_MAX_ARGS);
 
   { int i;
@@ -476,7 +476,7 @@ extern int gasnetc_AMRequestShortM(
   int retval;
   va_list argptr;
   GASNETI_CHECKATTACH();
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
@@ -498,7 +498,7 @@ extern int gasnetc_AMRequestMediumM(
   int retval;
   va_list argptr;
   GASNETI_CHECKATTACH();
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
   GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
@@ -522,13 +522,13 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   va_list argptr;
   GASNETI_CHECKATTACH();
   
-  gasnetc_boundscheck(dest, dest_addr, nbytes);
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  gasneti_boundscheck(dest, dest_addr, nbytes);
+  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
+  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasneti_seginfo[dest].addr) ||
          ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
+           ((uintptr_t)gasneti_seginfo[dest].addr) + gasneti_seginfo[dest].size) 
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
   GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
@@ -552,13 +552,13 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
   va_list argptr;
   GASNETI_CHECKATTACH();
   
-  gasnetc_boundscheck(dest, dest_addr, nbytes);
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  gasneti_boundscheck(dest, dest_addr, nbytes);
+  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
+  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasneti_seginfo[dest].addr) ||
          ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
+           ((uintptr_t)gasneti_seginfo[dest].addr) + gasneti_seginfo[dest].size) 
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
   GASNETI_TRACE_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
@@ -625,13 +625,13 @@ extern int gasnetc_AMReplyLongM(
   
   retval = gasnet_AMGetMsgSource(token, &dest);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasnetc_boundscheck(dest, dest_addr, nbytes);
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  gasneti_boundscheck(dest, dest_addr, nbytes);
+  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   if_pf (nbytes > gasnet_AMMaxLongReply()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasnetc_seginfo[dest].addr) ||
+  if_pf (((uintptr_t)dest_addr) < ((uintptr_t)gasneti_seginfo[dest].addr) ||
          ((uintptr_t)dest_addr) + nbytes > 
-           ((uintptr_t)gasnetc_seginfo[dest].addr) + gasnetc_seginfo[dest].size) 
+           ((uintptr_t)gasneti_seginfo[dest].addr) + gasneti_seginfo[dest].size) 
          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
   GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2005/02/12 11:29:19 $
- * $Revision: 1.24 $
+ *     $Date: 2005/02/14 05:13:36 $
+ * $Revision: 1.25 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,7 +44,7 @@ BEGIN_EXTERNC
 #elif defined(GASNETE_PUTGET_ALWAYSREMOTE)
   #define gasnete_islocal(nodeid) (0) /* always remote */
 #else
-  #define gasnete_islocal(nodeid) (nodeid == gasnete_mynode)
+  #define gasnete_islocal(nodeid) (nodeid == gasneti_mynode)
 #endif
 
 /* ------------------------------------------------------------------------------------ */

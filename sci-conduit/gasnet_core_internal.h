@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/02/12 11:29:31 $
- * $Revision: 1.6 $
+ *     $Date: 2005/02/14 05:13:50 $
+ * $Revision: 1.7 $
  * Description: GASNet sci conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -89,7 +89,7 @@ typedef void (*gasnetc_handler_mediumlong)(gasnet_token_t token, void *buf, size
    fncall;                                                                \
    if_pf (error != SCI_ERR_OK)                                            \
       gasneti_fatalerror ("(%d) %s failed at %s:%i - Error code: 0x%x\n", \
-       gasnetc_mynode, #fncall, __FILE__, __LINE__, error);               \
+       gasneti_mynode, #fncall, __FILE__, __LINE__, error);               \
  } while (0)
 
 /* ------------------------------------------------------------------------------------ */
@@ -168,7 +168,7 @@ void gasnetc_sci_call_exit(unsigned int sig);
 
 /*  BARRIER FUNCTION */
 /*  Creates a temporary segment and connects to all other nodes' */
-/*  temp segment, writes a 1 in their segment at index:gasnetc_mynode, */
+/*  temp segment, writes a 1 in their segment at index:gasneti_mynode, */
 /*  then waits until everybody has written a 1 into all of our index spots */
 /*  destroys the segment and continues. */
 void gasnetc_sci_internal_Barrier();
@@ -232,22 +232,22 @@ sci_map_t gasnetc_rs_get_rmap (gasnet_node_t RemoteID)
 GASNET_INLINE_MODIFIER(gasnetc_rs_get_offset)
 int gasnetc_rs_get_offset (gasnet_node_t RemoteID, void * dest_addr)
 {
-        void * dest_base_addr = gasnetc_seginfo[RemoteID].addr;
+        void * dest_base_addr = gasneti_seginfo[RemoteID].addr;
         if (dest_addr >= dest_base_addr)
         {
             int offset = (int) (((uint8_t *) dest_addr) - ((uint8_t *) dest_base_addr));
-            if ((offset >= 0) && (offset <= gasnetc_seginfo[RemoteID].size))
+            if ((offset >= 0) && (offset <= gasneti_seginfo[RemoteID].size))
             {
                     return offset;
             }
             else
             {
-                   gasneti_fatalerror ("(%d) request addr of %p is out of range from the base addr %p at node %d (size = %d)", gasnetc_mynode, dest_addr, dest_base_addr, RemoteID, gasnetc_seginfo[RemoteID].size);
+                   gasneti_fatalerror ("(%d) request addr of %p is out of range from the base addr %p at node %d (size = %d)", gasneti_mynode, dest_addr, dest_base_addr, RemoteID, gasneti_seginfo[RemoteID].size);
             }
         }
         else
         {
-            gasneti_fatalerror ("(%d) request addr of %p is smaller than the base addr %p at node %d", gasnetc_mynode, dest_addr, dest_base_addr, RemoteID);
+            gasneti_fatalerror ("(%d) request addr of %p is smaller than the base addr %p at node %d", gasneti_mynode, dest_addr, dest_base_addr, RemoteID);
         }
 }
 
@@ -268,17 +268,17 @@ bool gasnetc_mls_status (gasnet_node_t RemoteID, uint8_t msg_number)
 GASNET_INLINE_MODIFIER(gasnetc_mls_set)
 void gasnetc_mls_set (gasnet_node_t RemoteID, uint8_t msg_number)
 {
-        if (RemoteID >= gasnetc_nodes)
+        if (RemoteID >= gasneti_nodes)
         {
-            gasneti_fatalerror ("Error: node %d trying to send to node %d outside of system\n", gasnetc_mynode, RemoteID);
+            gasneti_fatalerror ("Error: node %d trying to send to node %d outside of system\n", gasneti_mynode, RemoteID);
         }
         if (msg_number >= GASNETC_SCI_MAX_REQUEST_MSG * 2)
         {
-            gasneti_fatalerror ("Error: node %d trying to use mailbox %d, which is not allow\n", gasnetc_mynode, msg_number);
+            gasneti_fatalerror ("Error: node %d trying to use mailbox %d, which is not allow\n", gasneti_mynode, msg_number);
         }
         if (gasnetc_sci_msg_loc_status[RemoteID * GASNETC_SCI_MAX_REQUEST_MSG * 2 + msg_number] == GASNETC_SCI_TRUE)
         {
-            gasneti_fatalerror ("Error: node %d Attempt to set a msg location that is already set\n", gasnetc_mynode);
+            gasneti_fatalerror ("Error: node %d Attempt to set a msg location that is already set\n", gasneti_mynode);
         }
         else
         {
@@ -310,14 +310,14 @@ void * gasnetc_ht_get_handler (gasnet_handler_t input)
 GASNET_INLINE_MODIFIER(gasnetc_msg_exist_flag_status)
 bool gasnetc_msg_exist_flag_status ()
 {
-        return gasnetc_sci_msg_flag[gasnetc_nodes * GASNETC_SCI_MAX_REQUEST_MSG * 2];
+        return gasnetc_sci_msg_flag[gasneti_nodes * GASNETC_SCI_MAX_REQUEST_MSG * 2];
 }
 
 /*  set the message existense flag to FALSE */
 GASNET_INLINE_MODIFIER(gasnetc_msg_exist_flag_release)
 void gasnetc_msg_exist_flag_release ()
 {
-        gasnetc_sci_msg_flag[gasnetc_nodes * GASNETC_SCI_MAX_REQUEST_MSG * 2] = GASNETC_SCI_FALSE;
+        gasnetc_sci_msg_flag[gasneti_nodes * GASNETC_SCI_MAX_REQUEST_MSG * 2] = GASNETC_SCI_FALSE;
 }
 
 /*  return the status of msg_flag */
@@ -436,7 +436,7 @@ int gasnetc_get_header_size (uint8_t AM_type, int num_arg)
               case GASNETC_SCI_SHORT:
               case GASNETC_SCI_MEDIUM:  return (8 + num_arg * (sizeof(gasnet_handlerarg_t)));
               case GASNETC_SCI_LONG:    return (8 + sizeof(void *) + num_arg * (sizeof(gasnet_handlerarg_t)));
-              default:                  gasneti_fatalerror("(%d) bad type input to calculate header_size", gasnetc_mynode);
+              default:                  gasneti_fatalerror("(%d) bad type input to calculate header_size", gasneti_mynode);
         }
 }
 

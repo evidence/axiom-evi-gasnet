@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
- *     $Date: 2004/08/26 04:53:34 $
- * $Revision: 1.6 $
+ *     $Date: 2005/02/14 05:13:36 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -354,7 +354,7 @@ void gasnete_strided_stats(gasnete_strided_stats_t *result,
     size_t _i;                                                      \
     for (_i=0; _i < _count; _i++) {                                 \
       if (_list[_i].len > 0)                                        \
-        gasnete_boundscheck(__node, _list[_i].addr, _list[_i].len); \
+        gasneti_boundscheck(__node, _list[_i].addr, _list[_i].len); \
     }                                                               \
   } while (0)
 
@@ -397,7 +397,7 @@ void gasnete_strided_stats(gasnete_strided_stats_t *result,
     size_t _i;                                                      \
     if_pt (_len > 0) {                                              \
       for (_i=0; _i < _count; _i++) {                               \
-        gasnete_boundscheck(__node, _list[_i], _len);               \
+        gasneti_boundscheck(__node, _list[_i], _len);               \
       }                                                             \
     }                                                               \
   } while (0)
@@ -442,7 +442,7 @@ void gasnete_strided_stats(gasnete_strided_stats_t *result,
   #define gasnete_boundscheck_strided(node, addr, strides, count, stridelevels) do { \
     size_t _stridelevels = (stridelevels);                                           \
     if_pt (!gasnete_strided_empty((count), _stridelevels)) {                          \
-      gasnete_boundscheck((node), (addr),                                            \
+      gasneti_boundscheck((node), (addr),                                            \
         gasnete_strided_extent((strides),(count),_stridelevels));                    \
     }                                                                                \
   } while (0)

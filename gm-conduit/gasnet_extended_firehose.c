@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2004/10/12 22:59:40 $
- * $Revision: 1.45 $
+ * $Date: 2005/02/14 05:13:38 $
+ * $Revision: 1.46 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -74,10 +74,10 @@ gasnete_fh_request_get_fn(void *op, const firehose_request_t *req, int loc)
 
 
 #define gasnete_in_segment(node,ptr,len)					\
-		(!((uintptr_t)(ptr) < (uintptr_t)gasnetc_seginfo[(node)].addr	\
+		(!((uintptr_t)(ptr) < (uintptr_t)gasneti_seginfo[(node)].addr	\
 		    || ((uintptr_t)(ptr) + (len)) > 				\
-		    ((uintptr_t)gasnetc_seginfo[(node)].addr + 			\
-		    gasnetc_seginfo[(node)].size)))
+		    ((uintptr_t)gasneti_seginfo[(node)].addr + 			\
+		    gasneti_seginfo[(node)].size)))
 
 extern
 int 
@@ -128,7 +128,7 @@ gasnete_fh_callback_put(struct gm_port *p, void *context,
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	gasneti_assert(pop != NULL);
-	gasneti_assert(node != gasnete_mynode && node < gasnete_nodes);
+	gasneti_assert(node != gasneti_mynode && node < gasneti_nodes);
 
 	if_pf (status != GM_SUCCESS)
 	    gasnetc_callback_error(status, NULL);
@@ -189,7 +189,7 @@ gasnete_fh_request_put(void *_pop, const firehose_request_t *req,
 	gasneti_assert(pop != NULL);
 	gasneti_assert(pop->src > 0 && pop->dest > 0);
 	node = pop->node;
-	gasneti_assert(node != gasnete_mynode && node < gasnete_nodes);
+	gasneti_assert(node != gasneti_mynode && node < gasneti_nodes);
 	gasneti_assert(pop->len > 0);
 	gasneti_assert(req == &(pop->req_remote));
 
@@ -448,7 +448,7 @@ gasnete_fh_callback_get_rdma(struct gm_port *p, void *context,
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	gasneti_assert(gop != NULL);
-	gasneti_assert(gop->node!=gasnete_mynode && gop->node < gasnete_nodes);
+	gasneti_assert(gop->node!=gasneti_mynode && gop->node < gasneti_nodes);
 
 	if_pf (status != GM_SUCCESS)
 	    gasnetc_callback_error(status, NULL);
@@ -474,7 +474,7 @@ gasnete_fh_request_get_rdma(void *_gop, const firehose_request_t *req,
 	gasneti_assert(gop != NULL);
 	gasneti_assert(gop->src > 0 && gop->dest > 0);
 	node = gop->node;
-	gasneti_assert(node != gasnete_mynode && node < gasnete_nodes);
+	gasneti_assert(node != gasneti_mynode && node < gasneti_nodes);
 	gasneti_assert(gop->len > 0);
 
 	/* If the get callback hit the firehose cache (allLocalHit > 0), we can
@@ -562,7 +562,7 @@ gasnete_fh_request_get_am(void *_gop, const firehose_request_t *req, int allLoca
 
 	gasneti_assert(gop != NULL);
 	gasneti_assert(gop->src != 0 && gop->dest != 0);
-	gasneti_assert(gop->node != gasnete_mynode && gop->node < gasnete_nodes);
+	gasneti_assert(gop->node != gasneti_mynode && gop->node < gasneti_nodes);
 
 	/* If the remote pages are known to be pinned, send a request for RDMA
 	 * */
@@ -644,7 +644,7 @@ extern gasnet_handle_t
 gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, 
 		     size_t nbytes GASNETE_THREAD_FARG)
 {
-	gasnete_boundscheck(node, src, nbytes);
+	gasneti_boundscheck(node, src, nbytes);
 
 	GASNETI_TRACE_PRINTF(C, 
 	    ("gasnete_get_nb_bulk Firehose (%p <- %d,%p @ %d bytes)",
@@ -661,7 +661,7 @@ gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
 	gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
 	gasnete_iop_t *iop = mythread->current_iop;
 
-	gasnete_boundscheck(node, src, nbytes);
+	gasneti_boundscheck(node, src, nbytes);
 
 	GASNETI_TRACE_PRINTF(C, 
 	    ("gasnete_get_nb_bulk Firehose (%p <- %d,%p @ %d bytes)",

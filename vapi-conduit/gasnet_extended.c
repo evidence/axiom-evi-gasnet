@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/02/12 11:29:43 $
- * $Revision: 1.28 $
+ *     $Date: 2005/02/14 05:14:00 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -145,9 +145,9 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
       gasnete_eopaddr_t addr = thread->eop_free;
 
       #if 0
-      if (gasnete_mynode == 0)
+      if (gasneti_mynode == 0)
         for (i=0;i<256;i++) {                                   
-          fprintf(stderr,"%i:  %i: next=%i\n",gasnete_mynode,i,buf[i].addr.eopidx);
+          fprintf(stderr,"%i:  %i: next=%i\n",gasneti_mynode,i,buf[i].addr.eopidx);
           fflush(stderr);
         }
         sleep(5);
@@ -324,7 +324,7 @@ extern void gasnete_init() {
 
   gasnete_check_config(); /*  check for sanity */
 
-  gasneti_assert(gasnete_nodes >= 1 && gasnete_mynode < gasnete_nodes);
+  gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
 
   { gasnete_threaddata_t *threaddata = NULL;
     #if GASNETI_CLIENT_THREADS
@@ -382,7 +382,7 @@ void gasnete_getlong_reqh_inner(gasnet_token_t token,
 
   rc = gasnet_AMGetMsgSource(token, &node);
   gasneti_assert(rc != 0);
-  gasneti_assert(node != gasnete_mynode);	/* loopback gets should not reach here */
+  gasneti_assert(node != gasneti_mynode);	/* loopback gets should not reach here */
 
   /* This is more-or-less a AMReplyLongAsync, except that the reply handler
    * doesn't get the "nbytes" and "addr" (they are not needed in this case).
@@ -731,7 +731,7 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnet_valget_handle_t retval;
   gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
-  gasnete_boundscheck(node, src, nbytes);
+  gasneti_boundscheck(node, src, nbytes);
   if (mythread->valget_free) {
     retval = mythread->valget_free;
     mythread->valget_free = retval->next;
