@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/09/22 23:14:10 $
-# $Revision: 1.188 $
+#     $Date: 2004/09/23 21:29:26 $
+# $Revision: 1.189 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.188 $)
+AC_REVISION($Revision: 1.189 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -959,8 +959,8 @@ if test $enabled_mpi = yes; then
     LDFLAGS="$OLDLDFLAGS"
     LIBS="$OLDLIBS"
     if test "$mpi_debug_optimized" = no; then
-      AC_MSG_RESULT([work around])
-      MPI_CFLAGS="$CFLAGS -DGASNET_ALLOW_OPTIMIZED_DEBUG"
+      AC_MSG_RESULT([conflict])
+      AC_MSG_ERROR([User requested --enable-debug but mpicc has enabled optimization (-O) or disabled assertions (-DNDEBUG).  Try setting MPI_CC="$MPI_CC -O0 -UNDEBUG" (capital-Oh, zero), or using --disable-mpi])
     else
       AC_MSG_RESULT([ok])
     fi
