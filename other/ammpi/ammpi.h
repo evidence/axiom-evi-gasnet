@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/06/20 17:36:22 $
- * $Revision: 1.10 $
+ *     $Date: 2003/06/24 18:00:56 $
+ * $Revision: 1.11 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -71,6 +71,11 @@
   #endif
 #else
   #include <inttypes.h>
+#endif
+#if defined(HPUX) && defined(__STDC_32_MODE__)
+  /* HPUX inttypes.h stupidly omits these in some cases */
+  typedef          long long  int64_t;
+  typedef unsigned long long uint64_t;
 #endif
 #endif
 

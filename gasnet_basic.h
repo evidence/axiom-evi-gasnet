@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2003/06/20 17:36:21 $
- * $Revision: 1.17 $
+ *     $Date: 2003/06/24 18:00:54 $
+ * $Revision: 1.18 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -134,8 +134,8 @@
     #error Cannot find a integral pointer-sized type for your platform
   #endif  
 #endif
-#ifdef HPUX
-  /* HPUX inttypes.h stupidly omits these */
+#if defined(HPUX) && defined(__STDC_32_MODE__)
+  /* HPUX inttypes.h stupidly omits these in some cases */
   typedef          long long  int64_t;
   typedef unsigned long long uint64_t;
 #endif
