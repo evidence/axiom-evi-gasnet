@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2002/10/28 06:06:24 $
- * $Revision: 1.6 $
+ *     $Date: 2002/11/03 15:48:10 $
+ * $Revision: 1.7 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -16,6 +16,13 @@
 /* ------------------------------------------------------------------------------------ */
 /*  reasonable upper-bound on L2 cache line size (don't make this too big) */
 #define GASNETE_CACHE_LINE_BYTES  (128)
+#if defined(TRACE) || defined(STATS)
+  #define GASNETC_FIREHOSE_TRACE
+  typedef
+  enum gasnetc_fh_stats { 
+	fh_none, fh_onesided, fh_one, fh_many
+  } gasnetc_fh_stats_t;
+#endif
 
 typedef uint8_t gasnete_threadidx_t;
 
@@ -50,11 +57,9 @@ typedef struct _gasnete_eop_t {
 	uint32_t		len;
 	struct _gasnete_iop_t	*iop;
 	struct _gasnete_eop_t	*next;		/* when used in FIFO */
-	#if defined(TRACE) || defined(STATS)
+	#ifdef GASNETC_FIREHOSE_TRACE
+	gasnetc_fh_stats_t	fh_stats;
 	gasneti_stattime_t	starttime;
-	#ifdef GASNETC_FIREHOSE
-	int			fh_num;
-	#endif
 	#endif
 
 	gasnete_eopaddr_t	addr;      /*  next cell while in free list, 
