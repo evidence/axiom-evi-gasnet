@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/03/15 01:27:18 $
- * $Revision: 1.69 $
+ *     $Date: 2005/03/21 10:31:35 $
+ * $Revision: 1.70 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -77,7 +77,7 @@ extern void gasneti_check_config_postattach();
   extern void _gasneti_free(void *ptr, const char *curloc);
   extern void *_gasneti_realloc(void *ptr, size_t sz, const char *curloc);
   extern void *_gasneti_calloc(size_t N, size_t S, const char *curloc) __attribute__((__malloc__));
-  extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int isfree);
+  extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int checktype);
 #else
   #ifdef __GNUC__
     /* provide gcc with additional information about the aliasing qualities

@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.52 $
+$Revision: 1.53 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -176,6 +176,9 @@ although we generally recommend the vendor C compiler for performance reasons.
 Recognized Environment Variables
 ================================
 
+* GASNET_VERBOSEENV: set to 1 to output information about environment variable settings
+ read by the conduit that affect conduit behavior.
+
 * GASNET_FREEZE: set to 1 to make GASNet pause and wait for a debugger to attach on
  startup
 
@@ -183,24 +186,11 @@ Recognized Environment Variables
   GASNET_TRACEFLUSH, GASNET_TRACELOCAL: control tracing & statistical features, 
  if enabled at configure time.  See usage information below.
 
-* GASNET_VERBOSEENV: output information about environment variable settings
- read by the conduit that affect conduit behavior.
-
-* GASNET_MALLOC_EXTRACHECK: in GASNET_DEBUG mode, set to 1 to enable
- extra-paranoid checking for memory corruption (at a cost in performance)
-
-* GASNET_MALLOC_INIT: When set to a value between 0 and 255 in GASNET_DEBUG
- mode, every byte of allocated memory is initialized to that value. This can be
- useful for detecting use of uninitialized data.
-
-* GASNET_MALLOC_CLOBBER: When set to a value between 0 and 255 in GASNET_DEBUG
- mode, every byte of freed memory is overwritten with that value. This can be
- useful for detecting use of freed data.
-
-* GASNET_MALLOC_LEAKALL:  in GASNET_DEBUG mode, set to 1 to leak all freed
- objects, ensuring they are not re-allocated during subsequent mallocs.
+* GASNET_MALLOC_* : control the GASNet debug malloc features, if enabled at configure time.
+ See usage information below.
 
 * see conduit-specific documentation in conduit directories for more settings
+
 
 GASNet tracing & statistical collection
 =======================================
@@ -260,6 +250,57 @@ Optional environment variable settings:
    or suppressed (they are included by default). This can be used to reduce 
    tracing overhead and trace file size for clients with a large number of 
    local put/get operations which are not of interest.
+
+GASNet debug malloc services
+============================
+
+GASNet includes a debug malloc implementation that can be used to find local
+heap corruption bugs in GASNet itself and also in GASNet client applications
+(notably Berkeley UPC). To use, configure with --enable-debug, and run your
+program as usual.  GASNet will regularly scan the heap for corruption at malloc
+events and AMPoll's and report any detected problems.  If you're a GASNet
+client writer, you should see the gasnett_debug_malloc functions in
+gasnet_tools.h to tie your applications into the GASNet debug malloc services.
+
+Note the debug malloc implementation imposes some CPU and memory consumption
+overhead relative to the system malloc implementation (it's implemented as a
+thin wrapper around the system malloc).  This means heap behavior is likely to
+be somewhat perturbed relative to GASNET_NDEBUG mode operation, however the
+overhead is probably less than it would be with third-party heap corruption
+tools such as efence or purify (at some cost in lost precision).
+
+Optional environment variable settings (recognized only in GASNET_DEBUG mode):
+
+GASNET_MALLOC_INIT: When set to 1, every byte of allocated memory is
+ initialized to the value specified by GASNET_MALLOC_INITVAL. This can be useful
+ for detecting use of uninitialized data.
+
+GASNET_MALLOC_CLOBBER: When set to 1, every byte of freed memory is overwritten
+ with the value specified by GASNET_MALLOC_CLOBBERVAL. This can be useful for
+ detecting inadvertant use of freed data.
+
+GASNET_MALLOC_INITVAL, GASNET_MALLOC_CLOBBERVAL: The data value to use for
+ allocation init or free clobberring, respectively. The value may be specified
+ as a decimal integer matching the pattern: "-?[0-9]+" or a hexidecimal integer
+ matching the pattern: "0x[0-9A-F]+".  If the value is between 0 and 255
+ (inclusive) it is taken to be an 8-bit value which is used to overwrite every
+ byte in the given region. Otherwise, it is taken to be a 64-bit value which is
+ used to overwrite the given region in 8-byte chunks.  The value may also be one
+ of "NAN", "sNAN" or "qNAN", which select a double-precision signalling or quiet
+ NAN, which is likely to propagate through floating point calculations and cause
+ segmentation faults when used as a pointer. Both values default to "NAN". 
+
+GASNET_MALLOC_LEAKALL: set to 1 to leak all freed objects, ensuring they are
+ not re-allocated during subsequent mallocs. This has an obvious cost in memory
+ consumption, but can be helpful for tracking bugs in conjunction with
+ GASNET_MALLOC_CLOBBER for tracking usage of dead objects.
+
+GASNET_MALLOC_SCANFREED: set to 1 to enable scanning of freed objects, to
+ detect write-after-free errors. This option implies GASNET_MALLOC_LEAKALL and
+ GASNET_MALLOC_CLOBBER.
+
+GASNET_MALLOC_EXTRACHECK: set to 1 to enable more frequent checking for memory
+ corruption (at a cost in performance)
 
 GASNet Design Information
 =========================

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/03/15 01:27:18 $
- * $Revision: 1.49 $
+ *     $Date: 2005/03/21 10:31:35 $
+ * $Revision: 1.50 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,15 +57,22 @@ extern void gasneti_setenv(const char *key, const char *value);
 extern void gasneti_unsetenv(const char *key);
 
 typedef struct { 
-  uintptr_t used_bytes;
-  uintptr_t num_objects;
+  uint64_t allocated_bytes;   /* num bytes ever allocated */
+  uint64_t freed_bytes;       /* num bytes ever freed */
+  uint64_t live_bytes;        /* num bytes currently allocated */
+  uint64_t live_bytes_max;    /* max num bytes live at any given time */
+  uint64_t allocated_objects; /* num objects ever allocated */
+  uint64_t freed_objects;     /* num objects ever freed */
+  uint64_t live_objects;      /* num objects currently allocated */
+  uint64_t live_objects_max;  /* max num objects live at any given time */
+  uint64_t overhead_bytes;    /* num bytes consumed by allocator overhead (lower bound) */
 } gasneti_heapstats_t;
 
 #if GASNET_DEBUG
   #define GASNETI_CURLOCFARG , const char *curloc
   #define GASNETI_CURLOCAARG , __FILE__ ":" _STRINGIFY(__LINE__)
   #define GASNETI_CURLOCPARG , curloc
-  extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int isfree);
+  extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int checktype);
   extern void _gasneti_memcheck_one(const char *curloc);
   extern void _gasneti_memcheck_all(const char *curloc);
   #define gasneti_memcheck(ptr)  (gasneti_assert(ptr != NULL), \

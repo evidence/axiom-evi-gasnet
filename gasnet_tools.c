@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/03/21 03:29:35 $
- * $Revision: 1.99 $
+ *     $Date: 2005/03/21 10:31:35 $
+ * $Revision: 1.100 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1144,9 +1144,10 @@ static FILE *gasneti_open_outputfile(const char *filename, const char *desc) {
 }
 
 extern void gasneti_trace_init(int argc, char **argv) {
+  gasneti_free(gasneti_malloc(1)); /* touch the malloc system to ensure it's intialized */
 
-  #if GASNETI_STATS_OR_TRACE
-  const char *tracetypes = NULL;
+ #if GASNETI_STATS_OR_TRACE
+{ const char *tracetypes = NULL;
   const char *statstypes = NULL;
 
   starttime = GASNETI_STATTIME_NOW();
@@ -1259,7 +1260,7 @@ extern void gasneti_trace_init(int argc, char **argv) {
     memset(gasneti_tracetypes, 0, 256);
   if (!gasneti_statsfile && !gasneti_tracefile)
     memset(gasneti_statstypes, 0, 256);
-
+  }
   #endif
 }
 
@@ -1507,14 +1508,23 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
     uint64_t datasz;
     uint64_t beginpost;
   } gasneti_memalloc_desc_t;
-  static uint64_t gasneti_memalloc_cnt = 0;
-  static uint64_t gasneti_memalloc_objects = 0;
-  static size_t   gasneti_memalloc_maxbytes = 0;
-  static uintptr_t gasneti_memalloc_maxloc = 0;
+  static uint64_t gasneti_memalloc_allocatedbytes = 0;   /* num bytes ever allocated */
+  static uint64_t gasneti_memalloc_freedbytes = 0;       /* num bytes ever freed */
+  static uint64_t gasneti_memalloc_allocatedobjects = 0; /* num objects ever allocated */
+  static uint64_t gasneti_memalloc_freedobjects = 0;     /* num objects ever freed */
+  static uint64_t gasneti_memalloc_ringobjects = 0;      /* num objects in the ring */
+  static uint64_t gasneti_memalloc_ringbytes = 0;        /* num bytes in the ring */
+  static size_t   gasneti_memalloc_maxobjectsize = 0;    /* max object size ever allocated */
+  static uintptr_t gasneti_memalloc_maxobjectloc = 0;    /* max address ever allocated */
+  static uint64_t gasneti_memalloc_maxlivebytes = 0;     /* max num bytes live at any given time */
+  static uint64_t gasneti_memalloc_maxliveobjects = 0;   /* max num bytes live at any given time */
   static int gasneti_memalloc_extracheck = 0;
   static int gasneti_memalloc_init = -1;
+  static uint64_t gasneti_memalloc_initval = 0;
   static int gasneti_memalloc_clobber = -1;
+  static uint64_t gasneti_memalloc_clobberval = 0;
   static int gasneti_memalloc_leakall = -1;
+  static int gasneti_memalloc_scanfreed = -1;
   static int gasneti_memalloc_envisinit = 0;
   static gasneti_mutex_t gasneti_memalloc_lock = GASNETI_MUTEX_INITIALIZER;
   static gasneti_memalloc_desc_t *gasneti_memalloc_pos = NULL;
@@ -1527,16 +1537,120 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
   #define GASNETI_MEM_MALLOCALIGN 4
   #define gasneti_looksaligned(p) (!(((uintptr_t)(p)) & (GASNETI_MEM_MALLOCALIGN-1)))
 
+  static uint64_t gasneti_memalloc_envint(const char *name, const char *deflt) {
+    /* Signaling NaN: any bit pattern between 0x7ff0000000000001 and 0x7ff7ffffffffffff  
+                   or any bit pattern between 0xfff0000000000001 and 0xfff7ffffffffffff
+       Quiet NaN: any bit pattern between 0x7ff8000000000000 and 0x7fffffffffffffff 
+               or any bit pattern between 0xfff8000000000000 and 0xffffffffffffffff
+    */
+    uint64_t sNAN = 0x7ff7ffffffffffffllu; 
+    uint64_t qNAN = 0x7fffffffffffffffllu;
+    uint64_t val = 0;
+    const char *envval = gasneti_getenv_withdefault(name, deflt);
+    const char *p = envval;
+    char tmp[255];
+    int i = 0;
+    for ( ; *p; p++) {
+      if (!isspace(*p)) tmp[i++] = toupper(*p);
+      if (i == 254) break;
+    }
+    tmp[i] = '\0';
+    if (!strcmp(tmp, "NAN")) return sNAN;
+    else if (!strcmp(tmp, "SNAN")) return sNAN;
+    else if (!strcmp(tmp, "QNAN")) return qNAN;
+    else if (!strncmp(tmp, "0X", 2)) { /* hex value */
+      p = tmp+2;
+      if (strlen(p) > 16) gasneti_fatalerror("too many digits in hex value %s=%s", name, envval);
+      for ( ; *p; p++) {
+        uint8_t byte;
+        if (*p >= '0' && *p <= '9') byte = *p - '0';
+        else if (*p >= 'A' && *p <= 'F') byte = *p - 'A';
+        else gasneti_fatalerror("illegal hex value %s=%s", name, envval);
+        val = (val << 4) | (uint64_t)byte;
+      } 
+    } else { /* int rep */
+      int neg = 0;
+      p = tmp;
+      if (*p == '-') { neg = 1; p++; }
+      for ( ; *p; p++) {
+        uint8_t digit;
+        if (*p >= '0' && *p <= '9') digit = *p - '0';
+        else gasneti_fatalerror("illegal decimal value %s=%s", name, envval);
+        val = (val * 10) + (uint64_t)digit;
+      } 
+      if (neg) val = (uint64_t)(-(int64_t)val);
+    }
+    if (val <= 0xFF) {
+      int i;
+      uint64_t byte = val;
+      for (i = 0; i < 7; i++) {
+        val = (val << 8) | byte;
+      }
+    }
+    return val;
+  }
+  static void gasneti_memalloc_valset(void *p, size_t len, uint64_t val) {
+    uint64_t *output = p;
+    size_t blocks = len/8;
+    size_t extra = len%8;
+    size_t i;
+    for (i = 0; i < blocks; i++) {
+      *output = val; 
+      output++;
+    }
+    if (extra) memcpy(output, &val, extra);
+  }
+  static const void *gasneti_memalloc_valcmp(const void *p, size_t len, uint64_t val) {
+    const uint64_t *input = p;
+    size_t blocks = len/8;
+    size_t extra = len%8;
+    size_t i;
+    for (i = 0; i < blocks; i++) {
+      if (*input != val) {
+        const uint8_t *in = (uint8_t *)input;
+        const uint8_t *cmp = (uint8_t *)&val;
+        for (i = 0; i < 8; i++, in++, cmp++)
+          if (*in != *cmp) return in;
+        gasneti_fatalerror("bizarre failure in gasneti_memalloc_valcmp");
+      }
+      input++;
+    }
+    if (extra) {
+      const uint8_t *in = (uint8_t *)input;
+      const uint8_t *cmp = (uint8_t *)&val;
+      for (i = 0; i < extra; i++, in++, cmp++)
+        if (*in != *cmp) return in;
+    }
+    return NULL;
+  }
+
   GASNET_INLINE_MODIFIER(gasneti_memalloc_envinit)
   void gasneti_memalloc_envinit() {
     if (!gasneti_memalloc_envisinit) {
       gasneti_mutex_lock(&gasneti_memalloc_lock);
         if (!gasneti_memalloc_envisinit && gasneti_init_done) {
           gasneti_memalloc_envisinit = 1; /* set first, because getenv might call malloc when tracing */
+          gasneti_memalloc_init =       gasneti_getenv_yesno_withdefault("GASNET_MALLOC_INIT",0);
+          gasneti_memalloc_initval =    gasneti_memalloc_envint("GASNET_MALLOC_INITVAL","NAN");
+          gasneti_memalloc_clobber =    gasneti_getenv_yesno_withdefault("GASNET_MALLOC_CLOBBER",0);
+          gasneti_memalloc_clobberval = gasneti_memalloc_envint("GASNET_MALLOC_CLOBBERVAL","NAN");
+          gasneti_memalloc_leakall =    gasneti_getenv_yesno_withdefault("GASNET_MALLOC_LEAKALL", 0);
+          gasneti_memalloc_scanfreed =  gasneti_getenv_yesno_withdefault("GASNET_MALLOC_SCANFREED", 0);
           gasneti_memalloc_extracheck = gasneti_getenv_yesno_withdefault("GASNET_MALLOC_EXTRACHECK", 0);
-          gasneti_memalloc_init = atoi(gasneti_getenv_withdefault("GASNET_MALLOC_INIT","-1"));
-          gasneti_memalloc_clobber = atoi(gasneti_getenv_withdefault("GASNET_MALLOC_CLOBBER","-1"));
-          gasneti_memalloc_leakall = gasneti_getenv_yesno_withdefault("GASNET_MALLOC_LEAKALL", 0);
+          if (gasneti_memalloc_scanfreed && !gasneti_memalloc_clobber) {
+            gasneti_memalloc_clobber = 1;
+            if (gasneti_mynode == 0) { 
+              fprintf(stderr, "WARNING: GASNET_MALLOC_SCANFREED requires GASNET_MALLOC_CLOBBER: enabling it.\n");
+              fflush(stderr);
+            }
+          }
+          if (gasneti_memalloc_scanfreed && !gasneti_memalloc_leakall) {
+            gasneti_memalloc_leakall = 1;
+            if (gasneti_mynode == 0) { 
+              fprintf(stderr, "WARNING: GASNET_MALLOC_SCANFREED requires GASNET_MALLOC_LEAKALL: enabling it.\n");
+              fflush(stderr);
+            }
+          }
         }
       gasneti_mutex_unlock(&gasneti_memalloc_lock);
     }
@@ -1548,9 +1662,9 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
       if_pt (gasneti_attach_done) gasnet_hold_interrupts();
       gasneti_mutex_lock(&gasneti_memalloc_lock);
         if (gasneti_memalloc_pos) {
-          _gasneti_memcheck(gasneti_memalloc_pos+1, curloc, 0);
+          _gasneti_memcheck(gasneti_memalloc_pos+1, curloc, 2);
           gasneti_memalloc_pos = gasneti_memalloc_pos->nextdesc;
-        } else gasneti_assert(gasneti_memalloc_objects == 0);
+        } else gasneti_assert(gasneti_memalloc_ringobjects == 0 && gasneti_memalloc_ringbytes == 0);
       gasneti_mutex_unlock(&gasneti_memalloc_lock);
       if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     }
@@ -1561,34 +1675,43 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
       if (gasneti_memalloc_pos) {
         gasneti_memalloc_desc_t *begin = gasneti_memalloc_pos;
         uint64_t cnt;
-        for (cnt=0; cnt < gasneti_memalloc_objects; cnt++) {
-          _gasneti_memcheck(gasneti_memalloc_pos+1, curloc, 0);
+        uint64_t sumsz = 0;
+        for (cnt=0; cnt < gasneti_memalloc_ringobjects; cnt++) {
+          sumsz += _gasneti_memcheck(gasneti_memalloc_pos+1, curloc, 2);
           gasneti_memalloc_pos = gasneti_memalloc_pos->nextdesc;
           if (gasneti_memalloc_pos == begin) break;
         } 
-        if (cnt+1 != gasneti_memalloc_objects || gasneti_memalloc_pos != begin) {
+        if (cnt+1 != gasneti_memalloc_ringobjects || gasneti_memalloc_pos != begin || 
+            sumsz != gasneti_memalloc_ringbytes) {
           gasneti_fatalerror("Debug malloc memcheck_all (called at %s) detected an error "
                              "in the memory ring linkage, most likely as a result of memory corruption.", 
                              curloc);
         }
-      } else gasneti_assert(gasneti_memalloc_objects == 0);
+      } else gasneti_assert(gasneti_memalloc_ringobjects == 0 && gasneti_memalloc_ringbytes == 0);
     gasneti_mutex_unlock(&gasneti_memalloc_lock);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
   }
 
-  /* assert the integrity of given memory block and return size of the user object */
-  extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int isfree) {
+  /* assert the integrity of given memory block and return size of the user object 
+      checktype == 0: check a live object
+      checktype == 1: check an object which is about to be freed
+      checktype == 2: check an object which resides in the ring (and may be dead)
+  */
+  extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int checktype) {
     const char *corruptstr = NULL;
+    char tmpstr[255];
     size_t nbytes = 0;
     char *allocptr = NULL;
     uint64_t beginpost = 0;
     uint64_t endpost = 0;
+    int doscan = 0;
+    gasneti_assert(checktype >= 0 && checktype <= 2);
     if (gasneti_looksaligned(ptr)) {
       gasneti_memalloc_desc_t *desc = ((gasneti_memalloc_desc_t *)ptr) - 1;
       beginpost = desc->beginpost;
       nbytes = (size_t)desc->datasz;
-      if (nbytes == 0 || nbytes > gasneti_memalloc_maxbytes || 
-          ((uintptr_t)ptr)+nbytes > gasneti_memalloc_maxloc ||
+      if (nbytes == 0 || nbytes > gasneti_memalloc_maxobjectsize || 
+          ((uintptr_t)ptr)+nbytes > gasneti_memalloc_maxobjectloc ||
           !desc->prevdesc || !desc->nextdesc || 
           !gasneti_looksaligned(desc->prevdesc) || 
           !gasneti_looksaligned(desc->nextdesc)) {
@@ -1599,15 +1722,41 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
       }
     }
     if (beginpost == GASNETI_MEM_FREEMARK) {
-      if (isfree)
-        corruptstr = "Debug malloc detected a duplicate free() or local heap corruption";
-      else
-        corruptstr = "Debug malloc memcheck() called on freed memory (may indicate local heap corruption)";
-    } else if (beginpost != GASNETI_MEM_BEGINPOST || endpost != GASNETI_MEM_ENDPOST) {
-      if (isfree)
-        corruptstr = "Debug free() detected a bad pointer or local heap corruption";
-      else
-        corruptstr = "Debug malloc memcheck() detected a bad pointer or local heap corruption";
+      switch (checktype) {
+        case 0: /* should be a live object */
+          corruptstr = "Debug malloc memcheck() called on freed memory (may indicate local heap corruption)";
+          break;
+        case 1: /* about to be freed - should still be a live object */
+          corruptstr = "Debug free detected a duplicate free() or local heap corruption";
+          break;
+        case 2:
+          if (gasneti_memalloc_scanfreed <= 0) /* freed objects should not be in ring */
+            corruptstr = "Debug malloc found a freed object in the memory ring, indicating local heap corruption";
+          else doscan = 1;
+          break;
+      }
+    }  
+    if (beginpost != GASNETI_MEM_FREEMARK && 
+        (beginpost != GASNETI_MEM_BEGINPOST || endpost != GASNETI_MEM_ENDPOST)) {
+      const char *diagnosis = "a bad pointer or local heap corruption";
+      if (nbytes && beginpost == GASNETI_MEM_BEGINPOST && endpost != GASNETI_MEM_ENDPOST)
+        diagnosis = "local heap corruption (probable buffer overflow)";
+      else if (nbytes && beginpost != GASNETI_MEM_BEGINPOST && endpost == GASNETI_MEM_ENDPOST)
+        diagnosis = "local heap corruption (probable buffer underflow)";
+      if (checktype == 1) {
+        sprintf(tmpstr, "Debug free detected %s", diagnosis);
+      } else {
+        sprintf(tmpstr, "Debug malloc memcheck() detected %s", diagnosis);
+      }
+      corruptstr = tmpstr;
+    }
+    if (corruptstr == NULL && doscan) {
+      const void *badloc = gasneti_memalloc_valcmp(ptr, nbytes, gasneti_memalloc_clobberval);
+      if (badloc) {
+        sprintf(tmpstr, "Debug malloc memcheck() detected a write to freed memory at object offset: %i bytes",
+                        (int)((uintptr_t)badloc - (uintptr_t)ptr));
+        corruptstr = tmpstr;
+      }
     }
 
     if (corruptstr != NULL) {
@@ -1620,7 +1769,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
            corruptstr,
            GASNETI_LADDRSTR(ptr), nbytesstr,
            (allocptr!=NULL?"\n   allocated at: ":""), (allocptr!=NULL?allocptr:""),
-           (curloc!=NULL?(isfree?"\n   freed at: ":"\n   detected at: "):""), 
+           (curloc!=NULL?(checktype == 1?"\n   freed at: ":"\n   detected at: "):""), 
            (curloc!=NULL?curloc:"")
            );
     }
@@ -1650,8 +1799,9 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
         return NULL;
       }
       gasneti_fatalerror("Debug malloc(%d) failed (%lu bytes in use, in %lu objects): %s", 
-        (int)nbytes, (unsigned long)gasneti_memalloc_cnt, (unsigned long)gasneti_memalloc_objects,
-        (curloc == NULL ? (const char *)"" : curloc));
+        (int)nbytes, (unsigned long)(gasneti_memalloc_allocatedobjects - gasneti_memalloc_freedobjects),
+                     (unsigned long)(gasneti_memalloc_allocatedbytes - gasneti_memalloc_freedbytes),
+                     (curloc == NULL ? (const char *)"" : curloc));
     } else {
       uint64_t gasneti_endpost_ref = GASNETI_MEM_ENDPOST;
       gasneti_memalloc_desc_t *desc = ret;
@@ -1659,12 +1809,19 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
       desc->datasz = (uint64_t)nbytes;
       desc->beginpost = GASNETI_MEM_BEGINPOST;
       memcpy(((char*)ret)+nbytes+GASNETI_MEM_HEADERSZ, &gasneti_endpost_ref, GASNETI_MEM_TAILSZ);
+
       gasneti_mutex_lock(&gasneti_memalloc_lock);
-        gasneti_memalloc_cnt += nbytes+GASNETI_MEM_EXTRASZ;
-        gasneti_memalloc_objects++;
-        if (nbytes > gasneti_memalloc_maxbytes) gasneti_memalloc_maxbytes = nbytes;
-        if (((uintptr_t)ret)+nbytes+GASNETI_MEM_HEADERSZ > gasneti_memalloc_maxloc) 
-          gasneti_memalloc_maxloc = ((uintptr_t)ret)+nbytes+GASNETI_MEM_HEADERSZ;
+        gasneti_memalloc_allocatedbytes += nbytes;
+        gasneti_memalloc_allocatedobjects++;
+        gasneti_memalloc_ringobjects++;
+        gasneti_memalloc_ringbytes += nbytes;
+        if (nbytes > gasneti_memalloc_maxobjectsize) gasneti_memalloc_maxobjectsize = nbytes;
+        if (((uintptr_t)ret)+nbytes+GASNETI_MEM_HEADERSZ > gasneti_memalloc_maxobjectloc) 
+          gasneti_memalloc_maxobjectloc = ((uintptr_t)ret)+nbytes+GASNETI_MEM_HEADERSZ;
+        gasneti_memalloc_maxlivebytes = 
+          MAX(gasneti_memalloc_maxlivebytes, gasneti_memalloc_allocatedbytes-gasneti_memalloc_freedbytes);
+        gasneti_memalloc_maxliveobjects = 
+          MAX(gasneti_memalloc_maxliveobjects, gasneti_memalloc_allocatedobjects-gasneti_memalloc_freedobjects);
         if (gasneti_memalloc_pos == NULL) { /* first object */
           gasneti_memalloc_pos = desc;
           desc->prevdesc = desc;
@@ -1676,8 +1833,9 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
           gasneti_memalloc_pos->prevdesc = desc;
         }
       gasneti_mutex_unlock(&gasneti_memalloc_lock);
+
       ret = desc+1;
-      if (gasneti_memalloc_init >= 0) memset(ret, gasneti_memalloc_init, nbytes);
+      if (gasneti_memalloc_init > 0) gasneti_memalloc_valset(ret, nbytes, gasneti_memalloc_initval);
     }
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     _gasneti_memcheck(ret,curloc,0);
@@ -1700,20 +1858,26 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
     nbytes = _gasneti_memcheck(ptr, curloc, 1);
     GASNETI_STAT_EVENT_VAL(I, GASNET_FREE, nbytes);
     desc = ((gasneti_memalloc_desc_t *)ptr) - 1;
+    if (gasneti_memalloc_clobber > 0) gasneti_memalloc_valset(desc+1, nbytes, gasneti_memalloc_clobberval);
+
     gasneti_mutex_lock(&gasneti_memalloc_lock);
-      gasneti_memalloc_cnt -= nbytes+GASNETI_MEM_EXTRASZ;
-      gasneti_memalloc_objects--;
-      if (desc->nextdesc == desc) { /* last item in list */
-        gasneti_assert(desc->prevdesc == desc);
-        gasneti_memalloc_pos = NULL;
-      } else {
-        if (gasneti_memalloc_pos == desc) gasneti_memalloc_pos = desc->nextdesc;
-        desc->prevdesc->nextdesc = desc->nextdesc;
-        desc->nextdesc->prevdesc = desc->prevdesc;
+      desc->beginpost = GASNETI_MEM_FREEMARK;
+      gasneti_memalloc_freedbytes += nbytes;
+      gasneti_memalloc_freedobjects++;
+      if (gasneti_memalloc_scanfreed <= 0) {
+        gasneti_memalloc_ringobjects--;
+        gasneti_memalloc_ringbytes -= nbytes;
+        if (desc->nextdesc == desc) { /* last item in list */
+          gasneti_assert(desc->prevdesc == desc && gasneti_memalloc_ringobjects == 0);
+          gasneti_memalloc_pos = NULL;
+        } else {
+          if (gasneti_memalloc_pos == desc) gasneti_memalloc_pos = desc->nextdesc;
+          desc->prevdesc->nextdesc = desc->nextdesc;
+          desc->nextdesc->prevdesc = desc->prevdesc;
+        }
       }
     gasneti_mutex_unlock(&gasneti_memalloc_lock);
-    desc->beginpost = GASNETI_MEM_FREEMARK;
-    if (gasneti_memalloc_clobber >= 0) memset(desc+1, gasneti_memalloc_clobber, nbytes);
+
     if (gasneti_memalloc_leakall <= 0) free(desc);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
   }
@@ -1735,8 +1899,16 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
     return ret;
   }
   extern int gasneti_getheapstats(gasneti_heapstats_t *pstat) {
-    pstat->used_bytes = gasneti_memalloc_cnt;
-    pstat->num_objects = gasneti_memalloc_objects;
+    pstat->allocated_bytes = gasneti_memalloc_allocatedbytes;
+    pstat->freed_bytes = gasneti_memalloc_freedbytes;
+    pstat->live_bytes = gasneti_memalloc_allocatedbytes - gasneti_memalloc_freedbytes;
+    pstat->live_bytes_max = gasneti_memalloc_maxlivebytes;
+    pstat->allocated_objects = gasneti_memalloc_allocatedobjects;
+    pstat->freed_objects = gasneti_memalloc_freedobjects;
+    pstat->live_objects = gasneti_memalloc_allocatedobjects - gasneti_memalloc_freedobjects;
+    pstat->live_objects_max = gasneti_memalloc_maxliveobjects;
+    pstat->overhead_bytes = gasneti_memalloc_ringbytes - pstat->live_bytes + 
+                            gasneti_memalloc_ringobjects*GASNETI_MEM_EXTRASZ;
     return 0;
   }
 #endif
