@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/06 17:46:34 $
- * $Revision: 1.33 $
+ *     $Date: 2005/04/06 19:36:03 $
+ * $Revision: 1.34 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -162,8 +162,8 @@ extern char **environ;
   } *child = NULL;
   static int children = 0;
   static volatile int accepted = 0;
-  int finalized = 0;
-  gasneti_atomic_t live = gasneti_atomic_init(0);
+  static int finalized = 0;
+  static gasneti_atomic_t live = gasneti_atomic_init(0);
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
   static gasnet_node_t tree_procs = (gasnet_node_t)(-1L);
