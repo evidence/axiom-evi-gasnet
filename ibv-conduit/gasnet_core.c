@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2004/10/08 07:47:33 $
- * $Revision: 1.59 $
+ *     $Date: 2004/10/22 17:34:25 $
+ * $Revision: 1.60 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -534,27 +534,43 @@ static int gasnetc_init(int *argc, char ***argv) {
     #endif
   }
 
-  /* check hca and port properties */
-  gasneti_assert(gasnetc_hca_cap.max_num_qp >= gasnetc_nodes);
-  gasneti_assert(gasnetc_hca_cap.max_qp_ous_wr >= gasnetc_op_oust_pp);
-  gasneti_assert(gasnetc_hca_cap.max_qp_ous_wr >= gasnetc_am_oust_pp * 2);
-  gasneti_assert(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_SND_SG);
-  gasneti_assert(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_RCV_SG);
-  gasneti_assert(gasnetc_hca_cap.max_num_sg_ent_rd >= 1);		/* RDMA Read support required */
+  /* Report/check hca and port properties */
+  GASNETI_TRACE_PRINTF(C,("vapi-conduit HCA/port properties = {"));
+  GASNETI_TRACE_PRINTF(C,("  HCA id                   = '%s'", gasnetc_hca_id));
+  GASNETI_TRACE_PRINTF(C,("  HCA port number          = %d", gasnetc_port_num));
+  GASNETI_TRACE_PRINTF(C,("  max_num_qp               = %u", (unsigned int)gasnetc_hca_cap.max_num_qp));
+  gasneti_assert_always(gasnetc_hca_cap.max_num_qp >= gasnetc_nodes);
+  GASNETI_TRACE_PRINTF(C,("  max_qp_ous_wr            = %u", (unsigned int)gasnetc_hca_cap.max_qp_ous_wr));
+  gasneti_assert_always(gasnetc_hca_cap.max_qp_ous_wr >= gasnetc_op_oust_pp);
+  gasneti_assert_always(gasnetc_hca_cap.max_qp_ous_wr >= gasnetc_am_oust_pp * 2);
+  GASNETI_TRACE_PRINTF(C,("  max_num_sg_ent           = %u", (unsigned int)gasnetc_hca_cap.max_num_sg_ent));
+  gasneti_assert_always(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_SND_SG);
+  gasneti_assert_always(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_RCV_SG);
+  GASNETI_TRACE_PRINTF(C,("  max_num_sg_ent_rd        = %u", (unsigned int)gasnetc_hca_cap.max_num_sg_ent_rd));
+  gasneti_assert_always(gasnetc_hca_cap.max_num_sg_ent_rd >= 1);	/* RDMA Read support required */
   #if 1 /* QP end points */
-    gasneti_assert(gasnetc_hca_cap.max_qp_init_rd_atom >= 1);		/* RDMA Read support required */
-    gasneti_assert(gasnetc_hca_cap.max_qp_ous_rd_atom >= 1);		/* RDMA Read support required */
+    GASNETI_TRACE_PRINTF(C,("  max_qp_init_rd_atom      = %u", (unsigned int)gasnetc_hca_cap.max_qp_init_rd_atom));
+    gasneti_assert_always(gasnetc_hca_cap.max_qp_init_rd_atom >= 1);	/* RDMA Read support required */
+    GASNETI_TRACE_PRINTF(C,("  max_qp_ous_rd_atom       = %u", (unsigned int)gasnetc_hca_cap.max_qp_ous_rd_atom));
+    gasneti_assert_always(gasnetc_hca_cap.max_qp_ous_rd_atom >= 1);	/* RDMA Read support required */
   #else
-    gasneti_assert(gasnetc_hca_cap.max_ee_init_rd_atom >= 1);		/* RDMA Read support required */
-    gasneti_assert(gasnetc_hca_cap.max_ee_ous_rd_atom >= 1);		/* RDMA Read support required */
+    GASNETI_TRACE_PRINTF(C,("  max_ee_init_rd_atom      = %u", (unsigned int)gasnetc_hca_cap.max_ee_init_rd_atom));
+    gasneti_assert_always(gasnetc_hca_cap.max_ee_init_rd_atom >= 1);	/* RDMA Read support required */
+    GASNETI_TRACE_PRINTF(C,("  max_ee_ous_rd_atom       = %u", (unsigned int)gasnetc_hca_cap.max_ee_ous_rd_atom));
+    gasneti_assert_always(gasnetc_hca_cap.max_ee_ous_rd_atom >= 1);	/* RDMA Read support required */
   #endif
-  gasneti_assert(gasnetc_hca_cap.max_num_cq >= 2);
-  gasneti_assert(gasnetc_hca_cap.max_num_ent_cq >= gasnetc_op_oust_limit);
-  gasneti_assert(gasnetc_hca_cap.max_num_ent_cq >= gasnetc_am_oust_limit * 2); /* request + reply == 2 */
-  #if GASNET_DEBUG
+  GASNETI_TRACE_PRINTF(C,("  max_num_cq               = %u", (unsigned int)gasnetc_hca_cap.max_num_cq));
+  gasneti_assert_always(gasnetc_hca_cap.max_num_cq >= 2);
+  GASNETI_TRACE_PRINTF(C,("  max_num_ent_cq           = %u", (unsigned int)gasnetc_hca_cap.max_num_ent_cq));
+  gasneti_assert_always(gasnetc_hca_cap.max_num_ent_cq >= gasnetc_op_oust_limit);
+  gasneti_assert_always(gasnetc_hca_cap.max_num_ent_cq >= gasnetc_am_oust_limit * 2); /* request + reply == 2 */
+
+  /* Check for sufficient pinning resources */
   {
     int mr_needed = 2;		/* rcv bufs and snd bufs */
-    int fmr_needed = 0;		/* none by default */
+    #if FIREHOSE_USE_FMR
+      int fmr_needed = 0;	/* none by default */
+    #endif
 
     #if GASNETC_PIN_SEGMENT
       mr_needed++;		/* +1 for the segment */
@@ -567,37 +583,50 @@ static int gasnetc_init(int *argc, char ***argv) {
       #endif
     #endif
 
+    GASNETI_TRACE_PRINTF(C,("  max_num_mr               = %u", (unsigned int)gasnetc_hca_cap.max_num_mr));
     gasneti_assert_always(gasnetc_hca_cap.max_num_mr >=  mr_needed);
-    gasneti_assert_always(gasnetc_hca_cap.max_num_fmr >= fmr_needed);
+    #if FIREHOSE_USE_FMR
+      GASNETI_TRACE_PRINTF(C,("  max_num_fmr              = %u", (unsigned int)gasnetc_hca_cap.max_num_fmr));
+      gasneti_assert_always(gasnetc_hca_cap.max_num_fmr >= fmr_needed);
+    #endif
   }
+
+  GASNETI_TRACE_PRINTF(C,("  max_msg_sz               = %u", (unsigned int)gasnetc_hca_port.max_msg_sz));
+  gasneti_assert_always(gasnetc_hca_port.max_msg_sz >= GASNETC_PUT_COPY_LIMIT);
+  GASNETI_TRACE_PRINTF(C,("  HCA Firmware version     = %u.%u.%u",
+			    (unsigned int)(hca_vendor.fw_ver >> 32),
+			    (unsigned int)(hca_vendor.fw_ver >> 16) & 0xffff,
+			    (unsigned int)(hca_vendor.fw_ver) & 0xffff));
+
+  /* For some firmware there is a thread safety bug with VAPI_poll_cq(). */
+  #if GASNETC_VAPI_FORCE_POLL_LOCK
+    /* The poll lock is used unconditionally */
+    GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls      : forced at compile time"));
+  #else
+    /* Use the poll lock only for known bad fw (<3.0.0): */
+    gasnetc_use_poll_lock = (hca_vendor.fw_ver < (uint64_t)(0x300000000LL));
+    GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls      : %srequired for this firmware",
+			    gasnetc_use_poll_lock ? "" : "not "));
   #endif
-  gasneti_assert(gasnetc_hca_port.max_msg_sz >= GASNETC_PUT_COPY_LIMIT);
 
   /* For some firmware there is a performance bug with EVAPI_post_inline_sr(). */
   #if GASNETC_VAPI_ENABLE_INLINE_PUTS
-    if ((hca_vendor.fw_ver >= (uint64_t)(0x100180000LL)) &&
-        (hca_vendor.fw_ver <  (uint64_t)(0x300000000LL))) {
-	/* (1.18 <= fw_ver < 3.0) is known bad */
+  {  /* (1.18 <= fw_ver < 3.0) is known bad */
+    int defect = ((hca_vendor.fw_ver >= (uint64_t)(0x100180000LL)) &&
+		  (hca_vendor.fw_ver <  (uint64_t)(0x300000000LL)));
+    if (defect) {
 	fprintf(stderr,
 		"WARNING: Your HCA firmware is suspected to include a performance defect\n"
 		"when using EVAPI_post_inline_sr().  You may wish to either upgrade your\n"
 		"firmware, or configure GASNet with '--disable-vapi-inline-puts'.\n");
     }
+  
+    GASNETI_TRACE_PRINTF(C,("  Inline perfomance defect : %ssuspected in this firmware",
+			    defect ? "" : "not "));
+  }
   #endif
-  gasneti_assert(gasnetc_hca_port.max_msg_sz >= GASNETC_PUT_COPY_LIMIT);
 
-  /* For some firmware there is a thread safety bug with VAPI_poll_cq(). */
-  #if GASNETC_VAPI_FORCE_POLL_LOCK
-    /* The poll lock is used unconditionally */
-  #else
-    /* Use the poll lock only for known bad fw (<3.0.0): */
-    gasnetc_use_poll_lock = (hca_vendor.fw_ver < (uint64_t)(0x300000000LL));
-    GASNETI_TRACE_PRINTF(C,("Serialized CQ polls %srequired for firmware %x.%x.%x",
-			    gasnetc_use_poll_lock ? "" : "not ",
-			    (unsigned int)(hca_vendor.fw_ver >> 32),
-			    (unsigned int)(hca_vendor.fw_ver >> 16) & 0xffff,
-			    (unsigned int)(hca_vendor.fw_ver) & 0xffff));
-  #endif
+  GASNETI_TRACE_PRINTF(C,("}")); /* end of HCA report */
 
   /* get a pd for the QPs and memory registration */
   vstat =  VAPI_alloc_pd(gasnetc_hca, &gasnetc_pd);
