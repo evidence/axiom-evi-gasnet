@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core_dump.c                  $
- *     $Date: 2003/10/11 13:09:56 $
- * $Revision: 1.11 $
+ *     $Date: 2003/12/04 13:31:24 $
+ * $Revision: 1.12 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -289,16 +289,16 @@ void gasnetc_dump_tportstats() {
   UNLOCK_ELAN_WEAK();
 
   #define DUMP_STAT(statname, desc) \
-    GASNETI_STATS_PRINTF(C,(" %-20s= %-8lu \t("desc")", "ts_"#statname, (unsigned long)stats.ts_##statname))
+    GASNETI_STATS_PRINTF(C,(" %-20s= %-8lu \t(%s)", "ts_"#statname, (unsigned long)stats.ts_##statname, desc))
 
   GASNETI_STATS_PRINTF(C,("ELAN_TPORTSTATS: {"));
   DUMP_STAT(dRxBytes, "Number of bytes directly received to user buffer");
   DUMP_STAT(bRxBytes, "Number of bytes received via a buffer");
   DUMP_STAT(txBytes, "Number of bytes transmitted");
 #if ELAN_VERSION_GE(1,4,12)
-  if (ts_txrBytes[0])
+  if (stats.ts_txrBytes[0])
     DUMP_STAT(txrBytes[0], "Number of bytes transmitted (rail 0)");
-  if (ts_txrBytes[1])
+  if (stats.ts_txrBytes[1])
     DUMP_STAT(txrBytes[1], "Number of bytes transmitted (rail 1)");
 #endif
   DUMP_STAT(ndRx, "Number of direct receives");
