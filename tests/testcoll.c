@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2004/09/22 09:53:08 $
- * $Revision: 1.6 $
+ *     $Date: 2005/01/22 01:22:13 $
+ * $Revision: 1.7 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -87,187 +87,179 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 	}
 }
 
+/*
+ * Test NO/NO - in/out data is not generated/consumed in same barrier phase
+ */
+void test_NONO(int iters, gasnet_node_t root) {
+    int j;
+    int *A = segment;		/* int [1] */
+    int *B = A + 1;		/* int [1] */
+    int *C = B + 1;		/* int [N] */
+    int *D = C + numprocs;	/* int [N] */
+    int *E = D + numprocs;	/* int [1] */
+    int *F = E + 1;		/* int [N] */
+    int *G = F + numprocs;	/* int [N] */
 
-void ALL_ALL_test(int iters, int nbytes)
-{GASNET_BEGIN_FUNCTION();
-    int i;
-    int64_t begin, end;
-    stat_struct_t st;
-    gasnet_coll_handle_t *handles;
-
-	int iamsender = (myproc == 0);
-
-        handles = (gasnet_coll_handle_t*) test_malloc(sizeof(gasnet_coll_handle_t) * iters);
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-	
-	BARRIER();
-	
-	begin = TIME();
-	for (i = 0; i < iters; i++) {
-		/* XXX: fix src/dst overlap */
-		gasnet_coll_broadcast(GASNET_TEAM_ALL, segment, 0, segment, nbytes,
-					GASNET_COLL_SINGLE |
-					GASNET_COLL_IN_ALLSYNC |
-					GASNET_COLL_OUT_ALLSYNC |
-					GASNET_COLL_SRC_IN_SEGMENT |
-					GASNET_COLL_DST_IN_SEGMENT);
+    for (j = 0; j < iters; ++j) {
+	gasnet_node_t i;
+	int r = random();
+      
+	*A = (myproc == root) ? r : -1;
+	*B = myproc;
+	for (i = 0; i < numprocs; ++i) {
+	    D[i] = i * r + myproc;
 	}
-	end = TIME();
- 	update_stat(&st, (end - begin), iters);
-	
-	BARRIER();
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "broadcast(ALL,ALL) latency", PRINT_LATENCY);
-	}	
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-
 
 	BARRIER();
-	
-	begin = TIME();
-	for (i = 0; i < iters; i++) {
-		/* XXX: fix src/dst overlap */
-		handles[i] = 
-			gasnet_coll_broadcast_nb(GASNET_TEAM_ALL, segment, 0, segment, nbytes,
-						GASNET_COLL_SINGLE |
-						GASNET_COLL_IN_ALLSYNC |
-						GASNET_COLL_OUT_ALLSYNC |
-						GASNET_COLL_SRC_IN_SEGMENT |
-						GASNET_COLL_DST_IN_SEGMENT);
+
+	gasnet_coll_broadcast(GASNET_TEAM_ALL, A, root, A, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_coll_gather(GASNET_TEAM_ALL, root, C, B, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_coll_scatter(GASNET_TEAM_ALL, E, root, D, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_coll_gather_all(GASNET_TEAM_ALL, F, B, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_coll_exchange(GASNET_TEAM_ALL, G, D, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+
+	BARRIER();
+
+	if (r != *A) {
+	    MSG("NO/NO: broadcast validation failed");
+	    gasnet_exit(1);
 	}
-	gasnet_coll_wait_sync_all(handles, iters);
-	BARRIER();
-	end = TIME();
- 	update_stat(&st, (end - begin), iters);
-	
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "broadcast_nb(ALL,ALL) throughput", PRINT_THROUGHPUT);
-	}	
-	test_free(handles);
+	if (myproc == root) {
+	    for (i = 0; i < numprocs; ++i) {
+		if (C[i] != i) {
+		    MSG("NO/NO: gather validation failed");
+		    gasnet_exit(1);
+		}
+	    }
+	}
+	if (*E != myproc*r + root) {
+	    MSG("NO/NO: scatter validation failed");
+	    gasnet_exit(1);
+	}
+	for (i = 0; i < numprocs; ++i) {
+	    if (F[i] != i) {
+		MSG("NO/NO: gather_all validation failed");
+	    }
+	}
+	for (i = 0; i < numprocs; ++i) {
+	    if (G[i] != i + myproc*r) {
+		MSG("NO/NO: exchange validation failed");
+		gasnet_exit(1);
+	    }
+	}
+    }
 }
 
-void NO_NO_test(int iters, int nbytes)
-{GASNET_BEGIN_FUNCTION();
-    int i;
-    int64_t begin, end;
-    stat_struct_t st;
-    gasnet_coll_handle_t h, *handles;
+/*
+ * Test MY/MY - in/out data is generated/consumed locally in same barrier phase
+ */
+void test_MYMY(int iters, gasnet_node_t root) {
+    int j;
+    int *A = segment;		/* int [1] */
+    int *B = A + 1;		/* int [1] */
+    int *C = B + 1;		/* int [N] */
+    int *D = C + numprocs;	/* int [N] */
 
-	int iamsender = (myproc == 0);
+    for (j = 0; j < iters; ++j) {
+	gasnet_node_t i;
+	int r = random();
+      
+	*A = (myproc == root) ? r : -1;
+	*B = myproc;
 
-        handles = (gasnet_coll_handle_t*) test_malloc(sizeof(gasnet_coll_handle_t) * iters);
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-	
-	BARRIER();
-	
-	begin = TIME();
-	for (i = 0; i < iters; i++) {
-		/* XXX: fix src/dst overlap */
-		gasnet_coll_broadcast(GASNET_TEAM_ALL, segment, 0, segment, nbytes,
-					GASNET_COLL_SINGLE |
-					GASNET_COLL_IN_NOSYNC |
-					GASNET_COLL_OUT_NOSYNC |
-					GASNET_COLL_SRC_IN_SEGMENT |
-					GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_coll_broadcast(GASNET_TEAM_ALL, A, root, A, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	if (r != *A) {
+	    MSG("MY/MY: broadcast validation failed");
+	    gasnet_exit(1);
 	}
-	BARRIER();
-	end = TIME();
- 	update_stat(&st, (end - begin), iters);
-	
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "broadcast(NO,NO) latency", PRINT_LATENCY);
-	}	
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-
-	BARRIER();
-	
-	begin = TIME();
-	for (i = 0; i < iters; i++) {
-		/* XXX: fix src/dst overlap */
-		handles[i] = 
-			gasnet_coll_broadcast_nb(GASNET_TEAM_ALL, segment, 0, segment, nbytes,
-						GASNET_COLL_SINGLE |
-						GASNET_COLL_IN_NOSYNC |
-						GASNET_COLL_OUT_NOSYNC |
-						GASNET_COLL_SRC_IN_SEGMENT |
-						GASNET_COLL_DST_IN_SEGMENT);
-	}
-	gasnet_coll_wait_sync_all(handles, iters);
-	BARRIER();
-	end = TIME();
- 	update_stat(&st, (end - begin), iters);
-	
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "broadcast_nb(NO,NO) throughput", PRINT_THROUGHPUT);
-	}	
-	test_free(handles);
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-
-	BARRIER();
-	
-	if (iamsender) {
-		gasnet_handle_t *h = (gasnet_handle_t *)test_malloc(iters*sizeof(gasnet_handle_t));
-		begin = TIME();
-		for (i = 0; i < iters; i++) {
-			/* XXX: fix src/dst overlap */
-			int j;
-
-			gasnet_begin_nbi_accessregion();
-			for (j=0; j<numprocs; ++j) {
-				gasnet_put_nbi_bulk(j, segment, segment, nbytes);
-			}
-			h[i] = gasnet_end_nbi_accessregion();
+	gasnet_coll_gather(GASNET_TEAM_ALL, root, C, B, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	if (myproc == root) {
+	    for (i = 0; i < numprocs; ++i) {
+		if (C[i] != i) {
+		    MSG("MY/MY: gather validation failed");
+		    gasnet_exit(1);
 		}
-		gasnet_wait_syncnb_all(h, iters);
-		end = TIME();
- 		update_stat(&st, (end - begin), iters);
-		test_free(h);
+		C[i] *= r;
+	    }
 	}
-	
-	BARRIER();
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "put_nbi-bcast throughput", PRINT_THROUGHPUT);
-	}	
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-
-	BARRIER();
-	
-	begin = TIME();
-	for (i = 0; i < iters; i++) {
-		gasnet_get_nbi_bulk(segment, 0, segment, nbytes);
+	gasnet_coll_scatter(GASNET_TEAM_ALL, B, root, C, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	if (*B != myproc*r) {
+	    MSG("MY/MY: scatter validation failed");
+	    gasnet_exit(1);
 	}
-	gasnet_wait_syncnbi_gets();
-	BARRIER();
-	end = TIME();
- 	update_stat(&st, (end - begin), iters);
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "get_nbi-bcast throughput", PRINT_THROUGHPUT);
-	}	
+	gasnet_coll_gather_all(GASNET_TEAM_ALL, C, B, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	for (i = 0; i < numprocs; ++i) {
+	    if (C[i] != i*r) {
+		MSG("MY/MY: gather_all validation failed");
+		gasnet_exit(1);
+	    }
+	    C[i] += myproc;
+	}
+	gasnet_coll_exchange(GASNET_TEAM_ALL, D, C, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	for (i = 0; i < numprocs; ++i) {
+	    if (D[i] != i + myproc*r) {
+		MSG("MY/MY: exchange validation failed");
+		gasnet_exit(1);
+	    }
+	}
+      }
 }
 
 int main(int argc, char **argv)
 {
     int arg;
     int iters = 0;
-    int i, j;
+    gasnet_node_t root;
     int *src;
    
     /* call startup */
@@ -294,7 +286,7 @@ int main(int argc, char **argv)
     if (myproc == 0) {
 	printf("Running coll test(s) with %d iterations.\n", iters);
     }
-    gasnet_coll_init(NULL, NULL, 0, 0);
+    gasnet_coll_init(NULL, 0, NULL, 0, 0);
 
     segment = (int *) TEST_MYSEG();
     src = segment + 16;
@@ -302,54 +294,15 @@ int main(int argc, char **argv)
     MSG("running.");
     BARRIER();
 
-    for (j = 0; j < iters; ++j) {
-      
-      *segment = -1;
-      for (i = 0; i < numprocs; ++i) {
-	int want = j ^ i;
-	int tmp;
-	gasnet_coll_handle_t h;
+    srandom(1);
 
-	*src = j ^ myproc;
+    for (root = 0; root < numprocs; ++root) {
+      if (!myproc) MSG("Running tests with root = %d", (int)root);
 
-        h = gasnet_coll_broadcast_nb(GASNET_TEAM_ALL, segment+2, i, src, sizeof(int),
-				     GASNET_COLL_SINGLE |
-				     GASNET_COLL_IN_ALLSYNC |
-				     GASNET_COLL_OUT_ALLSYNC |
-				     GASNET_COLL_SRC_IN_SEGMENT |
-				     GASNET_COLL_DST_IN_SEGMENT);
-
-        (void)gasnet_coll_broadcast_nb(GASNET_TEAM_ALL, segment, i, src, sizeof(int),
-				      GASNET_COLL_SINGLE |
-				      GASNET_COLL_IN_MYSYNC |
-				      GASNET_COLL_OUT_NOSYNC |
-				      GASNET_COLL_SRC_IN_SEGMENT |
-				      GASNET_COLL_DST_IN_SEGMENT |
-				      GASNET_COLL_AGGREGATE);
-        gasnet_coll_broadcast(GASNET_TEAM_ALL, segment+1, i, src, sizeof(int),
-				      GASNET_COLL_SINGLE |
-				      GASNET_COLL_IN_NOSYNC |
-				      GASNET_COLL_OUT_MYSYNC |
-				      GASNET_COLL_SRC_IN_SEGMENT |
-				      GASNET_COLL_DST_IN_SEGMENT);
-	tmp = segment[0];
-	if (tmp != want) {
-          MSG("Expected segment[0]=%d got %d", want, tmp);
-	}
-	gasnet_coll_wait_sync(h);
-	tmp = segment[2];
-	if (tmp != want) {
-          MSG("Expected segment[2]=%d got %d", want, tmp);
-	}
-      }
+      test_NONO(iters, root);
+      test_MYMY(iters, root);
+      /* test_ALLALL(iters, root); */
     }
-
-#if 0
-    for (i = 1; i <= 4096; i *= 2) {
-      ALL_ALL_test(iters, i);
-      NO_NO_test(iters, i);
-    }
-#endif
 
     BARRIER();
 
