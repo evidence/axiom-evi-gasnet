@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/12/26 03:43:15 $
- * $Revision: 1.12 $
+ *     $Date: 2002/12/28 05:40:04 $
+ * $Revision: 1.13 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,7 +35,8 @@
   typedef __int64           int64_t;
   typedef unsigned __int64 uint64_t;
 
-  typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned int    uintptr_t; 
 #elif defined(CRAYT3E)
   typedef char               int8_t;
   typedef unsigned char     uint8_t;
@@ -46,7 +47,8 @@
   typedef int               int64_t;
   typedef unsigned int     uint64_t;
 
-  typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned int    uintptr_t; 
 #elif defined(CYGWIN)
   #include <sys/types.h>
   typedef u_int8_t     uint8_t;
@@ -54,18 +56,19 @@
   typedef u_int32_t   uint32_t;
   typedef u_int64_t   uint64_t;
 
-  typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned int    uintptr_t; 
 #else
   /* try to determine them automatically */
   #if SIZEOF_CHAR == 8
-    typedef          char  int8_t;
+    typedef signed   char  int8_t;
     typedef unsigned char uint8_t;
   #else
     #error Cannot find an 8-bit type for your platform
   #endif
 
   #if SIZEOF_CHAR == 16
-    typedef          char  int16_t;
+    typedef signed   char  int16_t;
     typedef unsigned char uint16_t;
   #elif SIZEOF_SHORT == 16
     typedef          short  int16_t;
@@ -102,6 +105,22 @@
   #else
     #error Cannot find a 64-bit type for your platform
   #endif
+
+  #if SIZEOF_VOID_P == SIZEOF_SHORT
+    typedef          short  intptr_t;
+    typedef unsigned short uintptr_t;
+  #elif SIZEOF_VOID_P == SIZEOF_INT
+    typedef          int  intptr_t;
+    typedef unsigned int uintptr_t;
+  #elif SIZEOF_VOID_P == SIZEOF_LONG
+    typedef          long  intptr_t;
+    typedef unsigned long uintptr_t;
+  #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
+    typedef          long long  intptr_t;
+    typedef unsigned long long uintptr_t;
+  #else
+    #error Cannot find a integral pointer-sized type for your platform
+  #endif  
 #endif
 #endif
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2002/12/26 03:43:15 $
- * $Revision: 1.1 $
+ *     $Date: 2002/12/28 05:40:04 $
+ * $Revision: 1.2 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -124,7 +124,7 @@
     #include <sys/systm.h>
     typedef struct { volatile int ctr; } gasneti_atomic_t;
     #define gasneti_atomic_increment(p) (atomic_incl(&((p)->ctr)))
-    #define gasneti_atomic_increment(p) (atomic_decl(&((p)->ctr)))
+    #define gasneti_atomic_decrement(p) (atomic_decl(&((p)->ctr)))
     #define gasneti_atomic_read(p)      ((p)->ctr)
     #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
     #define gasneti_atomic_init(v)      { (v) }
