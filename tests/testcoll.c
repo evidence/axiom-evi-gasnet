@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/01/22 01:22:13 $
- * $Revision: 1.7 $
+ *     $Date: 2005/01/28 23:24:19 $
+ * $Revision: 1.8 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -252,7 +252,105 @@ void test_MYMY(int iters, gasnet_node_t root) {
 		gasnet_exit(1);
 	    }
 	}
-      }
+    }
+}
+
+/*
+ * Test ALL/ALL - in/out data is generated/consumed remotely in same barrier phase
+ */
+void test_ALLALL(int iters, gasnet_node_t root) {
+    int j;
+    int tmp;
+    int *A = segment;		/* int [1] */
+    int *B = A + 1;		/* int [1] */
+    int *C = B + 1;		/* int [N] */
+    int *D = C + numprocs;	/* int [N] */
+    gasnet_node_t peer;
+
+    peer = ((myproc ^ 1) == numprocs) ? myproc : (myproc ^ 1);
+
+    for (j = 0; j < iters; ++j) {
+	gasnet_node_t i;
+	int r = random();
+      
+	tmp = (peer == root) ? r : -1;
+	gasnet_put(peer, A, &tmp, sizeof(int));
+
+	gasnet_coll_broadcast(GASNET_TEAM_ALL, A, root, A, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(&tmp, peer, A, sizeof(int));
+	if (tmp != r) {
+	    MSG("ALL/ALL: broadcast validation failed");
+	    gasnet_exit(1);
+	}
+	tmp = peer;
+	gasnet_put(peer, B, &tmp, sizeof(int));
+	gasnet_coll_gather(GASNET_TEAM_ALL, root, C, B, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(D, root, C, numprocs*sizeof(int));
+	for (i = 0; i < numprocs; ++i) {
+	    if (D[i] != i) {
+		MSG("ALL/ALL: gather validation failed");
+		gasnet_exit(1);
+	    }
+	}
+	BARRIER(); /* to avoid conflict on D */
+	tmp = myproc * r;
+	gasnet_put(root, D+myproc, &tmp, sizeof(int));
+	gasnet_coll_scatter(GASNET_TEAM_ALL, B, root, D, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(&tmp, peer, B, sizeof(int));
+	if (tmp != peer*r) {
+	    MSG("ALL/ALL: scatter validation failed");
+	    gasnet_exit(1);
+	}
+	BARRIER(); /* to avoid conflict on B */
+	tmp = peer*r - 1;
+	gasnet_put(peer, B, &tmp, sizeof(int));
+	gasnet_coll_gather_all(GASNET_TEAM_ALL, C, B, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(D, peer, C, numprocs*sizeof(int));
+	for (i = 0; i < numprocs; ++i) {
+	    if (D[i] != i*r - 1) {
+		MSG("ALL/ALL: gather_all validation failed");
+		gasnet_exit(1);
+	    }
+	}
+	BARRIER(); /* to avoid conflict on C & D */
+	for (i = 0; i < numprocs; ++i) {
+	    C[i] += peer;
+	}
+	gasnet_put(peer, D, C, numprocs*sizeof(int));
+	gasnet_coll_exchange(GASNET_TEAM_ALL, C, D, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(D, peer, C, numprocs*sizeof(int));
+	for (i = 0; i < numprocs; ++i) {
+	    if (D[i] != i + peer*r - 1) {
+		MSG("ALL/ALL: exchange validation failed");
+		gasnet_exit(1);
+	    }
+	}
+    }
 }
 
 int main(int argc, char **argv)
@@ -301,7 +399,7 @@ int main(int argc, char **argv)
 
       test_NONO(iters, root);
       test_MYMY(iters, root);
-      /* test_ALLALL(iters, root); */
+      test_ALLALL(iters, root);
     }
 
     BARRIER();
