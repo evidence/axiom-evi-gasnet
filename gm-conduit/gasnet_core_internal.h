@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.28 2002/08/22 02:09:39 csbell Exp $
- * $Date: 2002/08/22 02:09:39 $
- * $Revision: 1.28 $
+/* $Id: gasnet_core_internal.h,v 1.29 2002/08/22 14:27:31 csbell Exp $
+ * $Date: 2002/08/22 14:27:31 $
+ * $Revision: 1.29 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -51,16 +51,19 @@
 #ifdef GASNETC_FIREHOSE
 #define GASNETC_PINNED_STACK_PAGES	40
 #ifndef GASNETC_BUCKET_SIZE
-#define GASNETC_BUCKET_SIZE		4*PAGE_SIZE
+#define GASNETC_BUCKET_SIZE		PAGE_SIZE
 #endif
 #ifndef GASNETC_BUCKET_SHIFT
-#define GASNETC_BUCKET_SHIFT		14
+#define GASNETC_BUCKET_SHIFT		12
 #endif
 #define GASNETC_NUM_BUCKETS(addr,len)	(assert(addr%GASNETC_BUCKET_SIZE==0),\
 					(GASNETI_PAGE_ROUNDUP(len,           \
 					GASNETC_BUCKET_SIZE)-addr)>>         \
 					GASNETC_BUCKET_SHIFT)
 
+#define GASNETC_SEGMENT_ALIGN	GASNETC_BUCKET_SIZE
+#else
+#define GASNETC_SEGMENT_ALIGN	GASNETC_PAGE_SIZE
 #endif /* GASNETC_FIREHOSE */
 
 extern gasnet_seginfo_t *gasnetc_seginfo;

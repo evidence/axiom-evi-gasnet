@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.14 2002/08/19 01:29:19 csbell Exp $
- * $Date: 2002/08/19 01:29:19 $
- * $Revision: 1.14 $
+/* $Id: gasnet_core_help.h,v 1.15 2002/08/22 14:27:31 csbell Exp $
+ * $Date: 2002/08/22 14:27:31 $
+ * $Revision: 1.15 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -52,11 +52,6 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 
 #define GASNETC_PAGE_SIZE	4096
 #define GASNETC_LONG_OFFSET	4096	/* XXX page size */
-#ifdef GASNETC_FIREHOSE
-#define GASNETC_SEGMENT_ALIGN	GASNETC_BUCKET_SIZE
-#else
-#define GASNETC_SEGMENT_ALIGN	GASNETC_PAGE_SIZE
-#endif
 
 #define GASNETC_AM_MAX_ARGS	16
 #define GASNETC_AM_MAX_HANDLERS 256

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.22 2002/08/20 11:51:23 csbell Exp $
- * $Date: 2002/08/20 11:51:23 $
+/* $Id: gasnet_core.c,v 1.23 2002/08/22 14:27:31 csbell Exp $
+ * $Date: 2002/08/22 14:27:31 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -107,7 +107,7 @@ gasnetc_init(int *argc, char ***argv)
 	#error GEXEC support not implemented yet
 	#else
 		if (gasnetc_gmpiconf_init() != GASNET_OK)
-	 		GASNETI_RETURN_ERRR(RESOURCE, "GMPI-based init failed");
+			gasnetc_exit(-1);
 		gasnetc_sendbuf_init();
 	#endif
 

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.20 2002/08/22 02:09:39 csbell Exp $
- * $Date: 2002/08/22 02:09:39 $
- * $Revision: 1.20 $
+/* $Id: gasnet_core_receive.c,v 1.21 2002/08/22 14:27:31 csbell Exp $
+ * $Date: 2002/08/22 14:27:31 $
+ * $Revision: 1.21 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -553,7 +553,7 @@ gasnetc_provide_request_pool(gasnetc_bufdesc_t *bufd)
 
 GASNET_INLINE_MODIFIER(gasnetc_callback_generic)
 void
-gasnetc_callback_generic(struct gm_port *p, void *context, gm_status_t status)
+gasnetc_callback_generic_inner(struct gm_port *p, void *context, gm_status_t status)
 {
 	gasnetc_bufdesc_t	*bufd;
 	
@@ -608,6 +608,12 @@ gasnetc_callback_generic(struct gm_port *p, void *context, gm_status_t status)
 	}
 }
 
+extern void
+gasnetc_callback_ambuffer(struct gm_port *p, void *context, gm_status_t status) {
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
+	return gasnetc_callback_generic_inner(p, context, status);
+}
+
 /* Callbacks for AMRequest/AMReply functions
  * All of them relinquish a send token but the _NOP callbacks do *not* give a
  * buffer back to the system - they are used to issue two sends out of the same
@@ -631,7 +637,7 @@ gasnetc_callback_lo_bufd(struct gm_port *p, void *ctx, gm_status_t status)
 	if_pf (status != GM_SUCCESS)
 		gasnetc_callback_error(status, NULL);
 	/* Provide the buffer back */
-	gasnetc_callback_generic(p, ctx, status);
+	gasnetc_callback_generic_inner(p, ctx, status);
 	gasnetc_token_lo_release();
 	GASNETI_TRACE_PRINTF(C, ("callback_lo_bufd stoks.lo = %d", _gmc.stoks.lo));
 }
@@ -673,7 +679,7 @@ gasnetc_callback_lo_bufd_rdma(struct gm_port *p, void *ctx, gm_status_t status)
 		gasnetc_done_pinned(gasnetc_mynode, bufd->source_addr, 
 		    bufd->rdma_len);
 	gasnetc_done_pinned(bufd->node, bufd->dest_addr, bufd->rdma_len);
-	gasnetc_callback_generic(p, ctx, status);
+	gasnetc_callback_generic_inner(p, ctx, status);
 	gasnetc_token_lo_release();
 	GASNETI_TRACE_PRINTF(C, 
 	    ("callback_lo_bufd_rdma stoks.lo = %d", _gmc.stoks.lo));
@@ -695,7 +701,7 @@ gasnetc_callback_hi_bufd(struct gm_port *p, void *ctx, gm_status_t status)
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	if_pf (status != GM_SUCCESS)
 		gasnetc_callback_error(status, ctx);
-	gasnetc_callback_generic(p, ctx, status);
+	gasnetc_callback_generic_inner(p, ctx, status);
 	gasnetc_token_hi_release();
 	GASNETI_TRACE_PRINTF(C, 
 	    ("callback_hi_bufd stoks.hi = %d", _gmc.stoks.hi));

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2002/08/15 10:43:15 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/22 14:27:31 $
+ * $Revision: 1.3 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -99,7 +99,6 @@ typedef struct _gasnete_threaddata_t {
 #define OPTYPE_EXPLICIT		0x00  /* gasnete_eop_new() relies on this value */
 #define OPTYPE_IMPLICIT		0x80
 #define OPTYPE(op)		((op)->flags & 0x80)
-#define OPTYPE_TRANSIENT	((eop)->token != NULL)
 GASNET_INLINE_MODIFIER(SET_OPTYPE)
 void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
 	op->flags = (op->flags & 0x7F) | (type & 0x80);
@@ -111,10 +110,19 @@ void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
 #define OPSTATE_INFLIGHT	1
 #define OPSTATE_COMPLETE	3
 #define OPSTATE(op)		((op)->flags & 0x03) 
+#define OPMISC_NONAMBUF		4
+#define OPMISC_AMBUF		8
+#define OPMISC(op)		((op)->flags & 0x0C)
 GASNET_INLINE_MODIFIER(SET_OPSTATE)
 void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 	op->flags = (op->flags & 0xFC) | (state & 0x03);
 	assert(OPSTATE(op) == state);
+}
+
+GASNET_INLINE_MODIFIER(SET_OPMISC)
+void SET_OPMISC(gasnete_eop_t *op, uint8_t misc) {
+	op->flags = (op->flags & 0xF3) | (misc & 0x0C);
+	assert(OPMISC(op) == misc);
 }
 
 /* New op creation, gets new op and marks it in flight */

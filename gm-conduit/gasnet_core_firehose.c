@@ -291,8 +291,8 @@ gasnet_handlerentry_t const	*gasnetc_get_handlertable();
 /* XXX need better estimate
  * Default to using 512mb at most in victims */
 #define GASNETC_BUCKET_VICTIM_MAX_SIZE	(GASNETC_BUCKET_SEGMENT>>3)
-/* #define GASNETC_BUCKET_VICTIM_MAX_SIZE	4 */
-#define GASNETC_SEGMENT_MOD_SIZE	GASNETC_BUCKET_SIZE	
+/* #define GASNETC_BUCKET_VICTIM_MAX_SIZE	40 */
+#define GASNETC_SEGMENT_MOD_SIZE	GASNETC_BUCKET_SIZE
 
 typedef
 struct gasnetc_bucket_desc {
@@ -471,8 +471,11 @@ gasnetc_bucket_pin_stack()
 
 	gasneti_mutex_lock(&gasnetc_lock_gm);
 	if (gm_register_memory(_gmc.port, (void *)gasnetc_stackaddr_lo, 
-	    (unsigned) gasnetc_stackaddr_hi-gasnetc_stackaddr_lo) != GM_SUCCESS)
-		gasneti_fatalerror("could not register stack memory");
+	    (unsigned) gasnetc_stackaddr_hi-gasnetc_stackaddr_lo) 
+	    != GM_SUCCESS) {
+		fprintf(stderr, "could not register stack memory");
+		gasnet_exit(-1);
+	}
 	gasneti_mutex_unlock(&gasnetc_lock_gm);
 
 	return;
@@ -590,10 +593,13 @@ gasnetc_bucket_pin_register_wrapper(uintptr_t bucket_addr, size_t num_buckets)
 	else {
 		/* failed, let us try to unregister more, if possible */
 		if (gasnetc_bucket_victim_count < num_buckets) {
-			fprintf(stderr, "gm_register_memory failed (%p, %d)\n", 
-			    (void *)bucket_addr, num_buckets << GASNETC_BUCKET_SHIFT); 
+			fprintf(stderr, 
+			    "gm_register_memory failed (%p, %d) sbrk(0)=%p\n", 
+			    (void *)bucket_addr, 
+			    num_buckets << GASNETC_BUCKET_SHIFT,
+			    sbrk(0)); 
 			fflush(stderr);
-		 	gasneti_fatalerror("Could not register memory");
+			gasnet_exit(-1);
 		}
 		else {
 			gasnetc_bucket_victim_free(num_buckets);
@@ -603,8 +609,14 @@ gasnetc_bucket_pin_register_wrapper(uintptr_t bucket_addr, size_t num_buckets)
 				gasneti_mutex_unlock(&gasnetc_lock_gm);
 				return;
 			}
-			else
-		 		gasneti_fatalerror("Could not register memory");
+			else {
+				fprintf(stderr, 
+				    "gm_register_memory failed (%p, %d) sbrk(0)=%p\n", 
+				    (void *)bucket_addr, 
+				    num_buckets << GASNETC_BUCKET_SHIFT,
+				    sbrk(0)); 
+				gasnet_exit(-1);
+			}
 		}
 	}
 }	
@@ -657,6 +669,7 @@ gasnetc_bucket_trypin_by_bucket(uintptr_t bucket_addr, size_t num_buckets)
 		if (GASNETC_BDESC_ISPINNED(bdesc_cur)) {
 			/* If zero, remove from Victim FIFO queue */
 			if (GASNETC_BDESC_REFC_ISZERO(bdesc_cur)) {
+				/* assert(gasnetc_bucket_victim_count >= 0); */
 				/* bdesc.prev.next = bdesc.next;
 				 * bdesc.next.prev = bdesc.prev;
 				*/
@@ -783,7 +796,7 @@ gasnetc_bucket_tryunpin_by_bucket(uintptr_t bucket_addr, size_t num_buckets,
 			gasneti_mutex_unlock(&gasnetc_lock_bucket_victim);
 		}
 		else {
-			unsigned int	num = num_buckets-i, i;
+			unsigned int	num = num_buckets-i, j;
 
 			gasneti_mutex_lock(&gasnetc_lock_bucket_victim);
 			GASNETI_TRACE_PRINTF(C, ("Firehose local bucket (%p) - "
@@ -794,20 +807,19 @@ gasnetc_bucket_tryunpin_by_bucket(uintptr_t bucket_addr, size_t num_buckets,
 			    gasnetc_bucket_victim_count,
 			    gasnetc_bucket_victim_max));
 
-			for (i = 0; i < num; i++) {
+			for (j = 0; j < num; j++) {
 				GASNETI_TRACE_PRINTF(C, 
 				    ("Firehose local bucket (%p) to be dereg'd",
-				    GASNETC_BDESC_TO_ADDR(bdesc_cur+i)));
-				GASNETC_BDESC_REFC_SET(bdesc_cur+i, 
+				    GASNETC_BDESC_TO_ADDR(bdesc_cur+j)));
+				GASNETC_BDESC_REFC_SET(bdesc_cur+j, 
 				    GASNETC_BDESC_REFC_UNPINNED);
 			}
 			if (!locked)
 				gasneti_mutex_lock(&gasnetc_lock_gm);
 			gasnetc_bucket_unpin_deregister_wrapper(
-			    GASNETC_BDESC_TO_ADDR(bdesc_cur), 
-			    (num_buckets-i));
+			    GASNETC_BDESC_TO_ADDR(bdesc_cur),  num);
 			if (!locked)
-				gasneti_mutex_lock(&gasnetc_lock_gm);
+				gasneti_mutex_unlock(&gasnetc_lock_gm);
 			gasneti_mutex_unlock(&gasnetc_lock_bucket_victim);
 			break;
 		}

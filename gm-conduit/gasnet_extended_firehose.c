@@ -21,6 +21,8 @@ extern uintptr_t	*gasnetc_firehose_buf;
 extern size_t		 gasnetc_firehose_buf_num;
 extern gasneti_mutex_t	 gasnetc_lock_fh_victim;
 
+extern void	gasnetc_done_pinned(gasnet_node_t, uintptr_t, size_t);
+extern void	gasnetc_callback_ambuffer(struct gm_port *, void *, gm_status_t);
 extern void	gasnetc_bucket_pin_by_addr(uintptr_t, size_t);
 extern void	gasnetc_bucket_unpin_by_addr(uintptr_t, size_t);
 extern int	gasnetc_firehose_build_list(gasnet_node_t, uintptr_t, size_t, 
@@ -140,6 +142,17 @@ gasnete_firehose_callback_pop(struct gm_port *p, void *context,
 	gasnetc_firehose_decrement_refcount(eop->node, eop->dest, eop->len);
 	/* If this was associated to an iop, increment put completed count */
 	gasnete_op_markdone((gasnete_op_t *)eop, 0);
+	if (OPMISC(eop) == OPMISC_AMBUF) {
+		gasnetc_bufdesc_t	*bufd;
+		GASNETI_TRACE_PRINTF(C, 
+		    ("Firehose pop callback -> ambuffer %p",
+		    (void *)eop->src));
+		bufd = (gasnetc_bufdesc_t *) GASNETC_BUFDESC_PTR(eop->src);
+		GASNETC_ASSERT_BUFDESC_PTR(bufd, eop->src);
+		gasnetc_callback_ambuffer(p, (void *) bufd, status);
+	}
+	else 
+		gasnetc_done_pinned(gasnetc_mynode, eop->src, eop->len);
 	if (eop->iop != NULL) {
 		gasneti_atomic_increment(&(eop->iop->completed_put_cnt));
 		GASNETI_TRACE_PRINTF(C, ("iop increment at %p", (void *) eop));
@@ -157,24 +170,24 @@ gasnete_firehose_callback_pop(struct gm_port *p, void *context,
  */
 GASNET_INLINE_MODIFIER(gasnete_firehose_put_using_directed)
 void
-gasnete_firehose_put_using_directed(gasnet_node_t node, uintptr_t dest, 
-				    void *src, size_t nbytes, 
-				    gasnete_eop_t *pop, int poll)
+gasnete_firehose_put_using_directed(gasnete_eop_t *pop, int poll)
 {
+	gm_send_completion_callback_t	callback;
 	assert(pop != NULL);
-	assert(src != NULL);
-	assert(node < gasnete_nodes);
-	assert(nbytes > 0);
+	assert(pop->src > 0 && pop->dest > 0);
+	assert(pop->node < gasnete_nodes);
+	assert(pop->len > 0);
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	if (poll == GASNETE_FH_POLL_TOKEN)
 		gasnetc_token_lo_poll();
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose directed send(%p): (%d,%p) <- %p (%d bytes)", 
-	     pop, (unsigned) node, (void *) dest, (void *) src, nbytes));
+	     pop, (unsigned) pop->node, (void *) pop->dest, (void *) pop->src, 
+	     pop->len));
 	gm_directed_send_with_callback(
-	    _gmc.port, src, (gm_remote_ptr_t) dest,
-	    (unsigned long) nbytes, GM_LOW_PRIORITY,
-	    gasnetc_nodeid(node), gasnetc_portid(node),
+	    _gmc.port, (void *) pop->src, (gm_remote_ptr_t) pop->dest,
+	    (unsigned long) pop->len, GM_LOW_PRIORITY,
+	    gasnetc_nodeid(pop->node), gasnetc_portid(pop->node),
 	    gasnete_firehose_callback_pop, (void *) pop);
 	return;
 }
@@ -183,26 +196,26 @@ gasnete_firehose_put_using_directed(gasnet_node_t node, uintptr_t dest,
 /* 
  * Puts
  */
-GASNET_INLINE_MODIFIER(gasnete_firehose_put_bulk)
-gasnet_handle_t
-gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, size_t nbytes,
-			  gasnete_iop_t *iop GASNETE_THREAD_FARG)
+GASNET_INLINE_MODIFIER(gasnete_firehose_move_for_put)
+void
+gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 {
 	size_t		num_buckets, tot_buckets;
 	size_t		new_buckets, old_buckets;
-	gasnete_eop_t	*pop;
+
+	assert(pop->dest > 0);
+	assert(pop->len > 0);
+	assert(pop->node < gasnete_nodes);
+	assert(OPSTATE(pop) == OPSTATE_INFLIGHT);
 
 	num_buckets = GASNETC_NUM_BUCKETS(
-	    GASNETI_PAGE_ALIGN((uintptr_t) dest, GASNETC_BUCKET_SIZE), 
-	    (uintptr_t)dest+nbytes);
+	    GASNETI_PAGE_ALIGN(pop->dest, GASNETC_BUCKET_SIZE), 
+	    pop->dest+pop->len);
 	tot_buckets = num_buckets*2;
 	/* XXX need better runtime support for cases where num firehoses > than
 	 * we can support in a single medium
 	 */
 	assert(sizeof(uintptr_t)*tot_buckets < gasnet_AMMaxMedium());
-
-	/* Pin locally, incrementing reference counts where necessary */
-	gasnetc_bucket_pin_by_addr((uintptr_t) src, nbytes);
 
 	gasneti_mutex_lock(&gasnetc_lock_fh_victim);
 	/* May have to regrow the firehose buffer */
@@ -213,13 +226,8 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, size_t nbyt
 		gasnetc_firehose_buf = (uintptr_t *)
 		    gasneti_malloc(sizeof(uintptr_t) * tot_buckets);
 	}
-	pop = gasnete_eop_new(GASNETE_MYTHREAD);
-	pop->src = (uintptr_t) src;
-	pop->dest = (uintptr_t) dest;
-	pop->len = (uint32_t) nbytes;
-	pop->node = node;
 
-	if (gasnetc_firehose_build_list(node, (uintptr_t)dest, num_buckets,
+	if (gasnetc_firehose_build_list(pop->node, pop->dest, num_buckets,
 	    &old_buckets, &new_buckets)) {
 		assert(gasneti_handleridx(gasnete_firehose_move_reph) > 0);
 		#ifdef TRACE
@@ -236,7 +244,7 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, size_t nbyt
 		}
 		#endif
 		MEDIUM_REQ(4, 5, 
-		   (node, gasneti_handleridx(gasnetc_firehose_move_reqh),
+		   (pop->node, gasneti_handleridx(gasnetc_firehose_move_reqh),
 		    (void *) gasnetc_firehose_buf, 
 		    (num_buckets + old_buckets)*sizeof(uintptr_t),
 		    new_buckets, old_buckets, num_buckets*sizeof(uintptr_t), 
@@ -245,17 +253,38 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, size_t nbyt
 	else {
 		/* all firehoses are remote pinned buckets */
 		gasneti_mutex_lock(&gasnetc_lock_gm);
-		gasnete_firehose_put_using_directed(node, 
-		   (uintptr_t) dest, src, nbytes, pop, GASNETE_FH_POLL_TOKEN);
+		gasnete_firehose_put_using_directed(pop, GASNETE_FH_POLL_TOKEN);
 		gasneti_mutex_unlock(&gasnetc_lock_gm);
 	}
 	/* If we were dealing with implicit put, increment the iop */
-	pop->iop = iop;
 	if (pop->iop != NULL)
-		iop->initiated_put_cnt++;
+		pop->iop->initiated_put_cnt++;
 	gasneti_mutex_unlock(&gasnetc_lock_fh_victim);
-	return ((gasnete_op_t *) pop);
+	return;
 }
+
+GASNET_INLINE_MODIFIER(gasnete_firehose_put_bulk)
+gasnet_handle_t
+gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, 
+			  size_t nbytes, gasnete_iop_t *iop GASNETE_THREAD_FARG)
+{
+	gasnete_eop_t	*pop;
+
+	/* Pin locally, incrementing reference counts where necessary */
+	gasnetc_bucket_pin_by_addr((uintptr_t) src, nbytes);
+
+	pop = gasnete_eop_new(GASNETE_MYTHREAD);
+	pop->src = (uintptr_t) src;
+	pop->dest = (uintptr_t) dest;
+	pop->len = (uint32_t) nbytes;
+	pop->node = node;
+	pop->iop = iop;
+	SET_OPMISC(pop, OPMISC_NONAMBUF);
+
+	gasnete_firehose_move_for_put(pop);
+	return (gasnete_op_t *) pop;
+}
+
 
 extern gasnet_handle_t
 gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src, 
@@ -266,7 +295,7 @@ gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src,
 		GASNETI_TRACE_PRINTF(C, 
 		    ("gasnete_put_nb_bulk Firehose (%d,%p <- %p,%d bytes)",
 		    (unsigned) node, dest, src, nbytes));
-		handle = gasnete_firehose_put_bulk(node, dest, src, nbytes,
+		handle = gasnete_firehose_put_bulk(node, dest, src, nbytes, 
 		    NULL GASNETE_THREAD_PASS);
 		GASNETI_TRACE_PRINTF(C, ("put_nb_bulk returns handle=%p",
 		    (void *) handle));
@@ -297,11 +326,34 @@ gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 		    nbytes GASNETE_THREAD_PASS);
 }
 
+GASNET_INLINE_MODIFIER(gasnete_firehose_put)
+gasnet_handle_t
+gasnete_firehose_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
+		     gasnete_iop_t *iop GASNETE_THREAD_FARG)
+{
+	gasnete_eop_t		*pop;
+	gasnetc_bufdesc_t	*bufd;
+
+	assert(nbytes <= GASNETC_AM_LEN);
+	bufd = gasnetc_AMRequestPool_block();
+	GASNETE_FAST_UNALIGNED_MEMCPY(bufd->sendbuf, src, nbytes);
+
+	pop = gasnete_eop_new(GASNETE_MYTHREAD);
+	pop->src = (uintptr_t) bufd->sendbuf;
+	pop->dest = (uintptr_t) dest;
+	pop->len = (uint32_t) nbytes;
+	pop->node = node;
+	pop->iop = iop;
+	SET_OPMISC(pop, OPMISC_AMBUF);
+
+	gasnete_firehose_move_for_put(pop);
+	return (gasnete_op_t *) pop;
+}
+
+#define GASNETE_PUT_NON_BULK_CUTOFF	GASNETC_AM_LEN
 /*
  * In the typed version of put, we always need a source copy of the local data
- * before sending it off, which doesn't require a local bucket pin.  Also,
- * since we will be sending for relatively small sizes, it's not worth using
- * the firehose lookup.
+ * before sending it off, which doesn't require a local memory registration.  
  *
  * By using AMRequestLong, the core API will attempt to query if the
  * destination is pinned and will leverage DMAs if possible.  The difference
@@ -314,15 +366,31 @@ extern gasnet_handle_t
 gasnete_put_nb (gasnet_node_t node, void *dest, void *src, 
 		size_t nbytes GASNETE_THREAD_FARG)
 {
-	return gasnete_extref_put_nb(node, dest, src, 
-	    nbytes GASNETE_THREAD_PASS);
+	gasnet_handle_t	handle;
+
+	if (nbytes < GASNETE_PUT_NON_BULK_CUTOFF) {
+		handle = gasnete_firehose_put(node, dest, src, nbytes, 
+		    NULL GASNETE_THREAD_PASS);
+		return handle;
+	}
+	else
+		return gasnete_extref_put_nb(node, dest, src, 
+		    nbytes GASNETE_THREAD_PASS);
 }
 
 extern void
 gasnete_put_nbi(gasnet_node_t node, void *dest, void *src, 
 		size_t nbytes GASNETE_THREAD_FARG)
 {
-	return gasnete_extref_put_nbi(node, dest, src, 
+	if (nbytes < GASNETE_PUT_NON_BULK_CUTOFF) {
+		gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+		gasnete_iop_t *iop = mythread->current_iop;
+		gasnete_firehose_put(node, dest, src, nbytes, 
+		    iop GASNETE_THREAD_PASS);
+		return;
+	}
+	else
+		return gasnete_extref_put_nbi(node, dest, src, 
 		    nbytes GASNETE_THREAD_PASS);
 }
 
@@ -349,7 +417,7 @@ gasnete_put_nbi(gasnet_node_t node, void *dest, void *src,
 GASNET_INLINE_MODIFIER(gasnete_firehose_get_bulk)
 gasnet_handle_t
 gasnete_firehose_get_bulk(void *dest, gasnet_node_t node, void *src, 
-			  size_t nbytes, gasnete_iop_t *iop GASNETE_THREAD_FARG)
+			  size_t nbytes, gasnete_iop_t *iop)
 {
 	/* Request a Get in terms of a DMA put */
 	gasnete_eop_t	*gop;
@@ -376,8 +444,7 @@ gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src,
 		GASNETI_TRACE_PRINTF(C, 
 		    ("gasnete_get_nb_bulk Firehose (%d,%p <- %p,%d bytes)",
 		    (unsigned) node, dest, src, nbytes));
-		return gasnete_firehose_get_bulk(dest, node, src, nbytes,
-		    NULL GASNETE_THREAD_PASS);
+		return gasnete_firehose_get_bulk(dest, node, src, nbytes, NULL);
 	}
 	else 
 		return gasnete_extref_get_nb_bulk(dest, node, src, 
@@ -388,12 +455,10 @@ extern void
 gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, 
 		      size_t nbytes GASNETE_THREAD_FARG)
 {
-	gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-	gasnete_iop_t *iop = mythread->current_iop;
-
 	if (nbytes > GASNETE_PUT_NON_DMA_CUTOFF) {
-		gasnete_firehose_get_bulk(dest, node, src, nbytes,
-		    iop GASNETE_THREAD_PASS);
+		gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+		gasnete_iop_t *iop = mythread->current_iop;
+		gasnete_firehose_get_bulk(dest, node, src, nbytes, iop);
 		return;
 	}
 	else 
@@ -418,9 +483,7 @@ gasnete_fifo_progress()
 		if (!gasnetc_token_lo_acquire())
 			return;
 		eop = gasnete_fifo_head;
-		gasnete_firehose_put_using_directed(eop->node, 
-		    eop->dest, (void *)eop->src, eop->len, eop, 
-		    GASNETE_FH_HAVE_TOKEN);
+		gasnete_firehose_put_using_directed(eop, GASNETE_FH_HAVE_TOKEN);
 		gasnete_fifo_dequeue();
 	}
 }
