@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_reqrep.cpp                                 $
- *     $Date: 2004/01/19 12:57:33 $
- * $Revision: 1.7 $
+ *     $Date: 2004/02/24 23:12:45 $
+ * $Revision: 1.8 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -770,7 +770,8 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
               if_pf (msg->nBytes > AMUDP_MAX_MEDIUM)
                 AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADLENGTH);
             #endif
-            if_pf (ep->segAddr == 0 || ep->segLength == 0 || msg->destOffset > AMUDP_MAX_SEGLENGTH)
+            if_pf ( ep->segLength == 0 || /* empty seg */
+                    ((uintptr_t)ep->segAddr + msg->destOffset) == 0) /* NULL target */
               AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADSEGOFF);
             if_pf (msg->destOffset + msg->nBytes > ep->segLength || msg->nBytes > AMUDP_MAX_LONG)
               AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADLENGTH);
