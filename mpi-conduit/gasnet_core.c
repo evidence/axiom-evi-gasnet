@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/07/23 22:36:47 $
- * $Revision: 1.49 $
+ *     $Date: 2004/07/25 09:01:57 $
+ * $Revision: 1.50 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -631,7 +631,7 @@ extern int gasnetc_AMReplyLongM(
         gasneti_mutex_lock(&errcheck_setup);
         if (gasnetc_hsl_errcheckinfo_firsttime) { 
           gasneti_assert_zeroret(pthread_key_create(&gasnetc_hsl_errcheckinfo, NULL));
-          gasneti_smb_wmb();
+          gasneti_local_wmb();
           gasnetc_hsl_errcheckinfo_firsttime = 0;
         }
         gasneti_mutex_unlock(&errcheck_setup);

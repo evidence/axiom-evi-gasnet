@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/07/23 22:36:37 $
- * $Revision: 1.40 $
+ *     $Date: 2004/07/25 09:01:55 $
+ * $Revision: 1.41 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -468,22 +468,25 @@
 
 /*
  gasneti_local_memflush: 
-   Force the architectural memory barrier (even if it the system appears to
+   Force an architectural write memory barrier (even if it the system appears to
    be a uniprocessor).  Used to force a write flush when performing
    memory-mapped I/O.
 
  gasneti_local_wmb:
    A local memory write barrier - ensure all stores to local mem from this thread are
-   globally completed across this SMP before issuing any subsequent loads.
+   globally completed across this SMP before issuing any subsequent loads or stores.
    (i.e. all loads issued from any CPU subsequent to this call
       returning will see the new value for any previously issued
-      stores from this proc)
+      stores from this proc, and any subsequent stores from this CPU
+      are guaranteed to become globally visible after all previously issued
+      stores from this CPU)
    This must also include whatever is needed to prevent the compiler from reordering
    loads and stores across this point.
 
  gasneti_local_rmb:
-   A local memory read barrier - ensure all reads from local mem from this thread
-   will observe stores in the correct order.  For instance, on the Alpha this ensures
+   A local memory read barrier - ensure all subsequent loads from local mem from this thread
+   will observe previously issued stores from any CPU which have globally completed.  
+   For instance, on the Alpha this ensures
    that queued cache invalidations are processed and on the PPC this discards any loads
    that were executed speculatively.
    This must also include whatever is needed to prevent the compiler from reordering
@@ -497,10 +500,10 @@
   to add appropriate flushes to their code.
 
   To reduce duplicated assembly code and needless empty macros the following are the
-  default behaviours unless a given arch/compiler defines something else.
+  default behaviors unless a given arch/compiler defines something else.
    + gasneti_local_memflush() is implemented on all architectures
    + gasneti_local_wmb() defaults to gasneti_local_memflush() unless we are building
-       specifically for a uniprocessor (in which case it is only a compler fence).
+       specifically for a uniprocessor (in which case it is only a compiler fence).
    + gasneti_local_rmb() defaults to just a compiler fence, as only a few architectures
        need more than this
 
