@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.13 2002/07/07 13:38:25 csbell Exp $
- * $Date: 2002/07/07 13:38:25 $
+/* $Id: gasnet_core.c,v 1.14 2002/07/08 06:31:27 csbell Exp $
+ * $Date: 2002/07/08 06:31:27 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -488,7 +488,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   int port, id, len;
   size_t bytes_left;
   void *source_addr_cur;
-  uint64_t dest_addr_cur;
+  uintptr_t dest_addr_cur;
   GASNETC_CHECKINIT();
   
   gasnetc_boundscheck(dest, dest_addr, nbytes);
@@ -514,7 +514,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     port = gasnetc_portid(dest);
     id = gasnetc_nodeid(dest);
 
-    dest_addr_cur = (uint64_t) (uint32_t) dest_addr;
+    dest_addr_cur = (uintptr_t) dest_addr;
     source_addr_cur = source_addr;
     bytes_left = nbytes;
 
@@ -527,14 +527,14 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
       gasnetc_tokensend_AMRequest(bufd->sendbuf, bytes_next, id, port, 
 		    gasnetc_callback_AMRequest, (void *) bufd, dest_addr_cur);
 
-      dest_addr_cur += bytes_next;
+      dest_addr_cur += (uintptr_t) bytes_next;
       source_addr_cur += bytes_next;
       bytes_left -= bytes_next;
     }
 
     bufd = gasnetc_AMRequestPool_block();
     len = gasnetc_write_AMBufferLong(bufd->sendbuf, handler, numargs, argptr, 
-		  nbytes, source_addr, dest_addr, GASNETC_AM_REQUEST);
+		  nbytes, source_addr, (uintptr_t) dest_addr, GASNETC_AM_REQUEST);
     if (bytes_left > 0) {
       gasnetc_write_AMBufferBulk(bufd->sendbuf+len, source_addr_cur, bytes_left);
       gasnetc_tokensend_AMRequest(bufd->sendbuf+len, bytes_left, id, port, 
@@ -551,6 +551,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 }
 
 #ifdef GASNETC_DYNAMIC_REGISTRATION
+#error AMRequestLongAsync not implemented for dynamic registration
 extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destination node */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
@@ -704,9 +705,9 @@ extern int gasnetc_AMReplyLongM(
 	    GASNETI_RETURN_ERRR(BAD_ARG,"AMLong Payload too large");
     bufd = gasnetc_bufdesc_from_token(token);
     hdr_len = gasnetc_write_AMBufferLong(bufd->sendbuf, handler, numargs, argptr, 
-		    nbytes, source_addr, dest_addr, GASNETC_AM_REPLY);
+		    nbytes, source_addr, (uintptr_t) dest_addr, GASNETC_AM_REPLY);
     gasnetc_write_AMBufferBulk(bufd->sendbuf + hdr_len, source_addr, nbytes);
-    bufd->dest_addr = (uint64_t) (uint32_t) dest_addr;
+    bufd->dest_addr = (uintptr_t) dest_addr;
     bufd->rdma_off = hdr_len;
   
     /* We need two sends, so the buffering policy must be aware of handling

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.17 2002/07/07 13:38:26 csbell Exp $
- * $Date: 2002/07/07 13:38:26 $
- * $Revision: 1.17 $
+/* $Id: gasnet_core_internal.h,v 1.18 2002/07/08 06:31:27 csbell Exp $
+ * $Date: 2002/07/08 06:31:27 $
+ * $Revision: 1.18 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -661,7 +661,7 @@ gasnetc_write_AMBufferLong(	void *buf,
 				int numargs, va_list argptr, 
 				size_t nbytes,
 				void *source_addr,
-				void *dest_addr,
+				uintptr_t dest_addr,
 				int req)
 {
 	uint8_t *pbuf = (uint8_t *)buf;
