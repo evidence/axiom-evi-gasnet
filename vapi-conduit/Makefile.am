@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.13 2004/02/09 23:03:32 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.14 2004/02/10 11:30:07 bonachea Exp $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -122,8 +122,10 @@ install-data-local: $(headers)
 	@list='$(headers)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
+            if test "$$filename" = "`basename $$p _internal.h`" ; then \
 	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/vapi-conduit/$$filename"; \
 	    $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/vapi-conduit/$$filename; \
+	    else :; fi; \
 	  else :; fi; \
 	done
 	@list='$(makefile_fragments)'; for p in $$list; do \

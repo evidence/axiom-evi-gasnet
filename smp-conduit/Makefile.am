@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.8 2004/01/05 05:01:21 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.9 2004/02/10 11:30:03 bonachea Exp $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -88,8 +88,10 @@ install-data-local: $(headers)
 	@list='$(headers)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
+            if test "$$filename" = "`basename $$p _internal.h`" ; then \
 	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/smp-conduit/$$filename"; \
 	    $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/smp-conduit/$$filename; \
+	    else :; fi; \
 	  else :; fi; \
 	done
 	@list='$(makefile_fragments)'; for p in $$list; do \
