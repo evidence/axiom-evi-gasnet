@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2005/03/22 19:19:30 $
- * $Revision: 1.31 $
+ *     $Date: 2005/03/31 18:51:33 $
+ * $Revision: 1.32 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -216,13 +216,15 @@ extern int gasnetc_ReplySystem(
 
 /* RDMA initiation operations */
 #if GASNETC_PIN_SEGMENT
-  extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, uintptr_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust);
+  extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust);
 #else
-  extern int gasnetc_rdma_put_fh(int node, void *src_ptr, void *dst_ptr, uintptr_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust, gasnetc_counter_t *am_oust);
+  extern int gasnetc_rdma_put_fh(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust, gasnetc_counter_t *am_oust);
   #define gasnetc_rdma_put(node,src_ptr,dst_ptr,nbytes,mem_oust,req_oust) \
 	gasnetc_rdma_put_fh(node,src_ptr,dst_ptr,nbytes,mem_oust,req_oust,NULL)
 #endif
 extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *req_oust);
+extern int gasnetc_rdma_putv(int node, size_t srccount, gasnet_memvec_t const srclist[], void *dst_ptr, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust);
+extern int gasnetc_rdma_getv(int node, void *src_ptr, size_t dstcount, gasnet_memvec_t const dstlist[], gasnetc_counter_t *req_oust);
 
 /* ------------------------------------------------------------------------------------ */
 

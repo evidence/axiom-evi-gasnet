@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/31 00:56:35 $
- * $Revision: 1.84 $
+ *     $Date: 2005/03/31 18:51:33 $
+ * $Revision: 1.85 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -855,7 +855,7 @@ void gasnetc_snd_post_list(gasnetc_sreq_t *sreq, int count, VAPI_sr_desc_t *sr_d
 
     GASNETC_STAT_EVENT_VAL(POST_SR_LIST,sreq->count);
     #if GASNET_TRACE || GASNET_DEBUG
-      gasnetc_snd_validate(sreq, sr_desc, count, "POST_ST_LIST");
+      gasnetc_snd_validate(sreq, sr_desc, count, "POST_SR_LIST");
     #endif
 
     vstat = EVAPI_post_sr_list(gasnetc_hca, sreq->cep->qp_handle, sreq->count, sr_desc);
@@ -1532,24 +1532,20 @@ int gasnetc_fh_helper(int is_put, gasnet_node_t node, gasnetc_sreq_t *sreq,
 			      NULL, &gasnetc_fh_put_inline, sreq);
     gasneti_assert(req == NULL);
   } else {
-    /* See how much (if any) is already pinned.
-     * Note that it is safe to ask about 'len' without checking any limits first.  */
-    req = firehose_partial_remote_pin(node, rem_addr, len, 0, &sreq->fh_rem);
+    /* See how much (if any) is already pinned.  A call to firehose_partial_remote_pin()
+     * might acquire a firehose for a region starting above rem_addr.  By instead calling
+     * firehose_try_remote_pin() with len==1, we get a *contiguous* firehose if available.
+     * We count on the implementation of firehose region giving out the largest region
+     * that covers our request.
+     */
+    req = firehose_try_remote_pin(node, rem_addr, /*len*/ 1, /*flags*/ 0, &sreq->fh_rem);
     gasneti_assert((req == NULL) || (req == &sreq->fh_rem));
 
-    if_pt (req && (req->addr <= rem_addr)) {
+    if_pt (req) {
       /* HIT in remote firehose table - some initial part of the region is pinned */
-      len = MIN(len, req->addr + req->len - rem_addr);	/* trim to pinned region */
-      len = gasnetc_fh_hit(node, sreq, loc_addr, len);
+      len = gasnetc_fh_hit(node, sreq, loc_addr, MIN(len, (req->addr - rem_addr) + req->len));
     } else {
       /* Some initial part (or all) of the region is unpinned */
-      if (req) {
-        /* XXX: should we try to initiate RDMA here rather than releasing?
-	 * If we can't easily split into two simple ranges, then the bookkeeping
-	 * is probably too much to justify it.
-	 */
-        firehose_release(&req, 1);	/* avoid deadlock */
-      }
       len = gasnetc_fh_miss(node, sreq, loc_addr, rem_addr, len);
     }
   }
@@ -1901,6 +1897,36 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
   return 0;
 }
 #endif
+
+/* Putv - contiguous remote dst, vector local src
+ *
+ * Initial naive implementation
+ */
+extern int gasnetc_rdma_putv(int node, size_t srccount, gasnet_memvec_t const srclist[], void *dst_ptr, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust) {
+  while (srccount) {
+    /* XXX: check return value for errors */
+    (void)gasnetc_rdma_put(node, srclist->addr, dst_ptr, srclist->len, mem_oust, req_oust);
+    --srccount;
+    ++srclist;
+  }
+
+  return 0;
+}
+
+/* Getv - contiguous remote src, vector local dst
+ *
+ * Initial naive implementation
+ */
+extern int gasnetc_rdma_getv(int node, void *src_ptr, size_t dstcount, gasnet_memvec_t const dstlist[], gasnetc_counter_t *req_oust) {
+  while (dstcount) {
+    /* XXX: check return value for errors */
+    (void)gasnetc_rdma_get(node, src_ptr, dstlist->addr, dstlist->len, req_oust);
+    --dstcount;
+    ++dstlist;
+  }
+
+  return 0;
+}
 
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
