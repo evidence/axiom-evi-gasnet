@@ -58,7 +58,7 @@ Options:
                         Default is set to STDOUT.
     -sort [f1],[f2]...	
     			Sort the output by the given fields:
-                        TOTAL_SZ, CALLS, AVG_SZ, MAX_SZ, MIN_SZ;
+                        TOTAL_SZ, CALLS, AVG_SZ, MAX_SZ, MIN_SZ, SRC;
                         Default is set to TOTAL_SZ;
     -type		Show the types of get and put in the output.
 EOF
@@ -99,7 +99,7 @@ sub shorten
     	return sprintf("%.2fK", $msg_sz / 1024.0);
     } elsif ($msg_sz < 1024 * 1024 * 1024) {
     	return sprintf("%.2fM", $msg_sz / (1024.0 * 1024.0));
-    } elsif ($msg_sz < 1024 * 1024 * 1024) {
+    } elsif ($msg_sz < 1024 * 1024 * 1024 * 1024) {
     	return sprintf("%.2fG", $msg_sz / (1024.0 * 1024.0 * 1024.0));
     } else {
     	return sprintf("%.2fT", $msg_sz / (1024.0 * 1024.0 * 1024.0 * 1024.0));
@@ -163,6 +163,9 @@ sub trace_output
                 if ($sort_mtd eq "TOTAL_SZ") {
                     $result = $totalsz{$b} <=> $totalsz{$a};
                 }
+                if ($sort_mtd eq "SRC") {
+                    $result = $a cmp $b;
+                }
             }
            $sort_mtd = shift @mtd;
         }
@@ -173,7 +176,7 @@ sub trace_output
     my @sorted;
     # Checking for valid input
     foreach my $mtd (@sortmtd) {
-        $mtd =~ /^(CALLS|AVG_SZ|MAX_SZ|MIN_SZ|TOTAL_SZ)$/
+        $mtd =~ /^(CALLS|AVG_SZ|MAX_SZ|MIN_SZ|TOTAL_SZ|SRC)$/
         or die "Could not recognize $mtd\n" 
     }
     if ($opt_sort) {     
