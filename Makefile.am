@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/12/11 20:19:48 $
-# $Revision: 1.20 $
+#     $Date: 2004/02/03 07:18:29 $
+# $Revision: 1.21 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -98,7 +98,7 @@ dist-hook:
           $(MAKE) -C $(distdir)/docs dist-hook ; \
         fi
 	mkdir -p $(distdir)/tests  # need this special hack to handle tests or distcheck will fail
-	cp -Rp $(srcdir)/tests $(distdir)
+	cp -Rpu $(srcdir)/tests $(distdir)
 	rm -Rf `find $(distdir) -name CVS -type d -print`
 	rm -f `find $(distdir) -name .#\* -print`
 

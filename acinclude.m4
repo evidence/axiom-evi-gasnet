@@ -284,7 +284,8 @@ AC_DEFUN([GASNET_TRY_RUNCMD],[
 dnl GASNET_TRY_CCOMPILE_WITHWARN(includes, function-body, action-success, action-warning, action-error)
 dnl Compile a C program and take different actions based on complete success, error or warning
 AC_DEFUN([GASNET_TRY_CCOMPILE_WITHWARN],[
-  gasnet_testfile=gasnet-conftest.c
+  gasnet_testname=gasnet-conftest
+  gasnet_testfile=${gasnet_testname}.c
   gasnet_compile_cmd="${CC-cc} -c $CFLAGS $CPPFLAGS $gasnet_testfile"
   cat > $gasnet_testfile <<EOF
 #include "confdefs.h"
@@ -302,13 +303,14 @@ EOF
     cat $gasnet_testfile >&5
     $5
     ])
-  rm -f $gasnet_testfile
+  rm -f ${gasnet_testname}.*
 ])
 
 dnl GASNET_TRY_CXXCOMPILE_WITHWARN(includes, function-body, action-success, action-warning, action-error)
 dnl Compile a C++ program and take different actions based on complete success, error or warning
 AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN],[
-  gasnet_testfile=gasnet-conftest.cc
+  gasnet_testname=gasnet-conftest
+  gasnet_testfile=${gasnet_testname}.cc
   gasnet_compile_cmd="${CXX-c++} -c $CXXFLAGS $CPPFLAGS $gasnet_testfile"
   cat > $gasnet_testfile <<EOF
 #include "confdefs.h"
@@ -326,7 +328,7 @@ EOF
     cat $gasnet_testfile >&5
     $5
     ])
-  rm -f $gasnet_testfile
+  rm -f ${gasnet_testname}.*
 ])
 
 dnl GASNET_TRY_CFLAG(flags, action-if-supported, action-if-not-supported)
