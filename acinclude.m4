@@ -472,6 +472,95 @@ if test "$cv_prefix[]$2" != no; then
   $5=$cv_prefix[]$2
 fi])
 
+AC_DEFUN([GASNET_PROG_CPP], [
+  AC_PROVIDE([$0])
+  AC_REQUIRE([AC_PROG_CC])
+  AC_REQUIRE([AC_PROG_CPP])
+  AC_SUBST(CPP)
+  AC_SUBST(CPPFLAGS)
+  AC_MSG_CHECKING(for working C preprocessor)
+  AC_LANG_SAVE
+  AC_LANG_C
+  gasnet_progcpp_extrainfo=
+  dnl deal with preprocessors who foolishly return success exit code even when they saw #error
+  if test -n "`$CPP -version 2>&1 | grep MIPSpro`" ; then
+    dnl The MIPSPro compiler has a broken preprocessor exit code by default, fix it
+    dnl Using this flag is preferable to ensure that #errors encountered during compilation are fatal
+    gasnet_progcpp_extrainfo=" (added -diag_error 1035 to deal with broken MIPSPro preprocessor)"
+    CFLAGS="$CFLAGS -diag_error 1035"
+    CPPFLAGS="$CPPFLAGS -diag_error 1035"    
+  fi
+  dnl final check
+  AC_TRY_CPP([
+    # error
+  ], [AC_MSG_ERROR(Your C preprocessor is broken - reported success when it should have failed)], [])
+  AC_TRY_CPP([], [], [AC_MSG_ERROR(Your C preprocessor is broken - reported failure when it should have succeeded)])
+  AC_MSG_RESULT(yes$gasnet_progcpp_extrainfo)
+  AC_LANG_RESTORE
+])
+
+AC_DEFUN([GASNET_PROG_CXXCPP], [
+  AC_PROVIDE([$0])
+  AC_REQUIRE([AC_PROG_CXX])
+  AC_REQUIRE([AC_PROG_CXXCPP])
+  AC_SUBST(CXXCPP)
+  AC_SUBST(CXXCPPFLAGS)
+  AC_MSG_CHECKING(for working C++ preprocessor)
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  gasnet_progcxxcpp_extrainfo=
+  dnl deal with preprocessors who foolishly return success exit code even when they saw #error
+  if test -n "`$CXXCPP -version 2>&1 | grep MIPSpro`" ; then
+    dnl The MIPSPro compiler has a broken preprocessor exit code by default, fix it
+    dnl Using this flag is preferable to ensure that #errors encountered during compilation are fatal
+    gasnet_progcxxcpp_extrainfo=" (added -diag_error 1035 to deal with broken MIPSPro preprocessor)"
+    CXXFLAGS="$CXXFLAGS -diag_error 1035"
+    CXXCPPFLAGS="$CXXCPPFLAGS -diag_error 1035"    
+  fi
+  dnl final check
+  AC_TRY_CPP([
+    # error
+  ], [AC_MSG_ERROR(Your C++ preprocessor is broken - reported success when it should have failed)], [])
+  AC_TRY_CPP([], [], [AC_MSG_ERROR(Your C++ preprocessor is broken - reported failure when it should have succeeded)])
+  AC_MSG_RESULT(yes$gasnet_progcxxcpp_extrainfo)
+  AC_LANG_RESTORE
+])
+
+AC_DEFUN([GASNET_PROG_CC], [
+  AC_REQUIRE([GASNET_PROG_CPP])
+  AC_SUBST(CC)
+  AC_SUBST(CFLAGS)
+  AC_MSG_CHECKING(for working C compiler)
+  AC_LANG_SAVE
+  AC_LANG_C
+  AC_TRY_COMPILE([], [
+    fail for me
+  ], [AC_MSG_ERROR(Your C compiler is broken - reported success when it should have failed)], [])
+  AC_TRY_COMPILE([], [], [], [AC_MSG_ERROR(Your C compiler is broken - reported failure when it should have succeeded)])
+  AC_TRY_LINK([ extern int some_bogus_nonexistent_symbol(); ], [ int x = some_bogus_nonexistent_symbol(); ],
+              [AC_MSG_ERROR(Your C linker is broken - reported success when it should have failed)], [])
+  AC_TRY_LINK([], [], [], [AC_MSG_ERROR(Your C link is broken - reported failure when it should have succeeded)])
+  AC_MSG_RESULT(yes)
+  AC_LANG_RESTORE
+])
+
+AC_DEFUN([GASNET_PROG_CXX], [
+  AC_REQUIRE([GASNET_PROG_CXXCPP])
+  AC_SUBST(CXX)
+  AC_SUBST(CXXFLAGS)
+  AC_MSG_CHECKING(for working C++ compiler)
+  AC_LANG_SAVE
+  AC_LANG_CPLUSPLUS
+  AC_TRY_COMPILE([], [
+    fail for me
+  ], [AC_MSG_ERROR(Your C++ compiler is broken - reported success when it should have failed)], [])
+  AC_TRY_COMPILE([], [], [], [AC_MSG_ERROR(Your C++ compiler is broken - reported failure when it should have succeeded)])
+  AC_TRY_LINK([ extern int some_bogus_nonexistent_symbol(); ], [ int x = some_bogus_nonexistent_symbol(); ],
+              [AC_MSG_ERROR(Your C++ linker is broken - reported success when it should have failed)], [])
+  AC_TRY_LINK([], [], [], [AC_MSG_ERROR(Your C++ link is broken - reported failure when it should have succeeded)])
+  AC_MSG_RESULT(yes)
+  AC_LANG_RESTORE
+])
 
 AC_DEFUN([GASNET_IFDEF],[
 AC_TRY_CPP([

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/05/27 06:30:26 $
-# $Revision: 1.144 $
+#     $Date: 2004/05/28 04:14:21 $
+# $Revision: 1.145 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.144 $)
+AC_REVISION($Revision: 1.145 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -86,12 +86,11 @@ case "$target_os" in
      GASNET_ENV_DEFAULT(CC, c++ -Xa) ;; # may also/alternately want -Kc99
 esac
 
-AC_PROG_CC
-AC_PROG_CPP
+GASNET_PROG_CPP
+GASNET_PROG_CC
 AC_PROG_LN_S
 AC_C_BIGENDIAN
 AC_CHECK_PROG(have_mpcc_r,mpcc_r,yes,no)
-AC_SUBST(CC)
 
 ## DOB: this is more trouble than it's worth because so many OS's define
 ## LITTLE_ENDIAN or BIG_ENDIAN in random and sultry header files
@@ -126,9 +125,7 @@ dnl AC_SUBST(ENDIANNESS)
 GASNET_FAMILY_CACHE_CHECK(C, CC, gasnet_cv_cc_family)
 
 if test "$gasnet_cv_cc_family" = MIPS; then
-  # The MIPSPro C compiler has a broken C preprocessor exit code by default, fix it
-  CFLAGS="$CFLAGS -diag_error 1035"
-  CPPFLAGS="$CPPFLAGS -diag_error 1035"
+  # The MIPSPro C compiler apparently has no identifying markings
   AC_DEFINE(MIPSPRO_COMPILER)
 fi
 
@@ -281,7 +278,7 @@ GASNET_IF_ENABLED_WITH_AUTO(stats, Build GASNet with statistical collection enab
     BUILDCONFIG_DEFINES="$BUILDCONFIG_DEFINES -DGASNET_STATS"
   fi
 
-AC_SUBST(CFLAGS)	      # opt/debug flags
+#AC_SUBST(CFLAGS)	      # opt/debug flags
 AC_SUBST(MISC_CFLAGS)	      # warning suppression and other misc C flags
 AC_SUBST(MISC_CPPFLAGS)	      # misc preprocessor flags
 AC_SUBST(BUILDCONFIG_DEFINES) # defines that setup build configuration
@@ -645,8 +642,8 @@ if test $enabled_udp = yes; then
   # Do C++ configuration
   AC_LANG_SAVE
 
-  AC_PROG_CXX
-  AC_PROG_CXXCPP
+  GASNET_PROG_CXXCPP
+  GASNET_PROG_CXX
 
   AC_LANG_CPLUSPLUS
   GASNET_FAMILY_CACHE_CHECK(C++, CXX, gasnet_cv_cxx_family)
@@ -682,8 +679,6 @@ if test $enabled_udp = yes; then
   else
     CXXFLAGS="$CXXDEBUGFLAGS"
   fi
-  AC_SUBST(CXX)
-  AC_SUBST(CXXFLAGS)
   AC_SUBST(MISC_CXXFLAGS)
 
   AC_LANG_RESTORE
