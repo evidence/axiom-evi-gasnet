@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/01/22 15:11:40 $
-dnl $Revision: 1.53 $
+dnl     $Date: 2005/01/23 09:11:34 $
+dnl $Revision: 1.54 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -937,5 +937,11 @@ AC_SUBST(GASNET_INSTALL_CMD)
 dnl pass $1 to all subconfigures invoked recursively from this configure script
 AC_DEFUN([GASNET_SUBCONFIGURE_ARG],[
 ac_configure_args="$ac_configure_args $1"
+])
+
+dnl query the numerical value of a system signal and AC_SUBST it
+AC_DEFUN([GASNET_GET_SIG], [
+  GASNET_TRY_CACHE_RUN_EXPR([value of SIG$1], SIG$1, [#include <signal.h>], [val = (int)SIG$1;], SIG$1)
+  AC_SUBST(SIG$1)
 ])
 
