@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/30 07:16:53 $
- * $Revision: 1.18 $
+ *     $Date: 2003/09/02 21:20:41 $
+ * $Revision: 1.19 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -294,7 +294,7 @@ static int gasnetc_load_settings(void) {
 
   tmp = getenv("GASNET_HCA_ID");
   if (tmp) {
-    gasnetc_hca_id = strdup(tmp);
+    gasnetc_hca_id = gasneti_strdup(tmp);
   } else {
     gasnetc_hca_id = GASNETC_DEFAULT_HCA_ID;
   }
@@ -429,7 +429,7 @@ static int gasnetc_init(int *argc, char ***argv) {
         GASNETI_RETURN_ERRR(RESOURCE, "failed open any HCAs");
       }
 
-      gasnetc_hca_id = strdup(hca_ids[i]);
+      gasnetc_hca_id = gasneti_strdup(hca_ids[i]);
       gasneti_free(hca_ids);
     } else {
       vstat = VAPI_open_hca(gasnetc_hca_id, &gasnetc_hca);
