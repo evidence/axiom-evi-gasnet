@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testvis.c                              $
- *     $Date: 2004/03/03 13:47:08 $
- * $Revision: 1.1 $
+ *     $Date: 2004/03/04 13:03:50 $
+ * $Revision: 1.2 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -45,10 +45,12 @@
 #define NUM_AREAS   4
 #define MAX_STRIDEDIM  20
 #define MAX_CHUNKSZ 256
+#define MAX_INFLIGHT_OPS 16
 
 #define RUN_VECTOR   1
 #define RUN_INDEXED  2
 #define RUN_STRIDED  4
+#define RUN_NB       8
 
 #if GASNET_SEGMENT_EVERYTHING
   #define segeverything 1
@@ -577,7 +579,7 @@ void _verify_strided_desc_data_both(test_strided_desc *desc, void *result,
       char *p = idxstr;
       int i;
       for (i=0; i < dim; i++) {
-        sprintf(p, "%i", idx[i]);
+        sprintf(p, "%i", (int)idx[i]);
         if (i < dim-1) strcat(p, ", ");
         p+=strlen(p);
       }
@@ -650,6 +652,17 @@ void checkmem() {
     }
   }
 }
+
+typedef struct {
+  test_memvec_list *vsrc;
+  test_memvec_list *vdst;
+  test_memvec_list *vtmp;
+  test_addr_list *isrc;
+  test_addr_list *idst;
+  test_addr_list *itmp;
+  test_strided_desc *sdesc;
+  VEC_T *stmpbuf;
+} test_op;
 
 void doit(int iters, int runtests) {
   GASNET_BEGIN_FUNCTION();
@@ -843,12 +856,156 @@ void doit(int iters, int runtests) {
     checkmem();
   }
   /*---------------------------------------------------------------------------------*/
+  if (runtests & RUN_NB) { 
+    int iter;
+    MSG("Non-blocking tests...");
+    for (iter = 0; iter < iters; iter++) {
+      int numops = TEST_RAND(1, MAX_INFLIGHT_OPS);
+      gasnet_handle_t *handles = test_calloc(sizeof(gasnet_handle_t), numops);
+      test_op *ops = test_calloc(sizeof(test_op), numops);
+      int opareasz = areasz / numops;
+      int i;
+
+      /* puts */
+      for(i=0; i < numops; i++) {
+        VEC_T *op_my_seg_write1_area = my_seg_write1_area + opareasz*i;
+        VEC_T *op_my_seg_write2_area = my_seg_write2_area + opareasz*i;
+        VEC_T *op_my_heap_write1_area = my_heap_write1_area + opareasz*i;
+        VEC_T *op_my_heap_write2_area = my_heap_write2_area + opareasz*i;
+        VEC_T *op_partner_seg_remotewrite_area = partner_seg_remotewrite_area + opareasz*i;
+
+        switch (TEST_RAND(1,3)) {
+          case 1: {
+            ops[i].vsrc = rand_memvec_list(TEST_RAND_PICK(my_heap_read_area, my_seg_read_area), areasz, 1);
+            ops[i].vdst = rand_memvec_list(op_partner_seg_remotewrite_area, opareasz, 0);
+            trim_memvec_list(ops[i].vsrc, ops[i].vdst);
+            ops[i].vtmp = buildcontig_memvec_list(TEST_RAND_PICK(op_my_heap_write2_area, op_my_seg_write2_area), ops[i].vdst->totalsz/VEC_SZ, opareasz);
+
+            if (TEST_RAND_ONEIN(2)) 
+              handles[i] = gasnet_putv_nb_bulk(partner, ops[i].vdst->count, ops[i].vdst->list, ops[i].vsrc->count, ops[i].vsrc->list);
+            else gasnet_putv_nbi_bulk(partner, ops[i].vdst->count, ops[i].vdst->list, ops[i].vsrc->count, ops[i].vsrc->list);
+
+            verify_memvec_list(ops[i].vsrc);
+            verify_memvec_list(ops[i].vdst);
+            break;
+          }
+          case 2: {
+            size_t srcchunkelem, dstchunkelem;
+            rand_chunkelem(&srcchunkelem, &dstchunkelem);
+
+            ops[i].isrc = rand_addr_list(TEST_RAND_PICK(my_heap_read_area, my_seg_read_area), srcchunkelem, areasz, 1);
+            ops[i].idst = rand_addr_list(op_partner_seg_remotewrite_area, dstchunkelem, opareasz, 0);
+            trim_addr_list(ops[i].isrc, ops[i].idst);
+            ops[i].itmp = buildcontig_addr_list(TEST_RAND_PICK(op_my_heap_write2_area, op_my_seg_write2_area), ops[i].idst->totalsz/VEC_SZ, opareasz);
+
+            if (TEST_RAND_ONEIN(2)) 
+              handles[i] = gasnet_puti_nb_bulk(partner, ops[i].idst->count, ops[i].idst->list, ops[i].idst->chunklen, ops[i].isrc->count, ops[i].isrc->list, ops[i].isrc->chunklen);
+            else gasnet_puti_nbi_bulk(partner, ops[i].idst->count, ops[i].idst->list, ops[i].idst->chunklen, ops[i].isrc->count, ops[i].isrc->list, ops[i].isrc->chunklen);
+
+            verify_addr_list(ops[i].isrc);
+            verify_addr_list(ops[i].idst);
+            break;
+          }
+          case 3: {
+            void *srcarea = TEST_RAND_PICK(my_heap_read_area, my_seg_read_area);
+            void *dstarea = op_partner_seg_remotewrite_area;
+            void *tmparea = TEST_RAND_PICK(op_my_heap_write2_area, op_my_seg_write2_area);
+
+            ops[i].sdesc = rand_strided_desc(srcarea, dstarea, tmparea, opareasz);
+            ops[i].stmpbuf = ((VEC_T*)tmparea) + TEST_RAND(0,opareasz - ops[i].sdesc->totalsz/VEC_SZ);
+
+            if (TEST_RAND_ONEIN(2)) 
+              handles[i] = gasnet_puts_nb_bulk(partner, ops[i].sdesc->dstaddr, ops[i].sdesc->dststrides, ops[i].sdesc->srcaddr, ops[i].sdesc->srcstrides, ops[i].sdesc->count, ops[i].sdesc->stridelevels);
+            else gasnet_puts_nbi_bulk(partner, ops[i].sdesc->dstaddr, ops[i].sdesc->dststrides, ops[i].sdesc->srcaddr, ops[i].sdesc->srcstrides, ops[i].sdesc->count, ops[i].sdesc->stridelevels);
+
+            verify_strided_desc(ops[i].sdesc);
+            break;
+          }
+        }
+      }
+
+      /* sync */
+      gasnet_wait_syncnb_all(handles, numops);
+      gasnet_wait_syncnbi_all();
+
+      /* gets */
+      for(i=0; i < numops; i++) {
+        if (ops[i].vsrc != NULL) {
+          assert(ops[i].vdst != NULL && ops[i].vtmp != NULL);
+
+          if (TEST_RAND_ONEIN(2)) 
+            handles[i] = gasnet_getv_nb_bulk(ops[i].vtmp->count, ops[i].vtmp->list, partner, ops[i].vdst->count, ops[i].vdst->list);
+          else gasnet_getv_nbi_bulk(ops[i].vtmp->count, ops[i].vtmp->list, partner, ops[i].vdst->count, ops[i].vdst->list);
+
+          verify_memvec_list(ops[i].vtmp);
+          verify_memvec_list(ops[i].vdst);
+        } else if (ops[i].isrc != NULL) {
+          assert(ops[i].idst != NULL && ops[i].itmp != NULL);
+
+          if (TEST_RAND_ONEIN(2)) 
+            handles[i] = gasnet_geti_nb_bulk(ops[i].itmp->count, ops[i].itmp->list, ops[i].itmp->chunklen, partner, ops[i].idst->count, ops[i].idst->list, ops[i].idst->chunklen);
+          else gasnet_geti_nbi_bulk(ops[i].itmp->count, ops[i].itmp->list, ops[i].itmp->chunklen, partner, ops[i].idst->count, ops[i].idst->list, ops[i].idst->chunklen);
+
+          verify_addr_list(ops[i].itmp);
+          verify_addr_list(ops[i].idst);
+        } else {
+          assert(ops[i].sdesc != NULL);
+
+          if (TEST_RAND_ONEIN(2)) 
+            handles[i] = gasnet_gets_nb_bulk(ops[i].stmpbuf, ops[i].sdesc->contigstrides, partner, ops[i].sdesc->dstaddr, ops[i].sdesc->dststrides, ops[i].sdesc->count, ops[i].sdesc->stridelevels);
+          else gasnet_gets_nbi_bulk(ops[i].stmpbuf, ops[i].sdesc->contigstrides, partner, ops[i].sdesc->dstaddr, ops[i].sdesc->dststrides, ops[i].sdesc->count, ops[i].sdesc->stridelevels);
+
+          verify_strided_desc(ops[i].sdesc);
+        }
+      }
+
+      /* sync */
+      gasnet_wait_syncnb_all(handles, numops);
+      gasnet_wait_syncnbi_all();
+
+      for(i=0; i < numops; i++) {
+        if (ops[i].vsrc != NULL) {
+          assert(ops[i].vdst != NULL && ops[i].vtmp != NULL);
+
+          verify_memvec_list(ops[i].vsrc);
+          verify_memvec_list(ops[i].vdst);
+          verify_memvec_list(ops[i].vtmp);
+          verify_memvec_data(ops[i].vsrc, ops[i].vtmp->list[0].addr, "non-blocking gasnet_putv_bulk/gasnet_getv_bulk test");
+
+          test_free(ops[i].vsrc);
+          test_free(ops[i].vdst);
+          test_free(ops[i].vtmp);
+        } else if (ops[i].isrc != NULL) {
+          assert(ops[i].idst != NULL && ops[i].itmp != NULL);
+
+          verify_addr_list(ops[i].isrc);
+          verify_addr_list(ops[i].idst);
+          verify_addr_list(ops[i].itmp);
+          verify_addr_list_data(ops[i].isrc, ops[i].itmp->list[0], "non-blocking gasnet_puti_bulk/gasnet_geti_bulk test");
+
+          test_free(ops[i].isrc);
+          test_free(ops[i].idst);
+          test_free(ops[i].itmp);
+        } else {
+          assert(ops[i].sdesc != NULL && ops[i].stmpbuf != NULL);
+
+          verify_strided_desc_data(ops[i].sdesc, ops[i].stmpbuf, "gasnet_puts_bulk/gasnet_gets_bulk test");
+
+          test_free(ops[i].sdesc);
+        }
+      }
+      test_free(handles);
+      test_free(ops);
+    }
+    checkmem();
+  }
+  /*---------------------------------------------------------------------------------*/
   BARRIER();
 }
 /* ------------------------------------------------------------------------------------ */
 void Usage(char *argvzero) {
-  fprintf(stderr,"Usage: testvis [-v] [-i] [-s] <iters> <seed>\n");
-  fprintf(stderr," -v/-i/-s  run vector/indexed/strided tests (defaults to all)\n");
+  fprintf(stderr,"Usage: testvis [-v] [-i] [-s] [-n] <iters> <seed>\n");
+  fprintf(stderr," -v/-i/-s/-n  run vector/indexed/strided/non-blocking tests (defaults to all)\n");
   fprintf(stderr," iters     number of testing iterations\n");
   fprintf(stderr," seed      seed offset for PRNG (for single node run, \n");
   fprintf(stderr,"             seed=i runs node i's sequence from multi-node job) \n");
@@ -873,20 +1030,23 @@ int main(int argc, char **argv) {
           case 'v': case 'V': runtests |= RUN_VECTOR; break;
           case 'i': case 'I': runtests |= RUN_INDEXED; break;
           case 's': case 'S': runtests |= RUN_STRIDED; break;
+          case 'n': case 'N': runtests |= RUN_NB; break;
           default: Usage(argv[0]);
         }
       }
     } else break;
   }
-  if (runtests == 0) runtests = RUN_VECTOR | RUN_INDEXED | RUN_STRIDED;
+  if (runtests == 0) runtests = RUN_VECTOR | RUN_INDEXED | RUN_STRIDED | RUN_NB;
   if (i < argc) { iters = atoi(argv[i]); i++; }
   if (i < argc) { seedoffset = atoi(argv[i]); i++; }
   if (i < argc) Usage(argv[0]);
-  MSG("running %i iterations of %s%s%s test...", 
+  MSG("running %i iterations of %s%s%s%s test...", 
     iters, 
     (runtests&RUN_VECTOR?"V":""), 
     (runtests&RUN_INDEXED?"I":""), 
-    (runtests&RUN_STRIDED?"S":""));
+    (runtests&RUN_STRIDED?"S":""),
+    (runtests&RUN_NB?"N":"")
+    );
 
   mynode = gasnet_mynode();
   myseg = TEST_SEG(mynode);
