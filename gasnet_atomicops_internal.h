@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2004/09/21 20:57:24 $
- * $Revision: 1.6 $
+ *     $Date: 2004/09/21 22:40:24 $
+ * $Revision: 1.7 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,12 +52,10 @@
   }
   #define GASNETI_HAVE_ATOMIC_CAS 1
 #elif defined(LINUX) && defined(__INTEL_COMPILER) && defined(__ia64__)
-  #if 0 /* UNTESTED */
     /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
     #define gasneti_atomic_compare_and_swap(p,oval,nval) \
 			(_InterlockedCompareExchange((volatile int *)&((p)->ctr),nval,oval) == (oval))
     #define GASNETI_HAVE_ATOMIC_CAS 1
-  #endif /* UNTESTED */
 #elif defined(LINUX)
     #if defined(BROKEN_LINUX_ASM_ATOMIC_H) || \
         (!defined(GASNETI_UNI_BUILD) && !defined(CONFIG_SMP))
