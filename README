@@ -202,3 +202,4 @@ just provide a centralized place for files used in other directories.
 necessary files from the extended-ref directory that you need to change 
 (and continue to include the unchanged files) to reduce maintenance headache
 (this applies especially to gasnet_extended.h).
+
