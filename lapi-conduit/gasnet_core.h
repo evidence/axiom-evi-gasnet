@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.h                  $
- *     $Date: 2004/08/15 17:38:44 $
- * $Revision: 1.16 $
+ *     $Date: 2004/08/16 23:04:32 $
+ * $Revision: 1.17 $
  * Description: GASNet header for lapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -183,24 +183,19 @@ extern int gasnetc_AMPoll();
  * re-enabling of interrupt mode because we are using
  * LAPI_Msgpoll, which disables interrupts internally
  */
-#define GASNET_BLOCKUNTIL(cond) do {                \
-  if (!(cond)) {                                    \
-    gasneti_polluntil(cond);                        \
-  }                                                 \
-} while (0)
+#define GASNET_BLOCKUNTIL(cond) gasneti_polluntil((cond))
+
 #else
 /* switch to LAPI polling mode before polling 
    DOB: note this currently NOT threadsafe!!!
     Interrupt mode is a global setting, not per-thread!
  */
 #define GASNET_BLOCKUNTIL(cond) do {                \
-  if (!(cond)) {                                    \
     /* turn off interrupt mode before spinning */   \
     GASNETC_PAUSE_INTERRUPT_MODE();                 \
     gasneti_polluntil(cond);                        \
     /* turn it back on after polling is complete */ \
     GASNETC_RESUME_INTERRUPT_MODE();                \
-  }                                                 \
 } while (0)
 #endif
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
- *     $Date: 2004/08/15 22:01:02 $
- * $Revision: 1.30 $
+ *     $Date: 2004/08/16 23:04:32 $
+ * $Revision: 1.31 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -351,6 +351,26 @@ void gasnete_op_free(gasnete_op_t *op) {
     }
 }
 
+#if GASNETC_FEDBUG_WORKAROUND
+/*
+ * MLW: HACK to get around LAPI FEDERATION bug.
+ * We allow syncing some of the outstanding put operations to
+ * throttle the number of outstanding in-flight messages.  
+ */
+static void gasnete_wait_syncnbi_myputs(int numputs GASNETE_THREAD_FARG)
+{
+    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+    gasnete_iop_t *iop = mythread->current_iop;
+    int cnt = 0;
+    gasneti_assert(iop->threadidx == mythread->threadidx);
+    gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
+    gasneti_assert(iop->initiated_put_cnt >= numputs);
+    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,numputs,&cnt));
+    iop->initiated_put_cnt -= numputs;
+    gasneti_sync_reads();  /* MLW: is this needed? */
+}
+#endif
+
 /* --------------------------------------------------------------------------
  * This is the LAPI Header Handler that executes a gasnet_memset operation
  * on the remote node.
@@ -510,7 +530,13 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
 	nbytes -= to_put;
     }
     gasneti_resume_spinpollers();
+
+#if GASNETC_FEDBUG_WORKAROUND
+    gasnete_wait_syncnb((gasnet_handle_t)op);
+    return GASNET_INVALID_HANDLE;
+#else
     return (gasnet_handle_t)op;
+#endif
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -546,7 +572,12 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
     GASNETC_WAITCNTR(&o_cntr,num_put,&cur_cntr);
     gasneti_assert(cur_cntr == 0);
     
+#if GASNETC_FEDBUG_WORKAROUND
+    gasnete_wait_syncnb((gasnet_handle_t)op);
+    return GASNET_INVALID_HANDLE;
+#else
     return (gasnet_handle_t)op;
+#endif
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -579,7 +610,12 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
     GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
     gasneti_assert(cur_cntr == 0);
 
+#if GASNETC_FEDBUG_WORKAROUND
+    gasnete_wait_syncnb((gasnet_handle_t)op);
+    return GASNET_INVALID_HANDLE;
+#else
     return (gasnet_handle_t)op;
+#endif
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -590,6 +626,9 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
     GASNETE_SAFE(gasneti_AMPoll());
+
+    if (handle == GASNET_INVALID_HANDLE)
+	return GASNET_OK;
 
     if (gasnete_op_isdone(handle)) {
 	gasneti_sync_reads();
@@ -650,18 +689,35 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 
 #if GASNETC_FEDBUG_WORKAROUND
 extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
-    /* a handle is a pointer: gasnete_op_t* */
+    int cnt = 0;
     gasnete_op_t *op = handle;
-    gasnete_eop_t *eop = (gasnete_eop_t*)op;
-    gasneti_assert(OPTYPE(op) == OPTYPE_EXPLICIT);
-    gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
-    gasnete_eop_check(eop);
-    if (eop->initiated_cnt > 0) {
-	int cnt;
-	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&cnt));
-	eop->initiated_cnt = 0;
-	gasneti_sync_reads();
+    if (handle == GASNET_INVALID_HANDLE)
+	return;
+    gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
+    if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
+	gasnete_eop_t *eop = (gasnete_eop_t*)op;
+	gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
+        gasnete_eop_check(eop);
+	if (eop->initiated_cnt > 0) {
+	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&cnt));
+	    gasneti_assert(cnt == 0);
+	    eop->initiated_cnt =0;
+	}
+    } else {
+	gasnete_iop_t *iop = (gasnete_iop_t*)op;
+        gasnete_iop_check(iop);
+	if (iop->initiated_get_cnt > 0) {
+	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->get_cntr,iop->initiated_get_cnt,&cnt));
+	    gasneti_assert(cnt == 0);
+	    iop->initiated_get_cnt = 0;
+	}
+	if (iop->initiated_put_cnt > 0) {
+	    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&cnt));
+	    gasneti_assert(cnt == 0);
+	    iop->initiated_put_cnt = 0;
+	}
     }
+    gasneti_sync_reads();
     gasnete_op_free(handle);
 }
 extern void gasnete_wait_syncnb_some(gasnet_handle_t *phandle, size_t numhandles) {
@@ -725,6 +781,7 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *op = mythread->current_iop;
+    int num_put = 0;
 
     /* Issue as many puts as required.
      * Will generally only be one */
@@ -736,10 +793,15 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 				dest,src,NULL,NULL,&op->put_cntr));
 	dest = (void*)((char*)dest + to_put);
 	src = (void*)((char*)src + to_put);
-	op->initiated_put_cnt++;
 	nbytes -= to_put;
+	num_put++;
     }
+    op->initiated_put_cnt += num_put;
     gasneti_resume_spinpollers();
+
+#if GASNETC_FEDBUG_WORKAROUND
+    gasnete_wait_syncnbi_myputs(num_put GASNETE_THREAD_GET);
+#endif    
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -758,6 +820,9 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
      * Will generally only be one */
     gasneti_suspend_spinpollers();
     while (nbytes > 0) {
+
+
+
 	size_t to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
 	/* use op lapi counter as completion counter,
 	 * and o_cntr as origin counter */
@@ -775,6 +840,10 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
      */
     GASNETC_WAITCNTR(&o_cntr,num_put,&cur_cntr);
     gasneti_assert(cur_cntr == 0);
+
+#if GASNETC_FEDBUG_WORKAROUND
+    gasnete_wait_syncnbi_myputs(num_put GASNETE_THREAD_GET);
+#endif    
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -807,6 +876,10 @@ extern void gasnete_memset_nbi (gasnet_node_t node, void *dest, int val,
      * This will ALMOST ALWAYS be true in the case of such a small message */
     GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
     gasneti_assert(cur_cntr == 0);
+
+#if GASNETC_FEDBUG_WORKAROUND
+    gasnete_wait_syncnbi_myputs(1 GASNETE_THREAD_GET);
+#endif    
 }
 /* ------------------------------------------------------------------------------------ */
 /*
