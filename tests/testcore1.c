@@ -1,6 +1,6 @@
-/* $Id: testcore1.c,v 1.4 2003/04/25 22:55:53 welcome Exp $
- * $Date: 2003/04/25 22:55:53 $
- * $Revision: 1.4 $
+/* $Id: testcore1.c,v 1.5 2003/04/28 17:26:27 welcome Exp $
+ * $Date: 2003/04/28 17:26:27 $
+ * $Revision: 1.5 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -27,6 +27,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <gasnet.h>
+#include <gasnet_tools.h>
 #include "test.h"
 
 #define DEBUG_TRACE
@@ -50,10 +51,9 @@ int	numprocs;
 gasnet_seginfo_t *seginfo_table;
 
 /* Test specific globals */
-int		chksum_success = 0;
-int		chksum_iters = 0;
-int		chksum_received = 0;
-gasnet_hsl_t    chksum_recv_lock = GASNET_HSL_INITIALIZER;
+int		 chksum_iters = 0;
+gasnett_atomic_t chksum_success  = gasnett_atomic_init(0);
+gasnett_atomic_t chksum_received = gasnett_atomic_init(0);
 
 #define CHKSUM_DUMP(chksum) do {			\
 		int i = 0;				\
@@ -120,6 +120,7 @@ chksum_test(int iters)
 {
 	int	i;
 	int	iamsender, iamreceiver;
+	int     received;
 #ifdef VERBOSE
 	int     nloop = 0;
 #endif
@@ -136,10 +137,10 @@ chksum_test(int iters)
 				201, i, _mseed[i].seed));
 	}
 
-	while (chksum_received < iters) {
+	while ( (received = gasnett_atomic_read(&chksum_received)) < iters ) {
 		/*
 		if (iamreceiver) {
-			if (chksum_received % 5 == 0) {
+			if (received % 5 == 0) {
 				printf("sleep 1\n");
 				sleep(1);
 			}
@@ -149,21 +150,22 @@ chksum_test(int iters)
 	    nloop++;
 	    if (nloop % 1000 == 0) {
 		printf("TEST[%d] nloop = %d chksum_received = %d\n",
-		       myproc,nloop,chksum_received);
+		       myproc,nloop,received);
 	    }
 #endif
 	    gasnet_AMPoll();
 	}
 #ifdef VERBOSE
 	printf("TEST[%d] COMPLETE: nloop = %d chksum_received = %d\n",
-	       myproc,nloop,chksum_received);
+	       myproc,nloop,received);
 #endif
 
 	BARRIER();
 
 	if (iamsender) {
+	        int success = gasnett_atomic_read(&chksum_success);
 		printf("chksum_test(%d) passed %d/%d\n", chksum_iters, 
-		    chksum_success, chksum_received);
+		    success, received);
 	}
 }
 
@@ -183,9 +185,8 @@ void chksum_reqh(gasnet_token_t token,
 	gasnet_handlerarg_t iter, gasnet_handlerarg_t seed)
 {
         unsigned char   chksum_reqbuf[CHKSUM_TOTAL];
-	gasnet_hsl_lock(&chksum_recv_lock);
-	chksum_received++;
-	gasnet_hsl_unlock(&chksum_recv_lock);
+
+	gasnett_atomic_increment(&chksum_received);
 	chksum_gen(seed, &chksum_reqbuf);
 	monoseed_trace(iter, seed, &chksum_reqbuf, NULL);
 	GASNET_Safe( 
@@ -200,12 +201,12 @@ chksum_reph(gasnet_token_t token,
 {
 	uint64_t	chksum;
 
-	chksum_received++;
+	gasnett_atomic_increment(&chksum_received);
 	assert(iter < chksum_iters && iter >= 0);
 	assert(nbytes == CHKSUM_TOTAL);
 	monoseed_trace(iter, _mseed[iter].seed, &_mseed[iter].chksum, buf);
 	if (memcmp(&_mseed[iter].chksum, buf, CHKSUM_LENGTH) == 0) 
-		chksum_success++;
+  	        gasnett_atomic_increment(&chksum_success);
 	else {
 		printf("iter %3d failed! chksum_local=", iter);
 		CHKSUM_DUMP(&_mseed[iter].chksum);
@@ -239,6 +240,8 @@ main(int argc, char **argv)
 	}
 	if (argc > 1) iters = atoi(argv[1]);
 	if (!iters) iters = 1;
+
+	
 
 	/* get SPMD info */
 	chksum_iters = iters;
