@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_inttypes.h,v $ */
-/*      $Date: 2004/08/26 04:53:46 $ */
-/*  $Revision: 1.4 $ */
+/*      $Date: 2004/09/16 21:38:03 $ */
+/*  $Revision: 1.5 $ */
 /*  Description: portable_inttypes.h  */
 /*  Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> */
 
@@ -160,6 +160,41 @@
       #else
         #error Cannot find a integral pointer-sized type for your platform
       #endif  
+
+      /* try to prevent redefinition in subsequently included system headers */ 
+      #ifndef __int8_t_defined
+      #define __int8_t_defined
+      #endif
+      #ifndef __uint8_t_defined
+      #define __uint8_t_defined
+      #endif
+      #ifndef __int16_t_defined
+      #define __int16_t_defined
+      #endif
+      #ifndef __uint16_t_defined
+      #define __uint16_t_defined
+      #endif
+      #ifndef __int32_t_defined
+      #define __int32_t_defined
+      #endif
+      #ifndef __uint32_t_defined
+      #define __uint32_t_defined
+      #endif
+      #ifndef __int64_t_defined
+      #define __int64_t_defined
+      #endif
+      #ifndef __uint64_t_defined
+      #define __uint64_t_defined
+      #endif
+      #ifndef __intptr_t_defined
+      #define __intptr_t_defined
+      #endif
+      #ifndef __uintptr_t_defined
+      #define __uintptr_t_defined
+      #endif
+      #ifndef __BIT_TYPES_DEFINED__
+      #define __BIT_TYPES_DEFINED__
+      #endif
   #else
     /* no information available, so try inttypes.h and hope for the best 
        if we die here, the correct fix is to detect the sizes using configure 

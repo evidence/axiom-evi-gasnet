@@ -1,9 +1,10 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2004/08/26 04:53:48 $
- * $Revision: 1.17 $
+ *     $Date: 2004/09/16 21:38:05 $
+ * $Revision: 1.18 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
+#include <portable_inttypes.h>
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>

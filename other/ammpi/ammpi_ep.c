@@ -1,10 +1,11 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2004/08/26 04:53:48 $
- * $Revision: 1.19 $
+ *     $Date: 2004/09/16 21:38:05 $
+ * $Revision: 1.20 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
+#include <portable_inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
