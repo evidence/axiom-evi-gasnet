@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/10/27 03:51:03 $
-# $Revision: 1.206 $
+#     $Date: 2004/10/30 02:44:10 $
+# $Revision: 1.207 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.206 $)
+AC_REVISION($Revision: 1.207 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1289,7 +1289,7 @@ popdef([CONDUIT_DESC])
 #--------------------------------------------------------------------------------------------------------
 # ELAN configuration
 
-pushdef([CONDUIT_DESC],[Quadrics-QSNetI/II Elan3/Elan4 network conduit (elan)])
+pushdef([CONDUIT_DESC],[Quadrics Elan3/Elan4 network conduit (elan)])
 GASNET_IF_ENABLED_WITH_AUTO(elan, Enable/disable the CONDUIT_DESC (auto-detected),
   [enabled_elan=yes;force_elan=yes],
   enabled_elan=no,
@@ -1320,13 +1320,13 @@ if test $enabled_elan = yes; then
   AC_MSG_CHECKING(for ELAN device driver headers)
   if test -f "$ELAN_HEADERBASE/elan4/library.h" ; then
         AC_MSG_RESULT(elan4)
-  	GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan -lelan4 -lrmscall)
+	ELANDEVLIB="-lelan4"
         ELAN_FLAGS="-DELAN4"
         have_elan=yes
   else
     if test -f "$ELAN_HEADERBASE/elan3/elan3.h" ; then
         AC_MSG_RESULT(elan3)
-  	GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan -lelan3 -lrms -lrmscall -lrmsapi)
+	ELANDEVLIB="-lelan3"
         ELAN_FLAGS="-DELAN3"
         have_elan=yes
     else
@@ -1340,8 +1340,14 @@ if test $enabled_elan = yes; then
   OLDCFLAGS="$CFLAGS"
   OLDLIBS="$LIBS"
   CFLAGS="-I$ELAN_INCLUDE"
-  LIBS="$ELAN_LIBS"
   AC_CHECK_HEADERS(rms/rmsapi.h)
+  RMSLIBS="-lrmscall"
+  AC_CHECK_LIB(rms, main, RMSLIBS="$RMSLIBS -lrms")
+  AC_CHECK_LIB(rmsapi, rms_killResource, 
+     AC_DEFINE(HAVE_RMS_KILLRESOURCE)
+     RMSLIBS="$RMSLIBS -lrmsapi")
+  GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan $ELANDEVLIB $RMSLIBS)
+  LIBS="$ELAN_LIBS"
   AC_MSG_CHECKING(for working ELAN configuration)
   # try to compile and link a simple elan prog
   AC_TRY_LINK( [

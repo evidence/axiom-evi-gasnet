@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/10/27 03:51:05 $
- * $Revision: 1.22 $
+ *     $Date: 2004/10/30 02:44:12 $
+ * $Revision: 1.23 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -118,7 +118,7 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #endif
 
 #ifndef GASNETC_USE_SIGNALING_EXIT
-  #ifdef HAVE_RMS_RMSAPI_H
+  #ifdef HAVE_RMS_KILLRESOURCE
     #define GASNETC_USE_SIGNALING_EXIT 1
   #else
     #define GASNETC_USE_SIGNALING_EXIT 0

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/10/27 03:51:05 $
- * $Revision: 1.48 $
+ *     $Date: 2004/10/30 02:44:12 $
+ * $Revision: 1.49 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,8 +20,9 @@
 #include <signal.h>
 
 #if GASNETC_USE_SIGNALING_EXIT
-  #include <rms/rmsapi.h> /* for RMS calls in gasnetc_exit */
-
+  #if HAVE_RMS_RMSAPI_H
+    #include <rms/rmsapi.h> /* for RMS calls in gasnetc_exit */
+  #endif
   /* signal used to propagate exit notification across job using RMS global signalling */
   #ifndef GASNETC_REMOTEEXIT_SIGNAL
     #ifdef SIGURG
