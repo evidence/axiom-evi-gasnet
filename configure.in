@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/10/24 05:36:34 $
-# $Revision: 1.204 $
+#     $Date: 2004/10/26 01:44:34 $
+# $Revision: 1.205 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.204 $)
+AC_REVISION($Revision: 1.205 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -217,8 +217,8 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
 	   AC_MSG_RESULT(failure - ignored)
           ]
         )
-	fi
         [$1]FLAGS="$old[$1]FLAGS"
+	fi
         case "$target_os" in 
           solaris*) # hide pragma warnings in system header files included by absolute path
             ]GASNET_TRY_[$1]FLAG[([-Wno-unknown-pragmas],[[$1]FLAGS="$[$1]FLAGS -Wno-unknown-pragmas"])
