@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2004/08/26 04:53:32 $
- * $Revision: 1.19 $
+ *     $Date: 2004/10/23 12:58:57 $
+ * $Revision: 1.20 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,7 +57,7 @@ static gasnetc_bufdesc_t *gasnetc_tportTxFIFOTail = NULL; /* and some will NULL 
 static gasnetc_bufdesc_t *gasnetc_tportRxFIFOHead = NULL; /* list of rx's waiting */
 static gasnetc_bufdesc_t *gasnetc_tportRxFIFOTail = NULL;
 /* ------------------------------------------------------------------------------------ */
-static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
+static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf(int addToFifo) {
   /* pop send fifo head buffer and wait for completion,
      add to send fifo with null event 
      assumes elan lock NOT held
@@ -117,18 +117,21 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
     }
   }
 
-  /* add to send fifo - event will be filled in later by caller */
   desc->event = NULL;
   desc->next = NULL;
-  if (gasnetc_tportTxFIFOTail) { /* fifo non-empty */
-    gasneti_assert(gasnetc_tportTxFIFOHead);
-    gasneti_assert(gasnetc_tportTxFIFOTail->next == NULL);
-    gasnetc_tportTxFIFOTail->next = desc;
-    gasnetc_tportTxFIFOTail = desc;
-  } else {
-    gasneti_assert(!gasnetc_tportTxFIFOHead);
-    gasnetc_tportTxFIFOHead = desc;
-    gasnetc_tportTxFIFOTail = desc;
+
+  /* add to send fifo - event will be filled in later by caller */
+  if (addToFifo) {
+    if (gasnetc_tportTxFIFOTail) { /* fifo non-empty */
+      gasneti_assert(gasnetc_tportTxFIFOHead);
+      gasneti_assert(gasnetc_tportTxFIFOTail->next == NULL);
+      gasnetc_tportTxFIFOTail->next = desc;
+      gasnetc_tportTxFIFOTail = desc;
+    } else {
+      gasneti_assert(!gasnetc_tportTxFIFOHead);
+      gasnetc_tportTxFIFOHead = desc;
+      gasnetc_tportTxFIFOTail = desc;
+    }
   }
 
   UNLOCK_SENDFIFO();
@@ -137,7 +140,7 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
 }
 /* ------------------------------------------------------------------------------------ */
 static void gasnetc_tportReleaseTxBuf(gasnetc_bufdesc_t *desc) {
-  /* release a Tx buf without sending it
+  /* release a Tx buf without sending it - must NOT be in FIFO
    */
   LOCK_SENDFIFO();
     gasneti_assert(desc->event == NULL);
@@ -436,7 +439,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
           desc->buf = buf;
         }
         else {
-          desc = gasnetc_tportGetTxBuf();
+          desc = gasnetc_tportGetTxBuf(dest != gasnetc_mynode);
           buf = desc->buf;
         }
         pargs = (gasnet_handlerarg_t *)(&(buf->medmsg)+1);
