@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2003/12/03 04:39:46 $
- * $Revision: 1.30 $
+ *     $Date: 2003/12/15 21:58:46 $
+ * $Revision: 1.31 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -912,6 +912,22 @@ enum {
 static gasneti_atomic_t gasnetc_exit_role = gasneti_atomic_init(GASNETC_EXIT_ROLE_UNKNOWN);
 
 /*
+ * Code to disable user's AM handlers when exiting.  We need this because we must call
+ * AMPoll to run system-level handlers, including ACKs for flow control.
+ *
+ * We do it this way because it adds absolutely nothing the normal execution path.
+ * Thanks to Dan for the suggestion.
+ */
+static void gasnetc_noop(void) { return; }
+static void gasnetc_disable_AMs(void) {
+  int i;
+
+  for (i = 0; i < GASNETC_MAX_NUMHANDLERS; ++i) {
+    gasnetc_handler[GASNETC_MAX_NUMHANDLERS] = (gasnetc_handler_fn_t)&gasnetc_noop;
+  }
+}
+
+/*
  * gasnetc_exit_role_reqh()
  *
  * This request handler (invoked only on the "root" node) handles the election
@@ -1087,12 +1103,24 @@ static void gasnetc_exit_tail(void) {
  * DOES NOT RETURN
  */
 static void gasnetc_exit_sighandler(int sig) {
-  #if GASNET_DEBUG_VERBOSE
+  #if GASNET_DEBUG
   /* note - can't call trace macros here, or even sprintf */
   {
-    static const char msg[] = "gasnet_exit(): signal received during exit... goodbye\n";
-    write(STDERR_FILENO, msg, sizeof(msg));
-    /* fflush(stderr);   NOT REENTRANT */
+    static const char msg1[] = "gasnet_exit(): signal ";
+    static const char msg2[] = " received during exit... goodbye\n";
+    char digit;
+
+    write(STDERR_FILENO, msg1, sizeof(msg1));
+
+    /* assume sig < 1000 */
+    if (sig > 9) {
+      digit = '0' + ((sig / 10) % 10);
+      write(STDERR_FILENO, &digit, 1);
+    }
+    digit = '0' + (sig % 10);
+    write(STDERR_FILENO, &digit, 1);
+    
+    write(STDERR_FILENO, msg2, sizeof(msg2));
   }
   #endif
 
@@ -1228,6 +1256,9 @@ static void gasnetc_exit_body(void) {
   gasneti_reghandler(SIGSEGV, gasnetc_exit_sighandler);
   gasneti_reghandler(SIGFPE,  gasnetc_exit_sighandler);
   gasneti_reghandler(SIGBUS,  gasnetc_exit_sighandler);
+
+  /* Disable processing of AMs, except system-level ones */
+  gasnetc_disable_AMs();
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
