@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/03/15 03:13:32 $
- * $Revision: 1.67 $
+ *     $Date: 2005/03/16 22:54:44 $
+ * $Revision: 1.68 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -235,6 +235,8 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
  * 			This is inclusive of the AM receive thread.
  * GASNETC_CLI_PAR	Non-zero if multiple _client_ threads can be executing in GASNet.
  * 			This excludes the AM receive thread.
+ * These differ from GASNETI_THREADS and GASNETI_CLIENT_THREADS in that they don't count
+ * GASNET_PARSYNC, since it has threads which do not enter GASNet concurrently.
  */
 
 #if GASNET_PAR
