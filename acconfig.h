@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/03/31 14:18:04 $ */
-/*  $Revision: 1.25 $ */
+/*      $Date: 2004/04/05 09:30:42 $ */
+/*  $Revision: 1.26 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -91,8 +91,8 @@
 #define __attribute__(flags)
 #endif
 
-#if defined(__GNUC__) && __GNUC__ <= 2 && __GNUC_MINOR__ < 95
-/* malloc attribute missing in egcs-2.91.66 */
+#if defined(__GNUC__) && __GNUC__ <= 2 && __GNUC_MINOR__ <= 95
+/* malloc attribute missing in egcs-2.91.66 and gcc 2.95.2 */
 #define __malloc__
 #endif
 

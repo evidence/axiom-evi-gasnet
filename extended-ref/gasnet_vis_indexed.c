@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_refbarrier.c                  $
- *     $Date: 2004/03/03 13:47:04 $
- * $Revision: 1.1 $
+ *     $Date: 2004/04/05 09:30:44 $
+ * $Revision: 1.2 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -640,7 +640,8 @@ extern gasnet_handle_t gasnete_geti(gasnete_synctype_t synctype,
     GASNETE_STRIDED_HELPER_CASE(4)                                     \
     GASNETE_STRIDED_HELPER_CASE(5)                                     \
     GASNETE_STRIDED_HELPER_CASE(6)                                     \
-    GASNETE_STRIDED_HELPER_CASE(7)                                     \
+    /* GASNETE_STRIDED_HELPER_CASE(7)                                  \ 
+       DOB: workaround preprocessor bug in HP CC */                    \
     default: {                                                         \
       uint8_t *psrc = srcaddr;                                         \
       uint8_t *pdst = dstaddr;                                         \

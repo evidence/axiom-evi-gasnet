@@ -444,8 +444,6 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
   if test "$$3" = "unknown"; then
     GASNET_IFDEF(mips, $3=MIPS)
     GASNET_IFDEF(__hpux, $3=HP)
-  fi
-  if test "$$3" = "unknown"; then
     GASNET_IFDEF(_SX, $3=NEC)
   fi
 ])
