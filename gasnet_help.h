@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2004/10/19 04:41:49 $
- * $Revision: 1.40 $
+ *     $Date: 2005/01/23 00:13:45 $
+ * $Revision: 1.41 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -267,13 +267,13 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 #endif
 
 #if GASNET_DEBUG
-  #define GASNETI_MUTEX_NOOWNER       -1
+  #define GASNETI_MUTEX_NOOWNER         ((uintptr_t)-1)
   #ifndef GASNETI_THREADIDQUERY
     /* allow conduit override of thread-id query */
     #if GASNETI_USE_TRUE_MUTEXES
       #define GASNETI_THREADIDQUERY()   ((uintptr_t)pthread_self())
     #else
-      #define GASNETI_THREADIDQUERY()   (0)
+      #define GASNETI_THREADIDQUERY()   ((uintptr_t)0)
     #endif
   #endif
   #if GASNETI_USE_TRUE_MUTEXES
@@ -286,15 +286,15 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
       /* These are faster, though less "featureful" than the default
        * mutexes on linuxthreads implementations which offer them.
        */
-      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP, (uintptr_t)GASNETI_MUTEX_NOOWNER }
+      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP, GASNETI_MUTEX_NOOWNER }
     #else
-      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, (uintptr_t)GASNETI_MUTEX_NOOWNER }
+      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, GASNETI_MUTEX_NOOWNER }
     #endif
     #define gasneti_mutex_lock(pl) do {                                        \
               int retval;                                                      \
               gasneti_assert((pl)->owner != GASNETI_THREADIDQUERY());          \
               gasneti_assert_zeroret(pthread_mutex_lock(&((pl)->lock)));       \
-              gasneti_assert((pl)->owner == (uintptr_t)GASNETI_MUTEX_NOOWNER); \
+              gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);            \
               (pl)->owner = GASNETI_THREADIDQUERY();                           \
             } while (0)
     GASNET_INLINE_MODIFIER(gasneti_mutex_trylock)
@@ -304,25 +304,25 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
               retval = pthread_mutex_trylock(&((pl)->lock));
               if (retval == EBUSY) return EBUSY;
               if (retval) gasneti_fatalerror("pthread_mutex_trylock()=%s",strerror(retval));
-              gasneti_assert((pl)->owner == (uintptr_t)GASNETI_MUTEX_NOOWNER);
+              gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);
               (pl)->owner = GASNETI_THREADIDQUERY();
               return 0;
     }
     #define gasneti_mutex_unlock(pl) do {                                  \
               int retval;                                                  \
               gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY());      \
-              (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER;              \
+              (pl)->owner = GASNETI_MUTEX_NOOWNER;                         \
               gasneti_assert_zeroret(pthread_mutex_unlock(&((pl)->lock))); \
             } while (0)
     #define gasneti_mutex_init(pl) do {                                       \
               gasneti_assert_zeroret(pthread_mutex_init(&((pl)->lock),NULL)); \
-              (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER;                 \
+              (pl)->owner = GASNETI_MUTEX_NOOWNER;                            \
             } while (0)
     #define gasneti_mutex_destroy(pl) \
               gasneti_assert_zeroret(pthread_mutex_destroy(&((pl)->lock)))
   #else /* GASNET_DEBUG non-pthread (error-check-only) mutexes */
     typedef struct {
-      volatile int owner;
+      volatile uintptr_t owner;
     } gasneti_mutex_t;
     #define GASNETI_MUTEX_INITIALIZER   { GASNETI_MUTEX_NOOWNER }
     #define gasneti_mutex_lock(pl) do {                             \
