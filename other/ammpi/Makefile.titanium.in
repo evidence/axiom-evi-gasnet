@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMUDP/Makefile.titanium.in                             $
-#     $Date: 2004/01/30 07:13:03 $
-# $Revision: 1.5 $
+#     $Date: 2004/03/18 12:07:32 $
+# $Revision: 1.6 $
 # Description: setup necessary variables needed by Makefile
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -10,17 +10,18 @@ srcdir = . # passed in on command-line
 testdir = $(srcdir)/../amxtests
 
 # compiler
-CC := @MPI_CC@
-ccdebugflags := @MPI_CFLAGS@ -g 
-ccoptflags :=   @MPI_CFLAGS@ 
+CC = @MPI_CC@
+ccdebugflags = @MPI_CFLAGS@ -g 
+ccoptflags =   @MPI_CFLAGS@ 
 
 # system utilities
-ranlib := @RANLIB@
-ar := @AR@
+ranlib = @RANLIB@
+ar = @AR@
 
 # stuff normally set by the pre-baked makefiles
-platform_defines := @TIC_MACHINE_DEFINES@ -DUNIX
-platform_libraries := @LIBS@ @MPI_LIBS@
+platform_defines = @TIC_MACHINE_DEFINES@ -DUNIX
+platform_libraries = @LIBS@ @MPI_LIBS@
+platform_ldflags = @LDFLAGS@
 
 @PLATFORM_ILP32_FALSE@  testprograms_ILP32only =
 @PLATFORM_ILP32_FALSE@  apputils_flags = -DAPPUTILS_OMIT_READWRITE

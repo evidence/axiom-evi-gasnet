@@ -104,11 +104,18 @@ tests-par: force libgasnet-$(CONDUIT_NAME)-par.a $(CONDUIT_NAME)-par.mak $(CONDU
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-par \
 	  configfile="$(CONDUIT_NAME)-par.mak"
 
-test%: force 
+test%: $(top_srcdir)/tests/test%.c force 
 	@$(MAKE) libgasnet-$(CONDUIT_NAME)-$(THREAD_MODEL_LC).a $(CONDUIT_NAME)-$(THREAD_MODEL_LC).mak
 	@echo "*** Building $@ in $(THREAD_MODEL)/$(GASNET_SEGMENT_STR) mode ***"
 	@$(MAKE) -f $(top_builddir)/tests/Makefile $@   \
 	  configfile="$(CONDUIT_NAME)-$(THREAD_MODEL_LC).mak"
+
+test%-seq: $(top_srcdir)/tests/test%.c force 
+	@$(MAKE) `basename $@ -seq` THREAD_MODEL=SEQ
+test%-parsync: $(top_srcdir)/tests/test%.c force 
+	@$(MAKE) `basename $@ -parsync` THREAD_MODEL=PARSYNC
+test%-par: $(top_srcdir)/tests/test%.c force 
+	@$(MAKE) `basename $@ -par` THREAD_MODEL=PAR
 
 tests-clean: 
 	@$(MAKE) -f $(top_builddir)/tests/Makefile clean
