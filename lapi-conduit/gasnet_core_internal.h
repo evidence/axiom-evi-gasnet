@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/08/02 08:30:37 $
- * $Revision: 1.26 $
+ *     $Date: 2004/08/07 23:53:12 $
+ * $Revision: 1.27 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -202,6 +202,62 @@ extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, 
      GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
    }                                                         \
  } while (0)
+
+#if GASNETI_THROTTLE_POLLERS 
+  #ifndef GASNETC_LAPIWAIT_SPIN
+    /* spinning with LAPI_GetCntr performs better under contention than LAPI_WaitCntr */
+    #define GASNETC_LAPIWAIT_SPIN 1
+  #endif
+  /* next two only affect behavior if GASNETC_LAPIWAIT_SPIN is enabled */
+  #ifndef GASNETC_LAPIWAIT_SPIN_SUSPRESM
+    /* suspend/resume_spinpollers currently never seem to improve lapi performance, 
+       so make them no-ops for now */
+    #define GASNETC_LAPIWAIT_SPIN_SUSPRESM 0
+  #endif
+  #ifndef GASNETC_LAPIWAIT_SPIN_TOGGLEINTR
+    /* toggling interrupt mode while spinning - 
+       produces crazy performance due to lack of thread safety in toggle */
+    #define GASNETC_LAPIWAIT_SPIN_TOGGLEINTR 0
+  #endif
+  
+  #if !GASNETC_LAPIWAIT_SPIN_SUSPRESM
+    #undef gasneti_suspend_spinpollers() 
+    #undef gasneti_resume_spinpollers()
+    #define gasneti_suspend_spinpollers() gasneti_suspend_spinpollers_check()
+    #define gasneti_resume_spinpollers()  gasneti_resume_spinpollers_check()
+  #endif
+  #if GASNETC_LAPIWAIT_SPIN_TOGGLEINTR
+    #define gasnetc_hold_lapiinterrupts()   GASNETC_PAUSE_INTERRUPT_MODE()
+    #define gasnetc_resume_lapiinterrupts() GASNETC_RESUME_INTERRUPT_MODE()
+  #else
+    #define gasnetc_hold_lapiinterrupts()
+    #define gasnetc_resume_lapiinterrupts()
+  #endif
+
+  #if GASNETC_LAPIWAIT_SPIN
+    #define GASNETC_WAITCNTR(cntr, val, result) do {                        \
+      int tmp;                                                              \
+      GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context, (cntr), &tmp));     \
+      if (tmp < (val)) {                                                    \
+        gasnetc_hold_lapiinterrupts();              \
+        do {                                                                \
+          gasneti_AMPoll();                                                 \
+          GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context, (cntr), &tmp)); \
+        } while (tmp < (val));                                              \
+        gasnetc_resume_lapiinterrupts();              \
+      }                                                                     \
+      tmp -= (val);                                                         \
+      GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, (cntr), tmp));      \
+      if (result != NULL) *(int*)(result) = tmp;                            \
+    } while (0)
+  #else
+    #define GASNETC_WAITCNTR(cntr, val, result) \
+      GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context, (cntr), (val), (result)))
+  #endif
+#else
+  #define GASNETC_WAITCNTR(cntr, val, result) \
+    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context, (cntr), (val), (result)))
+#endif
 
 /* -------------------------------------------------------------------- */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/08/02 08:30:37 $
- * $Revision: 1.54 $
+ *     $Date: 2004/08/07 23:53:12 $
+ * $Revision: 1.55 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -662,7 +662,7 @@ extern void gasnetc_exit(int exitcode) {
 	}
 
 	/* wait for local completion so arg to Amsend does not go out of scope */
-	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&cntr,0,NULL));
+	GASNETC_WAITCNTR(&cntr,0,NULL);
     	    
 #if GASNETC_VERBOSE_EXIT
 	fprintf(stderr,">> GASNET_EXIT[%d]: Finished sending exit AMs\n",gasnetc_mynode);
@@ -905,13 +905,15 @@ extern int gasnetc_AMRequestShortM(
     /* issue the request for remote execution of the user handler */ 
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
+    gasneti_suspend_spinpollers();
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
 			       gasnetc_remote_req_hh[dest],
 			       (void*)token, token_len, NULL, 0,
 			       NULL, &o_cntr, NULL));
+    gasneti_resume_spinpollers();
     
     /* wait for the Amsend call to complete locally */
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,1,&cur_cntr));
+    GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
 
     retval = GASNET_OK;
     GASNETI_RETURN(retval);
@@ -991,15 +993,17 @@ extern int gasnetc_AMRequestMediumM(
     /* issue the request for remote execution of the user handler */
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
+    gasneti_suspend_spinpollers();
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
 			       gasnetc_remote_req_hh[dest],
 			       (void*)token, token_len,
 			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, NULL));
+    gasneti_resume_spinpollers();
     
     /* wait for the Amsend call to complete locally */
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,1,&cur_cntr));
+    GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
 
     retval = GASNET_OK;
     GASNETI_RETURN(retval);
@@ -1076,15 +1080,17 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
+    gasneti_suspend_spinpollers();
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
 			       gasnetc_remote_req_hh[dest],
 			       (void*)token, token_len,
 			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, NULL));
+    gasneti_resume_spinpollers();
     
     /* wait for the Amsend call to complete locally */
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,1,&cur_cntr));
+    GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
 
     retval = GASNET_OK;
     GASNETI_RETURN(retval);
@@ -1173,12 +1179,14 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
      */
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
+    gasneti_suspend_spinpollers();
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
 			       gasnetc_remote_req_hh[dest],
 			       (void*)token, token_len,
 			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, NULL, NULL));
+    gasneti_resume_spinpollers();
     
     retval = GASNET_OK;
     GASNETI_RETURN(retval);
@@ -1232,13 +1240,15 @@ extern int gasnetc_AMReplyShortM(
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
+    gasneti_suspend_spinpollers();
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, requester,
 			       gasnetc_remote_reply_hh[requester],
 			       (void*)token, token_len, NULL, 0,
 			       NULL, &o_cntr, NULL));
+    gasneti_resume_spinpollers();
     
     /* wait for the Amsend call to complete locally */
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,1,&cur_cntr));
+    GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
 
     retval = GASNET_OK;
     GASNETI_RETURN(retval);
@@ -1314,15 +1324,17 @@ extern int gasnetc_AMReplyMediumM(
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
+    gasneti_suspend_spinpollers();
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, requester,
 			       gasnetc_remote_reply_hh[requester],
 			       (void*)token, token_len,
 			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, NULL));
-    
+     gasneti_resume_spinpollers();
+   
     /* wait for the Amsend call to complete locally */
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,1,&cur_cntr));
+    GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
 
     retval = GASNET_OK;
     GASNETI_RETURN(retval);
@@ -1397,15 +1409,17 @@ extern int gasnetc_AMReplyLongM(
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
+    gasneti_suspend_spinpollers();
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
 			       gasnetc_remote_reply_hh[dest],
 			       (void*)token, token_len,
 			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, NULL));
+    gasneti_resume_spinpollers();
     
     /* wait for the Amsend call to complete locally */
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,1,&cur_cntr));
+    GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
 
     retval = GASNET_OK;
 
@@ -1661,7 +1675,7 @@ void gasnetc_lapi_exchange(void *src, size_t len, void *dest)
     }
 
     /* Wait for all puts to complete locally and at targets */
-    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&c_cntr,num_nodes,&cur_val));
+    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context, &c_cntr,num_nodes,&cur_val));
     gasneti_assert(cur_val == 0);
 
     /* Must barrier to insure all nodes have completed
