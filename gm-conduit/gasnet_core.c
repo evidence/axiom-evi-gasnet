@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.58 2004/04/24 09:30:05 bonachea Exp $
- * $Date: 2004/04/24 09:30:05 $
+/* $Id: gasnet_core.c,v 1.59 2004/05/02 08:05:15 bonachea Exp $
+ * $Date: 2004/05/02 08:05:15 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -45,6 +45,8 @@ extern gasnet_handlerentry_t const	*gasnete_get_extref_handlertable();
 */
 /* called at startup to check configuration sanity */
 static void gasnetc_check_config() {
+  gasneti_check_config_preinit();
+
   gasneti_assert(gm_min_size_for_length(GASNETC_AM_MEDIUM_MAX) <= GASNETC_AM_SIZE);
   gasneti_assert(gm_min_size_for_length(GASNETC_AM_LONG_REPLY_MAX) <= GASNETC_AM_SIZE);
   gasneti_assert(gm_max_length_for_size(GASNETC_AM_SIZE) <= GASNETC_AM_PACKET);

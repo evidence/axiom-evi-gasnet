@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/04/06 16:15:02 $
- * $Revision: 1.9 $
+ *     $Date: 2004/05/02 08:05:22 $
+ * $Revision: 1.10 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -55,6 +55,8 @@ GASNETI_IDENT(AMUDP_DEFAULT_SPAWNFN_IDENT_STRING, "$GASNetDefaultSpawnFunction: 
 */
 /* called at startup to check configuration sanity */
 static void gasnetc_check_config() {
+  gasneti_check_config_preinit();
+
   gasneti_assert(GASNET_MAXNODES <= AMUDP_MAX_SPMDPROCS);
   gasneti_assert(AMUDP_MAX_NUMHANDLERS >= 256);
   gasneti_assert(AMUDP_MAX_SEGLENGTH == (uintptr_t)-1);

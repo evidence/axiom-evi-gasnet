@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core.c                  $
- *     $Date: 2004/04/06 16:14:53 $
- * $Revision: 1.38 $
+ *     $Date: 2004/05/02 08:05:13 $
+ * $Revision: 1.39 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -92,6 +92,8 @@ gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table 
 */
 /* called at startup to check configuration sanity */
 static void gasnetc_check_config() {
+  gasneti_check_config_preinit();
+
   /* add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
   char *ver = elan_version();

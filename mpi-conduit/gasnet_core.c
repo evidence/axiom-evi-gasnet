@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/04/08 06:52:11 $
- * $Revision: 1.44 $
+ *     $Date: 2004/05/02 08:05:18 $
+ * $Revision: 1.45 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,6 +57,8 @@ gasneti_mutex_t gasnetc_AMlock = GASNETI_MUTEX_INITIALIZER; /*  protect access t
 */
 /* called at startup to check configuration sanity */
 static void gasnetc_check_config() {
+  gasneti_check_config_preinit();
+
   gasneti_assert(GASNET_MAXNODES <= AMMPI_MAX_SPMDPROCS);
   gasneti_assert(AMMPI_MAX_NUMHANDLERS >= 256);
   gasneti_assert(AMMPI_MAX_SEGLENGTH == (uintptr_t)-1);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/04/23 23:28:20 $
- * $Revision: 1.46 $
+ *     $Date: 2004/05/02 08:05:17 $
+ * $Revision: 1.47 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -113,7 +113,9 @@ gasnetc_uhdr_freelist_t gasnetc_uhdr_freelist;
 */
 /* called at startup to check configuration sanity */
 static void gasnetc_check_config() {
-    /* (###) add code to do some sanity checks on the number of nodes, handlers
+  gasneti_check_config_preinit();
+
+  /* (###) add code to do some sanity checks on the number of nodes, handlers
      * and/or segment sizes */ 
 }
 

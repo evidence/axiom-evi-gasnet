@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core.c                  $
- *     $Date: 2004/04/06 16:14:58 $
- * $Revision: 1.18 $
+ *     $Date: 2004/05/02 08:05:19 $
+ * $Revision: 1.19 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,6 +40,8 @@ gasnet_seginfo_t *gasnetc_seginfo = NULL;
 */
 /* called at startup to check configuration sanity */
 static void gasnetc_check_config() {
+  gasneti_check_config_preinit();
+
   /* add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
 }

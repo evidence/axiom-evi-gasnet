@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2004/05/01 14:18:49 $
- * $Revision: 1.12 $
+ *     $Date: 2004/05/02 08:05:11 $
+ * $Revision: 1.13 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -99,6 +99,13 @@
     (gasnett_stats_callback = (callbackfn), GASNETI_STATS_ENABLED(H))
 #else
   #define GASNETT_STATS_INIT(callbackfn) 0
+#endif
+
+#if defined(_INCLUDED_GASNET_H) 
+  extern int gasneti_cpu_count();
+  #define gasnett_cpu_count() gasneti_cpu_count()
+#else
+  #define gasnett_cpu_count() abort()
 #endif
 
 #undef _IN_GASNET_TOOLS_H
