@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/08/09 12:06:37 $
- * $Revision: 1.4 $
+ *     $Date: 2002/08/18 08:38:46 $
+ * $Revision: 1.5 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -9,6 +9,7 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
+#include <gasnet_extended_internal.h>
 
 #include <errno.h>
 #include <unistd.h>
@@ -29,6 +30,9 @@ uintptr_t gasnetc_MaxLocalSegmentSize = 0;
 uintptr_t gasnetc_MaxGlobalSegmentSize = 0;
 
 gasnet_seginfo_t *gasnetc_seginfo = NULL;
+
+gasneti_mutex_t gasnetc_elanLock = GASNETI_MUTEX_INITIALIZER;
+gasneti_mutex_t gasnetc_sendfifoLock = GASNETI_MUTEX_INITIALIZER;
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -52,8 +56,13 @@ void *gasnetc_elan_ctx         = NULL;
 ELAN_TPORT *gasnetc_elan_tport = NULL;
 
 extern uint64_t gasnetc_clock() {
-  if_pt (STATE())
-    return elan_clock(STATE());
+  if_pt (STATE()) {
+    uint64_t val;
+    LOCK_ELAN();
+      val = elan_clock(STATE()); /* TODO: is a lock required here? */
+    UNLOCK_ELAN();
+    return val;
+  }
   else 
     return 0;
 }

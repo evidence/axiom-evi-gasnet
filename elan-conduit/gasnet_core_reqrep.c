@@ -1,34 +1,15 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/08/05 10:23:44 $
- * $Revision: 1.1 $
+ *     $Date: 2002/08/18 08:38:46 $
+ * $Revision: 1.2 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #include <gasnet.h>
 #include <gasnet_core_internal.h>
+#include <gasnet_extended_internal.h>
 
 #include <unistd.h>
-
-/* locks:
-    elan lock - protects all elan calls and tport rx fifo
-    sendfifo lock - protects tport tx fifo
-   should never hold more than one lock
- */
-#ifdef GASNETI_THREADS
-  #include <pthread.h>
-  static pthread_mutex_t gasnetc_elanLock = PTHREAD_MUTEX_INITIALIZER;
-  static pthread_mutex_t gasnetc_sendfifoLock = PTHREAD_MUTEX_INITIALIZER;
-  #define LOCK_ELAN()       pthread_mutex_lock(&gasnetc_elanLock)
-  #define UNLOCK_ELAN()     pthread_mutex_unlock(&gasnetc_elanLock)
-  #define LOCK_SENDFIFO()   pthread_mutex_lock(&gasnetc_sendfifoLock)
-  #define UNLOCK_SENDFIFO() pthread_mutex_unlock(&gasnetc_sendfifoLock)
-#else
-  #define LOCK_ELAN()
-  #define UNLOCK_ELAN()
-  #define LOCK_SENDFIFO()
-  #define UNLOCK_SENDFIFO()
-#endif
 
 #define GASNETC_MEDHEADER_PADARG(numargs) \
         ((numargs & 0x1) ^ ((GASNETC_MED_HEADERSZ>>2) & 0x1))
@@ -54,7 +35,7 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
      assumes elan lock NOT held
   */
   gasnetc_bufdesc_t *desc = NULL;
-  
+  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
   LOCK_SENDFIFO();
   while (!desc) {
     if (gasnetc_tportTxFree) { /* free list contains some bufs */
@@ -116,6 +97,7 @@ static void gasnetc_tportReleaseTxBuf(gasnetc_bufdesc_t *desc) {
   /* release a Tx buf without sending it
      assumes elan lock NOT held  
    */
+  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
   LOCK_SENDFIFO();
     assert(desc->event == NULL);
     desc->next = gasnetc_tportTxFree;
@@ -128,6 +110,7 @@ static gasnetc_bufdesc_t *gasnetc_tportCheckRx() {
      assumes elan lock is held 
   */
   gasnetc_bufdesc_t *desc = gasnetc_tportRxFIFOHead;
+  gasneti_mutex_assertlocked(&gasnetc_elanLock);
 
   if (desc && elan_tportRxDone(desc->event)) {
     int sender,tag,size;
@@ -146,6 +129,7 @@ static void gasnetc_tportAddRxBuf(gasnetc_bufdesc_t *desc) {
   /* issue an rx and return the buffer to the rx queue
      assumes elan lock is held 
    */
+  gasneti_mutex_assertlocked(&gasnetc_elanLock);
 
   if (desc->buf != desc->buf_owned) {/* free a system buffer, if neccessary */
     elan_tportBufFree(TPORT(),desc->buf);
@@ -177,6 +161,7 @@ static void gasnetc_tportAddRxBuf(gasnetc_bufdesc_t *desc) {
 extern void gasnetc_initbufs() {
   /* create a tport message queue */
   ELAN_QUEUE *tport_queue;
+  LOCK_ELAN();
   #ifdef ELAN_VER_1_2
     tport_queue = elan_gallocQueue(BASE()->galloc, GROUP());
   #else
@@ -267,6 +252,7 @@ extern void gasnetc_initbufs() {
       assert(gasnetc_tportRxFIFOTail == &rxdesc[gasnetc_queuesz-1]);
     }
   }
+  UNLOCK_ELAN();
 }
 /* ------------------------------------------------------------------------------------ */
 static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
@@ -275,6 +261,8 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
   gasnetc_handler_fn_t handler = gasnetc_handler[msg->handlerId];
   gasnetc_category_t category = GASNETC_MSG_CATEGORY(msg);
   int numargs = GASNETC_MSG_NUMARGS(msg);
+
+  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
 
   desc->replyIssued = 0;
   desc->handlerRunning = 1;
@@ -306,6 +294,8 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
 extern int gasnetc_AMPoll() {
   int i;
   GASNETC_CHECKATTACH();
+
+  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
 
   for (i = 0; GASNETC_MAX_RECVMSGS_PER_POLL == 0 || i < GASNETC_MAX_RECVMSGS_PER_POLL; i++) {
     gasnetc_bufdesc_t *desc;
@@ -352,6 +342,8 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   gasnet_handlerarg_t *pargs;
   int msgsz;
   assert(numargs >= 0 && numargs <= GASNETC_MAX_SHORT);
+
+  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
 
   switch (category) {
     case gasnetc_Short:

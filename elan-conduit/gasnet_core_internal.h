@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/08/05 10:23:44 $
- * $Revision: 1.3 $
+ *     $Date: 2002/08/18 08:38:46 $
+ * $Revision: 1.4 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -54,7 +54,9 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-99 for the core API */
+/*
 #define _hidx_                              (GASNETC_HANDLER_BASE+)
+*/
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
 extern ELAN_BASE  *gasnetc_elan_base;
@@ -235,5 +237,17 @@ extern void gasnetc_dump_groupstats();
 #define RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen)             \
   _RUN_HANDLER_MEDLONG((gasnetc_HandlerLong)phandlerfn, (gasnet_token_t)token, pArgs, numargs, (void *)pData, (int)datalen)
 /* ------------------------------------------------------------------------------------ */
+
+/* Elan conduit locks:
+    elan lock - protects all elan calls and tport rx fifo
+    sendfifo lock - protects tport tx fifo
+   should never hold more than one lock
+ */
+extern gasneti_mutex_t gasnetc_elanLock;
+extern gasneti_mutex_t gasnetc_sendfifoLock;
+#define LOCK_ELAN()       gasneti_mutex_lock(&gasnetc_elanLock)
+#define UNLOCK_ELAN()     gasneti_mutex_unlock(&gasnetc_elanLock)
+#define LOCK_SENDFIFO()   gasneti_mutex_lock(&gasnetc_sendfifoLock)
+#define UNLOCK_SENDFIFO() gasneti_mutex_unlock(&gasnetc_sendfifoLock)
 
 #endif

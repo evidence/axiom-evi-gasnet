@@ -1,12 +1,13 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_dump.c                  $
- *     $Date: 2002/08/09 12:06:37 $
- * $Revision: 1.3 $
+ *     $Date: 2002/08/18 08:38:46 $
+ * $Revision: 1.4 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #include <gasnet.h>
 #include <gasnet_core_internal.h>
+#include <gasnet_extended_internal.h>
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_dump_base() {
@@ -220,7 +221,9 @@ extern void gasnetc_dump_envvars() {
 /* ------------------------------------------------------------------------------------ */
 void gasnetc_dump_tportstats() {
   ELAN_TPORTSTATS stats;
-  elan_tportGetStats(TPORT(), &stats);
+  LOCK_ELAN();
+    elan_tportGetStats(TPORT(), &stats);
+  UNLOCK_ELAN();
 
   #define DUMP_STAT(statname, desc) \
     GASNETI_STATS_PRINTF(C,(" %-20s= %-8lu \t("desc")", "ts_"#statname, (unsigned long)stats.ts_##statname))
@@ -254,7 +257,9 @@ void gasnetc_dump_tportstats() {
 /* ------------------------------------------------------------------------------------ */
 void gasnetc_dump_groupstats() {
   ELAN_GROUPSTATS stats;
-  elan_groupGetStats(GROUP(), &stats);
+  LOCK_ELAN();
+    elan_groupGetStats(GROUP(), &stats);
+  UNLOCK_ELAN();
 
   #define DUMP_STAT(statname, desc) \
     GASNETI_STATS_PRINTF(C,(" %-20s= %-8lu \t("desc")", "gs_"#statname, (unsigned long)stats.gs_##statname))

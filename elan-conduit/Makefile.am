@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.2 2002/08/05 10:23:44 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.3 2002/08/18 08:38:46 bonachea Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -22,8 +22,7 @@ filelist =                   \
       gasnet_core_reqrep.c 
 
 othersourcefiles =                             \
-      $(top_srcdir)/gasnet_internal.c          \
-      $(top_srcdir)/extended-ref/gasnet_extended.c 
+      $(top_srcdir)/gasnet_internal.c          
 
 EXTRA_DIST = $(filelist)
 
@@ -31,6 +30,7 @@ libgasnet_sources =                  \
       $(srcdir)/gasnet_core.c        \
       $(srcdir)/gasnet_core_dump.c   \
       $(srcdir)/gasnet_core_reqrep.c \
+      $(srcdir)/gasnet_extended.c    \
       $(othersourcefiles)
 
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
