@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/04/01 21:59:45 $
- * $Revision: 1.73 $
+ *     $Date: 2005/04/02 00:55:56 $
+ * $Revision: 1.74 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,9 +127,9 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     GASNETI_TRACE_PRINTF(C,(#name": dest=%i handler=%i args:%s",dest,handler,argstr)); \
   } while(0)
   #define GASNETC_TRACE_SYSTEM_REQUEST(dest,handler,numargs) \
-          _GASNETC_TRACE_SYSTEM(SYSTEM_REQUEST,dest,handler,numargs)
+          _GASNETC_TRACE_SYSTEM(AMREQUEST_SYS,dest,handler,numargs)
   #define GASNETC_TRACE_SYSTEM_REPLY(dest,handler,numargs) \
-          _GASNETC_TRACE_SYSTEM(SYSTEM_REPLY,dest,handler,numargs)
+          _GASNETC_TRACE_SYSTEM(AMREPLY_SYS,dest,handler,numargs)
 
   #define _GASNETC_TRACE_SYSTEM_HANDLER(name, handlerid, token, numargs, arghandle) do { \
     gasnet_node_t src;                                                                    \
@@ -143,9 +143,9 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
                       gasneti_formatdata(&token, sizeof(token))));                        \
     } while(0)
   #define GASNETC_TRACE_SYSTEM_REQHANDLER(handlerid, token, numargs, arghandle) \
-         _GASNETC_TRACE_SYSTEM_HANDLER(SYSTEM_REQHANDLER, handlerid, token, numargs, arghandle)
+         _GASNETC_TRACE_SYSTEM_HANDLER(AMREQUEST_SYS_HANDLER, handlerid, token, numargs, arghandle)
   #define GASNETC_TRACE_SYSTEM_REPHANDLER(handlerid, token, numargs, arghandle) \
-         _GASNETC_TRACE_SYSTEM_HANDLER(SYSTEM_REPHANDLER, handlerid, token, numargs, arghandle)
+         _GASNETC_TRACE_SYSTEM_HANDLER(AMREPLY_SYS_HANDLER, handlerid, token, numargs, arghandle)
 #else
   #define GASNETC_TRACE_SYSTEM_REQUEST(dest,handler,numargs)
   #define GASNETC_TRACE_SYSTEM_REPLY(dest,handler,numargs)
@@ -172,11 +172,8 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 /* ------------------------------------------------------------------------------------ */
 /* Configuration */
 
-/* Scatter-gather segments.
- * Only 1 makes sense right now for normal use.
- */
-#define GASNETC_SND_SG	1		/* maximum number of segments to gather on send */
-#define GASNETC_RCV_SG	1		/* maximum number of segments to scatter on rcv */
+/* Maximum number of segments to gather on send */
+#define GASNETC_SND_SG	4
 
 /* Defined non-zero in gasnet_config.h to enable a progress thread for receiving AMs . */
 #ifndef GASNETC_VAPI_RCV_THREAD

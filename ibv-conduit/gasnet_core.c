@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/04/01 21:59:45 $
- * $Revision: 1.87 $
+ *     $Date: 2005/04/02 00:55:56 $
+ * $Revision: 1.88 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -586,7 +586,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasneti_assert_always(gasnetc_hca_cap.max_qp_ous_wr >= gasnetc_am_oust_pp * 2);
   GASNETI_TRACE_PRINTF(C,("  max_num_sg_ent           = %u", (unsigned int)gasnetc_hca_cap.max_num_sg_ent));
   gasneti_assert_always(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_SND_SG);
-  gasneti_assert_always(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_RCV_SG);
+  gasneti_assert_always(gasnetc_hca_cap.max_num_sg_ent >= 1);
   #if 1 /* QP end points */
     GASNETI_TRACE_PRINTF(C,("  max_qp_init_rd_atom      = %u", (unsigned int)gasnetc_hca_cap.max_qp_init_rd_atom));
     gasneti_assert_always(gasnetc_hca_cap.max_qp_init_rd_atom >= 1);	/* RDMA Read support required */
@@ -682,7 +682,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     qp_init_attr.cap.max_oust_wr_rq = gasnetc_am_oust_pp * 2;
     qp_init_attr.cap.max_oust_wr_sq = gasnetc_op_oust_pp;
-    qp_init_attr.cap.max_sg_size_rq = GASNETC_RCV_SG;
+    qp_init_attr.cap.max_sg_size_rq = 1;
     qp_init_attr.cap.max_sg_size_sq = GASNETC_SND_SG;
     qp_init_attr.pd_hndl            = gasnetc_pd;
     qp_init_attr.rdd_hndl           = 0;
