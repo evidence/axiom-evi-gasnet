@@ -1,10 +1,11 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2004/09/08 05:21:12 $
- * $Revision: 1.13 $
+ *     $Date: 2004/09/19 08:30:35 $
+ * $Revision: 1.14 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
+#include <portable_inttypes.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <math.h>

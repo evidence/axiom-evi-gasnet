@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2004/09/13 10:40:39 $
- * $Revision: 1.17 $
+ *     $Date: 2004/09/19 08:30:35 $
+ * $Revision: 1.18 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -8,13 +8,13 @@
 #ifndef __AMUDP_H
 #define __AMUDP_H
 
+#include "portable_inttypes.h"
+
 #ifdef UETH
   #include <ueth.h>
 #else
   #include <socket.h>
 #endif
-
-#include "portable_inttypes.h"
 
 #include <stdio.h> /* FILE* */
 #include <stdarg.h>

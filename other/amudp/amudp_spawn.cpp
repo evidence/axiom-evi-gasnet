@@ -1,10 +1,11 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spawn.cpp,v $
- *     $Date: 2004/08/26 04:53:50 $
- * $Revision: 1.4 $
+ *     $Date: 2004/09/19 08:30:35 $
+ * $Revision: 1.5 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
+#include <portable_inttypes.h>
 #include <errno.h>
 #ifdef WIN32
   #include <winsock2.h>

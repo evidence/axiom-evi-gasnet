@@ -1,10 +1,11 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2004/09/08 05:21:12 $
- * $Revision: 1.11 $
+ *     $Date: 2004/09/19 08:30:35 $
+ * $Revision: 1.12 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
+#include <portable_inttypes.h>
 #include <errno.h>
 #include <stdio.h>
 #ifdef WIN32
