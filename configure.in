@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/03/23 10:51:59 $
-# $Revision: 1.243 $
+#     $Date: 2005/03/23 22:20:04 $
+# $Revision: 1.244 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.243 $)
+AC_REVISION($Revision: 1.244 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1588,10 +1588,10 @@ if test "$enabled_vapi" = yes; then
     ])
   fi
 
-  if test "$gasnet_cv_cc_family" = "GNU" -a "$segconfig" != fast; then
-    # If using firehose we need to disable certain gcc optimizations.
+  if test "$gasnet_cv_cc_family" = "GNU"; then
+    # Since we are using firehose we need to disable certain gcc optimizations.
     # See bug #350 for an example of why firehose needs this.
-    # See bug #596 for evidence that VAPI is affected by this.
+    # See bug #596 or #1031 for evidence that VAPI is affected by this.
     VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -fno-strict-aliasing"
   fi
 
