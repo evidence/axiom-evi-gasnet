@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/11 21:34:59 $
- * $Revision: 1.12 $
+ *     $Date: 2005/01/14 22:09:20 $
+ * $Revision: 1.13 $
  * Description: GASNet ssh-based bootstrapper for vapi-conduit
  * Copyright 2004, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -154,27 +154,25 @@ extern char **environ;
   static int ssh_argc = 0;
   static char *master_env = NULL;
   static size_t master_env_len = 0;
-  static volatile int accepted = 0;
-/* Slaves only */
-  static gasnet_node_t myproc = (gasnet_node_t)(-1L);
-  static gasnet_node_t tree_procs = (gasnet_node_t)(-1L);
-  static gasnet_node_t tree_nodes = (gasnet_node_t)(-1L);
-  static int parent = -1; /* socket */
   static struct child {
     int			sock;
-    volatile pid_t	pid;	/* pid of ssh (reset to zero by slave_reaper) */
+    volatile pid_t	pid;	/* pid of ssh (reset to zero by reaper) */
     gasnet_node_t	rank;
     gasnet_node_t	procs;	/* size in procs of subtree rooted at this child */
     gasnet_node_t	nodes;	/* size in nodes of subtree rooted at this child */
     char **		nodelist;
   } *child = NULL;
   static int children = 0;
+  static volatile int accepted = 0;
+/* Slaves only */
+  static gasnet_node_t myproc = (gasnet_node_t)(-1L);
+  static gasnet_node_t tree_procs = (gasnet_node_t)(-1L);
+  static gasnet_node_t tree_nodes = (gasnet_node_t)(-1L);
+  static int parent = -1; /* socket */
   static int mypid;
 /* Master only */
+  static volatile int exit_status = -1;
   static gasnet_node_t nnodes = 0;	/* nodes, as distinct from procs */
-  static int root_sock;			/* socket */
-  static volatile int root_pid = 0;	/* reset to zero by master_reaper */
-  static volatile int root_status = -1;
 
 static void do_verbose(const char *fmt, ...) __attribute__((__format__ (__printf__, 1, 2)));
 static void do_verbose(const char *fmt, ...)
@@ -227,6 +225,7 @@ static char *sappendf(char *s, const char *fmt, ...)
 static void sigforward(int sig)
 {
   int sent = 0;
+  pid_t root_pid = child ? child[0].pid : 0;
   gasneti_assert(is_master);
 
   if (root_pid) {
@@ -235,37 +234,27 @@ static void sigforward(int sig)
     sent = (kill(root_pid, sig) == 0);
   }
   if (!sent) {
-    BOOTSTRAP_VERBOSE(("Master resendin signal %d to self\n", sig));
+    BOOTSTRAP_VERBOSE(("Master resending signal %d to self\n", sig));
     gasneti_reghandler(sig, SIG_DFL);
     raise(sig);
   }
 }
 
-static void master_reaper(int sig)
+static void reaper(int sig)
 {
   pid_t pid;
+  int status;
 
-  gasneti_reghandler(sig, &master_reaper); /* ? not needed */
-  while((pid = waitpid(root_pid,(int *)&root_status,WNOHANG)) > 0);
-
-  if (!accepted) {
-    gasneti_fatalerror("The root process died before setup was completed");
-  } else {
-    root_pid = 0;
-  }
-}
-
-static void slave_reaper(int sig)
-{
-  pid_t pid;
-
-  gasneti_reghandler(sig, &slave_reaper);
-  while((pid = waitpid(-1,NULL,WNOHANG)) > 0) {
+  gasneti_reghandler(sig, &reaper);
+  while((pid = waitpid(-1,&status,WNOHANG)) > 0) {
     if (child) {
       int j;
       for (j = 0; j < children; ++j) {
         if (pid == child[j].pid) {
 	  child[j].pid = 0;
+	  if (child[j].rank == 0 && WIFEXITED(status)) {
+	    exit_status = WEXITSTATUS(status);
+	  }
 	  break;
         }
       }
@@ -753,51 +742,39 @@ static void pre_spawn(count) {
     gasneti_fatalerror("getsockname() failed");
   }
   listen_port = ntohs(sock_addr.sin_port);
+
+  /* Prepare to reap fallen children */
+  gasneti_reghandler(SIGCHLD, &reaper);
 }
 
 static void post_spawn(int count, int argc, char * const *argv) {
   /* Accept count connections */
   while (count--) {
-    gasnet_node_t procs, nodes, rank;
     struct sockaddr_in sock_addr;
     socklen_t addr_len;
     static const int one = 1;
-    char **list;
     gasnet_node_t child_id;
+    struct child *ch = NULL;
     int s;
 
     if ((s = accept(listener, (struct sockaddr *)&sock_addr, &addr_len)) < 0) {
       gasneti_fatalerror("accept() failed");
     }
-    if (!is_master) {
-      (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
-    }
+    (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
     (void)setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
     do_read(s, &child_id, sizeof(gasnet_node_t));
-    if (is_master) {
-      gasneti_assert(child_id == 0);
-      root_sock = s;
-      rank = 0;
-      procs = nproc;
-      nodes = nnodes;
-      list = nodelist;
-    } else {
-      gasneti_assert(child_id < children);
-      child[child_id].sock = s;
-      rank = child[child_id].rank;
-      procs = child[child_id].procs;
-      nodes = child[child_id].nodes;
-      list = child[child_id].nodelist;
-    }
-    gasneti_assert(rank < nproc);
-    gasneti_assert(procs > 0);
-    gasneti_assert(procs <= nproc);
-    do_write(s, &rank, sizeof(gasnet_node_t));
+    gasneti_assert(child_id < children);
+    ch = &(child[child_id]);
+    child[child_id].sock = s;
+    gasneti_assert(ch->rank < nproc);
+    gasneti_assert(ch->procs > 0);
+    gasneti_assert(ch->procs <= nproc);
+    do_write(s, &ch->rank, sizeof(gasnet_node_t));
     do_write(s, &nproc, sizeof(gasnet_node_t));
-    do_write(s, &procs, sizeof(gasnet_node_t));
-    do_write(s, &nodes, sizeof(gasnet_node_t));
+    do_write(s, &ch->procs, sizeof(gasnet_node_t));
+    do_write(s, &ch->nodes, sizeof(gasnet_node_t));
     send_env(s);
-    send_nodelist(s, nodes, list);
+    send_nodelist(s, ch->nodes, ch->nodelist);
     send_ssh_argv(s);
     send_argv(s, argc, argv);
     ++accepted;
@@ -842,7 +819,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
   sock_addr.sin_port = htons(parent_port);
   sock_addr.sin_addr = *(struct in_addr *)(h->h_addr_list[0]);
   addr_len = sizeof(sock_addr);
-  while (connect(parent, (struct sockaddr *)&sock_addr, addr_len) < 0) {
+  if (connect(parent, (struct sockaddr *)&sock_addr, addr_len) < 0) {
     gasneti_fatalerror("connect(host=%s, port=%d) failed w/ errno=%d", parent_name, parent_port, errno);
   }
   (void)ioctl(parent, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
@@ -863,16 +840,17 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
   BOOTSTRAP_VERBOSE(("Process %d connected\n", myproc));
 }
 
-static pid_t spawn_one(const char *host, const char *argv0, gasnet_node_t child_id, const char *myhost)
-{
+static void spawn_one(const char *argv0, gasnet_node_t child_id, const char *myhost) {
+  const char *host = child[child_id].nodelist ? child[child_id].nodelist[0] : NULL;
   pid_t pid;
 
-  pid = fork();
+
+  child[child_id].pid = pid = fork();
   if (pid < 0) {
     gasneti_fatalerror("fork() failed");
   } else if (pid == 0) {
     /* For all children except the root do </dev/null */
-    if (!is_master) {
+    if (child[child_id].rank != 0) {
       if (dup2(STDIN_FILENO, devnull) < 0) {
         gasneti_fatalerror("dup2(STDIN_FILENO, /dev/null) failed");
       }
@@ -880,8 +858,7 @@ static pid_t spawn_one(const char *host, const char *argv0, gasnet_node_t child_
     if (USE_LOCAL_SPAWN && (!host || !strcmp(host, myhost))) {
       BOOTSTRAP_VERBOSE(("Process %d spawning process %d on %s via fork()\n",
 			 (is_master ? -1 : (int)myproc),
-			 (is_master ? 0 : (int)child[child_id].rank),
-			 myhost));
+			 (int)child[child_id].rank, myhost));
       execlp(argv0, argv0, "-slave", "localhost",
 	     sappendf(NULL, "%d", listen_port),
 	     sappendf(NULL, "%d", (int)child_id),
@@ -891,8 +868,7 @@ static pid_t spawn_one(const char *host, const char *argv0, gasnet_node_t child_
     } else {
       BOOTSTRAP_VERBOSE(("Process %d spawning process %d on %s via %s\n",
 			 (is_master ? -1 : (int)myproc),
-			 (is_master ? 0 : (int)child[child_id].rank),
-			 host, ssh_argv[0]));
+			 (int)child[child_id].rank, host, ssh_argv[0]));
       ssh_argv[ssh_argc] = (/* noconst */ char *)host;
       ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -slave %s %d %d%s",
 				      quote_arg(cwd), quote_arg(argv0),
@@ -902,8 +878,16 @@ static pid_t spawn_one(const char *host, const char *argv0, gasnet_node_t child_
       gasneti_fatalerror("execvp(ssh) failed");
     }
   }
+}
 
-  return pid;
+static void do_spawn(int argc, char **argv, char *myhost) {
+  int j;
+
+  pre_spawn(children);
+  for (j = 0; j < children; ++j) {
+    spawn_one(argv[0], j, myhost);
+  }
+  post_spawn(children, argc, argv);
 }
 
 static void usage(const char *argv0) {
@@ -914,9 +898,12 @@ static void do_master(int argc, char **argv) GASNET_NORETURN;
 static void do_master(int argc, char **argv) {
   char myhost[1024];
   char *p;
-  int status;
+  int status = -1;
   int argi=1;
-  int i;
+  int j;
+
+  is_master = 1;
+  gasneti_reghandler(SIGURG, &sigurg_handler);
 
   if ((argi < argc) && (strcmp(argv[argi], "-master") == 0)) {
     argi++;
@@ -947,15 +934,12 @@ static void do_master(int argc, char **argv) {
   argc -= argi-1;
   argv += argi-1;
 
-  is_master = 1;
-
   if (gethostname(myhost, sizeof(myhost)) < 0) {
     gasneti_fatalerror("gethostname() failed");
   }
 
   configure_ssh();
   build_nodelist();
-  pre_spawn(1);
 
   /* Arrange to forward termination signals */
   gasneti_reghandler(SIGQUIT, &sigforward);
@@ -964,22 +948,22 @@ static void do_master(int argc, char **argv) {
   gasneti_reghandler(SIGHUP,  &sigforward);
   gasneti_reghandler(SIGPIPE, &sigforward);
 
-  /* Prepare to deal with stillborn child */
-  gasneti_reghandler(SIGCHLD, &master_reaper);
+  /* Configure child(ren) */
+  children = 1;
+  child = gasneti_calloc(children, sizeof(struct child));
+  child[0].rank = 0;
+  child[0].procs = nproc;
+  child[0].nodes = nnodes;
+  child[0].nodelist = nodelist;
 
   /* Start the root process */
-  root_pid = spawn_one(nodelist[0], argv[0], 0, myhost);
-  if (root_pid <= 0) {
-    gasneti_fatalerror("spawn_one(root) failed");
+  do_spawn(argc, argv, myhost);
+
+  while (child[0].pid) {
+    pause();
   }
 
-  post_spawn(1, argc, argv);
-
-  gasneti_reghandler(SIGCHLD, SIG_DFL);
-  if (root_pid) {
-    waitpid(root_pid, (int *)&root_status, 0);
-  }
-  exit (WIFEXITED(root_status) ?  WEXITSTATUS(root_status) : -1);
+  exit (exit_status);
 }
 
 static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p)
@@ -992,6 +976,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   int parent_port;
 
   is_master = 0;
+  gasneti_reghandler(SIGURG, &sigurg_handler);
 
   if ((argc < 5) || (argc > 6)){
     gasneti_fatalerror("Invalid command line in slave process");
@@ -1005,7 +990,6 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   }
 
   mypid = getpid();
-  gasneti_reghandler(SIGURG, &sigurg_handler);
 
   /* Connect w/ parent to find out who we are */
   do_connect(child_id, parent_name, parent_port, argc_p, argv_p);
@@ -1056,15 +1040,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     }
   
     /* Spawn them */
-    pre_spawn(children);
-    gasneti_reghandler(SIGCHLD, &slave_reaper);
-    for (j = 0; j < local_procs; ++j) {
-      child[j].pid = spawn_one(NULL, (*argv_p)[0], j, nodelist[0]);
-    }
-    for (j = local_procs; j < children; ++j) {
-      child[j].pid = spawn_one(child[j].nodelist[0], (*argv_p)[0], j, nodelist[0]);
-    }
-    post_spawn(children, *argc_p, *argv_p);
+    do_spawn(*argc_p, *argv_p, nodelist[0]);
   }
 
   *nodes_p = nproc;
