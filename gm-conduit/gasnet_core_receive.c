@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_receive.c,v $
- * $Date: 2005/02/18 13:32:13 $
- * $Revision: 1.39 $
+ * $Date: 2005/03/02 11:12:40 $
+ * $Revision: 1.40 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -456,9 +456,8 @@ gasnetc_callback_hi(struct gm_port *p, void *ctx, gm_status_t status)
  * buffers can be used to send payload from).
  */
 GASNET_INLINE_MODIFIER(gasnetc_release_rdma)
-void
-gasnetc_release_rdma(gasnetc_bufdesc_t *bufd)
-{
+void gasnetc_release_rdma(gasnetc_bufdesc_t *bufd) {
+        GASNET_BEGIN_FUNCTION(); /* thread cache for *_IN_UNKNOWN */
 	const firehose_request_t	*reqs[2];
 	int				numreqs = 1;
 
@@ -510,10 +509,8 @@ gasnetc_callback_lo_rdma(struct gm_port *p, void *ctx, gm_status_t status)
 /*
  * Callback for AMReply when destination is pinned
  */
-void
-gasnetc_callback_hi_rdma(struct gm_port *p, void *ctx, 
-				  gm_status_t status)
-{
+void gasnetc_callback_hi_rdma(struct gm_port *p, void *ctx, gm_status_t status) {
+        GASNET_BEGIN_FUNCTION(); /* thread cache for *_IN_UNKNOWN */
 	gasnetc_bufdesc_t	*bufd = (gasnetc_bufdesc_t *) ctx;
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);

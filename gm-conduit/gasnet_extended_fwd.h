@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2004/11/10 15:43:46 $
- * $Revision: 1.25 $
+ *     $Date: 2005/03/02 11:12:40 $
+ * $Revision: 1.26 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -85,9 +85,12 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #endif
 
 #if GASNETI_CLIENT_THREADS
-#define GASNETE_GM_IN_UNKNOWN()		((gasnete_mythread())->in_gm_unknown)
-#define GASNETE_GM_SET_IN_UNKNOWN()	((gasnete_mythread())->in_gm_unknown = 1)
-#define GASNETE_GM_UNSET_IN_UNKNOWN()	((gasnete_mythread())->in_gm_unknown = 0)
+#define GASNETE_GM_IN_UNKNOWN() \
+        (((gasnete_threaddata_t *)GASNET_GET_THREADINFO())->in_gm_unknown)
+#define GASNETE_GM_SET_IN_UNKNOWN() \
+        (((gasnete_threaddata_t *)GASNET_GET_THREADINFO())->in_gm_unknown = 1)
+#define GASNETE_GM_UNSET_IN_UNKNOWN() \
+        (((gasnete_threaddata_t *)GASNET_GET_THREADINFO())->in_gm_unknown = 0)
 #else
 #define GASNETE_GM_IN_UNKNOWN()		1
 #define GASNETE_GM_SET_IN_UNKNOWN()

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2005/02/20 10:13:32 $
- * $Revision: 1.48 $
+ * $Date: 2005/03/02 11:12:40 $
+ * $Revision: 1.49 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -110,8 +110,8 @@ firehose_move_callback(gasnet_node_t node,
 /* ##################################################################### */
 void
 gasnete_fh_callback_put(struct gm_port *p, void *context, 
-			      gm_status_t status)
-{
+			      gm_status_t status) {
+        GASNET_BEGIN_FUNCTION(); /* thread cache for *_IN_UNKNOWN */
 	gasnete_eop_t		*pop = (gasnete_eop_t *) context;
 	gasnet_node_t		node = pop->node;
 	gasneti_stattime_t      starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
@@ -432,10 +432,8 @@ extern int firehose_remote_callback(gasnet_node_t node,
  * In GM 2.0, we can use directed receives (gm_get) once the remote region is
  * known to be pinned 
  */
-void
-gasnete_fh_callback_get_rdma(struct gm_port *p, void *context, 
-			      gm_status_t status)
-{
+void gasnete_fh_callback_get_rdma(struct gm_port *p, void *context, gm_status_t status) {
+        GASNET_BEGIN_FUNCTION(); /* thread cache for *_IN_UNKNOWN */
 	gasnete_eop_t			*gop = (gasnete_eop_t *) context;
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
@@ -515,9 +513,8 @@ gasnete_fh_request_get_rdma(void *_gop, const firehose_request_t *req,
  * AM Handler: Reply to get into a pinned memory location
  */
 GASNET_INLINE_MODIFIER(gasnete_get_dma_reph_inner)
-void
-gasnete_get_dma_reph_inner(gasnet_token_t token, void *op)
-{
+void gasnete_get_dma_reph_inner(gasnet_token_t token, void *op) {
+        GASNET_BEGIN_FUNCTION(); /* thread cache for *_IN_UNKNOWN */
 	gasnete_eop_t	*gop = (gasnete_eop_t *) op;
 
 	GASNETE_GM_SET_IN_UNKNOWN();
