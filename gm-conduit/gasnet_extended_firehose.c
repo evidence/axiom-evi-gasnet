@@ -319,11 +319,12 @@ gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 		    (unsigned) node, dest, src, nbytes));
 		gasnete_firehose_put_bulk(node, dest, src, nbytes,
 		    iop GASNETE_THREAD_PASS);
-		return;
 	}
-	else 
-		return gasnete_extref_put_nbi_bulk(node, dest, src, 
+	else
+		gasnete_extref_put_nbi_bulk(node, dest, src, 
 		    nbytes GASNETE_THREAD_PASS);
+
+	return;
 }
 
 GASNET_INLINE_MODIFIER(gasnete_firehose_put)
@@ -386,11 +387,11 @@ gasnete_put_nbi(gasnet_node_t node, void *dest, void *src,
 		gasnete_iop_t *iop = mythread->current_iop;
 		gasnete_firehose_put(node, dest, src, nbytes, 
 		    iop GASNETE_THREAD_PASS);
-		return;
 	}
 	else
-		return gasnete_extref_put_nbi(node, dest, src, 
+		gasnete_extref_put_nbi(node, dest, src, 
 		    nbytes GASNETE_THREAD_PASS);
+	return;
 }
 
 /* ------------------------------------------------------------------------ */
@@ -463,11 +464,11 @@ gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
 		    (unsigned) node, dest, src, nbytes));
 		gasnete_firehose_get_bulk(dest, node, src, nbytes, 
 		    iop GASNETE_THREAD_PASS);
-		return;
 	}
 	else 
-		return gasnete_extref_get_nbi_bulk(dest, node, src, 
+		gasnete_extref_get_nbi_bulk(dest, node, src, 
 		    nbytes GASNETE_THREAD_PASS);
+	return;
 }
 
 /* The non-bulk get is similar to the bulk version */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/09/13 13:41:43 $
- * $Revision: 1.4 $
+ *     $Date: 2002/10/03 18:06:56 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -382,12 +382,14 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
 extern void
 gasnete_barrier_notify(int id, int flags) 
 {
-	return gasnete_extref_barrier_notify(id,flags);
+	gasnete_extref_barrier_notify(id,flags);
+	return;
 }
 extern int 
 gasnete_barrier_wait(int id, int flags)
 {
-	return gasnete_extref_barrier_wait(id,flags);
+	gasnete_extref_barrier_wait(id,flags);
+	return;
 }
 
 extern gasnet_handle_t 
@@ -400,6 +402,7 @@ gasnete_memset_nb(gasnet_node_t node, void *dest, int val,
 extern void
 gasnete_memset_nbi(gasnet_node_t node, void *dest, int val, 
 		  size_t nbytes   GASNETE_THREAD_FARG) {
-	return gasnete_extref_memset_nbi(node, dest, val, 
+	gasnete_extref_memset_nbi(node, dest, val, 
 	    nbytes GASNETE_THREAD_PASS);
+	return;
 }

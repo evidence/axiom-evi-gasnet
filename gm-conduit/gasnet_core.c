@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.25 2002/10/03 14:30:37 bonachea Exp $
- * $Date: 2002/10/03 14:30:37 $
+/* $Id: gasnet_core.c,v 1.26 2002/10/03 18:06:56 csbell Exp $
+ * $Date: 2002/10/03 18:06:56 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -638,10 +638,10 @@ gasnetc_AMRequestLongM_DMA_inner(gasnet_node_t dest, gasnet_handler_t handler,
 		(uintptr_t) dest_addr, GASNETC_AM_REQUEST);
 	if (bytes_left > 0) {
 		gasnetc_write_AMBufferBulk(
-			bufd->sendbuf+GASNETC_LONG_OFFSET, 
-			psrc, bytes_left);
+			(uint8_t *)bufd->sendbuf+GASNETC_LONG_OFFSET, 
+			psrc, (size_t) bytes_left);
 		gasnetc_tokensend_AMRequest(
-		    bufd->sendbuf+GASNETC_LONG_OFFSET,
+		    (uint8_t *)bufd->sendbuf+GASNETC_LONG_OFFSET,
 		    bytes_left, id, port, gasnetc_callback_lo, NULL,
 		    (uintptr_t) pdest);
 	}

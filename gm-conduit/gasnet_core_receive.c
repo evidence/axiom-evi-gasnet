@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.21 2002/08/22 14:27:31 csbell Exp $
- * $Date: 2002/08/22 14:27:31 $
- * $Revision: 1.21 $
+/* $Id: gasnet_core_receive.c,v 1.22 2002/10/03 18:06:56 csbell Exp $
+ * $Date: 2002/10/03 18:06:56 $
+ * $Revision: 1.22 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -211,12 +211,11 @@ gasnetc_process_AMRequest(uint8_t *ptr, gm_recv_event_t *e)
 			    (void *) _gmc.handlers[handler_idx+1]));
 			GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers[handler_idx],
 			    (void *) bufd, argptr, numargs, 
-			    ptr + GASNETC_AM_MEDIUM_HEADER_LEN(numargs), 
+			    (void *) (ptr + GASNETC_AM_MEDIUM_HEADER_LEN(numargs)), 
 			    len - GASNETC_AM_MEDIUM_HEADER_LEN(numargs));
 			break;
 		case GASNETC_AM_LONG:
-			GASNETC_AMDESTADDR_READ((uintptr_t *) &ptr[8],
-			    dest_addr);
+			dest_addr = (uintptr_t) ptr[8];
 			GASNETC_TRACE_LONG(AMRecv, RequestLong, 
 			    gasnetc_gm_nodes_search(bufd->gm_id, bufd->gm_port),
 			    bufd, handler_idx, GASNETC_AM_NUMARGS(*ptr), 0, 
@@ -303,12 +302,11 @@ gasnetc_process_AMReply(uint8_t *ptr, gm_recv_event_t *e)
 			argptr = (int32_t *) &ptr[GASNETC_AM_MEDIUM_ARGS_OFF];
 			GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers[handler_idx],
 			    (void *) bufd, argptr, numargs,
-			    ptr + GASNETC_AM_MEDIUM_HEADER_LEN(numargs), 
+			    (void *)(ptr + GASNETC_AM_MEDIUM_HEADER_LEN(numargs)), 
 			    len - GASNETC_AM_MEDIUM_HEADER_LEN(numargs)); 
 			break;
 		case GASNETC_AM_LONG:
-			GASNETC_AMDESTADDR_READ((uintptr_t *) &ptr[8], 
-			    dest_addr);
+			dest_addr = (uintptr_t) ptr[8];
 			len = *((uint32_t *) &ptr[4]);
 			GASNETC_TRACE_LONG(AMRecv, ReplyLong, 
 			    gasnetc_gm_nodes_search(bufd->gm_id, bufd->gm_port),
@@ -611,7 +609,8 @@ gasnetc_callback_generic_inner(struct gm_port *p, void *context, gm_status_t sta
 extern void
 gasnetc_callback_ambuffer(struct gm_port *p, void *context, gm_status_t status) {
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
-	return gasnetc_callback_generic_inner(p, context, status);
+	gasnetc_callback_generic_inner(p, context, status);
+	return;
 }
 
 /* Callbacks for AMRequest/AMReply functions

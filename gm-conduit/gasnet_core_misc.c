@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.23 2002/08/23 12:47:54 csbell Exp $
- * $Date: 2002/08/23 12:47:54 $
- * $Revision: 1.23 $
+/* $Id: gasnet_core_misc.c,v 1.24 2002/10/03 18:06:56 csbell Exp $
+ * $Date: 2002/10/03 18:06:56 $
+ * $Revision: 1.24 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -697,7 +697,7 @@ gasnetc_gmpiconf_init()
 		    GM_API_VERSION_1_4);
 	if (status != GM_SUCCESS) 
 		GASNETI_RETURN_ERRR(RESOURCE, "could not open GM port");
-	status = gm_get_node_id(p, &thisid);
+	status = gm_get_node_id(p, (unsigned int *) &thisid);
 	if (status != GM_SUCCESS)
 		GASNETI_RETURN_ERRR(RESOURCE, "could not get GM node id");
 

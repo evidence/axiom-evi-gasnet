@@ -311,7 +311,7 @@ gasneti_mutex_t	gasnetc_lock_bucket_victim = GASNETI_MUTEX_INITIALIZER;
 
 /* Functions exported to gasnet core */
 extern void	gasnete_firehose_move_done(void *);
-extern void	gasnetc_rdma_init();
+extern void	gasnetc_rdma_init(uintptr_t segbase, uintptr_t segsize);
 extern void	gasnetc_rdma_finalize();
 extern int	gasnetc_is_pinned(gasnet_node_t, uintptr_t, size_t);
 extern void	gasnetc_done_pinned(gasnet_node_t, uintptr_t, size_t);
@@ -432,7 +432,7 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 static void
 gasnetc_bucket_finalize()
 {
-	gasneti_free(gasnetc_bucket_victim_head_ptr);
+	gasneti_free(gasnetc_bucket_table);
 }
 
 /* Pin the stack (we assume the stack grows down)
@@ -442,11 +442,13 @@ gasnetc_bucket_finalize()
 static void
 gasnetc_bucket_pin_stack()
 {
-	char		stack_addr, stack_addr2;
+	char		stack_addr;
+	char		stack_addr2;
 	uintptr_t	stack_top, stack_bottom, va_top;
 
-	/* stack grows down? */
+	/* stack grows down?
 	assert(&stack_addr2 < &stack_addr);
+	*/
 	stack_top = 
 	    GASNETI_PAGE_ROUNDUP((uintptr_t)&stack_addr, GASNETC_PAGE_SIZE);
 	/* make sure we don't wrap around */
@@ -1369,7 +1371,7 @@ gasnetc_firehose_move_reqh_inner(gasnet_token_t token, void *addr,
 
 	if (old_buckets > 0) {
 		assert(old_bucket_off > 0);
-		old_bucket_list = (uintptr_t *) (addr + old_bucket_off);
+		old_bucket_list = (uintptr_t *) addr + old_bucket_off;
 		gasnetc_bucket_unpin_by_list(old_bucket_list, old_buckets);
 	}
 	gasnetc_bucket_pin_by_list((uintptr_t *) addr, new_buckets);

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.15 2002/08/22 14:27:31 csbell Exp $
- * $Date: 2002/08/22 14:27:31 $
- * $Revision: 1.15 $
+/* $Id: gasnet_core_help.h,v 1.16 2002/10/03 18:06:56 csbell Exp $
+ * $Date: 2002/10/03 18:06:56 $
+ * $Revision: 1.16 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -324,7 +324,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 
 #if defined(GASNETI_PTR32)
 #define GASNETC_ARGPTR_NUM	1
-#define GASNETC_ARGPTR(ptr, addr)	((int32_t) *(ptr) = (int32_t) addr)
+#define GASNETC_ARGPTR(ptr, addr)	(*((int32_t *)(ptr)) = (int32_t) addr)
 #elif defined(GASNETI_PTR64)
 #define GASNETC_ARGPTR_NUM	2
 #define GASNETC_ARGPTR(ptr, addr)					    \
