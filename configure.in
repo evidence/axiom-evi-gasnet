@@ -1,13 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/05/03 23:28:03 $
-# $Revision: 1.136 $
+#     $Date: 2004/05/09 00:33:12 $
+# $Revision: 1.137 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.136 $)
+AC_DEFUN([cv_prefix],[gasnet_cv_])
+AC_REVISION($Revision: 1.137 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -362,27 +363,27 @@ AC_CHECK_HEADERS(inttypes.h)
 
 if test "$GASNETI_PAGESIZE" = ""; then
 GASNET_TRY_CACHE_RUN_EXPR(PAGESIZE, PAGESIZE,
-  [ #include <limits.h> ], [ (PAGESIZE>0?PAGESIZE:(exit(1),0)) ], GASNETI_PAGESIZE)
+  [ #include <limits.h> ], [ val = PAGESIZE; if (val<=0) exit(1); ], GASNETI_PAGESIZE)
 fi
 
 if test "$GASNETI_PAGESIZE" = ""; then
 GASNET_TRY_CACHE_RUN_EXPR(PAGE_SIZE, PAGE_SIZE,
-  [ #include <limits.h> ], [ (PAGE_SIZE>0?PAGE_SIZE:(exit(1),0)) ], GASNETI_PAGESIZE)
+  [ #include <limits.h> ], [ val = PAGE_SIZE; if (val<=0) exit(1); ], GASNETI_PAGESIZE)
 fi
 
 if test "$GASNETI_PAGESIZE" = ""; then
 GASNET_TRY_CACHE_RUN_EXPR([sysconf(_SC_PAGESIZE)], _SC_PAGESIZE,
-  [ #include <unistd.h> ], [ (sysconf(_SC_PAGESIZE)>0?sysconf(_SC_PAGESIZE):(exit(1),0)) ], GASNETI_PAGESIZE)
+  [ #include <unistd.h> ], [ val = sysconf(_SC_PAGESIZE); if (val<=0) exit(1); ], GASNETI_PAGESIZE)
 fi
 
 if test "$GASNETI_PAGESIZE" = ""; then
 GASNET_TRY_CACHE_RUN_EXPR([sysconf(_SC_PAGE_SIZE)], _SC_PAGE_SIZE,
-  [ #include <unistd.h> ], [ (sysconf(_SC_PAGE_SIZE)>0?sysconf(_SC_PAGE_SIZE):(exit(1),0)) ], GASNETI_PAGESIZE)
+  [ #include <unistd.h> ], [ val = sysconf(_SC_PAGE_SIZE); if (val<=0) exit(1); ], GASNETI_PAGESIZE)
 fi
 
 if test "$GASNETI_PAGESIZE" = ""; then
 GASNET_TRY_CACHE_RUN_EXPR([getpagesize()], getpagesize,
-  [ #include <unistd.h> ], [ (getpagesize()>0?getpagesize():(exit(1),0)) ], GASNETI_PAGESIZE)
+  [ #include <unistd.h> ], [ val = getpagesize(); if (val<=0) exit(1); ], GASNETI_PAGESIZE)
 fi
 
 if test "$GASNETI_PAGESIZE" != ""; then
@@ -1332,33 +1333,7 @@ case "$target_os" in
 esac
 
 # Check for alloca in C code
-AC_MSG_CHECKING(for alloca in C code)
-ALLOCA_IN_C=""
-AC_TRY_LINK([
-/* AIX requires this to be the first thing in the file.  */
-#ifndef __GNUC__
-# if HAVE_ALLOCA_H
-#  include <alloca.h>
-# else
-#  ifdef _AIX
- #pragma alloca
-#  else
-#   ifndef alloca /* predefined by HP cc +Olibcalls */
-char *alloca ();
-#   endif
-#  endif
-# endif
-#endif
-], [
-char *p = (char *) alloca(10);
-], [ alloca_in_c=yes ], [ alloca_in_c=no ])
-if test "$alloca_in_c" = yes; then
-  AC_MSG_RESULT(yes)
-  ALLOCA_IN_C="1"
-else
-  AC_MSG_RESULT(no)
-fi
-AC_SUBST(ALLOCA_IN_C)
+GASNET_FUNC_ALLOCA
 
 # -lm should only live in LIBM, and only if we have it (not in LIBS)
 OLDLIBS="$LIBS"

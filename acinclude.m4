@@ -71,7 +71,7 @@ dnl would be nice to use AC_CONFIG_COMMANDS() for each file, but autoconf 2.53
 dnl  stupidly fails to execute commands having the same tag as a config output file
 dnl  on subsequent calls to config.status
 AC_DEFUN([GASNET_FIX_EXEC],[
-  gasnet_exec_list="$gasnet_exec_list $1"
+  cv_prefix[]exec_list="$cv_prefix[]exec_list $1"
 ])
 
 dnl ensure the "default" command is run on every invocation of config.status
@@ -81,11 +81,11 @@ AC_DEFUN([GASNET_FIX_EXEC_SETUP],[[
     config_commands="default"
   fi
   CONFIG_COMMANDS="\$config_commands"
-  gasnet_exec_list="$gasnet_exec_list"
+  cv_prefix[]exec_list="$cv_prefix[]exec_list"
 ]])
 
 AC_DEFUN([GASNET_FIX_EXEC_OUTPUT],[[
-  for file in $gasnet_exec_list; do
+  for file in $cv_prefix[]exec_list; do
    case "$CONFIG_FILES" in
      *${file}*) chmod +x ${file} ;;
    esac
@@ -94,7 +94,7 @@ AC_DEFUN([GASNET_FIX_EXEC_OUTPUT],[[
 
 AC_DEFUN([GASNET_LIBGCC],[
 AC_REQUIRE([AC_PROG_CC])
-AC_CACHE_CHECK(for libgcc link flags, gasnet_cv_lib_gcc,
+AC_CACHE_CHECK(for libgcc link flags, cv_prefix[]lib_gcc,
 [if test "$GCC" = yes; then
   #LIBGCC="`$CC -v 2>&1 | sed -n 's:^Reading specs from \(.*\)/specs$:-L\1 -lgcc:p'`"
   LIBGCC="-L`$CC -print-libgcc-file-name | xargs dirname` -lgcc"
@@ -102,8 +102,8 @@ AC_CACHE_CHECK(for libgcc link flags, gasnet_cv_lib_gcc,
     AC_MSG_ERROR(cannot find libgcc)
   fi
 fi
-gasnet_cv_lib_gcc="$LIBGCC"])
-LIBGCC="$gasnet_cv_lib_gcc"
+cv_prefix[]lib_gcc="$LIBGCC"])
+LIBGCC="$cv_prefix[]lib_gcc"
 AC_SUBST(LIBGCC)
 ])
 
@@ -126,22 +126,22 @@ AC_DEFUN([GASNET_ENV_DEFAULT],[
   define(with_expanded_[$1], [set])
 
   envval_src_[$1]="cached"
-  AC_CACHE_VAL(gasnet_cv_envvar_$1, [
+  AC_CACHE_VAL(cv_prefix[]envvar_$1, [
       case "$[$1]" in
 	'') if test "$with_[]lowerscorename" != ""; then
-	      gasnet_cv_envvar_$1="$with_[]lowerscorename"
+	      cv_prefix[]envvar_$1="$with_[]lowerscorename"
 	      envval_src_[$1]=given
 	    else
-	      gasnet_cv_envvar_$1="[$2]"
+	      cv_prefix[]envvar_$1="[$2]"
 	      envval_src_[$1]=default
 	    fi 
 	    ;;
-	*)  gasnet_cv_envvar_$1="$[$1]"
+	*)  cv_prefix[]envvar_$1="$[$1]"
 	    envval_src_[$1]=given
       esac
   ])
 
-  [$1]="$gasnet_cv_envvar_$1"
+  [$1]="$cv_prefix[]envvar_$1"
   case "$envval_src_[$1]" in
       'cached')
 	  AC_MSG_RESULT([using cached value \"$[$1]\"]) ;;
@@ -160,14 +160,14 @@ dnl GASNET_RESTORE_AUTOCONF_ENV(env1 env2 env3)
 dnl  call at top of configure.in to restore cached environment variables 
 dnl  inspected by autoconf macros. Pass in names of variables
 AC_DEFUN([GASNET_RESTORE_AUTOCONF_ENV],[
-  if test "$gasnet_acenv_list" != ""; then
+  if test "$cv_prefix[]acenv_list" != ""; then
     AC_MSG_ERROR(_GASNET_RESTORE_AUTOCONF_ENV called more than once)
   fi
-  gasnet_acenv_list="$1"
+  cv_prefix[]acenv_list="$1"
   AC_MSG_CHECKING(for cached autoconf environment settings)
   AC_MSG_RESULT("") 
   for varname in $1; do
-    val=`eval echo '$'"gasnet_cv_acenv_$varname"`
+    val=`eval echo '$'"cv_prefix[]acenv_$varname"`
     if test "$val" != ""; then
       eval $varname=\"$val\"
       AC_MSG_RESULT([$varname=\"$val\"]) 
@@ -178,10 +178,10 @@ AC_DEFUN([GASNET_RESTORE_AUTOCONF_ENV],[
 dnl GASNET_SAVE_AUTOCONF_ENV() 
 dnl  cache the environment variables inspected by autoconf macros
 AC_DEFUN([GASNET_SAVE_AUTOCONF_ENV],[
-  for varname in $gasnet_acenv_list; do
+  for varname in $cv_prefix[]acenv_list; do
     val=`eval echo '$'"$varname"`
     if test "$val" != ""; then
-      cachevarname=gasnet_cv_acenv_$varname
+      cachevarname=cv_prefix[]acenv_$varname
       eval $cachevarname=\"$val\"
     fi
   done
@@ -268,6 +268,9 @@ AC_DEFUN([GASNET_PATH_PROGS],[
 case "$$1" in
   '') AC_PATH_PROGS($1,$2)
       ;;
+  *) AC_MSG_CHECKING(for $3)
+     AC_MSG_RESULT($$1)
+      ;;
 esac
 case "$$1" in
   '') AC_MSG_ERROR(cannot find $3)
@@ -277,7 +280,7 @@ esac])
 dnl GASNET_CHECK_LIB(library, function, action-if-found, action-if-not-found, other-flags, other-libraries)
 AC_DEFUN([GASNET_CHECK_LIB],[
 GASNET_check_lib_old_ldflags="$LDFLAGS"
-LDFLAGS="$LD_FLAGS $5"
+LDFLAGS="$LDFLAGS $5"
 AC_CHECK_LIB($1, $2, $3, $4, $6)
 LDFLAGS="$GASNET_check_lib_old_ldflags"])
 
@@ -396,18 +399,18 @@ GASNET_TRY_CXXCOMPILE_WITHWARN([], [], [
 ])])
 
 AC_DEFUN([GASNET_TRY_CACHE_CHECK],[
-AC_CACHE_CHECK($1, gasnet_cv_$2,
-AC_TRY_COMPILE([$3], [$4], gasnet_cv_$2=yes, gasnet_cv_$2=no))
-if test "$gasnet_cv_$2" = yes; then
+AC_CACHE_CHECK($1, cv_prefix[]$2,
+AC_TRY_COMPILE([$3], [$4], cv_prefix[]$2=yes, cv_prefix[]$2=no))
+if test "$cv_prefix[]$2" = yes; then
   :
   $5
 fi])
 
 
 AC_DEFUN([GASNET_TRY_CACHE_LINK],[
-AC_CACHE_CHECK($1, gasnet_cv_$2,
-AC_TRY_LINK([$3], [$4], gasnet_cv_$2=yes, gasnet_cv_$2=no))
-if test "$gasnet_cv_$2" = yes; then
+AC_CACHE_CHECK($1, cv_prefix[]$2,
+AC_TRY_LINK([$3], [$4], cv_prefix[]$2=yes, cv_prefix[]$2=no))
+if test "$cv_prefix[]$2" = yes; then
   :
   $5
 fi])
@@ -415,30 +418,33 @@ fi])
 dnl run a program for a success/failure
 dnl GASNET_TRY_CACHE_RUN(description,cache_name,program,action-on-success)
 AC_DEFUN([GASNET_TRY_CACHE_RUN],[
-AC_CACHE_CHECK($1, gasnet_cv_$2,
-AC_TRY_RUN([$3], gasnet_cv_$2=yes, gasnet_cv_$2=no, AC_MSG_ERROR(no default value for cross compiling)))
-if test "$gasnet_cv_$2" = yes; then
+AC_CACHE_CHECK($1, cv_prefix[]$2,
+AC_TRY_RUN([$3], cv_prefix[]$2=yes, cv_prefix[]$2=no, AC_MSG_ERROR(no default value for cross compiling)))
+if test "$cv_prefix[]$2" = yes; then
   :
   $4
 fi])
 
-dnl run a program to extract the value of a runtime expression
-dnl GASNET_TRY_CACHE_RUN(description,cache_name,headers,expression,result_variable)
+dnl run a program to extract the value of a runtime expression 
+dnl the provided code should set the integer val to the relevant value
+dnl GASNET_TRY_CACHE_RUN(description,cache_name,headers,code_to_set_val,result_variable)
 AC_DEFUN([GASNET_TRY_CACHE_RUN_EXPR],[
-AC_CACHE_CHECK($1, gasnet_cv_$2,
+AC_CACHE_CHECK($1, cv_prefix[]$2,
 AC_TRY_RUN([
   #include "confdefs.h"
   #include <stdio.h>
   $3
   main() {
     FILE *f=fopen("conftestval", "w");
+    int val = 0;
     if (!f) exit(1);
-    fprintf(f, "%d\n", (int)($4));
+    { $4; }
+    fprintf(f, "%d\n", (int)(val));
     exit(0);
-  }], gasnet_cv_$2=`cat conftestval`, gasnet_cv_$2=no, AC_MSG_ERROR(no default value for cross compiling)))
-if test "$gasnet_cv_$2" != no; then
+  }], cv_prefix[]$2=`cat conftestval`, cv_prefix[]$2=no, AC_MSG_ERROR(no default value for cross compiling)))
+if test "$cv_prefix[]$2" != no; then
   :
-  $5=$gasnet_cv_$2
+  $5=$cv_prefix[]$2
 fi])
 
 
@@ -446,7 +452,7 @@ AC_DEFUN([GASNET_IFDEF],[
 AC_TRY_CPP([
 #ifndef $1
 # error
-#endif], $2, $3)])
+#endif], [$2], [$3])])
 
 
 AC_DEFUN([GASNET_FAMILY_CACHE_CHECK],[
@@ -480,9 +486,14 @@ GASNET_SUBST_FILE(cc_wrapper_mk, cc-wrapper.mk)
 ])
 
 
+dnl deal with a buggy version of autoconf which assumes alloca returns char *
+AC_DEFUN([GASNET_FUNC_ALLOCA_HELPER],[
+  patsubst([$*], [p = alloca], [p = (char *)alloca])
+])
+
 AC_DEFUN([GASNET_FUNC_ALLOCA],[
   AC_SUBST(ALLOCA)
-  patsubst(AC_FUNC_ALLOCA, [p = alloca], [p = (char *) alloca])
+  GASNET_FUNC_ALLOCA_HELPER(AC_FUNC_ALLOCA)
 ])
 
 dnl Set command for use in Makefile.am to install various files
