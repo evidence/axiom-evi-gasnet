@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/02/28 18:37:00 $
- * $Revision: 1.33 $
+ *     $Date: 2005/03/01 00:36:36 $
+ * $Revision: 1.34 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -336,7 +336,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
        * significant digits as the MHz measurement reported by the kernel
        * (either 3 or 4).
        */
-      min_ticks = ceil(4.0 * MHz);
+      min_ticks = (uint64_t)ceil(4.0 * MHz);
       while (Tick != prev) {
         uint64_t start_ticks, ticks;
         uint64_t start_us, end_us;
