@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.h                  $
- *     $Date: 2003/12/01 21:41:51 $
- * $Revision: 1.10 $
+ *     $Date: 2003/12/03 04:39:46 $
+ * $Revision: 1.11 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -147,6 +147,28 @@ typedef struct _gasnet_hsl_t {
   #define gasnet_hsl_unlock  gasnetc_hsl_unlock
 #endif
 /* ------------------------------------------------------------------------------------ */
+/* Type and ops for rdma counters */
+typedef gasneti_atomic_t gasnetc_counter_t;
+#define GASNETC_COUNTER_INITIALIZER	gasneti_atomic_init(0)
+#define gasnetc_counter_reset(P)	gasneti_atomic_set((P), 0)
+#define gasnetc_counter_done(P)		(gasneti_atomic_read(P) == 0)
+#define gasnetc_counter_inc(P)		gasneti_atomic_increment(P)
+#define gasnetc_counter_dec(P)		gasneti_atomic_decrement(P)
+#if GASNETI_STATS_OR_TRACE
+  #define gasnetc_counter_val(P)	gasneti_atomic_read(P)
+#endif
+
+/* Wait until given counter is marked as done.
+ * Note that no AMPoll is done in the best case.
+ */
+extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context);
+GASNET_INLINE_MODIFIER(gasnetc_counter_wait)
+void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) { 
+  if_pf (!gasnetc_counter_done(counter)) {
+    gasnetc_counter_wait_aux(counter, handler_context);
+  }
+} 
+/* ------------------------------------------------------------------------------------ */
 /*
   Active Message Size Limits
   ==========================
@@ -241,12 +263,14 @@ extern int gasnetc_AMReplyLongM(
 extern int gasnetc_RequestSystem( 
                             gasnet_node_t dest,       /* destination node */
 			    int credits_needed,       /* number of credits consumed locally */
+			    gasnetc_counter_t *req_oust, /* counter to wait for send */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             int numargs, ...);
 
 extern int gasnetc_ReplySystem( 
                             gasnet_token_t token,     /* token provided on handler entry */
 			    int credits_granted,      /* number of credits (0 or 1) granted remotely */
+			    gasnetc_counter_t *req_oust, /* counter to wait for send */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             int numargs, ...);
 
@@ -530,28 +554,6 @@ extern int gasnetc_ReplySystem(
   RDMA ops
   =====================
  */
-
-/* Type and ops for rdma counters */
-typedef gasneti_atomic_t gasnetc_counter_t;
-#define GASNETC_COUNTER_INITIALIZER	gasneti_atomic_init(0)
-#define gasnetc_counter_reset(P)	gasneti_atomic_set((P), 0)
-#define gasnetc_counter_done(P)		(gasneti_atomic_read(P) == 0)
-#define gasnetc_counter_inc(P)		gasneti_atomic_increment(P)
-#define gasnetc_counter_dec(P)		gasneti_atomic_decrement(P)
-#if GASNETI_STATS_OR_TRACE
-  #define gasnetc_counter_val(P)	gasneti_atomic_read(P)
-#endif
-
-/* Wait until given counter is marked as done.
- * Note that no AMPoll is done in the best case.
- */
-extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context);
-GASNET_INLINE_MODIFIER(gasnetc_counter_wait)
-void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) { 
-  if_pf (!gasnetc_counter_done(counter)) {
-    gasnetc_counter_wait_aux(counter, handler_context);
-  }
-} 
 
 /* RDMA initiation operations */
 extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, uintptr_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust);

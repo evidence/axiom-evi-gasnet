@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2003/12/02 22:48:43 $
- * $Revision: 1.29 $
+ *     $Date: 2003/12/03 04:39:46 $
+ * $Revision: 1.30 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -899,6 +899,7 @@ static gasneti_atomic_t gasnetc_exit_code = gasneti_atomic_init(0);	/* value to 
 static gasneti_atomic_t gasnetc_exit_reqs = gasneti_atomic_init(0);	/* count of remote exit requests */
 static gasneti_atomic_t gasnetc_exit_reps = gasneti_atomic_init(0);	/* count of remote exit replies */
 static gasneti_atomic_t gasnetc_exit_done = gasneti_atomic_init(0);	/* flag to show exit coordination done */
+static gasnetc_counter_t gasnetc_exit_repl_oust = GASNETC_COUNTER_INITIALIZER; /* track send of our AM reply */
 
 #define GASNETC_ROOT_NODE 0
 
@@ -935,7 +936,7 @@ static void gasnetc_exit_role_reqh(gasnet_token_t token, gasnet_handlerarg_t *ar
                 ? GASNETC_EXIT_ROLE_MASTER : GASNETC_EXIT_ROLE_SLAVE;
 
   /* Inform the requester of the outcome. */
-  rc = gasnetc_ReplySystem(token, 1, gasneti_handleridx(gasnetc_SYS_exit_role_rep),
+  rc = gasnetc_ReplySystem(token, 1, NULL, gasneti_handleridx(gasnetc_SYS_exit_role_rep),
 			   1, (gasnet_handlerarg_t)result);
   gasneti_assert(rc == GASNET_OK);
 }
@@ -995,7 +996,8 @@ static int gasnetc_get_exit_role()
     int rc;
 
     /* Don't know our role yet.  So, send a system-category AM Request to determine our role */
-    rc = gasnetc_RequestSystem(GASNETC_ROOT_NODE, 1, gasneti_handleridx(gasnetc_SYS_exit_role_req), 0);
+    rc = gasnetc_RequestSystem(GASNETC_ROOT_NODE, 1, NULL,
+		    	       gasneti_handleridx(gasnetc_SYS_exit_role_req), 0);
     gasneti_assert(rc == GASNET_OK);
 
     /* Now spin until somebody tells us what our role is */
@@ -1127,7 +1129,9 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
 
     if ((gasneti_getMicrosecondTimeStamp() - start_time) > timeout_us) return -1;
 
-    rc = gasnetc_RequestSystem(i, 1, gasneti_handleridx(gasnetc_SYS_exit_req), 1, (gasnet_handlerarg_t)exitcode);
+    rc = gasnetc_RequestSystem(i, 1, NULL,
+		    	       gasneti_handleridx(gasnetc_SYS_exit_req),
+			       1, (gasnet_handlerarg_t)exitcode);
     if (rc != GASNET_OK) return -1;
   }
 
@@ -1156,11 +1160,15 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
 
   start_time = gasneti_getMicrosecondTimeStamp();
 
+  /* wait until the exit request is received from the master */
   while (gasneti_atomic_read(&gasnetc_exit_reqs) == 0) {
     if ((gasneti_getMicrosecondTimeStamp() - start_time) > timeout_us) return -1;
 
     gasnetc_sndrcv_poll(); /* works even before _attach */
   }
+
+  /* wait until out reply has been placed on the wire */
+  gasnetc_counter_wait(&gasnetc_exit_repl_oust, 1);
 
   return 0;
 }
@@ -1249,7 +1257,7 @@ static void gasnetc_exit_body(void) {
     break;
 
   case GASNETC_EXIT_ROLE_SLAVE:
-    /* wait until the exit request is received from the master before proceeding */
+    /* wait for the exit request and reply before proceeding */
     graceful = (gasnetc_exit_slave(timeout_us) == 0);
     /* XXX:
      * How do we know our reply has actually been sent on the wire before we trash the end point?
@@ -1342,7 +1350,8 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
   (void)gasneti_atomic_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE);
 
   /* Send a reply so the master knows we are reachable */
-  rc = gasnetc_ReplySystem(token, 1, gasneti_handleridx(gasnetc_SYS_exit_rep), /* no args */ 0);
+  rc = gasnetc_ReplySystem(token, 1, &gasnetc_exit_repl_oust,
+		  	   gasneti_handleridx(gasnetc_SYS_exit_rep), /* no args */ 0);
   gasneti_assert(rc == GASNET_OK);
 
   /* XXX: save the identity of the master here so we can later drain the send queue of the reply? */
@@ -1387,7 +1396,7 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
     } else {
       /* No need to restore the handler, since _exit_body will set it to SIG_IGN anyway. */
     }
-    
+
     gasnetc_exit_body();
     gasnetc_exit_tail();
     /* NOT REACHED */
