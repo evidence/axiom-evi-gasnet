@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2004/12/17 06:44:53 $
-# $Revision: 1.15 $
+#     $Date: 2005/02/05 03:32:47 $
+# $Revision: 1.16 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -50,6 +50,11 @@ my @tmpfiles = ();
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
     my $is_mvich    = ($mpirun_help =~ m|MVICH|);
     my $is_cray_mpi = ($mpirun_help =~ m|Psched|);
+    my $envprog = $ENV{'ENVCMD'};
+    if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
+      $envprog = `which env`;
+      chomp $envprog;
+    }
 
     if ($is_lam) {
 	# pass env as "-x A,B,C"
@@ -65,8 +70,6 @@ my @tmpfiles = ();
 	$find_exe = 0;
     } elsif ($is_mvich) {
 	# pass env as "/usr/bin/env 'A=1' 'B=2' 'C=3'"
-        my $envprog = `which env`;
-  	chomp $envprog;
 	%envfmt = ( 'pre' => $envprog,
 		    'val' => "'"
 		  );
@@ -79,11 +82,6 @@ my @tmpfiles = ();
     } else {
 	# pass env as "/usr/bin/env A=1 B=2 C=3"
 	# Our nearly universal default
-	my $envprog = "/usr/bin/env";
-        if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
-          $envprog = `which env`;
-  	  chomp $envprog;
-        }
 	%envfmt = ( 'pre' => $envprog,
 		    'val' => ''
 		  );

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/04 12:48:37 $
-# $Revision: 1.222 $
+#     $Date: 2005/02/05 03:32:43 $
+# $Revision: 1.223 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.222 $)
+AC_REVISION($Revision: 1.223 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2082,6 +2082,11 @@ GASNET_PATH_PROGS(BASENAME, $BASENAME basename, basename)
 GASNET_PATH_PROGS(DIRNAME, $DIRNAME dirname, dirname)
 # Some platforms are lacking readlink, and we currently do not require it
 AC_PATH_PROGS(READLINK, $READLINK readlink)
+# other optional commands
+TIMECMD="${TIMECMD:-/usr/bin/time}"
+AC_PATH_PROGS(TIMECMD, $TIMECMD time)
+ENVCMD="${ENVCMD:-/usr/bin/env}"
+AC_PATH_PROGS(ENVCMD, $ENVCMD env)
 
 AC_SUBST(BOURNE_SHELL)
 AC_SUBST(AR)
@@ -2089,6 +2094,8 @@ AC_SUBST(RANLIB)
 AC_SUBST(BASENAME)
 AC_SUBST(DIRNAME)
 AC_SUBST(READLINK)
+AC_SUBST(TIMECMD)
+AC_SUBST(ENVCMD)
 
 ########################################################################
 
