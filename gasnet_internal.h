@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/12/03 00:36:46 $
- * $Revision: 1.24 $
+ *     $Date: 2002/12/04 01:35:00 $
+ * $Revision: 1.25 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -356,21 +356,21 @@ extern int gasneti_VerboseErrors;
      allow functions to assert a given lock is held / not held by the current thread
  */
 #ifdef DEBUG
-  #define GASNETI_MUTEX_NOOWNER       -1
-  #ifndef GASNETI_THREADIDQUERY
-    /* allow conduit override of thread-id query */
-    #ifdef GASNET_PAR
-      #define GASNETI_THREADIDQUERY()   ((uintptr_t)pthread_self())
-    #else
-      #define GASNETI_THREADIDQUERY()   (0)
-    #endif
-  #endif
   #ifndef GASNETI_FORCE_TRUE_MUTEXES
     /* GASNETI_FORCE_TRUE_MUTEXES will force gasneti_mutex_t to always
        use true locking (even under GASNET_SEQ config), 
        for inherently multi-threaded conduits such as lapi-conduit
      */
     #define GASNETI_FORCE_TRUE_MUTEXES 0
+  #endif
+  #define GASNETI_MUTEX_NOOWNER       -1
+  #ifndef GASNETI_THREADIDQUERY
+    /* allow conduit override of thread-id query */
+    #if defined(GASNET_PAR) || GASNETI_FORCE_TRUE_MUTEXES
+      #define GASNETI_THREADIDQUERY()   ((uintptr_t)pthread_self())
+    #else
+      #define GASNETI_THREADIDQUERY()   (0)
+    #endif
   #endif
   #if defined(GASNET_PAR) || GASNETI_FORCE_TRUE_MUTEXES
     #include <pthread.h>
