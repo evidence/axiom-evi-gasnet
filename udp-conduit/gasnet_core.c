@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/12/17 10:12:26 $
- * $Revision: 1.2 $
+ *     $Date: 2003/12/22 08:48:33 $
+ * $Revision: 1.3 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -437,7 +437,53 @@ static void gasnetc_traceoutput(int exitcode) {
   if (!gasnetc_exitcalled)
     gasneti_trace_finish();
 }
+extern void gasnetc_trace_finish() {
+  /* dump AMUDP statistics */
+  if (GASNETI_STATS_ENABLED(C) ) {
+    const char *statdump;
+    int isglobal = 0;
+    amudp_stats_t stats = AMUDP_initial_stats;
 
+    if (isglobal) {
+      /* TODO: tricky bit - if this exit is collective, we can display more interesting and useful
+         statistics with collective cooperation. But there's no easy way to know for sure whether
+         the exit is collective.
+       */
+
+      /* TODO: want a bootstrap barrier here for global stats to ensure network is 
+         quiescent, but no way to do this unless we know things are collective */
+
+      if (gasnet_mynode() != 0) {
+        AMLOCK();
+          GASNETI_AM_SAFE_NORETURN(AMUDP_GetEndpointStatistics(gasnetc_endpoint, &stats)); /* get statistics */
+        AMUNLOCK();
+        /* TODO: send stats to zero */
+      } else {
+        amudp_stats_t *remote_stats = NULL;
+        /* TODO: gather stats from all nodes */
+        AMLOCK();
+          GASNETI_AM_SAFE_NORETURN(AMUDP_AggregateStatistics(&stats, remote_stats));
+        AMUNLOCK();
+      }
+    } else {
+      AMLOCK();
+        GASNETI_AM_SAFE_NORETURN(AMUDP_GetEndpointStatistics(gasnetc_endpoint, &stats)); /* get statistics */
+      AMUNLOCK();
+    }
+
+    if (gasnet_mynode() == 0 || !isglobal) {
+      GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
+      GASNETI_STATS_PRINTF(C,("AMUDP Statistics:"));
+      if (!isglobal)
+        GASNETI_STATS_PRINTF(C,("*** AMUDP stat dump reflects only local node info, because gasnet_exit is non-collective ***"));
+      AMLOCK();
+        statdump = AMUDP_DumpStatistics(NULL, &stats, isglobal);
+        GASNETI_STATS_PRINTF(C,("\n%s",statdump)); /* note, dump has embedded '%' chars */
+      AMUNLOCK();
+      GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
+    }
+  }
+}
 extern void gasnetc_fatalsignal_callback(int sig) {
   if (gasnetc_exitcalled) {
   /* if we get a fatal signal during exit, it's almost certainly a signal-safety or MPI shutdown

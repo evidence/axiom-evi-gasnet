@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/apputils.c                                       $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+ *     $Date: 2003/12/22 08:48:32 $
+ * $Revision: 1.2 $
  * Description: Application utilities on AMUDP
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -59,7 +59,7 @@ void printGlobalStats() {
       }
     fprintf(stderr, "--------------------------------------------------\n"
                     "Global stats:\n");
-    AM_Safe(AMUDP_DumpStatistics(stderr, &globalStats, 1));
+    AMUDP_DumpStatistics(stderr, &globalStats, 1);
     fprintf(stderr, "--------------------------------------------------\n");
     fflush(stderr);
     sleep(1); /* HACK: give a little time for this output to reach master */

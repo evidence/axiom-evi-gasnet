@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/apputils.c                                       $
- *     $Date: 2003/11/09 03:32:53 $
- * $Revision: 1.5 $
+ *     $Date: 2003/12/22 08:48:30 $
+ * $Revision: 1.6 $
  * Description: Application utilities on AMMPI
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -87,7 +87,7 @@ void printGlobalStats() {
       }
     fprintf(stderr, "--------------------------------------------------\n"
                     "Global stats:\n");
-    AM_Safe(AMMPI_DumpStatistics(stderr, &globalStats, 1));
+    AMMPI_DumpStatistics(stderr, &globalStats, 1);
     fprintf(stderr, "--------------------------------------------------\n");
     fflush(stderr);
     sleep(1); /* HACK: give a little time for this output to reach master */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/11/10 10:06:30 $
- * $Revision: 1.16 $
+ *     $Date: 2003/12/22 08:48:30 $
+ * $Revision: 1.17 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -25,7 +25,7 @@
 
 #ifndef _INTTYPES_DEFINED
 #define _INTTYPES_DEFINED
-#if defined(WIN32)
+#if defined(WIN32) && defined(_MSC_VER)
   typedef signed __int8      int8_t;
   typedef unsigned __int8   uint8_t;
   typedef __int16           int16_t;
@@ -401,8 +401,9 @@ extern int AMMPI_GetEndpointStatistics(ep_t ep, ammpi_stats_t *stats); /* get ep
 extern int AMMPI_ResetEndpointStatistics(ep_t ep); /* reset ep counters */
 extern int AMMPI_AggregateStatistics(ammpi_stats_t *runningsum, ammpi_stats_t *newvalues); 
   /* aggregate statistics - augment running sum with the given values */
-extern int AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalysis); 
-  /* output stats to fp in human-readable form.
+extern const char *AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalysis); 
+  /* output stats to fp (if non-null) in human-readable form.
+   * return a pointer to the same output in an internal static buffer (rewritten on each call)
    * pass globalAnalysis non-zero if stats is a global agreggation across all nodes
    */
 extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counters */

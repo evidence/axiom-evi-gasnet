@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_ep.cpp                                     $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+ *     $Date: 2003/12/22 08:48:32 $
+ * $Revision: 1.2 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -893,8 +893,8 @@ extern int AMUDP_AggregateStatistics(amudp_stats_t *runningsum, amudp_stats_t *n
   return AM_OK;
   }
 /* ------------------------------------------------------------------------------------ */
-extern int AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int globalAnalysis) {
-  char msg[4096];
+extern const char *AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int globalAnalysis) {
+  static char msg[4096];
   int64_t packetssent; 
   int64_t requestsSent = 0; 
   int64_t requestsRetransmitted = 0; 
@@ -906,8 +906,8 @@ extern int AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int globalAnalys
   int64_t UDPIPheaderbytes; 
   int category;
 
-  AMUDP_CHECKINIT();
-  if (!fp || !stats) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_assert(amudp_Initialized);
+  AMUDP_assert(stats != NULL);
 
   for (category = 0; category < amudp_NumCategories; category++) {
     requestsSent += stats->RequestsSent[category];
@@ -1004,17 +1004,27 @@ extern int AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int globalAnalys
     );
 
   if (globalAnalysis) {
-    int64_t packetsrecvd = (requestsReceived + repliesReceived);
-    int64_t packetslost = packetssent - packetsrecvd;
-    sprintf(msg+strlen(msg), "Packets lost:         %9i", (int)packetslost);
-    if (packetslost > 0) {
-      sprintf(msg+strlen(msg), "  (%6.3f%%)\n", (100.0*packetslost)/packetssent);
-    }
-    else strcat(msg, "\n");
+    int64_t reqsent = requestsSent + requestsRetransmitted;
+    int64_t reqlost = reqsent - requestsReceived;
+    int64_t repsent = repliesSent + repliesRetransmitted;
+    int64_t replost = repsent - repliesReceived;
+    int64_t packetslost = reqlost + replost;
+    int64_t extra_rexmits = requestsRetransmitted - reqlost;
+    #define APPEND_PERCENT(num, denom)                                           \
+      if (num > 0) sprintf(msg+strlen(msg), "  (%6.3f%%)\n", (100.0*num)/denom); \
+      else strcat(msg, "\n")
+    sprintf(msg+strlen(msg), "Requests lost:        %9i", (int)reqlost);
+    APPEND_PERCENT(reqlost, reqsent);
+    sprintf(msg+strlen(msg), "Replies lost:         %9i", (int)replost);
+    APPEND_PERCENT(replost, repsent);
+    sprintf(msg+strlen(msg), "Total packets lost:   %9i", (int)packetslost);
+    APPEND_PERCENT(packetslost, packetssent);
+    sprintf(msg+strlen(msg), "Useless retransmits:  %9i", (int)extra_rexmits);
+    APPEND_PERCENT(extra_rexmits, requestsRetransmitted);
   } 
 
-  fprintf(fp, "%s", msg);
-  return AM_OK;
+  if (fp != NULL) fprintf(fp, "%s", msg);
+  return msg;
   }
 /* ------------------------------------------------------------------------------------ */
 

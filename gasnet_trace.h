@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2003/10/24 01:37:28 $
- * $Revision: 1.10 $
+ *     $Date: 2003/12/22 08:48:28 $
+ * $Revision: 1.11 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -76,7 +76,7 @@ BEGIN_EXTERNC
       GASNETI_STATS_PRINTF((type), ("%s",(string)))
 
   /* print a formatted string of statistical output on the trace 
-     Ex: GASNETI_TRACE_PRINTF(C, ("%i buffers free", numbufs))
+     Ex: GASNETI_STATS_PRINTF(C, ("%i buffers free", numbufs))
       (note the extra parentheses around arg)
   */
   #define GASNETI_STATS_PRINTF(type, args) do { \

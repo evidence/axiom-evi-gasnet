@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2003/12/11 20:19:52 $
- * $Revision: 1.14 $
+ *     $Date: 2003/12/22 08:48:30 $
+ * $Revision: 1.15 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1064,8 +1064,8 @@ extern int AMMPI_AggregateStatistics(ammpi_stats_t *runningsum, ammpi_stats_t *n
   return AM_OK;
   }
 /* ------------------------------------------------------------------------------------ */
-extern int AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalysis) {
-  char msg[4096];
+extern const char *AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalysis) {
+  static char msg[4096];
   int64_t packetssent; 
   int64_t requestsSent = 0; 
   int64_t requestsReceived = 0; 
@@ -1074,8 +1074,8 @@ extern int AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalys
   int64_t dataBytesSent = 0; 
   int category;
 
-  AMMPI_CHECKINIT();
-  if (!fp || !stats) AMMPI_RETURN_ERR(BAD_ARG);
+  AMMPI_assert(ammpi_Initialized);
+  AMMPI_assert(stats != NULL);
 
   for (category = 0; category < ammpi_NumCategories; category++) {
     requestsSent += stats->RequestsSent[category];
@@ -1165,8 +1165,8 @@ extern int AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalys
     else strcat(msg, "\n");
   } 
 
-  fprintf(fp, "%s", msg);
-  return AM_OK;
+  if (fp != NULL) fprintf(fp, "%s", msg);
+  return msg;
   }
 /* ------------------------------------------------------------------------------------ */
 

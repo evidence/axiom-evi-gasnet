@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2003/12/22 08:36:28 $
- * $Revision: 1.3 $
+ *     $Date: 2003/12/22 08:48:32 $
+ * $Revision: 1.4 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -16,7 +16,7 @@
 
 #ifndef _INTTYPES_DEFINED
 #define _INTTYPES_DEFINED
-#if defined(WIN32) && !defined(CYGWIN)
+#if defined(WIN32) && defined(_MSC_VER)
   typedef __int8             int8_t;
   typedef unsigned __int8   uint8_t;
   typedef __int16           int16_t;
@@ -418,10 +418,12 @@ extern int AMUDP_GetEndpointStatistics(ep_t ep, amudp_stats_t *stats); /* get ep
 extern int AMUDP_ResetEndpointStatistics(ep_t ep); /* reset ep counters */
 extern int AMUDP_AggregateStatistics(amudp_stats_t *runningsum, amudp_stats_t *newvalues); 
   /* aggregate statistics - augment running sum with the given values */
-extern int AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int globalAnalysis); 
-  /* output stats to fp in human-readable form.
+extern const char *AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int globalAnalysis); 
+  /* output stats to fp (if non-null) in human-readable form.
+   * return a pointer to the same output in an internal static buffer (rewritten on each call)
    * pass globalAnalysis non-zero if stats is a global agreggation across all nodes
    */
+
 extern const amudp_stats_t AMUDP_initial_stats; /* the "empty" values for counters */
 /* ------------------------------------------------------------------------------------ */
 /* AM-2 Entry Points */
