@@ -40,7 +40,7 @@
 @c ------------------------------------------------------------------------------------
 @c Macros:
 
-@set VERSION 0.5
+@set VERSION 0.6draft1
 @set RELEASEDATE June 5th, 2002
 
 @ifnottex
@@ -146,9 +146,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/06/09 00:07:31 $
+@subtitle $Date: 2002/07/01 15:51:16 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.3 $ 
+@subtitle $Revision: 1.4 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/06/09 00:07:31 $
-@*$Revision: 1.3 $ 
+@*$Date: 2002/07/01 15:51:16 $
+@*$Revision: 1.4 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.nersc.gov/}
 @HR
@@ -290,7 +290,7 @@ and are not part of the specification
 @itemize @bullet
 @cindex node
 @item
-@strong{node} - An OS-level process which called @code{gasnet_init()}, and its associated 
+@strong{node} - An OS-level process which returns from @code{gasnet_init()}, and its associated 
 local memory space and system resources. The basic unit of control when 
 interfacing with GASNet.
 
@@ -370,7 +370,7 @@ threads from polling simultaneously
 @cindex Errors
 
 Many GASNet core functions return 0 on success (@code{GASNET_OK}), or else they 
-return errors from the following list, as specified by each entry point:
+return errors from the following list, as specified by each function:
 @ftable @code
 @item GASNET_OK = 0 (no error)
 @item GASNET_ERR_RESOURCE
@@ -383,10 +383,10 @@ return errors from the following list, as specified by each entry point:
 Except where otherwise noted, errors that occur during a call to the 
 extended API are fatal.
 
-Many of the core API entry points will return @code{GASNET_ERR_RESOURCE} to 
+Many of the core API functions will return @code{GASNET_ERR_RESOURCE} to 
 indicate a generic failure in the hardware or communications system, 
 @code{GASNET_ERR_BAD_ARG} to indicate an illegal client argument, or 
-@code{GASNET_ERR_NOT_INIT} to indicate that @code{gasnet_init()} has not been called.
+@code{GASNET_ERR_NOT_INIT} to indicate that @code{gasnet_attach()} has not been called.
 
 If any node of a GASNet job crashes, aborts, or suffers a fatal hardware 
 error, GASNet should make every attempt to ensure that the remaining nodes 
@@ -425,7 +425,7 @@ entirely in a single CPU register for the current architecture and ABI.
 
 @item gasnet_handlerentry_t
 struct type used to negotiate handler registration 
-in @code{gasnet_init()}
+in @code{gasnet_attach()}
 @end table
 
 @c ------------------------------------------------------------------------------------
@@ -443,9 +443,9 @@ an integer representing the maximum number of nodes supported in a single
 GASNet job
 
 @item GASNET_ALIGNED_SEGMENTS
-defined to be 1 if @code{gasnet_init()} guarantees that the remote-access memory 
-segment will be aligned at the same virtual address on all nodes. defined to 
-0 otherwise
+defined by the GASNet implementation to the value 1 if @code{gasnet_attach()} 
+guarantees that the remote-access memory segment will be aligned at the same virtual 
+address on all nodes. Defined to 0 otherwise.
 @end ftable
 
 @c ------------------------------------------------------------------------------------
@@ -486,57 +486,120 @@ handlers
 @node Job Control Interface
 @section Job Control Interface
 
-@FN gasnet_init
-@findex GASNET_SEGBASE_ANY
-@findex GASNET_SEGSIZE_EVERYTHING
-@cindex segment
-@cindex startup
-@lisp
-typedef struct @{
-  gasnet_handler_t index; // == 0 for don't care 
-  void (*fnptr)();
-@} gasnet_handlerentry_t; 
+Job startup in GASNet is a two-step process. GASNet programs should start by calling 
+gasnet_init() as the first statement in their main() function, which bootstraps the nodes 
+and establishes command-line arguments and the job environment. All nodes then call the
+gasnet_attach() function to initialize the network and register shared memory segments.
 
-#define GASNET_SEGBASE_ANY ((void *)-1)
-#define GASNET_SEGSIZE_EVERYTHING ((uintptr_t)-1)
-@end lisp
-
-@deftypefn {} {int} gasnet_init (int *@var{argc}, char ***@var{argv}, gasnet_handlerentry_t *@var{table}, int @var{numentries}, @w{void *}@var{segbase}, uintptr_t @var{segsize}, int @var{allowFaults})
-
-Called by all gasnet-based applications upon startup before any other 
-processing of the command-line arguments takes place. Must be called before 
-any calls to any other entry points in this specification, and before any 
-investigation of the command-line parameters passed to the program in 
-@var{argc}/@var{argv}, which may be modified or augmented by this call. 
-Initializes the GASNet system and performs any system-specific setup 
-required, which may include spawning of parallel jobs. The semantics of any 
-code executing before the call to @code{gasnet_init()} is implementation-specific 
-(for example, it is undefined whether @code{stdin/stdout/stderr} are functional, or 
-even how many nodes will run that code).
-This call may fail with a fatal error and implementation-defined message if 
-the nodes of the job cannot be successfully bootstrapped. It also may return 
-an error code such as @code{GASNET_ERR_RESOURCE} to indicate there was a problem 
-acquiring the local requested network or system resources. Otherwise, it 
-returns @code{GASNET_OK} to indicate success. A successful call acts as a global 
-barrier and blocks until all other nodes which are part of this parallel job 
-have successfully called @code{gasnet_init()}.
-May only be called once during a process lifetime, subsequent calls will 
-return an error.
-This call may register some UNIX signal handlers (e.g. to support 
+GASNet initialization may register some UNIX signal handlers (e.g. to support 
 interrupt-based implementations or aggressive segment registration policies). Client 
 code which registers signal handlers must be careful not to preempt any 
 GASNet-registered signal handlers (even for seemingly fatal signals such as 
 @code{SIGABRT}) - the only signal which the client may always safely catch is 
 @code{SIGQUIT}.
 
-@var{table} is an array of size @var{numentries} used for registering 
+Any GasNET library implementation can be built in one of the following three 
+configurations, which affects the behavior of remote-access memory segment registration
+which happens during gasnet_attach().
+The @code{gasnet.h} header file will define the appropriate preprocessor symbol
+to indicate which configuration is active.
+
+@ftable @code
+@item GASNET_SEGMENT_FAST
+The remote-access memory segment is limited to an implementation-defined "reasonable" size,
+and optimized in an implementation-specific way to provide the fastest possible 
+remote accesses. The maximum segment size may be queried using
+@code{gasnet_getMaxLocalSegmentSize()}.
+
+@item GASNET_SEGMENT_LARGE
+This configuration allows clients with larger shared data requirements to 
+register a larger remote-access memory segment, possibly at some cost in the 
+efficiency of remote accesses. The maximum segment size may be queried using
+@code{gasnet_getMaxLocalSegmentSize()}, and should be comparable to the maximum
+total data size allowed for processes on the given system.
+
+@item GASNET_SEGMENT_EVERYTHING
+The entire virtual memory space of each process is made available for remote access,
+in a way such that any memory access that would succeed when executed locally by this node
+would also succeed if executed by other nodes remotely. This can be used by clients which
+need to make the entire memory heap and static data areas available for remote access.
+@end ftable
+
+@IMPNOTE{
+@item The maximum segment size for @code{GASNET_SEGMENT_FAST} on many implementations 
+is likely to to be limited by factors such as the amount of pinnable physical memory
+currently available in the system, and the access range of the NIC hardware.
+@item @code{GASNET_SEGMENT_EVERYTHING} support can trivially be provided by implementing all
+the remote-access operations and long AM messages using core API medium messages, 
+such that all data accesses are actually executed by the local host processor. 
+However, implementors are encouraged to investigate higher-performance alternatives whenever possible.
+@item On systems requiring pinned segments, @code{GASNET_SEGMENT_LARGE} can be implemented
+using dynamic pinning schemes (possibly with caching to amortize rendevous and 
+pinning costs) or combinations of direct remote accesses and AM-based accesses.
+}
+
+@FN gasnet_init
+@cindex startup
+@deftypefn {} {int} gasnet_init (int *@var{argc}, char ***@var{argv})
+
+Bootstraps a GASNet job and performs any system-specific setup required. 
+
+Called by all GASNet-based applications upon startup to bootstrap the nodes,
+before any other processing takes place. Must be called before 
+any calls to any other functions in this specification, and before any 
+investigation of the command-line parameters passed to the program in 
+@var{argc}/@var{argv}, which may be modified or augmented by this call. 
+The semantics of any code executing before the call to @code{gasnet_init()} 
+is implementation-specific (for example, it is undefined whether 
+@code{stdin/stdout/stderr} are functional, or even how many nodes will run that code).
+
+Upon return from @code{gasnet_init()}, all the nodes of the job will be running,
+stdout/stderr will be functional, and the basic job environment will be established, 
+however the primary network resources may not yet have been initialized.
+The following GASNet functions are the only ones that may be called between
+@code{gasnet_init()} and @code{gasnet_attach()}:
+@example
+@code{gasnet_mynode()}
+@code{gasnet_nodes()
+@code{gasnet_getMaxLoc}alSegmentSize()}
+@code{gasnet_getMaxGlobalSegmentSize()}
+@code{gasnet_getenv()}
+@code{gasnet_exit()}
+@end example
+All other GASNet calls are prohibited until after a successful @code{gasnet_attach()}.
+
+@code{gasnet_init()} may fail with a fatal error and implementation-defined message if 
+the nodes of the job cannot be successfully bootstrapped. It also may return 
+an error code such as @code{GASNET_ERR_RESOURCE} to indicate there was a problem 
+acquiring network or system resources. Otherwise, it returns @code{GASNET_OK} to indicate success. 
+May only be called once during a process lifetime, subsequent calls will 
+return an error.
+
+@end deftypefn
+
+@FN gasnet_attach
+@cindex segment
+@cindex gasnet_handlerentry_t
+@lisp
+typedef struct @{
+  gasnet_handler_t index; // == 0 for don't care 
+  void (*fnptr)();
+@} gasnet_handlerentry_t; 
+
+@end lisp
+@deftypefn {} {int} gasnet_attach (gasnet_handlerentry_t *@var{table}, int @var{numentries}, uintptr_t @var{segsize}, uintptr_t @var{minheapoffset})
+
+Initializes the GASNet network system and performs any system-specific setup 
+required. 
+
+@var{table} is an array of @var{numentries} gasnet_handlerentry_t elements used for registering 
 active-message handlers provided by the client code. Clients that never explicitly 
 call the active-message request functions in the core API need not register 
 any handlers, and may pass a @code{NULL} pointer for @var{table}. Clients wishing to 
 register some handlers should fill in @var{table} with function pointers and 
 the desired handler index (or index 0 for "don't-care") - note that handlers 
 0..199 are reserved for GASNet internal use, and handlers 200..255 are 
-available for client-provided handlers. Once @code{gasnet_init()} returns, any 
+available for client-provided handlers. Once @code{gasnet_attach()} returns, any 
 "don't care" handler indexes in the table will be modified in place to 
 reflect the handler index assigned for each handler - the assignment 
 algorithm is deterministic: passing the same handler table on each node will 
@@ -544,105 +607,122 @@ guarantee an identical resulting assignment on each node. Handler function
 prototypes should match the prototypes described in the Active Message 
 Interface section.
 
-@var{segbase} and @var{segsize} are used to communicate the size and (optionally) the 
-desired location of the shared memory data segment for the local node that 
+@var{segsize} and @var{minheapoffset} are used to communicate the desired size and  
+location of the remote-access memory data segment for the local node that 
 will be used for all remote accesses (i.e. using the data transfer functions 
-of the extended API) or as the target of any large-sized active-messages in 
+of the extended API) or as the target of any Long active-messages in 
 the core API. The client passes the desired size of this area in bytes as 
-@var{segsize} (which must be a multiple of the system page size). The client may 
-provide a "hint" for the desired location of the segment by passing a 
-pointer in @var{segbase} to a page-aligned address that points to a region of 
-pages of the appropriate size (if no "hint" is to be provided, the client 
-should pass @var{segbase} == @code{GASNET_SEGBASE_ANY}). GASNet is free to ignore the 
-value of the hint and choose a different segment base address. The resulting 
-segment assignment is guaranteed to be aligned on a system page boundary, 
-and the values for all nodes can be queried using @code{gasnet_getSegmentInfo()}.
+@var{segsize}, which must be a multiple of the system page size, and 
+should be less than or equal to the value returned by @code{gasnet_getMaxLocalSegmentSize()}.
+@var{minheapoffset} specifies the minimum amount of virtual memory space (in bytes)
+to leave between the end of the current memory heap and the beginning of the 
+remote-access memory segment (on some systems the size of this offset 
+may limit the total future growth of the
+local memory heap, on other systems it may be irrelevant). Note that specifying a large
+@var{minheapoffset} may limit the possible size of the remote-access segment on some systems.
 
-The size of the segment is only limited by the size of the @strong{virtual} memory, 
-however some GASNet implementations will perform better when the size is 
-less than some implementation-specific size. This implementation-specific 
-size may be queried using @code{gasnet_getMaxNativeSegmentSize()}. 
-
-If no hint is provided, GASNet will attempt to place the data segment in an 
-area of the virtual memory space whose pages are currently unused (e.g. by 
-calling @code{mmap} or @code{sbrk}), and the function may fail if insufficient free @strong{virtual}
-pages can be acquired to accomodate the size request. If a hint is provided 
-(and GASNet accepts the hint) then it is undefined whether the former 
-contents of that memory (if any) are preserved. Clients who wish to map the 
-entire virtual address space (including pages currently in use) should set 
-the hint to zero and size to @code{GASNET_SEGSIZE_EVERYTHING} (and this is 
-guaranteed to succeed, although it may provide suboptimal performance on 
-some implementations). 
-
-If the implementation defines the macro @code{GASNET_ALIGNED_SEGMENTS} to 1, then 
-@code{gasnet_init()} guarantees that the remote-access memory segment will be 
-aligned at the same virtual address and have the same size on all nodes (and 
-will fail if it cannot provide this, for example if different nodes request 
-different sizes). Otherwise, this guarantee is not provided (although 
-passing aligned "hints" @emph{may} still achieve the same effect). 
-
+GASNet will attempt to place the data segment in an area of the virtual memory space 
+whose pages are currently unused (e.g. by calling @code{mmap}). 
+The actual remote-access segment size achieved may be less than @var{segsize} if insufficient 
+system resources are available - the exact size and location of the segment 
+for all nodes can be queried after attach using @code{gasnet_getSegmentInfo()}. 
+The segment assignment is guaranteed to have a page-aligned base address and size, 
+but may differ in size across nodes, according to the requested segment sizes and 
+system resource availability.
 GASNet will not initialize data within the memory segment in any way, nor 
 will it attempt to access the memory locations within the segment until 
-directed to do so by a data transfer function or large active message. 
+directed to do so by a data transfer function or Long active message. 
 
-If @var{allowFaults} is zero, then GASNet guarantees that data transfer functions, 
-large active messages and local accesses referencing these memory locations 
-will succeed, even before any local activity takes place on those pages 
-(i.e. in an implementation performing lazy registration, first touch = 
-allocate). When @var{allowFaults} is non-zero, then such accesses to pages where 
-the client has not taken system-specific actions to properly register the 
-pages with the operating system @emph{may} cause a segmentation fault on some 
-systems and/or implementations (this is most helpful when the segment size 
-is @code{GASNET_SEGSIZE_EVERYTHING}, corresponding to the entire virtual address 
-space).
+If the GASNet implementation defines the macro @code{GASNET_ALIGNED_SEGMENTS} to 1, then 
+@code{gasnet_attach()} guarantees that the remote-access memory segment will be 
+aligned at the same virtual address across all nodes (and will fail if it cannot 
+provide this). Otherwise, this guarantee is not provided. 
+
+In the @code{GASNET_SEGMENT_FAST} and @code{GASNET_SEGMENT_LARGE}
+configurations, GASNet guarantees that data transfer functions, 
+Long active messages and local accesses referencing memory locations 
+in the remote-access memory segment will succeed, even before any local activity 
+takes place on those pages 
+(i.e. in an implementation performing lazy registration, first touch = allocate). 
+
+@var{segsize} and @var{minheapoffset} are ignored in the @code{GASNET_SEGMENT_EVERYTHING}
+configuration, as the entire virtual memory space is implicitly shared for remote access.
+Under this configuration, it is the client's responsibility to ensure that any 
+remote-memory references fall within the legal areas of the current heap and data segment 
+for the target node - 
+remote accesses or Long active messages to locations outside these areas will have undefined effects
+(for example, they @emph{may} cause a segmentation fault on the target node).
+
+@code{gasnet_attach()} may fail with a fatal error and implementation-defined message if 
+the network cannot be successfully initialized. It also may return 
+an error code such as @code{GASNET_ERR_RESOURCE} to indicate there was a problem 
+acquiring nework or system resources. Otherwise, it returns @code{GASNET_OK} to indicate success. 
+
+A successful call acts as a global 
+barrier and blocks until all other nodes which are part of this parallel job 
+have successfully called @code{gasnet_attach()}.
+May only be called once during a process lifetime, subsequent calls will 
+return an error.
 @end deftypefn
 
 @IMPNOTE{
-@item When @var{allowFaults}==0, GASNet must take steps to ensure the pages in the 
+@item In the @code{GASNET_SEGMENT_FAST} and @code{GASNET_SEGMENT_LARGE}
+configurations, GASNet must take steps to ensure the pages in the 
 segment have been properly registered for remote access in a system-specific 
 and implementation-specific way (e.g. mmapping them so they get added to the 
 process page table, pinning the pages, registering the physical address with 
 the NIC, etc.). Implementations are encouraged to defer consuming physical 
 memory or swap space resources for pages in the segment until the first 
 actual reference to them. 
-@item Because the segment size is limited only by the virtual memory size, every 
-implementation that pins pages needs a strategy for handling remote accesses 
+@item Every implementation that pins pages needs a strategy for handling remote accesses 
+under the @code{GASNET_SEGMENT_LARGE} and @code{GASNET_SEGMENT_EVERYTHING} configurations
 when the segment size exceeds the amount of pinnable pages - e.g. some 
 implementations may dynamically pin pages, others may pin only a portion of 
 the segment and use an extra copy to handle access to data outside the 
 pinned region.
 @item Some GASNet implementations may need to allocate and pin additional memory 
 for their own internal use in messaging (e.g. send buffers), but such memory 
-should not fall within the client's data segment when @var{allowFaults}==0 
+should not fall within the client's data segment under @code{GASNET_SEGMENT_FAST} and @code{GASNET_SEGMENT_LARGE}
 (although it may be adjacent to it).
 @item Some GASNet implementations may also choose to pin other pages to optimize 
 access and remove extra copies - for example, pinning the program stack may 
 be advisable on some systems since a large number of the data transfer 
 functions in the extended API are likely to use stack locations as the local 
 source/destination.
-@item Implementations which set @code{GASNET_ALIGNED_SEGMENTS}=1 and choose to accept the 
-client "hint" need to check the hint pointers are aligned across processors 
-and otherwise ignore some hints (may not be applicable to implementations 
-which arrange to only run @code{gasnet_init()} from a single node).
 }
 
-@FN gasnet_getMaxNativeSegmentSize
+@page
+@FN gasnet_getMaxLocalSegmentSize
 @cindex segment
-@deftypefn {} {uintptr_t} gasnet_getMaxNativeSegmentSize ()
+@deftypefn {} {uintptr_t} gasnet_getMaxLocalSegmentSize ()
 
-Retrieve the maximum memory segment size in bytes that may be provided to 
-@code{gasnet_init()} which is still likely to provide the highest level of 
-performance for the extended API data transfers and large request/reply 
-active messages. Implementations with no maximum size (i.e. where 
-performance is unaffected by segment size) should return 
-GASNET_SEGSIZE_EVERYTHING. The return value of this function may depend on 
-current system resource usage, but should return the same value for all 
-nodes in a given job for the life of that job. The value returned is only a 
-performance hint (which may be wrong) - the segment size selected by the 
-client should never affect the correctness of the communication system.
+Retrieve an approximate, optimistic maximum size in bytes for the remote-access memory segment 
+that may be provided to @code{gasnet_attach()} under the current configuration. 
 
-This is the only function in the GASNet API which may be legally called 
-before @code{gasnet_init()}
+The return value of this function may depend on 
+current system resource usage, and may return different values on different nodes
+of a job, according to current system utilization. The value returned will 
+always be an even multiple of the system page size.
+
+The value returned is an optimistic approximation of the segment size 
+which can be acquired by @code{gasnet_attach()} - the actual size achieved can be queried 
+after attach using @code{gasnet_getSegmentInfo()}.
+
+Under the @code{GASNET_SEGMENT_EVERYTHING} configuration, this function returns -1.
+
+This function has undefined behavior after @code{gasnet_attach()}.
+@end deftypefn
+
+@FN gasnet_getMaxGlobalSegmentSize
+@cindex segment
+@deftypefn {} {uintptr_t} gasnet_getMaxGlobalSegmentSize ()
+
+Returns a global minimum value
+that would be returned by a call to @code{gasnet_getMaxLocalSegmentSize} 
+on any node of the current job (i.e. the smallest max segment size 
+estimated for any node in the job).
+
+This function has undefined behavior after @code{gasnet_attach()}.
 @end deftypefn
 
 @FN gasnet_exit
@@ -691,6 +771,7 @@ returns the number of nodes in the current GASNet job
 
 @FN gasnet_getSegmentInfo
 @cindex segment
+@cindex gasnet_seginfo_t
 @lisp
 typedef struct @{
   void *addr;
@@ -702,24 +783,30 @@ typedef struct @{
 
 Query the segment base addresses and sizes for all the nodes in the job. 
 @var{seginfo_table} is an array of @code{gasnet_seginfo_t} 
-(and @var{numentries} is the number 
-of entries in the table). The value of @var{numentries} should be at least 
-@code{gasnet_nodes()}.
-GASNet fills in the table with the registered segment base address and size 
+(and @var{numentries} is the number of entries in the table). 
+The value of @var{numentries} should be at least @code{gasnet_nodes()}.
+GASNet fills in the table with the remote-access segment base address and size 
 in bytes for each node (including the local one).
 This is a non-collective operation.
 Returns @code{GASNET_OK} on success.
+
+Note that when GASNET_ALIGNED_SEGMENTS=1, the base addresses are guaranteed to be
+equal (i.e. all remote-access segments start at the same virtual addresses). 
+However, in any case
+the segment sizes may differ across nodes, and specifically they may differ from the 
+size requested by the client in the @code{gasnet_attach()} size hint.
 @end deftypefn
 
 @FN gasnet_getenv
 @cindex environment variables
 @deftypefn {} {char *} gasnet_getenv (const char *@var{name})
 
-has the same semantics as the POSIX @code{getenv()} call, except it queries the 
+Has the same semantics as the POSIX @code{getenv()} call, except it queries the 
 system-specific environment which was used to spawn the job (e.g. the 
 environment of the spawning console). Calling POSIX @code{getenv()} directly on 
 some implementations may not correctly return values reflecting the 
-environment that initiated the job spawn. The semantics of POSIX @code{setenv()} 
+environment that initiated the job spawn, consequently GASNet applications
+should never call @code{getenv()} directly. The semantics of POSIX @code{setenv()} 
 are undefined in GASNet jobs (specifically, it will probably fail to 
 propagate changes across nodes). 
 @end deftypefn
@@ -788,6 +875,11 @@ be received and handled. From a receiver's point of view, a message is
 defined to be received only once its handler function is invoked. The 
 contents of partially received messages and messages whose handlers have not 
 executed are undefined. 
+
+If the client sends an AM request or AM reply to a handler index which has
+not been registered on the destination node, GASNet will print an implementation-defined
+error message and terminate the job. It is implementation-defined whether this
+checking happens on the sending or receiving node.
 
 @c ------------------------------------------------------------------------------------
 @node Active Message Categories
@@ -1373,7 +1465,7 @@ GASNet processes.
 @IMPNOTE{
 @item HSL's are likely to just be a thin wrapper around a POSIX mutex - need to 
 add just enough state/code to ensure the safety properties (must be a real 
-lock, even when @code{GASNET_SEQ} because client may still have multiple threads).
+lock, even under @code{GASNET_PARSYNC} because client may still have multiple threads).
 The only specific action required is that a No-Interrupt Section is enforced 
 while the main-line code is holding an HSL (must be careful this works 
 properly when multiple HSL's are held or when running in a handler).
@@ -1412,7 +1504,7 @@ efficiency)
 @item 
 The source memory address for all gets and the target memory address for 
 all puts must fall within the memory area registered for remote access by 
-the remote node (see @code{gasnet_init()}), or the results are undefined
+the remote node (see @code{gasnet_attach()}), or the results are undefined
 
 @item 
 Pointers to remote memory are passed as an ordered pair of arguments: an 
@@ -1471,8 +1563,10 @@ larger sizes of nbytes.
 @FN gasnet_memset
 @deftypefn {} {void}   gasnet_memset   (gasnet_node_t @var{node}, void *@var{dest}, int @var{val}, size_t @var{nbytes})
 
-Blocking operation that executes @code{memset(@var{dest}, @var{val}, @var{nbytes})} on the given node 
-(and has the same semantics as that function).
+Blocking operation that has the same effect as if the @var{dest} node had executed the POSIX call
+@code{memset(@var{dest}, @var{val}, @var{nbytes})}. 
+As with puts, the destination memory must fall entirely within the memory area 
+registered for remote access by the @var{dest} node (see @code{gasnet_attach}).
 @end deftypefn
 
 @c ------------------------------------------------------------------------------------
@@ -1616,9 +1710,12 @@ variants (but are likely to be optimized for large transfers).
 @FN gasnet_memset_nb
 @deftypefn {} {gasnet_handle_t} gasnet_memset_nb (gasnet_node_t @var{node}, void *@var{dest}, int @var{val}, size_t @var{nbytes})
 
-Non-blocking operation that executes @code{memset(@var{dest}, @var{val}, @var{nbytes})} on the given 
-node (and has the same semantics as that function). The synchronization 
-behavior is identical to a non-blocking explicit-handle put operation (the 
+Non-blocking operation that has the same effect as if the @var{dest} node had executed the POSIX call
+@code{memset(@var{dest}, @var{val}, @var{nbytes})}. 
+As with puts, the destination memory must fall entirely within the memory area 
+registered for remote access by the @var{dest} node (see @code{gasnet_attach}).
+
+The synchronization behavior is identical to a non-blocking, explicit-handle put operation (the 
 @code{gasnet_handle_t} return value must be synchronized using an explicit-handle 
 synchronization operation).
 @end deftypefn
@@ -2188,7 +2285,7 @@ The following functions no longer exist: @code{AM_Init}, @code{AM_Terminate},
 @end itemize
 
 @item
-all handler registration is performed during @code{gasnet_init()}, and the 
+all handler registration is performed during @code{gasnet_attach()}, and the 
 maximum number of handlers is fixed at 256 (including handler 0, the error 
 handler)
 @itemize @bullet
@@ -2198,7 +2295,7 @@ The following functions no longer exist: @code{AM_SetHandler} and
 @end itemize
 
 @item
-Segment registration is handled by @code{gasnet_init()} (using a @code{uintptr_t} to 
+Segment registration is handled by @code{gasnet_attach()} (using a @code{uintptr_t} to 
 allow entire VA space)
 @itemize @bullet
 @item
@@ -2207,7 +2304,7 @@ The following functions no longer exist: @code{AM_SetSeg} and @code{AM_MaxSegLen
 @item
 implementations must support an endpoint segment length that spans the 
 entire virtual address space, though the performance may change for larger 
-segment sizes (if @code{gasnet_init} requests a size larger than what underlying 
+segment sizes (if @code{gasnet_attach} requests a size larger than what underlying 
 @code{AM_SetSeg} can provide, then we turn off large AM Xfers and emulate 
 gasnet_Xfer using medium messages)
 @item 
