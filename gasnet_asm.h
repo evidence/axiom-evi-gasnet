@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/08/05 06:32:17 $
- * $Revision: 1.48 $
+ *     $Date: 2004/08/06 23:35:00 $
+ * $Revision: 1.49 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -533,7 +533,7 @@
   #define GASNETI_ASM(mnemonic) asm(mnemonic)
 #elif defined(MIPSPRO_COMPILER)
   #define GASNETI_ASM(mnemonic)  /* TODO: broken - doesn't have inline assembly */
-#elif defined(__SUNPRO_C)
+#elif defined(__SUNPRO_C) /* Sun C works, Sun C++ lacks inline assembly support (man inline) */
   #define GASNETI_ASM(mnemonic)  __asm(mnemonic)
 #elif defined(_SX)  
   #define GASNETI_ASM(mnemonic)  asm(mnemonic)
@@ -563,6 +563,9 @@
  void gasneti_local_wmb(void) {
    GASNETI_ASM("SYNC");  /* PA RISC load/store ordering */ 
  }
+ #if !defined(__GNUC__) /* HP C doesn't like an empty asm statement */
+   #define gasneti_compiler_fence() _asm("OR",0,0,0) /* NOP */
+ #endif
 #elif defined(__i386__) || defined(__i386) || defined(i386) || \
       defined(__i486__) || defined(__i486) || defined(i486) || \
       defined(__i586__) || defined(__i586) || defined(i586) || \

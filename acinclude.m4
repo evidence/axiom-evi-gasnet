@@ -669,7 +669,8 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
   GASNET_IFDEF(__PGI, $3=PGI)
   GASNET_IFDEF(__xlC__, $3=XLC)
   GASNET_IFDEF(__KCC, $3=KAI)
-  GASNET_IFDEF(__SUNPRO_C, $3=Sun)
+  GASNET_IFDEF(__SUNPRO_C, $3=Sun)  dnl Sun C
+  GASNET_IFDEF(__SUNPRO_CC, $3=Sun) dnl Sun C++
   GASNET_IFDEF(_CRAYC, $3=Cray)
   GASNET_IFDEF(__INTEL_COMPILER, $3=Intel)
   GASNET_IFDEF(__DECC, $3=Compaq)
