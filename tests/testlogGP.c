@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlogGP.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.20 $
+ *     $Date: 2004/09/22 09:53:08 $
+ * $Revision: 1.21 $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -39,7 +39,8 @@ gasnet_handlerentry_t handler_table[2];
 
 int myproc;
 int numprocs;
-int peerproc;
+int peerproc = -1;
+int iamsender = 0;
 
 void *mymem;
 void *peermem;
@@ -111,9 +112,6 @@ void put_tests(int iters, int nbytes)
     int i;
     int64_t begin, end, delay_time, loops;
     stat_struct_t st;
-
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
 
 	memset(mymem, 0, nbytes);
 
@@ -238,9 +236,6 @@ void get_tests(int iters, int nbytes)
     int64_t begin, end, delay_time, loops;
     stat_struct_t st;
     float ratio;
-
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
 
 	memset(mymem, 0, nbytes);
 
@@ -395,6 +390,7 @@ int main(int argc, char **argv)
     
     /* Setting peer thread rank */
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
+    iamsender = (myproc % 2 == 0);
     
     peermem = (void *) TEST_SEG(peerproc);
 

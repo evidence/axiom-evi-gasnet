@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testalign.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.7 $
+ *     $Date: 2004/09/22 09:53:08 $
+ * $Revision: 1.8 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -34,6 +34,7 @@ int insegment = 0;
 int myproc;
 int numprocs;
 int peerproc;
+int iamsender = 0;
 
 char *rembuf;
 char *locbuf;
@@ -100,9 +101,6 @@ void oneway_test(int iters, int nbytes, int alignment)
     stat_struct_t st;
     int pad = (alignment % PAGESZ);
 
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
-
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
 	
@@ -152,8 +150,6 @@ void oneway_nbi_test(int iters, int nbytes, int alignment)
     int64_t begin, end;
     stat_struct_t st;
     int pad = (alignment % PAGESZ);
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
 
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
@@ -207,8 +203,6 @@ void oneway_nb_test(int iters, int nbytes, int alignment)
     stat_struct_t st;
     gasnet_handle_t *handles;
     int pad = (alignment % PAGESZ);
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
 
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
@@ -308,6 +302,7 @@ int main(int argc, char **argv)
     
     /* Setting peer thread rank */
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
+    iamsender = (myproc % 2 == 0);
     
     rembuf = (void *) TEST_SEG(peerproc);
 

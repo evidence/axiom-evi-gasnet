@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testsmall.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.18 $
+ *     $Date: 2004/09/22 09:53:08 $
+ * $Revision: 1.19 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -37,7 +37,8 @@ int insegment = 0;
 
 int myproc;
 int numprocs;
-int peerproc;
+int peerproc = -1;
+int iamsender = 0;
 
 void *tgtmem;
 char *msgbuf;
@@ -104,9 +105,6 @@ void roundtrip_test(int iters, int nbytes)
     int64_t begin, end;
     stat_struct_t st;
 
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
-
 	/* initialize statistics */
 	init_stat(&st, nbytes);
 	
@@ -156,9 +154,6 @@ void oneway_test(int iters, int nbytes)
     int i;
     int64_t begin, end;
     stat_struct_t st;
-
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
 
 	/* initialize statistics */
 	init_stat(&st, nbytes);
@@ -210,8 +205,6 @@ void roundtrip_nbi_test(int iters, int nbytes)
     int i;
     int64_t begin, end;
     stat_struct_t st;
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
 
 	/* initialize statistics */
 	init_stat(&st, nbytes);
@@ -266,8 +259,6 @@ void oneway_nbi_test(int iters, int nbytes)
     int i;
     int64_t begin, end;
     stat_struct_t st;
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
 
 	/* initialize statistics */
 	init_stat(&st, nbytes);
@@ -322,8 +313,6 @@ void roundtrip_nb_test(int iters, int nbytes)
     int64_t begin, end;
     stat_struct_t st;
     gasnet_handle_t hdlget, hdlput;
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
 
 	/* initialize statistics */
 	init_stat(&st, nbytes);
@@ -379,8 +368,6 @@ void oneway_nb_test(int iters, int nbytes)
     stat_struct_t st;
     gasnet_handle_t hdlget, hdlput;
     gasnet_handle_t *handles;
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
 
 	/* initialize statistics */
 	init_stat(&st, nbytes);
@@ -449,6 +436,8 @@ int main(int argc, char **argv)
     int arg;
     int iters = 0;
     int i, j;
+    int firstlastmode = 0;
+    int help = 0;   
    
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
@@ -462,10 +451,20 @@ int main(int argc, char **argv)
         insegment = 0;
         ++arg;
     }
-    if (argc > arg+2) {
-        printf("Usage: %s [-in|-out] (iters) (maxsz)\n"
+    if (argc > arg && !strcmp(argv[arg], "-f")) {
+        firstlastmode = 1;
+        ++arg;
+    }
+    if (argc > arg && argv[arg][0] == '-') {
+        help = 1;
+        ++arg;
+    }
+    if (help || argc > arg+2) {
+        printf("Usage: %s [-in|-out|-f] (iters) (maxsz)\n"
                "  The 'in' or 'out' option selects whether the initiator-side\n"
-               "  memory is in the GASNet segment or not (default it not).\n",
+               "  memory is in the GASNet segment or not (default it not).\n"
+               "  The -f option enables 'first/last' mode, where the first/last\n"
+               "  nodes communicate with each other, while all other nodes sit idle.\n",
                argv[0]);
         gasnet_exit(1);
     }
@@ -487,15 +486,25 @@ int main(int argc, char **argv)
     myproc = gasnet_mynode();
     numprocs = gasnet_nodes();
     
-    /* Only allow 1 or even number for numprocs */
-    if (numprocs % 2 == 1) {
-    	printf("Number of threads should be even number.\n");
-    	gasnet_exit(1);
+    if (!firstlastmode) {
+      /* Only allow 1 or even number for numprocs */
+      if (numprocs > 1 && numprocs % 2 != 0) {
+    	  printf("Number of threads should be even number.\n");
+    	  gasnet_exit(1);
+      }
     }
-
     
     /* Setting peer thread rank */
-    peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
+    if (firstlastmode) {
+      peerproc = numprocs-1;
+      iamsender = (myproc == 0);
+    }  else if (numprocs == 1) {
+      peerproc = 0;
+      iamsender = 1;
+    } else { 
+      peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
+      iamsender = (myproc % 2 == 0);
+    }
 
     #ifdef GASNET_SEGMENT_EVERYTHING
       if (maxsz > TEST_SEGSZ/2) { MSG("maxsz must be <= %i on GASNET_SEGMENT_EVERYTHING",TEST_SEGSZ/2); gasnet_exit(1); }
@@ -533,8 +542,11 @@ int main(int argc, char **argv)
         assert(((uintptr_t)msgbuf) % PAGESZ == 0);
         assert(((uintptr_t)ackbuf) % PAGESZ == 0);
         if (myproc == 0) 
-          MSG("Running %i iterations of non-bulk put/get with local addresses %sside the segment for sizes: %i...%i\nGASNET_CONFIG:%s\n", 
-          iters, insegment ? "in" : "out", min_payload, max_payload, GASNET_CONFIG_STRING);
+          MSG("Running %i iterations of %snon-bulk put/get with local addresses %sside the segment for sizes: %i...%i\nGASNET_CONFIG:%s\n", 
+          iters, 
+          firstlastmode ? "first/last " : "",
+          insegment ? "in" : "out", 
+          min_payload, max_payload, GASNET_CONFIG_STRING);
         BARRIER();
 
 	for (j = min_payload; j <= max_payload; j *= 2)  roundtrip_test(iters, j); 

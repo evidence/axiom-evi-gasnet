@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2004/09/07 17:28:34 $
- * $Revision: 1.5 $
+ *     $Date: 2004/09/22 09:53:08 $
+ * $Revision: 1.6 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -96,7 +96,6 @@ void ALL_ALL_test(int iters, int nbytes)
     gasnet_coll_handle_t *handles;
 
 	int iamsender = (myproc == 0);
-	int iamreceiver = !iamsender;
 
         handles = (gasnet_coll_handle_t*) test_malloc(sizeof(gasnet_coll_handle_t) * iters);
 
@@ -161,7 +160,6 @@ void NO_NO_test(int iters, int nbytes)
     gasnet_coll_handle_t h, *handles;
 
 	int iamsender = (myproc == 0);
-	int iamreceiver = !iamsender;
 
         handles = (gasnet_coll_handle_t*) test_malloc(sizeof(gasnet_coll_handle_t) * iters);
 
