@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/09/14 11:06:38 $
- * $Revision: 1.16 $
+ *     $Date: 2002/09/28 11:00:53 $
+ * $Revision: 1.17 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
