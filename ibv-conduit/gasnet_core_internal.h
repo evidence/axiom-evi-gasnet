@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/12/15 23:53:19 $
- * $Revision: 1.27 $
+ *     $Date: 2003/12/19 22:34:29 $
+ * $Revision: 1.28 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -360,7 +360,11 @@ typedef struct {
   gasneti_atomic_t	count;
 } gasnetc_sema_t;
 
-#define GASNETC_SEMA_INITIALIZER(N) {GASNETC_MUTEX_INITIALIZER, gasneti_atomic_init(N)}
+#if GASNETI_HAVE_ATOMIC_SWAP
+  #define GASNETC_SEMA_INITIALIZER(N) {gasneti_atomic_init(N)}
+#else
+  #define GASNETC_SEMA_INITIALIZER(N) {GASNETC_MUTEX_INITIALIZER, gasneti_atomic_init(N)}
+#endif
 
 /* gasnetc_sema_init */
 GASNET_INLINE_MODIFIER(gasnetc_sema_init)
