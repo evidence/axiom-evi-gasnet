@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/03/22 22:21:11 $
- * $Revision: 1.83 $
+ *     $Date: 2005/03/24 23:54:48 $
+ * $Revision: 1.84 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -272,10 +272,14 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
     }
   }
   #endif
-  if (pages == 0) return 0;
+  if_pf (pages == 0) {
+    gasneti_fatalerror("Failed to determine the available physical memory");
+  }
 
   si = gasneti_mmap_segment_search(MIN(pages*GASNET_PAGESIZE, GASNETI_MMAP_LIMIT));
-  if (si.addr == NULL) return 0;
+  if_pf (si.addr == NULL) {
+    gasneti_fatalerror("Failed to determine the maximum mmap()able memory");
+  }
 
   /* Now search for largest pinnable region */
   addr = si.addr;
@@ -287,7 +291,7 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
   #endif
   if (hi < GASNETI_MMAP_GRANULARITY) {
     gasneti_munmap(si.addr, si.size);
-    return 0;
+    gasneti_fatalerror("Found the maximum pinnable memory to be less than %lu", (unsigned long)GASNETI_MMAP_GRANULARITY);
   }
 
 #if 0 /* Binary search */
@@ -320,6 +324,9 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
 #endif
   gasneti_munmap(si.addr, si.size);
 
+  if_pf (!size) {
+    gasneti_fatalerror("ERROR: Failure to determine the max pinnable memory.  VAPI may be misconfigured.");
+  }
   return size;
 }
 
