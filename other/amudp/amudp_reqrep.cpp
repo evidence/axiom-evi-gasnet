@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_reqrep.cpp                                 $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+ *     $Date: 2003/12/15 12:17:17 $
+ * $Revision: 1.2 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -917,7 +917,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
           if_pf (isrequest && !status->replyIssued) {
             va_list va_dummy; va_list *va_dummy2 = &va_dummy; /* dummy value */
             /*  user didn't reply, so issue an auto-reply */
-            if (AMUDP_ReplyGeneric(amudp_Short, buf, 0, 0, 0, 0, 0, va_dummy, amudp_system_autoreply, 0) 
+            if (AMUDP_ReplyGeneric(amudp_Short, basicbuf, 0, 0, 0, 0, 0, va_dummy, amudp_system_autoreply, 0) 
                 != AM_OK) /*  should never happen - don't return here to prevent leaking buffer */
               ErrMessage("Failed to issue auto reply in AMUDP_ServiceIncomingMessages");
             }
