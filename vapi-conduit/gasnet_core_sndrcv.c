@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/09 21:52:42 $
- * $Revision: 1.70 $
+ *     $Date: 2005/03/10 00:08:06 $
+ * $Revision: 1.71 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -101,7 +101,7 @@ typedef struct {
 
 static void				*gasnetc_sreq_alloc;
 static void				*gasnetc_rbuf_alloc;
-#if GASNETC_RCV_THREAD
+#if GASNETC_VAPI_RCV_THREAD
   static EVAPI_compl_handler_hndl_t	gasnetc_rcv_handler;
 #endif
 
@@ -896,7 +896,7 @@ void gasnetc_snd_post_list(gasnetc_sreq_t *sreq, int count, VAPI_sr_desc_t *sr_d
 }
 #endif
 
-#if GASNETC_RCV_THREAD
+#if GASNETC_VAPI_RCV_THREAD
 static gasnetc_rbuf_t *gasnetc_rcv_thread_rbuf = NULL;
 static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
 			       VAPI_cq_hndl_t	cq_hndl,
@@ -1345,7 +1345,7 @@ extern void gasnetc_sndrcv_init(void) {
   gasneti_assert(act_size >= count);
 
   if (gasneti_nodes > 1) {
-    #if GASNETC_RCV_THREAD
+    #if GASNETC_VAPI_RCV_THREAD
       /* create the RCV thread */
       vstat = EVAPI_set_comp_eventh(gasnetc_hca, gasnetc_rcv_cq, &gasnetc_rcv_thread,
 				    NULL, &gasnetc_rcv_handler);
@@ -1378,7 +1378,7 @@ extern void gasnetc_sndrcv_init(void) {
 
       rbuf = (gasnetc_rbuf_t *)((uintptr_t)rbuf + padded_size);
     }
-    #if GASNETC_RCV_THREAD
+    #if GASNETC_VAPI_RCV_THREAD
       gasnetc_rcv_thread_rbuf = gasneti_freelist_get(&gasnetc_rbuf_freelist);
       gasneti_assert(gasnetc_rcv_thread_rbuf != NULL);
     #endif
@@ -1446,7 +1446,7 @@ extern void gasnetc_sndrcv_fini(void) {
   VAPI_ret_t vstat;
 
   if (gasneti_nodes > 1) {
-    #if GASNETC_RCV_THREAD
+    #if GASNETC_VAPI_RCV_THREAD
       vstat = EVAPI_clear_comp_eventh(gasnetc_hca, gasnetc_rcv_handler);
       GASNETC_VAPI_CHECK(vstat, "from EVAPI_clear_comp_eventh()");
     #endif

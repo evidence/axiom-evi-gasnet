@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/17 13:19:26 $
- * $Revision: 1.73 $
+ *     $Date: 2005/03/10 00:08:06 $
+ * $Revision: 1.74 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -45,7 +45,7 @@ GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_COR
 /* Spare AM buffers used to accelerate flow control */
 #if GASNETC_CLI_PAR
   #define GASNETC_DEFAULT_AM_SPARES	4	/* assume <= 4 threads in GASNet */
-#elif GASNETC_RCV_THREAD
+#elif GASNETC_VAPI_RCV_THREAD
   #define GASNETC_DEFAULT_AM_SPARES	2	/* single client + AM recv thread */
 #else
   #define GASNETC_DEFAULT_AM_SPARES	1	/* just a single client thread */
@@ -122,7 +122,7 @@ static void gasnetc_check_config() {
   gasneti_check_config_preinit();
 
   gasneti_assert(sizeof(gasnetc_medmsg_t) == (GASNETC_MEDIUM_HDRSZ + 4*GASNETC_MAX_ARGS));
-  gasneti_assert(GASNETC_RCV_POLL || GASNETC_RCV_THREAD);
+  gasneti_assert(GASNETC_RCV_POLL || GASNETC_VAPI_RCV_THREAD);
   gasneti_assert(GASNETC_PUT_COPY_LIMIT <= GASNETC_BUFSZ);
 }
 
@@ -342,10 +342,10 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_LIMIT, GASNETC_DEFAULT_BBUF_LIMIT, 1);
 
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
-  GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_RCV_THREAD)",
-				GASNETC_RCV_THREAD ? "en" : "dis"));
+  GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_VAPI_RCV_THREAD)",
+				GASNETC_VAPI_RCV_THREAD ? "en" : "dis"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in gasnet_AMPoll() %sabled (GASNETC_RCV_POLL)",
-			  	GASNETC_RCV_THREAD ? "en" : "dis"));
+			  	GASNETC_RCV_POLL ? "en" : "dis"));
 #if GASNETC_VAPI_FORCE_POLL_LOCK
   GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls            forced (--enable-vapi-force-poll-lock)"));
 #else
@@ -1569,7 +1569,7 @@ static void gasnetc_exit_body(void) {
 #endif
     }
     (void)VAPI_dealloc_pd(gasnetc_hca, gasnetc_pd);
-#if !GASNETC_RCV_THREAD	/* can't release from inside the RCV thread */
+#if !GASNETC_VAPI_RCV_THREAD	/* can't release from inside the RCV thread */
     (void)EVAPI_release_hca_hndl(gasnetc_hca);
 #endif
   }

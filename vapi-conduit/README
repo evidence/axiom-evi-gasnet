@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.14 $
+$Revision: 1.15 $
 
 @ TOC: @
 @ Section: Bootstrapping @
@@ -81,10 +81,16 @@ $Revision: 1.14 $
 
 @ Section: Build-time Configuration @
 
+  By default vapi-conduit ensures network attentiveness (timely
+  processing of incomming AMs) by spawning an extra thread that
+  remains blocked until the arrival of an Active Message.  One
+  can disable this thread by configuring GASNet with the flag
+  '--disable-vapi-rcv-thread'.
+
   There are two known bugs in older InfiniHost firmware versions.
   Normally you shouldn't need to do anything special with regards
-  to them.  However, if you do need to override the defaults this
-  section explains the issues.
+  to them.  However, if you do need to override the defaults the
+  remainder of this section explains the issues.
 
   + Thread safety of VAPI_poll_cq()
     In firmware versions prior to 3.0, the VAPI_poll_cq() call is
