@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2004/11/02 01:49:43 $
- * $Revision: 1.25 $
+ *     $Date: 2004/11/29 22:57:13 $
+ * $Revision: 1.26 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,6 +177,7 @@ void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) {
 */
 
 /* Want to use GASNETI_ALIGN*, but those have not been seen yet */
+/* Also, these lack the assert() so that they are compile-time constants */
 #define GASNETC_ALIGNDOWN(p,P)	((uintptr_t)(p)&~((uintptr_t)(P)-1))
 #define GASNETC_ALIGNUP(p,P)	(GASNETC_ALIGNDOWN((uintptr_t)(p)+((P)-1),P))
 
