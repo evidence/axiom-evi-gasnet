@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2003/07/11 19:22:14 $
- * $Revision: 1.4 $
+ *     $Date: 2003/07/11 19:28:28 $
+ * $Revision: 1.5 $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -365,29 +365,21 @@ void bigG_test(int iters, int nbytes)
 int main(int argc, char **argv)
 {
     int iters = 0;
-    int bigsz = 0;
-    int i, j;
+    int i;
    
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
 
     /* parse arguments */
-    if (argc < 2 || argc > 3) {
-        printf( "Usage: %s bigsz [iters] \n"
-		"    bigsz is size to use for measuring G (max possible is %d)\n"
-        	"    iters defaults to 1000 \n", argv[0], TEST_SEGSZ);
+    if (argc < 3) {
+        printf( "Usage: %s iters sizes... \n"
+		"    sizes are limited to %d\n", argv[0], TEST_SEGSZ);
         gasnet_exit(1);
     }
 
-    bigsz = atoi(argv[1]);
-    if (argc > 2) iters = atoi(argv[2]);
-    if (!iters) iters = 1000;
-
-    if (bigsz < 0 || bigsz > TEST_SEGSZ) {
-        printf("bigsz is limited to <= %d\n", TEST_SEGSZ);
-        gasnet_exit(1);
-    }
+    iters = atoi(argv[1]);
+    if (!iters) iters = 1;
 
     /* get SPMD info */
     myproc = gasnet_mynode();
@@ -407,10 +399,19 @@ int main(int argc, char **argv)
     
     peermem = (void *) TEST_SEG(peerproc);
 
-	latency_test(iters, 8); 
-	overhead_test(iters, 8); 
-  	gap_test(iters, 8);
-  	bigG_test(iters, bigsz);
+    for (i = 2; i < argc; ++i) {
+        int size = atoi(argv[i]);
+
+        if (size < 0 || size > TEST_SEGSZ) {
+            printf("size is limited to <= %d\n", TEST_SEGSZ);
+            continue;
+        }
+
+	latency_test(iters, size); 
+	overhead_test(iters, size); 
+  	gap_test(iters, size);
+  	bigG_test(iters, size);
+    }
 
     gasnet_exit(0);
 
