@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/12/18 20:17:38 $
- * $Revision: 1.35 $
+ *     $Date: 2003/12/23 01:09:13 $
+ * $Revision: 1.36 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -66,7 +66,11 @@ typedef struct {
 /* VAPI structures for a send request */
 typedef struct {
   VAPI_sr_desc_t	sr_desc;		/* send request descriptor */
-  VAPI_sg_lst_entry_t	sr_sg[GASNETC_SND_SG];	/* send request gather list */
+  #if GASNETC_VAPI_USE_SG
+    VAPI_sg_lst_entry_t	sr_sg[GASNETC_SND_SG];	/* send request gather list */
+  #else
+    VAPI_sg_lst_entry_t	sr_sg[1];		/* send request gather list */
+  #endif
 } gasnetc_sreq_t;
 
 /* ------------------------------------------------------------------------------------ *

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/12/22 21:12:18 $
- * $Revision: 1.30 $
+ *     $Date: 2003/12/23 01:09:13 $
+ * $Revision: 1.31 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -229,10 +229,9 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* Scatter-gather segments.
  * Only 1 makes sense right now for normal use.
- * Additional SG space in the SND WQ is used for inline puts
  */
-#define GASNETC_SND_SG  14               /* maximum number of segments to gather on send */
-#define GASNETC_RCV_SG  1               /* maximum number of segments to scatter on rcv */
+#define GASNETC_SND_SG	1		/* maximum number of segments to gather on send */
+#define GASNETC_RCV_SG	1		/* maximum number of segments to scatter on rcv */
 
 /* Define non-zero to enable a progress thread for receiving AMs . */
 #define GASNETC_RCV_THREAD		1
@@ -242,14 +241,14 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 #if GASNETC_VAPI_ENABLE_INLINE_PUTS
   /* AM req/rep <= this size will be done w/ VAPI-level copy, 0 disables */
-  #define GASNETC_AM_INLINE_LIMIT	370
+  #define GASNETC_AM_INLINE_LIMIT	72
 #else
   #define GASNETC_AM_INLINE_LIMIT	0
 #endif
 
 #if GASNETC_VAPI_ENABLE_INLINE_PUTS
   /* puts <= this size will be done w/ VAPI-level copy, 0 disables */
-  #define GASNETC_PUT_INLINE_LIMIT	370
+  #define GASNETC_PUT_INLINE_LIMIT	72
 #else
   #define GASNETC_PUT_INLINE_LIMIT	0
 #endif
@@ -473,8 +472,10 @@ void gasnetc_spinlock_unlock(gasnetc_spinlock_t *s) {
 /* gasnetc_spinlock_try */
 GASNET_INLINE_MODIFIER(gasnetc_spinlock_try)
 int gasnetc_spinlock_try(gasnetc_spinlock_t *s) {
-  gasneti_assert((gasneti_atomic_read(&(s->lock)) == GASNETC_SPINLOCK_LOCKED) ||
-		 (gasneti_atomic_read(&(s->lock)) == GASNETC_SPINLOCK_UNLOCKED));
+  #if GASNET_DEBUG
+    int tmp = gasneti_atomic_read(&(s->lock));
+    gasneti_assert((tmp == GASNETC_SPINLOCK_LOCKED) || (tmp == GASNETC_SPINLOCK_UNLOCKED));
+  #endif
 
   return gasneti_atomic_swap(&(s->lock), GASNETC_SPINLOCK_UNLOCKED, GASNETC_SPINLOCK_LOCKED);
 }
