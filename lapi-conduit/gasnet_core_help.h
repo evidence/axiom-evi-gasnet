@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_help.h             $
- *     $Date: 2002/11/14 01:35:55 $
- * $Revision: 1.2 $
+ *     $Date: 2002/11/15 23:32:26 $
+ * $Revision: 1.3 $
  * Description: GASNet lapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -17,7 +17,11 @@ BEGIN_EXTERNC
 #include <gasnet_help.h>
 
 /* we dont need no stinkin Interrupt Based Handlers in LAPI */
-#define GASNETC_NEED_IBH 0
+#if DEBUG
+#define GASNETC_USE_IBH 1
+#else
+#define GASNETC_USE_IBH 0
+#endif
 
 /* NOTE: this should be dependent on whether we compile in
  * 32 or 64 bit mode

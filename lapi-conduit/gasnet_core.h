@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2002/11/14 01:35:55 $
- * $Revision: 1.2 $
+ *     $Date: 2002/11/15 23:32:26 $
+ * $Revision: 1.3 $
  * Description: GASNet header for lapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -88,7 +88,7 @@ char *gasnet_getenv(const char *s) {
   =====================
 */
 /* conduit may or may not need this based on whether interrupts are used for running handlers */
-#if GASNETC_NEED_IBH
+#if GASNETC_USE_IBH
   extern void gasnetc_hold_interrupts();
   extern void gasnetc_resume_interrupts();
 
@@ -105,11 +105,7 @@ char *gasnet_getenv(const char *s) {
   ==================
 */
 typedef struct _gasnet_hsl_t {
-  #ifdef GASNETI_THREADS
     pthread_mutex_t lock;
-  #else
-    char _dummy; /* prevent an illegal empty structure decl */
-  #endif
 
   #if defined(STATS) || defined(TRACE)
     gasneti_stattime_t acquiretime;
@@ -118,11 +114,7 @@ typedef struct _gasnet_hsl_t {
     /* put additional state here */
 } gasnet_hsl_t;
 
-#ifdef GASNETI_THREADS
   #define GASNETC_LOCK_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
-#else 
-  #define GASNETC_LOCK_MUTEX_INIT 0
-#endif
 
 #if defined(STATS) || defined(TRACE)
   #define GASNETC_LOCK_STAT_INIT ,0 

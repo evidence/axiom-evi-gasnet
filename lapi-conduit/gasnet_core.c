@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/11/14 01:35:55 $
- * $Revision: 1.3 $
+ *     $Date: 2002/11/15 23:32:26 $
+ * $Revision: 1.4 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -66,6 +66,9 @@ gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS] = { NULL };
 void** gasnetc_remote_hh = NULL;
 gasnetc_lapimode_t gasnetc_lapi_default_mode = gasnetc_Interrupt;
 
+#if GASNETC_USE_IBH
+volitile int gasnetc_interrupt_held[GASNETC_MAX_THREAD] = { 0 };
+#endif
 
 /* -------------------------------------------------------------------
  * End: LAPI specific variables
@@ -123,6 +126,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     bzero(&gasnetc_lapi_info, sizeof(lapi_info_t));
     gasnetc_lapi_info.err_hndlr = gasnetc_lapi_err_handler;
     GASNETC_LCHECK(LAPI_Init(&gasnetc_lapi_context, &gasnetc_lapi_info));
+
 
     /* get task number and number of tasks in job */
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, TASK_ID, &task_id));
@@ -257,6 +261,8 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 	/* (###) add code here to register table[i].fnptr 
 	   on index (gasnet_handler_t)newindex */
 	gasnetc_handler[newindex] = table[i].fnptr;
+	GASNETI_TRACE_PRINTF(C,("Registered handler %x at index %d",
+				table[i].fnptr,newindex));
 
 	if (dontcare) table[i].index = newindex;
 	(*numregistered)++;
@@ -353,16 +359,19 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	   (ensuring alignment across all nodes if this conduit sets GASNET_ALIGNED_SEGMENTS==1) 
 	   you can use gasneti_segmentAttach() here if you used gasneti_segmentInit() above
 	*/
+	assert(segsize % pagesize == 0);
+	gasneti_segmentAttach(segsize,minheapoffset,gasnetc_seginfo,gasnetc_lapi_exchange);
+	segbase = gasnetc_seginfo[gasnetc_mynode].addr;
+	segsize = gasnetc_seginfo[gasnetc_mynode].size;
 	assert(((uintptr_t)segbase) % pagesize == 0);
 	assert(segsize % pagesize == 0);
-
-	gasneti_segmentAttach(segsize,minheapoffset,gasnetc_seginfo,gasnetc_lapi_exchange);
     }
 #else
     /* GASNET_SEGMENT_EVERYTHING */
     segbase = (void *)0;
     segsize = (uintptr_t)-1;
     /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
+    gasneti_fatalerror("SEGMENT_EVERYTHING not implemented");
 #endif
 
     /* ------------------------------------------------------------------------------------ */
@@ -380,8 +389,14 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
 
-    assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
-	   gasnetc_seginfo[gasnetc_mynode].size == segsize);
+    {
+	int i;
+	for (i = 0; i < gasnetc_nodes; i++) {
+	    GASNETI_TRACE_PRINTF(C,("For node %d seginfo.addr = %x seginfo.size = %d",
+				    i,gasnetc_seginfo[i].addr,
+				    gasnetc_seginfo[i].size));
+	}
+    }
 
 #if GASNET_ALIGNED_SEGMENTS == 1
     { int i; /*  check that segments are aligned */
@@ -562,9 +577,11 @@ extern int gasnetc_AMRequestMediumM(
     /* Do Loopback check here */
 #if GASNETC_ENABLE_LOOPBACK
     if (dest == gasnetc_mynode) {
-	token->destLoc = (uintptr_t)source_addr;
+	char *destloc = gasneti_malloc_inhandler(nbytes > 0 ? nbytes : 1);
+	memcpy(destloc,(char*)source_addr,nbytes);
 	gasnetc_handler_fn_t *pfn = gasnetc_handler[handler];
-	RUN_HANDLER_MEDIUM(pfn,&token,&token.args[0],numargs,source_addr,nbytes);
+	RUN_HANDLER_MEDIUM(pfn,&token,&token.args[0],numargs,destloc,nbytes);
+	gasneti_free(destloc);
 	GASNETI_RETURN(GASNET_OK);
     }
 #endif
@@ -722,7 +739,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
      * reply handler runs.
      */
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, target_node, gasnetc_remote_hh[target_node],
-			       (void*)&token, token_len, source_addr, nbytes,
+			       (void*)token, token_len, source_addr, nbytes,
 			       NULL, NULL, NULL));
     
     retval = GASNET_OK;
@@ -735,7 +752,7 @@ extern int gasnetc_AMReplyShortM(
     int numargs, ...) {
     int retval;
 
-    gasnetc_token_t *t = (gasnetc_token_t*)&token;
+    gasnetc_token_t *t = (gasnetc_token_t*)token;
     uint requester = (uint)t->sourceId;
     lapi_cntr_t o_cntr;
     int token_len;
@@ -793,7 +810,7 @@ extern int gasnetc_AMReplyMediumM(
     int numargs, ...) {
 
     int retval;
-    gasnetc_token_t *t = (gasnetc_token_t*)&token;
+    gasnetc_token_t *t = (gasnetc_token_t*)token;
     uint requester = (uint)t->sourceId;
     lapi_cntr_t o_cntr;
     int token_len;
@@ -821,9 +838,11 @@ extern int gasnetc_AMReplyMediumM(
 
 #if GASNETC_ENABLE_LOOPBACK
     if (dest == gasnetc_mynode) {
+	char *destloc = gasneti_inhandler_malloc(nbytes > 0 ? nbytes : 1);
+	memcpy(destloc,(char*)source_addr,nbytes);
 	gasnetc_handler_fn_t *pfn = gasnetc_handler[handler];
-	t->destLoc = (uintptr_t)source_addr;
-	RUN_HANDLER_MEDIUM(pfn,token,&t->args[0],numargs,source_addr,nbytes);
+	RUN_HANDLER_MEDIUM(pfn,token,&t->args[0],numargs,(void*)destloc,nbytes);
+	gasneti_free(destloc);
 	GASNETI_RETURN(GASNET_OK);
     }
 #endif
@@ -852,7 +871,7 @@ extern int gasnetc_AMReplyLongM(
     int numargs, ...) {
     int retval;
 
-    gasnetc_token_t *t = (gasnetc_token_t*)&token;
+    gasnetc_token_t *t = (gasnetc_token_t*)token;
     uint requester = (uint)t->sourceId;
     lapi_cntr_t o_cntr;
     int token_len;
@@ -922,7 +941,7 @@ extern int gasnetc_AMReplyLongM(
   gasnete_threaddata_t data structure which is reserved for use by the core 
   (and this is one place you'll probably want to use it)
 */
-#if GASNETC_NEED_IBH
+
 /* ============================================================================
  * LAPI Clarification:
  * These calls should not have to be used or defined.  Even when LAPI is executing
@@ -935,14 +954,35 @@ extern int gasnetc_AMReplyLongM(
  * calls LAPI functions via GASNET calls.  Again, no interrupts will occur.
  * ============================================================================
  */
+#if GASNETC_USE_IBH
 extern void gasnetc_hold_interrupts() {
     GASNETC_CHECKATTACH();
-    gasneti_fatalerror("LAPI-gasnetc_hold_interrupts not implemented");
+
+    /* Check to see of interrupts are already being held */
+    {
+	int id = pthread_self();
+	assert(id >= 0 && id < GASNETC_MAX_THREAD);
+	if (gasnetc_interrupt_held[id]) {
+	    gasneti_fatalerror("gasnetc_hold_interrupts: already held in thread %d",id);
+	}
+	gasnetc_interrupt_held[id] = 1;
+    }
+
     /* (###) add code here to disable handler interrupts for _this_ thread */
 }
 extern void gasnetc_resume_interrupts() {
     GASNETC_CHECKATTACH();
-    gasneti_fatalerror("LAPI-gasnetc_resume_interrupts not implemented");
+
+    /* Check to insure that interrupts are being held */
+    {
+	int id = pthread_self();
+	assert(id >= 0 && id < GASNETC_MAX_THREAD);
+	if (gasnetc_interrupt_held[id] != 0) {
+	    gasneti_fatalerror("gasnetc_resume_interrupts: Not held in thread %d",id);
+	}
+	gasnetc_interrupt_held[id] = 0;
+    }
+
     /* (###) add code here to re-enable handler interrupts for _this_ thread */
 }
 #endif
@@ -963,6 +1003,10 @@ extern void gasnetc_resume_interrupts() {
  *     set to 1.
  *
  * In both of these cases, posix mutexes are sufficient for HSLs.
+ * NOTE: removed the GASNETI_THREADS ifdefs because we need the
+ *       mutex code even in the GASNET_SEQ case.  A handler
+ *       can be executing in the LAPI completion handler thread
+ *       and modifying data being used by the client thread.
  *
  * Note that we SHOULD add error checking....
 */
@@ -970,24 +1014,21 @@ extern void gasnetc_resume_interrupts() {
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
     GASNETC_CHECKATTACH();
 
-#ifdef GASNETI_THREADS
     { int retval = pthread_mutex_init(&(hsl->lock), NULL);
     if (retval) 
 	gasneti_fatalerror("In gasnetc_hsl_init(), pthread_mutex_init()=%s",strerror(retval));
     }
-#endif
 
     /* (###) add code here to init conduit-specific HSL state */
 }
 
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
     GASNETC_CHECKATTACH();
-#ifdef GASNETI_THREADS
+
     { int retval = pthread_mutex_destroy(&(hsl->lock));
     if (retval) 
 	gasneti_fatalerror("In gasnetc_hsl_destroy(), pthread_mutex_destroy()=%s",strerror(retval));
     }
-#endif
 
     /* (###) add code here to cleanup conduit-specific HSL state */
 }
@@ -995,7 +1036,6 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
     GASNETC_CHECKATTACH();
 
-#ifdef GASNETI_THREADS
     { int retval; 
 #if defined(STATS) || defined(TRACE)
     gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
@@ -1014,10 +1054,6 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
     GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, hsl->acquiretime-startlock);
 #endif
     }
-#elif defined(STATS) || defined(TRACE)
-    hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
-    GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, 0);
-#endif
 
     /* (###) conduits with interrupt-based handler dispatch need to add code here to 
        disable handler interrupts on _this_ thread, (if this is the outermost
@@ -1035,12 +1071,10 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
 
     GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW()-hsl->acquiretime);
 
-#ifdef GASNETI_THREADS
     { int retval = pthread_mutex_unlock(&(hsl->lock));
     if (retval) 
 	gasneti_fatalerror("In gasnetc_hsl_unlock(), pthread_mutex_unlock()=%s",strerror(retval));
     }
-#endif
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -1117,7 +1151,7 @@ void gasnetc_lapi_exchange(void *src, size_t len, void *dest)
     /* Now, put my src value into all remote dest arrays */
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&c_cntr,0));
     for (node = 0; node < num_nodes; node++) {
-	void *ra = dest_addr_tab[node] + gasnetc_mynode*len;
+	void *ra = (void*)((char*)(dest_addr_tab[node]) + gasnetc_mynode*len);
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context,node,len,ra,
 				src,NULL,NULL,&c_cntr));
     }
@@ -1132,7 +1166,6 @@ void gasnetc_lapi_exchange(void *src, size_t len, void *dest)
 
     /* free up array used for remote address locations */
     gasneti_free(dest_addr_tab);
-    
 }
 
 /* --------------------------------------------------------------------------
@@ -1166,7 +1199,7 @@ void* gasnetc_lapi_AMhh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 			ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo)
 {
     gasnetc_token_t *token = (gasnetc_token_t*)uhdr;
-    gasnetc_category_t cat = GASNETC_MSG_CATEGORY(token);
+    gasnetc_category_t cat;
     void* destloc = NULL;
 
     /* schedule the LAPI completion handler to run the GASNET handler */
@@ -1184,15 +1217,26 @@ void* gasnetc_lapi_AMhh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
      * it again in the completion handler.
      */
 
-    *uinfo = gasneti_malloc_inhandler(sizeof(gasnetc_token_t));
-    memcpy((char*)(*uinfo),(char*)uhdr,*uhdr_len);
-    token = (gasnetc_token_t*)(*uinfo);
-
+    {
+	unsigned int numargs;
+	unsigned int is_req;
+	*uinfo = gasneti_malloc_inhandler(sizeof(gasnetc_token_t));
+	memcpy((char*)(*uinfo),(char*)uhdr,*uhdr_len);
+	token = (gasnetc_token_t*)(*uinfo);
+	cat = GASNETC_MSG_CATEGORY(token);
+	numargs = GASNETC_MSG_NUMARGS(token);
+	is_req = GASNETC_MSG_ISREQUEST(token);
+    
+	GASNETI_TRACE_PRINTF(C,("HH received %s from %d is_req %d numargs %d uhdr_len %d msg_len %d",
+				gasnetc_catname[cat],token->sourceId,is_req,numargs,*uhdr_len,*msg_len));
+    }
+    
     switch (cat) {
     case gasnetc_Short:
 	break;
     case gasnetc_Medium:
-	destloc = gasneti_malloc_inhandler(token->dataLen);
+	assert( token->dataLen == *msg_len);
+	destloc = gasneti_malloc_inhandler( *msg_len > 0 ? *msg_len : 1 );
 	token->destLoc = (uintptr_t)destloc;
 	break;
     case gasnetc_AsyncLong:
@@ -1233,8 +1277,14 @@ void gasnetc_lapi_AMch(lapi_handle_t *context, void *uinfo)
     gasnet_handler_t func_ix = token->handlerId;
     gasnetc_handler_fn_t am_func = gasnetc_handler[func_ix];
     gasnet_handlerarg_t *am_args = &token->args[0];
+
+    GASNETI_TRACE_PRINTF(C,("CH received %s from %d is_req %d numargs %d handlerix %d dataptr %x datalen %d",
+			    gasnetc_catname[msg_type],token->sourceId,is_request,numargs,
+			    func_ix,dataptr,datalen));
+
     if (am_func == NULL) {
-	gasneti_fatalerror("lapi_AMch: invalid handler index %d",func_ix);
+	gasneti_fatalerror("lapi_AMch: node %d, invalid handler index %d",
+			   gasnetc_mynode,func_ix);
     }
 
     /* if this is a reply and the uhdrLoc field of the token is set
@@ -1242,7 +1292,7 @@ void gasnetc_lapi_AMch(lapi_handle_t *context, void *uinfo)
      * should deallocate the origional uhdr memory.
      */
     if (!is_request && (token->uhdrLoc != (uintptr_t)NULL)) {
-	void* loc = (void*)token->uhdrLoc;
+	void* loc = (void*)(token->uhdrLoc);
 	gasneti_free(loc);
     }
 

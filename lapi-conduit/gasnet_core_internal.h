@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/11/14 01:35:55 $
- * $Revision: 1.3 $
+ *     $Date: 2002/11/15 23:32:26 $
+ * $Revision: 1.4 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -56,6 +56,13 @@ typedef enum {
     gasnetc_AsyncLong=3
 } gasnetc_category_t;
 
+char *gasnetc_catname[] = {"Short","Medium","Long","AsyncLong"};
+
+#if GASNETC_USE_IBH
+#define GASNETC_MAX_THREAD 20
+extern volitile int gasnetc_interrupt_held[];
+#endif
+
 /* message structure... doubles as a token */
 typedef unsigned int gasnetc_flag_t;
 typedef struct {
@@ -80,11 +87,13 @@ typedef struct {
 #define GASNETC_MSG_CATEGORY(pmsg)  ((gasnetc_category_t)((pmsg)->flags & 0x3))
 
 /* MLW: Need more descriptive name for this macro */
-#define GASNETC_LCHECK(func)           \
-    if ((gasnetc_lapi_errno = func) != LAPI_SUCCESS) {   \
-       LAPI_Msg_string(gasnetc_lapi_errno,gasnetc_lapi_msg);       \
-       gasneti_fatalerror("LAPI Error at line %d, [%s] return code = %d\n", \
-       	                  __LINE__,gasnetc_lapi_msg,gasnetc_lapi_errno); \
+#define GASNETC_LCHECK(func) { \
+    int lapi_errno; \
+    if ((lapi_errno = func) != LAPI_SUCCESS) {   \
+       LAPI_Msg_string(lapi_errno,gasnetc_lapi_msg);       \
+       gasneti_fatalerror("LAPI Error on node %d in file %s at line %d, [%s] return code = %d\n", \
+       	                  gasnetc_mynode,__FILE__,__LINE__,gasnetc_lapi_msg,lapi_errno); \
+    } \
     }
 
 #define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
