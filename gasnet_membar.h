@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/07/26 09:03:24 $
- * $Revision: 1.42 $
+ *     $Date: 2004/07/26 20:21:03 $
+ * $Revision: 1.43 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -502,6 +502,7 @@
 
   To reduce duplicated assembly code and needless empty macros the following are the
   default behaviors unless a given arch/compiler defines something else.
+   + gasneti_local_compilerfence() defaults to an empty "volatile" asm section
    + gasneti_local_memflush() is implemented on all architectures
    + gasneti_local_wmb() defaults to gasneti_local_memflush() unless we are building
        specifically for a uniprocessor (in which case it is only a compiler fence).
@@ -594,9 +595,11 @@
    #ifdef __INTEL_COMPILER
       /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
       #include <ia64intrin.h>
-      #define gasneti_local_memflush() do {                 \
-        __memory_barrier(); /* compiler optimization barrier */ \
-        __mf();  /* memory fence instruction */                 \
+      #define gasneti_local_compilerfence() \
+             __memory_barrier() /* compiler optimization barrier */
+      #define gasneti_local_memflush() do {      \
+        gasneti_local_compilerfence();           \
+        __mf();  /* memory fence instruction */  \
       } while (0)
    #else
       /* mf may cause an illegal instruction trap on uniprocessor kernel */
@@ -696,12 +699,17 @@
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif
 
+/* Default gasneti_local_compilerfence() */
+#ifndef gasneti_local_compilerfence
+  #define gasneti_local_compilerfence() GASNETI_ASM("")
+#endif
+
 /* Default gasneti_local_wmb() */
 #ifndef gasneti_local_wmb
   #if defined(GASNETI_UNI_BUILD)
     /* UNI-processor: Only need a compiler barrier */
     GASNET_INLINE_MODIFIER(gasneti_local_wmb)
-    void gasneti_local_wmb(void) { GASNETI_ASM(""); }
+    void gasneti_local_wmb(void) { gasneti_local_compilerfence(); }
   #else
     /* SMP-safe: Default is wmb same as memflush */
     #define gasneti_local_wmb() gasneti_local_memflush()
@@ -712,7 +720,7 @@
 #ifndef gasneti_local_rmb
   /* Default is just a compiler barrier */
   GASNET_INLINE_MODIFIER(gasneti_local_rmb)
-  void gasneti_local_rmb(void) { GASNETI_ASM(""); }
+  void gasneti_local_rmb(void) { gasneti_local_compilerfence(); }
 #endif
 
 #ifndef gasneti_spinloop_hint
