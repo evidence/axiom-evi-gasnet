@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/12/24 03:10:18 $
- * $Revision: 1.37 $
+ *     $Date: 2004/01/06 23:09:22 $
+ * $Revision: 1.38 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1163,7 +1163,36 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
 #else
   /* (###) implement firehose */
 #endif
-  
+ 
+#if 0
+  /* XXX: experimental
+   * Try to perform "prefix cleanup" of unaligned transfers
+   */
+  #define GASNETC_PREFIX_ALIGN	2048
+  #define GASNETC_PREFIX_MASK	(GASNETC_PREFIX_ALIGN - 1)
+  #define GASNETC_PREFIX_COPY_LIMIT	8192
+  if ((nbytes > GASNETC_PREFIX_ALIGN) && (src & GASNETC_PREFIX_MASK)) {
+    if (nbytes <= GASNETC_PREFIX_COPY_LIMIT) {
+      /* just copy it to realign */
+      gasnetc_do_put_bounce(cep, rkey, src, dst, nbytes, req_oust);
+      return 0;
+    } else {
+      /* send enough to leave the rest aligned */
+      size_t size = GASNETC_PREFIX_ALIGN - (src & GASNETC_PREFIX_MASK);
+
+      if ((GASNETC_PUT_INLINE_LIMIT != 0) && (size <= GASNETC_PUT_INLINE_LIMIT)) {
+        gasnetc_do_put_inline(cep, rkey, src, dst, size, req_oust);
+      } else {
+        gasnetc_do_put_bounce(cep, rkey, src, dst, size, req_oust);
+      }
+
+      src += size;
+      dst += size;
+      nbytes -= size;
+    }
+  }
+#endif
+
   do {
     /* Use a short-cut for sends that are short enough.
      *
