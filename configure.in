@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/05/25 11:44:20 $
-# $Revision: 1.141 $
+#     $Date: 2004/05/25 15:06:37 $
+# $Revision: 1.142 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.141 $)
+AC_REVISION($Revision: 1.142 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -91,29 +91,6 @@ AC_PROG_CPP
 AC_PROG_LN_S
 AC_C_BIGENDIAN
 AC_CHECK_PROG(have_mpcc_r,mpcc_r,yes,no)
-
-dnl GASNET_GCC296CHECK(type)  type=CC or CXX
-AC_DEFUN([GASNET_GCC296CHECK],[
-AC_MSG_CHECKING(known buggy compilers)
-AC_TRY_COMPILE([
-#if __GNUC__ == 2 && __GNUC_MINOR__ == 96 && __GNUC_PATCHLEVEL__ == 0
-# error
-#endif
-],[ ], [ AC_MSG_RESULT(ok) ],[
-AC_MSG_RESULT([$1] is gcc 2.96)
-gcc296msg="Use of gcc/g++ 2.96 for compiling this software is strongly discouraged. \
-It is not an official GNU release and has many serious known bugs, especially \
-in the optimizer, which may lead to bad code and incorrect runtime behavior. \
-Consider using \$[$1] to select a different compiler."
-GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc/g++ 2.96 compiler, [ 
-  AC_MSG_WARN([$gcc296msg])  
-  ],[ 
-  AC_MSG_ERROR([$gcc296msg \
-  You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc296 flag.])  
-])
-])
-])
-
 AC_SUBST(CC)
 
 ## DOB: this is more trouble than it's worth because so many OS's define

@@ -9,6 +9,28 @@ AUTOCONF_VERSION=`echo $AUTOCONF_VERSION_STR | $AWK -F. '{ printf("%i%i",[$]1,[$
 AC_MSG_RESULT($AUTOCONF_VERSION_STR)
 ])
 
+dnl GASNET_GCC296CHECK(type)  type=CC or CXX
+AC_DEFUN([GASNET_GCC296CHECK],[
+AC_MSG_CHECKING(known buggy compilers)
+AC_TRY_COMPILE([
+#if __GNUC__ == 2 && __GNUC_MINOR__ == 96 && __GNUC_PATCHLEVEL__ == 0
+# error
+#endif
+],[ ], [ AC_MSG_RESULT(ok) ],[
+AC_MSG_RESULT([$1] is gcc 2.96)
+gcc296msg="Use of gcc/g++ 2.96 for compiling this software is strongly discouraged. \
+It is not an official GNU release and has many serious known bugs, especially \
+in the optimizer, which may lead to bad code and incorrect runtime behavior. \
+Consider using \$[$1] to select a different compiler."
+GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc/g++ 2.96 compiler, [
+  AC_MSG_WARN([$gcc296msg])
+  ],[
+  AC_MSG_ERROR([$gcc296msg \
+  You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc296 flag.])
+])
+])
+])
+
 AC_DEFUN([GASNET_FIX_SHELL],[
 AC_MSG_CHECKING(for good shell)
 if test "$BASH" = '' && test `uname` = HP-UX; then
@@ -476,6 +498,18 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
     GASNET_IFDEF(_SX, $3=NEC)
   fi
 ])
+if test "$$3" != "GNU" ; then
+  dnl Some compilers (eg Intel 8.0) define __GNUC__ even though they are definitely not GNU C
+  dnl Don't believe their filthy lies
+  case $1 in 
+    CC) ac_cv_c_compiler_gnu=no
+        GCC=""
+    ;;
+    CXX) ac_cv_cxx_compiler_gnu=no
+        GXX=""
+    ;;
+  esac
+fi
 $2_FAMILY=$$3
 $2_UNWRAPPED=$$2
 case $$3 in
