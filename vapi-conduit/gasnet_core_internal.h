@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/03/16 22:54:44 $
- * $Revision: 1.68 $
+ *     $Date: 2005/03/22 00:05:16 $
+ * $Revision: 1.69 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -173,6 +173,9 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* ------------------------------------------------------------------------------------ */
 /* Configuration */
+
+/* Maximum length of a pinned segment (to avoid on-HCA TLB thrashing bug) */
+#define GASNETC_PIN_MAXSZ (256*1024)
 
 /* Scatter-gather segments.
  * Only 1 makes sense right now for normal use.
@@ -536,9 +539,10 @@ typedef struct {
   gasnetc_sema_t	am_sema;	/* control in-flight AM Requests */
   VAPI_qp_hndl_t	qp_handle;	/* == unsigned long */
   #if GASNETC_PIN_SEGMENT
-    /* RKey for the segment, registered at attach time */
-    VAPI_rkey_t		rkey;		/* == uint32_t */
-    char		_pad[GASNETC_CACHE_PAD(2*sizeof(gasnetc_sema_t)+sizeof(VAPI_qp_hndl_t)+sizeof(VAPI_rkey_t))];
+    /* Bounds and RKey(s) for the segment, registered at attach time */
+    uintptr_t		end;	/* Cached inclusive ending address of the remote segment */
+    VAPI_rkey_t		*rkeys;	/* RKey(s) registered at attach time (== uint32_t) */
+    char		_pad[GASNETC_CACHE_PAD(2*sizeof(gasnetc_sema_t)+sizeof(VAPI_qp_hndl_t)+sizeof(uintptr_t)+sizeof(void*))];
   #else
     char		_pad[GASNETC_CACHE_PAD(2*sizeof(gasnetc_sema_t)+sizeof(VAPI_qp_hndl_t))];
   #endif
@@ -597,7 +601,10 @@ extern VAPI_pd_hndl_t	gasnetc_pd;
 extern gasnetc_memreg_t		gasnetc_snd_reg;
 extern gasnetc_memreg_t		gasnetc_rcv_reg;
 #if GASNETC_PIN_SEGMENT
-  extern gasnetc_memreg_t	gasnetc_seg_reg;
+  extern int			gasnetc_seg_reg_count;
+  extern gasnetc_memreg_t	*gasnetc_seg_reg;
+  extern uintptr_t		gasnetc_seg_start;
+  extern uintptr_t		gasnetc_seg_end;
 #endif
 #if GASNETC_USE_FIREHOSE
   extern size_t			gasnetc_fh_maxsz;

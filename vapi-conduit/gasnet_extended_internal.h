@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2005/02/17 13:19:26 $
- * $Revision: 1.17 $
+ *     $Date: 2005/03/22 00:05:16 $
+ * $Revision: 1.18 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,13 +11,6 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
-
-/* Tune cut-off between PUTs and AMs for memset, 0 disables PUTs */
-#if GASNETC_PIN_SEGMENT
-  #define GASNETE_MEMSET_PUT_LIMIT        GASNETC_BUFSZ
-#else
-  #define GASNETE_MEMSET_PUT_LIMIT        0
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 typedef uint8_t gasnete_threadidx_t;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/03/16 21:15:34 $
- * $Revision: 1.32 $
+ *     $Date: 2005/03/22 00:05:16 $
+ * $Revision: 1.33 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,10 +22,6 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
 #endif
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
-
-#if !GASNETC_PIN_SEGMENT && GASNETE_MEMSET_PUT_LIMIT
-  #error "GASNETE_MEMSET_PUT_LIMIT must be zero when GASNETC_PIN_SEGMENT is disabled"
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -458,19 +454,11 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
 extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
 
-#if GASNETC_PIN_SEGMENT
-  if ((GASNETE_MEMSET_PUT_LIMIT != 0 ) && (nbytes <= GASNETE_MEMSET_PUT_LIMIT)) {
-    /* XXX check error returns */
-    gasnetc_rdma_memset(node, dest, val, nbytes, &eop->req_oust);
-  } else
-#endif
-  {
-    gasnetc_counter_inc(&eop->req_oust);
-    GASNETI_SAFE(
-      SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
-                   (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,
-                   PACK(dest), PACK(&eop->req_oust))));
-  } 
+  gasnetc_counter_inc(&eop->req_oust);
+  GASNETI_SAFE(
+    SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
+                 (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,
+                 PACK(dest), PACK(&eop->req_oust))));
 
   return (gasnet_handle_t)eop;
 }
@@ -581,19 +569,11 @@ extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *iop = mythread->current_iop;
 
-#if GASNETC_PIN_SEGMENT
-  if ((GASNETE_MEMSET_PUT_LIMIT != 0 ) && (nbytes <= GASNETE_MEMSET_PUT_LIMIT)) {
-    /* XXX check error returns */
-    gasnetc_rdma_memset(node, dest, val, nbytes, &iop->put_req_oust);
-  } else
-#endif
-  {
-    gasnetc_counter_inc(&iop->put_req_oust);
-    GASNETI_SAFE(
-      SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
-                   (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,
-                   PACK(dest), PACK(&iop->put_req_oust))));
-  } 
+  gasnetc_counter_inc(&iop->put_req_oust);
+  GASNETI_SAFE(
+    SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
+                 (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,
+                 PACK(dest), PACK(&iop->put_req_oust))));
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -706,19 +686,11 @@ extern void gasnete_memset (gasnet_node_t node, void *dest, int val,
 		            size_t nbytes GASNETE_THREAD_FARG) {
   gasnetc_counter_t req_oust = GASNETC_COUNTER_INITIALIZER;
 
-#if GASNETC_PIN_SEGMENT
-  if ((GASNETE_MEMSET_PUT_LIMIT != 0 ) && (nbytes <= GASNETE_MEMSET_PUT_LIMIT)) {
-    /* XXX check error returns */
-    gasnetc_rdma_memset(node, dest, val, nbytes, &req_oust);
-  } else
-#endif
-  {
-    gasnetc_counter_inc(&req_oust);
-    GASNETI_SAFE(
-      SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
-                   (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,
-                   PACK(dest), PACK(&req_oust))));
-  } 
+  gasnetc_counter_inc(&req_oust);
+  GASNETI_SAFE(
+    SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
+                 (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,
+                 PACK(dest), PACK(&req_oust))));
 
   gasnetc_counter_wait(&req_oust, 0);
 }

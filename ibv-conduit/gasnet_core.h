@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.h,v $
- *     $Date: 2005/03/16 21:15:34 $
- * $Revision: 1.29 $
+ *     $Date: 2005/03/22 00:05:16 $
+ * $Revision: 1.30 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -223,7 +223,6 @@ extern int gasnetc_ReplySystem(
 	gasnetc_rdma_put_fh(node,src_ptr,dst_ptr,nbytes,mem_oust,req_oust,NULL)
 #endif
 extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *req_oust);
-extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, gasnetc_counter_t *req_oust);
 
 /* ------------------------------------------------------------------------------------ */
 

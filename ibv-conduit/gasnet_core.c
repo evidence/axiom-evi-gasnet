@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/03/16 22:48:33 $
- * $Revision: 1.79 $
+ *     $Date: 2005/03/22 00:05:16 $
+ * $Revision: 1.80 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -71,7 +71,10 @@ VAPI_hca_cap_t	gasnetc_hca_cap;
 VAPI_hca_port_t	gasnetc_hca_port;
 VAPI_pd_hndl_t	gasnetc_pd;
 #if GASNETC_PIN_SEGMENT
-  gasnetc_memreg_t	gasnetc_seg_reg;
+  int			gasnetc_seg_reg_count;
+  gasnetc_memreg_t	*gasnetc_seg_reg;
+  uintptr_t		gasnetc_seg_start;
+  uintptr_t		gasnetc_seg_end;
 #endif
 #if GASNETC_USE_FIREHOSE
   firehose_info_t	gasnetc_firehose_info;
@@ -992,27 +995,64 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #elif GASNETC_PIN_SEGMENT
   {
     /* allocate the segment and exchange seginfo */
+    int max_regs;
+
     gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasneti_bootstrapExchange);
     segbase = gasneti_seginfo[gasneti_mynode].addr;
     segsize = gasneti_seginfo[gasneti_mynode].size;
 
+    gasnetc_seg_start = (uintptr_t)segbase;
+    gasnetc_seg_end   = (uintptr_t)segbase + (segsize - 1);
+
+    /* Find the largest number of pinned regions required */
+    { gasnet_node_t i;
+      size_t maxsize = 0;
+      for (i=0; i<gasneti_nodes; ++i) {
+	maxsize = MAX(maxsize, gasneti_seginfo[i].size);
+      }
+      max_regs = (maxsize + GASNETC_PIN_MAXSZ - 1) / GASNETC_PIN_MAXSZ;
+    }
+
     /* pin the segment and exchange the RKeys */
-    { VAPI_rkey_t	*rkeys;
+    { VAPI_rkey_t	*rkeys, *my_rkeys;
       VAPI_ret_t	vstat;
+      size_t		remain;
+      uintptr_t		addr, end;
       int		i;
 
-      vstat = gasnetc_pin(segbase, segsize,
-			  VAPI_EN_LOCAL_WRITE | VAPI_EN_REMOTE_WRITE | VAPI_EN_REMOTE_READ,
-			  &gasnetc_seg_reg);
-      GASNETC_VAPI_CHECK(vstat, "from VAPI_register_mr(segment)");
+      my_rkeys = gasneti_calloc(max_regs, sizeof(VAPI_rkey_t));
+      rkeys = gasneti_calloc(gasneti_nodes*max_regs, sizeof(VAPI_rkey_t));
+      gasnetc_seg_reg = gasneti_calloc(max_regs, sizeof(gasnetc_memreg_t));
 
-      rkeys = gasneti_calloc(gasneti_nodes,sizeof(VAPI_rkey_t));
-      gasneti_assert(rkeys != NULL);
-      gasneti_bootstrapExchange(&gasnetc_seg_reg.rkey, sizeof(VAPI_rkey_t), rkeys);
-      for (i=0;i<gasneti_nodes;i++) {
-        gasnetc_cep[i].rkey = rkeys[i];
+      i = 0;
+      addr = gasnetc_seg_start;
+      remain = segsize;
+      while (remain > GASNETC_PIN_MAXSZ) {
+        vstat = gasnetc_pin((void *)addr, GASNETC_PIN_MAXSZ,
+			    VAPI_EN_LOCAL_WRITE | VAPI_EN_REMOTE_WRITE | VAPI_EN_REMOTE_READ,
+			    &gasnetc_seg_reg[i]);
+        GASNETC_VAPI_CHECK(vstat, "from VAPI_register_mr(segment)");
+	my_rkeys[i] = gasnetc_seg_reg[i].rkey;
+	++i;
+	addr += GASNETC_PIN_MAXSZ;
+	remain -= GASNETC_PIN_MAXSZ;
       }
-      gasneti_free(rkeys);
+      vstat = gasnetc_pin((void *)addr, remain,
+			  VAPI_EN_LOCAL_WRITE | VAPI_EN_REMOTE_WRITE | VAPI_EN_REMOTE_READ,
+			  &gasnetc_seg_reg[i]);
+      GASNETC_VAPI_CHECK(vstat, "from VAPI_register_mr(segment)");
+      my_rkeys[i] = gasnetc_seg_reg[i].rkey;
+      gasnetc_seg_reg_count = i + 1;
+      gasneti_assert(gasnetc_seg_reg_count <= max_regs);
+
+      gasneti_bootstrapExchange(my_rkeys, max_regs*sizeof(VAPI_rkey_t), rkeys);
+      gasneti_free(my_rkeys);
+
+      for (i=0;i<gasneti_nodes;i++) {
+        gasnetc_cep[i].rkeys = &rkeys[i*max_regs];
+        gasnetc_cep[i].end = (uintptr_t)gasneti_seginfo[gasneti_mynode].addr +
+        						(gasneti_seginfo[gasneti_mynode].size - 1);
+      }
     }
   }
   #else	/* just allocate the segment but don't pin it */
@@ -1045,6 +1085,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	reg_count++;
     }
     #if GASNETC_PIN_SEGMENT
+    	/* XXX: expand for multi-region case */
 	prereg[reg_count].addr          = gasnetc_seg_reg.addr;
 	prereg[reg_count].len           = gasnetc_seg_reg.len;
 	prereg[reg_count].client.handle = VAPI_INVAL_HNDL;	/* unreg must fail */
@@ -1530,7 +1571,10 @@ static void gasnetc_exit_body(void) {
     gasnetc_sndrcv_fini();
     if (gasneti_attach_done) {
 #if GASNETC_PIN_SEGMENT
-      gasnetc_unpin(&gasnetc_seg_reg);
+      for (i=0; i<gasnetc_seg_reg_count; ++i) {
+      	gasnetc_unpin(&gasnetc_seg_reg[i]);
+      }
+      gasneti_free(gasnetc_seg_reg);
 #endif
 #if GASNETC_USE_FIREHOSE
 #if 0	/* Dump firehose table as pairs: page_number length_in_pages */
