@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.h,v $
- *     $Date: 2004/08/26 04:53:50 $
- * $Revision: 1.7 $
+ *     $Date: 2004/10/09 14:44:08 $
+ * $Revision: 1.8 $
  * Description: AMUDP Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -12,12 +12,15 @@
 
 BEGIN_EXTERNC
 
+/* idiot proofing */
+#undef  AMUDP_SPMDStartup
+#define AMUDP_SPMDStartup _CONCAT(AMUDP_SPMDStartup_AMUDP,AMUDP_DEBUG_CONFIG)
+
 /* ------------------------------------------------------------------------------------ */
 /* AMUDP SPMD Entry Points */
 
 typedef int (*amudp_spawnfn_t)(int nproc, int argc, char **argv);
 /* return non-zero if successful */
-
 
 extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                              int nproc, int networkdepth, 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2004/09/24 04:14:53 $
- * $Revision: 1.26 $
+ *     $Date: 2004/10/09 14:44:05 $
+ * $Revision: 1.27 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -409,9 +409,9 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
 #define amx_handler_fn_t          ammpi_handler_fn_t
 
 #if !defined(AMMPI_DEBUG) && !defined(AMMPI_NDEBUG)
-  #if defined(GASNET_DEBUG)
+  #if defined(GASNET_DEBUG) || defined(AMX_DEBUG)
     #define AMMPI_DEBUG 1
-  #elif defined(GASNET_NDEBUG)
+  #elif defined(GASNET_NDEBUG) || defined(AMX_NDEBUG)
     #define AMMPI_NDEBUG 1
   #endif
 #endif
@@ -425,11 +425,16 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
   #error bad defns of AMMPI_DEBUG and AMMPI_NDEBUG
 #endif
 
+#undef AMX_DEBUG
+#undef AMX_NDEBUG
+
 #ifdef AMMPI_DEBUG
   #define AMX_DEBUG AMMPI_DEBUG
+  #define AMMPI_DEBUG_CONFIG _DEBUG
 #endif
 #ifdef AMMPI_NDEBUG
   #define AMX_NDEBUG AMMPI_NDEBUG
+  #define AMMPI_DEBUG_CONFIG _NDEBUG
 #endif
 #ifdef AMMPI_DEBUG_VERBOSE
   #define AMX_DEBUG_VERBOSE AMMPI_DEBUG_VERBOSE
@@ -440,6 +445,14 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
     #error Tried to compile AMMPI client code with optimization enabled but also AMMPI_DEBUG (which seriously hurts performance). Disable C and MPI_CC compiler optimization or reconfigure/rebuild without --enable-debug
   #endif
 #endif
+
+#ifndef _CONCAT
+#define _CONCAT_HELPER(a,b) a ## b
+#define _CONCAT(a,b) _CONCAT_HELPER(a,b)
+#endif
+
+#undef AM_Init
+#define AM_Init _CONCAT(AM_Init_AMMPI,AMMPI_DEBUG_CONFIG)
 
 /* System parameters */
 #define AM_MaxShort()   AMMPI_MAX_SHORT

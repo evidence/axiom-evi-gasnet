@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.h,v $
- *     $Date: 2004/08/26 04:53:48 $
- * $Revision: 1.11 $
+ *     $Date: 2004/10/09 14:44:05 $
+ * $Revision: 1.12 $
  * Description: AMMPI Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -11,6 +11,9 @@
 #include <ammpi.h>
 
 BEGIN_EXTERNC
+
+#undef  AMMPI_SPMDStartup
+#define AMMPI_SPMDStartup _CONCAT(AMMPI_SPMDStartup_AMMPI,AMMPI_DEBUG_CONFIG)
 
 /* ------------------------------------------------------------------------------------ */
 /* AMMPI SPMD Entry Points */
