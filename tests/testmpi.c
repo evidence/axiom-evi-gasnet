@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2003/08/31 12:38:56 $
- * $Revision: 1.1 $
+ *     $Date: 2003/09/07 00:29:51 $
+ * $Revision: 1.2 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -295,7 +295,7 @@ void test_mpi(threaddata_t *tdata) {
     sendbuf = (char*)test_malloc(sz);
     recvbuf = (char*)test_malloc(sz);
 
-    for (i=0; i < sz; i++) {
+    for (i=0; i < MIN(sz,4096); i++) { /* randomize at least the first 4 KB */
       sendbuf[i] = (char)rand();
     }
 
