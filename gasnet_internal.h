@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2004/01/13 21:16:23 $
- * $Revision: 1.48 $
+ *     $Date: 2004/01/13 21:49:10 $
+ * $Revision: 1.49 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -104,13 +104,11 @@ extern int gasneti_attach_done; /*  true after attach */
 
 /* ------------------------------------------------------------------------------------ */
 /* Version of strdup() which is compatible w/ gasneti_free(), instead of plain free() */
-#if 0
 #ifdef __GNUC__ 
   GASNET_INLINE_MODIFIER(gasneti_strdup)
-  void *gasneti_strdup(size_t nbytes) __attribute__((__malloc__));
+  char *gasneti_strdup(const char *s) __attribute__((__malloc__));
   GASNET_INLINE_MODIFIER(gasneti_strndup)
   char *gasneti_strndup(const char *s, size_t n) __attribute__((__malloc__));
-#endif
 #endif
 GASNET_INLINE_MODIFIER(gasneti_strdup)
 char *gasneti_strdup(const char *s) {
