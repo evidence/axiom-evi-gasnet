@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testsmall.c,v $
- *     $Date: 2005/02/17 13:19:21 $
- * $Revision: 1.22 $
+ *     $Date: 2005/02/23 08:25:49 $
+ * $Revision: 1.23 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -547,6 +547,7 @@ int main(int argc, char **argv)
 
   	for (j = min_payload; j <= max_payload; j *= 2)  oneway_nb_test(iters, j);
 
+        BARRIER();
         if (!insegment) {
 	  test_free(alloc);
 	}

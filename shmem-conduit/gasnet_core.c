@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/18 13:32:25 $
- * $Revision: 1.10 $
+ *     $Date: 2005/02/23 08:25:47 $
+ * $Revision: 1.11 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,6 +32,7 @@ gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table 
 gasnet_seginfo_t	 gasnetc_seginfo_init;
 int			 gasnetc_seginfo_allocated = 0;
 size_t			 gasnetc_pagesize;
+pid_t                   *gasnetc_pid = NULL;
 
 int  gasnetc_amq_idx = 0;
 int  gasnetc_amq_depth = -1;	/* max is GASNETC_AMQUEUE_MAX_DEPTH */
@@ -71,6 +72,41 @@ static void gasnetc_bootstrapBarrier() {
 	shmem_barrier_all();
 }
 
+static void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
+  static long pSync[_SHMEM_COLLECT_SYNC_SIZE];
+  static void *tmpbuf = NULL;
+  static int tmpbufsz = 0;
+  size_t elemlen = (size_t)GASNETI_ALIGNUP(len,8);
+  size_t totallen = elemlen*gasneti_nodes;
+
+  GASNETI_TRACE_PRINTF(D,("gasnetc_bootstrapExchange(%i bytes)",(int)len));
+  gasnetc_bootstrapBarrier();
+  if (tmpbufsz < totallen) {
+    if (tmpbuf) shfree(tmpbuf);
+    else { /* first-time call */
+      int i;
+      for (i=0; i < _SHMEM_COLLECT_SYNC_SIZE; i++)
+	  pSync[i] = _SHMEM_SYNC_VALUE;
+    }
+    tmpbuf = shmalloc(totallen);
+    gasneti_assert_always(tmpbuf);
+    tmpbufsz = totallen;
+    gasnetc_bootstrapBarrier(); /* wait for pSync init */ 
+  }
+  memcpy(((char*)tmpbuf)+(elemlen*gasneti_mynode), src, len); /* copy into place */
+
+  /* perform exchange */
+  shmem_fcollect64(tmpbuf,((char*)tmpbuf)+(elemlen*gasneti_mynode),
+                   elemlen/8,0,0,gasneti_nodes,pSync);
+  gasneti_assert(!memcmp(((char*)tmpbuf)+(elemlen*gasneti_mynode), src, len));
+
+  { int i; /* copy back */
+    for (i=0; i < gasneti_nodes; i++) {
+      memcpy(((char*)dest)+(len*i), ((char*)tmpbuf)+(elemlen*i), len);
+    }
+  }
+  gasnetc_bootstrapBarrier();
+}
 
 static int gasnetc_init(int *argc, char ***argv) {
   char *qdepth;
@@ -106,6 +142,9 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_amq_numfields = (gasnetc_amq_depth+63)/64;
   #endif
 
+  gasnetc_pid = gasneti_malloc(gasneti_nodes*sizeof(pid_t));
+  gasnetc_pid[gasneti_mynode] = getpid();
+  gasnetc_bootstrapExchange(&(gasnetc_pid[gasneti_mynode]), sizeof(pid_t), gasnetc_pid);
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
@@ -144,6 +183,10 @@ static int gasnetc_init(int *argc, char ***argv) {
   #else
     #error Bad segment config
   #endif
+
+  /*  register signal handlers early to support signalling exit */
+  gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
+  gasnetc_bootstrapBarrier(); /* wait for global register, to handle exit in init/attach interval */ 
 
   gasneti_init_done = 1;  
 
@@ -223,6 +266,11 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   if (gasneti_attach_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already attached");
 
+  /* wait for all nodes to arrive - increases system stability if there's a gasnet_exit()
+     call between init and attach 
+   */
+  gasnetc_bootstrapBarrier(); 
+
   /*  check argument sanity */
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     if ((segsize % GASNET_PAGESIZE) != 0) 
@@ -278,14 +326,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   }
 
   /* ------------------------------------------------------------------------------------ */
-  /*  register fatal signal handlers */
-
-  /* catch fatal signals and convert to SIGQUIT */
-  gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
-
-  /*  register any custom signal handlers required by your conduit 
-   *        (e.g. to support interrupt-based messaging)
-   */
 
   atexit(gasnetc_atexit);
 
@@ -355,24 +395,15 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
 	    #ifdef CRAY_SHMEM
 	    {
-		static long	pSync[_SHMEM_COLLECT_SYNC_SIZE];
-		intptr_t	*shm_collect;
+		void **shm_collect;
 		uintptr_t	pemask, shmoff;
 		long		lastnode;
 
-		for (i=0; i < _SHMEM_COLLECT_SYNC_SIZE; i++)
-		    pSync[i] = _SHMEM_SYNC_VALUE;
-		shmem_barrier_all();
-
-		gasneti_assert(segsize >= sizeof(uintptr_t) * gasneti_nodes);
-
-		shm_collect = (intptr_t *) segbase;
-		shmem_fcollect64
-		    ((void *)shm_collect,&segbase,1,0,0,gasneti_nodes,pSync);
-		gasneti_assert(shm_collect[gasneti_mynode] == (intptr_t)segbase);
+                shm_collect = gasneti_malloc(sizeof(void *) * gasneti_nodes);
+                gasnetc_bootstrapExchange(&segbase, sizeof(void *), shm_collect);
 
 		for (i=0;i<gasneti_nodes;i++) {
-		    gasneti_seginfo[i].addr = (void *) shm_collect[i];
+		    gasneti_seginfo[i].addr = shm_collect[i];
 		    gasneti_seginfo[i].size = segsize;
 		    shmoff = (intptr_t) shm_collect[i] - (intptr_t) segbase;
 
@@ -394,7 +425,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 		    gasnete_addr_bits_mask = 
 			    (uintptr_t) (1UL<<gasnete_pe_bits_shift)-1;
 		}
-		memset(shm_collect, 0,  sizeof(uintptr_t) * gasneti_nodes);
+		gasneti_free(shm_collect);
 	    }
 	    #elif defined(SGI_SHMEM)
 	    {
@@ -447,45 +478,29 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	}
     }
     #ifdef CRAYX1
-    {
-	/* Although there is no GASNet segment, we must still recover the
-	 * mask/shift bits to translate X1 pointers */
-	static long	pSync[_SHMEM_COLLECT_SYNC_SIZE];
-	intptr_t	*ptrs, ptr;
-	int		i;
+    { /* Although there is no GASNet segment, we must still recover the
+       * mask/shift bits to translate X1 pointers */
+       static int dummy = 0; /* an indicator of where our static data resides on each node */
+       void *ptr;
+       void **ptrs;
 
-	for (i=0; i < _SHMEM_COLLECT_SYNC_SIZE; i++)
-	    pSync[i] = _SHMEM_SYNC_VALUE;
-
-	ptrs = (intptr_t *) shmalloc(sizeof(intptr_t) * gasneti_nodes);
-	shmem_barrier_all();
-	if_pf(ptrs == NULL)
-		gasneti_fatalerror("malloc failed at initialization");
-	/*
-	 * Use gasneti_MaxLocalSegmentSize since it is in the static segment as
-	 * an indicator of where our static data resides on each node
-	 */
-	ptr = (intptr_t) &gasneti_MaxLocalSegmentSize;
-	shmem_fcollect64
-	    ((void *)ptrs,&ptr,1,0,0,gasneti_nodes,pSync);
+       ptr = &dummy;
+       ptrs = gasneti_malloc(gasneti_nodes*sizeof(void*));
+       gasnetc_bootstrapExchange(&ptr, sizeof(void *), ptrs);
 
 	if (gasneti_nodes == 1) {
 	    gasnete_pe_bits_shift = 0;
 	    gasnete_addr_bits_mask = (uintptr_t) -1;
-	}   
-	else {
+	} else {
 	    gasnete_pe_bits_shift = 63-_leadz((long)ptrs[1]);
-	    gasnete_addr_bits_mask = 
-		    (uintptr_t) (1UL<<gasnete_pe_bits_shift)-1;
+	    gasnete_addr_bits_mask = (uintptr_t) (1UL<<gasnete_pe_bits_shift)-1;
 	}
-	#if 0
-	printf("%2d> addr=%p mask=%p shift=%d other=%p ptr_other=%p\n", gasneti_mynode, 
-			(void *) &gasneti_MaxLocalSegmentSize,
-		(void *)gasnete_addr_bits_mask, gasnete_pe_bits_shift, 
-		GASNETE_TRANSLATE_X1(&gasneti_MaxLocalSegmentSize, gasneti_mynode ^ 1),
-		ptrs[1]);
-	#endif
-	shfree(ptrs);
+        { int other = (gasneti_mynode ^ 1) % gasneti_nodes;
+	  GASNETI_TRACE_PRINTF(D,("addr=%p mask=%p shift=%d other(%i)=%p ptr_other=%p\n",
+			(void *)ptr,(void *)gasnete_addr_bits_mask, gasnete_pe_bits_shift, 
+		        other, GASNETE_TRANSLATE_X1(ptr, other), ptrs[other]));
+        }
+	gasneti_free(ptrs);
     }
     #endif /* CRAY X1 */
   #endif
@@ -545,6 +560,14 @@ extern void gasnetc_exit(int exitcode) {
            with gasneti_killmyprocess(exitcode) (not regular exit()), preferably
            after raising a SIGQUIT to inform the client of the exit
   */
+  #if defined(CRAY_SHMEM) || defined(SGI_SHMEM)
+    { /* send a sigquit to every process */
+      int i=0;
+      for (i=0; i < gasneti_nodes; i++) {
+        if (i != gasneti_mynode) kill(gasnetc_pid[i], SIGQUIT); 
+      }
+    }
+  #endif 
 
   #if defined(CRAY_SHMEM) || defined(SGI_SHMEM)
     if (gasnetc_seginfo_allocated)
@@ -1207,17 +1230,6 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable() {
   return gasnetc_handlers;
 }
 
-/*
- * SegmentInit() uses a network-specific way of detecting the maximum segment
- * that can be allocated.
- *
- */
-static
-int
-gasnetc_SegmentInit()
-{
-	return 1;
-}
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_SHMALLOC_GRANULARITY	(256<<20)
 

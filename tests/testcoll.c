@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/02/17 13:19:21 $
- * $Revision: 1.12 $
+ *     $Date: 2005/02/23 08:25:49 $
+ * $Revision: 1.13 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -418,7 +418,10 @@ int main(int argc, char **argv)
 #if GASNET_ALIGNED_SEGMENTS != 1
     if (myproc == 0) {
 	printf("This test currently requires aligned segments - exiting w/o running the test\n");
+        fflush(NULL);
     }
+    BARRIER();
+    return 0;
 #else
 
     if (argc > 1) {

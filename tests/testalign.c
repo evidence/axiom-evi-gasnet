@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testalign.c,v $
- *     $Date: 2005/02/17 13:19:21 $
- * $Revision: 1.10 $
+ *     $Date: 2005/02/23 08:25:49 $
+ * $Revision: 1.11 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -320,6 +320,7 @@ int main(int argc, char **argv)
       for (j = 1; j <= PAGESZ; j *= 2) oneway_nbi_test(iters, size, j);
       for (j = 1; j <= PAGESZ; j *= 2) oneway_nb_test(iters, size, j);
 
+    BARRIER();
     gasnet_exit(0);
 
     return 0;
