@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2004/09/12 01:57:47 $
- * $Revision: 1.73 $
+ *     $Date: 2004/09/19 07:54:42 $
+ * $Revision: 1.74 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -227,8 +227,8 @@ extern int gasneti_cpu_count() {
         }
         if (hwprocs < 1) hwprocs = 0;
       }
-  #elif defined(HPUX) || defined(SUPERUX)
-      hwprocs = 0; /* appears to be no way to query CPU count on HPUX or SuperUX */
+  #elif defined(HPUX) || defined(SUPERUX) || defined(FREEBSD)
+      hwprocs = 0; /* appears to be no way to query CPU count on these */
   #else
       hwprocs = sysconf(_SC_NPROCESSORS_ONLN);
       if (hwprocs < 1) hwprocs = 0; /* catch failures on Solaris/Cygwin */
