@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2004/09/07 08:01:18 $
- * $Revision: 1.22 $
+ *     $Date: 2004/10/16 19:19:47 $
+ * $Revision: 1.23 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -124,10 +124,27 @@ BEGIN_EXTERNC
   #endif
   extern void gasneti_flush_streams();
   #define gasnett_flush_streams() gasneti_flush_streams()
+
+  #define gasnett_threadkey_t           gasneti_threadkey_t
+  #define GASNETT_THREADKEY_INITIALIZER GASNETI_THREADKEY_INITIALIZER
+  #define gasnett_threadkey_get(key)                gasneti_threadkey_get(key)
+  #define gasnett_threadkey_set(key,newval)         gasneti_threadkey_set(key,newval)
+  #define gasnett_threadkey_init(pkey)              gasneti_threadkey_init(pkey)
+  #define gasnett_threadkey_get_noinit(key)         gasneti_threadkey_get_noinit(key)
+  #define gasnett_threadkey_set_noinit(key,newval)  gasneti_threadkey_set_noinit(key,newval)
+
 #else
   #define gasnett_cpu_count()     abort()
   #define gasnett_mmap(sz)        abort()
   #define gasnett_flush_streams() abort()
+
+  #define gasnett_threadkey_t           char
+  #define GASNETT_THREADKEY_INITIALIZER 0
+  #define gasnett_threadkey_get(key)                abort()
+  #define gasnett_threadkey_set(key,newval)         abort()
+  #define gasnett_threadkey_init(pkey)              abort()
+  #define gasnett_threadkey_get_noinit(key)         abort()
+  #define gasnett_threadkey_set_noinit(key,newval)  abort()
 #endif
 
 END_EXTERNC

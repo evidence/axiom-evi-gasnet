@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2004/10/08 07:47:03 $
- * $Revision: 1.38 $
+ *     $Date: 2004/10/16 19:19:47 $
+ * $Revision: 1.39 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -436,6 +436,91 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
       gasneti_fatalerror("There's only one thread: waiting on condition variable => deadlock")
 #endif
 /* ------------------------------------------------------------------------------------ */
+/* Wrappers for pthread getspecific data 
+
+  Must be declared as:
+    gasneti_threadkey_t mykey = GASNETI_THREADKEY_INITIALIZER;
+  and then can be used as:
+    void *val = gasneti_threadkey_get(mykey);
+    gasneti_threadkey_set(mykey,val);
+  no initialization is required (happens automatically on first access).
+
+  Initialization can optionally be performed using:
+    gasneti_threadkey_init(&mykey);
+  which then allows subsequent calls to:
+    void *val = gasneti_threadkey_get_noinit(mykey);
+    gasneti_threadkey_set_noinit(mykey,val);
+  these save a branch by avoiding the initialization check.
+  gasneti_threadkey_init is permitted to be called multiple times and
+  from multiple threads - calls after the first one will be ignored.
+*/
+#define GASNETI_THREADKEY_MAGIC 0xFF00ABCDEF573921ULL
+
+typedef struct { 
+  uint64_t magic;
+  gasneti_mutex_t initmutex;
+  int isinit;
+  #if GASNETI_THREADS
+    pthread_key_t value;
+  #else
+    void *value;
+  #endif
+} gasneti_threadkey_t;
+
+#define GASNETI_THREADKEY_INITIALIZER \
+  { GASNETI_THREADKEY_MAGIC, GASNETI_MUTEX_INITIALIZER, 0 /* value field left NULL */ }
+
+#define _gasneti_threadkey_check(key, requireinit)         \
+ ( gasneti_assert((key).magic == GASNETI_THREADKEY_MAGIC), \
+   (requireinit ? gasneti_assert((key).isinit) : ((void)0)))
+
+#if GASNETI_THREADS
+  #define _gasneti_threadkey_init(pvalue) \
+    gasneti_assert_zeroret(pthread_key_create((pvalue),NULL));
+  #define gasneti_threadkey_get_noinit(key) \
+    ( _gasneti_threadkey_check((key), 1),   \
+      pthread_getspecific((key).value) )
+  #define gasneti_threadkey_set_noinit(key, newvalue) do {                \
+    _gasneti_threadkey_check((key), 1);                                   \
+    gasneti_assert_zeroret(pthread_setspecific((key).value, (newvalue))); \
+  } while (0)
+#else
+  #define _gasneti_threadkey_init(pvalue) ((void)0)
+  #define gasneti_threadkey_get_noinit(key) \
+    (_gasneti_threadkey_check((key), 1), (key).value)
+  #define gasneti_threadkey_set_noinit(key, newvalue) do { \
+    _gasneti_threadkey_check((key), 1);                    \
+    (key).value = (newvalue);                              \
+  } while (0)
+#endif
+  
+/* not inlined, to avoid inserting overhead for an uncommon path */
+static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
+  _gasneti_threadkey_check(*pkey, 0);
+  gasneti_mutex_lock(&(pkey->initmutex));
+    if (pkey->isinit == 0) {
+      _gasneti_threadkey_init(&(pkey->value));
+      gasneti_local_wmb();
+      pkey->isinit = 1;
+    }
+  gasneti_mutex_unlock(&(pkey->initmutex));
+}
+  
+#define gasneti_threadkey_get(key)       \
+  ( _gasneti_threadkey_check(key, 0),    \
+    ( PREDICT_FALSE((key).isinit == 0) ? \
+      gasneti_threadkey_init(&(key)) :   \
+      ((void)0) ),                       \
+    gasneti_threadkey_get_noinit(key) )
+
+#define gasneti_threadkey_set(key,newvalue) do { \
+    _gasneti_threadkey_check(key, 0);            \
+    if_pf((key).isinit == 0)                     \
+      gasneti_threadkey_init(&(key));            \
+    gasneti_threadkey_set_noinit(key, newvalue); \
+  } while (0)
+
+/* ------------------------------------------------------------------------------------ */
 #ifndef GASNETI_GASNETI_AMPOLL
   /*
    gasnet_AMPoll() - public poll function called by the client, throttled and traced 
@@ -459,20 +544,20 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
      The following debugging assertions detect violations of these rules.
   */ 
   #if GASNET_DEBUG && GASNETI_THREADS
-    extern pthread_key_t gasneti_throttledebug_key;
+    extern gasneti_threadkey_t gasneti_throttledebug_key;
 
     #define gasneti_AMPoll_spinpollers_check()          \
       /* assert this thread hasn't already suspended */ \
-      gasneti_assert((int)(intptr_t)pthread_getspecific(gasneti_throttledebug_key) == 0)
-    #define gasneti_suspend_spinpollers_check() do {                                               \
-      /* assert this thread hasn't already suspended */                                            \
-      gasneti_assert((int)(intptr_t)pthread_getspecific(gasneti_throttledebug_key) == 0);          \
-      gasneti_assert_zeroret(pthread_setspecific(gasneti_throttledebug_key, (void *)(intptr_t)1)); \
+      gasneti_assert((int)(intptr_t)gasneti_threadkey_get(gasneti_throttledebug_key) == 0)
+    #define gasneti_suspend_spinpollers_check() do {                                        \
+      /* assert this thread hasn't already suspended */                                     \
+      gasneti_assert((int)(intptr_t)gasneti_threadkey_get(gasneti_throttledebug_key) == 0); \
+      gasneti_threadkey_set(gasneti_throttledebug_key, (void *)(intptr_t)1);                \
     } while(0)
-    #define gasneti_resume_spinpollers_check() do {                                                \
-      /* assert this thread previously suspended */                                                \
-      gasneti_assert((int)(intptr_t)pthread_getspecific(gasneti_throttledebug_key) == 1);          \
-      gasneti_assert_zeroret(pthread_setspecific(gasneti_throttledebug_key, (void *)(intptr_t)0)); \
+    #define gasneti_resume_spinpollers_check() do {                                         \
+      /* assert this thread previously suspended */                                         \
+      gasneti_assert((int)(intptr_t)gasneti_threadkey_get(gasneti_throttledebug_key) == 1); \
+      gasneti_threadkey_set(gasneti_throttledebug_key, (void *)(intptr_t)0);                \
     } while(0)
   #elif GASNET_DEBUG
     extern int gasneti_throttledebug_cnt;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2004/10/15 06:57:57 $
- * $Revision: 1.79 $
+ *     $Date: 2004/10/16 19:19:47 $
+ * $Revision: 1.80 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -48,7 +48,7 @@ int gasneti_VerboseErrors = 1;
   gasneti_mutex_t gasneti_throttle_spinpoller = GASNETI_MUTEX_INITIALIZER;
 #endif
 #if GASNET_DEBUG && GASNETI_THREADS
-  pthread_key_t gasneti_throttledebug_key;
+  gasneti_threadkey_t gasneti_throttledebug_key = GASNETI_THREADKEY_INITIALIZER;
 #elif GASNET_DEBUG
   int gasneti_throttledebug_cnt = 0;
 #endif
@@ -132,10 +132,7 @@ extern void gasneti_check_config_preinit() {
     if (firstcall) { /* miscellaneous conduit-independent initializations */
       firstcall = 0;
       #if GASNET_DEBUG && GASNETI_THREADS
-      {
-        int retval = pthread_key_create(&gasneti_throttledebug_key, NULL);
-        if (retval) gasneti_fatalerror("In gasneti_check_config_preinit(), pthread_key_create()=%s",strerror(retval));
-      }
+        gasneti_threadkey_init(&gasneti_throttledebug_key);
       #endif
     }
   }
@@ -785,7 +782,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
 
   /* line number control */
   #if GASNETI_CLIENT_THREADS
-    static pthread_key_t gasneti_srclineinfo_key; 
+    gasneti_threadkey_t gasneti_srclineinfo_key = GASNETI_THREADKEY_INITIALIZER;
     typedef struct {
       const char *filename;
       unsigned int linenum;
@@ -793,14 +790,14 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
     } gasneti_srclineinfo_t;
     GASNET_INLINE_MODIFIER(gasneti_mysrclineinfo)
     gasneti_srclineinfo_t *gasneti_mysrclineinfo() {
-      gasneti_srclineinfo_t *srclineinfo = pthread_getspecific(gasneti_srclineinfo_key);
+      gasneti_srclineinfo_t *srclineinfo = gasneti_threadkey_get(gasneti_srclineinfo_key);
       if_pt (srclineinfo) {
         gasneti_memcheck(srclineinfo);
         return srclineinfo;
       } else {
         /*  first time we've seen this thread - need to set it up */
         gasneti_srclineinfo_t *srclineinfo = gasneti_calloc(1,sizeof(gasneti_srclineinfo_t));
-        gasneti_assert_zeroret(pthread_setspecific(gasneti_srclineinfo_key, srclineinfo));
+        gasneti_threadkey_set(gasneti_srclineinfo_key, srclineinfo);
         return srclineinfo;
       }
     }
@@ -1088,10 +1085,6 @@ extern void gasneti_trace_init(int argc, char **argv) {
   #if GASNETI_STATS_OR_TRACE
   const char *tracetypes = NULL;
   const char *statstypes = NULL;
-
-  #if GASNET_TRACE && GASNETI_CLIENT_THREADS
-    gasneti_assert_zeroret(pthread_key_create(&gasneti_srclineinfo_key, NULL));
-  #endif
 
   { /* setup tracefile */
     char *tracefilename = gasneti_getenv_withdefault("GASNET_TRACEFILE","");

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2004/10/08 07:47:13 $
- * $Revision: 1.54 $
+ *     $Date: 2004/10/16 19:19:57 $
+ * $Revision: 1.55 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -622,21 +622,10 @@ extern int gasnetc_AMReplyLongM(
   static gasnetc_hsl_errcheckinfo_t _info_init = { NULL, 0, 0 };
 
   #if GASNETI_CLIENT_THREADS
-    static pthread_key_t gasnetc_hsl_errcheckinfo; /*  pthread thread-specific ptr to our info (or NULL for a thread never-seen before) */
-    static int gasnetc_hsl_errcheckinfo_firsttime = 1;
+    /*  pthread thread-specific ptr to our info (or NULL for a thread never-seen before) */
+    static gasneti_threadkey_t gasnetc_hsl_errcheckinfo = GASNETI_THREADKEY_INITIALIZER;
     static gasnetc_hsl_errcheckinfo_t *gasnetc_get_errcheckinfo() {
-      gasnetc_hsl_errcheckinfo_t *info;
-      if (gasnetc_hsl_errcheckinfo_firsttime) { 
-        static gasneti_mutex_t errcheck_setup = GASNETI_MUTEX_INITIALIZER;
-        gasneti_mutex_lock(&errcheck_setup);
-        if (gasnetc_hsl_errcheckinfo_firsttime) { 
-          gasneti_assert_zeroret(pthread_key_create(&gasnetc_hsl_errcheckinfo, NULL));
-          gasneti_local_wmb();
-          gasnetc_hsl_errcheckinfo_firsttime = 0;
-        }
-        gasneti_mutex_unlock(&errcheck_setup);
-      }
-      info = pthread_getspecific(gasnetc_hsl_errcheckinfo);
+      gasnetc_hsl_errcheckinfo_t *info = gasneti_threadkey_get(gasnetc_hsl_errcheckinfo);
       if_pt (info) return info;
 
       /*  first time we've seen this thread - need to set it up */
@@ -654,7 +643,7 @@ extern int gasnetc_AMReplyLongM(
           hsl_errcheck_cnt++;
         gasneti_mutex_unlock(&hsl_errcheck_tablelock);
         memcpy(info, &_info_init, sizeof(gasnetc_hsl_errcheckinfo_t));
-        gasneti_assert_zeroret(pthread_setspecific(gasnetc_hsl_errcheckinfo, info));
+        gasneti_threadkey_set(gasnetc_hsl_errcheckinfo, info);
         return info;
       }
     }

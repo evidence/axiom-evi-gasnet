@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2004/08/26 04:53:36 $
- * $Revision: 1.29 $
+ *     $Date: 2004/10/16 19:19:53 $
+ * $Revision: 1.30 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,9 +22,8 @@ gasnete_threaddata_t	*gasnete_threadtable[256] = { 0 };
 int 			 gasnete_numthreads = 0;
 gasnet_hsl_t		 threadtable_lock = GASNET_HSL_INITIALIZER;
 #if GASNETI_CLIENT_THREADS
-	/*  pthread thread-specific ptr to our threaddata (or NULL for a thread
-	 *  never-seen before) */
-	pthread_key_t gasnete_threaddata; 
+  /* pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
+  gasneti_threadkey_t gasnete_threaddata = GASNETI_THREADKEY_INITIALIZER;
 #endif
 const gasnete_eopaddr_t	EOPADDR_NIL = { 0xFF, 0xFF };
 
@@ -88,21 +87,19 @@ gasnete_new_threaddata()
 /* PURE function (returns same value for a given thread every time) 
 */
 #if GASNETI_CLIENT_THREADS
-extern gasnete_threaddata_t *
-gasnete_mythread() 
-{
-	gasnete_threaddata_t *threaddata = pthread_getspecific(gasnete_threaddata);
-	GASNETI_TRACE_EVENT(C, DYNAMIC_THREADLOOKUP);
-        if_pt (threaddata) {
-          gasneti_memcheck(threaddata);
-          return threaddata;
-        }
+  extern gasnete_threaddata_t * gasnete_mythread() {
+    gasnete_threaddata_t *threaddata = gasneti_threadkey_get(gasnete_threaddata);
+    GASNETI_TRACE_EVENT(C, DYNAMIC_THREADLOOKUP);
+    if_pt (threaddata) {
+      gasneti_memcheck(threaddata);
+      return threaddata;
+    }
 
-        /* first time we've seen this thread - need to set it up */
-        threaddata = gasnete_new_threaddata();
-        gasneti_assert_zeroret(pthread_setspecific(gasnete_threaddata, threaddata));
-	return threaddata;
-}
+    /* first time we've seen this thread - need to set it up */
+    threaddata = gasnete_new_threaddata();
+    gasneti_threadkey_set(gasnete_threaddata, threaddata);
+    return threaddata;
+  }
 #else
   #define gasnete_mythread() (gasnete_threadtable[0])
 #endif
@@ -126,11 +123,6 @@ gasnete_init()
 	gasneti_assert(gasnete_nodes == 0); /*make sure we haven't been called before */
 
 	gasnete_check_config(); /* check for sanity */
-
-        #if GASNETI_CLIENT_THREADS
-          /*  TODO: we could provide a non-NULL destructor and reap data structures from exiting threads */
-          gasneti_assert_zeroret(pthread_key_create(&gasnete_threaddata, NULL));
-        #endif
 
 	gasnete_mynode = gasnet_mynode();
 	gasnete_nodes = gasnet_nodes();
