@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2003/08/30 07:16:41 $
- * $Revision: 1.14 $
+ *     $Date: 2003/09/15 17:24:54 $
+ * $Revision: 1.15 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -116,7 +116,6 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
       UNLOCK_ELAN_WEAK();
     }
   }
-  UNLOCK_SENDFIFO();
 
   /* add to send fifo - event will be filled in later by caller */
   desc->event = NULL;
@@ -131,6 +130,9 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
     gasnetc_tportTxFIFOHead = desc;
     gasnetc_tportTxFIFOTail = desc;
   }
+
+  UNLOCK_SENDFIFO();
+
   return desc;
 }
 /* ------------------------------------------------------------------------------------ */
