@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/02/13 05:02:18 $
- * $Revision: 1.7 $
+ *     $Date: 2003/02/18 03:01:07 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -875,10 +875,10 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src,
 
     retval->val = 0;
     if (gasnete_islocal(node)) {
-      GASNETE_FAST_ALIGNED_MEMCPY(&(retval->val), src, nbytes);
+      GASNETE_FAST_ALIGNED_MEMCPY(GASNETE_STARTOFBITS(&(retval->val),nbytes), src, nbytes);
       retval->handle = GASNET_INVALID_HANDLE;
     } else {
-      retval->handle = gasnete_get_nb_bulk(&(retval->val), node, src, nbytes GASNETE_THREAD_PASS);
+      retval->handle = gasnete_get_nb_bulk(GASNETE_STARTOFBITS(&(retval->val),nbytes), node, src, nbytes GASNETE_THREAD_PASS);
     }
     return retval;
 }

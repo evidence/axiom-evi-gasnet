@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2002/12/19 18:31:54 $
- * $Revision: 1.8 $
+ *     $Date: 2003/02/18 03:01:09 $
+ * $Revision: 1.9 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,7 +63,7 @@ int main(int argc, char **argv) {
     gasnet_wait_syncnb_all(handles, iters); 
     for (i=0; i < iters; i++) {
       if (vals[i] != 100 + mynode + i) {
-        MSG("*** ERROR - FAILED NBI TEST!!!");
+        MSG("*** ERROR - FAILED NB LIST TEST!!!");
         success = 0;
       }
     }
@@ -100,6 +100,7 @@ int main(int argc, char **argv) {
     GASNET_BEGIN_FUNCTION();
     int vals[300];
     int i, success=1;
+    unsigned char *partnerbase2 = (unsigned char *)(partnerseg+300);
     for (i=0; i < 100; i++) {
       gasnet_put_val(partner, partnerseg+i, 1000 + mynode + i, sizeof(int));
     }
@@ -110,11 +111,15 @@ int main(int argc, char **argv) {
       gasnet_put_nbi_val(partner, partnerseg+i+200, 1000 + mynode + i, sizeof(int));
     }
     gasnet_wait_syncnbi_puts();
+
     for (i=0; i < 100; i++) {
       int tmp1 = gasnet_get_val(partner, partnerseg+i, sizeof(int));
       int tmp2 = gasnet_get_val(partner, partnerseg+i+200, sizeof(int));
       if (tmp1 != 1000 + mynode + i || tmp2 != 1000 + mynode + i) {
-        MSG("*** ERROR - FAILED VALUE TEST 1!!!");
+        MSG("*** ERROR - FAILED INT VALUE TEST 1!!!");
+        printf("node %i/%i  i=%i tmp1=%i tmp2=%i (1000 + mynode + i)=%i\n", 
+          gasnet_mynode(), gasnet_nodes(), 
+          i, tmp1, tmp2, 1000 + mynode + i); fflush(stdout); 
         success = 0;
       }
     }
@@ -125,11 +130,53 @@ int main(int argc, char **argv) {
       for (i=0; i < 100; i++) {
         int tmp = (int)gasnet_wait_syncnb_valget(handles[i]);
         if (tmp != 1000 + mynode + i) {
-          MSG("*** ERROR - FAILED VALUE TEST 2!!!");
+          MSG("*** ERROR - FAILED INT VALUE TEST 2!!!");
+          printf("node %i/%i  i=%i tmp1=%i (1000 + mynode + i)=%i\n", 
+            gasnet_mynode(), gasnet_nodes(), 
+            i, tmp, 1000 + mynode + i); fflush(stdout); 
           success = 0;
         }
       }
     }
+
+    for (i=0; i < 100; i++) {
+      gasnet_put_val(partner, partnerbase2+i, 100 + mynode + i, sizeof(unsigned char));
+    }
+    for (i=0; i < 100; i++) {
+      gasnet_wait_syncnb(gasnet_put_nb_val(partner, partnerbase2+i+100, 100 + mynode + i, sizeof(unsigned char)));
+    }
+    for (i=0; i < 100; i++) {
+      gasnet_put_nbi_val(partner, partnerbase2+i+200, 100 + mynode + i, sizeof(unsigned char));
+    }
+    gasnet_wait_syncnbi_puts();
+
+    for (i=0; i < 100; i++) {
+      unsigned int tmp1 = (unsigned int)gasnet_get_val(partner, partnerbase2+i, sizeof(unsigned char));
+      unsigned int tmp2 = (unsigned int)gasnet_get_val(partner, partnerbase2+i+200, sizeof(unsigned char));
+      if (tmp1 != 100 + mynode + i || tmp2 != 100 + mynode + i) {
+        MSG("*** ERROR - FAILED CHAR VALUE TEST 1!!!");
+        printf("node %i/%i  i=%i tmp1=%i tmp2=%i (100 + mynode + i)=%i\n", 
+          gasnet_mynode(), gasnet_nodes(), 
+          i, tmp1, tmp2, 100 + mynode + i); fflush(stdout); 
+        success = 0;
+      }
+    }
+    { gasnet_valget_handle_t handles[100];
+      for (i=0; i < 100; i++) {
+        handles[i] = gasnet_get_nb_val(partner, partnerbase2+i+100, sizeof(unsigned char));
+      }
+      for (i=0; i < 100; i++) {
+        unsigned int tmp = (unsigned int)gasnet_wait_syncnb_valget(handles[i]);
+        if (tmp != 100 + mynode + i) {
+          MSG("*** ERROR - FAILED CHAR VALUE TEST 2!!!");
+          printf("node %i/%i  i=%i tmp1=%i (100 + mynode + i)=%i\n", 
+            gasnet_mynode(), gasnet_nodes(), 
+            i, tmp, 100 + mynode + i); fflush(stdout); 
+          success = 0;
+        }
+      }
+    }
+
     if (success) MSG("*** passed value test!!");
   }
 

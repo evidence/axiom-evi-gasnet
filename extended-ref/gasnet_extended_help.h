@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2003/01/11 22:46:44 $
- * $Revision: 1.9 $
+ *     $Date: 2003/02/18 03:01:05 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,6 +81,15 @@ extern gasnet_seginfo_t *gasnete_seginfo;
 
 #define GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes) memcpy(dest, src, nbytes)
 
+/* given the address of a gasnet_register_value_t object and the number of
+   significant bytes, return the byte address where significant bytes begin */
+#ifdef WORDS_BIGENDIAN
+  #define GASNETE_STARTOFBITS(regvalptr,nbytes) \
+    (((uint8_t*)(regvalptr)) + ((sizeof(gasnet_register_value_t)-nbytes)))
+#else /* little-endian */
+  #define GASNETE_STARTOFBITS(regvalptr,nbytes) (regvalptr)
+#endif
+
 /* The value written to the target address is a direct byte copy of the 
    8*nbytes low-order bits of value, written with the endianness appropriate 
    for an nbytes integral value on the current architecture
@@ -103,17 +112,8 @@ extern gasnet_seginfo_t *gasnete_seginfo;
     case sizeof(uint64_t):                                              \
       *((uint64_t *)(dest)) = (uint64_t)(value);                        \
       break;                                                            \
-    default: { /* no such native nbytes integral type */                \
-      gasnet_register_value_t temp = (gasnet_register_value_t)(value);  \
-      gasnet_register_value_t *addr = (gasnet_register_value_t*)(dest); \
-      gasnet_register_value_t newval;                                   \
-      gasnet_register_value_t mask = (1 << (nbytes << 3))-1;            \
-      memcpy(&newval, addr, sizeof(gasnet_register_value_t));           \
-      newval = (newval & (~mask)) | (temp & mask);                      \
-      memcpy(addr, &newval, sizeof(gasnet_register_value_t));           \
-      *addr = newval;                                                   \
-    }                                                                   \
-                                                                        \
+    default:  /* no such native nbytes integral type */                 \
+      memcpy((dest), GASNETE_STARTOFBITS(&(value),nbytes), nbytes);     \
   } } while (0)
 
 #ifdef NDEBUG

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2003/02/12 23:47:14 $
- * $Revision: 1.14 $
+ *     $Date: 2003/02/18 03:01:05 $
+ * $Revision: 1.15 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -523,8 +523,8 @@ void _gasnet_put_val(gasnet_node_t node, void *dest, gasnet_register_value_t val
     gasneti_memsync();
   } else {
     gasnet_register_value_t src = value;
-    GASNETI_TRACE_PUT(PUT_VAL,node,dest,&value,nbytes);
-    gasnete_wait_syncnb(gasnete_put_nb(node, dest, &src, nbytes GASNETE_THREAD_PASS));
+    GASNETI_TRACE_PUT(PUT_VAL,node,dest,GASNETE_STARTOFBITS(&src,nbytes),nbytes);
+    gasnete_wait_syncnb(gasnete_put_nb(node, dest, GASNETE_STARTOFBITS(&src,nbytes), nbytes GASNETE_THREAD_PASS));
   }
 }
 #define gasnet_put_val(node,dest,value,nbytes) \
@@ -542,8 +542,8 @@ gasnet_handle_t _gasnet_put_nb_val (gasnet_node_t node, void *dest, gasnet_regis
     return GASNET_INVALID_HANDLE;
   } else {
     gasnet_register_value_t src = value;
-    GASNETI_TRACE_PUT(PUT_NB_VAL,node,dest,&value,nbytes);
-    return gasnete_put_nb(node, dest, &src, nbytes GASNETE_THREAD_PASS);
+    GASNETI_TRACE_PUT(PUT_NB_VAL,node,dest,GASNETE_STARTOFBITS(&src,nbytes),nbytes);
+    return gasnete_put_nb(node, dest, GASNETE_STARTOFBITS(&src,nbytes), nbytes GASNETE_THREAD_PASS);
   }
 }
 #define gasnet_put_nb_val(node,dest,value,nbytes) \
@@ -560,8 +560,8 @@ void _gasnet_put_nbi_val(gasnet_node_t node, void *dest, gasnet_register_value_t
     gasneti_memsync();
   } else {
     gasnet_register_value_t src = value;
-    GASNETI_TRACE_PUT(PUT_NBI_VAL,node,dest,&value,nbytes);
-    gasnete_put_nbi(node, dest, &src, nbytes GASNETE_THREAD_PASS);
+    GASNETI_TRACE_PUT(PUT_NBI_VAL,node,dest,GASNETE_STARTOFBITS(&src,nbytes),nbytes);
+    gasnete_put_nbi(node, dest, GASNETE_STARTOFBITS(&src,nbytes), nbytes GASNETE_THREAD_PASS);
   }
 }
 #define gasnet_put_nbi_val(node,dest,value,nbytes) \
@@ -587,10 +587,8 @@ gasnet_register_value_t _gasnet_get_val (gasnet_node_t node, void *src, size_t n
       case sizeof(uint32_t): return (gasnet_register_value_t)*((uint32_t *)(src)); 
       case sizeof(uint64_t): return (gasnet_register_value_t)*((uint64_t *)(src)); 
       default: { /* no such native nbytes integral type */               
-        gasnet_register_value_t result;                                  
-        gasnet_register_value_t mask = (1 << (nbytes << 3))-1;           
-        memcpy(&result, src, sizeof(gasnet_register_value_t));          
-        result = (result & mask);                     
+        gasnet_register_value_t result = 0;                                  
+        memcpy(GASNETE_STARTOFBITS(&result,nbytes), src, nbytes);          
         return result;
       }                                                                  
     }
@@ -598,7 +596,7 @@ gasnet_register_value_t _gasnet_get_val (gasnet_node_t node, void *src, size_t n
   else {
     gasnet_register_value_t val = 0;
     GASNETI_TRACE_GET(GET_VAL,NULL,node,src,nbytes);
-    gasnete_wait_syncnb(gasnete_get_nb_bulk(&val, node, src, nbytes GASNETE_THREAD_PASS));
+    gasnete_wait_syncnb(gasnete_get_nb_bulk(GASNETE_STARTOFBITS(&val,nbytes), node, src, nbytes GASNETE_THREAD_PASS));
     return val;
   }
   abort();

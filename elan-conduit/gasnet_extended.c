@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2003/02/13 05:02:14 $
- * $Revision: 1.17 $
+ *     $Date: 2003/02/18 03:01:03 $
+ * $Revision: 1.18 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1323,10 +1323,10 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
 
   retval->val = 0;
   if (gasnete_islocal(node)) {
-    GASNETE_FAST_ALIGNED_MEMCPY(&(retval->val), src, nbytes);
+    GASNETE_FAST_ALIGNED_MEMCPY(GASNETE_STARTOFBITS(&(retval->val),nbytes), src, nbytes);
     retval->handle = GASNET_INVALID_HANDLE;
   } else {
-    retval->handle = gasnete_get_nb_bulk(&(retval->val), node, src, nbytes GASNETE_THREAD_PASS);
+    retval->handle = gasnete_get_nb_bulk(GASNETE_STARTOFBITS(&(retval->val),nbytes), node, src, nbytes GASNETE_THREAD_PASS);
   }
   return retval;
 }
