@@ -178,6 +178,7 @@ Optional environment variable settings:
      C - conduit-specific (low-level) messages
      D - Detailed message data for gets/puts/AMreqrep
      N - Line number information from client source files
+     H - High-level messages from the client
   default: (all of the above)
 
  GASNET_STATSMASK - specify the types of statistics to collect and report

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2004/01/13 21:49:10 $
- * $Revision: 1.49 $
+ *     $Date: 2004/01/24 15:14:42 $
+ * $Revision: 1.50 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,6 +16,7 @@
 #include <string.h>
 
 #include <gasnet.h>
+#include <gasnet_tools.h>
 
 BEGIN_EXTERNC
 
@@ -53,6 +54,7 @@ extern int gasneti_attach_done; /*  true after attach */
   GASNET_INLINE_MODIFIER(gasneti_malloc)
   void *gasneti_malloc(size_t nbytes) {
     void *ret = NULL;
+    GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     ret = malloc(nbytes);
     if_pf (ret == NULL) 
@@ -63,6 +65,7 @@ extern int gasneti_attach_done; /*  true after attach */
   GASNET_INLINE_MODIFIER(gasneti_malloc_allowfail)
   void *gasneti_malloc_allowfail(size_t nbytes) {
     void *ret = NULL;
+    GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     ret = malloc(nbytes);
     if_pf (ret == NULL) /* allow a NULL return for out-of-memory */
@@ -73,6 +76,7 @@ extern int gasneti_attach_done; /*  true after attach */
   GASNET_INLINE_MODIFIER(gasneti_calloc)
   void *gasneti_calloc(size_t N, size_t S) {
     void *ret = NULL;
+    GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, (N*S));
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     ret = calloc(N,S);
     if_pf (ret == NULL) 
@@ -82,6 +86,7 @@ extern int gasneti_attach_done; /*  true after attach */
   }
   GASNET_INLINE_MODIFIER(gasneti_free)
   void gasneti_free(void *ptr) {
+    GASNETI_STAT_EVENT_VAL(I, GASNET_FREE, 0); /* don't track free size in ndebug mode */
     if_pf (ptr == NULL) return;
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     free(ptr);

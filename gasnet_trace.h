@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2004/01/23 10:35:03 $
- * $Revision: 1.14 $
+ *     $Date: 2004/01/24 15:14:42 $
+ * $Revision: 1.15 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,7 +52,7 @@ BEGIN_EXTERNC
   /* print a string on the trace 
      Ex: GASNETI_TRACE_MSG(C, "init complete") */
   #define GASNETI_TRACE_MSG(type, string) \
-      GASNETI_TRACE_PRINTF((type), ("%s",(string)))
+      GASNETI_TRACE_PRINTF(type, ("%s",(string)))
 
   /* print a formatted string on output
      Ex: GASNETI_TRACE_PRINTF(C, ("%i buffers free", numbufs))
@@ -73,7 +73,7 @@ BEGIN_EXTERNC
   /* print an arbitrary string of statistical output on the trace 
      Ex: GASNETI_STATS_MSG(C, "init complete") */
   #define GASNETI_STATS_MSG(type, string) \
-      GASNETI_STATS_PRINTF((type), ("%s",(string)))
+      GASNETI_STATS_PRINTF(type, ("%s",(string)))
 
   /* print a formatted string of statistical output on the trace 
      Ex: GASNETI_STATS_PRINTF(C, ("%i buffers free", numbufs))
@@ -165,6 +165,11 @@ BEGIN_EXTERNC
 #else 
   #define GASNETI_TRACE_WAITSYNC_BEGIN() \
     static char _dummy = (char)sizeof(_dummy)
+#endif
+
+#if GASNET_STATS
+  typedef void (*gasnett_stats_callback_t)(void (*)(const char *, ...));
+  extern gasnett_stats_callback_t gasnett_stats_callback;
 #endif
 
 #define GASNETI_TRACE_WAITSYNC_END(name) \
@@ -363,7 +368,7 @@ extern void gasneti_trace_init();
 extern void gasneti_trace_finish();
 
 /* defines all the types */
-#define GASNETI_ALLTYPES "GPSBLAICDN"
+#define GASNETI_ALLTYPES "GPSBLAICDNH"
 
 
 /* GASNETI_ALL_STATS lists all the statistics values we gather, 
@@ -451,6 +456,9 @@ extern void gasneti_trace_finish();
         CNT(A, AMREPLY_SHORT_HANDLER, cnt)                \
         CNT(A, AMREPLY_MEDIUM_HANDLER, cnt)               \
         CNT(A, AMREPLY_LONG_HANDLER, cnt)                 \
+                                                          \
+        VAL(I, GASNET_MALLOC, sz)                         \
+        VAL(I, GASNET_FREE, sz)                           \
                                                           \
         CONDUIT_CORE_STATS(CNT,VAL,TIME)                  \
         CONDUIT_EXTENDED_STATS(CNT,VAL,TIME)
@@ -549,6 +557,10 @@ extern void gasneti_trace_finish();
   #define _GASNETI_STAT_EVENT_VAL(type, name, val) 
   #define _GASNETI_STAT_EVENT_TIME(type, name, time) 
 #endif
+#define GASNETI_STAT_EVENT      _GASNETI_STAT_EVENT
+#define GASNETI_STAT_EVENT_VAL  _GASNETI_STAT_EVENT_VAL
+#define GASNETI_STAT_EVENT_TIME _GASNETI_STAT_EVENT_TIME
+
 /* ------------------------------------------------------------------------------------ */
 
 END_EXTERNC

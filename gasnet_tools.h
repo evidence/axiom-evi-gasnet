@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2004/01/23 10:35:03 $
- * $Revision: 1.9 $
+ *     $Date: 2004/01/24 15:14:42 $
+ * $Revision: 1.10 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -75,10 +75,26 @@
 /* ------------------------------------------------------------------------------------ */
 
 /* misc internal GASNet things we wish to expose when available */
-#ifdef _INCLUDED_GASNET_H
+#if defined(_INCLUDED_GASNET_H) && defined(GASNET_TRACE)
   #define GASNETT_TRACE_SETSOURCELINE GASNETI_TRACE_SETSOURCELINE
+  #define GASNETT_TRACE_PRINTF  _gasnett_trace_printf
+  extern void _gasnett_trace_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
 #else
   #define GASNETT_TRACE_SETSOURCELINE 
+  #define GASNETT_TRACE_PRINTF  _gasnett_trace_printf
+  GASNET_INLINE_MODIFIER(_gasnett_trace_printf)
+  void _gasnett_trace_printf(const char *format, ...) { return; }
+#endif
+
+#if defined(_INCLUDED_GASNET_H) && defined(GASNET_STATS)
+  /* GASNETT_STATS_INIT can be called at any time to register a callback function, which 
+     will be invoked at stats dumping time (provided H stats are enabled)
+     and passed a printf-like function that can be used to write output into the stats
+   */
+  #define GASNETT_STATS_INIT(callbackfn) \
+    (gasnett_stats_callback = (callbackfn), GASNETI_STATS_ENABLED(H))
+#else
+  #define GASNETT_STATS_INIT(callbackfn) 0
 #endif
 
 #undef _IN_GASNET_TOOLS_H

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/01/23 10:35:03 $
- * $Revision: 1.47 $
+ *     $Date: 2004/01/24 15:14:42 $
+ * $Revision: 1.48 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,6 +20,7 @@
 #endif
 
 #include <gasnet.h>
+#include <gasnet_tools.h>
 #include <gasnet_internal.h>
 
 /* set to non-zero for verbose error reporting */
@@ -466,6 +467,26 @@ FILE *gasneti_tracefile = NULL;
 FILE *gasneti_statsfile = NULL;
 gasneti_stattime_t starttime;
 
+#if GASNET_STATS
+  gasnett_stats_callback_t gasnett_stats_callback = NULL;
+#endif
+
+#if GASNET_TRACE
+  extern void _gasnett_trace_printf(const char *format, ...) {
+    #define BUFSZ 1024
+    char output[BUFSZ];
+    va_list argptr;
+    va_start(argptr, format); /*  pass in last argument */
+      { int sz = vsnprintf(output, BUFSZ, format, argptr);
+        gasneti_assert(sz <= BUFSZ);
+        if (sz >= (BUFSZ-5)) strcpy(output+(BUFSZ-5),"...");
+      }
+    va_end(argptr);
+    GASNETI_TRACE_MSG(H, output);
+    #undef BUFSZ
+  }
+#endif
+
 #if GASNETI_STATS_OR_TRACE
   #define BUILD_STATS(type,name,desc) { #type, #name, #desc },
   gasneti_statinfo_t gasneti_stats[] = {
@@ -886,6 +907,11 @@ extern void gasneti_trace_finish() {
     #if GASNET_STATS
     { /* output statistical summary */
 
+      if (gasnett_stats_callback && GASNETI_STATS_ENABLED(H)) {
+        gasneti_stats_printf("--------------------------------------------------------------------------------");
+        (*gasnett_stats_callback)(gasneti_stats_printf);
+      }
+
       gasneti_stats_printf("--------------------------------------------------------------------------------");
       gasneti_stats_printf("GASNet Statistical Summary:");
     
@@ -1114,6 +1140,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
   #undef free
   extern void *_gasneti_malloc(size_t nbytes, int allowfail, const char *curloc) {
     void *ret = NULL;
+    GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     ret = malloc(nbytes+GASNETI_MEM_EXTRASZ);
     if_pf (ret == NULL) {
@@ -1149,6 +1176,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
     if_pf (ptr == NULL) return;
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     nbytes = _gasneti_memcheck(ptr, curloc, 1);
+    GASNETI_STAT_EVENT_VAL(I, GASNET_FREE, nbytes);
     *(((uint32_t *)ptr)-1) = GASNETI_MEM_FREEMARK;
     gasneti_mutex_lock(&gasneti_memalloc_lock);
     gasneti_memalloc_cnt -= nbytes+GASNETI_MEM_EXTRASZ;
