@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2004/09/02 22:53:10 $
- * $Revision: 1.52 $
+ *     $Date: 2004/09/04 03:02:12 $
+ * $Revision: 1.53 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -192,7 +192,8 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
   for (i = 0; i < numentries; i++) {
     int newindex;
 
-    if (table[i].index && dontcare) continue;
+    if ((table[i].index == 0 && !dontcare) || 
+        (table[i].index && dontcare)) continue;
     else if (table[i].index) newindex = table[i].index;
     else { /* deterministic assignment of dontcare indexes */
       for (newindex = lowlimit; newindex <= highlimit; newindex++) {
@@ -293,7 +294,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
       /*  second pass - fill in dontcare-index handlers */
       if (gasnetc_reghandlers(table, numentries, 128, 255, 1, &numreg2) != GASNET_OK)
-        INITERR(RESOURCE,"Error registering fixed-index client handlers");
+        INITERR(RESOURCE,"Error registering variable-index client handlers");
 
       gasneti_assert(numreg1 + numreg2 == numentries);
     }

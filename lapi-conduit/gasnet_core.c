@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/09/02 22:53:08 $
- * $Revision: 1.64 $
+ *     $Date: 2004/09/04 03:02:10 $
+ * $Revision: 1.65 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -338,7 +338,8 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     for (i = 0; i < numentries; i++) {
 	int newindex;
 
-	if (table[i].index && dontcare) continue;
+        if ((table[i].index == 0 && !dontcare) || 
+            (table[i].index && dontcare)) continue;
 	else if (table[i].index) newindex = table[i].index;
 	else { /* deterministic assignment of dontcare indexes */
 	    for (newindex = lowlimit; newindex <= highlimit; newindex++) {
