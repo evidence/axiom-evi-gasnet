@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/02/20 08:24:20 $
- * $Revision: 1.10 $
+ *     $Date: 2005/03/21 03:29:39 $
+ * $Revision: 1.11 $
  * Description: GASNet smp conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,7 +42,7 @@ typedef enum {
 #if GASNETI_CLIENT_THREADS
   #define gasnetc_mythread() ((void**)(gasnete_mythread()))
 #else
-  void *_gasnetc_mythread;
+  extern void *_gasnetc_mythread;
   #define gasnetc_mythread() &_gasnetc_mythread
 #endif
 

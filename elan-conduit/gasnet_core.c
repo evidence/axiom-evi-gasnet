@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/02/17 13:18:53 $
- * $Revision: 1.54 $
+ *     $Date: 2005/03/21 03:29:37 $
+ * $Revision: 1.55 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,6 +42,10 @@ GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_COR
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
 static void gasnetc_atexit(void);
+
+#if !GASNETI_CLIENT_THREADS
+  void *_gasnetc_mythread = NULL;
+#endif
 
 #if GASNETC_USE_STATIC_SEGMENT
   /* a hack to get a static shared segment */

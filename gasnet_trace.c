@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/03/17 02:31:44 $
- * $Revision: 1.98 $
+ *     $Date: 2005/03/21 03:29:35 $
+ * $Revision: 1.99 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,6 +89,8 @@ extern void gasneti_checkattach() {
 }
 
 int gasneti_wait_mode = GASNET_WAIT_SPIN;
+
+double *_gasneti_stattime_metric = NULL;
 
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREADMODEL) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SEGMENT_CONFIG) = 1;
