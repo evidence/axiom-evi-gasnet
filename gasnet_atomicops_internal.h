@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2004/09/21 19:40:42 $
- * $Revision: 1.4 $
+ *     $Date: 2004/09/21 20:11:54 $
+ * $Revision: 1.5 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,6 +137,17 @@
 	a failure indication if the LL/SC is interrupted by another write to the
         same cache line (it does not retry).
      */
+     GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
+     int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+       return asm("1:	ldl_l	%v0,(%a0);"	/* Load-linked of current value to %v0 */
+		  "	cmpeq	%v0,%a1,%v0;"	/* compare %v0 to oldval w/ result to %v0 */
+		  "	beq	%v0,2f;"	/* done/fail on mismatch (success/fail in %v0) */
+		  "	mov	%a2,%v0;"	/* copy newval to %v0 */
+		  "	stl_c	%v0,(%a0);"	/* Store-conditional of newval (success/fail in %v0) */
+		  "	beq	%v0,1b;"	/* Retry on stl_c failure */
+		  "2:	", p, oldval, newval);  /* Returns value from %v0 */
+     }
+     #define GASNETI_HAVE_ATOMIC_CAS 1
    #elif defined(__GNUC__)
      GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
      int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
