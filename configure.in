@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/04/28 23:43:06 $
-# $Revision: 1.55 $
+#     $Date: 2003/05/04 01:33:44 $
+# $Revision: 1.56 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.55 $)
+AC_REVISION($Revision: 1.56 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -593,6 +593,14 @@ AC_SUBST(GASNET_THREAD_DEFINES)
 AC_SUBST(GASNET_THREAD_LIBS)
 AC_SUBST(GASNET_REXEC_DEFINES)
 
+#-----------------------------------------------------------------------------------------------
+# SMP configuration
+
+GASNET_IF_ENABLED(smp, Enable the SMP (loopback) network conduit,
+  have_smp=yes,
+  have_smp=no)
+AM_CONDITIONAL(USE_SMP_CONDUIT, test "$have_smp" = yes)
+
 #--------------------------------------------------------------------------------------------------------
 # GM configuration
 
@@ -911,6 +919,11 @@ GASNET_TRY_CACHE_CHECK(for sched_yield(), cc_has_sched_yield, [
 
 #  AC_FUNC_MMAP
 # Check for mmap functionality we actually use
+case "$target_os" in
+  cygwin*)  
+  # mmap is known to be broken on Cygwin - dont even try
+  ;;
+  *)
 GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
   #include <unistd.h>
   #include <sys/mman.h>
@@ -941,6 +954,8 @@ GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
     if (ptr2 == MAP_FAILED || ptr2 == NULL || ptr2 != ptr) return 5;
     return 0;
   }],[AC_DEFINE(HAVE_MMAP)])
+  ;;
+esac
 
 AC_SUBST(LIBS)
 
@@ -1044,6 +1059,11 @@ lapi-conduit/Makefile
 lapi-conduit/lapi-seq.mak
 lapi-conduit/lapi-parsync.mak
 lapi-conduit/lapi-par.mak
+
+smp-conduit/Makefile
+smp-conduit/smp-seq.mak
+smp-conduit/smp-parsync.mak
+smp-conduit/smp-par.mak
 
 elan-conduit/Makefile
 elan-conduit/elan-seq.mak

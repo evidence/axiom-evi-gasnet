@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/03/29 10:48:25 $
-# $Revision: 1.14 $
+#     $Date: 2003/05/04 01:33:44 $
+# $Revision: 1.15 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -13,7 +13,8 @@ SUBDIRS =            \
         elan-conduit \
         gm-conduit   \
         lapi-conduit \
-	mpi-conduit
+	mpi-conduit  \
+	smp-conduit
 
 configdir = $(includedir)
 config_DATA = $(CONFIG_HEADER)
@@ -65,6 +66,9 @@ if USE_ELAN_CONDUIT
 endif
 if USE_LAPI_CONDUIT
 	@$(MAKE) -C $(top_builddir)/lapi-conduit all tests-seq
+endif
+if USE_SMP_CONDUIT
+	@$(MAKE) -C $(top_builddir)/smp-conduit all tests-seq
 endif
 
 .PHONY: force clean tests

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2003/04/28 23:03:36 $
- * $Revision: 1.11 $
+ *     $Date: 2003/05/04 01:33:44 $
+ * $Revision: 1.12 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,6 +37,8 @@
   #define GASNETI_MMAP_FILE "/dev/zero"
 #elif defined(CRAYT3E)
   #error mmap not supported on Cray-T3E
+#elif defined(CYGWIN)
+  #error mmap not supported on Cygwin - it doesnt work properly
 #else
   #define GASNETI_MMAP_FLAGS (MAP_ANON | MAP_PRIVATE)
 #endif
@@ -70,10 +72,14 @@ static void *gasneti_mmap_internal(void *segbase, size_t segsize) {
         (ptr == MAP_FAILED?"  MAP_FAILED: ":""),
         (ptr == MAP_FAILED?strerror(errno):"")));
 
-  if (ptr == MAP_FAILED && errno != ENOMEM)
+  if (ptr == MAP_FAILED && errno != ENOMEM) {
+    #ifdef CYGWIN
+      if (errno != EACCES) /* Cygwin stupidly returns EACCES for insuff mem */
+    #endif
     gasneti_fatalerror("unexpected error in mmap%s for size %lu: %s\n", 
                        (segbase == NULL?"":" fixed"),
                        (unsigned long)segsize, strerror(errno));
+  }
 
   if (segbase && ptr == MAP_FAILED) {
       gasneti_fatalerror("mmap fixed failed at "GASNETI_LADDRFMT" for size %lu: %s\n",
@@ -334,10 +340,10 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
       #endif
     }
   #else /* !HAVE_MMAP */
-    #if GASNET_ALIGNED_SEGMENTS
+    #if GASNET_ALIGNED_SEGMENTS && !GASNET_CORE_SMP
       #error bad config: dont know how to provide GASNET_ALIGNED_SEGMENTS when !HAVE_MMAP
     #endif
-    /* TODO: T3E doesn't support mmap - find a way to determine a true max seg sz */
+    /* some systems don't support mmap - find a way to determine a true max seg sz */
     if (localSegmentLimit < GASNETI_MAX_MALLOCSEGMENT_SZ) {
       gasneti_MaxLocalSegmentSize =  localSegmentLimit;
       gasneti_MaxGlobalSegmentSize = localSegmentLimit;

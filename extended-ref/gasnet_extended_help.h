@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2003/02/18 03:01:05 $
- * $Revision: 1.10 $
+ *     $Date: 2003/05/04 01:33:45 $
+ * $Revision: 1.11 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,7 +37,11 @@ extern gasnet_seginfo_t *gasnete_seginfo;
   /* TODO: mark gasnete_mythread() as a pure function for other compilers */
 #endif
 
-#define gasnete_islocal(nodeid) (nodeid == gasnete_mynode)
+#ifdef GASNET_CORE_SMP
+  #define gasnete_islocal(nodeid) (1) /* always local */
+#else
+  #define gasnete_islocal(nodeid) (nodeid == gasnete_mynode)
+#endif
 #define gasnete_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,e)
 
 /* busy-waits, with no implicit polling (cnd should include an embedded poll)
