@@ -49,7 +49,7 @@ AC_DEFUN(GASNET_CHECK_SIZEOF,[
   pushdef([lowername],patsubst(patsubst([$1], [\ ], [_]), [\*], [p]))
   pushdef([uppername],translit(lowername,'a-z','A-Z'))
 
-  AC_CHECK_SIZEOF($1)
+  AC_CHECK_SIZEOF($1, $2)
   SIZEOF_[]uppername=$ac_cv_sizeof_[]lowername
   AC_SUBST(SIZEOF_[]uppername)
   if test "$SIZEOF_[]uppername" = "0" ; then
