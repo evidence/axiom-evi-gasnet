@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/16 09:19:26 $
+ * $Revision: 1.2 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -24,8 +24,7 @@ ammpi_handler_fn_t ammpi_unused_handler = (ammpi_handler_fn_t)&abort;
 ammpi_handler_fn_t ammpi_defaultreturnedmsg_handler = (ammpi_handler_fn_t)&AMMPI_DefaultReturnedMsg_Handler;
 int AMMPI_VerboseErrors = 0;
 int AMMPI_SilentMode = 0; 
-extern const char AMMPI_IdentString_Version[];
-const char AMMPI_IdentString_Version[] = "$AMMPILibraryVersion: " AMMPI_LIBRARY_VERSION_STR " $";
+AMMPI_IDENT(AMMPI_IdentString_Version, "$AMMPILibraryVersion: " AMMPI_LIBRARY_VERSION_STR " $");
 
 const ammpi_stats_t AMMPI_initial_stats = /* the initial state for stats type */
         { {0,0,0}, {0,0,0}, 

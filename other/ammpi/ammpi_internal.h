@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2002/06/13 05:40:12 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/16 09:19:26 $
+ * $Revision: 1.4 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -257,6 +257,30 @@ extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest,
                             ammpi_buf_t** pbuf, MPI_Request** pHandle);
 #endif
 
+/* ------------------------------------------------------------------------------------ */
+/* AMMPI_IDENT() takes a unique identifier and a textual string and embeds the textual
+   string in the executable file
+ */
+#define AMMPI_PRAGMA(x) _Pragma ( #x )
+#define _AMMPI_IDENT(identName, identText)  \
+  extern char volatile identName[];         \
+  char volatile identName[] = identText;    \
+  extern char *_get_##identName() { return (char*)identName; }
+#if defined(_CRAYC)
+  #define AMMPI_IDENT(identName, identText) \
+    AMMPI_PRAGMA(_CRI ident identText);     \
+    _AMMPI_IDENT(identName, identText)
+#elif defined(__xlC__)
+    /* #pragma comment(user,"text...") 
+         or
+       _Pragma ( "comment (user,\"text...\")" );
+       are both supposed to work according to compiler docs, but both appear to be broken
+     */
+  #define AMMPI_IDENT(identName, identText)   \
+    _AMMPI_IDENT(identName, identText)
+#else
+  #define AMMPI_IDENT _AMMPI_IDENT
+#endif
 /* ------------------------------------------------------------------------------------ */
 
 /*  handler prototypes */
