@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2003/08/30 07:16:49 $
- * $Revision: 1.2 $
+ *     $Date: 2003/09/30 20:23:57 $
+ * $Revision: 1.3 $
  * Description: GASNet header for smp conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -151,12 +151,11 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
-extern int gasnetc_AMPoll();
 
-#define gasnet_AMPoll          gasnetc_AMPoll
+#define gasnet_AMPoll()        GASNET_OK  /* nothing to do */
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
-#define GASNET_BLOCKUNTIL(cond) while (!(cond)) gasnet_AMPoll()
+#define GASNET_BLOCKUNTIL(cond) while (!(cond)) gasneti_local_membar()
 
 /* ------------------------------------------------------------------------------------ */
 /*

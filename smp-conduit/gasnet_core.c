@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/09/13 17:17:55 $
- * $Revision: 1.9 $
+ *     $Date: 2003/09/30 20:23:57 $
+ * $Revision: 1.10 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -390,6 +390,8 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   return GASNET_OK;
 }
 
+#if 0
+/* no polling required for smp-conduit */
 extern int gasnetc_AMPoll() {
   int retval;
   GASNETI_CHECKATTACH();
@@ -398,6 +400,7 @@ extern int gasnetc_AMPoll() {
 
   return GASNET_OK;
 }
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -478,7 +481,7 @@ static int gasnetc_RequestGeneric(gasnetc_category_t category,
                          void *source_addr, int nbytes, void *dest_ptr, 
                          int numargs, va_list argptr) {
 
-  gasnetc_AMPoll(); /* ensure progress */
+  gasnet_AMPoll(); /* ensure progress */
 
   return gasnetc_ReqRepGeneric(category, 1, dest, handler, 
                                source_addr, nbytes, dest_ptr, 
