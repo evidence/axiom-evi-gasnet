@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/02 20:45:06 $
- * $Revision: 1.9 $
+ *     $Date: 2002/12/04 01:38:09 $
+ * $Revision: 1.10 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -583,7 +583,7 @@ extern int gasnetc_AMRequestMediumM(
     gasnetc_uhdr_buf_t token_buf;
     gasnetc_token_t *token = &token_buf.token;
     int token_len;
-    char *udata_start = NULL;
+    void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
     int i;
@@ -607,13 +607,13 @@ extern int gasnetc_AMRequestMediumM(
 	token->args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
     va_end(argptr);
-    udata_start = (char*)&token->args[numargs];
+    udata_start = (void*)&token->args[numargs];
     token_len = offsetof(gasnetc_token_t,args) + numargs*sizeof(gasnet_handlerarg_t);
     udata_avail = sizeof(gasnetc_uhdr_buf_t) - token_len;
 
     /* can we pack the data into the uhdr? */
     if (nbytes <= udata_avail) {
-	memcpy(udata_start,(char*)source_addr,nbytes);
+	memcpy(udata_start,source_addr,nbytes);
 	token_len += nbytes;
 	udata_packed = 1;
 	GASNETC_MSG_SET_PACKED(token);
@@ -623,10 +623,10 @@ extern int gasnetc_AMRequestMediumM(
 #if GASNETC_ENABLE_LOOPBACK
     if (dest == gasnetc_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
-	char *destloc;
+	void *destloc;
 	if (nbytes > udata_avail) {
 	    destloc = gasneti_malloc_inhandler(nbytes > 0 ? nbytes : 1);
-	    memcpy(destloc,(char*)source_addr,nbytes);
+	    memcpy(destloc,source_addr,nbytes);
 	} else {
 	    destloc = udata_start;
 	}
@@ -643,7 +643,7 @@ extern int gasnetc_AMRequestMediumM(
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, target_node,
 			       gasnetc_remote_req_hh[target_node],
 			       (void*)token, token_len,
-			       (udata_packed ? NULL : (void*)source_addr),
+			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, NULL));
     
@@ -665,7 +665,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     gasnetc_uhdr_buf_t token_buf;
     gasnetc_token_t *token = &token_buf.token;
     int token_len;
-    char *udata_start = NULL;
+    void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
     int i;
@@ -695,7 +695,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 	token->args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
     va_end(argptr);
-    udata_start = (char*)&token->args[numargs];
+    udata_start = (void*)&token->args[numargs];
     token_len = offsetof(gasnetc_token_t,args) + numargs*sizeof(gasnet_handlerarg_t);
     udata_avail = sizeof(gasnetc_uhdr_buf_t) - token_len;
 
@@ -704,7 +704,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     if (dest == gasnetc_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	/* must do local copy of data from source to dest */
-	memcpy((char*)dest_addr,(char*)source_addr,nbytes);
+	memcpy((char*)dest_addr,source_addr,nbytes);
 	RUN_HANDLER_LONG(pfn,token,&token->args[0],numargs,dest_addr,nbytes);
 	GASNETI_RETURN(GASNET_OK);
     }
@@ -712,7 +712,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 
     /* can we pack the data into the uhdr? */
     if (nbytes <= udata_avail) {
-	memcpy(udata_start,(char*)source_addr,nbytes);
+	memcpy(udata_start,source_addr,nbytes);
 	token_len += nbytes;
 	udata_packed = 1;
 	GASNETC_MSG_SET_PACKED(token);
@@ -723,7 +723,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, target_node,
 			       gasnetc_remote_req_hh[target_node],
 			       (void*)token, token_len,
-			       (udata_packed ? NULL : (void*)source_addr),
+			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, NULL));
     
@@ -743,7 +743,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     gasnetc_uhdr_buf_t *token_buf;
     gasnetc_token_t *token;
     int token_len;
-    char *udata_start = NULL;
+    void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
     int i;
@@ -780,7 +780,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 	token->args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
     va_end(argptr);
-    udata_start = (char*)&token->args[numargs];
+    udata_start = (void*)&token->args[numargs];
     token_len = offsetof(gasnetc_token_t,args) + numargs*sizeof(gasnet_handlerarg_t);
     udata_avail = sizeof(gasnetc_uhdr_buf_t) - token_len;
 
@@ -789,7 +789,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     if (dest == gasnetc_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	/* must do local copy of data from source to dest */
-	memcpy((char*)dest_addr,(char*)source_addr,nbytes);
+	memcpy((char*)dest_addr,source_addr,nbytes);
 	/* Note: we will deallocate the token below, just to be safe
 	 * remove the address from the uhdrLoc field so that no-one
 	 * else messes with it.
@@ -803,7 +803,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 
     /* can we pack the data into the uhdr? */
     if (nbytes <= udata_avail) {
-	memcpy(udata_start,(char*)source_addr,nbytes);
+	memcpy(udata_start,source_addr,nbytes);
 	token_len += nbytes;
 	udata_packed = 1;
 	GASNETC_MSG_SET_PACKED(token);
@@ -818,7 +818,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, target_node,
 			       gasnetc_remote_req_hh[target_node],
 			       (void*)token, token_len,
-			       (udata_packed ? NULL : (void*)source_addr),
+			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, NULL, NULL));
     
@@ -851,7 +851,7 @@ extern int gasnetc_AMReplyShortM(
     GASNETC_MSG_SETFLAGS(t,0,gasnetc_Short,0,numargs);
     t->handlerId = handler;
     t->sourceId = gasnetc_mynode;
-    t->destLoc = NULL;
+    t->destLoc = (uintptr_t)NULL;
     t->dataLen = 0;
     /* do NOT modify the contents of uhdrLoc... needed at origin */
     va_start(argptr, numargs); /*  pass in last argument */
@@ -898,7 +898,7 @@ extern int gasnetc_AMReplyMediumM(
     lapi_cntr_t o_cntr;
     int token_len;
     int i, cur_cntr;
-    char *udata_start = NULL;
+    void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
     
@@ -921,13 +921,13 @@ extern int gasnetc_AMReplyMediumM(
 	t->args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
     va_end(argptr);
-    udata_start = (char*)&t->args[numargs];
+    udata_start = (void*)&t->args[numargs];
     token_len = offsetof(gasnetc_token_t,args) + numargs*sizeof(gasnet_handlerarg_t);
     udata_avail = sizeof(gasnetc_uhdr_buf_t) - token_len;
 
     /* can we pack the data into the uhdr? */
     if (nbytes <= udata_avail) {
-	memcpy(udata_start,(char*)source_addr,nbytes);
+	memcpy(udata_start,source_addr,nbytes);
 	token_len += nbytes;
 	udata_packed = 1;
 	GASNETC_MSG_SET_PACKED(t);
@@ -936,14 +936,14 @@ extern int gasnetc_AMReplyMediumM(
 #if GASNETC_ENABLE_LOOPBACK
     if (requester == gasnetc_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
-	char *destloc;
+	void *destloc;
 	if (nbytes > udata_avail) {
 	    destloc = gasneti_malloc_inhandler(nbytes > 0 ? nbytes : 1);
-	    memcpy(destloc,(char*)source_addr,nbytes);
+	    memcpy(destloc,source_addr,nbytes);
 	} else {
 	    destloc = udata_start;
 	}
-	RUN_HANDLER_MEDIUM(pfn,token,&t->args[0],numargs,(void*)destloc,nbytes);
+	RUN_HANDLER_MEDIUM(pfn,token,&t->args[0],numargs,destloc,nbytes);
 	if (nbytes > udata_avail) {
 	    gasneti_free(destloc);
 	}
@@ -956,7 +956,7 @@ extern int gasnetc_AMReplyMediumM(
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, requester,
 			       gasnetc_remote_reply_hh[requester],
 			       (void*)t, token_len,
-			       (udata_packed ? NULL : (void*)source_addr),
+			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, NULL));
     
@@ -980,7 +980,7 @@ extern int gasnetc_AMReplyLongM(
     uint requester = (uint)t->sourceId;
     lapi_cntr_t o_cntr;
     int token_len;
-    char *udata_start = NULL;
+    void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
     int i, cur_cntr;
@@ -1009,7 +1009,7 @@ extern int gasnetc_AMReplyLongM(
 	t->args[i] = va_arg(argptr, gasnet_handlerarg_t);
     }
     va_end(argptr);
-    udata_start = (char*)&t->args[numargs];
+    udata_start = (void*)&t->args[numargs];
     token_len = offsetof(gasnetc_token_t,args) + numargs*sizeof(gasnet_handlerarg_t);
     udata_avail = sizeof(gasnetc_uhdr_buf_t) - token_len;
 
@@ -1018,7 +1018,7 @@ extern int gasnetc_AMReplyLongM(
     if (requester == gasnetc_mynode) {
 	gasnetc_handler_fn_t pfn = gasnetc_handler[handler];
 	/* copy from source to dest, then execute handler */
-	memcpy((char*)dest_addr,(char*)source_addr,nbytes);
+	memcpy((char*)dest_addr,source_addr,nbytes);
 	RUN_HANDLER_LONG(pfn,token,&t->args[0],numargs,dest_addr,nbytes);
 	GASNETI_RETURN(GASNET_OK);
     }
@@ -1026,7 +1026,7 @@ extern int gasnetc_AMReplyLongM(
 
     /* can we pack the data into the uhdr? */
     if (nbytes <= udata_avail) {
-	memcpy(udata_start,(char*)source_addr,nbytes);
+	memcpy(udata_start,source_addr,nbytes);
 	token_len += nbytes;
 	udata_packed = 1;
 	GASNETC_MSG_SET_PACKED(t);
@@ -1037,7 +1037,7 @@ extern int gasnetc_AMReplyLongM(
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, requester,
 			       gasnetc_remote_reply_hh[requester],
 			       (void*)t, token_len,
-			       (udata_packed ? NULL : (void*)source_addr),
+			       (udata_packed ? NULL : source_addr),
 			       (udata_packed ? 0    : nbytes),
 			       NULL, &o_cntr, NULL));
     
@@ -1322,7 +1322,7 @@ void* gasnetc_lapi_AMreq_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
     unsigned int is_packed;
     void* destloc = NULL;
     gasnetc_uhdr_buf_t *token_buf;
-    char *udata_start = NULL;
+    void *udata_start = NULL;
     unsigned int numargs;
     int token_len = *uhdr_len;
 
@@ -1335,6 +1335,7 @@ void* gasnetc_lapi_AMreq_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
     numargs = GASNETC_MSG_NUMARGS(token);
     cat = GASNETC_MSG_CATEGORY(token);
 
+#if 0
     { /* For dubugging */
 	unsigned int is_req;
 	is_req = GASNETC_MSG_ISREQUEST(token);
@@ -1345,6 +1346,7 @@ void* gasnetc_lapi_AMreq_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 				is_packed,numargs,*uhdr_len,*msg_len,
 				(void*)token->destLoc,token->dataLen));
     }
+#endif
     
     switch (cat) {
     case gasnetc_Short:
@@ -1354,7 +1356,7 @@ void* gasnetc_lapi_AMreq_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 	    /* will use token space as local buffer */
 	    assert( *msg_len == 0 );
 	    destloc = NULL;
-	    token->destLoc = NULL;
+	    token->destLoc = (uintptr_t)NULL;
 	} else {
 	    assert( token->dataLen == *msg_len);
 	    destloc = gasneti_malloc_inhandler( *msg_len > 0 ? *msg_len : 1 );
@@ -1368,8 +1370,8 @@ void* gasnetc_lapi_AMreq_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 	    /* copy packed data to destination and report to LAPI
 	     * dispatcher there is no more data coming
 	     */
-	    udata_start = (char*)&token->args[numargs];
-	    memcpy((char*)destloc,udata_start,token->dataLen);
+	    udata_start = (void*)&token->args[numargs];
+	    memcpy(destloc,udata_start,token->dataLen);
 	    token_len -= token->dataLen;
 	    destloc = NULL;
 	}
@@ -1411,7 +1413,6 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
     unsigned int is_packed;
     void* destloc = NULL;
     gasnetc_uhdr_buf_t *token_buf;
-    char *udata_start = NULL;
     unsigned int numargs;
     int token_len = *uhdr_len;
     gasnet_handler_t func_ix = token->handlerId;
@@ -1427,6 +1428,7 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
     numargs = GASNETC_MSG_NUMARGS(token);
     cat = GASNETC_MSG_CATEGORY(token);
 
+#if 0
     { /* For dubugging */
 	unsigned int is_req;
 	is_req = GASNETC_MSG_ISREQUEST(token);
@@ -1437,6 +1439,7 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 				is_packed,numargs,*uhdr_len,*msg_len,
 				(void*)token->destLoc,token->dataLen));
     }
+#endif
     
     /* This is a reply. If the uhdrLoc field of the token is set
      * that means the origional GASNET call was an AsyncLong and we
@@ -1459,8 +1462,6 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 	    void *srcloc = (void*)&token->args[numargs];
 	    RUN_HANDLER_MEDIUM(am_func,token,am_args,numargs,srcloc,token->dataLen);
 	    done = 1;
-	    *comp_h = NULL;
-	    *uinfo = NULL;
 	} else {
 	    /* data payload not in uhdr, alloc space of it */
 	    assert( token->dataLen == *msg_len);
@@ -1475,8 +1476,8 @@ void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 	    /* copy packed data to destination and report to LAPI
 	     * dispatcher there is no more data coming
 	     */
-	    char* udata_start = (char*)&token->args[numargs];
-	    memcpy((char*)destloc,udata_start,token->dataLen);
+	    void* udata_start = (void*)&token->args[numargs];
+	    memcpy(destloc,udata_start,token->dataLen);
 	    RUN_HANDLER_LONG(am_func,token,am_args,numargs,destloc,token->dataLen);
 	    done = 1;
 	}
@@ -1528,9 +1529,11 @@ void gasnetc_lapi_AMch(lapi_handle_t *context, void *uinfo)
     gasnetc_handler_fn_t am_func = gasnetc_handler[func_ix];
     gasnet_handlerarg_t *am_args = &token->args[0];
 
+#if 0
     GASNETI_TRACE_PRINTF(C,("CH received %s from %d is_req %d is_packed %d numargs %d handlerix %d dataptr %x datalen %d",
 			    gasnetc_catname[msg_type],token->sourceId,is_request,
 			    is_packed,numargs,func_ix,dataptr,datalen));
+#endif
 
     if (am_func == NULL) {
 	gasneti_fatalerror("lapi_AMch: node %d, invalid handler index %d",
@@ -1663,6 +1666,7 @@ int gasnetc_uhdr_more(int want)
 {
     /* NOTE: assumes lock already held */
 
+    int i;
     gasnetc_uhdr_freelist_t *list = &gasnetc_uhdr_freelist;
     gasnetc_uhdr_buf_t *free = (gasnetc_uhdr_buf_t*)gasneti_malloc_inhandler(want * sizeof(gasnetc_uhdr_buf_t));
     while (free == NULL) {
@@ -1675,7 +1679,7 @@ int gasnetc_uhdr_more(int want)
     }
 
     /* link them onto freelist */
-    for (int i = 0; i < want; i++) {
+    for (i = 0; i < want; i++) {
 	free->next = list->freelist;
 	list->freelist = free;
 	free++;
