@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/12 11:03:52 $
-# $Revision: 1.8 $
+#     $Date: 2004/03/12 14:01:27 $
+# $Revision: 1.9 $
 # Description: Makefile for GASNet other 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -14,8 +14,7 @@ SUBDIRS =          \
 
 EXTRA_DIST =       \
 	amxtests   \
-	firehose   \
-	perlstart
+	firehose   
 
 if USE_UDP_CONDUIT                           
   UDP_dir=$(top_builddir)/other/amudp
@@ -35,7 +34,7 @@ run-tests:
 	  $(MAKE) -C "$$dir" run-tests ;            \
 	done
 
-all-local: Makefile-conduit.mak
+all-local: Makefile-conduit.mak perlstart
 
 .PHONY: force clean tests run-tests
 
