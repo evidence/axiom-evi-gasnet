@@ -1,27 +1,33 @@
-* * * 7/3/2002
+* * * 11/16/2002
 
 Initial checkin of lapi conduit.
 
-(Mostly) complete
-=================
+Complete:
+========
+* Initial working implementation of LAPI conduit.
 
-* Implementation plan
+* Works with GASNET_SEGMENT_LARGE
 
-* AIX memory management issues and gasnet_init(), gasnet_attach().
+* Works with GASNET_PAR
+   - known issue with shared buffer for lapi error messages.
 
-* Some of the AM core functions implemented.
+  (Issues with GASNET_SEQ and GASNET_PARSYNC in upper gasnet
+   layer on conduits that execute handlers in seperate, conduit
+   owned threads.  Can be concurrent with user threads executing
+   client code.)
 
-Left to do:
+* optimizations for AM
+   - uhdr buffer pool to recude calls to malloc/free
+   - Execution of REPLY handler in LAPI header handler, when possible.
+   - Pack medium/large data into uhdr
+
+* Loopback working
+
+ToDo - core
 ===========
+* GASNET_SEGMENT_EVERYTHING - see Elan code.
 
-* Complete proper error returns from all conduit functions.
+* What to do about GASNET_SEGMENT_FAST?
 
-* Complete implementation of AM functions using LAPI AM.
+* Implement the extended API directly over LAPI.
 
-* Optimize AM Medium calls.
-
-* Configuration and Makefiles
-
-* Debug.
-
-* Adding TRACE calls.

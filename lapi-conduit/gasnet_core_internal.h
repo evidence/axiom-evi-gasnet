@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/11/15 23:32:26 $
- * $Revision: 1.4 $
+ *     $Date: 2002/11/19 19:02:00 $
+ * $Revision: 1.5 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -30,10 +30,11 @@ extern int                gasnetc_lapi_errno;
 extern char               gasnetc_lapi_msg[];
 extern int                gasnetc_max_lapi_uhdr_size;
 extern int                gasnetc_max_lapi_data_size;
-extern void**             gasnetc_remote_hh;
+extern void**             gasnetc_remote_req_hh;
+extern void**             gasnetc_remote_reply_hh;
 
 /* Enable loopback by setting to 1, disable by setting to 0 */
-#define GASNETC_ENABLE_LOOPBACK 0
+#define GASNETC_ENABLE_LOOPBACK 1
 
 #define GASNETC_MAX_NUMHANDLERS   256
 typedef void (*gasnetc_handler_fn_t)();  /* prototype for handler function */
@@ -44,8 +45,10 @@ extern void gasnetc_lapi_exchange(void *src, size_t len, void *dest);
 extern void gasnetc_lapi_err_handler(lapi_handle_t *context, int *error_code,
 				     lapi_err_t  *error_type, int *taskid, int *src);
 
-extern void* gasnetc_lapi_AMhh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
-			       ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo);
+extern void* gasnetc_lapi_AMreq_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
+				   ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo);
+extern void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
+				     ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo);
 extern void gasnetc_lapi_AMch(lapi_handle_t *context, void *uinfo);
 
 /* what type of message are we sending/receiving */
@@ -60,7 +63,7 @@ char *gasnetc_catname[] = {"Short","Medium","Long","AsyncLong"};
 
 #if GASNETC_USE_IBH
 #define GASNETC_MAX_THREAD 20
-extern volitile int gasnetc_interrupt_held[];
+extern volatile int gasnetc_interrupt_held[];
 #endif
 
 /* message structure... doubles as a token */
@@ -75,16 +78,48 @@ typedef struct {
     gasnet_handlerarg_t  args[GASNETC_AM_MAX_ARGS];
 } gasnetc_token_t;
 
-#define GASNETC_MSG_SETFLAGS(pmsg, isreq, cat, numargs) \
+#define GASNETC_MSG_SETFLAGS(pmsg, isreq, cat, packed, numargs) \
   ((pmsg)->flags = (gasnetc_flag_t) (                   \
                    (((numargs) & 0xFF) << 16)           \
                  | (((isreq) & 0x1)    << 8)            \
                  |  ((cat) & 0x3)                       \
+                 |  ((packed) & 0x8)                    \
                    ))
 
 #define GASNETC_MSG_NUMARGS(pmsg)   ( ( ((unsigned int)(pmsg)->flags) >> 16 ) & 0xFF)
 #define GASNETC_MSG_ISREQUEST(pmsg) ( ( ((unsigned int)(pmsg)->flags) >>  8 ) & 0x1)
 #define GASNETC_MSG_CATEGORY(pmsg)  ((gasnetc_category_t)((pmsg)->flags & 0x3))
+#define GASNETC_MSG_ISPACKED(pmsg)  ((unsigned int)((pmsg)->flags & 0x8))
+#define GASNETC_MSG_SET_PACKED(pmsg) (pmsg)->flags |= 0x8
+
+/* --------------------------------------------------------------------
+ * dynamic uhdr buffer allocation
+ *
+ * Keep a list of buffers for use as LAPI UHDR structures
+ * into which both arguments and packed data can be placed.
+ * --------------------------------------------------------------------
+ */
+#define GASNETC_UHDR_INIT_CNT 32
+#define GASNETC_UHDR_ADDITIONAL 16
+typedef union gasnetc_uhdr_buf_rec {
+    char                   buf[GASNETC_UHDR_SIZE];
+    union gasnetc_uhdr_buf_rec  *next;
+    gasnetc_token_t        token;
+} gasnetc_uhdr_buf_t;
+
+typedef struct {
+    int    high_water_mark;
+    int    numfree;
+    int    numalloc;
+    gasnetc_uhdr_buf_t  *freelist;
+    pthread_mutex_t lock;
+} gasnetc_uhdr_freelist_t;
+
+extern gasnetc_uhdr_freelist_t gasnetc_uhdr_freelist;
+extern void   gasnetc_uhdr_init(int want);
+extern gasnetc_uhdr_buf_t*  gasnetc_uhdr_alloc(void);
+extern void   gasnetc_uhdr_free(gasnetc_uhdr_buf_t* uhdr);
+extern int    gasnetc_uhdr_more(int want);
 
 /* MLW: Need more descriptive name for this macro */
 #define GASNETC_LCHECK(func) { \
@@ -190,7 +225,7 @@ typedef void (*gasnetc_HandlerLong)  (gasnet_token_t token, void *buf, size_t nb
     }                                                                                   \
   } while (0)
 #define RUN_HANDLER_MEDIUM(phandlerfn, token, pArgs, numargs, pData, datalen) do {      \
-    assert(((int)pData) % 8 == 0);  /* we guarantee double-word alignment for data payload of medium xfers */ \
+    /* assert(((int)pData) % 8 == 0);  we guarantee double-word alignment for data payload of medium xfers */ \
     _RUN_HANDLER_MEDLONG((gasnetc_HandlerMedium)phandlerfn, (gasnet_token_t)token, pArgs, numargs, (void *)pData, (int)datalen); \
     } while(0)
 #define RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen)             \
