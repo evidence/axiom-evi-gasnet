@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/12/15 23:53:19 $
- * $Revision: 1.34 $
+ *     $Date: 2003/12/18 20:17:38 $
+ * $Revision: 1.35 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -345,7 +345,7 @@ gasnetc_sbuf_t *gasnetc_get_sbuf(void) {
     }
 
     /* be kind */
-    gasneti_sched_yield();
+    GASNETI_WAITHOOK();
 
     first_try = 0;
   }
@@ -522,6 +522,7 @@ void gasnetc_pre_snd(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sbuf_t *sb
   if_pf (!gasnetc_sema_trydown(&cep->op_sema, GASNETC_ANY_PAR)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
+	GASNETI_WAITHOOK();
         gasnetc_poll_snd();
     } while (!gasnetc_sema_trydown(&cep->op_sema, GASNETC_ANY_PAR));
     GASNETC_TRACE_WAIT_END(POST_SR_STALL);
@@ -629,6 +630,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     if_pf (!gasnetc_sema_trydown(sema, GASNETC_ANY_PAR)) {
       GASNETC_TRACE_WAIT_BEGIN();
       do {
+	GASNETI_WAITHOOK();
         gasnetc_poll_rcv();
       } while (!gasnetc_sema_trydown(sema, GASNETC_ANY_PAR));
       GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
@@ -1151,12 +1153,14 @@ extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_con
 {
   if (handler_context) {
     do {
-	/* must not poll rcv queue in hander context */
-        gasnetc_poll_snd();
+      /* must not poll rcv queue in hander context */
+      GASNETI_WAITHOOK();
+      gasnetc_poll_snd();
     } while (!gasnetc_counter_done(counter));
   } else {
     do {
-        gasnetc_poll_both();
+      GASNETI_WAITHOOK();
+      gasnetc_poll_both();
     } while (!gasnetc_counter_done(counter));
   }
 }
