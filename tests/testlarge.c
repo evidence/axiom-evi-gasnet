@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testlarge.c                                 $
- *     $Date: 2004/01/23 10:35:05 $
- * $Revision: 1.12 $
+ *     $Date: 2004/03/05 22:44:59 $
+ * $Revision: 1.13 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -316,7 +316,7 @@ int main(int argc, char **argv)
 	max_payload = TEST_SEGSZ;
 
         if (insegment) {
-	    msgbuf = tgtmem;
+	    msgbuf = (void *) TEST_MYSEG();
         } else {
 	    msgbuf = (void *) test_malloc(max_payload);
         }
