@@ -1,6 +1,6 @@
 GASNet mpi-conduit documentation
 Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.4 $
+$Revision: 1.5 $
 
 User Information:
 -----------------
@@ -10,7 +10,12 @@ Recognized environment variables:
 
 * All the standard GASNet environment variables (see top-level README)
 
-* GASNET_NETWORKDEPTH - depth of network buffers to allocate
+* GASNET_NETWORKDEPTH - depth of network buffers to allocate (defaults to 4)
+  can also be set as AMMPI_NETWORKDEPTH (GASNET_NETWORKDEPTH takes precedence)
+  mpi-conduit's max MPI buffer usage at any time is bounded by:
+   depth * 65 KB preposted non-blocking recvs
+   2 * depth * <= 65 KB non-blocking sends (AMMedium/AMLong)
+   2 * depth * <= 78 byte non-blocking sends (AMShort)
 
 Configuration-time variables:
 ---------------------------------
@@ -78,6 +83,14 @@ Design Overview:
 The core API implementation is a very thin wrapper around the AMMPI
 implementation by Dan Bonachea. See documentation in the other/ammpi directory
 or the AMMPI webpage (http://www.cs.berkeley.edu/~bonachea/ammpi) for details.
+AMMPI requires an MPI 1.1 compliant MPI implementation, and performance 
+varies widely across MPI implementations (based primarily on their performance
+for non-blocking sends and recvs - MPI_ISend/MPI_IRecv).
+
+AMMPI performs all its MPI calls on a separate, private MPI communicator, which
+is strongly guaranteed by the MPI spec to isolate it from any other MPI
+communication in the application, so there's never a possibility of deadlock or
+hard-limit resource contention between the two.
 
 The mpi-conduit directly uses the extended-ref implementation for the extended
 API - see the extended-ref directory for details.
