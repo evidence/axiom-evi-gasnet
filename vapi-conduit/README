@@ -86,15 +86,15 @@ Paul H. Hargrove <PHHargrove@lbl.gov>
     can be in-flight simultaneously from each node, with "in-flight"
     defined as in GASNET_OP_OUST_PP.
     This is (potentially) the depth of the send completion queue and the
-    number of 'sbuf' data structures allocated to track in-flight ops.
+    number of 'sreq' data structures allocated to track in-flight ops.
     However, for a given value of GASNET_OP_OUST_PP and N, it might not
     be possible to launch GASNET_OP_OUST_LIMIT operations.  Therefore,
-    the memory consumed for the send completion queue and sbufs scales
+    the memory consumed for the send completion queue and sreqs scales
     as min(GASNET_OP_OUST_LIMIT, GASNET_OP_OUST_PP*(N-1)), on each node.
-    The default value is 1024.  (upto 4MB used for send buffers)
+    The default value is 1024.
     This parameter should be equal across all nodes, and the behavior
     otherwise is undefined.
-   
+
   + GASNET_AM_OUST_PP
     This give the maximum number of outstanding AM Requests which can
     be in-flight simultaneously from a node to each of its peers.  Here
@@ -146,6 +146,18 @@ Paul H. Hargrove <PHHargrove@lbl.gov>
     This parameter should be equal across all nodes, and the behavior
     otherwise is undefined.
 
+  + GASNET_BBUF_LIMIT
+    This gives the maximum number of pre-pinned bounce buffers allocated
+    on each node.  These buffers are needed for assembly of AM headers
+    (and the payload of mediums), and for gets and puts with the local
+    address outside the GASNet segment.  The default is 1024, which results
+    in a limit of 4MB (unless GASNETC_BUFSZ is changed at compile time).
+    The actual number of buffers allocated maybe less if the values of
+    GASNET_OP_OUST_PP and GASNET_AP_OUST_LIMIT are such that all
+    GASNET_BBUF_LIMIT buffers could never be consumed.
+    This parameter should be equal across all nodes, and the behavior
+    otherwise is undefined.
+   
 @ Section: Core API @
 
 + Flow-control for AMs.

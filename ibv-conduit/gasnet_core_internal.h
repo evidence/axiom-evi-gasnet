@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/12/23 01:09:13 $
- * $Revision: 1.31 $
+ *     $Date: 2004/02/02 23:10:13 $
+ * $Revision: 1.32 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -560,6 +560,10 @@ void gasneti_freelist_init(gasneti_freelist_t *fl) {
 }
 
 /* Get one element from the freelist or NULL if it is empty */
+#ifdef __GNUC__
+  GASNET_INLINE_MODIFIER(gasneti_freelist_get)
+  void *gasneti_freelist_get(gasneti_freelist_t *fl) __attribute__((__malloc__));
+#endif
 GASNET_INLINE_MODIFIER(gasneti_freelist_get)
 void *gasneti_freelist_get(gasneti_freelist_t *fl) {
   gasneti_freelist_ptr_t *head;
@@ -680,6 +684,7 @@ extern int		gasnetc_op_oust_pp;
 extern int		gasnetc_am_oust_limit;
 extern int		gasnetc_am_oust_pp;
 extern int		gasnetc_am_spares;
+extern int		gasnetc_bbuf_limit;
 extern int		gasnetc_use_poll_lock;
 
 /* Global variables */
