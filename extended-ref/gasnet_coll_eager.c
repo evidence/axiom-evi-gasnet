@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_eager.c,v $
- *     $Date: 2004/09/25 00:16:20 $
- * $Revision: 1.12 $
+ *     $Date: 2004/09/25 00:36:29 $
+ * $Revision: 1.13 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1269,7 +1269,7 @@ gasnete_coll_generic_broadcast_nb(gasnet_team_handle_t team,
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
 	return GASNET_COLL_INVALID_HANDLE;
-      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+      } else if (flags & GASNET_COLL_SRC_IN_SEGMENT) {
 	/* Only the source is in-segment */
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
@@ -1613,7 +1613,7 @@ gasnete_coll_generic_broadcastM_nb(gasnet_team_handle_t team,
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
 	return GASNET_COLL_INVALID_HANDLE;
-      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+      } else if (flags & GASNET_COLL_SRC_IN_SEGMENT) {
 	/* Only the source is in-segment */
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
@@ -1936,7 +1936,7 @@ gasnete_coll_generic_scatter_nb(gasnet_team_handle_t team,
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
 	return GASNET_COLL_INVALID_HANDLE;
-      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+      } else if (flags & GASNET_COLL_SRC_IN_SEGMENT) {
 	/* Only the source is in-segment */
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
@@ -2349,7 +2349,7 @@ gasnete_coll_generic_scatterM_nb(gasnet_team_handle_t team,
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
 	return GASNET_COLL_INVALID_HANDLE;
-      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+      } else if (flags & GASNET_COLL_SRC_IN_SEGMENT) {
 	/* Only the source is in-segment */
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
@@ -2696,7 +2696,7 @@ gasnete_coll_generic_gather_nb(gasnet_team_handle_t team,
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
 	return GASNET_COLL_INVALID_HANDLE;
-      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+      } else if (flags & GASNET_COLL_SRC_IN_SEGMENT) {
 	/* Only the source is in-segment */
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
@@ -3092,7 +3092,7 @@ gasnete_coll_generic_gatherM_nb(gasnet_team_handle_t team,
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
 	return GASNET_COLL_INVALID_HANDLE;
-      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+      } else if (flags & GASNET_COLL_SRC_IN_SEGMENT) {
 	/* Only the source is in-segment */
 	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
 	/* XXX: IMPLEMENT THIS */
