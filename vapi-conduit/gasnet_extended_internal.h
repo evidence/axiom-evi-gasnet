@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2003/07/03 22:21:04 $
- * $Revision: 1.2 $
+ *     $Date: 2003/08/11 23:47:39 $
+ * $Revision: 1.3 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,11 +63,11 @@ typedef struct _gasnete_iop_t {
 
   struct _gasnete_iop_t *next;    /*  next cell while in free list */
 
-  /*  make sure the counters live on different cache lines for SMP's */
-  uint8_t pad[GASNETE_CACHE_LINE_BYTES - sizeof(struct _gasnete_iop_t *) - sizeof(gasneti_atomic_t) - 4];
-
+  /*  make sure the counters live on a distinct cache line for SMPs */
+  uint8_t _pad1[GASNETE_CACHE_LINE_BYTES - 2*sizeof(void *)];
   gasneti_atomic_t get_req_oust;     /*  count of get ops outstanding */
   gasneti_atomic_t put_req_oust;     /*  count of put ops outstanding */
+  uint8_t _pad2[GASNETE_CACHE_LINE_BYTES - 2*sizeof(gasneti_atomic_t)];
 } gasnete_iop_t;
 
 /* ------------------------------------------------------------------------------------ */
