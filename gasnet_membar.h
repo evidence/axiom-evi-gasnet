@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/07/30 10:48:30 $
- * $Revision: 1.44 $
+ *     $Date: 2004/08/01 04:36:28 $
+ * $Revision: 1.45 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -224,9 +224,16 @@
         /* work-around for a puzzling header bug in alpha Linux */
         #define extern static
       #endif
+      #ifdef __cplusplus
+        /* work around a really stupid C++ header bug observed in HP Linux */
+        #define new new_
+      #endif
       #include <asm/atomic.h>
       #ifdef __alpha__
         #undef extern
+      #endif
+      #ifdef __cplusplus
+        #undef new
       #endif
       typedef atomic_t gasneti_atomic_t;
       #define gasneti_atomic_increment(p) atomic_inc(p)

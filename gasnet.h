@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2004/06/30 09:05:57 $
- * $Revision: 1.26 $
+ *     $Date: 2004/08/01 04:36:28 $
+ * $Revision: 1.27 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -395,14 +395,15 @@ static int *gasneti_linkconfig_idiotcheck();
 static int *(*_gasneti_linkconfig_idiotcheck)() = &gasneti_linkconfig_idiotcheck;
 static int *gasneti_linkconfig_idiotcheck() {
   static int val;
-  val += (int)(uintptr_t)_gasneti_linkconfig_idiotcheck
-        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREADMODEL)
+  val +=  GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREADMODEL)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SEGMENT_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_DEBUG_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG);
+  if (_gasneti_linkconfig_idiotcheck != gasneti_linkconfig_idiotcheck)
+    val += *_gasneti_linkconfig_idiotcheck();
   return &val;
 }
 
