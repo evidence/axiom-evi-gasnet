@@ -1,9 +1,21 @@
 README file for ssh-spawner
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.1 $
+$Revision: 1.2 $
 
 See vapi-conduit for an example of how to use this code in a conduit.
+
+Configure options:
+  --{en,dis}able-ssh-prctl (disabled by default)
+  On Linux, it is possible to request a signal be delivered to a
+  process when its parent process dies.  This can be used by the
+  ssh-based spawner to reduce the possibility of orphan (run away)
+  processes in certain abnormal termination scenarios.  One use
+  of this is to work around versions of ssh that fail to kill the
+  "remote" process when the "local" ssh is terminated.
+  Because there are versions of Linux on which use of this option
+  can lock up the machine (as the result of a kernel bug), this
+  option is disabled by default.
 
 When using the ssh-spawner, the following apply:
 
