@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2003/07/10 22:44:19 $
- * $Revision: 1.1 $
+ *     $Date: 2003/07/10 23:12:05 $
+ * $Revision: 1.2 $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -15,11 +15,12 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <float.h>
+                                                                                
 #include "gasnet.h"
 #include "test.h"
 
-
-
+#define LOOPS 10000 /* bad things will happen if this isn't big enough */
 
 #define GASNET_HEADNODE 0
 #define PRINT_LATENCY 0
@@ -30,7 +31,7 @@
 typedef struct {
 	int datasize;
 	int iters;
-	uint64_t time;
+	int64_t time;
 } stat_struct_t;
 
 gasnet_handlerentry_t handler_table[2];
@@ -44,6 +45,18 @@ void *tgtmem;
 int srcsize;
 int tgtsize;
 
+static float x, y;
+static volatile float z = (1.0 + FLT_EPSILON);
+                                                                                
+void cpu_loop(int n)
+{
+  int i;
+	                                                                                   
+  y = z;
+  x = 1.0;
+  for (i=0; i<n; i++) { x *= y; }
+}
+
 void init_stat(stat_struct_t *st, int sz)
 {
 	st->iters = 0;
@@ -51,7 +64,7 @@ void init_stat(stat_struct_t *st, int sz)
 	st->time = 0;
 }
 
-void update_stat(stat_struct_t *st, uint64_t temptime, int iters)
+void update_stat(stat_struct_t *st, int64_t temptime, int iters)
 {
 	st->iters += iters;
 	st->time += temptime;
@@ -61,7 +74,7 @@ void print_stat(int myproc, stat_struct_t *st, char *name, int operation)
 {
 	switch (operation) {
 	case PRINT_LATENCY:
-		printf("Proc %2i - %4i byte : %7i iters,"
+		printf("Proc %2i - %7i byte : %5i iters,"
 			   " total %10i us elapsed = %9.3f us/msg (%s)\n",
 			myproc, st->datasize, st->iters, (int) st->time,
 			((float)st->time) / st->iters,
@@ -69,7 +82,7 @@ void print_stat(int myproc, stat_struct_t *st, char *name, int operation)
 		fflush(stdout);
 		break;
 	case PRINT_HALF_LATENCY:
-		printf("Proc %2i - %4i byte : %7i iters,"
+		printf("Proc %2i - %7i byte : %5i iters,"
 			   " total %10i us elapsed = %9.3f us/msg (%s)\n",
 			myproc, st->datasize, st->iters, (int) st->time,
 			(0.5*(float)st->time) / st->iters,
@@ -77,10 +90,10 @@ void print_stat(int myproc, stat_struct_t *st, char *name, int operation)
 		fflush(stdout);
 		break;
 	case PRINT_BIG_G:
-		printf("Proc %2i - %4i byte : %7i iters,"
+		printf("Proc %2i - %7i byte : %5i iters,"
 			   " total %10i us elapsed = %9.3f us/Kb (%s)\n",
 			myproc, st->datasize, st->iters, (int) st->time,
-			(1024.0*(float)st->time) / (st->iters * st->datasize),
+			(1024.0*(float)st->time) / ((float)st->iters * (float)st->datasize),
 			name);
 		fflush(stdout);
 		break;
@@ -197,6 +210,73 @@ void gap_test(int iters, int nbytes)
 }
 
 
+void overhead_test(int iters, int nbytes)
+{GASNET_BEGIN_FUNCTION();
+    int i;
+    int64_t begin, end;
+    stat_struct_t st;
+	int iamsender = (myproc % 2 == 0);
+	int iamreceiver = !iamsender;
+
+	/* initialize statistics */
+	init_stat(&st, nbytes);
+	
+	memset(srcmem, 0, nbytes);
+
+	BARRIER();
+	
+	if (iamsender) {
+		/* measure the throughput of nonblocking implicit put */
+		begin = TIME();
+		for (i = 0; i < iters; i++) {
+			gasnet_put_nbi(peerproc, tgtmem, srcmem, nbytes);
+			cpu_loop(LOOPS);
+		}
+		gasnet_wait_syncnbi_puts();
+		end = TIME();
+	 	update_stat(&st, (end - begin), iters);
+
+		/* subtract our CPU time */
+		begin = TIME();
+		for (i = 0; i < iters; i++) { cpu_loop(LOOPS); }
+		end = TIME();
+	 	update_stat(&st, (begin - end), 0);
+	}
+	
+	BARRIER();
+	
+	if (iamsender) {
+		print_stat(myproc, &st, "put_nbi initator overhead", PRINT_LATENCY);
+	}	
+
+	/* initialize statistics */
+	init_stat(&st, nbytes);
+
+	if (iamsender) {
+		/* measure the throughput of nonblocking implicit get */
+		begin = TIME();
+		for (i = 0; i < iters; i++) {
+	 		gasnet_get_nbi(srcmem, peerproc, tgtmem, nbytes);
+			cpu_loop(LOOPS);
+		}
+		gasnet_wait_syncnbi_gets();
+		end = TIME();
+	 	update_stat(&st, (end - begin), iters);
+
+		/* subtract our CPU time */
+		begin = TIME();
+		for (i = 0; i < iters; i++) { cpu_loop(LOOPS); }
+		end = TIME();
+	 	update_stat(&st, (begin - end), 0);
+	}
+	
+	
+	if (iamsender) {
+		print_stat(myproc, &st, "get_nbi initator overhead", PRINT_LATENCY);
+	}	
+}
+
+
 void bigG_test(int iters, int nbytes)
 {GASNET_BEGIN_FUNCTION();
     int i;
@@ -251,189 +331,6 @@ void bigG_test(int iters, int nbytes)
 }
 
 
-#if 0
-void roundtrip_nbi_test(int iters, int nbytes)
-{GASNET_BEGIN_FUNCTION();
-    int i;
-    int64_t begin, end;
-    stat_struct_t st;
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-	
-	memset(srcmem, 0, nbytes);
-
-	BARRIER();
-	
-	if (iamsender) {
-		/* measure the round-trip time of nonblocking implicit put */
-		begin = TIME();
-		for (i = 0; i < iters; i++) {
-			gasnet_put_nbi(peerproc, tgtmem, srcmem, nbytes);
-			gasnet_wait_syncnbi_puts();
-		}
-		end = TIME();
-	 	update_stat(&st, (end - begin), iters);
-	}
-	
-	BARRIER();
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "put_nbi latency", PRINT_LATENCY);
-	}	
-
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-
-	if (iamsender) {
-		/* measure the round-trip time of nonblocking implicit get */
-		begin = TIME();
-		for (i = 0; i < iters; i++) {
-	 		gasnet_get_nbi(srcmem, peerproc, tgtmem, nbytes);
-			gasnet_wait_syncnbi_gets();
-		}
-		end = TIME();
-	 	update_stat(&st, (end - begin), iters);
-	}
-	
-	BARRIER();
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "get_nbi latency", PRINT_LATENCY);
-	}	
-
-}
-
-void roundtrip_nb_test(int iters, int nbytes)
-{GASNET_BEGIN_FUNCTION();
-    int i;
-    int64_t begin, end;
-    stat_struct_t st;
-    gasnet_handle_t hdlget, hdlput;
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-	
-	memset(srcmem, 0, nbytes);
-
-	BARRIER();
-	
-	if (iamsender) {
-		/* measure the round-trip time of nonblocking put */
-		begin = TIME();
-		for (i = 0; i < iters; i++) {
-			hdlput = gasnet_put_nb(peerproc, tgtmem, srcmem, nbytes);
-			gasnet_wait_syncnb(hdlput);
-		}
-		end = TIME();
-	 	update_stat(&st, (end - begin), iters);
-	}
-	
-	BARRIER();
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "put_nb latency", PRINT_LATENCY);
-	}	
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-
-	if (iamsender) {
-		/* measure the round-trip time of nonblocking get */
-		begin = TIME();
-		for (i = 0; i < iters; i++) {
-	 		hdlget = gasnet_get_nb(srcmem, peerproc, tgtmem, nbytes);
-			gasnet_wait_syncnb(hdlget);
-		}
-		end = TIME();
-	 	update_stat(&st, (end - begin), iters);
-	}
-	
-	BARRIER();
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "get_nb latency", PRINT_LATENCY);
-	}	
-
-}
-
-void oneway_nb_test(int iters, int nbytes)
-{GASNET_BEGIN_FUNCTION();
-    int i;
-    int64_t begin, end;
-    stat_struct_t st;
-    gasnet_handle_t hdlget, hdlput;
-    gasnet_handle_t *handles;
-	int iamsender = (myproc % 2 == 0);
-	int iamreceiver = !iamsender;
-
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-	
-	handles = (gasnet_handle_t*) malloc(sizeof(gasnet_handle_t) * iters);
-	if (handles == NULL) {
-		printf("Cannot allocate handles for non blocking operations.\n");
-		gasnet_exit(1);
-	}
-	
-	memset(srcmem, 0, nbytes);
-
-	BARRIER();
-	
-	if (iamsender) {
-		/* measure the throughput of sending a message */
-		begin = TIME();
-		/*for (i = 0; i < iters; i++) {
-			hdlput = gasnet_put_nb(peerproc, tgtmem, srcmem, nbytes);
-		        gasnet_wait_syncnb(hdlput);
-		}*/
-                for (i = 0; i < iters; i++) {
-                        handles[i] = gasnet_put_nb(peerproc, tgtmem, srcmem, nbytes);
-                }
-		gasnet_wait_syncnb_all(handles, iters); 
-		end = TIME();
-	 	update_stat(&st, (end - begin), iters);
-	}
-	
-	BARRIER();
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "put_nb throughput", PRINT_THROUGHPUT);
-	}	
-	
-	/* initialize statistics */
-	init_stat(&st, nbytes);
-
-	if (iamsender) {
-		/* measure the throughput of receiving a message */
-		begin = TIME();
-		/*for (i = 0; i < iters; i++) {
-		    hdlget = gasnet_get_nb(srcmem, peerproc, tgtmem, nbytes);
-		    gasnet_wait_syncnb(hdlget);
-		}*/
-                for (i = 0; i < iters; i++) {
-                    handles[i] = gasnet_get_nb(srcmem, peerproc, tgtmem, nbytes);
-                } 
-		gasnet_wait_syncnb_all(handles, iters); 
-		end = TIME();
-	 	update_stat(&st, (end - begin), iters);
-	}
-	
-	BARRIER();
-	
-	if (iamsender) {
-		print_stat(myproc, &st, "get_nb throughput", PRINT_THROUGHPUT);
-	}	
-	
-	free(handles);
-}
-#endif
-
 int main(int argc, char **argv)
 {
     int iters = 0;
@@ -480,17 +377,9 @@ int main(int argc, char **argv)
     tgtmem = (void *) TEST_SEG(peerproc);
 
 	latency_test(iters, 8); 
+	overhead_test(iters, 8); 
   	gap_test(iters, 8);
   	bigG_test(iters, bigsz);
-
-  	//for (j = 1; j <= 2048; j *= 2)  oneway_test(iters, j);
-
-  	//for (j = 1; j <= 2048; j *= 2)  roundtrip_nbi_test(iters, j);
-
-
-  	//for (j = 1; j <= 2048; j *= 2)  roundtrip_nb_test(iters, j);
-
-  	//for (j = 1; j <= 2048; j *= 2)  oneway_nb_test(iters, j);
 
     gasnet_exit(0);
 
