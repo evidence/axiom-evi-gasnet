@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/gasnetrun_gm.pl,v $
-#     $Date: 2005/02/24 06:35:35 $
-# $Revision: 1.21 $
+#     $Date: 2005/03/20 16:32:04 $
+# $Revision: 1.22 $
 #
 # Included here as a contrib/ from the mpich 1.2.5..10 mpirun script,
 # since this is the closest thing myricom ships to a spawner interface.
@@ -386,7 +386,7 @@ while (@ARGV > 0) {
     usage ("Unknown option ($_) !");
   } else {
     $app_cmd = find_program ($ARGV[0]);
-    @app_flags = (@ARGV[1..$#ARGV]);
+    @app_flags = (map { "'$_'" } @ARGV[1..$#ARGV]);
     last;
   }
   shift;

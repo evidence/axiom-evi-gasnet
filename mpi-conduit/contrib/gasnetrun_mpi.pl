@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/03/18 20:30:26 $
-# $Revision: 1.18 $
+#     $Date: 2005/03/20 16:32:06 $
+# $Revision: 1.19 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -28,6 +28,7 @@ my $envlist = '';
 my $numproc = undef;
 my $numnode = undef;
 my $verbose = 0;
+my $keep = 0;
 my $dryrun = 0;
 my $exename = undef;
 my $find_exe = 1;	# should we find full path of executable?
@@ -100,6 +101,7 @@ sub usage
     print "      -E <VAR1[,VAR2...]>   list of environment vars to propagate\n";
     print "      -v                    be verbose about what is happening\n";
     print "      -t                    test only, don't execute anything (implies -v)\n";
+    print "      -k                    keep any temporary files created (implies -v)\n";
     print "      --                    ends option parsing\n";
     exit 1;
 }
@@ -161,6 +163,9 @@ sub expand {
 	    $verbose = 1;
 	} elsif ($_ eq '-t') {
 	    $dryrun = 1;
+	    $verbose = 1;
+	} elsif ($_ eq '-k') {
+	    $keep = 1;
 	    $verbose = 1;
 	} elsif (m/^-/) {
 	    usage ("unrecognized option '$_'\n");
@@ -243,6 +248,7 @@ sub expand {
 	    @envargs = ();
 	}
     }
+    print "envargs: " . (join " ", @envargs) . "\n" if ($verbose);
 
     # Special case for the mpich spawner
     if ($is_mpich && !$is_mpich_nt) {
@@ -351,25 +357,26 @@ EOF
 			  } elsif ($_ eq '%P') {
                               (@envargs, $exename);
                           } elsif ($_ eq '%A') {
-			      (@ARGV);
+			      (map { "'$_'" } @ARGV);
                           } elsif ($_ eq '%V') {
 			      $verbose?("-v"):();
 			  } else {
                               $_;
                           }
 			} split(" ", $spawncmd);
-    print("gasnetrun: running: ", join(' ', @spawncmd), "\n")
-	if ($verbose);
-    exit(0) if ($dryrun);
+    print("gasnetrun: running: ", join(' ', @spawncmd), "\n") if ($verbose);
 
-    if (1 && defined $tmpdir) {
-	system(@spawncmd);
-	foreach (@tmpfiles) {
+    if (defined $tmpdir) {
+	system(@spawncmd) if (!$dryrun);
+	if (!$keep) {
+          foreach (@tmpfiles) {
 	    unlink "$_" or die "gasnetrun: failed to unlink \'$_\'";
-	}
-	rmdir $tmpdir or die "gasnetrun: failed to rmdir \'$tmpdir\'";
-    } else {
+	  }
+	  rmdir $tmpdir or die "gasnetrun: failed to rmdir \'$tmpdir\'";
+ 	}
+    } elsif (!$dryrun) {
 	exec(@spawncmd);
 	die "gasnetrun: exec failed: $!\n";
     }
+    exit(0);
 __END__
