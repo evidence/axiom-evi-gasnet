@@ -458,16 +458,31 @@ firehose_poll(void);
  *   local pinning functions firehose_local_pin(),
  *   firehose_try_local_pin() and firehose_partial_local_pin().
  *
- * The client must make progress toward firehose_release() for each
- * request_t it owns, independent of all calls to the firehose_*_pin()
- * functions with the same target node as the request_t.  To help ensure
- * progess is made, clients of firehose can be assured that the
- * firehose_*_pin() functions will call AMPoll() as needed.  Note that
- * this progress rule requires, for instance, that the client cannot
- * call firehose_local_pin() twice without some intervening action that
- * would eventually lead to the release of the first request_t.
- * Otherwise, the second call may deadlock waiting for resources that
- * will never be released to it.
+ * Let an "operation" denote the collection of request_t's owned by a
+ * client such that they will eventually reach firehose_release()
+ * independent of any other calls to firehose_*_pin() functions.  (A
+ * typical example of an operation might include one local request_t
+ * and one remote request_t to be used as the source and destination
+ * of an GET or PUT).  See the paragraphs below on deadlock avoidance
+ * for restrictions on the request_t's that can belong to an operation.
+ *
+ * The client must ensure that every operation can make progress
+ * toward firehose_release(), independent of any other operation.  In
+ * particular, when all the request_t's to be owned by an operation
+ * have been acquired, some action must be taken (such as
+ * starting/enqueing RDMA) which will lead to the eventual
+ * firehose_release() of the operation's request_t's.  This step must
+ * be taken before the thread initiating the operation can make calls
+ * to firehose_local_pin() or firehose_remote_pin() for the next
+ * operation, since these two calls might block awaiting release of
+ * the resources used by the previous operation.  For the purpose of
+ * this rule, submitting a callback argument to firehose_remote_pin()
+ * is sufficient, even though the callback may not run until a later
+ * time (provided, of course, that the callback will make progress
+ * toward the release).  To ensure progess is made, clients of
+ * firehose are guaranteed that firehose_local_pin() and
+ * firehose_remote_pin() will call gasnet_AMPoll() while they are
+ * awaiting release of resources.
  *
  * A potential deadlock can occur in a situation such as this:
  *   thread0: firehose_local_pin();       firehose_remote_pin(nodeN);
@@ -475,14 +490,52 @@ firehose_poll(void);
  * If the available resources are sufficient to satisfy the first pin
  * request from each thread, but not sufficient to simultaneously
  * satisfy the second pin request from either thread, then a deadlock
- * will occur.
- * It is the client writter's responsibility to avoid this situation.
- * A recommended solution is to pick an order to pin (local-then-remote
- * or remote-then-local) and use it consistently throughout the client.
- * If there are uses for firehose which require obtaining request_t's
- * on multiple remote nodes to complete a single operation, then a
- * total ordering (by node number, for instance) is recommended.
+ * will occur.  If resources are limited enough, then the same sort
+ * of deadlock is possible with a single thread as follows:
+ *   thread0: firehose_local_pin();       firehose_local_pin();
+ * Note that in both examples, if the second call(s) had been made to
+ * firehose_try_*_pin() or firehose_partial_*_pin(), then deadlock
+ * would not have been possible (since these calls return immediately
+ * regardless of whether the requested memory is already pinned).
  *
+ * To avoid these deadlocks, clients should follow these recommendations:
+ * 1) Pick a precedence for pinning.  If operations always consist of
+ * at most one remote request_t, then this precedence will be either
+ * "local-over-remote" or "remote-over-local".  If operations can
+ * include request_t's on multiple remote nodes then the precedence
+ * must be a total order over the nodes.  Though the order need not
+ * be the same on every node, every thread on a given node must abide
+ * by the same precedence.
+ * 2) Once an operation owns a request_t on a given node it may not
+ * make calls to firehose_local_pin() or firehose_remote_pin() for
+ * any node with equal or higher precedence, because these calls could
+ * potentially block waiting for resources which will never become
+ * available.
+ * 3) Calls which cannot block awaiting resources (firehose_try_*_pin()
+ * and firehose_partial_*_pin()) are permitted in any order.  However, 
+ * once one returns a request_t the client must observe rule #2.
+ *
+ * The recommended precedence is "remote-over-local", meaning that a
+ * typical operation will call firehose_remote_pin() and
+ * firehose_local_pin() in that order.  This is recommended because of
+ * the potential for performing any required network round trip and
+ * pinning by the remote node while concurrently executing the local
+ * pin request.
+ *
+ * The calls firehose_try_*_pin() and firehose_partial_*_pin() will not
+ * cause memory to become pinned, nor will they initiate network traffic
+ * to determine if remote memory has previously been pinned.  They only
+ * return success when the request can be satisfied based on local
+ * knowledge of what memory is already pinned.  For this reason, spin
+ * polling on these functions is not recommended.
+ *
+ * [XXX What about using firehose_try_remote_pin() to poll for completion
+ * of a firehose_remote_pin() issued earlier (with appropriate calls to
+ * firehose_poll())?  I don't see any reason to prohibit this behavior.
+ * Though use of a callback to set some flag would achieve the samething,
+ * the firehose_poll() would still be required.
+ * Should we call firehose_poll() inside the _try_ and _partial_ functions?
+ * What are your thoughts - Paul]
  */
 
 /********************************************************************/
