@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/02/18 13:32:13 $
- * $Revision: 1.81 $
+ * $Date: 2005/02/19 12:22:57 $
+ * $Revision: 1.82 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1278,8 +1278,8 @@ extern int gasnetc_AMRequestMediumM(
   if (dest == gasneti_mynode) { /* local handler */
     void *loopbuf;
     int argbuf[GASNETC_AM_MAX_ARGS];
-    loopbuf = gasnetc_alloca(nbytes+8);
-    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, 8);
+    loopbuf = gasnetc_alloca(nbytes+GASNETI_MEDBUF_ALIGNMENT);
+    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, GASNETI_MEDBUF_ALIGNMENT);
     memcpy(loopbuf, source_addr, nbytes);
     GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
     GASNETI_RUN_HANDLER_MEDIUM(_gmc.handlers[handler], (void *) -1,
@@ -1593,8 +1593,8 @@ extern int gasnetc_RequestSystem(
   if (dest == gasneti_mynode) { /* local handler */
     void *loopbuf;
     int argbuf[GASNETC_AM_MAX_ARGS];
-    loopbuf = gasnetc_alloca(nbytes+8);
-    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, 8);
+    loopbuf = gasnetc_alloca(nbytes+GASNETI_MEDBUF_ALIGNMENT);
+    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, GASNETI_MEDBUF_ALIGNMENT);
     memcpy(loopbuf, source_addr, nbytes);
     GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
     GASNETC_RUN_HANDLER_SYSTEM(_gmc.syshandlers[handler], (void *) -1,
@@ -1803,8 +1803,8 @@ extern int gasnetc_AMReplyMediumM(
   if ((void *)token == (void *)-1) { /* local handler */
     int argbuf[GASNETC_AM_MAX_ARGS];
     void *loopbuf;
-    loopbuf = gasnetc_alloca(nbytes+8);
-    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, 8);
+    loopbuf = gasnetc_alloca(nbytes+GASNETI_MEDBUF_ALIGNMENT);
+    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, GASNETI_MEDBUF_ALIGNMENT);
     memcpy(loopbuf, source_addr, nbytes);
     GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
     GASNETI_RUN_HANDLER_MEDIUM(_gmc.handlers[handler], (void *) token,
@@ -2053,8 +2053,8 @@ int gasnetc_ReplySystem(
   if ((void *)token == (void *)-1) { /* local handler */
     void *loopbuf;
     int argbuf[GASNETC_AM_MAX_ARGS];
-    loopbuf = gasnetc_alloca(nbytes+8);
-    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, 8);
+    loopbuf = gasnetc_alloca(nbytes+GASNETI_MEDBUF_ALIGNMENT);
+    loopbuf = (void *)GASNETI_ALIGNUP(loopbuf, GASNETI_MEDBUF_ALIGNMENT);
     memcpy(loopbuf, source_addr, nbytes);
     GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
     GASNETC_RUN_HANDLER_SYSTEM(_gmc.syshandlers[handler], (void *) token,

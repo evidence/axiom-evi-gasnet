@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/02/19 04:43:57 $
- * $Revision: 1.66 $
+ *     $Date: 2005/02/19 12:22:55 $
+ * $Revision: 1.67 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -439,17 +439,14 @@ typedef void (*gasneti_HandlerLong)  (gasnet_token_t token, void *buf, size_t nb
     }                                                                                   \
   } while (0)
 
-/* we guarantee double-word alignment for data payload of medium xfers 
+/* be default, we guarantee double-word alignment for data payload of medium xfers 
  */
-#ifdef GASNETI_DISABLE_MEDBUF_ALIGNMENT_CHECK
-  #define _GASNETI_MEDBUF_ALIGNMENT_CHECK(pData)
-#else
-  #define _GASNETI_MEDBUF_ALIGNMENT_CHECK(pData) \
-    gasneti_assert(((uintptr_t)pData) % 8 == 0)
+#ifndef GASNETI_MEDBUF_ALIGNMENT
+#define GASNETI_MEDBUF_ALIGNMENT 8
 #endif
 
 #define GASNETI_RUN_HANDLER_MEDIUM(phandlerfn, token, pArgs, numargs, pData, datalen) do {                                               \
-    _GASNETI_MEDBUF_ALIGNMENT_CHECK(pData);                                                                                              \
+    gasneti_assert(((uintptr_t)pData) % GASNETI_MEDBUF_ALIGNMENT == 0);                                                                  \
     _GASNETI_RUN_HANDLER_MEDLONG((gasneti_HandlerMedium)phandlerfn, (gasnet_token_t)token, pArgs, numargs, (void *)pData, (int)datalen); \
   } while (0)
 #define GASNETI_RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen) \

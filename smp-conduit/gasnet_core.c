@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/18 13:32:27 $
- * $Revision: 1.29 $
+ *     $Date: 2005/02/19 12:23:01 $
+ * $Revision: 1.30 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -401,8 +401,8 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
         uint8_t *buf = NULL;
         gasneti_assert(corethreadinfo);
         if (!*corethreadinfo) { /* ensure 8-byte alignment of medium payload */
-          void *tmp = gasneti_malloc(sizeof(gasnetc_threadinfo_t)+8);
-          *corethreadinfo = (void*)GASNETI_ALIGNUP(tmp,8);
+          void *tmp = gasneti_malloc(sizeof(gasnetc_threadinfo_t)+GASNETI_MEDBUF_ALIGNMENT);
+          *corethreadinfo = (void*)GASNETI_ALIGNUP(tmp,GASNETI_MEDBUF_ALIGNMENT);
         }
         if (isReq) buf = ((gasnetc_threadinfo_t *)*corethreadinfo)->requestBuf;
         else       buf = ((gasnetc_threadinfo_t *)*corethreadinfo)->replyBuf;

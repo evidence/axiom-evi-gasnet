@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2005/02/18 13:32:15 $
- * $Revision: 1.20 $
+ *     $Date: 2005/02/19 12:22:59 $
+ * $Revision: 1.21 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -68,6 +68,6 @@
 
 /* lapi-conduit does not guarantee 8-byte alignment for medium buffers,
    and PowerPC does not seem to ever require it */
-#define GASNETI_DISABLE_MEDBUF_ALIGNMENT_CHECK 1
+#define GASNETI_MEDBUF_ALIGNMENT 4
 
 #endif
