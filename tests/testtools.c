@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/02/23 13:17:21 $
- * $Revision: 1.19 $
+ *     $Date: 2005/02/24 19:01:20 $
+ * $Revision: 1.20 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -262,6 +262,8 @@ void * thread_fn(void *arg) {
   }
   
   if (id == 0) printf("parallel atomic-op pounding test...\n");
+  gasnett_atomic_set(&x1, 5);
+  gasnett_atomic_set(&x2, 5+iters2*NUM_THREADS);
 
   gasnett_atomic_increment(&up);
   while (gasnett_atomic_read(&up) < NUM_THREADS) gasnett_sched_yield(); 
@@ -274,10 +276,10 @@ void * thread_fn(void *arg) {
   gasnett_atomic_increment(&up);
   while (gasnett_atomic_read(&up) < 2*NUM_THREADS) gasnett_sched_yield(); 
 
-  if (gasnett_atomic_read(&x1) != 10000+iters2*NUM_THREADS)
+  if (gasnett_atomic_read(&x1) != 5+iters2*NUM_THREADS)
     ERR("pounding inc test mismatch");
 
-  if (gasnett_atomic_read(&x2) != 10000-iters2*NUM_THREADS)
+  if (gasnett_atomic_read(&x2) != 5)
     ERR("pounding dec test mismatch");
 
   if (id == 0) printf("parallel dec-test pounding test...\n");
