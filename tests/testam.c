@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.12 $
+ *     $Date: 2004/10/27 03:51:07 $
+ * $Revision: 1.13 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
   myseg = TEST_MYSEG();
 
   if (argc > 1) iters = atoi(argv[1]);
-  if (!iters) iters = 10000;
+  if (!iters) iters = 1000;
 
   peer = mynode ^ 1;
   if (peer == gasnet_nodes()) {

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/10/08 07:47:05 $
- * $Revision: 1.47 $
+ *     $Date: 2004/10/27 03:51:05 $
+ * $Revision: 1.48 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,7 +11,9 @@
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
 
+#if GASNETC_ALLOW_ELAN_PERM_REMAP
 #include <elan3/elan3.h> /* for elan3_setperm */
+#endif
 
 #include <errno.h>
 #include <unistd.h>
@@ -101,23 +103,26 @@ static void gasnetc_check_config() {
 
   /* add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
-  char *ver = elan_version();
-  if (!elan_checkVersion(ver)) 
-    gasneti_fatalerror("elan library version mismatch. linked version: %s", elan_version());
-  { int major,minor,result;
+  { char *ver = elan_version();
+    int major,minor,result;
+    if (!elan_checkVersion(ver)) 
+      gasneti_fatalerror("elan library version mismatch. linked version: %s", elan_version());
     result = sscanf(ver,"libelan %i.%i", &major, &minor);
     if (result != 2) result = sscanf(ver,"%i.%i.%*i", &major, &minor);
-    if (result != 2 || major != ELAN_VERSION_MAJOR || minor != ELAN_VERSION_MINOR)
+    if (result != 2 || 
+        (!GASNETC_ALLOW_ELAN_VERSION_MISMATCH &&
+         (major != ELAN_VERSION_MAJOR || minor != ELAN_VERSION_MINOR)))
       gasneti_fatalerror("unexpected elan library version.\n"
                          " Expected: libelan %i.%i\n"
-                         " Actual  : libelan %s", ELAN_VERSION_MAJOR, ELAN_VERSION_MINOR, ver);
+                         " Actual  : %s", ELAN_VERSION_MAJOR, ELAN_VERSION_MINOR, ver);
   }
 
   gasneti_assert(sizeof(gasnetc_shortmsg_t) == GASNETC_SHORT_HEADERSZ);
   gasneti_assert(sizeof(gasnetc_medmsg_t) == GASNETC_MED_HEADERSZ);
   gasneti_assert(sizeof(gasnetc_longmsg_t) == GASNETC_LONG_HEADERSZ);
 
-  gasneti_assert(BASE()->tport_bigmsg >= GASNETC_MED_HEADERSZ + 4*GASNETC_MAX_ARGS + GASNETC_MAX_MEDIUM);
+  
+  gasneti_assert(GASNETC_MAX_TPORT_MSG >= GASNETC_MED_HEADERSZ + 4*GASNETC_MAX_ARGS + GASNETC_MAX_MEDIUM);
   gasneti_assert(GASNETC_ELAN_MAX_QUEUEMSG >= GASNETC_LONG_HEADERSZ + GASNETC_MAX_ARGS*4);
 }
 
@@ -485,6 +490,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         if (elan_addressable(STATE(), gasnetc_seginfo[gasnetc_mynode].addr, maxsz)) {
           /* all segments already elan-mapped - nothing to do */
         } else {
+       #if !GASNETC_ALLOW_ELAN_PERM_REMAP
+          gasneti_fatalerror("Necessary memory segments are not elan-mapped, and GASNETC_ALLOW_ELAN_PERM_REMAP==0");
+       #else
           GASNETI_TRACE_PRINTF(I,("WARNING: changing elan mappings"));
           /* segment not completely elan-mapped on some nodes
              approach - 
@@ -558,6 +566,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
             }
             gasneti_assert(elan_addressable(STATE(), segbase, MIN(maxsz,gasnetc_remappableMem.size)));
           }
+         #endif
         }
       }
     #endif

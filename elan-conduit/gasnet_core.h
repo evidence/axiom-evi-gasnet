@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2004/10/08 07:47:05 $
- * $Revision: 1.14 $
+ *     $Date: 2004/10/27 03:51:05 $
+ * $Revision: 1.15 $
  * Description: GASNet header for elan conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -153,8 +153,11 @@ typedef struct _gasnet_hsl_t {
 #define GASNETC_MED_HEADERSZ        8
 #define GASNETC_LONG_HEADERSZ       (8+sizeof(uintptr_t))
 
+#ifndef GASNETC_MAX_TPORT_MSG
+#define GASNETC_MAX_TPORT_MSG        65536
+#endif
 #define GASNETC_MAX_ARGS             16
-#define GASNETC_MAX_MEDIUM          (65536 - GASNETC_MED_HEADERSZ - 4*GASNETC_MAX_ARGS)
+#define GASNETC_MAX_MEDIUM          (GASNETC_MAX_TPORT_MSG - GASNETC_MED_HEADERSZ - 4*GASNETC_MAX_ARGS)
 #define GASNETC_MAX_LONG            1048576
 
 #define gasnet_AMMaxArgs()          ((size_t)GASNETC_MAX_ARGS)

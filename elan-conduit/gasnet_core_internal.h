@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/08/26 04:53:32 $
- * $Revision: 1.21 $
+ *     $Date: 2004/10/27 03:51:05 $
+ * $Revision: 1.22 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,6 +13,10 @@
 #include <gasnet_internal.h>
 
 #include <elan/elan.h>
+
+#if !defined(ELAN3) && !defined(ELAN4)
+  #error Must define ELAN3 or ELAN4
+#endif
 
 #if !defined(ELAN_VERSION_MAJOR) || !defined(ELAN_VERSION_MINOR) || !defined(ELAN_VERSION_SUB)
   #error Must define ELAN_VERSION_MAJOR, ELAN_VERSION_MINOR and ELAN_VERSION_SUB
@@ -96,12 +100,34 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #define GASNETC_PREALLOC_AMLONG_BOUNCEBUF 1
 #endif
 
-#ifndef GASNETC_USE_SIGNALING_EXIT
-  #ifdef GASNETI_USE_GENERIC_ATOMICOPS
-    #define GASNETC_USE_SIGNALING_EXIT 0 /* need real atomic ops for signalling exit */
+#ifndef GASNETC_ALLOW_ELAN_VERSION_MISMATCH
+  #ifdef ELAN4
+    /* elan4 reports libelan version mismatches, not sure why... */
+    #define GASNETC_ALLOW_ELAN_VERSION_MISMATCH 1
   #else
-    #define GASNETC_USE_SIGNALING_EXIT 1
+    #define GASNETC_ALLOW_ELAN_VERSION_MISMATCH 1
   #endif
+#endif
+
+#ifndef GASNETC_ALLOW_ELAN_PERM_REMAP
+  #ifdef ELAN4
+    #define GASNETC_ALLOW_ELAN_PERM_REMAP 0
+  #else
+    #define GASNETC_ALLOW_ELAN_PERM_REMAP 1
+  #endif
+#endif
+
+#ifndef GASNETC_USE_SIGNALING_EXIT
+  #ifdef HAVE_RMS_RMSAPI_H
+    #define GASNETC_USE_SIGNALING_EXIT 1
+  #else
+    #define GASNETC_USE_SIGNALING_EXIT 0
+  #endif
+#endif
+#ifdef GASNETI_USE_GENERIC_ATOMICOPS
+  /* need real atomic ops for signalling exit - force it off */
+  #undef GASNETC_USE_SIGNALING_EXIT
+  #define GASNETC_USE_SIGNALING_EXIT 0 
 #endif
 
 #if GASNETC_USE_SIGNALING_EXIT

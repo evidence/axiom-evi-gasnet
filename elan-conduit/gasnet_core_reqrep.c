@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2004/10/23 12:58:57 $
- * $Revision: 1.20 $
+ *     $Date: 2004/10/27 03:51:05 $
+ * $Revision: 1.21 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -215,12 +215,14 @@ extern void gasnetc_initbufs() {
   #endif
   if (tport_queue == NULL) gasneti_fatalerror("elan_gallocQueue() failed");
 
-  #if 0
-    GASNETI_TRACE_PRINTF(D,("TPORT queue: main="GASNETI_LADDRFMT
-                                       "  elan="GASNETI_LADDRFMT,
-                                       GASNETI_LADDRSTR(tport_queue), 
-                                       GASNETI_LADDRSTR(elan_main2elan(STATE(),tport_queue))));
-  #endif
+  GASNETI_TRACE_PRINTF(D,("TPORT queue: main="GASNETI_LADDRFMT
+                                     "  elan="GASNETI_LADDRFMT,
+                                     GASNETI_LADDRSTR(tport_queue), 
+                                     GASNETI_LADDRSTR(elan_main2elan(STATE(),tport_queue))));
+
+  if (GASNETC_MAX_TPORT_MSG != BASE()->tport_bigmsg) 
+    GASNETI_TRACE_PRINTF(I,("Warning: overridding BASE()->tport_bigmsg=%i with GASNETC_MAX_TPORT_MSG=%i",
+                                       (int)BASE()->tport_bigmsg, (int)GASNETC_MAX_TPORT_MSG));
 
   /* init tport with the default values we got in base */
   gasnetc_elan_tport = elan_tportInit(STATE(), 
@@ -230,7 +232,12 @@ extern void gasnetc_initbufs() {
     #endif
                                       BASE()->tport_nslots,
                                       BASE()->tport_smallmsg,
+                                    #if 0
                                       BASE()->tport_bigmsg,
+                                    #else
+                                      /* need a compile-time const here for maxmedium */
+                                      GASNETC_MAX_TPORT_MSG,
+                                    #endif
     #if ELAN_VERSION_GE(1,4,8)
                                       BASE()->tport_stripemsg,
     #endif
