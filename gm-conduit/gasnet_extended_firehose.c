@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.30 2004/01/19 11:13:58 bonachea Exp $
- * $Date: 2004/01/19 11:13:58 $
+/* $Id: gasnet_extended_firehose.c,v 1.31 2004/01/28 16:34:24 phargrov Exp $
+ * $Date: 2004/01/28 16:34:24 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -152,7 +152,8 @@ gasnete_fh_callback_put(struct gm_port *p, void *context,
 }
 
 void
-gasnete_fh_request_put(void *_pop, firehose_request_t *req, int allLocalHit)
+gasnete_fh_request_put(void *_pop, const firehose_request_t *req,
+			int allLocalHit)
 {
 	gasnete_eop_t	*pop = (gasnete_eop_t *) _pop;
 	gasnet_node_t	node = req->node;
@@ -420,7 +421,8 @@ gasnete_fh_callback_get(struct gm_port *p, void *context,
 }
 
 void
-gasnete_fh_request_get(void *_gop, firehose_request_t *req, int allLocalHit)
+gasnete_fh_request_get(void *_gop, const firehose_request_t *req,
+			int allLocalHit)
 {
 	gasnete_eop_t	*gop = (gasnete_eop_t *) _gop;
 	gasnet_node_t	node = req->node;

@@ -680,7 +680,7 @@ firehose_partial_local_pin(uintptr_t addr, size_t len,
  *                     defines FIREHOSE_COMPLETION_IN_HANDLER).
  */
 typedef void (*firehose_completed_fn_t)
-	     (void *context, firehose_request_t *req, int allLocalHit);
+	     (void *context, const firehose_request_t *req, int allLocalHit);
 
 /**********************
  * Firehose Remote Pin
