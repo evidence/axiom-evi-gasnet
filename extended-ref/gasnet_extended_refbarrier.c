@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/03/02 22:41:24 $
- * $Revision: 1.4 $
+ *     $Date: 2004/03/03 18:00:08 $
+ * $Revision: 1.5 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,7 +81,7 @@ static void gasnete_ambarrier_notify_reqh(gasnet_token_t token,
     /* Note we might not receive the steps in the numbered order.
      * We record the value received on the first one to actually arrive.
      * In subsequent steps we check for mismatch of received values.
-     * The local value is not compared until the final try/wait step.
+     * The local value is compared at the start of step == 1.
      */
     if (flags == 0 && !ambarrier_recv_value_present[phase]) {
       ambarrier_recv_value_present[phase] = 1;
@@ -89,8 +89,6 @@ static void gasnete_ambarrier_notify_reqh(gasnet_token_t token,
     } else if (flags == GASNET_BARRIERFLAG_MISMATCH ||
                (flags == 0 && ambarrier_recv_value[phase] != (int)value)) {
       ambarrier_mismatch[phase] = 1;
-if (flags == GASNET_BARRIERFLAG_MISMATCH) printf("%d> mismatch shown in recvd flags\n", gasnete_mynode);
-else  printf("%d> mismatch old %d vs new %d\n", gasnete_mynode, ambarrier_recv_value[phase], (int)value);
     }
     
     /* gasneti_assert(ambarrier_step_done[phase][step] == 0); */
@@ -109,6 +107,13 @@ static void gasnete_ambarrier_kick() {
   if_pt (step != ambarrier_size) {
     gasnet_hsl_lock(&ambarrier_lock);
     if (ambarrier_step_done[phase][step]) {
+      /* If step==0 this is the first time we are certain we have both a local and remote id */
+      if_pf ((step == 0) &&
+	     (ambarrier_flags == 0) && 
+	     (ambarrier_recv_value[phase] != ambarrier_value)) {
+        ambarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
+      }
+
       ++step;
       if (step == ambarrier_size) {
 	/* We have the last recv.  There is nothing more to send. */
@@ -118,7 +123,6 @@ static void gasnete_ambarrier_kick() {
         gasnet_node_t peer;
         gasnet_handlerarg_t flags = ambarrier_mismatch[phase] ? GASNET_BARRIERFLAG_MISMATCH
 							      : ambarrier_flags;
-        gasnet_handlerarg_t value = ambarrier_recv_value[phase];
         gasnet_hsl_unlock(&ambarrier_lock);
 
         /* No need for a full mod because worst case is < 2*gasnete_nodes */
@@ -130,7 +134,7 @@ static void gasnete_ambarrier_kick() {
 
         GASNETE_SAFE(
           gasnet_AMRequestShort4(peer, gasneti_handleridx(gasnete_ambarrier_notify_reqh), 
-                                 phase, step, value, flags));
+                                 phase, step, ambarrier_value, flags));
       }
       ambarrier_step = step;
     } else {
@@ -167,8 +171,11 @@ extern void gasnete_ambarrier_notify(int id, int flags) {
       gasnet_AMRequestShort4(peer, gasneti_handleridx(gasnete_ambarrier_notify_reqh), 
                              phase, 0, id, flags));
   } else {
-    ambarrier_mismatch[phase] = (flags & GASNET_BARRIERFLAG_MISMATCH);
     ambarrier_recv_value[phase] = id;	/* to similify checking in _wait */
+  }
+
+  if_pf (flags & GASNET_BARRIERFLAG_MISMATCH) {
+    ambarrier_mismatch[phase] = 1;
   }
 
   /*  update state */
@@ -198,10 +205,9 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-wait_start);
 
   /* determine return value */
-  if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && 
-		((id != ambarrier_value) || (id != ambarrier_recv_value[phase]))) || 
-        flags != ambarrier_flags || ambarrier_mismatch[phase]) {
-printf("%d> mismatch id=%d old=%d recv=%d\n", gasnete_mynode, id, ambarrier_value, ambarrier_recv_value[phase]);
+  if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != ambarrier_value) || 
+        flags != ambarrier_flags ||
+	ambarrier_mismatch[phase]) {
         ambarrier_mismatch[phase] = 0;
 	retval = GASNET_ERR_BARRIER_MISMATCH;
   }
