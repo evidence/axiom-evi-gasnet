@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/07/17 08:54:32 $
- * $Revision: 1.6 $
+ *     $Date: 2002/07/18 19:05:04 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -23,6 +23,24 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
   static pthread_key_t gasnete_threaddata; /*  pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
 #endif
 static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Tuning Parameters
+  =================
+  Conduits may choose to override the default tuning parameters below by defining them
+  in their gasnet_core_fwd.h
+*/
+
+/* the size threshold where gets/puts stop using medium messages and start using longs */
+#ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD   gasnet_AMMaxMedium()
+#endif
+
+/* true if we should try to use Long replies in gets (only possible if dest falls in segment) */
+#ifndef GASNETE_USE_LONG_GETS
+#define GASNETE_USE_LONG_GETS 1
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -96,6 +114,8 @@ static void gasnete_check_config() {
 
   assert(SIZEOF_GASNET_REGISTER_VALUE_T == sizeof(gasnet_register_value_t));
   assert(sizeof(int) == SIZEOF_GASNET_REGISTER_VALUE_T);
+
+  assert(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
 
   #if    defined(GASNETI_PTR32) && !defined(GASNETI_PTR64)
     assert(sizeof(void*) == 4);
@@ -327,33 +347,36 @@ void gasnete_op_free(gasnete_op_t *op) {
  * may optimize AMLongRequest/AMLongRequestAsync/AMLongReply with DMA
  * operations.
  *
- * gasnet_put_bulk is translated to a gasnete_put_nb_bulk + sync
- * gasnet_get_bulk is translated to a gasnete_get_nb_bulk + sync
+ * gasnet_put(_bulk) is translated to a gasnete_put_nb(_bulk) + sync
+ * gasnet_get(_bulk) is translated to a gasnete_get_nb(_bulk) + sync
  *
- * gasnete_put_nb_bulk translates to
- *    AMMedium(payload) if nbytes < AMMaxMedium
+ * gasnete_put_nb(_bulk) translates to
+ *    AMMedium(payload) if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
  *    AMLongRequest(payload) if nbytes < AMMaxLongRequest
- *    gasnete_put_nbi_bulk(payload) otherwise
- * gasnete_get_nb_bulk translates to
- *    AMSmall request + AMMedium(payload) if nbytes < AMMaxMedium
- *    gasnete_get_nbi_bulk() otherwise
+ *    gasnete_put_nbi(_bulk)(payload) otherwise
+ * gasnete_get_nb(_bulk) translates to
+ *    AMSmall request + AMMedium(payload) if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *    gasnete_get_nbi(_bulk)() otherwise
  *
- * gasnete_put_nbi_bulk translates to
- *    AMMedium(payload) if nbytes < AMMaxMedium
- *    AMLongAsyncRequest(payload) if nbytes < AMMaxLongRequest
- *    chunks of AMMaxLongRequest with AMLongAsyncRequest() otherwise
- * gasnete_get_nbi_bulk translates to
- *    AMSmall request + AMMedium(payload) if nbytes < AMMaxMedium
+ * gasnete_put_nbi(_bulk) translates to
+ *    AMMedium(payload) if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *    AMLongRequest(payload) if nbytes < AMMaxLongRequest
+ *    chunks of AMMaxLongRequest with AMLongRequest() otherwise
+ *    AMLongRequestAsync is used instead of AMLongRequest for put_bulk
+ * gasnete_get_nbi(_bulk) translates to
+ *    AMSmall request + AMMedium(payload) if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
  *    chunks of AMMaxMedium with AMSmall request + AMMedium() otherwise
  *
- * The current implementation uses AMLongs for puts if the destination is
- * within the registered GASNet segment.  It is not leveraged for get
- * operations since the spec says that gets may be received anywhere in
- * the virtual memory space.  Future revisions will attempt to do a
- * boundscheck in the region of memory being targetted for the get and
- * will leverage LongReplies if possible.
- *
+ * The current implementation uses AMLongs for large puts because the 
+ * destination is guaranteed to fall within the registered GASNet segment.
+ * The spec allows gets to be received anywhere into the virtual memory space,
+ * so we can only use AMLong when the destination happens to fall within the 
+ * segment - GASNETE_USE_LONG_GETS indicates whether or not we should try to do this.
+ * (conduits which can support AMLongs to areas outside the segment
+ * could improve on this through the use of this conduit-specific information).
+ * 
  */
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Non-blocking memory-to-memory transfers (explicit handle)
@@ -363,13 +386,14 @@ void gasnete_op_free(gasnete_op_t *op) {
 GASNET_INLINE_MODIFIER(gasnete_get_reqh_inner)
 void gasnete_get_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t nbytes, void *dest, void *src, void *op) {
+  assert(nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD);
   GASNETE_SAFE(
     MEDIUM_REP(2,4,(token, gasneti_handleridx(gasnete_get_reph),
                   src, nbytes, 
                   PACK(dest), PACK(op))));
 }
 SHORT_HANDLER(gasnete_get_reqh,4,7, 
-              (token, a0, UNPACK(a1),     UNPACK(a2),     UNPACK(a3)    ),
+              (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
               (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasnete_get_reph_inner)
@@ -380,8 +404,31 @@ void gasnete_get_reph_inner(gasnet_token_t token,
   gasnete_op_markdone((gasnete_op_t *)op, 1);
 }
 MEDIUM_HANDLER(gasnete_get_reph,2,4,
-              (token,addr,nbytes, UNPACK(a0),     UNPACK(a1)    ),
+              (token,addr,nbytes, UNPACK(a0),      UNPACK(a1)    ),
               (token,addr,nbytes, UNPACK2(a0, a1), UNPACK2(a2, a3)));
+/* ------------------------------------------------------------------------------------ */
+GASNET_INLINE_MODIFIER(gasnete_getlong_reqh_inner)
+void gasnete_getlong_reqh_inner(gasnet_token_t token, 
+  gasnet_handlerarg_t nbytes, void *dest, void *src, void *op) {
+
+  GASNETE_SAFE(
+    LONG_REP(1,2,(token, gasneti_handleridx(gasnete_getlong_reph),
+                  src, nbytes, dest,
+                  PACK(op))));
+}
+SHORT_HANDLER(gasnete_getlong_reqh,4,7, 
+              (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
+              (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
+/* ------------------------------------------------------------------------------------ */
+GASNET_INLINE_MODIFIER(gasnete_getlong_reph_inner)
+void gasnete_getlong_reph_inner(gasnet_token_t token, 
+  void *addr, size_t nbytes, 
+  void *op) {
+  gasnete_op_markdone((gasnete_op_t *)op, 1);
+}
+LONG_HANDLER(gasnete_getlong_reph,1,2,
+              (token,addr,nbytes, UNPACK(a0)     ),
+              (token,addr,nbytes, UNPACK2(a0, a1)));
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasnete_put_reqh_inner)
 void gasnete_put_reqh_inner(gasnet_token_t token, 
@@ -393,7 +440,7 @@ void gasnete_put_reqh_inner(gasnet_token_t token,
                   PACK(op))));
 }
 MEDIUM_HANDLER(gasnete_put_reqh,2,4, 
-              (token,addr,nbytes, UNPACK(a0),     UNPACK(a1)    ),
+              (token,addr,nbytes, UNPACK(a0),      UNPACK(a1)     ),
               (token,addr,nbytes, UNPACK2(a0, a1), UNPACK2(a2, a3)));
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasnete_putlong_reqh_inner)
@@ -405,7 +452,7 @@ void gasnete_putlong_reqh_inner(gasnet_token_t token,
                   PACK(op))));
 }
 LONG_HANDLER(gasnete_putlong_reqh,1,2, 
-              (token,addr,nbytes, UNPACK(a0)    ),
+              (token,addr,nbytes, UNPACK(a0)     ),
               (token,addr,nbytes, UNPACK2(a0, a1)));
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
@@ -417,7 +464,7 @@ void gasnete_memset_reqh_inner(gasnet_token_t token,
                   PACK(op))));
 }
 SHORT_HANDLER(gasnete_memset_reqh,4,6,
-              (token, a0, a1, UNPACK(a2),     UNPACK(a3)    ),
+              (token, a0, a1, UNPACK(a2),      UNPACK(a3)     ),
               (token, a0, a1, UNPACK2(a2, a3), UNPACK2(a4, a5)));
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasnete_markdone_reph_inner)
@@ -431,7 +478,7 @@ SHORT_HANDLER(gasnete_markdone_reph,1,2,
 /* ------------------------------------------------------------------------------------ */
 
 extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  if (nbytes <= gasnet_AMMaxMedium()) {
+  if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
     gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
 
     GASNETE_SAFE(
@@ -450,7 +497,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 
 GASNET_INLINE_MODIFIER(gasnete_put_nb_inner)
 gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, size_t nbytes, int isbulk GASNETE_THREAD_FARG) {
-  if (nbytes <= gasnet_AMMaxMedium()) {
+  if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
     gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
 
     GASNETE_SAFE(
@@ -581,7 +628,7 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *op = mythread->current_iop;
-  if (nbytes <= gasnet_AMMaxMedium()) {
+  if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
     op->initiated_get_cnt++;
   
     GASNETE_SAFE(
@@ -589,22 +636,37 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
                    (gasnet_handlerarg_t)nbytes, PACK(dest), PACK(src), PACK(op))));
     return;
   } else {
-    int chunksz = gasnet_AMMaxMedium();
+    int chunksz;
     int msgsent=0;
+    gasnet_handler_t reqhandler;
     uint8_t *psrc = src;
     uint8_t *pdest = dest;
+    #if GASNETE_USE_LONG_GETS
+      /* TODO: optimize this check by caching segment upper-bound in gasnete_seginfo */
+      if (dest >= gasnete_seginfo[gasnete_mynode].addr &&
+         (((uintptr_t)dest) + nbytes) < 
+          (((uintptr_t)gasnete_seginfo[gasnete_mynode].addr) +
+                       gasnete_seginfo[gasnete_mynode].size)) {
+        chunksz = gasnet_AMMaxLongReply();
+        reqhandler = gasneti_handleridx(gasnete_getlong_reqh);
+      }
+      else 
+    #endif
+      { reqhandler = gasneti_handleridx(gasnete_get_reqh);
+        chunksz = gasnet_AMMaxMedium();
+      }
     for (;;) {
       msgsent++;
       if (nbytes > chunksz) {
         GASNETE_SAFE(
-          SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_get_reqh), 
+          SHORT_REQ(4,7,(node, reqhandler, 
                        (gasnet_handlerarg_t)chunksz, PACK(pdest), PACK(psrc), PACK(op))));
         nbytes -= chunksz;
         psrc += chunksz;
         pdest += chunksz;
       } else {
         GASNETE_SAFE(
-          SHORT_REQ(4,7,(node, gasneti_handleridx(gasnete_get_reqh), 
+          SHORT_REQ(4,7,(node, reqhandler, 
                        (gasnet_handlerarg_t)nbytes, PACK(pdest), PACK(psrc), PACK(op))));
         break;
       }
@@ -619,7 +681,7 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *op = mythread->current_iop;
 
-  if (nbytes <= gasnet_AMMaxMedium()) {
+  if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
     op->initiated_put_cnt++;
 
     GASNETE_SAFE(
@@ -972,6 +1034,8 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
   /* ptr-width dependent handlers */
   gasneti_handler_tableentry_with_bits(gasnete_get_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_get_reph),
+  gasneti_handler_tableentry_with_bits(gasnete_getlong_reqh),
+  gasneti_handler_tableentry_with_bits(gasnete_getlong_reph),
   gasneti_handler_tableentry_with_bits(gasnete_put_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_putlong_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_memset_reqh),
