@@ -749,6 +749,8 @@ fh_priv_acquire_local(int local_ref, firehose_private_t *entry)
 		}
 	}
 
+	gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL >= 0);
+
 	return rp;
 }
 
@@ -964,11 +966,15 @@ fh_WaitLocalFirehoses(int count, firehose_region_t *region)
 			FH_TABLE_UNLOCK;
 			gasnet_AMPoll();
 			FH_TABLE_LOCK;
+
+			/* May have had a D->E state transition */
+			b_avail = MIN(b_remain, FHC_MAXVICTIM_BUCKETS_AVAIL);
+			fhc_LocalOnlyBucketsPinned += b_avail;
+			b_remain -= b_avail;
 		}
 	}
 
 	gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL >= 0);
-	gasneti_assert(reg - region >= 0);
 
 	return (int) (reg - region);
 }
