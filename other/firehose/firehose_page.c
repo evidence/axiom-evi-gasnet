@@ -128,7 +128,7 @@ static gasneti_cond_t fh_local_da_cv = GASNETI_COND_INITIALIZER;
 #define FH_UPYL                                                      \
   do {                                                               \
       FH_TABLE_UNLOCK;                                               \
-      gasnet_AMPoll();                                               \
+      gasneti_AMPoll();                                              \
       gasneti_sched_yield();  /* Should this be GASNET_WAITHOOK? */  \
       FH_TABLE_LOCK;                                                 \
   } while (0)
@@ -136,9 +136,9 @@ static gasneti_cond_t fh_local_da_cv = GASNETI_COND_INITIALIZER;
 #define FH_UPYUL                                                     \
   do {                                                               \
       FH_TABLE_UNLOCK;                                               \
-      gasnet_AMPoll();                                               \
+      gasneti_AMPoll();                                              \
       gasneti_sched_yield();  /* Should this be GASNET_WAITHOOK? */  \
-      gasnet_AMPoll();                                               \
+      gasneti_AMPoll();                                              \
       FH_TABLE_LOCK;                                                 \
   } while (0)
 #endif /* FIREHOSE_SMP */
@@ -2054,9 +2054,9 @@ again:
         my_da = fh_local_da = 1;
         /* give others a chance to release resources */
         FH_TABLE_UNLOCK;
-        gasnet_AMPoll();
+        gasneti_AMPoll();
         gasneti_sched_yield();
-        gasnet_AMPoll();
+        gasneti_AMPoll();
         FH_TABLE_LOCK;
     }
 
@@ -2147,7 +2147,7 @@ again:
         if_pf (my_da) {
             gasneti_assert(fh_local_da);
             FH_TABLE_UNLOCK;
-            gasnet_AMPoll();
+            gasneti_AMPoll();
             FH_TABLE_LOCK;
             fh_local_da = 0;
             gasneti_cond_broadcast(&fh_local_da_cv);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core.h                  $
- *     $Date: 2004/06/28 09:36:18 $
- * $Revision: 1.11 $
+ *     $Date: 2004/07/17 17:00:29 $
+ * $Revision: 1.12 $
  * Description: GASNet header for elan conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,7 +176,6 @@ typedef struct _gasnet_hsl_t {
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
 extern int gasnetc_AMPoll();
 
-#define gasnet_AMPoll          gasnetc_AMPoll
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
 #define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)

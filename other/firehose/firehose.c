@@ -931,7 +931,7 @@ fh_WaitLocalFirehoses(int count, firehose_region_t *region)
 		}
 		else {
 			FH_TABLE_UNLOCK;
-			gasnet_AMPoll();
+			gasneti_AMPoll();
 			FH_TABLE_LOCK;
 
 			/* May have had a D->E state transition */
@@ -972,7 +972,7 @@ fh_WaitRemoteFirehoses(gasnet_node_t node, int count,
 		}
 		else {
 			FH_TABLE_UNLOCK;
-			gasnet_AMPoll();
+			gasneti_AMPoll();
 			FH_TABLE_LOCK;
 		}
 	}

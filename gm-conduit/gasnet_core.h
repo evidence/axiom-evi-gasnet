@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.19 2004/06/28 09:36:20 bonachea Exp $
- * $Date: 2004/06/28 09:36:20 $
- * $Revision: 1.19 $
+/* $Id: gasnet_core.h,v 1.20 2004/07/17 17:00:33 bonachea Exp $
+ * $Date: 2004/07/17 17:00:33 $
+ * $Revision: 1.20 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -170,7 +170,6 @@ typedef struct _gasnet_hsl_t {
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
 extern int gasnetc_AMPoll();
 
-#define gasnet_AMPoll          gasnetc_AMPoll
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
 #define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)

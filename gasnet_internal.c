@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/07/08 09:09:22 $
- * $Revision: 1.59 $
+ *     $Date: 2004/07/17 17:00:27 $
+ * $Revision: 1.60 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,6 +36,16 @@ int gasneti_VerboseErrors = 1;
 
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
   gasnet_hsl_t gasneti_atomicop_lock = GASNET_HSL_INITIALIZER;
+#endif
+
+#if GASNETI_THROTTLE_POLLERS
+  gasneti_atomic_t gasneti_throttle_haveusefulwork = gasneti_atomic_init(0);
+  gasneti_mutex_t gasneti_throttle_spinpoller = GASNETI_MUTEX_INITIALIZER;
+#endif
+#if GASNET_DEBUG && GASNETI_THREADS
+  pthread_key_t gasneti_throttledebug_key;
+#elif GASNET_DEBUG
+  int gasneti_throttledebug_cnt = 0;
 #endif
 
 #define GASNET_VERSION_STR  _STRINGIFY(GASNET_VERSION)
@@ -112,6 +122,16 @@ extern void gasneti_check_config_preinit() {
       gasneti_fatalerror("GASNet was built in uniprocessor (non-SMP-safe) configuration, "
         "but executed on an SMP. Please re-run GASNet configure with --enable-smp-safe and rebuild");
   #endif
+
+  { static int firstcall = 1;
+    if (firstcall) { /* miscellaneous conduit-independent initializations */
+      firstcall = 0;
+      #if GASNET_DEBUG && GASNETI_THREADS
+        int retval = pthread_key_create(&gasneti_throttledebug_key, NULL);
+        if (retval) gasneti_fatalerror("In gasneti_check_config_preinit(), pthread_key_create()=%s",strerror(retval));
+      #endif
+    }
+  }
 }
 
 extern void gasneti_check_config_postattach() {

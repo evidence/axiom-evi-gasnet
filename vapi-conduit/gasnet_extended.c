@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2004/07/08 09:09:36 $
- * $Revision: 1.20 $
+ *     $Date: 2004/07/17 17:00:51 $
+ * $Revision: 1.21 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -505,7 +505,7 @@ extern void gasnete_wait_syncnb(gasnet_handle_t op) {
 }
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
-  GASNETE_SAFE(gasnet_AMPoll());
+  GASNETE_SAFE(gasneti_AMPoll());
 
   return gasnete_op_try_free(handle) ? GASNET_OK : GASNET_ERR_NOT_READY;
 }
@@ -514,7 +514,7 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
   int success = 0;
   int empty = 1;
 
-  GASNETE_SAFE(gasnet_AMPoll());
+  GASNETE_SAFE(gasneti_AMPoll());
 
   gasneti_assert(phandle);
 
@@ -533,7 +533,7 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles) {
   int success = 1;
 
-  GASNETE_SAFE(gasnet_AMPoll());
+  GASNETE_SAFE(gasneti_AMPoll());
 
   gasneti_assert(phandle);
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/08 09:09:30 $
- * $Revision: 1.23 $
+ *     $Date: 2004/07/17 17:00:35 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -575,7 +575,7 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
 */
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
-    GASNETE_SAFE(gasnet_AMPoll());
+    GASNETE_SAFE(gasneti_AMPoll());
 
     if (gasnete_op_isdone(handle)) {
 	gasnete_op_free(handle);
@@ -587,7 +587,7 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles) {
     int success = 0;
     int empty = 1;
-    GASNETE_SAFE(gasnet_AMPoll());
+    GASNETE_SAFE(gasneti_AMPoll());
 
     gasneti_assert(phandle);
 
@@ -611,7 +611,7 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 
 extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles) {
     int success = 1;
-    GASNETE_SAFE(gasnet_AMPoll());
+    GASNETE_SAFE(gasneti_AMPoll());
 
     gasneti_assert(phandle);
 
@@ -1096,7 +1096,7 @@ extern int gasnete_barrier_wait(int id, int flags) {
 
     /*  wait for response */
     while (!barrier_response_done[phase]) {
-	GASNETE_SAFE(gasnet_AMPoll());
+	GASNETE_SAFE(gasneti_AMPoll());
     }
 
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW()-wait_start);

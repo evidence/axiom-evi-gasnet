@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/sci-conduit/gasnet_core_internal.c         $
- *     $Date: 2004/07/16 13:38:25 $
- * $Revision: 1.3 $
+ *     $Date: 2004/07/17 17:00:41 $
+ * $Revision: 1.4 $
  * Description: GASNet sci conduit c-file for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -428,7 +428,7 @@ int gasnetc_sci_barrier_wait (int barrier_value)
               {
                     if (gasnetc_sci_internal_barrier_flag == GASNETC_SCI_FALSE)
                     {
-                        gasnetc_AMPoll();
+                        gasneti_AMPoll();
                     }
               }
 
@@ -1024,7 +1024,7 @@ int gasnetc_mls_get_loc (gasnet_node_t dest_node_id)
               }
               if (found == 0)
               {
-                  gasnetc_AMPoll();
+                  gasneti_AMPoll();
               }
         } while (found == 0);
 

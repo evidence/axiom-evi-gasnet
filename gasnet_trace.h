@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2004/06/25 23:19:49 $
- * $Revision: 1.25 $
+ *     $Date: 2004/07/17 17:00:27 $
+ * $Revision: 1.26 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -694,6 +694,8 @@ extern void gasneti_trace_finish();
         CNT(A, AMREPLY_SHORT_HANDLER, cnt)                \
         CNT(A, AMREPLY_MEDIUM_HANDLER, cnt)               \
         CNT(A, AMREPLY_LONG_HANDLER, cnt)                 \
+                                                          \
+        CNT(I, AMPOLL, cnt)                               \
                                                           \
         VAL(I, GASNET_MALLOC, sz)                         \
         VAL(I, GASNET_FREE, sz)                           \

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/04/05 23:55:18 $
- * $Revision: 1.13 $
+ *     $Date: 2004/07/17 17:00:31 $
+ * $Revision: 1.14 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -103,7 +103,7 @@ static void gasnete_ambarrier_notify_reqh(gasnet_token_t token,
 static void gasnete_ambarrier_kick() {
   int phase = ambarrier_phase;
   int step = ambarrier_step;
-  GASNETE_SAFE(gasnet_AMPoll());
+  GASNETE_SAFE(gasneti_AMPoll());
 
   if_pt (step != ambarrier_size) {
     if (ambarrier_step_done[phase][step]) {
@@ -342,7 +342,7 @@ static void gasnete_ambarrier_done_reqh(gasnet_token_t token,
 /*  make some progress on the ambarrier */
 static void gasnete_ambarrier_kick() {
   int phase = ambarrier_phase;
-  GASNETE_SAFE(gasnet_AMPoll());
+  GASNETE_SAFE(gasneti_AMPoll());
 
   if (gasnete_mynode != GASNETE_AMBARRIER_MASTER) return;
 

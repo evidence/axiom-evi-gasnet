@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/07/09 02:48:29 $
-# $Revision: 1.149 $
+#     $Date: 2004/07/17 17:00:27 $
+# $Revision: 1.150 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.149 $)
+AC_REVISION($Revision: 1.150 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -613,7 +613,8 @@ fi
 
 GASNET_IF_ENABLED(loopback-put-memsync, Force a memory barrier after a GASNet local (loopback) put,
   [AC_DEFINE(GASNETI_MEMSYNC_ON_LOOPBACKPUT)])
-
+GASNET_IF_ENABLED(throttle-poll, throttle polling threads in multi-threaded configurations to reduce contention,
+  [AC_DEFINE(GASNETI_THROTTLE_FEATURE_ENABLED)])
 #---------------------------------------------------------------------------------------------------------------
 # CONDUIT CONFIGURATIONS
 #---------------------------------------------------------------------------------------------------------------

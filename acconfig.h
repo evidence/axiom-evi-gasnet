@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/05/17 22:36:23 $ */
-/*  $Revision: 1.29 $ */
+/*      $Date: 2004/07/17 17:00:27 $ */
+/*  $Revision: 1.30 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -60,6 +60,9 @@
 
 /* force a memory barrier after a GASNet local (loopback) put */
 #undef GASNETI_MEMSYNC_ON_LOOPBACKPUT
+
+/* throttle polling threads in multi-threaded configurations to reduce contention */
+#undef GASNETI_THROTTLE_FEATURE_ENABLED
 
 /* auto-detected mmap data page size */
 #undef GASNETI_PAGESIZE

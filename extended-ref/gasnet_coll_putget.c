@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_refcoll.c $
- *     $Date: 2004/07/07 21:59:46 $
- * $Revision: 1.3 $
+ *     $Date: 2004/07/17 17:00:31 $
+ * $Revision: 1.4 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -138,7 +138,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
   gasnete_coll_try_sync(gasnet_coll_handle_t handle GASNETE_THREAD_FARG) {
     gasneti_assert(handle != GASNET_COLL_INVALID_HANDLE); /* caller must check */
 
-    gasnet_AMPoll();
+    gasneti_AMPoll();
     gasnete_coll_poll(GASNETE_THREAD_PASS_ALONE);
 
     return gasnete_coll_handle_done(handle GASNETE_THREAD_PASS) ? GASNET_OK : GASNET_ERR_NOT_READY;
@@ -154,7 +154,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 
     gasneti_assert(phandle != NULL);
 
-    gasnet_AMPoll();
+    gasneti_AMPoll();
     gasnete_coll_poll(GASNETE_THREAD_PASS_ALONE);
 
     for (i = 0; i < numhandles; ++i, ++phandle) {
@@ -179,7 +179,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 
     gasneti_assert(phandle != NULL);
 
-    gasnet_AMPoll();
+    gasneti_AMPoll();
     gasnete_coll_poll(GASNETE_THREAD_PASS_ALONE);
 
     for (i = 0; i < numhandles; ++i, ++phandle) {

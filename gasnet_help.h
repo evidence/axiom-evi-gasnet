@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/07/15 08:06:37 $
- * $Revision: 1.31 $
+ *     $Date: 2004/07/17 17:00:27 $
+ * $Revision: 1.32 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,6 +22,7 @@
   #endif
   #include <pthread.h>
 #endif
+#include <gasnet_atomicops.h>
 
 BEGIN_EXTERNC
 
@@ -114,34 +115,6 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #define GASNETI_CHECKATTACH()
 #endif
 
-/* Blocking functions */
-extern int gasneti_wait_mode; /* current waitmode hint */
-#define GASNETI_WAITHOOK() do {                                       \
-    if (gasneti_wait_mode != GASNET_WAIT_SPIN) gasneti_sched_yield(); \
-    gasneti_spinloop_hint();                                          \
-  } while (0)
-
-/* busy-waits, with no implicit polling (cnd should include an embedded poll)
-   differs from GASNET_BLOCKUNTIL because it may be waiting for an event
-     caused by the receipt of a non-AM message
- */
-#ifndef gasneti_waitwhile
-#define gasneti_waitwhile(cnd) while (cnd) GASNETI_WAITHOOK()
-#endif
-#define gasneti_waituntil(cnd) gasneti_waitwhile(!(cnd)) 
-
-/* busy-wait, with implicit polling */
-#ifndef gasneti_pollwhile
-#define gasneti_pollwhile(cnd) do { \
-    if (!(cnd)) break;              \
-    gasnet_AMPoll();                \
-    while (cnd) {                   \
-      GASNETI_WAITHOOK();           \
-      gasnet_AMPoll();              \
-    }                               \
-  } while (0)
-#endif
-#define gasneti_polluntil(cnd) gasneti_pollwhile(!(cnd)) 
 
 /* conduits may replace the following types, 
    but they should at least include all the following fields */
@@ -402,12 +375,160 @@ extern int gasneti_wait_mode; /* current waitmode hint */
       gasneti_fatalerror("There's only one thread: waiting on condition variable => deadlock")
 #endif
 /* ------------------------------------------------------------------------------------ */
+#ifndef GASNETI_GASNETI_AMPOLL
+  /*
+   gasnet_AMPoll() - public poll function called by the client, throttled and traced 
+                     should not be called from within GASNet (so we only trace directly user-initiated calls)
+   gasneti_AMPoll() - called internally by GASNet, provides throttling (if enabled), but no tracing
+   gasnetc_AMPoll() - conduit AM dispatcher, should only be called from gasneti_AMPoll()
+   */
+  #ifndef GASNETI_GASNETC_AMPOLL
+    extern int gasnetc_AMPoll();
+  #endif
+
+  #if GASNETI_THROTTLE_FEATURE_ENABLED && (GASNET_PAR || GASNETI_CONDUIT_THREADS)
+    #define GASNETI_THROTTLE_POLLERS 1
+  #else
+    #define GASNETI_THROTTLE_POLLERS 0
+  #endif
+
+  /* threads who need a network lock in order to send a message make 
+     matched calls to gasneti_suspend/resume_spinpollers to help them 
+     get the lock. They should not AMPoll while this suspend is in effect.
+     The following debugging assertions detect violations of these rules.
+  */ 
+  #if GASNET_DEBUG && GASNETI_THREADS
+    extern pthread_key_t gasneti_throttledebug_key;
+
+    #define gasneti_AMPoll_spinpollers_check()          \
+      /* assert this thread hasn't already suspended */ \
+      gasneti_assert((int)(intptr_t)pthread_getspecific(gasneti_throttledebug_key) == 0)
+    #define gasneti_suspend_spinpollers_check() do {                                               \
+      /* assert this thread hasn't already suspended */                                            \
+      gasneti_assert((int)(intptr_t)pthread_getspecific(gasneti_throttledebug_key) == 0);          \
+      gasneti_assert_zeroret(pthread_setspecific(gasneti_throttledebug_key, (void *)(intptr_t)1)); \
+    } while(0)
+    #define gasneti_resume_spinpollers_check() do {                                                \
+      /* assert this thread previously suspended */                                                \
+      gasneti_assert((int)(intptr_t)pthread_getspecific(gasneti_throttledebug_key) == 1);          \
+      gasneti_assert_zeroret(pthread_setspecific(gasneti_throttledebug_key, (void *)(intptr_t)0)); \
+    } while(0)
+  #elif GASNET_DEBUG
+    extern int gasneti_throttledebug_cnt;
+
+    #define gasneti_AMPoll_spinpollers_check()          \
+      /* assert this thread hasn't already suspended */ \
+      gasneti_assert(gasneti_throttledebug_cnt == 0)
+    #define gasneti_suspend_spinpollers_check() do {    \
+      /* assert this thread hasn't already suspended */ \
+      gasneti_assert(gasneti_throttledebug_cnt == 0);   \
+      gasneti_throttledebug_cnt = 1;                    \
+    } while(0)
+    #define gasneti_resume_spinpollers_check() do {   \
+      /* assert this thread previously suspended */   \
+      gasneti_assert(gasneti_throttledebug_cnt == 1); \
+      gasneti_throttledebug_cnt = 0;                  \
+    } while(0)
+  #else
+    #define gasneti_AMPoll_spinpollers_check()  ((void)0)
+    #define gasneti_suspend_spinpollers_check() ((void)0)
+    #define gasneti_resume_spinpollers_check()  ((void)0)
+  #endif
+
+  #if !GASNETI_THROTTLE_POLLERS 
+    #define gasneti_AMPoll() (gasneti_AMPoll_spinpollers_check(), gasnetc_AMPoll())
+    #define gasneti_suspend_spinpollers() gasneti_suspend_spinpollers_check()
+    #define gasneti_resume_spinpollers()  gasneti_resume_spinpollers_check()
+  #else
+    /* AMPoll with throttling, to reduce lock contention in the network:
+       poll if and only if no other thread appears to already be spin-polling,
+       and no thread is attempting to use the network for sending 
+       Design goals (in rough order of importance):
+        - when one or more threads need to send, all spin-pollers should get 
+          out of the way (but continue checking their completion condition)
+        - only one thread should be spin-polling at a time, to prevent 
+          lock contention and cache thrashing between spin-pollers
+        - manage AMPoll calls internal to GASNet (including those from polluntil) 
+          and explicit client AMPoll calls
+        - allow concurrent handler execution - if the spin poller recvs an AM, 
+          it should release another spin poller before invoking the handler
+        - the single spin-poller should not need to pay locking overheads in the loop
+    */
+    extern gasneti_atomic_t gasneti_throttle_haveusefulwork;
+    extern gasneti_mutex_t gasneti_throttle_spinpoller;
+
+    #define gasneti_suspend_spinpollers() do {                      \
+        gasneti_suspend_spinpollers_check();                        \
+        gasneti_atomic_increment(&gasneti_throttle_haveusefulwork); \
+    } while (0)
+    #define gasneti_resume_spinpollers() do {                       \
+        gasneti_resume_spinpollers_check();                         \
+        gasneti_atomic_decrement(&gasneti_throttle_haveusefulwork); \
+    } while (0)
+
+    /* and finally, the throttled poll implementation */
+    GASNET_INLINE_MODIFIER(gasneti_AMPoll)
+    int gasneti_AMPoll() {
+       int retval;
+       gasneti_AMPoll_spinpollers_check();
+       if (gasneti_atomic_read(&gasneti_throttle_haveusefulwork) > 0) 
+         return GASNET_OK; /* another thread sending - skip the poll */
+       if (gasneti_mutex_trylock(&gasneti_throttle_spinpoller) != 0)
+         return GASNET_OK; /* another thread spin-polling - skip the poll */
+       retval = gasnetc_AMPoll();
+       gasneti_mutex_unlock(&gasneti_throttle_spinpoller);
+       return retval;
+    }
+  #endif
+#endif
+  
+/* Blocking functions */
+extern int gasneti_wait_mode; /* current waitmode hint */
+#define GASNETI_WAITHOOK() do {                                       \
+    if (gasneti_wait_mode != GASNET_WAIT_SPIN) gasneti_sched_yield(); \
+    gasneti_spinloop_hint();                                          \
+  } while (0)
+
+/* busy-waits, with no implicit polling (cnd should include an embedded poll)
+   differs from GASNET_BLOCKUNTIL because it may be waiting for an event
+     caused by the receipt of a non-AM message
+ */
+#ifndef gasneti_waitwhile
+#define gasneti_waitwhile(cnd) while (cnd) GASNETI_WAITHOOK()
+#endif
+#define gasneti_waituntil(cnd) gasneti_waitwhile(!(cnd)) 
+
+/* busy-wait, with implicit polling */
+#ifndef gasneti_pollwhile
+#define gasneti_pollwhile(cnd) do { \
+    if (!(cnd)) break;              \
+    gasneti_AMPoll();               \
+    while (cnd) {                   \
+      GASNETI_WAITHOOK();           \
+      gasneti_AMPoll();             \
+    }                               \
+  } while (0)
+#endif
+#define gasneti_polluntil(cnd) gasneti_pollwhile(!(cnd)) 
+
+/* ------------------------------------------------------------------------------------ */
 
 /* high-performance timer library */
 #include <gasnet_timer.h>
 
 /* tracing utilities */
 #include <gasnet_trace.h>
+
+/* ------------------------------------------------------------------------------------ */
+  /* default implementation of public gasnet_AMPoll */
+#ifndef GASNETI_GASNET_AMPOLL
+  /* GASNet client calls gasnet_AMPoll(), which throttles and traces */
+  GASNET_INLINE_MODIFIER(gasnet_AMPoll)
+  int gasnet_AMPoll() {
+    GASNETI_TRACE_EVENT(I, AMPOLL);
+    return gasneti_AMPoll();
+  }
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2004/07/08 09:09:26 $
- * $Revision: 1.39 $
+ *     $Date: 2004/07/17 17:00:31 $
+ * $Revision: 1.40 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -558,7 +558,7 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
 */
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
-  GASNETE_SAFE(gasnet_AMPoll());
+  GASNETE_SAFE(gasneti_AMPoll());
 
   if (gasnete_op_isdone(handle)) {
     gasnete_op_free(handle);
@@ -570,7 +570,7 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles) {
   int success = 0;
   int empty = 1;
-  GASNETE_SAFE(gasnet_AMPoll());
+  GASNETE_SAFE(gasneti_AMPoll());
 
   gasneti_assert(phandle);
 
@@ -594,7 +594,7 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 
 extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles) {
   int success = 1;
-  GASNETE_SAFE(gasnet_AMPoll());
+  GASNETE_SAFE(gasneti_AMPoll());
 
   gasneti_assert(phandle);
 
@@ -772,7 +772,7 @@ extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
 extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
   #if 0
     /* polling for syncnbi now happens in header file to avoid duplication */
-    GASNETE_SAFE(gasnet_AMPoll());
+    GASNETE_SAFE(gasneti_AMPoll());
   #endif
   {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
@@ -797,7 +797,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
 extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
   #if 0
     /* polling for syncnbi now happens in header file to avoid duplication */
-    GASNETE_SAFE(gasnet_AMPoll());
+    GASNETE_SAFE(gasneti_AMPoll());
   #endif
   {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
