@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/01/22 15:11:40 $
- * $Revision: 1.87 $
+ *     $Date: 2005/02/12 11:29:15 $
+ * $Revision: 1.88 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -98,6 +98,25 @@ int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG) = 1;
+
+/* Default global definitions of GASNet-wide internal variables
+   if conduits override one of these, they must
+   still provide variable or macro definitions for these tokens */
+#ifdef _GASNET_MYNODE_DEFAULT
+  gasnet_node_t gasneti_mynode = (gasnet_node_t)-1;
+#endif
+#ifdef _GASNET_NODES_DEFAULT
+  gasnet_node_t gasneti_nodes = 0;
+#endif
+
+#if defined(_GASNET_GETMAXSEGMENTSIZE_DEFAULT) && !GASNET_SEGMENT_EVERYTHING
+  uintptr_t gasneti_MaxLocalSegmentSize = 0;
+  uintptr_t gasneti_MaxGlobalSegmentSize = 0;
+#endif
+
+#ifdef _GASNETI_SEGINFO_DEFAULT
+  gasnet_seginfo_t *gasneti_seginfo = NULL;
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* conduit-independent sanity checks */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2005/02/06 04:34:41 $
- * $Revision: 1.31 $
+ *     $Date: 2005/02/12 11:29:15 $
+ * $Revision: 1.32 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -208,15 +208,6 @@ const char *gasnet_ErrorDesc(int errval) {
 }
 #endif
 
-#ifndef _GASNET_WAITMODE
-#define _GASNET_WAITMODE
-  #define GASNET_WAIT_SPIN      0 /* contend aggressively for CPU resources while waiting (spin) */
-  #define GASNET_WAIT_BLOCK     1 /* yield CPU resources immediately while waiting (block) */
-  #define GASNET_WAIT_SPINBLOCK 2 /* spin for an implementation-dependent period, then block */
-  extern int gasneti_set_waitmode(int wait_mode);
-  #define gasnet_set_waitmode(wait_mode) gasneti_set_waitmode(wait_mode)
-#endif
-
 /* ------------------------------------------------------------------------------------ */
 /* core types */
 
@@ -247,7 +238,7 @@ const char *gasnet_ErrorDesc(int errval) {
 #ifndef _GASNET_HANDLERENTRY_T
 #define _GASNET_HANDLERENTRY_T
   /*  struct type used to negotiate handler registration in gasnet_init() */
-  typedef struct {
+  typedef struct gasneti_handlerentry_s {
     gasnet_handler_t index; /*  == 0 for don't care  */
     void (*fnptr)();    
   } gasnet_handlerentry_t;
@@ -255,7 +246,7 @@ const char *gasnet_ErrorDesc(int errval) {
 
 #ifndef _GASNET_SEGINFO_T
 #define _GASNET_SEGINFO_T
-  typedef struct {
+  typedef struct gasneti_seginfo_s {
     void *addr;
     uintptr_t size;
   } gasnet_seginfo_t;

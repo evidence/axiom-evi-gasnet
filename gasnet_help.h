@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/01/23 00:13:45 $
- * $Revision: 1.41 $
+ *     $Date: 2005/02/12 11:29:15 $
+ * $Revision: 1.42 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -73,25 +73,31 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 #define gasneti_current_loc gasneti_build_loc_str(GASNETI_CURRENT_FUNCTION,__FILE__,__LINE__)
 
 #if GASNET_NDEBUG
-  #define gasneti_boundscheck(node,ptr,nbytes,T) 
+  #define gasneti_boundscheck(node,ptr,nbytes) 
 #else
-  #define gasneti_boundscheck(node,ptr,nbytes,T) do {                                                             \
-      gasnet_node_t _node = node;                                                                                 \
-      uintptr_t _ptr = (uintptr_t)ptr;                                                                            \
-      size_t _nbytes = nbytes;                                                                                    \
-      if_pf (_node > gasnet##T##_nodes)                                                                           \
-        gasneti_fatalerror("Node index out of range (%lu >= %lu) at %s",                                          \
-                           (unsigned long)_node, (unsigned long)gasnet##T##_nodes, gasneti_current_loc);          \
-      if_pf (_ptr < (uintptr_t)gasnet##T##_seginfo[_node].addr ||                                                 \
-             (_ptr + _nbytes) > (((uintptr_t)gasnet##T##_seginfo[_node].addr) + gasnet##T##_seginfo[_node].size)) \
-        gasneti_fatalerror("Remote address out of range (node=%lu ptr="GASNETI_LADDRFMT" nbytes=%lu "             \
-                           "segment=("GASNETI_LADDRFMT"..."GASNETI_LADDRFMT")) at %s",                            \
-                           (unsigned long)_node, GASNETI_LADDRSTR(_ptr), (unsigned long)_nbytes,                  \
-                           GASNETI_LADDRSTR(gasnet##T##_seginfo[_node].addr),                                     \
-                           GASNETI_LADDRSTR(((uint8_t*)gasnet##T##_seginfo[_node].addr) +                         \
-                                            gasnet##T##_seginfo[_node].size),                                     \
-                           gasneti_current_loc);                                                                  \
+  #define gasneti_boundscheck(node,ptr,nbytes) do {                                                       \
+      gasnet_node_t _node = node;                                                                         \
+      uintptr_t _ptr = (uintptr_t)ptr;                                                                    \
+      size_t _nbytes = nbytes;                                                                            \
+      if_pf (_node > gasneti_nodes)                                                                       \
+        gasneti_fatalerror("Node index out of range (%lu >= %lu) at %s",                                  \
+                           (unsigned long)_node, (unsigned long)gasneti_nodes, gasneti_current_loc);      \
+      if_pf (_ptr < (uintptr_t)gasneti_seginfo[_node].addr ||                                             \
+             (_ptr + _nbytes) > (((uintptr_t)gasneti_seginfo[_node].addr) + gasneti_seginfo[_node].size)) \
+        gasneti_fatalerror("Remote address out of range (node=%lu ptr="GASNETI_LADDRFMT" nbytes=%lu "     \
+                           "segment=("GASNETI_LADDRFMT"..."GASNETI_LADDRFMT")) at %s",                    \
+                           (unsigned long)_node, GASNETI_LADDRSTR(_ptr), (unsigned long)_nbytes,          \
+                           GASNETI_LADDRSTR(gasneti_seginfo[_node].addr),                                 \
+                           GASNETI_LADDRSTR(((uint8_t*)gasneti_seginfo[_node].addr) +                     \
+                                            gasneti_seginfo[_node].size),                                 \
+                           gasneti_current_loc);                                                          \
     } while(0)
+#endif
+#ifndef gasnetc_boundscheck
+#define gasnetc_boundscheck gasneti_boundscheck
+#endif
+#ifndef gasnete_boundscheck
+#define gasnete_boundscheck gasneti_boundscheck
 #endif
 
 /* gasneti_assert_always():
@@ -680,8 +686,10 @@ extern int gasneti_wait_mode; /* current waitmode hint */
 #include <gasnet_trace.h>
 
 /* ------------------------------------------------------------------------------------ */
-  /* default implementation of public gasnet_AMPoll */
-#ifndef GASNETI_GASNET_AMPOLL
+/* default implementations of various conduit functions (may be overridden in some conduits) */
+
+#ifndef _GASNET_AMPOLL
+#define _GASNET_AMPOLL
   /* GASNet client calls gasnet_AMPoll(), which throttles and traces */
   GASNET_INLINE_MODIFIER(gasnet_AMPoll)
   int gasnet_AMPoll() {
@@ -697,6 +705,80 @@ extern int gasneti_wait_mode; /* current waitmode hint */
     GASNETI_CHECKINIT();
     return gasneti_getenv(s);
   }
+#endif
+
+#ifndef _GASNET_WAITMODE
+#define _GASNET_WAITMODE
+  #define GASNET_WAIT_SPIN      0 /* contend aggressively for CPU resources while waiting (spin) */
+  #define GASNET_WAIT_BLOCK     1 /* yield CPU resources immediately while waiting (block) */
+  #define GASNET_WAIT_SPINBLOCK 2 /* spin for an implementation-dependent period, then block */
+  extern int gasneti_set_waitmode(int wait_mode);
+  #define gasnet_set_waitmode(wait_mode) gasneti_set_waitmode(wait_mode)
+#endif
+
+#ifndef _GASNET_MYNODE
+#define _GASNET_MYNODE
+#define _GASNET_MYNODE_DEFAULT
+  extern gasnet_node_t gasneti_mynode;
+  GASNET_INLINE_MODIFIER(gasnet_mynode)
+  gasnet_node_t gasnet_mynode() {
+    GASNETI_CHECKINIT();
+    return gasneti_mynode;
+  }
+  /* convenience macros */
+  #define gasnetc_mynode gasneti_mynode
+  #define gasnete_mynode gasneti_mynode
+#endif
+
+#ifndef _GASNET_NODES
+#define _GASNET_NODES
+#define _GASNET_NODES_DEFAULT
+  extern gasnet_node_t gasneti_nodes;
+  GASNET_INLINE_MODIFIER(gasnet_nodes)
+  gasnet_node_t gasnet_nodes() {
+    GASNETI_CHECKINIT();
+    return gasneti_nodes;
+  }
+  /* convenience macros */
+  #define gasnetc_nodes gasneti_nodes
+  #define gasnete_nodes gasneti_nodes
+#endif
+
+#ifndef _GASNET_GETMAXSEGMENTSIZE
+#define _GASNET_GETMAXSEGMENTSIZE
+#define _GASNET_GETMAXSEGMENTSIZE_DEFAULT
+  #if GASNET_SEGMENT_EVERYTHING
+    #define gasnet_getMaxLocalSegmentSize()   ((uintptr_t)-1)
+    #define gasnet_getMaxGlobalSegmentSize()  ((uintptr_t)-1)
+  #else
+    extern uintptr_t gasneti_MaxLocalSegmentSize;
+    extern uintptr_t gasneti_MaxGlobalSegmentSize;
+    GASNET_INLINE_MODIFIER(gasnet_getMaxLocalSegmentSize)
+    uintptr_t gasnet_getMaxLocalSegmentSize() {
+      GASNETI_CHECKINIT();
+      return gasneti_MaxLocalSegmentSize;
+    }
+    GASNET_INLINE_MODIFIER(gasnet_getMaxGlobalSegmentSize)
+    uintptr_t gasnet_getMaxGlobalSegmentSize() {
+      GASNETI_CHECKINIT();
+      return gasneti_MaxGlobalSegmentSize;
+    }
+  #endif
+#endif
+
+#ifndef _GASNET_GETSEGMENTINFO
+#define _GASNET_GETSEGMENTINFO
+  extern int gasneti_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries);
+  #define gasnet_getSegmentInfo(seginfo_table, numentries) \
+          gasneti_getSegmentInfo(seginfo_table, numentries)
+#endif
+
+#ifndef _GASNETI_SEGINFO
+#define _GASNETI_SEGINFO
+#define _GASNETI_SEGINFO_DEFAULT
+  #define gasnete_seginfo gasneti_seginfo
+  #define gasnetc_seginfo gasneti_seginfo
+  extern gasnet_seginfo_t *gasneti_seginfo;
 #endif
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/testconduit/Attic/testconduit.c,v $
- *     $Date: 2004/08/26 04:53:59 $
- * $Revision: 1.3 $
+ *     $Date: 2005/02/12 11:29:27 $
+ * $Revision: 1.4 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,11 +32,6 @@ extern int errno;
 extern int gasnetc_hold_interrupts() { return; }
 extern int gasnetc_resume_interrupts() { return; }
 
-gasnet_node_t gasnetc_mynode;
-gasnet_node_t gasnetc_nodes;
-gasnet_node_t gasnete_mynode;
-gasnet_node_t gasnete_nodes;
-
 typedef struct _gasnetc_sockmap {
     gasnet_node_t   node;
     int		    fd;
@@ -59,8 +54,6 @@ typedef struct _gasnetc_sockdata {
 }
 gasnetc_sockdata_t;
 
-gasnet_seginfo_t    *gasnetc_seginfo;
-
 firehose_info_t	  gasnetc_firehose_info;
 
 /*
@@ -70,8 +63,6 @@ gasnetc_sockmap_t   *gasnetc_IdMapFd;
 gasnetc_sockmap_t   *gasnetc_PollMapNode;
 int		    *gasnetc_ThreadMapNode;
 
-gasnet_node_t	 gasnetc_nodes;
-gasnet_node_t	 gasnetc_mynode;
 int              gasnetc_threads;
 int		 gasnetc_threadspernode = 1;
 int		 gasnetc_send_portstart = SENDPORTSTART;
@@ -79,10 +70,6 @@ int		 gasnetc_recv_portstart = RECVPORTSTART;
 
 int		*gasnetc_sockfds;
 struct pollfd	*gasnetc_pollfds;
-
-uintptr_t       gasnetc_MaxLocalSegmentSize = 0;
-uintptr_t       gasnetc_MaxGlobalSegmentSize = 0;
-
 
 #if 0
 static gasneti_mutex_t gasnetc_socklock = GASNETI_MUTEX_INITIALIZER;
@@ -723,14 +710,12 @@ gasnetc_init()
 
   GASNETC_NODE_BARRIER;
 
-  gasneti_segmentInit(
-	&gasnetc_MaxLocalSegmentSize, &gasnetc_MaxGlobalSegmentSize,
-	(uintptr_t) -1, gasnetc_nodes, &gasnetc_bootstrapExchange);
+  gasneti_segmentInit((uintptr_t) -1, &gasnetc_bootstrapExchange);
 
   GASNETC_NODE_BARRIER;
 
   printf("local = %ld and global = %ld\n",
-		    gasnetc_MaxLocalSegmentSize, gasnetc_MaxGlobalSegmentSize);
+		    gasneti_MaxLocalSegmentSize, gasneti_MaxGlobalSegmentSize);
 
   {
 	char *env = getenv("GASNET_SEGMENT_SIZE");
@@ -741,10 +726,10 @@ gasnetc_init()
 	segsize = atol(env);
   }
 
-  if (gasnetc_MaxGlobalSegmentSize < segsize)
+  if (gasneti_MaxGlobalSegmentSize < segsize)
 	gasneti_fatalerror(
 	    "Largest segment (%ld) is less than %d",
-	    gasnetc_MaxGlobalSegmentSize, segsize);
+	    gasneti_MaxGlobalSegmentSize, segsize);
 
   /* assume 100 MB of physical memory per thread */
   firehose_init(100*1024*1024, 0, NULL, 0, &gasnetc_firehose_info);
@@ -1135,8 +1120,6 @@ main(int argc, char **argv)
 
     gasnetc_mynode = (gasnet_node_t) atoi(argv[1]);
     gasnetc_nodes  = (gasnet_node_t) atoi(argv[2]);
-    gasnete_nodes  = gasnetc_nodes;
-    gasnete_mynode = gasnetc_mynode;
 
     if (argc > 3 && argv[3] != NULL)
 	gasnetc_threadspernode = atoi(argv[3]);

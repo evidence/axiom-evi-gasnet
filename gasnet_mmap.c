@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2004/12/17 08:48:50 $
- * $Revision: 1.25 $
+ *     $Date: 2005/02/12 11:29:15 $
+ * $Revision: 1.26 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -242,13 +242,12 @@ extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz) {
 /* ------------------------------------------------------------------------------------ */
 #endif /* HAVE_MMAP */
 
-static gasnet_node_t gasneti_nodes = 0;
+#if !GASNET_SEGMENT_EVERYTHING
+/* mmap-based segment init/attach */
 static gasnet_seginfo_t gasneti_segment = {0,0}; /* local segment info */
 static uintptr_t gasneti_myheapend = 0; /* top of my malloc heap */
 static uintptr_t gasneti_maxheapend = 0; /* top of max malloc heap */
 static uintptr_t gasneti_maxbase = 0; /* start of segment overlap region */
-static uintptr_t gasneti_MaxLocalSegmentSize = 0;
-static uintptr_t gasneti_MaxGlobalSegmentSize = 0;
 
 typedef struct {
   gasnet_seginfo_t seginfo;
@@ -266,19 +265,16 @@ static gasneti_segexch_t *gasneti_segexch = NULL; /* exchanged segment informati
     pass (uintptr_t)-1 for unlimited
    keeps internal state for attach
  */
-void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize, 
-                         uintptr_t *MaxGlobalSegmentSize,
-                         uintptr_t localSegmentLimit,
-                         gasnet_node_t numnodes,
+void gasneti_segmentInit(uintptr_t localSegmentLimit,
                          gasneti_bootstrapExchangefn_t exchangefn) {
   gasneti_segexch_t se;
   int i;
 
-  gasneti_assert(MaxLocalSegmentSize);
-  gasneti_assert(MaxGlobalSegmentSize);
+  gasneti_assert(gasneti_MaxLocalSegmentSize == 0);
+  gasneti_assert(gasneti_MaxGlobalSegmentSize == 0);
   gasneti_assert(exchangefn);
-  gasneti_assert(numnodes);
-  gasneti_nodes = numnodes;
+  gasneti_assert(gasneti_nodes > 0);
+  gasneti_assert(gasneti_mynode < gasneti_nodes);
 
   gasneti_segexch = (gasneti_segexch_t *)gasneti_malloc(gasneti_nodes*sizeof(gasneti_segexch_t));
 
@@ -368,9 +364,6 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
   gasneti_assert(gasneti_MaxGlobalSegmentSize % GASNET_PAGESIZE == 0);
   gasneti_assert(gasneti_MaxGlobalSegmentSize <= gasneti_MaxLocalSegmentSize);
   gasneti_assert(gasneti_MaxLocalSegmentSize <= localSegmentLimit);
-
-  *MaxLocalSegmentSize = gasneti_MaxLocalSegmentSize;
-  *MaxGlobalSegmentSize = gasneti_MaxGlobalSegmentSize;
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -492,5 +485,40 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
       }
     }
   #endif
+}
+#endif /* !GASNET_SEGMENT_EVERYTHING */
+/* ------------------------------------------------------------------------------------ */
+extern int gasneti_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
+  GASNETI_CHECKATTACH();
+  gasneti_memcheck(gasneti_seginfo);
+  #if GASNET_DEBUG /*  sanity checks */
+    #if GASNET_SEGMENT_EVERYTHING
+    { int i; /*  sanity check seg-everything condition */
+      for (i=0; i < gasneti_nodes; i++) {
+        if (gasneti_seginfo[i].addr != 0 || gasneti_seginfo[i].size != (uintptr_t)-1) 
+            gasneti_fatalerror("Failed sanity check for GASNET_SEGMENT_EVERYTHING");
+      }
+    }
+    #elif GASNET_ALIGNED_SEGMENTS
+    { int i; /*  sanity check that segments are aligned */
+      void *segbase = NULL;
+      for (i=0; i < gasneti_nodes; i++) {
+        if (gasneti_seginfo[i].size != 0) {
+          if (!segbase) segbase = gasneti_seginfo[i].addr;
+          else if (gasneti_seginfo[i].addr != segbase)  
+            gasneti_fatalerror("Failed sanity check for aligned segments with GASNET_ALIGNED_SEGMENTS");
+        }
+      }
+    }
+    #endif
+  #endif
+  if_pf (numentries <= 0) {
+    if (numentries == 0) return GASNET_OK;
+    else GASNETI_RETURN_ERR(BAD_ARG);
+  }
+  gasneti_assert(seginfo_table);
+  if_pf (numentries > gasneti_nodes) numentries = gasneti_nodes;
+  memcpy(seginfo_table, gasneti_seginfo, numentries*sizeof(gasnet_seginfo_t));
+  return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */

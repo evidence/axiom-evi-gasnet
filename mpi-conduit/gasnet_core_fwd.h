@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2004/11/10 15:43:54 $
- * $Revision: 1.20 $
+ *     $Date: 2005/02/12 11:29:25 $
+ * $Revision: 1.21 $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -65,5 +65,12 @@
 
 #define GASNETC_FATALSIGNAL_CALLBACK(sig) gasnetc_fatalsignal_callback(sig)
 extern void gasnetc_fatalsignal_callback(int sig);
+
+/* hook getSegmentInfo for NIS check */
+#define _GASNET_GETSEGMENTINFO
+struct gasneti_seginfo_s;
+extern int gasnetc_getSegmentInfo(struct gasneti_seginfo_s *seginfo_table, int numentries);
+#define gasnet_getSegmentInfo(seginfo_table, numentries) \
+        gasnetc_getSegmentInfo(seginfo_table, numentries)
 
 #endif

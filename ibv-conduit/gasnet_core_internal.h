@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/01/18 19:38:08 $
- * $Revision: 1.60 $
+ *     $Date: 2005/02/12 11:29:43 $
+ * $Revision: 1.61 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,10 +21,6 @@
 #include <vapi.h>
 #include <evapi.h>
 #include <vapi_common.h>
-
-extern gasnet_seginfo_t *gasnetc_seginfo;
-
-#define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
 
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core_internal.h,v $
- *     $Date: 2004/08/26 04:54:11 $
- * $Revision: 1.4 $
+ *     $Date: 2005/02/12 11:29:41 $
+ * $Revision: 1.5 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,9 +16,6 @@
 #define GASNETC_HSL_SPINLOCK 1
 
 extern ep_t gasnetc_endpoint;
-extern gasnet_seginfo_t *gasnetc_seginfo;
-
-#define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
 
 extern gasneti_mutex_t gasnetc_AMlock; /*  protect access to AMUDP */
 #define AMLOCK()             gasneti_mutex_lock(&gasnetc_AMlock)

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/09 21:21:59 $
- * $Revision: 1.69 $
+ *     $Date: 2005/02/12 11:29:43 $
+ * $Revision: 1.70 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -90,14 +90,6 @@ typedef struct _gasnetc_addr_t {
 } gasnetc_addr_t;
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
-
-gasnet_node_t gasnetc_mynode = (gasnet_node_t)-1;
-gasnet_node_t gasnetc_nodes = 0;
-
-uintptr_t gasnetc_MaxLocalSegmentSize = 0;
-uintptr_t gasnetc_MaxGlobalSegmentSize = 0;
-
-gasnet_seginfo_t *gasnetc_seginfo = NULL;
 
 char		*gasnetc_hca_id;
 IB_port_t	gasnetc_port_num;
@@ -811,29 +803,13 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasneti_free(remote_addr);
   gasneti_free(local_addr);
 
+  /* XXX: The gasneti_segmentInit call replicates the mmap search and min-of-max done above */
   #if GASNET_SEGMENT_FAST
-  {
-    /* XXX: This call replicates the mmap search and min-of-max done above */
-    gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize,
-                        &gasnetc_MaxGlobalSegmentSize,
-                        gasnetc_pin_info.memory,
-                        gasnetc_nodes,
-                        &gasneti_bootstrapExchange);
-  }
+    gasneti_segmentInit(gasnetc_pin_info.memory, &gasneti_bootstrapExchange);
   #elif GASNET_SEGMENT_LARGE
-  {
-    /* XXX: This call replicates the mmap search done above */
-    gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize,
-                        &gasnetc_MaxGlobalSegmentSize,
-                        (uintptr_t)(-1),
-                        gasnetc_nodes,
-                        &gasneti_bootstrapExchange);
-  }
+    gasneti_segmentInit((uintptr_t)(-1), &gasneti_bootstrapExchange);
   #elif GASNET_SEGMENT_EVERYTHING
-  {
-    gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
-    gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
-  }
+    /* segment is everything - nothing to do */
   #endif
 
   atexit(gasnetc_atexit);
@@ -856,15 +832,6 @@ extern int gasnet_init(int *argc, char ***argv) {
     gasneti_trace_init(*argc, *argv);
   #endif
   return GASNET_OK;
-}
-
-extern uintptr_t gasnetc_getMaxLocalSegmentSize() {
-  GASNETI_CHECKINIT();
-  return gasnetc_MaxLocalSegmentSize;
-}
-extern uintptr_t gasnetc_getMaxGlobalSegmentSize() {
-  GASNETI_CHECKINIT();
-  return gasnetc_MaxGlobalSegmentSize;
 }
 /* ------------------------------------------------------------------------------------ */
 static char checkuniqhandler[256] = { 0 };
@@ -928,7 +895,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     if ((segsize % GASNET_PAGESIZE) != 0) 
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
-    if (segsize > gasnetc_getMaxLocalSegmentSize()) 
+    if (segsize > gasneti_MaxLocalSegmentSize) 
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
     if ((minheapoffset % GASNET_PAGESIZE) != 0) /* round up the minheapoffset to page sz */
       minheapoffset = ((minheapoffset / GASNET_PAGESIZE) + 1) * GASNET_PAGESIZE;
@@ -1764,21 +1731,6 @@ extern void gasnetc_exit(int exitcode) {
   gasnetc_exit_body();
   gasnetc_exit_tail();
   /* NOT REACHED */
-}
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  Job Environment Queries
-  =======================
-*/
-extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
-  GASNETI_CHECKATTACH();
-  gasneti_assert(seginfo_table);
-  gasneti_memcheck(gasnetc_seginfo);
-  if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
-  memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
-  memcpy(seginfo_table, gasnetc_seginfo, numentries*sizeof(gasnet_seginfo_t));
-  return GASNET_OK;
 }
 
 /* ------------------------------------------------------------------------------------ */

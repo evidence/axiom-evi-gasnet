@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2004/11/24 01:13:08 $
- * $Revision: 1.62 $
+ *     $Date: 2005/02/12 11:29:15 $
+ * $Revision: 1.63 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -256,14 +256,15 @@ gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t
 typedef void (*gasneti_bootstrapExchangefn_t)(void *src, size_t len, void *dest);
 typedef void (*gasneti_bootstrapBroadcastfn_t)(void *src, size_t len, void *dest, int rootnode);
 
-void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize, 
-                         uintptr_t *MaxGlobalSegmentSize,
-                         uintptr_t localSegmentLimit,
-                         gasnet_node_t numnodes,
+extern int gasneti_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries);
+
+#if !GASNET_SEGMENT_EVERYTHING
+void gasneti_segmentInit(uintptr_t localSegmentLimit,
                          gasneti_bootstrapExchangefn_t exchangefn);
 void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
                            gasnet_seginfo_t *seginfo,
                            gasneti_bootstrapExchangefn_t exchangefn);
+#endif
 void gasneti_setupGlobalEnvironment(gasnet_node_t numnodes, gasnet_node_t mynode,
                                      gasneti_bootstrapExchangefn_t exchangefn,
                                      gasneti_bootstrapBroadcastfn_t broadcastfn);

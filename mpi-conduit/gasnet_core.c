@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2004/10/16 19:19:57 $
- * $Revision: 1.55 $
+ *     $Date: 2005/02/12 11:29:25 $
+ * $Revision: 1.56 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,13 +24,6 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable();
 static void gasnetc_atexit(void);
 static void gasnetc_traceoutput(int);
 
-gasnet_node_t gasnetc_mynode = (gasnet_node_t)-1;
-gasnet_node_t gasnetc_nodes = 0;
-
-uintptr_t gasnetc_MaxLocalSegmentSize = 0;
-uintptr_t gasnetc_MaxGlobalSegmentSize = 0;
-
-gasnet_seginfo_t *gasnetc_seginfo = NULL;
 eb_t gasnetc_bundle;
 ep_t gasnetc_endpoint;
 
@@ -141,14 +134,9 @@ static int gasnetc_init(int *argc, char ***argv) {
     #endif
 
     #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
-      gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize, 
-                          &gasnetc_MaxGlobalSegmentSize,
-                          (uintptr_t)-1,
-                          gasnetc_nodes,
-                          &gasnetc_bootstrapExchange);
+      gasneti_segmentInit((uintptr_t)-1, &gasnetc_bootstrapExchange);
     #elif GASNET_SEGMENT_EVERYTHING
-      gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
-      gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
+      /* segment is everything - nothing to do */
     #else
       #error Bad segment config
     #endif
@@ -172,15 +160,6 @@ extern int gasnet_init(int *argc, char ***argv) {
     gasneti_trace_init(*argc, *argv);
   #endif
   return GASNET_OK;
-}
-
-extern uintptr_t gasnetc_getMaxLocalSegmentSize() {
-  GASNETI_CHECKINIT();
-  return gasnetc_MaxLocalSegmentSize;
-}
-extern uintptr_t gasnetc_getMaxGlobalSegmentSize() {
-  GASNETI_CHECKINIT();
-  return gasnetc_MaxGlobalSegmentSize;
 }
 /* ------------------------------------------------------------------------------------ */
 static char checkuniqhandler[256] = { 0 };
@@ -251,7 +230,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
       if ((segsize % GASNET_PAGESIZE) != 0) 
         INITERR(BAD_ARG, "segsize not page-aligned");
-      if (segsize > gasnetc_getMaxLocalSegmentSize()) 
+      if (segsize > gasneti_MaxLocalSegmentSize) 
         INITERR(BAD_ARG, "segsize too large");
       if ((minheapoffset % GASNET_PAGESIZE) != 0) /* round up the minheapoffset to page sz */
         minheapoffset = ((minheapoffset / GASNET_PAGESIZE) + 1) * GASNET_PAGESIZE;
@@ -408,14 +387,8 @@ extern void gasnetc_exit(int exitcode) {
   =======================
 */
 extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
-  GASNETI_CHECKATTACH();
   CHECKCALLNIS();
-  gasneti_assert(seginfo_table);
-  gasneti_memcheck(gasnetc_seginfo);
-  if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
-  memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
-  memcpy(seginfo_table, gasnetc_seginfo, numentries*sizeof(gasnet_seginfo_t));
-  return GASNET_OK;
+  return gasneti_getSegmentInfo(seginfo_table, numentries);
 }
 
 /* ------------------------------------------------------------------------------------ */

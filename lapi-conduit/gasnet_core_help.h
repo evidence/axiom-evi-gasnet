@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_help.h,v $
- *     $Date: 2005/01/14 20:05:58 $
- * $Revision: 1.20 $
+ *     $Date: 2005/02/12 11:29:23 $
+ * $Revision: 1.21 $
  * Description: GASNet lapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -55,9 +55,6 @@ typedef enum {
 
 extern lapi_handle_t      gasnetc_lapi_context;
 extern gasnetc_lapimode_t gasnetc_lapi_default_mode;
-
-extern gasnet_node_t gasnetc_mynode;
-extern gasnet_node_t gasnetc_nodes;
 
 /* --------------------------------------------------------------------
  * A simple spinlock implementation

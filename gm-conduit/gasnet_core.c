@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/02/05 02:10:03 $
- * $Revision: 1.77 $
+ * $Date: 2005/02/12 11:29:21 $
+ * $Revision: 1.78 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -22,13 +22,8 @@ GASNETI_IDENT(gasnetc_IdentString_Version,
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, 
 		"$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
-gasnet_node_t	gasnetc_mynode = (gasnet_node_t)-1;
-gasnet_node_t	gasnetc_nodes = 0;
-uintptr_t	gasnetc_MaxLocalSegmentSize = 0;
-uintptr_t	gasnetc_MaxGlobalSegmentSize = 0;
 uintptr_t	gasnetc_MaxPinnableMemory = 0;
 
-gasnet_seginfo_t *gasnetc_seginfo = NULL;
 firehose_info_t	  gasnetc_firehose_info;
 
 gasneti_mutex_t gasnetc_lock_gm      = GASNETI_MUTEX_INITIALIZER;
@@ -134,27 +129,12 @@ gasnetc_init(int *argc, char ***argv)
 		#endif
 	}
 
-	#if defined(GASNET_SEGMENT_FAST) 
-	gasneti_segmentInit(
-	    &gasnetc_MaxLocalSegmentSize,
-	    &gasnetc_MaxGlobalSegmentSize,
-	    max_segmentsize,
-            gasnetc_nodes,
-            &gasnetc_bootstrapExchange);
-
-	#elif defined(GASNET_SEGMENT_LARGE)
-	gasneti_segmentInit(
-	    &gasnetc_MaxLocalSegmentSize,
-	    &gasnetc_MaxGlobalSegmentSize,
-	    max_segmentsize,
-	    gasnetc_nodes,
-	    &gasnetc_bootstrapExchange);
-
+        #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
+	  gasneti_segmentInit(max_segmentsize, &gasnetc_bootstrapExchange);
 	#elif GASNET_SEGMENT_EVERYTHING
-		gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
-		gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
+          /* segment is everything - nothing to do */
 	#else
-		#error Bad segment config
+	  #error Bad segment config
 	#endif
 
 	/* Handler for non-collective returns from main() */
@@ -168,18 +148,6 @@ gasnetc_init(int *argc, char ***argv)
 	fflush(stdout);
 	#endif
 	return GASNET_OK;
-}
-
-extern uintptr_t gasnetc_getMaxLocalSegmentSize() 
-{
-	GASNETI_CHECKINIT();
-	return gasnetc_MaxLocalSegmentSize;
-}
-
-extern uintptr_t gasnetc_getMaxGlobalSegmentSize() 
-{
-	GASNETI_CHECKINIT();
-	return gasnetc_MaxGlobalSegmentSize;
 }
 /* ------------------------------------------------------------------------------------ */
 static char checkuniqhandler[256] = { 0 };
@@ -292,7 +260,7 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
         #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
 	if ((segsize % GASNET_PAGESIZE) != 0) 
 		GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
-	if (segsize > gasnetc_getMaxLocalSegmentSize()) 
+	if (segsize > gasneti_MaxLocalSegmentSize) 
 		GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
 	minheapoffset = 
 	    GASNETI_ALIGNUP(minheapoffset, GASNETC_SEGMENT_ALIGN);
@@ -1198,28 +1166,6 @@ extern void gasnetc_exit(int exitcode) {
   gasnetc_exit_body();
   gasnetc_exit_tail();
   /* NOT REACHED */
-}
-
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  Job Environment Queries
-  =======================
-*/
-extern int 
-gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
-	GASNETI_CHECKINIT();
-        gasneti_assert(seginfo_table);
-        gasneti_memcheck(gasnetc_seginfo);
-
-	if (!gasneti_attach_done) GASNETI_RETURN_ERR(NOT_INIT);
-	if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
-
-	memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
-	memcpy(seginfo_table, gasnetc_seginfo, 
-			numentries*sizeof(gasnet_seginfo_t));
-
-	return GASNET_OK;
 }
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/08/26 04:54:01 $
- * $Revision: 1.5 $
+ *     $Date: 2005/02/12 11:29:31 $
+ * $Revision: 1.6 $
  * Description: GASNet sci conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -71,7 +71,6 @@ typedef void (*gasnetc_handler_mediumlong)(gasnet_token_t token, void *buf, size
 					Constants
 ********************************************************/
 
-#define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
 /* ------------------------------------------------------------------------------------ */
@@ -131,7 +130,6 @@ typedef void (*gasnetc_handler_mediumlong)(gasnet_token_t token, void *buf, size
 					Global Variables
 ********************************************************/
 extern int GASNETC_BIGPHY_ENABLE;
-extern gasnet_seginfo_t			*gasnetc_seginfo;
 extern sci_desc_t			*gasnetc_sci_sd;
 extern sci_desc_t			*gasnetc_sci_sd_gb;
 extern sci_desc_t			*gasnetc_sci_sd_remote;

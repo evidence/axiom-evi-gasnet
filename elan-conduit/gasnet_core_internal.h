@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/01/08 06:09:55 $
- * $Revision: 1.26 $
+ *     $Date: 2005/02/12 11:29:17 $
+ * $Revision: 1.27 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,10 +44,6 @@
 #else
   #define ELAN_SIZE_T int
 #endif
-
-extern gasnet_seginfo_t *gasnetc_seginfo;
-
-#define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
 
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1

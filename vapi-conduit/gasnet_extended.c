@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2004/11/02 01:49:43 $
- * $Revision: 1.27 $
+ *     $Date: 2005/02/12 11:29:43 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,9 +14,6 @@
 GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GASNET_EXTENDED_VERSION_STR " $");
 GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " GASNET_EXTENDED_NAME_STR " $");
 
-gasnet_node_t gasnete_mynode = (gasnet_node_t)-1;
-gasnet_node_t gasnete_nodes = 0;
-gasnet_seginfo_t *gasnete_seginfo = NULL;
 static gasnete_threaddata_t *gasnete_threadtable[256] = { 0 };
 static int gasnete_numthreads = 0;
 static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
@@ -320,16 +317,14 @@ static void gasnete_check_config() {
 }
 
 extern void gasnete_init() {
+  static int firstcall = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
-  gasneti_assert(gasnete_nodes == 0); /*  make sure we haven't been called before */
+  gasneti_assert(firstcall); /*  make sure we haven't been called before */
+  firstcall = 0;
 
   gasnete_check_config(); /*  check for sanity */
 
-  gasnete_mynode = gasnet_mynode();
-  gasnete_nodes = gasnet_nodes();
   gasneti_assert(gasnete_nodes >= 1 && gasnete_mynode < gasnete_nodes);
-  gasnete_seginfo = (gasnet_seginfo_t*)gasneti_malloc(sizeof(gasnet_seginfo_t)*gasnete_nodes);
-  gasnet_getSegmentInfo(gasnete_seginfo, gasnete_nodes);
 
   { gasnete_threaddata_t *threaddata = NULL;
     #if GASNETI_CLIENT_THREADS

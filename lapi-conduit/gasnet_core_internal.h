@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/01/14 20:05:58 $
- * $Revision: 1.35 $
+ *     $Date: 2005/02/12 11:29:23 $
+ * $Revision: 1.36 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,8 +20,6 @@
 
 #include <gasnet.h>
 #include <gasnet_internal.h>
-
-extern gasnet_seginfo_t *gasnetc_seginfo;
 
 /* LAPI Specific decls */
 #include <stddef.h>
@@ -230,8 +228,6 @@ extern void gasnetc_token_queue_init(gasnetc_token_queue_t *q);
 extern gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_schedule);
 extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *schedule);
 
-
-#define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
 
 /* ------------------------------------------------------------------------------------ */
 /* make a GASNet call - if it fails, print error message and return */

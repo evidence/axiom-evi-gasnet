@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2004/10/07 23:28:15 $
- * $Revision: 1.4 $
+ *     $Date: 2005/02/12 11:29:33 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,9 +46,6 @@ static int	    gasnete_nbi_region_phase = 0;
 static volatile int gasnete_nbi_am_ctr       = 0;
 static int	    gasnete_nbi_handle       = GASNETE_HANDLE_DONE;
 
-gasnet_node_t	    gasnete_mynode = (gasnet_node_t)-1;
-gasnet_node_t	    gasnete_nodes = 0;
-gasnet_seginfo_t *  gasnete_seginfo = NULL;
 intptr_t	    gasnete_segment_base = 0;
 
 #ifdef CRAY_SHMEM
@@ -85,13 +82,7 @@ gasnete_init()
 
     gasneti_assert(GASNETC_POW_2(GASNETE_MAX_HANDLES));
 
-    gasnete_mynode = gasnet_mynode();
-    gasnete_nodes = gasnet_nodes();
-
     gasneti_assert(gasnete_nodes >= 1 && gasnete_mynode < gasnete_nodes);
-    gasnete_seginfo = (gasnet_seginfo_t *)
-		       gasneti_malloc(sizeof(gasnet_seginfo_t)*gasnete_nodes);
-    gasnet_getSegmentInfo(gasnete_seginfo, gasnete_nodes);
     gasnete_segment_base = (intptr_t) gasnete_seginfo[gasnete_mynode].addr;
 
     for (i = 0; i < GASNETE_MAX_HANDLES; i++)

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/testspawn/gasnet_extended_fwd.h,v $
- *     $Date: 2005/01/18 20:49:43 $
- * $Revision: 1.1 $
+ *     $Date: 2005/02/12 11:29:29 $
+ * $Revision: 1.2 $
  * Description:
  * Copyright 2005, Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -19,9 +19,6 @@
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
 
 #define GASNET_BEGIN_FUNCTION() do {} while(0)
-
-#define gasnete_nodes gasnetc_nodes
-#define gasnete_mynode gasnetc_mynode
 
 #endif
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core_internal.h,v $
- *     $Date: 2004/08/26 04:54:07 $
- * $Revision: 1.10 $
+ *     $Date: 2005/02/12 11:29:37 $
+ * $Revision: 1.11 $
  * Description: GASNet <conduitname> conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,10 +11,6 @@
 
 #include <gasnet.h>
 #include <gasnet_internal.h>
-
-extern gasnet_seginfo_t *gasnetc_seginfo;
-
-#define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
 
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1

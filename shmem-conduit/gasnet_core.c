@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2004/10/08 07:47:25 $
- * $Revision: 1.5 $
+ *     $Date: 2005/02/12 11:29:33 $
+ * $Revision: 1.6 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,9 +22,6 @@ GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_COR
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
 static void gasnetc_atexit(void);
 
-gasnet_node_t gasnetc_mynode = (gasnet_node_t)-1;
-gasnet_node_t gasnetc_nodes = 0;
-
 static gasnet_seginfo_t gasnetc_SHMallocSegmentSearch();
 static uintptr_t        gasnetc_aligndown_pow2(uintptr_t addr);
 static uintptr_t        gasnetc_alignup_pow2(uintptr_t addr);
@@ -33,12 +30,8 @@ static uintptr_t        gasnetc_alignup_pow2(uintptr_t addr);
 typedef void (*gasnetc_handler_fn_t)();  /* prototype for handler function */
 gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
 
-uintptr_t gasnetc_MaxLocalSegmentSize = 0;
-uintptr_t gasnetc_MaxGlobalSegmentSize = 0;
-
 gasnet_seginfo_t	 gasnetc_seginfo_init;
 int			 gasnetc_seginfo_allocated = 0;
-gasnet_seginfo_t	*gasnetc_seginfo = NULL;
 size_t			 gasnetc_pagesize;
 
 int  gasnetc_amq_idx = 0;
@@ -134,7 +127,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 	 gasnetc_seginfo_init = gasnetc_SHMallocSegmentSearch();
 
 	 /* Since shmalloc() is collective, local == global */
-	 gasnetc_MaxLocalSegmentSize = gasnetc_MaxGlobalSegmentSize 
+	 gasneti_MaxLocalSegmentSize = gasneti_MaxGlobalSegmentSize 
 			= gasnetc_seginfo_init.size;
 
 	 gasnetc_seginfo_allocated = 1;
@@ -148,8 +141,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     }
   #elif GASNET_SEGMENT_EVERYTHING
-    gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
-    gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
+    /* segment is everything - nothing to do */
   #else
     #error Bad segment config
   #endif
@@ -165,15 +157,6 @@ extern int gasnet_init(int *argc, char ***argv) {
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   gasneti_trace_init(*argc, *argv);
   return GASNET_OK;
-}
-
-extern uintptr_t gasnetc_getMaxLocalSegmentSize() {
-  GASNETI_CHECKINIT();
-  return gasnetc_MaxLocalSegmentSize;
-}
-extern uintptr_t gasnetc_getMaxGlobalSegmentSize() {
-  GASNETI_CHECKINIT();
-  return gasnetc_MaxGlobalSegmentSize;
 }
 /* ------------------------------------------------------------------------------------ */
 static char checkuniqhandler[256] = { 0 };
@@ -238,7 +221,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
     if ((segsize % GASNET_PAGESIZE) != 0) 
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
-    if (segsize > gasnetc_getMaxLocalSegmentSize()) 
+    if (segsize > gasneti_MaxLocalSegmentSize) 
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
     if ((minheapoffset % GASNET_PAGESIZE) != 0) /* round up the minheapoffset to page sz */
       minheapoffset = ((minheapoffset / GASNET_PAGESIZE) + 1) * GASNET_PAGESIZE;
@@ -471,10 +454,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	if_pf(ptrs == NULL)
 		gasneti_fatalerror("malloc failed at initialization");
 	/*
-	 * Use gasnetc_MaxLocalSegmentSize since it is in the static segment as
+	 * Use gasneti_MaxLocalSegmentSize since it is in the static segment as
 	 * an indicator of where our static data resides on each node
 	 */
-	ptr = (intptr_t) &gasnetc_MaxLocalSegmentSize;
+	ptr = (intptr_t) &gasneti_MaxLocalSegmentSize;
 	shmem_fcollect64
 	    ((void *)ptrs,&ptr,1,0,0,gasnetc_nodes,pSync);
 
@@ -489,9 +472,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	}
 	#if 0
 	printf("%2d> addr=%p mask=%p shift=%d other=%p ptr_other=%p\n", gasnetc_mynode, 
-			(void *) &gasnetc_MaxLocalSegmentSize,
+			(void *) &gasneti_MaxLocalSegmentSize,
 		(void *)gasnete_addr_bits_mask, gasnete_pe_bits_shift, 
-		GASNETE_TRANSLATE_X1(&gasnetc_MaxLocalSegmentSize, gasnetc_mynode ^ 1),
+		GASNETE_TRANSLATE_X1(&gasneti_MaxLocalSegmentSize, gasnetc_mynode ^ 1),
 		ptrs[1]);
 	#endif
 	shfree(ptrs);
@@ -572,21 +555,6 @@ extern void gasnetc_exit(int exitcode) {
 
   gasneti_killmyprocess(exitcode);
   abort();
-}
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  Job Environment Queries
-  =======================
-*/
-extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
-  GASNETI_CHECKATTACH();
-  gasneti_assert(seginfo_table);
-  gasneti_memcheck(gasnetc_seginfo);
-  if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
-  memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
-  memcpy(seginfo_table, gasnetc_seginfo, numentries*sizeof(gasnet_seginfo_t));
-  return GASNET_OK;
 }
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core_internal.h,v $
- *     $Date: 2004/10/08 07:47:25 $
- * $Revision: 1.5 $
+ *     $Date: 2005/02/12 11:29:33 $
+ * $Revision: 1.6 $
  * Description: GASNet shmem conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,15 +17,7 @@
 #include <shmem.h>
 #endif
 
-extern gasnet_seginfo_t *gasnetc_seginfo;
 extern intptr_t		*gasnetc_segment_shptr_off;
-
-#ifndef GASNETE_GLOBAL_ADDRESS
-#define gasnetc_boundscheck(node,ptr,nbytes)		    \
-	    gasneti_boundscheck(node,ptr,nbytes,c)
-#else
-#define gasnetc_boundscheck(node,ptr,nbytes)
-#endif
 
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1

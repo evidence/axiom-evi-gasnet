@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/testconduit/Attic/gasnet_core.h,v $
- * $Date: 2004/10/08 07:47:19 $
- * $Revision: 1.4 $
+ * $Date: 2005/02/12 11:29:27 $
+ * $Revision: 1.5 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -17,18 +17,6 @@
 #include <gasnet_core_help.h>
 
 BEGIN_EXTERNC
-
-GASNET_INLINE_MODIFIER(gasnet_mynode)
-gasnet_node_t gasnet_mynode() {
-  GASNETI_CHECKINIT();
-  return gasnetc_mynode;
-}
- 
-GASNET_INLINE_MODIFIER(gasnet_nodes)
-gasnet_node_t gasnet_nodes() {
-  GASNETI_CHECKINIT();
-  return gasnetc_nodes;
-}
 
 #define gasnet_hold_interrupts	    gasnetc_hold_interrupts
 #define gasnet_resume_interrupts    gasnetc_resume_interrupts
