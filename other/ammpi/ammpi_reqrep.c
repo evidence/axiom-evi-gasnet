@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2002/08/30 22:17:11 $
- * $Revision: 1.6 $
+ *     $Date: 2002/10/06 10:07:56 $
+ * $Revision: 1.7 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -400,7 +400,7 @@ extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *num
             break;
           case ammpi_Long: 
             /* check segment limits */
-            if (ep->segAddr == 0 || ep->segLength == 0 || msg->destOffset > AMMPI_MAX_SEGLENGTH)
+            if (((uintptr_t)ep->segAddr + msg->destOffset) == 0 || ep->segLength == 0)
               AMMPI_REFUSEMESSAGE(ep, buf, EBADSEGOFF);
             if (msg->destOffset + msg->nBytes > ep->segLength || msg->nBytes > AMMPI_MAX_LONG)
               AMMPI_REFUSEMESSAGE(ep, buf, EBADLENGTH);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/10/06 06:02:05 $
- * $Revision: 1.19 $
+ *     $Date: 2002/10/06 10:07:55 $
+ * $Revision: 1.20 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -294,7 +294,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     segsize = gasnetc_seginfo[gasnetc_mynode].size;
 
     /*  AMMPI allows arbitrary registration with no further action  */
-    if (segbase) {
+    if (segsize) {
       retval = AM_SetSeg(gasnetc_endpoint, segbase, segsize);
       if (retval != AM_OK) INITERR(RESOURCE, "AM_SetSeg() failed");
     }
