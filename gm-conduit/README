@@ -10,9 +10,6 @@ gasnet_core_help.h
 gasnet_core_internal.h
 gasnet_core_firehose.c	Client-independent implementation of the firehose
 			dynamic memory registration algorithm over AM
-gasnet_core_turkey.c	Implementation of the turkey sandwich algorithm, which
-			is mainly geared to optimising RDMA operations for UPC
-			clients.
 gasnet_core_misc.c	Misc. core functions send/callbacks/AM registration
 gasnet_core_receive.c	GM receive/polling functions and AM reception
 

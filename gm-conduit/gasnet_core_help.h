@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.18 2002/12/19 18:35:50 bonachea Exp $
- * $Date: 2002/12/19 18:35:50 $
- * $Revision: 1.18 $
+/* $Id: gasnet_core_help.h,v 1.19 2003/01/04 15:17:25 csbell Exp $
+ * $Date: 2003/01/04 15:17:25 $
+ * $Revision: 1.19 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -26,6 +26,30 @@ typedef void (*gasnetc_HandlerShort) (void *token, ...);
 typedef void (*gasnetc_HandlerMedium)(void *token, void *buf, int nbytes, ...);
 typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 
+/* -------------------------------------------------------------------------- */
+/* A few more obscore configurable parameters.  Don't modify these unless you
+ * know what you're doing */
+/* RROBIN_BUFFERS controls the priority (weighting) for giving buffers
+ * back either to the AMRequest receive queue or Send Pool
+ * Setting it to 3 means give priority to Send Pool once out of three
+ * Setting it to 1 or 0 disables any priority: buffers will always be 
+ * given back to the receive queue if replies were sent */
+#define GASNETC_RROBIN_BUFFERS	1
+/* MMAP_INITIAL_SIZE controls the desired size to kick off the binary
+ * search for valid mmaps
+ * MMAP_GRANULARITY controls the binary search for possible mmap
+ * sizes for maxlocal and maxglobal
+ * MMAP_DEBUG_VERBOSE traces the binary search mmap algorithm if set
+ * to > 0
+ */
+#define GASNETC_MMAP_GRANULARITY	(4<<20)
+#define GASNETC_MMAP_INITIAL_SIZE	(2<<30)
+#define GASNETC_MMAP_DEBUG_VERBOSE	0
+#define GASNETC_GM_MAXPORTS	8
+#define GASNETC_GM_MAXBOARDS	3
+
+/* -------------------------------------------------------------------------- */
+/* These should not be modified */
 /* AM Header stores the following fields
  *
  * 0b76543210
@@ -51,27 +75,10 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_AM_LEN		(1<<GASNETC_AM_SIZE)
 #define GASNETC_AM_PACKET	(GASNETC_AM_LEN-8)
 
-#define GASNETC_PAGE_SIZE	4096
 #define GASNETC_LONG_OFFSET	4096	/* XXX page size */
 
 #define GASNETC_AM_MAX_ARGS	16
 #define GASNETC_AM_MAX_HANDLERS 256
-/* RROBIN_BUFFERS controls the priority (weighting) for giving buffers
- * back either to the AMRequest receive queue or Send Pool
- * Setting it to 3 means give priority to Send Pool once out of three
- * Setting it to 1 or 0 disables any priority: buffers will always be 
- * given back to the receive queue if replies were sent */
-#define GASNETC_RROBIN_BUFFERS	1
-/* MMAP_INITIAL_SIZE controls the desired size to kick off the binary
- * search for valid mmaps
- * MMAP_GRANULARITY controls the binary search for possible mmap
- * sizes for maxlocal and maxglobal
- * MMAP_DEBUG_VERBOSE traces the binary search mmap algorithm if set
- * to > 0
- */
-#define GASNETC_MMAP_GRANULARITY	(4<<20)
-#define GASNETC_MMAP_INITIAL_SIZE	(2<<30)
-#define GASNETC_MMAP_DEBUG_VERBOSE	0
 
 /* CRUST macros for Turkey Sandwich Algorithm */
 /* Actual requests for moving the Crust may return various values
@@ -155,16 +162,17 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 	} while (0)
 
 #define GASNETC_ASSERT_AMMEDIUM(buf, type, handler, args, req, len, src) \
-	do {	GASNETC_ASSERT_AMSHORT(buf, type, handler, args, req);   \
-		assert(len > 0);					 \
-		assert(src != NULL);					 \
-	} while (0)
+	    GASNETC_ASSERT_AMSHORT(buf, type, handler, args, req); 
 
 #define GASNETC_ASSERT_AMLONG(buf, type, handler, args, req, len, src, dest) \
+	    GASNETC_ASSERT_AMMEDIUM(buf, type, handler, args, req, len,  src);
+
+#if 0
 	do {	GASNETC_ASSERT_AMMEDIUM(buf, type, handler, args, req, len,  \
 			                src);				     \
 		assert(dest != 0);					     \
 	} while (0)
+#endif
 
 /* -------------------------------------------------------------------------- */
 /* Debug, tracing */

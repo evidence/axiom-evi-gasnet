@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.37 2002/12/19 18:35:50 bonachea Exp $
- * $Date: 2002/12/19 18:35:50 $
- * $Revision: 1.37 $
+/* $Id: gasnet_core_internal.h,v 1.38 2003/01/04 15:17:25 csbell Exp $
+ * $Date: 2003/01/04 15:17:25 $
+ * $Revision: 1.38 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -14,6 +14,8 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_extended_internal.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <sys/mman.h>	/* mmap */
 #include <errno.h>
 #if defined(__i386__) && !defined(i386)	/* fix gm. cpu detection */
@@ -127,8 +129,15 @@ int	gasnetc_mmap_segment(gasnet_seginfo_t *segment);
 int	gasnetc_munmap_segment(gasnet_seginfo_t *segment);
 void	gasnetc_sendbuf_init();
 void	gasnetc_sendbuf_finalize();
+int	gasnetc_alloc_nodemap(int);
+int	gasnetc_gmport_allocate(int *board, int *port);
 void	gasnetc_provide_receive_buffers();
-int	gasnetc_gmpiconf_init();
+
+/* 3 bootstrapping methods */
+int	gasnetc_getconf_conffile();
+int	gasnetc_getconf_BNR();
+int	gasnetc_getconf_sockets();
+int	gasnetc_getconf();
 
 uintptr_t	gasnetc_get_physmem();
 uintptr_t	gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize);
@@ -254,8 +263,28 @@ struct _gasnetc_state {
 	gasnetc_bufdesc_t	*fifo_bd_head;
 	gasnetc_bufdesc_t	*fifo_bd_tail;
 
+	/* Bootstrap parameters */
+	unsigned int	master_port1;	/* GM port for master */
+	unsigned int	master_port2;	/* GM port for master */
+	unsigned int	my_id;
+	unsigned int	my_port;
+	unsigned int	my_board;
+	unsigned long	job_magic;	/* job magic */
+
+	struct sockaddr_in	master_addr;
+
+
 	void		*reqsbuf;	/* DMAd portion of send buffers */
 	struct gm_port	*port;		/* GM port structure */
+
+#ifdef GASNETC_FIREHOSE
+	uintptr_t	M_size;		/* size of M parameter */
+	unsigned long	firehoses;	/* number of per-node firehoses */
+	uintptr_t	victim_size;	/* size of MaxVictim parameter */
+	unsigned long	victim_pages;	/* number of pages corresponding 
+					   to victim_size */
+#endif
+
 } gasnetc_state_t;	
 
 extern gasnetc_state_t	_gmc;
@@ -765,7 +794,7 @@ gasnetc_write_AMBufferMedium(	void *buf,
 	GASNETC_AMLENGTH_WRITE(&pbuf[2], (uint16_t) nbytes);
 	GASNETC_ARGS_WRITE(&pbuf[GASNETC_AM_MEDIUM_ARGS_OFF], argptr, numargs);
 	GASNETC_AMPAYLOAD_WRITE(&pbuf[GASNETC_AM_MEDIUM_HEADER_LEN(numargs)], 
-		source_addr, nbytes);
+	    source_addr, nbytes);
 
 	assert(GASNETC_AM_MEDIUM_HEADER_LEN(numargs)+nbytes <= 
 			GASNETC_AM_PACKET);

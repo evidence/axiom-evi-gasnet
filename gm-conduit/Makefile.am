@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.13 2002/12/19 18:35:50 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.14 2003/01/04 15:17:25 csbell Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -17,16 +17,17 @@ INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_srcdir)/extended-ref/ -I$(top_bui
 	   
 filelist = gasnet_core.c gasnet_core.h gasnet_core_firehose.c \
 	   gasnet_core_fwd.h gasnet_core_help.h gasnet_core_internal.h \
-	   gasnet_core_misc.c gasnet_core_receive.c gasnet_extended.c \
-	   gasnet_extended_firehose.c gasnet_extended_internal.h \
-	   gasnet_extended_op.c gasnet_extended_ref.c
+	   gasnet_core_misc.c gasnet_core_conf.c gasnet_core_receive.c \
+	   gasnet_extended.c gasnet_extended_firehose.c \
+	   gasnet_extended_internal.h gasnet_extended_op.c gasnet_extended_ref.c
 
 othersourcefiles = $(top_srcdir)/gasnet_internal.c
 
 EXTRA_DIST = $(filelist)
 
 libgasnet_sources = $(srcdir)/gasnet_core.c $(srcdir)/gasnet_core_receive.c \
-		    $(srcdir)/gasnet_core_misc.c $(srcdir)/gasnet_core_firehose.c \
+		    $(srcdir)/gasnet_core_misc.c $(srcdir)/gasnet_core_conf.c \
+		    $(srcdir)/gasnet_core_firehose.c \
 		    $(srcdir)/gasnet_extended.c $(srcdir)/gasnet_extended_op.c \
 		    $(srcdir)/gasnet_extended_ref.c \
 		    $(srcdir)/gasnet_extended_firehose.c $(othersourcefiles)
@@ -34,8 +35,8 @@ libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.h
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o \
 		    gasnet_core_receive.o gasnet_core_misc.o \
-		    gasnet_extended_op.o gasnet_extended_ref.o \
-		    gasnet_extended_firehose.o \
+		    gasnet_core_conf.o gasnet_extended_op.o \
+		    gasnet_extended_ref.o gasnet_extended_firehose.o \
 		    gasnet_core_firehose.o
 
 if HAVE_PTHREAD

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.28 2002/12/19 18:35:50 bonachea Exp $
- * $Date: 2002/12/19 18:35:50 $
+/* $Id: gasnet_core.c,v 1.29 2003/01/04 15:17:25 csbell Exp $
+ * $Date: 2003/01/04 15:17:25 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -106,13 +106,10 @@ gasnetc_init(int *argc, char ***argv)
 	fprintf(stderr,"gasnetc_init(): about to spawn...\n"); fflush(stderr);
 	#endif
 
-	#ifdef HAVE_GEXEC
-	#error GEXEC support not implemented yet
-	#else
-		if (gasnetc_gmpiconf_init() != GASNET_OK)
+	if (gasnetc_getconf() != GASNET_OK)
 			gasnetc_exit(-1);
-		gasnetc_sendbuf_init();
-	#endif
+
+	gasnetc_sendbuf_init();
 
 	#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
 	{ 
@@ -688,6 +685,7 @@ gasnetc_AMRequestLongM_inner(gasnet_node_t dest, gasnet_handler_t handler,
 	    gasnetc_write_AMBufferLong(bufd->sendbuf, 
 	        handler, numargs, argptr, nbytes, source_addr, 
 		(uintptr_t) dest_addr, GASNETC_AM_REQUEST);
+
 	if (bytes_left > 0) {
 		uintptr_t	pbuf;
 		pbuf = (uintptr_t) bufd->sendbuf + (uintptr_t) long_len;
@@ -740,12 +738,20 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 	}
 	else {
 		/* XXX assert(GASNET_LONG_OFFSET >= LONG_HEADER) */
-		if (gasnetc_is_pinned(dest, (uintptr_t) dest_addr, nbytes))
-			gasnetc_AMRequestLongM_DMA_inner(dest, handler, source_addr, 
-			    nbytes, dest_addr, numargs, argptr);
-		else 
+		if_pt (nbytes > 0) { /* Handle zero-length messages */
+			if (gasnetc_is_pinned(dest, (uintptr_t) dest_addr, nbytes))
+				gasnetc_AMRequestLongM_DMA_inner(dest, handler, 
+				    source_addr, nbytes, dest_addr, numargs, 
+				    argptr);
+			else 
+				gasnetc_AMRequestLongM_inner(dest, handler, 
+				    source_addr, nbytes, dest_addr, numargs, 
+				    argptr);
+		}
+		else {
 			gasnetc_AMRequestLongM_inner(dest, handler, source_addr, 
 			    nbytes, dest_addr, numargs, argptr);
+		}
 	}
 
 	va_end(argptr);
@@ -777,8 +783,8 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 	va_start(argptr, numargs); /*  pass in last argument */
 	retval = 1;
 
-	/* If remote address is not pinned */
-	if (!gasnetc_is_pinned(dest, (uintptr_t) dest_addr, nbytes))
+	/* If remote address is not pinned, and Handle zero-length messages */
+	if (!gasnetc_is_pinned(dest, (uintptr_t) dest_addr, nbytes) || nbytes == 0)
 		gasnetc_AMRequestLongM_inner(dest, handler, source_addr, 
 		    nbytes, dest_addr, numargs, argptr);
 	/* If remote address is pinned, but local is not pinned */
@@ -941,7 +947,7 @@ extern int gasnetc_AMReplyLongM(
 		unsigned int	len;
 	
     		bufd = gasnetc_bufdesc_from_token(token);
-		if (gasnetc_is_pinned(dest, (uintptr_t) dest_addr, nbytes)) {
+		if (nbytes > 0 && gasnetc_is_pinned(dest, (uintptr_t) dest_addr, nbytes)) {
 			pbuf = (uintptr_t) bufd->sendbuf + 
 			    (uintptr_t) GASNETC_LONG_OFFSET;
 			len =
@@ -950,13 +956,14 @@ extern int gasnetc_AMReplyLongM(
 				(uintptr_t) dest_addr, GASNETC_AM_REPLY);
 			gasnetc_write_AMBufferBulk((void *)pbuf, source_addr, 
 			    nbytes);
-			GASNETC_BUFDESC_OPT_SET(bufd, GASNETC_FLAG_DMA_SEND);
+
 			bufd->node = dest;
 			bufd->len = len;
 			bufd->rdma_off = GASNETC_LONG_OFFSET; 
 			bufd->rdma_len = nbytes;
 			bufd->dest_addr = (uintptr_t) dest_addr;
 			bufd->source_addr = 0;
+				GASNETC_BUFDESC_OPT_SET(bufd, GASNETC_FLAG_DMA_SEND);
 		}
 		else {
 			int32_t	dest_addr_ptr[2];
@@ -968,14 +975,22 @@ extern int gasnetc_AMReplyLongM(
 				(uintptr_t) dest_addr, GASNETC_AM_REPLY);
 			pbuf = (uintptr_t)bufd->sendbuf + (uintptr_t) long_len;
 			GASNETC_ARGPTR(dest_addr_ptr, (uintptr_t) dest_addr);
-			len = gasnetc_write_AMBufferMedium((void *)pbuf,
-			    gasneti_handleridx(gasnetc_am_medcopy), 
-			    GASNETC_ARGPTR_NUM, (va_list) dest_addr_ptr, nbytes,
-			    (void *) source_addr, GASNETC_AM_REPLY);
-			GASNETC_BUFDESC_OPT_SET(bufd, GASNETC_FLAG_LONG_SEND);
+			if_pt (nbytes > 0) { /* Handle zero-length messages */
+				len = gasnetc_write_AMBufferMedium((void *)pbuf,
+				    gasneti_handleridx(gasnetc_am_medcopy), 
+				    GASNETC_ARGPTR_NUM, (va_list) dest_addr_ptr, 
+				    nbytes, (void *) source_addr, 
+				    GASNETC_AM_REPLY);
+				GASNETC_BUFDESC_OPT_SET(bufd, 
+				    GASNETC_FLAG_LONG_SEND);
+				bufd->rdma_off = long_len; 
+				bufd->rdma_len = len;
+			}
+			else {
+				bufd->rdma_off = 0; 
+				bufd->rdma_len = 0;
+			}
 			bufd->len = long_len;
-			bufd->rdma_off = long_len; 
-			bufd->rdma_len = len;
 			bufd->dest_addr = 0;
 			bufd->source_addr = 0;
 		}
@@ -983,15 +998,21 @@ extern int gasnetc_AMReplyLongM(
 		gasneti_mutex_lock(&gasnetc_lock_gm);
 		if (gasnetc_token_hi_acquire()) {
 			gasnetc_gm_send_bufd(bufd);
-			GASNETC_BUFDESC_OPT_UNSET(bufd, 
-			    GASNETC_FLAG_LONG_SEND | GASNETC_FLAG_DMA_SEND);
-			if (gasnetc_token_hi_acquire()) {
-				GASNETC_AMTRACE_ReplyLong(Send);
-				gasnetc_gm_send_bufd(bufd);
-			} 
-			else {
-				GASNETC_AMTRACE_ReplyLong(Queued);
-				gasnetc_fifo_insert(bufd);
+
+			if_pt (GASNETC_BUFDESC_OPT_ISSET(bufd, /* True in cases where nbytes > 0 */
+			    GASNETC_FLAG_LONG_SEND | GASNETC_FLAG_DMA_SEND)) {
+
+				GASNETC_BUFDESC_OPT_UNSET(bufd, 
+				    GASNETC_FLAG_LONG_SEND | GASNETC_FLAG_DMA_SEND);
+
+				if (gasnetc_token_hi_acquire()) {
+					GASNETC_AMTRACE_ReplyLong(Send);
+					gasnetc_gm_send_bufd(bufd);
+				} 
+				else {
+					GASNETC_AMTRACE_ReplyLong(Queued);
+					gasnetc_fifo_insert(bufd);
+				}
 			}
 		} 
 		else {
@@ -1046,8 +1067,9 @@ gasnetc_AMReplyLongAsyncM(
 	bufd->rdma_len = nbytes;
 	bufd->dest_addr = (uintptr_t) dest_addr;
 	bufd->source_addr = (uintptr_t) source_addr;
-	GASNETC_BUFDESC_OPT_SET(bufd, 
-	    GASNETC_FLAG_EXTENDED_DMA_SEND | GASNETC_FLAG_DMA_SEND);
+	if_pt (bufd->rdma_len > 0) /* Handle zero-length messages */
+		GASNETC_BUFDESC_OPT_SET(bufd, 
+		    GASNETC_FLAG_EXTENDED_DMA_SEND | GASNETC_FLAG_DMA_SEND);
 
 	GASNETI_TRACE_PRINTF(C, ("AsyncReply has flags %d", bufd->flag));
 	gasneti_mutex_lock(&gasnetc_lock_gm);

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_firehose.c,v 1.15 2002/12/19 18:35:50 bonachea Exp $
- * $Date: 2002/12/19 18:35:50 $
+/* $Id: gasnet_core_firehose.c,v 1.16 2003/01/04 15:17:25 csbell Exp $
+ * $Date: 2003/01/04 15:17:25 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1267,7 +1267,7 @@ gasnetc_firehose_add(gasnetc_fh_key_t key)
 
 		__hash_elems++;
 		if (__hash_elems > __tot_hash_elems) {
-			fprintf(stderr, "Hash table overflow! elems/tot = %d/%d\n",
+			fprintf(stderr, "Hash table overflow! elems/tot = %lu/%lu\n",
 			    __hash_elems, __tot_hash_elems);
 			fflush(stderr);
 			gasnetc_exit(-1);
@@ -1314,7 +1314,7 @@ gasnetc_firehose_find_freevictim(gasnet_node_t node)
 		if (gm_hash_find(gasnetc_fh_hash, (void *)key) == NULL) {
 			fprintf(stderr, 
 			    "in fifo queue, doesn't exist key=%p count=%d\n", 
-			    key, gasnetc_fh_victim_count[node]);
+			    (void *)key, gasnetc_fh_victim_count[node]);
 			fflush(stderr);
 			gasnetc_exit(-1);
 		}
