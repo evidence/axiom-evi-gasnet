@@ -1,12 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/12/01 06:03:28 $
-# $Revision: 1.25 $
+#     $Date: 2002/12/19 18:35:44 $
+# $Revision: 1.26 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.25 $)
+# Terms of use are as specified in license.txt
+AC_REVISION($Revision: 1.26 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)

@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/11 19:53:36 $
- * $Revision: 1.16 $
+ *     $Date: 2002/12/19 18:35:52 $
+ * $Revision: 1.17 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 /* =======================================================================

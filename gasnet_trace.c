@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/11/28 05:50:18 $
- * $Revision: 1.20 $
+ *     $Date: 2002/12/19 18:35:44 $
+ * $Revision: 1.21 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #include <time.h>

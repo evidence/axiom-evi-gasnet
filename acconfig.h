@@ -1,8 +1,9 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/12/01 06:03:28 $ */
-/*  $Revision: 1.9 $ */
+/*      $Date: 2002/12/19 18:35:44 $ */
+/*  $Revision: 1.10 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
+/* Terms of use are as specified in license.txt */
 
 #ifndef _INCLUDE_GASNET_CONFIG_H_
 #define _INCLUDE_GASNET_CONFIG_H_

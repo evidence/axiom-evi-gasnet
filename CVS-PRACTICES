@@ -1,6 +1,6 @@
 Here are the development practices that GASNet developers are expected to follow:
 
-* All developers doing commits must be on the upc-devel@lbl.gov email list,
+* All developers doing commits must be on the upc@lbl.gov email list,
   which receives gasnet checkin messages.
 
 * You must include an explanatory log message for any change. It should describe

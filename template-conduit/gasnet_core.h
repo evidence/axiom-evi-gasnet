@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2002/07/04 12:12:59 $
- * $Revision: 1.6 $
+ *     $Date: 2002/12/19 18:35:56 $
+ * $Revision: 1.7 $
  * Description: GASNet header for <conduitname> conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _IN_GASNET_H

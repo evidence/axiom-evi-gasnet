@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2002/08/05 10:23:44 $
- * $Revision: 1.2 $
+ *     $Date: 2002/12/19 18:35:47 $
+ * $Revision: 1.3 $
  * Description: GASNet header for elan conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _IN_GASNET_H

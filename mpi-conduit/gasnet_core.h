@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.h                       $
- *     $Date: 2002/08/31 09:36:50 $
- * $Revision: 1.5 $
+ *     $Date: 2002/12/19 18:35:53 $
+ * $Revision: 1.6 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _IN_GASNET_H

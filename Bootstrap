@@ -1,4 +1,5 @@
 #!/bin/sh
+# /* Terms of use are as specified in license.txt */
 
 set -e
 

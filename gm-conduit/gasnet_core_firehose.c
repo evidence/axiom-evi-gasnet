@@ -1,3 +1,9 @@
+/* $Id: gasnet_core_firehose.c,v 1.15 2002/12/19 18:35:50 bonachea Exp $
+ * $Date: 2002/12/19 18:35:50 $
+ * Description: GASNet GM conduit Firehose DMA Registration Algorithm
+ * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 /* ------------------------------------------------------------------------ */
 /* Firehose                                                                 */
 /* ------------------------------------------------------------------------ */

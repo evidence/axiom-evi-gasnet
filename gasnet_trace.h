@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2002/11/28 01:26:48 $
- * $Revision: 1.6 $
+ *     $Date: 2002/12/19 18:35:44 $
+ * $Revision: 1.7 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _IN_GASNET_H

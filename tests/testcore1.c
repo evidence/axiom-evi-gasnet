@@ -1,7 +1,8 @@
-/* $Id: testcore1.c,v 1.2 2002/08/05 10:10:58 bonachea Exp $
- * $Date: 2002/08/05 10:10:58 $
- * $Revision: 1.2 $
+/* $Id: testcore1.c,v 1.3 2002/12/19 18:31:54 bonachea Exp $
+ * $Date: 2002/12/19 18:31:54 $
+ * $Revision: 1.3 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  *
  * Description: GASNet Core Monotonic checksum test
  * This stress tests the ability of the core to successfully send

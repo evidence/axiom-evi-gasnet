@@ -1,9 +1,10 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2002/11/03 15:48:10 $
- * $Revision: 1.7 $
+ *     $Date: 2002/12/19 18:35:50 $
+ * $Revision: 1.8 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _GASNET_EXTENDED_INTERNAL_H

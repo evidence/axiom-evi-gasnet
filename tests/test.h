@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2002/10/11 11:04:08 $
- * $Revision: 1.7 $
+ *     $Date: 2002/12/19 18:31:54 $
+ * $Revision: 1.8 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 

@@ -1,3 +1,5 @@
+dnl Terms of use are as specified in license.txt
+
 AC_DEFUN(GASNET_FIX_SHELL,[
 AC_MSG_CHECKING(for good shell)
 if test "$BASH" = '' && test `uname` = HP-UX; then

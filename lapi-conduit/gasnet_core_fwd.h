@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2002/12/02 07:02:36 $
- * $Revision: 1.3 $
+ *     $Date: 2002/12/19 18:35:52 $
+ * $Revision: 1.4 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _IN_GASNET_H

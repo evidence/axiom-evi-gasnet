@@ -1,7 +1,8 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.5 2002/11/24 00:32:53 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.6 2002/12/19 18:35:52 bonachea Exp $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+# Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 

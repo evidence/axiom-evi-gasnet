@@ -1,9 +1,10 @@
-/* $Id: gasnet_core_help.h,v 1.17 2002/10/27 00:57:06 csbell Exp $
- * $Date: 2002/10/27 00:57:06 $
- * $Revision: 1.17 $
+/* $Id: gasnet_core_help.h,v 1.18 2002/12/19 18:35:50 bonachea Exp $
+ * $Date: 2002/12/19 18:35:50 $
+ * $Revision: 1.18 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _IN_GASNET_H

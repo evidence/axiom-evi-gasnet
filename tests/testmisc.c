@@ -1,8 +1,11 @@
 /*  $Archive:: /Ti/GASNet/tests/testmisc.c                             $
- *     $Date: 2002/10/11 11:04:08 $
- * $Revision: 1.5 $
+ *     $Date: 2002/12/19 18:31:54 $
+ * $Revision: 1.6 $
  * Description: GASNet misc performance test
+ *   Measures the overhead associated with a number of purely local 
+ *   operations that involve no communication. 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>

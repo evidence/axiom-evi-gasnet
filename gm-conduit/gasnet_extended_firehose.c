@@ -1,3 +1,9 @@
+/* $Id: gasnet_extended_firehose.c,v 1.16 2002/12/19 18:35:50 bonachea Exp $
+ * $Date: 2002/12/19 18:35:50 $
+ * Description: GASNet GM conduit Firehose DMA Registration Algorithm
+ * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 #include <gasnet.h>
 #ifdef GASNETC_FIREHOSE
 #include <gasnet_extended_internal.h>

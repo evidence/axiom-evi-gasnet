@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2002/10/27 02:39:27 $
- * $Revision: 1.6 $
+ *     $Date: 2002/12/19 18:35:44 $
+ * $Revision: 1.7 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _GASNET_H

@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_help.h             $
- *     $Date: 2002/12/11 19:53:36 $
- * $Revision: 1.5 $
+ *     $Date: 2002/12/19 18:35:52 $
+ * $Revision: 1.6 $
  * Description: GASNet lapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _IN_GASNET_H

@@ -1,3 +1,9 @@
+/* $Id: gasnet_extended_ref.c,v 1.5 2002/12/19 18:35:50 bonachea Exp $
+ * $Date: 2002/12/19 18:35:50 $
+ * Description: GASNet GM conduit Extended API Implementation
+ * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 #include <gasnet.h>
 #include <gasnet_extended_internal.h>
 #include <gasnet_internal.h>

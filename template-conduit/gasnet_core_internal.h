@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/10/03 14:30:40 $
- * $Revision: 1.5 $
+ *     $Date: 2002/12/19 18:35:56 $
+ * $Revision: 1.6 $
  * Description: GASNet <conduitname> conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _GASNET_CORE_INTERNAL_H

@@ -1,8 +1,9 @@
-/* $Id: gasnet_core.c,v 1.27 2002/11/22 05:50:43 bonachea Exp $
- * $Date: 2002/11/22 05:50:43 $
+/* $Id: gasnet_core.c,v 1.28 2002/12/19 18:35:50 bonachea Exp $
+ * $Date: 2002/12/19 18:35:50 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>

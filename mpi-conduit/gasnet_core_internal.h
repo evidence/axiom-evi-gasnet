@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_internal.h              $
- *     $Date: 2002/10/03 14:30:39 $
- * $Revision: 1.7 $
+ *     $Date: 2002/12/19 18:35:53 $
+ * $Revision: 1.8 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _GASNET_CORE_INTERNAL_H

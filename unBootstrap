@@ -1,4 +1,5 @@
 #!/bin/sh
+# Terms of use are as specified in license.txt
 
 # This scripts undoes the effects of a "Bootstrap", 
 #  removing all the automatically generated files and

@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/gasnet_handler.h                                $
- *     $Date: 2002/10/18 21:21:25 $
- * $Revision: 1.4 $
+ *     $Date: 2002/12/19 18:35:44 $
+ * $Revision: 1.5 $
  * Description: GASNet Helpers for using bit-width-independent AM handlers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _GASNET_HANDLER_H

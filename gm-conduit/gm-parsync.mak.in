@@ -1,6 +1,7 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gm-parsync.mak.in,v 1.4 2002/10/20 22:51:30 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gm-parsync.mak.in,v 1.5 2002/12/19 18:35:50 bonachea Exp $
 # Description: Makefile fragment for GM conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+# Terms of use are as specified in license.txt
 
 # ----------------------------------------------------------------------
 # Usage instructions:

@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/12/09 09:37:32 $
- * $Revision: 1.10 $
+ *     $Date: 2002/12/19 18:35:47 $
+ * $Revision: 1.11 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>

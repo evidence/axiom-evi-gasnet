@@ -1,9 +1,10 @@
-/* $Id: gasnet_core_internal.h,v 1.36 2002/12/01 06:03:29 bonachea Exp $
- * $Date: 2002/12/01 06:03:29 $
- * $Revision: 1.36 $
+/* $Id: gasnet_core_internal.h,v 1.37 2002/12/19 18:35:50 bonachea Exp $
+ * $Date: 2002/12/19 18:35:50 $
+ * $Revision: 1.37 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #ifndef _GASNET_CORE_INTERNAL_H

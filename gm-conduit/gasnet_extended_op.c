@@ -1,9 +1,10 @@
-/* $Id: gasnet_extended_op.c,v 1.1 2002/08/11 22:02:31 csbell Exp $
- * $Date: 2002/08/11 22:02:31 $
- * $Revision: 1.1 $
+/* $Id: gasnet_extended_op.c,v 1.2 2002/12/19 18:35:50 bonachea Exp $
+ * $Date: 2002/12/19 18:35:50 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>

@@ -1,3 +1,14 @@
+/*  $Archive:: /Ti/GASNet/tests/testlarge.c                                 $
+ *     $Date: 2002/12/19 18:31:54 $
+ * $Revision: 1.5 $
+ * Description: GASNet bulk get/put performance test
+ *   measures the ping-pong average round-trip time and
+ *   average flood throughput of GASNet bulk gets and puts
+ *   over varying payload size and synchronization mechanisms
+ * Copyright 2002, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
+
 /************************************************************
 	testlarge.c:
 		measures the bandwidth of get and put

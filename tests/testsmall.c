@@ -1,9 +1,13 @@
-/************************************************************
-	testsmall.c:
-		measures the round-trip time and throughput of 
-		get and put by varying payload size (1,2,4 or 8 bytes).
-		
-*************************************************************/
+/*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
+ *     $Date: 2002/12/19 18:31:54 $
+ * $Revision: 1.5 $
+ * Description: GASNet non-bulk get/put performance test
+ *   measures the ping-pong average round-trip time and
+ *   average flood throughput of GASNet gets and puts
+ *   over varying payload size and synchronization mechanisms
+ * Copyright 2002, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,10 +71,19 @@ void print_stat(int myproc, stat_struct_t *st, char *name, int operation)
 		break;
 	case PRINT_THROUGHPUT:
 		printf("Proc %2i - %4i byte : %7i iters,"
-			" throughput %9.3f KB/sec (%s)\n",
+#if 1
+			" throughput %9.3f KB/sec (%s)\n"
+#else
+			" inv. throughput %9.3f us (%s)\n"
+#endif
+                        ,
 			myproc, st->datasize, st->iters,
+#if 1
 			((int)st->time == 0 ? 0.0 :
                         (1000000.0 * st->datasize * st->iters / 1024.0) / ((int)st->time)),
+#else
+                        (((float)((int)st->time)) / st->iters),
+#endif
 			name);
 		fflush(stdout);
 		break;

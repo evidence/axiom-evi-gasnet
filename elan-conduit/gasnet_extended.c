@@ -1,8 +1,9 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/11/21 05:39:36 $
- * $Revision: 1.12 $
+ *     $Date: 2002/12/19 18:35:47 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+ * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>

@@ -1,6 +1,7 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/lapi-par.mak.in,v 1.4 2002/12/09 05:02:23 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/lapi-par.mak.in,v 1.5 2002/12/19 18:35:52 bonachea Exp $
 # Description: Makefile fragment for LAPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
+# Terms of use are as specified in license.txt
 
 # ----------------------------------------------------------------------
 # Usage instructions:
