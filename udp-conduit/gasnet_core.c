@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2004/08/26 04:54:11 $
- * $Revision: 1.13 $
+ *     $Date: 2004/09/02 22:53:18 $
+ * $Revision: 1.14 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -435,8 +435,10 @@ static void gasnetc_atexit(void) {
 }
 static int gasnetc_exitcalled = 0;
 static void gasnetc_traceoutput(int exitcode) {
-  if (!gasnetc_exitcalled)
+  if (!gasnetc_exitcalled) {
+    gasneti_flush_streams();
     gasneti_trace_finish();
+  }
 }
 extern void gasnetc_trace_finish() {
   /* dump AMUDP statistics */
@@ -510,10 +512,7 @@ extern void gasnetc_exit(int exitcode) {
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
-  if (fflush(stdout)) 
-    gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
-  if (fflush(stderr)) 
-    gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+  gasneti_flush_streams();
   gasneti_trace_finish();
   gasneti_sched_yield();
 

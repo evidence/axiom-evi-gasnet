@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/08/26 04:54:13 $
- * $Revision: 1.55 $
+ *     $Date: 2004/09/02 22:53:20 $
+ * $Revision: 1.56 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1540,11 +1540,8 @@ static void gasnetc_exit_body(void) {
   /* Try to flush out all the output, allowing upto 30s */
   alarm(30);
   {
+    gasneti_flush_streams();
     gasneti_trace_finish();
-    if (fflush(stdout)) 
-      gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
-    if (fflush(stderr)) 
-      gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
     alarm(0);
     gasneti_sched_yield();
   }
@@ -1633,17 +1630,9 @@ static void gasnetc_exit_body(void) {
   /* Try again to flush out any recent output, allowing upto 5s */
   alarm(5);
   {
-    if (fflush(stdout)) 
-      gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
-    if (fflush(stderr)) 
-      gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
-    if (fclose(stdin)) 
-      gasneti_fatalerror("failed to close stdin in gasnetc_exit: %s", strerror(errno));
-    if (fclose(stdout)) 
-      gasneti_fatalerror("failed to close stdout in gasnetc_exit: %s", strerror(errno));
+    gasneti_flush_streams();
     #if !GASNET_DEBUG_VERBOSE
-      if (fclose(stderr)) 
-          gasneti_fatalerror("failed to close stderr in gasnetc_exit: %s", strerror(errno));
+      gasneti_close_streams();
     #endif
   }
 

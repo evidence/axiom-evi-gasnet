@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/08/26 04:53:40 $
- * $Revision: 1.63 $
+ *     $Date: 2004/09/02 22:53:08 $
+ * $Revision: 1.64 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -532,11 +532,8 @@ static void gasnetc_exit_cleanup(void) {
 	    gasnetc_uhdr_freelist.numalloc);
 #endif
 
+    gasneti_flush_streams();
     gasneti_trace_finish();
-    if (fflush(stdout)) 
-      gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
-    if (fflush(stderr)) 
-      gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
 }
 /* ------------------------------------------------------------------------------------ */
 static int amexit_exitcode = 0;
