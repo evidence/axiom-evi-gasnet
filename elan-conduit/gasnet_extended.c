@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/02/20 10:13:28 $
- * $Revision: 1.56 $
+ *     $Date: 2005/02/24 19:18:13 $
+ * $Revision: 1.57 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -603,6 +603,8 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
       UNLOCK_ELAN_WEAK();
       GASNETI_TRACE_PRINTF(I,("Warning: get source not elan-mapped, using AM instead"));
     } else 
+  #else
+    gasneti_assert(gasnetc_elan_addressable(src, nbytes));
   #endif
   if (gasnetc_elan_addressable(dest,nbytes)) { 
     ELAN_EVENT *evt;
@@ -617,7 +619,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
     if_pt (bouncebuf) {
       ELAN_EVENT *evt;
       gasnete_eop_t *eop;
-      gasneti_assert(elan_addressable(STATE(),bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
+      gasneti_assert(gasnetc_elan_addressable(bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
       evt = elan_get(STATE(), src, bouncebuf+1, nbytes, node);
       UNLOCK_ELAN_WEAK();
       GASNETI_TRACE_EVENT_VAL(C,GET_BUFFERED,nbytes);
@@ -666,6 +668,8 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
       UNLOCK_ELAN_WEAK();
       GASNETI_TRACE_PRINTF(I,("Warning: put destination not elan-mapped, using AM instead"));
     } else 
+  #else
+    gasneti_assert(gasnetc_elan_addressable(dest, nbytes));
   #endif
   if (nbytes <= GASNETC_ELAN_SMALLPUTSZ || 
     (isbulk && gasnetc_elan_addressable(src,nbytes))) { 
@@ -687,7 +691,7 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
       ELAN_EVENT *evt;
       gasnete_eop_t *eop;
       memcpy(bouncebuf+1, src, nbytes);
-      gasneti_assert(elan_addressable(STATE(),bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
+      gasneti_assert(gasnetc_elan_addressable(bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
       /* TODO: this gets a "not-addressable" elan exception on dual-rail runs - why? */
       evt = elan_put(STATE(), bouncebuf+1, dest, nbytes, node);
       UNLOCK_ELAN_WEAK();
@@ -928,6 +932,8 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
       UNLOCK_ELAN_WEAK();
       GASNETI_TRACE_PRINTF(I,("Warning: get source not elan-mapped, using AM instead"));
     } else 
+  #else
+    gasneti_assert(gasnetc_elan_addressable(src, nbytes));
   #endif
   if (gasnetc_elan_addressable(dest,nbytes)) { 
     ELAN_EVENT *evt;
@@ -951,7 +957,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     if_pt (bouncebuf) {
       ELAN_EVENT *evt;
       gasnete_eop_t *eop;
-      gasneti_assert(elan_addressable(STATE(),bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
+      gasneti_assert(gasnetc_elan_addressable(bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
       evt = elan_get(STATE(), src, bouncebuf+1, nbytes, node);
       UNLOCK_ELAN_WEAK();
       GASNETI_TRACE_EVENT_VAL(C,GET_BUFFERED,nbytes);
@@ -1042,6 +1048,8 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
       UNLOCK_ELAN_WEAK();
       GASNETI_TRACE_PRINTF(I,("Warning: put destination not elan-mapped, using AM instead"));
     } else 
+  #else
+    gasneti_assert(gasnetc_elan_addressable(dest, nbytes));
   #endif
   if (nbytes <= GASNETC_ELAN_SMALLPUTSZ || 
     (isbulk && gasnetc_elan_addressable(src,nbytes))) { 
@@ -1069,7 +1077,7 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
       ELAN_EVENT *evt;
       gasnete_eop_t *eop;
       memcpy(bouncebuf+1, src, nbytes);
-      gasneti_assert(elan_addressable(STATE(),bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
+      gasneti_assert(gasnetc_elan_addressable(bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
       evt = elan_put(STATE(), bouncebuf+1, dest, nbytes, node);
       UNLOCK_ELAN_WEAK();
       if (isbulk) GASNETI_TRACE_EVENT_VAL(C,PUT_BULK_BUFFERED,nbytes);

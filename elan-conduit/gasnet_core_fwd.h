@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2004/11/10 15:43:39 $
- * $Revision: 1.18 $
+ *     $Date: 2005/02/24 19:18:13 $
+ * $Revision: 1.19 $
  * Description: GASNet header for elan conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -68,6 +68,10 @@ extern void gasnetc_fatalsignal_callback(int sig);
      (e.g. with a signal) to run AM handlers (interrupt-based handler dispatch)
    */
 /* #define GASNETC_USE_INTERRUPTS 1 */
+
+#if defined(GASNETC_ELAN4) || defined(GASNETI_PTR32)
+  #define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
+#endif
 
 END_EXTERNC
 

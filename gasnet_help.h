@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/02/23 21:15:27 $
- * $Revision: 1.45 $
+ *     $Date: 2005/02/24 19:18:11 $
+ * $Revision: 1.46 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,30 +94,44 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #define gasneti_in_segment gasneti_in_clientsegment
 #endif
 
+#ifdef GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET
+  /* in-segment check for internal put/gets that may exploit outofseg support */
+  #define gasneti_in_segment_allowoutseg(node,ptr,nbytes) \
+          (gasneti_assert((node) < gasneti_nodes), 1)
+#else
+  #define gasneti_in_segment_allowoutseg  gasneti_in_segment
+#endif
+
+#define _gasneti_boundscheck(node,ptr,nbytes,segtest) do {                     \
+    gasnet_node_t _node = (node);                                              \
+    const void *_ptr = (const void *)(ptr);                                    \
+    size_t _nbytes = (size_t)(nbytes);                                         \
+    if_pf (_node >= gasneti_nodes)                                             \
+      gasneti_fatalerror("Node index out of range (%lu >= %lu) at %s",         \
+                         (unsigned long)_node, (unsigned long)gasneti_nodes,   \
+                         gasneti_current_loc);                                 \
+    if_pf (_ptr == NULL || !segtest(_node,_ptr,_nbytes))                       \
+      gasneti_fatalerror("Remote address out of range "                        \
+         "(node=%lu ptr="GASNETI_LADDRFMT" nbytes=%lu) at %s"                  \
+         "\n  clientsegment=("GASNETI_LADDRFMT"..."GASNETI_LADDRFMT")"         \
+         "\n    fullsegment=("GASNETI_LADDRFMT"..."GASNETI_LADDRFMT")",        \
+         (unsigned long)_node, GASNETI_LADDRSTR(_ptr), (unsigned long)_nbytes, \
+         gasneti_current_loc,                                                  \
+         GASNETI_LADDRSTR(gasneti_seginfo_client[_node].addr),                 \
+         GASNETI_LADDRSTR(gasneti_seginfo_client_ub[_node]),                   \
+         GASNETI_LADDRSTR(gasneti_seginfo[_node].addr),                        \
+         GASNETI_LADDRSTR(gasneti_seginfo_ub[_node])                           \
+         );                                                                    \
+  } while(0)
+
 #if GASNET_NDEBUG
   #define gasneti_boundscheck(node,ptr,nbytes) 
+  #define gasneti_boundscheck_allowoutseg(node,ptr,nbytes)
 #else
-  #define gasneti_boundscheck(node,ptr,nbytes) do {                              \
-      gasnet_node_t _node = (node);                                              \
-      const void *_ptr = (const void *)(ptr);                                    \
-      size_t _nbytes = (size_t)(nbytes);                                         \
-      if_pf (_node > gasneti_nodes)                                              \
-        gasneti_fatalerror("Node index out of range (%lu >= %lu) at %s",         \
-                           (unsigned long)_node, (unsigned long)gasneti_nodes,   \
-                           gasneti_current_loc);                                 \
-      if_pf (!gasneti_in_segment(_node,_ptr,_nbytes))                            \
-        gasneti_fatalerror("Remote address out of range "                        \
-           "(node=%lu ptr="GASNETI_LADDRFMT" nbytes=%lu) at %s"                  \
-           "\n  clientsegment=("GASNETI_LADDRFMT"..."GASNETI_LADDRFMT")"         \
-           "\n    fullsegment=("GASNETI_LADDRFMT"..."GASNETI_LADDRFMT")",        \
-           (unsigned long)_node, GASNETI_LADDRSTR(_ptr), (unsigned long)_nbytes, \
-           gasneti_current_loc,                                                  \
-           GASNETI_LADDRSTR(gasneti_seginfo_client[_node].addr),                 \
-           GASNETI_LADDRSTR(gasneti_seginfo_client_ub[_node]),                   \
-           GASNETI_LADDRSTR(gasneti_seginfo[_node].addr),                        \
-           GASNETI_LADDRSTR(gasneti_seginfo_ub[_node])                           \
-           );                                                                    \
-    } while(0)
+  #define gasneti_boundscheck(node,ptr,nbytes) \
+         _gasneti_boundscheck(node,ptr,nbytes,gasneti_in_segment)
+  #define gasneti_boundscheck_allowoutseg(node,ptr,nbytes) \
+         _gasneti_boundscheck(node,ptr,nbytes,gasneti_in_segment_allowoutseg)
 #endif
 
 /* gasneti_assert_always():

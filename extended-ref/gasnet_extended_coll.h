@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/Attic/gasnet_extended_coll.h,v $
- *     $Date: 2005/02/17 13:18:55 $
- * $Revision: 1.19 $
+ *     $Date: 2005/02/24 19:18:16 $
+ * $Revision: 1.20 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -504,8 +504,7 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
  * However, for a purely AM based conduit this might always be true and other
  * conduits may also override this to allow for regions outside the normal
  * segment.  Note that this override relies on the fact that the gasnete_ calls
- * don't perform bounds checking on their own WHICH IS NOT THE CASE for geti and
- * puti at this time.
+ * don't perform bounds checking on their own 
  */
 #ifdef gasnete_coll_in_segment
   /* Keep the conduit-specific override */

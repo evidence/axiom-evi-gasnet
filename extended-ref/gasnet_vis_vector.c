@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_vector.c,v $
- *     $Date: 2005/02/14 05:13:36 $
- * $Revision: 1.9 $
+ *     $Date: 2005/02/24 19:18:16 $
+ * $Revision: 1.10 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -98,7 +98,7 @@
 
 #define GASNETE_PUT_INDIV(islocal, dstnode, dstaddr, srcaddr, nbytes) do {      \
     gasneti_assert(nbytes > 0);                                                 \
-    gasneti_boundscheck(dstnode, dstaddr, nbytes);                              \
+    gasneti_boundscheck_allowoutseg(dstnode, dstaddr, nbytes);                  \
     gasneti_assert(islocal == (dstnode == gasneti_mynode));                     \
     if (islocal) GASNETE_FAST_UNALIGNED_MEMCPY((dstaddr), (srcaddr), (nbytes)); \
     else gasnete_put_nbi_bulk((dstnode), (dstaddr), (srcaddr), (nbytes)         \
@@ -107,7 +107,7 @@
 
 #define GASNETE_GET_INDIV(islocal, dstaddr, srcnode, srcaddr, nbytes) do {      \
     gasneti_assert(nbytes > 0);                                                 \
-    gasneti_boundscheck(srcnode, srcaddr, nbytes);                              \
+    gasneti_boundscheck_allowoutseg(srcnode, srcaddr, nbytes);                  \
     gasneti_assert(islocal == (srcnode == gasneti_mynode));                     \
     if (islocal) GASNETE_FAST_UNALIGNED_MEMCPY((dstaddr), (srcaddr), (nbytes)); \
     else gasnete_get_nbi_bulk((dstaddr), (srcnode), (srcaddr), (nbytes)         \

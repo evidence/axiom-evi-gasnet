@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2005/02/12 11:29:25 $
- * $Revision: 1.21 $
+ *     $Date: 2005/02/24 19:18:21 $
+ * $Revision: 1.22 $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,6 +29,9 @@
     #define GASNET_ALIGNED_SEGMENTS   0
   #endif
 #endif
+
+/* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
+#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
