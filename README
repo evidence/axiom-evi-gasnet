@@ -101,20 +101,36 @@ the configuration scripts, header files, etc. should not rely on anything from
 outside directories not included in this distribution (other than basic system
 headers and lower-level networking libraries).
 
-  The GASNet master header file (gasnet.h) #includes several files which must
-be provided by each conduit:
+* top-level header file: The GASNet master header file (gasnet.h) #includes
+several files which must be provided by each conduit:
 
- - gasnet_core_fwd.h - definitions of basic constants and types used by the
-    core API and included early in the gasnet.h file (gasnet.h provides some
-    default values for various constants and types that can be overridden here)
- - gasnet_core.h - function prototypes and/or inline functions for implementing
-    the core API 
- - gasnet_extended_fwd.h, gasnet_extended.h - same thing but for the extended
-    API. Some conduits may choose to simply use the reference implementation of the
-    extended API to satisfy this requirement.
-
-  The top-level directory also provides some basic system utilities, macros and
-typedefs useful for any conduit.
+<gasnet.h> includes the following files:
+   <gasnet_config.h> Created by the configure script, this header helps in
+		     customizing gasnet for site-specific and platform-specific
+		     information.
+   <gasnet_basic.h>  Defines various basic and optimizing compiler macros,
+                     platform-independent integer types and c++ binding macros.
+   <gasnet_core_fwd.h> definitions of basic constants and types used by the
+		       core API and included early in the gasnet.h file
+		       (gasnet.h provides some default values for various
+		       constants and types that can be overridden here)
+   <gasnet_extended_fwd.h>  Allows a specific extended implementation to
+			    override the default gasnet types such as handles
+			    and threadinfo.
+   <gasnet_core.h> Includes the public interface for the desired GASNet core
+		   (function prototypes and/or inline functions for
+		   implementing the core API).
+      .. <gasnet_core_help.h> This is the core's entry point to provide access
+			      to symbols which might be used in the core, or
+			      client code (ie: node's node id, number of nodes
+			      in job).
+      .. <gasnet_help.h> Extended and core API platform independant helpers.
+   <gasnet_extended.h> Includes the public interface for the desired GASNet
+                       extended API
+      .. <gasnet_extended_help.h> Extended API's entry point to define symbols
+				  used by the extended API and the client code
+				  (segment info, thread info)
+      .. <gasnet_help.h> Extended and core API platform independant helpers.
 
 * config-aux: helper scripts for configure
 
