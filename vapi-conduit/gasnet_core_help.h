@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_help.h             $
- *     $Date: 2004/02/13 19:20:07 $
- * $Revision: 1.5 $
+ *     $Date: 2004/02/13 20:22:29 $
+ * $Revision: 1.6 $
  * Description: GASNet vapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,7 +24,6 @@ BEGIN_EXTERNC
  */
 #if defined(GASNET_SEGMENT_LARGE) || defined(GASNET_SEGMENT_EVERYTHING)
   #define GASNETC_USE_FIREHOSE 1
-  #include <firehose.h>
 #elif defined(GASNET_SEGMENT_FAST)
   #define GASNETC_PIN_SEGMENT 1
 #endif
