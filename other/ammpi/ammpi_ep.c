@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2003/11/13 13:15:10 $
- * $Revision: 1.13 $
+ *     $Date: 2003/12/11 20:19:52 $
+ * $Revision: 1.14 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1108,7 +1108,7 @@ extern int AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalys
 
     "Data bytes sent:      %9i bytes\n"
     "Total bytes sent:     %9i bytes (incl. AM overhead)\n"
-    "Bandwidth overhead:   %9.2f %%\n"        
+    "Bandwidth overhead:   %9.2f%%\n"        
     "Average packet size:  %9.3f bytes (incl. AM overhead)\n"
     , 
     (int)requestsSent, (int)requestsReceived,
@@ -1160,12 +1160,12 @@ extern int AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalys
     int64_t packetslost = packetssent - packetsrecvd;
     sprintf(msg+strlen(msg), "Packets unaccounted for: %6i", abs((int)packetslost));
     if (packetslost > 0) {
-      sprintf(msg+strlen(msg), "  (%f %%)\n", (100.0*packetslost)/packetssent);
+      sprintf(msg+strlen(msg), "  (%6.3f%%)\n", (100.0*packetslost)/packetssent);
     }
     else strcat(msg, "\n");
   } 
 
-  fprintf(fp, msg);
+  fprintf(fp, "%s", msg);
   return AM_OK;
   }
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2003/10/24 01:37:37 $
- * $Revision: 1.11 $
+ *     $Date: 2003/12/11 20:19:52 $
+ * $Revision: 1.12 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -43,7 +43,7 @@
 #define USE_BLOCKING_SPMD_BARRIER   1   /* use blocking AM calls in SPMDBarrier() */
 
 #ifndef AMMPI_DEBUG_VERBOSE
-  #ifdef GASNET_DEBUG_VERBOSE
+  #if GASNET_DEBUG_VERBOSE
     #define AMMPI_DEBUG_VERBOSE       1
   #else
     #define AMMPI_DEBUG_VERBOSE       0

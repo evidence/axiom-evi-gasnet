@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_internal.h              $
- *     $Date: 2003/12/11 20:19:49 $
- * $Revision: 1.12 $
+ *     $Date: 2003/12/11 20:19:56 $
+ * $Revision: 1.1 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,14 +14,13 @@
 
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
-#define GASNETC_NISTIMEOUT_WARNING_THRESHOLD 1000000 /* us for timeout warning under HSL_ERRCHECK */
 
 extern ep_t gasnetc_endpoint;
 extern gasnet_seginfo_t *gasnetc_seginfo;
 
 #define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
 
-extern gasneti_mutex_t gasnetc_AMlock; /*  protect access to AMMPI */
+extern gasneti_mutex_t gasnetc_AMlock; /*  protect access to AMUDP */
 #define AMLOCK()             gasneti_mutex_lock(&gasnetc_AMlock)
 #define AMUNLOCK()           gasneti_mutex_unlock(&gasnetc_AMlock)
 #define AM_ASSERT_LOCKED()   gasneti_mutex_assertlocked(&gasnetc_AMlock)

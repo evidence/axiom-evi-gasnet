@@ -6,12 +6,6 @@
 
 #include "apputils.h"
 
-#ifdef AMMPI_DEBUG
-#define VERBOSE 0
-#else
-#define VERBOSE 0
-#endif
-
 /* non-pipelined version of ping tester */
 
 #define PING_REQ_HANDLER 1

@@ -1,7 +1,7 @@
-/*  $Archive:: /Ti/AMMPI/apputils.h                                       $
- *     $Date: 2003/12/11 20:19:52 $
- * $Revision: 1.6 $
- * Description: Application utilities on AMMPI
+/*  $Archive:: /Ti/AMUDP/apputils.h                                       $
+ *     $Date: 2003/12/11 20:19:53 $
+ * $Revision: 1.1 $
+ * Description: Application utilities on AMUDP
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
@@ -14,7 +14,7 @@
 #endif
 
 #if !defined(DEBUG) && !defined(NDEBUG)
-  #ifdef AMMPI_DEBUG
+  #ifdef AMUDP_DEBUG
     #define DEBUG 1
   #else
     #define NDEBUG 1
@@ -22,7 +22,7 @@
 #endif
 
 #ifndef VERBOSE
-  #if AMMPI_DEBUG_VERBOSE || GASNET_DEBUG_VERBOSE
+  #if AMUDP_DEBUG_VERBOSE || GASNET_DEBUG_VERBOSE
     #define VERBOSE 1
   #else
     #define VERBOSE 0
@@ -47,8 +47,7 @@
 #define AM_Safe(fncall) do {                \
   if ((fncall) != AM_OK) {                  \
     printf("Error calling: %s\n", #fncall); \
-    AMMPI_SPMDExit(-1);                     \
-    exit(-1);                               \
+    exit(1);                                \
     }                                       \
   } while(0)
 
@@ -69,8 +68,11 @@ void setupUtilHandlers(ep_t activeep, eb_t activeeb);
 void printGlobalStats();
 
 
-extern int64_t getCurrentTimeMicrosec();
-extern void outputTimerStats();
+#ifdef UETH
+  #define getCurrentTimeMicrosec() ueth_getustime()
+#else
+  extern int64_t getCurrentTimeMicrosec();
+#endif
 
 #ifndef AMMPI_OMIT_READWRITE
 uint32_t getWord(int proc, void *addr);

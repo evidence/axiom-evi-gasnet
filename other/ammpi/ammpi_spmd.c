@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2003/12/01 06:37:03 $
- * $Revision: 1.13 $
+ *     $Date: 2003/12/11 20:19:52 $
+ * $Revision: 1.14 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -328,9 +328,9 @@ void (*AMMPI_SPMDkillmyprocess)(int) = &_exit;
 
 static int AMMPI_SPMDShutdown(int exitcode) {
   /* this function is not re-entrant - if someone tries, something is seriously wrong */
-  { static int exitInProgress = FALSE;
-    if (exitInProgress) abort(); 
-    exitInProgress = TRUE;
+  { static int shutdownInProgress = FALSE;
+    if (shutdownInProgress) abort(); 
+    shutdownInProgress = TRUE;
   }
 
   if (AMMPI_SPMDExitCallback) (*AMMPI_SPMDExitCallback)(exitcode);

@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2003/11/06 02:17:06 $ */
-/*  $Revision: 1.21 $ */
+/*      $Date: 2003/12/11 20:19:48 $ */
+/*  $Revision: 1.22 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -55,6 +55,9 @@
 /* auto-detected mmap data page size */
 #undef GASNETI_PAGESIZE
 #undef GASNETI_PAGESHIFT
+
+/* udp-conduit default custom spawn command */
+#undef GASNET_CSPAWN_CMD
 
 /* various OS and machine definitions */
 #undef UNIX

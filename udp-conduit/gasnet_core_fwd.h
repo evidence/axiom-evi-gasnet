@@ -1,7 +1,7 @@
-/*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_fwd.h                   $
- *     $Date: 2003/12/11 20:19:49 $
- * $Revision: 1.16 $
- * Description: GASNet header for MPI conduit core (forward definitions)
+/*  $Archive:: /Ti/GASNet/udp-conduit/gasnet_core_fwd.h                   $
+ *     $Date: 2003/12/11 20:19:56 $
+ * $Revision: 1.1 $
+ * Description: GASNet header for UDP conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
@@ -15,20 +15,25 @@
 
 #define GASNET_CORE_VERSION      1.3
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
-#define GASNET_CORE_NAME         MPI
+#define GASNET_CORE_NAME         UDP
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
-#define GASNET_CONDUIT_MPI       1
+#define GASNET_CONDUIT_UDP       1
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 #ifndef GASNET_ALIGNED_SEGMENTS
-  /* mpi-conduit supports both aligned and un-aligned */
+  /* udp-conduit supports both aligned and un-aligned */
   #ifdef HAVE_MMAP
     #define GASNET_ALIGNED_SEGMENTS   1  
   #else
     #define GASNET_ALIGNED_SEGMENTS   0
   #endif
 #endif
+
+/* AMUDP currently only supports 255 nodes */
+#define GASNET_MAXNODES 255
+#define _GASNET_NODE_T
+typedef uint8_t gasnet_node_t;
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
@@ -41,16 +46,7 @@
    */
 /* #define GASNETC_USE_INTERRUPTS 1 */
 
-  /* enable usage correctness checking on HSL's and no-interrupt sections */
-#ifndef GASNETC_HSL_ERRCHECK
-  #if GASNET_DEBUG
-    #define GASNETC_HSL_ERRCHECK 1
-  #else
-    #define GASNETC_HSL_ERRCHECK 0
-  #endif
-#endif
-
-/*  override default error values to use those defined by AMMPI */
+/*  override default error values to use those defined by AMUDP */
 #define _GASNET_ERRORS
 #define _GASNET_ERR_BASE 10000
 #define GASNET_ERR_NOT_INIT             1

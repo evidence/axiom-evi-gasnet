@@ -1,9 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include <ammpi.h>
-#include <ammpi_spmd.h>
+#include <amudp.h>
+#include <amudp_spmd.h>
 
 #include "apputils.h"
 
@@ -96,18 +95,20 @@ int main(int argc, char **argv) {
   int depth = 0;
   int iters = 0;
 
-  AMMPI_VerboseErrors = 1;
+  AMUDP_VerboseErrors = 1;
 
   if (argc < 3) {
-    printf("Usage: %s (iters) (Poll/Block)\n", argv[0]);
+    printf("Usage: %s numprocs spawnfn (iters) (Poll/Block)\n", argv[0]);
     exit(1);
     }
 
+/*   if (argc > 5) depth = atoi(argv[5]); */
   if (!depth) depth = 4;
 
   /* call startup */
-  AM_Safe(AMMPI_SPMDStartup(&argc, &argv, 
-                            depth, &networkpid, &eb, &ep));
+  AM_Safe(AMUDP_SPMDStartup(&argc, &argv, 
+                        0, depth, NULL, 
+                        &networkpid, &eb, &ep));
 
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, LARGE_REQ_HANDLER, large_request_handler));
@@ -116,8 +117,8 @@ int main(int argc, char **argv) {
   setupUtilHandlers(ep, eb);
 
   /* get SPMD info */
-  myproc = AMMPI_SPMDMyProc();
-  numprocs = AMMPI_SPMDNumProcs();
+  myproc = AMUDP_SPMDMyProc();
+  numprocs = AMUDP_SPMDNumProcs();
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 1;
@@ -125,11 +126,11 @@ int main(int argc, char **argv) {
     switch(argv[2][0]) {
       case 'p': case 'P': polling = 1; break;
       case 'b': case 'B': polling = 0; break;
-      default: printf("polling must be 'P' or 'B'..\n"); AMMPI_SPMDExit(1);
+      default: printf("polling must be 'P' or 'B'..\n"); AMUDP_SPMDExit(1);
       }
     }
   if (numprocs % 2 != 0) {
-     printf("requires an even number of processors\n"); AMMPI_SPMDExit(1);
+     printf("requires an even number of processors\n"); AMUDP_SPMDExit(1);
     }
   VMseg = (uint32_t *)malloc(AM_MaxLong()+100);
   memset(VMseg, 0, AM_MaxLong()+100);
@@ -138,7 +139,7 @@ int main(int argc, char **argv) {
   if (myproc % 2 == 0) partner = (myproc + 1) % numprocs;
   else partner = (myproc - 1);
 
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMUDP_SPMDBarrier());
 
   if (myproc == 0) printf("Running %i iterations of bulk bounce test...\n", iters);
 
@@ -199,12 +200,12 @@ int main(int argc, char **argv) {
   fflush(stdout);
 
   /* dump stats */
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMUDP_SPMDBarrier());
   printGlobalStats();
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMUDP_SPMDBarrier());
 
   /* exit */
-  AM_Safe(AMMPI_SPMDExit(0));
+  AM_Safe(AMUDP_SPMDExit(0));
 
   return 0;
   }
