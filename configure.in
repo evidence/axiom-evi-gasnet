@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/10/19 04:41:49 $
-# $Revision: 1.201 $
+#     $Date: 2004/10/19 18:57:21 $
+# $Revision: 1.202 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.201 $)
+AC_REVISION($Revision: 1.202 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -758,6 +758,20 @@ if test $enabled_udp = yes; then
     CXXFLAGS="$CXXDEBUGFLAGS"
   fi
   GASNET_CHECK_OPTIMIZEDDEBUG(CXX,CXXFLAGS,[$CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES],[])
+  GASNET_TRY_CACHE_RUN( [for working C++ exceptions], cxx_exceptions, [
+    int main() {
+     try {
+       int *p = new int[[10]];
+       throw p;
+       return 1;
+     } catch (int *exn) {
+       if (exn) return 0;
+       else return 2;
+     }
+    }
+  ], [ ], [ 
+    AC_MSG_ERROR("I can\'t figure out how to build and run a program that uses C++ exceptions")
+  ] )  
   AC_SUBST(MISC_CXXFLAGS)
 
   AC_LANG_RESTORE

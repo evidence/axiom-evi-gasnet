@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2004/10/19 04:41:49 $
-dnl $Revision: 1.47 $
+dnl     $Date: 2004/10/19 18:57:21 $
+dnl $Revision: 1.48 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -578,31 +578,44 @@ AC_DEFUN([GASNET_CHECK_OPTIMIZEDDEBUG],[
  fi
 ])
 
+dnl compile a program for a success/failure
+dnl GASNET_TRY_CACHE_CHECK(description,cache_name,includes,program,action-on-success,action-on-failure)
 AC_DEFUN([GASNET_TRY_CACHE_CHECK],[
 AC_CACHE_CHECK($1, cv_prefix[]$2,
 AC_TRY_COMPILE([$3], [$4], cv_prefix[]$2=yes, cv_prefix[]$2=no))
 if test "$cv_prefix[]$2" = yes; then
   :
   $5
+else
+  :
+  $6
 fi])
 
 
+dnl link a program for a success/failure
+dnl GASNET_TRY_CACHE_LINK(description,cache_name,includes,program,action-on-success,action-on-failure)
 AC_DEFUN([GASNET_TRY_CACHE_LINK],[
 AC_CACHE_CHECK($1, cv_prefix[]$2,
 AC_TRY_LINK([$3], [$4], cv_prefix[]$2=yes, cv_prefix[]$2=no))
 if test "$cv_prefix[]$2" = yes; then
   :
   $5
+else
+  :
+  $6
 fi])
 
 dnl run a program for a success/failure
-dnl GASNET_TRY_CACHE_RUN(description,cache_name,program,action-on-success)
+dnl GASNET_TRY_CACHE_RUN(description,cache_name,program,action-on-success,action-on-failure)
 AC_DEFUN([GASNET_TRY_CACHE_RUN],[
 AC_CACHE_CHECK($1, cv_prefix[]$2,
 AC_TRY_RUN([$3], cv_prefix[]$2=yes, cv_prefix[]$2=no, AC_MSG_ERROR(no default value for cross compiling)))
 if test "$cv_prefix[]$2" = yes; then
   :
   $4
+else
+  :
+  $5
 fi])
 
 dnl run a program to extract the value of a runtime expression 
