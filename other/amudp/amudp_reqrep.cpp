@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2004/10/12 11:33:27 $
- * $Revision: 1.18 $
+ *     $Date: 2004/10/12 13:23:16 $
+ * $Revision: 1.19 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -10,7 +10,7 @@
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>
-#if defined(WIN32) && !defined(__CYGWIN__)
+#ifdef UNIX
   #include <sys/time.h>
   #include <unistd.h>
   #include <fcntl.h>
