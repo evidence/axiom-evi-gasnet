@@ -1107,9 +1107,8 @@ fhi_TryAcquireRemoteRegion(firehose_request_t *req,
 
 	b_num = FH_NUM_BUCKETS(req->addr, req->len);
 
-	/* Make sure the number of buckets doesn't exceed the maximum number of
-	 * regions required to describe these buckets */
-	gasneti_assert(b_num <= fh_max_regions); 
+	/* Validate the maximum number of regions required to describe these buckets */
+	gasneti_assert(FH_MIN_REGIONS_FOR_BUCKETS(b_num) <= fh_max_regions); 
 
  	FH_FOREACH_BUCKET(req->addr, end_addr, bucket_addr) {
 		bd = fh_bucket_lookup(node, bucket_addr);
