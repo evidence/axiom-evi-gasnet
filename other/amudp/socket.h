@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/socket.h,v $
- *      $Date: 2004/10/12 11:33:27 $
- *  $Revision: 1.7 $
+ *      $Date: 2004/10/13 21:32:52 $
+ *  $Revision: 1.8 $
  *  Description: portable header socket functions
  *  (c) Scott McPeak, 1998-1999, Modified by Dan Bonachea
  */
@@ -125,7 +125,8 @@ typedef fd_set FD_SET;
 #endif
 
 #if defined(WIN32) || defined(CYGWIN) || defined(AIX) || \
-    defined(SOLARIS) || defined(LINUX) || defined(OSF) || defined(SUPERUX)
+    defined(SOLARIS) || defined(LINUX) || defined(OSF) || defined(SUPERUX) || \
+   defined(__crayx1) /* X1 docs claim it's a size_t, they lie */
   #define IOCTL_FIONREAD_ARG_T unsigned int
 #elif defined(IRIX)
   #define IOCTL_FIONREAD_ARG_T size_t

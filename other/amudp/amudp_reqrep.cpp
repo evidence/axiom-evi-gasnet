@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2004/10/12 13:23:16 $
- * $Revision: 1.19 $
+ *     $Date: 2004/10/13 21:32:52 $
+ * $Revision: 1.20 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -238,7 +238,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
 #if defined(WIN32) || defined(CYGWIN)
   #define BROKEN_IOCTL 1
 #elif defined(AIX) || defined(IRIX) || defined(FREEBSD) || defined(HPUX) || \
-      defined(OSF) || defined(DARWIN) || defined(SUPERUX) || defined(NETBSD)
+      defined(OSF) || defined(DARWIN) || defined(SUPERUX) || defined(NETBSD) || defined(UNICOS)
   #define BROKEN_IOCTL 1 // seems these are broken too... 
 #else 
   #define BROKEN_IOCTL 0 // at least Linux and Solaris work as documented
@@ -249,7 +249,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   static int AMUDP_DrainNetwork(ep_t ep) {
     int totalBytesDrained = 0;
     while (1) {
-      IOCTL_FIONREAD_ARG_T bytesAvail;
+      IOCTL_FIONREAD_ARG_T bytesAvail = 0;
       if (ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
         AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", sockErrDesc());
       if (bytesAvail == 0) break; 

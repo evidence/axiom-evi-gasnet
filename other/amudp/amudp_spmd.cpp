@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2004/10/12 11:33:27 $
- * $Revision: 1.17 $
+ *     $Date: 2004/10/13 21:32:52 $
+ * $Revision: 1.18 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -225,23 +225,24 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
         list.remove(s);
         allList.remove(s);
         continue;
-        }
+      }
       // TODO: line-by-line buffering
       int sz = numBytesWaiting(s);
-      //AMUDP_assert(sz > 0); // sometimes this happens, at least on Solaris
-      char *buf = new char[sz+2];
-      recvAll(s, buf, sz);
-      buf[sz] = '\0';
-      #if AMUDP_DEBUG_VERBOSE
-        fprintf(fd, "got some output: %s%s", buf, (buf[sz-1]=='\n'?"":"\n"));
-      #else
-        fwrite(buf, sz, 1, fd);
-      #endif
-      fflush(fd);
-      delete buf;
+      if (sz > 0) { // sometimes actually get a zero here, at least on Solaris and UNICOS
+        char *buf = new char[sz+2];
+        recvAll(s, buf, sz);
+        buf[sz] = '\0';
+        #if AMUDP_DEBUG_VERBOSE
+          fprintf(fd, "got some output: %s%s", buf, (buf[sz-1]=='\n'?"":"\n"));
+        #else
+          fwrite(buf, sz, 1, fd);
+        #endif
+          fflush(fd);
+          delete buf;
       }
     }
   }
+}
 //------------------------------------------------------------------------------------
 #if USE_ASYNC_TCP_CONTROL
   static void AMUDP_SPMDControlSocketCallback(int sig) {

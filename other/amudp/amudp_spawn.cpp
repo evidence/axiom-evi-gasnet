@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spawn.cpp,v $
- *     $Date: 2004/10/12 11:33:27 $
- * $Revision: 1.8 $
+ *     $Date: 2004/10/13 21:32:52 $
+ * $Revision: 1.9 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -14,6 +14,11 @@
   #include <process.h>
   #include <io.h>
   #include <direct.h>
+#endif
+#if defined(CRAYX1)
+  #include <unistd.h>
+  #include <sys/prctl.h>
+  extern char **environ; 
 #endif
 
 #include <amudp_spmd.h>
@@ -55,7 +60,17 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
       if (_spawnv(_P_NOWAIT, argv[0], argv) == -1) {
         ErrMessage("failed _spawnv()");
         exit(1);
+      }
+    #elif defined(CRAYX1)
+      { char **nargv = new char *[argc+2];
+        nargv[0] = argv[0];
+        memcpy(nargv+1,argv,argc*sizeof(char *));
+        nargv[argc+1] = NULL;
+        if (execsp(nargv, environ, NULL) == -1) {
+          ErrMessage("failed execsp()");
+          exit(1);
         }
+      }
     #else
       int forkRet = fork();
       if (forkRet == -1) {

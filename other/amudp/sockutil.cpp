@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
-//     $Date: 2004/10/12 11:33:27 $
-// $Revision: 1.9 $
+//     $Date: 2004/10/13 21:32:52 $
+// $Revision: 1.10 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -367,7 +367,7 @@ bool inputWaiting(SOCKET s) { // returns true if input or close conn is waiting
   }
 //-------------------------------------------------------------------------------------
 int numBytesWaiting(SOCKET s) { // returns number of bytes waiting to be received
-  IOCTL_FIONREAD_ARG_T arg;
+  IOCTL_FIONREAD_ARG_T arg = 0;
   if (ioctlsocket(s, _FIONREAD, &arg) == SOCKET_ERROR) 
     xsocket(s, "numBytesWaiting");
   return (int)arg;
