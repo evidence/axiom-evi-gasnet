@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.19 2002/08/15 10:48:25 csbell Exp $
- * $Date: 2002/08/15 10:48:25 $
+/* $Id: gasnet_core.c,v 1.20 2002/08/16 02:11:44 csbell Exp $
+ * $Date: 2002/08/16 02:11:44 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -16,26 +16,25 @@
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
-gasnet_handlerentry_t const *gasnetc_get_handlertable();
-extern gasnet_handlerentry_t const *gasnete_get_extref_handlertable();
-
-gasnet_node_t gasnetc_mynode = -1;
-gasnet_node_t gasnetc_nodes = 0;
+int		gasnetc_init_done = 0;   /*  true after init */
+int		gasnetc_attach_done = 0; /*  true after attach */
+gasnet_node_t	gasnetc_mynode = -1;
+gasnet_node_t	gasnetc_nodes = 0;
+uintptr_t	gasnetc_MaxLocalSegmentSize = 0;
+uintptr_t	gasnetc_MaxGlobalSegmentSize = 0;
 
 gasnet_seginfo_t *gasnetc_seginfo = NULL;
 
-int gasnetc_init_done = 0;   /*  true after init */
-int gasnetc_attach_done = 0; /*  true after attach */
-
-uintptr_t gasnetc_MaxLocalSegmentSize = 0;
-uintptr_t gasnetc_MaxGlobalSegmentSize = 0;
-
-#ifdef GASNETI_THREADS
-pthread_mutex_t _gasnetc_lock_gm = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t _gasnetc_lock_reqfifo = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t _gasnetc_lock_amreq = PTHREAD_MUTEX_INITIALIZER;
-#endif
+gasneti_mutex_t gasnetc_lock_gm = GASNETI_MUTEX_INITIALIZER;
+gasneti_mutex_t gasnetc_lock_reqpool = GASNETI_MUTEX_INITIALIZER;
+gasneti_mutex_t gasnetc_lock_amreq = GASNETI_MUTEX_INITIALIZER;
 gasnetc_state_t _gmc;
+
+gasnet_handlerentry_t const		*gasnetc_get_handlertable();
+extern gasnet_handlerentry_t const	*gasnete_get_extref_handlertable();
+extern void				 gasnetc_rdma_init();
+extern void				 gasnetc_rdma_finalize();
+
 
 void gasnetc_checkinit() {
   if (!gasnetc_init_done)
@@ -113,6 +112,8 @@ gasnetc_init(int *argc, char ***argv)
 	{ 
 		size_t	segsize = (unsigned) GASNETC_MMAP_INITIAL_SIZE;
 
+		_gmc.segment_mmap.addr = 0;
+		_gmc.segment_mmap.size = 0;
 		if (gasnetc_mmap_segment_search(&_gmc.segment_mmap, segsize, 
 		    segsize>>2) != GASNET_OK)
 			 gasneti_fatalerror(
@@ -138,10 +139,12 @@ gasnetc_init(int *argc, char ***argv)
 
 		/*  grab GM buffers and make sure we have the maximum amount
 		 *  possible */
+		gasneti_mutex_lock(&gasnetc_lock_gm);
 		while (_gmc.stoks.hi != 0) {
 			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
 			gasneti_fatalerror("Unexpected message during bootstrap");
 		}
+		gasneti_mutex_unlock(&gasnetc_lock_gm);
 	}
 	#elif defined(GASNET_SEGMENT_EVERYTHING)
 		gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
@@ -226,8 +229,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
     if (segsize > gasnetc_getMaxLocalSegmentSize()) 
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
-    if ((minheapoffset % pagesize) != 0) /* round up the minheapoffset to page sz */
-      minheapoffset = ((minheapoffset / pagesize) + 1) * pagesize;
+    minheapoffset = 
+	    GASNETI_PAGE_ROUNDUP(minheapoffset, GASNETC_SEGMENT_ALIGN);
   #else
     segsize = 0;
     minheapoffset = 0;
@@ -264,7 +267,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 		    "Error registering extended reference API handlers");
     	assert(er_numreg == er_len);
 
-	if (gasnetc_reghandlers(ertable, e_len, 100+er_len, 199, 0, &e_numreg)
+	if (gasnetc_reghandlers(etable, e_len, 100+er_len, 199, 0, &e_numreg)
 	    != GASNET_OK)
 		GASNETI_RETURN_ERRR(RESOURCE,
 		    "Error registering extended API handlers");
@@ -313,7 +316,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     else {
       if (gasnetc_munmap_segment(&_gmc.segment_mmap) != GASNET_OK)
 	      gasneti_fatalerror("could not unmap initial mmap segment");
-      _gmc.segment_mmap.size = segsize;
+      _gmc.segment_mmap.size = GASNETI_PAGE_ROUNDUP(segsize, GASNETC_SEGMENT_ALIGN);
       if (gasnetc_mmap_segment(&_gmc.segment_mmap) != GASNET_OK)
 	      gasneti_fatalerror("could not re-map segment after unmapping initial segment");
       _gmc.segment_base = (void *) _gmc.segment_mmap.addr;
@@ -348,6 +351,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         (uintptr_t) gasnetc_seginfo[i].addr, (unsigned int) gasnetc_seginfo[i].size) );
 #endif
 
+  /* Initialize firehose or turkey sandwich algorithms */
+  gasnetc_rdma_init(_gmc.segment_mmap.addr, _gmc.segment_mmap.size);
+
   /* ------------------------------------------------------------------------------------ */
   /*  primary attach complete */
   gasnetc_attach_done = 1;
@@ -359,11 +365,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasnetc_SysBarrier();
 
   /*  grab GM buffers and make sure we have the maximum amount possible */
+  gasneti_mutex_lock(&gasnetc_lock_gm);
   while (_gmc.stoks.hi != 0) {
     if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
       gasneti_fatalerror("Unexpected message during bootstrap");
   }
   gasnetc_provide_receive_buffers();
+  gasneti_mutex_unlock(&gasnetc_lock_gm);
 
 
   GASNETI_TRACE_PRINTF(C,
@@ -376,21 +384,28 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 
-extern int gasnet_init(int *argc, char ***argv) {
-  int retval = gasnetc_init(argc, argv);
-  if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasneti_trace_init();
-  return GASNET_OK;
+extern int 
+gasnet_init(int *argc, char ***argv)
+{
+	int retval = gasnetc_init(argc, argv);
+	if (retval != GASNET_OK) 
+		GASNETI_RETURN(retval);
+	gasneti_trace_init();
+	return GASNET_OK;
 }
 
 /* ------------------------------------------------------------------------------------ */
-extern void gasnetc_exit(int exitcode) {
-  gasnetc_sendbuf_finalize();
-  gasneti_trace_finish();
-  if (gasnetc_init_done)
-  	gm_close(_gmc.port);
-  gm_finalize();
-  exit(exitcode);
+extern void 
+gasnetc_exit(int exitcode)
+{
+	gasnetc_sendbuf_finalize();
+	gasneti_trace_finish();
+	if (gasnetc_init_done) {
+  		gm_close(_gmc.port);
+		gasnetc_rdma_finalize();
+	}
+	gm_finalize();
+	exit(exitcode);
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -734,7 +749,7 @@ extern int gasnetc_AMReplyShortM(
     bufd->len = gasnetc_write_AMBufferShort(bufd->sendbuf, handler, 
 		    numargs, argptr, GASNETC_AM_REPLY);
   
-    GASNETC_GM_MUTEX_LOCK;
+    gasneti_mutex_lock(&gasnetc_lock_gm);
     if (gasnetc_token_hi_acquire()) {
        /* GASNETC_AMTRACE_ReplyShort(Send); */
        gasnetc_gm_send_bufd(bufd);
@@ -743,7 +758,7 @@ extern int gasnetc_AMReplyShortM(
 	assert(bufd->gm_id > 0);
        gasnetc_fifo_insert(bufd);
     }
-    GASNETC_GM_MUTEX_UNLOCK;
+    gasneti_mutex_unlock(&gasnetc_lock_gm);
   }
 
   va_end(argptr);
@@ -781,7 +796,7 @@ extern int gasnetc_AMReplyMediumM(
     bufd->len = 
 	    gasnetc_write_AMBufferMedium(bufd->sendbuf, handler, numargs, 
                     argptr, nbytes, source_addr, GASNETC_AM_REPLY);
-    GASNETC_GM_MUTEX_LOCK;
+    gasneti_mutex_lock(&gasnetc_lock_gm);
     if (gasnetc_token_hi_acquire()) {
        /* GASNETC_AMTRACE_ReplyMedium(Send); */
        gasnetc_gm_send_bufd(bufd); 
@@ -790,7 +805,7 @@ extern int gasnetc_AMReplyMediumM(
 	assert(bufd->gm_id > 0);
        gasnetc_fifo_insert(bufd);
     }
-    GASNETC_GM_MUTEX_UNLOCK;
+    gasneti_mutex_unlock(&gasnetc_lock_gm);
   }
   
   va_end(argptr);
@@ -872,7 +887,7 @@ extern int gasnetc_AMReplyLongM(
 			bufd->dest_addr = 0;
 		}
 
-		GASNETC_GM_MUTEX_LOCK;
+		gasneti_mutex_lock(&gasnetc_lock_gm);
 		if (gasnetc_token_hi_acquire()) {
 			gasnetc_gm_send_bufd(bufd);
 			bufd->rdma_len = bufd->dest_addr = 0;
@@ -889,7 +904,7 @@ extern int gasnetc_AMReplyLongM(
 			GASNETC_AMTRACE_ReplyLong(Queued);
 			gasnetc_fifo_insert(bufd);
 		}
-		GASNETC_GM_MUTEX_UNLOCK;
+		gasneti_mutex_unlock(&gasnetc_lock_gm);
 		GASNETI_TRACE_PRINTF(C, ("after enqueue to token=%p, buf=%p %hd:%hd", 
 			    bufd, bufd->sendbuf, bufd->gm_id, bufd->gm_port));
 	}
@@ -937,7 +952,7 @@ gasnetc_AMReplyLongAsyncM(
 	bufd->rdma_len = nbytes;
 	bufd->dest_addr = (uintptr_t) dest_addr;
 
-	GASNETC_GM_MUTEX_LOCK;
+	gasneti_mutex_lock(&gasnetc_lock_gm);
 	if (gasnetc_token_hi_acquire()) {
         	gasnetc_gm_send_bufd(bufd);
 		bufd->rdma_len = bufd->dest_addr = 0;
@@ -954,7 +969,7 @@ gasnetc_AMReplyLongAsyncM(
 		GASNETC_AMTRACE_ReplyLong(Queued);
 		gasnetc_fifo_insert(bufd);
 	}
-	GASNETC_GM_MUTEX_UNLOCK;
+	gasneti_mutex_unlock(&gasnetc_lock_gm);
 	va_end(argptr);
 	if (retval) return GASNET_OK;
 	else GASNETI_RETURN_ERR(RESOURCE);

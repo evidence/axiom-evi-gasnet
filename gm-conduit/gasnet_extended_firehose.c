@@ -14,6 +14,7 @@
 
 extern uintptr_t	*gasnetc_firehose_buf;
 extern size_t		 gasnetc_firehose_buf_num;
+extern gasneti_mutex_t	 gasnetc_lock_fh_victim;
 
 extern void	gasnetc_bucket_pin_by_addr(uintptr_t, size_t);
 extern void	gasnetc_bucket_unpin_by_addr(uintptr_t, size_t);
@@ -23,19 +24,17 @@ extern void	gasnetc_firehose_decrement_refcount(gasnet_node_t, uintptr_t,
 						    size_t);
 /* ------------------------------------------------------------------------ */
 /* FIFO operations */
-#ifdef GASNETI_THREADS
-gasnetc_lock_t	 gasnete_fifo_lock = GASNETC_LOCK_INITIALIZER;
-#endif
-gasnete_eop_t	*gasnete_fifo_head;
+gasneti_mutex_t	 gasnete_fifo_lock = GASNETI_MUTEX_INITIALIZER;
+gasnete_eop_t	*gasnete_fifo_head = NULL;
 
 GASNET_INLINE_MODIFIER(gasnete_fifo_enqueue)
 void
 gasnete_fifo_enqueue(gasnete_eop_t *eop)
 {
-	gasnetc_lock(&gasnete_fifo_lock);
+	gasneti_mutex_lock(&gasnete_fifo_lock);
 	eop->next = gasnete_fifo_head;
 	gasnete_fifo_head = eop;
-	gasnetc_unlock(&gasnete_fifo_lock);
+	gasneti_mutex_unlock(&gasnete_fifo_lock);
 	return;
 }
 
@@ -45,10 +44,10 @@ gasnete_fifo_dequeue()
 {
 	gasnete_eop_t *eop;
 
-	gasnetc_lock(&gasnete_fifo_lock);
+	gasneti_mutex_lock(&gasnete_fifo_lock);
 	eop = gasnete_fifo_head;
 	gasnete_fifo_head = gasnete_fifo_head->next;
-	gasnetc_unlock(&gasnete_fifo_lock);
+	gasneti_mutex_unlock(&gasnete_fifo_lock);
 	return eop;
 }
 
@@ -120,7 +119,7 @@ gasnete_firehose_callback_pop(struct gm_port *p, void *context,
 {
 	gasnete_eop_t	*pop = (gasnete_eop_t *) context;
 
-	/* XXX gasneti_assert_locked(&gasnetc_gm_lock) */
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(pop != NULL);
 	assert(pop->node < gasnete_nodes);
 	if_pf (status != GM_SUCCESS)
@@ -148,13 +147,13 @@ gasnete_firehose_put_using_directed(gasnet_node_t node, uintptr_t dest,
 	assert(node < gasnete_nodes);
 	assert(nbytes > 0);
 	gasnetc_token_lo_poll_lock();
-	/* gasneti_assert_lock(&gasnetc_gm_lock); */
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	gm_directed_send_with_callback(
 	    _gmc.port, src, (gm_remote_ptr_t) dest,
 	    (unsigned long) nbytes, GM_LOW_PRIORITY,
 	    _gmc.gm_nodes[node].id, _gmc.gm_nodes[node].port,
 	    gasnete_firehose_callback_pop, (void *) pop);
-	gasnetc_unlock(&gasnetc_gm_lock);
+	gasneti_mutex_unlock(&gasnetc_lock_gm);
 	return;
 }
 
@@ -182,7 +181,7 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, size_t nbyt
 	/* Pin locally, incrementing reference counts where necessary */
 	gasnetc_bucket_pin_by_addr((uintptr_t) src, nbytes);
 
-	gasnetc_lock(&gasnetc_victim_lock);
+	gasneti_mutex_lock(&gasnetc_lock_fh_victim);
 	/* May have to regrow the firehose buffer */
 	if (gasnetc_firehose_buf_num < tot_buckets) {
 		if (gasnetc_firehose_buf != NULL)
@@ -216,7 +215,7 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, size_t nbyt
 	/* If we were dealing with implicit put, increment the iop */
 	if (pop->iop != NULL)
 		iop->initiated_put_cnt++;
-	gasnetc_unlock(&gasnetc_victim_lock);
+	gasneti_mutex_unlock(&gasnetc_lock_fh_victim);
 	return ((gasnete_op_t *) pop);
 }
 

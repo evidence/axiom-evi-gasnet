@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.12 2002/08/14 07:18:23 csbell Exp $
- * $Date: 2002/08/14 07:18:23 $
- * $Revision: 1.12 $
+/* $Id: gasnet_core_help.h,v 1.13 2002/08/16 02:11:44 csbell Exp $
+ * $Date: 2002/08/16 02:11:44 $
+ * $Revision: 1.13 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -45,12 +45,19 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define	GASNETC_AM_REPLY	0x00
 #define GASNETC_AM_REQUEST	0x01
 
+#define GASNETC_SYS_SIZE	5
 #define GASNETC_AM_SIZE		16
 #define GASNETC_AM_LEN		(1<<GASNETC_AM_SIZE)
 #define GASNETC_AM_PACKET	(GASNETC_AM_LEN-8)
 
+#define GASNETC_PAGE_SIZE	4096
 #define GASNETC_LONG_OFFSET	4096	/* XXX page size */
-#define GASNETC_SYS_SIZE	5
+#ifdef GASNETC_FIREHOSE
+#define GASNETC_SEGMENT_ALIGN	GASNETC_BUCKET_SIZE
+#else
+#define GASNETC_SEGMENT_ALIGN	GASNETC_PAGE_SIZE
+#endif
+
 #define GASNETC_AM_MAX_ARGS	16
 #define GASNETC_AM_MAX_HANDLERS 256
 /* RROBIN_BUFFERS controls the priority (weighting) for giving buffers
@@ -142,13 +149,6 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
                         (GASNETC_AM_TYPE(buf) == GASNETC_AM_MEDIUM ? "Medium": \
                                 (GASNETC_AM_TYPE(buf) == GASNETC_AM_LONG ?     \
 				 "Long" : "Error!")))
-#define GASNETC_ALIGN(p,P)	((uintptr_t)(p)&~ ((uintptr_t)(P)-1))
-#define GASNETC_GMNODE(id,port) gasnetc_gm_nodes_search(gm_ntoh_u16((id)), \
-				    (uint16_t) gm_ntoh_u8((port)))
-#define GASNETC_ID_FROM_TOKEN(token)	\
-	    (gm_ntoh_u16((gasnetc_bufdesc_t *)(token)->e->recv.sender_node_id))
-#define GASNETC_PORT_FROM_TOKEN(token)	\
-	    (gm_ntoh_u16((gasnetc_bufdesc_t *)(token)->e->recv.sender_port_id))
 /* -------------------------------------------------------------------------- */
 #define GASNETC_ASSERT_AMSHORT(buf, type, handler, args, req) 		\
 	do { 	assert(buf != NULL); 					\
@@ -173,11 +173,8 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 /* -------------------------------------------------------------------------- */
 /* Debug, tracing */
 #ifdef TRACE
-#define _GASNETC_GMNODE_REPLY gasnetc_gm_nodes_search(			       \
-				gm_ntoh_u16((bufd)->e->recv.sender_node_id),   \
-				(uint16_t)                                     \
-				    gm_ntoh_u8((bufd)->e->recv.sender_port_id))
-
+#define _GASNETC_GMNODE_REPLY	gasnetc_gm_nodes_search(bufd->gm_id,           \
+				    bufd->gm_port)
 /* Generic Trace debug for AM handlers (gasnet_core) or elsewhere */
 #define GASNETC_TRACE_SHORT(reqrep, type, dest, token, idx, args)	       \
 		GASNETI_TRACE_PRINTF(C,("%s%s\t%d token=0x%x index=%d args=%d",\

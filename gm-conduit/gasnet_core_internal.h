@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.23 2002/08/15 10:43:15 csbell Exp $
- * $Date: 2002/08/15 10:43:15 $
- * $Revision: 1.23 $
+/* $Id: gasnet_core_internal.h,v 1.24 2002/08/16 02:11:44 csbell Exp $
+ * $Date: 2002/08/16 02:11:44 $
+ * $Revision: 1.24 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -147,23 +147,6 @@ struct gasnetc_token {
 }
 gasnetc_token_t;
 
-/* GM locks, abstract over pthread_mutex_t mainly for debugging purposes */
-typedef
-struct _gasnetc_lock {
-	pthread_mutex_t	mutex;
-} gasnetc_lock_t;
-
-#ifdef GASNETI_THREADS
-#define GASNETC_LOCK_INITIALIZER	{ PTHREAD_MUTEX_INITIALIZER }
-#define gasnetc_lock(lock)
-#define gasnetc_unlock(lock)
-#else
-#define GASNETC_LOCK_INITIALIZER	{ 0 }
-#define gasnetc_lock(lock)
-#define gasnetc_unlock(lock)
-#endif
-
-
 /* Buffer descriptor.  Each DMA-pinned AM buffer has one
  * of these attached to it. */
 #define GASNETC_FLAG_REPLY	0x01
@@ -259,37 +242,10 @@ gasnetc_nodeid(gasnet_node_t node)
 }
 
 /* -------------------------------------------------------------------------- */
-#ifdef GASNETI_THREADS
-extern pthread_mutex_t	_gasnetc_lock_gm;
-extern pthread_mutex_t	_gasnetc_lock_reqfifo;
-extern pthread_mutex_t	_gasnetc_lock_amreq;
-#ifdef DEBUG
-#define _GASNETC_MUTEX_LOCK(m) do { \
-		int ret = pthread_mutex_lock(&m); assert(!ret); } while (0)
-#define _GASNETC_MUTEX_UNLOCK(m) do { \
-		int ret = pthread_mutex_unlock(&m); assert(!ret); } while (0)
-#else
-#define _GASNETC_MUTEX_LOCK(m) pthread_mutex_lock(&m)
-#define _GASNETC_MUTEX_UNLOCK(m) pthread_mutex_unlock(&m)
-#endif
-#define GASNETC_GM_MUTEX_LOCK	_GASNETC_MUTEX_LOCK(_gasnetc_lock_gm)
-#define GASNETC_GM_MUTEX_UNLOCK _GASNETC_MUTEX_UNLOCK(_gasnetc_lock_gm)
-#define GASNETC_REQUEST_POOL_MUTEX_LOCK \
-		_GASNETC_MUTEX_LOCK(_gasnetc_lock_reqfifo)
-#define GASNETC_REQUEST_POOL_MUTEX_UNLOCK \
-		_GASNETC_MUTEX_UNLOCK(_gasnetc_lock_reqfifo)
-#define GASNETC_AMMEDIUM_REQUEST_MUTEX_LOCK \
-		_GASNETC_MUTEX_LOCK(_gasnetc_lock_amreq)
-#define GASNETC_AMMEDIUM_REQUEST_MUTEX_UNLOCK \
-		_GASNETC_MUTEX_UNLOCK(_gasnetc_lock_amreq)
-#else
-#define GASNETC_GM_MUTEX_LOCK
-#define GASNETC_GM_MUTEX_UNLOCK
-#define GASNETC_REQUEST_POOL_MUTEX_LOCK
-#define GASNETC_REQUEST_POOL_MUTEX_UNLOCK
-#define GASNETC_AMMEDIUM_REQUEST_MUTEX_LOCK
-#define GASNETC_AMMEDIUM_REQUEST_MUTEX_UNLOCK
-#endif 
+/* Core locks */
+extern gasneti_mutex_t	gasnetc_lock_gm;
+extern gasneti_mutex_t	gasnetc_lock_reqpool;
+extern gasneti_mutex_t	gasnetc_lock_amreq;
 
 /* -------------------------------------------------------------------------- */
 /* The following function and macro definitions are related to token
@@ -317,7 +273,7 @@ GASNET_INLINE_MODIFIER(gasnetc_token_hi_acquire)
 int
 gasnetc_token_hi_acquire()
 {
-	/* XXX gasneti_assert_locked(gasnetc_gm_lock) */
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	if (GASNETC_TOKEN_HI_AVAILABLE()) {
 		_gmc.stoks.hi += 1;
 		_gmc.stoks.total += 1;
@@ -332,12 +288,13 @@ GASNET_INLINE_MODIFIER(gasnetc_token_hi_poll)
 void
 gasnetc_token_hi_poll()
 {
+	gasneti_mutex_assertunlocked(&gasnetc_lock_gm);
 	while (1) {
 		if (GASNETC_TOKEN_HI_AVAILABLE()) {
-			gasnetc_lock(&gasnetc_gm_lock);
+			gasneti_mutex_lock(&gasnetc_lock_gm);
 			if (gasnetc_token_hi_acquire())
 				return;
-			gasnetc_unlock(&gasnetc_gm_lock);
+			gasneti_mutex_unlock(&gasnetc_lock_gm);
 		}
 		gasnetc_AMPoll();
 	}
@@ -347,7 +304,7 @@ GASNET_INLINE_MODIFIER(gasnetc_token_hi_release)
 void
 gasnetc_token_hi_release()
 {
-	/* XXX gasneti_assert_locked(&gasnetc_gm_lock) */
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert((_gmc.stoks.hi-1 >= 0) && (_gmc.stoks.total-1 >= 0));
 	_gmc.stoks.hi -= 1;
 	_gmc.stoks.total -= 1;
@@ -357,7 +314,7 @@ GASNET_INLINE_MODIFIER(gasnetc_token_lo_acquire)
 int
 gasnetc_token_lo_acquire()
 {
-	/* XXX gasneti_assert_locked(gasnetc_gm_lock) */
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	if (GASNETC_TOKEN_LO_AVAILABLE()) {
 		_gmc.stoks.lo += 1;
 		_gmc.stoks.total += 1;
@@ -372,15 +329,15 @@ GASNET_INLINE_MODIFIER(gasnetc_token_lo_poll)
 void
 gasnetc_token_lo_poll()
 {
-	/* XXX gasneti_assert_unlocked(gasnetc_gm_lock) */
+	gasneti_mutex_assertunlocked(&gasnetc_lock_gm);
 	while (1) {
 		if (GASNETC_TOKEN_LO_AVAILABLE()) {
-			gasnetc_lock(&gasnetc_gm_lock);
+			gasneti_mutex_lock(&gasnetc_lock_gm);
 			if (gasnetc_token_lo_acquire()) {
-				gasnetc_unlock(&gasnetc_gm_lock);
+				gasneti_mutex_unlock(&gasnetc_lock_gm);
 				return;
 			}
-			gasnetc_unlock(&gasnetc_gm_lock);
+			gasneti_mutex_unlock(&gasnetc_lock_gm);
 		}
 		gasnetc_AMPoll();
 	}
@@ -390,13 +347,13 @@ GASNET_INLINE_MODIFIER(gasnetc_token_lo_poll_lock)
 void
 gasnetc_token_lo_poll_lock()
 {
-	/* XXX gasneti_assert_unlocked(gasnetc_gm_lock) */
+	gasneti_mutex_assertunlocked(&gasnetc_lock_gm);
 	while (1) {
 		if (GASNETC_TOKEN_LO_AVAILABLE()) {
-			gasnetc_lock(&gasnetc_gm_lock);
+			gasneti_mutex_lock(&gasnetc_lock_gm);
 			if (gasnetc_token_lo_acquire())
 				return;
-			gasnetc_unlock(&gasnetc_gm_lock);
+			gasneti_mutex_unlock(&gasnetc_lock_gm);
 		}
 		gasnetc_AMPoll();
 	}
@@ -406,7 +363,7 @@ GASNET_INLINE_MODIFIER(gasnetc_token_lo_release)
 void
 gasnetc_token_lo_release()
 {
-	/* XXX gasneti_assert_locked(gasnetc_gm_lock) */
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert((_gmc.stoks.lo-1 >= 0) && (_gmc.stoks.total-1 >= 0));
 	_gmc.stoks.lo -= 1;
 	_gmc.stoks.total -= 1;
@@ -427,11 +384,10 @@ gasnetc_bufdesc_from_token(gasnet_token_t token)
 
 	bufd = (gasnetc_bufdesc_t *) token;
 	assert(bufd != NULL);
-	assert(bufd->e != NULL);
+	assert(bufd->gm_id > 0);
     	GASNETC_BUFDESC_FLAG_SET(bufd->flag, GASNETC_FLAG_REPLY);
 	if (bufd->flag & GASNETC_FLAG_AMREQUEST_MEDIUM) {
-    		GASNETC_AMMEDIUM_REQUEST_MUTEX_LOCK; 
-		_gmc.AMReplyBuf->e = bufd->e;
+		gasneti_mutex_lock(&gasnetc_lock_amreq);
 		_gmc.AMReplyBuf->gm_id = bufd->gm_id;
 		_gmc.AMReplyBuf->gm_port = bufd->gm_port;
 		return _gmc.AMReplyBuf;
@@ -444,6 +400,7 @@ GASNET_INLINE_MODIFIER(gasnetc_relinquish_AMReply_buffer)
 void
 gasnetc_relinquish_AMReply_buffer()
 {
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	_gmc.rtoks.hi--;
 	assert(_gmc.rtoks.hi >= 0);
 }
@@ -451,6 +408,7 @@ GASNET_INLINE_MODIFIER(gasnetc_relinquish_AMRequest_buffer)
 void
 gasnetc_relinquish_AMRequest_buffer()
 {
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	_gmc.rtoks.lo--;
 	assert(_gmc.rtoks.lo >= 0);
 }
@@ -458,14 +416,11 @@ GASNET_INLINE_MODIFIER(gasnetc_provide_AMReply_buffer)
 void
 gasnetc_provide_AMReply_buffer(void *buf)
 {
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	GASNETC_ASSERT_BUFDESC_PTR(GASNETC_BUFDESC_PTR(buf),buf);
-	GASNETI_TRACE_PRINTF(C, ("provide_receive_buffer_hi = %p", buf));
 	gm_provide_receive_buffer(_gmc.port, buf, GASNETC_AM_SIZE,
 			GM_HIGH_PRIORITY);
 	_gmc.rtoks.hi++;
-	/*
-	GASNETI_TRACE_PRINTF(C, ("rtoks.hi = %d, buf=%p", _gmc.rtoks.hi, buf));
-	*/
 	assert(_gmc.rtoks.hi < _gmc.rtoks.max);
 }
 
@@ -473,15 +428,11 @@ GASNET_INLINE_MODIFIER(gasnetc_provide_AMRequest_buffer)
 void
 gasnetc_provide_AMRequest_buffer(void *buf)
 {
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	GASNETC_ASSERT_BUFDESC_PTR(GASNETC_BUFDESC_PTR(buf),buf);
-	GASNETI_TRACE_PRINTF(C, ("provide_receive_buffer_lo = %p", buf));
 	gm_provide_receive_buffer(_gmc.port, buf, GASNETC_AM_SIZE,
 			GM_LOW_PRIORITY);
 	_gmc.rtoks.lo++;
-	/*
-	GASNETI_TRACE_PRINTF(C, ("rtoks.lo = %d, bufd = %p", _gmc.rtoks.lo,
-	    buf));
-	 */
 	assert(_gmc.rtoks.lo < _gmc.rtoks.max);
 }
 	
@@ -496,6 +447,7 @@ gasnetc_gm_send_bufd(gasnetc_bufdesc_t *bufd)
 	uint32_t	len;
 	gm_send_completion_callback_t	callback;
 
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(bufd != NULL);
 	assert(bufd->sendbuf != NULL);
 	assert(bufd->len > 0);
@@ -548,6 +500,7 @@ gasnetc_gm_send_AMRequest(void *buf, size_t len,
 		void *callback_ptr,
 		uintptr_t dest_addr)
 {
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(buf != NULL);
 	assert(id > 0);
 	assert(callback != NULL);
@@ -585,6 +538,7 @@ gasnetc_gm_send_AMSystem(void *buf, size_t len,
 		gm_send_completion_callback_t callback,
 		void *callback_ptr)
 {
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(buf != NULL);
 	assert(len >= 1); 
 	assert(id > 0);
@@ -646,6 +600,7 @@ GASNET_INLINE_MODIFIER(gasnetc_fifo_remove)
 void
 gasnetc_fifo_remove()
 {
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(_gmc.fifo_bd_head != NULL);
 	assert(_gmc.fifo_bd_tail != NULL);
 
@@ -659,7 +614,7 @@ GASNET_INLINE_MODIFIER(gasnetc_fifo_insert)
 void
 gasnetc_fifo_insert(gasnetc_bufdesc_t *bufd)
 {
-	/* Insert at end of queue and update head/tail */
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(bufd != NULL);
 	assert(bufd->gm_id > 0);
 	bufd->next = NULL;
@@ -683,7 +638,7 @@ void
 gasnetc_fifo_progress()
 {
 	while (gasnetc_fifo_head() && GASNETC_TOKEN_HI_AVAILABLE()) {
-		GASNETC_GM_MUTEX_LOCK;
+		gasneti_mutex_lock(&gasnetc_lock_gm);
 		if_pt (gasnetc_token_hi_acquire()) { 
 			gasnetc_bufdesc_t *bufd = gasnetc_fifo_head();
 			assert(bufd->gm_id > 0);
@@ -703,7 +658,7 @@ gasnetc_fifo_progress()
 		else 
 			GASNETI_TRACE_PRINTF(C, 
 			    ("gasnetc_fifo_progress() lock interrupted.\n"));
-		GASNETC_GM_MUTEX_UNLOCK;
+		gasneti_mutex_unlock(&gasnetc_lock_gm);
 	}
 }
 
@@ -808,7 +763,7 @@ gasnetc_write_AMBufferBulk(void *dest, void *src, size_t nbytes)
 	return;
 }
 /* -------------------------------------------------------------------------- */
-/* Few utility functions which are nice inlined */
+/* Few utility functions which are nice inlined, alloca _MUST_ be inlined */
 GASNET_INLINE_MODIFIER(gasnetc_alloca)
 void *
 gasnetc_alloca(size_t nbytes)

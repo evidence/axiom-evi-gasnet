@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.19 2002/08/08 06:53:26 csbell Exp $
- * $Date: 2002/08/08 06:53:26 $
- * $Revision: 1.19 $
+/* $Id: gasnet_core_misc.c,v 1.20 2002/08/16 02:11:44 csbell Exp $
+ * $Date: 2002/08/16 02:11:44 $
+ * $Revision: 1.20 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -21,26 +21,24 @@ int
 gasnetc_mmap_segment_search(gasnet_seginfo_t *segment, size_t len, 
 		size_t offset)
 {
-	size_t	pagesize;
 	size_t	newlen;
 	void	*mmap_addr;
-
-#if GASNETC_MMAP_DEBUG_VERBOSE
+	#if GASNETC_MMAP_DEBUG_VERBOSE
 	gasneti_stattime_t	t1, t2;
-#endif
+	#endif
+
 	assert(segment != NULL);
 	assert(len > 0);
 	assert(offset > 0);
 
-	pagesize = gasneti_getSystemPageSize();
-#if GASNETC_MMAP_DEBUG_VERBOSE
+	#if GASNETC_MMAP_DEBUG_VERBOSE
 	t1 = GASNETI_STATTIME_NOW();
-#endif
+	#endif
 	mmap_addr = 
 	    mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
-#if GASNETC_MMAP_DEBUG_VERBOSE
+	#if GASNETC_MMAP_DEBUG_VERBOSE
 	t2 = GASNETI_STATTIME_NOW();
-#endif
+	#endif
 	if (mmap_addr == MAP_FAILED) {
 		if (errno != ENOMEM) {
 			char str[_BUFSZ+1];
@@ -48,32 +46,38 @@ gasnetc_mmap_segment_search(gasnet_seginfo_t *segment, size_t len,
 			    strerror(errno));
 			GASNETI_RETURN_ERRR(RESOURCE, str);
 		}
-#if GASNETC_MMAP_DEBUG_VERBOSE
-		GASNETC_DPRINTF(("mmap(%d MBytes) %dus FAILED: %s\n", len>>20, 
+		#if GASNETC_MMAP_DEBUG_VERBOSE
+		GASNETC_DPRINTF(("mmap(%d MBytes,off=%d) %dus FAILED: %s\n", 
+		   len>>20, offset,
 		   (unsigned int) GASNETI_STATTIME_TO_US(t2-t1), 
 		   strerror(errno)) );
-#endif
-		newlen = GASNETI_PAGE_ROUNDUP(len - offset, pagesize);
-		return gasnetc_mmap_segment_search(segment, newlen, offset/2);
+		#endif
+		if (segment->addr > 0)
+			offset /= 2;
+		else if (offset <= GASNETC_MMAP_GRANULARITY)
+			return GASNET_ERR_RESOURCE;
+		/* Unless we've already found a working segment, don't narrow
+		 * in a smaller segment yet */
+		newlen = 
+		    GASNETI_PAGE_ROUNDUP(len-offset, GASNETC_SEGMENT_ALIGN);
 	}
 	else {
-#if GASNETC_MMAP_DEBUG_VERBOSE
-		GASNETC_DPRINTF(("mmap(%d MBytes) %dus = 0x%x\n", len>>20, 
+		#if GASNETC_MMAP_DEBUG_VERBOSE
+		GASNETC_DPRINTF(("mmap(%d MBytes,off=%d) %dus = 0x%x\n", 
+		    len>>20, offset,
 		    (unsigned int) GASNETI_STATTIME_TO_US(t2-t1), 
 		    (uintptr_t) mmap_addr) ); 
-#endif
-		if (offset <= GASNETC_MMAP_GRANULARITY) {
-			segment->addr = mmap_addr;
-			segment->size = (uintptr_t) len;
+		#endif
+		segment->addr = mmap_addr;
+		segment->size = (uintptr_t) len;
+		if (offset <= GASNETC_MMAP_GRANULARITY)
 			return GASNET_OK;
-		}
-		else {
-			munmap (mmap_addr, len);
-			newlen = GASNETI_PAGE_ROUNDUP(len+offset, pagesize);
-			return 
-			    gasnetc_mmap_segment_search(segment, newlen, offset/2);
-		}
+		munmap (mmap_addr, len);
+		offset /= 2;
+		newlen = 
+		    GASNETI_PAGE_ROUNDUP(len+offset, GASNETC_SEGMENT_ALIGN);
 	}
+	return gasnetc_mmap_segment_search(segment, newlen, offset);
 }
 
 int
@@ -257,19 +261,18 @@ gasnetc_tokensend_AMRequest(void *buf, uint32_t len,
 		while (!GASNETC_TOKEN_LO_AVAILABLE())
 			gasnetc_AMPoll();
 
-		GASNETC_GM_MUTEX_LOCK;
+		gasneti_mutex_lock(&gasnetc_lock_gm);
 		/* assure last poll was successful */
 		if (GASNETC_TOKEN_LO_AVAILABLE()) {
 			gasnetc_gm_send_AMRequest(buf, len, id, port, callback,
 			    callback_ptr, dest_addr);
 			_gmc.stoks.lo += 1;
 			_gmc.stoks.total += 1;
-			GASNETC_GM_MUTEX_UNLOCK;
+			gasneti_mutex_unlock(&gasnetc_lock_gm);
 			sent = 1;
 		}
-		else {
-			GASNETC_GM_MUTEX_UNLOCK;
-		}
+		else 
+			gasneti_mutex_unlock(&gasnetc_lock_gm);
 	}
 }
 
@@ -286,7 +289,7 @@ gasnetc_AMRequestPool_block()
 		while (_gmc.reqs_pool_cur < 0)
 			gasnetc_AMPoll();
 
-		GASNETC_REQUEST_POOL_MUTEX_LOCK;
+		gasneti_mutex_lock(&gasnetc_lock_reqpool);
 		if_pt (_gmc.reqs_pool_cur >= 0) {
 			bufd_idx = _gmc.reqs_pool[_gmc.reqs_pool_cur];
 			GASNETI_TRACE_PRINTF(C,
@@ -294,10 +297,10 @@ gasnetc_AMRequestPool_block()
 	    		    _gmc.reqs_pool_cur, _gmc.reqs_pool_max,
 	    		    _gmc.reqs_pool[_gmc.reqs_pool_cur]));
 			_gmc.reqs_pool_cur--;
-			GASNETC_REQUEST_POOL_MUTEX_UNLOCK;
+			gasneti_mutex_unlock(&gasnetc_lock_reqpool);
 		}
 		else 
-			GASNETC_REQUEST_POOL_MUTEX_UNLOCK;  /* can't get bufd */
+			gasneti_mutex_unlock(&gasnetc_lock_reqpool);
 	}
 	assert(bufd_idx < _gmc.bd_list_num);
 	assert(_gmc.bd_ptr[bufd_idx].sendbuf != NULL);
@@ -313,9 +316,9 @@ gasnetc_SysBarrier()
 	int		count = 1;
 	uintptr_t	*scratchPtr;
 
-	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
 	assert(scratchPtr != NULL);
-
+	gasneti_mutex_lock(&gasnetc_lock_gm);
+	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
 	if (gasnetc_mynode == 0) {
 		while (count < gasnetc_nodes) {
 			gm_provide_receive_buffer(_gmc.port, 
@@ -328,7 +331,6 @@ gasnetc_SysBarrier()
 		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, BARRIER_NOTIFY);
 		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 1,
 		    gasnetc_callback_AMReply_NOP, NULL, 0);
-		return;
 	}
 	else {
 		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, BARRIER_GATHER);
@@ -347,8 +349,9 @@ gasnetc_SysBarrier()
 		    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
 		if (gasnetc_SysPoll(NULL) != BARRIER_NOTIFY)
 			gasneti_fatalerror("expected BARRIER_NOTIFY, fatal");
-		return;
 	}
+	gasneti_mutex_unlock(&gasnetc_lock_gm);
+	return;
 }
 			
 /* Again, not thread-safe for the same reasons as above. */
@@ -361,6 +364,7 @@ gasnetc_gm_send_AMSystem_broadcast(void *buf, size_t len,
 	int			token_hi;
 	gasnetc_sysmsg_t	sysmsg;
 
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(buf != NULL);
 	assert(len >= 1);
 	assert(callback != NULL);
@@ -405,11 +409,10 @@ uintptr_t
 gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
 {
 	uintptr_t		*scratchPtr;
-	size_t			pagesize;
 	gasnet_seginfo_t	seginfo; 
 
+	gasneti_mutex_lock(&gasnetc_lock_gm);
 	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
-	pagesize = gasneti_getSystemPageSize();
 
 	if (gasnetc_mynode == 0) {
 		int count = 1;
@@ -432,7 +435,8 @@ gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
 			count++;
 		}
 
-		segceil = (uintptr_t) GASNETI_PAGE_ALIGN(segceil, pagesize);
+		segceil = 
+		    (uintptr_t) GASNETI_PAGE_ALIGN(segceil, GASNETC_PAGE_SIZE);
 		segsize = segceil - (uintptr_t)segbase;
 		if (segceil < (uintptr_t) segbase)
 			segsize = 0;
@@ -445,7 +449,6 @@ gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
 		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
 		    3*sizeof(uintptr_t), gasnetc_callback_AMReply_NOP, 
 		    NULL, 0);
-		return segsize;
 	}
 	else {
 		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
@@ -473,8 +476,9 @@ gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
 		segsize = seginfo.size;
 		GASNETI_TRACE_PRINTF(C, ("MaxGlobalSegmentSize = %d at 0x%x\n", 
 		    segsize, (uintptr_t)segbase) );
-		return segsize;
 	}
+	gasneti_mutex_unlock(&gasnetc_lock_gm);
+	return segsize;
 }
 
 int
@@ -485,6 +489,7 @@ gasnetc_gather_seginfo(gasnet_seginfo_t *seginfo)
 
 	assert(seginfo != NULL);
 
+	gasneti_mutex_lock(&gasnetc_lock_gm);
 	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
 	if (gasnetc_mynode == 0) {
 		int count = 1, i;
@@ -506,7 +511,6 @@ gasnetc_gather_seginfo(gasnet_seginfo_t *seginfo)
 		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
 		    (gasnetc_nodes+1)*sizeof(uintptr_t), 
 		    gasnetc_callback_AMReply_NOP, NULL, 0);
-		return GASNET_OK;
 	}
 	else {
 		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
@@ -527,8 +531,9 @@ gasnetc_gather_seginfo(gasnet_seginfo_t *seginfo)
 		    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
 		if (gasnetc_SysPoll((void *) seginfo) != SEGINFO_BROADCAST)
 			gasneti_fatalerror("expected SEGINFO_BROADCAST, fatal");
-		return GASNET_OK;
 	}
+	gasneti_mutex_unlock(&gasnetc_lock_gm);
+	return GASNET_OK;
 }
 
 uintptr_t
@@ -538,6 +543,7 @@ gasnetc_segment_sbrk(uintptr_t sbrk_local_aligned)
 	uintptr_t	sbrk_global;
 	size_t		pagesize;
 
+	gasneti_mutex_lock(&gasnetc_lock_gm);
 	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
 	pagesize = gasneti_getSystemPageSize();
 
@@ -563,7 +569,7 @@ gasnetc_segment_sbrk(uintptr_t sbrk_local_aligned)
 		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
 		    2*sizeof(uintptr_t), gasnetc_callback_AMReply_NOP, 
 		    NULL, 0);
-
+		gasneti_mutex_unlock(&gasnetc_lock_gm);
 		return sbrk_high;
 	}
 	else {
@@ -586,6 +592,7 @@ gasnetc_segment_sbrk(uintptr_t sbrk_local_aligned)
 		if (gasnetc_SysPoll((void *) &sbrk_global) != SBRK_BASE)
 			gasneti_fatalerror("expected SBRK_BASE, fatal");
 		GASNETI_TRACE_PRINTF(C, ("SBRK HIGH = 0x%x\n", sbrk_global) );
+		gasneti_mutex_unlock(&gasnetc_lock_gm);
 		return sbrk_global;
 	}
 }
