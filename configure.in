@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/04/28 19:56:21 $
-# $Revision: 1.134 $
+#     $Date: 2004/05/01 14:18:49 $
+# $Revision: 1.135 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.134 $)
+AC_REVISION($Revision: 1.135 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -573,6 +573,17 @@ AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
 ## Solaris threads
 
 AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
+
+AC_MSG_CHECKING(for x86 pause instruction)
+AC_TRY_COMPILE([], [
+  #if defined(__i386__) || defined(__x86_64__) || defined(__ia64__)
+    __asm__ __volatile__ ("pause" : : : "memory");
+  #else
+    #error wrong CPU architecture
+  #endif
+], [AC_DEFINE(HAVE_X86_PAUSE_INSTRUCTION)
+    AC_MSG_RESULT(yes)
+], [AC_MSG_RESULT(no)])
 
 #---------------------------------------------------------------------------------------------------------------
 # Check for overrides of compile-time checks for SMPs

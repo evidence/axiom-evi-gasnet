@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/05/01 11:59:25 $
- * $Revision: 1.35 $
+ *     $Date: 2004/05/01 14:18:49 $
+ * $Revision: 1.36 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -557,12 +557,6 @@
      #endif
    }
  #endif
- /* Pentium 4 processors get measurably better performance when a "pause" instruction
-    is inserted in spin-loops - this instruction is documented as a "spin-loop hint"
-    which avoids a memory hazard stall on spin loop exit and reduces power consumption
-    Other Intel CPU's treat this instruction as a no-op
-  */
- #define gasneti_spinloop_hint() GASNETI_ASM("pause")
 #elif defined(__x86_64__) /* Athlon/Opteron */
  #if defined(GASNETI_UNI_BUILD)
    /* Prevent compiler from reordering across this point. */
@@ -577,7 +571,6 @@
      GASNETI_ASM("mfence");
    }
  #endif
- #define gasneti_spinloop_hint() GASNETI_ASM("pause")
 #elif defined(__ia64__) /* Itanium */
  #if defined(GASNETI_UNI_BUILD)
    /* Prevent compiler from reordering across this point. */
@@ -601,7 +594,6 @@
       }
    #endif
  #endif
- #define gasneti_spinloop_hint() GASNETI_ASM("pause")
 #elif defined(_POWER) /* IBM SP POWER2, POWER3 */
  #ifdef __xlC__
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
@@ -663,7 +655,16 @@
 #endif
 
 #ifndef gasneti_spinloop_hint
-  #define gasneti_spinloop_hint() ((void)0)
+ #ifdef HAVE_X86_PAUSE_INSTRUCTION
+   /* Pentium 4 processors get measurably better performance when a "pause" instruction
+      is inserted in spin-loops - this instruction is documented as a "spin-loop hint"
+      which avoids a memory hazard stall on spin loop exit and reduces power consumption
+      Other Intel CPU's treat this instruction as a no-op
+   */
+   #define gasneti_spinloop_hint() GASNETI_ASM("pause")
+ #else
+   #define gasneti_spinloop_hint() ((void)0)
+ #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/04/10 08:39:35 $ */
-/*  $Revision: 1.27 $ */
+/*      $Date: 2004/05/01 14:18:49 $ */
+/*  $Revision: 1.28 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -42,6 +42,9 @@
 
 /* has pthread_kill_other_threads_np() */
 #undef HAVE_PTHREAD_KILL_OTHER_THREADS_NP
+
+/* have pause instruction, only relevant on Pentium4 */
+#undef HAVE_X86_PAUSE_INSTRUCTION
 
 /* has __builtin_expect */
 #undef HAVE_BUILTIN_EXPECT
