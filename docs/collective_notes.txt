@@ -51,7 +51,8 @@ makes them superior to pairwise synchronization.)
 
 *** 11) Must be suitable for implementing the collective support
 required by Titanium (which may include future extensions to utilize
-the new GASNet support) and Co-Array FORTRAN.
+the new GASNet support) and Co-Array FORTRAN.  Suitability for
+implementing the MPI collectives is also valuable, but not crucial.
 
 *** 12) Should provide support for aggregating the message and
 synchronization traffic of separate in-flight collectives, both within
@@ -393,19 +394,6 @@ source to a gather or gather_all, or different sized dest to a scatter
 "v" extension to the current two-flavor proposal.
 
 
-* OPEN ISSUE: Computational collectives
-
-Other than "aligned data w/ bulk lifetime" we've not specified
-anything for reduce, prefix_reduce or sort.  An issue to be aware of
-is that the UPC collectives spec allows for unequal contributions from
-nodes.
-
-DOB: we really need to sketch out the basic interface for the
-computational collectives before we get to deeply entrenched in the
-data movement collectives and have no way to reconcile the two.
-
-
-
 * OPEN ISSUE: Progress
 
 In-flight collectives should be guaranteed to make progress, provided
@@ -441,6 +429,12 @@ when trying to extend GASNet for teams.
 
 * OPEN ISSUE: Computational collectives (reduce, prefix reduce and sort).
 
+** Data lifetime and alignment
+
+Like the other collectives we want bulk lifetimes for both data and
+metadata.  Unlike the other collective operations, we require that the
+data be properly aligned for its type.
+
 ** Typed or untyped interface
 
 I am inclined toward an untyped interface in which the client provides
@@ -456,14 +450,50 @@ In the case of a cyclic array layout each block contains only a single
 data element and there will be a single call to the client-provided
 function.  However, in the case of block and block cyclic layouts
 there is a choice between a simple interface that requires N calls to
-the (prefix) reduction function, and a slightly more complicated one
-which would make a single call to perform the (prefix) reduction on an
+the (prefix) reduction function, and a more complicated one which
+would make a single call to perform the (prefix) reduction on an
 entire block.  I am in favor of this blocked interface.  The choice of
 an untyped interface already requires passing of pointers to data
-elements, so the blocked interface need only add one argument to
-indicate the size of the block.
+elements, so the blocked interface need only add arguments to indicate
+the size(s) of the block(s).
 
-** Function interface
+This interface has the added advantage of placing the function call
+*outside* the computing loops.  This means that we should be able to
+get compiler optimization of the inner reduction loops.  This includes
+vectorization on some platforms, and things like loop unrolling,
+software pipelining and SIMD floating point on others.
+
+We can easily allow for full generality of the implementation by
+making no assumptions about the number of partial reductions which
+might be present at any stage of the computation.  Thus we would want
+to support an arbitrary number of left-hand and right-hand operands.
+This leads to a simple interface with two pointers to vectors of
+operands and two scalars giving the vector lengths.  Since a reduction
+or prefix reduction might not need both operands, we can reduce the
+complexity slightly by saying that the vector of left-hand operands is
+optional (may have zero elements), but the right-hand operand vector
+is always non-empty.  This is the natural choice for a
+prefix-reduction since there are never "optional" right-hand operands.
+
+Note that a prefix reduction function, when called with exactly one
+right-hand argument is semantically identical to a reduction,
+producing one result which is the reduction of the concatenation of
+the left and right-hand vectors.
+
+We should keep a single signature for both commutative and
+non-commutative operators so that we can pass the function pointers
+through the same call.  However, the use of an untyped interface
+already forces use of (void *) to point to operands and result
+buffers, to this should mostly be an issue of knowing how to interpret
+the args.
+
+I think it "best practice" to have the client pass distinct function
+pointers for reductions vs. prefix-reduction, but to help avoid
+ambiguity and to enable some debugging, we can trivially encode
+commutative vs. non-commutative and reduce vs. prefix reduce into
+flags.
+
+** Function vs. AM interface
 
 There is nothing in the UPC spec that would prohibit the app-provided
 function from accessing remote memory.  Therefore I think we must NOT
@@ -476,7 +506,131 @@ In the case of UPC_FUNC and UPC_NONCOMM_FUNC that argument might be
 the application-provided function, so the client can implement the
 block-level looping described above.  For the rest of the
 UPC-specified operations, I envision upcr having one reduction
-function per type and using the void * argument to carry the upc_op_t.
+function per type and using the (void *) argument to carry the upc_op_t.
+
+** (Prefix) Reduction Functions
+
+Following the ideas above leads to this prototype:
+
+/* For flags to the reduce_fn: */
+#define GASNET_COLL_OP_REDUCE		???
+#define GASNET_COLL_OP_PREFIX_REDUCE	???
+#define GASNET_COLL_OP_COMM		???
+#define GASNET_COLL_OP_NONCOMM		???
+
+typedef void
+	(gasnet_coll_reduce_fn)(void *results,
+				const void *left_operands, size_t left_count,
+				const void *right_operands, size_t right_count,
+				int flags, void *arg);
+	results: Output array
+		This argument is the address of the space into which the
+		result(s) should be written.
+		For a reduction there is exactly one result.
+		For a prefix reduction, there are 'right_count' results.
+	left_operands: Optional left-hand operand array
+		This argument is the address of 0 or more operands which lie
+		to the left of those given by the 'right_operands' argument.
+		The number of operands in this array is given by the
+		'left_count' argument.  If 'left_count' is zero then this
+		argument is ignored.
+	left_count: Left-hand operand count
+		The number of operands in the 'left_operands' array.
+	right_operands: Right-hand operand array
+		This argument is the address of 1 or more operands which lie
+		to the right of those given by the 'left_operands' argument.
+		The number of operands in this array is given by the
+		'right_count' argument.
+	right_count: Right-hand operand count
+		The number of operands in the 'right_operands' array.
+		This argument must be non-zero.
+	flags: Flag values
+		This argument gives information about the operation and
+		is composed of a bitwise or of values..
+		The value of 'flags' will include either GASNET_COLL_OP_REDUCE
+		or GASNET_COLL_OP_PREFIX.
+		The value of 'flags' will include either GASNET_COLL_OP_COMM
+		or GASNET_COLL_OP_NONCOMM.
+		The remaining bits of 'flags' are reserved for future use and
+		the client must not assume they will have any particular
+		value.
+	arg: Client-supplied argument
+		This is the opaque argument passed into the collective
+		initiation function by the client.
+
+Here is an example for a reduction (summation of integers), which takes
+(slight) advantage of commutativity to start with the right-hand operands,
+knowing that they must be non-empty:
+
+void summation_example( void *results,
+			const void *left_operands, size_t left_count,
+			const void *right_operands, size_t right_count,
+			int flags, void *arg)
+{
+	int *left = (int *)left_operands;
+	int *right = (int *)right_operands;
+	int sum;
+	int i;
+	
+	assert(flags & GASNET_COLL_OP_REDUCE);
+	assert(flags & GASNET_COLL_OP_COMM);
+	assert((left_count == 0) || (left_operands != NULL));
+	assert(right_count != 0);
+	assert(right_operands != NULL);
+
+	sum = right[0];
+	for (i = 1; i < right_count; ++i) sum += right[i];
+	for (i = 0; i < left_count;  ++i) sum += left[i];
+
+	*(int *)results = sum;
+}
+
+Here is an example where we call a non-commutative function on doubles
+to perform a prefix reduction.  Note that the application-provided
+function is passed "over" gasnet in the "arg".
+		
+void noncomm_prefix_example(void *results,
+			    const void *left_operands, size_t left_count,
+			    const void *right_operands, size_t right_count,
+			    int flags, void *arg)
+{
+	double (*func)(double, double) = (double (*)(double, double))arg;
+	double *output = (double *)results;
+	double *left = (double *)left_operands;
+	double *right = (double *)right_operands;
+	double tmp;
+	int i;
+
+	assert(flags & GASNET_COLL_OP_PREFIX);
+	assert(flags & GASNET_COLL_OP_NONCOMM);
+	assert((left_count == 0) || (left_operands != NULL));
+	assert(right_count != 0);
+	assert(right_operands != NULL);
+
+	/* The computation of the first result will depend on the presence
+	 * or absence of partial reductions from "left neighbors". */
+	if (left_count > 0) {
+		/* Accumulate one or more partial reductions */
+		tmp = left[0];
+		for (i = 1; i < left_count; ++i) {
+			tmp = (*func)(tmp, left[i]);
+		}
+
+		tmp = (*func)(tmp, right[0]);
+	} else {
+		tmp = right[0];
+	}
+	
+	/* Compute and store all the prefix reductions corresponding
+	   to the right-hand operands */
+	output[0] = tmp;
+	for (i = 1; i < right_count; ++i) {
+		tmp = output[i] = (*func)(tmp, right[i]);
+	}
+}
+
+From these 2 examples, one can see how this choice of interface can
+enable vectorization.
 
 ** UPC-imposed complications (data layout)
 
@@ -549,31 +703,26 @@ and would remain an element count for the other cases.
 
 In the UPC spec it is stated that all reduction ops are assumed
 associative and all are assumed commutative except UPC_NONCOMM_FUNC.
-In order to allow for more generality, I hope to specify GASNet as
-taking flags indicating if the operation is commutative and/or
-associative.  However, I expect the initial reference implementation
-will either ignore these flags and always assume the worst case, or
-else will only implement the ASSOCIATIVE=1 case.
+I think we should stay away from non-associative operators and have an
+flag value to indicate commutativity.
+
+This is consistent with MPI which assumes associativity, but urges
+implementers to evaluate things in a predetermined order so that
+multiple runs produce identical results, even in the presence of
+floating-point roundoff.  I would reiterate this advice as advice to
+GASNet implementers as well.
 
 Ex:
 
 Imaging X # Y # Z, where # is some operator implemented by f(.,.).
 
-Let (C={T,F},A={T,F}) denote commutativity and associativity.
+Let C={True,False} denote commutativity
 
-(F,F):
-	No freedom of implementation.
-	We must evaluate this as f(f(X,Y),Z)
-(T,F): 
-        Freedom to switch order of operands, not grouping.
-        Legal options are:
-	    f(f(X,Y), Z)    f(f(Y,X), Z)
-	    f(Z, f(X,Y))    f(Z, f(Y,X))
-(F,T):
+C = False:
 	Freedom to change grouping, but not order.
-	Legal options are f(f(X,Y), Z) and f(X, f(Y,Z))
-(T,T):
-	Full freedom allowing 12 options:
+	Only legal options are f(f(X,Y), Z) and f(X, f(Y,Z))
+C = True:
+	Freedom to change grouping and order, allowing 12 options:
 	    f(f(X,Y),Z)	      f(X,f(Y,Z))
 	    f(f(X,Z),Y)	      f(X,f(Z,Y))
 	    f(f(Y,X),Z)	      f(Y,f(X,Z))
@@ -581,40 +730,23 @@ Let (C={T,F},A={T,F}) denote commutativity and associativity.
 	    f(f(Z,X),Y)	      f(Z,f(X,Y))
 	    f(f(Z,Y),X)	      f(Z,f(Y,X))
 
-UPC allows for the last two options, with non-commutativity (F,T) only
-supported for user-defined functions.
+For operators which are non-commutative (i.e. matrix multiply on
+non-square matrices) we can perform partial reductions over the blocks
+in parallel, but cannot reduce multiple blocks per row on a given node
+w/o communication.  The communication that IS required for a reduction
+can be done in O(log(P)) stages which moves n_elems/blk_sz/P elements
+per node in each stage.  [This is not the only way to do it.]
 
-For non-associative reduction operators we are stuck doing
-O(n_elems/blk_sz/P) "stages", where a stage is defined as computation
-step between communications.  This class of reduction is not possible
-with the UPC specification.  [For a prefix reduction we need the
-partial sums and so are probably forced to perform these same stages
-regardless of the operator.  I still need more info how prefix
-reductions are implemented.]
-
-For associative operators which are non-commutative (i.e. matrix
-multiply on non-square matrices) we can perform partial reductions
-over the blocks in parallel, but cannot reduce multiple blocks per row
-on a given node w/o communication.  The communication that IS required
-for a reduction can be done with a tree in O(log(P)) stages which
-moves n_elems/blk_sz/P elements per node in each stage.  [This is not
-the only way to do it.]
-
-For operators which are both associative and commutative we can reduce
-the multiple blocks on a node to a single scalar before starting
-communication.  We can perform the full reduction in O(log(P)) stages
-requiring only a single scalar communicated per node per stage.
+For operators which are commutative we can reduce the multiple blocks
+on a node to a single scalar before starting communication.  We can
+perform the full reduction in O(log(P)) stages requiring only a single
+scalar communicated per node per stage.
 
 Note that for pure-blocked layout there is no difference between
 commutative and non-commutative operators.  For the case of
 pure-cyclic the difference is the most extreme.
 
 ** Example
-
-typedef void
-	(gasnet_coll_reduce_fn)(void *dst,
-				const void *src1, const void *src2,
-				size_t count, void *arg);
 
 gasnet_coll_handle_t
 gasnet_coll_reduce_nb(
@@ -1128,22 +1260,25 @@ gasneti_cond_wait_mutex(gasneti_cond_t *cond, gasneti_mutex_t *lock)
 
 Broadcast:
 ==========
-  In [Karp93] we learn how to construct an optimal schedule for broadcast.  The
-tree can be built knowing only the ratio A=ELL/max(O_s,g).  Using a heap data
-structure one can determine the tree structure for a P-node broadcast in
-O(log(P!)) time.  Note that O(P) < O(log(P!)) < O(P*log(P)), so the cost to
-construct the schedule grows superlinearly.  However, it doesn't require any
-communiction (deterministic algorithm allows all nodes to compute the same
-schedule independently).
-  For the case of A>>1 the communication is latency dominant and the optimal
-broadcast is the naive one in which the root sends data to each other node in
-sequence.  For the case of A near 1, the optimal tree shape is a Binomial
-tree [Kielmann99].  Here are, for P=8, model results for the "EEL" of a
-broadcast with four different tree shapes on three different networks.  Note
-that these are in us and are directly comparable between networks.  However,
-they are just model results, not real timings.  The "Flat" tree is the
-one-level tree of the naive broadcast.  The percentages are relative to the
-optimal.
+
+In [Karp93] we learn how to construct an optimal schedule for
+broadcast.  The tree can be built knowing only the ratio
+A=ELL/max(O_s,g).  Using a heap data structure one can determine the
+tree structure for a P-node broadcast in O(log(P!)) time.  Note that
+O(P) < O(log(P!)) < O(P*log(P)), so the cost to construct the schedule
+grows superlinearly.  However, it doesn't require any communication
+(deterministic algorithm allows all nodes to compute the same schedule
+independently).
+
+For the case of A>>1 the communication is latency dominant and the
+optimal broadcast is the naive one in which the root sends data to
+each other node in sequence.  For the case of A near 1, the optimal
+tree shape is a Binomial tree [Kielmann99].  Here are, for P=8, model
+results for the "EEL" of a broadcast with four different tree shapes
+on three different networks.  Note that these are in us and are
+directly comparable between networks.  However, they are just model
+results, not real timings.  The "Flat" tree is the one-level tree of
+the naive broadcast.  The percentages are relative to the optimal.
 
 		gm		vapi		mpi-conduit
 Optimal		21		24		334
@@ -1151,135 +1286,194 @@ Binomial	21 		30 (+28%)	570 (+171%)
 Binary		26 (+24%)	30 (+28%)	570 (+171%)
 Flat		43 (+105%)	31 (+32%)	334
 
-The binary tree and the "flat" tree are the easiest two to implement.  With
-just these two choices, we can get within 30% of the optimal on the two fast
-networks, and the flat tree is the optimal for the slow network.  I don't
-have any bound on just how bad we could do with these two, or any heuristic
-for choosing between them.  However, I expect to implement them as the first
-two versions.
+The binary tree and the "flat" tree are the easiest two to implement.
+With just these two choices, we can get within 30% of the optimal on
+the two fast networks, and the flat tree is the optimal for the slow
+network.  I don't have any bound on just how bad we could do with
+these two, or any heuristic for choosing between them.  However, I
+expect to implement them as the first two versions.
 
-Later I hope to implement the construction of the optimal trees.  I can see
-doing it two ways:
+Later I hope to implement the construction of the optimal trees.  I
+can see doing it two ways:
 1) At init time for some fixed A, ignoring the data size.
-2) At runtime, using some size-dependent (and conduit-specific) model for A
-   and caching the results so it can be reused when the same size is repeated.
-   Note that the data to cache would just be P*sizeof(gasnet_node_t) bytes.
+2) At runtime, using some size-dependent (and conduit-specific) model
+   for A and caching the results so it can be reused when the same
+   size is repeated.  Note that the data to cache would just be
+   P*sizeof(gasnet_node_t) bytes.
 
 
 Scatter:
 ========
 
 I am planning to examine the use of the optimal broadcast tree to do a
-tree-based scatter.  However, the fact that timings will NOT remain fixed as
-the payload is changed (sending more data near the root than at the leaves)
-means that the simple method for building such trees is only approximately
-applicable.
+tree-based scatter.  However, the fact that timings will NOT remain
+fixed as the payload is changed (sending more data near the root than
+at the leaves) means that the simple method for building such trees is
+only approximately applicable.
 
 
 Gather:
 =======
 
-The Gather is exactly the same as scatter with all the data moving in the
-opposite direction.  Therefore whatever I decide for Scatter will also be used
-to implement Gather.
+The Gather is exactly the same as scatter with all the data moving in
+the opposite direction.  Therefore whatever I decide for Scatter will
+also be used to implement Gather.
 
 
 Exchange:
 =========
 
-The final data placement is equivalent to doing P scatters, one with each
-node as the root.  In a simple LogP model where we can only send a single data
-item per communication operation, the optimal [Karp93] is to perform P naive
-scatters in lock-step, but chosing the order of each node's sends so each node
-receives exactly once per step.  The simplest such ordering is for node p to
-send to ((p+1) mod P), ((p+2) mod P),... ((p+P-1) mod P).
+The final data placement is equivalent to doing P scatters, one with
+each node as the root.  In a simple LogP model where we can only send
+a single data item per communication operation, the optimal [Karp93]
+is to perform P naive scatters in lock-step, but choosing the order of
+each node's sends so each node receives exactly once per step.  The
+simplest such ordering is for node p to send to ((p+1) mod P), ((p+2)
+mod P),... ((p+P-1) mod P).
 
 
 Gather_All:
 ===========
 
-The final data placement is equivalent to doing P broadcasts.  In the LogP
-model with single-item sends the optimal [Karp93] is the same as described
-above for Exchange, but with the same data item instead of distinct ones.
+The final data placement is equivalent to doing P broadcasts.  In the
+LogP model with single-item sends the optimal [Karp93] is the same as
+described above for Exchange, but with the same data item instead of
+distinct ones.
 
-If we allow a node to send more than a single data item per send, then we can
-improve on the methods above.  If we divide the communication into ceil(lg(P))
-rounds (where lg denoted base-2 log) then each round can forward an
-exponentially increasing amount of data (1 item in round 0, 2 items in round
-1, 2^i items in round i).  At the end of the final round each node has
-received 2^i items.  With the correct pairings for these sends, we can ensure
-that all P <= 2^i items are received at each node (and with a little care we
-can even avoid sending the "surplus" 2^i-P that exists when P is not a power
-of two).  The ordering for this is that in round i (starting from 0) node p
-will send to node ((p+2^i) mod P).  As it happens, this is exactly the same
-communication pattern used in the Dissemination barrier [Mellor-Crummey91;
-sec 3.3], but now we are also moving real data.
+If we allow a node to send more than a single data item per send, then
+we can improve on the methods above.  If we divide the communication
+into ceil(lg(P)) rounds (where lg denoted base-2 log) then each round
+can forward an exponentially increasing amount of data (1 item in
+round 0, 2 items in round 1, 2^i items in round i).  At the end of the
+final round each node has received 2^i items.  With the correct
+pairings for these sends, we can ensure that all P <= 2^i items are
+received at each node (and with a little care we can even avoid
+sending the "surplus" 2^i-P that exists when P is not a power of two).
+The ordering for this is that in round i (starting from 0) node p will
+send to node ((p+2^i) mod P).  As it happens, this is exactly the same
+communication pattern used in the Dissemination barrier
+[Mellor-Crummey91; sec 3.3], but now we are also moving real data.
 
-For small P the Exchange-like algorithm is faster, even if we assume the
-timings are constant as the payload size grows in each round.  As the ratio A
-(=ELL/max(O_s,g)) increases the crossover point moves toward larger P.  The
-dominant term for the Exchange-like algorithm is O(P*max(O_s,g)), due to
-the gap between the P sends from each node.  The dominant term for the
-Dissemination-like algorithm is O(lg(P)*ELL), due to the need to wait for
-data to arrive (before resending it) at each of the lg(P) rounds.
-Both algorithms move the exact same number of data bytes in and out
-of each node.  The Dissemination-like algorithms tries to reduce the number of
-sends needed to actually move the data, but must pay a cost proportional to
+For small P the Exchange-like algorithm is faster, even if we assume
+the timings are constant as the payload size grows in each round.  As
+the ratio A (=ELL/max(O_s,g)) increases the crossover point moves
+toward larger P.  The dominant term for the Exchange-like algorithm is
+O(P*max(O_s,g)), due to the gap between the P sends from each node.
+The dominant term for the Dissemination-like algorithm is
+O(lg(P)*ELL), due to the need to wait for data to arrive (before
+resending it) at each of the lg(P) rounds.  Both algorithms move the
+exact same number of data bytes in and out of each node.  The
+Dissemination-like algorithms tries to reduce the number of sends
+needed to actually move the data, but must pay a cost proportional to
 ELL to wait for the needed data to arrive.
 
 
 Permute:
 ========
 
-Other than implementing the UPC synchronization, there is no obvious mechanism
-by which GASNet can do any better than the use of Puts.
+Other than implementing the UPC synchronization, there is no obvious
+mechanism by which GASNet can do any better than the use of Puts.
 
 
 Reduce:
 =======
 
-As noted in [Karp93], the optimal communication pattern for reduction in the
-LogP model is the same tree as for Broadcast.  The order and direction of the
-comms are reversed and the data elements moving are partial "sums" from each
-subtree.  There is no big concern over unequal contributions here, since each
-node must contribute exactly 1 or 0 "sums" to the total reduction.  The
-associativity requirement on operators makes things easier for us.
+As noted in [Karp93], the optimal communication pattern for reduction
+in the LogP model is the same tree as for Broadcast.  The order and
+direction of the comms are reversed and the data elements moving are
+partial "sums" from each subtree.  There is no big concern over
+unequal contributions here, since each node must contribute exactly 1
+or 0 "sums" to the total reduction.
 
-The UPC_NONCOMM_FUNC case might take a little extra work, since it would
-restrict the trees we could legally use.  I've not tried to figure out what
-the actual restriction would look like.
+The implementation of non-commutative operators will take a little
+extra work, since in a cyclic or block-cyclic layout we can't reduce
+all the elements on a given node to a single scalar before we begin
+communication.
+
+Getting non-commutative operators right will also slightly restrict
+the trees we could legally use.  However, the optimal trees are still
+optimal under any permutation of the node labels other than the root.
+Thus, we can always construct trees such that each subtree contains
+only consecutive contributions to the reduction.  We'd probably
+construct our tree this way regardless of commutativity of our
+operator.
 
 
 PrefixReduce:
 =============
 
-The UPC collectives spec allows one to take a slice of a UPC array such that
-the number of elements can differ among the nodes.  The basic method I have
-in mind would have each node compute the sums over each block (trivial for
-blocksize==1) and use a Gather_All to transfer these sums.  To deal with the
-possiblly unequal contribution we could either pad the block used in the
-Gather_All, or we could implement Gather_All for varible-sized contributions
-(which is already under consideration).
+The interface which is developing for this addresses how to express
+the unequal contribution from the nodes.  I've whiteboarded some ideas
+and found that the communication pattern used by the dissemination
+barrier (and discussed as a possible all-gather-all implementation) is
+also an efficient algorithm for prefix reduction, regardless of
+commutativity of the operator.
 
-I have yet to start searching for literature specific to this problem, so
-there may be methods much better than the Gather_All desribed above.
+Step 1: Setup dst array
+
+We first copy the src to the dst.  In the case that the first element
+of the src and dst array are not identically aligned, this will be a
+collective data movement not expressed by any of the existing
+interfaces.  Where the src and dst are aligned, this step is entirely
+free of communication.
+
+Step 2: Partial sums
+
+Once the dst array is initialized with a copy of the src array, each
+node performs a reduction (NOT a prefix reduction) over each "row" of
+its block-cyclic contribution.  This results in ceil(n_elem/blk_sz/P)
+partial reductions per node, with some nodes potentially having
+exactly one fewer if things aren't aligned perfectly.  This step is
+entirely free of communication.
+
+Step 3: Disseminating the partial reductions
+
+Using a communication pattern identical to that of the dissemination
+barrier, the partial reductions can be passed around in such a way
+that every node can accumulate the partial reductions it will need to
+complete the prefix reduction.  At each of log(P) phases each node
+will send to exactly one peer and receive from exactly one peer, thus
+there are no hot spots.  Each of these pairwise communications
+includes the partial reductions for each "row", and thus sends
+n_elem/blk_sz/P elements (give or take 1).  In each phase the partial
+reductions received are accumulated with the per-row reductions
+already received before sending the combined result in the next phase.
+
+This step is hard to convey w/o a whiteboard.  So, you'll have to take
+my word that when done in this way we naturally accumulate the partial
+reductions (w/o needing to assume the operator is commutative) that
+would be needed to perform either a all-reduce-all or a prefix-reduce.
+We can actually reduce the size of some of the messages since we don't
+need any partial reductions coming "from the right".  However, in the
+block-cyclic case it is only the partial reductions of the first and
+last "row" that might potentially be eliminated from some messages.
+
+Step 4: Prefix reduction
+
+At this point each node has the partial reductions it needs, one per
+"row".  For instance, if a given node in a block-cyclic layout holds
+elements 2 and 3 in one "row" and elements 6 and 7 in another, then
+step 3 has generated SUM(a[0]..a[1]) and SUM(a[2]..a[5]).  Using these
+two values one can finally perform the prefix reduction.
 
 
 Sort:
 =====
 
-I've no bright ideas here.  The most naive method would seem to be Gather,
-Sort on one node, Scatter.  However, the Gather and Scatter want equal
-contribution from each node, and Sort does not require it.  This might be
-another case for implementing collectives with variable-sized contributions.
+I've no bright ideas here.  The most naive method would seem to be
+Gather, Sort on one node, Scatter.  However, the Gather and Scatter
+want equal contribution from each node, and Sort does not require it.
+This might be another case for implementing collectives with
+variable-sized contributions.
 
-I have yet to start searching for literature specific to this problem, so
-there may be methods much better than the Gather+Scatter desribed above.
+I have yet to start searching for literature specific to this problem,
+so there may be methods much better than the Gather+Scatter described
+above.
 
 
 =============================================================================
 
-Biblography:
+Bibliography:
 
 @inproceedings{Karp93,
  author = {Richard M. Karp and Abhijit Sahay and Eunice E. Santos and Klaus
