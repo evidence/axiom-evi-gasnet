@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/08/08 07:21:39 $
- * $Revision: 1.9 $
+ *     $Date: 2002/08/23 18:13:06 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -982,7 +982,10 @@ extern void gasnete_barrier_notify(int id, int flags) {
     GASNETE_SAFE(
       gasnet_AMRequestShort3(GASNETE_BARRIER_MASTER, gasneti_handleridx(gasnete_barrier_notify_reqh), 
                            phase, barrier_value, flags));
-  } else barrier_response_done[phase] = 1;
+  } else {
+    barrier_response_mismatch[phase] = (flags & GASNET_BARRIERFLAG_MISMATCH);
+    barrier_response_done[phase] = 1;
+  }
 
   /*  update state */
   barrier_splitstate = INSIDE_BARRIER;
