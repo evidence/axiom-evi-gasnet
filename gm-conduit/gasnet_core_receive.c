@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.1 2002/06/10 07:54:52 csbell Exp $
- * $Date: 2002/06/10 07:54:52 $
- * $Revision: 1.1 $
+/* $Id: gasnet_core_receive.c,v 1.2 2002/06/11 00:18:50 csbell Exp $
+ * $Date: 2002/06/11 00:18:50 $
+ * $Revision: 1.2 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -61,7 +61,9 @@ gasnetc_poll()
 			return;
 
 		default:
+			GASNETC_GM_MUTEX_LOCK;
 			gm_unknown(_state.port, e);
+			GASNETC_GM_MUTEX_UNLOCK;
 	}
 
 	gasnetc_fifo_progress();
@@ -82,25 +84,40 @@ gasnetc_process_AMRequest(gm_recv_event_t *e, int fast)
 {
 	gasnetc_bufdesc_t	*bufd, *bufd_temp;
 	void			*recv_buf;
-	int			am_type;
+	uint8_t			handler_idx, numargs;
+	uint16_t		len;
 
 	/* Get either 'message' or 'buffer' from recv'd event */
 	GASNETC_ASSIGN_RECV_BUF(e, recv_buf, fast);
 
 	bufd = GASNETC_BUFDESC_PTR(e->recv.buffer);
+	handler_idx = AM_INDEX(recv_buf);
+	numargs = AM_NUMARGS(recv_buf);
+	len = ...; 	/* parse length */
+
 	assert(bufd != NULL);
 	assert(bufd->sendbuf == e->recv.buffer);
+	assert(gm_ntoh_u32(e->recv.length) >= 2); /* minimum AM message */
 
 	/* parse actual message, short/med/long */
 	/* XXX <insert code here> */
-	if (is_med) {
-		/* need a transient buffer - serialize all threads */
-		GASNETC_GM_MUTEX_LOCK;
-		bufd_temp = _gmc.TransientBuf;
-		(*handler)((gasnet_token_t) bufd_temp, ...);
+	if (AM_TYPE(recv_buf) & AM_MEDIUM) {
+		/* need a transient buffer - serialize all threads in Reply */
+		GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers(handler_idx),
+				(void *) bufd, numargs,
+				recv_buf + AM_MEDIUM_HEADER_LEN(numargs),
+				recv_buf, len);
+	} else if (AM_TYPE(recv_buf) & AM_SMALL) {
+		GASNETC_RUN_HANDLER_SHORT(_gmc.handlers(handler_idx),
+				(void *) bufd, numargs,
+				recv_buf + AM_MEDIUM_HEADER_LEN(numargs));
+	} else if (AM_TYPE(recv_buf) & AM_LONG) {
+		GASNETC_RUN_HANDLER_LONG(_gmc.handlers(handler_idx),
+				(void *) bufd, numargs,
+				recv_buf + AM_MEDIUM_HEADER_LEN(numargs),
+				recv_buf, len);
 	} else {
-		/* Run the handler. . */
-		(*handler)((gasnet_token_t) bufd, ....);
+		abort();
 	}
 
 	/* 
