@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/07/03 22:21:04 $
- * $Revision: 1.4 $
+ *     $Date: 2003/07/03 23:07:56 $
+ * $Revision: 1.5 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -279,10 +279,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 
   /* Initialize the bootstrapping support */
-  gasnetc_bootstrapInit(argc, argv);
-
-  /* Determine number of nodes and my own node number */
-  gasnetc_bootstrapConf();
+  gasnetc_bootstrapInit(argc, argv, &gasnetc_nodes, &gasnetc_mynode);
     
   /* allocate resources */
   gasnetc_cep = calloc(gasnetc_nodes, sizeof(gasnetc_cep_t));
