@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_indexed.c,v $
- *     $Date: 2005/03/12 11:21:12 $
- * $Revision: 1.11 $
+ *     $Date: 2005/04/06 09:43:38 $
+ * $Revision: 1.12 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,7 +46,7 @@
   /* avoid bugs in HP C preprocessor */
   #undef GASNETE_LOOPING_DIMS
   #define GASNETE_LOOPING_DIMS 7  
-#elif defined(_CRAYT3E) && GASNETE_LOOPING_DIMS > 4
+#elif defined(_CRAYC) && GASNETE_LOOPING_DIMS > 4
   /* avoid bugs in Cray C compiler */
   #undef GASNETE_LOOPING_DIMS
   #define GASNETE_LOOPING_DIMS 4  
