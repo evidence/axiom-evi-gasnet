@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.12 2002/06/30 00:32:50 csbell Exp $
- * $Date: 2002/06/30 00:32:50 $
- * $Revision: 1.12 $
+/* $Id: gasnet_core_internal.h,v 1.13 2002/06/30 02:00:20 csbell Exp $
+ * $Date: 2002/06/30 02:00:20 $
+ * $Revision: 1.13 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -687,6 +687,9 @@ gasnetc_gm_nodes_search(uint16_t sender_node_id, uint16_t sender_port_id)
 
 	if_pf (!sender_node_id) GASNETI_RETURN_ERRR(BAD_ARG, 
 						"Wrong GM sender_node_id");
+	if_pf (sender_port_id < 1 || sender_port_id > 8)
+			GASNETI_RETURN_ERRR(BAD_ARG,
+						"Wrong GM sender_port_id");
 	gm_node_sender.id = sender_node_id;
 	gm_node_sender.port = sender_port_id;
 	gm_node = (gasnetc_gm_nodes_rev_t *)

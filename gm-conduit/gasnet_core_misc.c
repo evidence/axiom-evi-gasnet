@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.12 2002/06/30 00:32:50 csbell Exp $
- * $Date: 2002/06/30 00:32:50 $
- * $Revision: 1.12 $
+/* $Id: gasnet_core_misc.c,v 1.13 2002/06/30 02:00:20 csbell Exp $
+ * $Date: 2002/06/30 02:00:20 $
+ * $Revision: 1.13 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -129,16 +129,12 @@ gasnetc_gm_nodes_compare(const void *k1, const void *k2)
 		return 1;
 	else if (a->id < b->id)
 		return -1;
-	else
-		return 0;
-	/*
 	else {
 		if (a->port > b->port) return 1;
 		if (a->port < b->port) return -1;
 		else
 			return 0;
 	}
-	*/
 }
 
 void
@@ -465,6 +461,7 @@ gasnetc_gmpiconf_init()
 			    "Unknown GMid or GM mapper down");
 		}
 		_gmc.gm_nodes_rev[i].id = _gmc.gm_nodes[i].id;
+		_gmc.gm_nodes_rev[i].port = _gmc.gm_nodes[i].port;
 		_gmc.gm_nodes_rev[i].node = (gasnet_node_t) i;
 
 		GASNETI_TRACE_PRINTF(C, ("%d> %s (gm %d, port %d)\n", 

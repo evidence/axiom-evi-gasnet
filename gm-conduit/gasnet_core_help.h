@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.5 2002/06/30 00:32:50 csbell Exp $
- * $Date: 2002/06/30 00:32:50 $
- * $Revision: 1.5 $
+/* $Id: gasnet_core_help.h,v 1.6 2002/06/30 02:00:20 csbell Exp $
+ * $Date: 2002/06/30 02:00:20 $
+ * $Revision: 1.6 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -219,12 +219,14 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #endif
 
 /* -------------------------------------------------------------------------- */
-#define GASNETC_ASSERT_BUFDESC_PTR(bufd, ptr) do {                   \
-		assert((bufd)->id ==                                 \
-		    (((ptr) - _gmc.dma_bufs) >> GASNETC_AM_SIZE));   \
+#define GASNETC_ASSERT_BUFDESC_PTR(bufd, ptr) do {                        \
+		assert((bufd)->id ==                                      \
+			(((uintptr_t)(ptr) - (uintptr_t)_gmc.dma_bufs) >> \
+			GASNETC_AM_SIZE));				  \
 		} while (0)
-#define GASNETC_BUFDESC_PTR(x) &_gmc.bd_ptr[                              \
-				(((x) - _gmc.dma_bufs) >> GASNETC_AM_SIZE)]
+#define GASNETC_BUFDESC_PTR(x) &_gmc.bd_ptr[				       \
+				(((uintptr_t)(x) - (uintptr_t)_gmc.dma_bufs)>> \
+				 GASNETC_AM_SIZE)]
 #define GASNETC_GM_RECV_PTR(e,fast)				\
 	(fast) ? (uint8_t *) gm_ntohp((e)->recv.message) :	\
 	    (uint8_t *) gm_ntohp((e)->recv.buffer)
