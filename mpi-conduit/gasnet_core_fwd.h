@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2004/08/26 04:53:42 $
- * $Revision: 1.18 $
+ *     $Date: 2004/10/10 06:15:57 $
+ * $Revision: 1.19 $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,7 +23,7 @@
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 #ifndef GASNET_ALIGNED_SEGMENTS
   /* mpi-conduit supports both aligned and un-aligned */
-  #ifdef HAVE_MMAP
+  #if defined(HAVE_MMAP) && !defined(__crayx1)
     #define GASNET_ALIGNED_SEGMENTS   1  
   #else
     #define GASNET_ALIGNED_SEGMENTS   0
