@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/16 17:09:12 $
-# $Revision: 1.176 $
+#     $Date: 2004/08/17 20:18:40 $
+# $Revision: 1.177 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.176 $)
+AC_REVISION($Revision: 1.177 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1118,32 +1118,38 @@ if test "$enabled_lapi" = yes; then
   AC_MSG_RESULT($have_lapi)
 
   # Check for hardware version
-  # TODO: add explict --with-{colony,federation} options to select adapter type.
-  # That would allow us to deal with the case of no adapter on the compilation
-  # machine, and with the unlikely case of both adapters detected.
   if test "$have_lapi" = "yes"; then
-    AC_MSG_CHECKING([for IBM SP Switch hardware availability/version])
     have_fed="no"
     have_col="no"
-    if test -n "`lscfg -l sni0 2> /dev/null | grep -- sni0`" ; then
-      have_fed="yes"
-    fi
-    if test -n "`lscfg -l css0 2> /dev/null | grep -- css0`" ; then
-      have_col="yes"
-    fi
+    lapi_how="selected"
+    GASNET_WITH(lapi-type,
+	[IBM Switch hardware type ("colony" or "federation", default is to probe)],
+	[case "$withval" in
+	   [[cC]]olony|COLONY) have_col="yes" ;;
+	   [[fF]]ederation|FEDERATION) have_fed="yes" ;;
+	   *) AC_MSG_ERROR([Unrecognized value "$withval" passed to --with-lapi-type.  Legal values are "colony" or "federation".]);
+	 esac],
+	[have_lapi=no],
+	[AC_MSG_CHECKING([for Federation Switch hardware])
+	 if test -n "`lscfg -l sni0 2> /dev/null | grep -- sni0`" ; then
+	   have_fed="yes"
+	 fi
+	 AC_MSG_RESULT([$have_fed])
+	 AC_MSG_CHECKING([for Colony Switch hardware])
+	 if test -n "`lscfg -l css0 2> /dev/null | grep -- css0`" ; then
+	   have_col="yes"
+	 fi
+	 AC_MSG_RESULT([$have_col])
+	 lapi_how="found"])
     if test "${have_fed}${have_col}" = "yesyes"; then
-      AC_MSG_RESULT([conflict])
-      AC_MSG_WARN([Both Federation and Colony IBM SP Switch hardware found - disabling lapi])
+      AC_MSG_WARN([Both Federation and Colony Switch hardware $lapi_how - disabling lapi.  Pass exactly one of --with-lapi-type=colony or --with-lapi-type=federation to select one.])
       have_lapi="no"
     elif test "${have_fed}" = "yes"; then
-      AC_MSG_RESULT([Federation])
       AC_DEFINE(GASNETC_LAPI_FEDERATION)
     elif test "${have_col}" = "yes"; then
-      AC_MSG_RESULT([Colony])
       AC_DEFINE(GASNETC_LAPI_COLONY)
     else
-      AC_MSG_RESULT([no])
-      AC_MSG_WARN([No IBM SP Switch hardware found - disabling lapi])
+      AC_MSG_WARN([No IBM SP Switch hardware $lapi_how - disabling lapi])
       have_lapi="no"
     fi
   fi
