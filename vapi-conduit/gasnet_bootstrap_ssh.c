@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/11 21:33:31 $
- * $Revision: 1.11 $
+ *     $Date: 2005/01/11 21:34:59 $
+ * $Revision: 1.12 $
  * Description: GASNet ssh-based bootstrapper for vapi-conduit
  * Copyright 2004, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1178,7 +1178,6 @@ void gasnetc_bootstrapAlltoall(void *src, size_t len, void *dest) {
   int j;
                                                                                                               
   /* Collect rows from our subtree (gather) */
-gasneti_assert(row_len * tree_procs > 0);
   tmp = gasneti_malloc(row_len * tree_procs);
   memcpy(tmp, src, row_len);
   for (j = 0; j < children; ++j) {
