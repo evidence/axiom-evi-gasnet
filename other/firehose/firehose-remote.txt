@@ -21,6 +21,10 @@
   of AM's, and by definition, no conduit with concurrent handler execution 
   will provide it. Perhaps a "pending unpin" state for the FIFO victims? 
   Needs to be worked into all the cases where we might encounter one...
+  - FIX:
+    Need REMOTE_PENDING_UNPIN state (distinct from REMOTE_PENDING).
+    This state must only be created at COMMIT time.
+    If we need to acquire such a bucket we must UPYL until it is gone.
 */
 
 #define FHI_AVAIL(node)                                                      \
@@ -37,9 +41,10 @@
       FH_LOCK;                                                       \
   } while (0)
 
-void consume_one_bucket(int node, fhi_RegionPool_t *unpin_p)
+firehose_bucket_t *consume_one_bucket(int node, fhi_RegionPool_t *unpin_p)
 {
   fh_fifoq_t *fifo_head = &fh_RemoteNodeFifo[node];
+  firehose_bucket_t *bd;
 
   if (fhc_RemoteBucketsUsed[node] < fhc_RemoteBucketsM) {
     /* consume Free Energy */
@@ -60,6 +65,8 @@ void consume_one_bucket(int node, fhi_RegionPool_t *unpin_p)
   ++(bd->Rrefc);
   Add_to_rpool(FH_ADDR(bd), unpin_p);
   fhc_RemoteVictimFifoBuckets[node]--;
+
+  return bd;
 }
 
 int *da;        /* dynamically-allocated array of gasnet_nodes() elements */
@@ -93,6 +100,9 @@ inner_again:
       }
       UPYL;
       goto inner_again;        /* start over */
+    } else if (FH_IS_REMOTE_FIFO(bd)) {
+      /* Must reclaim from FIFO, so it counts against our limit */
+      count++;
     }
   }
 
@@ -132,7 +142,8 @@ void fhi_PinNoLog(start, end, ...)
   n_buckets -= tmp;
   fhc_RemoteBucketsUsed[node] += tmp;
 
-  /* second claim needed FIFO buckets */
+  /* second claim needed FIFO buckets
+   * This must come after we increment ref counts to avoid freeing our own hits */
   if (n_buckets > 0) {
     gasneti_assert(n_buckets <= fhc_RemoteVictimFifoBuckets[node]);
     unpin_p->n_regions = fhi_FreeVictimRemote(node, n_buckets, &(unpin_p->regions));
@@ -142,6 +153,8 @@ void fhi_PinNoLog(start, end, ...)
 
 /* Get as much as we can, knowing it won't be enough: */
 /* returns address of first "unresolved" page */
+/* When we return the FIFO is either empty, OR it contains
+ * only buckets that we need to hit on. */
 uintptr_t fhi_PinWithLog(node, n_avail, start, end...)
 {
   int i;
@@ -161,7 +174,16 @@ uintptr_t fhi_PinWithLog(node, n_avail, start, end...)
       /* XXX: need to check if bucket is currently in FIFO and remove it if so */
     } else if (n_avail) {
       /* miss w/ resources still available */
-      consume_one_bucket(node, unpin_p);
+try_this_again:
+      bd = consume_one_bucket(node, unpin_p);
+      if (FH_BADDR(bd) > bucket_addr && FH_BADDR(bd) < end) {
+	/* Oops, we just reclaimed a bucket that we need to hit on later */
+	unpin_p->num_buckets--;	/* take it off the unpin list */
+	fhi_release_bucket(bd)  /* put it back on the FIFO (at the far end) */
+        --n_avail;		/* Reduce the amount of space we think we have */
+	if (!n_avail) return bucket_addr;
+        goto try_this_again;
+      } 
       create_new_bucket(node, bucket_addr, Rrefc=0, Lrefc=Pending/UNcommitted);
       Add_to_rpool(pin_p, bucket_addr);
       --n_avail;
@@ -178,6 +200,8 @@ uintptr_t fhi_PinWithLog(node, n_avail, start, end...)
 /* returns address of first "unresolved" page */
 /* On success the returned page will be ROUNUP(start+len,PAGESIZE) */
 /* Note that we've revalidated our status before entering this function */
+/* When we return the FIFO is either empty, OR it contains
+ * only buckets that we need to hit on. */
 uintptr_t fhi_PinSomeMore(node, n_avail, saved_addr, end, ...)
 {
   int i;
@@ -192,7 +216,16 @@ uintptr_t fhi_PinSomeMore(node, n_avail, saved_addr, end, ...)
       /* XXX: need to check if bucket is currently in FIFO and remove it if so */
     } else if (n_avail) {
       /* miss w/ resources still available */
-      consume_one_bucket(node, unpin_p);
+try_this_again:
+      bd = consume_one_bucket(node, unpin_p);
+      if (FH_BADDR(bd) > bucket_addr && FH_BADDR(bd) < end) {
+	/* Oops, we just reclaimed a bucket that we need to hit on later */
+	unpin_p->num_buckets--;	/* take it off the unpin list */
+	fhi_release_bucket(bd)  /* put it back on the FIFO (at the far end) */
+        --n_avail;		/* Reduce the amount of space we think we have */
+	if (!n_avail) return bucket_addr;
+        goto try_this_again;
+      } 
       create_new_bucket(node, bucket_addr, Rrefc=0, Lrefc=Pending/UNcommitted);
       Add_to_rpool(pin_p, bucket_addr);
       --n_avail;

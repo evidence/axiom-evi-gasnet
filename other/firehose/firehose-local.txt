@@ -6,7 +6,14 @@
 
   Known bugs/issues
   -----------------
-
+  To avoid race between unlock-move-lock (keeping table and conduit
+  consistent), we need a TRANSIT state (used for both "in bound" and
+  "out bound" buckets).  If the local (non-AM) code hits such a bucket
+  then it must UPYL until it is either pinned or unpinned.  In the case
+  that the AM handler encounters one we need a new queue to deffer the
+  the handler's actual work.  This queue is serviced soon after the
+  table is updated (except in the handler).
+  WE NEED TO WRITE THE HANDLER CODE EXAMPLE TOO!
 */
 
 int
@@ -201,6 +208,7 @@ again:
             fhi_local_da = 0;
             pthread_cond_broadcast(&fhi_local_da_cv);
         }
+	Service_AM_Transit_Queue();
     }
     else {
         /* We saw one of more TRANSIT buckets.  We unwind, wait
