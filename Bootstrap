@@ -5,7 +5,7 @@ set -e
 
 srcdir=`dirname $0`
 
-autoheaderfilter="2>&1 | perl -0 -pe 's/^WARN.+auxiliary files(.|\n)+WARN.+documentation.\n//m'"
+autoheaderfilter="2>&1 | perl -0 -pe 's/^(autoheader: )?WARN.+auxiliary files(.|\n)+WARN.+documentation.\n//m'"
 
 if [ \
        -r $srcdir/gasnet_config.h.in \
