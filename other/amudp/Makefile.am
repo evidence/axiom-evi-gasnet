@@ -53,18 +53,7 @@ libamudp_a_SOURCES = \
 
 libamudp_a_DEPENDENCIES = $(libamudp_a_SOURCES:%.cpp=%.o)
 
-EXTRA_DIST =        \
-    apputils.c      \
-    apputils.h      \
-    testam.c        \
-    testbounce.c    \
-    testbulk.c      \
-    testgetput.c    \
-    testlatency.c   \
-    testlatencyM.c  \
-    testping.c      \
-    testreadwrite.c \
-    testreduce.c    
+EXTRA_DIST = 
 
 # ---------- test programs -------------
 # all the test executables
@@ -136,7 +125,7 @@ endif
 	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 	@echo TESTS COMPLETE
 
-test%.o : $(testdir)/test%.c $(testdir)/apputils.h ${headers}
+test%.o : $(testdir)/test%.c $(testdir)/*.h ${headers}
 	${compile} -DAMUDP -I$(testdir) -c $< -o $@
 
 apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h ${headers}

@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMUDP/Makefile                                         $
-#     $Date: 2004/01/30 07:13:04 $
-# $Revision: 1.7 $
+#     $Date: 2004/02/02 13:00:01 $
+# $Revision: 1.8 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -63,7 +63,7 @@ tests: apputils.o ${testprograms}
     eval "echo placing whomp-shared binaries... ; /bin/cp -f ${testprograms} /export/home/${USER} ; cd /export/home/${USER} ; chmod a+rx ${testprograms}"'
 
 # method to convert .cpp to .o (more reliable than ".cpp.o" method)
-test%.o : $(testdir)/test%.c ${headers}
+test%.o : $(testdir)/test%.c $(testdir)/*.h ${headers}
 	${Ccompile} -DAMUDP -I$(testdir) $< -o $@
 	
 apputils.o : $(testdir)/apputils.c ${headers}

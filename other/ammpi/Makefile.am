@@ -39,18 +39,7 @@ libammpi_a_SOURCES = \
 
 libammpi_a_DEPENDENCIES = $(libammpi_a_SOURCES:%.c=%.o)
 
-EXTRA_DIST =        \
-    apputils.c      \
-    apputils.h      \
-    testam.c        \
-    testbounce.c    \
-    testbulk.c      \
-    testgetput.c    \
-    testlatency.c   \
-    testlatencyM.c  \
-    testping.c      \
-    testreadwrite.c \
-    testreduce.c    
+EXTRA_DIST = 
 
 # ---------- test programs -------------
 # all the test executables
@@ -74,7 +63,7 @@ testprograms =    		\
 
 tests: apputils.o ${testprograms}
 
-test%.o : $(testdir)/test%.c $(testdir)/apputils.h ${headers}
+test%.o : $(testdir)/test%.c $(testdir)/*.h ${headers}
 	${compile} -DAMMPI -I$(testdir) -c $< -o $@
 
 apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h ${headers}
