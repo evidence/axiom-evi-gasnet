@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/01/09 07:28:21 $
- * $Revision: 1.64 $
+ *     $Date: 2005/01/09 23:23:13 $
+ * $Revision: 1.65 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -424,10 +424,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* Initialize the bootstrapping support */
   gasnetc_bootstrapInit(argc, argv, &gasnetc_nodes, &gasnetc_mynode);
     
-  /* Setup for gasneti_getenv() (must come before gasneti_trace_init() */
-  gasneti_setupGlobalEnvironment(gasnetc_nodes, gasnetc_mynode, 
-                                 gasnetc_bootstrapExchange, gasnetc_bootstrapBroadcast);
-
   /* Now enable tracing of all the following steps */
   gasneti_trace_init(*argc, *argv);
 

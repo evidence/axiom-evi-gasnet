@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/mpi-spawner/gasnet_bootstrap_mpi.c,v $
- *     $Date: 2005/01/09 07:28:21 $
- * $Revision: 1.9 $
+ *     $Date: 2005/01/09 23:23:13 $
+ * $Revision: 1.10 $
  * Description: GASNet vapi conduit implementation, mpi bootstrap code
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -44,6 +44,10 @@ void gasnetc_bootstrapInit(int *argc, char ***argv, gasnet_node_t *nodes, gasnet
   err = MPI_Comm_rank(gasnetc_mpi_comm, &tmp);
   gasneti_assert(err == MPI_SUCCESS);
   *mynode = tmp;
+
+  gasneti_setupGlobalEnvironment(*nodes, *mynode,
+				 &gasnetc_bootstrapExchange,
+				 &gasnetc_bootstrapBroadcast);
 }
 
 void gasnetc_bootstrapFini(void) {

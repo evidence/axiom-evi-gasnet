@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/09 10:23:35 $
- * $Revision: 1.5 $
+ *     $Date: 2005/01/09 23:23:13 $
+ * $Revision: 1.6 $
  * Description: GASNet ssh-based bootstrapper for vapi-conduit
  * Copyright 2004, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -18,7 +18,7 @@
 #include <sys/ioctl.h>
 #include <netinet/in.h>
 #if HAVE_NETINET_TCP_H
-#include <netinet/tcp.h>
+  #include <netinet/tcp.h>
 #endif
 #include <unistd.h>
 #include <fcntl.h>
@@ -45,10 +45,8 @@
    In addition to the tree of ssh connections, there is a TCP socket
    created between each process and its parent (including between the
    root and the master).  This socket is used for control information,
-   during startup.  For instance, the root receives the environment
-   from the master process over this socket (a subsequent call to
-   gasneti_setupGlobalEnvironment(), not done in this file, will then
-   distribute that to the remaining processes.).
+   during startup.  For instance, the the environment and arguments
+   are transferred over this socket.
 
    The control sockets are used to send each process only a portion of
    the list of host names.  Rather than send the entire list, each processs
@@ -88,6 +86,12 @@
    gasnetc_bootstrapAbort() will try to force all processes to exit
    with the given exit code.
 
+   To deal with global environment propagation, one should
+      #define GASNETI_CONDUIT_GETENV gasnetc_bootstrapGetenv
+   A call to gasneti_setupGlobalEnvironment() is not required.
+   A call to gasnetc_bootstrapGetenv() can safely be made at anytime,
+   but will return NULL until after the call to gasnetc_bootstrapInit().
+
    To control the spawner, there are a few environment variables, all
    of which are processed only by the master process (which send the
    relavent information on to the others via the control sockets).
@@ -116,8 +120,6 @@
 
    XXX: still to do
    + Implement "-N" (as with prun) so NODES and PROCS are independent.
-   + Should probably send the ENTIRE environment to node 0, rather than
-     just sending the GASNET ones and those given on the command line.
    + Should consider allowing quoted whitespace in SSH_OPTIONS.  We really
      don't want to invoke system() because that leads to all sorts of
      possible questions about proper amounts of quoting.
@@ -129,8 +131,7 @@
 
  */
 
-#define ARY 8
-
+#define ARY 24
 #define USE_LOCAL_SPAWN 1
 
 #ifndef USE_LOCAL_SPAWN
@@ -156,8 +157,9 @@ static int devnull = -1;
 static int listener = -1;
 static int listen_port = -1;
 static char **hostlist;
-static char **env_vars;
 static char **ssh_argv = NULL;
+static char *master_env = NULL;
+static size_t master_env_len = 0;
 static int ssh_argc;
 static int parent = -1; /* socket */
 static struct {
@@ -315,6 +317,22 @@ static char *do_read_string(int fd) {
   return result;
 }
 
+/* Add single quotes around a string, taking care of any existing quotes */
+static char *quote_arg(const char *arg) {
+  char *result = gasneti_strdup("'");
+  char *p, *q, *tmp;
+
+  p = tmp = gasneti_strdup(arg);
+  while ((q = strchr(p, '\'')) != NULL) {
+    *q = '\0';
+    result = sappendf(result, "%s'\\''", p);
+    p = q + 1;
+  }
+  result = sappendf(result, "%s'", p);
+  gasneti_free(tmp);
+  return result;
+}
+
 /* Build an array of strings from a list */
 static char ** list_to_array(const char *list, const char *delims) {
   char **result = NULL;
@@ -416,46 +434,53 @@ static void recv_hostlist(int s, int count) {
   hostlist -= myproc; /* offset for ease of indexing */
 }
 
-static void send_env(int s, char **list) {
-  int i;
-  const char *p;
-  size_t plen = strlen(ENV_PREFIX);
-  size_t rlen = strlen(ENV_PREFIX "SSH_");
-  size_t len;
+/*
+ * Send environment as a big char[] with \0 between each 'VAR=VAL'
+ * and a double \0 to terminate. (inspired by amudp)
+ */
+static void send_env(int s) {
+  if (!master_env) {
+    int i;
+    const char *p;
+    char *q;
+    size_t rlen = strlen(ENV_PREFIX "SSH_");
+    size_t count;
 
-  for (i = 0, p = environ[0]; p != NULL; p = environ[++i]) {
-    if (!strncmp(ENV_PREFIX, p, plen)) {
+    gasneti_assert(rootpid); /* == we are master */
+
+    /* First pass over environment to get its size */
+    master_env_len = 1; /* for the doubled \0 at the end */
+    for (i = 0, p = environ[0]; p != NULL; p = environ[++i]) {
       if (!strncmp(ENV_PREFIX "SSH_", p, rlen)) {
-	/* We parse these ourselves, don't forward */
-	continue;
-      }
-      do_write_string(s, p);
-    } else if (list) {
-      int j;
-      const char *q;
-      for (j = 0, q = list[0]; q != NULL; q = list[++j]) {
-        len = strlen(q);
-        if (!strncmp(q, p, len) && (p[len] == '=')) {
-          do_write_string(s, p);
-	  break;
-        }
+        /* We parse these ourselves, don't forward */
+      } else {
+        master_env_len += strlen(p) + 1;
       }
     }
+
+    /* Append all the strings together */
+    q = master_env = gasneti_malloc(master_env_len);
+    for (i = 0, p = environ[0]; p != NULL; p = environ[++i]) {
+      if (!strncmp(ENV_PREFIX "SSH_", p, rlen)) {
+        /* We parse these ourselves, don't forward */
+      } else {
+        size_t tmp = strlen(p) + 1;
+        memcpy(q, p, tmp);
+        q += tmp;
+      }
+    }
+    *q = '\0';
   }
 
-  /* end marker */
-  len = 0;
-  do_write(s, &len, sizeof(len));
+  /* send it */
+  do_write(s, &master_env_len, sizeof(master_env_len));
+  do_write(s, master_env, master_env_len);
 }
 
 static void recv_env(int s) {
-  char *p;
-
-  while ((p = do_read_string(s)) != NULL) {
-    if (putenv(p) < 0) {
-      gasneti_fatalerror("putenv(%s) failed\n", p);
-    }
-  }
+  do_read(s, &master_env_len, sizeof(master_env_len));
+  master_env = gasneti_malloc(master_env_len);
+  do_read(s, master_env, master_env_len);
 }
 
 static void send_ssh_argv(int s) {
@@ -565,9 +590,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
     do_write(s, &rank, sizeof(gasnet_node_t));
     do_write(s, &nproc, sizeof(gasnet_node_t));
     do_write(s, &size, sizeof(gasnet_node_t));
-    if (rank == 0) {
-      send_env(s, env_vars);
-    }
+    send_env(s);
     send_hostlist(s, size, hostlist + rank);
     send_ssh_argv(s);
     send_argv(s, argc, argv);
@@ -620,9 +643,7 @@ static void do_connect(int child_id, const char *parent_name, int parent_port, i
   do_read(parent, &myproc, sizeof(gasnet_node_t));
   do_read(parent, &nproc, sizeof(gasnet_node_t));
   do_read(parent, &tree_size, sizeof(gasnet_node_t));
-  if (myproc == 0) {
-    recv_env(parent);
-  }
+  recv_env(parent);
   recv_hostlist(parent, tree_size);
   recv_ssh_argv(parent);
   recv_argv(parent, argc_p, argv_p);
@@ -636,6 +657,7 @@ static pid_t spawn_one(const char *host, const char *argv0, int child_id, const 
   if (pid < 0) {
     gasneti_fatalerror("fork() failed\n");
   } else if (pid == 0) {
+    /* For all children except the root do </dev/null */
     if (child_id >= 0) {
       if (dup2(STDIN_FILENO, devnull) < 0) {
         gasneti_fatalerror("dup2(STDIN_FILENO, /dev/null) failed\n");
@@ -647,10 +669,10 @@ static pid_t spawn_one(const char *host, const char *argv0, int child_id, const 
 	     sappendf(NULL, "%d", child_id), NULL);
       gasneti_fatalerror("execlp(sh) failed\n");
     } else {
-      char *shell_cmd = sappendf(NULL, "cd %s; exec %s -slave %s %d %d",
-				 cwd, argv0, myhost, listen_port, child_id);
       ssh_argv[ssh_argc] = (/* noconst */ char *)host;
-      ssh_argv[ssh_argc+1] = shell_cmd;
+      ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -slave %s %d %d",
+				      quote_arg(cwd), quote_arg(argv0),
+				      myhost, listen_port, child_id);
       execvp(ssh_argv[0], ssh_argv);
       gasneti_fatalerror("execvp(ssh) failed\n");
     }
@@ -757,11 +779,19 @@ static void do_slave(int child_id, const char *parent_name, int parent_port, int
 }
 
 static void usage(const char *argv0) {
-  gasneti_fatalerror("usage: %s -master [-env list,of,env,vars,to,propagate] nproc [--] [ARGS...]\n", argv0);
+  gasneti_fatalerror("usage: %s [-master] NPROC [--] [ARGS...]\n", argv0);
 }
 
 /*----------------------------------------------------------------------------------------------*/
 
+/* gasnetc_bootstrapInit
+ *
+ * Upon return:
+ *   + All processes have been spawned
+ *   + argc and argv are those the user specified
+ *   + *nodes_p and *mynode_p are set
+ *   + the global environment is available via gasnetc_bootstrapGetenv()
+ */
 void gasnetc_bootstrapInit(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
   int argc = *argc_p;
   char **argv = *argv_p;
@@ -785,10 +815,6 @@ void gasnetc_bootstrapInit(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, 
     } else {
       /* Implicitly the master process */
     }
-    if ((argi < argc) && (strcmp(argv[argi], "-env") == 0)) {
-      env_vars = list_to_array(argv[argi+1], ",");
-      argi += 2;
-    }
     if (argi >= argc) {
       usage(argv[0]);
     }
@@ -810,6 +836,10 @@ void gasnetc_bootstrapInit(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, 
   *mynode_p = myproc;
 }
 
+/* gasnetc_bootstrapFini
+ *
+ * Waits for children to exit.
+ */
 void gasnetc_bootstrapFini(void) {
   int j;
 
@@ -818,6 +848,10 @@ void gasnetc_bootstrapFini(void) {
   }
 }
 
+/* gasnetc_bootstrapAbort
+ *
+ * Force immediate (abnormal) termination.
+ */
 void gasnetc_bootstrapAbort(int exitcode) {
   do_abort((unsigned char)exitcode);
   /* NOT REACHED */
@@ -944,3 +978,23 @@ void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode)
   }
 }
 
+/* gasnetc_bootstrapGetenv
+ *
+ * Fetch a variable from the environment on the master node.
+ * (more or less copied from amudp_spmd.cpp)
+ */
+const char *gasnetc_bootstrapGetenv(const char *var) {
+  if (master_env && var && (*var != '\0')) {
+    char *p = master_env;
+    size_t len = strlen(var);
+
+    while (*p) {
+      if (!strncmp(var, p, len) && (p[len] == '=')) {
+        return p + len + 1;
+      } else {
+        p += strlen(p) + 1;
+      }
+    }
+  }
+  return NULL;
+}

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/01/09 07:28:19 $
-# $Revision: 1.213 $
+#     $Date: 2005/01/09 23:23:11 $
+# $Revision: 1.214 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.213 $)
+AC_REVISION($Revision: 1.214 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1558,11 +1558,12 @@ if test "$enabled_vapi" = yes; then
         AC_DEFINE(GASNETC_VAPI_FORCE_POLL_LOCK)
       fi
 
-    # Configure corrrect CC and LD based on bootstrap choice
+    # Configure corrrect flags/vars (inc. CC and LD) based on bootstrap choice
     if test "$enabled_vapi_bootstrap_ssh" = yes; then
       AC_CHECK_HEADERS(netinet/tcp.h)
       VAPI_LD="$CC"
       VAPI_LDFLAGS="$CFLAGS"
+      VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -DGASNETI_CONDUIT_GETENV=gasnetc_bootstrapGetenv"
     fi
     if test "$enabled_vapi_bootstrap_mpi" = yes; then
       VAPI_LD="$MPI_CC"
