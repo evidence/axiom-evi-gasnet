@@ -1,8 +1,8 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/01 14:24:57 $
-# $Revision: 1.1 $
+#     $Date: 2002/06/01 14:48:08 $
+# $Revision: 1.2 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
@@ -137,7 +137,7 @@ case "$tc_cv_cc_family" in
   GNU)  CCOPTFLAGS="-O3" ;;
   Sun)  CCOPTFLAGS="-xO5" ;;
   Cray) CCOPTFLAGS="-O2 -hnomessage=236 -htaskprivate $LIBCM" ;; # DOB: -O3 is unstable on Cray cc
-  MIPS) CCOPTFLAGS="-O3 -diag_suppress1174,1209,1552 -LD_MSG:off=84" ;;
+  MIPS) CCOPTFLAGS="-O3 -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
   XLC)  CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=8192" ;; # -O5 == -O3 w/ intra-procedural analysis
   *)    CCOPTFLAGS="-O" ;;
 esac
@@ -145,7 +145,7 @@ esac
 case "$tc_cv_cc_family" in
   GNU)  CCDEBUGFLAGS="-g3 -ansi -U__STRICT_ANSI__ -Wall -Wno-unused" ;;
   Cray) CCDEBUGFLAGS="-g -hnomessage=236 -htaskprivate $LIBCM" ;;
-  MIPS) CCDEBUGFLAGS="-g -diag_suppress1174,1209,1552 -LD_MSG:off=84" ;;
+  MIPS) CCDEBUGFLAGS="-g -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
   *)    CCDEBUGFLAGS="-g" ;;
 esac
 
@@ -374,7 +374,7 @@ if test $supported_ammpi = yes; then
 	# use SGI native MPI library
         # user may need to do a "module load mpt" to make this work
     	GASNET_ENV_DEFAULT(MPI_CC, cc -n32)
-	BASIC_MPI_CFLAGS="-diag_suppress1174,1209,1552 $BUILDCONFIGFLAGS"
+	BASIC_MPI_CFLAGS="-diag_suppress1171,1174,1209,1552 $BUILDCONFIGFLAGS"
 	if test "$BUILDCONFIG" = "optimize" ; then
       	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O2 $BASIC_MPI_CFLAGS)
 	else
