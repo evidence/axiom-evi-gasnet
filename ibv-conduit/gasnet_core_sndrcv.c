@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/31 00:28:59 $
- * $Revision: 1.83 $
+ *     $Date: 2005/03/31 00:56:35 $
+ * $Revision: 1.84 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -586,7 +586,9 @@ gasnetc_sreq_t *gasnetc_get_sreq(void) {
   sreq->mem_oust = NULL;
   sreq->req_oust = NULL;
   sreq->fh_ptr[0] = NULL;
-  #if !GASNETC_PIN_SEGMENT
+  #if GASNETC_PIN_SEGMENT
+    sreq->addr = NULL;                   
+  #else
     sreq->fh_ptr[1] = NULL;
     sreq->am_oust = NULL;
   #endif
