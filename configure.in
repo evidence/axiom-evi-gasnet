@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/04 21:46:07 $
-# $Revision: 1.164 $
+#     $Date: 2004/08/05 00:48:40 $
+# $Revision: 1.165 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.164 $)
+AC_REVISION($Revision: 1.165 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -168,7 +168,7 @@ case "$gasnet_cv_cc_family" in
   Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
   MIPS) CCOPTFLAGS="-O3" ;;
   XLC)  #CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=-1" ;; # -O5 == -O3 w/ intra-procedural analysis, maxmem=-1 is default for -O3 or higher
-        CCOPTFLAGS="-O3 -qsmp=noauto -qmaxmem=-1" ;; # -O5 causes linker to hang on Titanium 
+        CCOPTFLAGS="-O3 -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1" ;; # -O5 causes linker to hang on Titanium 
   Compaq) CCOPTFLAGS="-fast -noifo -O4 -tune host -inline all" ;;
   Intel) CCOPTFLAGS="-O3" ;;
   PGI) CCOPTFLAGS="-O2" ;;
@@ -792,21 +792,22 @@ if test $enabled_mpi = yes; then
         # user may need to do a "module load mpt" to make this work
     	GASNET_ENV_DEFAULT(MPI_CC, cc -n32)
         # cannot use MISC_CFLAGS here because C compiler may not be MIPSPro
-	BASIC_MPI_CFLAGS="-diag_error 1035 -diag_suppress1171,1174,1209,1552"
+        # -common gets us correct linking behavior for tentative definitions
+	BASIC_MPI_CFLAGS="-diag_error 1035 -diag_suppress1171,1174,1209,1552 -common"
 	if test "$BUILDCONFIG" = "optimize" ; then
       	  BASIC_MPI_CFLAGS="-O2 $BASIC_MPI_CFLAGS"
 	else
       	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
 	fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
-    	GASNET_ENV_DEFAULT(MPI_LIBS, -LD_MSG:off=84 -lmpi)
+    	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
     aix*)
     	GASNET_ENV_DEFAULT(MPI_CC, mpcc)
 	BASIC_MPI_CFLAGS=""
 	if test "$BUILDCONFIG" = "optimize" ; then
-    	  BASIC_MPI_CFLAGS"-O3 -qstrict -qarch=pwr3 -qtune=pwr3 -qsmp=noauto -qmaxmem=8192 $BASIC_MPI_CFLAGS"
+    	  BASIC_MPI_CFLAGS"-O3 -qstrict -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1 $BASIC_MPI_CFLAGS"
 	else
     	  BASIC_MPI_CFLAGS"-g $BASIC_MPI_CFLAGS"
 	fi
@@ -818,7 +819,7 @@ if test $enabled_mpi = yes; then
 	GASNET_ENV_DEFAULT(MPI_CC, cc)
 	BASIC_MPI_CFLAGS="-msg_disable extrasemi"
         if test "$BUILDCONFIG" = "optimize" ; then
-          BASIC_MPI_CFLAGS"-fast -noifo -O4 -tune host $BASIC_MPI_CFLAGS"
+          BASIC_MPI_CFLAGS"-fast -noifo -O4 -tune host -inline speed $BASIC_MPI_CFLAGS"
         else
           BASIC_MPI_CFLAGS"-g $BASIC_MPI_CFLAGS"
         fi
@@ -831,8 +832,12 @@ if test $enabled_mpi = yes; then
         # user may need to do a "module load mpt" to make this work
     	GASNET_ENV_DEFAULT(MPI_CC, cc)
         case "$target_cpu" in
-          alphaev5) BASIC_MPI_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; # T3E
-          *)        BASIC_MPI_CFLAGS="-hnomessage=236 $LIBCM" ;; # X1
+          alphaev5) BASIC_MPI_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM"  # T3E
+                    GASNET_ENV_DEFAULT(MPIRUN_CMD, mpprun -n %N %C)
+          ;;
+          *)        BASIC_MPI_CFLAGS="-hnomessage=236 $LIBCM" # X1
+                    GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
+          ;;
         esac
 	if test "$BUILDCONFIG" = "optimize" ; then
     	  BASIC_MPI_CFLAGS"-O2 $BASIC_MPI_CFLAGS"
@@ -841,7 +846,6 @@ if test $enabled_mpi = yes; then
 	fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, -lpthread)
-	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpprun -n %N %C)
         ;;
     superux*)
       GASNET_ENV_DEFAULT(MPI_CC, mpic++ -Xa)
