@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/03/21 10:31:35 $
- * $Revision: 1.70 $
+ *     $Date: 2005/03/23 10:51:59 $
+ * $Revision: 1.71 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,16 +14,16 @@
   #error Internal GASNet code should not directly include gasnet.h, just gasnet_internal.h
 #endif
 
+#include <gasnet.h> /* MUST come first to ensure correct inttypes behavior */
+#include <gasnet_tools.h>
+#include <gasnet_atomicops_internal.h>
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
-
-#include <gasnet.h>
-#include <gasnet_tools.h>
-#include <gasnet_atomicops_internal.h>
 
 BEGIN_EXTERNC
 

@@ -1,3 +1,4 @@
+#include "portable_inttypes.h"
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -5,7 +6,6 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include "portable_inttypes.h"
 
 #ifdef GASNET_NDEBUG
   #define NDEBUG 1
