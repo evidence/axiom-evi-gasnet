@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/12/19 23:29:10 $
- * $Revision: 1.29 $
+ *     $Date: 2003/12/22 21:12:18 $
+ * $Revision: 1.30 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -438,77 +438,56 @@ int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
  * gasnetc_spinlock_t
  *
  * This is a simple busy-waiting lock used for mutual exclusion.
+ * This type is only available if atomic swap is available
  */
+#if GASNETI_HAVE_ATOMIC_SWAP
+
 typedef struct {
-  #if !GASNETI_HAVE_ATOMIC_SWAP
-    gasnetc_mutex_t	mutex;
-  #endif
   gasneti_atomic_t	lock;
 } gasnetc_spinlock_t;
 
-#if GASNETI_HAVE_ATOMIC_SWAP
-  #define GASNETC_SPINLOCK_INITIALIZER {gasneti_atomic_init(0)}
-#else
-  #define GASNETC_SPINLOCK_INITIALIZER {GASNETC_MUTEX_INITIALIZER, gasneti_atomic_init(0)}
-#endif
+#define GASNETC_SPINLOCK_LOCKED		(0xcafef00d)
+#define GASNETC_SPINLOCK_UNLOCKED	(0xdeadbeef)
+
+#define GASNETC_SPINLOCK_INITIALIZER {gasneti_atomic_init(GASNETC_SPINLOCK_UNLOCKED)}
 
 /* gasnetc_spinlock_init */
 GASNET_INLINE_MODIFIER(gasnetc_spinlock_init)
 void gasnetc_spinlock_init(gasnetc_spinlock_t *s) {
-  #if !GASNETI_HAVE_ATOMIC_SWAP
-    gasnetc_mutex_init(&(s->mutex));
-  #endif
-  gasneti_atomic_set(&(s->lock), 0);
+  gasneti_atomic_set(&(s->lock), GASNETC_SPINLOCK_UNLOCKED);
 }
 
-/* gasnetc_spinlock_destroy */
 GASNET_INLINE_MODIFIER(gasnetc_spinlock_destroy)
 void gasnetc_spinlock_destroy(gasnetc_spinlock_t *s) {
-  #if !GASNETI_HAVE_ATOMIC_SWAP
-    gasnetc_mutex_destroy(&(s->mutex));
-  #endif
+  gasneti_assert((gasneti_atomic_read(&(s->lock)) == GASNETC_SPINLOCK_LOCKED) ||
+		 (gasneti_atomic_read(&(s->lock)) == GASNETC_SPINLOCK_UNLOCKED));
 }
 
 /* gasnetc_spinlock_unlock */
 GASNET_INLINE_MODIFIER(gasnetc_spinlock_unlock)
 void gasnetc_spinlock_unlock(gasnetc_spinlock_t *s) {
-  /* no locking needed here */
-  gasneti_atomic_decrement(&(s->lock));
+  gasneti_assert(gasneti_atomic_read(&(s->lock)) == GASNETC_SPINLOCK_LOCKED);
+  gasneti_atomic_set(&(s->lock), GASNETC_SPINLOCK_UNLOCKED);
 }
 
-/* gasnetc_spinlock_try
- *
- * If non-zero, the "concurrent" argument indicates that there are multiple threads
- * calling gasnetc_spinlock_try, and thus locking may be required.
- */
+/* gasnetc_spinlock_try */
 GASNET_INLINE_MODIFIER(gasnetc_spinlock_try)
-int gasnetc_spinlock_try(gasnetc_spinlock_t *s, int concurrent) {
-  int retval;
+int gasnetc_spinlock_try(gasnetc_spinlock_t *s) {
+  gasneti_assert((gasneti_atomic_read(&(s->lock)) == GASNETC_SPINLOCK_LOCKED) ||
+		 (gasneti_atomic_read(&(s->lock)) == GASNETC_SPINLOCK_UNLOCKED));
 
-  #if GASNETI_HAVE_ATOMIC_SWAP
-    retval = gasneti_atomic_swap(&(s->lock), 0, 1);
-  #else
-    gasnetc_mutex_lock(&(s->mutex), concurrent);
-
-    retval = (gasneti_atomic_read(&(s->lock)) == 0);
-    if_pt (retval)
-      gasneti_atomic_set(&(s->lock), 1);
-
-    gasnetc_mutex_unlock(&(s->mutex), concurrent);
-  #endif
-
-  return retval;
+  return gasneti_atomic_swap(&(s->lock), GASNETC_SPINLOCK_UNLOCKED, GASNETC_SPINLOCK_LOCKED);
 }
 
-/* gasnetc_spinlock_lock
- *
- * If non-zero, the "concurrent" argument indicates that there are multiple threads
- * calling gasnetc_spinlock_lock, and thus locking may be required.
- */
+/* gasnetc_spinlock_lock */
 GASNET_INLINE_MODIFIER(gasnetc_spinlock_lock)
-void gasnetc_spinlock_lock(gasnetc_spinlock_t *s, int concurrent) {
-  gasneti_waituntil(gasnetc_spinlock_try(s, concurrent));
+void gasnetc_spinlock_lock(gasnetc_spinlock_t *s) {
+  gasneti_waituntil(gasnetc_spinlock_try(s));
 }
+
+#define GASNETC_HAVE_SPINLOCK 1
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 
 /* Global freelist type
@@ -520,9 +499,9 @@ void gasnetc_spinlock_lock(gasnetc_spinlock_t *s, int concurrent) {
  * Other possibilities include FIFO (queue) with mutex, or lock-free LIFO or FIFO
  */
 
-/* Use spinlocks by default if they are "native" */
+/* Use spinlocks by default if they are available */
 #ifndef GASNETI_FREELISTS_USE_SPINLOCK
-  #define GASNETI_FREELISTS_USE_SPINLOCK GASNETI_HAVE_ATOMIC_SWAP
+  #define GASNETI_FREELISTS_USE_SPINLOCK GASNETC_HAVE_SPINLOCK
 #endif
 
 /*
@@ -560,7 +539,7 @@ typedef struct {
 /* Initializer for staticly allocated freelists */
 #if GASNETI_FREELISTS_USE_SPINLOCK
   #define GASNETI_FREELIST_INITIALIZER	{ GASNETC_SPINLOCK_INITIALIZER, NULL }
-  #define GASNETI_FREELIST_LOCK(fl)	gasnetc_spinlock_lock(&((fl)->lock), GASNETC_ANY_PAR)
+  #define GASNETI_FREELIST_LOCK(fl)	gasnetc_spinlock_lock(&((fl)->lock))
   #define GASNETI_FREELIST_UNLOCK(fl)	gasnetc_spinlock_unlock(&((fl)->lock))
 #else
   #define GASNETI_FREELIST_INITIALIZER	{ GASNETC_MUTEX_INITIALIZER, NULL }
