@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/05/13 08:18:57 $
-# $Revision: 1.59 $
+#     $Date: 2003/05/29 09:09:44 $
+# $Revision: 1.60 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.59 $)
+AC_REVISION($Revision: 1.60 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -338,6 +338,14 @@ case "$target_os" in
   cygwin*) 
 	AC_DEFINE(CYGWIN)
 	GASNET_MACHINE_DEFINES="-DCYGWIN"
+ 	if test "$have_pthread" = yes ; then
+	  GASNET_THREAD_DEFINES="-D_REENTRANT"
+          GASNET_THREAD_LIBS=""
+	fi
+	;;
+  darwin*) 
+	AC_DEFINE(DARWIN)
+	GASNET_MACHINE_DEFINES="-DDARWIN"
  	if test "$have_pthread" = yes ; then
 	  GASNET_THREAD_DEFINES="-D_REENTRANT"
           GASNET_THREAD_LIBS=""
