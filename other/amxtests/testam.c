@@ -353,6 +353,14 @@ int main(int argc, char **argv) {
   if (argc > 3) depth = atoi(argv[3]);
   if (!depth) depth = 4;
 
+#if defined(AMUDP)
+  putenv((char*)"A=A");
+  putenv((char*)"B=B");
+  putenv((char*)"C=C");
+  putenv((char*)"ABC=ABC");
+  putenv((char*)"AReallyLongEnvironmentName=A Really Long Environment Value");
+#endif
+
   /* call startup */
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
                             depth, &networkpid, &eb, &ep));
@@ -456,6 +464,29 @@ int main(int argc, char **argv) {
         }
       }
     }
+
+#if defined(AMUDP)
+  if (strcmp(AMX_SPMDgetenvMaster("A"),"A")) {
+    fprintf(stderr, "Environment value mismatch on P%i\n", myproc);
+    abort();
+    }
+  if (strcmp(AMX_SPMDgetenvMaster("B"),"B")) {
+    fprintf(stderr, "Environment value mismatch on P%i\n", myproc);
+    abort();
+    }
+  if (strcmp(AMX_SPMDgetenvMaster("C"),"C")) {
+    fprintf(stderr, "Environment value mismatch on P%i\n", myproc);
+    abort();
+    }
+  if (strcmp(AMX_SPMDgetenvMaster("ABC"),"ABC")) {
+    fprintf(stderr, "Environment value mismatch on P%i\n", myproc);
+    abort();
+    }
+  if (strcmp(AMX_SPMDgetenvMaster("AReallyLongEnvironmentName"),"A Really Long Environment Value")) {
+    fprintf(stderr, "Environment value mismatch on P%i\n", myproc);
+    abort();
+    }
+#endif
 
   /* barrier */
   AM_Safe(AMX_SPMDBarrier());

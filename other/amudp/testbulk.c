@@ -40,7 +40,7 @@ static void bulk_request_handler(void *token, void *buf, int nbytes, int arg) {
   #endif
 
   #if VERBOSE
-    printf("%i: bulk_request_handler(). sending reply..\n", myproc); fflush(stdout);
+    printf("%i: bulk_request_handler(). sending reply...\n", myproc); fflush(stdout);
   #endif
 
 

@@ -1,13 +1,14 @@
-/*  $Archive:: /Ti/AMMPI/apputils.h                                       $
- *     $Date: 2004/01/19 12:57:32 $
- * $Revision: 1.7 $
- * Description: Application utilities on AMMPI
+/*  $Archive:: /Ti/AMUDP/apputils.h                                       $
+ *     $Date: 2004/01/27 09:09:34 $
+ * $Revision: 1.8 $
+ * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #ifndef _APPUTILS_H
 #define _APPUTILS_H
 
+#include <errno.h>
 #ifdef WIN32
   #include <windows.h>  
   #define sleep(x) Sleep(1000*x)
@@ -82,7 +83,11 @@ void setupUtilHandlers(ep_t activeep, eb_t activeeb);
 void printGlobalStats();
 
 
-extern int64_t getCurrentTimeMicrosec();
+#ifdef UETH
+  #define getCurrentTimeMicrosec() ueth_getustime()
+#else
+  extern int64_t getCurrentTimeMicrosec();
+#endif
 extern void outputTimerStats();
 
 #ifndef APPUTILS_OMIT_READWRITE

@@ -1,6 +1,6 @@
 #include "apputils.h"
 
-/* non-pipelined version of ping tester */
+/* non-pipelined version of ping tester, using AMMediums of a given size */
 
 #define PING_REQ_HANDLER 1
 #define PING_REP_HANDLER 2
@@ -31,7 +31,7 @@ static void ping_reply_handler(void *token) {
   numleft--;
   }
 
-void spinwait(int polling) {
+void mywait(int polling) {
   if (polling) { /* poll until everyone done */
     while (numleft) {
       AM_Safe(AM_Poll(eb));
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
 
   begin = getCurrentTimeMicrosec();
 
-  if (myproc == 0) spinwait(polling);
+  if (myproc == 0) mywait(polling);
   else { /* everybody sends packets to 0 */
     for (k=0;k < iters; k++) {
       numleft = 1;
@@ -114,7 +114,7 @@ int main(int argc, char **argv) {
         printf("%i: sending request...", myproc); fflush(stdout);
       #endif
       AM_Safe(AM_RequestI0(ep, 0, PING_REQ_HANDLER, msg, msgsz));
-      spinwait(polling);
+      mywait(polling);
       }
     }
   

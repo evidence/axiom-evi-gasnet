@@ -31,7 +31,7 @@ static void ping_reply_handler(void *token) {
   numleft--;
   }
 
-void spinwait(int polling) {
+void mywait(int polling) {
   if (polling) { /* poll until everyone done */
     while (numleft) {
       AM_Safe(AM_Poll(eb));
@@ -56,8 +56,8 @@ int main(int argc, char **argv) {
   int iters = 0;
   int depth = 0;
 
-  if (argc < 2) {
-    printf("Usage: %s (iters) (Poll/Block) (netdepth)\n", argv[0]);
+  if (argc < 3) {
+    printf("Usage: %s numprocs spawnfn (iters) (Poll/Block) (netdepth)\n", argv[0]);
     exit(1);
     }
 
@@ -100,7 +100,7 @@ int main(int argc, char **argv) {
 
   begin = getCurrentTimeMicrosec();
 
-  if (myproc == 0) spinwait(polling);
+  if (myproc == 0) mywait(polling);
   else { /* everybody sends packets to 0 */
     for (k=0;k < iters; k++) {
       numleft = 1;
@@ -108,7 +108,7 @@ int main(int argc, char **argv) {
         printf("%i: sending request...", myproc); fflush(stdout);
       #endif
       AM_Safe(AM_Request0(ep, 0, PING_REQ_HANDLER));
-      spinwait(polling);
+      mywait(polling);
       }
     }
   

@@ -1,7 +1,7 @@
 /*  $Archive:: /Ti/AMUDP/apputils.h                                       $
- *     $Date: 2004/01/19 12:57:33 $
- * $Revision: 1.3 $
- * Description: Application utilities on AMUDP
+ *     $Date: 2004/01/27 09:09:36 $
+ * $Revision: 1.4 $
+ * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
@@ -88,6 +88,7 @@ void printGlobalStats();
 #else
   extern int64_t getCurrentTimeMicrosec();
 #endif
+extern void outputTimerStats();
 
 #ifndef APPUTILS_OMIT_READWRITE
 uint32_t getWord(int proc, void *addr);

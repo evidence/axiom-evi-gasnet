@@ -1,6 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 # NOTE: This Makefile is used to tie in with the GASNet build infrastructure
 #       the stand-alone AMUDP product doesn't currently provide an automake framework
+#       to build a stand-alone installation, use "make -f Makefile.standalone"
 
 AUTOMAKE_OPTIONS = foreign 1.4 no-dependencies
 

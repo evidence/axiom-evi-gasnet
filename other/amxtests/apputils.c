@@ -1,7 +1,7 @@
 /*  $Archive:: /Ti/AMMPI/apputils.c                                       $
- *     $Date: 2004/01/19 12:57:32 $
- * $Revision: 1.7 $
- * Description: Application utilities on AMMPI
+ *     $Date: 2004/01/27 09:09:34 $
+ * $Revision: 1.8 $
+ * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
@@ -95,6 +95,7 @@ void printGlobalStats() {
 
   }
 /* ------------------------------------------------------------------------------------ */
+#ifndef UETH
 #ifdef WIN32
   int64_t getCurrentTimeMicrosec() {
     static int status = -1;
@@ -128,6 +129,7 @@ void printGlobalStats() {
     retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
     return retval;
     }
+#endif
 #endif
 /* ------------------------------------------------------------------------------------ */
 extern void outputTimerStats() {

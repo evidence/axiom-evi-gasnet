@@ -1,5 +1,7 @@
 #include "apputils.h"
 
+/* non-pipelined version of ping tester */
+
 #define PING_REQ_HANDLER 1
 #define PING_REP_HANDLER 2
 
@@ -44,7 +46,7 @@ void mywait(int polling) {
     }
 }
 
-/* usage: testping  numprocs  spawnfn  iters  P/B  depth
+/* usage: testlatency  numprocs  spawnfn  iters  P/B  depth
  */
 int main(int argc, char **argv) {
   uint64_t networkpid;
@@ -68,7 +70,6 @@ int main(int argc, char **argv) {
   AM_Safe(AMX_SPMDStartup(&argc, &argv, 
                         0, depth, NULL, 
                         &networkpid, &eb, &ep));
-
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, PING_REQ_HANDLER, ping_request_handler));
   AM_Safe(AM_SetHandler(ep, PING_REP_HANDLER, ping_reply_handler));
@@ -92,9 +93,11 @@ int main(int argc, char **argv) {
   if (myproc == 0) numleft = (numprocs-1)*iters;
   else numleft = iters;
 
+  outputTimerStats();
+
   AM_Safe(AMX_SPMDBarrier());
 
-  if (myproc == 0) printf("Running %i iterations of ping test...\n", iters);
+  if (myproc == 0) printf("Running %i iterations of latency test...\n", iters);
 
   begin = getCurrentTimeMicrosec();
 
