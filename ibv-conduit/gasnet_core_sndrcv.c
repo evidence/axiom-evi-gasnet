@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/21 00:18:16 $
- * $Revision: 1.9 $
+ *     $Date: 2003/08/21 18:02:08 $
+ * $Revision: 1.10 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -344,12 +344,10 @@ gasnetc_sbuf_t *gasnetc_get_sbuf(void) {
     gasnetc_sbuf_t dummy, *tail = &dummy;
     int count;
 
-    count = gasnetc_snd_reap(GASNETC_SND_REAP_LIMIT, &tail);
+    count = gasnetc_snd_reap(1, &tail);
     if_pt (count > 0) {
+      assert(count == 1);
       sbuf = dummy.next;
-      if (count > 1) {
-        gasnetc_put_sbuf(sbuf->next, tail);
-      }
       break;	/* Have an sbuf - leave the loop */
     }
 
