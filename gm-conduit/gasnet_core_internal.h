@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.20 2002/08/08 06:53:26 csbell Exp $
- * $Date: 2002/08/08 06:53:26 $
- * $Revision: 1.20 $
+/* $Id: gasnet_core_internal.h,v 1.21 2002/08/11 22:02:31 csbell Exp $
+ * $Date: 2002/08/11 22:02:31 $
+ * $Revision: 1.21 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -118,6 +118,7 @@ void	gasnetc_gm_send_AMSystem_broadcast(void *, size_t,
 void	gasnetc_SysBarrier();
 
 /* GM Callback functions */
+void	gasnetc_callback_error(gm_status_t status, gasnetc_bufdesc_t *bufd);
 void	gasnetc_callback_AMRequest    (struct gm_port *, void *, gm_status_t);
 void	gasnetc_callback_AMRequest_NOP(struct gm_port *, void *, gm_status_t);
 void	gasnetc_callback_AMReply      (struct gm_port *, void *, gm_status_t);
@@ -138,6 +139,14 @@ struct gasnetc_token {
 	int	total;
 }
 gasnetc_token_t;
+
+/* GM locks, abstract over pthread_mutex_t mainly for debugging purposes */
+typedef
+struct gasnetc_lock {
+	pthread_mutex_t	mutex;
+};
+
+#define GASNETC_LOCK_INITIALIZER	{ PTHREAD_MUTEX_INITIALIZER }
 
 /* Buffer descriptor.  Each DMA-pinned AM buffer has one
  * of these attached to it. */
@@ -311,6 +320,7 @@ GASNET_INLINE_MODIFIER(gasnetc_token_lo_release)
 void
 gasnetc_token_lo_release()
 {
+	/* XXX assert we have gm mutex */
 	assert((_gmc.stoks.lo-1 >= 0) && (_gmc.stoks.total-1 >= 0));
 	_gmc.stoks.lo -= 1;
 	_gmc.stoks.total -= 1;
