@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/07 00:55:18 $
- * $Revision: 1.12 $
+ *     $Date: 2002/12/07 09:56:24 $
+ * $Revision: 1.13 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1484,7 +1484,7 @@ void* gasnetc_lapi_AMreq_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 			    ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo)
 {
     gasnetc_token_t *token = (gasnetc_token_t*)uhdr;
-    gasnetc_msg_t *msg = &token->buf.msg;;
+    gasnetc_msg_t *msg = &token->buf.msg;
     gasnetc_category_t cat;
     unsigned int is_packed;
     void* destloc = NULL;
