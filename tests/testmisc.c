@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testmisc.c                             $
- *     $Date: 2002/08/30 03:27:23 $
- * $Revision: 1.1 $
+ *     $Date: 2002/08/31 02:05:06 $
+ * $Revision: 1.2 $
  * Description: GASNet misc performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -195,7 +195,7 @@ int main(int argc, char **argv) {
 
   #if defined(GASNET_PAR) || defined (GASNET_PARSYNC)
     {
-      pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+      static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
       int64_t start = TIME();
       for (i=0; i < iters; i++) {
         pthread_mutex_lock(&mutex);
@@ -208,7 +208,7 @@ int main(int argc, char **argv) {
     BARRIER();
 
     {
-      gasnet_hsl_t hsl = GASNET_HSL_INITIALIZER;
+      static gasnet_hsl_t hsl = GASNET_HSL_INITIALIZER;
       int64_t start = TIME();
       for (i=0; i < iters; i++) {
         gasnet_hsl_lock(&hsl);
