@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/08/10 09:57:43 $
- * $Revision: 1.32 $
+ *     $Date: 2003/08/11 09:32:07 $
+ * $Revision: 1.33 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,6 +22,8 @@ GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
+static void gasnetc_atexit(void);
+static void gasnetc_traceoutput(int);
 
 gasnet_node_t gasnetc_mynode = (gasnet_node_t)-1;
 gasnet_node_t gasnetc_nodes = 0;
@@ -127,6 +129,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     /* enable tracing */
     gasneti_trace_init();
+    GASNETI_AM_SAFE(AMMPI_SPMDSetExitCallback(gasnetc_traceoutput));
 
     #if DEBUG_VERBOSE
       fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
@@ -298,6 +301,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* catch fatal signals and convert to SIGQUIT */
     gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
 
+    atexit(gasnetc_atexit);
+
     /* ------------------------------------------------------------------------------------ */
     /*  register segment  */
 
@@ -327,6 +332,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       GASNETI_AM_SAFE(AMMPI_SetHandlerCallbacks(gasnetc_endpoint,
         gasnetc_enteringHandler_hook, gasnetc_leavingHandler_hook));
     #endif
+
     /* ------------------------------------------------------------------------------------ */
     /*  primary attach complete */
     gasnetc_attach_done = 1;
@@ -349,9 +355,19 @@ done: /*  error return while locked */
   GASNETI_RETURN(retval);
 }
 /* ------------------------------------------------------------------------------------ */
+static void gasnetc_atexit(void) {
+  gasnetc_exit(0);
+}
+static int gasnetc_exitcalled = 0;
+static void gasnetc_traceoutput(int exitcode) {
+  if (!gasnetc_exitcalled)
+    gasneti_trace_finish();
+}
+
 extern void gasnetc_exit(int exitcode) {
   /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
   gasneti_reghandler(SIGQUIT, SIG_IGN);
+  gasnetc_exitcalled = 1;
 
   {  /* ensure only one thread ever continues past this point */
     static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;

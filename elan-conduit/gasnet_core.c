@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/06/17 04:01:56 $
- * $Revision: 1.26 $
+ *     $Date: 2003/08/11 09:32:02 $
+ * $Revision: 1.27 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -31,6 +31,7 @@ GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
+static void gasnetc_atexit(void);
 
 gasnet_node_t gasnetc_mynode = (gasnet_node_t)-1;
 gasnet_node_t gasnetc_nodes = 0;
@@ -438,6 +439,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
   #endif
 
+  atexit(gasnetc_atexit);
+
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
 
@@ -590,6 +593,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+static void gasnetc_atexit(void) {
+    gasnetc_exit(0);
+}
+
 #if GASNETC_USE_SIGNALING_EXIT
   #ifdef GASNETI_USE_GENERIC_ATOMICOPS
     #error need real atomic ops with signal-safety for signaling gasnet_exit...
