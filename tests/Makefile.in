@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.18 2004/03/12 11:03:56 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.19 2004/03/12 21:48:11 phargrov Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -38,6 +38,7 @@ testprograms_seq =      \
         testexit        \
         testhsl         \
         testbarrierconf \
+        testbarrierlate \
 	testtools   
 
 # tests that should only be built in PARSYNC and PAR modes
@@ -130,8 +131,8 @@ testtools: force
 # some tests need delay.o
 testlogGP: delay.o
 testlogGP_deps = delay.o
-testbarrier: delay.o
-testbarrier_deps = delay.o
+testbarrierlate: delay.o
+testbarrierlate_deps = delay.o
 
 # delay function must be built w/o optimizations
 delay.o: force
