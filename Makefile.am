@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/02/04 07:26:47 $
-# $Revision: 1.22 $
+#     $Date: 2004/02/11 04:23:30 $
+# $Revision: 1.23 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -28,7 +28,6 @@ headers =                  \
         gasnet_basic.h     \
         gasnet_handler.h   \
         gasnet_help.h      \
-        gasnet_internal.h  \
         gasnet_timer.h     \
 	gasnet_tools.h     \
 	gasnet_trace.h     
@@ -46,6 +45,7 @@ EXTRA_DIST =              \
         acconfig.h        \
         acinclude.m4      \
         $(headers)        \
+        gasnet_internal.h \
         gasnet_internal.c \
         gasnet_mmap.c 
 #       tests handled below
