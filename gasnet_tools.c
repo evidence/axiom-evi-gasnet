@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2004/11/11 20:36:32 $
- * $Revision: 1.84 $
+ *     $Date: 2004/11/12 03:42:41 $
+ * $Revision: 1.85 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -936,7 +936,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
     if (traceheader) {
       char srclinestr[255];
       srclinestr[0] ='\0';
-      #ifdef GASNET_TRACE
+      #if GASNET_TRACE
         if (GASNETI_TRACE_ENABLED(N)) {
           const char *filename; 
           unsigned int linenum;
