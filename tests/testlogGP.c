@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2003/07/19 20:04:49 $
- * $Revision: 1.7 $
+ *     $Date: 2003/07/23 21:53:52 $
+ * $Revision: 1.8 $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -47,7 +47,7 @@ int peerproc;
 void *mymem;
 void *peermem;
 
-
+extern void delay(int n);
 
 /* Compute some number of loops needed to get no less that the specified delay.
  * Returns the number of loops needed and overwrites the argument with the
