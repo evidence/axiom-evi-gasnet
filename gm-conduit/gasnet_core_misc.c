@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.14 2002/06/30 10:16:47 csbell Exp $
- * $Date: 2002/06/30 10:16:47 $
- * $Revision: 1.14 $
+/* $Id: gasnet_core_misc.c,v 1.15 2002/06/30 12:55:27 csbell Exp $
+ * $Date: 2002/06/30 12:55:27 $
+ * $Revision: 1.15 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -177,11 +177,11 @@ gasnetc_AMRequestPool_block()
 	gasnetc_AMPoll();
 
 	while (bufd_idx < 0) {
-		while (_gmc.reqs_pool_cur < 1)
+		while (_gmc.reqs_pool_cur < 0)
 			gasnetc_AMPoll();
 
 		GASNETC_REQUEST_POOL_MUTEX_LOCK;
-		if_pt (_gmc.reqs_pool_cur > 0) {
+		if_pt (_gmc.reqs_pool_cur >= 0) {
 			bufd_idx = _gmc.reqs_pool[_gmc.reqs_pool_cur];
 			GASNETI_TRACE_PRINTF(C,
 			    ("AMRequestPool (%d/%d) gave bufdesc id %d\n",
@@ -208,6 +208,7 @@ gasnetc_SysBarrier()
 	uintptr_t	*scratchPtr;
 
 	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
+	assert(scratchPtr != NULL);
 
 	if (gasnetc_mynode == 0) {
 		while (count < gasnetc_nodes) {

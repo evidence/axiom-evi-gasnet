@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.11 2002/06/30 00:32:50 csbell Exp $
- * $Date: 2002/06/30 00:32:50 $
+/* $Id: gasnet_core.c,v 1.12 2002/06/30 12:55:27 csbell Exp $
+ * $Date: 2002/06/30 12:55:27 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -44,6 +44,9 @@ void gasnetc_checkinit() {
 static void gasnetc_check_config() {
   assert(gm_min_size_for_length(GASNETC_AM_MEDIUM_MAX) <= GASNETC_AM_SIZE);
   assert(gm_min_size_for_length(GASNETC_AM_LONG_REPLY_MAX) <= GASNETC_AM_SIZE);
+  assert(gm_max_length_for_size(GASNETC_AM_SIZE) <= GASNETC_AM_PACKET);
+  assert(gm_max_length_for_size(GASNETC_SYS_SIZE) <= GASNETC_AM_PACKET);
+  assert(GASNETC_AM_MAX_HANDLERS >= 256);
   return;
 }
 
@@ -229,19 +232,20 @@ static int gasnetc_init(int *argc, char ***argv,
   /*  grab GM buffers and make sure we have the maximum amount possible */
   while (_gmc.stoks.hi != 0) {
     if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
-      gasneti_fatalerror("Unexpected message while at bootstrap. .");
+      gasneti_fatalerror("Unexpected message during bootstrap");
   }
   gasnetc_provide_receive_buffers();
 
+  /* XXX re-enable for new attach() interface 
   printf(
   	"Send tokens: lo=%3d, hi=%3d, tot=%3d, max=%3d\n",
 	_gmc.stoks.lo, _gmc.stoks.hi, _gmc.stoks.total, _gmc.stoks.max);
   printf(
   	"Recv tokens: lo=%3d, hi=%3d, tot=%3d, max=%3d\n",
 	_gmc.rtoks.lo, _gmc.rtoks.hi, _gmc.rtoks.total, _gmc.rtoks.max);
+  */
   /*  init complete */
   gasnetc_init_done = 1;
-  GASNETI_TRACE_PRINTF(C, ("init done"));
   return GASNET_OK;
 }
 
@@ -259,9 +263,6 @@ extern int gasnet_init(int *argc, char ***argv,
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_exit(int exitcode) {
-  /* Flush all reply callbacks */
-  while (_gmc.ReplyCount > 0)
-	  gasnetc_AMPoll();
   gasnetc_sendbuf_finalize();
   gasneti_trace_finish();
   if (gasnetc_init_done)
