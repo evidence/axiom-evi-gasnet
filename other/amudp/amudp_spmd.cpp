@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.cpp                                   $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+ *     $Date: 2004/01/05 05:01:20 $
+ * $Revision: 1.2 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -141,7 +141,7 @@ typedef struct {
 /* ------------------------------------------------------------------------------------ 
  *  misc helpers
  * ------------------------------------------------------------------------------------ */
-static void flushStreams(char *context) {
+static void flushStreams(const char *context) {
   if (!context) context = "flushStreams()";
 
   if (fflush(stdout)) {
@@ -441,7 +441,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       }
 
     // setup a slave argv
-    char **slaveargv = (char**)malloc(sizeof(char*)*((*argc)+3));
+    const char **slaveargv = (const char**)malloc(sizeof(const char*)*((*argc)+3));
     int slaveargc = (*argc)+2;
     slaveargv[0] = (*argv)[0];
     slaveargv[1] = AMUDP_SPMDSLAVE_FLAG;
@@ -460,7 +460,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     // call system-specific spawning routine
     AMUDP_SPMDSpawnRunning = TRUE;
-    if (!spawnfn(AMUDP_SPMDNUMPROCS, slaveargc, slaveargv)) { 
+    if (!spawnfn(AMUDP_SPMDNUMPROCS, slaveargc, (char **)slaveargv)) { 
       ErrMessage("Error spawning SPMD worker threads. Exiting...");
       exit(1);
       }

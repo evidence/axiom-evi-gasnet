@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2003/12/11 20:19:52 $
- * $Revision: 1.12 $
+ *     $Date: 2004/01/05 05:01:19 $
+ * $Revision: 1.13 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -85,6 +85,10 @@
   #define __CURR_FUNCTION ((const char *) 0) /* could use __func__ for C99 compilers.. */
 #endif
 
+#if ! defined (__GNUC__) && ! defined (__attribute__)
+  #define __attribute__(flags)
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 /* Branch prediction:
    these macros return the value of the expression given, but pass on
@@ -125,7 +129,7 @@ BEGIN_EXTERNC
 #ifdef __SUNPRO_C
   #pragma error_messages(off, E_END_OF_LOOP_CODE_NOT_REACHED)
 #endif
-static char *AMMPI_ErrorName(int errval) {
+static const char *AMMPI_ErrorName(int errval) {
   switch (errval) {
     case AM_ERR_NOT_INIT: return "AM_ERR_NOT_INIT";      
     case AM_ERR_BAD_ARG:  return "AM_ERR_BAD_ARG";       
@@ -135,7 +139,7 @@ static char *AMMPI_ErrorName(int errval) {
     default: return "*unknown*";
     }
   }
-static char *AMMPI_ErrorDesc(int errval) {
+static const char *AMMPI_ErrorDesc(int errval) {
   switch (errval) {
     case AM_ERR_NOT_INIT: return "Active message layer not initialized"; 
     case AM_ERR_BAD_ARG:  return "Invalid function parameter passed";    
@@ -145,8 +149,8 @@ static char *AMMPI_ErrorDesc(int errval) {
     default: return "no description available";
     }
   }
-static char *MPI_ErrorName(int errval) {
-  char *code = NULL;
+static const char *MPI_ErrorName(int errval) {
+  const char *code = NULL;
   char systemErrDesc[MPI_MAX_ERROR_STRING+10];
   int len = MPI_MAX_ERROR_STRING;
   static char msg[MPI_MAX_ERROR_STRING+100];
@@ -256,7 +260,8 @@ static int AMMPI_checkMPIreturn(int retcode, const char *fncallstr,
   return val;                                                            \
   } while (0)
 
-static int ErrMessage(char *msg, ...) {
+static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf__, 1, 2)));
+static int ErrMessage(const char *msg, ...) {
   static va_list argptr;
   char *expandedmsg = (char *)malloc(strlen(msg)+50);
   int retval;

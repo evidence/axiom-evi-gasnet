@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core.c                  $
- *     $Date: 2003/10/24 01:37:29 $
- * $Revision: 1.33 $
+ *     $Date: 2004/01/05 05:01:11 $
+ * $Revision: 1.34 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -848,7 +848,8 @@ extern void gasnetc_trace_finish() {
 */
 extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
   GASNETI_CHECKATTACH();
-  gasneti_assert(gasnetc_seginfo && seginfo_table);
+  gasneti_assert(seginfo_table);
+  gasneti_memcheck(gasnetc_seginfo);
   if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
   memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
   memcpy(seginfo_table, gasnetc_seginfo, numentries*sizeof(gasnet_seginfo_t));

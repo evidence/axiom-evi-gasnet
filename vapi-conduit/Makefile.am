@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.10 2003/12/16 17:33:02 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.11 2004/01/05 05:01:27 bonachea Exp $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -114,6 +114,11 @@ install-data-local: $(headers)
 uninstall-local:
 	rm -f $(DESTDIR)$(includedir)/vapi-conduit/*.h $(DESTDIR)$(includedir)/vapi-conduit/*.mak
 
+else
+$(top_srcdir)/gasnet.h: force
+	@echo "ERROR: vapi-conduit support was not detected at configure time"
+	@echo "       try re-running configure with --enable-vapi"
+	@exit 1
 endif
 
 tests:

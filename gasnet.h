@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2003/12/17 10:12:20 $
- * $Revision: 1.21 $
+ *     $Date: 2004/01/05 05:01:10 $
+ * $Revision: 1.22 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -188,7 +188,7 @@
 #ifndef _GASNET_ERRORNAME
 #define _GASNET_ERRORNAME
 GASNET_INLINE_MODIFIER(gasnet_ErrorName)
-char *gasnet_ErrorName(int errval) {
+const char *gasnet_ErrorName(int errval) {
   switch (errval) {
     case GASNET_OK:           return "GASNET_OK";      
     case GASNET_ERR_NOT_INIT: return "GASNET_ERR_NOT_INIT";      
@@ -204,7 +204,7 @@ char *gasnet_ErrorName(int errval) {
 #ifndef _GASNET_ERRORDESC
 #define _GASNET_ERRORDESC
 GASNET_INLINE_MODIFIER(gasnet_ErrorDesc)
-char *gasnet_ErrorDesc(int errval) {
+const char *gasnet_ErrorDesc(int errval) {
   switch (errval) {
     case GASNET_OK:           return "No error";      
     case GASNET_ERR_NOT_INIT: return "GASNet message layer not initialized"; 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_reqrep.cpp                                 $
- *     $Date: 2003/12/24 08:03:28 $
- * $Revision: 1.5 $
+ *     $Date: 2004/01/05 05:01:20 $
+ * $Revision: 1.6 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1630,8 +1630,8 @@ extern int AMUDP_ReplyXfer(void *token, handler_t handler,
 }
 /* ------------------------------------------------------------------------------------ */
 extern void AMUDP_DefaultReturnedMsg_Handler(int status, op_t opcode, void *token) {
-  char *statusStr = "*unknown*";
-  char *opcodeStr = "*unknown*";
+  const char *statusStr = "*unknown*";
+  const char *opcodeStr = "*unknown*";
   amudp_buf_t *msgbasicbuf = (amudp_buf_t *)token;
   amudp_buf_t *msgbuf = (msgbasicbuf->status.bulkBuffer ? msgbasicbuf->status.bulkBuffer : msgbasicbuf);
   int numArgs = AMUDP_MSG_NUMARGS(&msgbuf->Msg);

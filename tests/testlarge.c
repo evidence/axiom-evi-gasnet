@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testlarge.c                                 $
- *     $Date: 2003/12/18 20:03:27 $
- * $Revision: 1.10 $
+ *     $Date: 2004/01/05 05:01:24 $
+ * $Revision: 1.11 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -65,7 +65,7 @@ void update_stat(stat_struct_t *st, uint64_t temptime, int iters)
 	st->time += temptime;
 } 
 
-void print_stat(int myproc, stat_struct_t *st, char *name, int operation)
+void print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 {
 	switch (operation) {
 	case PRINT_LATENCY:

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.48 2003/11/13 12:24:21 csbell Exp $
- * $Date: 2003/11/13 12:24:21 $
+/* $Id: gasnet_core.c,v 1.49 2004/01/05 05:01:14 bonachea Exp $
+ * $Date: 2004/01/05 05:01:14 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -486,7 +486,8 @@ gasnetc_exit(int exitcode)
 extern int 
 gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
 	GASNETI_CHECKINIT();
-	gasneti_assert(gasnetc_seginfo && seginfo_table);
+        gasneti_assert(seginfo_table);
+        gasneti_memcheck(gasnetc_seginfo);
 
 	if (!gasneti_attach_done) GASNETI_RETURN_ERR(NOT_INIT);
 	if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.24 2003/11/03 19:45:31 csbell Exp $
- * $Date: 2003/11/03 19:45:31 $
- * $Revision: 1.24 $
+/* $Id: gasnet_core_help.h,v 1.25 2004/01/05 05:01:14 bonachea Exp $
+ * $Date: 2004/01/05 05:01:14 $
+ * $Revision: 1.25 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -233,7 +233,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #if	GASNET_DEBUG
 #define GASNETC_DPRINTF(x)	printf x
 #else
-#define GASNETC_DPRINTF(x)
+#define GASNETC_DPRINTF(x)      ((void)0)
 #endif
 
 /* -------------------------------------------------------------------------- */

@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/12/29 04:20:53 $
-# $Revision: 1.103 $
+#     $Date: 2004/01/05 05:01:10 $
+# $Revision: 1.104 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.103 $)
+AC_REVISION($Revision: 1.104 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -164,8 +164,13 @@ case "$gasnet_cv_cc_family" in
   *)    CCOPTFLAGS="-O" ;;
 esac
 
+GNUWARNINGFLAGS="-Wall -Wno-unused -Wpointer-arith -Wnested-externs -Wwrite-strings -Wmissing-format-attribute -Wno-missing-braces" 
+case "$target_os" in # hide pragma warnings in system header files included by absolute path
+  solaris*) GNUWARNINGFLAGS="$GNUWARNINGFLAGS -Wno-unknown-pragmas"
+esac
+
 case "$gasnet_cv_cc_family" in
-  GNU)  CCDEBUGFLAGS="-g3 -Wall -Wno-unused -Wpointer-arith -Wnested-externs -Wno-missing-braces" 
+  GNU)  CCDEBUGFLAGS="-g3 $GNUWARNINGFLAGS"
         #CCDEBUGFLAGS="$CCDEBUGFLAGS -ansi -U__STRICT_ANSI__"
   ;;
   HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
@@ -521,6 +526,7 @@ if test $enabled_udp = yes; then
   AC_LANG_CPLUSPLUS
   GASNET_FAMILY_CACHE_CHECK(C++, CXX, gasnet_cv_cxx_family)
   case "$gasnet_cv_cxx_family" in
+    GNU)   MISC_CXXFLAGS="$GNUWARNINGFLAGS" ;;
     PGI)   MISC_CXXFLAGS="-w" ;; # apparently has no way to indep control warnings
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
     MIPS)  MISC_CXXFLAGS="-diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;

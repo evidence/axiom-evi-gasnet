@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2003/12/18 22:33:12 $
- * $Revision: 1.35 $
+ *     $Date: 2004/01/05 05:01:27 $
+ * $Revision: 1.36 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1536,7 +1536,8 @@ extern void gasnetc_exit(int exitcode) {
 */
 extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
   GASNETI_CHECKATTACH();
-  gasneti_assert(gasnetc_seginfo && seginfo_table);
+  gasneti_assert(seginfo_table);
+  gasneti_memcheck(gasnetc_seginfo);
   if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
   memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
   memcpy(seginfo_table, gasnetc_seginfo, numentries*sizeof(gasnet_seginfo_t));

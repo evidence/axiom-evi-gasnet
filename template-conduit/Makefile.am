@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.18 2003/12/16 17:32:59 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.19 2004/01/05 05:01:23 bonachea Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -104,6 +104,11 @@ install-data-local: $(headers)
 uninstall-local:
 	rm -f $(DESTDIR)$(includedir)/<conduitname>-conduit/*.h $(DESTDIR)$(includedir)/<conduitname>-conduit/*.mak
 
+else
+$(top_srcdir)/gasnet.h: force
+	@echo "ERROR: <conduitname>-conduit support was not detected at configure time"
+	@echo "       try re-running configure with --enable-<conduitname>"
+	@exit 1
 endif
 
 tests:

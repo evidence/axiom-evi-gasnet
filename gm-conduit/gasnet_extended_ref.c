@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_ref.c,v 1.9 2003/12/06 13:25:48 bonachea Exp $
- * $Date: 2003/12/06 13:25:48 $
+/* $Id: gasnet_extended_ref.c,v 1.10 2004/01/05 05:01:14 bonachea Exp $
+ * $Date: 2004/01/05 05:01:14 $
  * Description: GASNet GM conduit Extended API Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -261,6 +261,7 @@ void gasnete_extref_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     uint8_t *pdest = dest;
     #if GASNETE_USE_LONG_GETS
       /* TODO: optimize this check by caching segment upper-bound in gasnete_seginfo */
+      gasneti_memcheck(gasnete_seginfo);
       if (dest >= gasnete_seginfo[gasnete_mynode].addr &&
          (((uintptr_t)dest) + nbytes) <= 
           (((uintptr_t)gasnete_seginfo[gasnete_mynode].addr) +

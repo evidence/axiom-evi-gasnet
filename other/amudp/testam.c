@@ -198,11 +198,11 @@ int main(int argc, char **argv) {
   if (argc > 5) depth = atoi(argv[5]);
   if (!depth) depth = 4;
 
-  putenv("A=A");
-  putenv("B=B");
-  putenv("C=C");
-  putenv("ABC=ABC");
-  putenv("AReallyLongEnvironmentName=A Really Long Environment Value");
+  putenv((char*)"A=A");
+  putenv((char*)"B=B");
+  putenv((char*)"C=C");
+  putenv((char*)"ABC=ABC");
+  putenv((char*)"AReallyLongEnvironmentName=A Really Long Environment Value");
 
   /* call startup */
   AM_Safe(AMUDP_SPMDStartup(&argc, &argv, 

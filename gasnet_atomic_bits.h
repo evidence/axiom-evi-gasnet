@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/12/24 08:03:26 $
- * $Revision: 1.28 $
+ *     $Date: 2004/01/05 05:01:10 $
+ * $Revision: 1.29 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -181,7 +181,7 @@
             } while (0)
         #else
           #define GASNETI_CMPXCHG_BUGCHECK_DECL
-          #define GASNETI_CMPXCHG_BUGCHECK(v)
+          #define GASNETI_CMPXCHG_BUGCHECK(v)  ((void)0)
         #endif
 
         GASNET_INLINE_MODIFIER(gasneti_cmpxchg)

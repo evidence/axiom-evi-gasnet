@@ -1,4 +1,4 @@
-/* $Id: testthreads.c,v 1.11 2003/12/04 13:44:46 bonachea Exp $
+/* $Id: testthreads.c,v 1.12 2004/01/05 05:01:24 bonachea Exp $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -179,7 +179,7 @@ main(int argc, char **argv)
 	int 		threads = 1;
 	int		i;
 	pthread_t	*tids;
-        char *getopt_str;
+        const char *getopt_str;
         int opt_p=0, opt_g=0, opt_a=0, opt_m=0;
 
         #if TEST_MPI

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.17 2003/12/16 17:32:54 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.18 2004/01/05 05:01:11 bonachea Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt 
@@ -122,6 +122,11 @@ install-data-local: $(headers)
 uninstall-local:
 	rm -f $(DESTDIR)$(includedir)/elan-conduit/*.h $(DESTDIR)$(includedir)/elan-conduit/*.mak
 
+else
+$(top_srcdir)/gasnet.h: force
+	@echo "ERROR: elan-conduit support was not detected at configure time"
+	@echo "       try re-running configure with --enable-elan"
+	@exit 1
 endif
 
 tests:

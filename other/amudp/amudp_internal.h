@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_internal.h                                 $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+ *     $Date: 2004/01/05 05:01:20 $
+ * $Revision: 1.2 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -116,7 +116,7 @@ BEGIN_EXTERNC
 #ifdef _MSC_VER
   #pragma warning(disable: 4127)
 #endif
-static char *AMUDP_ErrorName(int errval) {
+static const char *AMUDP_ErrorName(int errval) {
   switch (errval) {
     case AM_ERR_NOT_INIT: return "AM_ERR_NOT_INIT";      
     case AM_ERR_BAD_ARG:  return "AM_ERR_BAD_ARG";       
@@ -126,7 +126,7 @@ static char *AMUDP_ErrorName(int errval) {
     default: return "*unknown*";
     }
   }
-static char *AMUDP_ErrorDesc(int errval) {
+static const char *AMUDP_ErrorDesc(int errval) {
   switch (errval) {
     case AM_ERR_NOT_INIT: return "Active message layer not initialized"; 
     case AM_ERR_BAD_ARG:  return "Invalid function parameter passed";    
@@ -183,7 +183,8 @@ static char *AMUDP_ErrorDesc(int errval) {
   return val;                                                     \
   } while (0)
 
-static int ErrMessage(char *msg, ...) {
+static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf__, 1, 2)));
+static int ErrMessage(const char *msg, ...) {
   static va_list argptr;
   char *expandedmsg = (char *)malloc(strlen(msg)+50);
   int retval;

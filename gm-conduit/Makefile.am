@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.32 2003/12/16 17:32:56 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.33 2004/01/05 05:01:14 bonachea Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -126,6 +126,11 @@ install-data-local: $(headers)
 uninstall-local:
 	rm -f $(includedir)/gm-conduit/*.h $(includedir)/gm-conduit/*.mak
 
+else
+$(top_srcdir)/gasnet.h: force
+	@echo "ERROR: gm-conduit support was not detected at configure time"
+	@echo "       try re-running configure with --enable-gm"
+	@exit 1
 endif
 
 tests:

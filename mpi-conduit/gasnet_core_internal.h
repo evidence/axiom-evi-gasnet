@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_internal.h              $
- *     $Date: 2003/12/11 20:19:49 $
- * $Revision: 1.12 $
+ *     $Date: 2004/01/05 05:01:17 $
+ * $Revision: 1.13 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -31,7 +31,7 @@ extern gasneti_mutex_t gasnetc_AMlock; /*  protect access to AMMPI */
  *  AM Error Handling
  * ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasneti_AMErrorName)
-char *gasneti_AMErrorName(int errval) {
+const char *gasneti_AMErrorName(int errval) {
   switch (errval) {
     case AM_OK:           return "AM_OK";      
     case AM_ERR_NOT_INIT: return "AM_ERR_NOT_INIT";      

@@ -1,6 +1,6 @@
 //  $Archive:: /Ti/AMUDP/sockutil.cpp                                     $
-//     $Date: 2003/12/17 10:12:24 $
-// $Revision: 1.2 $
+//     $Date: 2004/01/05 05:01:20 $
+// $Revision: 1.3 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -504,7 +504,7 @@ char const *errorCodeString(int code) {
     MAKEERRSTRING(  WSAEINTR,           "Blocking call interrupted" ),
     MAKEERRSTRING(  WSAEINVAL,          "Invalid parameter" ),
     MAKEERRSTRING(  WSAEISCONN,         "Socket already connected" ),
-    MAKEERRSTRING(  WSAELOOP,           "Routing loop discovered (??)" ),
+    MAKEERRSTRING(  WSAELOOP,           "Routing loop discovered (?)" ),
     MAKEERRSTRING(  WSAEMFILE,          "No more file descriptors available" ),
     MAKEERRSTRING(  WSAEMSGSIZE,        "Message size exceeds maximum datagram size" ),
     MAKEERRSTRING(  WSAENAMETOOLONG,    "Name too long" ),

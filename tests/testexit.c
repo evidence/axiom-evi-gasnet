@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2003/12/15 20:09:53 $
- * $Revision: 1.5 $
+ *     $Date: 2004/01/05 05:01:24 $
+ * $Revision: 1.6 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,7 +20,7 @@ int mynode, nodes;
    Those with non-collective exit should cause the SIGQUIT handler to 
     fire on the non-exiting nodes.
 */
-char *testdesc[] = {
+const char *testdesc[] = {
   "simultaneous collective gasnet_exit(1)",
   "simultaneous return from main()... exit_code 2",
   "non-collective gasnet_exit(3), others in barrier",

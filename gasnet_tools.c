@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/12/17 10:12:20 $
- * $Revision: 1.44 $
+ *     $Date: 2004/01/05 05:01:10 $
+ * $Revision: 1.45 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,7 +57,7 @@ extern void gasneti_checkattach() {
 int gasneti_wait_mode = GASNET_WAIT_SPIN;
 
 /* ------------------------------------------------------------------------------------ */
-extern void gasneti_fatalerror(char *msg, ...) {
+extern void gasneti_fatalerror(const char *msg, ...) {
   va_list argptr;
   char expandedmsg[255];
 
@@ -237,7 +237,7 @@ void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler) {
 }
 
 extern int gasneti_set_waitmode(int wait_mode) {
-  char *desc;
+  const char *desc = NULL;
   GASNETI_CHECKINIT();
   switch (wait_mode) {
     case GASNET_WAIT_SPIN:      desc = "GASNET_WAIT_SPIN"; break;
@@ -439,6 +439,12 @@ gasneti_stattime_t starttime;
   static int gasneti_curbuf = 0;
   static gasneti_mutex_t gasneti_buflock = GASNETI_MUTEX_INITIALIZER;
 
+  /* give gcc enough information to type-check our format strings */
+  static void gasneti_file_vprintf(FILE *fp, const char *format, va_list argptr) __attribute__((__format__ (__printf__, 2, 0)));
+  static void gasneti_trace_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
+  static void gasneti_stats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
+  static void gasneti_tracestats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
+
   static char *gasneti_getbuf() {
     int bufidx;
 
@@ -454,7 +460,7 @@ gasneti_stattime_t starttime;
   /* format and return a string result
      caller should not deallocate string, they are recycled automatically
   */
-  extern char *gasneti_dynsprintf(char *format, ...) {
+  extern char *gasneti_dynsprintf(const char *format, ...) {
     va_list argptr;
     char *output = gasneti_getbuf();
 
@@ -514,7 +520,7 @@ gasneti_stattime_t starttime;
   }
   
   /* private helper for gasneti_trace/stats_output */
-  static void gasneti_file_output(FILE *fp, double time, char *type, char *msg, int traceheader) {
+  static void gasneti_file_output(FILE *fp, double time, const char *type, const char *msg, int traceheader) {
     gasneti_mutex_assertlocked(&gasneti_tracelock);
     gasneti_assert(fp);
     if (traceheader) {
@@ -534,7 +540,7 @@ gasneti_stattime_t starttime;
   }
 
   /* dump message to tracefile */
-  extern void gasneti_trace_output(char *type, char *msg, int traceheader) {
+  extern void gasneti_trace_output(const char *type, const char *msg, int traceheader) {
     if (gasneti_tracefile) {
       double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
       gasneti_mutex_lock(&gasneti_tracelock);
@@ -543,7 +549,7 @@ gasneti_stattime_t starttime;
       gasneti_mutex_unlock(&gasneti_tracelock);
     }
   }
-  extern void gasneti_stats_output(char *type, char *msg, int traceheader) {
+  extern void gasneti_stats_output(const char *type, const char *msg, int traceheader) {
     if (gasneti_tracefile || gasneti_statsfile) {
       double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
       gasneti_mutex_lock(&gasneti_tracelock);
@@ -556,7 +562,7 @@ gasneti_stattime_t starttime;
       gasneti_mutex_unlock(&gasneti_tracelock);
     }
   }
-  extern void gasneti_tracestats_output(char *type, char *msg, int traceheader) {
+  extern void gasneti_tracestats_output(const char *type, const char *msg, int traceheader) {
     if (gasneti_tracefile || gasneti_statsfile) {
       double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
       gasneti_mutex_lock(&gasneti_tracelock);
@@ -569,7 +575,7 @@ gasneti_stattime_t starttime;
   }
 
   /* private helper for gasneti_trace/stats_printf */
-  static void gasneti_file_vprintf(FILE *fp, char *format, va_list argptr) {
+  static void gasneti_file_vprintf(FILE *fp, const char *format, va_list argptr) {
     gasneti_mutex_assertlocked(&gasneti_tracelock);
     gasneti_assert(fp);
     fprintf(fp, "%i> ", (int)gasnet_mynode());
@@ -579,7 +585,7 @@ gasneti_stattime_t starttime;
   }
 
   /* dump message to tracefile with simple header */
-  static void gasneti_trace_printf(char *format, ...) {
+  static void gasneti_trace_printf(const char *format, ...) {
     va_list argptr;
     if (gasneti_tracefile) {
       gasneti_mutex_lock(&gasneti_tracelock);
@@ -591,7 +597,7 @@ gasneti_stattime_t starttime;
       gasneti_mutex_unlock(&gasneti_tracelock);
     }
   }
-  static void gasneti_stats_printf(char *format, ...) {
+  static void gasneti_stats_printf(const char *format, ...) {
     va_list argptr;
     if (gasneti_tracefile || gasneti_statsfile) {
       gasneti_mutex_lock(&gasneti_tracelock);
@@ -610,7 +616,7 @@ gasneti_stattime_t starttime;
       gasneti_mutex_unlock(&gasneti_tracelock);
     }
   }
-  static void gasneti_tracestats_printf(char *format, ...) {
+  static void gasneti_tracestats_printf(const char *format, ...) {
     va_list argptr;
     if (gasneti_tracefile || gasneti_statsfile) {
       gasneti_mutex_lock(&gasneti_tracelock);
@@ -629,7 +635,7 @@ gasneti_stattime_t starttime;
   }
 #endif
 
-static FILE *gasneti_open_outputfile(char *filename, char *desc) {
+static FILE *gasneti_open_outputfile(const char *filename, const char *desc) {
   FILE *fp = NULL;
   char pathtemp[255];
   if (!strcmp(filename, "stderr") ||
@@ -641,14 +647,14 @@ static FILE *gasneti_open_outputfile(char *filename, char *desc) {
     fp = stdout;
   } else {
     strcpy(pathtemp,filename);
-    filename = pathtemp;
-    while (strchr(filename,'%')) { /* replace any '%' with node num */
+    while (strchr(pathtemp,'%')) { /* replace any '%' with node num */
       char temp[255];
-      char *p = strchr(filename,'%');
+      char *p = strchr(pathtemp,'%');
       *p = '\0';
-      sprintf(temp,"%s%i%s",filename,(int)gasnet_mynode(),p+1);
-      strcpy(filename,temp);
+      sprintf(temp,"%s%i%s",pathtemp,(int)gasnet_mynode(),p+1);
+      strcpy(pathtemp,temp);
     }
+    filename = pathtemp;
     fp = fopen(filename, "wt");
     if (!fp) {
       fprintf(stderr, "ERROR: Failed to open '%s' for %s output (%s). Redirecting output to stderr.\n",
@@ -665,10 +671,10 @@ static FILE *gasneti_open_outputfile(char *filename, char *desc) {
 extern void gasneti_trace_init() {
 
   #if GASNETI_STATS_OR_TRACE
-  char *tracetypes = NULL;
-  char *statstypes = NULL;
+  const char *tracetypes = NULL;
+  const char *statstypes = NULL;
   { /* setup tracetypes */
-    char *types;
+    const char *types;
     types = gasnet_getenv("GASNET_TRACEMASK");
     if (!types) types = GASNETI_ALLTYPES;
     tracetypes = types;
@@ -804,7 +810,7 @@ extern void gasneti_trace_finish() {
       #define DUMP_INTVAL(type,name,desc)                                          \
         if (GASNETI_STATS_ENABLED(type)) {                                         \
           gasneti_stat_intval_t *p = &gasneti_stat_intval_##name;                  \
-          char *pdesc = #desc;                                                     \
+          const char *pdesc = #desc;                                               \
           if (!p->count)                                                           \
             gasneti_stats_printf(" %-25s %6i", #name":", 0);                       \
           else                                                                     \
@@ -820,7 +826,7 @@ extern void gasneti_trace_finish() {
       #define DUMP_TIMEVAL(type,name,desc)                                         \
         if (GASNETI_STATS_ENABLED(type)) {                                         \
           gasneti_stat_timeval_t *p = &gasneti_stat_timeval_##name;                \
-          char *pdesc = #desc;                                                     \
+          const char *pdesc = #desc;                                               \
           if (!p->count)                                                           \
             gasneti_stats_printf(" %-25s %6i", #name":", 0);                       \
           else                                                                     \
@@ -836,8 +842,8 @@ extern void gasneti_trace_finish() {
 
       GASNETI_ALL_STATS(DUMP_CTR, DUMP_INTVAL, DUMP_TIMEVAL);
 
-      gasneti_stats_printf("");
-      gasneti_stats_printf("");
+      gasneti_stats_printf(" ");
+      gasneti_stats_printf(" ");
 
       if (GASNETI_STATS_ENABLED(G)) {
         gasneti_stat_intval_t *p = &AGGRNAME(intval,G);
@@ -966,12 +972,12 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
   #define GASNETI_MEM_EXTRASZ     (GASNETI_MEM_HEADERSZ+GASNETI_MEM_TAILSZ)     
 
   /* assert the integrity of given memory block and return size of the user object */
-  extern size_t _gasneti_memcheck(void *ptr, char *curloc, int isfree) {
+  extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int isfree) {
     uint32_t beginpost = *(((uint32_t *)ptr)-1);
     size_t nbytes = *(((uint32_t *)ptr)-2);
     char *allocptr = (void *)(uintptr_t)*(((uint64_t *)ptr)-2);
     uint32_t endpost = 0;
-    char *corruptstr = NULL;
+    const char *corruptstr = NULL;
     if (nbytes > gasneti_memalloc_maxbytes || 
       ((uintptr_t)ptr)+nbytes > gasneti_memalloc_maxloc) {
       allocptr = NULL; /* bad nbytes, don't trust allocptr */
@@ -991,13 +997,17 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
     }
 
     if (corruptstr != NULL) {
+      char nbytesstr[80];
       if (allocptr != NULL && memchr(allocptr,'\0',255) == 0) /* allocptr may be bad */
-        allocptr = '\0'; 
-      gasneti_fatalerror("%s\n   ptr="GASNETI_LADDRFMT", nbytes=%i%s%s%s%s",
+        allocptr = NULL; 
+      if (allocptr == NULL) nbytesstr[0] = '\0';
+      else sprintf(nbytesstr,", nbytes=%i",(int)nbytes);
+      gasneti_fatalerror("%s\n   ptr="GASNETI_LADDRFMT"%s%s%s%s%s",
            corruptstr,
-           GASNETI_LADDRSTR(ptr), nbytes,
+           GASNETI_LADDRSTR(ptr), nbytesstr,
            (allocptr!=NULL?",\n   allocated at: ":""), (allocptr!=NULL?allocptr:""),
-           (curloc!=NULL?",\n   freed at: ":""), (curloc!=NULL?curloc:"")
+           (curloc!=NULL?(isfree?",\n   freed at: ":",\n   detected at: "):""), 
+           (curloc!=NULL?curloc:"")
            );
     }
     return nbytes;
@@ -1006,34 +1016,39 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
   /* get access to system malloc/free */
   #undef malloc
   #undef free
-  extern void *_gasneti_malloc(size_t nbytes, char *curloc) {
+  extern void *_gasneti_malloc(size_t nbytes, int allowfail, const char *curloc) {
     void *ret = NULL;
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     ret = malloc(nbytes+GASNETI_MEM_EXTRASZ);
     if_pf (ret == NULL) {
+      if (allowfail) {
+        if_pt (gasneti_attach_done) gasnet_resume_interrupts();
+        GASNETI_TRACE_PRINTF(I,("Warning: returning NULL for a failed gasneti_malloc(%i)",(int)nbytes));
+        return NULL;
+      }
       gasneti_fatalerror("gasneti_malloc(%d) failed (%lu bytes allocated): %s", 
-        nbytes, (unsigned long)gasneti_memalloc_cnt, 
+        (int)nbytes, (unsigned long)gasneti_memalloc_cnt, 
         (curloc == NULL ? "" : curloc));
     } else {
       uint32_t gasneti_endpost_ref = GASNETI_MEM_ENDPOST;
       gasneti_mutex_lock(&gasneti_memalloc_lock);
       gasneti_memalloc_cnt += nbytes+GASNETI_MEM_EXTRASZ;
+      if (nbytes > gasneti_memalloc_maxbytes) gasneti_memalloc_maxbytes = nbytes;
+      if (((uintptr_t)ret)+nbytes+GASNETI_MEM_HEADERSZ > gasneti_memalloc_maxloc) 
+        gasneti_memalloc_maxloc = ((uintptr_t)ret)+nbytes+GASNETI_MEM_HEADERSZ;
       gasneti_mutex_unlock(&gasneti_memalloc_lock);
       ((uint64_t *)ret)[0] = (uint64_t)(uintptr_t)curloc;
       ((uint32_t *)ret)[2] = (uint32_t)nbytes;
       ((uint32_t *)ret)[3] = GASNETI_MEM_BEGINPOST;
       memcpy(((char*)ret)+nbytes+GASNETI_MEM_HEADERSZ, &gasneti_endpost_ref, 4);
-      if (nbytes > gasneti_memalloc_maxbytes) gasneti_memalloc_maxbytes = nbytes;
-      if (((uintptr_t)ret)+nbytes+GASNETI_MEM_HEADERSZ > gasneti_memalloc_maxloc) 
-        gasneti_memalloc_maxloc = ((uintptr_t)ret)+nbytes+GASNETI_MEM_HEADERSZ;
       ret = (void *)(((uintptr_t)ret) + GASNETI_MEM_HEADERSZ);
     }
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
-    gasneti_memcheck(ret);
+    _gasneti_memcheck(ret,curloc,0);
     return ret;
   }
 
-  extern void _gasneti_free(void *ptr, char *curloc) {
+  extern void _gasneti_free(void *ptr, const char *curloc) {
     size_t nbytes;
     if_pf (ptr == NULL) return;
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
@@ -1046,11 +1061,12 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
   }
 
-  extern void *_gasneti_calloc(size_t N, size_t S, char *curloc) {
+  extern void *_gasneti_calloc(size_t N, size_t S, const char *curloc) {
     size_t nbytes = N*S;
-    void *ptr = _gasneti_malloc(nbytes, curloc);
-    memset(ptr,0,nbytes);
-    return ptr;
+    void *ret = _gasneti_malloc(nbytes, 0, curloc);
+    memset(ret,0,nbytes);
+    _gasneti_memcheck(ret,curloc,0);
+    return ret;
   }
 #endif
 /* don't put anything here - malloc stuff must come last */

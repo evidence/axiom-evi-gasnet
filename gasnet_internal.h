@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/12/17 10:12:20 $
- * $Revision: 1.45 $
+ *     $Date: 2004/01/05 05:01:10 $
+ * $Revision: 1.46 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,22 +29,54 @@ extern int gasneti_attach_done; /*  true after attach */
 
 /*  safe memory allocation/deallocation */
 #if GASNET_DEBUG
-  extern void *_gasneti_malloc(size_t nbytes, char *curloc);
-  extern void _gasneti_free(void *ptr, char *curloc);
-  extern void *_gasneti_calloc(size_t N, size_t S, char *curloc);
-  extern size_t _gasneti_memcheck(void *ptr, char *curloc, int isfree);
-  #define gasneti_malloc(nbytes) _gasneti_malloc(nbytes, __FILE__ ":" _STRINGIFY(__LINE__))
+  extern void *_gasneti_malloc(size_t nbytes, int allowfail, const char *curloc) __attribute__((__malloc__));
+  extern void _gasneti_free(void *ptr, const char *curloc);
+  extern void *_gasneti_calloc(size_t N, size_t S, const char *curloc) __attribute__((__malloc__));
+  extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int isfree);
+  #define gasneti_malloc(nbytes) _gasneti_malloc(nbytes, 0, __FILE__ ":" _STRINGIFY(__LINE__))
+  #define gasneti_malloc_allowfail(nbytes) _gasneti_malloc(nbytes, 1, __FILE__ ":" _STRINGIFY(__LINE__))
   #define gasneti_calloc(N,S)    _gasneti_calloc(N,S, __FILE__ ":" _STRINGIFY(__LINE__))
   #define gasneti_free(ptr)	 _gasneti_free(ptr, __FILE__ ":" _STRINGIFY(__LINE__))
-  #define gasneti_memcheck(ptr)  _gasneti_memcheck(ptr, __FILE__ ":" _STRINGIFY(__LINE__), 0)
+  #define gasneti_memcheck(ptr)  (gasneti_assert(ptr != NULL), \
+         (void)_gasneti_memcheck(ptr, __FILE__ ":" _STRINGIFY(__LINE__), 0))
 #else
+  #ifdef __GNUC__
+    /* provide gcc with additional information about the aliasing qualities
+       of the return value (being malloc-like) to improve caller optimization */
+    GASNET_INLINE_MODIFIER(gasneti_malloc)
+    void *gasneti_malloc(size_t nbytes) __attribute__((__malloc__));
+    GASNET_INLINE_MODIFIER(gasneti_malloc_allowfail)
+    void *gasneti_malloc_allowfail(size_t nbytes) __attribute__((__malloc__));
+    GASNET_INLINE_MODIFIER(gasneti_calloc)
+    void *gasneti_calloc(size_t N, size_t S) __attribute__((__malloc__));
+  #endif
   GASNET_INLINE_MODIFIER(gasneti_malloc)
   void *gasneti_malloc(size_t nbytes) {
     void *ret = NULL;
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     ret = malloc(nbytes);
     if_pf (ret == NULL) 
-      gasneti_fatalerror("gasneti_malloc(%d) failed", nbytes);
+      gasneti_fatalerror("gasneti_malloc(%d) failed", (int)nbytes);
+    if_pt (gasneti_attach_done) gasnet_resume_interrupts();
+    return ret;
+  }
+  GASNET_INLINE_MODIFIER(gasneti_malloc_allowfail)
+  void *gasneti_malloc_allowfail(size_t nbytes) {
+    void *ret = NULL;
+    if_pt (gasneti_attach_done) gasnet_hold_interrupts();
+    ret = malloc(nbytes);
+    if_pf (ret == NULL) /* allow a NULL return for out-of-memory */
+      GASNETI_TRACE_PRINTF(I,("Warning: returning NULL for a failed gasneti_malloc(%i)",(int)nbytes));
+    if_pt (gasneti_attach_done) gasnet_resume_interrupts();
+    return ret;
+  }
+  GASNET_INLINE_MODIFIER(gasneti_calloc)
+  void *gasneti_calloc(size_t N, size_t S) {
+    void *ret = NULL;
+    if_pt (gasneti_attach_done) gasnet_hold_interrupts();
+    ret = calloc(N,S);
+    if_pf (ret == NULL) 
+      gasneti_fatalerror("gasneti_calloc(%d,%d) failed", (int)N, (int)S);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;
   }
@@ -55,14 +87,7 @@ extern int gasneti_attach_done; /*  true after attach */
     free(ptr);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
   }
-  GASNET_INLINE_MODIFIER(gasneti_calloc)
-  void *gasneti_calloc(size_t N, size_t S) {
-    size_t nbytes = N*S;
-    void *ptr = gasneti_malloc(nbytes);
-    memset(ptr,0,nbytes);
-    return ptr;
-  }
-  #define gasneti_memcheck(ptr)
+  #define gasneti_memcheck(ptr)   ((void)0)
 #endif
 /* Beware - in debug mode, 
    gasneti_malloc/gasneti_calloc/gasneti_free are NOT
@@ -128,7 +153,7 @@ char *gasneti_strndup(const char *s, size_t n) {
 /* ------------------------------------------------------------------------------------ */
 
 extern void gasneti_freezeForDebugger();
-extern void gasneti_killmyprocess(int exitcode);
+extern void gasneti_killmyprocess(int exitcode) GASNET_NORETURN;
 
 /* GASNET_DEBUG_VERBOSE is set by configure to request job startup and general 
    status messages on stderr 

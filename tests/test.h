@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2003/10/24 01:37:42 $
- * $Revision: 1.19 $
+ *     $Date: 2004/01/05 05:01:24 $
+ * $Revision: 1.20 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -82,7 +82,7 @@ uint64_t test_checksum(void *p, int numbytes) {
   GASNET_Safe(gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS)); \
 } while (0)
 
-static void *_test_malloc(size_t sz, char *curloc) {
+static void *_test_malloc(size_t sz, const char *curloc) {
   void *ptr;
   gasnet_hold_interrupts();
   ptr = malloc(sz);

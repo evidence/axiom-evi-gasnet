@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/12/06 13:25:47 $
- * $Revision: 1.32 $
+ *     $Date: 2004/01/05 05:01:13 $
+ * $Revision: 1.33 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,6 +24,7 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
   static pthread_key_t gasnete_threaddata; /*  pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
 #endif
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
+extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -78,7 +79,10 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
   extern gasnete_threaddata_t *gasnete_mythread() {
     gasnete_threaddata_t *threaddata = pthread_getspecific(gasnete_threaddata);
     GASNETI_TRACE_EVENT(C, DYNAMIC_THREADLOOKUP);
-    if_pt (threaddata) return threaddata;
+    if_pt (threaddata) {
+      gasneti_memcheck(threaddata);
+      return threaddata;
+    }
 
     /*  first time we've seen this thread - need to set it up */
     { int retval;
@@ -252,6 +256,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
         sleep(5);
       #endif
 
+      gasneti_memcheck(thread->eop_bufs[bufidx]);
       memset(seen, 0, 256*sizeof(int));
       for (i=0;i<(bufidx==255?255:256);i++) {                                   
         gasnete_eop_t *eop;                                   
@@ -278,6 +283,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
   if_pt (thread->iop_free) {
     iop = thread->iop_free;
     thread->iop_free = iop->next;
+    gasneti_memcheck(iop);
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
     gasneti_assert(iop->threadidx == thread->threadidx);
   } else {
@@ -298,9 +304,11 @@ int gasnete_op_isdone(gasnete_op_t *op) {
   gasneti_assert(op->threadidx == gasnete_mythread()->threadidx);
   if_pt (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
+    gasnete_eop_check((gasnete_eop_t *)op);
     return OPSTATE(op) == OPSTATE_COMPLETE;
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
+    gasnete_iop_check(iop);
     return (gasneti_atomic_read(&(iop->completed_get_cnt)) == iop->initiated_get_cnt) &&
            (gasneti_atomic_read(&(iop->completed_put_cnt)) == iop->initiated_put_cnt);
   }
@@ -311,9 +319,11 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   if (OPTYPE(op) == OPTYPE_EXPLICIT) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
     gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
+    gasnete_eop_check(eop);
     SET_OPSTATE(eop, OPSTATE_COMPLETE);
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t *)op;
+    gasnete_iop_check(iop);
     if (isget) gasneti_atomic_increment(&(iop->completed_get_cnt));
     else gasneti_atomic_increment(&(iop->completed_put_cnt));
   }
@@ -327,11 +337,14 @@ void gasnete_op_free(gasnete_op_t *op) {
     gasnete_eop_t *eop = (gasnete_eop_t *)op;
     gasnete_eopaddr_t addr = eop->addr;
     gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
+    gasnete_eop_check(eop);
     SET_OPSTATE(eop, OPSTATE_FREE);
     eop->addr = thread->eop_free;
     thread->eop_free = addr;
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t *)op;
+    gasnete_iop_check(iop);
+    gasneti_assert(iop->next == NULL);
     iop->next = thread->iop_free;
     thread->iop_free = iop;
   }
@@ -664,6 +677,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     uint8_t *pdest = dest;
     #if GASNETE_USE_LONG_GETS
       /* TODO: optimize this check by caching segment upper-bound in gasnete_seginfo */
+      gasneti_memcheck(gasnete_seginfo);
       if (dest >= gasnete_seginfo[gasnete_mynode].addr &&
          (((uintptr_t)dest) + nbytes) < 
           (((uintptr_t)gasnete_seginfo[gasnete_mynode].addr) +
@@ -898,6 +912,7 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
   if (mythread->valget_free) {
     retval = mythread->valget_free;
     mythread->valget_free = retval->next;
+    gasneti_memcheck(retval);
   } else {
     retval = (gasnet_valget_op_t*)gasneti_malloc(sizeof(gasnet_valget_op_t));
     retval->threadidx = mythread->threadidx;

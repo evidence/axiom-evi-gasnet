@@ -1,6 +1,6 @@
 //  $Archive:: /Ti/AMUDP/sig.cpp                                          $
-//     $Date: 2003/12/11 20:19:53 $
-// $Revision: 1.1 $
+//     $Date: 2004/01/05 05:01:20 $
+// $Revision: 1.2 $
 // Description: signal handling module
 // Copyright 1999, Dan Bonachea
 
@@ -29,7 +29,7 @@ LPSIGHANDLER reghandler(int sigtocatch, LPSIGHANDLER fp) {
 //------------------------------------------------------------------------------------
 static struct {
   int sig;
-  char* desc;
+  const char* desc;
   SIGTYPE sigtype; 
   } sigdesctable[] = {
     {SIGABRT, "SIGABRT: Process abort signal.", ST_PROGRAM_ERROR}, // (abort())

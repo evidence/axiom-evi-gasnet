@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2003/12/11 20:19:52 $
- * $Revision: 1.14 $
+ *     $Date: 2004/01/05 05:01:19 $
+ * $Revision: 1.15 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -78,7 +78,7 @@ static MPI_Comm AMMPI_SPMDMPIComm;
 /* ------------------------------------------------------------------------------------ 
  *  misc helpers
  * ------------------------------------------------------------------------------------ */
-static void flushStreams(char *context) {
+static void flushStreams(const char *context) {
   if (!context) context = "flushStreams()";
 
   if (fflush(stdout)) {

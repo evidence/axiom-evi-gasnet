@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spawn.cpp                                  $
- *     $Date: 2003/12/11 20:19:53 $
- * $Revision: 1.1 $
+ *     $Date: 2004/01/05 05:01:20 $
+ * $Revision: 1.2 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -272,12 +272,12 @@ extern int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
 
 int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
   int i;
-  char *ssh_servers;
-  char *ssh_cmd;
-  char *ssh_options;
-  char *ssh_remote_path;
+  const char *ssh_servers;
+  const char *ssh_cmd;
+  const char *ssh_options;
+  const char *ssh_remote_path;
   char cwd[1024];
-  char *p;
+  const char *p;
   char cmd1[1024],cmd2[1024];
   int pid;
 
@@ -321,7 +321,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
 
   p = ssh_servers;
   for (i = 0; i < nproc; i++) { /* check we have enough servers */
-   char *end;
+   const char *end;
    while (*p && strchr(SSH_SERVERS_DELIM_CHARS, *p)) p++;
    end = p + strcspn(p, SSH_SERVERS_DELIM_CHARS);
    if (p == end) {
@@ -336,7 +336,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
   p = ssh_servers;
   for (i = 0; i < nproc; i++) {
    char ssh_server[255];
-   char *end;
+   const char *end;
    while (*p && strchr(SSH_SERVERS_DELIM_CHARS, *p)) p++;
    end = p + strcspn(p, SSH_SERVERS_DELIM_CHARS);
    AMUDP_assert(p != end);
@@ -489,12 +489,12 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
   { char tmp[1024];
     char *p = cmd;
     while ((p = strchr(p, '%'))) {
-      char *replacement;
+      const char *replacement;
       switch (*(p+1)) {
         case 'M': case 'm': 
           if (!spawn_servers) { /* user failed to provide servers and now is asking for them */
             ErrMessage("You must set the "AMUDP_ENV_PREFIX_STR"_CSPAWN_SERVERS environment "
-                       "variable to use the %M option in "AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD");
+                       "variable to use the %%M option in "AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD");
           }
           replacement = workerservers; 
           break;
