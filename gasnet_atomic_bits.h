@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/09/03 18:44:50 $
- * $Revision: 1.12 $
+ *     $Date: 2003/09/08 21:53:52 $
+ * $Revision: 1.13 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -342,21 +342,34 @@
       defined(__i486__) || defined(__i486) || defined(i486) || \
       defined(__i586__) || defined(__i586) || defined(i586) || \
       defined(__i686__) || defined(__i686) || defined(i686)
- #if 0
+ #ifndef __GNUC__
+   /* The GASNETI_ASM() macro takes one argument and then stringifies it
+    * for all but the default case.  However, we want to emit asm with
+    * commas (too many macro arguments).
+    * So, we just need to assume GCC for now.  The GASNETI_ASM macro
+    * might get changed to take a string argument, but I don't know what
+    * platforms that might break.  -PHH 2003.09.08
+    */
+   #error Not certain how to emit proper memory barrier assembly on your compiler.
+ #endif
+ #ifdef GASNETI_UNI_KERNEL
+   #define gasneti_local_membar()
+ #else
+   /* Prevent both gcc and the CPU from reordering across this point.
+    *
+    * Note that MMX, SSE and SSE2 instructions which move memory are *NOT* ordered by
+    * this sequence, and must instead have the appropriate [lsm]fence instruction(s).
+    * Authors of MMX memcpy and similar code must therefore take care not to rely on
+    * gasneti_local_membar() in conjunction with these instruction sets.
+    */
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     GASNETI_ASM(mfence); /* only works on pentiums and higher? */
+     /* The instruction here can be any locked read-modify-write.
+      * This one is chosen because it does not change any registers and is
+      * available on all the Intel and clone CPUs.
+      */
+     asm volatile ("lock; addl $0,0(%%esp)" : : : "memory");
    }
- #else
-    #ifdef GASNETI_UNI_KERNEL
-      #define gasneti_local_membar()
-    #else
-      /* sfence causes an illegal instruction trap on uniprocessor kernel */
-      GASNET_INLINE_MODIFIER(gasneti_local_membar)
-      void gasneti_local_membar(void) {
-        GASNETI_ASM(sfence);
-      }
-    #endif
  #endif
 #elif defined(__ia64__) /* Itanium */
     #ifdef GASNETI_UNI_KERNEL
