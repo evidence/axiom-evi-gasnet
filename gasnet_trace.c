@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/03/15 13:54:48 $
- * $Revision: 1.97 $
+ *     $Date: 2005/03/17 02:31:44 $
+ * $Revision: 1.98 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1530,11 +1530,11 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
     if (!gasneti_memalloc_envisinit) {
       gasneti_mutex_lock(&gasneti_memalloc_lock);
         if (!gasneti_memalloc_envisinit && gasneti_init_done) {
+          gasneti_memalloc_envisinit = 1; /* set first, because getenv might call malloc when tracing */
           gasneti_memalloc_extracheck = gasneti_getenv_yesno_withdefault("GASNET_MALLOC_EXTRACHECK", 0);
           gasneti_memalloc_init = atoi(gasneti_getenv_withdefault("GASNET_MALLOC_INIT","-1"));
           gasneti_memalloc_clobber = atoi(gasneti_getenv_withdefault("GASNET_MALLOC_CLOBBER","-1"));
           gasneti_memalloc_leakall = gasneti_getenv_yesno_withdefault("GASNET_MALLOC_LEAKALL", 0);
-          gasneti_memalloc_envisinit = 1;
         }
       gasneti_mutex_unlock(&gasneti_memalloc_lock);
     }
