@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2004/10/22 21:02:17 $
- * $Revision: 1.57 $
+ *     $Date: 2004/10/26 19:43:53 $
+ * $Revision: 1.58 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -714,13 +714,13 @@ void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc,
 
   /* loop until space is available on the SQ for at least 1 new entry */
   op_sema = &sreq->cep->op_sema;
-  tmp = gasnetc_sema_trydown_n(op_sema, GASNETC_ANY_PAR, count);
+  tmp = gasnetc_sema_trydown_n(op_sema, count, GASNETC_ANY_PAR);
   if_pf (!tmp) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-      tmp = gasnetc_sema_trydown_n(op_sema, GASNETC_ANY_PAR, count);
+      tmp = gasnetc_sema_trydown_n(op_sema, count, GASNETC_ANY_PAR);
     } while (!tmp);
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
   }
