@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2004/10/07 23:28:11 $
-# $Revision: 1.33 $
+#     $Date: 2004/10/13 08:08:01 $
+# $Revision: 1.34 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -28,6 +28,7 @@ DIST_SUBDIRS = $(SUBDIRS) $(CONDUIT_DIRS)
 
 configdir = $(includedir)
 config_DATA = $(CONFIG_HEADER)
+docdir = $(datadir)/doc/gasnet
 
 headers =                  \
         gasnet.h           \
@@ -108,10 +109,16 @@ clean-local:
 	@$(MAKE) DO_WHAT=clean `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
 install-data-local:
 	@$(MAKE) DO_WHAT=install-data `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+	$(mkinstalldirs) $(DESTDIR)$(docdir)
+	cp -f $(top_srcdir)/README $(DESTDIR)$(docdir)/README
+	cp -f $(top_srcdir)/extended-ref/README $(DESTDIR)$(docdir)/README-extref
+	cp -f $(top_srcdir)/license.txt $(DESTDIR)$(docdir)/license.txt
 install-exec-local:
 	@$(MAKE) DO_WHAT=install-exec `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
 uninstall-local:
 	@$(MAKE) DO_WHAT=uninstall `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+	rm -Rf $(DESTDIR)$(docdir)
+
 # We must test for existence of Makefile before recursing for "make clean" because 
 # distclean recurses into the directies (removing the Makefile) before running "make clean".
 do-elan:
