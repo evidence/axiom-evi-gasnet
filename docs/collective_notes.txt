@@ -930,6 +930,110 @@ beat the UPC collectives reference implementation on MYSYNC cases of
 broadcast, scatter and gather by performing only pairwise
 synchronizations.
 
+More thoughts...
+
+Implementing the SYNC flags for the interfaces as described above
+would be potentially simpler/more efficient if you knew how many nodes
+are targeting you, even if you don't know which ones (even better if
+you did know).  For instance, OUT_MYSYNC on a put requires you to know
+that all writes into your local memory have completed.  Other than a
+full barrier, how do you do this (even with signaling puts) when you
+don't know *how many* writes are targeting your memory?  This could be
+done with the one-to-one constraint, making these interfaces less
+useful for implementing other collectives.  Alternatively an
+additional argument could give the count of the partners.  The count
+is likely to be either 0 (ex: root of a put-based broadcast or
+scatter), 1 (ex: permute or non-root in a put-based broadcast or
+scatter), or N (ex: put-based gather_all or exchange).  This idea
+sounds to me to be much better than the one-to-one constraint.
+
+Enforcing IN_MYSYNC requires you to know your partner(s) is(are) ready
+as well (unless doing buffering of eager puts).  If they don't know
+who you are then you need a round trip to ask if they are ready (or a
+barrier to know that everyone is ready).  However, if the interfaces
+above provided not only a count of partners who will target your
+memory, but also their node numbers, then this synchronization can be
+performed with one-way primitives instead.  If we have only the case
+of 0, 1, or N then we need only a single 'partner_id': 0 needs none, 1
+needs only one, and N needs none because the list is implicitly all
+nodes.  If we anticipate using these calls for tree-structured data
+movement then we'll need the fully general case of 0...N partners and
+no assumption that the number of outgoing and ingoing match (in a tree
+you have only one parent but a variable number of children).
+
+Note that for static communication patterns construction of the list
+of partners should always be possible without communication.  These
+interfaces do not require that the communication patterns used be
+static; dynamic patterns are possible as long as the dynamic decisions
+made on all nodes will agree.  It is not required that such agreement
+be reached without additional communication, but it certainly seems
+desirable to avoid collective communication to select a collective
+communication algorithm.
+
+Here are expanded interfaces, assuming the most general case:
+
+gasnet_all_handle_t
+gasnet_all_put_nb(gasnet_node_t dstnode, void *dst,
+                  void *src,
+		  gasnet_node_t * const partnerlist[], size_t partnercount, 
+                  size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_get_nb(void *dst,
+                  gasnet_node_t srcnode, void *src,
+		  gasnet_node_t * const partnerlist[], size_t partnercount, 
+                  size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_puti_nb(gasnet_node_t * const nodelist[], void * const dstlist[],
+                   void * const srclist[],
+                   size_t listlen,
+		   gasnet_node_t * const partnerlist[], size_t partnercount, 
+                   size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_geti_nb(void * const dstlist[],
+                   gasnet_node_t * const nodelist[], void * const srclist[],
+                   size_t listlen,
+		   gasnet_node_t * const partnerlist[], size_t partnercount, 
+                   size_t nbytes, int flags);
+                   
+
+I like this 2nd version of generalized collective calls better than
+the 1st because they now encode all the "structure" of a collective
+communication.  Getting the "big picture" takes the union over the
+arguments on all nodes.  However, with the partner args present each
+node has all the information that affects it directly.  With the use
+of non-blocking calls and the correct sync flags to reflect data
+dependences between (for instance) stages of a tree-based
+communication, these now look like excellent building blocks for
+prototyping the other collectives.
+
+On hardware w/o specialized support (broadcast, multicast, etc.)
+tuning for a given network might just consist of choosing what pattern
+of communication to implement using these generalized calls, as if it
+could really be that easy :-)...  Use of these interfaces would
+prohibit certain algorithms which adapt based only on local timing
+information.  In such cases a given node cannot know in advance from
+which node it will receive a given datum.  In some cases it cannot
+even be certain how many times it will receive it.
+
+An potentially interesting example of an algorithm that adapts to
+timing in this way is a tree-based barrier (or reduction) in which the
+last sibling to arrive is the one to notify the parent.  This can be
+better than always designating the lowest rank child (for instance)
+because the last arrival is known to be "live" at the time of its
+arrival, while other children may be computing digits of pi for all we
+know.  The parent cannot know in advance (at least not until the
+next-to-last arrival) the identity of the last arrival - the node from
+which it will receive notification.  To implement such a tree one
+would probably use normal point-to-point communications (puts or AMs)
+to notify the parent.  (I am not arguing that this is the best possible
+barrier or reduction algorithm, just presenting an example that shows
+that these generalized interfaces alone don't implement all
+interesting collective algorithms).
+
+
 =============================================================================
 Thoughts on progress of Implementation:
 
