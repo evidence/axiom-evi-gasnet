@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
-//     $Date: 2004/09/28 06:59:33 $
-// $Revision: 1.8 $
+//     $Date: 2004/10/12 11:33:27 $
+// $Revision: 1.9 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -14,7 +14,7 @@
 bool endianconvert = false;
 
 //-------------------------------------------------------------------------------------
-#ifdef WIN32
+#ifdef WINSOCK
 bool socklibinit(){
   WSADATA d;
   if (!WSAStartup(MAKEWORD(1,1), &d)) return true;
@@ -78,7 +78,7 @@ SOCKET accept_socket(SOCKET listener, struct sockaddr* calleraddr) {
   while (1) {
     SOCKET newsock;
     if ((newsock = accept(listener, calleraddr, &sz)) == INVALID_SOCKET) {
-      #ifndef WIN32
+      #ifndef WINSOCK
         if (errno == EINTR) continue; // ignore signal interruptions - keep blocking
       #endif
       closesocket(listener);
@@ -162,7 +162,7 @@ void recvAll(SOCKET s, void* buffer, int numbytes) {
 void sendAll(SOCKET s, const void* buffer, int numbytes) {
   // blocks until it can send numbytes on s from buffer
   // (throws xSocket on close)
-  #ifndef WIN32
+  #ifdef UNIX
     LPSIGHANDLER oldsighandler = reghandler(SIGPIPE, (LPSIGHANDLER)SIG_IGN); 
     // ignore broken pipes, because we get that when we write to a socket after other side reset
   #endif
@@ -172,7 +172,7 @@ void sendAll(SOCKET s, const void* buffer, int numbytes) {
     retval = send(s, buf, numbytes, 0);
     if (retval == SOCKET_ERROR) {
       closesocket(s);
-      #ifndef WIN32
+      #ifdef UNIX
         reghandler(SIGPIPE, oldsighandler); // restore handler
       #endif
       xsocket(s, "error in sendAll() - connection closed");
@@ -182,7 +182,7 @@ void sendAll(SOCKET s, const void* buffer, int numbytes) {
     buf += retval;
     numbytes -= retval;
     }
-  #ifndef WIN32
+  #ifdef UNIX
     reghandler(SIGPIPE, oldsighandler); // restore handler
   #endif
   }
@@ -470,7 +470,7 @@ bool isClosed(SOCKET s) {
   if (len == 0) return true; // socket closed
   else if (len == SOCKET_ERROR) {
     int err = getSocketErrorCode();
-    #ifdef WIN32
+    #ifdef WINSOCK
       if (err == WSAECONNRESET ||
           err == WSAENOTCONN ||
           err == WSAENETRESET ||
@@ -510,7 +510,7 @@ bool hasOOBdata(SOCKET s) {
   return false;
   }
 //------------------------------------------------------------------------------------
-#ifdef WIN32
+#ifdef WINSOCK
 // return string associated with a given code
 #define MAKEERRSTRING(code, desc)  { code, #code ": " desc }
 char const *errorCodeString(int code) {
@@ -604,7 +604,7 @@ int getSocketErrorCode() {
 #undef select
 extern int myselect(int  n,  fd_set *readfds, fd_set *writefds, fd_set *exceptfds,
             struct timeval *timeout) {
-  #ifdef WIN32
+  #if !defined(UNIX)
     return select(n, readfds, writefds, exceptfds, timeout);
   #else
     /* a select that ignores UNIX's stupid fucking interrupt signals */
@@ -624,14 +624,10 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
     LENGTH_PARAM *psz = &sz;
     if (fromlen) sz = *fromlen;
     else psz = NULL;
-    #ifdef WIN32
-      int retval = recvfrom(s, buf, len, flags, from, psz);
-    #else
-      int retval = recvfrom(s, buf, len, flags, from, psz);
-    #endif
+    int retval = recvfrom(s, buf, len, flags, from, psz);
     if (fromlen) *fromlen = (int)sz;
 
-    #ifdef WIN32
+    #ifdef WINSOCK
      /* winsock returns WSAECONNRESET from recvfrom on UDP sockets to 
       * indicate the receipt of an ICMP "Port Unreachable" message 
       * caused by a previous sendto()

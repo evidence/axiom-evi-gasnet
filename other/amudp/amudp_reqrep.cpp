@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2004/10/11 09:58:35 $
- * $Revision: 1.17 $
+ *     $Date: 2004/10/12 11:33:27 $
+ * $Revision: 1.18 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -10,7 +10,7 @@
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>
-#ifndef WIN32
+#if defined(WIN32) && !defined(__CYGWIN__)
   #include <sys/time.h>
   #include <unistd.h>
   #include <fcntl.h>
@@ -265,7 +265,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
           if_pf (!junk) junk = (char *)malloc(AMUDP_MAXBULK_NETWORK_MSG);
           retval = recvfrom(ep->s, junk, AMUDP_MAXBULK_NETWORK_MSG, MSG_PEEK, NULL, NULL);
           if (retval == SOCKET_ERROR && 
-            #ifdef WIN32
+            #ifdef WINSOCK
               WSAGetLastError() != WSAEMSGSIZE)
             #else
               errno != EFAULT) /* AIX */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2004/09/19 08:30:35 $
- * $Revision: 1.6 $
+ *     $Date: 2004/10/12 11:33:27 $
+ * $Revision: 1.7 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -231,7 +231,7 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
     if (ep->s == INVALID_SOCKET) 
       AMUDP_RETURN_ERRFR(RESOURCE, socket, sockErrDesc());
 
-    #ifdef WIN32
+    #ifdef WINSOCK
     { /* check transport message size - UNIX doesn't seem to have a way for doing this */
       unsigned int maxmsg;
       int sz = sizeof(unsigned int);
@@ -396,7 +396,7 @@ extern int AM_Init() {
 
     AMUDP_assert(sizeof(uintptr_t) >= sizeof(void *));
 
-    #ifdef WIN32
+    #ifdef WINSOCK
     {
       WSADATA wsa;
     #if 1
@@ -440,7 +440,7 @@ extern int AM_Terminate() {
         retval = AM_ERR_RESOURCE;
       }
     AMUDP_numBundles = 0;
-    #ifdef WIN32
+    #ifdef WINSOCK
       if (WSACleanup()) retval = AM_ERR_RESOURCE;
     #endif
     }

@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/socket.h,v $
- *      $Date: 2004/09/27 09:52:59 $
- *  $Revision: 1.6 $
+ *      $Date: 2004/10/12 11:33:27 $
+ *  $Revision: 1.7 $
  *  Description: portable header socket functions
  *  (c) Scott McPeak, 1998-1999, Modified by Dan Bonachea
  */
@@ -9,8 +9,8 @@
 #define SOCKET_H
 
 /*  ------------- win32 -------------------- */
-#ifdef WIN32
-
+#if defined(WIN32) && !defined(__CYGWIN__)
+#define WINSOCK 1
 #include <winsock2.h>    /*  sockets */
 #include <windows.h>  
     

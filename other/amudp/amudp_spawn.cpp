@@ -1,13 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spawn.cpp,v $
- *     $Date: 2004/10/08 07:47:17 $
- * $Revision: 1.7 $
+ *     $Date: 2004/10/12 11:33:27 $
+ * $Revision: 1.8 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #include <portable_inttypes.h>
 #include <errno.h>
-#ifdef WIN32
+#if defined(WIN32) && !defined(UNIX)
   #include <winsock2.h>
   #include <windows.h>  
   #define sleep(x) Sleep(1000*x)
@@ -51,7 +51,7 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
     }
 
   for (i = 0; i < nproc; i++) {
-    #ifdef WIN32
+    #if defined(WIN32) && !defined(__CYGWIN__)
       if (_spawnv(_P_NOWAIT, argv[0], argv) == -1) {
         ErrMessage("failed _spawnv()");
         exit(1);
@@ -493,7 +493,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
 AMUDP_SPMDRedirectStdsockets = spawn_route_output; 
 
   {
-#ifndef WIN32
+#ifdef UNIX
     int forkRet;
     forkRet = fork(); /* fork a new process to hold cmd master */
 
