@@ -2182,7 +2182,7 @@ fh_acquire_remote_region(firehose_request_t *req,
 {
     int	da_count = 0, b_total;
     int	my_da = 0;
-    int n_buckets, n_avail, n_pending;
+    int n_buckets, n_avail, n_pending, n_avail_old;
     int a = 0;
 
     FH_TABLE_ASSERT_LOCKED;
@@ -2276,7 +2276,6 @@ outer_again:
 
     pin_p   = fhi_AllocRegionPool(FH_MIN_REGIONS_FOR_BUCKETS(b_total));
     unpin_p = fhi_AllocRegionPool(FH_MIN_REGIONS_FOR_BUCKETS(n_buckets));
-    a +=2;
 
     if (my_da) {
 	gasneti_assert(fh_da[node]);
@@ -2308,7 +2307,6 @@ outer_again:
 	    fhsmp_RemoteRollback(node, start_addr, saved_addr, pin_p, unpin_p);
             fhi_FreeRegionPool(pin_p);
             fhi_FreeRegionPool(unpin_p);
-	    a -= 2;
             pin_p = NULL;
             unpin_p = NULL;
 	    goto outer_again;
@@ -2329,7 +2327,6 @@ outer_again:
 	    fhsmp_RemoteRollback(node, start_addr, saved_addr, pin_p, unpin_p);
             fhi_FreeRegionPool(pin_p);
             fhi_FreeRegionPool(unpin_p);
-	    a -= 2;
             pin_p = NULL;
             unpin_p = NULL;
 	    goto outer_again;
@@ -2351,7 +2348,7 @@ outer_again:
 
     /* We can *WIN* the deadlock avoidance bit race */
     if (!fh_da[node]) {
-	int n_avail_old = FHI_AVAIL(node);
+	n_avail_old = FHI_AVAIL(node);
 	my_da = fh_da[node] = 1;
 	fh_dacount++;
 
@@ -2379,7 +2376,6 @@ outer_again:
     else {
         fhi_FreeRegionPool(pin_p);
         fhi_FreeRegionPool(unpin_p);
-	a -=2;
         pin_p = NULL;
         unpin_p = NULL;
 	goto outer_again;
@@ -2407,7 +2403,6 @@ send_am:
 
         fhi_FreeRegionPool(pin_p);
         fhi_FreeRegionPool(unpin_p);
-	a -= 2;
 	FH_TABLE_UNLOCK;
 
 	/* Copy remote callback if required */
@@ -2433,13 +2428,11 @@ send_am:
 		    (uint32_t) unpin_r,
 		    PACK(NULL)));
 
-	gasneti_assert(a==0);
 	goto done_unlocked;
     }
     else {
         fhi_FreeRegionPool(pin_p);
         fhi_FreeRegionPool(unpin_p);
-	a -= 2;
     }
 
 done:
@@ -2451,7 +2444,6 @@ done:
 done_unlocked:
 
     FH_TABLE_ASSERT_UNLOCKED;
-    gasneti_assert(a==0);
     return;
 }
 
