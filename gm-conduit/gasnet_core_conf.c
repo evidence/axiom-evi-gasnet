@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
- * $Date: 2004/09/17 03:59:18 $
- * $Revision: 1.15 $
+ * $Date: 2004/09/19 16:33:00 $
+ * $Revision: 1.16 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -46,78 +46,71 @@
  * the function returns 0.  This, of course, assumes that the caller will never
  * want to use 0.0.0.0 as an address, which is reasonable for what we use this
  * function for.
+ *
+ * In order, the command first tries to parse using perl, then /usr/bin/host.
  */
 uint32_t
 gasnetc_parse_addr(char *hostaddr)
 {
     uint32_t ip, a2, a3, a4;
-    char    cmd[128], line[128];
+    char    cmd[256], line[128];
+    char    ipaddr[32];
     char    *p, *ip_ptr = NULL;
+    int	    i = 0;
     FILE    *fd;
 
     ip_ptr = hostaddr;
     
-    /* 
-     * XXX Reenable gethostbyname() for non-Titanium clients since the parsing
-     * of /usr/bin/host output will have to be much more robust to be portable.
-     */
-#ifdef GASNET_SEGMENT_EVERYTHING
     if (sscanf(ip_ptr, "%d.%d.%d.%d",&ip,&a2,&a3,&a4) != 4) {
-	/* Input is not in the IP form.  Resort to using host command */
-	snprintf(cmd, 128, "%s -t a %s", GASNETC_HOST_PATH, hostaddr);
+
+	/* First try using perl, assuming it's in users path */
+	snprintf(cmd, 256, "perl -e 'print join(\".\", unpack(\"C*\", "
+			   "(gethostbyname(\"%s\"))[4])), \"\\n\"'", hostaddr);
+
+	printf("cmd is %s\n", cmd);
+	fd = popen(cmd, "r");
+	if (fd != NULL && (p = fgets(line,128,fd)) != NULL &&
+	   sscanf(p, "%d.%d.%d.%d", &ip,&a2,&a3,&a4) == 4) {
+	    int iplen = strspn(p, "0123456789.");
+	    *(p + iplen) = '\0';
+	    pclose(fd);
+	    if (inet_pton(AF_INET, p, &ip) < 1)
+		return 0;
+	    else
+		return ip;
+	}
+
+	/* If perl failed, try parsing /usr/bin/host, although this may be with
+	 * limited success since /usr/bin/host does not parse /etc/hosts */
+	snprintf(cmd, 256, "%s -t a %s", GASNETC_HOST_PATH, hostaddr);
 
 	fd = popen(cmd, "r");
 	if (fd == NULL) {
 	    fprintf(stderr, "Couldn't open %s\n", cmd);
 	    return 0;
 	}
-	p = fgets(line, 128, fd);
-	pclose(fd);
 
-	if (p == NULL)
-	    return 0;
-
-	/* Find last space */
-	ip_ptr = strrchr(p, ' ');
-	if (*ip_ptr == '\0' || ip_ptr[1] == '\0')
-	    return 0;
-	ip_ptr++;
-
-	/* chomp -- Remove any trailing newline */
-	p = ip_ptr;
-	while (*p != '\0') {
-	    if (*p == '\n')
-		*p = '\0';
-	    p++;
+	while ((p = fgets(line, 128, fd)) != NULL) {
+	    /* Return the first matching ip -- wherever it is */
+	    while (*p != '\0') {
+		if (isdigit(*p) &&
+		   sscanf(p, "%d.%d.%d.%d", &ip,&a2,&a3,&a4) == 4) {
+		    int iplen = strspn(p, "0123456789.");
+		    *(p + iplen) = '\0';
+		    pclose(fd);
+		    if (inet_pton(AF_INET, p, &ip) < 1)
+			return 0;
+		    else
+			return ip;
+		}
+		p++;
+	    }
 	}
-
-	/* This should parse perfectly or else there's a resolution error or
-	 * some unrecognized '/usr/bin/host' output */
-	ip = a2 = a3 = a4 = 0;
-	if (sscanf(ip_ptr, "%d.%d.%d.%d",&ip,&a2,&a3,&a4) != 4)
-	    return 0;
-
-	if (inet_pton(AF_INET, ip_ptr, &ip) < 1)
-	    return 0;
-	else
-	    return ip;
+	/* is EOF, or error, or no match at all */
+	pclose(fd);
+	return 0;
     }
-#else
-    #include <netdb.h>
-    {
-	struct hostent *he = gethostbyname(ip_ptr);
-
-	if (he == NULL)
-	    return 0;
-
-	memcpy(&ip, he->h_addr, he->h_length);
-
-	return ip;
-    }
-#endif
-
 }
-
 
 static
 char *
@@ -304,7 +297,7 @@ gasnetc_getconf_mpiexec()
 
 		slave_n = gasnetc_parse_addr(slave);
 		if (!slave_n)
-		    gasneti_fatalerror("Couldn't parse address %s",slave);
+		    gasneti_fatalerror("Couldn't get ip for %s",slave);
 
 		memset(&_gmc.slave_addr, 0, sizeof(struct sockaddr_in));
 		_gmc.slave_addr.sin_family = AF_INET;
@@ -345,7 +338,7 @@ gasnetc_getconf_mpiexec()
 
 		master_n = gasnetc_parse_addr(master);
 		if (!master_n)
-		    gasneti_fatalerror("Couldn't parse address %s",master);
+		    gasneti_fatalerror("Couldn't get ip for %s",master);
 
 		memset(&_gmc.master_addr, 0, sizeof(struct sockaddr));
 		_gmc.master_addr.sin_family = AF_INET;
