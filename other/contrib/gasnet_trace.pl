@@ -55,6 +55,7 @@ my ($opt_internal, $opt_full, $opt_thread);
 
 my (%data, %report, %threads, %nodes);
 my (%node_threads); 
+my (%job_nodes, %job_seen, %job_uniq); 
 #%nodes, %threads are identifier->thread(node)num
 
 # Getting the Options
@@ -93,6 +94,12 @@ while (@ARGV) {
     my $arg = pop @ARGV;
     parse_threadinfo($arg);
     parse_tracefile($arg);
+}
+foreach my $job (keys %job_nodes) {
+    my ($want, $have) = ($job_nodes{$job}, $job_seen{$job});
+    if ($have < $want) {
+	print STDERR "WARNING: only have traces for $have out of $want nodes of job $job\n";
+    }
 }
 
 convert_report();
@@ -139,10 +146,15 @@ sub parse_threadinfo
     
     while (<TRACEFILE>) {
         next unless /MAGIC/;
-         (/^(\S+).*I am thread\s(\d+).*on node\s(\d+)/);
+        m/^(\S+).*I am thread\s(\d+).*on node\s(\d+) of (\d+)\s.*<(.+)>$/;
         $threads{$1} = $2;
         $nodes{$1} = $3;
         $node_threads{$3}++;
+        $job_nodes{$5} = $4;
+        $job_seen{$5}++;
+        if ($job_uniq{$5,$3}++) {
+            print STDERR "WARNING: duplicate tracing data for node $3 of job $5\n";
+	}
     }	       
 
 }
