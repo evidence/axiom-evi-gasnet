@@ -1,4 +1,4 @@
-#!/bin/sh
+#!@BOURNE_SHELL@
 
 scriptname=$0
 
@@ -15,4 +15,4 @@ while readlink ${scriptname} > /dev/null 2>&1 && dirname ${scriptname} > /dev/nu
   scriptname="${dir}/${newname}";
 done
 
-/usr/bin/perl ${scriptname}.pl "$@"
+@PERL@ ${scriptname}.pl "$@"
