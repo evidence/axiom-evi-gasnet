@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/08/01 04:36:28 $
- * $Revision: 1.45 $
+ *     $Date: 2004/08/02 20:21:13 $
+ * $Revision: 1.46 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -499,11 +499,17 @@
    that were executed speculatively.
    This must also include whatever is needed to prevent the compiler from reordering
    loads and stores across this point.
+ 
+ gasneti_local_mb:
+   A "full" local memory barrer.  This is equivalent to both a wmb() and rmb().
+   All oustanding loads and stores must be completed before any subsequent ones
+   may begin.
 
-  Note that for all three memory barriers, we require only that a given architecture's
+
+  Note that for all four memory barriers, we require only that a given architecture's
   "normal" loads and stores are ordered as required.  "Extended" instructions such as
   MMX, SSE, SSE2, Altivec and vector ISAs on various other machines often bypass some
-  or all of the machines memory hierarchy and therefore may not be ordered by the same
+  or all of the machine's memory hierarchy and therefore may not be ordered by the same
   instructions.  Authors of MMX-based memcpy and similar code must therefore take care
   to add appropriate flushes to their code.
 
@@ -515,6 +521,8 @@
        specifically for a uniprocessor (in which case it is only a compiler fence).
    + gasneti_local_rmb() defaults to just a compiler fence, as only a few architectures
        need more than this
+   + gasneti_local_mb() defaults to { gasneti_local_wmb(); gasneti_local_rmb(); }.
+       Only a few architectures (notable Alpha) can do this less expensively.
 
   For more info on memory barriers: http://gee.cs.oswego.edu/dl/jmm/cookbook.html
  */
@@ -644,6 +652,7 @@ void _gasneti_local_compilerfence(void) {
  #endif
  #define gasneti_local_rmb() _gasneti_local_rmb()
 #elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__) /* Darwin, OS/X */
+ /* Identical to IBM SP, except for the sync vs dcs assembler mnemonic w/ gcc */
  #ifdef __xlC__
    GASNET_INLINE_MODIFIER(gasneti_local_memflush)
    void gasneti_local_memflush(void) {
@@ -675,12 +684,18 @@ void _gasneti_local_compilerfence(void) {
      GASNETI_ASM("mb");
    }
    #define gasneti_local_rmb() _gasneti_local_rmb()
+   GASNET_INLINE_MODIFIER(_gasneti_local_mb)
+   void _gasneti_local_mb(void) {
+     GASNETI_ASM("mb");
+   }
+   #define gasneti_local_mb() _gasneti_local_mb()
  #else
    /* Use compaq C built-ins */
    /* Note this is heavier weight than required */
    #include <machine/builtins.h>
    #define gasneti_local_memflush() __MB()
    #define gasneti_local_rmb() __MB()
+   #define gasneti_local_mb() __MB()
  #endif
 #elif defined(_CRAYT3E) /* Takes care of e-regs also */
   #include <intrinsics.h>
@@ -693,6 +708,11 @@ void _gasneti_local_compilerfence(void) {
     _memory_barrier();
   }
   #define gasneti_local_rmb() _gasneti_local_rmb()
+  GASNET_INLINE_MODIFIER(_gasneti_local_mb)
+  void _gasneti_local_mb(void) {
+    _memory_barrier();
+  }
+  #define gasneti_local_mb() _gasneti_local_mb()
 #elif defined(__crayx1)
    /* Many memory barrier intrinsics on the X1, but none seem to match what we
     * need in a local (scalar-scalar) membar */
@@ -735,6 +755,13 @@ void _gasneti_local_compilerfence(void) {
   /* Default is just a compiler barrier */
   GASNET_INLINE_MODIFIER(gasneti_local_rmb)
   void gasneti_local_rmb(void) { gasneti_local_compilerfence(); }
+#endif
+
+/* Default gasneti_local_mb() */
+#ifndef gasneti_local_mb
+  /* Default is just wmb + rmb */
+  GASNET_INLINE_MODIFIER(gasneti_local_mb)
+  void gasneti_local_mb(void) { gasneti_local_wmb(); gasneti_local_rmb(); }
 #endif
 
 #ifndef gasneti_spinloop_hint
