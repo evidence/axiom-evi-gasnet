@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2003/01/11 22:46:40 $
- * $Revision: 1.8 $
+ *     $Date: 2003/02/11 21:19:23 $
+ * $Revision: 1.9 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -200,7 +200,7 @@
   /*  the largest unsigned integer type that can fit entirely in a single CPU register for the current architecture and ABI.  */
   /*  SIZEOF_GASNET_REGISTER_VALUE_T is a preprocess-time literal integer constant (i.e. not "sizeof()")indicating the size of this type in bytes */
   typedef unsigned int gasnet_register_value_t;
-  #define SIZEOF_GASNET_REGISTER_VALUE_T  SIZEOF_INT
+  #define SIZEOF_GASNET_REGISTER_VALUE_T  SIZEOF_LONG
 #endif
 
 #ifndef _GASNET_THREADINFO_T
