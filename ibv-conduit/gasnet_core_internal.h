@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/08/03 19:21:46 $
- * $Revision: 1.43 $
+ *     $Date: 2004/08/03 19:34:09 $
+ * $Revision: 1.44 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -238,6 +238,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   _GASNETI_STAT_EVENT_VAL(C,name,val)
 
 /* ------------------------------------------------------------------------------------ */
+/* Configuration */
 
 /* Scatter-gather segments.
  * Only 1 makes sense right now for normal use.
@@ -246,30 +247,48 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 #define GASNETC_RCV_SG	1		/* maximum number of segments to scatter on rcv */
 
 /* Define non-zero to enable a progress thread for receiving AMs . */
-#define GASNETC_RCV_THREAD		1
+#ifndef GASNETC_RCV_THREAD
+  #define GASNETC_RCV_THREAD		1
+#endif
 
 /* Define non-zero to enable polling for receiving AMs . */
-#define GASNETC_RCV_POLL		1
+#ifndef GASNETC_RCV_POLL
+  #define GASNETC_RCV_POLL		1
+#endif
 
 #if GASNETC_VAPI_ENABLE_INLINE_PUTS
   /* AM req/rep <= this size will be done w/ VAPI-level copy, 0 disables */
-  #define GASNETC_AM_INLINE_LIMIT	72
+  #ifndef GASNETC_AM_INLINE_LIMIT
+    #define GASNETC_AM_INLINE_LIMIT	72
+  #endif
 #else
   #define GASNETC_AM_INLINE_LIMIT	0
 #endif
 
 #if GASNETC_VAPI_ENABLE_INLINE_PUTS
   /* puts <= this size will be done w/ VAPI-level copy, 0 disables */
-  #define GASNETC_PUT_INLINE_LIMIT	72
+  #ifndef GASNETC_PUT_INLINE_LIMIT
+    #define GASNETC_PUT_INLINE_LIMIT	72
+  #endif
 #else
   #define GASNETC_PUT_INLINE_LIMIT	0
 #endif
 
 /* puts <= this size will be done w/ local copies iff sender will wait for local completion */
-#define GASNETC_PUT_COPY_LIMIT		4096
+#ifndef GASNETC_PUT_COPY_LIMIT
+  #define GASNETC_PUT_COPY_LIMIT	4096
+#endif
 
-#define GASNETC_SND_REAP_LIMIT	32
-#define GASNETC_RCV_REAP_LIMIT	16
+/* maximum number of ops reaped from the send CQ per poll */
+#ifndef GASNETC_SND_REAP_LIMIT
+  #define GASNETC_SND_REAP_LIMIT	32
+#endif
+
+/* maximum number of ops reaped from the recv CQ per poll */
+#ifndef GASNETC_RCV_REAP_LIMIT
+  #define GASNETC_RCV_REAP_LIMIT	16
+#endif
+
 
 /* ------------------------------------------------------------------------------------ */
 
