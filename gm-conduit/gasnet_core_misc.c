@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.21 2002/08/19 01:29:19 csbell Exp $
- * $Date: 2002/08/19 01:29:19 $
- * $Revision: 1.21 $
+/* $Id: gasnet_core_misc.c,v 1.22 2002/08/23 12:18:24 csbell Exp $
+ * $Date: 2002/08/23 12:18:24 $
+ * $Revision: 1.22 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -602,7 +602,7 @@ gasnetc_gmpiconf_init()
 
 	FILE		*fp;
 	char		line[_BUFSZ+1];
-	char		gmconf[_BUFSZ+1];
+	char		gmconf[_BUFSZ+1], *gmconfenv;
 	char		gmhost[_BUFSZ+1], hostname[MAXHOSTNAMELEN+1];
 	char		**hostnames;
 	char		*homedir;
@@ -614,15 +614,17 @@ gasnetc_gmpiconf_init()
 	if ((homedir = getenv("HOME")) == NULL)
 		GASNETI_RETURN_ERRR(RESOURCE, "Couldn't find $HOME directory");
 
-	snprintf(gmconf, _BUFSZ, "%s/.gmpi/conf", homedir);
+	if ((gmconfenv = getenv("GMPI_CONF")) != NULL)
+		snprintf(gmconf, _BUFSZ, "%s", gmconfenv);
+	else
+		snprintf(gmconf, _BUFSZ, "%s/.gmpi/conf", homedir);
 
 	if (gethostname(hostname,_BUFSZ) < 0)
 		GASNETI_RETURN_ERRR(RESOURCE, "Couldn't get local hostname");
 
 	if ((fp = fopen(gmconf, "r")) == NULL) {
-		fprintf(stderr, "%s unavailable\n", gmconf);
-		GASNETI_RETURN_ERRR(RESOURCE, 
-		    "Couldn't open GMPI configuration file");
+		fprintf(stderr, "Couldn't open GMPI configuration file: %s", gmconf);
+		return GASNET_ERR_RESOURCE;
 	}
 
 	/* must do gm_init() from this point on since gm_host_name_to_node_id
@@ -690,7 +692,7 @@ gasnetc_gmpiconf_init()
 		    "could not find myself in GMPI config file");
 	gm_init();
 	status = 
-		gm_open(&p,BOARD,thisport,"GASNet GMPI Emulation Bootstrap", 
+		gm_open(&p,BOARD,thisport,"GASNet/GM", 
 		    GM_API_VERSION_1_4);
 	if (status != GM_SUCCESS) 
 		GASNETI_RETURN_ERRR(RESOURCE, "could not open GM port");
@@ -733,3 +735,39 @@ gasnetc_gmpiconf_init()
 	_gmc.port = p;
 	return GASNET_OK;
 }
+
+#ifdef LINUX
+uintptr_t
+gasnetc_get_physmem()
+{
+	FILE		*fp;
+	char		line[_BUFSZ+1];
+	unsigned long	mem = 0;
+
+	if ((fp = fopen("/proc/meminfo", "r")) == NULL)
+		gasneti_fatalerror("Can't open /proc/meminfo");
+
+	while (fgets(line, _BUFSZ, fp)) {
+		if (sscanf(line, "Mem: %ld", &mem) > 0)
+			break;
+	}
+	fclose(fp);
+	return (uintptr_t) mem;
+}
+#elif defined(FREEBSD)
+uintptr_t
+gasnetc_get_physmem()
+{
+	uintptr_t	mem = 0;
+
+	if (sysctlbyname("hw.physmem", &mem, sizeof(uintptr_t), NULL, NULL))
+		gasneti_fatalerror("couldn't query systcl(hw.physmem");
+	return mem;
+}
+#else
+uintptr_t
+gasnetc_get_physmem()
+{
+	return (uintptr_t) 0;
+}
+#endif

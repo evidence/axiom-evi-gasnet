@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.29 2002/08/22 14:27:31 csbell Exp $
- * $Date: 2002/08/22 14:27:31 $
- * $Revision: 1.29 $
+/* $Id: gasnet_core_internal.h,v 1.30 2002/08/23 12:18:24 csbell Exp $
+ * $Date: 2002/08/23 12:18:24 $
+ * $Revision: 1.30 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -56,6 +56,8 @@
 #ifndef GASNETC_BUCKET_SHIFT
 #define GASNETC_BUCKET_SHIFT		12
 #endif
+/* define to the maximum fraction of physical memory occupied by victim pages */
+#define GASNETC_BUCKET_VICTIM_MAX_SIZE	0.3
 #define GASNETC_NUM_BUCKETS(addr,len)	(assert(addr%GASNETC_BUCKET_SIZE==0),\
 					(GASNETI_PAGE_ROUNDUP(len,           \
 					GASNETC_BUCKET_SIZE)-addr)>>         \
@@ -133,6 +135,7 @@ void	gasnetc_sendbuf_finalize();
 void	gasnetc_provide_receive_buffers();
 int	gasnetc_gmpiconf_init();
 
+uintptr_t	gasnetc_get_physmem();
 uintptr_t	gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize);
 int		gasnetc_gather_seginfo(gasnet_seginfo_t *segment);
 void		gasnetc_am_medcopy(gasnet_token_t token, void *addr, 

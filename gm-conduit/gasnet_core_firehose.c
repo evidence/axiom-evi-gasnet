@@ -288,10 +288,6 @@ gasnet_handlerentry_t const	*gasnetc_get_handlertable();
 #else
 #error Cannot use 64 bit segments yet
 #endif
-/* XXX need better estimate
- * Default to using 512mb at most in victims */
-#define GASNETC_BUCKET_VICTIM_MAX_SIZE	(GASNETC_BUCKET_SEGMENT>>3)
-/* #define GASNETC_BUCKET_VICTIM_MAX_SIZE	40 */
 #define GASNETC_SEGMENT_MOD_SIZE	GASNETC_BUCKET_SIZE
 
 typedef
@@ -394,6 +390,7 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 {
 	size_t			 num_buckets;
 	gasnetc_bucket_desc_t	*table;
+	uintptr_t		victim_mem;
 	unsigned int		i;
 
 	assert(segsize > 0 && segbase > 0);
@@ -421,7 +418,8 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 	gasnetc_bucket_table = table;
 
 	/* move VICTIM_MAX_SIZE to an environment variable */
-	gasnetc_bucket_victim_max = (size_t) GASNETC_BUCKET_VICTIM_MAX_SIZE;
+	victim_mem = gasnetc_get_physmem() * GASNETC_BUCKET_VICTIM_MAX_SIZE;
+	gasnetc_bucket_victim_max = victim_mem >> GASNETC_BUCKET_SHIFT;
 	gasnetc_bucket_victim_count = 0;
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose local victims max=%d (head=%d,tail=%d)",

@@ -350,7 +350,6 @@ gasnete_firehose_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
 	return (gasnete_op_t *) pop;
 }
 
-#define GASNETE_PUT_NON_BULK_CUTOFF	GASNETC_AM_LEN
 /*
  * In the typed version of put, we always need a source copy of the local data
  * before sending it off, which doesn't require a local memory registration.  
@@ -455,9 +454,12 @@ extern void
 gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, 
 		      size_t nbytes GASNETE_THREAD_FARG)
 {
-	if (nbytes > GASNETE_PUT_NON_DMA_CUTOFF) {
+	if (nbytes > GASNETE_GET_NON_DMA_CUTOFF) {
 		gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
 		gasnete_iop_t *iop = mythread->current_iop;
+		GASNETI_TRACE_PRINTF(C, 
+		    ("gasnete_get_nbi_bulk Firehose (%d,%p <- %p,%d bytes)",
+		    (unsigned) node, dest, src, nbytes));
 		gasnete_firehose_get_bulk(dest, node, src, nbytes, iop);
 		return;
 	}
