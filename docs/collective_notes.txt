@@ -1,6 +1,6 @@
 GASNet collectives design notes
 ===============================
-* $Revision: 1.28 $
+* $Revision: 1.29 $
 * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> and Paul Hargrove <PHHargrove@lbl.gov>
 * Terms of use are as specified in license.txt
 
@@ -275,7 +275,10 @@ must be called on all nodes.  Depending on flag values, this call may
 be made either by all threads on each node (when GASNET_COLL_ALL_THREADS
 appears in the flags argument), or exactly once on each node, by any
 one representative thread (when GASNET_COLL_ALL_THREADS is absent from
-the flags).  To disambiguate the order in which collectives are
+the flags).  When GASNET_COLL_ALL_THREADS is included in the flags, all
+threads must sync their respective handles.
+
+To disambiguate the order in which collectives are
 initiated by representative threads on multi-threaded clients, the client
 must serialize calls to the collective initiation functions which lack
 GASNET_COLL_ALL_THREADS in the flags, to ensure that such calls are never
@@ -283,7 +286,7 @@ concurrent with any other collective initiation calls on the same node
 (regardless of the presence of absence of GASNET_COLL_ALL_THREADS in the
 flags).
 
-At present, all nods must agree on the use of GASNET_COLL_ALL_THREADS
+At present, all nodes must agree on the use of GASNET_COLL_ALL_THREADS
 in the flags.  However, this requirement may be relaxed in a future
 specification.
 
