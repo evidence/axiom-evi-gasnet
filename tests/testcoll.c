@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/02/04 19:05:37 $
- * $Revision: 1.10 $
+ *     $Date: 2005/02/04 20:21:58 $
+ * $Revision: 1.11 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -383,12 +383,11 @@ void test_NB(int iters, gasnet_node_t root) {
 	h[j] = gasnet_coll_broadcast_nb(GASNET_TEAM_ALL, A+j, root, A+j, sizeof(int),
 				      GASNET_COLL_SINGLE |
 				      GASNET_COLL_IN_MYSYNC |
-				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
 				      GASNET_COLL_SRC_IN_SEGMENT |
 				      GASNET_COLL_DST_IN_SEGMENT);
     }
     gasnet_coll_wait_sync_all(h, iters);
-    BARRIER();
     for (j = 0; j < iters; ++j) {
 	if (A[j] != B[j]) {
 	    MSG("NB: broadcast validation failed");
