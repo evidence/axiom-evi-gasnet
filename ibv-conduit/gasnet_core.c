@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/09/13 17:18:00 $
- * $Revision: 1.20 $
+ *     $Date: 2003/09/15 17:46:12 $
+ * $Revision: 1.21 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -103,7 +103,6 @@ int		gasnetc_am_spares;
 gasnetc_handler_fn_t const gasnetc_unused_handler = (gasnetc_handler_fn_t)&abort;
 gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
 
-static pid_t gasnetc_mypid;
 static void gasnetc_atexit(void);
 static void gasnetc_exit_sighandler(int sig);
 
@@ -651,9 +650,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
   #endif
 
-  /* Set up for exit handlers */
-  gasnetc_mypid = getpid();
-  gasneti_reghandler(SIGUSR1, gasnetc_exit_sighandler);
   atexit(gasnetc_atexit);
 
   gasneti_init_done = 1;  
@@ -1033,6 +1029,10 @@ static void gasnetc_exit_now(int exitcode) {
   /* If anybody is still waiting, let them go */
   gasneti_atomic_set(&gasnetc_exit_done, 1);
 
+  #if DEBUG_VERBOSE
+    fprintf(stderr,"gasnetc_exit(): node %i/%i calling killmyprocess...\n", 
+      gasnetc_mynode, gasnetc_nodes); fflush(stderr);
+  #endif
   gasneti_killmyprocess(exitcode);
   /* NOT REACHED */
 
@@ -1047,25 +1047,13 @@ static void gasnetc_exit_now(int exitcode) {
  * It is not used for the return-from-main case.  Nor is this code used if a fatal
  * signal (including SIGALRM on timeout) is encountered while trying to shutdown.
  *
- * This code tries to kill the full process in the presence of threads before
- * proceeding to gasnetc_exit_now() to actually terminate.
+ * Just a wrapper around gasnetc_exit_now() to actually terminate.
  *
  * DOES NOT RETURN
  */
 static void gasnetc_exit_tail(void) GASNET_NORETURN;
 static void gasnetc_exit_tail(void) {
-  int exitcode = gasneti_atomic_read(&gasnetc_exit_code);
-
-  /* We need to be certain that the entire multi-threaded process will exit.
-   * POSIX threads say that exit() ensures this, but is silent (?) on _exit().
-   * At least on some systems _exit() skips the at-exit handler that kills the other threads.
-   * This is an attempt to get the main thread to exit unconditionally.
-   */
-  gasneti_reghandler(SIGUSR1, gasnetc_exit_sighandler);	/* redundant, but just in case */
-  kill(gasnetc_mypid, SIGUSR1);
-
-  /* goodbye... */
-  gasnetc_exit_now(exitcode);
+  gasnetc_exit_now((int)gasneti_atomic_read(&gasnetc_exit_code));
   /* NOT REACHED */
 }
 
@@ -1073,26 +1061,22 @@ static void gasnetc_exit_tail(void) {
  *
  * This signal handler is for a last-ditch exit when a signal arrives while
  * attempting the graceful exit.  That includes SIGALRM if we get wedged.
- * It is also used, on SIGUSR1, as part of the mechanism for ensuring
- * that all threads will exit (we hope).
  *
  * Just a signal-handler wrapper for gasnetc_exit_now().
  *
  * DOES NOT RETURN
  */
 static void gasnetc_exit_sighandler(int sig) {
-  int exitcode = gasneti_atomic_read(&gasnetc_exit_code);
-
   #if DEBUG_VERBOSE
   /* note - can't call trace macros here, or even sprintf */
-  if (sig != SIGUSR1) {
+  {
     static const char msg[] = "gasnet_exit(): signal received during exit... goodbye\n";
     write(STDERR_FILENO, msg, sizeof(msg));
     /* fflush(stderr);   NOT REENTRANT */
   }
   #endif
 
-  gasnetc_exit_now(exitcode);
+  gasnetc_exit_now((int)gasneti_atomic_read(&gasnetc_exit_code));
   /* NOT REACHED */
 }
 
@@ -1423,8 +1407,10 @@ static void gasnetc_exit_reph(gasnet_token_t token, gasnet_handlerarg_t *args, i
  * there is no _guarantee_ this will work with all bootstraps.
  */
 static void gasnetc_atexit(void) {
-  gasnetc_exit_head(0);	/* real exit code is outside our control */
-  gasnetc_exit_body();
+  /* Check return from _head to avoid reentrance */
+  if (gasnetc_exit_head(0)) { /* real exit code is outside our control */
+    gasnetc_exit_body();
+  }
   return;
 }
 

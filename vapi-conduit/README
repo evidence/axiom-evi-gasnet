@@ -410,18 +410,9 @@ gasnet_exit() or remote exit request we call _tail to complete the
 exit.  In _tail we set an atomic variable to wake any threads which
 were stuck polling in _body due to being other than the first thread
 to enter.  Those threads should eventually wake and also call _tail to
-terminate.  After waking any such threads, we send a SIGUSR1 to the
-pid which had called gasnet_init().  The corresponding signal handler
-just exits with the exit code stored by _head.  This messy step is
-needed because while exit() is guaranteed to properly terminate an
-entire multi-threaded process (excepting detached threads), no such
-assurance is made for _exit().  That is, of course, because the
-graceful shutdown of a pthread process is done in an atexit handler,
-which _exit() skips.  At least on Linux pthreads I am observing that
-without this step, there are sometimes orphan threads left around, or
-worse failure to terminate the job if it is the main thread left
-running.  (There is some belief that this behavior is a BUG, and should
-be explored further.)
+terminate.  Next, we call gasneti_killmyprocess() to do any platform-
+specific magic required to get the entire multithreaded application to
+exit.  Finally we call _exit() with the saved exit code.
 
 Given the routines gasnetc_exit_{head,body,tail}() the code for the
 three types of exit are pretty trivial.  In particular, gasnetc_exit()
