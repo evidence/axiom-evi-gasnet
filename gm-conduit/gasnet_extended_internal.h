@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2004/08/26 04:53:36 $
- * $Revision: 1.20 $
+ *     $Date: 2004/10/06 09:25:24 $
+ * $Revision: 1.21 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -57,9 +57,7 @@ typedef struct _gasnete_eop_t {
 	const firehose_request_t	*req_local;
 	const firehose_request_t	req_remote;
 
-	/* XXX to be removed.
-	gasnet_node_t		node;
-	*/
+	gasnet_node_t		node;		/* also in req_remote.node */
 	uintptr_t		dest;
 	uintptr_t		src;
 	uint32_t		len;
@@ -233,6 +231,9 @@ extern gasnete_threaddata_t * gasnete_mythread();
 void            gasnete_begin_nbi_accessregion(
 			int allowrecursion GASNETE_THREAD_FARG);
 gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE);
+
+/* GM RDMA registration */
+extern int gasnete_getrdma_enabled;
 
 /* Extended reference functions */
 gasnet_handle_t gasnete_extref_get_nb_bulk(void *dest, gasnet_node_t node, 

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_help.h,v $
- * $Date: 2004/10/02 11:03:48 $
- * $Revision: 1.33 $
+ * $Date: 2004/10/06 09:25:24 $
+ * $Revision: 1.34 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -37,9 +37,9 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #endif
 
 /* Amount of physical memory that is pinnable. . reported to be 
- * 70% by Myricom.  We use 60% to be safe. */
+ * 70% by Myricom.  */
 #ifndef GASNETC_PHYSMEM_PINNABLE_RATIO
-  #define GASNETC_PHYSMEM_PINNABLE_RATIO       0.6
+  #define GASNETC_PHYSMEM_PINNABLE_RATIO       0.7
 #endif
 
 #ifdef GASNET_SEGMENT_FAST
@@ -313,7 +313,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 		}							\
 	   } while (0)
 
-#define GASNETC_AMPAYLOAD_WRITE(dest, src, len)	memcpy((dest),(src),(len))
+#define GASNETC_AMPAYLOAD_WRITE(d,s,l)	GASNETE_FAST_UNALIGNED_MEMCPY(d,s,l)
 #define GASNETC_AMPAYLOAD_READ GASNETC_AMPAYLOAD_WRITE
 
 #if defined(GASNETI_PTR32)
