@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/07/18 19:37:20 $
- * $Revision: 1.6 $
+ *     $Date: 2003/08/11 21:15:31 $
+ * $Revision: 1.7 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -195,18 +195,11 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
     case gasnetc_System:
       {
         gasnetc_sys_handler_fn_t sys_handler_fn = gasnetc_sys_handler[handler_id];
-        #if TRACE
-	  /* This is needed because w/o it the ony way for the tracing macros
-	   * to get the src node would be to call _AMGetMsgSource(), which will
-	   * fail with an assertion if invoked before _attach().
-	   */
-	  gasnet_node_t src = GASNETC_MSG_SRCIDX(flags);
-	#endif
 	args = buf->shortmsg.args;
         if (GASNETC_MSG_ISREQUEST(flags))
-          GASNETC_TRACE_SYSTEM_REQHANDLER(handler_id, src, rbuf, numargs, args);
+          GASNETC_TRACE_SYSTEM_REQHANDLER(handler_id, rbuf, numargs, args);
         else
-          GASNETC_TRACE_SYSTEM_REPHANDLER(handler_id, src, rbuf, numargs, args);
+          GASNETC_TRACE_SYSTEM_REPHANDLER(handler_id, rbuf, numargs, args);
         RUN_HANDLER_SYSTEM(sys_handler_fn,rbuf,args,numargs);
       }
       break;
@@ -630,6 +623,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
 
   default:
     assert(0);
+    /* NOT REACHED */
   }
  
   /* copy args */
@@ -937,7 +931,6 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
  */
 extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasneti_atomic_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
-  gasnetc_sbuf_t *sbuf;
   uintptr_t src, dst;
 
   src = (uintptr_t)src_ptr;
@@ -1105,6 +1098,8 @@ extern int gasnetc_ReplySystem(gasnet_token_t token,
   retval = gasnetc_ReqRepGeneric(gasnetc_System, 0, /* need */ 0, credits_granted,
 		  		 dest, handler, NULL, 0, NULL, numargs, NULL, argptr);
   va_end(argptr);
+
+  rbuf->needReply = 0;
   return retval;
 }
 
@@ -1114,12 +1109,19 @@ extern int gasnetc_ReplySystem(gasnet_token_t token,
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
+  uint32_t flags;
   gasnet_node_t sourceid;
-  GASNETC_CHECKATTACH();
+
   if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
   if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
 
-  sourceid = GASNETC_MSG_SRCIDX(((gasnetc_rbuf_t *)token)->flags);
+  flags = ((gasnetc_rbuf_t *)token)->flags;
+
+  if (GASNETC_MSG_CATEGORY(flags) != gasnetc_System) {
+    GASNETC_CHECKATTACH();
+  }
+
+  sourceid = GASNETC_MSG_SRCIDX(flags);
 
   assert(sourceid < gasnetc_nodes);
   *srcindex = sourceid;

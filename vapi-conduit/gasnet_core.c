@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/07/18 18:57:51 $
- * $Revision: 1.6 $
+ *     $Date: 2003/08/11 21:15:31 $
+ * $Revision: 1.7 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -178,8 +178,6 @@ extern void *gasnetc_alloc_pinned(size_t size, VAPI_mrw_acl_t acl, gasnetc_memre
 }
 
 extern void gasnetc_free_pinned(gasnetc_memreg_t *reg) {
-  void *addr;
-
   gasnetc_unpin(reg);
   gasneti_munmap(reg->req_addr, reg->req_size);
 }

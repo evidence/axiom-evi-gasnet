@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/07/18 19:48:45 $
- * $Revision: 1.8 $
+ *     $Date: 2003/08/11 21:15:31 $
+ * $Revision: 1.9 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -170,23 +170,26 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   #define GASNETC_TRACE_SYSTEM_REPLY(dest,handler,numargs) \
           _GASNETC_TRACE_SYSTEM(SYSTEM_REPLY,dest,handler,numargs)
 
-  #define _GASNETC_TRACE_SYSTEM_HANDLER(name, handlerid, src, token, numargs, arghandle) do { \
+  #define _GASNETC_TRACE_SYSTEM_HANDLER(name, handlerid, token, numargs, arghandle) do { \
+    gasnet_node_t src;                                                                    \
     _GASNETI_TRACE_GATHERHANDLERARGS(numargs, arghandle);                                 \
     _GASNETI_STAT_EVENT(C,name);                                                          \
+    if (gasnet_AMGetMsgSource(token,&src) != GASNET_OK)                                   \
+	gasneti_fatalerror("gasnet_AMGetMsgSource() failed");                               \
     GASNETI_TRACE_PRINTF(C,(#name": src=%i handler=%i args:%s",                           \
       (int)src,(int)(handlerid),argstr));                                                 \
     GASNETI_TRACE_PRINTF(C,(#name": token: %s",                                           \
                       gasneti_formatdata(&token, sizeof(token))));                        \
     } while(0)
-  #define GASNETC_TRACE_SYSTEM_REQHANDLER(handlerid, src, token, numargs, arghandle) \
-         _GASNETC_TRACE_SYSTEM_HANDLER(SYSTEM_REQHANDLER, handlerid, src, token, numargs, arghandle)
-  #define GASNETC_TRACE_SYSTEM_REPHANDLER(handlerid, src, token, numargs, arghandle) \
-         _GASNETC_TRACE_SYSTEM_HANDLER(SYSTEM_REPHANDLER, handlerid, src, token, numargs, arghandle)
+  #define GASNETC_TRACE_SYSTEM_REQHANDLER(handlerid, token, numargs, arghandle) \
+         _GASNETC_TRACE_SYSTEM_HANDLER(SYSTEM_REQHANDLER, handlerid, token, numargs, arghandle)
+  #define GASNETC_TRACE_SYSTEM_REPHANDLER(handlerid, token, numargs, arghandle) \
+         _GASNETC_TRACE_SYSTEM_HANDLER(SYSTEM_REPHANDLER, handlerid, token, numargs, arghandle)
 #else
   #define GASNETC_TRACE_SYSTEM_REQUEST(dest,handler,numargs)
   #define GASNETC_TRACE_SYSTEM_REPLY(dest,handler,numargs)
-  #define GASNETC_TRACE_SYSTEM_REQHANDLER(handlerid, src, token, numargs, arghandle) 
-  #define GASNETC_TRACE_SYSTEM_REPHANDLER(handlerid, src, token, numargs, arghandle) 
+  #define GASNETC_TRACE_SYSTEM_REQHANDLER(handlerid, token, numargs, arghandle) 
+  #define GASNETC_TRACE_SYSTEM_REPHANDLER(handlerid, token, numargs, arghandle) 
 #endif
 
 #if defined(TRACE) || defined(STATS)

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/07/03 22:21:04 $
- * $Revision: 1.2 $
+ *     $Date: 2003/08/11 21:15:31 $
+ * $Revision: 1.3 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,24 +24,6 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
   static pthread_key_t gasnete_threaddata; /*  pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
 #endif
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
-
-/* ------------------------------------------------------------------------------------ */
-/*
-  Tuning Parameters
-  =================
-  Conduits may choose to override the default tuning parameters below by defining them
-  in their gasnet_core_fwd.h
-*/
-
-/* the size threshold where gets/puts stop using medium messages and start using longs */
-#ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
-#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD   gasnet_AMMaxMedium()
-#endif
-
-/* true if we should try to use Long replies in gets (only possible if dest falls in segment) */
-#ifndef GASNETE_USE_LONG_GETS
-#define GASNETE_USE_LONG_GETS 1
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -110,7 +92,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     assert(!gasnete_eopaddr_equal(thread->eop_free,head));
     assert(eop->threadidx == thread->threadidx);
     assert(eop->type == gasnete_opExplicit);
-    gasneti_atomic_set(&eop->req_oust, 0);
+    assert(gasneti_atomic_read(&(eop->req_oust)) == 0);
     return eop;
   } else { /*  free list empty - need more eops */
     int bufidx = thread->eop_num_bufs;
@@ -177,6 +159,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
         assert(!gasnete_eopaddr_isnil(addr));                 
         eop = GASNETE_EOPADDR_TO_PTR(thread,addr);            
         assert(eop->type == gasnete_opExplicit);               
+        assert(gasneti_atomic_read(&(eop->req_oust)) == 0);
         assert(eop->threadidx == threadidx);                  
         assert(addr.bufferidx == bufidx);
         assert(!seen[addr.eopidx]);/* see if we hit a cycle */
@@ -198,14 +181,16 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     thread->iop_free = iop->next;
     assert(iop->type == gasnete_opImplicit);
     assert(iop->threadidx == thread->threadidx);
+    assert(gasneti_atomic_read(&(iop->get_req_oust)) == 0);
+    assert(gasneti_atomic_read(&(iop->put_req_oust)) == 0);
   } else {
     iop = (gasnete_iop_t *)gasneti_malloc(sizeof(gasnete_iop_t));
     iop->type = gasnete_opImplicit;
     iop->threadidx = thread->threadidx;
+    gasneti_atomic_set(&(iop->get_req_oust), 0);
+    gasneti_atomic_set(&(iop->put_req_oust), 0);
   }
   iop->next = NULL;
-  gasneti_atomic_set(&(iop->get_req_oust), 0);
-  gasneti_atomic_set(&(iop->put_req_oust), 0);
   return iop;
 }
 
@@ -215,6 +200,7 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
   gasnete_eopaddr_t addr = eop->addr;
   assert(thread == gasnete_mythread());
   assert(eop->type == gasnete_opExplicit);
+  assert(gasneti_atomic_read(&(eop->req_oust)) == 0);
   eop->addr = thread->eop_free;
   thread->eop_free = addr;
 }
@@ -224,6 +210,8 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
   assert(thread == gasnete_mythread());
   assert(iop->type == gasnete_opImplicit);
+  assert(gasneti_atomic_read(&(iop->get_req_oust)) == 0);
+  assert(gasneti_atomic_read(&(iop->put_req_oust)) == 0);
   iop->next = thread->iop_free;
   thread->iop_free = iop;
 }
@@ -323,8 +311,6 @@ static void gasnete_check_config() {
   assert(SIZEOF_GASNET_REGISTER_VALUE_T == sizeof(gasnet_register_value_t));
   assert(SIZEOF_GASNET_REGISTER_VALUE_T >= sizeof(int));
   assert(SIZEOF_GASNET_REGISTER_VALUE_T >= sizeof(void *));
-
-  assert(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
 
   #if    defined(GASNETI_PTR32) && !defined(GASNETI_PTR64)
     assert(sizeof(void*) == 4);
