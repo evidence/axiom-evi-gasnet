@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2004/11/02 00:13:42 $
- * $Revision: 1.60 $
+ *     $Date: 2004/11/02 01:49:43 $
+ * $Revision: 1.61 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -338,37 +338,68 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 	  gasnetc_sema_up(&gasnetc_cq_sema);
           GASNETC_SEMA_CHECK(&gasnetc_cq_sema, gasnetc_op_oust_limit);
 
-          #if GASNETC_PIN_SEGMENT
-	  /* complete bounced RMDA read, if any */
-	  if (sreq->addr) {
-	    gasneti_assert(comp.opcode == VAPI_CQE_SQ_RDMA_READ);
-	    gasneti_assert(sreq->len > 0);
+	  switch (comp.opcode) {
+	  case VAPI_CQE_SQ_RDMA_READ:	/* Get */
+	    gasneti_assert(sreq->req_oust != NULL);
+	    gasneti_assert(sreq->mem_oust == NULL);
 
-	    memcpy(sreq->addr, sreq->buffer, sreq->len);
-            gasneti_sync_writes();
-	  }
-	  #endif
+            #if GASNETC_PIN_SEGMENT
+	    /* complete bounced RMDA read, if any */
+	    if (sreq->addr) {
+	      gasneti_assert(sreq->buffer != NULL);
+	      gasneti_assert(sreq->len > 0);
+
+	      memcpy(sreq->addr, sreq->buffer, sreq->len);
+              gasneti_sync_writes();
+
+	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->buffer);
+	    }
+	    #endif
 	  
-	  /* decrement any outstanding counters */
-          if (sreq->mem_oust) {
-	    gasneti_assert(!gasnetc_counter_done(sreq->mem_oust));
-	    gasnetc_counter_dec(sreq->mem_oust);
-	  }
-          if (sreq->req_oust) {
-	    gasneti_assert(!gasnetc_counter_done(sreq->req_oust));
             gasnetc_counter_dec(sreq->req_oust);
-	  }
-	  
-	  #if GASNETC_USE_FIREHOSE
-	  if (sreq->fh_ptr[1]) {
-	    firehose_release(sreq->fh_ptr, 2);
-	  } else if (sreq->fh_ptr[0]) {
-	    firehose_release(sreq->fh_ptr, 1);
-	  }
-	  #endif
 
-	  if_pf (sreq->buffer) {
+	    #if GASNETC_USE_FIREHOSE
+	    if (sreq->fh_ptr[1]) {
+	      firehose_release(sreq->fh_ptr, 2);
+	    } else if (sreq->fh_ptr[0]) {
+	      firehose_release(sreq->fh_ptr, 1);
+	    }
+	    #endif
+	    break;
+
+	  case VAPI_CQE_SQ_RDMA_WRITE:	/* Put */
+            if (sreq->mem_oust) {
+	      gasneti_assert(sreq->buffer == NULL);
+	      gasnetc_counter_dec(sreq->mem_oust);
+	    } else if (sreq->buffer) {
+	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->buffer);
+	    }
+            if (sreq->req_oust) {
+              gasnetc_counter_dec(sreq->req_oust);
+	    }
+
+	    #if GASNETC_USE_FIREHOSE
+	    if (sreq->fh_ptr[1]) {
+	      firehose_release(sreq->fh_ptr, 2);
+	    } else if (sreq->fh_ptr[0]) {
+	      firehose_release(sreq->fh_ptr, 1);
+	    }
+	    #endif
+	    break;
+
+	  case VAPI_CQE_SQ_SEND_DATA:	/* AM send */
+	    gasneti_assert(sreq->mem_oust == NULL);
+	    gasneti_assert(sreq->buffer != NULL);
+	  
+            if (sreq->req_oust) {
+              gasnetc_counter_dec(sreq->req_oust);
+	    }
+
 	    gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->buffer);
+	    break;
+
+	  default:
+	    gasneti_fatalerror("Reaped send with invalid/unknown opcode %d", (int)comp.opcode);
 	  }
 
 	  /* keep a list of reaped sreqs */
@@ -1171,9 +1202,11 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
     sreq->addr = (void *)dst;
     sreq->len  = GASNETC_BUFSZ;
 
-    /* We must set counters on all chunks since order of completion is uncertain */
-    sreq->req_oust = req_oust;
-    gasnetc_counter_inc(req_oust);
+    if (GASNETC_ANY_PAR) {
+      /* We must set counters on all chunks since order of completion is uncertain */
+      sreq->req_oust = req_oust;
+      gasnetc_counter_inc(req_oust);
+    }
 
     sr_desc->opcode      = VAPI_RDMA_READ;
     sr_desc->remote_addr = src;
