@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2004/09/20 20:24:14 $
- * $Revision: 1.70 $
+ * $Date: 2004/10/02 11:03:48 $
+ * $Revision: 1.71 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -251,7 +251,7 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	fflush(stdout);
 	#endif
 
-	#if GASNETC_GM_RDMA_GETS_BROKEN && GASNETC_GM_ENABLE_BROKEN_VERSIONS
+	#if GASNETC_GM_HAVE_RDMA_GETS && defined(GASNETC_GM_ENABLE_BROKEN_VERSIONS)
 	{
 	    char *nowarn = getenv("GASNET_GM_NO_RDMAGET_WARNING");
 	    if (nowarn == NULL || *nowarn == '\0') {
@@ -333,7 +333,10 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 			GASNETI_RETURN_ERRR(RESOURCE,
 			    "Error registering extended API handlers");
 	    	gasneti_assert(e_numreg == e_len);
-		fidx = 1+etable[e_len-1].index;
+		if (e_len > 0)
+		    fidx = 1+etable[e_len-1].index;
+		else
+		    fidx = 1+ertable[er_len-1].index;
 #endif
 	}
 	{ /* firehose handlers */
