@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.9 2003/01/28 15:58:12 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.10 2003/02/25 14:24:59 bonachea Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -41,20 +41,22 @@ libgasnet_<conduitname>_seq_a_SOURCES =
 
 VPATH=$(srcdir)
 
+LIBCFLAGS = @CFLAGS@ @MISC_CFLAGS@ @BUILDCONFIG_DEFINES@ @GASNET_MACHINE_DEFINES@ $(INCLUDES)
+
 libgasnet-<conduitname>-seq.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_SEQ -c $(libgasnet_sources)
+	$(CC) $(LIBCFLAGS) -DGASNET_SEQ -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-<conduitname>-par.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
+	$(CC) $(LIBCFLAGS) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-<conduitname>-parsync.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
+	$(CC) $(LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)

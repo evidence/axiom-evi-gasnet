@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.40 2003/01/11 22:46:45 bonachea Exp $
- * $Date: 2003/01/11 22:46:45 $
- * $Revision: 1.40 $
+/* $Id: gasnet_core_internal.h,v 1.41 2003/02/25 14:24:40 bonachea Exp $
+ * $Date: 2003/02/25 14:24:40 $
+ * $Revision: 1.41 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -855,6 +855,8 @@ gasnetc_write_AMBufferBulk(void *dest, void *src, size_t nbytes)
 }
 /* -------------------------------------------------------------------------- */
 /* Few utility functions which are nice inlined, alloca _MUST_ be inlined */
+#if 0
+/* gcc (and possibly other compilers) refuse to inline functions which call alloca */
 GASNET_INLINE_MODIFIER(gasnetc_alloca)
 void *
 gasnetc_alloca(size_t nbytes)
@@ -864,6 +866,24 @@ gasnetc_alloca(size_t nbytes)
 		gasneti_fatalerror("alloca(%d) failed\n", nbytes);
 	return ptr;
 }
+#endif
+#if 0
+/* probably shouldn't use this either - Linux man pages claims alloca has buggy behavior
+ * if called as an argument to a function call - maybe we shouldn't be using alloca at all..
+ */
+GASNET_INLINE_MODIFIER(_gasnetc_alloca_helper)
+void *_gasnetc_alloca_helper(void *ptr, const char *loc) {
+  if_pf (ptr == NULL) 
+    gasneti_fatalerror("alloca() failed%s%s\n",(loc?" at: ":""), (loc?loc:""));
+  return ptr;
+}
+#ifdef DEBUG
+#define gasnetc_alloca(nbytes) gasnetc_alloca_helper(alloca(nbytes), __FILE__ ":" _STRINGIFY(__LINE__))
+#else
+#define gasnetc_alloca(nbytes) gasnetc_alloca_helper(alloca(nbytes), NULL)
+#endif
+#endif
+#define gasnetc_alloca(nbytes) alloca(nbytes)
 
 GASNET_INLINE_MODIFIER(gasnetc_gm_nodes_search)
 gasnet_node_t

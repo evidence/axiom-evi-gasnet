@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.19 2003/01/30 09:36:25 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.20 2003/02/25 14:24:40 bonachea Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -10,10 +10,9 @@ AUTOMAKE_OPTIONS = foreign 1.4
 thread_defines = @GASNET_THREAD_DEFINES@
 gm_include = @GM_INCLUDE@
 platform_libraries = @LIBS@ -L@GM_LIB@
-platform_defines = @GASNET_MACHINE_DEFINES@
 linkend = -lgm
 
-INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_srcdir)/extended-ref/ -I$(top_builddir) -I$(gm_include) $(platform_defines)
+INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_srcdir)/extended-ref/ -I$(top_builddir) -I$(gm_include)
 	   
 filelist = gasnet_core.c              \
            gasnet_core.h              \
@@ -60,20 +59,22 @@ libgasnet_gm_seq_a_SOURCES =
 
 VPATH=$(srcdir)
 
+LIBCFLAGS = @CFLAGS@ @MISC_CFLAGS@ @BUILDCONFIG_DEFINES@ @GASNET_MACHINE_DEFINES@ $(INCLUDES)
+
 libgasnet-gm-seq.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_SEQ -c $(libgasnet_sources)
+	$(CC) $(LIBCFLAGS) -DGASNET_SEQ -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-gm-par.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
+	$(CC) $(LIBCFLAGS) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-gm-parsync.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
+	$(CC) $(LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)

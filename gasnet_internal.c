@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/02/18 12:16:40 $
- * $Revision: 1.25 $
+ *     $Date: 2003/02/25 14:24:28 $
+ * $Revision: 1.26 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -77,7 +77,7 @@ static volatile int gasnet_frozen = TRUE;
 static void _freezeForDebugger(int depth) {
   if (!depth) _freezeForDebugger(1);
   else {
-    volatile int i;
+    volatile int i=0;
     while (gasnet_frozen) {
       i++;
       sleep(1);

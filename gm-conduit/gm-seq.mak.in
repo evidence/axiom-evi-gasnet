@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gm-seq.mak.in,v 1.7 2003/01/28 15:58:08 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gm-seq.mak.in,v 1.8 2003/02/25 14:24:41 bonachea Exp $
 # Description: Makefile fragment for GM conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -31,8 +31,11 @@ GASNET_LIBDIRS = -L@TOP_BUILDDIR@/gm-conduit -L@GM_LIB@ ###NOINSTALL###
 # C compiler that GASNet clients should use 
 GASNET_CC = @CC@
 
+GASNET_OPT_CFLAGS = @CFLAGS@ 
+GASNET_MISC_CFLAGS = @MISC_CFLAGS@
+GASNET_DEFINES = @BUILDCONFIG_DEFINES@ -DGASNET_SEQ
 # C compiler options that GASNet clients should use 
-GASNET_CFLAGS = @CFLAGS@ -DGASNET_SEQ $(GASNET_INCLUDES) 
+GASNET_CFLAGS = $(GASNET_OPT_CFLAGS) $(GASNET_MISC_CFLAGS) $(GASNET_DEFINES) $(GASNET_INCLUDES)
 
 # linker that GASNet clients should use 
 GASNET_LD = @CC@

@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Attic/mpi-parsync.mak.in,v 1.4 2003/01/28 15:58:11 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Attic/mpi-parsync.mak.in,v 1.5 2003/02/25 14:24:53 bonachea Exp $
 # Description: Makefile fragment for GASNet MPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -30,8 +30,11 @@ GASNET_LIBDIRS = -L@TOP_BUILDDIR@/mpi-conduit -L@TOP_BUILDDIR@/other/ammpi ###NO
 # C compiler that GASNet clients should use 
 GASNET_CC = @CC@
 
+GASNET_OPT_CFLAGS = @CFLAGS@ 
+GASNET_MISC_CFLAGS = @MISC_CFLAGS@
+GASNET_DEFINES = @BUILDCONFIG_DEFINES@ -DGASNET_PARSYNC @GASNET_THREAD_DEFINES@
 # C compiler options that GASNet clients should use 
-GASNET_CFLAGS = @CFLAGS@ -DGASNET_PARSYNC $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@
+GASNET_CFLAGS = $(GASNET_OPT_CFLAGS) $(GASNET_MISC_CFLAGS) $(GASNET_DEFINES) $(GASNET_INCLUDES)
 
 # linker that GASNet clients should use 
 GASNET_LD = @MPI_CC@

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.9 2003/01/28 15:58:11 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.10 2003/02/25 14:24:53 bonachea Exp $
 # Description: Makefile for GASNet MPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -45,20 +45,22 @@ libgasnet_mpi_seq_a_SOURCES =
 
 VPATH=$(srcdir)
 
+LIBCFLAGS = @CFLAGS@ @MISC_CFLAGS@ @BUILDCONFIG_DEFINES@ @GASNET_MACHINE_DEFINES@ $(INCLUDES)
+
 libgasnet-mpi-seq.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_SEQ -c $(libgasnet_sources)
+	$(CC) $(LIBCFLAGS) -DGASNET_SEQ -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-mpi-par.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
+	$(CC) $(LIBCFLAGS) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-mpi-parsync.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
+	$(CC) $(LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)

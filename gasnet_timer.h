@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2003/02/18 12:16:40 $
- * $Revision: 1.7 $
+ *     $Date: 2003/02/25 14:24:28 $
+ * $Revision: 1.8 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -205,12 +205,12 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 */
 #define GASNETI_STATTIME_GRANULARITY() gasneti_stattime_metric(0)
 #define GASNETI_STATTIME_OVERHEAD()    gasneti_stattime_metric(1)
-double _gasneti_stattime_metric[2];
-int _gasneti_stattime_metricinit;
+extern double *_gasneti_stattime_metric;
+double *_gasneti_stattime_metric;
 GASNET_INLINE_MODIFIER(gasneti_stattime_metric)
 double gasneti_stattime_metric(unsigned int idx) {
   assert(idx <= 1);
-  if_pf (!_gasneti_stattime_metricinit) {
+  if_pf (_gasneti_stattime_metric == NULL) {
     int i, ticks, iters = 1000, minticks = 10;
     gasneti_stattime_t min = GASNETI_STATTIME_MAX;
     gasneti_stattime_t start = GASNETI_STATTIME_NOW();
@@ -224,12 +224,12 @@ double gasneti_stattime_metric(unsigned int idx) {
       }
       last = x;
     }
+    _gasneti_stattime_metric = malloc(2*sizeof(double));
+    assert(_gasneti_stattime_metric != NULL);
     /* granularity */
     _gasneti_stattime_metric[0] = ((double)GASNETI_STATTIME_TO_US(min*1000))/1000.0;
     /* overhead */
     _gasneti_stattime_metric[1] = ((double)(GASNETI_STATTIME_TO_US(last - start)))/i;
-
-    _gasneti_stattime_metricinit = 1;
   }
   return _gasneti_stattime_metric[idx];
 }

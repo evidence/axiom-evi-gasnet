@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/02/20 14:53:31 $
-# $Revision: 1.34 $
+#     $Date: 2003/02/25 14:24:28 $
+# $Revision: 1.35 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.34 $)
+AC_REVISION($Revision: 1.35 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -92,12 +92,19 @@ AC_TRY_CPP([
 #if __GNUC__ == 2 && __GNUC_MINOR__ == 96 && __GNUC_PATCHLEVEL__ == 0
 # error
 #endif
-],
-AC_MSG_RESULT(ok),
+],[ AC_MSG_RESULT(ok) ],[
 AC_MSG_RESULT(gcc 2.96)
-AC_WARN(use of gcc 2.96 is strongly discouraged)
-AC_WARN(consider using \$CC to pick a different compiler))
-
+gcc296msg="Use of gcc 2.96 for compiling this software is strongly discouraged. \
+It is not an official GNU release and has many serious known bugs, especially \
+in the optimizer, which may lead to bad code and incorrect runtime behavior. \
+Consider using \$CC to select a different compiler."
+GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc 2.96 compiler, [ 
+  AC_WARN([$gcc296msg])  
+  ],[ 
+  AC_ERROR([$gcc296msg \
+  You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc296 flag.])  
+])
+])
 
 if test "$ac_cv_c_bigendian" = 'yes'; then
   ENDIANNESS="-DBIG_ENDIAN"
@@ -132,13 +139,17 @@ fi
 #
 
 case "$gasnet_cv_cc_family" in
-  GNU)  CCOPTFLAGS="-O3 -finline-limit=10000 -Winline" ;;
+  GNU)  CCOPTFLAGS="-O3 -Winline" 
+        # -finline-limit not available on gcc 2.95
+        GASNET_TRY_CFLAG([-finline-limit=10000],
+                         [CCOPTFLAGS="$CCOPTFLAGS -finline-limit=10000"])
+  ;;
   Sun)  CCOPTFLAGS="-xO5" ;;
-  Cray) CCOPTFLAGS="-O2 -hnomessage=236 -htaskprivate $LIBCM" ;; # DOB: -O3 is unstable on Cray cc
-  MIPS) CCOPTFLAGS="-O3 -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
+  Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
+  MIPS) CCOPTFLAGS="-O3" ;;
   XLC)  #CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=8192" ;; # -O5 == -O3 w/ intra-procedural analysis
         CCOPTFLAGS="-O3 -qsmp=noauto -qmaxmem=8192" ;; # -O5 causes linker to hang on Titanium
-  Compaq) CCOPTFLAGS="-O4 -msg_disable extrasemi -tune host -inline all" ;;
+  Compaq) CCOPTFLAGS="-O4 -tune host -inline all" ;;
   Intel) CCOPTFLAGS="-O3" ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
@@ -147,33 +158,36 @@ case "$gasnet_cv_cc_family" in
   GNU)  CCDEBUGFLAGS="-g3 -Wall -Wno-unused -Wpointer-arith -Wnested-externs" 
         #CCDEBUGFLAGS="$CCDEBUGFLAGS -ansi -U__STRICT_ANSI__"
   ;;
-  Cray) CCDEBUGFLAGS="-g -hnomessage=236 -htaskprivate $LIBCM" ;;
-  MIPS) CCDEBUGFLAGS="-g -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
-  Compaq) CCDEBUGFLAGS="-g -msg_disable extrasemi" ;;
-  Intel) CCDEBUGFLAGS="-g" ;;
   *)    CCDEBUGFLAGS="-g" ;;
+esac
+
+case "$gasnet_cv_cc_family" in
+  Cray) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; 
+  MIPS) MISC_CFLAGS="-diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
+  Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
+  *)    MISC_CFLAGS="" ;;
 esac
 
 GASNET_IF_ENABLED(debug, Build GASNet in a debugging mode, 
   [ CFLAGS="$CCDEBUGFLAGS"
-    BUILDCONFIGFLAGS="-DDEBUG"
+    BUILDCONFIG_DEFINES="-DDEBUG"
     BUILDCONFIG="debug"],
   [ CFLAGS="$CCOPTFLAGS"
-    BUILDCONFIGFLAGS="-DNDEBUG"
+    BUILDCONFIG_DEFINES="-DNDEBUG"
     BUILDCONFIG="optimize"])
 
 GASNET_IF_ENABLED(gasnet-quiet, Build GASNet lib w/o debug messages, 
-  [ BUILDCONFIGFLAGS="$BUILDCONFIGFLAGS -DGASNET_QUIET"], [])
+  [ BUILDCONFIG_DEFINES="$BUILDCONFIG_DEFINES -DGASNET_QUIET"], [])
 
 GASNET_IF_ENABLED(trace, Build GASNet with tracing enabled, 
-  BUILDCONFIGFLAGS="$BUILDCONFIGFLAGS -DTRACE", )
+  BUILDCONFIG_DEFINES="$BUILDCONFIG_DEFINES -DTRACE", )
 
 GASNET_IF_ENABLED(stats, Build GASNet with statistical collection enabled, 
-  BUILDCONFIGFLAGS="$BUILDCONFIGFLAGS -DSTATS", )
+  BUILDCONFIG_DEFINES="$BUILDCONFIG_DEFINES -DSTATS", )
 
-CFLAGS="$CFLAGS $BUILDCONFIGFLAGS"
-
-AC_SUBST(CFLAGS)
+AC_SUBST(CFLAGS)	      # opt/debug flags
+AC_SUBST(MISC_CFLAGS)	      # warning suppression and other misc flags
+AC_SUBST(BUILDCONFIG_DEFINES) # defines that setup build configuration
 
 segconfig=""
 GASNET_IF_ENABLED(segment-fast, Build GASNet in the FAST shared segment configuration,
@@ -400,7 +414,7 @@ if test $supported_ammpi = yes; then
     	  GASNET_ENV_DEFAULT(MPI_CC, /usr/sww/opt/SUNWspro/bin/cc)
 	  BASIC_MPI_CFLAGS="-DAMMPI_COEXIST_WITH_AM \
 		-I/usr/now/am2/include -I/usr/now/include -I/usr/now/mpi/mpich/include \
-		-w $BUILDCONFIGFLAGS"
+		-w $BUILDCONFIG_DEFINES"
 	  if test "$BUILDCONFIG" = "optimize" ; then
     	    GASNET_ENV_DEFAULT(MPI_CFLAGS,  $BASIC_MPI_CFLAGS \
 		-dalign -xarch=v8plusa -xchip=ultra -fast -xtarget=native -xO5)
@@ -417,13 +431,13 @@ if test $supported_ammpi = yes; then
           # I don't have access to a Solaris cluster with MPI (other than NOW) 
           # but these seem like sane defaults
     	  GASNET_ENV_DEFAULT(MPI_CC, mpicc)
-    	  GASNET_ENV_DEFAULT(MPI_CFLAGS, $CFLAGS)
+    	  GASNET_ENV_DEFAULT(MPI_CFLAGS, $BUILDCONFIG_DEFINES $MISC_CFLAGS $CFLAGS)
     	  GASNET_ENV_DEFAULT(MPI_LIBS, )
 	  GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         fi
         ;;
     linux*) 
-    	GASNET_ENV_DEFAULT(MPI_CFLAGS, $CFLAGS)
+    	GASNET_ENV_DEFAULT(MPI_CFLAGS, $BUILDCONFIG_DEFINES $CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, )
         if test "$enable_millennium" = yes; then
 
@@ -444,7 +458,8 @@ if test $supported_ammpi = yes; then
 	# use SGI native MPI library
         # user may need to do a "module load mpt" to make this work
     	GASNET_ENV_DEFAULT(MPI_CC, cc -n32)
-	BASIC_MPI_CFLAGS="-diag_suppress1171,1174,1209,1552 $BUILDCONFIGFLAGS"
+        # cannot use MISC_CFLAGS here because C compiler may not be MIPSPro
+	BASIC_MPI_CFLAGS="$BUILDCONFIG_DEFINES -diag_suppress1171,1174,1209,1552"
 	if test "$BUILDCONFIG" = "optimize" ; then
       	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O2 $BASIC_MPI_CFLAGS)
 	else
@@ -455,10 +470,9 @@ if test $supported_ammpi = yes; then
         ;;
     aix*)
     	GASNET_ENV_DEFAULT(MPI_CC, mpcc)
-	BASIC_MPI_CFLAGS="$BUILDCONFIGFLAGS"
+	BASIC_MPI_CFLAGS="$BUILDCONFIG_DEFINES"
 	if test "$BUILDCONFIG" = "optimize" ; then
-    	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O3 -qstrict -qarch=pwr3 -qtune=pwr3 -qsmp=noauto -qmaxmem=8192 \
-					 $BASIC_MPI_CFLAGS)
+    	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O3 -qstrict -qarch=pwr3 -qtune=pwr3 -qsmp=noauto -qmaxmem=8192 $BASIC_MPI_CFLAGS)
 	else
     	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -g $BASIC_MPI_CFLAGS)
 	fi
@@ -467,7 +481,7 @@ if test $supported_ammpi = yes; then
         ;;
     osf*)
 	GASNET_ENV_DEFAULT(MPI_CC, cc)
-	BASIC_MPI_CFLAGS="-msg_disable extrasemi $BUILDCONFIGFLAGS"
+	BASIC_MPI_CFLAGS="$BUILDCONFIG_DEFINES -msg_disable extrasemi"
         if test "$BUILDCONFIG" = "optimize" ; then
           GASNET_ENV_DEFAULT(MPI_CFLAGS, -O4 -tune host $BASIC_MPI_CFLAGS)
         else
@@ -480,7 +494,7 @@ if test $supported_ammpi = yes; then
         # Cray cc - need to enable private global vars and disable a silly warning
         # user may need to do a "module load mpt" to make this work
     	GASNET_ENV_DEFAULT(MPI_CC, cc)
-	BASIC_MPI_CFLAGS="-htaskprivate -hnomessage=236 $LIBCM $BUILDCONFIGFLAGS"
+	BASIC_MPI_CFLAGS="$BUILDCONFIG_DEFINES -hnomessage=236 -htaskprivate $LIBCM"
 	if test "$BUILDCONFIG" = "optimize" ; then
     	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O2 $BASIC_MPI_CFLAGS)
 	else
@@ -492,7 +506,7 @@ if test $supported_ammpi = yes; then
     *) 
       # unknown OS - if user doesn't provide info, nothing we can do
       GASNET_ENV_DEFAULT(MPI_CC, )
-      GASNET_ENV_DEFAULT(MPI_CFLAGS, $CFLAGS)
+      GASNET_ENV_DEFAULT(MPI_CFLAGS, $BUILDCONFIG_DEFINES $MISC_CFLAGS $CFLAGS)
       GASNET_ENV_DEFAULT(MPI_LIBS, )
       GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
       if test "$MPI_CC" = ""; then
