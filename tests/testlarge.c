@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testlarge.c                                 $
- *     $Date: 2004/03/12 11:03:56 $
- * $Revision: 1.14 $
+ *     $Date: 2004/05/16 00:05:39 $
+ * $Revision: 1.15 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -268,12 +268,12 @@ void bulk_test_nb(int iters) {GASNET_BEGIN_FUNCTION();
 int main(int argc, char **argv)
 {
     int iters = 0;
+    int maxsz = 0;
     int arg;
+    void *myseg;
    
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
-    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
-    TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
 
     /* parse arguments (we could do better) */
     arg = 1;
@@ -285,16 +285,26 @@ int main(int argc, char **argv)
         insegment = 0;
         ++arg;
     }
-    if (argc > arg+1) {
-        printf("Usage: %s [-in|-out] (iters) \n"
+    if (argc > arg+2) {
+        printf("Usage: %s [-in|-out] (iters) (maxsz)\n"
                "  The 'in' or 'out' option selects whether the initiator-side\n"
                "  memory is in the GASNet segment or not (default it not).\n",
                argv[0]);
         gasnet_exit(1);
     }
 
-    if (argc > arg) iters = atoi(argv[arg]);
+    if (argc > arg) { iters = atoi(argv[arg]); arg++; }
     if (!iters) iters = 1000;
+    if (argc > arg) { maxsz = atoi(argv[arg]); arg++; }
+    if (!maxsz) maxsz = 2*1024*1024; /* 2 MB default */
+
+    min_payload = 16;
+    max_payload = maxsz;
+
+    if (max_payload < min_payload) {
+      printf("ERROR: maxsz must be >= %i\n",min_payload);
+      gasnet_exit(1);
+    }
 
     /* get SPMD info */
     myproc = gasnet_mynode();
@@ -309,18 +319,38 @@ int main(int argc, char **argv)
     
     /* Setting peer thread rank */
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
-    
-    tgtmem = (void *) TEST_SEG(peerproc);
 
-	min_payload = 16;
-	max_payload = TEST_SEGSZ;
+    GASNET_Safe(gasnet_attach(NULL, 0, alignup(((uintptr_t)maxsz), PAGESZ), TEST_MINHEAPOFFSET));
+    TEST_DEBUGPERFORMANCE_WARNING();
+    { /* ensure we got the segment requested */
+      int i;
+      gasnet_seginfo_t *s = test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
+      GASNET_Safe(gasnet_getSegmentInfo(s, gasnet_nodes()));
+      for (i=0; i < gasnet_nodes(); i++) {
+        assert(s[i].size >= maxsz);
+        #if GASNET_ALIGNED_SEGMENTS == 1
+          assert(s[i].addr == s[0].addr);
+        #endif
+      }
+      tgtmem = s[peerproc].addr; /* get peer segment */
+      assert(((uintptr_t)tgtmem) % PAGESZ == 0);
+      myseg = s[gasnet_mynode()].addr; 
+      assert(((uintptr_t)myseg) % PAGESZ == 0);
+      test_free(s);
+    }
 
         if (insegment) {
-	    msgbuf = (void *) TEST_MYSEG();
+	    msgbuf = (void *) myseg;
         } else {
-	    msgbuf = (void *) test_malloc(max_payload);
+	    msgbuf = (void *) test_malloc(maxsz+PAGESZ);
+            msgbuf = (void *) alignup(((uintptr_t)msgbuf), PAGESZ); /* ensure page alignment of base */
         }
+        assert(((uintptr_t)msgbuf) % PAGESZ == 0);
 
+        if (myproc == 0) 
+          MSG("Running %i iterations of non-bulk put/get for sizes: %i...%i\nGASNET_CONFIG:%s\n", 
+          iters, min_payload, max_payload, GASNET_CONFIG_STRING);
+        BARRIER();
 	bulk_test(iters);
 	bulk_test_nbi(iters);
 	bulk_test_nb(iters);

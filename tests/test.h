@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/03/31 14:18:17 $
- * $Revision: 1.27 $
+ *     $Date: 2004/05/16 00:05:39 $
+ * $Revision: 1.28 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -255,5 +255,39 @@ int64_t test_calibrate_delay(int iters, int64_t *time_p)
 	return loops;
 }
 #endif
+
+static void TEST_DEBUGPERFORMANCE_WARNING() {
+  BARRIER();
+  if (gasnet_mynode() == 0) {
+#ifdef GASNET_DEBUG
+  const char *debug = "debugging ";
+#else
+  const char *debug = "";
+#endif
+#ifdef GASNET_TRACE
+  const char *trace = "tracing ";
+#else
+  const char *trace = "";
+#endif
+#ifdef GASNET_STATS
+  const char *stats = "statistical collection ";
+#else
+  const char *stats = "";
+#endif
+  printf("-----------------------------------------------------------------------\n");
+  printf(" WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n");
+  printf("\n");
+  printf(" GASNet was configured and built with these optional features enabled:\n");
+  printf("        %s%s%senabled\n",debug,trace,stats);
+  printf(" This usually has a SERIOUS impact on performance, so you should NOT\n");
+  printf(" trust any performance numbers reported in this run!!!\n");
+  printf(" You should configure and build from scratch without the configure\n");
+  printf(" flags that enable the optional additional checking/reporting.\n");
+  printf("\n");
+  printf(" WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n");
+  printf("-----------------------------------------------------------------------\n");
+  }
+  BARRIER();
+}
 
 #endif
