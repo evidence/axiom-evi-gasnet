@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended_internal.h         $
- *     $Date: 2004/07/17 10:10:00 $
- * $Revision: 1.14 $
+ *     $Date: 2004/07/26 20:46:16 $
+ * $Revision: 1.15 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,7 +129,10 @@ void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
 GASNET_INLINE_MODIFIER(SET_OPSTATE)
 void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
   op->flags = (op->flags & 0xFC) | (state & 0x03);
-  gasneti_assert(OPSTATE(op) == state);
+  /* RACE: If we are marking the op COMPLETE, don't assert for completion
+   * state as another thread spinning on the op may already have changed
+   * the state. */
+  gasneti_assert(state == OPSTATE_COMPLETE ? 1 : OPSTATE(op) == state);
 }
 
 /* op category - only valid for explicit ops */
