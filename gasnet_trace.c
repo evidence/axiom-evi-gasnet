@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/08/06 07:58:28 $
- * $Revision: 1.9 $
+ *     $Date: 2002/08/13 06:41:54 $
+ * $Revision: 1.10 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -110,7 +110,7 @@ gasneti_stattime_t starttime;
   #define BUILD_STATS(type,name,desc) { #type, #name, #desc },
   gasneti_statinfo_t gasneti_stats[] = {
     GASNETI_ALL_STATS(BUILD_STATS, BUILD_STATS, BUILD_STATS)
-    {'\0', NULL, NULL}
+    {NULL, NULL, NULL}
   };
 
   #define BUFSZ     1024
