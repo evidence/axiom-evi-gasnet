@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/09/03 21:27:37 $
- * $Revision: 1.17 $
+ *     $Date: 2003/09/05 00:11:26 $
+ * $Revision: 1.18 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -407,6 +407,109 @@ int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
 #else
   #define GASNETC_SEMA_CHECK(S, L)
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+
+/* Global freelist type
+ *
+ * Freelists in vapi-conduit have multiple consumers and multiple producers.
+ * Thread-local lists don't use this data structure.
+ *
+ * Current implementation is a LIFO (stack) with a mutex.
+ * Other possibilities include FIFO (queue) with mutex, or lock-free LIFO or FIFO
+ */
+
+/*
+ * Data type for the linkage of a freelist
+ * Must be the first field in the data structure to be held in the list or the
+ * data structure should be considered to be a union of this type and the real
+ * type.  In the union case one can expect some number of bytes to get clobbered
+ * while an element is on the freelist, while making this type the first element
+ * (as shown below) preserves the contents of the free element (useful if there
+ * are invariants to preserve).
+ *
+ * struct foobar {
+ *   gasneti_freelist_ptr_t	linkage;
+ *
+ *   int			blah;
+ *   double			boo;
+ * };
+ */
+typedef struct _gasneti_freelist_ptr_s {
+  struct _gasneti_freelist_ptr_s *next;
+} gasneti_freelist_ptr_t;
+
+/*
+ * Data type for the "head" of a freelist.
+ */
+typedef struct {
+  gasneti_mutex_t		lock;
+  gasneti_freelist_ptr_t	*head;
+} gasneti_freelist_t;
+
+/* Initializer for staticly allocated freelists */
+#define GASNETI_FREELIST_INITIALIZER { GASNETI_MUTEX_INITIALIZER, NULL }
+
+/* Initializer for dynamically allocated freelists */
+GASNET_INLINE_MODIFIER(gasneti_freelist_init)
+void gasneti_freelist_init(gasneti_freelist_t *fl) {
+  gasneti_mutex_init(&(fl->lock));
+  fl->head = NULL;
+}
+
+/* Get one element from the freelist or NULL if it is empty */
+GASNET_INLINE_MODIFIER(gasneti_freelist_get)
+void *gasneti_freelist_get(gasneti_freelist_t *fl) {
+  gasneti_freelist_ptr_t *head;
+
+  gasneti_mutex_lock(&(fl->lock));
+  head = fl->head;
+  if_pt (head != NULL) {
+    fl->head = head->next;
+  }
+  gasneti_mutex_unlock(&(fl->lock));
+
+  return (void *)head;
+}
+
+/* Put an unused element into the freelist */
+GASNET_INLINE_MODIFIER(gasneti_freelist_put)
+void gasneti_freelist_put(gasneti_freelist_t *fl, void *elem) {
+  assert(elem != NULL);
+
+  gasneti_mutex_lock(&(fl->lock));
+  ((gasneti_freelist_ptr_t *)elem)->next = fl->head;
+  fl->head = elem;
+  gasneti_mutex_unlock(&(fl->lock));
+}
+
+/* Put a chain of unused elements into the freelist */
+GASNET_INLINE_MODIFIER(gasneti_freelist_put_many)
+void gasneti_freelist_put_many(gasneti_freelist_t *fl, void *head, void *tail) {
+  assert(head != NULL);
+  assert(tail != NULL);
+
+  gasneti_mutex_lock(&(fl->lock));
+  ((gasneti_freelist_ptr_t *)tail)->next = fl->head;
+  fl->head = head;
+  gasneti_mutex_unlock(&(fl->lock));
+}
+
+/* Build a chain (q follows p) for use with _put_many() */
+GASNET_INLINE_MODIFIER(gasneti_freelist_link)
+void gasneti_freelist_link(void *p, void *q) {
+  assert(p != NULL);
+
+  ((gasneti_freelist_ptr_t *)p)->next = q;
+}
+
+/* Get next element in a chain */
+GASNET_INLINE_MODIFIER(gasneti_freelist_next)
+void *gasneti_freelist_next(void *elem) {
+  assert(elem != NULL);
+
+  return (void *)(((gasneti_freelist_ptr_t *)elem)->next);
+}
 
 /* ------------------------------------------------------------------------------------ */
 
