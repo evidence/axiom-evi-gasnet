@@ -208,7 +208,10 @@ node has finished with the meta-data.
 * Progress
 
 We expect the non-blocking collectives to make progress in
-gasnet_AMPoll().
+gasnet_AMPoll() or the sync call as the worst case.  A separate
+section addresses how this will interface with the conduit
+implementation to make progress in gasnet_AMPoll() or asynchronously
+when possible.
 
 
 * Collectives and threads
@@ -579,6 +582,232 @@ gasnet_all_gather_all_localV_nb(
 
 
 =============================================================================
+Thoughts on progress of Implementation:
+
+While not part of the GASNet spec for users, it is important that we
+have a good design for how the reference implementation will interact
+with the individual conduits.  In particular I see at least three ways
+in which a conduit would wish to make progress on collectives:
+
+1) Simple polling, for instance from gasnet_AMPoll().  This would be
+   what we include in template-conduit as well as pure-polling
+   implementations such as mpi-conduit.
+2) Blocked thread.  A conduit may wish to create an extra thread just
+   for the purpose of making progress on collectives.  For this reason
+   it would be nice to have something like a condition variable on
+   which such a thread could block until there was something to do.
+3) Interrupts.  A conduit such as LAPI may be able to switch to a
+   different operating mode in which the application is interrupted
+   when network traffic arrives.  This would make it more responsive
+   to the network for the purpose of advancing a collective operation
+   but the added overhead is not desirable for normal operation.  So,
+   one might wish to enter interrupt mode when one or more
+   collectives are "live" and return to polled mode when none are
+   live.
+
+There is similarity between #2 and #3 that argues for a general
+approach that they can each plug into.  In fact, #1 can be implemented
+over the same generalization as a part of the template-conduit.
+
+The general solution is to have hooks (provided by the conduit) which
+are called at each entry to a collective initiation function and when
+the collective is completed (probably in the "kick" function called by
+gasnete_poll()).
+
+/* Routine to make progress on collectives (if any): */
+extern void gasnete_poll(void);
+
+/* Conduit-specific hooks for counting live collectives: */
+extern void gasnete_collective_entry_hook(void);
+extern void gasnete_collective_leave_hook(void);
+
+
+Here are versions of all three designs (not guaranteed to compile). I
+would put these all into the template-conduit:
+
+1) Simple polling:
+
+
+Implement the following in gasnet_extended_fwd.h:
+
+extern gasneti_atomic_t gasnetc_collective_count;
+
+GASNET_INLINE_MODIFIER(gasnete_collective_entry_hook)
+void gasnete_collective_entry_hook(void)
+{
+  gasneti_atomic_increment(&gasnetc_collective_count);
+}
+
+GASNET_INLINE_MODIFIER(gasnete_collective_leave_hook)
+void gasnete_collective_leave_hook(void)
+{
+  gasneti_atomic_decrement(&gasnetc_collective_count);
+}
+
+#define GASNETE_POLL_IF_NEEDED() \
+  if_pf (gasneti_atomic_read(&gasnetc_collective_count) != 0) \
+    { gasnete_poll(); }
+
+In the core, one would then call GASNETE_POLL_IF_NEEDED() in
+gasnetc_poll(), at least in template-conduit, and perhaps at other
+places where it could be helpful (such as right after an AM handler is
+run).
+
+
+2) Blocking thread:
+
+To do this we just need to add a little to the case above.  Note that
+we are about to add condition variables to gasnet.  They should be a
+natural wrapper around pthread condition variables, taking a hsl in
+place of a pthread mutex.  Note also that a handler may NEVER wait on a
+condition variable, only signal it.  Prototypes for gasneti_cond*
+appear in the next section.
+
+Implement the following in gasnet_extended_fwd.h:
+
+extern unsigned gasnetc_collective_count;
+extern gasnet_hsl_t gasnetc_collective_hsl;
+extern gasneti_cond_t gasnetc_collective_cond;
+
+GASNET_INLINE_MODIFIER(gasnete_collective_entry_hook)
+void gasnete_collective_entry_hook(void)
+{
+  gasnet_hsl_lock(&gasnetc_collective_hsl);
+  gasnetc_collective_count++;
+  if (gasnetc_collective_count == 1) {
+    gasneti_cond_signal(&gasnetc_collective_cond);
+  }
+  gasnet_hsl_unlock(&gasnetc_collective_hsl);
+}
+
+GASNET_INLINE_MODIFIER(gasnete_collective_leave_hook)
+void gasnete_collective_leave_hook(void)
+{
+  gasnet_hsl_lock(&gasnetc_collective_hsl);
+  gasnetc_collective_count--;
+  gasnet_hsl_unlock(&gasnetc_collective_hsl);
+}
+
+In the core, the thread would use something such as:
+
+void gasnetc_collective_poll_thread(void)
+{
+  while (!EXITING()) {
+    gasnet_hsl_lock(&gasnetc_collective_hsl);
+    while (!EXITING() && !gasnetc_collective_count) {
+       gasneti_cond_wait(&gasnetc_collective_cond,
+                         &gasnetc_collective_hsl);
+    }
+    gasnet_hsl_unlock(&gasnetc_collective_hsl);
+
+    if_pt (!EXITING()) {
+      gasnete_poll();
+    }
+  }
+
+  gasnetc_exit(0);
+}
+
+
+3) Interrupt mode
+
+Implement the following in gasnet_extended_fwd.h:
+
+extern unsigned gasnetc_collective_count;
+extern gasnet_hsl_t gasnetc_collective_hsl;
+
+GASNET_INLINE_MODIFIER(gasnete_collective_entry_hook)
+void gasnete_collective_entry_hook(void)
+{
+  gasnet_hsl_lock(&gasnetc_collective_hsl);
+  gasnetc_collective_count++;
+  if (gasnetc_collective_count == 1) {
+    ENTER_INTERRUPT_MODE();
+  }
+  gasnet_hsl_unlock(&gasnetc_collective_hsl);
+}
+
+GASNET_INLINE_MODIFIER(gasnete_collective_leave_hook)
+void gasnete_collective_leave_hook(void)
+{
+  gasnet_hsl_lock(&gasnetc_collective_hsl);
+  gasnetc_collective_count--;
+  if (gasnetc_collective_count == 0) {
+    LEAVE_INTERRUPT_MODE();
+  }
+  gasnet_hsl_unlock(&gasnetc_collective_hsl);
+}
+
+
+
+
+It might be tempting to merge the common ideas in #2 and #3 in to an
+"edge triggered" pair of hooks, one called on the 0->1 transition and
+the other on the 1->0 transition.  However, this would not work very
+cleanly with the condition variable unless the hsl used to trigger the
+hooks was exposed for use in the waiting thread.  I dislike that as an
+unclear interface, and the code duplicated between #2 and #3 is too
+small to justify such a design.
+
+
+=============================================================================
+
+Proposal for gasneti_cond_t:
+
+In order to permit a conduit to block waiting for something that might
+happen in another thread, particularly in a handler executed in
+another thread, we want something like pthread_cond_t, but which takes
+an hsl in place of a pthread_mutex_t.  Note that these are for use
+INTERNALLY, and we don't want to add them to the GASNet spec where
+client code might use them.  (At least *I* don't want to do so)
+
+Here is an attempt (not run through the compiler) to implement
+pthread_cond_t in terms of our "reference" hsl, which is just a struct
+holding a gasneti_mutex_t:
+
+typedef
+struct _gasneti_cond_t {
+  pthread_cond_t cond;
+} gasneti_cond_t;
+
+#define GASNETI_COND_INITIALIZER { PTHREAD_COND_INITIALIZER }
+
+#define gasneti_cond_init(P) pthread_cond_init(&((P)->cond))
+#define gasneti_cond_destroy(P) pthread_cond_destroy(&((P)->cond))
+#define gasneti_cond_signal(P) pthread_cond_signal(&((P)->cond))
+
+#define gasneti_cond_wait(P,H) gasneti_cond_wait_mutex(P, &((H)->lock))
+
+extern void gasneti_cond_wait_mutex(gasneti_cond_t *cond,
+                                    gasneti_mutex_t *lock);
+
+
+
+void
+gasneti_cond_wait_mutex(gasneti_cond_t *cond, gasneti_mutex_t *lock)
+{
+  #if !GASNETI_USE_TRUE_MUTEXES
+    gasneti_fatalerror(
+       "Can't wait on condition variable w/o true mutexes");
+  #endif
+
+  #if GASNET_DEBUG
+    gasneti_assert(lock->owner == GASNETI_THREADIDQUERY());
+    lock->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER;
+
+    pthread_cond_wait(&(cond->cond), &(lock->lock));
+
+    gasneti_assert(lock->owner == (uintptr_t)GASNETI_MUTEX_NOOWNER);
+    lock->owner = GASNETI_THREADIDQUERY();
+  #else
+    pthread_cond_wait(&(cond->cond), lock);
+  #endif
+}
+
+
+
+=============================================================================
+
 Implementation Ideas:
 
 Broadcast:
