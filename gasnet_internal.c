@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/07/29 20:22:18 $
- * $Revision: 1.64 $
+ *     $Date: 2004/08/01 01:36:06 $
+ * $Revision: 1.65 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -794,7 +794,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
         char nicefmt[BYTES_PER_LINE+1];
         char lineheader[10];
         nicefmt[0] = '\0';
-        sprintf(lineheader, "  0x%-2x:  ", byteidx);
+        sprintf(lineheader, "  0x%-2x:  ", (int)byteidx);
         strcat(output, lineheader);
         for (col=0;col<BYTES_PER_LINE && byteidx<nbytes;col++) {
           char temp[5];
