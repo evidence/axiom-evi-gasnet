@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
- * $Date: 2005/02/01 16:44:50 $
- * $Revision: 1.19 $
+ * $Date: 2005/02/02 19:37:50 $
+ * $Revision: 1.20 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -604,7 +604,10 @@ gasnetc_getconf (int *argc, char ***argv)
     setbuf (stderr, NULL);
 
     #ifdef GASNETC_GM_MPI_COMPAT
-	gasnetc_getconf_bootmpi(argc, argv);
+	if (getenv("GASNET_GASNETRUN_GM"))
+	    gasnetc_getconf_mpiexec();
+	else
+	    gasnetc_getconf_bootmpi(argc, argv);
     #else
 	if (getenv("GMPI_MAGIC"))
 	    gasnetc_getconf_mpiexec();
