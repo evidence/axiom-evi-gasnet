@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/sci-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/07/05 22:42:23 $
- * $Revision: 1.2 $
+ *     $Date: 2004/07/16 13:38:25 $
+ * $Revision: 1.3 $
  * Description: GASNet sci conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -30,7 +30,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 
 /********************************************************
 					Data Structure
@@ -43,34 +42,25 @@ typedef struct
 	uint8_t msg_number;
 } gasnetc_sci_token_t;
 
+/* NOTE: if any change is made to the header, remember to make change to the gasnetc_get_header_size () which dictates how many bytes needs to be transfer over the network */
 typedef struct
 {
-	gasnet_node_t source_id;
-	uint8_t msg_number;
-	uint8_t msg_type;
-} gasnetc_sci_msg_list_t;
-
-typedef struct
-{
-	uint16_t header;	/*  handler (8 bits) + msg type (1 bit, request/reply) + AM type (2 bits) + num_arg (5 bits) */
-                                /*  msg type: 0 = request; 1 = reply; */
-                                /*  AM type: 0 = short; 1 = medium; 2 = long; 3 = control (basic return msg to free mls); */
-} gasnetc_Command_header_t;
-
-typedef struct
-{
-	uint16_t header;
-	uint16_t payload_size;
+        uint16_t header; /*  handler (8 bits) + msg type (1 bit, request/reply) + AM type (2 bits) + num_arg (5 bits) */
+                         /*  msg type: 0 = request; 1 = reply; */
+                         /*  AM type: 0 = short; 1 = medium; 2 = long; 3 = control (basic return msg to free mls); */
+        uint16_t _pad; 
+	uint32_t payload_size;
 	gasnet_handlerarg_t args[16];
 } gasnetc_ShortMedium_header_t;
 
 typedef struct
 {
 	uint16_t header;
-	uint16_t payload_size;
+        uint16_t _pad; 
+	uint32_t payload_size;
 	void * payload;
 	gasnet_handlerarg_t args[16];
-} gasnetc_Long_header_t;
+} gasnetc_Long_header_t;              /*  Max size for short/medium header = 2 (header) + 2 (pedding) + 4 (payload_size) + 4 (payload address) + 16 * 4 (arguments) = 72 */
 
 typedef uint8_t bool;
 
@@ -96,48 +86,59 @@ typedef void (*gasnetc_handler_mediumlong)(gasnet_token_t token, void *buf, size
    }                                                         \
  } while (0)
 
+#define GASNETC_SCISAFE(fncall) do {                                      \
+   fncall;                                                                \
+   if_pf (error != SCI_ERR_OK)                                            \
+      gasneti_fatalerror ("(%d) %s failed at %s:%i - Error code: 0x%x\n", \
+       gasnetc_mynode, #fncall, __FILE__, __LINE__, error);               \
+ } while (0)
+
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
 #define _hidx_                              (GASNETC_HANDLER_BASE+)
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
 /*  SCI conduit specific constants */
-#define GASNETC_SCI_NO_CALLBACK         		NULL
-#define GASNETC_SCI_NO_FLAGS            		0
-#define GASNETC_SCI_FILE 				"gasnet_nodes.sci"
+#define GASNETC_SCI_NO_CALLBACK				NULL
+#define GASNETC_SCI_NO_FLAGS				0
+#define GASNETC_SCI_FILE 					"gasnet_nodes.sci"
 #define	GASNETC_SCI_FAST_SEG				1048576
-#define GASNETC_SCI_TRUE			        1
-#define GASNETC_SCI_FALSE				0
+#define GASNETC_SCI_TRUE					1
+#define GASNETC_SCI_FALSE					0
 #define GASNETC_SCI_MAX_REQUEST_MSG			2
-#define GASNETC_SCI_MAX_HANDLER_NUMBER			256
-#define GASNETC_SCI_COMMAND_MESSAGE_SIZE		1096 /*  1024 + 76 = size of the longest header */
-#define GASNETC_SCI_MODE_SWITCH_SIZE                    1024 /*  exact size for max medium payload */
+#define GASNETC_SCI_MAX_HANDLER_NUMBER		256
+#ifdef GASNETI_PTR64
+	#define GASNETC_SCI_COMMAND_MESSAGE_SIZE	(1024+80) /*  max medium payload size + size of the longest header -- 64-bit machines*/
+#else
+	#define GASNETC_SCI_COMMAND_MESSAGE_SIZE	(1024+76) /*  max medium payload size + size of the longest header*/
+#endif
+#define GASNETC_SCI_MODE_SWITCH_SIZE		1024        /*  exact size for max medium payload */
 #define GASNETC_SCI_NUM_DMA_QUEUE			2
-#define GASNETC_SCI_MAX_DMA_QUEUE_USAGE			1
-#define GASNETC_SCI_REQUEST				0
-#define GASNETC_SCI_REPLY				1
-#define GASNETC_SCI_CONTROL				0
-#define GASNETC_SCI_SHORT				1
-#define GASNETC_SCI_MEDIUM				2
-#define GASNETC_SCI_LONG				3
+#define GASNETC_SCI_MAX_DMA_QUEUE_USAGE		1
+#define GASNETC_SCI_REQUEST					0
+#define GASNETC_SCI_REPLY					1
+#define GASNETC_SCI_CONTROL					0
+#define GASNETC_SCI_SHORT					1
+#define GASNETC_SCI_MEDIUM					2
+#define GASNETC_SCI_LONG					3
 #define GASNETC_SCI_CONTROL_FLAG			10
 #define GASNETC_SCI_SHORT_FLAG				11
 #define GASNETC_SCI_MEDIUM_FLAG				12
 #define GASNETC_SCI_LONG_FLAG				13
-#define GASNETC_SCI_ONE_MB				1048576 /* define 1 MB */
-#define GASNETC_SCI_TIMEOUT_SEC                         20
+#define GASNETC_SCI_ONE_MB					1048576 /* define 1 MB */
+#define GASNETC_SCI_TIMEOUT_SEC				20
 
 /********************************************************
 					Global Variables
 ********************************************************/
 extern int GASNETC_BIGPHY_ENABLE;
-extern gasnet_seginfo_t		        *gasnetc_seginfo;
+extern gasnet_seginfo_t			*gasnetc_seginfo;
 extern sci_desc_t			*gasnetc_sci_sd;
 extern sci_desc_t			*gasnetc_sci_sd_gb;
-extern sci_desc_t                       *gasnetc_sci_sd_remote;
-extern sci_desc_t                       *gasnetc_sci_sd_long;
+extern sci_desc_t			*gasnetc_sci_sd_remote;
+extern sci_desc_t			*gasnetc_sci_sd_long;
 extern sci_local_segment_t		*gasnetc_sci_localSegment;
-extern sci_remote_segment_t	        *gasnetc_sci_remoteSegment_long;
+extern sci_remote_segment_t		*gasnetc_sci_remoteSegment_long;
 extern unsigned int			gasnetc_sci_localAdapterNo;
 extern sci_map_t			*gasnetc_sci_localMap;
 extern sci_map_t			*gasnetc_sci_remoteMap;
@@ -147,9 +148,9 @@ extern unsigned int			gasnetc_sci_max_local_seg;
 extern unsigned int			gasnetc_sci_max_global_seg;
 extern void				*gasnetc_sci_handler_table[256];
 extern bool				*gasnetc_sci_msg_loc_status;
-extern bool 			        *gasnetc_sci_msg_flag;
-extern int                              gasnetc_sci_internal_barrier_flag;
-extern int                              *gasnetc_sci_outstanding_msg_count;             /*  order enforcing related */
+extern bool 				*gasnetc_sci_msg_flag;
+extern int				gasnetc_sci_internal_barrier_flag;
+extern gasneti_mutex_t			gasnetc_sci_request_mutex;
 
 /********************************************************
                                         BARRIER FUNCTIONS
@@ -254,16 +255,6 @@ int gasnetc_rs_get_offset (gasnet_node_t RemoteID, void * dest_addr)
 }
 
 /********************************************************
-                Order enforcing functions
-********************************************************/
-
-GASNET_INLINE_MODIFIER(gasnetc_outstanding_msg_count_status)
-int gasnetc_outstanding_msg_count_status (gasnet_node_t node)
-{
-      return gasnetc_sci_outstanding_msg_count[node];
-}
-
-/********************************************************
 				Message Location Status
 		-- Use by Local node to keep track of --
 		--	command msgs to all other nodes   --
@@ -297,6 +288,9 @@ void gasnetc_mls_set (gasnet_node_t RemoteID, uint8_t msg_number)
             gasnetc_sci_msg_loc_status[RemoteID * GASNETC_SCI_MAX_REQUEST_MSG * 2 + msg_number] = GASNETC_SCI_TRUE;
         }
 }
+
+/*  Obtain a free request message location */
+int gasnetc_mls_get_loc (gasnet_node_t dest_node_id);
 
 /********************************************************
 					  Handler Table
@@ -379,18 +373,93 @@ uint8_t gasnetc_get_msg_num_arg (uint16_t header)
 }
 
 /********************************************************
-			Short/Medium AM Transfer Functions
+                        Command Segment Related Functions
 ********************************************************/
+
+/*  Generate Short / Medium Message Header */
+GASNET_INLINE_MODIFIER(gasnetc_construct_ShortMedium_command)
+void gasnetc_construct_ShortMedium_command (gasnetc_ShortMedium_header_t *temp, gasnet_handler_t handler,
+                                                                                        uint8_t msg_type, uint8_t AM_type, size_t size, uint8_t num_args, gasnet_handlerarg_t args[],
+                                                                                        uint8_t msg_number)
+{
+        int i;
+        temp->header = (((((handler<<1) | msg_type)<<2) | AM_type)<<5) | num_args;
+        temp->payload_size = size;
+        for (i = 0; i < num_args; i++)
+        {
+                temp->args[i] = args[i];
+        }
+}
+
+/*  Generate Long Message Header */
+GASNET_INLINE_MODIFIER(gasnetc_construct_Long_command)
+void gasnetc_construct_Long_command (gasnetc_Long_header_t *temp, gasnet_handler_t handler, uint8_t msg_type, void *payload,
+                                                                         size_t size, uint8_t num_args, gasnet_handlerarg_t args[],
+                                                                         uint8_t msg_number)
+{
+        int i;
+        temp->header = (((((handler<<1) | msg_type)<<2) | GASNETC_SCI_LONG)<<5) | num_args;
+        temp->payload_size = size;
+        temp->payload = payload;
+        for (i = 0; i < num_args; i++)
+        {
+                temp->args[i] = args[i];
+        }
+}
+
+/********************************************************
+                                    AM Transfer Functions
+********************************************************/
+
+GASNET_INLINE_MODIFIER(gasnetc_send_unaligned_offset_calculation)
+void gasnetc_send_unaligned_offset_calculation (void *base_addr, void *dest_addr, size_t dest_size, uint8_t *start_unaligned_bytes, uint8_t *right_unaligned_bytes)
+{
+       uint8_t alignment_value = 64;
+       uint8_t start_offset = (((uint8_t *)dest_addr - (uint8_t *)base_addr) & (alignment_value - 1));
+       if (start_offset == 0)
+       {
+            *start_unaligned_bytes = 0;
+       }
+       else
+       {
+            *start_unaligned_bytes = alignment_value - start_offset;
+       }
+       *right_unaligned_bytes = (dest_size - *start_unaligned_bytes) & (alignment_value - 1);
+}
+
+/*  Calculate the actual header size */
+GASNET_INLINE_MODIFIER(gasnetc_get_header_size)
+int gasnetc_get_header_size (uint8_t AM_type, int num_arg)
+{
+        /* AM header size calculation include pedding of 2 bytes to uint16_t header*/
+        switch (AM_type)
+        {
+              case GASNETC_SCI_SHORT:
+              case GASNETC_SCI_MEDIUM:  return (8 + num_arg * (sizeof(gasnet_handlerarg_t)));
+              case GASNETC_SCI_LONG:    return (8 + sizeof(void *) + num_arg * (sizeof(gasnet_handlerarg_t)));
+              default:                  gasneti_fatalerror("(%d) bad type input to calculate header_size", gasnetc_mynode);
+        }
+}
 
 /*  0 copy 2 transfer SM transfer */
 int gasnetc_SM_transfer (gasnet_node_t dest, uint8_t msg_number, uint8_t msg_type, uint8_t AM_type, gasnet_handler_t handler,
 						int numargs, gasnet_handlerarg_t args[], void *payload, size_t segment_size,
-						bool *remote_msg_flag_addr, void *long_payload);
+						void *long_payload);
 
 /*  SM Request */
+GASNET_INLINE_MODIFIER(gasnetc_SM_request)
 int gasnetc_SM_request (gasnet_node_t dest, uint8_t AM_type, gasnet_handler_t handler,
-						int numargs, gasnet_handlerarg_t args[], void *payload, size_t segment_size,
-						bool *remote_msg_flag_addr, void *long_payload);
+                                                int numargs, gasnet_handlerarg_t args[], void *payload_source_addr, size_t nbytes,
+                                                void *payload_dest_addr)
+{
+        int retval;
+        int msg_location;
+        gasneti_mutex_lock(&gasnetc_sci_request_mutex);
+        msg_location = gasnetc_mls_get_loc (dest);
+        retval = gasnetc_SM_transfer (dest, msg_location, GASNETC_SCI_REQUEST, AM_type, handler, numargs, args, payload_source_addr, nbytes, payload_dest_addr);
+        gasneti_mutex_unlock(&gasnetc_sci_request_mutex);
+        return retval;
+}
 
 /********************************************************
 		Long AM Initialization/Transfer Functions

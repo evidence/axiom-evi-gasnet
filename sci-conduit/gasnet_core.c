@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/sci-conduit/gasnet_core.c                  $
- *     $Date: 2004/07/05 22:42:23 $
- * $Revision: 1.2 $
+ *     $Date: 2004/07/16 13:38:25 $
+ * $Revision: 1.3 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -37,30 +37,26 @@ gasnet_seginfo_t *gasnetc_seginfo = NULL;
 
 /*  New variables for SCI Conduit */
 #define GASNETC_SCI_FORCE_SCAN_THRESHOLD 1000000
-volatile int gasnetc_sci_MEF_zero_count = 0;
-volatile int gasnetc_exit_began = 0;
-pthread_mutex_t gasnetc_sci_exit_lock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t	gasnetc_sci_cb_exit = PTHREAD_MUTEX_INITIALIZER;
+volatile int            gasnetc_sci_MEF_zero_count = 0;
+volatile int            gasnetc_exit_began = 0;
+gasneti_mutex_t         gasnetc_sci_exit_lock = GASNETI_MUTEX_INITIALIZER;
+gasneti_mutex_t	        gasnetc_sci_cb_exit = GASNETI_MUTEX_INITIALIZER;
+gasneti_mutex_t		gasnetc_sci_AMPoll_mutex = GASNETI_MUTEX_INITIALIZER;
 
 /* function to be called whenever we exit */
 void gasnetc_sci_call_exit(unsigned int sig)
 {
         int test;
-        pthread_mutex_lock(&gasnetc_sci_cb_exit);
+        gasneti_mutex_lock(&gasnetc_sci_cb_exit);
         test = gasnetc_exit_began;
-        pthread_mutex_unlock(&gasnetc_sci_cb_exit);
+        gasneti_mutex_unlock(&gasnetc_sci_cb_exit);
 
         if(test == 0)
         {
-                printf("\n"); /* NEEDED for callback pause before call to exit*/
+                gasneti_local_membar();
                 gasnetc_exit(sig);
         }
 }
-
-#include <sys/time.h>
-gasneti_mutex_t		AMPoll_mutex = GASNETI_MUTEX_INITIALIZER;
-gasneti_mutex_t		AMRequest_mutex = GASNETI_MUTEX_INITIALIZER;
-
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -360,8 +356,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   /* ensure extended API is initialized across nodes */
   gasnetc_bootstrapBarrier();
-  gasneti_mutex_init(&AMPoll_mutex);
-  gasneti_mutex_init(&AMRequest_mutex);
   gasnetc_sci_internal_barrier_flag = GASNETC_SCI_FALSE;
 
   return GASNET_OK;
@@ -377,19 +371,16 @@ extern void gasnetc_exit(int exitcode) {
   static int done = 0;
   sci_error_t gasnetc_sci_error;
 
-  gasneti_mutex_destroy(&AMPoll_mutex);
-  gasneti_mutex_destroy(&AMRequest_mutex);
   /* used to ensure gasnet_exit is not called by two functions at once */
-  
-  pthread_mutex_lock(&gasnetc_sci_cb_exit);
+  gasneti_mutex_lock(&gasnetc_sci_cb_exit);
   gasnetc_exit_began = 1;
-  pthread_mutex_unlock(&gasnetc_sci_cb_exit); 
+  gasneti_mutex_unlock(&gasnetc_sci_cb_exit);
 
   /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
   gasneti_reghandler(SIGQUIT, SIG_IGN);
 
   /* ensure only one thread ever continues past this point */
-  pthread_mutex_lock(&gasnetc_sci_exit_lock); /* never unlock */
+  gasneti_mutex_lock(&gasnetc_sci_exit_lock); /* never unlock */
 
  GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
@@ -415,7 +406,7 @@ extern void gasnetc_exit(int exitcode) {
 	  {
 		SCISetSegmentUnavailable(gasnetc_sci_localSegment[i], gasnetc_sci_localAdapterNo,SCI_FLAG_FORCE_DISCONNECT,&gasnetc_sci_error);
 	  }
-	  else 
+	  else
 	  {/* attach was not completed so don't set the main payload region unavailable as it
 	          was never created. This should be the rare case.*/
 		if( i != gasnetc_nodes ) /* as long as this isn't the payload region, disconnect from the network */
@@ -438,9 +429,9 @@ extern void gasnetc_exit(int exitcode) {
   /* unmap all segments */
   for (i = 0; i < gasnetc_nodes; i++ )
   {
-	  SCIUnmapSegment(gasnetc_sci_localMap[i], GASNETC_SCI_NO_FLAGS, &gasnetc_sci_error); 
-	  SCIUnmapSegment(gasnetc_sci_remoteMap[i], GASNETC_SCI_NO_FLAGS, &gasnetc_sci_error); 
-	 /* SCIUnmapSegment(gasnetc_sci_remoteMap_gb[i], GASNETC_SCI_NO_FLAGS, &gasnetc_sci_error); -- forced disconnect takes care of this*/   
+	  SCIUnmapSegment(gasnetc_sci_localMap[i], GASNETC_SCI_NO_FLAGS, &gasnetc_sci_error);
+	  SCIUnmapSegment(gasnetc_sci_remoteMap[i], GASNETC_SCI_NO_FLAGS, &gasnetc_sci_error);
+	 /* SCIUnmapSegment(gasnetc_sci_remoteMap_gb[i], GASNETC_SCI_NO_FLAGS, &gasnetc_sci_error); -- forced disconnect takes care of this*/
   }
 
   /* close all descriptors */
@@ -515,21 +506,23 @@ extern int gasnetc_AMPoll() {
 	GASNETI_CHECKATTACH();
 
 	/* (###) add code here to run your AM progress engine */
-        gasneti_mutex_lock(&AMPoll_mutex);
-
 	if ((gasnetc_msg_exist_flag_status () == GASNETC_SCI_TRUE) ||
             (gasnetc_sci_MEF_zero_count > GASNETC_SCI_FORCE_SCAN_THRESHOLD))
         {
-            gasnetc_msg_exist_flag_release ();
-            gasnetc_sci_MEF_zero_count = 0;
-            gasnetc_MRF_scan ();
+            gasneti_mutex_lock(&gasnetc_sci_AMPoll_mutex);
+            if ((gasnetc_msg_exist_flag_status () == GASNETC_SCI_TRUE) ||
+                (gasnetc_sci_MEF_zero_count > GASNETC_SCI_FORCE_SCAN_THRESHOLD))
+                {
+                    gasnetc_msg_exist_flag_release ();
+                    gasnetc_sci_MEF_zero_count = 0;
+                    gasnetc_MRF_scan ();
+                }
+            gasneti_mutex_unlock(&gasnetc_sci_AMPoll_mutex);
         }
         else
         {
             gasnetc_sci_MEF_zero_count++;
 	}
-
-        gasneti_mutex_unlock(&AMPoll_mutex);
 
 	return GASNET_OK;
 }
@@ -545,6 +538,8 @@ extern int gasnetc_AMRequestShortM(
                             int numargs, ...) {
 	int retval;
 	va_list argptr;
+        int i;
+        gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 
 	GASNETI_CHECKATTACH();
 	if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
@@ -554,22 +549,12 @@ extern int gasnetc_AMRequestShortM(
 	va_start(argptr, numargs); /*  pass in last argument */
 
 	/*  (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) and send the active message */
-	int i;
-	int loc;
-	gasnet_handlerarg_t args[numargs];
-
 	for (i = 0; i < numargs; i++)
 	{
 		args[i] = va_arg (argptr, gasnet_handlerarg_t);
 	}
 
-	void * gr_addr = gasnetc_gr_get_addr (dest);
-
-        gasneti_mutex_lock(&AMRequest_mutex);
-
-	retval = gasnetc_SM_request (dest, GASNETC_SCI_SHORT, handler, numargs, args, NULL, 0, gr_addr, NULL);
-
-        gasneti_mutex_unlock(&AMRequest_mutex);
+	retval = gasnetc_SM_request (dest, GASNETC_SCI_SHORT, handler, numargs, args, NULL, 0, NULL);
 
 	va_end(argptr);
 
@@ -583,6 +568,8 @@ extern int gasnetc_AMRequestMediumM(
                             int numargs, ...) {
 	int retval;
 	va_list argptr;
+        int i;
+        gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 
 	GASNETI_CHECKATTACH();
 	if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
@@ -593,22 +580,12 @@ extern int gasnetc_AMRequestMediumM(
 	va_start(argptr, numargs); /*  pass in last argument */
 
         /*  (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) and send the active message */
-	int i;
-	int loc;
-	gasnet_handlerarg_t args[numargs];
-
 	for (i = 0; i < numargs; i++)
 	{
 		args[i] = va_arg (argptr, gasnet_handlerarg_t);
 	}
 
-	void * gr_addr = gasnetc_gr_get_addr (dest);
-
-        gasneti_mutex_lock(&AMRequest_mutex);
-
-	retval = gasnetc_SM_request (dest, GASNETC_SCI_MEDIUM, handler, numargs, args, source_addr, nbytes, gr_addr, NULL);
-
-        gasneti_mutex_unlock(&AMRequest_mutex);
+	retval = gasnetc_SM_request (dest, GASNETC_SCI_MEDIUM, handler, numargs, args, source_addr, nbytes, NULL);
 
 	va_end(argptr);
 
@@ -622,6 +599,9 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             int numargs, ...) {
 	int retval;
 	va_list argptr;
+        int i;
+        gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
+
 	GASNETI_CHECKATTACH();
 	gasnetc_boundscheck(dest, dest_addr, nbytes);
 	if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
@@ -637,30 +617,12 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 	va_start(argptr, numargs); /*  pass in last argument */
 
         /*  (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) and send the active message */
-	int i;
-	int loc;
-	gasnet_handlerarg_t args[numargs];
-
 	for (i = 0; i < numargs; i++)
 	{
 		args[i] = va_arg (argptr, gasnet_handlerarg_t);
 	}
 
-        void * gr_addr = gasnetc_gr_get_addr (dest);
-
-        gasneti_mutex_lock(&AMRequest_mutex);
-
-        /*  payload transfer */
-        if (nbytes > GASNETC_SCI_MODE_SWITCH_SIZE)
-        {
-                int DMA_nbyte = nbytes - (nbytes % 8);
-                gasnetc_DMA_write (dest, source_addr, DMA_nbyte, dest_addr);
-        }
-
-	/*  command transfer */
-	retval = gasnetc_SM_request (dest, GASNETC_SCI_LONG, handler, numargs, args, source_addr, nbytes, gr_addr, dest_addr);
-
-	gasneti_mutex_unlock(&AMRequest_mutex);
+	retval = gasnetc_SM_request (dest, GASNETC_SCI_LONG, handler, numargs, args, source_addr, nbytes, dest_addr);
 
         va_end(argptr);
 
@@ -675,6 +637,8 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 	/*  This is implemented exactly like gasnetc_AMRequestLongM () */
 	int retval;
 	va_list argptr;
+        int i;
+        gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 
 	GASNETI_CHECKATTACH();
 	gasnetc_boundscheck(dest, dest_addr, nbytes);
@@ -691,30 +655,12 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 	va_start(argptr, numargs); /*  pass in last argument */
 
         /*  (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) and send the active message */
-	int i;
-	int loc;
-	gasnet_handlerarg_t args[numargs];
-
 	for (i = 0; i < numargs; i++)
 	{
 		args[i] = va_arg (argptr, gasnet_handlerarg_t);
 	}
 
-        void * gr_addr = gasnetc_gr_get_addr (dest);
-
-        gasneti_mutex_lock(&AMRequest_mutex);
-
-        /*  payload transfer */
-        if (nbytes > GASNETC_SCI_MODE_SWITCH_SIZE)
-        {
-                int DMA_nbyte = nbytes - (nbytes % 8);
-                gasnetc_DMA_write (dest, source_addr, DMA_nbyte, dest_addr);
-        }
-
-	/*  command transfer */
-	retval = gasnetc_SM_request (dest, GASNETC_SCI_LONG, handler, numargs, args, source_addr, nbytes, gr_addr, dest_addr);
-
-        gasneti_mutex_unlock(&AMRequest_mutex);
+	retval = gasnetc_SM_request (dest, GASNETC_SCI_LONG, handler, numargs, args, source_addr, nbytes, dest_addr);
 
 	va_end(argptr);
 
@@ -727,6 +673,9 @@ extern int gasnetc_AMReplyShortM(
                             int numargs, ...) {
 	int retval;
 	va_list argptr;
+        int i;
+        gasnetc_sci_token_t * curr_token = (gasnetc_sci_token_t *) token;
+        gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 
 	gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
 	GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs);
@@ -734,23 +683,15 @@ extern int gasnetc_AMReplyShortM(
 	va_start(argptr, numargs); /*  pass in last argument */
 
         /*  (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) and send the active message */
-	int i;
-	int loc;
-	gasnet_handlerarg_t args[numargs];
-
 	for (i = 0; i < numargs; i++)
 	{
 		args[i] = va_arg (argptr, gasnet_handlerarg_t);
 	}
-	gasnetc_sci_token_t * curr_token = (gasnetc_sci_token_t *) token;
-
-	void * gr_addr = gasnetc_gr_get_addr (curr_token->source_id);
 
 	gasnetc_mls_set (curr_token->source_id, curr_token->msg_number + GASNETC_SCI_MAX_REQUEST_MSG);
-	retval = gasnetc_SM_transfer (curr_token->source_id, GASNETC_SCI_MAX_REQUEST_MSG + curr_token->msg_number, GASNETC_SCI_REPLY, GASNETC_SCI_SHORT, handler, numargs, args, NULL, 0, gr_addr, NULL);
+	retval = gasnetc_SM_transfer (curr_token->source_id, GASNETC_SCI_MAX_REQUEST_MSG + curr_token->msg_number, GASNETC_SCI_REPLY, GASNETC_SCI_SHORT, handler, numargs, args, NULL, 0, NULL);
 
 	va_end(argptr);
-
 
 	GASNETI_RETURN(retval);
 }
@@ -762,6 +703,9 @@ extern int gasnetc_AMReplyMediumM(
                             int numargs, ...) {
 	int retval;
 	va_list argptr;
+        int i;
+        gasnetc_sci_token_t * curr_token = (gasnetc_sci_token_t *) token;
+        gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 
 	gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
 	if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
@@ -770,21 +714,13 @@ extern int gasnetc_AMReplyMediumM(
 	va_start(argptr, numargs); /*  pass in last argument */
 
         /*  (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) and send the active message */
-	int i;
-	int loc;
-	gasnet_handlerarg_t args[numargs];
-
 	for (i = 0; i < numargs; i++)
 	{
 		args[i] = va_arg (argptr, gasnet_handlerarg_t);
 	}
 
-	gasnetc_sci_token_t * curr_token = (gasnetc_sci_token_t *) token;
-
-	void * gr_addr = gasnetc_gr_get_addr (curr_token->source_id);
-
 	gasnetc_mls_set (curr_token->source_id, curr_token->msg_number + GASNETC_SCI_MAX_REQUEST_MSG);
-	retval = gasnetc_SM_transfer (curr_token->source_id, GASNETC_SCI_MAX_REQUEST_MSG + curr_token->msg_number, GASNETC_SCI_REPLY, GASNETC_SCI_MEDIUM, handler, numargs, args, source_addr, nbytes, gr_addr, NULL);
+	retval = gasnetc_SM_transfer (curr_token->source_id, GASNETC_SCI_MAX_REQUEST_MSG + curr_token->msg_number, GASNETC_SCI_REPLY, GASNETC_SCI_MEDIUM, handler, numargs, args, source_addr, nbytes, NULL);
 
 	va_end(argptr);
 
@@ -800,6 +736,9 @@ extern int gasnetc_AMReplyLongM(
 	int retval;
 	gasnet_node_t dest;
 	va_list argptr;
+        int i;
+        gasnetc_sci_token_t * curr_token = (gasnetc_sci_token_t *) token;
+        gasnet_handlerarg_t args[gasnet_AMMaxArgs()];
 
 	retval = gasnet_AMGetMsgSource(token, &dest);
 	if (retval != GASNET_OK) GASNETI_RETURN(retval);
@@ -816,29 +755,15 @@ extern int gasnetc_AMReplyLongM(
 
 	va_start(argptr, numargs); /*  pass in last argument */
 
-    /*  (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) and send the active message */
-	int i;
-	int loc;
-	gasnet_handlerarg_t args[numargs];
-
+        /*  (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) and send the active message */
 	for (i = 0; i < numargs; i++)
 	{
 		args[i] = va_arg (argptr, gasnet_handlerarg_t);
 	}
 
-	gasnetc_sci_token_t * curr_token = (gasnetc_sci_token_t *) token;
-        void * gr_addr = gasnetc_gr_get_addr (curr_token->source_id);
-
-	/*  payload transfer */
-        if (nbytes > GASNETC_SCI_MODE_SWITCH_SIZE)
-        {
-                int DMA_nbyte = nbytes - (nbytes % 8);
-                gasnetc_DMA_write (curr_token->source_id, source_addr, DMA_nbyte, dest_addr);
-        }
-
 	/*  command transfer */
 	gasnetc_mls_set (curr_token->source_id, curr_token->msg_number + GASNETC_SCI_MAX_REQUEST_MSG);
-	retval = gasnetc_SM_transfer (curr_token->source_id, GASNETC_SCI_MAX_REQUEST_MSG + curr_token->msg_number, GASNETC_SCI_REPLY, GASNETC_SCI_LONG, handler, numargs, args, source_addr, nbytes, gr_addr, dest_addr);
+	retval = gasnetc_SM_transfer (curr_token->source_id, GASNETC_SCI_MAX_REQUEST_MSG + curr_token->msg_number, GASNETC_SCI_REPLY, GASNETC_SCI_LONG, handler, numargs, args, source_addr, nbytes, dest_addr);
 
 	va_end(argptr);
 
