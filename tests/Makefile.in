@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.27 2004/06/08 19:59:17 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.28 2004/06/20 08:47:29 bonachea Exp $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -21,6 +21,7 @@ Makefile: @TOP_SRCDIR@/tests/Makefile.in
 	CONFIG_HEADERS= CONFIG_FILES=tests/Makefile ./config.status
 
 @USE_MPI_CONDUIT_TRUE@ MPI_TEST = testmpi
+@HAVE_CXX_TRUE@ CXX_TEST = testcxx
 
 # tests that can be built in any mode
 # in order of most useful execution
@@ -40,6 +41,7 @@ testprograms_seq =      \
         testhsl         \
         testbarrierconf \
         testbarrierlate \
+	$(CXXTEST)      \
 	testtools   
 
 # tests that should only be built in PARSYNC and PAR modes
@@ -169,6 +171,13 @@ testmpi: force
 	@MPI_CC@ -I$(srcdir) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) @MPI_CFLAGS@ -c -o $@.o $(srcdir)/$@.c
 	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ $(GASNET_LIBS)
 	rm -f $@.o	
+
+# testcxx tests support for compiling a C++-based GASNet client 
+# this is unlikely to work on conduits requiring a special linker (eg mpi-conduit)
+testcxx: force
+	@CXX@ @CXXFLAGS@ @MISC_CXXFLAGS@ -I$(srcdir) $(GASNET_CPPFLAGS) -c -o $@.o $(srcdir)/$@.cc
+	@CXX@ @CXXFLAGS@ $(GASNET_LDFLAGS) -o $@ $@.o $($@_extraobjs) $(GASNET_LIBS)
+	rm -f $@.o
 
 # This is a model for how GASNet clients should be built:
 test% : force
