@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2005/01/22 15:11:40 $
- * $Revision: 1.33 $
+ *     $Date: 2005/01/26 19:37:49 $
+ * $Revision: 1.34 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -65,7 +65,10 @@
 #define MAX(x,y)  ((x)>(y)?(x):(y))
 #endif
 
-#ifdef HAVE_SCHED_YIELD
+#ifdef __MTA__
+   #include <machine/runtime.h>
+   #define gasneti_sched_yield() mta_yield()
+#elif defined(HAVE_SCHED_YIELD)
    #include <sched.h>
    #define gasneti_sched_yield() sched_yield()
 #else
