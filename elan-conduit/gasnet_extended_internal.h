@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended_internal.h         $
- *     $Date: 2004/06/25 20:04:16 $
- * $Revision: 1.13 $
+ *     $Date: 2004/07/17 10:10:00 $
+ * $Revision: 1.14 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,7 +176,8 @@ void gasnete_op_free(gasnete_op_t *op);
     gasneti_assert(GASNETE_EOPADDR_TO_PTR(_th, (eop)->addr) == eop);            \
     switch (OPCAT(eop)) {                                                       \
       case OPCAT_ELANGETBB: case OPCAT_ELANPUTBB:                               \
-        gasneti_memcheck((eop)->bouncebuf);                                     \
+        /* bouncebuf comes from elan allocator, not gasneti_malloc */           \
+        /* gasneti_memcheck((eop)->bouncebuf); */                               \
         break;                                                                  \
       case OPCAT_AMGET: case OPCAT_AMPUT: case OPCAT_MEMSET: break;             \
       default:                                                                  \
