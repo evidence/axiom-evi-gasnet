@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2002/12/28 05:40:04 $
- * $Revision: 1.2 $
+ *     $Date: 2003/01/04 06:16:10 $
+ * $Revision: 1.3 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -181,14 +181,14 @@
       writes from this proc)
  */
 #ifdef __GNUC__
-  #define ASM(mnemonic) asm volatile (#mnemonic)
+  #define GASNETI_ASM(mnemonic) asm volatile (#mnemonic : : : "memory")
 #elif defined(__digital__)
   #include <c_asm.h>
-  #define ASM(mnemonic) asm(#mnemonic)
+  #define GASNETI_ASM(mnemonic) asm(#mnemonic)
 #elif defined(MIPSPRO_COMPILER)
-  #define ASM(mnemonic)  /* broken - doesn't have inline assembly */
+  #define GASNETI_ASM(mnemonic)  /* broken - doesn't have inline assembly */
 #else
-  #define ASM(mnemonic) asm { mnemonic }
+  #define GASNETI_ASM(mnemonic) asm { mnemonic }
 #endif
 
 #if (defined(_POWER) || defined(_POWERPC)) && !defined(__GNUC__)  
@@ -198,7 +198,7 @@
  * opcodes can be aquired by placing the mnemonics in inline.s and running:
  * as -sinline.lst inline.s
  */ 
-#pragma mc_func _do_sync { \
+#pragma mc_func _gasneti_do_sync { \
   "7c0004ac" /* sync (same opcode used for dcs)*/ \
 }
 #endif
@@ -206,12 +206,12 @@
 #if defined(__sparc__) || defined(__sparc) || defined(sparc)
  GASNET_INLINE_MODIFIER(gasneti_local_membar)
  void gasneti_local_membar(void) {
-   ASM(stbar); /* SPARC store barrier */
+   GASNETI_ASM(stbar); /* SPARC store barrier */
  }
 #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
  GASNET_INLINE_MODIFIER(gasneti_local_membar)
  void gasneti_local_membar(void) {
-   ASM(sync);  /* MIPS II+ memory barrier */ 
+   GASNETI_ASM(sync);  /* MIPS II+ memory barrier */ 
  }
 #elif defined(__i386__) || defined(__i386) || defined(i386) || \
       defined(__i486__) || defined(__i486) || defined(i486) || \
@@ -220,7 +220,7 @@
  #if 0
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     ASM(mfence); /* only works on pentiums and higher? */
+     GASNETI_ASM(mfence); /* only works on pentiums and higher? */
    }
  #else
   #ifdef __linux__
@@ -231,13 +231,13 @@
       /* sfence causes an illegal instruction trap on uniprocessor kernel */
       GASNET_INLINE_MODIFIER(gasneti_local_membar)
       void gasneti_local_membar(void) {
-        ASM(sfence);
+        GASNETI_ASM(sfence);
       }
     #endif
   #else 
     GASNET_INLINE_MODIFIER(gasneti_local_membar)
     void gasneti_local_membar(void) {
-      ASM(sfence);
+      GASNETI_ASM(sfence);
     }
   #endif
  #endif
@@ -250,44 +250,44 @@
       /* mf may cause an illegal instruction trap on uniprocessor kernel */
       GASNET_INLINE_MODIFIER(gasneti_local_membar)
       void gasneti_local_membar(void) {
-        ASM(mf);
+        GASNETI_ASM(mf);
       }
     #endif
   #else
     GASNET_INLINE_MODIFIER(gasneti_local_membar)
     void gasneti_local_membar(void)  {
-      ASM(mf);
+      GASNETI_ASM(mf);
     }
   #endif
 #elif defined(_POWER) /* IBM SP POWER2, POWER3 */
  #ifdef __GNUC__
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     ASM(dcs);
+     GASNETI_ASM(dcs);
    }
  #else
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     _do_sync(); 
+     _gasneti_do_sync(); 
    }
  #endif
 #elif defined(_POWERPC)
  #ifdef __GNUC__
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     ASM(sync);
+     GASNETI_ASM(sync);
    }
  #else
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     _do_sync(); 
+     _gasneti_do_sync(); 
    }
  #endif
 #elif defined(__alpha) && defined(__osf__)
  #if 1
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     ASM(mb);
+     GASNETI_ASM(mb);
    }
  #else 
    #include <machine/builtins.h>

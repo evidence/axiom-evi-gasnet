@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2003/01/03 00:33:28 $
- * $Revision: 1.2 $
+ *     $Date: 2003/01/04 06:16:10 $
+ * $Revision: 1.3 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,8 +20,12 @@
 #define gasnett_tick_t               gasneti_stattime_t
 #define GASNETT_TICK_MIN             GASNETI_STATTIME_MIN
 #define GASNETT_TICK_MAX             GASNETI_STATTIME_MAX
-#define gasnett_ticks_to_us(ticks)   gasneti_stattime_to_us(ticks)
+#define gasnett_ticks_to_us(ticks)   GASNETI_STATTIME_TO_US(ticks)
 #define gasnett_ticks_now()          GASNETI_STATTIME_NOW()
+
+#ifdef GASNETI_USING_GETTIMEOFDAY
+#define GASNETT_USING_GETTIMEOFDAY
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* portable atomic increment/decrement */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2002/12/19 18:31:54 $
- * $Revision: 1.8 $
+ *     $Date: 2003/01/04 06:16:14 $
+ * $Revision: 1.9 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,7 +16,8 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include "gasnet.h"
+
+#include <gasnet.h>
 
 static char *_ErrorName(int errval) {
   switch (errval) {

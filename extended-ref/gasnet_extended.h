@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2002/12/26 03:43:18 $
- * $Revision: 1.12 $
+ *     $Date: 2003/01/04 06:16:12 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -581,7 +581,7 @@ gasnet_register_value_t _gasnet_get_val (gasnet_node_t node, void *src, size_t n
     GASNETI_TRACE_GET(GET_VAL_LOCAL,NULL,node,src,nbytes);
     switch (nbytes) {
       case sizeof(uint8_t):  return (gasnet_register_value_t)*((uint8_t  *)(src)); 
-     OMIT_ON_CRAYC(
+     OMIT_WHEN_MISSING_16BIT(
       case sizeof(uint16_t): return (gasnet_register_value_t)*((uint16_t *)(src)); 
      )
       case sizeof(uint32_t): return (gasnet_register_value_t)*((uint32_t *)(src)); 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2003/01/03 00:33:28 $
- * $Revision: 1.4 $
+ *     $Date: 2003/01/04 06:16:10 $
+ * $Revision: 1.5 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,6 +14,13 @@
 #define _GASNET_TIMER_H
 
 #include <assert.h>
+/* all of this to support gasneti_getMicrosecondTimeStamp */
+#include <time.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 BEGIN_EXTERNC
 
@@ -31,6 +38,20 @@ BEGIN_EXTERNC
     GASNETI_STATTIME_MIN - a value representing the minimum value storable in a gasneti_stattime_t
     GASNETI_STATTIME_MAX - a value representing the maximum value storable in a gasneti_stattime_t
 */
+
+/* completely portable (low-performance) microsecond granularity wall-clock timer */
+GASNET_INLINE_MODIFIER(gasneti_getMicrosecondTimeStamp)
+int64_t gasneti_getMicrosecondTimeStamp(void) {
+  int64_t retval;
+  struct timeval tv;
+  if (gettimeofday(&tv, NULL)) {
+      perror("gettimeofday");
+      abort();
+  }
+  retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
+  return retval;
+}
+
 #if defined(GASNETC_CONDUIT_SPECIFIC_TIMERS)
   #if !defined(GASNETI_STATTIME_MIN) || !defined(GASNETI_STATTIME_MAX) || \
       !defined(GASNETI_STATTIME_TO_US) || !defined(GASNETI_STATTIME_NOW)
@@ -161,7 +182,6 @@ BEGIN_EXTERNC
 #else
   #define GASNETI_USING_GETTIMEOFDAY
   /* portable microsecond granularity wall-clock timer */
-  extern int64_t gasneti_getMicrosecondTimeStamp(void);
   typedef uint64_t gasneti_stattime_t;
   #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
   #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2002/12/19 18:35:49 $
- * $Revision: 1.7 $
+ *     $Date: 2003/01/04 06:16:12 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,10 +51,10 @@ extern gasnet_seginfo_t *gasnete_seginfo;
 #define gasnete_pollwhile(cnd) while (cnd) gasnet_AMPoll() 
 
 /* ------------------------------------------------------------------------------------ */
-#ifdef _CRAYC /* deal with Cray C's crappy lack of 16-bit types */
-  #define OMIT_ON_CRAYC(code) 
+#if defined(_CRAYC) || (SIZEOF_SHORT > 2)  /* deal with Cray's crappy lack of 16-bit types */
+  #define OMIT_WHEN_MISSING_16BIT(code) 
 #else
-  #define OMIT_ON_CRAYC(code) code
+  #define OMIT_WHEN_MISSING_16BIT(code) code
 #endif
 /*  undefined results if the regions are overlapping */
 #define GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes) do { \
@@ -64,7 +64,7 @@ extern gasnet_seginfo_t *gasnete_seginfo;
     case sizeof(uint8_t):                                   \
       *((uint8_t *)(dest)) = *((uint8_t *)(src));           \
       break;                                                \
-  OMIT_ON_CRAYC(                                            \
+  OMIT_WHEN_MISSING_16BIT(                                  \
     case sizeof(uint16_t):                                  \
       *((uint16_t *)(dest)) = *((uint16_t *)(src));         \
       break;                                                \
@@ -92,7 +92,7 @@ extern gasnet_seginfo_t *gasnete_seginfo;
     case sizeof(uint8_t):                                               \
       *((uint8_t *)(dest)) = (uint8_t)(value);                          \
       break;                                                            \
-  OMIT_ON_CRAYC(                                                        \
+  OMIT_WHEN_MISSING_16BIT(                                              \
     case sizeof(uint16_t):                                              \
       *((uint16_t *)(dest)) = (uint16_t)(value);                        \
       break;                                                            \
@@ -139,7 +139,7 @@ extern gasnet_seginfo_t *gasnete_seginfo;
          */                                                                             \
         switch (nbytes) {                                                               \
           case 1: *(uint8_t *)p = 0; break;                                             \
-        OMIT_ON_CRAYC(                                                                  \
+        OMIT_WHEN_MISSING_16BIT(                                                        \
           case 2: *(uint16_t *)p = 0; break;                                            \
         )                                                                               \
           case 4: *(uint32_t *)p = 0; break;                                            \

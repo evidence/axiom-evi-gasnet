@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/12/19 18:35:44 $
- * $Revision: 1.21 $
+ *     $Date: 2003/01/04 06:16:10 $
+ * $Revision: 1.22 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -50,17 +50,6 @@ extern void gasneti_fatalerror(char *msg, ...) {
   va_end(argptr);
 
   abort();
-}
-/* ------------------------------------------------------------------------------------ */
-extern int64_t gasneti_getMicrosecondTimeStamp(void) {
-    int64_t retval;
-    struct timeval tv;
-    if (gettimeofday(&tv, NULL)) {
-	perror("gettimeofday");
-	abort();
-    }
-    retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
-    return retval;
 }
 /* ------------------------------------------------------------------------------------ */
 /* build a code-location string (used by gasnete_current_loc) */

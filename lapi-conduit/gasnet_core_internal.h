@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/12/19 18:35:52 $
- * $Revision: 1.11 $
+ *     $Date: 2003/01/04 06:16:13 $
+ * $Revision: 1.12 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -162,8 +162,6 @@ typedef struct {
 extern void gasnetc_token_queue_init(gasnetc_token_queue_t *q);
 extern gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_schedule);
 extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *schedule);
-/* memory barrier function */
-extern void gasnetc_memory_sync(void);
 
 #define gasnetc_spin_lock(lock) \
   {                             \
@@ -179,7 +177,7 @@ extern void gasnetc_memory_sync(void);
   {                            \
       int avail = 0;           \
       int locked = 1;          \
-      gasnetc_memory_sync();   \
+      gasneti_local_membar();  \
       if (!compare_and_swap( (atomic_p)&(lock), &locked, avail ) ) \
           assert(0); /* this should not happen */ \
   }
@@ -188,7 +186,7 @@ extern void gasnetc_memory_sync(void);
   {                          \
       assert( (lock)==1 );   \
       (lock) = 0;            \
-      gasnetc_memory_sync(); \
+      gasneti_local_membar();\
   }
 #endif
 

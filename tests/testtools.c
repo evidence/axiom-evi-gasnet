@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testtools.c                                    $
- *     $Date: 2003/01/03 00:33:30 $
- * $Revision: 1.1 $
+ *     $Date: 2003/01/04 06:16:14 $
+ * $Revision: 1.2 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -192,7 +192,7 @@ void * thread_fn(void *arg) {
   if (gasnett_atomic_read(&x2) != 10000-iters2*NUM_THREADS)
     printf("ERROR: pounding dec test mismatch\n");
 
-  pthread_exit(0);
+  return NULL;
 }
 
 #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/26 03:43:21 $
- * $Revision: 1.18 $
+ *     $Date: 2003/01/04 06:16:13 $
+ * $Revision: 1.19 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -453,13 +453,11 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 }
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_exit(int exitcode) {
-
-#if 0
     GASNETI_TRACE_PRINTF(C,("GASNETC_EXIT: UHDR_BUF HWM %d, numfree %d, numalloc %d",
 			    gasnetc_uhdr_freelist.high_water_mark,
 			    gasnetc_uhdr_freelist.numfree,
 			    gasnetc_uhdr_freelist.numalloc));
-#else
+#if DEBUG_VERBOSE
     fprintf(stderr,"GASNETC_EXIT: NODE %d UHDR_BUF HWM %d, numfree %d, numalloc %d\n",
 	    gasnetc_mynode,
 	    gasnetc_uhdr_freelist.high_water_mark,
@@ -1320,30 +1318,6 @@ void gasnetc_lapi_exchange(void *src, size_t len, void *dest)
     /* free up array used for remote address locations */
     gasneti_free(dest_addr_tab);
 }
-
-#if defined(_POWER) || defined(_POWERPC)
-#ifdef __GNUC__
-void gasnetc_memory_sync(void) {
-  asm volatile ("sync" : : : "memory");
-}
-#else
-/* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly
- * you have to hard-code the opcodes in a pragma that defines an assembly
- * function - see /usr/include/sys/atomic_op.h on AIX for examples
- * opcodes can be aquired by placing the mnemonics in inline.s and running:
- * as -sinline.lst inline.s
- */
-#pragma mc_func _do_sync { \
- "7c0004ac" /* sync (same opcode used for dcs)*/ \
-}
-void gasnetc_memory_sync(void) {
- _do_sync();
-}
-#endif
-#else
-void gasnetc_memory_sync(void) {}
-#endif
-
 
 void gasnetc_token_queue_init(gasnetc_token_queue_t *q)
 {
