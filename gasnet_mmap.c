@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2002/09/13 13:41:40 $
- * $Revision: 1.3 $
+ *     $Date: 2002/09/16 12:02:19 $
+ * $Revision: 1.4 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -37,10 +37,11 @@
   #define GASNETI_MMAP_FLAGS (MAP_ANON | MAP_PRIVATE)
 #endif
 
-static int gasneti_mmapfd = -1;
 
 /* ------------------------------------------------------------------------------------ */
-extern void gasneti_mmap_fixed(void *segbase, size_t segsize) {
+static void *gasneti_mmap_internal(void *segbase, size_t segsize) {
+  static int gasneti_mmapfd = -1;
+  gasneti_stattime_t t1, t2;
   void	*ptr;
 
   #ifdef GASNETI_MMAP_FILE
@@ -51,31 +52,69 @@ extern void gasneti_mmap_fixed(void *segbase, size_t segsize) {
     }
   #endif
 
-  GASNETI_TRACE_PRINTF(C, 
-      ("mmap fixed("GASNETI_LADDRFMT", %lu)\n", GASNETI_LADDRSTR(segbase), (unsigned long)segsize) );
+  t1 = GASNETI_STATTIME_NOW();
   ptr = mmap(segbase, segsize, (PROT_READ|PROT_WRITE), 
-	  (GASNETI_MMAP_FLAGS | MAP_FIXED), gasneti_mmapfd, 0);
-  if (ptr == MAP_FAILED) {
-      gasneti_fatalerror("mmap failed at "GASNETI_LADDRFMT" for size %lu: %s\n",
+      (GASNETI_MMAP_FLAGS | (segbase==NULL?0:MAP_FIXED)), gasneti_mmapfd, 0);
+  t2 = GASNETI_STATTIME_NOW();
+
+  GASNETI_TRACE_PRINTF(C, 
+      ("mmap %s("GASNETI_LADDRFMT", %lu): %dus => "GASNETI_LADDRFMT"%s%s\n", 
+        (segbase == NULL?"":"fixed"),
+        GASNETI_LADDRSTR(segbase), (unsigned long)segsize,
+        (unsigned int) GASNETI_STATTIME_TO_US(t2-t1),
+        GASNETI_LADDRSTR(ptr),
+        (ptr == MAP_FAILED?"  MAP_FAILED: ":""),
+        (ptr == MAP_FAILED?strerror(errno):"")));
+
+  if (ptr == MAP_FAILED && errno != ENOMEM)
+    gasneti_fatalerror("unexpected error in mmap%s for size %lu: %s\n", 
+                       (segbase == NULL?"":" fixed"),
+                       (unsigned long)segsize, strerror(errno));
+
+  if (segbase && ptr == MAP_FAILED) {
+      gasneti_fatalerror("mmap fixed failed at "GASNETI_LADDRFMT" for size %lu: %s\n",
 	      GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
   }
-  if (segbase != ptr) {
+  if (segbase && segbase != ptr) {
     gasneti_fatalerror("mmap fixed moved from "GASNETI_LADDRFMT" to "GASNETI_LADDRFMT" for size %lu\n",
 	    GASNETI_LADDRSTR(segbase), GASNETI_LADDRSTR(ptr), (unsigned long)segsize);
   }
+  return ptr;
+}
+extern void gasneti_mmap_fixed(void *segbase, size_t segsize) {
+  gasneti_mmap_internal(segbase, segsize);
+}
+extern void *gasneti_mmap(size_t segsize) {
+  return gasneti_mmap_internal(NULL, segsize);
 }
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_munmap(void *segbase, size_t segsize) {
+  gasneti_stattime_t t1, t2;
   assert(segsize > 0);
-  if (munmap(segbase, segsize) != 0) 
-    gasneti_fatalerror("munmap("GASNETI_LADDRFMT",%lu) failed: %s\n",
-	    GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
+  t1 = GASNETI_STATTIME_NOW();
+    #if 0 && defined(OSF) /* doesn't seem to help */
+      /* invalidate the pages before unmap to avoid write-back penalty */
+      if (madvise(segbase, segsize, MADV_DONTNEED))
+        gasneti_fatalerror("madvise("GASNETI_LADDRFMT",%lu) failed: %s\n",
+	        GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
+      if (msync(segbase, segsize, MS_INVALIDATE))
+        gasneti_fatalerror("msync("GASNETI_LADDRFMT",%lu) failed: %s\n",
+	        GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
+    #endif
+    if (munmap(segbase, segsize) != 0) 
+      gasneti_fatalerror("munmap("GASNETI_LADDRFMT",%lu) failed: %s\n",
+	      GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
+  t2 = GASNETI_STATTIME_NOW();
+
+  GASNETI_TRACE_PRINTF(D,("munmap("GASNETI_LADDRFMT", %lu): %dus\n", 
+     GASNETI_LADDRSTR(segbase), (unsigned long)segsize,
+     (unsigned int) GASNETI_STATTIME_TO_US(t2-t1)) );
 }
 /* ------------------------------------------------------------------------------------ */
-static gasnet_seginfo_t gasneti_mmap_segsrch(size_t lowsz, size_t highsz) {
+/* binary search for segment - returns location, not mmaped */
+static gasnet_seginfo_t gasneti_mmap_binary_segsrch(size_t lowsz, size_t highsz) {
   gasnet_seginfo_t si;
   size_t pagesize = gasneti_getSystemPageSize();
-  gasneti_stattime_t t1, t2;
 
   if (highsz - lowsz <= GASNETI_MMAP_GRANULARITY) {
     si.size = 0;
@@ -86,34 +125,53 @@ static gasnet_seginfo_t gasneti_mmap_segsrch(size_t lowsz, size_t highsz) {
   si.size = GASNETI_PAGE_ALIGN((lowsz + (highsz - lowsz) / 2), pagesize);
   assert(si.size > 0);
 
-  #ifdef GASNETI_MMAP_FILE
-    if (gasneti_mmapfd == -1) {
-      gasneti_mmapfd = open(GASNETI_MMAP_FILE, O_RDWR);
-      if (gasneti_mmapfd == -1) 
-        gasneti_fatalerror("failed to open "GASNETI_MMAP_FILE" for mmap : %s\n",strerror(errno));
-    }
-  #endif
+  si.addr = gasneti_mmap(si.size);
 
-  t1 = GASNETI_STATTIME_NOW();
-  si.addr = 
-      mmap(NULL, si.size, PROT_READ|PROT_WRITE, GASNETI_MMAP_FLAGS, gasneti_mmapfd, 0);
-  t2 = GASNETI_STATTIME_NOW();
-
-  if (si.addr == MAP_FAILED) {
-    if (errno != ENOMEM)
-      gasneti_fatalerror("mmap failed for size %lu: %s\n", (unsigned long)si.size, strerror(errno));
-    GASNETI_TRACE_PRINTF(D,("mmap(%lu) %dus FAILED: %s\n", (unsigned long)si.size,
-       (unsigned int) GASNETI_STATTIME_TO_US(t2-t1), strerror(errno)) );
-    return gasneti_mmap_segsrch(lowsz, si.size);
-  } else {
+  if (si.addr == MAP_FAILED) 
+    return gasneti_mmap_binary_segsrch(lowsz, si.size);
+  else {
     gasnet_seginfo_t si_temp;
-    GASNETI_TRACE_PRINTF(D,("mmap(%lu) %dus = "GASNETI_LADDRFMT"\n", (unsigned long)si.size,
-       (unsigned int) GASNETI_STATTIME_TO_US(t2-t1), GASNETI_LADDRSTR(si.addr)) );
     gasneti_munmap(si.addr, si.size);
 
-    si_temp = gasneti_mmap_segsrch(si.size, highsz);
+    si_temp = gasneti_mmap_binary_segsrch(si.size, highsz);
     if (si_temp.size) return si_temp;
     else return si;
+  }
+}
+/* descending linear search for segment - returns location mmaped */
+static gasnet_seginfo_t gasneti_mmap_lineardesc_segsrch(size_t highsz) {
+  gasnet_seginfo_t si;
+  size_t pagesize = gasneti_getSystemPageSize();
+  si.addr = MAP_FAILED;
+  si.size = highsz;
+  while (si.addr == MAP_FAILED && si.size > pagesize) {
+    si.size -= pagesize;
+    si.addr = gasneti_mmap(si.size);
+  }
+  if (si.addr == MAP_FAILED) {
+    si.addr = NULL;
+    si.size = 0;
+  }
+  return si;
+}
+/* ascending linear search for segment - returns location, not mmaped */
+static gasnet_seginfo_t gasneti_mmap_linearasc_segsrch(size_t highsz) {
+  gasnet_seginfo_t si;
+  gasnet_seginfo_t last_si = { NULL, 0 };
+  size_t pagesize = gasneti_getSystemPageSize();
+  si.size = pagesize;
+  si.addr = gasneti_mmap(si.size);
+
+  while (si.addr != MAP_FAILED && si.size <= highsz) {
+    last_si = si;
+    gasneti_munmap(last_si.addr, last_si.size);
+    si.size += pagesize;
+    si.addr = gasneti_mmap(si.size);
+  }
+  if (si.addr == MAP_FAILED) return last_si;
+  else {
+    gasneti_munmap(si.addr, si.size);
+    return si;
   }
 }
 
@@ -122,19 +180,52 @@ static gasnet_seginfo_t gasneti_mmap_segsrch(size_t lowsz, size_t highsz) {
  */
 extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz) {
   size_t pagesize = gasneti_getSystemPageSize();
-  gasnet_seginfo_t si = gasneti_mmap_segsrch(0, maxsz);
+  gasnet_seginfo_t si;
+  int mmaped = 0;
 
-  /*  ensure page-alignment of base and size */
-  { uintptr_t begin = (uintptr_t)si.addr;
-    uintptr_t end = (uintptr_t)si.addr + si.size;
-    begin = GASNETI_PAGE_ROUNDUP(begin, pagesize);
-    end = GASNETI_PAGE_ALIGN(end, pagesize);
-    si.addr = (void *)begin;
-    si.size = end - begin;
-    assert(((uintptr_t)si.addr) % pagesize == 0 && si.size % pagesize == 0);
+  maxsz = GASNETI_PAGE_ALIGN(maxsz, pagesize);
+  si.addr = gasneti_mmap(maxsz);
+  if (si.addr != MAP_FAILED) { /* succeeded at max value - done */
+    si.size = maxsz;
+    mmaped = 1;
+  } else { /* use a search to find largest possible */
+    #if defined(OSF)
+      /* linear descending search best on systems with 
+         fast mmap-failed and very slow unmap and/or mmap-succeed */
+      si = gasneti_mmap_lineardesc_segsrch(maxsz);
+      mmaped = 1;
+    #elif 0
+      /* linear ascending search best on systems with 
+         fast mmap-succeed and fast unmap but very slow mmap-failed */
+      si = gasneti_mmap_linearasc_segsrch(maxsz);
+      mmaped = 0;
+    #else
+      /* binary search best for systems with 
+         well-balanced mmap performance */
+      si = gasneti_mmap_binary_segsrch(0, maxsz);
+      mmaped = 0;
+    #endif
   }
 
-  gasneti_mmap_fixed(si.addr, si.size);
+  assert(si.addr != NULL && si.addr != MAP_FAILED && si.size > 0);
+  assert(si.size % pagesize == 0);
+  if (mmaped && ((uintptr_t)si.addr) % pagesize == 0) {
+    /* aligned and mmaped - nothing to do */
+  } else { /* need to page-align base */
+    if (mmaped) gasneti_munmap(si.addr, si.size); 
+    /*  ensure page-alignment of base and size */
+    { uintptr_t begin = (uintptr_t)si.addr;
+      uintptr_t end = (uintptr_t)si.addr + si.size;
+      begin = GASNETI_PAGE_ROUNDUP(begin, pagesize);
+      end = GASNETI_PAGE_ALIGN(end, pagesize);
+      si.addr = (void *)begin;
+      si.size = end - begin;
+    }
+    gasneti_mmap_fixed(si.addr, si.size);
+  }
+
+  assert(si.addr != NULL && si.addr != MAP_FAILED && si.size > 0);
+  assert(((uintptr_t)si.addr) % pagesize == 0 && si.size % pagesize == 0);
   return si;
 }
 /* ------------------------------------------------------------------------------------ */
