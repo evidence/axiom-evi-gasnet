@@ -96,7 +96,15 @@ typedef uint32_t		fh_refc_t;
 #ifdef FIREHOSE_PAGE
 typedef struct _firehose_private_t	fh_bucket_t;
 
-typedef enum { fh_local_fifo, fh_remote_fifo, fh_pending, fh_used, fh_unused } fh_bstate_t;
+#ifdef DEBUG_BUCKETS
+typedef enum { fh_local_fifo, fh_remote_fifo, fh_pending, fh_used, fh_unused } 
+fh_bstate_t;
+#define FH_BSTATE_ASSERT(entry, state)	assert((entry)->fh_state == state)
+#define FH_BSTATE_SET(entry, state)	(entry)->fh_state = state
+#else
+#define FH_BSTATE_ASSERT(entry, state)
+#define FH_BSTATE_SET(entry, state)
+#endif
 
 struct _firehose_private_t {
         fh_int_t         fh_key;                 /* cached key for hash table */
@@ -108,7 +116,9 @@ struct _firehose_private_t {
 						 /* _must_ be in this order */
 
 	/* FIFO and refcount */
+#ifdef DEBUG_BUCKETS
 	fh_bstate_t	fh_state;
+#endif
 	fh_bucket_t	*fh_tqe_next;		/* -1 when not in FIFO, 
 						   NULL when end of list,
 						   else next pointer in FIFO */

@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.23 2003/09/12 20:14:07 csbell Exp $
- * $Date: 2003/09/12 20:14:07 $
+/* $Id: gasnet_extended_firehose.c,v 1.24 2003/09/14 22:49:39 csbell Exp $
+ * $Date: 2003/09/14 22:49:39 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -196,8 +196,6 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 	#if defined(TRACE) || defined(STATS)
 	pop->starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
 	#endif
-
-	/* XXX should check according to fh_info */
 
 	/* Pin locally, incrementing reference counts where necessary */
 	pop->req_local = 

@@ -557,7 +557,6 @@ fh_bucket_add(gasnet_node_t node, uintptr_t bucket_addr)
 
 	entry->fh_key = FH_KEYMAKE(bucket_addr, node);
 	entry->fh_tqe_next = (fh_bucket_t *) -1;
-	entry->fh_state = fh_unused;
 
 	fh_hash_insert(fh_BucketTable, entry->fh_key, entry);
 	assert(fh_bucket_lookup(node, bucket_addr) == entry);

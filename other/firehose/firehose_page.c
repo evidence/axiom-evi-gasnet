@@ -20,7 +20,7 @@
  */
 
 #if defined(FIREHOSE_BIND_CALLBACK) || defined(FIREHOSE_UNBIND_CALLBACK)
-  #error firehose-page currenty has no support for bind/unbind callbacks
+  #error firehose-page currently has no support for bind/unbind callbacks
 #endif
 
 
@@ -40,6 +40,10 @@ struct _fhi_RegionPool_t {
 	firehose_region_t	*regions;
 	size_t			 regions_num;
 	size_t			 buckets_num;
+
+	/*
+	 * Pad the struct to inhibit false sharing
+	 */
 	uint8_t			 _pad[FH_CACHE_LINE_BYTES-
 				      3*sizeof(size_t)-2*sizeof(void*)];
 }
@@ -173,7 +177,7 @@ int	fhi_CoalesceBuckets(uintptr_t *bucket_addr_list, size_t num_buckets,
  * order to respect the upper bound on the total number of buckets in flight
  * (represented by the fhc_LocalOnlyBucketsInFlight counter).
  *
- * The WaitLocalBucketsToPin() functions talls on the total number of local
+ * The WaitLocalBucketsToPin() functions stalls on the total number of local
  * buckets pinned by the local node only (buckets which do not have any remote
  * firehose mappings).  The limit is established by the MAXVICTIM_M parameter
  * and respects the fhc_LocalVictimFifoBuckets counter.
@@ -312,6 +316,14 @@ fh_region_ispinned(gasnet_node_t node, uintptr_t addr, size_t len)
 	FH_TABLE_ASSERT_LOCKED;
  	FH_FOREACH_BUCKET(addr, end_addr, bucket_addr) {
 		bd = fh_bucket_lookup(node, bucket_addr);
+
+		/* 
+		 * Upon lookup, the bucket can either not be present in the
+		 * hash table in which case it is certainly unpinned, or it
+		 * can be in the table but be pending.  If the bucket is
+		 * pending a firehose move, the region cannot be declared as
+		 * pinned.
+		 */
 		if (bd == NULL || 
 		   (node != gasnet_mynode() && FH_IS_REMOTE_PENDING(bd)))
 			return 0;
@@ -319,6 +331,78 @@ fh_region_ispinned(gasnet_node_t node, uintptr_t addr, size_t len)
 	return 1;
 }
 
+/* 
+ * Bucket state transitions
+ *
+ * Each bucket (whether local or remote) can be either pinned or unpinned.
+ * Local buckets have a remote (R) and local (L) refcount whereas remote
+ * buckets only have remote refcounts.
+ *
+ * Remote bucket handling is straightforward -- if R=0, the bucket is in the
+ * remote fifo, and if R>0, it is in use.
+ *
+ * Local bucket handling is complicated by the L refcount and the necessity to
+ * maintain the 'fhc_LocalOnlyBucketsPinned' counter (shown as LOnly below).
+ *
+ *********************************
+ * LOCAL BUCKET STATE TRANSITIONS
+ *********************************
+ * Each state transition is triggered by acquire and release.
+ *
+ *           R L        
+ *          .---.        
+ *       A. |0 0| (UNPINNED)
+ *          `---'          
+ *          |  ^         
+ *          |  | LOnly--
+ *  LOnly++ |  |        
+ *          V  |                              R L 
+ *          .---. (PINNED)                   .---.
+ *       B. |0 0| (IN FIFO) <-- -- -- -- --> |0 1| C. (PINNED)
+ *          `---'                            `---'
+ *          |  ^                             |  ^ 
+ *          |  | LOnly++                     |  |  LOnly++
+ *  LOnly-- |  |                     LOnly-- |  |
+ *          V  |                             V  |
+ *          .---.                            .---.
+ *       E. |1 0| (PINNED)  <-- -- -- -- --> |1 1| D. (PINNED)
+ *          `---'                            `---'
+ *
+ * All transitions  _TO_  state 'B' add    the bucket to the FIFO
+ * All transitions _FROM_ state 'B' remove the bucket to the FIFO
+ *
+ *********************************
+ * REMOTE BUCKET STATE TRANSITIONS
+ *********************************
+ * State transitions triggers are indicated in the diagram
+ * 
+ *            C.                               B.
+ *          .---. (PINNED)   acquire(),R=1   .---.
+ *          |R=0| (IN FIFO) <-- -- -- -- --> |R>0| (PINNED)
+ *          `---'            release(),R=0   `---'
+ *                                             ^ 
+ *                                             |  Firehose reply
+ *                                             | 
+ *                                             |
+ *                                           .---. (UNPINNED, PENDING PIN)
+ *          Firehose request -- -- -- -- --> |R>0| -- --.
+ *          first acquire()                  `---'      |
+ *                                        A.  ^         |  acquire()
+ *                                            |_ __ __ / 
+ *
+ * - Some transitions from 'B' are missing, the transition to 'C' only happens
+ *   when the reference count reaches zero.
+ * - Subsequent acquires on a bucket pending pin (state 'A') cause firehose
+ *   requests to be queued up at the sender.  In other words, completions can
+ *   be coalesced by a single firehose reply.
+ *
+ *--
+ * Acquiring a bucket increments the refcount (either R or L)
+ * Release a bucket decrements the refcount (ether R or L)
+ *
+ * Both functions return the new reference count for the incremented count.
+ *
+ */
 fh_refc_t
 fh_bucket_acquire(gasnet_node_t node, fh_bucket_t *entry)
 {
@@ -332,24 +416,34 @@ fh_bucket_acquire(gasnet_node_t node, fh_bucket_t *entry)
 	assert(entry != NULL);
 
 	if (FH_NODE(entry) == gasnet_mynode()) {
-		int	loc = (node == gasnet_mynode());
+
+		int	ref_L = (node == gasnet_mynode());
+		/*
+		 * 'ref_L' is TRUE if we are acquiring a local bucket for the
+		 *         local node (ie: fh_local_pin).  
+		 * 'ref_L' is FALSE if we are acquireing a local bucket from a
+		 *         firehose request (fh_am_move).
+		 *
+		 */
 
 		if (FH_IS_LOCAL_FIFO(entry)) {
 			FH_TAILQ_REMOVE(&fh_LocalFifo, entry);
 			assert(FH_NODE(entry) == gasnet_mynode());
-			assert(entry->fh_state == fh_local_fifo);
-			FH_REFCSET(FH_REFCOUNT(entry), loc, !loc);
-			fhc_LocalOnlyBucketsPinned -= !loc;
+			FH_BSTATE_ASSERT(entry, fh_local_fifo);
+
+			FH_REFCSET(FH_REFCOUNT(entry), ref_L, !ref_L);
+			fhc_LocalOnlyBucketsPinned -= !ref_L;
 			fhc_LocalVictimFifoBuckets--;
-			entry->fh_state = fh_used;
+			FH_BSTATE_SET(entry, fh_used);
 			FH_SET_USED(entry);
+
 			FH_TRACE_BUCKET(entry, ACQFIFO);
 			return 1;
 		}
 		else {
 			FH_SET_USED(entry);
-			assert(entry->fh_state == fh_used);
-			if (loc) {
+			FH_BSTATE_ASSERT(entry, fh_used);
+			if (ref_L) {
 				FH_LREFCINC(FH_REFCOUNT(entry));
 				FH_TRACE_BUCKET(entry, ACQUIRE);
 				return FH_LREFC(FH_REFCOUNT(entry));
@@ -374,19 +468,22 @@ fh_bucket_acquire(gasnet_node_t node, fh_bucket_t *entry)
 
 		if (FH_IS_REMOTE_FIFO(entry)) {
 			FH_TAILQ_REMOVE(&fh_RemoteNodeFifo[node], entry);
+
 			assert(FH_NODE(entry) != gasnet_mynode());
-			assert(entry->fh_state == fh_remote_fifo);
+			FH_BSTATE_ASSERT(entry, fh_remote_fifo);
+
 			fhc_RemoteVictimFifoBuckets[node]--;
 			FH_REFCSET(FH_REFCOUNT(entry), 0, 1);
 			FH_SET_USED(entry);
-			entry->fh_state = fh_used;
+			FH_BSTATE_SET(entry, fh_used);
 			FH_TRACE_BUCKET(entry, ACQFIFO);
 			return 0;
 		}
 		else {
 			/* Pending buckets must be handled separately */
-			assert(entry->fh_state == fh_used);
 			assert(!FH_IS_REMOTE_PENDING(entry));
+			FH_BSTATE_ASSERT(entry, fh_used);
+
 			FH_RREFCINC(FH_REFCOUNT(entry));
 			FH_TRACE_BUCKET(entry, ACQUIRE);
 			return FH_RREFC(FH_REFCOUNT(entry));
@@ -400,13 +497,18 @@ fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 	FH_TABLE_ASSERT_LOCKED;
 
 	assert(entry != NULL);
-	assert(entry->fh_state == fh_used);
+	FH_BSTATE_ASSERT(entry, fh_used);
 
-	/* Deal with local buckets, which can contain local and remote
-	 * refcounts */
 	if (FH_NODE(entry) == gasnet_mynode()) {
-		int		loc = (node == gasnet_mynode());
 		fh_refc_t	ret;
+		int		loc = (node == gasnet_mynode());
+		/*
+		 * 'ref_L' is TRUE if we are acquiring a local bucket for the
+		 *         local node (ie: fh_local_pin).  
+		 * 'ref_L' is FALSE if we are acquireing a local bucket from a
+		 *         firehose request (fh_am_move).
+		 *
+		 */
 
 		assert(!FH_IS_LOCAL_FIFO(entry));
 
@@ -421,17 +523,15 @@ fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 
 		if (FH_REFC_IS_VICTIM(FH_REFCOUNT(entry))) {
 			FH_TAILQ_INSERT_TAIL(&fh_LocalFifo, entry);
-			assert(FH_IS_LOCAL_FIFO(entry));
-			assert(FH_NODE(FH_TAILQ_FIRST(&fh_LocalFifo)) 
-					== gasnet_mynode());
+
 			fhc_LocalOnlyBucketsPinned += !loc;
 			fhc_LocalVictimFifoBuckets++;
-			entry->fh_state = fh_local_fifo;
+
+			FH_BSTATE_SET(entry, fh_local_fifo);
 			FH_TRACE_BUCKET(entry, ADDFIFO);
 			return 0;
 		}
 		else {
-			FH_SET_USED(entry);
 			if (FH_RREFC(FH_REFCOUNT(entry)) == 0 && !loc)
 				fhc_LocalOnlyBucketsPinned++;
 
@@ -447,14 +547,15 @@ fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 		assert(!FH_IS_REMOTE_PENDING(entry));
 
 		FH_RREFCDEC(FH_REFCOUNT(entry));
+
 		fh_refc_t refc = FH_RREFC(FH_REFCOUNT(entry));
 		if (refc == 0) {
 			FH_TAILQ_INSERT_TAIL(
 			    &fh_RemoteNodeFifo[node], entry);
-			assert(FH_NODE(FH_TAILQ_FIRST(
-			    &fh_RemoteNodeFifo[node])) != gasnet_mynode());
+
 			fhc_RemoteVictimFifoBuckets[node]++;
-			entry->fh_state = fh_remote_fifo;
+
+			FH_BSTATE_SET(entry, fh_remote_fifo);
 			FH_TRACE_BUCKET(entry, ADDFIFO);
 			return 0;
 		}
@@ -483,17 +584,22 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	assert(FH_MAXVICTIM_TO_PHYSMEM_RATIO >= 0 && 
 	       FH_MAXVICTIM_TO_PHYSMEM_RATIO <= 1);
 
-	/* In -page, we ignore regions. . there should not be a limit on the
-	 * number of regions */
+	/* 
+	 * In -page, we ignore regions. . there should not be a limit on the
+	 * number of regions 
+	 */ 
 
 	if (max_regions != 0)
 		gasneti_fatalerror("firehose-page does not support a "
 				   "limitation on the number of regions");
-
-	/* Find how many buckets the client pinned need to hashed */
-	{
-		uintptr_t	bucket_addr, end_addr;
-		fh_bucket_t	*bd;
+	/*
+	 * Prepin optimization: PHASE 1.
+	 *
+	 * In this phase, we only validate the firehose parameters and count
+	 * the number of buckets that are set as prepinned.
+	 *
+	 */
+	if (num_reg > 0) {
 		int		i;
 
 		for (i = 0; i < num_reg; i++) {
@@ -513,22 +619,6 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 			b_prepinned +=
 				FH_NUM_BUCKETS(regions[i].addr,regions[i].len);
 
-		}
-		/* Now add all the prepinned buckets and marked them as
-		 * prepinned (which makes acquire/release of each bucket a
-		 * no-op */
-		for (i = 0; i < num_reg; i++) {
-			end_addr = regions[i].addr + regions[i].len - 1;
-			FH_FOREACH_BUCKET(regions[i].addr, 
-	 				  end_addr, bucket_addr) {
-
-				bd = fh_bucket_add(gasnet_mynode(), 
-						   bucket_addr);
-
-				bd->fh_state = fh_used;
-				FH_SET_USED(bd);
-				FH_TRACE_BUCKET(bd, ADDING PREPINNED);
-			}
 		}
 	}
 
@@ -608,8 +698,35 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	}
 
 	/* Initialize bucket freelist with the total amount of buckets
-	 * to be pinned */
+	 * to be pinned (including the ones the client passed) */
 	fh_bucket_init_freelist(firehoses + fhc_MaxVictimBuckets + b_prepinned);
+
+	/*
+	 * Prepin optimization: PHASE 2.
+	 *
+	 * In this phase, the firehose parameters have been validated and the
+	 * buckets are added to the firehose table and set as 'used'.
+	 *
+	 */
+	if (num_reg > 0) {
+		uintptr_t	bucket_addr, end_addr;
+		fh_bucket_t	*bd;
+
+		for (i = 0; i < num_reg; i++) {
+			end_addr = regions[i].addr + regions[i].len - 1;
+			FH_FOREACH_BUCKET(regions[i].addr, 
+	 				  end_addr, bucket_addr) {
+
+				bd = fh_bucket_add(gasnet_mynode(), 
+						   bucket_addr);
+
+				FH_BSTATE_SET(bd, fh_used);
+				FH_SET_USED(bd);
+				FH_TRACE_BUCKET(bd, ADDING PREPINNED);
+			}
+		}
+	}
+
 
 	/* 
 	 * Set fields in the firehose information type, according to the limits
@@ -696,8 +813,6 @@ fh_fini_plugin()
 /* Conditional wait and polling functions  */
 /* ####################################### */
 
-#ifndef FHI_DONTUSE_POOL
-
 fhi_RegionPool_t *
 fhi_AllocRegionPool(b_num)
 {
@@ -724,7 +839,7 @@ fhi_AllocRegionPool(b_num)
 			return rpool;
 		}
 		else {
-			b_num = FH_REGIONPOOL_DEFAULT_BUFNUM;
+			b_num          = FH_REGIONPOOL_DEFAULT_BUFNUM;
 			rpool->len     = FH_REGIONPOOL_DEFAULT_BUFNUM * 
 						sizeof(firehose_region_t);
 			rpool->regions = (firehose_region_t *) 
@@ -755,43 +870,12 @@ fhi_FreeRegionPool(fhi_RegionPool_t *rpool)
 	else {
 		rpool->regions_num = 0;
 		rpool->buckets_num = 0;
-		FH_STAILQ_INSERT_HEAD(&fhi_regpool_list, rpool);
-		assert(FH_STAILQ_FIRST(&fhi_regpool_list) == rpool);
+		FH_STAILQ_INSERT_TAIL(&fhi_regpool_list, rpool);
+		assert(!FH_STAILQ_EMPTY(&fhi_regpool_list));
 	}
 
 	return;
 }
-
-#else
-fhi_RegionPool_t *
-fhi_AllocRegionPool(b_num)
-{
-	fhi_RegionPool_t *rpool;
-
-	FH_TABLE_ASSERT_LOCKED;
-
-	rpool = (fhi_RegionPool_t *) gasneti_malloc(sizeof(fhi_RegionPool_t));
-	if_pf (rpool == NULL)
-		gasneti_fatalerror("malloc");
-	rpool->len = sizeof(firehose_region_t) * b_num;
-	rpool->regions = (firehose_region_t *) gasneti_malloc(rpool->len);
-	rpool->regions_num = 0;
-	rpool->buckets_num = 0;
-	
-	return rpool;
-}
-
-void
-fhi_FreeRegionPool(fhi_RegionPool_t *rpool)
-{
-	FH_TABLE_ASSERT_LOCKED;
-
-	gasneti_free(rpool->regions);
-	gasneti_free(rpool);
-
-	return;
-}
-#endif
 
 void
 fhi_WaitLocalBucketsInFlight(int b_num)
@@ -1252,7 +1336,7 @@ fhi_InitLocalRegionsList(gasnet_node_t node, firehose_region_t *region,
 
 		FH_FOREACH_BUCKET(region[i].addr,end_addr,bucket_addr) {
 			bd = fh_bucket_add(gasnet_mynode(), bucket_addr);
-			bd->fh_state = fh_used;
+			FH_BSTATE_SET(bd, fh_used);
 			FH_REFCSET(FH_REFCOUNT(bd), loc, rem);
 
 			FH_TRACE_BUCKET(bd, INIT);
@@ -1368,7 +1452,7 @@ fhi_FlushPendingRequests(gasnet_node_t node, firehose_region_t *region,
 
 			/* Make sure the bucket was set as pending */
 			assert(FH_IS_REMOTE_PENDING(bd));
-			assert(bd->fh_state == fh_pending);
+			FH_BSTATE_ASSERT(bd, fh_pending);
 			assert(bd->fh_tqe_next != NULL);
 
 			/* if there is a pending request on the bucket, save it
@@ -1377,7 +1461,7 @@ fhi_FlushPendingRequests(gasnet_node_t node, firehose_region_t *region,
 			numpend++;
 			assert(numpend < fh_max_regions); 
 			FH_UNSET_REMOTE_PENDING(bd);
-			bd->fh_state = fh_used;
+			FH_BSTATE_SET(bd, fh_used);
 		}
 	}
 
@@ -1565,7 +1649,7 @@ fhi_TryAcquireRemoteRegion(gasnet_node_t node, firehose_request_t *req,
 			fh_temp_buckets[unpinned] = bucket_addr;
 			/* We add the bucket but set it PENDING */
 			bd = fh_bucket_add(node, bucket_addr);
-			bd->fh_state = fh_pending;
+			FH_BSTATE_SET(bd, fh_pending);
 			FH_SET_REMOTE_PENDING(bd);
 			FH_TRACE_BUCKET(bd, INIT);
 
