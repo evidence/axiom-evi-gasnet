@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/11/21 05:39:36 $
- * $Revision: 1.9 $
+ *     $Date: 2002/12/09 09:37:32 $
+ * $Revision: 1.10 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -461,7 +461,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   }
   else {
     LOCK_ELAN_WEAK();
-      if (category == gasnetc_Long) {
+      if (category == gasnetc_Long && nbytes > 0) {
         /* do put and block for completion */
         ELAN_EVENT *putevt;
         void *bouncebuf = NULL;
@@ -470,7 +470,13 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
             elan_addressable(STATE(), source_addr, nbytes)) {
           /* safe to put directly from source */
           putevt = elan_put(STATE(), source_addr, dest_ptr, nbytes, dest);
+          #ifdef TRACE
+            UNLOCK_ELAN_WEAK(); /* prevent weak lock violation on elan_clock() */
+          #endif
           GASNETI_TRACE_EVENT_VAL(C,AMLONG_DIRECT,nbytes);
+          #ifdef TRACE
+            LOCK_ELAN_WEAK();
+          #endif
         } else { /* need to use a bounce buffer */
           /* TODO: this may fail for unmapped segment under GASNET_SEGMENT_EVERYTHING */
           assert(elan_addressable(STATE(), dest_ptr, nbytes));
@@ -479,7 +485,13 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
           assert(bouncebuf); /* TODO: if we run out of mem here, we're in trouble */
           memcpy(bouncebuf, source_addr, nbytes);
           putevt = elan_put(STATE(), bouncebuf, dest_ptr, nbytes, dest);
+          #ifdef TRACE
+            UNLOCK_ELAN_WEAK(); /* prevent weak lock violation on elan_clock() */
+          #endif
           GASNETI_TRACE_EVENT_VAL(C,AMLONG_BUFFERED,nbytes);
+          #ifdef TRACE
+            LOCK_ELAN_WEAK();
+          #endif
         }
         /* loop until put is complete (required to ensure ordering semantics) 
            could make this totally asynchronous with lots more work, 
