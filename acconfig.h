@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/07/17 17:00:27 $ */
-/*  $Revision: 1.30 $ */
+/*      $Date: 2004/07/28 20:47:56 $ */
+/*  $Revision: 1.31 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -58,8 +58,8 @@
 /* forcing UP build, even if build platform is a multi-processor */
 #undef GASNETI_UNI_BUILD
 
-/* force a memory barrier after a GASNet local (loopback) put */
-#undef GASNETI_MEMSYNC_ON_LOOPBACKPUT
+/* force memory barriers on GASNet local (loopback) puts and gets */
+#undef GASNETI_MEMSYNC_ON_LOOPBACK
 
 /* throttle polling threads in multi-threaded configurations to reduce contention */
 #undef GASNETI_THROTTLE_FEATURE_ENABLED

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2004/07/23 22:36:41 $
- * $Revision: 1.19 $
+ *     $Date: 2004/07/28 20:47:58 $
+ * $Revision: 1.20 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -160,11 +160,9 @@ extern gasnet_seginfo_t *gasnete_seginfo;
   #if GASNETI_THREADS
     #define gasneti_sync_writes() gasneti_local_wmb()
   #else
-    /* Nothing, not even a compiler optimization barrier */
     #define gasneti_sync_writes() 
   #endif
 #endif
-
 #ifndef gasneti_sync_reads
   #if GASNETI_THREADS
     #define gasneti_sync_reads() gasneti_local_rmb()
@@ -173,10 +171,20 @@ extern gasnet_seginfo_t *gasnete_seginfo;
   #endif
 #endif
 
-#ifdef GASNETI_MEMSYNC_ON_LOOPBACKPUT
+/* gasnete_loopback{get,put}_memsync() go after a get or put is done with both source
+ * and destination on the local node.  This is only done if GASNet was configured
+ * for the stricter memory consistency model.
+ * The put_memsync belongs after the memory copy to ensure that writes are committed in
+ * program order.
+ * The get_memsync belongs after the memory copy to ensure that if the value(s) read
+ * is used to predicate any subsequent reads, that the reads are done in program order.
+ */
+#ifdef GASNETI_MEMSYNC_ON_LOOPBACK
   #define gasnete_loopbackput_memsync() gasneti_local_wmb()
+  #define gasnete_loopbackget_memsync() gasneti_local_rmb()
 #else
   #define gasnete_loopbackput_memsync() 
+  #define gasnete_loopbackget_memsync()
 #endif
 
 /* ------------------------------------------------------------------------------------ */

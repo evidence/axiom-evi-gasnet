@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2004/07/17 17:00:31 $
- * $Revision: 1.26 $
+ *     $Date: 2004/07/28 20:47:58 $
+ * $Revision: 1.27 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,6 +89,7 @@ gasnet_handle_t _gasnet_get_nb      (void *dest, gasnet_node_t node, void *src, 
   if (gasnete_islocal(node)) {
     GASNETI_TRACE_GET(GET_NB_LOCAL,dest,node,src,nbytes);
     GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes);
+    gasnete_loopbackget_memsync();
     return GASNET_INVALID_HANDLE;
   } else {
     GASNETI_TRACE_GET(GET_NB,dest,node,src,nbytes);
@@ -124,6 +125,7 @@ gasnet_handle_t _gasnet_get_nb_bulk (void *dest, gasnet_node_t node, void *src, 
   if (gasnete_islocal(node)) {
     GASNETI_TRACE_GET(GET_NB_BULK_LOCAL,dest,node,src,nbytes);
     GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes);
+    gasnete_loopbackget_memsync();
     return GASNET_INVALID_HANDLE;
   } else {
     GASNETI_TRACE_GET(GET_NB_BULK,dest,node,src,nbytes);
@@ -272,6 +274,7 @@ void _gasnet_get_nbi      (void *dest, gasnet_node_t node, void *src, size_t nby
   if (gasnete_islocal(node)) {
     GASNETI_TRACE_GET(GET_NBI_LOCAL,dest,node,src,nbytes);
     GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes);
+    gasnete_loopbackget_memsync();
   } else {
     GASNETI_TRACE_GET(GET_NBI,dest,node,src,nbytes);
     gasnete_get_nbi(dest, node, src, nbytes GASNETE_THREAD_PASS);
@@ -305,6 +308,7 @@ void _gasnet_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nby
   if (gasnete_islocal(node)) {
     GASNETI_TRACE_GET(GET_NBI_BULK_LOCAL,dest,node,src,nbytes);
     GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes);
+    gasnete_loopbackget_memsync();
   } else {
     GASNETI_TRACE_GET(GET_NBI_BULK,dest,node,src,nbytes);
     gasnete_get_nbi_bulk(dest, node, src, nbytes GASNETE_THREAD_PASS);
@@ -512,6 +516,7 @@ void _gasnet_get (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNE
   if (gasnete_islocal(node)) {
     GASNETI_TRACE_GET(GET_LOCAL,dest,node,src,nbytes);
     GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes);
+    gasnete_loopbackget_memsync();
   } else {
     GASNETI_TRACE_GET(GET,dest,node,src,nbytes);
     gasnete_get(dest, node, src, nbytes GASNETE_THREAD_PASS);
@@ -527,6 +532,7 @@ void _gasnet_get_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes 
   if (gasnete_islocal(node)) {
     GASNETI_TRACE_GET(GET_BULK_LOCAL,dest,node,src,nbytes);
     GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes);
+    gasnete_loopbackget_memsync();
   } else {
     GASNETI_TRACE_GET(GET_BULK,dest,node,src,nbytes);
     gasnete_get_bulk(dest, node, src, nbytes GASNETE_THREAD_PASS);
