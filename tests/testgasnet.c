@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2004/09/01 20:20:54 $
- * $Revision: 1.20 $
+ *     $Date: 2004/10/22 19:26:01 $
+ * $Revision: 1.21 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,6 +8,7 @@
 
 #include <gasnet.h>
 
+#define TEST_MAXTHREADS 1
 #include <test.h>
 
 #define TEST_GASNET 1
