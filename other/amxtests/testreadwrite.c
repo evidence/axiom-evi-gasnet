@@ -58,7 +58,7 @@ int main(int argc, char **argv) {
       /* verify */
       for (i=0;i<MAX_PROCS;i++) {
         if (((int)readarray[i]) != k) {
-          printf("Proc %i READ/WRITE TEST FAILED : readarray[%i] = %i   k = %i\n", myproc, i, readarray[i], k);
+          printf("Proc %i READ/WRITE TEST FAILED : readarray[%i] = %i   k = %i\n", myproc, i, (int)readarray[i], k);
           fflush(stdout);
           break;
           }

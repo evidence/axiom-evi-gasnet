@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2004/02/13 18:00:16 $
- * $Revision: 1.16 $
+ *     $Date: 2004/02/17 22:57:51 $
+ * $Revision: 1.17 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1113,7 +1113,7 @@ extern const char *AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int glob
     , 
     (int)requestsSent, (int)requestsReceived,
     (int)repliesSent, (int)repliesReceived,
-    stats->ReturnedMessages,
+    (int)stats->ReturnedMessages,
   #if AMMPI_COLLECT_LATENCY_STATS
     (int)stats->RequestMinLatency,
     (int)stats->RequestMaxLatency,

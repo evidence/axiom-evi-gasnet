@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2004/02/13 18:00:16 $
- * $Revision: 1.17 $
+ *     $Date: 2004/02/17 22:57:51 $
+ * $Revision: 1.18 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -102,8 +102,8 @@ extern char *AMMPI_enStr(en_t en, char *buf) {
 extern char *AMMPI_tagStr(tag_t tag, char *buf) {
   AMMPI_assert(buf);
   sprintf(buf, "0x%08x%08x", 
-    (uint32_t)(tag >> 32), 
-    (uint32_t)(tag & 0xFFFFFFFF));
+    (unsigned int)(uint32_t)(tag >> 32), 
+    (unsigned int)(uint32_t)(tag & 0xFFFFFFFF));
   return buf;
   }
 /* ------------------------------------------------------------------------------------ 

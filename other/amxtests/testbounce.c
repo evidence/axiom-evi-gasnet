@@ -31,7 +31,7 @@ static void large_request_handler(void *token, void *buf, int nbytes, int arg) {
   { int i;
     for (i = 0; i < AM_MaxLong()/4; i++) {
       if (recvdbuf[i] != (uint32_t)((count << 16) + i)) {
-        printf("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, recvdbuf[i]);
+        printf("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, (int)recvdbuf[i]);
         fflush(stdout);
         abort();
         }
@@ -69,7 +69,7 @@ static void large_reply_handler(void *token, void *buf, int nbytes, int arg) {
   { int i;
     for (i = 0; i < AM_MaxLong()/4; i++) {
       if (recvdbuf[i] != (uint32_t)((count << 16) + i)) {
-        printf("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, recvdbuf[i]);
+        printf("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, (int)recvdbuf[i]);
         fflush(stdout);
         abort();
         }

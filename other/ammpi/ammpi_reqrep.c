@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2004/01/05 05:01:19 $
- * $Revision: 1.14 $
+ *     $Date: 2004/02/17 22:57:51 $
+ * $Revision: 1.15 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1013,7 +1013,7 @@ extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
   argStr[0] = '\0';
   for (i=0; i < numArgs; i++) {
     char tmp[20];
-    sprintf(tmp, "0x%08x  ", args[i]);
+    sprintf(tmp, "0x%08x  ", (unsigned int)args[i]);
     strcat(argStr, tmp);
     }
   { char temp1[80];
@@ -1028,7 +1028,7 @@ extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
              "Arguments(%i): %s\n"
              "Aborting...",
              statusStr, opcodeStr, 
-             AMMPI_enStr(msgbuf->status.sourceAddr, temp1), msgbuf->status.sourceId,
+             AMMPI_enStr(msgbuf->status.sourceAddr, temp1), (int)msgbuf->status.sourceId,
              msgbuf->Msg.handlerId, 
              #if AMMPI_USE_AMTAGS
                AMMPI_tagStr(msgbuf->Msg.tag, temp2),

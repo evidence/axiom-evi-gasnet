@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/01/19 12:57:30 $
- * $Revision: 1.20 $
+ *     $Date: 2004/02/17 22:57:50 $
+ * $Revision: 1.21 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,12 +52,12 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
       size_t _nbytes = nbytes;                                                                                     \
       if_pf (_node > gasnet##T##_nodes)                                                                            \
         gasneti_fatalerror("Node index out of range (%i >= %i) at %s",                                             \
-                           _node, gasnet##T##_nodes, gasneti_current_loc);                                         \
+                           (int)_node, (int)gasnet##T##_nodes, gasneti_current_loc);                                         \
       if_pf (_ptr < (uintptr_t)gasnet##T##_seginfo[_node].addr ||                                                  \
              (_ptr + _nbytes) > (((uintptr_t)gasnet##T##_seginfo[_node].addr) + gasnet##T##_seginfo[_node].size))  \
         gasneti_fatalerror("Remote address out of range (node=%i ptr="GASNETI_LADDRFMT" nbytes=%i "                \
                            "segment=("GASNETI_LADDRFMT"..."GASNETI_LADDRFMT")) at %s",                             \
-                           _node, GASNETI_LADDRSTR(_ptr), (int)_nbytes,                                            \
+                           (int)_node, GASNETI_LADDRSTR(_ptr), (int)_nbytes,                                            \
                            GASNETI_LADDRSTR(gasnet##T##_seginfo[_node].addr),                                      \
                            GASNETI_LADDRSTR(((uint8_t*)gasnet##T##_seginfo[_node].addr) +                          \
                                             gasnet##T##_seginfo[_node].size),                                      \

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/apputils.c                                       $
- *     $Date: 2004/02/13 18:00:19 $
- * $Revision: 1.9 $
+ *     $Date: 2004/02/17 22:57:53 $
+ * $Revision: 1.10 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -152,7 +152,7 @@ extern void outputTimerStats() {
     fprintf(stdout, "Timer overhead:      %f us per call\n"
                     "Timer mindiff:       %i us\n"
                     "Timer granularity: +-%f us\n", 
-                    (float)avgtime, mindiff, (float)granularity);
+                    (float)avgtime, (int)mindiff, (float)granularity);
     fflush(stdout);
   }
 }

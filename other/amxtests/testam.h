@@ -263,7 +263,7 @@
 #define SHORTHANDLERS(num)                                                           \
   void short_##num##req_handler(token_t token FA##num) {                             \
     if (CA##num) {                                                                   \
-      fprintf(stderr, "Arg mismatch in short_%sreq_handler on P%i\n", #num, MYPROC); \
+      fprintf(stderr, "Arg mismatch in short_%sreq_handler on P%i\n", #num, (int)MYPROC); \
       fflush(stderr);                                                                \
       abort();                                                                       \
     }                                                                                \
@@ -272,7 +272,7 @@
   }                                                                                  \
   void short_##num##rep_handler(token_t token FA##num) {                             \
     if (CA##num) {                                                                   \
-      fprintf(stderr, "Arg mismatch in short_%srep_handler on P%i\n", #num, MYPROC); \
+      fprintf(stderr, "Arg mismatch in short_%srep_handler on P%i\n", #num, (int)MYPROC); \
       fflush(stderr);                                                                \
       abort();                                                                       \
     }                                                                                \
@@ -282,13 +282,13 @@
 #define MEDIUMHANDLERS(num)                                                               \
   void medium_##num##req_handler(token_t token, void *buf, bufsize_t nbytes FA##num) {    \
     if (CA##num) {                                                                        \
-      fprintf(stderr, "Arg mismatch in medium_%sreq_handler on P%i\n", #num, MYPROC);     \
+      fprintf(stderr, "Arg mismatch in medium_%sreq_handler on P%i\n", #num, (int)MYPROC);     \
       fflush(stderr);                                                                     \
       abort();                                                                            \
     }                                                                                     \
     if (nbytes != sizeof(int) || *(int*)buf != num) {                                     \
       fprintf(stderr, "buf mismatch in medium_%sreq_handler on P%i: nbytes=%i, buf=%i\n", \
-                       #num, MYPROC, (int)nbytes, *(int*)buf);                            \
+                       #num, (int)MYPROC, (int)nbytes, *(int*)buf);                            \
       fflush(stderr);                                                                     \
       abort();                                                                            \
     }                                                                                     \
@@ -298,13 +298,13 @@
   }                                                                                       \
   void medium_##num##rep_handler(token_t token, void *buf, bufsize_t nbytes FA##num) {    \
     if (CA##num) {                                                                        \
-      fprintf(stderr, "Arg mismatch in medium_%srep_handler on P%i\n", #num, MYPROC);     \
+      fprintf(stderr, "Arg mismatch in medium_%srep_handler on P%i\n", #num, (int)MYPROC);     \
       fflush(stderr);                                                                     \
       abort();                                                                            \
     }                                                                                     \
     if (nbytes != sizeof(int) || *(int*)buf != -num) {                                    \
       fprintf(stderr, "buf mismatch in medium_%srep_handler on P%i: nbytes=%i, buf=%i\n", \
-                       #num, MYPROC, (int)nbytes, *(int*)buf);                            \
+                       #num, (int)MYPROC, (int)nbytes, *(int*)buf);                            \
       fflush(stderr);                                                                     \
       abort();                                                                            \
     }                                                                                     \
@@ -316,13 +316,13 @@
     int mybuf;                                                                                                                    \
     GETPARTNER(token);                                                                                                            \
     if (CA##num) {                                                                                                                \
-      fprintf(stderr, "Arg mismatch in long_%sreq_handler on P%i\n", #num, MYPROC);                                               \
+      fprintf(stderr, "Arg mismatch in long_%sreq_handler on P%i\n", #num, (int)MYPROC);                                               \
       fflush(stderr);                                                                                                             \
       abort();                                                                                                                    \
     }                                                                                                                             \
     if (nbytes != sizeof(int) || buf != ((int*)MYSEG)+num || *(int*)buf != num) {                                                 \
       fprintf(stderr, "buf mismatch in long_%sreq_handler on P%i: nbytes=%i, buf=%i\n",                                           \
-                       #num, MYPROC, (int)nbytes, *(int*)buf);                                                                    \
+                       #num, (int)MYPROC, (int)nbytes, *(int*)buf);                                                                    \
       fflush(stderr);                                                                                                             \
       abort();                                                                                                                    \
     }                                                                                                                             \
@@ -333,13 +333,13 @@
   }                                                                                                                               \
   void long_##num##rep_handler(token_t token, void *buf, bufsize_t nbytes FA##num) {                                              \
     if (CA##num) {                                                                                                                \
-      fprintf(stderr, "Arg mismatch in long_%srep_handler on P%i\n", #num, MYPROC);                                               \
+      fprintf(stderr, "Arg mismatch in long_%srep_handler on P%i\n", #num, (int)MYPROC);                                               \
       fflush(stderr);                                                                                                             \
       abort();                                                                                                                    \
     }                                                                                                                             \
     if (nbytes != sizeof(int) || buf != ((int*)MYSEG)+NUMHANDLERS_PER_TYPE+num || *(int*)buf != -(int)num) {                      \
       fprintf(stderr, "buf mismatch in long_%srep_handler on P%i: nbytes=%i, buf=%i\n",                                           \
-                       #num, MYPROC, (int)nbytes, *(int*)buf);                                                                    \
+                       #num, (int)MYPROC, (int)nbytes, *(int*)buf);                                                                    \
       fflush(stderr);                                                                                                             \
       abort();                                                                                                                    \
     }                                                                                                                             \

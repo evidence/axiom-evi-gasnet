@@ -74,7 +74,7 @@ int main(int argc, char **argv) {
       AM_Safe(AMX_SPMDBarrier()); /* barrier */
       for (i = 0; i < numprocs; i++) {
         if (((int)vals[i]) != i) {
-          printf("Proc %i PUT TEST FAILED : i = %i   vals[i] = %i\n", myproc, i, vals[i]);
+          printf("Proc %i PUT TEST FAILED : i = %i   vals[i] = %i\n", myproc, i, (int)vals[i]);
           break;
           }
         }
