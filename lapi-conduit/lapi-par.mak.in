@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/lapi-par.mak.in,v 1.12 2003/05/30 18:27:52 welcome Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/lapi-par.mak.in,v 1.13 2003/06/01 04:34:29 bonachea Exp $
 # Description: Makefile fragment for LAPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -41,10 +41,10 @@ GASNET_CPPFLAGS = $(GASNET_MISC_CPPFLAGS) $(GASNET_DEFINES) $(GASNET_INCLUDES)
 # linker that GASNet clients should use
 # GASNET_LD = @CC@
 # Explicitly set mpcc_r on SP to get POE library linked into executable
-GASNET_LD = mpcc_r
+GASNET_LD = @LAPI_LD@
 
 # linker flags that GASNet clients should use 
-GASNET_LDFLAGS = @CFLAGS@ @LDFLAGS@
+GASNET_LDFLAGS = @LDFLAGS@
 
 # libraries that GASNet clients should append to link line
 GASNET_LIBS =            \

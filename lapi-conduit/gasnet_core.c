@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/05/30 18:27:52 $
- * $Revision: 1.30 $
+ *     $Date: 2003/06/01 04:34:29 $
+ * $Revision: 1.31 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -181,7 +181,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 	if (rc != LAPI_SUCCESS) {
 	    char *errmsg = "\n*** GASNet FATAL ERROR: In the initialization of the LAPI communication layer\n\n"
 		"This application must be run using the poe job scheduler with the following options: \n"
-		"  poe appname -euidevice us -msg_api lapi -rmpool 1 -procs nproc -nodes numnodes args...\n"
+		"  poe appname -euilib us -msg_api lapi -rmpool 1 -procs nproc -nodes numnodes args...\n"
 		"See the IBM poe documentation for details\n\n[NOTE: Error code %d at line %d in file %s]\n\n";
 	    fprintf(stderr,errmsg,rc,__LINE__,__FILE__);
 	    fflush(stderr);
