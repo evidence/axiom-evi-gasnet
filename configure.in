@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/06/12 12:26:29 $
-# $Revision: 1.63 $
+#     $Date: 2003/06/17 03:07:43 $
+# $Revision: 1.64 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.63 $)
+AC_REVISION($Revision: 1.64 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -810,6 +810,10 @@ case "$target_os" in
     [ AC_MSG_RESULT(broken) 
       AC_DEFINE(BROKEN_LINUX_ASM_ATOMIC_H)
     ] )
+    AC_CHECK_HEADERS(/boot/kernel.h)
+    if test "`uname -a | grep -i SMP`" != ""; then
+      AC_DEFINE(LINUX_SMP_KERNEL)
+    fi
     ;;
 esac
 

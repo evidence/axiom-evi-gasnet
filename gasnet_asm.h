@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/06/11 04:45:27 $
- * $Revision: 1.9 $
+ *     $Date: 2003/06/17 03:07:43 $
+ * $Revision: 1.10 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -108,7 +108,12 @@
       /* some versions of the linux kernel ship with a broken atomic.h
          this code based on a non-broken version of the header */
       #include <linux/config.h>
-      #ifdef CONFIG_SMP
+      #ifdef HAVE__BOOT_KERNEL_H
+        #include </boot/kernel.h>
+      #endif
+      #if defined(CONFIG_SMP) || \
+         (defined(__BOOT_KERNEL_SMP) && (__BOOT_KERNEL_SMP == 1)) || \
+         LINUX_SMP_KERNEL
         #define GASNETI_LOCK "lock ; "
       #else
         #define GASNETI_LOCK ""
