@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/15 00:23:22 $
- * $Revision: 1.14 $
+ *     $Date: 2005/01/15 04:51:54 $
+ * $Revision: 1.15 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -191,10 +191,10 @@ static char *sappendf(char *s, const char *fmt, ...)
   va_list args;
   int old_len, add_len;
 
-  va_start(args, fmt);
-
   /* compute length of thing to append */
+  va_start(args, fmt);
   add_len = vsnprintf(NULL, 0, fmt, args);
+  va_end(args);
 
   /* grow the string, including space for '\0': */
   if (s) {
@@ -214,8 +214,8 @@ static char *sappendf(char *s, const char *fmt, ...)
   }
 
   /* append */
+  va_start(args, fmt);
   vsprintf((s+old_len), fmt, args);
-
   va_end(args);
 
   return s;
