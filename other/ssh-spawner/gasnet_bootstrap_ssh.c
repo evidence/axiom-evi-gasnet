@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/03/18 02:18:26 $
- * $Revision: 1.21 $
+ *     $Date: 2005/03/23 23:37:06 $
+ * $Revision: 1.22 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -19,6 +19,17 @@
 #include <netinet/in.h>
 #if HAVE_NETINET_TCP_H
   #include <netinet/tcp.h>
+#endif
+#if HAVE_PR_SET_PDEATHSIG
+  /* Under Linux we can ask to be sent a given signal when our parent exits.
+   * We use if mainly because of a bug in some versions of OpenSSH that
+   * fail to kill spawned children when the ssh exits.  However, this will
+   * also make us more resistant to runaways if somebody starts  sending
+   * SIGKILL to our processes (which leaves us no other way to cleanup
+   * gracefully).
+   */
+  #include <sys/prctl.h>
+  #include <signal.h>
 #endif
 #include <unistd.h>
 #include <fcntl.h>
@@ -875,6 +886,10 @@ static void spawn_one(const char *argv0, gasnet_node_t child_id, const char *myh
 	     NULL);
       gasneti_fatalerror("execlp(sh) failed");
     } else {
+      #if HAVE_PR_SET_PDEATHSIG
+	/* If parent exits before us (an abnormal condition) then we exit too */
+	(void)prctl(PR_SET_PDEATHSIG, SIGHUP);
+      #endif
       BOOTSTRAP_VERBOSE(("Process %d spawning process %d on %s via %s\n",
 			 (is_master ? -1 : (int)myproc),
 			 (int)child[child_id].rank, host, ssh_argv[0]));
@@ -986,6 +1001,11 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
 
   is_master = 0;
   gasneti_reghandler(SIGURG, &sigurg_handler);
+
+  #if HAVE_PR_SET_PDEATHSIG
+    /* If parent exits before us (an abnormal condition) then trigger an abort */
+    (void)prctl(PR_SET_PDEATHSIG, SIGURG);
+  #endif
 
   if ((argc < 5) || (argc > 6)){
     gasneti_fatalerror("Invalid command line in slave process");
