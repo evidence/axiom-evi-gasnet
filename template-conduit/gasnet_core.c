@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/09/08 14:25:14 $
- * $Revision: 1.15 $
+ *     $Date: 2002/09/14 11:06:38 $
+ * $Revision: 1.16 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -236,7 +236,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* ------------------------------------------------------------------------------------ */
   /*  register fatal signal handlers */
 
-  /*  (###) catch fatal signals and convert to SIGQUIT */
+  /* catch fatal signals and convert to SIGQUIT */
+  gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
+
+  /*  (###) register any custom signal handlers required by your conduit 
+   *        (e.g. to support interrupt-based messaging)
+   */
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */

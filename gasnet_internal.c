@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/09/08 14:25:12 $
- * $Revision: 1.14 $
+ *     $Date: 2002/09/14 11:06:35 $
+ * $Revision: 1.15 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -11,6 +11,12 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <errno.h>
+
+#include <signal.h>
+#ifdef IRIX
+#define signal(a,b) bsd_signal(a,b)
+#endif
 
 #include <gasnet.h>
 #include <gasnet_internal.h>
@@ -96,6 +102,101 @@ size_t gasneti_getSystemPageSize() {
     assert(pagesz > 0);
     return pagesz;
   #endif
+}
+/* ------------------------------------------------------------------------------------ */
+static gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t fp) {
+  gasneti_sighandlerfn_t fpret = (gasneti_sighandlerfn_t)signal(sigtocatch, fp); 
+  if (fpret == (gasneti_sighandlerfn_t)SIG_ERR) {
+    gasneti_fatalerror("Got a SIG_ERR while registering handler for signal %i : %s", 
+                       sigtocatch,strerror(errno));
+    return NULL;
+  }
+  #ifdef SIG_HOLD
+    else if (fpret == (gasneti_sighandlerfn_t)SIG_HOLD) {
+      gasneti_fatalerror("Got a SIG_HOLD while registering handler for signal %i : %s", 
+                         sigtocatch,strerror(errno));
+      return NULL;
+    }
+  #endif
+  return fpret;
+}
+
+#define DEF_SIGNAL(name) { name, #name, NULL }
+static struct {
+  int signum;
+  const char *signame;
+  gasneti_sighandlerfn_t oldhandler;
+} gasneti_signals[] = {
+  /* abort signals */
+  DEF_SIGNAL(SIGABRT),
+  DEF_SIGNAL(SIGILL),
+  DEF_SIGNAL(SIGSEGV),
+  DEF_SIGNAL(SIGBUS),
+  DEF_SIGNAL(SIGFPE),
+  /* termination signals */
+  DEF_SIGNAL(SIGQUIT),
+  DEF_SIGNAL(SIGINT),
+  DEF_SIGNAL(SIGTERM),
+  DEF_SIGNAL(SIGHUP),
+  DEF_SIGNAL(SIGPIPE)
+};
+
+void gasneti_defaultSignalHandler(int sig) {
+  gasneti_sighandlerfn_t oldhandler = NULL;
+  const char *signame = NULL;
+  int i;
+  for (i = 0; i < sizeof(gasneti_signals)/sizeof(gasneti_signals[0]); i++) {
+    if (gasneti_signals[i].signum == sig) {
+      oldhandler = gasneti_signals[i].oldhandler;
+      signame = gasneti_signals[i].signame;
+    }
+  }
+  assert(signame);
+
+  switch (sig) {
+    case SIGQUIT:
+      /* client didn't register a SIGQUIT handler, so just exit */
+      gasnet_exit(1);
+      break;
+    case SIGABRT:
+    case SIGILL:
+    case SIGSEGV:
+    case SIGBUS:
+    case SIGFPE:
+      fprintf(stderr,"*** GASNet caught a fatal signal: %s(%i) on node %i/%i\n",
+        signame, sig, gasnet_mynode(), gasnet_nodes()); 
+      fflush(stderr);
+      signal(sig, SIG_DFL); /* restore default core-dumping handler and re-raise */
+      #if 1
+        raise(sig);
+      #elif 0
+        kill(getpid(),sig);
+      #else
+        oldhandler(sig);
+      #endif
+      break;
+    default: 
+      /* translate signal to SIGQUIT */
+      fprintf(stderr,"*** GASNet caught a signal: %s(%i) on node %i/%i\n",
+        signame, sig, gasnet_mynode(), gasnet_nodes()); 
+      fflush(stderr);
+      #if 1
+        raise(SIGQUIT);
+      #elif 0
+        kill(getpid(),SIGQUIT);
+      #else
+        oldhandler(SIGQUIT);
+      #endif
+      break;
+  }
+}
+
+void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler) {
+  int i;
+  for (i = 0; i < sizeof(gasneti_signals)/sizeof(gasneti_signals[0]); i++) {
+    gasneti_signals[i].oldhandler = 
+      gasneti_reghandler(gasneti_signals[i].signum, handler);
+  }
 }
 /* ------------------------------------------------------------------------------------ */
 /* GASNet Tracing and Statistics */

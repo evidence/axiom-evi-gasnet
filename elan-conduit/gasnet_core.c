@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/09/13 13:41:42 $
- * $Revision: 1.9 $
+ *     $Date: 2002/09/14 11:06:36 $
+ * $Revision: 1.10 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -385,7 +385,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* ------------------------------------------------------------------------------------ */
   /*  register fatal signal handlers */
 
-  /*  (###) catch fatal signals and convert to SIGQUIT */
+  /* catch fatal signals and convert to SIGQUIT */
+  gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */

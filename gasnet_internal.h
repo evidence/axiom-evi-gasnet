@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/09/13 13:41:40 $
- * $Revision: 1.16 $
+ *     $Date: 2002/09/14 11:06:35 $
+ * $Revision: 1.17 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -165,6 +165,10 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
 
 size_t gasneti_getSystemPageSize();
 
+typedef void (*gasneti_sighandlerfn_t)(int);
+void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler);
+void gasneti_defaultSignalHandler(int sig);
+
 #ifdef HAVE_MMAP
   extern gasnet_seginfo_t gasneti_mmap_segment_search();
   extern void gasneti_mmap_fixed(void *segbase, size_t segsize);
@@ -188,7 +192,6 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
 void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
                            gasnet_seginfo_t *seginfo,
                            gasneti_bootstrapExchangefn_t exchangefn);
-
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasneti_ErrorName)
 char *gasneti_ErrorName(int errval) {

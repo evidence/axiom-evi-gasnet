@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/09/13 13:41:44 $
- * $Revision: 1.16 $
+ *     $Date: 2002/09/14 11:06:37 $
+ * $Revision: 1.17 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -270,7 +270,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /* ------------------------------------------------------------------------------------ */
     /*  register fatal signal handlers */
 
-    /*  TODO: catch fatal signals and convert to SIGQUIT */
+    /* catch fatal signals and convert to SIGQUIT */
+    gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
 
     /* ------------------------------------------------------------------------------------ */
     /*  register segment  */
