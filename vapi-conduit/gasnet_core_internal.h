@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/12/02 22:48:43 $
- * $Revision: 1.26 $
+ *     $Date: 2003/12/15 23:53:19 $
+ * $Revision: 1.27 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,6 +32,10 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 #define GASNETC_VAPI_CHECK(vstat,msg) \
   if_pf ((vstat) != VAPI_OK) \
     { gasneti_fatalerror("Unexpected error %s %s",VAPI_strerror_sym(vstat),(msg)); }
+
+/* check for exit in progress */
+extern gasneti_atomic_t gasnetc_exit_running;
+#define GASNETC_IS_EXITING() gasneti_atomic_read(&gasnetc_exit_running)
 
 /* ------------------------------------------------------------------------------------ */
 /* make a GASNet call - if it fails, print error message and return */
@@ -546,7 +550,6 @@ typedef struct {
     VAPI_rkey_t		rkey;
   #else
   #endif
-  gasneti_atomic_t	shutdown;
 } gasnetc_cep_t;
 
 /* Description of a registered (pinned) memory region */
