@@ -70,6 +70,19 @@ For example:
 
 See tests/Makefile for another example of compiling GASNet client code.
 
+
+Recognized Environment Variables
+================================
+
+* GASNET_FREEZE - set to make GASNet pause and wait for a debugger to attach on
+ startup
+
+* GASNET_TRACEFILE, GASNET_TRACEMASK - control tracing & statistical features,
+ if enabled at configure time. See comment in gasnet_trace.h for usage
+ information.
+
+* see conduit-specific documentation in conduit directories for more settings
+
 GASNet Design Information
 =========================
 
@@ -175,7 +188,7 @@ compiling any appropriate tests and building/installing the following libraries:
  libgasnet-conduitname-parsync.a - GASNET_PARSYNC implementation of GASNet
 
 * template-conduit: A conduit template which should be used as a starting point for 
-new conduit implementations. See the README file in this directory for detailed 
+new conduit implementations. See the README.template file in this directory for detailed 
 instructions.
 
 * other: A container directory for any external supporting libraries or

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2003/03/01 23:46:46 $
- * $Revision: 1.20 $
+ *     $Date: 2003/03/25 19:03:48 $
+ * $Revision: 1.21 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -80,7 +80,8 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
     if !GASNETE_USE_ELAN_BARRIER
       use AM (extended ref)
     else
-      register a poll callback function at startup to ensure polling during hardware barrier
+      register a poll callback function at startup to ensure polling 
+       during hardware barrier
       if GASNETE_FAST_ELAN_BARRIER and barrier anonymous
         mismatchers report to all nodes
         hardware elan barrier
@@ -88,7 +89,6 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
         hardware broadcast id from zero
         if node detects mismatch, report to all nodes
         hardware elan barrier
-      endif
 */
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/02/27 03:29:18 $
- * $Revision: 1.24 $
+ *     $Date: 2003/03/25 19:03:49 $
+ * $Revision: 1.25 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -357,21 +357,33 @@ void gasnete_op_free(gasnete_op_t *op) {
  * gasnet_get(_bulk) is translated to a gasnete_get_nb(_bulk) + sync
  *
  * gasnete_put_nb(_bulk) translates to
- *    AMMedium(payload) if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
- *    AMLongRequest(payload) if nbytes < AMMaxLongRequest
- *    gasnete_put_nbi(_bulk)(payload) otherwise
+ *    if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *      AMMedium(payload)
+ *    else if nbytes < AMMaxLongRequest
+ *      AMLongRequest(payload)
+ *    else
+ *      gasnete_put_nbi(_bulk)(payload)
+ *
  * gasnete_get_nb(_bulk) translates to
- *    AMSmall request + AMMedium(payload) if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
- *    gasnete_get_nbi(_bulk)() otherwise
+ *    if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *      AMSmall request + AMMedium(payload) reply
+ *    else
+ *      gasnete_get_nbi(_bulk)()
  *
  * gasnete_put_nbi(_bulk) translates to
- *    AMMedium(payload) if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
- *    AMLongRequest(payload) if nbytes < AMMaxLongRequest
- *    chunks of AMMaxLongRequest with AMLongRequest() otherwise
- *    AMLongRequestAsync is used instead of AMLongRequest for put_bulk
+ *    if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *      AMMedium(payload)
+ *    else if nbytes < AMMaxLongRequest
+ *      AMLongRequest(payload)
+ *    else
+ *      chunks of AMMaxLongRequest with AMLongRequest()
+ *      AMLongRequestAsync is used instead of AMLongRequest for put_bulk
+ *
  * gasnete_get_nbi(_bulk) translates to
- *    AMSmall request + AMMedium(payload) if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
- *    chunks of AMMaxMedium with AMSmall request + AMMedium() otherwise
+ *    if nbytes < GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+ *      AMSmall request + AMMedium(payload) reply
+ *    else
+ *      chunks of AMMaxMedium with AMSmall request + AMMedium() reply
  *
  * The current implementation uses AMLongs for large puts because the 
  * destination is guaranteed to fall within the registered GASNet segment.
