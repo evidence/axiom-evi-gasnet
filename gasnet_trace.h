@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2004/09/05 08:08:52 $
- * $Revision: 1.30 $
+ *     $Date: 2004/09/22 18:45:18 $
+ * $Revision: 1.31 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -197,7 +197,7 @@ BEGIN_EXTERNC
     gasneti_stattime_t _waitstart = GASNETI_STATTIME_NOW_IFENABLED(S)
 #else 
   #define GASNETI_TRACE_WAITSYNC_BEGIN() \
-    static char _dummy = (char)sizeof(_dummy)
+    static char _dummy_WAITSYNC = (char)sizeof(_dummy_WAITSYNC)
 #endif
 
 #if GASNET_STATS
@@ -583,7 +583,7 @@ BEGIN_EXTERNC
   #define GASNETI_TRACE_COLL_EXCHANGE(name,team,dst,src,nbytes,flags)
   #define GASNETI_TRACE_COLL_EXCHANGE_M(name,team,dstlist,srclist,nbytes,flags)
   #define GASNETI_TRACE_COLL_WAITSYNC_BEGIN() \
-		static char _dummy = (char)sizeof(_dummy)
+		static char _dummy_COLL_WAITSYNC = (char)sizeof(_dummy_COLL_WAITSYNC)
 #endif
 #define GASNETI_TRACE_COLL_TRYSYNC(name,success) \
 	GASNETI_TRACE_EVENT_VAL(X,name,((success) == GASNET_OK?1:0))
