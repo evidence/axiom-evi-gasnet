@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2004/08/02 08:30:39 $
- * $Revision: 1.9 $
+ *     $Date: 2004/08/03 12:30:01 $
+ * $Revision: 1.10 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -141,6 +141,7 @@ void *workerthread(void *args) {
   /* if we ever reach here, something really bad happenned */
   MSG("TEST FAILED!!");
   abort();
+  return NULL;
 }
 
                                                                                                               

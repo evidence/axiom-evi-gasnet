@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/08/02 08:30:35 $
- * $Revision: 1.66 $
+ *     $Date: 2004/08/03 12:29:57 $
+ * $Revision: 1.67 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -597,7 +597,7 @@ extern void gasneti_unsetenv(const char *key) {
   GASNETI_IDENT(gasneti_IdentString_stats, "$GASNetStatisticsEnabled: 1 $");
 #endif
 
-static gasneti_mutex_t gasneti_tracelock = GASNETI_MUTEX_INITIALIZER;
+gasneti_mutex_t gasneti_tracelock = GASNETI_MUTEX_INITIALIZER;
 char gasneti_tracetypes[256];
 char gasneti_statstypes[256];
 FILE *gasneti_tracefile = NULL;

@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.37 2004/08/02 07:52:53 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.38 2004/08/03 12:30:01 bonachea Exp $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -100,6 +100,7 @@ awk_cmdbuild={  gsub("'"'"%C"'"'", "'"'"%P %A"'"'");       \
 		gsub("'"'"%V "'"'","'"'""'"'");            \
 		gsub("'"'"%N"'"'", "'"'"$$nodes"'"'");     \
 		gsub("'"'"%A"'"'", "'"'"$$args"'"'"); print }
+perl_threadscan=print $$1 if (/\\\$$GASNetThreadModel: GASNET_([^ ]*) \\\$$/);
 
 run-tests: force
 	@$(TEST_PARAMS)                                                                 \
@@ -138,9 +139,7 @@ run-tests: force
 	      echo "*** Running $(CONDUIT_NAME)-conduit $$file ***" ;                   \
 	      cmd="./$$file $$args" ;                                                   \
 	    else                                                                        \
-	      perl_threadscan='print $$1                                                \
-                               if (/\$$GASNetThreadModel: GASNET_([^ ]*) \$$/);' ;      \
-	      threadmode=`eval @PERL@ -n -e \'$$perl_threadscan\'                       \
+	      threadmode=`@PERL@ -n -e '$(perl_threadscan)'                             \
                           $$file@EXESUFFIX@ 2> /dev/null` ;                             \
 	      echo "*** Running $(CONDUIT_NAME)-conduit $$file"                         \
 		   "in $$threadmode/$(GASNET_SEGMENT_STR) mode ***" ;                   \
@@ -154,11 +153,12 @@ run-tests: force
 	echo "TESTS COMPLETE"
 
 TESTEXIT_SCRIPT=run-testexit
-TESTEXIT_MAX=18
+TESTEXIT_SEQMAX=13
+TESTEXIT_PARMAX=18
 do-run-testexit: force
 	@echo "Building $(TESTEXIT_SCRIPT) script..."
 	@echo "#!/bin/sh" > $(TESTEXIT_SCRIPT)
-	@nodes=2 ; args="" ; file="testexit" ;                            \
+	@nodes=$${TEST_NODES-2} ; args="" ; file="testexit" ;             \
          awk_cmdbuild=`echo "$(awk_cmdbuild)"` ; 			  \
          cmd=`echo "$(CONDUIT_RUNCMD)" | eval @AWK@ \'$$awk_cmdbuild\'` ; \
 	 echo "INTERACTIVE_RUNCMD='$$cmd'"                        >> $(TESTEXIT_SCRIPT)
@@ -175,14 +175,31 @@ do-run-testexit: force
 	@echo 'echo "Starting run-testexit at: `date`"'           >> $(TESTEXIT_SCRIPT)
 	@echo 'ID="`hostname`-$$MP_CHILD$$PBS_NODENUM"'           >> $(TESTEXIT_SCRIPT)
 	@i=0; \
-	 while test "$$i" != "$(TESTEXIT_MAX)" ; do                          \
+	 while test "$$i" != "$(TESTEXIT_SEQMAX)" ; do                       \
            i=`expr $$i + 1`;                                                 \
 	   echo ""                                   >> $(TESTEXIT_SCRIPT) ; \
 	   echo 'echo "$$ID: testexit '$$i'"'        >> $(TESTEXIT_SCRIPT) ; \
 	   echo '$$RUNCMD'" $$i"                     >> $(TESTEXIT_SCRIPT) ; \
 	   echo 'echo "$$ID: result=$$?"'            >> $(TESTEXIT_SCRIPT) ; \
 	   echo "sleep 2"                            >> $(TESTEXIT_SCRIPT) ; \
-	 done 
+	 done ; \
+	 echo 'threadmode=`@PERL@ -n -e '"'"'$(perl_threadscan)'"'"' ' \
+              'testexit@EXESUFFIX@ 2> /dev/null`'      >> $(TESTEXIT_SCRIPT) ; \
+	 echo 'if test "$$threadmode" != "PAR" ; then' >> $(TESTEXIT_SCRIPT) ; \
+	 echo '  echo "WARNING: testexit was compiled' \
+              'in GASNET_$$threadmode mode"'           >> $(TESTEXIT_SCRIPT) ; \
+	 echo '  echo "WARNING: be sure to recompile the test in' \
+              'GASNET_PAR mode for full results"'      >> $(TESTEXIT_SCRIPT) ; \
+	 echo 'else' >> $(TESTEXIT_SCRIPT) ; \
+	 while test "$$i" != "$(TESTEXIT_PARMAX)" ; do                       \
+           i=`expr $$i + 1`;                                                 \
+	   echo ""                                   >> $(TESTEXIT_SCRIPT) ; \
+	   echo 'echo "$$ID: testexit '$$i'"'        >> $(TESTEXIT_SCRIPT) ; \
+	   echo '$$RUNCMD'" $$i"                     >> $(TESTEXIT_SCRIPT) ; \
+	   echo 'echo "$$ID: result=$$?"'            >> $(TESTEXIT_SCRIPT) ; \
+	   echo "sleep 2"                            >> $(TESTEXIT_SCRIPT) ; \
+	 done ; \
+	 echo 'fi' >> $(TESTEXIT_SCRIPT) 
 	@echo 'echo "`hostname`: done."'  >> $(TESTEXIT_SCRIPT)
 	@chmod +x $(TESTEXIT_SCRIPT)
 	@echo "Complete. Starting execution..."
