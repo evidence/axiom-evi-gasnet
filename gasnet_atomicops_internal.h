@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2004/09/20 20:24:12 $
- * $Revision: 1.2 $
+ *     $Date: 2004/09/21 19:30:13 $
+ * $Revision: 1.3 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,13 +51,14 @@
     return retval;                                             \
   }
   #define GASNETI_HAVE_ATOMIC_CAS 1
-#else
-  #if defined(LINUX) && defined(__INTEL_COMPILER) && defined(__ia64__)
+#elif defined(LINUX) && defined(__INTEL_COMPILER) && defined(__ia64__)
+  #if 0 /* UNTESTED */
     /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
     #define gasneti_atomic_compare_and_swap(p,oval,nval) \
 			(_InterlockedCompareExchange((volatile int *)&((p)->ctr),nval,oval) == (oval))
     #define GASNETI_HAVE_ATOMIC_CAS 1
-  #elif defined(LINUX)
+  #endif /* UNTESTED */
+#elif defined(LINUX)
     #if defined(BROKEN_LINUX_ASM_ATOMIC_H) || \
         (!defined(GASNETI_UNI_BUILD) && !defined(CONFIG_SMP))
       /* some versions of the linux kernel ship with a broken atomic.h
@@ -104,7 +105,8 @@
         #define GASNETI_HAVE_ATOMIC_CAS 1
       #endif
     #endif
-  #elif defined(FREEBSD)
+#elif defined(FREEBSD)
+  #if 0 /* UNTESTED, but so close to the Linux version that it almost must be correct */
     /* FreeBSD is lacking atomic ops that return a value */
     #ifdef __i386__
       GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
@@ -120,32 +122,33 @@
       }
       #define GASNETI_HAVE_ATOMIC_CAS 1
     #endif
-  #elif defined(CYGWIN)
+  #endif /* UNTESTED */
+#elif defined(CYGWIN)
     #define gasneti_atomic_compare_and_swap(p,oval,nval) \
 			(InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (oval))
     #define GASNETI_HAVE_ATOMIC_CAS 1
-  #elif defined(AIX)
+#elif defined(AIX)
     GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
     int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, int oldval, int newval) {
       return compare_and_swap( (atomic_p)p, &oldval, newval );
     } 
     #define GASNETI_HAVE_ATOMIC_CAS 1
-  #elif defined(OSF)
+#elif defined(OSF)
    #ifdef __DECC
-     /* OSF atomics are compiler built-ins */
-     #define gasneti_atomic_compare_and_swap(p,oval,nval) \
-	__CMP_STORE_LONG(&((p)->ctr),ocal,nval,&((p)->ctr))
-     #define GASNETI_HAVE_ATOMIC_CAS 1
+     /* The __CMP_STORE_LONG built-in is insufficient alone because it returns
+	a failure indication if the LL/SC is interrupted by another write to the
+        same cache line (it does not retry).
+     */
    #elif defined(__GNUC__)
      GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
      int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
        unsigned long ret;
 
        __asm__ __volatile__ (
-		"1:	ldl_l	%0,%4\n"	/* Load-linked of current value */
+		"1:	ldl_l	%0,%1\n"	/* Load-linked of current value */
 		"	cmpeq	%0,%2,%0\n"	/* compare to oldval */
 		"	beq	%0,2f\n"	/* done/fail on mismatch (success/fail in ret) */
-		"	mov	%3,%0"		/* copy newval to ret */
+		"	mov	%3,%0\n"	/* copy newval to ret */
 		"	stl_c	%0,%1\n"	/* Store-conditional of newval (success/fail in ret) */
 		"	beq	%0,1b\n"	/* Retry on stl_c failure */
 		"2:	"
@@ -155,18 +158,20 @@
 
        return ret;
      }
+     #define GASNETI_HAVE_ATOMIC_CAS 1
    #endif
-  #elif defined(IRIX)
+#elif defined(IRIX)
     /* TODO: Can we support this platform? */
-  #elif defined(__crayx1)
+#elif defined(__crayx1)
     /* TODO: Can we support this platform? */
-  #elif defined(_SX)
+#elif defined(_SX)
     /* TODO: Can we support this platform? */
-  #elif 0 && defined(SOLARIS)
+#elif 0 && defined(SOLARIS)
     /* $%*(! Solaris has atomic functions in the kernel but refuses to expose them
        to the user... after all, what application would be interested in performance? */
     /* TODO: Can we support this platform? */
-  #elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
+#elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
+  #if 0 /* UNTESTED */
     #if defined(__xlC__)
       static int32_t gasneti_atomic_swap_not_32(volatile int32_t *v, int32_t oldval, int32_t newval);
       #pragma mc_func gasneti_atomic_swap_not_32 {\
@@ -203,7 +208,7 @@
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
     #endif
-  #endif
+  #endif /* UNTESTED */
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -258,11 +263,17 @@
   }
   GASNET_INLINE_MODIFIER(gasneti_spinlock_unlock)
   int gasneti_spinlock_unlock(gasneti_atomic_t *lock) {
-      int did_swap;
       gasneti_assert(gasneti_atomic_read(lock) == GASNETI_SPINLOCK_LOCKED);
       gasneti_local_wmb();	/* Release */
-      did_swap = gasneti_atomic_compare_and_swap(lock, GASNETI_SPINLOCK_LOCKED, GASNETI_SPINLOCK_UNLOCKED);
-      gasneti_assert(did_swap);
+#if GASNET_DEBUG
+      { /* Using CAS for release is more costly, but adds validation */
+        int did_swap;
+        did_swap = gasneti_atomic_compare_and_swap(lock, GASNETI_SPINLOCK_LOCKED, GASNETI_SPINLOCK_UNLOCKED);
+        gasneti_assert(did_swap);
+      }
+#else
+      gasneti_atomic_set(lock, GASNETI_SPINLOCK_UNLOCKED);
+#endif
       return 0;
   }
   /* return 0/EBUSY on success/failure to match pthreads */
