@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.20 2004/02/19 08:51:19 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.21 2004/03/04 05:37:36 bonachea Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt 
@@ -95,9 +95,8 @@ clean-local:
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="/dev/null"
 
-headers = $(srcdir)/*.h                             \
-  $(top_srcdir)/extended-ref/gasnet_extended.h      \
-  $(top_srcdir)/extended-ref/gasnet_extended_help.h
+# Conduit-specific headers will overwrite any conflicts in extended-ref
+headers = $(top_srcdir)/extended-ref/*.h $(srcdir)/*.h
 
 makefile_fragments = elan-seq.mak elan-parsync.mak elan-par.mak
 

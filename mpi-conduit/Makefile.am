@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.21 2004/02/19 08:51:23 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.22 2004/03/04 05:37:40 bonachea Exp $
 # Description: Makefile for GASNet MPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -84,7 +84,9 @@ clean-local:
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="/dev/null"
 
-headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h $(top_srcdir)/other/ammpi/ammpi*.h 
+# Conduit-specific headers will overwrite any conflicts in extended-ref
+headers = $(top_srcdir)/extended-ref/*.h $(srcdir)/*.h $(top_srcdir)/other/ammpi/ammpi*.h 
+
 makefile_fragments = mpi-seq.mak mpi-parsync.mak mpi-par.mak
 
 install-data-local: $(headers)

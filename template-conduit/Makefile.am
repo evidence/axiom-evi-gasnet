@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.22 2004/02/19 08:51:25 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.23 2004/03/04 05:37:43 bonachea Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -83,6 +83,7 @@ clean-local:
 
 # Conduit-specific headers will overwrite any conflicts in extended-ref
 headers = $(top_srcdir)/extended-ref/*.h $(srcdir)/*.h
+
 makefile_fragments = <conduitname>-seq.mak <conduitname>-parsync.mak <conduitname>-par.mak
 
 install-data-local: $(headers)

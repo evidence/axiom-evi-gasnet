@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.16 2004/02/19 08:51:28 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.17 2004/03/04 05:37:45 bonachea Exp $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -115,7 +115,9 @@ clean-local:
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="/dev/null"
 
+# Conduit-specific headers will overwrite any conflicts in extended-ref
 headers = $(top_srcdir)/extended-ref/*.h $(srcdir)/*.h
+
 makefile_fragments = vapi-seq.mak vapi-parsync.mak vapi-par.mak
 
 install-data-local: $(headers)

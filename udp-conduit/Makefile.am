@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/Makefile.am,v 1.4 2004/02/19 08:51:27 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/Makefile.am,v 1.5 2004/03/04 05:37:44 bonachea Exp $
 # Description: Makefile for GASNet UDP conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -82,7 +82,9 @@ clean-local:
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="/dev/null"
 
-headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h $(top_srcdir)/other/amudp/amudp*.h 
+# Conduit-specific headers will overwrite any conflicts in extended-ref
+headers = $(top_srcdir)/extended-ref/*.h $(srcdir)/*.h $(top_srcdir)/other/amudp/amudp*.h 
+
 makefile_fragments = udp-seq.mak udp-parsync.mak udp-par.mak
 
 install-data-local: $(headers)
