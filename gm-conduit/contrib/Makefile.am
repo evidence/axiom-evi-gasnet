@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/Makefile.am,v 1.9 2004/03/12 14:01:24 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/Makefile.am,v 1.10 2004/03/12 23:08:10 phargrov Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -15,9 +15,6 @@ mybindir = $(bindir)
 
 # Make sure the perl script and shell wrapper are always current locally.
 # This ensures we can run from the build directory if needed.
-$(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
-	@$(MAKE) -C $(top_builddir)/other perlstart
-$(target): $(top_builddir)/other/perlstart
 all-local: $(builddir)/$(target).pl $(target)
 $(builddir)/$(target).pl: force
 	@if test "`cd $(builddir);pwd`" != "`cd $(srcdir);pwd`"; then \

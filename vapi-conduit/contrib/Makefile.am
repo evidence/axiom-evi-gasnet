@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/Makefile.am,v 1.4 2004/03/12 14:01:28 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/Makefile.am,v 1.5 2004/03/12 23:08:14 phargrov Exp $
 # Description: Makefile for GASNet VAPI spawner
 # Terms of use are as specified in vapi-conduit/license.txt
 
@@ -13,9 +13,6 @@ mybindir = $(bindir)
 
 # Make sure the perl script and shell wrapper are always current locally.
 # This ensures we can run from the build directory if needed.
-$(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
-	@$(MAKE) -C $(top_builddir)/other perlstart
-$(target): $(top_builddir)/other/perlstart
 all-local: $(target).pl $(target)
 $(target).pl: $(top_srcdir)/mpi-conduit/contrib/gasnetrun_mpi.pl
 	cp -f $< $@
