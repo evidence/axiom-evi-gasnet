@@ -41,7 +41,7 @@
 @c Macros:
 
 @set VERSION 1.2
-@set RELEASEDATE October 27th, 2002
+@set RELEASEDATE January 29th, 2003
 
 @ifnottex
 @ifhtml
@@ -147,9 +147,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2003/01/11 22:46:41 $
+@subtitle $Date: 2003/01/29 19:31:26 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.17 $ 
+@subtitle $Revision: 1.18 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2003/01/11 22:46:41 $
-@*$Revision: 1.17 $ 
+@*$Date: 2003/01/29 19:31:26 $
+@*$Revision: 1.18 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.lbl.gov/}
 @HR
