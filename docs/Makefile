@@ -1,13 +1,13 @@
 #  $Archive:: /Ti/GASNet/docs/Makefile                                   $
-#     $Date: 2002/06/13 06:06:11 $
-# $Revision: 1.3 $
+#     $Date: 2003/01/27 14:54:36 $
+# $Revision: 1.4 $
 # Description: Makefile for GASNet documentation
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
 # The GASNet specification in distributed in 3 primary formats (text, html and postscript)
 # note that older version of makeinfo and TeX may have trouble correctly generating gasnet.ps
 
-all: gasnet.txt gasnet.html gasnet.ps
+all: gasnet.txt gasnet.html gasnet.ps gasnet.pdf
 
 # ------------------------------------------------------------------------------------
 # TeX Postscript
@@ -18,13 +18,15 @@ gasnet.ps: gasnet.dvi
 	rm -f gasnet.ps
 	dvips -f gasnet.dvi > gasnet.ps
 
-gasnet.pdf: gasnet.dvi
+# ------------------------------------------------------------------------------------
+# Adobe PDF
+gasnet.pdf: gasnet.texi
 	rm -f gasnet.pdf
-	dvipdf gasnet.dvi 
+	texi2dvi -c -p -o gasnet.pdf gasnet.texi
 
-gasnet2.pdf: gasnet.texi
+gasnet2.pdf: gasnet.dvi
 	rm -f gasnet2.pdf
-	texi2dvi -c -p -o gasnet2.pdf gasnet.texi
+	dvipdf gasnet.dvi 
 
 # ------------------------------------------------------------------------------------
 # Text
@@ -49,9 +51,14 @@ info: gasnet.info
 unix:
 	txt2unix gasnet.texi
 # ------------------------------------------------------------------------------------
-clean:
-	rm -f gasnet.info gasnet.html gasnet.ps gasnet.dvi gasnet.txt gasnet.pdf gasnet2.pdf
-	rm -f gasnet.ky gasnet.pg gasnet.toc gasnet.tmp gasnet.tp gasnet.vr gasnet.pg gasnet.log gasnet.cp gasnet.aux gasnet.fn gasnet.fns gasnet.cps
+temp-clean:
+	rm -f gasnet.dvi gasnet.ky gasnet.pg gasnet.toc gasnet.tmp gasnet.tp gasnet.vr gasnet.pg gasnet.log gasnet.cp gasnet.aux gasnet.fn gasnet.fns gasnet.cps
+
+clean: temp-clean
+	rm -f gasnet.info gasnet.html gasnet.ps gasnet.txt gasnet.pdf gasnet2.pdf
 	rm -Rf gasnet
+
+dist-hook: all temp-clean
+	rm -f texinfo.tex gasnet.texi Makefile
 
 .PHONY: unix info gasnet clean

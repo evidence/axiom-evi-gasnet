@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.7 2003/01/05 04:44:02 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.8 2003/01/27 14:54:37 bonachea Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt 
@@ -13,14 +13,17 @@ INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir) \
 	   -I@ELAN_INCLUDE@
 	   
 
-filelist =                   \
-      gasnet_core.c          \
-      gasnet_core.h          \
-      gasnet_core_fwd.h      \
-      gasnet_core_help.h     \
-      gasnet_core_internal.h \
-      gasnet_core_dump.c     \
-      gasnet_core_reqrep.c 
+filelist =                       \
+      gasnet_core.c              \
+      gasnet_core.h              \
+      gasnet_core_fwd.h          \
+      gasnet_core_help.h         \
+      gasnet_core_internal.h     \
+      gasnet_core_dump.c         \
+      gasnet_core_reqrep.c       \
+      gasnet_extended.c          \
+      gasnet_extended_fwd.h      \
+      gasnet_extended_internal.h
 
 othersourcefiles =                             \
       $(top_srcdir)/gasnet_internal.c          
@@ -46,9 +49,12 @@ libgasnet_objects =      \
       gasnet_core_reqrep.o
 
 if HAVE_PTHREAD
-threaded_libraries = libgasnet-elan-par.a libgasnet-elan-parsync.a
+  threaded_libraries = libgasnet-elan-par.a libgasnet-elan-parsync.a
+  libgasnet_elan_par_a_SOURCES =
+  libgasnet_elan_parsync_a_SOURCES =
 endif
 libraries = libgasnet-elan-seq.a $(threaded_libraries)
+libgasnet_elan_seq_a_SOURCES =
 
 VPATH=$(srcdir)
 

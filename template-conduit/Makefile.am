@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.7 2003/01/05 04:44:07 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.8 2003/01/27 14:54:45 bonachea Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -32,9 +32,12 @@ libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
 
 if HAVE_PTHREAD
-threaded_libraries = libgasnet-<conduitname>-par.a libgasnet-<conduitname>-parsync.a
+  threaded_libraries = libgasnet-<conduitname>-par.a libgasnet-<conduitname>-parsync.a
+  libgasnet_<conduitname>_par_a_SOURCES =
+  libgasnet_<conduitname>_parsync_a_SOURCES =
 endif
 libraries = libgasnet-<conduitname>-seq.a $(threaded_libraries)
+libgasnet_<conduitname>_seq_a_SOURCES =
 
 VPATH=$(srcdir)
 

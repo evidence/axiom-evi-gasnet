@@ -37,6 +37,7 @@ EXTRA_DIST =        \
     testbulk.c      \
     testgetput.c    \
     testlatency.c   \
+    testlatency2.c  \
     testping.c      \
     testreadwrite.c \
     testreduce.c    

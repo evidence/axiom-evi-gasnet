@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.7 2003/01/05 04:44:04 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.8 2003/01/27 14:54:41 bonachea Exp $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -17,12 +17,15 @@ filelist =                   \
       gasnet_core.h          \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
-      gasnet_core_internal.h 
+      gasnet_core_internal.h \
+      gasnet_extended.c      \
+      gasnet_extended_fwd.h  \
+      gasnet_extended_internal.h
 
 othersourcefiles =                             \
       $(top_srcdir)/gasnet_internal.c
 
-EXTRA_DIST = $(filelist)
+EXTRA_DIST = $(filelist) STATUS README
 
 libgasnet_sources = $(srcdir)/gasnet_core.c \
 		$(srcdir)/gasnet_extended.c \
@@ -35,9 +38,12 @@ libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
 
 if HAVE_PTHREAD
-threaded_libraries = libgasnet-lapi-par.a libgasnet-lapi-parsync.a
+  threaded_libraries = libgasnet-lapi-par.a libgasnet-lapi-parsync.a
+  libgasnet_lapi_par_a_SOURCES =
+  libgasnet_lapi_parsync_a_SOURCES =
 endif
 libraries = libgasnet-lapi-seq.a $(threaded_libraries)
+libgasnet_lapi_seq_a_SOURCES =
 
 VPATH=$(srcdir)
 

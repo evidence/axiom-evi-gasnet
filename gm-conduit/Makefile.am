@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.15 2003/01/05 04:44:03 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.16 2003/01/27 14:54:39 bonachea Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -15,15 +15,25 @@ linkend = -lgm
 
 INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_srcdir)/extended-ref/ -I$(top_builddir) -I$(gm_include) $(platform_defines)
 	   
-filelist = gasnet_core.c gasnet_core.h gasnet_core_firehose.c \
-	   gasnet_core_fwd.h gasnet_core_help.h gasnet_core_internal.h \
-	   gasnet_core_misc.c gasnet_core_conf.c gasnet_core_receive.c \
-	   gasnet_extended.c gasnet_extended_firehose.c \
-	   gasnet_extended_internal.h gasnet_extended_op.c gasnet_extended_ref.c
+filelist = gasnet_core.c              \
+           gasnet_core.h              \
+           gasnet_core_conf.c         \
+           gasnet_core_firehose.c     \
+           gasnet_core_fwd.h          \
+           gasnet_core_help.h         \
+           gasnet_core_internal.h     \
+           gasnet_core_misc.c         \
+           gasnet_core_receive.c      \
+           gasnet_extended.c          \
+           gasnet_extended_firehose.c \
+           gasnet_extended_fwd.h      \
+           gasnet_extended_internal.h \
+           gasnet_extended_op.c       \
+	   gasnet_extended_ref.c 
 
 othersourcefiles = $(top_srcdir)/gasnet_internal.c
 
-EXTRA_DIST = $(filelist)
+EXTRA_DIST = $(filelist) README
 
 libgasnet_sources = $(srcdir)/gasnet_core.c $(srcdir)/gasnet_core_receive.c \
 		    $(srcdir)/gasnet_core_misc.c $(srcdir)/gasnet_core_conf.c \
@@ -40,9 +50,12 @@ libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o \
 		    gasnet_core_firehose.o
 
 if HAVE_PTHREAD
-threaded_libraries = libgasnet-gm-par.a libgasnet-gm-parsync.a
+  threaded_libraries = libgasnet-gm-par.a libgasnet-gm-parsync.a
+  libgasnet_gm_par_a_SOURCES =
+  libgasnet_gm_parsync_a_SOURCES =
 endif
 libraries = libgasnet-gm-seq.a $(threaded_libraries)
+libgasnet_gm_seq_a_SOURCES =
 
 VPATH=$(srcdir)
 
