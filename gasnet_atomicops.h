@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2005/02/20 10:13:26 $
- * $Revision: 1.60 $
+ *     $Date: 2005/02/23 01:03:58 $
+ * $Revision: 1.61 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -432,7 +432,11 @@
                                         (muadd(&((p)->ctr),-1) == 0)
    #endif
   /* ------------------------------------------------------------------------------------ */
-  #elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__) /* PowerPC */
+  #elif (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(LINUX) && defined(__PPC__))
+    /* PowerPC
+     * (__APPLE__) && __MACH__ && __ppc__) == OS/X, Darwin
+     * (LINUX && __PPC__) == Linux
+     */
     #if defined(__xlC__)
       /* XLC machine code functions are very rigid, thus we produce all
        * three read-modify-write ops as distinct functions in order to
@@ -677,9 +681,10 @@
         GASNETI_ASM("mf");
       }
    #endif
-#elif defined(_POWER) || (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__))
+#elif defined(_POWER) || (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(LINUX) && defined(__PPC__))
  /* (_POWER) == IBM SP POWER[234]
   * (__APPLE__ && __MACH__ && __ppc__) == Darwin, OS/X
+  * (LINUX && __PPC__) == Linux
   */
  #ifdef __xlC__
    /* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly
