@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/10/30 03:24:45 $
-# $Revision: 1.208 $
+#     $Date: 2004/11/02 07:10:47 $
+# $Revision: 1.209 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.208 $)
+AC_REVISION($Revision: 1.209 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -625,6 +625,13 @@ fi
 if test "$have_pthread" = no ; then
   GASNET_THREAD_DEFINES=""
   GASNET_THREAD_LIBS=""
+else
+  OLDLIBS="$LIBS"
+  LIBS="$GASNET_THREAD_LIBS"
+  # look for optional pthreads entry points
+  AC_SEARCH_LIBS(pthread_kill_other_threads_np, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
+  GASNET_THREAD_LIBS="$LIBS"
+  LIBS="$OLDLIBS"
 fi
           
 AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
@@ -1919,8 +1926,6 @@ GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
   }],[AC_DEFINE(HAVE_MMAP)])
   ;;
 esac
-
-AC_SEARCH_LIBS(pthread_kill_other_threads_np, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
 
 AC_SUBST(LIBS)
 
