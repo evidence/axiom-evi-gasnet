@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v 1.3 2004/02/18 00:08:41 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v 1.4 2004/02/18 00:17:27 phargrov Exp $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -26,8 +26,7 @@ my $find_exe = 1;	# should we find full path of executable?
 
 # Probe for which MPI is running
     my $mpirun_cmd  = $spawncmd;
-       $mpirun_cmd  =~ s/%N/-help/;
-       $mpirun_cmd  =~ s/%[PA]//;
+       $mpirun_cmd  =~ s/\s-.*/ -help/;
     my $mpirun_help = `$mpirun_cmd 2>&1`;
     my $is_lam      = ($mpirun_help =~ m|LAM/MPI|);
     my $is_mpich_nt = ($mpirun_help =~ m|MPIRun|);
