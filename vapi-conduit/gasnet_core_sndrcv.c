@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/10 02:52:11 $
- * $Revision: 1.73 $
+ *     $Date: 2005/03/10 17:19:45 $
+ * $Revision: 1.74 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -29,6 +29,7 @@ VAPI_cq_hndl_t				gasnetc_snd_cq;
 #if GASNETC_USE_FIREHOSE
   size_t				gasnetc_fh_maxsz;
 #endif
+int gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped types                                                                   *
@@ -101,9 +102,7 @@ typedef struct {
 
 static void				*gasnetc_sreq_alloc;
 static void				*gasnetc_rbuf_alloc;
-#if GASNETC_VAPI_RCV_THREAD
-  static EVAPI_compl_handler_hndl_t	gasnetc_rcv_handler;
-#endif
+static EVAPI_compl_handler_hndl_t	gasnetc_rcv_handler;
 
 static gasneti_freelist_t		gasnetc_bbuf_freelist = GASNETI_FREELIST_INITIALIZER;
 static gasneti_freelist_t		gasnetc_sreq_freelist = GASNETI_FREELIST_INITIALIZER;
@@ -896,11 +895,11 @@ void gasnetc_snd_post_list(gasnetc_sreq_t *sreq, int count, VAPI_sr_desc_t *sr_d
 }
 #endif
 
-#if GASNETC_VAPI_RCV_THREAD
 static gasnetc_rbuf_t *gasnetc_rcv_thread_rbuf = NULL;
 static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
 			       VAPI_cq_hndl_t	cq_hndl,
 			       void		*context) {
+#if GASNETC_VAPI_RCV_THREAD
   GASNETC_TRACE_WAIT_BEGIN();
   VAPI_ret_t vstat;
 
@@ -919,8 +918,10 @@ static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
 
   (void)gasnetc_rcv_reap(INT_MAX, &gasnetc_rcv_thread_rbuf);
   GASNETC_TRACE_WAIT_END(RCV_THREAD_WAKE);
-}
+#else
+  gasneti_fatalerror("unexpected call to gasnetc_rcv_thread");
 #endif
+}
 
 GASNET_INLINE_MODIFIER(gasnetc_ReqRepGeneric)
 int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
@@ -1345,14 +1346,14 @@ extern void gasnetc_sndrcv_init(void) {
   gasneti_assert(act_size >= count);
 
   if (gasneti_nodes > 1) {
-    #if GASNETC_VAPI_RCV_THREAD
+    if (gasnetc_use_rcv_thread) {
       /* create the RCV thread */
       vstat = EVAPI_set_comp_eventh(gasnetc_hca, gasnetc_rcv_cq, &gasnetc_rcv_thread,
 				    NULL, &gasnetc_rcv_handler);
       GASNETC_VAPI_CHECK(vstat, "from EVAPI_set_comp_eventh()");
       vstat = VAPI_req_comp_notif(gasnetc_hca, gasnetc_rcv_cq, VAPI_NEXT_COMP);
       GASNETC_VAPI_CHECK(vstat, "from VAPI_req_comp_notif()");
-    #endif
+    }
 
     /* Allocated pinned memory for receive buffers */
     buf = gasnetc_alloc_pinned(count * sizeof(gasnetc_buffer_t),
@@ -1378,10 +1379,10 @@ extern void gasnetc_sndrcv_init(void) {
 
       rbuf = (gasnetc_rbuf_t *)((uintptr_t)rbuf + padded_size);
     }
-    #if GASNETC_VAPI_RCV_THREAD
+    if (gasnetc_use_rcv_thread) {
       gasnetc_rcv_thread_rbuf = gasneti_freelist_get(&gasnetc_rbuf_freelist);
       gasneti_assert(gasnetc_rcv_thread_rbuf != NULL);
-    #endif
+    }
   }
 
   /*
@@ -1446,10 +1447,10 @@ extern void gasnetc_sndrcv_fini(void) {
   VAPI_ret_t vstat;
 
   if (gasneti_nodes > 1) {
-    #if GASNETC_VAPI_RCV_THREAD
+    if (gasnetc_use_rcv_thread) {
       vstat = EVAPI_clear_comp_eventh(gasnetc_hca, gasnetc_rcv_handler);
       GASNETC_VAPI_CHECK(vstat, "from EVAPI_clear_comp_eventh()");
-    #endif
+    }
 
     gasnetc_free_pinned(&gasnetc_rcv_reg);
     gasneti_free(gasnetc_rbuf_alloc);

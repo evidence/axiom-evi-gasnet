@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.15 $
+$Revision: 1.16 $
 
 @ TOC: @
 @ Section: Bootstrapping @
@@ -38,13 +38,13 @@ $Revision: 1.15 $
     If set, the variable GASNET_SSH_SERVERS itself contains a list of
     hostnames, delimited by commas or whitespace.
     If both are set, GASNET_SSH_NODEFILE takes precedence.
-    Note that if starting a job via upcrun or tirun, these varaibles
+    Note that if starting a job via upcrun or tirun, these variables
     may be set for you from other sources.
   + The environment variable GASNET_SSH_CMD can be set to specify a
     specific remote shell (perhaps rsh).  The default is "ssh", and
     a search of $PATH resolves the full path.
   + The environment variable GASNET_SSH_OPTIONS can be set to
-    specify options that will preceed the hostname in the commands
+    specify options that will precede the hostname in the commands
     used to spawn jobs.  One example, for OpenSsh, would be
       GASNET_SSH_OPTIONS="-o 'StrictHostKeyChecking no'"
   + For the following, the term "compute node"  means one of the hosts
@@ -54,14 +54,16 @@ $Revision: 1.15 $
     of the compute nodes.
   + The ssh (or rsh) at your site must be configured to allow logins
     from the master node to compute nodes, and among the compute nodes.
-    These must be achived without interaction (such as entering a
-    password or accepting new hostkeys).
+    These must be achieved without interaction (such as entering a
+    password or accepting new host keys).
   + Any firewall or port filtering must allow the ssh/rsh connections
     described above, plus TCP connections on untrusted port (those
-    with numners over 1024) from a compute node to the master node and
+    with numbers over 1024) from a compute node to the master node and
     and among compute nodes.
   + Resolution for all given hostnames must be possible from both the
     master node and the compute nodes.
+  + THE SSH SPAWNER MAY NOT WORK WITH SOME OLDER VAPI VERSIONS WHICH
+    DON'T ALLOW A VAPI APPLICATION TO CALL fork().
 
 
   If MPI is chosen, then the following apply:
@@ -82,10 +84,15 @@ $Revision: 1.15 $
 @ Section: Build-time Configuration @
 
   By default vapi-conduit ensures network attentiveness (timely
-  processing of incomming AMs) by spawning an extra thread that
+  processing of incoming AMs) by spawning an extra thread that
   remains blocked until the arrival of an Active Message.  One
   can disable this thread by configuring GASNet with the flag
-  '--disable-vapi-rcv-thread'.
+  '--disable-vapi-rcv-thread'.  It is recommended that one NOT
+  use this option, but instead disabled the thread at runtime
+  (see Runtime Configuration section).  If the extra thread will
+  never be needed, disabling it at build time will yield a small
+  reduction in latencies by allowing some locking operations to
+  compile away.
 
   There are two known bugs in older InfiniHost firmware versions.
   Normally you shouldn't need to do anything special with regards
@@ -129,7 +136,7 @@ $Revision: 1.15 $
   to set these environment variables to identify the correct HCA and
   Port.
 
-  These parameters may meaningfully be different on each node.
+  These parameters may legally take different values on each node.
 
   + GASNET_HCA_ID
     This gives the "HCA ID" string of the InfiniBand Host Channel
@@ -147,9 +154,27 @@ $Revision: 1.15 $
     The default value is 0, which causes vapi-conduit to probe the HCA
     for the lowest-numbered physical port which is configured as ACTIVE.
 
+  + GASNET_RCV_THREAD
+    This gives a boolean: "0" to disable or "1" to enable (1) the use
+    of an extra thread that blocks waiting for vapi to wake it when an
+    Active Message request arrives.  This allows vapi-conduit to be
+    more attentive to incoming AMs even while the application may not
+    be making any calls to GASNet.  The down side is that each time
+    this thread wakes it must contend for CPU resources.  Thus for an
+    application that is calling GASNet sufficiently often, use of this
+    thread may significantly INCREASE running time.  However, on an SMP
+    where an otherwise idle processor is available the use of this
+    thread can REDUCE running time by relieving the application thread
+    of the burden of servicing incoming AM requests and replies.
+    Note that if '--disable-vapi-rcv-thread' was specified at build time
+    then the extra thread is unavailable and this environment variable
+    is ignored.
+    Currently the default is enabled (1), but this is subject to change
+    in a future version.
+
   Resource usage parameters:
   The following environment variables control how much memory is
-  preallocated at strtup time to serve various functions.  Because these
+  preallocated at startup time to serve various functions.  Because these
   resource pools do not grow dynamically, it is important that these
   parameters be sufficiently large, or performance degradations may
   results.  The default settings should be sufficient for most conditions.
@@ -228,19 +253,18 @@ $Revision: 1.15 $
     process.
     Because a "spare" receive buffer is used while an AM handler is
     running, this parameter limits the number of AM handlers which can
-    run concurrently without running the risk of an empty receive work
-    queue.  As described in the section on AM flow-control the empty
-    queue condition is undesirable, but not fatal.  Since a given thread
-    can only run one handler at a time, values of GASNET_AM_SPARES
-    larger than the number of threads running concurrently in GASNet
-    offer no extra benefit.  So, the default value depends on the
-    threading configuration.
-    When compiled for GASNET_PARSYNC or GASNET_SEQ, the default is 2
-    to allow for a single client thread in GASNet plus the internal AM
-    receive thread.  When compiled for GASNET_PAR, the default is 4.
-    Reducing this parameter may limit concurrency in servicing of Active
-    Messages in a GASNET_PAR configuration.  If you have many threads
-    you may wish to increase this value to as large as (num_threads + 1).
+    run concurrently before resorting to copying of an incoming AM to
+    a temporary space.
+    Since a given thread can only run one handler at a time, values of
+    GASNET_AM_SPARES larger than the number of threads running concurrently
+    in GASNet offer no extra benefit.  So, the default value depends on
+    the threading configuration.  When compiled for GASNET_PARSYNC or
+    GASNET_SEQ, the default is 2 to allow for a single client thread in
+    GASNet plus the internal AM receive thread.  When compiled for
+    GASNET_PAR, the default is 4.  Reducing this parameter may limit the
+    performance of concurrent servicing of Active Messages in a GASNET_PAR
+    configuration.  If you have many application threads you may wish to
+    increase this value to as large as (num_threads + 1).
 
   + GASNET_BBUF_LIMIT
     This gives the maximum number of pre-pinned bounce buffers allocated
@@ -313,7 +337,7 @@ $Revision: 1.15 $
   pool.
 
   There is a corner case we must deal with when there are no spares
-  left in the unposted pool.  In this case we will copy the recevied
+  left in the unposted pool.  In this case we will copy the received
   message into a temporary (non-pinned) buffer before processing it.
   This allows us to repost the recv buffer immediately.  Since the
   temporary buffer is not pinned, it cannot be used for receives.
@@ -404,9 +428,9 @@ Notes for myself for extended API:
     done with a modification to the code from the the reference
     implementation, and uses thread-local data to avoid locks.
 
-+ The memsets are be more efficiently implemented as a _local_ memset
++ The memsets can be more efficiently implemented as a _local_ memset
   followed by a RDMA put, for small enough sizes.  The cutoff is
-  presently the size of one bounce buffer.
+  presently the size of one bounce buffer, but has not been tuned.
   Larger memsets are still done by Active Messages.
   
 
@@ -422,9 +446,9 @@ required in all cases in the first implementation.
 
 Additionally, the exit code is properly propagated through the
 bootstrap, to yield a correct exit code for the parallel job as a
-whole.  However, there are some corner cases such as non-collective
-returns from main() with might not return the correct exit code if a
-different MPI is used for bootstrapping (I am using LAM/MPI).
+whole.  If using MPI for bootstrapping, the actual exit code will
+depend on supported in a given MPI implementation (some ignore the
+exit code of the individual processes).
 
 This code is heavily commented, but for the curious, here is a
 description of the code.
@@ -588,17 +612,6 @@ The average case is somewhere between these two.
   buffers with non-blocking gets.  This _will_ work, however, for blocking
   value gets.
 
-+ If I can be sure there are not deadlock problems,
-  the barrier implementation might be improved using a bunch of puts to
-  mark the barrier done upon the final notify.  However, the notify
-  mechanism will remain AM-based.
-  This would involve the notify passing an address (and perhaps rkey) to
-  which this put would be done.
-  The question remains as to where this memory would come from.  Since we
-  only need a small amount, perhaps we can carve it out of the segment?
-  Perhaps we just allow the extended ref to allocate pinned memory at
-  initialization time and pass the rkey with the address.
-
 + Can use "notifn" to make the progress thread only wake if there are
   multiple outstanding recvs.  This could, for instance, wake only if
   we reach the RNR state (or maybe are one event shy of it).
@@ -638,7 +651,7 @@ The average case is somewhere between these two.
   Of course I can't get a program to allocate from HCA memory!
 
 + Adaptive flow-control for AMs.
-  In this mode we'd prepost just M recv buffer to each QP if we want to
+  In this mode we'd prepost just M recv buffers to each QP if we want to
   have up to M AM's outstanding per peer, rather than 2*M as we do now.
   The present use of 2*M ensures one available for each matching reply
   (though coming in the opposite direction).  Since the buffers for the
@@ -646,4 +659,5 @@ The average case is somewhere between these two.
   buffer before each AM request rather than preposting them.
   We need to maintain a shared pool of these unposted buffers and be
   prepared to poll for them to become available along with polling
-  for available credits.
+  for available credits.  This pool would probably be combined with
+  the pool of "spares".

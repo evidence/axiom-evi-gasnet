@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/03/10 00:08:06 $
- * $Revision: 1.74 $
+ *     $Date: 2005/03/10 17:19:45 $
+ * $Revision: 1.75 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -340,6 +340,9 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_OUST_PP, GASNETC_DEFAULT_AM_OUST_PP, 1);
   GASNETC_ENVINT(gasnetc_am_spares, GASNET_AM_SPARES, GASNETC_DEFAULT_AM_SPARES, 1);
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_LIMIT, GASNETC_DEFAULT_BBUF_LIMIT, 1);
+#if GASNETC_VAPI_RCV_THREAD
+  GASNETC_ENVINT(gasnetc_use_rcv_thread, GASNET_RCV_THREAD, 1, 0); /* Bug 1012 - right default? */
+#endif
 
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_VAPI_RCV_THREAD)",
@@ -387,6 +390,12 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_OUST_PP    = %d", gasnetc_am_oust_pp));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_SPARES     = %d", gasnetc_am_spares));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_BBUF_LIMIT    = %d", gasnetc_bbuf_limit));
+#if GASNETC_VAPI_RCV_THREAD
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_RCV_THREAD    = %d (%sabled)", gasnetc_use_rcv_thread,
+				gasnetc_use_rcv_thread ? "en" : "dis"));
+#else
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_RCV_THREAD    disabled at build time"));
+#endif
   GASNETI_TRACE_PRINTF(C,  ("}"));
 
   return GASNET_OK;
@@ -1569,9 +1578,10 @@ static void gasnetc_exit_body(void) {
 #endif
     }
     (void)VAPI_dealloc_pd(gasnetc_hca, gasnetc_pd);
-#if !GASNETC_VAPI_RCV_THREAD	/* can't release from inside the RCV thread */
-    (void)EVAPI_release_hca_hndl(gasnetc_hca);
-#endif
+    if (gasnetc_use_rcv_thread)	{
+      /* can't release if we could possibly be inside the RCV thread */
+      (void)EVAPI_release_hca_hndl(gasnetc_hca);
+    }
   }
 
   /* Try again to flush out any recent output, allowing upto 5s */
