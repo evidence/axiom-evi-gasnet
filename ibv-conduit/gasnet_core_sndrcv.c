@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/02/02 18:05:26 $
- * $Revision: 1.64 $
+ *     $Date: 2005/02/02 22:04:33 $
+ * $Revision: 1.65 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -123,27 +123,30 @@ static gasnetc_sema_t			gasnetc_cq_sema;
 
 /* Use of IB's 32-bit immediate data:
  *   0-1: category
- *     2: request or reply
- *   3-7: numargs
- *  8-15: handerID
- * 16-29: source index (14 bit LID space in IB)
+ *     2: request (0) or reply (1)
+ *   3-7: numargs (5 bits, but only 0-16 are legal values)
+ *  8-15: handlerID
+ * 16-29: source node (14 bit LID space in IB)
  * 30-31: UNUSED
  */
 
 #define GASNETC_MSG_NUMARGS(flags)      (((flags) >> 3) & 0x1f)
-#define GASNETC_MSG_ISREQUEST(flags)    (!((flags) & 0x4))
-#define GASNETC_MSG_ISREPLY(flags)      (!!((flags) & 0x4))
+#define GASNETC_MSG_ISREPLY(flags)      ((flags) & 0x4)
+#define GASNETC_MSG_ISREQUEST(flags)    (!GASNETC_MSG_ISREPLY(flags))
 #define GASNETC_MSG_CATEGORY(flags)     ((gasnetc_category_t)((flags) & 0x3))
 #define GASNETC_MSG_HANDLERID(flags)    ((gasnet_handler_t)((flags) >> 8))
 #define GASNETC_MSG_SRCIDX(flags)       ((gasnet_node_t)((flags) >> 16) & 0x3fff)
-#define GASNETC_MSG_CREDIT(flags)       ((flags) & (1<<30))
 
 #define GASNETC_MSG_GENFLAGS(isreq, cat, nargs, hand, srcidx)   \
+ (gasneti_assert(!((isreq) & ~1)),              \
+  gasneti_assert(!((cat) & ~3)),                \
+  gasneti_assert((nargs) <= GASNETC_MAX_ARGS),  \
+  gasneti_assert((srcidx) < gasnetc_nodes),     \
   (uint32_t)(  (((srcidx) & 0x3fff) << 16)      \
 	     | (((hand)   & 0xff  ) << 8 )      \
 	     | (((nargs)  & 0x1f  ) << 3 )      \
 	     | ((!(isreq)         ) << 2 )      \
-	     | (((cat)    & 0x3   )      ))
+	     | (((cat)    & 0x3   )      )))
 
 /* Work around apparent thread-safety bug in VAPI_poll_cq (and peek as well?) */
 int gasnetc_use_poll_lock;
