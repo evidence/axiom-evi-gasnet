@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/08/31 09:36:50 $
- * $Revision: 1.10 $
+ *     $Date: 2002/09/02 23:25:02 $
+ * $Revision: 1.11 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -9,7 +9,6 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
-#include <gasnet_extended_internal.h>
 
 #include <ammpi_spmd.h>
 
@@ -28,13 +27,13 @@ uintptr_t gasnetc_MaxLocalSegmentSize = 0;
 uintptr_t gasnetc_MaxGlobalSegmentSize = 0;
 
 gasnet_seginfo_t *gasnetc_seginfo = NULL;
+static gasnet_seginfo_t gasnetc_segment = {0,0}; /* local segment info */
+static uintptr_t gasnetc_myheapend = 0; /* top of my malloc heap */
+static uintptr_t gasnetc_maxheapend = 0; /* top of max malloc heap */
+static uintptr_t gasnetc_maxbase = 0; /* start of segment overlap region */
 static gasneti_atomic_t segsrecvd = gasneti_atomic_init(0); /*  used for bootstrapping */
 eb_t gasnetc_bundle;
 ep_t gasnetc_endpoint;
-
-/* TODO: fix this stupid, temporary hack */
-#define GASNETC_MAXSHAREDSEG_SZ (10*1048576)
-uint8_t gasnetc_uglyevilhack[GASNETC_MAXSHAREDSEG_SZ+(16*1024)];
 
 static int gasnetc_init_done = 0; /*  true after init */
 static int gasnetc_attach_done = 0; /*  true after attach */
@@ -77,6 +76,11 @@ static void gasnetc_check_config() {
    goto done;                                                           \
  } while (0)
 
+typedef struct {
+  gasnet_seginfo_t seginfo;
+  uintptr_t heapend;
+} gasnetc_segexch_t;
+
 static int gasnetc_init(int *argc, char ***argv) {
   int retval = GASNET_OK;
   int networkdepth = 0;
@@ -84,6 +88,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   AMLOCK();
     if (gasnetc_init_done) 
       INITERR(NOT_INIT, "GASNet already initialized");
+    gasnetc_init_done = 1; /* enable early to allow tracing */
 
     /*  check system sanity */
     gasnetc_check_config();
@@ -107,15 +112,86 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_mynode = AMMPI_SPMDMyProc();
     gasnetc_nodes = AMMPI_SPMDNumProcs();
 
+    /* enable tracing */
+    gasneti_trace_init();
+
     #if DEBUG_VERBOSE
       fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
         gasnetc_mynode, gasnetc_nodes); fflush(stderr);
     #endif
 
     #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-      { /* TODO: a real algorithm for determining segment availability */
-        gasnetc_MaxLocalSegmentSize = GASNETC_MAXSHAREDSEG_SZ;
-        gasnetc_MaxGlobalSegmentSize = GASNETC_MAXSHAREDSEG_SZ;
+      { int i;
+        size_t pagesize = gasneti_getSystemPageSize();
+        gasnetc_segexch_t se;
+        gasnetc_segexch_t *pse = (gasnetc_segexch_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnetc_segexch_t));
+
+        /* TODO: this is broken on the T3E, which doesn't support mmap */
+        gasnetc_segment = gasneti_mmap_segment_search();
+        GASNETI_TRACE_PRINTF(C, ("My segment: addr="GASNETI_LADDRFMT"  sz=%lu",
+          GASNETI_LADDRSTR(gasnetc_segment.addr), (unsigned long)gasnetc_segment.size));
+
+        se.seginfo = gasnetc_segment;
+        gasnetc_myheapend = (uintptr_t)sbrk(0);
+        if (gasnetc_myheapend == -1) gasneti_fatalerror("Failed to sbrk(0):%s",strerror(errno));
+        gasnetc_myheapend = GASNETI_PAGE_ROUNDUP(gasnetc_myheapend, pagesize);
+        se.heapend = gasnetc_myheapend;
+
+        /* gather the sbrk info and mmap segment location */
+        GASNETI_AM_SAFE(AMMPI_SPMDAllGather(&se, pse, sizeof(gasnetc_segexch_t)));
+
+        /* compute bounding-box of segment location */
+        { uintptr_t maxbase = 0;
+          uintptr_t maxsize = 0;
+          uintptr_t minsize = (uintptr_t)-1;
+          uintptr_t minend = (uintptr_t)-1;
+          uintptr_t maxheapend = 0;
+          /* compute various stats across nodes */
+          for (i=0;i < gasnetc_nodes; i++) {
+            if (pse[i].heapend > maxheapend)
+              maxheapend = pse[i].heapend;
+            if (((uintptr_t)pse[i].seginfo.addr) > maxbase)
+              maxbase = (uintptr_t)pse[i].seginfo.addr;
+            if (pse[i].seginfo.size > maxsize)
+              maxsize = pse[i].seginfo.size;
+            if (pse[i].seginfo.size < minsize)
+              minsize = pse[i].seginfo.size;
+            if ((uintptr_t)pse[i].seginfo.addr + pse[i].seginfo.size < minend)
+              minend = (uintptr_t)pse[i].seginfo.addr + pse[i].seginfo.size;
+          }
+          GASNETI_TRACE_PRINTF(C, ("Segment stats: "
+              "maxsize = %lu   "
+              "minsize = %lu   "
+              "maxbase = "GASNETI_LADDRFMT"   "
+              "minend = "GASNETI_LADDRFMT"   "
+              "maxheapend = "GASNETI_LADDRFMT"   ",
+              (unsigned long)maxsize, (unsigned long)minsize,
+              GASNETI_LADDRSTR(maxbase), GASNETI_LADDRSTR(minend), GASNETI_LADDRSTR(maxheapend)
+              ));
+
+        gasnetc_maxheapend = maxheapend;
+        gasnetc_maxbase = maxbase;
+        #if GASNET_ALIGNED_SEGMENTS
+          if (maxbase >= minend) { /* no overlap - maybe should be a fatal error... */
+            GASNETI_TRACE_PRINTF(I, ("WARNING: unable to locate overlapping segments in gasnetc_init()"));
+            gasnetc_MaxLocalSegmentSize = 0;
+            gasnetc_MaxGlobalSegmentSize = 0;
+          } else {
+            gasnetc_MaxLocalSegmentSize = ((uintptr_t)gasnetc_segment.addr + gasnetc_segment.size) - maxbase;
+            gasnetc_MaxGlobalSegmentSize = minend - maxbase;
+          }
+        #else
+          gasnetc_MaxLocalSegmentSize = gasnetc_segment.size;
+          gasnetc_MaxGlobalSegmentSize = minsize;
+        #endif
+        GASNETI_TRACE_PRINTF(C, ("gasnetc_MaxLocalSegmentSize = %lu   "
+                           "gasnetc_MaxGlobalSegmentSize = %lu",
+                           (unsigned long)gasnetc_MaxLocalSegmentSize, 
+                           (unsigned long)gasnetc_MaxGlobalSegmentSize));
+        assert(gasnetc_MaxLocalSegmentSize % pagesize == 0);
+        assert(gasnetc_MaxGlobalSegmentSize % pagesize == 0);
+        }
+        gasneti_free_inhandler(pse);
       }
     #elif defined(GASNET_SEGMENT_EVERYTHING)
       gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
@@ -124,7 +200,6 @@ static int gasnetc_init(int *argc, char ***argv) {
       #error Bad segment config
     #endif
 
-    gasnetc_init_done = 1;  
   AMUNLOCK();
 
   assert(retval == GASNET_OK);
@@ -139,7 +214,10 @@ done: /*  error return while locked */
 extern int gasnet_init(int *argc, char ***argv) {
   int retval = gasnetc_init(argc, argv);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasneti_trace_init();
+  #if 0
+    /* called within gasnet_init to allow init tracing */
+    gasneti_trace_init();
+  #endif
   return GASNET_OK;
 }
 
@@ -271,17 +349,55 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /*  register segment  */
 
     #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-      if (segsize == 0) segbase = NULL; /* no segment */
+      if (segsize == 0) { /* no segment */
+        gasneti_munmap(gasnetc_segment.addr, gasnetc_segment.size);
+        gasnetc_segment.addr = segbase = NULL; 
+        gasnetc_segment.size = 0;
+      }
       else {
-        /* TODO: fix this to allocate dynamically using mmap fixed */
-        segbase = gasnetc_uglyevilhack;
+        /* TODO: this assumes heap grows up */
+        uintptr_t topofheap;
+        #if GASNET_ALIGNED_SEGMENTS
+          topofheap = gasnetc_maxheapend;
+          #if GASNETC_USE_HIGHSEGMENT
+            segbase = (void *)(gasnetc_maxbase + gasnetc_MaxGlobalSegmentSize - segsize);
+          #else
+            segbase = (void *)gasnetc_maxbase;
+          #endif
+        #else
+          topofheap = gasnetc_myheapend;
+          #if GASNETC_USE_HIGHSEGMENT
+            segbase = (void *)((uintptr_t)gasnetc_segment.addr + gasnetc_segment.size - segsize);
+          #else
+            segbase = gasnetc_segment.addr;
+          #endif
+        #endif
 
-        /*  ensure page-alignment of base */
-        if ((((uintptr_t)segbase) % pagesize) != 0) {
-          uint8_t *mem = (uint8_t *)segbase;
-          segbase = (void *) (mem + (pagesize - (((uintptr_t)mem) % pagesize)));
+        if (topofheap + minheapoffset > (uintptr_t)segbase) {
+          int maxsegsz;
+          /* we're too close to the heap - readjust to prevent collision 
+             note this allows us to return different segsizes on diff nodes
+             (even when we are using GASNET_ALIGNED_SEGMENTS)
+           */
+          segbase = (void *)(topofheap + minheapoffset);
+          maxsegsz = ((uintptr_t)gasnetc_segment.addr + gasnetc_segment.size) - (uintptr_t)segbase;
+          if (maxsegsz <= 0) gasneti_fatalerror("minheapoffset too large to accomodate a segment");
+          if (segsize > maxsegsz) {
+            GASNETI_TRACE_PRINTF(I, ("WARNING: gasnet_attach() reducing requested segsize (%lu=>%lu) to accomodate minheapoffset",
+              segsize, maxsegsz));
+            segsize = maxsegsz;
+          }
         }
 
+        /* trim final segment if required */
+        if (gasnetc_segment.addr != segbase || gasnetc_segment.size != segsize) {
+          assert(segbase >= gasnetc_segment.addr &&
+                 (uintptr_t)segbase + segsize <= (uintptr_t)gasnetc_segment.addr + gasnetc_segment.size);
+          gasneti_munmap(gasnetc_segment.addr, gasnetc_segment.size);
+          gasneti_mmap_fixed(segbase, segsize);
+          gasnetc_segment.addr = segbase;
+          gasnetc_segment.size = segsize;
+        }
         assert(((uintptr_t)segbase) % pagesize == 0);
         assert(segsize % pagesize == 0);
       }
@@ -317,6 +433,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* ------------------------------------------------------------------------------------ */
   /*  gather segment information */
 
+  /* TODO: use MPI_AllGather here for better scalability */
   /*  everybody exchange segment info - not very scalable, but screw it, this is startup */
   /*  (here we also discover if AM is broken) */
   { int i;

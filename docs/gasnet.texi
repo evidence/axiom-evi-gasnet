@@ -146,9 +146,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/08/15 09:52:16 $
+@subtitle $Date: 2002/09/02 23:25:01 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.8 $ 
+@subtitle $Revision: 1.9 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/08/15 09:52:16 $
-@*$Revision: 1.8 $ 
+@*$Date: 2002/09/02 23:25:01 $
+@*$Revision: 1.9 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.nersc.gov/}
 @HR
@@ -2233,6 +2233,10 @@ on some implementations.
 @node Open Issues
 @appendixsec Open Issues in the GASNet Specification
 @itemize @bullet
+@item
+Is it worthwhile to add a blocking barrier call? May want to tune this differently
+from split-phase barrier on some networks, but would need to define the semantics
+of how blocking and non-blocking barriers can be used together.
 @item
 Need a user manual for gasnetrun (i.e. the user interface provided by 
 the core's spawning system)

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/08/19 11:10:27 $
-# $Revision: 1.5 $
+#     $Date: 2002/09/02 23:25:00 $
+# $Revision: 1.6 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -38,7 +38,8 @@ EXTRA_DIST =              \
         acconfig.h        \
         acinclude.m4      \
         $(headers)        \
-        gasnet_internal.c 
+        gasnet_internal.c \
+        gasnet_mmap.c 
 
 include_HEADERS = $(headers)
 

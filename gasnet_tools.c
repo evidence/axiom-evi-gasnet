@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/08/31 09:36:48 $
- * $Revision: 1.11 $
+ *     $Date: 2002/09/02 23:25:00 $
+ * $Revision: 1.12 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -86,8 +86,13 @@ size_t gasneti_getSystemPageSize() {
        Here we return 1 to reflect the lack of page alignment constraints
    */
     return 1;
-  #else
+  #elif 1
     size_t pagesz = getpagesize();
+    assert(pagesz > 0);
+    return pagesz;
+  #else
+    /* alternate method that works on many systems */
+    size_t pagesz = sysconf(_SC_PAGE_SIZE)
     assert(pagesz > 0);
     return pagesz;
   #endif
@@ -516,3 +521,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
+#if !defined(CRAYT3E)
+  #define GASNETI_GASNET_INTERNAL_C
+  #include "gasnet_mmap.c"
+#endif
