@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
- * $Date: 2004/09/16 21:18:24 $
- * $Revision: 1.14 $
+ * $Date: 2004/09/17 03:59:18 $
+ * $Revision: 1.15 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -57,6 +57,11 @@ gasnetc_parse_addr(char *hostaddr)
 
     ip_ptr = hostaddr;
     
+    /* 
+     * XXX Reenable gethostbyname() for non-Titanium clients since the parsing
+     * of /usr/bin/host output will have to be much more robust to be portable.
+     */
+#ifdef GASNET_SEGMENT_EVERYTHING
     if (sscanf(ip_ptr, "%d.%d.%d.%d",&ip,&a2,&a3,&a4) != 4) {
 	/* Input is not in the IP form.  Resort to using host command */
 	snprintf(cmd, 128, "%s -t a %s", GASNETC_HOST_PATH, hostaddr);
@@ -91,12 +96,26 @@ gasnetc_parse_addr(char *hostaddr)
 	ip = a2 = a3 = a4 = 0;
 	if (sscanf(ip_ptr, "%d.%d.%d.%d",&ip,&a2,&a3,&a4) != 4)
 	    return 0;
-    }
 
-    if (inet_pton(AF_INET, ip_ptr, &ip) < 1)
-	return 0;
-    else
+	if (inet_pton(AF_INET, ip_ptr, &ip) < 1)
+	    return 0;
+	else
+	    return ip;
+    }
+#else
+    #include <netdb.h>
+    {
+	struct hostent *he = gethostbyname(ip_ptr);
+
+	if (he == NULL)
+	    return 0;
+
+	memcpy(&ip, he->h_addr, he->h_length);
+
 	return ip;
+    }
+#endif
+
 }
 
 
