@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/11/22 01:10:25 $
- * $Revision: 1.1 $
+ *     $Date: 2002/11/26 02:21:40 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -901,9 +901,13 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
     (but these impose even greater potential delays due to the lack of attentiveness to
     barrier progress)
 */
-/*  LAPI MODS:  Simply replace GASNET CORE AM calls with LAPI Amsend calls.
+/*  LAPI MODS:  Replaced GASNET CORE AM calls with LAPI Amsend calls.
     This should run faster because it eliminates the need to schedule a
     LAPI completion handler to run the AM handler.
+    Also, header handler of last client Amsend operations to notify
+    schedules a completion handler to inform all clients the barrier
+    has been reached.  This eliminates the need for Master node to
+    notice the barrier has been reached.
 */
 
 static enum { OUTSIDE_BARRIER, INSIDE_BARRIER } barrier_splitstate = OUTSIDE_BARRIER;
@@ -923,6 +927,41 @@ static int volatile barrier_consensus_value[2]; /*  consensus barrier value */
 static int volatile barrier_consensus_value_present[2] = { 0, 0 }; /*  consensus barrier value found */
 static int volatile barrier_consensus_mismatch[2] = { 0, 0 }; /*  non-zero if we detected a mismatch */
 static int volatile barrier_count[2] = { 0, 0 }; /*  count of how many remotes have notified (on P0) */
+/* static lapi counters used to eliminate alloc and free of uhdr structure
+ * during "broadcast" that barrier has been reached.  Its probably not necessary
+ * to have two of these, but to be on the safe side...
+ */
+static gasnete_barrier_uhdr_t barrier_uhdr[2];
+
+/* LAPI Completion handler scheduled by HH on master node when the last node
+ * has performed the notify.
+ * Job is to send done message to all other nodes.
+ */
+void gasnete_lapi_barrier_ch(lapi_handle_t *context, void* user_info)
+{
+    gasnete_barrier_uhdr_t *uhdr = (gasnete_barrier_uhdr_t*)user_info;
+    int i;
+
+    /* Note: uhdr is a pointer to a static structure.  It will not
+     * be used again until the next barrier has been reached by all
+     * nodes (with the same phase).  At that point, all clients will
+     * have had to received the active message.  This implies
+     * the these AM calls will have completed locally.  That is,
+     * we do not have to protect re-use of this uhdr by waiting
+     * on a local counter variable.
+     */
+    uhdr->is_notify = 0;
+
+    /* inform all nodes (except local node) that barrier is complete */
+    for (i=0; i < gasnete_nodes; i++) {
+	if ( i == gasnete_mynode ) continue;
+	GASNETC_LCHECK(LAPI_Amsend(context, (unsigned int)i,
+				   gasnete_remote_barrier_hh[i],
+				   uhdr, sizeof(gasneti_barrier_uhdr_t), NULL, 0,
+				   NULL, NULL, NULL));
+    }
+
+}
 
 /* LAPI header handler to implement both notify and done requests on remote node */
 void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
@@ -932,11 +971,18 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
     int phase = u->phase;
     int value = u->value;
 
+    *comp_h = NULL;
+    *uinfo = NULL;
+    is_done = !u->is_notify;
+
     if (u->is_notify) {
 	/* this is a notify header handler call */
 	assert(gasnete_mynode == GASNETE_BARRIER_MASTER);
 
-	gasnet_hsl_lock(&barrier_lock);
+	/* Do we need a lock here?  Don't think so.  Header handlers are
+	 * run by LAPI dispatcher and thus guaranteed to run one-at-a-time.
+	 * Varibles read and updated here are only done so in this function.
+	 */
 	{
 	    int count = barrier_count[phase];
 	    if (flags == 0 && !barrier_consensus_value_present[phase]) {
@@ -947,57 +993,35 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 		barrier_consensus_mismatch[phase] = 1;
 	    }
 	    barrier_count[phase] = count+1;
+
+	    if (barrier_count[phase] == gasnete_nodes) {
+		/* schedule completion handler to notify all nodes that
+		 * the barrier has been reached.
+		 * Question: can we use a static uhdr?
+		 */
+		gasnete_barrier_uhdr_t *uhdr = (gasnete_barrier_uhdr_t*)&barrier_uhdr[phase]
+		uhdr->phase = phase;
+		uhdr->value = value;
+		uhdr->mismatch = barrier_consensus_mismatch[phase]
+		uhdr->is_notify = 0;
+		*uinfo = (void*)uhdr;
+		*comp_h = gasnete_lapi_barrier_ch;
+		/* update the local state below.  Note that the completion
+		 * handler will not send an AM to this node
+		 */
+		is_done = 1;
+	    }
 	}
-	gasnet_hsl_unlock(&barrier_lock);
-    } else {
-	/* this is a done header handler call */
+    };
+
+    if (is_done) {
+	/* this is a done header handler call... update local state */
 	assert(phase == barrier_phase);
 
 	barrier_response_mismatch[phase] = u->mismatch;
 	barrier_response_done[phase] = 1;
     }
-    *comp_h = NULL;
-    *uinfo = NULL;
     return NULL;
-}
-
-/*  make some progress on the barrier */
-static void gasnete_barrier_kick() {
-    int phase = barrier_phase;
-    GASNETE_SAFE(gasnet_AMPoll());
-
-    if (gasnete_mynode != GASNETE_BARRIER_MASTER) return;
-
-    /*  master does all the work */
-    if (barrier_count[phase] == gasnete_nodes) {
-	/*  barrier is complete */
-	int i;
-	int mismatch = barrier_consensus_mismatch[phase];
-	gasnete_barrier_uhdr_t uhdr;
-	lapi_cntr_t o_cntr;
-	int cur_cntr;
-
-	uhdr.phase = phase;
-	uhdr.mismatch = mismatch;
-	uhdr.is_notify = 0;
-	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &o_cntr, 0));
-
-	/*  inform the nodes */
-	for (i=0; i < gasnete_nodes; i++) {
-	    GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, (unsigned int)i,
-				       gasnete_remote_barrier_hh[i],
-				       &uhdr, sizeof(gasneti_barrier_uhdr_t), NULL, 0,
-				       NULL, &o_cntr, NULL));
-	}
-	/* wait for all to complete locally... probably already has */
-	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,gasnetc_nodes,&cur_cntr));
-	assert(cur_cntr == 0);
-
-	/*  reset state */
-	barrier_count[phase] = 0;
-	barrier_consensus_mismatch[phase] = 0;
-	barrier_consensus_value_present[phase] = 0;
-    }
 }
 
 extern void gasnete_barrier_notify(int id, int flags) {
@@ -1056,12 +1080,19 @@ extern int gasnete_barrier_wait(int id, int flags) {
 
     /*  wait for response */
     while (!barrier_response_done[phase]) {
-	gasnete_barrier_kick();
+	GASNETE_SAFE(gasnet_AMPoll());
     }
 
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW()-wait_start);
 
-    /*  update state */
+    /* if this is the master node, reset the global state */
+    if (gasnete_mynode == GASNETE_BARRIER_MASTER) {
+	barrier_count[phase] = 0;
+	barrier_consensus_mismatch[phase] = 0;
+	barrier_consensus_value_present[phase] = 0;
+    }
+    
+    /*  update local state */
     barrier_splitstate = OUTSIDE_BARRIER;
     barrier_response_done[phase] = 0;
     if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != barrier_value) || 
@@ -1077,7 +1108,7 @@ extern int gasnete_barrier_try(int id, int flags) {
     if_pf(barrier_splitstate == OUTSIDE_BARRIER) 
 	gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
 
-    gasnete_barrier_kick();
+    /* should we kick the network if not done? */
 
     if (barrier_response_done[barrier_phase]) {
 	GASNETI_TRACE_EVENT_VAL(B,BARRIER_TRY,1);
