@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2004/10/13 12:30:22 $
- * $Revision: 1.13 $
+ *     $Date: 2004/10/13 18:45:22 $
+ * $Revision: 1.14 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -498,6 +498,7 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
     static int64_t getMicrosecondTimeStamp() {
       int64_t retval;
       struct timeval tv;
+      retry:
       if (gettimeofday(&tv, NULL)) {
         perror("gettimeofday");
         abort();
