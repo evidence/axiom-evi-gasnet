@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/08/15 21:30:47 $
- * $Revision: 1.11 $
+ *     $Date: 2003/08/21 00:18:16 $
+ * $Revision: 1.12 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -218,7 +218,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 #define GASNETC_SND_WQE 16		/* maximum queued entries on a snd work queue */
 #define GASNETC_SND_SG  1               /* maximum number of segments to gather on send */
 
-#define GASNETC_RCV_WQE 4               /* maximum queued entries on a rcv work queue */
+#define GASNETC_RCV_WQE 8               /* maximum queued entries on a rcv work queue */
 #define GASNETC_RCV_SG  1               /* maximum number of segments to scatter on rcv */
 
 #define GASNETC_RCV_SPARES   8          /* number of spares used to accelerate AM flow control */
@@ -229,6 +229,9 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* Define non-zero to enable polling for receiving AMs . */
 #define GASNETC_RCV_POLL		1
+
+/* AM req/rep <= this size will be done w/ VAPI-level copy, 0 disables */
+#define GASNETC_AM_INLINE_LIMIT		0
 
 /* puts <= this size will be done w/ VAPI-level copy, 0 disables */
 #define GASNETC_PUT_INLINE_LIMIT	0

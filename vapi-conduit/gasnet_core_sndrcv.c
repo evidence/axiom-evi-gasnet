@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/15 21:18:15 $
- * $Revision: 1.8 $
+ *     $Date: 2003/08/21 00:18:16 $
+ * $Revision: 1.9 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -582,9 +582,32 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   uint32_t flags;
   size_t msg_len;
   int retval, i;
+  int use_inline = 0;
 
   assert((credits_granted == 0) || (credits_granted == 1));
 
+  /* FIRST, get any flow-control credits needed for AM Requests.
+   * This way we can be sure that we never hold the last sbuf while spinning on
+   * the rcv queue waiting for credits.
+   */
+  if (credits_needed) {
+    gasnetc_sema_t *sema = &gasnetc_cep[dest].credit_sema;
+    GASNETI_TRACE_EVENT(C,GET_AMREQ_CREDIT);
+
+    /* XXX: We don't want to deal with liveness and fairness issues for multi-credit
+     * requests until we have an actual need for them.  Thus this assertion: */
+    assert(credits_needed == 1);
+
+    if_pf (!gasnetc_sema_trydown(sema, GASNETC_ANY_PAR)) {
+      GASNETC_TRACE_WAIT_BEGIN();
+      do {
+        gasnetc_poll_rcv();
+      } while (!gasnetc_sema_trydown(sema, GASNETC_ANY_PAR));
+      GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
+    }
+  }
+
+  /* Now get an sbuf and start building the message */
   sbuf = gasnetc_get_sbuf();
   buf = sbuf->buffer;
 
@@ -597,6 +620,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     args = buf->shortmsg.args;
     msg_len = offsetof(gasnetc_buffer_t, shortmsg.args[numargs]);
     if (!msg_len) msg_len = 1; /* Mellanox bug (zero-length sends) work-around */
+    use_inline = (sizeof(gasnetc_shortmsg_t) <= GASNETC_AM_INLINE_LIMIT);
     break;
 
   case gasnetc_Medium:
@@ -604,6 +628,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     buf->medmsg.nBytes = nbytes;
     memcpy(GASNETC_MSG_MED_DATA(buf, numargs), src_addr, nbytes);
     msg_len = GASNETC_MSG_MED_OFFSET(numargs) + nbytes;
+    use_inline = ((GASNETC_AM_INLINE_LIMIT != 0) && (msg_len <= GASNETC_AM_INLINE_LIMIT));
     break;
 
   case gasnetc_Long:
@@ -619,6 +644,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     buf->longmsg.destLoc = (uintptr_t)dst_addr;
     buf->longmsg.nBytes  = nbytes;
     msg_len = offsetof(gasnetc_buffer_t, longmsg.args[numargs]);
+    use_inline = (sizeof(gasnetc_longmsg_t) <= GASNETC_AM_INLINE_LIMIT);
     break;
 
   default:
@@ -646,26 +672,6 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   } else {
     /* send the AM */
     gasnetc_sreq_t req;
-    gasnetc_cep_t *cep = &gasnetc_cep[dest];
-
-    while (credits_needed) {
-      /* Requests require credit for flow control
-       *
-       * XXX: Note we should probably get the credit BEFORE we get the sbuf,
-       * to avoid blocking the RDMA traffic (which also requires sbuf's).
-       */
-      GASNETI_TRACE_EVENT(C,GET_AMREQ_CREDIT);
-
-      if_pf (!gasnetc_sema_trydown(&cep->credit_sema, GASNETC_ANY_PAR)) {
-        GASNETC_TRACE_WAIT_BEGIN();
-	do {
-          gasnetc_poll_rcv();
-	} while (!gasnetc_sema_trydown(&cep->credit_sema, GASNETC_ANY_PAR));
-        GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
-      }
-
-      credits_needed--;
-    }
 
     req.sr_desc.opcode     = VAPI_SEND_WITH_IMM;
     req.sr_desc.sg_lst_len = 1;
@@ -675,7 +681,11 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     req.sr_sg.len          = msg_len;
     req.sr_sg.lkey         = gasnetc_snd_reg.lkey;
 
-    gasnetc_snd_post(cep, &req, sbuf);
+    if_pt (use_inline) {
+      gasnetc_snd_post_inline(&gasnetc_cep[dest], &req, sbuf);
+    } else {
+      gasnetc_snd_post(&gasnetc_cep[dest], &req, sbuf);
+    }
 
     retval = GASNET_OK;
   }
@@ -776,12 +786,20 @@ extern void gasnetc_sndrcv_init(void) {
 extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
   int i;
   
-  for (i = 0; i < GASNETC_RCV_WQE; ++i) {
-    gasnetc_rcv_post(cep, gasnetc_get_rbuf(), 0);
-  }
+  if (cep != &gasnetc_cep[gasnetc_mynode]) {
+    for (i = 0; i < GASNETC_RCV_WQE; ++i) {
+      gasnetc_rcv_post(cep, gasnetc_get_rbuf(), 0);
+    }
 
-  gasnetc_sema_init(&cep->credit_sema, GASNETC_RCV_WQE / 2);
-  gasnetc_sema_init(&cep->send_sema, GASNETC_SND_WQE);
+    gasnetc_sema_init(&cep->credit_sema, GASNETC_RCV_WQE / 2);
+    gasnetc_sema_init(&cep->send_sema, GASNETC_SND_WQE);
+  } else {
+    /* Even the loopback AMs are restricted by credits, so we make this limit LARGE.
+     * Since the handlers run synchronously, this just limits the number of threads
+     * which are sending AM Requests to no more than 1 Million :-)
+     */
+    gasnetc_sema_init(&cep->credit_sema, 1000000);
+  }
 }
 
 extern void gasnetc_sndrcv_fini(void) {

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/15 21:30:47 $
- * $Revision: 1.9 $
+ *     $Date: 2003/08/21 00:18:16 $
+ * $Revision: 1.10 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -397,10 +397,13 @@ static int gasnetc_init(int *argc, char ***argv) {
     qp_attr.remote_atomic_flags = VAPI_EN_REM_WRITE | VAPI_EN_REM_READ;
     for (i = 0; i < gasnetc_nodes; ++i) {
       if (i == gasnetc_mynode) continue;
-
+      
       vstat = VAPI_modify_qp(gasnetc_hca, gasnetc_cep[i].qp_handle, &qp_attr, &qp_mask, &qp_cap);
       assert(vstat == VAPI_OK);
-	
+    }
+
+    /* post recv buffers and other local initialization */
+    for (i = 0; i < gasnetc_nodes; ++i) {
       gasnetc_sndrcv_init_cep(&gasnetc_cep[i]);
     }
 
