@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2004/04/06 16:14:51 $
- * $Revision: 1.19 $
+ *     $Date: 2004/04/10 12:57:42 $
+ * $Revision: 1.20 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -363,10 +363,11 @@ BEGIN_EXTERNC
       char * srclist_str = gasneti_extern_malloc(gasneti_format_addrlist_bufsz(srccount));                       \
       gasneti_addrlist_stats_t dststats = gasneti_format_addrlist(dstlist_str, (dstcount), (dstlist), (dstlen)); \
       gasneti_addrlist_stats_t srcstats = gasneti_format_addrlist(srclist_str, (srccount), (srclist), (srclen)); \
-      GASNETI_TRACE_EVENT_VAL(type,name,(dstcount)*(dstlen));                                                    \
+      uintptr_t totalsz = ((uintptr_t)(dstcount))*(dstlen);                                                      \
+      GASNETI_TRACE_EVENT_VAL(type,name,totalsz);                                                                \
       GASNETI_TRACE_PRINTF(D,(#name ": (%i data bytes) node=%i\n"                                                \
                               "dst: %s\nsrc: %s",                                                                \
-                              (int)((dstcount)*(dstlen)), (int)(node),                                           \
+                              (int)totalsz, (int)(node),                                                         \
                               dstlist_str, srclist_str));                                                        \
       gasneti_extern_free(dstlist_str);                                                                          \
       gasneti_extern_free(srclist_str);                                                                          \
