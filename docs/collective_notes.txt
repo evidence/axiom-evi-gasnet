@@ -1,6 +1,6 @@
 GASNet collectives design notes
 ===============================
-* $Revision: 1.30 $
+* $Revision: 1.31 $
 * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> and Paul Hargrove <PHHargrove@lbl.gov>
 * Terms of use are as specified in license.txt
 
@@ -1239,11 +1239,12 @@ gasnet_coll_init(const gasnet_image_t images[], gasnet_image_t my_image,
  *	  when there are multiple images on any node.  This is the case
  *	  because there would be no way to obtain the addresses for the
  *	  non-calling images on such nodes.
- *	* Calling the multiple-address interfaces with both GASNET_COLL_LOCAL
- *	  and GASNET_COLL_ALL_THREADS in the 'flags' is NOT permitted, because
- *	  there can only ever be one address per image and identical behavior
- *	  can therefore be achieved less expensively via the single-address
- *	  interfaces.
+ *	* Calling the multiple-address interfaces with GASNET_COLL_LOCAL
+ *	  set in the 'flags' is NOT permitted in a GASNET_SEQ configuration
+ *	  or in combination with GASNET_COLL_ALL_THREADS.  This is because
+ *	  there can only ever be one address per caller in these cases and
+ *	  identical behavior can therefore be achieved less expensively via
+ *	  the single-address interfaces.
  */
 
 gasnet_coll_handle_t gasnet_coll_broadcast_nb(
@@ -1482,11 +1483,12 @@ void gasnet_coll_exchangem(
  *	  when there are multiple images on any node.  This is the case
  *	  because there would be no way to obtain the addresses for the
  *	  non-calling images on such nodes.
- *	* Calling the multiple-address interfaces with both GASNET_COLL_LOCAL
- *	  and GASNET_COLL_ALL_THREADS in the 'flags' is NOT permitted, because
- *	  there can only ever be one address per image and identical behavior
- *	  can therefore be achieved less expensively via the single-address
- *	  interfaces.
+ *	* Calling the multiple-address interfaces with GASNET_COLL_LOCAL
+ *	  set in the 'flags' is NOT permitted in a GASNET_SEQ configuration
+ *	  or in combination with GASNET_COLL_ALL_THREADS.  This is because
+ *	  there can only ever be one address per caller in these cases and
+ *	  identical behavior can therefore be achieved less expensively via
+ *	  the single-address interfaces.
  */
 
 gasnet_coll_handle_t gasnet_coll_reduce_nb(
