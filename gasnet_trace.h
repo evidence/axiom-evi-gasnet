@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2004/06/25 22:04:19 $
- * $Revision: 1.24 $
+ *     $Date: 2004/06/25 23:19:49 $
+ * $Revision: 1.25 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -429,6 +429,7 @@ BEGIN_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 /* Collectives tracing */
 #if GASNETI_STATS_OR_TRACE
+  /* In what follows, "????"")" protects us from evil trigraphs */
   #if 0
     /* XXX Not yet implemented */
     extern char * gasnete_coll_format_addrlist(const void *addrlist[], int flags);
@@ -438,24 +439,16 @@ BEGIN_EXTERNC
   #define GASNETI_TRACE_COLL_BROADCAST(name,team,dst,root,src,nbytes,flags) do {                           \
     GASNETI_TRACE_EVENT_VAL(W,name,nbytes);                                                                \
     if (GASNETI_TRACE_ENABLED(D)) {                                                                        \
-      if (flags & GASNET_COLL_SINGLE) {                                                                    \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: "GASNETI_LADDRFMT" (all nodes)\n"                                    \
-			        "src: "GASNETI_RADDRFMT"\n",                                               \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        GASNETI_LADDRSTR(dst), GASNETI_RADDRSTR(root,src)));                       \
-      } else if (root == gasnet_mynode()) {                                                                \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: "GASNETI_LADDRFMT" (local node)\n"                                   \
-			        "src: "GASNETI_LADDRFMT" (local node)\n",                                  \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        GASNETI_LADDRSTR(dst), GASNETI_LADDRSTR(src)));                            \
+      if ((flags & GASNET_COLL_SINGLE) || (root == gasnet_mynode())) {                                     \
+        GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_LADDRFMT" <- "GASNETI_RADDRFMT                           \
+				" (nbytes=%i team=%p flags=0x%x)\n",                                       \
+			        GASNETI_LADDRSTR(dst), GASNETI_RADDRSTR(root,src),                         \
+      			        (int)nbytes, (void *)team, flags));                                        \
       } else {                                                                                             \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: "GASNETI_LADDRFMT" (local node)\n"                                   \
-			        "src: unknown address on node %i\n",                                       \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        GASNETI_LADDRSTR(dst), (int)(root)));                                      \
+        GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_LADDRFMT" <- (%i,????"")"                                \
+				" (nbytes=%i team=%p flags=0x%x)\n",                                       \
+			        GASNETI_LADDRSTR(dst), (int)(root),                                        \
+      			        (int)nbytes, (void *)team, flags));                                        \
       }                                                                                                    \
     }                                                                                                      \
   } while (0)
@@ -463,24 +456,16 @@ BEGIN_EXTERNC
     GASNETI_TRACE_EVENT_VAL(W,name,nbytes);                                                                \
     if (GASNETI_TRACE_ENABLED(D)) {                                                                        \
       char *_dstlist = gasnete_coll_format_addrlist(dstlist,flags);                                        \
-      if (flags & GASNET_COLL_SINGLE) {                                                                    \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: %s (all nodes)\n"                                                    \
-			        "src: "GASNETI_RADDRFMT"\n",                                               \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        _dstlist, GASNETI_RADDRSTR(root,src)));                                    \
-      } else if (root == gasnet_mynode()) {                                                                \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: %s (local node)\n"                                                   \
-			        "src: "GASNETI_LADDRFMT" (local node)\n",                                  \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        _dstlist, GASNETI_LADDRSTR(src)));                                         \
+      if ((flags & GASNET_COLL_SINGLE) || (root == gasnet_mynode())) {                                     \
+        GASNETI_TRACE_PRINTF(D,(#name ": %s <- "GASNETI_RADDRFMT                                           \
+				" (nbytes=%i team=%p flags=0x%x)\n",                                       \
+			        _dstlist, GASNETI_RADDRSTR(root,src),                                      \
+      			        (int)nbytes, (void *)team, flags));                                        \
       } else {                                                                                             \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: %s (local node)\n"                                                   \
-			        "src: unknown address on node %i\n",                                       \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        _dstlist, (int)(root)));                                                   \
+        GASNETI_TRACE_PRINTF(D,(#name ": %s <- (%i,????"")"                                                \
+				" (nbytes=%i team=%p flags=0x%x)\n",                                       \
+			        _dstlist, (int)(root),                                                     \
+      			        (int)nbytes, (void *)team, flags));                                        \
       }                                                                                                    \
       gasneti_extern_free(_dstlist);                                                                       \
     }                                                                                                      \
@@ -492,24 +477,16 @@ BEGIN_EXTERNC
   #define GASNETI_TRACE_COLL_GATHER(name,team,root,dst,src,nbytes,flags) do {                              \
     GASNETI_TRACE_EVENT_VAL(W,name,nbytes);                                                                \
     if (GASNETI_TRACE_ENABLED(D)) {                                                                        \
-      if (flags & GASNET_COLL_SINGLE) {                                                                    \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: "GASNETI_RADDRFMT"\n"                                                \
-			        "src: "GASNETI_LADDRFMT" (all nodes)\n",                                   \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			       	GASNETI_RADDRSTR(root,src), GASNETI_LADDRSTR(src)));                       \
-      } else if (root == gasnet_mynode()) {                                                                \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: "GASNETI_LADDRFMT" (local node)\n"                                   \
-			        "src: "GASNETI_LADDRFMT" (local node)\n",                                  \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        GASNETI_LADDRSTR(dst), GASNETI_LADDRSTR(src)));                            \
+      if ((flags & GASNET_COLL_SINGLE) || (root == gasnet_mynode())) {                                     \
+        GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_RADDRFMT" <- "GASNETI_LADDRFMT                           \
+				" (nbytes=%i team=%p flags=0x%x)\n",                                       \
+			        GASNETI_RADDRSTR(root,dst), GASNETI_LADDRSTR(src),                         \
+      			        (int)nbytes, (void *)team, flags));                                        \
       } else {                                                                                             \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: unknown address on node %i\n"                                        \
-			        "scr: "GASNETI_LADDRFMT" (local node)\n",                                  \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        (int)(root), GASNETI_LADDRSTR(src)));                                      \
+        GASNETI_TRACE_PRINTF(D,(#name ": (%i,????"") <- "GASNETI_LADDRFMT                                  \
+				" (nbytes=%i team=%p flags=0x%x)\n",                                       \
+			        (int)(root), GASNETI_LADDRSTR(src),                                        \
+      			        (int)nbytes, (void *)team, flags));                                        \
       }                                                                                                    \
     }                                                                                                      \
   } while (0)
@@ -517,24 +494,16 @@ BEGIN_EXTERNC
     GASNETI_TRACE_EVENT_VAL(W,name,nbytes);                                                                \
     if (GASNETI_TRACE_ENABLED(D)) {                                                                        \
       char *_srclist = gasnete_coll_format_addrlist(srclist,flags);                                        \
-      if (flags & GASNET_COLL_SINGLE) {                                                                    \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: "GASNETI_RADDRFMT"\n"                                                \
-			        "src: %s (all nodes)\n",                                                   \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        GASNETI_RADDRSTR(root,dst), _srclist));                                    \
-      } else if (root == gasnet_mynode()) {                                                                \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: "GASNETI_LADDRFMT" (local node)\n"                                   \
-			        "src: %s (local node)\n",                                                  \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        GASNETI_LADDRSTR(dst), _srclist));                                         \
+      if ((flags & GASNET_COLL_SINGLE) || (root == gasnet_mynode())) {                                     \
+        GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_RADDRFMT" <- %s"                                         \
+				" (nbytes=%i team=%p flags=0x%x)\n",                                       \
+			        GASNETI_RADDRSTR(root,dst), _srclist,                                      \
+      			        (int)nbytes, (void *)team, flags));                                        \
       } else {                                                                                             \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: unknown address on node %i\n"                                        \
-			        "src: %s (local node)\n",                                                  \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        (int)(root), _srclist));                                                   \
+        GASNETI_TRACE_PRINTF(D,(#name ": (%i,????"") <- %s"                                                \
+				" (nbytes=%i team=%p flags=0x%x)\n",                                       \
+			        (int)(root), _srclist,                                                     \
+      			        (int)nbytes, (void *)team, flags));                                        \
       }                                                                                                    \
       gasneti_extern_free(_srclist);                                                                       \
     }                                                                                                      \
@@ -542,19 +511,10 @@ BEGIN_EXTERNC
   #define GASNETI_TRACE_COLL_GATHER_ALL(name,team,dst,src,nbytes,flags) do {                               \
     GASNETI_TRACE_EVENT_VAL(W,name,nbytes);                                                                \
     if (GASNETI_TRACE_ENABLED(D)) {                                                                        \
-      if (flags & GASNET_COLL_SINGLE) {                                                                    \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: "GASNETI_LADDRFMT" (all nodes)\n"                                    \
-			        "src: "GASNETI_LADDRFMT" (all nodes)\n",                                   \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        GASNETI_LADDRSTR(dst), GASNETI_LADDRSTR(src)));                            \
-      } else {                                                                                             \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: "GASNETI_LADDRFMT" (local node)\n"                                   \
-			        "src: "GASNETI_LADDRFMT" (local node)\n",                                  \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        GASNETI_LADDRSTR(dst), GASNETI_LADDRSTR(src)));                            \
-      }                                                                                                    \
+      GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_LADDRFMT" <- "GASNETI_LADDRFMT                             \
+			      " (nbytes=%i team=%p flags=0x%x)\n",                                         \
+			      GASNETI_LADDRSTR(dst), GASNETI_LADDRSTR(src),                                \
+      			      (int)nbytes, (void *)team, flags));                                          \
     }                                                                                                      \
   } while (0)
   #define GASNETI_TRACE_COLL_GATHER_ALL_M(name,team,dstlist,srclist,nbytes,flags) do {                     \
@@ -562,19 +522,10 @@ BEGIN_EXTERNC
     if (GASNETI_TRACE_ENABLED(D)) {                                                                        \
       char *_srclist = gasnete_coll_format_addrlist(srclist,flags);                                        \
       char *_dstlist = gasnete_coll_format_addrlist(dstlist,flags);                                        \
-      if (flags & GASNET_COLL_SINGLE) {                                                                    \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: %s (all nodes)\n"                                                    \
-			        "src: %s (all nodes)\n",                                                   \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        _dstlist, _srclist));                                                      \
-      } else {                                                                                             \
-        GASNETI_TRACE_PRINTF(D,(#name ": (%i bytes per block) team handle=%p flags=0x%x\n"                 \
-			        "dst: %s (local node)\n"                                                   \
-			        "src: %s (local node)\n",                                                  \
-      			        (int)nbytes, (void *)team, flags,                                          \
-			        _dstlist, _srclist));                                                      \
-      }                                                                                                    \
+      GASNETI_TRACE_PRINTF(D,(#name ": %s <- %s"                                                           \
+			      " (nbytes=%i team=%p flags=0x%x)\n",                                         \
+			      _dstlist, _srclist,                                                          \
+      			      (int)nbytes, (void *)team, flags));                                          \
       gasneti_extern_free(_dstlist);                                                                       \
       gasneti_extern_free(_srclist);                                                                       \
     }                                                                                                      \
