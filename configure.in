@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/13 21:17:20 $
-# $Revision: 1.174 $
+#     $Date: 2004/08/16 16:55:13 $
+# $Revision: 1.175 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.174 $)
+AC_REVISION($Revision: 1.175 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1118,14 +1118,17 @@ if test "$enabled_lapi" = yes; then
   AC_MSG_RESULT($have_lapi)
 
   # Check for hardware version
+  # TODO: add explict --with-{colony,federation} options to select adapter type.
+  # That would allow us to deal with the case of no adapter on the compilation
+  # machine, and with the unlikely case of both adapters detected.
   if test "$have_lapi" = "yes"; then
     AC_MSG_CHECKING([for IBM SP Switch hardware availability/version])
     have_fed="no"
     have_col="no"
-    if (lscfg -l sni0 | grep -- sni0 ) > /dev/null 2>&1 ; then
+    if `lscfg -l sni0 2> /dev/null | grep -- sni0` != "" ; then
       have_fed="yes"
     fi
-    if (lscfg -l css0 | grep -- css0 ) > /dev/null 2>&1; then
+    if `lscfg -l css0 2> /dev/null | grep -- css0` != "" ; then
       have_col="yes"
     fi
     if test "${have_fed}${have_col}" = "yesyes"; then
