@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/03/01 00:36:36 $
- * $Revision: 1.34 $
+ *     $Date: 2005/03/01 02:33:36 $
+ * $Revision: 1.35 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -243,24 +243,14 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
 #elif defined(LINUX) && defined(__GNUC__) && defined(__PPC__)
   /* 
-   * This code uses the 64-bit "timebase" register on both 32- and
-   * 64-bit PowerPC CPUs.  Unfortunetly, there is no reliable way for us to get
-   * its frequency.  The processor docs say the frequency is implementation
-   * dependent.  Indeed I find CPUs where it is 1/2 of the reported CPU
-   * frequency and others where it is 1/24.  Docs indicate that for yet another
-   * it is a fixed 66MHz regardless of CPU frequency.
-   *
-   * The Linux kernel uses this counter for its implementation of gettimeofday
-   * and thus does some boot time measurements against hardware of known (or
-   * programmable) frequency.  I find that only on SOME kernels on SOME models
-   * does the Linux kernel choose to share this information with us (via
-   * /proc/cpuinfo).  So, we are stuck calibrating against gettimeofday() and
-   * using the fact that the tick is some integer multiple of the cpu clock.
+   * This code uses the 64-bit "timebase" register on both 32- and 64-bit PowerPC CPUs.
    */
   #include <stdio.h>
   #include <stdlib.h>
   #include <string.h>
   #include <math.h>
+  #include <sys/types.h>
+  #include <dirent.h>
   typedef uint64_t gasneti_stattime_t;
   GASNET_INLINE_MODIFIER(gasneti_stattime_now)
   uint64_t gasneti_stattime_now (void) {
@@ -289,67 +279,40 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     static int firstTime = 1;
     static double Tick = 0.0;
     if_pf (firstTime) {
-      FILE *fp = fopen("/proc/cpuinfo","r");
-      char input[255];
-      uint64_t min_ticks;
+      DIR *dp = opendir("/proc/device-tree/cpus");
+      struct dirent *de = NULL;
+      FILE *fp = NULL;
       double MHz = 0.0;
-      double prev = -1.0;
-      /* Begin by getting the value of the CPU clock speed */
-      if (!fp) {
-        fprintf(stderr,"*** ERROR: Failure in fopen('/proc/cpuinfo','r')=%s",strerror(errno));
+      uint32_t freq;
+      char fname[128];
+      if (!dp) {
+        fprintf(stderr,"*** ERROR: Failure in opendir('/proc/device-tree/cpus'): %s\n",strerror(errno));
         abort();
       }
-      while (!feof(fp) && fgets(input, 255, fp)) {
-        if (strstr(input,"clock")) {
-          char *p = strchr(input,':');
-          if (p) MHz = atof(p+1);
-          assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
-          break;
-        }
+      do {
+        de = readdir(dp);
+	if (de && (de->d_name == strstr(de->d_name, "PowerPC,"))) {
+	  break;
+	}
+      } while (de);
+      closedir(dp);
+      if (!de) {
+        fprintf(stderr,"*** ERROR: Failure to find a PowerPC CPU in /proc/device-tree/cpus\n");
+	abort();
+      }
+      snprintf(fname, sizeof(fname), "/proc/device-tree/cpus/%s/timebase-frequency", de->d_name);
+      fp = fopen(fname, "r");
+      if (!fp) {
+	fprintf(stderr,"*** ERROR: Failure in fopen('%s','r'): %s\n",fname,strerror(errno));
+	abort();
+      }
+      if (fread((void *)(&freq), sizeof(uint32_t), 1, fp) != 1) {
+        fprintf(stderr,"*** ERROR: Failure to read timebase frequency from '%s': %s\n", fname,strerror(errno));
+	abort();
       }
       fclose(fp);
-      /* Now "MHz" is the CPU clock frequency in units of Megahertz.
-       * We know that on PPC, one timebase tick is some integer number of
-       * the CPU clock ticks, but the ratio is "implementation dependent".
-       * However, we can use the fact that the ratio is an integer to do
-       * an accurate calibration with a short delay interval.
-       *
-       * The larger MHz is the longer the interval we need to ensure that
-       * we correctly compute the ratio of the clock and the timebase.
-       * Since we know that gettimeofday() has 1us resolution on this
-       * platform, the worst case uncertainty in the elapsed interval is
-       * +/- < 2us if both start_us and end_us are taken right at the
-       * "edge".  Even though we don't yet know the length of the tick
-       * we are measuring, we can prove that with an interval of 4 * MHz
-       * ticks the same ratio will be computed for any interval in the
-       * possible 4us-wide range.
-       *
-       * For a 3GHz clock and a 33MHz timebase, that comes to an elapsed
-       * interval of no less than 364us to calibrate.  Slower clocks or
-       * higher frequency timebase will require shorter intervals.
-       *
-       * To protect against the unlikely possibility that we get
-       * descheduled between gettimeofday() and the read of the timebase,
-       * we repeat the measurement until we get the same value twice in
-       * a row.  With very high probability that takes only 2 tries.
-       * So, we are looking at well under 1ms for calibration to as many
-       * significant digits as the MHz measurement reported by the kernel
-       * (either 3 or 4).
-       */
-      min_ticks = (uint64_t)ceil(4.0 * MHz);
-      while (Tick != prev) {
-        uint64_t start_ticks, ticks;
-        uint64_t start_us, end_us;
-	prev = Tick;
-        start_us = gasneti_getMicrosecondTimeStamp();
-        start_ticks = gasneti_stattime_now();
-        do {
-	  end_us = gasneti_getMicrosecondTimeStamp();
-	  ticks = gasneti_stattime_now() - start_ticks;
-        } while (ticks < min_ticks);
-        Tick = floor(0.5 + ((end_us - start_us) * MHz) / ticks) / MHz;
-        assert(Tick > 0.0);
-      }
+      assert(freq > 1000000 && freq < 1000000000); /* ensure it looks reasonable (1MHz to 1Ghz) */
+      Tick = 1.0e6 / freq;
       firstTime = 0;
     }
     return (uint64_t)(st * Tick);
