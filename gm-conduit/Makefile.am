@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.26 2003/09/10 02:19:26 csbell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.27 2003/09/10 04:32:24 csbell Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -29,7 +29,8 @@ filelist = gasnet_core.c              \
            gasnet_extended_fwd.h      \
            gasnet_extended_internal.h \
            gasnet_extended_op.c       \
-	   gasnet_extended_ref.c
+	   gasnet_extended_ref.c      \
+	   firehose_fwd.h
 
 
 othersourcefiles = $(top_srcdir)/gasnet_internal.c $(fh_srcdir)/firehose.c \
