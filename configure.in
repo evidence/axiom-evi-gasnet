@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/06/21 11:21:22 $
-# $Revision: 1.66 $
+#     $Date: 2003/06/21 13:13:04 $
+# $Revision: 1.67 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.66 $)
+AC_REVISION($Revision: 1.67 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -347,7 +347,7 @@ case "$target_os" in
 	AC_DEFINE(AIX)
         GASNET_MACHINE_DEFINES="-DAIX"
         GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE"
-        GASNET_THREAD_LIBS=-lpthread""
+        GASNET_THREAD_LIBS="-lpthread"
 	;;
   osf*)
 	AC_DEFINE(OSF)
@@ -365,7 +365,7 @@ case "$target_os" in
 	AC_DEFINE(UNICOS)
         GASNET_MACHINE_DEFINES="-DUNICOS"
         GASNET_THREAD_DEFINES="-D_REENTRANT"
-        GASNET_THREAD_LIBS=-lpthread""
+        GASNET_THREAD_LIBS="-lpthread"
 	GASNET_TRY_CACHE_CHECK(for Cray T3E, cc_is_t3e, [], [
 	    #ifndef _CRAYT3E
 	      #error not Cray T3E
