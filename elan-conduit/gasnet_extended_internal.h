@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended_internal.h         $
- *     $Date: 2002/08/18 08:38:46 $
- * $Revision: 1.1 $
+ *     $Date: 2002/09/04 19:30:27 $
+ * $Revision: 1.2 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -106,6 +106,8 @@ typedef struct _gasnete_threaddata_t {
   gasnete_iop_t *current_iop;  
 
   gasnete_iop_t *iop_free;      /*  free list of iops */
+
+  struct _gasnet_valget_op_t *valget_free; /* free list of valget cells */
 } gasnete_threaddata_t;
 /* ------------------------------------------------------------------------------------ */
 
