@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/GASNet/docs/Makefile                                   $
-#     $Date: 2003/01/27 14:54:36 $
-# $Revision: 1.4 $
+#     $Date: 2004/08/18 10:04:04 $
+# $Revision: 1.5 $
 # Description: Makefile for GASNet documentation
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -16,7 +16,7 @@ gasnet.dvi: gasnet.texi
 
 gasnet.ps: gasnet.dvi
 	rm -f gasnet.ps
-	dvips -f gasnet.dvi > gasnet.ps
+	dvips -f -t letter gasnet.dvi > gasnet.ps
 
 # ------------------------------------------------------------------------------------
 # Adobe PDF
