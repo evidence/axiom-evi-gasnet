@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/01/15 00:23:24 $
-# $Revision: 1.31 $
+#     $Date: 2005/01/22 05:38:52 $
+# $Revision: 1.32 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@ else
 # only use firehose for segment large/everything
 fh_srcdir = $(top_srcdir)/other/firehose
 fh_cflags = -I$(fh_srcdir)
-fh_deps = $(fh_srcdir)/*.h
+fh_hdrs = $(fh_srcdir)/*.h
 fh_srcs =                          \
       $(srcdir)/gasnet_firehose.c  \
       $(fh_srcdir)/firehose.c      \
@@ -28,9 +28,9 @@ if VAPI_BOOTSTRAP_MPI
 mpi_srcdir = $(top_srcdir)/other/mpi-spawner
 mpi_cflags = -I$(mpi_srcdir)
 mpi_srcs = $(mpi_srcdir)/gasnet_bootstrap_mpi.c
-mpi_deps = $(mpi_srcdir)/gasnet_bootstrap_fwd.h
+mpi_hdrs = $(mpi_srcdir)/gasnet_bootstrap_fwd.h
 mpi_objs = $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o
-$(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: $(mpi_srcs) $(mpi_deps)
+$(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: $(mpi_srcs) $(mpi_hdrs)
 	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) -o $@ -c $(mpi_srcs)
 mpi_subdirs = contrib
 endif
@@ -39,7 +39,7 @@ if VAPI_BOOTSTRAP_SSH
 ssh_srcdir = $(top_srcdir)/other/ssh-spawner
 ssh_cflags = -I$(ssh_srcdir)
 ssh_srcs = $(ssh_srcdir)/gasnet_bootstrap_ssh.c
-ssh_deps = $(ssh_srcdir)/gasnet_bootstrap_fwd.h
+ssh_hdrs = $(ssh_srcdir)/gasnet_bootstrap_fwd.h
 endif
 
 # any conduit-specific subdirectories containing Makefile.am's
@@ -77,11 +77,11 @@ CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ $(fh_cflags) $(ssh_cflags) $(mpi_cflag
 			 @VAPI_LIBCFLAGS@ @GASNET_THREAD_DEFINES@
 
 # additional conduit header files to install from external, non-standard directories
-CONDUIT_EXTRAHEADERS = 
+CONDUIT_EXTRAHEADERS = $(mpi_hdrs) $(ssh_hdrs)
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(fh_deps) $(mpi_deps) $(ssh_deps)
+CONDUIT_EXTRADEPS = $(fh_hdrs) $(mpi_hdrs) $(ssh_hdrs)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as
