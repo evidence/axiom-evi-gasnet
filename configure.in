@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/13 00:04:53 $
-# $Revision: 1.170 $
+#     $Date: 2004/08/13 18:39:56 $
+# $Revision: 1.171 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.170 $)
+AC_REVISION($Revision: 1.171 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1117,6 +1117,32 @@ if test "$enabled_lapi" = yes; then
   LIBS="$OLDLIBS"
   AC_MSG_RESULT($have_lapi)
 
+  # Check for hardware version
+  AC_MSG_CHECKING([IBM SP Switch hardware availability/version])
+  have_fed="no"
+  have_col="no"
+  if lscfg -l sni0 | grep -- sni0 > /dev/null 2>&1 ; then
+    have_fed="yes"
+  fi
+  if lscfg -l css0 | grep -- css0 > /dev/null 2>&1; then
+    have_col="yes"
+  fi
+  if test "${have_fed}${have_col}" = "yesyes"; then
+    AC_MSG_RESULT([conflict])
+    AC_MSG_WARN([Both Federation and Colony IBM SP Switch hardware found - disabling lapi])
+    have_lapi="no"
+  elif test "${have_fed}" = "yes"; then
+    AC_MSG_RESULT([Federation])
+    AC_DEFINE(GASNETC_LAPI_FEDERATION)
+  elif test "${have_col}" = "yes"; then
+    AC_MSG_RESULT([Colony])
+    AC_DEFINE(GASNETC_LAPI_COLONY)
+  else
+    AC_MSG_RESULT([no])
+    AC_MSG_WARN([No IBM SP Switch hardware found - disabling lapi])
+    have_lapi="no"
+  fi
+
   # Check for conflict
   if test "$force_lapi$have_lapi" = yesno; then
     AC_MSG_ERROR([User requested --enable-lapi but I don't know how to build LAPI programs for your system.])
@@ -1128,6 +1154,7 @@ if test "$enabled_lapi" = yes; then
     LAPI_LD="mpcc_r -q64"
   fi
   AC_SUBST(LAPI_LD)
+
 fi
 
 AM_CONDITIONAL(USE_LAPI_CONDUIT, test "$have_lapi" = yes)

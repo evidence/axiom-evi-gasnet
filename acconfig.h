@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/08/07 23:10:28 $ */
-/*  $Revision: 1.33 $ */
+/*      $Date: 2004/08/13 18:39:56 $ */
+/*  $Revision: 1.34 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -99,6 +99,10 @@
 #undef HAVE_VAPI_FMR
 #undef GASNETC_VAPI_ENABLE_INLINE_PUTS
 #undef GASNETC_VAPI_FORCE_POLL_LOCK
+
+/* GASNet lapi-conduit specific */
+#undef GASNETC_LAPI_FEDERATION
+#undef GASNETC_LAPI_COLONY
 
 @BOTTOM@
 
