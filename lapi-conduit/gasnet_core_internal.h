@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/12/09 23:24:37 $
- * $Revision: 1.8 $
+ *     $Date: 2002/12/11 00:59:35 $
+ * $Revision: 1.9 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -113,7 +113,6 @@ typedef struct gasnetc_token_rec {
 #define TOKEN_LEN(narg) offsetof(gasnetc_token_t,buf)  + offsetof(gasnetc_msg_t,args) \
                         + (narg)*sizeof(gasnet_handlerarg_t)
 
-
 /* --------------------------------------------------------------------
  * A freelist structure for the re-use of gasnetc_buf_t structures.
  * --------------------------------------------------------------------
@@ -125,7 +124,7 @@ typedef struct {
     int    high_water_mark;
     int    numfree;
     int    numalloc;
-    gasnetc_token_t *freelist;
+    gasnetc_token_t *head;
 #if GASNETC_USE_SPINLOCK
     volatile int     lock;
 #else
@@ -165,7 +164,7 @@ extern void gasnetc_memory_sync(void);
           avail = 0;            \
       }                         \
   }
-#if 0
+#if 1
 #define gasnetc_spin_unlock(lock) \
   {                            \
       int avail = 0;           \
