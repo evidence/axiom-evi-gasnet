@@ -1,16 +1,20 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/04 23:29:39 $
-# $Revision: 1.29 $
+#     $Date: 2004/08/10 17:01:56 $
+# $Revision: 1.30 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
+# Directories for automake to recurse into:
 SUBDIRS =            \
 	config-aux   \
-        other        \
+        other
+
+# Directories we manually recurse into:
+CONDUIT_DIRS =       \
         elan-conduit \
         gm-conduit   \
         lapi-conduit \
@@ -19,6 +23,8 @@ SUBDIRS =            \
 	smp-conduit  \
 	udp-conduit  \
 	vapi-conduit
+
+DIST_SUBDIRS = $(SUBDIRS) $(CONDUIT_DIRS)
 
 configdir = $(includedir)
 config_DATA = $(CONFIG_HEADER)
@@ -93,9 +99,43 @@ run-tests-seq: tests-seq run-tests
 run-tests-par: tests-par run-tests
 run-tests-parsync: tests-parsync run-tests
 
+# Build, clean, install, uninstall, etc. the conduits - in parallel if possible.
+# Instead of automake's loop over subdir, we expand to one target per subdir.
+all-local:
+	@$(MAKE) DO_WHAT=all `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+clean-local:
+	@$(MAKE) DO_WHAT=clean `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+install-data-local:
+	@$(MAKE) DO_WHAT=install-data `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+install-exec-local:
+	@$(MAKE) DO_WHAT=install-exec `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+uninstall-local:
+	@$(MAKE) DO_WHAT=uninstall `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+# We must test for existence of Makefile before recursing for "make clean" because 
+# distclean recurses into the directies (removing the Makefile) before running "make clean".
+do-elan:
+	if test -f elan-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C elan-conduit $(DO_WHAT) ; fi
+do-gm:
+	if test -f gm-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C gm-conduit $(DO_WHAT) ; fi
+do-lapi:
+	if test -f lapi-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C lapi-conduit $(DO_WHAT) ; fi
+do-mpi:
+	if test -f mpi-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C mpi-conduit $(DO_WHAT) ; fi
+do-sci:
+	if test -f sci-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C sci-conduit $(DO_WHAT) ; fi
+do-smp:
+	if test -f smp-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C smp-conduit $(DO_WHAT) ; fi
+do-udp:
+	if test -f udp-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C udp-conduit $(DO_WHAT) ; fi
+do-vapi:
+	if test -f vapi-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C vapi-conduit $(DO_WHAT) ; fi
+
+
 .PHONY: force clean tests test                                        \
         other-tests other-run-tests tests-seq tests-par tests-parsync \
-        run-tests-seq run-tests-par run-tests-parsync
+        run-tests-seq run-tests-par run-tests-parsync                 \
+        do-elan do-gm do-lapi do-mpi do-sci do-smp do-udp do-vapi
+
 
 dist-hook:
 	if test -f $(distdir)/docs/Makefile ; then \
