@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2002/06/20 09:49:14 $
- * $Revision: 1.4 $
+ *     $Date: 2002/08/23 18:06:47 $
+ * $Revision: 1.5 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -690,7 +690,10 @@ extern int AMMPI_RequestVA(ep_t request_endpoint, int reply_endpoint, handler_t 
                          int numargs, va_list argptr) {
   AMMPI_CHECKINIT();
   if (!request_endpoint || reply_endpoint < 0) AMMPI_RETURN_ERR(BAD_ARG);
+#ifndef __PGI
+  /* work-around a broken pgcc */
   if (handler >= AMMPI_MAX_NUMHANDLERS) AMMPI_RETURN_ERR(BAD_ARG);
+#endif
   if (request_endpoint->depth == -1) AMMPI_RETURN_ERR(NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
   if (reply_endpoint >= AMMPI_MAX_NUMTRANSLATIONS ||
      !request_endpoint->translation[reply_endpoint].inuse) AMMPI_RETURN_ERR(BAD_ARG);
@@ -719,7 +722,10 @@ extern int AMMPI_RequestIVA(ep_t request_endpoint, int reply_endpoint, handler_t
                           int numargs, va_list argptr) {
   AMMPI_CHECKINIT();
   if (!request_endpoint || reply_endpoint < 0) AMMPI_RETURN_ERR(BAD_ARG);
+#ifndef __PGI
+  /* work-around a broken pgcc */
   if (handler >= AMMPI_MAX_NUMHANDLERS) AMMPI_RETURN_ERR(BAD_ARG);
+#endif
   if (request_endpoint->depth == -1) AMMPI_RETURN_ERR(NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
   if (reply_endpoint >= AMMPI_MAX_NUMTRANSLATIONS ||
      !request_endpoint->translation[reply_endpoint].inuse) AMMPI_RETURN_ERR(BAD_ARG);
@@ -753,7 +759,10 @@ extern int AMMPI_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
                           int numargs, va_list argptr) {
   AMMPI_CHECKINIT();
   if (!request_endpoint || reply_endpoint < 0) AMMPI_RETURN_ERR(BAD_ARG);
+#ifndef __PGI
+  /* work-around a broken pgcc */
   if (handler >= AMMPI_MAX_NUMHANDLERS) AMMPI_RETURN_ERR(BAD_ARG);
+#endif
   if (request_endpoint->depth == -1) AMMPI_RETURN_ERR(NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
   if (reply_endpoint >= AMMPI_MAX_NUMTRANSLATIONS ||
      !request_endpoint->translation[reply_endpoint].inuse) AMMPI_RETURN_ERR(BAD_ARG);
@@ -805,7 +814,10 @@ extern int AMMPI_ReplyVA(void *token, handler_t handler,
 
   AMMPI_CHECKINIT();
   if (!token) AMMPI_RETURN_ERR(BAD_ARG);
+#ifndef __PGI
+  /* work-around a broken pgcc */
   if (handler >= AMMPI_MAX_NUMHANDLERS) AMMPI_RETURN_ERR(BAD_ARG);
+#endif
   assert(numargs >= 0 && numargs <= AMMPI_MAX_SHORT);
 
   { /*  semantic checking on reply (are we in a handler, is this the first reply, etc.) */
@@ -842,7 +854,10 @@ extern int AMMPI_ReplyIVA(void *token, handler_t handler,
 
   AMMPI_CHECKINIT();
   if (!token) AMMPI_RETURN_ERR(BAD_ARG);
+#ifndef __PGI
+  /* work-around a broken pgcc */
   if (handler >= AMMPI_MAX_NUMHANDLERS) AMMPI_RETURN_ERR(BAD_ARG);
+#endif
   if (!source_addr) AMMPI_RETURN_ERR(BAD_ARG);
   if (nbytes < 0 || nbytes > AMMPI_MAX_MEDIUM) AMMPI_RETURN_ERR(BAD_ARG);
   assert(numargs >= 0 && numargs <= AMMPI_MAX_SHORT);
@@ -911,7 +926,10 @@ extern int AMMPI_ReplyXferVA(void *token, handler_t handler,
 
   AMMPI_CHECKINIT();
   if (!token) AMMPI_RETURN_ERR(BAD_ARG);
+#ifndef __PGI
+  /* work-around a broken pgcc */
   if (handler >= AMMPI_MAX_NUMHANDLERS) AMMPI_RETURN_ERR(BAD_ARG);
+#endif
   if (!source_addr) AMMPI_RETURN_ERR(BAD_ARG);
   if (nbytes < 0 || nbytes > AMMPI_MAX_LONG) AMMPI_RETURN_ERR(BAD_ARG);
   if (dest_offset > AMMPI_MAX_SEGLENGTH) AMMPI_RETURN_ERR(BAD_ARG);
