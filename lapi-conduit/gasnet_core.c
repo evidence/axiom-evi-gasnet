@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/04/01 11:55:29 $
- * $Revision: 1.22 $
+ *     $Date: 2003/04/16 20:10:43 $
+ * $Revision: 1.23 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -49,7 +49,6 @@ void gasnetc_checkattach() {
 	gasneti_fatalerror("Illegal call to GASNet before gasnet_attach() initialization");
 }
 
-
 /* -------------------------------------------------------------------
  * Begin: LAPI specific variables
  * -------------------------------------------------------------------
@@ -79,7 +78,7 @@ gasnetc_lapimode_t gasnetc_lapi_default_mode = gasnetc_Interrupt;
 volatile int gasnetc_interrupt_held[GASNETC_MAX_THREAD] = { 0 };
 #endif
 
-static gasnetc_token_queue_t gasnetc_req_q = {NULL,NULL,0,1};
+static gasnetc_token_queue_t gasnetc_req_q;
 void gasnetc_run_handler(gasnetc_token_t *token);
 
 gasnetc_uhdr_freelist_t gasnetc_uhdr_freelist;
@@ -139,6 +138,9 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     /* Init the uhdr buffer free list used in GASNET AM calls */
     gasnetc_uhdr_init(GASNETC_UHDR_INIT_CNT);
+
+    /* Init the token queue */
+    gasnetc_token_queue_init(&gasnetc_req_q);
 
     /* (###) add code here to bootstrap the nodes for your conduit */
     memset(&gasnetc_lapi_info, 0, sizeof(lapi_info_t));
@@ -1337,7 +1339,7 @@ void gasnetc_lapi_exchange(void *src, size_t len, void *dest)
 void gasnetc_token_queue_init(gasnetc_token_queue_t *q)
 {
     q->head = q->tail = NULL;
-    q->lock = 0;
+    gasnetc_spin_lock_init(q->lock);
     q->schedule = 1;
 }
 
@@ -1696,13 +1698,8 @@ void gasnetc_run_handler(gasnetc_token_t *token)
 void gasnetc_uhdr_init(int want)
 {
     int got;
-#if GASNETC_USE_SPINLOCK
-    gasnetc_uhdr_freelist.lock = 0;
+    gasnetc_spin_lock_init(gasnetc_uhdr_freelist.lock);
     gasnetc_spin_lock(gasnetc_uhdr_freelist.lock);
-#else
-    pthread_mutex_init(&gasnetc_uhdr_freelist.lock, NULL);
-    pthread_mutex_lock(&gasnetc_uhdr_freelist.lock);
-#endif
     
     /* init the structure values */
     gasnetc_uhdr_freelist.high_water_mark = 0;
@@ -1712,11 +1709,7 @@ void gasnetc_uhdr_init(int want)
     
     got = gasnetc_uhdr_more(want);
 
-#if GASNETC_USE_SPINLOCK
     gasnetc_spin_unlock(gasnetc_uhdr_freelist.lock);
-#else
-    pthread_mutex_unlock(&gasnetc_uhdr_freelist.lock);
-#endif
 
     if (got == 0) {
 	gasneti_fatalerror("Unable to alloc ANY uhdr buffers");
@@ -1734,20 +1727,12 @@ gasnetc_token_t* gasnetc_uhdr_alloc(void)
 {
     gasnetc_token_t *p = NULL;
 
-#if GASNETC_USE_SPINLOCK
     gasnetc_spin_lock(gasnetc_uhdr_freelist.lock);
-#else
-    pthread_mutex_lock(&gasnetc_uhdr_freelist.lock);
-#endif
 
     if (gasnetc_uhdr_freelist.numfree == 0) {
 	gasnetc_uhdr_more(GASNETC_UHDR_ADDITIONAL);
 	if (gasnetc_uhdr_freelist.numfree == 0) {
-#if GASNETC_USE_SPINLOCK
 	    gasnetc_spin_unlock(gasnetc_uhdr_freelist.lock);
-#else
-	    pthread_mutex_unlock(&gasnetc_uhdr_freelist.lock);
-#endif
 	    gasneti_fatalerror("Unable to alloc additional uhdr buffers");
 	}
     }
@@ -1761,11 +1746,8 @@ gasnetc_token_t* gasnetc_uhdr_alloc(void)
     if (gasnetc_uhdr_freelist.numalloc > gasnetc_uhdr_freelist.high_water_mark)
 	gasnetc_uhdr_freelist.high_water_mark = gasnetc_uhdr_freelist.numalloc;
 
-#if GASNETC_USE_SPINLOCK
     gasnetc_spin_unlock(gasnetc_uhdr_freelist.lock);
-#else
-    pthread_mutex_unlock(&gasnetc_uhdr_freelist.lock);
-#endif
+
     return p;
 }
 
@@ -1777,20 +1759,12 @@ gasnetc_token_t* gasnetc_uhdr_alloc(void)
  */
 void gasnetc_uhdr_free(gasnetc_token_t *p)
 {
-#if GASNETC_USE_SPINLOCK
     gasnetc_spin_lock(gasnetc_uhdr_freelist.lock);
-#else
-    pthread_mutex_lock(&gasnetc_uhdr_freelist.lock);
-#endif
     p->next = gasnetc_uhdr_freelist.head;
     gasnetc_uhdr_freelist.head = p;
     gasnetc_uhdr_freelist.numfree++;
     gasnetc_uhdr_freelist.numalloc--;
-#if GASNETC_USE_SPINLOCK
     gasnetc_spin_unlock(gasnetc_uhdr_freelist.lock);
-#else
-    pthread_mutex_unlock(&gasnetc_uhdr_freelist.lock);
-#endif
 }
 
 /* --------------------------------------------------------------------------

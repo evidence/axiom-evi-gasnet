@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/04/05 06:39:42 $
- * $Revision: 1.13 $
+ *     $Date: 2003/04/16 20:10:43 $
+ * $Revision: 1.14 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,7 +127,9 @@ typedef struct gasnetc_token_rec {
  * A freelist structure for the re-use of gasnetc_buf_t structures.
  * --------------------------------------------------------------------
  */
-#define GASNETC_USE_SPINLOCK 1
+#ifndef GASNETC_USE_SPINLOCKS
+#define GASNETC_USE_SPINLOCKS 1
+#endif
 #define GASNETC_UHDR_INIT_CNT 256
 #define GASNETC_UHDR_ADDITIONAL 256
 typedef struct {
@@ -156,13 +158,24 @@ extern int    gasnetc_uhdr_more(int want);
 typedef struct {
     gasnetc_token_t *head;
     gasnetc_token_t *tail;
+#if GASNETC_USE_SPINLOCK
     volatile int     lock;
+#else
+    pthread_mutex_t  lock;
+#endif
     int              schedule;
 } gasnetc_token_queue_t;
 extern void gasnetc_token_queue_init(gasnetc_token_queue_t *q);
 extern gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_schedule);
 extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *schedule);
+extern void gasnetc_no_optimize(void);
 
+#if GASNETC_USE_SPINLOCK
+#define gasnetc_spin_lock_init(lock) \ 
+ {                          \
+      (lock) = 0;            \
+      gasneti_local_membar();\
+  }
 #define gasnetc_spin_lock(lock) \
   {                             \
       int avail = 0;            \
@@ -188,6 +201,11 @@ extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, 
       (lock) = 0;            \
       gasneti_local_membar();\
   }
+#endif
+#else  /* use pthread mutex */
+#define gasnetc_spin_lock_init(lock) pthread_mutex_init(&(lock), NULL)
+#define gasnetc_spin_lock(lock) pthread_mutex_lock(&(lock))
+#define gasnetc_spin_unlock(lock) pthread_mutex_unlock(&(lock))
 #endif
 
 /* MLW: Need more descriptive name for this macro */
