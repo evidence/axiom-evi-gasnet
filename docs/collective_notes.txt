@@ -13,7 +13,8 @@ including those with unaligned segments, progress via polling only,
 etc.
 
 ** 4) Must be suitable for use in hierarchical implementations on
-CLUMPS (both pthreaded and SysV)
+CLUMPS (ie pthreaded clients and SysV shared memory bypass inside
+GASNet when it's enabled)
 
 ** 5) Must be "efficient" in terms of synchronization - for instance
 avoid use of a full barrier where point-to-point synchronization is
@@ -27,7 +28,10 @@ appropriate (barriers, broadcast, RDMA-atomics).
 ** 7) Must NOT break any existing GASNet semantics.
 
 ** 8) MAY assume that calls which initiate collective calls are, in
-fact, collective with calls made in the same order on all nodes.
+fact, collective with calls made in the same order on all nodes, in
+the same barrier phase. Synchronization calls may happen in different
+orders on different nodes, but collectives will never be in-flight
+across a barrier notify/wait interval.
 
 ** 9) Must allow for address (and related) arguments which are not
 "single-valued" in the sense used by the UPC-spec.  For instance, when
@@ -45,6 +49,27 @@ upc_all_scatter() with a broadcast and then discarding some of the
 data at each node, or use of full barriers where hardware support
 makes them superior to pairwise synchronization.)
 
+*** 11) Must be suitable for implementing the collective support
+required by Titanium (which may include future extensions to utilize
+the new GASNet support) and Co-Array FORTRAN.
+
+*** 12) Should provide support for aggregating the message and
+synchronization traffic of separate in-flight collectives, both within
+the GASNet implementation and with explicit help from the client. For
+example, the compiler should be able to transform several source-level
+IN_ALLSYNC|OUT_ALLSYNC collectives issued in a row which it determines
+to be data-independent into a series of GASNet calls expressing that
+all the collectives should be worked on simultaneously - ideally
+causing the implementation to piggy-back any data movement together,
+and use a single entry and exit barrier for the entire group of
+collectives.
+
+*** 13) Should support operating on in-segment and out-of-segment data
+
+*** 14) Should allow extension to variable-contribution data movement
+collectives in the future.
+
+*** 15) Should allow extension to team-based collectives in the future.
 
 =============================================================================
 * Collectives and barriers
@@ -88,6 +113,9 @@ semantic that a call which is intended to initiate a non-blocking
 collective can return GASNET_ALL_INVALID_HANDLE if the operation was
 completed synchronously.  We also keep the rule that the invalid
 handle is all zero bits.
+
+DOB: the "all" suffix is overloaded - lets use "gasnet_coll"
+everywhere instead.
 
 As with gasnet_handle_t, a gasnet_all_handle_t is "dead" once it has
 been successfully synced and may not be used in future synchronization
@@ -199,8 +227,8 @@ int gasnet_all_try_sync_some(gasnet_all_handle_t *handles, size_t n);
 Synchronization of a GASNet collective is NOT itself a collective
 operation and the returns from the synchronization calls on individual
 nodes may occur as early as permitted by the sync mode argument passed
-to the collective initiation function.  (See OPEN ISSUES for one
-reason we might wish to change this).
+to the collective initiation function.  Specifically, synchronization
+calls need not occur in the same order on all nodes. 
 
 
 =============================================================================
@@ -233,15 +261,20 @@ execute a collective operation the collective initiation functions
 should be called exactly once (i.e. by one representative thread) on
 each node.  To disambiguate the order in which collectives are
 initiated by multi-threaded clients, the client must serialize its own
-calls to the collective initiation functions to ensure that only one
-thread is ever inside a GASNet collective initiation function at a
+calls to the collective initiation functions to ensure that at most one
+thread per node is ever inside a GASNet collective initiation function at a
 time.
 
-The type gasnet_all_handle_t specifies a handle which maybe
+The type gasnet_all_handle_t specifies a handle which may be
 synchronized from any thread, regardless of which thread initiated the
 collective.  However, the collective synchronization calls may not be
-called for the *same* handle simultaneously from multiple threads.
+called for the *same* handle concurrently from multiple threads on the
+same node.
 
+Handles are node-specific - specifically, each node gets a separate
+handle_t for the operation, which it independently synchronizes in any
+order with respect to other outstanding collectives. Handles may not
+be passed across nodes.
 
 =============================================================================
 * Data segment
@@ -348,6 +381,10 @@ anything for reduce, prefix_reduce or sort.  An issue to be aware of
 is that the UPC collectives spec allows for unequal contributions from
 nodes.
 
+DOB: we really need to sketch out the basic interface for the
+computational collectives before we get to deeply entrenched in the
+data movement collectives and have no way to reconcile the two.
+
 
 * OPEN ISSUE: Number outstanding vs. one-sided synchronization
 
@@ -411,6 +448,10 @@ to store the arguments, until synchronization resources became
 available.  The "flow control" could be piggybacked on the
 collectives, for instance by promoting every 8th (for example)
 collective to have OUT_ALLSYNC.
+DOB: The interface should expose a limit of 2^16-1. The implementation
+may internally use back-pressure flow control at a smaller limit, but
+initiation calls must always independently make progress without any
+synchronization action by the client on any node. 
 
 Implementing this "flow control" for synchronization resources is an
 area that requires more thought.  I think that enforcing the kind of
@@ -424,6 +465,11 @@ collective because I was not sure what it would mean for clients,
 especially multi-threaded ones which would now need to perform some
 additional serialization.  I am pretty sure that we'd want to drop the
 _all and _some sync calls.
+DOB: NO - sync calls need to be non-collective to support a number of
+important paradigms (eg spawn many MYSYNC collectives and compute on
+the result as trysync reports them to be complete). It's not even
+clear what it would mean to require a collective try sync on a MYSYNC
+or NOSYNC operation (where some nodes succeed and others fail).
 
 One additional wrinkle is the possibility that RDMA based
 synchronization might be possible without any of the flow control
@@ -454,6 +500,9 @@ described above while keeping one-sided synchronization would be to
 either have the implementation internally complete collectives only in
 the order they were initiated or make the client's sync calls
 collective.
+DOB: Internally completing the collectives in order is acceptable when
+it's necessary. That still provides significantly more flexibility to
+the client than forcing the syncs to be collective.
 
 There are still a lot of IFs in the text above.  It is still possible
 that flow control of a limited pool of synchronization words can be
@@ -463,6 +512,21 @@ of like firehose) without the need to make the sync calls collective.
 So, I am soliciting feedback on this issue.  Are there any great ideas
 on how to do one-sided synchronization?  Are there thoughts on what it
 would mean to make the sync calls collective?
+
+* OPEN ISSUE: Progress
+
+In-flight collectives should be guaranteed to make progress, provided
+all nodes poll occasionally. Allowing them to make progress
+independent of polling activity would be nice, but is not a firm
+requirement.
+
+Non-blocking initiation calls are collective, so in some
+implementations (esp with IN_ALLSYNC) they may stall waiting for all
+nodes to arrive. This specifically means that it would be an error for
+a GASNet client to construct a dependency cycle where node A stalls
+before reaching the collective initiation, waiting for the result of
+some action that will be taken by node B when it exits the collective
+initiation. We need to formalize this requirement in the spec.
 
 =============================================================================
 END OF OPEN ISSUES
@@ -478,7 +542,13 @@ allowing a given function to include arguments which are unused for
 various flag values, the use of LOCAL and SINGLE flags can reduce the
 interface width.
 
-If have followed this suggestion and also tried to find similarity to
+DOB: Paul and I reworked this entire section at our 3/18 meeting -
+he's going to write up the revised proposal, which includes an init
+function (called after attach) and an function-by-function breakdown
+of what each argument means in LOCAL and SINGLE mode, and what the
+constraints on it are in each mode.
+
+I have followed this suggestion and also tried to find similarity to
 the VIS interface.  In doing so, I collapse the "global" and "local"
 into one interface, and "globalV" and "localV" into a second.  The
 "globalN" interface is dropped because it is just a special case of
@@ -651,9 +721,20 @@ gasnet_all_exchangei_nb(gasnet_node_t * const nodelist[],
                         int flags);
 
 =============================================================================
-* Generalized collectives proposal
+* Generalized collective put/get proposal
 
-The UPC all_permute is that the source data and the permutation
+DOB: Paul and I both seem to agree this might be a useful internal
+interface (ie gasnete_) but should definitely not be added to the
+public GASNet interface, and is probably not even the best way to get
+good performance on the general data movement collectives. Although
+some hardware support exists for signalling stores (and it's
+trivial to implement with AM-based stores), the synchronization
+semantics can be tricky to implement without deadlock.  Finally, there
+seems to be very little application or codegen motivation for using
+upc_all_permute at all, so we shouldn't spend much effort tuning it
+for now (the others are much more important).
+
+In UPC all_permute the source data and the permutation
 indexes have the same affinity.  Therefore a simple put-based
 mechanism is sufficient.  The only way in which GASNet can improve on
 this is to provide for more efficient synchronization (especially for
@@ -858,27 +939,25 @@ appear in the next section.
 
 Implement the following in gasnet_extended_fwd.h:
 
-extern unsigned gasnetc_collective_count;
+extern gasneti_atomic_t gasnetc_collective_count;
 extern gasnet_hsl_t gasnetc_collective_hsl;
 extern gasneti_cond_t gasnetc_collective_cond;
 
 GASNET_INLINE_MODIFIER(gasnete_collective_entry_hook)
 void gasnete_collective_entry_hook(void)
 {
-  gasnet_hsl_lock(&gasnetc_collective_hsl);
-  gasnetc_collective_count++;
-  if (gasnetc_collective_count == 1) {
+  gasneti_atomic_increment(&gasnetc_collective_count);
+  if (gasneti_atomic_read(&gasnetc_collective_count) >= 1) {
+    gasnet_hsl_lock(&gasnetc_collective_hsl);
     gasneti_cond_signal(&gasnetc_collective_cond);
+    gasnet_hsl_unlock(&gasnetc_collective_hsl);
   }
-  gasnet_hsl_unlock(&gasnetc_collective_hsl);
 }
 
 GASNET_INLINE_MODIFIER(gasnete_collective_leave_hook)
 void gasnete_collective_leave_hook(void)
 {
-  gasnet_hsl_lock(&gasnetc_collective_hsl);
-  gasnetc_collective_count--;
-  gasnet_hsl_unlock(&gasnetc_collective_hsl);
+  gasneti_atomic_decrement(&gasnetc_collective_count);
 }
 
 In the core, the thread would use something such as:
@@ -886,16 +965,19 @@ In the core, the thread would use something such as:
 void gasnetc_collective_poll_thread(void)
 {
   while (!EXITING()) {
-    gasnet_hsl_lock(&gasnetc_collective_hsl);
-    while (!EXITING() && !gasnetc_collective_count) {
-       gasneti_cond_wait(&gasnetc_collective_cond,
-                         &gasnetc_collective_hsl);
+    while (!EXITING() && gasneti_atomic_read(&gasnetc_collective_count) == 0) {
+       gasnet_hsl_lock(&gasnetc_collective_hsl);
+       gasneti_cond_wait(&gasnetc_collective_cond, &gasnetc_collective_hsl);
+       gasnet_hsl_unlock(&gasnetc_collective_hsl);
     }
-    gasnet_hsl_unlock(&gasnetc_collective_hsl);
 
     if_pt (!EXITING()) {
       gasnete_poll();
     }
+
+    // TODO: need a throttling mechanism here so that this thread
+    // doesn't starve the working threads (which it may be waiting on) 
+    // for CPU and lock resources
   }
 
   gasnetc_exit(0);
@@ -979,8 +1061,7 @@ void
 gasneti_cond_wait_mutex(gasneti_cond_t *cond, gasneti_mutex_t *lock)
 {
   #if !GASNETI_USE_TRUE_MUTEXES
-    gasneti_fatalerror(
-       "Can't wait on condition variable w/o true mutexes");
+    gasneti_fatalerror("There's only one thread: waiting on condition variable => deadlock");
   #endif
 
   #if GASNET_DEBUG
