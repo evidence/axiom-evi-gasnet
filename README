@@ -91,32 +91,32 @@ Platforms where GASNet and Berkeley UPC have been successfully tested:
     * Linux/x86-Dolphin/gcc/32:      smp, mpi, udp
     * Linux/x86-Quadrics/gcc/32:     smp, mpi, udp, elan
     * Linux/x86-Mellanox/gcc/32:     smp, mpi, udp, vapi
-    * Linux/x86/IntelC/32:           smp, mpi, gm
-    * Linux/x86/PortlandGroupC/32:   smp, mpi, gm
-    * Linux/Itanium-Quadrics/{gcc,IntelC}/64: smp, mpi, elan
-    * Linux/Itanium-Myrinet/{gcc,IntelC}/64: smp, mpi, gm
+    * Linux/x86/IntelC/32:           smp, mpi, udp, gm
+    * Linux/x86/PortlandGroupC/32:   smp, mpi, udp, gm
+    * Linux/Itanium-Quadrics/{gcc,IntelC}/64: smp, mpi, udp, elan
+    * Linux/Itanium-Myrinet/{gcc,IntelC}/64: smp, mpi, udp, gm
 
     * FreeBSD/x86gcc/32:  smp, mpi, udp
 
-    * Tru64/Compaq-AlphaServer/Compaq C: smp, mpi, elan
+    * Tru64/Compaq-AlphaServer/Compaq C: smp, mpi, udp, elan
 
-    * AIX/IBM-SPPower3/VisualAgeC(xlc)/32,64: smp, mpi, udp(32-bit only), lapi
-    * AIX/IBM-SPPower4/VisualAgeC(xlc)/32,64: smp, mpi, udp(32-bit only), lapi
+    * AIX/IBM-SPPower3/VisualAgeC(xlc)/32,64: smp, mpi, udp, lapi
+    * AIX/IBM-SPPower4/VisualAgeC(xlc)/32,64: smp, mpi, udp, lapi
 
-    * IRIX/Origin2000/gcc,MIPSProC/32,64: smp, mpi, udp(32-bit only) 
+    * IRIX/Origin2000/gcc,MIPSProC/32,64: smp, mpi, udp
 
     * HPUX/PA-RISC/gcc/32: smp, udp, #
     * HPUX/PA-RISC/HPcc/32: smp, udp, #
  
-    * Solaris/SPARC/gcc,SunProC/32,64: smp, udp(32-bit only), mpi
-    * Solaris/x86/gcc/32: smp, #
+    * Solaris/SPARC/gcc,SunProC/32,64: smp, udp, mpi
+    * Solaris/x86/gcc/32: smp, udp, #
 
     * MSWindows-Cygwin/x86/gcc/32/: smp, udp, mpi (MPICH.NT)
 
-    * MacOSX/PowerPC/gcc/32: smp, mpi
+    * MacOSX/PowerPC/gcc/32: smp, udp, mpi
 
-    * Unicos/CrayT3e/CrayC/64: smp, mpi 
-       (Berkeley UPC has a known UPC codegen bug on T3E (bug202) - but GASNet works fine)
+    * Unicos/CrayT3e/CrayC/64: smp, udp, mpi 
+       (Berkeley UPC has known problems on T3E (bug202) - but GASNet works fine)
 
 # = No working MPI implementation available, although we have every reason to
 believe mpi conduit would work if one was available.

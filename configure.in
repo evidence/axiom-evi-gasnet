@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/01/28 13:04:26 $
-# $Revision: 1.107 $
+#     $Date: 2004/02/04 07:26:47 $
+# $Revision: 1.108 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.107 $)
+AC_REVISION($Revision: 1.108 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -585,7 +585,7 @@ if test $enabled_udp = yes; then
        MISC_CXXFLAGS="$CXXFLAGS" 
        CXXFLAGS="$oldCXXFLAGS"
     ;;
-    PGI)   MISC_CXXFLAGS="-w" ;; # apparently has no way to indep control warnings
+    PGI)   MISC_CXXFLAGS="-w -Masmkeyword" ;; # apparently has no way to indep control warnings
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
     MIPS)  MISC_CXXFLAGS="-diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
     Intel) MISC_CXXFLAGS="-wd654 -wd1125 -wd279" ;;

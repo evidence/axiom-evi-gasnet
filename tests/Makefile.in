@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.11 2004/01/07 20:38:15 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.12 2004/02/04 07:26:51 bonachea Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -51,7 +51,7 @@ distclean:
 
 # testtools is a special minimal case for an app that just uses GASNet tools
 testtools: force
-	@CC@ $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@ -DHAVE_PTHREAD_H -c -o $@.o $(srcdir)/$@.c
+	@CC@ @MISC_CFLAGS@ $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@ -DHAVE_PTHREAD_H -c -o $@.o $(srcdir)/$@.c
 	@CC@ -o $@ $@.o @GASNET_THREAD_LIBS@ @LIBS@ @LIBM@
 
 # testlogGP needs an external file w/ the delay function.

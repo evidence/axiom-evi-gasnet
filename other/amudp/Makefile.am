@@ -90,7 +90,7 @@ TEST_DUPLEX=H
 AMUDP_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
 	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo  Running AMMPI tests...
+	@echo  Running AMUDP tests...
 	@echo  If this fails to spawn a job, you may need to re-run with a
 	@echo   command like: gmake run-tests TEST_SPAWNFN=S
 	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

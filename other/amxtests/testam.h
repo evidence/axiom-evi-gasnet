@@ -286,7 +286,7 @@
     }                                                                                     \
     if (nbytes != sizeof(int) || *(int*)buf != num) {                                     \
       fprintf(stderr, "buf mismatch in medium_%sreq_handler on P%i: nbytes=%i, buf=%i\n", \
-                       #num, MYPROC, nbytes, *(int*)buf);                                 \
+                       #num, MYPROC, (int)nbytes, *(int*)buf);                            \
       fflush(stderr);                                                                     \
       abort();                                                                            \
     }                                                                                     \
@@ -302,7 +302,7 @@
     }                                                                                     \
     if (nbytes != sizeof(int) || *(int*)buf != -num) {                                    \
       fprintf(stderr, "buf mismatch in medium_%srep_handler on P%i: nbytes=%i, buf=%i\n", \
-                       #num, MYPROC, nbytes, *(int*)buf);                                 \
+                       #num, MYPROC, (int)nbytes, *(int*)buf);                            \
       fflush(stderr);                                                                     \
       abort();                                                                            \
     }                                                                                     \
@@ -320,7 +320,7 @@
     }                                                                                                                             \
     if (nbytes != sizeof(int) || buf != ((int*)MYSEG)+num || *(int*)buf != num) {                                                 \
       fprintf(stderr, "buf mismatch in long_%sreq_handler on P%i: nbytes=%i, buf=%i\n",                                           \
-                       #num, MYPROC, nbytes, *(int*)buf);                                                                         \
+                       #num, MYPROC, (int)nbytes, *(int*)buf);                                                                    \
       fflush(stderr);                                                                                                             \
       abort();                                                                                                                    \
     }                                                                                                                             \
@@ -337,7 +337,7 @@
     }                                                                                                                             \
     if (nbytes != sizeof(int) || buf != ((int*)MYSEG)+NUMHANDLERS_PER_TYPE+num || *(int*)buf != -(int)num) {                      \
       fprintf(stderr, "buf mismatch in long_%srep_handler on P%i: nbytes=%i, buf=%i\n",                                           \
-                       #num, MYPROC, nbytes, *(int*)buf);                                                                         \
+                       #num, MYPROC, (int)nbytes, *(int*)buf);                                                                    \
       fflush(stderr);                                                                                                             \
       abort();                                                                                                                    \
     }                                                                                                                             \
