@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/05/02 08:05:23 $
- * $Revision: 1.49 $
+ *     $Date: 2004/05/17 02:02:43 $
+ * $Revision: 1.50 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -315,18 +315,32 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
 static int gasnetc_load_settings(void) {
   char	*tmp;
 
-  tmp = getenv("GASNET_HCA_ID");
+  tmp = gasneti_getenv("GASNET_HCA_ID");
   if (tmp) {
     gasnetc_hca_id = gasneti_strdup(tmp);
   } else {
     gasnetc_hca_id = GASNETC_DEFAULT_HCA_ID;
   }
+  if ((gasnetc_hca_id != NULL) && strlen(gasnetc_hca_id)) {
+    GASNETI_TRACE_PRINTF(C,("GASNET_HCA_ID = '%s' (%s)", gasnetc_hca_id,
+			    tmp ? "environment" : "default"));
+  } else {
+    GASNETI_TRACE_PRINTF(C,("GASNET_HCA_ID unset, will probe for HCA (%s)",
+			    tmp ? "environment" : "default"));
+  }
 
-  tmp = getenv("GASNET_PORT_NUM");
+  tmp = gasneti_getenv("GASNET_PORT_NUM");
   if (tmp) {
     gasnetc_port_num = atoi(tmp);
   } else {
     gasnetc_port_num = GASNETC_DEFAULT_PORT_NUM;
+  }
+  if (gasnetc_port_num != 0 ) {
+    GASNETI_TRACE_PRINTF(C,("GASNET_PORT_NUM = %d (%s)", gasnetc_port_num,
+			    tmp ? "environment" : "default"));
+  } else {
+    GASNETI_TRACE_PRINTF(C,("GASNET_PORT_NUM unset, will probe for an active port (%s)",
+			    tmp ? "environment" : "default"));
   }
 
   tmp = gasneti_getenv("GASNET_OP_OUST_LIMIT");
@@ -338,6 +352,8 @@ static int gasnetc_load_settings(void) {
   } else {
     gasnetc_op_oust_limit = GASNETC_DEFAULT_OP_OUST_LIMIT;
   }
+  GASNETI_TRACE_PRINTF(C,("GASNET_OP_OUST_LIMIT = %d (%s)", gasnetc_op_oust_limit,
+			  tmp ? "environment" : "default"));
 
   tmp = gasneti_getenv("GASNET_OP_OUST_PP");
   if (tmp) {
@@ -348,6 +364,8 @@ static int gasnetc_load_settings(void) {
   } else {
     gasnetc_op_oust_pp = GASNETC_DEFAULT_OP_OUST_PP;
   }
+  GASNETI_TRACE_PRINTF(C,("GASNET_OP_OUST_PP = %d (%s)", gasnetc_op_oust_pp,
+			  tmp ? "environment" : "default"));
 
   tmp = gasneti_getenv("GASNET_AM_OUST_LIMIT");
   if (tmp) {
@@ -358,6 +376,8 @@ static int gasnetc_load_settings(void) {
   } else {
     gasnetc_am_oust_limit = GASNETC_DEFAULT_AM_OUST_LIMIT;
   }
+  GASNETI_TRACE_PRINTF(C,("GASNET_AM_OUST_LIMIT = %d (%s)", gasnetc_am_oust_limit,
+			  tmp ? "environment" : "default"));
 
   tmp = gasneti_getenv("GASNET_AM_OUST_PP");
   if (tmp) {
@@ -368,6 +388,8 @@ static int gasnetc_load_settings(void) {
   } else {
     gasnetc_am_oust_pp = GASNETC_DEFAULT_AM_OUST_PP;
   }
+  GASNETI_TRACE_PRINTF(C,("GASNET_AM_OUST_PP = %d (%s)", gasnetc_am_oust_pp,
+			  tmp ? "environment" : "default"));
 
   tmp = gasneti_getenv("GASNET_AM_SPARES");
   if (tmp) {
@@ -378,6 +400,8 @@ static int gasnetc_load_settings(void) {
   } else {
     gasnetc_am_spares = GASNETC_DEFAULT_AM_SPARES;
   }
+  GASNETI_TRACE_PRINTF(C,("GASNET_AM_SPARES = %d (%s)", gasnetc_am_spares,
+			  tmp ? "environment" : "default"));
 
   tmp = gasneti_getenv("GASNET_BBUF_LIMIT");
   if (tmp) {
@@ -388,6 +412,8 @@ static int gasnetc_load_settings(void) {
   } else {
     gasnetc_bbuf_limit = GASNETC_DEFAULT_BBUF_LIMIT;
   }
+  GASNETI_TRACE_PRINTF(C,("GASNET_BBUF_LIMIT = %d (%s)", gasnetc_bbuf_limit,
+			  tmp ? "environment" : "default"));
 
   return GASNET_OK;
 }
@@ -404,6 +430,8 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   if (gasneti_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
+  gasneti_init_done = 1; /* enable early to allow tracing */
+
 
   if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
 
@@ -415,9 +443,12 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* Initialize the bootstrapping support */
   gasnetc_bootstrapInit(argc, argv, &gasnetc_nodes, &gasnetc_mynode);
     
-  /* Setup for gasneti_getenv() */
+  /* Setup for gasneti_getenv() (must come before gasneti_trace_init() */
   gasneti_setupGlobalEnvironment(gasnetc_nodes, gasnetc_mynode, 
                                  gasnetc_bootstrapAllgather, gasnetc_bootstrapBroadcast);
+
+  /* Now enable tracing of all the following steps */
+  gasneti_trace_init();
 
   /* Process the environment for configuration/settings */
   i = gasnetc_load_settings();
@@ -435,19 +466,20 @@ static int gasnetc_init(int *argc, char ***argv) {
     if (!gasnetc_hca_id || !strlen(gasnetc_hca_id)) {
       /* Empty means probe for HCAs */
       VAPI_hca_id_t	*hca_ids;
-      u_int32_t		num_hcas;	/* Type specified by Mellanox */
+      u_int32_t		num_hcas = 0;	/* Type specified by Mellanox */
 
+      GASNETI_TRACE_PRINTF(C,("Probing for HCAs"));
       vstat = EVAPI_list_hcas(0, &num_hcas, NULL);
-      gasneti_assert(vstat == VAPI_EAGAIN);
-      if (num_hcas == 0) {
+      if (((vstat != VAPI_OK) && (vstat != VAPI_EAGAIN)) || (num_hcas == 0)) {
         /* XXX cleanup */
-        GASNETI_RETURN_ERRR(RESOURCE, "failed locate any HCAs");
+        GASNETI_RETURN_ERRR(RESOURCE, "failed to locate any HCAs");
       }
       hca_ids = gasneti_calloc(num_hcas, sizeof(VAPI_hca_id_t));
       vstat = EVAPI_list_hcas(num_hcas, &num_hcas, hca_ids);
       GASNETC_VAPI_CHECK(vstat, "while enumerating HCAs");
 
       for (i = 0; i <= num_hcas; ++i) {
+        GASNETI_TRACE_PRINTF(C,("Trying to open HCA '%s'", hca_ids[i]));
         vstat = VAPI_open_hca(hca_ids[i], &gasnetc_hca);
         if (vstat != VAPI_OK) {
           vstat = EVAPI_get_hca_hndl(hca_ids[i], &gasnetc_hca);
@@ -462,6 +494,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       }
 
       gasnetc_hca_id = gasneti_strdup(hca_ids[i]);
+      GASNETI_TRACE_PRINTF(C,("Probe located HCA '%s'", gasnetc_hca_id));
       gasneti_free(hca_ids);
     } else {
       vstat = VAPI_open_hca(gasnetc_hca_id, &gasnetc_hca);
@@ -470,7 +503,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       }
       if (vstat != VAPI_OK) {
         /* XXX cleanup */
-        GASNETI_RETURN_ERRR(RESOURCE, "failed open the HCA");
+        GASNETI_RETURN_ERRR(RESOURCE, "failed open the specified HCA");
       }
     }
 
@@ -479,7 +512,9 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     if (gasnetc_port_num == 0) {
       /* Zero means probe for the first active port */
+      GASNETI_TRACE_PRINTF(C,("Probing for an active port"));
       for (gasnetc_port_num = 1; gasnetc_port_num <= gasnetc_hca_cap.phys_port_num; ++gasnetc_port_num) {
+        GASNETI_TRACE_PRINTF(C,("Checking port %d", gasnetc_port_num));
         (void)VAPI_query_hca_port_prop(gasnetc_hca, gasnetc_port_num, &gasnetc_hca_port);
 
         if (gasnetc_hca_port.state == PORT_ACTIVE) {
@@ -490,6 +525,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 	/* XXX cleanup */
         GASNETI_RETURN_ERRR(RESOURCE, "failed to probe for ACTIVE ports on the HCA");
       }
+      GASNETI_TRACE_PRINTF(C,("Probe located port %d", gasnetc_port_num));
     } else {
       vstat = VAPI_query_hca_port_prop(gasnetc_hca, gasnetc_port_num, &gasnetc_hca_port);
       if ((vstat != VAPI_OK) || (gasnetc_hca_port.state != PORT_ACTIVE)) {
@@ -723,7 +759,10 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   atexit(gasnetc_atexit);
 
-  gasneti_init_done = 1;  
+  #if 0
+    /* Done earlier to allow tracing */
+    gasneti_init_done = 1;  
+  #endif
   gasnetc_bootstrapBarrier();
 
   return GASNET_OK;
@@ -733,7 +772,10 @@ static int gasnetc_init(int *argc, char ***argv) {
 extern int gasnet_init(int *argc, char ***argv) {
   int retval = gasnetc_init(argc, argv);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasneti_trace_init();
+  #if 0
+    /* Already done in gasnetc_init() to allow tracing of init steps */
+    gasneti_trace_init();
+  #endif
   return GASNET_OK;
 }
 
