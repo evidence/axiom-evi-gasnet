@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/04/05 18:37:44 $
- * $Revision: 1.11 $
+ *     $Date: 2004/04/05 19:52:14 $
+ * $Revision: 1.12 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,7 +61,7 @@ static int volatile ambarrier_recv_value_present[2] = { 0, 0 }; /*  consensus am
   static gasneti_stattime_t ambarrier_notifytime; /* for statistical purposes */ 
 #endif
 
-static void gasnete_ambarrier_init(void)
+void gasnete_ambarrier_init(void)
 {
   int i, j;
 
@@ -122,7 +122,6 @@ static void gasnete_ambarrier_kick() {
         gasnet_node_t peer;
         gasnet_handlerarg_t flags = ambarrier_mismatch[phase] ? GASNET_BARRIERFLAG_MISMATCH
 							      : ambarrier_flags;
-        gasnet_hsl_unlock(&ambarrier_lock);
 
 	/* No need for a full mod because worst case is < 2*gasnete_nodes.
 	 * However, we must take care for overflow if we try to do the
@@ -297,7 +296,7 @@ static int volatile ambarrier_consensus_value_present[2] = { 0, 0 }; /*  consens
 static int volatile ambarrier_consensus_mismatch[2] = { 0, 0 }; /*  non-zero if we detected a mismatch */
 static int volatile ambarrier_count[2] = { 0, 0 }; /*  count of how many remotes have notified (on P0) */
 
-static void gasnete_ambarrier_init(void) {
+void gasnete_ambarrier_init(void) {
   /* Nothing to do */
 }
 
