@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/09/17 20:15:40 $
-# $Revision: 1.81 $
+#     $Date: 2003/10/05 18:47:05 $
+# $Revision: 1.82 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.81 $)
+AC_REVISION($Revision: 1.82 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -156,6 +156,7 @@ case "$gasnet_cv_cc_family" in
         CCOPTFLAGS="-O3 -qsmp=noauto -qmaxmem=8192" ;; # -O5 causes linker to hang on Titanium
   Compaq) CCOPTFLAGS="-O4 -tune host -inline all" ;;
   Intel) CCOPTFLAGS="-O3" ;;
+  PGI) CCOPTFLAGS="-O2" ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
 
@@ -170,6 +171,8 @@ case "$gasnet_cv_cc_family" in
   Cray) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; 
   MIPS) MISC_CFLAGS="-common -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
   Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
+  Intel) MISC_CFLAGS="-wd279" ;;
+  PGI) MISC_CFLAGS="-Masmkeyword" ;;
   *)    MISC_CFLAGS="" ;;
 esac
 

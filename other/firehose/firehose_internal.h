@@ -127,7 +127,7 @@ struct _firehose_private_t {
 	fh_bucket_t	**fh_tqe_prev;		/* refcount when not in FIFO,
 						   prev pointer otherwise    */
 };
-#define FH_REFCOUNT(priv) ((fh_refc_t) ((priv)->fh_tqe_prev))
+#define FH_REFCOUNT(priv) (*(fh_refc_t*)&((priv)->fh_tqe_prev))
 
 /* Local and Remote buckets can be in various states.
  *

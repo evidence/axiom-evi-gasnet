@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/09/30 20:23:57 $
- * $Revision: 1.10 $
+ *     $Date: 2003/10/05 18:47:10 $
+ * $Revision: 1.11 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -279,6 +279,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
     gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapExchange);
+    assert(((uintptr_t)gasnetc_seginfo[gasnetc_mynode].addr) % GASNET_PAGESIZE == 0);
+    assert(gasnetc_seginfo[gasnetc_mynode].size % GASNET_PAGESIZE == 0);
   #else
     /* GASNET_SEGMENT_EVERYTHING */
     { int i;
@@ -290,8 +292,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #endif
   segbase = gasnetc_seginfo[gasnetc_mynode].addr;
   segsize = gasnetc_seginfo[gasnetc_mynode].size;
-  assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
-  assert(segsize % GASNET_PAGESIZE == 0);
 
   /* ------------------------------------------------------------------------------------ */
   /*  gather segment information */

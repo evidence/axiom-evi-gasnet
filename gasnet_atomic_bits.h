@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/09/30 00:42:51 $
- * $Revision: 1.18 $
+ *     $Date: 2003/10/05 18:47:05 $
+ * $Revision: 1.19 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,10 +35,10 @@
 #if defined(SOLARIS) || /* SPARC seems to have no atomic ops */ \
     defined(CRAYT3E) || /* TODO: no atomic ops on T3e? */       \
     defined(HPUX)    || /* HPUX seems to have no atomic ops */  \
-    defined(__PGI) ||   /* Portland Group compiler doesn't support asm */ \
+    (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) || /* haven't implemented atomics for PGI */ \
     (defined(OSF) && !defined(__DECC)) ||  /* OSF atomics are compiler built-ins */ \
     (defined(__MACH__) && defined(__APPLE__)) || /* we careth not about performance on OSX */ \
-    defined(__INTEL_COMPILER) /* Intel compiler doesn't support asm (contrary to docs) */
+    (defined(__INTEL_COMPILER) && defined(__ia64__)) /* IA64 Intel compiler doesn't support asm (contrary to docs) */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
 
@@ -285,16 +285,20 @@
    More Info: http://gee.cs.oswego.edu/dl/jmm/cookbook.html
  */
 #ifdef __GNUC__
-  #define GASNETI_ASM(mnemonic) asm volatile (#mnemonic : : : "memory")
+  #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
+#elif defined(__INTEL_COMPILER)
+  #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
+#elif defined(__PGI) /* note this requires compiler flag -Masmkeyword */
+  #define GASNETI_ASM(mnemonic) asm(mnemonic)
 #elif defined(__digital__)
   #include <c_asm.h>
-  #define GASNETI_ASM(mnemonic) asm(#mnemonic)
+  #define GASNETI_ASM(mnemonic) asm(mnemonic)
 #elif defined(MIPSPRO_COMPILER)
   #define GASNETI_ASM(mnemonic)  /* TODO: broken - doesn't have inline assembly */
 #elif defined(__SUNPRO_C)
-  #define GASNETI_ASM(mnemonic)  __asm(#mnemonic)
+  #define GASNETI_ASM(mnemonic)  __asm(mnemonic)
 #else
-  #define GASNETI_ASM(mnemonic) asm { mnemonic }
+  #error "Don't know how to use inline assembly for your compiler"
 #endif
 
 #if (defined(_POWER) || defined(_POWERPC)) && !defined(__GNUC__)  
@@ -307,46 +311,35 @@
 #pragma mc_func _gasneti_do_sync { \
   "7c0004ac" /* sync (same opcode used for dcs)*/ \
 }
-#pragma reg_killed_by _gasneti_do_sync
 #endif
 
 #if defined(__sparc__) || defined(__sparc) || defined(sparc)
  GASNET_INLINE_MODIFIER(gasneti_local_membar)
  void gasneti_local_membar(void) {
-   GASNETI_ASM(stbar); /* SPARC store barrier */
+   GASNETI_ASM("stbar"); /* SPARC store barrier */
  }
 #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
  GASNET_INLINE_MODIFIER(gasneti_local_membar)
  void gasneti_local_membar(void) {
-   GASNETI_ASM(sync);  /* MIPS II+ memory barrier */ 
+   GASNETI_ASM("sync");  /* MIPS II+ memory barrier */ 
  }
 #elif defined(_PA_RISC1_1) /* HP PA-RISC */
  GASNET_INLINE_MODIFIER(gasneti_local_membar)
  void gasneti_local_membar(void) {
-   GASNETI_ASM(SYNC);  /* PA RISC load/store ordering */ 
+   GASNETI_ASM("SYNC");  /* PA RISC load/store ordering */ 
  }
 #elif defined(__i386__) || defined(__i386) || defined(i386) || \
       defined(__i486__) || defined(__i486) || defined(i486) || \
       defined(__i586__) || defined(__i586) || defined(i586) || \
       defined(__i686__) || defined(__i686) || defined(i686)
- #ifndef __GNUC__
-   /* The GASNETI_ASM() macro takes one argument and then stringifies it
-    * for all but the default case.  However, we want to emit asm with
-    * commas (too many macro arguments) or with no instruction (too
-    * few macro arguments).
-    * So, we just need to assume GCC for now.  The GASNETI_ASM macro
-    * might get changed to take a string argument, but I don't know what
-    * platforms that might break.  -PHH 2003.09.08
-    */
-   #error Not certain how to emit proper memory barrier assembly on your compiler.
- #elif defined(GASNETI_UNI_BUILD)
-   /* Prevent gcc from reordering across this point. */
+ #if defined(GASNETI_UNI_BUILD)
+   /* Prevent compiler from reordering across this point. */
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     asm volatile ("" : : : "memory");
+     GASNETI_ASM("");
    }
  #else
-   /* Prevent both gcc and the CPU from reordering across this point.
+   /* Prevent both compiler and the CPU from reordering across this point.
     *
     * Note that MMX, SSE and SSE2 instructions which move memory are *NOT* ordered by
     * this sequence, and must instead have the appropriate [lsm]fence instruction(s).
@@ -359,32 +352,32 @@
       * This one is chosen because it does not change any registers and is
       * available on all the Intel and clone CPUs.
       */
-     asm volatile ("lock; addl $0,0(%%esp)" : : : "memory");
+     #if defined(__PGI)
+       GASNETI_ASM("lock; addl $0,0(%esp)");
+     #else
+       GASNETI_ASM("lock; addl $0,0(%%esp)");
+     #endif
    }
  #endif
 #elif defined(__ia64__) /* Itanium */
-    #ifdef GASNETI_UNI_BUILD
-       #ifndef __GNUC__
-         #error Not certain how to construct a proper memory barrier on your compiler.
-       #else
-         /* Prevent gcc from reordering across this point. */
-         GASNET_INLINE_MODIFIER(gasneti_local_membar)
-         void gasneti_local_membar(void) {
-           asm volatile ("" : : : "memory");
-         }
-       #endif
-    #else
-      /* mf may cause an illegal instruction trap on uniprocessor kernel */
-      GASNET_INLINE_MODIFIER(gasneti_local_membar)
-      void gasneti_local_membar(void) {
-        GASNETI_ASM(mf);
-      }
-    #endif
+ #if defined(GASNETI_UNI_BUILD)
+   /* Prevent compiler from reordering across this point. */
+   GASNET_INLINE_MODIFIER(gasneti_local_membar)
+   void gasneti_local_membar(void) {
+     GASNETI_ASM("");
+   }
+ #else
+   /* mf may cause an illegal instruction trap on uniprocessor kernel */
+   GASNET_INLINE_MODIFIER(gasneti_local_membar)
+   void gasneti_local_membar(void) {
+     GASNETI_ASM("mf");
+   }
+ #endif
 #elif defined(_POWER) /* IBM SP POWER2, POWER3 */
  #ifdef __GNUC__
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     GASNETI_ASM(dcs);
+     GASNETI_ASM("dcs");
    }
  #else
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
@@ -396,7 +389,7 @@
  #ifdef __GNUC__
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     GASNETI_ASM(sync);
+     GASNETI_ASM("sync");
    }
  #else
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
@@ -408,7 +401,7 @@
  #if 1
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
-     GASNETI_ASM(mb);
+     GASNETI_ASM("mb");
    }
  #else 
    #include <machine/builtins.h>

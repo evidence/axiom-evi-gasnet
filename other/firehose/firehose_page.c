@@ -613,12 +613,13 @@ fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 	 * refcounts.  Also, it should not be pending as pending buckets are
 	 * handled separately */
 	else {
+                fh_refc_t refc;
 		assert(node != fh_mynode);
 		assert(!FH_IS_REMOTE_PENDING(entry));
 
 		FH_RREFCDEC(FH_REFCOUNT(entry));
 
-		fh_refc_t refc = FH_RREFC(FH_REFCOUNT(entry));
+		refc = FH_RREFC(FH_REFCOUNT(entry));
 		if (refc == 0) {
 			FH_TAILQ_INSERT_TAIL(
 			    &fh_RemoteNodeFifo[node], entry);
@@ -1093,10 +1094,11 @@ fhi_AdjustLocalFifoAndPin(gasnet_node_t node, fhi_RegionPool_t *rpool_pin)
 	b_unpin = fhc_LocalOnlyBucketsPinned - fhc_MaxVictimBuckets;
 
 	if (b_unpin > 0) {
+                fhi_RegionPool_t *rpool;
 		GASNETI_TRACE_PRINTF(C, 
 		    ("Firehose Overcommitted FIFO by %d buckets", b_unpin));
 
-		fhi_RegionPool_t *rpool = fhi_AllocRegionPool(b_unpin);
+		rpool = fhi_AllocRegionPool(b_unpin);
 		rpool->buckets_num = b_unpin;
 		rpool->regions_num =
 			fhi_FreeVictimLocal(b_unpin, rpool->regions);

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_conf.c,v 1.6 2003/09/10 02:19:26 csbell Exp $
- * $Date: 2003/09/10 02:19:26 $
+/* $Id: gasnet_core_conf.c,v 1.7 2003/10/05 18:47:07 bonachea Exp $
+ * $Date: 2003/10/05 18:47:07 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -33,10 +33,11 @@
 		}						\
 	} while (0)
 
+
 #ifdef GASNETC_HAVE_BNR
 #warning BNR support is untested (and probably broken)
 int
-gasnetc_getconf_BNR(void)
+gasnetc_getconf_BNR()
 {
 	char	attr_buffer[BNR_MAXATTRLEN];
 	char	val_buffer[BNR_MAXVALLEN];
@@ -100,7 +101,7 @@ gasnetc_getconf_BNR(void)
 }
 #else
 int
-gasnetc_getconf_BNR(void)
+gasnetc_getconf_BNR()
 {
 	fprintf(stderr, "BNR via MPD is unsupported\n");
 	return GASNET_ERR_RESOURCE;
@@ -108,7 +109,7 @@ gasnetc_getconf_BNR(void)
 #endif
 
 int
-gasnetc_getconf_sockets(void)
+gasnetc_getconf_sockets()
 {
 	char	*magic, *master, *port1, *port2;
 	char	*id, *np, *board;
@@ -189,7 +190,7 @@ gasnetc_getconf_sockets(void)
 	_gmc.my_board = board_id;
 
 	port_id = 0;
-	if (!gasnetc_gmport_allocate(&board_id, &port_id))
+	if (!gasnetc_gmport_allocate((int*)&board_id, (int*)&port_id))
 		gasneti_fatalerror("%d: Can't obtain GM port", gasnetc_mynode);
 
 	_gmc.my_port = port_id;
@@ -352,7 +353,7 @@ gasnetc_getconf_sockets(void)
 }
 
 extern int
-gasnetc_getconf (void)
+gasnetc_getconf ()
 {
 	setbuf (stdout, NULL);
 	setbuf (stderr, NULL);

@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.24 2003/09/14 22:49:39 csbell Exp $
- * $Date: 2003/09/14 22:49:39 $
+/* $Id: gasnet_extended_firehose.c,v 1.25 2003/10/05 18:47:07 bonachea Exp $
+ * $Date: 2003/10/05 18:47:07 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -529,7 +529,7 @@ gasnete_get_dma_reqh_inner(gasnet_token_t token,
 }
 SHORT_HANDLER(gasnete_get_dma_reqh,5,9, 
     (token, a0, UNPACK(a1),     UNPACK(a2),     UNPACK(a3),	UNPACK(a4)    ),
-    (token, a0, UNPACK2(a1,a2), UNPACK2(a3,a4), UNPACK2(a5, a6),UNPACK(a7,a8)));
+    (token, a0, UNPACK2(a1,a2), UNPACK2(a3,a4), UNPACK2(a5, a6),UNPACK2(a7,a8)));
 
 void
 gasnete_fh_request_get(void *_gop, firehose_request_t *req, int allLocalHit)

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.47 2003/09/12 20:14:06 csbell Exp $
- * $Date: 2003/09/12 20:14:06 $
- * $Revision: 1.47 $
+/* $Id: gasnet_core_internal.h,v 1.48 2003/10/05 18:47:07 bonachea Exp $
+ * $Date: 2003/10/05 18:47:07 $
+ * $Revision: 1.48 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -569,10 +569,11 @@ gasnetc_fifo_progress()
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 
 	while (gasnetc_fifo_head() && GASNETC_TOKEN_HI_AVAILABLE()) {
-
+                gasnetc_bufdesc_t *bufd;
+          
 		gasnetc_token_hi_acquire();
 
-		gasnetc_bufdesc_t *bufd = gasnetc_fifo_head();
+		bufd = gasnetc_fifo_head();
 		assert(bufd->gm_id > 0);
 
 		gasnetc_GMSend_bufd(bufd);
