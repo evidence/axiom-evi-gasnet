@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/06/14 01:54:54 $
- * $Revision: 1.4 $
+ *     $Date: 2002/06/16 05:06:38 $
+ * $Revision: 1.5 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -16,8 +16,6 @@
 /* include files that may conflict with macros defined later */
 #if defined(IRIX)
   #include <sys/param.h>
-#elif defined(FREEBSD)
-  #include <stdarg.h>
 #endif
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/06/14 03:40:37 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/16 05:06:38 $
+ * $Revision: 1.4 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -11,6 +11,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -31,7 +32,7 @@ void *_gasneti_malloc(size_t nbytes, char *curloc) {
   return ret;
 }
 #ifdef DEBUG
-#define gasneti_malloc(nbytes)	_gasneti_malloc(nbytes, gasneti_current_loc)
+#define gasneti_malloc(nbytes)	_gasneti_malloc(nbytes, __FILE__ ":" _STRINGIFY(__LINE__))
 #else
 #define gasneti_malloc(nbytes)	_gasneti_malloc(nbytes, NULL)
 #endif
@@ -51,7 +52,8 @@ void *_gasneti_malloc_inhandler(size_t nbytes, char *curloc) {
   return ret;
 }
 #ifdef DEBUG
-#define gasneti_malloc_inhandler(nbytes) _gasneti_malloc_inhandler(nbytes, gasneti_current_loc)
+#define gasneti_malloc_inhandler(nbytes) \
+         _gasneti_malloc_inhandler(nbytes, __FILE__ ":" _STRINGIFY(__LINE__))
 #else
 #define gasneti_malloc_inhandler(nbytes) _gasneti_malloc_inhandler(nbytes, NULL)
 #endif
