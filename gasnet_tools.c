@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/04/06 06:59:08 $
- * $Revision: 1.101 $
+ *     $Date: 2005/04/06 17:37:18 $
+ * $Revision: 1.102 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -250,6 +250,7 @@ extern void gasneti_flush_streams() {
   gasneti_sched_yield();
 }
 extern void gasneti_close_streams() {
+  gasneti_reghandler(SIGPIPE, SIG_IGN); /* In case we still try to generate output */
   if (fclose(stdin)) 
     gasneti_fatalerror("failed to fclose(stdin) in gasnetc_exit: %s", strerror(errno));
   if (fclose(stdout)) 
