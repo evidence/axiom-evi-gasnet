@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/17 21:40:55 $
-# $Revision: 1.178 $
+#     $Date: 2004/08/17 23:23:57 $
+# $Revision: 1.179 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.178 $)
+AC_REVISION($Revision: 1.179 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1157,8 +1157,38 @@ if test "$enabled_lapi" = yes; then
       have_lapi="no"
     elif test "${have_fed}" = "yes"; then
       AC_DEFINE(GASNETC_LAPI_FEDERATION)
+	AC_MSG_CHECKING([For LAPI Federation Version])
+        LAPI_VER=`lslpp -l | grep rsct.lapi.rte 2>/dev/null | tail -1 | $AWK '{print $2}'`
+        if test -z "$LAPI_VER" ; then
+           AC_MSG_WARN([Could not detect LAPI version number with lslpp. ])
+        else
+           LAPI_VER_NUM1=`echo $LAPI_VER | cut -d\. -f 1`
+           AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_A,$LAPI_VER_NUM1)
+           LAPI_VER_NUM2=`echo $LAPI_VER | cut -d\. -f 2`
+           AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_B,$LAPI_VER_NUM2)
+           LAPI_VER_NUM3=`echo $LAPI_VER | cut -d\. -f 3`
+           AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_C,$LAPI_VER_NUM3)
+           LAPI_VER_NUM4=`echo $LAPI_VER | cut -d\. -f 4`
+           AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_D,$LAPI_VER_NUM4)
+        fi
+        AC_MSG_RESULT([$LAPI_VER])
     elif test "${have_col}" = "yes"; then
       AC_DEFINE(GASNETC_LAPI_COLONY)
+	AC_MSG_CHECKING([For LAPI Colony Version])
+        LAPI_VER=`lslpp -l | grep ssp.css.lapi 2>/dev/null | tail -1 | $AWK '{print $2}'`
+        if test -z "$LAPI_VER" ; then
+           AC_MSG_WARN([Could not detect LAPI version number with lslpp. ])
+        else
+           LAPI_VER_NUM1=`echo $LAPI_VER | cut -d\. -f 1`
+           AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_A,$LAPI_VER_NUM1)
+           LAPI_VER_NUM2=`echo $LAPI_VER | cut -d\. -f 2`
+           AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_B,$LAPI_VER_NUM2)
+           LAPI_VER_NUM3=`echo $LAPI_VER | cut -d\. -f 3`
+           AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_C,$LAPI_VER_NUM3)
+           LAPI_VER_NUM4=`echo $LAPI_VER | cut -d\. -f 4`
+           AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_D,$LAPI_VER_NUM4)
+        fi
+        AC_MSG_RESULT([$LAPI_VER])
     else
       AC_MSG_WARN([No IBM SP Switch hardware $lapi_how - disabling lapi])
       have_lapi="no"

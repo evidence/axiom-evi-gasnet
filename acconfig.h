@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/08/13 18:39:56 $ */
-/*  $Revision: 1.34 $ */
+/*      $Date: 2004/08/17 23:23:57 $ */
+/*  $Revision: 1.35 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -103,6 +103,10 @@
 /* GASNet lapi-conduit specific */
 #undef GASNETC_LAPI_FEDERATION
 #undef GASNETC_LAPI_COLONY
+#undef GASNETC_LAPI_VERSION_A
+#undef GASNETC_LAPI_VERSION_B
+#undef GASNETC_LAPI_VERSION_C
+#undef GASNETC_LAPI_VERSION_D
 
 @BOTTOM@
 
