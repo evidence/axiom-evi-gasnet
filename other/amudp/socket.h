@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/AMUDP/socket.h                                         $
- *      $Date: 2004/03/31 14:18:12 $
- *  $Revision: 1.3 $
+ *      $Date: 2004/04/03 02:52:22 $
+ *  $Revision: 1.4 $
  *  Description: portable header socket functions
  *  (c) Scott McPeak, 1998-1999, Modified by Dan Bonachea
  */
@@ -49,6 +49,9 @@
   #endif
 #elif defined(AIX) && 0 /*  AIX has I_NREAD and the docs claim it has the right semantics */
                         /*  but it appears to be broken for sockets */
+  #include <stropts.h>
+  #define _FIONREAD I_NREAD
+#elif defined(SUPERUX) && 0 /* similarly broken on SuperUX, despite the docs - what a disaster */
   #include <stropts.h>
   #define _FIONREAD I_NREAD
 #else
@@ -122,7 +125,7 @@ typedef fd_set FD_SET;
 #endif
 
 #if defined(WIN32) || defined(CYGWIN) || defined(AIX) || \
-    defined(SOLARIS) || defined(LINUX) || defined(OSF)
+    defined(SOLARIS) || defined(LINUX) || defined(OSF) || defined(SUPERUX)
   #define IOCTL_FIONREAD_ARG_T unsigned int
 #elif defined(IRIX)
   #define IOCTL_FIONREAD_ARG_T size_t
