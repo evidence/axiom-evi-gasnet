@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.3 2003/08/25 09:52:26 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.4 2003/10/29 00:46:41 phargrov Exp $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -83,24 +83,24 @@ headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h
 makefile_fragments = smp-seq.mak smp-parsync.mak smp-par.mak
 
 install-data-local: $(headers)
-	$(mkinstalldirs) $(includedir)/smp-conduit
+	$(mkinstalldirs) $(DESTDIR)$(includedir)/smp-conduit
 	@list='$(headers)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " $(INSTALL_DATA) $$p $(includedir)/smp-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(includedir)/smp-conduit/$$filename; \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/smp-conduit/$$filename"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/smp-conduit/$$filename; \
 	  else :; fi; \
 	done
 	@list='$(makefile_fragments)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " grep -v "###NOINSTALL###" $$p > $(includedir)/smp-conduit/$$filename"; \
-	    grep -v "###NOINSTALL###" $$p > $(includedir)/smp-conduit/$$filename; \
+	    echo " grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/smp-conduit/$$filename"; \
+	    grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/smp-conduit/$$filename; \
 	  else :; fi; \
 	done
 
 uninstall-local:
-	rm -f $(includedir)/smp-conduit/*.h $(includedir)/smp-conduit/*.mak
+	rm -f $(DESTDIR)$(includedir)/smp-conduit/*.h $(DESTDIR)$(includedir)/smp-conduit/*.mak
 
 endif
 

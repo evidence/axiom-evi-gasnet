@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.13 2003/08/25 09:52:21 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.14 2003/10/29 00:46:40 phargrov Exp $
 # Description: Makefile for GASNet MPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -86,25 +86,25 @@ headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h $(top_srcdir)/other/ammpi
 makefile_fragments = mpi-seq.mak mpi-parsync.mak mpi-par.mak
 
 install-data-local: $(headers)
-	$(mkinstalldirs) $(includedir)/mpi-conduit
+	$(mkinstalldirs) $(DESTDIR)$(includedir)/mpi-conduit
 	@list='$(headers)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " $(INSTALL_DATA) $$p $(includedir)/mpi-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(includedir)/mpi-conduit/$$filename; \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/mpi-conduit/$$filename"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/mpi-conduit/$$filename; \
 	  else :; fi; \
 	done
 	@list='$(makefile_fragments)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " grep -v "###NOINSTALL###" $$p > $(includedir)/mpi-conduit/$$filename"; \
-	    grep -v "###NOINSTALL###" $$p > $(includedir)/mpi-conduit/$$filename; \
+	    echo " grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/mpi-conduit/$$filename"; \
+	    grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/mpi-conduit/$$filename; \
 	  else :; fi; \
 	done
 
 
 uninstall-local:
-	rm -f $(includedir)/mpi-conduit/*.h $(includedir)/mpi-conduit/*.mak
+	rm -f $(DESTDIR)$(includedir)/mpi-conduit/*.h $(DESTDIR)$(includedir)/mpi-conduit/*.mak
 
 endif
 

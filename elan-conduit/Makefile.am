@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.13 2003/08/25 09:52:07 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.14 2003/10/29 00:46:36 phargrov Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt 
@@ -102,24 +102,24 @@ headers = $(srcdir)/*.h                             \
 makefile_fragments = elan-seq.mak elan-parsync.mak elan-par.mak
 
 install-data-local: $(headers)
-	$(mkinstalldirs) $(includedir)/elan-conduit
+	$(mkinstalldirs) $(DESTDIR)$(includedir)/elan-conduit
 	@list='$(headers)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " $(INSTALL_DATA) $$p $(includedir)/elan-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(includedir)/elan-conduit/$$filename; \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/elan-conduit/$$filename"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/elan-conduit/$$filename; \
 	  else :; fi; \
 	done
 	@list='$(makefile_fragments)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " grep -v "###NOINSTALL###" $$p > $(includedir)/elan-conduit/$$filename"; \
-	    grep -v "###NOINSTALL###" $$p > $(includedir)/elan-conduit/$$filename; \
+	    echo " grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/elan-conduit/$$filename"; \
+	    grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/elan-conduit/$$filename; \
 	  else :; fi; \
 	done
 
 uninstall-local:
-	rm -f $(includedir)/elan-conduit/*.h $(includedir)/elan-conduit/*.mak
+	rm -f $(DESTDIR)$(includedir)/elan-conduit/*.h $(DESTDIR)$(includedir)/elan-conduit/*.mak
 
 endif
 

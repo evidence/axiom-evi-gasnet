@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.15 2003/08/25 09:52:17 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.16 2003/10/29 00:46:39 phargrov Exp $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -90,24 +90,24 @@ headers = $(srcdir)/*.h                                   \
 makefile_fragments = lapi-seq.mak lapi-parsync.mak lapi-par.mak
 
 install-data-local: $(headers)
-	$(mkinstalldirs) $(includedir)/lapi-conduit
+	$(mkinstalldirs) $(DESTDIR)$(includedir)/lapi-conduit
 	@list='$(headers)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " $(INSTALL_DATA) $$p $(includedir)/lapi-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(includedir)/lapi-conduit/$$filename; \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/lapi-conduit/$$filename"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/lapi-conduit/$$filename; \
 	  else :; fi; \
 	done
 	@list='$(makefile_fragments)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " grep -v "###NOINSTALL###" $$p > $(includedir)/lapi-conduit/$$filename"; \
-	    grep -v "###NOINSTALL###" $$p > $(includedir)/lapi-conduit/$$filename; \
+	    echo " grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/lapi-conduit/$$filename"; \
+	    grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/lapi-conduit/$$filename; \
 	  else :; fi; \
 	done
 
 uninstall-local:
-	rm -f $(includedir)/lapi-conduit/*.h $(includedir)/lapi-conduit/*.mak
+	rm -f $(DESTDIR)$(includedir)/lapi-conduit/*.h $(DESTDIR)$(includedir)/lapi-conduit/*.mak
 
 endif
 

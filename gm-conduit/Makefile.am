@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.28 2003/10/07 18:39:51 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.29 2003/10/29 00:46:38 phargrov Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -105,19 +105,19 @@ headers = $(srcdir)/*.h                             \
 makefile_fragments = gm-seq.mak gm-parsync.mak gm-par.mak
 
 install-data-local: $(headers)
-	$(mkinstalldirs) $(includedir)/gm-conduit
+	$(mkinstalldirs) $(DESTDIR)$(includedir)/gm-conduit
 	@list='$(headers)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " $(INSTALL_DATA) $$p $(includedir)/gm-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(includedir)/gm-conduit/$$filename; \
+	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/gm-conduit/$$filename"; \
+	    $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/gm-conduit/$$filename; \
 	  else :; fi; \
 	done
 	@list='$(makefile_fragments)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " grep -v "###NOINSTALL###" $$p > $(includedir)/gm-conduit/$$filename"; \
-	    grep -v "###NOINSTALL###" $$p > $(includedir)/gm-conduit/$$filename; \
+	    echo " grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/gm-conduit/$$filename"; \
+	    grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/gm-conduit/$$filename; \
 	  else :; fi; \
 	done
 
