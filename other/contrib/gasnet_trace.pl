@@ -160,12 +160,8 @@ sub parse_tracefile
         ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
         if ($pgb =~ /P|G/) {
             $type = "GLOBAL";
-        } if ($pgb == "BARRIER") {
-            if (defined ($nodes{$thread})) {
-                $thread = $nodes{$thread};
-            } else {
-                next;
-            }
+        } elsif ($pgb =~ /BARRIER/) {
+            $thread = $nodes{$thread};
         }
         update_data($thread, $src, $pgb, $type, $sz);
         
