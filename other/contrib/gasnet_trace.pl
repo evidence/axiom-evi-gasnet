@@ -11,12 +11,9 @@ my $opt_sort;
 my $opt_output;
 my $opt_show;
 my $opt_help;
+my $opt_report;
 
-my %src;     # Each package sent
-my %func;    # If it is put or get
-my %type;    # What kind of put / get
-my @data = (\%src, \%func, \%type);
-
+my (%data, %report);
 # Getting the Options
 ########################
 
@@ -24,7 +21,8 @@ GetOptions (
     'h|?|help'		=> \$opt_help,
     'sort=s'		=> \$opt_sort,
     'type'		=> \$opt_show,
-    'o=s'		=> \$opt_output
+    'o=s'		=> \$opt_output,
+    'report=s'		=> \$opt_report
 );
 
 # The main routine
@@ -39,12 +37,21 @@ if ($opt_output) {
     open(STDOUT, ">$opt_output") or die "Could not write to $opt_output: $!\n";
 }
 
+if (!$opt_report) {
+    $opt_report="PGB";
+} 
+
 while (@ARGV) {
     parse_tracefile(pop @ARGV);
 }
 
-trace_output(*STDOUT); 
-
+# Driver
+########################
+flatten();
+sort_report();
+foreach my $pgb (sort keys %report) {
+    trace_output(*STDOUT, $pgb);
+}
 # Show program usage
 ########################
 sub usage 
@@ -54,8 +61,10 @@ Usage:	gasnet_trace [options] trace-file(s)
 
 Options:
     -h -? -help		See this message
-    -o [filename]	Output to certain file.  
-                        Default is set to STDOUT.
+    -o [filename]	Output to certain file.  Default is set to STDOUT.
+    -report [r1][r2]..	One or more capital letters to indicate  which 
+    			reports to generate, currently support
+    			P(PUT), G(GET), B(BARRIER);
     -sort [f1],[f2]...	
     			Sort the output by the given fields:
                         TOTAL_SZ, CALLS, AVG_SZ, MAX_SZ, MIN_SZ, SRC;
@@ -77,11 +86,20 @@ sub parse_tracefile
     open (TRACEFILE, $_[0]) or die "Could not open $_[0]: $!\n";
     
     while (<TRACEFILE>) {
-        next unless /\[([^\]]+)\]\s+\([GP]\)\s+(.*?):\D+(\d+)/;
-        push @{$src{$1}}, $3;
-        if (!$func{$1}) {
-        $func{$1} = substr($2, 0, 3);
-        $type{$1} = substr($2, 4);
+        next unless (/\[([^\]]+)\]\s+\([$opt_report]\)\s+(.*)_(.*):\D+(\d+)/); 
+        
+        my ($src, $pgb, $type, $sz) = ($1, $2, $3, $4);
+        if (!$data{$pgb}{$src}{$type}) { # first record
+            push @{$data{$pgb}{$src}{$type}}, ($sz, $sz, $sz, $sz, 1);
+        } else {
+            my ($max, $min, $avg, $total, $totalc) = @{$data{$pgb}{$src}{$type}};
+            $max = $max > $sz ? $max : $sz;
+            $min = $min < $sz ? $min : $sz;
+            $total += $sz;
+            $totalc += 1;
+            $avg = $total / $totalc;
+            @{$data{$pgb}{$src}{$type}} = ($max, $min, $avg, $total, $totalc);
+	    #my @debug = @{$data{$pgb}{$src}{$type}};
         }
     }
 }
@@ -92,18 +110,115 @@ sub parse_tracefile
 ########################
 sub shorten
 {
-    my ($msg_sz) = @_;
-    if ($msg_sz < 1024) {
-    	return "$msg_sz" ."B";
-    } elsif ($msg_sz < 1024 * 1024) {
-    	return sprintf("%.2fK", $msg_sz / 1024.0);
-    } elsif ($msg_sz < 1024 * 1024 * 1024) {
-    	return sprintf("%.2fM", $msg_sz / (1024.0 * 1024.0));
-    } elsif ($msg_sz < 1024 * 1024 * 1024 * 1024) {
-    	return sprintf("%.2fG", $msg_sz / (1024.0 * 1024.0 * 1024.0));
+    my ($msg_sz, $type) = @_;
+    if ($type =~ /GET|PUT/) {
+    	if ($msg_sz < 1024) {
+    	    return sprintf("%.0f B", $msg_sz);
+    	} elsif ($msg_sz < 1024 * 1024) {
+    	    return sprintf("%.2f K", $msg_sz / 1024.0);
+    	} elsif ($msg_sz < 1024 * 1024 * 1024) {
+    	    return sprintf("%.2f M", $msg_sz / (1024.0 * 1024.0));
+    	} elsif ($msg_sz < 1024 * 1024 * 1024 * 1024) {
+    	    return sprintf("%.2f G", $msg_sz / (1024.0 * 1024.0 * 1024.0));
+    	} else {
+    	    return sprintf("%.2f T", $msg_sz / (1024.0 * 1024.0 * 1024.0 * 1024.0));
+    	}
     } else {
-    	return sprintf("%.2fT", $msg_sz / (1024.0 * 1024.0 * 1024.0 * 1024.0));
+    	if ($msg_sz < 1000) {
+    	    return sprintf("%.1f us", $msg_sz);
+    	} elsif ($msg_sz < 1000 * 1000) {
+    	    return sprintf("%.1f ms", $msg_sz / 1000.0);
+    	} elsif ($msg_sz < 1000 * 1000 * 60) {
+    	    return sprintf("%.1f  s", $msg_sz / (1000.0 * 1000.0));
+    	} else {
+    	    return sprintf("%.1fmin", $msg_sz / (1000.0 * 1000.0 * 60.0));
+    	}
     }
+}
+
+# subroutine to separate the source file name 
+# and the line number
+# args: the source line to be separated
+#######################
+sub src_line
+{
+    my ($line) = @_;
+	
+    $line =~ /(.*):(\d+)$/;    
+    return ($1, $2);
+}
+
+# transfer the raw data structure into report -- a hash of arrays 
+#######################
+sub flatten
+{
+    foreach my $pgb (keys %data) {
+    	foreach my $line (keys %{$data{$pgb}}) {
+    	    foreach my $type (keys %{$data{$pgb}{$line}}) {
+    	    	my @entry = ($line, $type, @{$data{$pgb}{$line}{$type}});
+		push @{$report{$pgb}}, \@entry; 
+    	    }
+    	}
+    }
+}
+
+
+# report_sorting criterion
+#######################
+sub criterion
+{
+    my @mtd = @_;
+    my $result;
+    my $sort_mtd = shift @mtd;
+    # Breaking ties using the less important fields.
+    while (!$result && $sort_mtd) {
+    	if ($sort_mtd eq "CALLS") {
+            $result = ${$b}[6] <=> ${$a}[6];;
+    	} 
+        if ($sort_mtd eq "TOTAL_SZ") {
+            $result = ${$b}[5] <=> ${$a}[5];
+        }
+        if ($sort_mtd eq "AVG_SZ") {
+            $result = ${$b}[4] <=> ${$a}[4];
+        }
+        if ($sort_mtd eq "MIN_SZ") {
+            $result = ${$b}[3] <=> ${$a}[3];
+        }
+        if ($sort_mtd eq "MAX_SZ") {
+            $result = ${$b}[2] <=> ${$a}[2];
+        }
+        if ($sort_mtd eq "SRC") {
+            my ($a_src, $a_line) = src_line${$a}[0];
+            my ($b_src, $b_line) = src_line${$b}[0];
+            $result = ($a_src cmp $b_src) ||
+                      ($a_line <=> $b_line);
+        }
+    	
+    	$sort_mtd = shift @mtd;
+    }
+    return $result;
+}
+
+# sorting the report
+########################
+sub sort_report 
+{
+
+    my @sortmtd = split /,/, $opt_sort;
+    # Checking for valid input
+    foreach my $mtd (@sortmtd) {
+        $mtd =~ /^(CALLS|AVG_SZ|MAX_SZ|MIN_SZ|TOTAL_SZ|SRC)$/
+        or die "Could not recognize $mtd\n"; 
+    }
+    
+    foreach my $pgb (keys %report) {
+	if ($opt_sort) {
+	    @{$report{$pgb}} = sort {criterion(@sortmtd)} @{$report{$pgb}};
+	} else {
+	    @{$report{$pgb}} = sort {criterion("TOTAL_SZ")} @{$report{$pgb}};
+    	}
+    }
+	 
 }
 
 
@@ -113,132 +228,57 @@ sub shorten
 ########################
 sub trace_output 
 {
-    my $handle = $_[0];
-    
-    my @lines = keys %src;
-    my %totalsz;
-    my %minsz;
-    my %maxsz;
-    my %avgsz;
-   
-    foreach my $line (@lines) {
-	my @packages = @{$src{$line}};
-	my $currentsz;
-	for (my $i=0 ; $i < scalar(@packages); $i++) {
-	    $currentsz = $packages[$i];	
-	    $totalsz{$line} += $currentsz;
-            if ($maxsz{$line} < $currentsz) {
-                $maxsz{$line} = $currentsz;
-            }
-            if ((!$minsz{$line}) or ($minsz{$line} > $currentsz)) {
-                $minsz{$line} = $currentsz;
-            }
-	}
-	$avgsz{$line} = $totalsz{$line} / (scalar(@packages));
-    }
-    
-    
-    
-    local *method = 
-    sub {
-    	my @mtd = @_;
-    
-    	my $result;
-    	my $sort_mtd = shift @mtd;
-        # Breaking ties using the less important fields.
-        while (!$result && $sort_mtd) {
-            SWITCH: {
-                if ($sort_mtd eq "CALLS") {
-                    $result = scalar(@{$src{$b}}) <=> scalar(@{$src{$a}});
-                } 
-                if ($sort_mtd eq "AVG_SZ") {
-                    $result = $avgsz{$b} <=> $avgsz{$a};
-                }
-                if ($sort_mtd eq "MAX_SZ") {
-                    $result = $maxsz{$b} <=> $maxsz{$a};
-                }
-                if ($sort_mtd eq "MIN_SZ") {
-                    $result = $minsz{$b} <=> $minsz{$a};
-                }
-                if ($sort_mtd eq "TOTAL_SZ") {
-                    $result = $totalsz{$b} <=> $totalsz{$a};
-                }
-                if ($sort_mtd eq "SRC") {
-                    $result = $a cmp $b;
-                }
-            }
-           $sort_mtd = shift @mtd;
-        }
-        return $result;
-    }; 
-    
-    my @sortmtd = split /,/, $opt_sort;
-    my @sorted;
-    # Checking for valid input
-    foreach my $mtd (@sortmtd) {
-        $mtd =~ /^(CALLS|AVG_SZ|MAX_SZ|MIN_SZ|TOTAL_SZ|SRC)$/
-        or die "Could not recognize $mtd\n" 
-    }
-    if ($opt_sort) {     
-        @sorted = sort {method(@sortmtd)} @lines;
-    } else {
-        @sorted = sort {method("TOTAL_SZ")} @lines;
-    }
-    
+    my ($handle, $pgb) = @_;
     
     # Print out 
-    my $rank = 1;
-    my ($entry, $line, $source, $lnum);
-    my ($type, $pg, $min, $max, $avg, $total, $calls);
+    print "\n$pgb REPORT:\n";
     
     if ($opt_show) {
         $handle->format_name("SHOWTYPE");
+    	print <<EOF
+NO     SOURCE  LINE      TYPE      MSG:(min    max     avg     total)    CALLS  
+==============================================================================    	
+EOF
     } else {
         $handle->format_name("DEFAULT");
+    	print <<EOF
+NO      SOURCE LINE      MSG:(min        max       avg         total)    CALLS  
+==============================================================================
+EOF
     }
-    foreach $line (@sorted) {
-	$line =~ /(.*):(\d+)$/;
-	$source = $1;
-	$lnum = $2;
-	
-	$pg = $func{$line};
-	$type = $type{$line}; 
-	$min = shorten($minsz{$line});
-	$max = shorten($maxsz{$line});
-	$avg = shorten($avgsz{$line});
-	$total = shorten($totalsz{$line});
-	$calls = scalar(@{$src{$line}});
-	
-	write($handle);
-	$rank++;
-	# Current max number of ranks is 999
-	if ($rank >= 1000) {
-	    return;
+    
+    # Setting up variables;
+    my ($rank, $src_num, $source, $lnum, $type, $min, $max, $avg, $total, $calls);
+    
+    $rank = 1;
+
+    foreach my $entry (@{$report{$pgb}}) { 
+        ($src_num, $type, $max, $min, $avg, $total, $calls) = @{$entry};
+        ($source, $lnum) = src_line($src_num);
+        $max = shorten($max, $pgb);
+        $min = shorten($min, $pgb);
+        $avg = shorten($avg, $pgb);
+        $total = shorten($total, $pgb);
+        write($handle);
+        $rank++;
+        # Current max number of ranks is 999
+        if ($rank >= 1000) {
+            return;
 	}
-    }   
+    }
     
 # formats
 ########################
 
-    format DEFAULT_TOP =  
-NO      SOURCE LINE  PG  MSG:(min        max       avg         total)   CALLS  
-=============================================================================
-.
-    
     format DEFAULT = 
-@<<  @>>>>>>> @>>>> @>> @>>>>>>>   @>>>>>>>     @>>>>>>>     @>>>>>>>  @>>>>>
-$rank, $source, $lnum, $pg, $min, $max, $avg, $total, $calls
+@<<  @>>>>>>> @>>>>     @>>>>>>>>   @>>>>>>>>    @>>>>>>>>   @>>>>>>>>  @>>>>>
+$rank, $source, $lnum, $min, $max, $avg, $total, $calls
 .
 
 
-    format SHOWTYPE_TOP =  
-NO     SOURCE  LINE PG   TYPE      MSG:(min    max     avg     total)   CALLS  
-=============================================================================
-.
-    
     format SHOWTYPE = 
-@<<  @>>>>>>> @>>>> @>> @<<<<<<<<  @>>>>>>> @>>>>>>> @>>>>>>> @>>>>>>> @>>>>>
-$rank, $source, $lnum, $pg, $type, $min, $max, $avg, $total, $calls
+@<<  @>>>>>>> @>>>> @<<<<<<<<<  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
+$rank, $source, $lnum, $type, $min, $max, $avg, $total, $calls
 .
 
 }
