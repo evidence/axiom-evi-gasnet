@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/03/06 14:24:00 $
- * $Revision: 1.43 $
+ *     $Date: 2004/03/16 20:04:17 $
+ * $Revision: 1.44 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -258,14 +258,14 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
    */
   pages = 2 * (gasnetc_get_physpages() / 3);
   pages = MIN(pages, gasnetc_hca_cap.max_mr_size / GASNET_PAGESIZE);
-#ifdef RLIMIT_MEMLOCK
+  #ifdef RLIMIT_MEMLOCK
   {
     struct rlimit r;
     if ((getrlimit(RLIMIT_MEMLOCK, &r) == 0) && (r.rlim_cur != RLIM_INFINITY)) {
       pages = MIN(pages, r.rlim_cur / GASNET_PAGESIZE);
     }
   }
-#endif
+  #endif
   si = gasneti_mmap_segment_search(MIN(pages*GASNET_PAGESIZE, GASNETI_MMAP_MAX_SIZE));
 
   if (si.addr == NULL) return 0;
@@ -274,6 +274,10 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
   addr = si.addr;
   lo = 0;
   hi = GASNETI_ALIGNDOWN(si.size, GASNETI_MMAP_GRANULARITY);
+  #if defined(__APPLE__)
+    /* work around bug #532: Pin requests >= 1GB kill Cluster X nodes */
+    hi = MIN(hi, 0x40000000 - GASNETI_MMAP_GRANULARITY);
+  #endif
 
 #if 0 /* Binary search */
   size = hi;
