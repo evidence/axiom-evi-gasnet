@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2003/08/28 06:23:46 $
- * $Revision: 1.10 $
+ *     $Date: 2003/12/03 01:48:49 $
+ * $Revision: 1.11 $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -195,7 +195,46 @@ void put_tests(int iters, int nbytes)
 	}
 
 	BARRIER();
-	
+
+	/* target-side overhead takes more work: */
+	if (iamsender) {
+		for (i = 0; i < iters; i++) {
+			gasnet_handle_t h = gasnet_put_nb_bulk(peerproc, peermem, mymem, nbytes);
+			gasnet_wait_syncnb(h);
+		}
+	} else {
+		init_stat(&st, nbytes);
+		begin = TIME();
+	}
+	BARRIER();
+	if (iamsender) {
+		/* DO NOTHING */
+	} else {
+		end = TIME();
+	 	update_stat(&st, (end - begin), iters);
+
+		delay_time = 1.2 * st.time;
+		loops = calibrate_delay(iters, &delay_time);
+	}
+	BARRIER();
+	if (iamsender) {
+		for (i = 0; i < iters; i++) {
+			gasnet_handle_t h = gasnet_put_nb_bulk(peerproc, peermem, mymem, nbytes);
+			gasnet_wait_syncnb(h);
+		}
+	} else {
+		init_stat(&st, nbytes);
+		begin = TIME();
+		for (i = 0; i < iters; i++) {
+			delay(loops);
+		}
+		end = TIME();
+	 	update_stat(&st, (end - begin) - delay_time, iters);
+		print_stat(myproc, &st, "put: o_t - put_nb_bulk", PRINT_OVERHEAD);
+	}
+
+	BARRIER();
+
 	if (iamsender) {
 		/* measure the throughput of nonblocking implicit put */
 		init_stat(&st, nbytes);
@@ -280,6 +319,45 @@ void get_tests(int iters, int nbytes)
 		end = TIME();
 	 	update_stat(&st, (end - begin) - delay_time, iters);
 		print_stat(myproc, &st, "get: o_i - get_nb_bulk", PRINT_OVERHEAD);
+	}
+
+	BARRIER();
+
+	/* target-side overhead takes more work: */
+	if (iamsender) {
+		for (i = 0; i < iters; i++) {
+			gasnet_handle_t h = gasnet_get_nb_bulk(mymem, peerproc, peermem, nbytes);
+			gasnet_wait_syncnb(h);
+		}
+	} else {
+		init_stat(&st, nbytes);
+		begin = TIME();
+	}
+	BARRIER();
+	if (iamsender) {
+		/* DO NOTHING */
+	} else {
+		end = TIME();
+	 	update_stat(&st, (end - begin), iters);
+
+		delay_time = 1.2 * st.time;
+		loops = calibrate_delay(iters, &delay_time);
+	}
+	BARRIER();
+	if (iamsender) {
+		for (i = 0; i < iters; i++) {
+			gasnet_handle_t h = gasnet_get_nb_bulk(mymem, peerproc, peermem, nbytes);
+			gasnet_wait_syncnb(h);
+		}
+	} else {
+		init_stat(&st, nbytes);
+		begin = TIME();
+		for (i = 0; i < iters; i++) {
+			delay(loops);
+		}
+		end = TIME();
+	 	update_stat(&st, (end - begin) - delay_time, iters);
+		print_stat(myproc, &st, "get: o_t - get_nb_bulk", PRINT_OVERHEAD);
 	}
 
 	BARRIER();
