@@ -52,6 +52,9 @@ AC_DEFUN(GASNET_CHECK_SIZEOF,[
   AC_CHECK_SIZEOF($1)
   SIZEOF_[]uppername=$ac_cv_sizeof_[]lowername
   AC_SUBST(SIZEOF_[]uppername)
+  if test "$SIZEOF_[]uppername" = "0" ; then
+    AC_MSG_ERROR(failed to find sizeof($1))
+  fi
 
   popdef([lowername])
   popdef([uppername])
@@ -290,7 +293,7 @@ dnl run a program for a success/failure
 dnl GASNET_TRY_CACHE_RUN(description,cache_name,program,action-on-success)
 AC_DEFUN(GASNET_TRY_CACHE_RUN,[
 AC_CACHE_CHECK($1, gasnet_cv_$2,
-AC_TRY_RUN([$3], gasnet_cv_$2=yes, gasnet_cv_$2=no, AC_ERROR(no default value for cross compiling)))
+AC_TRY_RUN([$3], gasnet_cv_$2=yes, gasnet_cv_$2=no, AC_MSG_ERROR(no default value for cross compiling)))
 if test "$gasnet_cv_$2" = yes; then
   :
   $4
@@ -309,7 +312,7 @@ AC_TRY_RUN([
     if (!f) exit(1);
     fprintf(f, "%d\n", (int)($4));
     exit(0);
-  }], gasnet_cv_$2=`cat conftestval`, gasnet_cv_$2=no, AC_ERROR(no default value for cross compiling)))
+  }], gasnet_cv_$2=`cat conftestval`, gasnet_cv_$2=no, AC_MSG_ERROR(no default value for cross compiling)))
 if test "$gasnet_cv_$2" != no; then
   :
   $5=$gasnet_cv_$2

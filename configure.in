@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/11/07 19:08:13 $
-# $Revision: 1.87 $
+#     $Date: 2003/11/08 15:18:30 $
+# $Revision: 1.88 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.87 $)
+AC_REVISION($Revision: 1.88 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -98,9 +98,9 @@ It is not an official GNU release and has many serious known bugs, especially \
 in the optimizer, which may lead to bad code and incorrect runtime behavior. \
 Consider using \$CC to select a different compiler."
 GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc 2.96 compiler, [ 
-  AC_WARN([$gcc296msg])  
+  AC_MSG_WARN([$gcc296msg])  
   ],[ 
-  AC_ERROR([$gcc296msg \
+  AC_MSG_ERROR([$gcc296msg \
   You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc296 flag.])  
 ])
 ])
@@ -229,7 +229,7 @@ case "$segconfig" in
   fast) AC_DEFINE(GASNET_SEGMENT_FAST) ;;
   large) AC_DEFINE(GASNET_SEGMENT_LARGE) ;;
   everything) AC_DEFINE(GASNET_SEGMENT_EVERYTHING) ;;
-  *) AC_ERROR(Conflicting shared segment configurations specified) ;;
+  *) AC_MSG_ERROR(Conflicting shared segment configurations specified) ;;
 esac
 
 # Do it all again because AM_CONDITIONAL()s can't go inside if or case.
@@ -295,7 +295,7 @@ if test "$GASNETI_PAGESIZE" != ""; then
     32768)  GASNETI_PAGESHIFT=15 ;;
     65536)  GASNETI_PAGESHIFT=16 ;;
     131072) GASNETI_PAGESHIFT=17 ;;
-    *) AC_ERROR(unknown GASNETI_PAGESIZE=$GASNETI_PAGESIZE) ;;
+    *) AC_MSG_ERROR(unknown GASNETI_PAGESIZE=$GASNETI_PAGESIZE) ;;
   esac
   AC_DEFINE_UNQUOTED(GASNETI_PAGESHIFT,$GASNETI_PAGESHIFT)
 fi
@@ -405,7 +405,7 @@ case "$target_os" in
 	  ])
         ;;
   *)
-        AC_WARN(unknown OS - you may need to update the configure script)
+        AC_MSG_WARN(unknown OS - you may need to update the configure script)
         ;;
 esac
 
@@ -437,7 +437,7 @@ LIBS="$OLDLIBS"
 if test "$have_pthread" = no ; then
   GASNET_THREAD_DEFINES=""
   GASNET_THREAD_LIBS=""
-  AC_WARN(No pthreads support found - disabling pthreads)
+  AC_MSG_WARN(No pthreads support found - disabling pthreads)
 fi
           
 AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
@@ -623,8 +623,8 @@ if test $enabled_mpi = yes; then
       GASNET_ENV_DEFAULT(MPI_LIBS, )
       GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
       if test "$MPI_CC" = ""; then
-        AC_WARN(I don't know how to build MPI programs on your system)
-        AC_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi-* backends)
+        AC_MSG_WARN(I don't know how to build MPI programs on your system)
+        AC_MSG_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi-* backends)
 	MPI_CC=$CC
         have_mpi=no
       fi 
@@ -669,12 +669,12 @@ if test $enabled_mpi = yes; then
       fi
   else
       AC_MSG_RESULT(no)
-      AC_WARN(build test failed: I don't know how to build MPI programs on your system)
-      AC_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit)
+      AC_MSG_WARN(build test failed: I don't know how to build MPI programs on your system)
+      AC_MSG_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit)
       have_mpi=no
   fi
   if test "$force_mpi$have_mpi" = yesno ; then
-    AC_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
+    AC_MSG_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
   fi
 fi
 AC_SUBST(MPI_CC) # compiler to be used to build AMMPI, and linker for AMMPI-based backends
@@ -713,11 +713,11 @@ if test $have_gm = yes; then
         GASNET_ENV_DEFAULT(GM_INCLUDE, /usr/local/gm/include)
 	GASNET_ENV_DEFAULT(GM_LIB, /usr/local/gm/lib)
 	if test "$GM_INCLUDE" = "" || test ! -d "$GM_INCLUDE"; then
-	  AC_ERROR(GM includes: make sure \$GM_INCLUDE is set and exists)
+	  AC_MSG_ERROR(GM includes: make sure \$GM_INCLUDE is set and exists)
 	  have_gm=no
 	fi
 	if test "$GM_LIB" = ""; then
-	  AC_ERROR(GM library: make sure \$GM_LIB is set and exists)
+	  AC_MSG_ERROR(GM library: make sure \$GM_LIB is set and exists)
 	  have_gm=no
 	fi
     ;;
@@ -744,7 +744,7 @@ if test $have_gm = yes; then
       AC_MSG_RESULT(yes)
     else
       AC_MSG_RESULT(no)
-      AC_ERROR(build test failed: I don't know how to build GM programs on your system)
+      AC_MSG_ERROR(build test failed: I don't know how to build GM programs on your system)
       have_gm=no
     fi
   fi
@@ -782,7 +782,7 @@ if test $have_lapi = yes; then
     AC_MSG_RESULT(yes)
   else
     AC_MSG_RESULT(no)
-    AC_ERROR(build test failed: I don't know how to build lapi programs on your system)
+    AC_MSG_ERROR(build test failed: I don't know how to build lapi programs on your system)
     have_lapi=no
   fi
 
@@ -862,7 +862,7 @@ if test $have_elan = yes; then
   else
     AC_MSG_RESULT(no)
     ELAN_FLAGS=""
-    AC_ERROR(build test failed: I don't know how to build ELAN programs on your system)
+    AC_MSG_ERROR(build test failed: I don't know how to build ELAN programs on your system)
   fi
 fi
 
@@ -886,9 +886,9 @@ if test $have_vapi = yes; then
   AC_MSG_CHECKING(for working VAPI configuration)
   if test "$mpi_test_worked" != yes; then
     if test "$enabled_mpi" = yes; then
-      AC_ERROR([launching VAPI programs requires MPI on your system, but MPI was not sucessfuly configured.]);
+      AC_MSG_ERROR([launching VAPI programs requires MPI on your system, but MPI was not sucessfuly configured.]);
     else
-      AC_ERROR([launching VAPI programs requires MPI on your system, but you have disabled it.]);
+      AC_MSG_ERROR([launching VAPI programs requires MPI on your system, but you have disabled it.]);
     fi
   fi
 
@@ -913,7 +913,7 @@ if test $have_vapi = yes; then
     AC_MSG_RESULT(yes)
   else
     AC_MSG_RESULT(no)
-    AC_ERROR(build test failed: I don't know how to build VAPI programs on your system)
+    AC_MSG_ERROR(build test failed: I don't know how to build VAPI programs on your system)
     have_vapi=no
   fi
 
