@@ -2,6 +2,7 @@ dnl Terms of use are as specified in license.txt
 
 dnl determine the autoconf version used to build configure script 
 AC_DEFUN([GASNET_GET_AUTOCONF_VERSION],[
+AC_REQUIRE([AC_PROG_AWK])
 AC_MSG_CHECKING(autoconf version)
 dnl AUTOCONF_VERSION=`cat ${srcdir}/configure | perl -e '{ while (<STDIN>) { if (m/enerated.*utoconf.*([[0-9]]+)\.([[0-9]]+).*/) { print "[$]1.[$]2\n"; exit 0 } } }'`
 AUTOCONF_VERSION_STR=`cat ${srcdir}/configure | $AWK '/.*enerated.*utoconf.*([[0-9]]+).([[0-9]]+).*/ { [match]([$]0,"[[0-9]]+.[[0-9]]+"); print [substr]([$]0,RSTART,RLENGTH); exit 0 } '`
@@ -45,6 +46,7 @@ fi])
 
 dnl find full pathname for a given header file, if it exists and AC_SUBST it
 AC_DEFUN([GASNET_FIND_HEADER],[
+AC_REQUIRE([AC_PROG_AWK])
 AC_CHECK_HEADERS($1)
 pushdef([lowername],patsubst(patsubst(patsubst([$1], [/], [_]), [\.], [_]), [-], [_]))
 pushdef([uppername],translit(lowername,'a-z','A-Z'))
@@ -302,6 +304,32 @@ case "$$1" in
       ;;
 esac])
 
+dnl GASNET_GETFULLPATH(var)
+dnl var contains a program name, optionally followed by arguments
+dnl expand the program name to a fully qualified pathname if not already done
+AC_DEFUN([GASNET_GETFULLPATH_CHECK],[
+GASNET_IF_DISABLED(full-path-expansion, [Disable expansion of program names to full pathnames], 
+                   [cv_prefix[]_gfp_disable=1])
+])
+AC_DEFUN([GASNET_GETFULLPATH],[
+AC_REQUIRE([AC_PROG_AWK])
+AC_REQUIRE([GASNET_GETFULLPATH_CHECK])
+if test "$cv_prefix[]_gfp_disable" = ""; then
+  gasnet_gfp_progname=`echo "$$1" | $AWK -F' ' '{ print [$]1 }'`
+  gasnet_gfp_progargs=`echo "$$1" | $AWK -F' ' '{ for (i=2;i<=NF;i++) print $i; }'`
+  gasnet_gfp_progname0=`echo "$gasnet_gfp_progname" | $AWK '{ print sub[]str([$]0,1,1) }'`
+  if test "$gasnet_gfp_progname0" != "/" ; then
+    cv_prefix[]_gfp_fullprogname_$1=
+    AC_PATH_PROG(cv_prefix[]_gfp_fullprogname_$1, $gasnet_gfp_progname,[])
+    AC_MSG_CHECKING(for full path expansion of $1)
+    if test "$cv_prefix[]_gfp_fullprogname_$1" != "" ; then
+      $1="$cv_prefix[]_gfp_fullprogname_$1 $gasnet_gfp_progargs"
+    fi
+    AC_MSG_RESULT($$1)
+  fi
+fi
+])
+
 dnl GASNET_CHECK_LIB(library, function, action-if-found, action-if-not-found, other-flags, other-libraries)
 AC_DEFUN([GASNET_CHECK_LIB],[
 GASNET_check_lib_old_ldflags="$LDFLAGS"
@@ -476,6 +504,7 @@ AC_DEFUN([GASNET_PROG_CPP], [
   AC_PROVIDE([$0])
   AC_REQUIRE([AC_PROG_CC])
   AC_REQUIRE([AC_PROG_CPP])
+  GASNET_GETFULLPATH(CPP)
   AC_SUBST(CPP)
   AC_SUBST(CPPFLAGS)
   AC_MSG_CHECKING(for working C preprocessor)
@@ -503,6 +532,7 @@ AC_DEFUN([GASNET_PROG_CXXCPP], [
   AC_PROVIDE([$0])
   AC_REQUIRE([AC_PROG_CXX])
   AC_REQUIRE([AC_PROG_CXXCPP])
+  GASNET_GETFULLPATH(CXXCPP)
   AC_SUBST(CXXCPP)
   AC_SUBST(CXXCPPFLAGS)
   AC_MSG_CHECKING(for working C++ preprocessor)
@@ -528,6 +558,7 @@ AC_DEFUN([GASNET_PROG_CXXCPP], [
 
 AC_DEFUN([GASNET_PROG_CC], [
   AC_REQUIRE([GASNET_PROG_CPP])
+  GASNET_GETFULLPATH(CC)
   AC_SUBST(CC)
   AC_SUBST(CFLAGS)
   AC_MSG_CHECKING(for working C compiler)
@@ -546,6 +577,7 @@ AC_DEFUN([GASNET_PROG_CC], [
 
 AC_DEFUN([GASNET_PROG_CXX], [
   AC_REQUIRE([GASNET_PROG_CXXCPP])
+  GASNET_GETFULLPATH(CXX)
   AC_SUBST(CXX)
   AC_SUBST(CXXFLAGS)
   AC_MSG_CHECKING(for working C++ compiler)

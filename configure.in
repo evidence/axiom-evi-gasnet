@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/05/28 04:14:21 $
-# $Revision: 1.145 $
+#     $Date: 2004/05/29 05:31:36 $
+# $Revision: 1.146 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.145 $)
+AC_REVISION($Revision: 1.146 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -865,6 +865,7 @@ if test $enabled_mpi = yes; then
       fi 
       ;;
   esac
+  GASNET_GETFULLPATH(MPI_CC)
 
   MPI_CFLAGS="$BUILDCONFIG_DEFINES $MPI_CFLAGS"
 
