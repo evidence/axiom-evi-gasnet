@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.60 2004/05/19 07:35:38 bonachea Exp $
- * $Date: 2004/05/19 07:35:38 $
+/* $Id: gasnet_core.c,v 1.61 2004/06/30 20:54:20 phargrov Exp $
+ * $Date: 2004/06/30 20:54:20 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -299,12 +299,23 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 			    "Error registering extended reference API handlers");
 	    	gasneti_assert(er_numreg == er_len);
 	
+#if 0
 		if (gasnetc_reghandlers(etable, e_len, 64+er_len, 127, 0, 
 		    &e_numreg) != GASNET_OK)
 			GASNETI_RETURN_ERRR(RESOURCE,
 			    "Error registering extended API handlers");
 	    	gasneti_assert(e_numreg == e_len);
-		fidx = 64+er_len+e_len;
+		fidx = 64+er_len_e_len;
+#else
+		/* This deals with the non-contiguous allocation of handlers by the ref collectives.
+		 * XXX: a better solution is needed */
+		if (gasnetc_reghandlers(etable, e_len, 1+ertable[er_len-1].index, 127, 0, 
+		    &e_numreg) != GASNET_OK)
+			GASNETI_RETURN_ERRR(RESOURCE,
+			    "Error registering extended API handlers");
+	    	gasneti_assert(e_numreg == e_len);
+		fidx = 1+etable[e_len-1].index;
+#endif
 	}
 	{ /* firehose handlers */
 		gasnet_handlerentry_t *ftable = firehose_get_handlertable();
