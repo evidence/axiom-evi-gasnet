@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2004/01/24 15:14:42 $
- * $Revision: 1.15 $
+ *     $Date: 2004/02/07 08:14:49 $
+ * $Revision: 1.16 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -113,7 +113,7 @@ BEGIN_EXTERNC
     extern unsigned int gasneti_srclinenum;
     GASNET_INLINE_MODIFIER(gasneti_trace_setsourceline)
     void gasneti_trace_setsourceline(const char *filename, unsigned int linenum) {
-      if_pt (filename) gasneti_srcfilename = filename;
+      if_pt (filename != NULL) gasneti_srcfilename = filename;
       gasneti_srclinenum = linenum;
     }
   #endif
