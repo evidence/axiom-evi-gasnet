@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.12 2003/03/26 23:16:04 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.13 2003/08/25 09:52:29 bonachea Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -110,17 +110,17 @@ tests:
 	@exit 1
 
 tests-seq: force libgasnet-<conduitname>-seq.a <conduitname>-seq.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-seq \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="<conduitname>-seq.mak"
 
 tests-parsync: force libgasnet-<conduitname>-parsync.a <conduitname>-parsync.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-parsync \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="<conduitname>-parsync.mak"
 
 tests-par: force libgasnet-<conduitname>-par.a <conduitname>-par.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-par \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="<conduitname>-par.mak"
 

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.2 2003/05/11 02:23:13 jduell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.3 2003/08/25 09:52:26 bonachea Exp $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -109,17 +109,17 @@ tests:
 	@exit 1
 
 tests-seq: force libgasnet-smp-seq.a smp-seq.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-seq \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="smp-seq.mak"
 
 tests-parsync: force libgasnet-smp-parsync.a smp-parsync.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-parsync \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="smp-parsync.mak"
 
 tests-par: force libgasnet-smp-par.a smp-par.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-par \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="smp-par.mak"
 

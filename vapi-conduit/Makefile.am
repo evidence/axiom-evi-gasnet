@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.4 2003/07/03 22:21:04 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.5 2003/08/25 09:52:39 bonachea Exp $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -118,17 +118,17 @@ tests:
 	@exit 1
 
 tests-seq: force libgasnet-vapi-seq.a vapi-seq.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-seq \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="vapi-seq.mak"
 
 tests-parsync: force libgasnet-vapi-parsync.a vapi-parsync.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-parsync \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="vapi-parsync.mak"
 
 tests-par: force libgasnet-vapi-par.a vapi-par.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-par \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="vapi-par.mak"
 

@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/08/24 11:49:50 $
-# $Revision: 1.76 $
+#     $Date: 2003/08/25 09:52:03 $
+# $Revision: 1.77 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.76 $)
+AC_REVISION($Revision: 1.77 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -399,6 +399,13 @@ case "$target_os" in
 esac
 
 GASNET_MACHINE_DEFINES="$GASNET_MACHINE_DEFINES -DUNIX"
+
+# Find the appropriate OS suffix for executables
+case "$target_os" in
+  cygwin*)    EXESUFFIX='.exe' ;;
+  *)          EXESUFFIX='' ;;
+esac
+AC_SUBST(EXESUFFIX)
 
 ########################################################################
 ##
