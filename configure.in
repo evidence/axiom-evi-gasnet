@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/03/26 20:51:41 $
-# $Revision: 1.41 $
+#     $Date: 2003/03/29 01:11:34 $
+# $Revision: 1.42 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.41 $)
+AC_REVISION($Revision: 1.42 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -966,7 +966,12 @@ case "$target_os" in
     # LDFLAGS="$LDFLAGS -Wl,-bbigtoc"
 
     # set the data segment size to the largest permitted size for 32-bit apps (2GB)
-    LDFLAGS="$LDFLAGS -Wl,-bmaxdata:0x80000000"
+    # MLW: No.  (1) this has no effect when building libraries, only executables
+    #               and should be under control of end user.
+    #           (2) If this was used for a executable in a 32 bit app there would
+    #               only be one segment left for mmap and shared memory segments
+    #               and GASNET allocs shared mem region using mmap.
+    # LDFLAGS="$LDFLAGS -Wl,-bmaxdata:0x80000000"
   ;;
 esac
 AC_SUBST(LDFLAGS)
