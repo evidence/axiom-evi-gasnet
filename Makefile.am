@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/12 11:03:45 $
-# $Revision: 1.24 $
+#     $Date: 2004/03/19 05:07:26 $
+# $Revision: 1.25 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -64,23 +64,23 @@ other-run-tests:
 	@$(MAKE) -C $(top_builddir)/other run-tests
 
 tests-seq: other-tests
-	@for conduit in $(CONDUITS) ; do                             \
-	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" tests-seq ; \
+	@for conduit in $(CONDUITS) ; do                                      \
+	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" tests-seq || exit 1; \
 	done
 
 tests-par: other-tests
-	@for conduit in $(CONDUITS) ; do                             \
-	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" tests-par ; \
+	@for conduit in $(CONDUITS) ; do                                      \
+	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" tests-par || exit 1; \
 	done
 
 tests-parsync: other-tests
-	@for conduit in $(CONDUITS) ; do                                 \
-	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" tests-parsync ; \
+	@for conduit in $(CONDUITS) ; do                                          \
+	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" tests-parsync || exit 1; \
 	done
 
 run-tests: other-run-tests
-	@for conduit in $(CONDUITS) ; do                             \
-	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" run-tests ; \
+	@for conduit in $(CONDUITS) ; do                                      \
+	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" run-tests || exit 1; \
 	done
 
 run-tests-seq: tests-seq run-tests
