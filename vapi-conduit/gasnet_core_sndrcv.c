@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/30 07:16:53 $
- * $Revision: 1.19 $
+ *     $Date: 2003/09/02 23:49:59 $
+ * $Revision: 1.20 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -76,8 +76,8 @@ typedef struct {
  *  File-scoped variables
  * ------------------------------------------------------------------------------------ */
 
-static gasnetc_sbuf_t			*gasnetc_sbuf_alloc;
-static gasnetc_rbuf_t			*gasnetc_rbuf_alloc;
+static void				*gasnetc_sbuf_alloc;
+static void				*gasnetc_rbuf_alloc;
 #if GASNETC_LOCK_FREE_QUEUES
   /* pointer value is volatile */
   static gasnetc_sbuf_t	* volatile	gasnetc_sbuf_head;
@@ -582,7 +582,7 @@ void gasnetc_pre_snd(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sbuf_t *sb
       sum += req->sr_sg[i].len;
       assert(req->sr_sg[i].len != 0);
       assert(req->sr_sg[i].len <= gasnetc_hca_port.max_msg_sz);
-      assert(req->sr_sg[i].len < sum); /* overflow check */
+      assert(req->sr_sg[i].len <= sum); /* check for overflow of 'sum' */
     }
 
     assert(sum <= gasnetc_hca_port.max_msg_sz);
@@ -829,14 +829,15 @@ extern void gasnetc_sndrcv_init(void) {
 
     /* Allocated normal memory for receive descriptors (rbuf's) */
     padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETC_CACHE_LINE_SIZE);
-    {
-      void *tmp = gasneti_malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
-      assert(tmp != NULL);
-      gasnetc_rbuf_alloc = (gasnetc_rbuf_t *)GASNETC_ALIGNUP(tmp, GASNETC_CACHE_LINE_SIZE);
-    }
+    gasnetc_rbuf_alloc = gasneti_malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
 
     /* Initialize the rbuf's */
-    rbuf = gasnetc_rbuf_alloc;
+    rbuf = (gasnetc_rbuf_t *)GASNETC_ALIGNUP(gasnetc_rbuf_alloc, GASNETC_CACHE_LINE_SIZE);
+    #if GASNETC_LOCK_FREE_QUEUES
+      gasnetc_rbuf_head = rbuf;
+    #else
+      gasnetc_rbuf_free = rbuf;
+    #endif
     for (i = 0; i < count; ++i) {
       rbuf->rr_desc.id         = (uintptr_t)rbuf;	/* CQE will point back to this request */
       rbuf->rr_desc.opcode     = VAPI_RECEIVE;
@@ -852,12 +853,9 @@ extern void gasnetc_sndrcv_init(void) {
       }
     }
     rbuf->next = NULL;
-#if GASNETC_LOCK_FREE_QUEUES
-    gasnetc_rbuf_head = gasnetc_rbuf_alloc;
-    gasnetc_rbuf_tail = rbuf;
-#else
-    gasnetc_rbuf_free = gasnetc_rbuf_alloc;
-#endif
+    #if GASNETC_LOCK_FREE_QUEUES
+      gasnetc_rbuf_tail = rbuf;
+    #endif
     #if GASNETC_RCV_THREAD
       gasnetc_rcv_thread_rbuf = gasnetc_get_rbuf();
     #endif
@@ -884,14 +882,15 @@ extern void gasnetc_sndrcv_init(void) {
 
   /* Allocated normal memory for send descriptors (sbuf's) */
   padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_sbuf_t), GASNETC_CACHE_LINE_SIZE);
-  {
-    void *tmp = gasneti_malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
-    assert(tmp != NULL);
-    gasnetc_sbuf_alloc = (gasnetc_sbuf_t *)GASNETC_ALIGNUP(tmp, GASNETC_CACHE_LINE_SIZE);
-  }
+  gasnetc_sbuf_alloc = gasneti_malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
 
   /* Initialize the sbuf's */
-  sbuf = (gasnetc_sbuf_t *)gasnetc_sbuf_alloc;
+  sbuf = (gasnetc_sbuf_t *)GASNETC_ALIGNUP(gasnetc_sbuf_alloc, GASNETC_CACHE_LINE_SIZE);
+  #if GASNETC_LOCK_FREE_QUEUES
+    gasnetc_sbuf_head = sbuf;
+  #else
+    gasnetc_sbuf_free = sbuf;
+  #endif
   for (i = 0; i < count; ++i) {
     sbuf->buffer = &buf[i];
     sbuf->next   = (gasnetc_sbuf_t *)((uintptr_t)sbuf + padded_size);
@@ -900,12 +899,9 @@ extern void gasnetc_sndrcv_init(void) {
     }
   }
   sbuf->next = NULL;
-#if GASNETC_LOCK_FREE_QUEUES
-  gasnetc_sbuf_head = (gasnetc_sbuf_t *)gasnetc_sbuf_alloc;
-  gasnetc_sbuf_tail = sbuf;
-#else
-  gasnetc_sbuf_free = (gasnetc_sbuf_t *)gasnetc_sbuf_alloc;
-#endif
+  #if GASNETC_LOCK_FREE_QUEUES
+    gasnetc_sbuf_tail = sbuf;
+  #endif
 }
 
 extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
