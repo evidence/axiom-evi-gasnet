@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
-//     $Date: 2004/09/27 09:52:59 $
-// $Revision: 1.7 $
+//     $Date: 2004/09/28 06:59:33 $
+// $Revision: 1.8 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -244,7 +244,45 @@ int recvLine(SOCKET s, char* buf, int bufsiz) {
       }
     }
   }
+//------------------------------------------------------------------------------------
+void getSockName(SOCKET s, sockaddr_in &addr) {
+  LENGTH_PARAM namelen = sizeof(sockaddr_in);    
+  if (getsockname(s, (sockaddr*)&addr, &namelen) == SOCKET_ERROR) {
+    xsocket(s, "getsockname");
+    }
+  }
 //-------------------------------------------------------------------------------------
+unsigned long getLocalAddress(SOCKET s) {
+  sockaddr_in saddr;
+  getSockName(s, saddr);
+  return ntohl(saddr.sin_addr.s_addr);
+  }
+//------------------------------------------------------------------------------------
+int getLocalPort(SOCKET s) {
+  sockaddr_in saddr;
+  getSockName(s, saddr);
+  return ntohs(saddr.sin_port);
+  }
+//------------------------------------------------------------------------------------
+void getSockPeer(SOCKET s, sockaddr_in &addr) {
+  LENGTH_PARAM namelen = sizeof(sockaddr_in);     
+  if (getpeername(s, (sockaddr*)&addr, &namelen) == SOCKET_ERROR) {
+    xsocket(s, "getpeername");
+    }
+  }
+//------------------------------------------------------------------------------------
+unsigned long getRemoteAddress(SOCKET s) {
+  sockaddr_in saddr;
+  getSockPeer(s, saddr);
+  return ntohl(saddr.sin_addr.s_addr);
+  }
+//------------------------------------------------------------------------------------
+int getRemotePort(SOCKET s) {
+  sockaddr_in saddr;
+  getSockPeer(s, saddr);
+  return ntohs(saddr.sin_port);
+  }
+//------------------------------------------------------------------------------------
 unsigned long byteSwap(unsigned long val) {
   unsigned char* p = (unsigned char *)&val;
   unsigned char tmp;

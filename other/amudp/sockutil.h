@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.h,v $
-//     $Date: 2004/08/26 04:53:50 $
-// $Revision: 1.2 $
+//     $Date: 2004/09/28 06:59:33 $
+// $Revision: 1.3 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -88,6 +88,12 @@ int getSocketErrorCode();
 
 SockAddr getsockname(SOCKET s);
 SockAddr getpeername(SOCKET s);
+unsigned long getLocalAddress(SOCKET s);
+int getLocalPort(SOCKET s);
+void getSockPeer(SOCKET s, sockaddr_in &addr);
+unsigned long getRemoteAddress(SOCKET s);
+int getRemotePort(SOCKET s);
+void getSockName(SOCKET s, sockaddr_in &addr);
 
 char const *getMyHostName();
   // return the local hostname
