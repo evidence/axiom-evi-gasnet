@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/04/02 01:07:43 $
- * $Revision: 1.88 $
+ *     $Date: 2005/04/04 02:54:21 $
+ * $Revision: 1.89 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -83,25 +83,62 @@ typedef struct {
   gasnetc_counter_t		*mem_oust;	/* source memory refs outstanding */
   gasnetc_counter_t		*req_oust;	/* requests outstanding */
 
-  #if GASNETC_PIN_SEGMENT
-    /* Destination address/len for bounced GETs */
-    void			*addr;
-    size_t			len;
-  #endif
-
-  /* Buffer when needed for bounced GETs or PUTs, or for an AM header */
-  gasnetc_buffer_t		*buffer;
-
-  /* Firehose data */
+#if GASNETC_PIN_SEGMENT
+  /* Firehose, bounce buffers, and AMs are mutually exclusive.
+   * + AMs are distingished by an opcode of SEND_WITH_IMM.
+   * + fh_count == 0: in-segment gets/puts (use none of the union)
+   * + fh_count > 0: out-of-segment gets/puts using firehose
+   * + fh_count < 0: out-of-segment gets/puts using bounce buffers
+   */
   int				fh_count;
-  const firehose_request_t	*fh_ptr[GASNETC_MAX_FH];
-  #if !GASNETC_PIN_SEGMENT
-    VAPI_wr_opcode_t		opcode;
-    size_t			fh_len;
-    uintptr_t			loc_addr, rem_addr;
-    gasneti_atomic_t		fh_oust;
-    gasnetc_counter_t		*am_oust;	/* fh transactions outstanding */
-  #endif
+  union {
+    struct { /* Firehose data */
+      const firehose_request_t	*fh_ptr[GASNETC_MAX_FH];
+    } fh;
+    struct { /* Bounce buffer data */
+      gasnetc_buffer_t		*bb_buff;
+      void			*bb_addr;	/* local address for bounced GETs */
+      size_t			bb_len;		/* length for bounced GETs */
+    } bb;
+    struct { /* AM buffer */
+      gasnetc_buffer_t		*am_buff;
+    } am;
+  } u;
+  #define fh_ptr	u.fh.fh_ptr
+  #define bb_buff	u.bb.bb_buff
+  #define bb_addr	u.bb.bb_addr
+  #define bb_len	u.bb.bb_len
+  #define am_buff	u.am.am_buff
+#else
+  /* Firehose, and AMs are mutually exclusive.
+   * + AMs are distingished by an opcode of SEND_WITH_IMM.
+   */
+  union {
+    /* Firehose data */
+    struct {
+      int			fh_count;
+      const firehose_request_t	*fh_ptr[GASNETC_MAX_FH];
+      VAPI_wr_opcode_t		fh_op;
+      size_t			fh_len;
+      uintptr_t			fh_loc_addr;
+      uintptr_t			fh_rem_addr;
+      gasneti_atomic_t		fh_ready;	/* 0 when loc and rem both ready */
+      gasnetc_counter_t		*fh_oust;	/* fh transactions outstanding */
+    } fh;
+    struct { /* AM buffer */
+      gasnetc_buffer_t		*am_buff;
+    } am;
+  } u;
+  #define fh_count	u.fh.fh_count
+  #define fh_ptr	u.fh.fh_ptr
+  #define fh_op		u.fh.fh_op
+  #define fh_len	u.fh.fh_len
+  #define fh_loc_addr	u.fh.fh_loc_addr
+  #define fh_rem_addr	u.fh.fh_rem_addr
+  #define fh_ready	u.fh.fh_ready
+  #define fh_oust	u.fh.fh_oust
+  #define am_buff	u.am.am_buff
+#endif
 } gasnetc_sreq_t;
 
 /* ------------------------------------------------------------------------------------ *
@@ -129,16 +166,17 @@ VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
   int i;
 
   for (i=0; i<count; ++i, sg_lst_p += sg_lst_len) {
-	result[i].sg_lst_len = sg_lst_len;
-	result[i].sg_lst_p   = sg_lst_p;
+        #if GASNET_DEBUG
+	  result[i].sg_lst_len = 0; /* invalid to ensure caller sets it */
+	#endif
+	result[i].sg_lst_p = sg_lst_p;
   }
   
   return result;
 }
-#define GASNETC_DECL_SR_DESC_ARRAY(_name, _sg_lst_len, _count) \
+#define GASNETC_DECL_SR_DESC(_name, _sg_lst_len, _count) \
 	char _CONCAT(_name,_align)[_count*(sizeof(VAPI_sr_desc_t)+_sg_lst_len*sizeof(VAPI_sg_lst_entry_t))+GASNETI_CACHE_LINE_BYTES];\
 	VAPI_sr_desc_t *_name = gasnetc_sr_desc_init(_CONCAT(_name,_align), _sg_lst_len, _count) /* note intentional lack of final semicolon */
-#define GASNETC_DECL_SR_DESC(_name, _sg_lst_len)  GASNETC_DECL_SR_DESC_ARRAY(_name, _sg_lst_len, 1)
 
 /* Use of IB's 32-bit immediate data:
  *   0-1: category
@@ -325,53 +363,57 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 	  case VAPI_CQE_SQ_RDMA_READ:	/* Get */
 	    gasneti_assert(sreq->req_oust != NULL);
 	    gasneti_assert(sreq->mem_oust == NULL);
-
             #if GASNETC_PIN_SEGMENT
-	    /* complete bounced RMDA read, if any */
-	    if_pf (sreq->addr) {
-	      gasneti_assert(!gasnetc_use_firehose);
-	      gasneti_assert(sreq->buffer != NULL);
-	      gasneti_assert(sreq->len > 0);
-
-	      memcpy(sreq->addr, sreq->buffer, sreq->len);
+	    if_pf (sreq->fh_count < 0) {
+	      /* complete bounced RMDA read */
+	      gasneti_assert(!gasnetc_use_firehose); /* Only possible when firehose disabled */
+	      gasneti_assert(sreq->bb_buff != NULL);
+	      gasneti_assert(sreq->bb_addr != NULL);
+	      gasneti_assert(sreq->bb_len > 0);
+	      memcpy(sreq->bb_addr, sreq->bb_buff, sreq->bb_len);
               gasneti_sync_writes();
-
-	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->buffer);
-	    }
+              gasnetc_counter_dec(sreq->req_oust);
+	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->bb_buff);
+	    } else
 	    #endif
-	  
-            gasnetc_counter_dec(sreq->req_oust);
-
-	    if (sreq->fh_count) {
-	      firehose_release(sreq->fh_ptr, sreq->fh_count);
+	    {
+              gasnetc_counter_dec(sreq->req_oust);
+	      if (sreq->fh_count) {
+		gasneti_assert(sreq->fh_count > 0);
+		gasneti_assert(sreq->fh_count <= GASNETC_MAX_FH);
+	        firehose_release(sreq->fh_ptr, sreq->fh_count);
+	      }
 	    }
 	    break;
 
 	  case VAPI_CQE_SQ_RDMA_WRITE:	/* Put */
             if (sreq->mem_oust) {
-	      gasneti_assert(sreq->buffer == NULL);
+	      gasneti_assert(sreq->fh_count >= 0);
 	      gasnetc_counter_dec(sreq->mem_oust);
-	    } else if (sreq->buffer) {
-	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->buffer);
 	    }
             if (sreq->req_oust) {
               gasnetc_counter_dec(sreq->req_oust);
 	    }
-
-	    if (sreq->fh_count) {
+            #if GASNETC_PIN_SEGMENT
+	    if_pf (sreq->fh_count < 0) {
+	      /* Bounce buffer PUT */
+	      gasneti_assert(sreq->bb_buff != NULL);
+	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->bb_buff);
+	    } else
+	    #endif
+	    if (sreq->fh_count > 0) {
+	      gasneti_assert(sreq->fh_count <= GASNETC_MAX_FH);
 	      firehose_release(sreq->fh_ptr, sreq->fh_count);
 	    }
 	    break;
 
 	  case VAPI_CQE_SQ_SEND_DATA:	/* AM send */
 	    gasneti_assert(sreq->mem_oust == NULL);
-	    gasneti_assert(sreq->buffer != NULL);
-	  
+	    gasneti_assert(sreq->am_buff != NULL);
             if (sreq->req_oust) {
               gasnetc_counter_dec(sreq->req_oust);
 	    }
-
-	    gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->buffer);
+	    gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->am_buff);
 	    break;
 
 	  default:
@@ -586,15 +628,14 @@ gasnetc_sreq_t *gasnetc_get_sreq(void) {
   #if GASNET_DEBUG
     /* invalidate field(s) which should always be set by caller */
     sreq->cep = NULL;
+    sreq->fh_count = GASNETC_MAX_FH + 1;
   #endif
-  sreq->buffer = NULL;
+
+  /* Assume no counters */
   sreq->mem_oust = NULL;
   sreq->req_oust = NULL;
-  sreq->fh_count = 0;
-  #if GASNETC_PIN_SEGMENT
-    sreq->addr = NULL;                   
-  #else
-    sreq->am_oust = NULL;
+  #if !GASNETC_PIN_SEGMENT
+    sreq->fh_oust = NULL;
   #endif
 
   return sreq;
@@ -751,54 +792,6 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc) {
   sr_desc[0].fence     = FALSE;
 }
 
-GASNET_INLINE_MODIFIER(gasnetc_snd_post_list_common)
-void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, uint32_t count) {
-  gasnetc_sema_t *sq_sema;
-  uint32_t tmp;
-  int i;
-
-  /* Loop until space is available on the SQ for at least 1 new entry.
-   * If we hold the last one then threads sending to the same node will stall. */
-  sq_sema = &sreq->cep->sq_sema;
-  tmp = gasnetc_sema_trydown_n(sq_sema, count, GASNETC_ANY_PAR);
-  if_pf (!tmp) {
-    GASNETC_TRACE_WAIT_BEGIN();
-    do {
-      GASNETI_WAITHOOK();
-      gasnetc_poll_snd();
-      tmp = gasnetc_sema_trydown_n(sq_sema, count, GASNETC_ANY_PAR);
-    } while (!tmp);
-    GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
-  }
-
-  /* Loop until space is available for 1 new entry on the CQ.
-   * If we hold the last one then threads sending to ANY node will stall. */
-  if_pf (!gasnetc_sema_trydown(&gasnetc_cq_sema, GASNETC_ANY_PAR)) {
-    GASNETC_TRACE_WAIT_BEGIN();
-    do {
-      GASNETI_WAITHOOK();
-      gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(&gasnetc_cq_sema, GASNETC_ANY_PAR));
-    GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
-  }
-
-  /* setup some invariant fields */
-  sreq->count = tmp;
-  tmp -= 1;
-  for (i = 0; i < tmp; ++i) {
-    #if GASNET_DEBUG	/* unused otherwise */
-      sr_desc[i].id      = 0;
-    #endif
-    sr_desc[i].comp_type = VAPI_UNSIGNALED;
-    sr_desc[i].set_se    = FALSE;
-    sr_desc[i].fence     = FALSE;
-  }
-  sr_desc[tmp].id        = (uintptr_t)sreq;
-  sr_desc[tmp].comp_type = VAPI_SIGNALED;
-  sr_desc[tmp].set_se    = FALSE;
-  sr_desc[tmp].fence     = FALSE;
-}
-
 /* Post a work request to the send queue of the given endpoint */
 GASNET_INLINE_MODIFIER(gasnetc_snd_post)
 void gasnetc_snd_post(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc) {
@@ -853,13 +846,66 @@ void gasnetc_snd_post_inline(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc) {
   }
 }
 
-#if GASNETC_PIN_SEGMENT
+#if 0 && GASNET_PIN_SEGMENT
+/* XXX: Broken now that FAST uses firehose, too.
+ * In particular we don't do anything with firehose resources if we needed to
+ * split the request across multiple sreqs.  This is because there is no way to
+ * correlate the firehose_request_t's with the sr_desc's at the current time.
+ */
+GASNET_INLINE_MODIFIER(gasnetc_snd_post_list_common)
+void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, uint32_t count) {
+  gasnetc_sema_t *sq_sema;
+  uint32_t tmp;
+  int i;
+
+  /* Loop until space is available on the SQ for at least 1 new entry.
+   * If we hold the last one then threads sending to the same node will stall. */
+  sq_sema = &sreq->cep->sq_sema;
+  tmp = gasnetc_sema_trydown_n(sq_sema, count, GASNETC_ANY_PAR);
+  if_pf (!tmp) {
+    GASNETC_TRACE_WAIT_BEGIN();
+    do {
+      GASNETI_WAITHOOK();
+      gasnetc_poll_snd();
+      tmp = gasnetc_sema_trydown_n(sq_sema, count, GASNETC_ANY_PAR);
+    } while (!tmp);
+    GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
+  }
+
+  /* Loop until space is available for 1 new entry on the CQ.
+   * If we hold the last one then threads sending to ANY node will stall. */
+  if_pf (!gasnetc_sema_trydown(&gasnetc_cq_sema, GASNETC_ANY_PAR)) {
+    GASNETC_TRACE_WAIT_BEGIN();
+    do {
+      GASNETI_WAITHOOK();
+      gasnetc_poll_snd();
+    } while (!gasnetc_sema_trydown(&gasnetc_cq_sema, GASNETC_ANY_PAR));
+    GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
+  }
+
+  /* setup some invariant fields */
+  sreq->count = tmp;
+  tmp -= 1;
+  for (i = 0; i < tmp; ++i) {
+    #if GASNET_DEBUG	/* unused otherwise */
+      sr_desc[i].id      = 0;
+    #endif
+    sr_desc[i].comp_type = VAPI_UNSIGNALED;
+    sr_desc[i].set_se    = FALSE;
+    sr_desc[i].fence     = FALSE;
+  }
+  sr_desc[tmp].id        = (uintptr_t)sreq;
+  sr_desc[tmp].comp_type = VAPI_SIGNALED;
+  sr_desc[tmp].set_se    = FALSE;
+  sr_desc[tmp].fence     = FALSE;
+}
+
 /* Post multiple work requests to the send queue of the given endpoint */
 GASNET_INLINE_MODIFIER(gasnetc_snd_post_list)
 void gasnetc_snd_post_list(gasnetc_sreq_t *sreq, int count, VAPI_sr_desc_t *sr_desc) {
 
-  /* Can't handle bounce buffers or AMs (yet or ever?) */
-  gasneti_assert(sreq->buffer == NULL);
+  gasneti_assert(sr_desc->opcode != VAPI_SEND_WITH_IMM); /* Can't (yet?) handle SENDs (AMs) */
+  gasneti_assert(gasnetc_use_firehose || (sreq->bb_buff == NULL)); /* Can't (yet?) handle BB GET/PUT */
 
   GASNETC_STAT_EVENT_VAL(SND_POST_LIST,count);
 
@@ -873,6 +919,7 @@ void gasnetc_snd_post_list(gasnetc_sreq_t *sreq, int count, VAPI_sr_desc_t *sr_d
 
     if_pf (sreq->count < count) {
       /* If there is not enough SQ space, so we split the request list */
+      /* XXX: this is where we are most broken w.r.t. firehose resources */
       next = gasnetc_get_sreq();
       next->cep = sreq->cep;
       next->mem_oust = sreq->mem_oust;  sreq->mem_oust = NULL;
@@ -1018,7 +1065,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 
   /* Now get an sreq and buffer to start building the message */
   sreq = gasnetc_get_sreq();
-  buf = sreq->buffer = gasnetc_get_bbuf(1);
+  buf = sreq->am_buff = gasnetc_get_bbuf(1);
 
   switch (category) {
   case gasnetc_System:
@@ -1088,9 +1135,10 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     retval = GASNET_OK;
   } else {
     /* send the AM */
-    GASNETC_DECL_SR_DESC(sr_desc, 1);
+    GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
     sr_desc->opcode     = VAPI_SEND_WITH_IMM;
     sr_desc->imm_data   = flags;
+    sr_desc->sg_lst_len = 1;
     sr_desc->sg_lst_p[0].addr      = (uintptr_t)buf;
     sr_desc->sg_lst_p[0].len       = msg_len;
     sr_desc->sg_lst_p[0].lkey      = gasnetc_snd_reg.lkey;
@@ -1163,9 +1211,9 @@ size_t gasnetc_get_lkey(uintptr_t start, size_t len, gasnetc_sreq_t *sreq, VAPI_
     }
   } else {
     const firehose_request_t *fh_loc;
-    int fh_count = sreq->fh_count;
+    int count = sreq->fh_count;
 
-    if (fh_count == 0) {
+    if (count == 0) {
       /* Local (mis)alignment could limit how much we can pin */
       len = MIN(len, (gasnetc_fh_maxsz - (start & (FH_BUCKET_SIZE - 1))));
       fh_loc = firehose_local_pin(start, len, NULL);
@@ -1179,8 +1227,8 @@ size_t gasnetc_get_lkey(uintptr_t start, size_t len, gasnetc_sreq_t *sreq, VAPI_
       len = MIN(len, (fh_loc->addr + fh_loc->len - start));
     }
     lkey = fh_loc->client.lkey;
-    sreq->fh_ptr[fh_count] = fh_loc;
-    sreq->fh_count = fh_count + 1;
+    sreq->fh_ptr[count] = fh_loc;
+    sreq->fh_count = count + 1;
   }
 
   sg->addr = start;
@@ -1219,7 +1267,7 @@ void gasnetc_get_rkey(gasnetc_cep_t *cep, uintptr_t start, size_t *len_p, VAPI_r
 static void gasnetc_do_put_inline(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
                                   gasnetc_counter_t *req_oust) {
-  GASNETC_DECL_SR_DESC(sr_desc, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
   gasnetc_sreq_t *sreq;
 
   GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, nbytes);
@@ -1229,6 +1277,7 @@ static void gasnetc_do_put_inline(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 
   sreq = gasnetc_get_sreq();
   sreq->cep = cep;
+  sreq->fh_count = 0;
   if (req_oust) {
     gasnetc_counter_inc(req_oust);
     sreq->req_oust = req_oust;
@@ -1237,6 +1286,7 @@ static void gasnetc_do_put_inline(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   sr_desc->opcode      = VAPI_RDMA_WRITE;
   sr_desc->remote_addr = dst;
   sr_desc->r_key       = rkey;
+  sr_desc->sg_lst_len  = 1;
   sr_desc->sg_lst_p[0].addr       = src;
   sr_desc->sg_lst_p[0].len        = nbytes;
 
@@ -1247,7 +1297,7 @@ static void gasnetc_do_put_inline(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 static void gasnetc_do_put_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
                                   gasnetc_counter_t *req_oust) {
-  GASNETC_DECL_SR_DESC(sr_desc, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
   gasnetc_sreq_t *sreq;
 
   GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_BOUNCE, nbytes);
@@ -1257,15 +1307,16 @@ static void gasnetc_do_put_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   /* Use full bounce buffers until just one buffer worth of data remains */
   while (nbytes > GASNETC_BUFSZ) {
     sreq = gasnetc_get_sreq();
-    sreq->buffer = gasnetc_get_bbuf(1);
-    memcpy(sreq->buffer, (void *)src, GASNETC_BUFSZ);
+    sreq->bb_buff = gasnetc_get_bbuf(1);
+    memcpy(sreq->bb_buff, (void *)src, GASNETC_BUFSZ);
     sreq->cep  = cep;
+    sreq->fh_count = -1;
 
     sr_desc->opcode      = VAPI_RDMA_WRITE;
     sr_desc->remote_addr = dst;
     sr_desc->r_key       = rkey;
-
-    sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->buffer;
+    sr_desc->sg_lst_len  = 1;
+    sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->bb_buff;
     sr_desc->sg_lst_p[0].len  = GASNETC_BUFSZ;
     sr_desc->sg_lst_p[0].lkey = gasnetc_snd_reg.lkey;
 
@@ -1280,9 +1331,10 @@ static void gasnetc_do_put_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   gasneti_assert(nbytes <= GASNETC_BUFSZ);
 
   sreq = gasnetc_get_sreq();
-  sreq->buffer = gasnetc_get_bbuf(1);
-  memcpy(sreq->buffer, (void *)src, nbytes);
+  sreq->bb_buff = gasnetc_get_bbuf(1);
+  memcpy(sreq->bb_buff, (void *)src, nbytes);
   sreq->cep = cep;
+  sreq->fh_count = -1;
   if (req_oust) {
     gasnetc_counter_inc(req_oust);
     sreq->req_oust = req_oust;
@@ -1291,8 +1343,8 @@ static void gasnetc_do_put_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   sr_desc->opcode      = VAPI_RDMA_WRITE;
   sr_desc->remote_addr = dst;
   sr_desc->r_key       = rkey;
-
-  sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->buffer;
+  sr_desc->sg_lst_len  = 1;
+  sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->bb_buff;
   sr_desc->sg_lst_p[0].len  = nbytes;
   sr_desc->sg_lst_p[0].lkey = gasnetc_snd_reg.lkey;
 
@@ -1303,7 +1355,7 @@ static void gasnetc_do_put_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 static void gasnetc_do_put_zerocp(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
                                   gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust) {
-  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG);
+  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG, 1);
   gasnetc_sreq_t *sreq = NULL;
   int seg_count = 0;
 
@@ -1318,6 +1370,7 @@ static void gasnetc_do_put_zerocp(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
     if (!seg_count) {
       sreq = gasnetc_get_sreq();
       sreq->cep = cep;
+      sreq->fh_count = 0;
       sr_desc->opcode      = VAPI_RDMA_WRITE;
       sr_desc->remote_addr = dst;
       sr_desc->r_key       = rkey;
@@ -1360,7 +1413,7 @@ static void gasnetc_do_put_zerocp(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
                                   gasnetc_counter_t *req_oust) {
-  GASNETC_DECL_SR_DESC(sr_desc, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
   gasnetc_sreq_t *sreq;
 
   GASNETI_TRACE_EVENT_VAL(C, RDMA_GET_BOUNCE, nbytes);
@@ -1371,10 +1424,11 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   /* Use full bounce buffers until just one buffer worth of data remains */
   while (nbytes > GASNETC_BUFSZ) {
     sreq = gasnetc_get_sreq();
-    sreq->cep    = cep;
-    sreq->addr   = (void *)dst;
-    sreq->len    = GASNETC_BUFSZ;
-    sreq->buffer = gasnetc_get_bbuf(1);
+    sreq->cep     = cep;
+    sreq->fh_count = -1;
+    sreq->bb_addr = (void *)dst;
+    sreq->bb_len  = GASNETC_BUFSZ;
+    sreq->bb_buff = gasnetc_get_bbuf(1);
 
     if (GASNETC_ANY_PAR) {
       /* We must set counters on all chunks since order of completion is uncertain */
@@ -1385,8 +1439,8 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
     sr_desc->opcode      = VAPI_RDMA_READ;
     sr_desc->remote_addr = src;
     sr_desc->r_key       = rkey;
-
-    sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->buffer;
+    sr_desc->sg_lst_len  = 1;
+    sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->bb_buff;
     sr_desc->sg_lst_p[0].len  = GASNETC_BUFSZ;
     sr_desc->sg_lst_p[0].lkey = gasnetc_snd_reg.lkey;
 
@@ -1402,17 +1456,18 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 
   sreq = gasnetc_get_sreq();
   sreq->cep      = cep;
-  sreq->addr     = (void *)dst;
-  sreq->len      = nbytes;
-  sreq->buffer   = gasnetc_get_bbuf(1);
+  sreq->fh_count = -1;
+  sreq->bb_addr  = (void *)dst;
+  sreq->bb_len   = nbytes;
+  sreq->bb_buff  = gasnetc_get_bbuf(1);
   sreq->req_oust = req_oust;
   gasnetc_counter_inc(req_oust);
 
   sr_desc->opcode      = VAPI_RDMA_READ;
   sr_desc->remote_addr = src;
   sr_desc->r_key       = rkey;
-
-  sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->buffer;
+  sr_desc->sg_lst_len  = 1;
+  sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->bb_buff;
   sr_desc->sg_lst_p[0].len  = nbytes;
   sr_desc->sg_lst_p[0].lkey = gasnetc_snd_reg.lkey;
 
@@ -1424,7 +1479,7 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 static void gasnetc_do_get_zerocp(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
                                   gasnetc_counter_t *req_oust) {
-  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG);
+  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG, 1);
   gasnetc_sreq_t *sreq = NULL;
   int seg_count = 0;
 
@@ -1442,6 +1497,7 @@ static void gasnetc_do_get_zerocp(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
       sreq->cep = cep;
       sreq->req_oust = req_oust;
       gasnetc_counter_inc(req_oust);
+      sreq->fh_count = 0;
       sr_desc->opcode      = VAPI_RDMA_READ;
       sr_desc->remote_addr = src;
       sr_desc->r_key       = rkey;
@@ -1468,30 +1524,34 @@ static void gasnetc_do_get_zerocp(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 }
 #else
 static void gasnetc_fh_put_inline(void *context, const firehose_request_t *fh_rem, int allLocalHit) {
-  GASNETC_DECL_SR_DESC(sr_desc, 1);
+  GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
   gasnetc_sreq_t *sreq = context;
+
+  gasneti_assert(sreq->fh_rem_addr >= fh_rem->addr);
+  gasneti_assert(sreq->fh_rem_addr + (sreq->fh_len - 1) <= fh_rem->addr + (fh_rem->len - 1));
 
   GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, sreq->fh_len);
 
   sreq->fh_ptr[0] = fh_rem;
   sreq->fh_count = 1;
 
-  sr_desc->opcode = VAPI_RDMA_WRITE;
-  sr_desc->remote_addr = sreq->rem_addr;
-  sr_desc->r_key = fh_rem->client.rkey;
-  sr_desc->sg_lst_p[0].addr = sreq->loc_addr;
+  sr_desc->opcode      = VAPI_RDMA_WRITE;
+  sr_desc->remote_addr = sreq->fh_rem_addr;
+  sr_desc->r_key       = fh_rem->client.rkey;
+  sr_desc->sg_lst_len  = 1;
+  sr_desc->sg_lst_p[0].addr = sreq->fh_loc_addr;
   sr_desc->sg_lst_p[0].len = sreq->fh_len;
 
   gasnetc_snd_post_inline(sreq, sr_desc);
 
-  if (sreq->am_oust) {
-    gasnetc_counter_dec(sreq->am_oust);
+  if (sreq->fh_oust) {
+    gasnetc_counter_dec(sreq->fh_oust);
   }
 }
 
 GASNET_INLINE_MODIFIER(gasnetc_fh_post)
 void gasnetc_fh_post(gasnetc_sreq_t *sreq) {
-  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG);
+  GASNETC_DECL_SR_DESC(sr_desc, GASNETC_SND_SG, 1);
   VAPI_sg_lst_entry_t *sg_entry;
   uintptr_t loc_addr;
   size_t remain;
@@ -1502,13 +1562,13 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq) {
   gasneti_assert(sreq->fh_ptr[0] != NULL);
   gasneti_assert(sreq->fh_ptr[1] != NULL);
 
-  sr_desc->opcode = sreq->opcode;
-  sr_desc->remote_addr = sreq->rem_addr;
+  sr_desc->opcode = sreq->fh_op;
+  sr_desc->remote_addr = sreq->fh_rem_addr;
   sr_desc->r_key = sreq->fh_ptr[0]->client.rkey;
   sr_desc->sg_lst_len = sreq->fh_count - 1;
 
   remain = sreq->fh_len;
-  loc_addr = sreq->loc_addr;
+  loc_addr = sreq->fh_loc_addr;
   sg_entry = sr_desc->sg_lst_p;
   for (i = 1; i < sreq->fh_count; ++i) {
     const firehose_request_t *fh_req = sreq->fh_ptr[i];
@@ -1535,8 +1595,8 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq) {
 
   gasnetc_snd_post(sreq, sr_desc);
 
-  if (sreq->am_oust) {
-    gasnetc_counter_dec(sreq->am_oust);
+  if (sreq->fh_oust) {
+    gasnetc_counter_dec(sreq->fh_oust);
   }
 }
 
@@ -1544,7 +1604,7 @@ static void gasnetc_fh_getput(void *context, const firehose_request_t *fh_rem, i
   gasnetc_sreq_t *sreq = context;
 
   sreq->fh_ptr[0] = fh_rem;
-  if (gasneti_atomic_decrement_and_test(&sreq->fh_oust)) {
+  if (gasneti_atomic_decrement_and_test(&sreq->fh_ready)) {
     gasnetc_fh_post(sreq);
   }
 }
@@ -1586,8 +1646,8 @@ size_t gasnetc_get_local_fh(gasnetc_sreq_t *sreq, uintptr_t loc_addr, size_t len
  */
 GASNET_INLINE_MODIFIER(gasnetc_fh_hit)
 size_t gasnetc_fh_hit(gasnetc_sreq_t *sreq, uintptr_t loc_addr, size_t len) {
-  gasneti_assert(sreq->rem_addr >= sreq->fh_ptr[0]->addr);
-  gasneti_assert(sreq->rem_addr + (len - 1) <= sreq->fh_ptr[0]->addr + (sreq->fh_ptr[0]->len - 1));
+  gasneti_assert(sreq->fh_rem_addr >= sreq->fh_ptr[0]->addr);
+  gasneti_assert(sreq->fh_rem_addr + (len - 1) <= sreq->fh_ptr[0]->addr + (sreq->fh_ptr[0]->len - 1));
 
   len = gasnetc_get_local_fh(sreq, loc_addr, len);
 
@@ -1602,7 +1662,7 @@ size_t gasnetc_fh_hit(gasnetc_sreq_t *sreq, uintptr_t loc_addr, size_t len) {
 GASNET_INLINE_MODIFIER(gasnetc_fh_miss)
 size_t gasnetc_fh_miss(gasnet_node_t node, gasnetc_sreq_t *sreq,
 		       uintptr_t loc_addr, uintptr_t rem_addr, size_t len) {
-  gasneti_atomic_set(&sreq->fh_oust, 2);
+  gasneti_atomic_set(&sreq->fh_ready, 2);
 
   /* Both remote (mis)alignment could limit how much we can pin */
   len = MIN(len, (gasnetc_fh_maxsz - (rem_addr & (FH_BUCKET_SIZE - 1))));
@@ -1612,7 +1672,7 @@ size_t gasnetc_fh_miss(gasnet_node_t node, gasnetc_sreq_t *sreq,
 
   len = gasnetc_get_local_fh(sreq, loc_addr, len);
   
-  if (gasneti_atomic_decrement_and_test(&sreq->fh_oust)) {
+  if (gasneti_atomic_decrement_and_test(&sreq->fh_ready)) {
     gasnetc_fh_post(sreq);
   }
 
@@ -1622,8 +1682,8 @@ size_t gasnetc_fh_miss(gasnet_node_t node, gasnetc_sreq_t *sreq,
 GASNET_INLINE_MODIFIER(gasnetc_fh_helper)
 int gasnetc_fh_helper(int is_put, gasnet_node_t node, gasnetc_sreq_t *sreq,
 		      uintptr_t loc_addr, uintptr_t rem_addr, size_t len) {
-  sreq->rem_addr = rem_addr;
-  sreq->loc_addr = loc_addr;
+  sreq->fh_rem_addr = rem_addr;
+  sreq->fh_loc_addr = loc_addr;
 
   if (is_put && (GASNETC_PUT_INLINE_LIMIT != 0) && (len <= GASNETC_PUT_INLINE_LIMIT)) {
     sreq->fh_len = len;
@@ -1938,8 +1998,8 @@ extern int gasnetc_rdma_put_fh(int node, void *src_ptr, void *dst_ptr, size_t nb
     gasnetc_sreq_t *sreq = gasnetc_get_sreq();
     size_t count;
 
-    sreq->cep    = cep;
-    sreq->opcode = VAPI_RDMA_WRITE;
+    sreq->cep   = cep;
+    sreq->fh_op = VAPI_RDMA_WRITE;
  
     /* We must set counters on all chunks since order of completion is uncertain */
     if (mem_oust) {
@@ -1952,7 +2012,7 @@ extern int gasnetc_rdma_put_fh(int node, void *src_ptr, void *dst_ptr, size_t nb
     }
     if (am_oust) {
       gasnetc_counter_inc(am_oust);
-      sreq->am_oust = am_oust;
+      sreq->fh_oust = am_oust;
     }
 
     count = gasnetc_fh_helper(1, node, sreq, src, dst, nbytes);
@@ -1978,8 +2038,8 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     gasnetc_sreq_t *sreq = gasnetc_get_sreq();
     size_t count;
 
-    sreq->cep    = cep;
-    sreq->opcode = VAPI_RDMA_READ;
+    sreq->cep   = cep;
+    sreq->fh_op = VAPI_RDMA_READ;
  
     /* We must set counters on all chunks since order of completion is uncertain */
     sreq->req_oust = req_oust;
