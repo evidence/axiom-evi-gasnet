@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2004/01/05 05:01:10 $
- * $Revision: 1.19 $
+ *     $Date: 2004/02/24 20:45:11 $
+ * $Revision: 1.20 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -476,7 +476,7 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
   }
   #else /* !HAVE_MMAP */
     /* for the T3E, and other platforms which don't support mmap */
-    segbase = gasneti_malloc_allowfail(segsize);
+    segbase = gasneti_malloc_allowfail(segsize + GASNET_PAGESIZE);
     while (!segbase) {
       segsize = GASNETI_PAGE_ALIGNDOWN(segsize/2);
       if (segsize == 0) break; 
