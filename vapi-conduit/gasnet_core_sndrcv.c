@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2004/10/26 19:43:53 $
- * $Revision: 1.58 $
+ *     $Date: 2004/11/01 21:43:18 $
+ * $Revision: 1.59 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -109,7 +109,7 @@ static void				*gasnetc_rbuf_alloc;
 static gasneti_freelist_t		gasnetc_bbuf_freelist = GASNETI_FREELIST_INITIALIZER;
 static gasneti_freelist_t		gasnetc_sreq_freelist = GASNETI_FREELIST_INITIALIZER;
 static gasneti_freelist_t		gasnetc_rbuf_freelist = GASNETI_FREELIST_INITIALIZER;
-static gasnetc_sema_t			gasnetc_op_sema;
+static gasnetc_sema_t			gasnetc_cq_sema;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped functions and macros                                                    *
@@ -333,10 +333,10 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
       if_pt (comp.status == VAPI_SUCCESS) {
         gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.id;
         if_pt (sreq) {
-	  gasnetc_sema_up_n(&sreq->cep->op_sema, sreq->count);
-          GASNETC_SEMA_CHECK(&sreq->cep->op_sema, gasnetc_op_oust_pp);
-	  gasnetc_sema_up(&gasnetc_op_sema);
-          GASNETC_SEMA_CHECK(&gasnetc_op_sema, gasnetc_op_oust_limit);
+	  gasnetc_sema_up_n(&sreq->cep->sq_sema, sreq->count);
+          GASNETC_SEMA_CHECK(&sreq->cep->sq_sema, gasnetc_op_oust_pp);
+	  gasnetc_sema_up(&gasnetc_cq_sema);
+          GASNETC_SEMA_CHECK(&gasnetc_cq_sema, gasnetc_op_oust_limit);
 
           #if GASNETC_PIN_SEGMENT
 	  /* complete bounced RMDA read, if any */
@@ -530,7 +530,9 @@ void gasnetc_do_poll(int poll_rcv, int poll_snd) {
   }
 }
 
-/* allocate a send request/buffer pair */
+/* allocate a send request/buffer pair
+ * If allocating a bounce buffer, will set *signalling non-zero
+ * when non-NULL, and the buffer pool is seen to be low */
 #ifdef __GNUC__
   GASNET_INLINE_MODIFIER(gasnetc_get_sreq)
   gasnetc_sreq_t *gasnetc_get_sreq(int need_bbuf) __attribute__((__malloc__));
@@ -541,25 +543,6 @@ gasnetc_sreq_t *gasnetc_get_sreq(int need_bbuf) {
   gasnetc_buffer_t *bbuf = NULL;
   gasnetc_sreq_t *tail;
   int count;
-
-  /* The bounce buffers are finite, so get one first if needed */
-  if_pf (need_bbuf) {
-    GASNETC_TRACE_WAIT_BEGIN();
-    GASNETC_STAT_EVENT(GET_BBUF);
-
-    bbuf = gasneti_freelist_get(&gasnetc_bbuf_freelist);
-
-    if_pf (bbuf == NULL) {
-      gasnetc_poll_snd();
-      bbuf = gasneti_freelist_get(&gasnetc_bbuf_freelist);
-      while (bbuf == NULL) {
-        GASNETI_WAITHOOK();
-        gasnetc_poll_snd();
-        bbuf = gasneti_freelist_get(&gasnetc_bbuf_freelist);
-      }
-      GASNETC_TRACE_WAIT_END(GET_BBUF_STALL);
-    }
-  }
 
   GASNETC_STAT_EVENT(GET_SBUF);
   /* 1) try to get an unused sreq by reaping the send CQ */
@@ -578,6 +561,23 @@ gasnetc_sreq_t *gasnetc_get_sreq(int need_bbuf) {
   }
 
   gasneti_assert(sreq != NULL);
+
+  /* The bounce buffers are finite.
+   * So, when needed, we get it last to avoid holding it longer than needed */
+  if_pf (need_bbuf) {
+    GASNETC_TRACE_WAIT_BEGIN();
+    GASNETC_STAT_EVENT(GET_BBUF);
+
+    bbuf = gasneti_freelist_get(&gasnetc_bbuf_freelist);
+    if_pf (!bbuf) {
+      gasnetc_poll_snd();
+      while (!(bbuf = gasneti_freelist_get(&gasnetc_bbuf_freelist))) {
+        GASNETI_WAITHOOK();
+        gasnetc_poll_snd();
+      }
+      GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
+    }
+  }
 
   #if GASNET_DEBUG
     /* invalidate field(s) which should always be set by caller */
@@ -664,28 +664,30 @@ void gasnetc_snd_validate(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int cou
 
 GASNET_INLINE_MODIFIER(gasnetc_snd_post_common)
 void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc) {
-  gasnetc_sema_t *op_sema;
+  gasnetc_sema_t *sq_sema;
   int i;
 
-  /* loop until space is available on the CQ */
-  if_pf (!gasnetc_sema_trydown(&gasnetc_op_sema, GASNETC_ANY_PAR)) {
+  /* Loop until space is available on the SQ for 1 new entry.
+   * If we hold the last one then threads sending to the same node will stall. */
+  sq_sema = &sreq->cep->sq_sema;
+  if_pf (!gasnetc_sema_trydown(sq_sema, GASNETC_ANY_PAR)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(&gasnetc_op_sema, GASNETC_ANY_PAR));
-    GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
+    } while (!gasnetc_sema_trydown(sq_sema, GASNETC_ANY_PAR));
+    GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
   }
 
-  /* loop until space is available on the SQ for 1 new entry */
-  op_sema = &sreq->cep->op_sema;
-  if_pf (!gasnetc_sema_trydown(op_sema, GASNETC_ANY_PAR)) {
+  /* Loop until space is available for 1 new entry on the CQ.
+   * If we hold the last one then threads sending to ANY node will stall. */
+  if_pf (!gasnetc_sema_trydown(&gasnetc_cq_sema, GASNETC_ANY_PAR)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(op_sema, GASNETC_ANY_PAR));
-    GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
+    } while (!gasnetc_sema_trydown(&gasnetc_cq_sema, GASNETC_ANY_PAR));
+    GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
   }
 
   /* setup some invariant fields */
@@ -698,31 +700,33 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc) {
 
 GASNET_INLINE_MODIFIER(gasnetc_snd_post_list_common)
 void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, uint32_t count) {
-  gasnetc_sema_t *op_sema;
+  gasnetc_sema_t *sq_sema;
   uint32_t tmp;
   int i;
 
-  /* loop until space is available on the CQ */
-  if_pf (!gasnetc_sema_trydown(&gasnetc_op_sema, GASNETC_ANY_PAR)) {
-    GASNETC_TRACE_WAIT_BEGIN();
-    do {
-      GASNETI_WAITHOOK();
-      gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(&gasnetc_op_sema, GASNETC_ANY_PAR));
-    GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
-  }
-
-  /* loop until space is available on the SQ for at least 1 new entry */
-  op_sema = &sreq->cep->op_sema;
-  tmp = gasnetc_sema_trydown_n(op_sema, count, GASNETC_ANY_PAR);
+  /* Loop until space is available on the SQ for at least 1 new entry.
+   * If we hold the last one then threads sending to the same node will stall. */
+  sq_sema = &sreq->cep->sq_sema;
+  tmp = gasnetc_sema_trydown_n(sq_sema, count, GASNETC_ANY_PAR);
   if_pf (!tmp) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-      tmp = gasnetc_sema_trydown_n(op_sema, count, GASNETC_ANY_PAR);
+      tmp = gasnetc_sema_trydown_n(sq_sema, count, GASNETC_ANY_PAR);
     } while (!tmp);
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
+  }
+
+  /* Loop until space is available for 1 new entry on the CQ.
+   * If we hold the last one then threads sending to ANY node will stall. */
+  if_pf (!gasnetc_sema_trydown(&gasnetc_cq_sema, GASNETC_ANY_PAR)) {
+    GASNETC_TRACE_WAIT_BEGIN();
+    do {
+      GASNETI_WAITHOOK();
+      gasnetc_poll_snd();
+    } while (!gasnetc_sema_trydown(&gasnetc_cq_sema, GASNETC_ANY_PAR));
+    GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
   }
 
   /* setup some invariant fields */
@@ -1328,7 +1332,7 @@ extern void gasnetc_sndrcv_init(void) {
    */
   count = MIN(gasnetc_op_oust_limit, gasnetc_op_oust_pp * (gasnetc_nodes - 1));
   gasnetc_op_oust_limit = count;
-  gasnetc_sema_init(&gasnetc_op_sema, count);
+  gasnetc_sema_init(&gasnetc_cq_sema, count);
 
   /* create the SND CQ */
   vstat = VAPI_create_cq(gasnetc_hca, count, &gasnetc_snd_cq, &act_size);
@@ -1373,14 +1377,14 @@ extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
     }
 
     gasnetc_sema_init(&cep->am_sema, gasnetc_am_oust_pp);
-    gasnetc_sema_init(&cep->op_sema, gasnetc_op_oust_pp);
+    gasnetc_sema_init(&cep->sq_sema, gasnetc_op_oust_pp);
   } else {
     /* Even the loopback AMs are restricted by credits, so we make this limit LARGE.
      * Since the handlers run synchronously, this just limits the number of threads
      * which are sending AM Requests to no more than 1 Million :-)
      */
     gasnetc_sema_init(&cep->am_sema, 1000000);
-    gasnetc_sema_init(&cep->op_sema, 0);
+    gasnetc_sema_init(&cep->sq_sema, 0);
   }
 }
 
