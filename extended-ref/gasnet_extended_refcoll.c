@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2004/09/25 00:36:29 $
- * $Revision: 1.13 $
+ *     $Date: 2004/09/25 01:58:36 $
+ * $Revision: 1.14 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -980,7 +980,6 @@ extern int gasnete_coll_generic_coll_sync(gasnet_coll_handle_t *p, size_t count 
 /* gasnete_coll_broadcast_nb() */
 
 /* bcast Get: all nodes perform uncoordinated gets */
-/* Valid for SINGLE only, any size */
 static int gasnete_coll_pf_bcast_Get(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
   gasnete_coll_generic_data_t *data = op->data;
   const gasnete_coll_broadcast_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, broadcast);
@@ -1030,12 +1029,14 @@ gasnete_coll_bcast_Get(gasnet_team_handle_t team,
   int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
 
+  gasneti_assert(flags & GASNET_COLL_SINGLE);
+  gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
   return gasnete_coll_generic_broadcast_nb(team, dst, srcnode, src, nbytes, flags,
 					   &gasnete_coll_pf_bcast_Get, options GASNETE_THREAD_PASS);
 }
 
 /* bcast Put: root node performs carefully ordered puts */
-/* Valid for SINGLE only, any size */
 static int gasnete_coll_pf_bcast_Put(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
   gasnete_coll_generic_data_t *data = op->data;
   const gasnete_coll_broadcast_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, broadcast);
@@ -1105,12 +1106,14 @@ gasnete_coll_bcast_Put(gasnet_team_handle_t team,
   int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
 
+  gasneti_assert(flags & GASNET_COLL_SINGLE);
+  gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
+
   return gasnete_coll_generic_broadcast_nb(team, dst, srcnode, src, nbytes, flags,
 					   &gasnete_coll_pf_bcast_Put, options GASNETE_THREAD_PASS);
 }
 
 /* bcast Eager: root node performs carefully ordered eager puts */
-/* Valid for SINGLE and LOCAL, size <= available eager buffer space */
 /* Requires GASNETE_COLL_GENERIC_OPT_P2P on non-root nodes */
 static int gasnete_coll_pf_bcast_Eager(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
   gasnete_coll_generic_data_t *data = op->data;
@@ -1157,12 +1160,13 @@ gasnete_coll_bcast_Eager(gasnet_team_handle_t team,
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(flags & GASNET_COLL_OUT_ALLSYNC) |
 		GASNETE_COLL_GENERIC_OPT_P2P_IF(gasnete_mynode != srcnode);
 
+  gasneti_assert(nbytes < GASNETE_COLL_P2P_EAGER_MIN);
+
   return gasnete_coll_generic_broadcast_nb(team, dst, srcnode, src, nbytes, flags,
 					   &gasnete_coll_pf_bcast_Eager, options GASNETE_THREAD_PASS);
 }
 
 /* bcast RVGet: root node broadcasts address, others get from that address */
-/* Valid for SINGLE and LOCAL, any size */
 /* Requires GASNETE_COLL_GENERIC_OPT_P2P on non-root nodes */
 static int gasnete_coll_pf_bcast_RVGet(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
   gasnete_coll_generic_data_t *data = op->data;
@@ -1217,8 +1221,36 @@ gasnete_coll_bcast_RVGet(gasnet_team_handle_t team,
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC)) |
 		GASNETE_COLL_GENERIC_OPT_P2P_IF(gasnete_mynode != srcnode);
 
+  gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+
   return gasnete_coll_generic_broadcast_nb(team, dst, srcnode, src, nbytes, flags,
 					   &gasnete_coll_pf_bcast_RVGet, options GASNETE_THREAD_PASS);
+}
+
+/* XXX: IMPLEMENT or not? */
+static gasnet_coll_handle_t
+gasnete_coll_bcast_RVPut(gasnet_team_handle_t team,
+			 void *dst,
+			 gasnet_node_t srcnode, void *src,
+			 size_t nbytes, int flags GASNETE_THREAD_FARG)
+{
+  if (!(flags & GASNET_COLL_LOCAL)) {
+    return gasnete_coll_bcast_Put(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+  } else {
+    gasneti_fatalerror("gasnete_coll_bcast_RVPut is unimplemented");
+    return GASNET_COLL_INVALID_HANDLE;
+  }
+}
+
+/* XXX: IMPLEMENT */
+static gasnet_coll_handle_t
+gasnete_coll_bcast_AM(gasnet_team_handle_t team,
+		      void *dst,
+		      gasnet_node_t srcnode, void *src,
+		      size_t nbytes, int flags GASNETE_THREAD_FARG)
+{
+  gasneti_fatalerror("gasnete_coll_bcast_AM is unimplemented");
+  return GASNET_COLL_INVALID_HANDLE;
 }
 
 extern gasnet_coll_handle_t
@@ -1251,34 +1283,35 @@ gasnete_coll_generic_broadcast_nb(gasnet_team_handle_t team,
       flags = gasnete_coll_segment_check(flags, 0, 0, dst, nbytes, 1, srcnode, src, nbytes);
 
       /* Choose algorithm based on arguments */
-      if ((flags & GASNET_COLL_DST_IN_SEGMENT) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
-	/* Both ends are in-segment */
-        if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
-	  if (nbytes <= eager_limit) {
-	    return gasnete_coll_bcast_Eager(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	  } else {
-	    return gasnete_coll_bcast_RVGet(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	  }
-        } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
-	  return gasnete_coll_bcast_Eager(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-        } else {
-	  return gasnete_coll_bcast_Put(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-        }
+      if ((nbytes <= eager_limit) &&
+	  (flags & (GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL))) {
+	/* Small enough for Eager, which will eliminate any barriers for *_MYSYNC and
+	 * the need for passing addresses for _LOCAL
+	 * Eager is totally AM-based and thus safe regardless if *_IN_SEGMENT
+	 */
+	return gasnete_coll_bcast_Eager(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
       } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
-	/* Only the destination is in-segment */
-	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
-	/* XXX: IMPLEMENT THIS */
-	return GASNET_COLL_INVALID_HANDLE;
+	if (flags & (GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL)) {
+	  /* We can use Rendezvous+Put to eliminate any barriers for *_MYSYNC.
+	   * The Rendezvous is needed for _LOCAL.
+	   */
+	  return gasnete_coll_bcast_RVPut(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	} else {
+	  /* We use a Put-based algorithm w/ full barriers for *_{MY,ALL}SYNC */
+	  return gasnete_coll_bcast_Put(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	}
       } else if (flags & GASNET_COLL_SRC_IN_SEGMENT) {
-	/* Only the source is in-segment */
-	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
-	/* XXX: IMPLEMENT THIS */
-	return GASNET_COLL_INVALID_HANDLE;
+	if (flags & (GASNET_COLL_IN_MYSYNC | GASNET_COLL_OUT_MYSYNC | GASNET_COLL_LOCAL)) {
+	  /* We can use Rendezvous+Get to eliminate any barriers for *_MYSYNC.
+	   * The Rendezvous is needed for _LOCAL.
+	   */
+	  return gasnete_coll_bcast_RVGet(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	} else {
+	  return gasnete_coll_bcast_Get(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	}
       } else {
-	/* Nothing is in-segment */
-	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
-	/* XXX: IMPLEMENT THIS */
-	return GASNET_COLL_INVALID_HANDLE;
+	/* If we reach here then neither src nor dst is in-segment */
+	return gasnete_coll_bcast_AM(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
       }
     }
 #endif
