@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2005/03/12 11:21:16 $
- * $Revision: 1.4 $
+ *     $Date: 2005/03/16 12:01:04 $
+ * $Revision: 1.5 $
  * Description: MG-like neighbour exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,11 +25,7 @@
 #include <math.h>
 uintptr_t maxsegmentsz;
 #ifndef TEST_SEGSZ
-  #ifdef GASNET_SEGMENT_EVERYTHING
-    #define TEST_SEGSZ_EXPR ((uintptr_t)maxsegmentsz)
-  #else
-    #define TEST_SEGSZ_EXPR ((uintptr_t)maxsegmentsz)
-  #endif
+  #define TEST_SEGSZ_EXPR ((uintptr_t)maxsegmentsz)
 #endif
 #include "test.h"
 

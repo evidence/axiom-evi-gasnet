@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.50 $
+ *     $Date: 2005/03/16 12:01:04 $
+ * $Revision: 1.51 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -561,8 +561,13 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
     _test_segbcast_done = 1;
   }
   static int _test_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize, uintptr_t minheapoffset) {
-    /* use a block of static data as the segment */
-    static uint8_t _test_hidden_seg[TEST_SEGSZ+PAGESZ];
+    #ifdef TEST_SEGSZ_EXPR
+      /* dynamically allocate segment */
+      uint8_t *_test_hidden_seg;
+    #else
+      /* use a block of static data as the segment */
+      static uint8_t _test_hidden_seg[TEST_SEGSZ+PAGESZ];
+    #endif
     int i, result;
     gasnet_seginfo_t myseg;
 
@@ -581,6 +586,9 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
     free(mytab);
 
     _test_seginfo = (gasnet_seginfo_t *)test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
+    #ifdef TEST_SEGSZ_EXPR
+      _test_hidden_seg = (uint8_t *)test_malloc(TEST_SEGSZ+PAGESZ);
+    #endif
     myseg.addr = ((void *)(((uint8_t*)_test_hidden_seg) + 
       (((((uintptr_t)_test_hidden_seg)%PAGESZ) == 0)? 0 : 
        (PAGESZ-(((uintptr_t)_test_hidden_seg)%PAGESZ)))));
