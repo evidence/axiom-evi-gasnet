@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/03 18:24:49 $
-# $Revision: 1.161 $
+#     $Date: 2004/08/03 22:29:28 $
+# $Revision: 1.162 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.161 $)
+AC_REVISION($Revision: 1.162 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -905,6 +905,7 @@ if test $enabled_mpi = yes; then
     mpi_reason="was not found"
   fi
 else
+  have_mpi=no
   mpi_reason="was disabled"
 fi
 AC_SUBST(MPI_CC) # compiler to be used to build AMMPI, and linker for AMMPI-based backends
