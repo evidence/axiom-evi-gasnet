@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/Attic/gasnet_extended_coll.h,v $
- *     $Date: 2004/09/08 02:09:43 $
- * $Revision: 1.9 $
+ *     $Date: 2004/09/14 05:48:33 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -760,9 +760,8 @@ _gasnet_coll_scatterM_nb(gasnet_team_handle_t team,
   gasnete_coll_scatterM(gasnet_team_handle_t team,
                         void * const dstlist[],
                         gasnet_node_t srcnode, void *src,
-                        size_t nbytes, int flags GASNETE_THREAD_FARG) {
+                        size_t nbytes, int flags GASNETE_THREAD_FARG);
 #else
-    gasnet_coll_handle_t handle;
   GASNET_INLINE_MODIFIER(gasnete_coll_scatterM)
   void gasnete_coll_scatterM(gasnet_team_handle_t team,
                              void * const dstlist[],
@@ -813,7 +812,7 @@ _gasnet_coll_gather_nb(gasnet_team_handle_t team,
   gasnete_coll_gather(gasnet_team_handle_t team,
                       gasnet_node_t dstnode, void *dst,
                       void *src,
-                      size_t nbytes, int flags GASNETE_THREAD_FARG):
+                      size_t nbytes, int flags GASNETE_THREAD_FARG);
 #else
   GASNET_INLINE_MODIFIER(gasnete_coll_gather)
   void gasnete_coll_gather(gasnet_team_handle_t team,

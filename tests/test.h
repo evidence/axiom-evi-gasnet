@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2004/09/04 03:02:20 $
- * $Revision: 1.37 $
+ *     $Date: 2004/09/14 05:48:35 $
+ * $Revision: 1.38 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -80,6 +80,10 @@ static uint64_t test_checksum(void *p, int numbytes) {
  return result;
 }
 
+#if defined(_AIX) && defined(__cplusplus)
+  /* g++ 3.3 on AIX omits this for some stupid reason */
+  int vsnprintf(char * s, size_t n, const char * format, va_list ap);
+#endif
 static void _MSG(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
 static void _MSG(const char *format, ...) {
   #define TEST_BUFSZ 1024
@@ -231,7 +235,7 @@ static void test_free(void *ptr) {
     gasnet_seginfo_t myseg;
 
     /* must use malloc here, pre-attach */
-    gasnet_handlerentry_t *mytab = malloc((numentries+2)*sizeof(gasnet_handlerentry_t));
+    gasnet_handlerentry_t *mytab = (gasnet_handlerentry_t *)malloc((numentries+2)*sizeof(gasnet_handlerentry_t));
     if (numentries) memcpy(mytab, table, numentries*sizeof(gasnet_handlerentry_t));
     mytab[numentries].index = 0; /* "dont care" index */
     mytab[numentries].fnptr = (void (*)())_test_seggather;
@@ -252,14 +256,14 @@ static void test_free(void *ptr) {
     BARRIER();
     GASNET_Safe(gasnet_AMRequestMedium0(0, _test_seggather_idx, &myseg, sizeof(gasnet_seginfo_t)));
     if (gasnet_mynode() == 0) {
-      GASNET_BLOCKUNTIL(gasnett_atomic_read(&_test_seggather_done) == gasnet_nodes());
-      for (i=0; i < gasnet_nodes(); i++) {
+      GASNET_BLOCKUNTIL((int)gasnett_atomic_read(&_test_seggather_done) == (int)gasnet_nodes());
+      for (i=0; i < (int)gasnet_nodes(); i++) {
         GASNET_Safe(gasnet_AMRequestMedium0(i, _test_segbcast_idx, _test_seginfo, gasnet_nodes()*sizeof(gasnet_seginfo_t)));
       }
     }
     GASNET_BLOCKUNTIL(_test_segbcast_done);
     BARRIER();
-    for (i=0; i < gasnet_nodes(); i++) {
+    for (i=0; i < (int)gasnet_nodes(); i++) {
       assert(_test_seginfo[i].size >= TEST_SEGSZ);
       assert((((uintptr_t)_test_seginfo[i].addr) % PAGESZ) == 0);
     }
