@@ -25,6 +25,9 @@ LIBGCC="$gasnet_cv_lib_gcc"
 AC_SUBST(LIBGCC)
 ])
 
+dnl GASNET_ENV_DEFAULT(envvar-name, default-value)
+dnl  load an environment variable, using default value if it's missing from env.
+dnl  caches the results to guarantee reconfig gets the originally loaded value
 AC_DEFUN(GASNET_ENV_DEFAULT,[
   AC_MSG_CHECKING(for $1 in environment)
 
@@ -49,6 +52,37 @@ AC_DEFUN(GASNET_ENV_DEFAULT,[
 	  AC_MSG_RESULT([yes, using \"$[$1]\"]) ;;
       *) AC_MSG_ERROR(_GASNET_ENV_DEFAULT broken)
   esac
+])
+
+dnl GASNET_RESTORE_AUTOCONF_ENV(env1 env2 env3) 
+dnl  call at top of configure.in to restore cached environment variables 
+dnl  inspected by autoconf macros. Pass in names of variables
+AC_DEFUN(GASNET_RESTORE_AUTOCONF_ENV,[
+  if test "$gasnet_acenv_list" != ""; then
+    AC_MSG_ERROR(_GASNET_RESTORE_AUTOCONF_ENV called more than once)
+  fi
+  gasnet_acenv_list="$1"
+  AC_MSG_CHECKING(for cached autoconf environment settings)
+  AC_MSG_RESULT("") 
+  for varname in $1; do
+    val=`eval echo '$'"gasnet_cv_acenv_$varname"`
+    if test "$val" != ""; then
+      eval $varname=\"$val\"
+      AC_MSG_RESULT([$varname=\"$val\"]) 
+    fi
+  done
+])
+
+dnl GASNET_SAVE_AUTOCONF_ENV() 
+dnl  cache the environment variables inspected by autoconf macros
+AC_DEFUN(GASNET_SAVE_AUTOCONF_ENV,[
+  for varname in $gasnet_acenv_list; do
+    val=`eval echo '$'"$varname"`
+    if test "$val" != ""; then
+      cachevarname=gasnet_cv_acenv_$varname
+      eval $cachevarname=\"$val\"
+    fi
+  done
 ])
 
 AC_DEFUN(GASNET_OPTION_HELP,[  --$1 substr([                     ],len($1))$2])

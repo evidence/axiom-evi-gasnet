@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/09/07 07:33:40 $
-# $Revision: 1.20 $
+#     $Date: 2002/09/18 08:41:46 $
+# $Revision: 1.21 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.20 $)
+AC_REVISION($Revision: 1.21 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -33,6 +33,7 @@ AC_SUBST(TOP_SRCDIR)
 AC_SUBST(TOP_BUILDDIR)
 AC_SUBST(INSTALL_PREFIX)
 
+GASNET_RESTORE_AUTOCONF_ENV([CC CXX CFLAGS CXXFLAGS CPPFLAGS LIBS MAKE GMAKE AR RANLIB REXEC])
 
 ########################################################################
 ##
@@ -899,6 +900,8 @@ AC_SUBST(LDFLAGS)
 ##
 ##  Final Output
 ##
+
+GASNET_SAVE_AUTOCONF_ENV()
 
 # Files added here should also be added to ./unBootstrap
 

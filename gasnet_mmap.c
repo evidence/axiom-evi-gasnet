@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2002/09/16 12:02:19 $
- * $Revision: 1.4 $
+ *     $Date: 2002/09/18 08:41:46 $
+ * $Revision: 1.5 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
