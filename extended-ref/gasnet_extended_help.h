@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2002/08/30 05:03:01 $
- * $Revision: 1.5 $
+ *     $Date: 2002/09/13 11:16:29 $
+ * $Revision: 1.6 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -45,6 +45,9 @@ extern gasnet_seginfo_t *gasnete_seginfo;
  */
 #define gasnete_waituntil(cnd) gasnete_waitwhile(!(cnd)) 
 #define gasnete_waitwhile(cnd) do { /* could add something here */ } while (cnd) 
+
+#define gasnete_polluntil(cnd) gasnete_pollwhile(!(cnd)) 
+#define gasnete_pollwhile(cnd) while (cnd) gasnet_AMPoll() 
 
 /* ------------------------------------------------------------------------------------ */
 #ifdef _CRAYC /* deal with Cray C's crappy lack of 16-bit types */

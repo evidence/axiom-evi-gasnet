@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/09/07 07:33:43 $
- * $Revision: 1.13 $
+ *     $Date: 2002/09/13 11:16:29 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -773,7 +773,10 @@ extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
 */
 
 extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
-  GASNETE_SAFE(gasnet_AMPoll());
+  #if 0
+    /* polling for syncnbi now happens in header file to avoid duplication */
+    GASNETE_SAFE(gasnet_AMPoll());
+  #endif
   {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *iop = mythread->current_iop;
@@ -792,7 +795,10 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
 }
 
 extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
-  GASNETE_SAFE(gasnet_AMPoll());
+  #if 0
+    /* polling for syncnbi now happens in header file to avoid duplication */
+    GASNETE_SAFE(gasnet_AMPoll());
+  #endif
   {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *iop = mythread->current_iop;
