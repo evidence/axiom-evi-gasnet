@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/09/02 23:18:37 $
- * $Revision: 1.5 $
+ *     $Date: 2002/09/08 01:37:33 $
+ * $Revision: 1.6 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -80,7 +80,7 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #define GASNETC_MAX_RECVMSGS_PER_POLL 10  /* max number of waiting messages serviced per poll (0 for unlimited) */
 #define GASNETC_PREPOST_RECVS         1   /* pre-post non-blocking tport recv's */
 #define GASNETC_ELAN_MAX_QUEUEMSG   320   /* max message in a mainqueue */
-#define GASNETC_ELAN_SMALLPUTSZ     128   /* max put that elan_put copies to an elan buffer */
+#define GASNETC_ELAN_SMALLPUTSZ      64   /* max put that elan_put copies to an elan buffer */
 /* message flags */
  /* 0-1: category
   * 2:   request vs. reply 
@@ -243,7 +243,7 @@ extern void gasnetc_dump_groupstats();
 /* Elan conduit locks:
     elan lock - protects all elan calls and tport rx fifo
     sendfifo lock - protects tport tx fifo
-   should never hold more than one lock
+   if you need both, must acquire sendfifo lock first
  */
 extern gasneti_mutex_t gasnetc_elanLock;
 extern gasneti_mutex_t gasnetc_sendfifoLock;
@@ -251,5 +251,23 @@ extern gasneti_mutex_t gasnetc_sendfifoLock;
 #define UNLOCK_ELAN()     gasneti_mutex_unlock(&gasnetc_elanLock)
 #define LOCK_SENDFIFO()   gasneti_mutex_lock(&gasnetc_sendfifoLock)
 #define UNLOCK_SENDFIFO() gasneti_mutex_unlock(&gasnetc_sendfifoLock)
+
+#define ASSERT_ELAN_LOCKED() gasneti_mutex_assertlocked(&gasnetc_elanLock)
+#define ASSERT_ELAN_UNLOCKED() gasneti_mutex_assertunlocked(&gasnetc_elanLock)
+#define ASSERT_SENDFIFO_LOCKED() gasneti_mutex_assertlocked(&gasnetc_sendfifoLock)
+#define ASSERT_SENDFIFO_UNLOCKED() gasneti_mutex_assertunlocked(&gasnetc_sendfifoLock)
+
+/* (UN)LOCK_ELAN_WEAK is used when we only need mutual exclusion for the
+   purposes of an elan call (which quadrics claims are all thread-safe)
+ */
+#ifdef GASNETI_THREADS
+  #define LOCK_ELAN_WEAK()
+  #define UNLOCK_ELAN_WEAK()
+  #define ASSERT_ELAN_LOCKED_WEAK()
+#else
+  #define LOCK_ELAN_WEAK()    LOCK_ELAN()
+  #define UNLOCK_ELAN_WEAK()  UNLOCK_ELAN()
+  #define ASSERT_ELAN_LOCKED_WEAK() gasneti_mutex_assertlocked(&gasnetc_elanLock)
+#endif
 
 #endif

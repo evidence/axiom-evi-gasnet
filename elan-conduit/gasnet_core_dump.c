@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_dump.c                  $
- *     $Date: 2002/09/04 18:18:35 $
- * $Revision: 1.6 $
+ *     $Date: 2002/09/08 01:37:33 $
+ * $Revision: 1.7 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -181,6 +181,9 @@ extern void gasnetc_dump_envvars() {
     "LIBELAN_CORE",
     "LIBELAN_TRACE",
 
+    "LIBELAN_PUTGET_SMALLPUTSIZE",
+    "LIBELAN_PUTGET_THROTTLE",
+
   #if 1
     "RMS_JOBID",
     "RMS_NNODES",
@@ -224,9 +227,9 @@ extern void gasnetc_dump_envvars() {
 /* ------------------------------------------------------------------------------------ */
 void gasnetc_dump_tportstats() {
   ELAN_TPORTSTATS stats;
-  LOCK_ELAN();
+  LOCK_ELAN_WEAK();
     elan_tportGetStats(TPORT(), &stats);
-  UNLOCK_ELAN();
+  UNLOCK_ELAN_WEAK();
 
   #define DUMP_STAT(statname, desc) \
     GASNETI_STATS_PRINTF(C,(" %-20s= %-8lu \t("desc")", "ts_"#statname, (unsigned long)stats.ts_##statname))
@@ -260,9 +263,9 @@ void gasnetc_dump_tportstats() {
 /* ------------------------------------------------------------------------------------ */
 void gasnetc_dump_groupstats() {
   ELAN_GROUPSTATS stats;
-  LOCK_ELAN();
+  LOCK_ELAN_WEAK();
     elan_groupGetStats(GROUP(), &stats);
-  UNLOCK_ELAN();
+  UNLOCK_ELAN_WEAK();
 
   #define DUMP_STAT(statname, desc) \
     GASNETI_STATS_PRINTF(C,(" %-20s= %-8lu \t("desc")", "gs_"#statname, (unsigned long)stats.gs_##statname))

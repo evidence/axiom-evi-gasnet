@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/09/02 23:18:37 $
- * $Revision: 1.7 $
+ *     $Date: 2002/09/08 01:37:33 $
+ * $Revision: 1.8 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -57,9 +57,9 @@ ELAN_TPORT *gasnetc_elan_tport = NULL;
 extern uint64_t gasnetc_clock() {
   if_pt (STATE()) {
     uint64_t val;
-    LOCK_ELAN();
+    LOCK_ELAN_WEAK();
       val = elan_clock(STATE()); /* TODO: is a lock required here? */
-    UNLOCK_ELAN();
+    UNLOCK_ELAN_WEAK();
     return val;
   }
   else 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/09/04 18:18:35 $
- * $Revision: 1.6 $
+ *     $Date: 2002/09/08 01:37:33 $
+ * $Revision: 1.7 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -62,7 +62,8 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
      assumes elan lock NOT held
   */
   gasnetc_bufdesc_t *desc = NULL;
-  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
+  ASSERT_ELAN_UNLOCKED();
+  ASSERT_SENDFIFO_UNLOCKED();
   LOCK_SENDFIFO();
   while (!desc) {
     if (gasnetc_tportTxFree) { /* free list contains some bufs */
@@ -70,6 +71,7 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
       gasnetc_tportTxFree = desc->next;
       assert(desc->event == NULL);
     } else { /* need to reap some tx bufs */
+      LOCK_ELAN_WEAK();
       if (gasnetc_tportTxFIFOHead && 
           gasnetc_tportTxFIFOHead->event &&
           elan_tportTxDone(gasnetc_tportTxFIFOHead->event)) {
@@ -103,11 +105,14 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
           assert(desc || lastdesc == gasnetc_tportTxFIFOTail);
         }
         if (!desc) { /* nothing available now - poll */
+          UNLOCK_ELAN_WEAK();
           UNLOCK_SENDFIFO();
           gasnetc_AMPoll();
           LOCK_SENDFIFO();
+          LOCK_ELAN_WEAK();
         }
       }
+      UNLOCK_ELAN_WEAK();
     }
   }
   UNLOCK_SENDFIFO();
@@ -130,9 +135,7 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
 /* ------------------------------------------------------------------------------------ */
 static void gasnetc_tportReleaseTxBuf(gasnetc_bufdesc_t *desc) {
   /* release a Tx buf without sending it
-     assumes elan lock NOT held  
    */
-  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
   LOCK_SENDFIFO();
     assert(desc->event == NULL);
     desc->next = gasnetc_tportTxFree;
@@ -145,7 +148,7 @@ static gasnetc_bufdesc_t *gasnetc_tportCheckRx() {
      assumes elan lock is held 
   */
   gasnetc_bufdesc_t *desc = gasnetc_tportRxFIFOHead;
-  gasneti_mutex_assertlocked(&gasnetc_elanLock);
+  ASSERT_ELAN_LOCKED();
 
   if (desc && elan_tportRxDone(desc->event)) {
     int sender,tag,size;
@@ -164,7 +167,7 @@ static void gasnetc_tportAddRxBuf(gasnetc_bufdesc_t *desc) {
   /* issue an rx and return the buffer to the rx queue
      assumes elan lock is held 
    */
-  gasneti_mutex_assertlocked(&gasnetc_elanLock);
+  ASSERT_ELAN_LOCKED();
 
   if (desc->buf != desc->buf_owned) {/* free a system buffer, if neccessary */
     elan_tportBufFree(TPORT(),desc->buf);
@@ -297,7 +300,7 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
   gasnetc_category_t category = GASNETC_MSG_CATEGORY(msg);
   int numargs = GASNETC_MSG_NUMARGS(msg);
 
-  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
+  ASSERT_ELAN_UNLOCKED();
 
   desc->replyIssued = 0;
   desc->handlerRunning = 1;
@@ -342,12 +345,12 @@ extern int gasnetc_AMPoll() {
   int i;
   GASNETC_CHECKATTACH();
 
-  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
+  ASSERT_ELAN_UNLOCKED();
 
   for (i = 0; GASNETC_MAX_RECVMSGS_PER_POLL == 0 || i < GASNETC_MAX_RECVMSGS_PER_POLL; i++) {
     gasnetc_bufdesc_t *desc;
 
-    LOCK_ELAN();
+    LOCK_ELAN(); /* need "real" lock here to protect queue poll-wait linkage */
     /* TODO: this gives precedence to queue messages, which may starve tport messages 
         while both are arriving
      */
@@ -367,7 +370,7 @@ extern int gasnetc_AMPoll() {
 
       gasnetc_processPacket(desc);
 
-      LOCK_ELAN();
+      LOCK_ELAN(); /* need "real" lock here to protect Rx FIFO */
         /* set new recv and push on fifo */
         gasnetc_tportAddRxBuf(desc);
       UNLOCK_ELAN();
@@ -393,7 +396,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   int msgsz;
   assert(numargs >= 0 && numargs <= GASNETC_MAX_SHORT);
 
-  gasneti_mutex_assertunlocked(&gasnetc_elanLock);
+  ASSERT_ELAN_UNLOCKED();
 
   switch (category) {
     case gasnetc_Short:
@@ -453,7 +456,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     }
   }
   else {
-    LOCK_ELAN();
+    LOCK_ELAN_WEAK();
       if (category == gasnetc_Long) {
         /* do put and block for completion */
         ELAN_EVENT *putevt;
@@ -466,7 +469,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
         } else { /* need to use a bounce buffer */
           /* TODO: this may fail for unmapped segment under GASNET_SEGMENT_EVERYTHING */
           assert(elan_addressable(STATE(), dest_ptr, nbytes));
-          /* TODO: would be nice to use SDRAM here, but not sure put interface can handle it... */
+          /* would be nice to use SDRAM here, but put interface cannot handle it... */
           bouncebuf = elan_allocMain(STATE(), 64, nbytes);
           assert(bouncebuf); /* TODO: if we run out of mem here, we're in trouble */
           memcpy(bouncebuf, source_addr, nbytes);
@@ -477,9 +480,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
            but this isn't that bad because the put DMA is totally one-sided
          */
         while (!elan_poll(putevt, 5)) {
-          UNLOCK_ELAN();
+          UNLOCK_ELAN_WEAK();
           gasnetc_AMPoll();
-          LOCK_ELAN();
+          LOCK_ELAN_WEAK();
         }
         if (bouncebuf) elan_free(STATE(), bouncebuf);
       }
@@ -493,7 +496,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
                                         gasnetc_mynode, 0, 
                                         &(buf->medmsg), msgsz);
       }
-    UNLOCK_ELAN();
+    UNLOCK_ELAN_WEAK();
   }
   return GASNET_OK;
 }
