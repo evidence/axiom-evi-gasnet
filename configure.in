@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/25 06:53:56 $
-# $Revision: 1.127 $
+#     $Date: 2004/03/28 03:31:21 $
+# $Revision: 1.128 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.127 $)
+AC_REVISION($Revision: 1.128 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -73,8 +73,6 @@ else
   AC_MSG_WARN(cannot find a version of GNU make - if you encounter make problems, install GNU make and/or set \$GMAKE to indicate where it's located)
 fi
 AC_SUBST(GMAKE)
-
-
 
 ########################################################################
 ##
@@ -582,13 +580,21 @@ fi
 #---------------------------------------------------------------------------------------------------------------
 CONDUITS=
 AC_SUBST(CONDUITS)
+# reporting file output at completion
+CONDUIT_LIST=conduits.tmp
+echo > $CONDUIT_LIST
+AC_DEFUN(CONDUIT_REPORT,[echo "  CONDUIT_DESC m4_substr([                                                  ],len(CONDUIT_DESC))$1" >> $CONDUIT_LIST])
+echo " Portable conduits:" >> $CONDUIT_LIST
+echo " -----------------" >> $CONDUIT_LIST
 
 #---------------------------------------------------------------------------------------------------------------
 # UDP/AMUDP Configuration
 # Hack-around to prevent a bogus autoconf 2.58 bug when AC_PROG_CXX is called conditionally below
 am__fastdepCXX_TRUE='#'
 am__fastdepCXX_FALSE=
-GASNET_IF_ENABLED_WITH_AUTO(udp, Enable the portable UDP network conduit (on by default),
+
+pushdef([CONDUIT_DESC],[portable UDP network conduit (udp)])
+GASNET_IF_ENABLED_WITH_AUTO(udp, Enable/disable the CONDUIT_DESC (auto-detected),
   [enabled_udp=yes;force_udp=yes],
   enabled_udp=no,
   enabled_udp=yes)
@@ -673,7 +679,11 @@ AC_SUBST(GASNET_UDP_LIBS)
 AM_CONDITIONAL(USE_UDP_CONDUIT, test "$enabled_udp$have_udp" = yesyes)
 if test "$enabled_udp$have_udp" = yesyes ; then
   CONDUITS="$CONDUITS udp"
+  CONDUIT_REPORT(ON)
+else
+  CONDUIT_REPORT(OFF)
 fi
+popdef([CONDUIT_DESC])
 
 GASNET_ENV_DEFAULT(GASNET_CSPAWN_CMD, "$TI_CSPAWN_CMD")
 if test "$GASNET_CSPAWN_CMD" != "" ; then
@@ -683,7 +693,8 @@ fi
 #---------------------------------------------------------------------------------------------------------------
 # MPI/AMMPI Configuration
 # (In the future it would be nice to try and discover MPI setup automatically)
-GASNET_IF_ENABLED_WITH_AUTO(mpi, Enable the portable MPI network conduit (on by default), 
+pushdef([CONDUIT_DESC],[portable MPI-1.1 network conduit (mpi)])
+GASNET_IF_ENABLED_WITH_AUTO(mpi, Enable/disable the CONDUIT_DESC (auto-detected),
   [enabled_mpi=yes;force_mpi=yes],
   enabled_mpi=no,
   enabled_mpi=yes)
@@ -860,24 +871,38 @@ AC_SUBST(MPIRUN_CMD) # prototype command used by tcrun to run MPI programs
 AM_CONDITIONAL(USE_MPI_CONDUIT, test "$enabled_mpi$have_mpi" = yesyes)
 if test "$enabled_mpi$have_mpi" = yesyes ; then
   CONDUITS="$CONDUITS mpi"
+  CONDUIT_REPORT(ON)
+else
+  CONDUIT_REPORT(OFF)
 fi
+popdef([CONDUIT_DESC])
 
 #-----------------------------------------------------------------------------------------------
 # SMP configuration
 
-GASNET_IF_ENABLED_WITH_AUTO(smp, Enable the SMP (loopback) network conduit (on by default),
+pushdef([CONDUIT_DESC],[portable SMP-loopback network conduit (smp)])
+GASNET_IF_ENABLED_WITH_AUTO(smp, Enable/disable the CONDUIT_DESC (auto-detected),
   have_smp=yes,
   have_smp=no,
   have_smp=yes)
 AM_CONDITIONAL(USE_SMP_CONDUIT, test "$have_smp" = yes)
 if test "$have_smp" = yes ; then
   CONDUITS="$CONDUITS smp"
+  CONDUIT_REPORT(ON)
+else
+  CONDUIT_REPORT(OFF)
 fi
+popdef([CONDUIT_DESC])
+
+echo " " >> $CONDUIT_LIST
+echo " Native, high-performance conduits:" >> $CONDUIT_LIST
+echo " ---------------------------------" >> $CONDUIT_LIST
 
 #--------------------------------------------------------------------------------------------------------
 # GM configuration
 
-GASNET_IF_ENABLED(gm, Enable the Myricom/GM network conduit, 
+pushdef([CONDUIT_DESC],[Myricom/GM network conduit (gm)])
+GASNET_IF_ENABLED(gm, Enable the CONDUIT_DESC, 
   have_gm=yes,
   have_gm=no)
 if test $have_gm = yes; then
@@ -951,12 +976,17 @@ AC_SUBST(GM_NO_ALIAS)
 AM_CONDITIONAL(USE_GM_CONDUIT, test "$have_gm" = yes)
 if test "$have_gm" = yes ; then
   CONDUITS="$CONDUITS gm"
+  CONDUIT_REPORT(ON)
+else
+  CONDUIT_REPORT(OFF)
 fi
+popdef([CONDUIT_DESC])
 
 #--------------------------------------------------------------------------------------------------------
 # LAPI configuration
 
-GASNET_IF_ENABLED(lapi, Enable the LAPI (IBM SP) network conduit, 
+pushdef([CONDUIT_DESC],[LAPI (IBM SP) network conduit (lapi)])
+GASNET_IF_ENABLED(lapi, Enable the CONDUIT_DESC, 
   have_lapi=yes,
   have_lapi=no)
 
@@ -996,12 +1026,17 @@ fi
 AM_CONDITIONAL(USE_LAPI_CONDUIT, test "$have_lapi" = yes)
 if test "$have_lapi" = yes ; then
   CONDUITS="$CONDUITS lapi"
+  CONDUIT_REPORT(ON)
+else
+  CONDUIT_REPORT(OFF)
 fi
+popdef([CONDUIT_DESC])
 
 #--------------------------------------------------------------------------------------------------------
 # ELAN configuration
 
-GASNET_IF_ENABLED(elan, Enable the elan (Quadrics) network conduit, 
+pushdef([CONDUIT_DESC],[Quadrics/Elan network conduit (elan)])
+GASNET_IF_ENABLED(elan, Enable the CONDUIT_DESC, 
   have_elan=yes,
   have_elan=no)
 
@@ -1085,12 +1120,17 @@ AC_SUBST(ELAN_FLAGS)
 AM_CONDITIONAL(USE_ELAN_CONDUIT, test "$have_elan" = yes)
 if test "$have_elan" = yes ; then
   CONDUITS="$CONDUITS elan"
+  CONDUIT_REPORT(ON)
+else
+  CONDUIT_REPORT(OFF)
 fi
+popdef([CONDUIT_DESC])
 
 #--------------------------------------------------------------------------------------------------------
 # VAPI configuration
 
-GASNET_IF_ENABLED(vapi, Enable the VAPI (Mellanox InfiniBand) network conduit, 
+pushdef([CONDUIT_DESC],[Mellanox InfiniBand/VAPI network conduit (vapi)])
+GASNET_IF_ENABLED(vapi, Enable the CONDUIT_DESC, 
   have_vapi=yes,
   have_vapi=no)
 
@@ -1173,7 +1213,11 @@ AC_SUBST(VAPI_LIBCFLAGS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
 if test "$have_vapi" = yes ; then
   CONDUITS="$CONDUITS vapi"
+  CONDUIT_REPORT(ON)
+else
+  CONDUIT_REPORT(OFF)
 fi
+popdef([CONDUIT_DESC])
 AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$mpi_test_worked" = yes)
 
 ########################################################################
@@ -1502,6 +1546,16 @@ GASNET_SET_INSTALL_CMD
 ##
 ##  Final Output
 ##
+
+echo "----------------------------------------------------------------------"
+echo "GASNet conduit configuration: $CONDUITS"
+cat $CONDUIT_LIST
+echo " "
+echo " Some conduits require --enable-XXX configure flags and/or additional"
+echo " variables providing the install location of vendor drivers."
+echo " See the GASNet documentation for details."
+echo "----------------------------------------------------------------------"
+rm -f $CONDUIT_LIST
 
 GASNET_SAVE_AUTOCONF_ENV()
 

@@ -187,9 +187,15 @@ AC_DEFUN([GASNET_SAVE_AUTOCONF_ENV],[
   done
 ])
 
-dnl doesn't work properly on newer versions of autoconf - I have no idea why
-dnl _DEFUN(GASNET_OPTION_HELP,[  --$1 substr([                     ],len($1))$2])
-AC_DEFUN([GASNET_OPTION_HELP],[  --$1  $2])
+dnl m4 substr fiasco:
+dnl autoconf 2.13 has a working version of the m4 function 'substr', 
+dnl  but no m4_substr (and no format or m4_format)
+dnl autoconf 2.58 has working versions of m4_substr and m4_format, 
+dnl  but no substr or format
+dnl This incantation ensures m4_substr works regardless
+ifdef([substr],[define([m4_substr], defn([substr]))])
+
+AC_DEFUN([GASNET_OPTION_HELP],[  --$1 ]m4_substr[([                         ],len([$1]))$2])
 
 AC_DEFUN([GASNET_IF_ENABLED],[
 AC_ARG_ENABLE($1,GASNET_OPTION_HELP(enable-$1,$2))
