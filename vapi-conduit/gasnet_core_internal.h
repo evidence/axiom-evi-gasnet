@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/11/11 23:36:37 $
- * $Revision: 1.24 $
+ *     $Date: 2003/12/01 21:41:51 $
+ * $Revision: 1.25 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -579,11 +579,11 @@ extern void gasnetc_sndrcv_poll(void);
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
 				  void *src_addr, int nbytes, void *dst_addr,
-				  int numargs, gasneti_atomic_t *mem_oust, va_list argptr);
+				  int numargs, gasnetc_counter_t *mem_oust, va_list argptr);
 extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 				gasnet_token_t token, gasnet_handler_t handler,
 				void *src_addr, int nbytes, void *dst_addr,
-				int numargs, gasneti_atomic_t *mem_oust, va_list argptr);
+				int numargs, gasnetc_counter_t *mem_oust, va_list argptr);
 
 /* General routines in gasnet_core.c */
 extern gasnetc_memreg_t *gasnetc_local_reg(uintptr_t start, uintptr_t end);

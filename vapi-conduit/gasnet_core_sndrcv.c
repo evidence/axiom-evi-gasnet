@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/12/01 20:13:17 $
- * $Revision: 1.30 $
+ *     $Date: 2003/12/01 21:41:51 $
+ * $Revision: 1.31 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -55,8 +55,8 @@ typedef struct {
   gasnetc_sema_t		*op_sema;
 
   /* Completion counters */
-  gasneti_atomic_t		*mem_oust;	/* source memory refs outstanding */
-  gasneti_atomic_t		*req_oust;	/* requests outstanding */
+  gasnetc_counter_t		*mem_oust;	/* source memory refs outstanding */
+  gasnetc_counter_t		*req_oust;	/* requests outstanding */
 
   /* Destination address/len for bounced RDMA reads */
   void				*addr;
@@ -268,12 +268,12 @@ static int gasnetc_snd_reap(int limit, gasnetc_sbuf_t **head_p, gasnetc_sbuf_t *
 	  
 	  /* decrement any outstanding counters */
           if (sbuf->mem_oust) {
-	    gasneti_assert((int)gasneti_atomic_read(sbuf->mem_oust) > 0);
-	    gasneti_atomic_decrement(sbuf->mem_oust);
+	    gasneti_assert(!gasnetc_counter_done(sbuf->mem_oust));
+	    gasnetc_counter_dec(sbuf->mem_oust);
 	  }
           if (sbuf->req_oust){
-	    gasneti_assert((int)gasneti_atomic_read(sbuf->req_oust) > 0);
-            gasneti_atomic_decrement(sbuf->req_oust);
+	    gasneti_assert(!gasnetc_counter_done(sbuf->req_oust));
+            gasnetc_counter_dec(sbuf->req_oust);
 	  }
 	  
 	  /* keep a list of reaped sbufs */
@@ -568,7 +568,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
 			  int credits_needed, int credits_granted,
 			  int dest, gasnet_handler_t handler,
 			  void *src_addr, int nbytes, void *dst_addr,
-			  int numargs, gasneti_atomic_t *mem_oust, va_list argptr) {
+			  int numargs, gasnetc_counter_t *mem_oust, va_list argptr) {
   gasnetc_sbuf_t *sbuf;
   gasnetc_buffer_t *buf;
   gasnet_handlerarg_t *args;
@@ -693,7 +693,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
 /* Helper for rdma puts: inline send case */
 static void gasnetc_do_put_inline(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
-                                  gasneti_atomic_t *req_oust) {
+                                  gasnetc_counter_t *req_oust) {
   gasnetc_sbuf_t *sbuf;
   gasnetc_sreq_t req;
 
@@ -713,7 +713,7 @@ static void gasnetc_do_put_inline(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   req.sr_sg[0].len        = nbytes;
 
   if (req_oust) {
-    gasneti_atomic_increment(req_oust);
+    gasnetc_counter_inc(req_oust);
     sbuf->req_oust = req_oust;
   }
 
@@ -723,7 +723,7 @@ static void gasnetc_do_put_inline(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 /* Helper for rdma puts: bounce buffer case */
 static void gasnetc_do_put_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
-                                  gasneti_atomic_t *req_oust) {
+                                  gasnetc_counter_t *req_oust) {
   gasnetc_sbuf_t *sbuf;
   gasnetc_sreq_t req;
 
@@ -770,7 +770,7 @@ static void gasnetc_do_put_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   req.sr_sg[0].len  = nbytes;
 
   if (req_oust) {
-    gasneti_atomic_increment(req_oust);
+    gasnetc_counter_inc(req_oust);
     sbuf->req_oust = req_oust;
   }
 
@@ -780,7 +780,7 @@ static void gasnetc_do_put_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 /* Helper for rdma puts: zero copy case */
 static void gasnetc_do_put_zerocp(gasnetc_cep_t *cep, VAPI_lkey_t lkey, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
-                                  gasneti_atomic_t *mem_oust, gasneti_atomic_t *req_oust) {
+                                  gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust) {
   gasnetc_sbuf_t *sbuf;
   gasnetc_sreq_t req;
   size_t max_sz = gasnetc_hca_port.max_msg_sz;
@@ -828,11 +828,11 @@ static void gasnetc_do_put_zerocp(gasnetc_cep_t *cep, VAPI_lkey_t lkey, VAPI_rke
   req.sr_sg[0].len  = nbytes;
 
   if (mem_oust) {
-    gasneti_atomic_increment(mem_oust);
+    gasnetc_counter_inc(mem_oust);
     sbuf->mem_oust = mem_oust;
   }
   if (req_oust) {
-    gasneti_atomic_increment(req_oust);
+    gasnetc_counter_inc(req_oust);
     sbuf->req_oust = req_oust;
   }
 
@@ -842,7 +842,7 @@ static void gasnetc_do_put_zerocp(gasnetc_cep_t *cep, VAPI_lkey_t lkey, VAPI_rke
 /* Helper for rdma gets: bounce buffer case */
 static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
-                                  gasneti_atomic_t *req_oust) {
+                                  gasnetc_counter_t *req_oust) {
   gasnetc_sbuf_t *sbuf;
   gasnetc_sreq_t req;
 
@@ -891,7 +891,7 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   sbuf->len = nbytes;
 
   if (req_oust) {
-    gasneti_atomic_increment(req_oust);
+    gasnetc_counter_inc(req_oust);
     sbuf->req_oust = req_oust;
   }
 
@@ -901,7 +901,7 @@ static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
 /* Helper for rdma gets: zero copy case */
 static void gasnetc_do_get_zerocp(gasnetc_cep_t *cep, VAPI_lkey_t lkey, VAPI_rkey_t rkey,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
-                                  gasneti_atomic_t *req_oust) {
+                                  gasnetc_counter_t *req_oust) {
   gasnetc_sbuf_t *sbuf;
   gasnetc_sreq_t req;
   size_t max_sz = gasnetc_hca_port.max_msg_sz;
@@ -949,7 +949,7 @@ static void gasnetc_do_get_zerocp(gasnetc_cep_t *cep, VAPI_lkey_t lkey, VAPI_rke
   req.sr_sg[0].len  = nbytes;
 
   if (req_oust) {
-    gasneti_atomic_increment(req_oust);
+    gasnetc_counter_inc(req_oust);
     sbuf->req_oust = req_oust;
   }
 
@@ -1101,17 +1101,17 @@ extern void gasnetc_sndrcv_poll(void) {
   gasnetc_poll_both();
 }
 
-extern void gasnetc_counter_wait_aux(gasneti_atomic_t *counter, int handler_context)
+extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context)
 {
   if (handler_context) {
     do {
 	/* must not poll rcv queue in hander context */
         gasnetc_poll_snd();
-    } while (gasneti_atomic_read(counter) != 0);
+    } while (!gasnetc_counter_done(counter));
   } else {
     do {
         gasnetc_poll_both();
-    } while (gasneti_atomic_read(counter) != 0);
+    } while (!gasnetc_counter_done(counter));
   }
 }
 
@@ -1120,7 +1120,7 @@ extern void gasnetc_counter_wait_aux(gasneti_atomic_t *counter, int handler_cont
  * Uses bounce buffers when the source is not pinned, or is "small enough" and the caller is
  * planning to wait for local completion.  Otherwise zero-copy is used when the source is pinned.
  */
-extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasneti_atomic_t *mem_oust, gasneti_atomic_t *req_oust) {
+extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
   VAPI_rkey_t rkey;
   uintptr_t src = (uintptr_t)src_ptr;
@@ -1182,7 +1182,7 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
  *
  * Uses bounce buffers when the destination is not pinned, zero-copy otherwise.
  */
-extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasneti_atomic_t *req_oust) {
+extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
   VAPI_rkey_t rkey;
   uintptr_t src = (uintptr_t)src_ptr;
@@ -1218,7 +1218,7 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
 
 #if GASNET_SEGMENT_FAST
 /* write a constant pattern to remote memory using a local memset and an RDMA put */
-extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, gasneti_atomic_t *req_oust) {
+extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, gasnetc_counter_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
   uintptr_t dst = (uintptr_t)dst_ptr;
   gasnetc_sbuf_t *sbuf;
@@ -1243,7 +1243,7 @@ extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, 
     req.sr_sg[0].lkey = gasnetc_snd_reg.lkey;
 
     if (req_oust) {
-      gasneti_atomic_increment(req_oust);
+      gasnetc_counter_inc(req_oust);
       sbuf->req_oust = req_oust;
     }
 
@@ -1260,7 +1260,7 @@ extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, 
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
 				  void *src_addr, int nbytes, void *dst_addr,
-				  int numargs, gasneti_atomic_t *mem_oust, va_list argptr) {
+				  int numargs, gasnetc_counter_t *mem_oust, va_list argptr) {
   gasnetc_poll_rcv();	/* ensure progress */
 
   return gasnetc_ReqRepGeneric(category, 1, /* need */ 1, /* grant */ 0,
@@ -1272,7 +1272,7 @@ extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 				gasnet_token_t token, gasnet_handler_t handler,
 				  void *src_addr, int nbytes, void *dst_addr,
-				  int numargs, gasneti_atomic_t *mem_oust, va_list argptr) {
+				  int numargs, gasnetc_counter_t *mem_oust, va_list argptr) {
   gasnetc_rbuf_t *rbuf = (gasnetc_rbuf_t *)token;
   int retval;
 

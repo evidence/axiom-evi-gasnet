@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/10/24 01:37:44 $
- * $Revision: 1.10 $
+ *     $Date: 2003/12/01 21:41:51 $
+ * $Revision: 1.11 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -91,7 +91,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(!gasnete_eopaddr_equal(thread->eop_free,head));
     gasneti_assert(eop->threadidx == thread->threadidx);
     gasneti_assert(eop->type == gasnete_opExplicit);
-    gasneti_assert(gasneti_atomic_read(&(eop->req_oust)) == 0);
+    gasneti_assert(gasnetc_counter_done(&(eop->req_oust)));
     return eop;
   } else { /*  free list empty - need more eops */
     int bufidx = thread->eop_num_bufs;
@@ -119,7 +119,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
       buf[i].addr = addr;
       #if 0 /* this can safely be skipped when values are zero */
         buf[i].type = gasnete_opExplicit; 
-        gasneti_atomic_set(&(buf[i].req_oust), 0);
+        gasnetc_atomic_set(&(buf[i].req_oust), 0);
       #endif
     }
      /*  add a list terminator */
@@ -157,7 +157,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
         gasneti_assert(!gasnete_eopaddr_isnil(addr));                 
         eop = GASNETE_EOPADDR_TO_PTR(thread,addr);            
         gasneti_assert(eop->type == gasnete_opExplicit);               
-        gasneti_assert(gasneti_atomic_read(&(eop->req_oust)) == 0);
+        gasneti_assert(gasnetc_counter_done(&(eop->req_oust)));
         gasneti_assert(eop->threadidx == threadidx);                  
         gasneti_assert(addr.bufferidx == bufidx);
         gasneti_assert(!seen[addr.eopidx]);/* see if we hit a cycle */
@@ -179,14 +179,14 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     thread->iop_free = iop->next;
     gasneti_assert(iop->type == gasnete_opImplicit);
     gasneti_assert(iop->threadidx == thread->threadidx);
-    gasneti_assert(gasneti_atomic_read(&(iop->get_req_oust)) == 0);
-    gasneti_assert(gasneti_atomic_read(&(iop->put_req_oust)) == 0);
+    gasneti_assert(gasnetc_counter_done(&(iop->get_req_oust)));
+    gasneti_assert(gasnetc_counter_done(&(iop->put_req_oust)));
   } else {
     iop = (gasnete_iop_t *)gasneti_malloc(sizeof(gasnete_iop_t));
     iop->type = gasnete_opImplicit;
     iop->threadidx = thread->threadidx;
-    gasneti_atomic_set(&(iop->get_req_oust), 0);
-    gasneti_atomic_set(&(iop->put_req_oust), 0);
+    gasnetc_counter_reset(&(iop->get_req_oust));
+    gasnetc_counter_reset(&(iop->put_req_oust));
   }
   iop->next = NULL;
   return iop;
@@ -198,7 +198,7 @@ void gasnete_eop_free(gasnete_eop_t *eop) {
   gasnete_eopaddr_t addr = eop->addr;
   gasneti_assert(thread == gasnete_mythread());
   gasneti_assert(eop->type == gasnete_opExplicit);
-  gasneti_assert(gasneti_atomic_read(&(eop->req_oust)) == 0);
+  gasneti_assert(gasnetc_counter_done(&(eop->req_oust)));
   eop->addr = thread->eop_free;
   thread->eop_free = addr;
 }
@@ -208,8 +208,8 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
   gasnete_threaddata_t * const thread = gasnete_threadtable[iop->threadidx];
   gasneti_assert(thread == gasnete_mythread());
   gasneti_assert(iop->type == gasnete_opImplicit);
-  gasneti_assert(gasneti_atomic_read(&(iop->get_req_oust)) == 0);
-  gasneti_assert(gasneti_atomic_read(&(iop->put_req_oust)) == 0);
+  gasneti_assert(gasnetc_counter_done(&(iop->get_req_oust)));
+  gasneti_assert(gasnetc_counter_done(&(iop->put_req_oust)));
   iop->next = thread->iop_free;
   thread->iop_free = iop;
 }
@@ -218,14 +218,14 @@ void gasnete_iop_free(gasnete_iop_t *iop) {
 GASNET_INLINE_MODIFIER(gasnete_eop_test)
 int gasnete_eop_test(gasnete_eop_t *eop) {
   gasneti_assert(eop->type == gasnete_opExplicit);
-  return gasnetc_counter_test(&eop->req_oust);
+  return gasnetc_counter_done(&eop->req_oust);
 }
 
 /* query an iop for completeness - this means both puts and gets */
 GASNET_INLINE_MODIFIER(gasnete_iop_test)
 int gasnete_iop_test(gasnete_iop_t *iop) {
   gasneti_assert(iop->type == gasnete_opImplicit);
-  return (gasnetc_counter_test(&(iop->get_req_oust)) && gasnetc_counter_test(&(iop->put_req_oust)));
+  return (gasnetc_counter_done(&(iop->get_req_oust)) && gasnetc_counter_done(&(iop->put_req_oust)));
 }
 
 /*  query an op for completeness 
@@ -285,8 +285,8 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
 /* Reply handler to complete an op - might be replaced w/ IB atomics one day */
 GASNET_INLINE_MODIFIER(gasnete_done_reph_inner)
 void gasnete_done_reph_inner(gasnet_token_t token, void *counter) {
-  gasneti_assert(gasneti_atomic_read((gasneti_atomic_t *)counter) > 0);
-  gasneti_atomic_decrement((gasneti_atomic_t *)counter);
+  gasneti_assert(!gasnetc_counter_done((gasnetc_counter_t *)counter));
+  gasnetc_counter_dec((gasnetc_counter_t *)counter);
 }
 SHORT_HANDLER(gasnete_done_reph,1,2,
               (token, UNPACK(a0)    ),
@@ -470,7 +470,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 
 extern gasnet_handle_t gasnete_put_nb      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *eop = gasnete_eop_new(GASNETE_MYTHREAD);
-  gasneti_atomic_t mem_oust = gasneti_atomic_init(0);
+  gasnetc_counter_t mem_oust = GASNETC_COUNTER_INITIALIZER;
 
   /* XXX check error returns */
   gasnetc_rdma_put(node, src, dest, nbytes, &mem_oust, &eop->req_oust);
@@ -495,7 +495,7 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
     /* XXX check error returns */
     gasnetc_rdma_memset(node, dest, val, nbytes, &eop->req_oust);
   } else {
-    gasneti_atomic_increment(&eop->req_oust);
+    gasnetc_counter_inc(&eop->req_oust);
     GASNETE_SAFE(
       SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
                    (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,
@@ -592,7 +592,7 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src, size_t n
   
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *iop = mythread->current_iop;
-  gasneti_atomic_t mem_oust = gasneti_atomic_init(0);
+  gasnetc_counter_t mem_oust = GASNETC_COUNTER_INITIALIZER;
 
   /* XXX check error returns */ 
   gasnetc_rdma_put(node, src, dest, nbytes, &mem_oust, &iop->put_req_oust);
@@ -615,7 +615,7 @@ extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
     /* XXX check error returns */
     gasnetc_rdma_memset(node, dest, val, nbytes, &iop->put_req_oust);
   } else {
-    gasneti_atomic_increment(&iop->put_req_oust);
+    gasnetc_counter_inc(&iop->put_req_oust);
     GASNETE_SAFE(
       SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
                    (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,
@@ -639,7 +639,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
   #endif
 
-  return gasnetc_counter_test(&iop->get_req_oust) ? GASNET_OK: GASNET_ERR_NOT_READY;
+  return gasnetc_counter_done(&iop->get_req_oust) ? GASNET_OK: GASNET_ERR_NOT_READY;
 }
 
 extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
@@ -652,7 +652,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_puts() inside an NBI access region");
   #endif
 
-  return gasnetc_counter_test(&iop->put_req_oust) ? GASNET_OK: GASNET_ERR_NOT_READY;
+  return gasnetc_counter_done(&iop->put_req_oust) ? GASNET_OK: GASNET_ERR_NOT_READY;
 }
 
 extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
@@ -700,7 +700,7 @@ extern void            gasnete_begin_nbi_accessregion(int allowrecursion GASNETE
 extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *iop = mythread->current_iop;
-  GASNETI_TRACE_EVENT_VAL(S,END_NBI_ACCESSREGION,gasneti_atomic_read(&iop->get_req_oust) + gasneti_atomic_read(&iop->put_req_oust));
+  GASNETI_TRACE_EVENT_VAL(S,END_NBI_ACCESSREGION,gasnetc_counter_val(&iop->get_req_oust) + gasnetc_counter_val(&iop->put_req_oust));
   #if GASNET_DEBUG
     if (iop == mythread->default_iop)
       gasneti_fatalerror("VIOLATION: call to gasnete_end_nbi_accessregion() outside access region");
@@ -717,27 +717,27 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
 
 extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
 			      size_t nbytes GASNETE_THREAD_FARG) {
-  gasneti_atomic_t req_oust = gasneti_atomic_init(0);
+  gasnetc_counter_t req_oust = GASNETC_COUNTER_INITIALIZER;
   gasnetc_rdma_get(node, src, dest, nbytes, &req_oust);
   gasnetc_counter_wait(&req_oust, 0);
 }
 
 extern void gasnete_put_bulk (gasnet_node_t node, void* dest, void *src,
 			      size_t nbytes GASNETE_THREAD_FARG) {
-  gasneti_atomic_t req_oust = gasneti_atomic_init(0);
+  gasnetc_counter_t req_oust = GASNETC_COUNTER_INITIALIZER;
   gasnetc_rdma_put(node, src, dest, nbytes, NULL, &req_oust);
   gasnetc_counter_wait(&req_oust, 0);
 }   
 
 extern void gasnete_memset (gasnet_node_t node, void *dest, int val,
 		            size_t nbytes GASNETE_THREAD_FARG) {
-  gasneti_atomic_t req_oust = gasneti_atomic_init(0);
+  gasnetc_counter_t req_oust = GASNETC_COUNTER_INITIALIZER;
 
   if ((GASNETE_MEMSET_PUT_LIMIT != 0 ) && (nbytes <= GASNETE_MEMSET_PUT_LIMIT)) {
     /* XXX check error returns */
     gasnetc_rdma_memset(node, dest, val, nbytes, &req_oust);
   } else {
-    gasneti_atomic_increment(&req_oust);
+    gasnetc_counter_inc(&req_oust);
     GASNETE_SAFE(
       SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
                    (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,

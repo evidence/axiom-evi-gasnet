@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.h                  $
- *     $Date: 2003/10/31 12:21:15 $
- * $Revision: 1.9 $
+ *     $Date: 2003/12/01 21:41:51 $
+ * $Revision: 1.10 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -530,28 +530,33 @@ extern int gasnetc_ReplySystem(
   RDMA ops
   =====================
  */
-extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, uintptr_t nbytes, gasneti_atomic_t *mem_oust, gasneti_atomic_t *req_oust);
-extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasneti_atomic_t *req_oust);
-extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, gasneti_atomic_t *req_oust);
-extern void gasnetc_counter_wait_aux(gasneti_atomic_t *counter, int handler_context);
 
-/* Check if a given counter is marked as done.
- * Note that the AMPoll belongs outside this call.
- */
-GASNET_INLINE_MODIFIER(gasnetc_counter_test)
-int gasnetc_counter_test(gasneti_atomic_t *counter) { 
-  return (gasneti_atomic_read(counter) == 0);
-} 
+/* Type and ops for rdma counters */
+typedef gasneti_atomic_t gasnetc_counter_t;
+#define GASNETC_COUNTER_INITIALIZER	gasneti_atomic_init(0)
+#define gasnetc_counter_reset(P)	gasneti_atomic_set((P), 0)
+#define gasnetc_counter_done(P)		(gasneti_atomic_read(P) == 0)
+#define gasnetc_counter_inc(P)		gasneti_atomic_increment(P)
+#define gasnetc_counter_dec(P)		gasneti_atomic_decrement(P)
+#if GASNETI_STATS_OR_TRACE
+  #define gasnetc_counter_val(P)	gasneti_atomic_read(P)
+#endif
 
 /* Wait until given counter is marked as done.
  * Note that no AMPoll is done in the best case.
  */
+extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context);
 GASNET_INLINE_MODIFIER(gasnetc_counter_wait)
-void gasnetc_counter_wait(gasneti_atomic_t *counter, int handler_context) { 
-  if_pf (gasneti_atomic_read(counter) != 0) {
+void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) { 
+  if_pf (!gasnetc_counter_done(counter)) {
     gasnetc_counter_wait_aux(counter, handler_context);
   }
 } 
+
+/* RDMA initiation operations */
+extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, uintptr_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust);
+extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *req_oust);
+extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, gasnetc_counter_t *req_oust);
 
 /* ------------------------------------------------------------------------------------ */
 
