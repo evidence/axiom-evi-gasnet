@@ -40,7 +40,7 @@
 @c ------------------------------------------------------------------------------------
 @c Macros:
 
-@set VERSION 1.0
+@set VERSION 1.1draft
 @set RELEASEDATE October 17th, 2002
 
 @ifnottex
@@ -146,9 +146,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/10/17 10:31:24 $
+@subtitle $Date: 2002/10/27 11:30:35 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.13 $ 
+@subtitle $Revision: 1.14 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -186,8 +186,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/10/17 10:31:24 $
-@*$Revision: 1.13 $ 
+@*$Date: 2002/10/27 11:30:35 $
+@*$Revision: 1.14 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.nersc.gov/}
 @HR
@@ -751,7 +751,7 @@ node has called @code{gasnet_exit} or crashed (in which case the node should cat
 the signal, perform any system-specific shutdown, then call @code{gasnet_exit()} to 
 end the local node process). GASNet will also send a @code{SIGQUIT} signal if it 
 detects that the job has received a different catchable 
-terminate-the-program signal (e.g. segmentation fault) since some of these other signals 
+terminate-the-program signal (e.g. @code{SIGTERM}, @code{SIGINT}) since some of these other signals 
 may be meaningful (and non-fatal) to certain GASNet implementations.
 @end deftypefn
 
@@ -2210,12 +2210,15 @@ appear as a global declaration. The info argument must be a
 @code{GASNET_GET_THREADINFO()} on this thread.
 
 @FN GASNET_BEGIN_FUNCTION
-@code{#define GASNET_BEGIN_FUNCTION()   GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())}
+@code{#define GASNET_BEGIN_FUNCTION()   ???}
 
-A convenience macro that may be placed at the top of functions which 
+A convenience macro that may @emph{optionally} be placed at the top of functions which 
 repeatedly make GASNet calls, to amortize the overhead of thread discovery 
-on some implementations.
+on some implementations. 
 
+It has behavior equivalent to @code{GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())}, 
+however some implementations may choose to lazily postpone performing thread discovery 
+until the first place where it is actually needed.
 
 @c ------------------------------------------------------------------------------------
 @HR
