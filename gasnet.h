@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2002/06/10 13:04:55 $
- * $Revision: 1.4 $
+ *     $Date: 2002/07/04 02:40:20 $
+ * $Revision: 1.5 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -53,6 +53,19 @@
 #define gasnet_init _CONCAT(gasnet_init_GASNET_,GASNET_CONFIG)
 
 /* ------------------------------------------------------------------------------------ */
+/* check segment configuration */
+
+#if defined(GASNET_SEGMENT_FAST) && !defined(GASNET_SEGMENT_LARGE) && !defined(GASNET_SEGMENT_EVERYTHING)
+  #define GASNETI_SEGMENT_CONFIG FAST
+#elif !defined(GASNET_SEGMENT_FAST) && defined(GASNET_SEGMENT_LARGE) && !defined(GASNET_SEGMENT_EVERYTHING)
+  #define GASNETI_SEGMENT_CONFIG LARGE
+#elif !defined(GASNET_SEGMENT_FAST) && !defined(GASNET_SEGMENT_LARGE) && defined(GASNET_SEGMENT_EVERYTHING)
+  #define GASNETI_SEGMENT_CONFIG EVERYTHING
+#else
+  #error Segment configuration must be exactly one of (GASNET_SEGMENT_FAST, GASNET_SEGMENT_LARGE, GASNET_SEGMENT_EVERYTHING) 
+#endif
+
+/* ------------------------------------------------------------------------------------ */
 /* GASNet forward definitions, which may override some of the defaults below */
 #include <gasnet_core_fwd.h>
 #include <gasnet_extended_fwd.h>
@@ -73,16 +86,6 @@
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
   #error GASNet core failed to define GASNET_ALIGNED_SEGMENTS to 0 or 1
-#endif
-
-#ifndef GASNET_SEGBASE_ANY
-  /*  constant for sigbase arg to gasnet_init() */
-  #define GASNET_SEGBASE_ANY ((void *)-1)
-#endif
-
-#ifndef GASNET_SEGSIZE_EVERYTHING
-  /*  constant for sigbase arg to gasnet_init() */
-  #define GASNET_SEGSIZE_EVERYTHING ((uintptr_t)-1)
 #endif
 
 #ifndef GASNET_BARRIERFLAG_ANONYMOUS

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/06/29 13:44:27 $
- * $Revision: 1.6 $
+ *     $Date: 2002/07/04 02:40:20 $
+ * $Revision: 1.7 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -27,6 +27,9 @@ GASNETI_IDENT(gasneti_IdentString_APIVersion, "$GASNetAPIVersion: " GASNET_VERSI
 
 #define GASNET_CONFIG_STR _STRINGIFY(GASNET_CONFIG)
 GASNETI_IDENT(gasneti_IdentString_Config, "$GASNetConfig: GASNET_" GASNET_CONFIG_STR " $");
+
+#define GASNET_SEGMENT_CONFIG_STR _STRINGIFY(GASNETI_SEGMENT_CONFIG)
+GASNETI_IDENT(gasneti_IdentString_SegConfig, "$GASNetSegmentConfig: GASNET_SEGMENT_" GASNET_SEGMENT_CONFIG_STR " $");
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_fatalerror(char *msg, ...) {

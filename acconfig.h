@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/06/19 10:56:50 $ */
-/*  $Revision: 1.5 $ */
+/*      $Date: 2002/07/04 02:40:20 $ */
+/*  $Revision: 1.6 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 
@@ -50,6 +50,11 @@
 #undef OSF
 #undef IRIX
 #undef CYGWIN
+
+/* GASNet segment definition */
+#undef GASNET_SEGMENT_FAST
+#undef GASNET_SEGMENT_LARGE
+#undef GASNET_SEGMENT_EVERYTHING
 
 @BOTTOM@
 

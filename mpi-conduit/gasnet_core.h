@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.h                       $
- *     $Date: 2002/06/25 18:55:11 $
- * $Revision: 1.3 $
+ *     $Date: 2002/07/04 02:40:23 $
+ * $Revision: 1.4 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -34,9 +34,12 @@ BEGIN_EXTERNC
 
 #ifdef DEBUG
   void gasnetc_checkinit();
+  void gasnetc_checkattach();
   #define GASNETC_CHECKINIT()    gasnetc_checkinit()
+  #define GASNETC_CHECKATTACH()  gasnetc_checkattach()
 #else
   #define GASNETC_CHECKINIT()
+  #define GASNETC_CHECKATTACH()
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -46,16 +49,19 @@ BEGIN_EXTERNC
 */
 /* gasnet_init not inlined or renamed because we use redef-name trick on  
    it to ensure proper version linkage */
-extern int gasnet_init(int *argc, char ***argv, 
-                gasnet_handlerentry_t *table, int numentries, 
-                void *segbase, uintptr_t segsize,
-		int allowFaults);
+extern int gasnet_init(int *argc, char ***argv);
+
+extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
+                          uintptr_t segsize, uintptr_t minheapoffset);
+#define gasnet_attach gasnetc_attach
 
 extern void gasnetc_exit(int exitcode) GASNET_NORETURN;
 #define gasnet_exit gasnetc_exit
 
-/*  unlimited segment size */
-#define gasnet_getMaxNativeSegmentSize() GASNET_SEGSIZE_EVERYTHING 
+extern uintptr_t gasnetc_getMaxLocalSegmentSize();
+extern uintptr_t gasnetc_getMaxGlobalSegmentSize();
+#define gasnet_getMaxLocalSegmentSize   gasnetc_getMaxLocalSegmentSize 
+#define gasnet_getMaxGlobalSegmentSize gasnetc_getMaxGlobalSegmentSize 
 
 /* ------------------------------------------------------------------------------------ */
 /*

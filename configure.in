@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/27 11:49:19 $
-# $Revision: 1.12 $
+#     $Date: 2002/07/04 02:40:20 $
+# $Revision: 1.13 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.12 $)
+AC_REVISION($Revision: 1.13 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -185,6 +185,22 @@ GASNET_IF_ENABLED(stats, Build GASNet with statistical collection enabled,
 CFLAGS="$CFLAGS $BUILDCONFIGFLAGS"
 
 AC_SUBST(CFLAGS)
+
+segconfig=""
+GASNET_IF_ENABLED(segment-fast, Build GASNet in the FAST shared segment configuration,
+  segconfig="fast$segconfig", )
+GASNET_IF_ENABLED(segment-large, Build GASNet in the LARGE shared segment configuration,
+  segconfig="large$segconfig", )
+GASNET_IF_ENABLED(segment-everything, Build GASNet in the EVERYTHING shared segment configuration,
+  segconfig="everything$segconfig", )
+
+case "$segconfig" in
+  "") AC_DEFINE(GASNET_SEGMENT_FAST) ;;  # default is fast
+  fast) AC_DEFINE(GASNET_SEGMENT_FAST) ;;
+  large) AC_DEFINE(GASNET_SEGMENT_LARGE) ;;
+  everything) AC_DEFINE(GASNET_SEGMENT_EVERYTHING) ;;
+  *) AC_ERROR(Conflicting shared segment configurations specified) ;;
+esac
 
 GASNET_LIBGCC
 

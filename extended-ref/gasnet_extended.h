@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2002/06/27 11:49:21 $
- * $Revision: 1.4 $
+ *     $Date: 2002/07/04 02:40:21 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -38,7 +38,7 @@ BEGIN_EXTERNC
 extern gasnet_handlerentry_t const *gasnete_get_handlertable();
 
 /* Initialize the Extended API:
-   must be called by the core API at the end of gasnet_init() before calls to extended API
+   must be called by the core API at the end of gasnet_attach() before calls to extended API
      (this function may make calls to the core functions)
 */
 extern void gasnete_init();
