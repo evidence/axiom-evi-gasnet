@@ -147,9 +147,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2003/08/10 09:57:40 $
+@subtitle $Date: 2003/08/26 05:02:27 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.27 $ 
+@subtitle $Revision: 1.28 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2003/08/10 09:57:40 $
-@*$Revision: 1.27 $ 
+@*$Date: 2003/08/26 05:02:27 $
+@*$Revision: 1.28 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 @*@uref{http://upc.lbl.gov/}
@@ -922,7 +922,7 @@ There are three categories of active messages:
 @table @samp
 @cindex Short Active Message
 @item Short Active Message
-These messages carry only a few integer arguments (up to @code{gasnet_AMMaxShort()})
+These messages carry only a few integer arguments (up to @code{gasnet_AMMaxArgs()})
 @*handler prototype: 
 @lisp
 void handler(gasnet_token_t token, 

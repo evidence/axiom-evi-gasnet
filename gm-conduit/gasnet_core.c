@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.39 2003/06/11 04:45:31 bonachea Exp $
- * $Date: 2003/06/11 04:45:31 $
+/* $Id: gasnet_core.c,v 1.40 2003/08/26 05:02:29 bonachea Exp $
+ * $Date: 2003/08/26 05:02:29 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -517,6 +517,7 @@ extern int gasnetc_AMRequestShortM(
 
   GASNETC_CHECKINIT();
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
@@ -555,6 +556,8 @@ extern int gasnetc_AMRequestMediumM(
 	  gasneti_fatalerror("node index too high, dest (%d) >= gasnetc_nodes (%d)\n",
 	    dest, gasnetc_nodes);
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+  assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
+  if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
   GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
@@ -699,7 +702,8 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 	GASNETC_CHECKINIT();
   
 	gasnetc_boundscheck(dest, dest_addr, nbytes);
-	assert(nbytes <= gasnet_AMMaxLongRequest());
+        assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
+        if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
 	if_pf (dest >= gasnetc_nodes) 
 		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
 	if_pf (((uintptr_t)dest_addr)< ((uintptr_t)gasnetc_seginfo[dest].addr) ||
@@ -756,7 +760,8 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 	GASNETC_CHECKINIT();
 	
 	gasnetc_boundscheck(dest, dest_addr, nbytes);
-	assert(nbytes <= gasnet_AMMaxLongRequest());
+        assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
+        if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
 	if_pf (dest >= gasnetc_nodes)
 		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
 	if_pf (((uintptr_t)dest_addr)<((uintptr_t)gasnetc_seginfo[dest].addr) ||
@@ -814,6 +819,7 @@ extern int gasnetc_AMReplyShortM(
   gasnetc_bufdesc_t *bufd;
 
   va_start(argptr, numargs); /*  pass in last argument */
+  assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs);
   retval = 1;
   if ((void *)token == (void*)-1) { /* local handler */
@@ -854,6 +860,8 @@ extern int gasnetc_AMReplyMediumM(
   gasnetc_bufdesc_t *bufd;
   va_start(argptr, numargs); /*  pass in last argument */
 
+  assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
+  if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
   GASNETI_TRACE_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
   retval = 1;
   assert(nbytes <= GASNETC_AM_MEDIUM_MAX);
@@ -908,6 +916,8 @@ extern int gasnetc_AMReplyLongM(
 	if (retval != GASNET_OK) GASNETI_RETURN(retval);
 	if_pf (dest >= gasnetc_nodes) 
 		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+        assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
+        if_pf (nbytes > gasnet_AMMaxLongReply()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
 	if_pf (((uintptr_t)dest_addr)< ((uintptr_t)gasnetc_seginfo[dest].addr)||
 	    ((uintptr_t)dest_addr) + nbytes > 
 	    ((uintptr_t)gasnetc_seginfo[dest].addr)+gasnetc_seginfo[dest].size)
@@ -1037,6 +1047,8 @@ gasnetc_AMReplyLongAsyncM(
 	if (retval != GASNET_OK) GASNETI_RETURN(retval);
 	if_pf (dest >= gasnetc_nodes) 
 		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+        assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
+        if_pf (nbytes > gasnet_AMMaxLongReply()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
 	va_start(argptr, numargs); /*  pass in last argument */
 	GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,
 	    numargs);
