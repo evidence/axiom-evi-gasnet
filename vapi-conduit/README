@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.18 $
+$Revision: 1.19 $
 
 @ TOC: @
 @ Section: Bootstrapping @
@@ -126,17 +126,14 @@ $Revision: 1.18 $
 @ Section: Runtime Configuration @
 
   There are a number of parameters in vapi-conduit which can be tuned
-  at runtime via environment variables.  There are two categories of
-  parameters: connection settings and resource usage parameters.
+  at runtime via environment variables.
 
   Connection settings:
   Under normal conditions, the Host Channel Adapter and Port will be
   located automatically.  However, in the event you have multiple
   adapters or multiple active ports on a single adapter, you may need
   to set these environment variables to identify the correct HCA and
-  Port.
-
-  These parameters may legally take different values on each node.
+  Port.  These parameters may legally take different values on each node.
 
   + GASNET_HCA_ID
     This gives the "HCA ID" string of the InfiniBand Host Channel
@@ -154,8 +151,13 @@ $Revision: 1.18 $
     The default value is 0, which causes vapi-conduit to probe the HCA
     for the lowest-numbered physical port which is configured as ACTIVE.
 
+  Software configuration settings:
+  There are some optional behaviors in vapi-conduit that can be turnned
+  ON or OFF.  These parameters may legally take different values on each
+  node, but doing so may not be useful.
+
   + GASNET_RCV_THREAD
-    This gives a boolean: "0" to disable or "1" to enable (1) the use
+    This gives a boolean: "0" to disable or "1" to enable the use
     of an extra thread that blocks waiting for vapi to wake it when an
     Active Message request arrives.  This allows vapi-conduit to be
     more attentive to incoming AMs even while the application may not
@@ -171,6 +173,32 @@ $Revision: 1.18 $
     is ignored.
     Currently the default is enabled (1), but this is subject to change
     in a future version.
+
+  + GASNET_USE_FIREHOSE
+    This gives a boolean: "0" to disable or "1" to enable the use
+    of the "firehose" dynamic pinning library in a GASNET_SEGMENT_FAST
+    configuration.  In a GASNET_SEGMENT_FAST configuration, the GASNet
+    segment is registered (pinned) with the HCA at initialization time,
+    because pinning is required for RDMA.  However, GASNet allows for
+    local addresses (source of a PUT or destination of a GET) to lie
+    outside of the GASNet segment.  So, to perform RDMA GETs and PUTs,
+    vapi-conduit must either copy out-of-segment transfers though
+    preregistered bounce buffers, or dynamically register memory.  By
+    default the firehose dynamic registration library is used to manage
+    registration of out-of-segment memory.  (default is ON).
+    Setting this environment variable to "0" (or "no") will disable use
+    of firehose, forcing the use of bounce buffers for out-of-segment
+    transfers.  This will result in a significantly lower peak bandwidth
+    for large PUTs and GETs, with little or no affect on small message
+    latency.  See http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=955
+    for an example of a situation where one may wish to disable firehose.
+    If you believe that you are observing communication failures due
+    to the behavior described at the link above, then you should
+    try setting GASNET_USE_FIREHOSE=no in your environment to see if
+    your problems go away.
+    In a GASNET_SEGMENT_LARGE or GASNET_SEGMENT_EVERYTHING configuration,
+    the GASNet segment is not preregistred and use of firehose is required.
+    Thus it is an error to disable firehose in such a configuration.
 
   Resource usage parameters:
   The following environment variables control how much memory is

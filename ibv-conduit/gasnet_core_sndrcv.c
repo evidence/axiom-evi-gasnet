@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/31 18:51:33 $
- * $Revision: 1.85 $
+ *     $Date: 2005/04/01 21:59:45 $
+ * $Revision: 1.86 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -28,9 +28,7 @@ VAPI_cq_hndl_t                          gasnetc_rcv_cq;
 VAPI_cq_hndl_t				gasnetc_snd_cq;
 size_t					gasnetc_fh_maxsz;
 int					gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
-#if GASNETC_PIN_SEGMENT
-  int					gasnetc_use_firehose = 1;
-#endif
+int					gasnetc_use_firehose = 1;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped types                                                                   *

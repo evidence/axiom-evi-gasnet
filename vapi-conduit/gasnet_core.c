@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/03/31 00:28:59 $
- * $Revision: 1.86 $
+ *     $Date: 2005/04/01 21:59:45 $
+ * $Revision: 1.87 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -374,9 +374,10 @@ static int gasnetc_load_settings(void) {
   if (gasnetc_use_rcv_thread && !GASNETC_VAPI_RCV_THREAD) {
     gasneti_fatalerror("VAPI AM receive thread enabled by environment variable GASNET_RCV_THREAD, but was disabled at GASNet build time");
   }
-  #if GASNETC_PIN_SEGMENT
-    gasnetc_use_firehose = gasneti_getenv_yesno_withdefault("GASNET_USE_FIREHOSE", 1);
-  #endif
+  gasnetc_use_firehose = gasneti_getenv_yesno_withdefault("GASNET_USE_FIREHOSE", 1);
+  if (!GASNETC_PIN_SEGMENT && !gasnetc_use_firehose) {
+    gasneti_fatalerror("Use of the 'firehose' dynamic pinning library disabled by environment variable GASNET_USE_FIREHOSE, but is required in a GASNET_SEGMENT_" _STRINGIFY(GASNETI_SEGMENT_CONFIG) " configuration");
+  }
 
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_VAPI_RCV_THREAD)",
