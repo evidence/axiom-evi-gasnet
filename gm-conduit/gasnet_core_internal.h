@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.30 2002/08/23 12:18:24 csbell Exp $
- * $Date: 2002/08/23 12:18:24 $
- * $Revision: 1.30 $
+/* $Id: gasnet_core_internal.h,v 1.31 2002/08/23 12:47:54 csbell Exp $
+ * $Date: 2002/08/23 12:47:54 $
+ * $Revision: 1.31 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -87,7 +87,11 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
      GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
    }                                                         \
  } while (0)
-
+/* -------------------------------------------------------------------------- */
+/* Core locks */
+extern gasneti_mutex_t	gasnetc_lock_gm;
+extern gasneti_mutex_t	gasnetc_lock_reqpool;
+extern gasneti_mutex_t	gasnetc_lock_amreq;
 /* -------------------------------------------------------------------------- */
 /* Core-specific AMs */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-99 for the core API */
@@ -281,12 +285,6 @@ gasnetc_nodeid(gasnet_node_t node)
 	assert(node < gasnetc_nodes);
 	return _gmc.gm_nodes[node].id;
 }
-
-/* -------------------------------------------------------------------------- */
-/* Core locks */
-extern gasneti_mutex_t	gasnetc_lock_gm;
-extern gasneti_mutex_t	gasnetc_lock_reqpool;
-extern gasneti_mutex_t	gasnetc_lock_amreq;
 
 /* -------------------------------------------------------------------------- */
 /* The following function and macro definitions are related to token

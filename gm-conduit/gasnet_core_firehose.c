@@ -1026,7 +1026,7 @@ gasnetc_firehose_finalize()
 	 * firehose metadata */
 	free(gasnetc_fh_victims);
 	free(gasnetc_fh_victim_count);
-	free(gasnetc_fh_used);
+	free((void *)gasnetc_fh_used);
 	gm_destroy_hash(gasnetc_fh_hash);
 }
 

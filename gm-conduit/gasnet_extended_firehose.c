@@ -416,7 +416,7 @@ gasnete_put_nbi(gasnet_node_t node, void *dest, void *src,
 GASNET_INLINE_MODIFIER(gasnete_firehose_get_bulk)
 gasnet_handle_t
 gasnete_firehose_get_bulk(void *dest, gasnet_node_t node, void *src, 
-			  size_t nbytes, gasnete_iop_t *iop)
+			  size_t nbytes, gasnete_iop_t *iop GASNETE_THREAD_FARG)
 {
 	/* Request a Get in terms of a DMA put */
 	gasnete_eop_t	*gop;
@@ -443,7 +443,8 @@ gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src,
 		GASNETI_TRACE_PRINTF(C, 
 		    ("gasnete_get_nb_bulk Firehose (%d,%p <- %p,%d bytes)",
 		    (unsigned) node, dest, src, nbytes));
-		return gasnete_firehose_get_bulk(dest, node, src, nbytes, NULL);
+		return gasnete_firehose_get_bulk(dest, node, src, nbytes, 
+		    NULL GASNETE_THREAD_PASS);
 	}
 	else 
 		return gasnete_extref_get_nb_bulk(dest, node, src, 
@@ -460,7 +461,8 @@ gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
 		GASNETI_TRACE_PRINTF(C, 
 		    ("gasnete_get_nbi_bulk Firehose (%d,%p <- %p,%d bytes)",
 		    (unsigned) node, dest, src, nbytes));
-		gasnete_firehose_get_bulk(dest, node, src, nbytes, iop);
+		gasnete_firehose_get_bulk(dest, node, src, nbytes, 
+		    iop GASNETE_THREAD_PASS);
 		return;
 	}
 	else 

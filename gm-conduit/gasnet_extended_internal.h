@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2002/08/22 14:27:31 $
- * $Revision: 1.3 $
+ *     $Date: 2002/08/23 12:47:54 $
+ * $Revision: 1.4 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -220,5 +220,4 @@ int gasnete_extref_barrier_try(int id, int flags);
 #elif defined(GASNETC_TURKEY)
 #error not implemented yet
 #endif
-#define _hidx_						(GASNETE_HANDLER_BASE+)
 #endif

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.11 2002/08/22 14:27:31 csbell Exp $
- * $Date: 2002/08/22 14:27:31 $
- * $Revision: 1.11 $
+/* $Id: gasnet_core_fwd.h,v 1.12 2002/08/23 12:47:54 csbell Exp $
+ * $Date: 2002/08/23 12:47:54 $
+ * $Revision: 1.12 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -23,9 +23,15 @@
 #define GASNET_ALIGNED_SEGMENTS	1
 #define GASNET_MAXNODES		1024
 
-/* no detection for these yet */
+#if !defined(FREEBSD) && !defined(PAGE_SIZE)
 #define PAGE_SIZE	4096
+#endif
+
+#if PAGE_SIZE == 4096
 #define PAGE_SHIFT	12
+#elif PAGE_SIZE == 8192
+#define PAGE_SHIFT	13
+#endif
 
 /* only have firehose for now */
 #define GASNETC_FIREHOSE

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.22 2002/08/23 12:18:24 csbell Exp $
- * $Date: 2002/08/23 12:18:24 $
- * $Revision: 1.22 $
+/* $Id: gasnet_core_misc.c,v 1.23 2002/08/23 12:47:54 csbell Exp $
+ * $Date: 2002/08/23 12:47:54 $
+ * $Revision: 1.23 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -623,7 +623,8 @@ gasnetc_gmpiconf_init()
 		GASNETI_RETURN_ERRR(RESOURCE, "Couldn't get local hostname");
 
 	if ((fp = fopen(gmconf, "r")) == NULL) {
-		fprintf(stderr, "Couldn't open GMPI configuration file: %s", gmconf);
+		fprintf(stderr, "Couldn't open GMPI configuration file\n: %s", 
+		    gmconf);
 		return GASNET_ERR_RESOURCE;
 	}
 
@@ -755,12 +756,15 @@ gasnetc_get_physmem()
 	return (uintptr_t) mem;
 }
 #elif defined(FREEBSD)
+#include <sys/types.h>
+#include <sys/sysctl.h>
 uintptr_t
 gasnetc_get_physmem()
 {
 	uintptr_t	mem = 0;
+	size_t		len = sizeof(uintptr_t);
 
-	if (sysctlbyname("hw.physmem", &mem, sizeof(uintptr_t), NULL, NULL))
+	if (sysctlbyname("hw.physmem", &mem, &len, NULL, NULL))
 		gasneti_fatalerror("couldn't query systcl(hw.physmem");
 	return mem;
 }
