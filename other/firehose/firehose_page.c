@@ -958,8 +958,10 @@ fhi_WaitLocalBucketsInFlight(int b_num)
 
 	FH_TABLE_ASSERT_LOCKED;
 
-	if (fhc_LocalOnlyBucketsInFlight < fhc_MaxVictimBuckets)
+	if_pt (fhc_LocalOnlyBucketsInFlight + b_num <= fhc_MaxVictimBuckets) {
+		fhc_LocalOnlyBucketsInFlight += b_num;
 		return;
+	}
 
 	GASNETI_TRACE_PRINTF(C, ("Firehose Outstanding number of "
 	    "buckets in flight reached threshold %d", fhc_MaxVictimBuckets));
