@@ -51,7 +51,7 @@ use Getopt::Long;
 ########################
 
 my ($opt_sort, $opt_output, $opt_help, $opt_report);
-my ($opt_initial, $opt_full, $opt_thread);
+my ($opt_internal, $opt_full, $opt_thread);
 
 my (%data, %report, %threads, %nodes);
 my (%node_threads); 
@@ -65,9 +65,12 @@ GetOptions (
     'sort=s'		=> \$opt_sort,
     'o=s'		=> \$opt_output,
     'report=s'		=> \$opt_report,
-    't|thread'		=> \$opt_thread,
-    'i'			=> \$opt_initial,
-    'f'			=> \$opt_full
+    't'			=> \$opt_thread,
+    'thread!'		=> \$opt_thread,
+    'i'			=> \$opt_internal,
+    'internal!'		=> \$opt_internal,
+    'f'			=> \$opt_full,
+    'full!'		=> \$opt_full
 );
 
 # The main routine
@@ -102,12 +105,12 @@ trace_output(*STDOUT, "BARRIER") if $opt_report =~ /B/;
 sub usage 
 {
     print <<EOF;
-Usage:	gasnet_trace [options] trace-file(s)
+Usage:  gasnet_trace [options] trace-file(s)
 
 Options:
-    -h -? -help		See this message.
-    -o [filename]	Output results to file.  Default is STDOUT.
-    -report [r1][r2]..	One or more capital letters to indicate which 
+    -h -? -help         See this message.
+    -o [filename]       Output results to file. Default is STDOUT.
+    -report [r1][r2]..  One or more capital letters to indicate which 
                         reports to generate: P(PUT), G(GET), and/or B(BARRIER).
                         Default: all reports.
     -sort [f1],[f2]...  Sort output by one or more fields: TOTAL, AVG, MIN, MAX,
@@ -115,13 +118,13 @@ Options:
                         and MAX refer to message size: for BARRIERS, to time
                         spent in barrier).  Default: sort by SRC (source
                         file/line). 
-    -t -thread  	Output detailed information for each thread.
-    -i 			Show the initial and final barriers outside the source 
-    			code. 
-    -f			Show the full source file name.
+    -t -[no]thread      Output detailed information for each thread.
+    -i -[no]internal    Show internal events (such as the initial and final
+                        barriers) which do not correspond to user source code. 
+    -f -[no]full        Show the full source file name.
 EOF
     exit(-1);
-} 	
+}
 
 
     
@@ -371,10 +374,8 @@ EOF
         ($src_num, $type, $max, $min, $avg, $total, $calls) = @{$entry};
         ($source, $lnum) = src_line($src_num);
         
-        # Skip the initial and final barriers if not specified.
-        if (!$opt_initial) {
-            next unless $lnum;
-        }
+        # Skip internal events (having lnum==0) if not specified.
+        next unless ($lnum || $opt_internal);
         
         
         $max = shorten($max, $pgb);
