@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.43 $
+$Revision: 1.44 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -171,9 +171,9 @@ Recognized Environment Variables
 * GASNET_FREEZE - set to 1 to make GASNet pause and wait for a debugger to attach on
  startup
 
-* GASNET_TRACEFILE, GASNET_TRACEMASK, GASNET_STATSFILE, GASNET_STATSMASK, GASNET_TRACEFLUSH - 
- control tracing & statistical features, if enabled at configure time. 
- See usage information below.
+* GASNET_TRACEFILE, GASNET_TRACEMASK, GASNET_STATSFILE, GASNET_STATSMASK, 
+  GASNET_TRACEFLUSH, GASNET_TRACELOCAL - control tracing & statistical features, 
+ if enabled at configure time.  See usage information below.
 
 * GASNET_VERBOSEENV - output information about environment variable settings
  read by the conduit that affect conduit behavior.
@@ -232,6 +232,12 @@ Optional environment variable settings:
    after every write to the tracefile. This seriously degrades tracing
    performance, but ensures any final trace messages before a crash
    are flushed into the tracefile.
+ 
+ GASNET_TRACELOCAL - set to control whether the PG trace messages for
+   local (ie loopback) put/get operations are entered into the trace file 
+   or suppressed (they are included by default). This can be used to reduce 
+   tracing overhead and trace file size for clients with a large number of 
+   local put/get operations which are not of interest.
 
 GASNet Design Information
 =========================

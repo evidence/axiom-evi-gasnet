@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2004/09/27 09:52:55 $
- * $Revision: 1.32 $
+ *     $Date: 2004/10/21 20:56:50 $
+ * $Revision: 1.33 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,6 +46,19 @@ BEGIN_EXTERNC
   #define GASNETI_TRACE_EVENT(type, name)
   #define GASNETI_TRACE_EVENT_VAL(type, name, val)
   #define GASNETI_TRACE_EVENT_TIME(type, name, time)
+#endif
+
+#if GASNET_TRACE
+  /* like GASNETI_TRACE_EVENT_VAL, but allow *_LOCAL values to be 
+     suppressed in the tracefile */
+  #define GASNETI_TRACE_EVENT_VAL_LOCAL(type, name, val) do {           \
+       gasneti_statctr_t _val = (val);                                  \
+       _GASNETI_STAT_EVENT_VAL (type, name, _val);                      \
+       if (GASNETI_TRACE_ENABLED(type) && !gasneti_trace_suppresslocal) \
+           _GASNETI_TRACE_EVENT_VAL(type, name, _val);                  \
+      } while (0)
+#else
+  #define GASNETI_TRACE_EVENT_VAL_LOCAL GASNETI_TRACE_EVENT_VAL
 #endif
 
 #if GASNET_TRACE
@@ -169,26 +182,50 @@ BEGIN_EXTERNC
   #define GASNETI_RADDRSTR(node,ptr) ((int)(node)),GASNETI_LADDRSTR(ptr)
 #endif
 
-#define GASNETI_TRACE_GET(name,dest,node,src,nbytes) do {                                  \
-  GASNETI_TRACE_EVENT_VAL(G,name,(nbytes));                                                \
+#define GASNETI_TRACE_EVENT_VAL_NONLOCAL GASNETI_TRACE_EVENT_VAL
+
+#define GASNETI_TRACE_GET_NAMED(name,locality,dest,node,src,nbytes) do {                   \
+  GASNETI_TRACE_EVENT_VAL_##locality(G,name,(nbytes));                                     \
   GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_LADDRFMT" <- "GASNETI_RADDRFMT" (%llu bytes)", \
                           GASNETI_LADDRSTR(dest), GASNETI_RADDRSTR((node),(src)),          \
                           (unsigned long long)(nbytes)));                                  \
 } while (0)
 
-#define GASNETI_TRACE_PUT(name,node,dest,src,nbytes) do {                                      \
-  GASNETI_TRACE_EVENT_VAL(P,name,(nbytes));                                                    \
+#define GASNETI_TRACE_PUT_NAMED(name,locality,node,dest,src,nbytes) do {                       \
+  GASNETI_TRACE_EVENT_VAL_##locality(P,name,(nbytes));                                         \
   GASNETI_TRACE_PRINTF(D,(#name ": "GASNETI_RADDRFMT" <- "GASNETI_LADDRFMT" (%llu bytes): %s", \
                           GASNETI_RADDRSTR((node),(dest)), GASNETI_LADDRSTR(src),              \
                           (unsigned long long)(nbytes), gasneti_formatdata((src),(nbytes))));  \
 } while (0)
 
-#define GASNETI_TRACE_MEMSET(name,node,dest,val,nbytes) do {                \
-  GASNETI_TRACE_EVENT_VAL(P,name,(nbytes));                                 \
+#define GASNETI_TRACE_MEMSET_NAMED(name,locality,node,dest,val,nbytes) do { \
+  GASNETI_TRACE_EVENT_VAL_##locality(P,name,(nbytes));                      \
   GASNETI_TRACE_PRINTF(D,(#name": "GASNETI_RADDRFMT" val=%02x nbytes=%llu", \
                           GASNETI_RADDRSTR((node),(dest)), (val),           \
                           (unsigned long long)(nbytes)));                   \
 } while (0)
+
+
+/* tracing for remote gets/puts */
+#define GASNETI_TRACE_GET(variety,dest,node,src,nbytes) \
+  GASNETI_TRACE_GET_NAMED(GET_##variety,NONLOCAL,dest,node,src,nbytes)
+
+#define GASNETI_TRACE_PUT(variety,node,dest,src,nbytes) \
+  GASNETI_TRACE_PUT_NAMED(PUT_##variety,NONLOCAL,node,dest,src,nbytes)   
+
+#define GASNETI_TRACE_MEMSET(variety,node,dest,val,nbytes) \
+  GASNETI_TRACE_MEMSET_NAMED(MEMSET_##variety,NONLOCAL,node,dest,val,nbytes)
+
+/* tracing for local gets/puts (separation allows suppression of trace output) */
+#define GASNETI_TRACE_GET_LOCAL(variety,dest,node,src,nbytes) \
+  GASNETI_TRACE_GET_NAMED(GET_##variety##_LOCAL,LOCAL,dest,node,src,nbytes)
+
+#define GASNETI_TRACE_PUT_LOCAL(variety,node,dest,src,nbytes) \
+  GASNETI_TRACE_PUT_NAMED(PUT_##variety##_LOCAL,LOCAL,node,dest,src,nbytes)   
+
+#define GASNETI_TRACE_MEMSET_LOCAL(variety,node,dest,val,nbytes) \
+  GASNETI_TRACE_MEMSET_NAMED(MEMSET_##variety##_LOCAL,LOCAL,node,dest,val,nbytes)
+
 /*------------------------------------------------------------------------------------*/
 #define GASNETI_TRACE_TRYSYNC(name,success) \
   GASNETI_TRACE_EVENT_VAL(S,name,((success) == GASNET_OK?1:0))
@@ -778,6 +815,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
 
   extern char gasneti_tracetypes[];
   extern char gasneti_statstypes[];
+  extern int gasneti_trace_suppresslocal;
 #endif
 #if GASNET_TRACE
   #define GASNETI_TRACE_ENABLED(type) (gasneti_tracetypes[(int)*(char*)#type])

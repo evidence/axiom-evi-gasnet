@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2004/10/19 04:41:49 $
- * $Revision: 1.81 $
+ *     $Date: 2004/10/21 20:56:50 $
+ * $Revision: 1.82 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -679,6 +679,7 @@ extern void gasneti_unsetenv(const char *key) {
 gasneti_mutex_t gasneti_tracelock = GASNETI_MUTEX_INITIALIZER;
 char gasneti_tracetypes[256];
 char gasneti_statstypes[256];
+int gasneti_trace_suppresslocal;
 FILE *gasneti_tracefile = NULL;
 FILE *gasneti_statsfile = NULL;
 gasneti_stattime_t starttime;
@@ -1131,6 +1132,7 @@ extern void gasneti_trace_init(int argc, char **argv) {
   }
 
   gasneti_autoflush = gasneti_getenv_yesno_withdefault("GASNET_TRACEFLUSH",0);
+  gasneti_trace_suppresslocal = !gasneti_getenv_yesno_withdefault("GASNET_TRACELOCAL",1);
 
   { time_t ltime;
     int i;
