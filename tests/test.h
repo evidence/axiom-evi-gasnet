@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/03/05 19:42:04 $
- * $Revision: 1.23 $
+ *     $Date: 2004/03/05 20:55:29 $
+ * $Revision: 1.24 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -192,6 +192,7 @@ int _test_rand(int low, int high) {
 #define TEST_LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
 
 /* Functions for obtaining calibrated delays */
+#ifdef TEST_DELAY
 extern void test_delay(int n);	 /* in delay.o */
 
 /* smallest number of delay loops to try in calibration */
@@ -238,5 +239,6 @@ int test_calibrate_delay(int iters, int64_t *time_p)
 	*time_p = time;
 	return loops;
 }
+#endif
 
 #endif
