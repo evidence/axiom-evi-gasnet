@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_inttypes.h,v $ */
-/*      $Date: 2004/09/16 21:38:03 $ */
-/*  $Revision: 1.5 $ */
+/*      $Date: 2004/09/17 22:05:27 $ */
+/*  $Revision: 1.6 $ */
 /*  Description: portable_inttypes.h  */
 /*  Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> */
 
@@ -85,6 +85,17 @@
     #ifndef __intptr_t_defined
       typedef          int     intptr_t; 
       typedef unsigned int    uintptr_t; 
+    #endif
+  #elif defined(AIX)
+    /* AIX has inttypes.h and lacks a way to prevent redefinition of
+     * the types we are interested in w/o excluding other important
+     * things like all of the <type>_{MIN,MAX} values one expects to
+     * find in limits.h.
+     * Since the types in the system headers conflict with the ones
+     * we default to, we simply need to use the system headers. */
+    #include <inttypes.h>
+    #ifndef _USING_INTTYPES_H
+    #define _USING_INTTYPES_H
     #endif
   #elif defined(HAVE_INTTYPES_H)
     /* configure says the system header is available, so use it */
