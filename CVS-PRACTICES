@@ -41,7 +41,7 @@ GASNet Release Procedure
   Spec conformance major version number: gasnet.h, GASNET_VERSION
 
 * Review checkin messages and write a summary of user-visible changes and 
-  bug fixes since last public release - add to CHANGELOG
+  bug fixes since last public release - add to ChangeLog
 
 * ./Bootstrap the srcdir
 
@@ -67,5 +67,7 @@ GASNet Release Procedure
 
 * Merge with Titanium and test SEGMENT_EVERYTHING functionality 
 
-* Post to webpage, update HTML, email release notice with CHANGELOG entry
+* Post to webpage, update HTML, email release notice with ChangeLog entry
+
+* CVS tag the archive as GASNET_V_v (for version V.v) and docs/gasnet.texi as GASNETSPEC_V_v
 

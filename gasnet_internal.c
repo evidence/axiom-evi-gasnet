@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/04/06 11:22:35 $
- * $Revision: 1.32 $
+ *     $Date: 2003/04/22 14:55:19 $
+ * $Revision: 1.33 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -223,6 +223,13 @@ static void gasneti_serializeEnvironment(uint8_t **pbuf, int *psz) {
   uint8_t *p;
   int i;
   int totalEnvSize = 0;
+  if (!environ) {
+    /* T3E stupidly omits environ support, despite documentation to the contrary */
+    GASNETI_TRACE_PRINTF(I,("WARNING: environ appears to be empty -- ignoring it"));
+    *pbuf = NULL;
+    *psz = 0;
+    return;
+  }
   for(i = 0; environ[i]; i++) 
     totalEnvSize += strlen(environ[i]) + 1;
   totalEnvSize++;
