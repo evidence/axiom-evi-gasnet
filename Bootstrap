@@ -41,6 +41,7 @@ fi
 set -x
 (
     cd $srcdir
+    rm -Rf autom4te*.cache
     aclocal
     autoheader
     autoconf
@@ -57,5 +58,6 @@ set -x
     rm -f .configure-orig
     
     automake -a
+    rm -Rf autom4te*.cache
 )
 rm -f config.cache
