@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/09/23 22:16:06 $
-# $Revision: 1.190 $
+#     $Date: 2004/09/24 03:46:57 $
+# $Revision: 1.191 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.190 $)
+AC_REVISION($Revision: 1.191 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1475,9 +1475,19 @@ GASNET_IF_ENABLED_WITH_AUTO(sci, Enable the CONDUIT_DESC (auto-detected),
   enabled_sci=yes)
 
 if test "$enabled_sci" = yes; then
-  GASNET_ENV_DEFAULT(SCIHOME, /opt/DIS)
+  # Look for sci binaries in our path
+  AC_PATH_PROGS(scibench2, scibench2)
+  case "$scibench2" in
+    '') sci_guess=/opt/DIS
+    ;;
+
+    *) sci_guess=`dirname $scibench2`
+       sci_guess=`dirname $sci_guess`
+    ;;
+  esac
+  GASNET_ENV_DEFAULT(SCIHOME, $sci_guess)
   GASNET_ENV_DEFAULT(SCI_INCLUDES, [-I$SCIHOME/include -I$SCIHOME/lib/api])
-  GASNET_ENV_DEFAULT(SCI_LIBS, [-L$SCIHOME/lib/api -lsisci])
+  GASNET_ENV_DEFAULT(SCI_LIBS, [-L$SCIHOME/lib -lsisci])
 
   AC_MSG_CHECKING(for working SCI configuration)
   OLDCFLAGS="$CFLAGS"
