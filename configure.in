@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/10/19 18:57:21 $
-# $Revision: 1.202 $
+#     $Date: 2004/10/23 05:02:05 $
+# $Revision: 1.203 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.202 $)
+AC_REVISION($Revision: 1.203 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -770,7 +770,7 @@ if test $enabled_udp = yes; then
      }
     }
   ], [ ], [ 
-    AC_MSG_ERROR("I can\'t figure out how to build and run a program that uses C++ exceptions")
+    GASNET_MSG_ERROR("I can\'t figure out how to build and run a program that uses C++ exceptions")
   ] )  
   AC_SUBST(MISC_CXXFLAGS)
 
@@ -805,7 +805,7 @@ if test $enabled_udp = yes; then
       fi
 
       if test "$force_udp$have_udp" = yesno ; then
-	AC_MSG_ERROR(User requested --enable-udp but I don't know how to build UDP programs for your system)
+	GASNET_MSG_ERROR(User requested --enable-udp but I don't know how to build UDP programs for your system)
       fi
 
     LIBS="$OLDLIBS"
@@ -964,7 +964,7 @@ if test $enabled_mpi = yes; then
     ], [
       MPI_Init(NULL,NULL);
       MPI_Finalize();
-    ], [ mpi_test_worked=yes ], [ mpi_test_worked=no] )
+    ], [ mpi_test_worked=yes ], [ mpi_test_worked=no GASNET_ERR_SAVE() ] )
     CC="$OLDCC"
     CFLAGS="$OLDCFLAGS"
     CPPFLAGS="$OLDCPPFLAGS"
@@ -987,7 +987,7 @@ if test $enabled_mpi = yes; then
       have_mpi=no
   fi
   if test "$force_mpi$have_mpi" = yesno ; then
-    AC_MSG_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
+    GASNET_MSG_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
   fi
   if test "$have_mpi" = no ; then
     mpi_reason="was not found"
@@ -1082,7 +1082,7 @@ if test $enabled_gm = yes; then
     ], [
       gm_init();
       gm_finalize();
-    ], [ gm_test_worked=yes ], [ gm_test_worked=no ] )
+    ], [ gm_test_worked=yes ], [ gm_test_worked=no GASNET_ERR_SAVE() ] )
     CFLAGS="$OLDCFLAGS"
     LIBS="$OLDLIBS"
 
@@ -1140,7 +1140,7 @@ if test $enabled_gm = yes; then
     fi
   fi
   if test "$force_gm$have_gm" = yesno ; then
-    AC_MSG_ERROR(User requested --enable-gm but I don't know how to build GM programs for your system)
+    GASNET_MSG_ERROR(User requested --enable-gm but I don't know how to build GM programs for your system)
   fi
 fi
 
@@ -1185,7 +1185,7 @@ if test "$enabled_lapi" = yes; then
 
       memset(&gasnetc_lapi_info, 0, sizeof(lapi_info_t));
       LAPI_Init(&gasnetc_lapi_context, &gasnetc_lapi_info);
-    }], [ have_lapi=yes ], [ have_lapi=no ] )
+    }], [ have_lapi=yes ], [ have_lapi=no GASNET_ERR_SAVE() ] )
   LIBS="$OLDLIBS"
   AC_MSG_RESULT($have_lapi)
 
@@ -1258,7 +1258,7 @@ if test "$enabled_lapi" = yes; then
 
   # Check for conflict
   if test "$force_lapi$have_lapi" = yesno; then
-    AC_MSG_ERROR([User requested --enable-lapi but I don't know how to build LAPI programs for your system.])
+    GASNET_MSG_ERROR([User requested --enable-lapi but I don't know how to build LAPI programs for your system.])
   fi
 
   if test x"$ac_cv_sizeof_void_p" = x4; then
@@ -1455,7 +1455,7 @@ if test "$enabled_vapi" = yes; then
     VAPI_hca_id_t inst_hca_id;
 
     rc = EVAPI_list_hcas(1, &num_of_hcas, &inst_hca_id);
-    }], [ vapi_test_worked=yes ], [ vapi_test_worked=no ] )
+    }], [ vapi_test_worked=yes ], [ vapi_test_worked=no GASNET_ERR_SAVE() ] )
   CFLAGS="$OLDCFLAGS"
   LIBS="$OLDLIBS"
   if test "$vapi_test_worked" = yes; then
@@ -1467,7 +1467,7 @@ if test "$enabled_vapi" = yes; then
 
   # Check for conflict
   if test "$force_vapi$have_vapi" = yesno; then
-    AC_MSG_ERROR([User requested --enable-vapi but I don't know how to build VAPI programs for your system.])
+    GASNET_MSG_ERROR([User requested --enable-vapi but I don't know how to build VAPI programs for your system.])
   fi
 
   if test "$have_vapi" = yes; then
@@ -1594,7 +1594,7 @@ if test $enabled_shmem = yes; then
   
       mype = shmem_my_pe();
       numpes = shmem_n_pes();
-      }], [ shmem_test_worked=yes ], [ shmem_test_worked=no ] )
+      }], [ shmem_test_worked=yes ], [ shmem_test_worked=no GASNET_ERR_SAVE() ] )
     CFLAGS="$OLDCFLAGS"
     LIBS="$OLDLIBS"
   
@@ -1603,7 +1603,7 @@ if test $enabled_shmem = yes; then
       SHMEM_FLAGS="-D${SHMEM_FLAVOUR} "
     else
       AC_MSG_RESULT(no)
-      AC_MSG_ERROR(build test failed: I don't know how to build SHMEM programs on your system)
+      GASNET_MSG_ERROR(build test failed: I don't know how to build SHMEM programs on your system)
       have_shmem=no
     fi
   fi
@@ -1663,14 +1663,14 @@ if test "$enabled_sci" = yes; then
      sci_desc_t sd;
      sci_error_t err;
      SCIOpen(&sd, 0, &err);
-    }], [ have_sci=yes ], [ have_sci=no ] )
+    }], [ have_sci=yes ], [ have_sci=no GASNET_ERR_SAVE() ] )
   CFLAGS="$OLDCFLAGS"
   LIBS="$OLDLIBS"
   AC_MSG_RESULT($have_sci)
 
   # Check for conflict
   if test "$force_sci$have_sci" = yesno; then
-    AC_MSG_ERROR([User requested --enable-sci but I don't know how to build SCI programs for your system.])
+    GASNET_MSG_ERROR([User requested --enable-sci but I don't know how to build SCI programs for your system.])
   fi
 fi
 AC_SUBST(SCI_INCLUDES)
@@ -1997,6 +1997,7 @@ echo "----------------------------------------------------------------------"
 rm -f $CONDUIT_LIST
 
 GASNET_SAVE_AUTOCONF_ENV()
+GASNET_ERR_CLEANUP()
 
 GASNET_FIX_EXEC(gm-conduit/contrib/gasnetrun_gm)
 GASNET_FIX_EXEC(mpi-conduit/contrib/gasnetrun_mpi)

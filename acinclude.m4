@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2004/10/19 18:57:21 $
-dnl $Revision: 1.48 $
+dnl     $Date: 2004/10/23 05:02:05 $
+dnl $Revision: 1.49 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -570,12 +570,60 @@ AC_DEFUN([GASNET_CHECK_OPTIMIZEDDEBUG],[
     #endif
   ], [ ], [ AC_MSG_RESULT(no) ], [
     AC_MSG_RESULT([yes])
-    AC_MSG_ERROR([User requested --enable-debug but $1 or $2 has enabled optimization (-O) or disabled assertions (-DNDEBUG). Try setting $1='$[$1] -O0 -UNDEBUG' or changing $2])
+    GASNET_MSG_ERROR([User requested --enable-debug but $1 or $2 has enabled optimization (-O) or disabled assertions (-DNDEBUG). Try setting $1='$[$1] -O0 -UNDEBUG' or changing $2])
   ])
   CC="$OLDCC"
   CFLAGS="$OLDCFLAGS"
   AC_LANG_RESTORE
  fi
+])
+
+dnl Output compilation error information, if available and do a AC_MSG_ERROR
+dnl should be used within the failed branch of the compile macro, otherwise
+dnl use GASNET_ERR_SAVE() in the failed branch to save the error info
+AC_DEFUN([GASNET_MSG_ERROR],[
+echo
+echo "configure error: $1"
+if test "" ; then
+if test -f "conftest.$ac_ext" ; then
+  errfile=conftest.$ac_ext
+else
+  errfile=gasnet_errsave_file
+fi
+if test -f "$errfile" ; then
+  echo
+  echo " --- Failed program --- "
+  cat $errfile
+  echo " -----------------------"
+fi
+fi
+if test -f "conftest.err" ; then
+  errfile=conftest.err
+else
+  errfile=gasnet_errsave_err
+fi
+if test -f "$errfile" ; then
+  echo
+  echo "Compilation error: "
+  echo
+  cat $errfile
+fi
+echo
+CONFIG_FILE=`pwd`/config.log
+AC_MSG_ERROR(See $CONFIG_FILE for details.)
+])
+
+AC_DEFUN([GASNET_ERR_SAVE],[
+if test -f "conftest.$ac_ext" ; then
+  cp conftest.$ac_ext gasnet_errsave_file
+fi
+if test -f "conftest.err" ; then
+  cp conftest.err gasnet_errsave_err
+fi
+])
+
+AC_DEFUN([GASNET_ERR_CLEANUP],[
+  rm -f gasnet_errsave_file gasnet_errsave_err
 ])
 
 dnl compile a program for a success/failure
@@ -663,7 +711,7 @@ AC_DEFUN([GASNET_PROG_CPP], [
   AC_TRY_CPP([
     # error
   ], [AC_MSG_ERROR(Your C preprocessor is broken - reported success when it should have failed)], [])
-  AC_TRY_CPP([], [], [AC_MSG_ERROR(Your C preprocessor is broken - reported failure when it should have succeeded)])
+  AC_TRY_CPP([], [], [GASNET_MSG_ERROR(Your C preprocessor is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes$gasnet_progcpp_extrainfo)
   AC_LANG_RESTORE
 ])
@@ -691,7 +739,7 @@ AC_DEFUN([GASNET_PROG_CXXCPP], [
   AC_TRY_CPP([
     # error
   ], [AC_MSG_ERROR(Your C++ preprocessor is broken - reported success when it should have failed)], [])
-  AC_TRY_CPP([], [], [AC_MSG_ERROR(Your C++ preprocessor is broken - reported failure when it should have succeeded)])
+  AC_TRY_CPP([], [], [GASNET_MSG_ERROR(Your C++ preprocessor is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes$gasnet_progcxxcpp_extrainfo)
   AC_LANG_RESTORE
 ])
@@ -707,10 +755,10 @@ AC_DEFUN([GASNET_PROG_CC], [
   AC_TRY_COMPILE([], [
     fail for me
   ], [AC_MSG_ERROR(Your C compiler is broken - reported success when it should have failed)], [])
-  AC_TRY_COMPILE([], [], [], [AC_MSG_ERROR(Your C compiler is broken - reported failure when it should have succeeded)])
+  AC_TRY_COMPILE([], [], [], [GASNET_MSG_ERROR(Your C compiler is broken - reported failure when it should have succeeded)])
   AC_TRY_LINK([ extern int some_bogus_nonexistent_symbol(); ], [ int x = some_bogus_nonexistent_symbol(); ],
               [AC_MSG_ERROR(Your C linker is broken - reported success when it should have failed)], [])
-  AC_TRY_LINK([], [], [], [AC_MSG_ERROR(Your C link is broken - reported failure when it should have succeeded)])
+  AC_TRY_LINK([], [], [], [GASNET_MSG_ERROR(Your C link is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes)
   AC_LANG_RESTORE
 ])
@@ -726,10 +774,10 @@ AC_DEFUN([GASNET_PROG_CXX], [
   AC_TRY_COMPILE([], [
     fail for me
   ], [AC_MSG_ERROR(Your C++ compiler is broken - reported success when it should have failed)], [])
-  AC_TRY_COMPILE([], [], [], [AC_MSG_ERROR(Your C++ compiler is broken - reported failure when it should have succeeded)])
+  AC_TRY_COMPILE([], [], [], [GASNET_MSG_ERROR(Your C++ compiler is broken - reported failure when it should have succeeded)])
   AC_TRY_LINK([ extern int some_bogus_nonexistent_symbol(); ], [ int x = some_bogus_nonexistent_symbol(); ],
               [AC_MSG_ERROR(Your C++ linker is broken - reported success when it should have failed)], [])
-  AC_TRY_LINK([], [], [], [AC_MSG_ERROR(Your C++ link is broken - reported failure when it should have succeeded)])
+  AC_TRY_LINK([], [], [], [GASNET_MSG_ERROR(Your C++ link is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes)
   AC_LANG_RESTORE
 ])
