@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2002/07/04 03:01:49 $
- * $Revision: 1.3 $
+ *     $Date: 2002/08/02 09:07:50 $
+ * $Revision: 1.4 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -95,6 +95,76 @@ int main(int argc, char **argv) {
       }
     }
     if (success) MSG("*** passed nbi test!!");
+  }
+
+  BARRIER();
+
+  { /*  value test */
+    GASNET_BEGIN_FUNCTION();
+    int vals[300];
+    int i, success=1;
+    for (i=0; i < 100; i++) {
+      gasnet_put_val(partner, partnerseg+i, 1000 + mynode + i, sizeof(int));
+    }
+    for (i=0; i < 100; i++) {
+      gasnet_wait_syncnb(gasnet_put_nb_val(partner, partnerseg+i+100, 1000 + mynode + i, sizeof(int)));
+    }
+    for (i=0; i < 100; i++) {
+      gasnet_put_nbi_val(partner, partnerseg+i+200, 1000 + mynode + i, sizeof(int));
+    }
+    gasnet_wait_syncnbi_puts();
+    for (i=0; i < 100; i++) {
+      int tmp1 = gasnet_get_val(partner, partnerseg+i, sizeof(int));
+      int tmp2 = gasnet_get_val(partner, partnerseg+i+200, sizeof(int));
+      if (tmp1 != 1000 + mynode + i || tmp2 != 1000 + mynode + i) {
+        MSG("*** ERROR - FAILED VALUE TEST 1!!!");
+        success = 0;
+      }
+    }
+    { gasnet_valget_handle_t handles[100];
+      for (i=0; i < 100; i++) {
+        handles[i] = gasnet_get_nb_val(partner, partnerseg+i+100, sizeof(int));
+      }
+      for (i=0; i < 100; i++) {
+        int tmp = (int)gasnet_wait_syncnb_valget(handles[i]);
+        if (tmp != 1000 + mynode + i) {
+          MSG("*** ERROR - FAILED VALUE TEST 2!!!");
+          success = 0;
+        }
+      }
+    }
+    if (success) MSG("*** passed value test!!");
+  }
+
+  BARRIER();
+
+  { /*  memset test */
+    GASNET_BEGIN_FUNCTION();
+    int i, success=1;
+    int vals[300];
+
+    gasnet_memset(partner, partnerseg, 0xAA, 100*sizeof(int));
+    gasnet_wait_syncnb(gasnet_memset_nb(partner, partnerseg+100, 0xBB, 100*sizeof(int)));
+    gasnet_memset_nbi(partner, partnerseg+200, 0xCC, 100*sizeof(int));
+    gasnet_wait_syncnbi_puts();
+
+    gasnet_get(&vals, partner, partnerseg, 300*sizeof(int));
+
+    for (i=0; i < 100; i++) {
+      if (vals[i] != ((int)0xAAAAAAAAAAAAAAAAull)) {
+        MSG("*** ERROR - FAILED MEMSET TEST!!!");
+        success = 0;
+      }
+      if (vals[i+100] != ((int)0xBBBBBBBBBBBBBBBBull)) {
+        MSG("*** ERROR - FAILED MEMSET TEST!!!");
+        success = 0;
+      }
+      if (vals[i+200] != ((int)0xCCCCCCCCCCCCCCCCull)) {
+        MSG("*** ERROR - FAILED MEMSET TEST!!!");
+        success = 0;
+      }
+    }
+    if (success) MSG("*** passed memset test!!");
   }
 
   BARRIER();

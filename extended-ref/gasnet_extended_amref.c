@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/07/18 19:05:04 $
- * $Revision: 1.7 $
+ *     $Date: 2002/08/02 09:07:49 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -753,6 +753,17 @@ extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, siz
 
 extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_put_nbi_inner(node, dest, src, nbytes, 1 GASNETE_THREAD_PASS);
+}
+
+extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  gasnete_iop_t *op = mythread->current_iop;
+  op->initiated_put_cnt++;
+
+  GASNETE_SAFE(
+    SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
+                 (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes,
+                 PACK(dest), PACK(op))));
 }
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2002/07/04 02:40:21 $
- * $Revision: 1.5 $
+ *     $Date: 2002/08/02 09:07:49 $
+ * $Revision: 1.6 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -191,6 +191,7 @@ void gasnet_wait_syncnb_all(gasnet_handle_t *phandle, size_t numhandles) {
 extern void gasnete_put_nbi      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG);
 extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG);
 extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG);
+extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val,   size_t nbytes GASNETE_THREAD_FARG);
 
 GASNET_INLINE_MODIFIER(_gasnet_get_nbi)
 void _gasnet_get_nbi      (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
@@ -243,6 +244,16 @@ void _gasnet_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, size_t nby
 }
 #define gasnet_put_nbi_bulk(node,dest,src,nbytes) \
        _gasnet_put_nbi_bulk(node,dest,src,nbytes GASNETE_THREAD_GET)
+
+GASNET_INLINE_MODIFIER(_gasnet_memset_nbi)
+void   _gasnet_memset_nbi   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
+  GASNETI_TRACE_MEMSET(MEMSET_NBI,node,dest,val,nbytes);
+  if_pf (nbytes == 0) return;
+  if_pf (gasnete_islocal(node)) memset(dest, val, nbytes);
+  else gasnete_memset_nbi(node, dest, val, nbytes GASNETE_THREAD_PASS);
+}
+#define gasnet_memset_nbi(node,dest,val,nbytes) \
+       _gasnet_memset_nbi(node,dest,val,nbytes GASNETE_THREAD_GET)
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -447,16 +458,22 @@ typedef struct _gasnet_valget_op_t *gasnet_valget_handle_t;
 gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG);
 gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t handle);
 
-#define gasnet_get_nb_val(node,src,nbytes) do {           \
-  GASNETI_TRACE_GET(GET_NB_VAL,NULL,node,src,nbytes);     \
-  gasnete_get_nb_val(node,src,nbytes GASNETE_THREAD_GET); \
-} while(0)
+GASNET_INLINE_MODIFIER(_gasnet_get_nb_val)
+gasnet_valget_handle_t _gasnet_get_nb_val (gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+  GASNETI_TRACE_GET(GET_NB_VAL,NULL,node,src,nbytes);     
+  return gasnete_get_nb_val(node,src,nbytes GASNETE_THREAD_PASS); 
+}
+#define gasnet_get_nb_val(node,src,nbytes) \
+       _gasnet_get_nb_val(node,src,nbytes GASNETE_THREAD_GET)
 
-#define gasnet_wait_syncnb_valget(handle) do { \
-  GASNETI_TRACE_WAITSYNC_BEGIN();              \
-  gasnete_wait_syncnb_valget(handle);          \
-  GASNETI_TRACE_WAITSYNC_END(SYNCNB_VALGET);   \
-} while (0)
+GASNET_INLINE_MODIFIER(gasnet_wait_syncnb_valget)
+gasnet_register_value_t gasnet_wait_syncnb_valget (gasnet_valget_handle_t handle) {
+  gasnet_register_value_t val;
+  GASNETI_TRACE_WAITSYNC_BEGIN();
+  val = gasnete_wait_syncnb_valget(handle); 
+  GASNETI_TRACE_WAITSYNC_END(WAIT_SYNCNB_VALGET);   
+  return val;
+}
 
 /* ------------------------------------------------------------------------------------ */
 /*

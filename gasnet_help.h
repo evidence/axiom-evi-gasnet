@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2002/07/08 13:00:31 $
- * $Revision: 1.6 $
+ *     $Date: 2002/08/02 09:07:47 $
+ * $Revision: 1.7 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -395,6 +395,7 @@ typedef uint64_t gasneti_statctr_t;
   /* the precision for this is no better than gettimeofday (~1 ms) */
   /* TODO: use elan real-time counter, or rpcc instruction (which returns
      a 32-bit cycle count that wraps too quickly to be useful by itself)
+     luckily, the Quadrics NIC provides a nanosecond clock (with ~1us overhead)
    */
   #include <time.h>
 
@@ -468,6 +469,7 @@ extern void gasneti_trace_finish();
         VAL(P, PUT_VAL, sz)                               \
         VAL(P, MEMSET, sz)                                \
         VAL(P, MEMSET_NB, sz)                             \
+        VAL(P, MEMSET_NBI, sz)                            \
                                                           \
         VAL(S, TRY_SYNCNB, success)                       \
         VAL(S, TRY_SYNCNB_ALL, success)                   \
