@@ -124,7 +124,7 @@ void barrier() {
 #define MB (KB*KB)
 #define FIRSTSZ() (1)
 #define NEXTSZ(x) (x*2)
-#define DONESZ(x) (x > 8*KB*KB)
+#define DONESZ(x) (x > 4*KB*KB)
 
 #define CHECKTAG(x)     do { if (x != mympitag) {                         \
         printf("ERROR: Recieved a stray message with incorrect tag!!!\n");\
@@ -408,6 +408,9 @@ double exchangetest(int iters, int msgsz) {
   }
   endtime = getMicrosecondTimeStamp();
 
+  free(sendbuf);
+  free(recvbuf);
+
   return (endtime-starttime);
 }
 
@@ -453,11 +456,11 @@ int main(int argc, char **argv) {
   else queuedepth = 64;
   if (queuedepth <= 0) Usage(argv[0]);
 
-  printf("=====> testmpiperf nprocs=%d config=MPI\n", nproc);
 
   if (dobarriertest) { /* barrier test */
     double totaltime;
     if (rank == 0) {
+      printf("=====> testmpiperf-barrier nprocs=%d config=MPI\n", nproc);
       printf("running %i iterations of barrier test...\n", iters);
       fflush(stdout);
     }
@@ -475,6 +478,7 @@ int main(int argc, char **argv) {
   barrier();
   if (dopingpongtest) { /* ping-pong test */
     if (rank == 0) {
+      printf("=====> testmpiperf-pingpong nprocs=%d config=MPI\n", nproc);
       printf("running %i iterations of ping-pong test per size...\n", iters);
       fflush(stdout);
     }
@@ -502,6 +506,7 @@ int main(int argc, char **argv) {
   barrier();
   if (dofloodtest) { /* flood test */
     if (rank == 0) {
+      printf("=====> testmpiperf-flood nprocs=%d config=MPI\n", nproc);
       printf("running %i iterations of flood test per size, with queuedepth=%i...\n", 
         iters, queuedepth);
       printf("Flood test using %s method\n", mpi_testwait_desc);
@@ -532,13 +537,14 @@ int main(int argc, char **argv) {
   barrier();
   if (doexchangetest) { /* Exchange (all-to-all) test */
     if (rank == 0) {
+      printf("=====> testmpiperf-exchange nprocs=%d config=MPI\n", nproc);
       printf("running %i iterations of exchange test per size\n", iters);
       fflush(stdout);
     }
     barrier();
 
     { int msgsz;
-      for (msgsz = FIRSTSZ(); !DONESZ(msgsz); msgsz = NEXTSZ(msgsz)) {
+      for (msgsz = FIRSTSZ(); !DONESZ(msgsz/nproc); msgsz = NEXTSZ(msgsz)) {
         double totaltime;
 
 	exchangetest(1, msgsz); /* "warm-up" run */
@@ -546,13 +552,11 @@ int main(int argc, char **argv) {
         totaltime = exchangetest(iters, msgsz);
         barrier();
 
-	if (rank == 0) {
-          printf("P%i-P%i: size=%8i bytes, inv. throughput= %9.3f us, bandwidth= %11.3f KB/sec\n",
+        printf("P%i-P%i: size=%8i bytes, inv. throughput= %9.3f us, bandwidth= %11.3f KB/sec\n",
             rank, peerid, msgsz, 
             totaltime/iters, 
             (((double)msgsz*nproc)*iters/KB)/(totaltime/1000000));
           fflush(stdout);
-        }
       }
     }
   }
