@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2004/01/03 20:06:47 $
- * $Revision: 1.13 $
+ *     $Date: 2004/01/06 07:48:59 $
+ * $Revision: 1.14 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -121,7 +121,21 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_TO_US(st)  ((st)/1000)
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
 #elif defined(SOLARIS)
-  #include <sys/time.h>
+#if 1
+  /* workaround bizarre failures on gcc 3.2.1 - seems they sometimes use a
+     union to implement longlong_t and hence hrtime_t, and the test to
+     determine this is (__STDC__ - 0 == 0) which is totally bogus */
+  typedef uint64_t gasneti_stattime_t;
+  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
+  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
+  GASNET_INLINE_MODIFIER(gasneti_stattime_now)
+  gasneti_stattime_t gasneti_stattime_now() {
+    hrtime_t t = gethrtime();
+    return *(gasneti_stattime_t *)&t;
+  }
+  #define GASNETI_STATTIME_TO_US(st)  ((st)/1000)
+  #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
+#else
   typedef hrtime_t gasneti_stattime_t;
   GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
   uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
@@ -132,6 +146,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)(((uint64_t)-1)>>1))
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gethrtime())
+#endif
 #elif defined(LINUX) && defined(__GNUC__) && defined(__i386__)
   #include <stdio.h>
   #include <stdlib.h>
