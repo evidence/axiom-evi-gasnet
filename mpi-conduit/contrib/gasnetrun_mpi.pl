@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/02/09 21:58:33 $
-# $Revision: 1.17 $
+#     $Date: 2005/03/18 20:30:26 $
+# $Revision: 1.18 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -49,7 +49,7 @@ my @tmpfiles = ();
     my $is_lam      = ($mpirun_help =~ m|LAM/MPI|);
     my $is_mpich_nt = ($mpirun_help =~ m|MPIRun|);
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
-    my $is_mvich    = ($mpirun_help =~ m|MVICH|);
+    my $is_mvich    = ($mpirun_help =~ m|MV(AP)?ICH|);
     my $is_cray_mpi = ($mpirun_help =~ m|Psched|);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
