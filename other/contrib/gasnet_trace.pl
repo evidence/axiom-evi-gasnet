@@ -50,11 +50,8 @@ use Getopt::Long;
 # Global Variables
 ########################
 
-my $opt_sort;
-my $opt_output;
-my $opt_help;
-my $opt_report;
-my $opt_thread;
+my ($opt_sort, $opt_output, $opt_help, $opt_report);
+my ($opt_initial, $opt_full, $opt_thread);
 
 my (%data, %report, %threads, %nodes);
 my (%node_threads); 
@@ -68,7 +65,9 @@ GetOptions (
     'sort=s'		=> \$opt_sort,
     'o=s'		=> \$opt_output,
     'report=s'		=> \$opt_report,
-    't|thread'		=> \$opt_thread
+    't|thread'		=> \$opt_thread,
+    'i'			=> \$opt_initial,
+    'f'			=> \$opt_full
 );
 
 # The main routine
@@ -117,6 +116,9 @@ Options:
                         spent in barrier).  Default: sort by SRC (source
                         file/line). 
     -t -thread  	Output detailed information for each thread.
+    -i 			Show the initial and final barriers outside the source 
+    			code. 
+    -f			Show the full source file name.
 EOF
     exit(-1);
 } 	
@@ -368,12 +370,27 @@ EOF
     foreach my $entry (@{$report{$pgb}}) { 
         ($src_num, $type, $max, $min, $avg, $total, $calls) = @{$entry};
         ($source, $lnum) = src_line($src_num);
-        $source = substr $source, -10, 10;
+        
+        # Skip the initial and final barriers if not specified.
+        if (!$opt_initial) {
+            next unless $lnum;
+        }
+        
+        
         $max = shorten($max, $pgb);
         $min = shorten($min, $pgb);
         $avg = shorten($avg, $pgb);
         $total = shorten($total, $pgb);
-        $handle->format_name("SHOWTYPE");
+        
+        # Options for showing the full file name
+        if ($opt_full) {
+	    printf "%3d %s\n", $rank, $source;
+	    $handle->format_name("FULL");             
+        }
+        else {
+            $source = substr $source, -10, 10;
+            $handle->format_name("DEFAULT");
+        }
         write($handle);
         $rank++;
         
@@ -405,11 +422,16 @@ EOF
 # formats
 ########################
 
-    format SHOWTYPE = 
-@<< @<<<<<<<<< @>>>> @>>>>>>>>>  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
+    format DEFAULT = 
+@>> @<<<<<<<<< @>>>> @>>>>>>>>>  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
 $rank, $source, $lnum, $type, $min, $max, $avg, $total, $calls
 .
-    
+
+    format FULL = 
+               @>>>> @>>>>>>>>>  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
+               $lnum, $type, $min, $max, $avg, $total, $calls
+.
+	    
     format THREAD =
     Thread @<<<<<<<<<<<<         @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
 $threadnum, $tmin, $tmax, $tavg, $ttotal, $tcalls
