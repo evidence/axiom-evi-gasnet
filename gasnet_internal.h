@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/04/01 07:27:33 $
- * $Revision: 1.31 $
+ *     $Date: 2003/04/05 06:39:38 $
+ * $Revision: 1.32 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -72,6 +72,14 @@ void gasneti_free_inhandler(void *ptr) {
 /* ------------------------------------------------------------------------------------ */
 
 extern void gasneti_freezeForDebugger();
+
+/* DEBUG_VERBOSE is set by configure to request job startup and general 
+   status messages on stderr 
+*/
+#ifndef DEBUG_VERBOSE
+  #define DEBUG_VERBOSE               0
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 /* memory segment registration and management */
 
@@ -95,6 +103,7 @@ gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t
 #endif
 
 typedef void (*gasneti_bootstrapExchangefn_t)(void *src, size_t len, void *dest);
+typedef void (*gasneti_bootstrapBroadcastfn_t)(void *src, size_t len, void *dest, int rootnode);
 
 void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize, 
                          uintptr_t *MaxGlobalSegmentSize,
@@ -104,6 +113,10 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
 void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
                            gasnet_seginfo_t *seginfo,
                            gasneti_bootstrapExchangefn_t exchangefn);
+void gasneti_setupGlobalEnvironment(gasnet_node_t numnodes, gasnet_node_t mynode,
+                                     gasneti_bootstrapExchangefn_t exchangefn,
+                                     gasneti_bootstrapBroadcastfn_t broadcastfn);
+
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasneti_ErrorName)
 char *gasneti_ErrorName(int errval) {

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/04/01 07:27:35 $
- * $Revision: 1.21 $
+ *     $Date: 2003/04/05 06:39:39 $
+ * $Revision: 1.22 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -187,7 +187,7 @@ static uintptr_t gasnetc_searchElanSeglength(void *base, uintptr_t lowsz, uintpt
 }
 /* return the length of the contiguous, elan-mapped memory segment starting at base */
 static uintptr_t gasnetc_ElanSeglength(void *base) {
-  return gasnetc_searchElanSeglength(base, 0, (uintptr_t)1<<32);
+  return gasnetc_searchElanSeglength(base, 0, (uintptr_t)(uint32_t)-1);
 }
 
 static int gasnetc_init(int *argc, char ***argv) {
@@ -215,6 +215,13 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   gasnetc_mynode = STATE()->vp;
   gasnetc_nodes =  STATE()->nvp;
+
+  #if 0
+    /* unnecessary on elan - RMS takes care of the environment for us */
+    /* do this before trace_init to make sure it gets right environment */
+    gasneti_setupGlobalEnvironment(gasnetc_nodes, gasnetc_mynode, 
+                                   gasnetc_bootstrapExchange, gasnetc_bootstrapBroadcast);
+  #endif
 
   /* enable tracing */
   gasneti_trace_init();

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2003/01/11 22:46:40 $
- * $Revision: 1.13 $
+ *     $Date: 2003/04/05 06:39:38 $
+ * $Revision: 1.14 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,7 @@
 BEGIN_EXTERNC
 
 extern void gasneti_fatalerror(char *msg, ...) GASNET_NORETURN;
+extern char *gasneti_getenv(const char *keyname);
 
 #if defined(__GNUC__) || defined(__FUNCTION__)
   #define GASNETI_CURRENT_FUNCTION __FUNCTION__

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.10 2002/12/19 18:35:50 bonachea Exp $
- * $Date: 2002/12/19 18:35:50 $
- * $Revision: 1.10 $
+/* $Id: gasnet_core.h,v 1.11 2003/04/05 06:39:41 bonachea Exp $
+ * $Date: 2003/04/05 06:39:41 $
+ * $Revision: 1.11 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -81,7 +81,7 @@ gasnet_node_t gasnet_nodes() {
 GASNET_INLINE_MODIFIER(gasnet_getenv)
 char *gasnet_getenv(const char *s) {
   GASNETC_CHECKINIT();
-  return getenv(s);
+  return gasneti_getenv(s);
 }
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/04/01 12:27:23 $
- * $Revision: 1.30 $
+ *     $Date: 2003/04/05 06:39:38 $
+ * $Revision: 1.31 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -194,6 +194,155 @@ void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler) {
       gasneti_reghandler(gasneti_signals[i].signum, handler);
   }
 }
+/* ------------------------------------------------------------------------------------ */
+/* Global environment variable handling */
+
+extern uint64_t gasneti_checksum(void *p, int numbytes) {
+ uint8_t *buf = (uint8_t *)p;
+ uint64_t result = 0;
+ int i;
+ for (i=0;i<numbytes;i++) {
+   result = ((result << 4) | ((result >> 60) & 0x0F) ) ^ *buf;
+   buf++;
+ }
+ return result;
+}
+
+extern char **environ; 
+
+static void gasneti_serializeEnvironment(uint8_t **pbuf, int *psz) {
+  /* flatten a snapshot of the environment to make it suitable for transmission
+   * here we assume the standard representation where a pointer to the environment 
+   * is stored in a global variable 'environ' and the environment is represented as an array 
+   * of null-terminated strings where each has the form 'key=value' and value may be empty, 
+   * and the final string pointer is a NULL pointer
+   * we flatten this into a list of null-terminated 'key=value' strings, 
+   * terminated with a double-null
+   */
+  uint8_t *buf; 
+  int i;
+  int totalEnvSize = 0;
+  for(i = 0; environ[i]; i++) 
+    totalEnvSize += strlen(environ[i]) + 1;
+  totalEnvSize++;
+
+  buf = (uint8_t *)malloc(totalEnvSize);
+  uint8_t *p = buf;
+  p[0] = 0;
+  for(i = 0; environ[i]; i++) {
+    strcpy((char*)p, environ[i]);
+    p += strlen((char*)p) + 1;
+    }
+  *p = 0;
+  assert((p+1) - buf == totalEnvSize);
+
+  *pbuf = buf;
+  *psz = totalEnvSize;
+}
+
+static char *gasneti_globalEnv = NULL;
+
+typedef struct {
+  int sz;
+  uint64_t checksum;
+} gasneti_envdesc_t;
+
+/* do the work necessary to setup the global environment for use by gasneti_getenv
+   broadcast the environment variables from one node to all nodes
+   Note this currently assumes that at least one of the compute nodes has the full
+    environment - systems where the environment is not propagated to any compute node
+    will need something more sophisticated.
+   exchangefn is required function for exchanging data 
+   broadcastfn is optional (can be NULL) but highly recommended for scalability
+ */
+extern void gasneti_setupGlobalEnvironment(gasnet_node_t numnodes, gasnet_node_t mynode,
+                                           gasneti_bootstrapExchangefn_t exchangefn,
+                                           gasneti_bootstrapBroadcastfn_t broadcastfn) {
+  uint8_t *myenv; 
+  int sz; 
+  uint64_t checksum;
+  gasneti_envdesc_t myenvdesc;
+  gasneti_envdesc_t *allenvdesc;
+
+  assert(exchangefn);
+
+  gasneti_serializeEnvironment(&myenv,&sz);
+  checksum = gasneti_checksum(myenv,sz);
+
+  myenvdesc.sz = sz;
+  myenvdesc.checksum = checksum;
+
+  allenvdesc = malloc(numnodes*sizeof(gasneti_envdesc_t));
+  /* gather environment description from all nodes */
+  (*exchangefn)(&myenvdesc, sizeof(gasneti_envdesc_t), allenvdesc);
+
+  { /* see if the node environments differ and find the largest */
+    int i;
+    int rootid = 0;
+    int identical = 1;
+    gasneti_envdesc_t rootdesc = allenvdesc[rootid];
+    for (i=1; i < numnodes; i++) {
+      if (rootdesc.checksum != allenvdesc[i].checksum || 
+          rootdesc.sz != allenvdesc[i].sz) 
+          identical = 0;
+      if (allenvdesc[i].sz > rootdesc.sz) { 
+        /* assume the largest env is the one we want */
+        rootdesc = allenvdesc[i];
+        rootid = i;
+      }
+    }
+    if (identical) { /* node environments all identical - don't bother to propagate */
+      free(allenvdesc);
+      return;
+    } else {
+      int envsize = rootdesc.sz;
+      gasneti_globalEnv = malloc(envsize);
+      if (broadcastfn) {
+        (*broadcastfn)(myenv, envsize, gasneti_globalEnv, rootid);
+      } else {
+        /* this is wasteful of memory and bandwidth, and non-scalable */
+        char *tmp = malloc(envsize*numnodes);
+        memcpy(tmp+mynode*envsize, myenv, sz);
+        (*exchangefn)(tmp+mynode*envsize, envsize, tmp);
+        memcpy(gasneti_globalEnv, tmp+rootid*envsize, envsize);
+        free(tmp);
+      }
+      assert(gasneti_checksum(gasneti_globalEnv,envsize) == rootdesc.checksum);
+      free(allenvdesc);
+      free(myenv);
+      return;
+    }
+  }
+
+}
+
+extern char *gasneti_getenv(const char *keyname) {
+  char *retval = NULL;
+
+  if (keyname && gasneti_globalEnv) { 
+    /* global environment takes precedence 
+     * (callers who want the local environment can call getenv directly)
+     */
+    char *p = gasneti_globalEnv;
+    int keylen = strlen(keyname);
+    while (*p) {
+      if (!strncmp(keyname, p, keylen) && p[keylen] == '=') {
+        retval = p + keylen + 1;
+        break;
+      }
+      p += strlen(p) + 1;
+    }
+  }
+
+  if (keyname && !retval) /* try local environment */
+    retval = getenv(keyname);
+  
+  GASNETI_TRACE_PRINTF(I,("gasnet_getenv(%s) => '%s'",
+                          (keyname?keyname:"NULL"),(retval?retval:"NULL")));
+
+  return retval;
+}
+
 /* ------------------------------------------------------------------------------------ */
 /* GASNet Tracing and Statistics */
 

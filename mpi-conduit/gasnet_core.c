@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/04/01 11:55:30 $
- * $Revision: 1.26 $
+ *     $Date: 2003/04/05 06:39:43 $
+ * $Revision: 1.27 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -67,6 +67,11 @@ static void gasnetc_check_config() {
 void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   GASNETI_AM_SAFE_NORETURN(AMMPI_SPMDAllGather(src, dest, len));
 }
+void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode) {
+  assert(gasnetc_nodes > 0 && gasnetc_mynode < gasnetc_nodes);
+  if (gasnetc_mynode == rootnode) memcpy(dest, src, len);
+  GASNETI_AM_SAFE_NORETURN(AMMPI_SPMDBroadcast(dest, len, rootnode));
+}
 
 #define INITERR(type, reason) do {                                      \
    if (gasneti_VerboseErrors) {                                         \
@@ -110,6 +115,11 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     gasnetc_mynode = AMMPI_SPMDMyProc();
     gasnetc_nodes = AMMPI_SPMDNumProcs();
+
+    /* a number of MPI job spawners fail to propagate the environment to all compute nodes */
+    /* do this before trace_init to make sure it gets right environment */
+    gasneti_setupGlobalEnvironment(gasnetc_nodes, gasnetc_mynode, 
+                                   gasnetc_bootstrapExchange, gasnetc_bootstrapBroadcast);
 
     /* enable tracing */
     gasneti_trace_init();

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_internal.h              $
- *     $Date: 2002/12/19 18:35:53 $
- * $Revision: 1.8 $
+ *     $Date: 2003/04/05 06:39:43 $
+ * $Revision: 1.9 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,12 +15,6 @@
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
 #define GASNETC_NISTIMEOUT_WARNING_THRESHOLD 1000000 /* us for timeout warning under HSL_ERRCHECK */
-
-#if defined(DEBUG) && !defined(GASNET_QUIET)
-  #define DEBUG_VERBOSE               1
-#else
-  #define DEBUG_VERBOSE               0
-#endif
 
 extern ep_t gasnetc_endpoint;
 extern gasnet_seginfo_t *gasnetc_seginfo;

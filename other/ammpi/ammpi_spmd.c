@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2003/04/01 11:55:31 $
- * $Revision: 1.5 $
+ *     $Date: 2003/04/05 06:39:45 $
+ * $Revision: 1.6 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -454,7 +454,7 @@ extern int AMMPI_SPMDBarrier() {
   return AM_OK;
   }
 /* ------------------------------------------------------------------------------------ 
- *  all-gather
+ *  bootstrapping helpers
  * ------------------------------------------------------------------------------------ */
 extern int AMMPI_SPMDAllGather(void *source, void *dest, size_t len) {
   if (!AMMPI_SPMDStartupCalled) AMMPI_RETURN_ERR(RESOURCE);
@@ -465,4 +465,14 @@ extern int AMMPI_SPMDAllGather(void *source, void *dest, size_t len) {
 
   return AM_OK;
 }
+extern int AMMPI_SPMDBroadcast(void *buf, size_t len, int rootid) {
+  if (!AMMPI_SPMDStartupCalled) AMMPI_RETURN_ERR(RESOURCE);
+
+  MPI_SAFE(MPI_Bcast(buf, len, MPI_BYTE,
+                     rootid,
+                     AMMPI_SPMDMPIComm));
+
+  return AM_OK;
+}
+
 /* ------------------------------------------------------------------------------------ */

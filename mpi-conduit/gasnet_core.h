@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.h                       $
- *     $Date: 2002/12/19 18:35:53 $
- * $Revision: 1.6 $
+ *     $Date: 2003/04/05 06:39:43 $
+ * $Revision: 1.7 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,7 +89,7 @@ gasnet_node_t gasnet_nodes() {
 GASNET_INLINE_MODIFIER(gasnet_getenv)
 char *gasnet_getenv(const char *s) {
   GASNETC_CHECKINIT();
-  return getenv(s);
+  return gasneti_getenv(s);
 }
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2002/10/11 20:56:02 $
- * $Revision: 1.6 $
+ *     $Date: 2003/04/05 06:39:45 $
+ * $Revision: 1.7 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -40,10 +40,8 @@
 #define ABORT_JOB_ON_NODE_FAILURE   1   /* kill everyone if any slave drops the TCP coord */
 #define USE_BLOCKING_SPMD_BARRIER   1   /* use blocking AM calls in SPMDBarrier() */
 
-#ifdef DEBUG
-#define DEBUG_VERBOSE               0
-#else
-#define DEBUG_VERBOSE               0
+#ifndef DEBUG_VERBOSE
+  #define DEBUG_VERBOSE               0
 #endif
 
 #ifndef TRUE

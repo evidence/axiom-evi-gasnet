@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/01/04 06:16:13 $
- * $Revision: 1.12 $
+ *     $Date: 2003/04/05 06:39:42 $
+ * $Revision: 1.13 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -204,12 +204,6 @@ extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, 
 
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
-
-#if defined(DEBUG) && !defined(GASNET_QUIET)
-  #define DEBUG_VERBOSE               1
-#else
-  #define DEBUG_VERBOSE               0
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* make a GASNet call - if it fails, print error message and return */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.h                                     $
- *     $Date: 2002/09/02 23:04:36 $
- * $Revision: 1.3 $
+ *     $Date: 2003/04/05 06:39:45 $
+ * $Revision: 1.4 $
  * Description: AMMPI Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -54,10 +54,12 @@ extern int AMMPI_SPMDBarrier();
  */
 
 extern int AMMPI_SPMDAllGather(void *source, void *dest, size_t len);
-/* expose the MPI_AllGather function which can be useful for bootstrapping 
-   gather len bytes from source buf on each node, concatenate them and write 
+extern int AMMPI_SPMDBroadcast(void *buf, size_t len, int rootid);
+/* expose the MPI_AllGather & MPI_Bcast functions which can be useful for bootstrapping 
+   AMMPI_SPMDAllGather: gather len bytes from source buf on each node, concatenate them and write 
    them into the dest buffer (which must have length len*numnodes) in rank order
-   may only be used after startup
+   AMMPI_SPMDBroadcast: broadcast len bytes from buf on node rootid to buf on all nodes
+   may only be used after startup - beware, these functions block without polling
 */
 
 

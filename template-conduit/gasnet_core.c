@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/04/01 11:55:32 $
- * $Revision: 1.23 $
+ *     $Date: 2003/04/05 06:39:46 $
+ * $Revision: 1.24 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -105,6 +105,23 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
   #else
     #error Bad segment config
+  #endif
+
+  #if ###
+    /* Enable this if you wish to use the default GASNet services for broadcasting 
+        the environment from one compute node to all the others (for use in gasnet_getenv(),
+        which needs to return environment variable values from the "spawning console").
+        You need to provide two functions (gasnetc_bootstrapExchange and gasnetc_bootstrapBroadcast)
+        which the system can safely and immediately use to broadcast and exchange information 
+        between nodes (gasnetc_bootstrapBroadcast is optional but highly recommended).
+       This system assumes that at least one of the compute nodes has a copy of the 
+        full environment from the "spawning console" (if this is not true, you'll need to
+        implement something yourself to get the values from the spawning console)
+       If your job system already always propagates environment variables to all the compute
+        nodes, then you probably don't need this.
+     */
+    gasneti_setupGlobalEnvironment(gasnetc_nodes, gasnetc_mynode, 
+                                   gasnetc_bootstrapExchange, gasnetc_bootstrapBroadcast);
   #endif
 
   gasnetc_init_done = 1;  
