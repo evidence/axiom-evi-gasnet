@@ -37,6 +37,13 @@ The amxtests directory contains the test suite for the stand-alone
 AMUDP and AMMPI products.
 
 ------------------------------------------------------------------
+CONTRIB
+
+Various extra add-on tools which are useful in conjunction with
+add-on tools. See individual files or subdirectories for licensing
+and contact information.
+
+------------------------------------------------------------------
 FIREHOSE
 
 The firehose directory contains an implementation of the firehose 
