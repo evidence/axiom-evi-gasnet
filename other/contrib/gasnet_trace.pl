@@ -56,7 +56,10 @@ my $opt_help;
 my $opt_report;
 my $opt_thread;
 
-my (%data, %report, %thread_match);
+my (%data, %report, %threads, %nodes);
+my (%node_threads); 
+#%nodes, %threads are identifier->thread(node)num
+
 # Getting the Options
 ########################
 
@@ -85,10 +88,12 @@ if (!$opt_report) {
 } 
 
 while (@ARGV) {
-    parse_tracefile(pop @ARGV);
+    my $arg = pop @ARGV;
+    parse_threadinfo($arg);
+    parse_tracefile($arg);
 }
 
-flatten();
+convert_report();
 sort_report();
 trace_output(*STDOUT, "GET") if $opt_report =~ /G/;
 trace_output(*STDOUT, "PUT") if $opt_report =~ /P/;
@@ -122,32 +127,67 @@ EOF
 # data-structure, namely an array of hashes and return the array.
 # args : the filename to be read.
 ########################
+sub parse_threadinfo
+{
+    open (TRACEFILE, $_[0]) or die "Could not open $_[0]: $!\n";
+    
+    while (<TRACEFILE>) {
+        next unless /MAGIC/;
+         (/^(\S+).*I am thread\s(\d+).*on node\s(\d+)/);
+        $threads{$1} = $2;
+        $nodes{$1} = $3;
+        $node_threads{$3}++;
+    }	       
+
+}
+
 sub parse_tracefile 
 {
     
     open (TRACEFILE, $_[0]) or die "Could not open $_[0]: $!\n";
     
     while (<TRACEFILE>) {
-        if (/MAGIC/) {
-	    (/^(\S+).*I am thread\s(\d+)/);
-	    $thread_match{$1} = $2;
-	    next;		    
-	}            
+        my ($thread, $src, $pgb, $type, $sz);
+        # Handling Local put/get (under the H category).
+        if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\(H\)\s+(PUT|GET).*:\D+(\d+)/) {
+            ($thread, $src, $pgb, $sz) = ($1, $2, $3, $4);
+            $type = "LOCAL";
+            update_data($thread, $src, $pgb, $type, $sz);
+            next;
+	}
+        # Handling Global put/get and barriers             
         next unless (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([$opt_report]\)\s+(.*)_(.*):\D+(\d+)/); 
-        my ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
-        if (!$data{$pgb}{$src}{$type}{$thread}) { # first record
-            push @{$data{$pgb}{$src}{$type}{$thread}}, ($sz, $sz, $sz, $sz, 1);
-        } else {
-            my ($max, $min, $avg, $total, $totalc) = 
-            	@{$data{$pgb}{$src}{$type}{$thread}};
-            $max = $max > $sz ? $max : $sz;
-            $min = $min < $sz ? $min : $sz;
-            $total += $sz;
-            $totalc += 1;
-            $avg = $total / $totalc;
-            @{$data{$pgb}{$src}{$type}{$thread}} 
-            	= ($max, $min, $avg, $total, $totalc);
+        ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
+        if ($pgb =~ /P|G/) {
+            $type = "GLOBAL";
+        } if ($pgb == "BARRIER") {
+            if (defined ($nodes{$thread})) {
+                $thread = $nodes{$thread};
+            } else {
+                next;
+            }
         }
+        update_data($thread, $src, $pgb, $type, $sz);
+        
+    }
+}
+                
+sub update_data
+{
+    my ($thread, $src, $pgb, $type, $sz) = @_;        
+    if (!$data{$pgb}{$src}{$type}{$thread}) { # first record
+        push @{$data{$pgb}{$src}{$type}{$thread}}, ($sz, $sz, $sz, $sz, 1);        
+    } else {
+        my ($max, $min, $avg, $total, $totalc) = 
+            @{$data{$pgb}{$src}{$type}{$thread}};
+        $max = $max > $sz ? $max : $sz;
+        $min = $min < $sz ? $min : $sz;
+        $total += $sz;
+        $totalc += 1;
+        $avg = $total / $totalc;
+        @{$data{$pgb}{$src}{$type}{$thread}} 
+            = ($max, $min, $avg, $total, $totalc);
+        
     }
 }
 
@@ -197,7 +237,7 @@ sub src_line
 
 # transfer the raw data structure into report -- a hash of arrays 
 #######################
-sub flatten
+sub convert_report 
 {
     foreach my $pgb (keys %data) {
     	foreach my $line (keys %{$data{$pgb}}) {
@@ -205,15 +245,23 @@ sub flatten
 
     	    	my ($max, $min, $avg, $total, $totalc);
     	    	foreach my $thread (keys %{$data{$pgb}{$line}{$type}}) {
+    	    	    # For Barrier $thread is actually the node number
     	    	    my ($tmax, $tmin, $tavg, $ttotal, $ttotalc) 
 			 = @{$data{$pgb}{$line}{$type}{$thread}};
     	    	    $max = $max > $tmax ? $max : $tmax;
     	    	    $min = ($min > $tmin || !$min) ? $tmin : $min;
-    	    	    $total += $ttotal;
-    	    	    $totalc += $ttotalc;
+    	    	    if ($pgb =~ /BARRIER/) {
+    	    	        $total += $ttotal * $node_threads{$thread};
+    	    	        $totalc += $ttotalc * $node_threads{$thread};
+    	    	    } else { 
+    	    	        $total += $ttotal;
+    	    	        $totalc += $ttotalc;
+                    }		
     	    	}
     	    	$avg = $total / $totalc;
-
+    	    	if ($pgb =~ /BARRIER/) {
+    	    	    $totalc = $totalc / (scalar (keys %nodes));
+                }
     	    	my @entry = ($line, $type, $max, $min, $avg, $total, $totalc);
 		push @{$report{$pgb}}, \@entry; 
     	    }
@@ -277,12 +325,24 @@ sub sort_report
 	if ($opt_sort) {
 	    @{$report{$pgb}} = sort {criterion(@sortmtd)} @{$report{$pgb}};
 	} else {
-	    @{$report{$pgb}} = sort {criterion("TOTAL")} @{$report{$pgb}};
+	    @{$report{$pgb}} = sort {criterion("SRC")} @{$report{$pgb}};
     	}
     }
 	 
 }
 
+sub get_threads 
+{
+    my ($node) = @_;
+    my @threads;
+    foreach my $identifier (keys %nodes) {
+        if ($nodes{$identifier} == $node) {
+            push @threads, $threads{$identifier};
+        }
+    }
+    @threads = sort @threads;
+    return $threads[0] . ".." . $threads[-1];
+}       
 
 # subroutine to process the data structure produced by the parse_tracefile 
 # subroutine and print out in a format that the caller specifies.
@@ -312,6 +372,7 @@ EOF
     foreach my $entry (@{$report{$pgb}}) { 
         ($src_num, $type, $max, $min, $avg, $total, $calls) = @{$entry};
         ($source, $lnum) = src_line($src_num);
+        $source = substr $source, -10, 10;
         $max = shorten($max, $pgb);
         $min = shorten($min, $pgb);
         $avg = shorten($avg, $pgb);
@@ -322,8 +383,11 @@ EOF
         
         if ($opt_thread) {
             foreach my $thread (sort keys %{$data{$pgb}{$src_num}{$type}}) {
-            	
-            	$threadnum = $thread_match{$thread};
+            	if ($pgb =~ /P|G/) {
+            	    $threadnum = $threads{$thread};
+            	} else {
+            	    $threadnum = get_threads($thread);
+                }
             	($tmax, $tmin, $tavg, $ttotal, $tcalls) = 
             	    @{$data{$pgb}{$src_num}{$type}{$thread}};
     		$tmax = shorten($tmax, $pgb);
@@ -346,12 +410,12 @@ EOF
 ########################
 
     format SHOWTYPE = 
-@<<  @>>>>>>> @>>>> @<<<<<<<<<  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
+@<< @<<<<<<<<< @>>>> @>>>>>>>>>  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
 $rank, $source, $lnum, $type, $min, $max, $avg, $total, $calls
 .
     
     format THREAD =
-           Thread @>>> :        @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
+    Thread @<<<<<<<<<<<<         @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
 $threadnum, $tmin, $tmax, $tavg, $ttotal, $tcalls
 .
 }
