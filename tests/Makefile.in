@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.39 2004/08/13 00:23:16 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.40 2004/08/23 22:09:32 bonachea Exp $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -185,7 +185,8 @@ do-run-testexit: force
 	 done ; \
 	 echo 'threadmode=`@PERL@ -n -e '"'"'$(perl_threadscan)'"'"' ' \
               'testexit@EXESUFFIX@ 2> /dev/null`'      >> $(TESTEXIT_SCRIPT) ; \
-	 echo 'if test "$$threadmode" != "PAR" ; then' >> $(TESTEXIT_SCRIPT) ; \
+	 echo 'if test "$$threadmode" = "SEQ" -o ' \
+                   '"$$threadmode" = "PARSYNC" ; then' >> $(TESTEXIT_SCRIPT) ; \
 	 echo '  echo "WARNING: testexit was compiled' \
               'in GASNET_$$threadmode mode"'           >> $(TESTEXIT_SCRIPT) ; \
 	 echo '  echo "WARNING: be sure to recompile the test in' \
