@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/07 23:10:28 $
-# $Revision: 1.168 $
+#     $Date: 2004/08/12 00:30:39 $
+# $Revision: 1.169 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.168 $)
+AC_REVISION($Revision: 1.169 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1042,8 +1042,9 @@ if test $enabled_gm = yes; then
       OLDLIBS="$LIBS"
       CFLAGS="-I$GM_INCLUDE -L$GM_LIB"
       LIBS="-lgm"
-      AC_TRY_COMPILE([], [
+      AC_TRY_COMPILE([
         #include <gm.h>
+        ], [
         #if GM_API_VERSION_2_0 &&                                 \
            ((GM_API_VERSION_2_1_0 && GM_API_VERSION < 0x20102) || \
              GM_API_VERSION < 0x2000c)
