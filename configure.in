@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/03/29 05:04:00 $
-# $Revision: 1.43 $
+#     $Date: 2003/04/01 07:27:33 $
+# $Revision: 1.44 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.43 $)
+AC_REVISION($Revision: 1.44 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -682,13 +682,16 @@ if test $have_elan = yes; then
   case "$target_os" in
     linux*)
 	# the default locations are /usr/include and /usr/lib
+        # rms libs are only there to support signalling exit, 
+        # if they're problematic they can be removed provided 
+        # you compile with -DGASNETC_USE_SIGNALING_EXIT=0
         GASNET_ENV_DEFAULT(ELAN_INCLUDE, /usr/include)
-	GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan -lelan3)
+	GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan -lelan3 -lrms -lrmscall -lrmsapi)
     ;;
     *)
 	# the default locations are /usr/opt/rms/include and /usr/lib
         GASNET_ENV_DEFAULT(ELAN_INCLUDE, /usr/opt/rms/include)
-	GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan -lelan3)
+	GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan -lelan3 -lrms -lrmscall -lrmsapi)
     ;;
   esac
 

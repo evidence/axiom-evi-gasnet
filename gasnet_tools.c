@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/03/23 20:04:25 $
- * $Revision: 1.28 $
+ *     $Date: 2003/04/01 07:27:33 $
+ * $Revision: 1.29 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -95,7 +95,7 @@ extern void gasneti_freezeForDebugger() {
   _freezeForDebugger(0);
 }
 /* ------------------------------------------------------------------------------------ */
-static gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t fp) {
+gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t fp) {
   gasneti_sighandlerfn_t fpret = (gasneti_sighandlerfn_t)signal(sigtocatch, fp); 
   if (fpret == (gasneti_sighandlerfn_t)SIG_ERR) {
     gasneti_fatalerror("Got a SIG_ERR while registering handler for signal %i : %s", 
@@ -132,6 +132,10 @@ static struct {
   DEF_SIGNAL(SIGPIPE)
 };
 
+#ifndef GASNETC_FATALSIGNAL_CALLBACK
+#define GASNETC_FATALSIGNAL_CALLBACK(sig)
+#endif
+
 void gasneti_defaultSignalHandler(int sig) {
   gasneti_sighandlerfn_t oldhandler = NULL;
   const char *signame = NULL;
@@ -154,6 +158,7 @@ void gasneti_defaultSignalHandler(int sig) {
     case SIGSEGV:
     case SIGBUS:
     case SIGFPE:
+      GASNETC_FATALSIGNAL_CALLBACK(sig); /* give conduit first crack at it */
       fprintf(stderr,"*** GASNet caught a fatal signal: %s(%i) on node %i/%i\n",
         signame, sig, gasnet_mynode(), gasnet_nodes()); 
       fflush(stderr);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/03/28 19:29:34 $
- * $Revision: 1.30 $
+ *     $Date: 2003/04/01 07:27:33 $
+ * $Revision: 1.31 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,6 +78,7 @@ extern void gasneti_freezeForDebugger();
 typedef void (*gasneti_sighandlerfn_t)(int);
 void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler);
 void gasneti_defaultSignalHandler(int sig);
+gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t fp);
 
 #ifdef HAVE_MMAP
   extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz);
@@ -239,7 +240,7 @@ extern int gasneti_VerboseErrors;
             } while (0)
   #else
     typedef struct {
-      int owner;
+      volatile int owner;
     } gasneti_mutex_t;
     #define GASNETI_MUTEX_INITIALIZER   { GASNETI_MUTEX_NOOWNER }
     #define gasneti_mutex_lock(pl) do {                     \

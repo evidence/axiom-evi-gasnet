@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2003/03/25 19:03:48 $
- * $Revision: 1.21 $
+ *     $Date: 2003/04/01 07:27:35 $
+ * $Revision: 1.22 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1440,10 +1440,15 @@ typedef struct {
 static gasnete_barrier_state_t *barrier_state = NULL;
 static int volatile barrier_blocking = 0;
 int gasnete_barrier_poll(void *handle, unsigned int *ready) {
-  if_pf (barrier_blocking) {
+  if_pf (barrier_blocking && !GASNETC_EXITINPROGRESS()) {
     UNLOCK_ELAN_WEAK();
       barrier_blocking = 0;
-      GASNETI_TRACE_EVENT(C, POLL_CALLBACK_BARRIER);
+      #if 0
+        GASNETI_TRACE_EVENT(C, POLL_CALLBACK_BARRIER);
+      #else
+        /* prevent high contention for trace lock while idling at barrier */
+        _GASNETI_STAT_EVENT(C, POLL_CALLBACK_BARRIER); 
+      #endif
       gasnet_AMPoll(); 
       barrier_blocking = 1;
     LOCK_ELAN_WEAK();

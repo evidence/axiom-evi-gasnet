@@ -21,6 +21,10 @@ Optional compile-time settings:
  bounce buffers for AMLongs that need it (disabling this may cause failures on
  elan out-of-memory conditions)
 
+* GASNETC_USE_SIGNALING_EXIT(1/0) - enable the use of RMS-based signals for 
+ non-collective terminations via gasnet_exit. Turning this off may result in
+ job hangs and orphaned nodes during non-collective calls to gasnet_exit().
+
 * GASNETE_USE_ELAN_PUTGET(1/0) - setting to zero makes all put/gets use AM
  rather than elanlib put/gets
 

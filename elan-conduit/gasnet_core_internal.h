@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/03/01 23:46:46 $
- * $Revision: 1.12 $
+ *     $Date: 2003/04/01 07:27:35 $
+ * $Revision: 1.13 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,6 +89,25 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #ifndef GASNETC_PREALLOC_AMLONG_BOUNCEBUF
 #define GASNETC_PREALLOC_AMLONG_BOUNCEBUF 1
 #endif
+
+#ifndef GASNETC_USE_SIGNALING_EXIT
+  #ifdef GASNETI_USE_GENERIC_ATOMICOPS
+    #define GASNETC_USE_SIGNALING_EXIT 0 /* need real atomic ops for signalling exit */
+  #else
+    #define GASNETC_USE_SIGNALING_EXIT 1
+  #endif
+#endif
+
+#if GASNETC_USE_SIGNALING_EXIT
+  extern gasneti_atomic_t gasnetc_remoteexitflag;
+  extern gasneti_atomic_t gasnetc_remoteexitrecvd; 
+  #define GASNETC_EXITINPROGRESS()       (gasneti_atomic_read(&gasnetc_remoteexitflag) != 1)
+  #define GASNETC_REMOTEEXITINPROGRESS() (gasneti_atomic_read(&gasnetc_remoteexitrecvd) != 0)
+#else 
+  #define GASNETC_EXITINPROGRESS() 0
+  #define GASNETC_REMOTEEXITINPROGRESS() 0
+#endif
+
 
 /* message flags */
  /* 0-1: category

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/03/31 09:03:06 $
- * $Revision: 1.20 $
+ *     $Date: 2003/04/01 07:27:35 $
+ * $Revision: 1.21 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,6 +15,17 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <signal.h>
+
+#if GASNETC_USE_SIGNALING_EXIT
+  #include <rms/rmsapi.h> /* for RMS calls in gasnetc_exit */
+
+  /* signal used to propagate exit notification across job using RMS global signalling */
+  #ifndef GASNETC_REMOTEEXIT_SIGNAL
+    #define GASNETC_REMOTEEXIT_SIGNAL  SIGUSR1
+  #endif
+  static void gasnetc_remoteexithandler(int sig);
+#endif
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
@@ -64,9 +75,16 @@ ELAN_TPORT *gasnetc_elan_tport = NULL;
 extern uint64_t gasnetc_clock() {
   if_pt (STATE()) {
     uint64_t val;
-    LOCK_ELAN_WEAK();
-      val = elan_clock(STATE());
-    UNLOCK_ELAN_WEAK();
+    #if 1
+        /* verified by source code inspection that elan_clock is always thread-safe
+           (just a 64-bit load of a NIC register)
+        */
+        val = elan_clock(STATE());
+    #else
+      LOCK_ELAN_WEAK();
+        val = elan_clock(STATE());
+      UNLOCK_ELAN_WEAK();
+    #endif
     return val;
   }
   else 
@@ -249,6 +267,13 @@ static int gasnetc_init(int *argc, char ***argv) {
     #error Bad segment config
   #endif
 
+  #if GASNETC_USE_SIGNALING_EXIT
+    /* register handlers early to handle calls to gasnet_exit between init and attach */
+    gasneti_reghandler(GASNETC_REMOTEEXIT_SIGNAL, gasnetc_remoteexithandler);
+    gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
+    gasnetc_bootstrapBarrier(); /* ensure everybody has registered exit handler */
+  #endif
+
   return GASNET_OK;
 }
 
@@ -327,6 +352,11 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   if (gasnetc_attach_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already attached");
 
+  /* wait for all nodes to arrive - increases system stability if there's a gasnet_exit()
+     call between init and attach 
+   */
+  gasnetc_bootstrapBarrier(); 
+
   /* dump startup elan environment */
   if (GASNETI_TRACE_ENABLED(C) && gasnetc_mynode == 0) {
     gasnetc_dump_envvars();
@@ -396,9 +426,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   /* ------------------------------------------------------------------------------------ */
   /*  register fatal signal handlers */
-
-  /* catch fatal signals and convert to SIGQUIT */
-  gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
+  #if !GASNETC_USE_SIGNALING_EXIT
+    /* catch fatal signals and convert to SIGQUIT */
+    gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
+  #endif
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
@@ -552,11 +583,216 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
-extern void gasnetc_exit(int exitcode) {
-  gasneti_trace_finish();
-  exit(exitcode); /* TODO: does this actually terminate the entire job? */ 
-  abort();
-}
+#if GASNETC_USE_SIGNALING_EXIT
+  #ifdef GASNETI_USE_GENERIC_ATOMICOPS
+    #error need real atomic ops with signal-safety for signaling gasnet_exit...
+  #endif
+  /* send a signal to all nodes in the job */
+  static void gasnetc_sendGlobalSignal(int sig) {
+    char *batchid;
+    char *p;
+    int resourceid, retval;
+
+    batchid = gasnet_getenv("RMS_RESOURCEID");
+    if (!batchid) gasneti_fatalerror("failed to getenv(RMS_RESOURCEID)");
+
+    p = strchr(batchid,'.');
+    if (!p) gasneti_fatalerror("bad RMS_RESOURCEID: %s", batchid);
+    resourceid = atoi(p+1);
+    if (resourceid <= 0) gasneti_fatalerror("bad RMS_RESOURCEID: %s", batchid);
+
+    retval = rms_killResource(resourceid, sig); /* global signal */
+    if (retval) {
+      /* rms_killResource fails intermittently, probably due to race conditions 
+         with remote signaling
+      */
+      GASNETI_TRACE_PRINTF(C,("rms_killResource(%i) failed: %s", 
+                              resourceid, rms_errorString(retval)));
+      sched_yield();
+      sleep(1);
+      if (GASNETC_REMOTEEXITINPROGRESS()) return; /* some other node beat us to it */
+
+      /* retry */
+      retval = rms_killResource(resourceid, sig); /* global signal */
+      gasneti_fatalerror("rms_killResource(%i) failed twice: %s", resourceid, rms_errorString(retval));
+    }
+
+    sched_yield(); /* allow signal to propagate */
+
+    #if 0
+      /* other global-signalling garbage that didn't work as documented */
+      #include <rms/rmscall.h>/* need this for the calls below */
+
+      batchid = getenv("RMS_JOBID");
+      if (!batchid) gasneti_fatalerror("failed to getenv(RMS_JOBID)");
+      resourceid = atoi(batchid);
+
+      resourceid = rms_resourceId(batchid);
+      if (resourceid < 0) gasneti_fatalerror("rms_resourceId(%s) failed:%i, %s", batchid,resourceid, rms_errorString(resourceid));
+
+      retval = rms_getprgid(getpid(), &resourceid);
+      if (retval) gasneti_fatalerror("rms_getprgid failed: %s", strerror(errno));
+
+      #if 1
+        retval = rms_prgsignal(resourceid, SIGQUIT);
+        if (retval) gasneti_fatalerror("rms_prgsignal(%i,SIGQUIT) failed: %s", resourceid, strerror(errno));
+      #else
+        { int ids[GASNET_MAXNODES];
+          int nids = 0;
+          int i;
+          retval = rms_prgids(GASNET_MAXNODES, ids, &nids);
+          if (retval) gasneti_fatalerror("rms_prgids failed: %s", strerror(errno));
+          if (nids != gasnetc_nodes) 
+            gasneti_fatalerror("rms_prgids returned only %i ids, expected %i", 
+            nids, gasnetc_nodes);
+          for (i = 0; i < nids; i++) {
+            if (ids[i] =! resourceid) {
+              retval = rms_prgsignal(ids[i], SIGQUIT);
+              if (retval) gasneti_fatalerror("rms_prgsignal(%i,SIGQUIT) failed: %s", ids[i], strerror(errno));
+            }
+          }
+        raise(SIGQUIT);
+        }
+      #endif
+    #endif
+  }
+  /* ------------------------------------------------------------------------------------ */
+  /* set to zero iff some node is known to be exiting */
+  gasneti_atomic_t gasnetc_remoteexitflag = gasneti_atomic_init(1); 
+  /* non-zero if some node has signalled us to exit */
+  gasneti_atomic_t gasnetc_remoteexitrecvd = gasneti_atomic_init(0); 
+  static void gasnetc_remoteexithandler(int sig) {
+    if (sig != GASNETC_REMOTEEXIT_SIGNAL) 
+      gasneti_fatalerror("recieved an unknown signal (%i) in gasnetc_remoteexithandler()", sig);
+
+    /* record that some node signalled us */
+    gasneti_atomic_increment(&gasnetc_remoteexitrecvd);
+
+    if (gasneti_atomic_decrement_and_test(&gasnetc_remoteexitflag)) {
+      /* some remote node just informed us that it's exiting, 
+         and it's the first we've heard about an exit 
+      */
+      raise(SIGQUIT); 
+      /* alternate design possibility:
+         rather than raising SIQUIT here (within a signal handler) and pay 
+         the instability consequences of running gasnet_exit in that context,
+         we could defer the SIGQUIT and instead raise it synchronously within the
+         next AMPoll. However, this has the potential to cause hangs or crashes
+         if we don't poll soon enough (before the other nodes disappear). We could
+         prevent this using a timer interrupt, but that's even more fragile complexity.
+      */
+    } else {
+      /* we already know about pending exit (from other node or because we initiated it)
+         so just ignore the signal... */
+      return;
+    }
+  }
+
+  extern void gasnetc_exit(int exitcode) {
+
+    #if 1
+      /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy 
+         unfortunately, it seems SIG_IGN masking is not effective when applied within 
+         a signal handler context (which we may be), hence the gasnetc_remoteexitflag hack
+       */
+      gasneti_reghandler(SIGQUIT, SIG_IGN);
+      #if 0
+        /* leave this one enabled so we can detect remote exit signals and prevent redundancy */
+        gasneti_reghandler(GASNETC_REMOTEEXIT_SIGNAL, SIG_IGN);
+      #endif
+    #endif
+
+    /* inform the GASNETC_REMOTEEXIT_SIGNAL handler that we're working on it and 
+       shouldn't be bothered further */
+    gasneti_atomic_decrement(&gasnetc_remoteexitflag);
+
+    {  /* ensure only one thread ever continues past this point */
+      static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
+      gasneti_mutex_lock(&exit_lock);
+    }
+
+    { /* a very nasty hack - 
+        We're in a signal handler and here to stay, so there's no way we can
+         ever gracefully unlock any locks we may hold in earlier stack frames. 
+        All we can really do is clear the locks out (to prevent local deadlocks/errors)
+         and hope for the best. If any other threads are actively using the NIC this 
+         will likely cause crashes, but there's really no alternative...
+      */
+      gasneti_mutex_t dummy_lock = GASNETI_MUTEX_INITIALIZER;
+      memcpy(&gasnetc_elanLock, &dummy_lock, sizeof(gasneti_mutex_t));
+      memcpy(&gasnetc_sendfifoLock, &dummy_lock, sizeof(gasneti_mutex_t));
+    }
+
+    GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
+
+    { /* final check for re-entrancy */
+      static int exit_inProgress = 0;
+      if (exit_inProgress) 
+          gasneti_fatalerror("attempted a re-enter gasnetc_exit");
+      exit_inProgress = 1;
+    }
+
+    gasneti_trace_finish();
+    if (fflush(stdout)) 
+      gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
+    if (fflush(stderr)) 
+      gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+    sched_yield();
+    sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
+
+    if (gasneti_atomic_read(&gasnetc_remoteexitrecvd) == 0) { 
+      /* we initiated this shutdown synchronously, and it appears that no remote node 
+         has signaled yet (reduce duplication of global termination signalling, 
+         esp for collective exit)
+         send a GASNETC_REMOTEEXIT_SIGNAL to the entire global job 
+      */
+      gasnetc_sendGlobalSignal(GASNETC_REMOTEEXIT_SIGNAL);
+    }
+
+    /* flush and close streams to ensure we don't lose output */
+    if (fflush(stdout)) 
+      gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
+    if (fflush(stderr)) 
+      gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+    sched_yield();
+    if (fclose(stdin)) 
+      gasneti_fatalerror("failed to fclose(stdin) in gasnetc_exit: %s", strerror(errno));
+    if (fclose(stdout)) 
+      gasneti_fatalerror("failed to fclose(stdout) in gasnetc_exit: %s", strerror(errno));
+    if (fclose(stderr)) 
+      gasneti_fatalerror("failed to fclose(stderr) in gasnetc_exit: %s", strerror(errno));
+    sched_yield();
+
+    _exit(exitcode); /* use _exit to bypass atexit handlers */
+    abort();
+  }
+  extern void gasnetc_fatalsignal_callback(int sig) {
+    if (GASNETC_EXITINPROGRESS()) {
+    /* if we get a fatal signal during exit, it's almost certainly a signal-safety
+       issue and not a client bug, so don't bother reporting it verbosely, 
+       just die silently
+     */
+      #if 0
+        abort();
+      #endif
+      _exit(1);
+    }
+  }
+#else /* !GASNETC_USE_SIGNALING_EXIT */
+  extern void gasnetc_exit(int exitcode) {
+    /* do a naive non-collective exit */
+    gasneti_trace_finish();
+    if (fflush(stdout)) 
+      gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
+    if (fflush(stderr)) 
+      gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+    sched_yield();
+    sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
+    _exit(exitcode); /* use _exit to bypass atexit handlers */
+    abort();
+  }
+  extern void gasnetc_fatalsignal_callback(int sig) {}
+#endif
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_new_threaddata_callback(void **core_threadinfo) {
   #if GASNETC_PREALLOC_AMLONG_BOUNCEBUF
@@ -576,6 +812,11 @@ extern void gasnetc_new_threaddata_callback(void **core_threadinfo) {
 extern void gasnetc_trace_finish() {
   /* dump elan statistics */
   if (GASNETI_TRACE_ENABLED(C) ) {
+    if (GASNETC_REMOTEEXITINPROGRESS()) {
+      /* trying to grab stats from the NIC during a signalled shutdown causes crashes */
+      GASNETI_STATS_PRINTF(C,("*** Elan stat dump omitted because remote gasnet_exit in progress ***"));
+      return;
+    }
     GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
     GASNETI_STATS_PRINTF(C,("Elan Statistics:"));
     gasnetc_dump_tportstats();
