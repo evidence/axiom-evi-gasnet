@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2002/12/26 03:43:15 $
- * $Revision: 1.3 $
+ *     $Date: 2003/01/03 00:33:28 $
+ * $Revision: 1.4 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -12,6 +12,8 @@
 
 #ifndef _GASNET_TIMER_H
 #define _GASNET_TIMER_H
+
+#include <assert.h>
 
 BEGIN_EXTERNC
 
@@ -102,7 +104,9 @@ BEGIN_EXTERNC
   #define GASNETI_STATTIME_NOW()      (gethrtime())
 #elif defined(LINUX) && defined(__GNUC__) && defined(__i386__)
   #include <stdio.h>
+  #include <stdlib.h>
   #include <string.h>
+  #include <math.h>
   typedef uint64_t gasneti_stattime_t;
   #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
   #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)

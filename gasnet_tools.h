@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2002/12/26 03:43:15 $
- * $Revision: 1.1 $
+ *     $Date: 2003/01/03 00:33:28 $
+ * $Revision: 1.2 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,6 +9,7 @@
 #define _GASNET_TOOLS_H
 #define _IN_GASNET_TOOLS_H
 
+#include <gasnet_config.h>
 #include <gasnet_basic.h>
 
 /* ------------------------------------------------------------------------------------ */

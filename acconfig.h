@@ -1,12 +1,15 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/12/26 03:43:15 $ */
-/*  $Revision: 1.11 $ */
+/*      $Date: 2003/01/03 00:33:28 $ */
+/*  $Revision: 1.12 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
 
 #ifndef _INCLUDE_GASNET_CONFIG_H_
 #define _INCLUDE_GASNET_CONFIG_H_
+#if !defined(_IN_GASNET_H) && !defined(_IN_GASNET_TOOLS_H)
+  #error This file is not meant to be included directly- clients should include gasnet.h or gasnet_tools.h
+#endif
 
 @TOP@
 
