@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/03/17 22:03:11 $
- * $Revision: 1.41 $
+ *     $Date: 2004/03/18 00:11:23 $
+ * $Revision: 1.42 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -355,7 +355,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     GASNET_INLINE_MODIFIER(gasneti_atomic_swap)
     int gasneti_atomic_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
       register uint32_t result;
-      register uint32_t temp;
       __asm__ __volatile__ (
 	"0:\t"
 	"lwarx    %0,0,%1 \n\t"         /* load to result */
