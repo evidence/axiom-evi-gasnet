@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.54 2004/03/18 03:48:50 csbell Exp $
- * $Date: 2004/03/18 03:48:50 $
- * $Revision: 1.54 $
+/* $Id: gasnet_core_internal.h,v 1.55 2004/04/09 01:05:09 bonachea Exp $
+ * $Date: 2004/04/09 01:05:09 $
+ * $Revision: 1.55 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -786,22 +786,25 @@ gasnetc_write_AMBufferSystem(	void *buf,
   int gasneti_atomic_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
     int retval;
 
-    #if GASNET_PAR
-      gasnet_hsl_lock(&gasneti_atomicop_lock);
-    #endif
+    gasnet_hsl_lock(&gasneti_atomicop_lock);
     retval = (p->ctr == oldval);
     if_pt (retval) {
       p->ctr = newval;
     }
-    #if GASNET_PAR
-      gasnet_hsl_unlock(&gasneti_atomicop_lock);
-    #endif
+    gasnet_hsl_unlock(&gasneti_atomicop_lock);
 
     return retval;
   }
   #define GASNETI_HAVE_ATOMIC_SWAP 1
 #elif defined(LINUX)
   #ifdef __i386__
+    #ifndef GASNETI_LOCK
+        #ifdef GASNETI_UNI_BUILD
+          #define GASNETI_LOCK ""
+        #else
+          #define GASNETI_LOCK "lock ; "
+        #endif
+    #endif
     GASNET_INLINE_MODIFIER(gasneti_atomic_swap)
     int gasneti_atomic_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
       register unsigned char retval;
