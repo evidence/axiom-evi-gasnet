@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2003/09/15 06:31:16 $
- * $Revision: 1.19 $
+ *     $Date: 2003/10/18 13:55:18 $
+ * $Revision: 1.20 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -247,7 +247,7 @@
    in one direction and the branch is a bottleneck
  */
 #ifndef PREDICT_TRUE
-  #if defined(HAVE_BUILTIN_EXPECT)
+  #if defined(__GNUC__) && defined(HAVE_BUILTIN_EXPECT)
    #define PREDICT_TRUE(exp)  __builtin_expect( (exp), 1 )
    #define PREDICT_FALSE(exp) __builtin_expect( (exp), 0 )
   #else
