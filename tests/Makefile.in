@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.23 2004/03/18 12:07:35 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.24 2004/03/18 19:19:06 phargrov Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -69,12 +69,14 @@ distclean:
 
 # default node count
 TEST_NODES=2
-# provide args and node counts for specific tests
+# provide args and node counts for specific tests, user overrides from EXTRA_PARAMS
 TEST_PARAMS=                    \
    testcore1_args="1000";       \
    testrand_args="1024";        \
    testlogGP_args="1000 65536"; \
-   testmisc_nodes="1";
+   testthreads_args="-a 2";	\
+   testmisc_nodes="1";		\
+   $(EXTRA_PARAMS)
 
 # omit tests that are supposed to fail or known to cause failures
 testprograms_err =      \
