@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2004/08/26 04:53:34 $
- * $Revision: 1.7 $
+ *     $Date: 2004/09/07 19:23:31 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -379,11 +379,15 @@ extern gasnete_coll_threaddata_t *gasnete_coll_new_threaddata(void);
 GASNET_INLINE_MODIFIER(_gasnete_coll_get_threaddata)
 gasnete_coll_threaddata_t *
 _gasnete_coll_get_threaddata(void *thread) {
-    void **tmp = (void **)thread;
-    gasnete_coll_threaddata_t *result = (gasnete_coll_threaddata_t *)tmp[1];
+    struct _prefix_of_gasnete_threaddata {
+	void				*reserved_for_core;
+	gasnete_coll_threaddata_t	*reserved_for_coll;
+	/* We don't care about the rest */
+    } *thread_local = thread;
+    gasnete_coll_threaddata_t *result = thread_local->reserved_for_coll;
 
     if_pf (result == NULL)
-	tmp[1] = result = gasnete_coll_new_threaddata();
+	thread_local->reserved_for_coll = result = gasnete_coll_new_threaddata();
 
     return result;
 }
