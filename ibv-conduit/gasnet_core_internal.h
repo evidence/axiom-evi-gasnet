@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2004/10/21 20:17:28 $
- * $Revision: 1.50 $
+ *     $Date: 2004/10/21 22:27:19 $
+ * $Revision: 1.51 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -389,6 +389,60 @@ int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
     retval = gasneti_atomic_read(&(s->count));
     if_pt(retval != 0)
       gasneti_atomic_decrement(&(s->count));
+
+    gasnetc_mutex_unlock(&(s->lock), concurrent);
+  #endif
+
+  return retval;
+}
+
+/* gasnetc_sema_up_n
+ *
+ * Increases the value of the semaphore by the indicated count.
+ * Since this just a busy-waiting semaphore, no waking operations are required.
+ */
+GASNET_INLINE_MODIFIER(gasnetc_sema_up_n)
+void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
+  #ifdef GASNETI_HAVE_ATOMIC_CAS
+    uint32_t old;
+    do {
+      old = gasneti_atomic_read(&(s->count));
+    } while (!gasneti_atomic_compare_and_swap(&(s->count), old, n + old));
+  #else
+    gasnetc_mutex_lock(&(s->lock), concurrent);
+    gasneti_atomic_write(&(s->count), n + gasneti_atomic_read(&(s->count)));
+    gasnetc_mutex_unlock(&(s->lock), concurrent);
+  #endif
+}
+
+/* gasnetc_sema_trydown_n
+ *
+ * Decrements the semaphore by as much as 'n' and returns the number of "counts" thus
+ * obtained.  The decrement is the smaller of 'n' and the "old" value of the semaphore,
+ * and this value is returned.
+ * If the "old" value is zero, returns zero.
+ *
+ * If non-zero, the "concurrent" argument indicates that there are multiple threads
+ * calling gasnetc_sema_trydown, and thus locking is required.
+ */
+GASNET_INLINE_MODIFIER(gasnetc_sema_trydown_n)
+uint32_t gasnetc_sema_trydown_n(gasnetc_sema_t *s, uint32_t n, int concurrent) {
+  uint32_t retval, old;
+
+  #ifdef GASNETI_HAVE_ATOMIC_CAS
+    do {
+      old = gasneti_atomic_read(&(s->count));
+      if_pf (old == 0)
+        return 0;
+      retval = MIN(old, n);
+    } while(!gasneti_atomic_compare_and_swap(&(s->count), old, old - retval));
+    gasneti_sync_reads();
+  #else
+    gasnetc_mutex_lock(&(s->lock), concurrent);
+
+    old = gasneti_atomic_read(&(s->count));
+    retval = MIN(old, n);
+    gasneti_atomic_write(&(s->count), old - retval);
 
     gasnetc_mutex_unlock(&(s->lock), concurrent);
   #endif
