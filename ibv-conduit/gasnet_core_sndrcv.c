@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2004/02/13 19:20:07 $
- * $Revision: 1.44 $
+ *     $Date: 2004/02/13 20:53:13 $
+ * $Revision: 1.45 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -90,8 +90,7 @@ typedef struct {
 
   #if GASNETC_USE_FIREHOSE
   /* Firehose data */
-    int                         has_fh_loc;
-    int                         has_fh_rem;
+    const firehose_request_t	*fh_ptr[2];
     firehose_request_t          fh_loc;
     firehose_request_t          fh_rem;
     gasneti_atomic_t		fh_oust;
@@ -354,21 +353,10 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 	  }
 	  
 	  #if GASNETC_USE_FIREHOSE
-	  {
-	    firehose_request_t const *fh_reqs[2];
-	    int i = 0;
-
-	    if (sreq->has_fh_loc) {
-	      fh_reqs[i] = &(sreq->fh_loc);
-	      ++i;
-	    }
-	    if (sreq->has_fh_rem) {
-	      fh_reqs[i] = &(sreq->fh_rem);
-	      ++i;
-	    }
-	    if (i) {
-	      firehose_release(fh_reqs, i);
-	    }
+	  if (sreq->fh_ptr[1]) {
+	    firehose_release(sreq->fh_ptr, 2);
+	  } else if (sreq->fh_ptr[0]) {
+	    firehose_release(sreq->fh_ptr, 1);
 	  }
 	  #endif
 
@@ -588,8 +576,8 @@ gasnetc_sreq_t *gasnetc_get_sreq(int need_bbuf) {
   sreq->req_oust = NULL;
   sreq->addr = NULL;
   #if GASNETC_USE_FIREHOSE
-    sreq->has_fh_loc = 0;
-    sreq->has_fh_rem = 0;
+    sreq->fh_ptr[0] = NULL;
+    sreq->fh_ptr[1] = NULL;
   #endif
 
   return sreq;
@@ -1521,17 +1509,20 @@ static void gasnetc_fh_put_inline(void *context, const firehose_request_t *req, 
 
   gasneti_assert(req == &(sreq->fh_rem));
 
-  sreq->has_fh_rem = 1;
+  sreq->fh_ptr[0] = &(sreq->fh_rem);
   sreq->sr_desc.r_key = sreq->fh_rem.client.rkey;
+
   gasnetc_snd_post_inline(sreq);
 }
 
 GASNET_INLINE_MODIFIER(gasnetc_fh_post)
 void gasnetc_fh_post(gasnetc_sreq_t *sreq) {
-  sreq->has_fh_loc = 1;
-  sreq->has_fh_rem = 1;
-  sreq->sr_sg[0].lkey = sreq->fh_loc.client.lkey;
+  sreq->fh_ptr[0] = &(sreq->fh_rem);
   sreq->sr_desc.r_key = sreq->fh_rem.client.rkey;
+
+  sreq->fh_ptr[1] = &(sreq->fh_loc);
+  sreq->sr_sg[0].lkey = sreq->fh_loc.client.lkey;
+
   gasnetc_snd_post(sreq);
 }
 
