@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2005/01/24 14:23:24 $
-# $Revision: 1.29 $
+#     $Date: 2005/02/02 19:06:47 $
+# $Revision: 1.30 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -198,7 +198,7 @@ sub parse_threadinfo
     while (<TRACEFILE>) {
         next unless /MAGIC/ || /\(B\)/;
         if (/MAGIC/) {
-            m/^(\S+).*I am thread\s(\d+) of (\d+).*on node\s(\d+) of (\d+)\s.*<(.+)>$/;
+            m/^(\S+).*?I am thread (\d+) of (\d+).*?on node (\d+) of (\d+).*?in job <([^>]+)>.*$/;
             $threads{$1} = $2;
             $nodes{$1} = $4;
             $node_threads_seen{$4}++;
