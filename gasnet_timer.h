@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2004/10/11 06:59:50 $
- * $Revision: 1.26 $
+ *     $Date: 2004/10/11 09:58:31 $
+ * $Revision: 1.27 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -60,8 +60,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 }
 
 #if defined(GASNETC_CONDUIT_SPECIFIC_TIMERS)
-  #if !defined(GASNETI_STATTIME_MIN) || !defined(GASNETI_STATTIME_MAX) || \
-      !defined(GASNETI_STATTIME_TO_US) || !defined(GASNETI_STATTIME_NOW)
+  #if !defined(GASNETI_STATTIME_TO_US) || !defined(GASNETI_STATTIME_NOW)
     #error Incomplete conduit-specific timer impl.
   #endif
 #elif defined(AIX)
@@ -72,8 +71,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
      but timebasestruct_t structs are too difficult to perform arithmetic on
      we stuff the internal cycle counter into a 64-bit holder and expand to realtime later */
   typedef uint64_t gasneti_stattime_t;
-  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
   GASNET_INLINE_MODIFIER(gasneti_stattime_now)
   gasneti_stattime_t gasneti_stattime_now() {
     timebasestruct_t t;
@@ -110,8 +107,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #endif
 
   typedef uint64_t gasneti_stattime_t;
-  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
 
   #if 0
     #define GASNETI_STATTIME_TO_US(st)  ((st) * 1000000 / GetMachineInfo(mi_hz))
@@ -125,8 +120,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #include <sys/ptimers.h>
 
   typedef uint64_t gasneti_stattime_t;
-  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
   GASNET_INLINE_MODIFIER(gasneti_stattime_now)
   gasneti_stattime_t gasneti_stattime_now() {
     struct timespec t;
@@ -141,8 +134,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
      union to implement longlong_t and hence hrtime_t, and the test to
      determine this is (__STDC__ - 0 == 0) which is totally bogus */
   typedef uint64_t gasneti_stattime_t;
-  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
   GASNET_INLINE_MODIFIER(gasneti_stattime_now)
   gasneti_stattime_t gasneti_stattime_now() {
     hrtime_t t = gethrtime();
@@ -157,7 +148,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     assert(sizeof(gasneti_stattime_t) == 8);
     return (*(uint64_t*)&st)/1000;
   }
-  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
   #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)(((uint64_t)-1)>>1))
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gethrtime())
@@ -172,8 +162,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     #include <ia64intrin.h>
   #endif
   typedef uint64_t gasneti_stattime_t;
-  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
   GASNET_INLINE_MODIFIER(gasneti_stattime_now)
   uint64_t gasneti_stattime_now (void) {
     uint64_t ret;
@@ -236,8 +224,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #include <time.h>
 
   typedef uint64_t gasneti_stattime_t;
-  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
   GASNET_INLINE_MODIFIER(gasneti_stattime_now)
   gasneti_stattime_t gasneti_stattime_now() {
     struct timespec t;
@@ -259,8 +245,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
          http://softwareforums.intel.com/ids/board/message?board.id=16&message.id=1509
   */
   typedef uint64_t gasneti_stattime_t;
-  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
   GASNET_INLINE_MODIFIER(gasneti_stattime_now)
   gasneti_stattime_t gasneti_stattime_now() {
     LARGE_INTEGER val;
@@ -287,10 +271,15 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_USING_GETTIMEOFDAY
   /* portable microsecond granularity wall-clock timer */
   typedef uint64_t gasneti_stattime_t;
-  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
   #define GASNETI_STATTIME_TO_US(st)  (st)
   #define GASNETI_STATTIME_NOW()      ((gasneti_stattime_t)gasneti_getMicrosecondTimeStamp())
+#endif
+
+#ifndef GASNETI_STATTIME_MIN
+#define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
+#endif
+#ifndef GASNETI_STATTIME_MAX
+#define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
 #endif
 
 /* return a double value representing the approximate microsecond

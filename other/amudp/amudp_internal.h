@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2004/10/08 07:47:17 $
- * $Revision: 1.10 $
+ *     $Date: 2004/10/11 09:58:35 $
+ * $Revision: 1.11 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -427,7 +427,16 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
 #endif
 //------------------------------------------------------------------------------------
 /* *** TIMING *** */
-#ifdef UETH
+#if defined(HAVE_GASNET_TOOLS)
+  #include <gasnet_tools.h>
+  #define getMicrosecondTimeStamp() (gasnett_ticks_to_us(gasnett_ticks_now()))
+  #define getCPUTicks()             ((amudp_cputick_t)gasnett_ticks_now())
+  #define ticks2us(ticks)           (gasnett_ticks_to_us((gasnett_tick_t)(ticks)))
+  #define us2ticks(us) \
+    ((amudp_cputick_t)(us) * \
+     (amudp_cputick_t)(1000000000.0 / gasnett_ticks_to_us((gasnett_tick_t)1000000000)))
+  #define tickspersec               us2ticks(1000000)  
+#elif defined(UETH)
   /* Ticks == CPU cycles for UETH */
   #define getMicrosecondTimeStamp() ueth_getustime()
   #define getCPUTicks()             ((amudp_cputick_t)ueth_getcputime())
@@ -473,10 +482,16 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
         abort();
         }
       retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
+      #ifdef __crayx1
+        /* fix an empirically observed bug in UNICOS gettimeofday(),
+           which occasionally returns ridiculously incorrect values
+         */
+        if_pf(retval < (((int64_t)3) << 48)) goto retry;
+      #endif
       return retval;
       }
   #endif
-  /* Ticks == us for UDP */
+  /* Ticks == us for gettimeofday */
   #define getCPUTicks()             ((amudp_cputick_t)getMicrosecondTimeStamp())
   #define ticks2us(ticks)           (ticks)
   #define us2ticks(us)              ((amudp_cputick_t)(us))
@@ -491,17 +506,19 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
    you have strong reason to believe the branch will frequently go
    in one direction and the branch is a bottleneck
  */
-#if defined(__GNUC__) && __GNUC__ >= 3 && 0
- #define PREDICT_TRUE(exp)  __builtin_expect( (exp), 1 )
- #define PREDICT_FALSE(exp) __builtin_expect( (exp), 0 )
-#else
- #define PREDICT_TRUE(exp)  (exp)
- #define PREDICT_FALSE(exp) (exp)
-#endif
+#ifndef PREDICT_TRUE
+  #if defined(__GNUC__) && __GNUC__ >= 3 && 0
+   #define PREDICT_TRUE(exp)  __builtin_expect( (exp), 1 )
+   #define PREDICT_FALSE(exp) __builtin_expect( (exp), 0 )
+  #else
+   #define PREDICT_TRUE(exp)  (exp)
+   #define PREDICT_FALSE(exp) (exp)
+  #endif
 
-/* if with branch prediction */
-#define if_pf(cond) if (PREDICT_FALSE(cond))
-#define if_pt(cond) if (PREDICT_TRUE(cond))
+  /* if with branch prediction */
+  #define if_pf(cond) if (PREDICT_FALSE(cond))
+  #define if_pt(cond) if (PREDICT_TRUE(cond))
+#endif
 
 END_EXTERNC
 

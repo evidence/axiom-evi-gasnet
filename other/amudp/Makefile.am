@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2004/09/16 21:38:07 $
-# $Revision: 1.19 $
+#     $Date: 2004/10/11 09:58:35 $
+# $Revision: 1.20 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -35,7 +35,8 @@ platform_libraries = @LIBS@ @GASNET_UDP_LIBS@
 VPATH = $(srcdir)
 testdir = $(srcdir)/../amxtests
 altincdir = $(srcdir)/..
-INCLUDES = -I$(srcdir) -I$(altincdir) $(platform_defines)
+gasnet_tools = -I$(srcdir)/../.. -I../.. -DHAVE_GASNET_TOOLS
+INCLUDES = -I$(srcdir) -I$(altincdir) $(platform_defines) $(gasnet_tools)
 compile = $(CC) $(CFLAGS) $(INCLUDES)
 cxxcompile = $(CXX) $(CXXFLAGS) $(INCLUDES)
 link = $(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) 

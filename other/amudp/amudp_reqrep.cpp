@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2004/10/04 17:05:28 $
- * $Revision: 1.16 $
+ *     $Date: 2004/10/11 09:58:35 $
+ * $Revision: 1.17 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -441,7 +441,7 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
    * and retransmit as necessary. return AM_OK or AM_ERR_XXX
    */
   amudp_cputick_t now = getCPUTicks();
-  static amudp_cputick_t const initial_requesttimeout_cputicks = us2ticks(AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC);
+  static amudp_cputick_t initial_requesttimeout_cputicks = 0;
   int numdesc = ep->PD;
   int curpos = ep->timeoutCheckPosn;
   if (numtocheck <= 0 || numtocheck > numdesc) numtocheck = numdesc;
@@ -465,6 +465,7 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
           temp *= AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER;
           max_retryCount++;
         }
+        initial_requesttimeout_cputicks = us2ticks(AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC);
         firsttime = 0;
       }
       if (retryCount >= max_retryCount) {
@@ -505,6 +506,7 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
         outgoingdesc->retryCount = retryCount;
         amudp_cputick_t timetowait = initial_requesttimeout_cputicks * 
              intpow(AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER, retryCount);
+        AMUDP_assert(initial_requesttimeout_cputicks != 0);
       
         /* retransmit */
         { /*  perform the send */
@@ -1163,10 +1165,11 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
   { amudp_cputick_t now = getCPUTicks();
     uint32_t ustimeout = AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC;
     /* we carefully use 32-bit datatypes here to avoid 64-bit multiply/divide */
-    static amudp_cputick_t ticksperus = us2ticks(1);
-    static int firsttime = 1;
     static uint32_t expectedusperbyte = 0; /* cache precomputed value */
+    static amudp_cputick_t ticksperus = 0;
+    static int firsttime = 1;
     if_pf (firsttime) {
+      ticksperus = us2ticks(1);
       expectedusperbyte = /* allow 2x of slop for reply */
         (uint32_t)((2 * 1000000.0 / 1024.0) / AMUDP_ExpectedBandwidth);
       firsttime = 0;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2004/08/26 04:53:32 $
- * $Revision: 1.16 $
+ *     $Date: 2004/10/11 09:58:33 $
+ * $Revision: 1.17 $
  * Description: GASNet header for elan conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,8 +47,6 @@ BEGIN_EXTERNC
 /* use ELAN-specific high-performance nanosecond timer */
 #define GASNETC_CONDUIT_SPECIFIC_TIMERS
 typedef uint64_t gasneti_stattime_t;
-#define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
-#define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
 extern uint64_t gasnetc_clock();
 #define GASNETI_STATTIME_NOW()      (gasnetc_clock())
 #define GASNETI_STATTIME_TO_US(st)  ((st)/1000)
