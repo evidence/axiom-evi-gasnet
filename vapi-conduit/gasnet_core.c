@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/06/18 18:38:47 $
- * $Revision: 1.53 $
+ *     $Date: 2004/08/03 23:49:26 $
+ * $Revision: 1.54 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1161,6 +1161,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 /*
   Exit handling code
 */
+
+#if !GASNETI_HAVE_ATOMIC_SWAP
+  #error "required atomic compare-and-swap is not yet implemented for your CPU/OS/compiler"
+#endif
 
 gasneti_atomic_t gasnetc_exit_running = gasneti_atomic_init(0);		/* boolean used by GASNETC_IS_EXITING */
 

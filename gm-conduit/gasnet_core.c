@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.63 2004/07/17 17:00:33 bonachea Exp $
- * $Date: 2004/07/17 17:00:33 $
+/* $Id: gasnet_core.c,v 1.64 2004/08/03 23:49:24 phargrov Exp $
+ * $Date: 2004/08/03 23:49:24 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -503,6 +503,10 @@ gasnetc_exit_old(int exitcode)
 /*
   Exit handling code (originates from Paul's vapi-conduit)
 */
+
+#if !GASNETI_HAVE_ATOMIC_SWAP
+  #error "required atomic compare-and-swap is not yet implemented for your CPU/OS/compiler"
+#endif
 
 gasneti_atomic_t gasnetc_exit_running = gasneti_atomic_init(0);		/* boolean used by GASNETC_IS_EXITING */
 

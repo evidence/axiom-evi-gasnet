@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.59 2004/08/03 19:21:44 phargrov Exp $
- * $Date: 2004/08/03 19:21:44 $
- * $Revision: 1.59 $
+/* $Id: gasnet_core_internal.h,v 1.60 2004/08/03 23:49:24 phargrov Exp $
+ * $Date: 2004/08/03 23:49:24 $
+ * $Revision: 1.60 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -868,10 +868,6 @@ gasnetc_write_AMBufferSystem(	void *buf,
 #else
   #define GASNETI_HAVE_ATOMIC_SWAP 0
 #endif
-
-#if !GASNETI_HAVE_ATOMIC_SWAP
-  #warning "It would be a good idea to add gasneti_atomic_swap for your arch/OS"
-#endif 
 
 
 /* -------------------------------------------------------------------------- */

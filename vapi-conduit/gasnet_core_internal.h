@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/08/03 23:26:41 $
- * $Revision: 1.46 $
+ *     $Date: 2004/08/03 23:49:26 $
+ * $Revision: 1.47 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -395,10 +395,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 #ifndef GASNETI_HAVE_ATOMIC_SWAP
   #define GASNETI_HAVE_ATOMIC_SWAP 0
 #endif
-
-#if !GASNETI_HAVE_ATOMIC_SWAP
-  #warning "It would be a good idea to add gasneti_atomic_swap for your arch/OS/compiler"
-#endif 
 
 /* ------------------------------------------------------------------------------------ */
 
