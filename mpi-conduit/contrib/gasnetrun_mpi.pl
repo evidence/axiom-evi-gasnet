@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2004/08/26 04:53:44 $
-# $Revision: 1.12 $
+#     $Date: 2004/10/08 07:47:15 $
+# $Revision: 1.13 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -196,6 +196,7 @@ sub expand {
 
 # We need to gather a list of important environment variables
     # Form a list of the vars given by -E, plus any GASNET_* vars
+    $ENV{"GASNET_VERBOSEENV"} = "1" if ($verbose);
     my @envvars = ((grep {+exists($ENV{$_})} split(',', $envlist)),
 		   (grep {+m/^GASNET_/} keys(%ENV)));
 

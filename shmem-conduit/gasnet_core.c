@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2004/10/07 23:28:15 $
- * $Revision: 1.4 $
+ *     $Date: 2004/10/08 07:47:25 $
+ * $Revision: 1.5 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,7 +42,7 @@ gasnet_seginfo_t	*gasnetc_seginfo = NULL;
 size_t			 gasnetc_pagesize;
 
 int  gasnetc_amq_idx = 0;
-int  gasnetc_amq_depth = 64;	/* max is GASNETC_AMQUEUE_MAX_DEPTH */
+int  gasnetc_amq_depth = -1;	/* max is GASNETC_AMQUEUE_MAX_DEPTH */
 int  gasnetc_amq_mask;
 
 int  gasnetc_verbose_spawn = 0;
@@ -88,23 +88,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   if (gasneti_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
 
-  if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
-
-  qdepth = getenv("GASNET_SHMEM_QDEPTH");
-  if (qdepth && *qdepth != '\0') {
-	int qdepth_i = atoi(qdepth);
-
-	if (!GASNETC_AMQUEUE_SIZE_VALID(qdepth_i))
-	    GASNETI_RETURN_ERRR(BAD_ARG, "Invalid QDepth parameter");
-
-	gasnetc_amq_depth = qdepth_i;
-  }
-
-  gasnetc_amq_mask = (gasnetc_amq_depth-1);
-
-  #if CRAY_SHMEM
-    gasnetc_amq_numfields = (gasnetc_amq_depth+63)/64;
-  #endif
+  gasneti_freezeForDebugger();
 
   #if GASNET_DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
@@ -119,6 +103,17 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   gasnetc_mynode = shmem_my_pe();
   gasnetc_nodes = shmem_n_pes();
+
+  /* setup queue depth once we have node id, for best env tracing */
+  gasnetc_amq_depth = atoi(
+    gasneti_getenv_withdefault("GASNET_SHMEM_QDEPTH", _STRINGIFY(GASNETC_AMQUEUE_DEFAULT_DEPTH)));
+  if (!GASNETC_AMQUEUE_SIZE_VALID(gasnetc_amq_depth))
+      GASNETI_RETURN_ERRR(BAD_ARG, "Invalid QDepth parameter");
+  gasnetc_amq_mask = (gasnetc_amq_depth-1);
+  #if CRAY_SHMEM
+    gasnetc_amq_numfields = (gasnetc_amq_depth+63)/64;
+  #endif
+
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 

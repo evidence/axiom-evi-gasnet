@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spawn.cpp,v $
- *     $Date: 2004/10/04 16:47:52 $
- * $Revision: 1.6 $
+ *     $Date: 2004/10/08 07:47:17 $
+ * $Revision: 1.7 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -155,11 +155,8 @@ int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
 
   pid = getpid();
 
-  rexec_cmd = AMUDP_getenv_prefixed("REXEC_CMD");
-  if (!rexec_cmd) rexec_cmd = "rexec";
-
-  rexec_options = AMUDP_getenv_prefixed("REXEC_OPTIONS");
-  if (!rexec_options) rexec_options = "-q";
+  rexec_cmd = AMUDP_getenv_prefixed_withdefault("REXEC_CMD", "rexec");
+  rexec_options = AMUDP_getenv_prefixed_withdefault("REXEC_OPTIONS", "-q");
 
   cmd1[0] = '\0';
   for (i = 0; i < argc; i++) {
@@ -257,24 +254,19 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
 
   pid = getpid();
 
-  ssh_servers = AMUDP_getenv_prefixed("SSH_SERVERS");
-  if (!ssh_servers) {
+  ssh_servers = AMUDP_getenv_prefixed_withdefault("SSH_SERVERS","");
+  if (!strlen(ssh_servers)) {
     printf("Environment variable SSH_SERVERS is missing.\n");
     return FALSE;
-    }
+  }
 
 
-  ssh_remote_path = AMUDP_getenv_prefixed("SSH_REMOTE_PATH");
-  if (!ssh_remote_path) {
-    if (!getcwd(cwd, 1024)) {
-      printf("Error calling getcwd()\n");
-      return FALSE;
-      }
-    ssh_remote_path = cwd;
-    }
-
-  ssh_cmd = AMUDP_getenv_prefixed("SSH_CMD");
-  if (!ssh_cmd) ssh_cmd = "ssh";
+  if (!getcwd(cwd, 1024)) {
+    printf("Error calling getcwd()\n");
+    return FALSE;
+  }
+  ssh_remote_path = AMUDP_getenv_prefixed_withdefault("SSH_REMOTE_PATH", cwd);
+  ssh_cmd = AMUDP_getenv_prefixed_withdefault("SSH_CMD", "ssh");
 
   int isOpenSSH = 0; /* figure out if we're using OpenSSH */
   { char cmdtmp[1024];
@@ -290,8 +282,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
     pclose(pop);
   }
 
-  ssh_options = AMUDP_getenv_prefixed("SSH_OPTIONS");
-  if (!ssh_options) ssh_options = "";
+  ssh_options = AMUDP_getenv_prefixed_withdefault("SSH_OPTIONS","");
 
   cmd1[0] = '\0';
   for (i = 0; i < argc; i++) {
@@ -411,14 +402,16 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
 
   pid = getpid();
 
-  spawn_cmd = AMUDP_getenv_prefixed("CSPAWN_CMD");
-  spawn_servers = AMUDP_getenv_prefixed("CSPAWN_SERVERS");
-  spawn_route_output = !!AMUDP_getenv_prefixed("CSPAWN_ROUTE_OUTPUT");
-
-  if (!spawn_cmd) {
+  spawn_cmd = AMUDP_getenv_prefixed_withdefault("CSPAWN_CMD","");
+  if (!strlen(spawn_cmd)) {
     ErrMessage("You must set the "AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD environment variable to use the custom spawn function"); 
     return FALSE;
   }
+  spawn_servers = AMUDP_getenv_prefixed_withdefault("CSPAWN_SERVERS","");
+  if (!strlen(spawn_servers)) spawn_servers = NULL;
+  spawn_route_output = 
+    strcmp(AMUDP_getenv_prefixed_withdefault("CSPAWN_ROUTE_OUTPUT","0"),"0");
+
 
   if (spawn_servers) { /* build server list */
     char *p = spawn_servers;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2004/08/26 04:54:13 $
- * $Revision: 1.23 $
+ *     $Date: 2004/10/08 07:47:33 $
+ * $Revision: 1.24 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,12 +58,6 @@ gasnet_node_t gasnet_nodes() {
 }
 
 #define gasnet_getSegmentInfo gasnetc_getSegmentInfo
-
-GASNET_INLINE_MODIFIER(gasnet_getenv)
-char *gasnet_getenv(const char *s) {
-  GASNETI_CHECKINIT();
-  return gasneti_getenv(s);
-}
 
 /* ------------------------------------------------------------------------------------ */
 /*

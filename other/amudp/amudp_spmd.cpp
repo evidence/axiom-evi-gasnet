@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2004/10/04 17:05:28 $
- * $Revision: 1.15 $
+ *     $Date: 2004/10/08 07:47:17 $
+ * $Revision: 1.16 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -303,8 +303,8 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     /* defaulting */
     if (networkdepth < 0) AMUDP_RETURN_ERR(BAD_ARG);
     if (networkdepth == 0) {
-      const char *netdepth_str = AMUDP_getenv_prefixed("NETWORKDEPTH");
-      if (netdepth_str) networkdepth = atoi(netdepth_str);
+      networkdepth = atoi(
+        AMUDP_getenv_prefixed_withdefault("NETWORKDEPTH", _STRINGIFY(AMUDP_DEFAULT_NETWORKDEPTH)));
       if (networkdepth <= 0) networkdepth = AMUDP_DEFAULT_NETWORKDEPTH;
     }
 
@@ -1569,6 +1569,40 @@ char *AMUDP_getenv_prefixed(const char *basekey) {
   }
   if (winner == -1) return NULL;
   else return (char *)val[winner];
+}
+
+char *AMUDP_getenv_prefixed_withdefault(const char *basekey, const char *defaultval) {
+  static int firsttime = 1;
+  static int verboseenv = 0;
+  char * retval = NULL;
+  int usingdefault = 0;
+  const char *dflt = "";
+  if (firsttime) {
+    #if AMUDP_DEBUG_VERBOSE
+      verboseenv = 1;
+    #else
+      verboseenv = !!AMUDP_getenv_prefixed("VERBOSEENV");
+    #endif
+    firsttime = 0;
+  }
+  AMUDP_assert(defaultval != NULL);
+  retval = AMUDP_getenv_prefixed(basekey);
+  if (retval == NULL) {
+    retval = (char *)defaultval;
+    dflt = "   (default)";
+  }
+  if (verboseenv && (AMUDP_SPMDMYPROC == -1 || AMUDP_SPMDMYPROC == 0)) {
+    const char *displayval = retval;
+    char displaykey[255];
+    int width;
+    if (strlen(retval) == 0) displayval = "*empty*";
+    AMUDP_assert(strlen(basekey)+strlen(AMUDP_ENV_PREFIX_STR) < 200);
+    sprintf(displaykey,"%s_%s",AMUDP_ENV_PREFIX_STR,basekey);
+    width = MAX(10,55 - strlen(displaykey) - strlen(displayval));
+    fprintf(stderr, "ENV parameter: %s = %s%*s\n", displaykey, displayval, width, dflt);
+    fflush(stderr);
+  }
+  return retval;
 }
 /* ------------------------------------------------------------------------------------ */
 

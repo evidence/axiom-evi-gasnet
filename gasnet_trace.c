@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2004/09/27 09:52:55 $
- * $Revision: 1.77 $
+ *     $Date: 2004/10/08 07:47:03 $
+ * $Revision: 1.78 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -286,13 +286,15 @@ static void _freezeForDebugger(int depth) {
 }
 extern void gasneti_freezeForDebugger() {
   char name[255];
-  gethostname(name, 255);
-  fprintf(stderr,"GASNet node frozen for debugger: host=%s  pid=%i\n"
-                 "To unfreeze, attach a debugger and set 'gasnet_frozen' to 0, or send a "
-                 GASNETI_UNFREEZE_SIGNAL_STR "\n", 
-                 name, (int)getpid()); 
-  fflush(stderr);
-  _freezeForDebugger(0);
+  if (gasneti_getenv_yesno_withdefault("GASNET_FREEZE",0)) {
+    gethostname(name, 255);
+    fprintf(stderr,"GASNet node frozen for debugger: host=%s  pid=%i\n"
+                   "To unfreeze, attach a debugger and set 'gasnet_frozen' to 0, or send a "
+                   GASNETI_UNFREEZE_SIGNAL_STR "\n", 
+                   name, (int)getpid()); 
+    fflush(stderr);
+    _freezeForDebugger(0);
+  }
 }
 /* ------------------------------------------------------------------------------------ */
 gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t fp) {
@@ -544,7 +546,12 @@ extern void gasneti_setupGlobalEnvironment(gasnet_node_t numnodes, gasnet_node_t
 extern char *gasneti_getenv(const char *keyname) {
   char *retval = NULL;
 
-  if (keyname && gasneti_globalEnv) { 
+  #ifdef GASNETI_CONDUIT_GETENV
+    /* highest priority given to conduit-specific getenv */
+    retval = GASNETI_CONDUIT_GETENV(keyname);
+  #endif
+
+  if (keyname && !retval && gasneti_globalEnv) { 
     /* global environment takes precedence 
      * (callers who want the local environment can call getenv directly)
      */
@@ -566,6 +573,60 @@ extern char *gasneti_getenv(const char *keyname) {
                           (keyname?keyname:"NULL"),(retval?retval:"NULL")));
 
   return retval;
+}
+
+/* expression that defines whether the given process should report to the console
+   on env queries - needs to work before gasnet_init
+ */
+#ifndef GASNETI_ENV_OUTPUT_NODE
+#define GASNETI_ENV_OUTPUT_NODE() \
+        (gasnetc_mynode == 0 || gasnetc_mynode == (gasnet_node_t)-1)
+#endif
+
+static char *_gasneti_getenv_withdefault(const char *keyname, const char *defaultval, int yesno) {
+  const char * retval = NULL;
+  static int firsttime = 1;
+  static int verboseenv = 0;
+  const char *dflt = "";
+  if (firsttime) {
+    #if GASNET_DEBUG_VERBOSE
+      verboseenv = 1;
+    #else
+      verboseenv = !!gasneti_getenv("GASNET_VERBOSEENV");
+    #endif
+    if (gasneti_init_done) firsttime = 0;
+  }
+  gasneti_assert(defaultval != NULL);
+  retval = gasneti_getenv(keyname);
+  if (retval == NULL) {
+    retval = defaultval;
+    dflt = "   (default)";
+  }
+  if (yesno) {
+    char s[10];
+    int i;
+    strncpy(s, retval, 10); s[9] = '\0';
+    for (i = 0; i < 10; i++) s[i] = toupper(s[i]);
+    if (!strcmp(s, "N") || !strcmp(s, "NO") || !strcmp(s, "0")) retval = "NO";
+    else if (!strcmp(s, "Y") || !strcmp(s, "YES") || !strcmp(s, "1")) retval = "YES";
+    else gasneti_fatalerror("If used, environment variable '%s' must be set to 'Y|YES|y|yes|1' or 'N|n|NO|no|0'", keyname);
+  }
+  if (verboseenv && GASNETI_ENV_OUTPUT_NODE()) {
+    const char *displayval = retval;
+    int width;
+    if (strlen(retval) == 0) displayval = "*empty*";
+    width = MAX(10,55 - strlen(keyname) - strlen(displayval));
+    fprintf(stderr, "ENV parameter: %s = %s%*s\n", keyname, displayval, width, dflt);
+    fflush(stderr);
+  }
+  GASNETI_TRACE_PRINTF(I,("ENV parameter: %s = %s%s", keyname, retval, dflt));
+  return (char *)retval;
+}
+extern char *gasneti_getenv_withdefault(const char *keyname, const char *defaultval) {
+  return _gasneti_getenv_withdefault(keyname, defaultval, 0);
+}
+extern int gasneti_getenv_yesno_withdefault(const char *keyname, int defaultval) {
+  return !strcmp(_gasneti_getenv_withdefault(keyname, (defaultval?"YES":"NO"), 1), "YES");
 }
 
 /* set an environment variable, for the local process ONLY */
@@ -1027,29 +1088,9 @@ extern void gasneti_trace_init(int argc, char **argv) {
   #if GASNETI_STATS_OR_TRACE
   const char *tracetypes = NULL;
   const char *statstypes = NULL;
-  { /* setup tracetypes */
-    const char *types;
-    types = gasnet_getenv("GASNET_TRACEMASK");
-    if (!types) types = GASNETI_ALLTYPES;
-    tracetypes = types;
-    while (*types) {
-      gasneti_tracetypes[(int)(*types)] = 1;
-      types++;
-    }
-    types = gasnet_getenv("GASNET_STATSMASK");
-    if (!types) types = GASNETI_ALLTYPES;
-    statstypes = types;
-    while (*types) {
-      gasneti_statstypes[(int)(*types)] = 1;
-      types++;
-    }
-  }
-
-  gasneti_autoflush = !!gasnet_getenv("GASNET_TRACEFLUSH");
-
   { /* setup tracefile */
-    char *tracefilename = gasnet_getenv("GASNET_TRACEFILE");
-    char *statsfilename = gasnet_getenv("GASNET_STATSFILE");
+    char *tracefilename = gasneti_getenv_withdefault("GASNET_TRACEFILE","");
+    char *statsfilename = gasneti_getenv_withdefault("GASNET_STATSFILE","");
     if (tracefilename && !strcmp(tracefilename, "")) tracefilename = NULL;
     if (statsfilename && !strcmp(statsfilename, "")) statsfilename = NULL;
     #if GASNET_TRACE || (GASNET_STATS && GASNETI_STATS_ECHOED_TO_TRACEFILE)
@@ -1074,6 +1115,24 @@ extern void gasneti_trace_init(int argc, char **argv) {
     #endif
         gasneti_statsfile = NULL;
   }
+
+  { /* setup tracetypes */
+    const char *types;
+    types = gasneti_getenv_withdefault("GASNET_TRACEMASK", GASNETI_ALLTYPES);
+    tracetypes = types;
+    while (*types) {
+      gasneti_tracetypes[(int)(*types)] = 1;
+      types++;
+    }
+    types = gasneti_getenv_withdefault("GASNET_STATSMASK", GASNETI_ALLTYPES);
+    statstypes = types;
+    while (*types) {
+      gasneti_statstypes[(int)(*types)] = 1;
+      types++;
+    }
+  }
+
+  gasneti_autoflush = gasneti_getenv_yesno_withdefault("GASNET_TRACEFLUSH",0);
 
   #if GASNET_TRACE && GASNETI_CLIENT_THREADS
     gasneti_assert_zeroret(pthread_key_create(&gasneti_srclineinfo_key, NULL));

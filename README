@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.41 $
+$Revision: 1.42 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -167,12 +167,15 @@ although we generally recommend the vendor C compiler for performance reasons.
 Recognized Environment Variables
 ================================
 
-* GASNET_FREEZE - set to make GASNet pause and wait for a debugger to attach on
+* GASNET_FREEZE - set to 1 to make GASNet pause and wait for a debugger to attach on
  startup
 
 * GASNET_TRACEFILE, GASNET_TRACEMASK, GASNET_STATSFILE, GASNET_STATSMASK, GASNET_TRACEFLUSH - 
  control tracing & statistical features, if enabled at configure time. 
  See usage information below.
+
+* GASNET_VERBOSEENV - output information about environment variable settings
+ read by the conduit that affect conduit behavior.
 
 * see conduit-specific documentation in conduit directories for more settings
 

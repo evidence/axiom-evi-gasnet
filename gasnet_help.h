@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2004/08/26 04:53:28 $
- * $Revision: 1.37 $
+ *     $Date: 2004/10/08 07:47:03 $
+ * $Revision: 1.38 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,7 +27,30 @@
 BEGIN_EXTERNC
 
 extern void gasneti_fatalerror(const char *msg, ...) GASNET_NORETURN __attribute__((__format__ (__printf__, 1, 2)));
+/* internal GASNet environment query function
+ * uses the gasneti_globalEnv if available or regular getenv otherwise
+ * legal to call before gasnet_init, but may malfunction if
+ * the conduit has not yet established the contents of the environment
+ */
 extern char *gasneti_getenv(const char *keyname);
+
+/* internal conduit query for a system string parameter
+   if user has set value the return value indicates their selection
+   if value is not set, the provided default value is returned
+   call is reported to the console in verbose-environment mode,
+   so this function should never be called more than once per key
+   legal to call before gasnet_init, but may malfunction if
+   the conduit has not yet established the contents of the environment
+ */
+extern char *gasneti_getenv_withdefault(const char *keyname, const char *defaultval);
+
+/* internal conduit query for a system yes/no parameter
+   if user has set value to 'Y|YES|y|yes|1' or 'N|n|NO|no|0', 
+   the return value indicates their selection
+   if value is not set, the provided default value is returned
+   same restrictions on gasneti_getenv_withdefault also apply
+ */
+extern int gasneti_getenv_yesno_withdefault(const char *keyname, int defaultval);
 
 /* set/unset an environment variable, for the local process ONLY */
 extern void gasneti_setenv(const char *key, const char *value);
@@ -579,6 +602,15 @@ extern int gasneti_wait_mode; /* current waitmode hint */
   int gasnet_AMPoll() {
     GASNETI_TRACE_EVENT(I, AMPOLL);
     return gasneti_AMPoll();
+  }
+#endif
+
+#ifndef _GASNET_GETENV
+#define _GASNET_GETENV
+  GASNET_INLINE_MODIFIER(gasnet_getenv)
+  char *gasnet_getenv(const char *s) {
+    GASNETI_CHECKINIT();
+    return gasneti_getenv(s);
   }
 #endif
 

@@ -1,7 +1,7 @@
 README file for gm-conduit
 =======================================
 Christian Bell <csbell@cs.berkeley.edu>
-$Revision: 1.12 $
+$Revision: 1.13 $
 
 ********************************************************************************
 ** Broken conduit errors -- RDMA GETS are broken
@@ -169,7 +169,7 @@ $Revision: 1.12 $
 			use AM ref-ext
 	
 	put_nb_bulk/put_nbi_bulk:
-		if > GASNETE_PUT_NON_DMA_CUTOFF
+		if *ALWAYS*
 			pin/increment source data and/or local bucket
 			if put hits firehose cache
 				rdma put
@@ -179,7 +179,7 @@ $Revision: 1.12 $
 			use AM ref-ext
 	
 	get_nb/get_nbi (bulk and non-bulk):
-		if > GASNETE_GET_NON_DMA_CUTOFF
+		if *ALWAYS*
 			pin/increment destination data and/or local bucket
 			firehose_move_get
 		else

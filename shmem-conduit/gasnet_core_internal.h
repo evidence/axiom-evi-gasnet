@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core_internal.h,v $
- *     $Date: 2004/10/07 23:28:15 $
- * $Revision: 1.4 $
+ *     $Date: 2004/10/08 07:47:25 $
+ * $Revision: 1.5 $
  * Description: GASNet shmem conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -138,6 +138,7 @@ extern intptr_t		*gasnetc_segment_shptr_off;
 /*
  * AMQUEUE DEPTH and maximum sizes
  */
+#define GASNETC_AMQUEUE_DEFAULT_DEPTH	64
 #define GASNETC_AMQUEUE_MAX_DEPTH	256
 #define GASNETC_AMQUEUE_MAX_FIELDS	(GASNETC_AMQUEUE_MAX_DEPTH/sizeof(uintptr_t))
 #define GASNETC_AMQUEUE_FREE_S		0

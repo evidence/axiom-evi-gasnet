@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/09/04 03:02:10 $
- * $Revision: 1.65 $
+ *     $Date: 2004/10/08 07:47:11 $
+ * $Revision: 1.66 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -135,7 +135,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 	GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
     gasneti_init_done = 1; /* enable early to allow tracing */
 
-    if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
+    gasneti_freezeForDebugger();
 
 #if GASNET_DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
@@ -185,7 +185,8 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     {
 	char *gas_ver = getenv("GASNET_LAPI_VERSION");
-	int to_stderr = (gasnetc_mynode == 0) && (gas_ver != NULL) && (gas_ver[0] != '0');
+	int to_stderr = (gasnetc_mynode == 0) && 
+          (((gas_ver != NULL) && (gas_ver[0] != '0')) || !!getenv("GASNET_VERBOSEENV"));
 	char buf[80];
 
 #if GASNETC_LAPI_FEDERATION
@@ -230,12 +231,19 @@ static int gasnetc_init(int *argc, char ***argv) {
      * communicate this?  Env variable?
      */
     {
-	char *mode = NULL;
-	if ( (mode=getenv("GASNET_LAPI_MODE")) != NULL ) {
-	    if (strcmp(mode,"POLLING") == 0) {
-		gasnetc_lapi_default_mode = gasnetc_Polling;
-	    }
-	}
+	char *mode = gasneti_getenv_withdefault("GASNET_LAPI_MODE", "INTERRUPT");
+        char tmp[255];
+        int i;
+        strncpy(tmp, mode, 255);
+        tmp[254] = '\0';
+        for (i=0; i < strlen(tmp); i++) tmp[i] = toupper(tmp[i]);
+
+	if (!strcmp(mode,"P") || !strcmp(mode,"POLLING")) {
+	    gasnetc_lapi_default_mode = gasnetc_Polling;
+        } else if (!strcmp(mode,"I") || !strcmp(mode,"INTERRUPT")) {
+	    gasnetc_lapi_default_mode = gasnetc_Interrupt;
+        } else 
+          gasneti_fatalerror("If set, environment variable GASNET_LAPI_MODE must be 'INTERRUPT' or 'POLLING'");
     }
     if (gasnetc_lapi_default_mode == gasnetc_Interrupt) {
 	/* turn on interrupt mode */

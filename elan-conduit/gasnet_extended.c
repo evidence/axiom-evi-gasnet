@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2004/09/08 09:25:20 $
- * $Revision: 1.48 $
+ *     $Date: 2004/10/08 07:47:05 $
+ * $Revision: 1.49 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -243,11 +243,9 @@ extern void gasnete_init() {
   gasnete_seginfo = (gasnet_seginfo_t*)gasneti_malloc(sizeof(gasnet_seginfo_t)*gasnete_nodes);
   gasnet_getSegmentInfo(gasnete_seginfo, gasnete_nodes);
 
-  if (gasnet_getenv("GASNET_NBI_THROTTLE")) {
-    gasnete_nbi_throttle = atoi(gasnet_getenv("GASNET_NBI_THROTTLE"));
-    if (gasnete_nbi_throttle < 1) gasnete_nbi_throttle = GASNETE_DEFAULT_NBI_THROTTLE;
-    else GASNETI_TRACE_PRINTF(C,("Set gasnete_nbi_throttle = %i", gasnete_nbi_throttle));
-  }
+  gasnete_nbi_throttle = atoi(
+    gasneti_getenv_withdefault("GASNET_NBI_THROTTLE", _STRINGIFY(GASNETE_DEFAULT_NBI_THROTTLE)));
+  if (gasnete_nbi_throttle < 1) gasnete_nbi_throttle = GASNETE_DEFAULT_NBI_THROTTLE;
 
   { gasnete_threaddata_t *threaddata = NULL;
     gasnete_eop_t *eop = NULL;

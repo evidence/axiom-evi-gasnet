@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_help.h,v $
- * $Date: 2004/10/06 09:25:24 $
- * $Revision: 1.34 $
+ * $Date: 2004/10/08 07:47:07 $
+ * $Revision: 1.35 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -59,7 +59,6 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #else
 #define GASNETC_GM_PUT	gm_directed_send_with_callback
 #endif
-#define GASNETE_PUT_NON_DMA_CUTOFF		0	
 #define GASNETE_PUT_NON_BULK_CUTOFF		GASNETC_AM_LEN
 #define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD	8192
 
@@ -69,35 +68,46 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
  * Appeared with GM API version 2.x but there are serious problems for versions
  * prior to 2.0.12 in 2.0 series and prior to 2.1.2 in 2.1 series
  *
- * Users can predefine GASNETC_GM_HAVE_RDMA_GETS to whatever they want in order
- * to bypass the detection/disable mechanism.
+ * GASNET_GM_RDMA_GETS compile time setting controls the default behavior,
+ * which can also be toggled at runtime using the environment variable 
+ * of the same name (GASNET_GM_RDMA_GETS)
+ *
+ * Users can predefine GASNET_GM_RDMA_GETS to whatever they want in order
+ * to bypass the automatic defaulting mechanism.
  *
  */
 
-#ifdef GASNETC_GM_2 /* GM 2.x -- some versions have problems */
-  #ifndef GASNETC_GM_HAVE_RDMA_GETS /* gets not explicitly enabled/disabled */
-     #if !defined(GASNETC_GM_ENABLE_BROKEN_VERSIONS) && 	\
-        ((GM_API_VERSION_2_1_0 && GM_API_VERSION < 0x20102) || 	\
-	GM_API_VERSION < 0x2000c) 
-       #error GASNet/GM RDMA gets are broken on this GM 2.x version (see gm-conduit README)
-     #else
-       #define GASNETC_GM_HAVE_RDMA_GETS 1
-     #endif
-  #endif /* GASNETC_GM_HAVE_RDMA_GETS already defined */
-
-#else /* GM 1.x -- no gets, disable even if user set to 1 */
-  #undef  GASNETC_GM_HAVE_RDMA_GETS
-  #define GASNETC_GM_HAVE_RDMA_GETS 0
+#if defined(GASNETC_GM_2) && /* GM 2.x -- some versions have problems */ \
+    ((GM_API_VERSION_2_1_0 && GM_API_VERSION < 0x20102) || GM_API_VERSION < 0x2000c) 
+  /* GM gets are this broken on this version - fail to compile unless we've been forced to do so */
+  #if !defined(GASNETC_GM_ENABLE_BROKEN_VERSIONS)
+    #error GASNet/GM RDMA gets are broken on this GM 2.x version (see gm-conduit README)
+  #endif
+  #define GASNETC_BROKEN_GM2_VERSION 1
+#else
+  #define GASNETC_BROKEN_GM2_VERSION 0
 #endif
 
-#ifndef GASNETC_GM_HAVE_RDMA_GETS
-  #error Internal define error
-#else
-  #if GASNETC_GM_HAVE_RDMA_GETS
-    #define GASNETE_GET_NON_DMA_CUTOFF	0
-  #else
-    #define GASNETE_GET_NON_DMA_CUTOFF	8192
+#if defined(GASNETC_GM_2)
+  #ifndef GASNET_GM_RDMA_GETS /* gets not explicitly enabled/disabled */
+     #if GASNETC_BROKEN_GM2_VERSION
+         /* we're being forced to use a broken GM version - so disable gm gets by default */
+         #define GASNET_GM_RDMA_GETS 0
+     #else 
+         /* working versions of GM2 - enable rdma gets by default */
+         #define GASNET_GM_RDMA_GETS 1
+     #endif
+  #endif /* GASNET_GM_RDMA_GETS already defined */
+#else /* GM 1.x -- no gets in the API, it's an error if someone tries to use them */
+  #if defined(GASNET_GM_RDMA_GETS) && GASNET_GM_RDMA_GETS
+    #error GASNET_GM_RDMA_GETS not supported on GM 1.x - no GM RDMA gets!
   #endif
+  #undef GASNET_GM_RDMA_GETS
+  #define GASNET_GM_RDMA_GETS 0
+#endif
+
+#ifndef GASNET_GM_RDMA_GETS
+  #error Internal define error
 #endif
 
 #define GASNETC_SEGMENT_ALIGN	GASNETI_PAGESIZE

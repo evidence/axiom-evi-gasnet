@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2004/10/06 09:25:24 $
- * $Revision: 1.43 $
+ * $Date: 2004/10/08 07:47:07 $
+ * $Revision: 1.44 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,15 +11,6 @@
 #include <gasnet_core_internal.h>
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
-
-#ifndef GASNETE_PUT_NON_DMA_CUTOFF
-#define GASNETE_PUT_NON_DMA_CUTOFF	gasnet_AMMaxMedium()
-/* GNUism: #warning GASNETE_PUT_NON_DMA_CUTOFF was not defined */
-#endif
-#ifndef GASNETE_GET_NON_DMA_CUTOFF
-#define GASNETE_GET_NON_DMA_CUTOFF	gasnet_AMMaxMedium()
-/* GNUism: #warning GASNETE_GET_NON_DMA_CUTOFF was not defined */
-#endif
 
 #define GASNETE_FH_HAVE_TOKEN		0
 #define GASNETE_FH_POLL_TOKEN		1
@@ -399,6 +390,9 @@ gasnete_put_nbi(gasnet_node_t node, void *dest, void *src,
  * It may be desirable to send payload with the get AMReply as an optimization
  * for smaller sizes.  This allows a get operation to be completed with two
  * sends as opposed to three (less GM tokens are used).
+ *
+ * DOB: 10/07/2004: GASNETE_GET_NON_DMA_CUTOFF was hard-coded to zero, so we 
+ * now always use GM get
  */
 
 /* Both GM 1.x and GM 2 implementations for get release the get regions in a

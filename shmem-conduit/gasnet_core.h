@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.h,v $
- *     $Date: 2004/10/07 23:28:15 $
- * $Revision: 1.4 $
+ *     $Date: 2004/10/08 07:47:25 $
+ * $Revision: 1.5 $
  * Description: GASNet header for shmem conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,12 +58,6 @@ gasnet_node_t gasnet_nodes() {
 }
 
 #define gasnet_getSegmentInfo gasnetc_getSegmentInfo
-
-GASNET_INLINE_MODIFIER(gasnet_getenv)
-char *gasnet_getenv(const char *s) {
-  GASNETI_CHECKINIT();
-  return gasneti_getenv(s);
-}
 
 /* ------------------------------------------------------------------------------------ */
 /*

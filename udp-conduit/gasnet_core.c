@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2004/09/04 03:02:22 $
- * $Revision: 1.15 $
+ *     $Date: 2004/10/08 07:47:31 $
+ * $Revision: 1.16 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -97,20 +97,16 @@ static int gasnetc_init(int *argc, char ***argv) {
        (we don't currently support explicit workers spawned 
         without using the AMUDP SPMD API)   
      */
-    int networkdepth = 0;
     int num_nodes;
     int i;
-    char spawnfn = (_STRINGIFY(GASNETC_DEFAULT_SPAWNFN))[0];
+    char spawnfn;
     amudp_spawnfn_t fp = (amudp_spawnfn_t)NULL;
 
-    /*  choose network depth */
-    if (getenv("GASNET_NETWORKDEPTH")) { 
-       networkdepth = atoi(getenv("GASNET_NETWORKDEPTH"));
-    }
-
     #if defined(GASNET_CSPAWN_CMD)
-      if (!getenv("GASNET_CSPAWN_CMD")) /* set configure default cspawn cmd */
-        gasneti_setenv("GASNET_CSPAWN_CMD",GASNET_CSPAWN_CMD);
+    { /* set configure default cspawn cmd */
+      const char *cmd = gasneti_getenv_withdefault("GASNET_CSPAWN_CMD",GASNET_CSPAWN_CMD);
+      gasneti_setenv("GASNET_CSPAWN_CMD",cmd);
+    }
     #endif
 
     /* parse node count from command line */
@@ -141,9 +137,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     (*argc)--;
 
     /* get spawnfn */
-    if (getenv("GASNET_SPAWNFN")) { 
-      spawnfn = *getenv("GASNET_SPAWNFN");
-    }
+    spawnfn = *gasneti_getenv_withdefault("GASNET_SPAWNFN", _STRINGIFY(GASNETC_DEFAULT_SPAWNFN));
+
     { /* ensure we pass the effective spawnfn to worker env */
       char spawnstr[255];
       sprintf(spawnstr,"%c",toupper(spawnfn));
@@ -158,13 +153,13 @@ static int gasnetc_init(int *argc, char ***argv) {
     }
 
     if (!fp) {
-      fprintf (stderr, "Tic: Invalid spawn function specified in GASNET_SPAWNFN\n");
-      fprintf (stderr, "Tic: The following mechanisms are available:\n");
+      fprintf (stderr, "GASNet: Invalid spawn function specified in GASNET_SPAWNFN\n");
+      fprintf (stderr, "GASNet: The following mechanisms are available:\n");
       for (i=0; AMUDP_Spawnfn_Desc[i].abbrev; i++) {
         fprintf(stderr, "    '%c'  %s\n",  
               toupper(AMUDP_Spawnfn_Desc[i].abbrev), AMUDP_Spawnfn_Desc[i].desc);
       }
-      exit (1);
+      exit(1);
     }
 
     #if GASNET_DEBUG_VERBOSE
@@ -173,7 +168,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     #endif
 
     retval = AMUDP_SPMDStartup(argc, argv, 
-      num_nodes, networkdepth, fp,
+      num_nodes, 0, fp,
       NULL, &gasnetc_bundle, &gasnetc_endpoint);
     /* master startup should never return */
     gasneti_fatalerror("master AMUDP_SPMDStartup() failed");
@@ -183,9 +178,8 @@ static int gasnetc_init(int *argc, char ***argv) {
   AMLOCK();
     if (gasneti_init_done) 
       INITERR(NOT_INIT, "GASNet already initialized");
-    gasneti_init_done = 1; /* enable early to allow tracing */
 
-    if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
+    gasneti_freezeForDebugger();
 
     AMUDP_VerboseErrors = gasneti_VerboseErrors;
     #if !GASNET_DEBUG_VERBOSE
@@ -198,6 +192,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       0, 0, NULL, /* dummies */
       NULL, &gasnetc_bundle, &gasnetc_endpoint);
     if (retval != AM_OK) INITERR(RESOURCE, "slave AMUDP_SPMDStartup() failed");
+    gasneti_init_done = 1; /* enable early to allow tracing */
 
     gasnetc_mynode = AMUDP_SPMDMyProc();
     gasnetc_nodes = AMUDP_SPMDNumProcs();
@@ -207,7 +202,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     GASNETI_AM_SAFE(AMUDP_SPMDSetExitCallback(gasnetc_traceoutput));
 
     /* for local spawn, assume we want to wait-block */
-    if (getenv("GASNET_SPAWNFN") && *getenv("GASNET_SPAWNFN") == 'L') { 
+    if (gasneti_getenv("GASNET_SPAWNFN") && *gasneti_getenv("GASNET_SPAWNFN") == 'L') { 
       GASNETI_TRACE_PRINTF(C,("setting gasnet_set_waitmode(GASNET_WAIT_BLOCK) for localhost spawn"));
       gasnet_set_waitmode(GASNET_WAIT_BLOCK);
     }

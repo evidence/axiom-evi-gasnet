@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2004/09/24 04:14:55 $
- * $Revision: 1.9 $
+ *     $Date: 2004/10/08 07:47:17 $
+ * $Revision: 1.10 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -375,6 +375,8 @@ typedef enum {
    warn if more than one is set with different values
  */
 extern char *AMUDP_getenv_prefixed(const char *basekey);
+/* same with a default value and console reporting in verbose mode */
+extern char *AMUDP_getenv_prefixed_withdefault(const char *basekey, const char *defaultval);
 
 //------------------------------------------------------------------------------------
 // socket support

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
- *     $Date: 2004/09/04 03:02:18 $
- * $Revision: 1.44 $
+ *     $Date: 2004/10/08 07:47:29 $
+ * $Revision: 1.45 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -60,7 +60,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   if (gasneti_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
 
-  if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
+  gasneti_freezeForDebugger();
 
   #if GASNET_DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */

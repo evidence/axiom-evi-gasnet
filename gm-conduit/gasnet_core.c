@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2004/10/06 09:25:24 $
- * $Revision: 1.72 $
+ * $Date: 2004/10/08 07:47:07 $
+ * $Revision: 1.73 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -70,7 +70,7 @@ gasnetc_init(int *argc, char ***argv)
 	if (gasneti_init_done) 
 		GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
 
-        if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
+        gasneti_freezeForDebugger();
 
 	#if GASNET_DEBUG_VERBOSE
 	/* note - can't call trace macros during gasnet_init because trace
@@ -263,17 +263,6 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	fflush(stdout);
 	#endif
 
-	#if GASNETC_GM_HAVE_RDMA_GETS && defined(GASNETC_GM_ENABLE_BROKEN_VERSIONS)
-	{
-	    char *nowarn = getenv("GASNET_GM_NO_RDMAGET_WARNING");
-	    if (nowarn == NULL || *nowarn == '\0') {
-		fprintf(stderr, 
-		    "GASNet/GM support for RDMA gets are disabled because of a "
-		    "broken 2.x GM build -- your drivers should be updated\n");
-	    }
-	}
-	#endif
-
 	GASNETI_TRACE_PRINTF(C,
 	    ("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
 	    numentries, (unsigned long)segsize, (unsigned long)minheapoffset));
@@ -460,12 +449,42 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	/* 
 	 * Set up other conduit options 
 	 */
-	#ifdef GASNETC_GM_2
-	if (gasneti_getenv("GASNET_GM_DISABLE_RDMA_GETS"))
-	    gasnete_getrdma_enabled = 0;
-	else
-	    gasnete_getrdma_enabled = 1;
-	#endif
+        /* GM gets: default is determined by compile-time setting */
+	gasnete_getrdma_enabled = 
+          gasneti_getenv_yesno_withdefault("GASNET_GM_RDMA_GETS", GASNET_GM_RDMA_GETS);
+
+        #if defined(GASNETC_GM_2)
+	  if (gasnete_getrdma_enabled == 0 && gasnet_mynode() == 0) {
+	    char *nowarn = gasneti_getenv("GASNET_GM_NO_RDMAGET_WARNING");
+            /* 
+               GM_gets make a major performance difference, so make it intentionally
+               painful and conspicuous if they're disabled for any reason on a GM2 system
+
+               We *always* issue a runtime warning for using GM2 without GM_gets
+               unless the user explicitly squelches this specific warning with 
+               GASNET_GM_NO_RDMAGET_WARNING. 
+               (*never* set this up to happen automatically for end-users)
+             */
+	    if (nowarn == NULL || *nowarn == '\0') {
+	        fprintf(stderr, 
+                    "PERFORMANCE WARNING:\n"
+		    "  GASNet/GM support for RDMA gets is disabled"
+	          #if GASNETC_BROKEN_GM2_VERSION
+                    " because of a broken 2.x GM build -- your GM drivers should be updated\n"
+                  #else
+                    " because of a GASNET_GM_RDMA_GETS environment variable\n"
+	          #endif
+                );
+                fflush(stderr);
+	    }
+          }
+        #else /* GM 1.x */
+          if (gasnete_getrdma_enabled && gasnet_mynode() == 0) {
+            fprintf(stderr, "WARNING: GM gets are not supported in GM 1.x - GASNET_GM_RDMA_GETS ignored\n");
+            fflush(stderr);
+            gasnete_getrdma_enabled = 0;
+          }
+        #endif
 
 	/* -------------------------------------------------------------------- */
 	/*  primary attach complete */

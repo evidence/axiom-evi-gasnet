@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2004/09/04 03:02:12 $
- * $Revision: 1.53 $
+ *     $Date: 2004/10/08 07:47:13 $
+ * $Revision: 1.54 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -104,7 +104,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     /*  check system sanity */
     gasnetc_check_config();
 
-    if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
+    gasneti_freezeForDebugger();
 
     #if GASNET_DEBUG_VERBOSE
       /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
@@ -112,9 +112,9 @@ static int gasnetc_init(int *argc, char ***argv) {
     #endif
 
     /*  choose network depth */
-    if (getenv("GASNET_NETWORKDEPTH")) { 
-       networkdepth = atoi(getenv("GASNET_NETWORKDEPTH"));
-    }
+    networkdepth = atoi(
+      gasneti_getenv_withdefault("GASNET_NETWORKDEPTH", _STRINGIFY(GASNETC_DEFAULT_NETWORKDEPTH)));
+    if (networkdepth <= 1) networkdepth = GASNETC_DEFAULT_NETWORKDEPTH;
 
     AMMPI_VerboseErrors = gasneti_VerboseErrors;
     AMMPI_SPMDkillmyprocess = gasneti_killmyprocess;

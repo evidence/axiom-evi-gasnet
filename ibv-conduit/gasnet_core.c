@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2004/09/20 20:24:20 $
- * $Revision: 1.58 $
+ *     $Date: 2004/10/08 07:47:33 $
+ * $Revision: 1.59 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,7 +32,7 @@ GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_COR
 */
 
 /* Default HCA and Port */
-#define GASNETC_DEFAULT_HCA_ID		NULL		/* NULL or empty = probe */
+#define GASNETC_DEFAULT_HCA_ID		""		/* NULL or empty = probe */
 #define GASNETC_DEFAULT_PORT_NUM	0		/* 0 = use lowest-numbered active port */
 
 /* Limits on in-flight (sent but not acknowledged) RDMA Ops */
@@ -320,79 +320,26 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
 static int gasnetc_load_settings(void) {
   char	*tmp;
 
-  tmp = gasneti_getenv("GASNET_HCA_ID");
-  if (tmp) {
-    gasnetc_hca_id = gasneti_strdup(tmp);
-  } else {
-    gasnetc_hca_id = GASNETC_DEFAULT_HCA_ID;
-  }
+  gasnetc_hca_id = gasneti_strdup(
+    gasneti_getenv_withdefault("GASNET_HCA_ID",GASNETC_DEFAULT_HCA_ID));
 
-  tmp = gasneti_getenv("GASNET_PORT_NUM");
-  if (tmp) {
-    gasnetc_port_num = atoi(tmp);
-  } else {
-    gasnetc_port_num = GASNETC_DEFAULT_PORT_NUM;
-  }
+  gasnetc_port_num = atoi(
+    gasneti_getenv_withdefault("GASNET_PORT_NUM", _STRINGIFY(GASNETC_DEFAULT_PORT_NUM)));
 
-  tmp = gasneti_getenv("GASNET_OP_OUST_LIMIT");
-  if (tmp) {
-    gasnetc_op_oust_limit = atoi(tmp);
-    if (gasnetc_op_oust_limit < 1) {
-      GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_OP_OUST_LIMIT < 1) in environment");
-    }
-  } else {
-    gasnetc_op_oust_limit = GASNETC_DEFAULT_OP_OUST_LIMIT;
-  }
+  #define GASNETC_ENVINT(program_var, env_key, default_val, minval) do { \
+      char _defval[10];                                                  \
+      sprintf(_defval,"%i",(default_val));                               \
+      program_var = atoi(gasneti_getenv_withdefault(#env_key, _defval)); \
+      if (program_var < minval)                                          \
+        GASNETI_RETURN_ERRR(BAD_ARG, "("#env_key" < 1) in environment"); \
+    } while (0)
 
-  tmp = gasneti_getenv("GASNET_OP_OUST_PP");
-  if (tmp) {
-    gasnetc_op_oust_pp = atoi(tmp);
-    if (gasnetc_op_oust_pp < 1) {
-      GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_OP_OUST_PP < 1) in environment");
-    }
-  } else {
-    gasnetc_op_oust_pp = GASNETC_DEFAULT_OP_OUST_PP;
-  }
-
-  tmp = gasneti_getenv("GASNET_AM_OUST_LIMIT");
-  if (tmp) {
-    gasnetc_am_oust_limit = atoi(tmp);
-    if (gasnetc_am_oust_limit < 1) {
-      GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_AM_OUST_LIMIT < 1) in environment");
-    }
-  } else {
-    gasnetc_am_oust_limit = GASNETC_DEFAULT_AM_OUST_LIMIT;
-  }
-
-  tmp = gasneti_getenv("GASNET_AM_OUST_PP");
-  if (tmp) {
-    gasnetc_am_oust_pp = atoi(tmp);
-    if (gasnetc_am_oust_pp < 1) {
-      GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_AM_OUST_PP < 1) in environment");
-    }
-  } else {
-    gasnetc_am_oust_pp = GASNETC_DEFAULT_AM_OUST_PP;
-  }
-
-  tmp = gasneti_getenv("GASNET_AM_SPARES");
-  if (tmp) {
-    gasnetc_am_spares = atoi(tmp);
-    if (gasnetc_am_spares < 1) {
-      GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_AM_SPARES < 1) in environment");
-    }
-  } else {
-    gasnetc_am_spares = GASNETC_DEFAULT_AM_SPARES;
-  }
-
-  tmp = gasneti_getenv("GASNET_BBUF_LIMIT");
-  if (tmp) {
-    gasnetc_bbuf_limit = atoi(tmp);
-    if (gasnetc_bbuf_limit < 1) {
-      GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_BBUF_LIMIT < 1) in environment");
-    }
-  } else {
-    gasnetc_bbuf_limit = GASNETC_DEFAULT_BBUF_LIMIT;
-  }
+  GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_OP_OUST_LIMIT, GASNETC_DEFAULT_OP_OUST_LIMIT, 1);
+  GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_OP_OUST_PP, GASNETC_DEFAULT_OP_OUST_PP, 1);
+  GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_OUST_LIMIT, GASNETC_DEFAULT_AM_OUST_LIMIT, 1);
+  GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_OUST_PP, GASNETC_DEFAULT_AM_OUST_PP, 1);
+  GASNETC_ENVINT(gasnetc_am_spares, GASNET_AM_SPARES, GASNETC_DEFAULT_AM_SPARES, 1);
+  GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_LIMIT, GASNETC_DEFAULT_BBUF_LIMIT, 1);
 
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_RCV_THREAD)",
@@ -462,7 +409,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasneti_init_done = 1; /* enable early to allow tracing */
 
 
-  if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
+  gasneti_freezeForDebugger();
 
   #if GASNET_DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */

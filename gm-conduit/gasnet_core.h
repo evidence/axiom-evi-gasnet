@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.h,v $
- * $Date: 2004/08/26 04:53:36 $
- * $Revision: 1.21 $
+ * $Date: 2004/10/08 07:47:07 $
+ * $Revision: 1.22 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -59,12 +59,6 @@ gasnet_node_t gasnet_nodes() {
 }
 
 #define gasnet_getSegmentInfo gasnetc_getSegmentInfo
-
-GASNET_INLINE_MODIFIER(gasnet_getenv)
-char *gasnet_getenv(const char *s) {
-  GASNETI_CHECKINIT();
-  return gasneti_getenv(s);
-}
 
 /* ------------------------------------------------------------------------------------ */
 /*

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.h,v $
- *     $Date: 2004/08/26 04:54:11 $
- * $Revision: 1.7 $
+ *     $Date: 2004/10/08 07:47:31 $
+ * $Revision: 1.8 $
  * Description: GASNet header for UDP conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -64,20 +64,6 @@ gasnet_node_t gasnet_nodes() {
 }
 
 #define gasnet_getSegmentInfo gasnetc_getSegmentInfo
-
-GASNET_INLINE_MODIFIER(gasnet_getenv)
-char *gasnet_getenv(const char *keyname) {
-  char *retval = NULL;
-  GASNETI_CHECKINIT();
-  if (keyname) {
-    retval = (char *)AMUDP_SPMDgetenvMaster(keyname);
-    if (retval == NULL) retval = getenv(keyname);
-  }
-  GASNETI_TRACE_PRINTF(I,("gasnet_getenv(%s) => '%s'",
-                          (keyname?keyname:"NULL"),(retval?retval:"NULL")));
-
-  return retval;
-}
 
 /* ------------------------------------------------------------------------------------ */
 /*

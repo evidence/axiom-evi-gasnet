@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/gasnetrun_gm.pl,v $
-#     $Date: 2004/08/26 04:53:38 $
-# $Revision: 1.18 $
+#     $Date: 2004/10/08 07:47:09 $
+# $Revision: 1.19 $
 #
 # Included here as a contrib/ from the mpich 1.2.5..10 mpirun script,
 # since this is the closest thing myricom ships to a spawner interface.
@@ -389,6 +389,8 @@ while (@ARGV > 0) {
   }
   shift;
 }
+
+$ENV{"GASNET_VERBOSEENV"} = "1" if ($verbose);
 
 # Before going on, check if we should force using GEXEC, if 
 # GASNET_GEXEC_CMD is set.

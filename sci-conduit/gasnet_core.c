@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/09/04 03:02:14 $
- * $Revision: 1.8 $
+ *     $Date: 2004/10/08 07:47:21 $
+ * $Revision: 1.9 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -90,7 +90,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   if (gasneti_init_done)
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
 
-  if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
+  gasneti_freezeForDebugger();
 
   #if GASNET_DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
