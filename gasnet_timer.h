@@ -1,13 +1,13 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2002/12/19 18:35:44 $
- * $Revision: 1.2 $
+ *     $Date: 2002/12/26 03:43:15 $
+ * $Revision: 1.3 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#ifndef _IN_GASNET_H
-  #error This file is not meant to be included directly- clients should include gasnet.h
+#if !defined(_IN_GASNET_H) && !defined(_IN_GASNET_TOOLS_H)
+  #error This file is not meant to be included directly- clients should include gasnet.h or gasnet_tools.h
 #endif
 
 #ifndef _GASNET_TIMER_H

@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/12/19 18:35:44 $
-# $Revision: 1.26 $
+#     $Date: 2002/12/26 03:43:15 $
+# $Revision: 1.27 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.26 $)
+AC_REVISION($Revision: 1.27 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -43,38 +43,16 @@ GASNET_RESTORE_AUTOCONF_ENV([CC CXX CFLAGS CXXFLAGS CPPFLAGS LIBS MAKE GMAKE AR 
 
 ## Berkeley Millennium cluster
 
-AC_MSG_CHECKING(for Berkeley Millennium cluster)
-
-AC_ARG_ENABLE(millennium,
-GASNET_OPTION_HELP(enable-millennium, use known directories for Berkeley Millennium cluster),
-,
-[case "`hostname`" in
-  *.Millennium.Berkeley.EDU) enable_millennium=yes ;;
-  *) enable_millennium=no ;;
-esac])
-
+#AC_MSG_CHECKING(for Berkeley Millennium cluster)
+#AC_ARG_ENABLE(millennium,
+#GASNET_OPTION_HELP(enable-millennium, use known directories for Berkeley Millennium cluster),
+#,[case "`hostname`" in
+#  *.Millennium.Berkeley.EDU) enable_millennium=yes ;;
+#  *) enable_millennium=no ;;
+#esac])
 #if test "$enable_millennium" = yes; then
 #fi
-
-AC_MSG_RESULT($enable_millennium)
-
-## Berkeley NOW cluster
-
-AC_MSG_CHECKING(for Berkeley NOW cluster)
-
-AC_ARG_ENABLE(now,
-GASNET_OPTION_HELP(enable-now, use known directories for Berkeley NOW cluster),
-,
-[if test `hostname` = "now.CS.Berkeley.EDU" -o \( -d /usr/now/lib -a -d /usr/now/include \) ; then
-   enable_now=yes 
- else
-   enable_now=no 
-fi])
-
-#if test "$enable_now" = yes; then
-#fi
-
-AC_MSG_RESULT($enable_now)
+#AC_MSG_RESULT($enable_millennium)
 
 
 ########################################################################
@@ -257,17 +235,6 @@ else
   AC_MSG_RESULT(no)
 fi
 
-if test "$have_libglunix" = yes ; then
-  GASNET_GLUNIX_DEFINES="-DGLUNIX"
-  GASNET_GLUNIX_INCLUDES="-I/usr/now/include"
-  GASNET_GLUNIX_LIBS="-lglunix -lsocket"
-else
-  GASNET_GLUNIX_DEFINES=""
-  GASNET_GLUNIX_INCLUDES=""
-  GASNET_GLUNIX_LIBS=""
-fi
-
-
 #---------------------------------------------------------------------------------------------------------------
 # Machine defs
 
@@ -385,6 +352,9 @@ AM_CONDITIONAL(USE_AMUDP, test "$supported_amudp$have_udp" = yesyes)
 supported_ammpi=yes
 if test $supported_ammpi = yes; then
   # user can explicitly configure MPI by setting MPI_CC, MPI_CFLAGS and MPI_LIBS
+  GASNET_IF_ENABLED(mpi, Enable the portable MPI network conduit (on by default), 
+    enabled_mpi=yes,
+    enabled_mpi=no)
   have_mpi=yes # start by assuming they have it
   case "$target_os" in
     solaris*)  
@@ -536,8 +506,11 @@ if test $supported_ammpi = yes; then
     else
       AC_MSG_RESULT(no)
       AC_WARN(build test failed: I don't know how to build MPI programs on your system)
-      AC_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi-* backends)
+      AC_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit)
       have_mpi=no
+      if test "$enabled_mpi" = yes ; then
+	AC_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
+      fi
     fi
   fi
 fi
@@ -552,9 +525,6 @@ AM_CONDITIONAL(USE_MPI_CONDUIT, test "$have_mpi$supported_ammpi" = yesyes)
 AC_SUBST(GASNET_MACHINE_DEFINES)
 AC_SUBST(GASNET_THREAD_DEFINES)
 AC_SUBST(GASNET_THREAD_LIBS)
-AC_SUBST(GASNET_GLUNIX_DEFINES)
-AC_SUBST(GASNET_GLUNIX_INCLUDES)
-AC_SUBST(GASNET_GLUNIX_LIBS)
 AC_SUBST(GASNET_REXEC_DEFINES)
 
 #--------------------------------------------------------------------------------------------------------
@@ -571,11 +541,11 @@ if test $have_gm = yes; then
         GASNET_ENV_DEFAULT(GM_INCLUDE, /usr/local/gm/include)
 	GASNET_ENV_DEFAULT(GM_LIB, /usr/local/gm/lib)
 	if test "$GM_INCLUDE" = "" || test ! -d "$GM_INCLUDE"; then
-	  AC_WARN(GM includes: make sure \$GM_INCLUDE is set and exists)
+	  AC_ERROR(GM includes: make sure \$GM_INCLUDE is set and exists)
 	  have_gm=no
 	fi
 	if test "$GM_LIB" = ""; then
-	  AC_WARN(GM library: make suremake sure \$GM_LIB is set and exists)
+	  AC_ERROR(GM library: make sure \$GM_LIB is set and exists)
 	  have_gm=no
 	fi
     ;;
@@ -602,7 +572,7 @@ if test $have_gm = yes; then
       AC_MSG_RESULT(yes)
     else
       AC_MSG_RESULT(no)
-      AC_WARN(build test failed: I don't know how to build GM programs on your system)
+      AC_ERROR(build test failed: I don't know how to build GM programs on your system)
       have_gm=no
     fi
   fi
@@ -610,7 +580,7 @@ fi
 
 AC_SUBST(GM_INCLUDE)
 AC_SUBST(GM_LIB)
-AM_CONDITIONAL(USE_GM_CONDUIT, test "$have_gm$gm_test_worked" = yesyes)
+AM_CONDITIONAL(USE_GM_CONDUIT, test "$have_gm" = yes)
 
 #--------------------------------------------------------------------------------------------------------
 # LAPI configuration
@@ -619,10 +589,33 @@ GASNET_IF_ENABLED(lapi, Enable the LAPI (IBM SP) network conduit,
   have_lapi=yes,
   have_lapi=no)
 
-# TODO: add a build configuration test here
-lapi_test_worked=yes
+if test $have_lapi = yes; then
+  AC_MSG_CHECKING(for working LAPI configuration)
+  OLDLIBS="$LIBS"
+  LIBS="-llapi_r -lpthread"
+  # try to compile and link a simple LAPI program
+  AC_TRY_LINK( [
+    #include <lapi.h>
+    #include <string.h>
+  ], [{
+      lapi_handle_t  gasnetc_lapi_context;
+      lapi_info_t    gasnetc_lapi_info;
 
-AM_CONDITIONAL(USE_LAPI_CONDUIT, test "$have_lapi$lapi_test_worked" = yesyes)
+      memset(&gasnetc_lapi_info, 0, sizeof(lapi_info_t));
+      LAPI_Init(&gasnetc_lapi_context, &gasnetc_lapi_info);
+    }], [ lapi_test_worked=yes ], [ lapi_test_worked=no ] )
+  LIBS="$OLDLIBS"
+
+  if test "$lapi_test_worked" = yes; then
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_RESULT(no)
+    AC_ERROR(build test failed: I don't know how to build lapi programs on your system)
+    have_lapi=no
+  fi
+fi
+
+AM_CONDITIONAL(USE_LAPI_CONDUIT, test "$have_lapi" = yes)
 
 #--------------------------------------------------------------------------------------------------------
 # ELAN configuration
@@ -679,14 +672,14 @@ if test $have_elan = yes; then
   else
     AC_MSG_RESULT(no)
     ELAN_FLAGS=""
-    AC_WARN(build test failed: I don't know how to build ELAN programs on your system)
+    AC_ERROR(build test failed: I don't know how to build ELAN programs on your system)
   fi
 fi
 
 AC_SUBST(ELAN_INCLUDE)
 AC_SUBST(ELAN_LIBS)
 AC_SUBST(ELAN_FLAGS)
-AM_CONDITIONAL(USE_ELAN_CONDUIT, test "$have_elan$elan_test_worked" = yesyes)
+AM_CONDITIONAL(USE_ELAN_CONDUIT, test "$have_elan" = yes)
 
 ########################################################################
 
@@ -791,12 +784,12 @@ if test "$inlinemod" != ""; then
 fi
 
 # Runtime Var Arrays
-GASNET_IF_ENABLED_WITH_AUTO(vararray, Use stack arrays of variable size in code,
-AC_DEFINE(VARARRAY_WORKS),
-,
-GASNET_TRY_CACHE_CHECK(for variable stack arrays, cc_vararray_mod,
-  [void dummy(int x) { char y[x]; }], [],
-  AC_DEFINE(VARARRAY_WORKS)))
+#GASNET_IF_ENABLED_WITH_AUTO(vararray, Use stack arrays of variable size in code,
+#AC_DEFINE(VARARRAY_WORKS),
+#,
+#GASNET_TRY_CACHE_CHECK(for variable stack arrays, cc_vararray_mod,
+#  [void dummy(int x) { char y[x]; }], [],
+#  AC_DEFINE(VARARRAY_WORKS)))
 
 ########################################################################
 # different high-precision sleep libraries

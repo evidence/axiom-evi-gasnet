@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/19 18:35:47 $
- * $Revision: 1.16 $
+ *     $Date: 2002/12/26 03:43:17 $
+ * $Revision: 1.17 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -477,17 +477,26 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
               /* TODO: this remapping needs to be done for each rail */
               #ifdef ELAN_VER_1_2
-                elan3_clearperm(CTX(), (E3_Addr)(uintptr_t)elanBase, size);
+                if (elan3_clearperm(CTX(), (E3_Addr)(uintptr_t)elanBase, size) < 0)
+		  gasneti_fatalerror("gasnet_attach failed elan3_clearperm elan 0x%08x (size 0x%08x) : %d : %s",
+			         (uint32_t)(uintptr_t)elanBase, size, errno, strerror(errno));
+
               #else
 	        /* Remove any previous Main mappings */
-	        elan3_clearperm_main (CTX(), (caddr_t)pfrom, size);
-	        elan3_clearperm_main (CTX(), (caddr_t)pto, size);
+	        if (elan3_clearperm_main (CTX(), (caddr_t)pfrom, size) < 0) 
+		  gasneti_fatalerror("gasnet_attach failed elan3_clearperm_main pfrom main "GASNETI_LADDRFMT" (size 0x%08x) : %d : %s",
+			         GASNETI_LADDRSTR(pfrom), size, errno, strerror(errno));
+	        if (elan3_clearperm_main (CTX(), (caddr_t)pto, size) < 0)
+		  gasneti_fatalerror("gasnet_attach failed elan3_clearperm_main pto main "GASNETI_LADDRFMT" (size 0x%08x) : %d : %s",
+			         GASNETI_LADDRSTR(pto), size, errno, strerror(errno));
 	    
 	        /* Remove any previous Elan mappings */
-	        elan3_clearperm_elan (CTX(), (E3_Addr)(uintptr_t)elanBase, size);
+	        if (elan3_clearperm_elan (CTX(), (E3_Addr)(uintptr_t)elanBase, size) < 0)
+		  gasneti_fatalerror("gasnet_attach failed elan3_clearperm_elan elan 0x%08x (size 0x%08x) : %d : %s",
+			         (uint32_t)(uintptr_t)elanBase, size, errno, strerror(errno));
               #endif
 
-	      /* Create a new mapping */
+	      /* Create a new mapping - elan docs wrong: elan3_setperm() returns -1 on failure */
 	      if (elan3_setperm (CTX(), (caddr_t)pto, (E3_Addr)(uintptr_t)elanBase, size, ELAN_PERM_REMOTEALL) < 0)
 		  gasneti_fatalerror("gasnet_attach failed elan3_setperm main "GASNETI_LADDRFMT" to elan 0x%08x (size 0x%08x) : %d : %s",
 			         GASNETI_LADDRSTR(pto), (uint32_t)(uintptr_t)elanBase, size, errno, strerror(errno));

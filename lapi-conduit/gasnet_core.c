@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/19 18:35:52 $
- * $Revision: 1.17 $
+ *     $Date: 2002/12/26 03:43:21 $
+ * $Revision: 1.18 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,6 +22,7 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <string.h>
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
@@ -138,7 +139,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_uhdr_init(GASNETC_UHDR_INIT_CNT);
 
     /* (###) add code here to bootstrap the nodes for your conduit */
-    bzero(&gasnetc_lapi_info, sizeof(lapi_info_t));
+    memset(&gasnetc_lapi_info, 0, sizeof(lapi_info_t));
     gasnetc_lapi_info.err_hndlr = gasnetc_lapi_err_handler;
     GASNETC_LCHECK(LAPI_Init(&gasnetc_lapi_context, &gasnetc_lapi_info));
 

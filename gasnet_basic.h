@@ -1,13 +1,13 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/12/19 18:35:44 $
- * $Revision: 1.11 $
+ *     $Date: 2002/12/26 03:43:15 $
+ * $Revision: 1.12 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#ifndef _IN_GASNET_H
-  #error This file is not meant to be included directly- clients should include gasnet.h
+#if !defined(_IN_GASNET_H) && !defined(_IN_GASNET_TOOLS_H)
+  #error This file is not meant to be included directly- clients should include gasnet.h or gasnet_tools.h
 #endif
 
 #ifndef _GASNET_BASIC_H

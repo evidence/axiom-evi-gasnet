@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/12/19 18:35:44 $ */
-/*  $Revision: 1.10 $ */
+/*      $Date: 2002/12/26 03:43:15 $ */
+/*  $Revision: 1.11 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -18,9 +18,6 @@
 
 /* Functions may be declared "static inline" */
 #undef STATIC_INLINE_WORKS
-
-/* Variable sized stack arrays  */
-#undef VARARRAY_WORKS
 
 /* have mmap() */
 #undef HAVE_MMAP

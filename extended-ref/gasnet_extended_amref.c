@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/12/22 10:17:13 $
- * $Revision: 1.19 $
+ *     $Date: 2002/12/26 03:43:18 $
+ * $Revision: 1.20 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -402,6 +402,7 @@ void gasnete_get_reph_inner(gasnet_token_t token,
   void *addr, size_t nbytes,
   void *dest, void *op) {
   GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
+  gasneti_memsync();
   gasnete_op_markdone((gasnete_op_t *)op, 1);
 }
 MEDIUM_HANDLER(gasnete_get_reph,2,4,
@@ -425,6 +426,7 @@ GASNET_INLINE_MODIFIER(gasnete_getlong_reph_inner)
 void gasnete_getlong_reph_inner(gasnet_token_t token, 
   void *addr, size_t nbytes, 
   void *op) {
+  gasneti_memsync();
   gasnete_op_markdone((gasnete_op_t *)op, 1);
 }
 LONG_HANDLER(gasnete_getlong_reph,1,2,
@@ -436,6 +438,7 @@ void gasnete_put_reqh_inner(gasnet_token_t token,
   void *addr, size_t nbytes,
   void *dest, void *op) {
   GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
+  gasneti_memsync();
   GASNETE_SAFE(
     SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));
@@ -448,6 +451,7 @@ GASNET_INLINE_MODIFIER(gasnete_putlong_reqh_inner)
 void gasnete_putlong_reqh_inner(gasnet_token_t token, 
   void *addr, size_t nbytes,
   void *op) {
+  gasneti_memsync();
   GASNETE_SAFE(
     SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));
@@ -460,6 +464,7 @@ GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
 void gasnete_memset_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t val, gasnet_handlerarg_t nbytes, void *dest, void *op) {
   memset(dest, (int)(uint32_t)val, nbytes);
+  gasneti_memsync();
   GASNETE_SAFE(
     SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));

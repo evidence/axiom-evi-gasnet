@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/12/22 10:17:11 $
- * $Revision: 1.14 $
+ *     $Date: 2002/12/26 03:43:17 $
+ * $Revision: 1.15 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -128,11 +128,14 @@ GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GAS
 /* take advantage of the fact that (ELAN_EVENT *)'s and ops are always 4-byte aligned 
    LSB of handle tells us which is in use, 0=ELAN_EVENT, 1=op
 */
+#define GASNETE_ASSERT_ALIGNED(p)           assert((((uintptr_t)(p))&0x3)==0)
 #define GASNETE_HANDLE_IS_ELANEVENT(handle) (!(((uintptr_t)(handle)) & 0x1))
 #define GASNETE_HANDLE_IS_OP(handle)        (((uintptr_t)(handle)) & 0x1)
-#define GASNETE_OP_TO_HANDLE(op)            ((gasnet_handle_t)(((uintptr_t)(op)) | ((uintptr_t)0x01)))
+#define GASNETE_OP_TO_HANDLE(op)            (GASNETE_ASSERT_ALIGNED(op), \
+                                             (gasnet_handle_t)(((uintptr_t)(op)) | ((uintptr_t)0x01)))
 #define GASNETE_HANDLE_TO_OP(handle)        ((gasnete_op_t *)(((uintptr_t)(handle)) & ~((uintptr_t)0x01)))
-#define GASNETE_ELANEVENT_TO_HANDLE(ee)     ((gasnet_handle_t)(ee))
+#define GASNETE_ELANEVENT_TO_HANDLE(ee)     (GASNETE_ASSERT_ALIGNED(ee), \
+                                             (gasnet_handle_t)(ee))
 #define GASNETE_HANDLE_TO_ELANEVENT(handle) ((ELAN_EVENT *)(handle))
 
 /* ------------------------------------------------------------------------------------ */
@@ -499,6 +502,7 @@ void gasnete_get_reph_inner(gasnet_token_t token,
   void *addr, size_t nbytes,
   void *dest, void *op) {
   GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
+  gasneti_memsync();
   gasnete_op_markdone((gasnete_op_t *)op, 1);
 }
 MEDIUM_HANDLER(gasnete_get_reph,2,4,
@@ -522,6 +526,7 @@ GASNET_INLINE_MODIFIER(gasnete_getlong_reph_inner)
 void gasnete_getlong_reph_inner(gasnet_token_t token, 
   void *addr, size_t nbytes, 
   void *op) {
+  gasneti_memsync();
   gasnete_op_markdone((gasnete_op_t *)op, 1);
 }
 LONG_HANDLER(gasnete_getlong_reph,1,2,
@@ -533,6 +538,7 @@ void gasnete_put_reqh_inner(gasnet_token_t token,
   void *addr, size_t nbytes,
   void *dest, void *op) {
   GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
+  gasneti_memsync();
   GASNETE_SAFE(
     SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));
@@ -545,6 +551,7 @@ GASNET_INLINE_MODIFIER(gasnete_putlong_reqh_inner)
 void gasnete_putlong_reqh_inner(gasnet_token_t token, 
   void *addr, size_t nbytes,
   void *op) {
+  gasneti_memsync();
   GASNETE_SAFE(
     SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));
@@ -557,6 +564,7 @@ GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
 void gasnete_memset_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t val, gasnet_handlerarg_t nbytes, void *dest, void *op) {
   memset(dest, (int)(uint32_t)val, nbytes);
+  gasneti_memsync();
   GASNETE_SAFE(
     SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));
