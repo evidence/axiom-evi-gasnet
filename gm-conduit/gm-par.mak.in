@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gm-par.mak.in,v 1.8 2003/04/09 04:21:22 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gm-par.mak.in,v 1.9 2003/04/10 00:23:00 bonachea Exp $
 # Description: Makefile fragment for GM conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -8,7 +8,7 @@
 #
 # Clients should include this file,
 # then use a compile line something like this:
-#  $(GASNET_CC) $(GASNET_MISC_CPPFLAGS) $(GASNET_CFLAGS) -c myfile.c
+#  $(GASNET_CC) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) -c myfile.c
 #
 # and a link line something like this:
 #  $(GASNET_LD) $(GASNET_LDFLAGS) -o myfile myfile.o $(GASNET_LIBS)
