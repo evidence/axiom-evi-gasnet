@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/03/16 19:29:04 $
- * $Revision: 1.31 $
+ *     $Date: 2005/03/16 21:15:34 $
+ * $Revision: 1.32 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,7 +23,7 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
 static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
-#if !defined(GASNETC_PIN_SEGMENT) && GASNETE_MEMSET_PUT_LIMIT
+#if !GASNETC_PIN_SEGMENT && GASNETE_MEMSET_PUT_LIMIT
   #error "GASNETE_MEMSET_PUT_LIMIT must be zero when GASNETC_PIN_SEGMENT is disabled"
 #endif
 

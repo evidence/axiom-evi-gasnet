@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/16 19:50:27 $
- * $Revision: 1.77 $
+ *     $Date: 2005/03/16 21:15:34 $
+ * $Revision: 1.78 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -93,6 +93,7 @@ typedef struct {
     const firehose_request_t	*fh_ptr[2];
     firehose_request_t          fh_loc, fh_rem;
     gasneti_atomic_t		fh_oust;
+    gasnetc_counter_t		*am_oust;	/* fh transactions outstanding */
   #endif
 } gasnetc_sreq_t;
 
@@ -618,6 +619,7 @@ gasnetc_sreq_t *gasnetc_get_sreq(void) {
   #if GASNETC_USE_FIREHOSE
     sreq->fh_ptr[0] = NULL;
     sreq->fh_ptr[1] = NULL;
+    sreq->am_oust = NULL;
   #endif
 
   return sreq;
@@ -946,12 +948,10 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   size_t msg_len;
   int retval, i;
   int use_inline = 0;
-  #if !GASNETC_PIN_SEGMENT
-    gasnetc_counter_t rdma_oust = GASNETC_COUNTER_INITIALIZER;
-  #endif
 
   /* FIRST, if using firehose then Long requests may need AMs for moves.
-   * Thus we do any RDMA before getting credits.
+   * Thus we MUST do any RDMA before getting credits.  It can't hurt to queue
+   * the Long RDMA as early as possible even when firehose is not in use.
    */
   if ((category == gasnetc_Long) && nbytes) {
     if (dest == gasneti_mynode) {
@@ -959,12 +959,20 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     } else {
       /* XXX check for error returns */
       #if GASNETC_PIN_SEGMENT
-	/* Remote segment is pinned and we can count on point-to-point ordering */
+	/* Queue the RDMA.  We can count on point-to-point ordering to deliver payload before header */
         (void)gasnetc_rdma_put(dest, src_addr, dst_addr, nbytes, mem_oust, NULL);
       #else
-	/* We can't count on point-to-point ordering, so we'll block before sending the header */
 	if (!token) {
-          (void)gasnetc_rdma_put(dest, src_addr, dst_addr, nbytes, mem_oust, &rdma_oust);
+	  /* Point-to-point ordering still holds, but only once the RDMA is actually queued.
+	   * In the case of a firehose hit, the RDMA is already queued before return from
+	   * gasnetc_rdma_put_fh().  On a miss, however, we'll need to spin on am_oust to
+	   * determine when all the RDMA is actually queued.
+	   * It would have been nice to move the wait down further in this function, but
+	   * that would lead to deadlock if we hold the resources needed to queue the RDMA.
+	   */
+	  gasnetc_counter_t am_oust = GASNETC_COUNTER_INITIALIZER;
+	  (void)gasnetc_rdma_put_fh(dest, src_addr, dst_addr, nbytes, mem_oust, NULL, &am_oust);
+	  gasnetc_counter_wait(&am_oust, 0);
 	} else {
 	  /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s).
 	   * We'll send it like a Medium below.
@@ -1096,14 +1104,6 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       gasnetc_counter_inc(req_oust);
       sreq->req_oust = req_oust;
     }
-
-    #if !GASNETC_PIN_SEGMENT
-      /* Wait for RDMA of Long payload if any */
-      if (!gasnetc_counter_done(&rdma_oust)) {
-	gasneti_assert(!token); /* must not get here for a Reply */
-        gasnetc_counter_wait_aux(&rdma_oust, 0);
-      }
-    #endif
 
     if_pt (use_inline) {
       gasnetc_snd_post_inline(sreq, sr_desc);
@@ -1735,6 +1735,10 @@ static void gasnetc_fh_put_inline(void *context, const firehose_request_t *req, 
   sr_desc->sg_lst_p[0].len = sreq->fh_len;
 
   gasnetc_snd_post_inline(sreq, sr_desc);
+
+  if (sreq->am_oust) {
+    gasnetc_counter_dec(sreq->am_oust);
+  }
 }
 
 GASNET_INLINE_MODIFIER(gasnetc_fh_post)
@@ -1752,6 +1756,10 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq) {
   sr_desc->sg_lst_p[0].lkey = sreq->fh_loc.client.lkey;
 
   gasnetc_snd_post(sreq, sr_desc);
+
+  if (sreq->am_oust) {
+    gasnetc_counter_dec(sreq->am_oust);
+  }
 }
 
 static void gasnetc_fh_getput(void *context, const firehose_request_t *req, int allLocalHit) {
@@ -1856,7 +1864,7 @@ int gasnetc_fh_helper(int is_put, gasnet_node_t node, gasnetc_sreq_t *sreq,
 }
 
 /* RDMA put */
-extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust) {
+extern int gasnetc_rdma_put_fh(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust, gasnetc_counter_t *am_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
   uintptr_t src = (uintptr_t)src_ptr;
   uintptr_t dst = (uintptr_t)dst_ptr;
@@ -1880,6 +1888,10 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     if (req_oust) {
       gasnetc_counter_inc(req_oust);
       sreq->req_oust = req_oust;
+    }
+    if (am_oust) {
+      gasnetc_counter_inc(am_oust);
+      sreq->am_oust = am_oust;
     }
 
     count = gasnetc_fh_helper(1, node, sreq, src, dst, nbytes);
