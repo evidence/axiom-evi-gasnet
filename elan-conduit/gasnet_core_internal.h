@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/11/24 01:13:10 $
- * $Revision: 1.25 $
+ *     $Date: 2005/01/08 06:09:55 $
+ * $Revision: 1.26 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -119,7 +119,7 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #endif
 
 #ifndef GASNETC_ELAN_MAPS_ENTIRE_VM
-  #if defined(GASNETC_ELAN4) || GASNETI_PTR32
+  #if defined(GASNETC_ELAN4) || defined(GASNETI_PTR32)
     /* elan4 has a 64-bit thread processor and always maps the entire host VM space.
        Quadrics confirms elan_addressable() should always return true on elan4.
        (although the elan/main VA's may differ).  
