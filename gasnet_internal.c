@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/10/18 21:21:25 $
- * $Revision: 1.16 $
+ *     $Date: 2002/10/23 00:47:28 $
+ * $Revision: 1.17 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -209,7 +209,7 @@ void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler) {
 #endif
 
 char gasneti_tracetypes[256];
-static FILE *tracefile = NULL;
+FILE *gasneti_tracefile = NULL;
 gasneti_stattime_t starttime;
 
 #if defined(STATS) || defined(TRACE)
@@ -301,33 +301,35 @@ gasneti_stattime_t starttime;
 
   /* dump message to tracefile */
   extern void gasneti_trace_output(char *type, char *msg, int traceheader) {
-    double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
-    assert(tracefile);
-    if (traceheader) {
-      #ifdef GASNETI_THREADS
-        fprintf(tracefile, "%i(%x) %8.6fs> (%c) %s%s", 
-          gasnet_mynode(), (int)pthread_self(), time, *type, msg,
-          (msg[strlen(msg)-1]=='\n'?"":"\n"));
-      #else
-        fprintf(tracefile, "%i %8.6fs> (%c) %s%s", gasnet_mynode(), time, *type, msg,
-                (msg[strlen(msg)-1]=='\n'?"":"\n"));
-      #endif
-    } else {
-        fprintf(tracefile, "%i> (%c) %s%s", gasnet_mynode(), *type, msg,
-                (msg[strlen(msg)-1]=='\n'?"":"\n"));
+    if (gasneti_tracefile) {
+      double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
+      if (traceheader) {
+        #ifdef GASNETI_THREADS
+          fprintf(gasneti_tracefile, "%i(%x) %8.6fs> (%c) %s%s", 
+            gasnet_mynode(), (int)pthread_self(), time, *type, msg,
+            (msg[strlen(msg)-1]=='\n'?"":"\n"));
+        #else
+          fprintf(gasneti_tracefile, "%i %8.6fs> (%c) %s%s", gasnet_mynode(), time, *type, msg,
+                  (msg[strlen(msg)-1]=='\n'?"":"\n"));
+        #endif
+      } else {
+          fprintf(gasneti_tracefile, "%i> (%c) %s%s", gasnet_mynode(), *type, msg,
+                  (msg[strlen(msg)-1]=='\n'?"":"\n"));
+      }
+      fflush(gasneti_tracefile);
     }
-    fflush(tracefile);
   }
   /* dump message to tracefile with simple header */
   static void gasneti_trace_printf(char *format, ...) {
     va_list argptr;
-    assert(tracefile);
-    fprintf(tracefile, "%i> ", gasnet_mynode());
-    va_start(argptr, format); /*  pass in last argument */
-      vfprintf(tracefile, format, argptr);
-    va_end(argptr);
-    if (format[strlen(format)-1]!='\n') fprintf(tracefile, "\n");
-    fflush(tracefile);
+    if (gasneti_tracefile) {
+      fprintf(gasneti_tracefile, "%i> ", gasnet_mynode());
+      va_start(argptr, format); /*  pass in last argument */
+        vfprintf(gasneti_tracefile, format, argptr);
+      va_end(argptr);
+      if (format[strlen(format)-1]!='\n') fprintf(gasneti_tracefile, "\n");
+      fflush(gasneti_tracefile);
+    }
   }
 #endif
 
@@ -348,10 +350,13 @@ extern void gasneti_trace_init() {
   { /* setup tracefile */
     char pathtemp[255];
     char *tracefilename = gasnet_getenv("GASNET_TRACEFILE");
-    if (!tracefilename) tracefilename = "stderr";
-
-    if (!strcmp(tracefilename, "stderr")) tracefile = stderr;
-    else if (!strcmp(tracefilename, "stdout")) tracefile = stdout;
+    if (!tracefilename || !strcmp(tracefilename, "")) {
+      tracefilename = NULL;
+      gasneti_tracefile = NULL;
+    }
+    else if (!strcmp(tracefilename, "stderr") ||
+             !strcmp(tracefilename, "-")) gasneti_tracefile = stderr;
+    else if (!strcmp(tracefilename, "stdout")) gasneti_tracefile = stdout;
     else {
       strcpy(pathtemp,tracefilename);
       tracefilename = pathtemp;
@@ -362,57 +367,61 @@ extern void gasneti_trace_init() {
         sprintf(temp,"%s%i%s",tracefilename,gasnet_mynode(),p+1);
         strcpy(tracefilename,temp);
       }
-      tracefile = fopen(tracefilename, "wt");
-      if (!tracefile) {
+      gasneti_tracefile = fopen(tracefilename, "wt");
+      if (!gasneti_tracefile) {
         fprintf(stderr, "ERROR: Failed to open '%s' for tracing output. Redirecting to stderr.\n",
                 tracefilename);
         tracefilename = "stderr";
-        tracefile = stderr;
+        gasneti_tracefile = stderr;
       }
     }
 
-    fprintf(stderr, "GASNet %s reporting enabled - output directed to %s\n", 
-      #ifdef TRACE
-        "trace"
-      #else
-        ""
-      #endif
-      #if defined(STATS) && defined(TRACE)
-        " and "
-      #else 
-        ""
-      #endif
-      #ifdef STATS
-        "statistical"
-      #else
-        ""
-      #endif
-      , tracefilename);
+    if (gasneti_tracefile) {
+      fprintf(stderr, "GASNet %s reporting enabled - output directed to %s\n", 
+        #ifdef TRACE
+          "trace"
+        #else
+          ""
+        #endif
+        #if defined(STATS) && defined(TRACE)
+          " and "
+        #else 
+          ""
+        #endif
+        #ifdef STATS
+          "statistical"
+        #else
+          ""
+        #endif
+        , tracefilename);
 
-    { time_t ltime;
-      char temp[255];
-      time(&ltime); 
-      strcpy(temp, ctime(&ltime));
-      if (temp[strlen(temp)-1] == '\n') temp[strlen(temp)-1] = '\0';
-      gasneti_trace_printf("Program starting at: %s", temp);
-      gasneti_trace_printf("GASNET_TRACEMASK: %s", tracetypes);
+      { time_t ltime;
+        char temp[255];
+        time(&ltime); 
+        strcpy(temp, ctime(&ltime));
+        if (temp[strlen(temp)-1] == '\n') temp[strlen(temp)-1] = '\0';
+        gasneti_trace_printf("Program starting at: %s", temp);
+        gasneti_trace_printf("GASNET_TRACEMASK: %s", tracetypes);
+      }
     }
 
     #ifdef NDEBUG
     { char *NDEBUG_warning =
        "WARNING: tracing/statistical collection may adversely affect application performance.";
       gasneti_trace_printf(NDEBUG_warning);
-      if (tracefile != stdout && tracefile != stderr) {
+      if (gasneti_tracefile != stdout && gasneti_tracefile != stderr) {
         fprintf(stderr,NDEBUG_warning);
         fprintf(stderr,"\n");
       }
+    }
     #endif
 
     #ifdef GASNETI_USING_GETTIMEOFDAY
       gasneti_trace_printf("WARNING: using gettimeofday() for timing measurement - "
         "all short-term time measurements will be very rough and include significant timer overheads");
     #endif
-    { int i, ticks, iters = 1000, minticks = 10;
+    if (gasneti_tracefile) { 
+      int i, ticks, iters = 1000, minticks = 10;
       gasneti_stattime_t min = GASNETI_STATTIME_MAX;
       gasneti_stattime_t start = GASNETI_STATTIME_NOW();
       gasneti_stattime_t last = start;
@@ -461,7 +470,7 @@ AGGR(D);
 
 extern void gasneti_trace_finish() {
 #if defined(STATS) || defined(TRACE)
-  if (tracefile) {
+  if (gasneti_tracefile) {
 
     double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
     gasneti_trace_printf("Total application run time: %10.6fs", time);
@@ -576,8 +585,9 @@ extern void gasneti_trace_finish() {
 
     GASNETC_TRACE_FINISH(); /* allow for final output of conduit-specific statistics */
 
-    if (tracefile != stdout && tracefile != stderr) fclose(tracefile);
-    tracefile = NULL;
+    if (gasneti_tracefile != stdout && gasneti_tracefile != stderr) 
+      fclose(gasneti_tracefile);
+    gasneti_tracefile = NULL;
   }
 #endif
 }

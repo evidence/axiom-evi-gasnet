@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2002/09/02 23:18:33 $
- * $Revision: 1.2 $
+ *     $Date: 2002/10/23 00:47:28 $
+ * $Revision: 1.3 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -20,20 +20,29 @@ BEGIN_EXTERNC
    Usage info:
      for tracing output: 
        add -DTRACE to the compile options for the library and application
+       (use the --enable-trace configure option)
      for statistical collection and summary info: 
        add -DSTATS to the compile options for the library and application
-     run program as usual
+       (use the --enable-stats configure option)
+     run program as usual. 
+     In order to see the trace/stats output, you must set the environment variable
+       GASNET_TRACEFILE as explained below.
 
    Note that system performance is likely to be degraded as a result of tracing and 
-     statistical collection.
+     statistical collection. This is still true even when output is disabled
+       by not setting this GASNET_TRACEFILE (so production platforms should not 
+       enable tracing/stats at GASNet configure time).
 
    Optional environment variable settings:
 
      GASNET_TRACEFILE - specify a file name to recieve the trace and/or statistical output
-       may also be "stdout" or "stderr" (defaults to stderr)
+       may also be "stdout" or "stderr", (or "-" to indicate stderr)
        each node may have its output directed to a separate file, 
        and any '%' character in the value is replaced by the node number at runtime
        (e.g. GASNET_TRACEFILE="mytrace-%")
+       unsetting this environment variable (or setting it to empty) disables 
+       tracing and statistical output (although the trace code still has performance impact)
+
      GASNET_TRACEMASK - specify the types of trace messages/stats to collect
        A string containing one or more of the following letters:
          G - gets
@@ -453,12 +462,13 @@ extern void gasneti_trace_finish();
   } gasneti_statinfo_t;
   extern gasneti_statinfo_t gasneti_stats[];
 
+  extern FILE *gasneti_tracefile;
   extern char *gasneti_dynsprintf(char *,...);
   extern char *gasneti_formatdata(void *p, int nbytes);
   extern void gasneti_trace_output(char *type, char *msg, int traceheader);
 
   extern char gasneti_tracetypes[];
-  #define GASNETI_TRACE_ENABLED(type) ((int)gasneti_tracetypes[(int)*(char*)#type])
+  #define GASNETI_TRACE_ENABLED(type) (gasneti_tracefile && gasneti_tracetypes[(int)*(char*)#type])
 #else
   #define GASNETI_TRACE_ENABLED(type) 0
 #endif
