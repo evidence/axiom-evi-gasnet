@@ -1,6 +1,6 @@
-/* $Id: testcore1.c,v 1.6 2003/08/31 12:38:56 bonachea Exp $
- * $Date: 2003/08/31 12:38:56 $
- * $Revision: 1.6 $
+/* $Id: testcore1.c,v 1.7 2003/09/15 06:31:19 bonachea Exp $
+ * $Date: 2003/09/15 06:31:19 $
+ * $Revision: 1.7 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -207,7 +207,7 @@ chksum_reph(gasnet_token_t token,
 	if (memcmp(&_mseed[iter].chksum, buf, CHKSUM_LENGTH) == 0) 
   	        gasnett_atomic_increment(&chksum_success);
 	else {
-		printf("iter %3d failed! chksum_local=", iter);
+		printf("iter %3d failed! chksum_local=", (int)iter);
 		CHKSUM_DUMP(&_mseed[iter].chksum);
 		printf(" chksum_remote=");
 		CHKSUM_DUMP(buf);

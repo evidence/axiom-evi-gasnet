@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/09/09 18:02:14 $
- * $Revision: 1.16 $
+ *     $Date: 2003/09/15 06:31:16 $
+ * $Revision: 1.17 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -275,11 +275,14 @@
 /* ------------------------------------------------------------------------------------ */
 /* portable memory barrier support */
 
-/* a local memory barrier - ensure all previous stores to local mem
-   from this proc are globally completed across this SMP 
+/* a local memory barrier - ensure all previous loads/stores to local mem
+   from this proc are globally completed across this SMP before issuing
+   any subsequent loads or stores
    (i.e. all loads issued from any CPU subsequent to this call
       returning will see the new value for any previously issued
       stores from this proc)
+   This is sometimes referred to as a full memory "fence" 
+   More Info: http://gee.cs.oswego.edu/dl/jmm/cookbook.html
  */
 #ifdef __GNUC__
   #define GASNETI_ASM(mnemonic) asm volatile (#mnemonic : : : "memory")

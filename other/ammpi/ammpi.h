@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/06/29 08:09:49 $
- * $Revision: 1.12 $
+ *     $Date: 2003/09/15 06:31:18 $
+ * $Revision: 1.13 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -49,6 +49,7 @@
   typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
 #elif defined(CYGWIN)
   #include <sys/types.h>
+  #ifndef __int8_t_defined
   #ifndef __uint8_t_defined
     typedef u_int8_t     uint8_t;
   #endif
@@ -68,6 +69,7 @@
   #endif
   #ifndef __uintptr_t_defined
     typedef unsigned int    uintptr_t;
+  #endif
   #endif
 #else
   #include <inttypes.h>

@@ -1,4 +1,4 @@
-/* $Id: testthreads.c,v 1.9 2003/09/13 17:17:58 bonachea Exp $
+/* $Id: testthreads.c,v 1.10 2003/09/15 06:31:19 bonachea Exp $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -268,7 +268,7 @@ main(int argc, char **argv)
 		int 	i;
 		void	*ret;
 
-		printf("%d> Forking %d gasnet threads\n", gasnet_mynode(), 
+		printf("%d> Forking %d gasnet threads\n", (int)gasnet_mynode(), 
 				threads);
 		for (i = 0; i < threads; i++) {
                         pthread_attr_t attr;
@@ -293,7 +293,7 @@ main(int argc, char **argv)
 
 	free_thread_data();
 
-	printf("%d> Tests complete\n", gasnet_mynode());
+	printf("%d> Tests complete\n", (int)gasnet_mynode());
 
         BARRIER();
 
@@ -420,7 +420,7 @@ ping_shorthandler(gasnet_token_t token, harg_t idx)
 	gasnet_AMGetMsgSource(token, &node);
 
 	PRINT_AM(("node=%2d> AMShort Request for (%d,%d)\n", 
-			gasnet_mynode(), node, idx));
+			(int)gasnet_mynode(), (int)node, (int)idx));
         assert(idx >= 0 && idx < threads_num);
         assert(node < gasnet_nodes());
 	GASNET_Safe(gasnet_AMReplyShort1(token, hidx_pong_shorthandler, idx));
@@ -431,7 +431,7 @@ pong_shorthandler(gasnet_token_t token, harg_t idx)
 {
 	int	tid = tt_thread_data[idx].tid;
 	PRINT_AM(("node=%2d> AMShort Reply for tid=%d, (%d,%d)\n", 
-			gasnet_mynode(), tid, gasnet_mynode(), idx));
+			(int)gasnet_mynode(), tid, (int)gasnet_mynode(), (int)idx));
         assert(idx >= 0 && idx < threads_num);
         assert(tid >= 0 && tid < threads_num*gasnet_nodes());
 	tt_thread_data[idx].flag++;
@@ -444,7 +444,7 @@ ping_medhandler(gasnet_token_t token, void *buf, size_t nbytes, harg_t idx)
 	gasnet_AMGetMsgSource(token, &node);
 
 	PRINT_AM(("node=%2d> AMMedium Request for (%d,%d)\n", 
-			gasnet_mynode(), node, idx));
+			(int)gasnet_mynode(), (int)node, (int)idx));
         assert(idx >= 0 && idx < threads_num);
         assert(node < gasnet_nodes());
         assert(nbytes <= gasnet_AMMaxMedium());
@@ -461,7 +461,7 @@ pong_medhandler(gasnet_token_t token, void *buf, size_t nbytes,
 	int	tid = tt_thread_data[idx].tid;
 
 	PRINT_AM(("node=%2d> AMMedium Reply for tid=%d, (%d,%d)\n", 
-			gasnet_mynode(), tid, gasnet_mynode(), idx));
+			(int)gasnet_mynode(), tid, (int)gasnet_mynode(), (int)idx));
         assert(idx >= 0 && idx < threads_num);
         assert(tid >= 0 && tid < threads_num*gasnet_nodes());
         assert(nbytes <= gasnet_AMMaxMedium());
@@ -482,7 +482,7 @@ ping_longhandler(gasnet_token_t token, void *buf, size_t nbytes, harg_t idx, har
 	paddr = tt_addr_map[tid];
 
 	PRINT_AM(("node=%2d> AMLong Request for (%d,%d)\n", 
-			gasnet_mynode(), node, idx));
+			(int)gasnet_mynode(), (int)node, (int)idx));
         assert(idx >= 0 && idx < threads_num);
         assert(node < gasnet_nodes());
         assert(nbytes <= gasnet_AMMaxLongRequest());
@@ -498,7 +498,7 @@ pong_longhandler(gasnet_token_t token, void *buf, size_t nbytes, harg_t idx) {
 	int	tid = tt_thread_data[idx].tid;
 
 	PRINT_AM(("node=%2d> AMLong Reply for tid=%d, (%d,%d)\n", 
-			gasnet_mynode(), tid, gasnet_mynode(), idx));
+			(int)gasnet_mynode(), tid, (int)gasnet_mynode(), (int)idx));
         assert(idx >= 0 && idx < threads_num);
         assert(tid >= 0 && tid < threads_num*gasnet_nodes());
         assert(nbytes <= gasnet_AMMaxLongReply());

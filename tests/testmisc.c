@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testmisc.c                             $
- *     $Date: 2002/12/19 18:31:54 $
- * $Revision: 1.6 $
+ *     $Date: 2003/09/15 06:31:19 $
+ * $Revision: 1.7 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -619,7 +619,7 @@ int main(int argc, char **argv) {
       report("single-node barrier",TIME() - start, iters);
       if (mynode == 0 && gasnet_nodes() > 1) {
         printf("Note: this is actually the barrier time for %i nodes, "
-               "since you're running with more than one node.\n", gasnet_nodes());
+               "since you're running with more than one node.\n", (int)gasnet_nodes());
         fflush(stdout);
       }
     }

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2003/08/28 06:23:46 $
- * $Revision: 1.11 $
+ *     $Date: 2003/09/15 06:31:19 $
+ * $Revision: 1.12 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -119,7 +119,7 @@ int main(int argc, char **argv) {
       if (tmp1 != 1000 + mynode + i || tmp2 != 1000 + mynode + i) {
         MSG("*** ERROR - FAILED INT VALUE TEST 1!!!");
         printf("node %i/%i  i=%i tmp1=%i tmp2=%i (1000 + mynode + i)=%i\n", 
-          gasnet_mynode(), gasnet_nodes(), 
+          (int)gasnet_mynode(), (int)gasnet_nodes(), 
           i, tmp1, tmp2, 1000 + mynode + i); fflush(stdout); 
         success = 0;
       }
@@ -133,7 +133,7 @@ int main(int argc, char **argv) {
         if (tmp != 1000 + mynode + i) {
           MSG("*** ERROR - FAILED INT VALUE TEST 2!!!");
           printf("node %i/%i  i=%i tmp1=%i (1000 + mynode + i)=%i\n", 
-            gasnet_mynode(), gasnet_nodes(), 
+            (int)gasnet_mynode(), (int)gasnet_nodes(), 
             i, tmp, 1000 + mynode + i); fflush(stdout); 
           success = 0;
         }
@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
       if (tmp1 != 100 + mynode + i || tmp2 != 100 + mynode + i) {
         MSG("*** ERROR - FAILED CHAR VALUE TEST 1!!!");
         printf("node %i/%i  i=%i tmp1=%i tmp2=%i (100 + mynode + i)=%i\n", 
-          gasnet_mynode(), gasnet_nodes(), 
+          (int)gasnet_mynode(), (int)gasnet_nodes(), 
           i, tmp1, tmp2, 100 + mynode + i); fflush(stdout); 
         success = 0;
       }
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
         if (tmp != 100 + mynode + i) {
           MSG("*** ERROR - FAILED CHAR VALUE TEST 2!!!");
           printf("node %i/%i  i=%i tmp1=%i (100 + mynode + i)=%i\n", 
-            gasnet_mynode(), gasnet_nodes(), 
+            (int)gasnet_mynode(), (int)gasnet_nodes(), 
             i, tmp, 100 + mynode + i); fflush(stdout); 
           success = 0;
         }

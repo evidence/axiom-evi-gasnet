@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2003/06/24 18:00:54 $
- * $Revision: 1.18 $
+ *     $Date: 2003/09/15 06:31:16 $
+ * $Revision: 1.19 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,6 +51,7 @@
   typedef unsigned int    uintptr_t; 
 #elif defined(CYGWIN)
   #include <sys/types.h>
+  #ifndef __int8_t_defined
   #ifndef __uint8_t_defined
     typedef u_int8_t     uint8_t;
   #endif
@@ -69,6 +70,7 @@
   #endif
   #ifndef __uintptr_t_defined
     typedef unsigned int    uintptr_t; 
+  #endif
   #endif
 #else
   /* try to determine them automatically */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/09/13 17:17:46 $
- * $Revision: 1.37 $
+ *     $Date: 2003/09/15 06:31:16 $
+ * $Revision: 1.38 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -199,7 +199,7 @@ void gasneti_defaultSignalHandler(int sig) {
     case SIGFPE:
       GASNETC_FATALSIGNAL_CALLBACK(sig); /* give conduit first crack at it */
       fprintf(stderr,"*** GASNet caught a fatal signal: %s(%i) on node %i/%i\n",
-        signame, sig, gasnet_mynode(), gasnet_nodes()); 
+        signame, sig, (int)gasnet_mynode(), (int)gasnet_nodes()); 
       fflush(stderr);
       signal(sig, SIG_DFL); /* restore default core-dumping handler and re-raise */
       #if 1
@@ -213,7 +213,7 @@ void gasneti_defaultSignalHandler(int sig) {
     default: 
       /* translate signal to SIGQUIT */
       fprintf(stderr,"*** GASNet caught a signal: %s(%i) on node %i/%i\n",
-        signame, sig, gasnet_mynode(), gasnet_nodes()); 
+        signame, sig, (int)gasnet_mynode(), (int)gasnet_nodes()); 
       fflush(stderr);
       #if 1
         raise(SIGQUIT);
@@ -505,11 +505,11 @@ gasneti_stattime_t starttime;
           (int)gasnet_mynode(), (int)(uintptr_t)pthread_self(), time, *type, msg,
           (msg[strlen(msg)-1]=='\n'?"":"\n"));
       #else
-        fprintf(fp, "%i %8.6fs> (%c) %s%s", gasnet_mynode(), time, *type, msg,
+        fprintf(fp, "%i %8.6fs> (%c) %s%s", (int)gasnet_mynode(), time, *type, msg,
                 (msg[strlen(msg)-1]=='\n'?"":"\n"));
       #endif
     } else {
-        fprintf(fp, "%i> (%c) %s%s", gasnet_mynode(), *type, msg,
+        fprintf(fp, "%i> (%c) %s%s", (int)gasnet_mynode(), *type, msg,
                 (msg[strlen(msg)-1]=='\n'?"":"\n"));
     }
     fflush(fp);
@@ -554,7 +554,7 @@ gasneti_stattime_t starttime;
   static void gasneti_file_vprintf(FILE *fp, char *format, va_list argptr) {
     gasneti_mutex_assertlocked(&gasneti_tracelock);
     assert(fp);
-    fprintf(fp, "%i> ", gasnet_mynode());
+    fprintf(fp, "%i> ", (int)gasnet_mynode());
     vfprintf(fp, format, argptr);
     if (format[strlen(format)-1]!='\n') fprintf(fp, "\n");
     fflush(fp);
@@ -628,7 +628,7 @@ static FILE *gasneti_open_outputfile(char *filename, char *desc) {
       char temp[255];
       char *p = strchr(filename,'%');
       *p = '\0';
-      sprintf(temp,"%s%i%s",filename,gasnet_mynode(),p+1);
+      sprintf(temp,"%s%i%s",filename,(int)gasnet_mynode(),p+1);
       strcpy(filename,temp);
     }
     fp = fopen(filename, "wt");

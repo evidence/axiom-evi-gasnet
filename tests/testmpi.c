@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2003/09/07 00:29:51 $
- * $Revision: 1.2 $
+ *     $Date: 2003/09/15 06:31:19 $
+ * $Revision: 1.3 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,7 +109,7 @@ void attach_test_mpi() {
 
     MPI_SAFE(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
     MPI_SAFE(MPI_Comm_size(MPI_COMM_WORLD, &mpinodes));
-    printf("GASNet node %i == MPI node %i\n", gasnet_mynode(), rank);
+    printf("GASNet node %i == MPI node %i\n", (int)gasnet_mynode(), rank);
     assert(mpinodes == gasnet_nodes() && rank >= 0 && rank < mpinodes);
     gasnet_node = gasnet_mynode();
     MPI_SAFE(MPI_Allgather(&gasnet_node,sizeof(int),MPI_BYTE,
@@ -175,7 +175,7 @@ void mpi_handler(gasnet_token_t token, harg_t tid, harg_t sz) {
   gasnet_AMGetMsgSource(token, &node);
 
   PRINT_AM(("node=%2d> AMShort MPI Request for tid=%i, nbytes=%i\n",
-            gasnet_mynode(), tid, sz));
+            (int)gasnet_mynode(), (int)tid, (int)sz));
   assert(tt_thread_map[tid] == node);
   assert(sz > 0);
   mpipeer = gasnetnode_to_mpirank[node];
@@ -190,7 +190,7 @@ void mpi_handler(gasnet_token_t token, harg_t tid, harg_t sz) {
     mpi_buf[tid] = buf;
     mpi_bufsz[tid] = sz;
 
-    ACTION_PRINTF("node=%2d> setting MPI_Irecv, %i bytes\n", gasnet_mynode(), sz);
+    ACTION_PRINTF("node=%2d> setting MPI_Irecv, %i bytes\n", (int)gasnet_mynode(), (int)sz);
     MPI_SAFE(MPI_Irecv(mpi_buf[tid], sz, MPI_BYTE, mpipeer, tag, MPI_COMM_WORLD, &(mpi_recvhandle[tid])));
     assert(mpi_recvhandle[tid] != MPI_REQUEST_NULL);
           
@@ -218,7 +218,7 @@ void mpi_probehandler(gasnet_token_t token, harg_t tid) {
         assert(mpi_recvhandle[tid] == MPI_REQUEST_NULL);
         assert(mpi_sendhandle[tid] == MPI_REQUEST_NULL);
         assert(mpi_buf[tid] != NULL && sz >= 0);
-        ACTION_PRINTF("node=%2d> sending MPI reply message, %i bytes\n", gasnet_mynode(), sz);
+        ACTION_PRINTF("node=%2d> sending MPI reply message, %i bytes\n", (int)gasnet_mynode(), sz);
         MPI_SAFE(MPI_Isend(mpi_buf[tid], sz, MPI_BYTE, mpipeer, 10000+tag, MPI_COMM_WORLD, &(mpi_sendhandle[tid])));
         assert(mpi_sendhandle[tid] != MPI_REQUEST_NULL);
       } 
@@ -241,7 +241,7 @@ void mpi_probehandler(gasnet_token_t token, harg_t tid) {
     test_free(mpi_buf[tid]);
     mpi_buf[tid] = NULL;
     PRINT_AM(("node=%2d> Sending AMShort MPI Reply for tid=%i\n",
-            gasnet_mynode(), tid));
+            (int)gasnet_mynode(), (int)tid));
     GASNET_Safe(gasnet_AMReplyShort1(token, hidx_mpi_replyhandler, tid));
   }
 }
@@ -249,7 +249,7 @@ void mpi_probehandler(gasnet_token_t token, harg_t tid) {
 void mpi_replyhandler(gasnet_token_t token, harg_t tid) {
   int ltid = tid - gasnet_mynode()*threads_num;
   PRINT_AM(("node=%2d> Got AMShort MPI Reply for tid=%d\n",
-                        gasnet_mynode(), tid));
+                        (int)gasnet_mynode(), (int)tid));
   assert(tt_thread_map[tid] == gasnet_mynode());
   tt_thread_data[ltid].flag = 0;
 }

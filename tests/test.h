@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2003/09/02 16:41:55 $
- * $Revision: 1.16 $
+ *     $Date: 2003/09/15 06:31:19 $
+ * $Revision: 1.17 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,8 +63,9 @@ uint64_t test_checksum(void *p, int numbytes) {
 }
 
 
-#define MSG(s) do {                                                              \
-  printf("node %i/%i %s\n", gasnet_mynode(), gasnet_nodes(), s); fflush(stdout); \
+#define MSG(s) do {                                                         \
+  printf("node %i/%i %s\n", (int)gasnet_mynode(), (int)gasnet_nodes(), s);  \
+  fflush(stdout);                                                           \
   } while(0)
 
 #define BARRIER() do {                                                \
