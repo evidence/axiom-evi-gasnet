@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_conf.c,v 1.8 2003/11/03 19:45:31 csbell Exp $
- * $Date: 2003/11/03 19:45:31 $
+/* $Id: gasnet_core_conf.c,v 1.9 2003/11/08 23:50:57 csbell Exp $
+ * $Date: 2003/11/08 23:50:57 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -259,6 +259,7 @@ gasnetc_getconf_mpiexec()
 	else {
 		struct hostent		*master_he;
 		gm_u64_t 		start_time, stop_time;
+		ssize_t			b;
 		int			junk;
 
 		master_he = gethostbyname (master);
@@ -299,12 +300,12 @@ gasnetc_getconf_mpiexec()
 			(unsigned) _gmc.my_id, 0, (int) getpid(), slave_port);
 
 		while (count < strlen (buffer)) {
-			i = write(sockfd2, &buffer[count], 
+			b = write(sockfd2, &buffer[count], 
 				  strlen (buffer) - count);
-			if (i < 0)
+			if (b < 0)
 				gasneti_fatalerror("%d> can't write to socket",
 						gasnetc_mynode);
-			count += i;
+			count += b;
 		}
 		close (sockfd2);
 		
@@ -324,12 +325,12 @@ gasnetc_getconf_mpiexec()
 		 *
 		 */
 		while (strstr (buffer, "]]]") == NULL) {
-			i = read(sockfd2, &buffer[count], 
+			b = read(sockfd2, &buffer[count], 
 				 GASNETC_SOCKET_BUFSIZ-count);
-			if (i < 0)
+			if (b < 0)
 				gasneti_fatalerror("%d> can't read from socket",
 						gasnetc_mynode);
-			count += i;
+			count += b;
 		}
 
 		close(sockfd2);

@@ -885,7 +885,7 @@ fh_fini_plugin()
 /* ####################################### */
 
 fhi_RegionPool_t *
-fhi_AllocRegionPool(b_num)
+fhi_AllocRegionPool(int b_num)
 {
 	fhi_RegionPool_t *rpool;
 

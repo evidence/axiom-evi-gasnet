@@ -59,9 +59,6 @@ $local_host = hostname;
 $local_port = '8000';
 $runcmd = "";
 
-@rexec_flags = split(/ /, $rexec);
-
-
 ###################
 #                 #
 #  Sub functions  #
@@ -209,10 +206,10 @@ sub find_program {
 
 sub usage {
   if ($_[0] ne '') {
-    print (STDERR "Error in mpirun.ch_gm: @_\n\n");
+    print (STDERR "Error in gasnetrun_gm: @_\n\n");
   }
 
-  print (STDERR "Usage:\n \t mpirun.ch_gm [options] [-np <n>] prog [flags]\n");
+  print (STDERR "Usage:\n \t gasnetrun_gm [options] [-np <n>] prog [flags]\n");
   print (STDERR "   -v   Verbose - provide additional details of the script's execution.\n");
   print (STDERR "   -t   Testing - do not actually run, just print what would be executed.\n");
   print (STDERR "   -s   Close stdin - can run in background without tty input problems.\n");
@@ -337,6 +334,8 @@ while (@ARGV > 0) {
   }
   shift;
 }
+
+@rexec_flags = split(/ /, $rexec);
 
 $app_cmd or usage (" Missing program name !");
 
