@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2004/10/23 05:02:05 $
-dnl $Revision: 1.49 $
+dnl     $Date: 2004/10/27 01:22:11 $
+dnl $Revision: 1.50 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -760,6 +760,14 @@ AC_DEFUN([GASNET_PROG_CC], [
               [AC_MSG_ERROR(Your C linker is broken - reported success when it should have failed)], [])
   AC_TRY_LINK([], [], [], [GASNET_MSG_ERROR(Your C link is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes)
+  dnl reset autoconf cross compilation setting, which is wrong if executables are broken
+  dnl (we don't currently support cross-compilation anyhow)
+  cross_compiling=no
+  ac_cv_prog_cc_cross=no
+  AC_MSG_CHECKING([working C compiler executables])
+  AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
+  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR(Cannot run executables created with C compiler)], 
+  	     [AC_MSG_ERROR(Internal configure error - please report)])
   AC_LANG_RESTORE
 ])
 
@@ -779,6 +787,14 @@ AC_DEFUN([GASNET_PROG_CXX], [
               [AC_MSG_ERROR(Your C++ linker is broken - reported success when it should have failed)], [])
   AC_TRY_LINK([], [], [], [GASNET_MSG_ERROR(Your C++ link is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes)
+  dnl reset autoconf cross compilation setting, which is wrong if executables are broken
+  dnl (we don't currently support cross-compilation anyhow)
+  cross_compiling=no
+  ac_cv_prog_cc_cross=no
+  AC_MSG_CHECKING([working C++ compiler executables])
+  AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
+  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR(Cannot run executables created with C++ compiler)], 
+  	     [AC_MSG_ERROR(Internal configure error - please report)])
   AC_LANG_RESTORE
 ])
 
