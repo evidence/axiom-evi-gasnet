@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/07/26 17:27:28 $
-# $Revision: 1.153 $
+#     $Date: 2004/07/26 18:21:38 $
+# $Revision: 1.154 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.153 $)
+AC_REVISION($Revision: 1.154 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1057,9 +1057,10 @@ popdef([CONDUIT_DESC])
 # LAPI configuration
 
 pushdef([CONDUIT_DESC],[LAPI (IBM SP) network conduit (lapi)])
-GASNET_IF_ENABLED(lapi, Enable the CONDUIT_DESC, 
-  have_lapi=yes,
-  have_lapi=no)
+GASNET_IF_ENABLED_WITH_AUTO(lapi, Enable the CONDUIT_DESC (auto-detected), 
+  [enabled_lapi=yes;force_lapi=yes],
+  enabled_lapi=no,
+  enabled_lapi=yes)
 if test "$force_lapi$have_pthread" = yesno; then
   AC_MSG_ERROR([lapi-conduit requires pthread support and pthreads appear to be broken])
 fi
@@ -1067,7 +1068,7 @@ if test "$enabled_lapi$have_pthread" = yesno; then
   enabled_lapi=no
   AC_MSG_WARN([lapi-conduit requires pthread support and pthreads appear to be broken - disabling lapi])
 fi
-if test $have_lapi = yes; then
+if test "$enabled_lapi" = yes; then
   AC_MSG_CHECKING(for working LAPI configuration)
   OLDLIBS="$LIBS"
   LIBS="-llapi_r -lpthread"
@@ -1081,15 +1082,13 @@ if test $have_lapi = yes; then
 
       memset(&gasnetc_lapi_info, 0, sizeof(lapi_info_t));
       LAPI_Init(&gasnetc_lapi_context, &gasnetc_lapi_info);
-    }], [ lapi_test_worked=yes ], [ lapi_test_worked=no ] )
+    }], [ have_lapi=yes ], [ have_lapi=no ] )
   LIBS="$OLDLIBS"
+  AC_MSG_RESULT($have_lapi)
 
-  if test "$lapi_test_worked" = yes; then
-    AC_MSG_RESULT(yes)
-  else
-    AC_MSG_RESULT(no)
-    AC_MSG_ERROR(build test failed: I don't know how to build lapi programs on your system)
-    have_lapi=no
+  # Check for conflict
+  if test "$force_lapi$have_lapi" = yesno; then
+    AC_MSG_ERROR([User requested --enable-lapi but I don't know how to build LAPI programs for your system.])
   fi
 
   if test x"$ac_cv_sizeof_void_p" = x4; then
@@ -1347,17 +1346,17 @@ AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$mpi_test_worked" = yes)
 # SCI configuration
 
 pushdef([CONDUIT_DESC],[Dolphin SISCI network conduit (sci)])
-GASNET_IF_ENABLED(sci, Enable the CONDUIT_DESC,
-  have_sci=yes,
-  have_sci=no)
+GASNET_IF_ENABLED_WITH_AUTO(sci, Enable the CONDUIT_DESC (auto-detected),
+  [enabled_sci=yes;force_sci=yes],
+  enabled_sci=no,
+  enabled_sci=yes)
 
-if test $have_sci = yes; then
+if test "$enabled_sci" = yes; then
   GASNET_ENV_DEFAULT(SCIHOME, /opt/DIS)
   GASNET_ENV_DEFAULT(SCI_INCLUDES, [-I$SCIHOME/include -I$SCIHOME/lib/api])
   GASNET_ENV_DEFAULT(SCI_LIBS, [-L$SCIHOME/lib/api -lsisci])
 
   AC_MSG_CHECKING(for working SCI configuration)
-
   OLDCFLAGS="$CFLAGS"
   OLDLIBS="$LIBS"
   CFLAGS="$CFLAGS $SCI_INCLUDES"
@@ -1371,16 +1370,14 @@ if test $have_sci = yes; then
      sci_desc_t sd;
      sci_error_t err;
      SCIOpen(&sd, 0, &err);
-    }], [ sci_test_worked=yes ], [ sci_test_worked=no ] )
+    }], [ have_sci=yes ], [ have_sci=no ] )
   CFLAGS="$OLDCFLAGS"
   LIBS="$OLDLIBS"
+  AC_MSG_RESULT($have_sci)
 
-  if test "$sci_test_worked" = yes; then
-    AC_MSG_RESULT(yes)
-  else
-    AC_MSG_RESULT(no)
-    AC_ERROR(build test failed: I don't know how to build SCI programs on your system)
-    have_sci=no
+  # Check for conflict
+  if test "$force_sci$have_sci" = yesno; then
+    AC_MSG_ERROR([User requested --enable-sci but I don't know how to build SCI programs for your system.])
   fi
 fi
 AC_SUBST(SCI_INCLUDES)
