@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/20 08:24:20 $
- * $Revision: 1.31 $
+ *     $Date: 2005/02/20 22:04:37 $
+ * $Revision: 1.32 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,6 +23,31 @@ static void gasnetc_atexit(void);
 #define GASNETC_MAX_NUMHANDLERS   256
 typedef void (*gasnetc_handler_fn_t)();  /* prototype for handler function */
 gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS]; /* handler table */
+
+extern void fn0() {}
+extern void fn1() {}
+extern void fn2() {}
+extern void fn3() {}
+extern void fn4() {}
+extern void fn5() {}
+extern void fn6() {}
+extern void fn7() {}
+extern void fn8() {}
+extern void fn9() {}
+
+void (*(fn[]))() = {
+  fn0,
+  fn1,
+  fn2,
+  fn3,
+  fn4,
+  fn5,
+  fn6,
+  fn7,
+  fn8,
+  fn9
+};
+
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -335,7 +360,9 @@ extern void gasnetc_exit(int exitcode) {
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
   gasnet_node_t sourceid;
   GASNETI_CHECKATTACH();
-  if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
+  #if GASNET_DEBUG
+    if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
+  #endif
   if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
 
   /* add code here to write the source index into sourceid */
