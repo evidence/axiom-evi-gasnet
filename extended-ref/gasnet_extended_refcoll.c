@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/01/26 15:02:04 $
- * $Revision: 1.16 $
+ *     $Date: 2005/01/27 20:49:43 $
+ * $Revision: 1.17 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1208,7 +1208,7 @@ gasnete_coll_bcast_Eager(gasnet_team_handle_t team,
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(flags & GASNET_COLL_OUT_ALLSYNC) |
 		GASNETE_COLL_GENERIC_OPT_P2P_IF(gasnete_mynode != srcnode);
 
-  gasneti_assert(nbytes < GASNETE_COLL_P2P_EAGER_MIN);
+  gasneti_assert(nbytes <= GASNETE_COLL_P2P_EAGER_MIN);
 
   return gasnete_coll_generic_broadcast_nb(team, dst, srcnode, src, nbytes, flags,
 					   &gasnete_coll_pf_bcast_Eager, options GASNETE_THREAD_PASS);
