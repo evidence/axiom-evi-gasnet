@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.12 2002/07/02 01:31:20 csbell Exp $
- * $Date: 2002/07/02 01:31:20 $
- * $Revision: 1.12 $
+/* $Id: gasnet_core_receive.c,v 1.13 2002/07/07 13:38:26 csbell Exp $
+ * $Date: 2002/07/07 13:38:26 $
+ * $Revision: 1.13 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -8,6 +8,7 @@
 #include "gasnet_core_internal.h"
 
 extern int gasnetc_init_done;
+extern int gasnetc_attach_done;
 
 /* Three processing functions called from gasnetc_poll() */
 void		 gasnetc_process_AMRequest(uint8_t *, gm_recv_event_t *);
@@ -22,6 +23,10 @@ struct {
 	{ { "", 0 }, 
 	  { "SBRK_TOP", 2*sizeof(uintptr_t) },
 	  { "SBRK_BASE", 2*sizeof(uintptr_t) },
+	  { "SEGMENT_LOCAL", 3*sizeof(uintptr_t) },
+	  { "SEGMENT_GLOBAL", 3*sizeof(uintptr_t) },
+	  { "SEGINFO_GATHER", 2*sizeof(uintptr_t) },
+	  { "SEGINFO_BROADCAST", 0 },
 	  { "BARRIER_GATHER", 1 },
 	  { "BARRIER_NOTIFY", 1 },
 	  { "KILL_NOTIFY", 1 },
@@ -316,6 +321,7 @@ gasnetc_process_AMReply(uint8_t *ptr, gm_recv_event_t *e)
  * be received asynchronously, such as kill messages or possibly
  * ulterior optimized barrier messages
  */
+
 gasnetc_sysmsg_t
 gasnetc_process_AMSystem(uint8_t *ptr, gm_recv_event_t *e, void *context)
 {
@@ -325,7 +331,8 @@ gasnetc_process_AMSystem(uint8_t *ptr, gm_recv_event_t *e, void *context)
 	if_pf (sysmsg == 0 || sysmsg >= _LAST_ONE)
 		gasneti_fatalerror("AMSystem: unknown message 0x%x", *ptr);
 
-	if_pf (gasnetc_sysmsg_types[sysmsg].len != gm_ntoh_u32(e->recv.length))
+	if_pf (gasnetc_sysmsg_types[sysmsg].len > 0 &&
+	    gasnetc_sysmsg_types[sysmsg].len != gm_ntoh_u32(e->recv.length))
 		gasneti_fatalerror("AMSystem: message %x (%s) has length %d "
 		    "instead of %d", sysmsg, gasnetc_sysmsg_types[sysmsg].msg,
 		    gm_ntoh_u32(e->recv.length), 
@@ -337,10 +344,8 @@ gasnetc_process_AMSystem(uint8_t *ptr, gm_recv_event_t *e, void *context)
 			if_pf (gasnetc_init_done || gasnet_mynode != 0)
 				gasneti_fatalerror("AMSystem SBRK_TOP: already"
 					" initialized or mynode is not 0");
-			if (context != NULL) 
-				*((uintptr_t *)context) = 
-				    *((uintptr_t *)ptr + 1);
-
+			assert(context != NULL);
+			*((uintptr_t *)context) = *((uintptr_t *)ptr + 1);
 			GASNETI_TRACE_PRINTF(C, ("SBRK_TOP %4hd = 0x%x",
 				GASNETC_GMNODE(e->recv.sender_node_id,
 			            e->recv.sender_port_id),
@@ -350,18 +355,102 @@ gasnetc_process_AMSystem(uint8_t *ptr, gm_recv_event_t *e, void *context)
 			if_pf (gasnetc_init_done || gasnetc_mynode == 0)
 				gasneti_fatalerror("AMSystem SBRK_BASE: already"
 					" initialized");
-			if (context != NULL)
-				*((uintptr_t *)context) = 
-					*((uintptr_t *)ptr + 1);
+			assert(context != NULL);
+			*((uintptr_t *)context) = *((uintptr_t *)ptr + 1);
 			GASNETI_TRACE_PRINTF(C, ("SBRK_BASE 0x%x",
 				*((uintptr_t *) context) ));
+			break;
+		case SEGMENT_LOCAL:
+			if_pf (gasnetc_init_done || gasnetc_mynode != 0)
+				gasneti_fatalerror("AMSystem SEGMENT_LOCAL: "
+				    "already initialized");
+			assert(context != NULL);
+			{
+				uintptr_t *pptr = (uintptr_t *)ptr;
+				gasnet_seginfo_t *seginfo =
+					(gasnet_seginfo_t *)context;
+				seginfo->addr = (void *) pptr[1];
+				seginfo->size = (uintptr_t) pptr[2];
+				GASNETI_TRACE_PRINTF(C, ("SEGMENT_LOCAL: "
+				    "0x%x %d", (uintptr_t) seginfo->addr, 
+				    seginfo->size) );
+			}
+			break;
+		case SEGMENT_GLOBAL:
+			if_pf (gasnetc_init_done || gasnetc_mynode == 0)
+				gasneti_fatalerror("AMSystem SEGMENT_GLOBAL: "
+				    "already initialized or mynode is 0");
+			assert(context != NULL);
+			{
+				uintptr_t *pptr = (uintptr_t *)ptr;
+				gasnet_seginfo_t *seginfo = 
+					(gasnet_seginfo_t *)context;
+				seginfo->addr = (void *) pptr[1];
+				seginfo->size = (uintptr_t) pptr[2];
+				GASNETI_TRACE_PRINTF(C, ("SEGMENT_GLOBAL: "
+				    "0x%x %d", (uintptr_t) seginfo->addr, 
+				    seginfo->size) );
+			}
+			break;
+		case SEGINFO_GATHER:
+			if_pf (gasnetc_attach_done || gasnetc_mynode != 0)
+				gasneti_fatalerror("AMSystem SEGINFO_GATHER: "
+				    "already attached or mynode is not 0");
+			assert(context != NULL);
+			{
+				gasnet_seginfo_t *seginfo = 
+				    (gasnet_seginfo_t *)context;
+				gasnet_node_t node = 
+				    GASNETC_GMNODE(e->recv.sender_node_id,
+			                e->recv.sender_port_id);
+				uintptr_t segsize = (uintptr_t) 
+				    *((uintptr_t *)ptr+1);
+				if_pf ((size_t) segsize < 0)
+					gasneti_fatalerror("SEGINFO_GATHER: "
+					    "segsize too large for mmap");
+				seginfo[node].size = segsize;
+				GASNETI_TRACE_PRINTF(C,("SEGINFO_GATHER: "
+				    "%d> %d bytes", node, seginfo[node].size) );
+			}
+			break;
+		case SEGINFO_BROADCAST:
+			if_pf (gasnetc_attach_done || gasnetc_mynode == 0)
+				gasneti_fatalerror(
+				    "AMSystem SEGINFO_BROADCAST: already "
+				    "attached or mynode is 0");
+			assert(context != NULL);
+			{
+				int	i;
+				gasnet_seginfo_t *seginfo = 
+				    (gasnet_seginfo_t *)context;
+				uintptr_t *segptr = (uintptr_t *)ptr+1;
+				assert(
+				    gm_ntoh_u32(
+				        e->recv.length)-sizeof(uintptr_t) >=
+				        gasnetc_nodes*sizeof(uintptr_t));
+				for (i = 0; i < gasnetc_nodes; i++) {
+					if (i == gasnetc_mynode &&
+					    seginfo[i].size != segptr[i]) {
+						gasneti_fatalerror(
+						    "SEGINFO_BROADCAST: "
+						    "segsize don't match "
+						    "locally");
+					}
+					else {
+						seginfo[i].size = segptr[i];
+						GASNETI_TRACE_PRINTF(C,
+						  ("SEGINFO_BROADCAST %d: %d\n",
+						   i, segptr[i]) );
+					}
+				}
+			}
 			break;
 		case BARRIER_GATHER:
 			if_pf (gasnetc_mynode != 0)
 				gasneti_fatalerror("AMSystem BARRIER_GATHER "
 					"can only be done at node 0");
-			if (context != NULL)
-				(*((int *) context))++;
+			assert(context != NULL);
+			(*((int *) context))++;
 			GASNETI_TRACE_PRINTF(C, ("BARRIER_GATHER %4hd = %d",
 				GASNETC_GMNODE(e->recv.sender_node_id,
 			            e->recv.sender_port_id),

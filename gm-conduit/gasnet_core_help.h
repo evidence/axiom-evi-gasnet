@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.8 2002/07/02 01:31:20 csbell Exp $
- * $Date: 2002/07/02 01:31:20 $
- * $Revision: 1.8 $
+/* $Id: gasnet_core_help.h,v 1.9 2002/07/07 13:38:26 csbell Exp $
+ * $Date: 2002/07/07 13:38:26 $
+ * $Revision: 1.9 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -58,6 +58,16 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
  * Setting it to 1 or 0 disables any priority: buffers will always be 
  * given back to the receive queue if replies were sent */
 #define GASNETC_RROBIN_BUFFERS	3
+/* MMAP_INITIAL_SIZE controls the desired size to kick off the binary
+ * search for valid mmaps
+ * MMAP_GRANULARITY controls the binary search for possible mmap
+ * sizes for maxlocal and maxglobal
+ * MMAP_DEBUG_VERBOSE traces the binary search mmap algorithm if set
+ * to > 0
+ */
+#define GASNETC_MMAP_GRANULARITY	(4<<20)
+#define GASNETC_MMAP_INITIAL_SIZE	(2<<30)
+#define GASNETC_MMAP_DEBUG_VERBOSE	1
 
 #define GASNETC_AM_SHORT_ARGS_OFF	4
 #define GASNETC_AM_MEDIUM_ARGS_OFF	4
@@ -222,6 +232,15 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_AMTRACE_ReplyLongAsyncM
 #define GASNETC_AMTRACE_RequestLongAsyncM
 #define GASNETC_TRACE_FIFO(bufd)
+#endif
+
+/* Need GASNETC_DPRINTF for init functions since gasnet tracing
+ * is not enabled yet
+ */
+#ifdef	DEBUG
+#define GASNETC_DPRINTF(x)	printf x
+#else
+#define GASNETC_DPRINTF(x)
 #endif
 
 /* -------------------------------------------------------------------------- */

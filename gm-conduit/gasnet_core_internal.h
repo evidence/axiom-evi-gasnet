@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.16 2002/07/02 01:31:20 csbell Exp $
- * $Date: 2002/07/02 01:31:20 $
- * $Revision: 1.16 $
+/* $Id: gasnet_core_internal.h,v 1.17 2002/07/07 13:38:26 csbell Exp $
+ * $Date: 2002/07/07 13:38:26 $
+ * $Revision: 1.17 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -71,11 +71,15 @@ enum gasnetc_sysmsg {
 	_NO_MSG = 0,
 	SBRK_TOP = 1,
 	SBRK_BASE = 2,
-	BARRIER_GATHER = 3,
-	BARRIER_NOTIFY = 4,
-	KILL_NOTIFY = 5,
-	KILL_DONE = 6,
-	_LAST_ONE = 7
+	SEGMENT_LOCAL = 3,
+	SEGMENT_GLOBAL = 4,
+	SEGINFO_GATHER = 5,
+	SEGINFO_BROADCAST = 6,
+	BARRIER_GATHER = 7,
+	BARRIER_NOTIFY = 8,
+	KILL_NOTIFY = 9,
+	KILL_DONE = 10,
+	_LAST_ONE = 11 
 }
 gasnetc_sysmsg_t;
 
@@ -93,10 +97,18 @@ gasnetc_sysmsg_t	gasnetc_SysPoll(void *context);
 void	gasnetc_tokensend_AMRequest(void *, uint16_t, uint32_t, uint32_t, 
 		gm_send_completion_callback_t, void *, uintptr_t);
 int	gasnetc_gm_nodes_compare(const void *, const void *);
+int	gasnetc_mmap_segment_search(gasnet_seginfo_t *segment, size_t segsize, 
+		size_t offset);
+int	gasnetc_mmap_segment(gasnet_seginfo_t *segment);
+int	gasnetc_munmap_segment(gasnet_seginfo_t *segment);
 void	gasnetc_sendbuf_init();
 void	gasnetc_sendbuf_finalize();
 void	gasnetc_provide_receive_buffers();
 int	gasnetc_gmpiconf_init();
+
+uintptr_t	gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize);
+int		gasnetc_gather_seginfo(gasnet_seginfo_t *segment);
+
 void 	*gasnetc_segment_gather(uintptr_t);
 void	gasnetc_gm_send_AMSystem_broadcast(void *, size_t, 
 		gm_send_completion_callback_t, void *, int);
@@ -170,6 +182,8 @@ struct _gasnetc_state {
 #if GASNETC_RROBIN_BUFFERS > 1
 	int			RRobinCount;
 #endif
+	gasnet_seginfo_t	segment_mmap;
+	void *			segment_base;
 	gasnetc_handler_fn_t	handlers[GASNETC_AM_MAX_HANDLERS];
 	gasnetc_gm_nodes_t	*gm_nodes;
 	gasnetc_gm_nodes_rev_t	*gm_nodes_rev;

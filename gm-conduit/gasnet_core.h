@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.6 2002/06/30 00:32:50 csbell Exp $
- * $Date: 2002/06/30 00:32:50 $
- * $Revision: 1.6 $
+/* $Id: gasnet_core.h,v 1.7 2002/07/07 13:38:25 csbell Exp $
+ * $Date: 2002/07/07 13:38:25 $
+ * $Revision: 1.7 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -27,9 +27,12 @@ BEGIN_EXTERNC
 
 #ifdef DEBUG
   void gasnetc_checkinit();
+  void gasnetc_checkattach();
   #define GASNETC_CHECKINIT()    gasnetc_checkinit()
+  #define GASNETC_CHECKATTACH()  gasnetc_checkattach()
 #else
   #define GASNETC_CHECKINIT()
+  #define GASNETC_CHECKATTACH()
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -39,16 +42,19 @@ BEGIN_EXTERNC
 */
 /* gasnet_init not inlined or renamed because we use redef-name trick on  
    it to ensure proper version linkage */
-extern int gasnet_init(int *argc, char ***argv, 
-                gasnet_handlerentry_t *table, int numentries, 
-                void *segbase, uintptr_t segsize,
-		int allowFaults);
+extern int gasnet_init(int *argc, char ***argv);
+
+extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
+                          uintptr_t segsize, uintptr_t minheapoffset);
+#define gasnet_attach gasnetc_attach
 
 extern void gasnetc_exit(int exitcode) GASNET_NORETURN;
 #define gasnet_exit gasnetc_exit
 
-/* this need not be a macro - some conduits may need to query system resources */
-#define gasnet_getMaxNativeSegmentSize() 64*1024*1024 
+extern uintptr_t gasnetc_getMaxLocalSegmentSize();
+extern uintptr_t gasnetc_getMaxGlobalSegmentSize();
+#define gasnet_getMaxLocalSegmentSize   gasnetc_getMaxLocalSegmentSize 
+#define gasnet_getMaxGlobalSegmentSize gasnetc_getMaxGlobalSegmentSize 
 
 /* ------------------------------------------------------------------------------------ */
 /*
