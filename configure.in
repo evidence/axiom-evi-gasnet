@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/16 02:03:18 $
-# $Revision: 1.124 $
+#     $Date: 2004/03/16 07:21:52 $
+# $Revision: 1.125 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.124 $)
+AC_REVISION($Revision: 1.125 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -68,7 +68,9 @@ AC_MSG_CHECKING(for GNU make)
 if $GMAKE --version | grep GNU ; then
   AC_MSG_RESULT(yes)
 else
-  AC_MSG_ERROR(cannot find a version of GNU make - please install GNU make and/or set \$GMAKE to indicate where it's located)
+# We don't actually require GNU Make at the moment
+#  AC_MSG_ERROR(cannot find a version of GNU make - please install GNU make and/or set \$GMAKE to indicate where it's located)
+  AC_MSG_WARN(cannot find a version of GNU make - if you encounter make problems, install GNU make and/or set \$GMAKE to indicate where it's located)
 fi
 AC_SUBST(GMAKE)
 

@@ -8,8 +8,6 @@
 
 thread_defines = @GASNET_THREAD_DEFINES@
 
-GMAKE=@GMAKE@
-
 # header files to be installed
 # Conduit-specific headers will overwrite any conflicts in extended-ref
 headers = $(top_srcdir)/extended-ref/*.h $(srcdir)/*.h $(CONDUIT_EXTRAHEADERS)
@@ -161,9 +159,9 @@ do-error:
 	@exit 1
 
 $(top_builddir)/other/Makefile-conduit.mak: $(top_srcdir)/other/Makefile-conduit.mak.in
-	$(GMAKE) -C $(top_builddir)/other Makefile-conduit.mak
+	$(MAKE) -C $(top_builddir)/other Makefile-conduit.mak
 
 $(top_builddir)/tests/Makefile: $(top_srcdir)/tests/Makefile.in
-	$(GMAKE) -C $(top_builddir)/tests Makefile
+	$(MAKE) -C $(top_builddir)/tests Makefile
 
 Makefile: $(srcdir)/Makefile.am $(top_builddir)/other/Makefile-conduit.mak $(top_builddir)/tests/Makefile
