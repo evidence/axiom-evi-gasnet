@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/03/03 19:55:30 $
- * $Revision: 1.6 $
+ *     $Date: 2004/03/03 20:11:38 $
+ * $Revision: 1.7 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -132,7 +132,7 @@ static void gasnete_ambarrier_kick() {
 	 * arithmetic in gasnet_node_t.  An example is gasnet_node_t
 	 * of uint8_t and gasnete_nodes=250 nodes.  The largest value of
 	 * gasnet_mynode is 249 and the largest value of 2^step is 128.
-	 * We can't compute (249 + 128) mod 250 in 8-byte arithmetic.
+	 * We can't compute (249 + 128) mod 250 in 8-bit arithmetic.
 	 * If we are using GASNET_MAXNODES <= INT_MAX then we can
 	 * fit the arithmetic into unsigned integers (32-bit example is
 	 * 0x7ffffffe + 0x40000000 = 0xbffffffe).  Otherwise we are
