@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/03/30 04:12:17 $
- * $Revision: 1.26 $
+ *     $Date: 2005/03/30 19:43:54 $
+ * $Revision: 1.27 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -127,9 +127,15 @@
        and whitespace (among others).
 
    XXX: still to do
+   + Complete the "flat tree" implementation (master spawns all procs)
+     and make it a runtime switch rather than compile time.
    + Consider making OUT_DEGREE a runtime variable.
-   + Should look carefully at udp-conduit for hints on arguments to ssh,
-     especially for OpenSSH.
+   + Should "auto configure" when OpenSSH is detected.  This would take
+     place in configure_ssh() and should allow the user's env var take
+     precedence.  Things to add include:
+	-o StrictHostKeyChecking=no
+	-o FallBackToRsh=no
+	-o BatchMode=yes
    + Implement "custom" spawner in the spirit of udp-conduit.
    + Look at udp-conduit for things missing from this list. :-)
    + We probably leak small strings in a few places.
@@ -677,6 +683,18 @@ static char ** parse_nodefile(const char *filename) {
     if (*p != '#') {
       p[strcspn(p, WHITESPACE)] = '\0';
       result[i] = gasneti_strdup(p);
+#if 0
+      /* XXX: Eat consecutive duplicates ?
+       * When running w/ PBS and nodes=2:ppn=2 we see NODE0,NODE0,NODE1,NODE1
+       * while running the same config w/ LSF gives just NODE0,NODE1.
+       * We'd get consistent results by squeezing out the PBS style dups,
+       * but the upcrun handling currently doesn't do this so we don't either.
+       */
+      if ((i > 0) && !strcmp(result[i], result[i-1])) {
+        gasneti_free(result[i]);
+	continue;
+      }
+#endif
       ++i;
       BOOTSTRAP_VERBOSE(("\t'%s'\n", p));
     }
@@ -725,12 +743,13 @@ static void build_nodelist(void)
 
   if ((env_string = getenv(ENV_PREFIX "SSH_NODEFILE")) != NULL && strlen(env_string)) {
     nodelist = parse_nodefile(env_string);
-  } else if ((env_string = getenv(ENV_PREFIX "SSH_SERVERS"))  != NULL && strlen(env_string)) {
+  } else if ((env_string = getenv(ENV_PREFIX "SSH_SERVERS")) != NULL && strlen(env_string)) {
     nodelist = parse_servers(env_string);
   } else if ((env_string = getenv("PBS_NODEFILE")) != NULL && strlen(env_string)) {
     nodelist = parse_nodefile(env_string);
-  } else if (((env_string = getenv("SSS_HOSTLIST")) != NULL && strlen(env_string)) ||
-             ((env_string = getenv("LSB_HOSTS"))    != NULL && strlen(env_string))) {
+  } else if ((env_string = getenv("SSS_HOSTLIST")) != NULL && strlen(env_string)) {
+    nodelist = parse_servers(env_string);
+  } else if ((env_string = getenv("LSB_HOSTS")) != NULL && strlen(env_string)) {
     nodelist = parse_servers(env_string);
   } else {
     gasneti_fatalerror("No " ENV_PREFIX "SSH_NODEFILE or " ENV_PREFIX "SSH_SERVERS in environment");
@@ -1222,7 +1241,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   do_connect(child_id, parent_name, parent_port, argc_p, argv_p);
 
   /* Start any children */
-  if (tree_procs > 1) {//XXX: tree_nodes throughout...
+  if (tree_procs > 1) {
     gasnet_node_t p_quot, p_rem; /* quotient and remainder of nproc/nodes */
     gasnet_node_t n_quot, n_rem; /* quotient and remainder of nodes/OUT_DEGREE */
     gasnet_node_t local_procs; /* the local processes (proc-per-node), excluding self */
