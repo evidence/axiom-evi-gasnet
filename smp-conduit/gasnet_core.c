@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/06/11 04:45:35 $
- * $Revision: 1.5 $
+ *     $Date: 2003/08/25 04:23:18 $
+ * $Revision: 1.6 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,6 +20,7 @@ GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
+static void gasnetc_atexit(void);
 
 gasnet_node_t gasnetc_mynode = (gasnet_node_t)-1;
 gasnet_node_t gasnetc_nodes = 0;
@@ -280,6 +281,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
    *        (e.g. to support interrupt-based messaging)
    */
 
+  atexit(gasnetc_atexit);
+
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
 
@@ -337,6 +340,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+static void gasnetc_atexit(void) {
+    gasnetc_exit(0);
+}
+
 extern void gasnetc_exit(int exitcode) {
   /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
   gasneti_reghandler(SIGQUIT, SIG_IGN);
