@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/11/22 05:50:41 $
- * $Revision: 1.20 $
+ *     $Date: 2002/11/26 08:39:15 $
+ * $Revision: 1.21 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -73,7 +73,8 @@ extern void gasneti_freezeForDebugger();
 /* ------------------------------------------------------------------------------------ */
 /* portable atomic increment */
 
-#if defined(SOLARIS) || defined(CRAYT3E) || defined(__PGI)
+#if defined(SOLARIS) || defined(CRAYT3E) || defined(__PGI) || \
+    (defined(OSF) && !defined(__DECC))
   #define GASNETI_USE_GENERIC_ATOMICOPS /* TODO: no atomic ops on T3e? */
 #endif
 
@@ -294,7 +295,7 @@ extern int gasneti_VerboseErrors;
   #ifndef GASNETI_THREADIDQUERY
     /* allow conduit override of thread-id query */
     #ifdef GASNET_PAR
-      #define GASNETI_THREADIDQUERY()   ((int)pthread_self())
+      #define GASNETI_THREADIDQUERY()   ((uintptr_t)pthread_self())
     #else
       #define GASNETI_THREADIDQUERY()   (0)
     #endif
@@ -303,7 +304,7 @@ extern int gasneti_VerboseErrors;
     #include <pthread.h>
     typedef struct {
       pthread_mutex_t lock;
-      int owner;
+      uintptr_t owner;
     } gasneti_mutex_t;
     #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, GASNETI_MUTEX_NOOWNER }
     #define gasneti_mutex_lock(pl) do {                       \

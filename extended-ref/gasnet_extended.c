@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/10/06 14:17:54 $
- * $Revision: 1.16 $
+ *     $Date: 2002/11/26 08:39:17 $
+ * $Revision: 1.17 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1082,5 +1082,5 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
 extern gasnet_handlerentry_t const *gasnete_get_handlertable() {
   return gasnete_handlers;
 }
-
 /* ------------------------------------------------------------------------------------ */
+
