@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.9 2002/06/19 04:51:55 csbell Exp $
- * $Date: 2002/06/19 04:51:55 $
- * $Revision: 1.9 $
+/* $Id: gasnet_core_misc.c,v 1.10 2002/06/19 04:58:06 csbell Exp $
+ * $Date: 2002/06/19 04:58:06 $
+ * $Revision: 1.10 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -41,24 +41,25 @@ gasnetc_sendbuf_init()
 	 *    an AMMediumRequest)
 	 * 2. stoks send DMA buffers
 	 * 3. rtoks receive DMA buffers
+	 * 4. 1 Scratch DMA buffer
 	 *
 	 * each of these have a bufdesc_t attached to them.
 	 */
 
-	_gmc.bd_list_num = 1 + rtoks + stoks;
+	_gmc.bd_list_num = 1 + rtoks + stoks + 1;
 
 	/* 
 	 * Allocate and register DMA buffers 
 	 */ 
 
-	_gmc.dma_bufs = gm_alloc_pages(GASNETC_AM_LEN * _gmc.bd_list_num);
+	_gmc.dma_bufs = gm_alloc_pages(_gmc.bd_list_num << GASNETC_AM_SIZE);
 	if_pf (_gmc.dma_bufs == NULL)
 		gasneti_fatalerror("gm_alloc_pages(%d) %s",
-				GASNETC_AM_LEN * _gmc.bd_list_num,
+				_gmc.bd_list_num << GASNETC_AM_SIZE,
 				gasneti_current_loc);
 
 	gm_register_memory(_gmc.port, _gmc.dma_bufs, 
-			GASNETC_AM_LEN * _gmc.bd_list_num);
+			_gmc.bd_list_num << GASNETC_AM_SIZE);
 	_gmc.bd_ptr = (gasnetc_bufdesc_t *)
 		gasneti_malloc(_gmc.bd_list_num * sizeof(gasnetc_bufdesc_t));
 
@@ -67,7 +68,7 @@ gasnetc_sendbuf_init()
 			_gmc.bd_list_num*sizeof(gasnetc_bufdesc_t));
 		_gmc.bd_ptr[i].id = i;
 		_gmc.bd_ptr[i].sendbuf = 
-			_gmc.dma_bufs + i*GASNETC_AM_LEN;
+			_gmc.dma_bufs + i<<GASNETC_AM_SIZE;
 	}
 	/* give the first buffer to AMReplyBuf */
 	_gmc.AMReplyBuf = _gmc.bd_ptr;
@@ -80,15 +81,17 @@ gasnetc_sendbuf_init()
 
 	for (i = 1; i <= rtoks_hi; i++) { 
 		gm_provide_receive_buffer(_gmc.port,
-			_gmc.dma_bufs + (i+stoks)*GASNETC_AM_LEN,
+			_gmc.dma_bufs + (i+stoks)<<GASNETC_AM_SIZE,
 			GASNETC_AM_SIZE, GM_HIGH_PRIORITY);
 	}
 
 	for (i += 1; i <= rtoks; i++) {
 		gm_provide_receive_buffer(_gmc.port,
-			_gmc.dma_bufs + (i+stoks)*GASNETC_AM_LEN,
+			_gmc.dma_bufs + (i+stoks)<<GASNETC_AM_SIZE,
 			GASNETC_AM_SIZE, GM_LOW_PRIORITY);
 	}
+	i++;
+	_gmc.scratchBuf = _gmc.dma_bufs + (i+stoks)<<GASNETC_AM_SIZE;
 
 	/* 
 	 * Fix the FIFO for AMRequests, using an array-based stack up to
@@ -104,7 +107,7 @@ gasnetc_sendbuf_init()
 void
 gasnetc_sendbuf_finalize()
 {
-	gm_free_pages(_gmc.dma_bufs, GASNETC_AM_LEN*_gmc.bd_list_num);
+	gm_free_pages(_gmc.dma_bufs, _gmc.bd_list_num << GASNETC_AM_SIZE);
 	gasneti_free(_gmc.bd_ptr);
 	gasneti_free(_gmc.reqs_fifo);
 }

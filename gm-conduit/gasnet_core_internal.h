@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.9 2002/06/19 04:51:55 csbell Exp $
- * $Date: 2002/06/19 04:51:55 $
- * $Revision: 1.9 $
+/* $Id: gasnet_core_internal.h,v 1.10 2002/06/19 04:58:06 csbell Exp $
+ * $Date: 2002/06/19 04:58:06 $
+ * $Revision: 1.10 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -187,9 +187,7 @@ struct _gasnetc_state {
 	int			bd_list_num;
 	void			*dma_bufs;	/* All DMA bufs */
 
-	void			*scratchBuf;
-	size_t			scratchBuf_len;
-	int			init_state;
+	void			*scratchBuf;	/* for system messages */
 
 	/* FIFO AMRequest send queue */
 	int		*reqs_fifo;
