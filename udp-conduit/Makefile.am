@@ -1,137 +1,73 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/Makefile.am,v 1.5 2004/03/04 05:37:44 bonachea Exp $
-# Description: Makefile for GASNet UDP conduit
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/Makefile.am,v 1.6 2004/03/11 08:46:17 bonachea Exp $
+# Description: Makefile for GASNet udp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-thread_defines = @GASNET_THREAD_DEFINES@
+CONDUIT_NAME=udp
 
-INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir)        \
-           -I$(top_srcdir)/extended-ref -I$(top_srcdir)/other/amudp 
-	   
+# any conduit-specific subdirectories containing Makefile.am's
+SUBDIRS = 
 
-filelist =                   \
+# complete list of files in the conduit directory
+# include all headers, documentation, etc. 
+# and any subdirectories not containing Makefile.am's
+CONDUIT_FILELIST =           \
       gasnet_core.c          \
       gasnet_core.h          \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
-      gasnet_core_internal.h 
+      gasnet_core_internal.h \
+      README
 
-othersourcefiles =                             \
-      $(top_srcdir)/gasnet_internal.c          \
+# list of conduit core and extended .c source files 
+# to be compiled into libgasnet on the compiled command line
+CONDUIT_SOURCELIST =          \
+      $(srcdir)/gasnet_core.c \
       $(top_srcdir)/extended-ref/gasnet_extended.c 
 
-EXTRA_DIST = $(filelist) \
-	README
+# additional -I or -D directives needed by this specific conduit
+# other than the standard GASNet includes and flags
+CONDUIT_EXTRALIBCFLAGS = -I$(top_srcdir)/other/amudp
 
-libgasnet_sources = $(srcdir)/gasnet_core.c     \
-		    $(othersourcefiles)
+# additional conduit header files to install from external, non-standard directories
+CONDUIT_EXTRAHEADERS = $(top_srcdir)/other/amudp/*.h 
 
-libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
-                         $(top_srcdir)/*.[ch]             \
-                         $(top_srcdir)/extended-ref/*.[ch] \
-			 $(top_srcdir)/other/amudp/*.h
+# additional file dependencies not mentioned elsewhere 
+# that should force libgasnet rebuild on update
+CONDUIT_EXTRADEPS = 
 
-libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
+# -------- Do not modify anything below this line --------
 
 if HAVE_PTHREAD
-threaded_libraries = libgasnet-udp-par.a libgasnet-udp-parsync.a
 libgasnet_udp_par_a_SOURCES =
 libgasnet_udp_parsync_a_SOURCES =
+threaded_libraries = libgasnet-udp-par.a libgasnet-udp-parsync.a
 endif
-libraries = libgasnet-udp-seq.a $(threaded_libraries)
 libgasnet_udp_seq_a_SOURCES =
+libraries = libgasnet-udp-seq.a $(threaded_libraries)
 
-VPATH=$(srcdir)
-
-LIBCFLAGS = @CFLAGS@ @MISC_CFLAGS@ @BUILDCONFIG_DEFINES@ @GASNET_MACHINE_DEFINES@ $(INCLUDES)
+include $(top_builddir)/other/Makefile-conduit.mak
 
 libgasnet-udp-seq.a: $(libgasnet_dependencies)
-	$(CC) $(LIBCFLAGS) -DGASNET_SEQ -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-seq
 
 libgasnet-udp-par.a: $(libgasnet_dependencies)
-	$(CC) $(LIBCFLAGS) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-par
 
 libgasnet-udp-parsync.a: $(libgasnet_dependencies)
-	$(CC) $(LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-parsync
 
-.PHONY: all libs clean-local install-data-local uninstall-local tests force tests-seq tests-par tests-parsync
-
-
-libs: $(libraries)
-	
-if USE_UDP_CONDUIT                           
-lib_LIBRARIES = $(libraries)
-
-all: libs $(makefile_fragments)
-	
-clean-local: 
-	rm -f $(libgasnet_objects) $(libraries) *.o core
-	@$(MAKE) -f $(top_builddir)/tests/Makefile clean     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="/dev/null"
-
-# Conduit-specific headers will overwrite any conflicts in extended-ref
-headers = $(top_srcdir)/extended-ref/*.h $(srcdir)/*.h $(top_srcdir)/other/amudp/amudp*.h 
-
-makefile_fragments = udp-seq.mak udp-parsync.mak udp-par.mak
-
-install-data-local: $(headers)
-	$(mkinstalldirs) $(DESTDIR)$(includedir)/udp-conduit
-	@list='$(headers)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    filename=`basename $$p`; \
-            if test "$$filename" = "`basename $$p _internal.h`" ; then \
-	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/udp-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/udp-conduit/$$filename; \
-	    else :; fi; \
-	  else :; fi; \
-	done
-	@list='$(makefile_fragments)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    filename=`basename $$p`; \
-	    echo "@GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/udp-conduit/$$filename"; \
-	    @GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/udp-conduit/$$filename; \
-	  else :; fi; \
-	done
-
-
-uninstall-local:
-	rm -f $(DESTDIR)$(includedir)/udp-conduit/*.h $(DESTDIR)$(includedir)/udp-conduit/*.mak
-
+if USE_UDP_CONDUIT  
+lib_LIBRARIES = $(libraries) 
+all: do-all
+clean-local: do-clean-local
+install-data-local: do-install-data-local
+uninstall-local: do-uninstall-local
+else
+$(top_srcdir)/gasnet.h: do-error
 endif
-
-tests:
-	@echo You must specify one of tests-seq, tests-par or tests-parsync
-	@exit 1
-
-tests-seq: force libgasnet-udp-seq.a udp-seq.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-seq \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="udp-seq.mak"
-
-tests-parsync: force libgasnet-udp-parsync.a udp-parsync.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-parsync \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="udp-parsync.mak"
-
-tests-par: force libgasnet-udp-par.a udp-par.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-par \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="udp-par.mak"
-
-force:
-	
 
 

@@ -1,18 +1,20 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.22 2004/03/04 05:37:39 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.23 2004/03/11 08:46:11 bonachea Exp $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-thread_defines = @GASNET_THREAD_DEFINES@
+CONDUIT_NAME=lapi
 
-INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir)        \
-           -I$(top_srcdir)/extended-ref  
-	   
+# any conduit-specific subdirectories containing Makefile.am's
+SUBDIRS = 
 
-filelist =                   \
+# complete list of files in the conduit directory
+# include all headers, documentation, etc. 
+# and any subdirectories not containing Makefile.am's
+CONDUIT_FILELIST =           \
       gasnet_core.c          \
       gasnet_core.h          \
       gasnet_core_fwd.h      \
@@ -20,120 +22,57 @@ filelist =                   \
       gasnet_core_internal.h \
       gasnet_extended.c      \
       gasnet_extended_fwd.h  \
-      gasnet_extended_internal.h
+      gasnet_extended_internal.h \
+      README		     \
+      STATUS                 \
+      license.txt
 
-othersourcefiles =                             \
-      $(top_srcdir)/gasnet_internal.c
+# list of conduit core and extended .c source files 
+# to be compiled into libgasnet on the compiler command line
+CONDUIT_SOURCELIST =          \
+      $(srcdir)/gasnet_core.c \
+      $(srcdir)/gasnet_extended.c 
 
-EXTRA_DIST = $(filelist) STATUS README license.txt
+# additional include directives needed by this specific conduit
+# other than the standard GASNet directories
+CONDUIT_EXTRAINCLUDES = 
 
-libgasnet_sources = $(srcdir)/gasnet_core.c \
-		$(srcdir)/gasnet_extended.c \
-		$(othersourcefiles)
+# additional conduit header files to install from directories in CONDUIT_EXTRAINCLUDES
+CONDUIT_EXTRAHEADERS = 
 
-libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
-                         $(top_srcdir)/*.[ch]             \
-                         $(top_srcdir)/extended-ref/*.[ch] 
+# additional file dependencies not mentioned elsewhere 
+# that should force libgasnet rebuild on update
+CONDUIT_EXTRADEPS = 
 
-libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
+# -------- Do not modify anything below this line --------
 
 if HAVE_PTHREAD
-threaded_libraries = libgasnet-lapi-par.a libgasnet-lapi-parsync.a
 libgasnet_lapi_par_a_SOURCES =
 libgasnet_lapi_parsync_a_SOURCES =
+threaded_libraries = libgasnet-lapi-par.a libgasnet-lapi-parsync.a
 endif
-libraries = libgasnet-lapi-seq.a $(threaded_libraries)
 libgasnet_lapi_seq_a_SOURCES =
+libraries = libgasnet-lapi-seq.a $(threaded_libraries)
 
-VPATH=$(srcdir)
-
-LIBCFLAGS = @CFLAGS@ @MISC_CFLAGS@ @BUILDCONFIG_DEFINES@ @GASNET_MACHINE_DEFINES@ $(INCLUDES)
+include $(top_builddir)/other/Makefile-conduit.mak
 
 libgasnet-lapi-seq.a: $(libgasnet_dependencies)
-	$(CC) $(LIBCFLAGS) -DGASNET_SEQ -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-seq
 
 libgasnet-lapi-par.a: $(libgasnet_dependencies)
-	$(CC) $(LIBCFLAGS) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-par
 
 libgasnet-lapi-parsync.a: $(libgasnet_dependencies)
-	$(CC) $(LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
-	$(AR) cru $@ $(libgasnet_objects)
-	$(RANLIB) $@
-	rm -f $(libgasnet_objects)
+	@$(MAKE) do-libgasnet-parsync
 
-.PHONY: all libs clean-local install-data-local uninstall-local tests force tests-seq tests-par tests-parsync
-
-
-libs: $(libraries)
-
-if USE_LAPI_CONDUIT                           
-lib_LIBRARIES = $(libraries)
-
-all: libs $(makefile_fragments)
-
-clean-local: 
-	rm -f $(libgasnet_objects) $(libraries) *.o core
-	@$(MAKE) -f $(top_builddir)/tests/Makefile clean     \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="/dev/null"
-
-# Conduit-specific headers will overwrite any conflicts in extended-ref
-headers = $(top_srcdir)/extended-ref/*.h $(srcdir)/*.h
-
-makefile_fragments = lapi-seq.mak lapi-parsync.mak lapi-par.mak
-
-install-data-local: $(headers)
-	$(mkinstalldirs) $(DESTDIR)$(includedir)/lapi-conduit
-	@list='$(headers)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    filename=`basename $$p`; \
-            if test "$$filename" = "`basename $$p _internal.h`" ; then \
-	    echo " $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/lapi-conduit/$$filename"; \
-	    $(INSTALL_DATA) $$p $(DESTDIR)$(includedir)/lapi-conduit/$$filename; \
-	    else :; fi; \
-	  else :; fi; \
-	done
-	@list='$(makefile_fragments)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    filename=`basename $$p`; \
-	    echo "@GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/lapi-conduit/$$filename"; \
-	    @GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/lapi-conduit/$$filename; \
-	  else :; fi; \
-	done
-
-uninstall-local:
-	rm -f $(DESTDIR)$(includedir)/lapi-conduit/*.h $(DESTDIR)$(includedir)/lapi-conduit/*.mak
-
+if USE_LAPI_CONDUIT  
+lib_LIBRARIES = $(libraries) 
+all: do-all
+clean-local: do-clean-local
+install-data-local: do-install-data-local
+uninstall-local: do-uninstall-local
 else
-$(top_srcdir)/gasnet.h: force
-	@echo "ERROR: lapi-conduit support was not detected at configure time"
-	@echo "       try re-running configure with --enable-lapi"
-	@exit 1
+$(top_srcdir)/gasnet.h: do-error
 endif
 
-tests:
-	@echo You must specify one of tests-seq, tests-par or tests-parsync
-	@exit 1
 
-tests-seq: force libgasnet-lapi-seq.a lapi-seq.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-seq \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="lapi-seq.mak"
-
-tests-parsync: force libgasnet-lapi-parsync.a lapi-parsync.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-parsync \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="lapi-parsync.mak"
-
-tests-par: force libgasnet-lapi-par.a lapi-par.mak
-	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-par \
-	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="lapi-par.mak"
-
-force:
