@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/10/21 02:43:38 $
- * $Revision: 1.9 $
+ *     $Date: 2002/11/11 04:47:20 $
+ * $Revision: 1.10 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -236,7 +236,7 @@ extern void gasnetc_dump_groupstats();
     }                                                                                   \
   } while (0)
 #define RUN_HANDLER_MEDIUM(phandlerfn, token, pArgs, numargs, pData, datalen) do {      \
-    assert(((int)pData) % 8 == 0);  /* we guarantee double-word alignment for data payload of medium xfers */ \
+    assert(((uintptr_t)pData) % 8 == 0);  /* we guarantee double-word alignment for data payload of medium xfers */ \
     _RUN_HANDLER_MEDLONG((gasnetc_HandlerMedium)phandlerfn, (gasnet_token_t)token, pArgs, numargs, (void *)pData, (int)datalen); \
     } while(0)
 #define RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen)             \

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/10/11 11:04:06 $
- * $Revision: 1.12 $
+ *     $Date: 2002/11/11 04:47:20 $
+ * $Revision: 1.13 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -89,6 +89,7 @@ static void gasnetc_check_config() {
     gasneti_fatalerror("elan library version mismatch. linked version: %s", elan_version());
   { int major,minor,result;
     result = sscanf(ver,"libelan %i.%i", &major, &minor);
+    if (result != 2) result = sscanf(ver,"%i.%i.%*i", &major, &minor);
     if (result != 2 || major != ELAN_VERSION_MAJOR || minor != ELAN_VERSION_MINOR)
       gasneti_fatalerror("unexpected elan library version.\n"
                          " Expected: libelan %i.%i\n"
@@ -457,26 +458,26 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
                 !elan_addressable(STATE(), pto + numpages*pagesize, pagesize)) numpages++;
               if (numpages == 0) break;
 
-              elanBase = (uint8_t *)elan_main2elan(STATE(), pfrom);
+              elanBase = (uint8_t *)(uintptr_t)elan_main2elan(STATE(), pfrom);
               size = numpages*pagesize;
-              assert((uint8_t *)elan_main2elan(STATE(), pfrom + size - 1) == elanBase + size - 1);
+              assert((uint8_t *)(uintptr_t)elan_main2elan(STATE(), pfrom + size - 1) == elanBase + size - 1);
 
               /* TODO: this remapping needs to be done for each rail */
               #ifdef ELAN_VER_1_2
-                elan3_clearperm(CTX(), (E3_Addr)elanBase, size);
+                elan3_clearperm(CTX(), (E3_Addr)(uintptr_t)elanBase, size);
               #else
 	        /* Remove any previous Main mappings */
 	        elan3_clearperm_main (CTX(), (caddr_t)pfrom, size);
 	        elan3_clearperm_main (CTX(), (caddr_t)pto, size);
 	    
 	        /* Remove any previous Elan mappings */
-	        elan3_clearperm_elan (CTX(), (E3_Addr)elanBase, size);
+	        elan3_clearperm_elan (CTX(), (E3_Addr)(uintptr_t)elanBase, size);
               #endif
 
 	      /* Create a new mapping */
-	      if (elan3_setperm (CTX(), (caddr_t)pto, (E3_Addr)elanBase, size, ELAN_PERM_REMOTEALL) < 0)
+	      if (elan3_setperm (CTX(), (caddr_t)pto, (E3_Addr)(uintptr_t)elanBase, size, ELAN_PERM_REMOTEALL) < 0)
 		  gasneti_fatalerror("gasnet_attach failed elan3_setperm main "GASNETI_LADDRFMT" to elan 0x%08x (size 0x%08x) : %d : %s",
-			         GASNETI_LADDRSTR(pto), (uint32_t)elanBase, size, errno, strerror(errno));
+			         GASNETI_LADDRSTR(pto), (uint32_t)(uintptr_t)elanBase, size, errno, strerror(errno));
 
               pagesAvail -= numpages;
               pto += numpages*pagesize;

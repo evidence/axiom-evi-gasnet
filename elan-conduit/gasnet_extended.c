@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/10/06 14:17:52 $
- * $Revision: 1.10 $
+ *     $Date: 2002/11/11 04:47:20 $
+ * $Revision: 1.11 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -10,6 +10,7 @@
 #include <gasnet_extended_internal.h>
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
+#include <elan3/elan3.h> /* for ELAN_POLL_EVENT */
 
 gasnet_node_t gasnete_mynode = -1;
 gasnet_node_t gasnete_nodes = 0;
@@ -785,7 +786,7 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 
   { int i;
     for (i = 0; i < numhandles; i++) {
-      gasnet_handle_t *handle = phandle[i];
+      gasnet_handle_t handle = phandle[i];
       if (handle != GASNET_INVALID_HANDLE) {
         empty = 0;
         /* could rewrite this to reduce contention for weak elan lock,
@@ -811,7 +812,7 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 
   { int i;
     for (i = 0; i < numhandles; i++) {
-      gasnet_handle_t *handle = phandle[i];
+      gasnet_handle_t handle = phandle[i];
       if (handle != GASNET_INVALID_HANDLE) {
         /* could rewrite this to reduce contention for weak elan lock,
            but the important thing is we only poll once
