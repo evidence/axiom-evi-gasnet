@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/05/24 02:16:52 $
- * $Revision: 1.24 $
+ *     $Date: 2003/06/11 04:45:29 $
+ * $Revision: 1.25 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,7 +32,7 @@ GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_COR
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
 
-gasnet_node_t gasnetc_mynode = -1;
+gasnet_node_t gasnetc_mynode = (gasnet_node_t)-1;
 gasnet_node_t gasnetc_nodes = 0;
 
 #if GASNETC_USE_STATIC_SEGMENT

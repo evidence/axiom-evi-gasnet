@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/04/05 06:39:38 $
- * $Revision: 1.32 $
+ *     $Date: 2003/06/11 04:45:27 $
+ * $Revision: 1.33 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,10 @@
 #include <gasnet.h>
 
 BEGIN_EXTERNC
+
+#ifdef __SUNPRO_C
+  #pragma error_messages(off, E_END_OF_LOOP_CODE_NOT_REACHED)
+#endif
 
 /*  safe memory allocation/deallocation */
 GASNET_INLINE_MODIFIER(_gasneti_malloc)
@@ -235,19 +239,19 @@ extern int gasneti_VerboseErrors;
       pthread_mutex_t lock;
       uintptr_t owner;
     } gasneti_mutex_t;
-    #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, GASNETI_MUTEX_NOOWNER }
-    #define gasneti_mutex_lock(pl) do {                       \
-              int retval;                                     \
-              assert((pl)->owner != GASNETI_THREADIDQUERY()); \
-              retval = pthread_mutex_lock(&((pl)->lock));     \
-              assert(!retval);                                \
-              assert((pl)->owner == GASNETI_MUTEX_NOOWNER);   \
-              (pl)->owner = GASNETI_THREADIDQUERY();          \
+    #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, (uintptr_t)GASNETI_MUTEX_NOOWNER }
+    #define gasneti_mutex_lock(pl) do {                                \
+              int retval;                                              \
+              assert((pl)->owner != GASNETI_THREADIDQUERY());          \
+              retval = pthread_mutex_lock(&((pl)->lock));              \
+              assert(!retval);                                         \
+              assert((pl)->owner == (uintptr_t)GASNETI_MUTEX_NOOWNER); \
+              (pl)->owner = GASNETI_THREADIDQUERY();                   \
             } while (0)
     #define gasneti_mutex_unlock(pl) do {                     \
               int retval;                                     \
               assert((pl)->owner == GASNETI_THREADIDQUERY()); \
-              (pl)->owner = GASNETI_MUTEX_NOOWNER;            \
+              (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER; \
               retval = pthread_mutex_unlock(&((pl)->lock));   \
               assert(!retval);                                \
             } while (0)

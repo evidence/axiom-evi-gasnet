@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2003/05/13 19:05:37 $
- * $Revision: 1.16 $
+ *     $Date: 2003/06/11 04:45:30 $
+ * $Revision: 1.17 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -599,8 +599,6 @@ gasnet_register_value_t _gasnet_get_val (gasnet_node_t node, void *src, size_t n
     gasnete_wait_syncnb(gasnete_get_nb_bulk(GASNETE_STARTOFBITS(&val,nbytes), node, src, nbytes GASNETE_THREAD_PASS));
     return val;
   }
-  abort();
-  return 0;
 }
 #define gasnet_get_val(node,src,nbytes) \
        _gasnet_get_val(node,src,nbytes GASNETE_THREAD_GET)

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/05/11 01:08:56 $
- * $Revision: 1.8 $
+ *     $Date: 2003/06/11 04:45:27 $
+ * $Revision: 1.9 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -289,6 +289,8 @@
   #define GASNETI_ASM(mnemonic) asm(#mnemonic)
 #elif defined(MIPSPRO_COMPILER)
   #define GASNETI_ASM(mnemonic)  /* TODO: broken - doesn't have inline assembly */
+#elif defined(__SUNPRO_C)
+  #define GASNETI_ASM(mnemonic)  __asm(#mnemonic)
 #else
   #define GASNETI_ASM(mnemonic) asm { mnemonic }
 #endif

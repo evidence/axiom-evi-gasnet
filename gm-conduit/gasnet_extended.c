@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/04/18 07:00:35 $
- * $Revision: 1.15 $
+ *     $Date: 2003/06/11 04:45:31 $
+ * $Revision: 1.16 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,7 +14,7 @@
 GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GASNET_EXTENDED_VERSION_STR " $");
 GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " GASNET_EXTENDED_NAME_STR " $");
 
-gasnet_node_t	gasnete_mynode = -1;
+gasnet_node_t	gasnete_mynode = (gasnet_node_t)-1;
 gasnet_node_t	gasnete_nodes = 0;
 
 gasnet_seginfo_t	*gasnete_seginfo = NULL;

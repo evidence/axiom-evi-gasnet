@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.38 2003/06/09 06:02:38 csbell Exp $
- * $Date: 2003/06/09 06:02:38 $
+/* $Id: gasnet_core.c,v 1.39 2003/06/11 04:45:31 bonachea Exp $
+ * $Date: 2003/06/11 04:45:31 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -21,7 +21,7 @@ GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_COR
 
 int		gasnetc_init_done = 0;   /*  true after init */
 int		gasnetc_attach_done = 0; /*  true after attach */
-gasnet_node_t	gasnetc_mynode = -1;
+gasnet_node_t	gasnetc_mynode = (gasnet_node_t)-1;
 gasnet_node_t	gasnetc_nodes = 0;
 uintptr_t	gasnetc_MaxLocalSegmentSize = 0;
 uintptr_t	gasnetc_MaxGlobalSegmentSize = 0;

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2003/04/01 07:27:35 $
- * $Revision: 1.22 $
+ *     $Date: 2003/06/11 04:45:29 $
+ * $Revision: 1.23 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 #include <gasnet_handler.h>
 #include <elan3/elan3.h> /* for ELAN_POLL_EVENT */
 
-gasnet_node_t gasnete_mynode = -1;
+gasnet_node_t gasnete_mynode = (gasnet_node_t)-1;
 gasnet_node_t gasnete_nodes = 0;
 gasnet_seginfo_t *gasnete_seginfo = NULL;
 static gasnete_threaddata_t *gasnete_threadtable[256] = { 0 };
