@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/01/05 05:01:10 $
-# $Revision: 1.104 $
+#     $Date: 2004/01/05 16:13:35 $
+# $Revision: 1.105 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.104 $)
+AC_REVISION($Revision: 1.105 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -164,7 +164,13 @@ case "$gasnet_cv_cc_family" in
   *)    CCOPTFLAGS="-O" ;;
 esac
 
-GNUWARNINGFLAGS="-Wall -Wno-unused -Wpointer-arith -Wnested-externs -Wwrite-strings -Wmissing-format-attribute -Wno-missing-braces" 
+GNUWARNINGFLAGS="-Wall -Wno-unused -Wpointer-arith -Wnested-externs -Wwrite-strings -Wno-missing-braces" 
+case "$gasnet_cv_cc_family" in
+  GNU) GASNET_TRY_CFLAG([-Wmissing-format-attribute],
+                        [GNUWARNINGFLAGS="$GNUWARNINGFLAGS -Wmissing-format-attribute"])
+  ;;
+esac
+
 case "$target_os" in # hide pragma warnings in system header files included by absolute path
   solaris*) GNUWARNINGFLAGS="$GNUWARNINGFLAGS -Wno-unknown-pragmas"
 esac
