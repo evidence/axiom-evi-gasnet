@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_dump.c                  $
- *     $Date: 2002/09/08 01:37:33 $
- * $Revision: 1.7 $
+ *     $Date: 2002/12/07 04:42:06 $
+ * $Revision: 1.8 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -190,6 +190,7 @@ extern void gasnetc_dump_envvars() {
     "RMS_NODEID",
     "RMS_NPROCS",
     "RMS_RANK",
+    "RMS_RAILS",
     "RMS_RESOURCEID",
     "RMS_TIMELIMIT",
     "RMS_MACHINE",

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2002/11/11 10:26:47 $
- * $Revision: 1.7 $
+ *     $Date: 2002/12/07 04:42:04 $
+ * $Revision: 1.8 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -274,7 +274,8 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
 
   #ifdef HAVE_MMAP
     gasneti_segment = gasneti_mmap_segment_search(localSegmentLimit == (uintptr_t)-1 ?
-                                                  GASNETI_MMAP_MAX_SIZE : localSegmentLimit);
+                                                  GASNETI_MMAP_MAX_SIZE : 
+                                                  MIN(localSegmentLimit,GASNETI_MMAP_MAX_SIZE));
     GASNETI_TRACE_PRINTF(C, ("My segment: addr="GASNETI_LADDRFMT"  sz=%lu",
       GASNETI_LADDRSTR(gasneti_segment.addr), (unsigned long)gasneti_segment.size));
 
