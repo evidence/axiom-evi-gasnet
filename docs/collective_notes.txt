@@ -225,10 +225,10 @@ calls to the collective initiation functions to ensure that only one
 thread is ever inside a GASNet collective initiation function at a
 time.
 
-The type gasnet_handle_t specifies a handle which maybe synchronized
-from any thread, regardless of which thread initiated the collective.
-However, the collective synchronization calls may not be called for
-the *same* handle simultaneously from multiple threads.
+The type gasnet_all_handle_t specifies a handle which maybe
+synchronized from any thread, regardless of which thread initiated the
+collective.  However, the collective synchronization calls may not be
+called for the *same* handle simultaneously from multiple threads.
 
 
 * Data segment
@@ -380,6 +380,122 @@ source to a gather or gather_all, or different sized dest to a scatter
 
 Other than "aligned data w/ bulk lifetime" we've not specified
 anything for reduce, prefix_reduce or sort.
+
+
+* OPEN ISSUE: Number outstanding vs. one-sided synchronization
+
+In the case of gasnet_handle_t, we specify something along the lines
+of "the implementation must support at least 2^16-1 unsynced handles".
+In the case of the collectives, I expect that the memory use
+associated with an any unsynced gasnet_all_handle_t may be
+significant, possibly scaling as O(N) just for synchronization and
+arrays of gasnet_handle_t (nbi regions don't work if you have to
+spread the initiation calls over time as the collective gets polled).
+
+On VAPI the latency to start handler execution is much higher than
+polling a work of memory, even when spin-polling for AMs to arrive,
+and AM requires flow control which is not needed for RDMA.  Therefore
+I'd like to allow truely one-sided (non-AM) implementations of the
+collectives, including the required pairwise synchronization when
+enforcing IN_MYSYNC and/or OUT_MYSYNC.  To do this, a node must be
+able to compute the address of some synchronization word on the remote
+node without communication (beyond some initialization-time exchange).
+Thus one-sided synchronization will require static allocation of
+memory carved out of the GASNet segment (padding the user-requested
+size at attach time).  This is a strong argument for ensuring the
+required allocation is kept as small as reasonably possible.
+
+At this point I am not optimistic about being able to do something
+like the barrier implementation in which exactly 2 phases are
+sufficient to handle an unbounded number of barriers.  If three
+broadcasts are performed consecutively with the same root and
+IN_MYSYNC and OUT_NOSYNC, then I can see the root receiving three "I
+am ready to start" messages from each node (to enforce IN_MYSYNC)
+before it has even processed the first one.  This makes me believe
+that to bound the memory needed perform one-sided syncronization will
+require limiting the number of collectives which are in-flight.
+
+One approach would be to impose a "reasonable" limit, to be enforced
+by the client.  This would be similar in spirit to
+gasnet_AMMaxMedium(), being available to the client at runtime.  We'd
+also document the minimum value that any conduit is permitted to
+impose.  I am thinking a number around 8 is a reasonable lower bound,
+knowing most clients will probably not reach it.
+
+Unfortunately, enforcement by a client is likely to be tricky because
+to deal with the one-sided synchronization problem, the limit must be
+on the number of collectives outstanding GLOBALLY, not just locally.
+Enforcement would likely come from adding barriers or IN_ALLSYNC flags
+every 8th collective (assuming 8 is the limit).  I am not sure that
+OUT_ALLSYNC is always sufficient since it only ensures data movement
+has completed and IN_NOSYNC+OUT_ALLSYNC could complete on the root of
+a broadcast (for example) even before the other nodes have entered the
+collective.  Because of this difficulty of use, I am against imposing
+such a "reasonable" global limit on the client (local limits of much
+less than 2^16-1 are still possible in my mind).
+
+The preceeding paragraph leads me to think that bounding the number of
+in-flight collectives could best be done with the aide of
+implementation-specific knowedge.  Pushing the enforcement into the
+implementation would allow the client to see an apparent limit like
+2^16-1.  Collectives that would overrun remote synchronization
+resources could be queued locally, using dynamically allocated space
+to store the arguments, until synchronization resources became
+available.  The "flow control" could be piggybacked on the
+collectives, for instance by promoting every 8th (for example)
+collective to have OUT_ALLSYNC.
+
+Implementing this "flow control" for synchronization resources is an
+area that requires more thought.  I think that enforcing the kind of
+in-flight limit described above MIGHT require making the sync of
+collectives into a collective operation, meaning that not only
+initiation calls for collective operations but also their sync calls
+must execute in the same order on all nodes.  This would be needed so
+that local knowledge would extrapolate to global knowledge without
+requiring additional communication.  I had avoided making the syncs
+collective because I was not sure what it would mean for clients,
+especially multi-threaded ones which would now need to perform some
+additional serialization.  I am pretty sure that we'd want to drop the
+_all and _some sync calls.
+
+One additional wrinkle is the possibility that RDMA based
+synchronization might be possible without any of the flow control
+issues I've described above.  Since collectives are executed in the
+same order on all nodes and with identical sync flags, it is trivial
+to unambiguously assign a sequence number to each pairwise INSYNC or
+OUTSYNC event.  A static allocation of only N memory locations on each
+node would be sufficient then to hold a counter for pairwise
+synchonization with each peer (or 2*N if IN and OUT events get
+separate counters).  The use of this counter would be slightly
+complicated by the fact that the OUT events might not happen in the
+order that they are numbered (the IN events must by the collective
+nature of the initiation calls).  For instance:
+   all_reduce(..., IN_MYSYNC | OUT_NOSYNC);
+   all_broadcast(..., IN_NOSYNC | OUT_MYSYNC);
+Because of the OUT_NOSYNC on the reduction and IN_NOSYNC on the
+broadcast, it is legal (and desirable) for the broadcast to complete
+on some nodes while the reduction is still being computed on another
+node (or more than one).  Even counting only MYSYNC events has this
+problem if the client issues non-blocking calls like:
+   h1 = all_reduce_nb(..., IN_MYSYNC | OUT_MYSYNC);
+   h2 = all_broadcast_nb(..., IN_NOSYNC | OUT_MYSYNC);
+Again, the broadcast could complete ahead of the reduction, generating
+some internal synchronization event for enforcement of the OUT_MYSYNC.
+
+To the best of my knowledge the only way to eliminate the ambiguity
+described above while keeping one-sided synchronization would be to
+either have the implementation internally complete collectives only in
+the order they were initiated or make the client's sync calls
+collective.
+
+There are still a lot of IFs in the text above.  It is still possible
+that flow control of a limited pool of synchronization words can be
+done transparently (perhaps resorting to AMs only occasionally - kind
+of like firehose) without the need to make the sync calls collective.
+
+So, I am soliciting feedback on this issue.  Are there any great ideas
+on how to do one-sided synchronization?  Are there thoughts on what it
+would mean to make the sync calls collective?
 
 
 =============================================================================
