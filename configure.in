@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/10 13:56:08 $
-# $Revision: 1.4 $
+#     $Date: 2002/06/10 14:45:39 $
+# $Revision: 1.5 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.4 $)
+AC_REVISION($Revision: 1.5 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -489,6 +489,16 @@ AC_SUBST(GASNET_GLUNIX_INCLUDES)
 AC_SUBST(GASNET_GLUNIX_LIBS)
 AC_SUBST(GASNET_REXEC_DEFINES)
 
+#--------------------------------------------------------------------------------------------------------
+# GM configuration
+
+GASNET_IF_ENABLED(gm, Enable the Myricom/GM network conduit, 
+  have_gm=yes,
+  have_gm=no)
+
+# TODO: add some auto-detection intelligence here..
+
+AM_CONDITIONAL(USE_GM_CONDUIT, test "$have_gm" = yes)
 
 ########################################################################
 
@@ -682,10 +692,17 @@ AC_SUBST(LDFLAGS)
 
 AC_OUTPUT(
 Makefile
+
 mpi-conduit/Makefile
 mpi-conduit/mpi-seq.mak
 mpi-conduit/mpi-parsync.mak
 mpi-conduit/mpi-par.mak
+
+gm-conduit/Makefile
+gm-conduit/gm-seq.mak
+gm-conduit/gm-parsync.mak
+gm-conduit/gm-par.mak
+
 other/Makefile
 other/ammpi/Makefile
 config-aux/Makefile

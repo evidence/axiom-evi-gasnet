@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/07 21:23:37 $
-# $Revision: 1.2 $
+#     $Date: 2002/06/10 14:45:39 $
+# $Revision: 1.3 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -9,6 +9,7 @@ AUTOMAKE_OPTIONS = foreign 1.4
 
 SUBDIRS =          \
 	other      \
+	gm-conduit \
 	mpi-conduit 
 
 configdir = $(includedir)
@@ -43,6 +44,9 @@ force:
 tests: force
 	@$(MAKE) -C $(top_builddir)/other tests
 if USE_MPI_CONDUIT
+	@$(MAKE) -C $(top_builddir)/mpi-conduit tests-seq
+endif
+if USE_GM_CONDUIT
 	@$(MAKE) -C $(top_builddir)/mpi-conduit tests-seq
 endif
 

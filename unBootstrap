@@ -10,6 +10,7 @@ rm -f Makefile.in             \
       aclocal.m4              \
       stamp-h.in              \
       config-aux/Makefile.in  \
+      gm-conduit/Makefile.in  \
       mpi-conduit/Makefile.in \
       other/Makefile.in       \
       other/ammpi/Makefile.in 
