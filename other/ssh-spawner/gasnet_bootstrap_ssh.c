@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/03/30 22:14:51 $
- * $Revision: 1.29 $
+ *     $Date: 2005/03/31 00:28:56 $
+ * $Revision: 1.30 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -785,7 +785,6 @@ static void send_env(int s) {
     const char *p;
     char *q;
     size_t rlen = strlen(ENV_PREFIX "SSH_");
-    size_t count;
 
     gasneti_assert(is_master);
 
@@ -1091,7 +1090,6 @@ static void do_master(int argc, char **argv) {
   char myhost[1024];
   char *p;
   int argi=1;
-  int j;
 
   is_master = 1;
   gasneti_reghandler(SIGURG, &sigurg_handler);
@@ -1146,6 +1144,7 @@ static void do_master(int argc, char **argv) {
     gasnet_node_t p_quot = nproc / nnodes;
     gasnet_node_t p_rem = nproc % nnodes;
     gasnet_node_t rank;
+    int j;
 
     children = nproc;
     child = gasneti_calloc(children, sizeof(struct child));
@@ -1210,7 +1209,6 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
 {
   int argc = *argc_p;
   char **argv = *argv_p;
-  const char *args;
   gasnet_node_t child_id;
   const char *parent_name;
   int parent_port;
@@ -1244,7 +1242,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
     gasnet_node_t p_quot, p_rem; /* quotient and remainder of nproc/nodes */
     gasnet_node_t n_quot, n_rem; /* quotient and remainder of nodes/OUT_DEGREE */
     gasnet_node_t local_procs; /* the local processes (proc-per-node), excluding self */
-    gasnet_node_t rank, i, j;
+    gasnet_node_t rank, j;
     char **sublist;
 
     p_quot = tree_procs / tree_nodes;
@@ -1491,7 +1489,6 @@ void gasneti_bootstrapExchange(void *src, size_t len, void *dest) {
 void gasneti_bootstrapAlltoall(void *src, size_t len, void *dest) {
   size_t row_len = len * nproc;
   char *tmp;
-  int j;
                                                                                                               
   tmp = gasneti_malloc(row_len * tree_procs);
 

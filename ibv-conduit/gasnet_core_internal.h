@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/03/30 23:33:58 $
- * $Revision: 1.71 $
+ *     $Date: 2005/03/31 00:28:59 $
+ * $Revision: 1.72 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -181,11 +181,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 /* Defined non-zero in gasnet_config.h to enable a progress thread for receiving AMs . */
 #ifndef GASNETC_VAPI_RCV_THREAD
   #define GASNETC_VAPI_RCV_THREAD	0
-#endif
-
-/* Define non-zero to enable polling for receiving AMs . */
-#ifndef GASNETC_RCV_POLL
-  #define GASNETC_RCV_POLL		1
 #endif
 
 #if GASNETC_VAPI_ENABLE_INLINE_PUTS

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/03/30 23:33:58 $
- * $Revision: 1.85 $
+ *     $Date: 2005/03/31 00:28:59 $
+ * $Revision: 1.86 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,7 +129,6 @@ static void gasnetc_check_config() {
 
   gasneti_assert(offsetof(gasnetc_medmsg_t,args) == GASNETC_MEDIUM_HDRSZ);
   gasneti_assert(offsetof(gasnetc_longmsg_t,args) == GASNETC_LONG_HDRSZ);
-  gasneti_assert(GASNETC_RCV_POLL || GASNETC_VAPI_RCV_THREAD);
   gasneti_assert(GASNETC_PUT_COPY_LIMIT <= GASNETC_BUFSZ);
 }
 
@@ -332,8 +331,6 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
 
 /* Process defaults and the environment to get configuration settings */
 static int gasnetc_load_settings(void) {
-  char	*tmp;
-
   gasnetc_hca_id = gasneti_strdup(
     gasneti_getenv_withdefault("GASNET_HCA_ID",GASNETC_DEFAULT_HCA_ID));
 
@@ -384,8 +381,6 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_VAPI_RCV_THREAD)",
 				GASNETC_VAPI_RCV_THREAD ? "en" : "dis"));
-  GASNETI_TRACE_PRINTF(C,("  AM receives in gasnet_AMPoll() %sabled (GASNETC_RCV_POLL)",
-			  	GASNETC_RCV_POLL ? "en" : "dis"));
 #if GASNETC_VAPI_FORCE_POLL_LOCK
   GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls            forced (--enable-vapi-force-poll-lock)"));
 #else
