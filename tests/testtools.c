@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testtools.c                                    $
- *     $Date: 2003/01/11 22:46:51 $
- * $Revision: 1.4 $
+ *     $Date: 2003/01/13 06:16:07 $
+ * $Revision: 1.5 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,7 +129,7 @@ int main() {
       pthread_attr_t attr;   
       pthread_attr_init(&attr);   
       pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); 
-      if (pthread_create(&threadid[i], &attr, &thread_fn, (void *)i)) 
+      if (pthread_create(&threadid[i], &attr, &thread_fn, (void *)(uintptr_t)i)) 
         perror("pthread_create");
     }
 
