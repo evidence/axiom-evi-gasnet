@@ -1,6 +1,6 @@
 GASNet collectives design notes
 ===============================
-* $Revision: 1.26 $
+* $Revision: 1.27 $
 * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> and Paul Hargrove <PHHargrove@lbl.gov>
 * Terms of use are as specified in license.txt
 
@@ -1058,7 +1058,7 @@ typedef struct {
  *		same contents on all nodes or the behavior is undefined.
  *		If NULL, then there is one image per node.
  *		In GASNET_SEQ mode, NULL is the only legal value.
- *  my_image:   If 'images' is non-NULL, this give the image number of
+ *  my_image:   If 'images' is non-NULL, this gives the image number of
  *		the calling thread.
  *  fn_tbl:	An array of type gasnet_coll_fn_entry_t, specifying
  *		the functions which can be invoked for the

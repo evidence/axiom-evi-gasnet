@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2004/09/25 01:58:36 $
- * $Revision: 1.14 $
+ *     $Date: 2005/01/22 01:05:46 $
+ * $Revision: 1.15 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -54,7 +54,16 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
   /* XXX: temporary limitation: */
   gasneti_assert(team == GASNET_TEAM_ALL);
 
-  #if gasnet_DEBUG
+  #if GASNET_PARSYNC
+    gasneti_assert(!(flags & GASNET_COLL_ALL_THREADS));
+  #else
+    /* XXX: temporary limitation: */
+    if (flags & GASNET_COLL_ALL_THREADS) {
+      gasneti_fatalerror("GASNET_COLL_ALL_THREADS is unimplemented");
+    }
+  #endif
+
+  #if GASNET_DEBUG
     /* Validate IN sync mode */
     switch (GASNETE_COLL_IN_MODE(flags)) {
       case 0:
@@ -550,10 +559,15 @@ void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE) {
   gasneti_mutex_unlock(&poll_lock);
 }
 
-extern void gasnete_coll_init(const size_t images[],
+extern void gasnete_coll_init(const size_t images[], size_t my_image,
 			      gasnet_coll_fn_entry_t fn_tbl[], size_t fn_count,
-			      int init_flags) {
+			      int init_flags GASNETE_THREAD_FARG) {
+  gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
+  static gasneti_cond_t init_cond = GASNETI_COND_INITIALIZER;
+  static gasneti_mutex_t init_lock = GASNETI_MUTEX_INITIALIZER;
+  static size_t remain = 0;
   size_t image_size = gasnete_nodes * sizeof(size_t);
+  int first;
   int i;
 
   GASNETI_CHECKATTACH();
@@ -566,38 +580,72 @@ extern void gasnete_coll_init(const size_t images[],
     if (init_flags) {
       gasneti_fatalerror("Invalid call to gasnet_coll_init() with non-zero flags\n");
     }
+    #if GASNET_SEQ
+      gasneti_assert(images == NULL);
+    #endif
   #endif
 
-  gasnete_coll_active_init();
-  gasnete_coll_p2p_init();
-
-  gasnete_coll_all_images = gasneti_malloc(image_size);
-  gasnete_coll_all_offset = gasneti_malloc(image_size);
-  if (images != NULL) {
-    memcpy(gasnete_coll_all_images, images, image_size);
-  } else  {
-    for (i = 0; i < gasnete_nodes; ++i) {
-      gasnete_coll_all_images[i] = 1;
+  if (images) {
+    td->my_image = my_image;
+    gasneti_mutex_lock(&init_lock);
+    if (!remain) {
+      /* First thread to arrive */
+      remain = images[gasnete_mynode];
+      first = 1;
+    } else {
+      first = 0;
     }
-  }
-  gasnete_coll_total_images = 0;
-  gasnete_coll_max_images = 0;
-  for (i = 0; i < gasnete_nodes; ++i) {
-    gasnete_coll_all_offset[i] = gasnete_coll_total_images;
-    gasnete_coll_total_images += gasnete_coll_all_images[i];
-    gasnete_coll_max_images = MAX(gasnete_coll_max_images,gasnete_coll_all_images[i]);
-  }
-  gasnete_coll_my_images = gasnete_coll_all_images[gasnete_mynode];
-  gasnete_coll_my_offset = gasnete_coll_all_offset[gasnete_mynode];
-
-  if (fn_count != 0) {
-    /* XXX: */
-    gasneti_fatalerror("gasnet_coll_init: function registration is not yet supported");
+    gasneti_mutex_unlock(&init_lock);
+  } else {
+    td->my_image = gasnete_mynode;
+    first = 1; /* only thread, so always first */
   }
 
+  if (first) {
+    gasnete_coll_active_init();
+    gasnete_coll_p2p_init();
+
+    gasnete_coll_all_images = gasneti_malloc(image_size);
+    gasnete_coll_all_offset = gasneti_malloc(image_size);
+    if (images != NULL) {
+      memcpy(gasnete_coll_all_images, images, image_size);
+    } else  {
+      for (i = 0; i < gasnete_nodes; ++i) {
+        gasnete_coll_all_images[i] = 1;
+      }
+    }
+    gasnete_coll_total_images = 0;
+    gasnete_coll_max_images = 0;
+    for (i = 0; i < gasnete_nodes; ++i) {
+      gasnete_coll_all_offset[i] = gasnete_coll_total_images;
+      gasnete_coll_total_images += gasnete_coll_all_images[i];
+      gasnete_coll_max_images = MAX(gasnete_coll_max_images,gasnete_coll_all_images[i]);
+    }
+    gasnete_coll_my_images = gasnete_coll_all_images[gasnete_mynode];
+    gasnete_coll_my_offset = gasnete_coll_all_offset[gasnete_mynode];
+
+    if (fn_count != 0) {
+      /* XXX: */
+      gasneti_fatalerror("gasnet_coll_init: function registration is not yet supported");
+    }
+
+    gasnet_barrier_notify((int)gasnete_coll_sequence,0);
+    gasnet_barrier_wait((int)gasnete_coll_sequence,0);
+  }
+  if (images) {
+    /* Simple barrier */
+    gasneti_mutex_lock(&init_lock);
+    remain -= 1;
+    if (remain == 0) {
+      gasneti_cond_signal(&init_cond);
+    } else {
+      do {
+        gasneti_cond_wait(&init_cond, &init_lock);
+      } while (remain);
+    }
+    gasneti_mutex_unlock(&init_lock);
+  }
   gasnete_coll_init_done = 1;
-  gasnet_barrier_notify((int)gasnete_coll_sequence,0);
-  gasnet_barrier_wait((int)gasnete_coll_sequence,0);
 }
 
 /*---------------------------------------------------------------------------------*/

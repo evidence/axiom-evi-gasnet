@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2004/09/25 01:55:43 $
- * $Revision: 1.13 $
+ *     $Date: 2005/01/22 01:05:46 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,6 +32,7 @@
 #define GASNET_COLL_DST_IN_SEGMENT	(1<<9)
 #define GASNET_COLL_SRC_IN_SEGMENT	(1<<10)
 
+#define GASNET_COLL_ALL_THREADS	(1<<11)
 /* XXX: incomplete? */
 
 #define GASNETE_COLL_IN_MODE(flags) \
@@ -351,6 +352,7 @@ void gasnete_coll_local_gather(size_t count, void * dst, void * const srclist[],
 /*---------------------------------------------------------------------------------*/
 /* Thread-specific data: */
 typedef struct {
+    size_t				my_image;
     gasnete_coll_op_t			*op_freelist;
     gasnete_coll_generic_data_t 	*generic_data_freelist;
 
@@ -596,6 +598,10 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
  *  images:     Array of gasnet_nodes() elements giving the number of
  *              images present on each node.  This must have the
  *              same contents on all nodes or the behavior is undefined.
+ *		If NULL, then there is one image per node.
+ *		In GASNET_SEQ mode, NULL is the only legal value.
+ *  my_image:   If 'images' is non-NULL, this gives the image number of
+ *              the calling thread.
  *  fn_tbl:     An array of type gasnet_coll_fn_entry_t, specifying
  *              the functions which can be invoked for the
  *              computational collectives.  This may safely differ
@@ -607,10 +613,11 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
  *  init_flags: Presently unused.  Must be 0.
  */
 #ifndef gasnet_coll_init
-  extern void gasnete_coll_init(const size_t images[],
+  extern void gasnete_coll_init(const size_t images[], size_t my_image,
 		  		gasnet_coll_fn_entry_t fn_tbl[], size_t fn_count,
-		  		int init_flags);
-  #define gasnet_coll_init gasnete_coll_init
+		  		int init_flags GASNETE_THREAD_FARG);
+  #define gasnet_coll_init(im,mi,fn,fc,fl) \
+		gasnete_coll_init(im,mi,fn,fc,fl GASNETE_THREAD_GET)
 #endif
 
 /*---------------------------------------------------------------------------------*/
