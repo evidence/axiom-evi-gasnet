@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2004/10/27 03:51:05 $
- * $Revision: 1.21 $
+ *     $Date: 2004/11/24 01:13:10 $
+ * $Revision: 1.22 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,14 +15,14 @@
   Basic design of the core implementation:
   =======================================
 
-  All Shorts/All Longs/Mediums <= GASNETC_ELAN_MAX_QUEUEMSG(320):
+  All Shorts/All Longs/Mediums <= GASNETC_ELAN_MAX_QUEUEMSG(320/2048):
     sent using an elan queue of length LIBELAN_TPORT_NSLOTS
     Longs use a blocking elan_put before queuing to ensure ordering  
       use a bounce-buffer if > GASNETC_ELAN_SMALLPUTSZ and not elan-mapped
     AMPoll checks for incoming queue entries 
     All mediums are argument-padded to ensure payload alignment on recvr
 
-  Mediums > GASNETC_ELAN_MAX_QUEUEMSG(320):
+  Mediums > GASNETC_ELAN_MAX_QUEUEMSG(320/2048):
     sent using a tport message in a pre-allocated buffer
     Keep tport Tx buffers in a FIFO of length LIBELAN_TPORT_NSLOTS - 
       poll for Tx completion starting at oldest Tx buffer whenever we need one
@@ -492,7 +492,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
         void *bouncebuf = NULL;
 
         if (nbytes < GASNETC_ELAN_SMALLPUTSZ ||
-            elan_addressable(STATE(), source_addr, nbytes)) {
+            gasnetc_elan_addressable(source_addr, nbytes)) {
           /* safe to put directly from source */
           putevt = elan_put(STATE(), source_addr, dest_ptr, nbytes, dest);
           UNLOCKRELOCK_ELAN_WEAK_IFTRACE(GASNETI_TRACE_EVENT_VAL(C,AMLONG_DIRECT,nbytes));

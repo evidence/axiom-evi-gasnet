@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/11/10 15:43:35 $
-# $Revision: 1.210 $
+#     $Date: 2004/11/24 01:13:08 $
+# $Revision: 1.211 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.210 $)
+AC_REVISION($Revision: 1.211 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1322,13 +1322,13 @@ if test $enabled_elan = yes; then
   if test -f "$ELAN_HEADERBASE/elan4/library.h" ; then
         AC_MSG_RESULT(elan4)
 	ELANDEVLIB="-lelan4"
-        ELAN_FLAGS="-DELAN4"
+        ELAN_FLAGS="-DGASNETC_ELAN4"
         have_elan=yes
   else
     if test -f "$ELAN_HEADERBASE/elan3/elan3.h" ; then
         AC_MSG_RESULT(elan3)
 	ELANDEVLIB="-lelan3"
-        ELAN_FLAGS="-DELAN3"
+        ELAN_FLAGS="-DGASNETC_ELAN3"
         have_elan=yes
     else
         AC_MSG_RESULT(none found)
@@ -1349,12 +1349,24 @@ if test $enabled_elan = yes; then
   AC_CHECK_LIB(rmsapi, rms_killResource, 
      AC_DEFINE(HAVE_RMS_KILLRESOURCE)
      RMSLIBS="$RMSLIBS -lrmsapi")
-  # slurm is used for SLURM signalling exit
+  # look for SLURM scancel
+  AC_MSG_CHECKING(for SLURM scancel)
+  SLURM_SCANCEL_PATH=`which scancel 2> /dev/null`
+  if test "`$SLURM_SCANCEL_PATH -V 2> /dev/null | grep slurm`" != "" ; then
+      AC_DEFINE_UNQUOTED(SLURM_SCANCEL_PATH,$SLURM_SCANCEL_PATH)
+      AC_MSG_RESULT($SLURM_SCANCEL_PATH)
+  else
+      AC_MSG_RESULT(no)
+  fi
+  # slurm API is used for SLURM signalling exit
   AC_CHECK_HEADERS(slurm/slurm.h)
   AC_CHECK_LIB(slurm, slurm_kill_job, 
      AC_DEFINE(HAVE_SLURM_KILL_JOB)
      RMSLIBS="$RMSLIBS -lslurm")
   GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan $ELANDEVLIB $RMSLIBS)
+  AC_CHECK_LIB(elan, elan_queueMaxSlotSize, AC_DEFINE(HAVE_ELAN_QUEUEMAXSLOTSIZE))
+  AC_CHECK_LIB(elan, elan_queueTxInit, AC_DEFINE(HAVE_ELAN_QUEUETXINIT))
+  AC_CHECK_LIB(elan, elan_done, AC_DEFINE(HAVE_ELAN_DONE))
   LIBS="$ELAN_LIBS"
   AC_MSG_CHECKING(for working ELAN configuration)
   # try to compile and link a simple elan prog

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/10/30 03:24:47 $
- * $Revision: 1.50 $
+ *     $Date: 2004/11/24 01:13:10 $
+ * $Revision: 1.51 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,7 +23,7 @@
   #if HAVE_RMS_RMSAPI_H
     #include <rms/rmsapi.h> /* for RMS calls in gasnetc_exit */
   #endif
-  #if HAVE_SLURM_SLURM_H
+  #if HAVE_SLURM_SLURM_H && HAVE_SLURM_KILL_JOB
     #include <slurm/slurm.h> /* for slurm calls in gasnetc_exit */
   #endif
   /* signal used to propagate exit notification across job using RMS global signalling */
@@ -121,13 +121,20 @@ static void gasnetc_check_config() {
                          " Actual  : %s", ELAN_VERSION_MAJOR, ELAN_VERSION_MINOR, ver);
   }
 
-  gasneti_assert(sizeof(gasnetc_shortmsg_t) == GASNETC_SHORT_HEADERSZ);
-  gasneti_assert(sizeof(gasnetc_medmsg_t) == GASNETC_MED_HEADERSZ);
-  gasneti_assert(sizeof(gasnetc_longmsg_t) == GASNETC_LONG_HEADERSZ);
-
+  gasneti_assert_always(sizeof(gasnetc_shortmsg_t) == GASNETC_SHORT_HEADERSZ);
+  gasneti_assert_always(sizeof(gasnetc_medmsg_t) == GASNETC_MED_HEADERSZ);
+  gasneti_assert_always(sizeof(gasnetc_longmsg_t) == GASNETC_LONG_HEADERSZ);
   
   gasneti_assert(GASNETC_MAX_TPORT_MSG >= GASNETC_MED_HEADERSZ + 4*GASNETC_MAX_ARGS + GASNETC_MAX_MEDIUM);
-  gasneti_assert(GASNETC_ELAN_MAX_QUEUEMSG >= GASNETC_LONG_HEADERSZ + GASNETC_MAX_ARGS*4);
+  #if HAVE_ELAN_QUEUEMAXSLOTSIZE
+  { int max = elan_queueMaxSlotSize(NULL);
+    if (GASNETC_ELAN_MAX_QUEUEMSG != max) {
+      gasneti_fatalerror("incorrect queue slot size. GASNETC_ELAN_MAX_QUEUEMSG=%i elan_queueMaxSlotSize()=%i",
+                         GASNETC_ELAN_MAX_QUEUEMSG, max);
+    }
+  }
+  #endif
+  gasneti_assert_always(GASNETC_ELAN_MAX_QUEUEMSG >= GASNETC_LONG_HEADERSZ + GASNETC_MAX_ARGS*4);
 }
 
 static void gasnetc_bootstrapBarrier() {
@@ -167,7 +174,7 @@ static void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   gasnetc_bootstrapBarrier();
 
   /* recv data from 0 */
-  elan_hbcast(GROUP(), temp, gasnetc_nodes*len, 0, 1);    
+  elan_hbcast(GROUP(), temp, gasnetc_nodes*len, 0, GASNETC_ELAN_GLOBAL_DEST);    
 
   /* ensure operation complete */
   gasnetc_bootstrapBarrier();
@@ -656,15 +663,24 @@ static void gasnetc_atexit(void) {
       retval = rms_killResource(resourceid, sig); /* global signal */
       gasneti_fatalerror("rms_killResource(%i) failed twice: %s", resourceid, rms_errorString(retval));
     }
-  #elif HAVE_SLURM_KILL_JOB
+  #elif defined(SLURM_SCANCEL_PATH) || HAVE_SLURM_KILL_JOB
     batchid = gasnet_getenv("SLURM_JOBID");
     if (!batchid) gasneti_fatalerror("failed to getenv(SLURM_JOBID)");
 
     resourceid = atoi(batchid);
     if (resourceid <= 0) gasneti_fatalerror("bad SLURM_JOBID: %s", batchid);
-    retval = slurm_kill_job(resourceid, sig, 0); /* global signal */
-    if (retval) 
-      gasneti_fatalerror("slurm_kill_job(%i) failed: %s", resourceid, slurm_strerror(slurm_get_errno()));
+    #ifdef SLURM_SCANCEL_PATH
+    { /* prefer the scancel system call mechanism, 
+         because slurm_kill_job malfunctions in static executables */
+      char cmd[1024];
+      sprintf(cmd,"%s --signal=%i %s", _STRINGIFY(SLURM_SCANCEL_PATH), sig, batchid);
+      system(cmd);
+    }
+    #else /* HAVE_SLURM_KILL_JOB */
+      retval = slurm_kill_job(resourceid, sig, 0); /* global signal */
+      if (retval) 
+        gasneti_fatalerror("slurm_kill_job(%i) failed: %s", resourceid, slurm_strerror(slurm_get_errno()));
+    #endif
   #else
     #error unknown signalling exit mechanism..
   #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/10/30 03:24:47 $
- * $Revision: 1.24 $
+ *     $Date: 2004/11/24 01:13:10 $
+ * $Revision: 1.25 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,8 +14,8 @@
 
 #include <elan/elan.h>
 
-#if !defined(ELAN3) && !defined(ELAN4)
-  #error Must define ELAN3 or ELAN4
+#if !defined(GASNETC_ELAN3) && !defined(GASNETC_ELAN4)
+  #error Must define GASNETC_ELAN3 or GASNETC_ELAN4
 #endif
 
 #if !defined(ELAN_VERSION_MAJOR) || !defined(ELAN_VERSION_MINOR) || !defined(ELAN_VERSION_SUB)
@@ -30,8 +30,7 @@
 #elif ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR == 3
   #define ELAN_VER_1_3
   #define ELAN_VERSION_CODE     QSNETLIBS_VERSION(1,3,0)
-#elif ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR == 4
-  #define ELAN_VER_1_4
+#elif ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR >= 4
   #define ELAN_VERSION_CODE     QSNETLIBS_VERSION_CODE
 #else
   #error unknown elan version
@@ -93,15 +92,25 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 /* GASNet-elan system configuration parameters */
 #define GASNETC_MAX_RECVMSGS_PER_POLL 10  /* max number of waiting messages serviced per poll (0 for unlimited) */
 #define GASNETC_PREPOST_RECVS         1   /* pre-post non-blocking tport recv's */
+#ifdef GASNETC_ELAN4
+#define GASNETC_ELAN_MAX_QUEUEMSG  2048   /* max message in a mainqueue */
+#else
 #define GASNETC_ELAN_MAX_QUEUEMSG   320   /* max message in a mainqueue */
+#endif
 #define GASNETC_ELAN_SMALLPUTSZ      64   /* max put that elan_put copies to an elan buffer */
+
+#ifdef ELAN_GLOBAL_DEST
+  #define GASNETC_ELAN_GLOBAL_DEST ELAN_GLOBAL_DEST
+#else
+  #define GASNETC_ELAN_GLOBAL_DEST 1
+#endif
 
 #ifndef GASNETC_PREALLOC_AMLONG_BOUNCEBUF
 #define GASNETC_PREALLOC_AMLONG_BOUNCEBUF 1
 #endif
 
 #ifndef GASNETC_ALLOW_ELAN_VERSION_MISMATCH
-  #ifdef ELAN4
+  #ifdef GASNETC_ELAN4
     /* elan4 reports libelan version mismatches, not sure why... */
     #define GASNETC_ALLOW_ELAN_VERSION_MISMATCH 1
   #else
@@ -109,8 +118,34 @@ extern ELAN_TPORT *gasnetc_elan_tport;
   #endif
 #endif
 
+#ifndef GASNETC_ELAN_MAPS_ENTIRE_VM
+  #if defined(GASNETC_ELAN4) || GASNETI_PTR32
+    /* elan4 has a 64-bit thread processor and always maps the entire host VM space.
+       Quadrics confirms elan_addressable() should always return true on elan4.
+       (although the elan/main VA's may differ).  
+       We should also get the same effect on elan3 with 32-bit hosts
+     */
+    #define GASNETC_ELAN_MAPS_ENTIRE_VM  1
+  #else
+    #define GASNETC_ELAN_MAPS_ENTIRE_VM  0
+  #endif
+#endif
+
+#if GASNETC_ELAN_MAPS_ENTIRE_VM
+  #if GASNET_DEBUG
+    #define gasnetc_elan_addressable(base, sz) \
+      (gasneti_assert(elan_addressable(STATE(), (base), (sz))), 1)
+  #else
+    #define gasnetc_elan_addressable(base, sz) 1
+  #endif
+#else
+  #define gasnetc_elan_addressable(base, sz) (elan_addressable(STATE(), (base), (sz)))
+#endif
+
 #ifndef GASNETC_ALLOW_ELAN_PERM_REMAP
-  #ifdef ELAN4
+  #if GASNETC_ELAN_MAPS_ENTIRE_VM
+    /* memory remapping should never be necessary when we map the entire host VM space 
+     */
     #define GASNETC_ALLOW_ELAN_PERM_REMAP 0
   #else
     #define GASNETC_ALLOW_ELAN_PERM_REMAP 1
