@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/04/06 16:14:56 $
- * $Revision: 1.43 $
+ *     $Date: 2004/04/08 06:52:11 $
+ * $Revision: 1.44 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -613,7 +613,7 @@ extern int gasnetc_AMReplyLongM(
 #if GASNETC_HSL_ERRCHECK
   typedef struct { /* per-thread HSL err-checking info */
     gasnet_hsl_t *locksheld;
-    int interruptsdisabled;
+    int inExplicitNIS;
     int inhandler;
     int64_t NIStimestamp;
   } gasnetc_hsl_errcheckinfo_t;
@@ -668,28 +668,32 @@ extern int gasnetc_AMReplyLongM(
   extern void gasnetc_hold_interrupts() {
     GASNETI_CHECKATTACH();
     { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
-    #if 0
-      if (info->inhandler)
-        gasneti_fatalerror("HSL USAGE VIOLATION: tried to disable interrupts while running a handler");
-    #endif
-      if (info->locksheld)
-        gasneti_fatalerror("HSL USAGE VIOLATION: tried to disable interrupts while holding an HSL");
-      if (info->interruptsdisabled)
+      if (info->inhandler) { /* NIS calls ignored within a handler */
+        GASNETI_TRACE_PRINTF(I,("Warning: Called gasnet_hold_interrupts within a handler context -- call ignored"));
+        return;
+      }
+      if (info->locksheld) { /* NIS calls ignored while holding an HSL */
+        GASNETI_TRACE_PRINTF(I,("Warning: Called gasnet_hold_interrupts while holding an HSL -- call ignored"));
+        return;
+      }
+      if (info->inExplicitNIS)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to disable interrupts when they were already disabled");
-      info->interruptsdisabled = 1;
+      info->inExplicitNIS = 1;
       info->NIStimestamp = gasneti_getMicrosecondTimeStamp();
     }
   }
   extern void gasnetc_resume_interrupts() {
     GASNETI_CHECKATTACH();
     { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
-    #if 0
-      if (info->inhandler)
-        gasneti_fatalerror("HSL USAGE VIOLATION: tried to resume interrupts while running a handler");
-    #endif
-      if (info->locksheld)
-        gasneti_fatalerror("HSL USAGE VIOLATION: tried to resume interrupts while holding an HSL");
-      if (!info->interruptsdisabled)
+      if (info->inhandler) { /* NIS calls ignored within a handler */
+        GASNETI_TRACE_PRINTF(I,("Warning: Called gasnet_resume_interrupts within a handler context -- call ignored"));
+        return;
+      }
+      if (info->locksheld) { /* NIS calls ignored while holding an HSL */
+        GASNETI_TRACE_PRINTF(I,("Warning: Called gasnet_resume_interrupts while holding an HSL -- call ignored"));
+        return;
+      }
+      if (!info->inExplicitNIS)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to resume interrupts when they were not disabled");
       { float NIStime = (float)(gasneti_getMicrosecondTimeStamp() - info->NIStimestamp);
         if (NIStime > GASNETC_NISTIMEOUT_WARNING_THRESHOLD) {
@@ -697,13 +701,13 @@ extern int gasnetc_AMReplyLongM(
           fflush(stderr);
         }
       }
-      info->interruptsdisabled = 0;
+      info->inExplicitNIS = 0;
     }
   }
 
   void gasnetc_checkcallNIS() {
     gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
-    if (info->interruptsdisabled)
+    if (info->inExplicitNIS)
       gasneti_fatalerror("Illegal call to GASNet within a No-Interrupt Section");
     if (info->inhandler)
       gasneti_fatalerror("Illegal call to GASNet within a No-Interrupt Section (imposed by handler context)");
@@ -875,15 +879,14 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
     gasneti_assert(!info->inhandler);
     if (info->locksheld)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to make a GASNet network call while holding an HSL");
-    if (info->interruptsdisabled)
+    if (info->inExplicitNIS)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to make a GASNet network call with interrupts disabled");
     info->inhandler = 1;
   }
   extern void gasnetc_leavingHandler_hook() {
     gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
     gasneti_assert(info->inhandler);
-    if (info->interruptsdisabled)
-        gasneti_fatalerror("HSL USAGE VIOLATION: tried to exit a handler with unmatched interrupt hold");
+    gasneti_assert(!info->inExplicitNIS);
     if (info->locksheld)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to exit a handler while holding an HSL");
     info->inhandler = 0;
