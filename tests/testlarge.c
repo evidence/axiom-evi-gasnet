@@ -69,7 +69,8 @@ void print_stat(int myproc, stat_struct_t *st, char *name, int operation)
 		printf("Proc %3i - %10i byte : %7i iters,"
 			" throughput %9.3f KB/sec (%s)\n",
 			myproc, st->datasize, st->iters,
-			(1000000.0 * st->datasize * st->iters / 1024.0) / ((int)st->time),
+                        ((int)st->time == 0 ? 0.0 :
+                        (1000000.0 * st->datasize * st->iters / 1024.0) / ((int)st->time)),
 			name);
 		fflush(stdout);
 		break;
