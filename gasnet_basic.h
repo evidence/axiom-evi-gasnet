@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2003/11/27 20:19:24 $
- * $Revision: 1.23 $
+ *     $Date: 2004/03/05 15:02:49 $
+ * $Revision: 1.24 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -193,6 +193,8 @@
    #include <unistd.h>
    #define gasneti_sched_yield() sleep(0)
 #endif
+
+#include <stddef.h> /* get standard types, esp size_t */
 
 /* splitting and reassembling 64-bit quantities */
 #define GASNETI_MAKEWORD(hi,lo) ((((uint64_t)(hi)) << 32) | (((uint64_t)(lo)) & 0xFFFFFFFF))

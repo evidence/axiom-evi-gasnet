@@ -1,6 +1,6 @@
 //  $Archive:: /Ti/AMUDP/sig.cpp                                          $
-//     $Date: 2004/01/05 05:01:20 $
-// $Revision: 1.2 $
+//     $Date: 2004/03/05 15:02:50 $
+// $Revision: 1.3 $
 // Description: signal handling module
 // Copyright 1999, Dan Bonachea
 
@@ -53,7 +53,7 @@ static struct {
     {SIGTTIN, "SIGTTIN: Background process attempting read.", ST_OTHER},
     {SIGTTOU, "SIGTTOU: Background process attempting write.", ST_OTHER},
     {SIGBUS,  "SIGBUS: Bus error.", ST_PROGRAM_ERROR}, // (alignment error)
-  #if !defined(UNICOS) && !defined(MACOSX)
+  #if !defined(UNICOS) && !defined(MACOSX) && !defined(DARWIN)
   #if !defined(FREEBSD)
     {SIGPOLL, "SIGPOLL: Pollable event.", ST_OTHER},
   #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_reqrep.cpp                                 $
- *     $Date: 2004/02/24 23:12:45 $
- * $Revision: 1.8 $
+ *     $Date: 2004/03/05 15:02:50 $
+ * $Revision: 1.9 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -224,7 +224,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
  */
 #if defined(WIN32) || defined(CYGWIN)
   #define BROKEN_IOCTL 1
-#elif defined(AIX) || defined(IRIX) || defined(FREEBSD) || defined(HPUX) || defined(OSF)
+#elif defined(AIX) || defined(IRIX) || defined(FREEBSD) || defined(HPUX) || defined(OSF) || defined(DARWIN)
   #define BROKEN_IOCTL 1 // seems these are broken too...
 #else 
   #define BROKEN_IOCTL 0

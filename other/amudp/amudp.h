@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2004/02/13 18:00:18 $
- * $Revision: 1.7 $
+ *     $Date: 2004/03/05 15:02:50 $
+ * $Revision: 1.8 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -95,8 +95,8 @@
   #define AMUDP_MAX_LONG     (AMUDP_MAX_MEDIUM*256)  /* max. data size for xfer and get operations >= 8192 */
 #elif defined(__sgi__)
   #define AMUDP_MAX_LONG     61000  /* max. UDP datagram on IRIX is apparently 61412 */
-#elif defined(__osf__) || defined(__FreeBSD__)
-  #define AMUDP_MAX_LONG     9000   /* max UDP datagram on OSF/FREEBSD is apparently 9196 */
+#elif defined(__osf__) || defined(__FreeBSD__) || defined(DARWIN)
+  #define AMUDP_MAX_LONG     9000   /* max UDP datagram on OSF/FREEBSD/DARWIN is apparently 9196 */
 #else
   #define AMUDP_MAX_LONG     65000  /* default max. UDP datagram */
 #endif
