@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2003/05/25 02:06:28 $
- * $Revision: 1.2 $
+ *     $Date: 2003/06/07 04:54:28 $
+ * $Revision: 1.3 $
  * Description: GASNet header for smp conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,11 +23,8 @@
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 #define GASNET_ALIGNED_SEGMENTS   1
 
-#if 1
+#if !defined(GASNETE_PUTGET_ALWAYSREMOTE) && !defined(GASNETE_PUTGET_ALWAYSLOCAL)
   #define GASNETE_PUTGET_ALWAYSLOCAL 1
-#else
-  /* for testing purposes */
-  #define GASNETE_PUTGET_ALWAYSREMOTE 1
 #endif
 
   /* this can be used to add conduit-specific 
