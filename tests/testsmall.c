@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2004/05/16 05:47:14 $
- * $Revision: 1.14 $
+ *     $Date: 2004/05/28 20:04:47 $
+ * $Revision: 1.15 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -445,6 +445,7 @@ int main(int argc, char **argv)
     int min_payload, max_payload;
     int maxsz = 0;
     void *myseg;
+    void *alloc;
     int arg;
     int iters = 0;
     int i, j;
@@ -525,8 +526,8 @@ int main(int argc, char **argv)
         if (insegment) {
 	    msgbuf = (void *) myseg;
         } else {
-	    msgbuf = (void *) test_malloc((maxsz+PAGESZ)*2);
-            msgbuf = (void *) alignup(((uintptr_t)msgbuf), PAGESZ); /* ensure page alignment of base */
+	    alloc = (void *) test_malloc((maxsz+PAGESZ)*2);
+            msgbuf = (void *) alignup(((uintptr_t)alloc), PAGESZ); /* ensure page alignment of base */
         }
         ackbuf = msgbuf + PAGESZ;
         assert(((uintptr_t)msgbuf) % PAGESZ == 0);
@@ -547,6 +548,10 @@ int main(int argc, char **argv)
   	for (j = min_payload; j <= max_payload; j *= 2)  roundtrip_nb_test(iters, j);
 
   	for (j = min_payload; j <= max_payload; j *= 2)  oneway_nb_test(iters, j);
+
+        if (!insegment) {
+	  test_free(alloc);
+	}
 
     gasnet_exit(0);
 
