@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/05/22 06:54:51 $
-# $Revision: 1.139 $
+#     $Date: 2004/05/22 14:20:20 $
+# $Revision: 1.140 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.139 $)
+AC_REVISION($Revision: 1.140 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -149,7 +149,9 @@ dnl AC_SUBST(ENDIANNESS)
 GASNET_FAMILY_CACHE_CHECK(C, CC, gasnet_cv_cc_family)
 
 if test "$gasnet_cv_cc_family" = MIPS; then
-  # The MIPSPro C compiler has a broken C preprocessor exit code, so we hardwire some choices
+  # The MIPSPro C compiler has a broken C preprocessor exit code by default, fix it
+  CFLAGS="$CFLAGS -diag_error 1035"
+  CPPFLAGS="$CPPFLAGS -diag_error 1035"
   AC_DEFINE(MIPSPRO_COMPILER)
 fi
 
@@ -247,7 +249,7 @@ case "$gasnet_cv_cc_family" in
       alphaev5) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; # T3E
       *)        MISC_CFLAGS="-hnomessage=236 $LIBCM" ;; # X1
     esac ;;
-  MIPS) MISC_CFLAGS="-common -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
+  MIPS) MISC_CFLAGS="-common -diag_error 1035 -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;; # 1035 ensures "#error" is fatal
   Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
   Intel) MISC_CFLAGS="-wd279" ;;
   NEC) MISC_CFLAGS="-woff=68:111:174:177:236:301:550:940" ;; 
@@ -674,7 +676,7 @@ if test $enabled_udp = yes; then
     ;;
     PGI)   MISC_CXXFLAGS="-w -Masmkeyword" ;; # apparently has no way to indep control warnings
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
-    MIPS)  MISC_CXXFLAGS="-diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
+    MIPS)  MISC_CXXFLAGS="-diag_error 1035 -diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
     Intel) MISC_CXXFLAGS="-wd654 -wd1125 -wd279" ;;
     NEC)   MISC_CXXFLAGS="-woff=68:111:174:177:236:301:550:940 -Kexceptions" 
            CXXDEBUGFLAGS="-g -Cnoopt -Cdebug"
@@ -813,7 +815,7 @@ if test $enabled_mpi = yes; then
         # user may need to do a "module load mpt" to make this work
     	GASNET_ENV_DEFAULT(MPI_CC, cc -n32)
         # cannot use MISC_CFLAGS here because C compiler may not be MIPSPro
-	BASIC_MPI_CFLAGS="-diag_suppress1171,1174,1209,1552"
+	BASIC_MPI_CFLAGS="-diag_error 1035 -diag_suppress1171,1174,1209,1552"
 	if test "$BUILDCONFIG" = "optimize" ; then
       	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O2 $BASIC_MPI_CFLAGS)
 	else
