@@ -1,6 +1,6 @@
 #  $Archive::                                                            $
-#     $Date: 2004/01/19 12:57:32 $
-# $Revision: 1.4 $
+#     $Date: 2004/01/30 07:13:03 $
+# $Revision: 1.5 $
 # Description: Cray-T3E Makefile fragment
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -13,6 +13,7 @@ platform_defines = -DUNIX -DUNICOS -DCRAYT3E -DCRAY -DAPPUTILS_OMIT_READWRITE
 
 # disable ILP32 tests
 testprograms_ILP32only =
+apputils_flags = -DAPPUTILS_OMIT_READWRITE
 
 # Cray cc - need to enable private global vars and disable a silly warning
 CC := cc -htaskprivate -hnomessage=236

@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMUDP/Makefile.titanium.in                             $
-#     $Date: 2004/01/28 11:43:51 $
-# $Revision: 1.4 $
+#     $Date: 2004/01/30 07:13:03 $
+# $Revision: 1.5 $
 # Description: setup necessary variables needed by Makefile
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -21,3 +21,6 @@ ar := @AR@
 # stuff normally set by the pre-baked makefiles
 platform_defines := @TIC_MACHINE_DEFINES@ -DUNIX
 platform_libraries := @LIBS@ @MPI_LIBS@
+
+@PLATFORM_ILP32_FALSE@  testprograms_ILP32only =
+@PLATFORM_ILP32_FALSE@  apputils_flags = -DAPPUTILS_OMIT_READWRITE

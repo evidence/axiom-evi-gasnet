@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/01/28 11:43:51 $
-# $Revision: 1.5 $
+#     $Date: 2004/01/30 07:13:03 $
+# $Revision: 1.6 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -13,8 +13,8 @@ HOSTSYSTEM=${OSTYPE}.${MACHTYPE}
 include Makefile.${HOSTSYSTEM}
 
 # Uncomment one set of lines below to get debug or release configuration 
-#ccflags = -DAMMPI_DEBUG=1 ${ccdebugflags}
-ccflags = -DAMMPI_NDEBUG=1 ${ccoptflags}
+#ccflags = -DAMMPI_DEBUG=1 ${ccdebugflags} $(apputils_flags)
+ccflags = -DAMMPI_NDEBUG=1 ${ccoptflags} $(apputils_flags)
 
 #-------------------------------------------------------------------------------------
 # You should never need to change things below this line
@@ -99,12 +99,44 @@ TEST_DEPTH=32
 TEST_DUPLEX=H
 AMMPI_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo  Running AMMPI tests...
+	@echo  If this fails to spawn a job, you may need to re-run with a
+	@echo   command like: gmake run-tests TEST_RUNCMD=\"mpirun -np 2\"
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTPING
 	$(TEST_RUNCMD) ./testping $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTLATENCY
 	$(TEST_RUNCMD) ./testlatency $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTLATENCYM
 	$(TEST_RUNCMD) ./testlatencyM $(TEST_ITERS) $(TEST_MODE) 64
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTBULK
 	$(TEST_RUNCMD) ./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
-	$(TEST_RUNCMD) ./testamudp $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTAMUDP
+	$(TEST_RUNCMD) ./testam $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTBOUNCE
 	$(TEST_RUNCMD) ./testbounce $(TEST_ITERS) $(TEST_MODE) 
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTREDUCE
 	$(TEST_RUNCMD) ./testreduce 
-	if test -x ./testgetput ; then $(TEST_RUNCMD) ./testgetput $(TEST_ITERS) ; fi
-	if test -x ./testreadwrite ; then $(TEST_RUNCMD) ./testreadwrite $(TEST_ITERS) ; fi
+	@if test -x ./testgetput ; then \
+	   echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ; \
+	   echo TESTGETPUT ; \
+           echo $(TEST_RUNCMD) ./testgetput $(TEST_ITERS) ; \
+           $(TEST_RUNCMD) ./testgetput $(TEST_ITERS) ; \
+        fi
+	@if test -x ./testreadwrite ; then \
+	   echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ; \
+	   echo TESTREADWRITE ; \
+           echo $(TEST_RUNCMD) ./testreadwrite $(TEST_ITERS) ; \
+           $(TEST_RUNCMD) ./testreadwrite $(TEST_ITERS) ; \
+        fi
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTS COMPLETE
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+

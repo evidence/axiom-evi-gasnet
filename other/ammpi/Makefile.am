@@ -91,17 +91,41 @@ TEST_DEPTH=32
 TEST_DUPLEX=H
 AMMPI_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo  Running AMMPI tests...
+	@echo  If this fails to spawn a job, you may need to re-run with a
+	@echo   command like: gmake run-tests TEST_RUNCMD=\"mpirun -np 2\"
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTPING
 	$(TEST_RUNCMD) ./testping $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTLATENCY
 	$(TEST_RUNCMD) ./testlatency $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTLATENCYM
 	$(TEST_RUNCMD) ./testlatencyM $(TEST_ITERS) $(TEST_MODE) 64
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTBULK
 	$(TEST_RUNCMD) ./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTAMUDP
 	$(TEST_RUNCMD) ./testam $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTBOUNCE
 	$(TEST_RUNCMD) ./testbounce $(TEST_ITERS) $(TEST_MODE) 
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTREDUCE
 	$(TEST_RUNCMD) ./testreduce 
 if PLATFORM_ILP32
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+	@echo TESTGETPUT 
 	$(TEST_RUNCMD) ./testgetput $(TEST_ITERS) 
-	$(TEST_RUNCMD) ./testreadwrite $(TEST_ITERS) 
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTREADWRITE
+	$(TEST_RUNCMD) ./testreadwrite $(TEST_ITERS)
 endif
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTS COMPLETE
 
 %.o: %.c ammpi.h ammpi_spmd.h ammpi_internal.h
 	${compile} -DAMMPI -o $@ -c $<

@@ -11,7 +11,7 @@ else
 endif
 
 CC  = @CC@
-CCFLAGS = @CFLAGS@ @MISC_CFLAGS@ $(apputils_flags)
+CFLAGS = @CFLAGS@ @MISC_CFLAGS@ $(apputils_flags)
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@ @MISC_CXXFLAGS@
 
@@ -21,7 +21,7 @@ platform_libraries = @LIBS@ @GASNET_UDP_LIBS@
 VPATH = $(srcdir)
 testdir = $(srcdir)/../amxtests
 INCLUDES = -I$(srcdir) ${platform_defines}
-compile = ${CC} ${CCFLAGS} ${INCLUDES}
+compile = ${CC} ${CFLAGS} ${INCLUDES}
 cxxcompile = ${CXX} ${CXXFLAGS} ${INCLUDES}
 link = $(CXX) ${CXXFLAGS} ${INCLUDES} 
 linkend = ${platform_libraries}
@@ -100,17 +100,38 @@ TEST_DEPTH=32
 TEST_DUPLEX=H
 AMUDP_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
-	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
-	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
-	./testlatencyM $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 64
-	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
-	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
-	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
-	./testreduce $(TEST_NODES) $(TEST_SPAWNFN) 
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo  Running AMMPI tests...
+	@echo  If this fails to spawn a job, you may need to re-run with a
+	@echo   command like: gmake run-tests TEST_SPAWNFN=S
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTPING
+	$(TEST_RUNCMD) ./testping $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTLATENCY
+	$(TEST_RUNCMD) ./testlatency $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTLATENCYM
+	$(TEST_RUNCMD) ./testlatencyM $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE) 64
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTBULK
+	$(TEST_RUNCMD) ./testbulk $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTAM
+	$(TEST_RUNCMD) ./testam $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTBOUNCE
+	$(TEST_RUNCMD) ./testbounce $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE) 
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTREDUCE
+	$(TEST_RUNCMD) ./testreduce $(TEST_NODES) $(TEST_SPAWNFN)  
 if PLATFORM_ILP32
-	./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 
-	./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 
-endif
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
+	@echo TESTGETPUT 
+	$(TEST_RUNCMD) ./testgetput $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) 
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTREADWRITE
+	$(TEST_RUNCMD) ./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS)
 
 test%.o : $(testdir)/test%.c $(testdir)/apputils.h ${headers}
 	${compile} -DAMUDP -I$(testdir) -c $< -o $@

@@ -1,8 +1,12 @@
 #  $Archive:: /Ti/AMUDP/Makefile                                         $
-#     $Date: 2004/01/28 11:43:53 $
-# $Revision: 1.6 $
+#     $Date: 2004/01/30 07:13:04 $
+# $Revision: 1.7 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
+
+# leave these lines alone
+testprograms_ILP32only_all = testgetput testreadwrite
+testprograms_ILP32only = ${testprograms_ILP32only_all}
 
 # Set host system to the appropriate value to get the right prebaked Makefile
 
@@ -11,10 +15,10 @@ include Makefile.${HOSTSYSTEM}
 
 # Uncomment one set of lines below to get debug or release configuration 
 
-#ccflags = -DAMUDP_DEBUG=1 ${ccdebugflags} 
+#ccflags = -DAMUDP_DEBUG=1 ${ccdebugflags} $(apputils_flags)
 #cxxflags = -DAMUDP_DEBUG=1 ${cxxdebugflags}
 
-ccflags = -DAMUDP_NDEBUG=1 ${ccoptflags}
+ccflags = -DAMUDP_NDEBUG=1 ${ccoptflags} $(apputils_flags)
 cxxflags = -DAMUDP_NDEBUG=1 ${cxxoptflags}
 
 #-------------------------------------------------------------------------------------
@@ -29,7 +33,15 @@ link = $(CXX) ${cxxflags} ${platform_defines} ${includes}
 linkend = ${libraries}
 
 # all the test executables
-testprograms = testam testgetput testreadwrite testping testbulk testbounce testreduce testlatency testlatencyM
+testprograms =                  \
+    testam                      \
+    testbounce                  \
+    testbulk                    \
+    testlatency                 \
+    testlatencyM                \
+    testping                    \
+    testreduce                  \
+    $(testprograms_ILP32only)
 
 # all the library objects and headers
 objects=amudp_ep.o amudp_reqrep.o amudp_spmd.o amudp_spawn.o exc.o sig.o socklist.o sockutil.o
@@ -100,13 +112,43 @@ TEST_DEPTH=32
 TEST_DUPLEX=H
 AMUDP_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
-	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
-	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
-	./testlatencyM $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 64
-	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
-	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
-	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
-	./testreduce $(TEST_NODES) $(TEST_SPAWNFN)
-	if test -x ./testgetput ; then ./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; fi
-	if test -x ./testreadwrite ; then ./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; fi
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo  Running AMUDP tests...
+	@echo  If this fails to spawn a job, you may need to re-run with a
+	@echo   command like: gmake run-tests TEST_SPAWNFN=S
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTPING
+	$(TEST_RUNCMD) ./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTLATENCY
+	$(TEST_RUNCMD) ./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTLATENCYM
+	$(TEST_RUNCMD) ./testlatencyM $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 64
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTBULK
+	$(TEST_RUNCMD) ./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTAM
+	$(TEST_RUNCMD) ./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTBOUNCE
+	$(TEST_RUNCMD) ./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTREDUCE
+	$(TEST_RUNCMD) ./testreduce $(TEST_NODES) $(TEST_SPAWNFN) 
+	@if test -x ./testgetput ; then \
+	   echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ; \
+	   echo TESTGETPUT ; \
+           echo $(TEST_RUNCMD) ./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; \
+           $(TEST_RUNCMD) ./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; \
+        fi
+	@if test -x ./testreadwrite ; then \
+	   echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ; \
+	   echo TESTREADWRITE ; \
+           echo $(TEST_RUNCMD) ./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; \
+           $(TEST_RUNCMD) ./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; \
+        fi
+	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo TESTS COMPLETE
 
