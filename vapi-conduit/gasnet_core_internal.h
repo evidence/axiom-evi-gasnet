@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/07/18 19:37:20 $
- * $Revision: 1.7 $
+ *     $Date: 2003/07/18 19:48:45 $
+ * $Revision: 1.8 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -222,7 +222,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 #define GASNETC_RCV_POLL		1
 
 /* puts <= this size will be done w/ VAPI-level copy, 0 disables */
-#define GASNETC_PUT_INLINE_LIMIT	72
+#define GASNETC_PUT_INLINE_LIMIT	0
 
 /* puts <= this size will be done w/ local copies iff sender will wait for local completion */
 #define GASNETC_PUT_COPY_LIMIT		4096
