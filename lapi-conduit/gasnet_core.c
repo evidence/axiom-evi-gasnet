@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/04 01:38:09 $
- * $Revision: 1.10 $
+ *     $Date: 2002/12/04 02:24:16 $
+ * $Revision: 1.11 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -984,7 +984,7 @@ extern int gasnetc_AMReplyLongM(
     int udata_avail;
     int udata_packed = 0;
     int i, cur_cntr;
-    gasnet_node_t dest = t->sourceId;;
+    gasnet_node_t dest = t->sourceId;
     va_list argptr;
   
     retval = gasnet_AMGetMsgSource(token, &dest);
