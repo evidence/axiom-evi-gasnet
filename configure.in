@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/03/16 22:52:53 $
-# $Revision: 1.238 $
+#     $Date: 2005/03/17 22:19:12 $
+# $Revision: 1.239 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.238 $)
+AC_REVISION($Revision: 1.239 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2166,6 +2166,9 @@ fi
 GASNET_PATH_PROGS(AR, $AR ar gar, archiver)
 #AC_PROG_RANLIB
 GASNET_PATH_PROGS(RANLIB, $RANLIB ranlib touch, ranlib)
+case "$target_os" in
+    darwin*) RANLIB="$RANLIB -c" ;; # ensure correct common block behavior on darwin
+esac
 GASNET_PATH_PROGS(BASENAME, $BASENAME basename, basename)
 GASNET_PATH_PROGS(DIRNAME, $DIRNAME dirname, dirname)
 # Some platforms are lacking readlink, and we currently do not require it
