@@ -146,9 +146,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/08/02 09:07:48 $
+@subtitle $Date: 2002/08/15 09:52:16 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.7 $ 
+@subtitle $Revision: 1.8 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/08/02 09:07:48 $
-@*$Revision: 1.7 $ 
+@*$Date: 2002/08/15 09:52:16 $
+@*$Revision: 1.8 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.nersc.gov/}
 @HR
@@ -1825,7 +1825,6 @@ immediately and @code{gasnet_try_sync_some_list} will return @code{GASNET_OK}.
 @FNI gasnet_get_nbi
 @FNI gasnet_put_nbi
 @FNI gasnet_get_nbi_bulk
-@FNI gasnet_put_nbi_bulk
 @FNI gasnet_put_nbi_bulk
 @FNI gasnet_memset_nbi
 @deftypefn {} {void} gasnet_get_nbi      (void *@var{dest}, gasnet_node_t @var{node}, void *@var{src}, size_t @var{nbytes}) 
