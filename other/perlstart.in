@@ -13,22 +13,32 @@ readlink='@READLINK@'
 dirname='@DIRNAME@'
 basename='@BASENAME@'
 
+# written carefully to still work if readlink is missing
+if test -x "$readlink" ; then
+  link=`$readlink ${scriptname}`
+else
+  link=`/bin/ls -al ${scriptname} | @AWK@ 'BEGIN{FS=">"}{split($2,A," ") ; print A[1]}'`
+fi
+
 # be sure to follow any symbolic links to reach the location
-# where this script truly resides. If readlink is not available,
-# this link traversal will automatically be skipped
-if test "$readlink" -a "$dirname" -a "$basename" ; then
- while "$readlink" ${scriptname} > /dev/null 2>&1 && \
+# where this script truly resides. 
+while  test "$link" && \
        "$dirname"  ${scriptname} > /dev/null 2>&1 && \
        "$basename" ${scriptname} > /dev/null 2>&1
   do
   dir=`"$dirname" ${scriptname}`;
-  newpath=`"$readlink" ${scriptname}`;
+  newpath="$link";
   newdir=`"$dirname" ${newpath}`;
   newname=`"$basename" ${newpath}`;
   dir=`cd ${dir} >/dev/null 2>&1; cd ${newdir} >/dev/null 2>&1; pwd`;
   scriptname="${dir}/${newname}";
- done
-fi
+
+  if test -x "$readlink" ; then
+    link=`$readlink ${scriptname}`
+  else
+    link=`/bin/ls -al ${scriptname} | @AWK@ 'BEGIN{FS=">"}{split($2,A," ") ; print A[1]}'`
+  fi
+done
 
 exec '@PERL@' "${scriptname}.pl" "$@"
 
