@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/30 22:09:51 $
- * $Revision: 1.43 $
+ *     $Date: 2004/07/30 22:58:25 $
+ * $Revision: 1.44 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -421,7 +421,10 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
     uint8_t cat;
     gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
     gasnete_eop_check((gasnete_eop_t *)op);
-    if (OPSTATE(op) == OPSTATE_COMPLETE) return TRUE;
+    if (OPSTATE(op) == OPSTATE_COMPLETE) {
+      gasneti_sync_reads();
+      return TRUE;
+    }
     cat = OPCAT(op);
     switch (cat) {
       case OPCAT_ELANGETBB:
@@ -442,13 +445,10 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
             SET_OPSTATE((gasnete_eop_t *)op, OPSTATE_COMPLETE);
           } 
         if (!have_elanLock) UNLOCK_ELAN_WEAK();
-        /* ensure we do a read memory barrier if the eop was completed by the NIC, 
-           even in the absence of threads (when threads are present, it is 
-           performed by the caller)
+        /* gasneti_sync_reads() is NOT required along this path-
+          we've verified by source inspection that elan_poll executes
+          a read memory barrier before returning success
          */
-        #if !GASNETI_THREADS
-          gasneti_local_rmb();
-        #endif
         return result;
       }
       case OPCAT_AMGET:
@@ -460,7 +460,10 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
     gasnete_iop_check(iop);
-    return gasnete_iop_gets_done(iop) && gasnete_iop_puts_done(iop);
+    if (gasnete_iop_gets_done(iop) && gasnete_iop_puts_done(iop)) {
+      gasneti_sync_reads();
+      return TRUE;
+    } else return FALSE;
   }
 }
 
@@ -789,7 +792,6 @@ int gasnete_try_syncnb_inner(gasnet_handle_t handle) {
   if (GASNETE_HANDLE_IS_OP(handle)) {
     gasnete_op_t *op = GASNETE_HANDLE_TO_OP(handle);
     if (gasnete_op_isdone(op, FALSE)) {
-      gasneti_sync_reads();
       gasnete_op_free(op);
       return GASNET_OK;
     }
@@ -919,7 +921,6 @@ static gasnete_eop_t * gasnete_putgetbblist_pending(gasnete_eop_t *eoplist) {
     gasneti_assert(eoplist->bouncebuf);
     next = eoplist->bouncebuf->next;
     if (gasnete_op_isdone(op, TRUE)) {
-      gasneti_sync_reads();
       gasnete_op_free(op);
     }
     else 
