@@ -1,4 +1,4 @@
-/* $Id: testthreads.c,v 1.6 2003/08/30 07:16:52 bonachea Exp $
+/* $Id: testthreads.c,v 1.7 2003/08/30 10:43:05 csbell Exp $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -31,14 +31,10 @@
 typedef 
 struct _threaddata_t {
 	int	tid;		/* global thread id */
-	int	tid_local;	/* local thread id */
-
-	int	tid_peer;	/* global id of remote peer thread */
-	int	tid_local_peer; /* id of local peer thread ????? */
-        /* DOB: what exactly is tid_local_peer supposed to be? 
-               The only use in RANDOM_PEER() seems to want it to be the global thread id 
-               of a thread on the local node - but this is NOT what the initialization 
-               computes. */
+	int	ltid;		/* local thread id (index into each node's
+				   array of threaddata_t) */
+	int	tid_peer;	/* global thread id of remote peer thread */
+	int	tid_peer_local; /* global thread id of local peer thread */
 
 	volatile int	flag;
 	char	_pad[CACHE_LINE_BYTES-5*sizeof(int)];
@@ -341,17 +337,18 @@ alloc_thread_data(int threads)
 				tid = base + j;
 				tt_thread_map[tid] = i;
 				tt_addr_map[tid] = (void *) 
-				    (((uintptr_t) segbase) + 
+				    ((uintptr_t) segbase + 
 				     j * TEST_SEGZ_PER_THREAD);
 
 				if (i == gasnet_mynode()) {
 					td = &tt_thread_data[j];
 
 					td->tid = tid;
-					td->tid_local = j;
-					td->tid_local_peer = (tid+1) % threads;
+					td->ltid = j;
+					td->tid_peer_local = base + 
+						((j+1) % threads);
 					td->tid_peer = (tid+threads) % 
-							tot_threads;
+						tot_threads;
 				}
 			}
 		}
@@ -545,8 +542,8 @@ test_get(threaddata_t *tdata)
 #define RANDOM_PEER(tdata)					\
 	(AM_loopback ? 						\
 		(rand() % 2 == 0 ? tdata->tid_peer		\
-				 : tdata->tid_local_peer)	\
-	: tdata->tid_peer)
+				 : tdata->tid_peer_local)	\
+	: tdata->tid_peer);
 
 void
 test_amshort(threaddata_t *tdata)
@@ -558,7 +555,7 @@ test_amshort(threaddata_t *tdata)
 	tdata->flag = -1;
         gasnett_local_membar();
 	GASNET_Safe(gasnet_AMRequestShort1(node, 
-		    hidx_ping_shorthandler, tdata->tid_local));
+		    hidx_ping_shorthandler, tdata->ltid));
 	GASNET_BLOCKUNTIL(tdata->flag == 0);
 	tdata->flag = -1;
 
@@ -582,7 +579,7 @@ test_ammedium(threaddata_t *tdata)
         gasnett_local_membar();
 	GASNET_Safe(gasnet_AMRequestMedium1(node, 
 		    hidx_ping_medhandler, laddr, len, 
-		    tdata->tid_local));
+		    tdata->ltid));
 	GASNET_BLOCKUNTIL(tdata->flag == 0);
 	tdata->flag = -1;
 
@@ -610,7 +607,7 @@ test_amlong(threaddata_t *tdata)
 
 	GASNET_Safe(gasnet_AMRequestLong2(node, 
 		    hidx_ping_longhandler, laddr, len, raddr, 
-		    tdata->tid_local, peer));
+		    tdata->ltid, peer));
 	GASNET_BLOCKUNTIL(tdata->flag == 0);
 	tdata->flag = -1;
 
