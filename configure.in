@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/10/06 03:50:18 $
-# $Revision: 1.23 $
+#     $Date: 2002/10/11 20:56:00 $
+# $Revision: 1.24 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.23 $)
+AC_REVISION($Revision: 1.24 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -163,7 +163,7 @@ case "$gasnet_cv_cc_family" in
 esac
 
 case "$gasnet_cv_cc_family" in
-  GNU)  CCDEBUGFLAGS="-g3 -Wall -Wno-unused" 
+  GNU)  CCDEBUGFLAGS="-g3 -Wall -Wno-unused -Wpointer-arith -Wnested-externs" 
         #CCDEBUGFLAGS="$CCDEBUGFLAGS -ansi -U__STRICT_ANSI__"
   ;;
   Cray) CCDEBUGFLAGS="-g -hnomessage=236 -htaskprivate $LIBCM" ;;

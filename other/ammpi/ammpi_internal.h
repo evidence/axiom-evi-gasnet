@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2002/08/30 22:17:11 $
- * $Revision: 1.5 $
+ *     $Date: 2002/10/11 20:56:02 $
+ * $Revision: 1.6 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -266,7 +266,8 @@ extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest,
 #define _AMMPI_IDENT(identName, identText)  \
   extern char volatile identName[];         \
   char volatile identName[] = identText;    \
-  extern char *_get_##identName() { return (char*)identName; }
+  extern char *_get_##identName() { return (char*)identName; } \
+  static int _dummy_##identName = sizeof(_dummy_##identName)
 #if defined(_CRAYC)
   #define AMMPI_IDENT(identName, identText) \
     AMMPI_PRAGMA(_CRI ident identText);     \

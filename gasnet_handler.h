@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_handler.h                                $
- *     $Date: 2002/06/25 18:55:09 $
- * $Revision: 1.2 $
+ *     $Date: 2002/10/11 20:56:00 $
+ * $Revision: 1.3 $
  * Description: GASNet Helpers for using bit-width-independent AM handlers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -10,71 +10,71 @@
 
 /* argument-list macros */
 #define ARGS0
-#define ARGS1 gasnet_handlerarg_t a0
-#define ARGS2 gasnet_handlerarg_t a0, gasnet_handlerarg_t a1
-#define ARGS3 gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2
-#define ARGS4 gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3
+#define ARGS1 , gasnet_handlerarg_t a0
+#define ARGS2 , gasnet_handlerarg_t a0, gasnet_handlerarg_t a1
+#define ARGS3 , gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2
+#define ARGS4 , gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3
 
-#define ARGS5 gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3, \
-              gasnet_handlerarg_t a4
-#define ARGS6 gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3, \
-              gasnet_handlerarg_t a4, gasnet_handlerarg_t a5
-#define ARGS7 gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3, \
-              gasnet_handlerarg_t a4, gasnet_handlerarg_t a5, gasnet_handlerarg_t a6
-#define ARGS8 gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3, \
-              gasnet_handlerarg_t a4, gasnet_handlerarg_t a5, gasnet_handlerarg_t a6, gasnet_handlerarg_t a7
+#define ARGS5 , gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3, \
+                gasnet_handlerarg_t a4
+#define ARGS6 , gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3, \
+                gasnet_handlerarg_t a4, gasnet_handlerarg_t a5
+#define ARGS7 , gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3, \
+                gasnet_handlerarg_t a4, gasnet_handlerarg_t a5, gasnet_handlerarg_t a6
+#define ARGS8 , gasnet_handlerarg_t a0, gasnet_handlerarg_t a1, gasnet_handlerarg_t a2, gasnet_handlerarg_t a3, \
+                gasnet_handlerarg_t a4, gasnet_handlerarg_t a5, gasnet_handlerarg_t a6, gasnet_handlerarg_t a7
 
-#define ARGS9  gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
-               gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
-               gasnet_handlerarg_t a8
-#define ARGS10 gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
-               gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
-               gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9
-#define ARGS11 gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
-               gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
-               gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10
-#define ARGS12 gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
-               gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
-               gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11
+#define ARGS9  , gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
+                 gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
+                 gasnet_handlerarg_t a8
+#define ARGS10 , gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
+                 gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
+                 gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9
+#define ARGS11 , gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
+                 gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
+                 gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10
+#define ARGS12 , gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
+                 gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
+                 gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11
 
 
-#define ARGS13 gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
-               gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
-               gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11, \
-               gasnet_handlerarg_t a12
-#define ARGS14 gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
-               gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
-               gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11, \
-               gasnet_handlerarg_t a12, gasnet_handlerarg_t a13
-#define ARGS15 gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
-               gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
-               gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11, \
-               gasnet_handlerarg_t a12, gasnet_handlerarg_t a13, gasnet_handlerarg_t a14
-#define ARGS16 gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
-               gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
-               gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11, \
-               gasnet_handlerarg_t a12, gasnet_handlerarg_t a13, gasnet_handlerarg_t a14, gasnet_handlerarg_t a15
+#define ARGS13 , gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
+                 gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
+                 gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11, \
+                 gasnet_handlerarg_t a12
+#define ARGS14 , gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
+                 gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
+                 gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11, \
+                 gasnet_handlerarg_t a12, gasnet_handlerarg_t a13
+#define ARGS15 , gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
+                 gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
+                 gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11, \
+                 gasnet_handlerarg_t a12, gasnet_handlerarg_t a13, gasnet_handlerarg_t a14
+#define ARGS16 , gasnet_handlerarg_t a0,  gasnet_handlerarg_t a1,  gasnet_handlerarg_t a2,  gasnet_handlerarg_t a3,  \
+                 gasnet_handlerarg_t a4,  gasnet_handlerarg_t a5,  gasnet_handlerarg_t a6,  gasnet_handlerarg_t a7,  \
+                 gasnet_handlerarg_t a8,  gasnet_handlerarg_t a9,  gasnet_handlerarg_t a10, gasnet_handlerarg_t a11, \
+                 gasnet_handlerarg_t a12, gasnet_handlerarg_t a13, gasnet_handlerarg_t a14, gasnet_handlerarg_t a15
 
 #define ARGNAMES0
-#define ARGNAMES1 a0
-#define ARGNAMES2 a0, a1
-#define ARGNAMES3 a0, a1, a2
-#define ARGNAMES4 a0, a1, a2, a3
+#define ARGNAMES1 , a0
+#define ARGNAMES2 , a0, a1
+#define ARGNAMES3 , a0, a1, a2
+#define ARGNAMES4 , a0, a1, a2, a3
 
-#define ARGNAMES5 a0, a1, a2, a3, a4
-#define ARGNAMES6 a0, a1, a2, a3, a4, a5
-#define ARGNAMES7 a0, a1, a2, a3, a4, a5, a6
-#define ARGNAMES8 a0, a1, a2, a3, a4, a5, a6, a7
+#define ARGNAMES5 , a0, a1, a2, a3, a4
+#define ARGNAMES6 , a0, a1, a2, a3, a4, a5
+#define ARGNAMES7 , a0, a1, a2, a3, a4, a5, a6
+#define ARGNAMES8 , a0, a1, a2, a3, a4, a5, a6, a7
 
-#define ARGNAMES9  a0, a1, a2, a3, a4, a5, a6, a7, a8
-#define ARGNAMES10 a0, a1, a2, a3, a4, a5, a6, a7, a8, a9
-#define ARGNAMES11 a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10
-#define ARGNAMES12 a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11
+#define ARGNAMES9  , a0, a1, a2, a3, a4, a5, a6, a7, a8
+#define ARGNAMES10 , a0, a1, a2, a3, a4, a5, a6, a7, a8, a9
+#define ARGNAMES11 , a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10
+#define ARGNAMES12 , a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11
 
-#define ARGNAMES13 a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
-#define ARGNAMES14 a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13
-#define ARGNAMES15 a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14
-#define ARGNAMES16 a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15
+#define ARGNAMES13 , a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12
+#define ARGNAMES14 , a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13
+#define ARGNAMES15 , a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14
+#define ARGNAMES16 , a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15
 
 /* 
   =====================================
@@ -121,34 +121,34 @@
 #endif
 
 #if defined(GASNETI_PTR32)
-  #define SHORT_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)   \
-    static void name ## _32(gasnet_token_t token, ARGS ## cnt32) {        \
-      name ## _inner innerargs32 ;                                       \
+  #define SHORT_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64) \
+    static void name ## _32(gasnet_token_t token ARGS ## cnt32) {     \
+      name ## _inner innerargs32 ;                                    \
     }
-  #define MEDIUM_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)      \
-    static void name ## _32(gasnet_token_t token, void *addr, size_t nbytes, \
+  #define MEDIUM_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)       \
+    static void name ## _32(gasnet_token_t token, void *addr, size_t nbytes  \
                            ARGS ## cnt32) {                                  \
       name ## _inner innerargs32 ;                                           \
     }
-  #define LONG_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)        \
-    static void name ## _32(gasnet_token_t token, void *addr, size_t nbytes, \
+  #define LONG_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)         \
+    static void name ## _32(gasnet_token_t token, void *addr, size_t nbytes  \
                            ARGS ## cnt32) {                                  \
       name ## _inner innerargs32 ;                                           \
     }
 #elif defined(GASNETI_PTR64)
-  #define SHORT_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)   \
-    static void name ## _64(gasnet_token_t token, ARGS ## cnt64) {        \
-      name ## _inner innerargs64 ;                                       \
+  #define SHORT_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64) \
+    static void name ## _64(gasnet_token_t token ARGS ## cnt64) {     \
+      name ## _inner innerargs64 ;                                    \
     }
   #define MEDIUM_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)      \
-    static void name ## _64(gasnet_token_t token, void *addr, size_t nbytes, \
-                           ARGS ## cnt64) {                                  \
-      name ## _inner innerargs64 ;                                           \
+    static void name ## _64(gasnet_token_t token, void *addr, size_t nbytes \
+                           ARGS ## cnt64) {                                 \
+      name ## _inner innerargs64 ;                                          \
     }
   #define LONG_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)        \
-    static void name ## _64(gasnet_token_t token, void *addr, size_t nbytes, \
-                           ARGS ## cnt64) {                                  \
-      name ## _inner innerargs64 ;                                           \
+    static void name ## _64(gasnet_token_t token, void *addr, size_t nbytes \
+                           ARGS ## cnt64) {                                 \
+      name ## _inner innerargs64 ;                                          \
     }
 #endif
 
