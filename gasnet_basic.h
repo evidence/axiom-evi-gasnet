@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/12/28 05:40:04 $
- * $Revision: 1.13 $
+ *     $Date: 2003/04/29 05:46:22 $
+ * $Revision: 1.14 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -182,7 +182,7 @@
   /* CrayC has a really #&#$&! stupidly designed #pragma for inlining functions 
      that requires providing the function name 
      (the only way to request inlining a particular fn from C) */
-  #define GASNET_INLINE_MODIFIER(fnname) GASNETI_PRAGMA(_CRI inline fnname)
+  #define GASNET_INLINE_MODIFIER(fnname) GASNETI_PRAGMA(_CRI inline fnname) static
 #else
   #define GASNET_INLINE_MODIFIER(fnname) static
 #endif
