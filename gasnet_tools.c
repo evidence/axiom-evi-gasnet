@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/06/25 20:04:14 $
- * $Revision: 1.56 $
+ *     $Date: 2004/06/25 22:04:19 $
+ * $Revision: 1.57 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1430,11 +1430,14 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
     return ret;
   }
 #endif
-/* extern versions of gasneti_malloc/gasnet_free for use in public headers */
+/* extern versions of gasneti_{malloc,free,strdup} for use in public headers */
 extern void *gasneti_extern_malloc(size_t sz) {
   return gasneti_malloc(sz);
 }
 extern void gasneti_extern_free(void *p) {
   gasneti_free(p);
+}
+extern void *gasneti_extern_strdup(const char *s) {
+  return gasneti_strdup(s);
 }
 /* don't put anything here - malloc stuff must come last */
