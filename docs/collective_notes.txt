@@ -369,7 +369,21 @@ fully general interface for all of the multi-threaded UPC clients
 rather than creating a "double wide" implementation inside of UPCR.
 
 
-* OPEN ISSUE: "Single address" vs "Single valued"
+* OPEN ISSUE: Variable contributions
+
+What about calls where each node may contribute a different sized
+source to a gather or gather_all, or different sized dest to a scatter
+(with a proper constraint on the sums).
+
+
+* OPEN ISSUE: Computational collectives
+
+Other than "aligned data w/ bulk lifetime" we've not specified
+anything for reduce, prefix_reduce or sort.
+
+
+=============================================================================
+* Five-flavors interface proposal
 
 Note that there are interesting interactions between the various cases
 described in the "Single valued argument" and "Single address"
@@ -458,21 +472,6 @@ cases:
  + "local"   : Ti, 1 thread/node (or multi-threaded w/ hierarchical
 	       data movement)
  + "localV"  : Ti multi-threaded w/ direct data placement
-
-
-
-* OPEN ISSUE: Variable contributions
-
-What about calls where each node may contribute a different sized
-source to a gather or gather_all, or different sized dest to a scatter
-(with a proper constraint on the sums).
-
-* OPEN ISSUE: Computational collectives
-
-Other than "aligned data w/ bulk lifetime" we've not specified
-anything for reduce, prefix_reduce or sort.
-
-
 
 
 EXAMPLES:
@@ -580,6 +579,240 @@ gasnet_all_gather_all_localV_nb(
 	void * const src_addr, size_t addr_count,
 	size_t total_count, size_t nbytes, unsigned long flags);
 
+=============================================================================
+Two-flavors interface proposal
+
+Dan has objected to the 5-flavored proposal as having an interface
+which is much too wide.  This is especially a concern if we next add
+the variable-contribution variants as well.  He has suggested that by
+allowing a given function to include arguments which are unused for
+various flag values, the use of LOCAL and SINGLE flags can reduce the
+interface width.
+
+If have followed this suggestion and also tried to find similarity to
+the VIS interface.  In doing so, I collapse the "global" and "local"
+into one interface, and "globalV" and "localV" into a second.  The
+"globalN" interface is dropped because it is just a special case of
+the "globalV" in which much of the information was implicit.  The
+metadata savings of "globalN" over "globalV" was just the vector or
+nodes.  However, assuming the thread->node layout is static (a pretty
+safe assumption), this vector will be built once at upcr
+initialization time and used for all calls to collectives.  I've also
+realized that providing distinct src and dst node lists in the globalV
+interface was a mistake, since there is no meaningful way for these
+two to be different.
+
+In naming my interfaces, I noted the similarity of the "V" interface
+to the "i" (indexed) of the "VIS" interfaces.  Therefore, I am using
+an "i" suffix.  If we choose to implement variable-sized contributions
+then the "affinity" is to the "v" of VIS.  (If we desire to have a
+special case for uniform thread layout with equidistant heaps then we
+could add an "s" variant.)
+
+So, here is the 2-flavor proposal:
+
+There are two flavors of interface to each collective.  The basic (no
+suffix) case moves an equal amount of contiguous data to or from each
+node, with the exception of the root node in the asymmetric
+collectives (broadcast, scatter and gather).  This type of interface
+takes a single src address and a single dst address.  This is suitable
+for the case of UPC collectives with aligned segments (and a single
+UPC thread per node or hierarchical movement of data for multiple
+threads), and also suitable for Titanium-style collectives in which
+each node may have a distinct source or destination, but lacks
+knowledge of the other addresses.
+
+The second flavor is the "i"-suffix interfaces, some what analogous to
+the gasnet_{get,put}i() family of interfaces.  These take a list of
+sources and destinations.  This allows for the cases not covered by
+the basic interface.  If a UPC runtime has unaligned segments, then
+the list could specify exactly one address per node with the freedom
+for them to differ.  If there are multiple UPC or Titanium threads in
+the address space of a single GASNet node, then the lists could
+provide multiple addresses per node to avoid the need for hierarchical
+movement of data.
+
+Common to all these interfaces is the presence of either "_LOCAL" or
+"_SINGLE" in the flags argument (prefix TBD).  In the SINGLE case we
+have UPC-style arguments in which the addresses are known (and thus
+passed in) on all nodes.  In the LOCAL case we have Titanium-style
+arguments in which only the local addresses are known, and passed in.
+
+For the "i" interfaces (other than broadcast) the LOCAL case also
+requires a rank argument which indicates where (in the total ordering
+of blocks) the blocks from the local node lie.  This is a scalar
+giving the rank of the first block on the local node, thus requiring
+that threads are assigned to nodes with all threads on a given node
+having consecutive rank.  The "i" interfaces also have a
+"total_blocks" argument to indicate how many blocks exist after the
+contributions from all nodes are summed.
+
+Note that when SINGLE is given, then all arguments are "single valued"
+providing identical information on all nodes (for arrays the contents
+of the arrays must be identical, not their addresses).  When LOCAL is
+given the address arguments and the rank (where applicable) may differ
+among the nodes while all remaining arguments are "single valued".
+For instance the nodes must all agree on the "root" of a broadcast,
+scatter or gather, even though only the root node will provided its
+address.  Of course all nodes must agree on the nbytes and the flags.
+Operation of any collective in which the arguments fail to agree as
+required will be undefined.
+
+In the LOCAL case, the addresses may legally be different or the same,
+but the ranks must differ such that [0..nblocks-1] is partitioned
+among the nodes.  As we will see, the partitioning is more explicit in
+the SINGLE case.
+
+It *is* legal for one or more nodes in an "i" collective to provide
+zero blocks to the collective.  This provides a rudimentary form of
+variable-contribution interface in the same way that gasnet_puti() can
+be used to emulate gasnet_putv(), given an nbytes which is the
+greatest common divisor of the blocks.  Note that a node providing
+zero blocks must still enter the collective with arguments that match
+as required by the LOCAL or SINGLE mode.  In the LOCAL case the rank
+(where applicable) of nodes providing zero blocks is ignored and the
+partitioning of [0..nblocks-1] only considers those nodes providing
+data blocks.
+
+In designing the "i" interfaces there was a choice to be made between
+passing multiple vector arguments, or a single vector of structs.  The
+realization was that while the addresses are likely to be different
+for each collective operation, the list of nodes is very likely to be
+a static list reflecting the layout of UPC or Titanium threads on the
+GASNet nodes.  Therefore a likely client will construct this list
+exactly once at initialization.  By having multiple vector arguments
+instead of a vector of structs, this constant node vector can be
+reused for the entire life of the client without need to copy it or
+reconstruct it multiple times.
+
+The "listlen" argument in the "i" collectives is the number of
+elements in all of the "nodelist", "srclist" and "dstlist" arguments
+as applicable.  Note that every "i" collective has exactly one
+"nodelist" and one "listlen", even the gather_all and exchange
+operations.  This is because we are assuming the input and output
+contributions are equal.  If a more general case is required, then the
+"v" variants can be specified and implemented.
+
+When an "i" collective is LOCAL, GASNet will ignore the "nodelist"
+argument, since all addresses provided are implicitly local to the
+calling node.  When SINGLE, GASNet will ignore the "rank" and
+"nblocks" arguments since the equivalent information is present in the
+"nodelist" and "listlen".
+
+With all of that said, here are the 10 prototypes needed to cover the
+relocalization collectives, excluding permute:
+
+gasnet_all_handle_t
+gasnet_all_broadcast_nb(void *dst,
+                        gasnet_node_t srcnode, void *src,
+                        size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_scatter_nb(void *dst,
+                      gasnet_node_t srcnode, void *src,
+                      size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_gather_nb(gasnet_node_t dstnode, void *dst,
+                     void *src,
+                     size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_gather_all_nb(void *dst, void *src,
+                         size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_exchange_nb(void *dst, void *src,
+                       size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_broadcasti_nb(gasnet_node_t * const nodelist[],
+                                                    void * const dstlist[],
+                         gasnet_node_t srcnode, void * src,
+                         size_t listlen, size_t nbytes,
+                         size_t rank, size_t nblocks,
+                         int flags);
+
+gasnet_all_handle_t
+gasnet_all_scatteri_nb(gasnet_node_t * const nodelist[], void * const dstlist[],
+                       gasnet_node_t srcnode, void * src,
+                       size_t listlen, size_t nbytes,
+                       size_t rank, size_t nblocks,
+                       int flags);
+
+gasnet_all_handle_t
+gasnet_all_gatheri_nb(gasnet_node_t dstnode, void * dst,
+                      gasnet_node_t * const nodelist[], void * const srclist[],
+                      size_t listlen, size_t nbytes,
+                      size_t rank, size_t nblocks,
+                      int flags);
+
+gasnet_all_handle_t
+gasnet_all_gather_alli_nb(gasnet_node_t * const nodelist[],
+                          void * const dstlist[], void * const srclist[],
+                          size_t listlen, size_t nbytes,
+                          size_t rank, size_t nblocks,
+                          int flags);
+
+gasnet_all_handle_t
+gasnet_all_exchangei_nb(gasnet_node_t * const nodelist[],
+                        void * const dstlist[], void * const srclist[],
+                        size_t listlen, size_t nbytes,
+                        size_t rank, size_t nblocks,
+                        int flags);
+
+=============================================================================
+Thoughts on Permute:
+
+The UPC all_permute is that the source data and the permutation
+indexes have the same affinity.  Therefore a simple put-based
+mechanism is sufficient.  The only way in which GASNet can improve on
+this is to provide for more efficient synchronization (especially for
+MYSYNC) than could be obtained otherwise.
+
+So, I am suggesting "all_put" and "all_get" be added to GASNet.
+Unlike the other data movement collectives, these are always "LOCAL"
+and it would be an error to pass the "SINGLE" flag.  Each node
+provides almost the arguments it would to a gasnet_put_nb,
+gasnet_get_nb, gasnet_puti_nb or gasnet_geti_nb.  The main difference
+is the addition of the flags argument and the multi-node nature of the
+{put,get}i.  While UPC has a one-to-one restriction on
+upc_all_permute(), I haven't yet decided if this is needed for these
+GASNet collectives.
+
+gasnet_all_handle_t
+gasnet_all_put_nb(gasnet_node_t dstnode, void *dst, void *src,
+                  size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_get_nb(void *dst, gasnet_node_t srcnode, void *src,
+                  size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_puti_nb(gasnet_node_t * const nodelist[], void * const dstlist[],
+                   void * const srclist[],
+                   size_t listlen, size_t nbytes, int flags);
+
+gasnet_all_handle_t
+gasnet_all_geti_nb(void * const dstlist[],
+                   gasnet_node_t * const nodelist[], void * const srclist[],
+                   size_t listlen, size_t nbytes, int flags);
+
+
+All the rules given previously for collectives would apply to these as
+well (such as agreeing on nbytes and flags, and the legality of having
+listlen==0).
+
+Note that if we do implement these calls (and don't add the one-to-one
+restriction) it is trivial to implement all the UPC data movement
+collectives (the GLOBAL modes of the GASNet collectives) in terms of
+single calls to either gasnet_all_puti_nb() or gasnet_all_geti_nb().
+Such an implementation is, of course, totally untuned and would not
+perform any log(N) optimizations.  However, in terms of rapid
+prototyping this is a very appealing approach and is still likely to
+beat the UPC collectives reference implementation on MYSYNC cases of
+broadcast, scatter and gather by performing only pairwise
+synchronizations.
 
 =============================================================================
 Thoughts on progress of Implementation:
