@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/01/22 15:11:40 $
-# $Revision: 1.219 $
+#     $Date: 2005/01/24 23:45:32 $
+# $Revision: 1.220 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.219 $)
+AC_REVISION($Revision: 1.220 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -125,6 +125,11 @@ if test "$gasnet_cv_cc_family" = MIPS; then
   # The MIPSPro C compiler apparently has no identifying markings
   AC_DEFINE(MIPSPRO_COMPILER)
 fi
+if test "$gasnet_cv_cc_family" = MTA ; then
+  # override target_os for MTA, which may be wrong if cross-compiling
+  target_os="mtx"  
+fi
+
 
 ### 
 #
@@ -179,6 +184,7 @@ case "$gasnet_cv_cc_family" in
         CCOPTFLAGS="-O3 -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1" ;; # -O5 causes linker to hang on Titanium 
   Compaq) CCOPTFLAGS="-fast -noifo -O4 -tune host -inline all" ;;
   Intel) CCOPTFLAGS="-O3" ;;
+  MTA) CCOPTFLAGS="-O3" ;; # MTA C actually ignores -O, optimization controlled by presence/absence of -g
   PGI) CCOPTFLAGS="-O2" ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
@@ -228,6 +234,7 @@ case "$gasnet_cv_cc_family" in
   ;;
   NEC)   CCDEBUGFLAGS="-g -Cnoopt -Cdebug" ;; 
   HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
+  MTA)  CCDEBUGFLAGS="-g2" ;; # need +ESdbgasm to use -g with _asm()
   *)    CCDEBUGFLAGS="-g" ;;
 esac
 
@@ -469,22 +476,12 @@ GASNET_THREAD_DEFINES=""
 GASNET_THREAD_LIBS=""
 case "$target_os" in
   solaris*)  
-    case "$gasnet_cv_cc_family" in
-      MTA)
-	AC_DEFINE(MTA)
-	GASNET_MACHINE_DEFINES="-DMTA" 
-	GASNET_THREAD_DEFINES=""
-        GASNET_THREAD_LIBS="-lpthread" 
-      ;;
-      *)
 	AC_DEFINE(SOLARIS)
 	GASNET_MACHINE_DEFINES="-DSOLARIS" 
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
         # on some systems static linking fails with -lpthread, 
         # but need it or pthread_create will fail at runtime
         GASNET_THREAD_LIBS="-lpthread" 
-      ;;
-    esac
         ;;
   linux*) 
 	AC_DEFINE(LINUX)
@@ -550,6 +547,12 @@ case "$target_os" in
         GASNET_THREAD_DEFINES="-D_REENTRANT"
         GASNET_THREAD_LIBS="-lpthread"
 	;;
+  mtx*)
+	AC_DEFINE(MTA)
+	GASNET_MACHINE_DEFINES="-DMTA" 
+	GASNET_THREAD_DEFINES=""
+        GASNET_THREAD_LIBS="-lpthread" 
+        ;;
   superux*)
 	AC_DEFINE(SUPERUX)
 	GASNET_MACHINE_DEFINES="-DSUPERUX"
@@ -751,7 +754,10 @@ if test $enabled_udp = yes; then
     MIPS)  MISC_CXXFLAGS="-diag_error 1035 -diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
     HP)    MISC_CXXFLAGS="+W612 +W749 +W2111 +W2177 +W2236 +W2550" ;;
     Compaq) MISC_CXXFLAGS="-msg_disable extrasemi,boolexprconst,codeunreachable" ;;
-    MTA)   MISC_CXXFLAGS="-exceptions -display_error_number -WS 111,174,238" ;;
+    MTA)   MISC_CXXFLAGS="-exceptions -display_error_number -WS 111,174,238" 
+           CXXDEBUGFLAGS="-g2"
+           CXXOPTFLAGS="-O3"
+      ;;
     Intel) MISC_CXXFLAGS="-wd654 -wd1125 -wd279"
            GASNET_TRY_CXXFLAG([-wd1572],
                           [MISC_CXXFLAGS="$MISC_CXXFLAGS -wd1572"])
@@ -868,14 +874,6 @@ if test $enabled_mpi = yes; then
   fi
   case "$target_os" in
     solaris*)  
-     case "$gasnet_cv_cxx_family" in
-      MTA)
-    	GASNET_ENV_DEFAULT(MPI_CC, cc)
-        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
-    	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
-	GASNET_ENV_DEFAULT(MPIRUN_CMD, mtarun -t %N -m %N /usr/bin/env _MPI_MT=%N %C)
-        ;;
-      *)
         # I don't have access to a Solaris cluster with MPI (other than NOW) 
         # but these seem like sane defaults
     	GASNET_ENV_DEFAULT(MPI_CC, mpicc)
@@ -883,8 +881,6 @@ if test $enabled_mpi = yes; then
     	GASNET_ENV_DEFAULT(MPI_LIBS, )
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
-     esac
-     ;;
     linux*) 
     	GASNET_ENV_DEFAULT(MPI_CC, mpicc)
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $CFLAGS, $SAFE_MPI_CFLAGS)
@@ -950,6 +946,12 @@ if test $enabled_mpi = yes; then
 	fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, -lpthread)
+        ;;
+    mtx*)
+    	GASNET_ENV_DEFAULT(MPI_CC, cc)
+        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
+    	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
+	GASNET_ENV_DEFAULT(MPIRUN_CMD, mtarun -t %N -m %N /usr/bin/env _MPI_MT=%N %C)
         ;;
     superux*)
       GASNET_ENV_DEFAULT(MPI_CC, mpic++ -Xa)
