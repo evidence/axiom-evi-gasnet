@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/08/01 09:54:44 $
- * $Revision: 1.45 $
+ *     $Date: 2004/08/09 07:51:52 $
+ * $Revision: 1.46 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1480,6 +1480,7 @@ extern void gasnete_barrier_init() {
 }
 
 extern void gasnete_barrier_notify(int id, int flags) {
+  gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
   if_pf(barrier_splitstate == INSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
@@ -1541,6 +1542,7 @@ extern int gasnete_barrier_wait(int id, int flags) {
   #if GASNETI_STATS_OR_TRACE
     gasneti_stattime_t wait_start = GASNETI_STATTIME_NOW_IFENABLED(B);
   #endif
+  gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
   if_pf(barrier_splitstate == OUTSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
 
@@ -1560,6 +1562,7 @@ extern int gasnete_barrier_wait(int id, int flags) {
 }
 
 extern int gasnete_barrier_try(int id, int flags) {
+  gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
   if_pf(barrier_splitstate == OUTSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
 

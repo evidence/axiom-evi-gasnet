@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
- *     $Date: 2004/08/07 23:53:12 $
- * $Revision: 1.27 $
+ *     $Date: 2004/08/09 07:51:56 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1067,6 +1067,7 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 
 extern void gasnete_barrier_notify(int id, int flags) {
     int phase;
+    gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
     if_pf(barrier_splitstate == INSIDE_BARRIER) 
 	gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
@@ -1119,7 +1120,9 @@ extern int gasnete_barrier_wait(int id, int flags) {
 #if GASNETI_STATS_OR_TRACE
     gasneti_stattime_t wait_start = GASNETI_STATTIME_NOW_IFENABLED(B);
 #endif
-    int phase = barrier_phase;
+    int phase;
+    gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
+    phase = barrier_phase;
     if_pf(barrier_splitstate == OUTSIDE_BARRIER) 
 	gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
 
@@ -1153,6 +1156,7 @@ extern int gasnete_barrier_wait(int id, int flags) {
 }
 
 extern int gasnete_barrier_try(int id, int flags) {
+    gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
     if_pf(barrier_splitstate == OUTSIDE_BARRIER) 
 	gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/07/23 22:36:41 $
- * $Revision: 1.15 $
+ *     $Date: 2004/08/09 07:51:54 $
+ * $Revision: 1.16 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -167,6 +167,7 @@ static void gasnete_ambarrier_kick() {
 
 extern void gasnete_ambarrier_notify(int id, int flags) {
   int phase;
+  gasneti_sync_reads(); /* ensure we read correct ambarrier_splitstate */
   if_pf(ambarrier_splitstate == INSIDE_AMBARRIER) 
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
@@ -201,6 +202,7 @@ extern void gasnete_ambarrier_notify(int id, int flags) {
 
   /*  update state */
   ambarrier_splitstate = INSIDE_AMBARRIER;
+  gasneti_sync_writes(); /* ensure all state changes committed before return */
 }
 
 
@@ -211,7 +213,9 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
   #if GASNETI_STATS_OR_TRACE
     gasneti_stattime_t wait_start = GASNETI_STATTIME_NOW_IFENABLED(B);
   #endif
-  int phase = ambarrier_phase;
+  int phase;
+  gasneti_sync_reads(); /* ensure we read correct ambarrier_splitstate */
+  phase = ambarrier_phase;
   if_pf(ambarrier_splitstate == OUTSIDE_AMBARRIER) 
     gasneti_fatalerror("gasnet_ambarrier_wait() called without a matching notify");
 
@@ -244,6 +248,7 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
 }
 
 extern int gasnete_ambarrier_try(int id, int flags) {
+  gasneti_sync_reads(); /* ensure we read correct ambarrier_splitstate */
   if_pf(ambarrier_splitstate == OUTSIDE_AMBARRIER) 
     gasneti_fatalerror("gasnet_ambarrier_try() called without a matching notify");
 
@@ -368,6 +373,7 @@ static void gasnete_ambarrier_kick() {
 
 extern void gasnete_ambarrier_notify(int id, int flags) {
   int phase;
+  gasneti_sync_reads(); /* ensure we read correct ambarrier_splitstate */
   if_pf(ambarrier_splitstate == INSIDE_AMBARRIER) 
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
 
@@ -405,7 +411,9 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
   #if GASNETI_STATS_OR_TRACE
     gasneti_stattime_t wait_start = GASNETI_STATTIME_NOW_IFENABLED(B);
   #endif
-  int phase = ambarrier_phase;
+  int phase;
+  gasneti_sync_reads(); /* ensure we read correct ambarrier_splitstate */
+  phase = ambarrier_phase;
   if_pf(ambarrier_splitstate == OUTSIDE_AMBARRIER) 
     gasneti_fatalerror("gasnet_ambarrier_wait() called without a matching notify");
 
@@ -431,6 +439,7 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
 }
 
 extern int gasnete_ambarrier_try(int id, int flags) {
+  gasneti_sync_reads(); /* ensure we read correct ambarrier_splitstate */
   if_pf(ambarrier_splitstate == OUTSIDE_AMBARRIER) 
     gasneti_fatalerror("gasnet_ambarrier_try() called without a matching notify");
 
