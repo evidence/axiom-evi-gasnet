@@ -4,7 +4,7 @@ Complete:
 ========
 * Initial working implementation of LAPI conduit.
 
-* Initial complete implementation of extended API for LAPI.
+* Initial working implementation of extended API for LAPI.
 
 * Works with GASNET_PAR
    - known issue with shared buffer for lapi error messages.
@@ -55,3 +55,10 @@ ToDo List
 * Mechanism to allow client to specify LAPI POLLING mode as default.
   - command line arg?
   - environment variable?
+
+* CLEANUP of barrier code in extended api:
+  - remove extranious fields of barrier_uhdr structure
+  - time barrier calls and try a fat-tree based boradcast
+  - If master is waiting on barrier, don't schedule a completion
+    handler, let master issue Amsend calls to complete barrier.  Will
+    it help?

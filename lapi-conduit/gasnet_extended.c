@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/11/26 02:21:40 $
- * $Revision: 1.2 $
+ *     $Date: 2002/11/28 01:12:33 $
+ * $Revision: 1.3 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -151,12 +151,12 @@ extern void gasnete_init() {
     gasnet_getSegmentInfo(gasnete_seginfo, gasnete_nodes);
 
     /* Exchange LAPI addresses here */
-    gasnete_remote_memset_hh = (void**)gasneti_malloc_inhandler(num_tasks*sizeof(void*));
+    gasnete_remote_memset_hh = (void**)gasneti_malloc_inhandler(gasnete_nodes*sizeof(void*));
     GASNETC_LCHECK(LAPI_Address_init(gasnetc_lapi_context,
 				     (void*)&gasnete_lapi_memset_hh,
 				     gasnete_remote_memset_hh));
 
-    gasnete_remote_barrier_hh = (void**)gasneti_malloc_inhandler(num_tasks*sizeof(void*));
+    gasnete_remote_barrier_hh = (void**)gasneti_malloc_inhandler(gasnete_nodes*sizeof(void*));
     GASNETC_LCHECK(LAPI_Address_init(gasnetc_lapi_context,
 				     (void*)&gasnete_lapi_barrier_hh,
 				     gasnete_remote_barrier_hh));
@@ -417,7 +417,7 @@ extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
 }
 
 /* ------------------------------------------------------------------------------------ */
-extern void gasnete_put_bulk (void *dest, gasnet_node_t node, void *src,
+extern void gasnete_put_bulk (gasnet_node_t node, void *dest, void *src,
 			      size_t nbytes GASNETE_THREAD_FARG)
 {
     lapi_cntr_t  c_cntr;
@@ -433,7 +433,7 @@ extern void gasnete_put_bulk (void *dest, gasnet_node_t node, void *src,
 	/* use op lapi counter as completion counter,
 	 * and o_cntr as origin counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int) node, to_put,
-				src,dest,NULL,NULL,&c_cntr));
+				dest,src,NULL,NULL,&c_cntr));
 	dest = (void*)((char*)dest + to_put);
 	src = (void*)((char*)src + to_put);
 	num_put++;
@@ -464,7 +464,7 @@ extern void gasnete_memset(gasnet_node_t node, void *dest, int val,
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &c_cntr, 0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, (unsigned int)node,
 			       gasnete_remote_memset_hh[node],
-			       &uhdr, sizeof(gasneti_memset_uhdr_t), NULL, 0,
+			       &uhdr, sizeof(gasnete_memset_uhdr_t), NULL, 0,
 			       NULL, NULL, &c_cntr));
    
 
@@ -500,7 +500,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 }
 
 /* ------------------------------------------------------------------------------------ */
-extern gasnet_handle_t gasnete_put_nb_bulk (void *dest, gasnet_node_t node, void *src,
+extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src,
 					    size_t nbytes GASNETE_THREAD_FARG)
 {
     gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
@@ -511,7 +511,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (void *dest, gasnet_node_t node, void
 	size_t to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
 	/* use op lapi counter as completion counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int)node, to_put,
-				src,dest,NULL,NULL,&op->cntr));
+				dest,src,NULL,NULL,&op->cntr));
 	dest = (void*)((char*)dest + to_put);
 	src = (void*)((char*)src + to_put);
 	op->initiated_cnt++;
@@ -521,7 +521,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (void *dest, gasnet_node_t node, void
 }
 
 /* ------------------------------------------------------------------------------------ */
-extern gasnet_handle_t gasnete_put_nb (void *dest, gasnet_node_t node, void *src,
+extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src,
 				       size_t nbytes GASNETE_THREAD_FARG)
 {
     gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
@@ -538,7 +538,7 @@ extern gasnet_handle_t gasnete_put_nb (void *dest, gasnet_node_t node, void *src
 	/* use op lapi counter as completion counter,
 	 * and o_cntr as origin counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int) node, to_put,
-				src,dest,NULL,&o_cntr,&op->cntr));
+				dest,src,NULL,&o_cntr,&op->cntr));
 	dest = (void*)((char*)dest + to_put);
 	src = (void*)((char*)src + to_put);
 	num_put++;
@@ -573,7 +573,7 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &o_cntr, 0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, (unsigned int)node,
 			       gasnete_remote_memset_hh[node],
-			       &uhdr, sizeof(gasneti_memset_uhdr_t), NULL, 0,
+			       &uhdr, sizeof(gasnete_memset_uhdr_t), NULL, 0,
 			       NULL, &o_cntr, &op->cntr));
    
     op->initiated_cnt++;
@@ -684,7 +684,7 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 	size_t to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
 	/* use op lapi counter as completion counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int)node, to_put,
-				src,dest,NULL,NULL,&op->put_cntr));
+				dest,src,NULL,NULL,&op->put_cntr));
 	dest = (void*)((char*)dest + to_put);
 	src = (void*)((char*)src + to_put);
 	op->initiated_put_cnt++;
@@ -711,7 +711,7 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
 	/* use op lapi counter as completion counter,
 	 * and o_cntr as origin counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int)node, to_put,
-				src,dest,NULL,&o_cntr,&op->put_cntr));
+				dest,src,NULL,&o_cntr,&op->put_cntr));
 	dest = (void*)((char*)dest + to_put);
 	src = (void*)((char*)src + to_put);
 	num_put++;
@@ -726,8 +726,8 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
 }
 
 /* ------------------------------------------------------------------------------------ */
-extern void gasnete_memset_nb   (gasnet_node_t node, void *dest, int val,
-				 size_t nbytes GASNETE_THREAD_FARG) {
+extern void gasnete_memset_nbi (gasnet_node_t node, void *dest, int val,
+				size_t nbytes GASNETE_THREAD_FARG) {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *op = mythread->current_iop;
     lapi_cntr_t o_cntr;
@@ -745,7 +745,7 @@ extern void gasnete_memset_nb   (gasnet_node_t node, void *dest, int val,
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &o_cntr, 0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, (unsigned int)node,
 			       gasnete_remote_memset_hh[node],
-			       &uhdr, sizeof(gasneti_memset_uhdr_t), NULL, 0,
+			       &uhdr, sizeof(gasnete_memset_uhdr_t), NULL, 0,
 			       NULL, &o_cntr, &op->put_cntr));
    
     op->initiated_put_cnt++;
@@ -951,13 +951,18 @@ void gasnete_lapi_barrier_ch(lapi_handle_t *context, void* user_info)
      * on a local counter variable.
      */
     uhdr->is_notify = 0;
+    uhdr->src = gasnete_mynode;
+
+    GASNETI_TRACE_PRINTF(B,("BARRIER_CH: phase %d, value %d, flags %d, mismatch %d, g_val %d, g_count %d",
+			    uhdr->phase,uhdr->value,uhdr->flags,uhdr->mismatch,
+			    barrier_consensus_value[uhdr->phase],barrier_count[uhdr->phase]));
 
     /* inform all nodes (except local node) that barrier is complete */
     for (i=0; i < gasnete_nodes; i++) {
 	if ( i == gasnete_mynode ) continue;
-	GASNETC_LCHECK(LAPI_Amsend(context, (unsigned int)i,
+	GASNETC_LCHECK(LAPI_Amsend(*context, (unsigned int)i,
 				   gasnete_remote_barrier_hh[i],
-				   uhdr, sizeof(gasneti_barrier_uhdr_t), NULL, 0,
+				   uhdr, sizeof(gasnete_barrier_uhdr_t), NULL, 0,
 				   NULL, NULL, NULL));
     }
 
@@ -970,10 +975,14 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
     gasnete_barrier_uhdr_t *u = (gasnete_barrier_uhdr_t*)uhdr;
     int phase = u->phase;
     int value = u->value;
+    int is_done = !u->is_notify;
+
+    GASNETI_TRACE_PRINTF(B,("BARRIER_HH: node %d, src %d, notify %d, phase %d, value %d, flags %d, mismatch %d, g_val %d, g_count %d",
+			    gasnete_mynode,u->src,u->is_notify,u->phase,u->value,u->flags,u->mismatch,
+			    barrier_consensus_value[u->phase],barrier_count[u->phase]));
 
     *comp_h = NULL;
     *uinfo = NULL;
-    is_done = !u->is_notify;
 
     if (u->is_notify) {
 	/* this is a notify header handler call */
@@ -985,11 +994,11 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 	 */
 	{
 	    int count = barrier_count[phase];
-	    if (flags == 0 && !barrier_consensus_value_present[phase]) {
+	    if (u->flags == 0 && !barrier_consensus_value_present[phase]) {
 		barrier_consensus_value[phase] = (int)value;
 		barrier_consensus_value_present[phase] = 1;
-	    } else if (flags == GASNET_BARRIERFLAG_MISMATCH ||
-		       (flags == 0 && barrier_consensus_value[phase] != (int)value)) {
+	    } else if (u->flags == GASNET_BARRIERFLAG_MISMATCH ||
+		       (u->flags == 0 && barrier_consensus_value[phase] != (int)value)) {
 		barrier_consensus_mismatch[phase] = 1;
 	    }
 	    barrier_count[phase] = count+1;
@@ -999,17 +1008,22 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 		 * the barrier has been reached.
 		 * Question: can we use a static uhdr?
 		 */
-		gasnete_barrier_uhdr_t *uhdr = (gasnete_barrier_uhdr_t*)&barrier_uhdr[phase]
-		uhdr->phase = phase;
-		uhdr->value = value;
-		uhdr->mismatch = barrier_consensus_mismatch[phase]
-		uhdr->is_notify = 0;
-		*uinfo = (void*)uhdr;
+		gasnete_barrier_uhdr_t *uch = (gasnete_barrier_uhdr_t*)&barrier_uhdr[phase];
+		uch->phase = phase;
+		uch->value = value;
+		uch->mismatch = barrier_consensus_mismatch[phase];
+		uch->is_notify = 0;
+		uch->src = gasnete_mynode;
+		uch->flags = -1;
+		*uinfo = (void*)uch;
 		*comp_h = gasnete_lapi_barrier_ch;
 		/* update the local state below.  Note that the completion
 		 * handler will not send an AM to this node
 		 */
 		is_done = 1;
+		u->mismatch = uch->mismatch;
+		GASNETI_TRACE_PRINTF(B,("BARRIER_HH: REACHED %d, mismatch %d, SCHEDULING CH",
+					gasnete_nodes,uch->mismatch));
 	    }
 	}
     };
@@ -1047,13 +1061,16 @@ extern void gasnete_barrier_notify(int id, int flags) {
 	uhdr.is_notify = 1;
 	uhdr.phase = phase;
 	uhdr.value = barrier_value;
+	uhdr.flags = flags;
+	uhdr.src = gasnete_mynode;
+	uhdr.mismatch = 999;
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context, &o_cntr, 0));
 	
 	/*  send notify msg to 0 */
 	GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context,
 				   (unsigned int)GASNETE_BARRIER_MASTER,
 				   gasnete_remote_barrier_hh[GASNETE_BARRIER_MASTER],
-				   &uhdr, sizeof(gasneti_barrier_uhdr_t), NULL, 0,
+				   &uhdr, sizeof(gasnete_barrier_uhdr_t), NULL, 0,
 				   NULL, &o_cntr, NULL));
 	/* wait for local completion */
 	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&o_cntr,1,&cur_cntr));

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/11/22 05:50:44 $
- * $Revision: 1.7 $
+ *     $Date: 2002/11/28 01:12:33 $
+ * $Revision: 1.8 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -169,6 +169,14 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* Do we want to use polling or interrupt mode?  How to
      * communicate this?  Env variable?
      */
+    {
+	char *mode = NULL;
+	if ( (mode=getenv("GASNET_LAPI_MODE")) != NULL ) {
+	    if (strcmp(mode,"POLLING")) {
+		gasnetc_lapi_default_mode = gasnetc_Polling;
+	    }
+	}
+    }
     if (gasnetc_lapi_default_mode == gasnetc_Interrupt) {
 	/* turn on interrupt mode */
 	GASNETC_LCHECK(LAPI_Senv(gasnetc_lapi_context, INTERRUPT_SET, 1));

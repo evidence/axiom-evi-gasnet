@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2002/11/22 01:10:25 $
- * $Revision: 1.1 $
+ *     $Date: 2002/11/28 01:12:33 $
+ * $Revision: 1.2 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -40,8 +40,10 @@ typedef struct {
 typedef struct {
     int phase;
     int value;
+    int flags;
     int mismatch;
     int is_notify;
+    int src;
 } gasnete_barrier_uhdr_t;
 
 /* ------------------------------------------------------------------------------------ */
