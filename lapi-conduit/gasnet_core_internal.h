@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/05/05 16:05:27 $
- * $Revision: 1.21 $
+ *     $Date: 2004/05/05 20:22:13 $
+ * $Revision: 1.22 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -97,7 +97,10 @@ typedef struct {
 #define GASNETC_MSG_ISPACKED(pmsg)  ((unsigned int)((pmsg)->flags & 0x8))
 #define GASNETC_MSG_SET_PACKED(pmsg) (pmsg)->flags |= 0x8
 
-#define GASNETC_ROUND8(x) x = 8*(x/8 + (x%8?1:0))
+#define GASNETC_DOUBLEWORD 8
+/* align pointer to nearest (forward) w-byte boundary */
+#define GASNETC_ALIGN(p,w) (void*)( ((uintptr_t)(p) + ((w)-1)) & ~((w)-1) )
+#define GASNETC_ROUND_DOUBLEWORD(x) x = GASNETC_DOUBLEWORD*(x/GASNETC_DOUBLEWORD + (x%GASNETC_DOUBLEWORD?1:0))
 /* --------------------------------------------------------------------
  * the following structure is use as a LAPI-conduit gasnet_token_t.
  * It is also the uhdr structure used in all CORE LAPI Amsend calls.

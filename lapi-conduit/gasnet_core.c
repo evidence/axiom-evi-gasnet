@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/05/05 16:05:27 $
- * $Revision: 1.48 $
+ *     $Date: 2004/05/05 20:22:13 $
+ * $Revision: 1.49 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -860,15 +860,18 @@ extern int gasnetc_AMRequestShortM(
     int retval;
     lapi_cntr_t o_cntr;
     int cur_cntr, token_len, i;
-    char raw_token[GASNETC_TOKEN_SIZE];
-    gasnetc_token_t *token = (gasnetc_token_t*)&raw_token[0];
-    gasnetc_msg_t  *msg = &token->msg;
+    char raw_token[GASNETC_TOKEN_SIZE + GASNETC_DOUBLEWORD];
+    gasnetc_token_t *token;
+    gasnetc_msg_t  *msg;
     va_list argptr;
 
     GASNETI_CHECKATTACH();
     if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
     gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
     GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
+
+    token = (gasnetc_token_t*)GASNETC_ALIGN(&raw_token[0],GASNETC_DOUBLEWORD);
+    msg = &token->msg;
 
     msg->handlerId = handler;
     msg->sourceId = gasnetc_mynode;
@@ -919,9 +922,9 @@ extern int gasnetc_AMRequestMediumM(
     int retval;
     lapi_cntr_t o_cntr;
     int cur_cntr, token_len, i;
-    char raw_token[GASNETC_TOKEN_SIZE];
-    gasnetc_token_t *token = (gasnetc_token_t*)&raw_token[0];
-    gasnetc_msg_t  *msg = &token->msg;
+    char raw_token[GASNETC_TOKEN_SIZE + GASNETC_DOUBLEWORD];
+    gasnetc_token_t *token;
+    gasnetc_msg_t  *msg;
     void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
@@ -932,6 +935,9 @@ extern int gasnetc_AMRequestMediumM(
     gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
     if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
     GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
+
+    token = (gasnetc_token_t*)GASNETC_ALIGN(&raw_token[0],GASNETC_DOUBLEWORD);
+    msg = &token->msg;
 
     msg->handlerId = handler;
     msg->sourceId = gasnetc_mynode;
@@ -978,7 +984,7 @@ extern int gasnetc_AMRequestMediumM(
 #endif
 
     /* insure token_len is a multiple of 8 */
-    GASNETC_ROUND8(token_len);
+    GASNETC_ROUND_DOUBLEWORD(token_len);
     /* issue the request for remote execution of the user handler */
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
@@ -1004,9 +1010,9 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     int retval;
     lapi_cntr_t o_cntr;
     int cur_cntr, token_len, i;
-    char raw_token[GASNETC_TOKEN_SIZE];
-    gasnetc_token_t *token = (gasnetc_token_t*)&raw_token[0];
-    gasnetc_msg_t  *msg = &token->msg;
+    char raw_token[GASNETC_TOKEN_SIZE + GASNETC_DOUBLEWORD];
+    gasnetc_token_t *token;
+    gasnetc_msg_t  *msg;
     void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
@@ -1023,6 +1029,9 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 	GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
     GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
+
+    token = (gasnetc_token_t*)GASNETC_ALIGN(&raw_token[0],GASNETC_DOUBLEWORD);
+    msg = &token->msg;
 
     msg->handlerId = handler;
     msg->sourceId = gasnetc_mynode;
@@ -1061,7 +1070,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     }
 
     /* issue the request for remote execution of the user handler */
-    GASNETC_ROUND8(token_len);
+    GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
@@ -1159,7 +1168,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
      * It is up to the client not to modify the source_addr data until his 
      * reply handler runs.
      */
-    GASNETC_ROUND8(token_len);
+    GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
 			       gasnetc_remote_req_hh[dest],
@@ -1217,7 +1226,7 @@ extern int gasnetc_AMReplyShortM(
     token_len = TOKEN_LEN(numargs);
     
     /* issue the request for remote execution of the user handler */
-    GASNETC_ROUND8(token_len);
+    GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, requester,
@@ -1299,7 +1308,7 @@ extern int gasnetc_AMReplyMediumM(
 #endif
 
     /* issue the request for remote execution of the user handler */
-    GASNETC_ROUND8(token_len);
+    GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, requester,
@@ -1382,7 +1391,7 @@ extern int gasnetc_AMReplyLongM(
     }
 
     /* issue the request for remote execution of the user handler */
-    GASNETC_ROUND8(token_len);
+    GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
@@ -2110,7 +2119,8 @@ int gasnetc_uhdr_more(int want)
     /* NOTE: assumes lock already held */
 
     int i;
-    char *raw = (char*)gasneti_malloc(want * GASNETC_TOKEN_SIZE * sizeof(char));
+    char *raw = (char*)gasneti_malloc(want * GASNETC_TOKEN_SIZE * sizeof(char)
+				      + GASNETC_DOUBLEWORD);
     gasneti_assert(gasnetc_uhdr_freelist.head == NULL);
     while (raw == NULL) {
 	if (want <= 1) {
@@ -2118,8 +2128,15 @@ int gasnetc_uhdr_more(int want)
 	} else {
 	    want /= 2;
 	}
-	raw = (char*)gasneti_malloc(want * GASNETC_TOKEN_SIZE * sizeof(char));
+	raw = (char*)gasneti_malloc(want * GASNETC_TOKEN_SIZE * sizeof(char)
+				    + GASNETC_DOUBLEWORD);
     }
+
+    /* align on doubleword boundary.
+     * NOTE: we never deallocate these buffers so its ok to lose the
+     * allocation address
+     */
+    raw = (char*)GASNETC_ALIGN(raw,GASNETC_DOUBLEWORD);
 
     /* link them onto freelist */
     for (i = 0; i < want; i++) {
