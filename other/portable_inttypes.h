@@ -1,6 +1,6 @@
 /*   $Archive::                                                            $ */
-/*      $Date: 2004/04/21 04:24:27 $ */
-/*  $Revision: 1.2 $ */
+/*      $Date: 2004/04/24 10:22:07 $ */
+/*  $Revision: 1.3 $ */
 /*  Description: portable_inttypes.h  */
 /*  Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> */
 
@@ -96,6 +96,7 @@
         defined(SIZEOF_SHORT) && \
         defined(SIZEOF_INT) && \
         defined(SIZEOF_LONG) && \
+        defined(SIZEOF_LONG_LONG) && \
         defined(SIZEOF_VOID_P)
       /* configure-detected integer sizes are available, so use those to automatically detect the sizes */
       #if SIZEOF_CHAR == 1
