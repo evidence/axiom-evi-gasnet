@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/06/20 10:09:36 $
- * $Revision: 1.30 $
+ *     $Date: 2004/07/17 16:56:35 $
+ * $Revision: 1.31 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -257,37 +257,36 @@ int64_t test_calibrate_delay(int iters, int64_t *time_p)
 #endif
 
 static void TEST_DEBUGPERFORMANCE_WARNING() {
-  const char *debug = NULL;
-  const char *trace = NULL;
-  const char *stats = NULL;
   BARRIER();
   if (gasnet_mynode() == 0) {
-#ifdef GASNET_DEBUG
-  const char *debug = "debugging ";
-#endif
-#ifdef GASNET_TRACE
-  const char *trace = "tracing ";
-#endif
-#ifdef GASNET_STATS
-  const char *stats = "statistical collection ";
-#endif
-  if (debug != NULL || trace != NULL || stats != NULL) {
-    if (debug == NULL) debug = "";
-    if (trace == NULL) trace = "";
-    if (stats == NULL) stats = "";
-    printf("-----------------------------------------------------------------------\n");
-    printf(" WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n");
-    printf("\n");
-    printf(" GASNet was configured and built with these optional features enabled:\n");
-    printf("        %s%s%senabled\n",debug,trace,stats);
-    printf(" This usually has a SERIOUS impact on performance, so you should NOT\n");
-    printf(" trust any performance numbers reported in this run!!!\n");
-    printf(" You should configure and build from scratch without the configure\n");
-    printf(" flags that enable the optional additional checking/reporting.\n");
-    printf("\n");
-    printf(" WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n");
-    printf("-----------------------------------------------------------------------\n");
-  }
+    const char *debug = "";
+    const char *trace = "";
+    const char *stats = "";
+    #ifdef GASNET_DEBUG
+      debug = "debugging ";
+    #endif
+    #ifdef GASNET_TRACE
+      trace = "tracing ";
+    #endif
+    #ifdef GASNET_STATS
+      stats = "statistical collection ";
+    #endif
+    if (*debug || *trace || *stats) {
+      fprintf(stderr,
+        "-----------------------------------------------------------------------\n"
+        " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
+        "\n"
+        " GASNet was configured and built with these optional features enabled:\n"
+        "        %s%s%senabled\n"
+        " This usually has a SERIOUS impact on performance, so you should NOT\n"
+        " trust any performance numbers reported in this run!!!\n"
+        " You should configure and build from scratch without the configure\n"
+        " flags that enable the optional additional checking/reporting.\n"
+        "\n"
+        " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
+        "-----------------------------------------------------------------------\n"
+        ,debug,trace,stats);
+    }
   }
   BARRIER();
 }
