@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/04/05 06:39:39 $
- * $Revision: 1.22 $
+ *     $Date: 2003/05/22 09:21:21 $
+ * $Revision: 1.23 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -615,7 +615,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       */
       GASNETI_TRACE_PRINTF(C,("rms_killResource(%i) failed: %s", 
                               resourceid, rms_errorString(retval)));
-      sched_yield();
+      gasneti_sched_yield();
       sleep(1);
       if (GASNETC_REMOTEEXITINPROGRESS()) return; /* some other node beat us to it */
 
@@ -624,7 +624,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasneti_fatalerror("rms_killResource(%i) failed twice: %s", resourceid, rms_errorString(retval));
     }
 
-    sched_yield(); /* allow signal to propagate */
+    gasneti_sched_yield(); /* allow signal to propagate */
 
     #if 0
       /* other global-signalling garbage that didn't work as documented */
@@ -744,7 +744,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
     if (fflush(stderr)) 
       gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
-    sched_yield();
+    gasneti_sched_yield();
     sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
     if (gasneti_atomic_read(&gasnetc_remoteexitrecvd) == 0) { 
@@ -761,14 +761,14 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
     if (fflush(stderr)) 
       gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
-    sched_yield();
+    gasneti_sched_yield();
     if (fclose(stdin)) 
       gasneti_fatalerror("failed to fclose(stdin) in gasnetc_exit: %s", strerror(errno));
     if (fclose(stdout)) 
       gasneti_fatalerror("failed to fclose(stdout) in gasnetc_exit: %s", strerror(errno));
     if (fclose(stderr)) 
       gasneti_fatalerror("failed to fclose(stderr) in gasnetc_exit: %s", strerror(errno));
-    sched_yield();
+    gasneti_sched_yield();
 
     _exit(exitcode); /* use _exit to bypass atexit handlers */
     abort();
@@ -793,7 +793,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
     if (fflush(stderr)) 
       gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
-    sched_yield();
+    gasneti_sched_yield();
     sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
     _exit(exitcode); /* use _exit to bypass atexit handlers */
     abort();

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/04/28 20:12:41 $
- * $Revision: 1.26 $
+ *     $Date: 2003/05/22 09:21:24 $
+ * $Revision: 1.27 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -759,7 +759,7 @@ extern void gasnetc_exit(int exitcode) {
     gasnetc_exit_cleanup();
 
     /* orig exit code -- hangs in most error cases */
-    sched_yield();
+    gasneti_sched_yield();
     sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
     /* (###) add code here to terminate the job across all nodes with _exit(exitcode) */

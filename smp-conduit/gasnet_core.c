@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/05/04 01:33:47 $
- * $Revision: 1.1 $
+ *     $Date: 2003/05/22 09:21:28 $
+ * $Revision: 1.2 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -353,7 +353,7 @@ extern void gasnetc_exit(int exitcode) {
     gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
   if (fflush(stderr)) 
     gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
-  sched_yield();
+  gasneti_sched_yield();
   sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
   /*  add code here to terminate the job across _all_ nodes 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2003/05/22 04:30:12 $
- * $Revision: 1.8 $
+ *     $Date: 2003/05/22 09:21:27 $
+ * $Revision: 1.9 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -950,14 +950,28 @@ extern int AM_WaitSema(eb_t eb) {
 extern int AM_GetSourceEndpoint(void *token, en_t *gan) {
   AMMPI_CHECKINIT();
   if (!token || !gan) AMMPI_RETURN_ERR(BAD_ARG);
+  if (!((ammpi_buf_t *)token)->status.handlerRunning) 
+    AMMPI_RETURN_ERRFR(RESOURCE,AM_GetSourceEndpoint,"handler not running");
 
   *gan = ((ammpi_buf_t *)token)->status.sourceAddr;
   return AM_OK;
   }
 /* ------------------------------------------------------------------------------------ */
+extern int AMMPI_GetSourceId(void *token, int *srcid) {
+  AMMPI_CHECKINIT();
+  if (!token || !srcid) AMMPI_RETURN_ERR(BAD_ARG);
+  if (!((ammpi_buf_t *)token)->status.handlerRunning) 
+    AMMPI_RETURN_ERRFR(RESOURCE,AM_GetSourceEndpoint,"handler not running");
+
+  *srcid = ((ammpi_buf_t *)token)->status.sourceId;
+  return AM_OK;
+}
+/* ------------------------------------------------------------------------------------ */
 extern int AM_GetDestEndpoint(void *token, ep_t *endp) {
   AMMPI_CHECKINIT();
   if (!token || !endp) AMMPI_RETURN_ERR(BAD_ARG);
+  if (!((ammpi_buf_t *)token)->status.handlerRunning) 
+    AMMPI_RETURN_ERRFR(RESOURCE,AM_GetSourceEndpoint,"handler not running");
 
   *endp = ((ammpi_buf_t *)token)->status.dest;
   return AM_OK;
@@ -966,6 +980,8 @@ extern int AM_GetDestEndpoint(void *token, ep_t *endp) {
 extern int AM_GetMsgTag(void *token, tag_t *tagp) {
   AMMPI_CHECKINIT();
   if (!token || !tagp) AMMPI_RETURN_ERR(BAD_ARG);
+  if (!((ammpi_buf_t *)token)->status.handlerRunning) 
+    AMMPI_RETURN_ERRFR(RESOURCE,AM_GetSourceEndpoint,"handler not running");
 
   #if AMMPI_USE_AMTAGS
     *tagp = ((ammpi_buf_t *)token)->Msg.tag;

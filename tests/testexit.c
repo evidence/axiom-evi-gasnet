@@ -1,12 +1,13 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2003/04/25 20:10:47 $
- * $Revision: 1.2 $
+ *     $Date: 2003/05/22 09:21:31 $
+ * $Revision: 1.3 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>
+#include <gasnet_tools.h>
 
 #include <test.h>
 #include <signal.h>
@@ -63,7 +64,7 @@ int main(int argc, char **argv) {
         printf("%s\n",testdesc[testid-1]);
         fflush(stdout);
     }
-    sched_yield();
+    gasnett_sched_yield();
     sleep(1);
     if (testid == 6) {
       gasnet_exit(6);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/05/22 04:30:12 $
- * $Revision: 1.7 $
+ *     $Date: 2003/05/22 09:21:27 $
+ * $Revision: 1.8 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -496,6 +496,7 @@ extern int AM_WaitSema(eb_t eb);
 extern int AM_GetSourceEndpoint(void *token, en_t *gan);
 extern int AM_GetDestEndpoint(void *token, ep_t *endp);
 extern int AM_GetMsgTag(void *token, tag_t *tagp);
+extern int AMMPI_GetSourceId(void *token, int *srcid);
 
 /* Poll */
 extern int AM_Poll(eb_t bundle);

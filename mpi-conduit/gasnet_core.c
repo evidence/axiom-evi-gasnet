@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/04/05 06:39:43 $
- * $Revision: 1.27 $
+ *     $Date: 2003/05/22 09:21:25 $
+ * $Revision: 1.28 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -362,7 +362,7 @@ extern void gasnetc_exit(int exitcode) {
     gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
   if (fflush(stderr)) 
     gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
-  sched_yield();
+  gasneti_sched_yield();
   sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
   AMMPI_SPMDExit(exitcode);
@@ -391,18 +391,19 @@ extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentrie
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
-  ammpi_buf_t *p;
-  gasnet_node_t sourceid;
+  int retval;
+  int sourceid;
   GASNETC_CHECKATTACH();
   if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
   if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
-  p = (ammpi_buf_t *)token;
-  *srcindex = GASNET_MAXNODES;
-  if (!p->status.handlerRunning) GASNETI_RETURN_ERRR(RESOURCE,"handler not running");
-  sourceid = p->status.sourceId;
-  assert(sourceid < gasnetc_nodes);
-  *srcindex = sourceid;
-  return GASNET_OK;
+
+  retval = GASNETI_AM_SAFE_NORETURN(AMMPI_GetSourceId(token, &sourceid));
+
+  if (retval) {
+    assert(sourceid >= 0 && sourceid < gasnetc_nodes);
+    *srcindex = sourceid;
+    return GASNET_OK;
+  } else GASNETI_RETURN_ERR(RESOURCE);
 }
 
 extern int gasnetc_AMPoll() {

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2003/05/11 01:08:56 $
- * $Revision: 1.15 $
+ *     $Date: 2003/05/22 09:21:20 $
+ * $Revision: 1.16 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -170,6 +170,14 @@
 #endif
 #ifndef MAX
 #define MAX(x,y)  ((x)>(y)?(x):(y))
+#endif
+
+#ifdef HAVE_SCHED_YIELD
+   #include <sched.h>
+   #define gasneti_sched_yield() sched_yield()
+#else
+   #include <unistd.h>
+   #define gasneti_sched_yield() sleep(0)
 #endif
 
 /* splitting and reassembling 64-bit quantities */

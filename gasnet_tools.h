@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2003/03/23 20:04:25 $
- * $Revision: 1.6 $
+ *     $Date: 2003/05/22 09:21:20 $
+ * $Revision: 1.7 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,14 +57,7 @@
 /* ------------------------------------------------------------------------------------ */
 
 /* misc */
-
-#ifdef HAVE_SCHED_YIELD
-   #include <sched.h>
-   #define gasnett_sched_yield() sched_yield()
-#else
-   #include <unistd.h>
-   #define gasnett_sched_yield() sleep(0)
-#endif
+#define gasnett_sched_yield()     gasneti_sched_yield() 
 
 #define GASNETT_IDENT(identName, identText) GASNETI_IDENT(identName, identText)
 

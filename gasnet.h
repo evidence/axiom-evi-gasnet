@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2003/04/17 11:48:00 $
- * $Revision: 1.12 $
+ *     $Date: 2003/05/22 09:21:20 $
+ * $Revision: 1.13 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -154,7 +154,7 @@
 #ifndef _GASNET_NODE_T
 #define _GASNET_NODE_T
   /*  unsigned integer type representing a unique 0-based node index */
-  typedef uint8_t gasnet_node_t;
+  typedef uint32_t gasnet_node_t;
 #endif
 
 #ifndef _GASNET_HANDLER_T

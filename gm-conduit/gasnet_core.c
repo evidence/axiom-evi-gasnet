@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.35 2003/04/01 11:55:27 bonachea Exp $
- * $Date: 2003/04/01 11:55:27 $
+/* $Id: gasnet_core.c,v 1.36 2003/05/22 09:21:23 bonachea Exp $
+ * $Date: 2003/05/22 09:21:23 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -457,7 +457,7 @@ gasnetc_exit(int exitcode)
           gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
         if (fflush(stderr)) 
           gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
-        sched_yield();
+        gasneti_sched_yield();
         sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
 	if (gasnetc_init_done) {
