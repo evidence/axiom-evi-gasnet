@@ -60,6 +60,7 @@ testprograms =    		\
     testbounce    		\
     testbulk      		\
     testlatency   		\
+    testlatency2   		\
     testping      		\
     testreduce			\
     $(testprograms_ILP32only)

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.15 2003/10/29 00:46:43 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.16 2003/11/22 11:48:38 bonachea Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -95,8 +95,8 @@ install-data-local: $(headers)
 	@list='$(makefile_fragments)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/<conduitname>-conduit/$$filename"; \
-	    grep -v "###NOINSTALL###" $$p > $(DESTDIR)$(includedir)/<conduitname>-conduit/$$filename; \
+	    echo " grep -v "###NOINSTALL###" $$p | sed "s@###INSTALL_PREFIX###@${prefix}@g" > $(DESTDIR)$(includedir)/<conduitname>-conduit/$$filename"; \
+	    grep -v "###NOINSTALL###" $$p | sed "s@###INSTALL_PREFIX###@${prefix}@g" > $(DESTDIR)$(includedir)/<conduitname>-conduit/$$filename; \
 	  else :; fi; \
 	done
 
