@@ -1,13 +1,13 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/03/06 23:23:32 $ */
-/*  $Revision: 1.47 $ */
+/*      $Date: 2005/03/08 05:28:01 $ */
+/*  $Revision: 1.48 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
 
 #ifndef _INCLUDE_GASNET_CONFIG_H_
 #define _INCLUDE_GASNET_CONFIG_H_
-#if !defined(_IN_GASNET_H) && !defined(_IN_GASNET_TOOLS_H) && !defined(_FORCE_GASNET_CONFIG_H)
+#if !defined(_IN_GASNET_H) && !defined(_IN_GASNET_TOOLS_H)
   #error This file is not meant to be included directly- clients should include gasnet.h or gasnet_tools.h
 #endif
 
