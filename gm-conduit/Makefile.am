@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.27 2003/09/10 04:32:24 csbell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.28 2003/10/07 18:39:51 phargrov Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -45,7 +45,8 @@ libgasnet_sources = $(srcdir)/gasnet_core.c $(srcdir)/gasnet_core_receive.c \
 		    $(srcdir)/gasnet_extended_op.c $(srcdir)/gasnet_extended_ref.c \
 		    $(srcdir)/gasnet_extended_firehose.c $(othersourcefiles)
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
-                         $(top_srcdir)/*.[ch]
+                         $(top_srcdir)/*.[ch] \
+                         $(fh_srcdir)/firehose.h $(fh_srcdir)/firehose_internal.h
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o \
 		    gasnet_core_receive.o gasnet_core_conf.o gasnet_extended_op.o \
 		    gasnet_extended_ref.o gasnet_extended_firehose.o \
