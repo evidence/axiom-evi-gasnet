@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2004/10/22 21:24:55 $
-# $Revision: 1.44 $
+#     $Date: 2004/10/24 05:36:36 $
+# $Revision: 1.45 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -74,6 +74,9 @@ distclean:
 @GASNET_SEGMENT_FAST_TRUE@GASNET_SEGMENT_STR="FAST"
 @GASNET_SEGMENT_LARGE_TRUE@GASNET_SEGMENT_STR="LARGE"
 @GASNET_SEGMENT_EVERYTHING_TRUE@GASNET_SEGMENT_STR="EVERYTHING"
+
+@BUILDCONFIG_DEBUG_TRUE@DEBUG_MALLOC=MALLOC_CHECK_=2
+TEST_ENV=$(DEBUG_MALLOC)
 
 # default node count
 TEST_NODES=2
@@ -151,6 +154,7 @@ run-tests: force
 	      cmd=`echo "$$TEST_RUNCMD" | eval @AWK@ \'$$awk_cmdbuild\'` ;         	\
 	    fi;                                                                         \
 	    echo "$$cmd" ;                                                              \
+	    env DUMMYVAL=1 $(TEST_ENV)                                                  \
 	    /usr/bin/time $$cmd || echo "ERROR: Test exited with failure code=$$?" ;    \
 	    echo $$line ;                                                               \
 	done ;                                                                          \
@@ -176,6 +180,7 @@ do-run-testexit: force
 	@echo "else"                                              >> $(TESTEXIT_SCRIPT)
 	@echo '  RUNCMD="$$INTERACTIVE_RUNCMD"'                   >> $(TESTEXIT_SCRIPT)
 	@echo "fi"                                                >> $(TESTEXIT_SCRIPT)
+	@echo "MALLOC_CHECK_=2; export MALLOC_CHECK_"             >> $(TESTEXIT_SCRIPT)
 	@echo 'echo "Starting run-testexit at: `date`"'           >> $(TESTEXIT_SCRIPT)
 	@echo 'ID="`hostname`-$$MP_CHILD$$PBS_NODENUM"'           >> $(TESTEXIT_SCRIPT)
 	@i=0; \
