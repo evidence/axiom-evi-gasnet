@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2004/03/05 23:48:02 $
- * $Revision: 1.8 $
+ *     $Date: 2004/03/08 19:27:05 $
+ * $Revision: 1.9 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -66,14 +66,28 @@ int main(int argc, char **argv) {
       fflush(stdout);
   }
 
-  delay_us = (total * 5) / 4;
-  delay_loops = test_calibrate_delay(iters, &delay_us);
-  *(int *)TEST_MYSEG() = (int)delay_us;
+  /* Calibrate a delay loop.  Given "iters" and "delay_us", we determine the argument
+   * we need when calling test_delay() iters times, to get a _total_ delay no less than
+   * delay_us.  The value of delay_us is overwritten with the achieved delay.
+   * Take turns calibrating the delay to avoid spoiling timings on overcommitted CPUs */
+  for (j=0; j < nodes; j++) {
+    BARRIER();
+
+    if (j == mynode) {
+      delay_us = (total * 5) / 4;	/* delay about 120% of the barrier time */
+      delay_loops = test_calibrate_delay(iters, &delay_us);
+      *(int64_t *)TEST_MYSEG() = delay_us;
+    } else {
+      sleep(1 + (total + 499999)/500000); /* sleep while other node(s) spin */
+    }
+  }
 
   /* Take turns being late to notify
    * We insert a delay before the _notify() on one node.
    * This simulates a load imbalance between barriers.
    * The time reported is how much the barrier costs excluding the delay.
+   * This reported time will often be less than the full barrier because
+   * some progress was made by the other nodes.
    */
   avg_time = 0;
   max_time = 0;
@@ -91,7 +105,8 @@ int main(int argc, char **argv) {
     }
     total = TIME() - start;
 
-    delay_us = total - (int)gasnet_get_val(j, TEST_SEG(j), sizeof(int));
+    gasnet_get(&delay_us, j, TEST_SEG(j), sizeof(delay_us));
+    delay_us = total - delay_us;
 
     avg_time += delay_us;
     min_time = MIN(min_time, delay_us);
@@ -100,9 +115,9 @@ int main(int argc, char **argv) {
   avg_time /= nodes;
 
   if (mynode == 0) {
-    printf("Late notify() Anon. Barrier latency, minimum: %8.3f us\n", ((float)min_time)/iters);
-    printf("Late notify() Anon. Barrier latency, maximum: %8.3f us\n", ((float)max_time)/iters);
-    printf("Late notify() Anon. Barrier latency, average: %8.3f us\n", ((float)avg_time)/iters);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, minimum: %8.3f us\n", ((float)min_time)/1000000, ((float)min_time)/iters);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, maximum: %8.3f us\n", ((float)max_time)/1000000, ((float)max_time)/iters);
+    printf("Total difference: %8.3f sec  Late notify() Anon. Barrier net latency, average: %8.3f us\n", ((float)avg_time)/1000000, ((float)avg_time)/iters);
     fflush(stdout);
   }
 
@@ -110,6 +125,8 @@ int main(int argc, char **argv) {
    * We insert a delay between the _notify() and _wait() on one node.
    * This simulates a load imbalance between barrier notify and wait.
    * The time reported is how much the barrier costs excluding the delay.
+   * This reported time will often be less than the full barrier because
+   * some progress was made by the other nodes.
    */
   avg_time = 0;
   max_time = 0;
@@ -127,7 +144,8 @@ int main(int argc, char **argv) {
     }
     total = TIME() - start;
 
-    delay_us = total - (int)gasnet_get_val(j, TEST_SEG(j), sizeof(int));
+    gasnet_get(&delay_us, j, TEST_SEG(j), sizeof(delay_us));
+    delay_us = total - delay_us;
 
     avg_time += delay_us;
     min_time = MIN(min_time, delay_us);
@@ -136,9 +154,9 @@ int main(int argc, char **argv) {
   avg_time /= nodes;
 
   if (mynode == 0) {
-    printf("Late wait() Anon. Barrier latency, minimum: %8.3f us\n", ((float)min_time)/iters);
-    printf("Late wait() Anon. Barrier latency, maximum: %8.3f us\n", ((float)max_time)/iters);
-    printf("Late wait() Anon. Barrier latency, average: %8.3f us\n", ((float)avg_time)/iters);
+    printf("Total difference: %8.3f sec  Late wait() Anon. Barrier net latency, minimum: %8.3f us\n", ((float)min_time)/1000000, ((float)min_time)/iters);
+    printf("Total difference: %8.3f sec  Late wait() Anon. Barrier net latency, maximum: %8.3f us\n", ((float)max_time)/1000000, ((float)max_time)/iters);
+    printf("Total difference: %8.3f sec  Late wait() Anon. Barrier net latency, average: %8.3f us\n", ((float)avg_time)/1000000, ((float)avg_time)/iters);
     fflush(stdout);
   }
 
