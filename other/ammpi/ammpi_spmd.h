@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.h                                     $
- *     $Date: 2002/06/16 09:19:26 $
- * $Revision: 1.2 $
+ *     $Date: 2002/09/02 23:04:36 $
+ * $Revision: 1.3 $
  * Description: AMMPI Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -52,6 +52,14 @@ extern int AMMPI_SPMDBarrier();
  * a slow, but functional barrier that is advisable to call after setting up handlers
  * but before making transport calls, to prevent returned messages due to races 
  */
+
+extern int AMMPI_SPMDAllGather(void *source, void *dest, size_t len);
+/* expose the MPI_AllGather function which can be useful for bootstrapping 
+   gather len bytes from source buf on each node, concatenate them and write 
+   them into the dest buffer (which must have length len*numnodes) in rank order
+   may only be used after startup
+*/
+
 
 END_EXTERNC
 

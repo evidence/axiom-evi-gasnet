@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2002/07/27 21:29:25 $
- * $Revision: 1.3 $
+ *     $Date: 2002/09/02 23:04:36 $
+ * $Revision: 1.4 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -453,5 +453,16 @@ extern int AMMPI_SPMDBarrier() {
   DEBUG_MSG("Leaving barrier");
   return AM_OK;
   }
-/* ------------------------------------------------------------------------------------ */
+/* ------------------------------------------------------------------------------------ 
+ *  all-gather
+ * ------------------------------------------------------------------------------------ */
+extern int AMMPI_SPMDAllGather(void *source, void *dest, size_t len) {
+  if (!AMMPI_SPMDStartupCalled) AMMPI_RETURN_ERR(RESOURCE);
 
+  MPI_SAFE(MPI_Allgather(source, len, MPI_BYTE,
+                         dest, len, MPI_BYTE,
+                         AMMPI_SPMDMPIComm));
+
+  return AM_OK;
+}
+/* ------------------------------------------------------------------------------------ */

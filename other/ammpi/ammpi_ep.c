@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2002/08/30 22:17:11 $
- * $Revision: 1.5 $
+ *     $Date: 2002/09/02 23:04:36 $
+ * $Revision: 1.6 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -397,8 +397,10 @@ tryagain:
     int junk;
     #ifdef DEBUG
       { static int repeatcnt = 0; 
+        static unsigned int reportmask = 0xFF;
         /* TODO: can we grow send buffer pool here? */
-        if (DEBUG_VERBOSE || (repeatcnt++ & 0xFF) == 0) {
+        if (DEBUG_VERBOSE || (++repeatcnt & reportmask) == 0) {
+          reportmask = (reportmask << 1) | 0x1;
           fprintf(stderr, "Out of request send buffers. polling...(has happenned %i times)\n", repeatcnt); fflush(stderr);
         }
       }
