@@ -16,6 +16,8 @@
 typedef uintptr_t	fh_uint_t;
 typedef intptr_t	fh_int_t;
 
+extern gasnet_node_t	fh_mynode;
+
 /* 
  * Locks
  */
@@ -483,7 +485,7 @@ void			fh_send_firehose_reply(fh_remote_callback_t *);
 #define FH_TRACE_BUCKET(bd, bmsg) 					\
 	do {								\
 		char	msg[64];					\
-		if (FH_NODE(bd) != gasnet_mynode()) {			\
+		if (FH_NODE(bd) != fh_mynode) {				\
 			if (FH_IS_REMOTE_PENDING(bd)) 			\
 				sprintf(msg, "rrefc=%d PENDING",	\
 			    	    FH_RREFC(FH_REFCOUNT(bd)));		\
@@ -503,7 +505,7 @@ void			fh_send_firehose_reply(fh_remote_callback_t *);
 		}							\
 		GASNETI_TRACE_PRINTF(C,					\
 		    ("Firehose Bucket %s %s node=%d,addr=%p,%s",	\
-		     #bmsg, FH_NODE(bd) == gasnet_mynode() ? 		\
+		     #bmsg, FH_NODE(bd) == fh_mynode ?	 		\
 		     "Local " : "Remote",				\
 		     FH_NODE(bd), FH_BADDR(bd), msg));			\
 	} while (0)

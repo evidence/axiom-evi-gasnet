@@ -29,6 +29,8 @@
  *     calls fh_release_local_region() or fh_release_remote_region()
  */
 
+gasnet_node_t	fh_mynode = (gasnet_node_t)-1;
+
 fh_hash_t	*fh_BucketTable;
 #ifdef FIREHOSE_REGION
 fh_hash_t	*fh_RegionTable;
@@ -42,6 +44,8 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
 	int	i;
 
 	FH_TABLE_LOCK;
+
+	fh_mynode = gasnet_mynode();
 
 	/* Allocate the per-node firehose FIFO queue */
 	fh_RemoteNodeFifo = (fh_fifoq_t *) 
@@ -177,7 +181,7 @@ firehose_local_pin(uintptr_t addr, size_t nbytes, firehose_request_t *ureq)
 	fh_acquire_local_region(&region);
 
 	req         = fh_request_new(ureq);
-	req->node   = gasnet_mynode();
+	req->node   = fh_mynode;
 	req->flags |= FH_FLAG_PINNED;
 	FH_COPY_REGION_TO_REQUEST(req, &region);
 
@@ -196,11 +200,11 @@ firehose_try_local_pin(uintptr_t addr, size_t len, firehose_request_t *ureq)
 	region.len  = FH_SIZE_ALIGN(addr,len);
 
 	FH_TABLE_LOCK;
-	if (fh_region_ispinned(gasnet_mynode(), &region)) {
+	if (fh_region_ispinned(fh_mynode, &region)) {
 		fh_commit_try_local_region(&region);
 
 		req         = fh_request_new(ureq);
-		req->node   = gasnet_mynode();
+		req->node   = fh_mynode;
 		req->flags |= FH_FLAG_PINNED;
 		FH_COPY_REGION_TO_REQUEST(req, &region);
 	}
@@ -220,11 +224,11 @@ firehose_partial_local_pin(uintptr_t addr, size_t len,
 	region.len  = FH_SIZE_ALIGN(addr,len);
 
 	FH_TABLE_LOCK;
-	if (fh_region_partial(gasnet_mynode(), &region)) {
+	if (fh_region_partial(fh_mynode, &region)) {
 		fh_commit_try_local_region(&region);
 
 		req         = fh_request_new(ureq);
-		req->node   = gasnet_mynode();
+		req->node   = fh_mynode;
 		req->flags |= FH_FLAG_PINNED;
 		FH_COPY_REGION_TO_REQUEST(req, &region);
 	}
@@ -242,7 +246,7 @@ firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 	firehose_region_t	region;
 	firehose_request_t	*req = NULL;
 
-	if_pf (node == gasnet_mynode())
+	if_pf (node == fh_mynode)
 		gasneti_fatalerror("Cannot request a Remote pin on a local node.");
 
 	region.addr = FH_ADDR_ALIGN(addr); 
@@ -280,7 +284,7 @@ firehose_try_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 	firehose_request_t	*req = NULL;
 	firehose_region_t	region;
 
-	if_pf (node == gasnet_mynode())
+	if_pf (node == fh_mynode)
 		gasneti_fatalerror("Cannot request a Remote pin on a local node.");
 
 	region.addr = FH_ADDR_ALIGN(addr);
@@ -308,7 +312,7 @@ firehose_partial_remote_pin(gasnet_node_t node, uintptr_t addr,
 	firehose_request_t	*req = NULL;
 	firehose_region_t	region;
 
-	if_pf (node == gasnet_mynode())
+	if_pf (node == fh_mynode)
 		gasneti_fatalerror("Cannot request a Remote pin on a local node.");
 
 	region.addr = FH_ADDR_ALIGN(addr);
@@ -335,7 +339,7 @@ firehose_release(firehose_request_t const **reqs, int numreqs)
 	FH_TABLE_LOCK;
 
 	for (i = 0; i < numreqs; i++) {
-		if (reqs[i]->node == gasnet_mynode())
+		if (reqs[i]->node == fh_mynode)
 			fh_release_local_region(
 				(firehose_request_t *) reqs[i]);
 		else
