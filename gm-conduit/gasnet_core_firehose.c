@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_firehose.c,v 1.18 2003/01/11 22:46:45 bonachea Exp $
- * $Date: 2003/01/11 22:46:45 $
+/* $Id: gasnet_core_firehose.c,v 1.19 2003/01/14 04:33:02 csbell Exp $
+ * $Date: 2003/01/14 04:33:02 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -481,7 +481,7 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 	    "maxvictim=%.2f Mb",
 	    (unsigned int) fh_maxvictim,
 	    GASNETC_FIREHOSE_MAXVICTIM_RATIO,
-	    ((unsigned) _gmc.fh_maxvictim) / 1e6));
+	    ((unsigned) _gmc.fh_maxvictim) / (1<<20)));
 
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose local victims max=%d (head=%d,tail=%d)",
@@ -1199,8 +1199,8 @@ gasnetc_firehose_init(uintptr_t	segsize)
 			    "GASNETGM_FIREHOSE_M +"
 			    "GASNETGM_FIREHOSE_MAXVICTIM (%d Mb) exceed "
 			    "Maximum Global pinnable memory (%d Mb)\n",
-			    (unsigned int) fh_M + _gmc.fh_maxvictim / 1e6,
-			    (unsigned int) _gmc.pinnable_global / 1e6);
+			    (unsigned int) fh_M + _gmc.fh_maxvictim / (1<<20),
+			    (unsigned int) _gmc.pinnable_global / (1<<20));
 	}
 
 	/* Calculate the maximum value for M parameter */
@@ -1261,15 +1261,21 @@ gasnetc_firehose_init(uintptr_t	segsize)
 	memset((void *) gasnetc_fh_used, 0, 
 	    sizeof(gasneti_atomic_t) * (gasnetc_nodes));
 
+#ifdef STATS
+	fprintf(stderr, "GASNETGM_FIREHOSE_M = %.2f Mb\t"
+	    "GASNETGM_MAXVICTIM = %.2f Mb\n", 
+	    (float) _gmc.fh_M / (1024*1024),
+	    (float) _gmc.fh_maxvictim / (1024*1024));
+#endif
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose GASNETGM_FIREHOSE_M=%u bytes, ratio=%.2f, M=%.2f Mb", 
 	    (unsigned int) fh_M,
 	    (1-GASNETC_FIREHOSE_MAXVICTIM_RATIO),
-	    ((unsigned) _gmc.fh_M) / 1e6));
+	    ((unsigned) _gmc.fh_M) / (1<<20)));
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose Pinnable local=%.2f Gb, global=%.2f Gb",
-	    ((unsigned) _gmc.pinnable_local) / 1e9,
-	    ((unsigned) _gmc.pinnable_global) / 1e9));
+	    ((unsigned) _gmc.pinnable_local) / (1<<30),
+	    ((unsigned) _gmc.pinnable_global) / (1<<30)));
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose hash_elems=%d, %d firehoses/node (segsize=%d bytes)",
 	     firehoses, gasnetc_fh_num, segsize));

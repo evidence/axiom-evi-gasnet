@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.26 2003/01/07 17:30:36 csbell Exp $
- * $Date: 2003/01/07 17:30:36 $
- * $Revision: 1.26 $
+/* $Id: gasnet_core_receive.c,v 1.27 2003/01/14 04:33:02 csbell Exp $
+ * $Date: 2003/01/14 04:33:02 $
+ * $Revision: 1.27 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -492,17 +492,21 @@ gasnetc_callback_error(gm_status_t status, gasnetc_bufdesc_t *bufd)
 	switch (status) {
 		case GM_SEND_TIMED_OUT:
 			snprintf(reason, 127, "GM timed out. . %s", dest_msg);
+			break;
 		case GM_SEND_TARGET_PORT_CLOSED:
 			snprintf(reason, 127, 
 			    "Target node is down or exited. .%s", dest_msg);
+			break;
 		case GM_SEND_TARGET_NODE_UNREACHABLE:
 			snprintf(reason, 127, 
 			    "Target unknown. Check mapper/cables. . %s",
 			    dest_msg);
+			break;
 		case GM_SEND_REJECTED:
 		case GM_SEND_DROPPED:
 			snprintf(reason, 127,
 			    "Target node rejected the send. . %s", dest_msg);
+			break;
 		default:
 			snprintf(reason, 127,
 			    "Unknown GM error. . %s", dest_msg);

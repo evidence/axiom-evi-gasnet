@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.31 2003/01/11 22:46:45 bonachea Exp $
- * $Date: 2003/01/11 22:46:45 $
+/* $Id: gasnet_core.c,v 1.32 2003/01/14 04:33:02 csbell Exp $
+ * $Date: 2003/01/14 04:33:02 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -49,30 +49,6 @@ void gasnetc_checkattach() {
   if (!gasnetc_attach_done)
     gasneti_fatalerror("Illegal call to GASNet before gasnet_attach() initialization");
 }
-
-/* ------------------------------------------------------------------------------------ */
-/*  all this to make sure we get a full stack frame for debugger */
-/*
-static volatile int gm_frozen = TRUE;
-static void _freezeForDebugger(int depth)
-{
-	if (!depth) _freezeForDebugger(1);
-	else {
-		volatile int i;
-		while (gm_frozen) {
-			i++;
-			sleep(1);
-		}
-	}
-}
-static void freezeForDebugger() {
-	  char name[255];
-	    gethostname(name, 255);
-	      fprintf(stderr,"slave frozen for debugger: host=%s  pid=%i\n", 
-			name, getpid()); fflush(stderr);
-	        _freezeForDebugger(0);
-}
-*/
 
 /*
   Initialization
@@ -579,6 +555,9 @@ extern int gasnetc_AMRequestMediumM(
   int len;
   GASNETC_CHECKINIT();
 
+  if_pf (dest >= gasnetc_nodes)
+	  gasneti_fatalerror("node index too high, dest (%d) >= gasnetc_nodes (%d)\n",
+	    dest, gasnetc_nodes);
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */

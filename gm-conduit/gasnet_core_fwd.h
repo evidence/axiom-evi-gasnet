@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.16 2003/01/11 22:46:45 bonachea Exp $
- * $Date: 2003/01/11 22:46:45 $
- * $Revision: 1.16 $
+/* $Id: gasnet_core_fwd.h,v 1.17 2003/01/14 04:33:02 csbell Exp $
+ * $Date: 2003/01/14 04:33:02 $
+ * $Revision: 1.17 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -14,7 +14,7 @@
 #ifndef _GASNET_CORE_FWD_H
 #define _GASNET_CORE_FWD_H
 
-#define GASNET_CORE_VERSION      0.1
+#define GASNET_CORE_VERSION      0.5
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         GM
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
@@ -26,7 +26,6 @@
 
 /* only have firehose for now */
 #define GASNETC_FIREHOSE
-#define GASNETC_FIREHOSE_M_SIZE	(400*1024*1024)
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_help.h) */

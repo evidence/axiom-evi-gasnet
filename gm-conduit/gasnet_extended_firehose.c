@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.17 2003/01/11 22:46:45 bonachea Exp $
- * $Date: 2003/01/11 22:46:45 $
+/* $Id: gasnet_extended_firehose.c,v 1.18 2003/01/14 04:33:02 csbell Exp $
+ * $Date: 2003/01/14 04:33:02 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -64,17 +64,20 @@ extern void	gasnete_firehose_move_done(void *);
 #endif
 /* ------------------------------------------------------------------------ */
 /* FIFO operations */
-gasneti_mutex_t	 gasnete_fifo_lock = GASNETI_MUTEX_INITIALIZER;
+/* All assume that the GM lock is held the whole time.  Since the gm lock is
+ * global, there is no need to protect access to the fifo */
+
 gasnete_eop_t	 *gasnete_fifo_head = NULL;
 
 GASNET_INLINE_MODIFIER(gasnete_fifo_enqueue)
 void
 gasnete_fifo_enqueue(gasnete_eop_t *eop)
 {
-	gasneti_mutex_lock(&gasnete_fifo_lock);
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
+
 	eop->next = gasnete_fifo_head;
 	gasnete_fifo_head = eop;
-	gasneti_mutex_unlock(&gasnete_fifo_lock);
+
 	GASNETI_TRACE_PRINTF(C, ("Firehose queue has %p", gasnete_fifo_head));
 	return;
 }
@@ -83,12 +86,9 @@ GASNET_INLINE_MODIFIER(gasnete_fifo_dequeue)
 void
 gasnete_fifo_dequeue()
 {
-	gasnete_eop_t *eop;
-
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(gasnete_fifo_head != NULL);
-	gasneti_mutex_lock(&gasnete_fifo_lock);
 	gasnete_fifo_head = gasnete_fifo_head->next;
-	gasneti_mutex_unlock(&gasnete_fifo_lock);
 }
 
 extern void
@@ -96,7 +96,9 @@ gasnete_firehose_move_done(void *context)
 {
 	gasnete_eop_t *eop = (gasnete_eop_t *) context;
 	GASNETI_TRACE_PRINTF(C, ("Firehose move done in extended"));
+	gasneti_mutex_lock(&gasnetc_lock_gm);
 	gasnete_fifo_enqueue(eop);
+	gasneti_mutex_unlock(&gasnetc_lock_gm);
 }
 
 
@@ -164,17 +166,22 @@ gasnete_firehose_callback_pop(struct gm_port *p, void *context,
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	assert(eop != NULL);
 	assert(eop->node < gasnete_nodes);
+
 	if_pf (status != GM_SUCCESS)
 	    gasnetc_callback_error(status, NULL);
 	gasnetc_token_lo_release();
+
 	GASNETI_TRACE_PRINTF(C, ("Firehose callback directed send(%p), stoks.lo=%d", 
 	   eop, _gmc.stoks.lo));
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose decrement refcount for (%p,%d) on node %d\n",
 	     (void *) eop->dest, eop->len, (unsigned) eop->node));
+
 	gasnetc_firehose_decrement_refcount(eop->node, eop->dest, eop->len);
+
 	/* If this was associated to an iop, increment put completed count */
 	gasnete_op_markdone((gasnete_op_t *)eop, 0);
+
 	/* Puts use an ambuffer, while bulk puts send from a pinned location */
 	if (OPMISC(eop) == OPMISC_AMBUF) {
 		gasnetc_bufdesc_t	*bufd;
@@ -188,7 +195,9 @@ gasnete_firehose_callback_pop(struct gm_port *p, void *context,
 	else  {
 		gasnetc_done_pinned(gasnetc_mynode, eop->src, eop->len);
 	}
+
 	GASNETE_FIREHOSE_TRACE_PUTGET(eop, PUT);
+
 	if (eop->iop != NULL) {
 		gasneti_atomic_increment(&(eop->iop->completed_put_cnt));
 		GASNETI_TRACE_PRINTF(C, ("iop increment at %p", (void *) eop));
@@ -548,15 +557,18 @@ gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
 extern void
 gasnete_fifo_progress()	
 {
-	gasnete_eop_t	*eop;
-
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
+
 	while (gasnete_fifo_head != NULL) {
+
 		GASNETI_TRACE_PRINTF(C, ("Firehose fifo progress drain 1"));
+
 		if (!gasnetc_token_lo_acquire())
 			return;
-		eop = gasnete_fifo_head;
-		gasnete_firehose_put_using_directed(eop, GASNETE_FH_HAVE_TOKEN);
+
+		gasnete_firehose_put_using_directed(gasnete_fifo_head, 
+		    GASNETE_FH_HAVE_TOKEN);
+
 		gasnete_fifo_dequeue();
 	}
 }
