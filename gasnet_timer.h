@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/01/22 15:11:40 $
- * $Revision: 1.29 $
+ *     $Date: 2005/02/11 01:14:13 $
+ * $Revision: 1.30 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -285,6 +285,25 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
       if (!QueryPerformanceFrequency(&temp)) abort();
       freq = ((double)temp.QuadPart) / 1000000.0;
       freq = 1 / freq;
+      firsttime = 0;
+    }
+    return (uint64_t)(st * freq);
+  }
+  #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
+  #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
+#elif defined(__APPLE__) && defined(__MACH__)
+  /* See http://developer.apple.com/qa/qa2004/qa1398.html */
+  #include <mach/mach_time.h>
+  typedef uint64_t gasneti_stattime_t;
+  #define gasneti_stattime_now() mach_absolute_time()
+  GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
+  uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
+    static int firsttime = 1;
+    static double freq = 0;
+    if_pf (firsttime) {
+      mach_timebase_info_data_t tb;
+      if (mach_timebase_info(&tb)) abort();
+      freq = 1.e-3 * ((double)tb.numer) / ((double)tb.denom);
       firsttime = 0;
     }
     return (uint64_t)(st * freq);
