@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testrand.c,v $
- *     $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.8 $
+ *     $Date: 2005/04/01 00:07:41 $
+ * $Revision: 1.9 $
  * Description: GASNet get/put performance test
  *   measures measures the total time to write to each page of the
  *   remote test segment, using blocking puts in a random order.
@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#define TEST_SEGSZ (1024*1024)
 #include "test.h"
 
 int myproc;
@@ -52,12 +53,12 @@ void do_test(void) {GASNET_BEGIN_FUNCTION();
 		    int j;
 		    void *tmp;
 		   
-		    j = rand() % (pages - i);
+		    j = TEST_RAND(0,pages - 1 - i);
 		    tmp = loc_addr[i+j];
 		    loc_addr[i+j] = loc_addr[i];
 		    loc_addr[i] = tmp;
 		   
-		    j = rand() % (pages - i);
+		    j = TEST_RAND(0,pages - 1 - i);
 		    tmp = rem_addr[i+j];
 		    rem_addr[i+j] = rem_addr[i];
 		    rem_addr[i] = tmp;
@@ -97,8 +98,8 @@ int main(int argc, char **argv)
     }
     nbytes = atoi(argv[1]);
     if (argc > 2) seed = atoi(argv[2]);
-    if (!seed) seed = getpid();
-    srand(seed);
+    if (!seed) seed = 0;
+    TEST_SRAND(seed);
 
     /* get SPMD info */
     myproc = gasnet_mynode();
