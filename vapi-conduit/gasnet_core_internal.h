@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/08/26 23:04:25 $
- * $Revision: 1.16 $
+ *     $Date: 2003/09/03 21:27:37 $
+ * $Revision: 1.17 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -283,25 +283,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     return retval;
   }
   #define GASNETI_HAVE_ATOMIC_SWAP 1
-
-  GASNET_INLINE_MODIFIER(gasneti_atomic_swap_ptr)
-  int gasneti_atomic_swap_ptr(void * volatile *p, void *oldval, void *newval) {
-    int retval;
-
-    #if GASNETC_ANY_PAR
-      pthread_mutex_lock(&gasneti_atomicop_mutex);
-    #endif
-    retval = (*p == oldval);
-    if_pt (retval) {
-      *p = newval;
-    }
-    #if GASNETC_ANY_PAR
-      pthread_mutex_unlock(&gasneti_atomicop_mutex);
-    #endif
-
-    return retval;
-  }
-  #define GASNETI_HAVE_ATOMIC_SWAP_PTR 1
 #elif defined(LINUX)
   #ifdef __i386__
     GASNET_INLINE_MODIFIER(gasneti_atomic_swap)
@@ -316,25 +297,15 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
       return retval;
     }
     #define GASNETI_HAVE_ATOMIC_SWAP 1
-
-    #define gasneti_atomic_swap_ptr(P, X, Y) \
-		gasneti_atomic_swap((gasneti_atomic_t *)(P), (uint32_t)(X), (uint32_t)(Y))
-    #define GASNETI_HAVE_ATOMIC_SWAP_PTR 1
   #else
     #define GASNETI_HAVE_ATOMIC_SWAP 0
-    #define GASNETI_HAVE_ATOMIC_SWAP_PTR 0
   #endif
 #else
   #define GASNETI_HAVE_ATOMIC_SWAP 0
-  #define GASNETI_HAVE_ATOMIC_SWAP_PTR 0
 #endif
 
 #if !GASNETI_HAVE_ATOMIC_SWAP
   #warning "It would be a good idea to add gasneti_atomic_swap for your arch/OS"
-#endif 
-
-#if !GASNETI_HAVE_ATOMIC_SWAP_PTR
-  #warning "It would be a good idea to add gasneti_atomic_swap_ptr for your arch/OS"
 #endif 
 
 /* ------------------------------------------------------------------------------------ */
