@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/08/18 08:38:46 $
- * $Revision: 1.1 $
+ *     $Date: 2002/08/20 19:03:54 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -63,7 +63,7 @@ GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GAS
 #if GASNETE_USE_ELAN_PUTGET
   GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " GASNET_EXTENDED_NAME_STR " $");
 #else
-  GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " GASNET_EXTENDED_NAME_STR (extended-ref)" $");
+  GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " GASNET_EXTENDED_NAME_STR " (extended-ref) $");
 #endif
 
 /* take advantage of the fact that (ELAN_EVENT *)'s and ops are always 4-byte aligned 
