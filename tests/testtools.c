@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/02/27 15:34:48 $
- * $Revision: 1.21 $
+ *     $Date: 2005/02/28 05:59:31 $
+ * $Revision: 1.22 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -126,9 +126,9 @@ int main(int argc, char **argv) {
   { /* we can't really test atomicity without spinning threads, 
        but we can at least test simple operations  */
     int i = 0;
-    gasnett_atomic_t var = gasnett_atomic_init(iters);
+    gasnett_atomic_t var = gasnett_atomic_init(10);
 
-    if (gasnett_atomic_read(&var) != iters)
+    if (gasnett_atomic_read(&var) != 10)
       ERR("gasnett_atomic_init/gasnett_atomic_read got wrong value");
 
     gasnett_atomic_set(&var, 2*iters);
