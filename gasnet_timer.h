@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2004/09/10 20:23:23 $
- * $Revision: 1.22 $
+ *     $Date: 2004/09/18 04:45:35 $
+ * $Revision: 1.23 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -293,8 +293,19 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 */
 #define GASNETI_STATTIME_GRANULARITY() gasneti_stattime_metric(0)
 #define GASNETI_STATTIME_OVERHEAD()    gasneti_stattime_metric(1)
-extern double *_gasneti_stattime_metric;
-double *_gasneti_stattime_metric;
+#if !defined(__cplusplus)
+  /* use a tentative definition, so all files can share the same metric
+     data structures, and to ensure we pay the timing overhead at most once per run */
+  extern double *_gasneti_stattime_metric;
+  double *_gasneti_stattime_metric; 
+#else
+  /* C++ outlaws tentative definitions, and we have no other place to 
+     reliably place this data in gasnet_tools mode. 
+     So we're forced to place it in each compilation unit and possibly
+     pay one timing overhead for each compilation unit that asks
+   */
+  static double *_gasneti_stattime_metric; 
+#endif
 GASNET_INLINE_MODIFIER(gasneti_stattime_metric)
 double gasneti_stattime_metric(unsigned int idx) {
   assert(idx <= 1);
