@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2004/09/24 20:55:43 $
- * $Revision: 1.11 $
+ *     $Date: 2004/09/25 00:16:20 $
+ * $Revision: 1.12 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -86,7 +86,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
      
   gasneti_assert(((flags & GASNET_COLL_SINGLE)?1:0) ^ ((flags & GASNET_COLL_LOCAL)?1:0));
 
-  /* Bounds check any local portion of dst/dstlist*/
+  /* Bounds check any local portion of dst/dstlist which user claims is in-segment */
   if ((dstnode == gasnete_mynode) && (flags & GASNET_COLL_DST_IN_SEGMENT)) {
     if (!dstisv) {
       gasnete_boundscheck(gasnete_mynode, dst, dstlen);
@@ -99,7 +99,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
     }
   }
 
-  /* Bounds check any local portion of src/srclist*/
+  /* Bounds check any local portion of src/srclist which user claims is in-segment */
   if ((srcnode == gasnete_mynode) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
     if (!srcisv) {
       gasnete_boundscheck(gasnete_mynode, src, srclen);
@@ -1247,21 +1247,38 @@ gasnete_coll_generic_broadcast_nb(gasnet_team_handle_t team,
     {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_check(flags, 0, 0, dst, nbytes, 1, srcnode, src, nbytes);
 
       /* Choose algorithm based on arguments */
-      if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
-	if (nbytes <= eager_limit) {
+      if ((flags & GASNET_COLL_DST_IN_SEGMENT) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+	/* Both ends are in-segment */
+        if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
+	  if (nbytes <= eager_limit) {
+	    return gasnete_coll_bcast_Eager(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	  } else {
+	    return gasnete_coll_bcast_RVGet(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	  }
+        } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
 	  return gasnete_coll_bcast_Eager(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	} else {
-	  return gasnete_coll_bcast_RVGet(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	}
-      } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
-	return gasnete_coll_bcast_Eager(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+        } else {
+	  return gasnete_coll_bcast_Put(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+        }
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the destination is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the source is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       } else {
-	return gasnete_coll_bcast_Put(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	/* Nothing is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       }
     }
 #endif
@@ -1574,21 +1591,38 @@ gasnete_coll_generic_broadcastM_nb(gasnet_team_handle_t team,
     {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_checkM(flags, 0, 0, dstlist, nbytes, 1, srcnode, src, nbytes);
 
       /* Choose algorithm based on arguments */
-      if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
-	if (nbytes <= eager_limit) {
+      if ((flags & GASNET_COLL_DST_IN_SEGMENT) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+	/* Both ends are in-segment */
+        if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
+	  if (nbytes <= eager_limit) {
+	    return gasnete_coll_bcastM_Eager(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	  } else {
+            return gasnete_coll_bcastM_RVGet(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	  }
+        } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
 	  return gasnete_coll_bcastM_Eager(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	} else {
-          return gasnete_coll_bcastM_RVGet(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	}
-      } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
-	return gasnete_coll_bcastM_Eager(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+        } else {
+	  return gasnete_coll_bcastM_Get(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+        }
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the destination is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the source is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       } else {
-	return gasnete_coll_bcastM_Get(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	/* Nothing is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       }
     }
 #endif
@@ -1879,21 +1913,39 @@ gasnete_coll_generic_scatter_nb(gasnet_team_handle_t team,
 			    size_t nbytes, int flags GASNETE_THREAD_FARG) {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_check(flags, 0, 0, dst, nbytes,
+						1, srcnode, src, nbytes*gasnete_nodes);
 
       /* Choose algorithm based on arguments */
-      if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
-	if (nbytes <= eager_limit) {
+      if ((flags & GASNET_COLL_DST_IN_SEGMENT) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+	/* Both ends are in-segment */
+        if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
+	  if (nbytes <= eager_limit) {
+	    return gasnete_coll_scat_Eager(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	  } else {
+	    return gasnete_coll_scat_RVGet(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	  }
+        } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
 	  return gasnete_coll_scat_Eager(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	} else {
-	  return gasnete_coll_scat_RVGet(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	}
-      } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
-	return gasnete_coll_scat_Eager(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+        } else {
+	  return gasnete_coll_scat_Put(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+        }
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the destination is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the source is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       } else {
-	return gasnete_coll_scat_Put(team, dst, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	/* Nothing is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       }
     }
 #endif
@@ -2274,21 +2326,39 @@ gasnete_coll_generic_scatterM_nb(gasnet_team_handle_t team,
     {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_checkM(flags, 0, 0, dstlist, nbytes,
+						 1, srcnode, src, nbytes*gasnete_nodes);
 
       /* Choose algorithm based on arguments */
-      if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
-	if (nbytes <= eager_limit) {
+      if ((flags & GASNET_COLL_DST_IN_SEGMENT) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+	/* Both ends are in-segment */
+        if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
+	  if (nbytes <= eager_limit) {
+	    return gasnete_coll_scatM_Eager(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	  } else {
+            return gasnete_coll_scatM_RVGet(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	  }
+        } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
 	  return gasnete_coll_scatM_Eager(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	} else {
-          return gasnete_coll_scatM_RVGet(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
-	}
-      } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
-	return gasnete_coll_scatM_Eager(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+        } else {
+	  return gasnete_coll_scatM_Get(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+        }
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the destination is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the source is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       } else {
-	return gasnete_coll_scatM_Get(team, dstlist, srcnode, src, nbytes, flags GASNETE_THREAD_PASS);
+	/* Nothing is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       }
     }
 #endif
@@ -2603,21 +2673,39 @@ gasnete_coll_generic_gather_nb(gasnet_team_handle_t team,
 			   size_t nbytes, int flags GASNETE_THREAD_FARG) {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_check(flags, 1, dstnode, dst, nbytes*gasnete_nodes,
+						0, 0, src, nbytes);
 
       /* Choose algorithm based on arguments */
-      if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
-	if (nbytes <= eager_limit) {
+      if ((flags & GASNET_COLL_DST_IN_SEGMENT) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+	/* Both ends are in-segment */
+        if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
+	  if (nbytes <= eager_limit) {
+	    return gasnete_coll_gath_Eager(team, dstnode, dst, src, nbytes, flags GASNETE_THREAD_PASS);
+	  } else {
+	    return gasnete_coll_gath_RVPut(team, dstnode, dst, src, nbytes, flags GASNETE_THREAD_PASS);
+	  }
+        } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
 	  return gasnete_coll_gath_Eager(team, dstnode, dst, src, nbytes, flags GASNETE_THREAD_PASS);
-	} else {
-	  return gasnete_coll_gath_RVPut(team, dstnode, dst, src, nbytes, flags GASNETE_THREAD_PASS);
-	}
-      } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
-	return gasnete_coll_gath_Eager(team, dstnode, dst, src, nbytes, flags GASNETE_THREAD_PASS);
+        } else {
+	  return gasnete_coll_gath_Put(team, dstnode, dst, src, nbytes, flags GASNETE_THREAD_PASS);
+        }
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the destination is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the source is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       } else {
-	return gasnete_coll_gath_Put(team, dstnode, dst, src, nbytes, flags GASNETE_THREAD_PASS);
+	/* Nothing is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       }
     }
 #endif
@@ -2981,21 +3069,39 @@ gasnete_coll_generic_gatherM_nb(gasnet_team_handle_t team,
 			    size_t nbytes, int flags GASNETE_THREAD_FARG) {
       const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
 
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_checkM(flags, 1, dstnode, dst, nbytes*gasnete_nodes,
+						 0, 0, srclist, nbytes);
 
       /* Choose algorithm based on arguments */
-      if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
-	if (nbytes <= eager_limit) {
+      if ((flags & GASNET_COLL_DST_IN_SEGMENT) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+	/* Both ends are in-segment */
+        if ((flags & GASNET_COLL_IN_MYSYNC) || (flags & GASNET_COLL_LOCAL)) {
+	  if (nbytes <= eager_limit) {
+	    return gasnete_coll_gathM_Eager(team, dstnode, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
+	  } else {
+	    return gasnete_coll_gathM_RVPut(team, dstnode, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
+	  }
+        } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
 	  return gasnete_coll_gathM_Eager(team, dstnode, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
-	} else {
-	  return gasnete_coll_gathM_RVPut(team, dstnode, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
-	}
-      } else if ((flags & GASNET_COLL_OUT_MYSYNC) && (nbytes <= eager_limit)) {
-	return gasnete_coll_gathM_Eager(team, dstnode, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
+        } else {
+	  return gasnete_coll_gathM_Put(team, dstnode, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
+        }
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the destination is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
+      } else if (flags & GASNET_COLL_DST_IN_SEGMENT) {
+	/* Only the source is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       } else {
-	return gasnete_coll_gathM_Put(team, dstnode, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
+	/* Nothing is in-segment */
+	gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+	/* XXX: IMPLEMENT THIS */
+	return GASNET_COLL_INVALID_HANDLE;
       }
     }
 #endif
@@ -3070,6 +3176,12 @@ gasnete_coll_gall_Gath(gasnet_team_handle_t team,
   int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
 
+  /* XXX: until gather deals w/ out-of-segment data */
+  if_pf (!(flags & GASNET_COLL_DST_IN_SEGMENT) || !(flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+    gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+    return GASNET_COLL_INVALID_HANDLE;
+  }
+
   return gasnete_coll_generic_gather_all_nb(team, dst, src, nbytes, flags,
 					    &gasnete_coll_pf_gall_Gath, options GASNETE_THREAD_PASS);
 }
@@ -3094,11 +3206,11 @@ gasnete_coll_generic_gather_all_nb(gasnet_team_handle_t team,
     gasnete_coll_gather_all_nb(gasnet_team_handle_t team,
 			       void *dst, void *src,
 			       size_t nbytes, int flags GASNETE_THREAD_FARG) {
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_check(flags, 0, 0, dst, nbytes*gasnete_nodes,
+						0, 0, src, nbytes);
 
-      /* XXX: multiple choice here */
+      /* XXX: need more implementations to choose from here */
       return gasnete_coll_gall_Gath(team, dst, src, nbytes, flags GASNETE_THREAD_PASS);
     }
 #endif
@@ -3176,6 +3288,12 @@ gasnete_coll_gallM_Gath(gasnet_team_handle_t team,
   int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
 
+  /* XXX: until gatherM deals w/ out-of-segment data */
+  if_pf (!(flags & GASNET_COLL_DST_IN_SEGMENT) || !(flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+    gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+    return GASNET_COLL_INVALID_HANDLE;
+  }
+
   return gasnete_coll_generic_gather_allM_nb(team, dstlist, srclist, nbytes, flags,
 					     &gasnete_coll_pf_gallM_Gath, options GASNETE_THREAD_PASS);
 }
@@ -3200,11 +3318,11 @@ gasnete_coll_generic_gather_allM_nb(gasnet_team_handle_t team,
     gasnete_coll_gather_allM_nb(gasnet_team_handle_t team,
 				void * const dstlist[], void * const srclist[],
 				size_t nbytes, int flags GASNETE_THREAD_FARG) {
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_checkM(flags, 0, 0, dstlist, nbytes*gasnete_nodes,
+						 0, 0, srclist, nbytes);
 
-      /* XXX: multiple choice here */
+      /* XXX: need more implementations to choose from here */
       return gasnete_coll_gallM_Gath(team, dstlist, srclist, nbytes, flags GASNETE_THREAD_PASS);
     }
 #endif
@@ -3279,6 +3397,13 @@ gasnete_coll_exchg_Gath(gasnet_team_handle_t team,
   int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
 
+
+  /* XXX: until gather deals w/ out-of-segment data */
+  if_pf (!(flags & GASNET_COLL_DST_IN_SEGMENT) || !(flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+    gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+    return GASNET_COLL_INVALID_HANDLE;
+  }
+
   return gasnete_coll_generic_exchange_nb(team, dst, src, nbytes, flags,
 					  &gasnete_coll_pf_exchg_Gath, options GASNETE_THREAD_PASS);
 }
@@ -3303,12 +3428,12 @@ gasnete_coll_generic_exchange_nb(gasnet_team_handle_t team,
     gasnete_coll_exchange_nb(gasnet_team_handle_t team,
 			     void *dst, void *src,
 			     size_t nbytes, int flags GASNETE_THREAD_FARG) {
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_check(flags, 0, 0, dst, nbytes*gasnete_nodes,
+						0, 0, src, nbytes*gasnete_nodes);
 
-      /* XXX: multiple choice here */
-      return gasnete_coll_exchg_Gath(team, dst, src, nbytes, flags GASNETE_THREAD_PASS);
+     /* XXX: need more implementations to choose from here */
+     return gasnete_coll_exchg_Gath(team, dst, src, nbytes, flags GASNETE_THREAD_PASS);
     }
 #endif
 
@@ -3399,6 +3524,12 @@ gasnete_coll_exchgM_Gath(gasnet_team_handle_t team,
   int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF (!(flags & GASNET_COLL_IN_NOSYNC)) |
 		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF(!(flags & GASNET_COLL_OUT_NOSYNC));
 
+  /* XXX: until gatherM deals w/ out-of-segment data */
+  if_pf (!(flags & GASNET_COLL_DST_IN_SEGMENT) || !(flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+    gasneti_fatalerror("Currently only in-segment data is supported for this operation");
+    return GASNET_COLL_INVALID_HANDLE;
+  }
+
   return gasnete_coll_generic_exchangeM_nb(team, dstlist, srclist, nbytes, flags,
 					   &gasnete_coll_pf_exchgM_Gath, options GASNETE_THREAD_PASS);
 }
@@ -3423,11 +3554,11 @@ gasnete_coll_generic_exchangeM_nb(gasnet_team_handle_t team,
     gasnete_coll_exchangeM_nb(gasnet_team_handle_t team,
 			      void * const dstlist[], void * const srclist[],
 			      size_t nbytes, int flags GASNETE_THREAD_FARG) {
-      /* XXX: temporary limitations: */
-      gasneti_assert(flags & GASNET_COLL_DST_IN_SEGMENT);
-      gasneti_assert(flags & GASNET_COLL_SRC_IN_SEGMENT);
+      /* "Discover" in-segment flags if needed/possible */
+      flags = gasnete_coll_segment_checkM(flags, 0, 0, dstlist, nbytes*gasnete_nodes,
+						 0, 0, srclist, nbytes*gasnete_nodes);
 
-      /* XXX: multiple choice here */
+      /* XXX: need more implementations to choose from here */
       return gasnete_coll_exchgM_Gath(team, dstlist, srclist, nbytes, flags GASNETE_THREAD_PASS);
     }
 #endif

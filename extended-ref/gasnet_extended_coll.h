@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/Attic/gasnet_extended_coll.h,v $
- *     $Date: 2004/09/24 19:28:58 $
- * $Revision: 1.11 $
+ *     $Date: 2004/09/25 00:16:20 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -456,6 +456,138 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
         GASNETE_COLL_VALIDATE(T,gasnete_mynode,D,(N)*gasnete_nodes,0,gasnete_mynode,S,(N)*gasnete_nodes,0,F)
 #define GASNETE_COLL_VALIDATE_EXCHANGE_M(T,D,S,N,F)                  \
         GASNETE_COLL_VALIDATE(T,gasnete_mynode,D,(N)*gasnete_nodes,1,gasnete_mynode,S,(N)*gasnete_nodes,1,F)
+
+/*---------------------------------------------------------------------------------*/
+/* In-segment checks */
+
+/* Non-fatal check to determine if a given (node,addr,len) is legal as the
+ * source of a gasnete_get*() AND the destination of a gasnete_put*().
+ * By default this is just the in-segment bounds checks.
+ *
+ * However, for a purely AM based conduit this might always be true and other
+ * conduits may also override this to allow for regions outside the normal
+ * segment.  Note that this override relies on the fact that the gasnete_ calls
+ * don't perform bounds checking on their own WHICH IS NOT THE CASE for geti and
+ * puti at this time.
+ */
+#ifdef gasnete_coll_in_segment
+  /* Keep the conduit-specific override */
+#elif GASNET_SEGMENT_EVERYTHING
+  #define gasnete_coll_in_segment(_node,_addr,_len)	1
+#else
+  #define gasnete_coll_in_segment(_node,_addr,_len)                                \
+     (((uintptr_t)(_addr) >= (uintptr_t)gasnete_seginfo[_node].addr) &&            \
+       (((uintptr_t)(_addr) + (_len)) <= ((uintptr_t)gasnete_seginfo[_node].addr + \
+					  gasnete_seginfo[_node].size)))
+#endif
+
+/* The flags GASNET_COLL_SRC_IN_SEGMENT and GASNET_COLL_DST_IN_SEGMENT are just
+ * hints from the caller.  If they are NOT set, we will try to determine (when
+ * possible) if the addresses are in-segment to allow a one-sided implementation
+ * to be used.
+ * gasnete_coll_segment_check and gasnete_coll_segment_checkM return a new set of flags.
+ */
+#ifndef gasnete_coll_segment_check
+  GASNET_INLINE_MODIFIER(_gasnete_coll_segment_check_aux)
+  int _gasnete_coll_segment_check_aux(int rooted, gasnet_node_t node, const void *addr, size_t len) {
+    #if GASNET_ALIGNED_SEGMENTS
+      /* It is always sufficient to check against node 0. */
+      return gasnete_coll_in_segment(0, addr, len);
+    #else
+      if (rooted) {
+	/* Check the given address against the given node only */
+	return gasnete_coll_in_segment(node, addr, len);
+      } else {
+	/* Check the given address against ALL nodes */
+	int i;
+	for (i = 0; i < gasnete_nodes; ++i) {
+	  if (!gasnete_coll_in_segment(i, addr, len)) {
+	    return 0;
+	  }
+	}
+	return 1;
+      }
+    #endif
+  }
+
+  GASNET_INLINE_MODIFIER(gasnete_coll_segment_check)
+  int gasnete_coll_segment_check(int flags, 
+                                 int dstroot, gasnet_node_t dstnode, const void *dst, size_t dstlen,
+                                 int srcroot, gasnet_node_t srcnode, const void *src, size_t srclen) {
+    #if GASNET_SEGMENT_EVERYTHING
+      /* Everything is in-segment, regardless of what the caller told us */
+      flags |= (GASNET_COLL_DST_IN_SEGMENT | GASNET_COLL_SRC_IN_SEGMENT);
+    #else 
+      /* Check destination if caller hasn't asserted that it is in-segment */
+      if_pf (!(flags & GASNET_COLL_DST_IN_SEGMENT)) {
+	if ((flags & GASNET_COLL_SINGLE) && _gasnete_coll_segment_check_aux(dstroot, dstnode, dst, dstlen)) {
+	  flags |= GASNET_COLL_DST_IN_SEGMENT;
+	}
+      }
+      /* Check source if caller hasn't asserted that it is in-segment */
+      if_pf (!(flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+	if ((flags & GASNET_COLL_SINGLE) && _gasnete_coll_segment_check_aux(srcroot, srcnode, src, srclen)) {
+	  flags |= GASNET_COLL_SRC_IN_SEGMENT;
+	}
+      }
+    #endif
+    return flags;
+  }
+#endif
+
+#ifndef gasnete_coll_segment_checkM
+  GASNET_INLINE_MODIFIER(_gasnete_coll_segment_checkM_aux)
+  int _gasnete_coll_segment_checkM_aux(int rooted, gasnet_node_t node, const void *addr, size_t len) {
+    if (rooted) {
+      /* Check the given address against the given node only */
+      #if GASNET_ALIGNED_SEGMENTS /* always use node 0 for cache reuse */
+        return gasnete_coll_in_segment(0, addr, len);
+      #else
+        return gasnete_coll_in_segment(node, addr, len);
+      #endif
+    } else {
+      /* Check the given addresses against ALL nodes */
+      void * const *addrlist = (void * const *)addr;
+      int i;
+      for (i = 0; i < gasnete_nodes; ++i) {
+	#if GASNET_ALIGNED_SEGMENTS /* always use node 0 for cache reuse */
+          if (!gasnete_coll_in_segment(0, addrlist[i], len)) {
+            return 0;
+          }
+	#else
+          if (!gasnete_coll_in_segment(i, addrlist[i], len)) {
+            return 0;
+          }
+	#endif
+      }
+      return 1;
+    }
+  }
+
+  GASNET_INLINE_MODIFIER(gasnete_coll_segment_checkM)
+  int gasnete_coll_segment_checkM(int flags, 
+                                  int dstroot, gasnet_node_t dstnode, const void *dst, size_t dstlen,
+                                  int srcroot, gasnet_node_t srcnode, const void *src, size_t srclen) {
+    #if GASNET_SEGMENT_EVERYTHING
+      /* Everything is in-segment, regardless of what the caller told us */
+      flags |= (GASNET_COLL_DST_IN_SEGMENT | GASNET_COLL_SRC_IN_SEGMENT);
+    #else 
+      /* Check destination if caller hasn't asserted that it is in-segment */
+      if_pf (!(flags & GASNET_COLL_DST_IN_SEGMENT)) {
+	if ((flags & GASNET_COLL_SINGLE) && _gasnete_coll_segment_checkM_aux(dstroot, dstnode, dst, dstlen)) {
+	  flags |= GASNET_COLL_DST_IN_SEGMENT;
+	}
+      }
+      /* Check source if caller hasn't asserted that it is in-segment */
+      if_pf (!(flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+	if ((flags & GASNET_COLL_SINGLE) && _gasnete_coll_segment_checkM_aux(srcroot, srcnode, src, srclen)) {
+	  flags |= GASNET_COLL_SRC_IN_SEGMENT;
+	}
+      }
+    #endif
+    return flags;
+  }
+#endif
 
 /*------------------------------------------------------------------------------------*/
 
