@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2003/10/18 13:55:18 $
- * $Revision: 1.20 $
+ *     $Date: 2003/10/24 01:37:28 $
+ * $Revision: 1.21 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -248,8 +248,13 @@
  */
 #ifndef PREDICT_TRUE
   #if defined(__GNUC__) && defined(HAVE_BUILTIN_EXPECT)
-   #define PREDICT_TRUE(exp)  __builtin_expect( (exp), 1 )
-   #define PREDICT_FALSE(exp) __builtin_expect( (exp), 0 )
+    /* cast to uintptr_t avoids warnings on some compilers about passing 
+       non-integer arguments to __builtin_expect(), and we don't use (int)
+       because on some systems this is smaller than (void*) and causes 
+       other warnings
+     */
+   #define PREDICT_TRUE(exp)  __builtin_expect( ((uintptr_t)(exp)), 1 )
+   #define PREDICT_FALSE(exp) __builtin_expect( ((uintptr_t)(exp)), 0 )
   #else
    #define PREDICT_TRUE(exp)  (exp)
    #define PREDICT_FALSE(exp) (exp)
@@ -258,13 +263,8 @@
 
 /* if with branch prediction */
 #ifndef if_pf
-  /* cast to uintptr_t avoids warnings on some compilers about passing 
-     non-integer arguments to __builtin_expect(), and we don't use (int)
-     because on some systems this is smaller than (void*) and causes 
-     other warnings
-   */
-  #define if_pf(cond) if (PREDICT_FALSE((uintptr_t)(cond)))
-  #define if_pt(cond) if (PREDICT_TRUE((uintptr_t)(cond)))
+  #define if_pf(cond) if (PREDICT_FALSE(cond))
+  #define if_pt(cond) if (PREDICT_TRUE(cond))
 #endif
 
 #endif
