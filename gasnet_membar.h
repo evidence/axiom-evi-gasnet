@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/07/26 20:21:03 $
- * $Revision: 1.43 $
+ *     $Date: 2004/07/30 10:48:30 $
+ * $Revision: 1.44 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -551,6 +551,13 @@
   "4c00012c" /* isync (instruction sync to squash speculative loads) */ \
 }
 #pragma reg_killed_by _gasneti_do_rmb
+#pragma mc_func _gasneti_do_compilerfence { "" }
+#pragma reg_killed_by _gasneti_do_compilerfence
+GASNET_INLINE_MODIFIER(_gasneti_local_compilerfence)
+void _gasneti_local_compilerfence(void) {
+   _gasneti_do_compilerfence();
+}
+#define gasneti_local_compilerfence _gasneti_local_compilerfence
 #endif
 
 #if defined(__sparc__) || defined(__sparc) || defined(sparc)
