@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2003/05/25 02:06:22 $
- * $Revision: 1.12 $
+ *     $Date: 2003/06/16 10:24:13 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -180,6 +180,8 @@ extern gasnet_seginfo_t *gasnete_seginfo;
   #define GASNETE_THREAD_GET          , GASNETE_THREAD_GET_ALONE
   #define GASNETE_THREAD_PASS_ALONE   (_threadinfo)
   #define GASNETE_THREAD_PASS         , GASNETE_THREAD_PASS_ALONE
+  #define GASNETE_THREAD_SWALLOW(x)
+  #define GASNETE_TISTARTOFBITS(ptr,nbytes,ti) GASNETE_STARTOFBITS(ptr,nbytes)
   #define GASNETE_MYTHREAD            ((gasnete_threaddata_t *)_threadinfo)
 #else
   #define GASNETE_THREAD_FARG_ALONE   
@@ -188,6 +190,8 @@ extern gasnet_seginfo_t *gasnete_seginfo;
   #define GASNETE_THREAD_GET         
   #define GASNETE_THREAD_PASS_ALONE   
   #define GASNETE_THREAD_PASS         
+  #define GASNETE_THREAD_SWALLOW(x)
+  #define GASNETE_TISTARTOFBITS       GASNETE_STARTOFBITS
   #define GASNETE_MYTHREAD            (gasnete_mythread())
 #endif
 /* ------------------------------------------------------------------------------------ */

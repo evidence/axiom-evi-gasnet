@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2003/04/17 11:48:07 $
- * $Revision: 1.6 $
+ *     $Date: 2003/06/16 10:24:14 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,7 +18,10 @@
 #define GASNET_EXTENDED_NAME         LAPI
 #define GASNET_EXTENDED_NAME_STR     _STRINGIFY(GASNET_EXTENDED_NAME)
 
-#define GASNETI_DIRECT_BLOCKINGOPS 1 /* blocking put/gets implemented directly in LAPI */
+/* blocking put/gets implemented directly in LAPI */
+#define GASNETI_DIRECT_GET_BULK 1
+#define GASNETI_DIRECT_PUT_BULK 1
+#define GASNETI_DIRECT_MEMSET   1
 
 #define _GASNET_HANDLE_T
 /*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */
