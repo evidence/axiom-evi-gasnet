@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2004/10/23 09:59:18 $
- * $Revision: 1.7 $
+ *     $Date: 2005/01/13 10:28:11 $
+ * $Revision: 1.8 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -160,6 +160,7 @@ int main(int argc, char **argv) {
     } else if (i == 0) { /* DOB: only warn once per run */
       MSG("WARNING: multiway mismatch tests skipped (less than 3 nodes)");
     }
+    TEST_PROGRESS_BAR(i, iters);
     BARRIER();
   }
 

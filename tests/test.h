@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2004/10/24 02:27:43 $
- * $Revision: 1.41 $
+ *     $Date: 2005/01/13 10:28:11 $
+ * $Revision: 1.42 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -312,6 +312,24 @@ static int _test_rand(int low, int high) {
 
 #define TEST_HIWORD(arg)     ((uint32_t)(((uint64_t)(arg)) >> 32))
 #define TEST_LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
+
+#ifndef TEST_PROGRESS_STEPS
+#define TEST_PROGRESS_STEPS 10
+#endif
+/* caller should call with curriter=0..(numiters-1) */
+#define TEST_PROGRESS_BAR(curriter, numiters) do {        \
+    static int _activenode, _breakwidth, _breakpt;        \
+    if_pf(curriter == 0) {                                \
+      _activenode = (gasnet_mynode() == 0);               \
+      _breakwidth = (numiters/TEST_PROGRESS_STEPS);       \
+      _breakpt = _breakwidth;                             \
+    }                                                     \
+    if (_activenode && ((curriter)+1) == _breakpt) {      \
+      printf("%i%%\n",(int)(100.0*((curriter)+1)/iters)); \
+      fflush(stdout);                                     \
+      _breakpt += _breakwidth;                            \
+    }                                                     \
+  } while (0)
 
 /* Functions for obtaining calibrated delays */
 #ifdef TEST_DELAY

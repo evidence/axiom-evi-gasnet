@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2004/10/23 09:59:18 $
- * $Revision: 1.17 $
+ *     $Date: 2005/01/13 10:28:11 $
+ * $Revision: 1.18 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -326,6 +326,7 @@ threadmain(void *args)
 		assert(func != NULL);
 
 		func(td);
+                if (td->ltid == 0) TEST_PROGRESS_BAR(i, iters);
 	}
 
 	thread_barrier();

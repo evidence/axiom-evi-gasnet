@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.7 $
+ *     $Date: 2005/01/13 10:28:11 $
+ * $Revision: 1.8 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -747,6 +747,7 @@ void doit(int iters, int runtests) {
         test_free(dst);
         test_free(tmp);
       }
+      TEST_PROGRESS_BAR(iter, iters);
     }
     checkmem();
   }
@@ -809,6 +810,7 @@ void doit(int iters, int runtests) {
         test_free(dst);
         test_free(tmp);
       }
+      TEST_PROGRESS_BAR(iter, iters);
     }
     checkmem();
   }
@@ -858,9 +860,11 @@ void doit(int iters, int runtests) {
         verify_strided_desc_data_remote(desc, tmpbuf, partner, partner_seg_read_area, "gasnet_gets_bulk test");
         test_free(desc);
       }
+      TEST_PROGRESS_BAR(iter, iters);
     }
     checkmem();
   }
+  BARRIER();
   /*---------------------------------------------------------------------------------*/
   if (runtests & RUN_NB) { 
     int iter;
@@ -1002,6 +1006,7 @@ void doit(int iters, int runtests) {
       }
       test_free(handles);
       test_free(ops);
+      TEST_PROGRESS_BAR(iter, iters);
     }
     checkmem();
   }
