@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.3 2003/04/01 07:27:36 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.4 2003/04/09 18:16:55 phargrov Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -36,7 +36,7 @@ testtools: force
 
 # This is a model for how GASNet clients should be built:
 test% : force
-	$(GASNET_CC) -I$(srcdir) $(GASNET_CFLAGS) -c -o $@.o $(srcdir)/$@.c
+	$(GASNET_CC) -I$(srcdir) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	$(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $@.o $(GASNET_LIBS)
 
 force:
