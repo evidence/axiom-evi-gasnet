@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2004/10/12 15:09:35 $
- * $Revision: 1.12 $
+ *     $Date: 2004/10/13 12:30:22 $
+ * $Revision: 1.13 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -104,6 +104,25 @@
   #define __CURR_FUNCTION ((const char *) 0) /* could use __func__ for C99 compilers.. */
 #endif
 
+/* these macros return the value of the expression given, but pass on
+   a hint that you expect the value to be true or false.
+   Use them to wrap the conditional expression in an if stmt when
+   you have strong reason to believe the branch will frequently go
+   in one direction and the branch is a bottleneck
+ */
+#ifndef PREDICT_TRUE
+  #if defined(__GNUC__) && __GNUC__ >= 3 && 0
+   #define PREDICT_TRUE(exp)  __builtin_expect( (exp), 1 )
+   #define PREDICT_FALSE(exp) __builtin_expect( (exp), 0 )
+  #else
+   #define PREDICT_TRUE(exp)  (exp)
+   #define PREDICT_FALSE(exp) (exp)
+  #endif
+
+  /* if with branch prediction */
+  #define if_pf(cond) if (PREDICT_FALSE(cond))
+  #define if_pt(cond) if (PREDICT_TRUE(cond))
+#endif
 
 BEGIN_EXTERNC
 
@@ -500,27 +519,6 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
   #define tickspersec               1000000
 #endif
 //------------------------------------------------------------------------------------
-
-
-/* these macros return the value of the expression given, but pass on
-   a hint that you expect the value to be true or false.
-   Use them to wrap the conditional expression in an if stmt when
-   you have strong reason to believe the branch will frequently go
-   in one direction and the branch is a bottleneck
- */
-#ifndef PREDICT_TRUE
-  #if defined(__GNUC__) && __GNUC__ >= 3 && 0
-   #define PREDICT_TRUE(exp)  __builtin_expect( (exp), 1 )
-   #define PREDICT_FALSE(exp) __builtin_expect( (exp), 0 )
-  #else
-   #define PREDICT_TRUE(exp)  (exp)
-   #define PREDICT_FALSE(exp) (exp)
-  #endif
-
-  /* if with branch prediction */
-  #define if_pf(cond) if (PREDICT_FALSE(cond))
-  #define if_pt(cond) if (PREDICT_TRUE(cond))
-#endif
 
 END_EXTERNC
 
