@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/03/13 04:08:26 $
-# $Revision: 1.38 $
+#     $Date: 2003/03/19 17:38:32 $
+# $Revision: 1.39 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.38 $)
+AC_REVISION($Revision: 1.39 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -772,6 +772,8 @@ if test $have_vapi = yes; then
   fi
 fi
 
+AC_SUBST(VAPI_INCLUDE)
+AC_SUBST(VAPI_LIBS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
 
 ########################################################################
