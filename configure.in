@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/13 05:40:11 $
-# $Revision: 1.7 $
+#     $Date: 2002/06/13 10:15:10 $
+# $Revision: 1.8 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.7 $)
+AC_REVISION($Revision: 1.8 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -254,6 +254,14 @@ case "$target_os" in
           GASNET_THREAD_LIBS="-lpthread"
 	fi
 	;;
+  freebsd*) 
+	AC_DEFINE(FREEBSD)
+	GASNET_MACHINE_DEFINES="-DFREEBSD"
+ 	if test "$have_pthread" = yes ; then
+	  GASNET_THREAD_DEFINES="-D_REENTRANT"
+          GASNET_THREAD_LIBS="-pthread"
+	fi
+	;;
   cygwin*) 
 	AC_DEFINE(CYGWIN)
 	GASNET_MACHINE_DEFINES="-DCYGWIN"
@@ -495,10 +503,54 @@ AC_SUBST(GASNET_REXEC_DEFINES)
 GASNET_IF_ENABLED(gm, Enable the Myricom/GM network conduit, 
   have_gm=yes,
   have_gm=no)
+if test $have_gm = yes; then
+  case "$target_os" in
+    solaris*)
+    ;;
+    *)	# All unknown for now
+        GASNET_ENV_DEFAULT(GM_INCLUDE, /usr/local/gm/include)
+	GASNET_ENV_DEFAULT(GM_LIB, /usr/local/gm/lib)
+	if test "$GM_INCLUDE" = "" || test ! -d "$GM_INCLUDE"; then
+	  AC_WARN(GM includes: make sure \$GM_INCLUDE is set and exists)
+	  have_gm=no
+	fi
+	if test "$GM_LIB" = ""; then
+	  AC_WARN(GM library: make suremake sure \$GM_LIB is set and exists)
+	  have_gm=no
+	fi
+    ;;
+  esac
 
-# TODO: add some auto-detection intelligence here..
+  if test $have_gm = yes; then
+    AC_MSG_CHECKING(for working GM configuration)
+    OLDCFLAGS="$CFLAGS"
+    OLDLIBS="$LIBS"
+    CFLAGS="-I$GM_INCLUDE -L$GM_LIB"
+    LIBS="-lgm"
+    # try to compile and link a simple gm_init, gm_finalize
+    AC_TRY_LINK( [
+      #include <stdlib.h>
+      #include <gm.h>
+    ], [
+      gm_init();
+      gm_finalize();
+    ], [ gm_test_worked=yes ], [ gm_test_worked=no ] )
+    CFLAGS="$OLDCFLAGS"
+    LIBS="$OLDLIBS"
 
-AM_CONDITIONAL(USE_GM_CONDUIT, test "$have_gm" = yes)
+    if test "$gm_test_worked" = yes; then
+      AC_MSG_RESULT(yes)
+    else
+      AC_MSG_RESULT(no)
+      AC_WARN(build test failed: I don't know how to build GM programs on your system)
+      have_gm=no
+    fi
+  fi
+fi
+
+AC_SUBST(GM_INCLUDE)
+AC_SUBST(GM_LIB)
+AM_CONDITIONAL(USE_GM_CONDUIT, test "$have_gm$gm_test_worked" = yesyes)
 
 ########################################################################
 

@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/06/12 23:40:20 $ */
-/*  $Revision: 1.3 $ */
+/*      $Date: 2002/06/13 10:15:10 $ */
+/*  $Revision: 1.4 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 
@@ -42,6 +42,7 @@
 /* various OS and machine definitions */
 #undef UNIX
 #undef LINUX
+#undef FREEBSD
 #undef SOLARIS
 #undef UNICOS
 #undef CRAYT3E

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/06/10 00:30:59 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/13 10:15:11 $
+ * $Revision: 1.4 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -93,7 +93,7 @@ static int gasnetc_init(int *argc, char ***argv,
       /* discover duplicates */
       assert(checkuniqhandler[ctable[i].index] == 0);
       checkuniqhandler[ctable[i].index] = 1;
-      /* (???) add code here to register ctable[i].fnptr on index (handler_t)ctable[i].index */
+      /* (???) add code here to register ctable[i].fnptr on index (gasnet_handler_t)ctable[i].index */
     }
   }
 
@@ -107,7 +107,7 @@ static int gasnetc_init(int *argc, char ***argv,
       /* discover duplicates */
       assert(checkuniqhandler[etable[i].index] == 0);
       checkuniqhandler[etable[i].index] = 1;
-      /* (???) add code here to register etable[i].fnptr on index (handler_t)etable[i].index */
+      /* (???) add code here to register etable[i].fnptr on index (gasnet_handler_t)etable[i].index */
     }
   }
 
@@ -125,13 +125,13 @@ static int gasnetc_init(int *argc, char ***argv,
         /* discover duplicates */
         assert(checkuniqhandler[table[i].index] == 0);
         checkuniqhandler[table[i].index] = 1;
-        /* (???) add code here to register table[i].fnptr on index (handler_t)table[i].index */
+        /* (???) add code here to register table[i].fnptr on index (gasnet_handler_t)table[i].index */
       }
     }
     /*  second pass - fill in dontcare-index handlers */
     for (i = 0; i < numentries; i++) {
       if (!table[i].index) {
-        handler_t tmp;
+        gasnet_handler_t tmp;
         assert(table[i].fnptr);
         for (tmp=200; tmp < 255; tmp++) {
           if (checkuniqhandler[tmp] == 0) break;

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/13 10:15:10 $
+ * $Revision: 1.2 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -76,6 +76,13 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
     #define gasneti_atomic_read(p)      atomic_read(p)
     #define gasneti_atomic_set(p,v)     atomic_set(p,v)
     #define gasneti_atomic_init(v)      ATOMIC_INIT(v)
+  #elif defined(FREEBSD)
+    #include <machine/atomic.h>
+    typedef volatile u_int32_t gasneti_atomic_t;
+    #define gasneti_atomic_increment(p) atomic_add_int((p),1)
+    #define gasneti_atomic_read(p)      (*(p))
+    #define gasneti_atomic_set(p,v)     (*(p) = (v))
+    #define gasneti_atomic_init(v)      (v)
   #elif defined(CYGWIN)
     #include <windows.h>
     typedef struct { volatile uint32_t ctr; } gasneti_atomic_t;
