@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2004/10/11 09:58:35 $
- * $Revision: 1.11 $
+ *     $Date: 2004/10/12 15:09:35 $
+ * $Revision: 1.12 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -18,6 +18,9 @@
 #endif
 #include <sockutil.h> /* for SPMD TCP stuff */
 #include <amudp.h>
+#ifdef HAVE_GASNET_TOOLS 
+  #include <gasnet_tools.h> /* must precede internal assert defs */
+#endif
 
 #if ! defined (__GNUC__) && ! defined (__attribute__)
 #define __attribute__(flags)
@@ -428,7 +431,6 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
 //------------------------------------------------------------------------------------
 /* *** TIMING *** */
 #if defined(HAVE_GASNET_TOOLS)
-  #include <gasnet_tools.h>
   #define getMicrosecondTimeStamp() (gasnett_ticks_to_us(gasnett_ticks_now()))
   #define getCPUTicks()             ((amudp_cputick_t)gasnett_ticks_now())
   #define ticks2us(ticks)           (gasnett_ticks_to_us((gasnett_tick_t)(ticks)))
