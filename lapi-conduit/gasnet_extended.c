@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/10/11 13:10:00 $
- * $Revision: 1.12 $
+ *     $Date: 2003/10/19 16:41:25 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1050,6 +1050,7 @@ void* gasnete_lapi_barrier_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len
 	assert(phase == barrier_phase);
 
 	barrier_response_mismatch[phase] = u->mismatch;
+        gasneti_memsync(); /* ensure mimatch committed before signal */
 	barrier_response_done[phase] = 1;
     }
     return NULL;
@@ -1099,6 +1100,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
 
     /*  update state */
     barrier_splitstate = INSIDE_BARRIER;
+    gasneti_memsync(); /* ensure all state changes committed before return */
 }
 
 
@@ -1129,6 +1131,7 @@ extern int gasnete_barrier_wait(int id, int flags) {
     /*  update local state */
     barrier_splitstate = OUTSIDE_BARRIER;
     barrier_response_done[phase] = 0;
+    gasneti_memsync(); /* ensure all state changes committed before return */
     if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != barrier_value) || 
 	  flags != barrier_flags || 
 	  barrier_response_mismatch[phase]) {
