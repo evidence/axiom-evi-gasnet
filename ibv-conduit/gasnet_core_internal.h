@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/02/13 20:22:29 $
- * $Revision: 1.36 $
+ *     $Date: 2004/03/06 14:24:00 $
+ * $Revision: 1.37 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -306,14 +306,14 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     int retval;
 
     #if GASNETC_ANY_PAR
-      pthread_mutex_lock(&gasneti_atomicop_mutex);
+      gasnet_hsl_lock(&gasneti_atomicop_lock);
     #endif
     retval = (p->ctr == oldval);
     if_pt (retval) {
       p->ctr = newval;
     }
     #if GASNETC_ANY_PAR
-      pthread_mutex_unlock(&gasneti_atomicop_mutex);
+      gasnet_hsl_unlock(&gasneti_atomicop_lock);
     #endif
 
     return retval;

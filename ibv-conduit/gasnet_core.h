@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.h                  $
- *     $Date: 2004/02/13 19:20:07 $
- * $Revision: 1.14 $
+ *     $Date: 2004/03/06 14:24:00 $
+ * $Revision: 1.15 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -148,6 +148,7 @@ typedef struct _gasnet_hsl_t {
 #endif
 /* ------------------------------------------------------------------------------------ */
 /* Type and ops for rdma counters */
+#include <gasnet_atomicops.h> /* must come after hsl defs */
 typedef gasneti_atomic_t gasnetc_counter_t;
 #define GASNETC_COUNTER_INITIALIZER	gasneti_atomic_init(0)
 #define gasnetc_counter_reset(P)	gasneti_atomic_set((P), 0)

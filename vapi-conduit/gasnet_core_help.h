@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_help.h             $
- *     $Date: 2004/02/13 20:22:29 $
- * $Revision: 1.6 $
+ *     $Date: 2004/03/06 14:24:00 $
+ * $Revision: 1.7 $
  * Description: GASNet vapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,7 +16,6 @@
 BEGIN_EXTERNC
 
 #include <gasnet_help.h>
-#include <gasnet_atomicops.h>
 
 /* Don't yet have any mixed approaches in which there is a pinned
  * segment and firehose is used to dynamically register stack, etc.

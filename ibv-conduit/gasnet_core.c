@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/02/13 19:20:07 $
- * $Revision: 1.42 $
+ *     $Date: 2004/03/06 14:24:00 $
+ * $Revision: 1.43 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -218,6 +218,20 @@ static unsigned long gasnetc_get_physpages()
 
   return (unsigned long)mem / GASNET_PAGESIZE;
 }
+#elif defined(__APPLE__) || defined(FREEBSD)
+  #include <sys/types.h>
+  #include <sys/sysctl.h>
+  static unsigned long gasnetc_get_physpages()  { /* see "man 3 sysctl" */
+    int mib[2];
+    unsigned long mem;
+    size_t len = sizeof(mem);
+
+    mib[0] = CTL_HW;
+    mib[1] = HW_PHYSMEM;
+    if (sysctl(mib, 2, &mem, &len, NULL, 0)) 
+      gasneti_fatalerror("sysctl(CTL_HW.HW_PHYSMEM) failed: %s(%i)",strerror(errno),errno);
+    return mem / GASNET_PAGESIZE;
+  }
 #else
 #error "Don't know how to get physical memory size on your O/S"
 #endif
