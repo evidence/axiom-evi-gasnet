@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/14 19:31:53 $
-# $Revision: 1.227 $
+#     $Date: 2005/02/14 23:43:07 $
+# $Revision: 1.228 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.227 $)
+AC_REVISION($Revision: 1.228 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -183,7 +183,13 @@ case "$gasnet_cv_cc_family" in
   XLC)
     case "$target_os" in
 	darwin*)
-	    CCOPTFLAGS="-O3 -qtune=auto -qsmp=noauto -qmaxmem=-1" ;; # bug926 -qarch=auto causes corruption of 64-bit integer arithmetic on Darwin
+	    # enabling ipa (-O4 or higher) breaks linking to MPI (and thus vapi).
+	    case `/usr/sbin/sysctl hw.cpusubtype | cut '-d ' -f2` in
+		# bug926: on G5 (cpusubtype 100) -qarch={ppc970,auto} causes corruption of 64-bit integer arithmetic
+		100)	CCOPTFLAGS="-O3 -qhot -qarch=g5 -qtune=auto -qsmp=noauto -qmaxmem=-1" ;; 
+		*)	CCOPTFLAGS="-O3 -qhot -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1" ;; 
+	    esac
+	    ;;
 	*)  #CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=-1" ;; # -O5 == -O3 w/ intra-procedural analysis, maxmem=-1 is default for -O3 or higher
 	    CCOPTFLAGS="-O3 -qarch=auto -qtune=auto -qsmp=noauto -qmaxmem=-1" ;; # -O5 causes linker to hang on Titanium 
     esac
@@ -650,10 +656,20 @@ else
   # look for optional pthreads entry points and features
   AC_SEARCH_LIBS(pthread_setconcurrency, pthread pthreads c_r, AC_DEFINE(HAVE_PTHREAD_SETCONCURRENCY))
   AC_SEARCH_LIBS(pthread_kill_other_threads_np, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
-  GASNET_TRY_CACHE_RUN_EXPR(for shared data cache line size, datacache_line_size, 
-    [ #define CONFIG_TEST 1
-      #include "detect-cachesz.c" ], [ 
-     val = detect_cachesz(79.0, 0); if (val<=0) exit(1); ], GASNETI_CACHE_LINE_BYTES)
+
+  case "$target_os" in
+    darwin*)
+      AC_MSG_CHECKING(for shared data cache line size)
+      GASNETI_CACHE_LINE_BYTES=`/usr/sbin/sysctl hw.cachelinesize | cut '-d ' -f2`
+      AC_MSG_RESULT($GASNETI_CACHE_LINE_BYTES)
+      ;;
+    *)
+      GASNET_TRY_CACHE_RUN_EXPR(for shared data cache line size, datacache_line_size, 
+      [ #define CONFIG_TEST 1
+        #include "detect-cachesz.c" ], [ 
+       val = detect_cachesz(79.0, 0); if (val<=0) exit(1); ], GASNETI_CACHE_LINE_BYTES)
+      ;;
+  esac
   
   GASNET_THREAD_LIBS="$LIBS"
   CFLAGS="$OLDCFLAGS"
