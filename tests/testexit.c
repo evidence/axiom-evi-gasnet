@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2004/08/02 07:52:53 $
- * $Revision: 1.8 $
+ *     $Date: 2004/08/02 08:30:39 $
+ * $Revision: 1.9 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -241,8 +241,12 @@ int main(int argc, char **argv) {
       else BARRIER();
       break;
     case 4: 
-      if (mynode == nodes-1) { sleep(1); raise(SIGINT); }
-      else BARRIER();
+      if (mynode == nodes-1) { 
+        sleep(1); 
+        /*raise(SIGINT); */
+        kill(getpid(), SIGINT); /* more reliable */
+        while (1) gasnett_sched_yield(); /* await delivery */
+      } else BARRIER();
       break;
     case 5: 
       if (mynode == nodes-1) { sleep(1); gasnet_exit(testid); }

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/08/01 00:12:37 $
- * $Revision: 1.53 $
+ *     $Date: 2004/08/02 08:30:37 $
+ * $Revision: 1.54 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,7 +29,9 @@
  */
 #define GASNETC_AM_EXIT 1
 #define GASNETC_SIGQUIT_EXIT 0
+#ifndef GASNETC_VERBOSE_EXIT
 #define GASNETC_VERBOSE_EXIT 0
+#endif
 
 #include <gasnet.h>
 #include <gasnet_internal.h>
@@ -66,9 +68,6 @@ ulong          gasnetc_max_lapi_data_size;
 int            gasnetc_max_lapi_data_size;
 #endif
 
-/* NOTE: this is not thread-safe */
-int            gasnetc_lapi_errno;
-char           gasnetc_lapi_msg[LAPI_MAX_ERR_STRING];
 
 /* This is the official core AM handler table.  All registered
  * entries go here
@@ -77,7 +76,7 @@ gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS] = { NULL };
 void** gasnetc_remote_req_hh = NULL;
 void** gasnetc_remote_reply_hh = NULL;
 
-static volatile int got_exit_signal = 0;
+volatile int gasnetc_got_exit_signal = 0;
 
 #if GASNETC_AM_EXIT
 /* functions and data needed for AM Exit code */
@@ -367,7 +366,7 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 #ifdef GASNETC_SIGQUIT_EXIT
 void gasnetc_sigterm_handler(int sig)
 {
-    got_exit_signal = 1;
+    gasnetc_got_exit_signal = 1;
 #if GASNETC_VERBOSE_EXIT
     fprintf(stderr,">> GASNET_SIGTERM_HNDLR[%d]: in SIGTERM\n",gasnetc_mynode);
     fflush(stderr);
@@ -575,11 +574,11 @@ void* gasnetc_amexit_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 }
 void gasnetc_amexit_ch(lapi_handle_t *context, void *uinfo)
 {
-    if (got_exit_signal) {
+    if (gasnetc_got_exit_signal) {
 	/* Ignore... in process of exiting */
 	return;
     }
-    got_exit_signal = 1;
+    gasnetc_got_exit_signal = 1;
     /* force signal handler to execute so that it can call gasnet_exit.
      * Dont want to do it from within a LAPI thread... doesnt work.  */
     kill(getpid(),SIGUSR1);
@@ -626,7 +625,7 @@ extern void gasnetc_exit(int exitcode) {
      */
     alarm(5);
 
-    if (got_exit_signal) {
+    if (gasnetc_got_exit_signal) {
 	/* async exit, remote thread died and we got here because of that.  Just exit */
 #if GASNETC_VERBOSE_EXIT
 	fprintf(stderr,">> GASNET_EXIT[%d]: async exit\n",gasnetc_mynode);
@@ -646,8 +645,8 @@ extern void gasnetc_exit(int exitcode) {
 	gasnet_node_t node;
 	lapi_cntr_t cntr;
 
-	/* Set got_exit_signal locally */
-	got_exit_signal = 1;
+	/* Set gasnetc_got_exit_signal locally */
+	gasnetc_got_exit_signal = 1;
 
 #if GASNETC_VERBOSE_EXIT
 	fprintf(stderr,">> GASNET_EXIT[%d]: Sending exit AM to all others\n",gasnetc_mynode);
@@ -685,7 +684,7 @@ extern void gasnetc_exit(int exitcode) {
     }
 
     /* should never get here */
-    abort();
+    gasneti_fatalerror("gasneti_killmyprocess failed to kill the process!");
 }
 
 #elif GASNETC_SIGQUIT_EXIT
@@ -706,7 +705,7 @@ extern void gasnetc_exit(int exitcode) {
     fflush(stderr);
 #endif
 
-    if (got_exit_signal) {
+    if (gasnetc_got_exit_signal) {
 	/* async exit, remote thread died */
 #if GASNETC_VERBOSE_EXIT
 	fprintf(stderr,">> GASNET_EXIT[%d]: async exit\n",gasnetc_mynode);

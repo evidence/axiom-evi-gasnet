@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/08/01 01:36:06 $
- * $Revision: 1.65 $
+ *     $Date: 2004/08/02 08:30:35 $
+ * $Revision: 1.66 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -178,7 +178,7 @@ extern void gasneti_killmyprocess(int exitcode) {
     pthread_kill_other_threads_np();
   #endif
   _exit(exitcode); /* use _exit to bypass atexit handlers */
-  abort();
+  gasneti_fatalerror("gasneti_killmyprocess failed to kill the process!");
 }
 /* ------------------------------------------------------------------------------------ */
 #if defined(__sgi) || defined(__crayx1)

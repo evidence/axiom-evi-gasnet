@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/08/01 00:12:37 $
- * $Revision: 1.25 $
+ *     $Date: 2004/08/02 08:30:37 $
+ * $Revision: 1.26 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,8 +27,7 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 #include <stddef.h>
 
 extern lapi_info_t        gasnetc_lapi_info;
-extern int                gasnetc_lapi_errno;
-extern char               gasnetc_lapi_msg[];
+extern volatile int gasnetc_got_exit_signal;
 extern int                gasnetc_max_lapi_uhdr_size;
 #if defined(__64BIT__)
 extern ulong              gasnetc_max_lapi_data_size;
@@ -170,15 +169,25 @@ typedef struct {
 extern void gasnetc_token_queue_init(gasnetc_token_queue_t *q);
 extern gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_schedule);
 extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *schedule);
-/* MLW: Need more descriptive name for this macro */
-#define GASNETC_LCHECK(func) do {                                                                 \
-    int lapi_errno;                                                                               \
-    if_pf ((lapi_errno = func) != LAPI_SUCCESS) {                                                 \
-       LAPI_Msg_string(lapi_errno,gasnetc_lapi_msg);                                              \
-       gasneti_fatalerror("LAPI Error on node %d in file %s at line %d, [%s] return code = %d\n", \
-                          gasnetc_mynode,__FILE__,__LINE__,gasnetc_lapi_msg,lapi_errno);          \
-    }                                                                                             \
-  } while (0)
+
+#define GASNETC_LCHECK(func) do {                                 \
+    int lapi_errno;                                               \
+    if_pf ((lapi_errno = func) != LAPI_SUCCESS) {                 \
+       char gasnetc_lapi_msg[LAPI_MAX_ERR_STRING];                \
+       if (gasnetc_got_exit_signal) {                             \
+         int i;                                                   \
+         /* a shutdown is in progress, and likely caused the */   \
+         /* LAPI failure - silently ignore it and wait to die */  \
+         for (i=0; i < 5; i++) sleep(1);                          \
+         gasneti_killmyprocess(-1); /* prevent zombies */         \
+       }                                                          \
+       LAPI_Msg_string(lapi_errno,gasnetc_lapi_msg);              \
+       gasneti_fatalerror("LAPI Error on node %d in file %s"      \
+                          " at line %d, [%s] return code = %d\n", \
+                          gasnetc_mynode,__FILE__,__LINE__,       \
+                          gasnetc_lapi_msg,lapi_errno);           \
+    }                                                             \
+  } while(0)
 
 #define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
 
