@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2004/04/10 06:24:36 $
- * $Revision: 1.21 $
+ *     $Date: 2004/04/11 19:43:25 $
+ * $Revision: 1.22 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -35,7 +35,8 @@
   typedef __int64           int64_t;
   typedef unsigned __int64 uint64_t;
 
-  typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned int    uintptr_t; 
 #elif defined(CRAYT3E)
   typedef signed char        int8_t;
   typedef unsigned char     uint8_t;
@@ -46,7 +47,8 @@
   typedef int               int64_t;
   typedef unsigned int     uint64_t;
 
-  typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned int    uintptr_t; 
 #elif defined(_SX)
   #include <sys/types.h> /* provides int32_t and uint32_t - use to prevent conflict */
   typedef signed char        int8_t;
@@ -56,7 +58,8 @@
   typedef long              int64_t;
   typedef unsigned long    uint64_t;
 
-  typedef unsigned long   uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          long    intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned long   uintptr_t; 
 #elif defined(CYGWIN)
   #include <sys/types.h>
   #ifndef __int8_t_defined
@@ -74,8 +77,7 @@
   #endif
 
   #ifndef __intptr_t_defined
-    typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer
- offset */
+    typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
   #endif
   #ifndef __uintptr_t_defined
     typedef unsigned int    uintptr_t;

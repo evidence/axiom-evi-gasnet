@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2004/04/10 06:24:35 $
- * $Revision: 1.26 $
+ *     $Date: 2004/04/11 19:43:24 $
+ * $Revision: 1.27 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,7 +58,8 @@
   typedef long              int64_t;
   typedef unsigned long    uint64_t;
 
-  typedef unsigned long   uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          long    intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned long   uintptr_t; 
 #elif defined(CYGWIN)
   #include <sys/types.h>
   #ifndef __int8_t_defined

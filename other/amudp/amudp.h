@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2004/04/10 06:24:38 $
- * $Revision: 1.10 $
+ *     $Date: 2004/04/11 19:43:26 $
+ * $Revision: 1.11 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -17,7 +17,7 @@
 #ifndef _INTTYPES_DEFINED
 #define _INTTYPES_DEFINED
 #if defined(WIN32) && defined(_MSC_VER)
-  typedef __int8             int8_t;
+  typedef signed __int8      int8_t;
   typedef unsigned __int8   uint8_t;
   typedef __int16           int16_t;
   typedef unsigned __int16 uint16_t;
@@ -26,9 +26,10 @@
   typedef __int64           int64_t;
   typedef unsigned __int64 uint64_t;
 
-  typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned int    uintptr_t; 
 #elif defined(CRAYT3E)
-  typedef char               int8_t;
+  typedef signed char        int8_t;
   typedef unsigned char     uint8_t;
   typedef short             int16_t; /* This is 32-bits, should be 16 !!! */
   typedef unsigned short   uint16_t; /* This is 32-bits, should be 16 !!! */
@@ -37,7 +38,8 @@
   typedef int               int64_t;
   typedef unsigned int     uint64_t;
 
-  typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned int    uintptr_t; 
 #elif defined(_SX)
   #include <sys/types.h> /* provides int32_t and uint32_t - use to prevent conflict */
   typedef signed char        int8_t;
@@ -47,7 +49,8 @@
   typedef long              int64_t;
   typedef unsigned long    uint64_t;
 
-  typedef unsigned long   uintptr_t; /* unsigned type big enough to hold any pointer offset */
+  typedef          long    intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
+  typedef unsigned long   uintptr_t; 
 #elif defined(CYGWIN)
   #include <sys/types.h>
   #ifndef __int8_t_defined
@@ -65,8 +68,7 @@
   #endif
 
   #ifndef __intptr_t_defined
-    typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer
- offset */
+    typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
   #endif
   #ifndef __uintptr_t_defined
     typedef unsigned int    uintptr_t;
