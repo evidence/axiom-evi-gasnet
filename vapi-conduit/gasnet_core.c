@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/11 22:38:48 $
- * $Revision: 1.8 $
+ *     $Date: 2003/08/15 21:30:47 $
+ * $Revision: 1.9 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,7 +33,7 @@ VAPI_hca_hndl_t	gasnetc_hca;
 VAPI_hca_cap_t	gasnetc_hca_cap;
 VAPI_hca_port_t	gasnetc_hca_port;
 VAPI_pd_hndl_t	gasnetc_pd;
-#if defined(GASNET_SEGMENT_FAST)
+#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
   gasnetc_memreg_t	gasnetc_seg_reg;
 #endif
 
@@ -85,12 +85,12 @@ static void gasnetc_check_config() {
 }
 
 extern gasnetc_memreg_t *gasnetc_local_reg(uintptr_t start, uintptr_t end) {
-  #if defined(GASNET_SEGMENT_FAST)
+  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
     if ((start >= gasnetc_seg_reg.start) && (end <= gasnetc_seg_reg.end)) {
       return &gasnetc_seg_reg;
     }
   #else
-    #error "I don't do anything but FAST yet"
+    #error "I don't do EVERYTHING yet"
   #endif
 
   if ((start >= gasnetc_rcv_reg.start) && (end <= gasnetc_rcv_reg.end)) {
@@ -109,7 +109,7 @@ GASNET_INLINE_MODIFIER(gasnetc_is_pinned_remote)
 int gasnetc_is_pinned_remote(gasnet_node_t node, uintptr_t start, size_t len) {
   uintptr_t	end = (start + (len - 1)); /* subtact 1 first, to avoid overflows */
 
-  #if defined(GASNET_SEGMENT_FAST)
+  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
   {
     /* check if the range is entirely in the remotely pinned segment */
     uintptr_t segbase = (uintptr_t)gasnetc_seginfo[node].addr;
@@ -120,7 +120,7 @@ int gasnetc_is_pinned_remote(gasnet_node_t node, uintptr_t start, size_t len) {
     }
   }
   #else
-    #error "I don't do anything but FAST yet"
+    #error "I don't do EVERYTHING yet"
   #endif
 
   /* Not pinned */
@@ -330,10 +330,10 @@ static int gasnetc_init(int *argc, char ***argv) {
   assert(gasnetc_hca_cap.max_num_cq >= 2);
   assert(gasnetc_hca_cap.max_num_ent_cq >= GASNETC_SND_CQ_SIZE);
   assert(gasnetc_hca_cap.max_num_ent_cq >= GASNETC_RCV_CQ_SIZE);
-  #if defined(GASNET_SEGMENT_FAST)
-    assert(gasnetc_hca_cap.max_num_mr >= 3);			/* rcv bufs, snd bufs, segment */
-  #else
+  #if defined(GASNET_SEGMENT_EVERYTHING)
     assert(gasnetc_hca_cap.max_num_mr >= (3+gasnetc_nodes));	/* rcv bufs, snd bufs, segment, n*fh */
+  #else
+    assert(gasnetc_hca_cap.max_num_mr >= 3);			/* rcv bufs, snd bufs, segment */
   #endif
   assert(gasnetc_hca_port.max_msg_sz >= GASNETC_PUT_COPY_LIMIT);
 
@@ -465,21 +465,11 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasnetc_mynode, gasnetc_nodes); fflush(stderr);
   #endif
 
-  #if defined(GASNET_SEGMENT_FAST)
+  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
   {
     gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize,
                         &gasnetc_MaxGlobalSegmentSize,
                         gasnetc_max_pinnable(),
-                        gasnetc_nodes,
-                        &gasnetc_bootstrapAllgather);
-  }
-  #elif defined(GASNET_SEGMENT_LARGE)
-  {
-    /* XXX: Should use max mmap size and pin in multiple ranges
-	Currently just using max region size */
-    gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize,
-                        &gasnetc_MaxGlobalSegmentSize,
-                        (uintptr_t)gasnetc_hca_cap.max_mr_size,	/* XXX: should be -1, see note above */
                         gasnetc_nodes,
                         &gasnetc_bootstrapAllgather);
   }
@@ -488,8 +478,6 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
     gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
   }
-  #else
-    #error Bad segment config
   #endif
 
   gasneti_setupGlobalEnvironment(gasnetc_nodes, gasnetc_mynode, 
@@ -586,7 +574,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
     if ((minheapoffset % GASNET_PAGESIZE) != 0) /* round up the minheapoffset to page sz */
       minheapoffset = ((minheapoffset / GASNET_PAGESIZE) + 1) * GASNET_PAGESIZE;
-  #else
+  #elif defined(GASNET_SEGMENT_EVERYTHING)
     segsize = 0;
     minheapoffset = 0;
   #endif
@@ -647,7 +635,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
      hold/resume interrupts functions are operational yet */
   gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
 
-  #if defined(GASNET_SEGMENT_FAST)
+  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
     /* allocate the segment and exchange seginfo */
     gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapAllgather);
     segbase = gasnetc_seginfo[gasnetc_mynode].addr;
@@ -671,12 +659,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       }
       free(rkeys);
     }
-  #elif defined(GASNET_SEGMENT_LARGE)
-    gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapAllgather);
-    segbase = gasnetc_seginfo[gasnetc_mynode].addr;
-    segsize = gasnetc_seginfo[gasnetc_mynode].size;
-    /* (###) add any code here needed to setup GASNET_SEGMENT_LARGE support */
-  #else /* GASNET_SEGMENT_EVERYTHING */
+  #elif defined(GASNET_SEGMENT_EVERYTHING)
     { int i;
       for (i=0;i<gasnetc_nodes;i++) {
         gasnetc_seginfo[i].addr = (void *)0;

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/08/11 22:38:48 $
- * $Revision: 1.10 $
+ *     $Date: 2003/08/15 21:30:47 $
+ * $Revision: 1.11 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -408,7 +408,7 @@ typedef struct {
   gasnetc_sema_t	send_sema;
   gasnetc_sema_t	credit_sema;
   VAPI_qp_hndl_t	qp_handle;
-  #if defined(GASNET_SEGMENT_FAST)
+  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
     /* RKey for the segment, registered at attach time */
     VAPI_rkey_t		rkey;
   #endif
@@ -464,7 +464,7 @@ extern VAPI_hca_port_t	gasnetc_hca_port;
 extern VAPI_pd_hndl_t	gasnetc_pd;
 extern gasnetc_memreg_t		gasnetc_snd_reg;
 extern gasnetc_memreg_t		gasnetc_rcv_reg;
-#if defined(GASNET_SEGMENT_FAST)
+#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
   extern gasnetc_memreg_t	gasnetc_seg_reg;
 #endif
 extern VAPI_cq_hndl_t	gasnetc_snd_cq;
