@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/04/16 20:10:43 $
- * $Revision: 1.23 $
+ *     $Date: 2003/04/25 01:17:13 $
+ * $Revision: 1.24 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,6 +14,22 @@
  * November, 2002
  * =======================================================================
  */
+
+/* Select which exit method to use:
+ * GASNETC_AM_EXIT
+ *    uses active messages to propogate termination
+ *    conditions to other tasks.  Returns proper error
+ *    codes but may not always work if network is hosed.
+ * GASNETC_SIGQUIT_EXIT
+ *    kills itself with a QUIT signal, then POE notices
+ *    this and kills other processes with a SIGTERM.
+ *    Always produces ugly error messages from POE and
+ *    Never returns proper error code.
+ *
+ */
+#define GASNETC_AM_EXIT 1
+#define GASNETC_SIGQUIT_EXIT 0
+#define GASNETC_VERBOSE_EXIT 0
 
 #include <gasnet.h>
 #include <gasnet_internal.h>
@@ -72,6 +88,19 @@ char           gasnetc_lapi_msg[LAPI_MAX_ERR_STRING];
 gasnetc_handler_fn_t gasnetc_handler[GASNETC_MAX_NUMHANDLERS] = { NULL };
 void** gasnetc_remote_req_hh = NULL;
 void** gasnetc_remote_reply_hh = NULL;
+
+static volatile int got_exit_signal = 0;
+
+#if GASNETC_AM_EXIT
+/* functions and data needed for AM Exit code */
+void** gasnetc_remote_amexit_hh = NULL;
+void gasnetc_sigusr1_handler(int sig);
+void* gasnetc_amexit_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
+			ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo);
+void gasnetc_amexit_ch(lapi_handle_t *context, void *uinfo);
+
+#endif
+
 gasnetc_lapimode_t gasnetc_lapi_default_mode = gasnetc_Interrupt;
 
 #if GASNETC_USE_IBH
@@ -213,7 +242,13 @@ static int gasnetc_init(int *argc, char ***argv) {
     GASNETC_LCHECK(LAPI_Address_init(gasnetc_lapi_context,
 				     (void*)&gasnetc_lapi_AMreply_hh,
 				     gasnetc_remote_reply_hh));
-
+#if GASNETC_AM_EXIT
+    gasnetc_remote_amexit_hh = (void**)gasneti_malloc_inhandler(num_tasks*sizeof(void*));
+    GASNETC_LCHECK(LAPI_Address_init(gasnetc_lapi_context,
+				     (void*)&gasnetc_amexit_hh,
+				     gasnetc_remote_amexit_hh));
+#endif
+    
 #if DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
 	    gasnetc_mynode, gasnetc_nodes); fflush(stderr);
@@ -314,6 +349,19 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+#ifdef GASNETC_SIGQUIT_EXIT
+void gasnetc_sigterm_handler(int sig)
+{
+    got_exit_signal = 1;
+#if GASNETC_VERBOSE_EXIT
+    fprintf(stderr,">> GASNET_SIGTERM_HNDLR[%d]: in SIGTERM\n",gasnetc_mynode);
+    fflush(stderr);
+#endif
+    pthread_kill(pthread_self(),SIGQUIT);
+}
+#endif
+
+/* ------------------------------------------------------------------------------------ */
 extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
                           uintptr_t segsize, uintptr_t minheapoffset) {
     void *segbase = NULL;
@@ -387,7 +435,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     /*  (###) register any custom signal handlers required by your conduit 
      *        (e.g. to support interrupt-based messaging)
      */
-
+#if GASNETC_AM_EXIT
+    gasneti_reghandler(SIGUSR1, gasnetc_sigusr1_handler );
+#elif GASNETC_SIGQUIT_EXIT
+    gasneti_reghandler(SIGTERM, gasnetc_sigterm_handler );
+#endif
+    
     /* ------------------------------------------------------------------------------------ */
     /*  register segment  */
 
@@ -454,16 +507,10 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     return GASNET_OK;
 }
+    
 /* ------------------------------------------------------------------------------------ */
-extern void gasnetc_exit(int exitcode) {
-    /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
-    gasneti_reghandler(SIGQUIT, SIG_IGN);
-
-    {  /* ensure only one thread ever continues past this point */
-      static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
-      gasneti_mutex_lock(&exit_lock);
-    }
-
+/* All the common cleanup tasks between the various exit routines */
+static void gasnetc_exit_cleanup(void) {
     GASNETI_TRACE_PRINTF(C,("GASNETC_EXIT: UHDR_BUF HWM %d, numfree %d, numalloc %d",
 			    gasnetc_uhdr_freelist.high_water_mark,
 			    gasnetc_uhdr_freelist.numfree,
@@ -481,15 +528,203 @@ extern void gasnetc_exit(int exitcode) {
       gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
     if (fflush(stderr)) 
       gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+}
+/* ------------------------------------------------------------------------------------ */
+#if GASNETC_AM_EXIT
+static int amexit_exitcode = 0;
+void gasnetc_sigusr1_handler(int sig)
+{
+#if GASNETC_VERBOSE_EXIT
+    fprintf(stderr,">> GASNET_SIGUSR1_HNDLR[%d]: called\n",gasnetc_mynode);
+    fflush(stderr);
+#endif
+    gasnet_exit(amexit_exitcode);
+}
+
+
+void* gasnetc_amexit_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
+			ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo)
+{
+    *comp_h = gasnetc_amexit_ch;
+    *uinfo = NULL;
+    amexit_exitcode = *(int*)uhdr;
+    return NULL;
+}
+void gasnetc_amexit_ch(lapi_handle_t *context, void *uinfo)
+{
+    if (got_exit_signal) {
+	/* Ignore... in process of exiting */
+	return;
+    }
+    got_exit_signal = 1;
+    /* force signal handler to execute so that it can call gasnet_exit.
+     * Dont want to do it from within a LAPI thread... doesnt work.  */
+    kill(getpid(),SIGUSR1);
+}
+    
+extern void gasnetc_exit(int exitcode) {
+    /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
+    gasneti_reghandler(SIGQUIT, SIG_IGN);
+    gasneti_reghandler(SIGUSR1, SIG_IGN);
+    gasneti_reghandler(SIGTERM, SIG_IGN);
+
+    {  /* ensure only one thread ever continues past this point */
+      static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
+      gasneti_mutex_lock(&exit_lock);
+    }
+
+    gasnetc_exit_cleanup();
+    usleep((gasnetc_mynode % 10) * 100000 );
+    /*sleep(1);*/ /* pause to ensure everyone has written trace if this is a collective exit */
+
+#if GASNETC_VERBOSE_EXIT
+    fprintf(stderr,">> GASNET_EXIT[%d]: reset sigusr1 and sigquit handlers\n",gasnetc_mynode);
+    fflush(stderr);
+#endif
+
+    if (got_exit_signal) {
+	/* async exit, remote thread died and we got here because of that.  Just exit */
+#if GASNETC_VERBOSE_EXIT
+	fprintf(stderr,">> GASNET_EXIT[%d]: async exit\n",gasnetc_mynode);
+	fflush(stderr);
+#endif
+
+	/* NOTE: LAPI hangs if we call LAPI_Term() here... just exit */
+	_exit(exitcode);
+	
+    } else {
+	/* synchronous exit */
+	/* We are the first task to enter gasnet_exit... Send AM to all others */
+
+	gasnet_node_t node;
+	lapi_cntr_t cntr;
+
+	/* Set got_exit_signal locally */
+	got_exit_signal = 1;
+
+#if GASNETC_VERBOSE_EXIT
+	fprintf(stderr,">> GASNET_EXIT[%d]: Sending exit AM to all others\n",gasnetc_mynode);
+	fflush(stderr);
+#endif
+	LAPI_Setcntr(gasnetc_lapi_context,&cntr,0);
+	for (node=0; node < gasnetc_nodes; node++) {
+	    if (node == gasnetc_mynode) continue;
+	    GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, node,
+			       gasnetc_remote_amexit_hh[node],
+			       (void*)&exitcode, sizeof(exitcode), NULL, 0,
+			       NULL, &cntr, NULL));
+	}
+	/* wait for local completion so arg to Amsend does not go out of scope */
+	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&cntr,0,NULL));
+    	    
+#if GASNETC_VERBOSE_EXIT
+	fprintf(stderr,">> GASNET_EXIT[%d]: Finished sending exit AMs\n",gasnetc_mynode);
+	fprintf(stderr,">> GASNET_EXIT[%d]: about to call LAPI_TERM\n",gasnetc_mynode);
+	fflush(stderr);
+#endif
+	
+	GASNETC_LCHECK(LAPI_Term(gasnetc_lapi_context));
+
+#if GASNETC_VERBOSE_EXIT
+	fprintf(stderr,">> GASNET_EXIT[%d]: about to call _exit\n",gasnetc_mynode);
+	fflush(stderr);
+#endif
+
+	_exit(exitcode);
+    }
+
+    /* should never get here */
+    abort();
+}
+
+#elif GASNETC_SIGQUIT_EXIT
+extern void gasnetc_exit(int exitcode) {
+    /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
+    gasneti_reghandler(SIGQUIT, SIG_IGN);
+    gasneti_reghandler(SIGTERM, SIG_IGN);
+
+    {  /* ensure only one thread ever continues past this point */
+      static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
+      gasneti_mutex_lock(&exit_lock);
+    }
+
+    gasnetc_exit_cleanup();
+
+#if GASNETC_VERBOSE_EXIT
+    fprintf(stderr,">> GASNET_EXIT[%d]: reset sigterm and sigquit handlers\n",gasnetc_mynode);
+    fflush(stderr);
+#endif
+
+    if (got_exit_signal) {
+	/* async exit, remote thread died */
+#if GASNETC_VERBOSE_EXIT
+	fprintf(stderr,">> GASNET_EXIT[%d]: async exit\n",gasnetc_mynode);
+	fflush(stderr);
+#endif
+
+	/* NOTE: LAPI hangs if we call LAPI_Term() here... */
+	_exit(0);
+	
+    } else {
+	/* synchronous exit */
+	sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
+#if GASNETC_VERBOSE_EXIT
+	fprintf(stderr,">> GASNET_EXIT[%d]: about to call LAPI_TERM\n",gasnetc_mynode);
+	fflush(stderr);
+#endif
+	GASNETC_LCHECK(LAPI_Term(gasnetc_lapi_context));
+
+#if GASNETC_VERBOSE_EXIT
+	fprintf(stderr,">> GASNET_EXIT[%d]: LAPI_Term called\n",gasnetc_mynode);
+	fflush(stderr);
+#endif
+
+	/* restore default SIGQUIT handler */
+	gasneti_reghandler(SIGQUIT, SIG_DFL);
+#if GASNETC_VERBOSE_EXIT
+	fprintf(stderr,">> GASNET_EXIT[%d]: sync exit, set deflt sigquit and killing\n",gasnetc_mynode);
+	fflush(stderr);
+#endif
+	/* Send myself SIGQUIT, this will cause POE to propogate SIGTERM to other tasks */
+	kill(getpid(),SIGQUIT);
+	
+	_exit(exitcode);
+    }
+
+    /* should never get here */
+    abort();
+}
+
+#else
+/* This was the origional exit code, and it hangs on all but clean, collective exits */
+extern void gasnetc_exit(int exitcode) {
+    /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
+    gasneti_reghandler(SIGQUIT, SIG_IGN);
+
+    {  /* ensure only one thread ever continues past this point */
+      static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
+      gasneti_mutex_lock(&exit_lock);
+    }
+
+#if GASNETC_VERBOSE_EXIT
+	fprintf(stderr,">> GASNET_EXIT[%d]: \n",gasnetc_mynode);
+	fflush(stderr);
+#endif
+
+    gasnetc_exit_cleanup();
+
+    /* orig exit code -- hangs in most error cases */
     sched_yield();
     sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
     /* (###) add code here to terminate the job across all nodes with _exit(exitcode) */
     GASNETC_LCHECK(LAPI_Term(gasnetc_lapi_context));
     _exit(exitcode);
-    
+ 
+    /* should never get here */
     abort();
 }
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
