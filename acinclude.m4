@@ -12,7 +12,7 @@ fi])
 
 AC_DEFUN(GASNET_LIBGCC,[
 AC_REQUIRE([AC_PROG_CC])
-AC_CACHE_CHECK(for libgcc link flags, tc_cv_lib_gcc,
+AC_CACHE_CHECK(for libgcc link flags, gasnet_cv_lib_gcc,
 [if test "$GCC" = yes; then
   #LIBGCC="`$CC -v 2>&1 | sed -n 's:^Reading specs from \(.*\)/specs$:-L\1 -lgcc:p'`"
   LIBGCC="-L`$CC -print-libgcc-file-name | xargs dirname` -lgcc"
@@ -20,19 +20,35 @@ AC_CACHE_CHECK(for libgcc link flags, tc_cv_lib_gcc,
     AC_MSG_ERROR(cannot find libgcc)
   fi
 fi
-tc_cv_lib_gcc="$LIBGCC"])
-LIBGCC="$tc_cv_lib_gcc"
+gasnet_cv_lib_gcc="$LIBGCC"])
+LIBGCC="$gasnet_cv_lib_gcc"
 AC_SUBST(LIBGCC)
 ])
 
 AC_DEFUN(GASNET_ENV_DEFAULT,[
-AC_MSG_CHECKING(for $1 in environment)
-case "$[$1]" in
-  '') [$1]="[$2]"
-      AC_MSG_RESULT([no, defaulting to \"[$2]\"])
-      ;;
-  *)  AC_MSG_RESULT([yes, using \"$[$1]\"]) ;;
-esac
+  AC_MSG_CHECKING(for $1 in environment)
+
+  envval_src="cached"
+  AC_CACHE_VAL(gasnet_cv_envvar_$1, [
+    case "$[$1]" in
+      '') gasnet_cv_envvar_$1="[$2]"
+	  envval_src=default
+	  ;;
+      *)  gasnet_cv_envvar_$1="$[$1]"
+	  envval_src=given
+    esac
+  ])
+
+  [$1]="$gasnet_cv_envvar_$1"
+  case "$envval_src" in
+      'cached')
+	  AC_MSG_RESULT([using cached value \"$[$1]\"]) ;;
+      'default')
+	  AC_MSG_RESULT([no, defaulting to \"$[$1]\"]) ;;
+      'given')
+	  AC_MSG_RESULT([yes, using \"$[$1]\"]) ;;
+      *) AC_MSG_ERROR(_GASNET_ENV_DEFAULT broken)
+  esac
 ])
 
 AC_DEFUN(GASNET_OPTION_HELP,[  --$1 substr([                     ],len($1))$2])
@@ -128,20 +144,28 @@ CXXFLAGS="$oldflags"])
 
 
 AC_DEFUN(GASNET_TRY_CACHE_CHECK,[
-AC_CACHE_CHECK($1, tc_cv_$2,
-AC_TRY_COMPILE([$3], [$4], tc_cv_$2=yes, tc_cv_$2=no))
-if test "$tc_cv_$2" = yes; then
+AC_CACHE_CHECK($1, gasnet_cv_$2,
+AC_TRY_COMPILE([$3], [$4], gasnet_cv_$2=yes, gasnet_cv_$2=no))
+if test "$gasnet_cv_$2" = yes; then
   :
   $5
 fi])
 
 
 AC_DEFUN(GASNET_TRY_CACHE_LINK,[
-AC_CACHE_CHECK($1, tc_cv_$2,
-AC_TRY_LINK([$3], [$4], tc_cv_$2=yes, tc_cv_$2=no))
-if test "$tc_cv_$2" = yes; then
+AC_CACHE_CHECK($1, gasnet_cv_$2,
+AC_TRY_LINK([$3], [$4], gasnet_cv_$2=yes, gasnet_cv_$2=no))
+if test "$gasnet_cv_$2" = yes; then
   :
   $5
+fi])
+
+AC_DEFUN(GASNET_TRY_CACHE_RUN,[
+AC_CACHE_CHECK($1, gasnet_cv_$2,
+AC_TRY_RUN([$3], gasnet_cv_$2=yes, gasnet_cv_$2=no))
+if test "$gasnet_cv_$2" = yes; then
+  :
+  $4
 fi])
 
 

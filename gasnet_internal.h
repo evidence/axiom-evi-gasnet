@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/09/02 23:18:33 $
- * $Revision: 1.13 $
+ *     $Date: 2002/09/07 07:33:40 $
+ * $Revision: 1.14 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -164,7 +164,7 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
 
 size_t gasneti_getSystemPageSize();
 
-#if !defined(CRAYT3E)
+#ifdef HAVE_MMAP
   extern gasnet_seginfo_t gasneti_mmap_segment_search();
   extern void gasneti_mmap_fixed(void *segbase, size_t segsize);
   extern void gasneti_munmap(void *segbase, size_t segsize);

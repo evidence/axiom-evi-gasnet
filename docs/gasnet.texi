@@ -146,9 +146,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/09/04 18:18:33 $
+@subtitle $Date: 2002/09/07 07:33:41 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.10 $ 
+@subtitle $Revision: 1.11 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/09/04 18:18:33 $
-@*$Revision: 1.10 $ 
+@*$Date: 2002/09/07 07:33:41 $
+@*$Revision: 1.11 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.nersc.gov/}
 @HR

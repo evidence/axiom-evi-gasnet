@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/09/02 23:18:33 $
-# $Revision: 1.19 $
+#     $Date: 2002/09/07 07:33:40 $
+# $Revision: 1.20 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.19 $)
+AC_REVISION($Revision: 1.20 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -32,6 +32,7 @@ INSTALL_PREFIX=${prefix}
 AC_SUBST(TOP_SRCDIR)
 AC_SUBST(TOP_BUILDDIR)
 AC_SUBST(INSTALL_PREFIX)
+
 
 ########################################################################
 ##
@@ -138,9 +139,9 @@ AC_SUBST(AR)
 
 ## specific compiler families
 
-GASNET_FAMILY_CACHE_CHECK(C, CC, tc_cv_cc_family)
+GASNET_FAMILY_CACHE_CHECK(C, CC, gasnet_cv_cc_family)
 
-if test "$tc_cv_cc_family" = MIPS; then
+if test "$gasnet_cv_cc_family" = MIPS; then
   # The MIPSPro C compiler has a broken C preprocessor exit code, so we hardwire some choices
   AC_DEFINE(MIPSPRO_COMPILER)
 fi
@@ -150,7 +151,7 @@ fi
 # choose the default CC flags
 #
 
-case "$tc_cv_cc_family" in
+case "$gasnet_cv_cc_family" in
   GNU)  CCOPTFLAGS="-O3" ;;
   Sun)  CCOPTFLAGS="-xO5" ;;
   Cray) CCOPTFLAGS="-O2 -hnomessage=236 -htaskprivate $LIBCM" ;; # DOB: -O3 is unstable on Cray cc
@@ -160,7 +161,7 @@ case "$tc_cv_cc_family" in
   *)    CCOPTFLAGS="-O" ;;
 esac
 
-case "$tc_cv_cc_family" in
+case "$gasnet_cv_cc_family" in
   GNU)  CCDEBUGFLAGS="-g3 -ansi -U__STRICT_ANSI__ -Wall -Wno-unused" ;;
   Cray) CCDEBUGFLAGS="-g -hnomessage=236 -htaskprivate $LIBCM" ;;
   MIPS) CCDEBUGFLAGS="-g -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
@@ -818,6 +819,34 @@ GASNET_TRY_CACHE_CHECK(for sched_yield(), cc_has_sched_yield, [
   sched_yield();
 ],
   AC_SEARCH_LIBS(sched_yield, posix4, AC_DEFINE(HAVE_SCHED_YIELD), AC_MSG_RESULT(entry point not found - disabled)))
+
+#  AC_FUNC_MMAP
+# Check for mmap functionality we actually use
+GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
+  #include <unistd.h>
+  #include <sys/mman.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <fcntl.h>
+  #include <stdio.h>
+  char junk[[16384]];
+  int main() {
+    void *ptr,*ptr2;
+    char filename[[255]];
+    int fd;
+    tmpnam(filename);
+    fd = open(filename, O_RDWR | O_CREAT);
+    if (fd == -1) return 1;
+    if (write(fd, junk, 16384) == -1) return 2;
+    ptr = mmap(0, 16384, (PROT_READ|PROT_WRITE), 
+	MAP_PRIVATE, fd, 0);
+    if (ptr == MAP_FAILED || ptr == NULL) return 3;
+    if (munmap(ptr,16384) != 0) return 4;
+    ptr2 = mmap(ptr, 16384, (PROT_READ|PROT_WRITE), 
+	(MAP_PRIVATE | MAP_FIXED), fd, 0);
+    if (ptr2 == MAP_FAILED || ptr2 == NULL || ptr2 != ptr) return 5;
+    return 0;
+  }],[AC_DEFINE(HAVE_MMAP)])
 
 AC_SUBST(LIBS)
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_fwd.h                   $
- *     $Date: 2002/09/02 23:25:02 $
- * $Revision: 1.4 $
+ *     $Date: 2002/09/07 07:33:44 $
+ * $Revision: 1.5 $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -20,7 +20,12 @@
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 #ifndef GASNET_ALIGNED_SEGMENTS
-#define GASNET_ALIGNED_SEGMENTS   1  /* mpi-conduit supports both aligned and un-aligned */
+  /* mpi-conduit supports both aligned and un-aligned */
+  #ifdef HAVE_MMAP
+    #define GASNET_ALIGNED_SEGMENTS   1  
+  #else
+    #define GASNET_ALIGNED_SEGMENTS   0
+  #endif
 #endif
 
 /*  override default error values to use those defined by AMMPI */

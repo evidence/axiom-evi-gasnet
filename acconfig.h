@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/07/04 02:40:20 $ */
-/*  $Revision: 1.6 $ */
+/*      $Date: 2002/09/07 07:33:40 $ */
+/*  $Revision: 1.7 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 
@@ -20,6 +20,9 @@
 
 /* Variable sized stack arrays  */
 #undef VARARRAY_WORKS
+
+/* have mmap() */
+#undef HAVE_MMAP
 
 /* has usleep() */
 #undef HAVE_USLEEP
