@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/11 21:15:31 $
- * $Revision: 1.7 $
+ *     $Date: 2003/08/15 21:18:15 $
+ * $Revision: 1.8 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -990,6 +990,7 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
   return 0;
 }
 
+#if !defined(GASNET_SEGMENT_EVERYTHING)
 /* write a constant pattern to remote memory using a local memset and an RDMA put */
 extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, gasneti_atomic_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
@@ -1027,6 +1028,7 @@ extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, 
 
   return 0;
 }
+#endif /* !defined(GASNET_SEGMENT_EVERYTHING) */
 
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
