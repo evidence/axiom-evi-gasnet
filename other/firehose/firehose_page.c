@@ -1292,8 +1292,9 @@ fhsmp_TryAcquireLocalRegion(firehose_request_t *req, fhi_RegionPool_t *pin_p,
     uintptr_t	end_addr = req->addr + (uintptr_t)req->len - 1;
     fh_bucket_t	*bd;
 
-    FH_TABLE_ASSERT_LOCKED;
     gasnet_node_t node = req->node;
+
+    FH_TABLE_ASSERT_LOCKED;
 
     /*
      * Go through each bucket, and return -1 as soon as we see a pending
@@ -1499,13 +1500,14 @@ fhsmp_PinRemoteNoLog(firehose_request_t *req,
     fh_bucket_t *bd;
     int		 first_pending = 1, new_b;
 
-    FH_TABLE_ASSERT_LOCKED;
     gasnet_node_t node = req->node;
 
     pin_p->buckets_num = 0;
     pin_p->regions_num = 0;
     unpin_p->buckets_num = 0;
     unpin_p->regions_num = 0;
+
+    FH_TABLE_ASSERT_LOCKED;
 
     FH_FOREACH_BUCKET(start, end, bucket_addr) {
 	bd = fh_bucket_lookup(node, bucket_addr);
@@ -2185,7 +2187,6 @@ fh_acquire_remote_region(firehose_request_t *req,
     int n_buckets, n_avail, n_pending, n_avail_old;
     int a = 0;
 
-    FH_TABLE_ASSERT_LOCKED;
     gasnet_node_t   node = req->node;
     uintptr_t	    end_addr = req->addr + req->len - 1;
     uintptr_t	    start_addr = req->addr;
@@ -2193,6 +2194,8 @@ fh_acquire_remote_region(firehose_request_t *req,
 
     fhi_RegionPool_t	     *pin_p = NULL, *unpin_p = NULL;
     fh_completion_callback_t  ccb;
+
+    FH_TABLE_ASSERT_LOCKED;
 
     /* Make sure the size of the region respects the remote limits */
     /* XXX should this check be done in non-assert */
