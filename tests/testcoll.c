@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/02/04 18:48:50 $
- * $Revision: 1.9 $
+ *     $Date: 2005/02/04 19:05:37 $
+ * $Revision: 1.10 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,6 +176,8 @@ void test_NONO(int iters, gasnet_node_t root) {
 	    }
 	}
     }
+
+    BARRIER(); /* final barrier to ensure validation completes before next test */
 }
 
 /*
@@ -259,6 +261,8 @@ void test_MYMY(int iters, gasnet_node_t root) {
 	    }
 	}
     }
+
+    BARRIER(); /* final barrier to ensure validation completes before next test */
 }
 
 /*
@@ -360,6 +364,8 @@ void test_ALLALL(int iters, gasnet_node_t root) {
 	    }
 	}
     }
+
+    BARRIER(); /* final barrier to ensure validation completes before next test */
 }
 
 void test_NB(int iters, gasnet_node_t root) {
@@ -391,6 +397,8 @@ void test_NB(int iters, gasnet_node_t root) {
     }
     test_free(B);
     test_free(h);
+
+    BARRIER(); /* final barrier to ensure validation completes before next test */
 }
 
 int main(int argc, char **argv)
