@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/11/06 02:17:07 $
- * $Revision: 1.28 $
+ *     $Date: 2003/12/01 19:48:17 $
+ * $Revision: 1.29 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -483,7 +483,7 @@ void gasnetc_pre_snd(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sbuf_t *sb
     u_int32_t	sum = 0;
     int i;
 
-    for (i = 0; i < GASNETC_SND_SG; ++i) {
+    for (i = 0; i < req->sr_desc.sg_lst_len; ++i) {
       sum += req->sr_sg[i].len;
       gasneti_assert(req->sr_sg[i].len != 0);
       gasneti_assert(req->sr_sg[i].len <= gasnetc_hca_port.max_msg_sz);
