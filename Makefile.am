@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/07/08 13:00:31 $
-# $Revision: 1.4 $
+#     $Date: 2002/08/19 11:10:27 $
+# $Revision: 1.5 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -18,11 +18,13 @@ configdir = $(includedir)
 config_DATA = $(CONFIG_HEADER)
 
 headers =                 \
-	gasnet.h          \
-	gasnet_basic.h    \
-	gasnet_handler.h  \
-	gasnet_help.h     \
-	gasnet_internal.h
+        gasnet.h          \
+        gasnet_basic.h    \
+        gasnet_handler.h  \
+        gasnet_help.h     \
+        gasnet_internal.h \
+        gasnet_timer.h    \
+	gasnet_trace.h     
 
 EXTRA_DIST =              \
         README            \

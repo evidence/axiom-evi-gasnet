@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/08/18 08:38:46 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/19 11:10:28 $
+ * $Revision: 1.3 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -269,6 +269,10 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
   switch (category) {
     case gasnetc_Short:
       { gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t *)(&(buf->msg)+1);
+        if (GASNETC_MSG_ISREQUEST(msg))
+          GASNETI_TRACE_AMSHORT_REQHANDLER(msg->handlerId, desc, numargs, pargs);
+        else
+          GASNETI_TRACE_AMSHORT_REPHANDLER(msg->handlerId, desc, numargs, pargs);
         RUN_HANDLER_SHORT(handler,desc,pargs,numargs);
       }
     break;
@@ -276,6 +280,10 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
       { gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t *)(&(buf->medmsg)+1);
         int nbytes = buf->medmsg.nBytes;
         void *pdata = (pargs + numargs + GASNETC_MEDHEADER_PADARG(numargs));
+        if (GASNETC_MSG_ISREQUEST(msg))
+          GASNETI_TRACE_AMMEDIUM_REQHANDLER(msg->handlerId, desc, pdata, nbytes, numargs, pargs);
+        else
+          GASNETI_TRACE_AMMEDIUM_REPHANDLER(msg->handlerId, desc, pdata, nbytes, numargs, pargs);
         RUN_HANDLER_MEDIUM(handler,desc,pargs,numargs,pdata,nbytes);
       }
     break;
@@ -283,6 +291,10 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
       { gasnet_handlerarg_t *pargs = (gasnet_handlerarg_t *)(&(buf->longmsg)+1);
         int nbytes = buf->longmsg.nBytes;
         void *pdata = (void *)(buf->longmsg.destLoc);
+        if (GASNETC_MSG_ISREQUEST(msg))
+          GASNETI_TRACE_AMLONG_REQHANDLER(msg->handlerId, desc, pdata, nbytes, numargs, pargs);
+        else
+          GASNETI_TRACE_AMLONG_REPHANDLER(msg->handlerId, desc, pdata, nbytes, numargs, pargs);
         RUN_HANDLER_LONG(handler,desc,pargs,numargs,pdata,nbytes);
       }
     break;
