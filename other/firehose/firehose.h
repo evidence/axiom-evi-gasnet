@@ -440,18 +440,23 @@ firehose_poll(void);
  * or passed to a completion callback, until the time the client calls
  * firehose_release() on the request_t.
  *
- * The firehose_info_t can be described in terms of the union of the
- * local or remote request_t's owned by a client at any given instant.
- * + max_RemotePages - the maximum number of pages pinned by the union
- *   of all the request_t's referencing remote nodes.
- * + max_LocalPages - the maximum number of pages pinned by the union
- *   of all the request_t's referencing the local node.
+ * The region limits in firehose_info_t can be described in terms of the
+ * union of the * local or remote request_t's owned by a client at any
+ * given instant.
  * + max_RemoteRegions - the maximum number of distinct regions
  *   pinned by the union of all the request_t's referencing remote
  *   nodes.
  * + max_LocalRegions - the maximum number of distinct regions pinned
  *   by the union of all the request_t's referencing the local node.
  * If any of these values is zero then that limit is not imposed.
+ *
+ * The pin size limit in firehose_info_t are:
+ * + max_RemotePinSize - the maximum value of the 'len' argument to the
+ *   remote pinning functions firehose_remote_pin(),
+ *   firehose_try_remote_pin() and firehose_partial_remote_pin().
+ * + max_LocalPinSize - the maximum value of the 'len' argument to the
+ *   local pinning functions firehose_local_pin(),
+ *   firehose_try_local_pin() and firehose_partial_local_pin().
  *
  * The client must make progress toward firehose_release() for each
  * request_t it owns, independent of all calls to the firehose_*_pin()
