@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2004/06/25 20:04:22 $
- * $Revision: 1.13 $
+ *     $Date: 2004/08/15 22:01:02 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,6 +22,14 @@
 #define GASNETI_DIRECT_GET_BULK 1
 #define GASNETI_DIRECT_PUT_BULK 1
 #define GASNETI_DIRECT_MEMSET   1
+
+#if GASNETC_FEDBUG_WORKAROUND
+#define GASNETI_DIRECT_WAIT_SYNCNB 1
+#define GASNETI_DIRECT_WAIT_SYNCNB_SOME 1
+#define GASNETI_DIRECT_WAIT_SYNCNB_ALL 1
+#define GASNETI_DIRECT_WAIT_SYNCNBI_PUTS 1 
+#define GASNETI_DIRECT_WAIT_SYNCNBI_ALL 1
+#endif
 
 #define _GASNET_HANDLE_T
 /*  an opaque type representing a non-blocking operation in-progress initiated using the extended API */

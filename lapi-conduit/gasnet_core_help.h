@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_help.h             $
- *     $Date: 2004/07/23 22:36:45 $
- * $Revision: 1.15 $
+ *     $Date: 2004/08/15 22:01:02 $
+ * $Revision: 1.16 $
  * Description: GASNet lapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,6 +30,15 @@ BEGIN_EXTERNC
 #define GASNETC_LAPI_VERSION 2
 #else
 #define GASNETC_LAPI_VERSION 1
+#endif
+
+/* This preprocessor symbol is used to provide workaround
+ * code for bug 717 (on Federation Hardware)
+ */
+#ifdef GASNETC_LAPI_FEDERATION
+#define GASNETC_FEDBUG_WORKAROUND 1
+#else
+#define GASNETC_FEDBUG_WORKAROUND 0
 #endif
 
 /* NOTE: this should be dependent on whether we compile in

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
- *     $Date: 2004/08/11 16:12:54 $
- * $Revision: 1.29 $
+ *     $Date: 2004/08/15 22:01:02 $
+ * $Revision: 1.30 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -428,7 +428,7 @@ extern void gasnete_put_bulk (gasnet_node_t node, void *dest, void *src,
     gasneti_resume_spinpollers();
 
     /* block until all complete */
-    GASNETC_WAITCNTR(&c_cntr,num_put,&cur_cntr);
+    GASNETC_WAITCNTR_FBW(&c_cntr,num_put,&cur_cntr);
     gasneti_assert(cur_cntr == 0);
 }
 
@@ -458,7 +458,7 @@ extern void gasnete_memset(gasnet_node_t node, void *dest, int val,
    
 
     /* block until complete */
-    GASNETC_WAITCNTR(&c_cntr,1,&cur_cntr);
+    GASNETC_WAITCNTR_FBW(&c_cntr,1,&cur_cntr);
     gasneti_assert(cur_cntr == 0);
 }
 
@@ -648,6 +648,52 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
     else return GASNET_ERR_NOT_READY;
 }
 
+#if GASNETC_FEDBUG_WORKAROUND
+extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
+    /* a handle is a pointer: gasnete_op_t* */
+    gasnete_op_t *op = handle;
+    gasnete_eop_t *eop = (gasnete_eop_t*)op;
+    gasneti_assert(OPTYPE(op) == OPTYPE_EXPLICIT);
+    gasneti_assert(OPSTATE(op) != OPSTATE_FREE);
+    gasnete_eop_check(eop);
+    if (eop->initiated_cnt > 0) {
+	int cnt;
+	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt,&cnt));
+	eop->initiated_cnt = 0;
+	gasneti_sync_reads();
+    }
+    gasnete_op_free(handle);
+}
+extern void gasnete_wait_syncnb_some(gasnet_handle_t *phandle, size_t numhandles) {
+    gasneti_assert(phandle);
+
+    { int i;
+    for (i = 0; i < numhandles; i++) {
+	gasnete_op_t *op = phandle[i];
+	if (op != GASNET_INVALID_HANDLE) {
+	    gasnete_wait_syncnb(op);
+	    phandle[i] = GASNET_INVALID_HANDLE;
+	    /* got one, just return */
+	    break;
+	}
+    }
+    }
+}
+extern void gasnete_wait_syncnb_all(gasnet_handle_t *phandle, size_t numhandles) {
+    gasneti_assert(phandle);
+
+    { int i;
+    for (i = 0; i < numhandles; i++) {
+	gasnete_op_t *op = phandle[i];
+	if (op != GASNET_INVALID_HANDLE) {
+	    gasnete_wait_syncnb(op);
+	    phandle[i] = GASNET_INVALID_HANDLE;
+	}
+    }
+    }
+}
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Non-blocking memory-to-memory transfers (implicit handle)
@@ -822,6 +868,34 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
         } else return GASNET_ERR_NOT_READY;
     }
 }
+
+#if GASNETC_FEDBUG_WORKAROUND
+/* don't poll for put operations, polling for gets is ok */
+extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
+    gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+    gasnete_iop_t *iop = mythread->current_iop;
+    int cnt = 0;
+    gasneti_assert(iop->threadidx == mythread->threadidx);
+    gasneti_assert(iop->next == NULL);
+    gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);
+#if GASNET_DEBUG
+    if (iop->next != NULL)
+	gasneti_fatalerror("VIOLATION: attempted to call gasnete_wait_syncnbi_puts() inside an NBI access region");
+#endif
+    if (iop->initiated_put_cnt > 0) {
+	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&cnt));
+	/* note that waitcntr decreemnts counter by amount waited for */
+	gasneti_assert(cnt == 0);
+	iop->initiated_put_cnt = 0;
+	gasneti_sync_reads();
+    } 
+}
+
+extern void gasnete_wait_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
+    gasnete_wait_syncnbi_puts(GASNETE_THREAD_GET_ALONE);
+    gasnete_wait_syncnbi_gets(GASNETE_THREAD_GET_ALONE);
+}
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*

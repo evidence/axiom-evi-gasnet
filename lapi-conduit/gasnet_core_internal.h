@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/08/15 17:38:44 $
- * $Revision: 1.29 $
+ *     $Date: 2004/08/15 22:01:02 $
+ * $Revision: 1.30 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -277,6 +277,16 @@ extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, 
 #else
   #define GASNETC_WAITCNTR(cntr, val, result) \
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context, (cntr), (val), (result)))
+#endif
+
+/* Define a special version of WAITCNTR for selected places in the
+ * code where we know the problem is exhimited
+ */
+#if GASNETC_FEDBUG_WORKAROUND
+    #define GASNETC_WAITCNTR_FBW(cntr, val, result) \
+    GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context, (cntr), (val), (result)))
+#else
+    #define GASNETC_WAITCNTR_FBW(cntr, val, result) GASNETC_WAITCNTR((cntr),(val),(result))
 #endif
 
 /* -------------------------------------------------------------------- */
