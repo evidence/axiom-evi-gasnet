@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.39 2004/08/07 23:10:30 csbell Exp $
- * $Date: 2004/08/07 23:10:30 $
+/* $Id: gasnet_extended_firehose.c,v 1.40 2004/08/13 21:58:48 phargrov Exp $
+ * $Date: 2004/08/13 21:58:48 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,11 +13,11 @@
 
 #ifndef GASNETE_PUT_NON_DMA_CUTOFF
 #define GASNETE_PUT_NON_DMA_CUTOFF	gasnet_AMMaxMedium()
-#warning GASNETE_PUT_NON_DMA_CUTOFF was not defined
+/* GNUism: #warning GASNETE_PUT_NON_DMA_CUTOFF was not defined */
 #endif
 #ifndef GASNETE_GET_NON_DMA_CUTOFF
 #define GASNETE_GET_NON_DMA_CUTOFF	gasnet_AMMaxMedium()
-#warning GASNETE_GET_NON_DMA_CUTOFF was not defined
+/* GNUism: #warning GASNETE_GET_NON_DMA_CUTOFF was not defined */
 #endif
 
 #define GASNETE_FH_HAVE_TOKEN		0
@@ -494,10 +494,10 @@ gasnete_fh_request_get(void *_gop, const firehose_request_t *req,
     #ifndef GASNETC_GM_ENABLE_BROKEN_VERSIONS
       #error GASNet/GM RDMA gets are broken on this GM 2.x version (see gm-conduit README)
     #else
-      #warning GASNet/GM RDMA gets disabled for broken 2.x version by user request
+      /* GNUism: #warning GASNet/GM RDMA gets disabled for broken 2.x version by user request */
     #endif
   #else
-    #warning GASNet/GM RDMA gets not available in GM 1.x series
+    /* GNUism: #warning GASNet/GM RDMA gets not available in GM 1.x series */
   #endif
 /*
  * AM Handler: Reply to get into a pinned memory location
