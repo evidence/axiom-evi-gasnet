@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Attic/mpi-par.mak.in,v 1.3 2002/12/19 18:35:53 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Attic/mpi-par.mak.in,v 1.4 2003/01/28 15:58:11 bonachea Exp $
 # Description: Makefile fragment for GASNet MPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -37,7 +37,7 @@ GASNET_CFLAGS = @CFLAGS@ -DGASNET_PAR $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@
 GASNET_LD = @MPI_CC@
 
 # linker flags that GASNet clients should use 
-GASNET_LDFLAGS = @MPI_CFLAGS@
+GASNET_LDFLAGS = @MPI_CFLAGS@ @LDFLAGS@
 
 # libraries that GASNet clients should append to link line
 GASNET_LIBS =            \

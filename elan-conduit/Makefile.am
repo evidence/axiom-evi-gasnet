@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.8 2003/01/27 14:54:37 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.9 2003/01/28 15:58:07 bonachea Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt 
@@ -49,9 +49,9 @@ libgasnet_objects =      \
       gasnet_core_reqrep.o
 
 if HAVE_PTHREAD
-  threaded_libraries = libgasnet-elan-par.a libgasnet-elan-parsync.a
-  libgasnet_elan_par_a_SOURCES =
-  libgasnet_elan_parsync_a_SOURCES =
+threaded_libraries = libgasnet-elan-par.a libgasnet-elan-parsync.a
+libgasnet_elan_par_a_SOURCES =
+libgasnet_elan_parsync_a_SOURCES =
 endif
 libraries = libgasnet-elan-seq.a $(threaded_libraries)
 libgasnet_elan_seq_a_SOURCES =

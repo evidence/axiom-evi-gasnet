@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.17 2003/01/28 05:51:28 csbell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.18 2003/01/28 15:58:08 bonachea Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -50,9 +50,9 @@ libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o \
 		    gasnet_core_firehose.o
 
 if HAVE_PTHREAD
-  threaded_libraries = libgasnet-gm-par.a libgasnet-gm-parsync.a
-  libgasnet_gm_par_a_SOURCES =
-  libgasnet_gm_parsync_a_SOURCES =
+threaded_libraries = libgasnet-gm-par.a libgasnet-gm-parsync.a
+libgasnet_gm_par_a_SOURCES =
+libgasnet_gm_parsync_a_SOURCES =
 endif
 libraries = libgasnet-gm-seq.a $(threaded_libraries)
 libgasnet_gm_seq_a_SOURCES =

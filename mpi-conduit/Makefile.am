@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.8 2003/01/27 14:54:42 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.9 2003/01/28 15:58:11 bonachea Exp $
 # Description: Makefile for GASNet MPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -36,9 +36,9 @@ libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
 
 if HAVE_PTHREAD
-  threaded_libraries = libgasnet-mpi-par.a libgasnet-mpi-parsync.a
-  libgasnet_mpi_par_a_SOURCES =
-  libgasnet_mpi_parsync_a_SOURCES =
+threaded_libraries = libgasnet-mpi-par.a libgasnet-mpi-parsync.a
+libgasnet_mpi_par_a_SOURCES =
+libgasnet_mpi_parsync_a_SOURCES =
 endif
 libraries = libgasnet-mpi-seq.a $(threaded_libraries)
 libgasnet_mpi_seq_a_SOURCES =
