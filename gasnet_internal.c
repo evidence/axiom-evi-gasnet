@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/05/02 08:05:11 $
- * $Revision: 1.51 $
+ *     $Date: 2004/05/05 10:59:50 $
+ * $Revision: 1.52 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -146,10 +146,11 @@ extern void gasneti_killmyprocess(int exitcode) {
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
-/* return the physical count of CPU's on this node, if that can be determined */
+/* return the physical count of CPU's on this node, 
+   or zero if that cannot be determined */
 extern int gasneti_cpu_count() {
-  static int hwprocs = 0;
-  if (hwprocs > 0) return hwprocs;
+  static int hwprocs = -1;
+  if (hwprocs >= 0) return hwprocs;
 
   #if defined(__APPLE__)
       {
@@ -163,16 +164,16 @@ extern int gasneti_cpu_count() {
            perror("sysctl");
            abort();
         }
-        if (hwprocs < 1) hwprocs = 1;
+        if (hwprocs < 1) hwprocs = 0;
       }
   #elif defined(HPUX) || defined(SUPERUX)
-      hwprocs = 1; /* appears to be no way to query CPU count on HPUX or SuperUX */
+      hwprocs = 0; /* appears to be no way to query CPU count on HPUX or SuperUX */
   #else
       hwprocs = sysconf(_SC_NPROCESSORS_ONLN);
-      if (hwprocs < 1) hwprocs = 1; /* catch failures on Solaris/Cygwin */
+      if (hwprocs < 1) hwprocs = 0; /* catch failures on Solaris/Cygwin */
   #endif
 
-  gasneti_assert_always(hwprocs >= 1);
+  gasneti_assert_always(hwprocs >= 0);
   return hwprocs;
 }
 /* ------------------------------------------------------------------------------------ */
