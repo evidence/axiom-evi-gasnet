@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2002/10/26 08:31:21 $
- * $Revision: 1.4 $
+ *     $Date: 2002/10/31 00:40:41 $
+ * $Revision: 1.5 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -371,7 +371,7 @@ extern void gasneti_trace_init();
 extern void gasneti_trace_finish();
 
 /* defines all the types */
-#define GASNETI_ALLTYPES "GPSBLACD"
+#define GASNETI_ALLTYPES "GPSBLAICD"
 
 
 /* GASNETI_ALL_STATS lists all the statistics values we gather, 
@@ -387,6 +387,13 @@ extern void gasneti_trace_finish();
         VAL(G, GET_NBI_BULK, sz)                          \
         VAL(G, GET_VAL, sz)                               \
                                                           \
+        VAL(G, GET_NB_LOCAL, sz)                          \
+        VAL(G, GET_NB_BULK_LOCAL, sz)                     \
+        VAL(G, GET_NB_VAL_LOCAL, sz)                      \
+        VAL(G, GET_NBI_LOCAL, sz)                         \
+        VAL(G, GET_NBI_BULK_LOCAL, sz)                    \
+        VAL(G, GET_VAL_LOCAL, sz)                         \
+                                                          \
         VAL(P, PUT, sz)                                   \
         VAL(P, PUT_BULK, sz)                              \
         VAL(P, PUT_NB, sz)                                \
@@ -399,6 +406,16 @@ extern void gasneti_trace_finish();
         VAL(P, MEMSET, sz)                                \
         VAL(P, MEMSET_NB, sz)                             \
         VAL(P, MEMSET_NBI, sz)                            \
+                                                          \
+        VAL(P, PUT_NB_LOCAL, sz)                          \
+        VAL(P, PUT_NB_BULK_LOCAL, sz)                     \
+        VAL(P, PUT_NB_VAL_LOCAL, sz)                      \
+        VAL(P, PUT_NBI_LOCAL, sz)                         \
+        VAL(P, PUT_NBI_BULK_LOCAL, sz)                    \
+        VAL(P, PUT_NBI_VAL_LOCAL, sz)                     \
+        VAL(P, PUT_VAL_LOCAL, sz)                         \
+        VAL(P, MEMSET_NB_LOCAL, sz)                       \
+        VAL(P, MEMSET_NBI_LOCAL, sz)                      \
                                                           \
         VAL(S, TRY_SYNCNB, success)                       \
         VAL(S, TRY_SYNCNB_ALL, success)                   \
