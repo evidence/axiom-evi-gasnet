@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/09/23 23:07:49 $
-# $Revision: 1.22 $
+#     $Date: 2004/09/30 21:32:37 $
+# $Revision: 1.23 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -187,8 +187,9 @@ sub parse_tracefile
 {
     
     open (TRACEFILE, $_[0]) or die "Could not open $_[0]: $!\n";
-    print STDERR "Parsing tracefile for $_[0]..";
+    print STDERR "Parsing tracefile for $_[0]..  0%";
     
+    my $file_size = (stat($_[0]))[7];
     # FILTERS for reports and types
     my %filters, my %reports;
     foreach my $filter (split /,/, $opt_filter) {
@@ -222,7 +223,11 @@ sub parse_tracefile
 	my ($thread, $src, $pgb, $type, $sz);
 	$counter++;
 	if ($counter > 100000) {
-	    print STDERR ".";
+	    my $percentage = int (tell(TRACEFILE) * 100 / $file_size);
+	    if ($percentage >= 10) {
+	    	print STDERR "\b";
+	    } 
+	    print STDERR "\b\b$percentage%";
 	    $counter = 0;
 	}
 	if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(PUT|GET|BARRIER)(.*):\D+(\d+)/) { 
@@ -245,7 +250,7 @@ sub parse_tracefile
 	push @{$data{$pgb}{$src}{$type}{$thread}}, $sz;	
     }
     
-    print STDERR "\n";
+    print STDERR "\b\b\bdone\n";
 }
 
 
@@ -297,6 +302,7 @@ sub src_line
 #######################
 sub convert_report 
 {
+    print STDERR "Generating reports..\n";
     foreach my $pgb (keys %data) {
     	foreach my $line (keys %{$data{$pgb}}) {
     	    foreach my $type (keys %{$data{$pgb}{$line}}) {
