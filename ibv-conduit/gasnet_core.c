@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/03/10 17:19:45 $
- * $Revision: 1.75 $
+ *     $Date: 2005/03/11 19:59:18 $
+ * $Revision: 1.76 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,6 +53,13 @@ GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_COR
 
 /* Limit on prepinned send bounce buffers */
 #define GASNETC_DEFAULT_BBUF_LIMIT	1024	/* Max bounce buffers prepinned */
+
+/* Use of rcv thread */
+#ifndef GASNETC_DEFAULT_RCV_THREAD
+  #define GASNETC_DEFAULT_RCV_THREAD	GASNETC_VAPI_RCV_THREAD
+#elif GASNETC_DEFAULT_RCV_THREAD && !GASNETC_VAPI_RCV_THREAD
+  #error "GASNETC_DEFAULT_RCV_THREAD and GASNETC_VAPI_RCV_THREAD conflict"
+#endif
 
 /*
   These calues cannot yet be overridden by environment variables.
@@ -340,9 +347,10 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_OUST_PP, GASNETC_DEFAULT_AM_OUST_PP, 1);
   GASNETC_ENVINT(gasnetc_am_spares, GASNET_AM_SPARES, GASNETC_DEFAULT_AM_SPARES, 1);
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_LIMIT, GASNETC_DEFAULT_BBUF_LIMIT, 1);
-#if GASNETC_VAPI_RCV_THREAD
-  GASNETC_ENVINT(gasnetc_use_rcv_thread, GASNET_RCV_THREAD, 1, 0); /* Bug 1012 - right default? */
-#endif
+  gasnetc_use_rcv_thread = gasneti_getenv_yesno_withdefault("GASNET_RCV_THREAD", GASNETC_DEFAULT_RCV_THREAD); /* Bug 1012 - right default? */
+  if (gasnetc_use_rcv_thread && !GASNETC_VAPI_RCV_THREAD) {
+    gasneti_fatalerror("VAPI AM receive thread enabled by environment variable GASNET_RCV_THREAD, but was disabled at GASNet build time");
+  }
 
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_VAPI_RCV_THREAD)",
