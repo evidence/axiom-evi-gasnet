@@ -2,4 +2,4 @@
 
 AUTOMAKE_OPTIONS = foreign
 
-EXTRA_DIST = config.guess config.sub install-sh missing mkinstalldirs
+EXTRA_DIST = config.guess config.sub depcomp install-sh missing mkinstalldirs
