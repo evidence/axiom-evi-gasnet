@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.54 2004/03/18 03:48:50 csbell Exp $
- * $Date: 2004/03/18 03:48:50 $
+/* $Id: gasnet_core.c,v 1.55 2004/03/21 21:11:03 csbell Exp $
+ * $Date: 2004/03/21 21:11:03 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1224,8 +1224,6 @@ extern int gasnetc_AMRequestMediumM(
   if_pf (dest >= gasnetc_nodes)
 	  gasneti_fatalerror("node index too high, dest (%d) >= gasnetc_nodes (%d)\n",
 	    dest, gasnetc_nodes);
-  if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
   GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
