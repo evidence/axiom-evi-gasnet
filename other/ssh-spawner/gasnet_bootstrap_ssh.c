@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/15 04:58:01 $
- * $Revision: 1.16 $
+ *     $Date: 2005/01/18 22:25:10 $
+ * $Revision: 1.17 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -459,7 +459,7 @@ static int options_helper(char **list, const char *string, const char *where)
     if (list) {
       gasneti_assert((uintptr_t)(p-tmp) < sizeof(tmp));
       *p = '\0';
-      list[count] = strdup(tmp);
+      list[count] = gasneti_strdup(tmp);
     }
     ++count;
   }
@@ -571,7 +571,7 @@ static char ** parse_servers(const char *list) {
     p = string;
     string += strcspn(string, delims);
     if (*string) *(string++) = '\0';
-    result[i] = strdup(p);
+    result[i] = gasneti_strdup(p);
     BOOTSTRAP_VERBOSE(("\t'%s'\n", result[i]));
   }
   gasneti_free(alloc);
