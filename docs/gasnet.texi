@@ -40,7 +40,7 @@
 @c ------------------------------------------------------------------------------------
 @c Macros:
 
-@set VERSION 1.2
+@set VERSION 1.3pre
 @set RELEASEDATE January 29th, 2003
 
 @ifnottex
@@ -147,9 +147,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2003/01/29 19:31:26 $
+@subtitle $Date: 2003/02/15 11:25:01 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.18 $ 
+@subtitle $Revision: 1.19 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2003/01/29 19:31:26 $
-@*$Revision: 1.18 $ 
+@*$Date: 2003/02/15 11:25:01 $
+@*$Revision: 1.19 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.lbl.gov/}
 @HR
@@ -1024,7 +1024,9 @@ The message also carries a data payload copied from the local node's memory
 space as indicated by @var{source_addr} and @var{nbytes}
 (which need not fall within the registered data segment on the local node). 
 The value of @var{nbytes} must be no larger than the value returned by 
-@code{gasnet_AMMaxMedium()}.
+@code{gasnet_AMMaxMedium()}, and is permitted to be zero (in which case
+@var{source_addr} is ignored and the @var{buf} value passed to the handler
+is undefined).
 
 @code{gasnet_AMRequestMediumM} returns control to the calling thread of computation 
 after sending the associated request, and the source memory may be freely 
@@ -1050,7 +1052,9 @@ The message also carries a data payload copied from the local node's memory
 space as indicated by @var{source_addr} and @var{nbytes}
 (which need not fall within the registered data segment on the local node). 
 The value of nbytes must be no larger than the value returned by 
-@code{gasnet_AMMaxLongRequest()}.
+@code{gasnet_AMMaxLongRequest()}, and is permitted to be zero (in which case
+@var{source_addr} is ignored and the @var{buf} value passed to the handler
+is undefined).
 The memory specified by [@var{dest_addr}...(@var{dest_addr}+@var{nbytes}-1)] must fall 
 entirely within the memory segment registered for remote access by the 
 destination node. This area will receive the data transfer before the handler runs.
@@ -1071,8 +1075,9 @@ Returns @code{GASNET_OK} on success.
 @deftypefn {} {int} gasnet_AMRequestLongAsyncM ( gasnet_node_t @var{dest}, gasnet_handler_t @var{handler}, @w{void *}@var{source_addr}, size_t @var{nbytes}, void *@var{dest_addr}, gasnet_handlerarg_t @var{arg0}, ..., gasnet_handlerarg_t @var{argM-1} ); 
 
 @code{gasnet_AMRequestLongAsyncM()} has identical semantics to 
-@code{gasnet_AMRequestLongM()}, except that the data payload source memory must NOT 
-be modified until the matching reply handler has executed. 
+@code{gasnet_AMRequestLongM()}, except that the handler is required to send an AM reply
+and the data payload source memory must NOT be modified until this matching 
+reply handler has begun execution. 
 Some implementations may leverage this additional constraint to provide 
 higher performance (e.g. by reducing extra data copying).
 @end deftypefn
@@ -1114,7 +1119,9 @@ the given M arguments and given data payload copied from the local node's
 memory space (@var{source_addr} need not fall within the registered data segment 
 on the local node). 
 The value of @var{nbytes} must be no larger than the value returned by 
-@code{gasnet_AMMaxMedium()}.
+@code{gasnet_AMMaxMedium()}, and is permitted to be zero (in which case
+@var{source_addr} is ignored and the @var{buf} value passed to the handler
+is undefined).
 @code{gasnet_AMReplyMediumM} returns control to the calling thread of computation 
 after sending the associated reply, and the source memory may be freely 
 modified once the function returns. The active message is logically 
@@ -1137,7 +1144,9 @@ the given M arguments and given data payload copied from the local node's
 memory space (@var{source_addr} need not fall within the registered data segment 
 on the local node). 
 The value of @var{nbytes} must be no larger than the value returned by 
-@code{gasnet_AMMaxLongReply()}.
+@code{gasnet_AMMaxLongReply()}, and is permitted to be zero (in which case
+@var{source_addr} is ignored and the @var{buf} value passed to the handler
+is undefined).
 The memory specified by [@var{dest_addr}...(@var{dest_addr}+@var{nbytes}-1)] must fall 
 entirely within the memory segment registered for remote access by the 
 destination node.
@@ -1187,7 +1196,7 @@ will be evaluated by the macro one or more times as active messages arrive
 until the condition evaluates to a non-zero value. @var{cond} is an expression 
 whose value is altered by the execution of an AM handler which the client 
 thread is waiting for - GASNet may safely assume that the value of @var{cond} will 
-only change while an AM handler is executing. 
+only change while an AM handler is executing.
 
 Example usage:
 @lisp
@@ -1204,7 +1213,15 @@ forever:
  GASNET_BLOCKUNTIL(doneflag == 1);       gasnet_put_val(0, &doneflag, 1, sizeof(int));
 @end lisp
 because @code{gasnet_put_val} (and other extended API functions) might not be 
-implemented using AM handlers.
+implemented using AM handlers.  Also note that @var{cond} may be evaluated
+concurrently with handler execution, so the client is responsible for negotiating
+any atomicity concerns between the cond expression and handlers (for example, protecting
+both with a handler-safe lock if the @var{cond} expression reads two or more values which are all
+updated by handlers). Finally, note that unsynchronized handler code which modifies 
+one or more locations and then performs a flag write to signal a different thread 
+may need to execute a local memory barrier before the flag write to ensure correct 
+ordering on non-sequentially-consistent SMP hardware.
+
 
 @IMPNOTE{
 @item one trivial implementation:  
