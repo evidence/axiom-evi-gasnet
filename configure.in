@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/31 14:18:04 $
-# $Revision: 1.129 $
+#     $Date: 2004/04/05 07:28:34 $
+# $Revision: 1.130 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.129 $)
+AC_REVISION($Revision: 1.130 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -604,7 +604,7 @@ AC_SUBST(CONDUITS)
 # reporting file output at completion
 CONDUIT_LIST=conduits.tmp
 echo > $CONDUIT_LIST
-AC_DEFUN(CONDUIT_REPORT,[echo "  CONDUIT_DESC m4_substr([                                                  ],len(CONDUIT_DESC))$1" >> $CONDUIT_LIST])
+AC_DEFUN([CONDUIT_REPORT],[echo "  CONDUIT_DESC m4_substr([                                                  ],len(CONDUIT_DESC))$1" >> $CONDUIT_LIST])
 echo " Portable conduits:" >> $CONDUIT_LIST
 echo " -----------------" >> $CONDUIT_LIST
 
