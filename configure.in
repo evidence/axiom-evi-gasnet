@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/09 21:50:52 $
-# $Revision: 1.112 $
+#     $Date: 2004/03/09 22:16:55 $
+# $Revision: 1.113 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.112 $)
+AC_REVISION($Revision: 1.113 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1149,8 +1149,16 @@ AC_SUBST(ALLOCA_IN_C)
 
 # -lm should only live in LIBM, and only if we have it (not in LIBS)
 OLDLIBS="$LIBS"
-# sin should be in everyone's libm if they've got one.
-AC_CHECK_LIB(m, sin, LIBM="-lm", LIBM="")
+case "$target_os" in
+  darwin*)
+    # libm is just an alias for the system default lib
+    # Naming it explicitly causes linker failures when linking w/ mpich
+  ;;
+  *)
+    # sin should be in everyone's libm if they've got one.
+    AC_CHECK_LIB(m, sin, LIBM="-lm", LIBM="")
+  ;;
+esac
 AC_SUBST(LIBS)
 AC_SUBST(LIBM)
 
@@ -1373,7 +1381,7 @@ AC_SUBST(RANLIB)
 
 ########################################################################
 
-# complete sp2 setup
+# complete linker setup
 
 case "$target_os" in
   aix*)
@@ -1388,6 +1396,13 @@ case "$target_os" in
     #               only be one segment left for mmap and shared memory segments
     #               and GASNET allocs shared mem region using mmap.
     # LDFLAGS="$LDFLAGS -Wl,-bmaxdata:0x80000000"
+  ;;
+
+  darwin*)
+    # Darwin linker complains about symbols defined in multiple dynamic libs.
+    # This is a minor annoyance in some cases, however it becomes a fatal error
+    # when linking with the mpich libs.
+    LDFLAGS="$LDFLAGS -multiply_defined suppress"
   ;;
 esac
 AC_SUBST(LDFLAGS)
