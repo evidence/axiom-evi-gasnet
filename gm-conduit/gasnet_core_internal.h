@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.52 2003/11/13 12:24:21 csbell Exp $
- * $Date: 2003/11/13 12:24:21 $
- * $Revision: 1.52 $
+/* $Id: gasnet_core_internal.h,v 1.53 2004/01/05 16:20:01 bonachea Exp $
+ * $Date: 2004/01/05 16:20:01 $
+ * $Revision: 1.53 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -113,7 +113,7 @@ void	gasnetc_bootstrapBarrier();
 void	gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
 
 /* GM Callback functions */
-void	gasnetc_callback_error(gm_status_t status, char *msg);
+void	gasnetc_callback_error(gm_status_t status, const char *msg);
 
 void	gasnetc_callback_system      (struct gm_port *, void *, gm_status_t);
 void	gasnetc_callback_ambuffer    (struct gm_port *, void *, gm_status_t);

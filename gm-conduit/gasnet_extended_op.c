@@ -1,6 +1,6 @@
-/* $Id: gasnet_extended_op.c,v 1.7 2004/01/05 05:01:14 bonachea Exp $
- * $Date: 2004/01/05 05:01:14 $
- * $Revision: 1.7 $
+/* $Id: gasnet_extended_op.c,v 1.8 2004/01/05 16:20:01 bonachea Exp $
+ * $Date: 2004/01/05 16:20:01 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -16,6 +16,7 @@
   Op management
   =============
 */
+extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 /*  get a new op and mark it in flight */
 gasnete_eop_t *
 gasnete_eop_new(gasnete_threaddata_t * const thread)

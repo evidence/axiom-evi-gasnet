@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2004/01/05 05:01:14 $
- * $Revision: 1.16 $
+ *     $Date: 2004/01/05 16:20:01 $
+ * $Revision: 1.17 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -191,6 +191,7 @@ void		gasnete_op_free(gasnete_op_t *op);
     if (_temp <= 65000) /* prevent race condition on reset */ \
       gasneti_assert((iop)->initiated_get_cnt >= _temp);      \
   } while (0)
+  extern int gasnete_numthreads;
   extern void _gasnete_iop_check(gasnete_iop_t *iop);
 #else
   #define gasnete_eop_check(eop)   ((void)0)

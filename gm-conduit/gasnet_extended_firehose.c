@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.28 2003/10/24 01:37:32 bonachea Exp $
- * $Date: 2003/10/24 01:37:32 $
+/* $Id: gasnet_extended_firehose.c,v 1.29 2004/01/05 16:20:01 bonachea Exp $
+ * $Date: 2004/01/05 16:20:01 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -113,7 +113,7 @@ gasnete_fh_callback_put(struct gm_port *p, void *context,
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose decrement remote refcount for (%p,%d) on node %d (op=%p,%p,%d)\n",
 	     (void *) pop->dest, pop->len, (unsigned) pop->req_remote.node, 
-	     (void *) pop, pop->req_remote.addr, pop->req_remote.len));
+	     (void *) pop, (void *)pop->req_remote.addr, pop->req_remote.len));
 
 	fhreqs[0] = &(pop->req_remote);
 

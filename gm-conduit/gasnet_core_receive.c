@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.33 2003/11/03 19:45:31 csbell Exp $
- * $Date: 2003/11/03 19:45:31 $
- * $Revision: 1.33 $
+/* $Id: gasnet_core_receive.c,v 1.34 2004/01/05 16:20:01 bonachea Exp $
+ * $Date: 2004/01/05 16:20:01 $
+ * $Revision: 1.34 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -380,7 +380,7 @@ gasnetc_process_AMSystem(gasnetc_bufdesc_t *bufd)
  * mpich code
  */
 void
-gasnetc_callback_error(gm_status_t status, char *dest_msg)
+gasnetc_callback_error(gm_status_t status, const char *dest_msg)
 {
 	char reason[128];
 
