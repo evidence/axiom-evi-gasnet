@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/24 23:33:10 $
-# $Revision: 1.230 $
+#     $Date: 2005/02/25 22:04:53 $
+# $Revision: 1.231 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.230 $)
+AC_REVISION($Revision: 1.231 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1890,6 +1890,12 @@ case "$target_os" in
       atomic_t v;
       atomic_set(&v,5);
       atomic_inc(&v);
+      #ifdef cmpxchg /* cmpxchg may fail to link when optimizations are disabled */
+      do {
+        volatile int x = 1;
+        cmpxchg(&x, 1, 2);
+      } while (0);
+      #endif
     ], AC_MSG_RESULT(ok), 
     [ AC_MSG_RESULT(broken) 
       AC_DEFINE(BROKEN_LINUX_ASM_ATOMIC_H)
