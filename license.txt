@@ -23,7 +23,10 @@
  * PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS."
  * ---------------------------------------------------------------------------
  *
- * The authors include:
+ * Please see the license.txt files within the gm-conduit and lapi-conduit 
+ * directories for the licensing terms governing those contributed components.
+ *
+ * The authors/contributors of GASNet include:
  *
  *  Dan Bonachea <bonachea@cs.berkeley.edu>:
  *    General infrastructure & documentation
