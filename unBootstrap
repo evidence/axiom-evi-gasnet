@@ -15,10 +15,13 @@ rm -f Makefile.in              \
       config-aux/Makefile      \
       elan-conduit/Makefile.in \
       gm-conduit/Makefile.in   \
+      gm-conduit/contrib/Makefile.in   \
       lapi-conduit/Makefile.in \
       mpi-conduit/Makefile.in  \
+      mpi-conduit/contrib/Makefile.in   \
       smp-conduit/Makefile.in  \
       vapi-conduit/Makefile.in \
+      vapi-conduit/contrib/Makefile.in   \
       other/Makefile.in        \
       other/ammpi/Makefile.in  \
       tests/Makefile

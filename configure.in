@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/11/08 23:34:16 $
-# $Revision: 1.89 $
+#     $Date: 2003/11/09 00:53:41 $
+# $Revision: 1.90 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.89 $)
+AC_REVISION($Revision: 1.90 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1229,6 +1229,8 @@ AC_SUBST_FILE(PERLSTART)
 GASNET_SAVE_AUTOCONF_ENV()
 
 GASNET_FIX_EXEC(gm-conduit/contrib/gasnetrun_gm)
+GASNET_FIX_EXEC(mpi-conduit/contrib/gasnetrun_mpi)
+GASNET_FIX_EXEC(vapi-conduit/contrib/gasnetrun_vapi)
 
 # Files added here should also be added to ./unBootstrap
 
@@ -1239,6 +1241,8 @@ mpi-conduit/Makefile
 mpi-conduit/mpi-seq.mak
 mpi-conduit/mpi-parsync.mak
 mpi-conduit/mpi-par.mak
+mpi-conduit/contrib/Makefile
+mpi-conduit/contrib/gasnetrun_mpi
 
 gm-conduit/Makefile
 gm-conduit/gm-seq.mak
@@ -1266,6 +1270,8 @@ vapi-conduit/Makefile
 vapi-conduit/vapi-seq.mak
 vapi-conduit/vapi-parsync.mak
 vapi-conduit/vapi-par.mak
+vapi-conduit/contrib/Makefile
+vapi-conduit/contrib/gasnetrun_vapi
 
 other/Makefile
 other/ammpi/Makefile
