@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/09/13 17:17:52 $
- * $Revision: 1.35 $
+ *     $Date: 2003/10/11 13:10:02 $
+ * $Revision: 1.36 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,7 +37,7 @@ ep_t gasnetc_endpoint;
 
 gasneti_mutex_t gasnetc_AMlock = GASNETI_MUTEX_INITIALIZER; /*  protect access to AMMPI */
 
-#ifdef GASNETC_HSL_ERRCHECK
+#if GASNETC_HSL_ERRCHECK
   extern void gasnetc_enteringHandler_hook();
   extern void gasnetc_leavingHandler_hook();
 
@@ -324,7 +324,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       retval = AM_SetSeg(gasnetc_endpoint, segbase, segsize);
       if (retval != AM_OK) INITERR(RESOURCE, "AM_SetSeg() failed");
     }
-    #ifdef GASNETC_HSL_ERRCHECK
+    #if GASNETC_HSL_ERRCHECK
       GASNETI_AM_SAFE(AMMPI_SetHandlerCallbacks(gasnetc_endpoint,
         gasnetc_enteringHandler_hook, gasnetc_leavingHandler_hook));
     #endif
@@ -602,7 +602,10 @@ extern int gasnetc_AMReplyLongM(
    handler-safe locks to assist in debugging client code
  */
 
-#ifdef GASNETC_HSL_ERRCHECK
+#if GASNETC_USE_INTERRUPTS 
+  #error Interrupts not implemented
+#endif
+#if GASNETC_HSL_ERRCHECK
   typedef struct { /* per-thread HSL err-checking info */
     gasnet_hsl_t *locksheld;
     int interruptsdisabled;
@@ -611,7 +614,7 @@ extern int gasnetc_AMReplyLongM(
   } gasnetc_hsl_errcheckinfo_t;
   static gasnetc_hsl_errcheckinfo_t _info_init = { NULL, 0, 0 };
 
-  #ifdef GASNETI_THREADS
+  #ifdef GASNETI_CLIENT_THREADS
     static pthread_key_t gasnetc_hsl_errcheckinfo; /*  pthread thread-specific ptr to our info (or NULL for a thread never-seen before) */
     static int gasnetc_hsl_errcheckinfo_firsttime = 1;
     static gasnetc_hsl_errcheckinfo_t *gasnetc_get_errcheckinfo() {
@@ -714,9 +717,10 @@ extern int gasnetc_AMReplyLongM(
   ==================
 */
 
+#if !GASNETC_NULL_HSL
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
   GASNETI_CHECKATTACH();
-  #ifdef GASNETC_HSL_ERRCHECK
+  #if GASNETC_HSL_ERRCHECK
   {
     if (hsl->tag == GASNETC_HSL_ERRCHECK_TAGINIT)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to gasnet_hsl_init() a statically-initialized HSL");
@@ -730,17 +734,13 @@ extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
     hsl->islocked = 0;
   }
   #endif
-  #ifdef GASNETI_THREADS
-  { int retval = pthread_mutex_init(&(hsl->lock), NULL);
-    if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_init(), pthread_mutex_init()=%s",strerror(retval));
-  }
-  #endif
+
+  gasneti_mutex_init(&(hsl->lock));
 }
 
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
   GASNETI_CHECKATTACH();
-  #ifdef GASNETC_HSL_ERRCHECK
+  #if GASNETC_HSL_ERRCHECK
   {
     if (hsl->tag != GASNETC_HSL_ERRCHECK_TAGINIT && hsl->tag != GASNETC_HSL_ERRCHECK_TAGDYN)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to gasnet_hsl_destroy() an uninitialized HSL");
@@ -750,17 +750,13 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
     assert(!hsl->next);
   }
   #endif
-  #ifdef GASNETI_THREADS
-  { int retval = pthread_mutex_destroy(&(hsl->lock));
-    if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_destroy(), pthread_mutex_destroy()=%s",strerror(retval));
-  }
-  #endif
+
+  gasneti_mutex_destroy(&(hsl->lock));
 }
 
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
   GASNETI_CHECKATTACH();
-  #ifdef GASNETC_HSL_ERRCHECK
+  #if GASNETC_HSL_ERRCHECK
   { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
     gasnet_hsl_t *heldhsl = info->locksheld;
     if (hsl->tag != GASNETC_HSL_ERRCHECK_TAGINIT && hsl->tag != GASNETC_HSL_ERRCHECK_TAGDYN)
@@ -773,32 +769,22 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
   }
   #endif
 
-  #ifdef GASNETI_THREADS
   { int retval; 
     #if defined(STATS) || defined(TRACE)
       gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
     #endif
     #if GASNETC_HSL_SPINLOCK
-      do {
-        retval = pthread_mutex_trylock(&(hsl->lock));
-      } while (retval == EBUSY);
+      while (gasneti_mutex_trylock(&(hsl->lock)) == EBUSY) { }
     #else
-        retval = pthread_mutex_lock(&(hsl->lock));
+      gasneti_mutex_lock(&(hsl->lock));
     #endif
-    if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_lock(), pthread_mutex_lock()=%s",strerror(retval));
     #if defined(STATS) || defined(TRACE)
       hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
       GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, hsl->acquiretime-startlock);
     #endif
   }
-  #elif defined(STATS) || defined(TRACE)
-    hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
-    GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, 0);
-  #endif
 
-
-  #ifdef GASNETC_HSL_ERRCHECK
+  #if GASNETC_HSL_ERRCHECK
   { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
     hsl->islocked = 1;
     hsl->next = info->locksheld;
@@ -810,7 +796,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
 
 extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
   GASNETI_CHECKATTACH();
-  #ifdef GASNETC_HSL_ERRCHECK
+  #if GASNETC_HSL_ERRCHECK
   { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
     gasnet_hsl_t *heldhsl = info->locksheld;
     if (hsl->tag != GASNETC_HSL_ERRCHECK_TAGINIT && hsl->tag != GASNETC_HSL_ERRCHECK_TAGDYN)
@@ -836,15 +822,10 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
 
   GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW()-hsl->acquiretime);
 
-  #ifdef GASNETI_THREADS
-  { int retval = pthread_mutex_unlock(&(hsl->lock));
-    if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_unlock(), pthread_mutex_unlock()=%s",strerror(retval));
-  }
-  #endif
+  gasneti_mutex_unlock(&(hsl->lock));
 }
 
-#ifdef GASNETC_HSL_ERRCHECK
+#if GASNETC_HSL_ERRCHECK
   /* called when entering/leaving handler - also called when entering/leaving AM_Reply call */
   extern void gasnetc_enteringHandler_hook() {
     gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
@@ -865,7 +846,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
     info->inhandler = 0;
   }
 #endif
-
+#endif
 /* ------------------------------------------------------------------------------------ */
 /*
   Private Handlers:

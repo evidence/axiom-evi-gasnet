@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_help.h             $
- *     $Date: 2003/05/04 01:33:47 $
- * $Revision: 1.1 $
+/*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core_help.h             $
+ *     $Date: 2003/10/11 13:10:03 $
+ * $Revision: 1.2 $
  * Description: GASNet smp conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

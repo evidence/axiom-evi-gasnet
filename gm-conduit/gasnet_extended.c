@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/09/10 02:19:26 $
- * $Revision: 1.18 $
+ *     $Date: 2003/10/11 13:09:59 $
+ * $Revision: 1.19 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,7 +21,7 @@ gasnet_seginfo_t	*gasnete_seginfo = NULL;
 gasnete_threaddata_t	*gasnete_threadtable[256] = { 0 };
 int 			 gasnete_numthreads = 0;
 gasnet_hsl_t		 threadtable_lock = GASNET_HSL_INITIALIZER;
-#ifdef GASNETI_THREADS
+#ifdef GASNETI_CLIENT_THREADS
 	/*  pthread thread-specific ptr to our threaddata (or NULL for a thread
 	 *  never-seen before) */
 	pthread_key_t gasnete_threaddata; 
@@ -64,7 +64,7 @@ gasnete_new_threaddata()
 		gasnete_numthreads++;
 	gasnet_hsl_unlock(&threadtable_lock);
 
-	#ifdef GASNETI_THREADS
+	#ifdef GASNETI_CLIENT_THREADS
 		if (idx >= 256) 
 			gasneti_fatalerror("GASNet Extended API: "
 			    "Too many local client threads (limit=256)");
@@ -87,7 +87,7 @@ gasnete_new_threaddata()
 }
 /* PURE function (returns same value for a given thread every time) 
 */
-#ifdef GASNETI_THREADS
+#ifdef GASNETI_CLIENT_THREADS
 extern gasnete_threaddata_t *
 gasnete_mythread() 
 {
@@ -165,7 +165,7 @@ gasnete_init()
 
 	gasnete_check_config(); /* check for sanity */
 
-	#ifdef GASNETI_THREADS
+	#ifdef GASNETI_CLIENT_THREADS
 	{/*	TODO: we could provide a non-NULL destructor and reap data
 		structures from exiting threads */ 
 		int retval = pthread_key_create(&gasnete_threaddata, NULL);
@@ -185,7 +185,7 @@ gasnete_init()
 	{ 
 		gasnete_threaddata_t *threaddata = NULL;
 		gasnete_eop_t *eop = NULL;
-		#ifdef GASNETI_THREADS
+		#ifdef GASNETI_CLIENT_THREADS
 			/* register first thread (optimization) */
 			threaddata = gasnete_mythread(); 
 		#else

@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2003/06/29 08:09:50 $
- * $Revision: 1.4 $
+/*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core_fwd.h              $
+ *     $Date: 2003/10/11 13:10:03 $
+ * $Revision: 1.5 $
  * Description: GASNet header for smp conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,6 +26,17 @@
 #if !defined(GASNETE_PUTGET_ALWAYSREMOTE) && !defined(GASNETE_PUTGET_ALWAYSLOCAL)
   #define GASNETE_PUTGET_ALWAYSLOCAL 1
 #endif
+
+  /* conduits should define GASNETI_CONDUIT_THREADS if they have one or more 
+     "private" threads which may be used to run AM handlers, even under GASNET_SEQ
+     this ensures locking is still done correctly, etc
+   */
+/* #define GASNETI_CONDUIT_THREADS */
+
+  /* define to 1 if your conduit may interrupt an application thread 
+     (e.g. with a signal) to run AM handlers (interrupt-based handler dispatch)
+   */
+#define GASNETC_USE_INTERRUPTS 0
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */

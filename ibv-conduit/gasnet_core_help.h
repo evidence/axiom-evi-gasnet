@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_help.h             $
- *     $Date: 2003/07/03 22:21:04 $
- * $Revision: 1.3 $
+/*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_help.h             $
+ *     $Date: 2003/10/11 13:10:07 $
+ * $Revision: 1.4 $
  * Description: GASNet vapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

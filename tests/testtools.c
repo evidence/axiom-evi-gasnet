@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testtools.c                                    $
- *     $Date: 2003/08/10 09:42:53 $
- * $Revision: 1.7 $
+ *     $Date: 2003/10/11 13:10:06 $
+ * $Revision: 1.8 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -123,15 +123,15 @@ int main() {
 
     gasnett_atomic_set(&var,100);
     for (i=99;i>=1;i--) {
-      if (gasneti_atomic_decrement_and_test(&var))
-        printf("ERROR: gasneti_atomic_decrement_and_test got wrong value\n");
+      if (gasnett_atomic_decrement_and_test(&var))
+        printf("ERROR: gasnett_atomic_decrement_and_test got wrong value\n");
       if (gasnett_atomic_read(&var) != i)
-        printf("ERROR: gasneti_atomic_decrement_and_test set wrong value\n");
+        printf("ERROR: gasnett_atomic_decrement_and_test set wrong value\n");
     }
-    if (!gasneti_atomic_decrement_and_test(&var))
-      printf("ERROR: gasneti_atomic_decrement_and_test got wrong value at zero\n");
+    if (!gasnett_atomic_decrement_and_test(&var))
+      printf("ERROR: gasnett_atomic_decrement_and_test got wrong value at zero\n");
     if (gasnett_atomic_read(&var) != 0)
-      printf("ERROR: gasneti_atomic_decrement_and_test set wrong value at zero\n");
+      printf("ERROR: gasnett_atomic_decrement_and_test set wrong value at zero\n");
   }
 
 #ifdef HAVE_PTHREAD_H

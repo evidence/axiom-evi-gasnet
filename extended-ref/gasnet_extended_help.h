@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2003/06/16 10:24:13 $
- * $Revision: 1.13 $
+ *     $Date: 2003/10/11 13:09:57 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,7 +22,7 @@ extern gasnet_node_t gasnete_mynode;
 extern gasnet_node_t gasnete_nodes;
 extern gasnet_seginfo_t *gasnete_seginfo;
 
-#ifdef GASNETI_THREADS
+#ifdef GASNETI_CLIENT_THREADS
   struct _gasnete_threaddata_t;
   extern struct _gasnete_threaddata_t *gasnete_mythread() __attribute__ ((const));
   #if defined(__xlC__)

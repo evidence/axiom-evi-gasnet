@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/08/30 07:16:41 $
- * $Revision: 1.17 $
+/*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core_internal.h         $
+ *     $Date: 2003/10/11 13:09:56 $
+ * $Revision: 1.18 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -205,7 +205,7 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 
 extern void gasnetc_initbufs();
 
-#ifdef GASNETI_THREADS
+#ifdef GASNETI_CLIENT_THREADS
   #define gasnetc_mythread() ((void**)(gasnete_mythread()))
 #else
   void **_gasnetc_mythread;

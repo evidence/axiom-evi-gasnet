@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_fwd.h                   $
- *     $Date: 2003/09/13 17:17:52 $
- * $Revision: 1.12 $
+ *     $Date: 2003/10/11 13:10:02 $
+ * $Revision: 1.13 $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,6 +27,26 @@
     #define GASNET_ALIGNED_SEGMENTS   1  
   #else
     #define GASNET_ALIGNED_SEGMENTS   0
+  #endif
+#endif
+
+  /* conduits should define GASNETI_CONDUIT_THREADS if they have one or more 
+     "private" threads which may be used to run AM handlers, even under GASNET_SEQ
+     this ensures locking is still done correctly, etc
+   */
+/* #define GASNETI_CONDUIT_THREADS */
+
+  /* define to 1 if your conduit may interrupt an application thread 
+     (e.g. with a signal) to run AM handlers (interrupt-based handler dispatch)
+   */
+#define GASNETC_USE_INTERRUPTS 0
+
+  /* enable usage correctness checking on HSL's and no-interrupt sections */
+#ifndef GASNETC_HSL_ERRCHECK
+  #ifdef DEBUG
+    #define GASNETC_HSL_ERRCHECK 1
+  #else
+    #define GASNETC_HSL_ERRCHECK 0
   #endif
 #endif
 

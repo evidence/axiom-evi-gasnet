@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2003/06/29 08:09:40 $
- * $Revision: 1.16 $
+ *     $Date: 2003/10/11 13:09:54 $
+ * $Revision: 1.17 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,8 +42,9 @@
   #error Client code must #define exactly one of (GASNET_PAR, GASNET_PARSYNC, GASNET_SEQ) before #including gasnet.h
 #endif
 
+/* GASNETI_CLIENT_THREADS = GASNet client has multiple application threads */
 #if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
-  #define GASNETI_THREADS
+  #define GASNETI_CLIENT_THREADS
 #endif
 
 #if !((defined(DEBUG) && !defined(NDEBUG)) || (!defined(DEBUG) && defined(NDEBUG)))
@@ -99,6 +100,13 @@
 /* GASNet forward definitions, which may override some of the defaults below */
 #include <gasnet_core_fwd.h>
 #include <gasnet_extended_fwd.h>
+
+/* GASNETI_CONDUIT_THREADS = GASNet conduit has one or more private threads
+                             which may be used to run AM handlers */
+
+#if defined(GASNETI_CLIENT_THREADS) || defined(GASNETI_CONDUIT_THREADS)
+  #define GASNETI_THREADS
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* constants */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.h                       $
- *     $Date: 2003/08/30 07:16:46 $
- * $Revision: 1.8 $
+ *     $Date: 2003/10/11 13:10:02 $
+ * $Revision: 1.9 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,14 +13,7 @@
 #ifndef _GASNET_CORE_H
 #define _GASNET_CORE_H
 
-#include <stdlib.h>
 #include <ammpi.h>
-#ifdef GASNETI_THREADS
-  #ifdef LINUX
-   struct timespec; /* avoid an annoying warning on Linux */
-  #endif
-  #include <pthread.h>
-#endif
 
 #include <gasnet_core_help.h>
 
@@ -28,11 +21,6 @@ BEGIN_EXTERNC
 
 /*  TODO enhance AMMPI to support thread-safe MPI libraries */
 /*  TODO add MPI bypass to loopback messages */
-
-#ifdef DEBUG
-  /* enable usage correctness checking on HSL's and no-interrupt sections */
-  #define GASNETC_HSL_ERRCHECK 
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -87,7 +75,8 @@ char *gasnet_getenv(const char *s) {
   No-interrupt sections
   =====================
 */
-#ifdef GASNETC_HSL_ERRCHECK
+/* conduit may or may not need this based on whether interrupts are used for running handlers */
+#if GASNETC_USE_INTERRUPTS || GASNETC_HSL_ERRCHECK
   extern void gasnetc_hold_interrupts();
   extern void gasnetc_resume_interrupts();
 
@@ -103,7 +92,7 @@ char *gasnet_getenv(const char *s) {
   Handler-safe locks
   ==================
 */
-#ifdef GASNETC_HSL_ERRCHECK
+#if GASNETC_HSL_ERRCHECK
   /* "magic" tag bit patterns that let us probabilistically detect
      the attempted use of uninitialized locks, or re-initialization of locks
    */
@@ -112,29 +101,24 @@ char *gasnet_getenv(const char *s) {
 #endif
 
 typedef struct _gasnet_hsl_t {
-  #ifdef GASNETI_THREADS
-    pthread_mutex_t lock;
-  #else
-    char _dummy; /* prevent an illegal empty structure decl */
-  #endif
+  gasneti_mutex_t lock;
 
   #if defined(STATS) || defined(TRACE)
     gasneti_stattime_t acquiretime;
   #endif
 
-  #ifdef GASNETC_HSL_ERRCHECK
+  #if GASNETC_HSL_ERRCHECK
     uint64_t tag;
     int islocked;
     int64_t timestamp;
     struct _gasnet_hsl_t *next;
   #endif
-} gasnet_hsl_t;
 
-#ifdef GASNETI_THREADS
-  #define GASNETC_LOCK_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
-#else 
-  #define GASNETC_LOCK_MUTEX_INIT 0
-#endif
+  #if GASNETC_USE_INTERRUPTS
+    /* more state may be required for conduits using interrupts */
+    #error interrupts not implemented
+  #endif
+} gasnet_hsl_t;
 
 #if defined(STATS) || defined(TRACE)
   #define GASNETC_LOCK_STAT_INIT ,0 
@@ -142,27 +126,52 @@ typedef struct _gasnet_hsl_t {
   #define GASNETC_LOCK_STAT_INIT  
 #endif
 
-#ifdef GASNETC_HSL_ERRCHECK
+#if GASNETC_HSL_ERRCHECK
   #define GASNETC_LOCK_ERRCHECK_INIT , GASNETC_HSL_ERRCHECK_TAGINIT, 0, 0, NULL
 #else
   #define GASNETC_LOCK_ERRCHECK_INIT 
 #endif
 
+#if GASNETC_USE_INTERRUPTS
+  #error interrupts not implemented
+  #define GASNETC_LOCK_INTERRUPT_INIT 
+#else
+  #define GASNETC_LOCK_INTERRUPT_INIT  
+#endif
+
 #define GASNET_HSL_INITIALIZER { \
-  GASNETC_LOCK_MUTEX_INIT        \
+  GASNETI_MUTEX_INITIALIZER      \
   GASNETC_LOCK_STAT_INIT         \
   GASNETC_LOCK_ERRCHECK_INIT     \
+  GASNETC_LOCK_INTERRUPT_INIT    \
   }
 
-extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
-extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl);
-extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl);
-extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
+/* decide whether we have "real" HSL's */
+#if defined(GASNETI_THREADS) || GASNETC_USE_INTERRUPTS || /* need for safety */ \
+    GASNETC_HSL_ERRCHECK || /* HSL errchecking */ \
+    defined(DEBUG) || defined(STATS) || defined(TRACE)    /* or debug/tracing */
+  #define GASNETC_NULL_HSL 0
+#else
+  #define GASNETC_NULL_HSL 1
+#endif
 
-#define gasnet_hsl_init    gasnetc_hsl_init
-#define gasnet_hsl_destroy gasnetc_hsl_destroy
-#define gasnet_hsl_lock    gasnetc_hsl_lock
-#define gasnet_hsl_unlock  gasnetc_hsl_unlock
+#if GASNETC_NULL_HSL
+  /* HSL's unnecessary - compile away to nothing */
+  #define gasnet_hsl_init(hsl)
+  #define gasnet_hsl_destroy(hsl)
+  #define gasnet_hsl_lock(hsl)
+  #define gasnet_hsl_unlock(hsl)
+#else
+  extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
+  extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl);
+  extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl);
+  extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
+
+  #define gasnet_hsl_init    gasnetc_hsl_init
+  #define gasnet_hsl_destroy gasnetc_hsl_destroy
+  #define gasnet_hsl_lock    gasnetc_hsl_lock
+  #define gasnet_hsl_unlock  gasnetc_hsl_unlock
+#endif
 /* ------------------------------------------------------------------------------------ */
 /*
   Active Message Size Limits

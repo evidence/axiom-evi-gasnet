@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2003/09/30 20:23:57 $
- * $Revision: 1.3 $
+/*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core.h                  $
+ *     $Date: 2003/10/11 13:10:03 $
+ * $Revision: 1.4 $
  * Description: GASNet header for smp conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -12,14 +12,6 @@
 
 #ifndef _GASNET_CORE_H
 #define _GASNET_CORE_H
-
-#include <stdlib.h>
-#ifdef GASNETI_THREADS
-  #ifdef LINUX
-   struct timespec; /* avoid an annoying warning on Linux */
-  #endif
-  #include <pthread.h>
-#endif
 
 #include <gasnet_core_help.h>
 
@@ -79,7 +71,7 @@ char *gasnet_getenv(const char *s) {
   =====================
 */
 /* conduit may or may not need this based on whether interrupts are used for running handlers */
-#if 0
+#if GASNETC_USE_INTERRUPTS
   extern void gasnetc_hold_interrupts();
   extern void gasnetc_resume_interrupts();
 
@@ -96,23 +88,17 @@ char *gasnet_getenv(const char *s) {
   ==================
 */
 typedef struct _gasnet_hsl_t {
-  #ifdef GASNETI_THREADS
-    pthread_mutex_t lock;
-  #else
-    char _dummy; /* prevent an illegal empty structure decl */
-  #endif
+  gasneti_mutex_t lock;
 
   #if defined(STATS) || defined(TRACE)
     gasneti_stattime_t acquiretime;
   #endif
 
+  #if GASNETC_USE_INTERRUPTS
+    /* more state may be required for conduits using interrupts */
+    #error interrupts not implemented
+  #endif
 } gasnet_hsl_t;
-
-#ifdef GASNETI_THREADS
-  #define GASNETC_LOCK_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
-#else 
-  #define GASNETC_LOCK_MUTEX_INIT 0
-#endif
 
 #if defined(STATS) || defined(TRACE)
   #define GASNETC_LOCK_STAT_INIT ,0 
@@ -120,20 +106,44 @@ typedef struct _gasnet_hsl_t {
   #define GASNETC_LOCK_STAT_INIT  
 #endif
 
+#if GASNETC_USE_INTERRUPTS
+  #error interrupts not implemented
+  #define GASNETC_LOCK_INTERRUPT_INIT 
+#else
+  #define GASNETC_LOCK_INTERRUPT_INIT  
+#endif
+
 #define GASNET_HSL_INITIALIZER { \
-  GASNETC_LOCK_MUTEX_INIT        \
+  GASNETI_MUTEX_INITIALIZER      \
   GASNETC_LOCK_STAT_INIT         \
+  GASNETC_LOCK_INTERRUPT_INIT    \
   }
 
-extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
-extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl);
-extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl);
-extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
+/* decide whether we have "real" HSL's */
+#if defined(GASNETI_THREADS) || GASNETC_USE_INTERRUPTS || /* need for safety */ \
+    defined(DEBUG) || defined(STATS) || defined(TRACE)    /* or debug/tracing */
+  #define GASNETC_NULL_HSL 0
+#else
+  #define GASNETC_NULL_HSL 1
+#endif
 
-#define gasnet_hsl_init    gasnetc_hsl_init
-#define gasnet_hsl_destroy gasnetc_hsl_destroy
-#define gasnet_hsl_lock    gasnetc_hsl_lock
-#define gasnet_hsl_unlock  gasnetc_hsl_unlock
+#if GASNETC_NULL_HSL
+  /* HSL's unnecessary - compile away to nothing */
+  #define gasnet_hsl_init(hsl)
+  #define gasnet_hsl_destroy(hsl)
+  #define gasnet_hsl_lock(hsl)
+  #define gasnet_hsl_unlock(hsl)
+#else
+  extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
+  extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl);
+  extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl);
+  extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
+
+  #define gasnet_hsl_init    gasnetc_hsl_init
+  #define gasnet_hsl_destroy gasnetc_hsl_destroy
+  #define gasnet_hsl_lock    gasnetc_hsl_lock
+  #define gasnet_hsl_unlock  gasnetc_hsl_unlock
+#endif
 /* ------------------------------------------------------------------------------------ */
 /*
   Active Message Size Limits

@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/09/06 02:22:34 $
- * $Revision: 1.19 $
+/*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_internal.h         $
+ *     $Date: 2003/10/11 13:10:07 $
+ * $Revision: 1.20 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2003/08/30 07:16:41 $
- * $Revision: 1.25 $
+ *     $Date: 2003/10/11 13:09:56 $
+ * $Revision: 1.26 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,7 +19,7 @@ gasnet_seginfo_t *gasnete_seginfo = NULL;
 static gasnete_threaddata_t *gasnete_threadtable[256] = { 0 };
 static int gasnete_numthreads = 0;
 static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
-#ifdef GASNETI_THREADS
+#ifdef GASNETI_CLIENT_THREADS
   static pthread_key_t gasnete_threaddata; /*  pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
 #endif
 static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
@@ -173,7 +173,7 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
     idx = gasnete_numthreads;
     gasnete_numthreads++;
   gasnet_hsl_unlock(&threadtable_lock);
-  #ifdef GASNETI_THREADS
+  #ifdef GASNETI_CLIENT_THREADS
     if (idx >= 256) gasneti_fatalerror("GASNet Extended API: Too many local client threads (limit=256)");
   #else
     assert(idx == 0);
@@ -195,7 +195,7 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
 }
 /* PURE function (returns same value for a given thread every time) 
 */
-#ifdef GASNETI_THREADS
+#ifdef GASNETI_CLIENT_THREADS
   extern gasnete_threaddata_t *gasnete_mythread() {
     gasnete_threaddata_t *threaddata = pthread_getspecific(gasnete_threaddata);
     GASNETI_TRACE_EVENT(C, DYNAMIC_THREADLOOKUP);
@@ -264,7 +264,7 @@ extern void gasnete_init() {
 
   gasnete_check_config(); /*  check for sanity */
 
-  #ifdef GASNETI_THREADS
+  #ifdef GASNETI_CLIENT_THREADS
   {/*  TODO: we could provide a non-NULL destructor and reap data structures from exiting threads */
     int retval = pthread_key_create(&gasnete_threaddata, NULL);
     if (retval) gasneti_fatalerror("In gasnete_init(), pthread_key_create()=%s",strerror(retval));
@@ -285,7 +285,7 @@ extern void gasnete_init() {
 
   { gasnete_threaddata_t *threaddata = NULL;
     gasnete_eop_t *eop = NULL;
-    #ifdef GASNETI_THREADS
+    #ifdef GASNETI_CLIENT_THREADS
       /* register first thread (optimization) */
       threaddata = gasnete_mythread(); 
     #else

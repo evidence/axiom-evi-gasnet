@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testmisc.c                             $
- *     $Date: 2003/09/01 15:18:49 $
- * $Revision: 1.6 $
+ *     $Date: 2003/10/11 13:10:06 $
+ * $Revision: 1.7 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,26 +24,12 @@ void report(const char *desc, int64_t totaltime, int iters) {
   }
 }
 
-/* use -DGASNETI_HANDLER_CONCURRENCY=1 on conduits which may run handlers concurrently,
-   even with a single application thread (prevent race condition that could cause hangs)
- */
-#ifndef GASNETI_HANDLER_CONCURRENCY
-  #if GASNETI_FORCE_TRUE_MUTEXES
-    #define GASNETI_HANDLER_CONCURRENCY 1 /* LAPI conduit */
-  #else
-    #define GASNETI_HANDLER_CONCURRENCY 0
-  #endif
-#endif
-#if GASNETI_HANDLER_CONCURRENCY
-  gasnet_hsl_t inchsl = GASNET_HSL_INITIALIZER;
-  #define INC(var) do {           \
-      gasnet_hsl_lock(&inchsl);   \
-      var++;                      \
-      gasnet_hsl_unlock(&inchsl); \
-    } while (0)
-#else
-  #define INC(var) var++
-#endif
+gasnet_hsl_t inchsl = GASNET_HSL_INITIALIZER;
+#define INC(var) do {           \
+    gasnet_hsl_lock(&inchsl);   \
+    var++;                      \
+    gasnet_hsl_unlock(&inchsl); \
+  } while (0)
 
 /* ------------------------------------------------------------------------------------ */
 #define hidx_ping_shorthandler   201

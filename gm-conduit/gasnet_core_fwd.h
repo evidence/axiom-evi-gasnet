@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.22 2003/09/10 02:19:26 csbell Exp $
- * $Date: 2003/09/10 02:19:26 $
- * $Revision: 1.22 $
+/* $Id: gasnet_core_fwd.h,v 1.23 2003/10/11 13:09:59 bonachea Exp $
+ * $Date: 2003/10/11 13:09:59 $
+ * $Revision: 1.23 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -24,6 +24,17 @@
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 #define GASNET_ALIGNED_SEGMENTS	1
 #define GASNET_MAXNODES		1024
+
+  /* conduits should define GASNETI_CONDUIT_THREADS if they have one or more 
+     "private" threads which may be used to run AM handlers, even under GASNET_SEQ
+     this ensures locking is still done correctly, etc
+   */
+/* #define GASNETI_CONDUIT_THREADS */
+
+  /* define to 1 if your conduit may interrupt an application thread 
+     (e.g. with a signal) to run AM handlers (interrupt-based handler dispatch)
+   */
+#define GASNETC_USE_INTERRUPTS 0
 
 /* only have firehose for now */
 #define GASNETC_FIREHOSE

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2003/08/30 07:16:39 $
- * $Revision: 1.15 $
+ *     $Date: 2003/10/11 13:09:54 $
+ * $Revision: 1.16 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,6 +14,15 @@
 #define _GASNET_HELP_H
 
 #include <assert.h>
+#include <errno.h>
+#include <string.h>
+#include <stdlib.h>
+#ifdef GASNETI_THREADS
+  #ifdef LINUX
+   struct timespec; /* avoid an annoying warning on Linux */
+  #endif
+  #include <pthread.h>
+#endif
 
 BEGIN_EXTERNC
 
@@ -60,6 +69,145 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #define GASNETI_CHECKINIT()
   #define GASNETI_CHECKATTACH()
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Error checking system mutexes -
+     wrapper around pthread mutexes that provides extra support for 
+     error checking when DEBUG is defined
+   gasneti_mutex_lock(&lock)/gasneti_mutex_unlock(&lock) - 
+     lock and unlock (checks for recursive locking errors)
+   gasneti_mutex_trylock(&lock) - 
+     non-blocking trylock - returns EBUSY on failure, 0 on success
+   gasneti_mutex_assertlocked(&lock)/gasneti_mutex_assertunlocked(&lock) - 
+     allow functions to assert a given lock is held / not held by the current thread
+  
+   -DGASNETI_USE_TRUE_MUTEXES=1 will force gasneti_mutex_t to always
+    use true locking (even under GASNET_SEQ or GASNET_PARSYNC config)
+*/
+#if defined(GASNET_PAR) || defined(GASNETI_CONDUIT_THREADS)
+  /* need to use true locking if we have concurrent calls from multiple client threads 
+     or if conduit has private threads that can run handlers */
+  #define GASNETI_USE_TRUE_MUTEXES 1 
+#elif !defined(GASNETI_USE_TRUE_MUTEXES)
+  #define GASNETI_USE_TRUE_MUTEXES 0
+#endif
+
+#ifdef DEBUG
+  #define GASNETI_MUTEX_NOOWNER       -1
+  #ifndef GASNETI_THREADIDQUERY
+    /* allow conduit override of thread-id query */
+    #if GASNETI_USE_TRUE_MUTEXES
+      #define GASNETI_THREADIDQUERY()   ((uintptr_t)pthread_self())
+    #else
+      #define GASNETI_THREADIDQUERY()   (0)
+    #endif
+  #endif
+  #if GASNETI_USE_TRUE_MUTEXES
+    #include <pthread.h>
+    typedef struct {
+      pthread_mutex_t lock;
+      uintptr_t owner;
+    } gasneti_mutex_t;
+    #if defined(PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP)
+      /* These are faster, though less "featureful" than the default
+       * mutexes on linuxthreads implementations which offer them.
+       */
+      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP, (uintptr_t)GASNETI_MUTEX_NOOWNER }
+    #else
+      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, (uintptr_t)GASNETI_MUTEX_NOOWNER }
+    #endif
+    #define gasneti_mutex_lock(pl) do {                                                   \
+              int retval;                                                                 \
+              assert((pl)->owner != GASNETI_THREADIDQUERY());                             \
+              retval = pthread_mutex_lock(&((pl)->lock));                                 \
+              if (retval) gasneti_fatalerror("pthread_mutex_lock()=%s",strerror(retval)); \
+              assert((pl)->owner == (uintptr_t)GASNETI_MUTEX_NOOWNER);                    \
+              (pl)->owner = GASNETI_THREADIDQUERY();                                      \
+            } while (0)
+    GASNET_INLINE_MODIFIER(gasneti_mutex_trylock)
+    int gasneti_mutex_trylock(gasneti_mutex_t *pl) {
+              int retval;
+              assert((pl)->owner != GASNETI_THREADIDQUERY());
+              retval = pthread_mutex_trylock(&((pl)->lock));
+              if (retval == EBUSY) return EBUSY;
+              if (retval) gasneti_fatalerror("pthread_mutex_trylock()=%s",strerror(retval));
+              assert((pl)->owner == (uintptr_t)GASNETI_MUTEX_NOOWNER);
+              (pl)->owner = GASNETI_THREADIDQUERY();
+              return 0;
+    }
+    #define gasneti_mutex_unlock(pl) do {                                                   \
+              int retval;                                                                   \
+              assert((pl)->owner == GASNETI_THREADIDQUERY());                               \
+              (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER;                               \
+              retval = pthread_mutex_unlock(&((pl)->lock));                                 \
+              if (retval) gasneti_fatalerror("pthread_mutex_unlock()=%s",strerror(retval)); \
+            } while (0)
+    #define gasneti_mutex_init(pl) do {                                                   \
+              int retval = pthread_mutex_init(&((pl)->lock),NULL);                        \
+              if (retval) gasneti_fatalerror("pthread_mutex_init()=%s",strerror(retval)); \
+              (pl)->owner = (uintptr_t)GASNETI_MUTEX_NOOWNER;                             \
+            } while (0)
+    #define gasneti_mutex_destroy(pl) do {                                                   \
+              int retval = pthread_mutex_destroy(&((pl)->lock));                             \
+              if (retval) gasneti_fatalerror("pthread_mutex_destroy()=%s",strerror(retval)); \
+            } while (0)
+  #else
+    typedef struct {
+      volatile int owner;
+    } gasneti_mutex_t;
+    #define GASNETI_MUTEX_INITIALIZER   { GASNETI_MUTEX_NOOWNER }
+    #define gasneti_mutex_lock(pl) do {                     \
+              assert((pl)->owner == GASNETI_MUTEX_NOOWNER); \
+              (pl)->owner = GASNETI_THREADIDQUERY();        \
+            } while (0)
+    GASNET_INLINE_MODIFIER(gasneti_mutex_trylock)
+    int gasneti_mutex_trylock(gasneti_mutex_t *pl) {
+              assert((pl)->owner == GASNETI_MUTEX_NOOWNER);
+              (pl)->owner = GASNETI_THREADIDQUERY();
+              return 0;
+    }
+    #define gasneti_mutex_unlock(pl) do {                     \
+              assert((pl)->owner == GASNETI_THREADIDQUERY()); \
+              (pl)->owner = GASNETI_MUTEX_NOOWNER;            \
+            } while (0)
+    #define gasneti_mutex_init(pl) do {                       \
+              (pl)->owner = GASNETI_MUTEX_NOOWNER;            \
+            } while (0)
+    #define gasneti_mutex_destroy(pl)
+  #endif
+  #define gasneti_mutex_assertlocked(pl)    assert((pl)->owner == GASNETI_THREADIDQUERY())
+  #define gasneti_mutex_assertunlocked(pl)  assert((pl)->owner != GASNETI_THREADIDQUERY())
+#else
+  #if GASNETI_USE_TRUE_MUTEXES
+    #include <pthread.h>
+    typedef pthread_mutex_t           gasneti_mutex_t;
+    #if defined(PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP)
+      /* These are faster, though less "featureful" than the default
+       * mutexes on linuxthreads implementations which offer them.
+       */
+      #define GASNETI_MUTEX_INITIALIZER PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
+    #else
+      #define GASNETI_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+    #endif
+    #define gasneti_mutex_lock(pl)      pthread_mutex_lock(pl)
+    #define gasneti_mutex_trylock(pl)   pthread_mutex_trylock(pl)
+    #define gasneti_mutex_unlock(pl)    pthread_mutex_unlock(pl)
+    #define gasneti_mutex_init(pl)      pthread_mutex_init((pl),NULL)
+    #define gasneti_mutex_destroy(pl)   pthread_mutex_destroy(pl)
+  #else
+    typedef char           gasneti_mutex_t;
+    #define GASNETI_MUTEX_INITIALIZER '\0'
+    #define gasneti_mutex_lock(pl)    
+    #define gasneti_mutex_trylock(pl) 0
+    #define gasneti_mutex_unlock(pl)  
+    #define gasneti_mutex_init(pl)
+    #define gasneti_mutex_destroy(pl)
+  #endif
+  #define gasneti_mutex_assertlocked(pl)
+  #define gasneti_mutex_assertunlocked(pl)
+#endif
+/* ------------------------------------------------------------------------------------ */
+
 
 /* high-performance timer library */
 #include <gasnet_timer.h>

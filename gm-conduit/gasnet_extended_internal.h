@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2003/09/10 02:19:26 $
- * $Revision: 1.12 $
+ *     $Date: 2003/10/11 13:09:59 $
+ * $Revision: 1.13 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -186,7 +186,7 @@ void		gasnete_op_free(gasnete_op_t *op);
 /* Extended threads support */
 extern const gasnete_eopaddr_t	EOPADDR_NIL;
 extern gasnete_threaddata_t	*gasnete_threadtable[256];
-#ifdef GASNETI_THREADS
+#ifdef GASNETI_CLIENT_THREADS
 extern gasnete_threaddata_t * gasnete_mythread();
 #else
   #define gasnete_mythread() (gasnete_threadtable[0])

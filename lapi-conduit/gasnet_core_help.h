@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_help.h             $
- *     $Date: 2003/09/02 21:35:28 $
- * $Revision: 1.9 $
+/*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_help.h             $
+ *     $Date: 2003/10/11 13:10:00 $
+ * $Revision: 1.10 $
  * Description: GASNet lapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,9 +19,6 @@ BEGIN_EXTERNC
 #include <lapi.h>
 #include <sys/atomic_op.h>
 #include <gasnet_atomicops.h>
-
-/* we dont need no stinkin Interrupt Based Handlers in LAPI */
-#define GASNETC_USE_IBH 0
 
 /* NOTE: this should be dependent on whether we compile in
  * 32 or 64 bit mode
@@ -105,12 +102,12 @@ int gasnetc_spinlock_unlock(gasnetc_spinlock_t *lock) {
 #endif
 
 #else  /* Use pthread mutex for spinlock */
-typedef pthread_mutex_t gasnetc_spinlock_t;
-#define GASNETC_SPINLOCK_INITIALIZER PTHREAD_MUTEX_INITIALIZER
-#define gasnetc_spinlock_init(lock) pthread_mutex_init((lock), NULL)
-#define gasnetc_spinlock_destroy(lock) pthread_mutex_destroy((lock))
-#define gasnetc_spinlock_lock(lock) pthread_mutex_lock((lock))
-#define gasnetc_spinlock_unlock(lock) pthread_mutex_unlock((lock))
+typedef gasneti_mutex_t gasnetc_spinlock_t;
+#define GASNETC_SPINLOCK_INITIALIZER    GASNETI_MUTEX_INITIALIZER
+#define gasnetc_spinlock_init(lock)     gasneti_mutex_init((lock))
+#define gasnetc_spinlock_destroy(lock)  gasneti_mutex_destroy((lock))
+#define gasnetc_spinlock_lock(lock)     gasneti_mutex_lock((lock))
+#define gasnetc_spinlock_unlock(lock)   gasneti_mutex_unlock((lock))
 #endif
 
 

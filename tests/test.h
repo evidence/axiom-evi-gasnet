@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2003/09/15 06:31:19 $
- * $Revision: 1.17 $
+ *     $Date: 2003/10/11 13:10:06 $
+ * $Revision: 1.18 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -101,7 +101,7 @@ static void test_free(void *ptr) {
 #endif
 
 
-#ifdef GASNETI_THREADS
+#if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
   #define TEST_MAXTHREADS      256
   #define TEST_SEGZ_PER_THREAD 64*1024
   #define TEST_SEGSZ	      (TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD)
