@@ -1,12 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/09 23:49:38 $
- * $Revision: 1.7 $
+ *     $Date: 2005/01/10 20:47:25 $
+ * $Revision: 1.8 $
  * Description: GASNet ssh-based bootstrapper for vapi-conduit
  * Copyright 2004, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
 #include <gasnet.h>
 #include <gasnet_internal.h>
+#include <gasnet_core_internal.h>
 
 #include <stdlib.h>
 #include <stdio.h>

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/mpi-spawner/gasnet_bootstrap_mpi.c,v $
- *     $Date: 2005/01/09 23:23:13 $
- * $Revision: 1.10 $
+ *     $Date: 2005/01/10 20:47:25 $
+ * $Revision: 1.11 $
  * Description: GASNet vapi conduit implementation, mpi bootstrap code
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -11,6 +11,7 @@
 #include <mpi.h>
 #include <gasnet.h>
 #include <gasnet_internal.h>
+#include <gasnet_core_internal.h>
 
 static MPI_Comm gasnetc_mpi_comm;
 static int gasnetc_mpi_preinitialized = 0;
