@@ -1435,20 +1435,20 @@ fh_acquire_local_region(firehose_region_t *region)
 	b_num = fhi_AcquireLocalRegionsList(
 			gasnet_mynode(), region, 1, pin_p);
 
-	/* b_num contains the amount of new regions to be pinned.  We may have
+	/* b_num contains the number of new Buckets to be pinned.  We may have
 	 * to unpin Buckets in order to respect the threshold on locally pinned
 	 * buckets. */
 	if (b_num > 0) {
 		fhi_RegionPool_t	*unpin_p;
 
-		unpin_p = fhi_AllocRegionPool(b_num);
+		unpin_p = fhi_AllocRegionPool(FH_MIN_REGIONS_FOR_BUCKETS(b_num));
 		unpin_p->regions_num = 
 			fhi_WaitLocalBucketsToPin(b_num, unpin_p->regions);
 
 		/* Make sure we don't exceed the threshold for buckets in
 		 * flight. This may stall until enough buckets are recovered.
 	 	 */
-		fhi_WaitLocalBucketsInFlight(b_total);
+		fhi_WaitLocalBucketsInFlight(b_num);
 
 		FH_TABLE_UNLOCK;
 		firehose_move_callback(gasnet_mynode(),
@@ -1461,8 +1461,6 @@ fh_acquire_local_region(firehose_region_t *region)
 
 		fhi_FreeRegionPool(unpin_p);
 	}
-	else	/* Simply wait/increment for InFlight buckets */
-		fhi_WaitLocalBucketsInFlight(b_total);
 
 	fhi_FreeRegionPool(pin_p);
 
