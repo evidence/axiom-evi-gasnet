@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/06/11 04:45:29 $
- * $Revision: 1.25 $
+ *     $Date: 2003/06/17 04:01:56 $
+ * $Revision: 1.26 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -365,7 +365,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasnetc_bootstrapBarrier(); 
 
   /* dump startup elan environment */
-  if (GASNETI_TRACE_ENABLED(C) && gasnetc_mynode == 0) {
+  if (GASNETI_STATS_ENABLED(C) && gasnetc_mynode == 0) {
     gasnetc_dump_envvars();
     GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
     GASNETI_STATS_PRINTF(C,("ELAN Initialization State:"));
@@ -819,7 +819,7 @@ extern void gasnetc_new_threaddata_callback(void **core_threadinfo) {
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_trace_finish() {
   /* dump elan statistics */
-  if (GASNETI_TRACE_ENABLED(C) ) {
+  if (GASNETI_STATS_ENABLED(C) ) {
     if (GASNETC_REMOTEEXITINPROGRESS()) {
       /* trying to grab stats from the NIC during a signalled shutdown causes crashes */
       GASNETI_STATS_PRINTF(C,("*** Elan stat dump omitted because remote gasnet_exit in progress ***"));

@@ -27,8 +27,8 @@ option when maintaining several build trees on the same source tree).
       debugger options and also enables extensive error checking in the MPI 
       conduit (and others), which is useful for debugging GASNet clients 
       (but should not be used for performance testing). 
-    --enable-trace - turn on GASNet tracing (see usage info in gasnet_trace.h)
-    --enable-stats - turn on GASNet statistical collection (see usage info in gasnet_trace.h)
+    --enable-trace - turn on GASNet tracing (see usage info below)
+    --enable-stats - turn on GASNet statistical collection (see usage info below)
     --enable-segment-{fast,large,everything} - select a GASNet segment 
       configuration (see the GASNet spec for more info)
 
@@ -118,11 +118,56 @@ Recognized Environment Variables
 * GASNET_FREEZE - set to make GASNet pause and wait for a debugger to attach on
  startup
 
-* GASNET_TRACEFILE, GASNET_TRACEMASK - control tracing & statistical features,
- if enabled at configure time. See comment in gasnet_trace.h for usage
- information.
+* GASNET_TRACEFILE, GASNET_TRACEMASK, GASNET_STATSFILE, GASNET_STATSMASK - 
+ control tracing & statistical features, if enabled at configure time. 
+ See usage information below.
 
 * see conduit-specific documentation in conduit directories for more settings
+
+GASNet tracing & statistical collection
+=======================================
+
+GASNet includes an extensive tracing and statistical collection 
+utility for monitoring communication events in GASNet applications.
+To use, configure with --enable-stats and/or --enable-trace, and
+run your program as usual. In order to see the trace/stats output, 
+you must set the environment variable GASNET_TRACEFILE and/or 
+GASNET_STATSFILE as explained below.
+
+Note that system performance is likely to be degraded as a result of tracing and 
+statistical collection. This is still true even when output is disabled
+by not setting this GASNET_TRACEFILE/GASNET_STATSFILE (so production platforms 
+should not enable tracing/stats at GASNet configure time).
+
+Optional environment variable settings:
+
+ GASNET_TRACEFILE - specify a file name to recieve the trace output
+   may also be "stdout" or "stderr", (or "-" to indicate stderr)
+   each node may have its output directed to a separate file, 
+   and any '%' character in the value is replaced by the node number at runtime
+   (e.g. GASNET_TRACEFILE="mytrace-%")
+   unsetting this environment variable (or setting it to empty) disables 
+   tracing output (although the trace code still has performance impact)
+
+ GASNET_STATSFILE - specify a filename to recieve statistical output
+   operates analogously to GASNET_TRACEFILE
+
+ GASNET_TRACEMASK - specify the types of trace messages to report
+   A string containing one or more of the following letters:
+     G - gets
+     P - puts
+     S - non-blocking synchronization
+     B - barriers
+     L - locks
+     A - AM requests/replies (and handler execution, if conduit-supported)
+     I - informational messages about system status or performance alerts
+     C - conduit-specific (low-level) messages
+     D - Detailed message data for gets/puts/AMreqrep
+  default: (all of the above)
+
+ GASNET_STATSMASK - specify the types of statistics to collect and report
+   operates analogously to GASNET_TRACEMASK
+
 
 GASNet Design Information
 =========================
@@ -190,7 +235,7 @@ several files which should be provided by each conduit:
    <gasnet_help.h> Extended and core API platform independant helpers
                     (providing services which aren't part of GASNet API, but are
 		     required by code in gasnet.h)
-   <gasnet_trace.h> Documents and implements GASNet's sopisticated
+   <gasnet_trace.h> Implements GASNet's sophisticated
                     internal tracing and statistical collection system
    <gasnet_core_fwd.h> definitions of basic constants and types used by the
 		       core API and included early in the gasnet.h file

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2002/12/22 10:17:10 $
- * $Revision: 1.8 $
+ *     $Date: 2003/06/17 04:01:55 $
+ * $Revision: 1.9 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,45 +19,7 @@ BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /* Statistical collection & tracing 
-
-   Usage info:
-     for tracing output: 
-       add -DTRACE to the compile options for the library and application
-       (use the --enable-trace configure option)
-     for statistical collection and summary info: 
-       add -DSTATS to the compile options for the library and application
-       (use the --enable-stats configure option)
-     run program as usual. 
-     In order to see the trace/stats output, you must set the environment variable
-       GASNET_TRACEFILE as explained below.
-
-   Note that system performance is likely to be degraded as a result of tracing and 
-     statistical collection. This is still true even when output is disabled
-       by not setting this GASNET_TRACEFILE (so production platforms should not 
-       enable tracing/stats at GASNet configure time).
-
-   Optional environment variable settings:
-
-     GASNET_TRACEFILE - specify a file name to recieve the trace and/or statistical output
-       may also be "stdout" or "stderr", (or "-" to indicate stderr)
-       each node may have its output directed to a separate file, 
-       and any '%' character in the value is replaced by the node number at runtime
-       (e.g. GASNET_TRACEFILE="mytrace-%")
-       unsetting this environment variable (or setting it to empty) disables 
-       tracing and statistical output (although the trace code still has performance impact)
-
-     GASNET_TRACEMASK - specify the types of trace messages/stats to collect
-       A string containing one or more of the following letters:
-         G - gets
-         P - puts
-         S - non-blocking synchronization
-         B - barriers
-         L - locks
-         A - AM requests/replies (and handler execution, if conduit-supported)
-         I - informational messages about system status or performance alerts
-         C - conduit-specific (low-level) messages
-         D - Detailed message data for gets/puts/AMreqrep
-      default: (all of the above)
+   See README for user-interface usage information
 */
 
 #if defined(TRACE) || defined(STATS)
@@ -118,9 +80,9 @@ BEGIN_EXTERNC
       (note the extra parentheses around arg)
   */
   #define GASNETI_STATS_PRINTF(type, args) do { \
-    if (GASNETI_TRACE_ENABLED(type)) {          \
+    if (GASNETI_STATS_ENABLED(type)) {          \
       char *_msg = gasneti_dynsprintf args;     \
-      gasneti_trace_output(#type, _msg, 0);     \
+      gasneti_stats_output(#type, _msg, 0);     \
     }                                           \
   } while(0)
 #else
@@ -131,6 +93,10 @@ BEGIN_EXTERNC
 /* allow for final output of conduit-specific statistics */
 #ifndef GASNETC_TRACE_FINISH
 #define GASNETC_TRACE_FINISH()
+#endif
+
+#ifndef GASNETI_STATS_ECHOED_TO_TRACEFILE
+#define GASNETI_STATS_ECHOED_TO_TRACEFILE 1
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -351,8 +317,9 @@ typedef uint64_t gasneti_statctr_t;
 #define GASNETI_STATCTR_MAX ((gasneti_statctr_t)-1)
 
 
-#define GASNETI_STATTIME_NOW_IFENABLED(type)  \
-  (GASNETI_TRACE_ENABLED(type)?GASNETI_STATTIME_NOW():(gasneti_stattime_t)0)
+#define GASNETI_STATTIME_NOW_IFENABLED(type)                      \
+  ((GASNETI_STATS_ENABLED(type) || GASNETI_TRACE_ENABLED(type)) ? \
+   GASNETI_STATTIME_NOW():(gasneti_stattime_t)0)
 typedef struct {
   gasneti_statctr_t count;
   gasneti_statctr_t minval;
@@ -488,14 +455,24 @@ extern void gasneti_trace_finish();
   extern gasneti_statinfo_t gasneti_stats[];
 
   extern FILE *gasneti_tracefile;
+  extern FILE *gasneti_statsfile;
   extern char *gasneti_dynsprintf(char *,...);
   extern char *gasneti_formatdata(void *p, int nbytes);
   extern void gasneti_trace_output(char *type, char *msg, int traceheader);
+  extern void gasneti_stats_output(char *type, char *msg, int traceheader);
 
   extern char gasneti_tracetypes[];
-  #define GASNETI_TRACE_ENABLED(type) (gasneti_tracefile && gasneti_tracetypes[(int)*(char*)#type])
+  extern char gasneti_statstypes[];
+#endif
+#if defined(TRACE)
+  #define GASNETI_TRACE_ENABLED(type) (gasneti_tracetypes[(int)*(char*)#type])
 #else
   #define GASNETI_TRACE_ENABLED(type) 0
+#endif
+#if defined(STATS)
+  #define GASNETI_STATS_ENABLED(type) (gasneti_statstypes[(int)*(char*)#type])
+#else
+  #define GASNETI_STATS_ENABLED(type) 0
 #endif
 
 
@@ -532,15 +509,15 @@ extern void gasneti_trace_finish();
   extern void gasneti_stat_intval_accumulate(gasneti_stat_intval_t *pintval, gasneti_statctr_t val);
   extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gasneti_stattime_t val);
   #define _GASNETI_STAT_EVENT(type, name) do {                 \
-    if (GASNETI_TRACE_ENABLED(type))                           \
+    if (GASNETI_STATS_ENABLED(type))                           \
       gasneti_stat_count_accumulate(&gasneti_stat_ctr_##name); \
   } while (0)
   #define _GASNETI_STAT_EVENT_VAL(type, name, val) do {                                  \
-    if (GASNETI_TRACE_ENABLED(type))                                                     \
+    if (GASNETI_STATS_ENABLED(type))                                                     \
       gasneti_stat_intval_accumulate(&gasneti_stat_intval_##name,(gasneti_statctr_t)val);\
   } while (0)
   #define _GASNETI_STAT_EVENT_TIME(type, name, time) do {                                  \
-    if (GASNETI_TRACE_ENABLED(type))                                                       \
+    if (GASNETI_STATS_ENABLED(type))                                                       \
       gasneti_stat_timeval_accumulate(&gasneti_stat_timeval_##name,(gasneti_stattime_t)time);\
   } while (0)
 #else

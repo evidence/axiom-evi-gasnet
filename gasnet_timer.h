@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2003/02/25 14:24:28 $
- * $Revision: 1.8 $
+ *     $Date: 2003/06/17 04:01:55 $
+ * $Revision: 1.9 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -147,20 +147,22 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
     static int firstTime = 1;
     static double MHz;
-    if (firstTime) {
+    if_pf (firstTime) {
       FILE *fp = fopen("/proc/cpuinfo","r");
       char input[255];
       while (!feof(fp) && fgets(input, 255, fp)) {
         if (strstr(input,"cpu MHz")) {
           char *p = strchr(input,':');
           if (p) MHz = atof(p+1);
+          assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
+          MHz = 1 / MHz;
           firstTime = 0;
         }
       }
       fclose(fp);
       assert(!firstTime);
     }
-    return st / MHz;
+    return st * MHz;
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
@@ -182,6 +184,33 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     return ((((uint64_t)t.tv_sec) & 0xFFFF) * 1000000000) + t.tv_nsec;
   }
   #define GASNETI_STATTIME_TO_US(st)  ((st)/1000)
+  #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
+#elif defined(CYGWIN)
+  #include <windows.h>
+  typedef uint64_t gasneti_stattime_t;
+  #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
+  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
+  GASNET_INLINE_MODIFIER(gasneti_stattime_now)
+  gasneti_stattime_t gasneti_stattime_now() {
+    LARGE_INTEGER val;
+    if_pf (!QueryPerformanceCounter(&val)) abort();
+    assert(val.QuadPart > 0);
+    return (gasneti_stattime_t)val.QuadPart;
+  }
+  GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
+  uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
+    static int firsttime = 1;
+    static double freq = 0;
+    if_pf (firsttime) {
+      LARGE_INTEGER temp;
+      if (!QueryPerformanceFrequency(&temp)) abort();
+      freq = ((double)temp.QuadPart) / 1000000.0;
+      freq = 1 / freq;
+      firsttime = 0;
+    }
+    return st * freq;
+  }
+  #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
 #else
   #define GASNETI_USING_GETTIMEOFDAY
@@ -218,9 +247,9 @@ double gasneti_stattime_metric(unsigned int idx) {
     for (i=0,ticks=0; i < iters || ticks < minticks; i++) {
       gasneti_stattime_t x = GASNETI_STATTIME_NOW();
       gasneti_stattime_t curr = (x - last);
-      if (curr > 0) { 
+      if_pt (curr > 0) { 
         ticks++;
-        if (curr < min) min = curr;
+        if_pf (curr < min) min = curr;
       }
       last = x;
     }

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2003/06/16 10:24:13 $
- * $Revision: 1.18 $
+ *     $Date: 2003/06/17 04:01:57 $
+ * $Revision: 1.19 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -139,12 +139,12 @@ gasnet_handle_t _gasnet_put_nb_bulk (gasnet_node_t node, void *dest, void *src, 
   GASNETI_CHECKZEROSZ_PUT(PUT_NB_BULK_LOCAL,H);
   gasnete_boundscheck(node, dest, nbytes);
   if (gasnete_islocal(node)) {
-    GASNETI_TRACE_PUT(PUT_NB_BULK,node,dest,src,nbytes);
+    GASNETI_TRACE_PUT(PUT_NB_BULK_LOCAL,node,dest,src,nbytes);
     GASNETE_FAST_UNALIGNED_MEMCPY(dest, src, nbytes);
     gasneti_memsync();
     return GASNET_INVALID_HANDLE;
   } else {
-    GASNETI_TRACE_PUT(PUT_NB_BULK_LOCAL,node,dest,src,nbytes);
+    GASNETI_TRACE_PUT(PUT_NB_BULK,node,dest,src,nbytes);
     return gasnete_put_nb_bulk(node, dest, src, nbytes GASNETE_THREAD_PASS);
   }
 }
@@ -730,7 +730,8 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
 
 GASNET_INLINE_MODIFIER(_gasnet_get_nb_val)
 gasnet_valget_handle_t _gasnet_get_nb_val (gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  GASNETI_TRACE_GET(GET_NB_VAL,NULL,node,src,nbytes);     
+  if (gasnete_islocal(node)) GASNETI_TRACE_GET(GET_NB_VAL_LOCAL,NULL,node,src,nbytes);
+  else GASNETI_TRACE_GET(GET_NB_VAL,NULL,node,src,nbytes);     
   return gasnete_get_nb_val(node,src,nbytes GASNETE_THREAD_PASS); 
 }
 #define gasnet_get_nb_val(node,src,nbytes) \
