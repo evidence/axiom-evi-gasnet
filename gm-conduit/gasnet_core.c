@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.49 2004/01/05 05:01:14 bonachea Exp $
- * $Date: 2004/01/05 05:01:14 $
+/* $Id: gasnet_core.c,v 1.50 2004/01/19 11:13:58 bonachea Exp $
+ * $Date: 2004/01/19 11:13:58 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -407,8 +407,8 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 
         #if GASNET_TRACE
 	for (i = 0; i < gasnetc_nodes; i++)
-		GASNETI_TRACE_PRINTF(C, ("SEGINFO at %4d (0x%x, %d)", i,
-		    (uintptr_t) gasnetc_seginfo[i].addr, 
+		GASNETI_TRACE_PRINTF(C, ("SEGINFO at %4d ("GASNETI_LADDRFMT", %d)", i,
+		    GASNETI_LADDRSTR(gasnetc_seginfo[i].addr), 
 		    (unsigned int) gasnetc_seginfo[i].size) );
 	#endif
 
@@ -1345,7 +1345,7 @@ gasnetc_AllocPinnedBufs()
 	/* Allocate and register DMA buffers */ 
 	_gmc.dma_bufs = gm_alloc_pages(buflen);
 	if_pf (_gmc.dma_bufs == NULL)
-		gasneti_fatalerror("gm_alloc_pages(%d) %s", buflen,
+		gasneti_fatalerror("gm_alloc_pages(%d) %s", (int)buflen,
 		   gasneti_current_loc);
 
 	if (gm_register_memory(_gmc.port, _gmc.dma_bufs, buflen) != GM_SUCCESS)
@@ -1524,7 +1524,7 @@ gasnetc_GMSend_AMSystem(void *buf, size_t len,
 
 	GASNETI_TRACE_PRINTF(C, 
 	    ("AMSystem Send (id=%d,%d, msg=0x%x, len=%d)", id, port,
-	     GASNETC_SYSHEADER_READ(buf), len));
+	     GASNETC_SYSHEADER_READ(buf), (int)len));
 }
 
 
@@ -1609,7 +1609,7 @@ gasnetc_bootstrapGatherSend(void *data, size_t len)
 
 	if ((len*gasnetc_nodes+4) > GASNETC_AM_PACKET)
 		gasneti_fatalerror(
-		    "bootstrapGatherSend: %i bytes too large\n", len);
+		    "bootstrapGatherSend: %i bytes too large\n", (int)len);
 
 	phase = gasnetc_bootstrapGather_phase;
 	gasnetc_bootstrapGather_phase ^= 1;

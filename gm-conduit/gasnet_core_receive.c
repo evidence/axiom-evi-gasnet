@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.34 2004/01/05 16:20:01 bonachea Exp $
- * $Date: 2004/01/05 16:20:01 $
- * $Revision: 1.34 $
+/* $Id: gasnet_core_receive.c,v 1.35 2004/01/19 11:13:58 bonachea Exp $
+ * $Date: 2004/01/19 11:13:58 $
+ * $Revision: 1.35 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -338,7 +338,7 @@ gasnetc_process_AMSystem(gasnetc_bufdesc_t *bufd)
 			
 			GASNETI_TRACE_PRINTF(C, 
 			    ("AMSystem Gather Received (node=%d,msg=0x%x,"
-			     "paylen=%d)", bufd->node, msg, paylen));
+			     "paylen=%d)", bufd->node, msg, (int)paylen));
 			break;
 
 		case GASNETC_SYS_BROADCAST:
@@ -357,7 +357,7 @@ gasnetc_process_AMSystem(gasnetc_bufdesc_t *bufd)
 			#endif
 			GASNETI_TRACE_PRINTF(C, 
 			    ("AMSystem Broadcast Received (node=%d,msg=0x%x,"
-			     "paylen=%d)", bufd->node, msg, paylen));
+			     "paylen=%d)", bufd->node, msg, (int)paylen));
 			break;
 
 		default:

@@ -507,7 +507,7 @@ void			fh_send_firehose_reply(fh_remote_callback_t *);
 		    ("Firehose Bucket %s %s node=%d,addr="GASNETI_LADDRFMT",%s",	\
 		     #bmsg, FH_NODE(bd) == fh_mynode ?	 		\
 		     "Local " : "Remote",				\
-		     FH_NODE(bd), GASNETI_LADDRSTR(FH_BADDR(bd)), msg));		\
+		     (int)FH_NODE(bd), GASNETI_LADDRSTR(FH_BADDR(bd)), msg));		\
 	} while (0)
 
 #define FH_NUMPINNED_DECL	int _fh_numpinned = 0
