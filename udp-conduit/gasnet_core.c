@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/05/02 08:05:22 $
- * $Revision: 1.10 $
+ *     $Date: 2004/05/19 07:35:48 $
+ * $Revision: 1.11 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -203,7 +203,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_nodes = AMUDP_SPMDNumProcs();
 
     /* enable tracing */
-    gasneti_trace_init();
+    gasneti_trace_init(*argc, *argv);
     GASNETI_AM_SAFE(AMUDP_SPMDSetExitCallback(gasnetc_traceoutput));
 
     /* for local spawn, assume we want to wait-block */
@@ -246,7 +246,7 @@ extern int gasnet_init(int *argc, char ***argv) {
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   #if 0
     /* called within gasnet_init to allow init tracing */
-    gasneti_trace_init();
+    gasneti_trace_init(*argc, *argv);
   #endif
   return GASNET_OK;
 }

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.59 2004/05/02 08:05:15 bonachea Exp $
- * $Date: 2004/05/02 08:05:15 $
+/* $Id: gasnet_core.c,v 1.60 2004/05/19 07:35:38 bonachea Exp $
+ * $Date: 2004/05/19 07:35:38 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -127,7 +127,7 @@ gasnetc_init(int *argc, char ***argv)
 	#endif
 
 	gasneti_init_done = 1;
-	gasneti_trace_init();
+	gasneti_trace_init(*argc, *argv);
 
 	#if GASNET_DEBUG_VERBOSE
 	printf("%d> done init\n", gasnetc_mynode);

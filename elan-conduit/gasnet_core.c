@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core.c                  $
- *     $Date: 2004/05/02 08:05:13 $
- * $Revision: 1.39 $
+ *     $Date: 2004/05/19 07:35:36 $
+ * $Revision: 1.40 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -228,7 +228,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 
   /* enable tracing */
-  gasneti_trace_init();
+  gasneti_trace_init(*argc, *argv);
 
   #if 0 
     gasneti_assert(gasnetc_nodes > 0 && gasnetc_mynode >= 0); /* true by datatype */
@@ -298,7 +298,7 @@ extern int gasnet_init(int *argc, char ***argv) {
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   #if 0
     /* called within gasnet_init to allow init tracing */
-    gasneti_trace_init();
+    gasneti_trace_init(*argc, *argv);
   #endif
   return GASNET_OK;
 }

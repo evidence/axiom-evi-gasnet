@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2004/05/17 18:21:17 $
- * $Revision: 1.24 $
+ *     $Date: 2004/05/19 07:35:34 $
+ * $Revision: 1.25 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -377,10 +377,11 @@ const char *gasnet_ErrorDesc(int errval) {
              GASNET_EXTENDED_NAME_STR "-" GASNET_EXTENDED_VERSION_STR "," \
              "THREADMODEL=" _STRINGIFY(GASNETI_THREADMODEL) ","           \
              "SEGMENT=" _STRINGIFY(GASNETI_SEGMENT_CONFIG) ","            \
-             _STRINGIFY(GASNETI_ALIGN_CONFIG) ","                                     \
-             _STRINGIFY(GASNETI_DEBUG_CONFIG) ","                                     \
-             _STRINGIFY(GASNETI_TRACE_CONFIG) ","                                     \
-             _STRINGIFY(GASNETI_STATS_CONFIG)                                         \
+             "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) ","                    \
+             _STRINGIFY(GASNETI_ALIGN_CONFIG) ","                         \
+             _STRINGIFY(GASNETI_DEBUG_CONFIG) ","                         \
+             _STRINGIFY(GASNETI_TRACE_CONFIG) ","                         \
+             _STRINGIFY(GASNETI_STATS_CONFIG)                             \
              GASNETC_EXTRA_CONFIG_INFO                                    \
              GASNETE_EXTRA_CONFIG_INFO                                    
 #endif
@@ -397,6 +398,7 @@ extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_DEBUG_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG);
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG);
 
 static int *gasneti_linkconfig_idiotcheck();
 static int *(*_gasneti_linkconfig_idiotcheck)() = &gasneti_linkconfig_idiotcheck;
@@ -408,7 +410,8 @@ static int *gasneti_linkconfig_idiotcheck() {
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_DEBUG_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG)
-        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG);
+        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG)
+        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG);
   return &val;
 }
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/05/18 19:03:47 $
- * $Revision: 1.51 $
+ *     $Date: 2004/05/19 07:35:50 $
+ * $Revision: 1.52 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -472,7 +472,7 @@ static int gasnetc_init(int *argc, char ***argv) {
                                  gasnetc_bootstrapAllgather, gasnetc_bootstrapBroadcast);
 
   /* Now enable tracing of all the following steps */
-  gasneti_trace_init();
+  gasneti_trace_init(*argc, *argv);
 
   /* Process the environment for configuration/settings */
   i = gasnetc_load_settings();
@@ -820,7 +820,7 @@ extern int gasnet_init(int *argc, char ***argv) {
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   #if 0
     /* Already done in gasnetc_init() to allow tracing of init steps */
-    gasneti_trace_init();
+    gasneti_trace_init(*argc, *argv);
   #endif
   return GASNET_OK;
 }
