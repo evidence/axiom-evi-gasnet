@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/11/04 19:17:47 $
- * $Revision: 1.23 $
+ *     $Date: 2003/11/08 21:49:42 $
+ * $Revision: 1.24 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,8 +37,7 @@
     defined(HPUX)    || /* HPUX seems to have no atomic ops */  \
     (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) || /* haven't implemented atomics for PGI */ \
     (defined(__MACH__) && defined(__APPLE__)) || /* we careth not about performance on OSX */ \
-    (defined(OSF) && !defined(__DECC) && !defined(__GNUC__)) || /* only implemented for these compilers */ \
-    (defined(__INTEL_COMPILER) && defined(__ia64__)) /* IA64 Intel compiler doesn't support asm (contrary to docs) */
+    (defined(OSF) && !defined(__DECC) && !defined(__GNUC__)) /* only implemented for these compilers */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
 
@@ -115,47 +114,100 @@
     #define gasneti_atomic_decrement_and_test(p) ((--((p)->ctr)) == 0)
   #endif
 #else
-  #if defined(LINUX)
+  #if defined(LINUX) && defined(__INTEL_COMPILER) && defined(__ia64__)
+    /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
+    #include <ia64intrin.h>
+    typedef struct { volatile uint32_t ctr; } gasneti_atomic_t;
+    #define gasneti_atomic_increment(p) _InterlockedIncrement((volatile int *)&((p)->ctr))
+    #define gasneti_atomic_decrement(p) _InterlockedDecrement((volatile int *)&((p)->ctr))
+    #define gasneti_atomic_read(p)      ((p)->ctr)
+    #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+    #define gasneti_atomic_init(v)      { (v) }
+    #define gasneti_atomic_decrement_and_test(p) \
+                                        (_InterlockedDecrement((volatile int *)&((p)->ctr)) == 0)
+  #elif defined(LINUX)
     #ifdef BROKEN_LINUX_ASM_ATOMIC_H
       /* some versions of the linux kernel ship with a broken atomic.h
          this code based on a non-broken version of the header */
-      #ifdef GASNETI_UNI_BUILD
-        #define GASNETI_LOCK ""
+      #if defined(__i386__)
+        #ifdef GASNETI_UNI_BUILD
+          #define GASNETI_LOCK ""
+        #else
+          #define GASNETI_LOCK "lock ; "
+        #endif
+        typedef struct { volatile int counter; } gasneti_atomic_t;
+        #define gasneti_atomic_read(p)      ((p)->counter)
+        #define gasneti_atomic_init(v)      { (v) }
+        #define gasneti_atomic_set(p,v)     ((p)->counter = (v))
+        GASNET_INLINE_MODIFIER(gasneti_atomic_increment)
+        void gasneti_atomic_increment(gasneti_atomic_t *v) {
+          __asm__ __volatile__(
+                  GASNETI_LOCK "incl %0"
+                  :"=m" (v->counter)
+                  :"m" (v->counter));
+        }
+        GASNET_INLINE_MODIFIER(gasneti_atomic_decrement)
+        void gasneti_atomic_decrement(gasneti_atomic_t *v) {
+          __asm__ __volatile__(
+                  GASNETI_LOCK "decl %0"
+                  :"=m" (v->counter)
+                  :"m" (v->counter));
+        }
+        GASNET_INLINE_MODIFIER(gasneti_atomic_decrement_and_test)
+        int gasneti_atomic_decrement_and_test(gasneti_atomic_t *v) {
+            unsigned char c;
+            __asm__ __volatile__(
+	            GASNETI_LOCK "decl %0; sete %1"
+	            :"=m" (v->counter), "=qm" (c)
+	            :"m" (v->counter) : "memory");
+            return (c != 0);
+        }
+      #elif defined(__ia64__)
+        #if GASNET_DEBUG
+          #define GASNETI_CMPXCHG_BUGCHECK_DECL  int _cmpxchg_bugcheck_count = 128;
+          #define GASNETI_CMPXCHG_BUGCHECK(v) do {                                         \
+              if (_cmpxchg_bugcheck_count-- <= 0) {                                        \
+                void *ip;                                                                  \
+                asm ("mov %0=ip" : "=r"(ip));                                              \
+                gasneti_fatalerror("CMPXCHG_BUGCHECK: stuck at %p on word %p\n", ip, (v)); \
+              }                                                                            \
+            } while (0)
+        #else
+          #define GASNETI_CMPXCHG_BUGCHECK_DECL
+          #define GASNETI_CMPXCHG_BUGCHECK(v)
+        #endif
+
+        GASNET_INLINE_MODIFIER(gasneti_cmpxchg)
+        int32_t gasneti_cmpxchg(int32_t volatile *ptr, int32_t oldval, int32_t newval) {                                                                                      \
+          int64_t _o_, _r_;
+           _o_ = (int64_t)oldval;
+           __asm__ __volatile__ ("mov ar.ccv=%0;;" :: "rO"(_o_));
+           __asm__ __volatile__ ("mf; cmpxchg4.acq %0=[%1],%2,ar.ccv"
+                                  : "=r"(_r_) : "r"(ptr), "r"(newval) : "memory");
+          return (int32_t) _r_;
+        }
+        GASNET_INLINE_MODIFIER(gasneti_atomic_addandfetch_32)
+        int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
+          int32_t oldctr, newctr;
+          GASNETI_CMPXCHG_BUGCHECK_DECL
+
+          do {
+            GASNETI_CMPXCHG_BUGCHECK(v);
+            oldctr = *v;
+            newctr = oldctr + op;
+          } while (gasneti_cmpxchg(v, oldctr, newctr) != oldctr);
+          return newctr;
+        }
+        typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
+        #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
+        #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
+        #define gasneti_atomic_read(p)      ((p)->ctr)
+        #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+        #define gasneti_atomic_init(v)      { (v) }
+        #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1) == 0)
       #else
-        #define GASNETI_LOCK "lock ; "
+        #error you have broken Linux system headers and an unrecognized CPU. barf...
       #endif
-
-      #ifndef __i386__
-        #error you have broken Linux system headers and a broken CPU. barf...
-      #endif
-
-      typedef struct { volatile int counter; } gasneti_atomic_t;
-      #define gasneti_atomic_read(p)      ((p)->counter)
-      #define gasneti_atomic_init(v)      { (v) }
-      #define gasneti_atomic_set(p,v)     ((p)->counter = (v))
-      GASNET_INLINE_MODIFIER(gasneti_atomic_increment)
-      void gasneti_atomic_increment(gasneti_atomic_t *v) {
-        __asm__ __volatile__(
-                GASNETI_LOCK "incl %0"
-                :"=m" (v->counter)
-                :"m" (v->counter));
-      }
-      GASNET_INLINE_MODIFIER(gasneti_atomic_decrement)
-      void gasneti_atomic_decrement(gasneti_atomic_t *v) {
-        __asm__ __volatile__(
-                GASNETI_LOCK "decl %0"
-                :"=m" (v->counter)
-                :"m" (v->counter));
-      }
-      GASNET_INLINE_MODIFIER(gasneti_atomic_decrement_and_test)
-      int gasneti_atomic_decrement_and_test(gasneti_atomic_t *v) {
-	  unsigned char c;
-	  __asm__ __volatile__(
-		  GASNETI_LOCK "decl %0; sete %1"
-		  :"=m" (v->counter), "=qm" (c)
-		  :"m" (v->counter) : "memory");
-	  return (c != 0);
-      }
     #else
       #ifdef __alpha__
         /* work-around for a puzzling header bug in alpha Linux */
@@ -380,11 +432,20 @@
      GASNETI_ASM("");
    }
  #else
-   /* mf may cause an illegal instruction trap on uniprocessor kernel */
-   GASNET_INLINE_MODIFIER(gasneti_local_membar)
-   void gasneti_local_membar(void) {
-     GASNETI_ASM("mf");
-   }
+   #ifdef __INTEL_COMPILER
+      /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
+      #include <ia64intrin.h>
+      #define gasneti_local_membar() do {                       \
+        __memory_barrier(); /* compiler optimization barrier */ \
+        __mf();  /* memory fence instruction */                 \
+      } while (0)
+   #else
+      /* mf may cause an illegal instruction trap on uniprocessor kernel */
+      GASNET_INLINE_MODIFIER(gasneti_local_membar)
+      void gasneti_local_membar(void) {
+        GASNETI_ASM("mf");
+      }
+   #endif
  #endif
 #elif defined(_POWER) /* IBM SP POWER2, POWER3 */
  #ifdef __xlC__
