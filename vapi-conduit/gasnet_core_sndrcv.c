@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/04/04 02:54:21 $
- * $Revision: 1.89 $
+ *     $Date: 2005/04/05 22:55:28 $
+ * $Revision: 1.90 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -361,7 +361,7 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 
 	  switch (comp.opcode) {
 	  case VAPI_CQE_SQ_RDMA_READ:	/* Get */
-	    gasneti_assert(sreq->req_oust != NULL);
+	    gasneti_assert((sreq->req_oust != NULL) || !GASNETC_ANY_PAR);
 	    gasneti_assert(sreq->mem_oust == NULL);
             #if GASNETC_PIN_SEGMENT
 	    if_pf (sreq->fh_count < 0) {
@@ -372,7 +372,9 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 	      gasneti_assert(sreq->bb_len > 0);
 	      memcpy(sreq->bb_addr, sreq->bb_buff, sreq->bb_len);
               gasneti_sync_writes();
-              gasnetc_counter_dec(sreq->req_oust);
+	      if (GASNETC_ANY_PAR || sreq->req_oust) {
+                gasnetc_counter_dec(sreq->req_oust);
+	      }
 	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->bb_buff);
 	    } else
 	    #endif
