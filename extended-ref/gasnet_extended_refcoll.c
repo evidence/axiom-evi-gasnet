@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/01/31 22:06:52 $
- * $Revision: 1.18 $
+ *     $Date: 2005/02/02 00:41:56 $
+ * $Revision: 1.19 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,12 +25,12 @@
 /* XXX: sequence and other stuff that will need to be per-team scoped: */
 
 uint32_t gasnete_coll_sequence = 12345;	/* arbitrary non-zero starting value */
-size_t *gasnete_coll_all_images;
-size_t *gasnete_coll_all_offset;
-size_t gasnete_coll_total_images;
-size_t gasnete_coll_max_images;
-size_t gasnete_coll_my_images;	/* count of local images */
-size_t gasnete_coll_my_offset;	/* count of images before my first image */
+gasnet_image_t *gasnete_coll_all_images;
+gasnet_image_t *gasnete_coll_all_offset;
+gasnet_image_t gasnete_coll_total_images;
+gasnet_image_t gasnete_coll_max_images;
+gasnet_image_t gasnete_coll_my_images;	/* count of local images */
+gasnet_image_t gasnete_coll_my_offset;	/* count of images before my first image */
 
 #define GASNETE_COLL_1ST_IMAGE(LIST,NODE) \
 	(((void * const *)(LIST))[gasnete_coll_all_offset[(NODE)]])
