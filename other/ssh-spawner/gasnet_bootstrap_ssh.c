@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/02/17 13:19:09 $
- * $Revision: 1.20 $
+ *     $Date: 2005/03/18 02:18:26 $
+ * $Revision: 1.21 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -589,7 +589,12 @@ static void build_nodelist(void)
 
   if ((env_string = getenv(ENV_PREFIX "SSH_NODEFILE")) != NULL && strlen(env_string)) {
     nodelist = parse_nodefile(env_string);
-  } else if ((env_string = getenv(ENV_PREFIX "SSH_SERVERS")) != NULL && strlen(env_string)) {
+  } else if ((env_string = getenv(ENV_PREFIX "SSH_SERVERS"))  != NULL && strlen(env_string)) {
+    nodelist = parse_servers(env_string);
+  } else if ((env_string = getenv("PBS_NODEFILE")) != NULL && strlen(env_string)) {
+    nodelist = parse_nodefile(env_string);
+  } else if (((env_string = getenv("SSS_HOSTLIST")) != NULL && strlen(env_string)) ||
+             ((env_string = getenv("LSB_HOSTS"))    != NULL && strlen(env_string))) {
     nodelist = parse_servers(env_string);
   } else {
     gasneti_fatalerror("No " ENV_PREFIX "SSH_NODEFILE or " ENV_PREFIX "SSH_SERVERS in environment");
