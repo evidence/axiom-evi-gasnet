@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/11/19 19:02:00 $
- * $Revision: 1.5 $
+ *     $Date: 2002/11/22 01:10:25 $
+ * $Revision: 1.6 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -383,19 +383,16 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     }
 #else
     /* GASNET_SEGMENT_EVERYTHING */
-    segbase = (void *)0;
-    segsize = (uintptr_t)-1;
-    /* (###) add any code here needed to setup GASNET_SEGMENT_EVERYTHING support */
-    gasneti_fatalerror("SEGMENT_EVERYTHING not implemented");
+    {
+	int i;
+	for (i=0;i<gasnetc_nodes;i++) {
+	    gasnetc_seginfo[i].addr = (void *)0;
+	    gasnetc_seginfo[i].size = (uintptr_t)-1;
+	}
+	segbase = gasnetc_seginfo[gasnetc_mynode].addr;
+	segsize = gasnetc_seginfo[gasnetc_mynode].size;
+    }
 #endif
-
-    /* ------------------------------------------------------------------------------------ */
-    /*  gather segment information */
-
-    /* (###) add code here to gather the segment assignment info into 
-       gasnetc_seginfo on each node (may be possible to use AMShortRequest here)
-    */
-    /* MLW: Appears this was already done in gasneti_segmentAttach */
 
     /* ------------------------------------------------------------------------------------ */
     /*  primary attach complete */

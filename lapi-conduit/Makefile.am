@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.3 2002/11/14 01:35:55 welcome Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.4 2002/11/22 01:10:25 welcome Exp $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -19,15 +19,18 @@ filelist =                   \
       gasnet_core_internal.h 
 
 othersourcefiles =                             \
-      $(top_srcdir)/gasnet_internal.c          \
-      $(top_srcdir)/extended-ref/gasnet_extended.c 
+      $(top_srcdir)/gasnet_internal.c
 
 EXTRA_DIST = $(filelist)
 
-libgasnet_sources = $(srcdir)/gasnet_core.c $(othersourcefiles)
+libgasnet_sources = $(srcdir)/gasnet_core.c \
+		$(srcdir)/gasnet_extended.c \
+		$(othersourcefiles)
+
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.h                \
                          $(top_srcdir)/extended-ref/*.h       
+
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
 
 if HAVE_PTHREAD
@@ -59,19 +62,21 @@ libgasnet-lapi-parsync.a: $(libgasnet_dependencies)
 
 
 libs: $(libraries)
-	
+
 if USE_LAPI_CONDUIT                           
 lib_LIBRARIES = $(libraries)
 
 all: libs
-	
+
 clean-local: 
 	rm -f $(libgasnet_objects) $(libraries) *.o core
 	@$(MAKE) -f $(top_srcdir)/tests/Makefile clean       \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="lapi-seq.mak"
 
-headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h 
+headers = $(srcdir)/*.h \
+	$(top_srcdir)/extended-ref/gasnet_extended_help.h
+
 makefile_fragments = lapi-seq.mak lapi-parsync.mak lapi-par.mak
 
 install-data-local: $(headers)
@@ -116,6 +121,3 @@ tests-par: force libgasnet-lapi-par.a
 	  configfile="lapi-par.mak"
 
 force:
-	
-
-

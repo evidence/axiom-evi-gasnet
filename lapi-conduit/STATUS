@@ -1,33 +1,57 @@
-* * * 11/16/2002
-
-Initial checkin of lapi conduit.
+* * * 11/21/2002
 
 Complete:
 ========
 * Initial working implementation of LAPI conduit.
 
-* Works with GASNET_SEGMENT_LARGE
+* Initial complete implementation of extended API for LAPI.
 
 * Works with GASNET_PAR
    - known issue with shared buffer for lapi error messages.
 
-  (Issues with GASNET_SEQ and GASNET_PARSYNC in upper gasnet
-   layer on conduits that execute handlers in seperate, conduit
-   owned threads.  Can be concurrent with user threads executing
-   client code.)
+  (Issues with GASNET_SEQ and GASNET_PARSYNC.  Need some
+   of gasnet layer locks to be "real" locks.  Client code
+   may execute simultaniously in both client thread and
+   in LAPI header or completion handlers.  Example is
+   ??? in gasneti tracing implementation).
 
 * optimizations for AM
-   - uhdr buffer pool to recude calls to malloc/free
+   - uhdr buffer pool to reduce calls to malloc/free
    - Execution of REPLY handler in LAPI header handler, when possible.
    - Pack medium/large data into uhdr
 
 * Loopback working
 
-ToDo - core
-===========
-* GASNET_SEGMENT_EVERYTHING - see Elan code.
+ToDo List
+=========
+* GASNET_SEGMENT_EVERYTHING - Is there anything to do here?
 
-* What to do about GASNET_SEGMENT_FAST?
+* GASNET_SEGMENT_FAST - Same as GASNET_SEGMENT_LARGE on SP?  
 
-* Implement the extended API directly over LAPI.
+* Better core uhdr_buffer management.
+  - Remove locking by providing a single-producer/single-consumer 
+    allocation queue as was done in AMLAPI.  Must still provide
+    seperate pool for AsyncLong case.
+    From Dan's e-mail:
 
+[On the uhdr buffer pool you implemented.. I was actually hoping we could
+ avoid the cost of pthread locking for this pool (using the same trick we used
+ for AMLAPI), esp since mutex lock is so expensive on the SP. I had a look
+ through the code, and it seems you could do this for the common case by
+ separating your pool into 2 disjoint pools - one that is used exclusively for
+ AsyncLong (and keeps the current locking), and another which is used for all
+ other uhdr alloc/free (which doesn't need locking - alloc always happens in
+ header handler critical section, free always happens in completion handler
+ critical section, and we can maintain the free list as a lock-free list). You
+ could keep the nice abstraction layer by taking an extra args which indicates
+ the pool in use, and the pool init function can take a true/false value about
+ whether locking is required (concurrent allocs or concurrent frees are
+ possible). You may have to rethink the statistical values (list->numfree,
+ list->numalloc) to prevent race conditions..
+]
+
+* Replace polling wait loops in extended API with blocking LAPI_Waitcntr calls?
+
+* Mechanism to allow client to specify LAPI POLLING mode as default.
+  - command line arg?
+  - environment variable?
