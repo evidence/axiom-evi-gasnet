@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2003/10/24 01:37:44 $
- * $Revision: 1.23 $
+ *     $Date: 2003/10/28 18:45:38 $
+ * $Revision: 1.24 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1242,7 +1242,7 @@ static void gasnetc_exit_body(void) {
     break;
 
   default:
-      gasneti_fatalerror("this should not happen");
+      gasneti_fatalerror("invalid exit role");
   }
 
   /* Clean up transport resources, allowing upto 30s */
