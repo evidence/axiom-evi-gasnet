@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/07 21:23:41 $
+ * $Revision: 1.2 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -73,8 +73,8 @@ static int64_t mygetMicrosecondTimeStamp(void)
   } while(0)
 
 #define BARRIER() do {                                                \
-  gasnete_barrier_notify(0,GASNET_BARRIERFLAGS_ANONYMOUS);            \
-  GASNET_Safe(gasnete_barrier_wait(0,GASNET_BARRIERFLAGS_ANONYMOUS)); \
+  gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            \
+  GASNET_Safe(gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS)); \
 } while (0)
 
 #ifdef IRIX

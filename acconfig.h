@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/06/01 14:24:57 $ */
-/*  $Revision: 1.1 $ */
+/*      $Date: 2002/06/07 21:23:37 $ */
+/*  $Revision: 1.2 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 
@@ -8,10 +8,6 @@
 #define _INCLUDE_GASNET_CONFIG_H_
 
 @TOP@
-
-/* self-identification */
-#undef PACKAGE
-#undef VERSION
 
 /* using the MIPSPro C compiler (which doesn't seem to have other identifying markers) */
 #undef MIPSPRO_COMPILER

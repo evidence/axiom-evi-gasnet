@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2002/06/03 07:31:14 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/07 21:23:37 $
+ * $Revision: 1.3 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -85,10 +85,10 @@
   #define GASNET_SEGSIZE_EVERYTHING ((uintptr_t)-1)
 #endif
 
-#ifndef GASNET_BARRIERFLAGS_ANONYMOUS
+#ifndef GASNET_BARRIERFLAG_ANONYMOUS
   /* barrier flags */
-  #define GASNET_BARRIERFLAGS_ANONYMOUS 1
-  #define GASNET_BARRIERFLAGS_MISMATCH  2
+  #define GASNET_BARRIERFLAG_ANONYMOUS 1
+  #define GASNET_BARRIERFLAG_MISMATCH  2
 #endif
 
 /* Errors: GASNET_OK must be zero */

@@ -1,15 +1,15 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/01 14:24:57 $
-# $Revision: 1.1 $
+#     $Date: 2002/06/07 21:23:37 $
+# $Revision: 1.2 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
 SUBDIRS =          \
-        other      \
-        mpi-conduit 
+	other      \
+	mpi-conduit 
 
 configdir = $(includedir)
 config_DATA = $(CONFIG_HEADER)

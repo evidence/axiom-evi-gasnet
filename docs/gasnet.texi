@@ -103,9 +103,9 @@
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/06/05 15:44:20 $
+@subtitle $Date: 2002/06/07 21:23:38 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.1 $ 
+@subtitle $Revision: 1.2 $ 
 @author Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -172,7 +172,7 @@ This GASNet specification describes a network-independent and
 language-independent high-performance communication interface intended for use in 
 implementing the runtime system for global address space languages (such as 
 UPC or Titanium). GASNet stands for 
-"@strong{G}lobal-@strong{A}ddress @strong{S}pace @strong{N}etworking".
+"@strong{G}lobal-@strong{A}ddress @strong{S}pace @strong{Net}working".
 
 @section Organization
 The interface is divided into 2 layers - the GASNet core API and the GASNet 
@@ -1915,11 +1915,11 @@ The client must synchronize its own accesses to the barrier functions and
 ensure that only one thread is ever inside a GASNet barrier function at a 
 time (esp. @code{gasnet_barrier_try()}).
 
-@findex GASNET_BARRIERFLAGS_ANONYMOUS
-@findex GASNET_BARRIERFLAGS_MISMATCH
+@findex GASNET_BARRIERFLAG_ANONYMOUS
+@findex GASNET_BARRIERFLAG_MISMATCH
 @lisp
-#define GASNET_BARRIERFLAGS_ANONYMOUS ???
-#define GASNET_BARRIERFLAGS_MISMATCH ???
+#define GASNET_BARRIERFLAG_ANONYMOUS ???
+#define GASNET_BARRIERFLAG_MISMATCH ???
 @end lisp
 
 @FN gasnet_barrier_notify
@@ -1937,9 +1937,9 @@ Generates a fatal error if this is the second call to
 
 If @var{flags} == 0 then this is a "named" barrier notify that carries the given 
 @var{id} value.
-If @var{flags} == @code{GASNET_BARRIERFLAGS_ANONYMOUS}, then @var{id} is ignored and the 
+If @var{flags} == @code{GASNET_BARRIERFLAG_ANONYMOUS}, then @var{id} is ignored and the 
 barrier is anonymous - it has no specific value. 
-If @var{flags} == @code{GASNET_BARRIERFLAGS_MISMATCH}, then the subsequent 
+If @var{flags} == @code{GASNET_BARRIERFLAG_MISMATCH}, then the subsequent 
 @code{gasnet_barrier_wait()} call on every node will return 
 @code{GASNET_ERR_BARRIER_MISMATCH} (i.e. allows the client to force a global 
 mismatch error when a mismatch was detected locally).
@@ -1967,7 +1967,7 @@ Returns @code{GASNET_ERR_BARRIER_MISMATCH} if @var{flags} is not equal to the @v
 passed to the preceding @code{gasnet_barrier_notify()} call made by this node.
 Returns @code{GASNET_ERR_BARRIER_MISMATCH} if the @var{flags} value passed to 
 @code{gasnet_barrier_notify()} on this or any other node was 
-@code{GASNET_BARRIERFLAGS_MISMATCH}.
+@code{GASNET_BARRIERFLAG_MISMATCH}.
 Returns @code{GASNET_ERR_BARRIER_MISMATCH} if @var{flags}==0 and the supplied @var{id} value 
 doesn't match the @var{id} value provided in the preceding @code{gasnet_barrier_notify()} 
 call made by this node.

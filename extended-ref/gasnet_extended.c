@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/07 21:23:40 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -797,7 +797,7 @@ static void gasnete_barrier_notify_reqh(gasnet_token_t token,
     if (flags == 0 && !barrier_consensus_value_present[phase]) {
       barrier_consensus_value[phase] = (int)value;
       barrier_consensus_value_present[phase] = 1;
-    } else if (flags == GASNET_BARRIERFLAGS_MISMATCH ||
+    } else if (flags == GASNET_BARRIERFLAG_MISMATCH ||
                (flags == 0 && barrier_consensus_value[phase] != (int)value)) {
       barrier_consensus_mismatch[phase] = 1;
     }
