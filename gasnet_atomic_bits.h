@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/11/27 20:19:24 $
- * $Revision: 1.25 $
+ *     $Date: 2003/12/13 00:20:39 $
+ * $Revision: 1.26 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -130,7 +130,7 @@
     #ifdef BROKEN_LINUX_ASM_ATOMIC_H
       /* some versions of the linux kernel ship with a broken atomic.h
          this code based on a non-broken version of the header */
-      #if defined(__i386__)
+      #if defined(__i386__) || defined(__x86_64__) /* x86 and Athlon/Opteron */
         #ifdef GASNETI_UNI_BUILD
           #define GASNETI_LOCK ""
         #else
@@ -455,6 +455,20 @@
      #else
        GASNETI_ASM("lock; addl $0,0(%%esp)");
      #endif
+   }
+ #endif
+#elif defined(__x86_64__) /* Athlon/Opteron */
+ #if defined(GASNETI_UNI_BUILD)
+   /* Prevent compiler from reordering across this point. */
+   GASNET_INLINE_MODIFIER(gasneti_local_membar)
+   void gasneti_local_membar(void) {
+     GASNETI_ASM("");
+   }
+ #else
+   /* Prevent both compiler and the CPU from reordering across this point.  */
+   GASNET_INLINE_MODIFIER(gasneti_local_membar)
+   void gasneti_local_membar(void) {
+     GASNETI_ASM("mfence");
    }
  #endif
 #elif defined(__ia64__) /* Itanium */
