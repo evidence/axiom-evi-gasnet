@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.h                  $
- *     $Date: 2004/02/10 19:01:04 $
- * $Revision: 1.13 $
+ *     $Date: 2004/02/13 19:20:07 $
+ * $Revision: 1.14 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -185,12 +185,17 @@ void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) {
 #define GASNETC_MAX_ARGS	16
 #define GASNETC_MAX_MEDIUM	\
 		(GASNETC_BUFSZ - GASNETC_ALIGNUP(GASNETC_MEDIUM_HDRSZ + 4*GASNETC_MAX_ARGS, 8))
-#define GASNETC_MAX_LONG	((size_t)0x7ffffff)
+#define GASNETC_MAX_LONG_REQ	((size_t)0x7ffffff)
+#if GASNETC_PIN_SEGMENT
+  #define GASNETC_MAX_LONG_REP  GASNETC_MAX_LONG_REQ
+#else
+  #define GASNETC_MAX_LONG_REP  (GASNETC_BUFSZ - GASNETC_LONG_HDRSZ - 4*GASNETC_MAX_ARGS)
+#endif
 
 #define gasnet_AMMaxArgs()          ((size_t)GASNETC_MAX_ARGS)
 #define gasnet_AMMaxMedium()        ((size_t)GASNETC_MAX_MEDIUM)
-#define gasnet_AMMaxLongRequest()   ((size_t)GASNETC_MAX_LONG)	
-#define gasnet_AMMaxLongReply()     ((size_t)GASNETC_MAX_LONG)
+#define gasnet_AMMaxLongRequest()   ((size_t)GASNETC_MAX_LONG_REQ)	
+#define gasnet_AMMaxLongReply()     ((size_t)GASNETC_MAX_LONG_REP)
 
 /* ------------------------------------------------------------------------------------ */
 /*

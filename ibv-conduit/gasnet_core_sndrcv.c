@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2004/02/11 00:04:39 $
- * $Revision: 1.43 $
+ *     $Date: 2004/02/13 19:20:07 $
+ * $Revision: 1.44 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -289,10 +289,15 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
         nbytes = buf->longmsg.nBytes;
         data = (void *)(buf->longmsg.destLoc);
 	args = buf->longmsg.args;
-        if (GASNETC_MSG_ISREQUEST(flags))
+        if (GASNETC_MSG_ISREQUEST(flags)) {
           GASNETI_TRACE_AMLONG_REQHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
-        else
+        } else {
+	  #if !GASNETC_PIN_SEGMENT
+	    /* No RDMA for ReplyLong.  So, must relocate the payload. */
+	    memcpy(data, GASNETC_MSG_LONG_DATA(buf, numargs), nbytes);
+	  #endif
           GASNETI_TRACE_AMLONG_REPHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
+	}
         RUN_HANDLER_LONG(handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;
@@ -815,6 +820,10 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     if (nbytes) {
       if (dest == gasnetc_mynode) {
         memcpy(dst_addr, src_addr, nbytes);
+#if !GASNETC_PIN_SEGMENT
+      } else if (!isReq) {
+	memcpy(GASNETC_MSG_LONG_DATA(buf, numargs), src_addr, nbytes);
+#endif
       } else {
         /* XXX check for error returns */
         (void)gasnetc_rdma_put(dest, src_addr, dst_addr, nbytes, mem_oust, NULL);
@@ -823,8 +832,14 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     args = buf->longmsg.args;
     buf->longmsg.destLoc = (uintptr_t)dst_addr;
     buf->longmsg.nBytes  = nbytes;
-    msg_len = offsetof(gasnetc_buffer_t, longmsg.args[numargs]);
-    use_inline = (sizeof(gasnetc_longmsg_t) <= GASNETC_AM_INLINE_LIMIT);
+    #if GASNETC_PIN_SEGMENT
+      msg_len = offsetof(gasnetc_buffer_t, longmsg.args[numargs]);
+      use_inline = (sizeof(gasnetc_longmsg_t) <= GASNETC_AM_INLINE_LIMIT);
+    #else
+      msg_len = isReq ? offsetof(gasnetc_buffer_t, longmsg.args[numargs])
+		      : GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
+      use_inline = (msg_len <= GASNETC_AM_INLINE_LIMIT);
+    #endif
     break;
 
   default:

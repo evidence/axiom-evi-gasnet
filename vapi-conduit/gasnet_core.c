@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/02/09 23:03:32 $
- * $Revision: 1.41 $
+ *     $Date: 2004/02/13 19:20:07 $
+ * $Revision: 1.42 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1817,7 +1817,6 @@ extern int gasnetc_AMReplyLongM(
                             void *source_addr, size_t nbytes,   /* data payload */
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...) {
-  gasnetc_counter_t mem_oust = GASNETC_COUNTER_INITIALIZER;
   int retval;
   gasnet_node_t dest;
   va_list argptr;
@@ -1836,12 +1835,23 @@ extern int gasnetc_AMReplyLongM(
   GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
+  #if GASNETC_PIN_SEGMENT
+  {
+    gasnetc_counter_t mem_oust = GASNETC_COUNTER_INITIALIZER;
+
+    retval = gasnetc_ReplyGeneric(gasnetc_Long, token, handler,
+		  		  source_addr, nbytes, dest_addr,
+				  numargs, &mem_oust, argptr);
+
+    /* block for completion of RDMA transfer */
+    gasnetc_counter_wait(&mem_oust, 1 /* calling from a request handler */);
+  }
+  #else
   retval = gasnetc_ReplyGeneric(gasnetc_Long, token, handler,
 		  		source_addr, nbytes, dest_addr,
-				numargs, &mem_oust, argptr);
+				numargs, NULL, argptr);
 
-  /* block for completion of RDMA transfer */
-  gasnetc_counter_wait(&mem_oust, 1 /* calling from a request handler */);
+  #endif
 
   va_end(argptr);
   GASNETI_RETURN(retval);

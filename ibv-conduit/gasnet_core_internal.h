@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/02/11 00:04:39 $
- * $Revision: 1.34 $
+ *     $Date: 2004/02/13 19:20:07 $
+ * $Revision: 1.35 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,16 +17,6 @@
 #include <vapi.h>
 #include <evapi.h>
 #include <vapi_common.h>
-
-/* XXX: don't yet have any mixed approaches in which there is a pinned
- * segment and firehose is used to dynamically register stack, etc. */
-#if defined(GASNET_SEGMENT_LARGE) || defined(GASNET_SEGMENT_EVERYTHING)
-  #define GASNETC_USE_FIREHOSE 1
-  #include <firehose.h>
-#endif
-#if defined(GASNET_SEGMENT_FAST)
-  #define GASNETC_PIN_SEGMENT 1
-#endif
 
 extern gasnet_seginfo_t *gasnetc_seginfo;
 
@@ -104,11 +94,21 @@ typedef enum {
   gasnetc_System=3
 } gasnetc_category_t;
 
+/* The a Medium AM's payload starts as soon after the args as possible while still
+   providing the required 8-byte alignment.
+*/
 #define GASNETC_MSG_MED_OFFSET(nargs)	\
 	(offsetof(gasnetc_medmsg_t,args) + 4 * (nargs + ((nargs & 0x1) ^ ((GASNETC_MEDIUM_HDRSZ>>2) & 0x1))))
-
 #define GASNETC_MSG_MED_DATA(msg, nargs) \
 	((void *)((uintptr_t)(msg) + GASNETC_MSG_MED_OFFSET(nargs)))
+
+/* Only needed for non-RDMA ReplyLong, used when remote segment not pinned.
+   This is a much simpler expression than the medium, since we don't 8-byte align.
+*/
+#define GASNETC_MSG_LONG_OFFSET(nargs)	\
+	(offsetof(gasnetc_longmsg_t,args) + 4 * nargs)
+#define GASNETC_MSG_LONG_DATA(msg, nargs) \
+	((void *)((uintptr_t)(msg) + GASNETC_MSG_LONG_OFFSET(nargs)))
 
 /* ------------------------------------------------------------------------------------ */
 
