@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/17 23:23:57 $
-# $Revision: 1.179 $
+#     $Date: 2004/08/20 17:25:01 $
+# $Revision: 1.180 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.179 $)
+AC_REVISION($Revision: 1.180 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -152,8 +152,8 @@ case "$gasnet_cv_cc_family" in
 	# gcc 3.4+ require new flags to enable full inlining
         GASNET_TRY_CFLAG([--param inline-unit-growth=10000],
                          [CFLAGS="$CFLAGS --param inline-unit-growth=10000"])
-        GASNET_TRY_CFLAG([--param large-function-growth=100000],
-                         [CFLAGS="$CFLAGS --param large-function-growth=100000"])
+        GASNET_TRY_CFLAG([--param large-function-growth=200000],
+                         [CFLAGS="$CFLAGS --param large-function-growth=200000"])
         # We'd like to use -Winline to detect call sites where the optimizer
         # ignores our inline function modifier (usually due to technical limitations)
   	# However, some versions of gcc issue spurious warnings with -Winline
