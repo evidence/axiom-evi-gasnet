@@ -1411,13 +1411,31 @@ fhi_InitLocalRegionsList(gasnet_node_t node, firehose_region_t *region,
 		assert(region[i].addr > 0);
 
 		FH_FOREACH_BUCKET(region[i].addr,end_addr,bucket_addr) {
-			bd = fh_bucket_add(fh_mynode, bucket_addr);
-			FH_BSTATE_SET(bd, fh_used);
-
-			FH_BUCKET_REFC(bd)->refc_l = loc;
-			FH_BUCKET_REFC(bd)->refc_r = rem;
-
-			FH_TRACE_BUCKET(bd, INIT);
+			/* 
+			 * Normally, the bucket will not already exist in the
+			 * table.  However, in threaded configurations, it is
+			 * possible for another thread to add the bucket while
+			 * this current thread unlocked the table lock and
+			 * pinned the memory region associated to the bucket.
+			 *
+			 */
+			#ifdef GASNETI_THREADS
+			bd = fh_bucket_lookup(fh_mynode, bucket_addr);
+			if_pf (bd != NULL) {
+				FH_BSTATE_SET(bd, fh_used);
+				FH_BUCKET_REFC(bd)->refc_l += loc;
+				FH_BUCKET_REFC(bd)->refc_r += rem;
+				FH_TRACE_BUCKET(bd, INIT++);
+			}
+			else 
+			#endif
+			{
+				bd = fh_bucket_add(fh_mynode, bucket_addr);
+				FH_BSTATE_SET(bd, fh_used);
+				FH_BUCKET_REFC(bd)->refc_l = loc;
+				FH_BUCKET_REFC(bd)->refc_r = rem;
+				FH_TRACE_BUCKET(bd, INIT);
+			}
 		}
 	}
 
