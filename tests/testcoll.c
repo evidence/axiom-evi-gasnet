@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/02/23 08:25:49 $
- * $Revision: 1.13 $
+ *     $Date: 2005/03/11 19:15:55 $
+ * $Revision: 1.14 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -414,6 +414,9 @@ int main(int argc, char **argv)
     /* get SPMD info */
     myproc = gasnet_mynode();
     numprocs = gasnet_nodes();
+
+    if (!myproc)
+	print_testname("testcoll", numprocs);
 
 #if GASNET_ALIGNED_SEGMENTS != 1
     if (myproc == 0) {

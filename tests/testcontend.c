@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2005/03/02 19:04:00 $
- * $Revision: 1.7 $
+ *     $Date: 2005/03/11 19:15:55 $
+ * $Revision: 1.8 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -315,6 +315,8 @@ int main(int argc, char **argv) {
 
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(htable, HANDLER_TABLE_SIZE, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+	if (!gasnet_mynode())
+	    print_testname("testcontend", gasnet_nodes());
         TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
         TEST_DEBUGPERFORMANCE_WARNING();
 

@@ -1,4 +1,4 @@
-/* $Id: testcas.c,v 1.8 2005/02/23 13:17:21 bonachea Exp $
+/* $Id: testcas.c,v 1.9 2005/03/11 19:15:55 csbell Exp $
  *
  * Description: GASNet atomic CAS.
  *   The test verifies the atomic compare-and-swap on platforms which support it.
@@ -84,10 +84,12 @@ main(int argc, char **argv)
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
 
-	MSG("running...");
-
 	mynode = gasnet_mynode();
 	myseg = TEST_MYSEG();
+	if (!mynode)
+	    print_testname("testcas", gasnet_nodes());
+
+	MSG("running...");
 
 	if (argc > 1) iters = atoi(argv[1]);
 	if (!iters) iters = DEFAULT_ITERS;

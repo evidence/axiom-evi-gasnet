@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2005/03/10 23:26:08 $
- * $Revision: 1.2 $
+ *     $Date: 2005/03/11 19:15:55 $
+ * $Revision: 1.3 $
  * Description: MG-like neighbour exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -166,7 +166,8 @@ nbour_t	Nbour;
 
 #define NBOUR_SYNC_LEN	(1 + CACHELINE_SZ/sizeof(int))
 #define NBOUR_SYNC_OFF(axis,id,phase) (NBOUR_SYNC_LEN*(4*(axis)+2*(id)+(phase)))
-#define NBOUR_SYNCADDR(base,axis,id,phase) (((int*)(base)) + NBOUR_SYNC_OFF(axis,id,phase))
+#define NBOUR_SYNCADDR(base,axis,id,phase) \
+        (((volatile int*)(base)) + NBOUR_SYNC_OFF(axis,id,phase))
 
 void setupGrid(nbour_t *nb, int level);
 void allocMultiGrid(nbour_t *nb);
@@ -213,7 +214,7 @@ LONG_HANDLER(ghostReqHandler,3,4,
  */
 GASNET_INLINE_MODIFIER(ghostReqHandler_inner)
 void
-ghostRepHandler_inner(gasnet_token_t token, int *flag)
+ghostRepHandler_inner(gasnet_token_t token, volatile int *flag)
 {
     *flag = 1;
 }
@@ -426,6 +427,9 @@ main(int argc, char **argv)
 	fprintf(stderr, "%s only runs on a power of two processors\n", argv[0]);
 	gasnet_exit(1);
     }
+
+    if (!myproc)
+	print_testname("testneighbour", nprocs);
 
     /* setup max grid we intend to use, so we can get enough 
      * memory per proc at startup */
@@ -904,7 +908,7 @@ void
 ghostExchGASNetNonBlock(nbour_t *nb, int iters, int axis_in, int pairwise_sync)
 {
     unsigned int i, j, axis, dest, face;
-    int *sync;
+    volatile int *sync;
 
     uint64_t	    begin, end;
     stat_struct_t   stcomm3;
@@ -1043,15 +1047,13 @@ pairwise_signal_neighbours(nbour_t *nb, gasnet_handle_t *h_nbour, int axis_in, i
 	destup   = nb->nodeidUpper[axis];
 	destdown = nb->nodeidLower[axis];
 
-	h_nbour[i*2+0] = 
-	    gasnet_put_nb_val(destup, 
-		NBOUR_SYNCADDR(nb->DirSyncComm3[destup], axis, 1, phase), 
-		1, sizeof(int));
+	h_nbour[i*2+0] = gasnet_put_nb_val(destup, 
+	    (void *) NBOUR_SYNCADDR(nb->DirSyncComm3[destup], axis, 1, phase), 
+	    1, sizeof(int));
 
-	h_nbour[i*2+1] =
-	    gasnet_put_nb_val(destdown, 
-		NBOUR_SYNCADDR(nb->DirSyncComm3[destdown], axis, 0, phase), 
-		1, sizeof(int));
+	h_nbour[i*2+1] = gasnet_put_nb_val(destdown, 
+	    (void *) NBOUR_SYNCADDR(nb->DirSyncComm3[destdown], axis, 0, phase), 
+	    1, sizeof(int));
     }
 }
 
@@ -1062,7 +1064,7 @@ pairwise_wait_neighbours(nbour_t *nb, gasnet_handle_t *h_nbour, int axis_in, int
     int	    nfaces;
     int	    faces = 0;
     int	    axes[3];
-    int	    *sync;
+    volatile int    *sync;
 
     if (axis_in == AALL) {
 	nfaces = 6;
@@ -1271,14 +1273,14 @@ ge_notify(nbour_t *nb, int dir, int axis)
 {
     int islower = (dir == GHOST_DIR_LOWER);
     int node = islower ? nb->nodeidLower[axis] : nb->nodeidUpper[axis];
-    int *sync = NBOUR_SYNCADDR(nb->DirSync[node], axis, islower, 0);
+    volatile int *sync = NBOUR_SYNCADDR(nb->DirSync[node], axis, islower, 0);
 
     if (node == myproc) {
 	*sync = 1;
 	return GASNET_INVALID_HANDLE;
     }
     else
-	return gasnet_put_nb_val(node, sync, 1, sizeof(int));
+	return gasnet_put_nb_val(node, (void *)sync, 1, sizeof(int));
 }
 
 
@@ -1286,7 +1288,7 @@ void
 ge_wait(nbour_t *nb, int dir, int axis)
 {
     int islower = (dir == GHOST_DIR_LOWER);
-    int *syncaddr = NBOUR_SYNCADDR(nb->DirSync[myproc], axis, islower, 0);
+    volatile int *syncaddr = NBOUR_SYNCADDR(nb->DirSync[myproc], axis, islower, 0);
     int destp = islower ? nb->dims[axis]-1 : 0;
     double *src = nb->dimBufs[axis][dir];
 

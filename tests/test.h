@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/03/10 23:26:08 $
- * $Revision: 1.49 $
+ *     $Date: 2005/03/11 19:15:55 $
+ * $Revision: 1.50 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -187,6 +187,14 @@ static void _test_makeErrMsg(const char *format, ...) {
     }
   va_end(argptr);
 }
+
+#ifndef TEST_GASNET_TOOLS_ONLY
+static void print_testname(const char *testname, int nprocs) {
+    printf("=====> %s nprocs=%d config=%s\n",
+	testname, nprocs, GASNET_CONFIG_STRING);
+    return;
+}
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* memory management */

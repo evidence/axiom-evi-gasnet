@@ -124,7 +124,7 @@ void barrier() {
 #define MB (KB*KB)
 #define FIRSTSZ() (1)
 #define NEXTSZ(x) (x*2)
-#define DONESZ(x) (x > 2*MB)
+#define DONESZ(x) (x > 8*KB*KB)
 
 #define CHECKTAG(x)     do { if (x != mympitag) {                         \
         printf("ERROR: Recieved a stray message with incorrect tag!!!\n");\
@@ -382,14 +382,43 @@ double floodtest(int iters, int msgsz) {
 
   return (double)(endtime - starttime);
 }
+/*------------------------------------------------------------------*/
+/* run an exchange test with msgsz bytes per proc with bytes transferred
+ * actually nproc*msgsz per exchange (all-to-all).
+ */
+double exchangetest(int iters, int msgsz) {
+  int64_t starttime, endtime;
+  int i;
+  char *sendbuf, *recvbuf;
+
+  sendbuf = malloc(msgsz*nproc);
+  recvbuf = malloc(msgsz*nproc);
+
+  if (sendbuf == NULL || recvbuf == NULL) {
+    fprintf(stderr, "malloc");
+    exit(-1);
+  }
+
+  barrier();
+
+  starttime = getMicrosecondTimeStamp();
+  for (i=0; i<iters; i++) {
+    MPI_Alltoall(sendbuf, msgsz, MPI_CHAR, 
+		 recvbuf, msgsz, MPI_CHAR, MPI_COMM_WORLD);
+  }
+  endtime = getMicrosecondTimeStamp();
+
+  return (endtime-starttime);
+}
 
 /*------------------------------------------------------------------*/
 void Usage(char *argvzero) {
   fprintf(stderr, "Usage:\n"
-    "  %s B/P/F (numiterationsPerSize) (queuedepth)\n"
+    "  %s B/P/F/E (numiterationsPerSize) (queuedepth)\n"
     "  B = Barrier latency test\n"
     "  P = Ping/pong latency test (no communication overlap)\n"
     "  F = Flood bandwidth test (overlap messages)\n",
+    "  E = Exchange test (All-to-All)\n",
     argvzero);
   exit(1);
 }
@@ -397,6 +426,7 @@ int main(int argc, char **argv) {
   int dopingpongtest = 0;
   int dofloodtest = 0;
   int dobarriertest = 0;
+  int doexchangetest = 0;
   int iters = -1;
 
   /* init */
@@ -407,6 +437,7 @@ int main(int argc, char **argv) {
   { char *p;
     for (p = argv[1]; *p; p++) {
       switch(*p) {
+        case 'E': case 'e': doexchangetest = 1; break;
         case 'P': case 'p': dopingpongtest = 1; break;
         case 'F': case 'f': dofloodtest = 1; break;
         case 'B': case 'b': dobarriertest = 1; break;
@@ -422,6 +453,7 @@ int main(int argc, char **argv) {
   else queuedepth = 64;
   if (queuedepth <= 0) Usage(argv[0]);
 
+  printf("=====> testmpiperf nprocs=%d config=MPI\n", nproc);
 
   if (dobarriertest) { /* barrier test */
     double totaltime;
@@ -492,6 +524,33 @@ int main(int argc, char **argv) {
             rank, peerid, msgsz, 
             totaltime/iters, 
             (((double)msgsz)*iters/KB)/(totaltime/1000000));
+          fflush(stdout);
+        }
+      }
+    }
+  }
+  barrier();
+  if (doexchangetest) { /* Exchange (all-to-all) test */
+    if (rank == 0) {
+      printf("running %i iterations of exchange test per size\n", iters);
+      fflush(stdout);
+    }
+    barrier();
+
+    { int msgsz;
+      for (msgsz = FIRSTSZ(); !DONESZ(msgsz); msgsz = NEXTSZ(msgsz)) {
+        double totaltime;
+
+	exchangetest(1, msgsz); /* "warm-up" run */
+        barrier();
+        totaltime = exchangetest(iters, msgsz);
+        barrier();
+
+	if (rank == 0) {
+          printf("P%i-P%i: size=%8i bytes, inv. throughput= %9.3f us, bandwidth= %11.3f KB/sec\n",
+            rank, peerid, msgsz, 
+            totaltime/iters, 
+            (((double)msgsz*nproc)*iters/KB)/(totaltime/1000000));
           fflush(stdout);
         }
       }

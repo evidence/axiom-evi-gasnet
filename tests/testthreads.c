@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2005/02/17 13:19:21 $
- * $Revision: 1.19 $
+ *     $Date: 2005/03/11 19:15:55 $
+ * $Revision: 1.20 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -225,6 +225,9 @@ main(int argc, char **argv)
           if (opt_m) test_functions[functions_num++] = test_mpi;
         #endif
         if (amtrace) verbose = 1;
+
+	if (!gasnet_mynode())
+	    print_testname("testthreads", gasnet_nodes());
 
 	/* Assume all test functions if no option is passed */
 	if (functions_num  == 0) {

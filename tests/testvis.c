@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2005/02/17 13:19:21 $
- * $Revision: 1.9 $
+ *     $Date: 2005/03/11 19:15:55 $
+ * $Revision: 1.10 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1051,6 +1051,10 @@ int main(int argc, char **argv) {
   if (i < argc) { iters = atoi(argv[i]); i++; }
   if (i < argc) { seedoffset = atoi(argv[i]); i++; }
   if (i < argc) Usage(argv[0]);
+
+  if (!gasnet_mynode())
+	print_testname("testvis", gasnet_nodes());
+
   MSG("running %i iterations of %s%s%s%s test...", 
     iters, 
     (runtests&RUN_VECTOR?"V":""), 

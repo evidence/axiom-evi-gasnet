@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
- * $Date: 2005/02/17 13:19:21 $
- * $Revision: 1.14 $
+ * $Date: 2005/03/11 19:15:55 $
+ * $Revision: 1.15 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -246,6 +246,8 @@ main(int argc, char **argv)
 	chksum_iters = iters;
 	myproc = gasnet_mynode();
 	numprocs = gasnet_nodes();
+	if (!gasnet_mynode())
+	    print_testname("testcore1", gasnet_nodes());
         /* Only allow even number for numprocs */
         if (numprocs % 2 != 0) {
           MSG("WARNING: This test requires an even number of threads. Test skipped.\n");
