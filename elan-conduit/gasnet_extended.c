@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/12/19 18:35:47 $
- * $Revision: 1.13 $
+ *     $Date: 2002/12/22 10:17:11 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1307,7 +1307,12 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
     retval = (gasnet_valget_op_t*)gasneti_malloc(sizeof(gasnet_valget_op_t));
     retval->threadidx = mythread->threadidx;
   }
-  retval->handle = _gasnet_get_nb(&(retval->val), node, src, nbytes GASNETE_THREAD_PASS);
+  if (gasnete_islocal(node)) {
+    GASNETE_FAST_ALIGNED_MEMCPY(&(retval->val), src, nbytes);
+    retval->handle = GASNET_INVALID_HANDLE;
+  } else {
+    retval->handle = gasnete_get_nb_bulk(&(retval->val), node, src, nbytes GASNETE_THREAD_PASS);
+  }
   return retval;
 }
 
@@ -1318,7 +1323,7 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
   handle->next = thread->valget_free; /* free before the wait to save time after the wait, */
   thread->valget_free = handle;       /*  safe because this thread is under our control */
 
-  gasnet_wait_syncnb(handle->handle);
+  gasnete_wait_syncnb(handle->handle);
   val = handle->val;
   return val;
 }

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/12/19 18:35:50 $
- * $Revision: 1.7 $
+ *     $Date: 2002/12/22 10:17:14 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -368,13 +368,18 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
   assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
   gasnete_boundscheck(node, src, nbytes);
   retval = (gasnet_valget_op_t*)gasneti_malloc(sizeof(gasnet_valget_op_t));
-  retval->handle = _gasnet_get_nb(&(retval->val), node, src, nbytes GASNETE_THREAD_PASS);
+  if (gasnete_islocal(node)) {
+    GASNETE_FAST_ALIGNED_MEMCPY(&(retval->val), src, nbytes);
+    retval->handle = GASNET_INVALID_HANDLE;
+  } else {
+    retval->handle = gasnete_get_nb_bulk(&(retval->val), node, src, nbytes GASNETE_THREAD_PASS);
+  }
   return retval;
 }
 
 extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t handle) {
   gasnet_register_value_t val;
-  gasnet_wait_syncnb(handle->handle);
+  gasnete_wait_syncnb(handle->handle);
   val = handle->val;
   gasneti_free(handle);
   return val;

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2002/12/19 18:35:44 $
- * $Revision: 1.7 $
+ *     $Date: 2002/12/22 10:17:10 $
+ * $Revision: 1.8 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -388,8 +388,8 @@ extern void gasneti_trace_finish();
         VAL(G, GET_NBI_BULK, sz)                          \
         VAL(G, GET_VAL, sz)                               \
                                                           \
-        VAL(G, GET_LOCAL, sz)                          \
-        VAL(G, GET_BULK_LOCAL, sz)                     \
+        VAL(G, GET_LOCAL, sz)                             \
+        VAL(G, GET_BULK_LOCAL, sz)                        \
         VAL(G, GET_NB_LOCAL, sz)                          \
         VAL(G, GET_NB_BULK_LOCAL, sz)                     \
         VAL(G, GET_NB_VAL_LOCAL, sz)                      \
@@ -410,8 +410,8 @@ extern void gasneti_trace_finish();
         VAL(P, MEMSET_NB, sz)                             \
         VAL(P, MEMSET_NBI, sz)                            \
                                                           \
-        VAL(P, PUT_LOCAL, sz)                          \
-        VAL(P, PUT_BULK_LOCAL, sz)                     \
+        VAL(P, PUT_LOCAL, sz)                             \
+        VAL(P, PUT_BULK_LOCAL, sz)                        \
         VAL(P, PUT_NB_LOCAL, sz)                          \
         VAL(P, PUT_NB_BULK_LOCAL, sz)                     \
         VAL(P, PUT_NB_VAL_LOCAL, sz)                      \
@@ -419,7 +419,7 @@ extern void gasneti_trace_finish();
         VAL(P, PUT_NBI_BULK_LOCAL, sz)                    \
         VAL(P, PUT_NBI_VAL_LOCAL, sz)                     \
         VAL(P, PUT_VAL_LOCAL, sz)                         \
-        VAL(P, MEMSET_LOCAL, sz)                       \
+        VAL(P, MEMSET_LOCAL, sz)                          \
         VAL(P, MEMSET_NB_LOCAL, sz)                       \
         VAL(P, MEMSET_NBI_LOCAL, sz)                      \
                                                           \
@@ -465,7 +465,7 @@ extern void gasneti_trace_finish();
         CONDUIT_EXTENDED_STATS(CNT,VAL,TIME)
 
 /* CONDUIT_CORE_STATS and CONDUIT_EXTENDED_STATS provide a way for conduits 
-   to declare their own statistics (which should be given type C)
+   to declare their own statistics (which should be given type C or I)
  */
 #ifndef CONDUIT_CORE_STATS
 #define CONDUIT_CORE_STATS(CNT,VAL,TIME)
