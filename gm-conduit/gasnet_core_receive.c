@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.25 2003/01/04 15:17:25 csbell Exp $
- * $Date: 2003/01/04 15:17:25 $
- * $Revision: 1.25 $
+/* $Id: gasnet_core_receive.c,v 1.26 2003/01/07 17:30:36 csbell Exp $
+ * $Date: 2003/01/07 17:30:36 $
+ * $Revision: 1.26 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -27,10 +27,8 @@ struct {
 	size_t		len;
 } gasnetc_sysmsg_types[] =
 	{ { "", 0 }, 
-	  { "SBRK_TOP", 2*sizeof(uintptr_t) },
-	  { "SBRK_BASE", 2*sizeof(uintptr_t) },
-	  { "SEGMENT_LOCAL", 3*sizeof(uintptr_t) },
-	  { "SEGMENT_GLOBAL", 3*sizeof(uintptr_t) },
+	  { "SEGMENT_LOCAL", 4*sizeof(uintptr_t) },
+	  { "SEGMENT_GLOBAL", 4*sizeof(uintptr_t) },
 	  { "SEGINFO_GATHER", 2*sizeof(uintptr_t) },
 	  { "SEGINFO_BROADCAST", 0 },
 	  { "BARRIER_GATHER", 1 },
@@ -224,7 +222,6 @@ gasnetc_process_AMRequest(uint8_t *ptr, gm_recv_event_t *e)
 			break;
 		case GASNETC_AM_LONG:
 			dest_addr = *((uintptr_t *) &ptr[8]);
-			assert(dest_addr > 0);
 			GASNETC_TRACE_LONG(AMRecv, RequestLong, 
 			    gasnetc_gm_nodes_search(bufd->gm_id, bufd->gm_port),
 			    bufd, handler_idx, GASNETC_AM_NUMARGS(*ptr), 0, 
@@ -355,27 +352,6 @@ gasnetc_process_AMSystem(uint8_t *ptr, gm_recv_event_t *e, void *context)
 
 	assert(context != (void *) -1);
 	switch (sysmsg) {
-		case SBRK_TOP:
-			if_pf (gasnetc_init_done || gasnet_mynode != 0)
-				gasneti_fatalerror("AMSystem SBRK_TOP: already"
-					" initialized or mynode is not 0");
-			assert(context != NULL);
-			*((uintptr_t *)context) = *((uintptr_t *)ptr + 1);
-			GASNETI_TRACE_PRINTF(C, ("SBRK_TOP %4hd = 0x%x",
-			    gasnetc_gm_nodes_search(
-			    gm_ntoh_u16(e->recv.sender_node_id),
-			    gm_ntoh_u8(e->recv.sender_port_id)),
-			    *((uintptr_t *)context) ));
-			break;
-		case SBRK_BASE:
-			if_pf (gasnetc_init_done || gasnetc_mynode == 0)
-				gasneti_fatalerror("AMSystem SBRK_BASE: already"
-					" initialized");
-			assert(context != NULL);
-			*((uintptr_t *)context) = *((uintptr_t *)ptr + 1);
-			GASNETI_TRACE_PRINTF(C, ("SBRK_BASE 0x%x",
-				*((uintptr_t *) context) ));
-			break;
 		case SEGMENT_LOCAL:
 			if_pf (gasnetc_init_done || gasnetc_mynode != 0)
 				gasneti_fatalerror("AMSystem SEGMENT_LOCAL: "
@@ -385,8 +361,9 @@ gasnetc_process_AMSystem(uint8_t *ptr, gm_recv_event_t *e, void *context)
 				uintptr_t *pptr = (uintptr_t *)ptr;
 				gasnet_seginfo_t *seginfo =
 					(gasnet_seginfo_t *)context;
-				seginfo->addr = (void *) pptr[1];
-				seginfo->size = (uintptr_t) pptr[2];
+				seginfo[0].addr = (void *) pptr[1];
+				seginfo[0].size = (uintptr_t) pptr[2];
+				seginfo[1].addr = (void *) pptr[3];
 				GASNETI_TRACE_PRINTF(C, ("SEGMENT_LOCAL: "
 				    "0x%x %d", (uintptr_t) seginfo->addr, 
 				    seginfo->size) );
@@ -401,8 +378,9 @@ gasnetc_process_AMSystem(uint8_t *ptr, gm_recv_event_t *e, void *context)
 				uintptr_t *pptr = (uintptr_t *)ptr;
 				gasnet_seginfo_t *seginfo = 
 					(gasnet_seginfo_t *)context;
-				seginfo->addr = (void *) pptr[1];
-				seginfo->size = (uintptr_t) pptr[2];
+				seginfo[0].addr = (void *) pptr[1];
+				seginfo[0].size = (uintptr_t) pptr[2];
+				seginfo[1].addr = (void *) pptr[3];
 				GASNETI_TRACE_PRINTF(C, ("SEGMENT_GLOBAL: "
 				    "0x%x %d", (uintptr_t) seginfo->addr, 
 				    seginfo->size) );

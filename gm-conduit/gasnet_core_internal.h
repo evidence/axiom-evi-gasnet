@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.38 2003/01/04 15:17:25 csbell Exp $
- * $Date: 2003/01/04 15:17:25 $
- * $Revision: 1.38 $
+/* $Id: gasnet_core_internal.h,v 1.39 2003/01/07 17:30:36 csbell Exp $
+ * $Date: 2003/01/07 17:30:36 $
+ * $Revision: 1.39 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -47,8 +47,19 @@
 #ifndef GASNETC_BUCKET_SHIFT
 #define GASNETC_BUCKET_SHIFT		12
 #endif
-/* define to the maximum fraction of physical memory occupied by victim pages */
-#define GASNETC_BUCKET_SEGMENT_MAX_SIZE 0.7
+
+/* define to the maximum fraction of physical memory to assume to be pinnable.
+ * This is only a heuristic used to put a limit on the firehose_M and
+ * firehose_Maxvictim parameters (usually set in the environment  */
+#define GASNETC_FIREHOSE_PHYSMEM_RATIO		0.7
+
+/* define to the fraction in physical memory to use for the victim fifo if the
+ * parameter is undefined in the environment.  As a result, the victim fifo
+ * queue will have GASNETC_FIREHOSE_MAXVICTIM_RATIO of physmem while the
+ * firehose M parameter will be set to
+ * (1-GASNETC_FIREHOSE_MAXVICTIM_RATIO)*_gmc.pinnable_global */
+#define GASNETC_FIREHOSE_MAXVICTIM_RATIO	0.15
+
 /* define to be the fraction in physical memory to leave lazily pinned */
 #define GASNETC_BUCKET_VICTIM_MAX_SIZE	0.5
 #define GASNETC_NUM_BUCKETS(addr,len)	(assert(addr%GASNETC_BUCKET_SIZE==0),\
@@ -100,17 +111,15 @@ extern gasneti_mutex_t	gasnetc_lock_amreq;
 typedef
 enum gasnetc_sysmsg {
 	_NO_MSG = 0,
-	SBRK_TOP = 1,
-	SBRK_BASE = 2,
-	SEGMENT_LOCAL = 3,
-	SEGMENT_GLOBAL = 4,
-	SEGINFO_GATHER = 5,
-	SEGINFO_BROADCAST = 6,
-	BARRIER_GATHER = 7,
-	BARRIER_NOTIFY = 8,
-	KILL_NOTIFY = 9,
-	KILL_DONE = 10,
-	_LAST_ONE = 11 
+	SEGMENT_LOCAL = 1,
+	SEGMENT_GLOBAL = 2,
+	SEGINFO_GATHER = 3,
+	SEGINFO_BROADCAST = 4,
+	BARRIER_GATHER = 5,
+	BARRIER_NOTIFY = 6,
+	KILL_NOTIFY = 7,
+	KILL_DONE = 8,
+	_LAST_ONE = 9 
 }
 gasnetc_sysmsg_t;
 
@@ -140,6 +149,7 @@ int	gasnetc_getconf_sockets();
 int	gasnetc_getconf();
 
 uintptr_t	gasnetc_get_physmem();
+unsigned long	gasnetc_getenv_numeric(const char *var);
 uintptr_t	gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize);
 int		gasnetc_gather_seginfo(gasnet_seginfo_t *segment);
 void		gasnetc_am_medcopy(gasnet_token_t token, void *addr, 
@@ -270,6 +280,8 @@ struct _gasnetc_state {
 	unsigned int	my_port;
 	unsigned int	my_board;
 	unsigned long	job_magic;	/* job magic */
+	uintptr_t	pinnable_local;
+	uintptr_t	pinnable_global;
 
 	struct sockaddr_in	master_addr;
 
@@ -278,11 +290,9 @@ struct _gasnetc_state {
 	struct gm_port	*port;		/* GM port structure */
 
 #ifdef GASNETC_FIREHOSE
-	uintptr_t	M_size;		/* size of M parameter */
+	uintptr_t	fh_M;		/* size of M parameter */
 	unsigned long	firehoses;	/* number of per-node firehoses */
-	uintptr_t	victim_size;	/* size of MaxVictim parameter */
-	unsigned long	victim_pages;	/* number of pages corresponding 
-					   to victim_size */
+	uintptr_t	fh_maxvictim;	/* size of MaxVictim parameter */
 #endif
 
 } gasnetc_state_t;	
@@ -611,6 +621,7 @@ gasnetc_gm_send_AMSystem(void *buf, size_t len,
 	assert(id > 0);
 	assert(port > 0 && port < 8);
 	assert(callback != NULL);
+	assert(len <= gm_max_length_for_size(GASNETC_SYS_SIZE));
 
 	GASNETI_TRACE_PRINTF(C, ("SendAMSystem (%d:%d) index %d", id, port,
 		GASNETC_SYS_INDEX(*((uint8_t *)buf))));

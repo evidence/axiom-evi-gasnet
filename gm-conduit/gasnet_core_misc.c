@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.28 2003/01/04 15:17:25 csbell Exp $
- * $Date: 2003/01/04 15:17:25 $
- * $Revision: 1.28 $
+/* $Id: gasnet_core_misc.c,v 1.29 2003/01/07 17:30:36 csbell Exp $
+ * $Date: 2003/01/07 17:30:36 $
+ * $Revision: 1.29 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -410,75 +410,122 @@ uintptr_t
 gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
 {
 	uintptr_t		*scratchPtr;
-	gasnet_seginfo_t	seginfo; 
+	uintptr_t		maxphysmem;
+	gasnet_seginfo_t	seginfo[2];	/* First holds the segment
+						   base/length and second holds
+						   the size of max physmem */ 
 
 	gasneti_mutex_lock(&gasnetc_lock_gm);
 	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
+
+	/* tentatively set maxphysmem to the local maximum pinnable amount of
+	 * memory, always aligned to the firehose bucket size.  This value is
+	 * used as a heuristic to determine what is _globally_ usable in terms
+	 * of physical memory.  It is by no means a reference in terms of
+	 * performance.  Users (and site administrators) should be aware that
+	 * the firehose algorithm (if used) is obtimal if the M parameter pins
+	 * memory that is physically available.  Failing to do so might will
+	 * still lead to a functional algorithm, but much less optimal due to
+	 * swapping */
+	_gmc.pinnable_local = maxphysmem = 
+	    GASNETI_PAGE_ALIGN(
+	        GASNETC_FIREHOSE_PHYSMEM_RATIO * gasnetc_get_physmem(),
+	        GASNETC_BUCKET_SIZE);
 
 	if (gasnetc_mynode == 0) {
 		int count = 1;
 		uintptr_t segceil = (uintptr_t) segbase + segsize;
 
 		while (count < gasnetc_nodes) {
+
+			/* Provide a new buffer to receive the next broadcasted
+			 * seginfo and poll */
 			gm_provide_receive_buffer(_gmc.port,
 			    (void *) scratchPtr, GASNETC_SYS_SIZE, 
 			    GM_HIGH_PRIORITY);
-			seginfo.addr = NULL;
+			seginfo[0].addr = NULL;
+
 			if (gasnetc_SysPoll(
 			    (void *) &seginfo) != SEGMENT_LOCAL)
 				gasneti_fatalerror(
 				    "expected SEGMENT_LOCAL, fatal");
-			assert(seginfo.addr != NULL);
-			if (seginfo.addr > segbase)
-				segbase = seginfo.addr;
-			if ((uintptr_t) seginfo.addr + seginfo.size < segceil)
-				segceil = (uintptr_t)seginfo.addr+seginfo.size;
+			assert(seginfo[0].addr != NULL);
+
+			/* Smallest segment intersection */
+			if (seginfo[0].addr > segbase)
+				segbase = seginfo[0].addr;
+			if ((uintptr_t) seginfo[0].addr+seginfo[0].size < segceil)
+				segceil = (uintptr_t)seginfo[0].addr +
+				    seginfo[0].size;
+
+			/* Smallest pinnable memory intersection */
+			if ((uintptr_t)seginfo[1].addr < maxphysmem)
+				maxphysmem = (uintptr_t)seginfo[1].addr;
+
 			count++;
 		}
 
+		/* Align the global segment before broadcasting it */
 		segceil = 
 		    (uintptr_t) GASNETI_PAGE_ALIGN(segceil, GASNETC_PAGE_SIZE);
 		segsize = segceil - (uintptr_t)segbase;
 		if (segceil < (uintptr_t) segbase)
 			segsize = 0;
-		GASNETI_TRACE_PRINTF(C, ("MaxGlobalSegmentSize = %d at 0x%x\n", 
-		    segsize, (uintptr_t)segbase) );
+
+		/* Prepare the global segment info to be broadcasted and send
+		 * it off */
 		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
 		    (uint8_t) SEGMENT_GLOBAL);
 		scratchPtr[1] = (uintptr_t) segbase;
 		scratchPtr[2] = segsize;
+		scratchPtr[3] = maxphysmem;
 		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
-		    3*sizeof(uintptr_t), gasnetc_callback_hi, 
+		    4*sizeof(uintptr_t), gasnetc_callback_hi, 
 		    NULL, 0);
 	}
 	else {
+		/* Prepare the segment info message */
 		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
 		    (uint8_t) SEGMENT_LOCAL);
 		scratchPtr[1] = (uintptr_t) segbase;
 		scratchPtr[2] = segsize;
+		scratchPtr[3] = maxphysmem;
 
+		/* Before sending seginfo, recover tokens pending from previous
+		 * system messages*/
 		while (!gasnetc_token_hi_acquire()) {
 			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
 				gasneti_fatalerror("AMSystem_broadcast: "
 				    "unexpected message while "
 				    "recuperating tokens");
 		}
+
+		/* Send the seginfo message to the master (node 0) */
 		gasnetc_gm_send_AMSystem((void *) scratchPtr, 
-		    3*sizeof(uintptr_t), _gmc.gm_nodes[0].id, 
+		    4*sizeof(uintptr_t), _gmc.gm_nodes[0].id, 
 		    _gmc.gm_nodes[0].port, gasnetc_callback_hi, NULL);
 
+		/* Provide a new buffer to receive the global segment
+		 * inforamtion and poll */
 		gm_provide_receive_buffer(_gmc.port, (void *) scratchPtr, 
 		    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
-		seginfo.addr = NULL;
+		seginfo[0].addr = NULL;
 		if (gasnetc_SysPoll((void *) &seginfo) != SEGMENT_GLOBAL)
 			gasneti_fatalerror("expected SEGMENT_GLOBAL, fatal");
-		assert(seginfo.addr != NULL);
-		segbase = seginfo.addr;
-		segsize = seginfo.size;
-		GASNETI_TRACE_PRINTF(C, ("MaxGlobalSegmentSize = %d at 0x%x\n", 
-		    segsize, (uintptr_t)segbase) );
+		assert(seginfo[0].addr != NULL);
+
+		/* The message received contains the global seginfo and the
+		 * largest intersection pinnable memory on every node */
+		segbase = seginfo[0].addr;
+		segsize = seginfo[0].size;
+		maxphysmem = (uintptr_t) seginfo[1].addr;
 	}
+
 	gasneti_mutex_unlock(&gasnetc_lock_gm);
+
+	/* Set maxphysmem as the largest M parameter possible */
+	_gmc.pinnable_global = maxphysmem;
+
 	return segsize;
 }
 
@@ -537,66 +584,6 @@ gasnetc_gather_seginfo(gasnet_seginfo_t *seginfo)
 	return GASNET_OK;
 }
 
-uintptr_t
-gasnetc_segment_sbrk(uintptr_t sbrk_local_aligned)
-{
-	uintptr_t	*scratchPtr;
-	uintptr_t	sbrk_global;
-	size_t		pagesize;
-
-	gasneti_mutex_lock(&gasnetc_lock_gm);
-	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
-	pagesize = gasneti_getSystemPageSize();
-
-	assert(sbrk_local_aligned % pagesize == 0);
-	assert(_gmc.gm_nodes[0].id > 0);
-
-	if (gasnetc_mynode == 0) {
-		int count = 1;
-		uintptr_t sbrk_high = sbrk_local_aligned;
-		while (count < gasnetc_nodes) {
-			gm_provide_receive_buffer(_gmc.port, 
-			    (void *) scratchPtr, GASNETC_SYS_SIZE, 
-			    GM_HIGH_PRIORITY);
-			if (gasnetc_SysPoll((void *) &sbrk_global) != SBRK_TOP)
-				gasneti_fatalerror("expected SBRK_TOP, fatal");
-			if (sbrk_global > sbrk_high)
-				sbrk_high = sbrk_global;
-		}
-		GASNETI_TRACE_PRINTF(C, ("SBRK HIGH = 0x%x\n", sbrk_high) );
-		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
-		    (uint8_t) SBRK_BASE);
-		scratchPtr[1] = sbrk_high;
-		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
-		    2*sizeof(uintptr_t), gasnetc_callback_hi, 
-		    NULL, 0);
-		gasneti_mutex_unlock(&gasnetc_lock_gm);
-		return sbrk_high;
-	}
-	else {
-		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
-		    (uint8_t) SBRK_TOP);
-		scratchPtr[1] = sbrk_local_aligned;
-
-		while (!gasnetc_token_hi_acquire()) {
-			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
-				gasneti_fatalerror("AMSystem_broadcast: "
-				    "unexpected message while "
-				    "recuperating tokens");
-		}
-		gasnetc_gm_send_AMSystem((void *) scratchPtr, 
-		    2*sizeof(uintptr_t), _gmc.gm_nodes[0].id, 
-		    _gmc.gm_nodes[0].port, gasnetc_callback_hi, NULL);
-
-		gm_provide_receive_buffer(_gmc.port, (void *) scratchPtr, 
-		    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
-		if (gasnetc_SysPoll((void *) &sbrk_global) != SBRK_BASE)
-			gasneti_fatalerror("expected SBRK_BASE, fatal");
-		GASNETI_TRACE_PRINTF(C, ("SBRK HIGH = 0x%x\n", sbrk_global) );
-		gasneti_mutex_unlock(&gasnetc_lock_gm);
-		return sbrk_global;
-	}
-}
 int
 gasnetc_alloc_nodemap(int numnodes)
 {
@@ -814,253 +801,40 @@ gasnetc_get_physmem()
 }
 #endif
 
-#if 0
-void
-gasnetc_init_segment()
+/* Recognizes modifiers [Mm][Kk][Gg] in numbers */
+unsigned long
+gasnetc_getenv_numeric(const char *var)
 {
-	gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
-	gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
+        char    *env;
+        char    numbuf[32], c;
+        int     i;
+        unsigned long   mult = 1, res;
+        double          num;
+
+        gasnetc_checkinit();
+        env = gasnet_getenv(var);
+
+        if (env == NULL || *env == '\0')
+                return 0;
+
+        memset(numbuf, '\0', 32);
+        for (i = 0; i < strlen(env) && i < 32; i++) {
+                c = env[i];
+                if ((c >= '0' && c <= '9') || c == '.')
+                        numbuf[i] = c;
+                else {  
+                        if (c == 'M' || c == 'm')
+                                mult = 1U<<20;
+                        else if (c == 'G' || c == 'g')
+                                mult = 1U<<30;
+                        else if (c == 'K' || c == 'k')
+                                mult = 1U<<10;
+                        break;
+                }
+        }
+        num = atof(numbuf);
+        num *= mult;
+
+        return (unsigned long) num;
 }
-
-/* Bootstrapping with GASNet parameters
- * GASNET_GM_MASTER = hostname
- * GASNET_GM_MAGIC = 1234567
- * GASNET_GM_NP = NP
- * GASNET_GM_ID = ID
- *
- * In order, there are three ways to bootstrap
- * 1. Use the MPD daemon if its there (not impl. yet)
- * 2. Use our homegrown bootstrapper
- */
-
-extern gasnet_node_t	gasnetc_nodes;
-extern gasnet_node_t	gasnetc_mynode;
-
-int
-gasnetc_getenv(char **ptr, const char *env)
-{
-	char	*ptrenv;
-
-	ptrenv = getenv(env);
-	if (ptrenv == NULL || *ptrenv == '\0') {
-		*ptr = NULL;
-		return 0;
-	}
-	else {
-		*ptr = ptrenv;
-		return 1;
-	}
-}
-
-int
-gasnetc_init_getenv()
-{
-
-	char	*env_np, *env_id;
-	char	*env_master_host, *env_master_id, *env_master_port;
-	char	*env_magic;
-
-	int	env_int, is_master = 0;
-
-	if (!gasnetc_getenv(&env_magic, "GASNET_GM_MAGIC"))
-		GASNETI_RETURN_ERRR(BAD_ARG, "job magic");
-
-	if (!gasnetc_getenv(&env_master_id, "GASNET_GM_MASTERID"))
-		GASNETI_RETURN_ERRR(BAD_ARG, "boot master GM id");
-
-	if (!gasnetc_getenv(&env_master_port, "GASNET_GM_MASTERPORT"))
-		GASNETI_RETURN_ERRR(BAD_ARG, "boot master GM port");
-
-	gasnetc_getenv(&env_master_host, "GASNET_GM_MASTERHOST");
-
-	if (!gasnetc_getenv(&env_np, "GASNET_GM_NP"))
-		GASNETI_RETURN_ERRR(BAD_ARG, "number of procs");
-
-	if (!gasnetc_getenv(&env_id, "GASNET_GM_ID"))
-		GASNETI_RETURN_ERRR(BAD_ARG, "proc number");
-
-	/* job magic */
-	if (sscanf(env_magic, "%d", &env_int) != 1)
-		GASNETI_RETURN_ERRR(BAD_ARG,"boot magic number");
-	else
-		_gmc.job_magic = (unsigned long) env_int;
-
-	/* master boot id and port */
-	if (sscanf(env_master_id, "%d", &env_int) != 1)
-		GASNETI_RETURN_ERRR(BAD_ARG,"boot master node id");
-	if (env_int == -1)  /* am master */ {
-		_gmc.master_id = my_nodeid;
-		is_master = 1;
-	}
-	else
-		_gmc.master_id = env_int;
-
-	if (sscanf(env_master_port, "%d", &env_int) != 1)
-		GASNETI_RETURN_ERRR(BAD_ARG,"boot master node port");
-	if (is_master)
-		_gmc.master_port = _gmc.my_port;
-	else
-		_gmc.master_port = env_int;
-
-
-	/* number of procs and local id */
-	if (sscanf(env_np, "%d", &env_int) != 1)
-		GASNETI_RETURN_ERR(BAD_ARG,"number of procs");
-	if (env_int < 1)
-		GASNETI_RETURN_ERR(BAD_ARG,"number of procs");
-	else
-		gasnetc_nodes = env_int;
-
-	if (sscanf(env_id, "%d", &env_int) != 1)
-		GASNETI_RETURN_ERR(BAD_ARG,"local proc number");
-	if (env_int < 0 || env_int >= gasnetc_nodes)
-		GASNETI_RETURN_ERR(BAD_ARG,"local proc number");
-	else
-		gasnetc_mynode = env_int;
-
-	return GASNET_OK;
-}
-
-int
-gasnetc_init_conffile()
-{
-	return 0;
-}
-
-int
-gasnetc_init_mpd()
-{
-	return 0;
-}
-
-#define PORTBUFLEN	96
-static int
-socket_sendconsole(char *host, unsigned short port,
-		   unsigned int magic,
-		   unsigned int id, unsigned int gmport)
-{
-	char		buf[PORTBUFLEN];
-
-	int			fd;
-	struct hostent		*master;
-	struct sockaddr_in	sa;
-
-	snprintf(buf, PORTBUFLEN, 
-	    "GASNet/GM Bootstrap magic=%d id=%d port=%d",
-	    magic, id, gmport);
-
-	/* Socket to master and master's ip address */
-	fd = socket (AF_INET, SOCK_STREAM, 0);
-	if (fd < 0)
-		GASNETI_RETURN_ERRR(RESOURCE,"Opening socket");
-	master = gethostbyname(host);
-	if (master == NULL) 
-		GASNETI_RETURN_ERRR(RESOURCE,"Master's hostname");
-
-	memset(&sa, 0, sizeof(struct sockaddr));
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(port);
-
-	memcpy(&sa.sin_addr, master->h_addr, master->h_length);
-
-	if (connect(fd, (struct sockaddr *) &sa, sizeof(sa)) < 0)
-		GASNETI_RETURN_ERRR(RESOURCE, "Connecting to console");
-
-	if (write(fd, buf, strlen(buf)) < 0)
-		GASNETI_RETURN_ERRR(RESOURCE, "writing to console socket"); 
-
-	return GASNET_OK;
-}
-
-int
-gasnetc_init_sockets()
-{
-	unsigned int		board, port, magic;
-	size_t			segsize, msglen = 0;
-	uintptr_t		*scratchPtr;
-	gasnet_seginfo_t	seginfo; 
-	int			is_master = 0;
-	int			my_nodeid;
-
-	/* Open a port to the device */
-	if (!gasnetc_gmport_allocate(&board, &port))
-		gasnetc_exit(-1);
-	_gmc.my_port = port;
-
-	/* Get this port's node id */
-	if (gm_get_node_id(_gmc.port, &my_nodeid) != GM_SUCCESS)
-		GASNETI_RETURN_ERRR(RESOURCE,"Unable to get local GM id");
-	_gmc.my_id = my_nodeid;
-
-	if (gasnetc_init_env() != GASNET_OK)
-		return GASNET_ERR_RESOURCE;
-
-	is_master = (my_nodeid == _gmc.master_id);
-
-	/* When master, relay information to spawner */
-	if (is_master && gasnetc_nodes > 1) {
-		printf("GASNet/GM Bootstrap magic=%d id=%d port=%d\n",
-		    _gmc.job_magic, _gmc.master_id, _gmc.master_port);
-	}
-
-	gasneti_mutex_lock(&gasnetc_lock_gm);
-	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
-	
-	*((uint16_t *) scratchPtr) = (uint16_t) _gmc.job_magic;
-	*((uint16_t *) scratchPtr+1) = (uint16_t) LOCALID;
-	*((uint16_t *) scratchPtr+2) = (uint16_t) board;
-	scratchPtr += 2;
-	msglen = sizeof(uintptr_t)*2;
-
-	#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-	
-	segsize = (unsigned) GASNETC_MMAP_INITIAL_SIZE;
-	
-	_gmc.segment_mmap.addr = 0;
-	_gmc.segment_mmap.size = 0;
-
-	if (gasnetc_mmap_segment_search(&_gmc.segment_mmap, segsize, 
-	    segsize>>2) != GASNET_OK)
-		 gasneti_fatalerror("Could not find any segment using mmap");
-		_gmc.segment_base = _gmc.segment_mmap.addr;
-		GASNETC_DPRINTF(("mmap segment %d bytes at 0x%x\n", 
-				(unsigned int) _gmc.segment_mmap.size, 
-				(uintptr_t) _gmc.segment_mmap.addr) );
-
-	*((uint16_t *) scratchPtr) = (uint16_t) SEGMENT_LOCAL;
-	scratchPtr[1] = (uintptr_t) segbase;
-	scratchPtr[2] = (uintptr_t) segsize;
-	scratchPtr += 3;
-	msglen += sizeof(uintptr_t)*3;
-
-	#endif
-	
-		/* after gather_MaxSegment, _gmc.segment_base holds the
-		 * highest base of the job (the "new" segbase) since we
-		 * guarentee alignment.  _gmc.segment_mmap.addr holds
-		 * *this* node's mmap base _gmc.segment_mmap.size holds
-		 * *this* node's mmap size */
-	
-		gasnetc_MaxGlobalSegmentSize = 
-		    gasnetc_gather_MaxSegment(_gmc.segment_base, 
-		    _gmc.segment_mmap.size);
-	
-		gasnetc_MaxLocalSegmentSize = 
-		    (uintptr_t)_gmc.segment_mmap.addr + (uintptr_t)segsize - 
-		    (uintptr_t)_gmc.segment_base;
-	
-		/*  grab GM buffers and make sure we have the maximum amount
-		 *  possible */
-		gasneti_mutex_lock(&gasnetc_lock_gm);
-		while (_gmc.stoks.hi != 0) {
-			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
-			gasneti_fatalerror("Unexpected message during bootstrap");
-		}
-		gasneti_mutex_unlock(&gasnetc_lock_gm);
-	}
-	gasnetc_init_segment();
-
-	
-#endif
-	
 

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.29 2003/01/04 15:17:25 csbell Exp $
- * $Date: 2003/01/04 15:17:25 $
+/* $Id: gasnet_core.c,v 1.30 2003/01/07 17:30:36 csbell Exp $
+ * $Date: 2003/01/07 17:30:36 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -111,12 +111,17 @@ gasnetc_init(int *argc, char ***argv)
 
 	gasnetc_sendbuf_init();
 
+	_gmc.segment_mmap.addr = 0;
+	_gmc.segment_mmap.size = 0;
+	_gmc.segment_base = (void *) -1;
+
+	/* When not using everything, we must find the largest segment possible
+	 * using a binary search of largest mmaps possible.  mmap (even for
+	 * huge segments) happens to be a cheap operation on linux. */
 	#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
 	{ 
 		size_t	segsize = (unsigned) GASNETC_MMAP_INITIAL_SIZE;
 
-		_gmc.segment_mmap.addr = 0;
-		_gmc.segment_mmap.size = 0;
 		if (gasnetc_mmap_segment_search(&_gmc.segment_mmap, segsize, 
 		    segsize>>2) != GASNET_OK)
 			 gasneti_fatalerror(
@@ -140,21 +145,27 @@ gasnetc_init(int *argc, char ***argv)
 		    (uintptr_t)_gmc.segment_mmap.addr + (uintptr_t)segsize - 
 		    (uintptr_t)_gmc.segment_base;
 
-		/*  grab GM buffers and make sure we have the maximum amount
-		 *  possible */
-		gasneti_mutex_lock(&gasnetc_lock_gm);
-		while (_gmc.stoks.hi != 0) {
-			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
-			gasneti_fatalerror("Unexpected message during bootstrap");
-		}
-		gasneti_mutex_unlock(&gasnetc_lock_gm);
 	}
 	#elif defined(GASNET_SEGMENT_EVERYTHING)
+		/* gather_MaxSegment also gathers cluster-wide maximum pinnable
+		 * memory, set in _gmc.pinnable_global */
+		gasnetc_gather_MaxSegment(_gmc.segment_base, 
+		    _gmc.segment_mmap.size);
 		gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
 		gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
 	#else
 		#error Bad segment config
 	#endif
+
+	/*  grab GM buffers and make sure we have the maximum amount
+	 *  possible */
+	gasneti_mutex_lock(&gasnetc_lock_gm);
+	while (_gmc.stoks.hi != 0) {
+		if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
+		gasneti_fatalerror("Unexpected message during bootstrap");
+	}
+	gasneti_mutex_unlock(&gasnetc_lock_gm);
+
 	gasnetc_init_done = 1;
 	return GASNET_OK;
 }
