@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2005/03/02 11:12:40 $
- * $Revision: 1.49 $
+ * $Date: 2005/03/06 23:34:19 $
+ * $Revision: 1.50 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -155,18 +155,18 @@ gasnete_fh_callback_put(struct gm_port *p, void *context,
 	GASNETE_GM_UNSET_IN_UNKNOWN();
 	#endif
 
-	gasnete_op_markdone((gasnete_op_t *)pop, 0);
+	GASNETE_FIREHOSE_TRACE_PUTGET(pop, PUT);
 
 	/* If this was associated to an iop, increment put completed count */
 	if (pop->iop != NULL) {
 		gasneti_weakatomic_increment(&(pop->iop->completed_put_cnt));
-		gasnete_op_free((gasnete_op_t *) pop);
-	}
+		gasneti_free(pop); /* free a "dummy" eop */
+        } else {
+	        gasnete_op_markdone((gasnete_op_t *)pop, 0);
+        }
 
 	GASNETI_TRACE_EVENT_TIME(C, FIREHOSE_MOVE_LOCAL,
 		    GASNETI_STATTIME_NOW_IFENABLED(C)-starttime);
-
-	GASNETE_FIREHOSE_TRACE_PUTGET(pop, PUT);
 
 	return;
 }
@@ -213,7 +213,10 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 {
 	gasnete_eop_t	*pop;
 
-	pop = gasnete_eop_new(GASNETE_MYTHREAD);
+	if (iop) /* use a "dummy" eop */
+          pop = gasneti_calloc(1, sizeof(gasnete_eop_t));
+        else 
+          pop = gasnete_eop_new(GASNETE_MYTHREAD);
 	pop->src = (uintptr_t) src;
 	pop->dest = (uintptr_t) dest;
 	pop->len = (uint32_t) nbytes;
@@ -240,7 +243,7 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 		gasnete_fh_request_put, pop);
 	#endif
 
-	return (gasnete_op_t *) pop;
+        return (iop?(gasnete_op_t *)iop:(gasnete_op_t *)pop);
 }
 
 extern gasnet_handle_t
@@ -283,7 +286,10 @@ gasnete_firehose_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
 	gasneti_assert(nbytes <= GASNETC_AM_LEN);
 	bufd = gasnetc_AMRequestPool_block();
 
-	pop = gasnete_eop_new(GASNETE_MYTHREAD);
+	if (iop) /* use a "dummy" eop */
+          pop = gasneti_calloc(1, sizeof(gasnete_eop_t));
+        else 
+          pop = gasnete_eop_new(GASNETE_MYTHREAD);
 	pop->node = node;
 	pop->src = (uintptr_t) bufd->buf;
 	pop->dest = (uintptr_t) dest;
@@ -308,7 +314,7 @@ gasnete_firehose_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
 		gasnete_fh_request_put, pop);
 	#endif
 	
-	return (gasnete_op_t *) pop;
+        return (iop?(gasnete_op_t *)iop:(gasnete_op_t *)pop);
 }
 
 /*
@@ -394,13 +400,14 @@ gasnete_get_fh_done(gasnete_eop_t *eop)
 	    firehose_release(fhreqs, 2);
 	#endif
 
-	gasnete_op_markdone((gasnete_op_t *) eop, 1);
+	GASNETE_FIREHOSE_TRACE_PUTGET(eop, GET);
 
 	if (eop->iop != NULL) {
 		gasneti_weakatomic_increment(&(eop->iop->completed_get_cnt));
-		gasnete_op_free((gasnete_op_t *) eop);
-	}
-	GASNETE_FIREHOSE_TRACE_PUTGET(eop, GET);
+		gasneti_free(eop); /* free a "dummy" eop */
+        } else {
+	        gasnete_op_markdone((gasnete_op_t *) eop, 1);
+        }
 
 	return;
 }
@@ -444,12 +451,10 @@ void gasnete_fh_callback_get_rdma(struct gm_port *p, void *context, gm_status_t 
 	    gasnetc_callback_error(status, NULL);
 	gasnetc_token_lo_release();
 
-	/* release the get and mark the op done */
+	/* trace it, release the get and mark the op done */
 	GASNETE_GM_SET_IN_UNKNOWN();
 	gasnete_get_fh_done(gop);
 	GASNETE_GM_UNSET_IN_UNKNOWN();
-
-	GASNETE_FIREHOSE_TRACE_PUTGET(gop, GET);
 
 	return;
 }
@@ -591,7 +596,10 @@ gasnete_firehose_get(void *dest, gasnet_node_t node, void *src,
 
 	firehose_remotecallback_args_t	args;
 
-	gop = gasnete_eop_new(GASNETE_MYTHREAD);
+	if (iop) /* use a "dummy" eop */
+          gop = gasneti_calloc(1, sizeof(gasnete_eop_t));
+        else 
+          gop = gasnete_eop_new(GASNETE_MYTHREAD);
 	gop->dest = (uintptr_t) dest;
 	gop->src = (uintptr_t) src;
 	gop->len = nbytes;
@@ -626,7 +634,7 @@ gasnete_firehose_get(void *dest, gasnet_node_t node, void *src,
 		gasnete_fh_request_get_fn, gop);
 	#endif
 
-	return (gasnete_op_t *) gop;
+        return (iop?(gasnete_op_t *)iop:(gasnete_op_t *)gop);
 }
 
 extern gasnet_handle_t

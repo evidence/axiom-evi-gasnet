@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_op.c,v $
- * $Date: 2005/02/20 10:13:32 $
- * $Revision: 1.13 $
+ * $Date: 2005/03/06 23:34:19 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -91,6 +91,7 @@ gasnete_eop_new(gasnete_threaddata_t * const thread)
 				gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
 				gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);
 				gasneti_assert(eop->threadidx == threadidx);
+				gasneti_assert(eop->iop == NULL);
 				gasneti_assert(addr.bufferidx == bufidx);
 				/* see if we hit a cycle */
 				gasneti_assert(!seen[addr.eopidx]);
@@ -170,10 +171,12 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
 /*  free an op */
 void gasnete_op_free(gasnete_op_t *op) {
 	gasnete_threaddata_t * const thread = gasnete_threadtable[op->threadidx];
+        /* DOB: freelist is not lock-protected, hence gasnete_op_free may
+           ONLY be called from the owning thread!!! */
+        gasneti_assert(thread == gasnete_mythread());
 	if (OPTYPE(op) == OPTYPE_EXPLICIT) {
 		gasnete_eop_t *eop = (gasnete_eop_t *)op;
 		gasnete_eopaddr_t addr = eop->addr;
-		//gasneti_assert(thread == gasnete_mythread());
 		gasneti_assert(OPSTATE(eop) == OPSTATE_COMPLETE);
                 gasnete_eop_check(eop);
 		SET_OPSTATE(eop, OPSTATE_FREE);
