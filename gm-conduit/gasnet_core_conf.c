@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
- * $Date: 2004/09/19 16:33:00 $
- * $Revision: 1.16 $
+ * $Date: 2004/09/20 21:25:27 $
+ * $Revision: 1.17 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -11,6 +11,7 @@
 #include <gasnet_core_internal.h>
 #include <arpa/inet.h>
 #include <string.h>
+#include <ctype.h>
 
 #define RETURN_ERR(err)	do {	\
 		printf err;			\
@@ -109,6 +110,12 @@ gasnetc_parse_addr(char *hostaddr)
 	/* is EOF, or error, or no match at all */
 	pclose(fd);
 	return 0;
+    }
+    else {
+	if (inet_pton(AF_INET, ip_ptr, &ip) < 1)
+	    return 0;
+	else
+	    return ip;
     }
 }
 
