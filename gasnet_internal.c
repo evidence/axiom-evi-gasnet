@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/07/17 17:00:27 $
- * $Revision: 1.60 $
+ *     $Date: 2004/07/19 18:50:12 $
+ * $Revision: 1.61 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,8 +127,10 @@ extern void gasneti_check_config_preinit() {
     if (firstcall) { /* miscellaneous conduit-independent initializations */
       firstcall = 0;
       #if GASNET_DEBUG && GASNETI_THREADS
+      {
         int retval = pthread_key_create(&gasneti_throttledebug_key, NULL);
         if (retval) gasneti_fatalerror("In gasneti_check_config_preinit(), pthread_key_create()=%s",strerror(retval));
+      }
       #endif
     }
   }
