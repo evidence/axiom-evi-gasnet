@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2002/08/11 22:02:31 $
- * $Revision: 1.1 $
+ *     $Date: 2002/08/15 10:43:15 $
+ * $Revision: 1.2 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -13,17 +13,6 @@
 #include <gasnet_handler.h>
 #include <gasnet_internal.h>
 
-/* Firehose needs */
-/*
- * explicit ops should contain. .
- * - node, dest, src, len, 
- *
- * transient ops should contain. .
- * - src, dest, len, peer_op, 
- *
- * implicit ops should remain as is in order to use the extended reference.
- *
- */
 /* ------------------------------------------------------------------------------------ */
 /*  reasonable upper-bound on L2 cache line size (don't make this too big) */
 #define GASNETE_CACHE_LINE_BYTES  (128)
@@ -50,6 +39,7 @@ typedef struct _gasnete_eopaddr_t {
 /* -------------------------------------------------------------------------- */
 /* Explicit ops, used when operations are known to require only one send in
  * order to complete */
+struct _gasnete_iop_t;
 typedef struct _gasnete_eop_t {
 	uint8_t		flags;	/*  state flags */
 
@@ -58,17 +48,12 @@ typedef struct _gasnete_eop_t {
 	uintptr_t		dest;
 	uintptr_t		src;
 	uint32_t		len;
-	uintptr_t		peer_op;	/* only used in transient ops */
+	struct _gasnete_iop_t	*iop;
+	struct _gasnete_eop_t	*next;		/* when used in FIFO */
 
 	gasnete_eopaddr_t	addr;      /*  next cell while in free list, 
 					       my own eopaddr_t while in use */
 } gasnete_eop_t;
-
-/* -------------------------------------------------------------------------- */
-/* Transient ops, used by the target of an operation as a transient operation
- * in order to satisfy requests for sends out of a Reply handler
- */
-typedef gasnete_eop_t gasnete_top_t;
 
 /* -------------------------------------------------------------------------- */
 /* Implicit ops, used by the extended reference implementation */
@@ -112,8 +97,9 @@ typedef struct _gasnete_threaddata_t {
 
 /* gasnete_op_t flags field */
 #define OPTYPE_EXPLICIT		0x00  /* gasnete_eop_new() relies on this value */
-#define OPTYPE_CORE		0x80
+#define OPTYPE_IMPLICIT		0x80
 #define OPTYPE(op)		((op)->flags & 0x80)
+#define OPTYPE_TRANSIENT	((eop)->token != NULL)
 GASNET_INLINE_MODIFIER(SET_OPTYPE)
 void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
 	op->flags = (op->flags & 0x7F) | (type & 0x80);
@@ -132,8 +118,8 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 }
 
 /* New op creation, gets new op and marks it in flight */
-gasnete_eop_t	*gasnete_eop_new(gasnete_threaddata_t *thread);
-gasnete_iop_t	*gasnete_iop_new(gasnete_threaddata_t *thread);
+gasnete_eop_t	*gasnete_eop_new(gasnete_threaddata_t * const thread);
+gasnete_iop_t	*gasnete_iop_new(gasnete_threaddata_t * const thread);
 
 /*  query an eop for completeness */
 int		gasnete_op_isdone(gasnete_op_t *op);
@@ -165,16 +151,66 @@ void		gasnete_op_free(gasnete_op_t *op);
    }                                                                        \
  } while (0)
 
+/* Extended threads support */
+extern const gasnete_eopaddr_t	EOPADDR_NIL;
+extern gasnete_threaddata_t	*gasnete_threadtable[256];
+#ifdef GASNETI_THREADS
+extern gasnete_threaddata_t * gasnete_mythread();
+#else
+  #define gasnete_mythread() (gasnete_threadtable[0])
+#endif
+
+void            gasnete_begin_nbi_accessregion(
+			int allowrecursion GASNETE_THREAD_FARG);
+gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE);
+
+/* Extended reference functions */
+gasnet_handle_t gasnete_extref_get_nb_bulk(void *dest, gasnet_node_t node, 
+			void *src, size_t nbytes GASNETE_THREAD_FARG);
+gasnet_handle_t gasnete_extref_put_nb(gasnet_node_t node, void *dest, 
+			void *src, size_t nbytes GASNETE_THREAD_FARG);
+gasnet_handle_t gasnete_extref_put_nb_bulk (gasnet_node_t node, void *dest, 
+			void *src, size_t nbytes GASNETE_THREAD_FARG);
+gasnet_handle_t gasnete_extref_memset_nb   (gasnet_node_t node, void *dest, 
+			int val, size_t nbytes GASNETE_THREAD_FARG);
+void gasnete_extref_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, 
+			size_t nbytes GASNETE_THREAD_FARG);
+void gasnete_extref_put_nbi      (gasnet_node_t node, void *dest, void *src, 
+			size_t nbytes GASNETE_THREAD_FARG);
+void gasnete_extref_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, 
+			size_t nbytes GASNETE_THREAD_FARG);
+void gasnete_extref_memset_nbi   (gasnet_node_t node, void *dest, int val, 
+			size_t nbytes GASNETE_THREAD_FARG);
+void gasnete_extref_barrier_notify(int id, int flags);
+int gasnete_extref_barrier_wait(int id, int flags);
+int gasnete_extref_barrier_try(int id, int flags);
+
+/* Additional support for core AMReplyLongAsync */
+#if defined(GASNETI_PTR32)
+#define LONGASYNC_REP(cnt32, cnt64, args) \
+	gasnetc_AMReplyLongAsync ## cnt32 args
+#elif defined(GASNETI_PTR64)
+#define LONGASYNC_REP(cnt32, cnt64, args) \
+	gasnetc_AMReplyLongAsync ## cnt64 args
+#endif
+
 #define GASNETE_HANDLER_BASE  100 /* reserve 100-199 for the extended API */
 #define _hidx_gasnete_extref_barrier_notify_reqh	(GASNETE_HANDLER_BASE+0) 
 #define _hidx_gasnete_extref_barrier_done_reqh		(GASNETE_HANDLER_BASE+1)
 #define _hidx_gasnete_extref_get_reqh			(GASNETE_HANDLER_BASE+2)
 #define _hidx_gasnete_extref_get_reph			(GASNETE_HANDLER_BASE+3)
-#define _hidx_gasnete_extref_put_reqh			(GASNETE_HANDLER_BASE+4)
-#define _hidx_gasnete_extref_putlong_reqh		(GASNETE_HANDLER_BASE+5)
-#define _hidx_gasnete_extref_memset_reqh		(GASNETE_HANDLER_BASE+6)
-#define _hidx_gasnete_extref_markdone_reph		(GASNETE_HANDLER_BASE+7)
+#define _hidx_gasnete_extref_getlong_reqh		(GASNETE_HANDLER_BASE+4)
+#define _hidx_gasnete_extref_getlong_reph		(GASNETE_HANDLER_BASE+5)
+#define _hidx_gasnete_extref_put_reqh			(GASNETE_HANDLER_BASE+6)
+#define _hidx_gasnete_extref_putlong_reqh		(GASNETE_HANDLER_BASE+7)
+#define _hidx_gasnete_extref_memset_reqh		(GASNETE_HANDLER_BASE+8)
+#define _hidx_gasnete_extref_markdone_reph		(GASNETE_HANDLER_BASE+9)
+#ifdef GASNETC_FIREHOSE
+#define _hidx_gasnete_firehose_move_reph		(GASNETE_HANDLER_BASE+10)
+#define _hidx_gasnete_firehose_get_dma_reqh		(GASNETE_HANDLER_BASE+11)
+#define _hidx_gasnete_firehose_get_dma_reph		(GASNETE_HANDLER_BASE+12)
+#elif defined(GASNETC_TURKEY)
+#error not implemented yet
+#endif
 #define _hidx_						(GASNETE_HANDLER_BASE+)
-/* add new extended API handlers here and to the bottom of gasnet_extended.c */
-
 #endif

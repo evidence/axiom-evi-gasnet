@@ -1,3 +1,8 @@
+#include <gasnet.h>
+#include <gasnet_extended_internal.h>
+#include <gasnet_internal.h>
+#include <gasnet_handler.h>
+
 /* ------------------------------------------------------------------------------------ */
 /*
  * Design/Approach for gets/puts in Extended Reference API in terms of Core
@@ -66,7 +71,7 @@ void gasnete_extref_get_reph_inner(gasnet_token_t token,
   void *addr, size_t nbytes,
   void *dest, void *op) {
   GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
-  gasnete_extref_op_markdone((gasnete_extref_op_t *)op, 1);
+  gasnete_op_markdone((gasnete_op_t *)op, 1);
 }
 MEDIUM_HANDLER(gasnete_extref_get_reph,2,4,
               (token,addr,nbytes, UNPACK(a0),      UNPACK(a1)    ),
@@ -89,7 +94,7 @@ GASNET_INLINE_MODIFIER(gasnete_extref_getlong_reph_inner)
 void gasnete_extref_getlong_reph_inner(gasnet_token_t token, 
   void *addr, size_t nbytes, 
   void *op) {
-  gasnete_extref_op_markdone((gasnete_extref_op_t *)op, 1);
+  gasnete_op_markdone((gasnete_op_t *)op, 1);
 }
 LONG_HANDLER(gasnete_extref_getlong_reph,1,2,
               (token,addr,nbytes, UNPACK(a0)     ),
@@ -142,7 +147,7 @@ SHORT_HANDLER(gasnete_extref_markdone_reph,1,2,
               (token, UNPACK2(a0, a1)));
 /* ------------------------------------------------------------------------------------ */
 
-extern gasnet_handle_t gasnete_extref_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+gasnet_handle_t gasnete_extref_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
     gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
 
@@ -154,9 +159,9 @@ extern gasnet_handle_t gasnete_extref_get_nb_bulk (void *dest, gasnet_node_t nod
   } else {
     /*  need many messages - use an access region to coalesce them into a single handle */
     /*  (note this relies on the fact that our implementation of access regions allows recursion) */
-    gasnete_extref_begin_nbi_accessregion(1 /* enable recursion */ GASNETE_THREAD_PASS);
+    gasnete_begin_nbi_accessregion(1 /* enable recursion */ GASNETE_THREAD_PASS);
     gasnete_extref_get_nbi_bulk(dest, node, src, nbytes GASNETE_THREAD_PASS);
-    return gasnete_extref_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
+    return gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
   }
 }
 
@@ -190,22 +195,22 @@ gasnet_handle_t gasnete_extref_put_nb_inner(gasnet_node_t node, void *dest, void
   } else { 
     /*  need many messages - use an access region to coalesce them into a single handle */
     /*  (note this relies on the fact that our implementation of access regions allows recursion) */
-    gasnete_extref_begin_nbi_accessregion(1 /* enable recursion */ GASNETE_THREAD_PASS);
+    gasnete_begin_nbi_accessregion(1 /* enable recursion */ GASNETE_THREAD_PASS);
       if (isbulk) gasnete_extref_put_nbi_bulk(node, dest, src, nbytes GASNETE_THREAD_PASS);
       else        gasnete_extref_put_nbi    (node, dest, src, nbytes GASNETE_THREAD_PASS);
-    return gasnete_extref_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
+    return gasnete_end_nbi_accessregion(GASNETE_THREAD_PASS_ALONE);
   }
 }
 
-extern gasnet_handle_t gasnete_extref_put_nb      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+gasnet_handle_t gasnete_extref_put_nb      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   return gasnete_extref_put_nb_inner(node, dest, src, nbytes, 0 GASNETE_THREAD_PASS);
 }
 
-extern gasnet_handle_t gasnete_extref_put_nb_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+gasnet_handle_t gasnete_extref_put_nb_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   return gasnete_extref_put_nb_inner(node, dest, src, nbytes, 1 GASNETE_THREAD_PASS);
 }
 
-extern gasnet_handle_t gasnete_extref_memset_nb   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
+gasnet_handle_t gasnete_extref_memset_nb   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
 
   GASNETE_SAFE(
@@ -227,7 +232,7 @@ extern gasnet_handle_t gasnete_extref_memset_nb   (gasnet_node_t node, void *des
     the target until the source tries to synchronize
 */
 
-extern void gasnete_extref_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+void gasnete_extref_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *op = mythread->current_iop;
   if (nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD) {
@@ -349,15 +354,15 @@ void gasnete_extref_put_nbi_inner(gasnet_node_t node, void *dest, void *src, siz
   }
 }
 
-extern void gasnete_extref_put_nbi      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+void gasnete_extref_put_nbi      (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_extref_put_nbi_inner(node, dest, src, nbytes, 0 GASNETE_THREAD_PASS);
 }
 
-extern void gasnete_extref_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+void gasnete_extref_put_nbi_bulk (gasnet_node_t node, void *dest, void *src, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_extref_put_nbi_inner(node, dest, src, nbytes, 1 GASNETE_THREAD_PASS);
 }
 
-extern void gasnete_extref_memset_nbi   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
+void gasnete_extref_memset_nbi   (gasnet_node_t node, void *dest, int val, size_t nbytes GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t *op = mythread->current_iop;
   op->initiated_put_cnt++;
@@ -458,7 +463,7 @@ static void gasnete_extref_barrier_kick() {
   }
 }
 
-extern void gasnete_extref_barrier_notify(int id, int flags) {
+void gasnete_extref_barrier_notify(int id, int flags) {
   int phase;
   if_pf(barrier_splitstate == INSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_notify() called twice in a row");
@@ -485,7 +490,7 @@ extern void gasnete_extref_barrier_notify(int id, int flags) {
 }
 
 
-extern int gasnete_extref_barrier_wait(int id, int flags) {
+int gasnete_extref_barrier_wait(int id, int flags) {
   #if defined(STATS) || defined(TRACE)
     gasneti_stattime_t wait_start = GASNETI_STATTIME_NOW_IFENABLED(B);
   #endif
@@ -513,7 +518,7 @@ extern int gasnete_extref_barrier_wait(int id, int flags) {
   else return GASNET_OK;
 }
 
-extern int gasnete_extref_barrier_try(int id, int flags) {
+int gasnete_extref_barrier_try(int id, int flags) {
   if_pf(barrier_splitstate == OUTSIDE_BARRIER) 
     gasneti_fatalerror("gasnet_barrier_try() called without a matching notify");
 
@@ -528,3 +533,31 @@ extern int gasnete_extref_barrier_try(int id, int flags) {
     return GASNET_ERR_NOT_READY;
   }
 }
+/* ------------------------------------------------------------------------------------ */
+/*
+  Handlers:
+  =========
+*/
+static gasnet_handlerentry_t const gasnete_ref_handlers[] = {
+  /* ptr-width independent handlers */
+  gasneti_handler_tableentry_no_bits(gasnete_extref_barrier_notify_reqh),
+  gasneti_handler_tableentry_no_bits(gasnete_extref_barrier_done_reqh),
+
+  /* ptr-width dependent handlers */
+  gasneti_handler_tableentry_with_bits(gasnete_extref_get_reqh),
+  gasneti_handler_tableentry_with_bits(gasnete_extref_get_reph),
+  gasneti_handler_tableentry_with_bits(gasnete_extref_getlong_reqh),
+  gasneti_handler_tableentry_with_bits(gasnete_extref_getlong_reph),
+  gasneti_handler_tableentry_with_bits(gasnete_extref_put_reqh),
+  gasneti_handler_tableentry_with_bits(gasnete_extref_putlong_reqh),
+  gasneti_handler_tableentry_with_bits(gasnete_extref_memset_reqh),
+  gasneti_handler_tableentry_with_bits(gasnete_extref_markdone_reph),
+
+  { 0, NULL }
+};
+
+extern gasnet_handlerentry_t const *gasnete_get_extref_handlertable()
+{
+	return gasnete_ref_handlers;
+}
+

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.7 2002/08/08 06:53:26 csbell Exp $
- * $Date: 2002/08/08 06:53:26 $
- * $Revision: 1.7 $
+/* $Id: gasnet_core_fwd.h,v 1.8 2002/08/15 10:43:15 csbell Exp $
+ * $Date: 2002/08/15 10:43:15 $
+ * $Revision: 1.8 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -24,6 +24,11 @@
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
 #define GASNET_ALIGNED_SEGMENTS	1
 #define GASNET_MAXNODES		1024
+#define PAGE_SIZE	4096
+#define PAGE_SHIFT	12
+#define GASNETC_FIREHOSE
+#define GASNETC_BUCKET_SIZE		4*PAGE_SIZE
+#define GASNETC_BUCKET_SHIFT		14
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_help.h) */

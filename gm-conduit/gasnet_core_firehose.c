@@ -1,5 +1,3 @@
-#include <gasnet_core_internal.h>
-
 /* ------------------------------------------------------------------------ */
 /* Firehose                                                                 */
 /* ------------------------------------------------------------------------ */
@@ -266,8 +264,11 @@ only using the <bucket_address> key.  In any case, we know that a single node
 need only to create a hash table the size of F_max, which is the maximum
 number of firehoses the node may own over all nodes combined.
 */
-
 /* ------------------------------------------------------------------------ */
+#include <gasnet.h>
+#include <gasnet_core_internal.h>
+#include <gasnet_internal.h>
+#include <gasnet_handler.h>
 #ifdef GASNETC_FIREHOSE
 /*
  * The code below uses the following namespaces
@@ -280,16 +281,14 @@ number of firehoses the node may own over all nodes combined.
  */
 
 /* Firehose MACROs */
-#define PAGE_SIZE	4096
-#define PAGE_SHIFT	12
+#ifndef GASNETC_BUCKET_SIZE
 #define GASNETC_BUCKET_SIZE		4*PAGE_SIZE
+#endif
+#ifndef GASNETC_BUCKET_SHIFT
 #define GASNETC_BUCKET_SHIFT		14
+#endif
 #define GASNETC_SEGMENT_MOD_SIZE	GASNETC_BUCKET_SIZE	
 
-/* macros to manage gasnetc_bucket_desc_t's 
- * assert BDESC_SIZE = 8 and BDESC_SHIFT = 3
- * assert BUCKET_SHIFT > BDESC_SHIFT
- */
 typedef
 struct gasnetc_bucket_desc {
 	/* packed are refcount and prev pointer when used in victim fifo */
@@ -298,15 +297,30 @@ struct gasnetc_bucket_desc {
 } 
 gasnetc_bucket_desc_t;
 
-/* globals */
-gasnetc_bucket_desc_t	*gasnetc_bucket_table;
-uintptr_t		 gasnetc_bucket_start_ptr;
-unsigned int		 gasnetc_bucket_victim_count;
-unsigned int		 gasnetc_bucket_victim_max;
-gasnetc_bucket_desc_t	*gasnetc_bucket_victim_head_ptr;
-gasnetc_bucket_desc_t	*gasnetc_bucket_victim_tail_ptr;
+static gasnetc_bucket_desc_t	*gasnetc_bucket_table;
+static uintptr_t		 gasnetc_bucket_start;
+static size_t			 gasnetc_bucket_victim_count;
+static size_t			 gasnetc_bucket_victim_max;
+static gasnetc_bucket_desc_t	*gasnetc_bucket_victim_head_ptr;
+static gasnetc_bucket_desc_t	*gasnetc_bucket_victim_tail_ptr;
+
+#ifdef GASNETI_THREADS
 gasnetc_lock_t		 gasnetc_bucket_lock = GASNETC_LOCK_INITIALIZER;
 gasnetc_lock_t		 gasnetc_bucket_victim_lock = GASNETC_LOCK_INITIALIZER;
+#endif
+
+extern void	gasnetc_bucket_init(uintptr_t, uintptr_t);
+extern void	gasnetc_bucket_finalize();
+extern void	gasnetc_bucket_pin_by_addr(uintptr_t, size_t);
+extern void	gasnetc_bucket_unpin_by_addr(uintptr_t, size_t);
+
+static void	gasnetc_bucket_victim_free(size_t);
+static void	gasnetc_bucket_pin_register_wrapper(uintptr_t, size_t);
+static void	gasnetc_bucket_trypin_by_bucket(uintptr_t, size_t);
+static void	gasnetc_bucket_pin_by_list(uintptr_t *, size_t);
+static void	gasnetc_bucket_unpin_deregister_wrapper(uintptr_t, size_t);
+static void	gasnetc_bucket_tryunpin_by_bucket(uintptr_t, size_t);
+static void	gasnetc_bucket_unpin_by_list(uintptr_t *, size_t);
 
 #define GASNETC_BUCKET_VICTIM_MAX_SIZE	(0.5)	/* XXX percent of segment size
 						 * ideally should be an env
@@ -320,7 +334,10 @@ gasnetc_lock_t		 gasnetc_bucket_victim_lock = GASNETC_LOCK_INITIALIZER;
 #define GASNETC_BDESC_PREV_MASK		(~GASNETC_BDESC_REFC_MASK)
 
 /* Bucket descriptor macros */
-#define GASNETC_BDESC_INDEX(bdptr) (assert((GASNETC_BUCKET_SIZE-1)&bdptr==0), \
+/* #define GASNETC_BDESC_INDEX(bdptr) (assert(bdptr&(GASNETC_BUCKET_SIZE-1)==0), \
+	      (((uintptr_t)(bdptr)-gasnetc_bucket_start)>>GASNETC_BUCKET_SHIFT)
+ */
+#define GASNETC_BDESC_INDEX(bdptr)                                            \
 	      (((uintptr_t)(bdptr)-gasnetc_bucket_start)>>GASNETC_BUCKET_SHIFT)
 #define GASNETC_BDESC_FROM_ADDR(addr)                                         \
 			     (&gasnetc_bucket_table[GASNETC_BDESC_INDEX(addr)])
@@ -334,25 +351,25 @@ gasnetc_lock_t		 gasnetc_bucket_victim_lock = GASNETC_LOCK_INITIALIZER;
 						GASNETC_BDESC_REFC_MASK),      \
 						(bdptr)->refc_prev++)
 #define GASNETC_BDESC_REFC_DEC(bdptr)	(assert(GASNETC_BDESC_REFC(bdptr)!= 0),\
-						((bdptr)->refc_prev--)
-#define GASNETC_BDESC_REFC_SET(bdptr,v)	((bdptr)->refc_prev =                  \
+						((bdptr)->refc_prev--))
+#define GASNETC_BDESC_REFC_SET(bdptr,v)	(bdptr)->refc_prev =                  \
 						GASNETC_BDESC_PREV(bdptr) |    \
-						(v & GASNETC_BDESC_REFC_MASK))
+						(v & GASNETC_BDESC_REFC_MASK)
 #define GASNETC_BDESC_REFC_ZERO(bdptr)	((bdptr)->refc_prev =                  \
 						GASNETC_BDESC_PREV(refc))
-#define GASNETC_BDESC_REFC_ISZERO(bdptr)	(GASNETC_BDESC_REFC(bd) == 0)
+#define GASNETC_BDESC_REFC_ISZERO(bdptr)	(GASNETC_BDESC_REFC(bdptr) == 0)
 
 /* Pointer macros */
 #define GASNETC_BDESC_NEXT(bdptr)	((bdptr)->next)
 #define GASNETC_BDESC_NEXT_SET(bdptr,n)	((bdptr)->next = (n))
 #define GASNETC_BDESC_NEXT_ZERO(bdptr)	((bdptr)->next = 0)
-#define GASNETC_BDESC_PREV(bdptr)	((((bdptr)->prev &                     \
+#define GASNETC_BDESC_PREV(bdptr)	((((bdptr)->refc_prev &                \
 						GASNETC_BDESC_PREV_MASK)) >>   \
 						GASNETC_BDESC_REFC_OFF)
-#define GASNETC_BDESC_PREV_SET(bdptr,p)	((bdptr)->prev =                       \
+#define GASNETC_BDESC_PREV_SET(bdptr,p)	((bdptr)->refc_prev =                  \
 						GASNETC_BDESC_REFC(bdptr) |    \
-						((p) << GASNETC_BDESC_REFC_OFF)
-#define GASNETC_BDESC_PREV_ZERO(bdptr)	((bdptr)->prev =                       \
+						((p) << GASNETC_BDESC_REFC_OFF))
+#define GASNETC_BDESC_PREV_ZERO(bdptr)	((bdptr)->refc_prev =                  \
 						GASNETC_BDESC_REFC(bdptr))
 #define GASNETC_BDESC_ISPINNED(bdptr)	(GASNETC_BDESC_REFC(bdptr) !=          \
 						GASNETC_BDESC_REFC_UNPINNED)
@@ -365,7 +382,7 @@ gasnetc_lock_t		 gasnetc_bucket_victim_lock = GASNETC_LOCK_INITIALIZER;
 void
 gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 {
-	unsigned int		num_buckets;
+	size_t			 num_buckets;
 	gasnetc_bucket_desc_t	*table;
 
 	assert(segsize > 0 && segbase > 0);
@@ -387,7 +404,7 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 
 	/* the actual bucket table starts at 2 */
 	gasnetc_bucket_table = &table[2];
-	gasnetc_bucket_start_ptr = segbase;
+	gasnetc_bucket_start = segbase;
 
 	/* move VICTIM_MAX_SIZE to an environment variable */
 	gasnetc_bucket_victim_max = (int)
@@ -402,6 +419,56 @@ gasnetc_bucket_finalize()
 }
 
 /*
+ * A wrapper to free 'num_buckets' from the victim fifo queue
+ */
+void
+gasnetc_bucket_victim_free(size_t num_buckets)
+{
+	gasnetc_bucket_desc_t	*bdesc_cur, *bdesc_prev;
+	uintptr_t		bucket_addr;
+	int			i;
+
+	assert(num_buckets >= gasnetc_bucket_victim_count);
+
+	gasnetc_lock(&gasnetc_bucket_victim_lock);
+	/* Start removing buckets from the tail, always trying to find
+	 * contiguous buckets in order to minimize deregistration overhead */
+	bdesc_cur = &gasnetc_bucket_table[
+	    GASNETC_BDESC_PREV(gasnetc_bucket_victim_tail_ptr)];
+	gasnetc_bucket_victim_count -= num_buckets;
+	while (num_buckets > 0) {
+		i = 1;
+		bdesc_prev = 
+		    &gasnetc_bucket_table[GASNETC_BDESC_PREV(bdesc_cur)];
+		GASNETC_BDESC_PREV_ZERO(bdesc_cur);
+		GASNETC_BDESC_NEXT_ZERO(bdesc_cur);
+		GASNETC_BDESC_REFC_SET(bdesc_cur, GASNETC_BDESC_REFC_UNPINNED);
+
+		while (num_buckets > 0 && 
+		    GASNETC_BDESC_CONTIGUOUS(bdesc_cur, bdesc_prev)) {
+			GASNETC_BDESC_PREV_ZERO(bdesc_prev);
+			GASNETC_BDESC_NEXT_ZERO(bdesc_prev);
+			GASNETC_BDESC_REFC_SET(bdesc_prev, 
+			    GASNETC_BDESC_REFC_UNPINNED);
+			bdesc_cur = bdesc_prev;
+			bdesc_prev = 
+			    &gasnetc_bucket_table[GASNETC_BDESC_PREV(bdesc_cur)];
+			num_buckets--; 
+			i++;
+		}
+		gasnetc_bucket_unpin_deregister_wrapper(
+		    GASNETC_BDESC_TO_ADDR(bdesc_cur), i);
+		bdesc_cur = bdesc_prev;
+		num_buckets--;
+	}
+	/* set the new tail, which is _cur */
+	GASNETC_BDESC_PREV_SET(gasnetc_bucket_victim_tail_ptr,
+	    GASNETC_BDESC_INDEX(bdesc_cur));
+	GASNETC_BDESC_NEXT_SET(bdesc_cur, 1);
+	gasnetc_unlock(&gasnetc_bucket_victim_lock);
+}
+
+/*
  * Wrapper to gm_register_memory
  *
  * We first free buckets if there are too many (over threshold)
@@ -411,15 +478,15 @@ gasnetc_bucket_finalize()
  * freeing more buckets if possible.
  */
 void
-gasnetc_bucket_pin_register_wrapper(uintptr_t bucket_addr, 
-				    unsigned int num_buckets)
+gasnetc_bucket_pin_register_wrapper(uintptr_t bucket_addr, size_t num_buckets)
 {
 	gm_status_t	status;
 
 	assert(bucket_addr % GASNETC_BUCKET_SIZE == 0);
 
 	if (gasnetc_bucket_victim_count >= gasnetc_bucket_victim_max)
-		victim_free(MIN(num_buckets, victim_count));
+		gasnetc_bucket_victim_free(MIN(num_buckets, 
+		    gasnetc_bucket_victim_count));
 
 	if (gm_register_memory(_gmc.port, (void *)bucket_addr, 
 	    num_buckets << GASNETC_BUCKET_SHIFT) == GM_SUCCESS)
@@ -446,12 +513,12 @@ gasnetc_bucket_pin_register_wrapper(uintptr_t bucket_addr,
  */
 void
 gasnetc_bucket_unpin_deregister_wrapper(uintptr_t bucket_addr, 
-					unsigned int num_buckets)
+					size_t num_buckets)
 {
 	gm_status_t	status;
 
 	assert(bucket_addr % GASNETC_BUCKET_SIZE == 0);
-	if (gm_deregister_memory(_gmc.port, bucket_addr, 
+	if (gm_deregister_memory(_gmc.port, (void *)bucket_addr, 
 	    num_buckets << GASNETC_BUCKET_SHIFT) == GM_SUCCESS)
 		return;
 	else
@@ -465,7 +532,7 @@ gasnetc_bucket_unpin_deregister_wrapper(uintptr_t bucket_addr,
  * or not.  We must try to do all we can to pin the memory.
  */
 void
-gasnetc_bucket_trypin_by_bucket(uintptr_t bucket_addr, unsigned int num_buckets)
+gasnetc_bucket_trypin_by_bucket(uintptr_t bucket_addr, size_t num_buckets)
 {
 	int		i,j;
 	gasnetc_bucket_desc_t	*bdesc, *bdesc_cur, *bdesc_prev, *bdesc_next;
@@ -522,8 +589,7 @@ gasnetc_bucket_trypin_by_bucket(uintptr_t bucket_addr, unsigned int num_buckets)
  * queue for refcounts
  */
 void
-gasnetc_bucket_tryunpin_by_bucket(uintptr_t bucket_addr, 
-				 unsigned int num_buckets)
+gasnetc_bucket_tryunpin_by_bucket(uintptr_t bucket_addr, size_t num_buckets)
 {
 	int		i;
 	gasnetc_bucket_desc_t	*bdesc, *bdesc_cur, *bdesc_next;
@@ -553,7 +619,7 @@ gasnetc_bucket_tryunpin_by_bucket(uintptr_t bucket_addr,
 			    GASNETC_BDESC_INDEX(bdesc_cur));
 			GASNETC_BDESC_NEXT_SET(gasnetc_bucket_victim_head_ptr,
 			    GASNETC_BDESC_INDEX(bdesc_cur));
-			victim_count++;
+			gasnetc_bucket_victim_count++;
 			gasnetc_unlock(&gasnetc_bucket_victim_lock);
 		}
 		else {
@@ -566,68 +632,21 @@ gasnetc_bucket_tryunpin_by_bucket(uintptr_t bucket_addr,
 }
 
 /*
- * A wrapper to free 'num_buckets' from the victim fifo queue
- */
-void
-gasnetc_bucket_victim_free(num_buckets) {
-	gasnetc_bucket_desc_t	*bdesc_cur, *bdesc_prev;
-	uintptr_t		bucket_addr;
-	int			i;
-
-	assert(num_buckets >= gasnetc_bucket_victim_count);
-
-	gasnetc_lock(&gasnetc_bucket_victim_lock);
-	/* Start removing buckets from the tail, always trying to find
-	 * contiguous buckets in order to minimize deregistration overhead */
-	bdesc_cur = GASNETC_BDESC_PREV(gasnetc_bucket_victim_tail_ptr);
-	gasnetc_bucket_victim_count -= num_buckets;
-	while (num_buckets > 0) {
-		i = 1;
-		bdesc_prev = 
-		    &gasnetc_bucket_table[GASNETC_BDESC_PREV(bdesc_cur)];
-		GASNETC_BDESC_PREV_ZERO(bdesc_cur);
-		GASNETC_BDESC_NEXT_ZERO(bdesc_cur);
-		GASNETC_BDESC_REFC_SET(bdesc_cur, GASNETC_BDESC_REFC_UNPINNED);
-
-		while (num_buckets > 0 && 
-		    GASNETC_BDESC_CONTIGUOUS(bdesc_cur, bdesc_prev)) {
-			GASNETC_BDESC_PREV_ZERO(bdesc_prev);
-			GASNETC_BDESC_NEXT_ZERO(bdesc_prev);
-			GASNETC_BDESC_REFC_SET(bdesc_prev, 
-			    GASNETC_BDESC_REFC_UNPINNED);
-			bdesc_cur = bdesc_prev;
-			bdesc_prev = 
-			    &gasnetc_bucket_table[GASNETC_BDESC_PREV(bdesc_cur)];
-			num_buckets--; 
-			i++;
-		}
-		gasnetc_bucket_unpin_deregister_wrapper(
-		    GASNETC_BDESC_TO_ADDR(bdesc_cur), i);
-		bdesc_cur = bdesc_prev;
-		num_buckets--;
-	}
-	/* set the new tail, which is _cur */
-	GASNETC_BDESC_PREV_SET(gasnetc_bucket_victim_tail_ptr,
-	    GASNETC_BDESC_INDEX(bdesc_cur));
-	GASNETC_BDESC_NEXT_SET(bdesc_cur, 1);
-	gasnetc_unlock(&gasnetc_bucket_victim_lock);
-}
-
-/*
  * From a source address and a length parameter, a certain number of
  * buckets are pinned and initialized to a reference count of 1
  *
  * Form 'A' of pinning memory
  *
  */
-void
-gasnetc_bucket_pin_by_addr(uintptr_t src, size_t nbytes) {
+extern void
+gasnetc_bucket_pin_by_addr(uintptr_t src, size_t nbytes) 
+{
 	uintptr_t	bucket_addr;
-	unsigned int	num_buckets;
+	size_t		num_buckets;
 
-	bucket_addr = PAGE_ROUNDDOWN(src, GASNETC_BUCKET_SIZE);
-	num_buckets = 
-	    PAGE_ROUNDUP(nbytes, GASNETC_BUCKET_SIZE) >> GASNETC_BUCKET_SHIFT;
+	bucket_addr = GASNETI_PAGE_ALIGN(src, GASNETC_BUCKET_SIZE);
+	num_buckets = GASNETI_PAGE_ROUNDUP(nbytes, GASNETC_BUCKET_SIZE) >> 
+	    GASNETC_BUCKET_SHIFT;
 	gasnetc_bucket_trypin_by_bucket(bucket_addr, num_buckets);
 }
 
@@ -636,14 +655,15 @@ gasnetc_bucket_pin_by_addr(uintptr_t src, size_t nbytes) {
  * callbacks, since pinning by address is only done for local to remote
  * DMA operations
  */
-void
-gasnetc_bucket_unpin_by_addr(uintptr_t src, size_t nbytes) {
+extern void
+gasnetc_bucket_unpin_by_addr(uintptr_t src, size_t nbytes)
+{
 	uintptr_t	bucket_addr;
-	unsigned int	num_buckets;
+	size_t		num_buckets;
 
-	bucket_addr = PAGE_ROUNDDOWN(src, GASNETC_BUCKET_SIZE);
-	num_buckets = 
-	    PAGE_ROUNDUP(nbytes, GASNETC_BUCKET_SIZE) >> GASNETC_BUCKET_SHIFT;
+	bucket_addr = GASNETI_PAGE_ALIGN(src, GASNETC_BUCKET_SIZE);
+	num_buckets = GASNETI_PAGE_ROUNDUP(nbytes, GASNETC_BUCKET_SIZE) >> 
+	    GASNETC_BUCKET_SHIFT;
 	gasnetc_bucket_tryunpin_by_bucket(bucket_addr, num_buckets);
 }
 
@@ -653,7 +673,7 @@ gasnetc_bucket_unpin_by_addr(uintptr_t src, size_t nbytes) {
  */
 void
 gasnetc_bucket_pin_by_list(uintptr_t *bucket_list, 
-			   unsigned int num_buckets_list)
+			   size_t num_buckets_list)
 {
 	unsigned int	i,j;
 
@@ -665,7 +685,7 @@ gasnetc_bucket_pin_by_list(uintptr_t *bucket_list,
 		    GASNETC_BDESC_FROM_ADDR(bucket_list + i + j - 1),
 		    GASNETC_BDESC_FROM_ADDR(bucket_list + i + j)))
 			j++;
-		gasnetc_bucket_trypin_by_bucket(bucket_list + i, j);
+		gasnetc_bucket_trypin_by_bucket(bucket_list[i], j);
 		i += j;
 	}
 }
@@ -675,7 +695,7 @@ gasnetc_bucket_pin_by_list(uintptr_t *bucket_list,
  */
 void
 gasnetc_bucket_unpin_by_list(uintptr_t *bucket_list, 
-			     unsigned int num_buckets_list)
+			     size_t num_buckets_list)
 {
 	unsigned int	i,j;
 
@@ -687,7 +707,7 @@ gasnetc_bucket_unpin_by_list(uintptr_t *bucket_list,
 		    GASNETC_BDESC_FROM_ADDR(bucket_list + i + j - 1),
 		    GASNETC_BDESC_FROM_ADDR(bucket_list + i + j)))
 			j++;
-		gasnetc_bucket_tryunpin_by_bucket(bucket_list + i, j);
+		gasnetc_bucket_tryunpin_by_bucket(bucket_list[i], j);
 		i += j;
 	}
 }
@@ -710,46 +730,62 @@ typedef
 struct gasnetc_fh_data {
 	/* bucket_refcount holds bucket address _and_ refcount
 	 * assert refcount is < ... */
-	uintptr_t	bucket_refcount;
-	void *		next;
+	uintptr_t		bucket_refcount;
+	struct gasnetc_fh_data	*next;
 }
 gasnetc_fh_data_t;
 typedef uintptr_t	gasnetc_fh_key_t;
 
-/* Firehose globals */
-gasnetc_fh_data_t	*gasnetc_fh_victims;
-unsigned int		*gasnetc_fh_victim_count;
-struct gm_hash		*gasnetc_fh_hash;
-unsigned int		 gasnetc_fh_num;
-unsigned int		*gasnetc_fh_used;
+static gasnetc_fh_data_t	*gasnetc_fh_victims;
+static size_t			*gasnetc_fh_victim_count;
+static struct gm_hash		*gasnetc_fh_hash;
+static size_t			 gasnetc_fh_num;
+static size_t			*gasnetc_fh_used;
+
+uintptr_t	*gasnetc_firehose_buf = NULL;
+size_t		 gasnetc_firehose_buf_num = 0;
+
+
+#ifdef GASNETI_THREADS
 gasnetc_lock_t		 gasnetc_fh_hash_lock   = GASNETC_LOCK_INITIALIZER;
 gasnetc_lock_t		 gasnetc_fh_victim_lock = GASNETC_LOCK_INITIALIZER;
+#endif
+
+extern void	gasnetc_firehose_init(uintptr_t);
+extern void	gasnetc_firehose_finalize();
+extern int	gasnetc_firehose_build_list(gasnet_node_t, uintptr_t, size_t, 
+					    size_t *, size_t *);
+extern void	gasnetc_firehose_decrement_refcount(gasnet_node_t, uintptr_t, 
+						    size_t);
 
 #define GASNETC_FH_KEY_NODE_MASK	(GASNETC_BUCKET_SIZE-1)
 #define GASNETC_FH_KEY_ADDR_MASK	~GASNETC_FH_KEY_NODE_MASK
 #define GASNETC_FH_KEY_NODE(key)	((key) & GASNETC_FH_KEY_NODE_MASK)
 #define GASNETC_FH_KEY_ADDR(key)	((key) & GASNETC_FH_KEY_ADDR_MASK)
-#define GASNETC_FH_KEY(bucket,node) (assert(baddr&(GASNETC_BUCKET_SIZE-1)==0),\
-					((bucket) | (node))
-#define GASNETC_FH_NEXT_END		((uintptr_t) -1)
+#define GASNETC_FH_KEY(baddr,node) (assert((baddr&(GASNETC_BUCKET_SIZE-1))==0),\
+					((baddr) | (node)))
+#define GASNETC_FH_NEXT_END		((void *) -1)
 
 #define GASNETC_FH_REFC_MASK		(GASNETC_BUCKET_SIZE-1)
 #define GASNETC_FH_ADDR_MASK		~GASNETC_FH_REFC_MASK
 #define GASNETC_FH_ADDR(fhptr) ((fhptr)->bucket_refcount & GASNETC_FH_ADDR_MASK)
-#define GASNETC_FH_REFC(fhptr) ((fhptr)->bucket_refcount & GASNETC_FH_NODE_MASK)
+#define GASNETC_FH_REFC(fhptr) ((fhptr)->bucket_refcount & GASNETC_FH_REFC_MASK)
 #define GASNETC_FH_REFC_INC(fhptr)	(assert((fhptr)->bucket_refcount !=    \
 						GASNETC_FH_REFC_MASK),         \
 						(fhptr)->bucket_refcount++)
 #define GASNETC_FH_REFC_DEC(fhptr)	(assert(GASNETC_FH_REFC(fhptr) != 0),  \
 						(fhptr)->bucket_refcount--)
+#define GASNETC_FH_REFC_SET(fhptr,d)	(assert(d <= GASNETC_FH_REFC_MASK),    \
+						(fhptr)->bucket_refcount =     \
+						(GASNETC_FH_ADDR(fhptr) | d))
 #define GASNETC_FH_REFC_ZERO(fhptr)	((fhptr)->bucket_refcount &=           \
 						GASNETC_FH_ADDR_MASK)
 #define GASNETC_FH_REFC_ISZERO(fhptr)	(GASNETC_FH_REFC(fhptr) == 0)
 
-void
+extern void
 gasnetc_firehose_init(uintptr_t	segsize)
 {
-	unsigned int	firehoses;
+	size_t	firehoses;
 	int		i;
 
 	assert(segsize % GASNETC_BUCKET_SIZE == 0);
@@ -759,12 +795,12 @@ gasnetc_firehose_init(uintptr_t	segsize)
 	    gasneti_malloc(sizeof(gasnetc_fh_data_t) * (gasnetc_nodes));
 	for (i = 0; i < gasnetc_nodes; i++)
 		gasnetc_fh_victims[i].next = GASNETC_FH_NEXT_END;
-	gasnetc_victim_count = (unsigned int *)
-	    gasneti_malloc(sizeof(unsigned int) * (gasnetc_nodes));
-	gasnetc_fh_used = (unsigned int *)
-	    gasneti_malloc(sizeof(unsigned int) * (gasnetc_nodes));
+	gasnetc_fh_victim_count = (size_t *)
+	    gasneti_malloc(sizeof(size_t) * (gasnetc_nodes));
+	gasnetc_fh_used = (size_t *)
+	    gasneti_malloc(sizeof(size_t) * (gasnetc_nodes));
 	memset((void *) gasnetc_fh_used, 0, 
-	    sizeof(unsigned int) * (gasnetc_nodes));
+	    sizeof(size_t) * (gasnetc_nodes));
 
 	firehoses = segsize >> GASNETC_BUCKET_SHIFT;
 	gasnetc_fh_hash = 
@@ -775,27 +811,32 @@ gasnetc_firehose_init(uintptr_t	segsize)
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose hash initialized to %d elems (segsize=%d)", firehoses,
 	    segsize));
-	gasnetc_fh_num = (unsigned int) (firehoses/(gasnetc_nodes-1));
+	gasnetc_fh_num = (size_t) (firehoses/(gasnetc_nodes-1));
+	return;
 }
 
-GASNETI_INLINE_MODIFIER(gasnetc_firehose_ispinned)
+extern void
+gasnetc_firehose_finalize()
+{
+	free(gasnetc_fh_victims);
+	free(gasnetc_fh_victim_count);
+	free(gasnetc_fh_used);
+	gm_destroy_hash(gasnetc_fh_hash);
+}
+
+GASNET_INLINE_MODIFIER(gasnetc_firehose_ispinned)
 int
 gasnetc_firehose_ispinned(gasnetc_fh_key_t key)
 {
 	gasnetc_fh_data_t	*fh_data;
+	gasnet_node_t		node;
 	int			ret = 0;
 
 	gasnetc_lock(&gasnetc_fh_hash_lock);
 	if ((fh_data = (gasnetc_fh_data_t *) 
-	    gm_hash_find(gasnetc_fh_hash, key)) != NULL) {
-		assert(fh_data->refcount != FH_KEY_NOTUSED);
+	    gm_hash_find(gasnetc_fh_hash, (void *)key)) != NULL) {
 		assert(fh_data->next == NULL);
 		/* XXX we can't remove from the middle of the FIFO */
-		if (GASNETC_FH_REFC_ISZERO(fh_data)) {
-			gasnetc_lock(&gasnetc_fh_victim_lock);
-			gasnetc_fh_victim_count[node]--;
-			gasnetc_unlock(&gasnetc_fh_victim_lock);
-		}
 		GASNETC_FH_REFC_INC(fh_data);
 		ret = 1;
 	}
@@ -803,7 +844,7 @@ gasnetc_firehose_ispinned(gasnetc_fh_key_t key)
 	return ret;
 }
 
-GASNETI_INLINE_MODIFIER(gasnetc_firehose_unpin)
+GASNET_INLINE_MODIFIER(gasnetc_firehose_unpin)
 int
 gasnetc_firehose_unpin(gasnetc_fh_key_t key)
 {
@@ -813,50 +854,58 @@ gasnetc_firehose_unpin(gasnetc_fh_key_t key)
 
 	gasnetc_lock(&gasnetc_fh_hash_lock);
 	if ((fh_data = (gasnetc_fh_data_t *) 
-	    gm_hash_find(gashetc_fh_hash, (void *)key)) != NULL) {
+	    gm_hash_find(gasnetc_fh_hash, (void *)key)) != NULL) {
 		assert(GASNETC_FH_REFC(fh_data) > 0);
 		GASNETC_FH_REFC_DEC(fh_data);
 		/* if refcount is zero and we were not already in the victim
 		 * fifo, add ourselves */
+		gasnetc_lock(&gasnetc_fh_victim_lock);
 		if (fh_data->next == NULL && GASNETC_FH_REFC_ISZERO(fh_data)) {
 			node = GASNETC_FH_KEY_NODE(key);
 			assert(node > 0 && node < gasnetc_nodes);
-			gasnetc_lock(&gasnetc_fh_victim_lock);
-			fh_data->next = gasnetc_fh_victims[node]->next;
-			gasnetc_fh_victims[node]->next = fh_data;
+			fh_data->next = gasnetc_fh_victims[node].next;
+			gasnetc_fh_victims[node].next = fh_data;
 			gasnetc_fh_victim_count[node]++;
-			gasnetc_unlock(&gasnetc_fh_victim_lock);
 		}
+		gasnetc_unlock(&gasnetc_fh_victim_lock);
 		ret = 1;
 	}
 	gasnetc_unlock(&gasnetc_fh_hash_lock);
 	return ret;
 }
 
-GASNETI_INLINE_MODIFIER(gasnetc_firehose_add)
+GASNET_INLINE_MODIFIER(gasnetc_firehose_add)
 void
 gasnetc_firehose_add(gasnetc_fh_key_t key)
 {
 	gm_status_t		status;
 	gasnetc_fh_data_t	data;
+	gasnet_node_t		node;
 
-	assert(gm_hash_find(gashetc_fh_hash, (void *)key) == NULL);
-	data.refcount = 1
+	assert(gm_hash_find(gasnetc_fh_hash, (void *)key) == NULL);
+	/* gasneti_assert_unlocked(&gasnetc_fh_hash_lock) */
 	data.next = NULL;
+	node = GASNETC_FH_KEY_NODE(key);
 	gasnetc_lock(&gasnetc_fh_hash_lock);
+	GASNETC_FH_REFC_SET(&data, 1);
 	status = gm_hash_insert(gasnetc_fh_hash, (void *)key, (void *)&data);
+	gasnetc_fh_used[node]++;
 	gasnetc_unlock(&gasnetc_fh_hash_lock);
 	if (status != GM_SUCCESS)
 		gasneti_fatalerror("could not insert key in firehose hash");
 	return;
 }
 
-GASNETI_INLINE_MODIFIER(gasnetc_firehose_remove)
+GASNET_INLINE_MODIFIER(gasnetc_firehose_remove)
 void
 gasnetc_firehose_remove(gasnetc_fh_key_t key)
 {
+	gasnet_node_t	node;
+
+	node = GASNETC_FH_KEY_NODE(key);
 	gasnetc_lock(&gasnetc_fh_hash_lock);
-	if (gm_hash_remove(gashetc_fh_hash, (void *)key) == NULL) {
+	gasnetc_fh_used[node]--;
+	if (gm_hash_remove(gasnetc_fh_hash, (void *)key) == NULL) {
 		gasneti_fatalerror("key doesn't exist in firehose hash");
 	}
 	gasnetc_unlock(&gasnetc_fh_hash_lock);
@@ -872,53 +921,35 @@ gasnetc_firehose_remove(gasnetc_fh_key_t key)
  * In our case, we sacrifice a small amount of CPU time.
  */
 
-GASNETI_INLINE_MODIFIER(gasnetc_firehose_find_freevictim)
+GASNET_INLINE_MODIFIER(gasnetc_firehose_find_freevictim)
 gasnetc_fh_data_t *
 gasnetc_firehose_find_freevictim(gasnet_node_t node)
 {
-	gasnetc_fh_data_t	*data;
+	gasnetc_fh_data_t	*data, *data_tmp;
 
 	/* XXX gasnetc_assert_lock(&gasnetc_fh_victim_lock) */
-	/* The firehose fifo may contain elements but the count is our ultimate
-	 * reference for 0-refcount entries */
-	if (gasnetc_fh_victim_count[node] == 0)
-		return NULL;
-	/* start at the head */
-	data = gasnetc_fh_victims[node];
-	do {
-		/* If we have more than one operation in flight using this
-		 * firehose, we should remove it from the victim FIFO
+	data = &gasnetc_fh_victims[node];
+	while (data->next != GASNETC_FH_NEXT_END) {
+		/* We always remove an element from the FIFO */
+		data_tmp = data->next;
+		data->next = data_tmp->next;
+		data_tmp->next = NULL;
+
+		/* If the reference count is zero, we can safely reuse this
+		 * firehose, or else just remove the element from the FIFO
+		 * and keep looking for a refcount==0
 		 */
-		switch (GASNETC_FH_REFC(data->next)) {
-			/* We found a victim, remove it and return a pointer
-			 * to the caller */
-			case 0:
-				data->next = data->next->next;
-				/* This is safe since we know there is at least
-				 * 1 victim with refcount = 0 */
-				data->next->next = NULL;
-				gasnetc_fh_victim_count[node]--;
-				return data->next;
-				break;
-			/* This firehose has only one pending operation, skip
-			 * it for now */
-			case 1:
-				data = data->next;
-				break;
-			/* This firehose has too many pending operations to be
-			 * in the victim fifo, remove it.
-			 */
-			default:
-				data->next = data->next->next;
-				data->next->next = NULL;
-				break;
+		if (GASNETC_FH_REFC_ISZERO(data_tmp)) {
+			gasnetc_fh_victim_count[node]--;
+			return data_tmp;
 		}
-	} while (data->next != GASNETC_FH_NEXT_END);
-	/* We walked through the victim fifo and didn't find anything, this
-	 * should not happen */
+	} 
+	/* We walked through the victim fifo and didn't find anything */
 	return NULL;
 }
 
+#if 0
+/* disable for now . . */
 int
 gasnetc_firehose_bucket_compare(const void *k1, const void *k2)
 {
@@ -932,6 +963,7 @@ gasnetc_firehose_bucket_compare(const void *k1, const void *k2)
 	else
 		return 0;
 }
+#endif
 
 /*
  * Firehose lookup by address checks to see if the local node has a firehose
@@ -944,18 +976,23 @@ gasnetc_firehose_bucket_compare(const void *k1, const void *k2)
  * node.
  *
  */
-int
-gasnetc_firehose_build_list(gasnet_node_t node, void *dest, size_t num_buckets,
-			    unsigned int *old_buckets,unsigned int *new_buckets,
-			    uintptr_t *old_bucket_buf,uintptr_t *new_bucket_buf)
+extern int
+gasnetc_firehose_build_list(gasnet_node_t node, uintptr_t dest, 
+			    size_t num_buckets, 
+			    size_t *old_buckets, size_t *new_buckets)
 {
 	unsigned int			i,j,k;
 	volatile gasnetc_fh_data_t	*victim;
 	uintptr_t			bucket_addr, bucket_cur;
+	uintptr_t			*firehose_old_buf;
 
-	bucket_addr = PAGE_ROUNDDOWN(dest, GASNETC_BUCKET_SIZE);
-
-	gasnetc_lock(&gasnetc_fh_victim_lock);
+	assert(node > 0 && node < gasnetc_nodes);
+	assert(sizeof(uintptr_t)*num_buckets*2 < gasnet_AMMaxMedium());
+	assert(gasnetc_firehose_buf != NULL && 
+	       gasnetc_firehose_buf_num >= num_buckets*2);
+	/* gasneti_assert_locked(&gasnetc_fh_victim_lock) */
+	bucket_addr = GASNETI_PAGE_ALIGN(dest, GASNETC_BUCKET_SIZE);
+	firehose_old_buf = gasnetc_firehose_buf + num_buckets;
 	i = 0;
 	j = 0;
 	for (k = 0; k < num_buckets; k++) {
@@ -964,22 +1001,29 @@ gasnetc_firehose_build_list(gasnet_node_t node, void *dest, size_t num_buckets,
 		if (gasnetc_firehose_ispinned(GASNETC_FH_KEY(bucket_cur,node)))
 			continue;
 
+		/* XXX look into querying fh_used. . */
 		if (gasnetc_fh_used[node] >= gasnetc_fh_num) {
+			uintptr_t	vic_addr;
 
-			/* XXX gasnetc_assert_lock(&gasnetc_fh_victim_lock) */
 			victim = gasnetc_firehose_find_freevictim(node);
 			if (victim == NULL) {
+
 				gasnetc_unlock(&gasnetc_fh_victim_lock);
+				/* Overcomplicated polling loop to minimize
+				 * locking overhead when looking for victims */
 				while (1) {
-					gasnetc_AM_Poll();
+					gasnetc_AMPoll();
+					if (gasnetc_fh_victim_count[node] == 0)
+						continue;
 					gasnetc_lock(&gasnetc_fh_victim_lock);
 					victim = 
 					    gasnetc_firehose_find_freevictim(node);
-					gasnetc_unlock(&gasnetc_fh_victim_lock);
 					if (victim != NULL)
 						break;
+					gasnetc_unlock(&gasnetc_fh_victim_lock);
 				}
-				/* Once we return from a poll, it's possible
+				/* XXX gasneti_assert_locked(&gasnetc_fh_victim_lock);
+				 * Once we return from a poll, it's possible
 				 * that other threads decided to acquire the
 				 * firehose lock and move a firehose over the
 				 * current bucket desc
@@ -988,45 +1032,46 @@ gasnetc_firehose_build_list(gasnet_node_t node, void *dest, size_t num_buckets,
 				    GASNETC_FH_KEY(bucket_cur,node)))
 					continue;
 			}
-			/* By now, we really know we need to move the firehose to
-			 * the new location */
-			gasnetc_firehose_remove(
-			    GASNETC_FH_KEY(GASNETC_FH_BUCKET_ADDR(victim), 
-			    node));
+			/* By now, we really know we need to move the firehose
+			 * to the new location */
+			vic_addr = GASNETC_FH_ADDR(victim);
+			gasnetc_firehose_remove(GASNETC_FH_KEY(vic_addr, node));
 			gasnetc_firehose_add(GASNETC_FH_KEY(bucket_cur,node));
-			old_bucket_buf[i] = GASNET_FH_BUCKET_ADDR(victim);
+			firehose_old_buf[i] = vic_addr;
 			i++;
 		}
 		else {
 			gasnetc_firehose_add(GASNETC_FH_KEY(bucket_cur,node));
-			gasnetc_fh_used[node]++;
 		}
-		new_bucket_buf[j] = bucket_cur;
+		gasnetc_firehose_buf[j] = bucket_cur;
 		j++;
 	}
-	GASNETC_UNLOCK_FIREHOSE;
 	*old_buckets = i;
 	*new_buckets = j;
 	assert(j >= i);
+#if 0
+	disable for now. .
 	/* XXX qsort might be too expensive for small sizes - i like it because
 	 *     it uses the stack, no malloc */
 	qsort(old_bucket_buf, i, sizeof(uintptr_t), 
 	    gasnetc_firehose_bucket_compare);
 	qsort(new_bucket_buf, j, sizeof(uintptr_t), 
 	    gasnetc_firehose_bucket_compare);
+#endif
 
 	return j;
 }
 
-void
+extern void
 gasnetc_firehose_decrement_refcount(gasnet_node_t node, uintptr_t dest, 
 				    size_t len)
 {
 	uintptr_t	bucket_cur;
-	unsigned int	num_buckets;
+	size_t	num_buckets;
 
-	bucket_cur = PAGE_ROUNDDOWN(dest, GASNETC_BUCKET_SIZE);
-	num_buckets = PAGE_ROUNDUP(len, GASNETC_BUCKET_SIZE) >> GASNETC_BUCKET_SHIFT;
+	bucket_cur = GASNETI_PAGE_ALIGN(dest, GASNETC_BUCKET_SIZE);
+	num_buckets = GASNETI_PAGE_ROUNDUP(len, GASNETC_BUCKET_SIZE) >> 
+	    GASNETC_BUCKET_SHIFT;
 
 	do {
 		gasnetc_firehose_unpin(GASNETC_FH_KEY(bucket_cur,node));
@@ -1043,7 +1088,7 @@ gasnetc_firehose_decrement_refcount(gasnet_node_t node, uintptr_t dest,
  */
 GASNET_INLINE_MODIFIER(gasnetc_firehose_move_firehose_reqh_inner)
 void
-gasnetc_firehose_move_reqh_inner(gasnet_token_t token, void *bucket_list,
+gasnetc_firehose_move_reqh_inner(gasnet_token_t token, void *addr,
 				 size_t nbytes, 
 				 gasnet_handlerarg_t amrep_index,
 				 gasnet_handlerarg_t new_buckets, 
@@ -1054,18 +1099,18 @@ gasnetc_firehose_move_reqh_inner(gasnet_token_t token, void *bucket_list,
 	uintptr_t	*old_bucket_list;
 
 	assert(new_buckets > 0);
-	assert(amrep_index > 0 && amrep_index < 256);
+	assert(amrep_index > 0 && amrep_index <= 255);
 
 	if (old_buckets > 0) {
 		assert(old_bucket_off > 0);
-		old_bucket_list = (uintptr_t *) (bucket_list + old_bucket_off);
+		old_bucket_list = (uintptr_t *) (addr + old_bucket_off);
 		gasnetc_bucket_unpin_by_list(old_bucket_list, old_buckets);
 	}
-	gasnetc_bucket_pin_by_list((uintptr_t *) bucket_list, new_buckets);
+	gasnetc_bucket_pin_by_list((uintptr_t *) addr, new_buckets);
 
-	GASNETE_SAFE(
-	    SHORT_REP(1,2,(token, amrep_index, PACK(context))));
+	SHORT_REP(1,2,(token, amrep_index, PACK(context)));
 }	
-MEDIUM_HANDLER(gasnetc_firehose_move_reqh,2,3,
-              (token,bucket_list,nbytes, a0, UNPACK(a1)     ),
-              (token,bucket_list,nbytes, a0, UNPACK2(a1, a2)));
+MEDIUM_HANDLER(gasnetc_firehose_move_reqh,5,6,
+              (token,addr,nbytes, a0, a1, a2, a3, UNPACK(a4)     ),
+              (token,addr,nbytes, a0, a1, a2, a3, UNPACK2(a4, a5)));
+#endif

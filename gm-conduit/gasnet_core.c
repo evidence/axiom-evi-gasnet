@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.17 2002/08/14 07:18:23 csbell Exp $
- * $Date: 2002/08/14 07:18:23 $
+/* $Id: gasnet_core.c,v 1.18 2002/08/15 10:43:15 csbell Exp $
+ * $Date: 2002/08/15 10:43:15 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -85,69 +85,71 @@ static void gasnetc_check_config() {
   return;
 }
 
-static int gasnetc_init(int *argc, char ***argv) {
+static int 
+gasnetc_init(int *argc, char ***argv)
+{
+	/* check system sanity */
+	gasnetc_check_config();
 
-  /* check system sanity */
-  gasnetc_check_config();
+	if (gasnetc_init_done) 
+		GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
 
-  if (gasnetc_init_done) 
-    GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
+	#if DEBUG_VERBOSE
+	/* note - can't call trace macros during gasnet_init because trace
+	 * system not yet initialized */
+	fprintf(stderr,"gasnetc_init(): about to spawn...\n"); fflush(stderr);
+	#endif
 
-  #if DEBUG_VERBOSE
-    /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
-    fprintf(stderr,"gasnetc_init(): about to spawn...\n"); fflush(stderr);
-  #endif
+	#ifdef HAVE_GEXEC
+	#error GEXEC support not implemented yet
+	#else
+		if (gasnetc_gmpiconf_init() != GASNET_OK)
+	 		GASNETI_RETURN_ERRR(RESOURCE, "GMPI-based init failed");
+		gasnetc_sendbuf_init();
+	#endif
 
-#ifdef HAVE_GEXEC
-#error GEXEC support not implemented yet
-#else
-  if (gasnetc_gmpiconf_init() != GASNET_OK)
-	  GASNETI_RETURN_ERRR(RESOURCE, "GMPI-based init failed");
-  gasnetc_sendbuf_init();
-#endif
+	#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
+	{ 
+		size_t	segsize = (unsigned) GASNETC_MMAP_INITIAL_SIZE;
 
-  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-    { 
-      size_t	segsize = (unsigned) GASNETC_MMAP_INITIAL_SIZE;
+		if (gasnetc_mmap_segment_search(&_gmc.segment_mmap, segsize, 
+		    segsize>>2) != GASNET_OK)
+			 gasneti_fatalerror(
+			    "Could not find any segment using mmap");
+		_gmc.segment_base = _gmc.segment_mmap.addr;
+		GASNETC_DPRINTF(("mmap segment %d bytes at 0x%x\n", 
+				(unsigned int) _gmc.segment_mmap.size, 
+				(uintptr_t) _gmc.segment_mmap.addr) );
 
-      if (gasnetc_mmap_segment_search(&_gmc.segment_mmap, segsize, segsize/2) 
-          != GASNET_OK)
-	      gasneti_fatalerror("Could not find any segment using mmap");
-      _gmc.segment_base = _gmc.segment_mmap.addr;
-      GASNETC_DPRINTF(("mmap segment %d bytes at 0x%x\n", 
-          (unsigned int) _gmc.segment_mmap.size, 
-	  (uintptr_t) _gmc.segment_mmap.addr) );
+		/* after gather_MaxSegment, _gmc.segment_base holds the
+		 * highest base of the job (the "new" segbase) since we
+		 * guarentee alignment.  _gmc.segment_mmap.addr holds
+		 * *this* node's mmap base _gmc.segment_mmap.size holds
+		 * *this* node's mmap size */
 
-      /* after gather_MaxSegment,
-       * _gmc.segment_base holds the highest base of the job (the "new"
-       *                   segbase) since we guarentee alignment.
-       * _gmc.segment_mmap.addr holds *this* node's mmap base
-       * _gmc.segment_mmap.size holds *this* node's mmap size
-       */
-      gasnetc_MaxGlobalSegmentSize = 
-	  gasnetc_gather_MaxSegment(_gmc.segment_base, 
-	      _gmc.segment_mmap.size);
+		gasnetc_MaxGlobalSegmentSize = 
+		    gasnetc_gather_MaxSegment(_gmc.segment_base, 
+		    _gmc.segment_mmap.size);
 
-      gasnetc_MaxLocalSegmentSize = (uintptr_t)_gmc.segment_mmap.addr + 
-	      (uintptr_t)segsize - (uintptr_t)_gmc.segment_base;
+		gasnetc_MaxLocalSegmentSize = 
+		    (uintptr_t)_gmc.segment_mmap.addr + (uintptr_t)segsize - 
+		    (uintptr_t)_gmc.segment_base;
 
-      /*  grab GM buffers and make sure we have the maximum amount possible */
-      while (_gmc.stoks.hi != 0) {
-        if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
-          gasneti_fatalerror("Unexpected message during bootstrap");
-      }
-    }
-  #elif defined(GASNET_SEGMENT_EVERYTHING)
-    gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
-    gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
-  #else
-    #error Bad segment config
-  #endif
-
-  gasnetc_init_done = 1;
-
-  /* freezeForDebugger(); */
-  return GASNET_OK;
+		/*  grab GM buffers and make sure we have the maximum amount
+		 *  possible */
+		while (_gmc.stoks.hi != 0) {
+			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
+			gasneti_fatalerror("Unexpected message during bootstrap");
+		}
+	}
+	#elif defined(GASNET_SEGMENT_EVERYTHING)
+		gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
+		gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
+	#else
+		#error Bad segment config
+	#endif
+	gasnetc_init_done = 1;
+	return GASNET_OK;
 }
 
 extern uintptr_t gasnetc_getMaxLocalSegmentSize() {
@@ -245,14 +247,28 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   }
 
   { /*  extended API handlers */
-    gasnet_handlerentry_t *etable = (gasnet_handlerentry_t *)gasnete_get_handlertable();
-    int len = 0;
-    int numreg = 0;
-    assert(etable);
-    while (etable[len].fnptr) len++; /* calc len */
-    if (gasnetc_reghandlers(etable, len, 100, 199, 0, &numreg) != GASNET_OK)
-      GASNETI_RETURN_ERRR(RESOURCE,"Error registering extended API handlers");
-    assert(numreg == len);
+	gasnet_handlerentry_t *ertable = 
+	    (gasnet_handlerentry_t *)gasnete_get_extref_handlertable();
+	gasnet_handlerentry_t *etable = 
+	    (gasnet_handlerentry_t *)gasnete_get_handlertable();
+	int er_len = 0, e_len = 0;
+	int er_numreg = 0, e_numreg = 0;
+	assert(etable && ertable);
+
+	while (ertable[er_len].fnptr) er_len++; /* calc len */
+	while (etable[e_len].fnptr) e_len++; /* calc len */
+	if (gasnetc_reghandlers(ertable, er_len, 100, 199, 0, &er_numreg)
+	    != GASNET_OK)
+		GASNETI_RETURN_ERRR(RESOURCE,
+		    "Error registering extended reference API handlers");
+    	assert(er_numreg == er_len);
+
+	if (gasnetc_reghandlers(ertable, e_len, 100+er_len, 199, 0, &e_numreg)
+	    != GASNET_OK)
+		GASNETI_RETURN_ERRR(RESOURCE,
+		    "Error registering extended API handlers");
+    	assert(e_numreg == e_len);
+
   }
 
   if (table) { /*  client handlers */

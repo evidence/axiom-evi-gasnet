@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.22 2002/08/14 07:18:23 csbell Exp $
- * $Date: 2002/08/14 07:18:23 $
- * $Revision: 1.22 $
+/* $Id: gasnet_core_internal.h,v 1.23 2002/08/15 10:43:15 csbell Exp $
+ * $Date: 2002/08/15 10:43:15 $
+ * $Revision: 1.23 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -63,6 +63,9 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 /* Core-specific AMs */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-99 for the core API */
 #define _hidx_gasnetc_am_medcopy		(GASNETC_HANDLER_BASE+0) 
+#ifdef GASNETC_FIREHOSE
+#define _hidx_gasnetc_firehose_move_reqh	(GASNETC_HANDLER_BASE+1) 
+#endif
 #define _hidx_					(GASNETC_HANDLER_BASE+)
 
 /* -------------------------------------------------------------------------- */
@@ -111,6 +114,10 @@ uintptr_t	gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize);
 int		gasnetc_gather_seginfo(gasnet_seginfo_t *segment);
 void		gasnetc_am_medcopy(gasnet_token_t token, void *addr, 
 				   size_t nbytes, void *dest);
+int		gasnetc_AMReplyLongAsyncM(gasnet_token_t token, 
+					  gasnet_handler_t handler, 
+					  void *source_addr, size_t nbytes,
+					  void *dest_addr, int numargs, ...);
 
 void 	*gasnetc_segment_gather(uintptr_t);
 void	gasnetc_gm_send_AMSystem_broadcast(void *, size_t, 
@@ -140,15 +147,22 @@ struct gasnetc_token {
 }
 gasnetc_token_t;
 
-#ifdef GASNETI_TRHEADS
 /* GM locks, abstract over pthread_mutex_t mainly for debugging purposes */
 typedef
-struct gasnetc_lock {
+struct _gasnetc_lock {
 	pthread_mutex_t	mutex;
-};
+} gasnetc_lock_t;
 
+#ifdef GASNETI_THREADS
 #define GASNETC_LOCK_INITIALIZER	{ PTHREAD_MUTEX_INITIALIZER }
+#define gasnetc_lock(lock)
+#define gasnetc_unlock(lock)
+#else
+#define GASNETC_LOCK_INITIALIZER	{ 0 }
+#define gasnetc_lock(lock)
+#define gasnetc_unlock(lock)
 #endif
+
 
 /* Buffer descriptor.  Each DMA-pinned AM buffer has one
  * of these attached to it. */
@@ -293,10 +307,17 @@ extern pthread_mutex_t	_gasnetc_lock_amreq;
 				((_gmc.stoks.lo < _gmc.stoks.max-1) && \
 				 (_gmc.stoks.total < _gmc.stoks.max))
 
+/* HI TOKENS
+ * acquire() version simply try to get a token, call must be locked around GM
+ *           mutex
+ * poll()    wraps acquire around a gasnetc_AMPoll loop and returns only when a
+ *           hi token could be obtained
+ */
 GASNET_INLINE_MODIFIER(gasnetc_token_hi_acquire)
 int
 gasnetc_token_hi_acquire()
 {
+	/* XXX gasneti_assert_locked(gasnetc_gm_lock) */
 	if (GASNETC_TOKEN_HI_AVAILABLE()) {
 		_gmc.stoks.hi += 1;
 		_gmc.stoks.total += 1;
@@ -307,24 +328,85 @@ gasnetc_token_hi_acquire()
 	}
 }
 
+GASNET_INLINE_MODIFIER(gasnetc_token_hi_poll)
+void
+gasnetc_token_hi_poll()
+{
+	while (1) {
+		if (GASNETC_TOKEN_HI_AVAILABLE()) {
+			gasnetc_lock(&gasnetc_gm_lock);
+			if (gasnetc_token_hi_acquire())
+				return;
+			gasnetc_unlock(&gasnetc_gm_lock);
+		}
+		gasnetc_AMPoll();
+	}
+}
+
 GASNET_INLINE_MODIFIER(gasnetc_token_hi_release)
 void
 gasnetc_token_hi_release()
 {
+	/* XXX gasneti_assert_locked(&gasnetc_gm_lock) */
 	assert((_gmc.stoks.hi-1 >= 0) && (_gmc.stoks.total-1 >= 0));
 	_gmc.stoks.hi -= 1;
 	_gmc.stoks.total -= 1;
 }
 
-/* gasnetc_tokenc_lo_acquire() is solely represented in
- * gasnetc_AMRequestPool_block();
- */
+GASNET_INLINE_MODIFIER(gasnetc_token_lo_acquire)
+int
+gasnetc_token_lo_acquire()
+{
+	/* XXX gasneti_assert_locked(gasnetc_gm_lock) */
+	if (GASNETC_TOKEN_LO_AVAILABLE()) {
+		_gmc.stoks.lo += 1;
+		_gmc.stoks.total += 1;
+		return 1;
+	}
+	else {
+		return 0;
+	}
+}
+
+GASNET_INLINE_MODIFIER(gasnetc_token_lo_poll)
+void
+gasnetc_token_lo_poll()
+{
+	/* XXX gasneti_assert_unlocked(gasnetc_gm_lock) */
+	while (1) {
+		if (GASNETC_TOKEN_LO_AVAILABLE()) {
+			gasnetc_lock(&gasnetc_gm_lock);
+			if (gasnetc_token_lo_acquire()) {
+				gasnetc_unlock(&gasnetc_gm_lock);
+				return;
+			}
+			gasnetc_unlock(&gasnetc_gm_lock);
+		}
+		gasnetc_AMPoll();
+	}
+}
+
+GASNET_INLINE_MODIFIER(gasnetc_token_lo_poll_lock)
+void
+gasnetc_token_lo_poll_lock()
+{
+	/* XXX gasneti_assert_unlocked(gasnetc_gm_lock) */
+	while (1) {
+		if (GASNETC_TOKEN_LO_AVAILABLE()) {
+			gasnetc_lock(&gasnetc_gm_lock);
+			if (gasnetc_token_lo_acquire())
+				return;
+			gasnetc_unlock(&gasnetc_gm_lock);
+		}
+		gasnetc_AMPoll();
+	}
+}
 
 GASNET_INLINE_MODIFIER(gasnetc_token_lo_release)
 void
 gasnetc_token_lo_release()
 {
-	/* XXX assert we have gm mutex */
+	/* XXX gasneti_assert_locked(gasnetc_gm_lock) */
 	assert((_gmc.stoks.lo-1 >= 0) && (_gmc.stoks.total-1 >= 0));
 	_gmc.stoks.lo -= 1;
 	_gmc.stoks.total -= 1;
@@ -752,12 +834,50 @@ gasnetc_gm_nodes_search(uint16_t sender_node_id, uint16_t sender_port_id)
 	gm_node_sender.port = sender_port_id;
 	gm_node = (gasnetc_gm_nodes_rev_t *)
 		bsearch((void *) &gm_node_sender,
-			(const void *) _gmc.gm_nodes_rev,
-			(size_t) gasnetc_nodes,
-			sizeof(gasnetc_gm_nodes_rev_t),
-			gasnetc_gm_nodes_compare);
+		    (const void *) _gmc.gm_nodes_rev, (size_t) gasnetc_nodes,
+		    sizeof(gasnetc_gm_nodes_rev_t), gasnetc_gm_nodes_compare);
 	if_pf(gm_node == NULL)
 		gasneti_fatalerror("gasnetc_gm_nodes_search() GM id unknown");
 	return gm_node->node;
 }
+/* ------------------------------------------------------------------------------------ */
+/* Private access to ReplyLongAsync */
+#define gasnetc_AMReplyLongAsync0(token, handler, source_addr, nbytes, token_addr) \
+       gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 0)
+#define gasnetc_AMReplyLongAsync1(token, handler, source_addr, nbytes, token_addr, a0) \
+       gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 1, (gasnet_handlerarg_t)a0)
+#define gasnetc_AMReplyLongAsync2(token, handler, source_addr, nbytes, token_addr, a0, a1) \
+       gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 2, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1)
+#define gasnetc_AMReplyLongAsync3(token, handler, source_addr, nbytes, token_addr, a0, a1, a2) \
+       gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 3, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2)
+#define gasnetc_AMReplyLongAsync4(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3) \
+       gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 4, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3)
+
+#define gasnetc_AMReplyLongAsync5(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4) \
+       gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 5, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4)
+#define gasnetc_AMReplyLongAsync6(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5) \
+       gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 6, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5)
+#define gasnetc_AMReplyLongAsync7(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6) \
+       gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 7, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6)
+#define gasnetc_AMReplyLongAsync8(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7) \
+       gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 8, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7)
+
+#define gasnetc_AMReplyLongAsync9 (token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8 ) \
+        gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr,  9, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8)
+#define gasnetc_AMReplyLongAsync10(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+        gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 10, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9)
+#define gasnetc_AMReplyLongAsync11(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
+        gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 11, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9, (gasnet_handlerarg_t)a10)
+#define gasnetc_AMReplyLongAsync12(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
+        gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 12, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9, (gasnet_handlerarg_t)a10, (gasnet_handlerarg_t)a11)
+
+#define gasnetc_AMReplyLongAsync13(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
+        gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 13, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9, (gasnet_handlerarg_t)a10, (gasnet_handlerarg_t)a11, (gasnet_handlerarg_t)a12)
+#define gasnetc_AMReplyLongAsync14(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
+        gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 14, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9, (gasnet_handlerarg_t)a10, (gasnet_handlerarg_t)a11, (gasnet_handlerarg_t)a12, (gasnet_handlerarg_t)a13)
+#define gasnetc_AMReplyLongAsync15(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
+        gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 15, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9, (gasnet_handlerarg_t)a10, (gasnet_handlerarg_t)a11, (gasnet_handlerarg_t)a12, (gasnet_handlerarg_t)a13, (gasnet_handlerarg_t)a14)
+#define gasnetc_AMReplyLongAsync16(token, handler, source_addr, nbytes, token_addr, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
+        gasnetc_AMReplyLongAsyncM(token, handler, source_addr, nbytes, token_addr, 16, (gasnet_handlerarg_t)a0, (gasnet_handlerarg_t)a1, (gasnet_handlerarg_t)a2, (gasnet_handlerarg_t)a3, (gasnet_handlerarg_t)a4, (gasnet_handlerarg_t)a5, (gasnet_handlerarg_t)a6, (gasnet_handlerarg_t)a7, (gasnet_handlerarg_t)a8, (gasnet_handlerarg_t)a9, (gasnet_handlerarg_t)a10, (gasnet_handlerarg_t)a11, (gasnet_handlerarg_t)a12, (gasnet_handlerarg_t)a13, (gasnet_handlerarg_t)a14, (gasnet_handlerarg_t)a15)
+
 #endif

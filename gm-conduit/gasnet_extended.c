@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/08/11 22:02:31 $
- * $Revision: 1.1 $
+ *     $Date: 2002/08/15 10:43:15 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -16,16 +16,16 @@ GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " G
 gasnet_node_t	gasnete_mynode = -1;
 gasnet_node_t	gasnete_nodes = 0;
 
-gasnet_seginfo_t		*gasnete_seginfo = NULL;
-static gasnete_threaddata_t	*gasnete_threadtable[256] = { 0 };
-static int 			gasnete_numthreads = 0;
-static gasnet_hsl_t		threadtable_lock = GASNET_HSL_INITIALIZER;
+gasnet_seginfo_t	*gasnete_seginfo = NULL;
+gasnete_threaddata_t	*gasnete_threadtable[256] = { 0 };
+int 			 gasnete_numthreads = 0;
+gasnet_hsl_t		 threadtable_lock = GASNET_HSL_INITIALIZER;
 #ifdef GASNETI_THREADS
 	/*  pthread thread-specific ptr to our threaddata (or NULL for a thread
 	 *  never-seen before) */
-	static pthread_key_t gasnete_threaddata; 
+	pthread_key_t gasnete_threaddata; 
 #endif
-static const gasnete_eopaddr_t	EOPADDR_NIL = { 0xFF, 0xFF };
+const gasnete_eopaddr_t	EOPADDR_NIL = { 0xFF, 0xFF };
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -373,31 +373,27 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
   return val;
 }
 
-/* ------------------------------------------------------------------------------------ */
-/*
-  Handlers:
-  =========
-*/
-static gasnet_handlerentry_t const gasnete_handlers[] = {
-  /* ptr-width independent handlers */
-  gasneti_handler_tableentry_no_bits(gasnete_extref_barrier_notify_reqh),
-  gasneti_handler_tableentry_no_bits(gasnete_extref_barrier_done_reqh),
-
-  /* ptr-width dependent handlers */
-  gasneti_handler_tableentry_with_bits(gasnete_extref_get_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_extref_get_reph),
-  gasneti_handler_tableentry_with_bits(gasnete_extref_getlong_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_extref_getlong_reph),
-  gasneti_handler_tableentry_with_bits(gasnete_extref_put_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_extref_putlong_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_extref_memset_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_extref_markdone_reph),
-
-  { 0, NULL }
-};
-
-extern gasnet_handlerentry_t const *gasnete_get_handlertable() {
-  return gasnete_handlers;
+extern void
+gasnete_barrier_notify(int id, int flags) 
+{
+	return gasnete_extref_barrier_notify(id,flags);
+}
+extern int 
+gasnete_barrier_wait(int id, int flags)
+{
+	return gasnete_extref_barrier_wait(id,flags);
 }
 
-/* ------------------------------------------------------------------------------------ */
+extern gasnet_handle_t 
+gasnete_memset_nb(gasnet_node_t node, void *dest, int val, 
+		  size_t nbytes   GASNETE_THREAD_FARG) {
+	return gasnete_extref_memset_nb(node, dest, val, 
+	    nbytes GASNETE_THREAD_PASS);
+}
+
+extern void
+gasnete_memset_nbi(gasnet_node_t node, void *dest, int val, 
+		  size_t nbytes   GASNETE_THREAD_FARG) {
+	return gasnete_extref_memset_nbi(node, dest, val, 
+	    nbytes GASNETE_THREAD_PASS);
+}
