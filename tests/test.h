@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2003/08/31 12:38:56 $
- * $Revision: 1.15 $
+ *     $Date: 2003/09/02 16:41:55 $
+ * $Revision: 1.16 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,7 +78,7 @@ static void *_test_malloc(size_t sz, char *curloc) {
   ptr = malloc(sz);
   gasnet_resume_interrupts();
   if (ptr == NULL) {
-    fprintf(stderr,"*** ERROR: Failed to malloc(%i) bytes at %s\n",sz,curloc);
+    fprintf(stderr,"*** ERROR: Failed to malloc(%i) bytes at %s\n",(int)sz,curloc);
     abort();
   }
   return ptr;
