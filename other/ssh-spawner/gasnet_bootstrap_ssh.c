@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/11 00:39:36 $
- * $Revision: 1.10 $
+ *     $Date: 2005/01/11 21:33:31 $
+ * $Revision: 1.11 $
  * Description: GASNet ssh-based bootstrapper for vapi-conduit
  * Copyright 2004, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -117,8 +117,6 @@
        and whitespace (among others).
 
    XXX: still to do
-   + Consider making the tree "conform" to the layout when nproc!=nnodes.
-     In particular we'd like to have only one in bound ssh per node.
    + Consider making OUT_DEGREE a runtime variable.
    + Should look carefully at udp-conduit for hints on arguments to ssh,
      especially for OpenSSH.
@@ -151,7 +149,7 @@ extern char **environ;
   static int devnull = -1;
   static int listener = -1;
   static int listen_port = -1;
-  static char **hostlist;
+  static char **nodelist;
   static char **ssh_argv = NULL;
   static int ssh_argc = 0;
   static char *master_env = NULL;
@@ -159,14 +157,17 @@ extern char **environ;
   static volatile int accepted = 0;
 /* Slaves only */
   static gasnet_node_t myproc = (gasnet_node_t)(-1L);
-  static gasnet_node_t tree_size = (gasnet_node_t)(-1L);
+  static gasnet_node_t tree_procs = (gasnet_node_t)(-1L);
+  static gasnet_node_t tree_nodes = (gasnet_node_t)(-1L);
   static int parent = -1; /* socket */
-  static struct {
-    volatile pid_t	pid;	/* pid of ssh (reset to zero by slave_reaper) */
-    gasnet_node_t		rank;
-    gasnet_node_t		size;	/* size of subtree rooted at this child */
+  static struct child {
     int			sock;
-  } child[OUT_DEGREE];
+    volatile pid_t	pid;	/* pid of ssh (reset to zero by slave_reaper) */
+    gasnet_node_t	rank;
+    gasnet_node_t	procs;	/* size in procs of subtree rooted at this child */
+    gasnet_node_t	nodes;	/* size in nodes of subtree rooted at this child */
+    char **		nodelist;
+  } *child = NULL;
   static int children = 0;
   static int mypid;
 /* Master only */
@@ -260,11 +261,13 @@ static void slave_reaper(int sig)
 
   gasneti_reghandler(sig, &slave_reaper);
   while((pid = waitpid(-1,NULL,WNOHANG)) > 0) {
-    int i;
-    for (i = 0; i < OUT_DEGREE; ++i) {
-      if (pid == child[i].pid) {
-	child[i].pid = 0;
-	break;
+    if (child) {
+      int j;
+      for (j = 0; j < children; ++j) {
+        if (pid == child[j].pid) {
+	  child[j].pid = 0;
+	  break;
+        }
       }
     }
   }
@@ -286,8 +289,10 @@ static void do_oob(unsigned char exitcode) {
   int j;
 
   send(parent, &exitcode, 1, flags);
-  for (j = 0; j < children; ++j) {
-    send(child[j].sock, &exitcode, 1, flags);
+  if (child) {
+    for (j = 0; j < children; ++j) {
+      send(child[j].sock, &exitcode, 1, flags);
+    }
   }
 }
 
@@ -316,8 +321,10 @@ static void sigurg_handler(int sig)
    * pending, we don't care which one we read.
    */
   (void)recv(parent, &exitcode, 1, MSG_OOB);
-  for (j = 0; j < children; ++j) {
-    (void)recv(child[j].sock, &exitcode, 1, MSG_OOB);
+  if (child) {
+    for (j = 0; j < children; ++j) {
+      (void)recv(child[j].sock, &exitcode, 1, MSG_OOB);
+    }
   }
 
   do_abort(exitcode);
@@ -583,10 +590,9 @@ static char ** parse_servers(const char *list) {
   return result;
 }
 
-static void build_hostlist(void)
+static void build_nodelist(void)
 {
   const char *env_string;
-  char **nodelist = NULL;
 
   if (nproc < nnodes) {
     fprintf(stderr, "Warning: %d nodes is larger than %d processes, nodes reduced to %d\n", nnodes, nproc, nproc);
@@ -600,30 +606,9 @@ static void build_hostlist(void)
   } else {
     gasneti_fatalerror("No " ENV_PREFIX "SSH_NODEFILE or " ENV_PREFIX "SSH_SERVERS in environment");
   }
-
-  if (nproc == nnodes) {
-    hostlist = nodelist;
-  } else {
-    /* replicate hosts in the list as needed */
-    gasnet_node_t quot = nproc / nnodes;
-    gasnet_node_t rem  = nproc % nnodes;
-    gasnet_node_t i;
-    char **p;
-
-    p = hostlist = gasneti_malloc(nproc * sizeof(char *));
-    for (i = 0; i < nnodes; ++i) {
-      gasnet_node_t j = quot + ((i < rem) ? 1 : 0);
-      while (j--) {
-        gasneti_assert((hostlist - p) < nproc);
-        *(p++) = nodelist[i];
-      }
-    }
-
-    gasneti_free(nodelist);
-  }
 }
 
-static void send_hostlist(int s, int count, char * const * list) {
+static void send_nodelist(int s, int count, char ** list) {
   gasnet_node_t i;
 
   /* length of list is already known to the recipient */
@@ -632,14 +617,15 @@ static void send_hostlist(int s, int count, char * const * list) {
   }
 }
 
-static void recv_hostlist(int s, int count) {
-  gasnet_node_t i;
+static void recv_nodelist(int s, int count) {
+  if (count) {
+    gasnet_node_t i;
 
-  hostlist = gasneti_malloc(count * sizeof(char *));
-  for (i = 0; i < count; ++i) {
-    hostlist[i] = do_read_string(s);
+    nodelist = gasneti_malloc(count * sizeof(char *));
+    for (i = 0; i < count; ++i) {
+      nodelist[i] = do_read_string(s);
+    }
   }
-  hostlist -= myproc; /* offset for ease of indexing */
 }
 
 /*
@@ -734,7 +720,7 @@ static void recv_argv(int s, int *argc_p, char ***argv_p) {
   *argv_p = argv;
 }
 
-static void pre_spawn(void) {
+static void pre_spawn(count) {
   struct sockaddr_in sock_addr;
   socklen_t addr_len;
 
@@ -760,7 +746,7 @@ static void pre_spawn(void) {
   if (bind(listener, (struct sockaddr *)&sock_addr, addr_len) < 0) {
     gasneti_fatalerror("bind() failed");
   }
-  if (listen(listener, OUT_DEGREE) < 0) {
+  if (listen(listener, count) < 0) {
     gasneti_fatalerror("listen() failed");
   }
   if (getsockname(listener, (struct sockaddr *)&sock_addr, &addr_len) < 0) {
@@ -772,11 +758,12 @@ static void pre_spawn(void) {
 static void post_spawn(int count, int argc, char * const *argv) {
   /* Accept count connections */
   while (count--) {
-    gasnet_node_t size, rank;
+    gasnet_node_t procs, nodes, rank;
     struct sockaddr_in sock_addr;
     socklen_t addr_len;
     static const int one = 1;
-    int id;
+    char **list;
+    gasnet_node_t child_id;
     int s;
 
     if ((s = accept(listener, (struct sockaddr *)&sock_addr, &addr_len)) < 0) {
@@ -786,23 +773,31 @@ static void post_spawn(int count, int argc, char * const *argv) {
       (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
     }
     (void)setsockopt(s, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
-    do_read(s, &id, sizeof(int));
-    if (id < 0) {
-      gasneti_assert(is_master);
+    do_read(s, &child_id, sizeof(gasnet_node_t));
+    if (is_master) {
+      gasneti_assert(child_id == 0);
       root_sock = s;
       rank = 0;
-      size = nproc;
+      procs = nproc;
+      nodes = nnodes;
+      list = nodelist;
     } else {
-      gasneti_assert(id < OUT_DEGREE);
-      child[id].sock = s;
-      rank = child[id].rank;
-      size = child[id].size;
+      gasneti_assert(child_id < children);
+      child[child_id].sock = s;
+      rank = child[child_id].rank;
+      procs = child[child_id].procs;
+      nodes = child[child_id].nodes;
+      list = child[child_id].nodelist;
     }
+    gasneti_assert(rank < nproc);
+    gasneti_assert(procs > 0);
+    gasneti_assert(procs <= nproc);
     do_write(s, &rank, sizeof(gasnet_node_t));
     do_write(s, &nproc, sizeof(gasnet_node_t));
-    do_write(s, &size, sizeof(gasnet_node_t));
+    do_write(s, &procs, sizeof(gasnet_node_t));
+    do_write(s, &nodes, sizeof(gasnet_node_t));
     send_env(s);
-    send_hostlist(s, size, hostlist + rank);
+    send_nodelist(s, nodes, list);
     send_ssh_argv(s);
     send_argv(s, argc, argv);
     ++accepted;
@@ -812,16 +807,15 @@ static void post_spawn(int count, int argc, char * const *argv) {
   close(listener);
   close(devnull);
 
-  /* Free the hostlist and ssh_argv */
+  /* Free the nodelist and ssh_argv */
   if (myproc != (gasnet_node_t)(-1L)) {
     gasnet_node_t i;
     int j;
 
-    hostlist += myproc; /* undo the offset */
-    for (i = 0; i < tree_size; ++i) {
-      gasneti_free(hostlist[i]);
+    for (i = 0; i < tree_nodes; ++i) {
+      gasneti_free(nodelist[i]);
     }
-    gasneti_free(hostlist);
+    gasneti_free(nodelist);
 
     for (j = 0; j < ssh_argc; ++j) {
       gasneti_free(ssh_argv[j]);
@@ -830,7 +824,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
   }
 }
 
-static void do_connect(int child_id, const char *parent_name, int parent_port, int *argc_p, char ***argv_p) {
+static void do_connect(gasnet_node_t child_id, const char *parent_name, int parent_port, int *argc_p, char ***argv_p) {
   struct sockaddr_in sock_addr;
   socklen_t addr_len;
   static const int one = 1;
@@ -848,26 +842,28 @@ static void do_connect(int child_id, const char *parent_name, int parent_port, i
   sock_addr.sin_port = htons(parent_port);
   sock_addr.sin_addr = *(struct in_addr *)(h->h_addr_list[0]);
   addr_len = sizeof(sock_addr);
-  if (connect(parent, (struct sockaddr *)&sock_addr, addr_len) < 0) {
-    gasneti_fatalerror("connect() failed");
+  while (connect(parent, (struct sockaddr *)&sock_addr, addr_len) < 0) {
+    gasneti_fatalerror("connect(host=%s, port=%d) failed w/ errno=%d", parent_name, parent_port, errno);
   }
   (void)ioctl(parent, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
   (void)setsockopt(parent, IPPROTO_TCP, TCP_NODELAY, (char *) &one, sizeof(one));
-  do_write(parent, &child_id, sizeof(int));
+  do_write(parent, &child_id, sizeof(gasnet_node_t));
   do_read(parent, &myproc, sizeof(gasnet_node_t));
   do_read(parent, &nproc, sizeof(gasnet_node_t));
-  do_read(parent, &tree_size, sizeof(gasnet_node_t));
+  do_read(parent, &tree_procs, sizeof(gasnet_node_t));
+  do_read(parent, &tree_nodes, sizeof(gasnet_node_t));
   gasneti_assert(nproc > 0);
   gasneti_assert(myproc < nproc);
-  gasneti_assert(tree_size <= nproc);
+  gasneti_assert(tree_procs > 0);
+  gasneti_assert(tree_procs <= nproc);
   recv_env(parent);
-  recv_hostlist(parent, tree_size);
+  recv_nodelist(parent, tree_nodes);
   recv_ssh_argv(parent);
   recv_argv(parent, argc_p, argv_p);
   BOOTSTRAP_VERBOSE(("Process %d connected\n", myproc));
 }
 
-static pid_t spawn_one(const char *host, const char *argv0, int child_id, const char *myhost)
+static pid_t spawn_one(const char *host, const char *argv0, gasnet_node_t child_id, const char *myhost)
 {
   pid_t pid;
 
@@ -881,24 +877,26 @@ static pid_t spawn_one(const char *host, const char *argv0, int child_id, const 
         gasneti_fatalerror("dup2(STDIN_FILENO, /dev/null) failed");
       }
     }
-    if (USE_LOCAL_SPAWN && !strcmp(host, myhost)) {
-      BOOTSTRAP_VERBOSE(("Spawning process %d on %s via fork()\n",
+    if (USE_LOCAL_SPAWN && (!host || !strcmp(host, myhost))) {
+      BOOTSTRAP_VERBOSE(("Process %d spawning process %d on %s via fork()\n",
+			 (is_master ? -1 : (int)myproc),
 			 (is_master ? 0 : (int)child[child_id].rank),
-			 host));
-      execlp(argv0, argv0, "-slave", myhost,
+			 myhost));
+      execlp(argv0, argv0, "-slave", "localhost",
 	     sappendf(NULL, "%d", listen_port),
-	     sappendf(NULL, "%d", child_id),
+	     sappendf(NULL, "%d", (int)child_id),
 	     is_verbose ? "-v" : NULL,
 	     NULL);
       gasneti_fatalerror("execlp(sh) failed");
     } else {
-      BOOTSTRAP_VERBOSE(("Spawning process %d on %s via %s\n",
+      BOOTSTRAP_VERBOSE(("Process %d spawning process %d on %s via %s\n",
+			 (is_master ? -1 : (int)myproc),
 			 (is_master ? 0 : (int)child[child_id].rank),
 			 host, ssh_argv[0]));
       ssh_argv[ssh_argc] = (/* noconst */ char *)host;
       ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -slave %s %d %d%s",
 				      quote_arg(cwd), quote_arg(argv0),
-				      myhost, listen_port, child_id,
+				      myhost, listen_port, (int)child_id,
 				      is_verbose ? " -v" : "");
       execvp(ssh_argv[0], ssh_argv);
       gasneti_fatalerror("execvp(ssh) failed");
@@ -956,8 +954,8 @@ static void do_master(int argc, char **argv) {
   }
 
   configure_ssh();
-  build_hostlist();
-  pre_spawn();
+  build_nodelist();
+  pre_spawn(1);
 
   /* Arrange to forward termination signals */
   gasneti_reghandler(SIGQUIT, &sigforward);
@@ -970,7 +968,7 @@ static void do_master(int argc, char **argv) {
   gasneti_reghandler(SIGCHLD, &master_reaper);
 
   /* Start the root process */
-  root_pid = spawn_one(hostlist[0], argv[0], -1, myhost);
+  root_pid = spawn_one(nodelist[0], argv[0], 0, myhost);
   if (root_pid <= 0) {
     gasneti_fatalerror("spawn_one(root) failed");
   }
@@ -988,10 +986,8 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
 {
   int argc = *argc_p;
   char **argv = *argv_p;
-  gasnet_node_t i, quot, rem;
   const char *args;
-  int j;
-  int child_id;
+  gasnet_node_t child_id;
   const char *parent_name;
   int parent_port;
 
@@ -1015,28 +1011,58 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   do_connect(child_id, parent_name, parent_port, argc_p, argv_p);
 
   /* Start any children */
-  if (tree_size > 1) {
-    /* Map out the subtrees */
-    quot = (tree_size - 1) / OUT_DEGREE;
-    rem = (tree_size - 1) % OUT_DEGREE;
-    for (i = myproc + 1, j = 0; i < (myproc + tree_size); j++) {
-      gasnet_node_t tmp = quot;
-      if (rem) {
-        --rem;
-        ++tmp;
-      }
-      child[j].rank = i;
-      child[j].size = tmp;
-      i += tmp;
-      children++;
+  if (tree_procs > 1) {//XXX: tree_nodes throughout...
+    gasnet_node_t p_quot, p_rem; /* quotient and remainder of nproc/nodes */
+    gasnet_node_t n_quot, n_rem; /* quotient and remainder of nodes/OUT_DEGREE */
+    gasnet_node_t local_procs; /* the local processes (proc-per-node), excluding self */
+    gasnet_node_t rank, i, j;
+    char **sublist;
+
+    p_quot = tree_procs / tree_nodes;
+    p_rem = tree_procs % tree_nodes;
+
+    local_procs = p_quot + (p_rem?1:0) - 1;
+    p_rem -= (p_rem?1:0);
+
+    /* Children = (local_procs other than self) + (child nodes) */
+    children = local_procs + MIN(OUT_DEGREE, (tree_nodes - 1));
+    child = gasneti_calloc(children, sizeof(struct child));
+    rank = myproc + 1;
+
+    /* Map out the local processes */
+    for (j = 0; j < local_procs; ++j) {
+	child[j].rank = rank++;
+	child[j].procs = 1;
+	child[j].nodes = 0; /* N/A */
+        child[j].nodelist = NULL;
+    }
+
+    /* Map out the child nodes */
+    n_quot = (tree_nodes - 1) / OUT_DEGREE;
+    n_rem = (tree_nodes - 1) % OUT_DEGREE;
+    sublist = nodelist + 1;
+    for (j = local_procs; rank < (myproc + tree_procs); j++) {
+      gasnet_node_t nodes = n_quot + (n_rem?1:0);
+      gasnet_node_t procs = (nodes * p_quot) + MIN(p_rem, nodes);
+      n_rem -= (n_rem?1:0);
+      p_rem -= MIN(p_rem, nodes);
+
+      child[j].rank = rank;
+      child[j].procs = procs;
+      child[j].nodes = nodes;
+      child[j].nodelist = sublist;
+      sublist += nodes;
+      rank += procs;
     }
   
     /* Spawn them */
-    pre_spawn();
+    pre_spawn(children);
     gasneti_reghandler(SIGCHLD, &slave_reaper);
-    for (j = 0; j < children; ++j) {
-      i = child[j].rank;
-      child[j].pid = spawn_one(hostlist[i], (*argv_p)[0], j, hostlist[myproc]);
+    for (j = 0; j < local_procs; ++j) {
+      child[j].pid = spawn_one(NULL, (*argv_p)[0], j, nodelist[0]);
+    }
+    for (j = local_procs; j < children; ++j) {
+      child[j].pid = spawn_one(child[j].nodelist[0], (*argv_p)[0], j, nodelist[0]);
     }
     post_spawn(children, *argc_p, *argv_p);
   }
@@ -1126,21 +1152,21 @@ void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   /* Forward data up the tree */
   memcpy((char *)dest + len*myproc, src, len);
   for (j = 0; j < children; ++j) {
-    do_read(child[j].sock, (char *)dest + len*child[j].rank, len*child[j].size);
+    do_read(child[j].sock, (char *)dest + len*child[j].rank, len*child[j].procs);
   }
   if (myproc) {
-    do_write(parent, (char *)dest + len*myproc, tree_size*len);
+    do_write(parent, (char *)dest + len*myproc, tree_procs*len);
   }
 
   /* Move data down, reducing traffic by sending
      only parts that a given node did not send to us */
   if (myproc) {
-    gasnet_node_t next = myproc + tree_size;
+    gasnet_node_t next = myproc + tree_procs;
     do_read(parent, dest, len*myproc);
     do_read(parent, (char *)dest + len*next, len*(nproc - next));
   }
   for (j = 0; j < children; ++j) {
-    gasnet_node_t next = child[j].rank + child[j].size;
+    gasnet_node_t next = child[j].rank + child[j].procs;
     do_write(child[j].sock, dest, len*child[j].rank);
     do_write(child[j].sock, (char *)dest + len*next, len*(nproc - next));
   }
@@ -1152,13 +1178,14 @@ void gasnetc_bootstrapAlltoall(void *src, size_t len, void *dest) {
   int j;
                                                                                                               
   /* Collect rows from our subtree (gather) */
-  tmp = gasneti_malloc(row_len * tree_size);
+gasneti_assert(row_len * tree_procs > 0);
+  tmp = gasneti_malloc(row_len * tree_procs);
   memcpy(tmp, src, row_len);
   for (j = 0; j < children; ++j) {
-    do_read(child[j].sock, tmp + row_len*(child[j].rank - myproc), row_len*child[j].size);
+    do_read(child[j].sock, tmp + row_len*(child[j].rank - myproc), row_len*child[j].procs);
   }
   if (myproc) {
-    do_write(parent, tmp, row_len * tree_size);
+    do_write(parent, tmp, row_len * tree_procs);
   }
 
   /* Transpose at root, using dest for free temporary space */
@@ -1178,10 +1205,10 @@ void gasnetc_bootstrapAlltoall(void *src, size_t len, void *dest) {
 
   /* Move data back down (scatter) */
   if (myproc) {
-    do_read(parent, tmp, row_len * tree_size);
+    do_read(parent, tmp, row_len * tree_procs);
   }
   for (j = 0; j < children; ++j) {
-    do_write(child[j].sock, tmp + row_len*(child[j].rank - myproc), row_len*child[j].size);
+    do_write(child[j].sock, tmp + row_len*(child[j].rank - myproc), row_len*child[j].procs);
   }
   memcpy(dest, tmp, row_len);
 
@@ -1195,9 +1222,9 @@ void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode)
     /* Move up the tree to proc 0 */
     if (rootnode == myproc) {
       do_write(parent, src, len);
-    } else if ((rootnode > myproc) && (rootnode < (myproc + tree_size))) {
+    } else if ((rootnode > myproc) && (rootnode < (myproc + tree_procs))) {
       /* Forward from child to parent */
-      for (j = 0; (rootnode >= child[j].rank + child[j].size); ++j) {
+      for (j = 0; (rootnode >= child[j].rank + child[j].procs); ++j) {
 	/* searching for proper child */
       }
       do_read(child[j].sock, dest, len);
