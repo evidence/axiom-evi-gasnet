@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_fwd.h              $
- *     $Date: 2003/11/10 10:06:33 $
- * $Revision: 1.8 $
+ *     $Date: 2004/01/30 20:39:37 $
+ * $Revision: 1.9 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,6 +44,7 @@ typedef uint8_t gasnet_handler_t;
         CNT(C, SYSTEM_REPLY, cnt)                 \
         CNT(C, SYSTEM_REQHANDLER, cnt)            \
         CNT(C, SYSTEM_REPHANDLER, cnt)            \
+        CNT(C, ALLOC_AM_SPARE, cnt)	          \
         CNT(C, GET_AMREQ_CREDIT, cnt)             \
 	TIME(C, GET_AMREQ_CREDIT_STALL, stalled time) \
 	CNT(C, GET_SBUF, cnt)                     \

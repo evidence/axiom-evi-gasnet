@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2004/01/06 23:09:22 $
- * $Revision: 1.38 $
+ *     $Date: 2004/01/30 20:39:37 $
+ * $Revision: 1.39 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -369,6 +369,7 @@ gasnetc_sbuf_t *gasnetc_get_sbuf(void) {
 
 GASNET_INLINE_MODIFIER(gasnetc_rcv_am)
 void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
+  gasnetc_rbuf_t emergency_spare;
   gasnetc_rbuf_t *rbuf = (gasnetc_rbuf_t *)(uintptr_t)comp->id;
   uint32_t flags = comp->imm_data;
   gasnetc_cep_t *cep = &gasnetc_cep[GASNETC_MSG_SRCIDX(flags)];
@@ -385,21 +386,17 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
     gasnetc_rcv_post(cep, spare, GASNETC_MSG_CREDIT(flags));
     *spare_p = rbuf;	/* recv'd rbuf becomes the spare for next pass (if any) */
   } else {
-    /* This is the reduced-performance case.  Because we don't have any "spare" rbuf
-     * available to post, there is the possibility that a "bad" sequence of events could
-     * take place:
-     *   1) Assume that all the rbuf posted to the cep have been consumed by AMs
-     *   2) Assume the current AM is a request
-     *   3) Either the request handler or this function sends a reply
-     *  then     
-     *   4) The peer receives the reply and thus receives a credit
-     *   5) The credit allows the peer to send us another AM request
-     *   6) This additional request arrives before the current rbuf is reposted to the cep
-     *   7) The HCA is unable, until the current rbuf is reposted, to complete the transfer
-     *   8) IB's RNR (Reciever Not Ready) flow-control kicks in, stalling our peer's send queue
-     *  Fortunetely this is not only an unlikely occurance, it is also non-fatal.
-     *  Eventually, the rbuf will be reposted and the stall will end.
+    /* Because we don't have any "spare" rbuf available to post we copy the recvd
+     * message to a temporary (non-pinned) buffer so we can repost rbuf.
      */
+    gasnetc_buffer_t *buf = gasneti_malloc(sizeof(gasnetc_buffer_t));
+    memcpy(buf, (void *)(uintptr_t)rbuf->rr_sg.addr, sizeof(gasnetc_buffer_t));
+    emergency_spare.rr_sg.addr = (uintptr_t)buf;
+
+    gasnetc_rcv_post(cep, rbuf, GASNETC_MSG_CREDIT(flags));
+
+    rbuf = &emergency_spare;
+    GASNETC_STAT_EVENT(ALLOC_AM_SPARE);
   }
 
   /* Now process the packet */
@@ -412,10 +409,8 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
     gasneti_assert(retval == GASNET_OK);
   }
   if_pf (!spare) {
-    /* This is the fallback (reduced performance) case.
-     * Because no replacement rbuf was posted earlier, we must repost the recv'd rbuf now.
-     */
-    gasnetc_rcv_post(cep, rbuf, GASNETC_MSG_CREDIT(flags));
+    /* Free the temporary buffer we created */
+    gasneti_free((void *)(uintptr_t)emergency_spare.rr_sg.addr);
   }
 }
 
