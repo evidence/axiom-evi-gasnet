@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2004/05/16 00:05:39 $
- * $Revision: 1.13 $
+ *     $Date: 2004/05/16 05:47:14 $
+ * $Revision: 1.14 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -16,6 +16,9 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#if defined(GASNET_SEGMENT_EVERYTHING) && !defined(TEST_SEGSZ)
+#define TEST_SEGSZ alignup((16*1048576),PAGESZ)
+#endif
 #include "test.h"
 
 #define GASNET_HEADNODE 0
@@ -493,8 +496,15 @@ int main(int argc, char **argv)
     /* Setting peer thread rank */
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
 
+    #ifdef GASNET_SEGMENT_EVERYTHING
+      if (maxsz > TEST_SEGSZ/2) { MSG("maxsz must be <= %i on GASNET_SEGMENT_EVERYTHING",TEST_SEGSZ/2); gasnet_exit(1); }
+    #endif
     GASNET_Safe(gasnet_attach(NULL, 0, alignup(((uintptr_t)maxsz), PAGESZ)*2, TEST_MINHEAPOFFSET));
     TEST_DEBUGPERFORMANCE_WARNING();
+    #ifdef GASNET_SEGMENT_EVERYTHING
+      myseg = TEST_SEG(myproc);
+      tgtmem = TEST_SEG(peerproc);
+    #else
     { /* ensure we got the segment requested */
       int i;
       gasnet_seginfo_t *s = test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
@@ -506,12 +516,12 @@ int main(int argc, char **argv)
         #endif
       }
       tgtmem = s[peerproc].addr; /* get peer segment */
-      assert(((uintptr_t)tgtmem) % PAGESZ == 0);
-      myseg = s[gasnet_mynode()].addr; 
-      assert(((uintptr_t)myseg) % PAGESZ == 0);
+      myseg = s[myproc].addr; 
       test_free(s);
     }
-
+    #endif
+    assert(((uintptr_t)myseg) % PAGESZ == 0);
+    assert(((uintptr_t)tgtmem) % PAGESZ == 0);
         if (insegment) {
 	    msgbuf = (void *) myseg;
         } else {
