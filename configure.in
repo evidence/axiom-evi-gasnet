@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/02/13 18:00:15 $
-# $Revision: 1.109 $
+#     $Date: 2004/02/17 20:42:37 $
+# $Revision: 1.110 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.109 $)
+AC_REVISION($Revision: 1.110 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -537,7 +537,7 @@ GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (defaul
   [ uni_build=no ],
   [ uni_build=yes],
   [ AC_CHECK_HEADERS(/boot/kernel.h)
-    AC_MSG_CHECKING(whether current machine is a uni-processor)
+    AC_MSG_CHECKING(whether to force a uni-processor build)
     if test "`uname -a | grep -i SMP`" != ""; then
       uni_build=no;
     else
