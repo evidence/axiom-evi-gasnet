@@ -28,7 +28,7 @@ AM_CONDITIONAL() called USE_<CONDUITNAME>_CONDUIT and use it to control the
 building of your conduit and any associated libraries in other/.
 
 * Start filling in code specific to your conduit
-  Several places in the template are marked with ??? to indicate a place where
+  Several places in the template are marked with ### to indicate a place where
   you must fill in conduit-specific values or code
 
 The template is already setup to use the reference implementation of the

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/06/13 10:15:11 $
- * $Revision: 1.4 $
+ *     $Date: 2002/06/14 00:27:55 $
+ * $Revision: 1.5 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -36,7 +36,7 @@ void gasnetc_checkinit() {
 */
 /* called at startup to check configuration sanity */
 static void gasnetc_check_config() {
-  /* (???) add code to do some sanity checks on the number of nodes, handlers
+  /* (###) add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
 }
 
@@ -75,10 +75,10 @@ static int gasnetc_init(int *argc, char ***argv,
       GASNETI_RETURN_ERRR(RESOURCE, "client requested GASNET_SEGSIZE_EVERYTHING, but !allowFaults"
         "(asking us to mmap entire VA space - don't even try to do that)");
 
-  /* (???) add code here to bootstrap the system for your conduit */
+  /* (###) add code here to bootstrap the system for your conduit */
 
-  gasnetc_mynode = ???;
-  gasnetc_nodes = ???;
+  gasnetc_mynode = ###;
+  gasnetc_nodes = ###;
 
   /* ------------------------------------------------------------------------------------ */
   /*  register handlers */
@@ -93,7 +93,7 @@ static int gasnetc_init(int *argc, char ***argv,
       /* discover duplicates */
       assert(checkuniqhandler[ctable[i].index] == 0);
       checkuniqhandler[ctable[i].index] = 1;
-      /* (???) add code here to register ctable[i].fnptr on index (gasnet_handler_t)ctable[i].index */
+      /* (###) add code here to register ctable[i].fnptr on index (gasnet_handler_t)ctable[i].index */
     }
   }
 
@@ -107,7 +107,7 @@ static int gasnetc_init(int *argc, char ***argv,
       /* discover duplicates */
       assert(checkuniqhandler[etable[i].index] == 0);
       checkuniqhandler[etable[i].index] = 1;
-      /* (???) add code here to register etable[i].fnptr on index (gasnet_handler_t)etable[i].index */
+      /* (###) add code here to register etable[i].fnptr on index (gasnet_handler_t)etable[i].index */
     }
   }
 
@@ -125,7 +125,7 @@ static int gasnetc_init(int *argc, char ***argv,
         /* discover duplicates */
         assert(checkuniqhandler[table[i].index] == 0);
         checkuniqhandler[table[i].index] = 1;
-        /* (???) add code here to register table[i].fnptr on index (gasnet_handler_t)table[i].index */
+        /* (###) add code here to register table[i].fnptr on index (gasnet_handler_t)table[i].index */
       }
     }
     /*  second pass - fill in dontcare-index handlers */
@@ -136,7 +136,7 @@ static int gasnetc_init(int *argc, char ***argv,
         for (tmp=200; tmp < 255; tmp++) {
           if (checkuniqhandler[tmp] == 0) break;
         }
-        /* (???) add code here to register table[i].fnptr at index tmp */
+        /* (###) add code here to register table[i].fnptr at index tmp */
         table[i].index = tmp;
         /* discover duplicates */
         assert(checkuniqhandler[table[i].index] == 0);
@@ -148,17 +148,17 @@ static int gasnetc_init(int *argc, char ***argv,
   /* ------------------------------------------------------------------------------------ */
   /*  register fatal signal handlers */
 
-  /*  (???) catch fatal signals and convert to SIGQUIT */
+  /*  (###) catch fatal signals and convert to SIGQUIT */
 
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
 
   if (segbase == GASNET_SEGBASE_ANY) {
-    /*  (???) choose a segment for the user of size segsize and allocate/register it,
+    /*  (###) choose a segment for the user of size segsize and allocate/register it,
               save base in segbase
     */
   } else {
-    /*  (???) allocate/register the client requested segment in (segbase,segsize) */
+    /*  (###) allocate/register the client requested segment in (segbase,segsize) */
   }
 
   assert(segbase % pagesize == 0);
@@ -168,7 +168,7 @@ static int gasnetc_init(int *argc, char ***argv,
   /*  gather segment information */
 
   gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
-  /* (???) add code here to fill in gasnetc_seginfo with segment info from all the nodes */
+  /* (###) add code here to fill in gasnetc_seginfo with segment info from all the nodes */
 
   assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
          gasnetc_seginfo[gasnetc_mynode].size == segsize);
@@ -188,7 +188,7 @@ static int gasnetc_init(int *argc, char ***argv,
     }
   #endif
 
-  /* (???) add a barrier here */
+  /* (###) add a barrier here */
 
   /*  init complete */
   gasnetc_init_done = 1;
@@ -209,7 +209,7 @@ extern int gasnet_init(int *argc, char ***argv,
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_exit(int exitcode) {
-  /* (???) add code here to terminate the job across all nodes */
+  /* (###) add code here to terminate the job across all nodes */
   abort();
 }
 
@@ -239,8 +239,8 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
   if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
 
-  /* (???) add code here to write the source index into sourceid */
-  sourceid = ???;
+  /* (###) add code here to write the source index into sourceid */
+  sourceid = ###;
 
   assert(sourceid < gasnetc_nodes);
   *srcindex = sourceid;
@@ -251,7 +251,7 @@ extern int gasnetc_AMPoll() {
   int retval;
   GASNETC_CHECKINIT();
 
-  /* (???) add code here to run your AM progress engine */
+  /* (###) add code here to run your AM progress engine */
 
   return GASNET_OK;
 }
@@ -272,11 +272,11 @@ extern int gasnetc_AMRequestShortM(
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   va_start(argptr, numargs); /*  pass in last argument */
 
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
   va_end(argptr);
   if (retval) return GASNET_OK;
   else GASNETI_RETURN_ERR(RESOURCE);
@@ -293,11 +293,11 @@ extern int gasnetc_AMRequestMediumM(
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   va_start(argptr, numargs); /*  pass in last argument */
 
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
   va_end(argptr);
   if (retval) return GASNET_OK;
   else GASNETI_RETURN_ERR(RESOURCE);
@@ -321,11 +321,11 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 
   va_start(argptr, numargs); /*  pass in last argument */
 
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
   va_end(argptr);
   if (retval) return GASNET_OK;
   else GASNETI_RETURN_ERR(RESOURCE);
@@ -349,11 +349,11 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 
   va_start(argptr, numargs); /*  pass in last argument */
 
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
   va_end(argptr);
   if (retval) return GASNET_OK;
   else GASNETI_RETURN_ERR(RESOURCE);
@@ -367,11 +367,11 @@ extern int gasnetc_AMReplyShortM(
   va_list argptr;
   va_start(argptr, numargs); /*  pass in last argument */
 
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
   va_end(argptr);
   if (retval) return GASNET_OK;
   else GASNETI_RETURN_ERR(RESOURCE);
@@ -386,11 +386,11 @@ extern int gasnetc_AMReplyMediumM(
   va_list argptr;
   va_start(argptr, numargs); /*  pass in last argument */
 
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
   va_end(argptr);
   if (retval) return GASNET_OK;
   else GASNETI_RETURN_ERR(RESOURCE);
@@ -417,11 +417,11 @@ extern int gasnetc_AMReplyLongM(
 
   va_start(argptr, numargs); /*  pass in last argument */
 
-    /* (???) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
+    /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
              and send the active message 
      */
 
-    retval = ???;
+    retval = ###;
   va_end(argptr);
   if (retval) return GASNET_OK;
   else GASNETI_RETURN_ERR(RESOURCE);
@@ -438,14 +438,14 @@ extern int gasnetc_AMReplyLongM(
     gasnete_threaddata_t data structure which is reserved for use by the core 
     (and this is one place you'll probably want to use it)
 */
-#if ???
+#if ###
   extern void gasnetc_hold_interrupts() {
     GASNETC_CHECKINIT();
-    /* (???) add code here to disable handler interrupts for _this_ thread */
+    /* (###) add code here to disable handler interrupts for _this_ thread */
   }
   extern void gasnetc_resume_interrupts() {
     GASNETC_CHECKINIT();
-    /* (???) add code here to re-enable handler interrupts for _this_ thread */
+    /* (###) add code here to re-enable handler interrupts for _this_ thread */
   }
 #endif
 
@@ -465,7 +465,7 @@ extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
   }
   #endif
 
-  /* (???) add code here to init conduit-specific HSL state */
+  /* (###) add code here to init conduit-specific HSL state */
 }
 
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
@@ -477,7 +477,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
   }
   #endif
 
-  /* (???) add code here to cleanup conduit-specific HSL state */
+  /* (###) add code here to cleanup conduit-specific HSL state */
 }
 
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
@@ -497,7 +497,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
   }
   #endif
 
-  /* (???) conduits with interrupt-based handler dispatch need to add code here to 
+  /* (###) conduits with interrupt-based handler dispatch need to add code here to 
            disable handler interrupts on _this_ thread, (if this is the outermost
            HSL lock acquire and we're not inside an enclosing no-interrupt section)
    */
@@ -506,7 +506,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
 extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
   GASNETC_CHECKINIT();
 
-  /* (???) conduits with interrupt-based handler dispatch need to add code here to 
+  /* (###) conduits with interrupt-based handler dispatch need to add code here to 
            re-enable handler interrupts on _this_ thread, (if this is the outermost
            HSL lock release and we're not inside an enclosing no-interrupt section)
    */

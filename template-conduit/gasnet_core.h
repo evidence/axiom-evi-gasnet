@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2002/06/12 23:40:24 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/14 00:27:55 $
+ * $Revision: 1.3 $
  * Description: GASNet header for <conduitname> conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -47,7 +47,7 @@ extern void gasnetc_exit(int exitcode) GASNET_NORETURN;
 #define gasnet_exit gasnetc_exit
 
 /* this need not be a macro - some conduits may need to query system resources */
-#define gasnet_getMaxNativeSegmentSize() ??? 
+#define gasnet_getMaxNativeSegmentSize() ### 
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -82,7 +82,7 @@ char *gasnet_getenv(const char *s) {
   =====================
 */
 /* conduit may or may not need this based on whether interrupts are used for running handlers */
-#if ???
+#if ###
   extern void gasnetc_hold_interrupts();
   extern void gasnetc_resume_interrupts();
 
@@ -105,13 +105,13 @@ typedef struct _gasnet_hsl_t {
     char _dummy; /* prevent an illegal empty structure decl */
   #endif
 
-  ??? /* more state may be required for conduits using interrupts */
+  ### /* more state may be required for conduits using interrupts */
 } gasnet_hsl_t;
 
 #ifdef GASNETI_THREADS
-  #define GASNET_HSL_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, ??? }
+  #define GASNET_HSL_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, ### }
 #else
-  #define GASNET_HSL_INITIALIZER { 0, ??? }
+  #define GASNET_HSL_INITIALIZER { 0, ### }
 #endif
 
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
@@ -129,10 +129,10 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
   ==========================
 */
 
-#define gasnet_AMMaxArgs()          ((size_t)???)
-#define gasnet_AMMaxMedium()        ((size_t)???)
-#define gasnet_AMMaxLongRequest()   ((size_t)???)
-#define gasnet_AMMaxLongReply()     ((size_t)???)
+#define gasnet_AMMaxArgs()          ((size_t)###)
+#define gasnet_AMMaxMedium()        ((size_t)###)
+#define gasnet_AMMaxLongRequest()   ((size_t)###)
+#define gasnet_AMMaxLongReply()     ((size_t)###)
 
 /* ------------------------------------------------------------------------------------ */
 /*
