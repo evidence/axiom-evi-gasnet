@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2004/01/05 05:01:10 $
- * $Revision: 1.12 $
+ *     $Date: 2004/01/21 10:08:17 $
+ * $Revision: 1.13 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -144,7 +144,7 @@ BEGIN_EXTERNC
 #endif
 
 #define GASNETI_TRACE_WAITSYNC_END(name) \
-  GASNETI_TRACE_EVENT_TIME(S,name,GASNETI_STATTIME_NOW() - _waitstart)
+  GASNETI_TRACE_EVENT_TIME(S,name,GASNETI_STATTIME_NOW_IFENABLED(S) - _waitstart)
 /*------------------------------------------------------------------------------------*/
 /* AM Request/Reply tracing helpers */
 #define _GASNETI_TRACE_GATHERARGS(numargs)                          \

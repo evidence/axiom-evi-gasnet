@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2003/12/06 13:25:47 $
- * $Revision: 1.1 $
+ *     $Date: 2004/01/21 10:08:20 $
+ * $Revision: 1.2 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -148,14 +148,14 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
   if_pf(ambarrier_splitstate == OUTSIDE_AMBARRIER) 
     gasneti_fatalerror("gasnet_ambarrier_wait() called without a matching notify");
 
-  GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_STATTIME_NOW()-ambarrier_notifytime);
+  GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-ambarrier_notifytime);
 
   /*  wait for response */
   while (!ambarrier_response_done[phase]) {
     gasnete_ambarrier_kick();
   }
 
-  GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW()-wait_start);
+  GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-wait_start);
 
   /*  update state */
   ambarrier_splitstate = OUTSIDE_AMBARRIER;

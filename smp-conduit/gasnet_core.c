@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core.c                  $
- *     $Date: 2004/01/05 05:01:21 $
- * $Revision: 1.14 $
+ *     $Date: 2004/01/21 10:08:25 $
+ * $Revision: 1.15 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -774,7 +774,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
     #error interrupts not implemented
   #endif
 
-  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW()-hsl->acquiretime);
+  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW_IFENABLED(L)-hsl->acquiretime);
 
   gasneti_mutex_unlock(&(hsl->lock));
 }

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.50 2004/01/19 11:13:58 bonachea Exp $
- * $Date: 2004/01/19 11:13:58 $
+/* $Id: gasnet_core.c,v 1.51 2004/01/21 10:08:21 bonachea Exp $
+ * $Date: 2004/01/21 10:08:21 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2056,7 +2056,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
     #error interrupts not implemented
   #endif
 
-  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW()-hsl->acquiretime);
+  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW_IFENABLED(L)-hsl->acquiretime);
 
   gasneti_mutex_unlock(&(hsl->lock));
 }
