@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/12 23:40:23 $
+ * $Revision: 1.2 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -17,6 +17,12 @@
 #ifdef UNIX
   #include <unistd.h>
   #include <errno.h>
+#endif
+
+#ifdef __GNUC__
+  #define AMMPI_NORETURN __attribute__((__noreturn__))
+#else
+  #define AMMPI_NORETURN 
 #endif
 
 #define AMMPI_INTERNAL
@@ -239,7 +245,7 @@ extern char *AMMPI_tagStr(tag_t tag, char *buf);
 
 void abort();
 extern ammpi_handler_fn_t ammpi_unused_handler;
-extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *token);
+extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *token) AMMPI_NORETURN;
 
 /* ------------------------------------------------------------------------------------ */
 /* interface for allowing control messages to be sent between mutually mapped endpoints 

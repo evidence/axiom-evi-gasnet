@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.1 2002/06/10 07:54:52 csbell Exp $
- * $Date: 2002/06/10 07:54:52 $
- * $Revision: 1.1 $
+/* $Id: gasnet_core.h,v 1.2 2002/06/12 23:40:21 jduell Exp $
+ * $Date: 2002/06/12 23:40:21 $
+ * $Revision: 1.2 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -47,7 +47,7 @@ extern int gasnet_init(int *argc, char ***argv,
                 void *segbase, uintptr_t segsize,
 		int allowFaults);
 
-extern void gasnetc_exit(int exitcode);
+extern void gasnetc_exit(int exitcode) GASNET_NORETURN;
 #define gasnet_exit gasnetc_exit
 
 /* this need not be a macro - some conduits may need to query system resources */

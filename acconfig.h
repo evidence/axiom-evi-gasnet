@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/06/07 21:23:37 $ */
-/*  $Revision: 1.2 $ */
+/*      $Date: 2002/06/12 23:40:20 $ */
+/*  $Revision: 1.3 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 
@@ -55,5 +55,13 @@
 #if ! defined (__GNUC__) && ! defined (__attribute__)
 #define __attribute__(flags)
 #endif
+
+#if defined(__GNUC__)
+#define GASNET_NORETURN __attribute__((__noreturn__))
+#else
+#define GASNET_NORETURN 
+#endif
+
+
 
 #endif

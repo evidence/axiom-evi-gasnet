@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/12 23:40:20 $
+ * $Revision: 1.2 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -14,7 +14,7 @@
 
 BEGIN_EXTERNC
 
-extern void gasneti_fatalerror(char *msg, ...);
+extern void gasneti_fatalerror(char *msg, ...) GASNET_NORETURN;
 
 #if defined(__GNUC__) || defined(__FUNCTION__)
   #define GASNETI_CURRENT_FUNCTION __FUNCTION__

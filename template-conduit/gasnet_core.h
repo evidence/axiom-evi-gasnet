@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/12 23:40:24 $
+ * $Revision: 1.2 $
  * Description: GASNet header for <conduitname> conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -43,7 +43,7 @@ extern int gasnet_init(int *argc, char ***argv,
                 void *segbase, uintptr_t segsize,
 		int allowFaults);
 
-extern void gasnetc_exit(int exitcode);
+extern void gasnetc_exit(int exitcode) GASNET_NORETURN;
 #define gasnet_exit gasnetc_exit
 
 /* this need not be a macro - some conduits may need to query system resources */
