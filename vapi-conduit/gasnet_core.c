@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/01/09 23:23:13 $
- * $Revision: 1.65 $
+ *     $Date: 2005/01/12 01:22:12 $
+ * $Revision: 1.66 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -550,8 +550,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   GASNETI_TRACE_PRINTF(C,("  max_num_sg_ent           = %u", (unsigned int)gasnetc_hca_cap.max_num_sg_ent));
   gasneti_assert_always(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_SND_SG);
   gasneti_assert_always(gasnetc_hca_cap.max_num_sg_ent >= GASNETC_RCV_SG);
-  GASNETI_TRACE_PRINTF(C,("  max_num_sg_ent_rd        = %u", (unsigned int)gasnetc_hca_cap.max_num_sg_ent_rd));
-  gasneti_assert_always(gasnetc_hca_cap.max_num_sg_ent_rd >= 1);	/* RDMA Read support required */
   #if 1 /* QP end points */
     GASNETI_TRACE_PRINTF(C,("  max_qp_init_rd_atom      = %u", (unsigned int)gasnetc_hca_cap.max_qp_init_rd_atom));
     gasneti_assert_always(gasnetc_hca_cap.max_qp_init_rd_atom >= 1);	/* RDMA Read support required */
