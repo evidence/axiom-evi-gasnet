@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.9 2003/08/31 12:38:56 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.10 2003/09/13 16:58:36 bonachea Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -6,6 +6,9 @@
 all:
 	@echo This Makefile is not intended to be called directly
 	@echo do a "make tests-seq" or "make tests-par" within the conduit directory
+
+# linker to be used for MPI programs
+GASNET_MPI_LD = @MPI_CC@
 
 configfile=/dev/null # must be overridden by caller
 include $(configfile)
@@ -60,7 +63,7 @@ delay.o: $(srcdir)/delay.c
 # testmpi must be compiled like an MPI program with GASNet support
 testmpi: force
 	@MPI_CC@ -I$(srcdir) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) @MPI_CFLAGS@ -c -o $@.o $(srcdir)/$@.c
-	@MPI_CC@ $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ $(GASNET_LIBS)
+	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ $(GASNET_LIBS)
 	
 
 # This is a model for how GASNet clients should be built:

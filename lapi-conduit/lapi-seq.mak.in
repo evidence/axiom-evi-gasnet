@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/lapi-seq.mak.in,v 1.13 2003/06/01 04:34:29 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/lapi-seq.mak.in,v 1.14 2003/09/13 16:58:35 bonachea Exp $
 # Description: Makefile fragment for LAPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -42,17 +42,19 @@ GASNET_CPPFLAGS = $(GASNET_MISC_CPPFLAGS) $(GASNET_DEFINES) $(GASNET_INCLUDES)
 # GASNET_LD = @CC@
 # Explicitly set mpcc_r on SP to get POE library linked into executable
 GASNET_LD = @LAPI_LD@
+GASNET_MPI_LD = @LAPI_LD@
 
 # linker flags that GASNet clients should use 
 GASNET_LDFLAGS = @LDFLAGS@
 
 # libraries that GASNet clients should append to link line
 # LAPI needs -lpthread, even for GASNET_SEQ
+# -llapi_r is intentionally omitted so we'll get link errors if not using mpcc_r
+# LAPI fails in many horrible ways if you link without mpcc_r
 GASNET_LIBS =            \
     $(GASNET_LIBDIRS)    \
     -lgasnet-lapi-seq     \
     @GASNET_THREAD_LIBS@  \
-    -llapi_r             \
     @LIBGCC@             \
     @LIBS@               \
     @LIBM@
