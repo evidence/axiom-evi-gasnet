@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/07/18 16:51:38 $
- * $Revision: 1.38 $
+ *     $Date: 2004/07/21 20:40:53 $
+ * $Revision: 1.39 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -590,7 +590,7 @@
  #else
    GASNET_INLINE_MODIFIER(gasneti_local_membar_force)
    void gasneti_local_membar_force(void) {
-     GASNETI_ASM("dcs");
+     GASNETI_ASM("dcs\nisync");
    }
  #endif
 #elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__) /* Darwin, OS/X */
@@ -602,7 +602,7 @@
  #else
    GASNET_INLINE_MODIFIER(gasneti_local_membar_force)
    void gasneti_local_membar_force(void) {
-     GASNETI_ASM("sync");
+     GASNETI_ASM("sync\nisync");
    }
  #endif
 #elif defined(__alpha) && defined(__osf__)
