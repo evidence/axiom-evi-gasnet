@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.31 2003/02/28 00:20:02 csbell Exp $
- * $Date: 2003/02/28 00:20:02 $
- * $Revision: 1.31 $
+/* $Id: gasnet_core_misc.c,v 1.32 2003/06/09 06:02:38 csbell Exp $
+ * $Date: 2003/06/09 06:02:38 $
+ * $Revision: 1.32 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -14,110 +14,6 @@ extern int errno;
 
 #define	_BUFSZ	127
 #define BOARD	0
-
-/* mmap_segment_search starts binary search for valid mmaps at len
- * and returns the biggest valid mmap in a seginfo_t
- */
-int
-gasnetc_mmap_segment_search(gasnet_seginfo_t *segment, size_t len, 
-		size_t offset)
-{
-	size_t	newlen;
-	void	*mmap_addr;
-	#if GASNETC_MMAP_DEBUG_VERBOSE
-	gasneti_stattime_t	t1, t2;
-	#endif
-
-	assert(segment != NULL);
-	assert(len > 0);
-	assert(offset > 0);
-
-	#if GASNETC_MMAP_DEBUG_VERBOSE
-	t1 = GASNETI_STATTIME_NOW();
-	#endif
-	mmap_addr = 
-	    mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_ANON|MAP_PRIVATE, -1, 0);
-	#if GASNETC_MMAP_DEBUG_VERBOSE
-	t2 = GASNETI_STATTIME_NOW();
-	#endif
-	if (mmap_addr == MAP_FAILED) {
-		if (errno != ENOMEM) {
-			char str[_BUFSZ+1];
-			snprintf(str, _BUFSZ, "unrecognized mmap error: %s", 
-			    strerror(errno));
-			GASNETI_RETURN_ERRR(RESOURCE, str);
-		}
-		#if GASNETC_MMAP_DEBUG_VERBOSE
-		GASNETC_DPRINTF(("mmap(%d MBytes,off=%d) %dus FAILED: %s\n", 
-		   len>>20, offset,
-		   (unsigned int) GASNETI_STATTIME_TO_US(t2-t1), 
-		   strerror(errno)) );
-		#endif
-		if (segment->addr > 0)
-			offset /= 2;
-		else if (offset <= GASNETC_MMAP_GRANULARITY)
-			return GASNET_ERR_RESOURCE;
-		/* Unless we've already found a working segment, don't narrow
-		 * in a smaller segment yet */
-		newlen = 
-		    GASNETI_ALIGNUP(len-offset, GASNETC_SEGMENT_ALIGN);
-	}
-	else {
-		#if GASNETC_MMAP_DEBUG_VERBOSE
-		GASNETC_DPRINTF(("mmap(%d MBytes,off=%d) %dus = 0x%x\n", 
-		    len>>20, offset,
-		    (unsigned int) GASNETI_STATTIME_TO_US(t2-t1), 
-		    (uintptr_t) mmap_addr) ); 
-		#endif
-		segment->addr = mmap_addr;
-		segment->size = (uintptr_t) len;
-		if (offset <= GASNETC_MMAP_GRANULARITY)
-			return GASNET_OK;
-		munmap (mmap_addr, len);
-		offset /= 2;
-		newlen = 
-		    GASNETI_ALIGNUP(len+offset, GASNETC_SEGMENT_ALIGN);
-	}
-	return gasnetc_mmap_segment_search(segment, newlen, offset);
-}
-
-int
-gasnetc_mmap_segment(gasnet_seginfo_t *segment)
-{
-	void *mmap_addr;
-
-	mmap_addr = 
-	    mmap(
-	        segment->addr, (uintptr_t) segment->size, 
-	        PROT_READ|PROT_WRITE, 
-		MAP_ANON|MAP_PRIVATE|MAP_FIXED, 
-		-1, 0);
-
-	if (mmap_addr == MAP_FAILED || mmap_addr != segment->addr) {
-		char str[_BUFSZ+1];
-		snprintf(str, _BUFSZ, "mmap failed: %s", 
-		    strerror(errno));
-		GASNETI_RETURN_ERRR(RESOURCE, str);
-	}
-	else
-		return GASNET_OK;
-}
-
-
-int
-gasnetc_munmap_segment(gasnet_seginfo_t *segment)
-{
-	assert((size_t) segment->size > 0);
-
-	if (munmap(segment->addr, (size_t) segment->size) == 0)
-		return GASNET_OK;
-	else {
-		char str[_BUFSZ+1];
-		snprintf(str, _BUFSZ, "unrecognized munmap error: %s", 
-		    strerror(errno));
-		GASNETI_RETURN_ERRR(RESOURCE, str);
-	}
-}
 
 void
 gasnetc_sendbuf_init()
@@ -312,7 +208,7 @@ gasnetc_AMRequestPool_block()
 /* This function is not thread safe as it is guarenteed to be called
  * from only one thread, during initialization */
 void
-gasnetc_SysBarrier()
+gasnetc_bootstrapBarrier()
 {
 	int		count = 1;
 	uintptr_t	*scratchPtr;
@@ -399,6 +295,79 @@ gasnetc_gm_send_AMSystem_broadcast(void *buf, size_t len,
 	return;
 }
 
+/*
+ * Rewrite the gather-type functions to work with exchangefunction typedef from
+ * gasnet internal functions.
+ *
+ * The boostrapExchange function sends src of length 'len' to zero and waits
+ * for a result from zero, which is copied in dest.
+ *
+ */
+void
+gasnetc_bootstrapExchange(void *src, size_t len, void *dest)
+{
+	void		*exch_hdr, *exch;
+	void		*recv;
+
+	GASNETI_TRACE_PRINTF(C,("gasnetc_bootstrapExchange(%i bytes)",len));
+	gasneti_mutex_lock(&gasnetc_lock_gm);
+
+	exch_hdr = (void *) _gmc.scratchBuf;
+	exch = (void *) ((uint32_t *) _gmc.scratchBuf + 1);
+
+	if ((len*gasnetc_nodes+4) > (1U<<GASNETC_SYS_SIZE))
+		gasneti_fatalerror(
+		    "bootstrapExchange: %i bytes too large for system message\n",
+		    len);
+
+	if (gasnetc_mynode == 0) {
+		int count = 1;
+		memcpy(dest, src, len);
+
+		while (count < gasnetc_nodes) {
+
+			gm_provide_receive_buffer(_gmc.port, exch_hdr,
+			    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
+
+			if (gasnetc_SysPoll(dest) != EXCHANGE_GATHER)
+				gasneti_fatalerror(
+				    "expected EXCHANGE_GATHER, fatal");
+
+			count++;
+		}
+
+		/* Prepare the global segment info to be broadcasted */
+		GASNETC_SYSHEADER_WRITE((uint8_t *) exch_hdr, EXCHANGE_BROADCAST);
+		memcpy(exch, dest, len*gasnetc_nodes);
+
+		gasnetc_gm_send_AMSystem_broadcast(exch_hdr, len*gasnetc_nodes+4,
+		    gasnetc_callback_hi, NULL, 0);
+	}
+	else {
+		GASNETC_SYSHEADER_WRITE((uint8_t *) exch_hdr, EXCHANGE_GATHER);
+		memcpy(exch, src, len);
+
+		while (!gasnetc_token_hi_acquire()) {
+			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
+				gasneti_fatalerror("AMSystem_broadcast: "
+				    "unexpected message while recovering tokens");
+		}
+
+		/* Send the seginfo message to the master (node 0) */
+		gasnetc_gm_send_AMSystem(exch_hdr, len+4, 
+		    _gmc.gm_nodes[0].id, _gmc.gm_nodes[0].port, 
+		    gasnetc_callback_hi, NULL);
+
+		gm_provide_receive_buffer(_gmc.port, exch_hdr, GASNETC_SYS_SIZE, 
+		    GM_HIGH_PRIORITY);
+
+		if (gasnetc_SysPoll((void *) dest) != EXCHANGE_BROADCAST)
+			gasneti_fatalerror("expected EXCHANGE_BROADCAST, fatal");
+	}
+	gasneti_mutex_unlock(&gasnetc_lock_gm);
+	return;
+}
+
 /* -------------------------------------------------------------------------- */
 /* 'Gather'-type functions
  * The following functions are used mostly during bootstrap and are all
@@ -406,182 +375,16 @@ gasnetc_gm_send_AMSystem_broadcast(void *buf, size_t len,
  * 0 and wait for the reply.
  */
 
-uintptr_t
-gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
+void
+gasnetc_dump_tokens()
 {
-	uintptr_t		*scratchPtr;
-	uintptr_t		maxphysmem;
-	gasnet_seginfo_t	seginfo[2];	/* First holds the segment
-						   base/length and second holds
-						   the size of max physmem */ 
+	GASNETI_TRACE_PRINTF(C,
+	    ("Send tokens: lo=%3d, hi=%3d, tot=%3d, max=%3d\n",
+	    _gmc.stoks.lo, _gmc.stoks.hi, _gmc.stoks.total, _gmc.stoks.max));
 
-	gasneti_mutex_lock(&gasnetc_lock_gm);
-	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
-
-	/* tentatively set maxphysmem to the local maximum pinnable amount of
-	 * memory, always aligned to the firehose bucket size.  This value is
-	 * used as a heuristic to determine what is _globally_ usable in terms
-	 * of physical memory.  It is by no means a reference in terms of
-	 * performance.  Users (and site administrators) should be aware that
-	 * the firehose algorithm (if used) is obtimal if the M parameter pins
-	 * memory that is physically available.  Failing to do so might will
-	 * still lead to a functional algorithm, but much less optimal due to
-	 * swapping */
-	_gmc.pinnable_local = maxphysmem = 
-	    GASNETI_ALIGNDOWN(
-	        GASNETC_FIREHOSE_PHYSMEM_RATIO * gasnetc_get_physmem(),
-	        GASNETC_BUCKET_SIZE);
-
-	if (gasnetc_mynode == 0) {
-		int count = 1;
-		uintptr_t segceil = (uintptr_t) segbase + segsize;
-
-		while (count < gasnetc_nodes) {
-
-			/* Provide a new buffer to receive the next broadcasted
-			 * seginfo and poll */
-			gm_provide_receive_buffer(_gmc.port,
-			    (void *) scratchPtr, GASNETC_SYS_SIZE, 
-			    GM_HIGH_PRIORITY);
-			seginfo[0].addr = NULL;
-
-			if (gasnetc_SysPoll(
-			    (void *) &seginfo) != SEGMENT_LOCAL)
-				gasneti_fatalerror(
-				    "expected SEGMENT_LOCAL, fatal");
-			assert(seginfo[0].addr != NULL);
-
-			/* Smallest segment intersection */
-			if (seginfo[0].addr > segbase)
-				segbase = seginfo[0].addr;
-			if ((uintptr_t) seginfo[0].addr+seginfo[0].size < segceil)
-				segceil = (uintptr_t)seginfo[0].addr +
-				    seginfo[0].size;
-
-			/* Smallest pinnable memory intersection */
-			if ((uintptr_t)seginfo[1].addr < maxphysmem)
-				maxphysmem = (uintptr_t)seginfo[1].addr;
-
-			count++;
-		}
-
-		/* Align the global segment before broadcasting it */
-		segceil = 
-		    (uintptr_t) GASNETI_PAGE_ALIGNDOWN(segceil);
-		segsize = segceil - (uintptr_t)segbase;
-		if (segceil < (uintptr_t) segbase)
-			segsize = 0;
-
-		/* Prepare the global segment info to be broadcasted and send
-		 * it off */
-		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
-		    (uint8_t) SEGMENT_GLOBAL);
-		scratchPtr[1] = (uintptr_t) segbase;
-		scratchPtr[2] = segsize;
-		scratchPtr[3] = maxphysmem;
-		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
-		    4*sizeof(uintptr_t), gasnetc_callback_hi, 
-		    NULL, 0);
-	}
-	else {
-		/* Prepare the segment info message */
-		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
-		    (uint8_t) SEGMENT_LOCAL);
-		scratchPtr[1] = (uintptr_t) segbase;
-		scratchPtr[2] = segsize;
-		scratchPtr[3] = maxphysmem;
-
-		/* Before sending seginfo, recover tokens pending from previous
-		 * system messages*/
-		while (!gasnetc_token_hi_acquire()) {
-			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
-				gasneti_fatalerror("AMSystem_broadcast: "
-				    "unexpected message while "
-				    "recuperating tokens");
-		}
-
-		/* Send the seginfo message to the master (node 0) */
-		gasnetc_gm_send_AMSystem((void *) scratchPtr, 
-		    4*sizeof(uintptr_t), _gmc.gm_nodes[0].id, 
-		    _gmc.gm_nodes[0].port, gasnetc_callback_hi, NULL);
-
-		/* Provide a new buffer to receive the global segment
-		 * inforamtion and poll */
-		gm_provide_receive_buffer(_gmc.port, (void *) scratchPtr, 
-		    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
-		seginfo[0].addr = NULL;
-		if (gasnetc_SysPoll((void *) &seginfo) != SEGMENT_GLOBAL)
-			gasneti_fatalerror("expected SEGMENT_GLOBAL, fatal");
-		assert(seginfo[0].addr != NULL);
-
-		/* The message received contains the global seginfo and the
-		 * largest intersection pinnable memory on every node */
-		segbase = seginfo[0].addr;
-		segsize = seginfo[0].size;
-		maxphysmem = (uintptr_t) seginfo[1].addr;
-	}
-
-	gasneti_mutex_unlock(&gasnetc_lock_gm);
-
-	/* Set maxphysmem as the largest M parameter possible */
-	_gmc.pinnable_global = maxphysmem;
-
-	return segsize;
-}
-
-int
-gasnetc_gather_seginfo(gasnet_seginfo_t *seginfo)
-{
-
-	uintptr_t	*scratchPtr;
-
-	assert(seginfo != NULL);
-
-	gasneti_mutex_lock(&gasnetc_lock_gm);
-	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
-	if (gasnetc_mynode == 0) {
-		int count = 1, i;
-
-		while (count < gasnetc_nodes) {
-			gm_provide_receive_buffer(_gmc.port,
-			    (void *) scratchPtr, GASNETC_SYS_SIZE, 
-			    GM_HIGH_PRIORITY);
-			if (gasnetc_SysPoll(
-			    (void *) seginfo) != SEGINFO_GATHER)
-				gasneti_fatalerror(
-				    "expected SEGINFO_GATHER, fatal");
-			count++;
-		}
-		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
-		    (uint8_t) SEGINFO_BROADCAST);
-		for (i = 0; i < gasnetc_nodes; i++)
-			scratchPtr[i+1] = (uintptr_t) seginfo[i].size;
-		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
-		    (gasnetc_nodes+1)*sizeof(uintptr_t), 
-		    gasnetc_callback_hi, NULL, 0);
-	}
-	else {
-		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
-		    (uint8_t) SEGINFO_GATHER);
-		scratchPtr[1] = (uintptr_t) seginfo[gasnetc_mynode].size;
-
-		while (!gasnetc_token_hi_acquire()) {
-			if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
-				gasneti_fatalerror("AMSystem_broadcast: "
-				    "unexpected message while "
-				    "recuperating tokens");
-		}
-		gasnetc_gm_send_AMSystem((void *) scratchPtr, 
-		    2*sizeof(uintptr_t), _gmc.gm_nodes[0].id, 
-		    _gmc.gm_nodes[0].port, gasnetc_callback_hi, NULL);
-
-		gm_provide_receive_buffer(_gmc.port, (void *) scratchPtr, 
-		    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
-		if (gasnetc_SysPoll((void *) seginfo) != SEGINFO_BROADCAST)
-			gasneti_fatalerror("expected SEGINFO_BROADCAST, fatal");
-	}
-	gasneti_mutex_unlock(&gasnetc_lock_gm);
-	return GASNET_OK;
+	GASNETI_TRACE_PRINTF(C,
+	    ("Recv tokens: lo=%3d, hi=%3d, tot=%3d, max=%3d\n",
+	    _gmc.rtoks.lo, _gmc.rtoks.hi, _gmc.rtoks.total, _gmc.rtoks.max));
 }
 
 int
@@ -595,7 +398,6 @@ gasnetc_alloc_nodemap(int numnodes)
 
 	return (_gmc.gm_nodes != NULL && _gmc.gm_nodes_rev != NULL);
 }
-
 
 int
 gasnetc_gmport_allocate(int *board, int *port)
@@ -715,7 +517,7 @@ gasnetc_getconf_conffile()
 				}
 			}
                         else {
-				printf("couldn't parse: %s\n", line);
+				fprintf(stderr, "couldn't parse: %s\n", line);
 			}
 			lnum++;
 		}
@@ -775,7 +577,7 @@ gasnetc_getconf_conffile()
 
 #ifdef LINUX
 uintptr_t
-gasnetc_get_physmem()
+gasnetc_getPhysMem()
 {
 	FILE		*fp;
 	char		line[_BUFSZ+1];
@@ -795,7 +597,7 @@ gasnetc_get_physmem()
 #include <sys/types.h>
 #include <sys/sysctl.h>
 uintptr_t
-gasnetc_get_physmem()
+gasnetc_getPhysMem()
 {
 	uintptr_t	mem = 0;
 	size_t		len = sizeof(uintptr_t);
@@ -806,7 +608,7 @@ gasnetc_get_physmem()
 }
 #else
 uintptr_t
-gasnetc_get_physmem()
+gasnetc_getPhysMem()
 {
 	return (uintptr_t) 0;
 }

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.11 2003/04/05 06:39:41 bonachea Exp $
- * $Date: 2003/04/05 06:39:41 $
- * $Revision: 1.11 $
+/* $Id: gasnet_core.h,v 1.12 2003/06/09 06:02:38 csbell Exp $
+ * $Date: 2003/06/09 06:02:38 $
+ * $Revision: 1.12 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -54,8 +54,8 @@ extern void gasnetc_exit(int exitcode) GASNET_NORETURN;
 
 extern uintptr_t gasnetc_getMaxLocalSegmentSize();
 extern uintptr_t gasnetc_getMaxGlobalSegmentSize();
-#define gasnet_getMaxLocalSegmentSize   gasnetc_getMaxLocalSegmentSize 
-#define gasnet_getMaxGlobalSegmentSize gasnetc_getMaxGlobalSegmentSize 
+#define gasnet_getMaxLocalSegmentSize	gasnetc_getMaxLocalSegmentSize 
+#define gasnet_getMaxGlobalSegmentSize	gasnetc_getMaxGlobalSegmentSize 
 
 /* ------------------------------------------------------------------------------------ */
 /*

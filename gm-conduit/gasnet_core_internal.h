@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.43 2003/03/30 07:07:18 csbell Exp $
- * $Date: 2003/03/30 07:07:18 $
- * $Revision: 1.43 $
+/* $Id: gasnet_core_internal.h,v 1.44 2003/06/09 06:02:38 csbell Exp $
+ * $Date: 2003/06/09 06:02:38 $
+ * $Revision: 1.44 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -107,19 +107,15 @@ extern gasneti_mutex_t	gasnetc_lock_amreq;
 #define _hidx_					(GASNETC_HANDLER_BASE+)
 
 /* -------------------------------------------------------------------------- */
-/* System message types */
+/* System message types: Remember to add in core_receive.c for lengths */
 typedef
 enum gasnetc_sysmsg {
 	_NO_MSG = 0,
-	SEGMENT_LOCAL = 1,
-	SEGMENT_GLOBAL = 2,
-	SEGINFO_GATHER = 3,
-	SEGINFO_BROADCAST = 4,
-	BARRIER_GATHER = 5,
-	BARRIER_NOTIFY = 6,
-	KILL_NOTIFY = 7,
-	KILL_DONE = 8,
-	_LAST_ONE = 9 
+	BARRIER_GATHER = 1,
+	BARRIER_NOTIFY = 2,
+	EXCHANGE_GATHER = 3,
+	EXCHANGE_BROADCAST = 4,
+	_LAST_ONE = 5
 }
 gasnetc_sysmsg_t;
 
@@ -132,10 +128,6 @@ gasnetc_sysmsg_t	gasnetc_SysPoll(void *context);
 void	gasnetc_tokensend_AMRequest(void *, uint32_t, uint32_t, uint32_t, 
 		gm_send_completion_callback_t, void *, uintptr_t);
 int	gasnetc_gm_nodes_compare(const void *, const void *);
-int	gasnetc_mmap_segment_search(gasnet_seginfo_t *segment, size_t segsize, 
-		size_t offset);
-int	gasnetc_mmap_segment(gasnet_seginfo_t *segment);
-int	gasnetc_munmap_segment(gasnet_seginfo_t *segment);
 void	gasnetc_sendbuf_init();
 void	gasnetc_sendbuf_finalize();
 int	gasnetc_alloc_nodemap(int);
@@ -148,10 +140,8 @@ int	gasnetc_getconf_BNR();
 int	gasnetc_getconf_sockets();
 int	gasnetc_getconf();
 
-uintptr_t	gasnetc_get_physmem();
+uintptr_t 	gasnetc_getPhysMem();
 unsigned long	gasnetc_getenv_numeric(const char *var);
-uintptr_t	gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize);
-int		gasnetc_gather_seginfo(gasnet_seginfo_t *segment);
 void		gasnetc_am_medcopy(gasnet_token_t token, void *addr, 
 				   size_t nbytes, void *dest);
 int		gasnetc_AMReplyLongAsyncM(gasnet_token_t token, 
@@ -159,10 +149,12 @@ int		gasnetc_AMReplyLongAsyncM(gasnet_token_t token,
 					  void *source_addr, size_t nbytes,
 					  void *dest_addr, int numargs, ...);
 
-void 	*gasnetc_segment_gather(uintptr_t);
 void	gasnetc_gm_send_AMSystem_broadcast(void *, size_t, 
 		gm_send_completion_callback_t, void *, int);
-void	gasnetc_SysBarrier();
+void	gasnetc_dump_tokens();
+
+void	gasnetc_bootstrapBarrier();
+void	gasnetc_bootstrapExchange(void *src, size_t len, void *dest);
 
 /* Provided by RDMA plugins */
 extern int	gasnetc_is_pinned  (gasnet_node_t, uintptr_t, size_t);
@@ -251,8 +243,6 @@ struct _gasnetc_state {
 #if GASNETC_RROBIN_BUFFERS > 1
 	int			RRobinCount;
 #endif
-	gasnet_seginfo_t	segment_mmap;
-	void *			segment_base;
 	gasnetc_handler_fn_t	handlers[GASNETC_AM_MAX_HANDLERS];
 	gasnetc_gm_nodes_t	*gm_nodes;
 	gasnetc_gm_nodes_rev_t	*gm_nodes_rev;
@@ -630,47 +620,6 @@ gasnetc_gm_send_AMSystem(void *buf, size_t len,
 }
 
 /* -------------------------------------------------------------------------- */
-/* Allocate segments */
-GASNET_INLINE_MODIFIER(gasnetc_segment_alloc)
-void *
-gasnetc_segment_alloc(void *segbase, size_t segsize)
-{
-	void	*ptr;
-	int	flags;
-
-	GASNETI_TRACE_PRINTF(C, 
-	    ("mmap(0x%x, %d)\n", (uintptr_t) segbase, segsize) );
-	ptr = mmap(segbase, segsize, (PROT_READ|PROT_WRITE), 
-		(MAP_ANON | MAP_PRIVATE | MAP_FIXED), -1, 0);
-	if (ptr == MAP_FAILED) {
-		perror("mmap failed: ");
-		gasneti_fatalerror("mmap failed at 0x%x for size %d\n",
-			(uintptr_t) segbase, segsize);
-	}
-	if (segbase != ptr) 
-		gasneti_fatalerror("mmap moved from 0x%x to 0x%x for size %d\n",
-			(uintptr_t) segbase, (uintptr_t) ptr, segsize);
-	return ptr;
-}
-
-/* Allocate segments */
-GASNET_INLINE_MODIFIER(gasnetc_segment_register)
-void
-gasnetc_segment_register(void *segbase, size_t segsize)
-{
-	void		*ptr;
-	gm_status_t	status;
-
-	GASNETI_TRACE_PRINTF(C, 
-	    ("gm_register_memory(0x%x, %d)\n", (uintptr_t) segbase, segsize));
-	if (gm_register_memory(_gmc.port, segbase, (gm_size_t) segsize) !=
-			GM_SUCCESS)
-		gasneti_fatalerror("gm_register_memory failed at 0x%x for size "
-			"%d\n", (uintptr_t) segbase, segsize);
-	return;
-}
-
-/* -------------------------------------------------------------------------- */
 /* FIFO related operations for sending AMReplies */
 #define gasnetc_fifo_head()	_gmc.fifo_bd_head
 
@@ -854,35 +803,6 @@ gasnetc_write_AMBufferBulk(void *dest, void *src, size_t nbytes)
 	return;
 }
 /* -------------------------------------------------------------------------- */
-/* Few utility functions which are nice inlined, alloca _MUST_ be inlined */
-#if 0
-/* gcc (and possibly other compilers) refuse to inline functions which call alloca */
-GASNET_INLINE_MODIFIER(gasnetc_alloca)
-void *
-gasnetc_alloca(size_t nbytes)
-{
-	void *ptr;
-	if ((ptr = alloca(nbytes)) == NULL)
-		gasneti_fatalerror("alloca(%d) failed\n", nbytes);
-	return ptr;
-}
-#endif
-#if 0
-/* probably shouldn't use this either - Linux man pages claims alloca has buggy behavior
- * if called as an argument to a function call - maybe we shouldn't be using alloca at all..
- */
-GASNET_INLINE_MODIFIER(_gasnetc_alloca_helper)
-void *_gasnetc_alloca_helper(void *ptr, const char *loc) {
-  if_pf (ptr == NULL) 
-    gasneti_fatalerror("alloca() failed%s%s\n",(loc?" at: ":""), (loc?loc:""));
-  return ptr;
-}
-#ifdef DEBUG
-#define gasnetc_alloca(nbytes) gasnetc_alloca_helper(alloca(nbytes), __FILE__ ":" _STRINGIFY(__LINE__))
-#else
-#define gasnetc_alloca(nbytes) gasnetc_alloca_helper(alloca(nbytes), NULL)
-#endif
-#endif
 #define gasnetc_alloca(nbytes) alloca(nbytes)
 
 GASNET_INLINE_MODIFIER(gasnetc_gm_nodes_search)

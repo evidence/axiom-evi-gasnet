@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.37 2003/05/24 02:16:54 bonachea Exp $
- * $Date: 2003/05/24 02:16:54 $
+/* $Id: gasnet_core.c,v 1.38 2003/06/09 06:02:38 csbell Exp $
+ * $Date: 2003/06/09 06:02:38 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -38,8 +38,10 @@ extern gasnet_handlerentry_t const	*gasnete_get_handlertable();
 extern gasnet_handlerentry_t const	*gasnete_get_extref_handlertable();
 
 extern gasnet_handlerentry_t const	*gasnetc_get_rdma_handlertable();
-extern void				 gasnetc_rdma_init();
-extern void				 gasnetc_rdma_finalize();
+
+extern void	gasnetc_rdma_init(uintptr_t segbase, uintptr_t segsize, 
+				  uintptr_t global_physmem);
+extern void	gasnetc_rdma_finalize();
 
 
 void gasnetc_checkinit() {
@@ -85,50 +87,26 @@ gasnetc_init(int *argc, char ***argv)
 	#endif
 
 	if (gasnetc_getconf() != GASNET_OK)
-			gasnetc_exit(-1);
+		gasneti_fatalerror("Couldn't bootstrap system");
 
 	gasnetc_sendbuf_init();
-
-	_gmc.segment_mmap.addr = 0;
-	_gmc.segment_mmap.size = 0;
-	_gmc.segment_base = (void *) -1;
 
 	/* When not using everything, we must find the largest segment possible
 	 * using a binary search of largest mmaps possible.  mmap (even for
 	 * huge segments) happens to be a cheap operation on linux. */
 	#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-	{ 
-		size_t	segsize = (unsigned) GASNETC_MMAP_INITIAL_SIZE;
 
-		if (gasnetc_mmap_segment_search(&_gmc.segment_mmap, segsize, 
-		    segsize>>2) != GASNET_OK)
-			 gasneti_fatalerror(
-			    "Could not find any segment using mmap");
-		_gmc.segment_base = _gmc.segment_mmap.addr;
-		GASNETC_DPRINTF(("mmap segment %d bytes at 0x%x\n", 
-				(unsigned int) _gmc.segment_mmap.size, 
-				(uintptr_t) _gmc.segment_mmap.addr) );
+		gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize,
+		    &gasnetc_MaxGlobalSegmentSize,
+                    #if 0 && defined(GASNET_SEGMENT_FAST)
+                       gasnetc_remappableMem.size,
+                    #else
+                       (uintptr_t)-1,
+                    #endif
+                    gasnetc_nodes,
+                    &gasnetc_bootstrapExchange);
 
-		/* after gather_MaxSegment, _gmc.segment_base holds the
-		 * highest base of the job (the "new" segbase) since we
-		 * guarentee alignment.  _gmc.segment_mmap.addr holds
-		 * *this* node's mmap base _gmc.segment_mmap.size holds
-		 * *this* node's mmap size */
-
-		gasnetc_MaxGlobalSegmentSize = 
-		    gasnetc_gather_MaxSegment(_gmc.segment_base, 
-		    _gmc.segment_mmap.size);
-
-		gasnetc_MaxLocalSegmentSize = 
-		    (uintptr_t)_gmc.segment_mmap.addr + (uintptr_t)segsize - 
-		    (uintptr_t)_gmc.segment_base;
-
-	}
 	#elif defined(GASNET_SEGMENT_EVERYTHING)
-		/* gather_MaxSegment also gathers cluster-wide maximum pinnable
-		 * memory, set in _gmc.pinnable_global */
-		gasnetc_gather_MaxSegment(_gmc.segment_base, 
-		    _gmc.segment_mmap.size);
 		gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
 		gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
 	#else
@@ -145,6 +123,7 @@ gasnetc_init(int *argc, char ***argv)
 	gasneti_mutex_unlock(&gasnetc_lock_gm);
 
 	gasnetc_init_done = 1;
+	gasneti_trace_init();
 	return GASNET_OK;
 }
 
@@ -318,114 +297,108 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	    	assert(e_numreg == e_len);
 	}
 
-  if (table) { /*  client handlers */
-    int numreg1 = 0;
-    int numreg2 = 0;
+	if (table) { /*  client handlers */
+		int numreg1 = 0;
+		int numreg2 = 0;
 
-    /*  first pass - assign all fixed-index handlers */
-    if (gasnetc_reghandlers(table, numentries, 128, 255, 0, &numreg1) != GASNET_OK)
-      GASNETI_RETURN_ERRR(RESOURCE,"Error registering fixed-index client handlers");
+		/*  first pass - assign all fixed-index handlers */
+		if (gasnetc_reghandlers(table, numentries, 128, 255, 0, &numreg1) 
+		    != GASNET_OK)
+			GASNETI_RETURN_ERRR(RESOURCE,
+			    "Error registering fixed-index client handlers");
 
-    /*  second pass - fill in dontcare-index handlers */
-    if (gasnetc_reghandlers(table, numentries, 128, 255, 1, &numreg2) != GASNET_OK)
-      GASNETI_RETURN_ERRR(RESOURCE,"Error registering fixed-index client handlers");
+		/*  second pass - fill in dontcare-index handlers */
+		if (gasnetc_reghandlers(table, numentries, 128, 255, 1, &numreg2) 
+		    != GASNET_OK)
+			GASNETI_RETURN_ERRR(RESOURCE,
+			    "Error registering fixed-index client handlers");
 
-    assert(numreg1 + numreg2 == numentries);
-  }
+		assert(numreg1 + numreg2 == numentries);
+	}
 
-  /* ------------------------------------------------------------------------------------ */
-  /*  register fatal signal handlers */
+	/* -------------------------------------------------------------------- */
+	/*  register fatal signal handlers */
 
-  /*  catch fatal signals and convert to SIGQUIT */
-  gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
+	/*  catch fatal signals and convert to SIGQUIT */
+	gasneti_registerSignalHandlers(gasneti_defaultSignalHandler);
 
-  /* ------------------------------------------------------------------------------------ */
-  /*  register segment  */
+	/* -------------------------------------------------------------------- */
+	/*  register segment  */
 
-  /* use gasneti_malloc_inhandler during bootstrapping because we can't assume the 
-     hold/resume interrupts functions are operational yet */
-  gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
+	/* use gasneti_malloc_inhandler during bootstrapping because we can't
+	 * assume the hold/resume interrupts functions are operational yet */
+	gasnetc_seginfo = (gasnet_seginfo_t *)
+	    gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
+	memset(gasnetc_seginfo, 0, gasnetc_nodes*sizeof(gasnet_seginfo_t));
 
-  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-    if (segsize == 0) { /* no segment */
-      _gmc.segment_base = NULL;
-      if (gasnetc_munmap_segment(&_gmc.segment_mmap) != GASNET_OK)
-	      gasneti_fatalerror("could not unmap initial mmap segment");
-	      
-      _gmc.segment_mmap.addr = NULL;
-      _gmc.segment_mmap.size = 0;
-    }
-    else if (segsize == (uintptr_t) _gmc.segment_mmap.size)	/* segsize == maxlocal */
-      _gmc.segment_base = (void *) _gmc.segment_mmap.addr;
-    else {
-      if (gasnetc_munmap_segment(&_gmc.segment_mmap) != GASNET_OK)
-	      gasneti_fatalerror("could not unmap initial mmap segment");
-      _gmc.segment_mmap.size = GASNETI_ALIGNUP(segsize, GASNETC_SEGMENT_ALIGN);
-      if (gasnetc_mmap_segment(&_gmc.segment_mmap) != GASNET_OK)
-	      gasneti_fatalerror("could not re-map segment after unmapping initial segment");
-      _gmc.segment_base = (void *) _gmc.segment_mmap.addr;
-    }
-  #else
-    /* GASNET_SEGMENT_EVERYTHING */
-    _gmc.segment_base = _gmc.segment_mmap.addr = (void *)0;
-    segsize = _gmc.segment_mmap.size = (uintptr_t)-1;
-  #endif
-  /* ------------------------------------------------------------------------------------ */
-  /*  gather segment information */
+	#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
+		if (segsize == 0) { /* no segment */
+			int i;
+			for (i=0;i<gasnetc_nodes;i++) {
+				gasnetc_seginfo[i].addr = (void *)0;
+				gasnetc_seginfo[i].size = (uintptr_t)-1;
+			}
+		}
+		else {
+			gasneti_segmentAttach(segsize, minheapoffset, 
+			    gasnetc_seginfo, &gasnetc_bootstrapExchange);
+		}
+	#else
+		/* GASNET_SEGMENT_EVERYTHING */
+		{	int i;
+			for (i=0;i<gasnetc_nodes;i++) {
+				gasnetc_seginfo[i].addr = (void *)0;
+				gasnetc_seginfo[i].size = (uintptr_t)-1;
+			}
+		}
+	#endif
 
-  /* use gasneti_malloc_inhandler during bootstrapping because we can't assume the 
-     hold/resume interrupts functions are operational yet */
-  gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
-  memset(gasnetc_seginfo, 0, gasnetc_nodes*sizeof(gasnet_seginfo_t));
-  gasnetc_seginfo[gasnetc_mynode].addr = _gmc.segment_base;
-  gasnetc_seginfo[gasnetc_mynode].size = segsize;
+	#ifdef TRACE
+	for (i = 0; i < gasnetc_nodes; i++)
+		GASNETI_TRACE_PRINTF(C, ("SEGINFO at %4d (0x%x, %d)", i,
+		    (uintptr_t) gasnetc_seginfo[i].addr, 
+		    (unsigned int) gasnetc_seginfo[i].size) );
+	#endif
+	/* Firehose algorithm requires access to the global amount of physical
+	 * memory in its calculation for upper bounds */
+	{
+		uintptr_t local_physmem = gasnetc_getPhysMem();
+		uintptr_t global_physmem = (uintptr_t) -1;
+		uintptr_t *global_exch = (uintptr_t *)
+		    gasneti_malloc(gasnetc_nodes*sizeof(uintptr_t));
+		gasnetc_bootstrapExchange(&local_physmem, sizeof(uintptr_t),
+		    global_exch);
+		for (i = 0; i < gasnetc_nodes; i++) 
+			global_physmem = MIN(global_physmem, global_exch[i]);
 
-  /* GASNet GM always has aligned segments, we can safely assume all segbases
-   * are aligned at the same address
-   */
-  for (i = 0; i < gasnetc_nodes; i++)
-    gasnetc_seginfo[i].addr = _gmc.segment_base;
+		gasneti_free(global_exch);
+		gasnetc_rdma_init((uintptr_t) gasnetc_seginfo[gasnetc_mynode].addr,
+				  gasnetc_seginfo[gasnetc_mynode].size,
+				  global_physmem);
+	}
+			
+	/* -------------------------------------------------------------------- */
+	/*  primary attach complete */
+	gasnetc_attach_done = 1;
 
-  if (gasnetc_gather_seginfo(gasnetc_seginfo) != GASNET_OK)
-	      gasneti_fatalerror("could not gather job-wide seginfo");
+	GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
 
-#ifdef TRACE
-  for (i = 0; i < gasnetc_nodes; i++)
-      GASNETI_TRACE_PRINTF(C, ("SEGINFO at %4d (0x%x, %d)", i,
-        (uintptr_t) gasnetc_seginfo[i].addr, (unsigned int) gasnetc_seginfo[i].size) );
-#endif
+	gasnetc_bootstrapBarrier();
+	gasnete_init();
+	gasnetc_bootstrapBarrier();
 
-  /* Initialize firehose or turkey sandwich algorithms */
-  gasnetc_rdma_init(_gmc.segment_mmap.addr, _gmc.segment_mmap.size);
+	/*  grab GM buffers and make sure we have the maximum amount possible */
+	gasneti_mutex_lock(&gasnetc_lock_gm);
+	while (_gmc.stoks.hi != 0) {
+		if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
+		gasneti_fatalerror("Unexpected message during bootstrap");
+	}
+	gasnetc_provide_receive_buffers();
+	gasneti_mutex_unlock(&gasnetc_lock_gm);
 
-  /* ------------------------------------------------------------------------------------ */
-  /*  primary attach complete */
-  gasnetc_attach_done = 1;
+	gasnetc_dump_tokens();
 
-  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
-
-  gasnetc_SysBarrier();
-  gasnete_init();
-  gasnetc_SysBarrier();
-
-  /*  grab GM buffers and make sure we have the maximum amount possible */
-  gasneti_mutex_lock(&gasnetc_lock_gm);
-  while (_gmc.stoks.hi != 0) {
-    if (gasnetc_SysPoll((void *)-1) != _NO_MSG)
-      gasneti_fatalerror("Unexpected message during bootstrap");
-  }
-  gasnetc_provide_receive_buffers();
-  gasneti_mutex_unlock(&gasnetc_lock_gm);
-
-
-  GASNETI_TRACE_PRINTF(C,
-  	("Send tokens: lo=%3d, hi=%3d, tot=%3d, max=%3d\n",
-	_gmc.stoks.lo, _gmc.stoks.hi, _gmc.stoks.total, _gmc.stoks.max));
-  GASNETI_TRACE_PRINTF(C,
-  	("Recv tokens: lo=%3d, hi=%3d, tot=%3d, max=%3d\n",
-	_gmc.rtoks.lo, _gmc.rtoks.hi, _gmc.rtoks.total, _gmc.rtoks.max));
-
-  return GASNET_OK;
+	return GASNET_OK;
 }
 
 extern int 
@@ -434,7 +407,6 @@ gasnet_init(int *argc, char ***argv)
 	int retval = gasnetc_init(argc, argv);
 	if (retval != GASNET_OK) 
 		GASNETI_RETURN(retval);
-	gasneti_trace_init();
 	return GASNET_OK;
 }
 
@@ -442,8 +414,9 @@ gasnet_init(int *argc, char ***argv)
 extern void 
 gasnetc_exit(int exitcode)
 {
-        /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
-        gasneti_reghandler(SIGQUIT, SIG_IGN);
+	/* once we start a shutdown, ignore all future SIGQUIT signals or we
+	 * risk reentrancy */
+	gasneti_reghandler(SIGQUIT, SIG_IGN);
 
         {  /* ensure only one thread ever continues past this point */
           static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
@@ -453,16 +426,21 @@ gasnetc_exit(int exitcode)
 	gasnetc_sendbuf_finalize();
 
         gasneti_trace_finish();
-        if (fflush(stdout)) 
-          gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
-        if (fflush(stderr)) 
-          gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+	if (fflush(stdout)) 
+		gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", 
+		    strerror(errno));
+	if (fflush(stderr)) 
+		gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", 
+		    strerror(errno));
+
         gasneti_sched_yield();
-        sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
+	sleep(1); /* pause to ensure everyone has written trace if this is a
+		   * collective exit */
 
 	if (gasnetc_init_done) {
   		gm_close(_gmc.port);
-		gasnetc_rdma_finalize();
+		if (gasnetc_attach_done)
+			gasnetc_rdma_finalize();
 	}
 	gm_finalize();
 	_exit(exitcode);

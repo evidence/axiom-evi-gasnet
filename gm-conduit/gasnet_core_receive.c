@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.27 2003/01/14 04:33:02 csbell Exp $
- * $Date: 2003/01/14 04:33:02 $
- * $Revision: 1.27 $
+/* $Id: gasnet_core_receive.c,v 1.28 2003/06/09 06:02:38 csbell Exp $
+ * $Date: 2003/06/09 06:02:38 $
+ * $Revision: 1.28 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -27,14 +27,10 @@ struct {
 	size_t		len;
 } gasnetc_sysmsg_types[] =
 	{ { "", 0 }, 
-	  { "SEGMENT_LOCAL", 4*sizeof(uintptr_t) },
-	  { "SEGMENT_GLOBAL", 4*sizeof(uintptr_t) },
-	  { "SEGINFO_GATHER", 2*sizeof(uintptr_t) },
-	  { "SEGINFO_BROADCAST", 0 },
 	  { "BARRIER_GATHER", 1 },
 	  { "BARRIER_NOTIFY", 1 },
-	  { "KILL_NOTIFY", 1 },
-	  { "KILL_DONE", 1 }
+	  { "EXCHANGE_GATHER", 0 },
+	  { "EXCHANGE_BROADCAST", 0 },
 	};
 
 /* 
@@ -352,94 +348,27 @@ gasnetc_process_AMSystem(uint8_t *ptr, gm_recv_event_t *e, void *context)
 
 	assert(context != (void *) -1);
 	switch (sysmsg) {
-		case SEGMENT_LOCAL:
-			if_pf (gasnetc_init_done || gasnetc_mynode != 0)
-				gasneti_fatalerror("AMSystem SEGMENT_LOCAL: "
-				    "already initialized");
-			assert(context != NULL);
+		case EXCHANGE_GATHER:
 			{
-				uintptr_t *pptr = (uintptr_t *)ptr;
-				gasnet_seginfo_t *seginfo =
-					(gasnet_seginfo_t *)context;
-				seginfo[0].addr = (void *) pptr[1];
-				seginfo[0].size = (uintptr_t) pptr[2];
-				seginfo[1].addr = (void *) pptr[3];
-				GASNETI_TRACE_PRINTF(C, ("SEGMENT_LOCAL: "
-				    "0x%x %d", (uintptr_t) seginfo->addr, 
-				    seginfo->size) );
-			}
-			break;
-		case SEGMENT_GLOBAL:
-			if_pf (gasnetc_init_done || gasnetc_mynode == 0)
-				gasneti_fatalerror("AMSystem SEGMENT_GLOBAL: "
-				    "already initialized or mynode is 0");
-			assert(context != NULL);
-			{
-				uintptr_t *pptr = (uintptr_t *)ptr;
-				gasnet_seginfo_t *seginfo = 
-					(gasnet_seginfo_t *)context;
-				seginfo[0].addr = (void *) pptr[1];
-				seginfo[0].size = (uintptr_t) pptr[2];
-				seginfo[1].addr = (void *) pptr[3];
-				GASNETI_TRACE_PRINTF(C, ("SEGMENT_GLOBAL: "
-				    "0x%x %d", (uintptr_t) seginfo->addr, 
-				    seginfo->size) );
-			}
-			break;
-		case SEGINFO_GATHER:
-			if_pf (gasnetc_attach_done || gasnetc_mynode != 0)
-				gasneti_fatalerror("AMSystem SEGINFO_GATHER: "
-				    "already attached or mynode is not 0");
-			assert(context != NULL);
-			{
-				gasnet_seginfo_t *seginfo = 
-				    (gasnet_seginfo_t *)context;
 				gasnet_node_t node = 
 				    gasnetc_gm_nodes_search(
 				    gm_ntoh_u16(e->recv.sender_node_id),
 				    gm_ntoh_u8(e->recv.sender_port_id));
-				uintptr_t segsize = (uintptr_t) 
-				    *((uintptr_t *)ptr+1);
-				if_pf ((size_t) segsize < 0)
-					gasneti_fatalerror("SEGINFO_GATHER: "
-					    "segsize too large for mmap");
-				seginfo[node].size = segsize;
-				GASNETI_TRACE_PRINTF(C,("SEGINFO_GATHER: "
-				    "%d> %d bytes", node, seginfo[node].size) );
+				int len = gm_ntoh_u32(e->recv.length)-4;
+				uint8_t *data = (uint8_t *)context;
+				assert(len > 0);
+				memcpy(data+(int)node*len, ptr+4, len);
 			}
 			break;
-		case SEGINFO_BROADCAST:
-			if_pf (gasnetc_attach_done || gasnetc_mynode == 0)
-				gasneti_fatalerror(
-				    "AMSystem SEGINFO_BROADCAST: already "
-				    "attached or mynode is 0");
-			assert(context != NULL);
+
+		case EXCHANGE_BROADCAST:
 			{
-				int	i;
-				gasnet_seginfo_t *seginfo = 
-				    (gasnet_seginfo_t *)context;
-				uintptr_t *segptr = (uintptr_t *)ptr+1;
-				assert(
-				    gm_ntoh_u32(
-				        e->recv.length)-sizeof(uintptr_t) >=
-				        gasnetc_nodes*sizeof(uintptr_t));
-				for (i = 0; i < gasnetc_nodes; i++) {
-					if (i == gasnetc_mynode &&
-					    seginfo[i].size != segptr[i]) {
-						gasneti_fatalerror(
-						    "SEGINFO_BROADCAST: "
-						    "segsize don't match "
-						    "locally");
-					}
-					else {
-						seginfo[i].size = segptr[i];
-						GASNETI_TRACE_PRINTF(C,
-						  ("SEGINFO_BROADCAST %d: %d\n",
-						   i, segptr[i]) );
-					}
-				}
+				int len = gm_ntoh_u32(e->recv.length)-4;
+				assert(len > 0);
+				memcpy((uint8_t *)context, ptr+4, len);
 			}
 			break;
+
 		case BARRIER_GATHER:
 			if_pf (gasnetc_mynode != 0)
 				gasneti_fatalerror("AMSystem BARRIER_GATHER "

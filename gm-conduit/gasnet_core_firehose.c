@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_firehose.c,v 1.22 2003/03/18 05:57:02 csbell Exp $
- * $Date: 2003/03/18 05:57:02 $
+/* $Id: gasnet_core_firehose.c,v 1.23 2003/06/09 06:02:38 csbell Exp $
+ * $Date: 2003/06/09 06:02:38 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -315,12 +315,15 @@ static uintptr_t		 gasnetc_stackaddr_hi;
 static int			gasnetc_bucket_initialized = 0;
 static int			gasnetc_firehose_initialized = 0;
 
+uintptr_t	 		gasnetc_firehose_MaxVictim = 0;
+
 gasneti_mutex_t	gasnetc_lock_bucket        = GASNETI_MUTEX_INITIALIZER;
 gasneti_mutex_t	gasnetc_lock_bucket_victim = GASNETI_MUTEX_INITIALIZER;
 
 /* Functions exported to gasnet core */
 extern void	gasnete_firehose_move_done(void *);
-extern void	gasnetc_rdma_init(uintptr_t segbase, uintptr_t segsize);
+extern void	gasnetc_rdma_init(uintptr_t segbase, uintptr_t segsize, 
+				  uintptr_t global_physmem);
 extern void	gasnetc_rdma_finalize();
 extern int	gasnetc_is_pinned(gasnet_node_t, uintptr_t, size_t);
 extern void	gasnetc_done_pinned(gasnet_node_t, uintptr_t, size_t);
@@ -431,11 +434,11 @@ static void	gasnetc_bucket_unpin_by_list(uintptr_t *, size_t);
 /* ------------------------------------------------------------------------ */
 /* Local Bucket initialization */
 static void
-gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
+gasnetc_bucket_init(uintptr_t segsize, uintptr_t global_physmem)
 {
 	size_t			 num_buckets;
 	gasnetc_bucket_desc_t	*table;
-	uintptr_t		fh_maxvictim;
+	uintptr_t		maxvictim;
 	unsigned int		i;
 
 	num_buckets = GASNETC_BUCKET_SEGMENT;
@@ -443,6 +446,7 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 		gasneti_malloc(num_buckets*sizeof(gasnetc_bucket_desc_t));
 	GASNETI_TRACE_PRINTF(C, ("Firehose local buckets=%d (table=%d bytes)",
 	    num_buckets, num_buckets*sizeof(gasnetc_bucket_desc_t)));
+
 	for (i = 0; i < GASNETC_BUCKET_SEGMENT; i++)
 		table[i].refc_prev = GASNETC_BDESC_REFC_MASK;
 
@@ -463,26 +467,27 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 	       GASNETC_FIREHOSE_MAXVICTIM_RATIO <= 1);
 
 	/* Get the maxvictim parameters from the environment */
-	fh_maxvictim = GASNETI_ALIGNDOWN(
+	maxvictim = GASNETI_ALIGNDOWN(
 	    (uintptr_t) gasnetc_getenv_numeric("GASNETGM_FIREHOSE_MAXVICTIM"),
 	    GASNETC_BUCKET_SIZE);
 
-	if (fh_maxvictim > 0) 
-		_gmc.fh_maxvictim = fh_maxvictim;
+	if (maxvictim > 0) 
+		gasnetc_firehose_MaxVictim = maxvictim;
 	else
-		_gmc.fh_maxvictim =  (uintptr_t)
-		    GASNETI_ALIGNDOWN(_gmc.pinnable_global *
+		gasnetc_firehose_MaxVictim = (uintptr_t)
+		    GASNETI_ALIGNDOWN(global_physmem *
 	    	        GASNETC_FIREHOSE_MAXVICTIM_RATIO, GASNETC_BUCKET_SIZE);
 
-	gasnetc_bucket_victim_max = _gmc.fh_maxvictim >> GASNETC_BUCKET_SHIFT;
+	gasnetc_bucket_victim_max = 
+	    gasnetc_firehose_MaxVictim >> GASNETC_BUCKET_SHIFT;
 	gasnetc_bucket_victim_count = 0;
 
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose GASNETGM_FIREHOSE_MAXVICTIM=%u bytes, ratio=%.2f, "
 	    "maxvictim=%.2f Mb",
-	    (unsigned int) fh_maxvictim,
+	    (unsigned int) maxvictim,
 	    GASNETC_FIREHOSE_MAXVICTIM_RATIO,
-	    ((unsigned) _gmc.fh_maxvictim) / (1<<20)));
+	    ((unsigned) gasnetc_firehose_MaxVictim) / (1<<20)));
 
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose local victims max=%d (head=%d,tail=%d)",
@@ -1202,11 +1207,13 @@ static size_t			 gasnetc_fh_num;
 gasneti_atomic_t		*gasnetc_fh_avail;
 
 uintptr_t	*gasnetc_firehose_buf = NULL;
+uintptr_t	 gasnetc_firehose_M = 0;
+size_t		 gasnetc_firehose_num = 0;
 size_t		 gasnetc_firehose_buf_num = 0;
 
 gasneti_mutex_t	gasnetc_lock_fh_victim = GASNETI_MUTEX_INITIALIZER;
 
-static void	gasnetc_firehose_init(uintptr_t);
+static void	gasnetc_firehose_init(uintptr_t, uintptr_t);
 static void	gasnetc_firehose_finalize();
 static void	gasnetc_firehose_table_init(size_t);
 static void	gasnetc_firehose_table_finalize();
@@ -1268,12 +1275,14 @@ extern void	gasnetc_firehose_decrement_refcount(gasnet_node_t, uintptr_t,
 /* ------------------------------------------------------------------------ */
 /* Firehose initialization and finalization functions, abstracted by
  * gasnetc_rdma_ functions */
+
 static void
-gasnetc_firehose_init(uintptr_t	segsize)
+gasnetc_firehose_init(uintptr_t segsize, uintptr_t global_physmem)
 {
 	size_t		firehoses;
 	int		i;
 	uintptr_t	fh_M;
+	uintptr_t	pinnable = global_physmem;
 
 	assert(gasnetc_bucket_initialized);
 
@@ -1284,13 +1293,18 @@ gasnetc_firehose_init(uintptr_t	segsize)
 
 	/* Make sure FIREHOSE_M + FIREHOSE_MAXVICTIM don't exceed global
 	 * pinnable memory */
-	if (fh_M + _gmc.fh_maxvictim > _gmc.pinnable_global) {
+	pinnable = 
+	    GASNETI_ALIGNDOWN(
+	        GASNETC_FIREHOSE_PHYSMEM_RATIO * global_physmem,
+	        GASNETC_BUCKET_SIZE);
+
+	if (fh_M + gasnetc_firehose_MaxVictim > pinnable) {
 			gasneti_fatalerror(
 			    "GASNETGM_FIREHOSE_M +"
 			    "GASNETGM_FIREHOSE_MAXVICTIM (%d Mb) exceed "
 			    "Maximum Global pinnable memory (%d Mb)\n",
-			    (unsigned int) fh_M + _gmc.fh_maxvictim / (1<<20),
-			    (unsigned int) _gmc.pinnable_global / (1<<20));
+			    (unsigned int) (fh_M + gasnetc_firehose_MaxVictim)
+			        / (1<<20), (unsigned int) pinnable / (1<<20));
 	}
 
 	/* Calculate the maximum value for M parameter */
@@ -1298,16 +1312,16 @@ gasnetc_firehose_init(uintptr_t	segsize)
 	       GASNETC_FIREHOSE_MAXVICTIM_RATIO <= 1);
 
 	if (fh_M > 0)
-		_gmc.fh_M = fh_M;
+		gasnetc_firehose_M = fh_M;
 	else 
-		_gmc.fh_M = (uintptr_t) 
-			GASNETI_ALIGNDOWN(_gmc.pinnable_global *
+		gasnetc_firehose_M = (uintptr_t)
+			GASNETI_ALIGNDOWN(pinnable *
 		    	    (1-GASNETC_FIREHOSE_MAXVICTIM_RATIO), 
 			    GASNETC_BUCKET_SIZE);
 
 	/* Total firehoses: initialized from the page-aligned fh_M size */
-	_gmc.firehoses = 
-	    firehoses = (size_t) _gmc.fh_M >> GASNETC_BUCKET_SHIFT;
+	gasnetc_firehose_num = 
+	    firehoses = (size_t) gasnetc_firehose_M >> GASNETC_BUCKET_SHIFT;
 
 	gasnetc_firehose_table_init(firehoses);
 
@@ -1343,21 +1357,19 @@ gasnetc_firehose_init(uintptr_t	segsize)
 #ifdef STATS
 	fprintf(stderr, "GASNETGM_FIREHOSE_M = %.2f Mb\t"
 	    "GASNETGM_MAXVICTIM = %.2f Mb\n", 
-	    (float) _gmc.fh_M / (1024*1024),
-	    (float) _gmc.fh_maxvictim / (1024*1024));
+	    (float) gasnetc_firehose_M / (1024*1024),
+	    (float) gasnetc_firehose_MaxVictim / (1024*1024));
 #endif
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose GASNETGM_FIREHOSE_M=%u bytes, ratio=%.2f, M=%.2f Mb", 
 	    (unsigned int) fh_M,
 	    (1-GASNETC_FIREHOSE_MAXVICTIM_RATIO),
-	    ((unsigned) _gmc.fh_M) / (1<<20)));
+	    ((unsigned) gasnetc_firehose_M) / (1<<20)));
 	GASNETI_TRACE_PRINTF(C, 
-	    ("Firehose Pinnable local=%.2f Gb, global=%.2f Gb",
-	    ((unsigned) _gmc.pinnable_local) / (1<<30),
-	    ((unsigned) _gmc.pinnable_global) / (1<<30)));
+	    ("Firehose Pinnable Memory=%.2f Gb", ((unsigned)pinnable)/(1<<30)));
 	GASNETI_TRACE_PRINTF(C, 
-	    ("Firehose hash_elems=%d, %d firehoses/node (segsize=%d bytes)",
-	     firehoses, gasnetc_fh_num, segsize));
+	    ("Firehose hash_elems=%d, %d firehoses/node", firehoses, 
+	    gasnetc_fh_num));
 
 	gasnetc_firehose_initialized = 1;
 	return;
@@ -1878,11 +1890,11 @@ MEDIUM_HANDLER(gasnetc_firehose_move_reqh,4,5,
 /* ------------------------------------------------------------------------ */
 /* Two initialization that abstract the firehose algorithm from the core. */
 extern void
-gasnetc_rdma_init(uintptr_t segbase, uintptr_t segsize)
+gasnetc_rdma_init(uintptr_t segbase, uintptr_t segsize, uintptr_t global_physmem)
 {
-	gasnetc_bucket_init(segbase, segsize);
+	gasnetc_bucket_init(segsize, global_physmem);
 	gasnetc_bucket_pin_stack();
-	gasnetc_firehose_init(segsize);
+	gasnetc_firehose_init(segsize, global_physmem);
 }
 
 extern void
