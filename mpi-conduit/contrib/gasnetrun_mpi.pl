@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/03/20 16:54:51 $
-# $Revision: 1.20 $
+#     $Date: 2005/03/22 08:22:24 $
+# $Revision: 1.21 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -57,6 +57,7 @@ my @tmpfiles = ();
       $envprog = `which env`;
       chomp $envprog;
     }
+    my $extra_quote_argv = 0;
 
     if ($is_lam) {
 	# pass env as "-x A,B,C"
@@ -75,6 +76,7 @@ my @tmpfiles = ();
 	%envfmt = ( 'pre' => $envprog,
 		    'val' => "'"
 		  );
+        $extra_quote_argv = 1;
     } elsif ($is_cray_mpi) {
 	# cannot reliably use /usr/bin/env at all when running via aprun 
         # (the binary doesnt support placed execution)
@@ -357,7 +359,7 @@ EOF
 			  } elsif ($_ eq '%P') {
                               (@envargs, $exename);
                           } elsif ($_ eq '%A') {
-			      (map { "'$_'" } @ARGV);
+			      ($extra_quote_argv ? (map { "'$_'" } @ARGV) : (@ARGV));
                           } elsif ($_ eq '%V') {
 			      $verbose?("-v"):();
 			  } else {
