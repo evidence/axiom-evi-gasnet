@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/18 12:07:32 $
-# $Revision: 1.9 $
+#     $Date: 2004/03/18 13:17:52 $
+# $Revision: 1.10 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -77,7 +77,7 @@ amxdist:
 	@sh -x -c ' \
          VERSION=`grep "#define AMMPI_LIBRARY_VERSION" $(srcdir)/ammpi.h | head -1 | awk '"'"'{ print $$3 }'"'"'` \
          export VERSION ; \
-         echo "+++ Building distribution for AMMPI version $$(VERSION) +++" && \
+         echo "+++ Building distribution for AMMPI version $${VERSION} +++" && \
          rm -Rf ammpi$${VERSION}.tar.gz ammpi$${VERSION} && \
          mkdir ammpi$${VERSION} && \
          cp $(srcdir)/Makefile* $(srcdir)/*.[ch]* $(testdir)/*.[ch]* ammpi$${VERSION} && \

@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMUDP/Makefile                                         $
-#     $Date: 2004/03/18 12:07:33 $
-# $Revision: 1.9 $
+#     $Date: 2004/03/18 13:17:53 $
+# $Revision: 1.10 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -90,7 +90,7 @@ amxdist:
 	@sh -x -c ' \
          VERSION=`grep "#define AMUDP_LIBRARY_VERSION" $(srcdir)/amudp.h | head -1 | awk '"'"'{ print $$3 }'"'"'` \
          export VERSION ; \
-         echo "+++ Building distribution for AMUDP version $$(VERSION) +++" && \
+         echo "+++ Building distribution for AMUDP version $${VERSION} +++" && \
 	 rm -Rf amudp$${VERSION}.tar.gz amudp$${VERSION} && \
          mkdir amudp$${VERSION} && \
          cp $(srcdir)/Makefile* $(srcdir)/*.[ch]* $(testdir)/*.[ch]* amudp$${VERSION} && \
