@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2003/04/01 07:27:36 $
- * $Revision: 1.1 $
+ *     $Date: 2003/04/25 20:10:47 $
+ * $Revision: 1.2 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,13 +20,13 @@ int mynode, nodes;
     fire on the non-exiting nodes.
 */
 char *testdesc[] = {
-  "simultaneous collective gasnet_exit(0)",
-  "simultaneous return from main()",
-  "non-collective gasnet_exit(0), others in barrier",
-  "non-collective SIGINT, others in barrier",
-  "non-collective gasnet_exit(0), others in spin-loop",
-  "collective gasnet_exit(0) between init()/attach()",
-  "non-collective gasnet_exit(0) between init()/attach()"
+  "simultaneous collective gasnet_exit(1)",
+  "simultaneous return from main()... exit_code 0",
+  "non-collective gasnet_exit(3), others in barrier",
+  "non-collective SIGINT, others in barrier ... exit_code 4",
+  "non-collective gasnet_exit(5), others in spin-loop",
+  "collective gasnet_exit(6) between init()/attach()",
+  "non-collective gasnet_exit(7) between init()/attach()"
 };
 #define MAXTEST (sizeof(testdesc)/sizeof(char*))
 
@@ -37,7 +37,7 @@ void testSignalHandler(int sig) {
     abort();
   } else {
     MSG("in SIGQUIT handler, calling gasnet_exit(0)...");
-    gasnet_exit(0);
+    gasnet_exit(4);
   }
 }
 
@@ -54,7 +54,7 @@ int main(int argc, char **argv) {
   if (argc > 1) testid = atoi(argv[1]);
   if (argc < 2 || testid <= 0 || testid > MAXTEST) {
     printf("Usage: %s (errtestnum:1..%i)\n", argv[0], (int)MAXTEST);fflush(stdout);
-    gasnet_exit(1);
+    gasnet_exit(-1);
   }
 
   if (testid == 6 || testid == 7) {
@@ -66,10 +66,10 @@ int main(int argc, char **argv) {
     sched_yield();
     sleep(1);
     if (testid == 6) {
-      gasnet_exit(0);
+      gasnet_exit(6);
       abort();
     } else if (testid == 7 && mynode == nodes - 1) {
-      gasnet_exit(0);
+      gasnet_exit(7);
       abort();
     }
   }
@@ -95,13 +95,13 @@ int main(int argc, char **argv) {
 
   switch (testid) {
     case 1: 
-      gasnet_exit(0);
+      gasnet_exit(testid);
       break;
     case 2: 
-      return 0;
+      return testid;
       break;
     case 3: 
-      if (mynode == nodes-1) { sleep(1); gasnet_exit(0); }
+      if (mynode == nodes-1) { sleep(1); gasnet_exit(testid); }
       else BARRIER();
       break;
     case 4: 
@@ -109,7 +109,7 @@ int main(int argc, char **argv) {
       else BARRIER();
       break;
     case 5: 
-      if (mynode == nodes-1) { sleep(1); gasnet_exit(0); }
+      if (mynode == nodes-1) { sleep(1); gasnet_exit(testid); }
       else while(1);
       break;
     default:
