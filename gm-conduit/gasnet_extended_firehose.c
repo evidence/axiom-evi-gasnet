@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.25 2003/10/05 18:47:07 bonachea Exp $
- * $Date: 2003/10/05 18:47:07 $
+/* $Id: gasnet_extended_firehose.c,v 1.26 2003/10/08 06:06:55 csbell Exp $
+ * $Date: 2003/10/08 06:06:55 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -197,19 +197,19 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 	pop->starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
 	#endif
 
-	/* Pin locally, incrementing reference counts where necessary */
+	/* First pin remotely, so that the local pin can overlap some of the
+	 * time to fulfill the remote pin request.  The remote pin is
+	 * asynchronous and the local pin is synchronous. */
+	firehose_remote_pin(node, (uintptr_t) dest, nbytes,
+	    0, (firehose_request_t *) &(pop->req_remote), NULL,
+	    gasnete_fh_request_put, pop);
+
 	pop->req_local = 
 	    firehose_local_pin((uintptr_t) src, nbytes, NULL);
-	if (pop->req_local == NULL)
-		gasneti_fatalerror("Can't pin locally");
 
 	/* If we were dealing with implicit put, increment the iop */
 	if (pop->iop != NULL)
 		pop->iop->initiated_put_cnt++;
-
-	firehose_remote_pin(node, (uintptr_t) dest, nbytes,
-	    0, (firehose_request_t *) &(pop->req_remote), NULL,
-	    gasnete_fh_request_put, pop);
 
 	return (gasnete_op_t *) pop;
 }
@@ -219,21 +219,13 @@ gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src,
 		     size_t nbytes GASNETE_THREAD_FARG)
 {
 	gasnet_handle_t	handle;
-	if (nbytes > GASNETE_PUT_NON_DMA_CUTOFF) {
-		GASNETI_TRACE_PRINTF(C, 
-		    ("gasnete_put_nb_bulk Firehose (%d,%p <- %p,%d bytes)",
-		    (unsigned) node, dest, src, nbytes));
-		handle = gasnete_firehose_put_bulk(node, dest, src, nbytes, 
+	GASNETI_TRACE_PRINTF(C, 
+	    ("gasnete_put_nb_bulk Firehose (%d,%p <- %p,%d bytes)",
+	    (unsigned) node, dest, src, nbytes));
+
+	handle = gasnete_firehose_put_bulk(node, dest, src, nbytes, 
 		    NULL GASNETE_THREAD_PASS);
-		return handle;
-	}
-	else { 
-		GASNETI_TRACE_PRINTF(C,
-		    ("gasnete_put_nb_bulk Extref (%d,%p <- %p,%d bytes)",
-		    (unsigned) node, dest, src, nbytes));
-		return gasnete_extref_put_nb_bulk(node, dest, src, 
-		    nbytes GASNETE_THREAD_PASS);
-	}
+	return handle;
 }
 
 extern void
@@ -243,17 +235,11 @@ gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 	gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
 	gasnete_iop_t *iop = mythread->current_iop;
 
-	if (nbytes > GASNETE_PUT_NON_DMA_CUTOFF) {
-		GASNETI_TRACE_PRINTF(C, 
-		    ("gasnete_put_nbi_bulk Firehose (%d,%p <- %p,%d bytes)",
-		    (unsigned) node, dest, src, nbytes));
-		gasnete_firehose_put_bulk(node, dest, src, nbytes,
-		    iop GASNETE_THREAD_PASS);
-	}
-	else
-		gasnete_extref_put_nbi_bulk(node, dest, src, 
-		    nbytes GASNETE_THREAD_PASS);
+	GASNETI_TRACE_PRINTF(C, 
+	    ("gasnete_put_nbi_bulk Firehose (%d,%p <- %p,%d bytes)",
+	    (unsigned) node, dest, src, nbytes));
 
+	gasnete_firehose_put_bulk(node, dest, src, nbytes, iop GASNETE_THREAD_PASS);
 	return;
 }
 
@@ -308,35 +294,27 @@ gasnete_put_nb (gasnet_node_t node, void *dest, void *src,
 {
 	gasnet_handle_t	handle;
 
-	if (nbytes < GASNETE_PUT_NON_BULK_CUTOFF) {
-		GASNETI_TRACE_PRINTF(C, 
-		    ("gasnete_put_nb Firehose (%d,%p <- %p,%d bytes)",
-		    (unsigned) node, dest, src, nbytes));
-		handle = gasnete_firehose_put(node, dest, src, nbytes, 
+	GASNETI_TRACE_PRINTF(C, 
+	    ("gasnete_put_nb Firehose (%d,%p <- %p,%d bytes)",
+	    (unsigned) node, dest, src, nbytes));
+
+	handle = gasnete_firehose_put(node, dest, src, nbytes, 
 		    NULL GASNETE_THREAD_PASS);
-		return handle;
-	}
-	else
-		return gasnete_extref_put_nb(node, dest, src, 
-		    nbytes GASNETE_THREAD_PASS);
+	return handle;
 }
 
 extern void
 gasnete_put_nbi(gasnet_node_t node, void *dest, void *src, 
 		size_t nbytes GASNETE_THREAD_FARG)
 {
-	if (nbytes < GASNETE_PUT_NON_BULK_CUTOFF) {
-		gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-		gasnete_iop_t *iop = mythread->current_iop;
-		GASNETI_TRACE_PRINTF(C, 
-		    ("gasnete_put_nbi Firehose (%d,%p <- %p,%d bytes)",
-		    (unsigned) node, dest, src, nbytes));
-		gasnete_firehose_put(node, dest, src, nbytes, 
-		    iop GASNETE_THREAD_PASS);
-	}
-	else
-		gasnete_extref_put_nbi(node, dest, src, 
-		    nbytes GASNETE_THREAD_PASS);
+	gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+	gasnete_iop_t *iop = mythread->current_iop;
+	GASNETI_TRACE_PRINTF(C, 
+	    ("gasnete_put_nbi Firehose (%d,%p <- %p,%d bytes)",
+	    (unsigned) node, dest, src, nbytes));
+
+	gasnete_firehose_put(node, dest, src, nbytes, iop GASNETE_THREAD_PASS);
+
 	return;
 }
 
@@ -400,12 +378,6 @@ extern int firehose_remote_callback(gasnet_node_t node,
 {
 	gasneti_mutex_lock(&gasnetc_lock_gm);
 	gasnetc_token_lo_poll();
-
-	/*
-	printf("%d> GM_PUT_rev: (%p,%d) -> (%p,%d)\n", gasnetc_mynode,
-	    (void *) args->remote_addr, args->nbytes, 
-	    (void *) args->local_addr, args->nbytes);
-	    */
 
 	GASNETI_TRACE_PRINTF(C, 
 	    ("Firehose RDMA PUT(rev) %p <- (%d,%p) (%d bytes)", 
@@ -580,18 +552,7 @@ gasnete_firehose_get(void *dest, gasnet_node_t node, void *src,
 	gop->fh_stats = fh_onesided;
 	#endif
 
-	/* Pin locally, incrementing reference counts where necessary */
-	gop->req_local = 
-	    firehose_local_pin((uintptr_t) dest, nbytes, NULL);
-	if (gop->req_local == NULL)
-		gasneti_fatalerror("Can't pin locally");
-
-	if (iop != NULL)
-		iop->initiated_get_cnt++;
-
-	/*
-	printf("%d> GET_ARGS (dest=%p,src=%p,len=%d)\n", gasnetc_mynode, dest, src, nbytes);
-	*/
+	/* First send the remote pin then issue the local pin */
 	args.local_addr  = (uintptr_t) dest;
 	args.remote_addr = (uintptr_t) src;
 	args.nbytes      = nbytes;
@@ -600,6 +561,12 @@ gasnete_firehose_get(void *dest, gasnet_node_t node, void *src,
 	    FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK,
 	    (firehose_request_t *) &(gop->req_remote), &args,
 	    gasnete_fh_request_get, gop);
+
+	gop->req_local = 
+	    firehose_local_pin((uintptr_t) dest, nbytes, NULL);
+
+	if (iop != NULL)
+		iop->initiated_get_cnt++;
 
 	return (gasnete_op_t *) gop;
 }
@@ -610,40 +577,28 @@ gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src,
 {
 	gasnete_boundscheck(node, src, nbytes);
 
-	if (nbytes > GASNETE_GET_NON_DMA_CUTOFF) {
-		GASNETI_TRACE_PRINTF(C, 
-		    ("gasnete_get_nb_bulk Firehose (%d,%p <- %p,%d bytes)",
-		    (unsigned) node, dest, src, nbytes));
-		return gasnete_firehose_get(dest, node, src, nbytes, 
+	GASNETI_TRACE_PRINTF(C, 
+	    ("gasnete_get_nb_bulk Firehose (%d,%p <- %p,%d bytes)",
+	    (unsigned) node, dest, src, nbytes));
+
+	return gasnete_firehose_get(dest, node, src, nbytes, 
 		    NULL GASNETE_THREAD_PASS);
-	}
-	else {
-		GASNETI_TRACE_PRINTF(C,
-		    ("gasnete_get_nb_bulk Extref (%d,%p <- %p,%d bytes)",
-		    (unsigned) node, dest, src, nbytes));
-		return gasnete_extref_get_nb_bulk(dest, node, src, 
-		    nbytes GASNETE_THREAD_PASS);
-	}
 }
 
 extern void
 gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, 
 		      size_t nbytes GASNETE_THREAD_FARG)
 {
+	gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+	gasnete_iop_t *iop = mythread->current_iop;
+
 	gasnete_boundscheck(node, src, nbytes);
 
-	if (nbytes > GASNETE_GET_NON_DMA_CUTOFF) {
-		gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
-		gasnete_iop_t *iop = mythread->current_iop;
-		GASNETI_TRACE_PRINTF(C, 
-		    ("gasnete_get_nbi_bulk Firehose (%d,%p <- %p,%d bytes)",
-		    (unsigned) node, dest, src, nbytes));
-		gasnete_firehose_get(dest, node, src, nbytes, 
-		    iop GASNETE_THREAD_PASS);
-	}
-	else 
-		gasnete_extref_get_nbi_bulk(dest, node, src, 
-		    nbytes GASNETE_THREAD_PASS);
+	GASNETI_TRACE_PRINTF(C, 
+	    ("gasnete_get_nbi_bulk Firehose (%d,%p <- %p,%d bytes)",
+	    (unsigned) node, dest, src, nbytes));
+	gasnete_firehose_get(dest, node, src, nbytes, iop GASNETE_THREAD_PASS);
+
 	return;
 }
 

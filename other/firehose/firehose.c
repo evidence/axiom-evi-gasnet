@@ -43,6 +43,10 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
 {
 	int	i;
 
+	/* Make sure the refc field in buckets can also be used as a FIFO
+	 * pointer */
+	assert(sizeof(fh_refc_t) == sizeof(void *));
+
 	FH_TABLE_LOCK;
 
 	fh_mynode = gasnet_mynode();
@@ -458,8 +462,10 @@ fh_request_free(firehose_request_t *req)
 		fh_free_completion_callback(
 		    (fh_completion_callback_t *)req->internal);
 	}
+	/*
 	else
 		assert(req->internal == NULL);
+		*/
 
 	if (req->flags & FH_FLAG_FHREQ) {
 		req->flags = 0;

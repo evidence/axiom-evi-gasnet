@@ -473,9 +473,12 @@ fh_region_ispinned(gasnet_node_t node, firehose_region_t *region)
  * Both functions return the new reference count for the incremented count.
  *
  */
-fh_refc_t
+
+fh_refc_t *
 fh_bucket_acquire(gasnet_node_t node, fh_bucket_t *entry)
 {
+	fh_refc_t	*rp = FH_BUCKET_REFC(entry);
+
 	FH_TABLE_ASSERT_LOCKED;
 	
 	/* 
@@ -501,32 +504,31 @@ fh_bucket_acquire(gasnet_node_t node, fh_bucket_t *entry)
 			assert(FH_NODE(entry) == fh_mynode);
 			FH_BSTATE_ASSERT(entry, fh_local_fifo);
 
-			FH_REFCSET(FH_REFCOUNT(entry), ref_L, !ref_L);
+			rp->refc_l = ref_L;
+			rp->refc_r = !ref_L;
+
 			fhc_LocalOnlyBucketsPinned -= !ref_L;
 			fhc_LocalVictimFifoBuckets--;
 			FH_BSTATE_SET(entry, fh_used);
 			FH_SET_USED(entry);
 
 			FH_TRACE_BUCKET(entry, ACQFIFO);
-			return 1;
 		}
 		else {
 			FH_SET_USED(entry);
 			FH_BSTATE_ASSERT(entry, fh_used);
 			if (ref_L) {
-				FH_LREFCINC(FH_REFCOUNT(entry));
+				rp->refc_l++;
 				FH_TRACE_BUCKET(entry, ACQUIRE);
-				return FH_LREFC(FH_REFCOUNT(entry));
 			}
 			else {
-				if (FH_RREFC(FH_REFCOUNT(entry)) == 0) {
-					assert(FH_LREFC(
-					    FH_REFCOUNT(entry) > 0));
+				if (rp->refc_r == 0) {
+					assert(rp->refc_l > 0);
 					fhc_LocalOnlyBucketsPinned--;
 				}
-				FH_RREFCINC(FH_REFCOUNT(entry));
+
+				rp->refc_r++;
 				FH_TRACE_BUCKET(entry, ACQUIRE);
-				return FH_RREFC(FH_REFCOUNT(entry));
 			}
 		}
 	}
@@ -543,34 +545,37 @@ fh_bucket_acquire(gasnet_node_t node, fh_bucket_t *entry)
 			FH_BSTATE_ASSERT(entry, fh_remote_fifo);
 
 			fhc_RemoteVictimFifoBuckets[node]--;
-			FH_REFCSET(FH_REFCOUNT(entry), 0, 1);
+			rp->refc_l = 0;
+			rp->refc_r = 1;
+			
 			FH_SET_USED(entry);
 			FH_BSTATE_SET(entry, fh_used);
 			FH_TRACE_BUCKET(entry, ACQFIFO);
-			return 0;
 		}
 		else {
 			/* Pending buckets must be handled separately */
 			assert(!FH_IS_REMOTE_PENDING(entry));
 			FH_BSTATE_ASSERT(entry, fh_used);
 
-			FH_RREFCINC(FH_REFCOUNT(entry));
+			rp->refc_r++;
+			assert(rp->refc_r > 0);
 			FH_TRACE_BUCKET(entry, ACQUIRE);
-			return FH_RREFC(FH_REFCOUNT(entry));
 		}
 	}
+	return rp;
 }
 
-fh_refc_t
+fh_refc_t *
 fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 {
+	fh_refc_t	*rp = FH_BUCKET_REFC(entry);
+
 	FH_TABLE_ASSERT_LOCKED;
 
 	assert(entry != NULL);
 	FH_BSTATE_ASSERT(entry, fh_used);
 
 	if (FH_NODE(entry) == fh_mynode) {
-		fh_refc_t	ret;
 		int		loc = (node == fh_mynode);
 		/*
 		 * 'ref_L' is TRUE if we are acquiring a local bucket for the
@@ -583,15 +588,16 @@ fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 		assert(!FH_IS_LOCAL_FIFO(entry));
 
 		if (loc) {
-			FH_LREFCDEC(FH_REFCOUNT(entry));
-			ret = FH_LREFC(FH_REFCOUNT(entry));
+			assert(rp->refc_l > 0);
+			rp->refc_l--;
 		}
 		else {
-			FH_RREFCDEC(FH_REFCOUNT(entry));
-			ret = FH_RREFC(FH_REFCOUNT(entry));
+			assert(rp->refc_r > 0);
+			rp->refc_r--;
 		}
 
-		if (FH_REFC_IS_VICTIM(FH_REFCOUNT(entry))) {
+		/* As a result, the bucket may be unused */
+		if (rp->refc_r == 0 && rp->refc_l == 0) {
 			FH_TAILQ_INSERT_TAIL(&fh_LocalFifo, entry);
 
 			fhc_LocalOnlyBucketsPinned += !loc;
@@ -599,14 +605,14 @@ fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 
 			FH_BSTATE_SET(entry, fh_local_fifo);
 			FH_TRACE_BUCKET(entry, ADDFIFO);
-			return 0;
+			return rp;
 		}
 		else {
-			if (FH_RREFC(FH_REFCOUNT(entry)) == 0 && !loc)
+			if (rp->refc_r == 0 && !loc) 
 				fhc_LocalOnlyBucketsPinned++;
 
 			FH_TRACE_BUCKET(entry, RELEASE);
-			return ret;
+			return rp;
 		}
 	}
 	/* The bucket is a remote bucket, and it cannot contain any local
@@ -617,10 +623,10 @@ fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 		assert(node != fh_mynode);
 		assert(!FH_IS_REMOTE_PENDING(entry));
 
-		FH_RREFCDEC(FH_REFCOUNT(entry));
+		assert(rp->refc_r > 0);
+		rp->refc_r--;
 
-		refc = FH_RREFC(FH_REFCOUNT(entry));
-		if (refc == 0) {
+		if (rp->refc_r== 0) {
 			FH_TAILQ_INSERT_TAIL(
 			    &fh_RemoteNodeFifo[node], entry);
 
@@ -628,11 +634,11 @@ fh_bucket_release(gasnet_node_t node, fh_bucket_t *entry)
 
 			FH_BSTATE_SET(entry, fh_remote_fifo);
 			FH_TRACE_BUCKET(entry, ADDFIFO);
-			return 0;
+			return rp;
 		}
 		else {
 			FH_TRACE_BUCKET(entry, RELEASE);
-			return refc;
+			return rp;
 		}
 	}
 }
@@ -1077,6 +1083,7 @@ fhi_AdjustLocalFifoAndPin(gasnet_node_t node, fhi_RegionPool_t *rpool_pin)
 {
 	int			b_unpin, pin_num;
 	firehose_region_t	*reg_pin;
+	fhi_RegionPool_t	*rpool;
 
 	FH_TABLE_ASSERT_LOCKED;
 
@@ -1406,7 +1413,9 @@ fhi_InitLocalRegionsList(gasnet_node_t node, firehose_region_t *region,
 		FH_FOREACH_BUCKET(region[i].addr,end_addr,bucket_addr) {
 			bd = fh_bucket_add(fh_mynode, bucket_addr);
 			FH_BSTATE_SET(bd, fh_used);
-			FH_REFCSET(FH_REFCOUNT(bd), loc, rem);
+
+			FH_BUCKET_REFC(bd)->refc_l = loc;
+			FH_BUCKET_REFC(bd)->refc_r = rem;
 
 			FH_TRACE_BUCKET(bd, INIT);
 		}
@@ -1731,7 +1740,8 @@ fhi_TryAcquireRemoteRegion(gasnet_node_t node, firehose_request_t *req,
 					     (void *) FH_BADDR(bd), FH_NODE(bd), 
 					     req));
 				}
-				FH_RREFCINC(FH_REFCOUNT(bd));
+				FH_BUCKET_REFC(bd)->refc_r++;
+				assert(FH_BUCKET_REFC(bd)->refc_r > 0);
 				FH_TRACE_BUCKET(bd, PENDING);
 			}
 			else
