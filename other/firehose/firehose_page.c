@@ -256,12 +256,17 @@ fh_fifoq_t	*fh_RemoteNodeFifo = NULL;
  *     Maximum amount of victims that may be pinned other than M.  At all
  *     fhc_LocalOnlyBucketsPinned + 
  *        fhc_LocalVictimFifoBuckets < fhc_MaxVictimBuckets
+ * 
+ * fhc_MaxRemoteBuckets - static count
+ *     Maximum number of buckets that may be pinned in a single AM call
+ *     in the worst case.
  */
 
 int	fhc_LocalOnlyBucketsPinned;
 int	fhc_LocalOnlyBucketsInFlight;
 int	fhc_LocalVictimFifoBuckets;
 int	fhc_MaxVictimBuckets;
+int	fhc_MaxRemoteBuckets;
 
 #define FHC_MAXVICTIM_BUCKETS_AVAIL 					\
 		(fhc_MaxVictimBuckets - fhc_LocalOnlyBucketsPinned)
@@ -791,7 +796,6 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	 */
 	{
 		unsigned	med_regions, med_buckets;
-		unsigned	med_maxbytes, fh_maxbytes;
 
 		med_regions = (gasnet_AMMaxMedium() 
 				- sizeof(firehose_remotecallback_args_t))
@@ -805,18 +809,17 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		 *
 		 */
 		med_buckets  = FH_MAX_BUCKETS_FOR_REGIONS(med_regions);
-		med_maxbytes = (med_buckets/2) * FH_BUCKET_SIZE;
-		fh_maxbytes  = fhc_RemoteBucketsM * FH_BUCKET_SIZE;
+		fhc_MaxRemoteBuckets = MIN(med_buckets/2, fhc_RemoteBucketsM);
 
 		fhinfo->max_RemoteRegions = 0;
 		fhinfo->max_LocalRegions= 0;
 
 		fhinfo->max_LocalPinSize  = 
 		    fhc_MaxVictimBuckets * FH_BUCKET_SIZE;
-		fhinfo->max_RemotePinSize = MIN(med_maxbytes, fh_maxbytes);
+		fhinfo->max_RemotePinSize = 
+		    fhc_MaxRemoteBuckets * FH_BUCKET_SIZE;
 		fh_max_regions = 
-			FH_MIN_REGIONS_FOR_BUCKETS(
-			    fhinfo->max_RemotePinSize >> FH_BUCKET_SHIFT);
+			FH_MIN_REGIONS_FOR_BUCKETS(fhc_MaxRemoteBuckets);
 
 		GASNETI_TRACE_PRINTF(C, 
 		    ("Firehose M=%ld (fh=%ld)\tprepinned=%ld (buckets=%d)",
