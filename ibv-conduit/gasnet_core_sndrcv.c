@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2004/09/28 19:58:54 $
- * $Revision: 1.55 $
+ *     $Date: 2004/10/22 19:00:57 $
+ * $Revision: 1.56 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -289,8 +289,10 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
           GASNETI_TRACE_AMLONG_REQHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
         } else {
 	  #if !GASNETC_PIN_SEGMENT
-	    /* No RDMA for ReplyLong.  So, must relocate the payload. */
-	    memcpy(data, GASNETC_MSG_LONG_DATA(buf, numargs), nbytes);
+	    if (GASNETC_MSG_SRCIDX(flags) != gasnetc_mynode) {
+	      /* No RDMA for ReplyLong.  So, must relocate the payload. */
+	      memcpy(data, GASNETC_MSG_LONG_DATA(buf, numargs), nbytes);
+	    }
 	  #endif
           GASNETI_TRACE_AMLONG_REPHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
 	}
