@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/09/21 20:55:26 $
-# $Revision: 1.185 $
+#     $Date: 2004/09/21 22:42:45 $
+# $Revision: 1.186 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.185 $)
+AC_REVISION($Revision: 1.186 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -63,7 +63,7 @@ if $GMAKE --version | grep GNU ; then
 else
 # We don't actually require GNU Make at the moment
 #  AC_MSG_ERROR(cannot find a version of GNU make - please install GNU make and/or set \$GMAKE to indicate where it's located)
-  AC_MSG_WARN(cannot find a version of GNU make - if you encounter make problems, install GNU make and/or set \$GMAKE to indicate where it's located)
+  AC_MSG_WARN([cannot find a version of GNU make - if you encounter make problems, install GNU make and/or set \$GMAKE to indicate where it's located])
 fi
 AC_SUBST(GMAKE)
 
