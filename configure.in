@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/01 16:44:47 $
-# $Revision: 1.221 $
+#     $Date: 2005/02/04 12:48:37 $
+# $Revision: 1.222 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.221 $)
+AC_REVISION($Revision: 1.222 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1745,12 +1745,12 @@ if test $enabled_shmem = yes; then
       SHMEM_FLAGS="-D${SHMEM_FLAVOUR} "
     else
       AC_MSG_RESULT(no)
-      GASNET_MSG_ERROR(build test failed: I don't know how to build SHMEM programs on your system)
+      AC_MSG_WARN(build test failed: I don't know how to build SHMEM programs on your system)
       have_shmem=no
     fi
   fi
   if test "$force_shmem$have_shmem" = yesno; then
-    AC_MSG_WARN(User requested --enable-shmem but I don't know how to build shmem programs for your system)
+    GASNET_MSG_ERROR(User requested --enable-shmem but I don't know how to build shmem programs for your system)
   fi
 fi
 
