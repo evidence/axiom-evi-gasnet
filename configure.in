@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/09 03:21:15 $
-# $Revision: 1.111 $
+#     $Date: 2004/03/09 21:50:52 $
+# $Revision: 1.112 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.111 $)
+AC_REVISION($Revision: 1.112 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1045,7 +1045,7 @@ GASNET_IF_ENABLED(vapi, Enable the VAPI (Mellanox InfiniBand) network conduit,
 if test $have_vapi = yes; then
   GASNET_ENV_DEFAULT(VAPI_INCLUDE, "$MTHOME/include")
   GASNET_ENV_DEFAULT(VAPI_LIBDIR, "$MTHOME/lib")
-  GASNET_ENV_DEFAULT(VAPI_LIBS, -lvapi -lmtl_common -lmosal -lpthread -lmpga)
+  GASNET_ENV_DEFAULT(VAPI_LIBS, [-lvapi -lmtl_common -lmosal -lmpga])
 
   AC_MSG_CHECKING(for working VAPI configuration)
   if test "$mpi_test_worked" != yes; then
