@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/08/18 17:46:49 $
- * $Revision: 1.60 $
+ *     $Date: 2004/08/18 21:27:42 $
+ * $Revision: 1.61 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,6 +83,13 @@ void gasnetc_run_handler(gasnetc_token_t *token);
 
 gasnetc_uhdr_freelist_t gasnetc_uhdr_freelist;
 
+#define GASNETC_CONFIG_MSG(to_stderr,msg) do { \
+	if (to_stderr) {                       \
+	    fprintf(stderr,"%s\n",msg);        \
+	}                                      \
+	GASNETI_TRACE_MSG(C,msg);              \
+    } while (0)
+    
 /* -------------------------------------------------------------------
  * End: LAPI specific variables
  * -------------------------------------------------------------------
@@ -131,6 +138,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     if (gasneti_init_done) 
 	GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
+    gasneti_init_done = 1; /* enable early to allow tracing */
 
     if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
 
@@ -185,33 +193,37 @@ static int gasnetc_init(int *argc, char ***argv) {
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_DATA_SZ, &gasnetc_max_lapi_data_size));
 #endif
 
-    if (task_id == 0) {
-	int printversion = 0;
-	char *gas_ver = NULL;
-	if ( (gas_ver = getenv("GASNET_LAPI_VERSION")) != NULL ) {
-	    if (gas_ver[0] != '0')
-		printversion = 1;
-	}
-	if (printversion) {
+    /* Init tracing early */
+    gasneti_trace_init(*argc, *argv);
+
+    {
+	char *gas_ver = getenv("GASNET_LAPI_VERSION");
+	int to_stderr = (gasnetc_mynode == 0) && (gas_ver != NULL) && (gas_ver[0] != '0');
+	char buf[80];
+
 #if GASNETC_LAPI_FEDERATION
-	    fprintf(stderr,"IBM FEDERATION HARDWARE\n");
+	GASNETC_CONFIG_MSG(to_stderr,"IBM FEDERATION HARDWARE");
 #endif
 #if GASNETC_LAPI_COLONY
-	    fprintf(stderr,"IBM COLONY HARDWARE\n");
+	GASNETC_CONFIG_MSG(to_stderr,"IBM COLONY HARDWARE");
 #endif
 #ifdef GASNETC_LAPI_VERSION_A
-	    fprintf(stderr,"LAPI VERSION NUMBER = %d.%d.%d.%d\n",
-		    GASNETC_LAPI_VERSION_A, GASNETC_LAPI_VERSION_B,
-		    GASNETC_LAPI_VERSION_C, GASNETC_LAPI_VERSION_D);
+	(void)snprintf(buf,80,"LAPI VERSION NUMBER = %d.%d.%d.%d",
+                              GASNETC_LAPI_VERSION_A, GASNETC_LAPI_VERSION_B,
+                              GASNETC_LAPI_VERSION_C, GASNETC_LAPI_VERSION_D);
+	GASNETC_CONFIG_MSG(to_stderr,buf);
 #endif
 #if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
-	    fprintf(stderr,"WORKAROUND FOR LAPI FEDERATION POLLING/FLOWCONTROL BUG\n");
+	GASNETC_CONFIG_MSG(to_stderr,"WORKAROUND FOR LAPI FEDERATION POLLING/FLOWCONTROL BUG");
 #endif
-	    fprintf(stderr,"GASNET TOKEN SIZE  = %d\n",GASNETC_TOKEN_SIZE);
-	    fprintf(stderr,"GASNET TOKEN REC   = %d\n",sizeof(gasnetc_token_t));
-	    fprintf(stderr,"MAX LAPI UHDR SIZE = %d\n",gasnetc_max_lapi_uhdr_size);
-	    fprintf(stderr,"MAX LAPI DATA SIZE = %ld\n",(ulong)gasnetc_max_lapi_data_size);
-	}
+	(void)snprintf(buf,80,"GASNET TOKEN SIZE   = %d",(int)GASNETC_TOKEN_SIZE);
+	GASNETC_CONFIG_MSG(to_stderr,buf);
+	(void)snprintf(buf,80,"GASNET TOKEN REC    = %d",(int)sizeof(gasnetc_token_t));
+	GASNETC_CONFIG_MSG(to_stderr,buf);
+	(void)snprintf(buf,80,"MAX LAPI UHDR SIZE  = %d",(int)gasnetc_max_lapi_uhdr_size);
+	GASNETC_CONFIG_MSG(to_stderr,buf);
+	(void)snprintf(buf,80,"MAX LAPI DATA SIZE  = %lu",(unsigned long)gasnetc_max_lapi_data_size);
+	GASNETC_CONFIG_MSG(to_stderr,buf);
     }
 
     if (sizeof(gasnetc_token_t) > gasnetc_max_lapi_uhdr_size) {
@@ -301,7 +313,10 @@ static int gasnetc_init(int *argc, char ***argv) {
      */
     atexit(gasnetc_atexit);
 
+#if 0
+    /* Done earlier to allow tracing */
     gasneti_init_done = 1;  
+#endif
 
     return GASNET_OK;
 }
@@ -310,7 +325,11 @@ static int gasnetc_init(int *argc, char ***argv) {
 extern int gasnet_init(int *argc, char ***argv) {
     int retval = gasnetc_init(argc, argv);
     if (retval != GASNET_OK) GASNETI_RETURN(retval);
+#if 0
+    /* Already done in gasnetc_init() to allow tracing of init steps */
     gasneti_trace_init(*argc, *argv);
+#endif
+
     return GASNET_OK;
 }
 
