@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2004/11/10 15:43:35 $
- * $Revision: 1.83 $
+ *     $Date: 2004/11/11 20:36:32 $
+ * $Revision: 1.84 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -936,12 +936,14 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
     if (traceheader) {
       char srclinestr[255];
       srclinestr[0] ='\0';
-      if (GASNETI_TRACE_ENABLED(N)) {
-        const char *filename; 
-        unsigned int linenum;
-        gasneti_trace_getsourceline(&filename, &linenum);
-        if (filename) sprintf(srclinestr," [%s:%i]", filename, linenum);
-      }
+      #ifdef GASNET_TRACE
+        if (GASNETI_TRACE_ENABLED(N)) {
+          const char *filename; 
+          unsigned int linenum;
+          gasneti_trace_getsourceline(&filename, &linenum);
+          if (filename) sprintf(srclinestr," [%s:%i]", filename, linenum);
+        }
+      #endif
       #if GASNETI_THREADS
         fprintf(fp, "%i(%x) %8.6fs>%s (%c) %s%s", 
           (int)gasnet_mynode(), (int)(uintptr_t)pthread_self(), time, srclinestr, *type,
