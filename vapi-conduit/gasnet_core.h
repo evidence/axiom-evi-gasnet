@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2003/03/08 00:07:09 $
- * $Revision: 1.1 $
+ *     $Date: 2003/03/08 00:53:26 $
+ * $Revision: 1.2 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,12 +14,10 @@
 #define _GASNET_CORE_H
 
 #include <stdlib.h>
-#ifdef GASNETI_THREADS
-  #ifdef LINUX
-   struct timespec; /* avoid an annoying warning on Linux */
-  #endif
-  #include <pthread.h>
+#ifdef LINUX
+ struct timespec; /* avoid an annoying warning on Linux */
 #endif
+#include <pthread.h>
 
 #include <gasnet_core_help.h>
 
@@ -87,18 +85,10 @@ char *gasnet_getenv(const char *s) {
 /*
   No-interrupt sections
   =====================
+  VAPI conduit does not run handlers from interrupts
 */
-/* conduit may or may not need this based on whether interrupts are used for running handlers */
-#if ###
-  extern void gasnetc_hold_interrupts();
-  extern void gasnetc_resume_interrupts();
-
-  #define gasnet_hold_interrupts    gasnetc_hold_interrupts
-  #define gasnet_resume_interrupts  gasnetc_resume_interrupts
-#else
-  #define gasnet_hold_interrupts()
-  #define gasnet_resume_interrupts()
-#endif
+#define gasnet_hold_interrupts()
+#define gasnet_resume_interrupts()
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -106,24 +96,14 @@ char *gasnet_getenv(const char *s) {
   ==================
 */
 typedef struct _gasnet_hsl_t {
-  #ifdef GASNETI_THREADS
     pthread_mutex_t lock;
-  #else
-    char _dummy; /* prevent an illegal empty structure decl */
-  #endif
 
   #if defined(STATS) || defined(TRACE)
     gasneti_stattime_t acquiretime;
   #endif
-
-  ### /* more state may be required for conduits using interrupts */
 } gasnet_hsl_t;
 
-#ifdef GASNETI_THREADS
-  #define GASNETC_LOCK_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
-#else 
-  #define GASNETC_LOCK_MUTEX_INIT 0
-#endif
+#define GASNETC_LOCK_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
 
 #if defined(STATS) || defined(TRACE)
   #define GASNETC_LOCK_STAT_INIT ,0 
@@ -134,7 +114,6 @@ typedef struct _gasnet_hsl_t {
 #define GASNET_HSL_INITIALIZER { \
   GASNETC_LOCK_MUTEX_INIT        \
   GASNETC_LOCK_STAT_INIT         \
-  ###                            \
   }
 
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
@@ -152,10 +131,10 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
   ==========================
 */
 
-#define gasnet_AMMaxArgs()          ((size_t)###)
-#define gasnet_AMMaxMedium()        ((size_t)###)
-#define gasnet_AMMaxLongRequest()   ((size_t)###)
-#define gasnet_AMMaxLongReply()     ((size_t)###)
+#define gasnet_AMMaxArgs()          ((size_t)16)
+#define gasnet_AMMaxMedium()        ((size_t)512)	/* XXX: enlarge this later */
+#define gasnet_AMMaxLongRequest()   ((size_t)(0x7fffffff))	/* XXX: or is it 0x80000000 */
+#define gasnet_AMMaxLongReply()     ((size_t)(0x7fffffff))	/* XXX: or is it 0x80000000 */
 
 /* ------------------------------------------------------------------------------------ */
 /*

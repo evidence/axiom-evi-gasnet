@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2003/03/08 00:07:09 $
- * $Revision: 1.1 $
+ *     $Date: 2003/03/08 00:53:26 $
+ * $Revision: 1.2 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,10 +20,21 @@
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
-#define GASNET_ALIGNED_SEGMENTS   ### 
+#define GASNET_ALIGNED_SEGMENTS   0	/* XXX: fix this later? */
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */
 #define CONDUIT_CORE_STATS(CNT,VAL,TIME) 
+
+/* XXX:
+ * The VAPI conduit requires real locking, even for GASNET_SYNC,
+ * because there is a network progress thread.
+ * By defining this here we can be sure the extended-ref impl
+ * is compiled with threads support.
+ * This will go away when we implement the extended API directly.
+ */
+#ifndef GASNETI_THREADS
+  #define GASNETI_THREADS
+#endif
 
 #endif
