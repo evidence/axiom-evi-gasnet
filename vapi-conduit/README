@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.17 $
+$Revision: 1.18 $
 
 @ TOC: @
 @ Section: Bootstrapping @
@@ -229,7 +229,7 @@ $Revision: 1.17 $
     increasing this value.
 
   + GASNET_AM_OUST_LIMIT
-    This give the integer number of outstanding AM Requests which can
+    This gives the integer number of outstanding AM Requests which can
     be in-flight simultaneously from each node, with "in-flight" defined
     as in GASNET_AM_OUST_PP.
     This is the number of receive buffers which must be allocated for
@@ -242,19 +242,31 @@ $Revision: 1.17 $
   + GASNET_BBUF_LIMIT
     This gives the maximum number of pre-pinned bounce buffers allocated
     on each node.  These buffers are needed for assembly of AM headers
-    (and the payload of mediums), and for gets and puts with the local
+    (and the payload of mediums), and for some puts with the local
     address outside the GASNet segment.  The default is 1024, which results
     in a limit of 4MB (unless GASNETC_BUFSZ is changed at compile time).
     The actual number of buffers allocated maybe less if the values of
     GASNET_OP_OUST_PP and GASNET_AP_OUST_LIMIT are such that all
     GASNET_BBUF_LIMIT buffers could never be consumed.
     Reducing this parameter limits the outstanding number of operations
-    which consume bounce buffers.  This includes all Active Messages, gets
-    with a destination outside the GASNet segment, and puts with a source
-    outside the GASNet segment (excluding those of size less than or equal
-    to GASNETC_PUT_INLINE_LIMIT which is currently 72 bytes).  If you
-    believe that throughput of these operations is too small, you may try
-    increasing this value.
+    which consume bounce buffers.  This includes all Active Messages,
+    and non-bulk non-blocking puts with a source outside the GASNet segment
+    (excluding those of size less than or equal to GASNETC_PUT_INLINE_LIMIT
+    which is currently 72 bytes).  If you believe that throughput of these
+    operations is too small, you may try increasing this value.
+   
+  + GASNET_PIN_MAXSZ
+    This gives the maximum size of a single VAPI pinned region, and must
+    be a power of two.  If the GASNet segment is larger than this size in a
+    GASNET_SEGMENT_FAST configuration, then it will be pinned using multiple
+    regions.  This works around an observed bug in Mellanox HCAs and/or
+    drivers in which large regions lead to premature trashing of the HCA's
+    on board TPT (Translation and Protection Table) cache while pinning
+    the same memory with multiple smaller regions does not.
+    If you see throughput of large messages dropping off sharply with an
+    increase in message size, you may try reducing this value.
+    The suffixes "K", "M" and "G" are interpreted as Kilobytes, Megabytes
+    and Gigabytes respectively.  The current default is 256K.
    
 @ Section: Core API @
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/03/22 00:05:16 $
- * $Revision: 1.80 $
+ *     $Date: 2005/03/22 19:19:30 $
+ * $Revision: 1.81 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,6 +17,9 @@
 #include <sys/time.h>
 #include <sys/resource.h>
  
+/* In firehose_internal.h */
+extern unsigned long fh_getenv(const char *var, unsigned long multiplier);
+
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
@@ -44,6 +47,9 @@ GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_COR
 
 /* Limit on prepinned send bounce buffers */
 #define GASNETC_DEFAULT_BBUF_LIMIT	1024	/* Max bounce buffers prepinned */
+
+/* Limit on size of prepinned regions */
+#define GASNETC_DEFAULT_PIN_MAXSZ	(256*1024)
 
 /* Use of rcv thread */
 #ifndef GASNETC_DEFAULT_RCV_THREAD
@@ -75,12 +81,12 @@ VAPI_pd_hndl_t	gasnetc_pd;
   gasnetc_memreg_t	*gasnetc_seg_reg;
   uintptr_t		gasnetc_seg_start;
   uintptr_t		gasnetc_seg_end;
+  unsigned long		gasnetc_pin_maxsz;
+  int			gasnetc_pin_maxsz_shift;
 #endif
-#if GASNETC_USE_FIREHOSE
-  firehose_info_t	gasnetc_firehose_info;
-  #if FIREHOSE_VAPI_USE_FMR
-    EVAPI_fmr_t		gasnetc_fmr_props;
-  #endif
+firehose_info_t	gasnetc_firehose_info;
+#if FIREHOSE_VAPI_USE_FMR
+  EVAPI_fmr_t		gasnetc_fmr_props;
 #endif
 
 /* Used only once, to exchange addresses at connection time */
@@ -332,7 +338,7 @@ static int gasnetc_load_settings(void) {
       sprintf(_defval,"%i",(default_val));                               \
       program_var = atoi(gasneti_getenv_withdefault(#env_key, _defval)); \
       if (program_var < minval)                                          \
-        GASNETI_RETURN_ERRR(BAD_ARG, "("#env_key" < 1) in environment"); \
+        GASNETI_RETURN_ERRR(BAD_ARG, "("#env_key" < "#minval") in environment"); \
     } while (0)
 
   GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_OP_OUST_LIMIT, GASNETC_DEFAULT_OP_OUST_LIMIT, 1);
@@ -340,6 +346,26 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_OUST_LIMIT, GASNETC_DEFAULT_AM_OUST_LIMIT, 1);
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_OUST_PP, GASNETC_DEFAULT_AM_OUST_PP, 1);
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_LIMIT, GASNETC_DEFAULT_BBUF_LIMIT, 1);
+  #if GASNETC_PIN_SEGMENT
+  { char *val;
+    long tmp;
+
+    val = gasneti_getenv("GASNET_PIN_MAXSZ");
+    if ((val == NULL) || (*val == '\0')) {
+      gasnetc_pin_maxsz = GASNETC_DEFAULT_PIN_MAXSZ;
+    } else {
+      gasnetc_pin_maxsz = fh_getenv("GASNET_PIN_MAXSZ", 1<<10);
+    }
+    if (gasnetc_pin_maxsz < GASNET_PAGESIZE) {
+      GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_PIN_MAXSZ < GASNET_PAGESIZE) in environment");
+    }
+    tmp = gasnetc_pin_maxsz;
+    for (gasnetc_pin_maxsz_shift=-1; tmp != 0; ++gasnetc_pin_maxsz_shift) { tmp >>= 1; }
+    if_pf ((1UL << gasnetc_pin_maxsz_shift) != gasnetc_pin_maxsz) {
+      gasneti_fatalerror("GASNET_PIN_MAXSZ (%lu) is not a power of 2", gasnetc_pin_maxsz);
+    }
+  }
+  #endif
   gasnetc_use_rcv_thread = gasneti_getenv_yesno_withdefault("GASNET_RCV_THREAD", GASNETC_DEFAULT_RCV_THREAD); /* Bug 1012 - right default? */
   if (gasnetc_use_rcv_thread && !GASNETC_VAPI_RCV_THREAD) {
     gasneti_fatalerror("VAPI AM receive thread enabled by environment variable GASNET_RCV_THREAD, but was disabled at GASNet build time");
@@ -390,6 +416,9 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_OUST_LIMIT = %d", gasnetc_am_oust_limit));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_OUST_PP    = %d", gasnetc_am_oust_pp));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_BBUF_LIMIT    = %d", gasnetc_bbuf_limit));
+#if GASNETC_PIN_SEGMENT
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_PIN_MAXSZ     = %lu", gasnetc_pin_maxsz));
+#endif
 #if GASNETC_VAPI_RCV_THREAD
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_RCV_THREAD    = %d (%sabled)", gasnetc_use_rcv_thread,
 				gasnetc_use_rcv_thread ? "en" : "dis"));
@@ -577,14 +606,12 @@ static int gasnetc_init(int *argc, char ***argv) {
     #endif
 
     #if GASNETC_PIN_SEGMENT
-      mr_needed++;		/* +1 for the segment */
+      mr_needed++;		/* XXX: need more than 1 due to gasnetc_pin_maxsz */
     #endif
-    #if GASNETC_USE_FIREHOSE
-      #if FIREHOSE_USE_FMR
-        fmr_needed += FIREHOSE_CLIENT_MAXREGIONS;	/* FMRs needed for firehoses */
-      #else
-        mr_needed += FIREHOSE_CLIENT_MAXREGIONS;	/* regular MRs needed for firehoses */
-      #endif
+    #if FIREHOSE_USE_FMR
+      fmr_needed += FIREHOSE_CLIENT_MAXREGIONS;	/* FMRs needed for firehoses */
+    #else
+      mr_needed += FIREHOSE_CLIENT_MAXREGIONS;	/* regular MRs needed for firehoses */
     #endif
 
     GASNETI_TRACE_PRINTF(C,("  max_num_mr               = %u", (unsigned int)gasnetc_hca_cap.max_num_mr));
@@ -597,6 +624,9 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   GASNETI_TRACE_PRINTF(C,("  max_msg_sz               = %u", (unsigned int)gasnetc_hca_port.max_msg_sz));
   gasneti_assert_always(gasnetc_hca_port.max_msg_sz >= GASNETC_PUT_COPY_LIMIT);
+  #if GASNETC_PIN_SEGMENT
+    gasneti_assert_always(gasnetc_hca_port.max_msg_sz >= gasnetc_pin_maxsz);
+  #endif
   GASNETI_TRACE_PRINTF(C,("  HCA Firmware version     = %u.%u.%u",
 			    (unsigned int)(hca_vendor.fw_ver >> 32),
 			    (unsigned int)(hca_vendor.fw_ver >> 16) & 0xffff,
@@ -938,7 +968,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasneti_assert(numreg == len);
   }
 
-  #if GASNETC_USE_FIREHOSE
+  #if GASNETC_PIN_SEGMENT
+    /* No firehose AMs should ever be sent in this configuration */
+  #else
   { /* firehose handlers */
     gasnet_handlerentry_t *ftable = (gasnet_handlerentry_t *)firehose_get_handlertable();
     int len = 0;
@@ -1010,48 +1042,39 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       for (i=0; i<gasneti_nodes; ++i) {
 	maxsize = MAX(maxsize, gasneti_seginfo[i].size);
       }
-      max_regs = (maxsize + GASNETC_PIN_MAXSZ - 1) / GASNETC_PIN_MAXSZ;
+      max_regs = (maxsize + gasnetc_pin_maxsz - 1) >> gasnetc_pin_maxsz_shift;
     }
 
     /* pin the segment and exchange the RKeys */
     { VAPI_rkey_t	*rkeys, *my_rkeys;
       VAPI_ret_t	vstat;
       size_t		remain;
-      uintptr_t		addr, end;
+      uintptr_t		addr;
       int		i;
 
       my_rkeys = gasneti_calloc(max_regs, sizeof(VAPI_rkey_t));
       rkeys = gasneti_calloc(gasneti_nodes*max_regs, sizeof(VAPI_rkey_t));
       gasnetc_seg_reg = gasneti_calloc(max_regs, sizeof(gasnetc_memreg_t));
 
-      i = 0;
-      addr = gasnetc_seg_start;
-      remain = segsize;
-      while (remain > GASNETC_PIN_MAXSZ) {
-        vstat = gasnetc_pin((void *)addr, GASNETC_PIN_MAXSZ,
+      for (i = 0, addr = gasnetc_seg_start, remain = segsize; remain != 0; ++i) {
+	size_t len = MIN(remain, gasnetc_pin_maxsz);
+        vstat = gasnetc_pin((void *)addr, len,
 			    VAPI_EN_LOCAL_WRITE | VAPI_EN_REMOTE_WRITE | VAPI_EN_REMOTE_READ,
 			    &gasnetc_seg_reg[i]);
         GASNETC_VAPI_CHECK(vstat, "from VAPI_register_mr(segment)");
 	my_rkeys[i] = gasnetc_seg_reg[i].rkey;
-	++i;
-	addr += GASNETC_PIN_MAXSZ;
-	remain -= GASNETC_PIN_MAXSZ;
+	addr += len;
+	remain -= len;
+        gasneti_assert(i <= max_regs);
       }
-      vstat = gasnetc_pin((void *)addr, remain,
-			  VAPI_EN_LOCAL_WRITE | VAPI_EN_REMOTE_WRITE | VAPI_EN_REMOTE_READ,
-			  &gasnetc_seg_reg[i]);
-      GASNETC_VAPI_CHECK(vstat, "from VAPI_register_mr(segment)");
-      my_rkeys[i] = gasnetc_seg_reg[i].rkey;
-      gasnetc_seg_reg_count = i + 1;
-      gasneti_assert(gasnetc_seg_reg_count <= max_regs);
+      gasnetc_seg_reg_count = i;
 
       gasneti_bootstrapExchange(my_rkeys, max_regs*sizeof(VAPI_rkey_t), rkeys);
       gasneti_free(my_rkeys);
 
       for (i=0;i<gasneti_nodes;i++) {
         gasnetc_cep[i].rkeys = &rkeys[i*max_regs];
-        gasnetc_cep[i].end = (uintptr_t)gasneti_seginfo[gasneti_mynode].addr +
-        						(gasneti_seginfo[gasneti_mynode].size - 1);
+        gasnetc_cep[i].end = (uintptr_t)gasneti_seginfo[i].addr + (gasneti_seginfo[i].size - 1);
       }
     }
   }
@@ -1064,10 +1087,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   }
   #endif
 
-  #if GASNETC_USE_FIREHOSE
   {
     int i, reg_count;
-    firehose_region_t prereg[3];
+    firehose_region_t prereg[2];
 
     /* Setup prepinned regions list */
     prereg[0].addr          = gasnetc_snd_reg.addr;
@@ -1084,15 +1106,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	prereg[reg_count].client.rkey   = gasnetc_rcv_reg.rkey;
 	reg_count++;
     }
-    #if GASNETC_PIN_SEGMENT
-    	/* XXX: expand for multi-region case */
-	prereg[reg_count].addr          = gasnetc_seg_reg.addr;
-	prereg[reg_count].len           = gasnetc_seg_reg.len;
-	prereg[reg_count].client.handle = VAPI_INVAL_HNDL;	/* unreg must fail */
-	prereg[reg_count].client.lkey   = gasnetc_seg_reg.lkey;
-	prereg[reg_count].client.rkey   = gasnetc_seg_reg.rkey;
-	reg_count++;
-    #endif
 
     #if FIREHOSE_VAPI_USE_FMR
     {
@@ -1103,6 +1116,14 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       gasnetc_fmr_props.max_outstanding_maps = 1;
       gasnetc_fmr_props.max_pages = FIREHOSE_CLIENT_MAXREGION_SIZE / GASNET_PAGESIZE;
     }
+    #endif
+
+    #if GASNETC_PIN_SEGMENT
+      /* XXX:
+       * When region is prepinned we will NEVER request/grant any remote firehoses.
+       * What might we do to avoid alloacting unused firehose tables?
+       * Do we need to subtract gasnetc_seg_reg_count from agsnetc_pin_info.regions?
+       */
     #endif
 
     /* Now initialize firehose */
@@ -1127,7 +1148,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	gasneti_assert(p->client.rkey   == prereg[i].client.rkey  );
     }
   }
-  #endif
 
   /* ------------------------------------------------------------------------------------ */
   /*  primary attach complete */
@@ -1570,13 +1590,6 @@ static void gasnetc_exit_body(void) {
     }
     gasnetc_sndrcv_fini();
     if (gasneti_attach_done) {
-#if GASNETC_PIN_SEGMENT
-      for (i=0; i<gasnetc_seg_reg_count; ++i) {
-      	gasnetc_unpin(&gasnetc_seg_reg[i]);
-      }
-      gasneti_free(gasnetc_seg_reg);
-#endif
-#if GASNETC_USE_FIREHOSE
 #if 0	/* Dump firehose table as pairs: page_number length_in_pages */
       {
 	firehose_request_t r;
@@ -1593,11 +1606,7 @@ static void gasnetc_exit_body(void) {
 	    prev = NULL;
 	  } else {
 	    if ((p->addr == gasnetc_snd_reg.addr)
-	 	|| ((gasneti_nodes > 0) && (p->addr == gasnetc_rcv_reg.addr))
-#if GASNETC_PIN_SEGMENT
-		|| (p->addr == gasnetc_seg_reg.addr)
-#endif
-		   ) {
+	 	|| ((gasneti_nodes > 0) && (p->addr == gasnetc_rcv_reg.addr))) {
 		/* Skip pre-pinned regions */
 		i += (p->len / 4096 - 1);
 	    } else if (p->internal != prev) {
@@ -1610,6 +1619,11 @@ static void gasnetc_exit_body(void) {
 }
 #endif
       firehose_fini();
+#if GASNETC_PIN_SEGMENT
+      for (i=0; i<gasnetc_seg_reg_count; ++i) {
+      	gasnetc_unpin(&gasnetc_seg_reg[i]);
+      }
+      gasneti_free(gasnetc_seg_reg);
 #endif
     }
     (void)VAPI_dealloc_pd(gasnetc_hca, gasnetc_pd);
