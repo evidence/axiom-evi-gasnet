@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.24 2004/03/18 19:19:06 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.25 2004/03/20 02:12:43 bonachea Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -128,7 +128,8 @@ run-tests: force
 	    else                                                                        \
 	      awk_threadscan='BEGIN {FS=" ";RS="$$"}                                    \
 		/GASNetThreadModel: [^ ]* / { split($$2,A,/_/); print A[2] ; exit}' ;   \
-	      threadmode=`cat -v $$file@EXESUFFIX@ | eval @AWK@ \'$$awk_threadscan\'` ; \
+	      threadmode=`cat -v $$file@EXESUFFIX@ 2> /dev/null |                       \
+                          eval @AWK@ \'$$awk_threadscan\'` ;                            \
 	      echo "*** Running $(CONDUIT_NAME)-conduit $$file"                         \
 		   "in $$threadmode/$(GASNET_SEGMENT_STR) mode ***" ;                   \
 	      awk_cmdbuild='{ gsub("%P","./'$$file'");                                  \
