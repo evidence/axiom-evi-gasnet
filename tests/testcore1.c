@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
- * $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.12 $
+ * $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.13 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -246,7 +246,11 @@ main(int argc, char **argv)
 	chksum_iters = iters;
 	myproc = gasnet_mynode();
 	numprocs = gasnet_nodes();
-	TESTSafe(numprocs % 2 == 0, ("Need an even number of threads\n"));
+        /* Only allow even number for numprocs */
+        if (numprocs % 2 != 0) {
+          MSG("WARNING: This test requires an even number of threads. Test skipped.\n");
+          gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
+        }
 	peerproc = (myproc % 2) ? myproc-1 : myproc+1;
 
 	seginfo_table = (gasnet_seginfo_t *) test_malloc(sizeof(gasnet_seginfo_t) * numprocs);

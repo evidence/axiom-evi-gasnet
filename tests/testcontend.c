@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.4 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.5 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -327,8 +327,8 @@ int main(int argc, char **argv) {
 	  gasnet_exit(-1);
 	}
         if (gasnet_nodes() % 2 != 0) {
-          MSG("Need an even number of nodes for this test.");
-	  gasnet_exit(-1);
+    	  MSG("WARNING: This test requires an even number of threads. Test skipped.\n");
+    	  gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
         }
         if (gasnet_mynode() == 0) {
           MSG("Running testcontend with 1..%i threads and %i iterations", maxthreads, iters);
@@ -351,7 +351,7 @@ int main(int argc, char **argv) {
           pthread_attr_t attr;
           pthread_attr_init(&attr);
           pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-          if (pthread_create(&tt_tids[i], &attr, workerthread, (void *)(intptr_t)i) != 0) { MSG("Error forking threads\n"); gasnet_exit(-1); }
+          if (pthread_create(&tt_tids[i], &attr, workerthread, (void *)(intptr_t)i) != 0) { MSG("ERROR forking threads\n"); gasnet_exit(-1); }
 	}
 
         workerthread(0);
@@ -359,7 +359,7 @@ int main(int argc, char **argv) {
         /* reap all worker threads */
 	for (i = 1; i < maxthreads; i++) {
 	  void	*ret;
-          if (pthread_join(tt_tids[i], &ret) != 0) { MSG("Error joining threads\n"); gasnet_exit(-1); }
+          if (pthread_join(tt_tids[i], &ret) != 0) { MSG("ERROR joining threads\n"); gasnet_exit(-1); }
 	}
 
         BARRIER();

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testalign.c,v $
- *     $Date: 2004/09/22 09:53:08 $
- * $Revision: 1.8 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.9 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -293,10 +293,10 @@ int main(int argc, char **argv)
     myproc = gasnet_mynode();
     numprocs = gasnet_nodes();
     
-    /* Only allow 1 or even number for numprocs */
-    if (numprocs % 2 == 1) {
-    	printf("Number of threads should be even number.\n");
-    	gasnet_exit(1);
+    /* Only allow even number for numprocs */
+    if (numprocs % 2 != 0) {
+      MSG("WARNING: This test requires an even number of threads. Test skipped.\n");
+      gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
     }
     
     

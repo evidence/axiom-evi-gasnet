@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.11 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.12 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -289,7 +289,7 @@ int main(int argc, char **argv) {
         pthread_attr_t attr;
         pthread_attr_init(&attr);
         pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-        if (pthread_create(&tt_tids[i], &attr, workerthread, (void *)(intptr_t)i) != 0) { MSG("Error forking threads\n"); gasnet_exit(-1); }
+        if (pthread_create(&tt_tids[i], &attr, workerthread, (void *)(intptr_t)i) != 0) { MSG("ERROR forking threads\n"); gasnet_exit(-1); }
       }
       workerthread(0);
       break;

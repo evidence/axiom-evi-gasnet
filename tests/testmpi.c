@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmpi.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.8 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.9 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -50,7 +50,7 @@ static char *MPI_ErrorName(int errval) {
    int retcode = (fncall);                                                                        \
    if_pf (retcode != MPI_SUCCESS) {                                                               \
      char msg[1024];                                                                              \
-     sprintf(msg, "\ntestmpi encountered an MPI Error: %s(%i)\n", MPI_ErrorName(retcode), retcode); \
+     sprintf(msg, "\ntestmpi encountered an MPI ERROR: %s(%i)\n", MPI_ErrorName(retcode), retcode); \
    }                                                                                              \
  } while (0)
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlarge.c,v $
- *     $Date: 2004/09/27 09:53:03 $
- * $Revision: 1.22 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.23 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -323,8 +323,8 @@ int main(int argc, char **argv)
     if (!firstlastmode) {
       /* Only allow 1 or even number for numprocs */
       if (numprocs > 1 && numprocs % 2 != 0) {
-    	  printf("Number of threads should be even number.\n");
-    	  gasnet_exit(1);
+        MSG("WARNING: This test requires a unary or even number of threads. Test skipped.\n");
+        gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
       }
     }
     

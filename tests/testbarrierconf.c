@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierconf.c,v $
- *     $Date: 2004/09/08 09:25:26 $
- * $Revision: 1.6 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.7 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
     gasnet_barrier_notify(0, !mynode ? GASNET_BARRIERFLAG_MISMATCH : 0);
     result = gasnet_barrier_wait(0, !mynode ? GASNET_BARRIERFLAG_MISMATCH : 0);
     if (result != GASNET_ERR_BARRIER_MISMATCH) {
-      MSG("Failed to detect barrier mismatch indicated on notify.");
+      MSG("ERROR: Failed to detect barrier mismatch indicated on notify.");
       gasnet_exit(1);
     }
 
@@ -70,7 +70,7 @@ int main(int argc, char **argv) {
     gasnet_barrier_notify(0, 0);
     result = gasnet_barrier_wait(1, 0);
     if (result != GASNET_ERR_BARRIER_MISMATCH) {
-      MSG("Failed to detect mismatch between id at notify and wait.");
+      MSG("ERROR: Failed to detect mismatch between id at notify and wait.");
       gasnet_exit(1);
     }
 
@@ -78,13 +78,13 @@ int main(int argc, char **argv) {
     gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);
     result = gasnet_barrier_wait(0, 0);
     if (result != GASNET_ERR_BARRIER_MISMATCH) {
-      MSG("Failed to detect anonymous notify with named wait.");
+      MSG("ERROR: Failed to detect anonymous notify with named wait.");
       gasnet_exit(1);
     }
     gasnet_barrier_notify(0, 0);
     result = gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS);
     if (result != GASNET_ERR_BARRIER_MISMATCH) {
-      MSG("Failed to detect named notify with anonymous wait.");
+      MSG("ERROR: Failed to detect named notify with anonymous wait.");
       gasnet_exit(1);
     }
 
@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
           result = gasnet_barrier_wait(5551212, 0);
         }
         if (result != GASNET_OK) {
-          MSG("Failed to match anon notify on node %d with named notify elsewhere.", j);
+          MSG("ERROR: Failed to match anon notify on node %d with named notify elsewhere.", j);
           gasnet_exit(1);
         }
 
@@ -115,7 +115,7 @@ int main(int argc, char **argv) {
           result = gasnet_barrier_wait(911, GASNET_BARRIERFLAG_ANONYMOUS);
         }
         if (result != GASNET_OK) {
-          MSG("Failed to match named notify on node %d with anon notify elsewhere.", j);
+          MSG("ERROR: Failed to match named notify on node %d with anon notify elsewhere.", j);
           gasnet_exit(1);
         }
       #endif
@@ -123,7 +123,7 @@ int main(int argc, char **argv) {
         gasnet_barrier_notify(mynode == j, 0);
         result = gasnet_barrier_wait(mynode == j, 0);
         if (result != GASNET_ERR_BARRIER_MISMATCH) {
-          MSG("Failed to detect different id on node %d.", j);
+          MSG("ERROR: Failed to detect different id on node %d.", j);
           gasnet_exit(1);
         }
       }
@@ -151,7 +151,7 @@ int main(int argc, char **argv) {
             result = gasnet_barrier_wait(12345, GASNET_BARRIERFLAG_ANONYMOUS);
           }
           if (result != GASNET_ERR_BARRIER_MISMATCH) {
-            MSG("Failed to detect mismatched names intermixed with anon.");
+            MSG("ERROR: Failed to detect mismatched names intermixed with anon.");
             gasnet_exit(1);
           }
         #endif  

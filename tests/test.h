@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2004/09/17 22:30:53 $
- * $Revision: 1.39 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.40 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,7 +33,7 @@
 #define GASNET_Safe(fncall) do {                            \
     int retval;                                             \
     if ((retval = fncall) != GASNET_OK) {                   \
-            fprintf(stderr, "Error calling: %s\n"           \
+            fprintf(stderr, "ERROR calling: %s\n"           \
                    " at: %s:%i\n"                           \
                    " error: %s (%s)\n",                     \
                    #fncall, __FILE__, __LINE__,             \
@@ -410,16 +410,39 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
         " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
         "-----------------------------------------------------------------------\n"
         ,debug,trace,stats);
+      fflush(stderr);
     }
     #ifdef GASNETT_USING_GETTIMEOFDAY
       fprintf(stderr, 
         "WARNING: using gettimeofday() for timing measurement - all short-term time measurements\n"             
         "WARNING: will be very rough and include significant timer overheads\n");
+      fflush(stderr);
     #endif
-    fprintf(stderr, "Timer granularity: <= %.3f us, overhead: ~ %.3f us\n",
+    fprintf(stdout, "Timer granularity: <= %.3f us, overhead: ~ %.3f us\n",
      gasnett_timer_granularityus(), gasnett_timer_overheadus());
+    fflush(stdout);
   }
   BARRIER();
 }
+
+/* Mimic Berkeley UPC build config strings, to allow running GASNet tests using upcrun */
+GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig, 
+ "$GASNetConfig: (<link>) " GASNET_CONFIG_STRING " $");
+GASNETT_IDENT(GASNetT_IdentString_link_UPCRConfig,
+ "$UPCRConfig: (<link>) " GASNET_CONFIG_STRING ",SHMEM=pthreads,dynamicthreads $");
+GASNETT_IDENT(GASNetT_IdentString_link_upcver, 
+ "$UPCVersion: (<link>) *** GASNet test *** $");
+GASNETT_IDENT(GASNetT_IdentString_link_compileline, 
+ "$UPCCompileLine: (<link>) *** GASNet test *** $");
+GASNETT_IDENT(GASNetT_IdentString_link_compiletime, 
+ "$UPCCompileTime: (<link>) " __DATE__ " " __TIME__ " $");
+GASNETT_IDENT(GASNetT_IdentString_HeapSz, 
+ "$UPCRDefaultHeapSizes: UPC_SHARED_HEAP_OFFSET=0 UPC_SHARED_HEAP_SIZE=0 $");
+GASNETT_IDENT(GASNetT_IdentString_PthCnt, "$UPCRDefaultPthreadCount: 1 $");
+#ifdef GASNETI_PTR32
+  GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=( $");
+#else
+  GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=, $");
+#endif
 
 #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.7 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.8 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  MSG("FAILED: err test failed.");
+  MSG("ERROR: FAILED: err test failed.");
   abort();
 
 done:

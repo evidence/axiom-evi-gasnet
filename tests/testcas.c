@@ -1,4 +1,4 @@
-/* $Id: testcas.c,v 1.5 2004/10/19 04:41:57 bonachea Exp $
+/* $Id: testcas.c,v 1.6 2004/10/23 09:59:18 bonachea Exp $
  *
  * Description: GASNet atomic CAS.
  *   The test verifies the atomic compare-and-swap on platforms which support it.
@@ -20,7 +20,7 @@
 #include <assert.h>
 #ifndef assert
   static void _my_assert_fail(const char *expr, const char *file, int line) {
-    fprintf(stderr,"ASSERTION FAILURE: %s at %s:%i\n", expr, file, line); fflush(stderr);
+    fprintf(stderr,"ERROR: ASSERTION FAILURE: %s at %s:%i\n", expr, file, line); fflush(stderr);
     abort();
   }
   #define assert(x) ((x)?((void)0):_my_assert_fail(#x,__FILE__,__LINE__))
@@ -104,7 +104,7 @@ main(int argc, char **argv)
 		pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 
 		if ((err = pthread_create(&tt_tids[i], &attr, threadmain, NULL)) != 0) {
-			printf("Error %d forking threads\n", err);
+			printf("ERROR %d forking threads\n", err);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -114,7 +114,7 @@ main(int argc, char **argv)
 		int err;
 
 		if ((err = pthread_join(tt_tids[i], &ret)) != 0) {
-			printf("Error %d joining threads\n", err);
+			printf("ERROR %d joining threads\n", err);
 			exit(EXIT_FAILURE);
 		}
 	}

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.16 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.17 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -245,7 +245,7 @@ main(int argc, char **argv)
 	}
 
 	if (threads > TEST_MAXTHREADS || threads < 1) {
-		printf("Threads must be between 1 and 256\n");
+		printf("ERROR: Threads must be between 1 and 256\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -280,14 +280,14 @@ main(int argc, char **argv)
                         pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
 			if (pthread_create(&tt_tids[i], &attr, threadmain, 
 					(void *) &tt_thread_data[i]) != 0) {
-				printf("Error forking threads\n");
+				printf("ERROR forking threads\n");
 				exit(EXIT_FAILURE);
 			}
 		}
 
 		for (i = 0; i < threads; i++) {
 			if (pthread_join(tt_tids[i], &ret) != 0) {
-				printf("Error joining threads\n");
+				printf("ERROR joining threads\n");
 				exit(EXIT_FAILURE);
 			}
 		}

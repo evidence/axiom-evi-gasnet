@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.13 $
+ *     $Date: 2004/10/23 09:59:18 $
+ * $Revision: 1.14 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -277,5 +277,27 @@ void * thread_fn(void *arg) {
 
   return NULL;
 }
+
+/* Mimic Berkeley UPC build config strings, to allow running GASNet tests using upcrun */
+#define GASNET_CONFIG_STRING \
+  "RELEASE=x,SPEC=x,CONDUIT=SMP-x/REFERENCE-x,THREADMODEL=PAR,SEGMENT=FAST,PTR=x,align,nodebug,notrace,nostats"
+GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig, 
+ "$GASNetConfig: (<link>) " GASNET_CONFIG_STRING " $");
+GASNETT_IDENT(GASNetT_IdentString_link_UPCRConfig,
+ "$UPCRConfig: (<link>) " GASNET_CONFIG_STRING ",SHMEM=pthreads,dynamicthreads $");
+GASNETT_IDENT(GASNetT_IdentString_link_upcver, 
+ "$UPCVersion: (<link>) *** GASNet test *** $");
+GASNETT_IDENT(GASNetT_IdentString_link_compileline, 
+ "$UPCCompileLine: (<link>) *** GASNet test *** $");
+GASNETT_IDENT(GASNetT_IdentString_link_compiletime, 
+ "$UPCCompileTime: (<link>) " __DATE__ " " __TIME__ " $");
+GASNETT_IDENT(GASNetT_IdentString_HeapSz, 
+ "$UPCRDefaultHeapSizes: UPC_SHARED_HEAP_OFFSET=0 UPC_SHARED_HEAP_SIZE=0 $");
+GASNETT_IDENT(GASNetT_IdentString_PthCnt, "$UPCRDefaultPthreadCount: 1 $");
+#ifdef GASNETI_PTR32
+  GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=( $");
+#else
+  GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=, $");
+#endif
 
 #endif
