@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/13 00:20:07 $
-# $Revision: 1.120 $
+#     $Date: 2004/03/13 03:54:27 $
+# $Revision: 1.121 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.120 $)
+AC_REVISION($Revision: 1.121 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -930,9 +930,9 @@ if test $have_gm = yes; then
     # altogether as the problem appears and disappears across gcc3 minor
     # versions.
     if test "$gasnet_cv_cc_family" = "GNU"; then
-	GM_NO_ALIAS="-fno-strict-aliasing"
+        GM_NO_ALIAS="-fno-strict-aliasing"
     else
-	GM_NO_ALIAS=""
+        GM_NO_ALIAS=""
     fi
   fi
 fi
@@ -1423,10 +1423,18 @@ fi
 GASNET_PATH_PROGS(AR, $AR ar gar, archiver)
 #AC_PROG_RANLIB
 GASNET_PATH_PROGS(RANLIB, $RANLIB ranlib touch, ranlib)
+GASNET_PATH_PROGS(BASENAME, $BASENAME basename, basename)
+GASNET_PATH_PROGS(DIRNAME, $DIRNAME dirname, dirname)
+# Some platforms are lacking readlink, and we currently do not require it
+AC_PATH_PROGS(READLINK, $READLINK readlink)
+
 AC_SUBST(BOURNE_SHELL)
 AC_SUBST(PERL)
 AC_SUBST(AR)
 AC_SUBST(RANLIB)
+AC_SUBST(BASENAME)
+AC_SUBST(DIRNAME)
+AC_SUBST(READLINK)
 
 ########################################################################
 
@@ -1456,7 +1464,7 @@ case "$target_os" in
 esac
 AC_SUBST(LDFLAGS)
 
-PERLSTART=$TOP_SRCDIR/other/perlstart
+PERLSTART=$TOP_BUILDDIR/other/perlstart
 AC_SUBST_FILE(PERLSTART)
 
 # Figure out how to install config files
@@ -1477,6 +1485,7 @@ GASNET_FIX_EXEC(vapi-conduit/contrib/gasnetrun_vapi)
 
 AC_OUTPUT(
 Makefile
+other/perlstart dnl must precede files that use it
 
 mpi-conduit/Makefile
 mpi-conduit/mpi-seq.mak

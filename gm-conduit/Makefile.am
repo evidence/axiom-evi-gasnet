@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.41 2004/03/13 00:20:08 csbell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.42 2004/03/13 03:54:30 bonachea Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -50,9 +50,6 @@ CONDUIT_SOURCELIST =                       \
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
 CONDUIT_EXTRALIBCFLAGS = @GM_NO_ALIAS@ -I$(fh_srcdir) -I@GM_INCLUDE@
-CONDUIT_EXTRALIBCFLAGS_SEQ = 
-CONDUIT_EXTRALIBCFLAGS_PAR =
-CONDUIT_EXTRALIBCFLAGS_PARSYNC =
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = 

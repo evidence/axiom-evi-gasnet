@@ -40,7 +40,6 @@ LIBCFLAGS =                       \
         @MISC_CFLAGS@             \
         $(LIBDEFINES)             \
         $(CONDUIT_EXTRALIBCFLAGS) \
-        $(CONDUIT_EXTRALIBCFLAGS_$(THREAD_MODEL)) \
 	$(LIBINCLUDES)
 
 libgasnet_sources =           \
