@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/Makefile.am,v 1.7 2003/11/08 23:34:17 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/Makefile.am,v 1.8 2003/11/09 04:05:53 phargrov Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -8,37 +8,39 @@
 AUTOMAKE_OPTIONS = foreign 1.4
 
 builddir = $(top_builddir)/gm-conduit/contrib
+target = gasnetrun_gm
 
-bin_SCRIPTS = gasnetrun_gm.pl gasnetrun_gm
+# Need a bin_DATA rule, but automake disallows that.  So, fake it.
+mybindir = $(bindir)
 
-# make sure certain files get rebuilt if their source files changed.
-all-local: $(builddir)/gasnetrun_gm $(builddir)/gasnetrun_gm.pl
-
-EXTRA_DIST = gasnetrun_gm.pl
-
+# Make sure the perl script and shell wrapper are always current locally.
+# This ensures we can run from the build directory if needed.
+all-local: $(builddir)/$(target).pl $(target)
+$(builddir)/$(target).pl: force
+	@if test "`cd $(builddir);pwd`" != "`cd $(srcdir);pwd`"; then \
+	    echo cp -f $(srcdir)/$(target).pl $(builddir); \
+	    cp -f $(srcdir)/$(target).pl $(builddir); \
+	 fi
 distclean-local:
 	@if test "`cd $(builddir);pwd`" != "`cd $(srcdir);pwd`"; then \
-            echo rm -f $(builddir)/gasnetrun_gm.pl; \
-            rm -f $(builddir)/gasnetrun_gm.pl; \
-         fi;
+	    echo rm -f $(builddir)/$(target).pl; \
+	    rm -f $(builddir)/$(target).pl; \
+	 fi
 
+# Ensure the .pl is distributed, even if not installed
+EXTRA_DIST = $(target).pl
+
+# Conditionally install the .pl and its wrapper
 if USE_GM_CONDUIT
+scripts = $(target) $(target).pl
+data = $(target).pl
 else
-# Yuk - apparently bin_SCRIPTS cannot be conditionally defined, so
-# we use this hack to prevent them from being installed on non-gm systems
-install-exec-local:
-	rm -f $(DESTDIR)$(bindir)/gasnetrun_gm
-	rm -f $(DESTDIR)$(bindir)/gasnetrun_gm.pl
+scripts =
+data =
 endif
-
-$(builddir)/gasnetrun_gm.pl: force
-	@if test "`cd $(builddir);pwd`" != "`cd $(srcdir);pwd`"; then \
-            echo cp -f $(srcdir)/gasnetrun_gm.pl $(builddir); \
-            cp -f $(srcdir)/gasnetrun_gm.pl $(builddir); \
-         fi;
-
-force:
-
+bin_SCRIPTS = $(scripts)
+mybin_DATA = $(data)
 
 .PHONY: force
+force:
 
