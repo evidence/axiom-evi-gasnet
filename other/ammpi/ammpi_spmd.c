@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2003/04/05 06:39:45 $
- * $Revision: 1.6 $
+ *     $Date: 2003/04/10 13:08:11 $
+ * $Revision: 1.7 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.h                                     $
- *     $Date: 2003/04/05 06:39:45 $
- * $Revision: 1.4 $
+ *     $Date: 2003/04/10 13:08:11 $
+ * $Revision: 1.5 $
  * Description: AMMPI Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

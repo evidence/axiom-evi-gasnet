@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2003/04/05 06:39:45 $
- * $Revision: 1.7 $
+ *     $Date: 2003/04/10 13:08:11 $
+ * $Revision: 1.8 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2002/10/23 10:34:28 $
- * $Revision: 1.8 $
+ *     $Date: 2003/04/10 13:08:11 $
+ * $Revision: 1.9 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

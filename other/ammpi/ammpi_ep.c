@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2002/09/02 23:04:36 $
- * $Revision: 1.6 $
+ *     $Date: 2003/04/10 13:08:11 $
+ * $Revision: 1.7 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

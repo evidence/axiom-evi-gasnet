@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/apputils.c                                       $
- *     $Date: 2002/06/20 09:49:14 $
- * $Revision: 1.3 $
+ *     $Date: 2003/04/10 13:08:11 $
+ * $Revision: 1.4 $
  * Description: Application utilities on AMMPI
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
