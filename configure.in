@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/16 00:16:49 $
-# $Revision: 1.123 $
+#     $Date: 2004/03/16 02:03:18 $
+# $Revision: 1.124 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.123 $)
+AC_REVISION($Revision: 1.124 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1479,7 +1479,12 @@ case "$target_os" in
     # Darwin linker complains about symbols defined in multiple dynamic libs.
     # This is a minor annoyance in some cases, however it becomes a fatal error
     # when linking with the mpich libs.
-    LDFLAGS="$LDFLAGS -multiply_defined suppress"
+    case "$gasnet_cv_cc_family" in
+      GNU)  LDFLAGS="$LDFLAGS -multiply_defined suppress"
+      ;;
+      XLC)  LDFLAGS="$LDFLAGS -Wl,-multiply_defined,suppress"
+      ;;
+    esac
   ;;
 esac
 AC_SUBST(LDFLAGS)
