@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2003/10/24 01:37:37 $
- * $Revision: 1.12 $
+ *     $Date: 2003/11/13 13:15:10 $
+ * $Revision: 1.13 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -901,10 +901,7 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
 extern int AM_SetHandler(ep_t ea, handler_t handler, ammpi_handler_fn_t function) {
   AMMPI_CHECKINIT();
   if (!ea || !function) AMMPI_RETURN_ERR(BAD_ARG);
-#ifndef __PGI
-  /* work-around a broken pgcc */
-  if (handler >= AMMPI_MAX_NUMHANDLERS) AMMPI_RETURN_ERR(BAD_ARG);
-#endif
+  if (AMMPI_BADHANDLERVAL(handler)) AMMPI_RETURN_ERR(BAD_ARG);
 
   ea->handler[handler] = function;
   return AM_OK;
