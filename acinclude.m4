@@ -468,6 +468,29 @@ GASNET_TRY_CXXCOMPILE_WITHWARN([], [], [
  $3
 ])])
 
+dnl GASNET_SET_CHECKED_CFLAGS CCVAR CFLAGSVAR DEFAULT_CFLAGS SAFE_CFLAGS
+dnl Set CFLAGSVAR to a values that works with CCVAR 
+dnl if CFLAGSVAR is already set, then keep it
+dnl otherwise, if DEFAULT_CFLAGS works, then use it
+dnl otherwise, use SAFE_CFLAGS
+AC_DEFUN([GASNET_SET_CHECKED_CFLAGS],[
+if test "$[$2]" != "" ; then
+  GASNET_ENV_DEFAULT([$2], []) # user-provided flags
+else
+  GASNET_ENV_DEFAULT([$2], [$3]) # try DEFAULT_CFLAGS
+  oldCC="$CC"
+  oldCFLAGS="$CFLAGS"
+  CC="$[$1]"
+  CFLAGS=""
+    GASNET_TRY_CFLAG([$[$2]], [], [
+	AC_MSG_WARN([Unable to use default $2="$[$2]" so using "$4" instead. Consider manually seting $2])
+        $2="$4"
+    ])
+  CC="$oldCC"
+  CFLAGS="$oldCFLAGS"
+fi
+])
+
 AC_DEFUN([GASNET_TRY_CACHE_CHECK],[
 AC_CACHE_CHECK($1, cv_prefix[]$2,
 AC_TRY_COMPILE([$3], [$4], cv_prefix[]$2=yes, cv_prefix[]$2=no))

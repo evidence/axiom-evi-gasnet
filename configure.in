@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/08/04 00:23:34 $
-# $Revision: 1.163 $
+#     $Date: 2004/08/04 21:46:07 $
+# $Revision: 1.164 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.163 $)
+AC_REVISION($Revision: 1.164 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -767,18 +767,23 @@ GASNET_IF_ENABLED_WITH_AUTO(mpi, Enable/disable the CONDUIT_DESC (auto-detected)
 if test $enabled_mpi = yes; then
   # user can explicitly configure MPI by setting MPI_CC, MPI_CFLAGS and MPI_LIBS
   have_mpi=yes # start by assuming they have it
+  if test "$BUILDCONFIG" = "debug" ; then
+    SAFE_MPI_CFLAGS="-g"
+  else
+    SAFE_MPI_CFLAGS="-O"
+  fi
   case "$target_os" in
     solaris*)  
         # I don't have access to a Solaris cluster with MPI (other than NOW) 
         # but these seem like sane defaults
     	GASNET_ENV_DEFAULT(MPI_CC, mpicc)
-    	GASNET_ENV_DEFAULT(MPI_CFLAGS, $MISC_CFLAGS $CFLAGS)
+        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, )
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
     linux*) 
     	GASNET_ENV_DEFAULT(MPI_CC, mpicc)
-    	GASNET_ENV_DEFAULT(MPI_CFLAGS, $CFLAGS)
+        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, )
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
@@ -789,10 +794,11 @@ if test $enabled_mpi = yes; then
         # cannot use MISC_CFLAGS here because C compiler may not be MIPSPro
 	BASIC_MPI_CFLAGS="-diag_error 1035 -diag_suppress1171,1174,1209,1552"
 	if test "$BUILDCONFIG" = "optimize" ; then
-      	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O2 $BASIC_MPI_CFLAGS)
+      	  BASIC_MPI_CFLAGS="-O2 $BASIC_MPI_CFLAGS"
 	else
-      	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -g $BASIC_MPI_CFLAGS)
+      	  BASIC_MPI_CFLAGS="-g $BASIC_MPI_CFLAGS"
 	fi
+        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, -LD_MSG:off=84 -lmpi)
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
@@ -800,10 +806,11 @@ if test $enabled_mpi = yes; then
     	GASNET_ENV_DEFAULT(MPI_CC, mpcc)
 	BASIC_MPI_CFLAGS=""
 	if test "$BUILDCONFIG" = "optimize" ; then
-    	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O3 -qstrict -qarch=pwr3 -qtune=pwr3 -qsmp=noauto -qmaxmem=8192 $BASIC_MPI_CFLAGS)
+    	  BASIC_MPI_CFLAGS"-O3 -qstrict -qarch=pwr3 -qtune=pwr3 -qsmp=noauto -qmaxmem=8192 $BASIC_MPI_CFLAGS"
 	else
-    	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -g $BASIC_MPI_CFLAGS)
+    	  BASIC_MPI_CFLAGS"-g $BASIC_MPI_CFLAGS"
 	fi
+        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, [-Wl,-bbigtoc])
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, poe %C -nodes %N -tasks_per_node 1 -rmpool 1 -euilib us -retry 1 -retrycount 10000)
         ;;
@@ -811,10 +818,11 @@ if test $enabled_mpi = yes; then
 	GASNET_ENV_DEFAULT(MPI_CC, cc)
 	BASIC_MPI_CFLAGS="-msg_disable extrasemi"
         if test "$BUILDCONFIG" = "optimize" ; then
-          GASNET_ENV_DEFAULT(MPI_CFLAGS, -fast -noifo -O4 -tune host $BASIC_MPI_CFLAGS)
+          BASIC_MPI_CFLAGS"-fast -noifo -O4 -tune host $BASIC_MPI_CFLAGS"
         else
-          GASNET_ENV_DEFAULT(MPI_CFLAGS, -g $BASIC_MPI_CFLAGS)
+          BASIC_MPI_CFLAGS"-g $BASIC_MPI_CFLAGS"
         fi
+        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
         GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan -lrt)
         GASNET_ENV_DEFAULT(MPIRUN_CMD, prun -N %N %C)
         ;;
@@ -827,23 +835,24 @@ if test $enabled_mpi = yes; then
           *)        BASIC_MPI_CFLAGS="-hnomessage=236 $LIBCM" ;; # X1
         esac
 	if test "$BUILDCONFIG" = "optimize" ; then
-    	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O2 $BASIC_MPI_CFLAGS)
+    	  BASIC_MPI_CFLAGS"-O2 $BASIC_MPI_CFLAGS"
 	else
-    	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -g $BASIC_MPI_CFLAGS)
+    	  BASIC_MPI_CFLAGS"-g $BASIC_MPI_CFLAGS"
 	fi
+        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, -lpthread)
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpprun -n %N %C)
         ;;
     superux*)
       GASNET_ENV_DEFAULT(MPI_CC, mpic++ -Xa)
-      GASNET_ENV_DEFAULT(MPI_CFLAGS, $MISC_CFLAGS $CFLAGS)
+      GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
       GASNET_ENV_DEFAULT(MPI_LIBS, )
       GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
       ;;
     *) 
       # unknown OS - if user doesn't provide info, nothing we can do
       GASNET_ENV_DEFAULT(MPI_CC, mpicc)
-      GASNET_ENV_DEFAULT(MPI_CFLAGS, $MISC_CFLAGS $CFLAGS)
+      GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
       GASNET_ENV_DEFAULT(MPI_LIBS, )
       GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
       if test "$MPI_CC" = ""; then
@@ -894,7 +903,7 @@ if test $enabled_mpi = yes; then
       fi
   else
       AC_MSG_RESULT(no)
-      AC_MSG_WARN(build test failed: I don't know how to build MPI programs on your system)
+      AC_MSG_WARN(build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details)
       AC_MSG_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit)
       have_mpi=no
   fi
