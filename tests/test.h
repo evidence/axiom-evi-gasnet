@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/02/17 13:19:21 $
- * $Revision: 1.43 $
+ *     $Date: 2005/02/18 07:40:52 $
+ * $Revision: 1.44 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,10 +177,7 @@ static void test_free(void *ptr) {
 #define alignup(a,b) ((((a)+(b)-1)/(b))*(b))
 #define alignup_ptr(a,b) ((void *)(((((uintptr_t)(a))+(b)-1)/(b))*(b)))
 
-#if defined(SGI_SHMEM) && !defined(GASNET_SEGMENT_EVERYTHING)
-  /* SGI/fast "steals" from the client seg, so we have to ask for more than we need */
-  #define TEST_SEGSZ_PADFACTOR 2
-#else
+#ifndef TEST_SEGSZ_PADFACTOR
   #define TEST_SEGSZ_PADFACTOR 1
 #endif
 #define TEST_SEGSZ_REQUEST (TEST_SEGSZ_PADFACTOR*TEST_SEGSZ)

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2005/02/17 13:18:51 $
- * $Revision: 1.27 $
+ *     $Date: 2005/02/18 07:40:48 $
+ * $Revision: 1.28 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -588,6 +588,7 @@ gasneti_auxsegregfn_t gasneti_auxsegfns[] = {
 static gasneti_auxseg_request_t gasneti_auxseg_total_alignedsz = { 0, 0 };
 static gasneti_auxseg_request_t *gasneti_auxseg_alignedsz = NULL;
 static uintptr_t gasneti_auxseg_sz = 0;
+static uintptr_t gasneti_auxseg_client_request_sz = 0;
 static int gasneti_auxseg_numfns;
 
 #if GASNET_DEBUG
@@ -637,9 +638,14 @@ void gasneti_auxseg_init() {
       gasneti_fatalerror("GASNet internal auxseg size (%llu bytes) exceeds available segment size (%llu bytes)",
         (unsigned long long)gasneti_auxseg_sz, (unsigned long long)gasneti_MaxGlobalSegmentSize);
 
-    /* could relax single-value restriction on auxseg registration size by doing another exchange here */
-    gasneti_MaxLocalSegmentSize -= gasneti_auxseg_sz;
-    gasneti_MaxGlobalSegmentSize -= gasneti_auxseg_sz;
+    #if GASNETI_AUXSEG_PRESERVE_POW2_FULLSEGSZ
+      if (!GASNETI_POWEROFTWO(gasneti_MaxLocalSegmentSize) && 
+          !GASNETI_POWEROFTWO(gasneti_MaxGlobalSegmentSize)) 
+    #endif
+      { /* could relax single-value restriction on auxseg registration size by doing another exchange here */
+        gasneti_MaxLocalSegmentSize -= gasneti_auxseg_sz;
+        gasneti_MaxGlobalSegmentSize -= gasneti_auxseg_sz;
+      }
     GASNETI_TRACE_PRINTF(C, ("gasneti_auxseg_init(): gasneti_auxseg_sz = %lu: "
                    "MaxLocalSegmentSize = %lu   "
                    "MaxGlobalSegmentSize = %lu",
@@ -695,10 +701,13 @@ uintptr_t gasneti_auxseg_preattach(uintptr_t client_request_sz) {
   }
   #else
     gasneti_assert(client_request_sz % GASNET_PAGESIZE == 0);
+    gasneti_auxseg_client_request_sz = client_request_sz;
     #if GASNETI_AUXSEG_PRESERVE_POW2_FULLSEGSZ
-      if (GASNETI_POWEROFTWO(client_request_sz) && client_request_sz >= gasneti_auxseg_sz)
+      if (GASNETI_POWEROFTWO(client_request_sz)) { 
         result = client_request_sz;
-      else
+        while (result < (client_request_sz+gasneti_auxseg_sz) && result*2 <= gasneti_MaxGlobalSegmentSize)
+          result *= 2;
+      } else
     #endif
         result = client_request_sz + gasneti_auxseg_sz;
   #endif
@@ -745,6 +754,9 @@ void gasneti_auxseg_attach() {
         si[j].addr = gasneti_seginfo[j].addr;
         si[j].size = gasneti_auxseg_sz;
       #endif
+      /* trim client segment, which may be inflated due to GASNETI_AUXSEG_PRESERVE_POW2_FULLSEGSZ */
+      if (gasneti_seginfo_client[j].size > gasneti_auxseg_client_request_sz)
+        gasneti_seginfo_client[j].size = gasneti_auxseg_client_request_sz;
     }
   #endif
 
