@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/03/15 03:13:32 $
- * $Revision: 1.77 $
+ *     $Date: 2005/03/15 20:16:04 $
+ * $Revision: 1.78 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -118,7 +118,8 @@ static void gasnetc_exit_sighandler(int sig);
 static void gasnetc_check_config() {
   gasneti_check_config_preinit();
 
-  gasneti_assert(sizeof(gasnetc_medmsg_t) == (GASNETC_MEDIUM_HDRSZ + 4*GASNETC_MAX_ARGS));
+  gasneti_assert(offsetof(gasnetc_medmsg_t,args) == GASNETC_MEDIUM_HDRSZ);
+  gasneti_assert(offsetof(gasnetc_longmsg_t,args) == GASNETC_LONG_HDRSZ);
   gasneti_assert(GASNETC_RCV_POLL || GASNETC_VAPI_RCV_THREAD);
   gasneti_assert(GASNETC_PUT_COPY_LIMIT <= GASNETC_BUFSZ);
 }
