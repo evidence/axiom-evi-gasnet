@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/10/05 18:47:05 $
- * $Revision: 1.19 $
+ *     $Date: 2003/10/07 03:25:04 $
+ * $Revision: 1.20 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -297,11 +297,13 @@
   #define GASNETI_ASM(mnemonic)  /* TODO: broken - doesn't have inline assembly */
 #elif defined(__SUNPRO_C)
   #define GASNETI_ASM(mnemonic)  __asm(mnemonic)
+#elif defined(__xlC__)  
+  #define GASNETI_ASM(mnemonic)  !!! error !!! /* not supported or used */
 #else
   #error "Don't know how to use inline assembly for your compiler"
 #endif
 
-#if (defined(_POWER) || defined(_POWERPC)) && !defined(__GNUC__)  
+#if defined(__xlC__)  
 /* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly
  * you have to hard-code the opcodes in a pragma that defines an assembly 
  * function - see /usr/include/sys/atomic_op.h on AIX for examples
@@ -310,6 +312,7 @@
  */ 
 #pragma mc_func _gasneti_do_sync { \
   "7c0004ac" /* sync (same opcode used for dcs)*/ \
+  "4c00012c" /* isync (instruction sync to squash speculative loads) */ \
 }
 #endif
 
@@ -374,29 +377,22 @@
    }
  #endif
 #elif defined(_POWER) /* IBM SP POWER2, POWER3 */
- #ifdef __GNUC__
+ #ifdef __xlC__
+   GASNET_INLINE_MODIFIER(gasneti_local_membar)
+   void gasneti_local_membar(void) {
+     _gasneti_do_sync(); 
+   }
+ #else
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
      GASNETI_ASM("dcs");
    }
- #else
-   GASNET_INLINE_MODIFIER(gasneti_local_membar)
-   void gasneti_local_membar(void) {
-     _gasneti_do_sync(); 
-   }
  #endif
 #elif defined(_POWERPC) || defined(__POWERPC__) /* __POWERPC__ == OSX */
- #ifdef __GNUC__
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
      GASNETI_ASM("sync");
    }
- #else
-   GASNET_INLINE_MODIFIER(gasneti_local_membar)
-   void gasneti_local_membar(void) {
-     _gasneti_do_sync(); 
-   }
- #endif
 #elif defined(__alpha) && defined(__osf__)
  #if 1
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
