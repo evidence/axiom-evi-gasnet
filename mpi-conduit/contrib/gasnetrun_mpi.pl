@@ -1,5 +1,5 @@
 #!/usr/bin/env perl
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v 1.5 2004/03/20 04:31:44 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v 1.6 2004/04/08 05:36:44 bonachea Exp $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -47,7 +47,11 @@ my $find_exe = 1;	# should we find full path of executable?
     } else {
 	# pass env as "/usr/bin/env A=1 B=2 C=3"
 	# Our nearly universal default
-	chomp(my $envprog = `which env`);
+	my $envprog = "/usr/bin/env";
+        if (! -x $envprog) { # SuperUX has broken which implementation, so avoid if possible
+          $envprog = `which env`;
+  	  chomp $envprog;
+        }
 	%envfmt = ( 'pre' => $envprog,
 		    'val' => 1
 		  );
@@ -160,7 +164,7 @@ sub do_quote
     if (@envvars) {
         # pair the variables with their values if desired
         if (defined $envfmt{val}) {
-	    @envargs = map { "$_=\"$ENV{$_}\"" } @envargs;
+	    @envargs = map { "$_=$ENV{$_}" } @envargs;
         }
         # join them into a single argument if desired
         if (defined $envfmt{join}) {
