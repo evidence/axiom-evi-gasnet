@@ -59,7 +59,7 @@ EXTRA_DIST = $(CONDUIT_FILELIST)
 
 # library targets 
 
-do-libgasnet-seq: $(libgasnet_dependencies)
+do-libgasnet-seq: $(libgasnet_dependencies) $(CONDUIT_SEQ_HOOK)
 	$(CC) $(LIBCFLAGS) -DGASNET_SEQ -c $(libgasnet_sources)
 	@if test "$(CONDUIT_MPISOURCELIST)" ; then                                  \
 	  libgasnet_mpi_srcs="$(CONDUIT_MPISOURCELIST)" export libgasnet_mpi_srcs ; \
@@ -73,7 +73,7 @@ do-libgasnet-seq: $(libgasnet_dependencies)
 	@echo rm -f $(libgasnet_objects)
 	@rm -f $(libgasnet_objects)
 
-do-libgasnet-par: $(libgasnet_dependencies)
+do-libgasnet-par: $(libgasnet_dependencies) $(CONDUIT_PAR_HOOK)
 	$(CC) $(LIBCFLAGS) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
 	@if test "$(CONDUIT_MPISOURCELIST)" ; then                                  \
 	  libgasnet_mpi_srcs="$(CONDUIT_MPISOURCELIST)" export libgasnet_mpi_srcs ; \
@@ -87,7 +87,7 @@ do-libgasnet-par: $(libgasnet_dependencies)
 	@echo rm -f $(libgasnet_objects)
 	@rm -f $(libgasnet_objects)
 
-do-libgasnet-parsync: $(libgasnet_dependencies)
+do-libgasnet-parsync: $(libgasnet_dependencies) $(CONDUIT_PARSYNC_HOOK)
 	$(CC) $(LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
 	@if test "$(CONDUIT_MPISOURCELIST)" ; then                                  \
 	  libgasnet_mpi_srcs="$(CONDUIT_MPISOURCELIST)" export libgasnet_mpi_srcs ; \
@@ -109,19 +109,19 @@ tests: force
 
 test: tests
 
-tests-seq: force libgasnet-$(CONDUIT_NAME)-seq.a $(CONDUIT_NAME)-seq.mak
+tests-seq: force libgasnet-$(CONDUIT_NAME)-seq.a $(CONDUIT_NAME)-seq.mak $(CONDUIT_SEQ_HOOK)
 	@echo "*** Building all GASNet tests in SEQ/$(GASNET_SEGMENT_STR) mode ***"
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-seq \
 	  srcdir="$(top_srcdir)/tests"                       \
 	  configfile="$(CONDUIT_NAME)-seq.mak"
 
-tests-parsync: force libgasnet-$(CONDUIT_NAME)-parsync.a $(CONDUIT_NAME)-parsync.mak
+tests-parsync: force libgasnet-$(CONDUIT_NAME)-parsync.a $(CONDUIT_NAME)-parsync.mak $(CONDUIT_PARSYNC_HOOK)
 	@echo "*** Building all GASNet tests in PARSYNC/$(GASNET_SEGMENT_STR) mode ***"
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-parsync \
 	  srcdir="$(top_srcdir)/tests"                       \
 	  configfile="$(CONDUIT_NAME)-parsync.mak"
 
-tests-par: force libgasnet-$(CONDUIT_NAME)-par.a $(CONDUIT_NAME)-par.mak
+tests-par: force libgasnet-$(CONDUIT_NAME)-par.a $(CONDUIT_NAME)-par.mak $(CONDUIT_PAR_HOOK)
 	@echo "*** Building all GASNet tests in PAR/$(GASNET_SEGMENT_STR) mode ***"
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-par \
 	  srcdir="$(top_srcdir)/tests"                       \
@@ -138,7 +138,8 @@ force:
 do-all: $(libraries) $(makefile_fragments)
 
 do-clean-local: 
-	rm -f $(libgasnet_objects) $(libraries) *.o core
+	@echo rm -f $(libgasnet_objects) $(libraries) *.o core
+	@rm -f $(libgasnet_objects) $(libraries) *.o core
 	@$(MAKE) -f $(top_builddir)/tests/Makefile clean     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="/dev/null"
