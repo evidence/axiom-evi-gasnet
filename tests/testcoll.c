@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.14 $
+ *     $Date: 2005/03/24 20:46:59 $
+ * $Revision: 1.15 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,6 +25,9 @@ int numprocs;
 int peerproc;
 
 int *segment;
+
+static int *A, *B, *C, *D, *E, *F, *G;
+static int **Av, **Bv, **Cv, **Dv, **Ev, **Fv, **Gv;
 
 typedef struct {
 	int datasize;
@@ -91,17 +94,10 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
  * Test NO/NO - in/out data is not generated/consumed in same barrier phase
  */
 void test_NONO(int iters, gasnet_node_t root) {
+    const char name[] = "aligned/single-addr NO/NO";
     int j;
-    int *A = segment;		/* int [1] */
-    int *B = A + 1;		/* int [1] */
-    int *C = B + 1;		/* int [N] */
-    int *D = C + numprocs;	/* int [N] */
-    int *E = D + numprocs;	/* int [1] */
-    int *F = E + 1;		/* int [N] */
-    int *G = F + numprocs;	/* int [N] */
 
-    if (myproc == 0)
-	MSG("Starting NO/NO test");
+    MSG0("Starting %s test", name);
 
     for (j = 0; j < iters; ++j) {
 	gasnet_node_t i;
@@ -149,29 +145,29 @@ void test_NONO(int iters, gasnet_node_t root) {
 	BARRIER();
 
 	if (r != *A) {
-	    MSG("NO/NO: broadcast validation failed");
+	    MSG("ERROR: %s broadcast validation failed", name);
 	    gasnet_exit(1);
 	}
 	if (myproc == root) {
 	    for (i = 0; i < numprocs; ++i) {
 		if (C[i] != i) {
-		    MSG("NO/NO: gather validation failed");
+		    MSG("ERROR: %s gather validation failed", name);
 		    gasnet_exit(1);
 		}
 	    }
 	}
 	if (*E != myproc*r + root) {
-	    MSG("NO/NO: scatter validation failed");
+	    MSG("ERROR: %s scatter validation failed", name);
 	    gasnet_exit(1);
 	}
 	for (i = 0; i < numprocs; ++i) {
 	    if (F[i] != i) {
-		MSG("NO/NO: gather_all validation failed");
+		MSG("ERROR: %s gather_all validation failed", name);
 	    }
 	}
 	for (i = 0; i < numprocs; ++i) {
 	    if (G[i] != i + myproc*r) {
-		MSG("NO/NO: exchange validation failed");
+		MSG("ERROR: %s exchange validation failed", name);
 		gasnet_exit(1);
 	    }
 	}
@@ -184,14 +180,10 @@ void test_NONO(int iters, gasnet_node_t root) {
  * Test MY/MY - in/out data is generated/consumed locally in same barrier phase
  */
 void test_MYMY(int iters, gasnet_node_t root) {
+    const char name[] = "aligned/single-addr MY/MY";
     int j;
-    int *A = segment;		/* int [1] */
-    int *B = A + 1;		/* int [1] */
-    int *C = B + 1;		/* int [N] */
-    int *D = C + numprocs;	/* int [N] */
 
-    if (myproc == 0)
-	MSG("Starting MY/MY test");
+    MSG0("Starting %s test", name);
 
     for (j = 0; j < iters; ++j) {
 	gasnet_node_t i;
@@ -207,7 +199,7 @@ void test_MYMY(int iters, gasnet_node_t root) {
 				      GASNET_COLL_SRC_IN_SEGMENT |
 				      GASNET_COLL_DST_IN_SEGMENT);
 	if (r != *A) {
-	    MSG("MY/MY: broadcast validation failed");
+	    MSG("ERROR: %s broadcast validation failed", name);
 	    gasnet_exit(1);
 	}
 	gasnet_coll_gather(GASNET_TEAM_ALL, root, C, B, sizeof(int),
@@ -219,7 +211,7 @@ void test_MYMY(int iters, gasnet_node_t root) {
 	if (myproc == root) {
 	    for (i = 0; i < numprocs; ++i) {
 		if (C[i] != i) {
-		    MSG("MY/MY: gather validation failed");
+		    MSG("ERROR: %s gather validation failed", name);
 		    gasnet_exit(1);
 		}
 		C[i] *= r;
@@ -232,7 +224,7 @@ void test_MYMY(int iters, gasnet_node_t root) {
 				      GASNET_COLL_SRC_IN_SEGMENT |
 				      GASNET_COLL_DST_IN_SEGMENT);
 	if (*B != myproc*r) {
-	    MSG("MY/MY: scatter validation failed");
+	    MSG("ERROR: %s scatter validation failed", name);
 	    gasnet_exit(1);
 	}
 	gasnet_coll_gather_all(GASNET_TEAM_ALL, C, B, sizeof(int),
@@ -243,7 +235,7 @@ void test_MYMY(int iters, gasnet_node_t root) {
 				      GASNET_COLL_DST_IN_SEGMENT);
 	for (i = 0; i < numprocs; ++i) {
 	    if (C[i] != i*r) {
-		MSG("MY/MY: gather_all validation failed");
+		MSG("ERROR: %s gather_all validation failed", name);
 		gasnet_exit(1);
 	    }
 	    C[i] += myproc;
@@ -256,7 +248,7 @@ void test_MYMY(int iters, gasnet_node_t root) {
 				      GASNET_COLL_DST_IN_SEGMENT);
 	for (i = 0; i < numprocs; ++i) {
 	    if (D[i] != i + myproc*r) {
-		MSG("MY/MY: exchange validation failed");
+		MSG("ERROR: %s exchange validation failed", name);
 		gasnet_exit(1);
 	    }
 	}
@@ -269,16 +261,12 @@ void test_MYMY(int iters, gasnet_node_t root) {
  * Test ALL/ALL - in/out data is generated/consumed remotely in same barrier phase
  */
 void test_ALLALL(int iters, gasnet_node_t root) {
+    const char name[] = "aligned/single-addr ALL/ALL";
     int j;
     int tmp;
-    int *A = segment;		/* int [1] */
-    int *B = A + 1;		/* int [1] */
-    int *C = B + 1;		/* int [N] */
-    int *D = C + numprocs;	/* int [N] */
     gasnet_node_t peer;
 
-    if (myproc == 0)
-	MSG("Starting ALL/ALL test");
+    MSG0("Starting %s test", name);
 
     peer = ((myproc ^ 1) == numprocs) ? myproc : (myproc ^ 1);
 
@@ -297,7 +285,7 @@ void test_ALLALL(int iters, gasnet_node_t root) {
 				      GASNET_COLL_DST_IN_SEGMENT);
 	gasnet_get(&tmp, peer, A, sizeof(int));
 	if (tmp != r) {
-	    MSG("ALL/ALL: broadcast validation failed");
+	    MSG("ERROR: %s broadcast validation failed", name);
 	    gasnet_exit(1);
 	}
 	tmp = peer;
@@ -311,7 +299,7 @@ void test_ALLALL(int iters, gasnet_node_t root) {
 	gasnet_get(D, root, C, numprocs*sizeof(int));
 	for (i = 0; i < numprocs; ++i) {
 	    if (D[i] != i) {
-		MSG("ALL/ALL: gather validation failed");
+		MSG("ERROR: %s gather validation failed", name);
 		gasnet_exit(1);
 	    }
 	}
@@ -326,7 +314,7 @@ void test_ALLALL(int iters, gasnet_node_t root) {
 				      GASNET_COLL_DST_IN_SEGMENT);
 	gasnet_get(&tmp, peer, B, sizeof(int));
 	if (tmp != peer*r) {
-	    MSG("ALL/ALL: scatter validation failed");
+	    MSG("ERROR: %s scatter validation failed", name);
 	    gasnet_exit(1);
 	}
 	BARRIER(); /* to avoid conflict on B */
@@ -341,7 +329,7 @@ void test_ALLALL(int iters, gasnet_node_t root) {
 	gasnet_get(D, peer, C, numprocs*sizeof(int));
 	for (i = 0; i < numprocs; ++i) {
 	    if (D[i] != i*r - 1) {
-		MSG("ALL/ALL: gather_all validation failed");
+		MSG("ERROR: %s gather_all validation failed", name);
 		gasnet_exit(1);
 	    }
 	}
@@ -359,7 +347,7 @@ void test_ALLALL(int iters, gasnet_node_t root) {
 	gasnet_get(D, peer, C, numprocs*sizeof(int));
 	for (i = 0; i < numprocs; ++i) {
 	    if (D[i] != i + peer*r - 1) {
-		MSG("ALL/ALL: exchange validation failed");
+		MSG("ERROR: %s exchange validation failed", name);
 		gasnet_exit(1);
 	    }
 	}
@@ -369,32 +357,345 @@ void test_ALLALL(int iters, gasnet_node_t root) {
 }
 
 void test_NB(int iters, gasnet_node_t root) {
+    const char name[] = "aligned/single-addr NB";
     int j;
-    int *A = segment;		/* int [iters] */
-    int *B = test_malloc(iters*sizeof(int));
+    int *X = test_malloc(iters*sizeof(int));
     gasnet_coll_handle_t *h = test_malloc(iters*sizeof(gasnet_coll_handle_t));
 
-    if (myproc == 0)
-	MSG("Starting NB test");
+    MSG0("Starting %s test", name);
 
     for (j = 0; j < iters; ++j) {
-	B[j] = random();
-	A[j] = (myproc == root) ? B[j] : 0;
+	X[j] = random();
+	A[j] = (myproc == root) ? X[j] : 0;
 	h[j] = gasnet_coll_broadcast_nb(GASNET_TEAM_ALL, A+j, root, A+j, sizeof(int),
-				      GASNET_COLL_SINGLE |
-				      GASNET_COLL_IN_MYSYNC |
-				      GASNET_COLL_OUT_ALLSYNC |
-				      GASNET_COLL_SRC_IN_SEGMENT |
-				      GASNET_COLL_DST_IN_SEGMENT);
+				      		GASNET_COLL_SINGLE |
+				      		GASNET_COLL_IN_MYSYNC |
+				      		GASNET_COLL_OUT_ALLSYNC |
+				      		GASNET_COLL_SRC_IN_SEGMENT |
+				      		GASNET_COLL_DST_IN_SEGMENT);
     }
     gasnet_coll_wait_sync_all(h, iters);
     for (j = 0; j < iters; ++j) {
-	if (A[j] != B[j]) {
-	    MSG("NB: broadcast validation failed");
+	if (A[j] != X[j]) {
+	    MSG("ERROR: %s broadcast validation failed", name);
 	    gasnet_exit(1);
 	}
     }
-    test_free(B);
+
+    test_free(X);
+    test_free(h);
+
+    BARRIER(); /* final barrier to ensure validation completes before next test */
+}
+
+/*
+ * Test NO/NO - in/out data is not generated/consumed in same barrier phase
+ * Unaligned/multi-addr variant
+ */
+void testM_NONO(int iters, gasnet_node_t root) {
+    const char name[] = "unaligned/multi-addr NO/NO";
+    int j;
+
+    MSG0("Starting %s test", name);
+
+    for (j = 0; j < iters; ++j) {
+	gasnet_node_t i;
+	int r = random();
+      
+	*Av[myproc] = (myproc == root) ? r : -1;
+	*Bv[myproc] = myproc;
+	for (i = 0; i < numprocs; ++i) {
+	    Dv[myproc][i] = i * r + myproc;
+	}
+
+	BARRIER();
+
+	gasnet_coll_broadcastM(GASNET_TEAM_ALL, (void**)Av, root, Av[root], sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_coll_gatherM(GASNET_TEAM_ALL, root, Cv[root], (void**)Bv, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_coll_scatterM(GASNET_TEAM_ALL, (void**)Ev, root, Dv[root], sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_coll_gather_allM(GASNET_TEAM_ALL, (void**)Fv, (void**)Bv, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_coll_exchangeM(GASNET_TEAM_ALL, (void**)Gv, (void**)Dv, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_NOSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+
+	BARRIER();
+
+	if (r != *Av[myproc]) {
+	    MSG("ERROR: %s broadcast validation failed", name);
+	    gasnet_exit(1);
+	}
+	if (myproc == root) {
+	    for (i = 0; i < numprocs; ++i) {
+		if (Cv[myproc][i] != i) {
+		    MSG("ERROR: %s gather validation failed", name);
+		    gasnet_exit(1);
+		}
+	    }
+	}
+	if (*Ev[myproc] != myproc*r + root) {
+	    MSG("ERROR: %s scatter validation failed", name);
+	    gasnet_exit(1);
+	}
+	for (i = 0; i < numprocs; ++i) {
+	    if (Fv[myproc][i] != i) {
+		MSG("ERROR: %s gather_all validation failed", name);
+	    }
+	}
+	for (i = 0; i < numprocs; ++i) {
+	    if (Gv[myproc][i] != i + myproc*r) {
+		MSG("ERROR: %s exchange validation failed", name);
+		gasnet_exit(1);
+	    }
+	}
+    }
+
+    BARRIER(); /* final barrier to ensure validation completes before next test */
+}
+
+/*
+ * Test MY/MY - in/out data is generated/consumed locally in same barrier phase
+ * unaliged/multi-addr variant
+ */
+void testM_MYMY(int iters, gasnet_node_t root) {
+    const char name[] = "unaligned/multi-addr MY/MY";
+    int j;
+
+    MSG0("Starting %s test", name);
+
+    for (j = 0; j < iters; ++j) {
+	gasnet_node_t i;
+	int r = random();
+      
+	*Av[myproc] = (myproc == root) ? r : -1;
+	*Bv[myproc] = myproc;
+
+	gasnet_coll_broadcastM(GASNET_TEAM_ALL, (void**)Av, root, Av[root], sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	if (r != *Av[myproc]) {
+	    MSG("ERROR: %s broadcast validation failed", name);
+	    gasnet_exit(1);
+	}
+	gasnet_coll_gatherM(GASNET_TEAM_ALL, root, Cv[root], (void**)Bv, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	if (myproc == root) {
+	    for (i = 0; i < numprocs; ++i) {
+		if (Cv[myproc][i] != i) {
+		    MSG("ERROR: %s gather validation failed", name);
+		    gasnet_exit(1);
+		}
+		Cv[myproc][i] *= r;
+	    }
+	}
+	gasnet_coll_scatterM(GASNET_TEAM_ALL, (void**)Bv, root, Cv[root], sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	if (*Bv[myproc] != myproc*r) {
+	    MSG("ERROR: %s scatter validation failed", name);
+	    gasnet_exit(1);
+	}
+	gasnet_coll_gather_allM(GASNET_TEAM_ALL, (void**)Cv, (void**)Bv, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	for (i = 0; i < numprocs; ++i) {
+	    if (Cv[myproc][i] != i*r) {
+		MSG("ERROR: %s gather_all validation failed", name);
+		gasnet_exit(1);
+	    }
+	    Cv[myproc][i] += myproc;
+	}
+	gasnet_coll_exchangeM(GASNET_TEAM_ALL, (void**)Dv, (void**)Cv, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_MYSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	for (i = 0; i < numprocs; ++i) {
+	    if (Dv[myproc][i] != i + myproc*r) {
+		MSG("ERROR: %s exchange validation failed", name);
+		gasnet_exit(1);
+	    }
+	}
+    }
+
+    BARRIER(); /* final barrier to ensure validation completes before next test */
+}
+
+/*
+ * Test ALL/ALL - in/out data is generated/consumed remotely in same barrier phase
+ * unaligned/multi-addr variant
+ */
+void testM_ALLALL(int iters, gasnet_node_t root) {
+    const char name[] = "unaligned/multi-addr ALL/ALL";
+    int j;
+    int tmp;
+    gasnet_node_t peer;
+
+    MSG0("Starting %s test", name);
+
+    peer = ((myproc ^ 1) == numprocs) ? myproc : (myproc ^ 1);
+
+    for (j = 0; j < iters; ++j) {
+	gasnet_node_t i;
+	int r = random();
+      
+	tmp = (peer == root) ? r : -1;
+	gasnet_put(peer, Av[peer], &tmp, sizeof(int));
+
+	gasnet_coll_broadcastM(GASNET_TEAM_ALL, (void**)Av, root, Av[root], sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(&tmp, peer, Av[peer], sizeof(int));
+	if (tmp != r) {
+	    MSG("ERROR: %s broadcast validation failed", name);
+	    gasnet_exit(1);
+	}
+	tmp = peer;
+	gasnet_put(peer, Bv[peer], &tmp, sizeof(int));
+	gasnet_coll_gatherM(GASNET_TEAM_ALL, root, Cv[root], (void**)Bv, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(Dv[myproc], root, Cv[root], numprocs*sizeof(int));
+	for (i = 0; i < numprocs; ++i) {
+	    if (Dv[myproc][i] != i) {
+		MSG("ERROR: %s gather validation failed", name);
+		gasnet_exit(1);
+	    }
+	}
+	BARRIER(); /* to avoid conflict on D */
+	tmp = myproc * r;
+	gasnet_put(root, Dv[root]+myproc, &tmp, sizeof(int));
+	gasnet_coll_scatterM(GASNET_TEAM_ALL, (void**)Bv, root, Dv[root], sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(&tmp, peer, Bv[peer], sizeof(int));
+	if (tmp != peer*r) {
+	    MSG("ERROR: %s scatter validation failed", name);
+	    gasnet_exit(1);
+	}
+	BARRIER(); /* to avoid conflict on B */
+	tmp = peer*r - 1;
+	gasnet_put(peer, Bv[peer], &tmp, sizeof(int));
+	gasnet_coll_gather_allM(GASNET_TEAM_ALL, (void**)Cv, (void**)Bv, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(Dv[myproc], peer, Cv[peer], numprocs*sizeof(int));
+	for (i = 0; i < numprocs; ++i) {
+	    if (Dv[myproc][i] != i*r - 1) {
+		MSG("ERROR: %s gather_all validation failed", name);
+		gasnet_exit(1);
+	    }
+	}
+	BARRIER(); /* to avoid conflict on C & D */
+	for (i = 0; i < numprocs; ++i) {
+	    Cv[myproc][i] += peer;
+	}
+	gasnet_put(peer, Dv[peer], Cv[myproc], numprocs*sizeof(int));
+	gasnet_coll_exchangeM(GASNET_TEAM_ALL, (void**)Cv, (void**)Dv, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_ALLSYNC |
+				      GASNET_COLL_OUT_ALLSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+	gasnet_get(Dv[myproc], peer, Cv[peer], numprocs*sizeof(int));
+	for (i = 0; i < numprocs; ++i) {
+	    if (Dv[myproc][i] != i + peer*r - 1) {
+		MSG("ERROR: %s exchange validation failed", name);
+		gasnet_exit(1);
+	    }
+	}
+    }
+
+    BARRIER(); /* final barrier to ensure validation completes before next test */
+}
+
+void testM_NB(int iters, gasnet_node_t root) {
+    const char name[] = "unaligned/multi-addr NB";
+    int i, j;
+    int **Z = test_malloc(iters * numprocs * sizeof(int *));
+    int *X = test_malloc(iters*sizeof(int));
+    int *Y = (int *)TEST_MYSEG() + myproc;
+    gasnet_coll_handle_t *h = test_malloc(iters*sizeof(gasnet_coll_handle_t));
+
+    for (i = 0; i < iters; ++i) {
+      int **p = Z + i*numprocs;
+      for (j = 0; j < numprocs; ++j) {
+	p[j] = (int *)TEST_SEG(j) + j + i;
+      }
+   }
+
+    MSG0("Starting %s test", name);
+
+    for (j = 0; j < iters; ++j) {
+        int **p = Z + j*numprocs;
+	X[j] = random();
+	Y[j] = (myproc == root) ? X[j] : 0;
+	assert(&(Y[j]) == p[myproc]);
+	h[j] = gasnet_coll_broadcastM_nb(GASNET_TEAM_ALL, (void**)p, root, p[root], sizeof(int),
+				      		GASNET_COLL_SINGLE |
+				      		GASNET_COLL_IN_MYSYNC |
+				      		GASNET_COLL_OUT_ALLSYNC |
+				      		GASNET_COLL_SRC_IN_SEGMENT |
+				      		GASNET_COLL_DST_IN_SEGMENT);
+    }
+    gasnet_coll_wait_sync_all(h, iters);
+    for (j = 0; j < iters; ++j) {
+	if (Y[j] != X[j]) {
+	    MSG("ERROR: %s broadcast validation failed", name);
+	    gasnet_exit(1);
+	}
+    }
+
+    test_free(Z);
+    test_free(X);
     test_free(h);
 
     BARRIER(); /* final barrier to ensure validation completes before next test */
@@ -404,8 +705,7 @@ int main(int argc, char **argv)
 {
     int arg;
     int iters = 0;
-    gasnet_node_t root;
-    int *src;
+    gasnet_node_t i;
    
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
@@ -417,15 +717,6 @@ int main(int argc, char **argv)
 
     if (!myproc)
 	print_testname("testcoll", numprocs);
-
-#if GASNET_ALIGNED_SEGMENTS != 1
-    if (myproc == 0) {
-	printf("This test currently requires aligned segments - exiting w/o running the test\n");
-        fflush(NULL);
-    }
-    BARRIER();
-    return 0;
-#else
 
     if (argc > 1) {
       iters = atoi(argv[1]);
@@ -440,26 +731,66 @@ int main(int argc, char **argv)
     gasnet_coll_init(NULL, 0, NULL, 0, 0);
 
     segment = (int *) TEST_MYSEG();
-    src = segment + 16;
 
     MSG("running.");
     BARRIER();
 
     srandom(1);
 
-    for (root = 0; root < numprocs; ++root) {
-      if (!myproc) MSG("Running tests with root = %d", (int)root);
+    Av = test_malloc(numprocs * sizeof(int *));
+    Bv = test_malloc(numprocs * sizeof(int *));
+    Cv = test_malloc(numprocs * sizeof(int *));
+    Dv = test_malloc(numprocs * sizeof(int *));
+    Ev = test_malloc(numprocs * sizeof(int *));
+    Fv = test_malloc(numprocs * sizeof(int *));
+    Gv = test_malloc(numprocs * sizeof(int *));
 
-      test_NONO(iters, root);
-      test_MYMY(iters, root);
-      test_ALLALL(iters, root);
-      test_NB(iters, root);
+    /* Carve some variables out of the segment: */
+    A = segment;	/* int [1] */
+    B = A + 1;		/* int [1] */
+    C = B + 1;		/* int [N] */
+    D = C + numprocs;	/* int [N] */
+    E = D + numprocs;	/* int [1] */
+    F = E + 1;		/* int [N] */
+    G = F + numprocs;	/* int [N] */
+
+    /* The unaligned eqivalents as arrays of pointers: */
+    for (i = 0; i < numprocs; ++i) {
+	Av[i] = (int *)TEST_SEG(i) + i; /* +i yields unaligned even when the segments are aligned */
+	Bv[i] = Av[i] + 1;
+	Cv[i] = Bv[i] + 1;
+	Dv[i] = Cv[i] + numprocs;
+	Ev[i] = Dv[i] + numprocs;
+	Fv[i] = Ev[i] + 1;
+	Gv[i] = Fv[i] + numprocs;
+    }
+
+    for (i = 0; i < numprocs; ++i) {
+      MSG0("Running tests with root = %d", (int)i);
+
+#if GASNET_ALIGNED_SEGMENTS == 1
+      test_NONO(iters, i);
+      test_MYMY(iters, i);
+      test_ALLALL(iters, i);
+      test_NB(iters, i);
+#endif	/* Aligned segments */
+      testM_NONO(iters, i);
+      testM_MYMY(iters, i);
+      testM_ALLALL(iters, i);
+      testM_NB(iters, i);
     }
 
     BARRIER();
 
+    test_free(Av);
+    test_free(Bv);
+    test_free(Cv);
+    test_free(Dv);
+    test_free(Ev);
+    test_free(Fv);
+    test_free(Gv);
+
     MSG("done.");
-#endif	/* Aligned segments */
 
     gasnet_exit(0);
 
