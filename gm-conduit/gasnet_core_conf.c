@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
- * $Date: 2004/08/26 04:53:36 $
- * $Revision: 1.13 $
+ * $Date: 2004/09/16 21:18:24 $
+ * $Revision: 1.14 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -19,6 +19,7 @@
 	} while (0)
 
 
+#define GASNETC_HOST_PATH	"/usr/bin/host"
 #define GASNETC_INIT_TIMEOUT	(3*60*1000)	/* 3 minutes */
 #define GASNETC_SOCKET_BUFSIZ	(128*1024)
 
@@ -32,6 +33,72 @@
 			ptr = ptrenv;					\
 		}							\
 	} while (0)
+
+/* 
+ * Replace gethostby... functionality
+ *
+ * These are unfortunately located in shared object libraries on linux, so we
+ * have to emulate them here in case they don't exist on certain systems that
+ * fail to install shared libraries correctly.
+ *
+ * This command parses hostaddr and returns the 32-bit ip address as an
+ * integer in network-byte order.  If fatal, or the address could not be parsed,
+ * the function returns 0.  This, of course, assumes that the caller will never
+ * want to use 0.0.0.0 as an address, which is reasonable for what we use this
+ * function for.
+ */
+uint32_t
+gasnetc_parse_addr(char *hostaddr)
+{
+    uint32_t ip, a2, a3, a4;
+    char    cmd[128], line[128];
+    char    *p, *ip_ptr = NULL;
+    FILE    *fd;
+
+    ip_ptr = hostaddr;
+    
+    if (sscanf(ip_ptr, "%d.%d.%d.%d",&ip,&a2,&a3,&a4) != 4) {
+	/* Input is not in the IP form.  Resort to using host command */
+	snprintf(cmd, 128, "%s -t a %s", GASNETC_HOST_PATH, hostaddr);
+
+	fd = popen(cmd, "r");
+	if (fd == NULL) {
+	    fprintf(stderr, "Couldn't open %s\n", cmd);
+	    return 0;
+	}
+	p = fgets(line, 128, fd);
+	pclose(fd);
+
+	if (p == NULL)
+	    return 0;
+
+	/* Find last space */
+	ip_ptr = strrchr(p, ' ');
+	if (*ip_ptr == '\0' || ip_ptr[1] == '\0')
+	    return 0;
+	ip_ptr++;
+
+	/* chomp -- Remove any trailing newline */
+	p = ip_ptr;
+	while (*p != '\0') {
+	    if (*p == '\n')
+		*p = '\0';
+	    p++;
+	}
+
+	/* This should parse perfectly or else there's a resolution error or
+	 * some unrecognized '/usr/bin/host' output */
+	ip = a2 = a3 = a4 = 0;
+	if (sscanf(ip_ptr, "%d.%d.%d.%d",&ip,&a2,&a3,&a4) != 4)
+	    return 0;
+    }
+
+    if (inet_pton(AF_INET, ip_ptr, &ip) < 1)
+	return 0;
+    else
+	return ip;
+}
+
 
 static
 char *
@@ -204,8 +271,8 @@ gasnetc_getconf_mpiexec()
 	else {
 		char	buf[256];
 		char	*slave;
-		char	slave_n[32];
 		int	hostlen;
+		uint32_t slave_n;
 
 		slave = getenv("GMPI_SLAVE");
 		if (slave == NULL || *slave == '\0') {
@@ -216,14 +283,13 @@ gasnetc_getconf_mpiexec()
 				    "Can't identify local hostname");
 		}
 
-		memset(&slave_n, 0, 32);
-		if (inet_pton(AF_INET, slave, slave_n) == INADDR_NONE)
-		    gasneti_fatalerror("%d> Could not translate IP %s", 
-			gasnetc_mynode, slave);
+		slave_n = gasnetc_parse_addr(slave);
+		if (!slave_n)
+		    gasneti_fatalerror("Couldn't parse address %s",slave);
 
-		memset(&_gmc.slave_addr, 0, sizeof(struct sockaddr));
+		memset(&_gmc.slave_addr, 0, sizeof(struct sockaddr_in));
 		_gmc.slave_addr.sin_family = AF_INET;
-		memcpy(&_gmc.slave_addr.sin_addr, slave_n, strlen(slave_n));
+		_gmc.slave_addr.sin_addr.s_addr = slave_n;
 
 		for (slave_port = 8000; slave_port < 20000; slave_port++) {
 			_gmc.slave_addr.sin_port = htons(slave_port);
@@ -254,19 +320,18 @@ gasnetc_getconf_mpiexec()
 		    "%d> Can't open second socket", gasnetc_mynode);
 	else {
 		gm_u64_t    start_time, stop_time;
-		char	    master_n[32];
 		ssize_t	    b;
 		int	    junk;
+		uint32_t    master_n;
 
-		memset(&master_n, 0, 32);
-		if (inet_pton(AF_INET, master, master_n) == INADDR_NONE)
-		    gasneti_fatalerror("%d> Could not translate IP %s",
-			gasnetc_mynode, master);
+		master_n = gasnetc_parse_addr(master);
+		if (!master_n)
+		    gasneti_fatalerror("Couldn't parse address %s",master);
 
 		memset(&_gmc.master_addr, 0, sizeof(struct sockaddr));
 		_gmc.master_addr.sin_family = AF_INET;
+		_gmc.master_addr.sin_addr.s_addr = master_n;
 		_gmc.master_addr.sin_port = htons(_gmc.master_port);
-		memcpy(&_gmc.master_addr.sin_addr, master_n, strlen(master_n));
 
 		start_time = gm_ticks(_gmc.port);
 
