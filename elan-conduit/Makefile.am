@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.4 2002/09/13 14:41:36 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.5 2002/11/24 00:32:51 bonachea Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -85,7 +85,7 @@ clean-local:
 	rm -f $(libgasnet_objects) $(libraries) *.o core
 	@$(MAKE) -f $(top_srcdir)/tests/Makefile clean       \
 	  srcdir="$(top_srcdir)/tests"			     \
-	  configfile="elan-seq.mak"
+	  configfile="/dev/null"
 
 headers = $(srcdir)/*.h                             \
   $(top_srcdir)/extended-ref/gasnet_extended.h      \
