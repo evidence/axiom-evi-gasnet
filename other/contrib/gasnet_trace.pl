@@ -152,8 +152,8 @@ sub parse_threadinfo
         $node_threads{$3}++;
         $job_nodes{$5} = $4;
         $job_seen{$5}++;
-        if ($job_uniq{$5,$3}++) {
-            print STDERR "WARNING: duplicate tracing data for node $3 of job $5\n";
+        if ($job_uniq{$5,$2}++) {
+            print STDERR "WARNING: duplicate tracing data for thread $2 of job $5\n";
 	}
     }	       
 
@@ -166,15 +166,16 @@ sub parse_tracefile
     
     while (<TRACEFILE>) {
         my ($thread, $src, $pgb, $type, $sz);
-        if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPG]\)\s+(PUT|GET).*_LOCAL:\D+(\d+)/) {
-            # Handling Local put/get
-            ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, "LOCAL", $4);
-	} elsif (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(.*)_(.*):\D+(\d+)/) { 
-            # Handling Global put/get and barriers             
+	if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(PUT|GET|BARRIER)(.*):\D+(\d+)/) { 
             ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
-            if ($pgb =~ /P|G/) {
-                $type = "GLOBAL";
+            if ($pgb =~ /PUT|GET/) {
+	      if ($type =~ /_LOCAL$/) {
+                $type = "LOCAL";
+	      } else {
+	        $type = "GLOBAL";
+	      }
             } elsif ($pgb =~ /BARRIER/) {
+	        $type =~ s/^_//;
                 $thread = $nodes{$thread};
             }
 	} else {
