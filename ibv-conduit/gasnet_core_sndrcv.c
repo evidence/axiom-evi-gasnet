@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2004/01/30 20:39:37 $
- * $Revision: 1.39 $
+ *     $Date: 2004/01/30 20:52:16 $
+ * $Revision: 1.40 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -397,6 +397,7 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
 
     rbuf = &emergency_spare;
     GASNETC_STAT_EVENT(ALLOC_AM_SPARE);
+    GASNETI_TRACE_PRINTF(C,("ALLOC_AM_SPARE: No spare AM recv buffers available\n"));
   }
 
   /* Now process the packet */
