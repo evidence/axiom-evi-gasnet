@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/23 22:36:39 $
- * $Revision: 1.39 $
+ *     $Date: 2004/07/28 23:59:31 $
+ * $Revision: 1.40 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -782,6 +782,7 @@ int gasnete_try_syncnb_inner(gasnet_handle_t handle) {
   if (GASNETE_HANDLE_IS_OP(handle)) {
     gasnete_op_t *op = GASNETE_HANDLE_TO_OP(handle);
     if (gasnete_op_isdone(op, FALSE)) {
+      gasneti_sync_reads();
       gasnete_op_free(op);
       return GASNET_OK;
     }
@@ -910,8 +911,10 @@ static gasnete_eop_t * gasnete_putgetbblist_pending(gasnete_eop_t *eoplist) {
     gasneti_assert(OPCAT(op) == OPCAT_ELANGETBB || OPCAT(op) == OPCAT_ELANPUTBB);
     gasneti_assert(eoplist->bouncebuf);
     next = eoplist->bouncebuf->next;
-    if (gasnete_op_isdone(op, TRUE)) 
+    if (gasnete_op_isdone(op, TRUE)) {
+      gasneti_sync_reads();
       gasnete_op_free(op);
+    }
     else 
       return eoplist; /* stop when we find the first pending one */
     eoplist = next;
@@ -1280,7 +1283,10 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
         gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
     #endif
 
-    if (gasnete_iop_gets_done(iop)) return GASNET_OK;
+    if (gasnete_iop_gets_done(iop)) {
+      gasnete_sync_reads();
+      return GASNET_OK;
+    }
     else return GASNET_ERR_NOT_READY;
   }
 }
@@ -1301,7 +1307,10 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
         gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_puts() inside an NBI access region");
     #endif
 
-    if (gasnete_iop_puts_done(iop)) return GASNET_OK;
+    if (gasnete_iop_puts_done(iop)) {
+      gasnete_sync_reads();
+      return GASNET_OK;
+    }
     else return GASNET_ERR_NOT_READY;
   }
 }

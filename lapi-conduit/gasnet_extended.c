@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/23 22:36:45 $
- * $Revision: 1.25 $
+ *     $Date: 2004/07/28 23:59:37 $
+ * $Revision: 1.26 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -578,6 +578,7 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
     GASNETE_SAFE(gasneti_AMPoll());
 
     if (gasnete_op_isdone(handle)) {
+	gasneti_sync_reads();
 	gasnete_op_free(handle);
 	return GASNET_OK;
     }
@@ -597,6 +598,7 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 	if (op != GASNET_INVALID_HANDLE) {
 	    empty = 0;
 	    if (gasnete_op_isdone(op)) {
+		gasneti_sync_reads();
 		gasnete_op_free(op);
 		phandle[i] = GASNET_INVALID_HANDLE;
 		success = 1;
@@ -620,6 +622,7 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 	gasnete_op_t *op = phandle[i];
 	if (op != GASNET_INVALID_HANDLE) {
 	    if (gasnete_op_isdone(op)) {
+		gasneti_sync_reads();
 		gasnete_op_free(op);
 		phandle[i] = GASNET_INVALID_HANDLE;
 	    } else success = 0;
@@ -764,6 +767,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
 	      GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->get_cntr,0));
               iop->initiated_get_cnt = 0;
             }
+	    gasneti_sync_reads();
 	    return GASNET_OK;
         } else return GASNET_ERR_NOT_READY;
     }
@@ -787,10 +791,11 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 	    gasneti_assert(cnt <= iop->initiated_put_cnt);
 	}
         if (iop->initiated_put_cnt == cnt) {
-          if (cnt > 65000) { /* make sure we don't overflow the counters */
+            if (cnt > 65000) { /* make sure we don't overflow the counters */
 	      GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->put_cntr,0));
               iop->initiated_put_cnt = 0;
             }
+	    gasneti_sync_reads();
 	    return GASNET_OK;
         } else return GASNET_ERR_NOT_READY;
     }

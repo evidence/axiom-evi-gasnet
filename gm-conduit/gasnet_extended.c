@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gm-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/17 17:00:33 $
- * $Revision: 1.27 $
+ *     $Date: 2004/07/28 23:59:35 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -169,6 +169,7 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 	GASNETE_SAFE(gasneti_AMPoll());
 
 	if (gasnete_op_isdone(handle)) {
+		gasneti_sync_reads();
 		gasnete_op_free(handle);
 		return GASNET_OK;
 	}
@@ -191,6 +192,7 @@ gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles)
 			if (op != GASNET_INVALID_HANDLE) {
 				empty = 0;
 				if (gasnete_op_isdone(op)) {
+					gasneti_sync_reads();
 					gasnete_op_free(op);
 					phandle[i] = GASNET_INVALID_HANDLE;
 					success = 1;
@@ -218,6 +220,7 @@ gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
 			gasnete_op_t *op = phandle[i];
 			if (op != GASNET_INVALID_HANDLE) {
 				if (gasnete_op_isdone(op)) {
+					gasneti_sync_reads();
 					gasnete_op_free(op);
 					phandle[i] = GASNET_INVALID_HANDLE;
 				} 
@@ -258,6 +261,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
         gasneti_atomic_set(&(iop->completed_get_cnt), 0);
         iop->initiated_get_cnt = 0;
       }
+      gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;
   }
@@ -285,6 +289,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
         gasneti_atomic_set(&(iop->completed_put_cnt), 0);
         iop->initiated_put_cnt = 0;
       }
+      gasneti_sync_reads();
       return GASNET_OK;
     } else return GASNET_ERR_NOT_READY;
   }
