@@ -1,6 +1,6 @@
-/* $Id: testcore1.c,v 1.1 2002/08/05 03:11:17 csbell Exp $
- * $Date: 2002/08/05 03:11:17 $
- * $Revision: 1.1 $
+/* $Id: testcore1.c,v 1.2 2002/08/05 10:10:58 bonachea Exp $
+ * $Date: 2002/08/05 10:10:58 $
+ * $Revision: 1.2 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  *
  * Description: GASNet Core Monotonic checksum test
@@ -28,8 +28,6 @@
 #include <gasnet.h>
 #include "test.h"
 
-DECLARE_ALIGNED_SEG(PAGESZ);
-
 #define DEBUG_TRACE
 #define CHKSUM_LENGTH	8
 #define CHKSUM_NUM	400
@@ -54,7 +52,6 @@ gasnet_seginfo_t *seginfo_table;
 int		chksum_success = 0;
 int		chksum_iters = 0;
 int		chksum_received = 0;
-unsigned char   chksum_reqbuf[CHKSUM_TOTAL];
 
 #define CHKSUM_DUMP(chksum) do {			\
 		int i = 0;				\
@@ -86,12 +83,13 @@ chksum_gen(int seed, void *buf)
 {
 	int		i;
 	uint64_t	chksum;
+        uint8_t         *p = buf;
 
 	chksum = test_checksum((void *)&seed, 4);
 	for (i = 0; i < CHKSUM_NUM; i++) {
 		chksum = test_checksum((void *)&chksum, CHKSUM_LENGTH);
-		memcpy(buf, &chksum, CHKSUM_LENGTH);
-		buf += CHKSUM_LENGTH;
+		memcpy(p, &chksum, CHKSUM_LENGTH);
+		p += CHKSUM_LENGTH;
 	}
 	return;
 }
@@ -168,6 +166,7 @@ chksum_test(int iters)
 void chksum_reqh(gasnet_token_t token, 
 	gasnet_handlerarg_t iter, gasnet_handlerarg_t seed)
 {
+        unsigned char   chksum_reqbuf[CHKSUM_TOTAL];
 	chksum_received++;
 	chksum_gen(seed, &chksum_reqbuf);
 	monoseed_trace(iter, seed, &chksum_reqbuf, NULL);
@@ -211,8 +210,10 @@ main(int argc, char **argv)
 	};
 
 	/* call startup */
-	GASNET_Safe(gasnet_init(&argc, &argv, htable, 
-	    sizeof(htable)/sizeof(gasnet_handlerentry_t), MYSEG(), SEGSZ(), 0));
+        GASNET_Safe(gasnet_init(&argc, &argv));
+        GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), TEST_SEGSZ, TEST_MINHEAPOFFSET));
+
+        assert(CHKSUM_TOTAL <= gasnet_AMMaxMedium());
 
 	if (argc < 2) {
 		printf("Usage: %s <iters>\n", argv[0]);

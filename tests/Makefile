@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Attic/Makefile,v 1.2 2002/06/10 13:56:11 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Attic/Makefile,v 1.3 2002/08/05 10:10:58 bonachea Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -13,7 +13,8 @@ testprograms =      \
         testgasnet  \
         testhsl     \
         testlarge   \
-        testsmall   
+        testsmall   \
+	testcore1
 
 tests: $(testprograms)
 	
