@@ -1,4 +1,4 @@
-/* $Id: testthreads.c,v 1.10 2003/09/15 06:31:19 bonachea Exp $
+/* $Id: testthreads.c,v 1.11 2003/12/04 13:44:46 bonachea Exp $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -10,6 +10,8 @@
  * Terms of use are as specified in license.txt
  */
 
+#include "gasnet.h"
+#include "gasnet_tools.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -18,8 +20,6 @@
 #include <fcntl.h>
 #include <pthread.h>
 
-#include "gasnet.h"
-#include "gasnet_tools.h"
 #include "test.h"
 
 #define CACHE_LINE_BYTES	(128)
