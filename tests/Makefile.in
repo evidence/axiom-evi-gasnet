@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.20 2004/03/13 13:34:10 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.21 2004/03/17 00:22:37 phargrov Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -130,11 +130,11 @@ testtools: force
 
 # some tests need delay.o
 testlogGP: delay.o
-testlogGP_deps = delay.o
+testlogGP_extraobjs = delay.o
 testbarrierlate: delay.o
-testbarrierlate_deps = delay.o
+testbarrierlate_extraobjs = delay.o
 
-# delay function must be built w/o optimizations
+# delay function, used by multiple tests
 delay.o: force
 	$(GASNET_CC) $(GASNET_INCLUDES) -c -o $@ $(srcdir)/$*.c
 
@@ -147,7 +147,7 @@ testmpi: force
 # This is a model for how GASNet clients should be built:
 test% : force
 	$(GASNET_CC) -I$(srcdir) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) -c -o $@.o $(srcdir)/$@.c
-	$(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $@.o $($@_deps) $(GASNET_LIBS)
+	$(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $@.o $($@_extraobjs) $(GASNET_LIBS)
 
 force:
 	
