@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/18 23:53:05 $
- * $Revision: 1.18 $
+ *     $Date: 2005/01/19 18:06:33 $
+ * $Revision: 1.19 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -738,7 +738,7 @@ static void pre_spawn(count) {
     gasneti_fatalerror("bind() failed");
   }
   if (listen(listener, count) < 0) {
-    gasneti_fatalerror("listen() failed");
+    gasneti_fatalerror("listen() failed w/ errno=%d", errno);
   }
   if (getsockname(listener, (struct sockaddr *)&sock_addr, &addr_len) < 0) {
     gasneti_fatalerror("getsockname() failed");
@@ -753,14 +753,14 @@ static void post_spawn(int count, int argc, char * const *argv) {
   /* Accept count connections */
   while (count--) {
     struct sockaddr_in sock_addr;
-    socklen_t addr_len;
+    socklen_t addr_len = sizeof(sock_addr);
     static const int one = 1;
     gasnet_node_t child_id;
     struct child *ch = NULL;
     int s;
 
     if ((s = accept(listener, (struct sockaddr *)&sock_addr, &addr_len)) < 0) {
-      gasneti_fatalerror("accept() failed");
+      gasneti_fatalerror("accept() failed w/ errno=%d", errno);
     }
     (void)fcntl(s, F_SETFD, FD_CLOEXEC);
     (void)ioctl(s, SIOCSPGRP, &mypid); /* Enable SIGURG delivery on OOB data */
