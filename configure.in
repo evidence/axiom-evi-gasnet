@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/04/13 21:52:40 $
-# $Revision: 1.132 $
+#     $Date: 2004/04/19 23:22:45 $
+# $Revision: 1.133 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.132 $)
+AC_REVISION($Revision: 1.133 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1619,48 +1619,36 @@ Makefile
 other/perlstart dnl must precede files that use it
 
 mpi-conduit/Makefile
-mpi-conduit/mpi-seq.mak
-mpi-conduit/mpi-parsync.mak
-mpi-conduit/mpi-par.mak
+mpi-conduit/conduit.mak
 mpi-conduit/contrib/Makefile
 mpi-conduit/contrib/gasnetrun_mpi
 
 udp-conduit/Makefile
-udp-conduit/udp-seq.mak
-udp-conduit/udp-parsync.mak
-udp-conduit/udp-par.mak
+udp-conduit/conduit.mak
 
 gm-conduit/Makefile
-gm-conduit/gm-seq.mak
-gm-conduit/gm-parsync.mak
-gm-conduit/gm-par.mak
+gm-conduit/conduit.mak
 gm-conduit/contrib/Makefile
 gm-conduit/contrib/gasnetrun_gm
 
 lapi-conduit/Makefile
-lapi-conduit/lapi-seq.mak
-lapi-conduit/lapi-parsync.mak
-lapi-conduit/lapi-par.mak
+lapi-conduit/conduit.mak
 
 smp-conduit/Makefile
-smp-conduit/smp-seq.mak
-smp-conduit/smp-parsync.mak
-smp-conduit/smp-par.mak
+smp-conduit/conduit.mak
 
 elan-conduit/Makefile
-elan-conduit/elan-seq.mak
-elan-conduit/elan-parsync.mak
-elan-conduit/elan-par.mak
+elan-conduit/conduit.mak
 
 vapi-conduit/Makefile
-vapi-conduit/vapi-seq.mak
-vapi-conduit/vapi-parsync.mak
-vapi-conduit/vapi-par.mak
+vapi-conduit/conduit.mak
 vapi-conduit/contrib/Makefile
 vapi-conduit/contrib/gasnetrun_vapi
 
 other/Makefile
 other/Makefile-conduit.mak
+other/fragment-head.mak
+other/fragment-body.mak
 other/ammpi/Makefile
 other/amudp/Makefile
 tests/Makefile

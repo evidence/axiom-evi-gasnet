@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2004/04/05 23:53:08 $
- * $Revision: 1.2 $
+ *     $Date: 2004/04/19 23:22:59 $
+ * $Revision: 1.3 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,7 +106,7 @@ int main(int argc, char **argv) {
           gasnet_exit(1);
         }
       }
-    } else {
+    } else if (i == 0) { /* DOB: only warn once per run */
       MSG("WARNING: pair mismatch tests skipped (only 1 node)");
     }
 
@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
           }
         }
       }
-    } else {
+    } else if (i == 0) { /* DOB: only warn once per run */
       MSG("WARNING: multiway mismatch tests skipped (less than 3 nodes)");
     }
     BARRIER();
