@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/08/03 12:29:57 $
- * $Revision: 1.67 $
+ *     $Date: 2004/08/25 05:10:27 $
+ * $Revision: 1.68 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -833,6 +833,13 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
     return retval;
   }
 
+  #define GASNETI_TRACEFILE_FLUSH(fp) do {               \
+    static int autoflush = -1;                           \
+    if_pf (autoflush == -1)                              \
+      autoflush = !!gasnet_getenv("GASNET_TRACEFLUSH");  \
+    if (autoflush) fflush(fp);                           \
+  } while (0)
+
   /* private helper for gasneti_trace/stats_output */
   static void gasneti_file_output(FILE *fp, double time, const char *type, const char *msg, int traceheader) {
     gasneti_mutex_assertlocked(&gasneti_tracelock);
@@ -858,7 +865,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
         fprintf(fp, "%i> (%c) %s%s", (int)gasnet_mynode(), *type, msg,
                 (msg[strlen(msg)-1]=='\n'?"":"\n"));
     }
-    fflush(fp);
+    GASNETI_TRACEFILE_FLUSH(fp);
   }
 
   /* dump message to tracefile */
@@ -903,7 +910,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
     fprintf(fp, "%i> ", (int)gasnet_mynode());
     vfprintf(fp, format, argptr);
     if (format[strlen(format)-1]!='\n') fprintf(fp, "\n");
-    fflush(fp);
+    GASNETI_TRACEFILE_FLUSH(fp);
   }
 
   /* dump message to tracefile with simple header */
