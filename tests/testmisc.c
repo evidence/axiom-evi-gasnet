@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testmisc.c                             $
- *     $Date: 2002/09/02 23:03:31 $
- * $Revision: 1.3 $
+ *     $Date: 2002/10/04 01:59:26 $
+ * $Revision: 1.4 $
  * Description: GASNet misc performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -617,6 +617,10 @@ int main(int argc, char **argv) {
         gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS); 
       }
       report("single-node barrier",TIME() - start, iters);
+      if (mynode == 0) {
+        printf("Note: this is actually the barrier time for %i nodes, since you're running with more than one node.\n", gasnet_nodes());
+        fflush(stdout);
+      }
     }
 
     BARRIER();
