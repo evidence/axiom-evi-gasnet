@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/25 22:04:53 $
-# $Revision: 1.231 $
+#     $Date: 2005/02/27 15:34:44 $
+# $Revision: 1.232 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.231 $)
+AC_REVISION($Revision: 1.232 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -259,7 +259,7 @@ case "$gasnet_cv_cc_family" in
     esac ;;
   MIPS) MISC_CFLAGS="-common -diag_error 1035 -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;; # 1035 ensures "#error" is fatal
   Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
-  HP)     MISC_CFLAGS="+W612 +W2111 +W2177 +W2236 +W2550" ;;
+  HP)     MISC_CFLAGS="+W612 +W2111 +W2174 +W2177 +W2236 +W2550" ;;
   Intel) MISC_CFLAGS="-wd177 -wd279" 
          GASNET_TRY_CFLAG([-wd1572],
                           [MISC_CFLAGS="$MISC_CFLAGS -wd1572"])
@@ -658,6 +658,9 @@ else
   CFLAGS="$CFLAGS $GASNET_THREAD_DEFINES -I$TOP_SRCDIR/other"
   LIBS="$GASNET_THREAD_LIBS"
 
+  # define HAVE_PTHREAD_H
+  AC_CHECK_HEADERS(pthread.h)
+
   # look for optional pthreads entry points and features
   AC_SEARCH_LIBS(pthread_setconcurrency, pthread pthreads c_r, AC_DEFINE(HAVE_PTHREAD_SETCONCURRENCY))
   AC_SEARCH_LIBS(pthread_kill_other_threads_np, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
@@ -796,7 +799,7 @@ if test $enabled_udp = yes; then
     PGI)   MISC_CXXFLAGS="-w -Masmkeyword" ;; # apparently has no way to indep control warnings
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
     MIPS)  MISC_CXXFLAGS="-diag_error 1035 -diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
-    HP)    MISC_CXXFLAGS="+W612 +W749 +W2111 +W2177 +W2236 +W2550" ;;
+    HP)    MISC_CXXFLAGS="+W612 +W749 +W2111 +W2174 +W2177 +W2236 +W2550" ;;
     Compaq) MISC_CXXFLAGS="-msg_disable extrasemi,boolexprconst,codeunreachable" ;;
     MTA)   MISC_CXXFLAGS="-exceptions -display_error_number -WS 111,174,238" 
            CXXDEBUGFLAGS="-g2"

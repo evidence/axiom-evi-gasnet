@@ -1,68 +1,60 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/02/24 19:01:20 $
- * $Revision: 1.20 $
+ *     $Date: 2005/02/27 15:34:48 $
+ * $Revision: 1.21 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#include <gasnet_tools.h>
+#define TEST_GASNET_TOOLS_ONLY
+#include "test.h"
+
+#include <ctype.h>
 
 /* specifically omit gasnet.h/test.h to test independence */
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <math.h>
-#include <sys/time.h>
+#if defined(_GASNET_H) || defined(TEST_GASNET_H)
+#error testtools should *not* include gasnet.h
+#endif
 
 #ifdef HAVE_PTHREAD_H
-  #include <pthread.h>
   #define NUM_THREADS 10
   gasnett_atomic_t thread_flag[NUM_THREADS];
   int valX[NUM_THREADS];
   int valY[NUM_THREADS];
 #endif
 
+#define DEFAULT_ITERS 100
 int iters = 0;
-
-int errs = 0;
-#define ERR(msg) do {                                        \
-  printf("ERROR: %s (at %s:%i)\n", msg, __FILE__, __LINE__); \
-  fflush(stdout);                                            \
-  errs++;                                                    \
-  } while (0)
-
-static int64_t mygetMicrosecondTimeStamp(void)
-{
-    int64_t retval;
-    struct timeval tv;
-    if (gettimeofday(&tv, NULL)) {
-	perror("gettimeofday");
-	abort();
-    }
-    retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
-    return retval;
-}
-#define TIME() mygetMicrosecondTimeStamp()
+char tests[255];
+char curtest = 'A';
+#define TEST_HEADER(desc)                        \
+  curtest++;                                     \
+  if ((!tests[0] || strchr(tests, curtest-1)) && \
+      (MSG0("%c: %s",curtest-1,desc),1))
 
 void * thread_fn(void *arg);
 
 int main(int argc, char **argv) {
 
   if (argc > 1) iters = atoi(argv[1]);
-  if (iters < 1) iters = 100;
+  if (iters < 1) iters = DEFAULT_ITERS;
+  if (argc > 2) {
+    const char *p = argv[2];
+    char *q = tests;
+    while (*p) *(q++) = toupper(*(p++));
+  }
 
-  printf("Running testtools with %i iterations\n", iters);
+  MSG("Running testtools with %i iterations", iters);
 
   #if defined(GASNETT_PAGESIZE) && defined(GASNETT_PAGESHIFT)
     if (0x1 << GASNETT_PAGESHIFT != GASNETT_PAGESIZE)
-      printf("ERROR: bad pagesizes: GASNETT_PAGESHIFT=%i GASNETT_PAGESIZE=%i\n",
+      ERR("bad pagesizes: GASNETT_PAGESHIFT=%i GASNETT_PAGESIZE=%i",
               GASNETT_PAGESHIFT, GASNETT_PAGESIZE);
     else 
-      printf("System page size is 2^%i == %i\n", GASNETT_PAGESHIFT, GASNETT_PAGESIZE);
+      MSG("System page size is 2^%i == %i", GASNETT_PAGESHIFT, GASNETT_PAGESIZE);
   #endif
    
-  printf("Testing high-performance timers...\n");
+  TEST_HEADER("Testing high-performance timers...")
   { /* high performance timers */
     int i;
     gasnett_tick_t start, end;
@@ -86,7 +78,7 @@ int main(int argc, char **argv) {
       timeref = endref - startref;
 
       if (abs(timeref - time) > 100000)
-        printf("ERROR: timer and reference differ by more than 0.1sec:\n"
+        ERR("timer and reference differ by more than 0.1sec:\n"
                "\ttime=%i  timeref=%i\n",time,timeref);
 
       if (abs( (gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start)) - 
@@ -101,12 +93,12 @@ int main(int argc, char **argv) {
           (granularity+0.1) < 0.5*overhead) 
           /* allow some leeway for noise at granularities approaching cycle speed */
           /*granularity < 0.5*overhead)*/
-        printf("ERROR: nonsensical timer overhead/granularity measurements:\n"
+          ERR("nonsensical timer overhead/granularity measurements:\n"
                "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
     }
   }
 
-  printf("Testing local membar...\n");
+  TEST_HEADER("Testing local membar...")
   { /* local membar */
     int i;
     for (i=0;i<iters;i++) {
@@ -114,7 +106,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  printf("Testing local write membar...\n");
+  TEST_HEADER("Testing local write membar...")
   { /* local membar */
     int i;
     for (i=0;i<iters;i++) {
@@ -122,7 +114,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  printf("Testing local read membar...\n");
+  TEST_HEADER("Testing local read membar...")
   { /* local membar */
     int i;
     for (i=0;i<iters;i++) {
@@ -130,7 +122,7 @@ int main(int argc, char **argv) {
     }
   }
 
-  printf("Testing atomic ops (sequential)...\n");
+  TEST_HEADER("Testing atomic ops (sequential)...")
   { /* we can't really test atomicity without spinning threads, 
        but we can at least test simple operations  */
     int i = 0;
@@ -183,7 +175,7 @@ int main(int argc, char **argv) {
   }
 
 #ifdef HAVE_PTHREAD_H
-  printf("Testing atomic ops (parallel)...\n");
+  MSG("Spawning pthreads...");
   { 
     int i;
     pthread_t threadid[NUM_THREADS];
@@ -209,11 +201,17 @@ int main(int argc, char **argv) {
   }
 #endif
 
-  printf("Done.\n");
-  return (errs > 0 ? 1 : 0);
+  MSG("Done.");
+  return (test_errs > 0 ? 1 : 0);
 }
 
 #ifdef HAVE_PTHREAD_H
+
+#undef MSG0
+#undef ERR
+#define MSG0  test_makeMsg(("%s\n","%s"), (id == 0), 0)
+#define ERR   test_makeMsg(("ERROR: thread %i: %s (at %s:%i)\n", \
+                            id, "%s", __FILE__, __LINE__), 1, test_errs++)
 
 gasnett_atomic_t up = gasnett_atomic_init(0);
 gasnett_atomic_t down = gasnett_atomic_init(2*NUM_THREADS);
@@ -223,193 +221,183 @@ gasnett_atomic_t x3 = gasnett_atomic_init(10000);
 gasnett_atomic_t x4 = gasnett_atomic_init(10000);
 gasnett_atomic_t x5 = gasnett_atomic_init(10000);
 
+gasnett_atomic_t _thread_barrier = gasnett_atomic_init(0);
+
+#define THREAD_BARRIER() do {                                             \
+   barcnt++;                                                              \
+   gasnett_local_mb();                                                    \
+   gasnett_atomic_increment(&_thread_barrier);                            \
+   while (gasnett_atomic_read(&_thread_barrier) < (barcnt*NUM_THREADS)) { \
+      gasnett_sched_yield();                                              \
+    }                                                                     \
+  } while(0)                                                              \
+
+#undef TEST_HEADER
+#define TEST_HEADER(desc)                           \
+  th_curtest++;                                     \
+  THREAD_BARRIER();                                 \
+  if ((!tests[0] || strchr(tests, th_curtest-1)) && \
+      (MSG0("%c: %s",th_curtest-1,desc),1))
+
 void * thread_fn(void *arg) {
   int id = (int)(uintptr_t)arg;
   int i;
   int iters2=100*iters;
+  int barcnt = 0;
+  char th_curtest = curtest;
  
-  /* sanity check */
+  /* sanity check - ensure unique threadids */
   if (!gasnett_atomic_decrement_and_test(thread_flag+id)) {
-      printf("ERROR: thread %i failed sanity check\n", id);
+      ERR("thread %i failed sanity check", id);
   }
 
-  if (id == 0) printf("parallel atomic-op barrier test...\n");
+  /* sanity check - ensure thread barriers are working */
+  TEST_HEADER("parallel atomic-op barrier test...") {  
+    for (i=0;i<iters;i++) {
+      /* simple count-up barrier */
+      gasnett_atomic_increment(&up);
+      while (gasnett_atomic_read(&up) < NUM_THREADS) gasnett_sched_yield(); 
 
-  for (i=0;i<iters;i++) {
-    /* simple count-up barrier */
-    gasnett_atomic_increment(&up);
-    while (gasnett_atomic_read(&up) < NUM_THREADS) gasnett_sched_yield(); 
+      gasnett_atomic_set(&down, 2*NUM_THREADS);
 
-    gasnett_atomic_set(&down, 2*NUM_THREADS);
+      gasnett_atomic_increment(&up);
+      while (gasnett_atomic_read(&up) < 2*NUM_THREADS) gasnett_sched_yield(); 
 
-    gasnett_atomic_increment(&up);
-    while (gasnett_atomic_read(&up) < 2*NUM_THREADS) gasnett_sched_yield(); 
+      if (gasnett_atomic_read(&up) != 2*NUM_THREADS)
+        ERR("count-up post-barrier read");
 
-    if (gasnett_atomic_read(&up) != 2*NUM_THREADS)
-      ERR("count-up post-barrier read");
+      /* simple count-down barrier */
+      gasnett_atomic_decrement(&down);
+      while (gasnett_atomic_read(&down) > NUM_THREADS) gasnett_sched_yield(); 
 
-    /* simple count-down barrier */
-    gasnett_atomic_decrement(&down);
-    while (gasnett_atomic_read(&down) > NUM_THREADS) gasnett_sched_yield(); 
+      gasnett_atomic_set(&up, 0);
 
-    gasnett_atomic_set(&up, 0);
+      gasnett_atomic_decrement(&down);
+      while (gasnett_atomic_read(&down) > 0) gasnett_sched_yield(); 
 
-    gasnett_atomic_decrement(&down);
-    while (gasnett_atomic_read(&down) > 0) gasnett_sched_yield(); 
-
-    if (gasnett_atomic_read(&down) != 0)
-      ERR("count-down post-barrier read");
-  }
-  
-  if (id == 0) printf("parallel atomic-op pounding test...\n");
-  gasnett_atomic_set(&x1, 5);
-  gasnett_atomic_set(&x2, 5+iters2*NUM_THREADS);
-
-  gasnett_atomic_increment(&up);
-  while (gasnett_atomic_read(&up) < NUM_THREADS) gasnett_sched_yield(); 
-
-  for (i=0;i<iters2;i++) {
-    gasnett_atomic_increment(&x1);
-    gasnett_atomic_decrement(&x2);
-  }
-
-  gasnett_atomic_increment(&up);
-  while (gasnett_atomic_read(&up) < 2*NUM_THREADS) gasnett_sched_yield(); 
-
-  if (gasnett_atomic_read(&x1) != 5+iters2*NUM_THREADS)
-    ERR("pounding inc test mismatch");
-
-  if (gasnett_atomic_read(&x2) != 5)
-    ERR("pounding dec test mismatch");
-
-  if (id == 0) printf("parallel dec-test pounding test...\n");
-
-  gasnett_atomic_set(&x3, NUM_THREADS);
-  gasnett_atomic_set(&x4, 0);
-  gasnett_atomic_set(&x5, 0); /* count of "wins" */
-
-  gasnett_atomic_increment(&up);
-  while (gasnett_atomic_read(&up) < 3*NUM_THREADS) gasnett_sched_yield(); 
-
-  for (i=0;i<iters;i++) {
-    if (gasnett_atomic_decrement_and_test(&x3)) { /* I won */
-      gasnett_atomic_increment(&x5); /* tally win */
-      if (gasnett_atomic_read(&x3) != 0) ERR("pounding dec-test mismatch x3");
-      if (gasnett_atomic_read(&x4) != 0) ERR("pounding dec-test mismatch x4");
-      gasnett_atomic_set(&x4, NUM_THREADS); /* go */
-    } else {
-      while (gasnett_atomic_read(&x4) == 0) gasnett_sched_yield(); /* I lost - wait */
-    }
-
-    if (gasnett_atomic_decrement_and_test(&x4)) { /* I won */
-      gasnett_atomic_increment(&x5); /* tally win */
-      if (gasnett_atomic_read(&x3) != 0) ERR(" pounding dec-test mismatch x3");
-      if (gasnett_atomic_read(&x4) != 0) ERR("pounding dec-test mismatch x4");
-      gasnett_atomic_set(&x3, NUM_THREADS); /* go */
-    } else {
-      while (gasnett_atomic_read(&x3) == 0) gasnett_sched_yield(); /* I lost - wait */
+      if (gasnett_atomic_read(&down) != 0)
+        ERR("count-down post-barrier read");
     }
   }
 
-  if (gasnett_atomic_read(&x5) != 2*iters)
-    ERR("pounding dec-test mismatch");
+  TEST_HEADER("parallel atomic-op pounding test...") {
+    int val;
+    gasnett_atomic_set(&x1, 5);
+    gasnett_atomic_set(&x2, 5+iters2*NUM_THREADS);
 
-  gasnett_atomic_increment(&up);
-  while (gasnett_atomic_read(&up) < 4*NUM_THREADS) gasnett_sched_yield(); 
+    THREAD_BARRIER();
 
-  if (id == 0) printf("parallel word-tearing test...\n");
-
-  gasnett_atomic_set(&x3, 0);
-  gasnett_atomic_set(&x4, 0);
-  gasnett_atomic_set(&x5, 0); 
-
-  gasnett_atomic_increment(&up);
-  while (gasnett_atomic_read(&up) < 5*NUM_THREADS) gasnett_sched_yield(); 
-
-  if (NUM_THREADS <= 100) {  /* need 2*NUM_THREADS + 1 < 255 to prevent byte overflow */
-    uint32_t x = id + 1;
-    uint32_t myval = (x << 24) | (x << 16) | (x << 8) | x;
     for (i=0;i<iters2;i++) {
-      uint32_t v;
-      gasnett_atomic_set(&x3, myval);
-      gasnett_atomic_set(&x4, myval);
-      gasnett_atomic_set(&x5, myval);
-      gasnett_atomic_increment(&x4);
-      gasnett_atomic_decrement(&x5);
-      v = gasnett_atomic_read(&x3);
-      if (((v >> 24) & 0xFF) != (v & 0xFF) ||
-          ((v >> 16) & 0xFF) != (v & 0xFF) ||
-          ((v >>  8) & 0xFF) != (v & 0xFF)) 
-          ERR("observed word tearing on gasnett_atomic_set");
-      v = gasnett_atomic_read(&x4); 
-      /* bottom byte may have increased by up to NUM_THREADS, but high bytes must be same */
-      if (((v >> 24) & 0xFF) != ((v >>  8) & 0xFF) ||
-          ((v >> 16) & 0xFF) != ((v >>  8) & 0xFF)) 
-          ERR("observed word tearing on gasnett_atomic_set/gasnett_atomic_increment");
-      v = gasnett_atomic_read(&x5); 
-      v += NUM_THREADS;
-      /* bottom byte may have decreased by by  to NUM_THREADS, but high bytes must be same */
-      if (((v >> 24) & 0xFF) != ((v >>  8) & 0xFF) ||
-          ((v >> 16) & 0xFF) != ((v >>  8) & 0xFF)) 
-          ERR("observed word tearing on gasnett_atomic_set/gasnett_atomic_decrement");
+      gasnett_atomic_increment(&x1);
+      gasnett_atomic_decrement(&x2);
+    }
+
+    THREAD_BARRIER();
+
+    val = gasnett_atomic_read(&x1);
+    if (val != 5+iters2*NUM_THREADS)
+      ERR("pounding inc test mismatch: %i != %i",val,5+iters2*NUM_THREADS);
+
+    val = gasnett_atomic_read(&x2);
+    if (val != 5)
+      ERR("pounding dec test mismatch: %i != 5",val);
+
+  }
+
+  TEST_HEADER("parallel dec-test pounding test...") {
+
+    gasnett_atomic_set(&x3, NUM_THREADS);
+    gasnett_atomic_set(&x4, 0);
+    gasnett_atomic_set(&x5, 0); /* count of "wins" */
+
+    THREAD_BARRIER();
+
+    for (i=0;i<iters;i++) {
+      if (gasnett_atomic_decrement_and_test(&x3)) { /* I won */
+        gasnett_atomic_increment(&x5); /* tally win */
+        if (gasnett_atomic_read(&x3) != 0) ERR("pounding dec-test mismatch x3");
+        if (gasnett_atomic_read(&x4) != 0) ERR("pounding dec-test mismatch x4");
+        gasnett_atomic_set(&x4, NUM_THREADS); /* go */
+      } else {
+        while (gasnett_atomic_read(&x4) == 0) gasnett_sched_yield(); /* I lost - wait */
+      }
+
+      if (gasnett_atomic_decrement_and_test(&x4)) { /* I won */
+        gasnett_atomic_increment(&x5); /* tally win */
+        if (gasnett_atomic_read(&x3) != 0) ERR(" pounding dec-test mismatch x3");
+        if (gasnett_atomic_read(&x4) != 0) ERR("pounding dec-test mismatch x4");
+        gasnett_atomic_set(&x3, NUM_THREADS); /* go */
+      } else {
+        while (gasnett_atomic_read(&x3) == 0) gasnett_sched_yield(); /* I lost - wait */
+      }
+    }
+
+    if (gasnett_atomic_read(&x5) != 2*iters)
+      ERR("pounding dec-test mismatch");
+  }
+
+  TEST_HEADER("parallel word-tearing test...") {
+
+    gasnett_atomic_set(&x3, 0);
+    gasnett_atomic_set(&x4, 0);
+    gasnett_atomic_set(&x5, 0); 
+
+    THREAD_BARRIER();
+
+    if (NUM_THREADS <= 100) {  /* need 2*NUM_THREADS + 1 < 255 to prevent byte overflow */
+      uint32_t x = id + 1;
+      uint32_t myval = (x << 24) | (x << 16) | (x << 8) | x;
+      for (i=0;i<iters2;i++) {
+        uint32_t v;
+        gasnett_atomic_set(&x3, myval);
+        gasnett_atomic_set(&x4, myval);
+        gasnett_atomic_set(&x5, myval);
+        gasnett_atomic_increment(&x4);
+        gasnett_atomic_decrement(&x5);
+        v = gasnett_atomic_read(&x3);
+        if (((v >> 24) & 0xFF) != (v & 0xFF) ||
+            ((v >> 16) & 0xFF) != (v & 0xFF) ||
+            ((v >>  8) & 0xFF) != (v & 0xFF)) 
+            ERR("observed word tearing on gasnett_atomic_set");
+        v = gasnett_atomic_read(&x4); 
+        /* bottom byte may have increased by up to NUM_THREADS, but high bytes must be same */
+        if (((v >> 24) & 0xFF) != ((v >>  8) & 0xFF) ||
+            ((v >> 16) & 0xFF) != ((v >>  8) & 0xFF)) 
+            ERR("observed word tearing on gasnett_atomic_set/gasnett_atomic_increment");
+        v = gasnett_atomic_read(&x5); 
+        v += NUM_THREADS;
+        /* bottom byte may have decreased by by  to NUM_THREADS, but high bytes must be same */
+        if (((v >> 24) & 0xFF) != ((v >>  8) & 0xFF) ||
+            ((v >> 16) & 0xFF) != ((v >>  8) & 0xFF)) 
+            ERR("observed word tearing on gasnett_atomic_set/gasnett_atomic_decrement");
+      }
     }
   }
 
-  gasnett_atomic_increment(&up);
-  while (gasnett_atomic_read(&up) < 6*NUM_THREADS) gasnett_sched_yield(); 
+  TEST_HEADER("parallel membar test...") {
+    valX[id] = 0;
+    valY[id] = 0;
 
-  if (id == 0) printf("parallel membar test...\n");
-  valX[id] = 0;
-  valY[id] = 0;
+    THREAD_BARRIER();
 
-  gasnett_atomic_increment(&up);
-  while (gasnett_atomic_read(&up) < 7*NUM_THREADS) gasnett_sched_yield(); 
+    { int partner = (id + 1) % NUM_THREADS;
+      int lx, ly;
+      for (i=0;i<iters2;i++) {
+        valX[id] = i;
+        gasnett_local_wmb();
+        valY[id] = i;
 
-  { int partner = (id + 1) % NUM_THREADS;
-    int lx, ly;
-    for (i=0;i<iters2;i++) {
-      valX[id] = i;
-      gasnett_local_wmb();
-      valY[id] = i;
-
-      ly = valY[partner];
-      gasnett_local_rmb();
-      lx = valX[partner];
-      if (lx < ly) ERR("mismatch in gasnett_local_wmb/gasnett_local_rmb test");
+        ly = valY[partner];
+        gasnett_local_rmb();
+        lx = valX[partner];
+        if (lx < ly) ERR("mismatch in gasnett_local_wmb/gasnett_local_rmb test: lx=%i ly=%i", lx, ly);
+      }
     }
   }
 
-  gasnett_atomic_increment(&up);
-  while (gasnett_atomic_read(&up) < 8*NUM_THREADS) gasnett_sched_yield(); 
+  THREAD_BARRIER();
 
   return NULL;
 }
-
-/* Mimic Berkeley UPC build config strings, to allow running GASNet tests using upcrun */
-#define GASNET_CONFIG_STRING \
-  "RELEASE=x,SPEC=x,CONDUIT=SMP-x/REFERENCE-x,THREADMODEL=PAR,SEGMENT=FAST,PTR=x,align,nodebug,notrace,nostats"
-GASNETT_IDENT(GASNetT_IdentString_link_GASNetConfig, 
- "$GASNetConfig: (<link>) " GASNET_CONFIG_STRING " $");
-GASNETT_IDENT(GASNetT_IdentString_link_UPCRConfig,
- "$UPCRConfig: (<link>) " GASNET_CONFIG_STRING ",SHMEM=pthreads,dynamicthreads $");
-GASNETT_IDENT(GASNetT_IdentString_link_upcver, 
- "$UPCVersion: (<link>) *** GASNet test *** $");
-GASNETT_IDENT(GASNetT_IdentString_link_compileline, 
- "$UPCCompileLine: (<link>) *** GASNet test *** $");
-GASNETT_IDENT(GASNetT_IdentString_link_compiletime, 
- "$UPCCompileTime: (<link>) " __DATE__ " " __TIME__ " $");
-GASNETT_IDENT(GASNetT_IdentString_HeapSz, 
- "$UPCRDefaultHeapSizes: UPC_SHARED_HEAP_OFFSET=0 UPC_SHARED_HEAP_SIZE=0 $");
-GASNETT_IDENT(GASNetT_IdentString_PthCnt, "$UPCRDefaultPthreadCount: 1 $");
-#ifdef GASNETI_PTR32
-  GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=( $");
-#else
-  GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=, $");
-#endif
-/* Ditto for Titanium tcrun */
-GASNETT_IDENT(GASNetT_TiBackend_IdentString,
- "$TitaniumBackend: sequential $");
-GASNETT_IDENT(GASNetT_TiCompiler_IdentString,          
- "$TitaniumCompilerFlags: *** GASNet test *** -g $");
 
 #endif

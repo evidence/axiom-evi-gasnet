@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2005/02/17 13:18:51 $
- * $Revision: 1.33 $
+ *     $Date: 2005/02/27 15:34:44 $
+ * $Revision: 1.34 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -428,5 +428,6 @@ static int *gasneti_linkconfig_idiotcheck() {
     gasneti_fatalerror("GASNet client code must NOT #include <gasnet_internal.h>\n"
                        "gasnet_internal.h is not installed, and modifies the behavior "
                        "of various internal operations, such as segment safety bounds-checking.");
+    return GASNET_ERR_NOT_INIT;
   }
 #endif

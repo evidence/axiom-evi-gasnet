@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/02/17 13:18:55 $
- * $Revision: 1.25 $
+ *     $Date: 2005/02/27 15:34:46 $
+ * $Revision: 1.26 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1185,7 +1185,7 @@ static gasnete_coll_tree_geom_t *gasnete_coll_tree_geom_init(gasnete_coll_tree_k
 	geom->child_list = NULL;
       }
       if (relrank==0) {
-	geom->parent = -1;
+	geom->parent = (gasnet_node_t)-1;
       } else {
 	geom->parent = REL2ACT(relrank-1,root);
       }
@@ -1295,7 +1295,7 @@ static gasnete_coll_tree_geom_t *gasnete_coll_tree_geom_init(gasnete_coll_tree_k
     {
       int i=0;
       if (gasneti_mynode ==  root) {
-	geom->parent = -1;
+	geom->parent = (gasnet_node_t)-1;
 	geom->child_count = gasneti_nodes-1;
 	if (gasneti_nodes > 1) {
 	  geom->child_list = (gasnet_node_t *)gasneti_malloc(sizeof(gasnet_node_t)*(gasneti_nodes-1));
@@ -1323,7 +1323,7 @@ static gasnete_coll_tree_geom_t *gasnete_coll_tree_geom_init(gasnete_coll_tree_k
 	if (relrank!=0) {
 	  geom->parent = relrank - procs_per_node;
 	} else {
-	  geom->parent = -1;
+	  geom->parent = (gasnet_node_t)-1;
 	}
 	if (relrank + procs_per_node < gasneti_nodes) {
 	  num_child++;
@@ -1379,7 +1379,7 @@ static gasnete_coll_tree_geom_t *gasnete_coll_tree_geom_init(gasnete_coll_tree_k
  	  geom->parent = ((smprelrank-START(level))/2 + START(level-1))*procs_per_node;
  	  geom->parent = REL2ACT(geom->parent,root);
 	} else {
- 	  geom->parent = -1;
+ 	  geom->parent = (gasnet_node_t)-1;
 	}
 	/* so now the level of the current node is set. */
 	/* now we figure out where to expect the message from */
