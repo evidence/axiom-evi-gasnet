@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/10/07 03:25:04 $
- * $Revision: 1.20 $
+ *     $Date: 2003/10/16 21:44:04 $
+ * $Revision: 1.21 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -314,6 +314,7 @@
   "7c0004ac" /* sync (same opcode used for dcs)*/ \
   "4c00012c" /* isync (instruction sync to squash speculative loads) */ \
 }
+#pragma reg_killed_by _gasneti_do_sync
 #endif
 
 #if defined(__sparc__) || defined(__sparc) || defined(sparc)
