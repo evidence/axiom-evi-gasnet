@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/07/17 17:00:27 $
- * $Revision: 1.32 $
+ *     $Date: 2004/07/28 22:03:13 $
+ * $Revision: 1.33 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -482,7 +482,11 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #endif
 #endif
   
-/* Blocking functions */
+/* Blocking functions
+ * Note the _rmb at the end loop of each is required to ensure that subsequent
+ * reads will not observe values that were prefeteched or are otherwise out
+ * of date.
+ */
 extern int gasneti_wait_mode; /* current waitmode hint */
 #define GASNETI_WAITHOOK() do {                                       \
     if (gasneti_wait_mode != GASNET_WAIT_SPIN) gasneti_sched_yield(); \
@@ -494,19 +498,25 @@ extern int gasneti_wait_mode; /* current waitmode hint */
      caused by the receipt of a non-AM message
  */
 #ifndef gasneti_waitwhile
-#define gasneti_waitwhile(cnd) while (cnd) GASNETI_WAITHOOK()
+  #define gasneti_waitwhile(cnd) do { \
+    while (cnd) GASNETI_WAITHOOK();   \
+    gasneti_local_rmb();              \
+  } while (0)
 #endif
 #define gasneti_waituntil(cnd) gasneti_waitwhile(!(cnd)) 
 
 /* busy-wait, with implicit polling */
+/* Note no poll if the condition is already satisfied */
 #ifndef gasneti_pollwhile
-#define gasneti_pollwhile(cnd) do { \
-    if (!(cnd)) break;              \
-    gasneti_AMPoll();               \
-    while (cnd) {                   \
-      GASNETI_WAITHOOK();           \
-      gasneti_AMPoll();             \
-    }                               \
+  #define gasneti_pollwhile(cnd) do { \
+    if (cnd) {                        \
+      gasneti_AMPoll();               \
+      while (cnd) {                   \
+        GASNETI_WAITHOOK();           \
+        gasneti_AMPoll();             \
+      }                               \
+    }                                 \
+    gasneti_local_rmb();              \
   } while (0)
 #endif
 #define gasneti_polluntil(cnd) gasneti_pollwhile(!(cnd)) 
