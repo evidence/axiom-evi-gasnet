@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/07/02 08:36:59 $
- * $Revision: 1.35 $
+ *     $Date: 2003/07/07 23:15:21 $
+ * $Revision: 1.36 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -213,7 +213,14 @@ extern int gasneti_VerboseErrors;
       pthread_mutex_t lock;
       uintptr_t owner;
     } gasneti_mutex_t;
-    #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, (uintptr_t)GASNETI_MUTEX_NOOWNER }
+    #if defined(PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP)
+      /* These are faster, though less "featureful" than the default
+       * mutexes on linuxthreads implementations which offer them.
+       */
+      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP, (uintptr_t)GASNETI_MUTEX_NOOWNER }
+    #else
+      #define GASNETI_MUTEX_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, (uintptr_t)GASNETI_MUTEX_NOOWNER }
+    #endif
     #define gasneti_mutex_lock(pl) do {                                \
               int retval;                                              \
               assert((pl)->owner != GASNETI_THREADIDQUERY());          \
@@ -258,7 +265,14 @@ extern int gasneti_VerboseErrors;
   #if defined(GASNET_PAR) || GASNETI_FORCE_TRUE_MUTEXES
     #include <pthread.h>
     typedef pthread_mutex_t           gasneti_mutex_t;
-    #define GASNETI_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+    #if defined(PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP)
+      /* These are faster, though less "featureful" than the default
+       * mutexes on linuxthreads implementations which offer them.
+       */
+      #define GASNETI_MUTEX_INITIALIZER PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP
+    #else
+      #define GASNETI_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER
+    #endif
     #define gasneti_mutex_lock(pl)  pthread_mutex_lock(pl)
     #define gasneti_mutex_unlock(pl)  pthread_mutex_unlock(pl)
     #define gasneti_mutex_init(pl)  pthread_mutex_init((pl),NULL)
