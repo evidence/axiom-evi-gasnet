@@ -1,5 +1,6 @@
 #include "testam.h"
 
+int false = 0;
 /* ------------------------------------------------------------------------------------ */
 int main(int argc, char **argv) {
   eb_t eb;
@@ -44,6 +45,14 @@ int main(int argc, char **argv) {
   VMseg = malloc(VMsegsz);
   memset(VMseg, 0, VMsegsz);
   AM_Safe(AM_SetSeg(ep, VMseg, VMsegsz));
+
+  if (false) { /* don't actually call these, just ensure they link properly */
+    AMX_SPMDSetExitCallback(NULL);
+    AMX_SPMDgetenvMaster(NULL);
+    AMX_SPMDIsWorker(argv);
+    AMX_SPMDAllGather(NULL, NULL, 0);
+    AMX_SPMDkillmyprocess(0);
+  }
 
   /* barrier */
   AM_Safe(AMX_SPMDBarrier());

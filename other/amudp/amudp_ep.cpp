@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_ep.cpp                                     $
- *     $Date: 2004/01/19 12:57:33 $
- * $Revision: 1.3 $
+ *     $Date: 2004/02/13 18:00:18 $
+ * $Revision: 1.4 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -751,7 +751,7 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
 /*------------------------------------------------------------------------------------
  * Handler management
  *------------------------------------------------------------------------------------ */
-extern int AM_SetHandler(ep_t ea, handler_t handler, amudp_handler_fn_t function) {
+extern int _AM_SetHandler(ep_t ea, handler_t handler, amudp_handler_fn_t function) {
   AMUDP_CHECKINIT();
   if (!ea || !function) AMUDP_RETURN_ERR(BAD_ARG);
   if (AMUDP_BADHANDLERVAL(handler)) AMUDP_RETURN_ERR(BAD_ARG);
@@ -760,7 +760,7 @@ extern int AM_SetHandler(ep_t ea, handler_t handler, amudp_handler_fn_t function
   return AM_OK;
   }
 /* ------------------------------------------------------------------------------------ */
-extern int AM_SetHandlerAny(ep_t ea, handler_t *handler, amudp_handler_fn_t function) {
+extern int _AM_SetHandlerAny(ep_t ea, handler_t *handler, amudp_handler_fn_t function) {
   int i;
   AMUDP_CHECKINIT();
   if (!ea || !function || !handler) AMUDP_RETURN_ERR(BAD_ARG);

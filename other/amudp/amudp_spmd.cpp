@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.cpp                                   $
- *     $Date: 2004/01/28 03:46:53 $
- * $Revision: 1.4 $
+ *     $Date: 2004/02/13 18:00:18 $
+ * $Revision: 1.5 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1311,8 +1311,8 @@ extern void AMUDP_SPMDAddressChangeCallback(ueth_addr_t *address) {
 /* ------------------------------------------------------------------------------------ 
  *  process termination
  * ------------------------------------------------------------------------------------ */
-static void (*AMUDP_SPMDExitCallback)(int) = NULL;
-extern int AMUDP_SPMDSetExitCallback(void (*fp)(int)) {
+static amudp_exitcallback_t AMUDP_SPMDExitCallback = NULL;
+extern int AMUDP_SPMDSetExitCallback(amudp_exitcallback_t fp) {
   AMUDP_SPMDExitCallback = fp;
   return AM_OK;
 }
@@ -1340,7 +1340,7 @@ static int AMUDP_SPMDShutdown(int exitcode) {
   flushStreams("AMUDP_SPMDShutdown");
 
   if (fclose(stdin)) {
-    ErrMessage("failed to fclose stdout in AMUDP_SPMDExit()"); 
+    ErrMessage("failed to fclose stdin in AMUDP_SPMDExit()"); 
     perror("fclose");
   }
   if (fclose(stdout)) {

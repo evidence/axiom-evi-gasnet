@@ -2,6 +2,7 @@
   #include "gasnet_tools.h"
   #include "test.h"
   typedef gasnet_handlerarg_t handlerarg_t;
+  typedef void (*handler_fn_t)();
   typedef gasnet_token_t token_t;
   typedef size_t bufsize_t;
   gasnett_atomic_t numreq = gasnett_atomic_init(0);
@@ -25,6 +26,7 @@
 #else
   #include "apputils.h"
   typedef int handlerarg_t;
+  typedef amx_handler_fn_t handler_fn_t;
   typedef void *token_t;
   typedef int bufsize_t;
   int numreq = 0;
@@ -368,12 +370,12 @@ HANDLERS(15)
 HANDLERS(16)
 
 #define SETUP_ALLAM_ID(num) do {                                                    \
-  AM_Safe(AM_SetHandler(ep, SHORT_##num##REQ_HANDLER,  short_##num##req_handler));  \
-  AM_Safe(AM_SetHandler(ep, MEDIUM_##num##REQ_HANDLER, medium_##num##req_handler)); \
-  AM_Safe(AM_SetHandler(ep, LONG_##num##REQ_HANDLER,   long_##num##req_handler));   \
-  AM_Safe(AM_SetHandler(ep, SHORT_##num##REP_HANDLER,  short_##num##rep_handler));  \
-  AM_Safe(AM_SetHandler(ep, MEDIUM_##num##REP_HANDLER, medium_##num##rep_handler)); \
-  AM_Safe(AM_SetHandler(ep, LONG_##num##REP_HANDLER,   long_##num##rep_handler));   \
+  AM_Safe(AM_SetHandler(ep, SHORT_##num##REQ_HANDLER,  (handler_fn_t)short_##num##req_handler));  \
+  AM_Safe(AM_SetHandler(ep, MEDIUM_##num##REQ_HANDLER, (handler_fn_t)medium_##num##req_handler)); \
+  AM_Safe(AM_SetHandler(ep, LONG_##num##REQ_HANDLER,   (handler_fn_t)long_##num##req_handler));   \
+  AM_Safe(AM_SetHandler(ep, SHORT_##num##REP_HANDLER,  (handler_fn_t)short_##num##rep_handler));  \
+  AM_Safe(AM_SetHandler(ep, MEDIUM_##num##REP_HANDLER, (handler_fn_t)medium_##num##rep_handler)); \
+  AM_Safe(AM_SetHandler(ep, LONG_##num##REP_HANDLER,   (handler_fn_t)long_##num##rep_handler));   \
   } while(0)
 #define SETUP_ALLAM() do { \
   SETUP_ALLAM_ID(0);       \

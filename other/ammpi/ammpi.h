@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2004/01/19 12:57:32 $
- * $Revision: 1.18 $
+ *     $Date: 2004/02/13 18:00:16 $
+ * $Revision: 1.19 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -440,8 +440,8 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
   #define AM_GetTranslationTag    AMMPI_GetTranslationTag
   #define AM_GetTranslationName   AMMPI_GetTranslationName
   #define AM_SetExpectedResources AMMPI_SetExpectedResources
-  #define AM_SetHandler           AMMPI_SetHandler
-  #define AM_SetHandlerAny        AMMPI_SetHandlerAny
+  #define _AM_SetHandler          AMMPI_SetHandler
+  #define _AM_SetHandlerAny       AMMPI_SetHandlerAny
   #define AM_GetEventMask         AMMPI_GetEventMask
   #define AM_SetEventMask         AMMPI_SetEventMask
   #define AM_WaitSema             AMMPI_WaitSema
@@ -462,6 +462,7 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
 #define AMX_AggregateStatistics   AMMPI_AggregateStatistics
 #define AMX_initial_stats         AMMPI_initial_stats
 #define amx_stats_t               ammpi_stats_t
+#define amx_handler_fn_t          ammpi_handler_fn_t
 
 #ifdef AMMPI_DEBUG
   #define AMX_DEBUG AMMPI_DEBUG
@@ -513,8 +514,10 @@ extern int AM_SetNumTranslations(ep_t ep, int ntrans);
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests);
 
 /* Handler table */
-extern int AM_SetHandler(ep_t ea, handler_t handler, ammpi_handler_fn_t function);
-extern int AM_SetHandlerAny(ep_t ea, handler_t *handler, ammpi_handler_fn_t function);
+extern int _AM_SetHandler(ep_t ea, handler_t handler, ammpi_handler_fn_t function);
+#define AM_SetHandler(ea, handler, function) _AM_SetHandler((ea), (handler), (ammpi_handler_fn_t)(function))
+extern int _AM_SetHandlerAny(ep_t ea, handler_t *handler, ammpi_handler_fn_t function);
+#define AM_SetHandlerAny(ea, handler, function) _AM_SetHandlerAny((ea), (handler), (ammpi_handler_fn_t)(function))
 #define AM_GetNumHandlers(ep, pnhandlers)  \
   ((ep) ? ((*(pnhandlers) = AMMPI_MAX_NUMHANDLERS), AM_OK) : AM_ERR_BAD_ARG) : AM_ERR_BAD_ARG)
 #define AM_SetNumHandlers(ep, nhandlers)  \

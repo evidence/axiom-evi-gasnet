@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/apputils.c                                       $
- *     $Date: 2004/01/27 09:09:34 $
- * $Revision: 1.8 $
+ *     $Date: 2004/02/13 18:00:19 $
+ * $Revision: 1.9 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -306,18 +306,18 @@ void setupUtilHandlers(ep_t activeep, eb_t activeeb) {
   ep = activeep;
   eb = activeeb;
 
-  AM_Safe(AM_SetHandler(ep, STATS_REQ_HANDLER, stats_request_handler));
+  AM_Safe(AM_SetHandler(ep, STATS_REQ_HANDLER, (amx_handler_fn_t)stats_request_handler));
 
 #ifndef APPUTILS_OMIT_READWRITE
-  AM_Safe(AM_SetHandler(ep, GET_REQ_HANDLER, get_request_handler));
-  AM_Safe(AM_SetHandler(ep, GET_REP_HANDLER, get_reply_handler));
-  AM_Safe(AM_SetHandler(ep, PUT_REQ_HANDLER, put_request_handler));
-  AM_Safe(AM_SetHandler(ep, PUT_REP_HANDLER, put_reply_handler));
+  AM_Safe(AM_SetHandler(ep, GET_REQ_HANDLER, (amx_handler_fn_t)get_request_handler));
+  AM_Safe(AM_SetHandler(ep, GET_REP_HANDLER, (amx_handler_fn_t)get_reply_handler));
+  AM_Safe(AM_SetHandler(ep, PUT_REQ_HANDLER, (amx_handler_fn_t)put_request_handler));
+  AM_Safe(AM_SetHandler(ep, PUT_REP_HANDLER, (amx_handler_fn_t)put_reply_handler));
 
-  AM_Safe(AM_SetHandler(ep, READ_REQ_HANDLER, read_request_handler));
-  AM_Safe(AM_SetHandler(ep, READ_REP_HANDLER, read_reply_handler));
-  AM_Safe(AM_SetHandler(ep, WRITE_REQ_HANDLER, write_request_handler));
-  AM_Safe(AM_SetHandler(ep, WRITE_REP_HANDLER, write_reply_handler));
+  AM_Safe(AM_SetHandler(ep, READ_REQ_HANDLER, (amx_handler_fn_t)read_request_handler));
+  AM_Safe(AM_SetHandler(ep, READ_REP_HANDLER, (amx_handler_fn_t)read_reply_handler));
+  AM_Safe(AM_SetHandler(ep, WRITE_REQ_HANDLER, (amx_handler_fn_t)write_request_handler));
+  AM_Safe(AM_SetHandler(ep, WRITE_REP_HANDLER, (amx_handler_fn_t)write_reply_handler));
 #endif
 
   #ifndef WIN32

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/apputils.h                                       $
- *     $Date: 2004/01/28 03:46:51 $
- * $Revision: 1.9 $
+ *     $Date: 2004/02/13 18:00:19 $
+ * $Revision: 1.10 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -55,6 +55,8 @@
 #ifdef _MSC_VER
   #pragma warning(disable: 4127)
 #endif
+
+BEGIN_EXTERNC
 
 /* in a multi-threaded program, this would also include a lock */
 #define AM_Safe(fncall) do {                \
@@ -115,5 +117,7 @@ void readSync();
 void writeWord(int proc, void *addr, uint32_t val);
 void writeSync();
 #endif
+
+END_EXTERNC
 
 #endif

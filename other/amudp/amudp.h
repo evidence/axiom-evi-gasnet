@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2004/02/07 16:52:33 $
- * $Revision: 1.6 $
+ *     $Date: 2004/02/13 18:00:18 $
+ * $Revision: 1.7 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -404,9 +404,11 @@ typedef int op_t;
 #ifdef __cplusplus
   #define BEGIN_EXTERNC extern "C" {
   #define END_EXTERNC }
+  #define EXTERNC extern "C"
 #else
   #define BEGIN_EXTERNC 
   #define END_EXTERNC 
+  #define EXTERNC
 #endif
 
 BEGIN_EXTERNC
@@ -465,8 +467,8 @@ extern const amudp_stats_t AMUDP_initial_stats; /* the "empty" values for counte
   #define AM_GetTranslationTag    AMUDP_GetTranslationTag
   #define AM_GetTranslationName   AMUDP_GetTranslationName
   #define AM_SetExpectedResources AMUDP_SetExpectedResources
-  #define AM_SetHandler           AMUDP_SetHandler
-  #define AM_SetHandlerAny        AMUDP_SetHandlerAny
+  #define _AM_SetHandler          AMUDP_SetHandler
+  #define _AM_SetHandlerAny       AMUDP_SetHandlerAny
   #define AM_GetEventMask         AMUDP_GetEventMask
   #define AM_SetEventMask         AMUDP_SetEventMask
   #define AM_WaitSema             AMUDP_WaitSema
@@ -487,6 +489,7 @@ extern const amudp_stats_t AMUDP_initial_stats; /* the "empty" values for counte
 #define AMX_AggregateStatistics   AMUDP_AggregateStatistics
 #define AMX_initial_stats         AMUDP_initial_stats
 #define amx_stats_t               amudp_stats_t
+#define amx_handler_fn_t          amudp_handler_fn_t
 
 #ifdef AMUDP_DEBUG
   #define AMX_DEBUG AMUDP_DEBUG
@@ -534,8 +537,10 @@ extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan);
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests);
 
 /* Handler table */
-extern int AM_SetHandler(ep_t ea, handler_t handler, amudp_handler_fn_t function);
-extern int AM_SetHandlerAny(ep_t ea, handler_t *handler, amudp_handler_fn_t function);
+extern int _AM_SetHandler(ep_t ea, handler_t handler, amudp_handler_fn_t function);
+#define AM_SetHandler(ea, handler, function) _AM_SetHandler((ea), (handler), (amudp_handler_fn_t)(function)) 
+extern int _AM_SetHandlerAny(ep_t ea, handler_t *handler, amudp_handler_fn_t function);
+#define AM_SetHandlerAny(ea, handler, function) _AM_SetHandlerAny((ea), (handler), (amudp_handler_fn_t)(function))
 #define AM_GetNumHandlers(ep, pnhandlers)  \
   ((ep) ? ((*(pnhandlers) = AMUDP_MAX_NUMHANDLERS), AM_OK) : AM_ERR_BAD_ARG) : AM_ERR_BAD_ARG)
 #define AM_SetNumHandlers(ep, nhandlers)  \

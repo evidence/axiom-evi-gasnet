@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.h                                     $
- *     $Date: 2004/01/28 03:46:53 $
- * $Revision: 1.4 $
+ *     $Date: 2004/02/13 18:00:18 $
+ * $Revision: 1.5 $
  * Description: AMUDP Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -49,7 +49,8 @@ extern int AMUDP_SPMDExit(int exitcode);
   /* terminate the parallel job with given exit code (also handles AM_Terminate)
    */
 
-extern int AMUDP_SPMDSetExitCallback(void (*fp)(int));
+EXTERNC typedef void (*amudp_exitcallback_t)(int);
+EXTERNC int AMUDP_SPMDSetExitCallback(amudp_exitcallback_t);
   /* register a function to be called when AMUDP_SPMDExit is called by any node
    * exit code is passed
    */

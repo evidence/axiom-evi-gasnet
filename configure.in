@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/02/04 07:26:47 $
-# $Revision: 1.108 $
+#     $Date: 2004/02/13 18:00:15 $
+# $Revision: 1.109 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.108 $)
+AC_REVISION($Revision: 1.109 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -27,8 +27,9 @@ AC_PREFIX_DEFAULT(/usr/local)
 AM_CONFIG_HEADER(gasnet_config.h)
 
 # Save useful directory names
-TOP_SRCDIR=`cd ${srcdir} && pwd`
-TOP_BUILDDIR=`pwd`
+GASNET_PATH_PROGS(PWD_PROG, pwd, pwd)
+TOP_SRCDIR=`cd ${srcdir} && ${PWD_PROG}` # don't trust shell's builtin pwd, because it may include symlinks
+TOP_BUILDDIR=`${PWD_PROG}`
 AC_SUBST(TOP_SRCDIR)
 AC_SUBST(TOP_BUILDDIR)
 
@@ -229,7 +230,11 @@ case "$gasnet_cv_cc_family" in
 esac
 
 case "$gasnet_cv_cc_family" in
-  Cray) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; 
+  Cray) 
+    case "$target_cpu" in
+      alphaev5) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; # T3E
+      *)        MISC_CFLAGS="-hnomessage=236 $LIBCM" ;; # X1
+    esac ;;
   MIPS) MISC_CFLAGS="-common -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
   Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
   Intel) MISC_CFLAGS="-wd279" ;;
@@ -470,6 +475,14 @@ case "$target_os" in
 	    GASNET_MACHINE_DEFINES="$GASNET_MACHINE_DEFINES -DCRAYT3E"
 	    AC_DEFINE(CRAYT3E)
 	  ])
+        GASNET_TRY_CACHE_CHECK(for Cray X1, cc_is_x1, [], [
+            #ifndef __crayx1
+              #error not Cray X1
+            #endif
+          ], [
+            GASNET_MACHINE_DEFINES="$GASNET_MACHINE_DEFINES -DCRAYX1"
+            AC_DEFINE(CRAYX1)
+          ])
         ;;
   *)
         AC_MSG_WARN(unknown OS - you may need to update the configure script)
@@ -589,8 +602,12 @@ if test $enabled_udp = yes; then
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
     MIPS)  MISC_CXXFLAGS="-diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
     Intel) MISC_CXXFLAGS="-wd654 -wd1125 -wd279" ;;
-    Cray)  # Cray CC v3.3.0.2 fails to accept "-htaskprivate", but accepts "-htask private"
-     MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init -htask private $LIBCM" ;;
+    Cray)
+     case "$target_cpu" in
+       # Cray CC v3.3.0.2 fails to accept "-htaskprivate", but accepts "-htask private"
+      alphaev5) MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init -htask private $LIBCM" ;; # T3E
+      *)        MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # X1
+     esac ;;
   esac  
   if test "$BUILDCONFIG" = "optimize" ; then
     CXXFLAGS="$CXXOPTFLAGS"
@@ -745,7 +762,10 @@ if test $enabled_mpi = yes; then
         # Cray cc - need to enable private global vars and disable a silly warning
         # user may need to do a "module load mpt" to make this work
     	GASNET_ENV_DEFAULT(MPI_CC, cc)
-	BASIC_MPI_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM"
+        case "$target_cpu" in
+          alphaev5) BASIC_MPI_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; # T3E
+          *)        BASIC_MPI_CFLAGS="-hnomessage=236 $LIBCM" ;; # X1
+        esac
 	if test "$BUILDCONFIG" = "optimize" ; then
     	  GASNET_ENV_DEFAULT(MPI_CFLAGS, -O2 $BASIC_MPI_CFLAGS)
 	else
@@ -1344,7 +1364,8 @@ else
   AC_MSG_ERROR(cannot find perl $MIN_PERL_VERSION or later)
 fi
 GASNET_PATH_PROGS(AR, $AR ar gar, archiver)
-GASNET_PATH_PROGS(RANLIB, $RANLIB ranlib, ranlib)
+#AC_PROG_RANLIB
+GASNET_PATH_PROGS(RANLIB, $RANLIB ranlib touch, ranlib)
 AC_SUBST(BOURNE_SHELL)
 AC_SUBST(PERL)
 AC_SUBST(AR)

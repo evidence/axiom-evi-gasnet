@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2004/01/28 03:46:51 $
- * $Revision: 1.16 $
+ *     $Date: 2004/02/13 18:00:16 $
+ * $Revision: 1.17 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -342,7 +342,7 @@ static int AMMPI_SPMDShutdown(int exitcode) {
   flushStreams("AMMPI_SPMDExit");
 
   if (fclose(stdin)) {
-    ErrMessage("failed to fclose stdout in AMMPI_SPMDExit()"); 
+    ErrMessage("failed to fclose stdin in AMMPI_SPMDExit()"); 
     perror("fclose");
   }
   if (fclose(stdout)) {
