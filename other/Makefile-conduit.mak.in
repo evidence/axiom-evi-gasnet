@@ -137,8 +137,8 @@ test%-par: force
 tests-clean: 
 	@$(MAKE) -f $(top_builddir)/tests/Makefile clean
 
-run-tests:
-	@$(MAKE) -f $(top_builddir)/tests/Makefile run-tests \
+run-tests do-run-testexit:
+	@$(MAKE) -f $(top_builddir)/tests/Makefile $@ \
 	  CONDUIT_NAME=$(CONDUIT_NAME) \
 	  CONDUIT_RUNCMD="$(CONDUIT_RUNCMD)" \
 	  CONDUIT_TESTS="$(CONDUIT_TESTS)"
@@ -146,6 +146,13 @@ run-tests:
 run-tests-seq: tests-clean tests-seq run-tests
 run-tests-par: tests-clean tests-par run-tests
 run-tests-parsync: tests-clean tests-parsync run-tests
+
+.PRECIOUS: run-testexit
+run-testexit: force
+	@if test ! -x testexit ; then \
+	  $(MAKE) testexit-par ; \
+	fi
+	@$(MAKE) do-run-testexit	
 
 force:
 

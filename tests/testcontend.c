@@ -1,4 +1,4 @@
-/* $Id: testcontend.c,v 1.2 2004/07/31 05:06:08 bonachea Exp $
+/* $Id: testcontend.c,v 1.3 2004/08/02 07:52:53 bonachea Exp $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -39,8 +39,8 @@ char *peerseg = NULL;
 int threads;
 gasnett_atomic_t pong;
 int signal_done = 0;
+#define thread_barrier() PTHREAD_BARRIER(threads)
 
-void	thread_barrier();
 typedef void * (*threadmain_t)(void *args);
 
 /* AM Handlers */
@@ -309,7 +309,6 @@ void *workerthread(void *args) {
 int main(int argc, char **argv) {
 	int maxthreads = 4;
 	int i;
-	pthread_t *tids;
         threadcnt_t *ptcount;
 
 	GASNET_Safe(gasnet_init(&argc, &argv));
@@ -368,29 +367,6 @@ int main(int argc, char **argv) {
 	gasnet_exit(0);
 
 	return 0;
-}
-
-/* Cheap (but functional!) pthread + gasnet barrier */
-void thread_barrier() { 
-        static pthread_mutex_t	barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
-        static pthread_cond_t	barrier_cond = PTHREAD_COND_INITIALIZER;
-        static volatile int	barrier_count = 0;
-        static int volatile phase = 0;
-        pthread_mutex_lock(&barrier_mutex);
-        barrier_count++;
-        if (barrier_count < threads) {
-          int myphase = phase;
-          while (myphase == phase) {
-                pthread_cond_wait(&barrier_cond, &barrier_mutex);
-          }
-        } else {  
-		/* Now do the gasnet barrier */
-		BARRIER();
-                barrier_count = 0;
-                phase = !phase;
-                pthread_cond_broadcast(&barrier_cond);
-        }       
-        pthread_mutex_unlock(&barrier_mutex);
 }
 
 /****************************************************************/

@@ -64,6 +64,8 @@ compilers, including which GASNet conduits are supported.
       build and run the conduit tests in a given mode
     gmake run-tests
       run whatever tests are already built in the conduit directories
+    gmake run-testexit
+      build a script to run the testexit tester and run it
 
 * gmake install
   Install GASNet to the directory chosen at configure time. This will create an

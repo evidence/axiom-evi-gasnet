@@ -1,6 +1,6 @@
-/* $Id: testcore1.c,v 1.10 2004/03/31 14:18:17 bonachea Exp $
- * $Date: 2004/03/31 14:18:17 $
- * $Revision: 1.10 $
+/* $Id: testcore1.c,v 1.11 2004/08/02 07:52:53 bonachea Exp $
+ * $Date: 2004/08/02 07:52:53 $
+ * $Revision: 1.11 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2004/07/23 22:36:55 $
- * $Revision: 1.6 $
+ *     $Date: 2004/08/02 07:52:53 $
+ * $Revision: 1.7 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt

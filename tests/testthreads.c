@@ -1,4 +1,4 @@
-/* $Id: testthreads.c,v 1.14 2004/07/23 22:36:55 phargrov Exp $
+/* $Id: testthreads.c,v 1.15 2004/08/02 07:52:53 bonachea Exp $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -80,9 +80,10 @@ gasnet_node_t	*tt_thread_map;
 void		**tt_addr_map;
 threaddata_t	*tt_thread_data;
 
+#define thread_barrier() PTHREAD_BARRIER(threads_num)
+
 void	alloc_thread_data(int threads);
 void	free_thread_data();
-void	thread_barrier();
 void *	threadmain(void *args);
 
 /* GASNet Test functions */
@@ -384,30 +385,6 @@ free_thread_data()
 	test_free(tt_thread_map);
 	test_free(tt_addr_map);
 	test_free(tt_thread_data);
-}
-
-/* Cheap (but functional!) pthread + gasnet barrier */
-void
-thread_barrier() {
-        static pthread_mutex_t	barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
-        static pthread_cond_t	barrier_cond = PTHREAD_COND_INITIALIZER;
-        static volatile int	barrier_count = 0;
-        static int volatile phase = 0;
-        pthread_mutex_lock(&barrier_mutex);
-        barrier_count++;
-        if (barrier_count < threads_num) {
-          int myphase = phase;
-          while (myphase == phase) {
-                pthread_cond_wait(&barrier_cond, &barrier_mutex);
-          }
-        } else {  
-		/* Now do the gasnet barrier */
-		BARRIER();
-                barrier_count = 0;
-                phase = !phase;
-                pthread_cond_broadcast(&barrier_cond);
-        }       
-        pthread_mutex_unlock(&barrier_mutex);
 }
 
 /****************************************************************/

@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.36 2004/07/19 13:06:11 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.37 2004/08/02 07:52:53 bonachea Exp $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -94,6 +94,13 @@ testprograms_nongasnet = \
 	testtools
 
 CONDUIT_NAME_UC=`echo $(CONDUIT_NAME) | @AWK@  '{print toupper($$0)}'`
+awk_cmdbuild={  gsub("'"'"%C"'"'", "'"'"%P %A"'"'");       \
+		gsub("'"'"%P"'"'", "'"'"./$$file"'"'");    \
+		gsub("'"'"%L"'"'", "'"'"DUMMY"'"'");       \
+		gsub("'"'"%V "'"'","'"'""'"'");            \
+		gsub("'"'"%N"'"'", "'"'"$$nodes"'"'");     \
+		gsub("'"'"%A"'"'", "'"'"$$args"'"'"); print }
+
 run-tests: force
 	@$(TEST_PARAMS)                                                                 \
 	export `echo "$(TEST_PARAMS)" | @AWK@ 'BEGIN {FS="=";RS=";"}{ print $$1 }'` ;   \
@@ -137,19 +144,50 @@ run-tests: force
                           $$file@EXESUFFIX@ 2> /dev/null` ;                             \
 	      echo "*** Running $(CONDUIT_NAME)-conduit $$file"                         \
 		   "in $$threadmode/$(GASNET_SEGMENT_STR) mode ***" ;                   \
-	      awk_cmdbuild='{ gsub("%C","%P %A");                                       \
-                              gsub("%P","./'$$file'");                                  \
-			      gsub("%L","DUMMY");                                       \
-			      gsub("%V ","");                                           \
-			      gsub("%N","'$$nodes'");                                   \
-			      gsub("%A","'"$$args"'"); print $0 }' ;                    \
-	      cmd="`echo \"$$TEST_RUNCMD\" | eval @AWK@ \'$$awk_cmdbuild\'`" ;          \
+              awk_cmdbuild=`echo "$(awk_cmdbuild)"` ; 					\
+	      cmd=`echo "$$TEST_RUNCMD" | eval @AWK@ \'$$awk_cmdbuild\'` ;         	\
 	    fi;                                                                         \
 	    echo "$$cmd" ;                                                              \
 	    /usr/bin/time $$cmd || echo "ERROR: Test exited with failure code=$$?" ;    \
 	    echo $$line ;                                                               \
 	done ;                                                                          \
 	echo "TESTS COMPLETE"
+
+TESTEXIT_SCRIPT=run-testexit
+TESTEXIT_MAX=18
+do-run-testexit: force
+	@echo "Building $(TESTEXIT_SCRIPT) script..."
+	@echo "#!/bin/sh" > $(TESTEXIT_SCRIPT)
+	@nodes=2 ; args="" ; file="testexit" ;                            \
+         awk_cmdbuild=`echo "$(awk_cmdbuild)"` ; 			  \
+         cmd=`echo "$(CONDUIT_RUNCMD)" | eval @AWK@ \'$$awk_cmdbuild\'` ; \
+	 echo "INTERACTIVE_RUNCMD='$$cmd'"                        >> $(TESTEXIT_SCRIPT)
+	@echo "BATCH_RUNCMD='testexit'"                           >> $(TESTEXIT_SCRIPT)
+	@echo '#BATCH_RUNCMD="$$INTERACTIVE_RUNCMD"'              >> $(TESTEXIT_SCRIPT)
+	@echo 'if test "$$PBS_O_WORKDIR" ; then '                 >> $(TESTEXIT_SCRIPT)
+	@echo '  cd "$$PBS_O_WORKDIR"'                            >> $(TESTEXIT_SCRIPT)
+	@echo 'fi'                                                >> $(TESTEXIT_SCRIPT)
+	@echo 'if test "$$MP_PROCS" -o "$$PBS_NODEFILE" ; then'   >> $(TESTEXIT_SCRIPT)
+	@echo '  RUNCMD="$$BATCH_RUNCMD"'                         >> $(TESTEXIT_SCRIPT)
+	@echo "else"                                              >> $(TESTEXIT_SCRIPT)
+	@echo '  RUNCMD="$$INTERACTIVE_RUNCMD"'                   >> $(TESTEXIT_SCRIPT)
+	@echo "fi"                                                >> $(TESTEXIT_SCRIPT)
+	@echo 'echo "Starting run-testexit at: `date`"'           >> $(TESTEXIT_SCRIPT)
+	@echo 'ID="`hostname`-$$MP_CHILD$$PBS_NODENUM"'           >> $(TESTEXIT_SCRIPT)
+	@i=0; \
+	 while test "$$i" != "$(TESTEXIT_MAX)" ; do                          \
+           i=`expr $$i + 1`;                                                 \
+	   echo ""                                   >> $(TESTEXIT_SCRIPT) ; \
+	   echo 'echo "$$ID: testexit '$$i'"'        >> $(TESTEXIT_SCRIPT) ; \
+	   echo '$$RUNCMD'" $$i"                     >> $(TESTEXIT_SCRIPT) ; \
+	   echo 'echo "$$ID: result=$$?"'            >> $(TESTEXIT_SCRIPT) ; \
+	   echo "sleep 2"                            >> $(TESTEXIT_SCRIPT) ; \
+	 done 
+	@echo 'echo "`hostname`: done."'  >> $(TESTEXIT_SCRIPT)
+	@chmod +x $(TESTEXIT_SCRIPT)
+	@echo "Complete. Starting execution..."
+	@./$(TESTEXIT_SCRIPT)
+
 
 # testtools is a special minimal case for an app that just uses GASNet tools
 # specifically, we carefully omit BUILDCONFIG_DEFINES

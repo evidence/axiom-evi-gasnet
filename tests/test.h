@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/07/19 13:06:11 $
- * $Revision: 1.32 $
+ *     $Date: 2004/08/02 07:52:53 $
+ * $Revision: 1.33 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -43,6 +43,14 @@
             gasnet_exit(retval);                            \
     }                                                       \
   } while(0)
+
+#ifndef MIN
+  #define MIN(x,y) ((x)<(y)?(x):(y))
+#endif
+
+#ifndef MAX
+  #define MAX(x,y) ((x)>(y)?(x):(y))
+#endif
 
 /* return a microsecond time-stamp */
 #ifdef FORCE_GETTIMEOFDAY
@@ -92,6 +100,44 @@ static void _MSG(const char *format, ...) {
   gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            \
   GASNET_Safe(gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS)); \
 } while (0)
+
+#if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
+  /* Cheap (but functional!) pthread + gasnet barrier */
+  void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
+      static pthread_mutex_t barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
+      static pthread_cond_t barrier_cond = PTHREAD_COND_INITIALIZER;
+      static volatile unsigned int barrier_count = 0;
+      static int volatile phase = 0;
+      pthread_mutex_lock(&barrier_mutex);
+      barrier_count++;
+      if (barrier_count < local_pthread_count) {
+        int myphase = phase;
+        while (myphase == phase) {
+          pthread_cond_wait(&barrier_cond, &barrier_mutex);
+        }
+      } else {  
+        /* Now do the gasnet barrier */
+        if (doGASNetbarrier) BARRIER();
+        barrier_count = 0;
+        phase = !phase;
+        pthread_cond_broadcast(&barrier_cond);
+      }       
+      pthread_mutex_unlock(&barrier_mutex);
+  }
+  #define PTHREAD_BARRIER(local_pthread_count)      \
+    test_pthread_barrier(local_pthread_count, 1)
+  #define PTHREAD_LOCALBARRIER(local_pthread_count) \
+    test_pthread_barrier(local_pthread_count, 0)
+#else
+  #define PTHREAD_BARRIER(local_pthread_count) do {               \
+    MSG("ERROR: cannot call PTHREAD_BARRIER in GASNET_SEQ mode"); \
+    abort();                                                      \
+  } while (0)
+  #define PTHREAD_LOCALBARRIER(local_pthread_count) do {          \
+    MSG("ERROR: cannot call PTHREAD_BARRIER in GASNET_SEQ mode"); \
+    abort();                                                      \
+  } while (0)
+#endif
 
 static void *_test_malloc(size_t sz, const char *curloc) {
   void *ptr;

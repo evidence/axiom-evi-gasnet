@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testmisc.c                             $
- *     $Date: 2004/06/30 13:45:07 $
- * $Revision: 1.10 $
+ *     $Date: 2004/08/02 07:52:53 $
+ * $Revision: 1.11 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
