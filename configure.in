@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/04/19 23:22:45 $
-# $Revision: 1.133 $
+#     $Date: 2004/04/28 19:56:21 $
+# $Revision: 1.134 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.133 $)
+AC_REVISION($Revision: 1.134 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1206,6 +1206,14 @@ if test $have_vapi = yes; then
       AC_MSG_RESULT(no)
       VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -DH_MTL_LOG_H"
     ])
+  else
+    # Running gcc.
+    if test "$segconfig" != fast; then
+      # If using firehose we need to disable certain optimizations.
+      # See bug #350 for an example of why firehose needs this.
+      # See bug #596 for evidence that VAPi is affected by this.
+      VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -fno-strict-aliasing"
+    fi
   fi
 
   AC_MSG_CHECKING(for working VAPI configuration)
