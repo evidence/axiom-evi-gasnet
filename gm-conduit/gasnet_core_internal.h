@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.35 2002/11/30 17:17:01 csbell Exp $
- * $Date: 2002/11/30 17:17:01 $
- * $Revision: 1.35 $
+/* $Id: gasnet_core_internal.h,v 1.36 2002/12/01 06:03:29 bonachea Exp $
+ * $Date: 2002/12/01 06:03:29 $
+ * $Revision: 1.36 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -34,18 +34,6 @@
   #undef MAX 
   #endif
 #include <sys/param.h>
-#endif
-
-#ifdef GASNETI_USE_GENERIC_ATOMICOPS
-  #define gasneti_atomic_decrement(p) (gasnet_hsl_lock(&gasneti_atomicop_lock), \
-                                      ((p)->ctr)--,                             \
-                                       gasnet_hsl_unlock(&gasneti_atomicop_lock))
-#else
-  #if defined(LINUX)
-    #define gasneti_atomic_decrement(p) atomic_dec(p)
-  #elif defined(FREEBSD)
-    #define gasneti_atomic_decrement(p) atomic_subtract_int((p),1)
-  #endif
 #endif
 
 #ifdef GASNETC_FIREHOSE

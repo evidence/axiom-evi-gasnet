@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/10/11 20:56:00 $
-# $Revision: 1.24 $
+#     $Date: 2002/12/01 06:03:28 $
+# $Revision: 1.25 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.24 $)
+AC_REVISION($Revision: 1.25 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -688,6 +688,23 @@ AC_SUBST(ELAN_FLAGS)
 AM_CONDITIONAL(USE_ELAN_CONDUIT, test "$have_elan$elan_test_worked" = yesyes)
 
 ########################################################################
+
+# Check for broken asm/atomic.h on Linux
+case "$target_os" in
+  linux*)
+    AC_MSG_CHECKING(for broken asm/atomic.h)
+    AC_TRY_LINK( [
+      #include <asm/atomic.h>
+    ], [
+      atomic_t v;
+      atomic_set(&v,5);
+      atomic_inc(&v);
+    ], AC_MSG_RESULT(ok), 
+    [ AC_MSG_RESULT(broken) 
+      AC_DEFINE(BROKEN_LINUX_ASM_ATOMIC_H)
+    ] )
+    ;;
+esac
 
 # Check for alloca in C code
 AC_MSG_CHECKING(for alloca in C code)

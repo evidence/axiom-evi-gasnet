@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/10/01 11:18:29 $ */
-/*  $Revision: 1.8 $ */
+/*      $Date: 2002/12/01 06:03:28 $ */
+/*  $Revision: 1.9 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 
@@ -41,6 +41,9 @@
 
 /* has __func__ function name defined */
 #undef HAVE_FUNC
+
+/* Linux asm/atomic.h broken */
+#undef BROKEN_LINUX_ASM_ATOMIC_H
 
 /* various OS and machine definitions */
 #undef UNIX
