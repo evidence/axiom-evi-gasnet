@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/08/15 16:16:26 $
- * $Revision: 1.56 $
+ *     $Date: 2004/08/15 17:38:44 $
+ * $Revision: 1.57 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -833,7 +833,7 @@ extern int gasnetc_AMPoll() {
      * and switched back to the default mode afterwards.
      * We do this in the BLOCKUNTIL macro.
      */
-    GASNETC_LCHECK(LAPI_Probe(gasnetc_lapi_context));
+    GASNETC_LAPI_POLL(gasnetc_lapi_context);
 
     /* Check if any request handlers are queued for processing
      * and execute all on the list
