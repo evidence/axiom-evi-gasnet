@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
- *     $Date: 2004/08/09 07:51:56 $
- * $Revision: 1.28 $
+ *     $Date: 2004/08/11 16:12:54 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1129,9 +1129,7 @@ extern int gasnete_barrier_wait(int id, int flags) {
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_STATTIME_NOW()-barrier_notifytime);
 
     /*  wait for response */
-    while (!barrier_response_done[phase]) {
-	GASNETE_SAFE(gasneti_AMPoll());
-    }
+    gasneti_polluntil(barrier_response_done[phase]);
 
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW()-wait_start);
 
