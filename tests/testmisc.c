@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2005/02/17 13:19:21 $
- * $Revision: 1.11 $
+ *     $Date: 2005/02/20 08:24:22 $
+ * $Revision: 1.12 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -9,6 +9,7 @@
  */
 
 #include <gasnet.h>
+#include <gasnet_tools.h>
 
 #include <test.h>
 
@@ -219,6 +220,65 @@ int main(int argc, char **argv) {
       report("lock/unlock uncontended HSL",TIME() - start, iters);
     }
 
+    BARRIER();
+
+    {
+      int64_t start = TIME();
+      for (i=0; i < iters; i++) {
+        gasnett_local_wmb();
+      }
+      report("gasnett_local_wmb()",TIME() - start, iters);
+    }
+
+    BARRIER();
+
+    {
+      int64_t start = TIME();
+      for (i=0; i < iters; i++) {
+        gasnett_local_rmb();
+      }
+      report("gasnett_local_rmb()",TIME() - start, iters);
+    }
+
+    BARRIER();
+
+    { gasnett_atomic_t a = gasnett_atomic_init(0);
+      int64_t start = TIME();
+      for (i=0; i < iters; i++) {
+        gasnett_atomic_read(&a);
+      }
+      report("gasnett_atomic_read()",TIME() - start, iters);
+    }
+
+    BARRIER();
+
+    { gasnett_atomic_t a = gasnett_atomic_init(0);
+      int64_t start = TIME();
+      for (i=0; i < iters; i++) {
+        gasnett_atomic_increment(&a);
+      }
+      report("gasnett_atomic_increment()",TIME() - start, iters);
+    }
+
+    BARRIER();
+
+    { gasnett_atomic_t a = gasnett_atomic_init(0);
+      int64_t start = TIME();
+      for (i=0; i < iters; i++) {
+        gasnett_atomic_decrement(&a);
+      }
+      report("gasnett_atomic_decrement()",TIME() - start, iters);
+    }
+
+    BARRIER();
+
+    { gasnett_atomic_t a = gasnett_atomic_init(0);
+      int64_t start = TIME();
+      for (i=0; i < iters; i++) {
+        gasnett_atomic_decrement_and_test(&a);
+      }
+      report("gasnett_atomic_decrement_and_test()",TIME() - start, iters);
+    }
     /* ------------------------------------------------------------------------------------ */
 
     BARRIER();

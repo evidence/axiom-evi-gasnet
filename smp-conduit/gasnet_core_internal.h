@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/02/18 13:32:27 $
- * $Revision: 1.9 $
+ *     $Date: 2005/02/20 08:24:20 $
+ * $Revision: 1.10 $
  * Description: GASNet smp conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,11 +11,13 @@
 
 #include <gasnet_internal.h>
 
+#if GASNET_DEBUG
 typedef struct {
   int8_t   isReq; 
   int8_t   handlerRunning; 
   int8_t   replyIssued;    
 } gasnetc_bufdesc_t;
+#endif
 
 typedef struct {
   uint8_t  requestBuf[GASNETC_MAX_MEDIUM];

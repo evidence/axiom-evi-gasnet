@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/19 12:23:01 $
- * $Revision: 1.30 $
+ *     $Date: 2005/02/20 08:24:20 $
+ * $Revision: 1.31 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -369,9 +369,16 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
                          int dest, gasnet_handler_t handler, 
                          void *source_addr, int nbytes, void *dest_ptr, 
                          int numargs, va_list argptr) {
-  gasnetc_bufdesc_t _descbuf; 
-  gasnetc_bufdesc_t *desc = &_descbuf;
   gasnet_handlerarg_t pargs[GASNETC_MAX_ARGS];
+  #if GASNET_DEBUG  
+    gasnetc_bufdesc_t _descbuf; 
+    gasnetc_bufdesc_t *desc = &_descbuf;
+    desc->isReq = isReq;
+    desc->handlerRunning = 1;
+    desc->replyIssued = 0;
+  #else
+    void * const desc = NULL;
+  #endif
 
   gasneti_assert(dest == gasneti_mynode);
   gasneti_assert(numargs >= 0 && numargs <= GASNETC_MAX_ARGS);
@@ -382,9 +389,6 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     }
   }
 
-  desc->isReq = isReq;
-  desc->handlerRunning = 1;
-  desc->replyIssued = 0;
   switch (category) {
     case gasnetc_Short:
       { 
@@ -429,8 +433,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
     break;
     default: abort();
   }
-  desc->handlerRunning = 0;
-
+  #if GASNET_DEBUG  
+    desc->handlerRunning = 0;
+  #endif
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -450,19 +455,20 @@ static int gasnetc_ReplyGeneric(gasnetc_category_t category,
                          gasnet_token_t token, gasnet_handler_t handler, 
                          void *source_addr, int nbytes, void *dest_ptr, 
                          int numargs, va_list argptr) {
-  gasnetc_bufdesc_t *reqdesc = (gasnetc_bufdesc_t *)token;
   int retval;
   gasnet_node_t sourceid = 0;
+  #if GASNET_DEBUG  
+    gasnetc_bufdesc_t *reqdesc = (gasnetc_bufdesc_t *)token;
 
-  gasneti_assert(reqdesc->handlerRunning);
-  gasneti_assert(!reqdesc->replyIssued);
-  gasneti_assert(reqdesc->isReq);
+    gasneti_assert(reqdesc->handlerRunning);
+    gasneti_assert(!reqdesc->replyIssued);
+    gasneti_assert(reqdesc->isReq);
+    reqdesc->replyIssued = 1;
+  #endif
   
   retval = gasnetc_ReqRepGeneric(category, 0, sourceid, handler, 
                                  source_addr, nbytes, dest_ptr, 
                                  numargs, argptr); 
-
-  reqdesc->replyIssued = 1;
   return retval;
 }
 /* ------------------------------------------------------------------------------------ */
