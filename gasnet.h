@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2005/03/02 19:03:56 $
- * $Revision: 1.35 $
+ *     $Date: 2005/03/03 16:43:26 $
+ * $Revision: 1.36 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -179,8 +179,10 @@
   #define GASNET_ERR_BARRIER_MISMATCH     (_GASNET_ERR_BASE+5)
 #endif
 
+BEGIN_EXTERNC
 extern const char *gasnet_ErrorName(int);
 extern const char *gasnet_ErrorDesc(int);
+END_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /* core types */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/Attic/gasnet_extended_coll.h,v $
- *     $Date: 2005/02/24 19:18:16 $
- * $Revision: 1.20 $
+ *     $Date: 2005/03/03 16:43:29 $
+ * $Revision: 1.21 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -582,7 +582,7 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
     } else {
       /* Check the given addresses against ALL nodes */
       void * const *addrlist = (void * const *)addr;
-      int i;
+      gasnet_node_t i;
       for (i = 0; i < gasneti_nodes; ++i) {
 	#if GASNET_ALIGNED_SEGMENTS /* always use node 0 for cache reuse */
           if (!gasnete_coll_in_segment(0, addrlist[i], len)) {
