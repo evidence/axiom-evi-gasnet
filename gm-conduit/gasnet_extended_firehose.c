@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.37 2004/07/19 00:15:26 csbell Exp $
- * $Date: 2004/07/19 00:15:26 $
+/* $Id: gasnet_extended_firehose.c,v 1.38 2004/07/20 05:40:04 csbell Exp $
+ * $Date: 2004/07/20 05:40:04 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -492,7 +492,7 @@ gasnete_fh_request_get(void *_gop, const firehose_request_t *req,
   #if GASNETC_DISABLE_RDMA_GETS
     #warning GASNet/GM RDMA gets disabled by user (GASNETC_DISABLE_RDMA_GETS=1)
   #elif GASNETC_GM_RDMA_GETS_BROKEN
-    #error GASNet/GM RDMA gets are broken on this GM 2.x version (see gm-conduit README)
+    #warning GASNet/GM RDMA gets are broken on this GM 2.x version (see gm-conduit README)
   #else
     #warning GASNet/GM RDMA gets not available in GM 1.x series
   #endif
