@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.7 2002/06/16 06:34:11 csbell Exp $
- * $Date: 2002/06/16 06:34:11 $
+/* $Id: gasnet_core.c,v 1.8 2002/06/18 02:21:46 csbell Exp $
+ * $Date: 2002/06/18 02:21:46 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -307,9 +307,12 @@ extern int gasnetc_AMRequestShortM(
   retval = 1;
   bufd = gasnetc_AMRequestBuf_block();
   len = gasnetc_write_AMBufferShort(bufd->sendbuf, handler, numargs, argptr, 1);
+#ifdef AM_DUMP
+  printf("AMRequestShort dump = 0x%x\n", *(unsigned char *) bufd->sendbuf);
+#endif
   gasnetc_tokensend_AMRequest(bufd->sendbuf, len, 
 		  gasnetc_nodeid(dest), gasnetc_portid(dest),
-		  gasnetc_callback_AMReply, (void *)bufd, 0);
+		  gasnetc_callback_AMRequest, (void *)bufd, 0);
   /* GMCORE END */
 
   va_end(argptr);
@@ -338,7 +341,7 @@ extern int gasnetc_AMRequestMediumM(
   len = gasnetc_write_AMBufferMedium(bufd->sendbuf, handler, numargs, argptr, nbytes, source_addr, 1);
   gasnetc_tokensend_AMRequest(bufd->sendbuf, len, 
 		  gasnetc_portid(dest), gasnetc_nodeid(dest),
-		  gasnetc_callback_AMReply, (void *)bufd, 0);
+		  gasnetc_callback_AMRequest, (void *)bufd, 0);
   /* GMCORE END */
 
   va_end(argptr);
@@ -387,7 +390,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     gasnetc_write_AMBufferBulk(bufd->sendbuf, source_addr_cur, bytes_next);
 
     gasnetc_tokensend_AMRequest(bufd->sendbuf, bytes_next, id, port, 
-		    gasnetc_callback_AMReply, (void *) bufd, dest_addr_cur);
+		    gasnetc_callback_AMRequest, (void *) bufd, dest_addr_cur);
 
     dest_addr_cur += bytes_next;
     source_addr_cur += bytes_next;
@@ -400,11 +403,11 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   if (bytes_left > 0) {
     gasnetc_write_AMBufferBulk(bufd->sendbuf+len, source_addr_cur, bytes_left);
     gasnetc_tokensend_AMRequest(bufd->sendbuf+len, bytes_left, id, port, 
-		    gasnetc_callback_AMReply_NOP, NULL, dest_addr_cur);
+		    gasnetc_callback_AMRequest_NOP, NULL, dest_addr_cur);
   }
 
   gasnetc_tokensend_AMRequest(bufd->sendbuf, len, id, port, 
-		    gasnetc_callback_AMReply, (void *)bufd, 0);
+		    gasnetc_callback_AMRequest, (void *)bufd, 0);
   /* GMCORE END */
 
   va_end(argptr);

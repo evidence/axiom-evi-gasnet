@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.7 2002/06/16 06:34:11 csbell Exp $
- * $Date: 2002/06/16 06:34:11 $
- * $Revision: 1.7 $
+/* $Id: gasnet_core_internal.h,v 1.8 2002/06/18 02:21:46 csbell Exp $
+ * $Date: 2002/06/18 02:21:46 $
+ * $Revision: 1.8 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -34,6 +34,7 @@
 #if !defined(GASNET_SEQ) && !defined(FREEBSD)
 #include <pthread.h>
 #endif
+#define AM_DUMP
 
 extern gasnet_seginfo_t *gasnetc_seginfo;
 
@@ -60,6 +61,13 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 
 #define GASNETC_AM_LEN	4096
 #define GASNETC_AM_SIZE	12
+#define GASNETC_AM_NUMARGS(buf) (((buf) >> 1) & 0x1f)
+#define GASNETC_AM_TYPE(buf)    (((buf) >> 6) & 0x03)
+#define GASNETC_AM_TYPE_STRING(buf)                                     \
+                (GASNETC_AM_TYPE(buf) == 0 ? "Short" :                  \
+                        (GASNETC_AM_TYPE(buf) == 1 ? "Medium" :         \
+                                (GASNETC_AM_TYPE(buf) == 2 ? "Long" :   \
+                                        "Error!")))
 
 typedef struct gasnetc_bufdesc gasnetc_bufdesc_t;
 
@@ -272,6 +280,16 @@ gasnetc_gm_send_AMReply(gasnetc_bufdesc_t *bufd)
 	assert(bufd->e != NULL);
 	assert(gm_ntoh_u16(bufd->e->recv.sender_node_id) > 0);
 
+#ifdef AM_DUMP
+        printf("S> AMReply%s (%d:%d) args %d index %d\n", 
+		GASNETC_AM_TYPE_STRING(*((uint8_t *)bufd->sendbuf)),
+		(uint32_t) gm_ntoh_u16(bufd->e->recv.sender_node_id),
+		(uint32_t) gm_ntoh_u8(bufd->e->recv.sender_port_id),
+		GASNETC_AM_NUMARGS(*((uint8_t *)bufd->sendbuf)), 
+		(uint32_t) *((uint8_t *)bufd->sendbuf + 1));
+        fflush(stdout);
+#endif
+
 	if (bufd->rdma_off > 0) {
 		gm_directed_send_with_callback(_gmc.port, 
 			bufd->sendbuf + bufd->rdma_off,
@@ -295,6 +313,7 @@ gasnetc_gm_send_AMReply(gasnetc_bufdesc_t *bufd)
 			(uint32_t) gm_ntoh_u8(bufd->e->recv.sender_port_id),
 			gasnetc_callback_AMReply,
 			(void *) bufd);
+	printf("AMReply sent (%d bytes)\n", bufd->len);
 }
 
 /* GM gm_send/gm_directed_send wrapper for AMRequest */
@@ -312,6 +331,13 @@ gasnetc_gm_send_AMRequest(void *buf, uint16_t len,
 	assert(port >= 0);
 	assert(callback != NULL);
 
+#ifdef AM_DUMP
+        printf("S> AMRequest%s (%d:%d) args %d index %d\n", 
+		GASNETC_AM_TYPE_STRING(*((uint8_t *)buf)),
+		id, port, GASNETC_AM_NUMARGS(*((uint8_t *)buf)),
+                (uint32_t) *((uint8_t *)buf + 1));
+        fflush(stdout);
+#endif
 	if (dest_addr > 0)
 		gm_directed_send_with_callback(_gmc.port, 
 			buf,

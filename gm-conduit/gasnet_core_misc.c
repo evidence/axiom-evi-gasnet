@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.7 2002/06/16 06:34:11 csbell Exp $
- * $Date: 2002/06/16 06:34:11 $
- * $Revision: 1.7 $
+/* $Id: gasnet_core_misc.c,v 1.8 2002/06/18 02:21:46 csbell Exp $
+ * $Date: 2002/06/18 02:21:46 $
+ * $Revision: 1.8 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -15,6 +15,7 @@
 #else
 #define DPRINTF(x)
 #endif
+#define AM_DUMP
 
 /*
  * Memory management for token_lo buffers (AMRequests)
@@ -139,8 +140,8 @@ gasnetc_tokensend_AMRequest(void *buf, uint16_t len,
 		if (GASNETC_TOKEN_LO_AVAILABLE()) {
 			gasnetc_gm_send_AMRequest(buf, len, id, port, callback,
 					callback_ptr, dest_addr);
-			_gmc.token.lo -= 1;
-			_gmc.token.total -= 1;
+			_gmc.token.lo += 1;
+			_gmc.token.total += 1;
 			GASNETC_GM_MUTEX_UNLOCK;
 			sent = 1;
 		}
@@ -171,6 +172,9 @@ gasnetc_AMRequestBuf_block()
 	}
 
 	assert(_gmc.bd_ptr[bufd_idx].sendbuf !=NULL);
+#ifdef AM_DUMP
+	printf("AMRequestBuf index = %d\n", bufd_idx);
+#endif
 
 	return (gasnetc_bufdesc_t *) 
 		&_gmc.bd_ptr[bufd_idx];
