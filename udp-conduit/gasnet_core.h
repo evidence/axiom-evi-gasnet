@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/udp-conduit/gasnet_core.h                  $
- *     $Date: 2004/06/28 09:36:30 $
- * $Revision: 1.4 $
+ *     $Date: 2004/06/30 09:16:18 $
+ * $Revision: 1.5 $
  * Description: GASNet header for UDP conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -193,5 +193,5 @@ END_EXTERNC
 
 #endif
 
-#define GASNETC_NO_AMREQUESTLONGASYNC
+#define GASNETC_NO_AMREQUESTLONGASYNC 1
 #include <gasnet_ammacros.h>

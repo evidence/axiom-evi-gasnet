@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.h                       $
- *     $Date: 2004/06/28 09:36:24 $
- * $Revision: 1.14 $
+ *     $Date: 2004/06/30 09:16:16 $
+ * $Revision: 1.15 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -206,5 +206,5 @@ END_EXTERNC
 
 #endif
 
-#define GASNETC_NO_AMREQUESTLONGASYNC
+#define GASNETC_NO_AMREQUESTLONGASYNC 1
 #include <gasnet_ammacros.h>
