@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/03/05 20:55:29 $
- * $Revision: 1.24 $
+ *     $Date: 2004/03/05 23:48:02 $
+ * $Revision: 1.25 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -200,13 +200,11 @@ extern void test_delay(int n);	 /* in delay.o */
   #define TEST_DELAY_LOOP_MIN        100
 #endif
 
-/* Compute the number of loops needed to get no less that the specified delay.
+/* Compute the number of loops needed to get no less that the specified delay
+ * when executing "test_delay(loops)" excatly 'iters' times.
  *
  * Returns the number of loops needed and overwrites the argument with the
- * actual achieved delay
- * The 'iters' argument controls the number of iterations used for calibration.
- * Larger values take longer but yield more accurate calibration, but take longer.
- * Using the same 'iters' value as in your test seems appropriate.
+ * actual achieved delay for 'iters' calls to "delay(*time_p)".
  * The 'time_p' is given in microseconds.
  */
 int test_calibrate_delay(int iters, int64_t *time_p) 

@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.16 2004/03/05 19:42:04 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.17 2004/03/05 23:48:02 phargrov Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -57,13 +57,14 @@ testtools: force
 	@CC@ @MISC_CFLAGS@ $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@ -DHAVE_PTHREAD_H -c -o $@.o $(srcdir)/$@.c
 	@CC@ -o $@ $@.o @GASNET_THREAD_LIBS@ @LIBS@ @LIBM@
 
-# testlogGP needs an external file w/ the delay function.
-testlogGP: force delay.o
-	$(GASNET_CC) -I$(srcdir) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) -c -o $@.o $(srcdir)/$@.c
-	$(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $@.o delay.o $(GASNET_LIBS)
+# some tests need delay.o
+testlogGP: delay.o
+testlogGP_deps = delay.o
+testbarrier: delay.o
+testbarrier_deps = delay.o
 
-# delay function for testlogGP (and perhaps others) build w/o optimizations
-delay.o: $(srcdir)/delay.c
+# delay function must be built w/o optimizations
+delay.o: force
 	$(GASNET_CC) -O0 -c -o $@ $(srcdir)/$*.c
 
 # testmpi must be compiled like an MPI program with GASNet support
@@ -75,7 +76,7 @@ testmpi: force
 # This is a model for how GASNet clients should be built:
 test% : force
 	$(GASNET_CC) -I$(srcdir) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) -c -o $@.o $(srcdir)/$@.c
-	$(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $@.o $(GASNET_LIBS)
+	$(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $@.o $($@_deps) $(GASNET_LIBS)
 
 force:
 	
