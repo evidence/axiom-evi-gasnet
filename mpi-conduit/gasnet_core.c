@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/06/29 01:48:12 $
- * $Revision: 1.31 $
+ *     $Date: 2003/08/10 09:57:43 $
+ * $Revision: 1.32 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -618,8 +618,10 @@ extern int gasnetc_AMReplyLongM(
   extern void gasnetc_hold_interrupts() {
     GASNETC_CHECKATTACH();
     { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
+    #if 0
       if (info->inhandler)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to disable interrupts while running a handler");
+    #endif
       if (info->locksheld)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to disable interrupts while holding an HSL");
       if (info->interruptsdisabled)
@@ -631,8 +633,10 @@ extern int gasnetc_AMReplyLongM(
   extern void gasnetc_resume_interrupts() {
     GASNETC_CHECKATTACH();
     { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
+    #if 0
       if (info->inhandler)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to resume interrupts while running a handler");
+    #endif
       if (info->locksheld)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to resume interrupts while holding an HSL");
       if (!info->interruptsdisabled)
@@ -820,7 +824,8 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
   extern void gasnetc_leavingHandler_hook() {
     gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
     assert(info->inhandler);
-    assert(!info->interruptsdisabled);
+    if (info->interruptsdisabled)
+        gasneti_fatalerror("HSL USAGE VIOLATION: tried to exit a handler with unmatched interrupt hold");
     if (info->locksheld)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to exit a handler while holding an HSL");
     info->inhandler = 0;
