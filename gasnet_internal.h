@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/10/04 01:33:11 $
- * $Revision: 1.18 $
+ *     $Date: 2002/10/17 05:05:40 $
+ * $Revision: 1.19 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -334,7 +334,7 @@ extern int gasneti_VerboseErrors;
             } while (0)
   #endif
   #define gasneti_mutex_assertlocked(pl)    assert((pl)->owner == GASNETI_THREADIDQUERY())
-  #define gasneti_mutex_assertunlocked(pl)  assert((pl)->owner == GASNETI_MUTEX_NOOWNER)
+  #define gasneti_mutex_assertunlocked(pl)  assert((pl)->owner != GASNETI_THREADIDQUERY())
 #else
   #ifdef GASNET_PAR
     #include <pthread.h>
