@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.2 2002/06/10 13:56:10 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.3 2002/06/14 00:17:46 bonachea Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -67,7 +67,9 @@ all: libs
 	
 clean-local: 
 	rm -f $(libgasnet_objects) $(libraries) *.o core
-	@$(MAKE) -f $(top_srcdir)/tests/Makefile clean
+	@$(MAKE) -f $(top_srcdir)/tests/Makefile clean       \
+	  srcdir="$(top_srcdir)/tests"			     \
+	  configfile="<conduitname>-seq.mak"
 
 headers = $(srcdir)/*.h $(top_srcdir)/extended-ref/*.h 
 makefile_fragments = <conduitname>-seq.mak <conduitname>-parsync.mak <conduitname>-par.mak
