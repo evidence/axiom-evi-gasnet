@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/02/27 15:34:48 $
-# $Revision: 1.50 $
+#     $Date: 2005/02/28 22:01:56 $
+# $Revision: 1.51 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -91,7 +91,8 @@ TEST_PARAMS=                    \
    testmisc_nodes="1";		\
    testbarrierconf_nodes="3";	\
    testmpiperf_args="BPF";	\
-   $(EXTRA_PARAMS)
+   $(CONDUIT_TESTPARAMS) dummy=1 ; \
+   $(MANUAL_TESTPARAMS) dummy=1 ;
 
 # omit tests that are supposed to fail or known to cause failures
 testprograms_err =      \
@@ -226,7 +227,7 @@ do-run-testexit: force
 # testtools is a special minimal case for an app that just uses GASNet tools
 # specifically, we carefully omit BUILDCONFIG_DEFINES
 testtools: force
-	@CC@ @CFLAGS@ @MISC_CFLAGS@ @MISC_CPPFLAGS@ $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@ -c -o $@.o $(srcdir)/$@.c
+	@CC@ @CFLAGS@ @MISC_CFLAGS@ @MISC_CPPFLAGS@ $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	@CC@ @CFLAGS@ @MISC_CFLAGS@ -o $@ $@.o @GASNET_THREAD_LIBS@ @LIBS@ @LIBM@
 	rm -f $@.o
 
@@ -239,24 +240,24 @@ testbarrierlate_extraobjs = delay.o
 # delay function, used by multiple tests
 # need to deliberately exclude optimization for this object file
 delay.o: force
-	$(GASNET_CC) $(GASNET_INCLUDES) $(GASNET_MISC_CFLAGS) -c -o $@ $(srcdir)/$*.c
+	$(GASNET_CC) $(GASNET_INCLUDES) $(GASNET_MISC_CFLAGS) $(MANUAL_CFLAGS) -c -o $@ $(srcdir)/$*.c
 
 # testmpi must be compiled like an MPI program with GASNet support
 testmpi: force
-	@MPI_CC@ -I$(srcdir) $(GASNET_CPPFLAGS) @MPI_CFLAGS@ -c -o $@.o $(srcdir)/$@.c
+	@MPI_CC@ -I$(srcdir) $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ $(GASNET_LIBS)
 	rm -f $@.o	
 
 # testmpiperf is just an MPI program
 testmpiperf: force
-	@MPI_CC@ $(GASNET_CPPFLAGS) @MPI_CFLAGS@ -c -o $@.o $(srcdir)/$@.c
+	@MPI_CC@ $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ 
 	rm -f $@.o	
 
 # testcxx tests support for compiling a C++-based GASNet client 
 # this is unlikely to work on conduits requiring a special linker (eg mpi-conduit)
 testcxx: force
-	@CXX@ @CXXFLAGS@ @MISC_CXXFLAGS@ -I$(srcdir) $(GASNET_CPPFLAGS) -c -o $@.o $(srcdir)/$@.cc
+	@CXX@ @CXXFLAGS@ @MISC_CXXFLAGS@ -I$(srcdir) $(GASNET_CPPFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.cc
 	@CXX@ @CXXFLAGS@ $(GASNET_LDFLAGS) -o $@ $@.o $($@_extraobjs) $(GASNET_LIBS)
 	rm -f $@.o
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/02/17 13:19:13 $
- * $Revision: 1.8 $
+ *     $Date: 2005/02/28 22:01:49 $
+ * $Revision: 1.9 $
  * Description: GASNet sci conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -129,8 +129,6 @@ extern sci_map_t			*gasnetc_sci_localMap;
 extern sci_map_t			*gasnetc_sci_remoteMap;
 extern sci_map_t			*gasnetc_sci_remoteMap_gb;
 extern void 				**gasnetc_sci_global_ready;
-extern unsigned int			gasnetc_sci_max_local_seg;
-extern unsigned int			gasnetc_sci_max_global_seg;
 extern void				*gasnetc_sci_handler_table[256];
 extern bool				*gasnetc_sci_msg_loc_status;
 extern bool 				*gasnetc_sci_msg_flag;
@@ -164,31 +162,31 @@ void gasnetc_sci_internal_Barrier();
 /*  Parses all the SCI Ids and places them in gasnetc_sci_SCI_Ids. */
 /*  The corresponding GASNet node ID is the index of the location of the SCI id in the */
 /*  array. */
-int gasnetc_parseSCIIds(FILE *node_info, const int number);
+int gasnetc_parseSCIIds(FILE *node_info);
 
 /*  Returns the Max_local_Segment size in bytes based on available */
 /*  free mem on the system and writes the size to a global file */
-int gasnetc_get_free_mem();
+void gasnetc_get_free_mem();
 
 /*  Returns the maximum global segment size. This is the minimum of the segment */
 /*  sizes available over the whole cluster. Return -1 if not all node information */
 /*  is in the file, throws an error otherwise. */
-int gasnetc_getSCIglobal_seg(int number);
+void gasnetc_getSCIglobal_seg();
 
 /*  This uses the number given to it to create the segments needed by the command */
 /*  region. It will leave an open spot for the gasnet segment space to be */
 /*  the next to last segment. It will be created in GASNet Attach. */
-gasnet_node_t gasnetc_SCI_Create_Connections(int number);
+void gasnetc_SCI_Create_Connections();
 
 /*  Connects all the command regions and then all the global ready bytes */
 /*  across all nodes. */
-int gasnetc_SCI_connect_cmd(int number);
+int gasnetc_SCI_connect_cmd();
 
 /*  This function finds the total number of nodes that will run GASNet as well as */
 /*  assign GASNet Node IDS to each SCI ID. Additionally, the total amount of free */
 /*  memory on the system is determined and a percentage is used as the MAX_local_Seg */
 /*  size. */
-unsigned int gasnetc_SCIInit(gasnet_node_t *my_node);
+void gasnetc_SCIInit();
 
 /*  Create the payload (GASNET segment) segment and set it available. */
 void* gasnetc_create_gasnetc_sci_seg(uintptr_t *segsize, int index);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core_internal.c,v $
- *     $Date: 2005/02/18 13:32:23 $
- * $Revision: 1.9 $
+ *     $Date: 2005/02/28 22:01:49 $
+ * $Revision: 1.10 $
  * Description: GASNet sci conduit c-file for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -54,8 +54,6 @@ sci_map_t				*gasnetc_sci_remoteMap;					/* Handlers to remotely mapped segment 
 sci_map_t				*gasnetc_sci_remoteMap_gb;				/* Handlers to remotely mapped segment for global bytes */
 unsigned int			        gasnetc_sci_localAdapterNo = 0;
 unsigned int			        gasnetc_sci_offset = 0;					/* default offset within the segment */
-unsigned int			        gasnetc_sci_max_local_seg =0;				/* the values of the maximum segment sizes in system */
-unsigned int			        gasnetc_sci_max_global_seg =0;				/* across all systems */
 unsigned int			        *gasnetc_sci_SCI_Ids;
 void 					**gasnetc_sci_local_mem;				/* an array of void pointers to each local segment */
 void 					**gasnetc_sci_remote_mem;				/* an array of void pointers to each remote segment */
@@ -449,12 +447,12 @@ void gasnetc_sci_internal_Barrier()
 /*  Parses all the SCI Ids and places them in gasnetc_sci_SCI_Ids. */
 /*  The corresponding GASNet node ID is the index of the location of the SCI id in the */
 /*  array. */
-int gasnetc_parseSCIIds(FILE *node_info, const int number)
-{
+int gasnetc_parseSCIIds(FILE *node_info) {
 	int index, scanned;
 	char ch;
 
-	for(index = 0; index < number; index++)
+        gasneti_assert(gasneti_nodes);
+	for(index = 0; index < gasneti_nodes; index++)
 	{
 		if( fscanf(node_info,"%d %c", &scanned,&ch) != EOF)
 		{
@@ -468,10 +466,9 @@ int gasnetc_parseSCIIds(FILE *node_info, const int number)
 	return 1;
 }
 
-/*  Returns the Max_local_Segment size in bytes based on available */
+/*  Set the Max_local_Segment size in bytes based on available */
 /*  free mem on the system and writes the size to a global file */
-int gasnetc_get_free_mem()
-{
+void gasnetc_get_free_mem() {
         int size, found, mod, orig_size;
         char title[100];
 
@@ -512,28 +509,24 @@ int gasnetc_get_free_mem()
             size = GASNETC_SCI_ONE_MB;
         }
 
-        gasnetc_sci_max_local_seg = size;
-
-        return size;
+        gasneti_MaxLocalSegmentSize = size;
 }
 
 /*  Returns the maximum global segment size. This is the minimum of the segment */
 /*  sizes available over the whole cluster. Return -1 if not all node information */
 /*  is in the file, throws an error otherwise. */
-int gasnetc_getSCIglobal_seg(int number)
-{
-        int count, index, min = 0, offset = 0;
-        unsigned int *Table_Sizes, *segment_size; /*table of all the sizes, and pointer to uint seg info*/
+void gasnetc_getSCIglobal_seg() {
+        int count, index;
+        uintptr_t *Table_Sizes; /*table of all the sizes, and pointer to uint seg info*/
         sci_sequence_t sequence;
         sci_map_t	curr_remote_map;
         sci_error_t	error;
         bool *ready;
 
+        gasneti_assert(gasneti_nodes);
+        gasneti_assert(gasneti_MaxLocalSegmentSize);
         /*place my information in everybody's mailbox*/
-        for(index=0; index < gasneti_nodes; index++)
-        {
-                unsigned int offset = 0;
-
+        for(index=0; index < gasneti_nodes; index++) {
                 curr_remote_map = gasnetc_sci_remoteMap[index];
 
                 do{
@@ -544,52 +537,37 @@ int gasnetc_getSCIglobal_seg(int number)
                         SCIStartSequence(sequence, GASNETC_SCI_NO_FLAGS, &error);
                 }while(error != SCI_ERR_OK);
 
-                do
-                {
-                        SCIMemCpy(sequence, &gasnetc_sci_max_local_seg, curr_remote_map, offset, sizeof(unsigned int), GASNETC_SCI_NO_FLAGS, &error);
+                do{
+                        SCIMemCpy(sequence, &gasneti_MaxLocalSegmentSize, 
+                                  curr_remote_map, 0, 
+                                  sizeof(uintptr_t), GASNETC_SCI_NO_FLAGS, &error);
                         SCICheckSequence(sequence, GASNETC_SCI_NO_FLAGS, &error);
                 }while(error != SCI_ERR_OK);
-
         }
 
         gasnetc_sci_internal_Barrier();/*wait for everybody*/
 
         /*allocate enough space to place them all in the table*/
-        Table_Sizes = (unsigned int *) gasneti_malloc( sizeof(unsigned int)* gasneti_nodes);
+        Table_Sizes = gasneti_malloc(sizeof(uintptr_t)*gasneti_nodes);
 
         /*get info, place into the table*/
-        for(index = 0; index < gasneti_nodes; index++)
-        {
-                segment_size = (unsigned int*) gasnetc_sci_local_mem[index];
-                Table_Sizes[index] = segment_size[offset];
+        for(index = 0; index < gasneti_nodes; index++) {
+           Table_Sizes[index] = *(uintptr_t*) (gasnetc_sci_local_mem[index]);
+           if (index == 0 || Table_Sizes[index] < gasneti_MaxGlobalSegmentSize) 
+             gasneti_MaxGlobalSegmentSize = Table_Sizes[index];
         }
-
-        /*find the minimum value*/
-        min = Table_Sizes[0];
-        for(index=0; index < gasneti_nodes ; index++ )
-        {
-                if(Table_Sizes[index] <  min )
-                        min = Table_Sizes[index];
-        }
-
-        /*set the minimum*/
-        gasnetc_sci_max_global_seg = min;
-        return min;
 }
 
 /*  This uses the number given to it to create the segments needed by the command */
 /*  region. It will leave an open spot for the gasnet segment space to be */
 /*  the next to last segment. It will be created in GASNet Attach. */
-gasnet_node_t gasnetc_SCI_Create_Connections(int number)
-{
+void gasnetc_SCI_Create_Connections() {
 	int index;
-	gasnet_node_t gasneti_mynode;/* unsigned short */
 	unsigned int LocalID;
 	sci_error_t error;
 	sci_query_adapter_t		gasnetc_sci_SCIAdapter;		/* Handler to find out current node's SCI ID */
 
-	gasneti_nodes = number;/* set global variable */
-
+        gasneti_assert(gasneti_nodes);
 	gasnetc_sci_SCIAdapter.subcommand = SCI_Q_ADAPTER_NODEID;
         gasnetc_sci_SCIAdapter.localAdapterNo = 0;
         gasnetc_sci_SCIAdapter.data = &LocalID;
@@ -600,15 +578,13 @@ gasnet_node_t gasnetc_SCI_Create_Connections(int number)
         #endif
 
 	SCIQuery(SCI_Q_ADAPTER, &gasnetc_sci_SCIAdapter, GASNETC_SCI_NO_FLAGS, &error);
-	if (error != SCI_ERR_OK) /* eventually will not exit until it has tried all 3 adapter numbers */
-	{
-        gasneti_fatalerror("(%d) Cannot find Adapter: %d. SCIQuery failed - Error code: 0x%x\n",0, gasneti_mynode, error);
-    }
+        if (error != SCI_ERR_OK) /* eventually will not exit until it has tried all 3 adapter numbers */
+          gasneti_fatalerror("(%d) Cannot find Adapter: %d. SCIQuery failed - Error code: 0x%x\n",0, gasneti_mynode, error);
 
 	gasnetc_sci_localAdapterNo = 0;/* since 0 returned successful, set it for now. */
 	gasnetc_sci_offset = 0; /*  for creations, never use offsets */
 
-	for (index = 0; index < number ; index++)
+	for (index = 0; index < gasneti_nodes ; index++)
 	{
 		if (gasnetc_sci_SCI_Ids[index] == LocalID)
 		{
@@ -616,15 +592,16 @@ gasnet_node_t gasnetc_SCI_Create_Connections(int number)
 			break;
 		}
 	}
+        gasneti_assert(gasneti_mynode != (gasnet_node_t)-1);
 
 	/* first open all sci virtual descriptors */
-	for (index=0; index < (number +2) ; index++)
+	for (index=0; index < (gasneti_nodes +2) ; index++)
 	{
 		GASNETC_SCISAFE(SCIOpen(&gasnetc_sci_sd[index], GASNETC_SCI_NO_FLAGS, &error));
 	}
 
 	/* now create the segments, size of GASNETC_SCI_COMMAND_MESSAGE_SIZE * GASNETC_SCI_MAX_REQUEST_MSG * 2 */
-	for (index = 0;index < number ; index++ )
+	for (index = 0;index < gasneti_nodes ; index++ )
 	{
 		GASNETC_SCISAFE(SCICreateSegment(gasnetc_sci_sd[index], &gasnetc_sci_localSegment[index], gasnetc_get_local_command_id (gasneti_mynode, index),
 						 GASNETC_SCI_COMMAND_MESSAGE_SIZE * GASNETC_SCI_MAX_REQUEST_MSG * 2, NULL/*callback*/, NULL,
@@ -633,34 +610,33 @@ gasnet_node_t gasnetc_SCI_Create_Connections(int number)
 	/*Now create the global ready byte region, leaving the num + 1 region still uncreated*/
 	/* this one uses the callback function as a way to send a notice to everybody and recieve notices of
 	node failures, helps with gasnet_exit()*/
-	GASNETC_SCISAFE(SCICreateSegment(gasnetc_sci_sd[index], &gasnetc_sci_localSegment[number+1],
-                                         gasnetc_get_local_globalready_id (gasneti_mynode, number),
-		                         (number * (GASNETC_SCI_MAX_REQUEST_MSG *2))+1, NULL/*callback*/, NULL,
+	GASNETC_SCISAFE(SCICreateSegment(gasnetc_sci_sd[index], &gasnetc_sci_localSegment[gasneti_nodes+1],
+                                         gasnetc_get_local_globalready_id (gasneti_mynode, gasneti_nodes),
+		                         (gasneti_nodes * (GASNETC_SCI_MAX_REQUEST_MSG *2))+1, NULL/*callback*/, NULL,
                                          GASNETC_SCI_NO_FLAGS, &error));
 	/* Prepare the segments */
-	for (index = 0;index < (number+2) ; index++ )
+	for (index = 0;index < (gasneti_nodes+2) ; index++ )
 	{
 
-		if( index == (number)) {
+		if( index == gasneti_nodes) {
 			continue; /* skip preparation of payload region as it has not been created yet */
 		} else {
 			GASNETC_SCISAFE(SCIPrepareSegment(gasnetc_sci_localSegment[index],gasnetc_sci_localAdapterNo,GASNETC_SCI_NO_FLAGS,&error));
 		}
 	}
 
-	gasnetc_sci_local_mem = (void **) gasneti_malloc( (number +2) * sizeof(void*) );
+	gasnetc_sci_local_mem = (void **) gasneti_malloc( (gasneti_nodes +2) * sizeof(void*) );
 
 	/* now map all the segments to usable space */
-	for (index = 0; index < (number+2); index++ )
+	for (index = 0; index < (gasneti_nodes+2); index++ )
 	{
-		if( index == (number))
-		{
+		if( index == gasneti_nodes) {
 			continue; /* skip mapping of payload region as it has not been created yet */
 		}
-		if( index == (number+1)) { /* global ready byte region */
+		if( index == (gasneti_nodes+1)) { /* global ready byte region */
 			GASNETC_SCISAFE(gasnetc_sci_local_mem[index] =
                             SCIMapLocalSegment(gasnetc_sci_localSegment[index],&gasnetc_sci_localMap[index],
-						gasnetc_sci_offset,(number * (GASNETC_SCI_MAX_REQUEST_MSG *2))+1,
+						gasnetc_sci_offset,(gasneti_nodes * (GASNETC_SCI_MAX_REQUEST_MSG *2))+1,
                                                 NULL,GASNETC_SCI_NO_FLAGS,&error));
 			continue;
 		} else {
@@ -673,9 +649,9 @@ gasnet_node_t gasnetc_SCI_Create_Connections(int number)
 	}
 
 	/* make the segments available to the world */
-	for (index = 0; index < (number+2); index++)
+	for (index = 0; index < (gasneti_nodes+2); index++)
 	{
-		if( index == (number))
+		if( index == gasneti_nodes)
 		{
 			continue; /* skip exporting of payload region as it has not been created yet */
 		}
@@ -687,36 +663,33 @@ gasnet_node_t gasnetc_SCI_Create_Connections(int number)
                /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
                fprintf(stderr,"done\n"); fflush(stderr);
         #endif
-
-	return gasneti_mynode;
 }
 
 /*  Connects all the command regions and then all the global ready bytes */
 /*  across all nodes. */
-int gasnetc_SCI_connect_cmd(int number)
-{
+int gasnetc_SCI_connect_cmd() {
 	int index, gb_ID, counter = 0;
-	int My_ID = gasneti_mynode;
 	sci_error_t error;
 
+        gasneti_assert(gasneti_nodes);
         #if GASNET_DEBUG_VERBOSE
                /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
                fprintf(stderr,"gasnet connecting SCI command segments..."); fflush(stderr);
         #endif
 
-	gasnetc_sci_sd_remote = (sci_desc_t*) gasneti_malloc(number* sizeof(sci_desc_t));
+	gasnetc_sci_sd_remote = (sci_desc_t*) gasneti_malloc(gasneti_nodes* sizeof(sci_desc_t));
 
-	for (index = 0; index < number ; index++) {
+	for (index = 0; index < gasneti_nodes ; index++) {
 		GASNETC_SCISAFE(SCIOpen(&gasnetc_sci_sd_remote[index], GASNETC_SCI_NO_FLAGS, &error));
 	}
 
 	/*connect all the command regions,even ourselves, global ready bytes come later*/
-	for (index = 0; index < number ; index++)
+	for (index = 0; index < gasneti_nodes ; index++)
 	{
 		counter = 0;
 		do {
 			SCIConnectSegment(gasnetc_sci_sd_remote[index],&gasnetc_sci_remoteSegment[index],gasnetc_sci_SCI_Ids[index],
-				gasnetc_get_remote_command_id (My_ID, index),gasnetc_sci_localAdapterNo,
+				gasnetc_get_remote_command_id (gasneti_mynode, index),gasnetc_sci_localAdapterNo,
 				gasnetc_sci_remote_callback,NULL,SCI_INFINITE_TIMEOUT,SCI_FLAG_USE_CALLBACK,&error);
 			if(error != SCI_ERR_OK)
                         {
@@ -731,9 +704,9 @@ int gasnetc_SCI_connect_cmd(int number)
 		}
 	}
 
-	gasnetc_sci_remote_mem = (void**) gasneti_malloc( (number +2) * sizeof(void*) );
+	gasnetc_sci_remote_mem = (void**) gasneti_malloc( (gasneti_nodes +2) * sizeof(void*) );
 
-	for (index = 0; index < number ; index ++ ) {
+	for (index = 0; index < gasneti_nodes ; index ++ ) {
 		/* Map the segments to user space */
 		GASNETC_SCISAFE(gasnetc_sci_remote_mem[index] =
                     (void *)SCIMapRemoteSegment(gasnetc_sci_remoteSegment[index],&gasnetc_sci_remoteMap[index],
@@ -743,20 +716,20 @@ int gasnetc_SCI_connect_cmd(int number)
 
 	/*Now get all the global ready byte regions*/
 	/*Need to open descriptors for each of the byte segments*/
-	gasnetc_sci_sd_gb = (sci_desc_t*) gasneti_malloc(sizeof(sci_desc_t) * (number));
-	for (index = 0; index < number ; index++)
+	gasnetc_sci_sd_gb = (sci_desc_t*) gasneti_malloc(sizeof(sci_desc_t) * (gasneti_nodes));
+	for (index = 0; index < gasneti_nodes ; index++)
 	{
 		GASNETC_SCISAFE(SCIOpen(&gasnetc_sci_sd_gb[index], GASNETC_SCI_NO_FLAGS, &error));
 	}
-	gasnetc_sci_remoteSegment_gb = (sci_remote_segment_t*) gasneti_malloc(sizeof(sci_remote_segment_t)*number);
+	gasnetc_sci_remoteSegment_gb = (sci_remote_segment_t*) gasneti_malloc(sizeof(sci_remote_segment_t)*gasneti_nodes);
 
-	for (index = 0; index < number ; index++)
+	for (index = 0; index < gasneti_nodes ; index++)
 	{
 		void * arg;
 		counter = 0;
 		do {
 			SCIConnectSegment(gasnetc_sci_sd_gb[index], &gasnetc_sci_remoteSegment_gb[index],
-				gasnetc_sci_SCI_Ids[index],	gasnetc_get_remote_globalready_id(index, number),
+				gasnetc_sci_SCI_Ids[index],	gasnetc_get_remote_globalready_id(index, gasneti_nodes),
 				gasnetc_sci_localAdapterNo, gasnetc_sci_remote_callback, arg,
 				SCI_INFINITE_TIMEOUT, SCI_FLAG_USE_CALLBACK,&error);
 			if (error != SCI_ERR_OK)
@@ -769,16 +742,16 @@ int gasnetc_SCI_connect_cmd(int number)
 		}
 	}
 
-	gasnetc_sci_global_ready = (void*) gasneti_malloc( number * sizeof(void*) );
-	gasnetc_sci_remoteMap_gb = (sci_map_t*) gasneti_malloc( number * sizeof(sci_map_t) );
+	gasnetc_sci_global_ready = (void*) gasneti_malloc( gasneti_nodes * sizeof(void*) );
+	gasnetc_sci_remoteMap_gb = (sci_map_t*) gasneti_malloc( gasneti_nodes * sizeof(sci_map_t) );
 
 	/* Map global ready bytes to usable space */
-	for (index = 0; index < number ; index++) {
+	for (index = 0; index < gasneti_nodes ; index++) {
 		/* Map the segment to user space */
 		GASNETC_SCISAFE(gasnetc_sci_global_ready[index] =
                     (void *)SCIMapRemoteSegment(gasnetc_sci_remoteSegment_gb[index],
 						&gasnetc_sci_remoteMap_gb[index],gasnetc_sci_offset,
-						(number * (GASNETC_SCI_MAX_REQUEST_MSG *2))+1,NULL,GASNETC_SCI_NO_FLAGS,
+						(gasneti_nodes * (GASNETC_SCI_MAX_REQUEST_MSG *2))+1,NULL,GASNETC_SCI_NO_FLAGS,
 						&error));
 	}
 
@@ -809,10 +782,9 @@ int gasnetc_SCI_connect_cmd(int number)
 /*  assign GASNet Node IDS to each SCI ID. Additionally, the total amount of free */
 /*  memory on the system is determined and a percentage is used as the MAX_local_Seg */
 /*  size. */
-unsigned int gasnetc_SCIInit(gasnet_node_t * my_node)
-{
+void gasnetc_SCIInit() {
 	FILE* node_info;
-	int index, number, mem_available;
+	int index, mem_available;
 	char num_of_nodes[10], *node_ids;
 
 	node_info = fopen(GASNETC_SCI_FILE, "r+"); /* open file that holds all the info */
@@ -823,42 +795,38 @@ unsigned int gasnetc_SCIInit(gasnet_node_t * my_node)
 
 	fgets(num_of_nodes,6,node_info); /* upto 5 digits worth of nodes, SCI only supports upto 65,000 nodes */
 
-	number = atol(num_of_nodes);
-	if(number == 0 )
-	{
-		gasneti_fatalerror("(%d) Problem reading number of nodes, or you chose to run on zero nodes.\n", gasneti_mynode);
-	}
+	gasneti_nodes = atol(num_of_nodes);
+	if (!gasneti_nodes)
+          gasneti_fatalerror("(%d) Problem reading number of nodes, or you chose to run on zero nodes.\n", gasneti_mynode);
 
 	/* Now we need to parse through the file and extract the ids, also amount of available mem*/
-	gasnetc_sci_SCI_Ids = (unsigned int *) gasneti_malloc( sizeof(unsigned int) * number );
-	index = gasnetc_parseSCIIds(node_info, number);
+	gasnetc_sci_SCI_Ids = (unsigned int *) gasneti_malloc( sizeof(unsigned int) * gasneti_nodes );
+	index = gasnetc_parseSCIIds(node_info);
 
-	gasnetc_sci_max_local_seg = gasnetc_get_free_mem();
+	gasnetc_get_free_mem();
 
 	/* now allocate enough space to create $number+2 number of segments */
-	gasnetc_sci_sd = (void *) gasneti_malloc( sizeof(sci_desc_t) * (number + 2) );
+	gasnetc_sci_sd = (void *) gasneti_malloc( sizeof(sci_desc_t) * (gasneti_nodes + 2) );
 
 	/*we know how many there should be, so allocate the space and hop to it*/
-	gasnetc_sci_localSegment = (sci_local_segment_t *) gasneti_malloc( sizeof(sci_local_segment_t) * (number +2));
-        gasnetc_sci_remoteSegment = (sci_remote_segment_t *) gasneti_malloc( (sizeof(sci_remote_segment_t)) * (number + 2));
-	gasnetc_sci_localMap = (sci_map_t *) gasneti_malloc(sizeof(sci_map_t) * (number +2) );
-	gasnetc_sci_remoteMap = (sci_map_t *) gasneti_malloc(sizeof(sci_map_t) * (number +2) );
+	gasnetc_sci_localSegment = (sci_local_segment_t *) gasneti_malloc( sizeof(sci_local_segment_t) * (gasneti_nodes +2));
+        gasnetc_sci_remoteSegment = (sci_remote_segment_t *) gasneti_malloc( (sizeof(sci_remote_segment_t)) * (gasneti_nodes + 2));
+	gasnetc_sci_localMap = (sci_map_t *) gasneti_malloc(sizeof(sci_map_t) * (gasneti_nodes +2) );
+	gasnetc_sci_remoteMap = (sci_map_t *) gasneti_malloc(sizeof(sci_map_t) * (gasneti_nodes +2) );
 
 	/*create,prepare, map, and export all command regions and global ready byte
-	  returnd the gasnet ID to current system*/
+	  set gasneti_mynode */
 
-	*my_node = gasnetc_SCI_Create_Connections(number);
+	gasnetc_SCI_Create_Connections();
 
 	/*Connect all the command regions and global ready bytes to each other*/
 
-	gasnetc_SCI_connect_cmd(number);
+	gasnetc_SCI_connect_cmd();
 
         gasnetc_setup_env ();
 
 	/*Get the minimum max size across all segments*/
-	gasnetc_sci_max_global_seg = gasnetc_getSCIglobal_seg(number);
-
-	return number;
+	gasnetc_getSCIglobal_seg();
 }
 
 /*  Create the payload (GASNET segment) segment and set it available. */
@@ -1326,7 +1294,11 @@ int gasnetc_SM_transfer (gasnet_node_t dest, uint8_t msg_number, uint8_t msg_typ
         remote_msg_flag_addr[gasneti_nodes * GASNETC_SCI_MAX_REQUEST_MSG * 2] = GASNETC_SCI_TRUE;  /*  Write global ready bit */
 
         /* force memory mapped I/O to happen now */
-        gasneti_local_wmb();
+        gasneti_local_wmb(); 
+        /* TODO: some CPU's may require something stronger than wmb to flush memory-mapped I/O
+          (eg on Itanium, an "mf.a" may be required). When this flush is missing, latencies
+          jump into the millisecond range, so it should be fairly obvious if something is missing
+         */
 
         return GASNET_OK;
 }

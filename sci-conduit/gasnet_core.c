@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/02/17 13:19:13 $
- * $Revision: 1.12 $
+ *     $Date: 2005/02/28 22:01:49 $
+ * $Revision: 1.13 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -96,11 +96,11 @@ static int gasnetc_init(int *argc, char ***argv) {
         gasneti_fatalerror("Could not get SCI initialized 0x%x\n",gasnetc_sci_error);
     }
 
-        /* Now call a function to read node information and set up the node
-           to have the proper number of segments, and know the segment size limit
-           returns total number of nodes that will be running*/
+  /* Now call a function to read node information and set up the node
+     to have the proper number of segments, and know the segment size limit
+     returns total number of nodes that will be running*/
 
-        gasneti_nodes = gasnetc_SCIInit(&gasneti_mynode);
+  gasnetc_SCIInit();
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n",
@@ -109,8 +109,9 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   #if GASNET_SEGMENT_FAST
     {
-                        gasneti_MaxLocalSegmentSize = gasnetc_sci_max_local_seg;
-                        gasneti_MaxGlobalSegmentSize = gasnetc_sci_max_global_seg;
+      /* already set in gasnetc_getSCIglobal_seg() and gasnetc_get_free_mem() */
+      gasneti_assert(gasneti_MaxLocalSegmentSize > 0 && gasneti_MaxGlobalSegmentSize > 0 &&
+             gasneti_MaxGlobalSegmentSize <= gasneti_MaxLocalSegmentSize);
 
       /* it may be appropriate to use gasneti_segmentInit() here to set
          gasneti_MaxLocalSegmentSize and gasneti_MaxGlobalSegmentSize,
