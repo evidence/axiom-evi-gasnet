@@ -157,6 +157,7 @@ AC_REQUIRE_CPP
 AC_CACHE_CHECK(for $1 compiler family, $3, [
   $3=unknown
   GASNET_IFDEF(__GNUC__, $3=GNU)
+  GASNET_IFDEF(__PGI, $3=PGI)
   GASNET_IFDEF(__xlC__, $3=XLC)
   GASNET_IFDEF(__KCC, $3=KAI)
   GASNET_IFDEF(__SUNPRO_C, $3=Sun)

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/08/21 04:09:43 $
- * $Revision: 1.10 $
+ *     $Date: 2002/08/21 09:06:32 $
+ * $Revision: 1.11 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -71,7 +71,7 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
 /* ------------------------------------------------------------------------------------ */
 /* portable atomic increment */
 
-#if defined(SOLARIS) || defined(CRAYT3E)
+#if defined(SOLARIS) || defined(CRAYT3E) || defined(__PGI)
   #define GASNETI_USE_GENERIC_ATOMICOPS /* TODO: no atomic ops on T3e? */
 #endif
 
