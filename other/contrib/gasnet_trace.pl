@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/10/25 23:39:19 $
-# $Revision: 1.27 $
+#     $Date: 2004/10/30 02:19:17 $
+# $Revision: 1.28 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -72,6 +72,19 @@ my $gasnet_version = $ENV{'VERSION'} || '?.?';
 
 # Getting the Options
 ########################
+    # hack: if we're being called by help2man as part of generating the upcrun
+    # man page, we use a different 'version' option (we can't use the regular
+    # one, since we'll have no valid conf file to read)
+    my (@v) = grep {s/^-h2mversion=([0-9.]+)$/$1/} @ARGV;
+    if (@v) {
+        # help2man format
+        print $tool_prefix."_trace @v\n";
+        exit(0);
+    }
+    # same thing, but for help2man's -h2mhelp call
+    if (grep { /-h2mhelp/ } @ARGV) {
+        usage(undef, 1);
+    }
 
 GetOptions (
     'h|?|help'		=> \$opt_help,
@@ -89,6 +102,7 @@ GetOptions (
 
 # The main routine
 ########################
+
 usage() if $opt_help;
 
 if (!@ARGV) {
@@ -112,6 +126,7 @@ ARG: while (@ARGV) {
 	if (-f $targ) {
 	  unshift @ARGV, $targ;
 	} else {
+	  die "No tracefiles found matching pattern '$arg'\n" if ($i == 0);
 	  next ARG;
 	}
       }
@@ -135,8 +150,15 @@ trace_output(*STDOUT, "BARRIER") if $opt_report =~ /BARRIER/;
 ########################
 sub usage 
 {
+    my ($errormsg, $h2mhelp) = @_;
+
     print "${tool_prefix_mc} trace file summarization script, v${version} (GASNet v${gasnet_version})\n";
-    print "Usage:  ${tool_prefix}_trace [options] trace-file(s)";
+    print "Usage:  ${tool_prefix}_trace [options] trace-file(s)\n";
+    if ($tool_prefix eq "upc" && !$h2mhelp) {
+        print <<EOF;
+For detailed documentation, please see man upc_trace(1) or http://upc.lbl.gov/docs/
+EOF
+    }
     print <<EOF;
 
 Options:
