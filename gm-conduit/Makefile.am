@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.33 2004/01/05 05:01:14 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.34 2004/02/09 22:35:41 phargrov Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -124,7 +124,7 @@ install-data-local: $(headers)
 	done
 
 uninstall-local:
-	rm -f $(includedir)/gm-conduit/*.h $(includedir)/gm-conduit/*.mak
+	rm -f $(DESTDIR)$(includedir)/gm-conduit/*.h $(DESTDIR)$(includedir)/gm-conduit/*.mak
 
 else
 $(top_srcdir)/gasnet.h: force
