@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/10/05 18:47:05 $
-# $Revision: 1.82 $
+#     $Date: 2003/10/07 20:31:25 $
+# $Revision: 1.83 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.82 $)
+AC_REVISION($Revision: 1.83 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -224,12 +224,20 @@ GASNET_IF_ENABLED(segment-everything, Build GASNet in the EVERYTHING shared segm
   segconfig="everything$segconfig", )
 
 case "$segconfig" in
-  "") AC_DEFINE(GASNET_SEGMENT_FAST) ;;  # default is fast
+  "") segconfig=fast; #for AM_CONDITIONAL, below
+      AC_DEFINE(GASNET_SEGMENT_FAST) ;;  # default is fast
   fast) AC_DEFINE(GASNET_SEGMENT_FAST) ;;
   large) AC_DEFINE(GASNET_SEGMENT_LARGE) ;;
   everything) AC_DEFINE(GASNET_SEGMENT_EVERYTHING) ;;
   *) AC_ERROR(Conflicting shared segment configurations specified) ;;
 esac
+
+# Do it all again because AM_CONDITIONAL()s can't go inside if or case.
+# Groan.
+AM_CONDITIONAL(GASNET_SEGMENT_FAST, test "$segconfig" = fast)
+AM_CONDITIONAL(GASNET_SEGMENT_LARGE, test "$segconfig" = large)
+AM_CONDITIONAL(GASNET_SEGMENT_EVERYTHING, test "$segconfig" = everything)
+
 
 GASNET_LIBGCC
 
