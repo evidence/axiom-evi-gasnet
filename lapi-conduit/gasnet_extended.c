@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/01/11 22:46:47 $
- * $Revision: 1.6 $
+ *     $Date: 2003/02/13 05:02:18 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -117,7 +117,8 @@ static void gasnete_check_config() {
            (GASNET_PAGESIZE & (GASNET_PAGESIZE - 1)) == 0);
 
     assert(SIZEOF_GASNET_REGISTER_VALUE_T == sizeof(gasnet_register_value_t));
-    assert(sizeof(int) == SIZEOF_GASNET_REGISTER_VALUE_T);
+    assert(SIZEOF_GASNET_REGISTER_VALUE_T >= sizeof(int));
+    assert(SIZEOF_GASNET_REGISTER_VALUE_T >= sizeof(void *));
 
 #if    defined(GASNETI_PTR32) && !defined(GASNETI_PTR64)
     assert(sizeof(void*) == 4);
@@ -871,6 +872,8 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src,
 	retval = (gasnet_valget_op_t*)gasneti_malloc(sizeof(gasnet_valget_op_t));
 	retval->threadidx = mythread->threadidx;
     }
+
+    retval->val = 0;
     if (gasnete_islocal(node)) {
       GASNETE_FAST_ALIGNED_MEMCPY(&(retval->val), src, nbytes);
       retval->handle = GASNET_INVALID_HANDLE;
