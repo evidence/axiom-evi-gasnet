@@ -266,6 +266,64 @@ int	fhc_MaxVictimBuckets;
 #define FHC_MAXVICTIM_BUCKETS_AVAIL 					\
 		(fhc_MaxVictimBuckets - fhc_LocalOnlyBucketsPinned)
 
+/* fh_region_partial(node, region)
+ *
+ * Search for first range of pinned pages in the given range
+ * and if succesful, overwrite the region with the pinned range.
+ *
+ * Returns non-zero if any pinned pages were found.
+ */
+int
+fh_region_partial(gasnet_node_t node, firehose_region_t *region)
+{
+	uintptr_t	tmp_addr = 0;
+	uintptr_t	addr, end_addr, bucket_addr;
+	size_t		len;
+	fh_bucket_t	*bd;
+	gasnet_node_t	mynode = gasnet_mynode();
+
+	addr     = region->addr;
+	len      = region->len;
+	end_addr = addr + len - 1;
+
+	FH_TABLE_ASSERT_LOCKED;
+        FH_FOREACH_BUCKET(addr, end_addr, bucket_addr) {
+                bd = fh_bucket_lookup(node, bucket_addr);
+		if ((bd != NULL) &&
+		    ((node == mynode) || !FH_IS_REMOTE_PENDING(bd))) {
+			/* found first pinned page */
+			tmp_addr = bucket_addr;
+			break;
+		}
+	}
+
+	if_pf (tmp_addr == 0) {
+		/* No pinned pages found in the requested region */
+		return 0;
+	}
+
+	addr = tmp_addr;
+	len  = (end_addr - tmp_addr) + 1;
+
+	tmp_addr += FH_BUCKET_SIZE;
+	if_pt (tmp_addr != 0) { /* guards against wrap around */
+       		FH_FOREACH_BUCKET(tmp_addr, end_addr, bucket_addr) {
+               		bd = fh_bucket_lookup(node, bucket_addr);
+			if ((bd == NULL) ||
+			    ((node != mynode) && FH_IS_REMOTE_PENDING(bd))) {
+				/* found an unpinned page */
+				len = bucket_addr - addr;
+				break;
+			}
+		}
+	}
+
+	region->addr = addr;
+	region->len  = len;
+		
+	return 1;
+}
+
 /* 
  * REMOTE COUNTERS
  *
@@ -300,21 +358,21 @@ static gasnet_handlerentry_t fh_am_handlers[];
 /* ##################################################################### */
 /* UTILITY FUNCTIONS FOR REGIONS AND BUCKETS                             */
 /* ##################################################################### */
-/* fh_region_ispinned(node, addr, len)
+/* fh_region_ispinned(node, region)
  * 
  * Returns non-null if the entire region is already pinned 
  *
  * Uses fh_bucket_ispinned() to query if the current page is pinned.
  */
 int
-fh_region_ispinned(gasnet_node_t node, uintptr_t addr, size_t len)
+fh_region_ispinned(gasnet_node_t node, firehose_region_t *region)
 {
  	uintptr_t	bucket_addr;
-	uintptr_t	end_addr = addr + len - 1;
+	uintptr_t	end_addr = region->addr + region->len - 1;
 	fh_bucket_t	*bd;
 
 	FH_TABLE_ASSERT_LOCKED;
- 	FH_FOREACH_BUCKET(addr, end_addr, bucket_addr) {
+ 	FH_FOREACH_BUCKET(region->addr, end_addr, bucket_addr) {
 		bd = fh_bucket_lookup(node, bucket_addr);
 
 		/* 
@@ -1411,6 +1469,33 @@ fh_acquire_local_region(firehose_region_t *region)
 	return;
 }
 
+void
+fh_commit_try_local_region(firehose_region_t *region)
+{
+	uintptr_t	end_addr, bucket_addr;
+	gasnet_node_t	mynode = gasnet_mynode();
+	fh_bucket_t	*bd;
+
+
+	FH_TABLE_ASSERT_LOCKED;
+
+	/* Make sure the size of the region respects the local limits */
+	assert(FH_NUM_BUCKETS(region->addr, region->len)
+						<= fhc_MaxVictimBuckets);
+
+	end_addr = region->addr + region->len - 1;
+				
+	FH_FOREACH_BUCKET(region->addr, end_addr, bucket_addr) 
+	{
+		assert(bucket_addr > 0);
+		bd = fh_bucket_lookup(mynode, bucket_addr);
+		assert(bd != NULL);
+		fh_bucket_acquire(mynode, bd);
+	}
+
+	return;
+}
+
 /*
  * This function is called by the Firehose reply once a firehose request to pin
  * functions covered into a region completes.
@@ -1533,14 +1618,14 @@ fhi_FlushPendingRequests(gasnet_node_t node, firehose_region_t *region,
 }
 
 void
-fh_commit_try_remote_region(gasnet_node_t node, uintptr_t addr, size_t nbytes)
+fh_commit_try_remote_region(gasnet_node_t node, firehose_region_t *region)
 {
-	uintptr_t	bucket_addr, end_addr  = addr + nbytes - 1;
+	uintptr_t	bucket_addr, end_addr  = region->addr + region->len - 1;
 	fh_bucket_t	*bd;
 
 	FH_TABLE_ASSERT_LOCKED;
 
- 	FH_FOREACH_BUCKET(addr, end_addr, bucket_addr) {
+ 	FH_FOREACH_BUCKET(region->addr, end_addr, bucket_addr) {
 		bd = fh_bucket_lookup(node, bucket_addr);
 		fh_bucket_acquire(node, bd);
 	}

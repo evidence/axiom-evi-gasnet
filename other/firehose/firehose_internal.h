@@ -257,8 +257,8 @@ fh_refc_t	fh_bucket_acquire(gasnet_node_t node, fh_bucket_t *);
 /* ##################################################################### */
 /* Misc functions (specific to page and region)                          */
 /* ##################################################################### */
-		/* Return a matching private if the region is pinned     */
-int	fh_region_ispinned(gasnet_node_t node, uintptr_t addr, size_t len);
+int	fh_region_ispinned(gasnet_node_t node, firehose_region_t *region);
+int	fh_region_partial(gasnet_node_t node, firehose_region_t *region);
 unsigned long	fh_getenv(const char *var, unsigned long multiplier);
 
 /* Common Queue Macros for Firehose FIFO and Local Bucket FIFO */
@@ -416,6 +416,7 @@ void	fh_free_completion_callback(fh_completion_callback_t *rc);
 /* ##################################################################### */
 /* See documentation in firehose_page.c                                  */
 void	fh_acquire_local_region(firehose_region_t *);
+void	fh_commit_try_local_region(firehose_region_t *);
 void	fh_release_local_region(firehose_request_t *);
 
 firehose_request_t *	fh_acquire_remote_region(gasnet_node_t node, 
@@ -424,9 +425,10 @@ firehose_request_t *	fh_acquire_remote_region(gasnet_node_t node,
 				void *context, uint32_t flags,
 		        	firehose_remotecallback_args_t *remote_args,
 				firehose_request_t *ureq);
-void			fh_release_remote_region(firehose_request_t *);
 void			fh_commit_try_remote_region(gasnet_node_t node, 
-						uintptr_t addr, size_t len);
+						    firehose_region_t *);
+void			fh_release_remote_region(firehose_request_t *);
+
 void			fh_send_firehose_reply(fh_remote_callback_t *);
 
 /* How many buffers (of buffers) to allocate to use as bucket descriptors in
