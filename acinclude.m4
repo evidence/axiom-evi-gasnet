@@ -21,6 +21,41 @@ else
   AC_MSG_RESULT(yes)
 fi])
 
+dnl find full pathname for a given header file, if it exists and AC_SUBST it
+AC_DEFUN(GASNET_FIND_HEADER,[
+AC_CHECK_HEADERS($1)
+pushdef([lowername],patsubst(patsubst(patsubst([$1], [/], [_]), [\.], [_]), [-], [_]))
+pushdef([uppername],translit(lowername,'a-z','A-Z'))
+if test "$ac_cv_header_[]lowername" = "yes"; then
+  AC_MSG_CHECKING(for location of $1)
+  header_pathname=`echo "#include <$1>" > conftest.c ; $CPP conftest.c | grep $1 | head -1`
+  header_pathname=`echo $header_pathname | $AWK '{ printf("%s",[$]3); }'`
+  AC_MSG_RESULT($header_pathname)
+  have=1
+else
+  header_pathname=
+  have=0
+fi
+PATH_[]uppername=$header_pathname
+HAVE_[]uppername=$have
+AC_SUBST(PATH_[]uppername)
+AC_SUBST(HAVE_[]uppername)
+popdef([uppername])
+popdef([lowername])
+])
+
+dnl do AC_CHECK_SIZEOF and also AC_SUBST the result
+AC_DEFUN(GASNET_CHECK_SIZEOF,[
+  pushdef([lowername],patsubst(patsubst([$1], [\ ], [_]), [\*], [p]))
+  pushdef([uppername],translit(lowername,'a-z','A-Z'))
+
+  AC_CHECK_SIZEOF($1)
+  SIZEOF_[]uppername=$ac_cv_sizeof_[]lowername
+  AC_SUBST(SIZEOF_[]uppername)
+
+  popdef([lowername])
+  popdef([uppername])
+])
 
 dnl add file to list of executable outputs that should be marked +x
 dnl would be nice to use AC_CONFIG_COMMANDS() for each file, but autoconf 2.53
