@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/03/31 00:28:56 $
- * $Revision: 1.30 $
+ *     $Date: 2005/04/01 20:02:53 $
+ * $Revision: 1.31 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -237,6 +237,24 @@ static char *quote_arg(const char *arg) {
   result = sappendf(result, "%s'", p);
   gasneti_free(tmp);
   return result;
+}
+
+/* Like gasneti_fatalerror, but w/o dumping core
+ * This is used for probable user errors
+ */
+static void die(int exitcode, const char *msg, ...) GASNET_NORETURN __attribute__((__format__ (__printf__, 2, 3)));
+static void die(int exitcode, const char *msg, ...) {
+  va_list argptr;
+  char expandedmsg[255];
+
+  strcpy(expandedmsg, "*** ERROR: ");
+  strcat(expandedmsg, msg);
+  strcat(expandedmsg, "\n");
+  va_start(argptr, msg);
+    vfprintf(stderr, expandedmsg, argptr);
+    fflush(stderr);
+  va_end(argptr);
+  gasneti_killmyprocess(exitcode);
 }
 
 static void kill_one(const char *rem_host, pid_t rem_pid) {
@@ -540,7 +558,7 @@ static int options_helper(char **list, const char *string, const char *where)
 	  break;
 	case '\\':
 	  if (!string[1]) {
-	    gasneti_fatalerror("string ends with \\ %s", where);
+	    die(1, "string ends with \\ %s", where);
 	  } else if (strchr(special[in_quotes],string[1])) {
 	    /* Drop the backslash if it quotes a special character */
             *(p++) = string[1];
@@ -556,7 +574,7 @@ static int options_helper(char **list, const char *string, const char *where)
 	  ++string;
 	  i = strcspn(string, "\'");
 	  if (string[i] != '\'') {
-	    gasneti_fatalerror("unbalanced ' %s", where);
+	    die(1, "unbalanced ' %s", where);
 	  }
           memcpy(p , string, i); p += i;
           gasneti_assert((uintptr_t)(p-tmp) < (sizeof(tmp)-1));
@@ -571,7 +589,7 @@ static int options_helper(char **list, const char *string, const char *where)
       }
     } while (*string && (in_quotes || !strchr(WHITESPACE,*string)));
     if (in_quotes) {
-      gasneti_fatalerror("unbalanced \" %s", where);
+      die(1, "unbalanced \" %s", where);
     }
     if (list) {
       gasneti_assert((uintptr_t)(p-tmp) < sizeof(tmp));
@@ -664,7 +682,7 @@ static char ** parse_nodefile(const char *filename) {
   BOOTSTRAP_VERBOSE(("Parsing nodefile '%s'\n", filename));
   fp = fopen(filename, "r");
   if (!fp) {
-    gasneti_fatalerror("failed to open nodefile '%s'", filename);
+    die(1, "failed to open nodefile '%s'", filename);
   }
 
   result = gasneti_malloc(nnodes * sizeof(char *));
@@ -674,7 +692,7 @@ static char ** parse_nodefile(const char *filename) {
 
     if (!fgets(buf, sizeof(buf), fp)) {
       /* ran out of lines */
-      gasneti_fatalerror("Out of lines in nodefile '%s'", filename);
+      die(1, "Out of lines in nodefile '%s'", filename);
     }
  
     p = buf;
@@ -718,7 +736,7 @@ static char ** parse_servers(const char *list) {
     char *p;
     while (*string && strchr(delims,*string)) ++string; /* eat leading delimiters */
     if (!*string) {
-      gasneti_fatalerror("Too few hosts in " ENV_PREFIX "SSH_SERVERS");
+      die(1, "Too few hosts in " ENV_PREFIX "SSH_SERVERS");
     }
     p = string;
     string += strcspn(string, delims);
@@ -751,7 +769,7 @@ static void build_nodelist(void)
   } else if ((env_string = getenv("LSB_HOSTS")) != NULL && strlen(env_string)) {
     nodelist = parse_servers(env_string);
   } else {
-    gasneti_fatalerror("No " ENV_PREFIX "SSH_NODEFILE or " ENV_PREFIX "SSH_SERVERS in environment");
+    die(1, "No " ENV_PREFIX "SSH_NODEFILE or " ENV_PREFIX "SSH_SERVERS in environment");
   }
 }
 
@@ -1055,7 +1073,7 @@ static void do_spawn(int argc, char **argv, char *myhost) {
 }
 
 static void usage(const char *argv0) {
-  gasneti_fatalerror("usage: %s [-master] [-v] NPROC[:NODES] [--] [ARGS...]", argv0);
+  die(1, "usage: %s [-master] [-v] NPROC[:NODES] [--] [ARGS...]", argv0);
 }
 
 static void do_kill(int argc, char **argv) GASNET_NORETURN;
@@ -1124,7 +1142,7 @@ static void do_master(int argc, char **argv) {
   argv += argi-1;
 
   if (gethostname(myhost, sizeof(myhost)) < 0) {
-    gasneti_fatalerror("gethostname() failed");
+    die(1, "gethostname() failed");
   }
 
   configure_ssh();
