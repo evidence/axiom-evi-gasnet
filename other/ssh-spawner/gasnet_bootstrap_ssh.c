@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/18 22:25:10 $
- * $Revision: 1.17 $
+ *     $Date: 2005/01/18 23:53:05 $
+ * $Revision: 1.18 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1052,6 +1052,53 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
   *mynode_p = myproc;
 }
 
+/* dest is >= len*tree_procs, used as temp space on all but root */
+static void do_gather0(void *src, size_t len, void *dest)
+{
+  int j;
+  void *tmp;
+
+  memcpy(dest, src, len);
+  tmp = (void *)((uintptr_t)dest + len);
+  for (j = 0; j < children; ++j) {
+    gasnet_node_t procs = child[j].procs;
+    do_read(child[j].sock, tmp, len*procs);
+    tmp = (void *)((uintptr_t)tmp + len*procs);
+  }
+  if (myproc) {
+    do_write(parent, dest, len * tree_procs);
+  }
+}
+
+/* src is >= len*tree_procs, used as temp space on all but root */
+static void do_scatter0(void *src, size_t len, void *dest)
+{
+  int j;
+  void *tmp;
+
+  if (myproc) {
+    do_read(parent, src, len * tree_procs);
+  }
+  memcpy(dest, src, len);
+  tmp = (void *)((uintptr_t)src + len);
+  for (j = 0; j < children; ++j) {
+    gasnet_node_t procs = child[j].procs;
+    do_write(child[j].sock, tmp, len*procs);
+    tmp = (void *)((uintptr_t)tmp + len*procs);
+  }
+}
+
+static void do_bcast0(size_t len, void *dest) {
+  int j;
+
+  if (myproc) {
+    do_read(parent, dest, len);
+  }
+  for (j = 0; j < children; ++j) {
+    do_write(child[j].sock, dest, len);
+  }
+}
+
 /*----------------------------------------------------------------------------------------------*/
 
 /* gasneti_bootstrapInit
@@ -1109,52 +1156,41 @@ void gasneti_bootstrapAbort(int exitcode) {
 }
 
 void gasneti_bootstrapBarrier(void) {
-  static const int zero = 0;
-  static const int one = 1;
   int cmd, j;
 
   /* UP */
   for (j = 0; j < children; ++j) {
     do_read(child[j].sock, &cmd, sizeof(cmd));
-    gasneti_assert(cmd == zero);
+    gasneti_assert(cmd == 0);
   }
   if (myproc) {
+    static const int zero = 0;
     do_write(parent, &zero, sizeof(zero));
   }
 
   /* DOWN */
-  if (myproc) {
-    do_read(parent, &cmd, sizeof(cmd));
-    gasneti_assert(cmd == one);
-  }
-  for (j = 0; j < children; ++j) {
-    do_write(child[j].sock, &one, sizeof(one));
-  }
+  cmd = 1;
+  do_bcast0(sizeof(cmd), &cmd);
+  gasneti_assert(cmd == 1);
 }
 
 void gasneti_bootstrapExchange(void *src, size_t len, void *dest) {
   int j;
 
-  /* Forward data up the tree */
-  memcpy((char *)dest + len*myproc, src, len);
-  for (j = 0; j < children; ++j) {
-    do_read(child[j].sock, (char *)dest + len*child[j].rank, len*child[j].procs);
-  }
-  if (myproc) {
-    do_write(parent, (char *)dest + len*myproc, tree_procs*len);
-  }
+  /* Gather data up the tree, assembling partial results in-place in dest */
+  do_gather0(src, len, (void *)((uintptr_t)dest + len*myproc));
 
   /* Move data down, reducing traffic by sending
      only parts that a given node did not send to us */
   if (myproc) {
     gasnet_node_t next = myproc + tree_procs;
     do_read(parent, dest, len*myproc);
-    do_read(parent, (char *)dest + len*next, len*(nproc - next));
+    do_read(parent, (void *)((uintptr_t)dest + len*next), len*(nproc - next));
   }
   for (j = 0; j < children; ++j) {
     gasnet_node_t next = child[j].rank + child[j].procs;
     do_write(child[j].sock, dest, len*child[j].rank);
-    do_write(child[j].sock, (char *)dest + len*next, len*(nproc - next));
+    do_write(child[j].sock, (void *)((uintptr_t)dest + len*next), len*(nproc - next));
   }
 }
 
@@ -1163,15 +1199,10 @@ void gasneti_bootstrapAlltoall(void *src, size_t len, void *dest) {
   char *tmp;
   int j;
                                                                                                               
-  /* Collect rows from our subtree (gather) */
   tmp = gasneti_malloc(row_len * tree_procs);
-  memcpy(tmp, src, row_len);
-  for (j = 0; j < children; ++j) {
-    do_read(child[j].sock, tmp + row_len*(child[j].rank - myproc), row_len*child[j].procs);
-  }
-  if (myproc) {
-    do_write(parent, tmp, row_len * tree_procs);
-  }
+
+  /* Collect rows from our subtree (gather) */
+  do_gather0(src, row_len, tmp);
 
   /* Transpose at root, using dest for free temporary space */
   if (!myproc) {
@@ -1189,13 +1220,7 @@ void gasneti_bootstrapAlltoall(void *src, size_t len, void *dest) {
   }
 
   /* Move data back down (scatter) */
-  if (myproc) {
-    do_read(parent, tmp, row_len * tree_procs);
-  }
-  for (j = 0; j < children; ++j) {
-    do_write(child[j].sock, tmp + row_len*(child[j].rank - myproc), row_len*child[j].procs);
-  }
-  memcpy(dest, tmp, row_len);
+  do_scatter0(tmp, row_len, dest);
 
   gasneti_free(tmp);
 }
@@ -1203,8 +1228,8 @@ void gasneti_bootstrapAlltoall(void *src, size_t len, void *dest) {
 void gasneti_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode) {
   int j;
 
+  /* Move up the tree to proc 0 */
   if (rootnode != 0) {
-    /* Move up the tree to proc 0 */
     if (rootnode == myproc) {
       do_write(parent, src, len);
     } else if ((rootnode > myproc) && (rootnode < (myproc + tree_procs))) {
@@ -1222,12 +1247,7 @@ void gasneti_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode)
   }
 
   /* Now move it down */
-  if (myproc) {
-    do_read(parent, dest, len);
-  }
-  for (j = 0; j < children; ++j) {
-    do_write(child[j].sock, dest, len);
-  }
+  do_bcast0(len, dest);
 }
 
 /* gasneti_bootstrapGetenv
