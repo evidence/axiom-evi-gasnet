@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/03/16 22:25:31 $
- * $Revision: 1.32 $
+ *     $Date: 2004/03/17 22:03:09 $
+ * $Revision: 1.33 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -367,19 +367,49 @@
     #define gasneti_atomic_init(v)      { (v) }
   #elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
     #if defined(__xlC__)
-      static int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op);
-      #pragma mc_func gasneti_atomic_addandfetch_32 { \
-	/* Precondition: v in r3, op in r4 */ \
-	           /* 0:                */ \
-	"7c401828" /* lwarx   r2,0,r3   */ \
-	"7c422214" /* add     r2,r2,r4  */ \
-	"7c40192d" /* stwcx.  r2,0,r3   */ \
-	"40a2fff4" /* bne-    0x0       */ \
-	"4c00012c" /* isync             */ \
-	"60430000" /* ori     r3,r2,0x0 */ \
-	/* Postcondition: result in r3 */ \
+      /* XLC machine code functions are very rigid, thus we produce all
+       * three read-modify-write ops as distinct functions in order to
+       * get anything near to optimal code.
+       */
+      static void gasneti_atomic_inc_32(int32_t volatile *v);
+      #pragma mc_func gasneti_atomic_inc_32 {\
+	/* ARGS: r3 = v  LOCAL: r2 = tmp */ \
+	"7c401828"	/* 0: lwarx	r2,0,r3		*/ \
+	"38420001"	/*    addi	r2,r2,0x1	*/ \
+	"7c40192d"	/*    stwcx.	r2,0,r3		*/ \
+	"40a2fff4"	/*    bne-	0b		*/ \
+	"4c00012c"	/*    isync			*/ \
       }
-      #pragma reg_killed_by gasneti_atomic_addandfetch_32 gr2-gr4
+
+      static void gasneti_atomic_dec_32(int32_t volatile *v);
+      #pragma mc_func gasneti_atomic_dec_32 {\
+	/* ARGS: r3 = v  LOCAL: r2 = tmp */ \
+	"7c401828"	/* 0: lwarx	r2,0,r3		*/ \
+	"3842ffff"	/*    subi	r2,r2,0x1	*/ \
+	"7c40192d"	/*    stwcx.	r2,0,r3		*/ \
+	"40a2fff4"	/*    bne-	0b		*/ \
+	"4c00012c"	/*    isync			*/ \
+      }
+
+      static int32_t gasneti_atomic_decandfetch_32(int32_t volatile *v);
+      #pragma mc_func gasneti_atomic_decandfetch_32 {\
+	/* ARGS: r3 = v  LOCAL: r2 = tmp */ \
+	"7c401828"	/* 0: lwarx	r2,0,r3		*/ \
+	"3842ffff"	/*    subi	r2,r2,0x1	*/ \
+	"7c40192d"	/*    stwcx.	r2,0,r3		*/ \
+	"40a2fff4"	/*    bne-	0b		*/ \
+	"4c00012c"	/*    isync			*/ \
+	"7c431378"	/*    mr	r3,r2		*/ \
+	/* RETURN in r3 = result after dec */ \
+      }
+
+      typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
+      #define gasneti_atomic_increment(p) (gasneti_atomic_inc_32(&((p)->ctr)))
+      #define gasneti_atomic_decrement(p) (gasneti_atomic_dec_32(&((p)->ctr)))
+      #define gasneti_atomic_read(p)      ((p)->ctr)
+      #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+      #define gasneti_atomic_init(v)      { (v) }
+      #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_decandfetch_32(&((p)->ctr)) == 0)
     #else
       static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
         register int32_t volatile * addr = (int32_t volatile *)v;
@@ -396,14 +426,14 @@
           : "cr0", "memory");
         return result;
       }
+      typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
+      #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
+      #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
+      #define gasneti_atomic_read(p)      ((p)->ctr)
+      #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+      #define gasneti_atomic_init(v)      { (v) }
+      #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1) == 0)
     #endif
-    typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
-    #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
-    #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
-    #define gasneti_atomic_read(p)      ((p)->ctr)
-    #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
-    #define gasneti_atomic_init(v)      { (v) }
-    #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1) == 0)
   #else
     #error Need to implement atomic increment/decrement for this platform...
   #endif
