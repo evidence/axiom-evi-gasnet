@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/apputils.c                                       $
- *     $Date: 2003/04/10 13:08:11 $
- * $Revision: 1.4 $
+ *     $Date: 2003/11/09 03:32:53 $
+ * $Revision: 1.5 $
  * Description: Application utilities on AMMPI
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -164,6 +164,7 @@ extern void outputTimerStats() {
     abort(); \
   }} while(0)
 /* ------------------------------------------------------------------------------------ */
+#ifndef AMMPI_OMIT_READWRITE
 /*  synchronous gets and puts */
 static void get_reply_handler(void *token, int ctr, int dest, int val) {
   uint32_t *pctr;
@@ -293,6 +294,7 @@ void writeWord(int proc, void *addr, uint32_t val) {
 void writeSync() {
   while (writeCtr) AM_PollBlock(eb);
   }
+#endif
 /* ------------------------------------------------------------------------------------ */
 void free_resource_handler(int sig) {
   sleep(2);
@@ -306,6 +308,7 @@ void setupUtilHandlers(ep_t activeep, eb_t activeeb) {
 
   AM_Safe(AM_SetHandler(ep, STATS_REQ_HANDLER, stats_request_handler));
 
+#ifndef AMMPI_OMIT_READWRITE
   AM_Safe(AM_SetHandler(ep, GET_REQ_HANDLER, get_request_handler));
   AM_Safe(AM_SetHandler(ep, GET_REP_HANDLER, get_reply_handler));
   AM_Safe(AM_SetHandler(ep, PUT_REQ_HANDLER, put_request_handler));
@@ -315,6 +318,7 @@ void setupUtilHandlers(ep_t activeep, eb_t activeeb) {
   AM_Safe(AM_SetHandler(ep, READ_REP_HANDLER, read_reply_handler));
   AM_Safe(AM_SetHandler(ep, WRITE_REQ_HANDLER, write_request_handler));
   AM_Safe(AM_SetHandler(ep, WRITE_REP_HANDLER, write_reply_handler));
+#endif
 
   #ifndef WIN32
     /* some MPI implementations don't cleanup well and leave orphaned nodes

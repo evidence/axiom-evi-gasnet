@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/11/09 00:53:41 $
-# $Revision: 1.90 $
+#     $Date: 2003/11/09 03:32:51 $
+# $Revision: 1.91 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.90 $)
+AC_REVISION($Revision: 1.91 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -250,6 +250,10 @@ AC_CHECK_SIZEOF(int, $cross_int)
 AC_CHECK_SIZEOF(long, $cross_long)
 AC_CHECK_SIZEOF(long long, $cross_long_long)
 AC_CHECK_SIZEOF(void *, $cross_void_P)
+
+AM_CONDITIONAL(PLATFORM_ILP32, test x"$ac_cv_sizeof_int$ac_cv_sizeof_long$ac_cv_sizeof_void_p" = x444)
+AM_CONDITIONAL(PLATFORM_LP64, test x"$ac_cv_sizeof_int$ac_cv_sizeof_long$ac_cv_sizeof_void_p" = x488)
+AM_CONDITIONAL(PLATFORM_ILP64, test x"$ac_cv_sizeof_int$ac_cv_sizeof_long$ac_cv_sizeof_void_p" = x888)
 
 AC_CHECK_HEADERS(inttypes.h)
 

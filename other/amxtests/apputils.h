@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/apputils.h                                       $
- *     $Date: 2003/10/24 01:37:37 $
- * $Revision: 1.4 $
+ *     $Date: 2003/11/09 03:32:53 $
+ * $Revision: 1.5 $
  * Description: Application utilities on AMMPI
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -62,6 +62,7 @@ void printGlobalStats();
 extern int64_t getCurrentTimeMicrosec();
 extern void outputTimerStats();
 
+#ifndef AMMPI_OMIT_READWRITE
 uint32_t getWord(int proc, void *addr);
 void putWord(int proc, void *addr, uint32_t val);
 
@@ -70,5 +71,6 @@ void readSync();
 
 void writeWord(int proc, void *addr, uint32_t val);
 void writeSync();
+#endif
 
 #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/09/15 06:31:18 $
- * $Revision: 1.13 $
+ *     $Date: 2003/11/09 03:32:53 $
+ * $Revision: 1.14 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -129,6 +129,8 @@ typedef uint64_t tag_t;
 
 /* Handler index */
 typedef uint8_t handler_t;
+#define AMMPI_BADHANDLERVAL(h) (0)
+/* #define AMMPI_BADHANDLERVAL(h) (h < 0 || h >= AMMPI_MAX_NUMHANDLERS) */
 
 /* Endpoint name */
 typedef struct {

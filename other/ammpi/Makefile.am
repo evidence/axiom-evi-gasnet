@@ -4,8 +4,14 @@
 
 AUTOMAKE_OPTIONS = foreign 1.4 no-dependencies
 
+if PLATFORM_ILP32
+  apputils_flags =
+else
+  apputils_flags = -DAMMPI_OMIT_READWRITE
+endif
+
 CC = @MPI_CC@
-CFLAGS = @MPI_CFLAGS@ 
+CFLAGS = @MPI_CFLAGS@ $(apputils_flags)
 
 endianness = @ENDIANNESS@
 platform_defines = @GASNET_MACHINE_DEFINES@ -DAMMPI_DISABLE_AMTAGS
@@ -41,15 +47,22 @@ EXTRA_DIST =        \
 
 # ---------- test programs -------------
 # all the test executables
-testprograms =    \
-    testammpi     \
-    testbounce    \
-    testbulk      \
-    testgetput    \
-    testlatency   \
-    testping      \
-    testreadwrite \
-    testreduce
+if PLATFORM_ILP32
+  testprograms_ILP32only = 	\
+    testgetput    		\
+    testreadwrite 
+else
+  testprograms_ILP32only = 
+endif
+
+testprograms =    		\
+    testammpi     		\
+    testbounce    		\
+    testbulk      		\
+    testlatency   		\
+    testping      		\
+    testreduce			\
+    $(testprograms_ILP32only)
 
 tests: ${testprograms}
 
