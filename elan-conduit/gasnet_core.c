@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core.c                  $
- *     $Date: 2004/01/05 05:01:11 $
- * $Revision: 1.34 $
+ *     $Date: 2004/01/05 15:26:47 $
+ * $Revision: 1.35 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -133,7 +133,7 @@ static void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
   /* we may be able to use an elan_reduce here, but the documentation is so poor 
      that I can't figure out how to use it (this is not performance critical anyhow) 
   */
-  GASNETI_TRACE_PRINTF(D,("gasnetc_bootstrapExchange(%i bytes)",len));
+  GASNETI_TRACE_PRINTF(D,("gasnetc_bootstrapExchange(%i bytes)",(int)len));
 
   #ifdef ELAN_VER_1_2
     temp = elan_gallocMain(BASE()->galloc, GROUP(), 64, gasnetc_nodes*len);

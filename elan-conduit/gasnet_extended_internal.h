@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended_internal.h         $
- *     $Date: 2004/01/05 05:01:12 $
- * $Revision: 1.11 $
+ *     $Date: 2004/01/05 15:26:47 $
+ * $Revision: 1.12 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -179,7 +179,7 @@ void gasnete_op_free(gasnete_op_t *op);
         break;                                                                  \
       case OPCAT_AMGET: case OPCAT_AMPUT: case OPCAT_MEMSET: break;             \
       default:                                                                  \
-        gasneti_fatalerror("bad OPCAT in gasnete_eop_check(): %i",OPCAT(eop))); \
+        gasneti_fatalerror("bad OPCAT in gasnete_eop_check(): %i",OPCAT(eop));  \
     }                                                                           \
   } while (0)
   #define gasnete_iop_check(iop) do {                         \
