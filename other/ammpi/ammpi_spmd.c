@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2004/09/16 21:38:05 $
- * $Revision: 1.23 $
+ *     $Date: 2004/09/22 10:09:11 $
+ * $Revision: 1.24 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -79,18 +79,23 @@ static MPI_Comm AMMPI_SPMDMPIComm;
 static void flushStreams(const char *context) {
   if (!context) context = "flushStreams()";
 
+  if (fflush(NULL)) { /* passing NULL to fflush causes it to flush all open FILE streams */
+    ErrMessage("failed to fflush(NULL) in %s", context); 
+    perror("fflush");
+    exit(1);
+  }
   if (fflush(stdout)) {
     ErrMessage("failed to flush stdout in %s", context); 
     perror("fflush");
     exit(1);
-    }
+  }
   if (fflush(stderr)) {
     ErrMessage("failed to flush stderr in %s", context); 
     perror("fflush");
     exit(1);
-    }
-  sched_yield();
   }
+  sched_yield();
+}
 /* ------------------------------------------------------------------------------------ */
 extern char *AMMPI_enStr(en_t en, char *buf) {
   AMMPI_assert(buf);

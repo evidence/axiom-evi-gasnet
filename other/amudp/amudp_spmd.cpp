@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2004/09/19 08:30:35 $
- * $Revision: 1.12 $
+ *     $Date: 2004/09/22 10:09:13 $
+ * $Revision: 1.13 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -157,18 +157,23 @@ typedef struct {
 static void flushStreams(const char *context) {
   if (!context) context = "flushStreams()";
 
+  if (fflush(NULL)) { /* passing NULL to fflush causes it to flush all open FILE streams */
+    ErrMessage("failed to fflush(NULL) in %s", context); 
+    perror("fflush");
+    exit(1);
+  }
   if (fflush(stdout)) {
     ErrMessage("failed to flush stdout in %s", context); 
     perror("fflush");
     exit(1);
-    }
+  }
   if (fflush(stderr)) {
     ErrMessage("failed to flush stderr in %s", context); 
     perror("fflush");
     exit(1);
-    }
-  sched_yield();
   }
+  sched_yield();
+}
 //------------------------------------------------------------------------------------
 extern char *AMUDP_enStr(en_t en, char *buf) {
   AMUDP_assert(buf != NULL);
