@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2004/01/19 12:57:33 $
- * $Revision: 1.5 $
+ *     $Date: 2004/02/07 16:52:33 $
+ * $Revision: 1.6 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -221,8 +221,8 @@ typedef struct amudp_buf {
   } amudp_buf_t;
 
 #define AMUDP_MIN_NETWORK_MSG     ((int)(uintptr_t)&((amudp_buf_t *)NULL)->_Data[0])
-#define AMUDP_MAX_NETWORK_MSG     ((int)(uintptr_t)&((amudp_buf_t *)NULL)->_Data[(4*AMUDP_MAX_SHORT)+AMUDP_MAX_MEDIUM])
-#define AMUDP_MAXBULK_NETWORK_MSG ((int)(uintptr_t)&((amudp_buf_t *)NULL)->_Data[(4*AMUDP_MAX_SHORT)+AMUDP_MAX_LONG])
+#define AMUDP_MAX_NETWORK_MSG     (AMUDP_MIN_NETWORK_MSG+(4*AMUDP_MAX_SHORT)+AMUDP_MAX_MEDIUM)
+#define AMUDP_MAXBULK_NETWORK_MSG (AMUDP_MIN_NETWORK_MSG+(4*AMUDP_MAX_SHORT)+AMUDP_MAX_LONG)
 
 /* message buffer descriptor */
 typedef struct {
