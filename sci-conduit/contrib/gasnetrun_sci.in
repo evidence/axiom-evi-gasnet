@@ -108,7 +108,6 @@ if [ $PROG ]
 	exit 1
 fi
 
-
 if [ $PROG == $DIR ]
 then
 	DIR=$PWD
@@ -118,6 +117,9 @@ if [ $DIR == '.' ]
 then 
 	DIR=$PWD
 fi
+
+# ensure we have a canonical absolute path
+DIR=`cd $DIR ; pwd`
 
 #echo "spawner is: $RSH"
 
