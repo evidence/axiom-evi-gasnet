@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/01/05 05:01:25 $
- * $Revision: 1.4 $
+ *     $Date: 2004/01/19 12:57:35 $
+ * $Revision: 1.5 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,7 +109,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     #if defined(GASNET_CSPAWN_CMD)
       if (!getenv("GASNET_CSPAWN_CMD")) /* set configure default cspawn cmd */
-        putenv("GASNET_CSPAWN_CMD="GASNET_CSPAWN_CMD);
+        gasneti_setenv("GASNET_CSPAWN_CMD",GASNET_CSPAWN_CMD);
     #endif
 
     /* parse node count from command line */
@@ -145,8 +145,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     }
     { /* ensure we pass the effective spawnfn to worker env */
       char spawnstr[255];
-      sprintf(spawnstr,"GASNET_SPAWNFN=%c",toupper(spawnfn));
-      putenv(spawnstr);
+      sprintf(spawnstr,"%c",toupper(spawnfn));
+      gasneti_setenv("GASNET_SPAWNFN",spawnstr);
     }
 
     for (i=0; AMUDP_Spawnfn_Desc[i].abbrev; i++) {

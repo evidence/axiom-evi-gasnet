@@ -1,9 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <amudp.h>
-#include <amudp_spmd.h>
-
 #include "apputils.h"
 
 #define REDUCE_HANDLER  1
@@ -23,7 +17,7 @@ int main(int argc, char **argv) {
   int myproc;
   int numprocs;
 
-  AMUDP_VerboseErrors = 1;
+  AMX_VerboseErrors = 1;
 
   if (argc < 3) {
     printf("Usage: %s numprocs spawnfn\n", argv[0]);
@@ -31,7 +25,7 @@ int main(int argc, char **argv) {
     }
 
   /* call startup */
-  AM_Safe(AMUDP_SPMDStartup(&argc, &argv, 
+  AM_Safe(AMX_SPMDStartup(&argc, &argv, 
                             0, 0, NULL, 
                             &networkpid, &eb, &ep));
 
@@ -40,11 +34,11 @@ int main(int argc, char **argv) {
   setupUtilHandlers(ep, eb);
   
   /* barrier */
-  AM_Safe(AMUDP_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   /* get SPMD info */
-  myproc = AMUDP_SPMDMyProc();
-  numprocs = AMUDP_SPMDNumProcs();
+  myproc = AMX_SPMDMyProc();
+  numprocs = AMX_SPMDNumProcs();
 
   /* compute */
   AM_Safe(AM_Request1(ep, 0, REDUCE_HANDLER, myproc));
@@ -72,14 +66,14 @@ int main(int argc, char **argv) {
 
 
   /* barrier */
-  AM_Safe(AMUDP_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   printGlobalStats();
 
-  AM_Safe(AMUDP_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   /* exit */
-  AM_Safe(AMUDP_SPMDExit(0));
+  AM_Safe(AMX_SPMDExit(0));
 
   return 0;
   }

@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMUDP/Makefile                                         $
-#     $Date: 2003/12/24 08:03:28 $
-# $Revision: 1.2 $
+#     $Date: 2004/01/19 12:57:33 $
+# $Revision: 1.3 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -33,7 +33,7 @@ testprograms = testamudp testgetput testreadwrite testping testbulk testbounce t
 
 # all the library objects and headers
 objects=amudp_ep.o amudp_reqrep.o amudp_spmd.o amudp_spawn.o exc.o sig.o socklist.o sockutil.o
-headers=Makefile* amudp.h amudp_internal.h amudp_spmd.h
+headers=Makefile* amudp.h amudp_internal.h amudp_spmd.h socket.h exc.h sig.h sockaddr.h socklist.h sockutil.h
 
 .PHONY: all tests clean veryclean dist
 
@@ -46,13 +46,13 @@ libamudp.a: ${objects}
 
 # ---------- build targets -------------
 # main target
-tests: ${testprograms}
+tests: apputils.o ${testprograms}
 	@csh -c 'if ("`hostname`" == "whomp") \
     eval "echo placing whomp-shared binaries... ; /bin/cp -f ${testprograms} /export/home/${USER} ; cd /export/home/${USER} ; chmod a+rx ${testprograms}"'
 
 # method to convert .cpp to .o (more reliable than ".cpp.o" method)
 %.o : %.c ${headers}
-	${Ccompile} $< -o $@
+	${Ccompile} -DAMUDP $< -o $@
 
 %.o : %.cpp ${headers}
 	${CXXcompile} $< -o $@

@@ -7,7 +7,7 @@ AUTOMAKE_OPTIONS = foreign 1.4 no-dependencies
 if PLATFORM_ILP32
   apputils_flags =
 else
-  apputils_flags = -DAMUDP_OMIT_READWRITE
+  apputils_flags = -DAPPUTILS_OMIT_READWRITE
 endif
 
 CC  = @CC@
@@ -15,36 +15,42 @@ CCFLAGS = @CFLAGS@ @MISC_CFLAGS@ $(apputils_flags)
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@ @MISC_CXXFLAGS@
 
-platform_defines = @GASNET_MACHINE_DEFINES@ @BUILDCONFIG_DEFINES@ -DAMUDP_DISABLE_AMTAGS -DAMUDP_ENV_PREFIX=GASNET
+platform_defines = @GASNET_MACHINE_DEFINES@ @BUILDCONFIG_DEFINES@ -DAMUDP_ENV_PREFIX=GASNET
 platform_libraries = @LIBS@ @GASNET_UDP_LIBS@
 
 INCLUDES = -I$(srcdir) ${platform_defines}
 compile = ${CC} ${CCFLAGS} ${INCLUDES}
+cxxcompile = ${CXX} ${CXXFLAGS} ${INCLUDES}
 link = $(CXX) ${CXXFLAGS} ${INCLUDES} 
 linkend = ${platform_libraries}
 
 if USE_UDP_CONDUIT
 lib_LIBRARIES = libamudp.a
 endif
-libamudp_a_SOURCES = \
+headers = \
 	amudp.h			\
-	amudp_ep.cpp		\
 	amudp_internal.h	\
-	amudp_reqrep.cpp	\
-	amudp_spawn.cpp		\
-	amudp_spmd.cpp		\
 	amudp_spmd.h		\
-	apputils.h		\
-	exc.cpp			\
 	exc.h			\
-	sig.cpp			\
 	sig.h			\
 	sockaddr.h		\
 	socket.h		\
-	socklist.cpp		\
 	socklist.h		\
-	sockutil.cpp		\
 	sockutil.h
+
+libamudp_a_SOURCES = \
+	$(headers)		\
+	amudp_ep.cpp		\
+	amudp_reqrep.cpp	\
+	amudp_spawn.cpp		\
+	amudp_spmd.cpp		\
+	apputils.h		\
+	exc.cpp			\
+	sig.cpp			\
+	socklist.cpp		\
+	sockutil.cpp		
+
+libamudp_a_DEPENDENCIES = $(libamudp_a_SOURCES:%.cpp=%.o)
 
 EXTRA_DIST =        \
     apputils.c      \
@@ -77,10 +83,11 @@ testprograms =    		\
     testreduce			\
     $(testprograms_ILP32only)
 
-tests: ${testprograms}
+tests: apputils.o ${testprograms}
 
 test%: test%.o apputils.o libamudp.a 
 	${link} -o $@ $< apputils.o -L. -lamudp ${linkend}
+
 
 TEST_NODES=2
 TEST_ITERS=100
@@ -100,12 +107,15 @@ if PLATFORM_ILP32
 	./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 
 endif
 
-%.o: %.c apputils.h amudp.h amudp_spmd.h
-	${compile} -o $@ -c $<
+%.o: %.c apputils.h $(headers)
+	${compile} -o $@ -c -DAMUDP $<
+
+%.o: %.cpp $(headers)
+	${cxxcompile} -o $@ -c $<
 
 if USE_UDP_CONDUIT
 clean-local:
-	rm -f libamudp.a $(testprograms) *.o core
+	rm -f libamudp.a $(testprograms:%=%$(EXESUFFIX)) *.o core
 endif
 
 force:

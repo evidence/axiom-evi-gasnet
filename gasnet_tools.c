@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/01/05 05:01:10 $
- * $Revision: 1.45 $
+ *     $Date: 2004/01/19 12:57:30 $
+ * $Revision: 1.46 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -407,6 +407,46 @@ extern char *gasneti_getenv(const char *keyname) {
                           (keyname?keyname:"NULL"),(retval?retval:"NULL")));
 
   return retval;
+}
+
+/* set an environment variable, for the local process ONLY */
+extern void gasneti_setenv(const char *key, const char *value) {
+  /* prefer putenv because it's POSIX, setenv is not */
+  #if HAVE_PUTENV 
+    char *tmp = gasneti_malloc(strlen(key) + strlen(value) + 2);
+    int retval;
+    strcpy(tmp, key);
+    strcat(tmp, "=");
+    strcat(tmp, value);
+    retval = putenv(tmp);
+    if (retval) gasneti_fatalerror("Failed to putenv(\"%s\") in gasneti_setenv => %s(%i)",
+                                     tmp, strerror(errno), errno);
+  #elif HAVE_SETENV
+    int retval = setenv(key, value, 1);
+    if (retval) gasneti_fatalerror("Failed to setenv(\"%s\",\"%s\",1) in gasneti_setenv => %s(%i)",
+                                     key, value, strerror(errno), errno);
+  #else
+    gasneti_fatalerror("Got a call to gasneti_setenv, but don't know how to do that on your system");
+  #endif
+}
+
+/* unset an environment variable, for the local process ONLY */
+extern void gasneti_unsetenv(const char *key) {
+  /* prefer putenv because it's POSIX, unsetenv is not */
+  #if HAVE_PUTENV
+    char *tmp = gasneti_malloc(strlen(key) + 1);
+    int retval;
+    strcpy(tmp, key);
+    retval = putenv(tmp);
+    if (retval) gasneti_fatalerror("Failed to putenv(\"%s\") in gasneti_unsetenv => %s(%i)",
+                                     key, strerror(errno), errno);
+  #elif HAVE_UNSETENV
+    int retval = unsetenv(key);
+    if (!retval) gasneti_fatalerror("Failed to unsetenv(\"%s\") in gasneti_unsetenv => %s(%i)",
+                                     key, strerror(errno), errno);
+  #else
+    gasneti_fatalerror("Got a call to gasneti_unsetenv, but don't know how to do that on your system");
+  #endif
 }
 
 /* ------------------------------------------------------------------------------------ */

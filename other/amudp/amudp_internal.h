@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_internal.h                                 $
- *     $Date: 2004/01/05 15:34:36 $
- * $Revision: 1.3 $
+ *     $Date: 2004/01/19 12:57:33 $
+ * $Revision: 1.4 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -355,6 +355,20 @@ typedef enum {
   amudp_system_numtypes
   } amudp_system_messagetype_t;
 
+
+//------------------------------------------------------------------------------------
+#ifndef AMUDP_ENV_PREFIX
+  #define AMUDP_ENV_PREFIX AMUDP
+#endif
+#define AMUDP_ENV_PREFIX_STR _STRINGIFY(AMUDP_ENV_PREFIX)
+
+/* return the first environment variable matching one of:
+    AMUDP_ENV_PREFIX_STR##_##basekey
+    AMUDP##_##basekey
+    basekey
+   warn if more than one is set with different values
+ */
+extern char *AMUDP_getenv_prefixed(const char *basekey);
 
 //------------------------------------------------------------------------------------
 // socket support

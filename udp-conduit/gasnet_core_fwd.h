@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/udp-conduit/gasnet_core_fwd.h                   $
- *     $Date: 2003/12/22 08:48:33 $
- * $Revision: 1.2 $
+ *     $Date: 2004/01/19 12:57:35 $
+ * $Revision: 1.3 $
  * Description: GASNet header for UDP conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,8 +30,8 @@
   #endif
 #endif
 
-/* AMUDP currently only supports 255 nodes */
-#define GASNET_MAXNODES 255
+/* AMUDP currently only supports 256 nodes */
+#define GASNET_MAXNODES 256
 #define _GASNET_NODE_T
 typedef uint8_t gasnet_node_t;
 

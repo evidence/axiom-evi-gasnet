@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/AMUDP/socket.h                                         $
- *      $Date: 2003/12/11 20:19:53 $
- *  $Revision: 1.1 $
+ *      $Date: 2004/01/19 12:57:33 $
+ *  $Revision: 1.2 $
  *  Description: portable header socket functions
  *  (c) Scott McPeak, 1998-1999, Modified by Dan Bonachea
  */
@@ -112,13 +112,18 @@ typedef fd_set FD_SET;
 #elif defined(AIX)
 #  define GETSOCKNAME_LENGTH_T size_t
 #  define GETSOCKOPT_LENGTH_T size_t
-#elif defined(OSF1)
-#  define GETSOCKNAME_LENGTH_T unsigned long
-#  define GETSOCKOPT_LENGTH_T unsigned long
 #else
 #  define GETSOCKNAME_LENGTH_T int
 #  define GETSOCKOPT_LENGTH_T int
 #endif
 
+#if defined(WIN32) || defined(CYGWIN) || defined(AIX) || \
+    defined(SOLARIS) || defined(LINUX) || defined(OSF)
+  #define IOCTL_FIONREAD_ARG_T unsigned int
+#elif defined(IRIX)
+  #define IOCTL_FIONREAD_ARG_T size_t
+#else
+  #define IOCTL_FIONREAD_ARG_T unsigned long
+#endif
 
 #endif /*  __SOCKET_H */

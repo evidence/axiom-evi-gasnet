@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2003/12/22 08:48:32 $
- * $Revision: 1.4 $
+ *     $Date: 2004/01/19 12:57:33 $
+ * $Revision: 1.5 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -89,14 +89,14 @@
 
 /* ------------------------------------------------------------------------------------ */
 /* Internal constants */
-#define AMUDP_MAX_SHORT    8     /* max number of handler arguments, >=8 */
+#define AMUDP_MAX_SHORT    16    /* max number of handler arguments, >=8 */
 #define AMUDP_MAX_MEDIUM   512   /* max. data transmission unit for medium messages, >= 512 */
 #ifdef UETH
   #define AMUDP_MAX_LONG     (AMUDP_MAX_MEDIUM*256)  /* max. data size for xfer and get operations >= 8192 */
 #elif defined(__sgi__)
   #define AMUDP_MAX_LONG     61000  /* max. UDP datagram on IRIX is apparently 61412 */
-#elif defined(__FreeBSD__)
-  #define AMUDP_MAX_LONG     9000   /* max UDP datagram on FREEBSD is apparently 9196 */
+#elif defined(__osf__) || defined(__FreeBSD__)
+  #define AMUDP_MAX_LONG     9000   /* max UDP datagram on OSF/FREEBSD is apparently 9196 */
 #else
   #define AMUDP_MAX_LONG     65000  /* default max. UDP datagram */
 #endif
@@ -106,7 +106,7 @@
 #define AMUDP_MAX_SEGLENGTH  ((uintptr_t)-1) /* max. dest_offset */
 
 #define AMUDP_MAX_BUNDLES          255  /* max bundles that can be allocated */
-#define AMUDP_MAX_NETWORKDEPTH     1024 /* max depth we ever allow user to ask for */
+#define AMUDP_MAX_NETWORKDEPTH     1024 /* max depth we ever allow user to ask for (constrained by instance bits) */
 #define AMUDP_MAX_SPMDPROCS        AMUDP_MAX_NUMTRANSLATIONS  /* max SPMD procs we support */
 
 #define AMUDP_COLLECT_LATENCY_STATS   1
@@ -137,12 +137,15 @@ typedef uint64_t amudp_cputick_t;
 /* ------------------------------------------------------------------------------------ */
 /* Internal types */
 
-/* message flags */
- /* 0-1: category
-  * 2:   request vs. reply 
-  * 3:   sequence number
-  * 4-7: numargs
-  */
+/* message flags:
+ * 0-1: category
+ * 2:   request vs. reply 
+ * 3-7: numargs
+ * message instance:
+ * 0:    sequence number
+ * 1-10: instance number
+ * 11-15: reserved
+ */
 typedef unsigned char amudp_flag_t;
 typedef enum {
   amudp_Short=0, 
@@ -151,23 +154,28 @@ typedef enum {
   amudp_NumCategories=3
   } amudp_category_t;
 
-#define AMUDP_MSG_SETFLAGS(pmsg, isreq, cat, numargs, seqnum) \
-  ((pmsg)->flags = (amudp_flag_t) (                           \
-                   (((numargs) & 0xF) << 4)                   \
-                 | (((seqnum) & 0x1) << 3)                    \
-                 | (((isreq) & 0x1) << 2)                     \
-                 |  ((cat) & 0x3)                             \
-                   ))
-#define AMUDP_MSG_NUMARGS(pmsg)   ( ( ((unsigned char)(pmsg)->flags) >> 4 ) & 0xF)
-#define AMUDP_MSG_SEQNUM(pmsg)    (!!(((unsigned char)(pmsg)->flags) & 0x8))
+#define AMUDP_MSG_SETFLAGS(pmsg, isreq, cat, numargs, seqnum, instance) do { \
+   (pmsg)->flags = (amudp_flag_t) (                                          \
+                   (((numargs) & 0x1F) << 3)                                 \
+                 | (((isreq) & 0x1) << 2)                                    \
+                 |  ((cat) & 0x3)                                            \
+                 );                                                          \
+   (pmsg)->_instance = (uint16_t) (                                          \
+                   ((seqnum) & 0x1)                                          \
+                 | (((instance) & 0x3FF) << 1)                               \
+                 );                                                          \
+  } while (0)
+#define AMUDP_MSG_NUMARGS(pmsg)   ( ( ((unsigned char)(pmsg)->flags) >> 3 ) & 0x1F)
 #define AMUDP_MSG_ISREQUEST(pmsg) (!!(((unsigned char)(pmsg)->flags) & 0x4))
 #define AMUDP_MSG_CATEGORY(pmsg)  ((amudp_category_t)((pmsg)->flags & 0x3))
+#define AMUDP_MSG_SEQNUM(pmsg)    (((unsigned char)(pmsg)->_instance) & 0x1)
+#define AMUDP_MSG_INSTANCE(pmsg)  ((uint16_t)((pmsg)->_instance >> 1))
 
 /* active message header & meta info fields */
 typedef struct {
   tag_t         tag;
 
-  uint16_t      instance;
+  uint16_t      _instance; /* instance and seqnum */
   amudp_flag_t  flags;
   handler_t     handlerId;
 
@@ -468,6 +476,25 @@ extern const amudp_stats_t AMUDP_initial_stats; /* the "empty" values for counte
   #define AM_Poll                 AMUDP_Poll
 #endif
 
+/* standardized AM-2 extensions */
+#ifndef AMUDP
+#define AMUDP 1
+#endif
+
+#define AMX_VerboseErrors         AMUDP_VerboseErrors
+#define AMX_GetEndpointStatistics AMUDP_GetEndpointStatistics
+#define AMX_DumpStatistics        AMUDP_DumpStatistics
+#define AMX_AggregateStatistics   AMUDP_AggregateStatistics
+#define AMX_initial_stats         AMUDP_initial_stats
+#define amx_stats_t               amudp_stats_t
+
+#ifdef AMUDP_DEBUG
+  #define AMX_DEBUG AMUDP_DEBUG
+#endif
+#ifdef AMUDP_NDEBUG
+  #define AMX_NDEBUG AMUDP_NDEBUG
+#endif
+
 /* System parameters */
 #define AM_MaxShort()   AMUDP_MAX_SHORT
 #define AM_MaxMedium()  AMUDP_MAX_MEDIUM
@@ -598,6 +625,22 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
    AMUDP_Request(ep, destep, hnum, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
 #define AM_Request8(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7) \
    AMUDP_Request(ep, destep, hnum, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+#define AM_Request9(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
+   AMUDP_Request(ep, destep, hnum, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+#define AM_Request10(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+   AMUDP_Request(ep, destep, hnum, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+#define AM_Request11(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
+   AMUDP_Request(ep, destep, hnum, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+#define AM_Request12(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
+   AMUDP_Request(ep, destep, hnum, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+#define AM_Request13(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
+   AMUDP_Request(ep, destep, hnum, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+#define AM_Request14(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
+   AMUDP_Request(ep, destep, hnum, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+#define AM_Request15(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
+   AMUDP_Request(ep, destep, hnum, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+#define AM_Request16(ep, destep, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
+   AMUDP_Request(ep, destep, hnum, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 #define AM_RequestI0(ep, destep, hnum, sa, cnt) \
    AMUDP_RequestI(ep, destep, hnum, sa, cnt, 0)
@@ -617,6 +660,22 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
    AMUDP_RequestI(ep, destep, hnum, sa, cnt, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
 #define AM_RequestI8(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
    AMUDP_RequestI(ep, destep, hnum, sa, cnt, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+#define AM_RequestI9(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+#define AM_RequestI10(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+#define AM_RequestI11(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+#define AM_RequestI12(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+#define AM_RequestI13(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+#define AM_RequestI14(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+#define AM_RequestI15(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+#define AM_RequestI16(ep, destep, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
+   AMUDP_RequestI(ep, destep, hnum, sa, cnt, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 #define AM_RequestXfer0(ep, destep, desto, hnum, sa, cnt) \
    AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 0)
@@ -636,6 +695,22 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
    AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
 #define AM_RequestXfer8(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
    AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+#define AM_RequestXfer9(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+#define AM_RequestXfer10(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+#define AM_RequestXfer11(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+#define AM_RequestXfer12(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+#define AM_RequestXfer13(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+#define AM_RequestXfer14(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+#define AM_RequestXfer15(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+#define AM_RequestXfer16(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 0, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 #define AM_RequestXferAsync0(ep, destep, desto, hnum, sa, cnt) \
    AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 0)
@@ -655,6 +730,22 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
    AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
 #define AM_RequestXferAsync8(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
    AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+#define AM_RequestXferAsync9(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+#define AM_RequestXferAsync10(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+#define AM_RequestXferAsync11(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+#define AM_RequestXferAsync12(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+#define AM_RequestXferAsync13(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+#define AM_RequestXferAsync14(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+#define AM_RequestXferAsync15(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+#define AM_RequestXferAsync16(ep, destep, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
+   AMUDP_RequestXfer(ep, destep, hnum, sa, cnt, desto, 1, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 #define AM_Reply0(token, hnum) \
    AMUDP_Reply(token, hnum, 0)
@@ -674,6 +765,22 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
    AMUDP_Reply(token, hnum, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
 #define AM_Reply8(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7) \
    AMUDP_Reply(token, hnum, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+#define AM_Reply9(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
+   AMUDP_Reply(token, hnum, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+#define AM_Reply10(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+   AMUDP_Reply(token, hnum, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+#define AM_Reply11(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
+   AMUDP_Reply(token, hnum, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+#define AM_Reply12(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
+   AMUDP_Reply(token, hnum, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+#define AM_Reply13(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
+   AMUDP_Reply(token, hnum, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+#define AM_Reply14(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
+   AMUDP_Reply(token, hnum, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+#define AM_Reply15(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
+   AMUDP_Reply(token, hnum, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+#define AM_Reply16(token, hnum, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
+   AMUDP_Reply(token, hnum, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 #define AM_ReplyI0(token, hnum, sa, cnt) \
    AMUDP_ReplyI(token, hnum, sa, cnt, 0)
@@ -693,6 +800,22 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
    AMUDP_ReplyI(token, hnum, sa, cnt, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
 #define AM_ReplyI8(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
    AMUDP_ReplyI(token, hnum, sa, cnt, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+#define AM_ReplyI9(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
+   AMUDP_ReplyI(token, hnum, sa, cnt, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+#define AM_ReplyI10(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+   AMUDP_ReplyI(token, hnum, sa, cnt, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+#define AM_ReplyI11(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
+   AMUDP_ReplyI(token, hnum, sa, cnt, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+#define AM_ReplyI12(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
+   AMUDP_ReplyI(token, hnum, sa, cnt, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+#define AM_ReplyI13(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
+   AMUDP_ReplyI(token, hnum, sa, cnt, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+#define AM_ReplyI14(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
+   AMUDP_ReplyI(token, hnum, sa, cnt, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+#define AM_ReplyI15(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
+   AMUDP_ReplyI(token, hnum, sa, cnt, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+#define AM_ReplyI16(token, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
+   AMUDP_ReplyI(token, hnum, sa, cnt, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 #define AM_ReplyXfer0(token, desto, hnum, sa, cnt) \
    AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 0)
@@ -712,6 +835,22 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
    AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 7, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6)
 #define AM_ReplyXfer8(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7) \
    AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 8, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7)
+#define AM_ReplyXfer9(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8) \
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 9, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8)
+#define AM_ReplyXfer10(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9) \
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 10, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9)
+#define AM_ReplyXfer11(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10) \
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 11, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10)
+#define AM_ReplyXfer12(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11) \
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 12, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11)
+#define AM_ReplyXfer13(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12) \
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 13, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12)
+#define AM_ReplyXfer14(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) \
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 14, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13)
+#define AM_ReplyXfer15(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) \
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 15, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14)
+#define AM_ReplyXfer16(token, desto, hnum, sa, cnt, a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15) \
+   AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 
 END_EXTERNC

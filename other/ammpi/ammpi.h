@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/12/22 08:48:30 $
- * $Revision: 1.17 $
+ *     $Date: 2004/01/19 12:57:32 $
+ * $Revision: 1.18 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -449,6 +449,28 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
   #define AM_GetDestEndpoint      AMMPI_GetDestEndpoint
   #define AM_GetMsgTag            AMMPI_GetMsgTag
   #define AM_Poll                 AMMPI_Poll
+#endif
+
+/* standardized AM-2 extensions */
+#ifndef AMMPI
+#define AMMPI 1
+#endif
+
+#define AMX_VerboseErrors         AMMPI_VerboseErrors
+#define AMX_GetEndpointStatistics AMMPI_GetEndpointStatistics
+#define AMX_DumpStatistics        AMMPI_DumpStatistics
+#define AMX_AggregateStatistics   AMMPI_AggregateStatistics
+#define AMX_initial_stats         AMMPI_initial_stats
+#define amx_stats_t               ammpi_stats_t
+
+#ifdef AMMPI_DEBUG
+  #define AMX_DEBUG AMMPI_DEBUG
+#endif
+#ifdef AMMPI_NDEBUG
+  #define AMX_NDEBUG AMMPI_NDEBUG
+#endif
+#ifdef AMMPI_DEBUG_VERBOSE
+  #define AMX_DEBUG_VERBOSE AMMPI_DEBUG_VERBOSE
 #endif
 
 /* System parameters */

@@ -1,6 +1,6 @@
 //  $Archive:: /Ti/AMUDP/sockutil.cpp                                     $
-//     $Date: 2004/01/05 05:01:20 $
-// $Revision: 1.3 $
+//     $Date: 2004/01/19 12:57:33 $
+// $Revision: 1.4 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -334,10 +334,10 @@ bool inputWaiting(SOCKET s) { // returns true if input or close conn is waiting
   }
 //-------------------------------------------------------------------------------------
 int numBytesWaiting(SOCKET s) { // returns number of bytes waiting to be received
-  unsigned long arg;
+  IOCTL_FIONREAD_ARG_T arg;
   if (ioctlsocket(s, _FIONREAD, &arg) == SOCKET_ERROR) 
     xsocket(s, "numBytesWaiting");
-  return arg;
+  return (int)arg;
   }
 //-------------------------------------------------------------------------------------
 bool isValidIP(const char* buf) {

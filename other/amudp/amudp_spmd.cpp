@@ -1,10 +1,11 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.cpp                                   $
- *     $Date: 2004/01/05 05:01:20 $
- * $Revision: 1.2 $
+ *     $Date: 2004/01/19 12:57:33 $
+ * $Revision: 1.3 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
+#include <errno.h>
 #include <stdio.h>
 #ifdef WIN32
   #define sched_yield() Sleep(0)
@@ -20,6 +21,9 @@
     #undef __USE_GNU
   #else
     #include <fcntl.h>
+  #endif
+  #ifdef _CRAYT3E
+    #define sched_yield() sleep(0)
   #endif
 #endif
 
@@ -40,17 +44,23 @@ extern char **environ;
 #define FREEZE_SLAVE  0
 #endif
 static volatile bool amudp_frozen = true;
-// all this to make sure we get a full stack frame for debugger
-static void freezeForDebugger(int depth=0) {
-  if (!depth) freezeForDebugger(1);
+/*  all this to make sure we get a full stack frame for debugger */
+static void _freezeForDebugger(int depth) {
+  if (!depth) _freezeForDebugger(1);
   else {
-    volatile int i=0;
+    volatile int i = 0;
     while (amudp_frozen) {
       i++;
       sleep(1);
       }
     }
   }
+static void freezeForDebugger() {
+  char name[255];
+  gethostname(name, 255);
+  fprintf(stderr,"slave frozen for debugger: host=%s  pid=%i\n", name, getpid()); fflush(stderr);
+  _freezeForDebugger(0);
+}
 
 #if AMUDP_DEBUG_VERBOSE
   #define DEBUG_SLAVE(msg)  do { fprintf(stderr,"slave %i: %s\n", AMUDP_SPMDMYPROC, msg); fflush(stderr); } while(0)
@@ -768,6 +778,9 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     #if FREEZE_SLAVE
       freezeForDebugger();
+    #else
+      /* do *not* use prefixed getenv here - want an independent freeze point */
+      if (getenv("AMUDP_FREEZE")) freezeForDebugger();
     #endif
 
     if (!eb || !ep) AMUDP_RETURN_ERR(BAD_ARG);
@@ -1299,7 +1312,9 @@ extern int AMUDP_SPMDSetExitCallback(void (*fp)(int)) {
   AMUDP_SPMDExitCallback = fp;
   return AM_OK;
 }
-void (*AMUDP_SPMDkillmyprocess)(int) = &_exit;
+extern "C" {
+  void (*AMUDP_SPMDkillmyprocess)(int) = &_exit;
+}
 
 /* shutdown this process */
 static int AMUDP_SPMDShutdown(int exitcode) {
@@ -1505,5 +1520,33 @@ extern const char* AMUDP_SPMDgetenvMaster(const char *keyname) {
     }
   return NULL; // not found
   }
+
+char *AMUDP_getenv_prefixed(const char *basekey) {
+  char key[3][255];
+  const char *val[3];
+  int winner = -1;
+  char *(*getfn)(const char *) = NULL;
+  if (AMUDP_SPMDStartupCalled && AMUDP_SPMDMasterEnvironment != NULL) getfn = (char *(*)(const char *))AMUDP_SPMDgetenvMaster;
+  else getfn = (char *(*)(const char *))getenv;
+
+  if (basekey == NULL || !*basekey) return NULL;
+  sprintf(key[0], "%s_%s", AMUDP_ENV_PREFIX_STR, basekey);
+  val[0] = getfn(key[0]);
+  sprintf(key[1], "%s_%s", "AMUDP", basekey);
+  val[1] = getfn(key[1]);
+  strcpy(key[2], basekey);
+  val[2] = getfn(key[2]);
+  for (int i=0; i < 3; i++) {
+    if (val[i] != NULL) {
+      if (winner == -1) winner = i;
+      else if (strcmp(val[winner], val[i])) {
+        fprintf(stderr,"AMUDP: Warning: both $%s and $%s are set, to different values. Using the former.\n",
+          key[winner], key[i]);
+      }
+    }
+  }
+  if (winner == -1) return NULL;
+  else return (char *)val[winner];
+}
 /* ------------------------------------------------------------------------------------ */
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/01/05 05:01:10 $
- * $Revision: 1.19 $
+ *     $Date: 2004/01/19 12:57:30 $
+ * $Revision: 1.20 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,6 +27,10 @@ BEGIN_EXTERNC
 
 extern void gasneti_fatalerror(const char *msg, ...) GASNET_NORETURN __attribute__((__format__ (__printf__, 1, 2)));
 extern char *gasneti_getenv(const char *keyname);
+
+/* set/unset an environment variable, for the local process ONLY */
+extern void gasneti_setenv(const char *key, const char *value);
+extern void gasneti_unsetenv(const char *key);
 
 #if defined(__GNUC__) || defined(__FUNCTION__)
   #define GASNETI_CURRENT_FUNCTION __FUNCTION__

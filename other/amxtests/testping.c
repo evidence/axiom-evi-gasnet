@@ -1,9 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <ammpi.h>
-#include <ammpi_spmd.h>
-
 #include "apputils.h"
 
 #define PING_REQ_HANDLER 1
@@ -50,13 +44,13 @@ int main(int argc, char **argv) {
     exit(1);
     }
 
-  AMMPI_VerboseErrors = 1;
+  AMX_VerboseErrors = 1;
 
   if (argc > 3) depth = atoi(argv[3]);
   if (!depth) depth = 4;
 
   /* call startup */
-  AM_Safe(AMMPI_SPMDStartup(&argc, &argv, 
+  AM_Safe(AMX_SPMDStartup(&argc, &argv, 
                             depth, &networkpid, &eb, &ep));
 
   /* setup handlers */
@@ -66,8 +60,8 @@ int main(int argc, char **argv) {
   setupUtilHandlers(ep, eb);
 
   /* get SPMD info */
-  myproc = AMMPI_SPMDMyProc();
-  numprocs = AMMPI_SPMDNumProcs();
+  myproc = AMX_SPMDMyProc();
+  numprocs = AMX_SPMDNumProcs();
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 1;
@@ -75,14 +69,14 @@ int main(int argc, char **argv) {
     switch(argv[2][0]) {
       case 'p': case 'P': polling = 1; break;
       case 'b': case 'B': polling = 0; break;
-      default: printf("polling must be 'P' or 'B'..\n"); AMMPI_SPMDExit(1);
+      default: printf("polling must be 'P' or 'B'..\n"); AMX_SPMDExit(1);
       }
     }
 
   if (myproc == 0) numleft = (numprocs-1)*iters;
   else numleft = iters;
 
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   if (myproc == 0) printf("Running %i iterations of ping test...\n", iters);
 
@@ -119,12 +113,12 @@ int main(int argc, char **argv) {
   fflush(stdout);
 
   /* dump stats */
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
   printGlobalStats();
-  AM_Safe(AMMPI_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   /* exit */
-  AM_Safe(AMMPI_SPMDExit(0));
+  AM_Safe(AMX_SPMDExit(0));
 
   return 0;
   }

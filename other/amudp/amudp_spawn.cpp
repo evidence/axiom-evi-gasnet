@@ -1,9 +1,11 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spawn.cpp                                  $
- *     $Date: 2004/01/05 05:01:20 $
- * $Revision: 1.2 $
+ *     $Date: 2004/01/19 12:57:33 $
+ * $Revision: 1.3 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
+
+#include <errno.h>
 #ifdef WIN32
   #include <winsock2.h>
   #include <windows.h>  
@@ -16,10 +18,6 @@
 #include <amudp_spmd.h>
 #include <amudp_internal.h>
 
-#ifndef AMUDP_ENV_PREFIX
-  #define AMUDP_ENV_PREFIX AMUDP
-#endif
-#define AMUDP_ENV_PREFIX_STR _STRINGIFY(AMUDP_ENV_PREFIX)
 
 amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
   { 'S',  "Spawn jobs using ssh remote shells", 
@@ -38,36 +36,6 @@ amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
     (amudp_spawnfn_t)AMUDP_SPMDCustomSpawn },
   { '\0', NULL, (amudp_spawnfn_t)NULL }
 };
-
-/* return the first environment variable matching one of:
-    AMUDP_ENV_PREFIX_STR##_##basekey
-    AMUDP##_##basekey
-    basekey
-   warn if more than one is set with different values
- */
-static char *getenv_prefixed(const char *basekey) {
-  char key[3][255];
-  const char *val[3];
-  int winner = -1;
-  if (basekey == NULL || !*basekey) return NULL;
-  sprintf(key[0], "%s_%s", AMUDP_ENV_PREFIX_STR, basekey);
-  val[0] = getenv(key[0]);
-  sprintf(key[1], "%s_%s", "AMUDP", basekey);
-  val[1] = getenv(key[1]);
-  strcpy(key[2], basekey);
-  val[2] = getenv(key[2]);
-  for (int i=0; i < 3; i++) {
-    if (val[i] != NULL) {
-      if (winner == -1) winner = i;
-      else if (strcmp(val[winner], val[i])) {
-        fprintf(stderr,"AMUDP: Warning: both $%s and $%s are set, to different values. Using the former.\n",
-          key[winner], key[i]);
-      }
-    }
-  }
-  if (winner == -1) return NULL;
-  else return (char *)val[winner];
-}
 
 /* ------------------------------------------------------------------------------------ 
  *  spawn jobs on local machine
@@ -186,10 +154,10 @@ int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
 
   pid = getpid();
 
-  rexec_cmd = getenv_prefixed("REXEC_CMD");
+  rexec_cmd = AMUDP_getenv_prefixed("REXEC_CMD");
   if (!rexec_cmd) rexec_cmd = "rexec";
 
-  rexec_options = getenv_prefixed("REXEC_OPTIONS");
+  rexec_options = AMUDP_getenv_prefixed("REXEC_OPTIONS");
   if (!rexec_options) rexec_options = "-q";
 
   cmd1[0] = '\0';
@@ -288,14 +256,14 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
 
   pid = getpid();
 
-  ssh_servers = getenv_prefixed("SSH_SERVERS");
+  ssh_servers = AMUDP_getenv_prefixed("SSH_SERVERS");
   if (!ssh_servers) {
     printf("Environment variable SSH_SERVERS is missing.\n");
     return FALSE;
     }
 
 
-  ssh_remote_path = getenv_prefixed("SSH_REMOTE_PATH");
+  ssh_remote_path = AMUDP_getenv_prefixed("SSH_REMOTE_PATH");
   if (!ssh_remote_path) {
     if (!getcwd(cwd, 1024)) {
       printf("Error calling getcwd()\n");
@@ -304,10 +272,10 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
     ssh_remote_path = cwd;
     }
 
-  ssh_cmd = getenv_prefixed("SSH_CMD");
+  ssh_cmd = AMUDP_getenv_prefixed("SSH_CMD");
   if (!ssh_cmd) ssh_cmd = "ssh";
 
-  ssh_options = getenv_prefixed("SSH_OPTIONS");
+  ssh_options = AMUDP_getenv_prefixed("SSH_OPTIONS");
   if (!ssh_options) ssh_options = "";
 
   cmd1[0] = '\0';
@@ -427,9 +395,9 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
 
   pid = getpid();
 
-  spawn_cmd = getenv_prefixed("CSPAWN_CMD");
-  spawn_servers = getenv_prefixed("CSPAWN_SERVERS");
-  spawn_route_output = !!getenv_prefixed("CSPAWN_ROUTE_OUTPUT");
+  spawn_cmd = AMUDP_getenv_prefixed("CSPAWN_CMD");
+  spawn_servers = AMUDP_getenv_prefixed("CSPAWN_SERVERS");
+  spawn_route_output = !!AMUDP_getenv_prefixed("CSPAWN_ROUTE_OUTPUT");
 
   if (!spawn_cmd) {
     ErrMessage("You must set the "AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD environment variable to use the custom spawn function"); 

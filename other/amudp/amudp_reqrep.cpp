@@ -1,9 +1,11 @@
 /*  $Archive:: /Ti/AMUDP/amudp_reqrep.cpp                                 $
- *     $Date: 2004/01/05 05:01:20 $
- * $Revision: 1.6 $
+ *     $Date: 2004/01/19 12:57:33 $
+ * $Revision: 1.7 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
+
+#include <errno.h>
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>
@@ -111,14 +113,22 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   else {                                                                                \
     uint32_t *args = (uint32_t *)(pArgs); /* eval only once */                          \
     switch (numargs) {                                                                  \
-      case 1: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0]); break;         \
-      case 2: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1]); break;\
-      case 3: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2]); break; \
-      case 4: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3]); break; \
-      case 5: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4]); break; \
-      case 6: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5]); break; \
-      case 7: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break; \
-      case 8: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break; \
+      case 1:  (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0]); break;         \
+      case 2:  (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1]); break;\
+      case 3:  (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2]); break; \
+      case 4:  (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3]); break; \
+      case 5:  (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4]); break; \
+      case 6:  (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5]); break; \
+      case 7:  (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break; \
+      case 8:  (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break; \
+      case 9:  (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]); break; \
+      case 10: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]); break; \
+      case 11: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]); break; \
+      case 12: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]); break; \
+      case 13: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]); break; \
+      case 14: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
+      case 15: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
+      case 16: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
       default: abort();                                                                 \
       }                                                                                 \
     }                                                                                   \
@@ -130,14 +140,22 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   else {                                                                      \
     uint32_t *args = (uint32_t *)(pArgs); /* eval only once */                \
     switch (numargs) {                                                        \
-      case 1: (*phandlerfn)(token, pData, datalen, args[0]); break;           \
-      case 2: (*phandlerfn)(token, pData, datalen, args[0], args[1]); break;  \
-      case 3: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2]); break; \
-      case 4: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3]); break; \
-      case 5: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4]); break; \
-      case 6: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5]); break; \
-      case 7: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break; \
-      case 8: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break; \
+      case 1:  (*phandlerfn)(token, pData, datalen, args[0]); break;         \
+      case 2:  (*phandlerfn)(token, pData, datalen, args[0], args[1]); break;\
+      case 3:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2]); break; \
+      case 4:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3]); break; \
+      case 5:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4]); break; \
+      case 6:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5]); break; \
+      case 7:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break; \
+      case 8:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break; \
+      case 9:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]); break; \
+      case 10: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]); break; \
+      case 11: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]); break; \
+      case 12: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]); break; \
+      case 13: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]); break; \
+      case 14: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
+      case 15: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
+      case 16: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
       default: abort();                                                                 \
       }                                                                                 \
     }                                                                                   \
@@ -206,22 +224,23 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
  */
 #if defined(WIN32) || defined(CYGWIN)
   #define BROKEN_IOCTL 1
-#elif defined(AIX) || defined(IRIX) || defined(FREEBSD) || defined(HPUX)
+#elif defined(AIX) || defined(IRIX) || defined(FREEBSD) || defined(HPUX) || defined(OSF)
   #define BROKEN_IOCTL 1 // seems these are broken too...
 #else 
   #define BROKEN_IOCTL 0
 #endif
+
 /* ------------------------------------------------------------------------------------ */
   /*  AMUDP_DrainNetwork - read anything outstanding from hardware/kernel buffers into app space */
   static int AMUDP_DrainNetwork(ep_t ep) {
     int totalBytesDrained = 0;
     while (1) {
-      unsigned long bytesAvail;
+      IOCTL_FIONREAD_ARG_T bytesAvail;
       if (ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
         AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", sockErrDesc());
       if (bytesAvail == 0) break; 
 
-      #if BROKEN_IOCTL
+      #if BROKEN_IOCTL && USE_TRUE_BULK_XFERS
         if (bytesAvail > AMUDP_MAX_NETWORK_MSG) { 
           /* this workaround is a HACK that lets us decide if we truly have a bulk message */
           static char *junk = NULL;
@@ -229,7 +248,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
           /* MUST use AMUDP_MAXBULK_NETWORK_MSG here, because some OS's blatently ignore
              the message buffer len and happily overflow the input buffer in recvfrom()
            */
-          if (!junk) junk = (char *)malloc(AMUDP_MAXBULK_NETWORK_MSG);
+          if_pf (!junk) junk = (char *)malloc(AMUDP_MAXBULK_NETWORK_MSG);
           retval = recvfrom(ep->s, junk, AMUDP_MAXBULK_NETWORK_MSG, MSG_PEEK, NULL, NULL);
           if (retval == SOCKET_ERROR && 
             #ifdef WIN32
@@ -240,6 +259,14 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
             AMUDP_RETURN_ERRFR(RESOURCE, "recv(MSG_PEEK) - broken ioctl Hack", sockErrDesc());
           if (retval < (int)bytesAvail) bytesAvail = retval; /* the true next message size */
           }
+        /* TODO: another possible workaround for BROKEN_IOCTL && USE_TRUE_BULK_XFERS:
+          use non-peek recvmsg(), with an iovec pointing first to a non-bulk buffer
+          (with length AMUDP_MAX_NETWORK_MSG) and the second entry pointing to 
+          offset AMUDP_MAX_NETWORK_MSG in the middle of a bulk buffer 
+          (with len AMUDP_MAXBULK_NETWORK_MSG - AMUDP_MAX_NETWORK_MSG). 
+          Then if we have a true bulk message (based on return value), 
+          just copy the initial portion into the bulk buffer and release the normal buf
+         */
       #endif
 
       /* something waiting, acquire a buffer for it */
@@ -263,7 +290,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
             if (bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
               char x;
               int retval = recvfrom(ep->s, (char *)&x, 1, MSG_PEEK, NULL, NULL);
-              fprintf(stderr, "bytesAvail=%i  recvfrom(MSG_PEEK)=%i\n", (int)bytesAvail, retval); fflush(stderr);
+              fprintf(stderr, "bytesAvail=%lu  recvfrom(MSG_PEEK)=%i\n", (unsigned long)bytesAvail, retval); fflush(stderr);
               AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: received message that was too long", sockErrDesc());
               }
           #endif
@@ -668,6 +695,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
       /* perform acceptance checks */
       { int numargs = AMUDP_MSG_NUMARGS(msg);
         int seqnum = AMUDP_MSG_SEQNUM(msg);
+        uint16_t instance = AMUDP_MSG_INSTANCE(msg);
         int isrequest = AMUDP_MSG_ISREQUEST(msg);
         amudp_category_t cat = AMUDP_MSG_CATEGORY(msg);
         int issystemmsg = ((amudp_system_messagetype_t)msg->systemMessageType) != amudp_system_user;
@@ -682,8 +710,9 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
             if (sourceID < 0) goto donewithmessage; /*  unknown source, ignore message */
             status->sourceId = (uint8_t)sourceID;
             if (isrequest) { /*  the returned message is a request, so free that request buffer */
-              amudp_bufdesc_t *desc = GET_REQ_DESC(ep, status->sourceId, msg->instance);
-              amudp_buf_t *basicreqbuf = GET_REQ_BUF(ep, status->sourceId, msg->instance);
+              uint16_t instance = AMUDP_MSG_INSTANCE(msg);
+              amudp_bufdesc_t *desc = GET_REQ_DESC(ep, status->sourceId, instance);
+              amudp_buf_t *basicreqbuf = GET_REQ_BUF(ep, status->sourceId, instance);
               if (desc->inuse && desc->seqNum == seqnum) {
                 desc->inuse = FALSE;
                 ep->outstandingRequests--;
@@ -692,7 +721,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
                   basicreqbuf->status.bulkBuffer = NULL;
                   }
                 desc->seqNum = (uint8_t)!(desc->seqNum);
-                ep->perProcInfo[status->sourceId].instanceHint = msg->instance;
+                ep->perProcInfo[status->sourceId].instanceHint = instance;
                 }
               }
             opcode = AMUDP_GetOpcode(isrequest, cat);
@@ -717,7 +746,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
         if_pf (ep->tag == AM_NONE || 
            (ep->tag != msg->tag && ep->tag != AM_ALL))
             AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADTAG);
-        if_pf (msg->instance >= ep->depth)
+        if_pf (instance >= ep->depth)
             AMUDP_REFUSEMESSAGE(ep, basicbuf, EUNREACHABLE);
         if_pf (ep->handler[msg->handlerId] == amudp_unused_handler &&
             !issystemmsg && msg->handlerId != 0)
@@ -758,10 +787,10 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
 
         /* check sequence number to see if this is a new request/reply or a duplicate */
         if (isrequest) {
-          amudp_bufdesc_t *desc = GET_REP_DESC(ep, status->sourceId, msg->instance);
+          amudp_bufdesc_t *desc = GET_REP_DESC(ep, status->sourceId, instance);
           if_pf (seqnum != desc->seqNum) { 
             /*  request resent or reply got dropped - resend reply */
-            amudp_buf_t *replybuf = GET_REP_BUF(ep, status->sourceId, msg->instance);
+            amudp_buf_t *replybuf = GET_REP_BUF(ep, status->sourceId, instance);
             AMUDP_assert(replybuf != NULL);
             if (replybuf->status.bulkBuffer) replybuf = replybuf->status.bulkBuffer;
             #ifdef UETH
@@ -788,7 +817,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
             }
           }
         else {
-          amudp_bufdesc_t *desc = GET_REQ_DESC(ep, status->sourceId, msg->instance);
+          amudp_bufdesc_t *desc = GET_REQ_DESC(ep, status->sourceId, instance);
           if (seqnum != desc->seqNum) { /*  duplicate reply, we already ran handler - ignore it */
             #if AMUDP_DEBUG_VERBOSE
               ErrMessage("Ignoring a duplicate reply.");
@@ -801,9 +830,9 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
 
         if (!isrequest) { /* it's a reply, free the corresponding request */
           int sourceId = status->sourceId;
-          amudp_bufdesc_t *desc = GET_REQ_DESC(ep, sourceId, msg->instance);
+          amudp_bufdesc_t *desc = GET_REQ_DESC(ep, sourceId, instance);
           if_pt (desc->inuse) { 
-            amudp_buf_t *basicreqbuf = GET_REQ_BUF(ep, sourceId, msg->instance);
+            amudp_buf_t *basicreqbuf = GET_REQ_BUF(ep, sourceId, instance);
             desc->inuse = FALSE;
             ep->outstandingRequests--;
             if (basicreqbuf->status.bulkBuffer) {
@@ -811,7 +840,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
               basicreqbuf->status.bulkBuffer = NULL;
               }
             desc->seqNum = (uint8_t)!(desc->seqNum); 
-            ep->perProcInfo[sourceId].instanceHint = msg->instance;
+            ep->perProcInfo[sourceId].instanceHint = instance;
             #if AMUDP_COLLECT_LATENCY_STATS
               { /* gather some latency statistics */
                 amudp_cputick_t now = getCPUTicks();
@@ -925,7 +954,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
               ErrMessage("Failed to issue auto reply in AMUDP_ServiceIncomingMessages");
             }
           if (isrequest) { /*  message was a request, alternate the reply sequence number so duplicates of this request get ignored */
-            amudp_bufdesc_t *desc = GET_REP_DESC(ep, status->sourceId, msg->instance);
+            amudp_bufdesc_t *desc = GET_REP_DESC(ep, status->sourceId, instance);
             desc->seqNum = (uint8_t)!(desc->seqNum);
             }
           }
@@ -1075,10 +1104,9 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
 
   /*  setup message meta-data */
   { amudp_msg_t *msg = &outgoingbuf->Msg;
-    AMUDP_MSG_SETFLAGS(msg, TRUE, category, numargs, outgoingdesc->seqNum);
+    AMUDP_MSG_SETFLAGS(msg, TRUE, category, numargs, outgoingdesc->seqNum, instance);
     msg->destOffset = dest_offset;
     msg->handlerId = handler;
-    msg->instance = (uint16_t)instance;
     msg->nBytes = (uint16_t)nbytes;
     msg->systemMessageType = systemType;
     msg->systemMessageArg = systemArg;
@@ -1174,7 +1202,7 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
 
   /*  acquire a free buffer  */
   /*  trivial because replies can safely overwrite previous reply in request instance */
-  instance = requestbuf->Msg.instance; 
+  instance = AMUDP_MSG_INSTANCE(&(requestbuf->Msg)); 
 
   basicbuf = GET_REP_BUF(ep, destP, instance);
   outgoingdesc = GET_REP_DESC(ep, destP, instance);
@@ -1208,10 +1236,9 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
 
   /*  setup message meta-data */
   { amudp_msg_t *msg = &outgoingbuf->Msg;
-    AMUDP_MSG_SETFLAGS(msg, FALSE, category, numargs, outgoingdesc->seqNum);
+    AMUDP_MSG_SETFLAGS(msg, FALSE, category, numargs, outgoingdesc->seqNum, instance);
     msg->destOffset = dest_offset;
     msg->handlerId = handler;
-    msg->instance = (uint16_t)instance;
     msg->nBytes = (uint16_t)nbytes;
     msg->systemMessageType = systemType;
     msg->systemMessageArg = systemArg;

@@ -1,9 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <amudp.h>
-#include <amudp_spmd.h>
-
 #include "apputils.h"
 
 #define MAX_PROCS 255
@@ -23,10 +17,10 @@ int main(int argc, char **argv) {
     exit(1);
     }
 
-  AMUDP_VerboseErrors = 1;
+  AMX_VerboseErrors = 1;
 
   /* call startup */
-  AM_Safe(AMUDP_SPMDStartup(&argc, &argv, 
+  AM_Safe(AMX_SPMDStartup(&argc, &argv, 
                         0, 0, NULL, 
                         &networkpid, &eb, &ep));
 
@@ -34,8 +28,8 @@ int main(int argc, char **argv) {
   setupUtilHandlers(ep, eb);
 
   /* get SPMD info */
-  myproc = AMUDP_SPMDMyProc();
-  numprocs = AMUDP_SPMDNumProcs();
+  myproc = AMX_SPMDMyProc();
+  numprocs = AMX_SPMDNumProcs();
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 1;
@@ -52,7 +46,7 @@ int main(int argc, char **argv) {
      vals[myproc] = myproc;
      }
 
-    AM_Safe(AMUDP_SPMDBarrier()); /* barrier */
+    AM_Safe(AMX_SPMDBarrier()); /* barrier */
 
     { /* try some gets */
       int i;
@@ -66,7 +60,7 @@ int main(int argc, char **argv) {
         printf("Proc %i GET TEST FAILED : sum = %i   verify = %i\n", myproc, sum, verify);
         fflush(stdout);
         }
-      #if AMUDP_DEBUG
+      #if DEBUG
         else {
           printf("Proc %i verified.\n", myproc);
           fflush(stdout);
@@ -74,21 +68,21 @@ int main(int argc, char **argv) {
       #endif
       }
 
-    AM_Safe(AMUDP_SPMDBarrier()); /* barrier */
+    AM_Safe(AMX_SPMDBarrier()); /* barrier */
 
     { /* try some puts */
       int i;
       for (i = 0; i < numprocs; i++) {
         putWord(i, &vals[myproc], myproc); /*  push our value to correct position on each peer */
         }
-      AM_Safe(AMUDP_SPMDBarrier()); /* barrier */
+      AM_Safe(AMX_SPMDBarrier()); /* barrier */
       for (i = 0; i < numprocs; i++) {
         if (((int)vals[i]) != i) {
           printf("Proc %i PUT TEST FAILED : i = %i   vals[i] = %i\n", myproc, i, vals[i]);
           break;
           }
         }
-      #if AMUDP_DEBUG
+      #if DEBUG
         if (i == numprocs) {
           printf("Proc %i verified.\n", myproc);
           fflush(stdout);
@@ -99,12 +93,12 @@ int main(int argc, char **argv) {
     }
 
   /* dump stats */
-  AM_Safe(AMUDP_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
   printGlobalStats();
-  AM_Safe(AMUDP_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   /* exit */
-  AM_Safe(AMUDP_SPMDExit(0));
+  AM_Safe(AMX_SPMDExit(0));
 
   return 0;
   }

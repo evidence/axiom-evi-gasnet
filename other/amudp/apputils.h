@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/apputils.h                                       $
- *     $Date: 2003/12/17 10:12:24 $
- * $Revision: 1.2 $
+ *     $Date: 2004/01/19 12:57:33 $
+ * $Revision: 1.3 $
  * Description: Application utilities on AMUDP
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -8,13 +8,24 @@
 #ifndef _APPUTILS_H
 #define _APPUTILS_H
 
+#include <errno.h>
 #ifdef WIN32
   #include <windows.h>  
   #define sleep(x) Sleep(1000*x)
 #endif
 
+#if defined(AMUDP)
+  #include <amudp.h>
+  #include <amudp_spmd.h>
+#elif defined(AMMPI)
+  #include <ammpi.h>
+  #include <ammpi_spmd.h>
+#else
+  #error You should #define AMUDP/AMMPI (or #include amudp.h/ammpi.h) before including apputils.h
+#endif
+
 #if !defined(DEBUG) && !defined(NDEBUG)
-  #ifdef AMUDP_DEBUG
+  #ifdef AMX_DEBUG
     #define DEBUG 1
   #else
     #define NDEBUG 1
@@ -22,7 +33,7 @@
 #endif
 
 #ifndef VERBOSE
-  #if AMUDP_DEBUG_VERBOSE || GASNET_DEBUG_VERBOSE
+  #if AMX_DEBUG_VERBOSE || GASNET_DEBUG_VERBOSE
     #define VERBOSE 1
   #else
     #define VERBOSE 0
@@ -31,6 +42,8 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #ifndef TRUE
 #define TRUE 1
@@ -47,7 +60,8 @@
 #define AM_Safe(fncall) do {                \
   if ((fncall) != AM_OK) {                  \
     printf("Error calling: %s\n", #fncall); \
-    exit(1);                                \
+    AMX_SPMDExit(-1);                       \
+    abort();                                \
     }                                       \
   } while(0)
 
@@ -57,9 +71,10 @@
         AM_Safe(AM_Poll(eb));                       \
         } while (0)
 
-/* app can define this before including to move our handlers */
+/* app can define this before including to move our handlers 
+   NO - that doesn't work unless apputils.c is recompiled */
 #ifndef APPUTIL_HANDLER_BASE
-  #define APPUTIL_HANDLER_BASE  100
+  #define APPUTIL_HANDLER_BASE  225
 #endif
 
 /* call first to setup handlers for all app utils */
@@ -74,7 +89,7 @@ void printGlobalStats();
   extern int64_t getCurrentTimeMicrosec();
 #endif
 
-#ifndef AMUDP_OMIT_READWRITE
+#ifndef APPUTILS_OMIT_READWRITE
 uint32_t getWord(int proc, void *addr);
 void putWord(int proc, void *addr, uint32_t val);
 

@@ -1,10 +1,11 @@
 /*  $Archive:: /Ti/AMUDP/amudp_ep.cpp                                     $
- *     $Date: 2003/12/22 08:48:32 $
- * $Revision: 1.2 $
+ *     $Date: 2004/01/19 12:57:33 $
+ * $Revision: 1.3 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -407,7 +408,7 @@ extern int AM_Init() {
       }
     #endif
 
-    { char *faultRate = getenv("AMUDP_FAULT_RATE");
+    { char *faultRate = AMUDP_getenv_prefixed("FAULT_RATE");
       if (faultRate && (AMUDP_FaultInjectionRate = atof(faultRate)) != 0.0) {
         AMUDP_FaultInjectionEnabled = 1;
         fprintf(stderr, "*** Warning: AMUDP running with fault injection enabled. Rate = %6.2f %%\n",
@@ -965,20 +966,20 @@ extern const char *AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int glob
   #endif
 
     /* Message breakdown */
-    AMUDP_MAX_SHORT*sizeof(int),
+    (int)(AMUDP_MAX_SHORT*sizeof(int)),
       (int)stats->RequestsSent[amudp_Short], (int)stats->RepliesSent[amudp_Short], 
       (stats->RequestsSent[amudp_Short]+stats->RepliesSent[amudp_Short] > 0 ?
         ((float)(int64_t)stats->DataBytesSent[amudp_Short]) / 
         ((float)(int64_t)(stats->RequestsSent[amudp_Short]+stats->RepliesSent[amudp_Short])) : 0.0),
-    AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM,
+    (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM),
       (int)stats->RequestsSent[amudp_Medium], (int)stats->RepliesSent[amudp_Medium], 
       (stats->RequestsSent[amudp_Medium]+stats->RepliesSent[amudp_Medium] > 0 ?
         ((float)(int64_t)stats->DataBytesSent[amudp_Medium]) / 
         ((float)(int64_t)(stats->RequestsSent[amudp_Medium]+stats->RepliesSent[amudp_Medium])) : 0.0),
 #if USE_TRUE_BULK_XFERS
-    AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_LONG,
+    (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_LONG),
 #else
-    AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM,
+    (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM),
 #endif
       (int)stats->RequestsSent[amudp_Long], (int)stats->RepliesSent[amudp_Long], 
       (stats->RequestsSent[amudp_Long]+stats->RepliesSent[amudp_Long] > 0 ?

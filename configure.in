@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/01/05 16:13:35 $
-# $Revision: 1.105 $
+#     $Date: 2004/01/19 12:57:30 $
+# $Revision: 1.106 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.105 $)
+AC_REVISION($Revision: 1.106 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -148,10 +148,33 @@ fi
 #
 
 case "$gasnet_cv_cc_family" in
-  GNU)  CCOPTFLAGS="-O3 -Winline" 
+  GNU)  oldCFLAGS="$CFLAGS"
+        CFLAGS="-O3"
         # -finline-limit not available on gcc 2.95
         GASNET_TRY_CFLAG([-finline-limit=10000],
-                         [CCOPTFLAGS="$CCOPTFLAGS -finline-limit=10000"])
+                         [CFLAGS="$CFLAGS -finline-limit=10000"])
+        # We'd like to use -Winline to detect call sites where the optimizer
+        # ignores our inline function modifier (usually due to technical limitations)
+  	# However, some versions of gcc issue spurious warnings with -Winline
+        # for inlining operations which the user did not request.
+        # Detect that gcc bug and avoid -Winline for those versions
+        GASNET_TRY_CFLAG([-Winline],[
+          oldCFLAGS2="$CFLAGS"
+          CFLAGS="$CFLAGS -Winline"
+          AC_MSG_CHECKING(for buggy -Winline)
+          GASNET_TRY_CCOMPILE_WITHWARN([
+           int foo() { return 0; }
+           int bar() { return foo() + bar(); }
+          ], [ 
+           int x = bar(); 
+          ], [ AC_MSG_RESULT(ok) # keep -Winline
+          ], [ AC_MSG_RESULT(buggy)
+               CFLAGS="$oldCFLAGS2" # remove -Winline
+          ], [ AC_MSG_ERROR(failure when detecting buggy -Winline)])
+        ])
+
+        CCOPTFLAGS="$CFLAGS"
+        CFLAGS="$oldCFLAGS"
   ;;
   Sun)  CCOPTFLAGS="-xO5" ;;
   Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
@@ -164,20 +187,35 @@ case "$gasnet_cv_cc_family" in
   *)    CCOPTFLAGS="-O" ;;
 esac
 
-GNUWARNINGFLAGS="-Wall -Wno-unused -Wpointer-arith -Wnested-externs -Wwrite-strings -Wno-missing-braces" 
-case "$gasnet_cv_cc_family" in
-  GNU) GASNET_TRY_CFLAG([-Wmissing-format-attribute],
-                        [GNUWARNINGFLAGS="$GNUWARNINGFLAGS -Wmissing-format-attribute"])
-  ;;
-esac
+dnl GASNET_GET_GNUWARNINGFLAGS(type)  type=C or CXX
+AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
+        [$1]FLAGS="-g3"
+        ]GASNET_TRY_[$1]FLAG[([-Wall],[[$1]FLAGS="$[$1]FLAGS -Wall"])
+        ]GASNET_TRY_[$1]FLAG[([-Wno-unused],[[$1]FLAGS="$[$1]FLAGS -Wno-unused"])
+        ]GASNET_TRY_[$1]FLAG[([-Wpointer-arith],[[$1]FLAGS="$[$1]FLAGS -Wpointer-arith"])
+        ]GASNET_TRY_[$1]FLAG[([-Wnested-externs],[[$1]FLAGS="$[$1]FLAGS -Wnested-externs"])
+        ]GASNET_TRY_[$1]FLAG[([-Wwrite-strings],[[$1]FLAGS="$[$1]FLAGS -Wwrite-strings"])
+        ]GASNET_TRY_[$1]FLAG[([-Wmissing-format-attribute],[[$1]FLAGS="$[$1]FLAGS -Wmissing-format-attribute"])
+        # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
+	AC_MSG_CHECKING(for buggy pthread.h mutex initializers)
+        ]GASNET_TRY_[$1]COMPILE_WITHWARN[([#include <pthread.h>],
+          [pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;],
+          [AC_MSG_RESULT(ok)], [AC_MSG_RESULT(buggy)
+          ]GASNET_TRY_[$1]FLAG[([-Wno-missing-braces],[[$1]FLAGS="$[$1]FLAGS -Wno-missing-braces"],
+          [AC_MSG_ERROR(failure while checking for buggy pthread.h mutexes)])
+        ])
+        case "$target_os" in 
+          solaris*) # hide pragma warnings in system header files included by absolute path
+            ]GASNET_TRY_[$1]FLAG[([-Wno-unknown-pragmas],[[$1]FLAGS="$[$1]FLAGS -Wno-unknown-pragmas"])
+        esac
+        #]GASNET_TRY_[$1]FLAG[([-ansi -U__STRICT_ANSI__],[[$1]FLAGS="$[$1]FLAGS -ansi -U__STRICT_ANSI__"])
+])
 
-case "$target_os" in # hide pragma warnings in system header files included by absolute path
-  solaris*) GNUWARNINGFLAGS="$GNUWARNINGFLAGS -Wno-unknown-pragmas"
-esac
-
 case "$gasnet_cv_cc_family" in
-  GNU)  CCDEBUGFLAGS="-g3 $GNUWARNINGFLAGS"
-        #CCDEBUGFLAGS="$CCDEBUGFLAGS -ansi -U__STRICT_ANSI__"
+  GNU)  oldCFLAGS="$CFLAGS"
+        GASNET_GET_GNUWARNINGFLAGS(C)
+        CCDEBUGFLAGS="$CFLAGS"
+        CFLAGS="$oldCFLAGS"
   ;;
   HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
   *)    CCDEBUGFLAGS="-g" ;;
@@ -531,31 +569,37 @@ if test $enabled_udp = yes; then
 
   AC_LANG_CPLUSPLUS
   GASNET_FAMILY_CACHE_CHECK(C++, CXX, gasnet_cv_cxx_family)
+  CXXDEBUGFLAGS="-g"
+  CXXOPTFLAGS="-O2"
   case "$gasnet_cv_cxx_family" in
-    GNU)   MISC_CXXFLAGS="$GNUWARNINGFLAGS" ;;
+    GNU) 
+       oldCXXFLAGS="$CXXFLAGS"  
+       GASNET_GET_GNUWARNINGFLAGS(CXX)
+       MISC_CXXFLAGS="$CXXFLAGS" 
+       CXXFLAGS="$oldCXXFLAGS"
+    ;;
     PGI)   MISC_CXXFLAGS="-w" ;; # apparently has no way to indep control warnings
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
     MIPS)  MISC_CXXFLAGS="-diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
     Intel) MISC_CXXFLAGS="-wd654 -wd1125 -wd279" ;;
-    Cray)  MISC_CXXFLAGS="-hnomessage=611:997 -hnew_for_init" ;;
+    Cray)  # Cray CC v3.3.0.2 fails to accept "-htaskprivate", but accepts "-htask private"
+     MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init -htask private $LIBCM" ;;
   esac  
+  if test "$BUILDCONFIG" = "optimize" ; then
+    CXXFLAGS="$CXXOPTFLAGS"
+  else
+    CXXFLAGS="$CXXDEBUGFLAGS"
+  fi
   AC_SUBST(CXX)
   AC_SUBST(CXXFLAGS)
   AC_SUBST(MISC_CXXFLAGS)
 
   AC_LANG_RESTORE
 
-  case "$ac_cv_sizeof_void_p" in
-    4) 
-      supported_amudp=yes 
-      ;; 
-    *) # AMUDP not currently supported on 64-bit systems
-      supported_amudp=no
-      if test "$force_udp" = "yes" ; then
-        AC_MSG_ERROR(User requested --enable-udp but AMUDP currently does not support 64-bit)
-      fi
-      ;;
-  esac
+  supported_amudp=yes 
+  if test "$force_udp$supported_udp" = yesno ; then
+    AC_MSG_ERROR(User requested --enable-udp but AMUDP is not supported on your system)
+  fi
 
   if test $supported_amudp = yes; then
     # detect libraries necessary for udp-* backends
@@ -1085,7 +1129,7 @@ AC_SUBST(LIBM)
 
 LIBS="$OLDLIBS"
 
-AC_CHECK_FUNCS(setenv putenv)
+AC_CHECK_FUNCS(setenv unsetenv putenv)
 
 ########################################################################
 

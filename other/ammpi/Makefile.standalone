@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/12/19 13:48:09 $
-# $Revision: 1.1 $
+#     $Date: 2004/01/19 12:57:32 $
+# $Revision: 1.2 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -51,11 +51,11 @@ libammpi.a: ${objects}
 
 # ---------- build targets -------------
 # main target
-tests: ${testprograms}
+tests: apputils.o ${testprograms}
 
 # method to convert .cpp to .o (more reliable than ".cpp.o" method)
 %.o : %.c ${headers}
-	${Ccompile} $< -o $@
+	${Ccompile} -DAMMPI $< -o $@
 
 %.o : %.cpp ${headers}
 	${CXXcompile} $< -o $@

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.h                                     $
- *     $Date: 2003/12/17 10:12:24 $
- * $Revision: 1.2 $
+ *     $Date: 2004/01/19 12:57:33 $
+ * $Revision: 1.3 $
  * Description: AMUDP Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -105,6 +105,22 @@ typedef struct {
 
 extern amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[];
 /* null-terminated array of spawn functions available, with descriptions */
+
+/* ------------------------------------------------------------------------------------ */
+/* standardized AM-2 extensions */
+
+#define AMX_SPMDgetenvMaster      AMUDP_SPMDgetenvMaster
+#define AMX_SPMDBarrier           AMUDP_SPMDBarrier
+#define AMX_SPMDNumProcs          AMUDP_SPMDNumProcs
+#define AMX_SPMDMyProc            AMUDP_SPMDMyProc
+#define AMX_SPMDExit              AMUDP_SPMDExit
+#define AMX_SPMDSetExitCallback   AMUDP_SPMDSetExitCallback          
+#define AMX_SPMDkillmyprocess     AMUDP_SPMDkillmyprocess
+#define AMX_SPMDIsWorker          AMUDP_SPMDIsWorker
+#define AMX_SPMDAllGather         AMUDP_SPMDAllGather
+
+/* TODO */
+#define AMX_SPMDStartup           AMUDP_SPMDStartup
 
 END_EXTERNC
 

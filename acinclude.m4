@@ -255,28 +255,117 @@ LDFLAGS="$LD_FLAGS $5"
 AC_CHECK_LIB($1, $2, $3, $4, $6)
 LDFLAGS="$GASNET_check_lib_old_ldflags"])
 
+dnl GASNET_TRY_RUNCMD(command, action-success-nooutput, action-success-output, action-error)
+dnl run a command, and take action based on the result code and output (in $gasnet_cmd_stdout/$gasnet_cmd_stderr)
+AC_DEFUN([GASNET_TRY_RUNCMD],[
+  echo \"$1\" >&5
+  ( $1 ) > conftest-runcmdout 2> conftest-runcmderr
+  gasnet_cmd_result="$?"
+  gasnet_cmd_stdout="`cat conftest-runcmdout`"
+  gasnet_cmd_stderr="`cat conftest-runcmderr`"
+  cat conftest-runcmdout >&5
+  cat conftest-runcmderr >&5
+  echo gasnet_cmd_result=$gasnet_cmd_result >&5
+  rm -rf conftest*
+  if test "$gasnet_cmd_result" = "0" ; then 
+    if test -z "$gasnet_cmd_stdout$gasnet_cmd_stderr" ; then
+      :
+      $2 
+    else
+      :
+      $3 
+    fi
+  else
+    :
+    $4 
+  fi
+])
+
+dnl GASNET_TRY_CCOMPILE_WITHWARN(includes, function-body, action-success, action-warning, action-error)
+dnl Compile a C program and take different actions based on complete success, error or warning
+AC_DEFUN([GASNET_TRY_CCOMPILE_WITHWARN],[
+  gasnet_testfile=gasnet-conftest.c
+  gasnet_compile_cmd="${CC-cc} -c $CFLAGS $CPPFLAGS $gasnet_testfile"
+  cat > $gasnet_testfile <<EOF
+#include "confdefs.h"
+$1
+int main() {
+$2
+; return 0; }
+EOF
+  GASNET_TRY_RUNCMD([$gasnet_compile_cmd], [$3], [
+    echo "configure: warned program was:" >&5
+    cat $gasnet_testfile >&5
+    $4
+    ],[
+    echo "configure: failed program was:" >&5
+    cat $gasnet_testfile >&5
+    $5
+    ])
+  rm -f $gasnet_testfile
+])
+
+dnl GASNET_TRY_CXXCOMPILE_WITHWARN(includes, function-body, action-success, action-warning, action-error)
+dnl Compile a C++ program and take different actions based on complete success, error or warning
+AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN],[
+  gasnet_testfile=gasnet-conftest.cc
+  gasnet_compile_cmd="${CXX-c++} -c $CXXFLAGS $CPPFLAGS $gasnet_testfile"
+  cat > $gasnet_testfile <<EOF
+#include "confdefs.h"
+$1
+int main() {
+$2
+; return 0; }
+EOF
+  GASNET_TRY_RUNCMD([$gasnet_compile_cmd], [$3], [
+    echo "configure: warned program was:" >&5
+    cat $gasnet_testfile >&5
+    $4
+    ],[
+    echo "configure: failed program was:" >&5
+    cat $gasnet_testfile >&5
+    $5
+    ])
+  rm -f $gasnet_testfile
+])
 
 dnl GASNET_TRY_CFLAG(flags, action-if-supported, action-if-not-supported)
 AC_DEFUN([GASNET_TRY_CFLAG],[
-oldflags="$CFLAGS"
+gasnet_tryflag_oldflags="$CFLAGS"
 CFLAGS="$CFLAGS $1"
-AC_LANG_SAVE
-AC_LANG_C
-AC_TRY_COMPILE([], [], $2, $3)
-AC_LANG_RESTORE
-CFLAGS="$oldflags"])
-
+AC_MSG_CHECKING(for C compiler flag $1)
+GASNET_TRY_CCOMPILE_WITHWARN([], [], [
+ AC_MSG_RESULT(yes)
+ CFLAGS="$gasnet_tryflag_oldflags"
+ $2
+], [
+ AC_MSG_RESULT(no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr)
+ CFLAGS="$gasnet_tryflag_oldflags"
+ $3
+], [
+ AC_MSG_RESULT(no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr)
+ CFLAGS="$gasnet_tryflag_oldflags"
+ $3
+])])
 
 dnl GASNET_TRY_CXXFLAG(flags, action-if-supported, action-if-not-supported)
 AC_DEFUN([GASNET_TRY_CXXFLAG],[
-oldflags="$CXXFLAGS"
+gasnet_tryflag_oldflags="$CXXFLAGS"
 CXXFLAGS="$CXXFLAGS $1"
-AC_LANG_SAVE
-AC_LANG_CPLUSPLUS
-AC_TRY_COMPILE([], [], $2, $3)
-AC_LANG_RESTORE
-CXXFLAGS="$oldflags"])
-
+AC_MSG_CHECKING(for C++ compiler flag $1)
+GASNET_TRY_CXXCOMPILE_WITHWARN([], [], [
+ AC_MSG_RESULT(yes)
+ CXXFLAGS="$gasnet_tryflag_oldflags"
+ $2
+], [
+ AC_MSG_RESULT(no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr)
+ CXXFLAGS="$gasnet_tryflag_oldflags"
+ $3
+], [
+ AC_MSG_RESULT(no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr)
+ CXXFLAGS="$gasnet_tryflag_oldflags"
+ $3
+])])
 
 AC_DEFUN([GASNET_TRY_CACHE_CHECK],[
 AC_CACHE_CHECK($1, gasnet_cv_$2,

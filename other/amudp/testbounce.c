@@ -1,9 +1,3 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <amudp.h>
-#include <amudp_spmd.h>
-
 #include "apputils.h"
 
 
@@ -95,7 +89,7 @@ int main(int argc, char **argv) {
   int depth = 0;
   int iters = 0;
 
-  AMUDP_VerboseErrors = 1;
+  AMX_VerboseErrors = 1;
 
   if (argc < 3) {
     printf("Usage: %s numprocs spawnfn (iters) (Poll/Block)\n", argv[0]);
@@ -106,7 +100,7 @@ int main(int argc, char **argv) {
   if (!depth) depth = 4;
 
   /* call startup */
-  AM_Safe(AMUDP_SPMDStartup(&argc, &argv, 
+  AM_Safe(AMX_SPMDStartup(&argc, &argv, 
                         0, depth, NULL, 
                         &networkpid, &eb, &ep));
 
@@ -117,8 +111,8 @@ int main(int argc, char **argv) {
   setupUtilHandlers(ep, eb);
 
   /* get SPMD info */
-  myproc = AMUDP_SPMDMyProc();
-  numprocs = AMUDP_SPMDNumProcs();
+  myproc = AMX_SPMDMyProc();
+  numprocs = AMX_SPMDNumProcs();
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 1;
@@ -126,11 +120,11 @@ int main(int argc, char **argv) {
     switch(argv[2][0]) {
       case 'p': case 'P': polling = 1; break;
       case 'b': case 'B': polling = 0; break;
-      default: printf("polling must be 'P' or 'B'..\n"); AMUDP_SPMDExit(1);
+      default: printf("polling must be 'P' or 'B'..\n"); AMX_SPMDExit(1);
       }
     }
   if (numprocs % 2 != 0) {
-     printf("requires an even number of processors\n"); AMUDP_SPMDExit(1);
+     printf("requires an even number of processors\n"); AMX_SPMDExit(1);
     }
   VMseg = (uint32_t *)malloc(AM_MaxLong()+100);
   memset(VMseg, 0, AM_MaxLong()+100);
@@ -139,7 +133,7 @@ int main(int argc, char **argv) {
   if (myproc % 2 == 0) partner = (myproc + 1) % numprocs;
   else partner = (myproc - 1);
 
-  AM_Safe(AMUDP_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   if (myproc == 0) printf("Running %i iterations of bulk bounce test...\n", iters);
 
@@ -200,12 +194,12 @@ int main(int argc, char **argv) {
   fflush(stdout);
 
   /* dump stats */
-  AM_Safe(AMUDP_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
   printGlobalStats();
-  AM_Safe(AMUDP_SPMDBarrier());
+  AM_Safe(AMX_SPMDBarrier());
 
   /* exit */
-  AM_Safe(AMUDP_SPMDExit(0));
+  AM_Safe(AMX_SPMDExit(0));
 
   return 0;
   }
