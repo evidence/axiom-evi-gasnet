@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2004/08/04 00:48:25 $
- * $Revision: 1.18 $
+ *     $Date: 2004/08/04 23:50:36 $
+ * $Revision: 1.19 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -223,6 +223,16 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
 #elif defined(CYGWIN)
   #include <windows.h>
+  /* note: QueryPerformanceCounter is a Win32 system call and thus has ~1us overhead
+     Most systems have a QueryPerformanceFrequency() == 3,579,545, which is the
+     ACPI counter that should be reliable across CPU cycle speedstepping, etc.
+     rdtsc has lower overhead, but only works on Pentium or later,
+     produces wildly incorrect results if the  CPU decides to change clock rate 
+     mid-run (and there's no reliable way to get the correct cycle multiplier 
+     short of timing a known-length delay and hoping for the best)
+     See http://www.geisswerks.com/ryan/FAQS/timing.html
+         http://softwareforums.intel.com/ids/board/message?board.id=16&message.id=1509
+  */
   typedef uint64_t gasneti_stattime_t;
   #define GASNETI_STATTIME_MIN        ((gasneti_stattime_t)0)
   #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
