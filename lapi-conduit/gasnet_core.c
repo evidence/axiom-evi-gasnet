@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/05/28 17:11:46 $
- * $Revision: 1.52 $
+ *     $Date: 2004/08/01 00:12:37 $
+ * $Revision: 1.53 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1685,6 +1685,12 @@ void gasnetc_token_queue_init(gasnetc_token_queue_t *q)
 gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_schedule)
 {
     gasnetc_token_t *p;
+
+    /* start by 'peeking' to see if nothing is waiting, to avoid locking overhead 
+       cannot do this within the final poll of a completion handler, which must 
+       lock to update the schedule flag
+     */
+    if (!update_schedule && q->head == NULL) return NULL;
 
     /* spin until queue is available */
     gasnetc_spinlock_lock(&(q->lock));
