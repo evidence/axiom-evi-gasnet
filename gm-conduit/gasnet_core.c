@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2004/10/12 22:59:40 $
- * $Revision: 1.74 $
+ * $Date: 2004/10/13 00:18:47 $
+ * $Revision: 1.75 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -100,11 +100,23 @@ gasnetc_init(int *argc, char ***argv)
 	{
 		int	i;
 		uintptr_t M, MaxVictim;
+		float pm_ratio;
+		char *env_ratio;
 		uintptr_t *global_exch = (uintptr_t *)
 		    gasneti_malloc(gasnetc_nodes*sizeof(uintptr_t));
 
+		env_ratio = gasneti_getenv_withdefault(
+			"GASNET_PHYSMEM_PINNABLE_RATIO", 
+			_STRINGIFY(GASNETC_DEFAULT_PHYSMEM_PINNABLE_RATIO));
+
+		pm_ratio = atof(env_ratio);
+
+		if_pf (pm_ratio <= 0.0 || pm_ratio >= 1.0)
+		    gasneti_fatalerror("GASNET_PHYSMEM_PINNABLE_RATIO "
+				       "must be between 0 and 1");
+
 		gasnetc_MaxPinnableMemory = 
-		    gasnetc_getPhysMem() * GASNETC_PHYSMEM_PINNABLE_RATIO;
+		    (uintptr_t) gasnetc_getPhysMem() * pm_ratio;
 
 		gasnetc_bootstrapExchange(
 		    &gasnetc_MaxPinnableMemory, sizeof(uintptr_t), global_exch);

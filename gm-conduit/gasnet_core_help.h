@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_help.h,v $
- * $Date: 2004/10/12 22:59:40 $
- * $Revision: 1.36 $
+ * $Date: 2004/10/13 00:18:47 $
+ * $Revision: 1.37 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -29,14 +29,6 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 
 /* -------------------------------------------------------------------------- */
 /* Tunable Compile-time Parameters */
-/*
- * GASNETC_PHYSMEM_PINNABLE_RATIO (float default=0.7).  Which fraction of the
- *       determined physical memory can be made pinnable.  This value is
- *       extracted from Myricom guarantees that 70% of memory can be pinned for
- *       correct operation.  */
-   #ifndef GASNETC_PHYSMEM_PINNABLE_RATIO
-     #define GASNETC_PHYSMEM_PINNABLE_RATIO 0.7
-   #endif
 
 /* GASNETC_AM_SIZE (default=16). Log2 size of the AM buffers used in the core.
  *       By default, an amount of 64k buffers equal to the number of GM tokens
@@ -123,6 +115,16 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_GM_MAXBOARDS	3
 
 #define GASNETC_SEGMENT_ALIGN	GASNETI_PAGESIZE
+
+/*
+ * GASNETC_DEFAULT_PHYSMEM_PINNABLE_RATIO (float default=0.7).  Which fraction
+ *       of the determined physical memory can be made pinnable.  This value is
+ *       extracted from Myricom guarantees that 70% of memory can be pinned for
+ *       correct operation.  This parameter has a runtime counterpart,
+ *       GASNET_PHYSMEM_PINNABLE_RATIO which can be set at runtime. */
+   #ifndef GASNETC_DEFAULT_PHYSMEM_PINNABLE_RATIO
+     #define GASNETC_DEFAULT_PHYSMEM_PINNABLE_RATIO 0.7
+   #endif
 
 /* -------------------------------------------------------------------------- */
 /* These should not be modified */
