@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/11/22 11:48:28 $
-# $Revision: 1.95 $
+#     $Date: 2003/11/25 19:44:23 $
+# $Revision: 1.96 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.95 $)
+AC_REVISION($Revision: 1.96 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1231,6 +1231,9 @@ AC_SUBST(LDFLAGS)
 
 PERLSTART=$TOP_SRCDIR/other/perlstart
 AC_SUBST_FILE(PERLSTART)
+
+# Figure out how to install config files
+GASNET_SET_INSTALL_CMD
 
 ########################################################################
 ##

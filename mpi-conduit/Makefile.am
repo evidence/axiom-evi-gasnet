@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.16 2003/11/22 11:48:34 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.17 2003/11/25 19:44:28 phargrov Exp $
 # Description: Makefile for GASNet MPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -99,8 +99,8 @@ install-data-local: $(headers)
 	@list='$(makefile_fragments)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    filename=`basename $$p`; \
-	    echo " grep -v "###NOINSTALL###" $$p | sed "s@###INSTALL_PREFIX###@${prefix}@g" > $(DESTDIR)$(includedir)/mpi-conduit/$$filename"; \
-	    grep -v "###NOINSTALL###" $$p | sed "s@###INSTALL_PREFIX###@${prefix}@g" > $(DESTDIR)$(includedir)/mpi-conduit/$$filename; \
+	    echo "@GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/mpi-conduit/$$filename"; \
+	    @GASNET_INSTALL_CMD@ < $$p > $(DESTDIR)$(includedir)/mpi-conduit/$$filename; \
 	  else :; fi; \
 	done
 

@@ -366,4 +366,11 @@ AC_DEFUN(GASNET_FUNC_ALLOCA,[
   patsubst(AC_FUNC_ALLOCA, [p = alloca], [p = (char *) alloca])
 ])
 
+dnl Set command for use in Makefile.am to install various files
+dnl This command should remove all the magic used to run from the build
+dnl directory, as well as deal with setting of the prefix at install time.
+AC_DEFUN(GASNET_SET_INSTALL_CMD,[
+GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' -e 's@###INSTALL_PREFIX###@\$(prefix)@g'"
+AC_SUBST(GASNET_INSTALL_CMD)
+])
 
