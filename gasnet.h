@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2002/06/07 21:23:37 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/10 13:04:55 $
+ * $Revision: 1.4 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -39,9 +39,6 @@
   #error Client code #define exactly one of (DEBUG or NDEBUG) to select GASNet build configuration
 #endif
 
-/* ensure that client links the correct library */
-#define gasnet_init gasnet_init_GASNET_ ## GASNET_CONFIG
-
 #if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
   #define GASNETI_THREADS
 #endif
@@ -51,6 +48,9 @@
 
 /* basic utilities used in the headers */
 #include <gasnet_basic.h>
+
+/* ensure that client links the correct library */
+#define gasnet_init _CONCAT(gasnet_init_GASNET_,GASNET_CONFIG)
 
 /* ------------------------------------------------------------------------------------ */
 /* GASNet forward definitions, which may override some of the defaults below */

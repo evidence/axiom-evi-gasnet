@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/06/05 00:00:02 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/10 13:04:56 $
+ * $Revision: 1.3 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -228,10 +228,10 @@ static int gasnetc_init(int *argc, char ***argv,
     gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
     assert(gasneti_atomic_read(&segsrecvd) == 0);
     /* ------------------------------------------------------------------------------------ */
-    retval = AMMPI_SPMDBarrier();
-    if (retval != AM_OK) INITERR(RESOURCE, "AMMPI_SPMDBarrier() failed");
     /*  primary init complete */
     gasnetc_init_done = 1;
+    retval = AMMPI_SPMDBarrier();
+    if (retval != AM_OK) INITERR(RESOURCE, "AMMPI_SPMDBarrier() failed");
   AMUNLOCK();
   #if DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): primary init complete\n"); fflush(stderr);

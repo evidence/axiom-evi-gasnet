@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/10 13:04:55 $
+ * $Revision: 1.2 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -127,6 +127,11 @@
 #ifndef _STRINGIFY
 #define _STRINGIFY_HELPER(x) #x
 #define _STRINGIFY(x) _STRINGIFY_HELPER(x)
+#endif
+
+#ifndef _CONCAT
+#define _CONCAT_HELPER(a,b) a ## b
+#define _CONCAT(a,b) _CONCAT_HELPER(a,b)
 #endif
 
 #ifndef TRUE
