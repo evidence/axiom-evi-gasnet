@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/02/25 14:24:28 $
- * $Revision: 1.26 $
+ *     $Date: 2003/03/03 04:25:49 $
+ * $Revision: 1.27 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -297,7 +297,7 @@ gasneti_stattime_t starttime;
           if (traceheader) {
             #ifdef GASNETI_THREADS
               fprintf(gasneti_tracefile, "%i(%x) %8.6fs> (%c) %s%s", 
-                (int)gasnet_mynode(), (uintptr_t)pthread_self(), time, *type, msg,
+                (int)gasnet_mynode(), (int)(uintptr_t)pthread_self(), time, *type, msg,
                 (msg[strlen(msg)-1]=='\n'?"":"\n"));
             #else
               fprintf(gasneti_tracefile, "%i %8.6fs> (%c) %s%s", gasnet_mynode(), time, *type, msg,
