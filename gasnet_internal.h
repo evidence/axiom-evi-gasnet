@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/12/02 07:02:35 $
- * $Revision: 1.23 $
+ *     $Date: 2002/12/03 00:36:46 $
+ * $Revision: 1.24 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -173,7 +173,7 @@ extern void gasneti_freezeForDebugger();
     #include <sys/machine/builtins.h>
     typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
     #define gasneti_atomic_increment(p) (__ATOMIC_INCREMENT_LONG(&((p)->ctr)))
-    #define gasneti_atomic_increment(p) (__ATOMIC_DECREMENT_LONG(&((p)->ctr)))
+    #define gasneti_atomic_decrement(p) (__ATOMIC_DECREMENT_LONG(&((p)->ctr)))
     #define gasneti_atomic_read(p)      ((p)->ctr)
     #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
     #define gasneti_atomic_init(v)      { (v) }
