@@ -1,6 +1,6 @@
-/*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/10/24 01:37:34 $
- * $Revision: 1.14 $
+/*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
+ *     $Date: 2003/12/06 13:25:50 $
+ * $Revision: 1.15 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
