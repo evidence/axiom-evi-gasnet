@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2004/10/12 11:04:51 $
- * $Revision: 1.28 $
+ *     $Date: 2005/01/22 15:11:40 $
+ * $Revision: 1.29 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,6 +129,29 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   }
   #define GASNETI_STATTIME_TO_US(st)  ((st)/1000)
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
+#elif defined(__MTA__)
+  #include <sys/mta_task.h>
+  #include <machine/mtaops.h>
+
+  typedef int64_t gasneti_stattime_t;
+  GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
+  uint64_t gasneti_stattime_to_us(gasneti_stattime_t ticks) {
+    static int firsttime = 1;
+    static double adjust;
+    if_pf(firsttime) {
+      double freq = mta_clock_freq();
+      adjust = 1000000.0/freq;
+      firsttime = 0;
+      #if 0
+        printf("first time: ticks=%llu  freq=%f adjust=%f\n", 
+              (unsigned long long) ticks, freq, adjust);
+      #endif
+    }
+    return (uint64_t)(((double)ticks) * adjust);
+  }
+  #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
+  #define GASNETI_STATTIME_NOW()      (MTA_CLOCK(0))
+  #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)(((uint64_t)-1)>>1))
 #elif defined(SOLARIS)
 #if 1
   /* workaround bizarre failures on gcc 3.2.1 - seems they sometimes use a

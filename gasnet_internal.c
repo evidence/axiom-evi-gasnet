@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2004/12/15 21:33:26 $
- * $Revision: 1.86 $
+ *     $Date: 2005/01/22 15:11:40 $
+ * $Revision: 1.87 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -104,7 +104,7 @@ int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG) = 1;
 extern void gasneti_check_config_preinit() {
   gasneti_assert_always(sizeof(int8_t) == 1);
   gasneti_assert_always(sizeof(uint8_t) == 1);
-  #if !defined(CRAYT3E)
+  #ifndef INTTYPES_16BIT_MISSING
     gasneti_assert_always(sizeof(int16_t) == 2);
     gasneti_assert_always(sizeof(uint16_t) == 2);
   #endif
@@ -232,7 +232,7 @@ extern int gasneti_cpu_count() {
         }
         if (hwprocs < 1) hwprocs = 0;
       }
-  #elif defined(HPUX) || defined(SUPERUX)
+  #elif defined(HPUX) || defined(SUPERUX) || defined(__MTA__)
       hwprocs = 0; /* appears to be no way to query CPU count on these */
   #else
       hwprocs = sysconf(_SC_NPROCESSORS_ONLN);

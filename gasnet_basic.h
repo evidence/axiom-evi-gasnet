@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2004/09/27 09:52:55 $
- * $Revision: 1.32 $
+ *     $Date: 2005/01/22 15:11:40 $
+ * $Revision: 1.33 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -93,6 +93,8 @@
      that requires providing the function name 
      (the only way to request inlining a particular fn from C) */
   #define GASNET_INLINE_MODIFIER(fnname) GASNETI_PRAGMA(_CRI inline fnname) static
+#elif defined(__MTA__)
+  #define GASNET_INLINE_MODIFIER(fnname) GASNETI_PRAGMA(mta inline) static
 #else
   #define GASNET_INLINE_MODIFIER(fnname) static
 #endif
@@ -146,8 +148,13 @@
 
 /* if with branch prediction */
 #ifndef if_pf
+#ifdef __MTA__
+  #define if_pf(cond) _Pragma("mta expect false") if (cond)
+  #define if_pt(cond) _Pragma("mta expect true")  if (cond)
+#else
   #define if_pf(cond) if (PREDICT_FALSE(cond))
   #define if_pt(cond) if (PREDICT_TRUE(cond))
+#endif
 #endif
 
 #endif

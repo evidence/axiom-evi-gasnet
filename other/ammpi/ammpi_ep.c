@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2004/10/10 03:05:03 $
- * $Revision: 1.22 $
+ *     $Date: 2005/01/22 15:11:44 $
+ * $Revision: 1.23 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -508,7 +508,7 @@ extern int AM_Init() {
     /* check system attributes */
     AMMPI_assert(sizeof(int8_t) == 1);
     AMMPI_assert(sizeof(uint8_t) == 1);
-    #if !defined(CRAYT3E)
+    #ifndef INTTYPES_16BIT_MISSING
       AMMPI_assert(sizeof(int16_t) == 2);
       AMMPI_assert(sizeof(uint16_t) == 2);
     #endif

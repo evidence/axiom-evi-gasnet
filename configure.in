@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/01/18 20:49:37 $
-# $Revision: 1.218 $
+#     $Date: 2005/01/22 15:11:40 $
+# $Revision: 1.219 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.218 $)
+AC_REVISION($Revision: 1.219 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -246,6 +246,7 @@ case "$gasnet_cv_cc_family" in
          ;;
   NEC) MISC_CFLAGS="-woff=68:111:174:177:236:301:550:940" ;; 
   PGI) MISC_CFLAGS="-Masmkeyword" ;;
+  MTA) MISC_CFLAGS="-display_error_number -WS 111,174,238" ;;
   Sun) MISC_CFLAGS="-errtags" ;; # show warning tag ids in warnings
   XLC) MISC_CFLAGS="-qsuppress=1500-010" ;; # 1500-010 = infinite loop (such as in our tests)
   *)    MISC_CFLAGS="" ;;
@@ -468,12 +469,22 @@ GASNET_THREAD_DEFINES=""
 GASNET_THREAD_LIBS=""
 case "$target_os" in
   solaris*)  
+    case "$gasnet_cv_cc_family" in
+      MTA)
+	AC_DEFINE(MTA)
+	GASNET_MACHINE_DEFINES="-DMTA" 
+	GASNET_THREAD_DEFINES=""
+        GASNET_THREAD_LIBS="-lpthread" 
+      ;;
+      *)
 	AC_DEFINE(SOLARIS)
 	GASNET_MACHINE_DEFINES="-DSOLARIS" 
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
         # on some systems static linking fails with -lpthread, 
         # but need it or pthread_create will fail at runtime
         GASNET_THREAD_LIBS="-lpthread" 
+      ;;
+    esac
         ;;
   linux*) 
 	AC_DEFINE(LINUX)
@@ -740,6 +751,7 @@ if test $enabled_udp = yes; then
     MIPS)  MISC_CXXFLAGS="-diag_error 1035 -diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
     HP)    MISC_CXXFLAGS="+W612 +W749 +W2111 +W2177 +W2236 +W2550" ;;
     Compaq) MISC_CXXFLAGS="-msg_disable extrasemi,boolexprconst,codeunreachable" ;;
+    MTA)   MISC_CXXFLAGS="-exceptions -display_error_number -WS 111,174,238" ;;
     Intel) MISC_CXXFLAGS="-wd654 -wd1125 -wd279"
            GASNET_TRY_CXXFLAG([-wd1572],
                           [MISC_CXXFLAGS="$MISC_CXXFLAGS -wd1572"])
@@ -766,6 +778,8 @@ if test $enabled_udp = yes; then
     CXXFLAGS="$CXXDEBUGFLAGS"
   fi
   GASNET_CHECK_OPTIMIZEDDEBUG(CXX,CXXFLAGS,[$CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES],[])
+  oldCXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS $CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES"
   GASNET_TRY_CACHE_RUN( [for working C++ exceptions], cxx_exceptions, [
     int main() {
      try {
@@ -780,6 +794,7 @@ if test $enabled_udp = yes; then
   ], [ ], [ 
     GASNET_MSG_ERROR("I can\'t figure out how to build and run a program that uses C++ exceptions")
   ] )  
+  CXXFLAGS="$oldCXXFLAGS"
   AC_SUBST(MISC_CXXFLAGS)
 
   AC_LANG_RESTORE
@@ -853,6 +868,14 @@ if test $enabled_mpi = yes; then
   fi
   case "$target_os" in
     solaris*)  
+     case "$gasnet_cv_cxx_family" in
+      MTA)
+    	GASNET_ENV_DEFAULT(MPI_CC, cc)
+        GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $MISC_CFLAGS $CFLAGS, $SAFE_MPI_CFLAGS)
+    	GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi)
+	GASNET_ENV_DEFAULT(MPIRUN_CMD, mtarun -t %N -m %N /usr/bin/env _MPI_MT=%N %C)
+        ;;
+      *)
         # I don't have access to a Solaris cluster with MPI (other than NOW) 
         # but these seem like sane defaults
     	GASNET_ENV_DEFAULT(MPI_CC, mpicc)
@@ -860,6 +883,8 @@ if test $enabled_mpi = yes; then
     	GASNET_ENV_DEFAULT(MPI_LIBS, )
 	GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
         ;;
+     esac
+     ;;
     linux*) 
     	GASNET_ENV_DEFAULT(MPI_CC, mpicc)
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $CFLAGS, $SAFE_MPI_CFLAGS)
@@ -967,10 +992,9 @@ if test $enabled_mpi = yes; then
     LIBS="$MPI_LIBS"
     # we just try to link an MPI app - running MPI apps is a whole new can of worms
     AC_TRY_LINK( [
-      #include <stdlib.h>
       #include <mpi.h>
     ], [
-      MPI_Init(NULL,NULL);
+      MPI_Init((void*)0,(void*)0);
       MPI_Finalize();
     ], [ mpi_test_worked=yes ], [ mpi_test_worked=no GASNET_ERR_SAVE() ] )
     CC="$OLDCC"

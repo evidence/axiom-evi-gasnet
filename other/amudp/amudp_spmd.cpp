@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2004/10/13 21:32:52 $
- * $Revision: 1.18 $
+ *     $Date: 2005/01/22 15:11:48 $
+ * $Revision: 1.19 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -14,7 +14,7 @@
   #include <process.h>
 #else
   #include <unistd.h>
-  #if defined(_CRAYT3E) || defined(_SX) || defined(NETBSD)
+  #if defined(_CRAYT3E) || defined(_SX) || defined(NETBSD) || defined(__MTA__)
     /* these both implement sched_yield() in libpthread only, which we may not want */
     #define sched_yield() sleep(0)
   #else

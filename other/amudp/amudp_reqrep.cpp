@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2004/10/19 04:41:55 $
- * $Revision: 1.21 $
+ *     $Date: 2005/01/22 15:11:48 $
+ * $Revision: 1.22 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -237,7 +237,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
  */
 #if defined(WIN32) || defined(CYGWIN)
   #define BROKEN_IOCTL 1
-#elif defined(AIX) || defined(IRIX) || defined(FREEBSD) || defined(HPUX) || \
+#elif defined(AIX) || defined(IRIX) || defined(FREEBSD) || defined(HPUX) || defined(MTA) || \
       defined(OSF) || defined(DARWIN) || defined(SUPERUX) || defined(NETBSD) || defined(UNICOS)
   #define BROKEN_IOCTL 1 // seems these are broken too... 
 #else 

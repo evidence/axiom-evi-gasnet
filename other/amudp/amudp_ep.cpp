@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2004/10/12 11:33:27 $
- * $Revision: 1.7 $
+ *     $Date: 2005/01/22 15:11:48 $
+ * $Revision: 1.8 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -385,7 +385,7 @@ extern int AM_Init() {
     /* check system attributes */
     AMUDP_assert(sizeof(int8_t) == 1);
     AMUDP_assert(sizeof(uint8_t) == 1);
-    #if !defined(CRAYT3E)
+    #ifndef INTTYPES_16BIT_MISSING
       AMUDP_assert(sizeof(int16_t) == 2);
       AMUDP_assert(sizeof(uint16_t) == 2);
     #endif

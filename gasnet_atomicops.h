@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2004/12/24 09:16:20 $
- * $Revision: 1.57 $
+ *     $Date: 2005/01/22 15:11:40 $
+ * $Revision: 1.58 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -145,6 +145,16 @@
       #define gasneti_atomic_init(v)      (v)
       #define gasneti_atomic_decrement_and_test(p) \
                                           (add_then_test32((p),(uint32_t)-1) == 0) 
+  #elif defined(__MTA__)
+      /* use MTA intrinsics */
+      typedef int64_t gasneti_atomic_t;
+      #define gasneti_atomic_increment(p) (int_fetch_add((p),1))
+      #define gasneti_atomic_decrement(p) (int_fetch_add((p),-1))
+      #define gasneti_atomic_read(p)      (*(p))
+      #define gasneti_atomic_set(p,v)     (*(p) = (v))
+      #define gasneti_atomic_init(v)      (v)
+      #define gasneti_atomic_decrement_and_test(p) \
+                                          (int_fetch_add((p),-1) == 1) 
   #elif 0 && defined(SOLARIS)
       /* $%*(! Solaris has atomic functions in the kernel but refuses to expose them
          to the user... after all, what application would be interested in performance? */
@@ -572,6 +582,8 @@
   #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL /* not supported or used */
 #elif defined(_CRAY)  
   #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL /* not supported or used */
+#elif defined(__MTA__)  
+  #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL /* not supported or used */
 #else
   #error "Don't know how to use inline assembly for your compiler"
 #endif
@@ -717,6 +729,19 @@
      x = 1;
    }
    #define gasneti_compiler_fence() gasneti_local_wmb()
+#elif defined(__MTA__)
+   /* MTA has no caches or write buffers - just need a compiler reordering fence */
+   #if 0 /* causes warnings */
+     #define gasneti_compiler_fence() (_Pragma("mta fence"))
+   #else
+     GASNET_INLINE_MODIFIER(_gasneti_compiler_fence)
+     void _gasneti_compiler_fence(void) {
+       (void)0;
+       #pragma mta fence
+       (void)0;
+     }
+     #define gasneti_compiler_fence() _gasneti_compiler_fence()
+   #endif
 #elif defined(_SX)
    GASNET_INLINE_MODIFIER(gasneti_local_wmb)
    void gasneti_local_wmb(void) {
@@ -737,6 +762,11 @@
 /* Default gasneti_local_rmb() */
 #ifndef gasneti_local_rmb
   #define gasneti_local_rmb() gasneti_compiler_fence()
+#endif
+
+/* Default gasneti_local_wmb() */
+#ifndef gasneti_local_wmb
+  #define gasneti_local_wmb() gasneti_compiler_fence()
 #endif
 
 /* Default gasneti_local_mb() */

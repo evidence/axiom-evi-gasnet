@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2004/11/24 01:13:08 $ */
-/*  $Revision: 1.43 $ */
+/*      $Date: 2005/01/22 15:11:40 $ */
+/*  $Revision: 1.44 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -93,6 +93,7 @@
 #undef UNICOS
 #undef CRAYT3E
 #undef CRAYX1
+#undef MTA
 #undef AIX
 #undef OSF
 #undef HPUX

@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2004/11/19 23:57:07 $
-dnl $Revision: 1.52 $
+dnl     $Date: 2005/01/22 15:11:40 $
+dnl $Revision: 1.53 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -124,6 +124,7 @@ AC_DEFUN([GASNET_CHECK_INTTYPES],[
   AC_CHECK_HEADERS([$1])
   pushdef([lowername],patsubst(patsubst(patsubst([$1], [/], [_]), [\.], [_]), [-], [_]))
   pushdef([uppername],translit(lowername,'a-z','A-Z'))
+ if test "$ac_cv_header_[]lowername" = "yes"; then
   HAVE_[]uppername=$ac_cv_header_[]lowername
   GASNET_TRY_CACHE_RUN([for a complete $1],[COMPLETE_[]uppername],[
     #include <$1>
@@ -155,6 +156,7 @@ AC_DEFUN([GASNET_CHECK_INTTYPES],[
     AC_SUBST(COMPLETE_[]uppername)
     AC_DEFINE(COMPLETE_[]uppername)
   ])
+ fi
   popdef([lowername])
   popdef([uppername])
 ])
@@ -280,7 +282,8 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
   SYSTEM_TUPLE="$host"
   AC_SUBST(SYSTEM_TUPLE)
   AC_MSG_RESULT( host info:      $SYSTEM_NAME $SYSTEM_TUPLE)
-  BUILD_ID="`date` `whoami`"
+  BUILD_USER=`whoami 2> /dev/null || id -un 2> /dev/null || echo $USER`
+  BUILD_ID="`date` $BUILD_USER"
   AC_MSG_RESULT( build id:       $BUILD_ID)
   AC_SUBST(BUILD_ID)
 
@@ -875,6 +878,7 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
   GASNET_IFDEF(__KCC, $3=KAI)
   GASNET_IFDEF(__SUNPRO_C, $3=Sun)  # Sun C
   GASNET_IFDEF(__SUNPRO_CC, $3=Sun) # Sun C++
+  GASNET_IFDEF(__MTA__, $3=MTA)
   GASNET_IFDEF(_CRAYC, $3=Cray)
   GASNET_IFDEF(__INTEL_COMPILER, $3=Intel)
   GASNET_IFDEF(__DECC, $3=Compaq) # Compaq C
