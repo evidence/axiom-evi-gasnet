@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/11/08 21:49:42 $
- * $Revision: 1.24 $
+ *     $Date: 2003/11/27 20:19:24 $
+ * $Revision: 1.25 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,6 +35,7 @@
 #if defined(SOLARIS) || /* SPARC seems to have no atomic ops */ \
     defined(CRAYT3E) || /* TODO: no atomic ops on T3e? */       \
     defined(HPUX)    || /* HPUX seems to have no atomic ops */  \
+    defined(__crayx1) || /* X1 atomics currently broken */ \
     (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) || /* haven't implemented atomics for PGI */ \
     (defined(__MACH__) && defined(__APPLE__)) || /* we careth not about performance on OSX */ \
     (defined(OSF) && !defined(__DECC) && !defined(__GNUC__)) /* only implemented for these compilers */
@@ -318,6 +319,38 @@
     #define gasneti_atomic_init(v)      (v)
     #define gasneti_atomic_decrement_and_test(p) \
                                         (add_then_test32((p),(uint32_t)-1) == 0) 
+  #elif defined(__crayx1) /* This works on X1, but NOT the T3E */
+    #include <intrinsics.h>
+    typedef volatile long gasneti_atomic_t;
+    /* DOB: man pages for atomic ops claim gsync is required for using atomic ops,
+       but trying to do so leads to crashes. Using atomic ops without gync gives
+       incorrect results (testtools fails)
+     */
+    #if 1
+      #define gasneti_atomic_presync()  ((void)0)
+      #define gasneti_atomic_postsync() ((void)0)
+    #elif 0
+      #define gasneti_atomic_presync()  _gsync(0)
+      #define gasneti_atomic_postsync() _gsync(0)
+    #else
+      #define gasneti_atomic_presync()  _msync_msp(0)
+      #define gasneti_atomic_postsync() _msync_msp(0)
+    #endif
+    #define gasneti_atomic_increment(p)	\
+      (gasneti_atomic_presync(),_amo_aadd((p),(long)1),gasneti_atomic_postsync())
+    #define gasneti_atomic_decrement(p)	\
+      (gasneti_atomic_presync(),_amo_aadd((p),(long)1),gasneti_atomic_postsync())
+    #define gasneti_atomic_read(p)      (*(p))
+    #define gasneti_atomic_set(p,v)     (*(p) = (v))
+    #define gasneti_atomic_init(v)      (v)
+    GASNET_INLINE_MODIFIER(gasneti_atomic_decrement_and_test)
+    int gasneti_atomic_decrement_and_test(gasneti_atomic_t *p) {
+       int retval;
+       gasneti_atomic_presync();
+       retval = _amo_afadd((p),(long)-1) == 0;
+       gasneti_atomic_postsync();
+       return retval;
+    }
   #elif 0 && defined(SOLARIS)
     /* $%*(! Solaris has atomic functions in the kernel but refuses to expose them
        to the user... after all, what application would be interested in performance? */
@@ -474,8 +507,15 @@
    #include <machine/builtins.h>
    #define gasneti_local_membar() __MB() /* only available as compaq C built-in */
  #endif
-#elif defined(_CRAYT3E)
-   /* don't have shared memory on T3E - does this take care of e-regs too? */
+#elif defined(_CRAYT3E) /* Takes care of e-regs also */
+  #include <intrinsics.h>
+  GASNET_INLINE_MODIFIER(gasneti_local_membar)
+  void gasneti_local_membar(void) {
+    _memory_barrier();
+  }
+#elif defined(__crayx1)
+   /* Many memory barrier intrinsics on the X1, but none seem to match what we
+    * need in a local (scalar-scalar) membar */
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
      static int volatile x;

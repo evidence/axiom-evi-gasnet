@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2003/10/24 01:37:28 $
- * $Revision: 1.17 $
+ *     $Date: 2003/11/27 20:19:24 $
+ * $Revision: 1.18 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,7 +35,10 @@
 #if defined(IRIX)
   #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_SGI_ANYADDR | MAP_AUTORESRV)
   #define GASNETI_MMAP_FILE "/dev/zero"
-#elif defined(CRAYT3E)
+#elif defined(__crayx1)
+  #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
+  #define GASNETI_MMAP_FILE "/dev/zero"
+#elif defined(_CRAYT3E)
   #error mmap not supported on Cray-T3E
 #elif defined(CYGWIN)
   #error mmap not supported on Cygwin - it doesnt work properly
