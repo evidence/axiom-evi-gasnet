@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/02/06 04:34:43 $
- * $Revision: 1.17 $
+ *     $Date: 2005/02/14 12:42:50 $
+ * $Revision: 1.18 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -161,6 +161,9 @@ int main() {
 
     for(i=0;i<NUM_THREADS;i++) gasnett_atomic_set(thread_flag+i,1);
     gasnett_local_mb();
+    #ifdef HAVE_PTHREAD_SETCONCURRENCY
+        pthread_setconcurrency(NUM_THREADS);
+    #endif
 
     for(i=0;i<NUM_THREADS;i++) {
       pthread_attr_t attr;   

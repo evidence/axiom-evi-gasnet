@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/02/01 16:44:47 $ */
-/*  $Revision: 1.45 $ */
+/*      $Date: 2005/02/14 12:42:36 $ */
+/*  $Revision: 1.46 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -45,6 +45,9 @@
 /* has sched_yield() */
 #undef HAVE_SCHED_YIELD
 
+/* have pthread_setconcurrency */
+#undef HAVE_PTHREAD_SETCONCURRENCY
+
 /* has pthread_kill_other_threads_np() */
 #undef HAVE_PTHREAD_KILL_OTHER_THREADS_NP
 
@@ -80,6 +83,9 @@
 /* auto-detected mmap data page size */
 #undef GASNETI_PAGESIZE
 #undef GASNETI_PAGESHIFT
+
+/* auto-detected shared data cache line size */
+#undef GASNETI_CACHE_LINE_BYTES
 
 /* udp-conduit default custom spawn command */
 #undef GASNET_CSPAWN_CMD

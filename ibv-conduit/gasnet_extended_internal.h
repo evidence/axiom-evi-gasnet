@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended_internal.h,v $
- *     $Date: 2004/08/26 04:54:13 $
- * $Revision: 1.15 $
+ *     $Date: 2005/02/14 12:42:52 $
+ * $Revision: 1.16 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,9 +21,6 @@
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-/*  reasonable upper-bound on L2 cache line size (don't make this too big) */
-#define GASNETE_CACHE_LINE_BYTES  (128)
-
 typedef uint8_t gasnete_threadidx_t;
 
 enum {
@@ -68,10 +65,10 @@ typedef struct _gasnete_iop_t {
   struct _gasnete_iop_t *next;    /*  next cell while in free list */
 
   /*  make sure the counters live on a distinct cache line for SMPs */
-  uint8_t _pad1[GASNETE_CACHE_LINE_BYTES - 2*sizeof(void *)];
+  uint8_t _pad1[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(void *)))];
   gasnetc_counter_t get_req_oust;     /*  count of get ops outstanding */
   gasnetc_counter_t put_req_oust;     /*  count of put ops outstanding */
-  uint8_t _pad2[GASNETE_CACHE_LINE_BYTES - 2*sizeof(gasnetc_counter_t)];
+  uint8_t _pad2[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(gasnetc_counter_t)))];
 } gasnete_iop_t;
 
 /* ------------------------------------------------------------------------------------ */

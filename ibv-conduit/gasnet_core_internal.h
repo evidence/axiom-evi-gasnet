@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/02/12 11:29:43 $
- * $Revision: 1.61 $
+ *     $Date: 2005/02/14 12:42:52 $
+ * $Revision: 1.62 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,8 +25,7 @@
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
 
-#define GASNETC_CACHE_LINE_SIZE (128)
-#define GASNETC_CACHE_PAD(SZ) (GASNETC_ALIGNUP(SZ,GASNETC_CACHE_LINE_SIZE)-(SZ))
+#define GASNETC_CACHE_PAD(SZ) (GASNETC_ALIGNUP(SZ,GASNETI_CACHE_LINE_BYTES)-(SZ))
 
 /* check (even in optimized build) for VAPI errors */
 #define GASNETC_VAPI_CHECK(vstat,msg) \

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/11 22:52:26 $
-# $Revision: 1.225 $
+#     $Date: 2005/02/14 12:42:36 $
+# $Revision: 1.226 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.225 $)
+AC_REVISION($Revision: 1.226 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -637,17 +637,33 @@ if test "$use_pthreads$have_pthread" = "tryno" ; then
   pthread_reason="appear to be missing or broken"
 fi
 
+GASNETI_CACHE_LINE_BYTES=""
 if test "$have_pthread" = no ; then
   GASNET_THREAD_DEFINES=""
   GASNET_THREAD_LIBS=""
 else
+  OLDCFLAGS="$CFLAGS"
   OLDLIBS="$LIBS"
+  CFLAGS="$CFLAGS $GASNET_THREAD_DEFINES -I$TOP_SRCDIR/other"
   LIBS="$GASNET_THREAD_LIBS"
-  # look for optional pthreads entry points
+
+  # look for optional pthreads entry points and features
+  AC_SEARCH_LIBS(pthread_setconcurrency, pthread pthreads c_r, AC_DEFINE(HAVE_PTHREAD_SETCONCURRENCY))
   AC_SEARCH_LIBS(pthread_kill_other_threads_np, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
+  GASNET_TRY_CACHE_RUN_EXPR(for shared data cache line size, datacache_line_size, 
+    [ #define CONFIG_TEST 1
+      #include "detect-cachesz.c" ], [ 
+     val = detect_cachesz(79.0, 0); if (val<=0) exit(1); ], GASNETI_CACHE_LINE_BYTES)
+  
   GASNET_THREAD_LIBS="$LIBS"
+  CFLAGS="$OLDCFLAGS"
   LIBS="$OLDLIBS"
 fi
+if test "$GASNETI_CACHE_LINE_BYTES" = "" ; then
+  GASNETI_CACHE_LINE_BYTES=128
+  AC_MSG_WARN([Unable to automatically detect a shared data cache line size (either system load too high, pthreads is broken or this is not a cache-coherent SMP).  Using a safe default size of $GASNETI_CACHE_LINE_BYTES])
+fi
+AC_DEFINE(GASNETI_CACHE_LINE_BYTES)
           
 AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
 PTHREADS="$have_pthread"

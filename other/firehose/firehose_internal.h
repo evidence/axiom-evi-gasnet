@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2004/08/26 04:53:57 $
- * $Revision: 1.18 $
+ *     $Date: 2005/02/14 12:42:48 $
+ * $Revision: 1.19 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,7 +129,7 @@ extern int	*fhc_RemoteVictimFifoBuckets;
 #endif
 
 /* Utility Macros */
-#define FH_CACHE_LINE_BYTES	(128)
+#define FH_CACHE_LINE_BYTES	GASNETI_CACHE_LINE_BYTES
 #define FH_PAGE_MASK		(GASNETI_PAGESIZE-1)
 #define FH_ADDR_ALIGN(addr)	(GASNETI_ALIGNDOWN(addr, FH_BUCKET_SIZE))
 #define FH_SIZE_ALIGN(addr,len)	(GASNETI_ALIGNUP(addr+len, FH_BUCKET_SIZE)-\
@@ -364,8 +364,8 @@ struct _fhi_RegionPool_t {
 	/*
 	 * Pad the struct to inhibit false sharing
 	 */
-	uint8_t			 _pad[FH_CACHE_LINE_BYTES-
-				      3*sizeof(size_t)-2*sizeof(void*)];
+	uint8_t			 _pad[MAX(1,(ssize_t)(FH_CACHE_LINE_BYTES-
+				      3*sizeof(size_t)-2*sizeof(void*)))];
 }
 fhi_RegionPool_t;
 

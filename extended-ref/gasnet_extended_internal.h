@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_internal.h,v $
- *     $Date: 2004/10/07 23:28:13 $
- * $Revision: 1.15 $
+ *     $Date: 2005/02/14 12:42:40 $
+ * $Revision: 1.16 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,9 +14,6 @@
 #include <gasnet_internal.h>
 
 /* ------------------------------------------------------------------------------------ */
-/*  reasonable upper-bound on L2 cache line size (don't make this too big) */
-#define GASNETE_CACHE_LINE_BYTES  (128)
-
 typedef uint8_t gasnete_threadidx_t;
 
 /* gasnet_handle_t is a void* pointer to a gasnete_op_t, 
@@ -57,7 +54,7 @@ typedef struct _gasnete_iop_t {
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
   /*  make sure the counters live on different cache lines for SMP's */
-  uint8_t pad[GASNETE_CACHE_LINE_BYTES - sizeof(void*) - sizeof(int)]; 
+  uint8_t pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - sizeof(void*) - sizeof(int)))]; 
 
   gasneti_atomic_t completed_get_cnt;     /*  count of get ops completed */
   gasneti_atomic_t completed_put_cnt;     /*  count of put ops completed */

@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/01/23 09:11:34 $
-dnl $Revision: 1.54 $
+dnl     $Date: 2005/02/14 12:42:36 $
+dnl $Revision: 1.55 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -717,13 +717,13 @@ AC_TRY_RUN([
   #include "confdefs.h"
   #include <stdio.h>
   $3
-  main() {
+  int main() {
     FILE *f=fopen("conftestval", "w");
     int val = 0;
     if (!f) exit(1);
     { $4; }
     fprintf(f, "%d\n", (int)(val));
-    exit(0);
+    return 0;
   }], cv_prefix[]$2=`cat conftestval`, cv_prefix[]$2=no, AC_MSG_ERROR(no default value for cross compiling)))
 if test "$cv_prefix[]$2" != no; then
   :

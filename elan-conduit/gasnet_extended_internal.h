@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2005/01/13 10:06:01 $
- * $Revision: 1.17 $
+ *     $Date: 2005/02/14 12:42:38 $
+ * $Revision: 1.18 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,9 +15,6 @@
 #include <gasnet_core_internal.h>
 
 /* ------------------------------------------------------------------------------------ */
-/*  reasonable upper-bound on L2 cache line size (don't make this too big) */
-#define GASNETE_CACHE_LINE_BYTES  (128)
-
 #ifdef ELAN_VER_1_2
   #define GASNETE_USE_PGCTRL_NBI  0 /* pgctrl not available on 1.2 */
 #else
@@ -91,10 +88,10 @@ typedef struct _gasnete_iop_t {
   gasnete_eop_t *elan_getbb_list; /* list of bounce-buffered elan get eops */
 
   /*  make sure the completion counters live on a cache line by themselves for SMP's */
-  uint8_t _pad[GASNETE_CACHE_LINE_BYTES - 4*sizeof(void*) - sizeof(int)]; 
+  uint8_t _pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 4*sizeof(void*) - sizeof(int)))]; 
   gasneti_atomic_t completed_put_cnt;     /*  count of put ops completed */
   gasneti_atomic_t completed_get_cnt;     /*  count of get ops completed */
-  uint8_t _pad2[GASNETE_CACHE_LINE_BYTES - 2*sizeof(gasneti_atomic_t)]; 
+  uint8_t _pad2[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(gasneti_atomic_t)))]; 
 } gasnete_iop_t;
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/02/14 05:14:00 $
- * $Revision: 1.66 $
+ *     $Date: 2005/02/14 12:42:52 $
+ * $Revision: 1.67 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -115,7 +115,7 @@ static gasnetc_sema_t			gasnetc_cq_sema;
  *  File-scoped functions and macros                                                    *
  * ------------------------------------------------------------------------------------ */
 
-#define GASNETC_SR_ALIGN GASNETC_CACHE_LINE_SIZE
+#define GASNETC_SR_ALIGN GASNETI_CACHE_LINE_BYTES
 #define GASNETC_DECL_SR_DESC(_name, _len) \
 	char _CONCAT(_name,_align)[sizeof(VAPI_sr_desc_t)+_len*sizeof(VAPI_sg_lst_entry_t)+2*GASNETC_SR_ALIGN];\
 	VAPI_sr_desc_t *_name = (VAPI_sr_desc_t *)GASNETC_ALIGNUP(_CONCAT(_name,_align), GASNETC_SR_ALIGN);\
@@ -1359,11 +1359,11 @@ extern void gasnetc_sndrcv_init(void) {
     gasneti_assert(buf != NULL);
 
     /* Allocated normal memory for receive descriptors (rbuf's) */
-    padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETC_CACHE_LINE_SIZE);
-    gasnetc_rbuf_alloc = gasneti_malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
+    padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETI_CACHE_LINE_BYTES);
+    gasnetc_rbuf_alloc = gasneti_malloc(count*padded_size + GASNETI_CACHE_LINE_BYTES-1);
 
     /* Initialize the rbuf's */
-    rbuf = (gasnetc_rbuf_t *)GASNETC_ALIGNUP(gasnetc_rbuf_alloc, GASNETC_CACHE_LINE_SIZE);
+    rbuf = (gasnetc_rbuf_t *)GASNETC_ALIGNUP(gasnetc_rbuf_alloc, GASNETI_CACHE_LINE_BYTES);
     for (i = 0; i < count; ++i) {
       rbuf->rr_desc.id         = (uintptr_t)rbuf;	/* CQE will point back to this request */
       rbuf->rr_desc.opcode     = VAPI_RECEIVE;
@@ -1409,9 +1409,9 @@ extern void gasnetc_sndrcv_init(void) {
   /* Allocated normal memory for send requests (sreq's) */
   padded_size = GASNETC_ALIGNUP(MAX(sizeof(gasnetc_sreq_t),
 				    sizeof(gasneti_freelist_ptr_t)),
-			        GASNETC_CACHE_LINE_SIZE);
-  gasnetc_sreq_alloc = gasneti_malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
-  sreq = (gasnetc_sreq_t *)GASNETC_ALIGNUP(gasnetc_sreq_alloc, GASNETC_CACHE_LINE_SIZE);
+			        GASNETI_CACHE_LINE_BYTES);
+  gasnetc_sreq_alloc = gasneti_malloc(count*padded_size + GASNETI_CACHE_LINE_BYTES-1);
+  sreq = (gasnetc_sreq_t *)GASNETC_ALIGNUP(gasnetc_sreq_alloc, GASNETI_CACHE_LINE_BYTES);
   for (i = 0; i < count; ++i) {
     gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
     sreq = (gasnetc_sreq_t *)((uintptr_t)sreq + padded_size);

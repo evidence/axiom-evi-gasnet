@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2005/01/13 10:06:03 $
- * $Revision: 1.22 $
+ *     $Date: 2005/02/14 12:42:42 $
+ * $Revision: 1.23 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -16,8 +16,6 @@
 #include <firehose.h>
 
 /* ------------------------------------------------------------------------------------ */
-/*  reasonable upper-bound on L2 cache line size (don't make this too big) */
-#define GASNETE_CACHE_LINE_BYTES  (128)
 #if GASNETI_STATS_OR_TRACE
   #define GASNETC_FIREHOSE_TRACE
   typedef
@@ -97,7 +95,7 @@ typedef struct _gasnete_iop_t {
 				            iop while being filled */
 
 	/*  make sure the counters live on different cache lines for SMP's */
-	uint8_t pad[GASNETE_CACHE_LINE_BYTES - sizeof(void*) - sizeof(int)]; 
+	uint8_t pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - sizeof(void*) - sizeof(int)))]; 
 
 	gasneti_atomic_t completed_get_cnt;     /*  count of get ops completed */
 	gasneti_atomic_t completed_put_cnt;     /*  count of put ops completed */
