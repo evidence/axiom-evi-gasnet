@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/08/30 07:16:39 $
- * $Revision: 1.37 $
+ *     $Date: 2003/08/30 08:51:42 $
+ * $Revision: 1.38 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,7 +56,7 @@ extern int gasneti_attach_done; /*  true after attach */
   GASNET_INLINE_MODIFIER(gasneti_calloc)
   void *gasneti_calloc(size_t N, size_t S) {
     size_t nbytes = N*S;
-    void *ptr = _gasneti_malloc(nbytes);
+    void *ptr = gasneti_malloc(nbytes);
     memset(ptr,0,nbytes);
     return ptr;
   }
