@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/detect-cachesz.c,v $
- *     $Date: 2005/02/14 12:42:46 $
- * $Revision: 1.1 $
+ *     $Date: 2005/02/15 03:28:15 $
+ * $Revision: 1.2 $
  * Description: stand-alone tool to empirically detect SMP shared data cache line size
  * Copyright 2005, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,7 +51,7 @@ int detect_cachesz(double confidence_threshold, int conservative_default) {
         ustime_t end, start = timeStamp();
         for (i = 0; i < iters; i++) (*p)++;
         end = timeStamp();
-        if (end - start >= 5000) {
+        if (end - start >= 10000) {
           res[pos] = (end - start)/(double)iters;
           break;
         }
