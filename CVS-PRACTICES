@@ -23,6 +23,11 @@ Development practices that GASNet developers are expected to follow:
   wish to checkin intermediate or untested versions of your code, please do so
   on a private branch (see http://www.cvshome.org/docs/manual/cvs_5.html#SEC56).
 
+* Whenever you add _any_ files to the CVS repository, make sure they also
+  get added to the Makefile.am file for the enclosing directory (if there is one)
+  otherwise your added file won't be included in the public release.
+
+
 GASNet Release Procedure
 ------------------------
 
