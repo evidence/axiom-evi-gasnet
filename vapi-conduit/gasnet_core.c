@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/26 23:04:25 $
- * $Revision: 1.15 $
+ *     $Date: 2003/08/27 00:36:50 $
+ * $Revision: 1.16 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -226,6 +226,7 @@ extern void gasnetc_free_pinned(gasnetc_memreg_t *reg) {
 
 #ifdef LINUX
 #define _BUFSZ	120
+/* XXX how does this fair on systems w/ >4GB */
 static uintptr_t gasnetc_get_physmem()
 {
   FILE            *fp;
@@ -237,7 +238,7 @@ static uintptr_t gasnetc_get_physmem()
   }
 
   while (fgets(line, _BUFSZ, fp)) {
-    if (sscanf(line, "Mem: %ld", &mem) > 0) {
+    if (sscanf(line, "Mem: %lu", &mem) > 0) {
       break;
     }
   }
@@ -257,11 +258,9 @@ static uintptr_t gasnetc_max_pinnable(void) {
 
   /* binary search for largest mmap() region */
   lo = GASNET_PAGESIZE;
-  hi = MIN(gasnetc_get_physmem() / 2, (uintptr_t)gasnetc_hca_cap.max_mr_size);
-  mmap_size = hi = GASNETI_PAGE_ALIGNDOWN(hi);
+  hi = MIN(2 * (gasnetc_get_physmem() / 3), (uintptr_t)gasnetc_hca_cap.max_mr_size);
+  mmap_size = GASNETI_PAGE_ALIGNDOWN(hi);
   do {
-    mmap_size = GASNETI_PAGE_ALIGNDOWN(lo + (hi - lo) / 2);
-
     addr = gasneti_mmap(mmap_size);
     if (addr == (void *)-1) {
       hi = mmap_size;
@@ -271,8 +270,7 @@ static uintptr_t gasnetc_max_pinnable(void) {
     }
 
     mmap_size = GASNETI_PAGE_ALIGNDOWN(lo + (hi - lo) / 2);
-  } while (hi > lo + GASNET_PAGESIZE);
-  mmap_size = lo;
+  } while (mmap_size > lo);
   addr = gasneti_mmap(mmap_size);
 
   /* Now search for largest pinnable region */
@@ -291,8 +289,7 @@ static uintptr_t gasnetc_max_pinnable(void) {
     }
 
     pin_size = GASNETI_PAGE_ALIGNDOWN(lo + (hi - lo) / 2);
-  } while (hi > lo + GASNET_PAGESIZE);
-  pin_size = lo;
+  } while (pin_size > lo);
   gasneti_munmap(addr, mmap_size);
 
   return pin_size;
