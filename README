@@ -18,21 +18,27 @@ system and may already have been done for you)
 current working directory.  You can run configure from a different directory to
 place your build files somewhere other than inside the source tree (a nice
 option when maintaining several build trees on the same source tree). 
+
   Some of the useful configure options:
+
     --help - display all available configure options
     --prefix=/install/path - set the directory where GASNet will be installed
     --enable-debug - build GASNet in a debugging mode. This turns on C-level
-debugger options and also enables extensive error checking in the MPI conduit,
-which is useful for debugging GASNet clients (but should not be used for
-performance testing). 
-    --enable-trace - turn on GASNet tracing (see usage info in gasnet_help.h)
-    --enable-stats - turn on GASNet statistical collection (see usage info in gasnet_help.h)
+      debugger options and also enables extensive error checking in the MPI 
+      conduit (and others), which is useful for debugging GASNet clients 
+      (but should not be used for performance testing). 
+    --enable-trace - turn on GASNet tracing (see usage info in gasnet_trace.h)
+    --enable-stats - turn on GASNet statistical collection (see usage info in gasnet_trace.h)
+    --enable-segment-{fast,large,everything} - select a GASNet segment 
+      configuration (see the GASNet spec for more info)
+
   Configure will detect various interesting features about your system and
 compilers, including which GASNet conduits are supported.
 
 * gmake 
   Build the GASNet libraries. You can also do 'gmake tests' to build various
-test programs. 
+test programs for each conduit. Each conduit also has a tests-{seq,par,parsync}
+target to build tests for just that conduit and configuration.
 
 * gmake install
   Install GASNet to the directory chosen at configure time. This will create an
@@ -43,11 +49,26 @@ supporting libraries.
 Basic Usage Information
 =================
 See the README for each GASNet core implementations for specific usage
-information, but generally client programs should include compiler flags like
-this (for a single-threaded client):
+information, but generally client programs should #include <gasnet.h>
+(and nothing else), and use the conduit-provided compilation settings.
 
- -I/install/path/include -I/install/path/include/c-conduitname -DGASNET_SEQ
- -L/install/path/lib -lgasnet-conduitname-seq
+The best way to get the correct compiler flags for your GASNet client is to 
+"include" the appropriate makefile fragment for the conduit and configuration 
+you want in your Makefile, and use the variables it defines in the Makefile 
+rules for your GASNet client code.
+
+For example:
+  ----------------------------
+  include /install/path/include/mpi-conduit/mpi-seq.mak 
+
+  .c.o:
+	  $(GASNET_CC) $(GASNET_CFLAGS) -c -o $@ $<
+
+  myprog: myprog.o
+	  $(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $< $(GASNET_LIBS)
+  ----------------------------
+
+See tests/Makefile for another example of compiling GASNet client code.
 
 GASNet Design Information
 =========================
@@ -103,8 +124,8 @@ the configuration scripts, header files, etc. should not rely on anything from
 outside directories not included in this distribution (other than basic system
 headers and lower-level networking libraries).
 
-* top-level header file: The GASNet master header file (gasnet.h) #includes
-several files which must be provided by each conduit:
+* Header files: The GASNet master header file (gasnet.h) #includes
+several files which should be provided by each conduit:
 
 <gasnet.h> includes the following files:
    <gasnet_config.h> Created by the configure script, this header helps in
@@ -112,6 +133,11 @@ several files which must be provided by each conduit:
 		     information.
    <gasnet_basic.h>  Defines various basic and optimizing compiler macros,
                      platform-independent integer types and c++ binding macros.
+   <gasnet_help.h> Extended and core API platform independant helpers
+                    (providing services which aren't part of GASNet API, but are
+		     required by code in gasnet.h)
+   <gasnet_trace.h> Documents and implements GASNet's sopisticated
+                    internal tracing and statistical collection system
    <gasnet_core_fwd.h> definitions of basic constants and types used by the
 		       core API and included early in the gasnet.h file
 		       (gasnet.h provides some default values for various
@@ -119,20 +145,24 @@ several files which must be provided by each conduit:
    <gasnet_extended_fwd.h>  Allows a specific extended implementation to
 			    override the default gasnet types such as handles
 			    and threadinfo.
-   <gasnet_core.h> Includes the public interface for the desired GASNet core
+   <gasnet_core.h> Provides the public interface for the GASNet core API
 		   (function prototypes and/or inline functions for
 		   implementing the core API).
       .. <gasnet_core_help.h> This is the core's entry point to provide access
-			      to symbols which might be used in the core, or
-			      client code (ie: node's node id, number of nodes
-			      in job).
-      .. <gasnet_help.h> Extended and core API platform independant helpers.
-   <gasnet_extended.h> Includes the public interface for the desired GASNet
-                       extended API
-      .. <gasnet_extended_help.h> Extended API's entry point to define symbols
-				  used by the extended API and the client code
-				  (segment info, thread info)
-      .. <gasnet_help.h> Extended and core API platform independant helpers.
+			      to private symbols which might be required by the 
+			      core header (eg: node's node id, number of nodes
+			      in job), but which should not really be publicly
+			      visible to client code (i.e. not part of GASNet API)
+   <gasnet_extended.h> Provides the public interface for the GASNet extended API
+      .. <gasnet_extended_help.h> Extended API's entry point to define private symbols
+				  used by the extended header (e.g.segment info, 
+				  thread info) but which should not really be publicly
+			          visible to client code (i.e. not part of GASNet API)
+
+Many conduits also have <gasnet_core_internal.h> and <gasnet_extended_internal.h> files
+which are _not_ included by gasnet.h (and therefore not visible to client code) and
+are exclusively for use in building the conduit libraries. 
+<gasnet_internal.h> is the conduit-independent version of these files at the top level.
 
 * config-aux: helper scripts for configure
 
@@ -144,8 +174,9 @@ compiling any appropriate tests and building/installing the following libraries:
  libgasnet-conduitname-par.a - GASNET_PAR implementation of GASNet
  libgasnet-conduitname-parsync.a - GASNET_PARSYNC implementation of GASNet
 
-* template-conduit: A conduit template which can be used as a starting point for new
-conduit implementations. 
+* template-conduit: A conduit template which should be used as a starting point for 
+new conduit implementations. See the README file in this directory for detailed 
+instructions.
 
 * other: A container directory for any external supporting libraries or
 utilities used by one or more conduits.
@@ -154,7 +185,8 @@ utilities used by one or more conduits.
 can optionally use some or all of the files in this directory by compiling the
 sources into the conduit library and installing the headers into the appropriate
 conduit include directory. See mpi-conduit for an example of how to use the
-reference extended API implementation.
+reference extended API implementation (the template-conduit is setup to use the
+extended-ref implementation by default).
 
 * tests: basic tests written to the GASNet API that should run on any GASNet
 conduit. These can be sucked in and compiled in each conduit directory (see
@@ -166,3 +198,7 @@ mpi-conduit for an example).
 extended-ref or tests directories.  They do not have any Makefiles because they
 just provide a centralized place for files used in other directories.
 
+  When implementing the extended API for your conduit, please clone only the
+necessary files from the extended-ref directory that you need to change 
+(and continue to include the unchanged files) to reduce maintenance headache
+(this applies especially to gasnet_extended.h).
