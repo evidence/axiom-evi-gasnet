@@ -154,23 +154,21 @@ sub parse_tracefile
     
     while (<TRACEFILE>) {
         my ($thread, $src, $pgb, $type, $sz);
-        # Handling Local put/get (under the H category).
         if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPG]\)\s+(PUT|GET).*_LOCAL:\D+(\d+)/) {
-            ($thread, $src, $pgb, $sz) = ($1, $2, $3, $4);
-            $type = "LOCAL";
-            update_data($thread, $src, $pgb, $type, $sz);
-            next;
+            # Handling Local put/get
+            ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, "LOCAL", $4);
+	} elsif (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(.*)_(.*):\D+(\d+)/) { 
+            # Handling Global put/get and barriers             
+            ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
+            if ($pgb =~ /P|G/) {
+                $type = "GLOBAL";
+            } elsif ($pgb =~ /BARRIER/) {
+                $thread = $nodes{$thread};
+            }
+	} else {
+	    next;
 	}
-        # Handling Global put/get and barriers             
-        next unless (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([$opt_report]\)\s+(.*)_(.*):\D+(\d+)/); 
-        ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
-        if ($pgb =~ /P|G/) {
-            $type = "GLOBAL";
-        } elsif ($pgb =~ /BARRIER/) {
-            $thread = $nodes{$thread};
-        }
         update_data($thread, $src, $pgb, $type, $sz);
-        
     }
 }
                 
