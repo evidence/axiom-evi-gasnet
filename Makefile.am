@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2004/09/21 19:30:13 $
-# $Revision: 1.32 $
+#     $Date: 2004/10/07 23:28:11 $
+# $Revision: 1.33 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -124,6 +124,8 @@ do-mpi:
 	if test -f mpi-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C mpi-conduit $(DO_WHAT) ; fi
 do-sci:
 	if test -f sci-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C sci-conduit $(DO_WHAT) ; fi
+do-shmem:
+	if test -f shmem-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C shmem-conduit $(DO_WHAT) ; fi
 do-smp:
 	if test -f smp-conduit/Makefile -o $(DO_WHAT) != clean; then $(MAKE) -C smp-conduit $(DO_WHAT) ; fi
 do-udp:

@@ -1,4 +1,4 @@
-/* $Header: /Users/kamil/work/gasnet-cvs2/gasnet/license.txt,v 1.7 2004/08/26 04:53:28 bonachea Exp $
+/* $Header: /Users/kamil/work/gasnet-cvs2/gasnet/license.txt,v 1.8 2004/10/07 23:28:11 csbell Exp $
  * All files in this directory and all sub-directories (except where otherwise noted)
  * are subject to the following licensing terms: 
  *
@@ -37,7 +37,7 @@
  *    udp-conduit
  *    extended-ref
  *    template-conduit
- *  Christian Bell <csbell@cs.berkeley.edu>: gm-conduit
+ *  Christian Bell <csbell@cs.berkeley.edu>: gm-conduit, shmem-conduit
  *  Mike Welcome <mlwelcome@lbl.gov>: lapi-conduit
  *  Paul H. Hargrove <phhargrove@lbl.gov>: vapi-conduit
  * 

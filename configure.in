@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/09/28 02:21:20 $
-# $Revision: 1.195 $
+#     $Date: 2004/10/07 23:28:11 $
+# $Revision: 1.196 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.195 $)
+AC_REVISION($Revision: 1.196 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -462,6 +462,13 @@ case "$target_os" in
   linux*) 
 	AC_DEFINE(LINUX)
 	GASNET_MACHINE_DEFINES="-DLINUX"
+	# Check for SGI Altix, using a device heuristic.  SGI has assured us
+	# that /dev/hw is specific (and standard) on their system
+	GASNET_MACHINE_DEFINES="-DLINUX"
+	if test -d "/dev/hw/cpunum"; then
+	  AC_DEFINE(ALTIX)
+	  GASNET_MACHINE_DEFINES="$GASNET_MACHINE_DEFINES -DALTIX"
+	fi
         # Defining _GNU_SOURCE gives us accesss to the "adaptive"
         # implementation of pthread_mutex_t, which is faster then
         # the default implementation for our purposes.
@@ -1476,6 +1483,109 @@ else
 fi
 popdef([CONDUIT_DESC])
 AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$mpi_test_worked" = yes)
+#--------------------------------------------------------------------------------------------------------
+# SHMEM configuration
+
+pushdef([CONDUIT_DESC],[Shmem network conduit (shmem)])
+GASNET_IF_ENABLED_WITH_AUTO(shmem, Enable the CONDUIT_DESC (auto-detected), 
+  [enabled_shmem=yes;force_shmem=yes],
+  enabled_shmem=no,
+  enabled_shmem=yes)
+
+if test $enabled_shmem = yes; then
+  SHMEM_FLAVOUR="unknown"
+  have_shmem=yes
+
+  AC_MSG_CHECKING(for SHMEM network type)
+
+  case "$target_os" in
+    unicos*)
+      AC_MSG_RESULT(Cray)
+      GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /opt/ctl/mpt/mpt/include)
+      GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /opt/ctl/mpt/mpt/lib)
+      GASNET_ENV_DEFAULT(SHMEM_LIBS, "-lsma")
+      SHMEM_FLAVOUR="CRAY_SHMEM"
+      ;;
+    irix*)
+      AC_MSG_ERROR(Currently no access to shmem on IRIX)
+      have_shmem=no
+      ;;
+    # Linux shmem may mean Quadrics shmem, or SGI shmem.  A first try is to
+    # look for _ELAN_SHMEM_H in /usr/include/shmem.h.
+    linux*)
+      # This first case should catch Elan shmem 
+      if test -e ${SHMEM_INCLUDE}/shmem.h; then
+	is_quadrics=`grep ELAN_SHMEM ${SHMEM_INCLUDE}/shmem.h`
+	if test -n "$is_quadrics"; then
+	  SHMEM_FLAVOUR="ELAN_SHMEM"
+	  AC_MSG_RESULT(Quadrics/Elan)
+	  GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /usr/include)
+	  GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /usr/lib)
+	  GASNET_ENV_DEFAULT(SHMEM_LIBS, "-lshmem")
+	fi
+      elif test -e /dev/xpmem; then
+        # SGI Altix uhas xpmem device
+	SHMEM_FLAVOUR="SGI_SHMEM"
+	AC_MSG_RESULT(SGI/Altix)
+	GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /usr/include)
+	GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /usr/lib)
+        GASNET_ENV_DEFAULT(SHMEM_LIBS, "-lsma")
+      fi
+      ;;
+    *)
+      AC_MSG_RESULT(Unknown)
+      have_shmem=no
+      ;;
+  esac
+
+
+  if test $have_shmem = yes; then
+    OLDCFLAGS="$CFLAGS"
+    OLDLIBS="$LIBS"
+    CFLAGS="-I${SHMEM_INCLUDE} -I${SHMEM_INCLUDE}/mpp"
+    LIBS="-L${SHMEM_LIBDIR} ${SHMEM_LIBS}"
+    SHMEM_FLAGS="-D${SHMEM_FLAVOUR}"
+
+    AC_MSG_CHECKING(for working SHMEM configuration)
+    # only include shmem.h even if some prescribe <mpp/shmem.h> and rely on the
+    # include search directories to be correct.  This approach is more general
+    AC_TRY_LINK( [
+      #include <shmem.h>
+    ], [{
+      int mype, numpes;
+  
+      mype = shmem_my_pe();
+      numpes = shmem_n_pes();
+      }], [ shmem_test_worked=yes ], [ shmem_test_worked=no ] )
+    CFLAGS="$OLDCFLAGS"
+    LIBS="$OLDLIBS"
+  
+    if test "$shmem_test_worked" = yes; then
+      AC_MSG_RESULT(yes)
+      SHMEM_FLAGS="-D${SHMEM_FLAVOUR} "
+    else
+      AC_MSG_RESULT(no)
+      AC_MSG_ERROR(build test failed: I don't know how to build SHMEM programs on your system)
+      have_shmem=no
+    fi
+  fi
+  if test "$force_shmem$have_shmem" = yesno; then
+    AC_MSG_WARN(User requested --enable-shmem but I don't know how to build shmem programs for your system)
+  fi
+fi
+
+AC_SUBST(SHMEM_INCLUDE)
+AC_SUBST(SHMEM_LIBDIR)
+AC_SUBST(SHMEM_LIBS)
+AC_SUBST(SHMEM_FLAGS)
+AM_CONDITIONAL(USE_SHMEM_CONDUIT, test "$enabled_shmem$have_shmem" = yesyes)
+if test "$enabled_shmem$have_shmem" = yesyes ; then
+  CONDUITS="$CONDUITS shmem"
+  CONDUIT_REPORT(ON)
+else
+  CONDUIT_REPORT(OFF)
+fi
+popdef([CONDUIT_DESC])
 
 #--------------------------------------------------------------------------------------------------------
 # SCI configuration
@@ -1886,6 +1996,9 @@ vapi-conduit/Makefile
 vapi-conduit/conduit.mak
 vapi-conduit/contrib/Makefile
 vapi-conduit/contrib/gasnetrun_vapi
+
+shmem-conduit/Makefile
+shmem-conduit/conduit.mak
 
 other/Makefile
 other/Makefile-conduit.mak
