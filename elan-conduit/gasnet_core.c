@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/10/03 14:30:34 $
- * $Revision: 1.11 $
+ *     $Date: 2002/10/11 11:04:06 $
+ * $Revision: 1.12 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -487,6 +487,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         }
       }
     #endif
+    assert(((uintptr_t)segbase) % pagesize == 0);
+    assert(segsize % pagesize == 0);
   #else
     /* GASNET_SEGMENT_EVERYTHING - 
        on elan we just use the default elan mappings and drop back to AM for
@@ -501,8 +503,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       segsize = gasnetc_seginfo[gasnetc_mynode].size;
     }
   #endif
-  assert(((uintptr_t)segbase) % pagesize == 0);
-  assert(segsize % pagesize == 0);
 
   /* setup network buffers */
   gasnetc_initbufs();

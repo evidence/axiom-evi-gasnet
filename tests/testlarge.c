@@ -36,7 +36,6 @@ int peerproc;
 int min_payload;
 int max_payload;
 
-gasnet_seginfo_t *seginfo_table;
 char *srcmem;
 char *tgtmem;
 void *msgbuf;
@@ -278,21 +277,14 @@ int main(int argc, char **argv)
     	gasnet_exit(1);
     }
 
-    seginfo_table = (gasnet_seginfo_t *) malloc(sizeof(gasnet_seginfo_t) * numprocs);
-    if (seginfo_table == NULL) {
-    	printf("Cannot allocate seginfo_table.\n");
-    	gasnet_exit(1);
-    }
-    GASNET_Safe(gasnet_getSegmentInfo(seginfo_table, numprocs));
     
     /* initialize global data in my thread */
-    srcmem = (void *) seginfo_table[myproc].addr;
+    srcmem = (void *) TEST_MYSEG();
     
     /* Setting peer thread rank */
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
     
-    tgtmem = (void *) seginfo_table[peerproc].addr;
-    assert(seginfo_table[peerproc].size == TEST_SEGSZ);
+    tgtmem = (void *) TEST_SEG(peerproc);
 
 	min_payload = 16;
 	max_payload = TEST_SEGSZ;
@@ -307,7 +299,6 @@ int main(int argc, char **argv)
 	bulk_test_nb(iters);
 
 	free(msgbuf);
-	free(seginfo_table);
 
     gasnet_exit(0);
 

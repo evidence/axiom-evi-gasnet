@@ -33,7 +33,6 @@ int myproc;
 int numprocs;
 int peerproc;
 
-gasnet_seginfo_t *seginfo_table;
 void *srcmem;
 void *tgtmem;
 int srcsize;
@@ -460,22 +459,14 @@ int main(int argc, char **argv)
     	printf("Number of threads should be even number.\n");
     	gasnet_exit(1);
     }
-
-    seginfo_table = (gasnet_seginfo_t *) malloc(sizeof(gasnet_seginfo_t) * numprocs);
-    if (seginfo_table == NULL) {
-    	printf("Cannot allocate seginfo_table.\n");
-    	gasnet_exit(1);
-    }
-    GASNET_Safe(gasnet_getSegmentInfo(seginfo_table, numprocs));
     
     /* initialize global data in my thread */
-    srcmem = (void *) seginfo_table[myproc].addr;
+    srcmem = (void *) TEST_MYSEG();
     
     /* Setting peer thread rank */
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
     
-    tgtmem = (void *) seginfo_table[peerproc].addr;
-    assert(seginfo_table[peerproc].size == TEST_SEGSZ);
+    tgtmem = (void *) TEST_SEG(peerproc);
 
 	for (j = 1; j <= 2048; j *= 2)  roundtrip_test(iters, j); 
 
@@ -488,8 +479,6 @@ int main(int argc, char **argv)
   	for (j = 1; j <= 2048; j *= 2)  roundtrip_nb_test(iters, j);
 
   	for (j = 1; j <= 2048; j *= 2)  oneway_nb_test(iters, j);
-
-	free(seginfo_table);
 
     gasnet_exit(0);
 

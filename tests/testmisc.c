@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testmisc.c                             $
- *     $Date: 2002/10/04 01:59:26 $
- * $Revision: 1.4 $
+ *     $Date: 2002/10/11 11:04:08 $
+ * $Revision: 1.5 $
  * Description: GASNet misc performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -60,7 +60,6 @@ void justreply_longhandler(gasnet_token_t token, void *buf, size_t nbytes) {
 int main(int argc, char **argv) {
   int iters=0;
   int i = 0;
-  gasnet_seginfo_t *seginfo = NULL;
   void *myseg = NULL;
   gasnet_handlerentry_t htable[] = { 
     { hidx_null_shorthandler,       null_shorthandler },
@@ -78,9 +77,7 @@ int main(int argc, char **argv) {
   MSG("running...");
 
   mynode = gasnet_mynode();
-  seginfo = (gasnet_seginfo_t *)malloc(sizeof(gasnet_seginfo_t)*gasnet_nodes());
-  gasnet_getSegmentInfo(seginfo, gasnet_nodes());
-  myseg = seginfo[mynode].addr;
+  myseg = TEST_MYSEG();
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 100000;
@@ -617,8 +614,9 @@ int main(int argc, char **argv) {
         gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS); 
       }
       report("single-node barrier",TIME() - start, iters);
-      if (mynode == 0) {
-        printf("Note: this is actually the barrier time for %i nodes, since you're running with more than one node.\n", gasnet_nodes());
+      if (mynode == 0 && gasnet_nodes() > 1) {
+        printf("Note: this is actually the barrier time for %i nodes, "
+               "since you're running with more than one node.\n", gasnet_nodes());
         fflush(stdout);
       }
     }

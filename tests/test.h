@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2002/07/04 03:01:49 $
- * $Revision: 1.6 $
+ *     $Date: 2002/10/11 11:04:08 $
+ * $Revision: 1.7 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -96,25 +96,23 @@ uint64_t test_checksum(void *p, int numbytes) {
   #define PAGESZ 4096
 #endif
 
-
 #define TEST_SEGSZ          (64*1024)
 #define TEST_MINHEAPOFFSET  (128*PAGESZ)
 
-#if 0
-/* declare a properly page-aligned, globally-aligned static memory area with given size
- */
-#define DECLARE_ALIGNED_SEG(requestedsegsz)             \
-  extern char _hidden_seg[];                            \
-  char _hidden_seg[(requestedsegsz)+PAGESZ];            \
-  const uintptr_t _segsz = (uintptr_t)(requestedsegsz); \
-  void *_get_seg() {                                    \
-    return (((uint8_t*)_hidden_seg) +                   \
-    (((((uintptr_t)_hidden_seg)%PAGESZ) == 0)? 0 :      \
-     (PAGESZ-(((uintptr_t)_hidden_seg)%PAGESZ))));      \
+#ifdef GASNET_SEGMENT_EVERYTHING
+  uint8_t _hidden_seg[TEST_SEGSZ+PAGESZ];
+  #define TEST_SEG(node) ((void *)(((uint8_t*)_hidden_seg) + \
+    (((((uintptr_t)_hidden_seg)%PAGESZ) == 0)? 0 :           \
+     (PAGESZ-(((uintptr_t)_hidden_seg)%PAGESZ)))))          
+#else
+  static void *_test_getseg(gasnet_node_t node) {
+    gasnet_seginfo_t si[GASNET_MAXNODES];
+    GASNET_Safe(gasnet_getSegmentInfo((gasnet_seginfo_t*)&si, GASNET_MAXNODES));
+    assert(si[gasnet_mynode()].size >= TEST_SEGSZ && si[node].size >= TEST_SEGSZ);
+    return si[node].addr;
   }
-
-#define MYSEG() (_get_seg())
-#define SEGSZ() (_segsz)
+  #define TEST_SEG(node) (_test_getseg(node))
 #endif
+#define TEST_MYSEG()          (TEST_SEG(gasnet_mynode()))
 
 #endif
