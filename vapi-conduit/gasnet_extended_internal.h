@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2003/08/15 21:18:15 $
- * $Revision: 1.6 $
+ *     $Date: 2003/08/15 21:44:47 $
+ * $Revision: 1.7 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -122,8 +122,8 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t *thread);
 #define _hidx_gasnete_barrier_notify_reqh   (GASNETE_HANDLER_BASE+0) 
 #define _hidx_gasnete_barrier_done_reqh     (GASNETE_HANDLER_BASE+1)
 #define _hidx_gasnete_done_reph             (GASNETE_HANDLER_BASE+2)
-#define _hidx_gasnete_getmed_reqh           (GASNETE_HANDLER_BASE+2)
-#define _hidx_gasnete_getmed_reph           (GASNETE_HANDLER_BASE+3)
+#define _hidx_gasnete_getmed_reqh           (GASNETE_HANDLER_BASE+3)
+#define _hidx_gasnete_getmed_reph           (GASNETE_HANDLER_BASE+4)
 #define _hidx_gasnete_getlong_reqh          (GASNETE_HANDLER_BASE+5)
 #define _hidx_gasnete_put_reqh              (GASNETE_HANDLER_BASE+6)
 #define _hidx_gasnete_memset_reqh           (GASNETE_HANDLER_BASE+7)
