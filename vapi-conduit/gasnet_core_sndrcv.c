@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/22 20:50:16 $
- * $Revision: 1.11 $
+ *     $Date: 2003/08/23 00:23:39 $
+ * $Revision: 1.12 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -766,7 +766,7 @@ extern void gasnetc_sndrcv_init(void) {
   gasnetc_buffer_t	*buf;
   gasnetc_rbuf_t	*rbuf;
   gasnetc_sbuf_t	*sbuf;
-  int 			count, i;
+  int 			padded_size, count, i;
 
   /*
    * setup RCV resources
@@ -795,28 +795,32 @@ extern void gasnetc_sndrcv_init(void) {
     assert(buf != NULL);
 
     /* Allocated normal memory for receive descriptors (rbuf's) */
-    rbuf = calloc(count, sizeof(gasnetc_rbuf_t));
-    assert(rbuf != NULL);
+    padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETC_CACHE_LINE_SIZE);
+    gasnetc_rbuf_alloc = calloc(count, padded_size);
+    assert(gasnetc_rbuf_alloc != NULL);
 
     /* Initialize the rbuf's */
+    rbuf = gasnetc_rbuf_alloc;
     for (i = 0; i < count; ++i) {
-      rbuf[i].rr_desc.id         = (uintptr_t)&rbuf[i];	/* CQE will point back to this request */
-      rbuf[i].rr_desc.opcode     = VAPI_RECEIVE;
-      rbuf[i].rr_desc.comp_type  = VAPI_SIGNALED;	/* XXX: is this right? */
-      rbuf[i].rr_desc.sg_lst_len = 1;
-      rbuf[i].rr_desc.sg_lst_p   = &rbuf[i].rr_sg;
-      rbuf[i].rr_sg.len          = GASNETC_BUFSZ;
-      rbuf[i].rr_sg.addr         = (uintptr_t)&buf[i];
-      rbuf[i].rr_sg.lkey         = gasnetc_rcv_reg.lkey;
-      rbuf[i].next               = &rbuf[i + 1];
+      rbuf->rr_desc.id         = (uintptr_t)rbuf;	/* CQE will point back to this request */
+      rbuf->rr_desc.opcode     = VAPI_RECEIVE;
+      rbuf->rr_desc.comp_type  = VAPI_SIGNALED;	/* XXX: is this right? */
+      rbuf->rr_desc.sg_lst_len = 1;
+      rbuf->rr_desc.sg_lst_p   = &rbuf->rr_sg;
+      rbuf->rr_sg.len          = GASNETC_BUFSZ;
+      rbuf->rr_sg.addr         = (uintptr_t)&buf[i];
+      rbuf->rr_sg.lkey         = gasnetc_rcv_reg.lkey;
+      rbuf->next               = (gasnetc_rbuf_t *)((uintptr_t)rbuf + padded_size);
+      if (i != (count-1)) {
+        rbuf = rbuf->next;
+      }
     }
-    rbuf[count - 1].next = NULL;
-    gasnetc_rbuf_alloc = rbuf;
+    rbuf->next = NULL;
 #if GASNETI_HAVE_ATOMIC_SWAP_PTR
-    gasnetc_rbuf_head = &rbuf[0];
-    gasnetc_rbuf_tail = &rbuf[count - 1];
+    gasnetc_rbuf_head = gasnetc_rbuf_alloc;
+    gasnetc_rbuf_tail = rbuf;
 #else
-    gasnetc_rbuf_free = rbuf;
+    gasnetc_rbuf_free = gasnetc_rbuf_alloc;
 #endif
     #if GASNETC_RCV_THREAD
       gasnetc_rcv_thread_rbuf = gasnetc_get_rbuf();
@@ -839,21 +843,25 @@ extern void gasnetc_sndrcv_init(void) {
   assert(buf != NULL);
 
   /* Allocated normal memory for send descriptors (sbuf's) */
-  sbuf = calloc(count, sizeof(gasnetc_sbuf_t));
-  assert(sbuf != NULL);
+  padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_sbuf_t), GASNETC_CACHE_LINE_SIZE);
+  gasnetc_sbuf_alloc = calloc(count, padded_size);
+  assert(gasnetc_sbuf_alloc != NULL);
 
   /* Initialize the sbuf's */
+  sbuf = (gasnetc_sbuf_t *)gasnetc_sbuf_alloc;
   for (i = 0; i < count; ++i) {
-    sbuf[i].buffer = &buf[i];
-    sbuf[i].next   = &sbuf[i + 1];
+    sbuf->buffer = &buf[i];
+    sbuf->next   = (gasnetc_sbuf_t *)((uintptr_t)sbuf + padded_size);
+    if (i != (count-1)) {
+      sbuf = sbuf->next;
+    }
   }
-  sbuf[count - 1].next = NULL;
-  gasnetc_sbuf_alloc = sbuf;
+  sbuf->next = NULL;
 #if GASNETI_HAVE_ATOMIC_SWAP_PTR
-  gasnetc_sbuf_head = &sbuf[0];
-  gasnetc_sbuf_tail = &sbuf[count - 1];
+  gasnetc_sbuf_head = (gasnetc_sbuf_t *)gasnetc_sbuf_alloc;
+  gasnetc_sbuf_tail = sbuf;
 #else
-  gasnetc_sbuf_free = sbuf;
+  gasnetc_sbuf_free = (gasnetc_sbuf_t *)gasnetc_sbuf_alloc;
 #endif
 }
 
