@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2005/02/23 13:17:19 $
- * $Revision: 1.62 $
+ *     $Date: 2005/02/27 15:25:18 $
+ * $Revision: 1.63 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -662,18 +662,23 @@
         gasneti_compiler_fence();           \
         __mf();  /* memory fence instruction */  \
       } while (0)
+      /* bug 1000: empirically observed that IA64 requires a full memory fence for both wmb and rmb */
+      #define gasneti_local_rmb() gasneti_local_wmb()
+      #define gasneti_local_mb()  gasneti_local_wmb()
    #elif defined(__HP_cc) || defined(__HP_aCC)
       #include <machine/sys/inline.h>
       /* HP compilers have no inline assembly on Itanium - use intrinsics */
-      #define gasneti_local_wmb() _Asm_mf((_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE))
       #define gasneti_compiler_fence() \
          _Asm_sched_fence((_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE)) 
+      /* bug 1000: empirically observed that IA64 requires a full memory fence for both wmb and rmb */
+      #define gasneti_local_wmb() _Asm_mf((_Asm_fence)(_UP_MEM_FENCE))
+      #define gasneti_local_rmb() _Asm_mf((_Asm_fence)(_DOWN_MEM_FENCE))
+      #define gasneti_local_mb() _Asm_mf((_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE))
    #else
-      /* mf may cause an illegal instruction trap on uniprocessor kernel */
-      GASNET_INLINE_MODIFIER(gasneti_local_wmb)
-      void gasneti_local_wmb(void) {
-        GASNETI_ASM("mf");
-      }
+      #define gasneti_local_wmb() GASNETI_ASM("mf")
+      /* bug 1000: empirically observed that IA64 requires a full memory fence for both wmb and rmb */
+      #define gasneti_local_rmb() gasneti_local_wmb()
+      #define gasneti_local_mb()  gasneti_local_wmb()
    #endif
 #elif defined(_POWER) || (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(LINUX) && defined(__PPC__))
  /* (_POWER) == IBM SP POWER[234]
