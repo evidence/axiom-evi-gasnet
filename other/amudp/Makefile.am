@@ -38,7 +38,9 @@ headers = \
 	sockaddr.h		\
 	socket.h		\
 	socklist.h		\
-	sockutil.h
+	sockutil.h		\
+	ueth.h			\
+	ufxp.h
 
 libamudp_a_SOURCES = \
 	$(headers)		\
@@ -53,7 +55,7 @@ libamudp_a_SOURCES = \
 
 libamudp_a_DEPENDENCIES = $(libamudp_a_SOURCES:%.cpp=%.o)
 
-EXTRA_DIST = 
+EXTRA_DIST = Makefile.common Makefile.standalone
 
 # ---------- test programs -------------
 # all the test executables

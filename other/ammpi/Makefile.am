@@ -39,7 +39,7 @@ libammpi_a_SOURCES = \
 
 libammpi_a_DEPENDENCIES = $(libammpi_a_SOURCES:%.c=%.o)
 
-EXTRA_DIST = 
+EXTRA_DIST = Makefile.common Makefile.standalone
 
 # ---------- test programs -------------
 # all the test executables
