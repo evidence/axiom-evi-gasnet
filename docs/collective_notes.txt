@@ -575,4 +575,168 @@ gasnet_all_handle_t
 gasnet_all_gather_all_localV_nb(
 	const size_t *rank, void * const *dst_addr,
 	void * const src_addr, size_t addr_count,
-	size_t total_count, size_t nbytes, unsignedlong flags);
+	size_t total_count, size_t nbytes, unsigned long flags);
+
+
+=============================================================================
+Implementation Ideas:
+
+Broadcast:
+==========
+  In [1] we learn how to construct an optimal schedule for broadcast.  The
+tree can be built knowing only the ratio A=ELL/max(O_s,g).  Using a heap data
+structure one can determine the tree structure for a P-node broadcast in
+O(log(P!)) time.  Note that O(P) < O(log(P!)) < O(P*log(P)), so the cost to
+construct the schedule grows superlinearly.  However, it doesn't require any
+communiction (deterministic algorithm allows all nodes to compute the same
+schedule independently).
+  For the case of A>>1 the communication is latency dominant and the optimal
+broadcast is the naive one in which the root sends data to each other node in
+sequence.  For the case of A near 1, the optimal tree shape is a Binomial
+tree[2].  Here are, for P=8, model results for the "EEL" of a broadcast with
+four different tree shapes on three different networks.  Note that these are
+in us and are directly comparable between networks.  However, they are just
+model results, not real timings.  The "Flat" tree is the one-level tree of
+the naive broadcast.  The percentages are relative to the optimal.
+
+		gm		vapi		mpi-conduit
+Optimal		21		24		334
+Binomial	21 		30 (+28%)	570 (+171%)
+Binary		26 (+24%)	30 (+28%)	570 (+171%)
+Flat		43 (+105%)	31 (+32%)	334
+
+The binary tree and the "flat" tree are the easiest two to implement.  With
+just these two choices, we can get within 30% of the optimal on the two fast
+networks, and the flat tree is the optimal for the slow network.  I don't
+have any bound on just how bad we could do with these two, or any heuristic
+for choosing between them.  However, I expect to implement them as the first
+two versions.
+
+Later I hope to implement the construction of the optimal trees.  I can see
+doing it two ways:
+1) At init time for some fixed A, ignoring the data size.
+2) At runtime, using some size-dependent (and conduit-specific) model for A
+   and caching the results so it can be reused when the same size is repeated.
+   Note that the data to cache would just be P*sizeof(gasnet_node_t) bytes.
+
+
+Scatter:
+========
+
+I am planning to examine the use of the optimal broadcast tree to do a
+tree-based scatter.  However, the fact that timings will NOT remain fixed as
+the payload is changed (sending more data near the root than at the leaves)
+means that the simple method for building such trees is only approximately
+applicable.  There is work proving that building optimal schedules for some
+tree-structured problems is NP-hard[4].  However, I don't yet know if this
+particular problem is one of them or not.
+
+
+Gather:
+=======
+
+The Gather is exactly the same as scatter with all the data moving in the
+opposite direction.  Therefore whatever I decide for Scatter will also be used
+to implement Gather.
+
+
+Exchange:
+=========
+
+The final data placement is equivalent to doing P scatters, one with each
+node as the root.  In a simple LogP model where we can only send a single data
+item per communication operation, the optimal[1] is to perform P naive scatters
+in lock-step, but chosing the order of each node's sends so each node receives
+exactly once per step.  The simplest such ordering is for node p to send to
+((p+1) mod P), ((p+2) mod P),... ((p+P-1) mod P).
+
+
+Gather_All:
+===========
+
+The final data placement is equivalent to doing P broadcasts.  In the LogP
+model with single-item sends the optimal[1] is the same as described above
+for Exchange, but with the same data item instead of distinct ones.
+
+If we allow a node to send more than a single data item per send, then we can
+improve on the methods above.  If we divide the communication into ceil(lg(P))
+rounds (where lg denoted base-2 log) then each round can forward an
+exponentially increasing amount of data (1 item in round 0, 2 items in round
+1, 2^i items in round i).  At the end of the final round each node has
+received 2^i items.  With the correct pairings for these sends, we can ensure
+that all P <= 2^i items are received at each node (and with a little care we
+can even avoid sending the "surplus" 2^i-P that exists when P is not a power
+of two).  The ordering for this is that in round i (starting from 0) node p
+will send to node ((p+2^i) mod P).  As it happens, this is exactly the same
+communication pattern used in the Dissemination barrier[3; sec 3.3], but now
+we are also moving real data.
+
+For small P the Exchange-like algorithm is faster, even if we assume the
+timings are constant as the payload size grows in each round.  As the ratio A
+(=ELL/max(O_s,g)) increases the crossover point moves toward larger P.  The
+dominant term for the Exchange-like algorithm is O(P*max(O_s,g)), due to
+the gap between the P sends from each node.  The dominant term for the
+Dissemination-like algorithm is O(lg(P)*ELL), due to the need to wait for
+data to arrive (before resending it) at each of the lg(P) rounds.
+Both algorithms move the exact same number of data bytes in and out
+of each node.  The Dissemination-like algorithms tries to reduce the number of
+sends needed to actually move the data, but must pay a cost proportional to
+ELL to wait for the needed data to arrive.
+
+
+Permute:
+========
+
+Other than implementing the UPC synchronization, there is no obvious mechanism
+by which GASNet can do any better than the use of Puts.
+
+
+Reduce:
+=======
+
+As noted in [1], the optimal communication pattern for reduction in the LogP
+model is the same tree as for Broadcast.  The order and direction of the comms
+are reversed and the data elements moving are partial "sums" from each subtree.
+There is no big concern over unequal contributions here, since each node must
+contribute exactly 1 or 0 "sums" to the total reduction.  The associativity
+requirement on operators makes things easier for us.
+
+The UPC_NONCOMM_FUNC case might take a little extra work, since it would
+restrict the trees we could legally use.  I've not tried to figure out what
+the actual restriction would look like.
+
+
+PrefixReduce:
+=============
+
+The UPC collectives spec allows one to take a slice of a UPC array such that
+the number of elements can differ among the nodes.  The basic method I have
+in mind would have each node compute the sums over each block (trivial for
+blocksize==1) and use a Gather_All to transfer these sums.  To deal with the
+possiblly unequal contribution we could either pad the block used in the
+Gather_All, or we could implement Gather_All for varible-sized contributions
+(which is already under consideration).
+
+I have yet to start searching for literature specific to this problem, so
+there may be methods much better than the Gather_All desribed above.
+
+
+Sort:
+=====
+
+I've no bright ideas here.  The most naive method would seem to be Gather,
+Sort on one node, Scatter.  However, the Gather and Scatter want equal
+contribution from each node, and Sort does not require it.  This might be
+another case for implementing collectives with variable-sized contributions.
+
+I have yet to start searching for literature specific to this problem, so
+there may be methods much better than the Gather+Scatter desribed above.
+
+
+Biblography:
+[1]  Karp, Sahay, Santos and Schauser "Optimal Broadcast and Summation in the LogP Model"
+[2]  Kielmann, Hofman, Bal, Plaat and Bhoedjang "MagPIe: MPI's Collective
+     Communication Opaertaions for Clustered Wide Area Systems."
+[3]  Mellor-Crummey and Scott "Algorithms for Scalable Synchronization on
+     Shared-Memory Multiprocessors."
+[4]  Verriet "Scheduling tree-structured programs in the LogP model"
