@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/09/08 23:48:01 $
-# $Revision: 1.78 $
+#     $Date: 2003/09/09 00:36:07 $
+# $Revision: 1.79 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.78 $)
+AC_REVISION($Revision: 1.79 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -437,16 +437,43 @@ AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
 
 #---------------------------------------------------------------------------------------------------------------
 # Check for overrides of compile-time checks for SMPs
-GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (default is to probe build machine),
-  [ AC_DEFINE(GASNETI_FORCE_SMP)
-    enabled_force_smp=yes
-    enabled_force_uni=no ],
-  [ AC_DEFINE(GASNETI_FORCE_UNI)
-    enabled_force_smp=no
-    enabled_force_uni=yes ],
-  [ enabled_force_uni=no 
-    enabled_force_uni=no ]
+GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (default is to probe at configure time),
+  [ uni_build=no ],
+  [ uni_build=yes],
+  [ AC_CHECK_HEADERS(/boot/kernel.h)
+    AC_MSG_CHECKING(whether current machine is a uni-processor)
+    if test "`uname -a | grep -i SMP`" != ""; then
+      uni_build=no;
+    else
+      AC_TRY_COMPILE([
+        /* Note that we try to error on the side of an SMP */
+        #if defined(__linux__)
+          #include <linux/config.h>
+          #if defined(CONFIG_SMP)
+            #error Make the AC_TRY_COMPILE fail (SMP)
+          #endif
+          #ifdef HAVE__BOOT_KERNEL_H
+            #include </boot/kernel.h>
+            #if defined(__BOOT_KERNEL_SMP) && (__BOOT_KERNEL_SMP == 1)
+              #error Make the AC_TRY_COMPILE fail (SMP)
+            #endif
+          #endif
+        #elif defined(__FreeBSD__)
+          #if defined(SMP)
+            #error Make the AC_TRY_COMPILE fail (SMP)
+          #endif
+        #else
+          #error Make the AC_TRY_COMPILE fail (SMP)
+        #endif
+        static int dummy() { return 0; } /* ensure C file is non-empty */
+    ], [], [ uni_build=yes ], [ uni_build=no ])
+    fi
+    AC_MSG_RESULT($uni_build)
+  ] 
  )
+if test "$uni_build" = yes; then
+  AC_DEFINE(GASNETI_UNI_BUILD)
+fi
 
 #---------------------------------------------------------------------------------------------------------------
 # Configure AMUDP
@@ -900,10 +927,6 @@ case "$target_os" in
     [ AC_MSG_RESULT(broken) 
       AC_DEFINE(BROKEN_LINUX_ASM_ATOMIC_H)
     ] )
-    AC_CHECK_HEADERS(/boot/kernel.h)
-    if test "`uname -a | grep -i SMP`" != ""; then
-      AC_DEFINE(LINUX_SMP_KERNEL)
-    fi
     ;;
 esac
 

@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2003/09/08 23:48:01 $ */
-/*  $Revision: 1.18 $ */
+/*      $Date: 2003/09/09 00:36:07 $ */
+/*  $Revision: 1.19 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -46,14 +46,8 @@
 /* Linux asm/atomic.h broken */
 #undef BROKEN_LINUX_ASM_ATOMIC_H
 
-/* detected a Linux SMP kernel */
-#undef LINUX_SMP_KERNEL
-
-/* forcing SMP build, even if build platform is a uniprocessor */
-#undef GASNETI_FORCE_SMP
-
 /* forcing UP build, even if build platform is a multi-processor */
-#undef GASNETI_FORCE_UNI
+#undef GASNETI_UNI_BUILD
 
 /* auto-detected mmap data page size */
 #undef GASNETI_PAGESIZE

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/09/08 23:48:01 $
- * $Revision: 1.14 $
+ *     $Date: 2003/09/09 00:36:07 $
+ * $Revision: 1.15 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -31,29 +31,6 @@
     gasneti_atomic_decrement_and_test(p) 
       atomically decrement *p, return non-zero iff the new value is 0
  */
-
-/* Determine if we are on an SMP or not */
-#if defined(GASNETI_FORCE_SMP) && defined(GASNETI_FORCE_UNI)
-  #error Cannot force SMP and force UNI at the same time
-#elif defined(GASNETI_FORCE_SMP)
-  #undef GASNETI_UNI_BUILD
-#elif defined(GASNETI_FORCE_UNI)
-  #define GASNETI_UNI_BUILD
-#elif defined(__linux__)
-  #include <linux/config.h>
-  #ifdef HAVE__BOOT_KERNEL_H
-    #include </boot/kernel.h>
-  #endif
-  #if !defined(CONFIG_SMP) && \
-      !(defined(__BOOT_KERNEL_SMP) && (__BOOT_KERNEL_SMP == 1)) && \
-      !LINUX_SMP_KERNEL
-    #define GASNETI_UNI_BUILD
-  #endif
-#elif defined(__FreeBSD__)
-  #if !defined(SMP)
-    #define GASNETI_UNI_BUILD
-  #endif
-#endif
 
 #if defined(SOLARIS) || /* SPARC seems to have no atomic ops */ \
     defined(CRAYT3E) || /* TODO: no atomic ops on T3e? */       \
