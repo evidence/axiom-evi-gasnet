@@ -40,8 +40,8 @@
 @c ------------------------------------------------------------------------------------
 @c Macros:
 
-@set VERSION 0.7draft2
-@set RELEASEDATE July 2nd, 2002
+@set VERSION 1.0
+@set RELEASEDATE October 17th, 2002
 
 @ifnottex
 @ifhtml
@@ -146,9 +146,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/10/03 14:30:33 $
+@subtitle $Date: 2002/10/17 10:31:24 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.12 $ 
+@subtitle $Revision: 1.13 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -168,7 +168,6 @@ This the GASNet specification, version @value{VERSION}.
 @insertcopying
 @end ifnottex
 @end titlepage
-
 @c ------------------------------------------------------------------------------------
 @c So the toc is printed in the right place.
 @ifclear HTMLORTEXT
@@ -187,15 +186,14 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/10/03 14:30:33 $
-@*$Revision: 1.12 $ 
+@*$Date: 2002/10/17 10:31:24 $
+@*$Revision: 1.13 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.nersc.gov/}
 @HR
 @COPYRIGHTTEXT
 @HR
 @end ifset
-
 
 @menu
 * Introduction::  
@@ -574,7 +572,6 @@ an error code such as @code{GASNET_ERR_RESOURCE} to indicate there was a problem
 acquiring network or system resources. Otherwise, it returns @code{GASNET_OK} to indicate success. 
 May only be called once during a process lifetime, subsequent calls will 
 return an error.
-
 @end deftypefn
 
 @FN gasnet_attach
@@ -585,7 +582,6 @@ typedef struct @{
   gasnet_handler_t index; // == 0 for don't care 
   void (*fnptr)();
 @} gasnet_handlerentry_t; 
-
 @end lisp
 @deftypefn {} {int} gasnet_attach (gasnet_handlerentry_t *@var{table}, int @var{numentries}, @w{uintptr_t @var{segsize}, uintptr_t @var{minheapoffset}})
 
@@ -892,7 +888,7 @@ checking happens on the sending or receiving node.
 @node Active Message Categories
 @subsection Active Message Categories
 
-There are 3 categories of active messages:
+There are three categories of active messages:
 
 @table @samp
 @cindex Short Active Message
@@ -927,6 +923,8 @@ void handler(gasnet_token_t token,
              gasnet_handlerarg_t arg0, ... gasnet_handlerarg_t argM-1);
 @end lisp
 @end table
+
+For more discussion on these three categories, see the Appendix.
 
 The number of handler arguments (M) is specified upon issuing a request or 
 reply by choosing the request/reply function of the appropriate name. The 
@@ -2252,9 +2250,9 @@ spec)
 
 @c ------------------------------------------------------------------------------------
 @node Collective Operations
-@appendixsec Collective Operations
+@appendixsec Collective Operations (not yet supported)
 
-@appendixsubsec Broadcast (not yet supported)
+@c @appendixsubsec Broadcast 
 
 @deftypefn {} {void} gasnet_all_broadcast_T (void *@var{data}, size_t @var{nbytes}, gasnet_node_t @var{source})
 
@@ -2424,6 +2422,70 @@ pointer size (64-bit ints)
     cons: LP64 platforms (like Itanium) have 32-bit ints, but 64-bit ptrs
 send twice as many bits in each message just because of pointer width, even if not needed
 
+@end itemize
+
+
+@c ------------------------------------------------------------------------------------
+@node Alternate formulation of Active Messages
+@appendixsec Active Message Categories - Alternate formulation of AM (not part of spec)
+
+Newcomers to Active Messages and GASNet occasionally express confusion over the concepts
+of Short, Medium and Long AM's. Despite the somewhat misleading naming convention, 
+the three categories of messages may actually bear only a loose correllation to the 
+actual message/data sizes. The important distinctions are semantic, and sufficiently
+minor that one might imagine replacing the three categories with a single, 
+more general type of AM that provides the functionality of each GASNet AM category 
+as a special case.
+
+Specifically, a GASNet Short AM can be seen as a special case of a Medium or Long AM
+where the payload has length zero. Furthermore, the only important semantic distinction between 
+Medium and Long AM's are that Medium AM's provide the payload to the handler in a temporary 
+network buffer, whereas Long AM's write the payload (often using RDMA) to a sender-specified 
+location in the user memory segment of the target node before running the handler 
+(each semantic is useful for different usage scenarios).
+
+Hence, some users may find it helpful to consider building "unified" AM request/reply 
+functions such as suggested below:
+
+@lisp
+/* unified request function */
+int unified_AMRequestM(
+       gasnet_node_t dest, gasnet_handler_t handler,
+       void *buf, size_t buf_len,
+       void *dest_addr,
+       int32 arg0, int32 arg1, ...) @{
+  if (buf == NULL)
+    return gasnet_AMRequestShortM(dest,handler,arg0,arg1,...);
+  else if (dest_addr == NULL)
+    return gasnet_AMRequestMediumM(dest,handler,buf,buf_len,arg0,arg1,...);
+  else
+    return gasnet_AMRequestLongM(dest,handler,buf,buf_len,dest_addr,arg0,arg1,...);
+@}
+@end lisp
+
+@itemize @bullet
+@item
+M is the number of arguments, which must be <= @code{gasnet_AMMaxArgs()}
+@item
+@code{dest_addr == NULL} requires @code{buf_len} <= @code{gasnet_AMMaxMedium()},
+ and the payload is delivered in a temporary buffer
+@item
+@code{dest_addr != NULL} requires @code{buf_len} <= @code{gasnet_AMMaxLongRequest()}
+    (or @code{gasnet_AMMaxLongReply()} for replies), 
+ and the payload is written into the target node segment at @code{dest_addr}
+@item
+Handler prototypes remain the same as under GASNet:
+@*@code{buf == NULL}:
+@lisp
+  void handler_nopayload(gasnet_token_t token,
+                          gasnet_handlerarg_t arg0, gasnet_handlerarg_t arg1...);
+@end lisp
+@*@code{buf != NULL}:
+@lisp
+  void handler_withpayload(gasnet_token_t token,
+                        void *buf, size_t buf_len,
+                        gasnet_handlerarg_t arg0, gasnet_handlerarg_t arg1...);
+@end lisp
 @end itemize
 
 
