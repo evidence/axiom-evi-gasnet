@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/03/17 01:16:34 $
-# $Revision: 1.126 $
+#     $Date: 2004/03/25 06:53:56 $
+# $Revision: 1.127 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.126 $)
+AC_REVISION($Revision: 1.127 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -87,22 +87,25 @@ AC_PROG_LN_S
 AC_C_BIGENDIAN
 AC_CHECK_PROG(have_mpcc_r,mpcc_r,yes,no)
 
-AC_MSG_CHECKING(known buggy C compilers)
-AC_TRY_CPP([
+dnl GASNET_GCC296CHECK(type)  type=CC or CXX
+AC_DEFUN([GASNET_GCC296CHECK],[
+AC_MSG_CHECKING(known buggy compilers)
+AC_TRY_COMPILE([
 #if __GNUC__ == 2 && __GNUC_MINOR__ == 96 && __GNUC_PATCHLEVEL__ == 0
 # error
 #endif
-],[ AC_MSG_RESULT(ok) ],[
-AC_MSG_RESULT(gcc 2.96)
-gcc296msg="Use of gcc 2.96 for compiling this software is strongly discouraged. \
+],[ ], [ AC_MSG_RESULT(ok) ],[
+AC_MSG_RESULT([$1] is gcc 2.96)
+gcc296msg="Use of gcc/g++ 2.96 for compiling this software is strongly discouraged. \
 It is not an official GNU release and has many serious known bugs, especially \
 in the optimizer, which may lead to bad code and incorrect runtime behavior. \
-Consider using \$CC to select a different compiler."
-GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc 2.96 compiler, [ 
+Consider using \$[$1] to select a different compiler."
+GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc/g++ 2.96 compiler, [ 
   AC_MSG_WARN([$gcc296msg])  
   ],[ 
   AC_MSG_ERROR([$gcc296msg \
   You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc296 flag.])  
+])
 ])
 ])
 
@@ -151,7 +154,8 @@ fi
 #
 
 case "$gasnet_cv_cc_family" in
-  GNU)  oldCFLAGS="$CFLAGS"
+  GNU)  GASNET_GCC296CHECK(CC)
+        oldCFLAGS="$CFLAGS"
         CFLAGS="-O3"
         # -finline-limit not available on gcc 2.95
         GASNET_TRY_CFLAG([-finline-limit=10000],
@@ -602,6 +606,7 @@ if test $enabled_udp = yes; then
   CXXOPTFLAGS="-O2"
   case "$gasnet_cv_cxx_family" in
     GNU) 
+       GASNET_GCC296CHECK(CXX)
        oldCXXFLAGS="$CXXFLAGS"  
        GASNET_GET_GNUWARNINGFLAGS(CXX)
        MISC_CXXFLAGS="$CXXFLAGS" 
