@@ -70,6 +70,44 @@ For example:
 
 See tests/Makefile for another example of compiling GASNet client code.
 
+Supported Platforms
+===================
+
+Platforms where GASNet and Berkeley UPC have been successfully tested:
+
+      OS/Architecture/compiler/ABI: network conduits
+      ----------------------------------------------
+    * Linux/x86-Myrinet/gcc/32:  smp, mpi, gm
+    * Linux/x86-Ethernet/gcc/32: smp, mpi
+    * Linux/x86-Dolphin/gcc/32:  smp, mpi
+    * Linux/Itanium-Quadrics/gcc/64: smp, mpi, elan
+
+    * Tru64/Compaq-AlphaServer/Compaq C: smp, mpi, elan
+
+    * AIX/IBM-SPPower3/VisualAgeC(xlc)/32,64: smp, mpi, lapi
+    * AIX/IBM-SPPower4/VisualAgeC(xlc)/32,64: smp, mpi, lapi
+
+    * IRIX/Origin2000/MIPSProC/32,64: smp, mpi
+
+    * HPUX/PA-RISC/gcc/32: smp, #
+ 
+    * Solaris/SPARC/gcc/32: smp, mpi
+    * Solaris/x86/gcc/32: smp, #
+
+    * MSWindows-Cygwin/x86/gcc/32: smp, #
+
+    * MacOSX/PowerPC/gcc/32: smp, mpi
+
+    * Unicos/CrayT3e/CrayC/64: smp, mpi 
+       (Berkeley UPC has a known UPC codegen bug on T3E (bug202) - but GASNet works fine)
+
+# = No working MPI implementation available, although we have every reason to
+believe mpi conduit would work if one was available.
+
+Other combinations of the platforms above are likely to also work, these are
+just the systems we've personally tested. Several of the systems listed using a
+vendor-specific C compiler can also use gcc as the underlying C compiler,
+although we generally recommend the vendor C compiler for performance reasons.
 
 Recognized Environment Variables
 ================================
