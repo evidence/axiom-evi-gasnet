@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/03/05 23:48:02 $
- * $Revision: 1.25 $
+ *     $Date: 2004/03/13 13:34:10 $
+ * $Revision: 1.26 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -193,11 +193,15 @@ int _test_rand(int low, int high) {
 
 /* Functions for obtaining calibrated delays */
 #ifdef TEST_DELAY
-extern void test_delay(int n);	 /* in delay.o */
+extern void test_delay(int64_t n);	 /* in delay.o */
 
 /* smallest number of delay loops to try in calibration */
 #ifndef TEST_DELAY_LOOP_MIN
   #define TEST_DELAY_LOOP_MIN        100
+#endif
+/* max number of calibration iterations to wait for convergance */
+#ifndef TEST_DELAY_CALIBRATION_LIMIT
+  #define TEST_DELAY_CALIBRATION_LIMIT 100
 #endif
 
 /* Compute the number of loops needed to get no less that the specified delay
@@ -207,31 +211,45 @@ extern void test_delay(int n);	 /* in delay.o */
  * actual achieved delay for 'iters' calls to "delay(*time_p)".
  * The 'time_p' is given in microseconds.
  */
-int test_calibrate_delay(int iters, int64_t *time_p) 
+int64_t test_calibrate_delay(int iters, int64_t *time_p) 
 {
 	int64_t begin, end, time;
 	float target = *time_p;
 	float ratio = 0.0;
-	int i, loops = 0;
+	int i;
+        int64_t loops = 0;
+        int caliters = 0;
 
 	do {
 		if (loops == 0) {
 			loops = TEST_DELAY_LOOP_MIN;	/* first pass */
 		} else {
-			int tmp = loops * ratio;
+			int64_t tmp = loops * ratio;
 
 			if (tmp > loops) {
 				loops = tmp;
 			} else {
 				loops += 1;	/* ensure progress in the face of round-off */
 			}
+                        assert(loops < 1ll<<62);
 		}
 
 		begin = TIME();
 		for (i = 0; i < iters; i++) { test_delay(loops); }
 		end = TIME();
 		time = end - begin;
+                assert(time > 0);
 		ratio = target / (float)time;
+                caliters++;
+                if (caliters > TEST_DELAY_CALIBRATION_LIMIT) {
+                  fprintf(stderr,"ERROR: test_calibrate_delay(%i,%i) failed to converge after %i iterations.\n",
+                          iters, (int)*time_p, iters);
+                  abort();
+                }
+              #if 0
+                printf("loops=%llu\n",(unsigned long long)loops); fflush(stdout);
+                printf("ratio=%f target=%f time=%llu\n",ratio,target,(unsigned long long)time); fflush(stdout);
+              #endif
 	} while (ratio > 1.0);
 
 	*time_p = time;

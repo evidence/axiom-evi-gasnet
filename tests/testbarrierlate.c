@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrierlate.c                         $
- *     $Date: 2004/03/12 21:48:11 $
- * $Revision: 1.1 $
+ *     $Date: 2004/03/13 13:34:10 $
+ * $Revision: 1.2 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,12 +14,12 @@
 int main(int argc, char **argv) {
   struct delay_s {
     int64_t	delay_us;
-    int	delay_loops;
+    int64_t	delay_loops;
   } delay_params;
   int mynode, nodes, iters=0;
   int64_t start,total,delay_us;
   int64_t min_time, max_time, avg_time;
-  int delay_loops = 0;
+  int64_t delay_loops = 0;
   int j, i = 0;
   int pause_len;
 
@@ -68,7 +68,8 @@ int main(int argc, char **argv) {
   if (mynode == 0) {
       struct delay_s *p = (struct delay_s *)TEST_MYSEG();
 
-      printf("Calibrating delay loop (expect at least a %ds pause)... ", pause_len);
+      start = TIME();
+      printf("Calibrating delay loop (expect at least a %d sec pause)...\n", pause_len);
       fflush(stdout);
       p->delay_us = total;	/* delay at least one full barrier time */
       p->delay_loops = test_calibrate_delay(iters, &(p->delay_us));
@@ -80,7 +81,7 @@ int main(int argc, char **argv) {
   delay_us = delay_params.delay_us;
   delay_loops = delay_params.delay_loops;
   if (mynode == 0) {
-    printf("done.\n");
+    printf("Calibration complete (actual pause = %5.3f sec).\n", (float)((TIME()-start)/1000000.0));
     fflush(stdout);
   }
 

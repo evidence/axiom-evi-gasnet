@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.19 2004/03/12 21:48:11 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.20 2004/03/13 13:34:10 bonachea Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -136,7 +136,7 @@ testbarrierlate_deps = delay.o
 
 # delay function must be built w/o optimizations
 delay.o: force
-	$(GASNET_CC) -O0 -c -o $@ $(srcdir)/$*.c
+	$(GASNET_CC) $(GASNET_INCLUDES) -c -o $@ $(srcdir)/$*.c
 
 # testmpi must be compiled like an MPI program with GASNet support
 testmpi: force
