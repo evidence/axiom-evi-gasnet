@@ -3,11 +3,117 @@ README file for vapi-conduit
 Paul H. Hargrove <PHHargrove@lbl.gov>
 
 @ TOC: @
+@ Section: Runtime Configuration @
 @ Section: Core API @
 @ Section: Extended API @
 @ Section: Graceful exits @
 @ Section: TO DO @
 
+
+@ Section: Runtime Configuration @
+
+  There are a number of parameters in vapi-conduit which can be tuned
+  at runtime via environment variables.  There are two categories of
+  parameters: connection settings and resource usage parameters.
+
+  Connection settings:
+  + GASNET_HCA_ID
+    This gives the "HCA ID" string of the InfiniBand Host Channel
+    Adapter (HCA) to open.  This string is assigned by the device driver
+    at boot time.  A typical HCA ID is "InfiniHost0", for the first HCA
+    with the InfiniHost chip.
+    The default value is an empty string, which causes vapi-conduit to
+    try all HCAs detected by the device driver and use the first one
+    which can be opened.
+    This parameter may meaningfully be different on each node.
+
+  + GASNET_PORT_NUM
+    This gives the integer port number to use on the HCA.  The "port"
+    is a physical port on the HCA, not to be confused with IP port
+    numbers.  IB defines the port numbers to start at 1.
+    The default value is 0, which causes vapi-conduit to probe the HCA
+    for the lowest-numbered physical port which is configured as ACTIVE.
+    This parameter may meaningfully be different on each node.
+
+  Resource usage parameters:
+  + GASNET_OP_OUST_PP
+    This gives the maximum number of outstanding ops (RDMA + AMs) which
+    can be in-flight simultaneously from a node to each of its peers.
+    Here "in-flight" means queued to the send work queue and not yet
+    reaped from the send completion queue.  Note that these operations
+    are reaped in FIFO order, independent of when any corresponding
+    GASNet operation is synced.
+    This value is the depth of each send work queue.  Thus the memory
+    consumed for send work queues scales as GASNET_OP_OUST_PP*(N-1),
+    on each node.
+    The default value is 64.
+    This parameter should be equal across all nodes, and the behavior
+    otherwise is undefined.
+
+  + GASNET_OP_OUST_LIMIT
+    This gives the maximum number of outstanding ops (RDMA + AMs) which
+    can be in-flight simultaneously from each node, with "in-flight"
+    defined as in GASNET_OP_OUST_PP.
+    This is (potentially) the depth of the send completion queue and the
+    number of 'sbuf' data structures allocated to track in-flight ops.
+    However, for a given value of GASNET_OP_OUST_PP and N, it might not
+    be possible to launch GASNET_OP_OUST_LIMIT operations.  Therefore,
+    the memory consumed for the send completion queue and sbufs scales
+    as min(GASNET_OP_OUST_LIMIT, GASNET_OP_OUST_PP*(N-1)), on each node.
+    The default value is 1024.  (upto 4MB used for send buffers)
+    This parameter should be equal across all nodes, and the behavior
+    otherwise is undefined.
+   
+  + GASNET_AM_OUST_PP
+    This give the maximum number of outstanding AM Requests which can
+    be in-flight simultaneously from a node to each of its peers.  Here
+    "in-flight" means the Request is queued to the send work queue, but
+    the matching Reply has not yet been processed for AM flow control
+    (described in another section of this README).
+    This is the number of receive buffers which must be preposted to each
+    endpoint for AM Requests.  With the current flow-control scheme the
+    same number of additional receive buffers are needed to accept replies.
+    Thus, the memory consumed for the receive work queues and the receive
+    completion queue each scale as GASNET_AM_OUST_PP*(N-1) on each node.
+    The default value is 32.  (256KB*(N-1) for receive buffers)
+    This parameter should be equal across all nodes, and the behavior
+    otherwise is undefined.
+
+  + GASNET_AM_OUST_LIMIT
+    This give the integer number of outstanding AM Requests which can
+    be in-flight simultaneously from each node, with "in-flight" defined
+    as in GASNET_AM_OUST_PP.
+    With the current flow-control scheme this parameter is not yet fully
+    implemented.  Intended to control the size of the receive completion
+    queue, this parameter will be used with the "dynamic flow-control"
+    scheme (elsewhere in this README).  For now it is an error to set
+    this parameter to anything smaller than GASNET_AM_OUST_PP*(N-1), and
+    values larger than that are clipped to this value.
+    The default is 32767, and represents the limit of 65535 completion
+    queue entries supported by the InfiniHost firmware.
+    This parameter should be equal across all nodes, and the behavior
+    otherwise is undefined.
+
+  + GASNET_AM_SPARES
+    This gives the number of "spare" receive buffers which are allocated
+    in addition to those needed to satisfy the settings of the parameters
+    GASNET_AM_OUST_PP and GASNET_AM_OUST_LIMIT.  These spare receive
+    buffers are used while running AM handlers, to aid the flow-control
+    process.
+    Because a "spare" receive buffer is used while an AM handler is
+    running, this parameter limits the number of AM handlers which can
+    run concurrently without running the risk of an empty receive work
+    queue.  As described in the section on AM flow-control the empty
+    queue condition is undesirable, but not fatal.  Since a given thread
+    can only run one handler at a time, values of GASNET_AM_SPARES
+    larger than the number of threads running concurrently in GASNet
+    offer no extra benefit.  So, the default value depends on the
+    threading configuration.
+    When compiled for GASNET_PARSYNC or GASNET_SEQ, the default is 2
+    to allow for a single client thread in GASNet plus the internal AM
+    receive thread.  When compiled for GASNET_PAR, the default is 4.
+    This parameter should be equal across all nodes, and the behavior
+    otherwise is undefined.
 
 @ Section: Core API @
 
@@ -70,7 +176,7 @@ Paul H. Hargrove <PHHargrove@lbl.gov>
   the endpoint until after the hander has run.  If the recv buffer
   of which the replacement is delayed triggers a REQUEST handler 
   then there is a potential race, because the credit update implied
-  by the reply (explicit or implicit) preceeds the replacement.
+  by the reply (explicit or implicit) precedes the replacement.
   Here is what is needed to trigger IB's RNR flow control:
   1) Assume that all the recv buffers posted to the endpoint have
      been consumed by AMs
@@ -85,7 +191,7 @@ Paul H. Hargrove <PHHargrove@lbl.gov>
      until the current recv buffer is reposted.
   8) IB's RNR (Reciever Not Ready) flow-control kicks in, stalling our
      peer's send queue
-  Fortunetely this is not only an unlikely occurance, it is also non-fatal.
+  Fortunately this is not only unlikely, it is also non-fatal.
   Eventually, the recv buffer will be reposted and the stall will end.
   However, the point-to-point ordering guarantees of IB ensure that all
   the transfers queued behind the stalled AM request are also stalled.
@@ -94,7 +200,7 @@ Paul H. Hargrove <PHHargrove@lbl.gov>
   previous buffer as the "spare" for the next one, in place of
   grabbing one from the unposted pool each time.  Thus, we touch the
   unposted pool at most twice per Poll, once for the first REQUEST we
-  recieve and once at the end to put the recv buffer of the final
+  receive and once at the end to put the recv buffer of the final
   REQUEST back in the unposted pool.  For the dedicated receive thread
   we do even better, never touching the unposted pool at all by always
   keeping a single thread-local "spare", initially acquired at startup.
@@ -200,7 +306,7 @@ of the cases in testexit.  By "Pass" I mean that the entire gasnet job
 (tested up to 8-way across my 4 dual-processor machines) terminates
 with no orphans, and with tracing properly finalized (if tracing is
 enabled).  On August 11, 2003 the graceful exit code was revised to
-send O(N) network traffic in the worstcase, as opposed to the O(N^2)
+send O(N) network traffic in the worst case, as opposed to the O(N^2)
 required in all cases in the first implementation.
 
 Additionally, the exit code is properly propagated through the
@@ -269,14 +375,14 @@ indicates to _body which role the local node is to assume.
 From _body, the single master node will enter gasnetc_exit_master() and
 will begin sending an remote exit request (system-category AM, so this
 will all work between _init and _attach) to each peer.  Then the master
-waits (with timout, of course) for a reply from each peer.  This request
+waits (with timeout, of course) for a reply from each peer.  This request
 conveys the desired exit code to each node.  It also will wake them out
 of a spin-loop, barrier, or other case where they were not yet aware of
 the need to exit.  In the handler for the exit request, a node will send
 a reply back to the master, so it knows all the nodes are reachable.  It
 will set its role to "slave" and, if no exit is in-progress, it will start
-the exit proceedure, as described later.  From _body, the slave nodes all
-call gasnetc_exit_slave(), which simply spins until the remore exit request
+the exit procedure, as described later.  From _body, the slave nodes all
+call gasnetc_exit_slave(), which simply spins until the remote exit request
 has arrived from the master.
 
 Regardless of whether the sending of exit requests and replies completed

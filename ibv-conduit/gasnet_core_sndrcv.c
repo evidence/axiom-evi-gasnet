@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/26 22:51:35 $
- * $Revision: 1.15 $
+ *     $Date: 2003/08/26 23:04:25 $
+ * $Revision: 1.16 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -208,7 +208,7 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, int credit) {
   vstat = VAPI_post_rr(gasnetc_hca, cep->qp_handle, &rbuf->rr_desc);
   if (credit) {
     gasnetc_sema_up(&cep->am_sema);
-    GASNETC_SEMA_CHECK(&(cep->am_sema), GASNETC_AM_OUST_PP);
+    GASNETC_SEMA_CHECK(&(cep->am_sema), gasnetc_am_oust_pp);
   }
 
   if_pt (vstat == VAPI_OK)
@@ -334,7 +334,7 @@ static int gasnetc_snd_reap(int limit, gasnetc_sbuf_t **tail_p) {
         if_pt (sbuf) {
 	  /* resource accounting */
 	  gasnetc_sema_up(sbuf->op_sema);
-          GASNETC_SEMA_CHECK(sbuf->op_sema, GASNETC_OP_OUST_PP);
+          GASNETC_SEMA_CHECK(sbuf->op_sema, gasnetc_op_oust_pp);
 
 	  /* complete bounced RMDA read, if any */
 	  if (sbuf->addr) {
@@ -787,8 +787,8 @@ extern void gasnetc_sndrcv_init(void) {
   /*
    * setup RCV resources
    */
-  count = (GASNETC_AM_OUST_PP * 2) * (gasnetc_nodes - 1) + GASNETC_AM_SPARES;
-  assert(count <= GASNETC_AM_OUST_LIMIT);
+  assert(gasnetc_am_oust_pp * (gasnetc_nodes - 1) <= gasnetc_am_oust_limit);
+  count = (gasnetc_am_oust_pp * 2) * (gasnetc_nodes - 1) + gasnetc_am_spares;
 
   /* create the RCV CQ */
   vstat = VAPI_create_cq(gasnetc_hca, count, &gasnetc_rcv_cq, &act_size);
@@ -796,10 +796,6 @@ extern void gasnetc_sndrcv_init(void) {
   assert(act_size >= count);
 
   if (gasnetc_nodes > 1) {
-    #if GASNETC_LOCK_FREE_QUEUES
-      count++;		/* non-empty queue always wastes one */
-    #endif
-
     #if GASNETC_RCV_THREAD
       /* create the RCV thread */
       vstat = EVAPI_set_comp_eventh(gasnetc_hca, gasnetc_rcv_cq, &gasnetc_rcv_thread,
@@ -807,6 +803,10 @@ extern void gasnetc_sndrcv_init(void) {
       assert(vstat == VAPI_OK);
       vstat = VAPI_req_comp_notif(gasnetc_hca, gasnetc_rcv_cq, VAPI_NEXT_COMP);
       assert(vstat == VAPI_OK);
+    #endif
+
+    #if GASNETC_LOCK_FREE_QUEUES
+      count++;		/* non-empty queue always wastes one */
     #endif
 
     /* Allocated pinned memory for receive buffers */
@@ -853,7 +853,7 @@ extern void gasnetc_sndrcv_init(void) {
   /*
    * setup SND resources
    */
-  count = MIN(GASNETC_OP_OUST_LIMIT, GASNETC_OP_OUST_PP * gasnetc_nodes);
+  count = MIN(gasnetc_op_oust_limit, gasnetc_op_oust_pp * gasnetc_nodes);
 
   /* create the SND CQ */
   vstat = VAPI_create_cq(gasnetc_hca, count, &gasnetc_snd_cq, &act_size);
@@ -903,14 +903,14 @@ extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
      * Currently preposting one for each incomming request and one for
      * each possible reply.  Later hope to post the reply buffers on-demand.
      * That will allow us to run with
-     *   GASNETC_AM_OUST_LIMIT < (gasnetc_nodes - 1)*GASNETC_AM_OUST_PP
+     *   gasnetc_am_oust_limit < (gasnetc_nodes - 1)*gasnetc_am_oust_pp
      */
-    for (i = 0; i < 2 * GASNETC_AM_OUST_PP; ++i) {
+    for (i = 0; i < 2 * gasnetc_am_oust_pp; ++i) {
       gasnetc_rcv_post(cep, gasnetc_get_rbuf(), 0);
     }
 
-    gasnetc_sema_init(&cep->am_sema, GASNETC_AM_OUST_PP);
-    gasnetc_sema_init(&cep->op_sema, GASNETC_OP_OUST_PP);
+    gasnetc_sema_init(&cep->am_sema, gasnetc_am_oust_pp);
+    gasnetc_sema_init(&cep->op_sema, gasnetc_op_oust_pp);
   } else {
     /* Even the loopback AMs are restricted by credits, so we make this limit LARGE.
      * Since the handlers run synchronously, this just limits the number of threads

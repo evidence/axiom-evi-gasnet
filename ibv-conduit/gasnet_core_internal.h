@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/08/25 21:06:34 $
- * $Revision: 1.15 $
+ *     $Date: 2003/08/26 23:04:25 $
+ * $Revision: 1.16 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -212,19 +212,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   GASNETI_TRACE_EVENT_TIME(C,name,GASNETI_STATTIME_NOW() - _waitstart)
 
 /* ------------------------------------------------------------------------------------ */
-
-/* Default HCA and Port */
-#define GASNETC_HCA_ID		"InfiniHost0"
-#define GASNETC_HCA_PORT	0		/* 0 = use lowest-numbered active port */
-
-/* Limits on in-flight (sent but not acknowledged) RDMA Ops */
-#define GASNETC_OP_OUST_LIMIT	1024	/* Max RDMA ops outstanding at source */
-#define GASNETC_OP_OUST_PP	16	/* Max RDMA ops outstanding to each peer */
-
-/* Limits on in-flight (sent but not acknowledged) AM Requests */
-#define GASNETC_AM_OUST_LIMIT	32767	/* Max requests outstanding at source (NOT FULLY IMPLEMENTED) */
-#define GASNETC_AM_OUST_PP	4	/* Max requests outstanding to each peer */
-#define GASNETC_AM_SPARES	4	/* Spare AM buffers used to accelerate flow control */
 
 /* Scatter-gather segments.  Only 1 makes sense right now */
 #define GASNETC_SND_SG  1               /* maximum number of segments to gather on send */
@@ -507,6 +494,15 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
 extern gasnetc_memreg_t *gasnetc_local_reg(uintptr_t start, uintptr_t end);
 extern void *gasnetc_alloc_pinned(size_t size, VAPI_mrw_acl_t acl, gasnetc_memreg_t *reg);
 extern void gasnetc_free_pinned(gasnetc_memreg_t *reg);
+
+/* Global configuration variables */
+extern char		*gasnetc_hca_id;
+extern IB_port_t	gasnetc_port_num;
+extern int		gasnetc_op_oust_limit;
+extern int		gasnetc_op_oust_pp;
+extern int		gasnetc_am_oust_limit;
+extern int		gasnetc_am_oust_pp;
+extern int		gasnetc_am_spares;
 
 /* Global variables */
 extern gasnetc_cep_t	*gasnetc_cep;
