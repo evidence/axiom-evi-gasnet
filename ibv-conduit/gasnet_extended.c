@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2004/07/28 23:59:39 $
- * $Revision: 1.23 $
+ *     $Date: 2004/07/29 00:38:57 $
+ * $Revision: 1.24 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -246,7 +246,7 @@ int gasnete_op_try_free(gasnet_handle_t handle) {
     gasnete_eop_t *eop = (gasnete_eop_t*)op;
 
     if (gasnete_eop_test(eop)) {
-      gasnete_sync_reads();
+      gasneti_sync_reads();
       gasnete_eop_free(eop);
       return 1;
     }
@@ -255,7 +255,7 @@ int gasnete_op_try_free(gasnet_handle_t handle) {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
 
     if (gasnete_iop_test(iop)) {
-      gasnete_sync_reads();
+      gasneti_sync_reads();
       gasnete_iop_free(iop);
       return 1;
     }
@@ -274,7 +274,7 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
     gasnete_eop_t *eop = (gasnete_eop_t*)op;
 
     if (gasnete_eop_test(eop)) {
-      gasnete_sync_reads();
+      gasneti_sync_reads();
       gasnete_eop_free(eop);
       *handle_p = GASNET_INVALID_HANDLE;
       return 1;
@@ -284,7 +284,7 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
 
     if (gasnete_iop_test(iop)) {
-      gasnete_sync_reads();
+      gasneti_sync_reads();
       gasnete_iop_free(iop);
       *handle_p = GASNET_INVALID_HANDLE;
       return 1;

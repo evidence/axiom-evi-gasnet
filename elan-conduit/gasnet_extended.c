@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2004/07/28 23:59:31 $
- * $Revision: 1.40 $
+ *     $Date: 2004/07/29 00:38:55 $
+ * $Revision: 1.41 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1284,7 +1284,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
     #endif
 
     if (gasnete_iop_gets_done(iop)) {
-      gasnete_sync_reads();
+      gasneti_sync_reads();
       return GASNET_OK;
     }
     else return GASNET_ERR_NOT_READY;
@@ -1308,7 +1308,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
     #endif
 
     if (gasnete_iop_puts_done(iop)) {
-      gasnete_sync_reads();
+      gasneti_sync_reads();
       return GASNET_OK;
     }
     else return GASNET_ERR_NOT_READY;
