@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/02/28 06:59:16 $
- * $Revision: 1.32 $
+ *     $Date: 2005/02/28 18:37:00 $
+ * $Revision: 1.33 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -241,31 +241,21 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
-#elif 0 && defined(LINUX) && defined(__GNUC__) && defined(__PPC__)
-  /* DISABLED FOR NOW.
-   *
-   * This code shows how to get the 64-bit "timebase" register on both 32- and
+#elif defined(LINUX) && defined(__GNUC__) && defined(__PPC__)
+  /* 
+   * This code uses the 64-bit "timebase" register on both 32- and
    * 64-bit PowerPC CPUs.  Unfortunetly, there is no reliable way for us to get
    * its frequency.  The processor docs say the frequency is implementation
    * dependent.  Indeed I find CPUs where it is 1/2 of the reported CPU
-   * frequency and others where it is 1/4.  Docs indicate that for yet another
+   * frequency and others where it is 1/24.  Docs indicate that for yet another
    * it is a fixed 66MHz regardless of CPU frequency.
    *
    * The Linux kernel uses this counter for its implementation of gettimeofday
    * and thus does some boot time measurements against hardware of known (or
    * programmable) frequency.  I find that only on SOME kernels on SOME models
    * does the Linux kernel choose to share this information with us (via
-   * /proc/cpuinfo) as shown in the stattime_to_us given here.
-   *
-   * I suppose we can calibrate the frequency of this counter against
-   * gettimeofday(), but to be accurate may require an unreasonably long delay
-   * the first time we convert to microseconds.  A possible way to keep the 
-   * delay low is to assume that the frequency is either 66MHz or the CPU
-   * frequency (in /proc/cpuinfo) divided by some small integer (1..16?).
-   * That should be possible to do with reasonable accuracy with a delay of no
-   * more than a few hundred microseconds on the first call.
-   *
-   * -PHH Feb 27, 2005
+   * /proc/cpuinfo).  So, we are stuck calibrating against gettimeofday() and
+   * using the fact that the tick is some integer multiple of the cpu clock.
    */
   #include <stdio.h>
   #include <stdlib.h>
@@ -301,22 +291,65 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     if_pf (firstTime) {
       FILE *fp = fopen("/proc/cpuinfo","r");
       char input[255];
+      uint64_t min_ticks;
+      double MHz = 0.0;
+      double prev = -1.0;
+      /* Begin by getting the value of the CPU clock speed */
       if (!fp) {
         fprintf(stderr,"*** ERROR: Failure in fopen('/proc/cpuinfo','r')=%s",strerror(errno));
         abort();
       }
       while (!feof(fp) && fgets(input, 255, fp)) {
-        if (strstr(input,"timebase")) {
+        if (strstr(input,"clock")) {
           char *p = strchr(input,':');
-	  double MHz = 0.0;
-          if (p) MHz = atof(p+1) * 1e-6;
+          if (p) MHz = atof(p+1);
           assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
-          Tick = 1. / MHz;
           break;
         }
       }
       fclose(fp);
-      assert(Tick != 0.0);
+      /* Now "MHz" is the CPU clock frequency in units of Megahertz.
+       * We know that on PPC, one timebase tick is some integer number of
+       * the CPU clock ticks, but the ratio is "implementation dependent".
+       * However, we can use the fact that the ratio is an integer to do
+       * an accurate calibration with a short delay interval.
+       *
+       * The larger MHz is the longer the interval we need to ensure that
+       * we correctly compute the ratio of the clock and the timebase.
+       * Since we know that gettimeofday() has 1us resolution on this
+       * platform, the worst case uncertainty in the elapsed interval is
+       * +/- < 2us if both start_us and end_us are taken right at the
+       * "edge".  Even though we don't yet know the length of the tick
+       * we are measuring, we can prove that with an interval of 4 * MHz
+       * ticks the same ratio will be computed for any interval in the
+       * possible 4us-wide range.
+       *
+       * For a 3GHz clock and a 33MHz timebase, that comes to an elapsed
+       * interval of no less than 364us to calibrate.  Slower clocks or
+       * higher frequency timebase will require shorter intervals.
+       *
+       * To protect against the unlikely possibility that we get
+       * descheduled between gettimeofday() and the read of the timebase,
+       * we repeat the measurement until we get the same value twice in
+       * a row.  With very high probability that takes only 2 tries.
+       * So, we are looking at well under 1ms for calibration to as many
+       * significant digits as the MHz measurement reported by the kernel
+       * (either 3 or 4).
+       */
+      min_ticks = ceil(4.0 * MHz);
+      while (Tick != prev) {
+        uint64_t start_ticks, ticks;
+        uint64_t start_us, end_us;
+	prev = Tick;
+        start_us = gasneti_getMicrosecondTimeStamp();
+        start_ticks = gasneti_stattime_now();
+        do {
+	  end_us = gasneti_getMicrosecondTimeStamp();
+	  ticks = gasneti_stattime_now() - start_ticks;
+        } while (ticks < min_ticks);
+        Tick = floor(0.5 + ((end_us - start_us) * MHz) / ticks) / MHz;
+        assert(Tick > 0.0);
+      }
       firstTime = 0;
     }
     return (uint64_t)(st * Tick);
