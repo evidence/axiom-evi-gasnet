@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/05/28 21:59:39 $
- * $Revision: 1.29 $
+ *     $Date: 2003/05/30 18:27:52 $
+ * $Revision: 1.30 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,8 +176,18 @@ static int gasnetc_init(int *argc, char ***argv) {
     /* (###) add code here to bootstrap the nodes for your conduit */
     memset(&gasnetc_lapi_info, 0, sizeof(lapi_info_t));
     gasnetc_lapi_info.err_hndlr = gasnetc_lapi_err_handler;
-    GASNETC_LCHECK(LAPI_Init(&gasnetc_lapi_context, &gasnetc_lapi_info));
-
+    {
+	int rc = LAPI_Init(&gasnetc_lapi_context, &gasnetc_lapi_info);
+	if (rc != LAPI_SUCCESS) {
+	    char *errmsg = "\n*** GASNet FATAL ERROR: In the initialization of the LAPI communication layer\n\n"
+		"This application must be run using the poe job scheduler with the following options: \n"
+		"  poe appname -euidevice us -msg_api lapi -rmpool 1 -procs nproc -nodes numnodes args...\n"
+		"See the IBM poe documentation for details\n\n[NOTE: Error code %d at line %d in file %s]\n\n";
+	    fprintf(stderr,errmsg,rc,__LINE__,__FILE__);
+	    fflush(stderr);
+	    abort();
+	}
+    }
 
     /* get task number and number of tasks in job */
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, TASK_ID, &task_id));
