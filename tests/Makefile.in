@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.21 2004/03/17 00:22:37 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.22 2004/03/17 18:53:27 phargrov Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -17,7 +17,7 @@ include $(configfile)
 
 Makefile: @TOP_SRCDIR@/tests/Makefile.in
 	cd @TOP_BUILDDIR@ ; \
-	CONFIG_HEADERS= CONFIG_FILES=tests/Makefile config.status
+	CONFIG_HEADERS= CONFIG_FILES=tests/Makefile ./config.status
 
 @USE_MPI_CONDUIT_TRUE@ MPI_TEST = testmpi
 
