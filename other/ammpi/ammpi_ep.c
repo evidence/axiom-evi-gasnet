@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2002/08/23 18:06:47 $
- * $Revision: 1.4 $
+ *     $Date: 2002/08/30 22:17:11 $
+ * $Revision: 1.5 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -149,6 +149,7 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
                            MPI_ANY_SOURCE, MPI_ANY_TAG, ep->name.comm, 
                            &ep->rxHandle[i]));
       }
+      ep->rxCurr = 0; /* oldest recv */
     }
   #endif
 

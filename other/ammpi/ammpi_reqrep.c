@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2002/08/23 18:06:47 $
- * $Revision: 1.5 $
+ *     $Date: 2002/08/30 22:17:11 $
+ * $Revision: 1.6 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -259,17 +259,29 @@ extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *num
       int msgready = FALSE;
 
       #if AMMPI_PREPOST_RECVS
-        /* theoretically, according to the MPI spec we should be able to use a single request test/wait
-         * fn if we keep track of the oldest recv initiated in the circular buffer, 
-         * but some MPI implementations may get this sublety wrong, so don't count on it
-         */
-        if (blockForActivity) {
-          MPI_SAFE(MPI_Waitany(ep->rxNumBufs, ep->rxHandle, &idxready, &mpistatus));
-          msgready = TRUE;
-        }
-        else {
-          MPI_SAFE(MPI_Testany(ep->rxNumBufs, ep->rxHandle, &idxready, &msgready, &mpistatus));
-        }
+        #if AMMPI_MPIIRECV_ORDERING_WORKS
+          /* according to the MPI spec we should be able to use a single request test/wait
+           * fn if we keep track of the oldest recv initiated in the circular buffer, 
+           * but some MPI implementations may get this sublety wrong, so don't count on it
+           */
+          idxready = ep->rxCurr;
+          assert(ep->rxHandle[idxready] != MPI_REQUEST_NULL);
+          if (blockForActivity) {
+            MPI_SAFE(MPI_Wait(&(ep->rxHandle[idxready]), &mpistatus));
+            msgready = TRUE;
+          } else {
+            MPI_SAFE(MPI_Test(&(ep->rxHandle[idxready]), &msgready, &mpistatus));
+            if (!msgready) idxready = MPI_UNDEFINED;
+          }
+        #else
+          if (blockForActivity) {
+            MPI_SAFE(MPI_Waitany(ep->rxNumBufs, ep->rxHandle, &idxready, &mpistatus));
+            msgready = TRUE;
+          }
+          else {
+            MPI_SAFE(MPI_Testany(ep->rxNumBufs, ep->rxHandle, &idxready, &msgready, &mpistatus));
+          }
+        #endif
         if (msgready) {
           assert(ep->rxHandle[idxready] == MPI_REQUEST_NULL);
           buf = &ep->rxBuf[idxready];
@@ -473,11 +485,16 @@ extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *num
 
       donewithmessage: /* message handled - continue to next one */
       #if AMMPI_PREPOST_RECVS
-        /* report the recv */
+        /* repost the recv */
         assert(ep->rxHandle[idxready] == MPI_REQUEST_NULL);
         MPI_SAFE(MPI_Irecv(&ep->rxBuf[idxready], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
                            MPI_ANY_SOURCE, MPI_ANY_TAG, ep->name.comm, 
                            &ep->rxHandle[idxready]));
+        #if AMMPI_MPIIRECV_ORDERING_WORKS
+          assert(idxready == ep->rxCurr);
+          ep->rxCurr = ep->rxCurr + 1;
+          if (ep->rxCurr >= ep->rxNumBufs) ep->rxCurr = 0;
+        #endif
       #endif
 
       } /*  message waiting */

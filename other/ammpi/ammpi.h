@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2002/06/16 09:19:26 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/30 22:17:11 $
+ * $Revision: 1.3 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -267,6 +267,7 @@ typedef struct ammpi_ep {
   ammpi_buf_t* rxBuf;    /* recv buffers */
   MPI_Request* rxHandle; /* recv buffer handles */
   uint32_t rxNumBufs;    /* number of recv buffers */
+  int rxCurr;            /* the oldest recv buffer index, for AMMPI_MPIIRECV_ORDERING_WORKS */
 
   /* send buffer tables (for AMMPI_NONBLOCKING_SENDS) */
   ammpi_sendbuffer_pool_t sendPool_smallRequest;

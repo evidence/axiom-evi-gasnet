@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2002/06/16 09:19:26 $
- * $Revision: 1.4 $
+ *     $Date: 2002/08/30 22:17:11 $
+ * $Revision: 1.5 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -26,6 +26,7 @@
 #define AMMPI_MAX_RECVMSGS_PER_POLL 10  /* max number of waiting messages serviced per poll (0 for unlimited) */
 #define AMMPI_INITIAL_NUMENDPOINTS  1   /* initial size of bundle endpoint table */
 #define AMMPI_DEFAULT_NETWORKDEPTH  4   /* default depth if none specified */
+#define AMMPI_MPIIRECV_ORDERING_WORKS 1 /* assume recv matching correctly ordered as reqd by MPI spec */
 #define AMMPI_PREPOST_RECVS         1   /* pre-post non-blocking MPI recv's */
 #define AMMPI_NONBLOCKING_SENDS     1   /* use non-blocking MPI send's */
 #if AMMPI_NONBLOCKING_SENDS
