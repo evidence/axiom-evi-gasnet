@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.34 2003/03/31 09:03:08 bonachea Exp $
- * $Date: 2003/03/31 09:03:08 $
+/* $Id: gasnet_core.c,v 1.35 2003/04/01 11:55:27 bonachea Exp $
+ * $Date: 2003/04/01 11:55:27 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -13,6 +13,8 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <sched.h>
+#include <signal.h>
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
@@ -440,14 +442,30 @@ gasnet_init(int *argc, char ***argv)
 extern void 
 gasnetc_exit(int exitcode)
 {
+        /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
+        gasneti_reghandler(SIGQUIT, SIG_IGN);
+
+        {  /* ensure only one thread ever continues past this point */
+          static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
+          gasneti_mutex_lock(&exit_lock);
+        }
+
 	gasnetc_sendbuf_finalize();
-	gasneti_trace_finish();
+
+        gasneti_trace_finish();
+        if (fflush(stdout)) 
+          gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
+        if (fflush(stderr)) 
+          gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+        sched_yield();
+        sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
+
 	if (gasnetc_init_done) {
   		gm_close(_gmc.port);
 		gasnetc_rdma_finalize();
 	}
 	gm_finalize();
-	exit(exitcode);
+	_exit(exitcode);
 }
 
 /* ------------------------------------------------------------------------------------ */

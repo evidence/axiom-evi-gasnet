@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/03/31 23:47:11 $
- * $Revision: 1.25 $
+ *     $Date: 2003/04/01 11:55:30 $
+ * $Revision: 1.26 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,6 +15,8 @@
 
 #include <errno.h>
 #include <unistd.h>
+#include <signal.h>
+#include <sched.h>
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
@@ -334,7 +336,25 @@ done: /*  error return while locked */
 }
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_exit(int exitcode) {
+  /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
+  gasneti_reghandler(SIGQUIT, SIG_IGN);
+
+  {  /* ensure only one thread ever continues past this point */
+    static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
+    gasneti_mutex_lock(&exit_lock);
+  }
+
+  GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
+
   gasneti_trace_finish();
+
+  if (fflush(stdout)) 
+    gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
+  if (fflush(stderr)) 
+    gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+  sched_yield();
+  sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
+
   AMMPI_SPMDExit(exitcode);
   abort();
 }

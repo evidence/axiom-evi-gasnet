@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2002/09/02 23:04:36 $
- * $Revision: 1.4 $
+ *     $Date: 2003/04/01 11:55:31 $
+ * $Revision: 1.5 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -336,7 +336,7 @@ static int AMMPI_SPMDShutdown(int exitcode) {
 
   AMMPI_SPMDStartupCalled = 0;
   DEBUG_MSG("exiting..");
-  exit(exitcode);
+  _exit(exitcode);
   abort();
   return AM_OK;
 }

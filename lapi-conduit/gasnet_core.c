@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/03/31 09:03:09 $
- * $Revision: 1.21 $
+ *     $Date: 2003/04/01 11:55:29 $
+ * $Revision: 1.22 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,6 +23,8 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#include <sched.h>
+#include <signal.h>
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
@@ -452,6 +454,14 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 }
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_exit(int exitcode) {
+    /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
+    gasneti_reghandler(SIGQUIT, SIG_IGN);
+
+    {  /* ensure only one thread ever continues past this point */
+      static gasneti_mutex_t exit_lock = GASNETI_MUTEX_INITIALIZER;
+      gasneti_mutex_lock(&exit_lock);
+    }
+
     GASNETI_TRACE_PRINTF(C,("GASNETC_EXIT: UHDR_BUF HWM %d, numfree %d, numalloc %d",
 			    gasnetc_uhdr_freelist.high_water_mark,
 			    gasnetc_uhdr_freelist.numfree,
@@ -465,10 +475,16 @@ extern void gasnetc_exit(int exitcode) {
 #endif
 
     gasneti_trace_finish();
+    if (fflush(stdout)) 
+      gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
+    if (fflush(stderr)) 
+      gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+    sched_yield();
+    sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
-    /* (###) add code here to terminate the job across all nodes with exit(exitcode) */
+    /* (###) add code here to terminate the job across all nodes with _exit(exitcode) */
     GASNETC_LCHECK(LAPI_Term(gasnetc_lapi_context));
-    exit(exitcode);
+    _exit(exitcode);
     
     abort();
 }
