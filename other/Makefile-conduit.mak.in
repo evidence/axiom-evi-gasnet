@@ -44,7 +44,8 @@ LIBCFLAGS =                       \
         @MISC_CFLAGS@             \
         $(LIBDEFINES)             \
         $(CONDUIT_EXTRALIBCFLAGS) \
-	$(LIBINCLUDES)
+	$(LIBINCLUDES)		  \
+	$(MANUAL_LIBCFLAGS)
 
 libgasnet_sources =           \
         $(CONDUIT_SOURCELIST) \
