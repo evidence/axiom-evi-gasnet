@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/10/31 12:21:03 $
- * $Revision: 1.42 $
+ *     $Date: 2003/11/07 19:32:47 $
+ * $Revision: 1.43 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -200,7 +200,7 @@ void gasneti_defaultSignalHandler(int sig) {
     case SIGBUS:
     case SIGFPE:
       GASNETC_FATALSIGNAL_CALLBACK(sig); /* give conduit first crack at it */
-      fprintf(stderr,"*** GASNet caught a fatal signal: %s(%i) on node %i/%i\n",
+      fprintf(stderr,"*** Caught a fatal signal: %s(%i) on node %i/%i\n",
         signame, sig, (int)gasnet_mynode(), (int)gasnet_nodes()); 
       fflush(stderr);
       signal(sig, SIG_DFL); /* restore default core-dumping handler and re-raise */
@@ -214,7 +214,7 @@ void gasneti_defaultSignalHandler(int sig) {
       break;
     default: 
       /* translate signal to SIGQUIT */
-      fprintf(stderr,"*** GASNet caught a signal: %s(%i) on node %i/%i\n",
+      fprintf(stderr,"*** Caught a signal: %s(%i) on node %i/%i\n",
         signame, sig, (int)gasnet_mynode(), (int)gasnet_nodes()); 
       fflush(stderr);
       #if 1
