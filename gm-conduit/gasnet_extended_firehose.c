@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.36 2004/07/15 01:29:24 csbell Exp $
- * $Date: 2004/07/15 01:29:24 $
+/* $Id: gasnet_extended_firehose.c,v 1.37 2004/07/19 00:15:26 csbell Exp $
+ * $Date: 2004/07/19 00:15:26 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -302,8 +302,12 @@ gasnete_put_nb (gasnet_node_t node, void *dest, void *src,
 	    ("gasnete_put_nb Firehose (%d,%p <- %p,%d bytes)",
 	    (unsigned) node, dest, src, (int)nbytes));
 
-	handle = gasnete_firehose_put(node, dest, src, nbytes, 
-		    NULL GASNETE_THREAD_PASS);
+	if_pf (nbytes > GASNETC_AM_LEN)
+	    handle = gasnete_extref_put_nb(node, dest, src, nbytes 
+		                           GASNETE_THREAD_PASS);
+	else
+	    handle = gasnete_firehose_put(node, dest, src, nbytes, 
+					  NULL GASNETE_THREAD_PASS);
 	return handle;
 }
 
@@ -317,7 +321,12 @@ gasnete_put_nbi(gasnet_node_t node, void *dest, void *src,
 	    ("gasnete_put_nbi Firehose (%d,%p <- %p,%d bytes)",
 	    (unsigned) node, dest, src, (int)nbytes));
 
-	gasnete_firehose_put(node, dest, src, nbytes, iop GASNETE_THREAD_PASS);
+	if_pf (nbytes > GASNETC_AM_LEN)
+	    gasnete_extref_put_nbi(node, dest, src, nbytes 
+			           GASNETE_THREAD_PASS);
+	else
+	    gasnete_firehose_put(node, dest, src, nbytes, 
+			         iop GASNETE_THREAD_PASS);
 
 	return;
 }
@@ -479,8 +488,14 @@ gasnete_fh_request_get(void *_gop, const firehose_request_t *req,
 	return;
 }
 
-#else	/* GM 1.x */
-#warning GASNet/GM will not support RDMA gets (GM version < 2.0)
+#else	/* GM 1.x or broken get support */
+  #if GASNETC_DISABLE_RDMA_GETS
+    #warning GASNet/GM RDMA gets disabled by user (GASNETC_DISABLE_RDMA_GETS=1)
+  #elif GASNETC_GM_RDMA_GETS_BROKEN
+    #error GASNet/GM RDMA gets are broken on this GM 2.x version (see gm-conduit README)
+  #else
+    #warning GASNet/GM RDMA gets not available in GM 1.x series
+  #endif
 /*
  * AM Handler: Reply to get into a pinned memory location
  */
