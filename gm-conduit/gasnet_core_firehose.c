@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_firehose.c,v 1.23 2003/06/09 06:02:38 csbell Exp $
- * $Date: 2003/06/09 06:02:38 $
+/* $Id: gasnet_core_firehose.c,v 1.24 2003/08/30 07:16:44 bonachea Exp $
+ * $Date: 2003/08/30 07:16:44 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1342,9 +1342,7 @@ gasnetc_firehose_init(uintptr_t segsize, uintptr_t global_physmem)
 		gasnetc_fh_victims[i].next = GASNETC_FH_NEXT_END;
 
 	gasnetc_fh_victim_count = (gasneti_atomic_t *)
-	    gasneti_malloc(sizeof(gasneti_atomic_t) * (gasnetc_nodes));
-	memset((void *) gasnetc_fh_victim_count, 0, 
-	    sizeof(gasneti_atomic_t) * (gasnetc_nodes));
+	    gasneti_calloc(sizeof(gasneti_atomic_t),gasnetc_nodes);
 
 	/* Each node keeps a per-node statistic of the number of available
 	 * firehoses, gasnetc_fh_avail which compares with the maximum number of
@@ -1384,9 +1382,9 @@ gasnetc_firehose_finalize()
 
 	/* Upon a clean exit, explicitly free the storage associated with
 	 * firehose metadata */
-	free(gasnetc_fh_victims);
-	free(gasnetc_fh_victim_count);
-	free((void *)gasnetc_fh_avail);
+	gasneti_free(gasnetc_fh_victims);
+	gasneti_free(gasnetc_fh_victim_count);
+	gasneti_free((void *)gasnetc_fh_avail);
 
 	gasnetc_firehose_table_finalize();
 

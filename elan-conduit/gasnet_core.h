@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2003/04/05 06:39:39 $
- * $Revision: 1.4 $
+ *     $Date: 2003/08/30 07:16:41 $
+ * $Revision: 1.5 $
  * Description: GASNet header for elan conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,16 +24,6 @@
 #include <gasnet_core_help.h>
 
 BEGIN_EXTERNC
-
-#ifdef DEBUG
-  void gasnetc_checkinit();
-  void gasnetc_checkattach();
-  #define GASNETC_CHECKINIT()    gasnetc_checkinit()
-  #define GASNETC_CHECKATTACH()  gasnetc_checkattach()
-#else
-  #define GASNETC_CHECKINIT()
-  #define GASNETC_CHECKATTACH()
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -65,13 +55,13 @@ extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentrie
 
 GASNET_INLINE_MODIFIER(gasnet_mynode)
 gasnet_node_t gasnet_mynode() {
-  GASNETC_CHECKINIT();
+  GASNETI_CHECKINIT();
   return gasnetc_mynode;
 }
  
 GASNET_INLINE_MODIFIER(gasnet_nodes)
 gasnet_node_t gasnet_nodes() {
-  GASNETC_CHECKINIT();
+  GASNETI_CHECKINIT();
   return gasnetc_nodes;
 }
 
@@ -79,7 +69,7 @@ gasnet_node_t gasnet_nodes() {
 
 GASNET_INLINE_MODIFIER(gasnet_getenv)
 char *gasnet_getenv(const char *s) {
-  GASNETC_CHECKINIT();
+  GASNETI_CHECKINIT();
   return gasneti_getenv(s);
 }
 
@@ -154,11 +144,11 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
 #define GASNETC_MED_HEADERSZ        8
 #define GASNETC_LONG_HEADERSZ       (8+sizeof(uintptr_t))
 
-#define GASNETC_MAX_SHORT           16
-#define GASNETC_MAX_MEDIUM          (65536 - GASNETC_MED_HEADERSZ - 4*GASNETC_MAX_SHORT)
+#define GASNETC_MAX_ARGS             16
+#define GASNETC_MAX_MEDIUM          (65536 - GASNETC_MED_HEADERSZ - 4*GASNETC_MAX_ARGS)
 #define GASNETC_MAX_LONG            1048576
 
-#define gasnet_AMMaxArgs()          ((size_t)GASNETC_MAX_SHORT)
+#define gasnet_AMMaxArgs()          ((size_t)GASNETC_MAX_ARGS)
 #define gasnet_AMMaxMedium()        ((size_t)GASNETC_MAX_MEDIUM)
 #define gasnet_AMMaxLongRequest()   ((size_t)GASNETC_MAX_LONG)
 #define gasnet_AMMaxLongReply()     ((size_t)GASNETC_MAX_LONG)

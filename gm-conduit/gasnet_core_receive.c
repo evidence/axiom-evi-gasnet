@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.28 2003/06/09 06:02:38 csbell Exp $
- * $Date: 2003/06/09 06:02:38 $
- * $Revision: 1.28 $
+/* $Id: gasnet_core_receive.c,v 1.29 2003/08/30 07:16:44 bonachea Exp $
+ * $Date: 2003/08/30 07:16:44 $
+ * $Revision: 1.29 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -8,8 +8,6 @@
  */
 #include <gasnet_core_internal.h>
 
-extern int gasnetc_init_done;
-extern int gasnetc_attach_done;
 #if defined(GASNETC_FIREHOSE) || defined(GASNETC_TURKEY)
 extern void gasnete_fifo_progress();
 #else

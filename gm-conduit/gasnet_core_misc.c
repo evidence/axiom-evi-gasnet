@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.32 2003/06/09 06:02:38 csbell Exp $
- * $Date: 2003/06/09 06:02:38 $
- * $Revision: 1.32 $
+/* $Id: gasnet_core_misc.c,v 1.33 2003/08/30 07:16:44 bonachea Exp $
+ * $Date: 2003/08/30 07:16:44 $
+ * $Revision: 1.33 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -562,8 +562,8 @@ gasnetc_getconf_conffile()
 	gasnetc_mynode = thisnode;
 	gasnetc_nodes = numnodes;
 	for (i = 0; i < numnodes; i++)
-		gasneti_free_inhandler(hostnames[i]);
-	gasneti_free_inhandler(hostnames);
+		gasneti_free(hostnames[i]);
+	gasneti_free(hostnames);
 
 	/* sort out the gm_nodes_rev for bsearch, glibc qsort uses recursion,
 	 * so stack memory in order to complete the sort.  We want to minimize
@@ -624,7 +624,7 @@ gasnetc_getenv_numeric(const char *var)
         unsigned long   mult = 1, res;
         double          num;
 
-        gasnetc_checkinit();
+        gasneti_checkinit();
         env = gasnet_getenv(var);
 
         if (env == NULL || *env == '\0')

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/08/24 11:49:51 $
- * $Revision: 1.16 $
+ *     $Date: 2003/08/30 07:16:41 $
+ * $Revision: 1.17 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -172,7 +172,7 @@ typedef struct gasnetc_buf {
     gasnetc_medmsg_t  medmsg;
     gasnetc_longmsg_t longmsg;
   };
-  uint8_t     _Data[(4*GASNETC_MAX_SHORT)+GASNETC_MAX_MEDIUM]; /* holds args and data */
+  uint8_t     _Data[(4*GASNETC_MAX_ARGS)+GASNETC_MAX_MEDIUM]; /* holds args and data */
 } gasnetc_buf_t;
 
 /* buffer descriptor and bookkeeping info 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/26 05:02:28 $
- * $Revision: 1.29 $
+ *     $Date: 2003/08/30 07:16:41 $
+ * $Revision: 1.30 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -54,16 +54,6 @@ gasneti_mutex_t gasnetc_sendfifoLock = GASNETI_MUTEX_INITIALIZER;
 
 /* ------------------------------------------------------------------------------------ */
 
-static int gasnetc_init_done = 0; /*  true after init */
-static int gasnetc_attach_done = 0; /*  true after attach */
-void gasnetc_checkinit() {
-  if (!gasnetc_init_done)
-    gasneti_fatalerror("Illegal call to GASNet before gasnet_init() initialization");
-}
-void gasnetc_checkattach() {
-  if (!gasnetc_attach_done)
-    gasneti_fatalerror("Illegal call to GASNet before gasnet_attach() initialization");
-}
 
 /* ------------------------------------------------------------------------------------ */
 /* elan-specific vars */
@@ -120,8 +110,8 @@ static void gasnetc_check_config() {
   assert(sizeof(gasnetc_medmsg_t) == GASNETC_MED_HEADERSZ);
   assert(sizeof(gasnetc_longmsg_t) == GASNETC_LONG_HEADERSZ);
 
-  assert(BASE()->tport_bigmsg >= GASNETC_MED_HEADERSZ + 4*GASNETC_MAX_SHORT + GASNETC_MAX_MEDIUM);
-  assert(GASNETC_ELAN_MAX_QUEUEMSG >= GASNETC_LONG_HEADERSZ + GASNETC_MAX_SHORT*4);
+  assert(BASE()->tport_bigmsg >= GASNETC_MED_HEADERSZ + 4*GASNETC_MAX_ARGS + GASNETC_MAX_MEDIUM);
+  assert(GASNETC_ELAN_MAX_QUEUEMSG >= GASNETC_LONG_HEADERSZ + GASNETC_MAX_ARGS*4);
 }
 
 static void gasnetc_bootstrapBarrier() {
@@ -192,9 +182,9 @@ static uintptr_t gasnetc_ElanSeglength(void *base) {
 }
 
 static int gasnetc_init(int *argc, char ***argv) {
-  if (gasnetc_init_done) 
+  if (gasneti_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
-  gasnetc_init_done = 1; /* enable early to allow tracing */
+  gasneti_init_done = 1; /* enable early to allow tracing */
 
   if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
 
@@ -312,11 +302,11 @@ extern int gasnet_init(int *argc, char ***argv) {
 }
 
 extern uintptr_t gasnetc_getMaxLocalSegmentSize() {
-  GASNETC_CHECKINIT();
+  GASNETI_CHECKINIT();
   return gasnetc_MaxLocalSegmentSize;
 }
 extern uintptr_t gasnetc_getMaxGlobalSegmentSize() {
-  GASNETC_CHECKINIT();
+  GASNETI_CHECKINIT();
   return gasnetc_MaxGlobalSegmentSize;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -370,9 +360,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
                           numentries, (unsigned long)segsize, (unsigned long)minheapoffset));
 
-  if (!gasnetc_init_done) 
+  if (!gasneti_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet attach called before init");
-  if (gasnetc_attach_done) 
+  if (gasneti_attach_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already attached");
 
   /* wait for all nodes to arrive - increases system stability if there's a gasnet_exit()
@@ -459,9 +449,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* ------------------------------------------------------------------------------------ */
   /*  register segment  */
 
-  /* use gasneti_malloc_inhandler during bootstrapping because we can't assume the 
-     hold/resume interrupts functions are operational yet */
-  gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
+  gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc(gasnetc_nodes*sizeof(gasnet_seginfo_t));
 
   #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
     #if GASNETC_USE_STATIC_SEGMENT
@@ -587,7 +575,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   /* ------------------------------------------------------------------------------------ */
   /*  primary attach complete */
-  gasnetc_attach_done = 1;
+  gasneti_attach_done = 1;
   gasnetc_bootstrapBarrier();
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
@@ -667,7 +655,7 @@ static void gasnetc_atexit(void) {
         retval = rms_prgsignal(resourceid, SIGQUIT);
         if (retval) gasneti_fatalerror("rms_prgsignal(%i,SIGQUIT) failed: %s", resourceid, strerror(errno));
       #else
-        { int *ids = malloc(gasnetc_nodes*sizeof(int));
+        { int *ids = gasneti_malloc(gasnetc_nodes*sizeof(int));
           int nids = 0;
           int i;
           retval = rms_prgids(gasnetc_nodes, ids, &nids);
@@ -681,7 +669,7 @@ static void gasnetc_atexit(void) {
               if (retval) gasneti_fatalerror("rms_prgsignal(%i,SIGQUIT) failed: %s", ids[i], strerror(errno));
             }
           }
-          free(ids);
+          gasneti_free(ids);
         raise(SIGQUIT);
         }
       #endif
@@ -861,9 +849,8 @@ extern void gasnetc_trace_finish() {
   =======================
 */
 extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries) {
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
   assert(gasnetc_seginfo && seginfo_table);
-  if (!gasnetc_attach_done) GASNETI_RETURN_ERR(NOT_INIT);
   if (numentries < gasnetc_nodes) GASNETI_RETURN_ERR(BAD_ARG);
   memset(seginfo_table, 0, numentries*sizeof(gasnet_seginfo_t));
   memcpy(seginfo_table, gasnetc_seginfo, numentries*sizeof(gasnet_seginfo_t));
@@ -877,7 +864,7 @@ extern int gasnetc_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentrie
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
   gasnet_node_t sourceid;
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
   if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
   if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
 
@@ -904,7 +891,7 @@ extern int gasnetc_AMRequestShortM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
   assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
@@ -927,7 +914,7 @@ extern int gasnetc_AMRequestMediumM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
   assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
@@ -951,7 +938,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
   
   gasnetc_boundscheck(dest, dest_addr, nbytes);
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
@@ -982,7 +969,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
   
   gasnetc_boundscheck(dest, dest_addr, nbytes);
   if_pf (dest >= gasnetc_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
@@ -1097,11 +1084,11 @@ extern int gasnetc_AMReplyLongM(
 #if GASNETC_USE_INTERRUPTS
   #error interrupts not implemented
   extern void gasnetc_hold_interrupts() {
-    GASNETC_CHECKATTACH();
+    GASNETI_CHECKATTACH();
     /* add code here to disable handler interrupts for _this_ thread */
   }
   extern void gasnetc_resume_interrupts() {
-    GASNETC_CHECKATTACH();
+    GASNETI_CHECKATTACH();
     /* add code here to re-enable handler interrupts for _this_ thread */
   }
 #endif
@@ -1113,7 +1100,7 @@ extern int gasnetc_AMReplyLongM(
 */
 
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
 
   #ifdef GASNETI_THREADS
   { int retval = pthread_mutex_init(&(hsl->lock), NULL);
@@ -1126,7 +1113,7 @@ extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
 }
 
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
   #ifdef GASNETI_THREADS
   { int retval = pthread_mutex_destroy(&(hsl->lock));
     if (retval) 
@@ -1138,7 +1125,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 }
 
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
 
   #ifdef GASNETI_THREADS
   { int retval; 
@@ -1174,7 +1161,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
 }
 
 extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
 
   #if GASNETC_USE_INTERRUPTS
     /*       conduits with interrupt-based handler dispatch need to add code here to 

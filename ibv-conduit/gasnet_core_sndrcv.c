@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/29 22:06:30 $
- * $Revision: 1.18 $
+ *     $Date: 2003/08/30 07:16:53 $
+ * $Revision: 1.19 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -830,7 +830,7 @@ extern void gasnetc_sndrcv_init(void) {
     /* Allocated normal memory for receive descriptors (rbuf's) */
     padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETC_CACHE_LINE_SIZE);
     {
-      void *tmp = malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
+      void *tmp = gasneti_malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
       assert(tmp != NULL);
       gasnetc_rbuf_alloc = (gasnetc_rbuf_t *)GASNETC_ALIGNUP(tmp, GASNETC_CACHE_LINE_SIZE);
     }
@@ -885,7 +885,7 @@ extern void gasnetc_sndrcv_init(void) {
   /* Allocated normal memory for send descriptors (sbuf's) */
   padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_sbuf_t), GASNETC_CACHE_LINE_SIZE);
   {
-    void *tmp = malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
+    void *tmp = gasneti_malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
     assert(tmp != NULL);
     gasnetc_sbuf_alloc = (gasnetc_sbuf_t *)GASNETC_ALIGNUP(tmp, GASNETC_CACHE_LINE_SIZE);
   }
@@ -944,10 +944,10 @@ extern void gasnetc_sndrcv_fini(void) {
     #endif
 
     gasnetc_free_pinned(&gasnetc_rcv_reg);
-    free(gasnetc_rbuf_alloc);
+    gasneti_free(gasnetc_rbuf_alloc);
 
     gasnetc_free_pinned(&gasnetc_snd_reg);
-    free(gasnetc_sbuf_alloc);
+    gasneti_free(gasnetc_sbuf_alloc);
   }
 
   vstat = VAPI_destroy_cq(gasnetc_hca, gasnetc_rcv_cq);
@@ -1282,7 +1282,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   flags = ((gasnetc_rbuf_t *)token)->flags;
 
   if (GASNETC_MSG_CATEGORY(flags) != gasnetc_System) {
-    GASNETC_CHECKATTACH();
+    GASNETI_CHECKATTACH();
   }
 
   sourceid = GASNETC_MSG_SRCIDX(flags);
@@ -1295,7 +1295,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 extern int gasnetc_AMPoll() {
   int work;
 
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
 
   CQ_LOCK;
   work = ((gasnetc_peek_cq(gasnetc_rcv_cq, 1) == VAPI_OK) ||

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/06/11 04:45:31 $
- * $Revision: 1.16 $
+ *     $Date: 2003/08/30 07:16:44 $
+ * $Revision: 1.17 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -74,8 +74,7 @@ gasnete_new_threaddata()
 	assert(gasnete_threadtable[idx] == NULL);
 
 	threaddata = (gasnete_threaddata_t *)
-	    gasneti_malloc(sizeof(gasnete_threaddata_t));
-	memset(threaddata, 0, sizeof(gasnete_threaddata_t));
+	    gasneti_calloc(1,sizeof(gasnete_threaddata_t));
 
 	threaddata->threadidx = idx;
 	threaddata->eop_free = EOPADDR_NIL;

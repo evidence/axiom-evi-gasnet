@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2003/08/24 11:49:51 $
- * $Revision: 1.13 $
+ *     $Date: 2003/08/30 07:16:41 $
+ * $Revision: 1.14 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -315,6 +315,7 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
   gasnetc_handler_fn_t handler = gasnetc_handler[msg->handlerId];
   gasnetc_category_t category = GASNETC_MSG_CATEGORY(msg);
   int numargs = GASNETC_MSG_NUMARGS(msg);
+  assert(numargs >= 0 && numargs <= GASNETC_MAX_ARGS);
 
   ASSERT_ELAN_UNLOCKED();
 
@@ -359,7 +360,7 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
 /* ------------------------------------------------------------------------------------ */
 extern int gasnetc_AMPoll() {
   int i;
-  GASNETC_CHECKATTACH();
+  GASNETI_CHECKATTACH();
 
   ASSERT_ELAN_UNLOCKED();
 
@@ -371,12 +372,12 @@ extern int gasnetc_AMPoll() {
         while both are arriving
      */
     if (elan_queueHaveReq(gasnetc_mainqueue)) {
-      char _buf[GASNETC_ELAN_MAX_QUEUEMSG];
+      char _buf[GASNETC_ELAN_MAX_QUEUEMSG+8]; /* ensure 8-byte buf alignment */
       gasnetc_bufdesc_t _desc;
       desc = &_desc;
-      desc->buf = (gasnetc_buf_t *)&_buf; 
-      assert((void *)&(desc->buf->msg) == (void *)_buf);
-      elan_queueWait(gasnetc_mainqueue, _buf, ELAN_POLL_EVENT);
+      desc->buf = (gasnetc_buf_t *)( ((((uintptr_t)_buf) >> 3) << 3) + 8); 
+      assert((void *)&(desc->buf->msg) == (void *)desc->buf);
+      elan_queueWait(gasnetc_mainqueue, desc->buf, ELAN_POLL_EVENT);
       UNLOCK_ELAN();
 
       gasnetc_processPacket(desc);
@@ -410,7 +411,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
   gasnetc_buf_t *buf = NULL;
   gasnet_handlerarg_t *pargs;
   int msgsz;
-  assert(numargs >= 0 && numargs <= GASNETC_MAX_SHORT);
+  assert(numargs >= 0 && numargs <= GASNETC_MAX_ARGS);
 
   ASSERT_ELAN_UNLOCKED();
 
