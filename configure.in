@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/05/01 14:18:49 $
-# $Revision: 1.135 $
+#     $Date: 2004/05/03 23:28:03 $
+# $Revision: 1.136 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.135 $)
+AC_REVISION($Revision: 1.136 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1190,11 +1190,33 @@ popdef([CONDUIT_DESC])
 # VAPI configuration
 
 pushdef([CONDUIT_DESC],[Mellanox InfiniBand/VAPI network conduit (vapi)])
-GASNET_IF_ENABLED(vapi, Enable the CONDUIT_DESC, 
-  have_vapi=yes,
-  have_vapi=no)
+GASNET_IF_ENABLED_WITH_AUTO(vapi, Enable/disable the CONDUIT_DESC (auto-detected),
+  [enabled_vapi=yes;force_vapi=yes],
+  enabled_vapi=no,
+  enabled_vapi=yes)
+if test "$enabled_vapi" = yes; then
+  # Sort out the MPI dependence
+  AC_MSG_CHECKING([for MPI (required to start VAPI programs)])
+  if test "$have_mpi" = yes; then
+    AC_MSG_RESULT(ok)
+  else
+    if test "$enabled_mpi" = no; then
+      reason="disabled"
+    else
+      reason="not found"
+    fi
+    AC_MSG_RESULT([$reason - VAPI auto-detection skipped.]);
+    if test "$force_vapi" = yes; then
+      AC_MSG_ERROR([User requested --enable-vapi but required MPI support was $reason.]);
+    fi
+    enabled_vapi=no
+  fi
+fi
+if test "$enabled_vapi" = yes; then
+  # Start by assuming we do have VAPI
+  have_vapi=yes
 
-if test $have_vapi = yes; then
+  # Start with some sensable defaults
   GASNET_ENV_DEFAULT(MTHOME, /usr/mellanox)
   GASNET_ENV_DEFAULT(VAPI_INCLUDE, $MTHOME/include)
   GASNET_ENV_DEFAULT(VAPI_LIBDIR, $MTHOME/lib)
@@ -1202,8 +1224,10 @@ if test $have_vapi = yes; then
 
   # Assemble any extra flags needed at library build time
   VAPI_LIBCFLAGS=''
-  if test "$gasnet_cv_cc_family" != "GNU"; then
-    AC_MSG_CHECKING(if $CC supports GNU variadic preprocessor macros)
+  AC_MSG_CHECKING(if $CC supports GNU variadic preprocessor macros)
+  if test "$gasnet_cv_cc_family" = "GNU"; then
+    AC_MSG_RESULT([yes (gcc)])
+  else
     AC_TRY_COMPILE([
 	extern void bar1(int a);
 	extern void bar3(int a, int b, int c);
@@ -1217,25 +1241,17 @@ if test $have_vapi = yes; then
       AC_MSG_RESULT(no)
       VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -DH_MTL_LOG_H"
     ])
-  else
-    # Running gcc.
-    if test "$segconfig" != fast; then
-      # If using firehose we need to disable certain optimizations.
-      # See bug #350 for an example of why firehose needs this.
-      # See bug #596 for evidence that VAPi is affected by this.
-      VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -fno-strict-aliasing"
-    fi
   fi
 
+  if test "$gasnet_cv_cc_family" = "GNU" -a "$segconfig" != fast; then
+    # If using firehose we need to disable certain gcc optimizations.
+    # See bug #350 for an example of why firehose needs this.
+    # See bug #596 for evidence that VAPi is affected by this.
+    VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -fno-strict-aliasing"
+  fi
+
+  # Try to compile and link a basic VAPI program
   AC_MSG_CHECKING(for working VAPI configuration)
-  if test "$mpi_test_worked" != yes; then
-    if test "$enabled_mpi" = yes; then
-      AC_MSG_ERROR([launching VAPI programs requires MPI on your system, but MPI was not sucessfuly configured.]);
-    else
-      AC_MSG_ERROR([launching VAPI programs requires MPI on your system, but you have disabled it.]);
-    fi
-  fi
-
   OLDCFLAGS="$CFLAGS"
   OLDLIBS="$LIBS"
   CFLAGS="-I$VAPI_INCLUDE $VAPI_LIBCFLAGS"
@@ -1252,26 +1268,34 @@ if test $have_vapi = yes; then
     }], [ vapi_test_worked=yes ], [ vapi_test_worked=no ] )
   CFLAGS="$OLDCFLAGS"
   LIBS="$OLDLIBS"
-
   if test "$vapi_test_worked" = yes; then
     AC_MSG_RESULT(yes)
   else
     AC_MSG_RESULT(no)
-    AC_MSG_ERROR(build test failed: I don't know how to build VAPI programs on your system)
     have_vapi=no
   fi
 
-  GASNET_IF_ENABLED_WITH_AUTO(vapi-inline-puts, [See vapi-conduit/README (enabled by default)], 
-    enabled_vapi_inline_puts=yes, enabled_vapi_inline_puts=no, enabled_vapi_inline_puts=yes)
-    if test "$enabled_vapi_inline_puts" = yes; then
-      AC_DEFINE(GASNETC_VAPI_ENABLE_INLINE_PUTS)
-    fi
 
-  GASNET_IF_ENABLED_WITH_AUTO(vapi-force-poll-lock, [See vapi-conduit/README (disabled by default)], 
-    enabled_vapi_force_poll_lock=yes, enabled_vapi_force_poll_lock=no, enabled_vapi_force_poll_lock=no)
-    if test "$enabled_vapi_force_poll_lock" = yes; then
-      AC_DEFINE(GASNETC_VAPI_FORCE_POLL_LOCK)
-    fi
+  # Check for conflict
+  if test "$force_vapi$have_vapi" = yesno; then
+    AC_MSG_ERROR([User requested --enable-vapi but I don't know how to build VAPI programs for your system.])
+  fi
+
+
+  if test "$have_vapi" = yes; then
+    # Collect some VAPI-specifc configure options
+    GASNET_IF_ENABLED_WITH_AUTO(vapi-inline-puts, [See vapi-conduit/README (enabled by default)], 
+      enabled_vapi_inline_puts=yes, enabled_vapi_inline_puts=no, enabled_vapi_inline_puts=yes)
+      if test "$enabled_vapi_inline_puts" = yes; then
+        AC_DEFINE(GASNETC_VAPI_ENABLE_INLINE_PUTS)
+      fi
+
+    GASNET_IF_ENABLED_WITH_AUTO(vapi-force-poll-lock, [See vapi-conduit/README (disabled by default)], 
+      enabled_vapi_force_poll_lock=yes, enabled_vapi_force_poll_lock=no, enabled_vapi_force_poll_lock=no)
+      if test "$enabled_vapi_force_poll_lock" = yes; then
+        AC_DEFINE(GASNETC_VAPI_FORCE_POLL_LOCK)
+      fi
+  fi
 fi
 
 AC_SUBST(VAPI_INCLUDE)
