@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/01/19 12:57:30 $
-# $Revision: 1.106 $
+#     $Date: 2004/01/28 13:04:26 $
+# $Revision: 1.107 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.106 $)
+AC_REVISION($Revision: 1.107 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -198,12 +198,19 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
         ]GASNET_TRY_[$1]FLAG[([-Wmissing-format-attribute],[[$1]FLAGS="$[$1]FLAGS -Wmissing-format-attribute"])
         # some crappy pthread mutex implementations generate warnings without -Wno-missing-braces
 	AC_MSG_CHECKING(for buggy pthread.h mutex initializers)
+        old[$1]FLAGS="$[$1]FLAGS"
+        # OSF and FREEBSD require the -pthread compiler flag when including pthread.h
+        case "$target_os" in 
+          osf*)     [$1]FLAGS="-pthread $[$1]FLAGS" ;;
+          freebsd*) [$1]FLAGS="-pthread $[$1]FLAGS" ;;
+        esac 
         ]GASNET_TRY_[$1]COMPILE_WITHWARN[([#include <pthread.h>],
           [pthread_mutex_t fastmutex = PTHREAD_MUTEX_INITIALIZER;],
           [AC_MSG_RESULT(ok)], [AC_MSG_RESULT(buggy)
-          ]GASNET_TRY_[$1]FLAG[([-Wno-missing-braces],[[$1]FLAGS="$[$1]FLAGS -Wno-missing-braces"],
-          [AC_MSG_ERROR(failure while checking for buggy pthread.h mutexes)])
-        ])
+          ]GASNET_TRY_[$1]FLAG[([-Wno-missing-braces],[old[$1]FLAGS="$old[$1]FLAGS -Wno-missing-braces"])],
+          [AC_MSG_ERROR(failure while checking for buggy pthread.h mutexes)]
+        )
+        [$1]FLAGS="$old[$1]FLAGS"
         case "$target_os" in 
           solaris*) # hide pragma warnings in system header files included by absolute path
             ]GASNET_TRY_[$1]FLAG[([-Wno-unknown-pragmas],[[$1]FLAGS="$[$1]FLAGS -Wno-unknown-pragmas"])
@@ -950,7 +957,7 @@ if test $have_elan = yes; then
   # Don't actually place -I/usr/include on the compile line, because this
   # breaks IA64 Intel C, which relies on preceding /usr/include with its own
   # include directory that overrides some system headers (eg asm/*)
-  if test `cd ${ELAN_INCLUDE}; pwd` == "/usr/include"; then
+  if test `cd ${ELAN_INCLUDE}; pwd` = "/usr/include"; then
     ELAN_INCLUDE=.
   fi
 
@@ -992,7 +999,7 @@ if test $have_elan = yes; then
       subver=0
     fi
     AC_MSG_RESULT("${majorver}.${minorver}.${subver}")
-    if test "$majorver" == "" -o "$minorver" == "" -o "$subver" == "" ; then
+    if test "$majorver" = "" -o "$minorver" = "" -o "$subver" = "" ; then
       AC_MSG_ERROR("unable to determine libelan version")
     fi
     ELAN_FLAGS="-DELAN_VERSION_MAJOR=${majorver} -DELAN_VERSION_MINOR=${minorver} -DELAN_VERSION_SUB=${subver}"
