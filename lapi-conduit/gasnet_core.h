@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2003/04/05 06:39:42 $
- * $Revision: 1.5 $
+ *     $Date: 2003/04/28 20:12:41 $
+ * $Revision: 1.6 $
  * Description: GASNet header for lapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,7 +106,11 @@ char *gasnet_getenv(const char *s) {
   ==================
 */
 typedef struct _gasnet_hsl_t {
+#if 0
     pthread_mutex_t lock;
+#else    
+    gasnetc_spinlock_t lock;
+#endif
 
   #if defined(STATS) || defined(TRACE)
     gasneti_stattime_t acquiretime;
@@ -115,7 +119,11 @@ typedef struct _gasnet_hsl_t {
     /* put additional state here */
 } gasnet_hsl_t;
 
+#if 0
   #define GASNETC_LOCK_MUTEX_INIT PTHREAD_MUTEX_INITIALIZER
+#else
+  #define GASNETC_LOCK_MUTEX_INIT GASNETC_SPINLOCK_INITIALIZER
+#endif
 
 #if defined(STATS) || defined(TRACE)
   #define GASNETC_LOCK_STAT_INIT ,0 

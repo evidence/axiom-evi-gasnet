@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/04/25 19:23:28 $
- * $Revision: 1.25 $
+ *     $Date: 2003/04/28 20:12:41 $
+ * $Revision: 1.26 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1462,7 +1462,7 @@ extern void gasnetc_resume_interrupts() {
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
     GASNETC_CHECKATTACH();
 
-    { int retval = pthread_mutex_init(&(hsl->lock), NULL);
+    {	int retval = gasnetc_spinlock_init(&(hsl->lock));
     if (retval) 
 	gasneti_fatalerror("In gasnetc_hsl_init(), pthread_mutex_init()=%s",strerror(retval));
     }
@@ -1473,7 +1473,7 @@ extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
     GASNETC_CHECKATTACH();
 
-    { int retval = pthread_mutex_destroy(&(hsl->lock));
+    {	int retval = gasnetc_spinlock_destroy(&(hsl->lock));
     if (retval) 
 	gasneti_fatalerror("In gasnetc_hsl_destroy(), pthread_mutex_destroy()=%s",strerror(retval));
     }
@@ -1488,13 +1488,8 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
 #if defined(STATS) || defined(TRACE)
     gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
 #endif
-#if GASNETC_HSL_SPINLOCK
-    do {
-        retval = pthread_mutex_trylock(&(hsl->lock));
-    } while (retval == EBUSY);
-#else
-    retval = pthread_mutex_lock(&(hsl->lock));
-#endif
+    
+    retval = gasnetc_spinlock_lock(&(hsl->lock));
     if (retval) 
 	gasneti_fatalerror("In gasnetc_hsl_lock(), pthread_mutex_lock()=%s",strerror(retval));
 #if defined(STATS) || defined(TRACE)
@@ -1519,7 +1514,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
 
     GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW()-hsl->acquiretime);
 
-    { int retval = pthread_mutex_unlock(&(hsl->lock));
+    {	int retval = gasnetc_spinlock_unlock(&(hsl->lock));
     if (retval) 
 	gasneti_fatalerror("In gasnetc_hsl_unlock(), pthread_mutex_unlock()=%s",strerror(retval));
     }
@@ -1619,7 +1614,7 @@ void gasnetc_lapi_exchange(void *src, size_t len, void *dest)
 void gasnetc_token_queue_init(gasnetc_token_queue_t *q)
 {
     q->head = q->tail = NULL;
-    gasnetc_spin_lock_init(q->lock);
+    gasnetc_spinlock_init(&(q->lock));
     q->schedule = 1;
 }
 
@@ -1628,7 +1623,7 @@ gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_sche
     gasnetc_token_t *p;
 
     /* spin until queue is available */
-    gasnetc_spin_lock(q->lock);
+    gasnetc_spinlock_lock(&(q->lock));
 
     /* remove from head */
     p = q->head;
@@ -1653,7 +1648,7 @@ gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_sche
 	}
     }
     /* unlock queue */
-    gasnetc_spin_unlock(q->lock);
+    gasnetc_spinlock_unlock(&(q->lock));
 
     return p;
 }
@@ -1661,7 +1656,7 @@ gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_sche
 void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *schedule)
 {
     /* gain the queue lock */
-    gasnetc_spin_lock(q->lock);
+    gasnetc_spinlock_lock(&(q->lock));
 
     /* add to tail of queue */
     p->next = NULL;
@@ -1679,7 +1674,7 @@ void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *sc
     q->schedule = 0;
     
     /* unlock queue */
-    gasnetc_spin_unlock(q->lock);
+    gasnetc_spinlock_unlock(&(q->lock));
 }
 
 void* gasnetc_lapi_AMreply_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
@@ -1978,8 +1973,8 @@ void gasnetc_run_handler(gasnetc_token_t *token)
 void gasnetc_uhdr_init(int want)
 {
     int got;
-    gasnetc_spin_lock_init(gasnetc_uhdr_freelist.lock);
-    gasnetc_spin_lock(gasnetc_uhdr_freelist.lock);
+    gasnetc_spinlock_init(&(gasnetc_uhdr_freelist.lock));
+    gasnetc_spinlock_lock(&(gasnetc_uhdr_freelist.lock));
     
     /* init the structure values */
     gasnetc_uhdr_freelist.high_water_mark = 0;
@@ -1989,7 +1984,7 @@ void gasnetc_uhdr_init(int want)
     
     got = gasnetc_uhdr_more(want);
 
-    gasnetc_spin_unlock(gasnetc_uhdr_freelist.lock);
+    gasnetc_spinlock_unlock(&(gasnetc_uhdr_freelist.lock));
 
     if (got == 0) {
 	gasneti_fatalerror("Unable to alloc ANY uhdr buffers");
@@ -2007,12 +2002,12 @@ gasnetc_token_t* gasnetc_uhdr_alloc(void)
 {
     gasnetc_token_t *p = NULL;
 
-    gasnetc_spin_lock(gasnetc_uhdr_freelist.lock);
+    gasnetc_spinlock_lock(&(gasnetc_uhdr_freelist.lock));
 
     if (gasnetc_uhdr_freelist.numfree == 0) {
 	gasnetc_uhdr_more(GASNETC_UHDR_ADDITIONAL);
 	if (gasnetc_uhdr_freelist.numfree == 0) {
-	    gasnetc_spin_unlock(gasnetc_uhdr_freelist.lock);
+	    gasnetc_spinlock_unlock(&(gasnetc_uhdr_freelist.lock));
 	    gasneti_fatalerror("Unable to alloc additional uhdr buffers");
 	}
     }
@@ -2026,7 +2021,7 @@ gasnetc_token_t* gasnetc_uhdr_alloc(void)
     if (gasnetc_uhdr_freelist.numalloc > gasnetc_uhdr_freelist.high_water_mark)
 	gasnetc_uhdr_freelist.high_water_mark = gasnetc_uhdr_freelist.numalloc;
 
-    gasnetc_spin_unlock(gasnetc_uhdr_freelist.lock);
+    gasnetc_spinlock_unlock(&(gasnetc_uhdr_freelist.lock));
 
     return p;
 }
@@ -2039,12 +2034,12 @@ gasnetc_token_t* gasnetc_uhdr_alloc(void)
  */
 void gasnetc_uhdr_free(gasnetc_token_t *p)
 {
-    gasnetc_spin_lock(gasnetc_uhdr_freelist.lock);
+    gasnetc_spinlock_lock(&(gasnetc_uhdr_freelist.lock));
     p->next = gasnetc_uhdr_freelist.head;
     gasnetc_uhdr_freelist.head = p;
     gasnetc_uhdr_freelist.numfree++;
     gasnetc_uhdr_freelist.numalloc--;
-    gasnetc_spin_unlock(gasnetc_uhdr_freelist.lock);
+    gasnetc_spinlock_unlock(&(gasnetc_uhdr_freelist.lock));
 }
 
 /* --------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/04/25 22:53:37 $
- * $Revision: 1.15 $
+ *     $Date: 2003/04/28 20:12:41 $
+ * $Revision: 1.16 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,9 +127,6 @@ typedef struct gasnetc_token_rec {
  * A freelist structure for the re-use of gasnetc_buf_t structures.
  * --------------------------------------------------------------------
  */
-#ifndef GASNETC_USE_SPINLOCKS
-#define GASNETC_USE_SPINLOCKS 1
-#endif
 #define GASNETC_UHDR_INIT_CNT 256
 #define GASNETC_UHDR_ADDITIONAL 256
 typedef struct {
@@ -137,11 +134,7 @@ typedef struct {
     int    numfree;
     int    numalloc;
     gasnetc_token_t *head;
-#if GASNETC_USE_SPINLOCKS
-    volatile int     lock;
-#else
-    pthread_mutex_t  lock;
-#endif
+    gasnetc_spinlock_t  lock;
 } gasnetc_uhdr_freelist_t;
 
 extern gasnetc_uhdr_freelist_t gasnetc_uhdr_freelist;
@@ -154,60 +147,15 @@ extern int    gasnetc_uhdr_more(int want);
  * Fast mutial exclusion queue using spinlocks
  * --------------------------------------------------------------------
  */
-#include <sys/atomic_op.h>
 typedef struct {
     gasnetc_token_t *head;
     gasnetc_token_t *tail;
-#if GASNETC_USE_SPINLOCKS
-    volatile int     lock;
-#else
-    pthread_mutex_t  lock;
-#endif
+    gasnetc_spinlock_t lock;
     int              schedule;
 } gasnetc_token_queue_t;
 extern void gasnetc_token_queue_init(gasnetc_token_queue_t *q);
 extern gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_schedule);
 extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *schedule);
-extern void gasnetc_no_optimize(void);
-
-#if GASNETC_USE_SPINLOCKS
-#define gasnetc_spin_lock_init(lock) \ 
- {                          \
-      (lock) = 0;            \
-      gasneti_local_membar();\
-  }
-#define gasnetc_spin_lock(lock) \
-  {                             \
-      int avail = 0;            \
-      int locked = 1;           \
-      while (! compare_and_swap( (atomic_p)&(lock), &avail, locked ) ) { \
-	  assert(avail == 1);   \
-          avail = 0;            \
-      }                         \
-  }
-#if 1
-#define gasnetc_spin_unlock(lock) \
-  {                            \
-      int avail = 0;           \
-      int locked = 1;          \
-      gasneti_local_membar();  \
-      if (!compare_and_swap( (atomic_p)&(lock), &locked, avail ) ) \
-          assert(0); /* this should not happen */ \
-  }
-#else
-#define gasnetc_spin_unlock(lock) \
-  {                          \
-      assert( (lock)==1 );   \
-      (lock) = 0;            \
-      gasneti_local_membar();\
-  }
-#endif
-#else  /* use pthread mutex */
-#define gasnetc_spin_lock_init(lock) pthread_mutex_init(&(lock), NULL)
-#define gasnetc_spin_lock(lock) pthread_mutex_lock(&(lock))
-#define gasnetc_spin_unlock(lock) pthread_mutex_unlock(&(lock))
-#endif
-
 /* MLW: Need more descriptive name for this macro */
 #define GASNETC_LCHECK(func) { \
     int lapi_errno; \
@@ -219,9 +167,6 @@ extern void gasnetc_no_optimize(void);
     }
 
 #define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
-
-/*  whether or not to use spin-locking for HSL's */
-#define GASNETC_HSL_SPINLOCK 1
 
 /* ------------------------------------------------------------------------------------ */
 /* make a GASNet call - if it fails, print error message and return */
