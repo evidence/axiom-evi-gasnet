@@ -1,16 +1,15 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_op.c,v $
- * $Date: 2004/08/26 04:53:36 $
- * $Revision: 1.11 $
+ * $Date: 2005/02/17 13:18:57 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#include <gasnet.h>
-#include <gasnet_tools.h>
-#include <gasnet_extended_internal.h>
 #include <gasnet_internal.h>
+#include <gasnet_extended_internal.h>
+#include <gasnet_tools.h>
 
 /*
   Op management

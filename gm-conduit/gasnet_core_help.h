@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_help.h,v $
- * $Date: 2005/02/12 11:29:21 $
- * $Revision: 1.38 $
+ * $Date: 2005/02/17 13:18:57 $
+ * $Revision: 1.39 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -111,7 +111,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_GM_MAXPORTS	gm_num_ports(NULL)
 #define GASNETC_GM_MAXBOARDS	3
 
-#define GASNETC_SEGMENT_ALIGN	GASNETI_PAGESIZE
+#define GASNETC_SEGMENT_ALIGN	GASNET_PAGESIZE
 
 /*
  * GASNETC_DEFAULT_PHYSMEM_PINNABLE_RATIO (float default=0.7).  Which fraction
@@ -148,7 +148,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_AM_LEN		(1<<GASNETC_AM_SIZE)
 #define GASNETC_AM_PACKET	(GASNETC_AM_LEN-8)
 
-#define GASNETC_LONG_OFFSET	GASNETI_PAGESIZE
+#define GASNETC_LONG_OFFSET	GASNET_PAGESIZE
 
 #define GASNETC_AM_MAX_ARGS	16
 #define GASNETC_AM_MAX_HANDLERS 256

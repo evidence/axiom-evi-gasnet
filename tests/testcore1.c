@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
- * $Date: 2004/10/23 09:59:18 $
- * $Revision: 1.13 $
+ * $Date: 2005/02/17 13:19:21 $
+ * $Revision: 1.14 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -229,7 +229,7 @@ main(int argc, char **argv)
 
 	/* call startup */
         GASNET_Safe(gasnet_init(&argc, &argv));
-        GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), TEST_SEGSZ, TEST_MINHEAPOFFSET));
+        GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
 
         assert(CHKSUM_TOTAL <= gasnet_AMMaxMedium());
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2005/02/14 05:13:36 $
- * $Revision: 1.20 $
+ *     $Date: 2005/02/17 13:18:55 $
+ * $Revision: 1.21 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -105,7 +105,7 @@ static void gasnete_ambarrier_notify_reqh(gasnet_token_t token,
 static void gasnete_ambarrier_kick() {
   int phase = ambarrier_phase;
   int step = ambarrier_step;
-  GASNETE_SAFE(gasneti_AMPoll());
+  GASNETI_SAFE(gasneti_AMPoll());
 
   if_pt (step != ambarrier_size) {
     if (ambarrier_step_done[phase][step]) {
@@ -159,7 +159,7 @@ static void gasnete_ambarrier_kick() {
 	  value = ambarrier_recv_value[phase];
 	}
 
-        GASNETE_SAFE(
+        GASNETI_SAFE(
           gasnet_AMRequestShort4(peer, gasneti_handleridx(gasnete_ambarrier_notify_reqh), 
                                  phase, step, value, flags));
       }
@@ -192,7 +192,7 @@ extern void gasnete_ambarrier_notify(int id, int flags) {
   if (gasneti_nodes > 1) {
     /*  send notify msg to peer */
     gasnet_node_t peer = ((gasneti_mynode + 1) < gasneti_nodes) ? (gasneti_mynode + 1) : 0;
-    GASNETE_SAFE(
+    GASNETI_SAFE(
       gasnet_AMRequestShort4(peer, gasneti_handleridx(gasnete_ambarrier_notify_reqh), 
                              phase, 0, id, flags));
   } else {
@@ -350,7 +350,7 @@ static void gasnete_ambarrier_done_reqh(gasnet_token_t token,
 /*  make some progress on the ambarrier */
 static void gasnete_ambarrier_kick() {
   int phase = ambarrier_phase;
-  GASNETE_SAFE(gasneti_AMPoll());
+  GASNETI_SAFE(gasneti_AMPoll());
 
   if (gasneti_mynode != GASNETE_AMBARRIER_MASTER) return;
 
@@ -362,7 +362,7 @@ static void gasnete_ambarrier_kick() {
 
     /*  inform the nodes */
     for (i=0; i < gasneti_nodes; i++) {
-      GASNETE_SAFE(
+      GASNETI_SAFE(
         gasnet_AMRequestShort2(i, gasneti_handleridx(gasnete_ambarrier_done_reqh), 
                              phase, mismatch));
     }
@@ -396,7 +396,7 @@ extern void gasnete_ambarrier_notify(int id, int flags) {
 
   if (gasneti_nodes > 1) {
     /*  send notify msg to 0 */
-    GASNETE_SAFE(
+    GASNETI_SAFE(
       gasnet_AMRequestShort3(GASNETE_AMBARRIER_MASTER, gasneti_handleridx(gasnete_ambarrier_notify_reqh), 
                            phase, ambarrier_value, flags));
   } else {

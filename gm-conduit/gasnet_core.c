@@ -1,13 +1,12 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/02/14 05:13:38 $
- * $Revision: 1.79 $
+ * $Date: 2005/02/17 13:18:57 $
+ * $Revision: 1.80 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#include <gasnet.h>
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
@@ -143,6 +142,8 @@ gasnetc_init(int *argc, char ***argv)
 	gasneti_init_done = 1;
 	gasneti_trace_init(*argc, *argv);
 
+        gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
+
 	#if GASNET_DEBUG_VERBOSE
 	printf("%d> done init\n", gasneti_mynode);
 	fflush(stdout);
@@ -268,6 +269,9 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	segsize = 0;
 	minheapoffset = 0;
 	#endif
+
+        segsize = gasneti_auxseg_preattach(segsize); /* adjust segsize for auxseg reqts */
+
 	/*  register handlers */
 	gasnetc_AM_InitHandler();
 
@@ -477,6 +481,8 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 	GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
 
 	gasnetc_bootstrapBarrier();
+        gasneti_auxseg_attach(); /* provide auxseg */
+
 	gasnete_init();
 	gasnetc_bootstrapBarrier();
 
@@ -1411,7 +1417,7 @@ gasnetc_AMRequestLongM_inner(gasnet_node_t node, gasnet_handler_t handler,
 	return;
 }
 
-extern int gasnetc_AMRequestLongM( gasnet_node_t node,        /* destination node */
+extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination node */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
                             void *dest_addr,                    /* data destination on destination node */
@@ -1422,24 +1428,20 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t node,        /* destination nod
 
 	GASNETI_CHECKINIT();
   
-	gasneti_boundscheck(node, dest_addr, nbytes);
 	gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-
+	if_pf (dest >= gasneti_nodes) 
+		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
 	if_pf (nbytes > gasnet_AMMaxLongRequest()) 
 		GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-	if_pf (node >= gasneti_nodes) 
-		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-	if_pf (((uintptr_t)dest_addr)< ((uintptr_t)gasneti_seginfo[node].addr) ||
-	    ((uintptr_t)dest_addr) + nbytes > 
-	        ((uintptr_t)gasneti_seginfo[node].addr) + gasneti_seginfo[node].size) 
-         	GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-	GASNETI_TRACE_AMREQUESTLONG(node,handler,source_addr,nbytes,dest_addr,numargs);
+        if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
+                GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
+	GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
 	va_start(argptr, numargs); /*  pass in last argument */
 
 	retval = 1;
 	gasneti_assert(nbytes <= GASNETC_AM_LONG_REQUEST_MAX);
 
-	if (node == gasneti_mynode) {
+	if (dest == gasneti_mynode) {
 		int	argbuf[GASNETC_AM_MAX_ARGS];
 
 		GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
@@ -1452,20 +1454,20 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t node,        /* destination nod
 		if_pt (nbytes > 0) { /* Handle zero-length messages */
 			const firehose_request_t	*req;
 			
-			req = firehose_try_remote_pin(node, 
+			req = firehose_try_remote_pin(dest, 
 				(uintptr_t) dest_addr, nbytes, 0, NULL);
 
 			if (req != NULL)
-				gasnetc_AMRequestLongM_DMA_inner(node, handler, 
+				gasnetc_AMRequestLongM_DMA_inner(dest, handler, 
 				    source_addr, nbytes, req, 
 				    (uintptr_t) dest_addr, numargs, argptr);
 			else
-				gasnetc_AMRequestLongM_inner(node, handler, 
+				gasnetc_AMRequestLongM_inner(dest, handler, 
 				    source_addr, nbytes, dest_addr, numargs, 
 				    argptr);
 		}
 		else {
-			gasnetc_AMRequestLongM_inner(node, handler, source_addr, 
+			gasnetc_AMRequestLongM_inner(dest, handler, source_addr, 
 			    nbytes, dest_addr, numargs, argptr);
 		}
 	}
@@ -1490,19 +1492,13 @@ gasnetc_AMRequestLongAsyncM(
 
 	gasnetc_bufdesc_t	*bufd;
 	GASNETI_CHECKINIT();
-	gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-	gasneti_boundscheck(dest, dest_addr, nbytes);
 
         gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-        if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-
 	if_pf (dest >= gasneti_nodes)
 		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-	if_pf (((uintptr_t)dest_addr)<((uintptr_t)gasneti_seginfo[dest].addr) ||
-	    ((uintptr_t)dest_addr) + nbytes > 
-	        ((uintptr_t)gasneti_seginfo[dest].addr)+gasneti_seginfo[dest].size) 
-		GASNETI_RETURN_ERRR(BAD_ARG,
-		    "destination address out of segment range");
+        if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
+        if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
+                GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
 	GASNETI_TRACE_AMREQUESTLONGASYNC(
 		dest,handler,source_addr,nbytes,dest_addr,numargs);
@@ -1847,15 +1843,12 @@ extern int gasnetc_AMReplyLongM(
 
 	retval = gasnet_AMGetMsgSource(token, &dest);
 	if (retval != GASNET_OK) GASNETI_RETURN(retval);
+        gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
 	if_pf (dest >= gasneti_nodes) 
 		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-        gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
         if_pf (nbytes > gasnet_AMMaxLongReply()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-	if_pf (((uintptr_t)dest_addr)< ((uintptr_t)gasneti_seginfo[dest].addr)||
-	    ((uintptr_t)dest_addr) + nbytes > 
-	    ((uintptr_t)gasneti_seginfo[dest].addr)+gasneti_seginfo[dest].size)
-		GASNETI_RETURN_ERRR(BAD_ARG,
-		    "destination address out of segment range");
+        if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
+                GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
 	va_start(argptr, numargs); /*  pass in last argument */
 	GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,
@@ -3009,6 +3002,9 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
   (for internal conduit use in bootstrapping, job management, etc.)
 */
 static gasnet_handlerentry_t const gasnetc_handlers[] = {
+  #ifdef GASNETC_AUXSEG_HANDLERS
+    GASNETC_AUXSEG_HANDLERS(),
+  #endif
   /* ptr-width independent handlers */
   /* ptr-width dependent handlers */
   gasneti_handler_tableentry_with_bits(gasnetc_am_medcopy),

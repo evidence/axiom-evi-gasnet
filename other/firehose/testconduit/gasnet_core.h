@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/testconduit/Attic/gasnet_core.h,v $
- * $Date: 2005/02/12 11:29:27 $
- * $Revision: 1.5 $
+ * $Date: 2005/02/17 13:19:05 $
+ * $Revision: 1.6 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -46,18 +46,6 @@ BEGIN_EXTERNC
 	    gasnete_ambarrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);	    \
 	    gasnete_ambarrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS);	    \
 	} while (0)
-
-
-/* make a GASNet call - if it fails, print error message and abort */
-#define GASNETE_SAFE(fncall) do {                                           \
-   int retcode = (fncall);                                                  \
-   if_pf (retcode != GASNET_OK) {                                           \
-     gasneti_fatalerror("\nGASNet encountered an error: %s(%i)\n"           \
-        "  while calling: %s\n"                                             \
-        "  at %s",                                                          \
-        gasnet_ErrorName(retcode), retcode, #fncall, gasneti_current_loc);  \
-   }                                                                        \
- } while (0)
 
 
 #define _GASNETC_RUN_HANDLER_MEDLONG(phandlerfn, token, pArgs, numargs,        \

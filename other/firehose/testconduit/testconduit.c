@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/testconduit/Attic/testconduit.c,v $
- *     $Date: 2005/02/14 05:13:44 $
- * $Revision: 1.5 $
+ *     $Date: 2005/02/17 13:19:05 $
+ * $Revision: 1.6 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,7 +16,6 @@
 #include <errno.h>
 #include <poll.h>
 
-#include <gasnet.h>
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <firehose.h>
@@ -714,6 +713,8 @@ gasnetc_init()
 
   GASNETC_NODE_BARRIER;
 
+  gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
+
   printf("local = %ld and global = %ld\n",
 		    gasneti_MaxLocalSegmentSize, gasneti_MaxGlobalSegmentSize);
 
@@ -731,6 +732,8 @@ gasnetc_init()
 	    "Largest segment (%ld) is less than %d",
 	    gasneti_MaxGlobalSegmentSize, segsize);
 
+  segsize = gasneti_auxseg_preattach(segsize); /* adjust segsize for auxseg reqts */
+
   /* assume 100 MB of physical memory per thread */
   firehose_init(100*1024*1024, 0, NULL, 0, &gasnetc_firehose_info);
   
@@ -738,6 +741,8 @@ gasnetc_init()
   gasneti_segmentAttach(
 	segsize, 250*1024*1024, 
 	gasneti_seginfo, &gasnetc_bootstrapExchange);
+
+  gasneti_auxseg_attach(); /* provide auxseg */
 
   GASNETC_NODE_BARRIER;
 

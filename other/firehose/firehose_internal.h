@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/02/14 12:42:48 $
- * $Revision: 1.19 $
+ *     $Date: 2005/02/17 13:19:03 $
+ * $Revision: 1.20 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -117,7 +117,7 @@ extern int	*fhc_RemoteVictimFifoBuckets;
     )
 
 #ifndef FH_BUCKET_SIZE
-#define FH_BUCKET_SIZE	GASNETI_PAGESIZE
+#define FH_BUCKET_SIZE	GASNET_PAGESIZE
 #endif
 
 #ifndef FH_BUCKET_SHIFT
@@ -130,7 +130,7 @@ extern int	*fhc_RemoteVictimFifoBuckets;
 
 /* Utility Macros */
 #define FH_CACHE_LINE_BYTES	GASNETI_CACHE_LINE_BYTES
-#define FH_PAGE_MASK		(GASNETI_PAGESIZE-1)
+#define FH_PAGE_MASK		(GASNET_PAGESIZE-1)
 #define FH_ADDR_ALIGN(addr)	(GASNETI_ALIGNDOWN(addr, FH_BUCKET_SIZE))
 #define FH_SIZE_ALIGN(addr,len)	(GASNETI_ALIGNUP(addr+len, FH_BUCKET_SIZE)-\
 				 GASNETI_ALIGNDOWN(addr, FH_BUCKET_SIZE))
@@ -141,7 +141,7 @@ extern int	*fhc_RemoteVictimFifoBuckets;
  *
  * The firehose bucket type is a descriptor for a single page (or multiple amount
  * of pages according to the ability for the underlying memory allocator to
- * allocate in multiples of GASNETI_PAGESIZE).
+ * allocate in multiples of GASNET_PAGESIZE).
  *
  * The current implementation equates one bucket to one page.
  *

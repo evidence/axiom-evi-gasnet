@@ -1,12 +1,12 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2005/02/14 05:13:34 $
- * $Revision: 1.23 $
+ *     $Date: 2005/02/17 13:18:53 $
+ * $Revision: 1.24 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#include <gasnet.h>
+#include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
 #include <elan3/elan3.h> /* for ELAN_POLL_EVENT */
 #include <unistd.h>

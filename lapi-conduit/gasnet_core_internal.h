@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/02/14 05:13:40 $
- * $Revision: 1.37 $
+ *     $Date: 2005/02/17 13:18:59 $
+ * $Revision: 1.38 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,7 +18,6 @@
 #ifndef _GASNET_CORE_INTERNAL_H
 #define _GASNET_CORE_INTERNAL_H
 
-#include <gasnet.h>
 #include <gasnet_internal.h>
 
 /* LAPI Specific decls */
@@ -230,18 +229,6 @@ extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, 
 
 
 /* ------------------------------------------------------------------------------------ */
-/* make a GASNet call - if it fails, print error message and return */
-#define GASNETC_SAFE(fncall) do {                            \
-   int retcode = (fncall);                                   \
-   if_pf (gasneti_VerboseErrors && retcode != GASNET_OK) {   \
-     char msg[1024];                                         \
-     sprintf(msg, "\nGASNet encountered an error: %s(%i)\n", \
-        gasnet_ErrorName(retcode), retcode);                 \
-     GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
-   }                                                         \
- } while (0)
-
-
 #if GASNETI_THROTTLE_POLLERS 
   #ifndef GASNETC_LAPIWAIT_SPIN
     /* spinning with LAPI_GetCntr performs better under contention than LAPI_WaitCntr */
@@ -310,7 +297,7 @@ extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, 
 
 /* -------------------------------------------------------------------- */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
-#define _hidx_                              (GASNETC_HANDLER_BASE+)
+#define _hidx_gasnetc_auxseg_reqh             (GASNETC_HANDLER_BASE+0)
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
 

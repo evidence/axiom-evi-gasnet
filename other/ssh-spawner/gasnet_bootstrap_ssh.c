@@ -1,11 +1,10 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/01/19 18:06:33 $
- * $Revision: 1.19 $
+ *     $Date: 2005/02/17 13:19:09 $
+ * $Revision: 1.20 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
  */
-#include <gasnet.h>
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2005/01/22 15:11:40 $
- * $Revision: 1.58 $
+ *     $Date: 2005/02/17 13:18:51 $
+ * $Revision: 1.59 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -728,7 +728,7 @@
      static int volatile x;
      x = 1;
    }
-   #define gasneti_compiler_fence() gasneti_local_wmb()
+   #define gasneti_compiler_fence gasneti_local_wmb
 #elif defined(__MTA__)
    /* MTA has no caches or write buffers - just need a compiler reordering fence */
    #if 0 /* causes warnings */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2004/10/22 19:47:23 $
- * $Revision: 1.22 $
+ *     $Date: 2005/02/17 13:19:21 $
+ * $Revision: 1.23 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -92,7 +92,7 @@ int main(int argc, char **argv) {
 
   GASNET_Safe(gasnet_init(&argc, &argv));
   GASNET_Safe(gasnet_attach(handlers, sizeof(handlers)/sizeof(gasnet_handlerentry_t), 
-    TEST_SEGSZ, TEST_MINHEAPOFFSET));
+                            TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
   TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
   assert(TEST_SEGSZ >= 2*sizeof(int)*NUMHANDLERS_PER_TYPE);
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/01/13 10:28:11 $
- * $Revision: 1.42 $
+ *     $Date: 2005/02/17 13:19:21 $
+ * $Revision: 1.43 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,6 +177,14 @@ static void test_free(void *ptr) {
 #define alignup(a,b) ((((a)+(b)-1)/(b))*(b))
 #define alignup_ptr(a,b) ((void *)(((((uintptr_t)(a))+(b)-1)/(b))*(b)))
 
+#if defined(SGI_SHMEM) && !defined(GASNET_SEGMENT_EVERYTHING)
+  /* SGI/fast "steals" from the client seg, so we have to ask for more than we need */
+  #define TEST_SEGSZ_PADFACTOR 2
+#else
+  #define TEST_SEGSZ_PADFACTOR 1
+#endif
+#define TEST_SEGSZ_REQUEST (TEST_SEGSZ_PADFACTOR*TEST_SEGSZ)
+
 #if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
   #ifndef TEST_MAXTHREADS
     #define TEST_MAXTHREADS      256
@@ -185,18 +193,30 @@ static void test_free(void *ptr) {
     #define TEST_SEGZ_PER_THREAD (64*1024)
   #endif
   #ifndef TEST_SEGSZ
-    #define TEST_SEGSZ	      alignup(TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD,PAGESZ)
+    #ifdef TEST_SEGSZ_EXPR
+      #define TEST_SEGSZ  alignup(TEST_SEGSZ_EXPR,PAGESZ)
+    #else
+      #define TEST_SEGSZ  alignup(TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD,PAGESZ)
+    #endif
   #endif
-  #if TEST_SEGSZ < (TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD)
-    #error "TEST_SEGSZ < (TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD)"
+  #ifndef TEST_SEGSZ_EXPR
+    #if TEST_SEGSZ < (TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD)
+      #error "TEST_SEGSZ < (TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD)"
+    #endif
   #endif
 #else
   #ifndef TEST_SEGSZ
-    #define TEST_SEGSZ          alignup(64*1024,PAGESZ)
+    #ifdef TEST_SEGSZ_EXPR
+      #define TEST_SEGSZ  alignup(TEST_SEGSZ_EXPR,PAGESZ)
+    #else
+      #define TEST_SEGSZ  alignup(64*1024,PAGESZ)
+    #endif
   #endif
 #endif
-#if (TEST_SEGSZ % PAGESZ) != 0 || TEST_SEGSZ <= 0
-  #error Bad TEST_SEGSZ
+#ifndef TEST_SEGSZ_EXPR
+  #if (TEST_SEGSZ % PAGESZ) != 0 || TEST_SEGSZ <= 0
+    #error Bad TEST_SEGSZ
+  #endif
 #endif
 
 #define TEST_MINHEAPOFFSET  alignup(128*4096,PAGESZ)
@@ -285,6 +305,7 @@ static void test_free(void *ptr) {
       GASNET_Safe(gasnet_getSegmentInfo(s, gasnet_nodes()));
       for (i=0; i < gasnet_nodes(); i++) {
         assert(s[i].size >= TEST_SEGSZ);
+        assert(((uintptr_t)s[i].size) % PAGESZ == 0);
         #if GASNET_ALIGNED_SEGMENTS == 1
           assert(s[i].addr == s[0].addr);
         #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_internal.h,v $
- *     $Date: 2005/02/14 12:42:40 $
- * $Revision: 1.16 $
+ *     $Date: 2005/02/17 13:18:55 $
+ * $Revision: 1.17 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,9 +9,8 @@
 #ifndef _GASNET_EXTENDED_INTERNAL_H
 #define _GASNET_EXTENDED_INTERNAL_H
 
-#include <gasnet.h>
-#include <gasnet_handler.h>
 #include <gasnet_internal.h>
+#include <gasnet_handler.h>
 
 /* ------------------------------------------------------------------------------------ */
 typedef uint8_t gasnete_threadidx_t;
@@ -154,17 +153,6 @@ void gasnete_op_free(gasnete_op_t *op);
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
 
 /* ------------------------------------------------------------------------------------ */
-
-/* make a GASNet call - if it fails, print error message and abort */
-#define GASNETE_SAFE(fncall) do {                                           \
-   int retcode = (fncall);                                                  \
-   if_pf (retcode != (int)GASNET_OK) {                                      \
-     gasneti_fatalerror("\nGASNet encountered an error: %s(%i)\n"           \
-        "  while calling: %s\n"                                             \
-        "  at %s",                                                          \
-        gasnet_ErrorName(retcode), retcode, #fncall, gasneti_current_loc);  \
-   }                                                                        \
- } while (0)
 
 #define GASNETE_HANDLER_BASE  64 /* reserve 64-127 for the extended API */
 #define _hidx_gasnete_ambarrier_notify_reqh (GASNETE_HANDLER_BASE+0) 

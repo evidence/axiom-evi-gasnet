@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/02/15 02:22:58 $
- * $Revision: 1.24 $
+ *     $Date: 2005/02/17 13:18:55 $
+ * $Revision: 1.25 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -980,7 +980,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 
       gasneti_assert(nbytes <= gasnet_AMMaxLongRequest());
 
-      GASNETE_SAFE(
+      GASNETI_SAFE(
 	LONG_REQ(5,5,(dstnode, gasneti_handleridx(gasnete_coll_p2p_long_reqh),
 		      src, nbytes, dst, team_id, op->sequence, 1, offset, state)));
     }
@@ -993,7 +993,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 
       gasneti_assert(nbytes <= gasnet_AMMaxLongRequest());
 
-      GASNETE_SAFE(
+      GASNETI_SAFE(
 	LONGASYNC_REQ(5,5,(dstnode, gasneti_handleridx(gasnete_coll_p2p_long_reqh),
 			   src, nbytes, dst, team_id, op->sequence, 1, offset, state)));
     }
@@ -1010,7 +1010,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 	size_t nbytes = limit * size;
 
 	do {
-          GASNETE_SAFE(
+          GASNETI_SAFE(
 	    MEDIUM_REQ(6,6,(dstnode, gasneti_handleridx(gasnete_coll_p2p_med_reqh),
 			    src, nbytes, team_id, op->sequence, limit, offset, state, size)));
 	  offset += limit;
@@ -1019,7 +1019,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 	} while (count > limit);
       }
 
-      GASNETE_SAFE(
+      GASNETI_SAFE(
 	MEDIUM_REQ(6,6,(dstnode, gasneti_handleridx(gasnete_coll_p2p_med_reqh),
 			src, count * size, team_id, op->sequence, count, offset, state, size)));
     }
@@ -1029,7 +1029,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 				        uint32_t count, uint32_t offset, uint32_t state) {
       uint32_t team_id = gasnete_coll_team_id(op->team);
 
-      GASNETE_SAFE(
+      GASNETI_SAFE(
         SHORT_REQ(5,5,(dstnode, gasneti_handleridx(gasnete_coll_p2p_short_reqh),
                        team_id, op->sequence, count, offset, state)));
     }

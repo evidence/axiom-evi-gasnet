@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2005/02/12 11:29:15 $
- * $Revision: 1.32 $
+ *     $Date: 2005/02/17 13:18:51 $
+ * $Revision: 1.33 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,6 +14,9 @@
   #error Applications that use both GASNet and GASNet tools must   \
          include gasnet.h before gasnet_tools.h and must include   \
          _both_ headers in any files that need either header
+#endif
+#if defined(_INCLUDED_GASNET_INTERNAL_H) && !defined(_IN_GASNET_INTERNAL_H)
+  #error Internal GASNet code should not directly include gasnet.h, just gasnet_internal.h
 #endif
 
 /* Usage:
@@ -382,6 +385,8 @@ extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG);
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME));
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME));
 
 static int *gasneti_linkconfig_idiotcheck();
 static int *(*_gasneti_linkconfig_idiotcheck)() = &gasneti_linkconfig_idiotcheck;
@@ -393,7 +398,10 @@ static int *gasneti_linkconfig_idiotcheck() {
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG)
-        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG);
+        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG)
+        + GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME))
+        + GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME))
+        ;
   if (_gasneti_linkconfig_idiotcheck != gasneti_linkconfig_idiotcheck)
     val += *_gasneti_linkconfig_idiotcheck();
   return &val;
@@ -408,4 +416,17 @@ static int *gasneti_linkconfig_idiotcheck() {
 /* ------------------------------------------------------------------------------------ */
 
 #undef _IN_GASNET_H
+#endif
+
+/* intentionally expanded on every include */
+#if defined(_INCLUDED_GASNET_INTERNAL_H) && !defined(GASNETI_INTERNAL_TEST_PROGRAM) && !defined(_GASNET_INTERNAL_IDIOTCHECK)
+  #define _GASNET_INTERNAL_IDIOTCHECK
+  #undef gasnet_attach
+  GASNET_INLINE_MODIFIER(gasnet_attach)
+  int gasnet_attach(gasnet_handlerentry_t *table, int numentries,
+                    uintptr_t segsize, uintptr_t minheapoffset) {
+    gasneti_fatalerror("GASNet client code must NOT #include <gasnet_internal.h>\n"
+                       "gasnet_internal.h is not installed, and modifies the behavior "
+                       "of various internal operations, such as segment safety bounds-checking.");
+  }
 #endif

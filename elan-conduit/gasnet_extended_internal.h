@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2005/02/14 12:42:38 $
- * $Revision: 1.18 $
+ *     $Date: 2005/02/17 13:18:53 $
+ * $Revision: 1.19 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,9 +9,8 @@
 #ifndef _GASNET_EXTENDED_INTERNAL_H
 #define _GASNET_EXTENDED_INTERNAL_H
 
-#include <gasnet.h>
-#include <gasnet_handler.h>
 #include <gasnet_internal.h>
+#include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
 
 /* ------------------------------------------------------------------------------------ */
@@ -213,18 +212,6 @@ void gasnete_op_free(gasnete_op_t *op);
 #define GASNETE_SCATTER_EOPS_ACROSS_CACHELINES    1 
 
 /* ------------------------------------------------------------------------------------ */
-
-/* make a GASNet call - if it fails, print error message and abort */
-#define GASNETE_SAFE(fncall) do {                                           \
-   int retcode = (fncall);                                                  \
-   if_pf (retcode != GASNET_OK) {                                           \
-     gasneti_fatalerror("\nGASNet encountered an error: %s(%i)\n"           \
-        "  while calling: %s\n"                                             \
-        "  at %s",                                                          \
-        gasnet_ErrorName(retcode), retcode, #fncall, gasneti_current_loc);  \
-   }                                                                        \
- } while (0)
-
 #define GASNETE_HANDLER_BASE  64 /* reserve 64-127 for the extended API */
 #define _hidx_gasnete_ambarrier_notify_reqh (GASNETE_HANDLER_BASE+0) 
 #define _hidx_gasnete_ambarrier_done_reqh   (GASNETE_HANDLER_BASE+1)
@@ -236,9 +223,6 @@ void gasnete_op_free(gasnete_op_t *op);
 #define _hidx_gasnete_putlong_reqh          (GASNETE_HANDLER_BASE+7)
 #define _hidx_gasnete_memset_reqh           (GASNETE_HANDLER_BASE+8)
 #define _hidx_gasnete_markdone_reph         (GASNETE_HANDLER_BASE+9)
-/*
-#define _hidx_                              (GASNETC_HANDLER_BASE+)
-*/
 
 /* add new extended API handlers here and to the bottom of gasnet_extended.c */
 

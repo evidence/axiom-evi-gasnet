@@ -1,15 +1,14 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2005/02/14 05:13:52 $
- * $Revision: 1.6 $
+ *     $Date: 2005/02/17 13:19:15 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#include <gasnet.h>
+#include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
 #include <gasnet_extended_internal.h>
-#include <gasnet_internal.h>
 #include <gasnet_handler.h>
 
 /*
@@ -72,13 +71,12 @@ gasnete_threaddata_t	gasnete_threaddata;
 	    GASNETE_HANDLE_INC();			    \
 	} while (0)
 
-extern void 
-gasnete_init() 
-{
-    int	    i;
-
-    GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
-    gasneti_assert(gasneti_nodes == 0); /* we haven't been called before */
+extern void gasnete_init() {
+  int	    i;
+  static int firstcall = 1;
+  GASNETI_TRACE_PRINTF(C,("gasnete_init()"));
+  gasneti_assert(firstcall); /*  make sure we haven't been called before */
+  firstcall = 0;
 
     gasneti_assert(GASNETC_POW_2(GASNETE_MAX_HANDLES));
 
@@ -138,7 +136,7 @@ gasnete_am_memset_nb(gasnet_node_t node, void *dest, int val,
 
     *handle = GASNETE_HANDLE_NB_POLL;
 
-    GASNETE_SAFE(
+    GASNETI_SAFE(
 	SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
 		      (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes, 
 		      PACK(ptr), PACK(handle))));
@@ -162,7 +160,7 @@ gasnete_try_syncnb_inner(gasnet_handle_t handle)
 	break;
 
 	case GASNETE_HANDLE_NB_POLL:
-	    GASNETE_SAFE(gasnet_AMPoll());
+	    GASNETI_SAFE(gasnet_AMPoll());
 	    if (*handle == GASNETE_HANDLE_DONE)
 		return GASNET_OK;
 	    else
@@ -194,7 +192,7 @@ gasnete_try_syncnb_inner(gasnet_handle_t handle)
 	
 	case GASNETE_HANDLE_NBI_POLL:
 	    gasneti_assert(handle == &gasnete_nbi_handle);
-	    GASNETE_SAFE(gasnet_AMPoll());
+	    GASNETI_SAFE(gasnet_AMPoll());
 	    if (gasnete_nbi_am_ctr == 0) {
 		*handle = GASNETE_HANDLE_DONE;
 		return GASNET_OK;
@@ -223,7 +221,7 @@ extern int
 gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles) 
 {
     int	i;
-    GASNETE_SAFE(gasnet_AMPoll());
+    GASNETI_SAFE(gasnet_AMPoll());
 
     gasneti_assert(phandle != NULL);
 
@@ -264,7 +262,7 @@ gasnete_am_memset_nbi(gasnet_node_t node, void *dest, int val,
     int	 *ptr = GASNETE_SHMPTR_AM(dest,node);
     int *p_nbi_handle = &gasnete_nbi_handle;
     gasnete_nbi_handle = GASNETE_HANDLE_NBI;
-    GASNETE_SAFE(
+    GASNETI_SAFE(
 	SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
 		      (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes, 
 		      PACK(ptr), PACK(p_nbi_handle))));
@@ -607,7 +605,7 @@ gasnete_memset_reqh_inner(gasnet_token_t token, gasnet_handlerarg_t val,
     memset(dest, (int)(uint32_t)val, nbytes);
     gasneti_sync_writes();
 
-    GASNETE_SAFE(
+    GASNETI_SAFE(
 	SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
                   PACK(op))));
 }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/02/14 05:13:50 $
- * $Revision: 1.7 $
+ *     $Date: 2005/02/17 13:19:13 $
+ * $Revision: 1.8 $
  * Description: GASNet sci conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -11,7 +11,6 @@
 #ifndef _GASNET_CORE_INTERNAL_H
 #define _GASNET_CORE_INTERNAL_H
 
-#include <gasnet.h>
 #include <gasnet_internal.h>
 
 /*  SCI conduit specific headers */
@@ -74,17 +73,6 @@ typedef void (*gasnetc_handler_mediumlong)(gasnet_token_t token, void *buf, size
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
 /* ------------------------------------------------------------------------------------ */
-/* make a GASNet call - if it fails, print error message and return */
-#define GASNETC_SAFE(fncall) do {                            \
-   int retcode = (fncall);                                   \
-   if_pf (gasneti_VerboseErrors && retcode != GASNET_OK) {   \
-     char msg[1024];                                         \
-     sprintf(msg, "\nGASNet encountered an error: %s(%i)\n", \
-        gasnet_ErrorName(retcode), retcode);                 \
-     GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
-   }                                                         \
- } while (0)
-
 #define GASNETC_SCISAFE(fncall) do {                                      \
    fncall;                                                                \
    if_pf (error != SCI_ERR_OK)                                            \
@@ -94,7 +82,7 @@ typedef void (*gasnetc_handler_mediumlong)(gasnet_token_t token, void *buf, size
 
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
-#define _hidx_                              (GASNETC_HANDLER_BASE+)
+#define _hidx_gasnetc_auxseg_reqh             (GASNETC_HANDLER_BASE+0)
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
 /*  SCI conduit specific constants */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/02/14 05:13:32 $
- * $Revision: 1.89 $
+ *     $Date: 2005/02/17 13:18:51 $
+ * $Revision: 1.90 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,9 +27,8 @@
 #include <sys/param.h>
 #endif 
 
-#include <gasnet.h>
-#include <gasnet_tools.h>
 #include <gasnet_internal.h>
+#include <gasnet_tools.h>
 
 /* set to non-zero for verbose error reporting */
 int gasneti_VerboseErrors = 1;
@@ -98,6 +97,8 @@ int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG) = 1;
+int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME)) = 1;
+int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME)) = 1;
 
 /* Default global definitions of GASNet-wide internal variables
    if conduits override one of these, they must
@@ -116,6 +117,9 @@ int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG) = 1;
 
 #ifdef _GASNETI_SEGINFO_DEFAULT
   gasnet_seginfo_t *gasneti_seginfo = NULL;
+  gasnet_seginfo_t *gasneti_seginfo_client = NULL;
+  void **gasneti_seginfo_ub = NULL; /* cached result of gasneti_seginfo[i].addr + gasneti_seginfo[i].size */
+  void **gasneti_seginfo_client_ub = NULL;
 #endif
 
 /* ------------------------------------------------------------------------------------ */

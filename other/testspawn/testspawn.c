@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/testspawn/testspawn.c,v $
- *     $Date: 2005/02/14 05:13:48 $
- * $Revision: 1.5 $
+ *     $Date: 2005/02/17 13:19:11 $
+ * $Revision: 1.6 $
  * Description: 
  * Copyright 2005, Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 
-#include <gasnet.h>
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlarge.c,v $
- *     $Date: 2005/02/08 05:04:37 $
- * $Revision: 1.24 $
+ *     $Date: 2005/02/17 13:19:21 $
+ * $Revision: 1.25 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -24,8 +24,13 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
-#if defined(GASNET_SEGMENT_EVERYTHING) && !defined(TEST_SEGSZ)
-#define TEST_SEGSZ alignup((16*1048576),PAGESZ)
+int maxsz = 0;
+#ifndef TEST_SEGSZ
+  #ifdef GASNET_SEGMENT_EVERYTHING
+    #define TEST_SEGSZ_EXPR (16*1048576)
+  #else
+    #define TEST_SEGSZ_EXPR ((uintptr_t)maxsz)
+  #endif
 #endif
 #include "test.h"
 
@@ -265,7 +270,6 @@ void bulk_test_nb(int iters) {GASNET_BEGIN_FUNCTION();
 int main(int argc, char **argv)
 {
     int iters = 0;
-    int maxsz = 0;
     int arg;
     void *myseg;
     void *alloc;
@@ -343,29 +347,10 @@ int main(int argc, char **argv)
     #ifdef GASNET_SEGMENT_EVERYTHING
       if (maxsz > TEST_SEGSZ) { MSG("maxsz must be <= %i on GASNET_SEGMENT_EVERYTHING",TEST_SEGSZ); gasnet_exit(1); }
     #endif
-    GASNET_Safe(gasnet_attach(NULL, 0, alignup(((uintptr_t)maxsz), PAGESZ), TEST_MINHEAPOFFSET));
+    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
     TEST_DEBUGPERFORMANCE_WARNING();
-    #ifdef GASNET_SEGMENT_EVERYTHING
-      myseg = TEST_SEG(myproc);
-      tgtmem = TEST_SEG(peerproc);
-    #else
-    { /* ensure we got the segment requested */
-      int i;
-      gasnet_seginfo_t *s = test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
-      GASNET_Safe(gasnet_getSegmentInfo(s, gasnet_nodes()));
-      for (i=0; i < gasnet_nodes(); i++) {
-        assert(s[i].size >= maxsz);
-        #if GASNET_ALIGNED_SEGMENTS == 1
-          assert(s[i].addr == s[0].addr);
-        #endif
-      }
-      tgtmem = s[peerproc].addr; /* get peer segment */
-      myseg = s[myproc].addr; 
-      test_free(s);
-    }
-    #endif
-    assert(((uintptr_t)myseg) % PAGESZ == 0);
-    assert(((uintptr_t)tgtmem) % PAGESZ == 0);
+    myseg = TEST_SEG(myproc);
+    tgtmem = TEST_SEG(peerproc);
 
         if (insegment) {
 	    msgbuf = (void *) myseg;

@@ -1,15 +1,14 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2005/02/14 05:13:38 $
- * $Revision: 1.46 $
+ * $Date: 2005/02/17 13:18:57 $
+ * $Revision: 1.47 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
-#include <gasnet.h>
+#include <gasnet_internal.h>
 #ifdef GASNETC_FIREHOSE
 #include <gasnet_extended_internal.h>
 #include <gasnet_core_internal.h>
-#include <gasnet_internal.h>
 #include <gasnet_handler.h>
 
 #define GASNETE_FH_HAVE_TOKEN		0
@@ -72,13 +71,6 @@ gasnete_fh_request_get_fn(void *op, const firehose_request_t *req, int loc)
 #define GASNETE_FIREHOSE_TRACE_PUTGET(eop, putget)
 #endif
 
-
-#define gasnete_in_segment(node,ptr,len)					\
-		(!((uintptr_t)(ptr) < (uintptr_t)gasneti_seginfo[(node)].addr	\
-		    || ((uintptr_t)(ptr) + (len)) > 				\
-		    ((uintptr_t)gasneti_seginfo[(node)].addr + 			\
-		    gasneti_seginfo[(node)].size)))
-
 extern
 int 
 firehose_move_callback(gasnet_node_t node, 
@@ -92,16 +84,16 @@ firehose_move_callback(gasnet_node_t node,
 		gasneti_mutex_lock(&gasnetc_lock_gm);
 
 	for (i = 0; i < unpin_num; i++) {
-		gasneti_assert(unpin_list[i].addr % GASNETI_PAGESIZE == 0);
-		gasneti_assert(unpin_list[i].len % GASNETI_PAGESIZE == 0);
+		gasneti_assert(unpin_list[i].addr % GASNET_PAGESIZE == 0);
+		gasneti_assert(unpin_list[i].len % GASNET_PAGESIZE == 0);
 		gm_deregister_memory(_gmc.port, (void *) unpin_list[i].addr, 
 				   unpin_list[i].len);
 	}
 	GASNETI_TRACE_EVENT_VAL(C, FIREHOSE_LOCALUNPIN_PAGES, unpin_num);
 
 	for (i = 0; i < pin_num; i++) {
-		gasneti_assert(pin_list[i].addr % GASNETI_PAGESIZE == 0);
-		gasneti_assert(pin_list[i].len % GASNETI_PAGESIZE == 0);
+		gasneti_assert(pin_list[i].addr % GASNET_PAGESIZE == 0);
+		gasneti_assert(pin_list[i].len % GASNET_PAGESIZE == 0);
 		gm_register_memory(_gmc.port, (void *) pin_list[i].addr, 
 				   pin_list[i].len);
 	}
@@ -546,7 +538,7 @@ gasnete_get_dma_reqh_inner(gasnet_token_t token,
 {
 	gasneti_assert(op != NULL && op2 != NULL); /* XXX this _was_ a bug on alvarez */
 	/* The memory should already be pinned per a previous pin request */
-	GASNETE_SAFE(
+	GASNETI_SAFE(
 	    LONGASYNC_REP(1,2, (token,
 	    gasneti_handleridx(gasnete_get_dma_reph), src, nbytes,
 	    dest, PACK(op))));

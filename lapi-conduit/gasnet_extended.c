@@ -1,14 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/02/14 05:13:40 $
- * $Revision: 1.41 $
+ *     $Date: 2005/02/17 13:18:59 $
+ * $Revision: 1.42 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#include <gasnet.h>
-#include <gasnet_extended_internal.h>
 #include <gasnet_internal.h>
+#include <gasnet_extended_internal.h>
 #include <gasnet_handler.h>
 
 GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GASNET_EXTENDED_VERSION_STR " $");
@@ -617,7 +616,7 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
 */
 
 extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
-    GASNETE_SAFE(gasneti_AMPoll());
+    GASNETI_SAFE(gasneti_AMPoll());
 
     if (handle == GASNET_INVALID_HANDLE)
 	return GASNET_OK;
@@ -633,7 +632,7 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
 extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles) {
     int success = 0;
     int empty = 1;
-    GASNETE_SAFE(gasneti_AMPoll());
+    GASNETI_SAFE(gasneti_AMPoll());
 
     gasneti_assert(phandle);
 
@@ -658,7 +657,7 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
 
 extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles) {
     int success = 1;
-    GASNETE_SAFE(gasneti_AMPoll());
+    GASNETI_SAFE(gasneti_AMPoll());
 
     gasneti_assert(phandle);
 

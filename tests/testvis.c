@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2005/01/13 10:28:11 $
- * $Revision: 1.8 $
+ *     $Date: 2005/02/17 13:19:21 $
+ * $Revision: 1.9 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1030,7 +1030,7 @@ int main(int argc, char **argv) {
 
   assert(VEC_SZ == sizeof(VEC_T));
   GASNET_Safe(gasnet_init(&argc, &argv));
-  GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
+  GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
   TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
 
   for (i = 1; i < argc; i++) {

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_internal.h,v $
- * $Date: 2005/02/14 05:13:38 $
- * $Revision: 1.66 $
+ * $Date: 2005/02/17 13:18:57 $
+ * $Revision: 1.67 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -10,7 +10,6 @@
 #ifndef _GASNET_CORE_INTERNAL_H
 #define _GASNET_CORE_INTERNAL_H
 
-#include <gasnet.h>
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_extended_internal.h>
@@ -47,17 +46,6 @@
 #define GASNETC_HSL_SPINLOCK 1
 
 /* -------------------------------------------------------------------------- */
-/* make a GASNet call - if it fails, print error message and return */
-#define GASNETC_SAFE(fncall) do {                            \
-   int retcode = (fncall);                                   \
-   if_pf (gasneti_VerboseErrors && retcode != GASNET_OK) {   \
-     char msg[1024];                                         \
-     sprintf(msg, "\nGASNet encountered an error: %s(%i)\n", \
-        gasnet_ErrorName(retcode), retcode);                 \
-     GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
-   }                                                         \
- } while (0)
-/* -------------------------------------------------------------------------- */
 /* Core locks */
 extern gasneti_mutex_t	gasnetc_lock_gm;
 extern gasneti_mutex_t	gasnetc_lock_reqpool;
@@ -65,8 +53,8 @@ extern gasneti_mutex_t	gasnetc_lock_amreq;
 /* -------------------------------------------------------------------------- */
 /* Core-specific AMs */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
-#define _hidx_gasnetc_am_medcopy	(GASNETC_HANDLER_BASE+0)
-#define _hidx_				(GASNETC_HANDLER_BASE+)
+#define _hidx_gasnetc_auxseg_reqh       (GASNETC_HANDLER_BASE+0)
+#define _hidx_gasnetc_am_medcopy	(GASNETC_HANDLER_BASE+1)
 
 /* -------------------------------------------------------------------------- */
 /* System-level AMs */

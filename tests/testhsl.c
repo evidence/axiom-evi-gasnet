@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2004/10/23 09:59:18 $
- * $Revision: 1.8 $
+ *     $Date: 2005/02/17 13:19:21 $
+ * $Revision: 1.9 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
 
   GASNET_Safe(gasnet_init(&argc, &argv));
   GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), 
-                            TEST_SEGSZ, TEST_MINHEAPOFFSET));
+                            TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
 
   MSG("running...");
 

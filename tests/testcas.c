@@ -1,4 +1,4 @@
-/* $Id: testcas.c,v 1.6 2004/10/23 09:59:18 bonachea Exp $
+/* $Id: testcas.c,v 1.7 2005/02/17 13:19:21 bonachea Exp $
  *
  * Description: GASNet atomic CAS.
  *   The test verifies the atomic compare-and-swap on platforms which support it.
@@ -6,12 +6,12 @@
  * Terms of use are as specified in license.txt
  */
 
-#include "gasnet.h"
-#include "gasnet_tools.h"
 #include <stdio.h>
 #include <pthread.h>
 
+#define GASNETI_INTERNAL_TEST_PROGRAM
 #include "gasnet_internal.h"	/* EVIL, but only way to test internal stuff */
+#include "gasnet_tools.h"
 
 /* more crap required to make the evil hack above function reliably */
 #undef malloc
@@ -80,7 +80,7 @@ main(int argc, char **argv)
 	void * myseg;
 
 	GASNET_Safe(gasnet_init(&argc, &argv));
-    	GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
+    	GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
 
 	MSG("running...");
 

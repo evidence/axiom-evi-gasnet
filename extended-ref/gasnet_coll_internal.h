@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2005/02/15 02:22:58 $
- * $Revision: 1.18 $
+ *     $Date: 2005/02/17 13:18:55 $
+ * $Revision: 1.19 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -512,10 +512,8 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
 #elif defined(GASNET_SEGMENT_EVERYTHING) || defined(GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET)
   #define gasnete_coll_in_segment(_node,_addr,_len)	1
 #else
-  #define gasnete_coll_in_segment(_node,_addr,_len)                                \
-     (((uintptr_t)(_addr) >= (uintptr_t)gasneti_seginfo[_node].addr) &&            \
-       (((uintptr_t)(_addr) + (_len)) <= ((uintptr_t)gasneti_seginfo[_node].addr + \
-					  gasneti_seginfo[_node].size)))
+  #define gasnete_coll_in_segment(_node,_addr,_len) \
+          gasneti_in_fullsegment(_node, _addr, _len)
 #endif
 
 /* The flags GASNET_COLL_SRC_IN_SEGMENT and GASNET_COLL_DST_IN_SEGMENT are just

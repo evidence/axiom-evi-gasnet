@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierlate.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.5 $
+ *     $Date: 2005/02/17 13:19:21 $
+ * $Revision: 1.6 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
   int pause_len;
 
   GASNET_Safe(gasnet_init(&argc, &argv));
-  GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
+  GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
   TEST_DEBUGPERFORMANCE_WARNING();
 
   MSG("running...");

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/02/12 11:29:15 $
- * $Revision: 1.63 $
+ *     $Date: 2005/02/17 13:18:51 $
+ * $Revision: 1.64 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,6 +9,10 @@
 #ifndef _GASNET_INTERNAL_H
 #define _GASNET_INTERNAL_H
 #define _IN_GASNET_INTERNAL_H
+#define _INCLUDED_GASNET_INTERNAL_H
+#ifdef _INCLUDED_GASNET_H
+  #error Internal GASNet code should not directly include gasnet.h, just gasnet_internal.h
+#endif
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -256,8 +260,6 @@ gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t
 typedef void (*gasneti_bootstrapExchangefn_t)(void *src, size_t len, void *dest);
 typedef void (*gasneti_bootstrapBroadcastfn_t)(void *src, size_t len, void *dest, int rootnode);
 
-extern int gasneti_getSegmentInfo(gasnet_seginfo_t *seginfo_table, int numentries);
-
 #if !GASNET_SEGMENT_EVERYTHING
 void gasneti_segmentInit(uintptr_t localSegmentLimit,
                          gasneti_bootstrapExchangefn_t exchangefn);
@@ -268,6 +270,41 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
 void gasneti_setupGlobalEnvironment(gasnet_node_t numnodes, gasnet_node_t mynode,
                                      gasneti_bootstrapExchangefn_t exchangefn,
                                      gasneti_bootstrapBroadcastfn_t broadcastfn);
+
+/* signature for internally-registered functions that need auxseg space -
+   space in the gasnet-registered heap which is hidden from the client
+   each function is called twice:
+   first call is between init/attach with auxseg_info == NULL, 
+    function should return the absolute minimum and desired auxseg space
+    currently, all nodes MUST return the same value (may be relaxed in the future)
+   second call is after attach and before gasnete_init, with auxseg_info
+    set to the array (gasnet_nodes() elements) of auxseg components on each node.
+    callee must copy the array if it wants to keep it
+ */
+typedef struct {
+  uintptr_t minsz;
+  uintptr_t optimalsz;
+} gasneti_auxseg_request_t;
+
+typedef gasneti_auxseg_request_t (*gasneti_auxsegregfn_t)(gasnet_seginfo_t *auxseg_info);
+
+/* collect required auxseg sizes and subtract them from the max values to report to client */
+void gasneti_auxseg_init();
+
+/* consume the client's segsize request and return the 
+   value to acquire including auxseg requirements */
+uintptr_t gasneti_auxseg_preattach(uintptr_t client_request_sz);
+
+/* provide auxseg to GASNet components and init secondary segment arrays 
+   requires gasneti_seginfo has been initialized to the correct values
+ */
+void gasneti_auxseg_attach();
+
+#if GASNET_SEGMENT_EVERYTHING
+  extern void gasnetc_auxseg_reqh(gasnet_token_t token, void *buf, size_t nbytes, gasnet_handlerarg_t msg);
+  #define GASNETC_AUXSEG_HANDLERS() \
+    gasneti_handler_tableentry_no_bits(gasnetc_auxseg_reqh)
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* macros for returning errors that allow verbose error tracking */
@@ -328,6 +365,17 @@ extern int gasneti_VerboseErrors;
     }                                                                        \
   return val;                                                                \
   } while (0)
+
+/* make a GASNet call - if it fails, print error message and return error */
+#define GASNETI_SAFE_PROPAGATE(fncall) do {                  \
+   int retcode = (fncall);                                   \
+   if_pf (gasneti_VerboseErrors && retcode != GASNET_OK) {   \
+     char msg[1024];                                         \
+     sprintf(msg, "\nGASNet encountered an error: %s(%i)\n", \
+        gasnet_ErrorName(retcode), retcode);                 \
+     GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
+   }                                                         \
+ } while (0)
 
 /* ------------------------------------------------------------------------------------ */
 

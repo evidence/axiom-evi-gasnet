@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_firehose.c,v $
- *     $Date: 2004/08/26 04:54:13 $
- * $Revision: 1.3 $
+ *     $Date: 2005/02/17 13:19:26 $
+ * $Revision: 1.4 $
  * Description: Client-specific firehose code
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -8,7 +8,6 @@
 
 /* Implement client-specific callbacks for use by firehose-region */
 
-#include <gasnet.h>
 #include <gasnet_internal.h>
 #include <gasnet_core_internal.h>
 #include <gasnet_extended_internal.h>
@@ -65,8 +64,8 @@ firehose_move_callback(gasnet_node_t node,
     for (i = 0; i < pin_num; i++) {
 	firehose_region_t *region = pin_list + i;
 
-	gasneti_assert(region->addr % GASNETI_PAGESIZE == 0);
-	gasneti_assert(region->len % GASNETI_PAGESIZE == 0);
+	gasneti_assert(region->addr % GASNET_PAGESIZE == 0);
+	gasneti_assert(region->len % GASNET_PAGESIZE == 0);
 
 	map.start = (uintptr_t)region->addr;
 	map.size  = region->len;
@@ -99,8 +98,8 @@ firehose_move_callback(gasnet_node_t node,
 	VAPI_mr_hndl_t old_handle = unpin_list[i].client.handle;
 	VAPI_mr_t mr_out;
 
-	gasneti_assert(region->addr % GASNETI_PAGESIZE == 0);
-	gasneti_assert(region->len % GASNETI_PAGESIZE == 0);
+	gasneti_assert(region->addr % GASNET_PAGESIZE == 0);
+	gasneti_assert(region->len % GASNET_PAGESIZE == 0);
 
 	mr_in.start = (uintptr_t)region->addr;
 	mr_in.size  = region->len;
@@ -134,8 +133,8 @@ firehose_move_callback(gasnet_node_t node,
 	    firehose_client_t *client = &region->client;
 	    VAPI_mr_t mr_out;
     
-	    gasneti_assert(region->addr % GASNETI_PAGESIZE == 0);
-	    gasneti_assert(region->len % GASNETI_PAGESIZE == 0);
+	    gasneti_assert(region->addr % GASNET_PAGESIZE == 0);
+	    gasneti_assert(region->len % GASNET_PAGESIZE == 0);
     
 	    mr_in.start = (uintptr_t)region->addr;
 	    mr_in.size  = region->len;
