@@ -1,6 +1,6 @@
-/* $Id: gasnet_core.h,v 1.2 2002/06/12 23:40:21 jduell Exp $
- * $Date: 2002/06/12 23:40:21 $
- * $Revision: 1.2 $
+/* $Id: gasnet_core.h,v 1.3 2002/06/13 10:09:32 csbell Exp $
+ * $Date: 2002/06/13 10:09:32 $
+ * $Revision: 1.3 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -32,8 +32,8 @@ BEGIN_EXTERNC
   #define GASNETC_CHECKINIT()
 #endif
 
-struct gasnetc_bufdesc;
-typedef struct gasnetc_bufdesc *gasnet_token_t;
+//struct gasnetc_bufdesc;
+//typedef struct gasnetc_bufdesc *gasnet_token_t;
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -86,7 +86,7 @@ char *gasnet_getenv(const char *s) {
   =====================
 */
 /* conduit may or may not need this based on whether interrupts are used for running handlers */
-#if ???
+#if NEED_INTERRUPTS
   extern void gasnetc_hold_interrupts();
   extern void gasnetc_resume_interrupts();
 
@@ -111,9 +111,9 @@ typedef struct _gasnet_hsl_t {
 } gasnet_hsl_t;
 
 #ifdef GASNETI_THREADS
-  #define GASNET_HSL_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, ??? }
+  #define GASNET_HSL_INITIALIZER { PTHREAD_MUTEX_INITIALIZER }
 #else
-  #define GASNET_HSL_INITIALIZER { 0, ??? }
+  #define GASNET_HSL_INITIALIZER { 0 }
 #endif
 
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl);
@@ -131,10 +131,11 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
   ==========================
 */
 
-#define gasnet_AMMaxArgs()          ((size_t)???)
-#define gasnet_AMMaxMedium()        ((size_t)???)
-#define gasnet_AMMaxLongRequest()   ((size_t)???)
-#define gasnet_AMMaxLongReply()     ((size_t)???)
+
+#define gasnet_AMMaxArgs()          ((size_t) GASNETC_AM_MAX_ARGS)
+#define gasnet_AMMaxMedium()        ((size_t) GASNETC_AM_MEDIUM_MAX)
+#define gasnet_AMMaxLongRequest()   ((size_t) GASNETC_AM_LONG_REQUEST_MAX)
+#define gasnet_AMMaxLongReply()     ((size_t) GASNETC_AM_LONG_REPLY_MAX)
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -178,12 +179,15 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...);
 
+#ifndef GASNETC_DYNAMIC_REGISTRATION
+#define gasnetc_AMRequestLongAsyncM	gasnetc_AMRequestLongM
+#else
 extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destination node */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...);
-
+#endif
 extern int gasnetc_AMReplyShortM( 
                             gasnet_token_t token,       /* token provided on handler entry */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 

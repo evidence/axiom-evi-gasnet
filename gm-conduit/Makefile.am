@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.2 2002/06/10 14:45:40 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.3 2002/06/13 10:09:32 csbell Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -7,20 +7,18 @@
 AUTOMAKE_OPTIONS = foreign 1.4
 
 thread_defines = @GASNET_THREAD_DEFINES@
+gm_include = @GM_INCLUDE@
+platform_libraries = @LIBS@ -L@GM_LIB@
+platform_defines = @GASNET_MACHINE_DEFINES@
+linkend = -lgm
 
-INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir)        \
-           -I$(top_srcdir)/extended-ref  
+INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir) -I$(gm_include) \
+           -I$(top_srcdir)/extended-ref $(platform_defines)
 	   
 
-filelist =                   \
-      gasnet_core.c          \
-      gasnet_core_receive.c  \
-      gasnet_core_misc.c     \
-      gasnet_core.h          \
-      gasnet_core_fwd.h      \
-      gasnet_core_help.h     \
-      gasnet_core_types.h    \
-      gasnet_core_internal.h 
+filelist = gasnet_core.c gasnet_core_receive.c gasnet_core_misc.c \
+           gasnet_core.h gasnet_core_fwd.h gasnet_core_help.h \
+	   gasnet_core_types.h gasnet_core_internal.h 
 
 othersourcefiles =                             \
       $(top_srcdir)/gasnet_internal.c          \
@@ -28,11 +26,13 @@ othersourcefiles =                             \
 
 EXTRA_DIST = $(filelist)
 
-libgasnet_sources = $(srcdir)/gasnet_core.c $(othersourcefiles)
+libgasnet_sources = $(srcdir)/gasnet_core.c $(srcdir)/gasnet_core_receive.c \
+                    $(srcdir)/gasnet_core_misc.c $(othersourcefiles)
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.h                \
                          $(top_srcdir)/extended-ref/*.h       
-libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
+libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o \
+                    gasnet_core_receive.o gasnet_core_misc.o
 
 if HAVE_PTHREAD
 threaded_libraries = libgasnet-gm-par.a libgasnet-gm-parsync.a

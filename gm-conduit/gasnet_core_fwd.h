@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.1 2002/06/10 07:54:52 csbell Exp $
- * $Date: 2002/06/10 07:54:52 $
- * $Revision: 1.1 $
+/* $Id: gasnet_core_fwd.h,v 1.2 2002/06/13 10:09:32 csbell Exp $
+ * $Date: 2002/06/13 10:09:32 $
+ * $Revision: 1.2 $
  * Description: GASNet header for gm conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -28,9 +28,7 @@ typedef uint16_t	gasnet_node_t;
 typedef uint8_t		gasnet_handler_t;
 
 #define _GASNET_TOKEN_T
-typedef
-struct {
-	int	did_reply;
-}* gasnet_token_t;
+struct gasnetc_bufdesc;
+typedef struct gasnetc_bufdesc *gasnet_token_t;
 
 #endif /* _GASNET_CORE_FWD_H */

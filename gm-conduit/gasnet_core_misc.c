@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.3 2002/06/11 14:23:07 csbell Exp $
- * $Date: 2002/06/11 14:23:07 $
- * $Revision: 1.3 $
+/* $Id: gasnet_core_misc.c,v 1.4 2002/06/13 10:09:33 csbell Exp $
+ * $Date: 2002/06/13 10:09:33 $
+ * $Revision: 1.4 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -9,16 +9,14 @@
 #include <gasnet_core_internal.h>
 #include <stdlib.h>
 
-#ifdef DEBUG
-#define GASNETC_BUFDESC_PTR(x) (((x) - _gmc.dma_bufs) % GASNETC_AM_LEN == 0 ?	\
-				gmc.bd_ptr[((x - _gm.dma_bufs) >> GASNETC_AM_SIZE)] :	\
-				0)
-#else
-#define GASNETC_BUFDESC_PTR(x) (_gmc.bd_ptr[((x - _gm.dma_bufs) >> GASNETC_AM_SIZE)])
-#endif
-#define GASNETC_TOKEN_PTR(x)	(gasnet_token_t) GASNETC_BUFDESC_PTR(x)
 #define	_BUFSZ	128
 #define BOARD	0
+#ifdef DEBUG
+#define DPRINTF(x)      printf x; fflush(stdout)
+#else
+#define DPRINTF(x)
+#endif
+
 
 /*
  * Memory management for token_lo buffers (AMRequests)
@@ -32,8 +30,8 @@ gasnetc_sendbuf_init()
 	assert(_gmc.port != NULL);
 
 	stoks = gm_num_send_tokens(_gmc.port);
-	_gmc.tokens.max = stoks;
-	_gmc.tokens.hi = _gmc.tokens.lo = _gmc.tokens.total = 0;
+	_gmc.token.max = stoks;
+	_gmc.token.hi = _gmc.token.lo = _gmc.token.total = 0;
 
 	rtoks = gm_num_receive_tokens(_gmc.port) / 2;
 	rtoks_lo = rtoks/2;
@@ -41,7 +39,7 @@ gasnetc_sendbuf_init()
 
 	/* We need to allocate the following types of buffers
 	 *
-	 * 1. 1 TransientBuf DMA
+	 * 1. 1 AMReplyBuf DMA
 	 * 2. stoks send DMA buffers
 	 * 3. rtoks receive DMA buffers
 	 *
@@ -57,56 +55,57 @@ gasnetc_sendbuf_init()
 	if (_gmc.dma_bufs == NULL) exit(-1);
 	gm_register_memory(_gmc.port, _gmc.dma_bufs, 
 			GASNETC_AM_LEN * _gmc.token.max);
-	_gmc.bd_ptr = (gasnet_bufdesc_t *)
-		gasneti_malloc(_gmc.bd_list_num * sizeof(gasnet_bufdesc_t));
+	_gmc.bd_ptr = (gasnetc_bufdesc_t *)
+		gasneti_malloc(_gmc.bd_list_num * sizeof(gasnetc_bufdesc_t));
 
 	for (i = 0; i < _gmc.bd_list_num; i++) {
-		_gmc.bd_ptr[i*GASNETC_AM_LEN]->id = i;
-		_gmc.bd_ptr[i*GASNETC_AM_LEN]->sendbuf = 
-			_gm.dma_bufs + i*GASNET_AM_LEN;
+		_gmc.bd_ptr[i*GASNETC_AM_LEN].id = i;
+		_gmc.bd_ptr[i*GASNETC_AM_LEN].sendbuf = 
+			_gmc.dma_bufs + i*GASNETC_AM_LEN;
 	}
 
-	/* give the first buffer to TransientBuf */
-	_gmc.TransientBuf = _gmc.bd_ptr;
-	_gmc.TransientBuf->sendbuf = _gmc.dma_bufs;
+	/* give the first buffer to AMReplyBuf */
+	_gmc.AMReplyBuf = _gmc.bd_ptr;
+	_gmc.AMReplyBuf->sendbuf = _gmc.dma_bufs;
 
 	/* Indexes for buffer descriptors 
-	 * 0      : Transient buffer DMA (although unused through index) 
+	 * 0      : AMReplyBuf buffer DMA (although unused through index) 
 	 * 1-stoks: Send buffer DMA (up to 1-stoks-1 used by AMReply) 
 	 * stoks-stoks+rtoks_hi:  Receive buffer DMAs
 	 */
 
 	for (i = 1; i <= rtoks_hi; i++) { 
 		gm_provide_receive_buffer(_gmc.port,
-			_gmc.bd_ptr + (i+stoks)*GASNET_AM_LEN,
-			GASNET_AM_SIZE, GM_HI_PRIORITY);
+			_gmc.bd_ptr + (i+stoks)*GASNETC_AM_LEN,
+			GASNETC_AM_SIZE, GM_HIGH_PRIORITY);
 	}
-	for (i = rtoks_lo+1, i <= rtoks; i++) {
+
+	for (i = rtoks_lo+1; i <= rtoks; i++) {
 		gm_provide_receive_buffer(_gmc.port,
-			_gmc.bd_ptr + (i+stoks)*GASNET_AM_LEN,
-			GASNET_AM_SIZE, GM_LOW_PRIORITY);
+			_gmc.bd_ptr + (i+stoks)*GASNETC_AM_LEN,
+			GASNETC_AM_SIZE, GM_LOW_PRIORITY);
 	}
 
 	/* 
 	 * Fix the FIFO for AMRequests, using an array-based stack up to
 	 * stoks - 1
 	 */ 
-	_gmc.reqs_fifo_bd = gasneti_malloc(sizeof(int) * stoks-1);
+	_gmc.reqs_fifo = gasneti_malloc(sizeof(int) * stoks-1);
 
 	for (i = 0; i < stoks-1; i++)
-		_gmc.reqs_fifo_bd[i] = i+1;
-	reqs_fifo_cur = i;
+		_gmc.reqs_fifo[i] = i+1;
+	_gmc.reqs_fifo_cur = i;
 }
 
 void
 gasnetc_sendbuf_finalize()
 {
-	gm_free_pages(_gmc.dma_bufs);
+	gm_free_pages(_gmc.dma_bufs, GASNETC_AM_LEN*_gmc.bd_list_num);
 	gasneti_free(_gmc.bd_ptr);
-	gasneti_free(_gmc.reqs_fifo_bd);
+	gasneti_free(_gmc.reqs_fifo);
 }
 
-void	
+int	
 gasnetc_gm_nodes_compare(const void *k1, const void *k2)
 {
 	gasnetc_gm_nodes_rev_t	*a = (gasnetc_gm_nodes_rev_t *) k1;
@@ -123,18 +122,19 @@ gasnetc_gm_nodes_compare(const void *k1, const void *k2)
 void
 gasnetc_tokensend_AMRequest(void *buf, uint16_t len, 
 		uint32_t id, uint32_t port,
-		gm_send_completion_callback_t callback, uint64_t dest_addr)
+		gm_send_completion_callback_t callback, 
+		void *callback_ptr, uint64_t dest_addr)
 {
 	int	sent = 0;
 
 	while (!sent) {
-		while (!GASNETC_TOKEN_LO_AVAILABLE)
+		while (!GASNETC_TOKEN_LO_AVAILABLE())
 			gasnetc_poll();
 
 		GASNETC_GM_MUTEX_LOCK;
-		if (GASNETC_TOKEN_LO_AVAILABLE) {
+		if (GASNETC_TOKEN_LO_AVAILABLE()) {
 			gasnetc_gm_send_AMRequest(buf, len, id, port, callback,
-					dest_addr);
+					callback_ptr, dest_addr);
 			_gmc.token.lo -= 1;
 			_gmc.token.total -= 1;
 			GASNETC_GM_MUTEX_UNLOCK;
@@ -142,13 +142,13 @@ gasnetc_tokensend_AMRequest(void *buf, uint16_t len,
 		}
 		else {
 			GASNETC_GM_MUTEX_UNLOCK;
-			goto acquire_lo;
 		}
 	}
 }
 
 gasnetc_bufdesc_t *
-gasnetc_AMRequestBuf_block() {
+gasnetc_AMRequestBuf_block() 
+{
 	int	bufd_idx = -1;
 
 	while (bufd_idx < 0) {
@@ -167,11 +167,11 @@ gasnetc_AMRequestBuf_block() {
 	}
 
 	return (gasnetc_bufdesc_t *) 
-		_gmc.bd_ptr[bufd_idx*sizeof(gasnetc_bufdesc_t)];
+		&_gmc.bd_ptr[bufd_idx*sizeof(gasnetc_bufdesc_t)];
 }
 
 int
-gasnetc_gmpiconf_init(struct gm_port **p)
+gasnetc_gmpiconf_init()
 {
 
 	FILE		*fp;
@@ -186,18 +186,16 @@ gasnetc_gmpiconf_init(struct gm_port **p)
 	struct gm_port	*p;
 
 	if ((homedir = getenv("HOME")) == NULL)
-		GASNETI_RETURN_ERRR(GASNET_ERR_RESOURCE, 
-				"Couldn't find $HOME directory");
+		GASNETI_RETURN_ERRR(RESOURCE, "Couldn't find $HOME directory");
 
 	snprintf(gmconf, _BUFSZ, "%s/.gmpi/conf", homedir);
 
 	if (gethostname(hostname,_BUFSZ) < 0)
-		GASNETI_RETURN_ERRR(GASNET_ERR_RESOURCE, 
-				"Couldn't get local hostname");
+		GASNETI_RETURN_ERRR(RESOURCE, "Couldn't get local hostname");
 
 	if ((fp = fopen(gmconf, "r")) == NULL) {
 		fprintf(stderr, "%s unavailable\n", gmconf);
-		GASNETI_RETURN_ERRR(GASNET_ERR_RESOURCE, 
+		GASNETI_RETURN_ERRR(RESOURCE, 
 				"Couldn't open GMPI configuration file");
 	}
 
@@ -209,10 +207,10 @@ gasnetc_gmpiconf_init(struct gm_port **p)
 	
 		if (lnum == 0) {
 	      		if ((sscanf(line, "%d\n", &numnodes)) < 1) 
-				GASNETI_RETURN_ERRR(GASNET_ERR_RESOURCE, 
+				GASNETI_RETURN_ERRR(RESOURCE, 
 				"job size not found in GMPI config file");
-	      		else if (_thispe.numpes < 1) {
-				GASNETI_RETURN_ERRR(GASNET_ERR_RESOURCE, 
+	      		else if (numnodes < 1) 
+				GASNETI_RETURN_ERRR(RESOURCE, 
 				"invalid number of nodes in GMPI config file");
 
 			_gmc.gm_nodes = (gasnetc_gm_nodes_t *) 
@@ -223,7 +221,7 @@ gasnetc_gmpiconf_init(struct gm_port **p)
 				gasneti_malloc_inhandler(numnodes *
 					sizeof(gasnetc_gm_nodes_rev_t));
 
-			hostnames = (char **) =
+			hostnames = (char **)
 				gasneti_malloc_inhandler((numnodes+1) *
 					MAXHOSTNAMELEN);
 
@@ -235,11 +233,11 @@ gasnetc_gmpiconf_init(struct gm_port **p)
 			if ((sscanf(line,"%s %d\n",gmhost,&gmportnum)) == 2) {
 				if (gmportnum < 1 || gmportnum > 7)
 					GASNETI_RETURN_ERRR(
-					GASNET_ERR_RESOURCE, 
+					RESOURCE, 
 					"Invalid GM port");
 
 				_gmc.gm_nodes[lnum-1].port = gmportnum;
-				memcpy(hostnames[lnum-1][0], 
+				memcpy(hostnames[lnum-1], 
 					(void *)gmhost, MAXHOSTNAMELEN);
 
 				if (strcasecmp(gmhost, hostname) == 0) {
@@ -257,18 +255,16 @@ gasnetc_gmpiconf_init(struct gm_port **p)
 	fclose(fp);
 
 	if (numnodes == 0 || thisnode == -1)
-		GASNETI_RETURN_ERRR(GASNET_ERR_RESOURCE, 
+		GASNETI_RETURN_ERRR(RESOURCE, 
 			"could not find myself in GMPI config file");
 	gm_init();
 	status = gm_open(&p,BOARD,thisport,"GASNet GMPI Emulation Bootstrap", 
 			    GM_API_VERSION_1_4);
 	if (status != GM_SUCCESS) 
-		GASNETI_RETURN_ERRR(GASNET_ERR_RESOURCE, 
-				"could not open GM port");
+		GASNETI_RETURN_ERRR(RESOURCE, "could not open GM port");
 	status = gm_get_node_id(p, &thisid);
 	if (status != GM_SUCCESS)
-		GASNETI_RETURN_ERRR(GASNET_ERR_RESOURCE, 
-				"could not get GM node id");
+		GASNETI_RETURN_ERRR(RESOURCE, "could not get GM node id");
 
 	for (i = 0; i < numnodes; i++) {
 		_gmc.gm_nodes[i].id = 
@@ -277,15 +273,15 @@ gasnetc_gmpiconf_init(struct gm_port **p)
 		if (_gmc.gm_nodes[i].id == GM_NO_SUCH_NODE_ID) {
 			fprintf(stderr, "%s has no id! Check mapper\n",
 					_gmc.gm_nodes[i].id);
-			GASNETI_RETURN_ERRR(GASNET_ERR_RESOURCE, 
+			GASNETI_RETURN_ERRR(RESOURCE, 
 				"Unknown GMid or GM mapper down");
 		}
 		_gmc.gm_nodes_rev[i].id = _gmc.gm_nodes[i].id;
 		_gmc.gm_nodes_rev[i].node = (gasnet_node_t) i;
 
-		DPRINTF("%d> %s (gm %d, port %d)\n", 
+		DPRINTF(("%d> %s (gm %d, port %d)\n", 
 				i, hostnames[i], 
-				_gmc.gm_nodes[i].id, _gmc.gm_nodes[i].port);
+				_gmc.gm_nodes[i].id, _gmc.gm_nodes[i].port));
 
 	}
 	gasnetc_mynode = thisnode;
@@ -307,15 +303,17 @@ gasnetc_AM_InitHandler()
 {
 	int	i;
 
-	for (i = 0; i < GASNETC_MAX_HANDLERS; i++) 
-		_gmc.handlers[i] = (gasnetc_handler_fn_t) abort();  
+	for (i = 0; i < GASNETC_AM_MAX_HANDLERS; i++) 
+		_gmc.handlers[i] = (gasnetc_handler_fn_t) abort;  
+
+	return;
 }
 
 int
 gasnetc_AM_SetHandler(gasnet_handler_t handler, gasnetc_handler_fn_t func)
 {
 	if (handler == NULL || func == NULL)
-		GASNETI_RETURN_ERRR(GASNET_ERR_BAD_ARG,
+		GASNETI_RETURN_ERRR(BAD_ARG,
 			"Invalid handler paramaters set");
 		
 	_gmc.handlers[handler] = func;
@@ -328,11 +326,11 @@ gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasnetc_handler_fn_t func)
 	int	i;
 
 	if (handler == NULL || func == NULL)
-		GASNETI_RETURN_ERRR(GASNET_ERR_BAD_ARG,
+		GASNETI_RETURN_ERRR(BAD_ARG,
 			"Invalid handler paramaters set");
 
-	for (i = 1; i < GASNETC_MAX_HANDLERS; i++) {
-		if (_gmc.handlers[i] == abort()) {
+	for (i = 1; i < GASNETC_AM_MAX_HANDLERS; i++) {
+		if (_gmc.handlers[i] == abort) {
 			_gmc.handlers[i] = func;
 			*handler = i;
 			return GASNET_OK;
