@@ -1,7 +1,7 @@
 README file for ssh-spawner
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.3 $
+$Revision: 1.4 $
 
 See vapi-conduit for an example of how to use this code in a conduit.
 
@@ -68,9 +68,9 @@ compute nodes, but this is not required.
   from the master node to compute nodes, and among the compute nodes.
   These must be achieved without interaction (such as entering a
   password or accepting new hostkeys).
-  For OpenSSH users, it is recommended that GASNET_SSH_OPTIONS include
+  For OpenSSH users, the following options are used automatically
     "-o 'StrictHostKeyChecking no' -o 'BatchMode yes'"
-  which will ensure that ssh does not try to prompt the user.
+  which should ensure that ssh does not try to prompt the user.
 
 + Any firewall or port filtering must allow the ssh/rsh connections
   described above, plus TCP connections on an "untrusted port" (ports

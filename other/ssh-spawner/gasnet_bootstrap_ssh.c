@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/03/30 19:43:54 $
- * $Revision: 1.27 $
+ *     $Date: 2005/03/30 21:03:02 $
+ * $Revision: 1.28 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -24,9 +24,9 @@
   /* Under Linux we can ask to be sent a given signal when our parent exits.
    * We use if mainly because of a bug in some versions of OpenSSH that
    * fail to kill spawned children when the ssh exits.  However, this will
-   * also make us more resistant to runaways if somebody starts  sending
+   * also make us more resistant to runaways if somebody starts sending
    * SIGKILL to our processes (which leaves us no other way to cleanup
-   * gracefully).
+   * gracefully).  Not safe on some Linux kernels.
    */
   #include <sys/prctl.h>
   #include <signal.h>
@@ -106,36 +106,12 @@
    To control the spawner, there are a few environment variables, all
    of which are processed only by the master process (which send the
    relavent information on to the others via the control sockets).
-   Assuming ENV_PREFIX is #defined to "GASNET_" (the default):
-     GASNET_SSH_CMD:
-       The ssh (or rsh) command.  This should just be something like
-       "ssh" or "/usr/local/bin/ssh2", without arguments.
-     GASNET_SSH_OPTIONS:
-       This is a string containing the "fixed" arguments to the ssh
-       command.  It is parsed while treating \, ' and " in the same
-       way as a shell.
-     GASNET_SSH_NODEFILE:
-       If this variable is set, it is taken to be a file containing
-       hostnames (or IPs), one per line.  Leading whitespace is OK.
-       The hostname ends at the first whitespace character (or end
-       of line), and anything remaining on the line (such as a CPU
-       count) will be ignored.  Comment lines beginning with '#' are
-       ignored.
-     GASNET_SSH_HOSTS:
-       Only if GASNET_SSH_NODEFILE is NOT set, this variable will be taken
-       as a list of hosts.  Legal delimiters for the list include commas
-       and whitespace (among others).
+   See README for documentation on these variables.
 
    XXX: still to do
    + Complete the "flat tree" implementation (master spawns all procs)
      and make it a runtime switch rather than compile time.
    + Consider making OUT_DEGREE a runtime variable.
-   + Should "auto configure" when OpenSSH is detected.  This would take
-     place in configure_ssh() and should allow the user's env var take
-     precedence.  Things to add include:
-	-o StrictHostKeyChecking=no
-	-o FallBackToRsh=no
-	-o BatchMode=yes
    + Implement "custom" spawner in the spirit of udp-conduit.
    + Look at udp-conduit for things missing from this list. :-)
    + We probably leak small strings in a few places.
@@ -631,29 +607,51 @@ static void configure_ssh(void) {
   char *env_string;
   char *ssh_argv0;
   char **ssh_options = NULL;
-  int i;
+  int is_openssh = 0;
+  int i, argi, optcount;
 
-  BOOTSTRAP_VERBOSE(("Parsing environment for ssh command line\n"));
+  /* Determine the ssh command */
   if ((env_string = getenv(ENV_PREFIX "SSH_CMD")) != NULL && strlen(env_string)) {
     ssh_argv0 = env_string;
   } else {
     ssh_argv0 = gasneti_strdup("ssh");
   }
-  BOOTSTRAP_VERBOSE(("\t|%s", ssh_argv0));
-  if ((env_string = getenv(ENV_PREFIX "SSH_OPTIONS")) != NULL && strlen(env_string)) {
-    ssh_options = parse_options(env_string, &ssh_argc, "while parsing " ENV_PREFIX "SSH_OPTIONS");
+
+  /* Check for OpenSSH */
+  {
+    char *cmd = sappendf(NULL, "%s -v 2>&1 | grep OpenSSH >/dev/null 2>/dev/null", ssh_argv0);
+    is_openssh = (0 == system(cmd));
+    gasneti_free(cmd);
+    BOOTSTRAP_VERBOSE(("Configuring for OpenSSH\n"));
   }
-  ++ssh_argc;
-  ssh_argv = gasneti_calloc((ssh_argc + 3), sizeof(char *));
+
+  /* Check for user-supplied options */
+  if ((env_string = getenv(ENV_PREFIX "SSH_OPTIONS")) != NULL && strlen(env_string)) {
+    ssh_options = parse_options(env_string, &optcount, "while parsing " ENV_PREFIX "SSH_OPTIONS");
+  }
+
+  /* Now build the command line */
+  ssh_argc = optcount + (is_openssh ? 7 : 1);
+  ssh_argv = gasneti_calloc((ssh_argc + 3 /* host + cmd + NULL = 3 */), sizeof(char *));
   ssh_argv[0] = ssh_argv0;
-  if (ssh_argc > 1) {
-    for (i=1; i<ssh_argc; ++i) {
-      ssh_argv[i] = ssh_options[i-1];
-      BOOTSTRAP_VERBOSE(("|%s", ssh_argv[i]));
+  argi = 1;
+  if (is_openssh) {
+    ssh_argv[argi++] = (char *)"-o"; ssh_argv[argi++] = (char *)"StrictHostKeyChecking no";
+    ssh_argv[argi++] = (char *)"-o"; ssh_argv[argi++] = (char *)"FallBackToRsh no";
+    ssh_argv[argi++] = (char *)"-o"; ssh_argv[argi++] = (char *)"BatchMode yes";
+  }
+  if (optcount) {
+    for (i=0; i<optcount; ++i, ++argi) {
+      ssh_argv[argi] = ssh_options[i];
     }
     gasneti_free(ssh_options);
   }
-  BOOTSTRAP_VERBOSE(("|\n"));
+
+  BOOTSTRAP_VERBOSE(("Constructed ssh command line:\n"));
+  for (i=0; i<ssh_argc; ++i) {
+    BOOTSTRAP_VERBOSE(("\t%s\n", ssh_argv[i]));
+  }
+  BOOTSTRAP_VERBOSE(("\tHOST\n\tCMD\n"));
 }
 
 /* Build an array of hostnames from a file */
@@ -696,7 +694,7 @@ static char ** parse_nodefile(const char *filename) {
       }
 #endif
       ++i;
-      BOOTSTRAP_VERBOSE(("\t'%s'\n", p));
+      BOOTSTRAP_VERBOSE(("\t%s\n", p));
     }
   }
 
@@ -725,7 +723,7 @@ static char ** parse_servers(const char *list) {
     string += strcspn(string, delims);
     if (*string) *(string++) = '\0';
     result[i] = gasneti_strdup(p);
-    BOOTSTRAP_VERBOSE(("\t'%s'\n", result[i]));
+    BOOTSTRAP_VERBOSE(("\t%s\n", result[i]));
   }
   gasneti_free(alloc);
 
