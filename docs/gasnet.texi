@@ -40,8 +40,8 @@
 @c ------------------------------------------------------------------------------------
 @c Macros:
 
-@set VERSION 0.6draft1
-@set RELEASEDATE June 5th, 2002
+@set VERSION 0.6
+@set RELEASEDATE July 2nd, 2002
 
 @ifnottex
 @ifhtml
@@ -146,9 +146,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/07/02 09:55:34 $
+@subtitle $Date: 2002/07/02 11:17:24 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.5 $ 
+@subtitle $Revision: 1.6 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/07/02 09:55:34 $
-@*$Revision: 1.5 $ 
+@*$Date: 2002/07/02 11:17:24 $
+@*$Revision: 1.6 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.nersc.gov/}
 @HR
@@ -498,9 +498,9 @@ GASNet-registered signal handlers (even for seemingly fatal signals such as
 @code{SIGABRT}) - the only signal which the client may always safely catch is 
 @code{SIGQUIT}.
 
-Any GasNET library implementation can be built in one of the following three 
+Any GASNet library implementation can be built in one of the following three 
 configurations, which affects the behavior of remote-access memory segment registration
-which happens during gasnet_attach().
+during gasnet_attach().
 The @code{gasnet.h} header file will define the appropriate preprocessor symbol
 to indicate which configuration is active.
 
@@ -534,7 +534,7 @@ the remote-access operations and long AM messages using core API medium messages
 such that all data accesses are actually executed by the local host processor. 
 However, implementors are encouraged to investigate higher-performance alternatives whenever possible.
 @item On systems requiring pinned segments, @code{GASNET_SEGMENT_LARGE} can be implemented
-using dynamic pinning schemes (possibly with caching to amortize rendevous and 
+using dynamic pinning schemes (possibly with caching to amortize rendezvous and 
 pinning costs) or combinations of direct remote accesses and AM-based accesses.
 }
 
@@ -560,8 +560,8 @@ The following GASNet functions are the only ones that may be called between
 @code{gasnet_init()} and @code{gasnet_attach()}:
 @example
 @code{gasnet_mynode()}
-@code{gasnet_nodes()
-@code{gasnet_getMaxLoc}alSegmentSize()}
+@code{gasnet_nodes()}
+@code{gasnet_getMaxLocalSegmentSize()}
 @code{gasnet_getMaxGlobalSegmentSize()}
 @code{gasnet_getenv()}
 @code{gasnet_exit()}
@@ -587,7 +587,7 @@ typedef struct @{
 @} gasnet_handlerentry_t; 
 
 @end lisp
-@deftypefn {} {int} gasnet_attach (gasnet_handlerentry_t *@var{table}, int @var{numentries}, uintptr_t @var{segsize}, uintptr_t @var{minheapoffset})
+@deftypefn {} {int} gasnet_attach (gasnet_handlerentry_t *@var{table}, int @var{numentries}, @w{uintptr_t @var{segsize}, uintptr_t @var{minheapoffset}})
 
 Initializes the GASNet network system and performs any system-specific setup 
 required. 
@@ -620,12 +620,15 @@ remote-access memory segment (on some systems the size of this offset
 may limit the total future growth of the
 local memory heap, on other systems it may be irrelevant). Note that specifying a large
 @var{minheapoffset} may limit the possible size of the remote-access segment on some systems.
+Passing a @var{segsize} of zero disables the remote-access segment for this node, meaning
+other nodes cannot access it with remote-memory operations and this node 
+cannot be the target of any Long AM messages.
 
 GASNet will attempt to place the data segment in an area of the virtual memory space 
 whose pages are currently unused (e.g. by calling @code{mmap}). 
 The actual remote-access segment size achieved may be less than @var{segsize} if insufficient 
 system resources are available - the exact size and location of the segment 
-for all nodes can be queried after attach using @code{gasnet_getSegmentInfo()}. 
+for all nodes should be queried after attach using @code{gasnet_getSegmentInfo()}. 
 The segment assignment is guaranteed to have a page-aligned base address and size, 
 but may differ in size across nodes, according to the requested segment sizes and 
 system resource availability.
@@ -708,6 +711,8 @@ The value returned is an optimistic approximation of the segment size
 which can be acquired by @code{gasnet_attach()} - the actual size achieved can be queried 
 after attach using @code{gasnet_getSegmentInfo()}.
 
+On many implementations, this function will return different values in the 
+@code{GASNET_SEGMENT_FAST} and @code{GASNET_SEGMENT_LARGE} configurations.
 Under the @code{GASNET_SEGMENT_EVERYTHING} configuration, this function returns -1.
 
 This function has undefined behavior after @code{gasnet_attach()}.
@@ -1725,7 +1730,7 @@ synchronization operation).
 @subsection Synchronization for explicit-handle non-blocking operations:
 @cindex synchronization 
 
-GasNET supports two basic types of synchronization for non-blocking 
+GASNet supports two basic types of synchronization for non-blocking 
 operations - trying (polling) and waiting (blocking). All explicit-handle 
 synchronization functions take one or more @code{gasnet_handle_t} values as input 
 and either return an indication of whether the operation has completed or 
