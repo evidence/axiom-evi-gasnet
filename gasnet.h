@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/03 07:31:14 $
+ * $Revision: 1.2 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -110,13 +110,13 @@
 #ifndef _GASNET_NODE_T
 #define _GASNET_NODE_T
   /*  unsigned integer type representing a unique 0-based node index */
-  typedef unsigned char gasnet_node_t;
+  typedef uint8_t gasnet_node_t;
 #endif
 
 #ifndef _GASNET_HANDLER_T
 #define _GASNET_HANDLER_T
   /*  an unsigned integer type representing an index into the core API AM handler table */
-  typedef unsigned char gasnet_handler_t;
+  typedef uint8_t gasnet_handler_t;
 #endif
 
 #ifndef _GASNET_TOKEN_T
