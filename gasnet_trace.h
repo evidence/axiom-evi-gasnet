@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2005/03/12 11:21:10 $
- * $Revision: 1.38 $
+ *     $Date: 2005/03/12 13:03:17 $
+ * $Revision: 1.39 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -373,7 +373,7 @@ BEGIN_EXTERNC
     GASNETI_TRACE_PRINTF(A,(#name": src=%i handler=%i args:%s",                           \
       (int)src,(int)(handlerid),argstr));                                                 \
     GASNETI_TRACE_PRINTF(C,(#name": token: %s",                                           \
-                      gasneti_formatdata(&token, sizeof(token))));                        \
+                      gasneti_formatdata((void*)&(token), sizeof(token))));               \
     } while(0)
 
   #define _GASNETI_TRACE_AMMEDLONG_HANDLER(name, handlerid, token, addr, nbytes, numargs, arghandle) do { \
@@ -385,7 +385,7 @@ BEGIN_EXTERNC
     GASNETI_TRACE_PRINTF(A,(#name": src=%i handler=%i addr="GASNETI_LADDRFMT" nbytes=%i args:%s",         \
       (int)src,(int)(handlerid),GASNETI_LADDRSTR(addr),nbytes,argstr));                                   \
     GASNETI_TRACE_PRINTF(C,(#name": token: %s",                                                           \
-                      gasneti_formatdata(&token, sizeof(token))));                                        \
+                      gasneti_formatdata((void *)&(token), sizeof(token))));                              \
     GASNETI_TRACE_PRINTF(D,(#name": payload data: %s", gasneti_formatdata(addr,nbytes)));                 \
   } while(0)
 

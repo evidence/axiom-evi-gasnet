@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testsmall.c,v $
- *     $Date: 2005/03/12 11:21:16 $
- * $Revision: 1.25 $
+ *     $Date: 2005/03/12 13:03:19 $
+ * $Revision: 1.26 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -76,7 +76,7 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 		printf("Proc %2i - %4i byte : %7i iters,"
 			   " latency %10i us total, %9.3f us ave. (%s)\n",
 			myproc, st->datasize, st->iters, (int) st->time,
-			((float)st->time) / st->iters,
+			((double)st->time) / st->iters,
 			name);
 		fflush(stdout);
 		break;
@@ -93,7 +93,7 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 			((int)st->time == 0 ? 0.0 :
                         (1000000.0 * st->datasize * st->iters / 1024.0) / ((int)st->time)),
 #else
-                        (((float)((int)st->time)) / st->iters),
+                        (((double)((int)st->time)) / st->iters),
 #endif
 			name);
 		fflush(stdout);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2005/02/23 20:58:18 $
- * $Revision: 1.13 $
+ *     $Date: 2005/03/12 13:03:17 $
+ * $Revision: 1.14 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,13 +78,13 @@
     #define GASNETI_HAVE_ATOMIC_CAS 1
   #endif
 #elif defined(__i386__) || defined(__x86_64__) /* x86 and Athlon/Opteron */
-  #if defined(__GNUC__) || defined(__INTEL_COMPILER)
+  #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__)
     GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
     int gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
       register unsigned char retval;
       register uint32_t readval;
-      __asm__ __volatile__ (GASNETI_LOCK "cmpxchgl %3, %1; sete %0"
-			        : "=q" (retval), "=m" (v->ctr), "=a" (readval)
+      __asm__ __volatile__ (GASNETI_LOCK "cmpxchgl %3, %1\n\tsete %0"
+			        : "=mq" (retval), "=m" (v->ctr), "=a" (readval)
 			        : "r" (newval), "m" (v->ctr), "a" (oldval)
 			        : "memory");
       return (int)retval;

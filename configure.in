@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/03/10 02:07:11 $
-# $Revision: 1.236 $
+#     $Date: 2005/03/12 13:03:17 $
+# $Revision: 1.237 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.236 $)
+AC_REVISION($Revision: 1.237 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -176,6 +176,7 @@ case "$gasnet_cv_cc_family" in
         CCOPTFLAGS="$CFLAGS"
         CFLAGS="$oldCFLAGS"
   ;;
+  Pathscale)  CCOPTFLAGS="-O3 -Winline" ;;
   Sun)  CCOPTFLAGS="-fast -xO5" ;;
   Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
   HP) CCOPTFLAGS="-O3" ;;
