@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2005/01/22 01:05:46 $
- * $Revision: 1.14 $
+ *     $Date: 2005/01/31 22:06:52 $
+ * $Revision: 1.15 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -62,6 +62,15 @@ typedef union gasnete_coll_p2p_entry_t_ gasnete_coll_p2p_entry_t;
 
 struct gasnete_coll_generic_data_t_;
 typedef struct gasnete_coll_generic_data_t_ gasnete_coll_generic_data_t;
+
+/*---------------------------------------------------------------------------------*/
+
+#ifndef GASNETE_COLL_IMAGE_OVERRIDE
+  /* gasnet_image_t must be large enough to index all threads that participate
+   * in collectives.  A conduit may override this if a larger type is needed.
+   */
+  typedef uint32_t gasnet_image_t;
+#endif
 
 /*---------------------------------------------------------------------------------*/
 
@@ -352,7 +361,7 @@ void gasnete_coll_local_gather(size_t count, void * dst, void * const srclist[],
 /*---------------------------------------------------------------------------------*/
 /* Thread-specific data: */
 typedef struct {
-    size_t				my_image;
+    gasnet_image_t			my_image;
     gasnete_coll_op_t			*op_freelist;
     gasnete_coll_generic_data_t 	*generic_data_freelist;
 
@@ -613,7 +622,7 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
  *  init_flags: Presently unused.  Must be 0.
  */
 #ifndef gasnet_coll_init
-  extern void gasnete_coll_init(const size_t images[], size_t my_image,
+  extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_image,
 		  		gasnet_coll_fn_entry_t fn_tbl[], size_t fn_count,
 		  		int init_flags GASNETE_THREAD_FARG);
   #define gasnet_coll_init(im,mi,fn,fc,fl) \

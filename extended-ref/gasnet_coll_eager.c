@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_eager.c,v $
- *     $Date: 2005/01/27 20:49:43 $
- * $Revision: 1.17 $
+ *     $Date: 2005/01/31 22:06:52 $
+ * $Revision: 1.18 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -559,14 +559,14 @@ void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE) {
   gasneti_mutex_unlock(&poll_lock);
 }
 
-extern void gasnete_coll_init(const size_t images[], size_t my_image,
+extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_image,
 			      gasnet_coll_fn_entry_t fn_tbl[], size_t fn_count,
 			      int init_flags GASNETE_THREAD_FARG) {
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
   static gasneti_cond_t init_cond = GASNETI_COND_INITIALIZER;
   static gasneti_mutex_t init_lock = GASNETI_MUTEX_INITIALIZER;
-  static size_t remain = 0;
-  size_t image_size = gasnete_nodes * sizeof(size_t);
+  static gasnet_image_t remain = 0;
+  size_t image_size = gasnete_nodes * sizeof(gasnet_image_t);
   int first;
   int i;
 
