@@ -203,7 +203,6 @@ gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 	size_t		num_buckets, tot_buckets;
 	size_t		new_buckets, old_buckets;
 
-	assert(pop->dest > 0);
 	assert(pop->len > 0);
 	assert(pop->node < gasnete_nodes);
 	assert(OPSTATE(pop) == OPSTATE_INFLIGHT);

@@ -393,11 +393,6 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 	uintptr_t		victim_mem;
 	unsigned int		i;
 
-	assert(segsize > 0 && segbase > 0);
-	assert(segsize % GASNETC_BUCKET_SIZE == 0);
-	assert(segbase % GASNETC_BUCKET_SIZE == 0);
-
-	/* add two extra buckets to use as head/tail for victim fifo */
 	num_buckets = GASNETC_BUCKET_SEGMENT;
 	table = (gasnetc_bucket_desc_t *)
 		gasneti_malloc(num_buckets*sizeof(gasnetc_bucket_desc_t));
@@ -408,6 +403,7 @@ gasnetc_bucket_init(uintptr_t segbase, uintptr_t segsize)
 
 	/* setup the initial bucket victim fifo queue, where the head's next
 	 * pointer is the tail and the tail's previous pointer is the head
+	 * We assume we can use the last two buckets in virtual memory
 	 */
 	gasnetc_bucket_victim_head_ptr = &table[GASNETC_BUCKET_SEGMENT-2];
 	gasnetc_bucket_victim_tail_ptr = &table[GASNETC_BUCKET_SEGMENT-1];
@@ -570,6 +566,7 @@ gasnetc_bucket_pin_register_wrapper(uintptr_t bucket_addr, size_t num_buckets)
 {
 	gm_status_t	status;
 
+	assert(bucket_addr > 0);
 	assert(bucket_addr % GASNETC_BUCKET_SIZE == 0);
 	gasneti_mutex_assertlocked(&gasnetc_lock_bucket);
 
@@ -980,10 +977,25 @@ extern void	gasnetc_firehose_decrement_refcount(gasnet_node_t, uintptr_t,
 extern void
 gasnetc_firehose_init(uintptr_t	segsize)
 {
-	size_t	firehoses;
+	size_t		firehoses;
 	int		i;
+	uintptr_t	phys_mem, max_pinnable;
 
-	assert((segsize&(GASNETC_BUCKET_SIZE-1)) == 0);
+	phys_mem = gasnetc_get_physmem();
+	max_pinnable = 
+	    GASNETI_PAGE_ALIGN(GASNETC_BUCKET_SEGMENT_MAX_SIZE*phys_mem, 
+	        GASNETC_BUCKET_SIZE);
+	#ifndef GASNET_SEGMENT_EVERYTHING
+		assert(segsize > 0);
+		assert((segsize&(GASNETC_BUCKET_SIZE-1)) == 0);
+		if (segsize > max_pinnable)
+			segsize = max_pinnable;
+	#else
+		/* SEGMENT_EVERYTHING always assumes max_pinnable */
+		segsize = max_pinnable;
+	#endif
+
+	
 	/* Initialize the list of firehose victims for each node.  This fh_data
 	 * becomes the head of the per-node fifo, which also keeps a per-node
 	 * count, gasnetc_fh_victim_count and a global maximum,
@@ -1016,8 +1028,9 @@ gasnetc_firehose_init(uintptr_t	segsize)
 		gasneti_fatalerror("could not create firehose hash!\n");
 	gasnetc_fh_num = (size_t) (firehoses/(gasnetc_nodes-1));
 	GASNETI_TRACE_PRINTF(C, 
-	    ("Firehose hash elems=%d, per node=%d (segsize=%d)", firehoses, 
-	    gasnetc_fh_num, segsize));
+	    ("Firehose hash_elems=%d, %d firehoses/node (segsize=%d bytes, "
+	     "max_physmem=%d Mbytes)",
+	     firehoses, gasnetc_fh_num, segsize, (unsigned) phys_mem/1e6));
 	return;
 }
 

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.24 2002/10/03 18:06:56 csbell Exp $
- * $Date: 2002/10/03 18:06:56 $
- * $Revision: 1.24 $
+/* $Id: gasnet_core_misc.c,v 1.25 2002/10/13 19:01:13 csbell Exp $
+ * $Date: 2002/10/13 19:01:13 $
+ * $Revision: 1.25 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -315,9 +315,9 @@ gasnetc_SysBarrier()
 	int		count = 1;
 	uintptr_t	*scratchPtr;
 
-	assert(scratchPtr != NULL);
 	gasneti_mutex_lock(&gasnetc_lock_gm);
 	scratchPtr = (uintptr_t *) _gmc.scratchBuf;
+	assert(scratchPtr != NULL);
 	if (gasnetc_mynode == 0) {
 		while (count < gasnetc_nodes) {
 			gm_provide_receive_buffer(_gmc.port, 
