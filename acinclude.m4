@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/03/12 11:21:10 $
-dnl $Revision: 1.56 $
+dnl     $Date: 2005/03/20 18:53:32 $
+dnl $Revision: 1.57 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -160,6 +160,36 @@ AC_DEFUN([GASNET_CHECK_INTTYPES],[
   popdef([lowername])
   popdef([uppername])
 ])
+
+dnl all the inttypes goop required for portable_inttypes.h
+AC_DEFUN([GASNET_SETUP_INTTYPES], [ 
+  # Check sizes
+  GASNET_CHECK_SIZEOF(char, $cross_char)
+  GASNET_CHECK_SIZEOF(short, $cross_short)
+  GASNET_CHECK_SIZEOF(int, $cross_int)
+  GASNET_CHECK_SIZEOF(long, $cross_long)
+  GASNET_CHECK_SIZEOF(long long, $cross_long_long)
+  GASNET_CHECK_SIZEOF(void *, $cross_void_P)
+ 
+  AM_CONDITIONAL(PLATFORM_ILP32, test x"$ac_cv_sizeof_int$ac_cv_sizeof_long$ac_cv_sizeof_void_p" = x444)
+  AM_CONDITIONAL(PLATFORM_LP64, test x"$ac_cv_sizeof_int$ac_cv_sizeof_long$ac_cv_sizeof_void_p" = x488)
+  AM_CONDITIONAL(PLATFORM_ILP64, test x"$ac_cv_sizeof_int$ac_cv_sizeof_long$ac_cv_sizeof_void_p" = x888)
+ 
+  GASNET_CHECK_INTTYPES(stdint.h)
+  GASNET_CHECK_INTTYPES(inttypes.h)
+  GASNET_CHECK_INTTYPES(sys/types.h)
+ 
+  INTTYPES_DEFINES="-DSIZEOF_CHAR=$SIZEOF_CHAR -DSIZEOF_SHORT=$SIZEOF_SHORT -DSIZEOF_INT=$SIZEOF_INT -DSIZEOF_LONG=$SIZEOF_LONG -DSIZEOF_LONG_LONG=$SIZEOF_LONG_LONG -DSIZEOF_VOID_P=$SIZEOF_VOID_P"
+  GASNET_APPEND_DEFINE(INTTYPES_DEFINES, HAVE_STDINT_H)
+  GASNET_APPEND_DEFINE(INTTYPES_DEFINES, COMPLETE_STDINT_H)
+  GASNET_APPEND_DEFINE(INTTYPES_DEFINES, HAVE_INTTYPES_H)
+  GASNET_APPEND_DEFINE(INTTYPES_DEFINES, COMPLETE_INTTYPES_H)
+  GASNET_APPEND_DEFINE(INTTYPES_DEFINES, HAVE_SYS_TYPES_H)
+  GASNET_APPEND_DEFINE(INTTYPES_DEFINES, COMPLETE_SYS_TYPES_H)
+ 
+  AC_SUBST(INTTYPES_DEFINES)
+])
+
 
 dnl Appends -Dvar_to_define onto target_var, iff var_to_define is set
 dnl GASNET_APPEND_DEFINE(target_var, var_to_define)
