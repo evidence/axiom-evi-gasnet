@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.13 2002/06/30 02:00:20 csbell Exp $
- * $Date: 2002/06/30 02:00:20 $
- * $Revision: 1.13 $
+/* $Id: gasnet_core_internal.h,v 1.14 2002/06/30 10:16:47 csbell Exp $
+ * $Date: 2002/06/30 10:16:47 $
+ * $Revision: 1.14 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -415,7 +415,7 @@ gasnetc_gm_send_AMRequest(void *buf, size_t len,
 	assert(id > 0);
 	assert(callback != NULL);
 
-	if (dest_addr > 0)
+	if (dest_addr > 0) {
 		gm_directed_send_with_callback(_gmc.port, 
 			buf,
 			dest_addr,
@@ -425,6 +425,7 @@ gasnetc_gm_send_AMRequest(void *buf, size_t len,
 			port,
 			callback,
 			callback_ptr);
+	}
 	else {
 		assert(GASNETC_AM_IS_REQUEST(*((uint8_t *) buf)));
 		assert(len <= GASNETC_AM_PACKET);

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.10 2002/06/30 00:32:50 csbell Exp $
- * $Date: 2002/06/30 00:32:50 $
- * $Revision: 1.10 $
+/* $Id: gasnet_core_receive.c,v 1.11 2002/06/30 10:16:47 csbell Exp $
+ * $Date: 2002/06/30 10:16:47 $
+ * $Revision: 1.11 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -48,32 +48,21 @@ gasnetc_AMPoll()
 			GASNETC_GM_MUTEX_UNLOCK;
 			return GASNET_OK;
 
-#if 0
 		case GM_FAST_HIGH_RECV_EVENT:	/* handle AMReplies */
 		case GM_FAST_HIGH_PEER_RECV_EVENT:
 			fast = 1;
-#endif
 		case GM_HIGH_RECV_EVENT:
 			gasnetc_relinquish_AMReply_buffer();
 			assert(gm_ntoh_u32(e->recv.length) <= GASNETC_AM_PACKET);
 			GASNETC_GM_MUTEX_UNLOCK;
 			ptr = (uint8_t *) GASNETC_GM_RECV_PTR(e,fast);
-			if (GASNETC_AM_IS_REQUEST(*ptr)) {
-				printf("WTF: ptr=0x%x, buf=0%x, msg=0%x\n",
-				*ptr,
-				*((uint8_t *)gm_ntohp(e->recv.buffer)),
-				*((uint8_t *)gm_ntohp(e->recv.message)));
-			}
 			assert(GASNETC_AM_IS_REPLY(*ptr));
 			gasnetc_process_AMReply(ptr, e);
 			return GASNET_OK;
 
-#if 0
 		case GM_FAST_RECV_EVENT:	/* handle AMRequests */
 		case GM_FAST_PEER_RECV_EVENT:
 			fast = 1;
-		*/
-#endif
 		case GM_RECV_EVENT:
 			gasnetc_relinquish_AMRequest_buffer();
 			assert(gm_ntoh_u32(e->recv.length) <= GASNETC_AM_PACKET);

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.13 2002/06/30 02:00:20 csbell Exp $
- * $Date: 2002/06/30 02:00:20 $
- * $Revision: 1.13 $
+/* $Id: gasnet_core_misc.c,v 1.14 2002/06/30 10:16:47 csbell Exp $
+ * $Date: 2002/06/30 10:16:47 $
+ * $Revision: 1.14 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -61,8 +61,9 @@ gasnetc_sendbuf_init()
 	/* stoks-1 AMRequest send in FIFO */
 	for (i = rtoks, j = 0; i < rtoks+stoks-1; i++, j++)
 		_gmc.reqs_pool[j] = i;
-	_gmc.reqs_pool_cur = _gmc.reqs_pool_max = j-1;
+
 	/* fifo_max is the last possible fifo element */
+	_gmc.reqs_pool_cur = _gmc.reqs_pool_max = j-1;
 
 	/* use the omitted send token for the AMReply buf */
 	_gmc.AMReplyBuf = &_gmc.bd_ptr[i]; 
@@ -181,13 +182,12 @@ gasnetc_AMRequestPool_block()
 
 		GASNETC_REQUEST_POOL_MUTEX_LOCK;
 		if_pt (_gmc.reqs_pool_cur > 0) {
-			bufd_idx = _gmc.reqs_pool[--_gmc.reqs_pool_cur];
-			/*
-			printf
+			bufd_idx = _gmc.reqs_pool[_gmc.reqs_pool_cur];
+			GASNETI_TRACE_PRINTF(C,
 			    ("AMRequestPool (%d/%d) gave bufdesc id %d\n",
 	    		    _gmc.reqs_pool_cur, _gmc.reqs_pool_max,
-	    		    _gmc.reqs_pool[_gmc.reqs_pool_cur]);
-			*/
+	    		    _gmc.reqs_pool[_gmc.reqs_pool_cur]));
+			_gmc.reqs_pool_cur--;
 			GASNETC_REQUEST_POOL_MUTEX_UNLOCK;
 		}
 		else 
