@@ -409,7 +409,10 @@ if (defined ($ENV{"MACHINE_FILE"})) {
 $machine_file = $default_machinefile unless defined ($machine_file);
 
 if (!$machine_file && ($rexec_type ne "gexec")) {
-    printf "Can't detect a PBS or a GEXEC environment. Consider using a machinefile\n";
+    printf "Can't detect a PBS or a GEXEC environment.  If you are not running\n"
+         . "within a batch system, set the PBS_NODEFILE environment variable to\n"
+         . "a file containing one hostname per line (the first process will use \n"
+         . "the host on the first line, etc.)\n";
     exit 1;
 }
 
