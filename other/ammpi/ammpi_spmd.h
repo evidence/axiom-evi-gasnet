@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.h                                     $
- *     $Date: 2003/08/11 09:32:12 $
- * $Revision: 1.6 $
+ *     $Date: 2003/09/13 17:17:54 $
+ * $Revision: 1.7 $
  * Description: AMMPI Header for SPMD interface
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -43,6 +43,8 @@ extern int AMMPI_SPMDSetExitCallback(void (*fp)(int));
   /* register a function to be called when AMMPI_SPMDExit is called by any node
    * exit code is passed
    */
+extern void (*AMMPI_SPMDkillmyprocess)(int);
+  /* function used to finally kill the process (_exit by default) */
 
 extern int AMMPI_SPMDIsWorker(char **argv); 
   /* given the initial command line arguments, determine whether this process is a 

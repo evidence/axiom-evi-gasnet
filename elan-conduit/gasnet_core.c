@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/30 07:16:41 $
- * $Revision: 1.30 $
+ *     $Date: 2003/09/13 17:17:47 $
+ * $Revision: 1.31 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -751,13 +751,12 @@ static void gasnetc_atexit(void) {
       exit_inProgress = 1;
     }
 
-    gasneti_trace_finish();
     if (fflush(stdout)) 
       gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
     if (fflush(stderr)) 
       gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+    gasneti_trace_finish();
     gasneti_sched_yield();
-    sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
     if (gasneti_atomic_read(&gasnetc_remoteexitrecvd) == 0) { 
       /* we initiated this shutdown synchronously, and it appears that no remote node 
@@ -782,7 +781,7 @@ static void gasnetc_atexit(void) {
       gasneti_fatalerror("failed to fclose(stderr) in gasnetc_exit: %s", strerror(errno));
     gasneti_sched_yield();
 
-    _exit(exitcode); /* use _exit to bypass atexit handlers */
+    gasneti_killmyprocess(exitcode); 
     abort();
   }
   extern void gasnetc_fatalsignal_callback(int sig) {
@@ -794,20 +793,19 @@ static void gasnetc_atexit(void) {
       #if 0
         abort();
       #endif
-      _exit(1);
+      gasneti_killmyprocess(1);
     }
   }
 #else /* !GASNETC_USE_SIGNALING_EXIT */
   extern void gasnetc_exit(int exitcode) {
     /* do a naive non-collective exit */
-    gasneti_trace_finish();
     if (fflush(stdout)) 
       gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
     if (fflush(stderr)) 
       gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+    gasneti_trace_finish();
     gasneti_sched_yield();
-    sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
-    _exit(exitcode); /* use _exit to bypass atexit handlers */
+    gasneti_killmyprocess(exitcode); 
     abort();
   }
   extern void gasnetc_fatalsignal_callback(int sig) {}

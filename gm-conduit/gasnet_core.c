@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.43 2003/09/12 20:14:06 csbell Exp $
- * $Date: 2003/09/12 20:14:06 $
+/* $Id: gasnet_core.c,v 1.44 2003/09/13 17:17:49 bonachea Exp $
+ * $Date: 2003/09/13 17:17:49 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -403,17 +403,14 @@ gasnetc_exit(int exitcode)
 
 	gasnetc_DestroyPinnedBufs();
 
-        gasneti_trace_finish();
 	if (fflush(stdout)) 
 		gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", 
 		    strerror(errno));
 	if (fflush(stderr)) 
 		gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", 
 		    strerror(errno));
-
+        gasneti_trace_finish();
         gasneti_sched_yield();
-	sleep(1); /* pause to ensure everyone has written trace if this is a
-		   * collective exit */
 
 	if (gasneti_init_done) {
   		gm_close(_gmc.port);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/08/30 07:16:50 $
- * $Revision: 1.31 $
+ *     $Date: 2003/09/13 17:17:57 $
+ * $Revision: 1.32 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -327,16 +327,15 @@ extern void gasnetc_exit(int exitcode) {
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
-  gasneti_trace_finish();
   if (fflush(stdout)) 
     gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
   if (fflush(stderr)) 
     gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+  gasneti_trace_finish();
   gasneti_sched_yield();
-  sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
   /* (###) add code here to terminate the job across _all_ nodes 
-           with _exit(exitcode) (not regular exit()), preferably
+           with gasneti_killmyprocess(exitcode) (not regular exit()), preferably
            after raising a SIGQUIT to inform the client of the exit
   */
   abort();

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/09/02 21:35:28 $
- * $Revision: 1.35 $
+ *     $Date: 2003/09/13 17:17:50 $
+ * $Revision: 1.36 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -627,7 +627,7 @@ extern void gasnetc_exit(int exitcode) {
 	 * collective exits.  Could wait for alarm to kill us forcefully, but
 	 * just calling _exit does not seem to cause problems.
 	 */
-	_exit(exitcode);
+	gasneti_killmyprocess(exitcode);
 	
     } else {
 	/* synchronous exit */
@@ -671,7 +671,7 @@ extern void gasnetc_exit(int exitcode) {
 	fflush(stderr);
 #endif
 
-	_exit(exitcode);
+	gasneti_killmyprocess(exitcode);
     }
 
     /* should never get here */
@@ -708,7 +708,6 @@ extern void gasnetc_exit(int exitcode) {
 	
     } else {
 	/* synchronous exit */
-	sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 #if GASNETC_VERBOSE_EXIT
 	fprintf(stderr,">> GASNET_EXIT[%d]: about to call LAPI_TERM\n",gasnetc_mynode);
 	fflush(stderr);
@@ -756,11 +755,10 @@ extern void gasnetc_exit(int exitcode) {
 
     /* orig exit code -- hangs in most error cases */
     gasneti_sched_yield();
-    sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
     /* (###) add code here to terminate the job across all nodes with _exit(exitcode) */
     GASNETC_LCHECK(LAPI_Term(gasnetc_lapi_context));
-    _exit(exitcode);
+    gasneti_killmyprocess(exitcode);
  
     /* should never get here */
     abort();

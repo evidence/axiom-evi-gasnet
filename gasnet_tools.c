@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/08/30 07:16:39 $
- * $Revision: 1.36 $
+ *     $Date: 2003/09/13 17:17:46 $
+ * $Revision: 1.37 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -67,6 +67,16 @@ extern void gasneti_fatalerror(char *msg, ...) {
     fflush(stderr);
   va_end(argptr);
 
+  abort();
+}
+/* ------------------------------------------------------------------------------------ */
+extern void gasneti_killmyprocess(int exitcode) {
+  /* wrapper for _exit() that does the "right thing" to immediately kill this process */
+  #if defined(GASNETI_THREADS) && defined(HAVE_PTHREAD_KILL_OTHER_THREADS_NP)
+    /* on LinuxThreads we need to explicitly kill other threads before calling _exit() */
+    pthread_kill_other_threads_np();
+  #endif
+  _exit(exitcode); /* use _exit to bypass atexit handlers */
   abort();
 }
 /* ------------------------------------------------------------------------------------ */
@@ -872,6 +882,7 @@ extern void gasneti_trace_finish() {
     gasneti_statsfile = NULL;
     gasneti_mutex_unlock(&gasneti_tracelock);
     gasneti_mutex_unlock(&gasneti_tracefinishlock);
+    sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
   }
 #endif
 }

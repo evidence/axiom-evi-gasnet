@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2003/09/09 00:36:07 $ */
-/*  $Revision: 1.19 $ */
+/*      $Date: 2003/09/13 17:17:46 $ */
+/*  $Revision: 1.20 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -36,6 +36,9 @@
 
 /* has sched_yield() */
 #undef HAVE_SCHED_YIELD
+
+/* has pthread_kill_other_threads_np() */
+#undef HAVE_PTHREAD_KILL_OTHER_THREADS_NP
 
 /* has __builtin_expect */
 #undef HAVE_BUILTIN_EXPECT

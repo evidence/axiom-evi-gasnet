@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/08/30 07:16:46 $
- * $Revision: 1.34 $
+ *     $Date: 2003/09/13 17:17:52 $
+ * $Revision: 1.35 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -111,6 +111,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     }
 
     AMMPI_VerboseErrors = gasneti_VerboseErrors;
+    AMMPI_SPMDkillmyprocess = gasneti_killmyprocess;
 
     /*  perform job spawn */
     retval = AMMPI_SPMDStartup(argc, argv, networkdepth, NULL, &gasnetc_bundle, &gasnetc_endpoint);
@@ -359,6 +360,19 @@ static void gasnetc_traceoutput(int exitcode) {
     gasneti_trace_finish();
 }
 
+extern void gasnetc_fatalsignal_callback(int sig) {
+  if (gasnetc_exitcalled) {
+  /* if we get a fatal signal during exit, it's almost certainly a signal-safety or MPI shutdown
+     issue and not a client bug, so don't bother reporting it verbosely, 
+     just die silently
+   */
+    #if 0
+      abort();
+    #endif
+    gasneti_killmyprocess(1);
+  }
+}
+
 extern void gasnetc_exit(int exitcode) {
   /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
   gasneti_reghandler(SIGQUIT, SIG_IGN);
@@ -371,14 +385,12 @@ extern void gasnetc_exit(int exitcode) {
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
-  gasneti_trace_finish();
-
   if (fflush(stdout)) 
     gasneti_fatalerror("failed to flush stdout in gasnetc_exit: %s", strerror(errno));
   if (fflush(stderr)) 
     gasneti_fatalerror("failed to flush stderr in gasnetc_exit: %s", strerror(errno));
+  gasneti_trace_finish();
   gasneti_sched_yield();
-  sleep(1); /* pause to ensure everyone has written trace if this is a collective exit */
 
   AMMPI_SPMDExit(exitcode);
   abort();

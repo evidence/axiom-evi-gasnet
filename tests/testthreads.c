@@ -1,4 +1,4 @@
-/* $Id: testthreads.c,v 1.8 2003/08/31 12:38:56 bonachea Exp $
+/* $Id: testthreads.c,v 1.9 2003/09/13 17:17:58 bonachea Exp $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -271,8 +271,10 @@ main(int argc, char **argv)
 		printf("%d> Forking %d gasnet threads\n", gasnet_mynode(), 
 				threads);
 		for (i = 0; i < threads; i++) {
-
-			if (pthread_create(&tt_tids[i], NULL, threadmain, 
+                        pthread_attr_t attr;
+                        pthread_attr_init(&attr);
+                        pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
+			if (pthread_create(&tt_tids[i], &attr, threadmain, 
 					(void *) &tt_thread_data[i]) != 0) {
 				printf("Error forking threads\n");
 				exit(EXIT_FAILURE);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/09/02 21:20:41 $
- * $Revision: 1.19 $
+ *     $Date: 2003/09/13 17:18:00 $
+ * $Revision: 1.20 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1033,7 +1033,7 @@ static void gasnetc_exit_now(int exitcode) {
   /* If anybody is still waiting, let them go */
   gasneti_atomic_set(&gasnetc_exit_done, 1);
 
-  _exit(exitcode);
+  gasneti_killmyprocess(exitcode);
   /* NOT REACHED */
 
   gasneti_reghandler(SIGABRT, SIG_DFL);

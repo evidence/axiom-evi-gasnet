@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/09/02 21:19:46 $
- * $Revision: 1.39 $
+ *     $Date: 2003/09/13 17:17:46 $
+ * $Revision: 1.40 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,6 +120,7 @@ char *gasneti_strndup(const char *s, size_t n) {
 /* ------------------------------------------------------------------------------------ */
 
 extern void gasneti_freezeForDebugger();
+extern void gasneti_killmyprocess(int exitcode);
 
 /* DEBUG_VERBOSE is set by configure to request job startup and general 
    status messages on stderr 
