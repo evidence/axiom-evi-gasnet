@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/11/25 19:44:23 $
-# $Revision: 1.96 $
+#     $Date: 2003/12/09 15:57:38 $
+# $Revision: 1.97 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.96 $)
+AC_REVISION($Revision: 1.97 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -822,6 +822,14 @@ if test $have_elan = yes; then
     ;;
   esac
 
+  ELAN_HEADERLOC="${ELAN_INCLUDE}/elan"
+  # Don't actually place -I/usr/include on the compile line, because this
+  # breaks IA64 Intel C, which relies on preceding /usr/include with its own
+  # include directory that overrides some system headers (eg asm/*)
+  if test `cd ${ELAN_INCLUDE}; pwd` == "/usr/include"; then
+    ELAN_INCLUDE=.
+  fi
+
   AC_MSG_CHECKING(for working ELAN configuration)
   OLDCFLAGS="$CFLAGS"
   OLDLIBS="$LIBS"
@@ -848,18 +856,21 @@ if test $have_elan = yes; then
   if test "$elan_test_worked" = yes; then
     AC_MSG_RESULT(yes)
     AC_MSG_CHECKING(for ELAN version)
-    if test -e ${ELAN_INCLUDE}/elan/version.h; then
-      verstr=`grep QSNETLIBS_VERSION_STRING ${ELAN_INCLUDE}/elan/version.h`
+    if test -e ${ELAN_HEADERLOC}/version.h; then
+      verstr=`grep QSNETLIBS_VERSION_STRING ${ELAN_HEADERLOC}/version.h`
       [majorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $4 }'`]
       [minorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $5 }'`]
       [subver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $6 }'`]
     else
-      verstr=`grep 'ELAN_VERSION' ${ELAN_INCLUDE}/elan/misc.h`
+      verstr=`grep 'ELAN_VERSION' ${ELAN_HEADERLOC}/misc.h`
       [majorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $5 }'`]
       [minorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $6 }'`]
       subver=0
     fi
     AC_MSG_RESULT("${majorver}.${minorver}.${subver}")
+    if test "$majorver" == "" -o "$minorver" == "" -o "$subver" == "" ; then
+      AC_MSG_ERROR("unable to determine libelan version")
+    fi
     ELAN_FLAGS="-DELAN_VERSION_MAJOR=${majorver} -DELAN_VERSION_MINOR=${minorver} -DELAN_VERSION_SUB=${subver}"
   else
     AC_MSG_RESULT(no)
