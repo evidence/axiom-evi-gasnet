@@ -9,7 +9,7 @@ use Getopt::Long;
 
 my $opt_sort;
 my $opt_output;
-my $opt_show;
+my $opt_long;
 my $opt_help;
 my $opt_report;
 
@@ -20,7 +20,7 @@ my (%data, %report);
 GetOptions (
     'h|?|help'		=> \$opt_help,
     'sort=s'		=> \$opt_sort,
-    'type'		=> \$opt_show,
+    'l'		        => \$opt_long,
     'o=s'		=> \$opt_output,
     'report=s'		=> \$opt_report
 );
@@ -45,13 +45,11 @@ while (@ARGV) {
     parse_tracefile(pop @ARGV);
 }
 
-# Driver
-########################
 flatten();
 sort_report();
-foreach my $pgb (sort keys %report) {
-    trace_output(*STDOUT, $pgb);
-}
+trace_output(*STDOUT, "GET") if $opt_report =~ /G/;
+trace_output(*STDOUT, "PUT") if $opt_report =~ /P/;
+trace_output(*STDOUT, "BARRIER") if $opt_report =~ /B/;
 # Show program usage
 ########################
 sub usage 
@@ -60,16 +58,17 @@ sub usage
 Usage:	gasnet_trace [options] trace-file(s)
 
 Options:
-    -h -? -help		See this message
-    -o [filename]	Output to certain file.  Default is set to STDOUT.
-    -report [r1][r2]..	One or more capital letters to indicate  which 
-    			reports to generate, currently support
-    			P(PUT), G(GET), B(BARRIER);
-    -sort [f1],[f2]...	
-    			Sort the output by the given fields:
-                        TOTAL_SZ, CALLS, AVG_SZ, MAX_SZ, MIN_SZ, SRC;
-                        Default is set to TOTAL_SZ;
-    -type		Show the types of get and put in the output.
+    -h -? -help		See this message.
+    -l		        Use detailed listing (shows get/put/barrier type).
+    -o [filename]	Output results to file.  Default is STDOUT.
+    -report [r1][r2]..	One or more capital letters to indicate which 
+                        reports to generate: P(PUT), G(GET), and/or B(BARRIER).
+                        Default: all reports.
+    -sort [f1],[f2]...  Sort output by one or more fields: TOTAL, AVG, MIN, MAX,
+                        CALLS, TYPE, or SRC. (for GETS/PUTS, TOTAL, AVG, MIN,
+                        and MAX refer to message size: for BARRIERS, to time
+                        spent in barrier).  Default: sort by SRC (source
+                        file/line). 
 EOF
     exit(-1);
 } 	
@@ -175,17 +174,20 @@ sub criterion
     	if ($sort_mtd eq "CALLS") {
             $result = ${$b}[6] <=> ${$a}[6];;
     	} 
-        if ($sort_mtd eq "TOTAL_SZ") {
+        if ($sort_mtd eq "TOTAL") {
             $result = ${$b}[5] <=> ${$a}[5];
         }
-        if ($sort_mtd eq "AVG_SZ") {
+        if ($sort_mtd eq "AVG") {
             $result = ${$b}[4] <=> ${$a}[4];
         }
-        if ($sort_mtd eq "MIN_SZ") {
+        if ($sort_mtd eq "MIN") {
             $result = ${$b}[3] <=> ${$a}[3];
         }
-        if ($sort_mtd eq "MAX_SZ") {
+        if ($sort_mtd eq "MAX") {
             $result = ${$b}[2] <=> ${$a}[2];
+        }
+        if ($sort_mtd eq "TYPE") {
+            $result = (${$a}[1] cmp ${$b}[1]);
         }
         if ($sort_mtd eq "SRC") {
             my ($a_src, $a_line) = src_line${$a}[0];
@@ -207,7 +209,7 @@ sub sort_report
     my @sortmtd = split /,/, $opt_sort;
     # Checking for valid input
     foreach my $mtd (@sortmtd) {
-        $mtd =~ /^(CALLS|AVG_SZ|MAX_SZ|MIN_SZ|TOTAL_SZ|SRC)$/
+        $mtd =~ /^(CALLS|AVG|MAX|MIN|TOTAL|SRC|TYPE)$/
         or die "Could not recognize $mtd\n"; 
     }
     
@@ -215,7 +217,7 @@ sub sort_report
 	if ($opt_sort) {
 	    @{$report{$pgb}} = sort {criterion(@sortmtd)} @{$report{$pgb}};
 	} else {
-	    @{$report{$pgb}} = sort {criterion("TOTAL_SZ")} @{$report{$pgb}};
+	    @{$report{$pgb}} = sort {criterion("TOTAL")} @{$report{$pgb}};
     	}
     }
 	 
@@ -233,10 +235,10 @@ sub trace_output
     # Print out 
     print "\n$pgb REPORT:\n";
     
-    if ($opt_show) {
+    if ($opt_long) {
         $handle->format_name("SHOWTYPE");
     	print <<EOF
-NO     SOURCE  LINE      TYPE      MSG:(min    max     avg     total)    CALLS  
+NO     SOURCE  LINE  TYPE          MSG:(min    max     avg     total)    CALLS  
 ==============================================================================    	
 EOF
     } else {
@@ -252,6 +254,9 @@ EOF
     
     $rank = 1;
 
+    if (!$report{$pgb}) {
+        print "NONE\n";
+    }
     foreach my $entry (@{$report{$pgb}}) { 
         ($src_num, $type, $max, $min, $avg, $total, $calls) = @{$entry};
         ($source, $lnum) = src_line($src_num);
