@@ -33,10 +33,16 @@ while  test "$link" && \
   dir=`cd ${dir} >/dev/null 2>&1; cd ${newdir} >/dev/null 2>&1; pwd`;
   scriptname="${dir}/${newname}";
 
+  oldlink="$link"
   if test -x "$readlink" ; then
     link=`$readlink ${scriptname}`
   else
     link=`/bin/ls -al ${scriptname} | @AWK@ 'BEGIN{FS=">"}{split($2,A," ") ; print A[1]}'`
+  fi
+  # readlink on the SGI Origin returns name of non-symlink, instead of blank, so
+  # make sure a 'link' resolves to something other than itself
+  if test x"$link" = x"$oldlink"; then
+    link=
   fi
 done
 
