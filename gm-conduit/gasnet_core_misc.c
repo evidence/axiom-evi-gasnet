@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.2 2002/06/11 04:24:26 csbell Exp $
- * $Date: 2002/06/11 04:24:26 $
- * $Revision: 1.2 $
+/* $Id: gasnet_core_misc.c,v 1.3 2002/06/11 14:23:07 csbell Exp $
+ * $Date: 2002/06/11 14:23:07 $
+ * $Revision: 1.3 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -300,4 +300,42 @@ gasnetc_gmpiconf_init(struct gm_port **p)
 			gasnetc_gm_nodes_compare);
 	_gmc.port = p;
 	return GASNET_OK;
+}
+
+void
+gasnetc_AM_InitHandler()
+{
+	int	i;
+
+	for (i = 0; i < GASNETC_MAX_HANDLERS; i++) 
+		_gmc.handlers[i] = (gasnetc_handler_fn_t) abort();  
+}
+
+int
+gasnetc_AM_SetHandler(gasnet_handler_t handler, gasnetc_handler_fn_t func)
+{
+	if (handler == NULL || func == NULL)
+		GASNETI_RETURN_ERRR(GASNET_ERR_BAD_ARG,
+			"Invalid handler paramaters set");
+		
+	_gmc.handlers[handler] = func;
+	return GASNET_OK;
+}
+
+int
+gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasnetc_handler_fn_t func)
+{
+	int	i;
+
+	if (handler == NULL || func == NULL)
+		GASNETI_RETURN_ERRR(GASNET_ERR_BAD_ARG,
+			"Invalid handler paramaters set");
+
+	for (i = 1; i < GASNETC_MAX_HANDLERS; i++) {
+		if (_gmc.handlers[i] == abort()) {
+			_gmc.handlers[i] = func;
+			*handler = i;
+			return GASNET_OK;
+		}
+	}
 }

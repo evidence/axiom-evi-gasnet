@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.2 2002/06/11 04:24:26 csbell Exp $
- * $Date: 2002/06/11 04:24:26 $
- * $Revision: 1.2 $
+/* $Id: gasnet_core_internal.h,v 1.3 2002/06/11 14:23:07 csbell Exp $
+ * $Date: 2002/06/11 14:23:07 $
+ * $Revision: 1.3 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -58,6 +58,9 @@ void	gasnetc_callback_AMRequest_NOP(struct gm_port *, void *, gm_status_t);
 void	gasnetc_callback_AMReply(struct gm_port *, void *, gm_status_t);
 void	gasnetc_callback_AMReply_NOP(struct gm_port *, void *, gm_status_t);
 
+/* prototype for handler function */
+typedef void (*gasnetc_handler_fn_t)();
+
 /*
  * These are GM tokens, represented by the type
  * gasnetc_token_t (not to be mistaken with gasnet_token_t
@@ -109,6 +112,7 @@ static
 struct _gm_core_global {
 	int			recv_tokens;
 	int			ReplyCount;
+	gasnetc_handler_fn_t	handlers[GASNETC_MAX_HANDLERS];
 	gasnetc_gm_nodes_t	*gm_nodes;
 	gasnetc_gm_nodes_rev_t	*gm_nodes_rev;
 

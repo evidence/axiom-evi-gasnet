@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.2 2002/06/11 04:24:26 csbell Exp $
- * $Date: 2002/06/11 04:24:26 $
+/* $Id: gasnet_core.c,v 1.3 2002/06/11 14:23:07 csbell Exp $
+ * $Date: 2002/06/11 14:23:07 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -75,7 +75,7 @@ static int gasnetc_init(int *argc, char ***argv,
         "(asking us to mmap entire VA space - don't even try to do that)");
 
   /* GMCORE BEGIN */
-#ifdef	HAVE_GEXEC
+#ifdef HAVE_GEXEC
   gasnetc_mynode = -1;
   gasnetc_nodes = 0;
 #else
@@ -86,6 +86,9 @@ static int gasnetc_init(int *argc, char ***argv,
   /* ------------------------------------------------------------------------------------ */
   /*  register handlers */
   memset(checkuniqhandler, 0, 256);
+  /* GMCORE BEGIN */
+  gasnetc_AM_InitHandler();
+  /* GMCORE END */
   { /*  core API handlers */
     gasnet_handlerentry_t const *ctable = gasnetc_get_handlertable();
     int i;
@@ -96,7 +99,9 @@ static int gasnetc_init(int *argc, char ***argv,
       /* discover duplicates */
       assert(checkuniqhandler[ctable[i].index] == 0);
       checkuniqhandler[ctable[i].index] = 1;
-      /* (???) add code here to register ctable[i].fnptr on index (handler_t)ctable[i].index */
+      retval = gasnetc_AM_SetHandler((handler_t)ctable[i].index, ctable[i].fnptr);
+      if (retval != GASNET_OK)
+         INITERR(RESOURCE, "AM_SetHandler() failed while registering core handlers");
     }
   }
 
@@ -110,7 +115,9 @@ static int gasnetc_init(int *argc, char ***argv,
       /* discover duplicates */
       assert(checkuniqhandler[etable[i].index] == 0);
       checkuniqhandler[etable[i].index] = 1;
-      /* (???) add code here to register etable[i].fnptr on index (handler_t)etable[i].index */
+      retval = gasnetc_AM_SetHandler((handler_t)etable[i].index, etable[i].fnptr);
+      if (retval != GASNET_OK)
+         INITERR(RESOURCE, "AM_SetHandler() failed while registering extended handlers");
     }
   }
 
@@ -128,7 +135,9 @@ static int gasnetc_init(int *argc, char ***argv,
         /* discover duplicates */
         assert(checkuniqhandler[table[i].index] == 0);
         checkuniqhandler[table[i].index] = 1;
-        /* (???) add code here to register table[i].fnptr on index (handler_t)table[i].index */
+        retval = gasnetc_AM_SetHandler((handler_t)table[i].index, table[i].fnptr);
+        if (retval != GASNET_OK)
+           INITERR(RESOURCE, "AM_SetHandler() failed while registering client handlers");
       }
     }
     /*  second pass - fill in dontcare-index handlers */
@@ -139,11 +148,14 @@ static int gasnetc_init(int *argc, char ***argv,
         for (tmp=200; tmp < 255; tmp++) {
           if (checkuniqhandler[tmp] == 0) break;
         }
-        /* (???) add code here to register table[i].fnptr at index tmp */
+	retval = gasnetc_AM_SetHandlerAny(&tmp, table[i].fnptr);
         table[i].index = tmp;
         /* discover duplicates */
         assert(checkuniqhandler[table[i].index] == 0);
         checkuniqhandler[table[i].index] = 1;
+        if (retval != GASNET_OK)
+           INITERR(RESOURCE, 
+	     "AM_SetHandlerAny() failed while registering don't-care client handlers");
       }
     }
   }
