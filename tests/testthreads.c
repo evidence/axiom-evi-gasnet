@@ -1,4 +1,4 @@
-/* $Id: testthreads.c,v 1.3 2003/08/25 19:02:16 phargrov Exp $
+/* $Id: testthreads.c,v 1.4 2003/08/27 09:39:23 csbell Exp $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -26,6 +26,10 @@
 #define CACHE_LINE_BYTES	(128)
 #define AM_TRACE		1	/* set to 1 to print in AM handlers */
 
+#ifndef GASNETI_THREADS
+#error This test can only be built for GASNet PAR configuration
+#endif
+
 typedef 
 struct _threaddata_t {
 	int	tid;		/* global thread id */
@@ -52,6 +56,7 @@ int     verbose = 0;
 #define ACTION_PRINTF  if (verbose) printf
 
 int	sizes[] = { 1, 9, 128, 256, 1024, 2048, 16384, 30326 };
+
 #define	SIZES_NUM	(sizeof(sizes)/sizeof(int))
 #define RANDOM_SIZE()	(sizes[ (rand() % SIZES_NUM)])
 
@@ -195,7 +200,7 @@ main(int argc, char **argv)
 
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(htable, HANDLER_TABLE_SIZE,
-		    threads*TEST_SEGSZ, TEST_MINHEAPOFFSET));
+		    TEST_SEGSZ, TEST_MINHEAPOFFSET));
 
 	alloc_thread_data(threads);
 
@@ -225,6 +230,8 @@ main(int argc, char **argv)
 	free_thread_data();
 
 	printf("%d> Tests complete\n", gasnet_mynode());
+
+	gasnet_exit(0);
 
 	return 0;
 }
@@ -307,7 +314,8 @@ alloc_thread_data(int threads)
 				tid = base + j;
 				tt_thread_map[tid] = i;
 				tt_addr_map[tid] = (void *) 
-				    ((uintptr_t) segbase + j * TEST_SEGSZ);
+				    ((uintptr_t) segbase + 
+				     j * TEST_SEGZ_PER_THREAD);
 
 				if (i == gasnet_mynode()) {
 					td = &tt_thread_data[j];
@@ -512,7 +520,7 @@ test_ammedium(threaddata_t *tdata)
 		len = RANDOM_SIZE();
 	} while (len > gasnet_AMMaxMedium());
 		
-	ACTION_PRINTF("tid=%3d> AMMediumRequest to tid=%3d\n", tdata->tid, peer);
+	ACTION_PRINTF("tid=%3d> AMMediumRequest (sz=%7d) to tid=%3d\n", tdata->tid, len, peer);
 	tdata->flag = -1;
         gasnett_local_membar();
 	GASNET_Safe(gasnet_AMRequestMedium1(node, 
@@ -540,10 +548,7 @@ test_amlong(threaddata_t *tdata)
 		
 	tdata->flag = -1;
         gasnett_local_membar();
-	ACTION_PRINTF("tid=%3d> AMLongRequest to tid=%3d\n", tdata->tid, peer);
-
-	ACTION_PRINTF("%d> parameters: %d, %d, %p, %d, %p, %d\n",
-		gasnet_mynode(), node, hidx_ping_longhandler, laddr, len, raddr, tdata->tid_local);
+	ACTION_PRINTF("tid=%3d> AMLongRequest (sz=%7d) to tid=%3d\n", tdata->tid, len, peer);
 
 	GASNET_Safe(gasnet_AMRequestLong1(node, 
 		    hidx_ping_longhandler, laddr, len, raddr, 
