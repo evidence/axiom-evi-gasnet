@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/03/12 16:13:29 $
- * $Revision: 1.9 $
+ *     $Date: 2004/03/12 18:32:06 $
+ * $Revision: 1.10 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -220,8 +220,8 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-ambarrier_notifytime);
 
   /*  wait for response */
-  while (ambarrier_step != ambarrier_size) {
-    gasnete_ambarrier_kick();
+  if (ambarrier_step != ambarrier_size) {
+    GASNET_BLOCKUNTIL((gasnete_ambarrier_kick(), (ambarrier_step == ambarrier_size)));
   }
 
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-wait_start);
