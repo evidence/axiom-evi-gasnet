@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2003/01/28 05:43:48 $
- * $Revision: 1.9 $
+ *     $Date: 2003/02/13 07:41:01 $
+ * $Revision: 1.10 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -109,6 +109,7 @@ typedef struct _gasnete_threaddata_t {
 	/*  stack of iops - head is active iop servicing new implicit ops */
 	gasnete_iop_t *current_iop;  
 	gasnete_iop_t *iop_free;      /*  free list of iops */
+        struct _gasnet_valget_op_t *valget_free; /* free list of valget cells */
 } gasnete_threaddata_t;
 /* -------------------------------------------------------------------------- */
 

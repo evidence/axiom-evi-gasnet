@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/02/13 05:02:17 $
- * $Revision: 1.11 $
+ *     $Date: 2003/02/13 07:41:01 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -365,13 +365,23 @@ extern gasnet_handle_t gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) {
 typedef struct _gasnet_valget_op_t {
   gasnet_handle_t handle;
   gasnet_register_value_t val;
+
+  struct _gasnet_valget_op_t* next; /* for free-list only */
+  gasnete_threadidx_t threadidx;  /*  thread that owns me */
 } gasnet_valget_op_t;
 
 extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnet_valget_handle_t retval;
   assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
   gasnete_boundscheck(node, src, nbytes);
-  retval = (gasnet_valget_op_t*)gasneti_malloc(sizeof(gasnet_valget_op_t));
+  if (mythread->valget_free) {
+    retval = mythread->valget_free;
+    mythread->valget_free = retval->next;
+  } else {
+    retval = (gasnet_valget_op_t*)gasneti_malloc(sizeof(gasnet_valget_op_t));
+    retval->threadidx = mythread->threadidx;
+  }
 
   retval->val = 0;
   if (gasnete_islocal(node)) {
@@ -385,9 +395,13 @@ extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, 
 
 extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t handle) {
   gasnet_register_value_t val;
+  gasnete_threaddata_t * const thread = gasnete_threadtable[handle->threadidx];
+  assert(thread == gasnete_mythread());
+  handle->next = thread->valget_free; /* free before the wait to save time after the wait, */
+  thread->valget_free = handle;       /*  safe because this thread is under our control */
+
   gasnete_wait_syncnb(handle->handle);
   val = handle->val;
-  gasneti_free(handle);
   return val;
 }
 
