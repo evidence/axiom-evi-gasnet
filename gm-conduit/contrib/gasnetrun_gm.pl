@@ -72,16 +72,25 @@ $runcmd = "";
 ###################
 
 sub clean_up {
+  print "clean_up\n" if $verbose;
+  if ($rexec_type eq "gexec") { 
+    while (wait != -1) {
+     print "waiting for child processes...\n";
+     sleep 1;
+    }
+    return; 
+  }
+
   # reap remote processes, usefull because ssh is broken and does not
   # clean up remote processes when killed.
-  if (($pid_socket == 0) && ($rexec_reaper) && ($rexec_type ne "gexec")) {
+  if (($pid_socket == 0) && ($rexec_reaper)) {
     print ("Reap remote processes:\n") if $verbose;
     for ($z=0; $z<$np; $z++) {
       if (defined ($remote_pids[$z])) {
 	$pid_reaper = fork;
 	if ($pid_reaper == 0) {
 	  if ($verbose) {
-	    print ("\t\@rexec_flags $hosts[$z] -n kill -9 $remote_pids[$z] 2>/dev/null\n");
+	    print ("\t @rexec_flags $hosts[$z] -n kill -9 $remote_pids[$z] 2>/dev/null\n");
 	  }
 	  exec (@rexec_flags, $hosts[$z], '-n', "kill -9 $remote_pids[$z]", "2>/dev/null");
 	}
@@ -808,6 +817,8 @@ if (!$dry_run) {
     }
     alarm (0);
     print ("Data sent to all processes.\n") if $verbose;
+
+    if ($rexec_type eq "gexec") { exit(0); }
 
     # Keep the first socket opened for abort messages.
     while (1) {
