@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/07/03 22:21:04 $
- * $Revision: 1.2 $
+ *     $Date: 2003/07/14 22:26:11 $
+ * $Revision: 1.3 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -151,17 +151,12 @@ void gasnetc_pre_snd(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sbuf_t *sb
   sbuf->send_sema = &(cep->send_sema);
 
   /* loop until space is available on the SQ */
-  { 
-    int first_try = 1;
+  if_pf (!gasnetc_sema_trydown(&cep->send_sema, GASNETC_ANY_PAR)) {
     GASNETC_TRACE_WAIT_BEGIN();
-
-    while (!gasnetc_sema_trydown(&(cep->send_sema), GASNETC_ANY_PAR)) {
-      first_try = 0;
-      gasnetc_snd_poll(); /* try to reap the resources we need */
-    }
-    if_pf (!first_try) {
-      GASNETC_TRACE_WAIT_END(POST_SR_STALL);
-    }
+    do {
+        gasnetc_sndrcv_poll();
+    } while (!gasnetc_sema_trydown(&cep->send_sema, GASNETC_ANY_PAR));
+    GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
   }
 }
 
@@ -528,16 +523,13 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
        * XXX: Note we should probably get the credit BEFORE we get the sbuf,
        * to avoid blocking the RDMA traffic (which also requires sbuf's).
        */
-      int first_try = 1;
-      GASNETC_TRACE_WAIT_BEGIN();
       GASNETI_TRACE_EVENT(C,GET_AMREQ_CREDIT);
 
-      while (!gasnetc_sema_trydown(&cep->credit_sema, GASNETC_CLI_PAR)) {
-        gasnetc_sndrcv_poll();
-  	first_try = 0;
-      }
-
-      if (!first_try) {
+      if_pf (!gasnetc_sema_trydown(&cep->credit_sema, GASNETC_CLI_PAR)) {
+        GASNETC_TRACE_WAIT_BEGIN();
+	do {
+          gasnetc_sndrcv_poll();
+	} while (!gasnetc_sema_trydown(&cep->credit_sema, GASNETC_CLI_PAR));
         GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
       }
 
