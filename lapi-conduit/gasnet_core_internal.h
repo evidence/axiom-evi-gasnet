@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/06/29 02:33:05 $
- * $Revision: 1.17 $
+ *     $Date: 2003/09/02 21:35:28 $
+ * $Revision: 1.18 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -108,20 +108,15 @@ typedef struct {
  *
  * --------------------------------------------------------------------
  */
-#if defined(__64BIT__)
-#define GASNETC_TOKEN_PAD GASNETC_UHDR_SIZE - 2*sizeof(void*)
-#else
-#define GASNETC_TOKEN_PAD GASNETC_UHDR_SIZE - sizeof(void*)
-#endif
+#define GASNETC_TOKEN_SIZE 1024
 typedef struct gasnetc_token_rec {
     struct gasnetc_token_rec  *next;
-    union {
-	char             pad[GASNETC_TOKEN_PAD];
-	gasnetc_msg_t    msg;
-    } buf;
+    gasnetc_msg_t    msg;
 } gasnetc_token_t;
-#define TOKEN_LEN(narg) offsetof(gasnetc_token_t,buf)  + offsetof(gasnetc_msg_t,args) \
-                        + (narg)*sizeof(gasnet_handlerarg_t)
+
+#define TOKEN_LEN(narg) offsetof(gasnetc_token_t,msg) \
+                      + offsetof(gasnetc_msg_t,args) \
+                      + (narg)*sizeof(gasnet_handlerarg_t)
 
 /* --------------------------------------------------------------------
  * A freelist structure for the re-use of gasnetc_buf_t structures.

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_help.h             $
- *     $Date: 2003/08/29 17:41:45 $
- * $Revision: 1.8 $
+ *     $Date: 2003/09/02 21:35:28 $
+ * $Revision: 1.9 $
  * Description: GASNet lapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,17 +27,6 @@ BEGIN_EXTERNC
  * 32 or 64 bit mode
  */
 #define GASNETC_AM_MAX_ARGS 16
-
-/* This should be the size of the largest uhdr argument LAPI will
- * allow.  Note that this value is only availible from the LAPI
- * at runtime.  In future releases of LAPI it may have to be
- * adjusted.
- */
-#if defined(__64BIT__)
-#define GASNETC_UHDR_SIZE 912
-#else
-#define GASNETC_UHDR_SIZE 912
-#endif
 
 /* The max size of a medium message.  Can really be arbitrary size
  * but the receiving task must malloc space for the incoming
