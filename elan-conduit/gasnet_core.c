@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_core.c                  $
- *     $Date: 2004/08/03 12:29:59 $
- * $Revision: 1.42 $
+ *     $Date: 2004/08/03 17:13:02 $
+ * $Revision: 1.43 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -715,6 +715,7 @@ static void gasnetc_atexit(void) {
     }
   }
 
+  extern gasneti_mutex_t gasneti_tracelock;
   extern void gasnetc_exit(int exitcode) {
 
     #if 1
@@ -759,7 +760,6 @@ static void gasnetc_atexit(void) {
       #endif
       GASNETC_CLOBBER_MUTEX(&gasnetc_elanLock); /* may be inside an AM handler or poll */
       GASNETC_CLOBBER_MUTEX(&gasnetc_sendfifoLock);
-      extern gasneti_mutex_t gasneti_tracelock;
       GASNETC_CLOBBER_MUTEX(&gasneti_tracelock); /* may be inside a trace when signal fires */
       #undef GASNETC_CLOBBER_MUTEX
       #undef _GASNETC_CLOBBER_MUTEX
