@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/09/12 01:01:28 $
-# $Revision: 1.19 $
+#     $Date: 2004/09/16 21:34:02 $
+# $Revision: 1.20 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -92,7 +92,7 @@ if ($opt_output) {
 }
 
 if (!$opt_report) {
-    $opt_report="PGB";
+    $opt_report="GET,PUT,BARRIER";
 } 
 
 while (@ARGV) {
@@ -109,9 +109,9 @@ foreach my $job (keys %job_nodes) {
 
 convert_report();
 sort_report();
-trace_output(*STDOUT, "GET") if $opt_report =~ /G/;
-trace_output(*STDOUT, "PUT") if $opt_report =~ /P/;
-trace_output(*STDOUT, "BARRIER") if $opt_report =~ /B/;
+trace_output(*STDOUT, "GET") if $opt_report =~ /GET/;
+trace_output(*STDOUT, "PUT") if $opt_report =~ /PUT/;
+trace_output(*STDOUT, "BARRIER") if $opt_report =~ /BARRIER/;
 # Show program usage
 ########################
 sub usage 
@@ -123,8 +123,8 @@ Usage:  gasnet_trace [options] trace-file(s)
 Options:
     -h -? -help         See this message.
     -o [filename]       Output results to file. Default is STDOUT.
-    -report [r1][r2]..  One or more capital letters to indicate which 
-                        reports to generate: P(PUT), G(GET), and/or B(BARRIER).
+    -report [r1][r2]..  Indicate which reports to generate: 
+    			PUT, GET, and/or BARRIER.
                         Default: all reports.
     -sort [f1],[f2]...  Sort output by one or more fields: TOTAL, AVG, MIN, MAX,
                         CALLS, TYPE, or SRC. (for GETS/PUTS, TOTAL, AVG, MIN,
@@ -170,16 +170,28 @@ sub parse_tracefile
 {
     
     open (TRACEFILE, $_[0]) or die "Could not open $_[0]: $!\n";
+    my %filters, my %reports;
+    foreach my $filter (split /,/, $opt_filter) {
+    	$filters{$filter}++;
+    }
+    foreach my $report (split /,/, $opt_report) {
+    	$reports{$report}++;
+    }
     
     while (<TRACEFILE>) {
         my ($thread, $src, $pgb, $type, $sz);
 	if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(PUT|GET|BARRIER)(.*):\D+(\d+)/) { 
             ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
+            # filter out lines that are not going to be in the report
+	    next unless $reports{$pgb};
             if ($pgb =~ /PUT|GET/) {
 	        $type = ($type =~ /_LOCAL$/) ? "LOCAL" : "GLOBAL";
+            	# filter by type to increase performance
+            	next unless !$filters{$type}; 
             } elsif ($pgb =~ /BARRIER/) {
 	        $type =~ s/^_//;
 		next unless ($type =~ /NOTIFYWAIT|WAIT/);	# discard unknowns
+                next unless !$filters{$type};
                 $thread = $nodes{$thread};
             }
 	} else {
@@ -367,10 +379,6 @@ sub trace_output
 {
     my ($handle, $pgb) = @_;
     
-    my %filters;
-    foreach my $filter (split /,/, $opt_filter) {
-    	$filters{$filter}++;
-    }
 
     # Print out 
     print "\n$pgb REPORT:\n";
@@ -393,8 +401,6 @@ EOF
         ($source, $lnum) = src_line($src_num);
         # Skip internal events (having lnum==0) if not specified.
         next unless ($lnum || $opt_internal);
-	# Filter out certain types;
-	next unless !$filters{$type};
         
         
         $max = shorten($max, $pgb);
