@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2004/09/19 07:54:42 $
- * $Revision: 1.74 $
+ *     $Date: 2004/09/19 15:49:27 $
+ * $Revision: 1.75 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -203,7 +203,7 @@ extern void gasneti_close_streams() {
 #define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
 #elif defined(_CRAYT3E)
 #define _SC_NPROCESSORS_ONLN _SC_CRAY_MAXPES
-#elif defined(__APPLE__)
+#elif defined(__APPLE__) || defined(FREEBSD)
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
@@ -213,7 +213,7 @@ extern int gasneti_cpu_count() {
   static int hwprocs = -1;
   if (hwprocs >= 0) return hwprocs;
 
-  #if defined(__APPLE__)
+  #if defined(__APPLE__) || defined(FREEBSD)
       {
         int mib[2];
         size_t len;
@@ -227,7 +227,7 @@ extern int gasneti_cpu_count() {
         }
         if (hwprocs < 1) hwprocs = 0;
       }
-  #elif defined(HPUX) || defined(SUPERUX) || defined(FREEBSD)
+  #elif defined(HPUX) || defined(SUPERUX)
       hwprocs = 0; /* appears to be no way to query CPU count on these */
   #else
       hwprocs = sysconf(_SC_NPROCESSORS_ONLN);
