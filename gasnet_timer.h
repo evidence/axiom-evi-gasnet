@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2003/08/30 07:16:39 $
- * $Revision: 1.10 $
+ *     $Date: 2003/09/03 00:15:02 $
+ * $Revision: 1.11 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -146,7 +146,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
   uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
     static int firstTime = 1;
-    static double MHz = 0.0;
+    static double Tick = 0.0;
     if_pf (firstTime) {
       FILE *fp = fopen("/proc/cpuinfo","r");
       char input[255];
@@ -157,17 +157,18 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
       while (!feof(fp) && fgets(input, 255, fp)) {
         if (strstr(input,"cpu MHz")) {
           char *p = strchr(input,':');
+	  double MHz;
           if (p) MHz = atof(p+1);
           assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
-          MHz = 1 / MHz;
+          Tick = 1. / MHz;
           break;
         }
       }
       fclose(fp);
-      assert(MHz != 0.0);
+      assert(Tick != 0.0);
       firstTime = 0;
     }
-    return st * MHz;
+    return st * Tick;
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
