@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2005/02/17 13:18:51 $
- * $Revision: 1.59 $
+ *     $Date: 2005/02/20 10:13:26 $
+ * $Revision: 1.60 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -507,6 +507,30 @@
   #else
     #error Unrecognized platform - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
   #endif
+#endif
+/* ------------------------------------------------------------------------------------ */
+/* GASNet weak atomics - these operations are guaranteed to be atomic if and only if 
+    the sole updates are from the host processor(s), with no signals involved.
+   if !GASNETI_THREADS, they compile away to a non-atomic counter
+    thereby saving the overhead of unnecessary atomic-memory CPU instructions. 
+   Otherwise, they expand to regular gasneti_atomic_t's
+ */
+#if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+  typedef gasneti_atomic_t gasneti_weakatomic_t;
+  #define gasneti_weakatomic_init(v)                gasneti_atomic_init(v)
+  #define gasneti_weakatomic_set(p,v)               gasneti_atomic_set(p,v)
+  #define gasneti_weakatomic_read(p)                gasneti_atomic_read(p)
+  #define gasneti_weakatomic_increment(p)           gasneti_atomic_increment(p)
+  #define gasneti_weakatomic_decrement(p)           gasneti_atomic_decrement(p)
+  #define gasneti_weakatomic_decrement_and_test(p)  gasneti_atomic_decrement_and_test(p) 
+#else
+  typedef volatile int gasneti_weakatomic_t;
+  #define gasneti_weakatomic_init(v)                (v)
+  #define gasneti_weakatomic_set(p,v)               (*(p) = (v))
+  #define gasneti_weakatomic_read(p)                (*(p))
+  #define gasneti_weakatomic_increment(p)           ((*p)++)
+  #define gasneti_weakatomic_decrement(p)           ((*p)--)
+  #define gasneti_weakatomic_decrement_and_test(p)  (!(--(*p))) 
 #endif
 /* ------------------------------------------------------------------------------------ */
 /* portable memory barrier support */

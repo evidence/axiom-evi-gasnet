@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2004/12/24 09:16:20 $
- * $Revision: 1.10 $
+ *     $Date: 2005/02/20 10:13:26 $
+ * $Revision: 1.11 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -180,6 +180,16 @@
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
     #endif
+#endif
+
+#ifdef GASNETI_HAVE_ATOMIC_CAS
+  #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+    #define gasneti_weakatomic_compare_and_swap(p,oldval,newval)  \
+            gasneti_atomic_compare_and_swap(p,oldval,newval)
+  #else
+    #define gasneti_weakatomic_compare_and_swap(p,oldval,newval)  \
+            (*(p) == (oldval) ? *(p) = (newval), 1 : 0)
+  #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/02/17 13:18:53 $
- * $Revision: 1.55 $
+ *     $Date: 2005/02/20 10:13:28 $
+ * $Revision: 1.56 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -378,8 +378,8 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
   iop->next = NULL;
   iop->initiated_get_cnt = 0;
   iop->initiated_put_cnt = 0;
-  gasneti_atomic_set(&(iop->completed_get_cnt), 0);
-  gasneti_atomic_set(&(iop->completed_put_cnt), 0);
+  gasneti_weakatomic_set(&(iop->completed_get_cnt), 0);
+  gasneti_weakatomic_set(&(iop->completed_put_cnt), 0);
 
   #if GASNETE_USE_PGCTRL_NBI
     iop->elan_pgctrl = NULL
@@ -465,8 +465,8 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t *)op;
     gasnete_iop_check(iop);
-    if (isget) gasneti_atomic_increment(&(iop->completed_get_cnt));
-    else gasneti_atomic_increment(&(iop->completed_put_cnt));
+    if (isget) gasneti_weakatomic_increment(&(iop->completed_get_cnt));
+    else gasneti_weakatomic_increment(&(iop->completed_put_cnt));
   }
 }
 
@@ -1201,10 +1201,10 @@ extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
 */
 static int gasnete_iop_gets_done(gasnete_iop_t *iop) {
   ASSERT_ELAN_UNLOCKED();
-  if (gasneti_atomic_read(&(iop->completed_get_cnt)) == iop->initiated_get_cnt) {
+  if (gasneti_weakatomic_read(&(iop->completed_get_cnt)) == iop->initiated_get_cnt) {
     int retval = TRUE;
     if_pf (iop->initiated_get_cnt > 65000) { /* make sure we don't overflow the counters */
-      gasneti_atomic_set(&(iop->completed_get_cnt), 0);
+      gasneti_weakatomic_set(&(iop->completed_get_cnt), 0);
       iop->initiated_get_cnt = 0;
     }
     #if !GASNETE_USE_PGCTRL_NBI
@@ -1231,10 +1231,10 @@ static int gasnete_iop_gets_done(gasnete_iop_t *iop) {
 }
 static int gasnete_iop_puts_done(gasnete_iop_t *iop) {
   ASSERT_ELAN_UNLOCKED();
-  if (gasneti_atomic_read(&(iop->completed_put_cnt)) == iop->initiated_put_cnt) {
+  if (gasneti_weakatomic_read(&(iop->completed_put_cnt)) == iop->initiated_put_cnt) {
     int retval = TRUE;
     if_pf (iop->initiated_put_cnt > 65000) { /* make sure we don't overflow the counters */
-      gasneti_atomic_set(&(iop->completed_put_cnt), 0);
+      gasneti_weakatomic_set(&(iop->completed_put_cnt), 0);
       iop->initiated_put_cnt = 0;
     }
     #if !GASNETE_USE_PGCTRL_NBI

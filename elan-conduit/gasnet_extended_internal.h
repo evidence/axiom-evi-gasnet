@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2005/02/17 13:18:53 $
- * $Revision: 1.19 $
+ *     $Date: 2005/02/20 10:13:28 $
+ * $Revision: 1.20 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -88,8 +88,8 @@ typedef struct _gasnete_iop_t {
 
   /*  make sure the completion counters live on a cache line by themselves for SMP's */
   uint8_t _pad[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 4*sizeof(void*) - sizeof(int)))]; 
-  gasneti_atomic_t completed_put_cnt;     /*  count of put ops completed */
-  gasneti_atomic_t completed_get_cnt;     /*  count of get ops completed */
+  gasneti_weakatomic_t completed_put_cnt;     /*  count of put ops completed */
+  gasneti_weakatomic_t completed_get_cnt;     /*  count of get ops completed */
   uint8_t _pad2[MAX(8,(ssize_t)(GASNETI_CACHE_LINE_BYTES - 2*sizeof(gasneti_atomic_t)))]; 
 } gasnete_iop_t;
 
@@ -195,10 +195,10 @@ void gasnete_op_free(gasnete_op_t *op);
     gasneti_assert(OPTYPE(iop) == OPTYPE_IMPLICIT);           \
     gasneti_assert((iop)->threadidx < gasnete_numthreads);    \
     gasneti_memcheck(gasnete_threadtable[(iop)->threadidx]);  \
-    _temp = gasneti_atomic_read(&((iop)->completed_put_cnt)); \
+    _temp = gasneti_weakatomic_read(&((iop)->completed_put_cnt)); \
     if (_temp <= 65000) /* prevent race condition on reset */ \
       gasneti_assert((iop)->initiated_put_cnt >= _temp);      \
-    _temp = gasneti_atomic_read(&((iop)->completed_get_cnt)); \
+    _temp = gasneti_weakatomic_read(&((iop)->completed_get_cnt)); \
     if (_temp <= 65000) /* prevent race condition on reset */ \
       gasneti_assert((iop)->initiated_get_cnt >= _temp);      \
   } while (0)
