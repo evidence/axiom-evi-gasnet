@@ -1,4 +1,4 @@
-/* $Id: testcas.c,v 1.3 2004/09/21 19:18:01 phargrov Exp $
+/* $Id: testcas.c,v 1.4 2004/10/15 05:15:18 bonachea Exp $
  *
  * Description: GASNet atomic CAS.
  *   The test verifies the atomic compare-and-swap on platforms which support it.
@@ -11,9 +11,13 @@
 #include <stdio.h>
 #include <pthread.h>
 
-#include "test.h"
-
 #include "gasnet_internal.h"	/* EVIL, but only way to test internal stuff */
+
+/* more crap required to make the evil hack above function */
+#undef malloc
+#undef free
+#undef assert
+#include "test.h" 
 
 #ifndef GASNET_PAR
 #error This test can only be built for GASNet PAR configuration
@@ -81,7 +85,7 @@ main(int argc, char **argv)
 	if (argc > 2) threads = atoi(argv[2]);
 	if (!iters) threads = DEFAULT_THREADS;
 
-	MSG("Running parrallel compare-and-swap test with %d iterations", iters);
+	MSG("Running parallel compare-and-swap test with %d iterations", iters);
 	MSG("Forking %d gasnet threads", threads);
 	tt_tids = (pthread_t *) test_malloc(sizeof(pthread_t) * threads);
 	for (i = 0; i < threads; i++) {
