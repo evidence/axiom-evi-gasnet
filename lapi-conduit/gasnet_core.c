@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/08/18 21:27:42 $
- * $Revision: 1.61 $
+ *     $Date: 2004/08/23 22:35:35 $
+ * $Revision: 1.62 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,12 +47,7 @@ gasnet_seginfo_t *gasnetc_seginfo = NULL;
  */
 lapi_handle_t  gasnetc_lapi_context;
 int            gasnetc_max_lapi_uhdr_size;
-#if defined(__64BIT__)
-ulong          gasnetc_max_lapi_data_size;
-#else
-int            gasnetc_max_lapi_data_size;
-#endif
-
+unsigned long  gasnetc_max_lapi_data_size = LAPI_MAX_MSG_SZ;
 
 /* This is the official core AM handler table.  All registered
  * entries go here
@@ -184,14 +179,6 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasnetc_nodes = (gasnet_node_t)num_tasks;
 
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_UHDR_SZ, &gasnetc_max_lapi_uhdr_size));
-#if defined(__64BIT__)
-    /* PSSP 3.4 is broken, LAPI_Qenv requires an int* arg but LAPI defines
-     * the max data size as a ulong with value requiring 64 bit field
-     */
-    gasnetc_max_lapi_data_size = LAPI_MAX_MSG_SZ;
-#else
-    GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_DATA_SZ, &gasnetc_max_lapi_data_size));
-#endif
 
     /* Init tracing early */
     gasneti_trace_init(*argc, *argv);
@@ -222,7 +209,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 	GASNETC_CONFIG_MSG(to_stderr,buf);
 	(void)snprintf(buf,80,"MAX LAPI UHDR SIZE  = %d",(int)gasnetc_max_lapi_uhdr_size);
 	GASNETC_CONFIG_MSG(to_stderr,buf);
-	(void)snprintf(buf,80,"MAX LAPI DATA SIZE  = %lu",(unsigned long)gasnetc_max_lapi_data_size);
+	(void)snprintf(buf,80,"MAX LAPI DATA SIZE  = %lu",gasnetc_max_lapi_data_size);
 	GASNETC_CONFIG_MSG(to_stderr,buf);
     }
 
@@ -235,8 +222,8 @@ static int gasnetc_init(int *argc, char ***argv) {
 	gasnetc_max_lapi_uhdr_size = GASNETC_TOKEN_SIZE;
     }
     if (gasnetc_max_lapi_data_size < GASNETC_AM_MAX_LONG) {
-	gasneti_fatalerror("Must recompile with GASNETC_AM_MAX_LONG <= %d",
-			   (int)gasnetc_max_lapi_data_size);
+	gasneti_fatalerror("Must recompile with GASNETC_AM_MAX_LONG <= %u",
+			   gasnetc_max_lapi_data_size);
     }
 
     /* Do we want to use polling or interrupt mode?  How to

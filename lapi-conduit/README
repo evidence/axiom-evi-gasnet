@@ -72,20 +72,6 @@ fail at run-time due to insufficient heap or mmap address space.
 Possibly the best way to avoid this issue is to compile
 the GASNet library and application in 64 bit mode under AIX.
 
-===========================================================
-LAPI INTERRUPT vs. POLLING mode
-
-By default, the LAPI conduit runs in INTERRUPT mode.
-In this mode, a seperate "notification" thread is created 
-by the LAPI subsystem.  As messages arrive from the switch,
-this thread is unblocked and runs the LAPI progress
-engine.  
-Lower latency for synchronous applications can be achieved
-by placing LAPI into POLLING mode.  To do so, set the
-following environment variable when running the job:
-
-GASNET_LAPI_MODE=POLLING
-
 ===============================================================
 The GASNet EXTENDED API is implemented directly over LAPI
 PUT, GET and Amsend calls.  It does not use the GASNet CORE

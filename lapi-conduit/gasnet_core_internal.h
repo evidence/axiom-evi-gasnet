@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/08/18 17:46:49 $
- * $Revision: 1.31 $
+ *     $Date: 2004/08/23 22:35:35 $
+ * $Revision: 1.32 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,11 +29,7 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 extern lapi_info_t        gasnetc_lapi_info;
 extern volatile int gasnetc_got_exit_signal;
 extern int                gasnetc_max_lapi_uhdr_size;
-#if defined(__64BIT__)
-extern ulong              gasnetc_max_lapi_data_size;
-#else
-extern int                gasnetc_max_lapi_data_size;
-#endif
+extern unsigned long      gasnetc_max_lapi_data_size;
 extern void**             gasnetc_remote_req_hh;
 extern void**             gasnetc_remote_reply_hh;
 

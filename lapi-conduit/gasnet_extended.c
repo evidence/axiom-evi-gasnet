@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
- *     $Date: 2004/08/18 17:46:49 $
- * $Revision: 1.32 $
+ *     $Date: 2004/08/23 22:35:35 $
+ * $Revision: 1.33 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -407,7 +407,7 @@ extern void gasnete_get_bulk (void *dest, gasnet_node_t node, void *src,
      * Will generally only be one */
     gasneti_suspend_spinpollers();
     while (nbytes > 0) {
-	size_t to_get = MIN(nbytes, gasnetc_max_lapi_data_size);
+	ulong to_get = MIN(nbytes, gasnetc_max_lapi_data_size);
 	GASNETC_LCHECK(LAPI_Get(gasnetc_lapi_context, (unsigned int)node, to_get,
 				src,dest,NULL,&c_cntr));
 	dest = (void*)((char*)dest + to_get);
@@ -435,7 +435,7 @@ extern void gasnete_put_bulk (gasnet_node_t node, void *dest, void *src,
      * Will generally only be one */
     gasneti_suspend_spinpollers();
     while (nbytes > 0) {
-	size_t to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
+	ulong to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
 	/* use op lapi counter as completion counter,
 	 * and o_cntr as origin counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int) node, to_put,
@@ -498,7 +498,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
      * Will generally only be one */
     gasneti_suspend_spinpollers();
     while (nbytes > 0) {
-	size_t to_get = MIN(nbytes, gasnetc_max_lapi_data_size);
+	ulong to_get = MIN(nbytes, gasnetc_max_lapi_data_size);
 	GASNETC_LCHECK(LAPI_Get(gasnetc_lapi_context, (unsigned int) node, to_get,
 				src,dest,NULL,&op->cntr));
 	dest = (void*)((char*)dest + to_get);
@@ -520,7 +520,7 @@ extern gasnet_handle_t gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void
      * Will generally only be one */
     gasneti_suspend_spinpollers();
     while (nbytes > 0) {
-	size_t to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
+	ulong to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
 	/* use op lapi counter as completion counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int)node, to_put,
 				dest,src,NULL,NULL,&op->cntr));
@@ -554,7 +554,7 @@ extern gasnet_handle_t gasnete_put_nb (gasnet_node_t node, void *dest, void *src
      * Will generally only be one */
     gasneti_suspend_spinpollers();
     while (nbytes > 0) {
-	size_t to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
+	ulong to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
 	/* use op lapi counter as completion counter,
 	 * and o_cntr as origin counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int) node, to_put,
@@ -764,7 +764,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
 
     gasneti_suspend_spinpollers();
     while (nbytes > 0) {
-	size_t to_get = MIN(nbytes, gasnetc_max_lapi_data_size);
+	ulong to_get = MIN(nbytes, gasnetc_max_lapi_data_size);
 	GASNETC_LCHECK(LAPI_Get(gasnetc_lapi_context, (unsigned int)node, to_get,
 				src,dest,NULL,&op->get_cntr));
 	dest = (void*)((char*)dest + to_get);
@@ -787,7 +787,7 @@ extern void gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
      * Will generally only be one */
     gasneti_suspend_spinpollers();
     while (nbytes > 0) {
-	size_t to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
+	ulong to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
 	/* use op lapi counter as completion counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int)node, to_put,
 				dest,src,NULL,NULL,&op->put_cntr));
@@ -820,10 +820,7 @@ extern void gasnete_put_nbi (gasnet_node_t node, void *dest, void *src,
      * Will generally only be one */
     gasneti_suspend_spinpollers();
     while (nbytes > 0) {
-
-
-
-	size_t to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
+	ulong to_put = MIN(nbytes, gasnetc_max_lapi_data_size);
 	/* use op lapi counter as completion counter,
 	 * and o_cntr as origin counter */
 	GASNETC_LCHECK(LAPI_Put(gasnetc_lapi_context, (unsigned int)node, to_put,
