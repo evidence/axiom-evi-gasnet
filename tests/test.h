@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/05/16 00:59:37 $
- * $Revision: 1.29 $
+ *     $Date: 2004/06/20 10:09:36 $
+ * $Revision: 1.30 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -157,8 +157,8 @@ static void test_free(void *ptr) {
   static void *_test_getseg(gasnet_node_t node) {
     static gasnet_seginfo_t *si = NULL;
     if (si == NULL) {
-      int i;
-      gasnet_seginfo_t *s = test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
+      gasnet_node_t i;
+      gasnet_seginfo_t *s = (gasnet_seginfo_t *)test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
       GASNET_Safe(gasnet_getSegmentInfo(s, gasnet_nodes()));
       for (i=0; i < gasnet_nodes(); i++) {
         assert(s[i].size >= TEST_SEGSZ);
