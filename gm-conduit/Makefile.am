@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.21 2003/03/10 02:54:43 csbell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.22 2003/03/13 04:08:27 bonachea Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -33,7 +33,8 @@ filelist = gasnet_core.c              \
 othersourcefiles = $(top_srcdir)/gasnet_internal.c
 
 EXTRA_DIST = $(filelist) README
-bin_SCRIPTS = contrib/gasnetrun.gexec.pl contrib/gasnetrun.pbs-rsh.pl
+
+SUBDIRS = contrib
 
 libgasnet_sources = $(srcdir)/gasnet_core.c $(srcdir)/gasnet_core_receive.c \
 		    $(srcdir)/gasnet_core_misc.c $(srcdir)/gasnet_core_conf.c \
