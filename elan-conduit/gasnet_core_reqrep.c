@@ -1,13 +1,13 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/09/02 23:18:37 $
- * $Revision: 1.5 $
+ *     $Date: 2002/09/04 18:18:35 $
+ * $Revision: 1.6 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #include <gasnet.h>
 #include <gasnet_core_internal.h>
-
+#include <elan3/elan3.h> /* for ELAN_POLL_EVENT */
 #include <unistd.h>
 
 /* 
@@ -75,7 +75,11 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
           elan_tportTxDone(gasnetc_tportTxFIFOHead->event)) {
         /* common case - oldest tx is complete */
         desc = gasnetc_tportTxFIFOHead;
-        elan_tportTxWait(desc->event); /* TODO: necessary? */
+        #if 0
+          /* according to undocumented info from quadrics, 
+             it's illegal to call TxWait after successful TxDone */
+          elan_tportTxWait(desc->event); 
+        #endif
         gasnetc_tportTxFIFOHead = gasnetc_tportTxFIFOHead->next;
         if (gasnetc_tportTxFIFOHead == NULL) gasnetc_tportTxFIFOTail = NULL;
       } else { /* poop - head busy, need to scan for tx */
@@ -87,7 +91,11 @@ static gasnetc_bufdesc_t *gasnetc_tportGetTxBuf() {
               lastdesc->next = tmp->next;
               if (lastdesc->next == NULL) gasnetc_tportTxFIFOTail = lastdesc;
               desc = tmp;
-              elan_tportTxWait(desc->event); /* TODO: necessary? */
+              #if 0
+                /* according to undocumented info from quadrics, 
+                   it's illegal to call TxWait after successful TxDone */
+                elan_tportTxWait(desc->event); 
+              #endif
               break;
             }
             lastdesc = lastdesc->next;
@@ -214,7 +222,7 @@ extern void gasnetc_initbufs() {
                                       BASE()->tport_bigmsg,
                                       BASE()->waitType,
                                       BASE()->retryCount
-    #if defined(ELAN_VER_1_2) || defined(ELAN_VER_1_3) 
+    #if ELAN_VERSION_MAJOR == 1 && ELAN_VERSION_MINOR >= 2
                                       ,
                                       &(BASE()->shm_key),
                                       BASE()->shm_fifodepth,

@@ -1,12 +1,13 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_dump.c                  $
- *     $Date: 2002/09/02 23:18:37 $
- * $Revision: 1.5 $
+ *     $Date: 2002/09/04 18:18:35 $
+ * $Revision: 1.6 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #include <gasnet.h>
 #include <gasnet_core_internal.h>
+#include <elan3/elan3.h> /* for DMA_BYTE */
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_dump_base() {
@@ -15,11 +16,14 @@ extern void gasnetc_dump_base() {
   GASNETI_STATS_PRINTF(C,("ELAN_BASE: {"));
 
   GASNETI_STATS_PRINTF(C,(" init= %i",b->init));
-  { char *dmatype;
+  { char *dmatype="unknown";
     switch(b->dmaType) {
       case DMA_BYTE:        dmatype = "DMA_BYTE"; break;
       case DMA_HALFWORD:    dmatype = "DMA_HALFWORD"; break;
       case DMA_WORD:        dmatype = "DMA_WORD"; break;
+    #ifdef DMA_DOUBLE
+      case DMA_DOUBLE:  dmatype = "DMA_DOUBLE"; break;
+    #endif
     #ifdef DMA_DOUBLEWORD
       case DMA_DOUBLEWORD:  dmatype = "DMA_DOUBLEWORD"; break;
     #endif
@@ -268,17 +272,25 @@ void gasnetc_dump_groupstats() {
   DUMP_STAT(hbcastBytes, "Number of bytes transmitted via hbcast");
   DUMP_STAT(bcastBytesNet, "Number of bytes transmitted via bcastNet");
   DUMP_STAT(bcastBytesShm, "Number of bytes transmitted via bcastShm");
+#ifdef ELAN_VER_1_4
+  DUMP_STAT(reduce_internalBytes, "Number of bytes accumulated via reduce_internal");
+  DUMP_STAT(reduce_internalBytesNet, "Number of bytes accumulated via reduce_internalNet");
+  DUMP_STAT(reduce_internalBytesShm, "Number of bytes accumulated via reduce_internalShm");
+  DUMP_STAT(nReduceI, "Number of ReduceI calls");
+  DUMP_STAT(nReduceIShm, "Number of ReduceIShm calls");
+#else
   DUMP_STAT(reduceBytes, "Number of bytes accumulated via reduce");
   DUMP_STAT(reduceBytesNet, "Number of bytes accumulated via reduceNet");
   DUMP_STAT(reduceBytesShm, "Number of bytes accumulated via reduceShm");
+  DUMP_STAT(nReduce, "Number of Reduce calls");
+  DUMP_STAT(nReduceShm, "Number of ReduceShm calls");
+#endif
   DUMP_STAT(nGsync, "Number of Gsync calls");
   DUMP_STAT(nHGsync, "Number of HGsync calls");
   DUMP_STAT(nGsyncShm, "Number of GsyncShm calls");
   DUMP_STAT(nBcast, "Number of Bcast calls");
   DUMP_STAT(nHBcast, "Number of HBcast calls");
   DUMP_STAT(nBcastShm, "Number of Bcast calls");
-  DUMP_STAT(nReduce, "Number of Reduce calls");
-  DUMP_STAT(nReduceShm, "Number of ReduceShm calls");
   GASNETI_STATS_PRINTF(C,("}"));
 
   #undef DUMP_STAT

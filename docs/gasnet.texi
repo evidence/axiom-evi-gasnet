@@ -146,9 +146,9 @@ Published by LBNL NERSC FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2002/09/02 23:25:01 $
+@subtitle $Date: 2002/09/04 18:18:33 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.9 $ 
+@subtitle $Revision: 1.10 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://upc.nersc.gov/}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2002/09/02 23:25:01 $
-@*$Revision: 1.9 $ 
+@*$Date: 2002/09/04 18:18:33 $
+@*$Revision: 1.10 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.nersc.gov/}
 @HR
@@ -637,9 +637,10 @@ will it attempt to access the memory locations within the segment until
 directed to do so by a data transfer function or Long active message. 
 
 If the GASNet implementation defines the macro @code{GASNET_ALIGNED_SEGMENTS} to 1, then 
-@code{gasnet_attach()} guarantees that the remote-access memory segment will be 
+@code{gasnet_attach()} guarantees that the base of the remote-access memory segment will be 
 aligned at the same virtual address across all nodes (and will fail if it cannot 
-provide this). Otherwise, this guarantee is not provided. 
+provide this). Otherwise, this guarantee is not provided. Note the segment sizes may
+still differ across nodes, based on @var{segsize} and system resource availability. 
 
 In the @code{GASNET_SEGMENT_FAST} and @code{GASNET_SEGMENT_LARGE}
 configurations, GASNet guarantees that data transfer functions, 

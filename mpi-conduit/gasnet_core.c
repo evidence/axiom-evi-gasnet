@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/09/04 06:14:02 $
- * $Revision: 1.12 $
+ *     $Date: 2002/09/04 18:18:36 $
+ * $Revision: 1.13 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
