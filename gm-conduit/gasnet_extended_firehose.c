@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2004/10/08 07:47:07 $
- * $Revision: 1.44 $
+ * $Date: 2004/10/12 22:59:40 $
+ * $Revision: 1.45 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -374,29 +374,11 @@ gasnete_put_nbi(gasnet_node_t node, void *dest, void *src,
 /* GETS                                                                  */
 /* ##################################################################### */
 /*
- * Under firehose, a get from the requestors point of view does not include
- * looking up the remote node's firehose list: gets do not move the firehose.
- *
- * Upon a get call, if nbytes is within the GASNETE_GET_NON_DMA_CUTOFF, an
- * AMRequest for copy on the host side is sent.  For other cases, local buckets
- * are pinned and their reference count incremented.  At completion of the get
- * (during the callback), the reference count is decremented.
- *
- * The reason for using a GASNETE_GET_NON_DMA_CUTOFF is that GM still does not
- * support DMA gets, which means we must interrupt the host processor in order
- * for every get to succeed.  When using a DMA reversed put to complete the get
- * operation, an AMReply must still be sent in order to mark the get operation
- * complete (the host processor cannot know when a DMA operation is received).
- * It may be desirable to send payload with the get AMReply as an optimization
- * for smaller sizes.  This allows a get operation to be completed with two
- * sends as opposed to three (less GM tokens are used).
- *
- * DOB: 10/07/2004: GASNETE_GET_NON_DMA_CUTOFF was hard-coded to zero, so we 
- * now always use GM get
- */
-
-/* Both GM 1.x and GM 2 implementations for get release the get regions in a
- * similar manner (although may be from a handler or not).
+ * Gets can either be rdma-based or AM-based if RDMA gets are disabled.  In
+ * RDMA-based operation, we use the remote-callback extension available in
+ * Firehose whereby the payload associated to the get operation is sent before
+ * the firehose reply (which optimizes firehose misses to be a single roundtrip
+ * instead of two).
  */
 GASNET_INLINE_MODIFIER(gasnete_get_fh_done)
 void

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2004/10/08 07:47:07 $
- * $Revision: 1.73 $
+ * $Date: 2004/10/12 22:59:40 $
+ * $Revision: 1.74 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -51,11 +51,15 @@ static void gasnetc_atexit(void);
 static void gasnetc_check_config() {
   gasneti_check_config_preinit();
 
-  gasneti_assert(gm_min_size_for_length(GASNETC_AM_MEDIUM_MAX) <= GASNETC_AM_SIZE);
-  gasneti_assert(gm_min_size_for_length(GASNETC_AM_LONG_REPLY_MAX) <= GASNETC_AM_SIZE);
-  gasneti_assert(gm_max_length_for_size(GASNETC_AM_SIZE) <= GASNETC_AM_PACKET);
-  gasneti_assert(GASNETC_AM_MEDIUM_MAX <= (uint16_t)(-1));
-  gasneti_assert(GASNETC_AM_MAX_HANDLERS >= 256);
+  gasneti_assert_always(GASNETC_AM_SIZE >= 12);
+  gasneti_assert_always(
+    gm_min_size_for_length(GASNETC_AM_MEDIUM_MAX) <= GASNETC_AM_SIZE);
+  gasneti_assert_always(
+    gm_min_size_for_length(GASNETC_AM_LONG_REPLY_MAX) <= GASNETC_AM_SIZE);
+  gasneti_assert_always(
+    gm_max_length_for_size(GASNETC_AM_SIZE) <= GASNETC_AM_PACKET);
+  gasneti_assert_always(GASNETC_AM_MEDIUM_MAX <= (uint16_t)(-1));
+  gasneti_assert_always(GASNETC_AM_MAX_HANDLERS >= 256);
   return;
 }
 

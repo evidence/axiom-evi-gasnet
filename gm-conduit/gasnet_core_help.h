@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_help.h,v $
- * $Date: 2004/10/08 07:47:07 $
- * $Revision: 1.35 $
+ * $Date: 2004/10/12 22:59:40 $
+ * $Revision: 1.36 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -28,39 +28,47 @@ typedef void (*gasnetc_HandlerMedium)(void *token, void *buf, int nbytes, ...);
 typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 
 /* -------------------------------------------------------------------------- */
-/* A few more obscure configurable parameters.                                */
-#define GASNETC_GM_MAXPORTS	gm_num_ports(NULL)
-#define GASNETC_GM_MAXBOARDS	3
+/* Tunable Compile-time Parameters */
+/*
+ * GASNETC_PHYSMEM_PINNABLE_RATIO (float default=0.7).  Which fraction of the
+ *       determined physical memory can be made pinnable.  This value is
+ *       extracted from Myricom guarantees that 70% of memory can be pinned for
+ *       correct operation.  */
+   #ifndef GASNETC_PHYSMEM_PINNABLE_RATIO
+     #define GASNETC_PHYSMEM_PINNABLE_RATIO 0.7
+   #endif
 
-#if defined(GM_API_VERSION_2_0) && GM_API_VERSION >= GM_API_VERSION_2_0
-#define GASNETC_GM_2
+/* GASNETC_AM_SIZE (default=16). Log2 size of the AM buffers used in the core.
+ *       By default, an amount of 64k buffers equal to the number of GM tokens
+ *       are allocated.  This value cannot be less than the MTU where 4096 = 12
+ */
+   #ifndef GASNETC_AM_SIZE
+      #define GASNETC_AM_SIZE 16
+   #endif
+
+/*
+ * GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD (default=8192). Size at which AMLongs
+ * will be preferred to AMMedium for sending payload.  This setting affects the
+ * core internals and typically should not be changed.
+ */
+#ifndef GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD
+#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD	8192
 #endif
 
-/* Amount of physical memory that is pinnable. . reported to be 
- * 70% by Myricom.  */
-#ifndef GASNETC_PHYSMEM_PINNABLE_RATIO
-  #define GASNETC_PHYSMEM_PINNABLE_RATIO       0.7
-#endif
-
-#ifdef GASNET_SEGMENT_FAST
-#define GASNETC_SEGMENT_PINNED	1
-#else 
-#define GASNETC_SEGMENT_PINNED	0
-#endif
-
+/* -------------------------------------------------------------------------- */
+/* Non-Tunable Compile-time Parameters */
 /*
  * RDMA PUTS
  *
  * GM 2.x API revision supports gm_put as a synonym for
  * gm_directed_send_with_callback
  */
-#if defined(GASNETC_GM_2)
+#if defined(GM_API_VERSION_2_0) && GM_API_VERSION >= GM_API_VERSION_2_0
+#define GASNETC_GM_2
 #define GASNETC_GM_PUT	gm_put
 #else
 #define GASNETC_GM_PUT	gm_directed_send_with_callback
 #endif
-#define GASNETE_PUT_NON_BULK_CUTOFF		GASNETC_AM_LEN
-#define GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD	8192
 
 /*
  * RDMA GETS
@@ -110,6 +118,10 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
   #error Internal define error
 #endif
 
+/* A few more obscure configurable parameters.                                */
+#define GASNETC_GM_MAXPORTS	gm_num_ports(NULL)
+#define GASNETC_GM_MAXBOARDS	3
+
 #define GASNETC_SEGMENT_ALIGN	GASNETI_PAGESIZE
 
 /* -------------------------------------------------------------------------- */
@@ -134,7 +146,6 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define	GASNETC_AM_REPLY	0x00
 #define GASNETC_AM_REQUEST	0x01
 
-#define GASNETC_AM_SIZE		16
 #define GASNETC_AM_LEN		(1<<GASNETC_AM_SIZE)
 #define GASNETC_AM_PACKET	(GASNETC_AM_LEN-8)
 
