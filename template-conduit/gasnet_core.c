@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/08/15 09:50:19 $
- * $Revision: 1.13 $
+ *     $Date: 2002/08/30 03:17:56 $
+ * $Revision: 1.14 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -542,7 +542,7 @@ extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
   #ifdef GASNETI_THREADS
   { int retval = pthread_mutex_init(&(hsl->lock), NULL);
     if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_init(), pthread_mutex_init()=%i",strerror(retval));
+      gasneti_fatalerror("In gasnetc_hsl_init(), pthread_mutex_init()=%s",strerror(retval));
   }
   #endif
 
@@ -554,7 +554,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
   #ifdef GASNETI_THREADS
   { int retval = pthread_mutex_destroy(&(hsl->lock));
     if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_destroy(), pthread_mutex_destroy()=%i",strerror(retval));
+      gasneti_fatalerror("In gasnetc_hsl_destroy(), pthread_mutex_destroy()=%s",strerror(retval));
   }
   #endif
 
@@ -577,7 +577,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
         retval = pthread_mutex_lock(&(hsl->lock));
     #endif
     if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_lock(), pthread_mutex_lock()=%i",strerror(retval));
+      gasneti_fatalerror("In gasnetc_hsl_lock(), pthread_mutex_lock()=%s",strerror(retval));
     #if defined(STATS) || defined(TRACE)
       hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
       GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, hsl->acquiretime-startlock);
@@ -607,7 +607,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
   #ifdef GASNETI_THREADS
   { int retval = pthread_mutex_unlock(&(hsl->lock));
     if (retval) 
-      gasneti_fatalerror("In gasnetc_hsl_unlock(), pthread_mutex_unlock()=%i",strerror(retval));
+      gasneti_fatalerror("In gasnetc_hsl_unlock(), pthread_mutex_unlock()=%s",strerror(retval));
   }
   #endif
 }
