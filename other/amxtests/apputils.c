@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/apputils.c                                       $
- *     $Date: 2004/02/17 22:57:53 $
- * $Revision: 1.10 $
+ *     $Date: 2004/03/31 14:18:13 $
+ * $Revision: 1.11 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -10,7 +10,6 @@
 #include <unistd.h>
 #include <sys/time.h>
 #include <signal.h>
-#include <sched.h>
 #include <stdlib.h>
 
 /*  init by setupUtilHandlers */
@@ -55,7 +54,7 @@ void printGlobalStats() {
      */
     int64_t time = getCurrentTimeMicrosec();
     while ((int)(getCurrentTimeMicrosec() - time) < 10000) {
-      sched_yield();
+      sleep(0);
       AM_Safe(AM_Poll(eb)); 
     }
   }

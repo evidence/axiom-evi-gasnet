@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2004/03/05 15:02:50 $
- * $Revision: 1.8 $
+ *     $Date: 2004/03/31 14:18:12 $
+ * $Revision: 1.9 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -38,6 +38,17 @@
   typedef unsigned int     uint64_t;
 
   typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
+#elif defined(_SX)
+  typedef signed char        int8_t;
+  typedef unsigned char     uint8_t;
+  typedef short             int16_t;
+  typedef unsigned short   uint16_t;
+  typedef int               int32_t;
+  typedef unsigned int     uint32_t;
+  typedef long              int64_t;
+  typedef unsigned long    uint64_t;
+
+  typedef unsigned long   uintptr_t; /* unsigned type big enough to hold any pointer offset */
 #elif defined(CYGWIN)
   #include <sys/types.h>
   #ifndef __int8_t_defined

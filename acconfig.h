@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2004/02/13 18:00:15 $ */
-/*  $Revision: 1.24 $ */
+/*      $Date: 2004/03/31 14:18:04 $ */
+/*  $Revision: 1.25 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -70,6 +70,7 @@
 #undef AIX
 #undef OSF
 #undef HPUX
+#undef SUPERUX
 #undef IRIX
 #undef CYGWIN
 #undef DARWIN

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.cpp                                   $
- *     $Date: 2004/02/13 18:00:18 $
- * $Revision: 1.5 $
+ *     $Date: 2004/03/31 14:18:12 $
+ * $Revision: 1.6 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -13,7 +13,12 @@
   #include <process.h>
 #else
   #include <unistd.h>
-  #include <sched.h>
+  #if defined(_CRAYT3E) || defined(_SX)
+    /* these both implement sched_yield() in libpthread only, which we may not want */
+    #define sched_yield() sleep(0)
+  #else
+    #include <sched.h>
+  #endif
   #if defined(LINUX) && !defined(__USE_GNU)
     /* some Linuxes need this to pull in F_SETSIG */
     #define __USE_GNU
@@ -21,9 +26,6 @@
     #undef __USE_GNU
   #else
     #include <fcntl.h>
-  #endif
-  #ifdef _CRAYT3E
-    #define sched_yield() sleep(0)
   #endif
 #endif
 

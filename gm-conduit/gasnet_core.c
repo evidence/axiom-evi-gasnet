@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.55 2004/03/21 21:11:03 csbell Exp $
- * $Date: 2004/03/21 21:11:03 $
+/* $Id: gasnet_core.c,v 1.56 2004/03/31 14:18:06 bonachea Exp $
+ * $Date: 2004/03/31 14:18:06 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -14,7 +14,6 @@
 
 #include <errno.h>
 #include <unistd.h>
-#include <sched.h>
 #include <signal.h>
 
 GASNETI_IDENT(gasnetc_IdentString_Version, 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/03/18 00:38:16 $
- * $Revision: 1.45 $
+ *     $Date: 2004/03/31 14:18:20 $
+ * $Revision: 1.46 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,7 +14,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <signal.h>
-#include <sched.h>
 
 #include <sys/time.h>
 #include <sys/resource.h>

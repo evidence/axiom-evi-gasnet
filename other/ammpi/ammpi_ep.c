@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2004/02/17 22:57:51 $
- * $Revision: 1.17 $
+ *     $Date: 2004/03/31 14:18:10 $
+ * $Revision: 1.18 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -8,13 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#ifdef WIN32
-  #define sched_yield() Sleep(0)
-#else
-  #include <unistd.h>
-  #include <sched.h>
-#endif
-
 #include <ammpi_internal.h>
 
 /* definitions for internal declarations */

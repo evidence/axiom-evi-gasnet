@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2004/02/24 20:45:11 $
- * $Revision: 1.20 $
+ *     $Date: 2004/03/31 14:18:04 $
+ * $Revision: 1.21 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -295,6 +295,9 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
 
   gasneti_segexch = (gasneti_segexch_t *)gasneti_malloc(gasneti_nodes*sizeof(gasneti_segexch_t));
 
+  if (localSegmentLimit != (uintptr_t)-1) 
+    localSegmentLimit = GASNETI_PAGE_ALIGNDOWN(localSegmentLimit);
+
   #ifdef HAVE_MMAP
     gasneti_segment = gasneti_mmap_segment_search(localSegmentLimit == (uintptr_t)-1 ?
                                                   GASNETI_MMAP_MAX_SIZE : 
@@ -366,8 +369,8 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
       gasneti_MaxLocalSegmentSize =  localSegmentLimit;
       gasneti_MaxGlobalSegmentSize = localSegmentLimit;
     } else {
-      gasneti_MaxLocalSegmentSize =  GASNETI_MAX_MALLOCSEGMENT_SZ;
-      gasneti_MaxGlobalSegmentSize = GASNETI_MAX_MALLOCSEGMENT_SZ;
+      gasneti_MaxLocalSegmentSize =  GASNETI_PAGE_ALIGNUP(GASNETI_MAX_MALLOCSEGMENT_SZ);
+      gasneti_MaxGlobalSegmentSize = GASNETI_PAGE_ALIGNUP(GASNETI_MAX_MALLOCSEGMENT_SZ);
     }
   #endif
   GASNETI_TRACE_PRINTF(C, ("MaxLocalSegmentSize = %lu   "

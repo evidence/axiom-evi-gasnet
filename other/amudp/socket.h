@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/AMUDP/socket.h                                         $
- *      $Date: 2004/01/19 12:57:33 $
- *  $Revision: 1.2 $
+ *      $Date: 2004/03/31 14:18:12 $
+ *  $Revision: 1.3 $
  *  Description: portable header socket functions
  *  (c) Scott McPeak, 1998-1999, Modified by Dan Bonachea
  */
@@ -53,6 +53,10 @@
   #define _FIONREAD I_NREAD
 #else
   #define _FIONREAD FIONREAD
+#endif
+
+#if defined(SUPERUX)
+  #include <sys/select.h>
 #endif
 
 /*  these constants are useful, but appear to be specific to */

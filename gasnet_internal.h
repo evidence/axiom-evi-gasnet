@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2004/01/24 15:14:42 $
- * $Revision: 1.50 $
+ *     $Date: 2004/03/31 14:18:04 $
+ * $Revision: 1.51 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -99,8 +99,17 @@ extern int gasneti_attach_done; /*  true after attach */
    compatible with malloc/calloc/free
    (freeing memory allocated from one using the other is likely to crash)
  */
+#ifdef malloc
+#undef malloc
+#endif
 #define malloc !!! ERROR: GASNet conduit code must use gasneti_malloc !!!
+#ifdef calloc
+#undef calloc
+#endif
 #define calloc !!! ERROR: GASNet conduit code must use gasneti_calloc !!!
+#ifdef free
+#undef free
+#endif
 #define free   !!! ERROR: GASNet conduit code must use gasneti_free   !!!
 
 #include <assert.h>

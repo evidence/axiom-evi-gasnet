@@ -1,18 +1,15 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2004/02/17 22:57:51 $
- * $Revision: 1.18 $
+ *     $Date: 2004/03/31 14:18:10 $
+ * $Revision: 1.19 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #include <stdio.h>
 #ifdef WIN32
-  #define sched_yield() Sleep(0)
-  #define sleep(x) Sleep(x*1000)
   #include <process.h>
 #else
   #include <unistd.h>
-  #include <sched.h>
   #include <time.h>
   #include <sys/time.h>
   #if defined(LINUX) && !defined(__USE_GNU)

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2004/01/05 05:01:24 $
- * $Revision: 1.6 $
+ *     $Date: 2004/03/31 14:18:17 $
+ * $Revision: 1.7 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,7 +11,6 @@
 
 #include <test.h>
 #include <signal.h>
-#include <sched.h>
 
 int mynode, nodes;
 
