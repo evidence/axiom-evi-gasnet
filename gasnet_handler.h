@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_handler.h                                $
- *     $Date: 2002/10/11 20:56:00 $
- * $Revision: 1.3 $
+ *     $Date: 2002/10/18 21:21:25 $
+ * $Revision: 1.4 $
  * Description: GASNet Helpers for using bit-width-independent AM handlers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -124,32 +124,32 @@
   #define SHORT_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64) \
     static void name ## _32(gasnet_token_t token ARGS ## cnt32) {     \
       name ## _inner innerargs32 ;                                    \
-    }
+    } static int _dummy_##name = sizeof(_dummy_##name)
   #define MEDIUM_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)       \
     static void name ## _32(gasnet_token_t token, void *addr, size_t nbytes  \
                            ARGS ## cnt32) {                                  \
       name ## _inner innerargs32 ;                                           \
-    }
+    } static int _dummy_##name = sizeof(_dummy_##name)
   #define LONG_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)         \
     static void name ## _32(gasnet_token_t token, void *addr, size_t nbytes  \
                            ARGS ## cnt32) {                                  \
       name ## _inner innerargs32 ;                                           \
-    }
+    } static int _dummy_##name = sizeof(_dummy_##name)
 #elif defined(GASNETI_PTR64)
   #define SHORT_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64) \
     static void name ## _64(gasnet_token_t token ARGS ## cnt64) {     \
       name ## _inner innerargs64 ;                                    \
-    }
+    } static int _dummy_##name = sizeof(_dummy_##name)
   #define MEDIUM_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)      \
     static void name ## _64(gasnet_token_t token, void *addr, size_t nbytes \
                            ARGS ## cnt64) {                                 \
       name ## _inner innerargs64 ;                                          \
-    }
+    } static int _dummy_##name = sizeof(_dummy_##name)
   #define LONG_HANDLER(name, cnt32, cnt64, innerargs32, innerargs64)        \
     static void name ## _64(gasnet_token_t token, void *addr, size_t nbytes \
                            ARGS ## cnt64) {                                 \
       name ## _inner innerargs64 ;                                          \
-    }
+    } static int _dummy_##name = sizeof(_dummy_##name)
 #endif
 
 typedef void (*gasneti_handler_fn_t)();  /* prototype for generic handler function */

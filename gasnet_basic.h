@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/10/01 11:18:29 $
- * $Revision: 1.9 $
+ *     $Date: 2002/10/18 21:21:25 $
+ * $Revision: 1.10 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -171,13 +171,14 @@
 /* GASNETI_IDENT() takes a unique identifier and a textual string and embeds the textual
    string in the executable file
  */
-#define _GASNETI_IDENT(identName, identText) \
-  extern char volatile identName[];         \
-  char volatile identName[] = identText;    \
-  extern char *_get_##identName() { return (char*)identName; }
+#define _GASNETI_IDENT(identName, identText)                   \
+  extern char volatile identName[];                            \
+  char volatile identName[] = identText;                       \
+  extern char *_get_##identName() { return (char*)identName; } \
+  static int _dummy_##identName = sizeof(_dummy_##identName)
 #if defined(_CRAYC)
   #define GASNETI_IDENT(identName, identText) \
-    GASNETI_PRAGMA(_CRI ident identText);        \
+    GASNETI_PRAGMA(_CRI ident identText);     \
     _GASNETI_IDENT(identName, identText)
 #elif defined(__xlC__)
     /* #pragma comment(user,"text...") 

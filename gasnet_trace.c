@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/09/14 11:06:35 $
- * $Revision: 1.15 $
+ *     $Date: 2002/10/18 21:21:25 $
+ * $Revision: 1.16 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -447,7 +447,7 @@ extern void gasneti_trace_init() {
   static gasneti_stat_intval_t AGGRNAME(intval,type) =   \
     { 0, GASNETI_STATCTR_MAX, GASNETI_STATCTR_MIN, 0 };  \
   static gasneti_stat_timeval_t AGGRNAME(timeval,type) = \
-    { 0, GASNETI_STATTIME_MAX, GASNETI_STATTIME_MIN, 0 };
+    { 0, GASNETI_STATTIME_MAX, GASNETI_STATTIME_MIN, 0 }
 AGGR(G);
 AGGR(P);
 AGGR(S);
