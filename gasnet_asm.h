@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/12/13 00:20:39 $
- * $Revision: 1.26 $
+ *     $Date: 2003/12/13 01:19:43 $
+ * $Revision: 1.27 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,9 +127,15 @@
     #define gasneti_atomic_decrement_and_test(p) \
                                         (_InterlockedDecrement((volatile int *)&((p)->ctr)) == 0)
   #elif defined(LINUX)
-    #ifdef BROKEN_LINUX_ASM_ATOMIC_H
+    #include <linux/config.h>
+    #if defined(BROKEN_LINUX_ASM_ATOMIC_H) || \
+        (!defined(GASNETI_UNI_BUILD) && !defined(CONFIG_SMP))
       /* some versions of the linux kernel ship with a broken atomic.h
-         this code based on a non-broken version of the header */
+         this code based on a non-broken version of the header. 
+         Also force using this code if this is a gasnet-smp build and the 
+         linux/config.h settings disagree (due to system config problem or 
+         cross-compiling on a uniprocessor frontend for smp nodes)
+       */
       #if defined(__i386__) || defined(__x86_64__) /* x86 and Athlon/Opteron */
         #ifdef GASNETI_UNI_BUILD
           #define GASNETI_LOCK ""
