@@ -1,6 +1,6 @@
-/* $Id: testcore1.c,v 1.3 2002/12/19 18:31:54 bonachea Exp $
- * $Date: 2002/12/19 18:31:54 $
- * $Revision: 1.3 $
+/* $Id: testcore1.c,v 1.4 2003/04/25 22:55:53 welcome Exp $
+ * $Date: 2003/04/25 22:55:53 $
+ * $Revision: 1.4 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -53,6 +53,7 @@ gasnet_seginfo_t *seginfo_table;
 int		chksum_success = 0;
 int		chksum_iters = 0;
 int		chksum_received = 0;
+gasnet_hsl_t    chksum_recv_lock = GASNET_HSL_INITIALIZER;
 
 #define CHKSUM_DUMP(chksum) do {			\
 		int i = 0;				\
@@ -119,6 +120,9 @@ chksum_test(int iters)
 {
 	int	i;
 	int	iamsender, iamreceiver;
+#ifdef VERBOSE
+	int     nloop = 0;
+#endif
 
 	iamsender = (myproc % 2 == 0);
 	iamreceiver = !iamsender;
@@ -141,8 +145,19 @@ chksum_test(int iters)
 			}
 		}
 		*/
-		gasnet_AMPoll();
+#ifdef VERBOSE
+	    nloop++;
+	    if (nloop % 1000 == 0) {
+		printf("TEST[%d] nloop = %d chksum_received = %d\n",
+		       myproc,nloop,chksum_received);
+	    }
+#endif
+	    gasnet_AMPoll();
 	}
+#ifdef VERBOSE
+	printf("TEST[%d] COMPLETE: nloop = %d chksum_received = %d\n",
+	       myproc,nloop,chksum_received);
+#endif
 
 	BARRIER();
 
@@ -168,7 +183,9 @@ void chksum_reqh(gasnet_token_t token,
 	gasnet_handlerarg_t iter, gasnet_handlerarg_t seed)
 {
         unsigned char   chksum_reqbuf[CHKSUM_TOTAL];
+	gasnet_hsl_lock(&chksum_recv_lock);
 	chksum_received++;
+	gasnet_hsl_unlock(&chksum_recv_lock);
 	chksum_gen(seed, &chksum_reqbuf);
 	monoseed_trace(iter, seed, &chksum_reqbuf, NULL);
 	GASNET_Safe( 
@@ -236,6 +253,7 @@ main(int argc, char **argv)
 		gasnet_exit(1);
 	}
 
+	printf("%d> starting monoseed_init(%d)\n", myproc, iters);
 	monoseed_init(iters);
 	printf("%d> starting chksums_test(%d)\n", myproc, iters);
 	chksum_test(iters);
