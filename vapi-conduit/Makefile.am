@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.25 2004/06/21 10:37:28 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v 1.26 2004/08/08 10:34:45 bonachea Exp $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -25,9 +25,9 @@ if VAPI_BOOTSTRAP_MPI
 # If using MPI for bootstrap (currently the only option) then we
 # need to compile this one object with MPI_CC.
 # Note that the 'force' ensures we always rebuild w/ the correct thread model
-mpi_objs = gasnet_bootstrap_mpi.o
-gasnet_bootstrap_mpi.o: gasnet_bootstrap_mpi.c force
-	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) -c $<
+mpi_objs = $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o
+$(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: $(srcdir)/gasnet_bootstrap_mpi.c force
+	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) -o $@ -c $<
 endif
 
 # any conduit-specific subdirectories containing Makefile.am's
@@ -110,7 +110,7 @@ libgasnet-vapi-parsync.a: $(libgasnet_dependencies)
 
 if USE_VAPI_CONDUIT  
 lib_LIBRARIES = $(libraries) 
-all: do-all
+all-local: $(lib_LIBRARIES) $(makefile_fragments)
 clean-local: do-clean-local
 install-data-local: do-install-data-local
 uninstall-local: do-uninstall-local

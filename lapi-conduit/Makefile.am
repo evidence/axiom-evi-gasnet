@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.27 2004/06/21 10:37:14 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.28 2004/08/08 10:34:31 bonachea Exp $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -82,7 +82,7 @@ libgasnet-lapi-parsync.a: $(libgasnet_dependencies)
 
 if USE_LAPI_CONDUIT  
 lib_LIBRARIES = $(libraries) 
-all: do-all
+all-local: $(lib_LIBRARIES) $(makefile_fragments)
 clean-local: do-clean-local
 install-data-local: do-install-data-local
 uninstall-local: do-uninstall-local

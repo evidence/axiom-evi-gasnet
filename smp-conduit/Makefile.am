@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.16 2004/06/21 10:37:20 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.17 2004/08/08 10:34:39 bonachea Exp $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -77,7 +77,7 @@ libgasnet-smp-parsync.a: $(libgasnet_dependencies)
 
 if USE_SMP_CONDUIT  
 lib_LIBRARIES = $(libraries) 
-all: do-all
+all-local: $(lib_LIBRARIES) $(makefile_fragments)
 clean-local: do-clean-local
 install-data-local: do-install-data-local
 uninstall-local: do-uninstall-local
