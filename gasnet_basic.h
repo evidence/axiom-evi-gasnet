@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2005/03/08 22:08:54 $
- * $Revision: 1.35 $
+ *     $Date: 2005/03/18 02:25:19 $
+ * $Revision: 1.36 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -160,5 +160,22 @@
   #define if_pt(cond) if (PREDICT_TRUE(cond))
 #endif
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Non-binding prefetch hints:
+   These macros take a single address expression and provide a hint to prefetch the
+   corresponding memory to L1 cache for either reading or for writing.
+   These are non-binding hints and so the argument need not always be a valid pointer.
+   For instance, GASNETI_PREFETCH_{READ,WRITE}_HINT(NULL) is explicitly permitted.
+   The macros may expand to nothing, so the argument must not have side effects.
+ */
+#if HAVE_BUILTIN_PREFETCH
+  #define GASNETI_PREFETCH_READ_HINT(P) __builtin_prefetch((P),0)
+  #define GASNETI_PREFETCH_WRITE_HINT(P) __builtin_prefetch((P),1)
+#else
+  #define GASNETI_PREFETCH_READ_HINT(P)
+  #define GASNETI_PREFETCH_WRITE_HINT(P)
+#endif
+
 
 #endif
