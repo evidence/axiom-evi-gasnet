@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_help.h             $
- *     $Date: 2002/07/08 13:00:33 $
- * $Revision: 1.1 $
+ *     $Date: 2002/08/05 10:23:44 $
+ * $Revision: 1.2 $
  * Description: GASNet elan conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -18,6 +18,9 @@ BEGIN_EXTERNC
 
 extern gasnet_node_t gasnetc_mynode;
 extern gasnet_node_t gasnetc_nodes;
+
+#define GASNETI_EADDRFMT "0x%08x"
+#define GASNETI_EADDRSTR(ptr) ((uint32_t)(uintptr_t)(ptr))
 
 END_EXTERNC
 

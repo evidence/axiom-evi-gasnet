@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/08/02 09:07:47 $
-# $Revision: 1.16 $
+#     $Date: 2002/08/05 10:23:43 $
+# $Revision: 1.17 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.16 $)
+AC_REVISION($Revision: 1.17 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -652,14 +652,22 @@ if test $have_elan = yes; then
 
   if test "$elan_test_worked" = yes; then
     AC_MSG_RESULT(yes)
+    AC_MSG_CHECKING(for ELAN version)
+    verstr=`grep 'ELAN_VERSION' ${ELAN_INCLUDE}/elan/misc.h`
+    [majorver=`echo $verstr | awk -F'[ \t]*|\"|[.]' '{ print $5 }'`]
+    [minorver=`echo $verstr | awk -F'[ \t]*|\"|[.]' '{ print $6 }'`]
+    AC_MSG_RESULT("${majorver}.${minorver}")
+    ELAN_FLAGS="-DELAN_VERSION_MAJOR=${majorver} -DELAN_VERSION_MINOR=${minorver}"
   else
     AC_MSG_RESULT(no)
+    ELAN_FLAGS=""
     AC_WARN(build test failed: I don't know how to build ELAN programs on your system)
   fi
 fi
 
 AC_SUBST(ELAN_INCLUDE)
 AC_SUBST(ELAN_LIBS)
+AC_SUBST(ELAN_FLAGS)
 AM_CONDITIONAL(USE_ELAN_CONDUIT, test "$have_elan$elan_test_worked" = yesyes)
 
 ########################################################################

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.1 2002/07/08 13:00:33 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.2 2002/08/05 10:23:44 bonachea Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -17,7 +17,9 @@ filelist =                   \
       gasnet_core.h          \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
-      gasnet_core_internal.h 
+      gasnet_core_internal.h \
+      gasnet_core_dump.c     \
+      gasnet_core_reqrep.c 
 
 othersourcefiles =                             \
       $(top_srcdir)/gasnet_internal.c          \
@@ -25,11 +27,22 @@ othersourcefiles =                             \
 
 EXTRA_DIST = $(filelist)
 
-libgasnet_sources = $(srcdir)/gasnet_core.c $(othersourcefiles)
+libgasnet_sources =                  \
+      $(srcdir)/gasnet_core.c        \
+      $(srcdir)/gasnet_core_dump.c   \
+      $(srcdir)/gasnet_core_reqrep.c \
+      $(othersourcefiles)
+
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.h                \
-                         $(top_srcdir)/extended-ref/*.h       
-libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
+                         $(top_srcdir)/extended-ref/*.h      
+			  
+libgasnet_objects =      \
+      gasnet_core.o      \
+      gasnet_internal.o  \
+      gasnet_extended.o  \
+      gasnet_core_dump.o \
+      gasnet_core_reqrep.o
 
 if HAVE_PTHREAD
 threaded_libraries = libgasnet-elan-par.a libgasnet-elan-parsync.a
@@ -38,20 +51,22 @@ libraries = libgasnet-elan-seq.a $(threaded_libraries)
 
 VPATH=$(srcdir)
 
+ELAN_FLAGS=@ELAN_FLAGS@
+
 libgasnet-elan-seq.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_SEQ -c $(libgasnet_sources)
+	$(CC) $(CFLAGS) $(ELAN_FLAGS) $(INCLUDES) -DGASNET_SEQ -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-elan-par.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
+	$(CC) $(CFLAGS) $(ELAN_FLAGS) $(INCLUDES) -DGASNET_PAR $(thread_defines) -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
 libgasnet-elan-parsync.a: $(libgasnet_dependencies)
-	$(CC) $(CFLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
+	$(CC) $(CFLAGS) $(ELAN_FLAGS) $(INCLUDES) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)

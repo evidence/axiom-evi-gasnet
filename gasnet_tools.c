@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/07/04 02:40:20 $
- * $Revision: 1.7 $
+ *     $Date: 2002/08/05 10:23:43 $
+ * $Revision: 1.8 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -469,6 +469,7 @@ extern void gasneti_trace_finish() {
     }
     #endif
 
+    GASNETC_TRACE_FINISH(); /* allow for final output of conduit-specific statistics */
 
     if (tracefile != stdout && tracefile != stderr) fclose(tracefile);
     tracefile = NULL;

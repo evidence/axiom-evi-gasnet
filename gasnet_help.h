@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2002/08/02 09:07:47 $
- * $Revision: 1.7 $
+ *     $Date: 2002/08/05 10:23:43 $
+ * $Revision: 1.8 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -128,6 +128,11 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 #else
   #define GASNETI_TRACE_MSG(type, string) 
   #define GASNETI_TRACE_PRINTF(type, args)
+#endif
+
+/* allow for final output of conduit-specific statistics */
+#ifndef GASNETC_TRACE_FINISH
+#define GASNETC_TRACE_FINISH()
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -534,6 +539,8 @@ extern void gasneti_trace_finish();
 
   extern char gasneti_tracetypes[];
   #define GASNETI_TRACE_ENABLED(type) ((int)gasneti_tracetypes[(int)*(char*)#type])
+#else
+  #define GASNETI_TRACE_ENABLED(type) 0
 #endif
 
 

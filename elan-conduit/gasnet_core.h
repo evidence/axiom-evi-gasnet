@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.h                  $
- *     $Date: 2002/07/08 13:00:33 $
- * $Revision: 1.1 $
+ *     $Date: 2002/08/05 10:23:44 $
+ * $Revision: 1.2 $
  * Description: GASNet header for elan conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -149,10 +149,18 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl);
   ==========================
 */
 
-#define gasnet_AMMaxArgs()          ((size_t)16)
-#define gasnet_AMMaxMedium()        ((size_t)512)
-#define gasnet_AMMaxLongRequest()   ((size_t)512)
-#define gasnet_AMMaxLongReply()     ((size_t)512)
+#define GASNETC_SHORT_HEADERSZ      4
+#define GASNETC_MED_HEADERSZ        8
+#define GASNETC_LONG_HEADERSZ       (8+sizeof(uintptr_t))
+
+#define GASNETC_MAX_SHORT           16
+#define GASNETC_MAX_MEDIUM          (65536 - GASNETC_MED_HEADERSZ - 4*GASNETC_MAX_SHORT)
+#define GASNETC_MAX_LONG            1048576
+
+#define gasnet_AMMaxArgs()          ((size_t)GASNETC_MAX_SHORT)
+#define gasnet_AMMaxMedium()        ((size_t)GASNETC_MAX_MEDIUM)
+#define gasnet_AMMaxLongRequest()   ((size_t)GASNETC_MAX_LONG)
+#define gasnet_AMMaxLongReply()     ((size_t)GASNETC_MAX_LONG)
 
 /* ------------------------------------------------------------------------------------ */
 /*
