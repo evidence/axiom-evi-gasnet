@@ -147,9 +147,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2003/03/23 20:04:26 $
+@subtitle $Date: 2003/04/17 06:08:02 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.20 $ 
+@subtitle $Revision: 1.21 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2003/03/23 20:04:26 $
-@*$Revision: 1.20 $ 
+@*$Date: 2003/04/17 06:08:02 $
+@*$Revision: 1.21 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.lbl.gov/}
 @HR
@@ -1302,7 +1302,7 @@ detailed discussion on handler atomicity)
 Traditionally, code running in signal handler context is extremely 
 circumscribed in what it can do: e.g. none of the standard pthreads/System V 
 synchronization calls are on the list of signal-safe functions (for such a 
-list see @cite{Richard Stevens' "Advanced Programming in the Unix Environment", p 278}). 
+list see @cite{POSIX System Interfaces 2.4, IEEE Std 1003.1-2001}). 
 Note that even most "thread-safe" libraries will break or deadlock if 
 called from a signal handler by the same thread currently executing a 
 different call to that library in an earlier stack frame. One specific case 
