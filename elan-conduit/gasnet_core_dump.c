@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_dump.c                  $
- *     $Date: 2002/08/05 10:23:44 $
- * $Revision: 1.1 $
+ *     $Date: 2002/08/06 07:58:29 $
+ * $Revision: 1.2 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -12,9 +12,9 @@
 extern void gasnetc_dump_base() {
   ELAN_BASE *b = BASE();
 
-  GASNETI_TRACE_PRINTF(C,("ELAN_BASE: {"));
+  GASNETI_STATS_PRINTF(C,("ELAN_BASE: {"));
 
-  GASNETI_TRACE_PRINTF(C,(" init= %i",b->init));
+  GASNETI_STATS_PRINTF(C,(" init= %i",b->init));
   { char *dmatype;
     switch(b->dmaType) {
       case DMA_BYTE:        dmatype = "DMA_BYTE"; break;
@@ -24,81 +24,81 @@ extern void gasnetc_dump_base() {
       case DMA_DOUBLEWORD:  dmatype = "DMA_DOUBLEWORD"; break;
     #endif
     }
-    GASNETI_TRACE_PRINTF(C,(" dmaType= %s",dmatype));
+    GASNETI_STATS_PRINTF(C,(" dmaType= %s",dmatype));
   }
-  GASNETI_TRACE_PRINTF(C,(" retryCount= %i",b->retryCount));
+  GASNETI_STATS_PRINTF(C,(" retryCount= %i",b->retryCount));
   { char waitType[255];
     switch(b->waitType) {
       case ELAN_POLL_EVENT: strcpy(waitType,"ELAN_POLL_EVENT"); break;
       case ELAN_WAIT_EVENT: strcpy(waitType,"ELAN_WAIT_EVENT"); break;
       default: sprintf(waitType,"spin-poll iterations: %i",b->waitType);
     }
-    GASNETI_TRACE_PRINTF(C,(" waitType= %s",waitType));
+    GASNETI_STATS_PRINTF(C,(" waitType= %s",waitType));
   }
-  GASNETI_TRACE_PRINTF(C,(" group_rbufsize= %i",b->group_rbufsize));
-  GASNETI_TRACE_PRINTF(C,(" group_branch= %i",b->group_branch));
-  GASNETI_TRACE_PRINTF(C,(" group_hwbcast= %i",b->group_hwbcast));
-  GASNETI_TRACE_PRINTF(C,(" tport_nslots= %i",b->tport_nslots));
-  GASNETI_TRACE_PRINTF(C,(" tport_smallmsg= %i",b->tport_smallmsg));
-  GASNETI_TRACE_PRINTF(C,(" tport_bigmsg= %i",b->tport_bigmsg));
+  GASNETI_STATS_PRINTF(C,(" group_rbufsize= %i",b->group_rbufsize));
+  GASNETI_STATS_PRINTF(C,(" group_branch= %i",b->group_branch));
+  GASNETI_STATS_PRINTF(C,(" group_hwbcast= %i",b->group_hwbcast));
+  GASNETI_STATS_PRINTF(C,(" tport_nslots= %i",b->tport_nslots));
+  GASNETI_STATS_PRINTF(C,(" tport_smallmsg= %i",b->tport_smallmsg));
+  GASNETI_STATS_PRINTF(C,(" tport_bigmsg= %i",b->tport_bigmsg));
   #if defined(ELAN_VER_1_3)
-  GASNETI_TRACE_PRINTF(C,(" tport_fragsize= %i",b->tport_fragsize));
+  GASNETI_STATS_PRINTF(C,(" tport_fragsize= %i",b->tport_fragsize));
   #endif
-  GASNETI_TRACE_PRINTF(C,(" evict_cache= %i",b->evict_cache));
+  GASNETI_STATS_PRINTF(C,(" evict_cache= %i",b->evict_cache));
 
-  GASNETI_TRACE_PRINTF(C,(" galloc= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->galloc)));
-  GASNETI_TRACE_PRINTF(C,(" galloc_size= %i",b->galloc_size));
+  GASNETI_STATS_PRINTF(C,(" galloc= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->galloc)));
+  GASNETI_STATS_PRINTF(C,(" galloc_size= %i",b->galloc_size));
 #if 0
-  GASNETI_TRACE_PRINTF(C,(" galloc_base= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->galloc_base)));
+  GASNETI_STATS_PRINTF(C,(" galloc_base= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->galloc_base)));
 #elif defined(ELAN_VER_1_2)
-  GASNETI_TRACE_PRINTF(C,(" galloc_mbase= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->galloc_mbase)));
-  GASNETI_TRACE_PRINTF(C,(" galloc_ebase= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->galloc_ebase)));
+  GASNETI_STATS_PRINTF(C,(" galloc_mbase= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->galloc_mbase)));
+  GASNETI_STATS_PRINTF(C,(" galloc_ebase= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->galloc_ebase)));
 #else
-  GASNETI_TRACE_PRINTF(C,(" gallocElan= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->gallocElan)));
-  GASNETI_TRACE_PRINTF(C,(" gallocElan_size= %i",b->gallocElan_size));
+  GASNETI_STATS_PRINTF(C,(" gallocElan= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->gallocElan)));
+  GASNETI_STATS_PRINTF(C,(" gallocElan_size= %i",b->gallocElan_size));
 #endif
 
-  GASNETI_TRACE_PRINTF(C,(" shm_enable= %i",b->shm_enable));
-  GASNETI_TRACE_PRINTF(C,(" shm_heapsize= %i",b->shm_heapsize));
-  GASNETI_TRACE_PRINTF(C,(" gallocShm= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->gallocShm)));
+  GASNETI_STATS_PRINTF(C,(" shm_enable= %i",b->shm_enable));
+  GASNETI_STATS_PRINTF(C,(" shm_heapsize= %i",b->shm_heapsize));
+  GASNETI_STATS_PRINTF(C,(" gallocShm= "GASNETI_LADDRFMT"",GASNETI_LADDRSTR(b->gallocShm)));
 #if 0
-  GASNETI_TRACE_PRINTF(C,(" gallocShm_size= %i",b->gallocShm_size));
+  GASNETI_STATS_PRINTF(C,(" gallocShm_size= %i",b->gallocShm_size));
 #endif
-  GASNETI_TRACE_PRINTF(C,(" shm_key= %i",b->shm_key));
-  GASNETI_TRACE_PRINTF(C,(" shm_fragsize= %i",b->shm_fragsize));
-  GASNETI_TRACE_PRINTF(C,(" shm_fifodepth= %i",b->shm_fifodepth));
-  GASNETI_TRACE_PRINTF(C,(" shm_bigmsg= %i",b->shm_bigmsg));
+  GASNETI_STATS_PRINTF(C,(" shm_key= %i",b->shm_key));
+  GASNETI_STATS_PRINTF(C,(" shm_fragsize= %i",b->shm_fragsize));
+  GASNETI_STATS_PRINTF(C,(" shm_fifodepth= %i",b->shm_fifodepth));
+  GASNETI_STATS_PRINTF(C,(" shm_bigmsg= %i",b->shm_bigmsg));
 
-  GASNETI_TRACE_PRINTF(C,("}"));
+  GASNETI_STATS_PRINTF(C,("}"));
 
 }
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_dump_state() {
   ELAN_STATE *s = STATE();
 
-  GASNETI_TRACE_PRINTF(C,("ELAN_STATE: {"));
+  GASNETI_STATS_PRINTF(C,("ELAN_STATE: {"));
 
-  GASNETI_TRACE_PRINTF(C,(" version= %s",  s->version));
-  GASNETI_TRACE_PRINTF(C,(" attached= %i", s->attached));
-  GASNETI_TRACE_PRINTF(C,(" vp= %i", s->vp));
-  GASNETI_TRACE_PRINTF(C,(" nvp= %i", s->nvp));
-  GASNETI_TRACE_PRINTF(C,(" ctx= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->ctx)));
-  GASNETI_TRACE_PRINTF(C,(" estate= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->estate)));
-  GASNETI_TRACE_PRINTF(C,(" cap= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->cap)));
+  GASNETI_STATS_PRINTF(C,(" version= %s",  s->version));
+  GASNETI_STATS_PRINTF(C,(" attached= %i", s->attached));
+  GASNETI_STATS_PRINTF(C,(" vp= %i", s->vp));
+  GASNETI_STATS_PRINTF(C,(" nvp= %i", s->nvp));
+  GASNETI_STATS_PRINTF(C,(" ctx= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->ctx)));
+  GASNETI_STATS_PRINTF(C,(" estate= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->estate)));
+  GASNETI_STATS_PRINTF(C,(" cap= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->cap)));
 #ifdef ELAN_VER_1_2
-  GASNETI_TRACE_PRINTF(C,(" main_base= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->main_base)));
-  GASNETI_TRACE_PRINTF(C,(" elan_base= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->elan_base)));
-  GASNETI_TRACE_PRINTF(C,(" alloc_size= %i", s->alloc_size));
+  GASNETI_STATS_PRINTF(C,(" main_base= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->main_base)));
+  GASNETI_STATS_PRINTF(C,(" elan_base= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->elan_base)));
+  GASNETI_STATS_PRINTF(C,(" alloc_size= %i", s->alloc_size));
 #else
-  GASNETI_TRACE_PRINTF(C,(" alloc_base= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->alloc_base)));
-  GASNETI_TRACE_PRINTF(C,(" alloc_size= %i", s->alloc_size));
-  GASNETI_TRACE_PRINTF(C,(" allocElan_base= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->allocElan_base)));
-  GASNETI_TRACE_PRINTF(C,(" allocElan_size= %i", s->allocElan_size));
+  GASNETI_STATS_PRINTF(C,(" alloc_base= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->alloc_base)));
+  GASNETI_STATS_PRINTF(C,(" alloc_size= %i", s->alloc_size));
+  GASNETI_STATS_PRINTF(C,(" allocElan_base= "GASNETI_LADDRFMT"", GASNETI_LADDRSTR(s->allocElan_base)));
+  GASNETI_STATS_PRINTF(C,(" allocElan_size= %i", s->allocElan_size));
 #endif
 
-  GASNETI_TRACE_PRINTF(C,(" debugFlags= %i", s->debugFlags));
-  GASNETI_TRACE_PRINTF(C,(" localId= %i", s->localId));
-  GASNETI_TRACE_PRINTF(C,(" maxLocalIds= %i", s->maxLocalIds));
+  GASNETI_STATS_PRINTF(C,(" debugFlags= %i", s->debugFlags));
+  GASNETI_STATS_PRINTF(C,(" localId= %i", s->localId));
+  GASNETI_STATS_PRINTF(C,(" maxLocalIds= %i", s->maxLocalIds));
 
   { int i;
     char idstr[1024];
@@ -108,19 +108,19 @@ extern void gasnetc_dump_state() {
       sprintf(tmp," %i ", s->localIds[i]);
       strcat(idstr,tmp);
     }
-    GASNETI_TRACE_PRINTF(C,("local_ids= (%s)",idstr));
+    GASNETI_STATS_PRINTF(C,("local_ids= (%s)",idstr));
   }
 
-  GASNETI_TRACE_PRINTF(C,("}"));
+  GASNETI_STATS_PRINTF(C,("}"));
 }
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_dump_group() {
   ELAN_GROUP *g = GROUP();
 
-  GASNETI_TRACE_PRINTF(C,("ELAN_GROUP: {"));
+  GASNETI_STATS_PRINTF(C,("ELAN_GROUP: {"));
 
-  GASNETI_TRACE_PRINTF(C,(" self= %i ", g->self));
-  GASNETI_TRACE_PRINTF(C,(" size= %i ", g->size));
+  GASNETI_STATS_PRINTF(C,(" self= %i ", g->self));
+  GASNETI_STATS_PRINTF(C,(" size= %i ", g->size));
   { int i;
     char vpstr[1024];
     vpstr[0] = '\0';
@@ -129,14 +129,14 @@ extern void gasnetc_dump_group() {
       sprintf(tmp," %i ", g->lookupFn(g->handle, i));
       strcat(vpstr,tmp);
     }
-    GASNETI_TRACE_PRINTF(C,("VPs= (%s)",vpstr));
+    GASNETI_STATS_PRINTF(C,("VPs= (%s)",vpstr));
   }
 
 #if 0
-  GASNETI_TRACE_PRINTF(C,(" bcastVp= %i ", g->bcastVp));
+  GASNETI_STATS_PRINTF(C,(" bcastVp= %i ", g->bcastVp));
 #endif
 
-  GASNETI_TRACE_PRINTF(C,("}"));
+  GASNETI_STATS_PRINTF(C,("}"));
 
 }
 /* ------------------------------------------------------------------------------------ */
@@ -203,11 +203,18 @@ extern void gasnetc_dump_envvars() {
     ""
   };
   { int i;
+    int found=0;
     for (i=0; i < (sizeof(ev)/sizeof(char*)); i++) {
       if (getenv(ev[i])) {
-        GASNETI_TRACE_PRINTF(C,(" %s=%s", ev[i], getenv(ev[i])));
+        if (!found) {
+          GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
+          GASNETI_STATS_PRINTF(C,("ELAN Environment Variables:"));
+          found=1;
+        }
+        GASNETI_STATS_PRINTF(C,(" %s=%s", ev[i], getenv(ev[i])));
       }
     }
+    if (found) GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
   }
 }
 /* ------------------------------------------------------------------------------------ */
@@ -215,11 +222,10 @@ void gasnetc_dump_tportstats() {
   ELAN_TPORTSTATS stats;
   elan_tportGetStats(TPORT(), &stats);
 
-  /* TODO: add GASNETI_STATS_PRINTF and use that here instead */
   #define DUMP_STAT(statname, desc) \
-    GASNETI_TRACE_PRINTF(C,(" %-20s= %-8lu \t("desc")", "ts_"#statname, (unsigned long)stats.ts_##statname))
+    GASNETI_STATS_PRINTF(C,(" %-20s= %-8lu \t("desc")", "ts_"#statname, (unsigned long)stats.ts_##statname))
 
-  GASNETI_TRACE_PRINTF(C,("ELAN_TPORTSTATS: {"));
+  GASNETI_STATS_PRINTF(C,("ELAN_TPORTSTATS: {"));
   DUMP_STAT(dRxBytes, "Number of bytes directly received to user buffer");
   DUMP_STAT(bRxBytes, "Number of bytes received via a buffer");
   DUMP_STAT(txBytes, "Number of bytes transmitted");
@@ -241,7 +247,7 @@ void gasnetc_dump_tportstats() {
   DUMP_STAT(rxLockMWait, "Number of waits done by Main thread");
   DUMP_STAT(bufLockEWait, "Number of waits done by Elan thread");
   DUMP_STAT(bufLockMWait, "Number of waits done by Main thread");
-  GASNETI_TRACE_PRINTF(C,("}"));
+  GASNETI_STATS_PRINTF(C,("}"));
 
   #undef DUMP_STAT
 }
@@ -251,9 +257,9 @@ void gasnetc_dump_groupstats() {
   elan_groupGetStats(GROUP(), &stats);
 
   #define DUMP_STAT(statname, desc) \
-    GASNETI_TRACE_PRINTF(C,(" %-20s= %-8lu \t("desc")", "gs_"#statname, (unsigned long)stats.gs_##statname))
+    GASNETI_STATS_PRINTF(C,(" %-20s= %-8lu \t("desc")", "gs_"#statname, (unsigned long)stats.gs_##statname))
 
-  GASNETI_TRACE_PRINTF(C,("ELAN_GROUPSTATS: {"));
+  GASNETI_STATS_PRINTF(C,("ELAN_GROUPSTATS: {"));
   DUMP_STAT(bcastBytes, "Number of bytes transmitted via bcast");
   DUMP_STAT(hbcastBytes, "Number of bytes transmitted via hbcast");
   DUMP_STAT(bcastBytesNet, "Number of bytes transmitted via bcastNet");
@@ -269,7 +275,7 @@ void gasnetc_dump_groupstats() {
   DUMP_STAT(nBcastShm, "Number of Bcast calls");
   DUMP_STAT(nReduce, "Number of Reduce calls");
   DUMP_STAT(nReduceShm, "Number of ReduceShm calls");
-  GASNETI_TRACE_PRINTF(C,("}"));
+  GASNETI_STATS_PRINTF(C,("}"));
 
   #undef DUMP_STAT
 }

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/08/05 10:23:43 $
- * $Revision: 1.8 $
+ *     $Date: 2002/08/06 07:58:28 $
+ * $Revision: 1.9 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -200,17 +200,22 @@ gasneti_stattime_t starttime;
   }
 
   /* dump message to tracefile */
-  extern void gasneti_trace_output(char *type, char *msg) {
+  extern void gasneti_trace_output(char *type, char *msg, int traceheader) {
     double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
     assert(tracefile);
-    #ifdef GASNETI_THREADS
-      fprintf(tracefile, "%i(%x) %8.6fs> (%c) %s%s", 
-        gasnet_mynode(), (int)pthread_self(), time, *type, msg,
-        (msg[strlen(msg)-1]=='\n'?"":"\n"));
-    #else
-      fprintf(tracefile, "%i %8.6fs> (%c) %s%s", gasnet_mynode(), time, *type, msg,
-              (msg[strlen(msg)-1]=='\n'?"":"\n"));
-    #endif
+    if (traceheader) {
+      #ifdef GASNETI_THREADS
+        fprintf(tracefile, "%i(%x) %8.6fs> (%c) %s%s", 
+          gasnet_mynode(), (int)pthread_self(), time, *type, msg,
+          (msg[strlen(msg)-1]=='\n'?"":"\n"));
+      #else
+        fprintf(tracefile, "%i %8.6fs> (%c) %s%s", gasnet_mynode(), time, *type, msg,
+                (msg[strlen(msg)-1]=='\n'?"":"\n"));
+      #endif
+    } else {
+        fprintf(tracefile, "%i> (%c) %s%s", gasnet_mynode(), *type, msg,
+                (msg[strlen(msg)-1]=='\n'?"":"\n"));
+    }
     fflush(tracefile);
   }
   /* dump message to tracefile with simple header */

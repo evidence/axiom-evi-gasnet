@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/08/05 10:23:44 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/06 07:58:29 $
+ * $Revision: 1.3 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -228,9 +228,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   /* dump startup elan environment */
   if (GASNETI_TRACE_ENABLED(C) && gasnetc_mynode == 0) {
     gasnetc_dump_envvars();
+    GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
+    GASNETI_STATS_PRINTF(C,("ELAN Initialization State:"));
     gasnetc_dump_base();
     gasnetc_dump_group();
     gasnetc_dump_state();
+    GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
   }  
 
   /*  check argument sanity */
@@ -390,11 +393,11 @@ extern void gasnetc_exit(int exitcode) {
 extern void gasnetc_trace_finish() {
   /* dump elan statistics */
   if (GASNETI_TRACE_ENABLED(C) ) {
-    GASNETI_TRACE_PRINTF(C,("--------------------------------------------------------------------------------"));
-    GASNETI_TRACE_PRINTF(C,("Elan Statistics:"));
+    GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
+    GASNETI_STATS_PRINTF(C,("Elan Statistics:"));
     gasnetc_dump_tportstats();
     gasnetc_dump_groupstats();
-    GASNETI_TRACE_PRINTF(C,("--------------------------------------------------------------------------------"));
+    GASNETI_STATS_PRINTF(C,("--------------------------------------------------------------------------------"));
   }
 }
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2002/08/05 10:23:43 $
- * $Revision: 1.8 $
+ *     $Date: 2002/08/06 07:58:28 $
+ * $Revision: 1.9 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -122,12 +122,33 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #define GASNETI_TRACE_PRINTF(type, args) do { \
     if (GASNETI_TRACE_ENABLED(type)) {          \
       char *msg = gasneti_dynsprintf args;      \
-      gasneti_trace_output(#type, msg);         \
+      gasneti_trace_output(#type, msg, 1);      \
     }                                           \
   } while(0)
 #else
   #define GASNETI_TRACE_MSG(type, string) 
   #define GASNETI_TRACE_PRINTF(type, args)
+#endif
+
+#ifdef STATS
+  /* print an arbitrary string of statistical output on the trace 
+     Ex: GASNETI_STATS_MSG(C, "init complete") */
+  #define GASNETI_STATS_MSG(type, string) \
+      GASNETI_STATS_PRINTF((type), ("%s",(string)))
+
+  /* print a formatted string of statistical output on the trace 
+     Ex: GASNETI_TRACE_PRINTF(C, ("%i buffers free", numbufs))
+      (note the extra parentheses around arg)
+  */
+  #define GASNETI_STATS_PRINTF(type, args) do { \
+    if (GASNETI_TRACE_ENABLED(type)) {          \
+      char *msg = gasneti_dynsprintf args;      \
+      gasneti_trace_output(#type, msg, 0);      \
+    }                                           \
+  } while(0)
+#else
+  #define GASNETI_STATS_MSG(type, string) 
+  #define GASNETI_STATS_PRINTF(type, args)
 #endif
 
 /* allow for final output of conduit-specific statistics */
@@ -535,7 +556,7 @@ extern void gasneti_trace_finish();
 
   extern char *gasneti_dynsprintf(char *,...);
   extern char *gasneti_formatdata(void *p, int nbytes);
-  extern void gasneti_trace_output(char *type, char *msg);
+  extern void gasneti_trace_output(char *type, char *msg, int traceheader);
 
   extern char gasneti_tracetypes[];
   #define GASNETI_TRACE_ENABLED(type) ((int)gasneti_tracetypes[(int)*(char*)#type])
