@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/01/11 22:46:45 $
- * $Revision: 1.9 $
+ *     $Date: 2003/01/25 13:45:45 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -399,6 +399,11 @@ extern int
 gasnete_barrier_wait(int id, int flags)
 {
 	return gasnete_extref_barrier_wait(id,flags);
+}
+extern int 
+gasnete_barrier_try(int id, int flags)
+{
+	return gasnete_extref_barrier_try(id,flags);
 }
 
 extern gasnet_handle_t 
