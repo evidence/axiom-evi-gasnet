@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMUDP/Makefile                                         $
-#     $Date: 2004/01/19 12:57:33 $
-# $Revision: 1.3 $
+#     $Date: 2004/01/27 09:19:11 $
+# $Revision: 1.4 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -29,7 +29,7 @@ link = $(CXX) ${cxxflags} ${platform_defines} ${includes}
 linkend = ${libraries}
 
 # all the test executables
-testprograms = testamudp testgetput testreadwrite testping testbulk testbounce testreduce testlatency
+testprograms = testam testgetput testreadwrite testping testbulk testbounce testreduce testlatency
 
 # all the library objects and headers
 objects=amudp_ep.o amudp_reqrep.o amudp_spmd.o amudp_spawn.o exc.o sig.o socklist.o sockutil.o
@@ -86,7 +86,7 @@ run-tests: tests
 	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
 	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
 	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DEPTH) $(TEST_DUPLEX)
-	./testamudp $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
 	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
 	./testreduce $(TEST_NODES) $(TEST_SPAWNFN)
 	if test -x ./testgetput ; then ./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; fi

@@ -38,7 +38,7 @@ libammpi_a_DEPENDENCIES = $(libammpi_a_SOURCES:%.c=%.o)
 EXTRA_DIST =        \
     apputils.c      \
     apputils.h      \
-    testammpi.c     \
+    testam.c        \
     testbounce.c    \
     testbulk.c      \
     testgetput.c    \
@@ -59,7 +59,7 @@ else
 endif
 
 testprograms =    		\
-    testammpi     		\
+    testam       		\
     testbounce    		\
     testbulk      		\
     testlatency   		\

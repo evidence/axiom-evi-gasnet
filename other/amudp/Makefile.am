@@ -56,7 +56,7 @@ libamudp_a_DEPENDENCIES = $(libamudp_a_SOURCES:%.cpp=%.o)
 EXTRA_DIST =        \
     apputils.c      \
     apputils.h      \
-    testamudp.c     \
+    testam.c        \
     testbounce.c    \
     testbulk.c      \
     testgetput.c    \
@@ -76,7 +76,7 @@ else
 endif
 
 testprograms =    		\
-    testamudp     		\
+    testam        		\
     testbounce    		\
     testbulk      		\
     testlatency   		\
@@ -100,7 +100,7 @@ run-tests: tests
 	./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
 	./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
 	./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DEPTH) $(TEST_DUPLEX)
-	./testamudp $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
+	./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) $(TEST_DEPTH)
 	./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
 	./testreduce $(TEST_NODES) $(TEST_SPAWNFN) 
 if PLATFORM_ILP32
