@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.22 2003/03/13 04:08:27 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.23 2003/03/26 23:16:00 phargrov Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -88,7 +88,7 @@ libs: $(libraries)
 if USE_GM_CONDUIT                           
 lib_LIBRARIES = $(libraries)
 
-all: libs
+all: libs $(makefile_fragments)
 	
 clean-local: 
 	rm -f $(libgasnet_objects) $(libraries) *.o core
@@ -128,17 +128,17 @@ tests:
 	@echo You must specify one of tests-seq, tests-par or tests-parsync
 	@exit 1
 
-tests-seq: force libgasnet-gm-seq.a
+tests-seq: force libgasnet-gm-seq.a gm-seq.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="gm-seq.mak"
 
-tests-parsync: force libgasnet-gm-parsync.a
+tests-parsync: force libgasnet-gm-parsync.a gm-parsync.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="gm-parsync.mak"
 
-tests-par: force libgasnet-gm-par.a
+tests-par: force libgasnet-gm-par.a gm-par.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="gm-par.mak"

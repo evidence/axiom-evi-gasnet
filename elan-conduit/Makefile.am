@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.11 2003/03/26 22:50:47 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v 1.12 2003/03/26 23:15:59 phargrov Exp $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt 
@@ -73,7 +73,7 @@ libgasnet-elan-par.a: $(libgasnet_dependencies)
 	$(RANLIB) $@
 	rm -f $(libgasnet_objects)
 
-libgasnet-elan-parsync.a: $(libgasnet_dependencies)
+libgasnet-elan-parsync.a: $(libgasnet_dependencies)	
 	$(CC) $(LIBCFLAGS) -DGASNET_PARSYNC $(thread_defines) -c $(libgasnet_sources)
 	$(AR) cru $@ $(libgasnet_objects)
 	$(RANLIB) $@
@@ -87,7 +87,7 @@ libs: $(libraries)
 if USE_ELAN_CONDUIT                           
 lib_LIBRARIES = $(libraries)
 
-all: libs
+all: libs $(makefile_fragments)
 	
 clean-local: 
 	rm -f $(libgasnet_objects) $(libraries) *.o core
@@ -127,17 +127,17 @@ tests:
 	@echo You must specify one of tests-seq, tests-par or tests-parsync
 	@exit 1
 
-tests-seq: force libgasnet-elan-seq.a
+tests-seq: force libgasnet-elan-seq.a elan-seq.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="elan-seq.mak"
 
-tests-parsync: force libgasnet-elan-parsync.a
+tests-parsync: force libgasnet-elan-parsync.a elan-parsync.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="elan-parsync.mak"
 
-tests-par: force libgasnet-elan-par.a
+tests-par: force libgasnet-elan-par.a elan-par.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="elan-par.mak"

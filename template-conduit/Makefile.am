@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.11 2003/03/26 22:50:50 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/Makefile.am,v 1.12 2003/03/26 23:16:04 phargrov Exp $
 # Description: Makefile for GASNet <conduitname> conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -72,7 +72,7 @@ libs: $(libraries)
 if USE_<CONDUITNAME>_CONDUIT                           
 lib_LIBRARIES = $(libraries)
 
-all: libs
+all: libs $(makefile_fragments)
 	
 clean-local: 
 	rm -f $(libgasnet_objects) $(libraries) *.o core
@@ -109,17 +109,17 @@ tests:
 	@echo You must specify one of tests-seq, tests-par or tests-parsync
 	@exit 1
 
-tests-seq: force libgasnet-<conduitname>-seq.a
+tests-seq: force libgasnet-<conduitname>-seq.a <conduitname>-seq.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="<conduitname>-seq.mak"
 
-tests-parsync: force libgasnet-<conduitname>-parsync.a
+tests-parsync: force libgasnet-<conduitname>-parsync.a <conduitname>-parsync.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="<conduitname>-parsync.mak"
 
-tests-par: force libgasnet-<conduitname>-par.a
+tests-par: force libgasnet-<conduitname>-par.a <conduitname>-par.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="<conduitname>-par.mak"

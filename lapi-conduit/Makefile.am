@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.12 2003/02/25 14:24:47 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.13 2003/03/26 23:16:02 phargrov Exp $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -75,7 +75,7 @@ libs: $(libraries)
 if USE_LAPI_CONDUIT                           
 lib_LIBRARIES = $(libraries)
 
-all: libs
+all: libs $(makefile_fragments)
 
 clean-local: 
 	rm -f $(libgasnet_objects) $(libraries) *.o core
@@ -115,17 +115,17 @@ tests:
 	@echo You must specify one of tests-seq, tests-par or tests-parsync
 	@exit 1
 
-tests-seq: force libgasnet-lapi-seq.a
+tests-seq: force libgasnet-lapi-seq.a lapi-seq.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="lapi-seq.mak"
 
-tests-parsync: force libgasnet-lapi-parsync.a
+tests-parsync: force libgasnet-lapi-parsync.a lapi-parsync.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="lapi-parsync.mak"
 
-tests-par: force libgasnet-lapi-par.a
+tests-par: force libgasnet-lapi-par.a lapi-par.mak
 	@$(MAKE) -f $(top_builddir)/tests/Makefile tests     \
 	  srcdir="$(top_srcdir)/tests"			     \
 	  configfile="lapi-par.mak"
