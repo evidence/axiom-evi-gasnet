@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_sg.h                 $
- *     $Date: 2004/06/20 10:09:32 $
- * $Revision: 1.4 $
+ *     $Date: 2004/06/23 22:06:12 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -429,12 +429,12 @@ void gasnete_strided_stats(gasnete_strided_stats_t *result,
       for (_i = 1; _i < _stridelevels; _i++) {                                                   \
         if_pf (_dststrides[_i] < (_count[_i] * _dststrides[_i-1]))                               \
           gasneti_fatalerror("dststrides[%i](%i) < (count[%i](%i) * dststrides[%i](%i)) at: %s", \
-                     _i,(int)_dststrides[_i],                                                    \
-                     _i,(int)_count[_i], _i-1,(int)_dststrides[_i-1], gasneti_current_loc);      \
+                     (int)_i,(int)_dststrides[_i],                                               \
+                     (int)_i,(int)_count[_i], (int)_i-1,(int)_dststrides[_i-1], gasneti_current_loc); \
         if_pf (_srcstrides[_i] < (_count[_i] * _srcstrides[_i-1]))                               \
           gasneti_fatalerror("srcstrides[%i](%i) < (count[%i](%i) * srcstrides[%i](%i)) at: %s", \
-                     _i,(int)_srcstrides[_i],                                                    \
-                     _i,(int)_count[_i], _i-1,(int)_srcstrides[_i-1], gasneti_current_loc);      \
+                     (int)_i,(int)_srcstrides[_i],                                               \
+                     (int)_i,(int)_count[_i], (int)_i-1,(int)_srcstrides[_i-1], gasneti_current_loc); \
       }                                                                                          \
     }                                                                                            \
   } while (0)
