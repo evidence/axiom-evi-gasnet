@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/09/22 20:40:52 $
-# $Revision: 1.187 $
+#     $Date: 2004/09/22 23:14:10 $
+# $Revision: 1.188 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.187 $)
+AC_REVISION($Revision: 1.188 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -929,6 +929,41 @@ if test $enabled_mpi = yes; then
       AC_MSG_WARN(build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details)
       AC_MSG_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit)
       have_mpi=no
+  fi
+  if test "$mpi_test_worked" = yes ; then
+    AC_MSG_CHECKING([for debug vs. optimize conflict in mpicc])
+    # we need a clean slate here because MPI config may be totally different
+    OLDCC="$CC"
+    OLDCFLAGS="$CFLAGS"
+    OLDCPPFLAGS="$CPPFLAGS"
+    OLDLDFLAGS="$LDFLAGS"
+    OLDLIBS="$LIBS"
+    CC="$MPI_CC"
+    CFLAGS="$MPI_CFLAGS"
+    CPPFLAGS=""
+    LDFLAGS=""
+    LIBS="$MPI_LIBS"
+    AC_TRY_COMPILE( [
+      #include <stdlib.h>
+      #include <mpi.h>
+      #if defined(GASNET_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
+	choke me
+      #endif
+    ], [
+      MPI_Init(NULL,NULL);
+      MPI_Finalize();
+    ], [ mpi_debug_optimized=yes ], [ mpi_debug_optimized=no] )
+    CC="$OLDCC"
+    CFLAGS="$OLDCFLAGS"
+    CPPFLAGS="$OLDCPPFLAGS"
+    LDFLAGS="$OLDLDFLAGS"
+    LIBS="$OLDLIBS"
+    if test "$mpi_debug_optimized" = no; then
+      AC_MSG_RESULT([work around])
+      MPI_CFLAGS="$CFLAGS -DGASNET_ALLOW_OPTIMIZED_DEBUG"
+    else
+      AC_MSG_RESULT([ok])
+    fi
   fi
   if test "$force_mpi$have_mpi" = yesno ; then
     AC_MSG_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)

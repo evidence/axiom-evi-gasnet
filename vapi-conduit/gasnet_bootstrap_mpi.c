@@ -1,15 +1,10 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_bootstrap_mpi.c,v $
- *     $Date: 2004/08/26 04:54:13 $
- * $Revision: 1.6 $
+ *     $Date: 2004/09/22 23:14:12 $
+ * $Revision: 1.7 $
  * Description: GASNet vapi conduit implementation, mpi bootstrap code
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
  */
-
-/* Work around mpicc which always wants to perform an optimized build */
-#ifndef GASNET_ALLOW_OPTIMIZED_DEBUG
-  #define GASNET_ALLOW_OPTIMIZED_DEBUG 1
-#endif
 
 #include <signal.h>
 
