@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2002/08/30 03:27:23 $
- * $Revision: 1.3 $
+ *     $Date: 2002/09/17 10:01:23 $
+ * $Revision: 1.4 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -39,7 +39,23 @@ int main(int argc, char **argv) {
   BARRIER();
 
   if (mynode == 0) {
-      printf("Total time: %8.3f sec  Avg Barrier latency: %8.3f us\n",
+      printf("Total time: %8.3f sec  Avg Named Barrier latency: %8.3f us\n",
+        ((float)total)/1000000, ((float)total)/iters);
+      fflush(stdout);
+  }
+  BARRIER();
+
+  start = TIME();
+  for (i=0; i < iters; i++) {
+    gasnet_barrier_notify(0, GASNET_BARRIERFLAG_ANONYMOUS);            
+    GASNET_Safe(gasnet_barrier_wait(0, GASNET_BARRIERFLAG_ANONYMOUS)); 
+  }
+  total = TIME() - start;
+
+  BARRIER();
+
+  if (mynode == 0) {
+      printf("Total time: %8.3f sec  Avg Anon. Barrier latency: %8.3f us\n",
         ((float)total)/1000000, ((float)total)/iters);
       fflush(stdout);
   }

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/09/13 11:16:29 $
- * $Revision: 1.14 $
+ *     $Date: 2002/09/17 10:01:22 $
+ * $Revision: 1.15 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1032,7 +1032,8 @@ extern int gasnete_barrier_wait(int id, int flags) {
   /*  update state */
   barrier_splitstate = OUTSIDE_BARRIER;
   barrier_response_done[phase] = 0;
-  if_pf(id != barrier_value || flags != barrier_flags || 
+  if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != barrier_value) || 
+        flags != barrier_flags || 
         barrier_response_mismatch[phase]) {
         barrier_response_mismatch[phase] = 0;
         return GASNET_ERR_BARRIER_MISMATCH;
