@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/03/15 20:16:04 $
- * $Revision: 1.78 $
+ *     $Date: 2005/03/16 22:48:33 $
+ * $Revision: 1.79 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1281,7 +1281,7 @@ static int gasnetc_exit_head(int exitcode) {
  * First we set the atomic variable gasnetc_exit_done to allow the exit
  * of any threads which are spinning on it in gasnetc_exit().
  * Then this function tries hard to actually terminate the calling thread.
- * If for some unlikely reason the _exit() call returns, we abort().
+ * If for some unlikely reason gasneti_killmyprocess() returns, we abort().
  *
  * DOES NOT RETURN
  */
@@ -1359,7 +1359,7 @@ static void gasnetc_exit_sighandler(int sig) {
 /* gasnetc_exit_master
  *
  * We say a polite goodbye to our peers and then listen for their replies.
- * This forms the root nodes portion of a barrier for graceful shutdown.
+ * This forms the root node's portion of a barrier for graceful shutdown.
  *
  * The "goodbyes" are just a system-category AM containing the desired exit code.
  * The AM helps ensure that on non-collective exits the "other" nodes know to exit.
@@ -1405,7 +1405,7 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
  *
  * We wait for a polite goodbye from the exit master.
  *
- * Takes a timeout in us as arguments
+ * Takes a timeout in us as an argument
  *
  * Returns 0 on success, non-zero on timeout.
  */
@@ -1440,7 +1440,7 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
  * the actual termination.  Note also that this function will block all calling threads other than
  * the first until the shutdown code has been completed.
  *
- * XXX: timouts contained here are entirely arbitrary
+ * XXX: timeouts contained here are entirely arbitrary
  */
 static void gasnetc_exit_body(void) {
   int i, role, exitcode;
@@ -1515,12 +1515,6 @@ static void gasnetc_exit_body(void) {
   case GASNETC_EXIT_ROLE_SLAVE:
     /* wait for the exit request and reply before proceeding */
     graceful = (gasnetc_exit_slave(timeout_us) == 0);
-    /* XXX:
-     * How do we know our reply has actually been sent on the wire before we trash the end point?
-     * We probably need to use the send-drain that IB provides our use our own counters.
-     * For now we rely on a short sleep() to be sufficient.
-     */
-    alarm(0); sleep(1);
     break;
 
   default:
@@ -1638,8 +1632,6 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
 		  	   gasneti_handleridx(gasnetc_SYS_exit_rep), /* no args */ 0);
   gasneti_assert(rc == GASNET_OK);
 
-  /* XXX: save the identity of the master here so we can later drain the send queue of the reply? */
-
   /* Initiate an exit IFF this is the first we've heard of it */
   if (gasnetc_exit_head(args[0])) {
     gasneti_sighandlerfn_t handler;
@@ -1649,7 +1641,7 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
      *
      * This is currently safe because:
      * 1) request handlers are run w/ no locks held
-     * 2) we always have an extra thread to recv AM requests
+     * 2) we poll for AMs in all the places we need them
      */
 
     /* To try and be reasonably robust, want to avoid performing the shutdown and exit from signal
@@ -1714,6 +1706,8 @@ static void gasnetc_exit_reph(gasnet_token_t token, gasnet_handlerarg_t *args, i
  * the parallel job.  Therefore, we can "safely" pass 0 to our peers and still
  * expect to preserve a non-zero exit code for the GASNet job as a whole.  Of course
  * there is no _guarantee_ this will work with all bootstraps.
+ *
+ * XXX: consider autoconf probe for on_exit()
  */
 static void gasnetc_atexit(void) {
   /* Check return from _head to avoid reentrance */
