@@ -1119,8 +1119,7 @@ fhi_TryAcquireRemoteRegion(firehose_request_t *req,
 			 * does not have a callback associated to it yet,
 			 * allocate it */
 			if (FH_IS_REMOTE_PENDING(bd)) {
-				gasneti_assert(bd->fh_tqe_next != NULL && 
-				       bd->fh_tqe_next != FH_USED_TAG);
+				gasneti_assert(bd->fh_tqe_next != NULL);
 
 				if (!(req->flags & FH_FLAG_PENDING)) {
 					gasneti_assert(req->internal == NULL);
@@ -1169,9 +1168,9 @@ fhi_TryAcquireRemoteRegion(firehose_request_t *req,
 			if (!(req->flags & FH_FLAG_PENDING)) {
 				gasneti_assert(req->internal == NULL);
 				ccba = fh_alloc_completion_callback();
-				ccba->fh_tqe_next = FH_COMPLETION_END;
 				memcpy(ccba, ccb, 
 					    sizeof(fh_completion_callback_t));
+				ccba->fh_tqe_next = FH_COMPLETION_END;
 				bd->fh_tqe_next = (fh_bucket_t *) ccba;
 				req->flags |= FH_FLAG_PENDING;
 				req->internal = (firehose_private_t *) ccba;

@@ -478,7 +478,7 @@ struct _fh_completion_callback_t {
 	void			*context;
 }
 fh_completion_callback_t;
-#define FH_COMPLETION_END	((fh_completion_callback_t *) -1)
+#define FH_COMPLETION_END	((fh_completion_callback_t *)(FH_USED_TAG))
 
 fh_completion_callback_t *	fh_alloc_completion_callback();
 void	fh_free_completion_callback(fh_completion_callback_t *rc);
