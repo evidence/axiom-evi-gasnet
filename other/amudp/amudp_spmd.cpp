@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_spmd.cpp                                   $
- *     $Date: 2004/04/03 02:52:22 $
- * $Revision: 1.7 $
+ *     $Date: 2004/04/05 06:44:23 $
+ * $Revision: 1.8 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -222,7 +222,7 @@ static void handleStdOutput(FILE *fd, fd_set *psockset, SocketList& list, Socket
         }
       // TODO: line-by-line buffering
       int sz = numBytesWaiting(s);
-      AMUDP_assert(sz > 0);
+      //AMUDP_assert(sz > 0); // sometimes this happens, at least on Solaris
       char *buf = new char[sz+2];
       recvAll(s, buf, sz);
       buf[sz] = '\0';
