@@ -637,13 +637,13 @@ typedef void
 		is composed of a bitwise or of values.
 		The value of 'flags' will include GASNET_COLL_NONCOMM
 		if and only if the client passed this same flag to the
-		collective initiation function.
+		gasnet_coll_init() function when registering this function.
 		The remaining bits of 'flags' are reserved for future use and
 		the client must not assume they will have any particular
 		value.
 	arg: Client-supplied argument
-		This is the one argument passed into the collective
-		initiation function by the client.
+		This is the one argument passed into the gasnet_coll_init()
+		function by the client when registering this function.
 
 Here is an example for a reduction (summation of integers), which takes
 (slight) advantage of commutativity to start with the right-hand operands,
@@ -932,9 +932,11 @@ remaining arguments are "single valued".  For instance the nodes must
 all agree on the "root" of a broadcast, scatter or gather, even though
 only the root node will provided its address.  Of course all nodes
 must agree on the nbytes and the flags.  Operation of any collective
-in which the arguments fail to agree as required will be undefined,
-although high-quality implementations are encouraged to issue an 
-explanatory fatal error message for this type of user error.
+in which the arguments fail to agree as required will be undefined.
+In the event of such a user error, high-quality implementations are
+encouraged to issue an explanatory fatal error message if debugging
+is enabled or if checking for agreement does not require additional
+communication.
 
 For the multiple-address interfaces, there is additional metadata
 required to indicate how many images exist on each node.  Since these
