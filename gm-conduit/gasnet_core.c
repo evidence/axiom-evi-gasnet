@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.26 2002/10/03 18:06:56 csbell Exp $
- * $Date: 2002/10/03 18:06:56 $
+/* $Id: gasnet_core.c,v 1.27 2002/11/22 05:50:43 bonachea Exp $
+ * $Date: 2002/11/22 05:50:43 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -96,6 +96,8 @@ gasnetc_init(int *argc, char ***argv)
 
 	if (gasnetc_init_done) 
 		GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
+
+        if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
 
 	#if DEBUG_VERBOSE
 	/* note - can't call trace macros during gasnet_init because trace

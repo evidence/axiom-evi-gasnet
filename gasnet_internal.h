@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/10/17 05:05:40 $
- * $Revision: 1.19 $
+ *     $Date: 2002/11/22 05:50:41 $
+ * $Revision: 1.20 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -68,6 +68,8 @@ void gasneti_free_inhandler(void *ptr) {
 /* ------------------------------------------------------------------------------------ */
 /* portable microsecond granularity wall-clock timer */
 extern int64_t gasneti_getMicrosecondTimeStamp(void);
+
+extern void gasneti_freezeForDebugger();
 /* ------------------------------------------------------------------------------------ */
 /* portable atomic increment */
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/10/28 12:49:53 $
- * $Revision: 1.18 $
+ *     $Date: 2002/11/22 05:50:41 $
+ * $Revision: 1.19 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -102,6 +102,26 @@ size_t gasneti_getSystemPageSize() {
     assert(pagesz > 0);
     return pagesz;
   #endif
+}
+/* ------------------------------------------------------------------------------------ */
+static volatile int gasnet_frozen = TRUE;
+/*  all this to make sure we get a full stack frame for debugger */
+static void _freezeForDebugger(int depth) {
+  if (!depth) _freezeForDebugger(1);
+  else {
+    volatile int i;
+    while (gasnet_frozen) {
+      i++;
+      sleep(1);
+    }
+  }
+}
+extern void gasneti_freezeForDebugger() {
+  char name[255];
+  gethostname(name, 255);
+  fprintf(stderr,"GASNet node frozen for debugger: host=%s  pid=%i\n", name, getpid()); 
+  fflush(stderr);
+  _freezeForDebugger(0);
 }
 /* ------------------------------------------------------------------------------------ */
 static gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t fp) {

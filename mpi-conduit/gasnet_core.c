@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/10/06 10:07:55 $
- * $Revision: 1.20 $
+ *     $Date: 2002/11/22 05:50:46 $
+ * $Revision: 1.21 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -86,6 +86,8 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     /*  check system sanity */
     gasnetc_check_config();
+
+    if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
 
     #if DEBUG_VERBOSE
       /* note - can't call trace macros during gasnet_init because trace system not yet initialized */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/10/03 14:30:40 $
- * $Revision: 1.18 $
+ *     $Date: 2002/11/22 05:50:47 $
+ * $Revision: 1.19 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -65,6 +65,8 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   if (gasnetc_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
+
+  if (getenv("GASNET_FREEZE")) gasneti_freezeForDebugger();
 
   #if DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
