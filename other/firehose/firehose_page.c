@@ -1908,7 +1908,7 @@ fhsmp_RemoteRollback(gasnet_node_t node,
     * Restore the buckets taken as "free energy"
      */
     GASNETI_TRACE_PRINTF(C, ("Rollback free energy = %d", 
-	(pin_p->buckets_num - unpin_p->buckets_num)));
+	(unsigned int) (pin_p->buckets_num - unpin_p->buckets_num)));
     fhc_RemoteBucketsUsed[node] +=
         (pin_p->buckets_num - unpin_p->buckets_num);
 

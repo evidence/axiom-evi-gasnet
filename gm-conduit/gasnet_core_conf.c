@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_conf.c,v 1.11 2004/07/15 07:17:54 csbell Exp $
- * $Date: 2004/07/15 07:17:54 $
+/* $Id: gasnet_core_conf.c,v 1.12 2004/07/15 17:31:59 csbell Exp $
+ * $Date: 2004/07/15 17:31:59 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -8,8 +8,8 @@
 /* Much of the code below is taken from Myricom's MPICH bootstrap code */
 
 #include <gasnet_core_internal.h>
+#include <arpa/inet.h>
 #include <string.h>
-#include <netdb.h>
 
 #define RETURN_ERR(err)	do {	\
 		printf err;			\
@@ -201,11 +201,10 @@ gasnetc_getconf_mpiexec()
 		gasneti_fatalerror(
 		    "%d> Can't open first socket", gasnetc_mynode);
 	else {
-		struct hostent	*slave_he;
-		char		*slave;
-		char		buf[256];
-
-		struct sockaddr_in  sin;
+		char	buf[256];
+		char	*slave;
+		char	slave_n[32];
+		int	hostlen;
 
 		slave = getenv("GMPI_SLAVE");
 		if (slave == NULL || *slave == '\0') {
@@ -216,23 +215,14 @@ gasnetc_getconf_mpiexec()
 				    "Can't identify local hostname");
 		}
 
-		sin.sin_family = AF_INET;
-		sin.sin_addr.s_addr = inet_addr(slave);
-
-		slave_he = gethostbyaddr((char *)&(sin.sin_addr),
-		    sizeof(sin.sin_addr), (int)sin.sin_family);
-
-		if (slave_he == NULL)
-			gasneti_fatalerror("%d> can't get hostname for %s",
-					gasnetc_mynode, slave);
-		/*
-		 * Bind the slave to a port
-		 */
+		memset(&slave_n, 0, 32);
+		if (inet_pton(AF_INET, slave, slave_n) == INADDR_NONE)
+		    gasneti_fatalerror("%d> Could not translate IP %s", 
+			gasnetc_mynode, slave);
 
 		memset(&_gmc.slave_addr, 0, sizeof(struct sockaddr));
 		_gmc.slave_addr.sin_family = AF_INET;
-		memcpy(&_gmc.slave_addr.sin_addr, 
-			slave_he->h_addr, slave_he->h_length);
+		memcpy(&_gmc.slave_addr.sin_addr, slave_n, strlen(slave_n));
 
 		for (slave_port = 8000; slave_port < 20000; slave_port++) {
 			_gmc.slave_addr.sin_port = htons(slave_port);
@@ -244,7 +234,6 @@ gasnetc_getconf_mpiexec()
 			gasneti_fatalerror(
 			    "%d> Couldn't find a port to bind slave socket",
 			    gasnetc_mynode);
-	
 	}
 
 	/*
@@ -263,27 +252,20 @@ gasnetc_getconf_mpiexec()
 		gasneti_fatalerror(
 		    "%d> Can't open second socket", gasnetc_mynode);
 	else {
-		struct hostent		*master_he;
-		struct sockaddr_in	sin;
-		gm_u64_t 		start_time, stop_time;
-		ssize_t			b;
-		int			junk;
+		gm_u64_t    start_time, stop_time;
+		char	    master_n[32];
+		ssize_t	    b;
+		int	    junk;
 
-		sin.sin_family = AF_INET;
-		sin.sin_addr.s_addr = inet_addr(master);
-
-		master_he = gethostbyaddr((char *)&(sin.sin_addr),
-		    sizeof(sin.sin_addr), (int)sin.sin_family);
-
-		if (master_he == NULL)
-			gasneti_fatalerror("%d> can't get hostname for %s",
-					gasnetc_mynode, master);
+		memset(&master_n, 0, 32);
+		if (inet_pton(AF_INET, master, master_n) == INADDR_NONE)
+		    gasneti_fatalerror("%d> Could not translate IP %s",
+			gasnetc_mynode, master);
 
 		memset(&_gmc.master_addr, 0, sizeof(struct sockaddr));
 		_gmc.master_addr.sin_family = AF_INET;
 		_gmc.master_addr.sin_port = htons(_gmc.master_port);
-		memcpy(&_gmc.master_addr.sin_addr, master_he->h_addr, 
-		       master_he->h_length);
+		memcpy(&_gmc.master_addr.sin_addr, master_n, strlen(master_n));
 
 		start_time = gm_ticks(_gmc.port);
 
