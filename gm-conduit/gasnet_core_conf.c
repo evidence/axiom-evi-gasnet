@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_conf.c,v 1.4 2003/04/18 07:00:35 bonachea Exp $
- * $Date: 2003/04/18 07:00:35 $
+/* $Id: gasnet_core_conf.c,v 1.5 2003/05/22 15:11:38 csbell Exp $
+ * $Date: 2003/05/22 15:11:38 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -155,7 +155,7 @@ gasnetc_getconf_sockets(void)
 		RETURN_ERR(("Bad number of processes: %s", np));
 
 	if ((sscanf (id, "%hu", (unsigned short *) &gasnetc_mynode) != 1) && 
-	    gasnetc_mynode != (gasnet_node_t) 65535) 
+	    gasnetc_mynode != (gasnet_node_t) -1) 
 		RETURN_ERR(("Bad id %d out of %d processes", gasnetc_mynode, 
 		    gasnetc_nodes));
 	else {
