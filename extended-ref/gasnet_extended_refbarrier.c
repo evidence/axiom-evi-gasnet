@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/03/03 20:11:38 $
- * $Revision: 1.7 $
+ *     $Date: 2004/03/05 01:31:40 $
+ * $Revision: 1.8 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,7 +176,11 @@ extern void gasnete_ambarrier_notify(int id, int flags) {
     gasneti_assert (ambarrier_size <= GASNETE_AMBARRIER_MAXSTEP);
   }
 
-  ambarrier_value = id;
+  /* If we are on an ILP64 platform, this cast will ensure we truncate the same
+   * bits locally as we do when passing over the network.
+   */
+  ambarrier_value = (gasnet_handlerarg_t)id;
+
   ambarrier_flags = flags;
   phase = !ambarrier_phase; /*  enter new phase */
   ambarrier_phase = phase;
@@ -223,7 +227,7 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW_IFENABLED(B)-wait_start);
 
   /* determine return value */
-  if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != ambarrier_value) || 
+  if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (gasnet_handlerarg_t)id != ambarrier_value) || 
         flags != ambarrier_flags ||
 	ambarrier_mismatch[phase]) {
         ambarrier_mismatch[phase] = 0;
@@ -369,7 +373,11 @@ extern void gasnete_ambarrier_notify(int id, int flags) {
     ambarrier_notifytime = GASNETI_STATTIME_NOW_IFENABLED(B);
   #endif
 
-  ambarrier_value = id;
+  /* If we are on an ILP64 platform, this cast will ensure we truncate the same
+   * bits locally as we do when passing over the network.
+   */
+  ambarrier_value = (gasnet_handlerarg_t)id;
+
   ambarrier_flags = flags;
   phase = !ambarrier_phase; /*  enter new phase */
   ambarrier_phase = phase;
@@ -411,7 +419,7 @@ extern int gasnete_ambarrier_wait(int id, int flags) {
   ambarrier_splitstate = OUTSIDE_AMBARRIER;
   ambarrier_response_done[phase] = 0;
   gasneti_memsync(); /* ensure all state changes committed before return */
-  if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && id != ambarrier_value) || 
+  if_pf((!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && (gasnet_handlerarg_t)id != ambarrier_value) || 
         flags != ambarrier_flags || 
         ambarrier_response_mismatch[phase]) {
         ambarrier_response_mismatch[phase] = 0;
