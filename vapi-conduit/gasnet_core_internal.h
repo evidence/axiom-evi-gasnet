@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/09/20 20:24:20 $
- * $Revision: 1.49 $
+ *     $Date: 2004/10/21 20:17:28 $
+ * $Revision: 1.50 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -261,16 +261,14 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   #ifndef GASNETC_AM_INLINE_LIMIT
     #define GASNETC_AM_INLINE_LIMIT	72
   #endif
-#else
-  #define GASNETC_AM_INLINE_LIMIT	0
-#endif
-
-#if GASNETC_VAPI_ENABLE_INLINE_PUTS
   /* puts <= this size will be done w/ VAPI-level copy, 0 disables */
   #ifndef GASNETC_PUT_INLINE_LIMIT
     #define GASNETC_PUT_INLINE_LIMIT	72
   #endif
 #else
+  #undef GASNETC_AM_INLINE_LIMIT
+  #define GASNETC_AM_INLINE_LIMIT	0
+  #undef GASNETC_PUT_INLINE_LIMIT
   #define GASNETC_PUT_INLINE_LIMIT	0
 #endif
 
