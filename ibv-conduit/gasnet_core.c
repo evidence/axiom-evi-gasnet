@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/01/15 00:23:24 $
- * $Revision: 1.67 $
+ *     $Date: 2005/02/09 02:29:50 $
+ * $Revision: 1.68 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -364,10 +364,8 @@ static int gasnetc_load_settings(void) {
 			  	GASNETC_AM_INLINE_LIMIT));
 #else
   GASNETI_TRACE_PRINTF(C,("  Use of EVAPI inline sends      disabled (--disable-vapi-inline-puts)"));
-  GASNETI_TRACE_PRINTF(C,("    max. size for gasnet puts      N/A (GASNETC_PUT_INLINE_LIMIT)",
-			  	GASNETC_PUT_INLINE_LIMIT));
-  GASNETI_TRACE_PRINTF(C,("    max. size for AMs              N/A (GASNETC_AM_INLINE_LIMIT)",
-			  	GASNETC_AM_INLINE_LIMIT));
+  GASNETI_TRACE_PRINTF(C,("    max. size for gasnet puts      N/A (GASNETC_PUT_INLINE_LIMIT)"));
+  GASNETI_TRACE_PRINTF(C,("    max. size for AMs              N/A (GASNETC_AM_INLINE_LIMIT)"));
 #endif
   GASNETI_TRACE_PRINTF(C,("  Max. size for non-bulk copy    %d bytes (GASNETC_PUT_COPY_LIMIT)",
 				GASNETC_PUT_COPY_LIMIT));
