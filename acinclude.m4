@@ -160,10 +160,12 @@ dnl GASNET_RESTORE_AUTOCONF_ENV(env1 env2 env3)
 dnl  call at top of configure.in to restore cached environment variables 
 dnl  inspected by autoconf macros. Pass in names of variables
 AC_DEFUN([GASNET_RESTORE_AUTOCONF_ENV],[
-  if test "$cv_prefix[]acenv_list" != ""; then
-    AC_MSG_ERROR(_GASNET_RESTORE_AUTOCONF_ENV called more than once)
+  dnl  pushdef = get a variable prefix variable which won't be cached.
+  pushdef([nc_prefix],patsubst(cv_prefix,_cv_,_))
+  if test "$nc_prefix[]acenv_list" != ""; then
+    AC_MSG_ERROR(_GASNET_RESTORE_AUTOCONF_ENV called more than once with prefix = "cv_prefix")
   fi
-  cv_prefix[]acenv_list="$1"
+  nc_prefix[]acenv_list="$1"
   AC_MSG_CHECKING(for cached autoconf environment settings)
   AC_MSG_RESULT("") 
   for varname in $1; do
@@ -173,6 +175,7 @@ AC_DEFUN([GASNET_RESTORE_AUTOCONF_ENV],[
       AC_MSG_RESULT([$varname=\"$val\"]) 
     fi
   done
+  popdef([nc_prefix])
 ])
 
 dnl GASNET_SAVE_AUTOCONF_ENV() 
