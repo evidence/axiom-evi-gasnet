@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2002/08/05 10:23:44 $
- * $Revision: 1.2 $
+ *     $Date: 2002/09/09 21:58:22 $
+ * $Revision: 1.3 $
  * Description: GASNet header for elan conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -22,8 +22,22 @@
 #define GASNET_ALIGNED_SEGMENTS   1 
 
   /* this can be used to add conduit-specific 
-     statistical collection values (see gasnet_help.h) */
-#define CONDUIT_CORE_STATS(CNT,VAL,TIME) 
+     statistical collection values (see gasnet_trace.h) */
+#define CONDUIT_CORE_STATS(CNT,VAL,TIME) \
+        VAL(C, AMLONG_DIRECT, sz)        \
+        VAL(C, AMLONG_BUFFERED, sz)      \
+        VAL(C, PUT_DIRECT, sz)           \
+        VAL(C, PUT_BULK_DIRECT, sz)      \
+        VAL(C, PUT_BUFFERED, sz)         \
+        VAL(C, PUT_BULK_BUFFERED, sz)    \
+        VAL(C, PUT_AMMEDIUM, sz)         \
+        VAL(C, PUT_BULK_AMMEDIUM, sz)    \
+        VAL(C, PUT_AMLONG, sz)           \
+        VAL(C, PUT_BULK_AMLONG, sz)      \
+        VAL(C, GET_DIRECT, sz)           \
+        VAL(C, GET_BUFFERED, sz)         \
+        VAL(C, GET_AMMEDIUM, sz)         \
+        VAL(C, GET_AMLONG, sz)         
 
 /* ------------------------------------------------------------------------------------ */
 /* use ELAN-specific high-performance nanosecond timer */

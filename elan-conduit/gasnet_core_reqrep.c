@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/09/08 01:37:33 $
- * $Revision: 1.7 $
+ *     $Date: 2002/09/09 21:58:22 $
+ * $Revision: 1.8 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -466,6 +466,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
             elan_addressable(STATE(), source_addr, nbytes)) {
           /* safe to put directly from source */
           putevt = elan_put(STATE(), source_addr, dest_ptr, nbytes, dest);
+          GASNETI_TRACE_EVENT_VAL(C,AMLONG_DIRECT,nbytes);
         } else { /* need to use a bounce buffer */
           /* TODO: this may fail for unmapped segment under GASNET_SEGMENT_EVERYTHING */
           assert(elan_addressable(STATE(), dest_ptr, nbytes));
@@ -474,6 +475,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
           assert(bouncebuf); /* TODO: if we run out of mem here, we're in trouble */
           memcpy(bouncebuf, source_addr, nbytes);
           putevt = elan_put(STATE(), bouncebuf, dest_ptr, nbytes, dest);
+          GASNETI_TRACE_EVENT_VAL(C,AMLONG_BUFFERED,nbytes);
         }
         /* loop until put is complete (required to ensure ordering semantics) 
            could make this totally asynchronous with lots more work, 
