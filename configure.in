@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/06/01 04:34:28 $
-# $Revision: 1.61 $
+#     $Date: 2003/06/11 01:04:16 $
+# $Revision: 1.62 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.61 $)
+AC_REVISION($Revision: 1.62 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -34,8 +34,9 @@ AC_SUBST(TOP_SRCDIR)
 AC_SUBST(TOP_BUILDDIR)
 AC_SUBST(INSTALL_PREFIX)
 
+GASNET_RESTORE_AUTOCONF_ENV([CC CXX CFLAGS CXXFLAGS CPPFLAGS LIBS MAKE GMAKE AR RANLIB REXEC AWK])
+AC_PROG_AWK
 GASNET_GET_AUTOCONF_VERSION()
-GASNET_RESTORE_AUTOCONF_ENV([CC CXX CFLAGS CXXFLAGS CPPFLAGS LIBS MAKE GMAKE AR RANLIB REXEC])
 
 ########################################################################
 ##
@@ -758,13 +759,13 @@ if test $have_elan = yes; then
     AC_MSG_CHECKING(for ELAN version)
     if test -e ${ELAN_INCLUDE}/elan/version.h; then
       verstr=`grep QSNETLIBS_VERSION_STRING ${ELAN_INCLUDE}/elan/version.h`
-      [majorver=`echo $verstr | awk -F'[ \t]*|\"|[.]' '{ print $4 }'`]
-      [minorver=`echo $verstr | awk -F'[ \t]*|\"|[.]' '{ print $5 }'`]
-      [subver=`echo $verstr | awk -F'[ \t]*|\"|[.]' '{ print $6 }'`]
+      [majorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $4 }'`]
+      [minorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $5 }'`]
+      [subver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $6 }'`]
     else
       verstr=`grep 'ELAN_VERSION' ${ELAN_INCLUDE}/elan/misc.h`
-      [majorver=`echo $verstr | awk -F'[ \t]*|\"|[.]' '{ print $5 }'`]
-      [minorver=`echo $verstr | awk -F'[ \t]*|\"|[.]' '{ print $6 }'`]
+      [majorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $5 }'`]
+      [minorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $6 }'`]
       subver=0
     fi
     AC_MSG_RESULT("${majorver}.${minorver}.${subver}")
