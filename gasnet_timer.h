@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2004/09/21 22:37:10 $
- * $Revision: 1.25 $
+ *     $Date: 2004/10/11 06:59:50 $
+ * $Revision: 1.26 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,11 +44,18 @@ GASNET_INLINE_MODIFIER(gasneti_getMicrosecondTimeStamp)
 int64_t gasneti_getMicrosecondTimeStamp(void) {
   int64_t retval;
   struct timeval tv;
+  retry:
   if (gettimeofday(&tv, NULL)) {
       perror("gettimeofday");
       abort();
   }
   retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
+  #ifdef __crayx1
+    /* fix an empirically observed bug in UNICOS gettimeofday(),
+       which occasionally returns ridiculously incorrect values
+     */
+    if_pf(retval < (((int64_t)3) << 48)) goto retry;
+  #endif
   return retval;
 }
 
