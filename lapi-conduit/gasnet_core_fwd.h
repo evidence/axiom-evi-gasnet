@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core_fwd.h              $
- *     $Date: 2004/08/15 22:01:02 $
- * $Revision: 1.12 $
+ *     $Date: 2004/08/18 17:46:49 $
+ * $Revision: 1.13 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,13 +19,21 @@
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
 #define GASNET_CONDUIT_LAPI      1
 
-/* This preprocessor symbol is used to provide workaround
- * code for bug 717 (on Federation Hardware)
- */
 #ifdef GASNETC_LAPI_FEDERATION
-#define GASNETC_FEDBUG_WORKAROUND 1
+   /* Check for broken version of LAPI on early Federation HW.
+    * reference bug 717.  Was fixed in version 2.3.2.0
+    */
+#  ifndef GASNETC_LAPI_VERSION_A
+#    define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#  elif GASNETC_LAPI_VERSION_A < 2
+#    define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#  elif GASNETC_LAPI_VERSION_B < 3
+#    define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#  elif GASNETC_LAPI_VERSION_C < 2
+#    define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 1
+#  endif
 #else
-#define GASNETC_FEDBUG_WORKAROUND 0
+#  define GASNETC_LAPI_FED_POLLBUG_WORKAROUND 0
 #endif
 
 /* defined to be 1 if gasnet_init guarantees that the remote-access

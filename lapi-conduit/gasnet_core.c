@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/08/17 20:31:38 $
- * $Revision: 1.59 $
+ *     $Date: 2004/08/18 17:46:49 $
+ * $Revision: 1.60 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -184,14 +184,36 @@ static int gasnetc_init(int *argc, char ***argv) {
 #else
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_DATA_SZ, &gasnetc_max_lapi_data_size));
 #endif
-#if 0
+
     if (task_id == 0) {
-	fprintf(stderr,"GASNET TOKEN SIZE  = %d\n",GASNETC_TOKEN_SIZE);
-	fprintf(stderr,"GASNET TOKEN REC   = %d\n",sizeof(gasnetc_token_t));
-	fprintf(stderr,"MAX LAPI UHDR SIZE = %d\n",gasnetc_max_lapi_uhdr_size);
-	fprintf(stderr,"MAX LAPI DATA SIZE = %ld\n",(ulong)gasnetc_max_lapi_data_size);
-    }
+	int printversion = 0;
+	char *gas_ver = NULL;
+	if ( (gas_ver = getenv("GASNET_LAPI_VERSION")) != NULL ) {
+	    if (gas_ver[0] != '0')
+		printversion = 1;
+	}
+	if (printversion) {
+#if GASNETC_LAPI_FEDERATION
+	    fprintf(stderr,"IBM FEDERATION HARDWARE\n");
 #endif
+#if GASNETC_LAPI_COLONY
+	    fprintf(stderr,"IBM COLONY HARDWARE\n");
+#endif
+#ifdef GASNETC_LAPI_VERSION_A
+	    fprintf(stderr,"LAPI VERSION NUMBER = %d.%d.%d.%d\n",
+		    GASNETC_LAPI_VERSION_A, GASNETC_LAPI_VERSION_B,
+		    GASNETC_LAPI_VERSION_C, GASNETC_LAPI_VERSION_D);
+#endif
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
+	    fprintf(stderr,"WORKAROUND FOR LAPI FEDERATION POLLING/FLOWCONTROL BUG\n");
+#endif
+	    fprintf(stderr,"GASNET TOKEN SIZE  = %d\n",GASNETC_TOKEN_SIZE);
+	    fprintf(stderr,"GASNET TOKEN REC   = %d\n",sizeof(gasnetc_token_t));
+	    fprintf(stderr,"MAX LAPI UHDR SIZE = %d\n",gasnetc_max_lapi_uhdr_size);
+	    fprintf(stderr,"MAX LAPI DATA SIZE = %ld\n",(ulong)gasnetc_max_lapi_data_size);
+	}
+    }
+
     if (sizeof(gasnetc_token_t) > gasnetc_max_lapi_uhdr_size) {
 	gasneti_fatalerror("gasnetc_token_t is %d bytes > max lapi uhdr %d",
 			   (int)sizeof(gasnetc_token_t),gasnetc_max_lapi_uhdr_size);
@@ -754,7 +776,7 @@ extern int gasnetc_AMRequestShortM(
     char raw_token[GASNETC_TOKEN_SIZE + GASNETC_DOUBLEWORD];
     gasnetc_token_t *token;
     gasnetc_msg_t  *msg;
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     lapi_cntr_t c_cntr;
 #endif
     lapi_cntr_t *p_cntr = NULL;
@@ -797,7 +819,7 @@ extern int gasnetc_AMRequestShortM(
     /* issue the request for remote execution of the user handler */ 
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #endif
@@ -810,7 +832,7 @@ extern int gasnetc_AMRequestShortM(
     
     /* wait for the Amsend call to complete locally */
     GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,p_cntr,1,&cur_cntr));
 #endif
 
@@ -832,7 +854,7 @@ extern int gasnetc_AMRequestMediumM(
     void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     lapi_cntr_t c_cntr;
 #endif
     lapi_cntr_t *p_cntr = NULL;
@@ -896,7 +918,7 @@ extern int gasnetc_AMRequestMediumM(
     /* issue the request for remote execution of the user handler */
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #endif
@@ -911,7 +933,7 @@ extern int gasnetc_AMRequestMediumM(
     
     /* wait for the Amsend call to complete locally */
     GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,p_cntr,1,&cur_cntr));
 #endif
 
@@ -933,7 +955,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     lapi_cntr_t c_cntr;
 #endif
     lapi_cntr_t *p_cntr = NULL;
@@ -994,7 +1016,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #endif
@@ -1009,7 +1031,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     
     /* wait for the Amsend call to complete locally */
     GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,p_cntr,1,&cur_cntr));
 #endif
 
@@ -1031,7 +1053,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     int udata_packed = 0;
     int retval;
     va_list argptr;
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     lapi_cntr_t c_cntr;
     int cur_cntr = 0;
 #endif
@@ -1105,7 +1127,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
      */
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #endif
@@ -1119,7 +1141,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     
     gasneti_resume_spinpollers();
 
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,p_cntr,1,&cur_cntr));
 #endif
 
@@ -1137,7 +1159,7 @@ extern int gasnetc_AMReplyShortM(
     uint requester = (uint)msg->sourceId;
     lapi_cntr_t o_cntr;
     int token_len, i, cur_cntr;
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     lapi_cntr_t c_cntr;
 #endif
     lapi_cntr_t *p_cntr = NULL;
@@ -1179,7 +1201,7 @@ extern int gasnetc_AMReplyShortM(
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #endif
@@ -1193,7 +1215,7 @@ extern int gasnetc_AMReplyShortM(
     /* wait for the Amsend call to complete locally */
     GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
 
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,p_cntr,1,&cur_cntr));
 #endif
 
@@ -1215,7 +1237,7 @@ extern int gasnetc_AMReplyMediumM(
     void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     lapi_cntr_t c_cntr;
 #endif
     lapi_cntr_t *p_cntr = NULL;
@@ -1275,7 +1297,7 @@ extern int gasnetc_AMReplyMediumM(
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #endif
@@ -1290,7 +1312,7 @@ extern int gasnetc_AMReplyMediumM(
    
     /* wait for the Amsend call to complete locally */
     GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,p_cntr,1,&cur_cntr));
 #endif
 
@@ -1313,7 +1335,7 @@ extern int gasnetc_AMReplyLongM(
     void *udata_start = NULL;
     int udata_avail;
     int udata_packed = 0;
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     lapi_cntr_t c_cntr;
 #endif
     lapi_cntr_t *p_cntr = NULL;
@@ -1371,7 +1393,7 @@ extern int gasnetc_AMReplyLongM(
     token_len = GASNETC_ROUND_DOUBLEWORD(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     p_cntr = &c_cntr;
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,p_cntr,0));
 #endif
@@ -1386,7 +1408,7 @@ extern int gasnetc_AMReplyLongM(
     
     /* wait for the Amsend call to complete locally */
     GASNETC_WAITCNTR(&o_cntr,1,&cur_cntr);
-#if GASNETC_FEDBUG_WORKAROUND
+#if GASNETC_LAPI_FED_POLLBUG_WORKAROUND
     GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,p_cntr,1,&cur_cntr));
 #endif
 
