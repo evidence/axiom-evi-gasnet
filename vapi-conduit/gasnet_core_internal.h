@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/09/05 00:11:26 $
- * $Revision: 1.18 $
+ *     $Date: 2003/09/06 02:22:34 $
+ * $Revision: 1.19 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -210,6 +210,11 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 #define GASNETC_TRACE_WAIT_END(name) \
   GASNETI_TRACE_EVENT_TIME(C,name,GASNETI_STATTIME_NOW() - _waitstart)
+
+#define GASNETC_STAT_EVENT(name) \
+  _GASNETI_STAT_EVENT(C,name)
+#define GASNETC_STAT_EVENT_VAL(name,val) \
+  _GASNETI_STAT_EVENT_VAL(C,name,val)
 
 /* ------------------------------------------------------------------------------------ */
 

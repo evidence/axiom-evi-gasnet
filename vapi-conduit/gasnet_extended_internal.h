@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2003/08/15 21:44:47 $
- * $Revision: 1.7 $
+ *     $Date: 2003/09/06 02:22:34 $
+ * $Revision: 1.8 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,10 +14,10 @@
 #include <gasnet_internal.h>
 
 /* Tune cut-off between PUTs and AMs for memset, 0 disables PUTs */
-#if defined(GASNET_SEGMENT_EVERYTHING)
-  #define GASNETE_MEMSET_PUT_LIMIT        0
-#else
+#if defined(GASNET_SEGMENT_FAST)
   #define GASNETE_MEMSET_PUT_LIMIT        GASNETC_BUFSZ
+#else
+  #define GASNETE_MEMSET_PUT_LIMIT        0
 #endif
 
 /* ------------------------------------------------------------------------------------ */

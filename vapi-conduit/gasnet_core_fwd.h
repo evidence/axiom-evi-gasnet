@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2003/07/03 22:21:04 $
- * $Revision: 1.4 $
+ *     $Date: 2003/09/06 02:22:34 $
+ * $Revision: 1.5 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,6 +35,11 @@ typedef uint8_t gasnet_handler_t;
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */
 #define CONDUIT_CORE_STATS(CNT,VAL,TIME)          \
+        VAL(C, RDMA_PUT_INLINE, bytes)            \
+        VAL(C, RDMA_PUT_BOUNCE, bytes)            \
+        VAL(C, RDMA_PUT_ZEROCP, bytes)            \
+        VAL(C, RDMA_GET_BOUNCE, bytes)            \
+        VAL(C, RDMA_GET_ZEROCP, bytes)            \
         CNT(C, SYSTEM_REQUEST, cnt)               \
         CNT(C, SYSTEM_REPLY, cnt)                 \
         CNT(C, SYSTEM_REQHANDLER, cnt)            \
@@ -43,6 +48,7 @@ typedef uint8_t gasnet_handler_t;
 	TIME(C, GET_AMREQ_CREDIT_STALL, stalled time) \
 	CNT(C, GET_SBUF, cnt)                     \
 	TIME(C, GET_SBUF_STALL, stalled time)     \
+	CNT(C, POST_SR, cnt)                      \
 	TIME(C, POST_SR_STALL, stalled time)      \
 	VAL(C, SND_REAP, reaped)                  \
 	VAL(C, RCV_REAP, reaped)

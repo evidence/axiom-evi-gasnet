@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/09/05 00:11:26 $
- * $Revision: 1.22 $
+ *     $Date: 2003/09/06 02:22:34 $
+ * $Revision: 1.23 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -292,7 +292,7 @@ static int gasnetc_snd_reap(int limit, gasnetc_sbuf_t **head_p, gasnetc_sbuf_t *
   }
 
   if (count)
-    GASNETI_TRACE_EVENT_VAL(C,SND_REAP,count);
+    GASNETC_STAT_EVENT_VAL(SND_REAP,count);
 
   /* The following is unneccesary when count == 0, but we rather avoid the branch
    * knowing the caller won't look at these in that case. */
@@ -310,7 +310,7 @@ gasnetc_sbuf_t *gasnetc_get_sbuf(void) {
   gasnetc_sbuf_t *sbuf;
 
   GASNETC_TRACE_WAIT_BEGIN();
-  GASNETI_TRACE_EVENT(C,GET_SBUF);
+  GASNETC_STAT_EVENT(GET_SBUF);
 
   while (1) {
     /* try to get an unused sbuf by reaping the send CQ */
@@ -430,7 +430,7 @@ static int gasnetc_rcv_reap(int limit, gasnetc_rbuf_t **spare_p) {
   } 
 
   if (count)
-    GASNETI_TRACE_EVENT_VAL(C,RCV_REAP,count);
+    GASNETC_STAT_EVENT_VAL(RCV_REAP,count);
 
   return count;
 }
@@ -466,6 +466,8 @@ void gasnetc_pre_snd(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sbuf_t *sb
   /* check for attempted loopback traffic */
   assert(cep != &gasnetc_cep[gasnetc_mynode]);
 
+  GASNETC_STAT_EVENT(POST_SR);
+
   /* check for reasonable message sizes
    * With SEND 0-bytes triggers a Mellanox bug
    * With RDMA ops, 0-bytes makes no sense.
@@ -499,7 +501,7 @@ void gasnetc_pre_snd(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sbuf_t *sb
     do {
         gasnetc_poll_snd();
     } while (!gasnetc_sema_trydown(&cep->op_sema, GASNETC_ANY_PAR));
-    GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
+    GASNETC_TRACE_WAIT_END(POST_SR_STALL);
   }
 }
 
@@ -580,7 +582,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
    */
   if (credits_needed) {
     gasnetc_sema_t *sema = &gasnetc_cep[dest].am_sema;
-    GASNETI_TRACE_EVENT(C,GET_AMREQ_CREDIT);
+    GASNETC_STAT_EVENT(GET_AMREQ_CREDIT);
 
     /* XXX: We don't want to deal with liveness and fairness issues for multi-credit
      * requests until we have an actual need for them.  Thus this assertion: */
@@ -680,6 +682,272 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
 
   va_end(argptr);
   GASNETI_RETURN(retval);
+}
+
+/* Helper for rdma puts: inline send case */
+static void gasnetc_do_put_inline(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
+                                  uintptr_t src, uintptr_t dst, size_t nbytes,
+                                  gasneti_atomic_t *req_oust) {
+  gasnetc_sbuf_t *sbuf;
+  gasnetc_sreq_t req;
+
+  GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, nbytes);
+
+  assert(nbytes != 0);
+  assert(nbytes <= GASNETC_PUT_INLINE_LIMIT);
+
+  sbuf = gasnetc_get_sbuf();
+
+  req.sr_desc.opcode      = VAPI_RDMA_WRITE;
+  req.sr_desc.sg_lst_len  = 1;
+  req.sr_desc.fence       = TRUE;
+  req.sr_desc.remote_addr = dst;
+  req.sr_desc.r_key       = rkey;
+  req.sr_sg[0].addr       = src;
+  req.sr_sg[0].len        = nbytes;
+
+  if (req_oust) {
+    gasneti_atomic_increment(req_oust);
+    sbuf->req_oust = req_oust;
+  }
+
+  gasnetc_snd_post_inline(cep, &req, sbuf);
+}
+      
+/* Helper for rdma puts: bounce buffer case */
+static void gasnetc_do_put_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
+                                  uintptr_t src, uintptr_t dst, size_t nbytes,
+                                  gasneti_atomic_t *req_oust) {
+  gasnetc_sbuf_t *sbuf;
+  gasnetc_sreq_t req;
+
+  GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_BOUNCE, nbytes);
+
+  assert(nbytes != 0);
+
+  /* Use full bounce buffers until just one buffer worth of data remains */
+  while (nbytes > GASNETC_BUFSZ) {
+    sbuf = gasnetc_get_sbuf();
+
+    req.sr_desc.opcode      = VAPI_RDMA_WRITE;
+    req.sr_desc.sg_lst_len  = 1;
+    req.sr_desc.fence       = TRUE;
+    req.sr_desc.remote_addr = dst;
+    req.sr_desc.r_key       = rkey;
+
+    memcpy(sbuf->buffer, (void *)src, GASNETC_BUFSZ);
+    req.sr_sg[0].addr = (uintptr_t)sbuf->buffer;
+    req.sr_sg[0].lkey = gasnetc_snd_reg.lkey;
+    req.sr_sg[0].len  = GASNETC_BUFSZ;
+
+    gasnetc_snd_post(cep, &req, sbuf);
+
+    src += GASNETC_BUFSZ;
+    dst += GASNETC_BUFSZ;
+    nbytes -= GASNETC_BUFSZ;
+  }
+
+  /* Send out the last buffer w/ the counter (if any) advanced */
+  assert(nbytes <= GASNETC_BUFSZ);
+
+  sbuf = gasnetc_get_sbuf();
+
+  req.sr_desc.opcode      = VAPI_RDMA_WRITE;
+  req.sr_desc.sg_lst_len  = 1;
+  req.sr_desc.fence       = TRUE;
+  req.sr_desc.remote_addr = dst;
+  req.sr_desc.r_key       = rkey;
+
+  memcpy(sbuf->buffer, (void *)src, nbytes);
+  req.sr_sg[0].addr = (uintptr_t)sbuf->buffer;
+  req.sr_sg[0].lkey = gasnetc_snd_reg.lkey;
+  req.sr_sg[0].len  = nbytes;
+
+  if (req_oust) {
+    gasneti_atomic_increment(req_oust);
+    sbuf->req_oust = req_oust;
+  }
+
+  gasnetc_snd_post(cep, &req, sbuf);
+}
+
+/* Helper for rdma puts: zero copy case */
+static void gasnetc_do_put_zerocp(gasnetc_cep_t *cep, VAPI_lkey_t lkey, VAPI_rkey_t rkey,
+                                  uintptr_t src, uintptr_t dst, size_t nbytes,
+                                  gasneti_atomic_t *mem_oust, gasneti_atomic_t *req_oust) {
+  gasnetc_sbuf_t *sbuf;
+  gasnetc_sreq_t req;
+  size_t max_sz = gasnetc_hca_port.max_msg_sz;
+
+  GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_ZEROCP, nbytes);
+
+  assert(nbytes != 0);
+
+  /* Use max-sized messages until just one msg worth of data remains */
+  if_pf (nbytes > max_sz) {
+    do {
+      sbuf = gasnetc_get_sbuf();
+
+      req.sr_desc.opcode      = VAPI_RDMA_WRITE;
+      req.sr_desc.sg_lst_len  = 1;
+      req.sr_desc.fence       = TRUE;
+      req.sr_desc.remote_addr = dst;
+      req.sr_desc.r_key       = rkey;
+
+      req.sr_sg[0].addr = src;
+      req.sr_sg[0].lkey = lkey;
+      req.sr_sg[0].len  = max_sz;
+
+      gasnetc_snd_post(cep, &req, sbuf);
+
+      src += max_sz;
+      dst += max_sz;
+      nbytes -= max_sz;
+    } while (nbytes > max_sz);
+  }
+
+  /* Send out the last buffer w/ the counters (if any) advanced */
+  assert(nbytes <= max_sz);
+
+  sbuf = gasnetc_get_sbuf();
+
+  req.sr_desc.opcode      = VAPI_RDMA_WRITE;
+  req.sr_desc.sg_lst_len  = 1;
+  req.sr_desc.fence       = TRUE;
+  req.sr_desc.remote_addr = dst;
+  req.sr_desc.r_key       = rkey;
+
+  req.sr_sg[0].addr = src;
+  req.sr_sg[0].lkey = lkey;
+  req.sr_sg[0].len  = nbytes;
+
+  if (mem_oust) {
+    gasneti_atomic_increment(mem_oust);
+    sbuf->mem_oust = mem_oust;
+  }
+  if (req_oust) {
+    gasneti_atomic_increment(req_oust);
+    sbuf->req_oust = req_oust;
+  }
+
+  gasnetc_snd_post(cep, &req, sbuf);
+}
+
+/* Helper for rdma gets: bounce buffer case */
+static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
+                                  uintptr_t src, uintptr_t dst, size_t nbytes,
+                                  gasneti_atomic_t *req_oust) {
+  gasnetc_sbuf_t *sbuf;
+  gasnetc_sreq_t req;
+
+  GASNETI_TRACE_EVENT_VAL(C, RDMA_GET_BOUNCE, nbytes);
+
+  assert(nbytes != 0);
+
+  /* Use full bounce buffers until just one buffer worth of data remains */
+  while (nbytes > GASNETC_BUFSZ) {
+    sbuf = gasnetc_get_sbuf();
+
+    req.sr_desc.opcode      = VAPI_RDMA_READ;
+    req.sr_desc.sg_lst_len  = 1;
+    req.sr_desc.fence       = FALSE;
+    req.sr_desc.remote_addr = src;
+    req.sr_desc.r_key       = rkey;
+
+    req.sr_sg[0].addr = (uintptr_t)sbuf->buffer;
+    req.sr_sg[0].lkey = gasnetc_snd_reg.lkey;
+    req.sr_sg[0].len  = GASNETC_BUFSZ;
+    sbuf->addr = (void *)dst;
+    sbuf->len = GASNETC_BUFSZ;
+
+    gasnetc_snd_post(cep, &req, sbuf);
+
+    src += GASNETC_BUFSZ;
+    dst += GASNETC_BUFSZ;
+    nbytes -= GASNETC_BUFSZ;
+  }
+
+  /* Send out the last buffer w/ the counter (if any) advanced */
+  assert(nbytes <= GASNETC_BUFSZ);
+
+  sbuf = gasnetc_get_sbuf();
+
+  req.sr_desc.opcode      = VAPI_RDMA_READ;
+  req.sr_desc.sg_lst_len  = 1;
+  req.sr_desc.fence       = FALSE;
+  req.sr_desc.remote_addr = src;
+  req.sr_desc.r_key       = rkey;
+
+  req.sr_sg[0].addr = (uintptr_t)sbuf->buffer;
+  req.sr_sg[0].lkey = gasnetc_snd_reg.lkey;
+  req.sr_sg[0].len  = nbytes;
+  sbuf->addr = (void *)dst;
+  sbuf->len = nbytes;
+
+  if (req_oust) {
+    gasneti_atomic_increment(req_oust);
+    sbuf->req_oust = req_oust;
+  }
+
+  gasnetc_snd_post(cep, &req, sbuf);
+}
+
+/* Helper for rdma gets: zero copy case */
+static void gasnetc_do_get_zerocp(gasnetc_cep_t *cep, VAPI_lkey_t lkey, VAPI_rkey_t rkey,
+                                  uintptr_t src, uintptr_t dst, size_t nbytes,
+                                  gasneti_atomic_t *req_oust) {
+  gasnetc_sbuf_t *sbuf;
+  gasnetc_sreq_t req;
+  size_t max_sz = gasnetc_hca_port.max_msg_sz;
+
+  GASNETI_TRACE_EVENT_VAL(C, RDMA_GET_ZEROCP, nbytes);
+
+  assert(nbytes != 0);
+
+  /* Use max-sized messages until just one msg worth of data remains */
+  if_pf (nbytes > max_sz) {
+    do {
+      sbuf = gasnetc_get_sbuf();
+
+      req.sr_desc.opcode      = VAPI_RDMA_READ;
+      req.sr_desc.sg_lst_len  = 1;
+      req.sr_desc.fence       = FALSE;
+      req.sr_desc.remote_addr = src;
+      req.sr_desc.r_key       = rkey;
+
+      req.sr_sg[0].addr = dst;
+      req.sr_sg[0].lkey = lkey;
+      req.sr_sg[0].len  = max_sz;
+
+      gasnetc_snd_post(cep, &req, sbuf);
+
+      src += max_sz;
+      dst += max_sz;
+      nbytes -= max_sz;
+    } while (nbytes > max_sz);
+  }
+
+  /* Send out the last buffer w/ the counters (if any) advanced */
+  assert(nbytes <= max_sz);
+
+  sbuf = gasnetc_get_sbuf();
+
+  req.sr_desc.opcode      = VAPI_RDMA_READ;
+  req.sr_desc.sg_lst_len  = 1;
+  req.sr_desc.fence       = FALSE;
+  req.sr_desc.remote_addr = src;
+  req.sr_desc.r_key       = rkey;
+
+  req.sr_sg[0].addr = dst;
+  req.sr_sg[0].lkey = lkey;
+  req.sr_sg[0].len  = nbytes;
+
+  if (req_oust) {
+    gasneti_atomic_increment(req_oust);
+    sbuf->req_oust = req_oust;
+  }
+
+  gasnetc_snd_post(cep, &req, sbuf);
 }
 
 /* ------------------------------------------------------------------------------------ *
@@ -848,93 +1116,52 @@ extern void gasnetc_counter_wait_aux(gasneti_atomic_t *counter, int handler_cont
  */
 extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasneti_atomic_t *mem_oust, gasneti_atomic_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
-  uintptr_t src, dst;
-
-  src = (uintptr_t)src_ptr;
-  dst = (uintptr_t)dst_ptr;
+  VAPI_rkey_t rkey;
+  uintptr_t src = (uintptr_t)src_ptr;
+  uintptr_t dst = (uintptr_t)dst_ptr;
 
   assert(nbytes != 0);
+
+#if defined(GASNET_SEGMENT_FAST)
+  rkey = cep->rkey;
+#else
+  /* (###) implement firehose */
+#endif
   
   do {
-    gasnetc_sbuf_t *sbuf;
-    gasnetc_sreq_t req;
-
-    /* Buffers are our means to account for available slots in the send queue.
-     * Therefore we must allocate an sbuf even for zero-copy puts.
+    /* Use a short-cut for sends that are short enough.
+     *
+     * Note that we do this based only on the size of the request, without bothering to check whether
+     * the caller cares about local completion, or whether zero-copy is possible.
+     * We do this is because the cost of this small copy appears cheaper then the alternative logic.
      */
-    sbuf = gasnetc_get_sbuf();
-
-    req.sr_desc.opcode      = VAPI_RDMA_WRITE;
-    req.sr_desc.sg_lst_len  = 1;
-    req.sr_desc.fence       = TRUE;
-    req.sr_desc.remote_addr = dst;
-#if defined(GASNET_SEGMENT_FAST)
-    req.sr_desc.r_key       = cep->rkey;
-#else
-    /* (###) implement firehose */
-#endif
-
-    if (req_oust) {
-      gasneti_atomic_increment(req_oust);
-      sbuf->req_oust = req_oust;
+    if ((GASNETC_PUT_INLINE_LIMIT != 0) && (nbytes <= GASNETC_PUT_INLINE_LIMIT)) {
+      gasnetc_do_put_inline(cep, rkey, src, dst, nbytes, req_oust);
+      break;	/* done */
     }
 
-    if ((GASNETC_PUT_INLINE_LIMIT != 0) && (nbytes <= GASNETC_PUT_INLINE_LIMIT)) {
-      /* Use a short-cut for sends that are short enough.
-       *
-       * Note that we do this based only on the size of the request, without bothering to check whether
-       * the caller cares about local completion, or whether zero-copy is possible.
-       * We do this is because the cost of this small copy appears cheaper then the alternative logic.
-       */
-	  
-      req.sr_sg[0].addr = src;
-      req.sr_sg[0].len  = nbytes;
-
-      gasnetc_snd_post_inline(cep, &req, sbuf);
-      
+    /* Because VAPI lacks any indication of "local" completion, the only ways to
+     * implement non-bulk puts (mem_oust != NULL) are as fully blocking puts, or
+     * with bounce buffers.  So, if a non-bulk put is "not too large" use bounce
+     * buffers.
+     */
+    if ((nbytes <= GASNETC_PUT_COPY_LIMIT) && (mem_oust != NULL)) {
+      gasnetc_do_put_bounce(cep, rkey, src, dst, nbytes, req_oust);
       break;	/* done */
-    } else if ((nbytes <= GASNETC_PUT_COPY_LIMIT) && (mem_oust != NULL)) {
-      /* If the transfer is "not too large" and the caller will wait on local completion,
-       * then perform the copy locally, thus allowing the caller to proceed.
-       */
-    
-      /* Setup the gather bounce buffer */
-      memcpy(sbuf->buffer, (void *)src, nbytes);
-      req.sr_sg[0].addr = (uintptr_t)sbuf->buffer;
-      req.sr_sg[0].len  = nbytes;
-      req.sr_sg[0].lkey = gasnetc_snd_reg.lkey;
+    }
 
-      gasnetc_snd_post(cep, &req, sbuf);
-      
-      break;	/* done */
-    } else {
-      uintptr_t count;
-      gasnetc_memreg_t *reg;
+    /* Here is the general case, where we must check if the local memory is pinned */
+    {
+      size_t count = nbytes;	/* later will be length of (un)pinned interval */
+      gasnetc_memreg_t *reg = gasnetc_local_reg(src, src + (count - 1));
 
-      reg = gasnetc_local_reg(src, src + (nbytes - 1));
-
-      if (reg != NULL) {
-        /* ZERO COPY CASE */
-        count  = MIN(nbytes, gasnetc_hca_port.max_msg_sz);
-
-        req.sr_sg[0].addr = src;
-        req.sr_sg[0].lkey = reg->lkey;
-
-        if (mem_oust) {
-  	  gasneti_atomic_increment(mem_oust);
-          sbuf->mem_oust = mem_oust;
-        }
+      if_pf (reg == NULL) {
+        /* Source not pinned - use bounce buffers upto some size limit */
+	gasnetc_do_put_bounce(cep, rkey, src, dst, count, req_oust);
       } else {
-        /* BOUNCE BUFFER CASE */
-        count  = MIN(nbytes, GASNETC_BUFSZ);
-
-        memcpy(sbuf->buffer, (void *)src, count);
-        req.sr_sg[0].addr = (uintptr_t)sbuf->buffer;
-        req.sr_sg[0].lkey = gasnetc_snd_reg.lkey;
+        /* Source pinned - use zero copy RDMA write */
+	gasnetc_do_put_zerocp(cep, reg->lkey, rkey, src, dst, count, mem_oust, req_oust);
       }
-      req.sr_sg[0].len  = count;
-
-      gasnetc_snd_post(cep, &req, sbuf);
 
       src += count;
       dst += count;
@@ -951,60 +1178,29 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
  */
 extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasneti_atomic_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
-  uintptr_t src, dst;
-
-  src = (uintptr_t)src_ptr;
-  dst = (uintptr_t)dst_ptr;
+  VAPI_rkey_t rkey;
+  uintptr_t src = (uintptr_t)src_ptr;
+  uintptr_t dst = (uintptr_t)dst_ptr;
 
   assert(nbytes != 0);
 
-  do {
-    gasnetc_memreg_t *reg;
-    gasnetc_sbuf_t *sbuf;
-    gasnetc_sreq_t req;
-    uintptr_t count;
-
-    /* Buffers are our means to account for available slots in the send queue.
-     * Therefore we must allocate an sbuf even for zero-copy puts.
-     */
-    sbuf = gasnetc_get_sbuf();
-
-    req.sr_desc.opcode      = VAPI_RDMA_READ;
-    req.sr_desc.sg_lst_len  = 1;
-    req.sr_desc.fence       = FALSE;
-    req.sr_desc.remote_addr = src;
 #if defined(GASNET_SEGMENT_FAST)
-    req.sr_desc.r_key       = cep->rkey;
+  rkey = cep->rkey;
 #else
-    /* (###) implement firehose */
+  /* (###) implement firehose */
 #endif
 
-    if (req_oust) {
-      gasneti_atomic_increment(req_oust);
-      sbuf->req_oust = req_oust;
-    }
+  do {
+    size_t count = nbytes;	/* later will be length of (un)pinned interval */
+    gasnetc_memreg_t *reg = gasnetc_local_reg(dst, dst + (count - 1));
 
-    reg = gasnetc_local_reg(dst, dst + (nbytes - 1));
-
-    if (reg != NULL) {
-      /* ZERO-COPY CASE */
-      count = MIN(nbytes, gasnetc_hca_port.max_msg_sz);
-
-      req.sr_sg[0].addr = dst;
-      req.sr_sg[0].lkey = reg->lkey;
+    if_pf (reg == NULL) {
+      /* Destination not pinned - use bounce buffers upto some size limit */
+      gasnetc_do_get_bounce(cep, rkey, src, dst, count, req_oust);
     } else {
-      /* BOUNCE BUFFER CASE */
-      count = MIN(nbytes, GASNETC_BUFSZ);
-
-      req.sr_sg[0].addr = (uintptr_t)sbuf->buffer;
-      req.sr_sg[0].lkey = gasnetc_snd_reg.lkey;
-      sbuf->addr = (void *)dst;
-      sbuf->len = count;
+      /* Destination pinned - use zero copy RDMA read */
+      gasnetc_do_get_zerocp(cep, reg->lkey, rkey, src, dst, count, req_oust);
     }
-
-    req.sr_sg[0].len  = count;
-
-    gasnetc_snd_post(cep, &req, sbuf);
 
     src += count;
     dst += count;
@@ -1014,7 +1210,7 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
   return 0;
 }
 
-#if !defined(GASNET_SEGMENT_EVERYTHING)
+#if defined(GASNET_SEGMENT_FAST)
 /* write a constant pattern to remote memory using a local memset and an RDMA put */
 extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, gasneti_atomic_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
@@ -1025,7 +1221,7 @@ extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, 
   assert(nbytes != 0);
 	  
   do {
-    uintptr_t count = MIN(nbytes, GASNETC_BUFSZ);
+    size_t count = MIN(nbytes, GASNETC_BUFSZ);
 
     sbuf = gasnetc_get_sbuf();
     memset(sbuf->buffer, val, count);
@@ -1034,11 +1230,8 @@ extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, 
     req.sr_desc.sg_lst_len  = 1;
     req.sr_desc.fence       = TRUE;
     req.sr_desc.remote_addr = dst;
-#if defined(GASNET_SEGMENT_FAST)
     req.sr_desc.r_key       = cep->rkey;
-#else
-    /* (###) implement firehose */
-#endif
+
     req.sr_sg[0].addr = (uintptr_t)sbuf->buffer;
     req.sr_sg[0].len  = count;
     req.sr_sg[0].lkey = gasnetc_snd_reg.lkey;
@@ -1056,7 +1249,7 @@ extern int gasnetc_rdma_memset(int node, void *dst_ptr, int val, size_t nbytes, 
 
   return 0;
 }
-#endif /* !defined(GASNET_SEGMENT_EVERYTHING) */
+#endif
 
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
