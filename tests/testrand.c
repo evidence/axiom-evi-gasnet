@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testrand.c,v $
- *     $Date: 2004/10/23 09:59:18 $
- * $Revision: 1.5 $
+ *     $Date: 2005/02/05 09:46:14 $
+ * $Revision: 1.6 $
  * Description: GASNet get/put performance test
  *   measures measures the total time to write to each page of the
  *   remote test segment, using blocking puts in a random order.
@@ -36,15 +36,16 @@ void do_test(void) {GASNET_BEGIN_FUNCTION();
     int i;
     int64_t begin, end;
     int iamsender = (myproc % 2 == 0);
-    int pages = TEST_SEGSZ / PAGESZ;
+    int pagesz = MAX(PAGESZ, nbytes);
+    int pages = TEST_SEGSZ / pagesz;
     void **loc_addr = test_malloc(pages * sizeof(void *));
     void **rem_addr = test_malloc(pages * sizeof(void *));
     
 	if (iamsender) {
 		/* create in-order arrays of page addresses */
 		for (i = 0; i < pages; ++i) {
-		    loc_addr[i] = (void *)((uintptr_t)locmem + (i * PAGESZ));
-		    rem_addr[i] = (void *)((uintptr_t)remmem + (i * PAGESZ));
+		    loc_addr[i] = (void *)((uintptr_t)locmem + (i * pagesz));
+		    rem_addr[i] = (void *)((uintptr_t)remmem + (i * pagesz));
 		}
 		/* permute the arrays separately */
 		for (i = 0; i < pages - 1; ++i) {
