@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/09/15 06:31:16 $
- * $Revision: 1.38 $
+ *     $Date: 2003/09/15 16:50:03 $
+ * $Revision: 1.39 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -72,7 +72,8 @@ extern void gasneti_fatalerror(char *msg, ...) {
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_killmyprocess(int exitcode) {
   /* wrapper for _exit() that does the "right thing" to immediately kill this process */
-  #if defined(GASNETI_THREADS) && defined(HAVE_PTHREAD_KILL_OTHER_THREADS_NP)
+  #if (defined(GASNETI_THREADS) || GASNETI_FORCE_TRUE_MUTEXES) && \
+					defined(HAVE_PTHREAD_KILL_OTHER_THREADS_NP)
     /* on LinuxThreads we need to explicitly kill other threads before calling _exit() */
     pthread_kill_other_threads_np();
   #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2003/09/13 17:17:46 $
- * $Revision: 1.40 $
+ *     $Date: 2003/09/15 16:50:03 $
+ * $Revision: 1.41 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -235,14 +235,14 @@ extern int gasneti_VerboseErrors;
    gasneti_mutex_assertlocked(&lock)/gasneti_mutex_assertunlocked(&lock) - 
      allow functions to assert a given lock is held / not held by the current thread
  */
+#ifndef GASNETI_FORCE_TRUE_MUTEXES
+  /* GASNETI_FORCE_TRUE_MUTEXES will force gasneti_mutex_t to always
+     use true locking (even under GASNET_SEQ config), 
+     for inherently multi-threaded conduits such as lapi-conduit
+   */
+  #define GASNETI_FORCE_TRUE_MUTEXES 0
+#endif
 #ifdef DEBUG
-  #ifndef GASNETI_FORCE_TRUE_MUTEXES
-    /* GASNETI_FORCE_TRUE_MUTEXES will force gasneti_mutex_t to always
-       use true locking (even under GASNET_SEQ config), 
-       for inherently multi-threaded conduits such as lapi-conduit
-     */
-    #define GASNETI_FORCE_TRUE_MUTEXES 0
-  #endif
   #define GASNETI_MUTEX_NOOWNER       -1
   #ifndef GASNETI_THREADIDQUERY
     /* allow conduit override of thread-id query */
