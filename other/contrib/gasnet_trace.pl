@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/10/18 07:45:26 $
-# $Revision: 1.25 $
+#     $Date: 2004/10/21 23:59:28 $
+# $Revision: 1.26 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -238,7 +238,7 @@ sub parse_tracefile
 	    print STDERR "\b\b$percentage%";
 	    $counter = 0;
 	}
-	if (/^(\d+) \S+ \[([^\]]+)\] \([HPGB]\) (PUT|GET|BARRIER)([^:]*):\D+(\d+)/) { 
+        if (/^(\S+) \S+ \[([^\]]+)\] \([HPGB]\) (PUT|GET|BARRIER)([^:]*):\D+(\d+)/) { 
             ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
             # filter out lines that are not going to be in the report
             next unless $reports{$pgb};
