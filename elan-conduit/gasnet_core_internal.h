@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/12/19 18:35:47 $
- * $Revision: 1.11 $
+ *     $Date: 2003/03/01 23:46:46 $
+ * $Revision: 1.12 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -85,6 +85,11 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #define GASNETC_PREPOST_RECVS         1   /* pre-post non-blocking tport recv's */
 #define GASNETC_ELAN_MAX_QUEUEMSG   320   /* max message in a mainqueue */
 #define GASNETC_ELAN_SMALLPUTSZ      64   /* max put that elan_put copies to an elan buffer */
+
+#ifndef GASNETC_PREALLOC_AMLONG_BOUNCEBUF
+#define GASNETC_PREALLOC_AMLONG_BOUNCEBUF 1
+#endif
+
 /* message flags */
  /* 0-1: category
   * 2:   request vs. reply 
@@ -174,6 +179,13 @@ extern int gasnetc_ReplyGeneric(gasnetc_category_t category,
                          int numargs, va_list argptr);
 
 extern void gasnetc_initbufs();
+
+#ifdef GASNETI_THREADS
+  #define gasnetc_mythread() ((void**)(gasnete_mythread()))
+#else
+  void **_gasnetc_mythread;
+  #define gasnetc_mythread() _gasnetc_mythread
+#endif
 
 /* status dumping functions */
 extern void gasnetc_dump_base();
@@ -282,6 +294,20 @@ extern gasneti_mutex_t gasnetc_sendfifoLock;
   #define LOCK_ELAN_WEAK()    LOCK_ELAN()
   #define UNLOCK_ELAN_WEAK()  UNLOCK_ELAN()
   #define ASSERT_ELAN_LOCKED_WEAK() gasneti_mutex_assertlocked(&gasnetc_elanLock)
+#endif
+
+#define UNLOCKRELOCK_ELAN_WEAK(cmd) do { \
+    UNLOCK_ELAN_WEAK();                  \
+    cmd;                                 \
+    LOCK_ELAN_WEAK();                    \
+  } while (0)
+
+#if defined(TRACE) || defined(STATS)
+  /* wrap around trace calls in locked sections to prevent 
+     weak lock violation on elan_clock() */
+  #define UNLOCKRELOCK_ELAN_WEAK_IFTRACE(cmd) UNLOCKRELOCK_ELAN_WEAK(cmd)
+#else
+  #define UNLOCKRELOCK_ELAN_WEAK_IFTRACE(cmd) 
 #endif
 
 #endif

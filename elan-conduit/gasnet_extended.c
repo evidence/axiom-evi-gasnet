@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2003/02/27 03:29:17 $
- * $Revision: 1.19 $
+ *     $Date: 2003/03/01 23:46:46 $
+ * $Revision: 1.20 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,6 +37,11 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
     linked list of put/get eops that need bounce-bufs
     pgctrl objects for holding put/get ELAN_EVENT's for nbi
 
+  if !GASNETE_USE_ELAN_PUTGET,
+    all put/gets are done using AM (extended-ref)
+    GASNETE_USE_LONG_GETS works just like in extended-ref
+  otherwise...
+
   get_nb:
     if elan-addressable dest
       use a simple elan_get
@@ -72,7 +77,18 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
       use AM ref-ext
 
   barrier:
-    use AM
+    if !GASNETE_USE_ELAN_BARRIER
+      use AM (extended ref)
+    else
+      register a poll callback function at startup to ensure polling during hardware barrier
+      if GASNETE_FAST_ELAN_BARRIER and barrier anonymous
+        mismatchers report to all nodes
+        hardware elan barrier
+      else
+        hardware broadcast id from zero
+        if node detects mismatch, report to all nodes
+        hardware elan barrier
+      endif
 */
 
 /* ------------------------------------------------------------------------------------ */
@@ -148,6 +164,8 @@ GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GAS
   Thread Management
   =================
 */
+extern void gasnetc_new_threaddata_callback(void **core_threadinfo);
+
 static gasnete_threaddata_t * gasnete_new_threaddata() {
   gasnete_threaddata_t *threaddata = NULL;
   int idx;
@@ -170,6 +188,9 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
 
   gasnete_threadtable[idx] = threaddata;
   threaddata->current_iop = gasnete_iop_new(threaddata);
+
+  /* give the core a chance to set its thread context */
+  gasnetc_new_threaddata_callback(&(threaddata->gasnetc_threaddata));
 
   return threaddata;
 }
@@ -610,8 +631,8 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
   LOCK_ELAN_WEAK();
   #ifdef GASNET_SEGMENT_EVERYTHING
     if (!elan_addressable(STATE(),src,nbytes)) {
-      GASNETI_TRACE_PRINTF(I,("Warning: get source not elan-mapped, using AM instead"));
       UNLOCK_ELAN_WEAK();
+      GASNETI_TRACE_PRINTF(I,("Warning: get source not elan-mapped, using AM instead"));
     } else 
   #endif
   if (elan_addressable(STATE(),dest,nbytes)) { 
@@ -641,8 +662,9 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
       eop->bouncebuf = bouncebuf;
       return GASNETE_OP_TO_HANDLE(eop);
     } else {
-      GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
       UNLOCK_ELAN_WEAK();
+      GASNETI_TRACE_EVENT(C, EXHAUSTED_ELAN_MEMORY);
+      GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
     }
   }
 #endif
@@ -672,8 +694,8 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
   LOCK_ELAN_WEAK();
   #ifdef GASNET_SEGMENT_EVERYTHING
     if (!elan_addressable(STATE(),dest,nbytes)) {
-      GASNETI_TRACE_PRINTF(I,("Warning: put destination not elan-mapped, using AM instead"));
       UNLOCK_ELAN_WEAK();
+      GASNETI_TRACE_PRINTF(I,("Warning: put destination not elan-mapped, using AM instead"));
     } else 
   #endif
   if (nbytes <= GASNETC_ELAN_SMALLPUTSZ || 
@@ -712,8 +734,9 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
       eop->bouncebuf = bouncebuf;
       return GASNETE_OP_TO_HANDLE(eop);
     } else {
-      GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
       UNLOCK_ELAN_WEAK();
+      GASNETI_TRACE_EVENT(C, EXHAUSTED_ELAN_MEMORY);
+      GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
     }
   }
 #endif
@@ -901,9 +924,7 @@ static void gasnete_putgetctrl_save(gasnete_putgetctrl *pgctrl, ELAN_EVENT *evt)
       }
     }
     if (pgctrl->evt_cnt == gasnete_nbi_throttle) {
-      UNLOCK_ELAN_WEAK();
-      gasnetc_AMPoll();
-      LOCK_ELAN_WEAK();
+      UNLOCKRELOCK_ELAN_WEAK(gasnetc_AMPoll());
     }
   }
   evt_lst[pgctrl->evt_cnt] = evt;
@@ -934,8 +955,8 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   LOCK_ELAN_WEAK();
   #ifdef GASNET_SEGMENT_EVERYTHING
     if (!elan_addressable(STATE(),src,nbytes)) {
-      GASNETI_TRACE_PRINTF(I,("Warning: get source not elan-mapped, using AM instead"));
       UNLOCK_ELAN_WEAK();
+      GASNETI_TRACE_PRINTF(I,("Warning: get source not elan-mapped, using AM instead"));
     } else 
   #endif
   if (elan_addressable(STATE(),dest,nbytes)) { 
@@ -955,6 +976,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
     return;
   } else if (nbytes <= GASNETE_MAX_COPYBUFFER_SZ) { /* use a bounce buffer */
     gasnete_bouncebuf_t *bouncebuf;
+    tryagain:
     bouncebuf = (gasnete_bouncebuf_t *)elan_allocMain(STATE(), 64, sizeof(gasnete_bouncebuf_t)+nbytes);
     if_pt (bouncebuf) {
       ELAN_EVENT *evt;
@@ -972,9 +994,21 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
       bouncebuf->next = iop->elan_getbb_list;
       iop->elan_getbb_list = eop;
       return;
-    } else {
-      GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
+    } else { /* alloc failed - out of elan memory */
+      UNLOCKRELOCK_ELAN_WEAK_IFTRACE(GASNETI_TRACE_EVENT(C, EXHAUSTED_ELAN_MEMORY));
+      #if !GASNETE_USE_PGCTRL_NBI
+        /* try to reclaim some memory by reaping nbi eops before we punt to AM */
+        if (iop->elan_getbb_list || iop->elan_putbb_list) {
+          if (((iop->elan_getbb_list = gasnete_putgetbblist_pending(iop->elan_getbb_list)) != NULL) 
+               | /* don't want short-circuit || evaluation here */
+              ((iop->elan_putbb_list = gasnete_putgetbblist_pending(iop->elan_putbb_list)) != NULL)) {
+            UNLOCKRELOCK_ELAN_WEAK(gasnetc_AMPoll()); /* prevent deadlock */
+          }
+          goto tryagain;
+        }
+      #endif
       UNLOCK_ELAN_WEAK();
+      GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
     }
   }
 #endif
@@ -1040,8 +1074,8 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
   LOCK_ELAN_WEAK();
   #ifdef GASNET_SEGMENT_EVERYTHING
     if (!elan_addressable(STATE(),dest,nbytes)) {
-      GASNETI_TRACE_PRINTF(I,("Warning: put destination not elan-mapped, using AM instead"));
       UNLOCK_ELAN_WEAK();
+      GASNETI_TRACE_PRINTF(I,("Warning: put destination not elan-mapped, using AM instead"));
     } else 
   #endif
   if (nbytes <= GASNETC_ELAN_SMALLPUTSZ || 
@@ -1064,6 +1098,7 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
     return;
   } else if (nbytes <= GASNETE_MAX_COPYBUFFER_SZ) { /* use a bounce buffer */
     gasnete_bouncebuf_t *bouncebuf;
+    tryagain:
     bouncebuf = (gasnete_bouncebuf_t *)elan_allocMain(STATE(), 64, sizeof(gasnete_bouncebuf_t)+nbytes);
     if_pt (bouncebuf) {
       ELAN_EVENT *evt;
@@ -1085,9 +1120,21 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
       bouncebuf->next = iop->elan_putbb_list;
       iop->elan_putbb_list = eop;
       return;
-    } else {
-      GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
+    } else { /* alloc failed - out of elan memory */
+      UNLOCKRELOCK_ELAN_WEAK_IFTRACE(GASNETI_TRACE_EVENT(C, EXHAUSTED_ELAN_MEMORY));
+      #if !GASNETE_USE_PGCTRL_NBI
+        /* try to reclaim some memory by reaping nbi eops before we punt to AM */
+        if (iop->elan_getbb_list || iop->elan_putbb_list) {
+          if (((iop->elan_getbb_list = gasnete_putgetbblist_pending(iop->elan_getbb_list)) != NULL) 
+               | /* don't want short-circuit || evaluation here */
+              ((iop->elan_putbb_list = gasnete_putgetbblist_pending(iop->elan_putbb_list)) != NULL)) {
+            UNLOCKRELOCK_ELAN_WEAK(gasnetc_AMPoll()); /* prevent deadlock */
+          }
+          goto tryagain;
+        }
+      #endif
       UNLOCK_ELAN_WEAK();
+      GASNETI_TRACE_PRINTF(I,("Warning: Elan conduit exhausted the main memory heap trying to get a bounce buffer, using AM instead"));
     }
   }
 #endif
@@ -1401,15 +1448,14 @@ int gasnete_barrier_poll(void *handle, unsigned int *ready) {
       barrier_blocking = 1;
     LOCK_ELAN_WEAK();
   } 
-  else /* use _GASNETI_STAT_EVENT to avoid elan locking problems */
+  else 
+  #if 1 
+    /* use _GASNETI_STAT_EVENT to avoid elan locking problems */
     _GASNETI_STAT_EVENT(C, POLL_CALLBACK_NOOP); 
-  #if 0 && (defined(TRACE) || defined(STATS))
-    else {
-      UNLOCK_ELAN_WEAK();
-        GASNETI_TRACE_EVENT(C, POLL_CALLBACK_NOOP);
-      LOCK_ELAN_WEAK();
-    }
+  #else
+    UNLOCKRELOCK_ELAN_WEAK_IFTRACE(GASNETI_TRACE_EVENT(C, POLL_CALLBACK_NOOP));
   #endif
+
   return 0; /* return 0 => don't delay the elan blocking */
 }
 

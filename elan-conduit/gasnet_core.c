@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/01/11 22:46:42 $
- * $Revision: 1.18 $
+ *     $Date: 2003/03/01 23:46:46 $
+ * $Revision: 1.19 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -556,6 +556,21 @@ extern void gasnetc_exit(int exitcode) {
   gasneti_trace_finish();
   exit(exitcode); /* TODO: does this actually terminate the entire job? */ 
   abort();
+}
+/* ------------------------------------------------------------------------------------ */
+extern void gasnetc_new_threaddata_callback(void **core_threadinfo) {
+  #if GASNETC_PREALLOC_AMLONG_BOUNCEBUF
+    *core_threadinfo = elan_allocMain(STATE(), 64, GASNETC_MAX_LONG);
+    if (!*core_threadinfo) 
+      gasneti_fatalerror("Failed to elan_allocMain(%i bytes) for thread AM Long buffer. "
+                         "Try disabling GASNETC_PREALLOC_AMLONG_BOUNCEBUF.", 
+                          GASNETC_MAX_LONG);
+  #else
+    *core_threadinfo = NULL;
+  #endif
+  #ifndef GASNETI_THREADS
+    _gasnetc_mythread = core_threadinfo;
+  #endif
 }
 /* ------------------------------------------------------------------------------------ */
 extern void gasnetc_trace_finish() {

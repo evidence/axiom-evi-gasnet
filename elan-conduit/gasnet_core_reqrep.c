@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/12/19 18:35:47 $
- * $Revision: 1.11 $
+ *     $Date: 2003/03/01 23:46:46 $
+ * $Revision: 1.12 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -471,39 +471,34 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
             elan_addressable(STATE(), source_addr, nbytes)) {
           /* safe to put directly from source */
           putevt = elan_put(STATE(), source_addr, dest_ptr, nbytes, dest);
-          #ifdef TRACE
-            UNLOCK_ELAN_WEAK(); /* prevent weak lock violation on elan_clock() */
-          #endif
-          GASNETI_TRACE_EVENT_VAL(C,AMLONG_DIRECT,nbytes);
-          #ifdef TRACE
-            LOCK_ELAN_WEAK();
-          #endif
+          UNLOCKRELOCK_ELAN_WEAK_IFTRACE(GASNETI_TRACE_EVENT_VAL(C,AMLONG_DIRECT,nbytes));
         } else { /* need to use a bounce buffer */
           /* TODO: this may fail for unmapped segment under GASNET_SEGMENT_EVERYTHING */
           assert(elan_addressable(STATE(), dest_ptr, nbytes));
           /* would be nice to use SDRAM here, but put interface cannot handle it... */
-          bouncebuf = elan_allocMain(STATE(), 64, nbytes);
-          assert(bouncebuf); /* TODO: if we run out of mem here, we're in trouble */
+          #if GASNETC_PREALLOC_AMLONG_BOUNCEBUF
+            bouncebuf = *gasnetc_mythread(); /* core entry is first in struct */
+            assert(bouncebuf);
+          #else
+            bouncebuf = elan_allocMain(STATE(), 64, nbytes);
+            if (!bouncebuf) /* if we run out of mem here, we're in trouble */
+              gasneti_fatalerror("Failed to elan_allocMain() %i bytes in gasnetc_ReqRepGeneric",
+                nbytes);
+          #endif
           memcpy(bouncebuf, source_addr, nbytes);
           putevt = elan_put(STATE(), bouncebuf, dest_ptr, nbytes, dest);
-          #ifdef TRACE
-            UNLOCK_ELAN_WEAK(); /* prevent weak lock violation on elan_clock() */
-          #endif
-          GASNETI_TRACE_EVENT_VAL(C,AMLONG_BUFFERED,nbytes);
-          #ifdef TRACE
-            LOCK_ELAN_WEAK();
-          #endif
+          UNLOCKRELOCK_ELAN_WEAK_IFTRACE(GASNETI_TRACE_EVENT_VAL(C,AMLONG_BUFFERED,nbytes));
         }
         /* loop until put is complete (required to ensure ordering semantics) 
            could make this totally asynchronous with lots more work, 
            but this isn't that bad because the put DMA is totally one-sided
          */
         while (!elan_poll(putevt, 5)) {
-          UNLOCK_ELAN_WEAK();
-          gasnetc_AMPoll();
-          LOCK_ELAN_WEAK();
+          UNLOCKRELOCK_ELAN_WEAK(gasnetc_AMPoll());
         }
-        if (bouncebuf) elan_free(STATE(), bouncebuf);
+        #if !GASNETC_PREALLOC_AMLONG_BOUNCEBUF
+          if (bouncebuf) elan_free(STATE(), bouncebuf);
+        #endif
       }
 
       if (msgsz <= GASNETC_ELAN_MAX_QUEUEMSG) {

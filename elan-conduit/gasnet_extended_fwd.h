@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2003/01/27 15:06:43 $
- * $Revision: 1.7 $
+ *     $Date: 2003/03/01 23:46:46 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,7 +89,8 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define CONDUIT_EXTENDED_STATS(CNT,VAL,TIME) \
         CNT(C, DYNAMIC_THREADLOOKUP, cnt)    \
         CNT(C, POLL_CALLBACK_BARRIER, cnt)   \
-        CNT(C, POLL_CALLBACK_NOOP, cnt)      
+        CNT(C, POLL_CALLBACK_NOOP, cnt)      \
+        CNT(C, EXHAUSTED_ELAN_MEMORY, cnt)
 
 
 #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended_internal.h         $
- *     $Date: 2003/02/27 03:29:17 $
- * $Revision: 1.6 $
+ *     $Date: 2003/03/01 23:46:46 $
+ * $Revision: 1.7 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,7 +94,7 @@ typedef struct _gasnete_iop_t {
 
 /* ------------------------------------------------------------------------------------ */
 typedef struct _gasnete_threaddata_t {
-  void *gasnetc_threaddata;     /* pointer reserved for use by the core */
+  void *gasnetc_threaddata;     /* pointer reserved for use by the core - MUST be first */
 
   gasnete_threadidx_t threadidx;
 
