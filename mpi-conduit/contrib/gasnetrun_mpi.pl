@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/03/20 16:32:06 $
-# $Revision: 1.19 $
+#     $Date: 2005/03/20 16:54:51 $
+# $Revision: 1.20 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -50,7 +50,7 @@ my @tmpfiles = ();
     my $is_lam      = ($mpirun_help =~ m|LAM/MPI|);
     my $is_mpich_nt = ($mpirun_help =~ m|MPIRun|);
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
-    my $is_mvich    = ($mpirun_help =~ m|MV(AP)?ICH|);
+    my $is_mvich    = ($mpirun_help =~ m|MV(AP)?ICH|i);
     my $is_cray_mpi = ($mpirun_help =~ m|Psched|);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
@@ -251,7 +251,7 @@ sub expand {
     print "envargs: " . (join " ", @envargs) . "\n" if ($verbose);
 
     # Special case for the mpich spawner
-    if ($is_mpich && !$is_mpich_nt) {
+    if ($is_mpich && !$is_mpich_nt && !$is_mvich) {
         # General approach: create a wrapper script for the rsh/ssh command invoked by MPICH
         # that glues on the correct environment variables in a way that won't disturb MPICH
         $tmpdir = "gasnetrun_mpi-temp-$$";
