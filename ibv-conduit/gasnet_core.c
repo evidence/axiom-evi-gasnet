@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/03/08 00:07:09 $
- * $Revision: 1.1 $
+ *     $Date: 2003/03/19 17:47:54 $
+ * $Revision: 1.2 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -525,28 +525,6 @@ extern int gasnetc_AMReplyLongM(
 
 /* ------------------------------------------------------------------------------------ */
 /*
-  No-interrupt sections
-  =====================
-  This section is only required for conduits that may use interrupt-based handler dispatch
-  See the GASNet spec and http://www.cs.berkeley.edu/~bonachea/upc/gasnet.html for
-    philosophy and hints on efficiently implementing no-interrupt sections
-  Note: the extended-ref implementation provides a thread-specific void* within the 
-    gasnete_threaddata_t data structure which is reserved for use by the core 
-    (and this is one place you'll probably want to use it)
-*/
-#if ###
-  extern void gasnetc_hold_interrupts() {
-    GASNETC_CHECKATTACH();
-    /* (###) add code here to disable handler interrupts for _this_ thread */
-  }
-  extern void gasnetc_resume_interrupts() {
-    GASNETC_CHECKATTACH();
-    /* (###) add code here to re-enable handler interrupts for _this_ thread */
-  }
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-/*
   Handler-safe locks
   ==================
 */
@@ -554,32 +532,24 @@ extern int gasnetc_AMReplyLongM(
 extern void gasnetc_hsl_init   (gasnet_hsl_t *hsl) {
   GASNETC_CHECKATTACH();
 
-  #ifdef GASNETI_THREADS
   { int retval = pthread_mutex_init(&(hsl->lock), NULL);
     if (retval) 
       gasneti_fatalerror("In gasnetc_hsl_init(), pthread_mutex_init()=%s",strerror(retval));
   }
-  #endif
-
-  /* (###) add code here to init conduit-specific HSL state */
 }
 
 extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
   GASNETC_CHECKATTACH();
-  #ifdef GASNETI_THREADS
+
   { int retval = pthread_mutex_destroy(&(hsl->lock));
     if (retval) 
       gasneti_fatalerror("In gasnetc_hsl_destroy(), pthread_mutex_destroy()=%s",strerror(retval));
   }
-  #endif
-
-  /* (###) add code here to cleanup conduit-specific HSL state */
 }
 
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
   GASNETC_CHECKATTACH();
 
-  #ifdef GASNETI_THREADS
   { int retval; 
     #if defined(STATS) || defined(TRACE)
       gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
@@ -598,33 +568,17 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
       GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, hsl->acquiretime-startlock);
     #endif
   }
-  #elif defined(STATS) || defined(TRACE)
-    hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
-    GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, 0);
-  #endif
-
-  /* (###) conduits with interrupt-based handler dispatch need to add code here to 
-           disable handler interrupts on _this_ thread, (if this is the outermost
-           HSL lock acquire and we're not inside an enclosing no-interrupt section)
-   */
 }
 
 extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
   GASNETC_CHECKATTACH();
 
-  /* (###) conduits with interrupt-based handler dispatch need to add code here to 
-           re-enable handler interrupts on _this_ thread, (if this is the outermost
-           HSL lock release and we're not inside an enclosing no-interrupt section)
-   */
-
   GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW()-hsl->acquiretime);
 
-  #ifdef GASNETI_THREADS
   { int retval = pthread_mutex_unlock(&(hsl->lock));
     if (retval) 
       gasneti_fatalerror("In gasnetc_hsl_unlock(), pthread_mutex_unlock()=%s",strerror(retval));
   }
-  #endif
 }
 
 /* ------------------------------------------------------------------------------------ */
