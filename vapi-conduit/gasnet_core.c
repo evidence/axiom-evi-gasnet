@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2003/12/18 21:07:29 $
- * $Revision: 1.34 $
+ *     $Date: 2003/12/18 22:33:12 $
+ * $Revision: 1.35 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,6 +16,9 @@
 #include <signal.h>
 #include <sched.h>
 
+#include <sys/time.h>
+#include <sys/resource.h>
+ 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
@@ -216,10 +219,22 @@ extern void gasnetc_free_pinned(gasnetc_memreg_t *reg) {
   gasneti_munmap(reg->req_addr, reg->req_size);
 }
 
-#ifdef LINUX
+#if defined(_SC_PHYS_PAGES)
+static unsigned long gasnetc_get_physpages()
+{
+  long pages;
+
+  pages = sysconf(_SC_PHYS_PAGES);
+  if (pages == -1) {
+    gasneti_fatalerror("sysconf(_SC_PHYS_PAGES) failed");
+  }
+
+  return pages;
+}
+#elif defined(LINUX)
 #define _BUFSZ	120
 /* XXX how does this fair on systems w/ >4GB */
-static uintptr_t gasnetc_get_physmem()
+static unsigned long gasnetc_get_physpages()
 {
   FILE            *fp;
   char            line[_BUFSZ+1];
@@ -236,7 +251,7 @@ static uintptr_t gasnetc_get_physmem()
   }
   fclose(fp);
 
-  return (uintptr_t) mem;
+  return (unsigned long)mem / GASNET_PAGESIZE;
 }
 #else
 #error "Don't know how to get physical memory size on your O/S"
@@ -252,20 +267,34 @@ static uintptr_t gasnetc_max_pinnable(void) {
   gasnet_seginfo_t si;
   uintptr_t lo, hi;
   uintptr_t size;
+  unsigned long pages;
   void *addr;
 
-  /* search for largest mmap() region */
-  size = MIN(2 * (gasnetc_get_physmem() / 3), (uintptr_t)gasnetc_hca_cap.max_mr_size);
-  size = MIN(size, GASNETI_MMAP_MAX_SIZE);
-  size = GASNETI_ALIGNDOWN(size, GASNETI_MMAP_GRANULARITY);
-  si = gasneti_mmap_segment_search(size);
+  /* search for largest mmap() region
+   * We bound our search by the smallest of:
+   *   2/3 of physical memory
+   *   HCA's capability
+   *   User's current (soft) mlock limit
+   *   GASNETI_MMAP_MAX_SIZE
+   */
+  pages = 2 * (gasnetc_get_physpages() / 3);
+  pages = MIN(pages, gasnetc_hca_cap.max_mr_size / GASNET_PAGESIZE);
+#ifdef RLIMIT_MEMLOCK
+  {
+    struct rlimit r;
+    if ((getrlimit(RLIMIT_MEMLOCK, &r) == 0) && (r.rlim_cur != RLIM_INFINITY)) {
+      pages = MIN(pages, r.rlim_cur / GASNET_PAGESIZE);
+    }
+  }
+#endif
+  si = gasneti_mmap_segment_search(MIN(pages*GASNET_PAGESIZE, GASNETI_MMAP_MAX_SIZE));
 
   if (si.addr == NULL) return 0;
 
   /* Now search for largest pinnable region */
   addr = si.addr;
-  lo = GASNET_PAGESIZE;
-  hi = si.size;
+  lo = 0;
+  hi = GASNETI_ALIGNDOWN(si.size, GASNETI_MMAP_GRANULARITY);
 
 #if 0 /* Binary search */
   size = hi;
@@ -289,7 +318,7 @@ static uintptr_t gasnetc_max_pinnable(void) {
     VAPI_ret_t vstat;
 
     vstat = gasnetc_pin(addr, size, 0, &reg);
-    if (vstat != VAPI_OK) {
+    if (vstat == VAPI_OK) {
       gasnetc_unpin(&reg);
       break;
     }
