@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/05/02 08:05:17 $
- * $Revision: 1.47 $
+ *     $Date: 2004/05/05 16:05:27 $
+ * $Revision: 1.48 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -977,6 +977,8 @@ extern int gasnetc_AMRequestMediumM(
     }
 #endif
 
+    /* insure token_len is a multiple of 8 */
+    GASNETC_ROUND8(token_len);
     /* issue the request for remote execution of the user handler */
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
@@ -1059,6 +1061,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     }
 
     /* issue the request for remote execution of the user handler */
+    GASNETC_ROUND8(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
@@ -1156,6 +1159,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
      * It is up to the client not to modify the source_addr data until his 
      * reply handler runs.
      */
+    GASNETC_ROUND8(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
 			       gasnetc_remote_req_hh[dest],
@@ -1213,6 +1217,7 @@ extern int gasnetc_AMReplyShortM(
     token_len = TOKEN_LEN(numargs);
     
     /* issue the request for remote execution of the user handler */
+    GASNETC_ROUND8(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, requester,
@@ -1294,6 +1299,7 @@ extern int gasnetc_AMReplyMediumM(
 #endif
 
     /* issue the request for remote execution of the user handler */
+    GASNETC_ROUND8(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, requester,
@@ -1376,6 +1382,7 @@ extern int gasnetc_AMReplyLongM(
     }
 
     /* issue the request for remote execution of the user handler */
+    GASNETC_ROUND8(token_len);
     gasneti_assert( token_len <= gasnetc_max_lapi_uhdr_size);
     GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&o_cntr,0));
     GASNETC_LCHECK(LAPI_Amsend(gasnetc_lapi_context, dest,
