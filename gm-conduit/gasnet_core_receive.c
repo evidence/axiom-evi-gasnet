@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.11 2002/06/30 10:16:47 csbell Exp $
- * $Date: 2002/06/30 10:16:47 $
- * $Revision: 1.11 $
+/* $Id: gasnet_core_receive.c,v 1.12 2002/07/02 01:31:20 csbell Exp $
+ * $Date: 2002/07/02 01:31:20 $
+ * $Revision: 1.12 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -443,29 +443,43 @@ gasnetc_callback_generic(struct gm_port *p, void *context, gm_status_t status)
 	bufd->dest_addr = 0;
 	bufd->rdma_off = 0;
 	GASNETC_BUFDESC_FLAG_RESET(bufd->flag);
+	assert(bufd->sendbuf != NULL);
 
 	/* Either give the buffer back to the receive queue if some replies
 	 * where in flight or give it back to the AMRequest pool 
 	 */ 
-	if (_gmc.ReplyCount > 0)  {
-		_gmc.ReplyCount--;
-		GASNETI_TRACE_PRINTF(C, ("gasnetc_callback:\t"
-		    "buffer to AMRequest queue (ReplyCount=%d)",
-		    _gmc.ReplyCount) );
-		gasnetc_provide_AMRequest_buffer(bufd->sendbuf);
+#if GASNETC_RROBIN_BUFFERS > 1
+	if (_gmc.RRobinCount == 0) {
+		if (_gmc.reqs_pool_cur < _gmc.reqs_pool_max)
+			GASNETC_REQUEST_POOL_PROVIDE_BUFFER(bufd);
+		else {
+			if_pf (_gmc.ReplyCount < 1)
+				gasneti_fatalerror("provide buffer overflow");
+			gasnetc_provide_AMRequest_buffer(bufd->sendbuf);
+			_gmc.ReplyCount--;
+			GASNETI_TRACE_PRINTF(C, ("gasnetc_callback:\t"
+			    "buffer to AMRequest queue (ReplyCount=%d)",
+			    _gmc.ReplyCount) );
+		}
 	}
 	else {
-		if_pf (_gmc.reqs_pool_cur >= _gmc.reqs_pool_max)
-			gasneti_fatalerror(
-				"gasnetc_callback:\tSend FIFO overflow (?)\n");
-		GASNETC_REQUEST_POOL_MUTEX_LOCK;
-		_gmc.reqs_pool_cur++;
-		GASNETI_TRACE_PRINTF(C, ("gasnetc_callback:\t"
-		    "buffer to Pool (%d/%d)", _gmc.reqs_pool_cur,
-		    _gmc.reqs_pool_max) );
-		_gmc.reqs_pool[_gmc.reqs_pool_cur] = bufd->id;
-		GASNETC_REQUEST_POOL_MUTEX_UNLOCK;
+#endif
+		if (_gmc.ReplyCount > 0)  {
+			gasnetc_provide_AMRequest_buffer(bufd->sendbuf);
+			_gmc.ReplyCount--;
+			GASNETI_TRACE_PRINTF(C, ("gasnetc_callback:\t"
+			    "buffer to AMRequest queue (ReplyCount=%d)",
+			    _gmc.ReplyCount) );
+		}
+		else {
+			if_pf (_gmc.reqs_pool_cur >= _gmc.reqs_pool_max)
+				gasneti_fatalerror("Send FIFO overflow");
+			GASNETC_REQUEST_POOL_PROVIDE_BUFFER(bufd);
+		}
+#if GASNETC_RROBIN_BUFFERS > 1
 	}
+	_gmc.RRobinCount = (_gmc.RRobinCount+1) % GASNETC_RROBIN_BUFFERS;
+#endif
 }
 
 /* Callbacks for AMRequest/AMReply functions

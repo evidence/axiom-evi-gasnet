@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.15 2002/06/30 12:55:27 csbell Exp $
- * $Date: 2002/06/30 12:55:27 $
- * $Revision: 1.15 $
+/* $Id: gasnet_core_misc.c,v 1.16 2002/07/02 01:31:20 csbell Exp $
+ * $Date: 2002/07/02 01:31:20 $
+ * $Revision: 1.16 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -70,6 +70,9 @@ gasnetc_sendbuf_init()
 	_gmc.scratchBuf = (void *) ((uint8_t *) _gmc.dma_bufs + 
 			    ((++i)<<GASNETC_AM_SIZE));
 	_gmc.ReplyCount = 0;
+#if GASNETC_RROBIN_BUFFERS > 1
+	_gmc.RRobinCount = 0;
+#endif
 }
 
 void

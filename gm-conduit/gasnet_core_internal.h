@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.15 2002/06/30 12:55:27 csbell Exp $
- * $Date: 2002/06/30 12:55:27 $
- * $Revision: 1.15 $
+/* $Id: gasnet_core_internal.h,v 1.16 2002/07/02 01:31:20 csbell Exp $
+ * $Date: 2002/07/02 01:31:20 $
+ * $Revision: 1.16 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -167,6 +167,9 @@ struct _gasnetc_state {
 	gasnetc_token_t		stoks;
 	gasnetc_token_t		rtoks;
 	int			ReplyCount;
+#if GASNETC_RROBIN_BUFFERS > 1
+	int			RRobinCount;
+#endif
 	gasnetc_handler_fn_t	handlers[GASNETC_AM_MAX_HANDLERS];
 	gasnetc_gm_nodes_t	*gm_nodes;
 	gasnetc_gm_nodes_rev_t	*gm_nodes_rev;
@@ -472,7 +475,7 @@ gasnetc_segment_alloc(void *segbase, size_t segsize)
 	GASNETI_TRACE_PRINTF(C, 
 	    ("mmap(0x%x, %d)\n", (uintptr_t) segbase, segsize) );
 	ptr = mmap(segbase, segsize, (PROT_READ|PROT_WRITE), 
-		(MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED), -1, 0);
+		(MAP_ANON | MAP_PRIVATE | MAP_FIXED), -1, 0);
 	if (ptr == MAP_FAILED) {
 		perror("mmap failed: ");
 		gasneti_fatalerror("mmap failed at 0x%x for size %d\n",

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.7 2002/06/30 12:55:27 csbell Exp $
- * $Date: 2002/06/30 12:55:27 $
- * $Revision: 1.7 $
+/* $Id: gasnet_core_help.h,v 1.8 2002/07/02 01:31:20 csbell Exp $
+ * $Date: 2002/07/02 01:31:20 $
+ * $Revision: 1.8 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -52,6 +52,12 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_SYS_SIZE	5
 #define GASNETC_AM_MAX_ARGS	16
 #define GASNETC_AM_MAX_HANDLERS 256
+/* RROBIN_BUFFERS controls the priority (weighting) for giving buffers
+ * back either to the AMRequest receive queue or Send Pool
+ * Setting it to 3 means give priority to Send Pool once out of three
+ * Setting it to 1 or 0 disables any priority: buffers will always be 
+ * given back to the receive queue if replies were sent */
+#define GASNETC_RROBIN_BUFFERS	3
 
 #define GASNETC_AM_SHORT_ARGS_OFF	4
 #define GASNETC_AM_MEDIUM_ARGS_OFF	4
@@ -230,6 +236,15 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
 #define GASNETC_GM_RECV_PTR(e,fast)				\
 	(fast) ? (uint8_t *) gm_ntohp((e)->recv.message) :	\
 	    (uint8_t *) gm_ntohp((e)->recv.buffer)
+
+#define GASNETC_REQUEST_POOL_PROVIDE_BUFFER(bufd) do {            \
+		GASNETC_REQUEST_POOL_MUTEX_LOCK;                  \
+		_gmc.reqs_pool_cur++;                             \
+		GASNETI_TRACE_PRINTF(C, ("gasnetc_callback:\t"    \
+		    "buffer to Pool (%d/%d)", _gmc.reqs_pool_cur, \
+		    _gmc.reqs_pool_max) );                        \
+		_gmc.reqs_pool[_gmc.reqs_pool_cur] = bufd->id;    \
+		GASNETC_REQUEST_POOL_MUTEX_UNLOCK; } while (0)
 
 #define GASNETC_SYSHEADER_WRITE(buf, index)				\
 	*((uint8_t *)(buf)) = (0xc0 | ((index) & 0x3f))
