@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2005/02/20 08:24:22 $
- * $Revision: 1.12 $
+ *     $Date: 2005/02/28 10:23:10 $
+ * $Revision: 1.13 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -98,599 +98,215 @@ int main(int argc, char **argv) {
   /* ------------------------------------------------------------------------------------ */
   { GASNET_BEGIN_FUNCTION();
 
-    BARRIER();
+    char p[1];
+    gasnet_hsl_t hsl = GASNET_HSL_INITIALIZER;
+    gasnett_atomic_t a = gasnett_atomic_init(0);
+    int32_t temp = 0;
+    int8_t bigtemp[1024];
+    gasnet_handle_t handles[8];
 
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
+    for (i=0;i<8;i++) handles[i] = GASNET_INVALID_HANDLE;
+
+    #define TIME_OPERATION_FULL(desc, preop, op, postop) \
+      { int64_t start,end;                               \
+        BARRIER();                                       \
+        start = TIME();                                  \
+        preop;                                           \
+        for (i=0; i < iters; i++) { op; }                \
+        postop;                                          \
+        end = TIME();                                    \
+        BARRIER();                                       \
+        if ((desc) && ((char*)(desc))[0])                \
+          report((desc), end - start, iters);            \
+        else report(#op, end - start, iters);            \
       }
-      report("Tester overhead",TIME() - start, iters);
-    }
+    #define TIME_OPERATION(desc, op) TIME_OPERATION_FULL(desc, {}, op, {})
 
-    BARRIER();
+    TIME_OPERATION("Tester overhead", {});
+    
+    TIME_OPERATION("Do-nothing gasnet_AMPoll()",
+      { gasnet_AMPoll(); });
+    
+    TIME_OPERATION("Loopback do-nothing gasnet_AMRequestShort0()",
+      { gasnet_AMRequestShort0(mynode, hidx_null_shorthandler); });
 
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_AMPoll();            
-      }
-      report("Do-nothing gasnet_AMPoll()",TIME() - start, iters);
-    }
+    TIME_OPERATION("Loopback do nothing AM short request-reply",
+      { gasnet_AMRequestShort0(mynode, hidx_justreply_shorthandler); });
 
-    BARRIER();
+    TIME_OPERATION("Loopback do-nothing gasnet_AMRequestMedium0()",
+      { gasnet_AMRequestMedium0(mynode, hidx_null_medhandler, p, 0); });
 
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_AMRequestShort0(mynode, hidx_null_shorthandler);
-      }
-      report("Loopback do-nothing gasnet_AMRequestShort0()",TIME() - start, iters);
-    }
+    TIME_OPERATION("Loopback do nothing AM medium request-reply",
+      { gasnet_AMRequestMedium0(mynode, hidx_justreply_medhandler, p, 0); });
 
-    BARRIER();
+    TIME_OPERATION("Loopback do-nothing gasnet_AMRequestLong0()",
+      { gasnet_AMRequestLong0(mynode, hidx_null_medhandler, p, 0, myseg); });
 
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_AMRequestShort0(mynode, hidx_justreply_shorthandler);
-      }
-      report("Loopback do nothing AM short request-reply",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      char p[1];
-      for (i=0; i < iters; i++) {
-        gasnet_AMRequestMedium0(mynode, hidx_null_medhandler, p, 0);
-      }
-      report("Loopback do-nothing gasnet_AMRequestMedium0()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      char p[1];
-      for (i=0; i < iters; i++) {
-        gasnet_AMRequestMedium0(mynode, hidx_justreply_medhandler, p, 0);
-      }
-      report("Loopback do nothing AM medium request-reply",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      char p[1];
-      for (i=0; i < iters; i++) {
-        gasnet_AMRequestLong0(mynode, hidx_null_medhandler, p, 0, myseg);
-      }
-      report("Loopback do-nothing gasnet_AMRequestLong0()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      char p[1];
-      for (i=0; i < iters; i++) {
-        gasnet_AMRequestLong0(mynode, hidx_justreply_medhandler, p, 0, myseg);
-      }
-      report("Loopback do nothing AM long request-reply",TIME() - start, iters);
-    }
+    TIME_OPERATION("Loopback do nothing AM long request-reply",
+      { gasnet_AMRequestLong0(mynode, hidx_justreply_medhandler, p, 0, myseg); });
 
     /* ------------------------------------------------------------------------------------ */
 
-    BARRIER();
+    TIME_OPERATION("hold/resume interrupts",
+      { gasnet_hold_interrupts(); gasnet_resume_interrupts(); });
 
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_hold_interrupts();          
-        gasnet_resume_interrupts();
+    #if defined(GASNET_PAR) || defined (GASNET_PARSYNC)
+      { static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+        TIME_OPERATION("lock/unlock uncontended pthread mutex",
+          { pthread_mutex_lock(&mutex); pthread_mutex_unlock(&mutex); });
       }
-      report("hold/resume interrupts",TIME() - start, iters);
-    }
+    #endif
 
-    BARRIER();
+    TIME_OPERATION("lock/unlock uncontended HSL",
+      { gasnet_hsl_lock(&hsl); gasnet_hsl_unlock(&hsl); });
 
-  #if defined(GASNET_PAR) || defined (GASNET_PARSYNC)
-    {
-      static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        pthread_mutex_lock(&mutex);
-        pthread_mutex_unlock(&mutex);
-      }
-      report("lock/unlock uncontended pthread mutex",TIME() - start, iters);
-    }
-  #endif
+    TIME_OPERATION("gasnett_local_wmb", gasnett_local_wmb());
+    TIME_OPERATION("gasnett_local_rmb", gasnett_local_rmb());
+    TIME_OPERATION("gasnett_local_mb", gasnett_local_mb());
 
-    BARRIER();
-
-    {
-      static gasnet_hsl_t hsl = GASNET_HSL_INITIALIZER;
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_hsl_lock(&hsl);
-        gasnet_hsl_unlock(&hsl);
-      }
-      report("lock/unlock uncontended HSL",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnett_local_wmb();
-      }
-      report("gasnett_local_wmb()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnett_local_rmb();
-      }
-      report("gasnett_local_rmb()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    { gasnett_atomic_t a = gasnett_atomic_init(0);
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnett_atomic_read(&a);
-      }
-      report("gasnett_atomic_read()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    { gasnett_atomic_t a = gasnett_atomic_init(0);
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnett_atomic_increment(&a);
-      }
-      report("gasnett_atomic_increment()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    { gasnett_atomic_t a = gasnett_atomic_init(0);
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnett_atomic_decrement(&a);
-      }
-      report("gasnett_atomic_decrement()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    { gasnett_atomic_t a = gasnett_atomic_init(0);
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnett_atomic_decrement_and_test(&a);
-      }
-      report("gasnett_atomic_decrement_and_test()",TIME() - start, iters);
-    }
-    /* ------------------------------------------------------------------------------------ */
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_put(mynode, myseg, &temp, 4);
-      }
-      report("local 4-byte gasnet_put",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnb(gasnet_put_nb(mynode, myseg, &temp, 4));
-      }
-      report("local 4-byte gasnet_put_nb",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_put_nbi(mynode, myseg, &temp, 4);
-      }
-      gasnet_wait_syncnbi_puts();
-      report("local 4-byte gasnet_put_nbi",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_put_bulk(mynode, myseg, &temp, 4);
-      }
-      report("local 4-byte gasnet_put_bulk",TIME() - start, iters);
-    }
-
-    BARRIER();
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnb(gasnet_put_nb_bulk(mynode, myseg, &temp, 4));
-      }
-      report("local 4-byte gasnet_put_nb_bulk",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_put_nbi_bulk(mynode, myseg, &temp, 4);
-      }
-      gasnet_wait_syncnbi_puts();
-      report("local 4-byte gasnet_put_nbi_bulk",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_put_val(mynode, myseg, temp, 4);
-      }
-      report("local 4-byte gasnet_put_val",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnb(gasnet_put_nb_val(mynode, myseg, temp, 4));
-      }
-      report("local 4-byte gasnet_put_nb_val",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_put_nbi_val(mynode, myseg, temp, 4);
-      }
-      gasnet_wait_syncnbi_puts();
-      report("local 4-byte gasnet_put_nbi_val",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int8_t temp[1024];
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_put_bulk(mynode, myseg, &temp, 1024);
-      }
-      report("local 1024-byte gasnet_put_bulk",TIME() - start, iters);
-    }
+    TIME_OPERATION("gasnett_atomic_read", gasnett_atomic_read(&a));
+    TIME_OPERATION("gasnett_atomic_increment", gasnett_atomic_increment(&a));
+    TIME_OPERATION("gasnett_atomic_decrement", gasnett_atomic_decrement(&a));
+    TIME_OPERATION("gasnett_atomic_decrement_and_test", gasnett_atomic_decrement_and_test(&a));
 
     /* ------------------------------------------------------------------------------------ */
 
-    BARRIER();
+    TIME_OPERATION("local 4-byte gasnet_put",
+      { gasnet_put(mynode, myseg, &temp, 4); });
 
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_get(&temp, mynode, myseg, 4);
-      }
-      report("local 4-byte gasnet_get",TIME() - start, iters);
-    }
+    TIME_OPERATION("local 4-byte gasnet_put_nb",
+      { gasnet_wait_syncnb(gasnet_put_nb(mynode, myseg, &temp, 4)); });
 
-    BARRIER();
+    TIME_OPERATION_FULL("local 4-byte gasnet_put_nbi", {},
+      { gasnet_put_nbi(mynode, myseg, &temp, 4); },
+      { gasnet_wait_syncnbi_puts(); });
 
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnb(gasnet_get_nb(&temp, mynode, myseg, 4));
-      }
-      report("local 4-byte gasnet_get_nb",TIME() - start, iters);
-    }
+    TIME_OPERATION("local 4-byte gasnet_put_bulk",
+      { gasnet_put_bulk(mynode, myseg, &temp, 4); });
 
-    BARRIER();
+    TIME_OPERATION("local 4-byte gasnet_put_nb_bulk",
+      { gasnet_wait_syncnb(gasnet_put_nb_bulk(mynode, myseg, &temp, 4)); });
 
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_get_nbi(&temp, mynode, myseg, 4);
-      }
-      gasnet_wait_syncnbi_gets();
-      report("local 4-byte gasnet_get_nbi",TIME() - start, iters);
-    }
+    TIME_OPERATION_FULL("local 4-byte gasnet_put_nbi_bulk", {},
+      { gasnet_put_nbi(mynode, myseg, &temp, 4); },
+      { gasnet_wait_syncnbi_puts(); });
 
-    BARRIER();
+    TIME_OPERATION("local 4-byte gasnet_put_val",
+      { gasnet_put_val(mynode, myseg, temp, 4); });
 
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_get_bulk(&temp, mynode, myseg, 4);
-      }
-      report("local 4-byte gasnet_get_bulk",TIME() - start, iters);
-    }
+    TIME_OPERATION("local 4-byte gasnet_put_nb_val",
+      { gasnet_wait_syncnb(gasnet_put_nb_val(mynode, myseg, temp, 4)); });
 
-    BARRIER();
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnb(gasnet_get_nb_bulk(&temp, mynode, myseg, 4));
-      }
-      report("local 4-byte gasnet_get_nb_bulk",TIME() - start, iters);
-    }
+    TIME_OPERATION_FULL("local 4-byte gasnet_put_nbi_val", {},
+      { gasnet_put_nbi_val(mynode, myseg, temp, 4); },
+      { gasnet_wait_syncnbi_puts(); });
 
-    BARRIER();
+    TIME_OPERATION("local 1024-byte gasnet_put_bulk",
+      { gasnet_put_bulk(mynode, myseg, &bigtemp, 1024); });
 
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_get_nbi_bulk(&temp, mynode, myseg, 4);
-      }
-      gasnet_wait_syncnbi_gets();
-      report("local 4-byte gasnet_get_nbi_bulk",TIME() - start, iters);
-    }
+    /* ------------------------------------------------------------------------------------ */
 
-    BARRIER();
+    TIME_OPERATION("local 4-byte gasnet_get",
+      { gasnet_get(&temp, mynode, myseg, 4); });
 
+    TIME_OPERATION("local 4-byte gasnet_get_nb",
+      { gasnet_wait_syncnb(gasnet_get_nb(&temp, mynode, myseg, 4)); });
 
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        temp = (int32_t)gasnet_get_val(mynode, myseg, 4);
-      }
-      report("local 4-byte gasnet_get_val",TIME() - start, iters);
-    }
+    TIME_OPERATION_FULL("local 4-byte gasnet_get_nbi", {},
+      { gasnet_get_nbi(&temp, mynode, myseg, 4); },
+      { gasnet_wait_syncnbi_gets(); });
 
-    BARRIER();
+    TIME_OPERATION("local 4-byte gasnet_get_bulk",
+      { gasnet_get_bulk(&temp, mynode, myseg, 4); });
 
-    {
-      int64_t start = TIME();
-      int32_t temp = 0;
-      for (i=0; i < iters; i++) {
-        gasnet_valget_handle_t handle = gasnet_get_nb_val(mynode, myseg, 4);
+    TIME_OPERATION("local 4-byte gasnet_get_nb_bulk",
+      { gasnet_wait_syncnb(gasnet_get_nb_bulk(&temp, mynode, myseg, 4)); });
+
+    TIME_OPERATION_FULL("local 4-byte gasnet_get_nbi_bulk", {},
+      { gasnet_get_nbi_bulk(&temp, mynode, myseg, 4); },
+      { gasnet_wait_syncnbi_gets(); });
+
+    TIME_OPERATION("local 4-byte gasnet_get_val",
+      { temp = (int32_t)gasnet_get_val(mynode, myseg, 4); });
+
+    TIME_OPERATION("local 4-byte gasnet_get_nb_val",
+      { gasnet_valget_handle_t handle = gasnet_get_nb_val(mynode, myseg, 4);
         temp = (int32_t)gasnet_wait_syncnb_valget(handle);
-      }
-      report("local 4-byte gasnet_get_nb_val",TIME() - start, iters);
-    }
+      });
 
-    BARRIER();
-
-    {
-      int8_t temp[1024];
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_get_bulk(&temp, mynode, myseg, 1024);
-      }
-      report("local 1024-byte gasnet_get_bulk",TIME() - start, iters);
-    }
+    TIME_OPERATION("local 1024-byte gasnet_get_bulk",
+      { gasnet_get_bulk(&bigtemp, mynode, myseg, 1024); });
 
     /* ------------------------------------------------------------------------------------ */
 
-    BARRIER();
-
-    {
-      int32_t temp1 = 0;
+    { int32_t temp1 = 0;
       int32_t temp2 = 0;
       int32_t volatile *ptemp1 = &temp1;
       int32_t volatile *ptemp2 = &temp2;
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        *(ptemp1) = *(ptemp2);
-      }
-      report("local 4-byte assignment",TIME() - start, iters);
+      TIME_OPERATION("local 4-byte assignment",
+        { *(ptemp1) = *(ptemp2); });
     }
 
-    BARRIER();
-
-    {
-      int8_t temp1[1024];
+    { int8_t temp1[1024];
       int8_t temp2[1024];
       int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        memcpy(temp1, temp2, 1024);
-      }
-      report("local 1024-byte memcpy",TIME() - start, iters);
+      TIME_OPERATION("local 1024-byte memcpy",
+        { memcpy(temp1, temp2, 1024); });
     }
 
     /* ------------------------------------------------------------------------------------ */
 
-    BARRIER();
+    TIME_OPERATION("do-nothing gasnet_wait_syncnb()",
+      { gasnet_wait_syncnb(GASNET_INVALID_HANDLE);  });
 
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnb(GASNET_INVALID_HANDLE);          
-      }
-      report("do-nothing gasnet_wait_syncnb()",TIME() - start, iters);
-    }
+    TIME_OPERATION("do-nothing gasnet_try_syncnb()",
+      { gasnet_try_syncnb(GASNET_INVALID_HANDLE); });
 
-    BARRIER();
+    TIME_OPERATION("do-nothing gasnet_wait_syncnb_all() (8 handles)",
+      { gasnet_wait_syncnb_all(handles, 8); });
 
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_try_syncnb(GASNET_INVALID_HANDLE);          
-      }
-      report("do-nothing gasnet_try_syncnb()",TIME() - start, iters);
-    }
+    TIME_OPERATION("do-nothing gasnet_wait_syncnb_some() (8 handles)",
+      { gasnet_wait_syncnb_some(handles, 8); });
 
-    BARRIER();
+    TIME_OPERATION("do-nothing gasnet_try_syncnb_all() (8 handles)",
+      { gasnet_try_syncnb_all(handles, 8);  });
 
-    {
-      int64_t start;
-      gasnet_handle_t handles[8];
-      for (i=0;i<8;i++) handles[i] = GASNET_INVALID_HANDLE;
-      start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnb_all(handles, 8);          
-      }
-      report("do-nothing gasnet_wait_syncnb_all() (8 handles)",TIME() - start, iters);
-    }
+    TIME_OPERATION("do-nothing gasnet_try_syncnb_some() (8 handles)",
+      { gasnet_try_syncnb_some(handles, 8); });
 
-    BARRIER();
+    TIME_OPERATION("do-nothing gasnet_wait_syncnbi_all()",
+      { gasnet_wait_syncnbi_all(); });
 
-    {
-      int64_t start;
-      gasnet_handle_t handles[8];
-      for (i=0;i<8;i++) handles[i] = GASNET_INVALID_HANDLE;
-      start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnb_some(handles, 8);          
-      }
-      report("do-nothing gasnet_wait_syncnb_some() (8 handles)",TIME() - start, iters);
-    }
+    TIME_OPERATION("do-nothing gasnet_wait_syncnbi_puts()",
+      { gasnet_wait_syncnbi_puts(); });
 
-    BARRIER();
+    TIME_OPERATION("do-nothing gasnet_wait_syncnbi_gets()",
+      { gasnet_wait_syncnbi_gets(); });
 
-    {
-      int64_t start;
-      gasnet_handle_t handles[8];
-      for (i=0;i<8;i++) handles[i] = GASNET_INVALID_HANDLE;
-      start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_try_syncnb_all(handles, 8);          
-      }
-      report("do-nothing gasnet_try_syncnb_all() (8 handles)",TIME() - start, iters);
-    }
+    TIME_OPERATION("do-nothing gasnet_try_syncnbi_all()",
+      { gasnet_try_syncnbi_all(); });
 
-    BARRIER();
+    TIME_OPERATION("do-nothing gasnet_try_syncnbi_puts()",
+      { gasnet_try_syncnbi_puts(); });
 
-    {
-      int64_t start;
-      gasnet_handle_t handles[8];
-      for (i=0;i<8;i++) handles[i] = GASNET_INVALID_HANDLE;
-      start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_try_syncnb_some(handles, 8);          
-      }
-      report("do-nothing gasnet_try_syncnb_some() (8 handles)",TIME() - start, iters);
-    }
+    TIME_OPERATION("do-nothing gasnet_try_syncnbi_gets()",
+      { gasnet_try_syncnbi_gets(); });
 
-    BARRIER();
+    TIME_OPERATION("do-nothing begin/end nbi accessregion",
+      { gasnet_begin_nbi_accessregion();
+        gasnet_wait_syncnb(gasnet_end_nbi_accessregion());
+      });
 
-    { 
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnbi_all();          
-      }
-      report("do-nothing gasnet_wait_syncnbi_all()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnbi_puts();          
-      }
-      report("do-nothing gasnet_wait_syncnbi_puts()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_wait_syncnbi_gets();          
-      }
-      report("do-nothing gasnet_wait_syncnbi_gets()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_try_syncnbi_all();          
-      }
-      report("do-nothing gasnet_try_syncnbi_all()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_try_syncnbi_puts();          
-      }
-      report("do-nothing gasnet_try_syncnbi_puts()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_try_syncnbi_gets();          
-      }
-      report("do-nothing gasnet_try_syncnbi_gets()",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnet_begin_nbi_accessregion();          
-        gasnet_wait_syncnb(gasnet_end_nbi_accessregion());          
-      }
-      report("do-nothing begin/end nbi accessregion",TIME() - start, iters);
-    }
-
-    BARRIER();
-
-    {
-      int64_t start = TIME();
-      for (i=0; i < iters; i++) {
-        gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            
+    TIME_OPERATION("single-node barrier",
+      { gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            
         gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS); 
-      }
-      report("single-node barrier",TIME() - start, iters);
-      if (mynode == 0 && gasnet_nodes() > 1) {
-        printf("Note: this is actually the barrier time for %i nodes, "
-               "since you're running with more than one node.\n", (int)gasnet_nodes());
-        fflush(stdout);
-      }
-    }
-
-    BARRIER();
-
-  }
+      });
+    if (gasnet_nodes() > 1)
+      MSG0("Note: this is actually the barrier time for %i nodes, "
+           "since you're running with more than one node.\n", (int)gasnet_nodes());
   /* ------------------------------------------------------------------------------------ */
 
+  }
 
   MSG("done.");
 
