@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.20 2004/02/10 11:30:01 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/Makefile.am,v 1.21 2004/02/19 08:51:21 bonachea Exp $
 # Description: Makefile for GASNet lapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -33,7 +33,7 @@ libgasnet_sources = $(srcdir)/gasnet_core.c \
 
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.[ch]             \
-                         $(top_srcdir)/extended-ref/*.h       
+                         $(top_srcdir)/extended-ref/*.[ch] 
 
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
 

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/Makefile.am,v 1.3 2004/02/10 11:30:06 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/Makefile.am,v 1.4 2004/02/19 08:51:27 bonachea Exp $
 # Description: Makefile for GASNet UDP conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -31,8 +31,7 @@ libgasnet_sources = $(srcdir)/gasnet_core.c     \
 
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.[ch]             \
-                         $(top_srcdir)/extended-ref/gasnet_extended_refbarrier.c \
-                         $(top_srcdir)/extended-ref/*.h   \
+                         $(top_srcdir)/extended-ref/*.[ch] \
 			 $(top_srcdir)/other/amudp/*.h
 
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
