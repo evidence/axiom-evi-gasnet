@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/08/06 07:58:29 $
- * $Revision: 1.3 $
+ *     $Date: 2002/08/09 12:06:37 $
+ * $Revision: 1.4 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -125,7 +125,10 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_mynode = STATE()->vp;
   gasnetc_nodes =  STATE()->nvp;
 
-  assert(gasnetc_nodes > 0 && gasnetc_mynode >= 0 && gasnetc_mynode < gasnetc_nodes);
+  #if 0 
+    assert(gasnetc_nodes > 0 && gasnetc_mynode >= 0); /* true by datatype */
+  #endif
+  assert(gasnetc_mynode < gasnetc_nodes);
   assert(gasnetc_nodes <= GASNET_MAXNODES);
 
   #if DEBUG_VERBOSE

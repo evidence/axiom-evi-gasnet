@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_dump.c                  $
- *     $Date: 2002/08/06 07:58:29 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/09 12:06:37 $
+ * $Revision: 1.3 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -31,7 +31,7 @@ extern void gasnetc_dump_base() {
     switch(b->waitType) {
       case ELAN_POLL_EVENT: strcpy(waitType,"ELAN_POLL_EVENT"); break;
       case ELAN_WAIT_EVENT: strcpy(waitType,"ELAN_WAIT_EVENT"); break;
-      default: sprintf(waitType,"spin-poll iterations: %i",b->waitType);
+      default: sprintf(waitType,"spin-poll iterations: %i",(int)b->waitType);
     }
     GASNETI_STATS_PRINTF(C,(" waitType= %s",waitType));
   }

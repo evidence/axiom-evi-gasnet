@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/08/05 10:23:43 $
-# $Revision: 1.17 $
+#     $Date: 2002/08/09 12:06:36 $
+# $Revision: 1.18 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.17 $)
+AC_REVISION($Revision: 1.18 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -628,7 +628,12 @@ GASNET_IF_ENABLED(elan, Enable the elan (Quadrics) network conduit,
 
 if test $have_elan = yes; then
   case "$target_os" in
-    *)	# All unknown for now
+    linux*)
+	# the default locations are /usr/include and /usr/lib
+        GASNET_ENV_DEFAULT(ELAN_INCLUDE, /usr/include)
+	GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan -lelan3)
+    ;;
+    *)
 	# the default locations are /usr/opt/rms/include and /usr/lib
         GASNET_ENV_DEFAULT(ELAN_INCLUDE, /usr/opt/rms/include)
 	GASNET_ENV_DEFAULT(ELAN_LIBS, -lelan -lelan3)
