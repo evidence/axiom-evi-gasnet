@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testlarge.c                                 $
- *     $Date: 2003/12/04 13:44:46 $
- * $Revision: 1.9 $
+ *     $Date: 2003/12/18 20:03:27 $
+ * $Revision: 1.10 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -278,7 +278,7 @@ int main(int argc, char **argv)
         insegment = 0;
         ++arg;
     }
-    if (argc != arg+1) {
+    if (argc > arg+1) {
         printf("Usage: %s [-in|-out] (iters) \n"
                "  The 'in' or 'out' option selects whether the initiator-side\n"
                "  memory is in the GASNet segment or not (default it not).\n",
@@ -286,7 +286,7 @@ int main(int argc, char **argv)
         gasnet_exit(1);
     }
 
-    if (argc > 1) iters = atoi(argv[arg]);
+    if (argc > arg) iters = atoi(argv[arg]);
     if (!iters) iters = 1;
 
     /* get SPMD info */
