@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2004/06/20 10:09:36 $
- * $Revision: 1.14 $
+ *     $Date: 2004/06/21 05:15:42 $
+ * $Revision: 1.15 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -227,7 +227,7 @@ int main(int argc, char **argv) {
     for (i=0; i < 10; i++) {
       ALLAM_REQ(partner);
 
-      GASNET_BLOCKUNTIL(NUMREP() == NUMHANDLERS_PER_TYPE*3*(i+1));
+      GASNET_BLOCKUNTIL(NUMREP() == (int)NUMHANDLERS_PER_TYPE*3*(i+1));
     }
 
     MSG("*** passed AM test!!");

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2004/06/20 10:09:30 $
- * $Revision: 1.16 $
+ *     $Date: 2004/06/21 05:15:40 $
+ * $Revision: 1.17 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -188,7 +188,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
       assert(Tick != 0.0);
       firstTime = 0;
     }
-    return st * Tick;
+    return (uint64_t)(st * Tick);
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
