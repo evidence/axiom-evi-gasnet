@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp.h                                          $
- *     $Date: 2003/12/17 10:12:24 $
- * $Revision: 1.2 $
+ *     $Date: 2003/12/22 08:36:28 $
+ * $Revision: 1.3 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -92,13 +92,13 @@
 #define AMUDP_MAX_SHORT    8     /* max number of handler arguments, >=8 */
 #define AMUDP_MAX_MEDIUM   512   /* max. data transmission unit for medium messages, >= 512 */
 #ifdef UETH
-#define AMUDP_MAX_LONG     (AMUDP_MAX_MEDIUM*256)  /* max. data size for xfer and get operations >= 8192 */
-#else
-#ifdef IRIX
+  #define AMUDP_MAX_LONG     (AMUDP_MAX_MEDIUM*256)  /* max. data size for xfer and get operations >= 8192 */
+#elif defined(__sgi__)
   #define AMUDP_MAX_LONG     61000  /* max. UDP datagram on IRIX is apparently 61412 */
+#elif defined(__FreeBSD__)
+  #define AMUDP_MAX_LONG     9000   /* max UDP datagram on FREEBSD is apparently 9196 */
 #else
-  #define AMUDP_MAX_LONG     65000  /* max. UDP datagram */
-#endif
+  #define AMUDP_MAX_LONG     65000  /* default max. UDP datagram */
 #endif
 
 #define AMUDP_MAX_NUMHANDLERS      256  /* max. handler-table entries >= 256 */

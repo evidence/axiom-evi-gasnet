@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/12/17 10:12:20 $
-# $Revision: 1.100 $
+#     $Date: 2003/12/22 08:36:26 $
+# $Revision: 1.101 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.100 $)
+AC_REVISION($Revision: 1.101 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -360,7 +360,7 @@ case "$target_os" in
 	AC_DEFINE(FREEBSD)
 	GASNET_MACHINE_DEFINES="-DFREEBSD"
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
-        GASNET_THREAD_LIBS="-pthread"
+        GASNET_THREAD_LIBS="-pthread -lc_r"
 	;;
   cygwin*) 
 	AC_DEFINE(CYGWIN)
@@ -441,7 +441,7 @@ AC_SUBST(EXESUFFIX)
 #             
 OLDLIBS="$LIBS"   
 LIBS="$LIBS $GASNET_THREAD_LIBS"
-AC_SEARCH_LIBS(pthread_create, [pthread pthreads], have_pthread=yes, have_pthread=no)
+AC_SEARCH_LIBS(pthread_create, [pthread pthreads c_r], have_pthread=yes, have_pthread=no)
 case "$target_os" in
   hpux*) have_pthread=yes ;; # test fails on HPUX due to signature mismatch
 esac        
