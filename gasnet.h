@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2004/08/01 04:36:28 $
- * $Revision: 1.27 $
+ *     $Date: 2004/08/25 20:30:57 $
+ * $Revision: 1.28 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -136,7 +136,7 @@
 
 #ifndef GASNETI_RELEASE_VERSION
   /* the public distribution release identifier */
-  #define GASNETI_RELEASE_VERSION 1.3
+  #define GASNETI_RELEASE_VERSION 1.4
 #endif
 
 #ifndef GASNET_MAXNODES
