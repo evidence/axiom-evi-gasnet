@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/12/08 04:38:44 $
- * $Revision: 1.7 $
+ *     $Date: 2002/12/09 23:24:37 $
+ * $Revision: 1.8 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -82,8 +82,8 @@ typedef struct {
   ((pmsg)->flags = (gasnetc_flag_t) (                   \
                    (((numargs) & 0xFF) << 16)           \
                  | (((isreq) & 0x1)    << 8)            \
+                 | (((packed) & 0x1)   << 3)            \
                  |  ((cat) & 0x3)                       \
-                 |  ((packed) & 0x8)                    \
                    ))
 
 #define GASNETC_MSG_NUMARGS(pmsg)   ( ( ((unsigned int)(pmsg)->flags) >> 16 ) & 0xFF)
@@ -165,6 +165,7 @@ extern void gasnetc_memory_sync(void);
           avail = 0;            \
       }                         \
   }
+#if 0
 #define gasnetc_spin_unlock(lock) \
   {                            \
       int avail = 0;           \
@@ -173,7 +174,14 @@ extern void gasnetc_memory_sync(void);
       if (!compare_and_swap( (atomic_p)&(lock), &locked, avail ) ) \
           assert(0); /* this should not happen */ \
   }
-
+#else
+#define gasnetc_spin_unlock(lock) \
+  {                          \
+      assert( (lock)==1 );   \
+      (lock) = 0;            \
+      gasnetc_memory_sync(); \
+  }
+#endif
 
 /* MLW: Need more descriptive name for this macro */
 #define GASNETC_LCHECK(func) { \

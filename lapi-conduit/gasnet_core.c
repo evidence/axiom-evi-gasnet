@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/12/07 09:56:24 $
- * $Revision: 1.13 $
+ *     $Date: 2002/12/09 23:24:37 $
+ * $Revision: 1.14 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -504,6 +504,18 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 extern int gasnetc_AMPoll() {
     int retval;
     GASNETC_CHECKATTACH();
+
+    /* Check if any request handlers are queued for processing
+     * and execute all on the list
+     */
+    {
+	gasnetc_token_t *q_token = NULL;
+	while ( (q_token = gasnetc_token_dequeue(&gasnetc_req_q, 0)) != NULL ) {
+	    gasnetc_run_handler(q_token);
+	    /* deallocate the token, it was allocated in the header handler */
+	    gasnetc_uhdr_free(q_token);
+	}
+    }
 
     /* NOTE: a call to probe is not needed when LAPI is executing
      * in interrupt mode.  In that mode, polling can sometimes
@@ -1580,7 +1592,9 @@ void gasnetc_lapi_AMch(lapi_handle_t *context, void *uinfo)
     gasnetc_token_t *q_token = NULL;
 
 
-    /* first, process all items on the request queue */
+    /* first, process all items on the request queue to keep
+     * latencies to a minimum
+     */
     while ( (q_token = gasnetc_token_dequeue(&gasnetc_req_q, 1)) != NULL ) {
 	gasnetc_run_handler(q_token);
 	/* deallocate the token, it was allocated in the header handler */
@@ -1595,7 +1609,15 @@ void gasnetc_lapi_AMch(lapi_handle_t *context, void *uinfo)
 	gasnetc_run_handler(token);
 	/* deallocate the token, it was allocated in the header handler */
 	gasnetc_uhdr_free(token);
+
+	/* Check the request queue again */
+	while ( (q_token = gasnetc_token_dequeue(&gasnetc_req_q, 1)) != NULL ) {
+	    gasnetc_run_handler(q_token);
+	    /* deallocate the token, it was allocated in the header handler */
+	    gasnetc_uhdr_free(q_token);
+	}
     }
+
 
 }
 
@@ -1676,6 +1698,12 @@ void gasnetc_uhdr_init(int want)
     pthread_mutex_lock(&list->lock);
 #endif
     
+    /* init the structure values */
+    list->high_water_mark = 0;
+    list->numfree = 0;
+    list->numalloc = 0;
+    list->freelist = NULL;
+    
     got = gasnetc_uhdr_more(want);
     if (got == 0) {
 #if GASNETC_USE_SPINLOCK
@@ -1686,8 +1714,6 @@ void gasnetc_uhdr_init(int want)
 	gasneti_fatalerror("Unable to alloc ANY uhdr buffers");
     }
 
-    list->numfree = got;
-    list->numalloc = list->high_water_mark = 0;
 #if GASNETC_USE_SPINLOCK
     gasnetc_spin_unlock(list->lock);
 #else
@@ -1769,7 +1795,7 @@ void gasnetc_uhdr_free(gasnetc_token_t *p)
 }
 
 /* --------------------------------------------------------------------------
- * gasnetc_uhdr_alloc:
+ * gasnetc_uhdr_more
  *
  * This is the real allocation function.  It attempts to allocate
  * the requested number of buffers, but decreases the size by a
