@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2003/12/01 21:41:51 $
- * $Revision: 1.28 $
+ *     $Date: 2003/12/02 22:48:43 $
+ * $Revision: 1.29 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1267,9 +1267,7 @@ static void gasnetc_exit_body(void) {
   alarm(30);
   {
     for (i = 0; i < gasnetc_nodes; ++i) {
-      if (i == gasnetc_mynode) continue;
-
-      VAPI_destroy_qp(gasnetc_hca, gasnetc_cep[i].qp_handle);
+      gasnetc_sndrcv_fini_cep(&gasnetc_cep[i]);
     }
     gasnetc_sndrcv_fini();
 #if GASNET_SEGMENT_FAST

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/12/01 21:41:51 $
- * $Revision: 1.25 $
+ *     $Date: 2003/12/02 22:48:43 $
+ * $Revision: 1.26 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -546,6 +546,7 @@ typedef struct {
     VAPI_rkey_t		rkey;
   #else
   #endif
+  gasneti_atomic_t	shutdown;
 } gasnetc_cep_t;
 
 /* Description of a registered (pinned) memory region */
@@ -575,6 +576,7 @@ extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int ro
 extern void gasnetc_sndrcv_init(void);
 extern void gasnetc_sndrcv_fini(void);
 extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep);
+extern void gasnetc_sndrcv_fini_cep(gasnetc_cep_t *cep);
 extern void gasnetc_sndrcv_poll(void);
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,

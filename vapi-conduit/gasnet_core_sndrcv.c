@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/12/01 21:41:51 $
- * $Revision: 1.31 $
+ *     $Date: 2003/12/02 22:48:43 $
+ * $Revision: 1.32 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -80,6 +80,8 @@ static gasneti_freelist_t		gasnetc_rbuf_freelist = GASNETI_FREELIST_INITIALIZER;
 #if GASNETC_RCV_THREAD
   static EVAPI_compl_handler_hndl_t	gasnetc_rcv_handler;
 #endif
+static gasneti_atomic_t gasnetc_snd_cq_shutdown = gasneti_atomic_init(0);
+static gasneti_atomic_t gasnetc_rcv_cq_shutdown = gasneti_atomic_init(0);
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped functions and macros                                                    *
@@ -153,12 +155,16 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, int credit) {
     GASNETC_SEMA_CHECK(&(cep->am_sema), gasnetc_am_oust_pp);
   }
 
-  if_pt (vstat == VAPI_OK)
+  if_pt (vstat == VAPI_OK) {
+    /* normal return */
     return;
-  if_pf (vstat == VAPI_EINVAL_QP_HNDL)
-    return;	/* race against disconnect in another thread */
-    
-  GASNETC_VAPI_CHECK(vstat, "while posting a receive work request");
+  } else if (gasneti_atomic_read(&(cep->shutdown))) {
+    /* disconnected by another thread */
+    gasnetc_exit(0);
+  } else {
+    /* unexpected error */
+    GASNETC_VAPI_CHECK(vstat, "while posting a receive work request");
+  }
 }
 
 /* GASNET_INLINE_MODIFIER(gasnetc_processPacket) */
@@ -293,6 +299,9 @@ static int gasnetc_snd_reap(int limit, gasnetc_sbuf_t **head_p, gasnetc_sbuf_t *
         gasneti_fatalerror("aborting on reap of failed send");
         break;
       }
+    } else if (gasneti_atomic_read(&gasnetc_snd_cq_shutdown)) {
+      /* disconnected by another thread */
+      gasnetc_exit(0);
     } else {
       GASNETC_VAPI_CHECK(vstat, "while reaping the send queue");
     }
@@ -430,6 +439,9 @@ static int gasnetc_rcv_reap(int limit, gasnetc_rbuf_t **spare_p) {
         gasneti_fatalerror("aborting on reap of failed recv");
 	break;
       }
+    } else if (gasneti_atomic_read(&gasnetc_rcv_cq_shutdown)) {
+      /* disconnected by another thread */
+      gasnetc_exit(0);
     } else {
       GASNETC_VAPI_CHECK(vstat, "while reaping the recv queue");
     }
@@ -522,9 +534,12 @@ void gasnetc_snd_post(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sbuf_t *s
 
   if_pt (vstat == VAPI_OK) {
     /* SUCCESS, the request is posted */
-  } else if (vstat == VAPI_EINVAL_QP_HNDL) {
-    /* race against disconnect in another thread (harmless) */
+    return;
+  } else if (gasneti_atomic_read(&(cep->shutdown))) {
+    /* disconnected by another thread */
+    gasnetc_exit(0);
   } else {
+    /* unexpected error */
     GASNETC_VAPI_CHECK(vstat, "while posting a send work request");
   }
 }
@@ -540,9 +555,12 @@ void gasnetc_snd_post_inline(gasnetc_cep_t *cep, gasnetc_sreq_t *req, gasnetc_sb
 
   if_pt (vstat == VAPI_OK) {
     /* SUCCESS, the request is posted */
-  } else if (vstat == VAPI_EINVAL_QP_HNDL) {
-    /* race against disconnect in another thread (harmless) */
+    return;
+  } else if (gasneti_atomic_read(&(cep->shutdown))) {
+    /* disconnected by another thread */
+    gasnetc_exit(0);
   } else {
+    /* unexpected error */
     GASNETC_VAPI_CHECK(vstat, "while posting an inline send work request");
   }
 }
@@ -557,7 +575,15 @@ static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
   (void)gasnetc_rcv_reap(INT_MAX, &gasnetc_rcv_thread_rbuf);
 
   vstat = VAPI_req_comp_notif(gasnetc_hca, gasnetc_rcv_cq, VAPI_NEXT_COMP);
-  GASNETC_VAPI_CHECK(vstat, "from VAPI_req_comp_notif()");
+
+  if_pf (vstat != VAPI_OK) {
+    if (gasneti_atomic_read(&gasnetc_rcv_cq_shutdown)) {
+      /* disconnected by another thread */
+      gasnetc_exit(0);
+    } else {
+      GASNETC_VAPI_CHECK(vstat, "from VAPI_req_comp_notif()");
+    }
+  }
 
   (void)gasnetc_rcv_reap(INT_MAX, &gasnetc_rcv_thread_rbuf);
 }
@@ -1064,6 +1090,7 @@ extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
 
     gasnetc_sema_init(&cep->am_sema, gasnetc_am_oust_pp);
     gasnetc_sema_init(&cep->op_sema, gasnetc_op_oust_pp);
+    gasneti_atomic_set(&(cep->shutdown), 0);
   } else {
     /* Even the loopback AMs are restricted by credits, so we make this limit LARGE.
      * Since the handlers run synchronously, this just limits the number of threads
@@ -1071,6 +1098,7 @@ extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
      */
     gasnetc_sema_init(&cep->am_sema, 1000000);
     gasnetc_sema_init(&cep->op_sema, 0);
+    gasneti_atomic_set(&(cep->shutdown), 0);
   }
 }
 
@@ -1090,11 +1118,23 @@ extern void gasnetc_sndrcv_fini(void) {
     gasneti_free(gasnetc_sbuf_alloc);
   }
 
+  gasneti_atomic_set(&gasnetc_rcv_cq_shutdown, 1);
   vstat = VAPI_destroy_cq(gasnetc_hca, gasnetc_rcv_cq);
   GASNETC_VAPI_CHECK(vstat, "from VAPI_destroy_cq(rcv_cq)");
 
+  gasneti_atomic_set(&gasnetc_snd_cq_shutdown, 1);
   vstat = VAPI_destroy_cq(gasnetc_hca, gasnetc_snd_cq);
   GASNETC_VAPI_CHECK(vstat, "from VAPI_destroy_cq(snd_cq)");
+}
+
+extern void gasnetc_sndrcv_fini_cep(gasnetc_cep_t *cep) {
+  VAPI_ret_t vstat;
+
+  if (cep != &gasnetc_cep[gasnetc_mynode]) {
+    gasneti_atomic_set(&(cep->shutdown), 1);
+    vstat = VAPI_destroy_qp(gasnetc_hca, cep->qp_handle);
+    GASNETC_VAPI_CHECK(vstat, "from VAPI_destroy_qp()");
+  }
 }
 
 extern void gasnetc_sndrcv_poll(void) {
