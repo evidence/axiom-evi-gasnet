@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2004/10/22 19:26:01 $
- * $Revision: 1.21 $
+ *     $Date: 2004/10/22 19:47:23 $
+ * $Revision: 1.22 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,6 +8,7 @@
 
 #include <gasnet.h>
 
+/* limit segsz to prevent stack overflows for seg_everything tests */
 #define TEST_MAXTHREADS 1
 #include <test.h>
 
