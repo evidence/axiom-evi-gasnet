@@ -1305,12 +1305,10 @@ can see doing it two ways:
 Scatter:
 ========
 
-I am planning to examine the use of the optimal broadcast tree to do a
-tree-based scatter.  However, the fact that timings will NOT remain
-fixed as the payload is changed (sending more data near the root than
-at the leaves) means that the simple method for building such trees is
-only approximately applicable.
-
+The LogGP paper [Alexandrov95] describes an algorithm for constructing
+the optimal scatter, analogous the the broadcast scahedule of [Karp93].
+This being log_G_P, takes proper consideration of the varying size of
+the messages when a tree is used to forward data.
 
 Gather:
 =======
@@ -1530,6 +1528,31 @@ parallel machines},
  pages = {517--543},
  doi = {http://dx.doi.org/10.1006/jpdc.2000.1698},
  publisher = {Academic Press, Inc.},
+}
+
+@article{Dusseau96,
+ author = "Andrea C. Dusseau and David E. Culler and Klaus Erik Schauser
+and Richard P. Martin",
+ title = "Fast Parallel Sorting Under Log{P}: Experience with the {CM}-5:",
+ journal = "IEEE Transactions on Parallel and Distributed Systems",
+ volume = "7",
+ number = "8",
+ pages = "791--805",
+ year = "1996",
+ url = "citeseer.ist.psu.edu/dusseau96fast.html"
+}
+
+@inproceedings{215427,
+ author = {Albert Alexandrov and Mihai F. Ionescu and Klaus E. Schauser and Chris Scheiman},
+ title = {LogGP: incorporating long messages into the LogP model\-one step closer towards a realistic model for parallel computation},
+ booktitle = {Proceedings of the seventh annual ACM symposium on Parallel algorithms and architectures},
+ year = {1995},
+ isbn = {0-89791-717-0},
+ pages = {95--105},
+ location = {Santa Barbara, California, United States},
+ doi = {http://doi.acm.org/10.1145/215399.215427},
+ publisher = {ACM Press},
+ note = {See also extended version: UCSB TRCS95-09},
 }
 
 Verriet "Scheduling tree-structured programs in the LogP model"
