@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testam.h,v $
- *     $Date: 2005/02/18 13:32:19 $
- * $Revision: 1.10 $
+ *     $Date: 2005/02/19 04:43:59 $
+ * $Revision: 1.11 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -300,7 +300,7 @@ typedef struct {
 
 #define MEDIUMHANDLERS(num)                                                                \
   void medium_##num##req_handler(token_t token, void *buf, bufsize_t nbytes FA##num) {     \
-    testam_payload_t *payload = buf;                                                       \
+    testam_payload_t *payload = (testam_payload_t *)buf;                                   \
     if (CA##num) {                                                                         \
       fprintf(stderr, "Arg mismatch in medium_%sreq_handler on P%i\n", #num, (int)MYPROC); \
       fflush(stderr);                                                                      \
@@ -319,7 +319,7 @@ typedef struct {
     ReplyMedium(num,(token, MEDIUM_##num##REP_HANDLER, buf, nbytes aa##num));              \
   }                                                                                        \
   void medium_##num##rep_handler(token_t token, void *buf, bufsize_t nbytes FA##num) {     \
-    testam_payload_t *payload = buf;                                                       \
+    testam_payload_t *payload = (testam_payload_t *)buf;                                   \
     if (CA##num) {                                                                         \
       fprintf(stderr, "Arg mismatch in medium_%srep_handler on P%i\n", #num, (int)MYPROC); \
       fflush(stderr);                                                                      \
@@ -338,7 +338,7 @@ typedef struct {
 
 #define LONGHANDLERS(num)                                                                     \
   void long_##num##req_handler(token_t token, void *buf, bufsize_t nbytes FA##num) {          \
-    testam_payload_t *payload = buf;                                                          \
+    testam_payload_t *payload = (testam_payload_t *)buf;                                      \
     testam_payload_t mybuf;                                                                   \
     GETPARTNER(token);                                                                        \
     if (CA##num) {                                                                            \
@@ -365,7 +365,7 @@ typedef struct {
                    ((testam_payload_t*)TEST_SEG(partner))+NUMHANDLERS_PER_TYPE+num aa##num)); \
   }                                                                                           \
   void long_##num##rep_handler(token_t token, void *buf, bufsize_t nbytes FA##num) {          \
-    testam_payload_t *payload = buf;                                                          \
+    testam_payload_t *payload = (testam_payload_t *)buf;                                      \
     if (CA##num) {                                                                            \
       fprintf(stderr, "Arg mismatch in long_%srep_handler on P%i\n", #num, (int)MYPROC);      \
       fflush(stderr);                                                                         \

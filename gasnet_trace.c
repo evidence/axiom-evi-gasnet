@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/02/17 13:18:51 $
- * $Revision: 1.90 $
+ *     $Date: 2005/02/19 04:43:57 $
+ * $Revision: 1.91 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1528,6 +1528,10 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
     void *ret = NULL;
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
+    if_pf (nbytes == 0) {
+      if_pt (gasneti_attach_done) gasnet_resume_interrupts();
+      return NULL;
+    }
     ret = malloc(nbytes+GASNETI_MEM_EXTRASZ);
     if_pf (ret == NULL) {
       if (allowfail) {
@@ -1573,6 +1577,7 @@ extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gas
 
   extern void *_gasneti_calloc(size_t N, size_t S, const char *curloc) {
     size_t nbytes = N*S;
+    if_pf (nbytes == 0) return NULL;
     void *ret = _gasneti_malloc(nbytes, 0, curloc);
     memset(ret,0,nbytes);
     _gasneti_memcheck(ret,curloc,0);

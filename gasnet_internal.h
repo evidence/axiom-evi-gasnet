@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/02/18 13:32:07 $
- * $Revision: 1.65 $
+ *     $Date: 2005/02/19 04:43:57 $
+ * $Revision: 1.66 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -86,7 +86,7 @@ extern void gasneti_check_config_postattach();
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     ret = malloc(nbytes);
-    if_pf (ret == NULL) 
+    if_pf (ret == NULL && nbytes > 0) 
       gasneti_fatalerror("gasneti_malloc(%d) failed", (int)nbytes);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;
@@ -97,7 +97,7 @@ extern void gasneti_check_config_postattach();
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     ret = malloc(nbytes);
-    if_pf (ret == NULL) /* allow a NULL return for out-of-memory */
+    if_pf (ret == NULL && nbytes > 0) /* allow a NULL return for out-of-memory */
       GASNETI_TRACE_PRINTF(I,("Warning: returning NULL for a failed gasneti_malloc(%i)",(int)nbytes));
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;
@@ -108,7 +108,7 @@ extern void gasneti_check_config_postattach();
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, (N*S));
     if_pt (gasneti_attach_done) gasnet_hold_interrupts();
     ret = calloc(N,S);
-    if_pf (ret == NULL) 
+    if_pf (ret == NULL && N*S > 0) 
       gasneti_fatalerror("gasneti_calloc(%d,%d) failed", (int)N, (int)S);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2005/02/18 07:40:48 $
- * $Revision: 1.28 $
+ *     $Date: 2005/02/19 04:43:57 $
+ * $Revision: 1.29 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -614,7 +614,8 @@ void gasneti_auxseg_init() {
   int numfns = (sizeof(gasneti_auxsegfns)/sizeof(gasneti_auxsegregfn_t))-1;
 
   gasneti_assert(gasneti_auxsegfns[numfns] == NULL);
-  gasneti_auxseg_alignedsz = gasneti_calloc(numfns,sizeof(gasneti_auxseg_request_t));
+  if (numfns > 0)
+    gasneti_auxseg_alignedsz = gasneti_calloc(numfns,sizeof(gasneti_auxseg_request_t));
 
   /* collect requests */
   for (i=0; i < numfns; i++) {
@@ -789,24 +790,26 @@ void gasneti_auxseg_attach() {
                   GASNETI_LADDRSTR(gasneti_seginfo_client_ub[gasneti_mynode]),
                   (unsigned long)gasneti_seginfo_client[gasneti_mynode].size));
 
-  for (j=0; j < gasneti_nodes; j++) {
-    gasneti_assert((uintptr_t)si[j].addr % GASNET_PAGESIZE == 0);
-    gasneti_assert((uintptr_t)si[j].addr % GASNETI_CACHE_LINE_BYTES == 0);
-    gasneti_assert((uintptr_t)si[j].size == gasneti_auxseg_sz);
-    si[j].size = gasneti_auxseg_alignedsz[0].optimalsz;
-  }
+  if (numfns > 0) {
+    for (j=0; j < gasneti_nodes; j++) {
+      gasneti_assert((uintptr_t)si[j].addr % GASNET_PAGESIZE == 0);
+      gasneti_assert((uintptr_t)si[j].addr % GASNETI_CACHE_LINE_BYTES == 0);
+      gasneti_assert((uintptr_t)si[j].size == gasneti_auxseg_sz);
+      si[j].size = gasneti_auxseg_alignedsz[0].optimalsz;
+    }
 
-  for (i=0; i < numfns; i++) {
-    GASNETI_TRACE_PRINTF(C,("gasneti_auxseg_attach() fn[%i] => ("GASNETI_LADDRFMT".."GASNETI_LADDRFMT") (%lu bytes)",
-                    i, GASNETI_LADDRSTR(si[gasneti_mynode].addr), 
-                    GASNETI_LADDRSTR(((uintptr_t)si[gasneti_mynode].addr)+si[gasneti_mynode].size),
-                    (unsigned long)si[gasneti_mynode].size));
-    (gasneti_auxsegfns[i])(si);
-    if (i+1 < numfns) {
-      for (j=0; j < gasneti_nodes; j++) {
-        si[j].addr = (void *)(((uintptr_t)si[j].addr) + gasneti_auxseg_alignedsz[i].optimalsz);
-        si[j].addr = (void *)GASNETI_ALIGNUP(si[j].addr,GASNETI_CACHE_LINE_BYTES);
-        si[j].size = gasneti_auxseg_alignedsz[i+1].optimalsz;
+    for (i=0; i < numfns; i++) {
+      GASNETI_TRACE_PRINTF(C,("gasneti_auxseg_attach() fn[%i] => ("GASNETI_LADDRFMT".."GASNETI_LADDRFMT") (%lu bytes)",
+                      i, GASNETI_LADDRSTR(si[gasneti_mynode].addr), 
+                      GASNETI_LADDRSTR(((uintptr_t)si[gasneti_mynode].addr)+si[gasneti_mynode].size),
+                      (unsigned long)si[gasneti_mynode].size));
+      (gasneti_auxsegfns[i])(si);
+      if (i+1 < numfns) {
+        for (j=0; j < gasneti_nodes; j++) {
+          si[j].addr = (void *)(((uintptr_t)si[j].addr) + gasneti_auxseg_alignedsz[i].optimalsz);
+          si[j].addr = (void *)GASNETI_ALIGNUP(si[j].addr,GASNETI_CACHE_LINE_BYTES);
+          si[j].size = gasneti_auxseg_alignedsz[i+1].optimalsz;
+        }
       }
     }
   }
