@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/02/19 12:22:55 $
- * $Revision: 1.67 $
+ *     $Date: 2005/02/23 04:50:48 $
+ * $Revision: 1.68 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -387,7 +387,7 @@ typedef void (*gasneti_HandlerLong)  (gasnet_token_t token, void *buf, size_t nb
 /* ------------------------------------------------------------------------------------ */
 #define GASNETI_RUN_HANDLER_SHORT(phandlerfn, token, pArgs, numargs) do {               \
   gasneti_assert(phandlerfn);                                                           \
-  if (numargs == 0) (*(gasneti_HandlerShort)phandlerfn)((void *)token);                 \
+  if (numargs == 0) (*(gasneti_HandlerShort)phandlerfn)((gasnet_token_t)token);         \
   else {                                                                                \
     gasnet_handlerarg_t *_args = (gasnet_handlerarg_t *)(pArgs); /* eval only once */   \
     switch (numargs) {                                                                  \

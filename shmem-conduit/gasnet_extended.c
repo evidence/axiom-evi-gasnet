@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2005/02/17 13:19:15 $
- * $Revision: 1.7 $
+ *     $Date: 2005/02/23 04:50:50 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -515,8 +515,6 @@ gasnete_barrier_wait(int id, int flags)
     GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,
 			       GASNETI_STATTIME_NOW()-barrier_notifytime);
 
-    GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,0);
-
     barrier_splitstate = OUTSIDE_BARRIER;
     gasneti_sync_writes();
 
@@ -574,6 +572,8 @@ gasnete_barrier_wait(int id, int flags)
 	#endif
 
     }
+
+    GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW()-wait_start);
 
     gasneti_sync_writes();
 
