@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/07/03 22:21:03 $
-# $Revision: 1.17 $
+#     $Date: 2003/10/09 00:15:16 $
+# $Revision: 1.18 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -53,29 +53,41 @@ include_HEADERS = $(headers)
 
 force:
 	
+TEST_TYPE=tests-seq
 
 tests: force
 	@$(MAKE) -C $(top_builddir)/other all tests
 if USE_MPI_CONDUIT
-	@$(MAKE) -C $(top_builddir)/mpi-conduit all tests-seq
+	@$(MAKE) -C $(top_builddir)/mpi-conduit all $(TEST_TYPE)
 endif
 if USE_GM_CONDUIT
-	@$(MAKE) -C $(top_builddir)/gm-conduit all tests-seq
+	@$(MAKE) -C $(top_builddir)/gm-conduit all $(TEST_TYPE)
 endif
 if USE_ELAN_CONDUIT
-	@$(MAKE) -C $(top_builddir)/elan-conduit all tests-seq
+	@$(MAKE) -C $(top_builddir)/elan-conduit all $(TEST_TYPE)
 endif
 if USE_LAPI_CONDUIT
-	@$(MAKE) -C $(top_builddir)/lapi-conduit all tests-seq
+	@$(MAKE) -C $(top_builddir)/lapi-conduit all $(TEST_TYPE)
 endif
 if USE_SMP_CONDUIT
-	@$(MAKE) -C $(top_builddir)/smp-conduit all tests-seq
+	@$(MAKE) -C $(top_builddir)/smp-conduit all $(TEST_TYPE)
 endif
 if USE_VAPI_CONDUIT
-	@$(MAKE) -C $(top_builddir)/vapi-conduit all tests-seq
+	@$(MAKE) -C $(top_builddir)/vapi-conduit all $(TEST_TYPE)
 endif
 
-.PHONY: force clean tests
+test: tests
+
+tests-seq: 
+	$(MAKE) -C $(top_builddir) TEST_TYPE=tests-seq tests
+
+tests-par: 
+	$(MAKE) -C $(top_builddir) TEST_TYPE=tests-par tests
+
+tests-parsync: 
+	$(MAKE) -C $(top_builddir) TEST_TYPE=tests-parsync tests
+
+.PHONY: force clean tests test tests-seq tests-par tests-parsync
 
 dist-hook:
 	if test -f $(distdir)/docs/Makefile ; then \
