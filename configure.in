@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/04/10 08:39:35 $
-# $Revision: 1.131 $
+#     $Date: 2004/04/13 21:52:40 $
+# $Revision: 1.132 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.131 $)
+AC_REVISION($Revision: 1.132 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -320,9 +320,20 @@ AM_CONDITIONAL(GASNET_SEGMENT_LARGE, test "$segconfig" = large)
 AM_CONDITIONAL(GASNET_SEGMENT_EVERYTHING, test "$segconfig" = everything)
 
 GASNET_WITH(segment-mmap-max,
-   [Upper bound for mmap-based GASNet segments (conduit may also impose a lower limit)],
+   [Upper bound for mmap-based GASNet segments (ex: "2GB", "1045MB")],
    [case "$withval" in
-      [[1-9]][[0-9]]*) AC_DEFINE_UNQUOTED(GASNETI_MMAP_MAX_SIZE, [(uint64_t)${withval}ull]) ;;
+      [[1-9]]*G*) 
+        AC_DEFINE_UNQUOTED(GASNETI_MMAP_MAX_SIZE, 
+            [((uint64_t)(`expr "${withval}" : "\([[0-9]]\+\)"`ull << 30))]) 
+        ;;
+      [[1-9]]*M*) 
+        AC_DEFINE_UNQUOTED(GASNETI_MMAP_MAX_SIZE, 
+            [((uint64_t)(`expr "${withval}" : "\([[0-9]]\+\)"`ull << 20))]) 
+        ;;
+      [[1-9]][[0-9]]*) 
+        AC_DEFINE_UNQUOTED(GASNETI_MMAP_MAX_SIZE, 
+            [((uint64_t)${withval}ull)]) 
+        ;;
       *) AC_MSG_ERROR(Illegal value for --with-segment-mmap-max=$withval) ;;
     esac])
 
