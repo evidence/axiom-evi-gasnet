@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/07/04 12:12:59 $
- * $Revision: 1.10 $
+ *     $Date: 2002/07/08 03:09:17 $
+ * $Revision: 1.11 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -266,7 +266,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasnetc_attach_done = 1;
   gasnetc_bootstrapBarrier();
 
-  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete\n"));
+  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
 
   assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
          gasnetc_seginfo[gasnetc_mynode].size == segsize);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/06/27 11:49:19 $
- * $Revision: 1.7 $
+ *     $Date: 2002/07/08 03:09:15 $
+ * $Revision: 1.8 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -61,7 +61,10 @@ GASNET_INLINE_MODIFIER(gasneti_free_inhandler)
 void gasneti_free_inhandler(void *ptr) {
   free(ptr);
 }
-
+/* ------------------------------------------------------------------------------------ */
+/* page alignment macros */
+#define GASNETI_PAGE_ALIGN(p,P) ((uintptr_t)(p)&~ ((uintptr_t)(P)-1))
+#define GASNETI_PAGE_ROUNDUP(p,P) (GASNETI_PAGE_ALIGN((p)+((P)-1), P))
 /* ------------------------------------------------------------------------------------ */
 /* portable microsecond granularity wall-clock timer */
 extern int64_t gasneti_getMicrosecondTimeStamp(void);
