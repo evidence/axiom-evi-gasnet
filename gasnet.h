@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2004/01/05 05:01:10 $
- * $Revision: 1.22 $
+ *     $Date: 2004/03/03 13:47:01 $
+ * $Revision: 1.23 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -316,7 +316,15 @@ const char *gasnet_ErrorDesc(int errval) {
 
 #ifndef _GASNET_THREADINFO_T
 #define _GASNET_THREADINFO_T
-typedef void *gasnet_threadinfo_t;
+  typedef void *gasnet_threadinfo_t;
+#endif
+
+#ifndef _GASNET_MEMVEC_T
+#define _GASNET_MEMVEC_T
+  typedef struct {
+    void *addr;
+    size_t len;
+  } gasnet_memvec_t;
 #endif
 
 /* ------------------------------------------------------------------------------------ */

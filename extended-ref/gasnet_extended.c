@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2004/01/12 08:18:25 $
- * $Revision: 1.34 $
+ *     $Date: 2004/03/03 13:47:04 $
+ * $Revision: 1.35 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -170,7 +170,6 @@ extern void gasnete_init() {
     #else
       /* register only thread (required) */
       threaddata = gasnete_new_threaddata();
-      gasnete_threadtable[0] = threaddata;
     #endif
 
     /* cause the first pool of eops to be allocated (optimization) */
@@ -288,6 +287,9 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
     gasneti_assert(iop->threadidx == thread->threadidx);
   } else {
     iop = (gasnete_iop_t *)gasneti_malloc(sizeof(gasnete_iop_t));
+    #if GASNET_DEBUG
+      memset(iop, 0, sizeof(gasnete_iop_t)); /* set pad to known value */
+    #endif
     SET_OPTYPE((gasnete_op_t *)iop, OPTYPE_IMPLICIT);
     iop->threadidx = thread->threadidx;
   }
@@ -296,6 +298,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
   iop->initiated_put_cnt = 0;
   gasneti_atomic_set(&(iop->completed_get_cnt), 0);
   gasneti_atomic_set(&(iop->completed_put_cnt), 0);
+  gasnete_iop_check(iop);
   return iop;
 }
 
@@ -952,11 +955,27 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
 
 /* ------------------------------------------------------------------------------------ */
 /*
+  Vector, Indexed & Strided:
+  =========================
+*/
+
+/* use reference implementation of scatter/gather and strided */
+#define GASNETI_GASNET_EXTENDED_VIS_C 1
+#include "gasnet_extended_refvis.c"
+#undef GASNETI_GASNET_EXTENDED_VIS_C
+
+/* ------------------------------------------------------------------------------------ */
+/*
   Handlers:
   =========
 */
 static gasnet_handlerentry_t const gasnete_handlers[] = {
-  GASNETE_REFBARRIER_HANDLERS(),
+  #ifdef GASNETE_REFBARRIER_HANDLERS
+    GASNETE_REFBARRIER_HANDLERS(),
+  #endif
+  #ifdef GASNETE_REFVIS_HANDLERS
+    GASNETE_REFVIS_HANDLERS(),
+  #endif
 
   /* ptr-width independent handlers */
 

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/01/23 10:35:05 $
- * $Revision: 1.21 $
+ *     $Date: 2004/03/03 13:47:08 $
+ * $Revision: 1.22 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -74,13 +74,12 @@ uint64_t test_checksum(void *p, int numbytes) {
 
 static void _MSG(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
 static void _MSG(const char *format, ...) {
-  #define BUFSZ 1024
-  char output[BUFSZ];
+  #define TEST_BUFSZ 1024
+  char output[TEST_BUFSZ];
   va_list argptr;
   va_start(argptr, format); /*  pass in last argument */
-    { int sz = vsnprintf(output, BUFSZ, format, argptr);
-      assert(sz <= BUFSZ);
-      if (sz >= (BUFSZ-5)) strcpy(output+(BUFSZ-5),"...");
+    { int sz = vsnprintf(output, TEST_BUFSZ, format, argptr);
+      if (sz >= (TEST_BUFSZ-5) || sz < 0) strcpy(output+(TEST_BUFSZ-5),"...");
     }
   va_end(argptr);
   printf("node %i/%i %s\n", (int)gasnet_mynode(), (int)gasnet_nodes(), output); 
@@ -105,7 +104,14 @@ static void *_test_malloc(size_t sz, const char *curloc) {
   }
   return ptr;
 }
+static void *_test_calloc(size_t sz, const char *curloc) {
+  void *retval = _test_malloc(sz, curloc);
+  if (retval) memset(retval, 0, sz);
+  return retval;
+}
 #define test_malloc(sz) _test_malloc((sz), __FILE__ ":" _STRINGIFY(__LINE__))
+#define test_calloc(N,S) _test_calloc((N*S), __FILE__ ":" _STRINGIFY(__LINE__))
+
 static void test_free(void *ptr) {
   gasnet_hold_interrupts();
   free(ptr);
@@ -123,11 +129,22 @@ static void test_free(void *ptr) {
 
 
 #if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
-  #define TEST_MAXTHREADS      256
-  #define TEST_SEGZ_PER_THREAD 64*1024
-  #define TEST_SEGSZ	      (TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD)
+  #ifndef TEST_MAXTHREADS
+    #define TEST_MAXTHREADS      256
+  #endif
+  #ifndef TEST_SEGZ_PER_THREAD
+    #define TEST_SEGZ_PER_THREAD (64*1024)
+  #endif
+  #ifndef TEST_SEGSZ
+    #define TEST_SEGSZ	      (TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD)
+  #endif
+  #if TEST_SEGSZ < (TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD)
+    #error "TEST_SEGSZ < (TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD)"
+  #endif
 #else
-  #define TEST_SEGSZ          (64*1024)
+  #ifndef TEST_SEGSZ
+    #define TEST_SEGSZ          (64*1024)
+  #endif
 #endif
 
 #define TEST_MINHEAPOFFSET  (128*PAGESZ)
@@ -158,5 +175,20 @@ static void test_free(void *ptr) {
 #endif
 
 #define TEST_MYSEG()          (TEST_SEG(gasnet_mynode()))
+
+int _test_rand(int low, int high) {
+  int result;
+  assert(low <= high);
+  result = low+(int)(((double)(high-low+1))*rand()/(RAND_MAX+1.0));
+  assert(result >= low && result <= high);
+  return result;
+}
+#define TEST_RAND(low,high) _test_rand((low), (high))
+#define TEST_RAND_PICK(a,b) (TEST_RAND(0,1)==1?(a):(b))
+#define TEST_SRAND(seed)    srand(seed)
+#define TEST_RAND_ONEIN(p)  (TEST_RAND(1,p) == 1)
+
+#define TEST_HIWORD(arg)     ((uint32_t)(((uint64_t)(arg)) >> 32))
+#define TEST_LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
 
 #endif

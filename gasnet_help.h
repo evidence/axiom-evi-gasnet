@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/02/17 22:57:50 $
- * $Revision: 1.21 $
+ *     $Date: 2004/03/03 13:47:01 $
+ * $Revision: 1.22 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,6 +32,10 @@ extern char *gasneti_getenv(const char *keyname);
 extern void gasneti_setenv(const char *key, const char *value);
 extern void gasneti_unsetenv(const char *key);
 
+/* extern versions of gasneti_malloc/gasnet_free for use in public headers */
+extern void *gasneti_extern_malloc(size_t sz);
+extern void gasneti_extern_free(void *p);
+
 #if defined(__GNUC__) || defined(__FUNCTION__)
   #define GASNETI_CURRENT_FUNCTION __FUNCTION__
 #elif defined(HAVE_FUNC)
@@ -46,22 +50,22 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 #if GASNET_NDEBUG
   #define gasneti_boundscheck(node,ptr,nbytes,T) 
 #else
-  #define gasneti_boundscheck(node,ptr,nbytes,T) do {                                                              \
-      gasnet_node_t _node = node;                                                                                  \
-      uintptr_t _ptr = (uintptr_t)ptr;                                                                             \
-      size_t _nbytes = nbytes;                                                                                     \
-      if_pf (_node > gasnet##T##_nodes)                                                                            \
-        gasneti_fatalerror("Node index out of range (%i >= %i) at %s",                                             \
-                           (int)_node, (int)gasnet##T##_nodes, gasneti_current_loc);                                         \
-      if_pf (_ptr < (uintptr_t)gasnet##T##_seginfo[_node].addr ||                                                  \
-             (_ptr + _nbytes) > (((uintptr_t)gasnet##T##_seginfo[_node].addr) + gasnet##T##_seginfo[_node].size))  \
-        gasneti_fatalerror("Remote address out of range (node=%i ptr="GASNETI_LADDRFMT" nbytes=%i "                \
-                           "segment=("GASNETI_LADDRFMT"..."GASNETI_LADDRFMT")) at %s",                             \
-                           (int)_node, GASNETI_LADDRSTR(_ptr), (int)_nbytes,                                            \
-                           GASNETI_LADDRSTR(gasnet##T##_seginfo[_node].addr),                                      \
-                           GASNETI_LADDRSTR(((uint8_t*)gasnet##T##_seginfo[_node].addr) +                          \
-                                            gasnet##T##_seginfo[_node].size),                                      \
-                           gasneti_current_loc);                                                                   \
+  #define gasneti_boundscheck(node,ptr,nbytes,T) do {                                                             \
+      gasnet_node_t _node = node;                                                                                 \
+      uintptr_t _ptr = (uintptr_t)ptr;                                                                            \
+      size_t _nbytes = nbytes;                                                                                    \
+      if_pf (_node > gasnet##T##_nodes)                                                                           \
+        gasneti_fatalerror("Node index out of range (%lu >= %lu) at %s",                                          \
+                           (unsigned long)_node, (unsigned long)gasnet##T##_nodes, gasneti_current_loc);          \
+      if_pf (_ptr < (uintptr_t)gasnet##T##_seginfo[_node].addr ||                                                 \
+             (_ptr + _nbytes) > (((uintptr_t)gasnet##T##_seginfo[_node].addr) + gasnet##T##_seginfo[_node].size)) \
+        gasneti_fatalerror("Remote address out of range (node=%lu ptr="GASNETI_LADDRFMT" nbytes=%lu "             \
+                           "segment=("GASNETI_LADDRFMT"..."GASNETI_LADDRFMT")) at %s",                            \
+                           (unsigned long)_node, GASNETI_LADDRSTR(_ptr), (unsigned long)_nbytes,                  \
+                           GASNETI_LADDRSTR(gasnet##T##_seginfo[_node].addr),                                     \
+                           GASNETI_LADDRSTR(((uint8_t*)gasnet##T##_seginfo[_node].addr) +                         \
+                                            gasnet##T##_seginfo[_node].size),                                     \
+                           gasneti_current_loc);                                                                  \
     } while(0)
 #endif
 
@@ -108,6 +112,42 @@ extern int gasneti_wait_mode; /* current waitmode hint */
   } while (0)
 #endif
 #define gasneti_polluntil(cnd) gasneti_pollwhile(!(cnd)) 
+
+/* conduits may replace the following types, 
+   but they should at least include all the following fields */
+#ifndef GASNETI_MEMVECLIST_STATS_T
+  typedef struct {
+    size_t minsz;
+    size_t maxsz;
+    size_t totalsz;
+    void *minaddr;
+    void *maxaddr;
+  } gasneti_memveclist_stats_t;
+#endif
+
+#ifndef GASNETI_ADDRLIST_STATS_T
+  typedef struct {
+    void *minaddr;
+    void *maxaddr;
+  } gasneti_addrlist_stats_t;
+#endif
+
+/* stats needed by the VIS reference implementation */
+#ifndef GASNETI_REFVIS_STATS
+  #define GASNETI_REFVIS_STATS(CNT,VAL,TIME) \
+        CNT(C, PUTV_REF_INDIV, cnt)          \
+        CNT(C, GETV_REF_INDIV, cnt)          \
+        CNT(C, PUTI_REF_INDIV, cnt)          \
+        CNT(C, GETI_REF_INDIV, cnt)          \
+        CNT(C, PUTI_REF_VECTOR, cnt)         \
+        CNT(C, GETI_REF_VECTOR, cnt)         \
+        CNT(C, PUTS_REF_INDIV, cnt)          \
+        CNT(C, GETS_REF_INDIV, cnt)          \
+        CNT(C, PUTS_REF_VECTOR, cnt)         \
+        CNT(C, GETS_REF_VECTOR, cnt)         \
+        CNT(C, PUTS_REF_INDEXED, cnt)        \
+        CNT(C, GETS_REF_INDEXED, cnt)
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* Error checking system mutexes -

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2003/10/31 12:21:07 $
- * $Revision: 1.21 $
+ *     $Date: 2004/03/03 13:47:04 $
+ * $Revision: 1.22 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -758,6 +758,15 @@ extern int gasnete_barrier_try(int id, int flags);
 #define gasnet_barrier_notify  gasnete_barrier_notify
 #define gasnet_barrier_wait    gasnete_barrier_wait
 #define gasnet_barrier_try     gasnete_barrier_try
+
+/* ------------------------------------------------------------------------------------ */
+/*
+  Vector, Indexed & Strided:
+  =========================
+*/
+
+/* Vector, Indexed & Strided put/gets declared in separate header */
+#include "gasnet_extended_vis.h"
 
 /* ------------------------------------------------------------------------------------ */
 

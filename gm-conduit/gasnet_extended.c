@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gm-conduit/gasnet_extended.c                  $
- *     $Date: 2004/01/05 05:01:14 $
- * $Revision: 1.22 $
+ *     $Date: 2004/03/03 13:47:06 $
+ * $Revision: 1.23 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -194,7 +194,6 @@ gasnete_init()
 		#else
 			/* register only thread (required) */
 			threaddata = gasnete_new_threaddata();
-			gasnete_threadtable[0] = threaddata;
 		#endif
 
 		/* cause the first pool of eops to be allocated optimization */

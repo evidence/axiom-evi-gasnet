@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
- *     $Date: 2004/01/05 05:01:16 $
- * $Revision: 1.16 $
+ *     $Date: 2004/03/03 13:47:07 $
+ * $Revision: 1.17 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -180,7 +180,6 @@ extern void gasnete_init() {
 #else
 	/* register only thread (required) */
 	threaddata = gasnete_new_threaddata();
-	gasnete_threadtable[0] = threaddata;
 #endif
 
 	/* cause the first pool of eops to be allocated (optimization) */
@@ -308,6 +307,7 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 	iop->initiated_put_cnt = 0;
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->get_cntr,0));
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->put_cntr,0));
+        gasnete_iop_check(iop);
 	return iop;
 }
 
@@ -1172,10 +1172,27 @@ extern int gasnete_barrier_try(int id, int flags) {
 }
 /* ------------------------------------------------------------------------------------ */
 /*
+  Vector, Indexed & Strided:
+  =========================
+*/
+
+/* use reference implementation of scatter/gather and strided */
+#define GASNETI_GASNET_EXTENDED_VIS_C 1
+#include "gasnet_extended_refvis.c"
+#undef GASNETI_GASNET_EXTENDED_VIS_C
+
+/* ------------------------------------------------------------------------------------ */
+/*
   Handlers:
   =========
 */
 static gasnet_handlerentry_t const gasnete_handlers[] = {
+  #ifdef GASNETE_REFBARRIER_HANDLERS
+    GASNETE_REFBARRIER_HANDLERS(),
+  #endif
+  #ifdef GASNETE_REFVIS_HANDLERS
+    GASNETE_REFVIS_HANDLERS(),
+  #endif
     /* ptr-width independent handlers */
 
     /* ptr-width dependent handlers */

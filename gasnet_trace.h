@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2004/02/17 22:57:50 $
- * $Revision: 1.17 $
+ *     $Date: 2004/03/03 13:47:01 $
+ * $Revision: 1.18 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -339,6 +339,93 @@ BEGIN_EXTERNC
   #define GASNETI_TRACE_AMLONG_REPHANDLER(handlerid, token, addr, nbytes, numargs, arghandle) 
 #endif
 /* ------------------------------------------------------------------------------------ */
+/* Vector, Indexed & Strided tracing */
+#if GASNETI_STATS_OR_TRACE
+  #define _GASNETI_TRACE_PUTVGETV(name,type,node,dstcount,dstlist,srccount,srclist) do {                   \
+    if (GASNETI_TRACE_ENABLED(D)) {                                                                        \
+      char * dstlist_str = gasneti_extern_malloc(gasneti_format_memveclist_bufsz(dstcount));               \
+      char * srclist_str = gasneti_extern_malloc(gasneti_format_memveclist_bufsz(srccount));               \
+      gasneti_memveclist_stats_t dststats = gasneti_format_memveclist(dstlist_str, (dstcount), (dstlist)); \
+      gasneti_memveclist_stats_t srcstats = gasneti_format_memveclist(srclist_str, (srccount), (srclist)); \
+      GASNETI_TRACE_EVENT_VAL(type,name,dststats.totalsz);                                                 \
+      GASNETI_TRACE_PRINTF(D,(#name ": (%i data bytes) node=%i\n"                                          \
+                              "dst: %s\nsrc: %s",                                                          \
+                              (int)dststats.totalsz, (int)(node),                                          \
+                              dstlist_str, srclist_str));                                                  \
+      gasneti_extern_free(dstlist_str);                                                                    \
+      gasneti_extern_free(srclist_str);                                                                    \
+    } else GASNETI_TRACE_EVENT_VAL(type,name, gasnete_memveclist_stats(dstcount,dstlist).totalsz);                                                \
+  } while (0)
+
+  #define _GASNETI_TRACE_PUTIGETI(name,type,node,dstcount,dstlist,dstlen,srccount,srclist,srclen) do {           \
+    if (GASNETI_TRACE_ENABLED(D)) {                                                                              \
+      char * dstlist_str = gasneti_extern_malloc(gasneti_format_addrlist_bufsz(dstcount));                       \
+      char * srclist_str = gasneti_extern_malloc(gasneti_format_addrlist_bufsz(srccount));                       \
+      gasneti_addrlist_stats_t dststats = gasneti_format_addrlist(dstlist_str, (dstcount), (dstlist), (dstlen)); \
+      gasneti_addrlist_stats_t srcstats = gasneti_format_addrlist(srclist_str, (srccount), (srclist), (srclen)); \
+      GASNETI_TRACE_EVENT_VAL(type,name,(dstcount)*(dstlen));                                                    \
+      GASNETI_TRACE_PRINTF(D,(#name ": (%i data bytes) node=%i\n"                                                \
+                              "dst: %s\nsrc: %s",                                                                \
+                              (int)((dstcount)*(dstlen)), (int)(node),                                           \
+                              dstlist_str, srclist_str));                                                        \
+      gasneti_extern_free(dstlist_str);                                                                          \
+      gasneti_extern_free(srclist_str);                                                                          \
+    } else GASNETI_TRACE_EVENT_VAL(type,name, (dstcount)*(dstlen));                                              \
+  } while (0)
+
+  #define _GASNETI_TRACE_PUTSGETS(name,type,node,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels) do {  \
+    if (GASNETI_TRACE_ENABLED(D)) {                                                                              \
+      gasnete_strided_stats_t _stats;                                                                            \
+      gasnete_strided_stats(&_stats, (dststrides), (srcstrides), (count), (stridelevels));                       \
+      GASNETI_TRACE_EVENT_VAL(type,name,_stats.totalsz);                                                         \
+      GASNETI_TRACE_PRINTF(D,(#name ": (%i data bytes) node=%i stridelevels=%i count=%s\n"                       \
+                              "dualcontiguity=%i nulldims=%i\n"                                                  \
+                              "dst: dstaddr="GASNETI_LADDRFMT" dststrides=%s\n"                                  \
+                              "     extent=%i bounds=["GASNETI_LADDRFMT"..."GASNETI_LADDRFMT"]\n"                \
+                              "     contiguity=%i contigsz=%i contigsegments=%i\n"                               \
+                              "src: srcaddr="GASNETI_LADDRFMT" srcstrides=%s\n"                                  \
+                              "     extent=%i bounds=["GASNETI_LADDRFMT"..."GASNETI_LADDRFMT"]\n"                \
+                              "     contiguity=%i contigsz=%i contigsegments=%i",                                \
+                              (int)_stats.totalsz, (int)(node), (int)(stridelevels),                             \
+                              gasneti_format_strides(stridelevels+1, count),                                     \
+                              (int)_stats.dualcontiguity, (int)_stats.nulldims,                                  \
+                              GASNETI_LADDRSTR(dstaddr),                                                         \
+                              gasneti_format_strides(stridelevels, dststrides),                                  \
+                              (int)_stats.dstextent,                                                             \
+                              GASNETI_LADDRSTR(dstaddr), GASNETI_LADDRSTR((((char *)dstaddr)+_stats.dstextent)), \
+                              (int)_stats.dstcontiguity, (int)_stats.dstcontigsz, (int)_stats.dstsegments,       \
+                              GASNETI_LADDRSTR(srcaddr),                                                         \
+                              gasneti_format_strides(stridelevels, srcstrides),                                  \
+                              (int)_stats.srcextent,                                                             \
+                              GASNETI_LADDRSTR(srcaddr), GASNETI_LADDRSTR((((char *)srcaddr)+_stats.srcextent)), \
+                              (int)_stats.srccontiguity, (int)_stats.srccontigsz, (int)_stats.srcsegments        \
+                              ));                                                                                \
+    } else GASNETI_TRACE_EVENT_VAL(type,name, gasnete_strided_datasize(count,stridelevels));                     \
+  } while (0)
+
+  #define GASNETI_TRACE_PUTV(name,node,dstcount,dstlist,srccount,srclist) \
+     _GASNETI_TRACE_PUTVGETV(name,P,node,dstcount,dstlist,srccount,srclist)
+  #define GASNETI_TRACE_GETV(name,node,dstcount,dstlist,srccount,srclist) \
+     _GASNETI_TRACE_PUTVGETV(name,G,node,dstcount,dstlist,srccount,srclist)
+
+  #define GASNETI_TRACE_PUTI(name,node,dstcount,dstlist,dstlen,srccount,srclist,srclen) \
+     _GASNETI_TRACE_PUTIGETI(name,P,node,dstcount,dstlist,dstlen,srccount,srclist,srclen)
+  #define GASNETI_TRACE_GETI(name,node,dstcount,dstlist,dstlen,srccount,srclist,srclen) \
+     _GASNETI_TRACE_PUTIGETI(name,G,node,dstcount,dstlist,dstlen,srccount,srclist,srclen)
+
+  #define GASNETI_TRACE_PUTS(name,node,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels) \
+     _GASNETI_TRACE_PUTSGETS(name,P,node,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels)
+  #define GASNETI_TRACE_GETS(name,node,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels) \
+     _GASNETI_TRACE_PUTSGETS(name,G,node,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels)
+#else
+  #define GASNETI_TRACE_PUTV(name,node,dstcount,dstlist,srccount,srclist)
+  #define GASNETI_TRACE_GETV(name,node,dstcount,dstlist,srccount,srclist)
+  #define GASNETI_TRACE_PUTI(name,node,dstcount,dstlist,dstlen,srccount,srclist,srclen)
+  #define GASNETI_TRACE_GETI(name,node,dstcount,dstlist,dstlen,srccount,srclist,srclen)
+  #define GASNETI_TRACE_PUTS(name,node,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels)
+  #define GASNETI_TRACE_GETS(name,node,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels)
+#endif
+/* ------------------------------------------------------------------------------------ */
 /* Internal implementation of statistical/tracing output */
 
 typedef uint64_t gasneti_statctr_t;
@@ -419,6 +506,26 @@ extern void gasneti_trace_finish();
         VAL(P, MEMSET_NB_LOCAL, sz)                       \
         VAL(P, MEMSET_NBI_LOCAL, sz)                      \
                                                           \
+        VAL(G, GETV_BULK, sz)                             \
+        VAL(G, GETV_NB_BULK, sz)                          \
+        VAL(G, GETV_NBI_BULK, sz)                         \
+        VAL(G, GETI_BULK, sz)                             \
+        VAL(G, GETI_NB_BULK, sz)                          \
+        VAL(G, GETI_NBI_BULK, sz)                         \
+        VAL(G, GETS_BULK, sz)                             \
+        VAL(G, GETS_NB_BULK, sz)                          \
+        VAL(G, GETS_NBI_BULK, sz)                         \
+                                                          \
+        VAL(P, PUTV_BULK, sz)                             \
+        VAL(P, PUTV_NB_BULK, sz)                          \
+        VAL(P, PUTV_NBI_BULK, sz)                         \
+        VAL(P, PUTI_BULK, sz)                             \
+        VAL(P, PUTI_NB_BULK, sz)                          \
+        VAL(P, PUTI_NBI_BULK, sz)                         \
+        VAL(P, PUTS_BULK, sz)                             \
+        VAL(P, PUTS_NB_BULK, sz)                          \
+        VAL(P, PUTS_NBI_BULK, sz)                         \
+                                                          \
         VAL(S, TRY_SYNCNB, success)                       \
         VAL(S, TRY_SYNCNB_ALL, success)                   \
         VAL(S, TRY_SYNCNB_SOME, success)                  \
@@ -432,7 +539,8 @@ extern void gasneti_trace_finish();
         TIME(S, WAIT_SYNCNBI_ALL, waittime)               \
         TIME(S, WAIT_SYNCNBI_GETS, waittime)              \
         TIME(S, WAIT_SYNCNBI_PUTS, waittime)              \
-        VAL(S, END_NBI_ACCESSREGION, numops)              \
+                                                          \
+        VAL(I, END_NBI_ACCESSREGION, numops)              \
                                                           \
         CNT(B, BARRIER_NOTIFY, cnt)                       \
         TIME(B, BARRIER_NOTIFYWAIT, notify-wait interval) \
@@ -473,6 +581,12 @@ extern void gasneti_trace_finish();
 #define CONDUIT_EXTENDED_STATS(CNT,VAL,TIME)
 #endif
 
+/* these are legal even without STATS/TRACE */
+extern int gasneti_format_memveclist_bufsz(size_t count);
+extern gasneti_memveclist_stats_t gasneti_format_memveclist(char *buf, size_t count, gasnet_memvec_t const *list);
+extern int gasneti_format_addrlist_bufsz(size_t count);
+extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count, void * const *list, size_t len);
+
 #if GASNETI_STATS_OR_TRACE
   #define BUILD_ENUM(type,name,desc) GASNETI_STAT_##name,
   typedef enum {
@@ -490,6 +604,7 @@ extern void gasneti_trace_finish();
   extern FILE *gasneti_statsfile;
   extern char *gasneti_dynsprintf(const char *format,...) __attribute__((__format__ (__printf__, 1, 2)));
   extern char *gasneti_formatdata(void *p, int nbytes);
+  extern const char *gasneti_format_strides(size_t count, const size_t *list);
   extern void gasneti_trace_output(const char *type, const char *msg, int traceheader);
   extern void gasneti_stats_output(const char *type, const char *msg, int traceheader);
 

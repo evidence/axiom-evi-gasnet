@@ -1,6 +1,6 @@
-/* $Id: gasnet_extended_op.c,v 1.8 2004/01/05 16:20:01 bonachea Exp $
- * $Date: 2004/01/05 16:20:01 $
- * $Revision: 1.8 $
+/* $Id: gasnet_extended_op.c,v 1.9 2004/03/03 13:47:06 bonachea Exp $
+ * $Date: 2004/03/03 13:47:06 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API OPs interface
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -127,6 +127,7 @@ gasnete_iop_new(gasnete_threaddata_t * const thread)
 	iop->initiated_put_cnt = 0;
 	gasneti_atomic_set(&(iop->completed_get_cnt), 0);
 	gasneti_atomic_set(&(iop->completed_put_cnt), 0);
+        gasnete_iop_check(iop);
 	return iop;
 }
 
