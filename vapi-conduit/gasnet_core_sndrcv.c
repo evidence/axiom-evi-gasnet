@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/08/25 21:06:34 $
- * $Revision: 1.14 $
+ *     $Date: 2003/08/26 22:51:35 $
+ * $Revision: 1.15 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -816,8 +816,11 @@ extern void gasnetc_sndrcv_init(void) {
 
     /* Allocated normal memory for receive descriptors (rbuf's) */
     padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETC_CACHE_LINE_SIZE);
-    gasnetc_rbuf_alloc = calloc(count, padded_size);
-    assert(gasnetc_rbuf_alloc != NULL);
+    {
+      void *tmp = malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
+      assert(tmp != NULL);
+      gasnetc_rbuf_alloc = (gasnetc_rbuf_t *)GASNETC_ALIGNUP(tmp, GASNETC_CACHE_LINE_SIZE);
+    }
 
     /* Initialize the rbuf's */
     rbuf = gasnetc_rbuf_alloc;
@@ -868,8 +871,11 @@ extern void gasnetc_sndrcv_init(void) {
 
   /* Allocated normal memory for send descriptors (sbuf's) */
   padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_sbuf_t), GASNETC_CACHE_LINE_SIZE);
-  gasnetc_sbuf_alloc = calloc(count, padded_size);
-  assert(gasnetc_sbuf_alloc != NULL);
+  {
+    void *tmp = malloc(count*padded_size + GASNETC_CACHE_LINE_SIZE-1);
+    assert(tmp != NULL);
+    gasnetc_sbuf_alloc = (gasnetc_sbuf_t *)GASNETC_ALIGNUP(tmp, GASNETC_CACHE_LINE_SIZE);
+  }
 
   /* Initialize the sbuf's */
   sbuf = (gasnetc_sbuf_t *)gasnetc_sbuf_alloc;
