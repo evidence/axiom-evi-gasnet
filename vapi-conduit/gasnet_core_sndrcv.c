@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/22 19:19:30 $
- * $Revision: 1.80 $
+ *     $Date: 2005/03/24 23:36:53 $
+ * $Revision: 1.81 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1476,7 +1476,9 @@ extern void gasnetc_sndrcv_init(void) {
     /* Allocated pinned memory for receive buffers */
     buf = gasnetc_alloc_pinned(count * sizeof(gasnetc_buffer_t),
 			       VAPI_EN_LOCAL_WRITE, &gasnetc_rcv_reg);
-    gasneti_assert(buf != NULL);
+    if_pf (buf == NULL) {
+      gasneti_fatalerror("Unable to allocate pinned memory for AM recv buffers");
+    }
 
     /* Allocated normal memory for receive descriptors (rbuf's) */
     padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETI_CACHE_LINE_BYTES);
@@ -1520,7 +1522,9 @@ extern void gasnetc_sndrcv_init(void) {
   gasnetc_bbuf_limit = count;
   buf = gasnetc_alloc_pinned(count * sizeof(gasnetc_buffer_t),
 			     VAPI_EN_LOCAL_WRITE, &gasnetc_snd_reg);
-  gasneti_assert(buf != NULL);
+  if_pf (buf == NULL) {
+    gasneti_fatalerror("Unable to allocate pinned memory for AM/bounce buffers");
+  }
   for (i = 0; i < count; ++i) {
     gasneti_freelist_put(&gasnetc_bbuf_freelist, buf);
     ++buf;
