@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2003/12/15 21:58:46 $
- * $Revision: 1.31 $
+ *     $Date: 2003/12/15 22:05:38 $
+ * $Revision: 1.32 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -923,7 +923,7 @@ static void gasnetc_disable_AMs(void) {
   int i;
 
   for (i = 0; i < GASNETC_MAX_NUMHANDLERS; ++i) {
-    gasnetc_handler[GASNETC_MAX_NUMHANDLERS] = (gasnetc_handler_fn_t)&gasnetc_noop;
+    gasnetc_handler[i] = (gasnetc_handler_fn_t)&gasnetc_noop;
   }
 }
 
