@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/10/22 17:34:25 $
- * $Revision: 1.60 $
+ *     $Date: 2004/10/22 20:56:32 $
+ * $Revision: 1.61 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -433,7 +433,10 @@ static int gasnetc_init(int *argc, char ***argv) {
   }
 
   /* allocate resources */
-  gasnetc_cep = gasneti_calloc(gasnetc_nodes, sizeof(gasnetc_cep_t));
+  gasnetc_cep = (gasnetc_cep_t *)GASNETI_ALIGNUP(gasneti_malloc(gasnetc_nodes*sizeof(gasnetc_cep_t)
+								+ GASNETC_CACHE_LINE_SIZE - 1),
+						 GASNETC_CACHE_LINE_SIZE);
+  memset(gasnetc_cep, 0, gasnetc_nodes*sizeof(gasnetc_cep_t));
   local_addr = gasneti_calloc(gasnetc_nodes, sizeof(gasnetc_addr_t));
   remote_addr = gasneti_calloc(gasnetc_nodes, sizeof(gasnetc_addr_t));
 

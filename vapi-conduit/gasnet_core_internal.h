@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2004/10/21 22:27:19 $
- * $Revision: 1.51 $
+ *     $Date: 2004/10/22 20:56:32 $
+ * $Revision: 1.52 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,6 +29,7 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 #define GASNETC_HSL_SPINLOCK 1
 
 #define GASNETC_CACHE_LINE_SIZE (128)
+#define GASNETC_CACHE_PAD(SZ) (GASNETI_ALIGNUP(SZ,GASNETC_CACHE_LINE_SIZE)-(SZ))
 
 /* check (even in optimized build) for VAPI errors */
 #define GASNETC_VAPI_CHECK(vstat,msg) \
@@ -327,10 +328,14 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
  * some resource of known multiplicity.
  */
 typedef struct {
-  #ifndef GASNETI_HAVE_ATOMIC_CAS
+  #ifdef GASNETI_HAVE_ATOMIC_CAS
+    gasneti_atomic_t	count;
+    char		_pad[GASNETC_CACHE_PAD(sizeof(gasneti_atomic_t))];
+  #else
     gasnetc_mutex_t	lock;
+    gasneti_atomic_t	count;
+    char		_pad[GASNETC_CACHE_PAD(sizeof(gasnetc_mutex_t)+sizeof(gasneti_atomic_t))];
   #endif
-  gasneti_atomic_t	count;
 } gasnetc_sema_t;
 
 #ifdef GASNETI_HAVE_ATOMIC_CAS
@@ -500,6 +505,7 @@ typedef struct _gasneti_freelist_ptr_s {
 typedef struct {
   gasneti_mutex_t		lock;
   gasneti_freelist_ptr_t	*head;
+  char				_pad[GASNETC_CACHE_PAD(sizeof(gasneti_mutex_t)+sizeof(gasneti_freelist_ptr_t *))];
 } gasneti_freelist_t;
 
 /* Initializer for staticly allocated freelists */
@@ -578,11 +584,13 @@ void *gasneti_freelist_next(void *elem) {
 typedef struct {
   gasnetc_sema_t	op_sema;	/* control in-flight RDMA ops */
   gasnetc_sema_t	am_sema;	/* control in-flight AM Requests */
-  VAPI_qp_hndl_t	qp_handle;
+  VAPI_qp_hndl_t	qp_handle;	/* == unsigned long */
   #if GASNETC_PIN_SEGMENT
     /* RKey for the segment, registered at attach time */
-    VAPI_rkey_t		rkey;
+    VAPI_rkey_t		rkey;		/* == uint32_t */
+    char		_pad[GASNETC_CACHE_PAD(2*sizeof(gasnetc_sema_t)+sizeof(VAPI_qp_hndl_t)+sizeof(VAPI_rkey_t))];
   #else
+    char		_pad[GASNETC_CACHE_PAD(2*sizeof(gasnetc_sema_t)+sizeof(VAPI_qp_hndl_t))];
   #endif
 } gasnetc_cep_t;
 
