@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/04/06 16:14:55 $
- * $Revision: 1.45 $
+ *     $Date: 2004/04/23 23:28:20 $
+ * $Revision: 1.46 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1653,9 +1653,11 @@ void gasnetc_lapi_exchange(void *src, size_t len, void *dest)
 
 void gasnetc_token_queue_init(gasnetc_token_queue_t *q)
 {
-    q->head = q->tail = NULL;
     gasnetc_spinlock_init(&(q->lock));
+    gasnetc_spinlock_lock(&(q->lock));
+    q->head = q->tail = NULL;
     q->schedule = 1;
+    gasnetc_spinlock_unlock(&(q->lock));
 }
 
 gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_schedule)
@@ -1679,6 +1681,7 @@ gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_sche
 	    q->schedule = 1;
 	}
     } else {
+	gasneti_assert(q->tail != NULL);
 	q->head = p->next;
 	p->next = NULL;
 	if (p == q->tail) {
@@ -1706,6 +1709,7 @@ void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *sc
 	q->head = q->tail = p;
     } else {
 	/* attach to current tail */
+	gasneti_assert(q->head != NULL);
 	q->tail->next = p;
 	q->tail = p;
     }
