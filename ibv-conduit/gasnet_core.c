@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/vapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/02/02 23:10:13 $
- * $Revision: 1.39 $
+ *     $Date: 2004/02/09 20:59:24 $
+ * $Revision: 1.40 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1795,7 +1795,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
   GASNETI_CHECKATTACH();
 
-  { int retval; 
+  {
     #if GASNETI_STATS_OR_TRACE
       gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
     #endif

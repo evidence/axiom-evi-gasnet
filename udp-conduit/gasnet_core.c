@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/01/21 10:08:27 $
- * $Revision: 1.6 $
+ *     $Date: 2004/02/09 20:59:23 $
+ * $Revision: 1.7 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -762,7 +762,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
   GASNETI_CHECKATTACH();
 
-  { int retval; 
+  {
     #if GASNETI_STATS_OR_TRACE
       gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
     #endif

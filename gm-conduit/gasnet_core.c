@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.52 2004/01/28 16:35:00 phargrov Exp $
- * $Date: 2004/01/28 16:35:00 $
+/* $Id: gasnet_core.c,v 1.53 2004/02/09 20:59:16 phargrov Exp $
+ * $Date: 2004/02/09 20:59:16 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2021,7 +2021,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
   GASNETI_CHECKATTACH();
 
-  { int retval; 
+  {
     #if GASNETI_STATS_OR_TRACE
       gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
     #endif

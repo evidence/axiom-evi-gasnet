@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/smp-conduit/gasnet_core.c                  $
- *     $Date: 2004/01/21 10:08:25 $
- * $Revision: 1.15 $
+ *     $Date: 2004/02/09 20:59:20 $
+ * $Revision: 1.16 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -739,7 +739,7 @@ extern void gasnetc_hsl_destroy(gasnet_hsl_t *hsl) {
 extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
   GASNETI_CHECKATTACH();
 
-  { int retval; 
+  {
     #if GASNETI_STATS_OR_TRACE
       gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
     #endif
