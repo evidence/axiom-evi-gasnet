@@ -1,6 +1,6 @@
 /*  $Archive:: gasnet/gasnet-conduit/gasnet_core_sndrcv.c                  $
- *     $Date: 2003/07/15 22:47:49 $
- * $Revision: 1.5 $
+ *     $Date: 2003/07/18 19:37:20 $
+ * $Revision: 1.6 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -865,7 +865,7 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
       sbuf->req_oust = req_oust;
     }
 
-    if (nbytes <= GASNETC_PUT_INLINE_LIMIT) {
+    if ((GASNETC_PUT_INLINE_LIMIT != 0) && (nbytes <= GASNETC_PUT_INLINE_LIMIT)) {
       /* Use a short-cut for sends that are short enough.
        *
        * Note that we do this based only on the size of the request, without bothering to check whether
