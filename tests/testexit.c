@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testbarrier.c                             $
- *     $Date: 2003/05/22 09:21:31 $
- * $Revision: 1.3 $
+ *     $Date: 2003/06/24 18:55:07 $
+ * $Revision: 1.4 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,12 +22,14 @@ int mynode, nodes;
 */
 char *testdesc[] = {
   "simultaneous collective gasnet_exit(1)",
-  "simultaneous return from main()... exit_code 0",
+  "simultaneous return from main()... exit_code 2",
   "non-collective gasnet_exit(3), others in barrier",
   "non-collective SIGINT, others in barrier ... exit_code 4",
   "non-collective gasnet_exit(5), others in spin-loop",
   "collective gasnet_exit(6) between init()/attach()",
-  "non-collective gasnet_exit(7) between init()/attach()"
+  "non-collective gasnet_exit(7) between init()/attach()",
+  "non-collective return(8) from main(), others in barrier",
+  "non-collective return(9) from main(), others in spin-loop",
 };
 #define MAXTEST (sizeof(testdesc)/sizeof(char*))
 
@@ -37,7 +39,7 @@ void testSignalHandler(int sig) {
     MSG("ERROR! got an unexpected signal!");
     abort();
   } else {
-    MSG("in SIGQUIT handler, calling gasnet_exit(0)...");
+    MSG("in SIGQUIT handler, calling gasnet_exit(4)...");
     gasnet_exit(4);
   }
 }
@@ -113,6 +115,15 @@ int main(int argc, char **argv) {
       if (mynode == nodes-1) { sleep(1); gasnet_exit(testid); }
       else while(1);
       break;
+    case 8: 
+      if (mynode == nodes-1) { sleep(1); return 8; }
+      else BARRIER();
+      break;
+    case 9: 
+      if (mynode == nodes-1) { sleep(1); return 9; }
+      else while(1);
+      break;
+
     default:
       abort();
   }
