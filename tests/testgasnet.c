@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testgasnet.c                              $
- *     $Date: 2002/08/30 03:27:23 $
- * $Revision: 1.5 $
+ *     $Date: 2002/09/02 23:03:31 $
+ * $Revision: 1.6 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
   partner = (gasnet_mynode() + 1) % gasnet_nodes();
   { gasnet_seginfo_t si[GASNET_MAXNODES];
     gasnet_getSegmentInfo((gasnet_seginfo_t*)&si,GASNET_MAXNODES);
-    assert(si[mynode].size == TEST_SEGSZ && si[partner].size == TEST_SEGSZ);
+    assert(si[mynode].size >= TEST_SEGSZ && si[partner].size >= TEST_SEGSZ);
     partnerseg = si[partner].addr;
   }
 

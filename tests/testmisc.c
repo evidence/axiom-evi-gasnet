@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testmisc.c                             $
- *     $Date: 2002/08/31 02:05:06 $
- * $Revision: 1.2 $
+ *     $Date: 2002/09/02 23:03:31 $
+ * $Revision: 1.3 $
  * Description: GASNet misc performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -606,6 +606,17 @@ int main(int argc, char **argv) {
         gasnet_wait_syncnb(gasnet_end_nbi_accessregion());          
       }
       report("do-nothing begin/end nbi accessregion",TIME() - start, iters);
+    }
+
+    BARRIER();
+
+    {
+      int64_t start = TIME();
+      for (i=0; i < iters; i++) {
+        gasnete_barrier_notify(0,GASNET_BARRIERFLAG_ANONYMOUS);            
+        gasnete_barrier_wait(0,GASNET_BARRIERFLAG_ANONYMOUS); 
+      }
+      report("single-node barrier",TIME() - start, iters);
     }
 
     BARRIER();
