@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2004/10/09 14:54:26 $
-# $Revision: 1.28 $
+#     $Date: 2005/01/07 17:39:36 $
+# $Revision: 1.29 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -32,6 +32,10 @@ $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: $(srcdir)/gasnet_bootstrap_m
 	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) -o $@ -c $<
 endif
 
+if VAPI_BOOTSTRAP_SSH
+ssh_srcs = $(srcdir)/gasnet_bootstrap_ssh.c
+endif
+
 # any conduit-specific subdirectories containing Makefile.am's
 SUBDIRS = contrib
 
@@ -49,6 +53,7 @@ CONDUIT_FILELIST =               \
       gasnet_extended_fwd.h      \
       gasnet_extended_internal.h \
       gasnet_bootstrap_mpi.c     \
+      gasnet_bootstrap_ssh.c     \
       gasnet_firehose.c          \
       firehose_fwd.h             \
       license.txt                
@@ -59,7 +64,7 @@ CONDUIT_SOURCELIST =                 \
       $(srcdir)/gasnet_core.c        \
       $(srcdir)/gasnet_core_sndrcv.c \
       $(srcdir)/gasnet_extended.c    \
-      $(fh_srcs)
+      $(fh_srcs) $(ssh_srcs)
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2004/11/10 16:21:34 $
- * $Revision: 1.62 $
+ *     $Date: 2005/01/07 17:39:36 $
+ * $Revision: 1.63 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1358,14 +1358,17 @@ static void gasnetc_exit_tail(void) {
  * This signal handler is for a last-ditch exit when a signal arrives while
  * attempting the graceful exit.  That includes SIGALRM if we get wedged.
  *
- * Just a signal-handler wrapper for gasnetc_exit_now().
+ * Just a (verbose) signal-handler wrapper for gasnetc_exit_now().
  *
  * DOES NOT RETURN
  */
 static void gasnetc_exit_sighandler(int sig) {
   #if GASNET_DEBUG
   /* note - can't call trace macros here, or even sprintf */
-  {
+  if (sig == SIGALRM) {
+    static const char msg[] = "gasnet_exit(): timeout during exit... goodbye\n";
+    write(STDERR_FILENO, msg, sizeof(msg) - 1);
+  } else {
     static const char msg1[] = "gasnet_exit(): signal ";
     static const char msg2[] = " received during exit... goodbye\n";
     char digit;

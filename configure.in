@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/11/24 01:13:08 $
-# $Revision: 1.211 $
+#     $Date: 2005/01/07 17:39:34 $
+# $Revision: 1.212 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.211 $)
+AC_REVISION($Revision: 1.212 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1438,6 +1438,10 @@ GASNET_IF_ENABLED_WITH_AUTO(vapi, Enable/disable the CONDUIT_DESC (auto-detected
   [enabled_vapi=yes;force_vapi=yes],
   enabled_vapi=no,
   enabled_vapi=yes)
+GASNET_IF_ENABLED_WITH_AUTO(vapi-bootstrap-ssh, [Enable/disable the EXPERIMENTAL ssh-based bootstrap for vapi conduit],
+  enabled_vapi_bootstrap_ssh=yes,
+  enabled_vapi_bootstrap_ssh=no,
+  enabled_vapi_bootstrap_ssh=no)
 if test "$force_vapi$have_pthread" = yesno; then
   AC_MSG_ERROR([vapi-conduit requires pthread support but pthreads $pthread_reason])
 fi
@@ -1445,12 +1449,14 @@ if test "$enabled_vapi$have_pthread" = yesno; then
   enabled_vapi=no
   AC_MSG_WARN([vapi-conduit requires pthread support but pthreads $pthread_reason - disabling vapi])
 fi
-if test "$force_vapi$have_mpi" = yesno; then
-  AC_MSG_ERROR([vapi-conduit requires MPI support and MPI $mpi_reason]);
-fi
-if test "$enabled_vapi$have_mpi" = yesno; then
-  enabled_vapi=no
-  AC_MSG_WARN([vapi-conduit requires MPI support and MPI $mpi_reason - disabling vapi])
+if test "$enabled_vapi_bootstrap_ssh" = no; then
+  if test "$force_vapi$have_mpi" = yesno; then
+    AC_MSG_ERROR([vapi-conduit requires MPI support and MPI $mpi_reason]);
+  fi
+  if test "$enabled_vapi$have_mpi" = yesno; then
+    enabled_vapi=no
+    AC_MSG_WARN([vapi-conduit requires MPI support and MPI $mpi_reason - disabling vapi])
+  fi
 fi
 if test "$enabled_vapi" = yes; then
   # Start by assuming we do have VAPI
@@ -1552,11 +1558,23 @@ if test "$enabled_vapi" = yes; then
       fi
   fi
 fi
-
+if test "$have_vapi" = yes; then
+  # Configure corrrect CC and LD
+  if test "$enabled_vapi_bootstrap_ssh" = no; then
+    VAPI_LD="$MPI_CC"
+    VAPI_LDFLAGS="$MPI_CFLAGS"
+    VAPI_LIBS="$MPI_LIBS $VAPI_LIBS"
+  else
+    VAPI_LD="$CC"
+    VAPI_LDFLAGS="$CFLAGS"
+  fi
+fi
 AC_SUBST(VAPI_INCLUDE)
 AC_SUBST(VAPI_LIBDIR)
 AC_SUBST(VAPI_LIBS)
 AC_SUBST(VAPI_LIBCFLAGS)
+AC_SUBST(VAPI_LD)
+AC_SUBST(VAPI_LDFLAGS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
 if test "$have_vapi" = yes ; then
   CONDUITS="$CONDUITS vapi"
@@ -1565,7 +1583,8 @@ else
   CONDUIT_REPORT(OFF)
 fi
 popdef([CONDUIT_DESC])
-AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$mpi_test_worked" = yes)
+AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH,test "$enabled_vapi_bootstrap_ssh" = yes)
+AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$enabled_vapi_bootstrap_ssh$mpi_test_worked" = noyes)
 #--------------------------------------------------------------------------------------------------------
 # SHMEM configuration
 
