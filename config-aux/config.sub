@@ -1015,6 +1015,10 @@ case $basic_machine in
 		basic_machine=hppa1.1-winbond
 		os=-proelf
 		;;
+	x1 | x1-*)
+		basic_machine=x1-cray
+		os=-unicos
+		;;
 	xps | xps100)
 		basic_machine=xps100-honeywell
 		;;
