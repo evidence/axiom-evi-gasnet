@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2003/05/22 09:21:27 $
- * $Revision: 1.9 $
+ *     $Date: 2003/06/05 11:58:56 $
+ * $Revision: 1.10 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -36,12 +36,7 @@ const ammpi_stats_t AMMPI_initial_stats = /* the initial state for stats type */
 
 /* ------------------------------------------------------------------------------------ */
 extern int enEqual(en_t en1, en_t en2) {
-  if (en1.mpirank != en2.mpirank || en1.mpitag != en2.mpitag) return FALSE;
-  else {
-    int result = 0;
-    MPI_SAFE(MPI_Comm_compare(en1.mpicomm, en2.mpicomm, &result));
-    return (result == MPI_IDENT);
-  }
+  return (en1.mpirank == en2.mpirank && en1.mpitag == en2.mpitag);
 }
 /*------------------------------------------------------------------------------------
  * Endpoint list handling for bundles
@@ -113,10 +108,11 @@ static int AMMPI_AllocateEndpointResource(ep_t ep) {
   if (mpitag == MPI_ANY_TAG) mpitag = (mpitag + 1) % (MPI_TAG_UB+1);
 
   MPI_SAFE(MPI_Comm_rank(currentComm, &procnum));
-  ep->name.mpicomm = currentComm;
   ep->name.mpirank = procnum;
   ep->name.mpitag = mpitag;
   MPI_SAFE(MPI_Errhandler_set(currentComm, MPI_ERRORS_RETURN));
+  ep->pmpicomm = malloc(sizeof(MPI_Comm));
+  *(ep->pmpicomm) = currentComm;
   currentComm = MPI_COMM_NULL;
 
   return AM_OK;
@@ -153,7 +149,7 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
       }
       for(i=0;i<numBufs;i++) {
         retval &= MPI_SAFE_NORETURN(MPI_Irecv(&ep->rxBuf[i], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
-                           MPI_ANY_SOURCE, MPI_ANY_TAG, ep->name.mpicomm, 
+                           MPI_ANY_SOURCE, MPI_ANY_TAG, *(ep->pmpicomm), 
                            &ep->rxHandle[i]));
         assert(ep->rxHandle[i] != MPI_REQUEST_NULL);
       }
@@ -288,10 +284,31 @@ static int AMMPI_freeSendBufferPool(ammpi_sendbuffer_pool_t* pool) {
             retval &= MPI_SAFE_NORETURN(MPI_Wait(&pool->txHandle[i], &mpistatus));
           #endif
         #else
-          /* better to simply wait and hope the remote node hasn't crashed 
-           * (in which case we might get stuck here) 
-           */
-          retval &= MPI_SAFE_NORETURN(MPI_Wait(&pool->txHandle[i], &mpistatus));
+          #if 0
+            /* better to simply wait and hope the remote node hasn't crashed 
+             * (in which case we might get stuck here) 
+             */
+            retval &= MPI_SAFE_NORETURN(MPI_Wait(&pool->txHandle[i], &mpistatus));
+          #else
+            { /* use a timeout to decide remote side is dead */
+              int j;
+              int flag;
+              #define RETRIES 2
+              for (j = 0; j < RETRIES; j++) {
+                retval &= MPI_SAFE_NORETURN(MPI_Test(&pool->txHandle[i], &flag, &mpistatus));
+                if (flag) break;
+                else sleep(1);
+              }
+              if (j == RETRIES) {
+                #if DEBUG_VERBOSE
+                  fprintf(stderr,"WARNING: Giving up on a timed-out send during shutdown\n");
+                #endif
+                /* attempt to cancel */
+                retval &= MPI_SAFE_NORETURN(MPI_Cancel(&pool->txHandle[i]));
+                retval &= MPI_SAFE_NORETURN(MPI_Request_free(&pool->txHandle[i]));
+              }
+            }
+          #endif
         #endif
         pool->txHandle[i] = MPI_REQUEST_NULL;
       }
@@ -410,7 +427,8 @@ tryagain:
       { static int repeatcnt = 0; 
         static unsigned int reportmask = 0xFF;
         /* TODO: can we grow send buffer pool here? */
-        if (DEBUG_VERBOSE || (++repeatcnt & reportmask) == 0) {
+        repeatcnt++;
+        if (DEBUG_VERBOSE || (repeatcnt & reportmask) == 0) {
           reportmask = (reportmask << 1) | 0x1;
           fprintf(stderr, "Out of request send buffers. polling...(has happenned %i times)\n", repeatcnt); fflush(stderr);
         }
@@ -499,8 +517,6 @@ extern int AM_Init() {
 
     assert(sizeof(uintptr_t) >= sizeof(void *));
 
-    assert(AMMPI_MPICOMM_SZ >= sizeof(MPI_Comm));
-    assert(AMMPI_EN_T_SZ >= sizeof(en_t));
     #if 0
       #define DUMPSZ(T) printf("sizeof(" #T ")=%i\n", sizeof(T))
       DUMPSZ(ammpi_msg_t); DUMPSZ(ammpi_buf_t); DUMPSZ(en_t); DUMPSZ(ammpi_bufstatus_t);
@@ -717,9 +733,10 @@ extern int AMMPI_Map(ep_t ea, int index, en_t *name, tag_t tag) {
   if (ea->translation[index].inuse) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to re-map */
   if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
-  { int result; /* check communicator */
-    MPI_SAFE(MPI_Comm_compare(name->mpicomm, ea->name.mpicomm, &result));
-    if (result != MPI_IDENT) AMMPI_RETURN_ERRFR(RESOURCE, AM_Map, "MPI communicator mismatch");
+  { int commsz; /* check communicator */
+    MPI_SAFE(MPI_Comm_size(*(ea->pmpicomm), &commsz));
+    if (name->mpirank < 0 || name->mpirank >= commsz)
+      AMMPI_RETURN_ERRFR(RESOURCE, AM_Map, "Bad endpoint name - may be due to a MPI communicator mismatch");
   }
 
   ea->translation[index].inuse = TRUE;
@@ -734,9 +751,10 @@ extern int AMMPI_MapAny(ep_t ea, int *index, en_t *name, tag_t tag) {
   if (!ea || !index) AMMPI_RETURN_ERR(BAD_ARG);
   if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
-  { int result; /* check communicator */
-    MPI_SAFE(MPI_Comm_compare(name->mpicomm, ea->name.mpicomm, &result));
-    if (result != MPI_IDENT) AMMPI_RETURN_ERRFR(RESOURCE, AM_Map, "MPI communicator mismatch");
+  { int commsz; /* check communicator */
+    MPI_SAFE(MPI_Comm_size(*(ea->pmpicomm), &commsz));
+    if (name->mpirank < 0 || name->mpirank >= commsz)
+      AMMPI_RETURN_ERRFR(RESOURCE, AM_Map, "Bad endpoint name - may be due to a MPI communicator mismatch");
   }
 
   {
@@ -988,7 +1006,7 @@ extern int AM_GetMsgTag(void *token, tag_t *tagp) {
   #else
     #if DEBUG_VERBOSE
     { static int first = 1;
-      if (first) { first = 0; printf(stderr,"WARNING: AM_GetMsgTag called when AM tags disabled (AMMPI_DISABLE_AMTAGS)\n");}
+      if (first) { first = 0; fprintf(stderr,"WARNING: AM_GetMsgTag called when AM tags disabled (AMMPI_DISABLE_AMTAGS)\n");}
     }
     #endif
     *tagp = ((ammpi_buf_t *)token)->status.dest->tag;

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_reqrep.c                                   $
- *     $Date: 2003/05/22 04:30:12 $
- * $Revision: 1.10 $
+ *     $Date: 2003/06/05 11:58:56 $
+ * $Revision: 1.11 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -97,11 +97,11 @@ static int sendPacket(ep_t ep, void *packet, int packetlength, en_t destaddress,
   #if AMMPI_NONBLOCKING_SENDS
     if (mpihandle && *mpihandle == MPI_REQUEST_NULL) {
       /* could also use synchronous mode non-blocking send here */
-      retval = MPI_Isend(packet, packetlength, MPI_BYTE, destaddress.mpirank, destaddress.mpitag, destaddress.mpicomm, mpihandle);
+      retval = MPI_Isend(packet, packetlength, MPI_BYTE, destaddress.mpirank, destaddress.mpitag, *(ep->pmpicomm), mpihandle);
     } else
   #endif
     {
-      retval = MPI_Bsend(packet, packetlength, MPI_BYTE, destaddress.mpirank, destaddress.mpitag, destaddress.mpicomm);
+      retval = MPI_Bsend(packet, packetlength, MPI_BYTE, destaddress.mpirank, destaddress.mpitag, *(ep->pmpicomm));
     }
   if (retval != MPI_SUCCESS) 
      AMMPI_RETURN_ERRFR(RESOURCE, sendPacket, MPI_ErrorName(retval));        
@@ -296,11 +296,11 @@ extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *num
         else assert(idxready == MPI_UNDEFINED);
       #else
         if_pf (blockForActivity) {
-          MPI_SAFE(MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, ep->name.mpicomm, &mpistatus));
+          MPI_SAFE(MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, *(ep->pmpicomm), &mpistatus));
           msgready = TRUE;
         }
         else {
-          MPI_SAFE(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, ep->name.mpicomm, &msgready, &mpistatus));
+          MPI_SAFE(MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, *(ep->pmpicomm), &msgready, &mpistatus));
         }
         if (msgready) buf = &_recvBuffer;
       #endif
@@ -314,7 +314,7 @@ extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *num
       int32_t sourceId; /* id in perProcInfo of sender */
 
       #if !AMMPI_PREPOST_RECVS
-        MPI_SAFE(MPI_Recv(buf, AMMPI_MAX_NETWORK_MSG, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, ep->name.mpicomm, &mpistatus));
+        MPI_SAFE(MPI_Recv(buf, AMMPI_MAX_NETWORK_MSG, MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, *(ep->pmpicomm), &mpistatus));
       #endif
 
       if_pf (mpistatus.MPI_TAG != ep->name.mpitag) {
@@ -335,7 +335,6 @@ extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *num
 
       /* remember which ep sent/recvd this message */
       status->sourceAddr.mpirank = mpistatus.MPI_SOURCE;
-      status->sourceAddr.mpicomm = ep->name.mpicomm;
       status->dest = ep; 
 
       { /*  find the source id */
@@ -505,7 +504,7 @@ extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *num
         /* repost the recv */
         assert(ep->rxHandle[idxready] == MPI_REQUEST_NULL);
         MPI_SAFE(MPI_Irecv(&ep->rxBuf[idxready], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
-                           MPI_ANY_SOURCE, MPI_ANY_TAG, ep->name.mpicomm, 
+                           MPI_ANY_SOURCE, MPI_ANY_TAG, *(ep->pmpicomm), 
                            &ep->rxHandle[idxready]));
         #if AMMPI_MPIIRECV_ORDERING_WORKS
           assert(idxready == ep->rxCurr);
@@ -933,10 +932,6 @@ extern int AMMPI_SendControlMessage(ep_t from, en_t to, int numargs, ...) {
 
   AMMPI_CHECKINIT();
   if_pf (!from) AMMPI_RETURN_ERR(BAD_ARG);
-  { int result = 0;
-    MPI_SAFE(MPI_Comm_compare(from->name.mpicomm, to.mpicomm, &result));
-    if_pf (result != MPI_IDENT) AMMPI_RETURN_ERR(RESOURCE);
-  }
   if_pf (numargs < 0 || numargs > AMMPI_MAX_SHORT) AMMPI_RETURN_ERR(BAD_ARG);
   if_pf (from->depth == -1) AMMPI_RETURN_ERR(NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
   dest_endpoint_index = sourceAddrToId(from, to);

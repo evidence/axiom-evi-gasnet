@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2003/05/22 04:30:12 $
- * $Revision: 1.8 $
+ *     $Date: 2003/06/05 11:58:56 $
+ * $Revision: 1.9 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -152,6 +152,8 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
 
   #if FREEZE_SLAVE
     freezeForDebugger();
+  #else
+    if (getenv("AMMPI_FREEZE")) freezeForDebugger();
   #endif
 
   if (!eb || !ep) AMMPI_RETURN_ERR(BAD_ARG);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/05/22 09:21:27 $
- * $Revision: 1.8 $
+ *     $Date: 2003/06/05 11:58:56 $
+ * $Revision: 1.9 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -109,24 +109,11 @@ typedef uint64_t tag_t;
 /* Handler index */
 typedef uint8_t handler_t;
 
-#define AMMPI_MPICOMM_SZ 8
-#define AMMPI_EN_T_SZ (2*sizeof(int) + AMMPI_MPICOMM_SZ)
-#ifdef AMMPI_INTERNAL
-  /* Endpoint name */
-  typedef struct {
-    MPI_Comm mpicomm;
-    int mpirank;
-    int mpitag;
-  } en_t;
-#else
-  /* Placeholder for endpoint name */
-  typedef struct {
-    union {
-      uint8_t dummy[AMMPI_EN_T_SZ];
-      uint64_t dummy2; /* ensure good alignment */
-    } dummy3;
-  } en_t;
-#endif
+/* Endpoint name */
+typedef struct {
+  int mpirank;
+  int mpitag;
+} en_t;
 
 struct ammpi_ep; /* forward decls */
 struct ammpi_buf;
@@ -261,6 +248,7 @@ typedef struct ammpi_ep {
   en_t name;            /* Endpoint name */
   tag_t tag;            /* current tag */
   eb_t eb;              /* Bundle of endpoint */
+  MPI_Comm *pmpicomm;   /* MPI communicator of this EP */
 
   void *segAddr;          /* Start address of EP VM segment */
   uintptr_t segLength;    /* Length of EP VM segment    */
