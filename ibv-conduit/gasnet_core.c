@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/09 02:29:50 $
- * $Revision: 1.68 $
+ *     $Date: 2005/02/09 21:21:59 $
+ * $Revision: 1.69 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -255,12 +255,16 @@ static uintptr_t gasnetc_get_max_pinnable(void) {
 
   /* search for largest mmap() region
    * We bound our search by the smallest of:
-   *   2/3 of physical memory
+   *   2/3 of physical memory (1/4 for Darwin)
    *   HCA's capability
    *   User's current (soft) mlock limit
    *   GASNETI_MMAP_MAX_SIZE
    */
+#if defined(__APPLE__)
+  pages = (gasnetc_get_physpages() / 4) - 1;
+#else
   pages = 2 * (gasnetc_get_physpages() / 3);
+#endif
   pages = MIN(pages, gasnetc_hca_cap.max_mr_size / GASNET_PAGESIZE);
   #if defined(RLIMIT_MEMLOCK) && GASNETC_HONOR_RLIMIT_MEMLOCK
   {
