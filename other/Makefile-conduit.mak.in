@@ -7,6 +7,9 @@
         do-libgasnet-seq do-libgasnet-par do-libgasnet-parsync  \
 	test tests tests-seq tests-par tests-parsync tests-clean 
 
+# our current libgasnet compilation scheme is incompatible with parallel make
+.NOTPARALLEL:
+
 thread_defines = @GASNET_THREAD_DEFINES@
 
 # header files to be installed
