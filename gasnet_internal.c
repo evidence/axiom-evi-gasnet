@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/10/23 00:47:28 $
- * $Revision: 1.17 $
+ *     $Date: 2002/10/28 12:49:53 $
+ * $Revision: 1.18 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -208,6 +208,7 @@ void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler) {
   GASNETI_IDENT(gasneti_IdentString_stats, "$GASNetStatisticsEnabled: 1 $");
 #endif
 
+static gasneti_mutex_t gasneti_tracelock = GASNETI_MUTEX_INITIALIZER;
 char gasneti_tracetypes[256];
 FILE *gasneti_tracefile = NULL;
 gasneti_stattime_t starttime;
@@ -303,32 +304,40 @@ gasneti_stattime_t starttime;
   extern void gasneti_trace_output(char *type, char *msg, int traceheader) {
     if (gasneti_tracefile) {
       double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
-      if (traceheader) {
-        #ifdef GASNETI_THREADS
-          fprintf(gasneti_tracefile, "%i(%x) %8.6fs> (%c) %s%s", 
-            gasnet_mynode(), (int)pthread_self(), time, *type, msg,
-            (msg[strlen(msg)-1]=='\n'?"":"\n"));
-        #else
-          fprintf(gasneti_tracefile, "%i %8.6fs> (%c) %s%s", gasnet_mynode(), time, *type, msg,
-                  (msg[strlen(msg)-1]=='\n'?"":"\n"));
-        #endif
-      } else {
-          fprintf(gasneti_tracefile, "%i> (%c) %s%s", gasnet_mynode(), *type, msg,
-                  (msg[strlen(msg)-1]=='\n'?"":"\n"));
-      }
-      fflush(gasneti_tracefile);
+      gasneti_mutex_lock(&gasneti_tracelock);
+        if (gasneti_tracefile) {
+          if (traceheader) {
+            #ifdef GASNETI_THREADS
+              fprintf(gasneti_tracefile, "%i(%x) %8.6fs> (%c) %s%s", 
+                gasnet_mynode(), (int)pthread_self(), time, *type, msg,
+                (msg[strlen(msg)-1]=='\n'?"":"\n"));
+            #else
+              fprintf(gasneti_tracefile, "%i %8.6fs> (%c) %s%s", gasnet_mynode(), time, *type, msg,
+                      (msg[strlen(msg)-1]=='\n'?"":"\n"));
+            #endif
+          } else {
+              fprintf(gasneti_tracefile, "%i> (%c) %s%s", gasnet_mynode(), *type, msg,
+                      (msg[strlen(msg)-1]=='\n'?"":"\n"));
+          }
+          fflush(gasneti_tracefile);
+        }
+      gasneti_mutex_unlock(&gasneti_tracelock);
     }
   }
   /* dump message to tracefile with simple header */
   static void gasneti_trace_printf(char *format, ...) {
     va_list argptr;
     if (gasneti_tracefile) {
-      fprintf(gasneti_tracefile, "%i> ", gasnet_mynode());
-      va_start(argptr, format); /*  pass in last argument */
-        vfprintf(gasneti_tracefile, format, argptr);
-      va_end(argptr);
-      if (format[strlen(format)-1]!='\n') fprintf(gasneti_tracefile, "\n");
-      fflush(gasneti_tracefile);
+      gasneti_mutex_lock(&gasneti_tracelock);
+      if (gasneti_tracefile) {
+        fprintf(gasneti_tracefile, "%i> ", gasnet_mynode());
+        va_start(argptr, format); /*  pass in last argument */
+          vfprintf(gasneti_tracefile, format, argptr);
+        va_end(argptr);
+        if (format[strlen(format)-1]!='\n') fprintf(gasneti_tracefile, "\n");
+        fflush(gasneti_tracefile);
+      }
+      gasneti_mutex_unlock(&gasneti_tracelock);
     }
   }
 #endif
@@ -467,9 +476,10 @@ AGGR(I);
 AGGR(C);
 AGGR(D);
 
-
 extern void gasneti_trace_finish() {
 #if defined(STATS) || defined(TRACE)
+  static gasneti_mutex_t gasneti_tracefinishlock = GASNETI_MUTEX_INITIALIZER;
+  gasneti_mutex_lock(&gasneti_tracefinishlock);
   if (gasneti_tracefile) {
 
     double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
@@ -585,9 +595,12 @@ extern void gasneti_trace_finish() {
 
     GASNETC_TRACE_FINISH(); /* allow for final output of conduit-specific statistics */
 
+    gasneti_mutex_lock(&gasneti_tracelock);
     if (gasneti_tracefile != stdout && gasneti_tracefile != stderr) 
       fclose(gasneti_tracefile);
     gasneti_tracefile = NULL;
+    gasneti_mutex_unlock(&gasneti_tracelock);
+    gasneti_mutex_unlock(&gasneti_tracefinishlock);
   }
 #endif
 }
