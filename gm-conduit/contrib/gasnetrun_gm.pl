@@ -26,6 +26,7 @@ $delay_rexec = 0;
 $np = 1;
 $use_shmem = 1;
 @extraopts = undef;
+@envlist_cmdline = undef;
 $ssh_exec = $ENV{"GASNET_SSH"} || "/usr/bin/ssh";
 $extraopts{"ssh"} = "";
 $rsh_exec = $ENV{"GASNET_RSH"} || "/usr/bin/rsh";
@@ -361,6 +362,12 @@ while (@ARGV > 0) {
       usage ("-np and -pg are exclusive !");
     }
     $np = $ARGV[0];
+  } elsif ($_ eq '-E') {
+    shift;
+    usage ("-E option given without an argument\n") unless @ARGV >= 1;
+    foreach (split(',', $ARGV[0])) {
+      $envlist_cmdline{$_} = 1;
+    }
   } elsif (($_ eq '-help') || ($_ eq '--help') || ($_ eq '-h')) {
     usage ('');
   } elsif ($_ eq '-mvback' ) {
@@ -900,7 +907,7 @@ for ($i=0; $i<$np; $i++) {
     @envlist = undef;
     $envv = '';
     foreach $e (keys %ENV) {
-	if ($e =~ m/(TI_)|(UPC_)|(GASNET_)/) {
+	if (($e =~ m/(TI_)|(UPC_)|(GASNET_)/) || defined $envlist_cmdline{$e} ) {
 		@sp = split(/\s+/, $ENV{$e});
 		if ($#sp > 0 && $ENV{$e} !~ m/^\".*\"$/ && 
 		                $ENV{$e} !~ m/^'.*'$/) {
