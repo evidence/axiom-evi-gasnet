@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2002/11/19 19:02:00 $
- * $Revision: 1.5 $
+ *     $Date: 2002/12/07 00:55:18 $
+ * $Revision: 1.6 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -66,7 +66,7 @@ char *gasnetc_catname[] = {"Short","Medium","Long","AsyncLong"};
 extern volatile int gasnetc_interrupt_held[];
 #endif
 
-/* message structure... doubles as a token */
+/* the important contents of a gasnet token */
 typedef unsigned int gasnetc_flag_t;
 typedef struct {
     gasnetc_flag_t       flags;
@@ -76,7 +76,7 @@ typedef struct {
     size_t               dataLen;
     uintptr_t            uhdrLoc;    /* only used on AsyncLong messages */
     gasnet_handlerarg_t  args[GASNETC_AM_MAX_ARGS];
-} gasnetc_token_t;
+} gasnetc_msg_t;
 
 #define GASNETC_MSG_SETFLAGS(pmsg, isreq, cat, packed, numargs) \
   ((pmsg)->flags = (gasnetc_flag_t) (                   \
@@ -93,33 +93,87 @@ typedef struct {
 #define GASNETC_MSG_SET_PACKED(pmsg) (pmsg)->flags |= 0x8
 
 /* --------------------------------------------------------------------
- * dynamic uhdr buffer allocation
+ * the following structure is use as a LAPI-conduit gasnet_token_t.
+ * It is also the uhdr structure used in all CORE LAPI Amsend calls.
  *
- * Keep a list of buffers for use as LAPI UHDR structures
- * into which both arguments and packed data can be placed.
+ * The next pointer allow for the re-use of allocated tokens
+ * by stringing them on a free list.  Also, it is used to
+ * place tokens on a queue for fast AM request processing in polling
+ * mode.
+ *
  * --------------------------------------------------------------------
  */
-#define GASNETC_UHDR_INIT_CNT 32
-#define GASNETC_UHDR_ADDITIONAL 16
-typedef union gasnetc_uhdr_buf_rec {
-    char                   buf[GASNETC_UHDR_SIZE];
-    union gasnetc_uhdr_buf_rec  *next;
-    gasnetc_token_t        token;
-} gasnetc_uhdr_buf_t;
+typedef struct gasnetc_token_rec {
+    struct gasnetc_token_rec  *next;
+    union {
+	char             pad[GASNETC_UHDR_SIZE];
+	gasnetc_msg_t    msg;
+    } buf;
+} gasnetc_token_t;
+#define TOKEN_LEN(narg) offsetof(gasnetc_token_t,buf)  + offsetof(gasnetc_msg_t,args) \
+                        + (narg)*sizeof(gasnet_handlerarg_t)
 
+
+/* --------------------------------------------------------------------
+ * A freelist structure for the re-use of gasnetc_buf_t structures.
+ * --------------------------------------------------------------------
+ */
+#define GASNETC_USE_SPINLOCK 1
+#define GASNETC_UHDR_INIT_CNT 256
+#define GASNETC_UHDR_ADDITIONAL 256
 typedef struct {
     int    high_water_mark;
     int    numfree;
     int    numalloc;
-    gasnetc_uhdr_buf_t  *freelist;
-    pthread_mutex_t lock;
+    gasnetc_token_t *freelist;
+#if GASNETC_USE_SPINLOCK
+    volatile int     lock;
+#else
+    pthread_mutex_t  lock;
+#endif
 } gasnetc_uhdr_freelist_t;
 
 extern gasnetc_uhdr_freelist_t gasnetc_uhdr_freelist;
 extern void   gasnetc_uhdr_init(int want);
-extern gasnetc_uhdr_buf_t*  gasnetc_uhdr_alloc(void);
-extern void   gasnetc_uhdr_free(gasnetc_uhdr_buf_t* uhdr);
+extern gasnetc_token_t*  gasnetc_uhdr_alloc(void);
+extern void   gasnetc_uhdr_free(gasnetc_token_t* uhdr);
 extern int    gasnetc_uhdr_more(int want);
+
+/* --------------------------------------------------------------------
+ * Fast mutial exclusion queue using spinlocks
+ * --------------------------------------------------------------------
+ */
+#include <sys/atomic_op.h>
+typedef struct {
+    gasnetc_token_t *head;
+    gasnetc_token_t *tail;
+    volatile int     lock;
+    int              schedule;
+} gasnetc_token_queue_t;
+extern void gasnetc_token_queue_init(gasnetc_token_queue_t *q);
+extern gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int update_schedule);
+extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *schedule);
+/* memory barrier function */
+extern void gasnetc_memory_sync(void);
+
+#define gasnetc_spin_lock(lock) \
+  {                             \
+      int avail = 0;            \
+      int locked = 1;           \
+      while (! compare_and_swap( (atomic_p)&(lock), &avail, locked ) ) { \
+	  assert(avail == 1);   \
+          avail = 0;            \
+      }                         \
+  }
+#define gasnetc_spin_unlock(lock) \
+  {                            \
+      int avail = 0;           \
+      int locked = 1;          \
+      gasnetc_memory_sync();   \
+      if (!compare_and_swap( (atomic_p)&(lock), &locked, avail ) ) \
+          assert(0); /* this should not happen */ \
+  }
+
 
 /* MLW: Need more descriptive name for this macro */
 #define GASNETC_LCHECK(func) { \
