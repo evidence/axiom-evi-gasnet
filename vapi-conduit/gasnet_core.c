@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/03/22 21:45:08 $
- * $Revision: 1.82 $
+ *     $Date: 2005/03/22 22:21:11 $
+ * $Revision: 1.83 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -354,7 +354,7 @@ static int gasnetc_load_settings(void) {
     if ((val == NULL) || (*val == '\0')) {
       gasnetc_pin_maxsz = GASNETC_DEFAULT_PIN_MAXSZ;
     } else {
-      gasnetc_pin_maxsz = fh_getenv("GASNET_PIN_MAXSZ", 1<<10);
+      gasnetc_pin_maxsz = fh_getenv("GASNET_PIN_MAXSZ", 1);
     }
     if (gasnetc_pin_maxsz < GASNET_PAGESIZE) {
       GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_PIN_MAXSZ < GASNET_PAGESIZE) in environment");
