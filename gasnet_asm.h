@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/01/05 05:01:10 $
- * $Revision: 1.29 $
+ *     $Date: 2004/03/09 00:37:52 $
+ * $Revision: 1.30 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,7 +37,7 @@
     defined(HPUX)    || /* HPUX seems to have no atomic ops */  \
     defined(__crayx1) || /* X1 atomics currently broken */ \
     (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) || /* haven't implemented atomics for PGI */ \
-    (defined(__MACH__) && defined(__APPLE__)) || /* we careth not about performance on OSX */ \
+    (defined(__MACH__) && defined(__APPLE__) && !defined(__GNUC__)) || /* we careth not about performance on OSX */ \
     (defined(OSF) && !defined(__DECC) && !defined(__GNUC__)) /* only implemented for these compilers */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
@@ -366,6 +366,32 @@
     #define gasneti_atomic_read(p)      ((p)->ctr)
     #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
     #define gasneti_atomic_init(v)      { (v) }
+  #elif defined(__MACH__) && defined(__APPLE__) && defined(__GNUC__)
+    static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
+      register int32_t volatile * addr = (int32_t volatile *)v;
+      register int32_t temp;
+      register int32_t result;
+      __asm__ __volatile__ ( 
+        "0:\t" 
+        "lwarx    %1,0,%2 \n\t" 
+        "add%I2   %0,%1,%3 \n\t"
+        #ifdef __PPC405__
+          "sync \n\t"
+        #endif
+        "stwcx.   %0,0,%2 \n\t"
+        "bne-     0b \n\t" 
+        : "=&r"(result), "=&r"(temp)
+        : "r" (addr), "Ir"(op) 
+        : "cr0", "memory");
+      return result;
+    }
+    typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
+    #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
+    #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
+    #define gasneti_atomic_read(p)      ((p)->ctr)
+    #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+    #define gasneti_atomic_init(v)      { (v) }
+    #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1) == 0)
   #else
     #error Need to implement atomic increment/decrement for this platform...
   #endif

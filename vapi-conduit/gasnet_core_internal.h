@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/03/06 14:24:00 $
- * $Revision: 1.37 $
+ *     $Date: 2004/03/09 00:37:53 $
+ * $Revision: 1.38 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -336,6 +336,31 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   #else
     #define GASNETI_HAVE_ATOMIC_SWAP 0
   #endif
+#elif defined(__POWERPC__) && defined(__GNUC__)
+  GASNET_INLINE_MODIFIER(gasneti_atomic_swap)
+  int gasneti_atomic_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+    register uint32_t result;
+    register uint32_t temp;
+
+    __asm__ __volatile__ ( 
+	"lwarx    %1,0,%2 \n\t" 	/* load to temp */
+	"cmpw     cr0,%1,%3 \n\t"	/* compare temp to oldval */
+	"bne-     1f \n\t"		/* branch on mismatch */
+	#ifdef __PPC405__ 
+	  "sync \n\t" 
+	#endif 
+	"stwcx.   %4,0,%2 \n"	 	/* store newval */
+	"1:\t"
+	/* convert condition code to int w/ additional branch: */
+	"mfcr     %1 \n\t"		/* move CR to temp */
+	"rlwinm   %0,%1,3,31,31 \n"	/* extract the CR0[EQ] bit from temp */
+	: "=&r"(result), "=&r"(temp)
+	: "r" (p), "r"(oldval), "r"(newval)
+	: "cr0", "memory"); 
+
+      return result; 
+  } 
+  #define GASNETI_HAVE_ATOMIC_SWAP 1
 #else
   #define GASNETI_HAVE_ATOMIC_SWAP 0
 #endif
