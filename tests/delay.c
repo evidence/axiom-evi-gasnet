@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/delay.c,v $
- *     $Date: 2004/08/26 04:54:09 $
- * $Revision: 1.4 $
+ *     $Date: 2004/09/04 09:23:35 $
+ * $Revision: 1.5 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -8,7 +8,7 @@
 #include <float.h>
 #include <gasnet_tools.h>
 
-static float x, y;
+static volatile float x, y;
 static volatile float z = (1.0 + FLT_EPSILON);
 
 float test_bogus() { /* ensure the values escape (otherwise x is dead) */
