@@ -1,4 +1,4 @@
-/* $Id: testcas.c,v 1.4 2004/10/15 05:15:18 bonachea Exp $
+/* $Id: testcas.c,v 1.5 2004/10/19 04:41:57 bonachea Exp $
  *
  * Description: GASNet atomic CAS.
  *   The test verifies the atomic compare-and-swap on platforms which support it.
@@ -13,10 +13,18 @@
 
 #include "gasnet_internal.h"	/* EVIL, but only way to test internal stuff */
 
-/* more crap required to make the evil hack above function */
+/* more crap required to make the evil hack above function reliably */
 #undef malloc
 #undef free
 #undef assert
+#include <assert.h>
+#ifndef assert
+  static void _my_assert_fail(const char *expr, const char *file, int line) {
+    fprintf(stderr,"ASSERTION FAILURE: %s at %s:%i\n", expr, file, line); fflush(stderr);
+    abort();
+  }
+  #define assert(x) ((x)?((void)0):_my_assert_fail(#x,__FILE__,__LINE__))
+#endif
 #include "test.h" 
 
 #ifndef GASNET_PAR

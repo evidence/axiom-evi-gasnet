@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.am,v $
-#     $Date: 2004/09/16 21:38:05 $
-# $Revision: 1.22 $
+#     $Date: 2004/10/19 04:41:53 $
+# $Revision: 1.23 $
 # Description: Makefile for AMMPI/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -20,13 +20,7 @@ CC = @MPI_CC@
 CFLAGS = @MPI_CFLAGS@ $(apputils_flags)
 LDFLAGS = @LDFLAGS@
 
-platform_defines = @GASNET_MACHINE_DEFINES@ -DAMMPI_DISABLE_AMTAGS \
- -DSIZEOF_CHAR=@SIZEOF_CHAR@           \
- -DSIZEOF_SHORT=@SIZEOF_SHORT@         \
- -DSIZEOF_INT=@SIZEOF_INT@             \
- -DSIZEOF_LONG=@SIZEOF_LONG@           \
- -DSIZEOF_LONG_LONG=@SIZEOF_LONG_LONG@ \
- -DSIZEOF_VOID_P=@SIZEOF_VOID_P@
+platform_defines = @GASNET_MACHINE_DEFINES@ @INTTYPES_DEFINES@ -DAMMPI_DISABLE_AMTAGS
 
 platform_libraries = @LIBS@ @MPI_LIBS@
 

@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2004/10/07 23:28:11 $ */
-/*  $Revision: 1.38 $ */
+/*      $Date: 2004/10/19 04:41:49 $ */
+/*  $Revision: 1.39 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -51,6 +51,14 @@
 
 /* has __func__ function name defined */
 #undef HAVE_FUNC
+
+/* portable inttypes support */
+#undef HAVE_INTTYPES_H
+#undef HAVE_STDINT_H
+#undef HAVE_SYS_TYPES_H
+#undef COMPLETE_INTTYPES_H
+#undef COMPLETE_STDINT_H
+#undef COMPLETE_SYS_TYPES_H
 
 /* Linux asm/atomic.h broken */
 #undef BROKEN_LINUX_ASM_ATOMIC_H

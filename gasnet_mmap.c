@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2004/08/26 04:53:28 $
- * $Revision: 1.23 $
+ *     $Date: 2004/10/19 04:41:49 $
+ * $Revision: 1.24 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -294,7 +294,7 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
 
     se.seginfo = gasneti_segment;
     gasneti_myheapend = (uintptr_t)sbrk(0);
-    if (gasneti_myheapend == -1) gasneti_fatalerror("Failed to sbrk(0):%s",strerror(errno));
+    if (gasneti_myheapend == (uintptr_t)-1) gasneti_fatalerror("Failed to sbrk(0):%s",strerror(errno));
     gasneti_myheapend = GASNETI_PAGE_ALIGNUP(gasneti_myheapend);
     se.heapend = gasneti_myheapend;
     se.segsize_request = 0;

@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2004/10/15 01:07:29 $
-dnl $Revision: 1.46 $
+dnl     $Date: 2004/10/19 04:41:49 $
+dnl $Revision: 1.47 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -115,6 +115,57 @@ AC_DEFUN([GASNET_CHECK_SIZEOF],[
   popdef([lowername])
   popdef([uppername])
 ])
+
+dnl GASNET_CHECK_INTTYPES(headername) 
+dnl AC_DEFINE and set HAVE_HEADERNAME_H if the header exists
+dnl AC_DEFINE and AC_SUBST COMPLETE_HEADERNAME_H if it contains all the inttypes 
+dnl that we care about (all of which are mandated by C99 and POSIX!)
+AC_DEFUN([GASNET_CHECK_INTTYPES],[
+  AC_CHECK_HEADERS([$1])
+  pushdef([lowername],patsubst(patsubst(patsubst([$1], [/], [_]), [\.], [_]), [-], [_]))
+  pushdef([uppername],translit(lowername,'a-z','A-Z'))
+  HAVE_[]uppername=$ac_cv_header_[]lowername
+  GASNET_TRY_CACHE_RUN([for a complete $1],[COMPLETE_[]uppername],[
+    #include <$1>
+    int main() {
+    	int8_t    i8;
+    	uint8_t   u8;
+    	int16_t  i16;
+    	uint16_t u16;
+    	int32_t  i32;
+    	uint32_t u32;
+    	int64_t  i64;
+    	uint64_t u64;
+    	intptr_t  ip;
+    	uintptr_t up;
+	if (sizeof(i8) != 1) return 1;
+	if (sizeof(u8) != 1) return 1;
+	if (sizeof(i16) != 2) return 1;
+	if (sizeof(u16) != 2) return 1;
+	if (sizeof(i32) != 4) return 1;
+	if (sizeof(u32) != 4) return 1;
+	if (sizeof(i64) != 8) return 1;
+	if (sizeof(u64) != 8) return 1;
+	if (sizeof(ip) != sizeof(void*)) return 1;
+	if (sizeof(up) != sizeof(void*)) return 1;
+        return 0;
+    }
+  ],[ 
+    COMPLETE_[]uppername=1
+    AC_SUBST(COMPLETE_[]uppername)
+    AC_DEFINE(COMPLETE_[]uppername)
+  ])
+  popdef([lowername])
+  popdef([uppername])
+])
+
+dnl Appends -Dvar_to_define onto target_var, iff var_to_define is set
+dnl GASNET_APPEND_DEFINE(target_var, var_to_define)
+AC_DEFUN([GASNET_APPEND_DEFINE],[
+  if test "$[$2]" != ""; then
+    [$1]="$[$1] -D[$2]"
+  fi
+]) 
 
 dnl add file to list of executable outputs that should be marked +x
 dnl would be nice to use AC_CONFIG_COMMANDS() for each file, but autoconf 2.53
@@ -710,7 +761,8 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
   GASNET_IFDEF(__SUNPRO_CC, $3=Sun) # Sun C++
   GASNET_IFDEF(_CRAYC, $3=Cray)
   GASNET_IFDEF(__INTEL_COMPILER, $3=Intel)
-  GASNET_IFDEF(__DECC, $3=Compaq)
+  GASNET_IFDEF(__DECC, $3=Compaq) # Compaq C
+  GASNET_IFDEF(__DECCXX, $3=Compaq) # Compaq C++
   GASNET_IFDEF(__HP_cc, $3=HP)  # HP C
   GASNET_IFDEF(__HP_aCC, $3=HP) # HP aCC (C++)
 

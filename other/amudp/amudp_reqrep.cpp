@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2004/10/13 21:32:52 $
- * $Revision: 1.20 $
+ *     $Date: 2004/10/19 04:41:55 $
+ * $Revision: 1.21 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -964,7 +964,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
             }
           status->handlerRunning = FALSE;
           if_pf (isrequest && !status->replyIssued) {
-            va_list va_dummy; va_list *va_dummy2 = &va_dummy; /* dummy value */
+            static va_list va_dummy; /* dummy value - static to prevent uninit warnings */
             /*  user didn't reply, so issue an auto-reply */
             if (AMUDP_ReplyGeneric(amudp_Short, basicbuf, 0, 0, 0, 0, 0, va_dummy, amudp_system_autoreply, 0) 
                 != AM_OK) /*  should never happen - don't return here to prevent leaking buffer */

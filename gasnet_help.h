@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2004/10/16 19:19:47 $
- * $Revision: 1.39 $
+ *     $Date: 2004/10/19 04:41:49 $
+ * $Revision: 1.40 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,7 +63,7 @@ extern char *gasneti_extern_strdup(const char *s);
 
 #if defined(__GNUC__) || defined(__FUNCTION__)
   #define GASNETI_CURRENT_FUNCTION __FUNCTION__
-#elif defined(HAVE_FUNC)
+#elif defined(HAVE_FUNC) && !defined(__cplusplus)
   /* __func__ should also work for ISO C99 compilers */
   #define GASNETI_CURRENT_FUNCTION __func__
 #else

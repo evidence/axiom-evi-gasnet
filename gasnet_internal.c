@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2004/10/16 19:19:47 $
- * $Revision: 1.80 $
+ *     $Date: 2004/10/19 04:41:49 $
+ * $Revision: 1.81 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1235,7 +1235,7 @@ extern void gasneti_trace_finish() {
           if (pintval->maxval > pacc->maxval) pacc->maxval = pintval->maxval; \
           pacc->sumval += pintval->sumval;                                    \
       } while (0)
-      #define CALC_AVG(sum,count) ((count) == 0 ? -1 : (sum) / (count))
+      #define CALC_AVG(sum,count) ((count) == 0 ? (gasneti_statctr_t)-1 : (sum) / (count))
       #define DUMP_CTR(type,name,desc)                     \
         if (GASNETI_STATS_ENABLED(type)) {                 \
           gasneti_statctr_t *p = &gasneti_stat_ctr_##name; \

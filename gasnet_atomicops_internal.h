@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2004/10/02 01:57:02 $
- * $Revision: 1.8 $
+ *     $Date: 2004/10/19 04:41:49 $
+ * $Revision: 1.9 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,106 +51,66 @@
     return retval;                                             \
   }
   #define GASNETI_HAVE_ATOMIC_CAS 1
-#elif defined(LINUX) && defined(__INTEL_COMPILER) && defined(__ia64__)
-    /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
-    #define gasneti_atomic_compare_and_swap(p,oval,nval) \
-			(_InterlockedCompareExchange((volatile int *)&((p)->ctr),nval,oval) == (oval))
-    #define GASNETI_HAVE_ATOMIC_CAS 1
-#elif defined(LINUX)
-    #if defined(BROKEN_LINUX_ASM_ATOMIC_H) || \
-        (!defined(GASNETI_UNI_BUILD) && !defined(CONFIG_SMP))
-      /* some versions of the linux kernel ship with a broken atomic.h
-         this code based on a non-broken version of the header. 
-         Also force using this code if this is a gasnet-smp build and the 
-         linux/config.h settings disagree (due to system config problem or 
-         cross-compiling on a uniprocessor frontend for smp nodes)
-       */
-      #if defined(__i386__) || defined(__x86_64__) /* x86 and Athlon/Opteron */
-        GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
-        int gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
-          register unsigned char retval;
-          register uint32_t readval;
-
-          __asm__ __volatile__ (GASNETI_LOCK "cmpxchgl %3, %1; sete %0"
-				    : "=q" (retval), "=m" (v->counter), "=a" (readval)
-				    : "r" (newval), "m" (v->counter), "a" (oldval)
-				    : "memory");
-          return (int)retval;
-        }
-        #define GASNETI_HAVE_ATOMIC_CAS 1
-      #elif defined(__ia64__)
-        #define gasneti_atomic_compare_and_swap(p,oval,nval) (gasneti_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
-        #define GASNETI_HAVE_ATOMIC_CAS 1
-      #endif
-    #else
-      #ifdef __alpha__
-        /* work-around for a puzzling header bug in alpha Linux */
-        #define extern static
-      #endif
-      #ifdef __cplusplus
-        /* work around a really stupid C++ header bug observed in HP Linux */
-        #define new new_
-      #endif
-      #include <asm/system.h>
-      #ifdef __alpha__
-        #undef extern
-      #endif
-      #ifdef __cplusplus
-        #undef new
-      #endif
-      #ifdef cmpxchg
-        #define gasneti_atomic_compare_and_swap(p,oval,nval) (cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
-        #define GASNETI_HAVE_ATOMIC_CAS 1
-      #endif
-    #endif
-#elif defined(FREEBSD)
-    /* FreeBSD is lacking atomic ops that return a value */
-    #ifdef __i386__
-      GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
-      int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
-        register unsigned char c;
-        register uint32_t readval;
-
-        __asm__ __volatile__ (
-		_STRINGIFY(MPLOCKED) "cmpxchgl %3, %1; sete %0"
-		: "=qm" (c), "=m" (p->ctr), "=a" (readval)
-		: "r" (newval), "m" (p->ctr), "a" (oldval) : "memory");
-        return (int)c;
-      }
-      #define GASNETI_HAVE_ATOMIC_CAS 1
-    #endif
-#elif defined(CYGWIN)
-    #define gasneti_atomic_compare_and_swap(p,oval,nval) \
-			(InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (oval))
-    #define GASNETI_HAVE_ATOMIC_CAS 1
 #elif defined(AIX)
     GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
     int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, int oldval, int newval) {
       return compare_and_swap( (atomic_p)p, &oldval, newval );
     } 
     #define GASNETI_HAVE_ATOMIC_CAS 1
-#elif defined(OSF)
-   #ifdef __DECC
-     /* The __CMP_STORE_LONG built-in is insufficient alone because it returns
-	a failure indication if the LL/SC is interrupted by another write to the
-        same cache line (it does not retry).
+#elif defined(IRIX)
+    GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
+    int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, int oldval, int newval) {
+      return __compare_and_swap( p, oldval, newval );
+    } 
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+#elif defined(CYGWIN)
+    #define gasneti_atomic_compare_and_swap(p,oval,nval) \
+	 (InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (oval))
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+#elif defined(GASNETI_USING_LINUX_ASM_HEADERS)
+  #ifdef cmpxchg
+    /* we must violate the Linux atomic_t abstraction below and pass
+       cmpxchg a pointer to the struct field, otherwise cmpxchg will
+       stupidly attempt to cast its result to a struct type and fail
      */
-     GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
-     int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
-       return asm("1:	ldl_l	%v0,(%a0);"	/* Load-linked of current value to %v0 */
-		  "	cmpeq	%v0,%a1,%v0;"	/* compare %v0 to oldval w/ result to %v0 */
-		  "	beq	%v0,2f;"	/* done/fail on mismatch (success/fail in %v0) */
-		  "	mov	%a2,%v0;"	/* copy newval to %v0 */
-		  "	stl_c	%v0,(%a0);"	/* Store-conditional of newval (success/fail in %v0) */
-		  "	beq	%v0,1b;"	/* Retry on stl_c failure */
-		  "2:	", p, oldval, newval);  /* Returns value from %v0 */
-     }
-     #define GASNETI_HAVE_ATOMIC_CAS 1
-   #elif defined(__GNUC__)
+    #define gasneti_atomic_compare_and_swap(p,oval,nval) \
+         (cmpxchg(&((p)->counter),oval,nval) == (oval))
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+  #endif
+#elif defined(__i386__) || defined(__x86_64__) /* x86 and Athlon/Opteron */
+  #if defined(__GNUC__) || defined(__INTEL_COMPILER)
+    GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
+    int gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
+      register unsigned char retval;
+      register uint32_t readval;
+      __asm__ __volatile__ (GASNETI_LOCK "cmpxchgl %3, %1; sete %0"
+			        : "=q" (retval), "=m" (v->ctr), "=a" (readval)
+			        : "r" (newval), "m" (v->ctr), "a" (oldval)
+			        : "memory");
+      return (int)retval;
+    }
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+  #endif
+#elif defined(__ia64__) || defined(__ia64) /* Itanium */
+  #if defined(__INTEL_COMPILER)
+    #define gasneti_atomic_compare_and_swap(p,oval,nval) \
+      (_InterlockedCompareExchange((volatile int *)&((p)->ctr),nval,oval) == (oval))
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+  #elif defined(__GNUC__)
+    #define gasneti_atomic_compare_and_swap(p,oval,nval) \
+      (gasneti_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+  #elif defined(__HP_cc) || defined(__HP_aCC) /* HP C/C++ Itanium intrinsics */
+    #include <machine/sys/inline.h>
+    #define gasneti_atomic_compare_and_swap(p,oval,nval) \
+      (gasneti_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+  #endif
+#elif defined(__alpha__) || defined(__alpha) /* DEC Alpha */
+  #if defined(__GNUC__)
      GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
      int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
        unsigned long ret;
-
        __asm__ __volatile__ (
 		"1:	ldl_l	%0,%1\n"	/* Load-linked of current value */
 		"	cmpeq	%0,%2,%0\n"	/* compare to oldval */
@@ -166,17 +126,23 @@
        return ret;
      }
      #define GASNETI_HAVE_ATOMIC_CAS 1
-   #endif
-#elif defined(IRIX)
-    /* TODO: Can we support this platform? */
-#elif defined(__crayx1)
-    /* TODO: Can we support this platform? */
-#elif defined(_SX)
-    /* TODO: Can we support this platform? */
-#elif 0 && defined(SOLARIS)
-    /* $%*(! Solaris has atomic functions in the kernel but refuses to expose them
-       to the user... after all, what application would be interested in performance? */
-    /* TODO: Can we support this platform? */
+  #elif (defined(__DECC) || defined(__DECCXX)) && defined(__osf__)
+     /* The __CMP_STORE_LONG built-in is insufficient alone because it returns
+	a failure indication if the LL/SC is interrupted by another write to the
+        same cache line (it does not retry).
+     */
+     GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
+     int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+       return asm("1:	ldl_l	%v0,(%a0);"	/* Load-linked of current value to %v0 */
+		  "	cmpeq	%v0,%a1,%v0;"	/* compare %v0 to oldval w/ result to %v0 */
+		  "	beq	%v0,2f;"	/* done/fail on mismatch (success/fail in %v0) */
+		  "	mov	%a2,%v0;"	/* copy newval to %v0 */
+		  "	stl_c	%v0,(%a0);"	/* Store-conditional of newval (success/fail in %v0) */
+		  "	beq	%v0,1b;"	/* Retry on stl_c failure */
+		  "2:	", p, oldval, newval);  /* Returns value from %v0 */
+     }
+     #define GASNETI_HAVE_ATOMIC_CAS 1
+  #endif
 #elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
     #if defined(__xlC__)
       static int32_t gasneti_atomic_swap_not_32(volatile int32_t *v, int32_t oldval, int32_t newval);
@@ -194,7 +160,7 @@
       #define gasneti_atomic_compare_and_swap(p, oldval, newval) \
 	(gasneti_atomic_swap_not_32(&((p)->ctr),(oldval),(newval)) == 0)
       #define GASNETI_HAVE_ATOMIC_CAS 1
-    #else
+    #elif defined(__GNUC__)
       GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
       int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
         register uint32_t result;

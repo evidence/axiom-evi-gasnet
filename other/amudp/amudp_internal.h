@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2004/10/13 18:45:22 $
- * $Revision: 1.14 $
+ *     $Date: 2004/10/19 04:41:55 $
+ * $Revision: 1.15 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -18,6 +18,11 @@
 #endif
 #include <sockutil.h> /* for SPMD TCP stuff */
 #include <amudp.h>
+#if defined(HAVE_GASNET_TOOLS) && \
+  (defined(__HP_aCC) || defined(__SUNPRO_CC))
+  /* C++ compilers that don't support inline assembly cannot use GASNet tools */
+  #undef HAVE_GASNET_TOOLS
+#endif
 #ifdef HAVE_GASNET_TOOLS 
   #include <gasnet_tools.h> /* must precede internal assert defs */
 #endif
@@ -291,7 +296,12 @@ extern int amudp_Initialized;
  * the only complication here is we want data to be double-word aligned, so we may add
  * an extra unused 4-byte argument to make sure the data lands on a double-word boundary
  */
-#define HEADER_EVEN_WORDLENGTH  (((int)(uintptr_t)((&((amudp_buf_t *)NULL)->_Data)-1))%8==0?1:0)
+#if 0
+  #define HEADER_EVEN_WORDLENGTH  (((int)(uintptr_t)((&((amudp_buf_t *)NULL)->_Data)-1))%8==0?1:0)
+#else
+  #define HEADER_EVEN_WORDLENGTH \
+    ( ( (((uint8_t *)&(((amudp_buf_t *)NULL)->_Data)) - ((uint8_t *)NULL)) & 0x7) == 0 ? 1 : 0)
+#endif
 #define ACTUAL_NUM_ARGS(pMsg) (AMUDP_MSG_NUMARGS(pMsg)%2==0?       \
                             AMUDP_MSG_NUMARGS(pMsg)+!HEADER_EVEN_WORDLENGTH:  \
                             AMUDP_MSG_NUMARGS(pMsg)+HEADER_EVEN_WORDLENGTH)
