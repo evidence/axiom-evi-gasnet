@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/06/25 18:55:09 $
- * $Revision: 1.8 $
+ *     $Date: 2002/10/01 11:18:29 $
+ * $Revision: 1.9 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -155,9 +155,9 @@
 #define GASNETI_PRAGMA(x) _Pragma ( #x )
 
 #if defined(STATIC_INLINE_WORKS)
-  #define GASNET_INLINE_MODIFIER(fnname) static INLINE_MODIFIER
-#elif defined(INLINE_MODIFIER)
-  #define GASNET_INLINE_MODIFIER(fnname) INLINE_MODIFIER
+  #define GASNET_INLINE_MODIFIER(fnname) static CC_INLINE_MODIFIER
+#elif defined(CC_INLINE_MODIFIER)
+  #define GASNET_INLINE_MODIFIER(fnname) CC_INLINE_MODIFIER
 #elif defined(_CRAYC)
   /* CrayC has a really #&#$&! stupidly designed #pragma for inlining functions 
      that requires providing the function name 

@@ -1,6 +1,6 @@
 /*   $Archive:: /Ti/GASNet/acconfig.h                                      $ */
-/*      $Date: 2002/09/07 07:33:40 $ */
-/*  $Revision: 1.7 $ */
+/*      $Date: 2002/10/01 11:18:29 $ */
+/*  $Revision: 1.8 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 
@@ -13,7 +13,7 @@
 #undef MIPSPRO_COMPILER
 
 /* Defined to be the inline function modifier supported by the C compiler (if supported) */
-#undef INLINE_MODIFIER
+#undef CC_INLINE_MODIFIER
 
 /* Functions may be declared "static inline" */
 #undef STATIC_INLINE_WORKS

@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/09/18 08:41:46 $
-# $Revision: 1.21 $
+#     $Date: 2002/10/01 11:18:29 $
+# $Revision: 1.22 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.21 $)
+AC_REVISION($Revision: 1.22 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -163,7 +163,9 @@ case "$gasnet_cv_cc_family" in
 esac
 
 case "$gasnet_cv_cc_family" in
-  GNU)  CCDEBUGFLAGS="-g3 -ansi -U__STRICT_ANSI__ -Wall -Wno-unused" ;;
+  GNU)  CCDEBUGFLAGS="-g3 -Wall -Wno-unused" 
+        #CCDEBUGFLAGS="$CCDEBUGFLAGS -ansi -U__STRICT_ANSI__"
+  ;;
   Cray) CCDEBUGFLAGS="-g -hnomessage=236 -htaskprivate $LIBCM" ;;
   MIPS) CCDEBUGFLAGS="-g -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;;
   Compaq) CCDEBUGFLAGS="-g -msg_disable extrasemi" ;;
@@ -734,31 +736,31 @@ inlinemod=""
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for inline modifier, cc_modinline,
     [inline int dummy() { return 1; }], [],
-    AC_DEFINE(INLINE_MODIFIER, inline)
+    AC_DEFINE(CC_INLINE_MODIFIER, inline)
     inlinemod=inline)
 fi
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for __inline__ modifier, cc_mod__inline__,
     [__inline__ int dummy() { return 1; }], [],
-    AC_DEFINE(INLINE_MODIFIER, __inline__)
+    AC_DEFINE(CC_INLINE_MODIFIER, __inline__)
     inlinemod=__inline__)
 fi
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for __inline modifier, cc_mod__inline,
     [__inline int dummy() { return 1; }], [],
-    AC_DEFINE(INLINE_MODIFIER, __inline)
+    AC_DEFINE(CC_INLINE_MODIFIER, __inline)
     inlinemod=__inline)
 fi
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for _inline modifier, cc_mod_inline,
     [_inline int dummy() { return 1; }], [],
-    AC_DEFINE(INLINE_MODIFIER, _inline)
+    AC_DEFINE(CC_INLINE_MODIFIER, _inline)
     inlinemod=_inline)
 fi
 if test "$inlinemod" = ""; then
   GASNET_TRY_CACHE_CHECK(for _Inline modifier, cc_mod_Inline,
     [_Inline int dummy() { return 1; }], [],
-    AC_DEFINE(INLINE_MODIFIER, _Inline)
+    AC_DEFINE(CC_INLINE_MODIFIER, _Inline)
     inlinemod=_Inline)
 fi
 
