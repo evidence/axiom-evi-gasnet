@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/02/14 12:42:36 $
-# $Revision: 1.226 $
+#     $Date: 2005/02/14 19:31:53 $
+# $Revision: 1.227 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.226 $)
+AC_REVISION($Revision: 1.227 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -663,7 +663,7 @@ if test "$GASNETI_CACHE_LINE_BYTES" = "" ; then
   GASNETI_CACHE_LINE_BYTES=128
   AC_MSG_WARN([Unable to automatically detect a shared data cache line size (either system load too high, pthreads is broken or this is not a cache-coherent SMP).  Using a safe default size of $GASNETI_CACHE_LINE_BYTES])
 fi
-AC_DEFINE(GASNETI_CACHE_LINE_BYTES)
+AC_DEFINE_UNQUOTED(GASNETI_CACHE_LINE_BYTES,$GASNETI_CACHE_LINE_BYTES)
           
 AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
 PTHREADS="$have_pthread"
