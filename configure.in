@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/04/18 09:10:16 $
-# $Revision: 1.50 $
+#     $Date: 2003/04/25 11:32:18 $
+# $Revision: 1.51 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.50 $)
+AC_REVISION($Revision: 1.51 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -167,6 +167,10 @@ esac
 case "$gasnet_cv_cc_family" in
   XLC) MISC_CPPFLAGS="-qcpluscmt" ;; # tell preprocessor to allow C++-style comments
   *)    MISC_CPPFLAGS="" ;;
+esac
+
+case "$target_os" in
+  darwin*) MISC_CPPFLAGS="-no-cpp-precomp $MISC_CPPFLAGS" ;; # no 'smart preprocessor'
 esac
 
 GASNET_IF_ENABLED(debug, Build GASNet in a debugging mode, 

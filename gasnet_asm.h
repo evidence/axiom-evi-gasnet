@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/02/20 14:53:31 $
- * $Revision: 1.6 $
+ *     $Date: 2003/04/25 11:32:18 $
+ * $Revision: 1.7 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,6 +36,7 @@
     defined(CRAYT3E) || /* TODO: no atomic ops on T3e? */       \
     defined(__PGI) ||   /* Portland Group compiler doesn't support asm */ \
     (defined(OSF) && !defined(__DECC)) ||  /* OSF atomics are compiler built-ins */ \
+    (defined(__MACH__) && defined(__APPLE__)) || /* we careth not about performance on OSX */ \
     defined(__INTEL_COMPILER) /* Intel compiler doesn't support asm (contrary to docs) */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
@@ -366,7 +367,7 @@
      _gasneti_do_sync(); 
    }
  #endif
-#elif defined(_POWERPC)
+#elif defined(_POWERPC) || defined(__POWERPC__) /* __POWERPC__ == OSX */
  #ifdef __GNUC__
    GASNET_INLINE_MODIFIER(gasneti_local_membar)
    void gasneti_local_membar(void) {
