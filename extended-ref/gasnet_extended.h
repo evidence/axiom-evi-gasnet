@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.h                  $
- *     $Date: 2002/06/25 18:55:10 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/27 11:49:21 $
+ * $Revision: 1.4 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -272,7 +272,7 @@ int _gasnet_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
        _gasnet_try_syncnbi_puts(GASNETE_THREAD_GET_ALONE)
 
 GASNET_INLINE_MODIFIER(_gasnet_try_syncnbi_all)
-int gasnet_try_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
+int _gasnet_try_syncnbi_all(GASNETE_THREAD_FARG_ALONE) {
   int retval = gasnete_try_syncnbi_gets(GASNETE_THREAD_PASS_ALONE);
   if (retval == GASNET_OK)
       retval = gasnete_try_syncnbi_puts(GASNETE_THREAD_PASS_ALONE);

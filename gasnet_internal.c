@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/06/26 23:30:06 $
- * $Revision: 1.4 $
+ *     $Date: 2002/06/27 11:49:19 $
+ * $Revision: 1.5 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -428,10 +428,10 @@ extern void gasneti_trace_finish() {
         else
           gasneti_trace_printf("%-25s  %6i  avg/min/max/total waittime (us) = %i/%i/%i/%i", 
             "Total wait sync. calls:", ((int)wait_time->count),
-            (int)CALC_AVG(wait_time->sumval, wait_time->count),
-            (int)wait_time->minval,
-            (int)wait_time->maxval,
-            (int)wait_time->sumval);
+            (int)GASNETI_STATTIME_TO_US(CALC_AVG(wait_time->sumval, wait_time->count)),
+            (int)GASNETI_STATTIME_TO_US(wait_time->minval),
+            (int)GASNETI_STATTIME_TO_US(wait_time->maxval),
+            (int)GASNETI_STATTIME_TO_US(wait_time->sumval));
       }
       if (GASNETI_TRACE_ENABLED(A)) 
         gasneti_trace_printf("%-25s  %6i", "Total AM's:", (int)AGGRNAME(ctr,A));

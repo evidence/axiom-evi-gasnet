@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/06/20 09:49:12 $
- * $Revision: 1.6 $
+ *     $Date: 2002/06/27 11:49:19 $
+ * $Revision: 1.7 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -68,7 +68,7 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
 /* ------------------------------------------------------------------------------------ */
 /* portable atomic increment */
 
-#if defined(CRAYT3E)
+#if defined(SOLARIS) || defined(CRAYT3E)
   #define GASNETI_USE_GENERIC_ATOMICOPS /* TODO: no atomic ops on T3e? */
 #endif
 
@@ -142,6 +142,15 @@ extern int64_t gasneti_getMicrosecondTimeStamp(void);
     #define gasneti_atomic_read(p)      (*(p))
     #define gasneti_atomic_set(p,v)     (*(p) = (v))
     #define gasneti_atomic_init(v)      (v)
+  #elif 0 && defined(SOLARIS)
+    /* $%*(! Solaris has atomic functions in the kernel but refuses to expose them
+       to the user... after all, what application would be interested in performance? */
+    #include <sys/atomic.h>
+    typedef struct { volatile uint32_t ctr; } gasneti_atomic_t;
+    #define gasneti_atomic_increment(p) (atomic_add_32((uint32_t *)&((p)->ctr),1))
+    #define gasneti_atomic_read(p)      ((p)->ctr)
+    #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+    #define gasneti_atomic_init(v)      { (v) }
   #else
     #error Need to implement atomic increment for this platform...
   #endif

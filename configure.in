@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/06/25 18:55:09 $
-# $Revision: 1.11 $
+#     $Date: 2002/06/27 11:49:19 $
+# $Revision: 1.12 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.11 $)
+AC_REVISION($Revision: 1.12 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -383,6 +383,7 @@ if test $supported_ammpi = yes; then
               -L/usr/now/am2/lib -lmpi -lens -lglunix -lam2 -lthread\
               -lsocket -lnsl)
 	  GASNET_ENV_DEFAULT(MPIRUN_CMD, glurun -%N %C)
+	  CFLAGS="$CFLAGS -DAMMPI_COEXIST_WITH_AM"
         else
           # I don't have access to a Solaris cluster with MPI (other than NOW) 
           # but these seem like sane defaults
@@ -443,7 +444,7 @@ if test $supported_ammpi = yes; then
         else
           GASNET_ENV_DEFAULT(MPI_CFLAGS, -g $BASIC_MPI_CFLAGS)
         fi
-        GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan)
+        GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan -lrt)
         GASNET_ENV_DEFAULT(MPIRUN_CMD, prun -N %N %C)
         ;;
     unicos*)
