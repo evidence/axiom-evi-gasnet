@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/08/02 09:07:49 $
- * $Revision: 1.8 $
+ *     $Date: 2002/08/08 07:21:39 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -386,7 +386,7 @@ void gasnete_op_free(gasnete_op_t *op) {
 GASNET_INLINE_MODIFIER(gasnete_get_reqh_inner)
 void gasnete_get_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t nbytes, void *dest, void *src, void *op) {
-  assert(nbytes <= GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD);
+  assert(nbytes <= gasnet_AMMaxMedium());
   GASNETE_SAFE(
     MEDIUM_REP(2,4,(token, gasneti_handleridx(gasnete_get_reph),
                   src, nbytes, 
