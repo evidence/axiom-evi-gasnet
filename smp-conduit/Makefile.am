@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.1 2003/05/04 01:33:47 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.2 2003/05/11 02:23:13 jduell Exp $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -25,7 +25,6 @@ othersourcefiles =                             \
 
 ### template users: Delete the README.template line below and the README.template file 
 EXTRA_DIST = $(filelist) \
-	README.template \
 	README
 
 libgasnet_sources = $(srcdir)/gasnet_core.c $(othersourcefiles)
