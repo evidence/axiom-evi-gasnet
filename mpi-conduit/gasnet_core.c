@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2003/03/31 09:03:10 $
- * $Revision: 1.24 $
+ *     $Date: 2003/03/31 23:47:11 $
+ * $Revision: 1.25 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -216,6 +216,13 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       INITERR(NOT_INIT, "GASNet attach called before init");
     if (gasnetc_attach_done) 
       INITERR(NOT_INIT, "GASNet already attached");
+
+    /* pause to make sure all nodes have called attach 
+       if a node calls gasnet_exit() between init/attach, then this allows us
+       to process the AMMPI_SPMD control messages required for job shutdown
+     */
+    retval = AMMPI_SPMDBarrier();
+    if (retval != AM_OK) INITERR(RESOURCE, "AMMPI_SPMDBarrier() failed");
 
     /*  check argument sanity */
     #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
