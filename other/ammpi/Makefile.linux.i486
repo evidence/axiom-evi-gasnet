@@ -1,0 +1,23 @@
+#  $Archive::                                                            $
+#     $Date: 2002/06/01 14:24:57 $
+# $Revision: 1.1 $
+# Description: Linux Makefile fragment for AMUDP
+# Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
+
+# Get default settings for everything
+include Makefile.common
+
+# ---------- required ------------------
+# endianness (uncomment one)
+#endianness = -DLITTLE_ENDIAN=1234
+endianness = 
+#endianness = -DBIG_ENDIAN
+
+# additional defines
+# must include, minimally, a define to identify the platform
+platform_defines = -DUNIX -DLINUX -DI386 ${endianness}
+
+# ------- optional, changed from template ---------
+# additional libraries and/or library directories
+platform_libraries = 
+
