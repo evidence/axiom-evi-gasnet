@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/05/11 01:19:23 $
-# $Revision: 1.58 $
+#     $Date: 2003/05/13 08:18:57 $
+# $Revision: 1.59 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.58 $)
+AC_REVISION($Revision: 1.59 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -423,12 +423,12 @@ AM_CONDITIONAL(USE_AMUDP, test "$supported_amudp$have_udp" = yesyes)
 #---------------------------------------------------------------------------------------------------------------
 # Configure AMMPI 
 # (In the future it would be nice to try and discover MPI setup automatically)
-supported_ammpi=yes
-if test $supported_ammpi = yes; then
+GASNET_IF_ENABLED_WITH_AUTO(mpi, Enable the portable MPI network conduit (on by default), 
+  [enabled_mpi=yes;force_mpi=yes],
+  enabled_mpi=no,
+  enabled_mpi=yes)
+if test $enabled_mpi = yes; then
   # user can explicitly configure MPI by setting MPI_CC, MPI_CFLAGS and MPI_LIBS
-  GASNET_IF_ENABLED(mpi, Enable the portable MPI network conduit (on by default), 
-    enabled_mpi=yes,
-    enabled_mpi=no)
   have_mpi=yes # start by assuming they have it
   case "$target_os" in
     solaris*)  
@@ -539,9 +539,6 @@ if test $supported_ammpi = yes; then
         AC_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi-* backends)
 	MPI_CC=$CC
         have_mpi=no
-	if test "$enabled_mpi" = yes ; then
-	  AC_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
-	fi
       fi 
       ;;
   esac
@@ -573,22 +570,21 @@ if test $supported_ammpi = yes; then
     CPPFLAGS="$OLDCPPFLAGS"
     LDFLAGS="$OLDLDFLAGS"
     LIBS="$OLDLIBS"
-
-    if test "$mpi_test_worked" = yes ; then
+  fi
+  if test "$mpi_test_worked" = yes ; then
       AC_MSG_RESULT(yes)
       if echo "$MPI_CFLAGS" | grep -- "-DAMMPI_COEXIST_WITH_AM" > /dev/null ; then
         # -DAMMPI_COEXIST_WITH_AM must be included whenever ammpi.h is compiled, or not at all
         MPI_DEFINES="$MPI_DEFINES -DAMMPI_COEXIST_WITH_AM"
       fi
-    else
+  else
       AC_MSG_RESULT(no)
       AC_WARN(build test failed: I don't know how to build MPI programs on your system)
       AC_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit)
       have_mpi=no
-      if test "$enabled_mpi" = yes ; then
-	AC_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
-      fi
-    fi
+  fi
+  if test "$force_mpi$have_mpi" = yesno ; then
+    AC_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
   fi
 fi
 AC_SUBST(MPI_CC) # compiler to be used to build AMMPI, and linker for AMMPI-based backends
@@ -596,7 +592,7 @@ AC_SUBST(MPI_CFLAGS) # compiler flags (optimization, includes, etc) to be used w
 AC_SUBST(MPI_LIBS) # libs and ldflags that must be used when linking AMMPI-based backend
 AC_SUBST(MPI_DEFINES) # preprocessor defs to be used for all client code that includes ammpi.h (not including AMMPI library itself)
 AC_SUBST(MPIRUN_CMD) # prototype command used by tcrun to run MPI programs
-AM_CONDITIONAL(USE_MPI_CONDUIT, test "$have_mpi$supported_ammpi" = yesyes)
+AM_CONDITIONAL(USE_MPI_CONDUIT, test "$enabled_mpi$have_mpi" = yesyes)
 #--------------------------------------------------------------------------------------------------------
 
 AC_SUBST(GASNET_MACHINE_DEFINES)
@@ -607,9 +603,10 @@ AC_SUBST(GASNET_REXEC_DEFINES)
 #-----------------------------------------------------------------------------------------------
 # SMP configuration
 
-GASNET_IF_ENABLED(smp, Enable the SMP (loopback) network conduit,
+GASNET_IF_ENABLED_WITH_AUTO(smp, Enable the SMP (loopback) network conduit (on by default),
   have_smp=yes,
-  have_smp=no)
+  have_smp=no,
+  have_smp=yes)
 AM_CONDITIONAL(USE_SMP_CONDUIT, test "$have_smp" = yes)
 
 #--------------------------------------------------------------------------------------------------------
