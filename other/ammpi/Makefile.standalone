@@ -1,6 +1,6 @@
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/04/24 09:14:59 $
-# $Revision: 1.12 $
+#     $Date: 2004/08/18 06:53:44 $
+# $Revision: 1.13 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -80,7 +80,7 @@ amxdist:
          echo "+++ Building distribution for AMMPI version $${VERSION} +++" && \
          rm -Rf ammpi$${VERSION}.tar.gz ammpi$${VERSION} && \
          mkdir ammpi$${VERSION} && \
-         cp $(srcdir)/Makefile* $(srcdir)/*.[ch]* $(testdir)/*.[ch]* $(altincdir)/portable_inttypes.h ammpi$${VERSION} && \
+         cp $(srcdir)/Makefile* $(srcdir)/*.txt $(srcdir)/*.[ch]* $(testdir)/*.[ch]* $(altincdir)/portable_inttypes.h ammpi$${VERSION} && \
          rm -f ammpi$${VERSION}/Makefile.in ammpi$${VERSION}/Makefile.titanium && \
          mv ammpi$${VERSION}/Makefile.standalone ammpi$${VERSION}/Makefile && \
          tar -cvhf ammpi$${VERSION}.tar ammpi$${VERSION} && gzip -9 ammpi$${VERSION}.tar && \

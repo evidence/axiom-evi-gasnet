@@ -57,7 +57,11 @@ libamudp_a_SOURCES = \
 
 libamudp_a_DEPENDENCIES = $(libamudp_a_SOURCES:%.cpp=%.o)
 
-EXTRA_DIST = Makefile.common Makefile.standalone Makefile.titanium.in
+EXTRA_DIST = \
+	Makefile.common 	\
+	Makefile.standalone 	\
+	Makefile.titanium.in 	\
+	license.txt
 
 # ---------- test programs -------------
 # all the test executables
