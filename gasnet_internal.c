@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/06/01 14:24:57 $
- * $Revision: 1.1 $
+ *     $Date: 2002/06/14 01:54:54 $
+ * $Revision: 1.2 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -20,12 +20,10 @@ int gasneti_VerboseErrors = 1;
 #endif
 
 #define GASNET_VERSION_STR  _STRINGIFY(GASNET_VERSION)
-extern const char gasneti_IdentString_APIVersion[];
-const char gasneti_IdentString_APIVersion[] = "$GASNetAPIVersion: " GASNET_VERSION_STR " $";
+GASNETI_IDENT(gasneti_IdentString_APIVersion, "$GASNetAPIVersion: " GASNET_VERSION_STR " $");
 
 #define GASNET_CONFIG_STR _STRINGIFY(GASNET_CONFIG)
-extern const char gasneti_IdentString_Config[];
-const char gasneti_IdentString_Config[] = "$GASNetConfig: GASNET_" GASNET_CONFIG_STR " $";
+GASNETI_IDENT(gasneti_IdentString_Config, "$GASNetConfig: GASNET_" GASNET_CONFIG_STR " $");
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_fatalerror(char *msg, ...) {

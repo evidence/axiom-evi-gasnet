@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/06/13 12:14:04 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/14 01:54:55 $
+ * $Revision: 1.4 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -10,8 +10,8 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 
-extern const char gasnete_IdentString_Version[];
-const char gasnete_IdentString_Version[] = "$GASNetExtendedLibraryVersion: " GASNET_EXTENDED_VERSION_STR " $";
+GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GASNET_EXTENDED_VERSION_STR " $");
+GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " GASNET_EXTENDED_NAME_STR " $");
 
 gasnet_node_t gasnete_mynode = -1;
 gasnet_node_t gasnete_nodes = 0;

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/06/10 13:04:56 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/14 01:54:58 $
+ * $Revision: 1.4 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -15,8 +15,8 @@
 #include <errno.h>
 #include <unistd.h>
 
-extern const char gasnetc_IdentString_Version[];
-const char gasnetc_IdentString_Version[] = "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $";
+GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
+GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
 

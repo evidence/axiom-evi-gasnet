@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2002/06/13 10:15:10 $
- * $Revision: 1.3 $
+ *     $Date: 2002/06/14 01:54:54 $
+ * $Revision: 1.4 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -149,6 +149,8 @@
 #define MAX(x,y)  ((x)>(y)?(x):(y))
 #endif
 
+#define GASNETI_PRAGMA(x) _Pragma ( #x )
+
 #if defined(STATIC_INLINE_WORKS)
   #define GASNET_INLINE_MODIFIER(fnname) static INLINE_MODIFIER
 #elif defined(INLINE_MODIFIER)
@@ -157,12 +159,34 @@
   /* CrayC has a really #&#$&! stupidly designed #pragma for inlining functions 
      that requires providing the function name 
      (the only way to request inlining a particular fn from C) */
-  #define GASNETI_PRAGMA(x) _Pragma ( #x )
   #define GASNET_INLINE_MODIFIER(fnname) GASNETI_PRAGMA(_CRI inline fnname)
 #else
   #define GASNET_INLINE_MODIFIER(fnname) static
 #endif
 
+/* ------------------------------------------------------------------------------------ */
+/* GASNETI_IDENT() takes a unique identifier and a textual string and embeds the textual
+   string in the executable file
+ */
+#define _GASNETI_IDENT(identName, identText) \
+  extern char volatile identName[];         \
+  char volatile identName[] = identText;    \
+  extern char *_get_##identName() { return (char*)identName; }
+#if defined(_CRAYC)
+  #define GASNETI_IDENT(identName, identText) \
+    GASNETI_PRAGMA(_CRI ident identText);        \
+    _GASNETI_IDENT(identName, identText)
+#elif defined(__xlC__)
+    /* #pragma comment(user,"text...") 
+         or
+       _Pragma ( "comment (user,\"text...\")" );
+       are both supposed to work according to compiler docs, but both appear to be broken
+     */
+  #define GASNETI_IDENT(identName, identText)   \
+    _GASNETI_IDENT(identName, identText)
+#else
+  #define GASNETI_IDENT _GASNETI_IDENT
+#endif
 /* ------------------------------------------------------------------------------------ */
 /* Branch prediction:
    these macros return the value of the expression given, but pass on

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.4 2002/06/13 10:09:32 csbell Exp $
- * $Date: 2002/06/13 10:09:32 $
+/* $Id: gasnet_core.c,v 1.5 2002/06/14 01:54:57 bonachea Exp $
+ * $Date: 2002/06/14 01:54:57 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -13,8 +13,8 @@
 #include <errno.h>
 #include <unistd.h>
 
-extern const char gasnetc_IdentString_Version[];
-const char gasnetc_IdentString_Version[] = "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $";
+GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
+GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
 

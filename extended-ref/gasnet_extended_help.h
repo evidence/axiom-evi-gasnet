@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2002/06/13 12:14:04 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/14 01:54:55 $
+ * $Revision: 1.3 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -23,15 +23,17 @@ extern gasnet_seginfo_t *gasnete_seginfo;
 
 #ifdef GASNETI_THREADS
   struct _gasnete_threaddata_t;
-  /* TODO: mark this as a pure function for other compilers */
   extern struct _gasnete_threaddata_t *gasnete_mythread() __attribute__ ((const));
   #if defined(__xlC__)
-    #if 1
+    #if 0
+      /* this should work according to the &*@&#$! IBM compiler docs, 
+         but of course it doesn't... */
       #pragma options pure=gasnete_mythread
     #else
       #pragma isolated_call(gasnete_mythread)
     #endif
   #endif
+  /* TODO: mark gasnete_mythread() as a pure function for other compilers */
 #endif
 
 #define gasnete_islocal(nodeid) (nodeid == gasnete_mynode)

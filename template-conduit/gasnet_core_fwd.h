@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2002/06/14 00:27:55 $
- * $Revision: 1.2 $
+ *     $Date: 2002/06/14 01:54:59 $
+ * $Revision: 1.3 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -15,6 +15,7 @@
 #define GASNET_CORE_VERSION      0.1
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         <CONDUITNAME>
+#define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
