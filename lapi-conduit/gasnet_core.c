@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2003/04/25 01:17:13 $
- * $Revision: 1.24 $
+ *     $Date: 2003/04/25 19:23:28 $
+ * $Revision: 1.25 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -99,6 +99,8 @@ void* gasnetc_amexit_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
 			ulong *msg_len, compl_hndlr_t **comp_h, void **uinfo);
 void gasnetc_amexit_ch(lapi_handle_t *context, void *uinfo);
 
+static volatile int gasnetc_called_exit = 0;
+void gasnetc_atexit(void);
 #endif
 
 gasnetc_lapimode_t gasnetc_lapi_default_mode = gasnetc_Interrupt;
@@ -279,6 +281,12 @@ static int gasnetc_init(int *argc, char ***argv) {
 #else
 #error Bad segment config
 #endif
+
+    /* set up atexit handler to call gasnet_exit in the
+     * case where a program returns from main without
+     * calling gasnet_exit()
+     */
+    atexit(gasnetc_atexit);
 
     gasnetc_init_done = 1;  
 
@@ -540,6 +548,15 @@ void gasnetc_sigusr1_handler(int sig)
 #endif
     gasnet_exit(amexit_exitcode);
 }
+void gasnetc_sigalarm_handler(int sig)
+{
+#if GASNETC_VERBOSE_EXIT
+    fprintf(stderr,">> GASNET_SIGALARM_HNDLR[%d]: called\n",gasnetc_mynode);
+    fflush(stderr);
+#endif
+    gasneti_reghandler(SIGQUIT, SIG_DFL);
+    kill(getpid(),SIGQUIT);
+}
 
 
 void* gasnetc_amexit_hh(lapi_handle_t *context, void *uhdr, uint *uhdr_len,
@@ -561,8 +578,16 @@ void gasnetc_amexit_ch(lapi_handle_t *context, void *uinfo)
      * Dont want to do it from within a LAPI thread... doesnt work.  */
     kill(getpid(),SIGUSR1);
 }
+void gasnetc_atexit(void)
+{
+    if (gasnetc_called_exit)
+	return;
+    gasnetc_exit(0);
+}
     
 extern void gasnetc_exit(int exitcode) {
+    gasnetc_called_exit = 1;
+    
     /* once we start a shutdown, ignore all future SIGQUIT signals or we risk reentrancy */
     gasneti_reghandler(SIGQUIT, SIG_IGN);
     gasneti_reghandler(SIGUSR1, SIG_IGN);
@@ -573,14 +598,27 @@ extern void gasnetc_exit(int exitcode) {
       gasneti_mutex_lock(&exit_lock);
     }
 
-    gasnetc_exit_cleanup();
-    usleep((gasnetc_mynode % 10) * 100000 );
-    /*sleep(1);*/ /* pause to ensure everyone has written trace if this is a collective exit */
-
 #if GASNETC_VERBOSE_EXIT
-    fprintf(stderr,">> GASNET_EXIT[%d]: reset sigusr1 and sigquit handlers\n",gasnetc_mynode);
+    fprintf(stderr,">> GASNET_EXIT[%d]: reset sigquit,sigusr1,sigterm\n",gasnetc_mynode);
+    fprintf(stderr,">> GASNET_EXIT[%d]: setting 5 second alarm\n");
     fflush(stderr);
 #endif
+
+    gasnetc_exit_cleanup();
+    /* sleep a variable amount of time, attempting to avoid everyone
+     * spraying AM messages to each other at once.
+     */
+    usleep((gasnetc_mynode % 10) * 100000 );
+
+    /* Experience has shown that using AMs in error cases may hang
+     * in many situations.  Register an alarm handler here which
+     * will forcefully kill the task if called.
+     */
+    gasneti_reghandler(SIGALRM, gasnetc_sigalarm_handler );
+    /* set the alarm for avoid hangs... this time may need to be
+     * scaled by the number of tasks/threads
+     */
+    alarm(5);
 
     if (got_exit_signal) {
 	/* async exit, remote thread died and we got here because of that.  Just exit */
@@ -589,7 +627,10 @@ extern void gasnetc_exit(int exitcode) {
 	fflush(stderr);
 #endif
 
-	/* NOTE: LAPI hangs if we call LAPI_Term() here... just exit */
+	/* NOTE: LAPI hangs if we call LAPI_Term() here, even in good, clean,
+	 * collective exits.  Could wait for alarm to kill us forcefully, but
+	 * just calling _exit does not seem to cause problems.
+	 */
 	_exit(exitcode);
 	
     } else {
@@ -614,6 +655,7 @@ extern void gasnetc_exit(int exitcode) {
 			       (void*)&exitcode, sizeof(exitcode), NULL, 0,
 			       NULL, &cntr, NULL));
 	}
+
 	/* wait for local completion so arg to Amsend does not go out of scope */
 	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&cntr,0,NULL));
     	    
@@ -624,6 +666,9 @@ extern void gasnetc_exit(int exitcode) {
 #endif
 	
 	GASNETC_LCHECK(LAPI_Term(gasnetc_lapi_context));
+
+	/* cancel previous alarm and exit normally */
+	alarm(0);
 
 #if GASNETC_VERBOSE_EXIT
 	fprintf(stderr,">> GASNET_EXIT[%d]: about to call _exit\n",gasnetc_mynode);
