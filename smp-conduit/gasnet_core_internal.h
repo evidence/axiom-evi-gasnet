@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/06/29 02:33:08 $
- * $Revision: 1.2 $
+ *     $Date: 2003/09/30 21:44:47 $
+ * $Revision: 1.3 $
  * Description: GASNet smp conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -121,7 +121,9 @@ typedef enum {
     }                                                                                   \
   } while (0)
 #define RUN_HANDLER_MEDIUM(phandlerfn, token, pArgs, numargs, pData, datalen) do {      \
-    assert(((uintptr_t)pData) % 8 == 0);  /* we guarantee double-word alignment for data payload of medium xfers */ \
+    /* disable this check for smp-conduit which runs all handlers as loopback */        \
+    /* if client didn't provide alignment on input, they probably don't need it for handler */ \
+    /*assert(((uintptr_t)pData) % 8 == 0);*/  /* we guarantee double-word alignment for data payload of medium xfers */ \
     _RUN_HANDLER_MEDLONG((gasnetc_HandlerMedium)phandlerfn, (gasnet_token_t)token, pArgs, numargs, (void *)pData, (int)datalen); \
     } while(0)
 #define RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen)             \
