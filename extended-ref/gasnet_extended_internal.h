@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2002/07/18 19:05:04 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/31 09:36:49 $
+ * $Revision: 1.3 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -136,7 +136,6 @@ void gasnete_op_free(gasnete_op_t *op);
 #define _hidx_gasnete_putlong_reqh          (GASNETE_HANDLER_BASE+7)
 #define _hidx_gasnete_memset_reqh           (GASNETE_HANDLER_BASE+8)
 #define _hidx_gasnete_markdone_reph         (GASNETE_HANDLER_BASE+9)
-#define _hidx_                              (GASNETE_HANDLER_BASE+)
 /* add new extended API handlers here and to the bottom of gasnet_extended.c */
 
 #endif

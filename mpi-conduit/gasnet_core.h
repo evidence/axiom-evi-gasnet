@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.h                       $
- *     $Date: 2002/07/04 02:40:23 $
- * $Revision: 1.4 $
+ *     $Date: 2002/08/31 09:36:50 $
+ * $Revision: 1.5 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -26,6 +26,7 @@
 BEGIN_EXTERNC
 
 /*  TODO enhance AMMPI to support thread-safe MPI libraries */
+/*  TODO add MPI bypass to loopback messages */
 
 #ifdef DEBUG
   /* enable usage correctness checking on HSL's and no-interrupt sections */

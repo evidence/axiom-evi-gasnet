@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core_internal.h              $
- *     $Date: 2002/07/27 21:29:24 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/31 09:36:50 $
+ * $Revision: 1.3 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -25,28 +25,9 @@ extern gasnet_seginfo_t *gasnetc_seginfo;
 
 #define gasnetc_boundscheck(node,ptr,nbytes) gasneti_boundscheck(node,ptr,nbytes,c)
 
-#ifdef GASNET_PAR
-  extern pthread_mutex_t gasnetc_AMlock; /*  protect access to AMMPI */
-  #if GASNETC_HSL_SPINLOCK
-    #define AMLOCK() do {                                    \
-        int retval = pthread_mutex_trylock(&gasnetc_AMlock); \
-        if (!retval) break;                                  \
-        assert(retval == EBUSY);                             \
-      } while (1) 
-  #else
-    #define AMLOCK() do {                                 \
-        int retval = pthread_mutex_lock(&gasnetc_AMlock); \
-        assert(!retval);                                  \
-      } while (0)
-  #endif
-  #define AMUNLOCK()  do {                               \
-     int retval = pthread_mutex_unlock(&gasnetc_AMlock); \
-     assert(!retval);                                    \
-  } while (0)
-#else
-  #define AMLOCK()   
-  #define AMUNLOCK() 
-#endif
+extern gasneti_mutex_t gasnetc_AMlock; /*  protect access to AMMPI */
+#define AMLOCK()   gasneti_mutex_lock(&gasnetc_AMlock);
+#define AMUNLOCK() gasneti_mutex_unlock(&gasnetc_AMlock);
 
 /* ------------------------------------------------------------------------------------
  *  AM Error Handling
@@ -114,7 +95,6 @@ int gasneti_checkAMreturn(int retcode, const char *fncallstr,
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-99 for the core API */
 #define _hidx_gasnetc_get_seginfo_req       (GASNETC_HANDLER_BASE+0) 
-#define _hidx_                              (GASNETC_HANDLER_BASE+)
 /* add new core API handlers here and to the bottom of gasnet_core.c */
 
 

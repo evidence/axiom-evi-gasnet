@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/08/30 03:17:58 $
- * $Revision: 1.9 $
+ *     $Date: 2002/08/31 09:36:50 $
+ * $Revision: 1.10 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -9,6 +9,7 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
+#include <gasnet_extended_internal.h>
 
 #include <ammpi_spmd.h>
 
@@ -38,9 +39,7 @@ uint8_t gasnetc_uglyevilhack[GASNETC_MAXSHAREDSEG_SZ+(16*1024)];
 static int gasnetc_init_done = 0; /*  true after init */
 static int gasnetc_attach_done = 0; /*  true after attach */
 
-#ifdef GASNET_PAR
-  pthread_mutex_t gasnetc_AMlock = PTHREAD_MUTEX_INITIALIZER; /*  protect access to AMMPI */
-#endif
+gasneti_mutex_t gasnetc_AMlock = GASNETI_MUTEX_INITIALIZER; /*  protect access to AMMPI */
 
 #ifdef GASNETC_HSL_ERRCHECK
   extern void gasnetc_enteringHandler_hook();

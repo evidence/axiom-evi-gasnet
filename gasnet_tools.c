@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2002/08/13 06:41:54 $
- * $Revision: 1.10 $
+ *     $Date: 2002/08/31 09:36:48 $
+ * $Revision: 1.11 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -117,23 +117,17 @@ gasneti_stattime_t starttime;
   #define NUMBUFS   32
   static char gasneti_printbufs[NUMBUFS][BUFSZ];
   static int gasneti_curbuf = 0;
-  #ifdef GASNETI_THREADS
-    static pthread_mutex_t gasneti_buflock = PTHREAD_MUTEX_INITIALIZER;
-  #endif
+  static gasneti_mutex_t gasneti_buflock = GASNETI_MUTEX_INITIALIZER;
 
   static char *gasneti_getbuf() {
     int bufidx;
 
-    #ifdef GASNETI_THREADS
-      pthread_mutex_lock(&gasneti_buflock);
-    #endif
+    gasneti_mutex_lock(&gasneti_buflock);
 
     bufidx = gasneti_curbuf;
     gasneti_curbuf = (gasneti_curbuf + 1) % NUMBUFS;
 
-    #ifdef GASNETI_THREADS
-      pthread_mutex_unlock(&gasneti_buflock);
-    #endif
+    gasneti_mutex_unlock(&gasneti_buflock);
     return gasneti_printbufs[bufidx];
   }
 
@@ -495,14 +489,10 @@ extern void gasneti_trace_finish() {
       { 0, GASNETI_STATTIME_MAX, GASNETI_STATTIME_MIN, 0 };
   GASNETI_ALL_STATS(DEF_CTR, DEF_INTVAL, DEF_TIMEVAL)
 
-  #ifdef GASNETI_THREADS
-    static pthread_mutex_t gasneti_statlock = PTHREAD_MUTEX_INITIALIZER;
-    #define STAT_LOCK() pthread_mutex_lock(&gasneti_statlock);
-    #define STAT_UNLOCK() pthread_mutex_unlock(&gasneti_statlock);
-  #else
-    #define STAT_LOCK()
-    #define STAT_UNLOCK() 
-  #endif
+static gasneti_mutex_t gasneti_statlock = GASNETI_MUTEX_INITIALIZER;
+#define STAT_LOCK() gasneti_mutex_lock(&gasneti_statlock);
+#define STAT_UNLOCK() gasneti_mutex_unlock(&gasneti_statlock);
+
 extern void gasneti_stat_count_accumulate(gasneti_statctr_t *pctr) {
   STAT_LOCK();
     (*pctr)++;
