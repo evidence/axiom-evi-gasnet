@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2002/09/08 14:25:13 $
- * $Revision: 1.15 $
+ *     $Date: 2002/09/13 13:41:44 $
+ * $Revision: 1.16 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -117,6 +117,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
       gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize, 
                           &gasnetc_MaxGlobalSegmentSize,
+                          (uintptr_t)-1,
                           gasnetc_nodes,
                           &gasnetc_bootstrapExchange);
     #elif defined(GASNET_SEGMENT_EVERYTHING)

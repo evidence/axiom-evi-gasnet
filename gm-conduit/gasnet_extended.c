@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2002/09/13 11:17:29 $
- * $Revision: 1.3 $
+ *     $Date: 2002/09/13 13:41:43 $
+ * $Revision: 1.4 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */

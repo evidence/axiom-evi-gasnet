@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/09/08 14:25:12 $
- * $Revision: 1.15 $
+ *     $Date: 2002/09/13 13:41:40 $
+ * $Revision: 1.16 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -182,6 +182,7 @@ typedef void (*gasneti_bootstrapExchangefn_t)(void *src, size_t len, void *dest)
 
 void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize, 
                          uintptr_t *MaxGlobalSegmentSize,
+                         uintptr_t localSegmentLimit,
                          gasnet_node_t numnodes,
                          gasneti_bootstrapExchangefn_t exchangefn);
 void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2002/06/25 18:55:12 $
- * $Revision: 1.4 $
+ *     $Date: 2002/09/13 13:41:45 $
+ * $Revision: 1.5 $
  * Description: GASNet header for <conduitname> conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -22,7 +22,7 @@
 #define GASNET_ALIGNED_SEGMENTS   ### 
 
   /* this can be used to add conduit-specific 
-     statistical collection values (see gasnet_help.h) */
+     statistical collection values (see gasnet_trace.h) */
 #define CONDUIT_CORE_STATS(CNT,VAL,TIME) 
 
 #endif

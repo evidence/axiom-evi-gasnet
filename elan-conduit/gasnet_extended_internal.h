@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended_internal.h         $
- *     $Date: 2002/09/04 19:30:27 $
- * $Revision: 1.2 $
+ *     $Date: 2002/09/13 13:41:42 $
+ * $Revision: 1.3 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -59,7 +59,7 @@ typedef struct _gasnete_eop_t {
   gasnete_eopaddr_t addr;         /*  next cell while in free list, my own eopaddr_t while in use */
 
   /* for in-flight ELANPUTBB/GETBB where a copy is required */
-  gasnete_bouncebuf_t *bouncebuf; /* TODO: this could be made a 32-bit offset into elan heap */
+  gasnete_bouncebuf_t *bouncebuf; 
 } gasnete_eop_t;
 
 typedef struct {

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/09/09 21:58:22 $
- * $Revision: 1.6 $
+ *     $Date: 2002/09/13 13:41:42 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -80,9 +80,9 @@ static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
 */
 #define GASNETE_MAX_COPYBUFFER_SZ  1048576    /* largest temp buffer we'll allocate for put/get */
 #if GASNETE_USE_PGCTRL_NBI
-  static int     gasnete_pgctrl_throttle = 64;  /* TODO: what is this? (must be <= 64) */
-  static E3_Addr gasnete_pgctrl_devent = 0;     /* TODO: what is this? */
-  static int     gasnete_pgctrl_rail = 0;       /* TODO: how to set this? */
+  static int     gasnete_pgctrl_throttle = 64;  /* limit number of concurrent DMA's (must be <= 64) */
+  static E3_Addr gasnete_pgctrl_devent = 0;     /* remote elan3 event to fire */
+  static int     gasnete_pgctrl_rail = 0;       /* rail to use (local or remote?) */
 #endif
 
 /* the size threshold where gets/puts stop using medium messages and start using longs */
@@ -658,7 +658,7 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
       gasnete_eop_t *eop;
       memcpy(bouncebuf+1, src, nbytes);
       assert(elan_addressable(STATE(),bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
-      /* TODO: this gets a "not-addressable" elan exception on dual-rail runs */
+      /* TODO: this gets a "not-addressable" elan exception on dual-rail runs - why? */
       evt = elan_put(STATE(), bouncebuf+1, dest, nbytes, node);
       UNLOCK_ELAN_WEAK();
       if (isbulk) GASNETI_TRACE_EVENT_VAL(C,PUT_BULK_BUFFERED,nbytes);
@@ -782,7 +782,9 @@ extern int  gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles
       gasnet_handle_t *handle = phandle[i];
       if (handle != GASNET_INVALID_HANDLE) {
         empty = 0;
-        /* TODO: could rewrite this to reduce contention for elan lock */
+        /* could rewrite this to reduce contention for weak elan lock,
+           but the important thing is we only poll once
+        */
         if (gasnete_try_syncnb_inner(handle) == GASNET_OK) { 
           phandle[i] = GASNET_INVALID_HANDLE;
           success = 1;
@@ -805,7 +807,9 @@ extern int  gasnete_try_syncnb_all (gasnet_handle_t *phandle, size_t numhandles)
     for (i = 0; i < numhandles; i++) {
       gasnet_handle_t *handle = phandle[i];
       if (handle != GASNET_INVALID_HANDLE) {
-        /* TODO: could rewrite this to reduce contention for elan lock */
+        /* could rewrite this to reduce contention for weak elan lock,
+           but the important thing is we only poll once
+        */
         if (gasnete_try_syncnb_inner(handle) == GASNET_OK) {
           phandle[i] = GASNET_INVALID_HANDLE;
         } else success = 0;
@@ -1198,7 +1202,10 @@ static int gasnete_iop_puts_done(gasnete_iop_t *iop) {
 }
 
 extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
-  GASNETE_SAFE(gasnet_AMPoll());
+  #if 0
+    /* polling for syncnbi now happens in header file to avoid duplication */
+    GASNETE_SAFE(gasnet_AMPoll());
+  #endif
   {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *iop = mythread->current_iop;
@@ -1215,7 +1222,10 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
 }
 
 extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
-  GASNETE_SAFE(gasnet_AMPoll());
+  #if 0
+    /* polling for syncnbi now happens in header file to avoid duplication */
+    GASNETE_SAFE(gasnet_AMPoll());
+  #endif
   {
     gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
     gasnete_iop_t *iop = mythread->current_iop;

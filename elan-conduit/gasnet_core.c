@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core.c                  $
- *     $Date: 2002/09/08 01:37:33 $
- * $Revision: 1.8 $
+ *     $Date: 2002/09/13 13:41:42 $
+ * $Revision: 1.9 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -9,6 +9,8 @@
 #include <gasnet_internal.h>
 #include <gasnet_handler.h>
 #include <gasnet_core_internal.h>
+
+#include <elan3/elan3.h> /* for elan3_setperm */
 
 #include <errno.h>
 #include <unistd.h>
@@ -21,12 +23,16 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable();
 gasnet_node_t gasnetc_mynode = -1;
 gasnet_node_t gasnetc_nodes = 0;
 
-/* TODO: fix this stupid, temporary hack */
-#define GASNETC_MAXSHAREDSEG_SZ (10*1048576)
-uint8_t gasnetc_uglyevilhack[GASNETC_MAXSHAREDSEG_SZ+(16*1024)];
+#if GASNETC_USE_STATIC_SEGMENT
+  /* a hack to get a static shared segment */
+  #define GASNETC_MAXSTATICSEG_SZ (10*1048576)
+  uint8_t gasnetc_static_segment[GASNETC_MAXSTATICSEG_SZ+(16*1024)];
+#endif
 
 uintptr_t gasnetc_MaxLocalSegmentSize = 0;
 uintptr_t gasnetc_MaxGlobalSegmentSize = 0;
+
+static gasnet_seginfo_t gasnetc_remappableMem; /* elan-mapped segment we can move */
 
 gasnet_seginfo_t *gasnetc_seginfo = NULL;
 
@@ -58,7 +64,7 @@ extern uint64_t gasnetc_clock() {
   if_pt (STATE()) {
     uint64_t val;
     LOCK_ELAN_WEAK();
-      val = elan_clock(STATE()); /* TODO: is a lock required here? */
+      val = elan_clock(STATE());
     UNLOCK_ELAN_WEAK();
     return val;
   }
@@ -109,10 +115,64 @@ static void gasnetc_bootstrapBarrier() {
   elan_gsync(GROUP());
 }
 
-static int gasnetc_init(int *argc, char ***argv) {
+static void gasnetc_bootstrapExchange(void *src, size_t len, void *dest) {
+  ELAN_EVENT *evt;
+  uint8_t *temp = NULL;
 
+  /* we may be able to use an elan_reduce here, but the documentation is so poor 
+     that I can't figure out how to use it (this is not performance critical anyhow) 
+  */
+  GASNETI_TRACE_PRINTF(D,("gasnetc_bootstrapExchange(%i bytes)",len));
+
+  #ifdef ELAN_VER_1_2
+    temp = elan_gallocMain(BASE()->galloc, GROUP(), 64, gasnetc_nodes*len);
+  #else
+    temp = elan_gallocMain(BASE(), GROUP(), 64, gasnetc_nodes*len);
+  #endif
+
+  /* send info to 0 */
+  evt = elan_put(STATE(), src, temp + gasnetc_mynode*len, len, 0);
+  elan_wait(evt, BASE()->waitType);
+
+  /* make 0 wait for puts to arrive */
+  gasnetc_bootstrapBarrier();
+
+  /* recv data from 0 */
+  elan_hbcast(GROUP(), temp, gasnetc_nodes*len, 0, 1);    
+
+  /* ensure operation complete */
+  gasnetc_bootstrapBarrier();
+  memcpy(dest, temp, gasnetc_nodes*len);
+  #ifdef ELAN_VER_1_2
+    elan_gallocFree(BASE()->galloc, temp);
+  #else
+    elan_gallocFree(BASE(), temp);
+  #endif
+}
+
+static uintptr_t gasnetc_searchElanSeglength(void *base, uintptr_t lowsz, uintptr_t highsz, uintptr_t pagesize) {
+  uintptr_t sz;
+  if (lowsz == highsz) return 0;
+  sz = GASNETI_PAGE_ROUNDUP((lowsz + (highsz - lowsz) / 2), pagesize);
+  if (elan_addressable(STATE(), base, sz)) {
+    uintptr_t temp = gasnetc_searchElanSeglength(base, sz, highsz, pagesize);
+    if (temp) return temp;
+    else return sz;
+  } else {
+    if (sz == highsz) return 0;
+    else return gasnetc_searchElanSeglength(base, lowsz, sz, pagesize);
+  }
+}
+/* return the length of the contiguous, elan-mapped memory segment starting at base */
+static uintptr_t gasnetc_ElanSeglength(void *base) {
+  size_t pagesize = gasneti_getSystemPageSize();
+  return gasnetc_searchElanSeglength(base, 0, (uintptr_t)1<<32, pagesize);
+}
+
+static int gasnetc_init(int *argc, char ***argv) {
   if (gasnetc_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
+  gasnetc_init_done = 1; /* enable early to allow tracing */
 
   #if DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
@@ -133,6 +193,9 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasnetc_mynode = STATE()->vp;
   gasnetc_nodes =  STATE()->nvp;
 
+  /* enable tracing */
+  gasneti_trace_init();
+
   #if 0 
     assert(gasnetc_nodes > 0 && gasnetc_mynode >= 0); /* true by datatype */
   #endif
@@ -145,20 +208,33 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 
   #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-    { /* TODO: a real algorithm for determining segment availability */
-    /* (###) Add code here to determine optimistic maximum segment size */
-      gasnetc_MaxLocalSegmentSize = GASNETC_MAXSHAREDSEG_SZ;
-    /* (###) Add code here to find the MIN(MaxLocalSegmentSize) over all nodes */
-      gasnetc_MaxGlobalSegmentSize = GASNETC_MAXSHAREDSEG_SZ;
-    }
+    #if GASNETC_USE_STATIC_SEGMENT
+      /* allocate segment statically */
+      gasnetc_MaxLocalSegmentSize = GASNETC_MAXSTATICSEG_SZ;
+      gasnetc_MaxGlobalSegmentSize = GASNETC_MAXSTATICSEG_SZ;
+    #else
+      /* determine how much elan VM space we can safely re-map, if necessary */
+      if (gasnetc_mynode == 0) {
+        gasnetc_remappableMem.addr = sbrk(0);
+        gasnetc_remappableMem.size = gasnetc_ElanSeglength(gasnetc_remappableMem.addr);
+      }
+      elan_hbcast(GROUP(), &gasnetc_remappableMem, sizeof(gasnetc_remappableMem), 0, 0);
+      gasneti_segmentInit(&gasnetc_MaxLocalSegmentSize, 
+                          &gasnetc_MaxGlobalSegmentSize,
+                          #ifdef GASNET_SEGMENT_FAST
+                            gasnetc_remappableMem.size,
+                          #else
+                            (uintptr_t)-1,
+                          #endif
+                          gasnetc_nodes,
+                          &gasnetc_bootstrapExchange);
+    #endif
   #elif defined(GASNET_SEGMENT_EVERYTHING)
     gasnetc_MaxLocalSegmentSize =  (uintptr_t)-1;
     gasnetc_MaxGlobalSegmentSize = (uintptr_t)-1;
   #else
     #error Bad segment config
   #endif
-
-  gasnetc_init_done = 1;  
 
   return GASNET_OK;
 }
@@ -167,7 +243,10 @@ static int gasnetc_init(int *argc, char ***argv) {
 extern int gasnet_init(int *argc, char ***argv) {
   int retval = gasnetc_init(argc, argv);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasneti_trace_init();
+  #if 0
+    /* called within gasnet_init to allow init tracing */
+    gasneti_trace_init();
+  #endif
   return GASNET_OK;
 }
 
@@ -316,56 +395,113 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasnetc_seginfo = (gasnet_seginfo_t *)gasneti_malloc_inhandler(gasnetc_nodes*sizeof(gasnet_seginfo_t));
 
   #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-    if (segsize == 0) segbase = NULL; /* no segment */
-    else {
-        /* TODO: fix this to allocate dynamically using mmap fixed */
-        segbase = gasnetc_uglyevilhack;
-        segbase = (void *)((((uintptr_t)segbase) + (pagesize-1)) & ~(pagesize-1));
-        assert(((uintptr_t)segbase) + segsize <= 
-               ((uintptr_t)gasnetc_uglyevilhack) + sizeof(gasnetc_uglyevilhack));
+    #if GASNETC_USE_STATIC_SEGMENT
+      /* allocate segment statically */
+      if (segsize == 0) segbase = NULL; /* no segment */
+      else {
+          segbase = gasnetc_static_segment;
+          segbase = (void *)((((uintptr_t)segbase) + (pagesize-1)) & ~(pagesize-1));
+          assert(((uintptr_t)segbase) + segsize <= 
+                 ((uintptr_t)gasnetc_static_segment) + sizeof(gasnetc_static_segment));
+      }
+      gasnetc_seginfo[gasnetc_mynode].addr = segbase;
+      gasnetc_seginfo[gasnetc_mynode].size = segsize;
+      gasnetc_bootstrapExchange(&gasnetc_seginfo[gasnetc_mynode], sizeof(gasnet_seginfo_t), gasnetc_seginfo);
+    #else
+      gasneti_segmentAttach(segsize, minheapoffset, gasnetc_seginfo, &gasnetc_bootstrapExchange);
+      segbase = gasnetc_seginfo[gasnetc_mynode].addr;
+      segsize = gasnetc_seginfo[gasnetc_mynode].size;
+      { int i;
+        uintptr_t maxsz = 0;
+        for (i=0;i<gasnetc_nodes;i++) {
+          if (gasnetc_seginfo[gasnetc_mynode].size > maxsz) 
+            maxsz = gasnetc_seginfo[gasnetc_mynode].size;
+        }
+        if (elan_addressable(STATE(), gasnetc_seginfo[gasnetc_mynode].addr, maxsz)) {
+          /* all segments already elan-mapped - nothing to do */
+        } else {
+          GASNETI_TRACE_PRINTF(I,("WARNING: changing elan mappings"));
+          /* segment not completely elan-mapped on some nodes
+             approach - 
+              mmap area may not be elan-mapped, as most of the default libelan mapped address
+                space is situated on the malloc heap, and stretches far beyond the sbrk
+              so remove mappings from unmapped area above the sbrk and relocate them  
+                to our shared segment
+              TODO: this strategy likely needs modification on systems where the stack
+                sits above the heap and grows towards it in a single elan-mapped area
 
-      /* (###) add code here to choose and register a segment 
-         (ensuring alignment across all nodes if this conduit sets GASNET_ALIGNED_SEGMENTS==1) */
-      assert(((uintptr_t)segbase) % pagesize == 0);
-      assert(segsize % pagesize == 0);
-    }
+             constraints -
+              libelan (and our code) assumes the mappings are identical across nodes, 
+                so we need update the mappings collectively
+           */
+          assert(elan_addressable(STATE(), gasnetc_remappableMem.addr, gasnetc_remappableMem.size));
+          #ifdef GASNET_SEGMENT_FAST
+            assert(maxsz <= gasnetc_remappableMem.size); /* guaranteed by init */
+          #endif
+          { int pagesAvail = gasnetc_remappableMem.size / pagesize;
+            uint8_t *pfrom = (uint8_t *)gasnetc_remappableMem.addr;
+            uint8_t *pto = (uint8_t *)segbase;
+            if (pfrom+gasnetc_remappableMem.size > pto && 
+                pfrom+gasnetc_remappableMem.size < pto + segsize) /* two areas overlap */
+              pagesAvail -= (pfrom+gasnetc_remappableMem.size-pto)/pagesize;
+            while (pagesAvail) {
+              int numpages = 0;
+              int size = 0;
+              uint8_t *elanBase = NULL;
+              while (pto < (uint8_t *)segbase+maxsz && /* skip mapped pages */
+                     elan_addressable(STATE(), pto, pagesize)) pto += pagesize;
+
+              /* find length of run of unmapped pages */
+              while (numpages < pagesAvail && pto + numpages*pagesize < (uint8_t *)segbase+maxsz && 
+                !elan_addressable(STATE(), pto + numpages*pagesize, pagesize)) numpages++;
+              if (numpages == 0) break;
+
+              elanBase = (uint8_t *)elan_main2elan(STATE(), pfrom);
+              size = numpages*pagesize;
+              assert((uint8_t *)elan_main2elan(STATE(), pfrom + size - 1) == elanBase + size - 1);
+
+              /* TODO: this remapping needs to be done for each rail */
+              #ifdef ELAN_VER_1_2
+                elan3_clearperm(CTX(), (E3_Addr)elanBase, size);
+              #else
+	        /* Remove any previous Main mappings */
+	        elan3_clearperm_main (CTX(), (caddr_t)pfrom, size);
+	        elan3_clearperm_main (CTX(), (caddr_t)pto, size);
+	    
+	        /* Remove any previous Elan mappings */
+	        elan3_clearperm_elan (CTX(), (E3_Addr)elanBase, size);
+              #endif
+
+	      /* Create a new mapping */
+	      if (elan3_setperm (CTX(), (caddr_t)pto, (E3_Addr)elanBase, size, ELAN_PERM_REMOTEALL) < 0)
+		  gasneti_fatalerror("gasnet_attach failed elan3_setperm main "GASNETI_LADDRFMT" to elan 0x%08x (size 0x%08x) : %d : %s",
+			         GASNETI_LADDRSTR(pto), (uint32_t)elanBase, size, errno, strerror(errno));
+
+              pagesAvail -= numpages;
+              pto += numpages*pagesize;
+              pfrom += numpages*pagesize;
+            }
+            assert(elan_addressable(STATE(), segbase, MIN(maxsz,gasnetc_remappableMem.size)));
+          }
+        }
+      }
+    #endif
   #else
     /* GASNET_SEGMENT_EVERYTHING - 
        on elan we just use the default elan mappings and drop back to AM for
        non-mapped accesses, and we assume the mappings are identical across nodes
      */
-    segbase = (void *)0;
-    segsize = (uintptr_t)-1;
+    { int i;
+      for (i=0;i<gasnetc_nodes;i++) {
+        gasnetc_seginfo[i].addr = (void *)0;
+        gasnetc_seginfo[i].size = (uintptr_t)-1;
+      }
+      segbase = gasnetc_seginfo[gasnetc_mynode].addr;
+      segsize = gasnetc_seginfo[gasnetc_mynode].size;
+    }
   #endif
-
-  /* ------------------------------------------------------------------------------------ */
-  /*  gather segment information */
-
-  /* gather the segment assignment info into gasnetc_seginfo on each node 
-   */
-  { gasnet_seginfo_t *seginfo0 = gasnetc_seginfo;
-    gasnet_seginfo_t myseginfo;
-    ELAN_EVENT *evt;
-
-    /* we may be able to use an elan_reduce here, but the documentation is so poor 
-       that I can't figure out how to use it (this is not performance critical anyhow)
-     */
-
-    /* recv addr of seginfo on 0 */
-    elan_bcast(GROUP(), &seginfo0, sizeof(gasnet_seginfo_t *), 0, 0);
-
-    /* send info to 0 */
-    myseginfo.addr = segbase;
-    myseginfo.size = segsize;
-    evt = elan_put(STATE(), &myseginfo, seginfo0 + gasnetc_mynode, sizeof(gasnet_seginfo_t), 0);
-    elan_wait(evt, BASE()->waitType);
-
-    /* make 0 wait for puts to arrive */
-    gasnetc_bootstrapBarrier();
-
-    /* recv seginfo from 0 */
-    elan_bcast(GROUP(), gasnetc_seginfo, gasnetc_nodes*sizeof(gasnet_seginfo_t), 0, 0);    
-  }
+  assert(((uintptr_t)segbase) % pagesize == 0);
+  assert(segsize % pagesize == 0);
 
   /* setup network buffers */
   gasnetc_initbufs();
@@ -376,9 +512,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   gasnetc_bootstrapBarrier();
 
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(): primary attach complete"));
-
-  assert(gasnetc_seginfo[gasnetc_mynode].addr == segbase &&
-         gasnetc_seginfo[gasnetc_mynode].size == segsize);
 
   #if GASNET_ALIGNED_SEGMENTS == 1
     { int i; /*  check that segments are aligned */

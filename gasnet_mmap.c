@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2002/09/08 14:25:12 $
- * $Revision: 1.2 $
+ *     $Date: 2002/09/13 13:41:40 $
+ * $Revision: 1.3 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -118,11 +118,11 @@ static gasnet_seginfo_t gasneti_mmap_segsrch(size_t lowsz, size_t highsz) {
 }
 
 /* gasneti_mmap_segment_search allocates the largest possible page-aligned mmap 
- * and returns the base address and size
+ * with sz <= maxsz and returns the base address and size
  */
-extern gasnet_seginfo_t gasneti_mmap_segment_search() {
+extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz) {
   size_t pagesize = gasneti_getSystemPageSize();
-  gasnet_seginfo_t si = gasneti_mmap_segsrch(0, GASNETI_MMAP_MAX_SIZE);
+  gasnet_seginfo_t si = gasneti_mmap_segsrch(0, maxsz);
 
   /*  ensure page-alignment of base and size */
   { uintptr_t begin = (uintptr_t)si.addr;
@@ -159,10 +159,14 @@ static gasneti_segexch_t *gasneti_segexch = NULL; /* exchanged segment informati
      uses mmap if available, or malloc otherwise
    requires an exchange callback function that can be used to exchange data
    sets max local & global segment size
+   localSegmentLimit provides an optional conduit-specific limit on max segment sz
+    (for example, to limit size based on physical memory availability)
+    pass (uintptr_t)-1 for unlimited
    keeps internal state for attach
  */
 void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize, 
                          uintptr_t *MaxGlobalSegmentSize,
+                         uintptr_t localSegmentLimit,
                          gasnet_node_t numnodes,
                          gasneti_bootstrapExchangefn_t exchangefn) {
   size_t pagesize = gasneti_getSystemPageSize();
@@ -178,7 +182,8 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
   gasneti_segexch = (gasneti_segexch_t *)gasneti_malloc_inhandler(gasneti_nodes*sizeof(gasneti_segexch_t));
 
   #ifdef HAVE_MMAP
-    gasneti_segment = gasneti_mmap_segment_search();
+    gasneti_segment = gasneti_mmap_segment_search(localSegmentLimit == (uintptr_t)-1 ?
+                                                  GASNETI_MMAP_MAX_SIZE : localSegmentLimit);
     GASNETI_TRACE_PRINTF(C, ("My segment: addr="GASNETI_LADDRFMT"  sz=%lu",
       GASNETI_LADDRSTR(gasneti_segment.addr), (unsigned long)gasneti_segment.size));
 
@@ -242,8 +247,13 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
       #error bad config: dont know how to provide GASNET_ALIGNED_SEGMENTS when !HAVE_MMAP
     #endif
     /* TODO: T3E doesn't support mmap - find a way to determine a true max seg sz */
-    gasneti_MaxLocalSegmentSize =  GASNETI_MAX_MALLOCSEGMENT_SZ;
-    gasneti_MaxGlobalSegmentSize = GASNETI_MAX_MALLOCSEGMENT_SZ;
+    if (localSegmentLimit < GASNETI_MAX_MALLOCSEGMENT_SZ) {
+      gasneti_MaxLocalSegmentSize =  localSegmentLimit;
+      gasneti_MaxGlobalSegmentSize = localSegmentLimit;
+    } else {
+      gasneti_MaxLocalSegmentSize =  GASNETI_MAX_MALLOCSEGMENT_SZ;
+      gasneti_MaxGlobalSegmentSize = GASNETI_MAX_MALLOCSEGMENT_SZ;
+    }
   #endif
   GASNETI_TRACE_PRINTF(C, ("MaxLocalSegmentSize = %lu   "
                      "MaxGlobalSegmentSize = %lu",
@@ -252,6 +262,7 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
   assert(gasneti_MaxLocalSegmentSize % pagesize == 0);
   assert(gasneti_MaxGlobalSegmentSize % pagesize == 0);
   assert(gasneti_MaxGlobalSegmentSize <= gasneti_MaxLocalSegmentSize);
+  assert(gasneti_MaxLocalSegmentSize <= localSegmentLimit);
 
   *MaxLocalSegmentSize = gasneti_MaxLocalSegmentSize;
   *MaxGlobalSegmentSize = gasneti_MaxGlobalSegmentSize;
