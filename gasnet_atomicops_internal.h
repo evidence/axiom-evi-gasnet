@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2004/09/21 19:30:13 $
- * $Revision: 1.3 $
+ *     $Date: 2004/09/21 19:40:42 $
+ * $Revision: 1.4 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,23 +106,21 @@
       #endif
     #endif
 #elif defined(FREEBSD)
-  #if 0 /* UNTESTED, but so close to the Linux version that it almost must be correct */
     /* FreeBSD is lacking atomic ops that return a value */
     #ifdef __i386__
       GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
-      int gasneti_atomic_compare_and_swap(volatile uint32_t *ctr, uint32_t oldval, uint32_t newval) {
+      int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
         register unsigned char c;
         register uint32_t readval;
 
         __asm__ __volatile__ (
 		_STRINGIFY(MPLOCKED) "cmpxchgl %3, %1; sete %0"
-		: "=qm" (c), "=m" (*ctr), "=a" (readval)
-		: "r" (newval), "m" (*ctr), "a" (oldval) : "memory");
+		: "=qm" (c), "=m" (p->ctr), "=a" (readval)
+		: "r" (newval), "m" (p->ctr), "a" (oldval) : "memory");
         return (int)c;
       }
       #define GASNETI_HAVE_ATOMIC_CAS 1
     #endif
-  #endif /* UNTESTED */
 #elif defined(CYGWIN)
     #define gasneti_atomic_compare_and_swap(p,oval,nval) \
 			(InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (oval))
@@ -171,8 +169,8 @@
        to the user... after all, what application would be interested in performance? */
     /* TODO: Can we support this platform? */
 #elif defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)
-  #if 0 /* UNTESTED */
     #if defined(__xlC__)
+     #if 0 /* UNTESTED */
       static int32_t gasneti_atomic_swap_not_32(volatile int32_t *v, int32_t oldval, int32_t newval);
       #pragma mc_func gasneti_atomic_swap_not_32 {\
 	/* ARGS: r3 = p, r4=oldval, r5=newval   LOCAL: r2 = tmp */ \
@@ -188,6 +186,7 @@
       #define gasneti_atomic_compare_and_swap(p, oldval, newval) \
 	(gasneti_atomic_swap_not_32(&((p)->ctr),(oldval),(newval)) == 0)
       #define GASNETI_HAVE_ATOMIC_CAS 1
+     #endif /* UNTESTED */
     #else
       GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
       int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
@@ -208,7 +207,6 @@
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
     #endif
-  #endif /* UNTESTED */
 #endif
 
 /* ------------------------------------------------------------------------------------ */
