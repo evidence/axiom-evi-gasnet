@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/05/25 15:06:37 $
-# $Revision: 1.142 $
+#     $Date: 2004/05/25 15:28:11 $
+# $Revision: 1.143 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.142 $)
+AC_REVISION($Revision: 1.143 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -228,7 +228,7 @@ case "$gasnet_cv_cc_family" in
     esac ;;
   MIPS) MISC_CFLAGS="-common -diag_error 1035 -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;; # 1035 ensures "#error" is fatal
   Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
-  Intel) MISC_CFLAGS="-wd279" ;;
+  Intel) MISC_CFLAGS="-wd177 -wd279" ;;
   NEC) MISC_CFLAGS="-woff=68:111:174:177:236:301:550:940" ;; 
   PGI) MISC_CFLAGS="-Masmkeyword" ;;
   Sun) MISC_CFLAGS="-errtags" ;; # show warning tag ids in warnings

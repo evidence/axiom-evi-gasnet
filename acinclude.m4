@@ -501,7 +501,7 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
 if test "$$3" != "GNU" ; then
   dnl Some compilers (eg Intel 8.0) define __GNUC__ even though they are definitely not GNU C
   dnl Don't believe their filthy lies
-  case $1 in 
+  case $2 in 
     CC) ac_cv_c_compiler_gnu=no
         GCC=""
     ;;
