@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/04/05 19:52:14 $
- * $Revision: 1.12 $
+ *     $Date: 2004/04/05 23:55:18 $
+ * $Revision: 1.13 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -82,7 +82,7 @@ static void gasnete_ambarrier_notify_reqh(gasnet_token_t token,
     /* Note we might not receive the steps in the numbered order.
      * We record the value received on the first one to actually arrive.
      * In subsequent steps we check for mismatch of received values.
-     * The local value is compared at the start of step == 1.
+     * The local value is compared in the kick function.
      */
     if (flags == 0 && !ambarrier_recv_value_present[phase]) {
       ambarrier_recv_value_present[phase] = 1;
@@ -107,10 +107,10 @@ static void gasnete_ambarrier_kick() {
 
   if_pt (step != ambarrier_size) {
     if (ambarrier_step_done[phase][step]) {
-      /* If step==0 this is the first time we are certain we have both a local and remote id */
-      if_pf ((step == 0) &&
-	     (ambarrier_flags == 0) && 
-	     (ambarrier_recv_value[phase] != ambarrier_value)) {
+      if_pf (ambarrier_mismatch[phase] ||
+	     ((ambarrier_flags == 0) && 
+	      ambarrier_recv_value_present[phase] &&
+	      (ambarrier_recv_value[phase] != ambarrier_value))) {
         ambarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
       }
 
@@ -120,8 +120,8 @@ static void gasnete_ambarrier_kick() {
 	gasneti_memsync();
       } else {
         gasnet_node_t peer;
-        gasnet_handlerarg_t flags = ambarrier_mismatch[phase] ? GASNET_BARRIERFLAG_MISMATCH
-							      : ambarrier_flags;
+	gasnet_handlerarg_t value = ambarrier_value;
+	gasnet_handlerarg_t flags = ambarrier_flags;
 
 	/* No need for a full mod because worst case is < 2*gasnete_nodes.
 	 * However, we must take care for overflow if we try to do the
@@ -146,9 +146,19 @@ static void gasnete_ambarrier_kick() {
 	  gasneti_assert(peer < gasnete_nodes);
 	}
 
+	if ((ambarrier_flags == GASNET_BARRIERFLAG_ANONYMOUS) &&
+	    ambarrier_recv_value_present[phase]) {
+	  /* If we are on an node with an anonymous barrier invocation we
+	   * may have received a barrier name from another node.  If so we
+	   * must forward it to allow for matching tests.
+	   */
+	  flags = 0;
+	  value = ambarrier_recv_value[phase];
+	}
+
         GASNETE_SAFE(
           gasnet_AMRequestShort4(peer, gasneti_handleridx(gasnete_ambarrier_notify_reqh), 
-                                 phase, step, ambarrier_value, flags));
+                                 phase, step, value, flags));
       }
       ambarrier_step = step;
     }
