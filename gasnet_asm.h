@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/04/25 11:32:18 $
- * $Revision: 1.7 $
+ *     $Date: 2003/05/11 01:08:56 $
+ * $Revision: 1.8 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -34,6 +34,7 @@
 
 #if defined(SOLARIS) || /* SPARC seems to have no atomic ops */ \
     defined(CRAYT3E) || /* TODO: no atomic ops on T3e? */       \
+    defined(HPUX)    || /* HPUX seems to have no atomic ops */  \
     defined(__PGI) ||   /* Portland Group compiler doesn't support asm */ \
     (defined(OSF) && !defined(__DECC)) ||  /* OSF atomics are compiler built-ins */ \
     (defined(__MACH__) && defined(__APPLE__)) || /* we careth not about performance on OSX */ \
@@ -324,6 +325,11 @@
  GASNET_INLINE_MODIFIER(gasneti_local_membar)
  void gasneti_local_membar(void) {
    GASNETI_ASM(sync);  /* MIPS II+ memory barrier */ 
+ }
+#elif defined(_PA_RISC1_1) /* HP PA-RISC */
+ GASNET_INLINE_MODIFIER(gasneti_local_membar)
+ void gasneti_local_membar(void) {
+   GASNETI_ASM(SYNC);  /* PA RISC load/store ordering */ 
  }
 #elif defined(__i386__) || defined(__i386) || defined(i386) || \
       defined(__i486__) || defined(__i486) || defined(i486) || \

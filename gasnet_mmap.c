@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2003/05/04 01:33:44 $
- * $Revision: 1.12 $
+ *     $Date: 2003/05/11 01:08:56 $
+ * $Revision: 1.13 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,10 +39,19 @@
   #error mmap not supported on Cray-T3E
 #elif defined(CYGWIN)
   #error mmap not supported on Cygwin - it doesnt work properly
+#elif defined(HPUX)
+  #define GASNETI_MMAP_FLAGS (MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE)
+  #define GASNETI_MMAP_NOTFIXED_FLAG MAP_VARIABLE
 #else
   #define GASNETI_MMAP_FLAGS (MAP_ANON | MAP_PRIVATE)
 #endif
 
+#ifndef GASNETI_MMAP_FIXED_FLAG
+  #define GASNETI_MMAP_FIXED_FLAG MAP_FIXED
+#endif
+#ifndef GASNETI_MMAP_NOTFIXED_FLAG
+  #define GASNETI_MMAP_NOTFIXED_FLAG 0
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 static void *gasneti_mmap_internal(void *segbase, size_t segsize) {
@@ -60,7 +69,8 @@ static void *gasneti_mmap_internal(void *segbase, size_t segsize) {
 
   t1 = GASNETI_STATTIME_NOW();
   ptr = mmap(segbase, segsize, (PROT_READ|PROT_WRITE), 
-      (GASNETI_MMAP_FLAGS | (segbase==NULL?0:MAP_FIXED)), gasneti_mmapfd, 0);
+      (GASNETI_MMAP_FLAGS | (segbase==NULL?GASNETI_MMAP_NOTFIXED_FLAG:GASNETI_MMAP_FIXED_FLAG)), 
+      gasneti_mmapfd, 0);
   t2 = GASNETI_STATTIME_NOW();
 
   GASNETI_TRACE_PRINTF(C, 
@@ -212,6 +222,9 @@ extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz) {
       mmaped = 0;
     #endif
   }
+
+  if (si.addr == NULL) 
+    gasneti_fatalerror("Unable to find an adequate mmap segment.");
 
   assert(si.addr != NULL && si.addr != MAP_FAILED && si.size > 0);
   assert(si.size % GASNET_PAGESIZE == 0);

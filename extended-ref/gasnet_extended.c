@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/03/25 19:03:49 $
- * $Revision: 1.25 $
+ *     $Date: 2003/05/11 01:08:57 $
+ * $Revision: 1.26 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,7 +23,7 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
 #ifdef GASNETI_THREADS
   static pthread_key_t gasnete_threaddata; /*  pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
 #endif
-static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
+static const gasnete_eopaddr_t EOPADDR_NIL = { { 0xFF, 0xFF } };
 
 /* ------------------------------------------------------------------------------------ */
 /*

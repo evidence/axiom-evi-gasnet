@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2003/04/29 05:46:22 $
- * $Revision: 1.14 $
+ *     $Date: 2003/05/11 01:08:56 $
+ * $Revision: 1.15 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@
 
 /* ------------------------------------------------------------------------------------ */
 /* include files that may conflict with macros defined later */
-#if defined(IRIX)
+#if defined(IRIX) || defined(HPUX)
   #include <sys/param.h>
 #endif
 
@@ -60,46 +60,46 @@
   typedef unsigned int    uintptr_t; 
 #else
   /* try to determine them automatically */
-  #if SIZEOF_CHAR == 8
+  #if SIZEOF_CHAR == 1
     typedef signed   char  int8_t;
     typedef unsigned char uint8_t;
   #else
     #error Cannot find an 8-bit type for your platform
   #endif
 
-  #if SIZEOF_CHAR == 16
+  #if SIZEOF_CHAR == 2
     typedef signed   char  int16_t;
     typedef unsigned char uint16_t;
-  #elif SIZEOF_SHORT == 16
+  #elif SIZEOF_SHORT == 2
     typedef          short  int16_t;
     typedef unsigned short uint16_t;
-  #elif SIZEOF_INT == 16
+  #elif SIZEOF_INT == 2
     typedef          int  int16_t;
     typedef unsigned int uint16_t;
   #else
     #error Cannot find a 16-bit type for your platform
   #endif
 
-  #if SIZEOF_SHORT == 32
+  #if SIZEOF_SHORT == 4
     typedef          short  int32_t;
     typedef unsigned short uint32_t;
-  #elif SIZEOF_INT == 32
+  #elif SIZEOF_INT == 4
     typedef          int  int32_t;
     typedef unsigned int uint32_t;
-  #elif SIZEOF_LONG == 32
+  #elif SIZEOF_LONG == 4
     typedef          long  int32_t;
     typedef unsigned long uint32_t;
   #else
     #error Cannot find a 32-bit type for your platform
   #endif
 
-  #if SIZEOF_INT == 64
+  #if SIZEOF_INT == 8
     typedef          int  int64_t;
     typedef unsigned int uint64_t;
-  #elif SIZEOF_LONG == 64
+  #elif SIZEOF_LONG == 8
     typedef          long  int64_t;
     typedef unsigned long uint64_t;
-  #elif SIZEOF_LONG_LONG == 64
+  #elif SIZEOF_LONG_LONG == 8
     typedef          long long  int64_t;
     typedef unsigned long long uint64_t;
   #else
@@ -121,6 +121,11 @@
   #else
     #error Cannot find a integral pointer-sized type for your platform
   #endif  
+#endif
+#ifdef HPUX
+  /* HPUX inttypes.h stupidly omits these */
+  typedef          long long  int64_t;
+  typedef unsigned long long uint64_t;
 #endif
 #endif
 /* ------------------------------------------------------------------------------------ */

@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/05/04 01:33:44 $
-# $Revision: 1.56 $
+#     $Date: 2003/05/11 01:08:56 $
+# $Revision: 1.57 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.56 $)
+AC_REVISION($Revision: 1.57 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -232,6 +232,9 @@ GASNET_LIBGCC
 #
 OLDLIBS="$LIBS"
 AC_SEARCH_LIBS(pthread_create, [pthread pthreads], have_pthread=yes, have_pthread=no)
+case "$target_os" in
+  hpux*) have_pthread=yes ;; # test fails on HPUX due to signature mismatch
+esac
 LIBS="$OLDLIBS"
 
 AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
@@ -362,6 +365,14 @@ case "$target_os" in
         if test "$have_pthread" = yes ; then
           GASNET_THREAD_DEFINES="-D_REENTRANT -D_THREAD_SAFE"
           GASNET_THREAD_LIBS="-pthread -lpthreads"
+        fi
+	;;
+  hpux*)
+	AC_DEFINE(HPUX)
+	GASNET_MACHINE_DEFINES="-DHPUX"
+        if test "$have_pthread" = yes ; then
+          GASNET_THREAD_DEFINES="-D_REENTRANT"
+          GASNET_THREAD_LIBS="-lpthread"
         fi
 	;;
   unicos*)
