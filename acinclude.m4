@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2004/09/27 09:52:55 $
-dnl $Revision: 1.45 $
+dnl     $Date: 2004/10/15 01:07:29 $
+dnl $Revision: 1.46 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -760,5 +760,10 @@ dnl directory, as well as deal with setting of the prefix at install time.
 AC_DEFUN([GASNET_SET_INSTALL_CMD],[
 GASNET_INSTALL_CMD="sed -e '/###NOINSTALL###/d' -e 's@###INSTALL_PREFIX###@\$(prefix)@g'"
 AC_SUBST(GASNET_INSTALL_CMD)
+])
+
+dnl pass $1 to all subconfigures invoked recursively from this configure script
+AC_DEFUN([GASNET_SUBCONFIGURE_ARG],[
+ac_configure_args="$ac_configure_args $1"
 ])
 

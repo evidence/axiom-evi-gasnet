@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/09/30 21:32:37 $
-# $Revision: 1.23 $
+#     $Date: 2004/10/15 01:07:31 $
+# $Revision: 1.24 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -54,12 +54,20 @@ use Getopt::Long;
 # Global Variables
 ########################
 
+my $version = "1.1";
+
 my ($opt_sort, $opt_output, $opt_help, $opt_report);
 my ($opt_internal, $opt_full, $opt_thread, $opt_filter);
 
 my (%data, %report, %threads, %nodes);
 my (%node_threads); 
 my (%job_nodes, %job_seen, %job_uniq); 
+my $tool_prefix = $ENV{'TOOL_PREFIX'} || 'gasnet';
+my $tool_prefix_mc = ucfirst($tool_prefix);
+$tool_prefix_mc =~ s/Gasnet/GASNet/;
+$tool_prefix_mc =~ s/Upc/UPC/;
+my $gasnet_version = $ENV{'VERSION'} || '?.?';
+
 #%nodes, %threads are identifier->thread(node)num
 
 # Getting the Options
@@ -116,9 +124,9 @@ trace_output(*STDOUT, "BARRIER") if $opt_report =~ /BARRIER/;
 ########################
 sub usage 
 {
+    print "${tool_prefix_mc} trace file summarization script, v${version} (GASNet v${gasnet_version})\n";
+    print "Usage:  ${tool_prefix}_trace [options] trace-file(s)";
     print <<EOF;
-GASNet trace file summarization script, v1.0
-Usage:  gasnet_trace [options] trace-file(s)
 
 Options:
     -h -? -help         See this message.

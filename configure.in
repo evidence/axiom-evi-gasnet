@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/10/12 21:44:38 $
-# $Revision: 1.198 $
+#     $Date: 2004/10/15 01:07:29 $
+# $Revision: 1.199 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.198 $)
+AC_REVISION($Revision: 1.199 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1940,6 +1940,11 @@ AC_SUBST(LDFLAGS)
 
 # Figure out how to install config files
 GASNET_SET_INSTALL_CMD
+
+TOOL_PREFIX=gasnet
+GASNET_WITH(tool-prefix, [Naming prefix to use for contributed tools],
+            TOOL_PREFIX=$withval)
+AC_SUBST(TOOL_PREFIX)
 
 ########################################################################
 ##
