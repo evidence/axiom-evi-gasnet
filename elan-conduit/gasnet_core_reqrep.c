@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_reqrep.c                  $
- *     $Date: 2002/08/19 11:10:28 $
- * $Revision: 1.3 $
+ *     $Date: 2002/08/30 19:17:19 $
+ * $Revision: 1.4 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -10,6 +10,34 @@
 #include <gasnet_extended_internal.h>
 
 #include <unistd.h>
+
+/* 
+  Basic design of the core implementation:
+  =======================================
+
+  All Shorts/All Longs/Mediums <= GASNETC_ELAN_MAX_QUEUEMSG(320):
+    sent using an elan queue of length LIBELAN_TPORT_NSLOTS
+    Longs use a blocking elan_put before queuing to ensure ordering  
+      use a bounce-buffer if > GASNETC_ELAN_SMALLPUTSZ and not elan-mapped
+    AMPoll checks for incoming queue entries 
+    All mediums are argument-padded to ensure payload alignment on recvr
+
+  Mediums > GASNETC_ELAN_MAX_QUEUEMSG(320):
+    sent using a tport message in a pre-allocated buffer
+    Keep tport Tx buffers in a FIFO of length LIBELAN_TPORT_NSLOTS - 
+      poll for Tx completion starting at oldest Tx buffer whenever we need one
+      may spin-poll during a send if all Tx buffers occupied
+    Keep a FIFO of posted tport Rx bufs, which are guaranteed to arrive in order
+      AMPoll checks the head for completion
+    every tport buffer has a dedicated descriptor (gasnetc_bufdesc_t)
+      holds ELAN_EVENT for pending Tx/Rx
+      pointer to the buffer (gasnetc_buf_t) and possibly a system Rx buffer
+
+  AMPoll handles up to GASNETC_MAX_RECVMSGS_PER_POLL messages from 
+    either the queue or tport (giving precedence to the queue)
+
+  All loopback AM messages are run synchronously inside the request/reply
+*/
 
 #define GASNETC_MEDHEADER_PADARG(numargs) \
         ((numargs & 0x1) ^ ((GASNETC_MED_HEADERSZ>>2) & 0x1))
@@ -313,6 +341,9 @@ extern int gasnetc_AMPoll() {
     gasnetc_bufdesc_t *desc;
 
     LOCK_ELAN();
+    /* TODO: this gives precedence to queue messages, which may starve tport messages 
+        while both are arriving
+     */
     if (elan_queueHaveReq(gasnetc_mainqueue)) {
       char _buf[GASNETC_ELAN_MAX_QUEUEMSG];
       gasnetc_bufdesc_t _desc;
@@ -426,12 +457,18 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
           /* safe to put directly from source */
           putevt = elan_put(STATE(), source_addr, dest_ptr, nbytes, dest);
         } else { /* need to use a bounce buffer */
+          /* TODO: this may fail for unmapped segment under GASNET_SEGMENT_EVERYTHING */
+          assert(elan_addressable(STATE(), dest_ptr, nbytes));
           /* TODO: would be nice to use SDRAM here, but not sure put interface can handle it... */
           bouncebuf = elan_allocMain(STATE(), 64, nbytes);
+          assert(bouncebuf); /* TODO: if we run out of mem here, we're in trouble */
           memcpy(bouncebuf, source_addr, nbytes);
           putevt = elan_put(STATE(), bouncebuf, dest_ptr, nbytes, dest);
         }
-        /* loop until put is complete (required to ensure ordering semantics) */
+        /* loop until put is complete (required to ensure ordering semantics) 
+           could make this totally asynchronous with lots more work, 
+           but this isn't that bad because the put DMA is totally one-sided
+         */
         while (!elan_poll(putevt, 5)) {
           UNLOCK_ELAN();
           gasnetc_AMPoll();

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/elan-conduit/gasnet_extended.c                  $
- *     $Date: 2002/08/20 19:03:54 $
- * $Revision: 1.2 $
+ *     $Date: 2002/08/30 19:17:19 $
+ * $Revision: 1.3 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -21,6 +21,57 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
   static pthread_key_t gasnete_threaddata; /*  pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
 #endif
 static const gasnete_eopaddr_t EOPADDR_NIL = { 0xFF, 0xFF };
+
+/* 
+  Basic design of the extended implementation:
+  ===========================================
+
+  gasnet_handle_t - can be either an (gasnete_op_t *) or (ELAN_EVENT *),
+    as flagged by LSB
+
+  eops - marked with the operation type - 
+    always AM-based op or put/get w/ bouncebuf
+  iops - completion counters for AM-based ops
+    linked list of put/get eops that need bounce-bufs
+    pgctrl objects for holding put/get ELAN_EVENT's for nbi
+
+  get_nb:
+    if elan-addressable dest
+      use a simple elan_get
+    else if < GASNETE_MAX_COPYBUFFER_SZ and mem available
+      use a elan bouncebuf dest with an eop
+    else 
+      use AM ref-ext med or long (if larger than 1 long, use get_nbi)
+
+  put_nb:
+    if bulk and elan-addressable src or < GASNETC_ELAN_SMALLPUTSZ (128)
+      use a simple elan_put
+    else if < GASNETE_MAX_COPYBUFFER_SZ and mem available
+      copy to elan bouncebuf with an eop
+    else 
+      use AM ref-ext med or long (if larger than 1 long, use put_nbi)
+
+  get_nbi:
+    if elan-addressable dest
+      use a simple elan_get and add ELAN_EVENT to pgctrl 
+        (spin-poll if more than GASNETE_MAX_PUTGET_NBI(256) outstanding) 
+    else if < GASNETE_MAX_COPYBUFFER_SZ and mem available
+      use a elan bouncebuf dest with an eop and add to nbi linked-list
+    else 
+      use AM ref-ext
+
+  put_nbi:
+    if bulk and elan-addressable src or < GASNETC_ELAN_SMALLPUTSZ (128)
+      use a simple elan_put and add ELAN_EVENT to pgctrl 
+        (spin-poll if more than GASNETE_MAX_PUTGET_NBI(256) outstanding) 
+    else if < GASNETE_MAX_COPYBUFFER_SZ and mem available
+      copy to a elan bouncebuf src with an eop and add to nbi linked-list
+    else 
+      use AM ref-ext
+
+  barrier:
+    use AM
+*/
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -518,6 +569,12 @@ SHORT_HANDLER(gasnete_markdone_reph,1,2,
 extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
 #if GASNETE_USE_ELAN_PUTGET
   LOCK_ELAN();
+  #ifdef GASNET_SEGMENT_EVERYTHING
+    if (!elan_addressable(STATE(),src,nbytes)) {
+      GASNETI_TRACE_PRINTF(I,("Warning: get source not elan-mapped, using AM instead"));
+      UNLOCK_ELAN();
+    } else 
+  #endif
   if (elan_addressable(STATE(),dest,nbytes)) { 
     ELAN_EVENT *evt;
     evt = elan_get(STATE(), src, dest, nbytes, node);
@@ -571,6 +628,12 @@ GASNET_INLINE_MODIFIER(gasnete_put_nb_inner)
 gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, size_t nbytes, int isbulk GASNETE_THREAD_FARG) {
 #if GASNETE_USE_ELAN_PUTGET
   LOCK_ELAN();
+  #ifdef GASNET_SEGMENT_EVERYTHING
+    if (!elan_addressable(STATE(),dest,nbytes)) {
+      GASNETI_TRACE_PRINTF(I,("Warning: put destination not elan-mapped, using AM instead"));
+      UNLOCK_ELAN();
+    } else 
+  #endif
   if (nbytes <= GASNETC_ELAN_SMALLPUTSZ || 
     (isbulk && elan_addressable(STATE(),src,nbytes))) { 
     /* legal to use ordinary elan_put */
@@ -581,12 +644,16 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
     return GASNETE_ELANEVENT_TO_HANDLE(evt);
   } else if (nbytes <= GASNETE_MAX_COPYBUFFER_SZ) { /* use a bounce buffer */
     gasnete_bouncebuf_t *bouncebuf;
+    /* TODO: it would be nice if our bounce buffers could reside in SDRAM, 
+        but not sure the elan_put interface can handle it
+     */
     bouncebuf = (gasnete_bouncebuf_t *)elan_allocMain(STATE(), 64, sizeof(gasnete_bouncebuf_t)+nbytes);
     if_pt (bouncebuf) {
       ELAN_EVENT *evt;
       gasnete_eop_t *eop;
       memcpy(bouncebuf+1, src, nbytes);
       assert(elan_addressable(STATE(),bouncebuf,sizeof(gasnete_bouncebuf_t)+nbytes));
+      /* this gets a "not-addressable" elan exception on dual-rail runs */
       evt = elan_put(STATE(), bouncebuf+1, dest, nbytes, node);
       UNLOCK_ELAN();
       eop = gasnete_eop_new(GASNETE_MYTHREAD, OPCAT_ELANPUTBB);
@@ -809,6 +876,12 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   gasnete_iop_t *iop = mythread->current_iop;
 #if GASNETE_USE_ELAN_PUTGET
   LOCK_ELAN();
+  #ifdef GASNET_SEGMENT_EVERYTHING
+    if (!elan_addressable(STATE(),src,nbytes)) {
+      GASNETI_TRACE_PRINTF(I,("Warning: get source not elan-mapped, using AM instead"));
+      UNLOCK_ELAN();
+    } else 
+  #endif
   if (elan_addressable(STATE(),dest,nbytes)) { 
     ELAN_EVENT *evt;
     #if GASNETE_USE_PGCTRL_NBI
@@ -904,6 +977,12 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
 
 #if GASNETE_USE_ELAN_PUTGET
   LOCK_ELAN();
+  #ifdef GASNET_SEGMENT_EVERYTHING
+    if (!elan_addressable(STATE(),dest,nbytes)) {
+      GASNETI_TRACE_PRINTF(I,("Warning: put destination not elan-mapped, using AM instead"));
+      UNLOCK_ELAN();
+    } else 
+  #endif
   if (nbytes <= GASNETC_ELAN_SMALLPUTSZ || 
     (isbulk && elan_addressable(STATE(),src,nbytes))) { 
     /* legal to use ordinary elan_put */
@@ -1229,6 +1308,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
       int i;
       for (i=0; i < gasnete_nodes; i++) {
         int mismatch = GASNET_BARRIERFLAG_MISMATCH;
+        /* TODO: assumes mismatch is elan-addressable */
         elan_wait(elan_put(STATE(), &mismatch, (int *)&(barrier_state->barrier_flags),
                            sizeof(int), i), ELAN_POLL_EVENT);
       }
@@ -1357,7 +1437,10 @@ extern void gasnete_barrier_notify(int id, int flags) {
     GASNETE_SAFE(
       gasnet_AMRequestShort3(GASNETE_BARRIER_MASTER, gasneti_handleridx(gasnete_barrier_notify_reqh), 
                            phase, barrier_value, flags));
-  } else barrier_response_done[phase] = 1;
+  } else {
+    barrier_response_mismatch[phase] = (flags & GASNET_BARRIERFLAG_MISMATCH);
+    barrier_response_done[phase] = 1;
+  }
 
   /*  update state */
   barrier_splitstate = INSIDE_BARRIER;
