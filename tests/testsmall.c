@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2003/08/31 12:38:56 $
- * $Revision: 1.6 $
+ *     $Date: 2003/11/06 00:25:44 $
+ * $Revision: 1.7 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -33,6 +33,8 @@ typedef struct {
 
 gasnet_handlerentry_t handler_table[2];
 
+int insegment = 0;
+
 int myproc;
 int numprocs;
 int peerproc;
@@ -42,8 +44,10 @@ void *tgtmem;
 int srcsize;
 int tgtsize;
 
-char msgbuf[PAGESZ];
-char ackbuf[PAGESZ];
+char _msgbuf[PAGESZ];
+char _ackbuf[PAGESZ];
+char *msgbuf;
+char *ackbuf;
 
 void init_stat(stat_struct_t *st, int sz)
 {
@@ -105,7 +109,7 @@ void roundtrip_test(int iters, int nbytes)
 	/* initialize statistics */
 	init_stat(&st, nbytes);
 	
-	memset(srcmem, 0, nbytes);
+	memset(srcmem, 2, nbytes);
 	memset(msgbuf, 1, nbytes);
 	memset(ackbuf, 0, nbytes);
 
@@ -159,14 +163,14 @@ void oneway_test(int iters, int nbytes)
 	/* initialize statistics */
 	init_stat(&st, nbytes);
 	
-	memset(srcmem, 0, nbytes);
+	memset(srcmem, 2, nbytes);
 	memset(msgbuf, 1, nbytes);
 	memset(ackbuf, 0, nbytes);
 
 	BARRIER();
 	
 	if (iamsender) {
-		/* measure the round-trip time of put */
+		/* measure the throughput of put */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
 			gasnet_put(peerproc, tgtmem, msgbuf, nbytes);
@@ -185,7 +189,7 @@ void oneway_test(int iters, int nbytes)
 	init_stat(&st, nbytes);
 
 	if (iamsender) {
-		/* measure the round-trip time of get */
+		/* measure the throughput of get */
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
 	 		gasnet_get(ackbuf, peerproc, tgtmem, nbytes);
@@ -213,7 +217,7 @@ void roundtrip_nbi_test(int iters, int nbytes)
 	/* initialize statistics */
 	init_stat(&st, nbytes);
 	
-	memset(srcmem, 0, nbytes);
+	memset(srcmem, 2, nbytes);
 	memset(msgbuf, 1, nbytes);
 	memset(ackbuf, 0, nbytes);
 
@@ -270,7 +274,7 @@ void oneway_nbi_test(int iters, int nbytes)
 	/* initialize statistics */
 	init_stat(&st, nbytes);
 	
-	memset(srcmem, 0, nbytes);
+	memset(srcmem, 2, nbytes);
 	memset(msgbuf, 1, nbytes);
 	memset(ackbuf, 0, nbytes);
 
@@ -327,7 +331,7 @@ void roundtrip_nb_test(int iters, int nbytes)
 	/* initialize statistics */
 	init_stat(&st, nbytes);
 	
-	memset(srcmem, 0, nbytes);
+	memset(srcmem, 2, nbytes);
 	memset(msgbuf, 1, nbytes);
 	memset(ackbuf, 0, nbytes);
 
@@ -387,7 +391,7 @@ void oneway_nb_test(int iters, int nbytes)
 	
 	handles = (gasnet_handle_t*) test_malloc(sizeof(gasnet_handle_t) * iters);
 	
-	memset(srcmem, 0, nbytes);
+	memset(srcmem, 2, nbytes);
 	memset(msgbuf, 1, nbytes);
 	memset(ackbuf, 0, nbytes);
 
@@ -443,6 +447,7 @@ void oneway_nb_test(int iters, int nbytes)
 
 int main(int argc, char **argv)
 {
+    int arg;
     int iters = 0;
     int i, j;
    
@@ -450,13 +455,25 @@ int main(int argc, char **argv)
     GASNET_Safe(gasnet_init(&argc, &argv));
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
 
-    /* parse arguments */
-    if (argc < 2) {
-        printf("Usage: %s (iters) \n", argv[0]);
+    /* parse arguments (we could do better) */
+    arg = 1;
+    if (argc > arg && !strcmp(argv[arg], "-in")) {
+        insegment = 1;
+        ++arg;
+    }
+    if (argc > arg && !strcmp(argv[arg], "-out")) {
+        insegment = 0;
+        ++arg;
+    }
+    if (argc != arg+1) {
+        printf("Usage: %s [-in|-out] (iters) \n"
+               "  The 'in' or 'out' option selects whether the initiator-side\n"
+               "  memory is in the GASNet segment or not (default it not).\n",
+               argv[0]);
         gasnet_exit(1);
     }
 
-    if (argc > 1) iters = atoi(argv[1]);
+    if (argc > 1) iters = atoi(argv[arg]);
     if (!iters) iters = 1;
 
     /* get SPMD info */
@@ -476,6 +493,14 @@ int main(int argc, char **argv)
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
     
     tgtmem = (void *) TEST_SEG(peerproc);
+
+    if (insegment) {
+    	msgbuf = (void *)(PAGESZ + (uintptr_t)srcmem);
+    	ackbuf = (void *)(PAGESZ + (uintptr_t)msgbuf);
+    } else {
+    	msgbuf = _msgbuf;
+    	ackbuf = _ackbuf;
+    }
 
 	for (j = 1; j <= 2048; j *= 2)  roundtrip_test(iters, j); 
 

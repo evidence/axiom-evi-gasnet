@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testlarge.c                                 $
- *     $Date: 2003/08/31 12:38:56 $
- * $Revision: 1.7 $
+ *     $Date: 2003/11/06 00:25:44 $
+ * $Revision: 1.8 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -40,6 +40,8 @@ typedef struct {
 
 gasnet_handlerentry_t handler_table[2];
 
+int insegment = 0;
+
 int myproc;
 int numprocs;
 int peerproc;
@@ -47,7 +49,6 @@ int peerproc;
 int min_payload;
 int max_payload;
 
-char *srcmem;
 char *tgtmem;
 void *msgbuf;
 
@@ -260,19 +261,32 @@ void bulk_test_nb(int iters) {GASNET_BEGIN_FUNCTION();
 int main(int argc, char **argv)
 {
     int iters = 0;
+    int arg;
    
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ, TEST_MINHEAPOFFSET));
     TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
 
-    /* parse arguments */
-    if (argc < 2) {
-        printf("Usage: %s (iters) \n", argv[0]);
+    /* parse arguments (we could do better) */
+    arg = 1;
+    if (argc > arg && !strcmp(argv[arg], "-in")) {
+        insegment = 1;
+        ++arg;
+    }
+    if (argc > arg && !strcmp(argv[arg], "-out")) {
+        insegment = 0;
+        ++arg;
+    }
+    if (argc != arg+1) {
+        printf("Usage: %s [-in|-out] (iters) \n"
+               "  The 'in' or 'out' option selects whether the initiator-side\n"
+               "  memory is in the GASNet segment or not (default it not).\n",
+               argv[0]);
         gasnet_exit(1);
     }
 
-    if (argc > 1) iters = atoi(argv[1]);
+    if (argc > 1) iters = atoi(argv[arg]);
     if (!iters) iters = 1;
 
     /* get SPMD info */
@@ -286,9 +300,6 @@ int main(int argc, char **argv)
     }
 
     
-    /* initialize global data in my thread */
-    srcmem = (void *) TEST_MYSEG();
-    
     /* Setting peer thread rank */
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
     
@@ -296,13 +307,20 @@ int main(int argc, char **argv)
 
 	min_payload = 16;
 	max_payload = TEST_SEGSZ;
-	msgbuf = (void *) test_malloc(max_payload);
+
+        if (insegment) {
+	    msgbuf = tgtmem;
+        } else {
+	    msgbuf = (void *) test_malloc(max_payload);
+        }
 
 	bulk_test(iters);
 	bulk_test_nbi(iters);
 	bulk_test_nb(iters);
 
-	test_free(msgbuf);
+        if (!insegment) {
+	    test_free(msgbuf);
+	}
 
     gasnet_exit(0);
 
