@@ -3,7 +3,8 @@
 static float x, y;
 static volatile float z = (1.0 + FLT_EPSILON);
 
-void delay (int n)
+                                                                                                              
+void test_delay (int n)
 {
   int i;
 

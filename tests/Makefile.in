@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.15 2004/03/05 18:46:39 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.16 2004/03/05 19:42:04 phargrov Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -61,6 +61,8 @@ testtools: force
 testlogGP: force delay.o
 	$(GASNET_CC) -I$(srcdir) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	$(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $@.o delay.o $(GASNET_LIBS)
+
+# delay function for testlogGP (and perhaps others) build w/o optimizations
 delay.o: $(srcdir)/delay.c
 	$(GASNET_CC) -O0 -c -o $@ $(srcdir)/$*.c
 

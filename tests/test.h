@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/test.h                                    $
- *     $Date: 2004/03/03 13:47:08 $
- * $Revision: 1.22 $
+ *     $Date: 2004/03/05 19:42:04 $
+ * $Revision: 1.23 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -190,5 +190,53 @@ int _test_rand(int low, int high) {
 
 #define TEST_HIWORD(arg)     ((uint32_t)(((uint64_t)(arg)) >> 32))
 #define TEST_LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
+
+/* Functions for obtaining calibrated delays */
+extern void test_delay(int n);	 /* in delay.o */
+
+/* smallest number of delay loops to try in calibration */
+#ifndef TEST_DELAY_LOOP_MIN
+  #define TEST_DELAY_LOOP_MIN        100
+#endif
+
+/* Compute the number of loops needed to get no less that the specified delay.
+ *
+ * Returns the number of loops needed and overwrites the argument with the
+ * actual achieved delay
+ * The 'iters' argument controls the number of iterations used for calibration.
+ * Larger values take longer but yield more accurate calibration, but take longer.
+ * Using the same 'iters' value as in your test seems appropriate.
+ * The 'time_p' is given in microseconds.
+ */
+int test_calibrate_delay(int iters, int64_t *time_p) 
+{
+	int64_t begin, end, time;
+	float target = *time_p;
+	float ratio = 0.0;
+	int i, loops = 0;
+
+	do {
+		if (loops == 0) {
+			loops = TEST_DELAY_LOOP_MIN;	/* first pass */
+		} else {
+			int tmp = loops * ratio;
+
+			if (tmp > loops) {
+				loops = tmp;
+			} else {
+				loops += 1;	/* ensure progress in the face of round-off */
+			}
+		}
+
+		begin = TIME();
+		for (i = 0; i < iters; i++) { test_delay(loops); }
+		end = TIME();
+		time = end - begin;
+		ratio = target / (float)time;
+	} while (ratio > 1.0);
+
+	*time_p = time;
+	return loops;
+}
 
 #endif

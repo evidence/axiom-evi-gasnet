@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testsmall.c                                 $
- *     $Date: 2004/01/23 10:35:05 $
- * $Revision: 1.14 $
+ *     $Date: 2004/03/05 19:42:04 $
+ * $Revision: 1.15 $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -16,14 +16,10 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <time.h>
-#include <float.h>
-                                                                                
+
 #include "test.h"
 
 #define GASNET_HEADNODE 0
-
-/* smallest number of delay loops to try */
-#define LOOP_MIN	100
 
 enum {
 	PRINT_EEL,
@@ -46,43 +42,6 @@ int peerproc;
 
 void *mymem;
 void *peermem;
-
-extern void delay(int n);
-
-/* Compute some number of loops needed to get no less that the specified delay.
- * Returns the number of loops needed and overwrites the argument with the
- * actual achieved delay
- */
-int calibrate_delay(int iters, int64_t *time_p) 
-{
-	int64_t begin, end, time;
-	float target = *time_p;
-	float ratio = 0.0;
-	int i, loops = 0;
-
-	do {
-		if (loops == 0) {
-			loops = LOOP_MIN;	/* first pass */
-		} else {
-			int tmp = loops * ratio;
-
-			if (tmp > loops) {
-				loops = tmp;
-			} else {
-				loops += 1;	/* ensure progress in the face of round-off */
-			}
-		}
-
-		begin = TIME();
-		for (i = 0; i < iters; i++) { delay(loops); }
-		end = TIME();
-		time = end - begin;
-		ratio = target / (float)time;
-	} while (ratio > 1.0);
-
-	*time_p = time;
-	return loops;
-}
 
 #define init_stat \
   GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__), _init_stat
@@ -186,14 +145,14 @@ void put_tests(int iters, int nbytes)
 
     		/* Seek number of loops needed to exceed running time by 20% or more */
 		delay_time = 1.2 * st.time;
-		loops = calibrate_delay(iters, &delay_time);
+		loops = test_calibrate_delay(iters, &delay_time);
 
 		/* Now measure overhead */
 		init_stat(&st, nbytes);
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
 			gasnet_handle_t h = gasnet_put_nb_bulk(peerproc, peermem, mymem, nbytes);
-			delay(loops);
+			test_delay(loops);
 			gasnet_wait_syncnb(h);
 		}
 		end = TIME();
@@ -221,7 +180,7 @@ void put_tests(int iters, int nbytes)
 	 	update_stat(&st, (end - begin), iters);
 
 		delay_time = 1.2 * st.time;
-		loops = calibrate_delay(iters, &delay_time);
+		loops = test_calibrate_delay(iters, &delay_time);
 	}
 	BARRIER();
 	if (iamsender) {
@@ -233,7 +192,7 @@ void put_tests(int iters, int nbytes)
 		init_stat(&st, nbytes);
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-			delay(loops);
+			test_delay(loops);
 		}
 		end = TIME();
 	 	update_stat(&st, (end - begin) - delay_time, iters);
@@ -313,14 +272,14 @@ void get_tests(int iters, int nbytes)
 
     		/* Seek number of loops needed to exceed running time by 20% or more */
 		delay_time = 1.2 * st.time;
-		loops = calibrate_delay(iters, &delay_time);
+		loops = test_calibrate_delay(iters, &delay_time);
 
 		/* Now measure overhead */
 		init_stat(&st, nbytes);
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
 			gasnet_handle_t h = gasnet_get_nb_bulk(mymem, peerproc, peermem, nbytes);
-			delay(loops);
+			test_delay(loops);
 			gasnet_wait_syncnb(h);
 		}
 		end = TIME();
@@ -348,7 +307,7 @@ void get_tests(int iters, int nbytes)
 	 	update_stat(&st, (end - begin), iters);
 
 		delay_time = 1.2 * st.time;
-		loops = calibrate_delay(iters, &delay_time);
+		loops = test_calibrate_delay(iters, &delay_time);
 	}
 	BARRIER();
 	if (iamsender) {
@@ -360,7 +319,7 @@ void get_tests(int iters, int nbytes)
 		init_stat(&st, nbytes);
 		begin = TIME();
 		for (i = 0; i < iters; i++) {
-			delay(loops);
+			test_delay(loops);
 		}
 		end = TIME();
 	 	update_stat(&st, (end - begin) - delay_time, iters);
