@@ -297,7 +297,7 @@ static void build_hostlist(void)
 
     gasneti_free(names);
   } else {
-    gasneti_fatalerror("No " _STRINGIFY(ENV_PREFIX) "SSH_NODEFILE or " _STRINGIFY(ENV_PREFIX) "SSH_SERVERS in environment\n");
+    gasneti_fatalerror("No " ENV_PREFIX "SSH_NODEFILE or " ENV_PREFIX "SSH_SERVERS in environment\n");
   }
 }
 
