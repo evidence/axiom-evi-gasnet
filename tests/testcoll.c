@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/01/28 23:24:19 $
- * $Revision: 1.8 $
+ *     $Date: 2005/02/04 18:48:50 $
+ * $Revision: 1.9 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,6 +100,9 @@ void test_NONO(int iters, gasnet_node_t root) {
     int *F = E + 1;		/* int [N] */
     int *G = F + numprocs;	/* int [N] */
 
+    if (myproc == 0)
+	MSG("Starting NO/NO test");
+
     for (j = 0; j < iters; ++j) {
 	gasnet_node_t i;
 	int r = random();
@@ -185,6 +188,9 @@ void test_MYMY(int iters, gasnet_node_t root) {
     int *C = B + 1;		/* int [N] */
     int *D = C + numprocs;	/* int [N] */
 
+    if (myproc == 0)
+	MSG("Starting MY/MY test");
+
     for (j = 0; j < iters; ++j) {
 	gasnet_node_t i;
 	int r = random();
@@ -266,6 +272,9 @@ void test_ALLALL(int iters, gasnet_node_t root) {
     int *C = B + 1;		/* int [N] */
     int *D = C + numprocs;	/* int [N] */
     gasnet_node_t peer;
+
+    if (myproc == 0)
+	MSG("Starting ALL/ALL test");
 
     peer = ((myproc ^ 1) == numprocs) ? myproc : (myproc ^ 1);
 
@@ -353,6 +362,37 @@ void test_ALLALL(int iters, gasnet_node_t root) {
     }
 }
 
+void test_NB(int iters, gasnet_node_t root) {
+    int j;
+    int *A = segment;		/* int [iters] */
+    int *B = test_malloc(iters*sizeof(int));
+    gasnet_coll_handle_t *h = test_malloc(iters*sizeof(gasnet_coll_handle_t));
+
+    if (myproc == 0)
+	MSG("Starting NB test");
+
+    for (j = 0; j < iters; ++j) {
+	B[j] = random();
+	A[j] = (myproc == root) ? B[j] : 0;
+	h[j] = gasnet_coll_broadcast_nb(GASNET_TEAM_ALL, A+j, root, A+j, sizeof(int),
+				      GASNET_COLL_SINGLE |
+				      GASNET_COLL_IN_MYSYNC |
+				      GASNET_COLL_OUT_NOSYNC |
+				      GASNET_COLL_SRC_IN_SEGMENT |
+				      GASNET_COLL_DST_IN_SEGMENT);
+    }
+    gasnet_coll_wait_sync_all(h, iters);
+    BARRIER();
+    for (j = 0; j < iters; ++j) {
+	if (A[j] != B[j]) {
+	    MSG("NB: broadcast validation failed");
+	    gasnet_exit(1);
+	}
+    }
+    test_free(B);
+    test_free(h);
+}
+
 int main(int argc, char **argv)
 {
     int arg;
@@ -400,6 +440,7 @@ int main(int argc, char **argv)
       test_NONO(iters, root);
       test_MYMY(iters, root);
       test_ALLALL(iters, root);
+      test_NB(iters, root);
     }
 
     BARRIER();
