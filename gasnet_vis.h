@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_sg.h                 $
- *     $Date: 2004/03/03 13:47:04 $
- * $Revision: 1.1 $
+ *     $Date: 2004/03/30 13:38:57 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -601,7 +601,7 @@ gasnet_handle_t _gasnet_geti_nb_bulk(size_t dstcount, void * const dstlist[], si
 #define gasnet_geti_nb_bulk(dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen) \
        _gasnet_geti_nb_bulk(dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen GASNETE_THREAD_GET)
 
-GASNET_INLINE_MODIFIER(gasnet_puti_nbi_bulk)
+GASNET_INLINE_MODIFIER(_gasnet_puti_nbi_bulk)
 void _gasnet_puti_nbi_bulk(gasnet_node_t dstnode, 
                            size_t dstcount, void * const dstlist[], size_t dstlen,
                            size_t srccount, void * const srclist[], size_t srclen GASNETE_THREAD_FARG) {
