@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2003/04/16 20:10:43 $
- * $Revision: 1.14 $
+ *     $Date: 2003/04/25 22:53:37 $
+ * $Revision: 1.15 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,7 +137,7 @@ typedef struct {
     int    numfree;
     int    numalloc;
     gasnetc_token_t *head;
-#if GASNETC_USE_SPINLOCK
+#if GASNETC_USE_SPINLOCKS
     volatile int     lock;
 #else
     pthread_mutex_t  lock;
@@ -158,7 +158,7 @@ extern int    gasnetc_uhdr_more(int want);
 typedef struct {
     gasnetc_token_t *head;
     gasnetc_token_t *tail;
-#if GASNETC_USE_SPINLOCK
+#if GASNETC_USE_SPINLOCKS
     volatile int     lock;
 #else
     pthread_mutex_t  lock;
@@ -170,7 +170,7 @@ extern gasnetc_token_t* gasnetc_token_dequeue(gasnetc_token_queue_t *q, int upda
 extern void gasnetc_token_enqueue(gasnetc_token_queue_t *q, gasnetc_token_t *p, int *schedule);
 extern void gasnetc_no_optimize(void);
 
-#if GASNETC_USE_SPINLOCK
+#if GASNETC_USE_SPINLOCKS
 #define gasnetc_spin_lock_init(lock) \ 
  {                          \
       (lock) = 0;            \
