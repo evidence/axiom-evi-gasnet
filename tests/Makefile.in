@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/02/28 22:01:56 $
-# $Revision: 1.51 $
+#     $Date: 2005/03/10 09:17:49 $
+# $Revision: 1.52 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -45,6 +45,7 @@ testprograms_seq =      \
         testbarrierlate \
         testtools       \
         testcoll        \
+        testneighbour   \
         $(CONDUIT_TESTS) \
         $(MPI_TESTS)
   
