@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2003/09/08 21:53:52 $
- * $Revision: 1.13 $
+ *     $Date: 2003/09/08 23:48:01 $
+ * $Revision: 1.14 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,7 +33,13 @@
  */
 
 /* Determine if we are on an SMP or not */
-#if defined(__linux__)
+#if defined(GASNETI_FORCE_SMP) && defined(GASNETI_FORCE_UNI)
+  #error Cannot force SMP and force UNI at the same time
+#elif defined(GASNETI_FORCE_SMP)
+  #undef GASNETI_UNI_BUILD
+#elif defined(GASNETI_FORCE_UNI)
+  #define GASNETI_UNI_BUILD
+#elif defined(__linux__)
   #include <linux/config.h>
   #ifdef HAVE__BOOT_KERNEL_H
     #include </boot/kernel.h>
@@ -41,11 +47,11 @@
   #if !defined(CONFIG_SMP) && \
       !(defined(__BOOT_KERNEL_SMP) && (__BOOT_KERNEL_SMP == 1)) && \
       !LINUX_SMP_KERNEL
-    #define GASNETI_UNI_KERNEL
+    #define GASNETI_UNI_BUILD
   #endif
 #elif defined(__FreeBSD__)
   #if !defined(SMP)
-    #define GASNETI_UNI_KERNEL
+    #define GASNETI_UNI_BUILD
   #endif
 #endif
 
@@ -124,7 +130,7 @@
     #ifdef BROKEN_LINUX_ASM_ATOMIC_H
       /* some versions of the linux kernel ship with a broken atomic.h
          this code based on a non-broken version of the header */
-      #ifdef GASNETI_UNI_KERNEL
+      #ifdef GASNETI_UNI_BUILD
         #define GASNETI_LOCK ""
       #else
         #define GASNETI_LOCK "lock ; "
@@ -352,7 +358,7 @@
     */
    #error Not certain how to emit proper memory barrier assembly on your compiler.
  #endif
- #ifdef GASNETI_UNI_KERNEL
+ #ifdef GASNETI_UNI_BUILD
    #define gasneti_local_membar()
  #else
    /* Prevent both gcc and the CPU from reordering across this point.
@@ -372,7 +378,7 @@
    }
  #endif
 #elif defined(__ia64__) /* Itanium */
-    #ifdef GASNETI_UNI_KERNEL
+    #ifdef GASNETI_UNI_BUILD
       #define gasneti_local_membar()
     #else
       /* mf may cause an illegal instruction trap on uniprocessor kernel */

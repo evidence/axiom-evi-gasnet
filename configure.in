@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/08/25 09:52:03 $
-# $Revision: 1.77 $
+#     $Date: 2003/09/08 23:48:01 $
+# $Revision: 1.78 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.77 $)
+AC_REVISION($Revision: 1.78 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -434,6 +434,19 @@ AM_CONDITIONAL(HAVE_PTHREAD, test "$have_pthread" = yes)
 ## Solaris threads
 
 AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
+
+#---------------------------------------------------------------------------------------------------------------
+# Check for overrides of compile-time checks for SMPs
+GASNET_IF_ENABLED_WITH_AUTO(smp-safe, Enable build of SMP-safe libraries (default is to probe build machine),
+  [ AC_DEFINE(GASNETI_FORCE_SMP)
+    enabled_force_smp=yes
+    enabled_force_uni=no ],
+  [ AC_DEFINE(GASNETI_FORCE_UNI)
+    enabled_force_smp=no
+    enabled_force_uni=yes ],
+  [ enabled_force_uni=no 
+    enabled_force_uni=no ]
+ )
 
 #---------------------------------------------------------------------------------------------------------------
 # Configure AMUDP

@@ -31,6 +31,16 @@ option when maintaining several build trees on the same source tree).
     --enable-stats - turn on GASNet statistical collection (see usage info below)
     --enable-segment-{fast,large,everything} - select a GASNet segment 
       configuration (see the GASNet spec for more info)
+    --{enable,disable}-smp-safe - Build GASNet for an SMP or uni-processor.
+      These options are not normally necessary, since by default
+      the build machine will be probed to determine if it is an SMP.
+      However:
+      1) If you build on a uni-processor and intend to use the resulting
+         libraries on an SMP, then you MUST specify --enable-smp-safe to
+         ensure correctness.
+      2) If you build on an SMP for execution ONLY on uniprocessors, then
+         you MAY specify --disable-smp-safe for a performance improvement.
+      Currently only the Intel IA32 (Pentium family) platform uses options.
 
   Configure will detect various interesting features about your system and
 compilers, including which GASNet conduits are supported.
