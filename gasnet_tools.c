@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/04/05 06:39:38 $
- * $Revision: 1.31 $
+ *     $Date: 2003/04/06 11:22:35 $
+ * $Revision: 1.32 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -220,6 +220,7 @@ static void gasneti_serializeEnvironment(uint8_t **pbuf, int *psz) {
    * terminated with a double-null
    */
   uint8_t *buf; 
+  uint8_t *p;
   int i;
   int totalEnvSize = 0;
   for(i = 0; environ[i]; i++) 
@@ -227,7 +228,7 @@ static void gasneti_serializeEnvironment(uint8_t **pbuf, int *psz) {
   totalEnvSize++;
 
   buf = (uint8_t *)malloc(totalEnvSize);
-  uint8_t *p = buf;
+  p = buf;
   p[0] = 0;
   for(i = 0; environ[i]; i++) {
     strcpy((char*)p, environ[i]);
