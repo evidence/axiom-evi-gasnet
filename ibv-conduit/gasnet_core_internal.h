@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/08/03 19:34:09 $
- * $Revision: 1.44 $
+ *     $Date: 2004/08/03 22:20:29 $
+ * $Revision: 1.45 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -476,6 +476,7 @@ int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
   #if GASNETI_HAVE_ATOMIC_SWAP
     uint32_t old = gasneti_atomic_read(&(s->count));
     retval = (old > 0) && gasneti_atomic_swap(&(s->count), old, old - 1);
+    if (retval) gasneti_sync_reads();
   #else
     gasnetc_mutex_lock(&(s->lock), concurrent);
 
@@ -542,12 +543,17 @@ void gasnetc_spinlock_unlock(gasnetc_spinlock_t *s) {
 /* gasnetc_spinlock_try */
 GASNET_INLINE_MODIFIER(gasnetc_spinlock_try)
 int gasnetc_spinlock_try(gasnetc_spinlock_t *s) {
+  int retval;
+
   #if GASNET_DEBUG
     int tmp = gasneti_atomic_read(&(s->lock));
     gasneti_assert((tmp == GASNETC_SPINLOCK_LOCKED) || (tmp == GASNETC_SPINLOCK_UNLOCKED));
   #endif
 
-  return gasneti_atomic_swap(&(s->lock), GASNETC_SPINLOCK_UNLOCKED, GASNETC_SPINLOCK_LOCKED);
+  retval = gasneti_atomic_swap(&(s->lock), GASNETC_SPINLOCK_UNLOCKED, GASNETC_SPINLOCK_LOCKED);
+  if (retval) gasneti_sync_reads();
+
+  return retval;
 }
 
 /* gasnetc_spinlock_lock */
