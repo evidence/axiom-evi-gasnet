@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2004/10/15 01:07:31 $
-# $Revision: 1.24 $
+#     $Date: 2004/10/18 07:45:26 $
+# $Revision: 1.25 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -92,7 +92,7 @@ GetOptions (
 usage() if $opt_help;
 
 if (!@ARGV) {
-    usage (-1);
+    die "no tracefile(s) specified!\n";
 }
 
 if ($opt_output) {
@@ -238,24 +238,22 @@ sub parse_tracefile
 	    print STDERR "\b\b$percentage%";
 	    $counter = 0;
 	}
-	if (/(\S+)\s\S+\s\[([^\]]+)\]\s+\([HPGB]\)\s+(PUT|GET|BARRIER)(.*):\D+(\d+)/) { 
+	if (/^(\d+) \S+ \[([^\]]+)\] \([HPGB]\) (PUT|GET|BARRIER)([^:]*):\D+(\d+)/) { 
             ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
             # filter out lines that are not going to be in the report
             next unless $reports{$pgb};
-            if ($pgb =~ /PUT|GET/) {
+            if ($pgb =~ /^(?:PUT|GET)/) {
 	        $type = ($type =~ /_LOCAL$/) ? "LOCAL" : "GLOBAL";
             	# filter by type to increase performance
-            	next unless !$filters{$type}; 
-            } elsif ($pgb =~ /BARRIER/) {
+            	next if $filters{$type}; 
+            } elsif ($pgb =~ /^BARRIER/) {
 	        $type =~ s/^_//;
-                next unless ($type =~ /NOTIFYWAIT|WAIT/);	# discard unknowns
-                next unless !$filters{$type};
+                next unless ($type =~ /^(?:NOTIFYWAIT|WAIT)/);	# discard unknowns
+                next if $filters{$type};
                 $thread = $nodes{$thread};
             }
-        } else {
-            next;
+            push @{$data{$pgb}{$src}{$type}{$thread}}, $sz;	
 	}
-	push @{$data{$pgb}{$src}{$type}{$thread}}, $sz;	
     }
     
     print STDERR "\b\b\bdone\n";
