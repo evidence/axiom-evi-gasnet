@@ -6,9 +6,21 @@
 
   Known bugs/issues
   -----------------
-  * We are missing something when Estimate asserts da, because the outer
-  code is unaware of the fact and because will never release it.
-
+  * In a few places (where marked) we increment bucket ref counts without
+  checking whether we need to remove it from the FIFO
+  * Race condition: We call destroy_bucket() on victims pulled from the 
+  FIFO before we actually send the AM to unpin them, and we release the 
+  firehose lock before sending that AM. This means another thread could 
+  miss on that same bucket, race ahead of us and send the pin request for
+  the remote page, which would arrive before our unpin request for that page.
+  Once we commit, we need a way to prevent other threads from hitting OR missing
+  on our selected FIFO victims until we've been guaranteed our unpin request
+  has been serviced (or will be before any subsequent pin request) - this 
+  probably means blocking access to those buckets until the AMReply comes back 
+  for the unpin request - GASNet does not guarantee point-to-point ordering 
+  of AM's, and by definition, no conduit with concurrent handler execution 
+  will provide it. Perhaps a "pending unpin" state for the FIFO victims? 
+  Needs to be worked into all the cases where we might encounter one...
 */
 
 #define FHI_AVAIL(node)                                                      \
@@ -56,7 +68,7 @@ int *da;        /* dynamically-allocated array of gasnet_nodes() elements */
    Note that we can call this from the deadlock resolution case, in which case
    my_da is 1 on entry.  It is 0 otherwise.
  */
-int fhi_EstimateRemoteRequest(int my_da, node, start, end, ...)
+int fhi_EstimateRemoteRequest(int *my_da, int *da_count, node, start, end, ...)
 {
   int count;
 
@@ -68,14 +80,15 @@ inner_again:
       /* Miss, count it */
       count++;
     } else if (FH_IS_PENDING(bd) && !FH_IS_COMMITED(bd)) {
-      ++da_count;
-      if (my_da) {
+      ++(*da_count);
+      if (*my_da) {
         /* Nothing to do, we "own" da[node] */
+	gasneti_assert(da[node]);
       } else if (da[node]) {
         /* Somebody else "owns" da[node], so give up */
         return -1;
-      } else if (da_count >= SOME_LIMIT) {
-        my_da = da[node] = 1;
+      } else if (*da_count >= SOME_LIMIT) {
+        *my_da = da[node] = 1;
         gasneti_membar();
       }
       UPYL;
@@ -108,6 +121,7 @@ void fhi_PinNoLog(start, end, ...)
     } else {
       /* hit on non-pending bucket */
       ++(bd->Rrefc);
+      /* XXX: need to check if bucket is currently in FIFO and remove it if so */
     }
   }
 
@@ -116,12 +130,14 @@ void fhi_PinNoLog(start, end, ...)
   /* first claim "Free energy" */
   tmp = MIN(n_buckets, fhc_RemoteBucketsM - fhc_RemoteBucketsUsed[node]);
   n_buckets -= tmp;
-  fhc_RemoveBucketsUsed[node] += tmp;
+  fhc_RemoteBucketsUsed[node] += tmp;
 
   /* second claim needed FIFO buckets */
-  gasneti_assert(n_buckets <= fhc_RemoteVictimFifoBuckets[node]);
-  unpin_p->n_regions = fhi_FreeVictimRemote(node, n_buckets, &(unpin_p->regions));
-  fhc_RemoteVictimFifoBuckets[node] -= n_buckets;
+  if (n_buckets > 0) {
+    gasneti_assert(n_buckets <= fhc_RemoteVictimFifoBuckets[node]);
+    unpin_p->n_regions = fhi_FreeVictimRemote(node, n_buckets, &(unpin_p->regions));
+    fhc_RemoteVictimFifoBuckets[node] -= n_buckets;
+  }
 }
 
 /* Get as much as we can, knowing it won't be enough: */
@@ -135,8 +151,14 @@ uintptr_t fhi_PinWithLog(node, n_avail, start, end...)
 
     if (bd) {
       /* hit */
-      if (IS_PENDING(bd)) gasneti_assert(IS_COMMITTED(bd));
+      if (IS_PENDING(bd)) {
+        /* must be committed because we EstimateRemoteRequests ensures
+	   we never see pending uncommitted buckets on the (only) call to fhi_PinWithLog
+	 */
+        gasneti_assert(IS_COMMITTED(bd));
+      }
       ++(bd->Rrefc);
+      /* XXX: need to check if bucket is currently in FIFO and remove it if so */
     } else if (n_avail) {
       /* miss w/ resources still available */
       consume_one_bucket(node, unpin_p);
@@ -167,6 +189,7 @@ uintptr_t fhi_PinSomeMore(node, n_avail, saved_addr, end, ...)
         return bucket_addr;
       }
       ++(bd->Rrefc);
+      /* XXX: need to check if bucket is currently in FIFO and remove it if so */
     } else if (n_avail) {
       /* miss w/ resources still available */
       consume_one_bucket(node, unpin_p);
@@ -200,7 +223,7 @@ int fhi_RevalidateResources(node, unpin_p)
     }
   }
 
-  retutn 1;
+  return 1;
 }
 
 /* XXX: Not yet discussed as a group */
@@ -213,6 +236,9 @@ void fhi_rollback(node, start, saved_addr, pin_p, unpin_p, ...)
     gasneti_assert(bd != NULL);
 
     if (IS_PENDING(bd) && !IS_COMMITTED(bd)) {
+      /* we must have created this pending uncommitted bucket, 
+         because it falls within the "handled" range
+       */
       destroy_bucket(bd);
     } else {
       /* decrement Rrefc and perhaps send to FIFO */
@@ -251,12 +277,14 @@ void fhi_commit(node, start, end, pin_p, unpin_p,...)
     gasneti_assert(bd != NULL);
     gasneti_assert(bd->Rrefc == 1);
     destroy_bucket(bd);
+    /* DOB: there is a race condition here (see above) */
   }
 }
 
-int fhi_SomePartOfRemotePin(...)
+void fhi_SomePartOfRemotePin(...)
 {
   int da_count = 0;
+  int my_da = 0;
   int n_buckets, n_avail;
   uintptr_t end = start + (len - 1);
   uintptr_t saved_addr;
@@ -264,8 +292,9 @@ int fhi_SomePartOfRemotePin(...)
   FH_LOCK;
 outer_again:
   while(da[node]) { UPYL; }  /* stall for deadlock to end */
-  n_buckets = fhi_EstimateRemoteRequest(0, node, start, end,...);
-  if (n_buckets < 0) continue;        /* other thread asserted da[node] */
+  n_buckets = fhi_EstimateRemoteRequest(&my_da, &da_count, node, start, end,...);
+  if (my_da) { gasneti_assert(da[node]); goto won_da; } /* this thread asserted da[node] */
+  if (n_buckets < 0) goto outer_again;        /* other thread asserted da[node] */
 
   n_avail = FHI_AVAIL(node);
   if (n_buckets <= n_avail) {
@@ -279,6 +308,7 @@ outer_again:
       da_count++;
 
       if_pf(da[node]) {
+	gasneti_assert(!my_da);
         fhi_rollback(node, start, saved_addr, pin_p, unpin_p...);
         /* Did we want to reset da_count to 0? */
         goto outer_again;
@@ -305,21 +335,27 @@ outer_again:
     /* da_count is too high now */
     fhi_rollback(node, start, saved_addr, pin_p, unpin_p...);
     if (!da[node)) { /* WIN */
-      da[node] = 1;
+      my_da = da[node] = 1;
+won_da:
       /* Wait for sufficient resources: */
       do {
         UPYL;
-      } while (fhi_EstimateRemoteRequest(1, node, start, end,...) > FHI_AVAIL(node));
+      } while (fhi_EstimateRemoteRequest(&my_da, &da_count, node, start, end,...) > FHI_AVAIL(node));
       fhi_PinNoLog(start, end, ...);
+      da[node] = 0;
       goto done;
     } else { /* LOST */
       FH_UNLOCK;
-      return FAIL;
+      goto outer_again;
     }
   }      
 
 done:
   FH_UNLOCK;
-  SendAMRequest(...);
-  return SUCCESS;
+  if (there were any misses) {
+    SendAMRequest(...);
+  } else {
+    run request completion handler now..
+  }
+  return;
 }
