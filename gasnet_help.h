@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/07/09 02:32:59 $
- * $Revision: 1.30 $
+ *     $Date: 2004/07/15 08:06:37 $
+ * $Revision: 1.31 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -381,12 +381,12 @@ extern int gasneti_wait_mode; /* current waitmode hint */
   #define gasneti_cond_signal(pc)     gasneti_assert_zeroret(pthread_cond_signal(pc))
   #define gasneti_cond_broadcast(pc)  gasneti_assert_zeroret(pthread_cond_broadcast(pc))
   #if GASNET_DEBUG
-    #define gasneti_cond_wait(pc,pl)  do {                    \
-      gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY()); \
-      (pl)->owner = GASNETI_MUTEX_NOOWNER;                    \
-      gasneti_assert_zeroret(pthread_cond_wait(pc, pl));      \
-      gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);   \
-      (pl)->owner = GASNETI_THREADIDQUERY();                  \
+    #define gasneti_cond_wait(pc,pl)  do {                          \
+      gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY());       \
+      (pl)->owner = GASNETI_MUTEX_NOOWNER;                          \
+      gasneti_assert_zeroret(pthread_cond_wait(pc, &((pl)->lock))); \
+      gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);         \
+      (pl)->owner = GASNETI_THREADIDQUERY();                        \
     } while (0)
   #else
     #define gasneti_cond_wait(pc,pl)  gasneti_assert_zeroret(pthread_cond_wait(pc, pl))
