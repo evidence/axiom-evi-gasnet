@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMUDP/amudp_internal.h                                 $
- *     $Date: 2004/01/05 05:01:20 $
- * $Revision: 1.2 $
+ *     $Date: 2004/01/05 15:34:36 $
+ * $Revision: 1.3 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -18,6 +18,10 @@
 #endif
 #include <sockutil.h> /* for SPMD TCP stuff */
 #include <amudp.h>
+
+#if ! defined (__GNUC__) && ! defined (__attribute__)
+#define __attribute__(flags)
+#endif
 
 /* AMUDP system configuration parameters */
 #define DISABLE_STDSOCKET_REDIRECT  0   /* disable redirection of slave stdin/stdout/stderr to master */

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2004/01/05 05:01:19 $
- * $Revision: 1.13 $
+ *     $Date: 2004/01/05 15:34:34 $
+ * $Revision: 1.14 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -23,6 +23,10 @@
 #endif
 #define AMMPI_INTERNAL
 #include <ammpi.h>
+
+#if ! defined (__GNUC__) && ! defined (__attribute__)
+#define __attribute__(flags)
+#endif
 
 /* AMMPI system configuration parameters */
 #define AMMPI_MAX_RECVMSGS_PER_POLL 10  /* max number of waiting messages serviced per poll (0 for unlimited) */
