@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.1 2003/01/05 04:44:08 bonachea Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v 1.2 2003/03/29 10:48:31 bonachea Exp $
 # Description: Makefile for GASNet tests
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -24,6 +24,9 @@ tests: $(testprograms)
 	
 clean:
 	rm -f $(testprograms)
+
+distclean: 
+	rm -f Makefile
 
 # testtools is a special minimal case for an app that just uses GASNet tools
 testtools: force

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/03/26 20:51:41 $
-# $Revision: 1.13 $
+#     $Date: 2003/03/29 10:48:25 $
+# $Revision: 1.14 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -32,6 +32,7 @@ headers =                  \
 EXTRA_DIST =              \
 	config-aux        \
         README            \
+	ChangeLog	  \
 	license.txt       \
 	docs              \
         extended-ref      \
