@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/07/28 22:03:13 $
- * $Revision: 1.33 $
+ *     $Date: 2004/07/30 02:39:04 $
+ * $Revision: 1.34 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -490,6 +490,10 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 extern int gasneti_wait_mode; /* current waitmode hint */
 #define GASNETI_WAITHOOK() do {                                       \
     if (gasneti_wait_mode != GASNET_WAIT_SPIN) gasneti_sched_yield(); \
+    /* prevent optimizer from hoisting the condition check out of */  \
+    /* the enclosing spin loop - this is our way of telling the */    \
+    /* optimizer "the wholse world could change here" */              \
+    gasneti_local_compilerfence();                                    \
     gasneti_spinloop_hint();                                          \
   } while (0)
 
