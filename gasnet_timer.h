@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2004/10/11 09:58:31 $
- * $Revision: 1.27 $
+ *     $Date: 2004/10/12 11:04:51 $
+ * $Revision: 1.28 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,6 +53,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #ifdef __crayx1
     /* fix an empirically observed bug in UNICOS gettimeofday(),
        which occasionally returns ridiculously incorrect values
+       SPR 728120, fixed in kernel 2.4.34 
      */
     if_pf(retval < (((int64_t)3) << 48)) goto retry;
   #endif
