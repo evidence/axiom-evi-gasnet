@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/mpi-conduit/gasnet_core.c                       $
- *     $Date: 2004/03/31 14:18:09 $
- * $Revision: 1.42 $
+ *     $Date: 2004/04/06 16:14:56 $
+ * $Revision: 1.43 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -828,6 +828,44 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
   GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW_IFENABLED(L)-hsl->acquiretime);
 
   gasneti_mutex_unlock(&(hsl->lock));
+}
+
+extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
+  GASNETI_CHECKATTACH();
+
+  #if GASNETC_HSL_ERRCHECK
+  { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
+    gasnet_hsl_t *heldhsl = info->locksheld;
+    if (hsl->tag != GASNETC_HSL_ERRCHECK_TAGINIT && hsl->tag != GASNETC_HSL_ERRCHECK_TAGDYN)
+        gasneti_fatalerror("HSL USAGE VIOLATION: tried to gasnet_hsl_trylock() an uninitialized HSL");
+    while (heldhsl) {
+      if (heldhsl == hsl)
+        gasneti_fatalerror("HSL USAGE VIOLATION: tried to recursively gasnet_hsl_trylock() an HSL");
+      heldhsl = heldhsl->next;
+    }
+  }
+  #endif
+
+  {
+    int locked = (gasneti_mutex_trylock(&(hsl->lock)) == 0);
+
+    GASNETI_TRACE_EVENT_VAL(L, HSL_TRYLOCK, locked);
+    if (locked) {
+      #if GASNETI_STATS_OR_TRACE
+        hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+      #endif
+      #if GASNETC_HSL_ERRCHECK
+      { gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
+        hsl->islocked = 1;
+        hsl->next = info->locksheld;
+        info->locksheld = hsl;
+        hsl->timestamp = gasneti_getMicrosecondTimeStamp();
+      }
+      #endif
+    }
+
+    return locked ? GASNET_OK : GASNET_ERR_NOT_READY;
+  }
 }
 
 #if GASNETC_HSL_ERRCHECK

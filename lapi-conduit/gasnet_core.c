@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_core.c                  $
- *     $Date: 2004/03/31 14:18:08 $
- * $Revision: 1.44 $
+ *     $Date: 2004/04/06 16:14:55 $
+ * $Revision: 1.45 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1534,6 +1534,30 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
     GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW_IFENABLED(L)-hsl->acquiretime);
 
     gasnetc_spinlock_unlock(&(hsl->lock));
+}
+
+extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
+  GASNETI_CHECKATTACH();
+
+  {
+    int locked = (gasnetc_spinlock_trylock(&(hsl->lock)) == 0);
+
+    GASNETI_TRACE_EVENT_VAL(L, HSL_TRYLOCK, locked);
+    if (locked) {
+      #if GASNETI_STATS_OR_TRACE
+        hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+      #endif
+      #if GASNETC_USE_INTERRUPTS
+        /* conduits with interrupt-based handler dispatch need to add code here to
+           disable handler interrupts on _this_ thread, (if this is the outermost
+           HSL lock acquire and we're not inside an enclosing no-interrupt section)
+         */
+        #error interrupts not implemented
+      #endif
+    }
+
+    return locked ? GASNET_OK : GASNET_ERR_NOT_READY;
+  }
 }
 
 /* ------------------------------------------------------------------------------------ */

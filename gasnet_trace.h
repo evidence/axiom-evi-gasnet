@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_trace.h                                   $
- *     $Date: 2004/03/03 13:47:01 $
- * $Revision: 1.18 $
+ *     $Date: 2004/04/06 16:14:51 $
+ * $Revision: 1.19 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -549,6 +549,7 @@ extern void gasneti_trace_finish();
                                                           \
         TIME(L, HSL_LOCK, waittime)                       \
         TIME(L, HSL_UNLOCK, holdtime)                     \
+        VAL(L, HSL_TRYLOCK, success)                       \
                                                           \
         CNT(A, AMREQUEST_SHORT, cnt)                      \
         CNT(A, AMREQUEST_MEDIUM, cnt)                     \

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testhsl.c                                 $
- *     $Date: 2002/12/19 18:31:54 $
- * $Revision: 1.3 $
+ *     $Date: 2004/04/06 16:15:00 $
+ * $Revision: 1.4 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
   partner = (gasnet_mynode() + 1) % gasnet_nodes();
 
   if (argc < 2) {
-    printf("Usage: %s (errtestnum:1..15)\n", argv[0]);fflush(stdout);
+    printf("Usage: %s (errtestnum:1..16)\n", argv[0]);fflush(stdout);
     gasnet_exit(1);
   }
   {
@@ -117,6 +117,10 @@ int main(int argc, char **argv) {
         gasnet_resume_interrupts();
         goto done;
       break;
+      case 16:
+        gasnet_hsl_trylock(&lock1);
+        gasnet_hsl_trylock(&lock1);
+        break;
       default:
         MSG("bad err test num.");
         abort();
