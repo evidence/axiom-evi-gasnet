@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/03/24 23:54:48 $
- * $Revision: 1.84 $
+ *     $Date: 2005/03/30 23:33:58 $
+ * $Revision: 1.85 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -377,6 +377,9 @@ static int gasnetc_load_settings(void) {
   if (gasnetc_use_rcv_thread && !GASNETC_VAPI_RCV_THREAD) {
     gasneti_fatalerror("VAPI AM receive thread enabled by environment variable GASNET_RCV_THREAD, but was disabled at GASNet build time");
   }
+  #if GASNETC_PIN_SEGMENT
+    gasnetc_use_firehose = gasneti_getenv_yesno_withdefault("GASNET_USE_FIREHOSE", 1);
+  #endif
 
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_VAPI_RCV_THREAD)",
@@ -1567,7 +1570,7 @@ static void gasnetc_exit_body(void) {
     gasneti_sched_yield();
   }
 
-  /* Deterimine our role (master or slave) in the coordination of this shutdown */
+  /* Determine our role (master or slave) in the coordination of this shutdown */
   alarm(10);
   role = gasnetc_get_exit_role();
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/03/24 23:36:53 $
- * $Revision: 1.81 $
+ *     $Date: 2005/03/30 23:33:58 $
+ * $Revision: 1.82 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -28,6 +28,9 @@ VAPI_cq_hndl_t                          gasnetc_rcv_cq;
 VAPI_cq_hndl_t				gasnetc_snd_cq;
 size_t					gasnetc_fh_maxsz;
 int					gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
+#if GASNETC_PIN_SEGMENT
+  int					gasnetc_use_firehose = 1;
+#endif
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped types                                                                   *
@@ -73,6 +76,12 @@ typedef struct {
   /* Completion counters */
   gasnetc_counter_t		*mem_oust;	/* source memory refs outstanding */
   gasnetc_counter_t		*req_oust;	/* requests outstanding */
+
+  #if GASNETC_PIN_SEGMENT
+    /* Destination address/len for bounced GETs */
+    void			*addr;
+    size_t			len;
+  #endif
 
   /* Buffer when needed for bounced GETs or PUTs, or for an AM header */
   gasnetc_buffer_t		*buffer;
@@ -301,6 +310,20 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 	    gasneti_assert(sreq->req_oust != NULL);
 	    gasneti_assert(sreq->mem_oust == NULL);
 
+            #if GASNETC_PIN_SEGMENT
+	    /* complete bounced RMDA read, if any */
+	    if_pf (sreq->addr) {
+	      gasneti_assert(!gasnetc_use_firehose);
+	      gasneti_assert(sreq->buffer != NULL);
+	      gasneti_assert(sreq->len > 0);
+
+	      memcpy(sreq->addr, sreq->buffer, sreq->len);
+              gasneti_sync_writes();
+
+	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->buffer);
+	    }
+	    #endif
+	  
             gasnetc_counter_dec(sreq->req_oust);
 
 	    #if !GASNETC_PIN_SEGMENT
@@ -1065,6 +1088,37 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 
 /* Static helper function for RDMA */
 #if GASNETC_PIN_SEGMENT
+/* Test if a given (addr, len) is in the GASNet segment or not.
+ * Returns non-zero if starting address is outside the segment
+ * and adjusts len to describe a region that is fully out of segment.
+ * Len is unchanged if start is in the segment.
+ */
+GASNET_INLINE_MODIFIER(gasnetc_unpinned)
+int gasnetc_unpinned(uintptr_t start, size_t *len_p) {
+  size_t len = *len_p;
+  uintptr_t end = start + (len - 1);
+
+  if_pt ((start >= gasnetc_seg_start) && (end <= gasnetc_seg_end)) {
+    /* FULLY IN */
+    return 0;
+  }
+
+  if_pt ((start > gasnetc_seg_end) || (end < gasnetc_seg_start)) {
+    /* FULLY OUT */
+    return 1;
+  }
+
+  /* Partials: */
+  if (start < gasnetc_seg_start) {
+    /* Starts OUT, ends IN */
+    *len_p = gasnetc_seg_start - start;
+    return 1;
+  } else {
+    gasneti_assert(end > gasnetc_seg_end);
+    return 0;
+  }
+}
+
 GASNET_INLINE_MODIFIER(gasnetc_get_lkey)
 size_t gasnetc_get_lkey(uintptr_t start, size_t len, gasnetc_sreq_t *sreq, VAPI_sg_lst_entry_t *sg) {
   uintptr_t end = start + (len - 1);
@@ -1253,6 +1307,71 @@ static void gasnetc_do_put_zerocp(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
     nbytes -= count;
   } while (nbytes);
 }
+
+#if GASNETC_PIN_SEGMENT
+/* Helper for rdma gets: bounce buffer case */
+static void gasnetc_do_get_bounce(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
+                                  uintptr_t src, uintptr_t dst, size_t nbytes,
+                                  gasnetc_counter_t *req_oust) {
+  GASNETC_DECL_SR_DESC(sr_desc, 1);
+  gasnetc_sreq_t *sreq;
+
+  GASNETI_TRACE_EVENT_VAL(C, RDMA_GET_BOUNCE, nbytes);
+
+  gasneti_assert(nbytes != 0);
+  gasneti_assert(req_oust != NULL);
+
+  /* Use full bounce buffers until just one buffer worth of data remains */
+  while (nbytes > GASNETC_BUFSZ) {
+    sreq = gasnetc_get_sreq();
+    sreq->cep    = cep;
+    sreq->addr   = (void *)dst;
+    sreq->len    = GASNETC_BUFSZ;
+    sreq->buffer = gasnetc_get_bbuf(1);
+
+    if (GASNETC_ANY_PAR) {
+      /* We must set counters on all chunks since order of completion is uncertain */
+      sreq->req_oust = req_oust;
+      gasnetc_counter_inc(req_oust);
+    }
+
+    sr_desc->opcode      = VAPI_RDMA_READ;
+    sr_desc->remote_addr = src;
+    sr_desc->r_key       = rkey;
+
+    sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->buffer;
+    sr_desc->sg_lst_p[0].len  = GASNETC_BUFSZ;
+    sr_desc->sg_lst_p[0].lkey = gasnetc_snd_reg.lkey;
+
+    gasnetc_snd_post(sreq, sr_desc);
+
+    src += GASNETC_BUFSZ;
+    dst += GASNETC_BUFSZ;
+    nbytes -= GASNETC_BUFSZ;
+  }
+
+  /* Send out the last buffer w/ the counter (if any) advanced */
+  gasneti_assert(nbytes <= GASNETC_BUFSZ);
+
+  sreq = gasnetc_get_sreq();
+  sreq->cep      = cep;
+  sreq->addr     = (void *)dst;
+  sreq->len      = nbytes;
+  sreq->buffer   = gasnetc_get_bbuf(1);
+  sreq->req_oust = req_oust;
+  gasnetc_counter_inc(req_oust);
+
+  sr_desc->opcode      = VAPI_RDMA_READ;
+  sr_desc->remote_addr = src;
+  sr_desc->r_key       = rkey;
+
+  sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->buffer;
+  sr_desc->sg_lst_p[0].len  = nbytes;
+  sr_desc->sg_lst_p[0].lkey = gasnetc_snd_reg.lkey;
+
+  gasnetc_snd_post(sreq, sr_desc);
+}
+#endif
 
 /* Helper for rdma gets: zero copy case */
 static void gasnetc_do_get_zerocp(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
@@ -1627,6 +1746,7 @@ extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_con
  *
  * Uses inline if possible, bounce buffers if "small enough" and the caller is planning to wait
  * for local completion.  Otherwise zero-copy is used (with firehose if the source is not pre-pinned).
+ * If firehose is disabled, then bounce buffers are used for unpinned sources.
  */
 extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
@@ -1649,6 +1769,9 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
        * We do this is because the cost of this small copy appears cheaper then the alternative logic.
        */
       gasnetc_do_put_inline(cep, rkey, src, dst, count, req_oust);
+    } else if_pf (!gasnetc_use_firehose && gasnetc_unpinned(src, &count)) {
+      /* Firehose disabled.  Use bounce buffers since src is out-of-segment */
+      gasnetc_do_put_bounce(cep, rkey, src, dst, count, req_oust);
     } else if ((count <= GASNETC_PUT_COPY_LIMIT) && (mem_oust != NULL)) {
       /* Because VAPI lacks any indication of "local" completion, the only ways to
        * implement non-bulk puts (mem_oust != NULL) are as fully blocking puts, or
@@ -1671,7 +1794,8 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
 
 /* Perform an RDMA get
  *
- * Uses bounce buffers when the destination is not pinned, zero-copy otherwise.
+ * Uses zero-copy (with firehose if the destination is not pre-pinned).
+ * If firehose is disabled, then bounce buffers are used for unpinned destinations.
  */
 extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *req_oust) {
   gasnetc_cep_t *cep = &gasnetc_cep[node];
@@ -1685,10 +1809,15 @@ extern int gasnetc_rdma_get(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     /* Loop over contiguous pinned regions on remote end */
     size_t count = nbytes;
     VAPI_rkey_t rkey;
-    VAPI_lkey_t lkey;
 
     gasnetc_get_rkey(cep, src, &count, &rkey);
-    gasnetc_do_get_zerocp(cep, rkey, src, dst, count, req_oust);
+
+    if_pf (!gasnetc_use_firehose && gasnetc_unpinned(dst, &count)) {
+      /* Firehose disabled.  Use bounce buffers since dst is out-of-segment */
+      gasnetc_do_get_bounce(cep, rkey, src, dst, count, req_oust);
+    } else {
+      gasnetc_do_get_zerocp(cep, rkey, src, dst, count, req_oust);
+    }
 
     src += count;
     dst += count;
