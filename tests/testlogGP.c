@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlogGP.c,v $
- *     $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.24 $
+ *     $Date: 2005/03/31 00:47:03 $
+ * $Revision: 1.25 $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -235,7 +235,6 @@ void get_tests(int iters, int nbytes)
     int i;
     int64_t begin, end, delay_time, loops;
     stat_struct_t st;
-    float ratio;
 
 	memset(mymem, 0, nbytes);
 

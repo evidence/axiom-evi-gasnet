@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.14 $
+ *     $Date: 2005/03/31 00:47:03 $
+ * $Revision: 1.15 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -70,7 +70,6 @@ void noop_handler(gasnet_token_t token, void *buf, size_t nbytes) {
 }
 
 void *workerthread(void *args) {
-  int fnidx;
   int mythread = (int)(intptr_t)args;
   thread_barrier();
   switch (testid) {
@@ -106,7 +105,7 @@ void *workerthread(void *args) {
           sleep(1); 
           gasnet_exit(18); 
       } else {
-        int i, junk;
+        int junk;
         int lim = MIN(MIN(MIN(gasnet_AMMaxMedium(), gasnet_AMMaxLongRequest()), gasnet_AMMaxLongReply()), TEST_SEGSZ);
         char *p = malloc(lim);
         char *peerseg = TEST_SEG(peer);

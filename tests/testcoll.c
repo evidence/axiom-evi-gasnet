@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/03/25 19:24:46 $
- * $Revision: 1.17 $
+ *     $Date: 2005/03/31 00:47:03 $
+ * $Revision: 1.18 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -413,7 +413,7 @@ void testSM_NB(int iters, gasnet_node_t root) {
 
 void testLS_NB(int iters, gasnet_node_t root) {
     const char name[] = "LOCAL/single-addr NB";
-    int i, j;
+    int j;
     int *X = test_malloc(iters*sizeof(int));
     int *Y = (int *)TEST_MYSEG() + myproc;
     gasnet_coll_handle_t *h = test_malloc(iters*sizeof(gasnet_coll_handle_t));
@@ -485,7 +485,6 @@ void testLM_NB(int iters, gasnet_node_t root) {
 
 int main(int argc, char **argv)
 {
-    int arg;
     int iters = 0;
     gasnet_node_t i;
    

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
- * $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.15 $
+ * $Date: 2005/03/31 00:47:03 $
+ * $Revision: 1.16 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -100,7 +100,6 @@ void
 monoseed_init(int num)
 {
 	int 		i;
-	uint64_t	chksum;
 
 	if (myproc % 2 == 0) {
 		_mseed = (monoseed_t *) test_malloc(sizeof(monoseed_t) * num);
@@ -198,8 +197,6 @@ void
 chksum_reph(gasnet_token_t token, 
 	void *buf, size_t nbytes, gasnet_handlerarg_t iter) 
 {
-	uint64_t	chksum;
-
 	gasnett_atomic_increment(&chksum_received);
 	assert(iter < chksum_iters && iter >= 0);
 	assert(nbytes == CHKSUM_TOTAL);
