@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testlarge.c                                 $
- *     $Date: 2004/08/02 07:52:53 $
- * $Revision: 1.18 $
+ *     $Date: 2004/08/13 00:34:38 $
+ * $Revision: 1.19 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -359,8 +359,8 @@ int main(int argc, char **argv)
         assert(((uintptr_t)msgbuf) % PAGESZ == 0);
 
         if (myproc == 0) 
-          MSG("Running %i iterations of non-bulk put/get for sizes: %i...%i\nGASNET_CONFIG:%s\n", 
-          iters, min_payload, max_payload, GASNET_CONFIG_STRING);
+          MSG("Running %i iterations of non-bulk put/get with local addresses %sside the segment for sizes: %i...%i\nGASNET_CONFIG:%s\n", 
+          iters, insegment ? "in" : "out", min_payload, max_payload, GASNET_CONFIG_STRING);
         BARRIER();
 	bulk_test(iters);
 	bulk_test_nbi(iters);
