@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2002/06/27 11:49:19 $
- * $Revision: 1.4 $
+ *     $Date: 2002/06/28 07:36:05 $
+ * $Revision: 1.5 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -218,11 +218,13 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 #ifdef TRACE
   #define GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs) \
           GASNETI_TRACE_AMSHORT(AMREQUEST_SHORT,dest,handler,numargs)
-  #define GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs) do {     \
-          gasnet_node_t temp;                                        \
-          if (gasnet_AMGetMsgSource(token,&temp) != GASNET_OK)       \
-            gasneti_fatalerror("gasnet_AMGetMsgSource() failed");    \
-          GASNETI_TRACE_AMSHORT(AMREPLY_SHORT,temp,handler,numargs); \
+  #define GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs) do {         \
+          gasnet_node_t temp;                                            \
+          if (gasnet_AMGetMsgSource(token,&temp) != GASNET_OK)           \
+            gasneti_fatalerror("gasnet_AMGetMsgSource() failed");        \
+          GASNETI_TRACE_AMSHORT(AMREPLY_SHORT,temp,handler,numargs);     \
+          GASNETI_TRACE_PRINTF(C,("AMREPLY_SHORT: Reply token: %s",      \
+                            gasneti_formatdata(&token, sizeof(token)))); \
   } while(0)
 
   #define GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs) \
@@ -232,6 +234,8 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
           if (gasnet_AMGetMsgSource(token,&temp) != GASNET_OK)                            \
             gasneti_fatalerror("gasnet_AMGetMsgSource() failed");                         \
           GASNETI_TRACE_AMMEDIUM(AMREPLY_MEDIUM,temp,handler,source_addr,nbytes,numargs); \
+          GASNETI_TRACE_PRINTF(C,("AMREPLY_MEDIUM: Reply token: %s",                      \
+                            gasneti_formatdata(&token, sizeof(token))));                  \
   } while(0)
 
   #define GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs) \
@@ -241,6 +245,8 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
           if (gasnet_AMGetMsgSource(token,&temp) != GASNET_OK)                                  \
             gasneti_fatalerror("gasnet_AMGetMsgSource() failed");                               \
           GASNETI_TRACE_AMLONG(AMREPLY_LONG,temp,handler,source_addr,nbytes,dest_addr,numargs); \
+          GASNETI_TRACE_PRINTF(C,("AMREPLY_LONG: Reply token: %s",                              \
+                            gasneti_formatdata(&token, sizeof(token))));                        \
   } while(0)
 
   #define GASNETI_TRACE_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs) \
