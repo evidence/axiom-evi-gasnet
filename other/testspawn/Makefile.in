@@ -1,0 +1,38 @@
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/testspawn/Attic/Makefile.in,v $
+#     $Date: 2005/01/18 20:49:43 $
+# $Revision: 1.1 $
+# Description: 
+# Copyright 2005, Regents of the University of California
+# Terms of use are as specified in license.txt
+
+top_builddir = @TOP_BUILDDIR@
+top_srcdir = @TOP_SRCDIR@
+SHELL = @SHELL@
+
+spawner = ssh
+#spawner = mpi
+
+srcdir = $(top_srcdir)/other/testspawn
+spawner_dir = $(top_srcdir)/other/$(spawner)-spawner
+
+srcs = $(srcdir)/testspawn.c $(spawner_dir)/gasnet_bootstrap_$(spawner).c $(top_srcdir)/gasnet_internal.c
+deps = $(top_builddir)/*.h $(top_srcdir)/*.h $(srcdir)/*.h \
+	$(top_srcdir)/other/*.h $(spawner_dir)/*.h $(top_srcdir)/extended-ref/*.h
+
+CPPFLAGS = -I$(top_builddir) -I$(top_srcdir) -I$(srcdir) -I$(top_srcdir)/other \
+	   -I$(spawner_dir) -I$(top_srcdir)/extended-ref -DGASNET_DEBUG -DGASNET_SEQ
+
+.PHONY: clean
+
+VPATH=$(srcdir):$(spawner_dir):$(top_srcdir)
+
+all: testspawn
+
+testspawn: $(srcs) $(deps) Makefile
+	$(CC) $(CFLAGS) $(CPPFLAGS) -g -o $@ $(srcs)
+
+Makefile:  $(srcdir)/Makefile.in  $(top_builddir)/config.status
+	cd $(top_builddir) && env CONFIG_FILES=other/testspawn/Makefile ./config.status
+
+clean:
+	rm -rf testspawn testspawn.exe

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/Makefile.am,v $
-#     $Date: 2005/01/15 00:23:18 $
-# $Revision: 1.15 $
+#     $Date: 2005/01/18 20:49:40 $
+# $Revision: 1.16 $
 # Description: Makefile for GASNet other 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -17,7 +17,8 @@ EXTRA_DIST =       \
 	amxtests   \
 	firehose   \
 	ssh-spawner\
-	mpi-spawner
+	mpi-spawner\
+	testspawn
 
 include_HEADERS = \
 	portable_inttypes.h
