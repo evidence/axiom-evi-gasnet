@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2003/04/10 13:08:11 $
- * $Revision: 1.6 $
+ *     $Date: 2003/05/22 04:30:12 $
+ * $Revision: 1.7 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -81,12 +81,23 @@
 #define AMMPI_MAX_LONG     65000   /* max. data transmission unit for large messages, >= 8192 */
 
 #define AMMPI_MAX_NUMHANDLERS      256  /* max. handler-table entries >= 256 */
-#define AMMPI_MAX_NUMTRANSLATIONS  256  /* max. translation-table entries >= 256 */
+#define AMMPI_INIT_NUMTRANSLATIONS 256
+#define AMMPI_MAX_NUMTRANSLATIONS  (0x7FFFFFFFu)  /* max. translation-table entries >= 256 */
 #define AMMPI_MAX_SEGLENGTH  ((uintptr_t)-1) /* max. dest_offset */
+
+typedef uint32_t ammpi_node_t;
 
 #define AMMPI_MAX_BUNDLES          255  /* max bundles that can be allocated */
 #define AMMPI_MAX_NETWORKDEPTH     1024 /* max depth we ever allow user to ask for */
 #define AMMPI_MAX_SPMDPROCS        AMMPI_MAX_NUMTRANSLATIONS  /* max SPMD procs we support */
+
+#ifdef AMMPI_DISABLE_AMTAGS 
+  /* disable the use of the AM-2.0 message tags
+     saves 8 bytes of AM header on the wire */
+  #define AMMPI_USE_AMTAGS 0
+#else
+  #define AMMPI_USE_AMTAGS 1
+#endif
 
 #define AMMPI_COLLECT_LATENCY_STATS   0 /* not yet implemented */
 /* ------------------------------------------------------------------------------------ */
@@ -103,14 +114,17 @@ typedef uint8_t handler_t;
 #ifdef AMMPI_INTERNAL
   /* Endpoint name */
   typedef struct {
-    MPI_Comm comm;
-    uint8_t id;
-    int32_t mpitag;
+    MPI_Comm mpicomm;
+    int mpirank;
+    int mpitag;
   } en_t;
 #else
   /* Placeholder for endpoint name */
   typedef struct {
-     uint8_t dummy[AMMPI_EN_T_SZ];
+    union {
+      uint8_t dummy[AMMPI_EN_T_SZ];
+      uint64_t dummy2; /* ensure good alignment */
+    } dummy3;
   } en_t;
 #endif
 
@@ -146,7 +160,9 @@ typedef enum {
 
 /* active message header & meta info fields */
 typedef struct {
-  tag_t         tag;
+  #if AMMPI_USE_AMTAGS
+    tag_t         tag;
+  #endif
 
   ammpi_flag_t  flags;
   uint8_t       systemMessageType;
@@ -164,9 +180,9 @@ typedef struct {
 typedef struct {
   int8_t handlerRunning;
   int8_t replyIssued;
-  uint8_t sourceId;       /* 0-based endpoint id of remote */
-  en_t sourceAddr;        /* address of remote */
+  ammpi_node_t sourceId;  /* 0-based endpoint id of remote */
   struct ammpi_ep *dest;  /* ep_t of endpoint that received this message */
+  en_t sourceAddr;        /* address of remote */
   } ammpi_bufstatus_t;
 
 /* active message buffer, including message and space for data payload */
@@ -177,6 +193,9 @@ typedef struct ammpi_buf {
 
   /* received requests & replies only */
   ammpi_bufstatus_t status;
+
+  /* yuk - dirty hack to enforce sizeof(ammpi_buf_t)%8 == 0 */
+  uint32_t _pad[(sizeof(ammpi_bufstatus_t)+sizeof(ammpi_msg_t))%8==0?2:1]; 
   } ammpi_buf_t;
 
 #define AMMPI_MIN_NETWORK_MSG ((int)(uintptr_t)&((ammpi_buf_t *)NULL)->_Data[0])
@@ -204,15 +223,15 @@ typedef struct {
 
 typedef void (*ammpi_handler_fn_t)();  /* prototype for handler function */
 typedef struct {
-  char inuse; /*  entry in use */
-  en_t name;  /*  remote address */
   tag_t tag;  /*  remote tag */
-  uint8_t id; /*  id in compressed table */
+  char inuse; /*  entry in use */
+  ammpi_node_t id; /*  id in compressed table */
+  en_t name;  /*  remote address */
   } ammpi_translation_t;
 
-typedef struct {
-  en_t      remoteName;   /* gives us a compacted version of the translation table */
+typedef struct { /* gives us a compacted version of the translation table */
   tag_t     tag;
+  en_t      remoteName;  
   } ammpi_perproc_info_t;
 
 typedef struct {
@@ -246,15 +265,16 @@ typedef struct ammpi_ep {
   void *segAddr;          /* Start address of EP VM segment */
   uintptr_t segLength;    /* Length of EP VM segment    */
 
-  ammpi_translation_t translation[AMMPI_MAX_NUMTRANSLATIONS]; /* translation table */
+  ammpi_translation_t *translation;  /* translation table */
+  ammpi_node_t        translationsz; /* current size of table */
   ammpi_handler_fn_t  handler[AMMPI_MAX_NUMHANDLERS]; /* handler table */
 
   ammpi_handler_fn_t controlMessageHandler;
 
   /* internal structures */
 
-  int P;     /* the number of endpoints we communicate with - also number of translations currently in use */
-  int depth; /* network depth, -1 until AM_SetExpectedResources is called */
+  ammpi_node_t totalP; /* the number of endpoints we communicate with - also number of translations currently in use */
+  int depth;           /* network depth, -1 until AM_SetExpectedResources is called */
 
   ammpi_perproc_info_t *perProcInfo; 
 
@@ -401,9 +421,9 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
   #define AM_MaxSegLength         AMMPI_MaxSegLength
   #define AM_GetTag               AMMPI_GetTag
   #define AM_SetTag               AMMPI_SetTag
-  #define AM_Map                  AMMPI_Map
-  #define AM_MapAny               AMMPI_MapAny
   #define AM_UnMap                AMMPI_UnMap
+  #define AM_GetNumTranslations   AMMPI_GetNumTranslations
+  #define AM_SetNumTranslations   AMMPI_SetNumTranslations
   #define AM_GetTranslationInuse  AMMPI_GetTranslationInuse
   #define AM_GetTranslationTag    AMMPI_GetTranslationTag
   #define AM_GetTranslationName   AMMPI_GetTranslationName
@@ -445,16 +465,17 @@ extern int AM_GetTag(ep_t ea, tag_t *tag);
 extern int AM_SetTag(ep_t ea, tag_t tag);
 
 /* Translation table */
-extern int AM_Map(ep_t ea, int index, en_t name, tag_t tag);
-extern int AM_MapAny(ep_t ea, int *index, en_t name, tag_t tag);
+/* use special hack in case en_t size is conservatively large */
+extern int AMMPI_Map(ep_t ea, int index, en_t *name, tag_t tag);
+extern int AMMPI_MapAny(ep_t ea, int *index, en_t *name, tag_t tag);
+#define AM_Map(ea, index, name, tag)    AMMPI_Map((ea), (index), &(name), (tag))
+#define AM_MapAny(ea, index, name, tag) AMMPI_Map((ea), (index), &(name), (tag))
 extern int AM_UnMap(ep_t ea, int index);
 extern int AM_GetTranslationInuse(ep_t ea, int i);
 extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag);
 extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan);
-#define AM_GetNumTranslations(ep, pntrans)  \
-  ((ep) ? ((*(pntrans) = AMMPI_MAX_NUMTRANSLATIONS), AM_OK) : AM_ERR_BAD_ARG)
-#define AM_SetNumTranslations(ep, ntrans)  \
-  ((ep) ? ((ntrans) == AMMPI_MAX_NUMTRANSLATIONS ? AM_OK : AM_ERR_RESOURCE) : AM_ERR_BAD_ARG)
+extern int AM_GetNumTranslations(ep_t ep, int *pntrans);
+extern int AM_SetNumTranslations(ep_t ep, int ntrans);
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests);
 
 /* Handler table */
@@ -483,12 +504,12 @@ extern int AM_Poll(eb_t bundle);
    These six functions do all requests and replies.
    Macros below expand all the variants */
 
-extern int AMMPI_Request(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMMPI_Request(ep_t request_endpoint, ammpi_node_t reply_endpoint, handler_t handler, 
                          int numargs, ...);
-extern int AMMPI_RequestI (ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMMPI_RequestI (ep_t request_endpoint, ammpi_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, ...);
-extern int AMMPI_RequestXfer(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMMPI_RequestXfer(ep_t request_endpoint, ammpi_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async,
                           int numargs, ...);
@@ -503,12 +524,12 @@ extern int AMMPI_ReplyXfer(void *token, handler_t handler,
                           int numargs, ...);
 
 /* alternate forms that take va_list ptr to support GASNet */
-extern int AMMPI_RequestVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMMPI_RequestVA(ep_t request_endpoint, ammpi_node_t reply_endpoint, handler_t handler, 
                          int numargs, va_list argptr);
-extern int AMMPI_RequestIVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMMPI_RequestIVA(ep_t request_endpoint, ammpi_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, va_list argptr);
-extern int AMMPI_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
+extern int AMMPI_RequestXferVA(ep_t request_endpoint, ammpi_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async,
                           int numargs, va_list argptr);

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_internal.h                                 $
- *     $Date: 2003/04/10 13:08:11 $
- * $Revision: 1.8 $
+ *     $Date: 2003/05/22 04:30:12 $
+ * $Revision: 1.9 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -19,8 +19,11 @@
   #include <errno.h>
 #endif
 
+#ifdef __AMMPI_H
+#error AMMPI library files should not include ammpi.h directly
+#endif
 #define AMMPI_INTERNAL
-#include <ammpi.h> /* library files should not include ammpi.h directly */
+#include <ammpi.h>
 
 /* AMMPI system configuration parameters */
 #define AMMPI_MAX_RECVMSGS_PER_POLL 10  /* max number of waiting messages serviced per poll (0 for unlimited) */
@@ -56,8 +59,39 @@
 #ifndef MAX
 #define MAX(x,y)  ((x)>(y)?(x):(y))
 #endif
-#ifndef __ASSERT_FUNCTION /* try to get the function name from GCC */
-#define __ASSERT_FUNCTION ((const char *) 0)
+#if defined(__GNUC__) || defined(__FUNCTION__) /* try to get the function name from GCC */
+  #define __CURR_FUNCTION __FUNCTION__
+#else
+  #define __CURR_FUNCTION ((const char *) 0) /* could use __func__ for C99 compilers.. */
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Branch prediction:
+   these macros return the value of the expression given, but pass on
+   a hint that you expect the value to be true or false.
+   Use them to wrap the conditional expression in an if stmt when
+   you have strong reason to believe the branch will frequently go
+   in one direction and the branch is a bottleneck
+ */
+#ifndef PREDICT_TRUE
+  #if defined(HAVE_BUILTIN_EXPECT)
+   #define PREDICT_TRUE(exp)  __builtin_expect( (exp), 1 )
+   #define PREDICT_FALSE(exp) __builtin_expect( (exp), 0 )
+  #else
+   #define PREDICT_TRUE(exp)  (exp)
+   #define PREDICT_FALSE(exp) (exp)
+  #endif
+#endif
+
+/* if with branch prediction */
+#ifndef if_pf
+  /* cast to uintptr_t avoids warnings on some compilers about passing 
+     non-integer arguments to __builtin_expect(), and we don't use (int)
+     because on some systems this is smaller than (void*) and causes 
+     other warnings
+   */
+  #define if_pf(cond) if (PREDICT_FALSE((uintptr_t)(cond)))
+  #define if_pt(cond) if (PREDICT_TRUE((uintptr_t)(cond)))
 #endif
 
 
@@ -124,61 +158,61 @@ static char *MPI_ErrorName(int errval) {
   }
 /* ------------------------------------------------------------------------------------ */
 /* macros for returning errors that allow verbose error tracking */
-#define AMMPI_RETURN_ERR(type) do {                               \
-  if (AMMPI_VerboseErrors) {                                      \
-    fprintf(stderr, "AMMPI %s returning an error code: AM_ERR_%s (%s)\n"  \
-      "  at %s:%i\n"                                              \
-      ,(__ASSERT_FUNCTION ? __ASSERT_FUNCTION : "")               \
-      , #type, AMMPI_ErrorDesc(AM_ERR_##type), __FILE__, __LINE__);  \
-    fflush(stderr);                                               \
-    }                                                             \
-  return AM_ERR_ ## type;                                         \
+#define AMMPI_RETURN_ERR(type) do {                                      \
+  if (AMMPI_VerboseErrors) {                                             \
+    fprintf(stderr, "AMMPI %s returning an error code: AM_ERR_%s (%s)\n" \
+      "  at %s:%i\n"                                                     \
+      ,(__CURR_FUNCTION ? __CURR_FUNCTION : "")                          \
+      , #type, AMMPI_ErrorDesc(AM_ERR_##type), __FILE__, __LINE__);      \
+    fflush(stderr);                                                      \
+    }                                                                    \
+  return AM_ERR_ ## type;                                                \
   } while (0)
-#define AMMPI_RETURN_ERRF(type, fromfn) do {                      \
-  if (AMMPI_VerboseErrors) {                                      \
-    fprintf(stderr, "AMMPI %s returning an error code: AM_ERR_%s (%s)\n"  \
-      "  from function %s\n"                                      \
-      "  at %s:%i\n"                                              \
-      ,(__ASSERT_FUNCTION ? __ASSERT_FUNCTION : "")               \
-      , #fromfn, #type, AMMPI_ErrorDesc(AM_ERR_##type), __FILE__, __LINE__);  \
-    fflush(stderr);                                               \
-    }                                                             \
-  return AM_ERR_ ## type;                                         \
+#define AMMPI_RETURN_ERRF(type, fromfn) do {                                 \
+  if (AMMPI_VerboseErrors) {                                                 \
+    fprintf(stderr, "AMMPI %s returning an error code: AM_ERR_%s (%s)\n"     \
+      "  from function %s\n"                                                 \
+      "  at %s:%i\n"                                                         \
+      ,(__CURR_FUNCTION ? __CURR_FUNCTION : "")                              \
+      , #fromfn, #type, AMMPI_ErrorDesc(AM_ERR_##type), __FILE__, __LINE__); \
+    fflush(stderr);                                                          \
+    }                                                                        \
+  return AM_ERR_ ## type;                                                    \
   } while (0)
-#define AMMPI_RETURN_ERRFR(type, fromfn, reason) do {             \
-  if (AMMPI_VerboseErrors) {                                      \
-    fprintf(stderr, "AMMPI %s returning an error code: AM_ERR_%s (%s)\n"  \
-      "  from function %s\n"                                      \
-      "  at %s:%i\n"                                              \
-      "  reason: %s\n"                                            \
-      ,(__ASSERT_FUNCTION ? __ASSERT_FUNCTION : "")               \
-      , #type, AMMPI_ErrorDesc(AM_ERR_##type), #fromfn, __FILE__, __LINE__, reason);  \
-    fflush(stderr);                                               \
-    }                                                             \
-  return AM_ERR_ ## type;                                         \
+#define AMMPI_RETURN_ERRFR(type, fromfn, reason) do {                                \
+  if (AMMPI_VerboseErrors) {                                                         \
+    fprintf(stderr, "AMMPI %s returning an error code: AM_ERR_%s (%s)\n"             \
+      "  from function %s\n"                                                         \
+      "  at %s:%i\n"                                                                 \
+      "  reason: %s\n"                                                               \
+      ,(__CURR_FUNCTION ? __CURR_FUNCTION : "")                                      \
+      , #type, AMMPI_ErrorDesc(AM_ERR_##type), #fromfn, __FILE__, __LINE__, reason); \
+    fflush(stderr);                                                                  \
+    }                                                                                \
+  return AM_ERR_ ## type;                                                            \
   } while (0)
 
 /* make an MPI call - if it fails, print error message and return */
-#define MPI_SAFE(fncall) do {     \
-   int retcode = (fncall);        \
-   if (retcode != MPI_SUCCESS) {  \
-     char msg[1024];              \
+#define MPI_SAFE(fncall) do {                                                                     \
+   int retcode = (fncall);                                                                        \
+   if_pf (retcode != MPI_SUCCESS) {                                                               \
+     char msg[1024];                                                                              \
      sprintf(msg, "\nAMMPI encountered an MPI Error: %s(%i)\n", MPI_ErrorName(retcode), retcode); \
-     AMMPI_RETURN_ERRFR(RESOURCE, fncall, msg);        \
-   }                              \
+     AMMPI_RETURN_ERRFR(RESOURCE, fncall, msg);                                                   \
+   }                                                                                              \
  } while (0)
 
 /* make an MPI call - 
  * if it fails, print error message and value of expression is FALSE, 
  * otherwise, the value of this expression will be TRUE 
  */
-#define MPI_SAFE_NORETURN(fncall) (AMMPI_VerboseErrors ? \
-      AMMPI_checkMPIreturn(fncall, #fncall,              \
-                          (__ASSERT_FUNCTION ? __ASSERT_FUNCTION : ""), __FILE__, __LINE__): \
+#define MPI_SAFE_NORETURN(fncall) (AMMPI_VerboseErrors ?                                 \
+      AMMPI_checkMPIreturn(fncall, #fncall,                                              \
+                          (__CURR_FUNCTION ? __CURR_FUNCTION : ""), __FILE__, __LINE__): \
       (fncall) == MPI_SUCCESS)
 static int AMMPI_checkMPIreturn(int retcode, const char *fncallstr, 
                                 const char *context, const char *file, int line) {
-   if (retcode != MPI_SUCCESS) {  
+   if_pf (retcode != MPI_SUCCESS) {  
      fprintf(stderr, "\nAMMPI %s encountered an MPI Error: %s(%i)\n"
                      "  at %s:%i\n", 
        context, MPI_ErrorName(retcode), retcode, file, line); 
@@ -189,15 +223,15 @@ static int AMMPI_checkMPIreturn(int retcode, const char *fncallstr,
 }
 
 /* return a possible error */
-#define AMMPI_RETURN(val) do {                                    \
-  if (AMMPI_VerboseErrors && val != AM_OK) {                      \
-    fprintf(stderr, "AMMPI %s returning an error code: %s (%s)\n"    \
-      "  at %s:%i\n"                                              \
-      ,(__ASSERT_FUNCTION ? __ASSERT_FUNCTION : "")               \
-      , AMMPI_ErrorName(val), AMMPI_ErrorDesc(val), __FILE__, __LINE__);   \
-    fflush(stderr);                                               \
-    }                                                             \
-  return val;                                                     \
+#define AMMPI_RETURN(val) do {                                           \
+  if_pf (AMMPI_VerboseErrors && val != AM_OK) {                          \
+    fprintf(stderr, "AMMPI %s returning an error code: %s (%s)\n"        \
+      "  at %s:%i\n"                                                     \
+      ,(__CURR_FUNCTION ? __CURR_FUNCTION : "")                          \
+      , AMMPI_ErrorName(val), AMMPI_ErrorDesc(val), __FILE__, __LINE__); \
+    fflush(stderr);                                                      \
+    }                                                                    \
+  return val;                                                            \
   } while (0)
 
 static int ErrMessage(char *msg, ...) {
@@ -223,7 +257,7 @@ extern int AMMPI_numBundles;
 extern eb_t AMMPI_bundles[AMMPI_MAX_BUNDLES];
 
 extern int ammpi_Initialized;
-#define AMMPI_CHECKINIT() if (!ammpi_Initialized) AMMPI_RETURN_ERR(NOT_INIT)
+#define AMMPI_CHECKINIT() if_pf (!ammpi_Initialized) AMMPI_RETURN_ERR(NOT_INIT)
 /* ------------------------------------------------------------------------------------ */
 /*  global helper functions */
 extern int AMMPI_Block(eb_t eb); 

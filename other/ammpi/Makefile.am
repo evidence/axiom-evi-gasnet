@@ -8,7 +8,7 @@ CC = @MPI_CC@
 CFLAGS = @MPI_CFLAGS@ 
 
 endianness = @ENDIANNESS@
-platform_defines = @GASNET_MACHINE_DEFINES@
+platform_defines = @GASNET_MACHINE_DEFINES@ -DAMMPI_DISABLE_AMTAGS
 platform_libraries = @LIBS@ @MPI_LIBS@
 
 INCLUDES = -I$(srcdir) ${platform_defines} $(endianness)

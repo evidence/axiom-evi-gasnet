@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_ep.c                                       $
- *     $Date: 2003/04/10 13:08:11 $
- * $Revision: 1.7 $
+ *     $Date: 2003/05/22 04:30:12 $
+ * $Revision: 1.8 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -36,10 +36,10 @@ const ammpi_stats_t AMMPI_initial_stats = /* the initial state for stats type */
 
 /* ------------------------------------------------------------------------------------ */
 extern int enEqual(en_t en1, en_t en2) {
-  if (en1.id != en2.id || en1.mpitag != en2.mpitag) return FALSE;
+  if (en1.mpirank != en2.mpirank || en1.mpitag != en2.mpitag) return FALSE;
   else {
     int result = 0;
-    MPI_SAFE(MPI_Comm_compare(en1.comm, en2.comm, &result));
+    MPI_SAFE(MPI_Comm_compare(en1.mpicomm, en2.mpicomm, &result));
     return (result == MPI_IDENT);
   }
 }
@@ -103,15 +103,20 @@ static int AMMPI_AllocateEndpointResource(ep_t ep) {
   int pid = getpid();
   assert(ep);
 
+  ep->translation = calloc(AMMPI_INIT_NUMTRANSLATIONS, sizeof(ammpi_translation_t));
+  if (ep->translation == NULL) 
+    AMMPI_RETURN_ERRFR(RESOURCE, AMMPI_AllocateEndpointResource, "out of memory");
+  ep->translationsz = AMMPI_INIT_NUMTRANSLATIONS;
+
   /* base MPI tag on pid to prevent receiving cross-talk messages sent to dead processes */
   mpitag = pid % (MPI_TAG_UB+1);
   if (mpitag == MPI_ANY_TAG) mpitag = (mpitag + 1) % (MPI_TAG_UB+1);
 
-  if (!MPI_SAFE_NORETURN(MPI_Comm_rank(currentComm, &procnum))) return FALSE;
-  ep->name.comm = currentComm;
-  ep->name.id = procnum;
+  MPI_SAFE(MPI_Comm_rank(currentComm, &procnum));
+  ep->name.mpicomm = currentComm;
+  ep->name.mpirank = procnum;
   ep->name.mpitag = mpitag;
-  if (!MPI_SAFE_NORETURN(MPI_Errhandler_set(currentComm, MPI_ERRORS_RETURN))) return FALSE;
+  MPI_SAFE(MPI_Errhandler_set(currentComm, MPI_ERRORS_RETURN));
   currentComm = MPI_COMM_NULL;
 
   return AM_OK;
@@ -122,22 +127,24 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
   int retval = TRUE;
   assert(ep);
   assert(ep->depth >= 1);
-  assert(ep->P > 0 && ep->P <= AMMPI_MAX_NUMTRANSLATIONS);
+  assert(ep->translationsz >= AMMPI_INIT_NUMTRANSLATIONS);
+  assert(ep->translationsz <= AMMPI_MAX_NUMTRANSLATIONS);
+  assert(ep->totalP <= ep->translationsz);
   assert(sizeof(ammpi_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
 
   numBufs = ep->depth;
 
   /* compressed translation table */
-  ep->perProcInfo = (ammpi_perproc_info_t *)malloc(ep->P * sizeof(ammpi_perproc_info_t));
-  assert(ep->perProcInfo);
-  memset(ep->perProcInfo, 0, ep->P * sizeof(ammpi_perproc_info_t));
+  ep->perProcInfo = (ammpi_perproc_info_t *)malloc(ep->totalP * sizeof(ammpi_perproc_info_t));
+  if (ep->perProcInfo == NULL) return FALSE;
+  memset(ep->perProcInfo, 0, ep->totalP * sizeof(ammpi_perproc_info_t));
 
   #if AMMPI_PREPOST_RECVS 
     /* setup recv buffers */
     ep->rxBuf = (ammpi_buf_t *)malloc(numBufs * sizeof(ammpi_buf_t));
-    assert(ep->rxBuf);
     ep->rxHandle = (MPI_Request *)malloc(numBufs * sizeof(MPI_Request));
-    assert(ep->rxHandle);
+    if (ep->rxBuf == NULL || ep->rxHandle == NULL) return FALSE;
+    assert(((uintptr_t)ep->rxBuf) % 8 == 0);
     ep->rxNumBufs = numBufs;
 
     { int i;
@@ -146,8 +153,9 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
       }
       for(i=0;i<numBufs;i++) {
         retval &= MPI_SAFE_NORETURN(MPI_Irecv(&ep->rxBuf[i], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
-                           MPI_ANY_SOURCE, MPI_ANY_TAG, ep->name.comm, 
+                           MPI_ANY_SOURCE, MPI_ANY_TAG, ep->name.mpicomm, 
                            &ep->rxHandle[i]));
+        assert(ep->rxHandle[i] != MPI_REQUEST_NULL);
       }
       ep->rxCurr = 0; /* oldest recv */
     }
@@ -162,7 +170,9 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
 /* ------------------------------------------------------------------------------------ */
 static int AMMPI_FreeEndpointResource(ep_t ep) {
   assert(ep);
-  /* nothing to do...*/
+  assert(ep->translation);
+  free(ep->translation);
+  ep->translation = NULL;
   return TRUE;
   }
 /* ------------------------------------------------------------------------------------ */
@@ -245,7 +255,8 @@ extern int AMMPI_AllocateSendBuffers(ep_t ep) {
   int retval = TRUE;
   assert(ep);
   assert(ep->depth >= 1);
-  assert(ep->P > 0 && ep->P <= AMMPI_MAX_NUMTRANSLATIONS);
+  assert(ep->translationsz <= AMMPI_MAX_NUMTRANSLATIONS);
+  assert(ep->totalP <= ep->translationsz);
   
   retval &= AMMPI_initSendBufferPool(&(ep->sendPool_smallRequest), ep->depth, AMMPI_MAX_SMALL_NETWORK_MSG);
   retval &= AMMPI_initSendBufferPool(&(ep->sendPool_smallReply),   ep->depth, AMMPI_MAX_SMALL_NETWORK_MSG);
@@ -490,6 +501,12 @@ extern int AM_Init() {
 
     assert(AMMPI_MPICOMM_SZ >= sizeof(MPI_Comm));
     assert(AMMPI_EN_T_SZ >= sizeof(en_t));
+    #if 0
+      #define DUMPSZ(T) printf("sizeof(" #T ")=%i\n", sizeof(T))
+      DUMPSZ(ammpi_msg_t); DUMPSZ(ammpi_buf_t); DUMPSZ(en_t); DUMPSZ(ammpi_bufstatus_t);
+    #endif 
+    assert(sizeof(ammpi_msg_t) % 4 == 0);
+    assert(sizeof(ammpi_buf_t) % 8 == 0); /* needed for payload alignment */
 
     { char *buffer;
       buffer = (char *)malloc(AMMPI_SENDBUFFER_SZ);
@@ -585,6 +602,7 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
     AMMPI_RETURN_ERRFR(RESOURCE, AM_AllocateEndpoint, "required AMMPI_SetEndpointCommunicator() has not been called");
 
   ep = (ep_t)malloc(sizeof(struct ammpi_ep));
+  if (!ep) AMMPI_RETURN_ERRFR(RESOURCE, AM_AllocateEndpoint, "out of memory");
 
   retval = AMMPI_AllocateEndpointResource(ep);
   if (retval != AM_OK) {
@@ -599,9 +617,6 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
   /* initialize ep data */
   {
     int i;
-    for (i = 0; i < AMMPI_MAX_NUMTRANSLATIONS; i++) {
-      ep->translation[i].inuse = FALSE;
-      }
     ep->handler[0] = ammpi_defaultreturnedmsg_handler;
     for (i = 1; i < AMMPI_MAX_NUMHANDLERS; i++) {
       ep->handler[i] = ammpi_unused_handler;
@@ -610,7 +625,7 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
     ep->tag = AM_NONE;
     ep->segAddr = NULL;
     ep->segLength = 0;
-    ep->P = 0; 
+    ep->totalP = 0; 
     ep->depth = -1;
 
     ep->stats = AMMPI_initial_stats;
@@ -695,43 +710,43 @@ extern int AM_MaxSegLength(uintptr_t* nbytes) {
 /*------------------------------------------------------------------------------------
  * Translation management
  *------------------------------------------------------------------------------------ */
-extern int AM_Map(ep_t ea, int index, en_t name, tag_t tag) {
+extern int AMMPI_Map(ep_t ea, int index, en_t *name, tag_t tag) {
   AMMPI_CHECKINIT();
   if (!ea) AMMPI_RETURN_ERR(BAD_ARG);
-  if (index < 0 || index >= AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(BAD_ARG);
+  if (index < 0 || index >= ea->translationsz) AMMPI_RETURN_ERR(BAD_ARG);
   if (ea->translation[index].inuse) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to re-map */
   if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
   { int result; /* check communicator */
-    MPI_SAFE(MPI_Comm_compare(name.comm, ea->name.comm, &result));
+    MPI_SAFE(MPI_Comm_compare(name->mpicomm, ea->name.mpicomm, &result));
     if (result != MPI_IDENT) AMMPI_RETURN_ERRFR(RESOURCE, AM_Map, "MPI communicator mismatch");
   }
 
   ea->translation[index].inuse = TRUE;
-  ea->translation[index].name = name;
+  ea->translation[index].name = *name;
   ea->translation[index].tag = tag;
-  ea->P++;  /* track num of translations */
+  ea->totalP++;  /* track num of translations */
   return AM_OK;
   }
 /* ------------------------------------------------------------------------------------ */
-extern int AM_MapAny(ep_t ea, int *index, en_t name, tag_t tag) {
+extern int AMMPI_MapAny(ep_t ea, int *index, en_t *name, tag_t tag) {
   AMMPI_CHECKINIT();
   if (!ea || !index) AMMPI_RETURN_ERR(BAD_ARG);
   if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
   { int result; /* check communicator */
-    MPI_SAFE(MPI_Comm_compare(name.comm, ea->name.comm, &result));
+    MPI_SAFE(MPI_Comm_compare(name->mpicomm, ea->name.mpicomm, &result));
     if (result != MPI_IDENT) AMMPI_RETURN_ERRFR(RESOURCE, AM_Map, "MPI communicator mismatch");
   }
 
   {
-    int i;
-    for (i = 0; i < AMMPI_MAX_NUMTRANSLATIONS; i++) {
+    ammpi_node_t i;
+    for (i = 0; i < ea->translationsz; i++) {
       if (!ea->translation[i].inuse) { /* use this one */
         ea->translation[i].inuse = TRUE;
-        ea->translation[i].name = name;
+        ea->translation[i].name = *name;
         ea->translation[i].tag = tag;
-        ea->P++;  /* track num of translations */
+        ea->totalP++;  /* track num of translations */
         *index = i;
         return AM_OK;
         }
@@ -743,19 +758,54 @@ extern int AM_MapAny(ep_t ea, int *index, en_t name, tag_t tag) {
 extern int AM_UnMap(ep_t ea, int index) {
   AMMPI_CHECKINIT();
   if (!ea) AMMPI_RETURN_ERR(BAD_ARG);
-  if (index < 0 || index >= AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(BAD_ARG);
+  if (index < 0 || index >= ea->translationsz) AMMPI_RETURN_ERR(BAD_ARG);
   if (!ea->translation[index].inuse) AMMPI_RETURN_ERR(RESOURCE); /* not mapped */
   if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to unmap after call to AM_SetExpectedResources */
 
   ea->translation[index].inuse = FALSE;
-  ea->P--;  /* track num of translations */
+  ea->totalP--;  /* track num of translations */
   return AM_OK;
   }
+/* ------------------------------------------------------------------------------------ */
+extern int AM_GetNumTranslations(ep_t ea, int *pntrans) {
+  AMMPI_CHECKINIT();
+  if (!ea) AMMPI_RETURN_ERR(BAD_ARG);
+  assert(ea->translationsz <= AMMPI_MAX_NUMTRANSLATIONS);
+  *(pntrans) = ea->translationsz;
+  return AM_OK;
+}
+/* ------------------------------------------------------------------------------------ */
+extern int AM_SetNumTranslations(ep_t ea, int ntrans) {
+  ammpi_translation_t *temp;
+  ammpi_node_t i;
+  AMMPI_CHECKINIT();
+  if (!ea) AMMPI_RETURN_ERR(BAD_ARG);
+  if (ntrans < 0 || ntrans > AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(RESOURCE);
+  if (ntrans < AMMPI_INIT_NUMTRANSLATIONS) /* don't shrink beyond min value */
+    ntrans = AMMPI_INIT_NUMTRANSLATIONS;
+  if (ntrans == ea->translationsz) return AM_OK; /* no change */
+  if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to change translationsz after call to AM_SetExpectedResources */
+
+  for (i = ntrans; i < ea->translationsz; i++) {
+    if (ea->translation[i].inuse) 
+      AMMPI_RETURN_ERR(RESOURCE); /* it's an error to truncate away live maps */
+  }
+  temp = calloc(sizeof(ammpi_translation_t), ntrans);
+  if (!temp) AMMPI_RETURN_ERR(RESOURCE);
+  /* we may be growing or truncating the table */
+  memcpy(temp, ea->translation, 
+         sizeof(ammpi_translation_t)*MIN(ea->translationsz,ntrans));
+  free(ea->translation);
+  ea->translation = temp;
+  ea->translationsz = ntrans;
+
+  return AM_OK;
+}
 /* ------------------------------------------------------------------------------------ */
 extern int AM_GetTranslationInuse(ep_t ea, int i) {
   AMMPI_CHECKINIT();
   if (!ea) AMMPI_RETURN_ERR(BAD_ARG);
-  if (i < 0 || i >= AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(BAD_ARG);
+  if (i < 0 || i >= ea->translationsz) AMMPI_RETURN_ERR(BAD_ARG);
 
   if (ea->translation[i].inuse) return AM_OK; /* in use */
   else return AM_ERR_RESOURCE; /* don't complain here - it's a common case */
@@ -764,7 +814,7 @@ extern int AM_GetTranslationInuse(ep_t ea, int i) {
 extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag) {
   AMMPI_CHECKINIT();
   if (!ea || !tag) AMMPI_RETURN_ERR(BAD_ARG);
-  if (i < 0 || i >= AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(BAD_ARG);
+  if (i < 0 || i >= ea->translationsz) AMMPI_RETURN_ERR(BAD_ARG);
   if (!ea->translation[i].inuse) AMMPI_RETURN_ERR(RESOURCE);
 
   (*tag) = ea->translation[i].tag;
@@ -774,7 +824,7 @@ extern int AM_GetTranslationTag(ep_t ea, int i, tag_t *tag) {
 extern int AMMPI_SetTranslationTag(ep_t ea, int index, tag_t tag) {
   AMMPI_CHECKINIT();
   if (!ea) AMMPI_RETURN_ERR(BAD_ARG);
-  if (index < 0 || index >= AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(BAD_ARG);
+  if (index < 0 || index >= ea->translationsz) AMMPI_RETURN_ERR(BAD_ARG);
   if (!ea->translation[index].inuse) AMMPI_RETURN_ERR(RESOURCE); /* can't change tag if not mapped */
 
   ea->translation[index].tag = tag;
@@ -789,7 +839,7 @@ extern int AMMPI_SetTranslationTag(ep_t ea, int index, tag_t tag) {
 extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan) {
   AMMPI_CHECKINIT();
   if (!ea || !gan) AMMPI_RETURN_ERR(BAD_ARG);
-  if (i < 0 || i >= AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(BAD_ARG);
+  if (i < 0 || i >= ea->translationsz) AMMPI_RETURN_ERR(BAD_ARG);
   if (!ea->translation[i].inuse) AMMPI_RETURN_ERR(RESOURCE);
 
   (*gan) = ea->translation[i].name; 
@@ -802,7 +852,7 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
   if (!ea) AMMPI_RETURN_ERR(BAD_ARG);
   if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to call AM_SetExpectedResources again */
   /* n_endpoints ignored */
-  /*if (n_endpoints < 1 || n_endpoints >= AMMPI_MAX_NUMTRANSLATIONS) AMMPI_RETURN_ERR(BAD_ARG);*/
+  /*if (n_endpoints < 1 || n_endpoints >= ea->translationsz) AMMPI_RETURN_ERR(BAD_ARG);*/
   if (n_outstanding_requests < 1 || n_outstanding_requests > AMMPI_MAX_NETWORKDEPTH) AMMPI_RETURN_ERR(BAD_ARG);
 
   ea->depth = n_outstanding_requests;
@@ -810,16 +860,15 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
   if (!AMMPI_AllocateEndpointBuffers(ea)) retval = AM_ERR_RESOURCE;
 
   /*  compact a copy of the translation table into our perproc info array */
-  {
-    int procid = 0;
-    int i;
-    for (i=0; i < AMMPI_MAX_NUMTRANSLATIONS; i++) {
+  { ammpi_node_t procid = 0;
+    ammpi_node_t i;
+    for (i=0; i < ea->translationsz; i++) {
       if (ea->translation[i].inuse) {
         ea->perProcInfo[procid].remoteName = ea->translation[i].name;
         ea->perProcInfo[procid].tag = ea->translation[i].tag;
-        ea->translation[i].id = (uint8_t)procid;
+        ea->translation[i].id = procid;
         procid++;
-        if (procid == ea->P) break; /*  should have all of them now */
+        if (procid == ea->totalP) break; /*  should have all of them now */
         }
       }
     }
@@ -917,8 +966,17 @@ extern int AM_GetDestEndpoint(void *token, ep_t *endp) {
 extern int AM_GetMsgTag(void *token, tag_t *tagp) {
   AMMPI_CHECKINIT();
   if (!token || !tagp) AMMPI_RETURN_ERR(BAD_ARG);
-  
-  *tagp = ((ammpi_buf_t *)token)->Msg.tag;
+
+  #if AMMPI_USE_AMTAGS
+    *tagp = ((ammpi_buf_t *)token)->Msg.tag;
+  #else
+    #if DEBUG_VERBOSE
+    { static int first = 1;
+      if (first) { first = 0; printf(stderr,"WARNING: AM_GetMsgTag called when AM tags disabled (AMMPI_DISABLE_AMTAGS)\n");}
+    }
+    #endif
+    *tagp = ((ammpi_buf_t *)token)->status.dest->tag;
+  #endif
   return AM_OK;
   }
 /* ------------------------------------------------------------------------------------ */

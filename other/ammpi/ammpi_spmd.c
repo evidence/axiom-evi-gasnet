@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi_spmd.c                                     $
- *     $Date: 2003/04/10 13:08:11 $
- * $Revision: 1.7 $
+ *     $Date: 2003/05/22 04:30:12 $
+ * $Revision: 1.8 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -97,7 +97,7 @@ static void flushStreams(char *context) {
 /* ------------------------------------------------------------------------------------ */
 extern char *AMMPI_enStr(en_t en, char *buf) {
   assert(buf);
-  sprintf(buf, "(%i)", en.id);
+  sprintf(buf, "(%i)", en.mpirank);
   return buf;
   }
 extern char *AMMPI_tagStr(tag_t tag, char *buf) {
@@ -165,6 +165,23 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
   assert(AMMPI_SPMDNUMPROCS > 0);
   assert(AMMPI_SPMDMYPROC >= 0 && AMMPI_SPMDMYPROC < AMMPI_SPMDNUMPROCS);
 
+  { /* check job size */
+    int temp, maxtranslations = 0;
+    if (AMMPI_SPMDNUMPROCS > AMMPI_MAX_SPMDPROCS) {
+      ErrMessage("Too many MPI nodes: %d (max is %d)", AMMPI_SPMDNUMPROCS, AMMPI_MAX_SPMDPROCS);
+      AMMPI_RETURN_ERR(RESOURCE);
+    }
+    temp = AM_MaxNumTranslations(&maxtranslations);
+    if (temp != AM_OK) {
+      ErrMessage("Failed to AM_MaxNumTranslations() in AMMPI_SPMDStartup");
+      AMMPI_RETURN(temp);
+    } else if (AMMPI_SPMDNUMPROCS > maxtranslations) {
+      ErrMessage("Too many nodes: AM_MaxNumTranslations (%d) less than number of MPI nodes (%d)",
+              maxtranslations, AMMPI_SPMDNUMPROCS);
+      AMMPI_RETURN_ERR(RESOURCE);
+    }
+  }
+
   #if DEBUG_VERBOSE
     fprintf(stderr, "slave %i/%i starting...\n", AMMPI_SPMDMYPROC, AMMPI_SPMDNUMPROCS);
     fflush(stderr);
@@ -207,7 +224,7 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
     }
   }
   
-  { int i;
+  { int i, temp;
     en_t *namebuf = malloc(sizeof(en_t)*AMMPI_SPMDNUMPROCS);
     tag_t *tagbuf = malloc(sizeof(tag_t)*AMMPI_SPMDNUMPROCS);
 
@@ -221,8 +238,13 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
                            AMMPI_SPMDMPIComm));
 
     /* setup translation table */
+    temp = AM_SetNumTranslations(AMMPI_SPMDEndpoint, AMMPI_SPMDNUMPROCS);
+    if (temp != AM_OK) {
+      ErrMessage("Failed to AM_SetNumTranslations() in AMMPI_SPMDStartup");
+      AMMPI_RETURN(temp);
+    }
     for (i = 0; i < AMMPI_SPMDNUMPROCS; i++) {
-      int temp = AM_Map(AMMPI_SPMDEndpoint, i, namebuf[i], tagbuf[i]);
+      temp = AM_Map(AMMPI_SPMDEndpoint, i, namebuf[i], tagbuf[i]);
       if (temp != AM_OK) {
         ErrMessage("Failed to AM_Map() in AMMPI_SPMDStartup");
         AMMPI_RETURN(temp);
