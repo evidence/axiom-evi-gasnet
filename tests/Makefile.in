@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2004/09/27 09:53:03 $
-# $Revision: 1.43 $
+#     $Date: 2004/10/22 21:24:55 $
+# $Revision: 1.44 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -84,6 +84,7 @@ TEST_PARAMS=                    \
    testlogGP_args="1000 8 65536";\
    testthreads_args="-a 2";	\
    testmisc_nodes="1";		\
+   testbarrierconf_nodes="3";	\
    $(EXTRA_PARAMS)
 
 # omit tests that are supposed to fail or known to cause failures
