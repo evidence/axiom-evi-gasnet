@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spawn.cpp,v $
- *     $Date: 2004/09/19 08:30:35 $
- * $Revision: 1.5 $
+ *     $Date: 2004/10/04 16:47:52 $
+ * $Revision: 1.6 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -195,7 +195,7 @@ int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
       }
     else {  /*  this is the child - exec the new process */
       #if AMUDP_DEBUG_VERBOSE
-       printf("system(%s)\n", cmd2);
+       printf("system(%s)\n", cmd2); fflush(stdout);
       #endif
       if (system(cmd2) == -1) {
          printf("Failed to call system() to spawn rexec");
@@ -276,6 +276,20 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
   ssh_cmd = AMUDP_getenv_prefixed("SSH_CMD");
   if (!ssh_cmd) ssh_cmd = "ssh";
 
+  int isOpenSSH = 0; /* figure out if we're using OpenSSH */
+  { char cmdtmp[1024];
+    sprintf(cmdtmp,"%s -v 2>&1 | grep OpenSSH", ssh_cmd);
+    FILE *pop = popen(cmdtmp,"r");
+    while (!feof(pop) && !ferror(pop)) {
+      int next = fgetc(pop);
+      if (next != EOF && !isspace(next)) {
+        isOpenSSH = 1;
+        break;
+      }
+    }
+    pclose(pop);
+  }
+
   ssh_options = AMUDP_getenv_prefixed("SSH_OPTIONS");
   if (!ssh_options) ssh_options = "";
 
@@ -314,20 +328,21 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
    ssh_server[end-p] = '\0'; 
 
    /* build the ssh command */
-   sprintf(cmd2, "%s -f %s %s %s %s \" %s cd '%s' ; %s\" "
-     " || ( echo \"ssh connection to %s failed.\" ; kill %i ) "
+   sprintf(cmd2, "%s %s %s %s %s %s \" %s cd '%s' ; %s\" "
+     " || ( echo \"connection to %s failed.\" ; kill %i ) "
      "%s", 
     ssh_cmd,
 
+    (isOpenSSH?"-f":""),    /* go into background and nullify stdin */
 
     #if SSH_SUPRESSNEWKEYPROMPT
-      "-o 'StrictHostKeyChecking no'",
+      (isOpenSSH?"-o 'StrictHostKeyChecking no'":""),
     #else 
       "",
     #endif
 
     #if SSH_PREVENTRSHFALLBACK
-      "-o 'FallBackToRsh no'",
+      (isOpenSSH?"-o 'FallBackToRsh no'":""),
     #else 
       "",
     #endif
@@ -346,10 +361,10 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
      );
 
    #if AMUDP_DEBUG_VERBOSE
-     printf("system(%s)\n", cmd2);
+     printf("system(%s)\n", cmd2); fflush(stdout);
    #endif
    if (system(cmd2) == -1) {
-     printf("Failed to call system() to spawn ssh");
+     printf("Failed to call system() to spawn");
      return FALSE;
      }
    if (*end) p = end+1;
@@ -500,7 +515,7 @@ AMUDP_SPMDRedirectStdsockets = spawn_route_output;
 #endif
     {  /*  this is the child - exec the new process */
       #if AMUDP_DEBUG_VERBOSE
-       printf("system(%s)\n", cmd);
+       printf("system(%s)\n", cmd); fflush(stdout);
       #endif
       if (system(cmd) == -1) {
          printf("Failed while calling system() with custom spawn command:\n%s", cmd);
