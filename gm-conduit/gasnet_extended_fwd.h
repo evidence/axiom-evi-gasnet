@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2002/11/30 17:17:01 $
- * $Revision: 1.9 $
+ *     $Date: 2002/12/03 05:21:07 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -59,7 +59,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
         ( (uintptr_t)gasnete_threadinfo_cache == 0 ?               \
           ((gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache = \
             (gasnet_threadinfo_t)gasnete_mythread()) :                \
-        (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache) )
+          (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache) )
   #else
     #define GASNET_GET_THREADINFO()                   \
       ( (sizeof(gasnete_threadinfo_available) == 1) ? \

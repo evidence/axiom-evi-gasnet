@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_fwd.h                  $
- *     $Date: 2002/10/27 11:30:37 $
- * $Revision: 1.6 $
+ *     $Date: 2002/12/03 05:21:06 $
+ * $Revision: 1.7 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -49,13 +49,13 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
        it means you POST'ed in a function which made no GASNet calls that needed it */
 
   #ifdef GASNETI_LAZY_BEGINFUNCTION
-    #define GASNET_GET_THREADINFO()                                   \
-      ( (sizeof(gasnete_threadinfo_available) == 1) ?                 \
-        (gasnet_threadinfo_t)gasnete_mythread() :                     \
-        ( (uintptr_t)gasnete_threadinfo_cache == 0 ?               \
-          ((gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache = \
-            (gasnet_threadinfo_t)gasnete_mythread()) :                \
-        (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache) )
+    #define GASNET_GET_THREADINFO()                              \
+      ( (sizeof(gasnete_threadinfo_available) == 1) ?            \
+        (gasnet_threadinfo_t)gasnete_mythread() :                \
+        ( (uintptr_t)gasnete_threadinfo_cache == 0 ?             \
+          ((*(gasnet_threadinfo_t *)&gasnete_threadinfo_cache) = \
+            (gasnet_threadinfo_t)gasnete_mythread()) :           \
+          (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache) )
   #else
     #define GASNET_GET_THREADINFO()                   \
       ( (sizeof(gasnete_threadinfo_available) == 1) ? \
