@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_help.h                 $
- *     $Date: 2003/05/04 01:33:45 $
- * $Revision: 1.11 $
+ *     $Date: 2003/05/25 02:06:22 $
+ * $Revision: 1.12 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,8 +37,15 @@ extern gasnet_seginfo_t *gasnete_seginfo;
   /* TODO: mark gasnete_mythread() as a pure function for other compilers */
 #endif
 
-#ifdef GASNET_CORE_SMP
+/* gasnete_islocal() is used by put/get fns to decide whether shared memory on 
+   a given node is "local". By default this is based on comparing the nodeid to
+   the local node id, but clients can override this to remove the check overhead
+   by defining either GASNETE_PUTGET_ALWAYSLOCAL or GASNETE_PUTGET_ALWAYSREMOTE
+ */
+#if defined(GASNETE_PUTGET_ALWAYSLOCAL)
   #define gasnete_islocal(nodeid) (1) /* always local */
+#elif defined(GASNETE_PUTGET_ALWAYSREMOTE)
+  #define gasnete_islocal(nodeid) (0) /* always remote */
 #else
   #define gasnete_islocal(nodeid) (nodeid == gasnete_mynode)
 #endif

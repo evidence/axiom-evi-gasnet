@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_mmap.c                   $
- *     $Date: 2003/05/11 01:19:23 $
- * $Revision: 1.14 $
+ *     $Date: 2003/05/25 02:06:20 $
+ * $Revision: 1.15 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -355,7 +355,7 @@ void gasneti_segmentInit(uintptr_t *MaxLocalSegmentSize,
       #endif
     }
   #else /* !HAVE_MMAP */
-    #if GASNET_ALIGNED_SEGMENTS && !GASNET_CORE_SMP
+    #if GASNET_ALIGNED_SEGMENTS && !GASNET_CONDUIT_SMP
       #error bad config: dont know how to provide GASNET_ALIGNED_SEGMENTS when !HAVE_MMAP
     #endif
     /* some systems don't support mmap - find a way to determine a true max seg sz */
