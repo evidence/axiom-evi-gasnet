@@ -950,6 +950,10 @@ case $basic_machine in
 		basic_machine=i386-pc
 		os=-windows32-msvcrt
 		;;
+	x1 | x1-*)
+		basic_machine=x1-cray
+		os=-unicos
+		;;
         xps | xps100)
 		basic_machine=xps100-honeywell
 		;;
