@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2003/01/11 22:46:40 $
-# $Revision: 1.29 $
+#     $Date: 2003/01/27 15:06:42 $
+# $Revision: 1.30 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.29 $)
+AC_REVISION($Revision: 1.30 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -21,7 +21,7 @@ AC_CONFIG_AUX_DIR(config-aux)
  
 AC_CANONICAL_SYSTEM
 AC_VALIDATE_CACHED_SYSTEM_TUPLE
-AM_INIT_AUTOMAKE(GASNet, 0.2, no-define)
+AM_INIT_AUTOMAKE(GASNet, 1.0, no-define)
 
 AC_PREFIX_DEFAULT(/usr/local/gasnet)
 AM_CONFIG_HEADER(gasnet_config.h)

@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.17 2003/01/14 04:33:02 csbell Exp $
- * $Date: 2003/01/14 04:33:02 $
- * $Revision: 1.17 $
+/* $Id: gasnet_core_fwd.h,v 1.18 2003/01/27 15:06:47 bonachea Exp $
+ * $Date: 2003/01/27 15:06:47 $
+ * $Revision: 1.18 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -14,7 +14,7 @@
 #ifndef _GASNET_CORE_FWD_H
 #define _GASNET_CORE_FWD_H
 
-#define GASNET_CORE_VERSION      0.5
+#define GASNET_CORE_VERSION      1.0
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         GM
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
