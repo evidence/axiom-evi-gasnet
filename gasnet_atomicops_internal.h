@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2004/09/21 22:40:24 $
- * $Revision: 1.7 $
+ *     $Date: 2004/10/02 01:57:02 $
+ * $Revision: 1.8 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -79,7 +79,7 @@
         }
         #define GASNETI_HAVE_ATOMIC_CAS 1
       #elif defined(__ia64__)
-        #define gasneti_atomic_compare_and_swap(p,oval,nval) (gasneti_cmpxchg(p,oval,nval) == (oval))
+        #define gasneti_atomic_compare_and_swap(p,oval,nval) (gasneti_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
         #define GASNETI_HAVE_ATOMIC_CAS 1
       #endif
     #else
@@ -99,7 +99,7 @@
         #undef new
       #endif
       #ifdef cmpxchg
-        #define gasneti_atomic_compare_and_swap(p,oval,nval) (cmpxchg(p,oval,nval) == (oval))
+        #define gasneti_atomic_compare_and_swap(p,oval,nval) (cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
         #define GASNETI_HAVE_ATOMIC_CAS 1
       #endif
     #endif
