@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended/gasnet_extended_coll.h                 $
- *     $Date: 2004/06/25 20:04:18 $
- * $Revision: 1.2 $
+ *     $Date: 2004/07/07 21:59:46 $
+ * $Revision: 1.3 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -317,6 +317,7 @@ void gasnete_coll_local_broadcast(size_t count, void * const dstlist[], const vo
 	GASNETE_FAST_UNALIGNED_MEMCPY(*dstlist, src, nbytes);
 	dstlist++;
     }
+    gasneti_memsync();	/* Ensure result is visible on all threads */
 }
 
 /* Helper to perform in-memory scatter */
@@ -329,6 +330,7 @@ void gasnete_coll_local_scatter(size_t count, void * const dstlist[], const void
 	dstlist++;
 	src_addr += nbytes;
     }
+    gasneti_memsync();	/* Ensure result is visible on all threads */
 }
 
 /* Helper to perform in-memory gather */
@@ -341,6 +343,7 @@ void gasnete_coll_local_gather(size_t count, void * dst, void * const srclist[],
 	dst_addr += nbytes;
 	srclist++;
     }
+    gasneti_memsync();	/* Ensure result is visible on all threads */
 }
 
 /*---------------------------------------------------------------------------------*/
