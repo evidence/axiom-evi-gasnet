@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.32 2003/01/14 04:33:02 csbell Exp $
- * $Date: 2003/01/14 04:33:02 $
+/* $Id: gasnet_core.c,v 1.33 2003/03/10 01:10:10 csbell Exp $
+ * $Date: 2003/03/10 01:10:10 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -354,7 +354,7 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
       _gmc.segment_mmap.size = 0;
     }
     else if (segsize == (uintptr_t) _gmc.segment_mmap.size)	/* segsize == maxlocal */
-      _gmc.segment_base = (void *) _gmc.segment_mmap.size;
+      _gmc.segment_base = (void *) _gmc.segment_mmap.addr;
     else {
       if (gasnetc_munmap_segment(&_gmc.segment_mmap) != GASNET_OK)
 	      gasneti_fatalerror("could not unmap initial mmap segment");

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_firehose.c,v 1.20 2003/01/28 05:43:48 csbell Exp $
- * $Date: 2003/01/28 05:43:48 $
+/* $Id: gasnet_core_firehose.c,v 1.21 2003/03/10 01:10:10 csbell Exp $
+ * $Date: 2003/03/10 01:10:10 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -394,16 +394,17 @@ static void	gasnetc_bucket_unpin_by_list(uintptr_t *, size_t);
 /* Reference count macros */
 #define GASNETC_BDESC_REFC(bdptr) 	((bdptr)->refc_prev &                  \
 						GASNETC_BDESC_REFC_MASK)
-#define GASNETC_BDESC_REFC_INC(bdptr)	(assert(GASNETC_BDESC_REFC(bdptr) !=   \
+#define GASNETC_BDESC_REFC_INC(bdptr)	(assert(GASNETC_BDESC_REFC(bdptr) <    \
 						GASNETC_BDESC_REFC_MASK),      \
 						(bdptr)->refc_prev++)
 #define GASNETC_BDESC_REFC_DEC(bdptr)	(assert(GASNETC_BDESC_REFC(bdptr)!= 0),\
 						((bdptr)->refc_prev--))
-#define GASNETC_BDESC_REFC_SET(bdptr,v)	(bdptr)->refc_prev =                   \
-						GASNETC_BDESC_PREV(bdptr) |    \
-						(v & GASNETC_BDESC_REFC_MASK)
-#define GASNETC_BDESC_REFC_ZERO(bdptr)	((bdptr)->refc_prev =                  \
-						GASNETC_BDESC_PREV(refc))
+#define GASNETC_BDESC_REFC_SET(bdptr,v)	(bdptr)->refc_prev =                  \
+					    (GASNETC_BDESC_PREV_MASK &        \
+				    	        (bdptr)->refc_prev) |	      \
+					    (v & GASNETC_BDESC_REFC_MASK)
+#define GASNETC_BDESC_REFC_ZERO(bdptr)	((bdptr)->refc_prev &=                 \
+					    GASNETC_BDESC_PREV_MASK)
 #define GASNETC_BDESC_REFC_ISZERO(bdptr)	(GASNETC_BDESC_REFC(bdptr) == 0)
 
 /* Pointer macros */
@@ -879,7 +880,6 @@ gasnetc_bucket_trypin_by_bucket(uintptr_t bucket_addr, size_t num_buckets)
 
 				gasnetc_bucket_fifo_remove(bdesc_cur, 1);
 
-				GASNETC_BDESC_REFC_INC(bdesc_cur);
 				GASNETI_TRACE_PRINTF(C, 
 				    ("Firehose local bucket refcount=1 (%p)"
 				     " - removed from victim FIFO (count=%d)",
