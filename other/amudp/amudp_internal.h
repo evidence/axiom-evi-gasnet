@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2004/09/08 05:21:12 $
- * $Revision: 1.7 $
+ *     $Date: 2004/09/08 09:23:47 $
+ * $Revision: 1.8 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -437,8 +437,9 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
   #define ASYNC_TCP_DISABLE()            _ASYNC_TCP_DISABLE(0)
   #define ASYNC_TCP_DISABLE_IGNOREERR()  _ASYNC_TCP_DISABLE(1)
 #else
-  #define ASYNC_TCP_ENABLE()    do {} while(0)
-  #define ASYNC_TCP_DISABLE() do {} while(0)
+  #define ASYNC_TCP_ENABLE()             ((void)0)
+  #define ASYNC_TCP_DISABLE()            ((void)0)
+  #define ASYNC_TCP_DISABLE_IGNOREERR()  ((void)0)
 #endif
 //------------------------------------------------------------------------------------
 /* *** TIMING *** */
