@@ -1,12 +1,12 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2002/10/01 11:18:29 $
-# $Revision: 1.22 $
+#     $Date: 2002/10/06 03:50:18 $
+# $Revision: 1.23 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
-AC_REVISION($Revision: 1.22 $)
+AC_REVISION($Revision: 1.23 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -833,12 +833,17 @@ GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
   #include <fcntl.h>
   #include <stdio.h>
   char junk[[16384]];
+  char filename[[255]];
   int main() {
     void *ptr,*ptr2;
-    char filename[[255]];
     int fd;
-    tmpnam(filename);
-    fd = open(filename, O_RDWR | O_CREAT);
+    #if 0
+      tmpnam(filename);
+      fd = open(filename, O_RDWR | O_CREAT);
+    #else
+      strcpy(filename,"/tmp/gasnet-conftemp-XXXXXX");
+      fd = mkstemp(filename);
+    #endif
     if (fd == -1) return 1;
     if (write(fd, junk, 16384) == -1) return 2;
     ptr = mmap(0, 16384, (PROT_READ|PROT_WRITE), 
