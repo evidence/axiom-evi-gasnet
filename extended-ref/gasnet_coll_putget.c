@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2005/01/22 01:05:46 $
- * $Revision: 1.15 $
+ *     $Date: 2005/01/26 15:02:04 $
+ * $Revision: 1.16 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -637,7 +637,7 @@ extern void gasnete_coll_init(const size_t images[], size_t my_image,
     gasneti_mutex_lock(&init_lock);
     remain -= 1;
     if (remain == 0) {
-      gasneti_cond_signal(&init_cond);
+      gasneti_cond_broadcast(&init_cond);
     } else {
       do {
         gasneti_cond_wait(&init_cond, &init_lock);
