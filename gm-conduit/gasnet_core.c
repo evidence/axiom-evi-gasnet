@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.51 2004/01/21 10:08:21 bonachea Exp $
- * $Date: 2004/01/21 10:08:21 $
+/* $Id: gasnet_core.c,v 1.52 2004/01/28 16:35:00 phargrov Exp $
+ * $Date: 2004/01/28 16:35:00 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1581,7 +1581,7 @@ gasnetc_AMRequestPool_block()
  * In the case of an exchange, the data can be any size.
  */
 int	gasnetc_bootstrapGather_phase	     =   0; /* start at even phase */
-uint8_t gasnetc_bootstrapGather_buf[2][4096] = { 0 };
+uint8_t gasnetc_bootstrapGather_buf[2][4096] = { { 0 } };
 volatile int	gasnetc_bootstrapGather_recvd[2]     = { 0 };
 volatile int	gasnetc_bootstrapBroadcast_recvd[2]  = { 0 };
 volatile int	gasnetc_bootstrapGather_sent	     =   0;
