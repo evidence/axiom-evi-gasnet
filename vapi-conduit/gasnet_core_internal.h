@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_internal.h         $
- *     $Date: 2004/03/18 00:11:23 $
- * $Revision: 1.42 $
+ *     $Date: 2004/08/03 19:21:46 $
+ * $Revision: 1.43 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -320,7 +320,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   }
   #define GASNETI_HAVE_ATOMIC_SWAP 1
 #elif defined(LINUX)
-  #ifdef __i386__
+  #if defined(__i386__) || defined(__x86_64__)
     GASNET_INLINE_MODIFIER(gasneti_atomic_swap)
     int gasneti_atomic_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
       register unsigned char retval;
