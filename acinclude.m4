@@ -594,6 +594,26 @@ AC_DEFUN([GASNET_PROG_CXX], [
   AC_LANG_RESTORE
 ])
 
+dnl find working version of perl.  Checks to see if 'bytes' module is available,
+dnl and sets GASNET_PERL_BYTESFLAG to either '-Mbytes' or empty string, for
+dnl scripts that need to ward off Perl/UTF-8 issues 
+AC_DEFUN([GASNET_PROG_PERL],[
+  GASNET_PATH_PROGS(PERL, perl5 perl, perl)
+  MIN_PERL_VERSION="5.005"
+  AC_MSG_CHECKING(for perl version $MIN_PERL_VERSION or later)
+  if $PERL -e "require $MIN_PERL_VERSION;" 2>/dev/null; then
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_ERROR(cannot find perl $MIN_PERL_VERSION or later)
+  fi
+  if $PERL -Mbytes -e "exit 0" 2>/dev/null; then
+    GASNET_PERL_BYTESFLAG="-Mbytes"
+  else
+    GASNET_PERL_BYTESFLAG=
+  fi
+  AC_SUBST(GASNET_PERL_BYTESFLAG)
+])
+
 AC_DEFUN([GASNET_IFDEF],[
 AC_TRY_CPP([
 #ifndef $1
