@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2004/05/02 08:05:23 $
- * $Revision: 1.17 $
+ *     $Date: 2004/05/02 08:10:59 $
+ * $Revision: 1.18 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -316,7 +316,6 @@ SHORT_HANDLER(gasnete_done_reph,1,2,
 static void gasnete_check_config() {
   gasneti_check_config_postattach();
 
-  gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
   gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
 }
 

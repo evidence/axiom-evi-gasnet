@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/lapi-conduit/gasnet_extended.c                  $
- *     $Date: 2004/05/02 08:05:17 $
- * $Revision: 1.20 $
+ *     $Date: 2004/05/02 08:10:57 $
+ * $Revision: 1.21 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -103,7 +103,6 @@ extern gasnete_threaddata_t *gasnete_mythread() {
 static void gasnete_check_config() {
   gasneti_check_config_postattach();
 
-  gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
   gasneti_assert_always(gasnete_eopaddr_isnil(EOPADDR_NIL));
 }
 
