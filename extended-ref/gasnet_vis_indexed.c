@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_refbarrier.c                  $
- *     $Date: 2004/04/10 12:57:43 $
- * $Revision: 1.3 $
+ *     $Date: 2004/05/01 11:59:26 $
+ * $Revision: 1.4 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,6 +33,35 @@
 #endif
 #ifndef GASNETE_GETS_ALLOWS_VOLATILE_METADATA
 #define GASNETE_GETS_ALLOWS_VOLATILE_METADATA 1
+#endif
+
+/* GASNETE_LOOPING_DIMS: first level of strided performance:
+  number of non-trivial striding dimensions to support using an N deep loop nest 
+*/
+#ifndef GASNETE_LOOPING_DIMS
+  #define GASNETE_LOOPING_DIMS 8
+#endif
+
+#if defined(HPUX) && !defined(__GNUC__) && GASNETE_LOOPING_DIMS > 7
+  /* avoid bugs in HP C preprocessor */
+  #undef GASNETE_LOOPING_DIMS
+  #define GASNETE_LOOPING_DIMS 7  
+#elif defined(_CRAYT3E) && GASNETE_LOOPING_DIMS > 4
+  /* avoid bugs in Cray C compiler */
+  #undef GASNETE_LOOPING_DIMS
+  #define GASNETE_LOOPING_DIMS 4  
+#elif defined(__digital__) && !defined(__GNUC__) && GASNETE_LOOPING_DIMS > 4
+  /* avoid bugs in Compaq C optimizer */
+  #undef GASNETE_LOOPING_DIMS
+  #define GASNETE_LOOPING_DIMS 4 
+#endif
+
+/* GASNETE_DIRECT_DIMS: second level of strided performance:
+  number of non-trivial striding dimensions to support using statically allocated metadata 
+  (only affects the operation of requests with non-trivial dimensions > GASNETE_LOOPING_DIMS)
+*/
+#ifndef GASNETE_DIRECT_DIMS
+#define GASNETE_DIRECT_DIMS 15
 #endif
 
 /*---------------------------------------------------------------------------------*/
@@ -618,7 +647,6 @@ extern gasnet_handle_t gasnete_geti(gasnete_synctype_t synctype,
     GASNETE_STRIDED_HELPER_LOOP##curr                    \
     } break;
 
-#define GASNETE_DIRECT_DIMS 15
 #if GASNET_DEBUG
   #define GASNETE_CHECK_PTR(ploc, addr, strides, idx, dim) do { \
       int i;                                                    \
@@ -632,16 +660,59 @@ extern gasnet_handle_t gasnete_geti(gasnete_synctype_t synctype,
   #define GASNETE_CHECK_PTR(ploc, addr, strides, idx, dim) 
 #endif
 
+#if GASNETE_LOOPING_DIMS > 8
+#error GASNETE_LOOPING_DIMS currently ony supports <= 8
+#endif
+#if GASNETE_LOOPING_DIMS >= 8
+  #define GASNETE_STRIDED_HELPER_CASE8 GASNETE_STRIDED_HELPER_CASE(7)
+#else
+  #define GASNETE_STRIDED_HELPER_CASE8
+#endif
+#if GASNETE_LOOPING_DIMS >= 7
+  #define GASNETE_STRIDED_HELPER_CASE7 GASNETE_STRIDED_HELPER_CASE(6)
+#else
+  #define GASNETE_STRIDED_HELPER_CASE7
+#endif
+#if GASNETE_LOOPING_DIMS >= 6
+  #define GASNETE_STRIDED_HELPER_CASE6 GASNETE_STRIDED_HELPER_CASE(5)
+#else
+  #define GASNETE_STRIDED_HELPER_CASE6
+#endif
+#if GASNETE_LOOPING_DIMS >= 5
+  #define GASNETE_STRIDED_HELPER_CASE5 GASNETE_STRIDED_HELPER_CASE(4)
+#else
+  #define GASNETE_STRIDED_HELPER_CASE5
+#endif
+#if GASNETE_LOOPING_DIMS >= 4
+  #define GASNETE_STRIDED_HELPER_CASE4 GASNETE_STRIDED_HELPER_CASE(3)
+#else
+  #define GASNETE_STRIDED_HELPER_CASE4
+#endif
+#if GASNETE_LOOPING_DIMS >= 3
+  #define GASNETE_STRIDED_HELPER_CASE3 GASNETE_STRIDED_HELPER_CASE(2)
+#else
+  #define GASNETE_STRIDED_HELPER_CASE3
+#endif
+#if GASNETE_LOOPING_DIMS >= 2
+  #define GASNETE_STRIDED_HELPER_CASE2 GASNETE_STRIDED_HELPER_CASE(1)
+#else
+  #define GASNETE_STRIDED_HELPER_CASE2
+#endif
+#if GASNETE_LOOPING_DIMS >= 1
+  #define GASNETE_STRIDED_HELPER_CASE1 GASNETE_STRIDED_HELPER_CASE(0)
+#else
+  #define GASNETE_STRIDED_HELPER_CASE1
+#endif
+
 #define GASNETE_STRIDED_HELPER_CASES(limit,contiglevel)                \
-    GASNETE_STRIDED_HELPER_CASE(0)                                     \
-    GASNETE_STRIDED_HELPER_CASE(1)                                     \
-    GASNETE_STRIDED_HELPER_CASE(2)                                     \
-    GASNETE_STRIDED_HELPER_CASE(3)                                     \
-    GASNETE_STRIDED_HELPER_CASE(4)                                     \
-    GASNETE_STRIDED_HELPER_CASE(5)                                     \
-    GASNETE_STRIDED_HELPER_CASE(6)                                     \
-    /* GASNETE_STRIDED_HELPER_CASE(7)                                  \ 
-       DOB: workaround preprocessor bug in HP CC */                    \
+    GASNETE_STRIDED_HELPER_CASE1                                       \
+    GASNETE_STRIDED_HELPER_CASE2                                       \
+    GASNETE_STRIDED_HELPER_CASE3                                       \
+    GASNETE_STRIDED_HELPER_CASE4                                       \
+    GASNETE_STRIDED_HELPER_CASE5                                       \
+    GASNETE_STRIDED_HELPER_CASE6                                       \
+    GASNETE_STRIDED_HELPER_CASE7                                       \
+    GASNETE_STRIDED_HELPER_CASE8                                       \
     default: {                                                         \
       uint8_t *psrc = srcaddr;                                         \
       uint8_t *pdst = dstaddr;                                         \

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/04/10 12:57:42 $
- * $Revision: 1.23 $
+ *     $Date: 2004/05/01 11:59:25 $
+ * $Revision: 1.24 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -88,8 +88,10 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 
 /* Blocking functions */
 extern int gasneti_wait_mode; /* current waitmode hint */
-#define GASNETI_WAITHOOK() \
-  if (gasneti_wait_mode != GASNET_WAIT_SPIN) gasneti_sched_yield()
+#define GASNETI_WAITHOOK() do {                                       \
+    if (gasneti_wait_mode != GASNET_WAIT_SPIN) gasneti_sched_yield(); \
+    gasneti_spinloop_hint();                                          \
+  } while (0)
 
 /* busy-waits, with no implicit polling (cnd should include an embedded poll)
    differs from GASNET_BLOCKUNTIL because it may be waiting for an event
