@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2004/06/25 22:04:19 $
- * $Revision: 1.57 $
+ *     $Date: 2004/06/25 23:32:24 $
+ * $Revision: 1.58 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1437,7 +1437,7 @@ extern void *gasneti_extern_malloc(size_t sz) {
 extern void gasneti_extern_free(void *p) {
   gasneti_free(p);
 }
-extern void *gasneti_extern_strdup(const char *s) {
+extern char *gasneti_extern_strdup(const char *s) {
   return gasneti_strdup(s);
 }
 /* don't put anything here - malloc stuff must come last */

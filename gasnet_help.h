@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_help.h                                   $
- *     $Date: 2004/06/25 22:04:19 $
- * $Revision: 1.27 $
+ *     $Date: 2004/06/25 23:32:03 $
+ * $Revision: 1.28 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,7 +35,7 @@ extern void gasneti_unsetenv(const char *key);
 /* extern versions of gasneti_{malloc,free,strdup} for use in public headers */
 extern void *gasneti_extern_malloc(size_t sz);
 extern void gasneti_extern_free(void *p);
-extern void *gasneti_extern_strdup(const char *s);
+extern char *gasneti_extern_strdup(const char *s);
 
 #if defined(__GNUC__) || defined(__FUNCTION__)
   #define GASNETI_CURRENT_FUNCTION __FUNCTION__
