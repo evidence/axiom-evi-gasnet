@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/12/01 06:03:28 $
- * $Revision: 1.22 $
+ *     $Date: 2002/12/02 07:02:35 $
+ * $Revision: 1.23 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -365,7 +365,14 @@ extern int gasneti_VerboseErrors;
       #define GASNETI_THREADIDQUERY()   (0)
     #endif
   #endif
-  #ifdef GASNET_PAR
+  #ifndef GASNETI_FORCE_TRUE_MUTEXES
+    /* GASNETI_FORCE_TRUE_MUTEXES will force gasneti_mutex_t to always
+       use true locking (even under GASNET_SEQ config), 
+       for inherently multi-threaded conduits such as lapi-conduit
+     */
+    #define GASNETI_FORCE_TRUE_MUTEXES 0
+  #endif
+  #if defined(GASNET_PAR) || GASNETI_FORCE_TRUE_MUTEXES
     #include <pthread.h>
     typedef struct {
       pthread_mutex_t lock;
@@ -404,7 +411,7 @@ extern int gasneti_VerboseErrors;
   #define gasneti_mutex_assertlocked(pl)    assert((pl)->owner == GASNETI_THREADIDQUERY())
   #define gasneti_mutex_assertunlocked(pl)  assert((pl)->owner != GASNETI_THREADIDQUERY())
 #else
-  #ifdef GASNET_PAR
+  #if defined(GASNET_PAR) || GASNETI_FORCE_TRUE_MUTEXES
     #include <pthread.h>
     typedef pthread_mutex_t           gasneti_mutex_t;
     #define GASNETI_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER

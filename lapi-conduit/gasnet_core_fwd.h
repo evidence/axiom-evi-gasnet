@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/template-conduit/gasnet_core_fwd.h              $
- *     $Date: 2002/11/14 01:35:55 $
- * $Revision: 1.2 $
+ *     $Date: 2002/12/02 07:02:36 $
+ * $Revision: 1.3 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -25,6 +25,8 @@
  * memory guarantees heap and mmaped regions don't overlap.
  */
 #define GASNET_ALIGNED_SEGMENTS   1
+
+#define GASNETI_FORCE_TRUE_MUTEXES 1
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */
