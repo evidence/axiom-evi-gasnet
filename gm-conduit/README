@@ -1,11 +1,13 @@
 README file for gm-conduit
-================================
+=======================================
 Christian Bell <csbell@cs.berkeley.edu>
 
-This first version of the GM conduit implements the full GASNet.  Here are some
-of the highlights and quirks. .
+This first version of the GM conduit implements the full GASNet spec.  Here are
+some of the highlights and quirks. .
 
- ** Bootstrapping
+********************************************************************************
+** Bootstrapping
+
     Bootstrapping has always been a problem over Myrinet.  Myricom releases a
     better better job spawner at every MPICH release but is not quite there
     yet.  As of MPICH 1.2.4.x, MPICH/GM uses a perl script spawner to
@@ -17,7 +19,7 @@ of the highlights and quirks. .
     attempted. .
 
     1. If the included gasnetrun.pl script is used, GM port information is
-       exchanged through the spawner script.
+       exchanged through a spawning script.
     2. If the script isn't used, port information is read from
        $HOME/.gmpi/conf.  The syntax of the file is the following:
        2
@@ -28,12 +30,16 @@ of the highlights and quirks. .
        This method of bootstrapping is useful for sites which run GM port
        daemons and for debugging.
 
- ** Memory registration
+********************************************************************************
+** Memory registration
+
     The GM conduit presents a new algorithm for dealing with pinning of large
     memory spaces.  See paper at http://upc.lbl.gov/publications/ for
-    Bell, Bonachea. "A New DMA Registration Strategy for Pinning-Based High Performance
-    Networks", Workshop on Communication Architecture for Clusters (CAC'03),
-    2003.
+
+       Bell, Bonachea. "A New DMA Registration Strategy for Pinning-Based High
+       Performance Networks", Workshop on Communication Architecture for
+       Clusters (CAC'03), 2003.
+
     Memory pinning is controlled through two parameters, M and MAXVICTIM.  The
     sum of both of these parameters represents the total amount of memory that
     can be pinned locally. M is the amount put aside to satisfy remote requests
@@ -47,8 +53,11 @@ of the highlights and quirks. .
     default.  If the gasnetrun script is used, the '--fh-M' and
     '--fh-maxvictim' switches allow to set these values.
 
- ** File list
+********************************************************************************
+** File list
+
     Core files:
+    ****************************************************************************
     gasnet_core.c		Main core functions
     gasnet_core.h		Function prototypes for core
     gasnet_core_fwd.h
@@ -61,6 +70,7 @@ of the highlights and quirks. .
     gasnet_core_receive.c	GM receive/polling functions and AM reception
     
     Extended files:
+    ****************************************************************************
     gasnet_extended.c		Main extended functions, which remain
     				independent of the dynamic memory registration
     				algorithm (mostly functions to sync and access
@@ -75,7 +85,8 @@ of the highlights and quirks. .
     				AM reply handlers to plug into
     				gasnet_core_firehose.c 
     
- ** Development CVS tags/branches
+********************************************************************************
+** Development CVS tags/branches
 	GM_RENDEZVOUS:	gm-conduit specific tag, which uses a snapshot from Oct
 			2002 and implements rendezvous instead of firehose.
 			This was needed in a firehose paper showing performance
@@ -88,3 +99,59 @@ of the highlights and quirks. .
 			Note that some minor code changes might be required in
 			order to have this version of the gm-conduit compile.
 
+********************************************************************************
+** Basic Extended API Design for puts/gets
+
+	firehose_move_put
+		send AMRequest with list of new and replacement firehoses
+		at AMRequestH, pin/inc locally and send AMReply
+		at AMReplyH, update firehose table from list 
+
+	GM 1.x
+	firehose_move_get_v1 (op):
+		send AMRequest with remote source location 
+		at AMRequestH, pin/inc locally and send AMReplyAsync
+		at AMReplyH, decrement/unpin locally
+
+	GM 2.x
+	firehose_move_get_v2 (op):
+		if get hits firehose cache
+			rdma get
+			completion decrements/unpins destination
+		else
+			send AMRequest with list of new and replacement firehoses
+			at AMRequestH, pin/inc locally and send AMLongReplyAsync
+			at AMReplyH, update firehose table and 
+			    decrement/unpin locally
+	
+	put_nb/put_nbi:
+		if < GASNETE_PUT_NON_BULK_CUTOFF
+			get a pinned AM buffer (or poll until one is obtained)
+			copy source data into buffer 
+			if put hits firehose cache
+				increment firehose count
+				rdma put
+				at completion, decrement/unpin locally and
+				               decrement firehose count
+			else
+				firehose_move_put
+		else
+			use AM ref-ext
+	
+	put_nb_bulk/put_nbi_bulk:
+		if > GASNETE_PUT_NON_DMA_CUTOFF
+			pin/increment source data and/or local bucket
+			if put hits firehose cache
+				rdma put
+			else
+				firehose_move_put
+		use
+			use AM ref-ext
+	
+	get_nb/get_nbi (bulk and non-bulk):
+		if > GASNETE_GET_NON_DMA_CUTOFF
+			pin/increment destination data and/or local bucket
+			firehose_move_get
+		else
+			use AM ref-ext
+			
