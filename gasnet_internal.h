@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.h                               $
- *     $Date: 2002/09/14 11:06:35 $
- * $Revision: 1.17 $
+ *     $Date: 2002/10/04 01:33:11 $
+ * $Revision: 1.18 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -170,7 +170,7 @@ void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler);
 void gasneti_defaultSignalHandler(int sig);
 
 #ifdef HAVE_MMAP
-  extern gasnet_seginfo_t gasneti_mmap_segment_search();
+  extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz);
   extern void gasneti_mmap_fixed(void *segbase, size_t segsize);
   extern void gasneti_munmap(void *segbase, size_t segsize);
 #endif
