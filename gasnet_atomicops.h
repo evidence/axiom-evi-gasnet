@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops.h                               $
- *     $Date: 2004/08/03 17:39:31 $
- * $Revision: 1.47 $
+ *     $Date: 2004/08/05 06:32:17 $
+ * $Revision: 1.48 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -475,11 +475,6 @@
 /* portable memory barrier support */
 
 /*
- gasneti_local_memflush: 
-   Force an architectural write memory barrier (even if it the system appears to
-   be a uniprocessor).  Used to force a write flush when performing
-   memory-mapped I/O.
-
  gasneti_local_wmb:
    A local memory write barrier - ensure all stores to local mem from this thread are
    globally completed across this SMP before issuing any subsequent loads or stores.
@@ -519,8 +514,7 @@
   To reduce duplicated assembly code and needless empty macros the following are the
   default behaviors unless a given arch/compiler defines something else.
    + gasneti_compiler_fence() defaults to an empty "volatile" asm section
-   + gasneti_local_memflush() is implemented on all architectures
-   + gasneti_local_wmb() defaults to gasneti_local_memflush()
+   + gasneti_local_wmb() is implemented on all architectures
    + gasneti_local_rmb() defaults to just a compiler fence, as only a few architectures
        need more than this
    + gasneti_local_mb() defaults to { gasneti_local_wmb(); gasneti_local_rmb(); }.
@@ -555,26 +549,26 @@
 
 
 #if defined(__sparc__) || defined(__sparc) || defined(sparc)
- GASNET_INLINE_MODIFIER(gasneti_local_memflush)
- void gasneti_local_memflush(void) {
+ GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+ void gasneti_local_wmb(void) {
    GASNETI_ASM("stbar"); /* SPARC store barrier */
  }
 #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
- GASNET_INLINE_MODIFIER(gasneti_local_memflush)
- void gasneti_local_memflush(void) {
+ GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+ void gasneti_local_wmb(void) {
    GASNETI_ASM("sync");  /* MIPS II+ memory barrier */ 
  }
 #elif defined(_PA_RISC1_1) /* HP PA-RISC */
- GASNET_INLINE_MODIFIER(gasneti_local_memflush)
- void gasneti_local_memflush(void) {
+ GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+ void gasneti_local_wmb(void) {
    GASNETI_ASM("SYNC");  /* PA RISC load/store ordering */ 
  }
 #elif defined(__i386__) || defined(__i386) || defined(i386) || \
       defined(__i486__) || defined(__i486) || defined(i486) || \
       defined(__i586__) || defined(__i586) || defined(i586) || \
       defined(__i686__) || defined(__i686) || defined(i686)
-   GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-   void gasneti_local_memflush(void) {
+   GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+   void gasneti_local_wmb(void) {
      /* The instruction here can be any locked read-modify-write operation.
       * This one is chosen because it does not change any registers and is
       * available on all the Intel and clone CPUs.  Also, since it touches
@@ -588,8 +582,8 @@
      #endif
    }
 #elif defined(__x86_64__) /* Athlon/Opteron */
-   GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-   void gasneti_local_memflush(void) {
+   GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+   void gasneti_local_wmb(void) {
      GASNETI_ASM("mfence");
    }
 #elif defined(__ia64__) /* Itanium */
@@ -598,14 +592,14 @@
       #include <ia64intrin.h>
       #define gasneti_compiler_fence() \
              __memory_barrier() /* compiler optimization barrier */
-      #define gasneti_local_memflush() do {      \
+      #define gasneti_local_wmb() do {      \
         gasneti_compiler_fence();           \
         __mf();  /* memory fence instruction */  \
       } while (0)
    #else
       /* mf may cause an illegal instruction trap on uniprocessor kernel */
-      GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-      void gasneti_local_memflush(void) {
+      GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+      void gasneti_local_wmb(void) {
         GASNETI_ASM("mf");
       }
    #endif
@@ -620,11 +614,11 @@
     * opcodes can be aquired by placing the mnemonics in inline.s and running:
     * as -sinline.lst inline.s
     */ 
-   #pragma mc_func _gasneti_do_memflush { \
+   #pragma mc_func _gasneti_do_wmb { \
      "7c0004ac" /* sync (same opcode used for dcs) */ \
    }
-   #pragma reg_killed_by _gasneti_do_memflush
-   #define gasneti_local_memflush() _gasneti_do_memflush()
+   #pragma reg_killed_by _gasneti_do_wmb
+   #define gasneti_local_wmb() _gasneti_do_wmb()
 
    #pragma mc_func _gasneti_do_rmb { \
      "4c00012c" /* isync (instruction sync to squash speculative loads) */ \
@@ -636,8 +630,8 @@
    #pragma reg_killed_by _gasneti_do_compilerfence
    #define gasneti_compiler_fence() _gasneti_do_compilerfence()
  #else
-   GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-   void gasneti_local_memflush(void) {
+   GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+   void gasneti_local_wmb(void) {
      GASNETI_ASM("sync");
    }
    GASNET_INLINE_MODIFIER(_gasneti_local_rmb)
@@ -648,8 +642,8 @@
  #endif
 #elif defined(__alpha) && defined(__osf__)
  #if 1
-   GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-   void gasneti_local_memflush(void) {
+   GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+   void gasneti_local_wmb(void) {
      GASNETI_ASM("wmb");
    }
    GASNET_INLINE_MODIFIER(_gasneti_local_rmb)
@@ -666,26 +660,26 @@
    /* Use compaq C built-ins */
    /* Note this is heavier weight than required */
    #include <machine/builtins.h>
-   #define gasneti_local_memflush() __MB()
+   #define gasneti_local_wmb() __MB()
    #define gasneti_local_rmb() __MB()
    #define gasneti_local_mb() __MB()
  #endif
 #elif defined(_CRAYT3E) /* Takes care of e-regs also */
    #include <intrinsics.h>
-   #define gasneti_local_memflush() _memory_barrier()
+   #define gasneti_local_wmb() _memory_barrier()
    #define gasneti_local_rmb() _memory_barrier()
    #define gasneti_local_mb() _memory_barrier()
 #elif defined(__crayx1)
    /* Many memory barrier intrinsics on the X1, but none seem to match what we
     * need in a local (scalar-scalar) membar */
-   GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-   void gasneti_local_memflush(void) {
+   GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+   void gasneti_local_wmb(void) {
      static int volatile x;
      x = 1;
    }
 #elif defined(_SX)
-   GASNET_INLINE_MODIFIER(gasneti_local_memflush)
-   void gasneti_local_memflush(void) {
+   GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+   void gasneti_local_wmb(void) {
      /* TODO: probably need more here */
      static int volatile x;
      x = 1;
@@ -698,11 +692,6 @@
 /* Default gasneti_compiler_fence() */
 #ifndef gasneti_compiler_fence
   #define gasneti_compiler_fence() GASNETI_ASM("")
-#endif
-
-/* Default gasneti_local_wmb() */
-#ifndef gasneti_local_wmb
-  #define gasneti_local_wmb() gasneti_local_memflush()
 #endif
 
 /* Default gasneti_local_rmb() */
