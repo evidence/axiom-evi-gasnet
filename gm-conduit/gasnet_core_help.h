@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_help.h,v 1.13 2002/08/16 02:11:44 csbell Exp $
- * $Date: 2002/08/16 02:11:44 $
- * $Revision: 1.13 $
+/* $Id: gasnet_core_help.h,v 1.14 2002/08/19 01:29:19 csbell Exp $
+ * $Date: 2002/08/19 01:29:19 $
+ * $Revision: 1.14 $
  * Description: GASNet gm conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -75,7 +75,7 @@ typedef void (*gasnetc_HandlerLong)  (void *token, void *buf, int nbytes, ...);
  */
 #define GASNETC_MMAP_GRANULARITY	(4<<20)
 #define GASNETC_MMAP_INITIAL_SIZE	(2<<30)
-#define GASNETC_MMAP_DEBUG_VERBOSE	1
+#define GASNETC_MMAP_DEBUG_VERBOSE	0
 
 /* CRUST macros for Turkey Sandwich Algorithm */
 /* Actual requests for moving the Crust may return various values

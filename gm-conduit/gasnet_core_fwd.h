@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_fwd.h,v 1.8 2002/08/15 10:43:15 csbell Exp $
- * $Date: 2002/08/15 10:43:15 $
- * $Revision: 1.8 $
+/* $Id: gasnet_core_fwd.h,v 1.9 2002/08/19 01:29:19 csbell Exp $
+ * $Date: 2002/08/19 01:29:19 $
+ * $Revision: 1.9 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -27,6 +27,7 @@
 #define PAGE_SIZE	4096
 #define PAGE_SHIFT	12
 #define GASNETC_FIREHOSE
+#define GASNETC_PINNED_STACK_PAGES	40
 #define GASNETC_BUCKET_SIZE		4*PAGE_SIZE
 #define GASNETC_BUCKET_SHIFT		14
 

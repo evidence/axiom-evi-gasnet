@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.20 2002/08/16 02:11:44 csbell Exp $
- * $Date: 2002/08/16 02:11:44 $
- * $Revision: 1.20 $
+/* $Id: gasnet_core_misc.c,v 1.21 2002/08/19 01:29:19 csbell Exp $
+ * $Date: 2002/08/19 01:29:19 $
+ * $Revision: 1.21 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -268,18 +268,17 @@ gasnetc_tokensend_AMRequest(void *buf, uint32_t len,
 			    callback_ptr, dest_addr);
 			_gmc.stoks.lo += 1;
 			_gmc.stoks.total += 1;
-			gasneti_mutex_unlock(&gasnetc_lock_gm);
 			sent = 1;
 		}
-		else 
-			gasneti_mutex_unlock(&gasnetc_lock_gm);
+		gasneti_mutex_unlock(&gasnetc_lock_gm);
 	}
 }
 
 gasnetc_bufdesc_t *
 gasnetc_AMRequestPool_block() 
 {
-	int	bufd_idx = -1;
+	int			 bufd_idx = -1;
+	gasnetc_bufdesc_t	*bufd;
 
 	/* Since every AMRequest send must go through the Pool, use this
 	 * as an entry point to make progress in the Receive queue */
@@ -305,7 +304,7 @@ gasnetc_AMRequestPool_block()
 	assert(bufd_idx < _gmc.bd_list_num);
 	assert(_gmc.bd_ptr[bufd_idx].sendbuf != NULL);
 	assert(_gmc.bd_ptr[bufd_idx].id == bufd_idx);
-	return (gasnetc_bufdesc_t *) &_gmc.bd_ptr[bufd_idx];
+	return &_gmc.bd_ptr[bufd_idx];
 }
 
 /* This function is not thread safe as it is guarenteed to be called
@@ -330,7 +329,7 @@ gasnetc_SysBarrier()
 		}
 		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, BARRIER_NOTIFY);
 		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 1,
-		    gasnetc_callback_AMReply_NOP, NULL, 0);
+		    gasnetc_callback_hi, NULL, 0);
 	}
 	else {
 		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, BARRIER_GATHER);
@@ -342,7 +341,7 @@ gasnetc_SysBarrier()
 		}
 		gasnetc_gm_send_AMSystem((void *) scratchPtr, 1,
 			_gmc.gm_nodes[0].id, _gmc.gm_nodes[0].port, 
-			gasnetc_callback_AMReply_NOP, NULL);
+			gasnetc_callback_hi, NULL);
 		GASNETI_TRACE_PRINTF(C, 
 		    ("gasnetc_Sysbarrier: Sent GATHER, waiting for NOTIFY") );
 		gm_provide_receive_buffer(_gmc.port, (void *) scratchPtr, 
@@ -447,7 +446,7 @@ gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
 		scratchPtr[1] = (uintptr_t) segbase;
 		scratchPtr[2] = segsize;
 		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
-		    3*sizeof(uintptr_t), gasnetc_callback_AMReply_NOP, 
+		    3*sizeof(uintptr_t), gasnetc_callback_hi, 
 		    NULL, 0);
 	}
 	else {
@@ -464,7 +463,7 @@ gasnetc_gather_MaxSegment(void *segbase, uintptr_t segsize)
 		}
 		gasnetc_gm_send_AMSystem((void *) scratchPtr, 
 		    3*sizeof(uintptr_t), _gmc.gm_nodes[0].id, 
-		    _gmc.gm_nodes[0].port, gasnetc_callback_AMReply_NOP, NULL);
+		    _gmc.gm_nodes[0].port, gasnetc_callback_hi, NULL);
 
 		gm_provide_receive_buffer(_gmc.port, (void *) scratchPtr, 
 		    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
@@ -510,7 +509,7 @@ gasnetc_gather_seginfo(gasnet_seginfo_t *seginfo)
 			scratchPtr[i+1] = (uintptr_t) seginfo[i].size;
 		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
 		    (gasnetc_nodes+1)*sizeof(uintptr_t), 
-		    gasnetc_callback_AMReply_NOP, NULL, 0);
+		    gasnetc_callback_hi, NULL, 0);
 	}
 	else {
 		GASNETC_SYSHEADER_WRITE((uint8_t *)scratchPtr, 
@@ -525,7 +524,7 @@ gasnetc_gather_seginfo(gasnet_seginfo_t *seginfo)
 		}
 		gasnetc_gm_send_AMSystem((void *) scratchPtr, 
 		    2*sizeof(uintptr_t), _gmc.gm_nodes[0].id, 
-		    _gmc.gm_nodes[0].port, gasnetc_callback_AMReply_NOP, NULL);
+		    _gmc.gm_nodes[0].port, gasnetc_callback_hi, NULL);
 
 		gm_provide_receive_buffer(_gmc.port, (void *) scratchPtr, 
 		    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
@@ -567,7 +566,7 @@ gasnetc_segment_sbrk(uintptr_t sbrk_local_aligned)
 		    (uint8_t) SBRK_BASE);
 		scratchPtr[1] = sbrk_high;
 		gasnetc_gm_send_AMSystem_broadcast((void *) scratchPtr, 
-		    2*sizeof(uintptr_t), gasnetc_callback_AMReply_NOP, 
+		    2*sizeof(uintptr_t), gasnetc_callback_hi, 
 		    NULL, 0);
 		gasneti_mutex_unlock(&gasnetc_lock_gm);
 		return sbrk_high;
@@ -585,7 +584,7 @@ gasnetc_segment_sbrk(uintptr_t sbrk_local_aligned)
 		}
 		gasnetc_gm_send_AMSystem((void *) scratchPtr, 
 		    2*sizeof(uintptr_t), _gmc.gm_nodes[0].id, 
-		    _gmc.gm_nodes[0].port, gasnetc_callback_AMReply_NOP, NULL);
+		    _gmc.gm_nodes[0].port, gasnetc_callback_hi, NULL);
 
 		gm_provide_receive_buffer(_gmc.port, (void *) scratchPtr, 
 		    GASNETC_SYS_SIZE, GM_HIGH_PRIORITY);
@@ -734,43 +733,3 @@ gasnetc_gmpiconf_init()
 	_gmc.port = p;
 	return GASNET_OK;
 }
-
-void
-gasnetc_AM_InitHandler()
-{
-	int	i;
-
-	for (i = 0; i < GASNETC_AM_MAX_HANDLERS; i++) 
-		_gmc.handlers[i] = (gasnetc_handler_fn_t) abort;  
-
-	return;
-}
-
-int
-gasnetc_AM_SetHandler(gasnet_handler_t handler, gasnetc_handler_fn_t func)
-{
-	if (!handler || func == NULL)
-		GASNETI_RETURN_ERRR(BAD_ARG, "Invalid handler paramaters set");
-		
-	_gmc.handlers[handler] = func;
-	return GASNET_OK;
-}
-
-int
-gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasnetc_handler_fn_t func)
-{
-	int	i;
-
-	if (handler == NULL || func == NULL)
-		GASNETI_RETURN_ERRR(BAD_ARG, "Invalid handler paramaters set");
-
-	for (i = 1; i < GASNETC_AM_MAX_HANDLERS; i++) {
-		if (_gmc.handlers[i] == abort) {
-			_gmc.handlers[i] = func;
-			*handler = i;
-			return GASNET_OK;
-		}
-	}
-	return GASNET_OK;
-}
-

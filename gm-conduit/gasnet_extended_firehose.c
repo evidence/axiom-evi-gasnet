@@ -12,6 +12,9 @@
 #define GASNETE_GET_NON_DMA_CUTOFF	gasnet_AMMaxMedium()
 #endif
 
+#define GASNETE_FH_HAVE_TOKEN		0
+#define GASNETE_FH_POLL_TOKEN		1
+
 extern uintptr_t	*gasnetc_firehose_buf;
 extern size_t		 gasnetc_firehose_buf_num;
 extern gasneti_mutex_t	 gasnetc_lock_fh_victim;
@@ -25,7 +28,7 @@ extern void	gasnetc_firehose_decrement_refcount(gasnet_node_t, uintptr_t,
 /* ------------------------------------------------------------------------ */
 /* FIFO operations */
 gasneti_mutex_t	 gasnete_fifo_lock = GASNETI_MUTEX_INITIALIZER;
-gasnete_eop_t	*gasnete_fifo_head = NULL;
+gasnete_eop_t	 *gasnete_fifo_head = NULL;
 
 GASNET_INLINE_MODIFIER(gasnete_fifo_enqueue)
 void
@@ -35,6 +38,7 @@ gasnete_fifo_enqueue(gasnete_eop_t *eop)
 	eop->next = gasnete_fifo_head;
 	gasnete_fifo_head = eop;
 	gasneti_mutex_unlock(&gasnete_fifo_lock);
+	GASNETI_TRACE_PRINTF(C, ("Firehose queue has %p", gasnete_fifo_head));
 	return;
 }
 
@@ -46,7 +50,8 @@ gasnete_fifo_dequeue()
 
 	gasneti_mutex_lock(&gasnete_fifo_lock);
 	eop = gasnete_fifo_head;
-	gasnete_fifo_head = gasnete_fifo_head->next;
+	if (gasnete_fifo_head != NULL)
+		gasnete_fifo_head = gasnete_fifo_head->next;
 	gasneti_mutex_unlock(&gasnete_fifo_lock);
 	return eop;
 }
@@ -124,12 +129,16 @@ gasnete_firehose_callback_pop(struct gm_port *p, void *context,
 	assert(pop->node < gasnete_nodes);
 	if_pf (status != GM_SUCCESS)
 	    gasnetc_callback_error(status, NULL);
+	GASNETI_TRACE_PRINTF(C, 
+	    ("Firehose decrement refcount for (%p,%d) on node %d\n",
+	     (void *) pop->dest, pop->len, (unsigned) pop->node));
 	gasnetc_firehose_decrement_refcount(pop->node, pop->dest, pop->len);
 	gasnetc_token_lo_release();
 	/* If this was associated to an iop, increment put completed count */
 	if (pop->iop != NULL)
 		gasneti_atomic_increment(&(pop->iop->completed_put_cnt));
-	gasnete_op_markdone((gasnete_op_t *)pop, 1);
+	gasnete_op_markdone((gasnete_op_t *)pop, 0);
+	GASNETI_TRACE_PRINTF(C, ("Firehose callback directed send(%p)", pop));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -140,20 +149,23 @@ GASNET_INLINE_MODIFIER(gasnete_firehose_put_using_directed)
 void
 gasnete_firehose_put_using_directed(gasnet_node_t node, uintptr_t dest, 
 				    void *src, size_t nbytes, 
-				    gasnete_eop_t *pop)
+				    gasnete_eop_t *pop, int poll)
 {
 	assert(pop != NULL);
 	assert(src != NULL);
 	assert(node < gasnete_nodes);
 	assert(nbytes > 0);
-	gasnetc_token_lo_poll_lock();
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
+	if (poll == GASNETE_FH_POLL_TOKEN)
+		gasnetc_token_lo_poll();
+	GASNETI_TRACE_PRINTF(C, 
+	    ("Firehose directed send(%p): (%d,%p) <- %p (%d bytes)", 
+	     pop, (unsigned) node, (void *) dest, (void *) src, nbytes));
 	gm_directed_send_with_callback(
 	    _gmc.port, src, (gm_remote_ptr_t) dest,
 	    (unsigned long) nbytes, GM_LOW_PRIORITY,
-	    _gmc.gm_nodes[node].id, _gmc.gm_nodes[node].port,
+	    gasnetc_nodeid(node), gasnetc_portid(node),
 	    gasnete_firehose_callback_pop, (void *) pop);
-	gasneti_mutex_unlock(&gasnetc_lock_gm);
 	return;
 }
 
@@ -186,36 +198,49 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, size_t nbyt
 	if (gasnetc_firehose_buf_num < tot_buckets) {
 		if (gasnetc_firehose_buf != NULL)
 			free(gasnetc_firehose_buf);
+		gasnetc_firehose_buf_num = tot_buckets;
 		gasnetc_firehose_buf = (uintptr_t *)
 		    gasneti_malloc(sizeof(uintptr_t) * tot_buckets);
 	}
 	pop = gasnete_eop_new(GASNETE_MYTHREAD);
 	pop->src = (uintptr_t) src;
+	pop->dest = (uintptr_t) dest;
 	pop->len = (uint32_t) nbytes;
+	pop->node = node;
 
 	if (gasnetc_firehose_build_list(node, (uintptr_t)dest, num_buckets,
 	    &old_buckets, &new_buckets)) {
-		gasnete_eop_t	*pop;
-		pop = gasnete_eop_new(GASNETE_MYTHREAD);
-		pop->node = node;
-		pop->dest = (uintptr_t) dest;
 		pop->iop = iop;
 		assert(gasneti_handleridx(gasnete_firehose_move_reph) > 0);
+		#ifdef TRACE
+		{
+			int i;
+			for (i = 0; i < num_buckets; i++)
+				GASNETI_TRACE_PRINTF(C, ("Firehose move %d=%p",
+				    i, (void *) gasnetc_firehose_buf[i]));
+		}
+		#endif
 		MEDIUM_REQ(5, 6, 
 		   (node, gasneti_handleridx(gasnetc_firehose_move_reqh),
-		    (void *) gasnetc_firehose_buf, num_buckets + old_buckets,
+		    (void *) gasnetc_firehose_buf, 
+		    (num_buckets + old_buckets)*sizeof(uintptr_t),
 		    gasneti_handleridx(gasnete_firehose_move_reph),
-		    new_buckets, old_buckets, num_buckets, PACK((void *) pop)));
+		    new_buckets, old_buckets, num_buckets, 
+		    PACK((void *) pop)));
 	}
 	else {
 		/* all firehoses are remote pinned buckets */
+		gasneti_mutex_lock(&gasnetc_lock_gm);
 		gasnete_firehose_put_using_directed(node, 
-		   (uintptr_t) dest, src, nbytes, pop);
+		   (uintptr_t) dest, src, nbytes, pop, GASNETE_FH_POLL_TOKEN);
+		gasneti_mutex_unlock(&gasnetc_lock_gm);
 	}
 	/* If we were dealing with implicit put, increment the iop */
 	if (pop->iop != NULL)
 		iop->initiated_put_cnt++;
 	gasneti_mutex_unlock(&gasnetc_lock_fh_victim);
+	GASNETI_TRACE_PRINTF(C, ("firehose_put_bulk returns handle=%p",
+	    (void *) pop));
 	return ((gasnete_op_t *) pop);
 }
 
@@ -223,9 +248,14 @@ extern gasnet_handle_t
 gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src, 
 		     size_t nbytes GASNETE_THREAD_FARG)
 {
-	if (nbytes > GASNETE_PUT_NON_DMA_CUTOFF)
-		return gasnete_firehose_put_bulk(node, dest, src, nbytes,
+	gasnet_handle_t	handle;
+	if (nbytes > GASNETE_PUT_NON_DMA_CUTOFF) {
+		handle = gasnete_firehose_put_bulk(node, dest, src, nbytes,
 		    NULL GASNETE_THREAD_PASS);
+		GASNETI_TRACE_PRINTF(C, ("put_nb_bulk returns handle=%p",
+		    (void *) handle));
+		return handle;
+	}
 	else 
 		return gasnete_extref_put_nb_bulk(node, dest, src, 
 		    nbytes GASNETE_THREAD_PASS);
@@ -356,15 +386,18 @@ gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src,
 
 /* ------------------------------------------------------------------------ */
 extern void
-gasnete_fifo_poll()	
+gasnete_fifo_progress()	
 {
 	gasnete_eop_t	*eop;
 
+	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
 	while ((eop = gasnete_fifo_dequeue()) != NULL) {
+		GASNETI_TRACE_PRINTF(C, ("Firehose fifo progress drain 1"));
 		if (!gasnetc_token_lo_acquire())
 			return;
 		gasnete_firehose_put_using_directed(eop->node, 
-		    eop->dest, (void *)eop->src, eop->len, eop);
+		    eop->dest, (void *)eop->src, eop->len, eop, 
+		    GASNETE_FH_HAVE_TOKEN);
 	}
 }
 /* ------------------------------------------------------------------------------------ */

@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.20 2002/08/16 02:11:44 csbell Exp $
- * $Date: 2002/08/16 02:11:44 $
+/* $Id: gasnet_core.c,v 1.21 2002/08/19 01:29:19 csbell Exp $
+ * $Date: 2002/08/19 01:29:19 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -31,7 +31,10 @@ gasneti_mutex_t gasnetc_lock_amreq = GASNETI_MUTEX_INITIALIZER;
 gasnetc_state_t _gmc;
 
 gasnet_handlerentry_t const		*gasnetc_get_handlertable();
+extern gasnet_handlerentry_t const	*gasnete_get_handlertable();
 extern gasnet_handlerentry_t const	*gasnete_get_extref_handlertable();
+
+extern gasnet_handlerentry_t const	*gasnetc_get_rdma_handlertable();
 extern void				 gasnetc_rdma_init();
 extern void				 gasnetc_rdma_finalize();
 
@@ -166,7 +169,47 @@ extern uintptr_t gasnetc_getMaxGlobalSegmentSize() {
 }
 /* ------------------------------------------------------------------------------------ */
 static char checkuniqhandler[256] = { 0 };
-static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
+void
+gasnetc_AM_InitHandler()
+{
+	int	i;
+
+	for (i = 0; i < GASNETC_AM_MAX_HANDLERS; i++) 
+		_gmc.handlers[i] = (gasnetc_handler_fn_t) abort;  
+
+	return;
+}
+
+int
+gasnetc_AM_SetHandler(gasnet_handler_t handler, gasnetc_handler_fn_t func)
+{
+	if (!handler || func == NULL)
+		GASNETI_RETURN_ERRR(BAD_ARG, "Invalid handler paramaters set");
+		
+	_gmc.handlers[handler] = func;
+	return GASNET_OK;
+}
+
+int
+gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasnetc_handler_fn_t func)
+{
+	int	i;
+
+	if (handler == NULL || func == NULL)
+		GASNETI_RETURN_ERRR(BAD_ARG, "Invalid handler paramaters set");
+
+	for (i = 1; i < GASNETC_AM_MAX_HANDLERS; i++) {
+		if (_gmc.handlers[i] == abort) {
+			_gmc.handlers[i] = func;
+			*handler = i;
+			return GASNET_OK;
+		}
+	}
+	return GASNET_OK;
+}
+
+static int 
+gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
                                int lowlimit, int highlimit,
                                int dontcare, int *numregistered) {
   int i, retval;
@@ -210,70 +253,83 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */
-extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries, 
-		          uintptr_t segsize, uintptr_t minheapoffset) {
-  size_t pagesize;
-  int retval = GASNET_OK, i = 0;
+extern int 
+gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
+	       uintptr_t minheapoffset)
+{
+	size_t pagesize;
+	int retval = GASNET_OK, i = 0;
 
-  GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%i, minheapoffset=%i)",
-                          numentries, (int)segsize, (int)minheapoffset));
+	GASNETI_TRACE_PRINTF(C,
+	    ("gasnetc_attach(table (%i entries), segsize=%i, minheapoffset=%i)",
+	    numentries, (int)segsize, (int)minheapoffset));
 
-  if (!gasnetc_init_done) 
-    GASNETI_RETURN_ERRR(NOT_INIT, "GASNet attach called before init");
-  if (gasnetc_attach_done) 
-    GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already attached");
+	if (!gasnetc_init_done) 
+		GASNETI_RETURN_ERRR(NOT_INIT,
+		    "GASNet attach called before init");
+	if (gasnetc_attach_done) 
+		GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already attached");
 
-  #if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
-    pagesize = gasneti_getSystemPageSize();
-    if ((segsize % pagesize) != 0) 
-      GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
-    if (segsize > gasnetc_getMaxLocalSegmentSize()) 
-      GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
-    minheapoffset = 
+	#if defined(GASNET_SEGMENT_FAST) || defined(GASNET_SEGMENT_LARGE)
+	pagesize = gasneti_getSystemPageSize();
+	if ((segsize % pagesize) != 0) 
+		GASNETI_RETURN_ERRR(BAD_ARG, "segsize not page-aligned");
+	if (segsize > gasnetc_getMaxLocalSegmentSize()) 
+		GASNETI_RETURN_ERRR(BAD_ARG, "segsize too large");
+	minheapoffset = 
 	    GASNETI_PAGE_ROUNDUP(minheapoffset, GASNETC_SEGMENT_ALIGN);
-  #else
-    segsize = 0;
-    minheapoffset = 0;
-  #endif
+	#else
+	segsize = 0;
+	minheapoffset = 0;
+	#endif
+	/*  register handlers */
+	gasnetc_AM_InitHandler();
 
-  /* ------------------------------------------------------------------------------------ */
-  /*  register handlers */
-  gasnetc_AM_InitHandler();
-  { /*  core API handlers */
-    gasnet_handlerentry_t *ctable = (gasnet_handlerentry_t *)gasnetc_get_handlertable();
-    int len = 0;
-    int numreg = 0;
-    assert(ctable);
-    while (ctable[len].fnptr) len++; /* calc len */
-    if (gasnetc_reghandlers(ctable, len, 1, 99, 0, &numreg) != GASNET_OK)
-      GASNETI_RETURN_ERRR(RESOURCE,"Error registering core API handlers");
-    assert(numreg == len);
-  }
+	{ /*  core API handlers */
+		gasnet_handlerentry_t *ctable = 
+		    (gasnet_handlerentry_t *) gasnetc_get_handlertable();
+		gasnet_handlerentry_t *cdtable = 
+		    (gasnet_handlerentry_t *)gasnetc_get_rdma_handlertable();
+		int c_len = 0, cd_len = 0;
+		int c_numreg = 0, cd_numreg = 0;
 
-  { /*  extended API handlers */
-	gasnet_handlerentry_t *ertable = 
-	    (gasnet_handlerentry_t *)gasnete_get_extref_handlertable();
-	gasnet_handlerentry_t *etable = 
-	    (gasnet_handlerentry_t *)gasnete_get_handlertable();
-	int er_len = 0, e_len = 0;
-	int er_numreg = 0, e_numreg = 0;
-	assert(etable && ertable);
-
-	while (ertable[er_len].fnptr) er_len++; /* calc len */
-	while (etable[e_len].fnptr) e_len++; /* calc len */
-	if (gasnetc_reghandlers(ertable, er_len, 100, 199, 0, &er_numreg)
-	    != GASNET_OK)
-		GASNETI_RETURN_ERRR(RESOURCE,
-		    "Error registering extended reference API handlers");
-    	assert(er_numreg == er_len);
-
-	if (gasnetc_reghandlers(etable, e_len, 100+er_len, 199, 0, &e_numreg)
-	    != GASNET_OK)
-		GASNETI_RETURN_ERRR(RESOURCE,
-		    "Error registering extended API handlers");
-    	assert(e_numreg == e_len);
-
-  }
+		assert(ctable && cdtable);
+		while (ctable[c_len].fnptr) c_len++; /* calc len */
+		while (cdtable[cd_len].fnptr) cd_len++; /* calc len */
+		if (gasnetc_reghandlers(ctable, c_len, 1, 99, 0, &c_numreg)
+		    != GASNET_OK)
+			GASNETI_RETURN_ERRR(RESOURCE,
+			    "Error registering core API handlers");
+		assert(c_numreg == c_len);
+		if (gasnetc_reghandlers(cdtable, cd_len, 1+c_len, 99, 0, 
+		    &cd_numreg) != GASNET_OK)
+			GASNETI_RETURN_ERRR(RESOURCE,
+			    "Error registering core RDMA API handlers");
+		assert(cd_numreg == cd_len);
+	}
+	{ /*  extended API handlers */
+		gasnet_handlerentry_t *ertable = 
+		    (gasnet_handlerentry_t *)gasnete_get_extref_handlertable();
+		gasnet_handlerentry_t *etable = 
+		    (gasnet_handlerentry_t *)gasnete_get_handlertable();
+		int er_len = 0, e_len = 0;
+		int er_numreg = 0, e_numreg = 0;
+		assert(etable && ertable);
+	
+		while (ertable[er_len].fnptr) er_len++; /* calc len */
+		while (etable[e_len].fnptr) e_len++; /* calc len */
+		if (gasnetc_reghandlers(ertable, er_len, 100, 199, 0, 
+		    &er_numreg) != GASNET_OK)
+			GASNETI_RETURN_ERRR(RESOURCE,
+			    "Error registering extended reference API handlers");
+	    	assert(er_numreg == er_len);
+	
+		if (gasnetc_reghandlers(etable, e_len, 100+er_len, 199, 0, 
+		    &e_numreg) != GASNET_OK)
+			GASNETI_RETURN_ERRR(RESOURCE,
+			    "Error registering extended API handlers");
+	    	assert(e_numreg == e_len);
+	}
 
   if (table) { /*  client handlers */
     int numreg1 = 0;
@@ -494,7 +550,7 @@ extern int gasnetc_AMRequestShortM(
 		    argptr, GASNETC_AM_REQUEST);
     gasnetc_tokensend_AMRequest(bufd->sendbuf, len, 
 		  gasnetc_nodeid(dest), gasnetc_portid(dest),
-		  gasnetc_callback_AMRequest, (void *)bufd, 0);
+		  gasnetc_callback_lo_bufd, (void *)bufd, 0);
   }
 
   va_end(argptr);
@@ -534,7 +590,7 @@ extern int gasnetc_AMRequestMediumM(
 		 nbytes, source_addr, GASNETC_AM_REQUEST);
     gasnetc_tokensend_AMRequest(bufd->sendbuf, len, 
 		  gasnetc_nodeid(dest), gasnetc_portid(dest),
-		  gasnetc_callback_AMRequest, (void *)bufd, 0);
+		  gasnetc_callback_lo_bufd, (void *)bufd, 0);
     /* GASNETC_AMTRACE_RequestMedium(Send); */
   }
 
@@ -543,11 +599,9 @@ extern int gasnetc_AMRequestMediumM(
   else GASNETI_RETURN_ERR(RESOURCE);
 }
 
-#define gasnetc_ispinned(dest, dest_addr, nbytes)	(1)
-
-GASNET_INLINE_MODIFIER(gasnetc_AMRequestLongM_inner)
+GASNET_INLINE_MODIFIER(gasnetc_AMRequestLongM_DMA_inner)
 void
-gasnetc_AMRequestLongM_inner(gasnet_node_t dest, gasnet_handler_t handler,
+gasnetc_AMRequestLongM_DMA_inner(gasnet_node_t dest, gasnet_handler_t handler,
 		void *source_addr, size_t nbytes, void *dest_addr, int numargs, 
 		va_list argptr)
 {
@@ -561,72 +615,89 @@ gasnetc_AMRequestLongM_inner(gasnet_node_t dest, gasnet_handler_t handler,
 	port  = gasnetc_portid(dest);
 	id    = gasnetc_nodeid(dest);
 
-	if (gasnetc_ispinned(dest, dest_addr, nbytes)) {
-		while (bytes_left >GASNETC_AM_LEN-GASNETC_LONG_OFFSET) {
-			bufd = gasnetc_AMRequestPool_block();
-			gasnetc_write_AMBufferBulk(bufd->sendbuf, 
-				psrc, GASNETC_AM_LEN);
-			gasnetc_tokensend_AMRequest(bufd->sendbuf, 
-			   GASNETC_AM_LEN, id, port, gasnetc_callback_AMRequest,
-			   (void *) bufd, (uintptr_t) pdest);
-			psrc += GASNETC_AM_LEN;
-			pdest += GASNETC_AM_LEN;
-			bytes_left -= GASNETC_AM_LEN;
-		}
+	while (bytes_left >GASNETC_AM_LEN-GASNETC_LONG_OFFSET) {
 		bufd = gasnetc_AMRequestPool_block();
-		len =
-		    gasnetc_write_AMBufferLong(bufd->sendbuf, 
-		        handler, numargs, argptr, nbytes, source_addr, 
-			(uintptr_t) dest_addr, GASNETC_AM_REQUEST);
-		if (bytes_left > 0) {
-			gasnetc_write_AMBufferBulk(
-				bufd->sendbuf+GASNETC_LONG_OFFSET, 
-				psrc, bytes_left);
-			gasnetc_tokensend_AMRequest(
-			    bufd->sendbuf+GASNETC_LONG_OFFSET,
-			    bytes_left, id, port, 
-			    gasnetc_callback_AMRequest_NOP, NULL, 
-			    (uintptr_t) pdest);
-		}
-		gasnetc_tokensend_AMRequest(bufd->sendbuf, len, id, 
-		    port, gasnetc_callback_AMRequest, (void *)bufd, 0);
+		gasnetc_write_AMBufferBulk(bufd->sendbuf, 
+			psrc, GASNETC_AM_LEN);
+		gasnetc_tokensend_AMRequest(bufd->sendbuf, 
+		   GASNETC_AM_LEN, id, port, gasnetc_callback_lo_bufd,
+		   (void *) bufd, (uintptr_t) pdest);
+		psrc += GASNETC_AM_LEN;
+		pdest += GASNETC_AM_LEN;
+		bytes_left -= GASNETC_AM_LEN;
 	}
-	else {
-		int32_t	dest_addr_ptr[2];
-		int	long_len;
+	bufd = gasnetc_AMRequestPool_block();
+	bufd->dest_addr = (uintptr_t) dest_addr;
+	bufd->source_addr = 0;
+	bufd->rdma_len = nbytes; 
+	bufd->node = dest;
+	len =
+	    gasnetc_write_AMBufferLong(bufd->sendbuf, 
+	        handler, numargs, argptr, nbytes, source_addr, 
+		(uintptr_t) dest_addr, GASNETC_AM_REQUEST);
+	if (bytes_left > 0) {
+		gasnetc_write_AMBufferBulk(
+			bufd->sendbuf+GASNETC_LONG_OFFSET, 
+			psrc, bytes_left);
+		gasnetc_tokensend_AMRequest(
+		    bufd->sendbuf+GASNETC_LONG_OFFSET,
+		    bytes_left, id, port, gasnetc_callback_lo, NULL,
+		    (uintptr_t) pdest);
+	}
+	gasnetc_tokensend_AMRequest(bufd->sendbuf, len, id, 
+	    port, gasnetc_callback_lo_bufd_rdma, (void *)bufd, 0);
+}
 
-		while (bytes_left >GASNETC_AM_LEN-GASNETC_LONG_OFFSET) {
-			bufd = gasnetc_AMRequestPool_block();
-			GASNETC_ARGPTR(dest_addr_ptr, (uintptr_t) pdest);
-			len = gasnetc_write_AMBufferMedium(bufd->sendbuf,
-			    gasneti_handleridx(gasnetc_am_medcopy), 
-				GASNETC_ARGPTR_NUM, (va_list) dest_addr_ptr, 
-				gasnet_AMMaxMedium(), (void *) psrc, GASNETC_AM_REQUEST);
-			gasnetc_tokensend_AMRequest(bufd->sendbuf, len, id, 
-			    port, gasnetc_callback_AMRequest, (void *) bufd, 0);
-			psrc += gasnet_AMMaxMedium();
-			pdest += gasnet_AMMaxMedium();
-			bytes_left -= gasnet_AMMaxMedium();
-		}
+GASNET_INLINE_MODIFIER(gasnetc_AMRequestLongM_inner)
+void
+gasnetc_AMRequestLongM_inner(gasnet_node_t dest, gasnet_handler_t handler,
+		void *source_addr, size_t nbytes, void *dest_addr, int numargs, 
+		va_list argptr)
+{
+
+	int	bytes_left = nbytes;
+	int	port, id, len, long_len;
+	int32_t	dest_addr_ptr[2];
+	uint8_t	*psrc, *pdest;
+	gasnetc_bufdesc_t	*bufd;
+
+	psrc  = (uint8_t *) source_addr;
+	pdest = (uint8_t *) dest_addr;
+	port  = gasnetc_portid(dest);
+	id    = gasnetc_nodeid(dest);
+
+	while (bytes_left >GASNETC_AM_LEN-GASNETC_LONG_OFFSET) {
 		bufd = gasnetc_AMRequestPool_block();
-		long_len =
-		    gasnetc_write_AMBufferLong(bufd->sendbuf, 
-		        handler, numargs, argptr, nbytes, source_addr, 
-			(uintptr_t) dest_addr, GASNETC_AM_REQUEST);
-		if (bytes_left > 0) {
-			uintptr_t	pbuf;
-			pbuf = (uintptr_t) bufd->sendbuf + (uintptr_t) long_len;
-			GASNETC_ARGPTR(dest_addr_ptr, (uintptr_t) pdest);
-			len = gasnetc_write_AMBufferMedium((void *)pbuf,
-		    	    gasneti_handleridx(gasnetc_am_medcopy), 
-			    GASNETC_ARGPTR_NUM, (va_list) dest_addr_ptr, 
-			    bytes_left, (void *) psrc, GASNETC_AM_REQUEST);
-			gasnetc_tokensend_AMRequest((void *)pbuf, len, id, port,
-			    gasnetc_callback_AMRequest_NOP, NULL, 0);
-		}
-		gasnetc_tokensend_AMRequest(bufd->sendbuf, long_len, id, port, 
-		    gasnetc_callback_AMRequest, (void *)bufd, 0);
+		GASNETC_ARGPTR(dest_addr_ptr, (uintptr_t) pdest);
+		len = gasnetc_write_AMBufferMedium(bufd->sendbuf,
+		    gasneti_handleridx(gasnetc_am_medcopy), 
+			GASNETC_ARGPTR_NUM, (va_list) dest_addr_ptr, 
+			gasnet_AMMaxMedium(), (void *) psrc, GASNETC_AM_REQUEST);
+		gasnetc_tokensend_AMRequest(bufd->sendbuf, len, id, 
+		    port, gasnetc_callback_lo_bufd, (void *) bufd, 0);
+		psrc += gasnet_AMMaxMedium();
+		pdest += gasnet_AMMaxMedium();
+		bytes_left -= gasnet_AMMaxMedium();
 	}
+	bufd = gasnetc_AMRequestPool_block();
+	long_len =
+	    gasnetc_write_AMBufferLong(bufd->sendbuf, 
+	        handler, numargs, argptr, nbytes, source_addr, 
+		(uintptr_t) dest_addr, GASNETC_AM_REQUEST);
+	if (bytes_left > 0) {
+		uintptr_t	pbuf;
+		pbuf = (uintptr_t) bufd->sendbuf + (uintptr_t) long_len;
+		GASNETC_ARGPTR(dest_addr_ptr, (uintptr_t) pdest);
+		len = gasnetc_write_AMBufferMedium((void *)pbuf,
+	    	    gasneti_handleridx(gasnetc_am_medcopy), 
+		    GASNETC_ARGPTR_NUM, (va_list) dest_addr_ptr, 
+		    bytes_left, (void *) psrc, GASNETC_AM_REQUEST);
+		gasnetc_tokensend_AMRequest((void *)pbuf, len, id, port,
+		    gasnetc_callback_lo, NULL, 0);
+	}
+	gasnetc_tokensend_AMRequest(bufd->sendbuf, long_len, id, port, 
+	    gasnetc_callback_lo_bufd, (void *)bufd, 0);
+	return;
 }
 
 extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination node */
@@ -665,8 +736,12 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 	}
 	else {
 		/* XXX assert(GASNET_LONG_OFFSET >= LONG_HEADER) */
-		gasnetc_AMRequestLongM_inner(dest, handler, source_addr, 
-		    nbytes, dest_addr, numargs, argptr);
+		if (gasnetc_is_pinned(dest, (uintptr_t) dest_addr, nbytes))
+			gasnetc_AMRequestLongM_DMA_inner(dest, handler, source_addr, 
+			    nbytes, dest_addr, numargs, argptr);
+		else 
+			gasnetc_AMRequestLongM_inner(dest, handler, source_addr, 
+			    nbytes, dest_addr, numargs, argptr);
 	}
 
 	va_end(argptr);
@@ -698,10 +773,15 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 	va_start(argptr, numargs); /*  pass in last argument */
 	retval = 1;
 
-	if (!gasnetc_ispinned(gasnetc_mynode, source_addr, nbytes)) {
+	/* If remote address is not pinned */
+	if (!gasnetc_is_pinned(dest, (uintptr_t) dest_addr, nbytes))
 		gasnetc_AMRequestLongM_inner(dest, handler, source_addr, 
 		    nbytes, dest_addr, numargs, argptr);
-	}
+	/* If remote address is pinned, but local is not pinned */
+	else if (!gasnetc_is_pinned(gasnetc_mynode, (uintptr_t)source_addr, nbytes))
+		gasnetc_AMRequestLongM_DMA_inner(dest, handler, source_addr, 
+		    nbytes, dest_addr, numargs, argptr);
+	/* If remote and local address are pinned */
 	else {
 		uint16_t port, id;
 		int	 len;
@@ -714,12 +794,16 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
 		        handler, numargs, argptr, nbytes, source_addr, 
 			(uintptr_t) dest_addr, GASNETC_AM_REQUEST);
 		/* send the DMA first */
+		bufd->source_addr = (uintptr_t) source_addr;
+		bufd->dest_addr = (uintptr_t) dest_addr;
+		bufd->rdma_len = nbytes;
+		bufd->node = dest;
 		gasnetc_tokensend_AMRequest(source_addr, nbytes, id, 
-		    port, gasnetc_callback_AMRequest_NOP, NULL, 
+		    port, gasnetc_callback_lo_rdma, (void *) bufd, 
 		    (uintptr_t) dest_addr);
 		/* followed by the Long Header */
 		gasnetc_tokensend_AMRequest(bufd->sendbuf, len, id, 
-		    port, gasnetc_callback_AMRequest, (void *)bufd, 0);
+		    port, gasnetc_callback_lo_bufd, (void *)bufd, 0);
 	}
 
 	va_end(argptr);
@@ -853,7 +937,7 @@ extern int gasnetc_AMReplyLongM(
 		unsigned int	len;
 	
     		bufd = gasnetc_bufdesc_from_token(token);
-		if (gasnetc_ispinned(dest, dest_addr, nbytes)) {
+		if (gasnetc_is_pinned(dest, (uintptr_t) dest_addr, nbytes)) {
 			pbuf = (uintptr_t) bufd->sendbuf + 
 			    (uintptr_t) GASNETC_LONG_OFFSET;
 			len =
@@ -862,10 +946,13 @@ extern int gasnetc_AMReplyLongM(
 				(uintptr_t) dest_addr, GASNETC_AM_REPLY);
 			gasnetc_write_AMBufferBulk((void *)pbuf, source_addr, 
 			    nbytes);
+			GASNETC_BUFDESC_OPT_SET(bufd, GASNETC_FLAG_DMA_SEND);
+			bufd->node = dest;
 			bufd->len = len;
 			bufd->rdma_off = GASNETC_LONG_OFFSET; 
 			bufd->rdma_len = nbytes;
 			bufd->dest_addr = (uintptr_t) dest_addr;
+			bufd->source_addr = 0;
 		}
 		else {
 			int32_t	dest_addr_ptr[2];
@@ -881,16 +968,19 @@ extern int gasnetc_AMReplyLongM(
 			    gasneti_handleridx(gasnetc_am_medcopy), 
 			    GASNETC_ARGPTR_NUM, (va_list) dest_addr_ptr, nbytes,
 			    (void *) source_addr, GASNETC_AM_REPLY);
+			GASNETC_BUFDESC_OPT_SET(bufd, GASNETC_FLAG_LONG_SEND);
 			bufd->len = long_len;
 			bufd->rdma_off = long_len; 
 			bufd->rdma_len = len;
 			bufd->dest_addr = 0;
+			bufd->source_addr = 0;
 		}
 
 		gasneti_mutex_lock(&gasnetc_lock_gm);
 		if (gasnetc_token_hi_acquire()) {
 			gasnetc_gm_send_bufd(bufd);
-			bufd->rdma_len = bufd->dest_addr = 0;
+			GASNETC_BUFDESC_OPT_UNSET(bufd, 
+			    GASNETC_FLAG_LONG_SEND | GASNETC_FLAG_DMA_SEND);
 			if (gasnetc_token_hi_acquire()) {
 				GASNETC_AMTRACE_ReplyLong(Send);
 				gasnetc_gm_send_bufd(bufd);
@@ -942,20 +1032,24 @@ gasnetc_AMReplyLongAsyncM(
 	GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,
 	    numargs);
 	retval = 1;
-
 	bufd = gasnetc_bufdesc_from_token(token);
 	len =
 	    gasnetc_write_AMBufferLong(bufd->sendbuf, handler, numargs, argptr, 
 	        nbytes, source_addr, (uintptr_t) dest_addr, GASNETC_AM_REPLY);
 	bufd->len = len;
+	bufd->node = dest;
 	bufd->rdma_off = 0;
 	bufd->rdma_len = nbytes;
 	bufd->dest_addr = (uintptr_t) dest_addr;
+	bufd->source_addr = (uintptr_t) source_addr;
+	GASNETC_BUFDESC_OPT_SET(bufd, 
+	    GASNETC_FLAG_EXTENDED_DMA_SEND | GASNETC_FLAG_DMA_SEND);
 
 	gasneti_mutex_lock(&gasnetc_lock_gm);
 	if (gasnetc_token_hi_acquire()) {
         	gasnetc_gm_send_bufd(bufd);
-		bufd->rdma_len = bufd->dest_addr = 0;
+		GASNETC_BUFDESC_OPT_UNSET(bufd, 
+		    GASNETC_FLAG_EXTENDED_DMA_SEND | GASNETC_FLAG_DMA_SEND);
 		if (gasnetc_token_hi_acquire()) {
 			GASNETC_AMTRACE_ReplyLong(Send);
 			gasnetc_gm_send_bufd(bufd);
@@ -1077,7 +1171,6 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
   }
   #endif
 }
-
 /* ------------------------------------------------------------------------------------ */
 /*
   Private Handlers:
@@ -1097,3 +1190,4 @@ gasnet_handlerentry_t const *gasnetc_get_handlertable() {
 }
 
 /* ------------------------------------------------------------------------------------ */
+
