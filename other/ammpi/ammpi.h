@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/AMMPI/ammpi.h                                          $
- *     $Date: 2004/03/31 14:18:10 $
- * $Revision: 1.20 $
+ *     $Date: 2004/04/10 06:24:36 $
+ * $Revision: 1.21 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -48,12 +48,11 @@
 
   typedef unsigned int    uintptr_t; /* unsigned type big enough to hold any pointer offset */
 #elif defined(_SX)
+  #include <sys/types.h> /* provides int32_t and uint32_t - use to prevent conflict */
   typedef signed char        int8_t;
   typedef unsigned char     uint8_t;
   typedef short             int16_t;
   typedef unsigned short   uint16_t;
-  typedef int               int32_t;
-  typedef unsigned int     uint32_t;
   typedef long              int64_t;
   typedef unsigned long    uint64_t;
 

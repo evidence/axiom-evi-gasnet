@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_basic.h                                  $
- *     $Date: 2004/04/09 15:43:51 $
- * $Revision: 1.25 $
+ *     $Date: 2004/04/10 06:24:35 $
+ * $Revision: 1.26 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -50,12 +50,11 @@
   typedef          int     intptr_t; /* signed/unsigned types big enough to hold any pointer offset */
   typedef unsigned int    uintptr_t; 
 #elif defined(SUPERUX)
+  #include <sys/types.h> /* provides int32_t and uint32_t - use to prevent conflict */
   typedef signed char        int8_t;
   typedef unsigned char     uint8_t;
   typedef short             int16_t;
   typedef unsigned short   uint16_t;
-  typedef int               int32_t;
-  typedef unsigned int     uint32_t;
   typedef long              int64_t;
   typedef unsigned long    uint64_t;
 
