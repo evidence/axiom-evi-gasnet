@@ -1,5 +1,5 @@
-/* $Id: gasnet_core_firehose.c,v 1.21 2003/03/10 01:10:10 csbell Exp $
- * $Date: 2003/03/10 01:10:10 $
+/* $Id: gasnet_core_firehose.c,v 1.22 2003/03/18 05:57:02 csbell Exp $
+ * $Date: 2003/03/18 05:57:02 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -826,19 +826,54 @@ gasnetc_bucket_unpin_deregister_wrapper(uintptr_t bucket_addr,
 					size_t num_buckets)
 {
 	gm_status_t	status;
+	size_t		stack_buckets;
 
 	assert(bucket_addr % GASNETC_BUCKET_SIZE == 0);
 	assert(bucket_addr > 0);
+	assert(num_buckets > 0);
 
 	gasneti_mutex_assertlocked(&gasnetc_lock_gm);
+
+	if (bucket_addr + (num_buckets<<GASNETC_BUCKET_SHIFT) > 
+	    gasnetc_stackaddr_lo) {
+		/* unpin falls entirely into pinned stack segment */
+		if (bucket_addr >= gasnetc_stackaddr_lo)
+			return;
+		else { /* unpin falls partly into pinned stack segment */
+			stack_buckets = 
+			    bucket_addr + (num_buckets<<GASNETC_BUCKET_SHIFT) -
+			    gasnetc_stackaddr_lo;
+			assert(stack_buckets < num_buckets);
+			num_buckets -= stack_buckets;
+		}
+	}
 
 	if (gm_deregister_memory(_gmc.port, (void *)bucket_addr, 
 	    num_buckets << GASNETC_BUCKET_SHIFT) == GM_SUCCESS)
 
 		return;
-	else
+	else {
+		size_t nbytes = num_buckets << GASNETC_BUCKET_SHIFT;
+
+		if (bucket_addr < (uintptr_t)gasnetc_seginfo[gasnetc_mynode].addr
+		    || (bucket_addr + nbytes) > 
+		    ((uintptr_t)gasnetc_seginfo[gasnetc_mynode].addr + 
+		    gasnetc_seginfo[gasnetc_mynode].size)) {
+
+			fprintf(stderr, 
+			    "Deregistration out of segment [%p..%p] "
+			    "(pinnned stack %p..%p)\n",
+			    (void *) gasnetc_seginfo[gasnetc_mynode].addr,
+			    (void *) (
+			    (uintptr_t)gasnetc_seginfo[gasnetc_mynode].addr +
+			    gasnetc_seginfo[gasnetc_mynode].size),
+			    (void *) gasnetc_stackaddr_lo,
+			    (void *) gasnetc_stackaddr_hi);
+		}
+
 		gasneti_fatalerror("Could not deregister memory at %p (%d bytes)", 
 		    (void *)bucket_addr, num_buckets << GASNETC_BUCKET_SHIFT);
+	}
 }
 
 /*
@@ -1005,13 +1040,13 @@ gasnetc_bucket_tryunpin_by_bucket_inner(uintptr_t bucket_addr,
 				GASNETC_LOCK_BUCKET;
 			}
 
-			/* if refc is 0, the bucket to be deregistered as in
+			/* if refc is 0, the bucket to be deregistered is in
 			 * the fifo, make sure we remove it */
 			if (refc == 0)
 				gasnetc_bucket_fifo_remove(bdesc_cur, 0);
 
-
 			for (j = 0; j < num; j++) {
+
 				GASNETI_TRACE_PRINTF(C, 
 				    ("Firehose dereg local bucket (%p)",
 				    GASNETC_BDESC_TO_ADDR(bdesc_cur+j)));

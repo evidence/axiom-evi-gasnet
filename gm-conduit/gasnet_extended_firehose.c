@@ -1,5 +1,5 @@
-/* $Id: gasnet_extended_firehose.c,v 1.19 2003/01/28 05:43:48 csbell Exp $
- * $Date: 2003/01/28 05:43:48 $
+/* $Id: gasnet_extended_firehose.c,v 1.20 2003/03/18 05:57:02 csbell Exp $
+ * $Date: 2003/03/18 05:57:02 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,6 +57,13 @@ extern void	gasnete_firehose_move_done(void *);
 #else
 #define GASNETE_FIREHOSE_TRACE_PUTGET(eop, putget)
 #endif
+
+#define gasnete_in_segment(node,ptr,len)					\
+		(!((uintptr_t)(ptr) < (uintptr_t)gasnetc_seginfo[(node)].addr	\
+		    || ((uintptr_t)(ptr) + (len)) > 				\
+		    ((uintptr_t)gasnetc_seginfo[(node)].addr + 			\
+		    gasnetc_seginfo[(node)].size)))
+
 /* ------------------------------------------------------------------------ */
 /* FIFO operations */
 /* All assume that the GM lock is held the whole time.  Since the gm lock is
@@ -108,17 +115,18 @@ GASNET_INLINE_MODIFIER(gasnete_firehose_get_dma_reqh_inner)
 void
 gasnete_firehose_get_dma_reqh_inner(gasnet_token_t token, 
 				    gasnet_handlerarg_t nbytes, 
-				    void *dest, void *src, void *op)
+				    void *dest, void *src, void *op, void *op2)
 {
 	gasnetc_bucket_pin_by_addr((uintptr_t) src, (size_t) nbytes);
+	assert(op != NULL && op2 != NULL);
 	GASNETE_SAFE(
 	    LONGASYNC_REP(1,2, (token,
 	    gasneti_handleridx(gasnete_firehose_get_dma_reph), src, nbytes,
 	    dest, PACK(op))));
 }
-SHORT_HANDLER(gasnete_firehose_get_dma_reqh,4,7, 
-    (token, a0, UNPACK(a1),     UNPACK(a2),     UNPACK(a3)    ),
-    (token, a0, UNPACK2(a1,a2), UNPACK2(a3,a4), UNPACK2(a5, a6)));
+SHORT_HANDLER(gasnete_firehose_get_dma_reqh,5,9, 
+    (token, a0, UNPACK(a1),     UNPACK(a2),     UNPACK(a3),	UNPACK(a4)    ),
+    (token, a0, UNPACK2(a1,a2), UNPACK2(a3,a4), UNPACK2(a5, a6),UNPACK(a7,a8)));
 
 /*
  * AM Handler: Reply to get into a pinned memory location
@@ -131,7 +139,7 @@ gasnete_firehose_get_dma_reph_inner(gasnet_token_t token, void *op)
 
 	eop = (gasnete_eop_t *) op;
 	assert(eop->src > 0 && eop->len > 0);
-	gasnetc_bucket_unpin_by_addr(eop->dest,eop->len);
+	gasnetc_bucket_unpin_by_addr(eop->dest, eop->len);
 	gasnete_op_markdone((gasnete_op_t *) op, 1);
 	if (eop->iop != NULL) {
 		gasneti_atomic_increment(&(eop->iop->completed_get_cnt));
@@ -380,7 +388,6 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 	return (gasnete_op_t *) pop;
 }
 
-
 extern gasnet_handle_t
 gasnete_put_nb_bulk (gasnet_node_t node, void *dest, void *src, 
 		     size_t nbytes GASNETE_THREAD_FARG)
@@ -532,13 +539,17 @@ gasnete_firehose_get_bulk(void *dest, gasnet_node_t node, void *src,
 	gop->starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
 	gop->fh_stats = fh_onesided;
 	#endif
+
 	gasnetc_bucket_pin_by_addr((uintptr_t) dest, nbytes);
+
 	gop->iop = iop;
 	if (iop != NULL)
 		iop->initiated_get_cnt++;
-	SHORT_REQ(4, 7,
+
+	assert(gop != NULL);
+	SHORT_REQ(5, 9,
 	    (node, gasneti_handleridx(gasnete_firehose_get_dma_reqh), nbytes,
-	     PACK(dest), PACK(src), PACK(gop)));
+	     PACK(dest), PACK(src), PACK(gop), PACK(gop)));
 	return (gasnete_op_t *) gop;
 }
 
@@ -546,6 +557,8 @@ extern gasnet_handle_t
 gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, 
 		     size_t nbytes GASNETE_THREAD_FARG)
 {
+	gasnete_boundscheck(node, src, nbytes);
+
 	if (nbytes > GASNETE_GET_NON_DMA_CUTOFF) {
 		GASNETI_TRACE_PRINTF(C, 
 		    ("gasnete_get_nb_bulk Firehose (%d,%p <- %p,%d bytes)",
@@ -566,6 +579,8 @@ extern void
 gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, 
 		      size_t nbytes GASNETE_THREAD_FARG)
 {
+	gasnete_boundscheck(node, src, nbytes);
+
 	if (nbytes > GASNETE_GET_NON_DMA_CUTOFF) {
 		gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
 		gasnete_iop_t *iop = mythread->current_iop;
