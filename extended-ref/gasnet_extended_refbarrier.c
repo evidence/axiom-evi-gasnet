@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/03/02 22:17:08 $
- * $Revision: 1.3 $
+ *     $Date: 2004/03/02 22:41:24 $
+ * $Revision: 1.4 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,6 +33,10 @@
      network.
     Also since we don't currently have an _init hook for the barriers, we use a
      static allocation, limiting us to 2^GASNETE_AMBARRIER_MAXSTEP nodes.
+
+    Algorithm is described in section 3.3 of
+    John M. Mellor-Crummey and Michael L. Scott. "Algorithms for scalable synchronization
+    on shared-memory multiprocessors." ACM ToCS, 9(1):21 65, 1991.
  */
 
 #ifndef GASNETE_AMBARRIER_MAXSTEP
