@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2005/02/27 15:25:18 $
- * $Revision: 1.63 $
+ *     $Date: 2005/02/28 17:37:58 $
+ * $Revision: 1.64 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -675,10 +675,38 @@
       #define gasneti_local_rmb() _Asm_mf((_Asm_fence)(_DOWN_MEM_FENCE))
       #define gasneti_local_mb() _Asm_mf((_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE))
    #else
+    #if 1
       #define gasneti_local_wmb() GASNETI_ASM("mf")
       /* bug 1000: empirically observed that IA64 requires a full memory fence for both wmb and rmb */
       #define gasneti_local_rmb() gasneti_local_wmb()
       #define gasneti_local_mb()  gasneti_local_wmb()
+    #else
+      /* according to section 4.4.7 in:
+         "Intel Itanium Architecture Software Developer's Manual, Vol 2 System Architecture"
+         the following should work, but for some reason it does not
+       */
+      GASNET_INLINE_MODIFIER(_gasneti_local_wmb)
+      void _gasneti_local_wmb() {
+        int tmp;
+        __asm__ __volatile__(
+                ";;\n\tst4.rel %0 = r0\n\t;;"
+                :"=m" (tmp)
+                :);
+      }
+      #define gasneti_local_wmb _gasneti_local_wmb
+
+      GASNET_INLINE_MODIFIER(_gasneti_local_rmb)
+      void _gasneti_local_rmb() {
+        register int r;
+        int tmp;
+        __asm__ __volatile__(
+                ";;\n\tld4.acq %0 = %1\n\t;;"
+                : "=r" (r) : "m" (tmp) : "memory");
+      }
+      #define gasneti_local_rmb _gasneti_local_rmb
+
+      #define gasneti_local_mb() GASNETI_ASM("mf")
+    #endif
    #endif
 #elif defined(_POWER) || (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(LINUX) && defined(__PPC__))
  /* (_POWER) == IBM SP POWER[234]
@@ -758,7 +786,6 @@
    }
    #define gasneti_compiler_fence gasneti_local_wmb
 #elif defined(__MTA__)
-   /* MTA has no caches or write buffers - just need a compiler reordering fence */
    #if 0 /* causes warnings */
      #define gasneti_compiler_fence() (_Pragma("mta fence"))
    #else
@@ -770,6 +797,10 @@
      }
      #define gasneti_compiler_fence() _gasneti_compiler_fence()
    #endif
+   /* MTA has no caches or write buffers - just need a compiler reordering fence */
+   #define gasnet_local_wmb() gasneti_compiler_fence()
+   #define gasnet_local_rmb() gasneti_compiler_fence()
+   #define gasnet_local_mb()  gasneti_compiler_fence()
 #elif defined(_SX)
    GASNET_INLINE_MODIFIER(gasneti_local_wmb)
    void gasneti_local_wmb(void) {
@@ -792,10 +823,7 @@
   #define gasneti_local_rmb() gasneti_compiler_fence()
 #endif
 
-/* Default gasneti_local_wmb() */
-#ifndef gasneti_local_wmb
-  #define gasneti_local_wmb() gasneti_compiler_fence()
-#endif
+/* NO Default for gasneti_local_wmb() to avoid mistakes - it must be explicitly provided */
 
 /* Default gasneti_local_mb() */
 #ifndef gasneti_local_mb

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/02/28 05:59:31 $
- * $Revision: 1.22 $
+ *     $Date: 2005/02/28 17:38:00 $
+ * $Revision: 1.23 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,7 +17,9 @@
 #endif
 
 #ifdef HAVE_PTHREAD_H
-  #define NUM_THREADS 10
+  #ifndef NUM_THREADS
+    #define NUM_THREADS 10
+  #endif
   gasnett_atomic_t thread_flag[NUM_THREADS];
   int valX[NUM_THREADS];
   int valY[NUM_THREADS];
