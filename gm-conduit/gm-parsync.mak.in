@@ -1,4 +1,4 @@
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gm-parsync.mak.in,v 1.3 2002/06/14 03:40:38 csbell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gm-parsync.mak.in,v 1.4 2002/10/20 22:51:30 bonachea Exp $
 # Description: Makefile fragment for GM conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -15,7 +15,7 @@
 # ----------------------------------------------------------------------
 
 GASNET_INCLUDES = -I@INSTALL_PREFIX@/include -I@INSTALL_PREFIX@/include/gm-conduit -I@GM_INCLUDE@
-GASNET_LIBDIRS = -I@INSTALL_PREFIX@/libs
+GASNET_LIBDIRS = -I@INSTALL_PREFIX@/lib
 
 # Textual lines containing the string "###NOINSTALL###" are removed by the install process
 # (must be one continuous line) ###NOINSTALL###
