@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.61 2004/06/30 20:54:20 phargrov Exp $
- * $Date: 2004/06/30 20:54:20 $
+/* $Id: gasnet_core.c,v 1.62 2004/06/30 21:34:19 phargrov Exp $
+ * $Date: 2004/06/30 21:34:19 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -38,6 +38,8 @@ gasnetc_state_t _gmc;
 gasnet_handlerentry_t const		*gasnetc_get_handlertable();
 extern gasnet_handlerentry_t const	*gasnete_get_handlertable();
 extern gasnet_handlerentry_t const	*gasnete_get_extref_handlertable();
+
+static void gasnetc_atexit(void);
 
 /*
   Initialization
@@ -125,6 +127,9 @@ gasnetc_init(int *argc, char ***argv)
 	#else
 		#error Bad segment config
 	#endif
+
+	/* Handler for non-collective returns from main() */
+	atexit(gasnetc_atexit);
 
 	gasneti_init_done = 1;
 	gasneti_trace_init(*argc, *argv);
