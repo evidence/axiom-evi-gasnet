@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_internal.h         $
- *     $Date: 2002/10/03 14:30:37 $
- * $Revision: 1.5 $
+ *     $Date: 2002/10/28 06:06:24 $
+ * $Revision: 1.6 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -50,6 +50,12 @@ typedef struct _gasnete_eop_t {
 	uint32_t		len;
 	struct _gasnete_iop_t	*iop;
 	struct _gasnete_eop_t	*next;		/* when used in FIFO */
+	#if defined(TRACE) || defined(STATS)
+	gasneti_stattime_t	starttime;
+	#ifdef GASNETC_FIREHOSE
+	int			fh_num;
+	#endif
+	#endif
 
 	gasnete_eopaddr_t	addr;      /*  next cell while in free list, 
 					       my own eopaddr_t while in use */

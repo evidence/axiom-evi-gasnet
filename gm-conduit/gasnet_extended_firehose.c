@@ -152,8 +152,30 @@ gasnete_firehose_callback_pop(struct gm_port *p, void *context,
 		GASNETC_ASSERT_BUFDESC_PTR(bufd, eop->src);
 		gasnetc_callback_ambuffer(p, (void *) bufd, status);
 	}
-	else 
+	else  {
 		gasnetc_done_pinned(gasnetc_mynode, eop->src, eop->len);
+		#if defined(TRACE) || defined(STATS)
+		if (eop->fh_num != 0)
+		{
+			gasneti_stattime_t done_time = 
+				GASNETI_STATTIME_NOW_IFENABLED(C)-eop->starttime;
+			switch(eop->fh_num) {
+				case -1:
+					GASNETI_TRACE_EVENT_TIME(C,
+					    FIREHOSE_PUT_ONESIDED, done_time);
+					break;
+				case 1:
+					GASNETI_TRACE_EVENT_TIME(C,
+					    FIREHOSE_PUT_ONE, done_time);
+					break;
+				default:
+					GASNETI_TRACE_EVENT_TIME(C,
+					    FIREHOSE_PUT_MANY, done_time);
+			}
+			eop->fh_num = 0;
+		}
+		#endif
+	}
 	if (eop->iop != NULL) {
 		gasneti_atomic_increment(&(eop->iop->completed_put_cnt));
 		GASNETI_TRACE_PRINTF(C, ("iop increment at %p", (void *) eop));
@@ -216,6 +238,7 @@ gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 	 * we can support in a single medium
 	 */
 	assert(sizeof(uintptr_t)*tot_buckets < gasnet_AMMaxMedium());
+	GASNETI_TRACE_EVENT(C, PUT_FH_TOTAL);
 
 	if (gasnetc_firehose_buf_num < tot_buckets) {
 		void	*old_buf;
@@ -230,10 +253,13 @@ gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 		}
 		gasneti_mutex_unlock(&gasnetc_lock_fh_hash);
 	}
-	
+
 	if (gasnetc_firehose_build_list(pop->node, pop->dest, num_buckets,
 	    &old_buckets, &new_buckets)) {
 		assert(gasneti_handleridx(gasnete_firehose_move_reph) > 0);
+		#if defined(TRACE) || defined(STATS)
+		pop->fh_num = num_buckets+old_buckets;
+		#endif
 		#ifdef TRACE
 		{
 			int i;
@@ -257,6 +283,10 @@ gasnete_firehose_move_for_put(gasnete_eop_t *pop)
 	else {
 		/* all firehoses are remote pinned buckets */
 		gasneti_mutex_lock(&gasnetc_lock_gm);
+		#if defined(TRACE) || defined(STATS)
+		pop->fh_num = -1;
+		#endif
+		GASNETI_TRACE_EVENT(C, PUT_FH_ONESIDED);
 		gasnete_firehose_put_using_directed(pop, GASNETE_FH_POLL_TOKEN);
 		gasneti_mutex_unlock(&gasnetc_lock_gm);
 	}
@@ -273,9 +303,6 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 {
 	gasnete_eop_t	*pop;
 
-	/* Pin locally, incrementing reference counts where necessary */
-	gasnetc_bucket_pin_by_addr((uintptr_t) src, nbytes);
-
 	pop = gasnete_eop_new(GASNETE_MYTHREAD);
 	pop->src = (uintptr_t) src;
 	pop->dest = (uintptr_t) dest;
@@ -283,6 +310,12 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 	pop->node = node;
 	pop->iop = iop;
 	SET_OPMISC(pop, OPMISC_NONAMBUF);
+	#if defined(TRACE) || defined(STATS)
+	pop->starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
+	#endif
+
+	/* Pin locally, incrementing reference counts where necessary */
+	gasnetc_bucket_pin_by_addr((uintptr_t) src, nbytes);
 
 	gasnete_firehose_move_for_put(pop);
 	return (gasnete_op_t *) pop;
@@ -349,6 +382,9 @@ gasnete_firehose_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
 	pop->node = node;
 	pop->iop = iop;
 	SET_OPMISC(pop, OPMISC_AMBUF);
+	#if defined(TRACE) || defined(STATS)
+	pop->starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
+	#endif
 
 	gasnete_firehose_move_for_put(pop);
 	return (gasnete_op_t *) pop;
