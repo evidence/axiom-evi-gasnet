@@ -417,7 +417,7 @@ void Usage(char *argvzero) {
     "  %s B/P/F/E (numiterationsPerSize) (queuedepth)\n"
     "  B = Barrier latency test\n"
     "  P = Ping/pong latency test (no communication overlap)\n"
-    "  F = Flood bandwidth test (overlap messages)\n",
+    "  F = Flood bandwidth test (overlap messages)\n"
     "  E = Exchange test (All-to-All)\n",
     argvzero);
   exit(1);
