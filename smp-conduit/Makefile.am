@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.6 2003/11/25 19:44:29 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v 1.7 2003/12/16 17:32:58 phargrov Exp $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -30,6 +30,7 @@ EXTRA_DIST = $(filelist) \
 libgasnet_sources = $(srcdir)/gasnet_core.c $(othersourcefiles)
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.[ch]             \
+                         $(top_srcdir)/extended-ref/gasnet_extended_refbarrier.c \
                          $(top_srcdir)/extended-ref/*.h       
 libgasnet_objects = gasnet_core.o gasnet_internal.o gasnet_extended.o
 

@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.17 2003/11/25 19:44:28 phargrov Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/Makefile.am,v 1.18 2003/12/16 17:32:57 phargrov Exp $
 # Description: Makefile for GASNet MPI conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -33,6 +33,7 @@ libgasnet_sources = $(srcdir)/gasnet_core.c     \
 
 libgasnet_dependencies = $(filelist) $(libgasnet_sources) \
                          $(top_srcdir)/*.[ch]             \
+                         $(top_srcdir)/extended-ref/gasnet_extended_refbarrier.c \
                          $(top_srcdir)/extended-ref/*.h   \
 			 $(top_srcdir)/other/ammpi/*.h
 
