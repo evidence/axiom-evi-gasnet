@@ -23,10 +23,17 @@ To use the template:
     template-parsync.mak.in
     template-seq.mak.in
 
-* Add your new directory to the top-level Makefile and any necessary
-configuration checks to the configure.in script. You should create an
-AM_CONDITIONAL() called USE_<CONDUITNAME>_CONDUIT and use it to control the
-building of your conduit and any associated libraries in other/.
+* Add your new directory to the top-level Makefile.am and any necessary
+  configuration/enabling checks to the configure.in script. You should create an
+  AM_CONDITIONAL() called USE_<CONDUITNAME>_CONDUIT and use it to control the
+  building of your conduit and any associated libraries in other/.
+
+* Any new header files you add must be placed in the "filelist" variable of 
+  <conduitname>-conduit/Makefile.am, any new .c files must go in 
+  libgasnet_sources and libgasnet_objects variables of that same file.
+  In general, ANY files you add to the repository (even documentation!)
+  MUST appear somewhere in a Makefile.am file or they will be omitted from
+  the GASNet distribution. See online documentation for automake for more info.
 
 * Start filling in code specific to your conduit
   Several places in the template are marked with ### to indicate a place where
