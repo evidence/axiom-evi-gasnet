@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_misc.c,v 1.30 2003/01/11 22:46:45 bonachea Exp $
- * $Date: 2003/01/11 22:46:45 $
- * $Revision: 1.30 $
+/* $Id: gasnet_core_misc.c,v 1.31 2003/02/28 00:20:02 csbell Exp $
+ * $Date: 2003/02/28 00:20:02 $
+ * $Revision: 1.31 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -601,7 +601,8 @@ int
 gasnetc_gmport_allocate(int *board, int *port)
 {
 	struct gm_port	*p;
-	unsigned int	port_id, board_id;
+	unsigned int	port_id, board_id, i;
+	gm_status_t	status;
 
 	gm_init();
 
@@ -611,13 +612,23 @@ gasnetc_gmport_allocate(int *board, int *port)
 
 		for (board_id = 0; board_id < GASNETC_GM_MAXBOARDS; board_id++) {
 
-			if (gm_open(&p, board_id, port_id, "GASNet/GM", 
-			    GM_API_VERSION_1_4) == GM_SUCCESS) {
-				*board = board_id;
-				*port = port_id;
-				_gmc.port = p;
-				return 1;
+			status = gm_open(&p, board_id, port_id, "GASNet/GM", GM_API_VERSION_1_4);
+
+			switch (status) {
+				case GM_SUCCESS:
+					*board = board_id;
+					*port = port_id;
+					_gmc.port = p;
+					return 1;
+					break;
+				case GM_INCOMPATIBLE_LIB_AND_DRIVER:
+					gasneti_fatalerror(
+					    "GM library and driver are out of sync!");
+					break;
+				default:
+					break;
 			}
+
 		}
 	}
 	return 0;
