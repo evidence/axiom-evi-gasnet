@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended.c                  $
- *     $Date: 2003/08/11 21:15:31 $
- * $Revision: 1.3 $
+ *     $Date: 2003/08/15 17:37:09 $
+ * $Revision: 1.4 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -284,6 +284,20 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
   }
 }
 
+/* Reply handler to complete an op - might be replaced w/ IB atomics one day */
+GASNET_INLINE_MODIFIER(gasnete_done_reph_inner)
+void gasnete_done_reph_inner(gasnet_token_t token, void *counter) {
+  assert(gasneti_atomic_read((gasneti_atomic_t *)counter) > 0);
+  gasneti_atomic_decrement((gasneti_atomic_t *)counter);
+}
+SHORT_HANDLER(gasnete_done_reph,1,2,
+              (token, UNPACK(a0)    ),
+              (token, UNPACK2(a0, a1)));
+#define GASNETE_DONE(token, counter)                                               \
+  GASNETE_SAFE(                                                                    \
+    SHORT_REP(1,2,((token), gasneti_handleridx(gasnete_done_reph), PACK(counter))) \
+  )
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Initialization
@@ -374,22 +388,11 @@ void gasnete_memset_reqh_inner(gasnet_token_t token,
   gasnet_handlerarg_t val, gasnet_handlerarg_t nbytes, void *dest, void *req_oust) {
   memset(dest, (int)(uint32_t)val, nbytes);
   gasneti_memsync();
-  GASNETE_SAFE(
-    SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_memset_reph),
-                  PACK(req_oust))));
+  GASNETE_DONE(token, req_oust);
 }
 SHORT_HANDLER(gasnete_memset_reqh,4,6,
               (token, a0, a1, UNPACK(a2),      UNPACK(a3)     ),
               (token, a0, a1, UNPACK2(a2, a3), UNPACK2(a4, a5)));
-/* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_memset_reph_inner)
-void gasnete_memset_reph_inner(gasnet_token_t token, void *req_oust) {
-  assert(gasneti_atomic_read((gasneti_atomic_t *)req_oust) > 0);
-  gasneti_atomic_decrement((gasneti_atomic_t *)req_oust);
-}
-SHORT_HANDLER(gasnete_memset_reph,1,2,
-              (token, UNPACK(a0)    ),
-              (token, UNPACK2(a0, a1)));
 /* ------------------------------------------------------------------------------------ */
 
 extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
@@ -905,8 +908,8 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
   gasneti_handler_tableentry_no_bits(gasnete_barrier_done_reqh),
 
   /* ptr-width dependent handlers */
+  gasneti_handler_tableentry_with_bits(gasnete_done_reph),
   gasneti_handler_tableentry_with_bits(gasnete_memset_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_memset_reph),
 
   { 0, NULL }
 };
