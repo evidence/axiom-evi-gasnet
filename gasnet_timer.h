@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_timer.h                                   $
- *     $Date: 2003/01/11 22:46:40 $
- * $Revision: 1.6 $
+ *     $Date: 2003/02/18 12:16:40 $
+ * $Revision: 1.7 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -193,7 +193,46 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_NOW()      ((gasneti_stattime_t)gasneti_getMicrosecondTimeStamp())
 #endif
 
+/* return a double value representing the approximate microsecond
+   overhead and granularity of the current timers. Overhead is the 
+   average wall-clock time consumed while reading the timer value once,
+   and granularity is the minimum observable non-zero interval between 
+   two timer readings (which may be limited only by overhead, or may 
+   be significantly higher on systems where the underlying timer 
+   advances in discrete "jumps" of time much larger than the overhead)
+   When measuring an event of length (L) using two surrounding timer calls,
+   the measured time interval will be: L + overhead +- granularity
+*/
+#define GASNETI_STATTIME_GRANULARITY() gasneti_stattime_metric(0)
+#define GASNETI_STATTIME_OVERHEAD()    gasneti_stattime_metric(1)
+double _gasneti_stattime_metric[2];
+int _gasneti_stattime_metricinit;
+GASNET_INLINE_MODIFIER(gasneti_stattime_metric)
+double gasneti_stattime_metric(unsigned int idx) {
+  assert(idx <= 1);
+  if_pf (!_gasneti_stattime_metricinit) {
+    int i, ticks, iters = 1000, minticks = 10;
+    gasneti_stattime_t min = GASNETI_STATTIME_MAX;
+    gasneti_stattime_t start = GASNETI_STATTIME_NOW();
+    gasneti_stattime_t last = start;
+    for (i=0,ticks=0; i < iters || ticks < minticks; i++) {
+      gasneti_stattime_t x = GASNETI_STATTIME_NOW();
+      gasneti_stattime_t curr = (x - last);
+      if (curr > 0) { 
+        ticks++;
+        if (curr < min) min = curr;
+      }
+      last = x;
+    }
+    /* granularity */
+    _gasneti_stattime_metric[0] = ((double)GASNETI_STATTIME_TO_US(min*1000))/1000.0;
+    /* overhead */
+    _gasneti_stattime_metric[1] = ((double)(GASNETI_STATTIME_TO_US(last - start)))/i;
 
+    _gasneti_stattime_metricinit = 1;
+  }
+  return _gasneti_stattime_metric[idx];
+}
 /* ------------------------------------------------------------------------------------ */
 
 END_EXTERNC

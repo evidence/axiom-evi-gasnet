@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/01/11 22:46:40 $
- * $Revision: 1.24 $
+ *     $Date: 2003/02/18 12:16:40 $
+ * $Revision: 1.25 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -418,28 +418,8 @@ extern void gasneti_trace_init() {
         "all short-term time measurements will be very rough and include significant timer overheads");
     #endif
     if (gasneti_tracefile) { 
-      int i, ticks, iters = 1000, minticks = 10;
-      gasneti_stattime_t min = GASNETI_STATTIME_MAX;
-      gasneti_stattime_t start = GASNETI_STATTIME_NOW();
-      gasneti_stattime_t last = start;
-      for (i=0,ticks=0; i < iters || ticks < minticks; i++) {
-        gasneti_stattime_t x = GASNETI_STATTIME_NOW();
-        gasneti_stattime_t curr = (x - last);
-        if (curr > 0) { 
-          ticks++;
-          if (curr < min) min = curr;
-        }
-        last = x;
-      }
-      { int granularity = (int)GASNETI_STATTIME_TO_US(min);
-        double overhead = ((double)(GASNETI_STATTIME_TO_US(last)-GASNETI_STATTIME_TO_US(start)))/i;
-        if (granularity == 0)
-          gasneti_trace_printf("Timer granularity: < 1 us, overhead: ~ %.3f us",
-            overhead);
-        else
-          gasneti_trace_printf("Timer granularity: ~ %i us, overhead: ~ %.3f us",
-            granularity, overhead);
-      }
+      gasneti_trace_printf("Timer granularity: ~ %.3f us, overhead: ~ %.3f us",
+       GASNETI_STATTIME_GRANULARITY(), GASNETI_STATTIME_OVERHEAD());
     }
   }
 

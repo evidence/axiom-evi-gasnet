@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2003/01/11 22:46:40 $
- * $Revision: 1.4 $
+ *     $Date: 2003/02/18 12:16:40 $
+ * $Revision: 1.5 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,6 +29,8 @@
 #define GASNETT_TICK_MAX             GASNETI_STATTIME_MAX
 #define gasnett_ticks_to_us(ticks)   GASNETI_STATTIME_TO_US(ticks)
 #define gasnett_ticks_now()          GASNETI_STATTIME_NOW()
+#define gasnett_timer_granularityus()   GASNETI_STATTIME_GRANULARITY()
+#define gasnett_timer_overheadus()      GASNETI_STATTIME_OVERHEAD()
 
 #ifdef GASNETI_USING_GETTIMEOFDAY
 #define GASNETT_USING_GETTIMEOFDAY

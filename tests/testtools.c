@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/tests/testtools.c                                    $
- *     $Date: 2003/01/13 06:16:07 $
- * $Revision: 1.5 $
+ *     $Date: 2003/02/18 12:16:41 $
+ * $Revision: 1.6 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,7 +52,6 @@ int main() {
 
     for (i=0; i < 3; i++) {
       int time, timeref;
-
       start = gasnett_ticks_now();
       startref = TIME();
         sleep(1);
@@ -70,6 +69,14 @@ int main() {
                gasnett_ticks_to_us(end - start) ) > 1)
         printf("ERROR: ticks_to_us(A) - ticks_to_us(B) != ticks_to_us(A-B)\n");
 
+    }
+    {
+      double overhead = gasnett_timer_overheadus();
+      double granularity = gasnett_timer_granularityus();
+      if (granularity <= 0.0 || overhead <= 0.0 ||
+          granularity < 0.5*overhead)
+        printf("ERROR: nonsensical timer overhead/granularity measurements:\n"
+               "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
     }
   }
 
