@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#! /usr/bin/env perl
 
 #############################################################
 # All files in this directory (except where otherwise noted) are subject to the
@@ -51,7 +51,7 @@ use Getopt::Long;
 ########################
 
 my ($opt_sort, $opt_output, $opt_help, $opt_report);
-my ($opt_internal, $opt_full, $opt_thread);
+my ($opt_internal, $opt_full, $opt_thread, $opt_filter);
 
 my (%data, %report, %threads, %nodes);
 my (%node_threads); 
@@ -71,7 +71,8 @@ GetOptions (
     'i'			=> \$opt_internal,
     'internal!'		=> \$opt_internal,
     'f'			=> \$opt_full,
-    'full!'		=> \$opt_full
+    'full!'		=> \$opt_full,
+    'filter=s'		=> \$opt_filter
 );
 
 # The main routine
@@ -126,6 +127,8 @@ Options:
                         and MAX refer to message size: for BARRIERS, to time
                         spent in barrier).  Default: sort by SRC (source
                         file/line). 
+    -filter [t1],[t2].. Filter out output by one or more types:
+    			LOCAL, GLOBAL, WAIT, WAITNOTIFY.  
     -t -[no]thread      Output detailed information for each thread.
     -i -[no]internal    Show internal events (such as the initial and final
                         barriers) which do not correspond to user source code. 
@@ -365,6 +368,11 @@ sub trace_output
 {
     my ($handle, $pgb) = @_;
     
+    my %filters;
+    foreach my $filter (split /,/, $opt_filter) {
+    	$filters{$filter}++;
+    }
+
     # Print out 
     print "\n$pgb REPORT:\n";
     
@@ -385,9 +393,10 @@ EOF
     foreach my $entry (@{$report{$pgb}}) { 
         ($src_num, $type, $max, $min, $avg, $total, $calls) = @{$entry};
         ($source, $lnum) = src_line($src_num);
-        
         # Skip internal events (having lnum==0) if not specified.
         next unless ($lnum || $opt_internal);
+	# Filter out certain types;
+	next unless !$filters{$type};
         
         
         $max = shorten($max, $pgb);
