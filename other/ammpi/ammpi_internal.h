@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2004/08/26 04:53:48 $
- * $Revision: 1.17 $
+ *     $Date: 2004/09/24 04:14:53 $
+ * $Revision: 1.18 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -64,23 +64,6 @@
   #else
     #define AMMPI_DEBUG_VERBOSE       0
   #endif
-#endif
-
-#if !defined(AMMPI_DEBUG) && !defined(AMMPI_NDEBUG)
-  #if defined(GASNET_DEBUG)
-    #define AMMPI_DEBUG 1
-  #elif defined(GASNET_NDEBUG)
-    #define AMMPI_NDEBUG 1
-  #endif
-#endif
-#if defined(AMMPI_DEBUG) && !defined(AMMPI_NDEBUG)
-  #undef AMMPI_DEBUG
-  #define AMMPI_DEBUG 1
-#elif !defined(AMMPI_DEBUG) && defined(AMMPI_NDEBUG)
-  #undef AMMPI_NDEBUG
-  #define AMMPI_NDEBUG 1
-#else
-  #error bad defns of AMMPI_DEBUG and AMMPI_NDEBUG
 #endif
 
 #ifndef TRUE

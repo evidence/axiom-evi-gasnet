@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2004/09/19 08:30:35 $
- * $Revision: 1.18 $
+ *     $Date: 2004/09/24 04:14:55 $
+ * $Revision: 1.19 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -435,11 +435,34 @@ extern const amudp_stats_t AMUDP_initial_stats; /* the "empty" values for counte
 #define amx_stats_t               amudp_stats_t
 #define amx_handler_fn_t          amudp_handler_fn_t
 
+#if !defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
+  #if defined(GASNET_DEBUG)
+    #define AMUDP_DEBUG 1
+  #elif defined(GASNET_NDEBUG)
+    #define AMUDP_NDEBUG 1
+  #endif
+#endif
+#if defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
+  #undef AMUDP_DEBUG
+  #define AMUDP_DEBUG 1
+#elif !defined(AMUDP_DEBUG) && defined(AMUDP_NDEBUG)
+  #undef AMUDP_NDEBUG
+  #define AMUDP_NDEBUG 1
+#else
+  #error bad defns of AMUDP_DEBUG and AMUDP_NDEBUG
+#endif
+
 #ifdef AMUDP_DEBUG
   #define AMX_DEBUG AMUDP_DEBUG
 #endif
 #ifdef AMUDP_NDEBUG
   #define AMX_NDEBUG AMUDP_NDEBUG
+#endif
+
+#if defined(AMUDP_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
+  #ifndef AMUDP_ALLOW_OPTIMIZED_DEBUG
+    #error Tried to compile AMUDP client code with optimization enabled but also AMUDP_DEBUG (which seriously hurts performance). Disable C and C++ compiler optimization or reconfigure/rebuild without --enable-debug
+  #endif
 #endif
 
 /* System parameters */

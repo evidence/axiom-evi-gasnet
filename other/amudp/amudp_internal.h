@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2004/09/08 09:23:47 $
- * $Revision: 1.8 $
+ *     $Date: 2004/09/24 04:14:55 $
+ * $Revision: 1.9 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -82,24 +82,6 @@
     #define AMUDP_DEBUG_VERBOSE       0
   #endif
 #endif
-
-#if !defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
-  #if defined(GASNET_DEBUG)
-    #define AMUDP_DEBUG 1
-  #elif defined(GASNET_NDEBUG)
-    #define AMUDP_NDEBUG 1
-  #endif
-#endif
-#if defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
-  #undef AMUDP_DEBUG
-  #define AMUDP_DEBUG 1
-#elif !defined(AMUDP_DEBUG) && defined(AMUDP_NDEBUG)
-  #undef AMUDP_NDEBUG
-  #define AMUDP_NDEBUG 1
-#else
-  #error bad defns of AMUDP_DEBUG and AMUDP_NDEBUG
-#endif
-
 
 #ifndef TRUE
 #define TRUE 1
