@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.18 2002/08/15 10:43:15 csbell Exp $
- * $Date: 2002/08/15 10:43:15 $
+/* $Id: gasnet_core.c,v 1.19 2002/08/15 10:48:25 csbell Exp $
+ * $Date: 2002/08/15 10:48:25 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -17,6 +17,7 @@ GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
+extern gasnet_handlerentry_t const *gasnete_get_extref_handlertable();
 
 gasnet_node_t gasnetc_mynode = -1;
 gasnet_node_t gasnetc_nodes = 0;

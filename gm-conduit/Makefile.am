@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.9 2002/08/15 10:43:15 csbell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v 1.10 2002/08/15 10:48:25 csbell Exp $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -12,7 +12,7 @@ platform_libraries = @LIBS@ -L@GM_LIB@
 platform_defines = @GASNET_MACHINE_DEFINES@
 linkend = -lgm
 
-INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_builddir) -I$(gm_include) $(platform_defines)
+INCLUDES = -I$(srcdir) -I$(top_srcdir) -I$(top_srcdir)/extended-ref/ -I$(top_builddir) -I$(gm_include) $(platform_defines)
 	   
 filelist = gasnet_core.c gasnet_core.h gasnet_core_firehose.c \
 	   gasnet_core_fwd.h gasnet_core_help.h gasnet_core_internal.h \
@@ -20,7 +20,7 @@ filelist = gasnet_core.c gasnet_core.h gasnet_core_firehose.c \
 	   gasnet_extended_firehose.c gasnet_extended_internal.h \
 	   gasnet_extended_op.c gasnet_extended_ref.c
 
-othersourcefiles = $(top_srcdir)/gasnet_internal.c $(top_srcdir)/extended-ref/gasnet_extended.h
+othersourcefiles = $(top_srcdir)/gasnet_internal.c
 
 EXTRA_DIST = $(filelist)
 
