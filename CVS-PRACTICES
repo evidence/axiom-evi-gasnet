@@ -30,7 +30,7 @@ GASNet Release Procedure
 
 * Increment the version number for each item or software module that has changed
   since the last public release:
-  Overall public release version number: configure.in
+  Overall public release version number: configure.in and GASNETI_RELEASE_VERSION
   Conduits: */gasnet_core_fwd.h, */gasnet_extended_fwd.h
   GASNet document spec version: docs/gasnet.texi
   Spec conformance major version number: gasnet.h, GASNET_VERSION

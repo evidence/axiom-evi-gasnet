@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet.h                                        $
- *     $Date: 2003/02/13 05:02:13 $
- * $Revision: 1.10 $
+ *     $Date: 2003/03/23 20:04:25 $
+ * $Revision: 1.11 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,21 +33,40 @@
 /* ------------------------------------------------------------------------------------ */
 /* check threading configuration */
 #if defined(GASNET_SEQ) && !defined(GASNET_PARSYNC) && !defined(GASNET_PAR)
-  #define GASNET_CONFIG SEQ
+  #define GASNETI_THREADMODEL SEQ
 #elif !defined(GASNET_SEQ) && defined(GASNET_PARSYNC) && !defined(GASNET_PAR)
-  #define GASNET_CONFIG PARSYNC
+  #define GASNETI_THREADMODEL PARSYNC
 #elif !defined(GASNET_SEQ) && !defined(GASNET_PARSYNC) && defined(GASNET_PAR)
-  #define GASNET_CONFIG PAR
+  #define GASNETI_THREADMODEL PAR
 #else
   #error Client code must #define exactly one of (GASNET_PAR, GASNET_PARSYNC, GASNET_SEQ) before #including gasnet.h
+#endif
+
+#if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
+  #define GASNETI_THREADS
 #endif
 
 #if !((defined(DEBUG) && !defined(NDEBUG)) || (!defined(DEBUG) && defined(NDEBUG)))
   #error Client code #define exactly one of (DEBUG or NDEBUG) to select GASNet build configuration
 #endif
 
-#if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
-  #define GASNETI_THREADS
+/* codify other configuration settings */
+#ifdef DEBUG
+  #define GASNETI_DEBUG_CONFIG "debug"
+#else
+  #define GASNETI_DEBUG_CONFIG "nodebug"
+#endif
+
+#ifdef TRACE
+  #define GASNETI_TRACE_CONFIG "trace"
+#else
+  #define GASNETI_TRACE_CONFIG "notrace"
+#endif
+
+#ifdef STATS
+  #define GASNETI_STATS_CONFIG "stats"
+#else
+  #define GASNETI_STATS_CONFIG "nostats"
 #endif
 
 /* autoconf-generated configuration header */
@@ -71,9 +90,9 @@
 
 /* ensure that client links the correct library */
 #ifdef GASNET_SEGMENT_EVERYTHING
-  #define gasnet_init _CONCAT(_CONCAT(gasnet_init_GASNET_,GASNET_CONFIG),GASNETI_SEGMENT_CONFIG)
+  #define gasnet_init _CONCAT(_CONCAT(gasnet_init_GASNET_,GASNETI_THREADMODEL),GASNETI_SEGMENT_CONFIG)
 #else
-  #define gasnet_init _CONCAT(gasnet_init_GASNET_,GASNET_CONFIG)
+  #define gasnet_init _CONCAT(gasnet_init_GASNET_,GASNETI_THREADMODEL)
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -88,6 +107,11 @@
   #define GASNET_VERSION 1
 #endif
 
+#ifndef GASNETI_RELEASE_VERSION
+  /* the public distribution release identifier */
+  #define GASNETI_RELEASE_VERSION 1.0
+#endif
+
 #ifndef GASNET_MAXNODES
   /*  an integer representing the maximum number of nodes supported in a single GASNet job */
   #define GASNET_MAXNODES 255
@@ -97,6 +121,12 @@
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
   #error GASNet core failed to define GASNET_ALIGNED_SEGMENTS to 0 or 1
+#endif
+
+#if GASNET_ALIGNED_SEGMENTS
+  #define GASNETI_ALIGN_CONFIG "align"
+#else 
+  #define GASNETI_ALIGN_CONFIG "noalign"
 #endif
 
 #ifndef GASNET_BARRIERFLAG_ANONYMOUS
@@ -234,6 +264,37 @@ typedef void *gasnet_threadinfo_t;
   #error GASNet failed to define SIZEOF_GASNET_REGISTER_VALUE_T
 #endif
 
+/* GASNET_CONFIG_STRING
+   a string representing all the relevant GASNet configuration settings 
+   that can be compared using string compare to verify version compatibility
+   The string is also embedded into the library itself such that it can be 
+   scanned for within a binary executable.
+*/
+#ifndef GASNET_CONFIG_STRING
+  /* allow extension by core and extended (all extensions should follow the same 
+     basic comma-delimited feature format below, and include an initial comma)
+   */
+  #ifndef GASNETC_EXTRA_CONFIG_INFO 
+    #define GASNETC_EXTRA_CONFIG_INFO
+  #endif
+  #ifndef GASNETE_EXTRA_CONFIG_INFO
+    #define GASNETE_EXTRA_CONFIG_INFO
+  #endif
+  #define GASNET_CONFIG_STRING                                            \
+             "RELEASE=" _STRINGIFY(GASNETI_RELEASE_VERSION) ","           \
+             "SPEC=" _STRINGIFY(GASNET_VERSION) ","                       \
+             "CONDUIT="                                                   \
+             GASNET_CORE_NAME_STR "-" GASNET_CORE_VERSION_STR "/"         \
+             GASNET_EXTENDED_NAME_STR "-" GASNET_EXTENDED_VERSION_STR "," \
+             "THREADMODEL=" _STRINGIFY(GASNETI_THREADMODEL) ","           \
+             "SEGMENT=" _STRINGIFY(GASNETI_SEGMENT_CONFIG) ","            \
+             GASNETI_ALIGN_CONFIG ","                                     \
+             GASNETI_DEBUG_CONFIG ","                                     \
+             GASNETI_TRACE_CONFIG ","                                     \
+             GASNETI_STATS_CONFIG                                         \
+             GASNETC_EXTRA_CONFIG_INFO                                    \
+             GASNETE_EXTRA_CONFIG_INFO                                    
+#endif
 /* ------------------------------------------------------------------------------------ */
 
 #undef _IN_GASNET_H

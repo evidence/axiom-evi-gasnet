@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_tools.h                                   $
- *     $Date: 2003/02/18 12:16:40 $
- * $Revision: 1.5 $
+ *     $Date: 2003/03/23 20:04:25 $
+ * $Revision: 1.6 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -65,6 +65,8 @@
    #include <unistd.h>
    #define gasnett_sched_yield() sleep(0)
 #endif
+
+#define GASNETT_IDENT(identName, identText) GASNETI_IDENT(identName, identText)
 
 #undef _IN_GASNET_TOOLS_H
 #endif

@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_internal.c                               $
- *     $Date: 2003/03/03 04:25:49 $
- * $Revision: 1.27 $
+ *     $Date: 2003/03/23 20:04:25 $
+ * $Revision: 1.28 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,11 +32,14 @@ int gasneti_VerboseErrors = 1;
 #define GASNET_VERSION_STR  _STRINGIFY(GASNET_VERSION)
 GASNETI_IDENT(gasneti_IdentString_APIVersion, "$GASNetAPIVersion: " GASNET_VERSION_STR " $");
 
-#define GASNET_CONFIG_STR _STRINGIFY(GASNET_CONFIG)
-GASNETI_IDENT(gasneti_IdentString_Config, "$GASNetConfig: GASNET_" GASNET_CONFIG_STR " $");
+#define GASNETI_THREADMODEL_STR _STRINGIFY(GASNETI_THREADMODEL)
+GASNETI_IDENT(gasneti_IdentString_ThreadModel, "$GASNetThreadModel: GASNET_" GASNETI_THREADMODEL_STR " $");
 
-#define GASNET_SEGMENT_CONFIG_STR _STRINGIFY(GASNETI_SEGMENT_CONFIG)
-GASNETI_IDENT(gasneti_IdentString_SegConfig, "$GASNetSegmentConfig: GASNET_SEGMENT_" GASNET_SEGMENT_CONFIG_STR " $");
+#define GASNETI_SEGMENT_CONFIG_STR _STRINGIFY(GASNETI_SEGMENT_CONFIG)
+GASNETI_IDENT(gasneti_IdentString_SegConfig, "$GASNetSegment: GASNET_SEGMENT_" GASNETI_SEGMENT_CONFIG_STR " $");
+
+/* embed a string with complete configuration info to support versioning checks */
+GASNETI_IDENT(gasneti_IdentString_libraryConfig, "$GASNetConfig: (libgasnet.a) " GASNET_CONFIG_STRING " $");
 
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_fatalerror(char *msg, ...) {

@@ -147,9 +147,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2003/02/15 11:25:01 $
+@subtitle $Date: 2003/03/23 20:04:26 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.19 $ 
+@subtitle $Revision: 1.20 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://www.cs.berkeley.edu/~bonachea/gasnet}
 
@@ -187,8 +187,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2003/02/15 11:25:01 $
-@*$Revision: 1.19 $ 
+@*$Date: 2003/03/23 20:04:26 $
+@*$Revision: 1.20 $ 
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @*@uref{http://upc.lbl.gov/}
 @HR
@@ -436,6 +436,12 @@ in @code{gasnet_attach()}
 an integer representing the major version of the GASNet spec to which this 
 implementation complies. Implementations of this version of the 
 specification should set this value to the integer 1
+
+@item GASNET_CONFIG_STRING
+a string representing any the relevant GASNet compile-time configuration settings 
+that can be compared using string compare to verify version compatibility.
+The string is also embedded into the library itself such that it can be 
+scanned for within a binary executable which is statically linked with GASNet.
 
 @item GASNET_MAXNODES
 an integer representing the maximum number of nodes supported in a single 
