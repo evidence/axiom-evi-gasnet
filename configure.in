@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2004/09/23 21:29:26 $
-# $Revision: 1.189 $
+#     $Date: 2004/09/23 22:16:06 $
+# $Revision: 1.190 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.189 $)
+AC_REVISION($Revision: 1.190 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -924,46 +924,15 @@ if test $enabled_mpi = yes; then
         # -DAMMPI_COEXIST_WITH_AM must be included whenever ammpi.h is compiled, or not at all
         MPI_DEFINES="$MPI_DEFINES -DAMMPI_COEXIST_WITH_AM"
       fi
+      GASNET_CHECK_COMPILER_SANITY(MPI_CC, [$MPI_CC], [$MPI_CFLAGS], [], [
+	#include <stdlib.h>
+	#include <mpi.h>
+      ],[User requested --enable-debug but mpicc has enabled optimization (-O) or disabled assertions (-DNDEBUG).  Try setting MPI_CC='$MPI_CC -O0 -UNDEBUG', changing MPI_CFLAGS, or passing --disable-mpi.])
   else
       AC_MSG_RESULT(no)
       AC_MSG_WARN(build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details)
       AC_MSG_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit)
       have_mpi=no
-  fi
-  if test "$mpi_test_worked" = yes ; then
-    AC_MSG_CHECKING([for debug vs. optimize conflict in mpicc])
-    # we need a clean slate here because MPI config may be totally different
-    OLDCC="$CC"
-    OLDCFLAGS="$CFLAGS"
-    OLDCPPFLAGS="$CPPFLAGS"
-    OLDLDFLAGS="$LDFLAGS"
-    OLDLIBS="$LIBS"
-    CC="$MPI_CC"
-    CFLAGS="$MPI_CFLAGS"
-    CPPFLAGS=""
-    LDFLAGS=""
-    LIBS="$MPI_LIBS"
-    AC_TRY_COMPILE( [
-      #include <stdlib.h>
-      #include <mpi.h>
-      #if defined(GASNET_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
-	choke me
-      #endif
-    ], [
-      MPI_Init(NULL,NULL);
-      MPI_Finalize();
-    ], [ mpi_debug_optimized=yes ], [ mpi_debug_optimized=no] )
-    CC="$OLDCC"
-    CFLAGS="$OLDCFLAGS"
-    CPPFLAGS="$OLDCPPFLAGS"
-    LDFLAGS="$OLDLDFLAGS"
-    LIBS="$OLDLIBS"
-    if test "$mpi_debug_optimized" = no; then
-      AC_MSG_RESULT([conflict])
-      AC_MSG_ERROR([User requested --enable-debug but mpicc has enabled optimization (-O) or disabled assertions (-DNDEBUG).  Try setting MPI_CC="$MPI_CC -O0 -UNDEBUG" (capital-Oh, zero), or using --disable-mpi])
-    else
-      AC_MSG_RESULT([ok])
-    fi
   fi
   if test "$force_mpi$have_mpi" = yesno ; then
     AC_MSG_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)

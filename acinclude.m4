@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2004/08/26 04:53:28 $
-dnl $Revision: 1.42 $
+dnl     $Date: 2004/09/23 22:16:06 $
+dnl $Revision: 1.43 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -498,6 +498,30 @@ else
   CC="$oldCC"
   CFLAGS="$oldCFLAGS"
 fi
+])
+
+dnl GASNET_CHECK_COMPILER_SANITY NAME CC CFLAGS CPPFLAGS INCLUDES ERRMSG
+dnl Ensure the compiler CC doesn't create a conflict between
+dnl optimization and debugging.
+AC_DEFUN([GASNET_CHECK_COMPILER_SANITY],[
+  AC_MSG_CHECKING([$1 for debug vs. optimize conflict])
+  OLDCC="$CC"
+  OLDCFLAGS="$CFLAGS"
+  OLDCPPFLAGS="$CPPFLAGS"
+  CC="$2"
+  CFLAGS="$3"
+  CPPFLAGS="$4"
+  AC_TRY_COMPILE( $5 [
+    #if defined(GASNET_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
+	choke me
+    #endif
+  ], [ ], [ AC_MSG_RESULT(no) ], [
+    AC_MSG_RESULT([yes])
+    AC_MSG_ERROR([$6])
+  ])
+  CC="$OLDCC"
+  CFLAGS="$OLDCFLAGS"
+  CPPFLAGS="$OLDCPPFLAGS"
 ])
 
 AC_DEFUN([GASNET_TRY_CACHE_CHECK],[
