@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/extended-ref/gasnet_extended_amambarrier.c                  $
- *     $Date: 2004/03/03 18:00:08 $
- * $Revision: 1.5 $
+ *     $Date: 2004/03/03 19:55:30 $
+ * $Revision: 1.6 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,6 +9,8 @@
 #ifndef GASNETI_GASNET_EXTENDED_REFBARRIER_C
   #error This file not meant to be compiled directly - included by gasnet_extended.c
 #endif
+
+#include <limits.h>
 
 /*  TODO: add more reference barrier implementation options (bug 264) */
 
@@ -125,12 +127,28 @@ static void gasnete_ambarrier_kick() {
 							      : ambarrier_flags;
         gasnet_hsl_unlock(&ambarrier_lock);
 
-        /* No need for a full mod because worst case is < 2*gasnete_nodes */
-        peer = gasnete_mynode + (1 << step);
-        if (peer >= gasnete_nodes) {
-          peer -= gasnete_nodes;
-        }
-        gasneti_assert(peer < gasnete_nodes);
+	/* No need for a full mod because worst case is < 2*gasnete_nodes.
+	 * However, we must take care for overflow if we try to do the
+	 * arithmetic in gasnet_node_t.  An example is gasnet_node_t
+	 * of uint8_t and gasnete_nodes=250 nodes.  The largest value of
+	 * gasnet_mynode is 249 and the largest value of 2^step is 128.
+	 * We can't compute (249 + 128) mod 250 in 8-byte arithmetic.
+	 * If we are using GASNET_MAXNODES <= INT_MAX then we can
+	 * fit the arithmetic into unsigned integers (32-bit example is
+	 * 0x7ffffffe + 0x40000000 = 0xbffffffe).  Otherwise we are
+	 * confident that 64-bit integers are ALWAYS large enough.
+	 */
+	{
+	  #if (GASNET_MAXNODES <= INT_MAX)
+	    unsigned int tmp;
+	  #else
+	    uint64_t tmp;
+	  #endif
+	  tmp = (1 << step) + gasnete_mynode;
+	  peer = (tmp >= gasnete_nodes) ? (tmp - gasnete_nodes)
+                                        : tmp;
+	  gasneti_assert(peer < gasnete_nodes);
+	}
 
         GASNETE_SAFE(
           gasnet_AMRequestShort4(peer, gasneti_handleridx(gasnete_ambarrier_notify_reqh), 
