@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2005/04/06 09:09:00 $
-# $Revision: 1.24 $
+#     $Date: 2005/04/06 23:39:43 $
+# $Revision: 1.25 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -166,9 +166,9 @@ check-exports: libamudp.a
 	@echo Checking libamudp exports...
 	@lib=libamudp.a ; \
             @NM@ --defined-only $$lib |                                             \
-            grep -v -e ' [_]*amudp_' -e ' [_]*AMUDP_' -e ' [_]*AM_'                 \
-                    -e ' [_]*gasnett_' -e ' [_]*gasneti_'                           \
-                    -e __FUNCTION__ -e __PRETTY_FUNCTION__ |                        \
+            grep -v -e ' [\._]*amudp_' -e ' [\._]*AMUDP_' -e ' [\._]*AM_'           \
+                    -e ' [\._]*gasnett_' -e ' [\._]*gasneti_'                       \
+                    -e __FUNCTION__ -e __PRETTY_FUNCTION__ -e debug_info_seg |      \
             @AWK@ ' /^[0-9a-fA-F]+ [[:upper:]]/ { print $$0 }' > .$$lib.exp;        \
           if test -s .$$lib.exp ; then                                              \
             cat .$$lib.exp ;                                                        \

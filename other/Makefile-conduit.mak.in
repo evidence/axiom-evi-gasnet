@@ -185,11 +185,11 @@ run-testexit: force
 @GNU_NM_TRUE@	  echo ;                                                                    \
 @GNU_NM_TRUE@	  echo $$lib: ;                                                             \
 @GNU_NM_TRUE@	  @NM@ --defined-only $$lib |                                               \
-@GNU_NM_TRUE@	    grep -v -e ' [_]*gasnetc_' -e ' [_]*gasneti_' -e ' [_]*gasnete_'        \
-@GNU_NM_TRUE@		    -e ' [_]*gasnet_' -e ' [_]*gasnett_'                            \
-@GNU_NM_TRUE@		    -e ' [_]*fh_' -e ' [_]*firehose_'                               \
-@GNU_NM_TRUE@		    -e ' [_]*fhi_' -e ' [_]*fhc_' -e ' [_]*fhsmp_' -e ' [_]*fhuni_' \
-@GNU_NM_TRUE@		    -e __FUNCTION__ -e __PRETTY_FUNCTION__ |                        \
+@GNU_NM_TRUE@	    grep -v -e ' [\._]*gasnetc_' -e ' [\._]*gasneti_' -e ' [\._]*gasnete_'  \
+@GNU_NM_TRUE@		    -e ' [\._]*gasnet_' -e ' [\._]*gasnett_'                        \
+@GNU_NM_TRUE@		    -e ' [\._]*fh_' -e ' [\._]*firehose_'                           \
+@GNU_NM_TRUE@		    -e ' [\._]*fhi_' -e ' [\._]*fhc_' -e ' [\._]*fhsmp_' -e ' [\._]*fhuni_' \
+@GNU_NM_TRUE@		    -e __FUNCTION__ -e __PRETTY_FUNCTION__ -e debug_info_seg |      \
 @GNU_NM_TRUE@	    @AWK@ ' /^[0-9a-fA-F]+ [[:upper:]]/ { print $$0 }' > .$$lib.exp;        \
 @GNU_NM_TRUE@	  if test -s .$$lib.exp ; then                                              \
 @GNU_NM_TRUE@	    cat .$$lib.exp ;                                                        \
