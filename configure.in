@@ -1,13 +1,13 @@
 dnl -*- m4 -*-
 
 #  $Archive:: /Ti/AMMPI/Makefile                                         $
-#     $Date: 2004/02/17 20:42:37 $
-# $Revision: 1.110 $
+#     $Date: 2004/03/09 03:21:15 $
+# $Revision: 1.111 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
-AC_REVISION($Revision: 1.110 $)
+AC_REVISION($Revision: 1.111 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -180,8 +180,8 @@ case "$gasnet_cv_cc_family" in
   Sun)  CCOPTFLAGS="-xO5" ;;
   Cray) CCOPTFLAGS="-O2" ;; # DOB: -O3 is unstable on Cray cc
   MIPS) CCOPTFLAGS="-O3" ;;
-  XLC)  #CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=8192" ;; # -O5 == -O3 w/ intra-procedural analysis
-        CCOPTFLAGS="-O3 -qsmp=noauto -qmaxmem=8192" ;; # -O5 causes linker to hang on Titanium
+  XLC)  #CCOPTFLAGS="-O5 -qsmp=noauto -qmaxmem=16384" ;; # -O5 == -O3 w/ intra-procedural analysis
+        CCOPTFLAGS="-O3 -qsmp=noauto -qmaxmem=16384" ;; # -O5 causes linker to hang on Titanium
   Compaq) CCOPTFLAGS="-fast -noifo -O4 -tune host -inline all" ;;
   Intel) CCOPTFLAGS="-O3" ;;
   PGI) CCOPTFLAGS="-O2" ;;
