@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_receive.c,v 1.2 2002/06/11 00:18:50 csbell Exp $
- * $Date: 2002/06/11 00:18:50 $
- * $Revision: 1.2 $
+/* $Id: gasnet_core_receive.c,v 1.3 2002/06/11 04:24:26 csbell Exp $
+ * $Date: 2002/06/11 04:24:26 $
+ * $Revision: 1.3 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -11,11 +11,14 @@
 	do {	if ((fast)) buf = gm_ntohp((e)->recv.message);		\
 		else buf = gm_ntohp((e)->recv.buffer); } while(0)
 
+/* Three processing functions called from gasnetc_poll() */
+void	gasnetc_process_AMRequest(gm_recv_event_t *, int);
+void	gasnetc_process_AMReply(gm_recv_event_t *, int);
+void	gasnetc_process_AMSystem(gm_recv_event_t *);
 
 /* 
  * make progress in the receive queue
  */
-
 void
 gasnetc_poll()
 {
@@ -27,7 +30,6 @@ gasnetc_poll()
 
 	GASNETC_GM_MUTEX_LOCK;
 	e = gm_receive(_state.port);
-	GASNETC_GM_MUTEX_UNLOCK;
 
 	switch(gm_ntohc(e->recv.type)) {
 		case GM_NO_RECV_EVENT:
@@ -40,6 +42,7 @@ gasnetc_poll()
 			fast = 1;
 
 		case GM_HIGH_RECV_EVENT:	/* handle AM_Reply */
+			GASNETC_GM_MUTEX_UNLOCK;
 			if (fast)
 				ptr = gm_ntohp(e->recv.message);
 			else
@@ -49,6 +52,7 @@ gasnetc_poll()
 			return;
 
 		case GM_RECV_EVENT:
+			GASNETC_GM_MUTEX_UNLOCK;
 			if (fast)
 				ptr = gm_ntohp(e->recv.message);
 			else
@@ -61,10 +65,9 @@ gasnetc_poll()
 			return;
 
 		default:
-			GASNETC_GM_MUTEX_LOCK;
 			gm_unknown(_state.port, e);
-			GASNETC_GM_MUTEX_UNLOCK;
 	}
+	GASNETC_GM_MUTEX_UNLOCK;
 
 	gasnetc_fifo_progress();
 }
@@ -93,75 +96,54 @@ gasnetc_process_AMRequest(gm_recv_event_t *e, int fast)
 	bufd = GASNETC_BUFDESC_PTR(e->recv.buffer);
 	handler_idx = AM_INDEX(recv_buf);
 	numargs = AM_NUMARGS(recv_buf);
-	len = ...; 	/* parse length */
+	len = gm_ntoh_u32(e->recv.length);
 
 	assert(bufd != NULL);
 	assert(bufd->sendbuf == e->recv.buffer);
-	assert(gm_ntoh_u32(e->recv.length) >= 2); /* minimum AM message */
+	assert(len >= 2); /* minimum AM message */
 
-	/* parse actual message, short/med/long */
-	/* XXX <insert code here> */
-	if (AM_TYPE(recv_buf) & AM_MEDIUM) {
-		/* need a transient buffer - serialize all threads in Reply */
-		GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers(handler_idx),
-				(void *) bufd, numargs,
-				recv_buf + AM_MEDIUM_HEADER_LEN(numargs),
-				recv_buf, len);
-	} else if (AM_TYPE(recv_buf) & AM_SMALL) {
-		GASNETC_RUN_HANDLER_SHORT(_gmc.handlers(handler_idx),
+	switch (AM_TYPE(recv_buf)) {
+		case AM_SMALL:
+			GASNETC_RUN_HANDLER_SHORT(_gmc.handlers(handler_idx),
 				(void *) bufd, numargs,
 				recv_buf + AM_MEDIUM_HEADER_LEN(numargs));
-	} else if (AM_TYPE(recv_buf) & AM_LONG) {
-		GASNETC_RUN_HANDLER_LONG(_gmc.handlers(handler_idx),
+			break;
+		case AM_LONG:
+			GASNETC_RUN_HANDLER_LONG(_gmc.handlers(handler_idx),
 				(void *) bufd, numargs,
 				recv_buf + AM_MEDIUM_HEADER_LEN(numargs),
-				recv_buf, len);
-	} else {
-		abort();
+				recv_buf, 
+				len - AM_LONG_HEADER_LEN(numargs));
+			break;
+		case AM_MEDIUM:
+			GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers(handler_idx),
+				(void *) bufd_temp, numargs,
+				recv_buf + AM_MEDIUM_HEADER_LEN(numargs),
+				recv_buf, 
+				len - AM_MEDIUM_HEADER_LEN(numargs));
+			break;
+		default:
+			abort();
 	}
 
-	/* 
-	 * handler-specific code which possibly runs gasnetc_AM_Reply() 
-	 *
-	 * If AM_Reply runs:
-	 *   1. sets the bufd->called_reply bit
-	 *   2. uses bufd->sendbuf to issue next send
-	 *   3. send uses gasnetc_callback_AM(buf)
-	 *
-	 * When gasnetc_callback_AM() runs:
-	 *   if _gmc.ReplyCount > 0
-	 *   	gm_provide_buffer(_gmc.port, ..., bufd->sendbuf);
-	 *   else
-	 *   	gasnetc_token_lo_release(bufd);
-	 *
-	 */
-
-	/* Handler completes */
-	GASNETC_GM_MUTEX_LOCK;
-	if_pf (is_med) {
-		if_pt (bufd->called_reply) {
-			_gmc.ReplyCount++;
-			_gmc.Transientbuf = bufd;
-		} else {
-			gm_provide_receive_buffer(_gmc.port, e->recv.buffer, 
-					GASNETC_AM_SIZE, GM_HIGH_PRIORITY);
-			_gmc.TransientBuf = bufd_temp;
-		}
+	/* Always give the buffer back if no AMReply was called */
+	if (bufd->called_reply == 0) {
+		GASNETC_GM_MUTEX_LOCK;
+		gm_provide_receive_buffer(_gmc.port, gm_ntohp(e->recv.buffer), 
+			GASNETC_AM_SIZE, GM_LOW_PRIORITY);
+		GASNETC_GM_MUTEX_UNLOCK;
 	}
-	else {
-		if_pt (bufd->called_reply) 
-			_gmc.ReplyCount++;
-		else 
-			gm_provide_receive_buffer(_gmc.port, e->recv.buffer, 
-				GASNETC_AM_SIZE, GM_HIGH_PRIORITY);
-	}
-	GASNETC_GM_MUTEX_UNLOCK;
+	bufd->called_reply = 0;
+	return;
 }
 
 void
 gasnetc_process_AMReply(gm_recv_event_t *e, int fast)
 {
-	unsigned char	*buf;
+	gasnetc_bufdesc_t	*bufd;
+	void			*recv_buf;
+	uint8_t			handler_idx, numargs;
+	uint16_t		len;
 
 	/* processing an AM message includes extracting
 	 * 1. Extracting Type
@@ -171,9 +153,47 @@ gasnetc_process_AMReply(gm_recv_event_t *e, int fast)
 	 * 5. Running Handler
 	 */
 
+	/* Get either 'message' or 'buffer' from recv'd event */
+	GASNETC_ASSIGN_RECV_BUF(e, recv_buf, fast);
+	bufd = GASNETC_BUFDESC_PTR(e->recv.buffer);
+	handler_idx = AM_INDEX(recv_buf);
+	numargs = AM_NUMARGS(recv_buf);
+	len = gm_ntoh_u32(e->recv.length);
 
-	/* handler-specific code which simply returns */
-	(*handler)(...);
+	assert(bufd != NULL);
+	assert(bufd->sendbuf == e->recv.buffer);
+	assert(len >= 2); /* minimum AM message */
+
+	switch (AM_TYPE(recv_buf)) {
+		case AM_SMALL:
+			GASNETC_RUN_HANDLER_SHORT(_gmc.handlers(handler_idx),
+				(void *) bufd, numargs,
+				recv_buf + AM_MEDIUM_HEADER_LEN(numargs));
+			break;
+		case AM_LONG:
+			GASNETC_RUN_HANDLER_LONG(_gmc.handlers(handler_idx),
+				(void *) bufd, numargs,
+				recv_buf + AM_MEDIUM_HEADER_LEN(numargs),
+				recv_buf, 
+				len - AM_LONG_HEADER_LEN(numargs));
+			break;
+		case AM_MEDIUM:
+			GASNETC_RUN_HANDLER_MEDIUM(_gmc.handlers(handler_idx),
+				(void *) bufd_temp, numargs,
+				recv_buf + AM_MEDIUM_HEADER_LEN(numargs),
+				recv_buf, 
+				len - AM_MEDIUM_HEADER_LEN(numargs));
+			if (bufd->called_reply)
+				GASNET_AM_MEDIUM_REPLY_MUTEX_UNLOCK;
+			break;
+		default:
+			abort();
+	}
+	GASNETC_GM_MUTEX_LOCK;
+	gm_provide_receive_buffer(_gmc.port, gm_ntohp(e->recv.buffer), 
+		GASNETC_AM_SIZE, GM_HIGH_PRIORITY);
+	GASNETC_GM_MUTEX_UNLOCK;
+	return;
 }
 
 /* Undefined for the moment. . */
@@ -185,32 +205,57 @@ gasnetc_process_AMSystem(gm_recv_event_t *e)
 }
 
 /*
- * Callback functions for hi and lo token bounded functions
+ * Callback functions for hi and lo token bounded functions.  Since these
+ * functions are called from gm_unknown(), they already own a GM lock
  */
-gasnetc_callback_AMReply(..., void *context)
+
+GASNET_INLINE_MODIFIER(gasnetc_callback_generic);
+void
+gasnetc_callback_generic(struct gm_port *p, void *context, gm_status_t status)
 {
+	if_pf (status != GM_SUCCESS)
+		gasnetc_callback_error(p, status);
+
 	if (_gmc.ReplyCount > 0)
 		gm_provide_receive_buffer(_gmc.port, 
 				((gasnetc_bufdesc_t *)context)->sendbuf,
 				GASNETC_AM_SIZE,
 				GM_LOW_PRIORITY);
-	else
-		gasnetc_token_hi_release();
+	else {
+		GASNETC_REQUEST_FIFO_MUTEX_LOCK;
+		if_pt (_gmc.reqs_fifo_cur < _gmc.reqs_fifo_max-1) { 
+			_gmc.reqs_fifo[++_gmc.reqs_fifo_cur] = 
+				((gasnetc_bufdesc_t *)context)->id;
+		}
+		GASNETC_REQUEST_FIFO_MUTEX_UNLOCK;
+	}
 }
 
-gasnetc_callback_AMReply_NOP(..., void *context)
+void
+gasnetc_callback_AMRequest(struct gm_port *p, void *context, gm_status_t status)
 {
+	gasnetc_callback_generic(p, context, status);
+	gasnetc_token_lo_release();
+}
+
+void
+gasnetc_callback_AMRequest_NOP(struct gm_port *p, void *context, 
+				gm_status_t status)
+{
+	gasnetc_callback_generic(p, context, status);
+	gasnetc_token_lo_release();
+}
+
+void
+gasnetc_callback_AMReply(struct gm_port *p, void *context, gm_status_t status)
+{
+
+	gasnetc_callback_generic(p, context, status);
 	gasnetc_token_hi_release();
 }
 
-gasnetc_callback_AMRequest(..., void *context)
+void
+gasnetc_callback_AMReply_NOP(struct gm_port *p, void *c, gm_status_t status)
 {
-	if (_gmc.ReplyCount > 0)
-		gm_provide_receive_buffer(_gmc.port, 
-				((gasnetc_bufdesc_t *)context)->sendbuf,
-				GASNETC_AM_SIZE,
-				GM_LOW_PRIORITY);
-	else
-		gasnetc_token_lo_release(
-			((gasnetc_bufdesc_t *)context)->sendbuf);
+	gasnetc_token_hi_release();
 }

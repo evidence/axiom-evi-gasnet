@@ -1,5 +1,5 @@
-/* $Id: gasnet_core.c,v 1.1 2002/06/10 07:54:52 csbell Exp $
- * $Date: 2002/06/10 07:54:52 $
+/* $Id: gasnet_core.c,v 1.2 2002/06/11 04:24:26 csbell Exp $
+ * $Date: 2002/06/11 04:24:26 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -191,8 +191,7 @@ static int gasnetc_init(int *argc, char ***argv,
     }
   #endif
 
-  /* (???) add a barrier here */
-  sleep(3);	/* smile for now. . */
+  sleep(3);	/* XXX smile for now. . */
 
   /*  init complete */
   gasnetc_init_done = 1;
@@ -243,13 +242,14 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   gasnet_node_t sourceid;
   /* GMCORE BEGIN */
   gasnetc_bufdesc_t *bufd;
+  /* GMCORE END */
   GASNETC_CHECKINIT();
   if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
   if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
 
   /* GMCORE BEGIN */
   bufd = (gasnetc_bufdesc_t *) token;
-  sourceid = gasnetc_read_bufdesc(sender_node_id, bufd);
+  sourceid = gasnetc_gm_nodes_search(bufd);
   /* GMCORE END */
 
   assert(sourceid < gasnetc_nodes);
@@ -469,20 +469,27 @@ extern int gasnetc_AMReplyMediumM(
   int retval;
   va_list argptr;
   /* GMCORE BEGIN */
-  gasnetc_bufdesc_t *bufd;
+  gasnetc_bufdesc_t *bufd, *bufd_temp;
   /* GMCORE END */
   va_start(argptr, numargs); /*  pass in last argument */
 
   /* GMCORE BEGIN */
   retval = 1;
-  bufd = (gasnetc_bufdesc_t *) token;
+  /* When replying with AMMedium, we must use the transient buffer
+   * since the received buffer still holds data the client may wish
+   * to use after calling AMReplyMedium.  This means all AMMedium Replies
+   * must be serialized */
+  GASNET_AM_MEDIUM_REPLY_MUTEX_LOCK; 
+  bufd_temp = bufd;
+  bufd = _gmc.TransientBuf;
+  _gmc.Transient_buf = bufd_temp;
+
   gasnetc_write_AMBufferMedium(bufd, handler, numargs, argptr, nbytes, source_addr, 0);
   bufd->dest_addr = 0;
   bufd->rdma_off = 0;
   bufd->called_reply = TRUE;
 
   GASNET_GM_MUTEX_LOCK;
-  GASNET_AM_MEDIUM_REPLY_MUTEX_LOCK;
   if (gasnetc_token_hi_acquire()) 
      gasnetc_gm_send_AMReply(bufd); 
   else
@@ -507,7 +514,7 @@ extern int gasnetc_AMReplyLongM(
   va_list argptr;
   /* GMCORE END */
   int hdr_len;
-  gasnetc_bufdesc_t	*bufd;
+  gasnetc_bufdesc_t	*bufd, *bufd_temp;
   /* GMCORE END */
 
   retval = gasnet_AMGetMsgSource(token, &dest);
@@ -547,7 +554,7 @@ extern int gasnetc_AMReplyLongM(
   }
   else 
       gasnetc_fifo_insert(bufd);
-  /* GMCORE BEGIN */
+  /* GMCORE END */
 
   va_end(argptr);
   if (retval) return GASNET_OK;

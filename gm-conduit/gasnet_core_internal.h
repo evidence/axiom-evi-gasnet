@@ -1,6 +1,6 @@
-/* $Id: gasnet_core_internal.h,v 1.1 2002/06/10 07:54:52 csbell Exp $
- * $Date: 2002/06/10 07:54:52 $
- * $Revision: 1.1 $
+/* $Id: gasnet_core_internal.h,v 1.2 2002/06/11 04:24:26 csbell Exp $
+ * $Date: 2002/06/11 04:24:26 $
+ * $Revision: 1.2 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -44,13 +44,19 @@ typedef struct gasnetc_bufdesc gasnet_bufdesc_t;
 
 /* Forward declaration for miscellaneous functions used by GM core */
 gasnetc_bufdesc_t * 	gasnetc_AMRequestBuf_block();
+void			gasnetc_tokensend_AMRequest(void *, uint16_t, uint32_t, 
+				uint32_t, gm_send_completion_callback_t, 
+				uint64_t);
+void			gasnetc_gm_nodes_compare(const void *, const void *);
+void			gasnetc_sendbuf_init();
+void			gasnetc_sendbuf_finalize();
+void			gasnetc_gmpiconf_init();
 
-void	gm_node_compare(const void *, const void *);
-void	gasnetc_sendbuf_init();
-void	gasnetc_sendbuf_finalize();
-void	gasnetc_tokensend_AMRequest(void *, uint16_t, uint32_t, uint32_t, 
-			gm_send_completion_callback_t, uint64_t);
-void	gasnetc_gmpiconf_init();
+/* GM Callback functions */
+void	gasnetc_callback_AMRequest(struct gm_port *, void *, gm_status_t);
+void	gasnetc_callback_AMRequest_NOP(struct gm_port *, void *, gm_status_t);
+void	gasnetc_callback_AMReply(struct gm_port *, void *, gm_status_t);
+void	gasnetc_callback_AMReply_NOP(struct gm_port *, void *, gm_status_t);
 
 /*
  * These are GM tokens, represented by the type
@@ -112,6 +118,7 @@ struct _gm_core_global {
 
 	/* FIFO AMRequest send queue */
 	int		*reqs_fifo;
+	int		reqs_fifo_max;
 	volatile int	reqs_fifo_cur;
 
 	/* FIFO overflow send queue */
@@ -167,38 +174,13 @@ gasnetc_token_hi_release()
 	_gmc.token.total -= 1;
 }
 
-/* Return an index into the sendbuf */
-GASNET_INLINE_MODIFIER(gasnetc_token_lo_acquire);
-int
-gasnetc_token_lo_acquire()
-{
-	int	reqs_fifo_idx;
-
-	GASNETC_TOKEN_MUTEX_LOCK;
-	if (GASNETC_TOKEN_LO_AVAILABLE()) {
-		assert(reqs_fifo_cur == GASNETC_TOKEN_LO_AVAILABLE);
-		reqs_fifo_idx = _gmc.reqs.fifo_bd[reqs_fifo_cur--];
-		_gmc.token.lo += 1;
-		_gmc.token.total += 1;
-		GASNETC_TOKEN_MUTEX_UNLOCK;
-		return reqs_fifo_idx;
-	}
-	else {
-		GASNETC_TOKEN_MUTEX_UNLOCK;
-		return 0;
-	}
-}
-
 GASNET_INLINE_MODIFIER(gasnetc_token_lo_release)
 void
 gasnetc_token_lo_release()
 {
-	GASNETC_TOKEN_MUTEX_LOCK;
 	assert((_gmc.token.lo-1 >= 0) && (_gmc.token.total-1 >= 0));
-	_gmc.reqs_fifo_cur++;
 	_gmc.token.lo -= 1;
 	_gmc.token.total -= 1;
-	GASNETC_TOKEN_MUTEX_UNLOCK;
 }
 
 
@@ -434,10 +416,9 @@ gasnetc_write_AMBufferBulk(void *dest, void *src, size_t nbytes)
 	return;
 }
 
-/* Functions to read from buffer descriptors */
-GASNET_INLINE_MODIFIER(gasnetc_read_bufdesc_sender_node_id)
+GASNET_INLINE_MODIFIER(gasnetc_gm_nodes_search)
 gasnet_node_t
-gasnetc_read_bufdesc_sender_node_id(gasnetc_bufdesc_t *)
+gasnetc_gm_nodes_search(gasnetc_bufdesc_t *)
 {
 	uint16_t		sender_node_id;
 	gasnetc_gm_nodes_recv_t	*gm_node;
@@ -445,21 +426,16 @@ gasnetc_read_bufdesc_sender_node_id(gasnetc_bufdesc_t *)
 	if (!bufd->e) GASNETI_RETURN_ERRR(BAD_ARG, "No GM receive event");
 	if (!bufd->e.sender_node_id) GASNETI_RETURN_ERRR(BAD_ARG, 
 						"No GM sender_node_id");
-	
 	sender_node_id = gm_ntoh_u16(bufd->e.sender_node_id);
-
 	gm_node = (gasnet_node_t *)
 		bsearch((void *) &sender_node_id, 
 			(const void *) _gmc.gm_nodes_recv,
 			(size_t) gasnetc_nodes,
 			sizeof(gasnetc_gm_nodes_recv_t),
-			gm_node_compare);
-
-	assert(gm_node != NULL);
+			gasnetc_gm_nodes_compare);
+	if_pf(gm_node == NULL)
+		GASNETI_RETURN_ERRR(RESOURCE, "GM id unknown to job! fatal");
 	return gmnode->node;
 }
-
-/* macro to access all of the buffer descriptor functions above */
-#define gasnetc_read_bufdesc(source, bufd) gasnetc_read_bufdesc_##source(bufd)
 
 #endif

@@ -1,12 +1,13 @@
-/* $Id: gasnet_core_misc.c,v 1.1 2002/06/10 07:54:52 csbell Exp $
- * $Date: 2002/06/10 07:54:52 $
- * $Revision: 1.1 $
+/* $Id: gasnet_core_misc.c,v 1.2 2002/06/11 04:24:26 csbell Exp $
+ * $Date: 2002/06/11 04:24:26 $
+ * $Revision: 1.2 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #include <gasnet_core_internal.h>
+#include <stdlib.h>
 
 #ifdef DEBUG
 #define GASNETC_BUFDESC_PTR(x) (((x) - _gmc.dma_bufs) % GASNETC_AM_LEN == 0 ?	\
@@ -25,6 +26,7 @@
 void
 gasnetc_sendbuf_init()
 {
+	int	i;
 	int	stoks, rtoks, rtoks_lo, rtoks_hi;
 
 	assert(_gmc.port != NULL);
@@ -55,8 +57,14 @@ gasnetc_sendbuf_init()
 	if (_gmc.dma_bufs == NULL) exit(-1);
 	gm_register_memory(_gmc.port, _gmc.dma_bufs, 
 			GASNETC_AM_LEN * _gmc.token.max);
+	_gmc.bd_ptr = (gasnet_bufdesc_t *)
+		gasneti_malloc(_gmc.bd_list_num * sizeof(gasnet_bufdesc_t));
 
-	_gmc.bd_ptr = gasneti_malloc(_gmc.bd_list_num * sizeof(gasnet_bufdesc_t));
+	for (i = 0; i < _gmc.bd_list_num; i++) {
+		_gmc.bd_ptr[i*GASNETC_AM_LEN]->id = i;
+		_gmc.bd_ptr[i*GASNETC_AM_LEN]->sendbuf = 
+			_gm.dma_bufs + i*GASNET_AM_LEN;
+	}
 
 	/* give the first buffer to TransientBuf */
 	_gmc.TransientBuf = _gmc.bd_ptr;
@@ -99,7 +107,7 @@ gasnetc_sendbuf_finalize()
 }
 
 void	
-gm_node_compare(const void *k1, const void *k2)
+gasnetc_gm_nodes_compare(const void *k1, const void *k2)
 {
 	gasnetc_gm_nodes_rev_t	*a = (gasnetc_gm_nodes_rev_t *) k1;
 	gasnetc_gm_nodes_rev_t	*b = (gasnetc_gm_nodes_rev_t *) k2;
@@ -127,6 +135,8 @@ gasnetc_tokensend_AMRequest(void *buf, uint16_t len,
 		if (GASNETC_TOKEN_LO_AVAILABLE) {
 			gasnetc_gm_send_AMRequest(buf, len, id, port, callback,
 					dest_addr);
+			_gmc.token.lo -= 1;
+			_gmc.token.total -= 1;
 			GASNETC_GM_MUTEX_UNLOCK;
 			sent = 1;
 		}
@@ -145,13 +155,13 @@ gasnetc_AMRequestBuf_block() {
 		while (_gmc.reqs_fifo_cur < 1)
 			gasnetc_poll();
 
-		GASNETC_REQUESTFIFO_MUTEX_LOCK;
+		GASNETC_REQUEST_FIFO_MUTEX_LOCK;
 		if (_gmc.reqs_fifo_cur > 0) {
-			bufd_idx = _gmc.reqs_fifo[++_gmc.reqs_fifo_cur];
-			GASNETC_REQUESTFIFO_MUTEX_UNLOCK;
+			bufd_idx = _gmc.reqs_fifo[--_gmc.reqs_fifo_cur];
+			GASNETC_REQUEST_FIFO_MUTEX_UNLOCK;
 		}
 		else {
-			GASNETC_REQUESTFIFO_MUTEX_UNLOCK;  /* can't get bufd */
+			GASNETC_REQUEST_FIFO_MUTEX_UNLOCK;  /* can't get bufd */
 			gasnetc_poll();
 		}
 	}
@@ -281,6 +291,13 @@ gasnetc_gmpiconf_init(struct gm_port **p)
 	gasnetc_mynode = thisnode;
 	gasnetc_nodes = numnodes;
 	gasneti_free_inhandler(hostnames);
+
+	/* sort out the gm_nodes_rev for bsearch, glibc qsort uses recursion,
+	 * so stack memory in order to complete the sort.  We want to minimize
+	 * the number of mallocs
+	 */
+	qsort(_gmc.gm_nodes_rev, numnodes, sizeof(gasnetc_gm_nodes_rev_t),
+			gasnetc_gm_nodes_compare);
 	_gmc.port = p;
 	return GASNET_OK;
 }
