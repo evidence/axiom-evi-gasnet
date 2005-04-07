@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/04/07 17:53:13 $
-# $Revision: 1.22 $
+#     $Date: 2005/04/07 20:06:05 $
+# $Revision: 1.23 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -370,7 +370,7 @@ EOF
 
     if ($dryrun) {
 	# Do nothing
-    } elsif (@tmpfiles) {
+    } elsif (@tmpfiles || defined($tmpdir)) {
 	system(@spawncmd);
 	if (!$keep) {
           foreach (@tmpfiles) {
