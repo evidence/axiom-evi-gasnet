@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/06 22:08:50 $
- * $Revision: 1.35 $
+ *     $Date: 2005/04/07 01:26:59 $
+ * $Revision: 1.36 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -329,11 +329,13 @@ static void signal_one(const char *rem_host, pid_t rem_pid, int sig) {
     gasneti_fatalerror("fork() failed");
   } else if (pid == 0) {
     BOOTSTRAP_VERBOSE(("[-1] Sending signal %d to %s:%d\n", sig, rem_host, (int)rem_pid));
-    (void)close(STDIN_FILENO);
-    (void)close(STDOUT_FILENO);
-    (void)close(STDERR_FILENO);
+    (void)dup2(STDIN_FILENO, devnull);
+#if !GASNET_DEBUG
+    (void)dup2(STDOUT_FILENO, devnull);
+    (void)dup2(STDERR_FILENO, devnull);
+#endif
     ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
-    ssh_argv[ssh_argc+1] = sappendf(NULL, "sh -c 'kill -s %d %d >/dev/null 2>&1'", sig, rem_pid);
+    ssh_argv[ssh_argc+1] = sappendf(NULL, "sh -c 'kill -s %d %d'", sig, rem_pid);
     execvp(ssh_argv[0], ssh_argv);
     gasneti_fatalerror("execvp(ssh kill) failed");
   }
