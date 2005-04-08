@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/04/06 09:08:54 $
-# $Revision: 1.247 $
+#     $Date: 2005/04/08 10:57:09 $
+# $Revision: 1.248 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.247 $)
+AC_REVISION($Revision: 1.248 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1251,6 +1251,10 @@ AC_SUBST(GM_NO_ALIAS)
 AC_SUBST(GM_MPI_COMPAT)
 AM_CONDITIONAL(USE_GM_CONDUIT, test "$enabled_gm$have_gm" = yesyes)
 AM_CONDITIONAL(GM_MPI_ENABLE_COMPAT, test "$want_gm_mpi_compat" = yes)
+GASNET_IF_ENABLED_WITH_AUTO(gm-rodata-workaround, 
+        [Enable/disable work-around for GM's inability to register read-only program data segments],
+	[gm_rodata_workaround=yes], [gm_rodata_workaround=no], [gm_rodata_workaround=yes])
+AM_CONDITIONAL(GM_RODATA_WORKAROUND, test "$gm_rodata_workaround" = yes)
 if test "$enabled_gm$have_gm" = yesyes ; then
   CONDUITS="$CONDUITS gm"
   CONDUIT_REPORT(ON)

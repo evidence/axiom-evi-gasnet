@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/04/05 07:55:10 $
-# $Revision: 1.48 $
+#     $Date: 2005/04/08 10:57:11 $
+# $Revision: 1.49 $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -60,9 +60,21 @@ $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: $(mpi_srcs) $(mpi_hdrs)
 mpi_subdirs = contrib
 endif
 
+if GM_RODATA_WORKAROUND
+# bug 1036: ensure .rodata section in executable is actually writeable, because GM
+# registration fails on read-only virtual pages
+rodata_objs = $(builddir)/gasnet_rodata-$(THREAD_MODEL).o
+rodata_flags = -DGASNETI_GM_RODATA_WORKAROUND=1
+$(builddir)/gasnet_rodata-$(THREAD_MODEL).o: force
+	echo 'const int gasneti_dummy_rodata_writable = 1;' > $@.tmp.c 
+	$(CC) -c -o $@.tmp.o $@.tmp.c
+	objcopy --set-section-flags .rodata=contents,alloc,load,data $@.tmp.o $@
+	rm -f $@.tmp.*
+endif
+
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = @GM_NO_ALIAS@ -I$(fh_srcdir) $(mpi_cflags) -I@GM_INCLUDE@ 
+CONDUIT_EXTRALIBCFLAGS = @GM_NO_ALIAS@ -I$(fh_srcdir) $(mpi_cflags) $(rodata_flags) -I@GM_INCLUDE@ 
 			 
 
 # additional conduit header files to install from external, non-standard directories
@@ -75,11 +87,7 @@ CONDUIT_EXTRADEPS = $(fh_srcdir)/*.h $(mpi_hdrs)
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as
 # forced targets in this file, and should probably use LIBINCLUDES/LIBDEFINES
-CONDUIT_SPECIAL_OBJS = $(mpi_objs)
-
-# bug 1036: ensure .rodata section in executable is actually writeable, because GM
-# registration fails on read-only virtual pages
-CONDUIT_SPECIAL_POSTCC_CMD = objcopy --set-section-flags .rodata=contents,alloc,load,data firehose.o
+CONDUIT_SPECIAL_OBJS = $(mpi_objs) $(rodata_objs)
 
 # the default job spawn command to be used for "make run-tests"
 # The following substitutions are performed:

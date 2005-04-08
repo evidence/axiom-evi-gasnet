@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/02/19 12:22:57 $
- * $Revision: 1.82 $
+ * $Date: 2005/04/08 10:57:11 $
+ * $Revision: 1.83 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2880,6 +2880,12 @@ gasnetc_getPhysMem()
 {
 	return (uintptr_t) 0;
 }
+#endif
+
+#ifdef GASNETI_GM_RODATA_WORKAROUND
+  /* ensure rodata object is linked into every executable */
+  extern const int gasneti_dummy_rodata_writable;
+  extern int gasneti_dummy_rodata_fn() { return gasneti_dummy_rodata_writable; }
 #endif
 
 /* ------------------------------------------------------------------------------------ */

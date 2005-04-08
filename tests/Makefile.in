@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/04/03 01:05:36 $
-# $Revision: 1.55 $
+#     $Date: 2005/04/08 10:57:17 $
+# $Revision: 1.56 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -27,6 +27,8 @@ Makefile: @TOP_SRCDIR@/tests/Makefile.in
 
 # tests that can be built in any mode
 # in order of most useful execution
+# NOTE: if you add a test here that is expected to pass on all conduits,
+#   please also add it to upcr/upc-tests/gasnet-tests/harness.conf
 testprograms_seq =      \
         testgasnet      \
         testenv         \
