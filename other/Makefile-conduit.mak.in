@@ -160,7 +160,12 @@ tests-clean:
 	@$(MAKE) -f $(top_builddir)/tests/Makefile clean \
 	  CONDUIT_TESTS="$(CONDUIT_TESTS)" $(CONDUIT_TEST_MAKEARGS)
 
-run-tests do-run-testexit:
+check-run-tests-deps: force
+	@for dir in $(SUBDIRS) ; do \
+	   $(MAKE) -C $(SUBDIRS) ;  \
+	 done
+
+run-tests do-run-testexit: check-run-tests-deps
 	@$(MAKE) -f $(top_builddir)/tests/Makefile $@ \
 	  CONDUIT_NAME=$(CONDUIT_NAME) \
 	  CONDUIT_RUNCMD="$(CONDUIT_RUNCMD)" \
