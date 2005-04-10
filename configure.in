@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/04/08 10:57:09 $
-# $Revision: 1.248 $
+#     $Date: 2005/04/10 03:59:01 $
+# $Revision: 1.249 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.248 $)
+AC_REVISION($Revision: 1.249 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1169,11 +1169,12 @@ if test $enabled_gm = yes; then
     # of our reuse of memory storage in firehose.  We disable strict aliasing
     # altogether as the problem appears and disappears across gcc3 minor
     # versions.
-    if test "$gasnet_cv_cc_family" = "GNU"; then
-        GM_NO_ALIAS="-fno-strict-aliasing"
-    else
-        GM_NO_ALIAS=""
-    fi
+    # This is a firehose problem, and bug #1052 showed xlc to be affected as well.
+    case "$gasnet_cv_cc_family" in
+      GNU) GM_NO_ALIAS="-fno-strict-aliasing";;
+      XLC) GM_NO_ALIAS="-qnoansialias -qalias=addr";;
+        *) GM_NO_ALIAS="";;
+    esac
 
     # Only test if working GM config
     if test $have_gm = yes; then
@@ -1603,12 +1604,14 @@ if test "$enabled_vapi" = yes; then
     ])
   fi
 
-  if test "$gasnet_cv_cc_family" = "GNU"; then
-    # Since we are using firehose we need to disable certain gcc optimizations.
-    # See bug #350 for an example of why firehose needs this.
-    # See bug #596 or #1031 for evidence that VAPI is affected by this.
-    VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -fno-strict-aliasing"
-  fi
+  # Since we are using firehose we need to disable certain optimizations.
+  # See bug #350 for an example of why firehose needs this.
+  # See bug #596 or #1031 for evidence that VAPI is affected by this.
+  # See bug #1052 for evidence that xlc is affected.
+  case "$gasnet_cv_cc_family" in
+    GNU) VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -fno-strict-aliasing";;
+    XLC) VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -qnoansialias -qalias=addr";;
+  esac
 
   # Try to compile and link a basic VAPI program
   AC_MSG_CHECKING(for working VAPI configuration)
