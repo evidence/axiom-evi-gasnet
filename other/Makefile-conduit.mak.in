@@ -161,9 +161,11 @@ tests-clean:
 	  CONDUIT_TESTS="$(CONDUIT_TESTS)" $(CONDUIT_TEST_MAKEARGS)
 
 check-run-tests-deps: force
-	@for dir in $(SUBDIRS) ; do \
-	   $(MAKE) -C $(SUBDIRS) ;  \
-	 done
+	@if test "$(SUBDIRS)" != "" ; then 	\
+	   for dir in $(SUBDIRS) ; do 		\
+	   	$(MAKE) -C $$dir ;  		\
+	   done ;				\
+	 fi
 
 run-tests do-run-testexit: check-run-tests-deps
 	@$(MAKE) -f $(top_builddir)/tests/Makefile $@ \
