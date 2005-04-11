@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/04/11 11:31:44 $
-# $Revision: 1.58 $
+#     $Date: 2005/04/11 12:00:13 $
+# $Revision: 1.59 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -260,16 +260,11 @@ testmpi: force
 	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ $(GASNET_LIBS)
 	rm -f $@.o	
 
-# testmpiperf is just an MPI program
-testmpiperf: force
+# the following are just plain MPI programs
+# testmpineighbour requires libm
+testmpiperf testmpineighbour: force
 	@MPI_CC@ $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
-	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ 
-	rm -f $@.o	
-
-# testmpineighbour is an MPI program and needs -lm
-testmpineighbour: force
-	@MPI_CC@ $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
-	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ -lm
+	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ @LIBM@
 	rm -f $@.o	
 
 # testcxx tests support for compiling a C++-based GASNet client 
