@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2005/04/11 11:31:44 $
- * $Revision: 1.6 $
+ *     $Date: 2005/04/11 21:06:48 $
+ * $Revision: 1.7 $
  * Description: MG-like neighbour exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -689,9 +689,9 @@ setupGrid(nbour_t *nb, int dimsz)
 	    nb->idGridLower[0], nb->idGridUpper[0],
 	    nb->idGridLower[1], nb->idGridUpper[1],
 	    nb->idGridLower[2], nb->idGridUpper[2],
-	    nb->nodeidLower[0], nb->nodeidUpper[0],
-	    nb->nodeidLower[1], nb->nodeidUpper[1],
-	    nb->nodeidLower[2], nb->nodeidUpper[2]);
+	    (int)(nb->nodeidLower[0]), (int)(nb->nodeidUpper[0]),
+	    (int)(nb->nodeidLower[1]), (int)(nb->nodeidUpper[1]),
+	    (int)(nb->nodeidLower[2]), (int)(nb->nodeidUpper[2]));
 
     }
 }
