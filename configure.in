@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/04/10 03:59:01 $
-# $Revision: 1.249 $
+#     $Date: 2005/04/11 00:20:08 $
+# $Revision: 1.250 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.249 $)
+AC_REVISION($Revision: 1.250 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1609,8 +1609,9 @@ if test "$enabled_vapi" = yes; then
   # See bug #596 or #1031 for evidence that VAPI is affected by this.
   # See bug #1052 for evidence that xlc is affected.
   case "$gasnet_cv_cc_family" in
-    GNU) VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -fno-strict-aliasing";;
-    XLC) VAPI_LIBCFLAGS="$VAPI_LIBCFLAGS -qnoansialias -qalias=addr";;
+    GNU) VAPI_NO_ALIAS="-fno-strict-aliasing";;
+    XLC) VAPI_NO_ALIAS="-qnoansialias -qalias=addr";;
+      *) VAPI_NO_ALIAS="";;
   esac
 
   # Try to compile and link a basic VAPI program
@@ -1681,28 +1682,20 @@ if test "$enabled_vapi" = yes; then
       fi
 
     # Configure corrrect flags/vars (inc. CC and LD) based on bootstrap choice
-    if test "$with_vapi_bootstrap_ssh" = yes; then
-      VAPI_BOOT_SSH=''
-    else
-      VAPI_BOOT_SSH='#'
-    fi
     if test "$with_vapi_bootstrap_mpi" = yes; then
       VAPI_LIBS="$MPI_LIBS $VAPI_LIBS"
-      VAPI_BOOT_MPI=''
-    else
-      VAPI_BOOT_MPI='#'
     fi
   fi
 fi
-AC_SUBST(VAPI_BOOT_SSH)
-AC_SUBST(VAPI_BOOT_MPI)
 AC_SUBST(VAPI_INCLUDE)
 AC_SUBST(VAPI_LIBDIR)
 AC_SUBST(VAPI_LIBS)
 AC_SUBST(VAPI_LIBCFLAGS)
+AC_SUBST(VAPI_NO_ALIAS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
 AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH,test "$with_vapi_bootstrap_ssh" = yes)
 AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI,test "$with_vapi_bootstrap_mpi" = yes)
+AM_CONDITIONAL(VAPI_RCV_THREAD,test "$enabled_vapi_rcv_thread" = yes)
 if test "$have_vapi" = yes ; then
   CONDUITS="$CONDUITS vapi"
   CONDUIT_REPORT(ON)
