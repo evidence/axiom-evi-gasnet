@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/04/11 04:16:00 $
- * $Revision: 1.52 $
+ *     $Date: 2005/04/11 14:55:22 $
+ * $Revision: 1.53 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -501,9 +501,9 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
   #endif
   #ifndef TEST_SEGSZ
     #ifdef TEST_SEGSZ_EXPR
-      #define TEST_SEGSZ  alignup((uintptr_t)TEST_SEGSZ_EXPR,(uintptr_t)PAGESZ)
+      #define TEST_SEGSZ  alignup(TEST_SEGSZ_EXPR,PAGESZ)
     #else
-      #define TEST_SEGSZ  alignup(TEST_MAXTHREADS*(uintptr_t)TEST_SEGZ_PER_THREAD,(uintptr_t)PAGESZ)
+      #define TEST_SEGSZ  alignup(TEST_MAXTHREADS*TEST_SEGZ_PER_THREAD,PAGESZ)
     #endif
   #endif
   #ifndef TEST_SEGSZ_EXPR
@@ -514,7 +514,7 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
 #else
   #ifndef TEST_SEGSZ
     #ifdef TEST_SEGSZ_EXPR
-      #define TEST_SEGSZ  alignup((uintptr_t)TEST_SEGSZ_EXPR,(uintptr_t)PAGESZ)
+      #define TEST_SEGSZ  alignup(TEST_SEGSZ_EXPR,PAGESZ)
     #else
       #define TEST_SEGSZ  alignup(64*1024,PAGESZ)
     #endif
