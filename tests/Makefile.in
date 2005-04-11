@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/04/10 13:16:52 $
-# $Revision: 1.57 $
+#     $Date: 2005/04/11 11:31:44 $
+# $Revision: 1.58 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -22,7 +22,7 @@ Makefile: @TOP_SRCDIR@/tests/Makefile.in
 	cd @TOP_BUILDDIR@ ; \
 	CONFIG_HEADERS= CONFIG_FILES=tests/Makefile ./config.status
 
-@USE_MPI_CONDUIT_TRUE@ MPI_TESTS = testmpiperf
+@USE_MPI_CONDUIT_TRUE@ MPI_TESTS = testmpiperf testmpineighbour
 @USE_MPI_CONDUIT_TRUE@ MPI_TESTS_PAR = testmpi
 
 # tests that can be built in any mode
@@ -264,6 +264,12 @@ testmpi: force
 testmpiperf: force
 	@MPI_CC@ $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ 
+	rm -f $@.o	
+
+# testmpineighbour is an MPI program and needs -lm
+testmpineighbour: force
+	@MPI_CC@ $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
+	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ -lm
 	rm -f $@.o	
 
 # testcxx tests support for compiling a C++-based GASNet client 
