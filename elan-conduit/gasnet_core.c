@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/03/21 10:26:48 $
- * $Revision: 1.56 $
+ *     $Date: 2005/04/11 04:15:58 $
+ * $Revision: 1.57 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -259,11 +259,13 @@ static int gasnetc_init(int *argc, char ***argv) {
   #else
     if (!BASE()->group_hwbcast) {
   #endif
-    char const *msg = "WARNING: Hardware broadcasts/barriers are currently disabled."
-      "This could be a result of environment settings, site configuration, or non-contiguous node allocation."
+    char const *msg = "PERFORMANCE WARNING: Hardware broadcasts/barriers are currently disabled. "
+      "This could be a result of environment settings, site configuration, or non-contiguous node allocation. "
       "This is likely to affect barrier performance.";
     GASNETI_TRACE_PRINTF(I,("%s",msg));
-    fprintf(stderr,"%s\n",msg);
+    if (!gasnet_mynode() && !gasneti_getenv_yesno_withdefault("GASNET_QUIET",0)) {
+      fprintf(stderr,"%s\n",msg); fflush(stderr);
+    }
   }
 
   #if GASNET_SEGMENT_FAST || GASNET_SEGMENT_LARGE
