@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2005/04/11 02:51:22 $
- * $Revision: 1.1 $
+ *     $Date: 2005/04/12 20:19:54 $
+ * $Revision: 1.2 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -158,7 +158,7 @@ int main(int argc, char **argv) {
       MSG0("\n%s\n--------------------\n", OPDESC);                         \
       { char header[1024];                                                  \
         char *pheader = header;                                             \
-        sprintf(pheader, "        "); pheader += strlen(pheader);          \
+        sprintf(pheader, "        "); pheader += strlen(pheader);           \
         for (depth = 1; depth <= maxdepth; depth *= 2) {                    \
           sprintf(pheader, " %7i", depth); pheader += strlen(pheader);      \
         }                                                                   \
@@ -169,6 +169,12 @@ int main(int argc, char **argv) {
         char *prow = row;                                                   \
         sprintf(prow, "%-8i", payload); prow += strlen(prow);               \
         if (!multisender) { printf("%s",row); fflush(stdout); prow = row; } \
+        if (iamsender) { /* Prime i-cache, free-lists, firehose, etc. */    \
+          int i = 0;                                                        \
+          depth = 1;                                                        \
+	  OP;                                                               \
+	  { SYNC; }                                                         \
+        }                                                                   \
         for (depth = 1; depth <= maxdepth; depth *= 2) {                    \
           BARRIER();                                                        \
                                                                             \
