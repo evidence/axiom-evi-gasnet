@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/03/21 03:29:37 $
- * $Revision: 1.30 $
+ *     $Date: 2005/04/13 00:55:46 $
+ * $Revision: 1.31 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -79,6 +79,7 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #define GASNETC_ELAN_MAX_QUEUEMSG   320   /* max message in a mainqueue */
 #endif
 #define GASNETC_ELAN_SMALLPUTSZ      64   /* max put that elan_put copies to an elan buffer */
+#define GASNETC_IS_SMALLPUT(sz) (sz <= BASE()->putget_smallputsize)
 
 #ifdef ELAN_GLOBAL_DEST
   #define GASNETC_ELAN_GLOBAL_DEST ELAN_GLOBAL_DEST
