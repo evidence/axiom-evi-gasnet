@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2005/02/18 13:32:11 $
- * $Revision: 1.25 $
+ *     $Date: 2005/04/13 01:03:58 $
+ * $Revision: 1.26 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -491,7 +491,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
         ELAN_EVENT *putevt;
         void *bouncebuf = NULL;
 
-        if (nbytes < GASNETC_ELAN_SMALLPUTSZ ||
+        if (GASNETC_IS_SMALLPUT(nbytes) ||
             gasnetc_elan_addressable(source_addr, nbytes)) {
           /* safe to put directly from source */
           putevt = elan_put(STATE(), source_addr, dest_ptr, nbytes, dest);
