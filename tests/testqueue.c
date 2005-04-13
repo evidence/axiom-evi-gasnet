@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2005/04/12 20:19:54 $
- * $Revision: 1.2 $
+ *     $Date: 2005/04/13 02:47:24 $
+ * $Revision: 1.3 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -37,6 +37,25 @@ char *tgtmem;
 void *msgbuf;
 gasnet_handle_t *handles;
 
+#define hidx_ping_shorthandler   201
+#define hidx_ping_medhandler     202
+#define hidx_ping_longhandler    203
+
+volatile int flag = 0;
+
+void ping_shorthandler(gasnet_token_t token) {
+}
+void ping_medhandler(gasnet_token_t token, void *buf, size_t nbytes) {
+}
+void ping_longhandler(gasnet_token_t token, void *buf, size_t nbytes) {
+}
+
+gasnet_handlerentry_t htable[] = { 
+  { hidx_ping_shorthandler,  ping_shorthandler  },
+  { hidx_ping_medhandler,    ping_medhandler    },
+  { hidx_ping_longhandler,   ping_longhandler   }
+};
+
 int main(int argc, char **argv) {
     int iters = 0;
     int arg;
@@ -45,6 +64,9 @@ int main(int argc, char **argv) {
     int firstlastmode = 0;
     int fullduplexmode = 0;
     int help = 0;   
+    int do_puts = 0, do_gets = 0, do_amshort = 0, do_ammedium = 0, do_amlong = 0;
+    int numflavors = 0;
+    int do_bulk = 0, do_nonbulk = 0;
 
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
@@ -64,6 +86,27 @@ int main(int argc, char **argv) {
       } else if (!strcmp(argv[arg], "-a")) {
         fullduplexmode = 1;
         ++arg;
+      } else if (!strcmp(argv[arg], "-p")) {
+        do_puts = 1; numflavors++;
+        ++arg;
+      } else if (!strcmp(argv[arg], "-g")) {
+        do_gets = 1; numflavors++;
+        ++arg;
+      } else if (!strcmp(argv[arg], "-s")) {
+        do_amshort = 1; numflavors++;
+        ++arg;
+      } else if (!strcmp(argv[arg], "-m")) {
+        do_ammedium = 1; numflavors++;
+        ++arg;
+      } else if (!strcmp(argv[arg], "-l")) {
+        do_amlong = 1; numflavors++;
+        ++arg;
+      } else if (!strcmp(argv[arg], "-b")) {
+        do_bulk = 1;
+        ++arg;
+      } else if (!strcmp(argv[arg], "-n")) {
+        do_nonbulk = 1; 
+        ++arg;
       } else if (argv[arg][0] == '-') {
         help = 1;
         ++arg;
@@ -76,7 +119,16 @@ int main(int argc, char **argv) {
                "  memory is in the GASNet segment or not (default it not).\n"
                "  The -a option enables full-duplex mode, where all nodes send.\n"
                "  The -f option enables 'first/last' mode, where the first node\n"
-               "  sends to the last, while all other nodes sit idle.\n",
+               "  sends to the last, while all other nodes sit idle.\n"
+               "  Test types to run: (defaults to everything)\n"
+               "   -p : puts\n"
+               "   -g : gets\n"
+               "   -s : AMShort\n"
+               "   -m : AMMedium\n"
+               "   -l : AMLong\n"
+               "   -n : Test non-bulk put/gets\n"
+               "   -b : Test bulk put/gets\n"
+               ,
                argv[0]);
         gasnet_exit(1);
     }
@@ -90,6 +142,18 @@ int main(int argc, char **argv) {
 
     min_payload = 1;
     max_payload = maxsz;
+
+    if (numflavors == 0) { /* default to all */
+      do_puts = 1; 
+      do_gets = 1; 
+      do_amshort = 1;
+      do_ammedium = 1;
+      do_amlong = 1;
+    }
+    if (!do_bulk && !do_nonbulk) {
+      do_bulk = 1;
+      do_nonbulk = 1;
+    }
 
     if (max_payload < min_payload) {
       printf("ERROR: maxsz must be >= %i\n",min_payload);
@@ -128,7 +192,8 @@ int main(int argc, char **argv) {
     #ifdef GASNET_SEGMENT_EVERYTHING
       if (maxsz > TEST_SEGSZ) { MSG("maxsz must be <= %lu on GASNET_SEGMENT_EVERYTHING",(unsigned long)TEST_SEGSZ); gasnet_exit(1); }
     #endif
-    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+    GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), 
+                              TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
     TEST_DEBUGPERFORMANCE_WARNING();
     myseg = TEST_SEG(myproc);
     tgtmem = TEST_SEG(peerproc);
@@ -152,8 +217,8 @@ int main(int argc, char **argv) {
 
     handles = (gasnet_handle_t *) test_malloc(sizeof(gasnet_handle_t) * maxdepth);
 
-    #define QUEUE_TEST(OPDESC, OP, SYNC) do {                               \
-      int depth, payload;                                                   \
+    #define QUEUE_TEST(OPDESC, OP, SYNC, PAYLOAD_LIMIT) do {                \
+      int depth, payload, last_payload;                                     \
       BARRIER();                                                            \
       MSG0("\n%s\n--------------------\n", OPDESC);                         \
       { char header[1024];                                                  \
@@ -164,7 +229,9 @@ int main(int argc, char **argv) {
         }                                                                   \
         MSG0(header);                                                       \
       }                                                                     \
-      for (payload = min_payload; payload <= max_payload; payload *= 2) {   \
+      last_payload = (((PAYLOAD_LIMIT) <= 0) ? max_payload :                \
+                      MIN(max_payload, (PAYLOAD_LIMIT)));                   \
+      for (payload = min_payload; payload <= last_payload; payload *= 2) {  \
         char row[1024];                                                     \
         char *prow = row;                                                   \
         sprintf(prow, "%-8i", payload); prow += strlen(prow);               \
@@ -172,8 +239,8 @@ int main(int argc, char **argv) {
         if (iamsender) { /* Prime i-cache, free-lists, firehose, etc. */    \
           int i = 0;                                                        \
           depth = 1;                                                        \
-	  OP;                                                               \
-	  { SYNC; }                                                         \
+          OP;                                                               \
+          { SYNC; }                                                         \
         }                                                                   \
         for (depth = 1; depth <= maxdepth; depth *= 2) {                    \
           BARRIER();                                                        \
@@ -226,37 +293,71 @@ int main(int argc, char **argv) {
       }                                                                     \
     } while (0)
 
-    QUEUE_TEST("gasnet_put_nb_bulk", 
-               handles[i] = gasnet_put_nb_bulk(peerproc, tgtmem, msgbuf, payload), 
-               gasnet_wait_syncnb_all(handles, depth));
+    if (do_puts && do_bulk) {
+      QUEUE_TEST("gasnet_put_nb_bulk", 
+                 handles[i] = gasnet_put_nb_bulk(peerproc, tgtmem, msgbuf, payload), 
+                 gasnet_wait_syncnb_all(handles, depth), 0);
+    }
 
-    QUEUE_TEST("gasnet_get_nb_bulk", 
-               handles[i] = gasnet_get_nb_bulk(msgbuf, peerproc, tgtmem, payload), 
-               gasnet_wait_syncnb_all(handles, depth));
+    if (do_gets && do_bulk) {
+      QUEUE_TEST("gasnet_get_nb_bulk", 
+                 handles[i] = gasnet_get_nb_bulk(msgbuf, peerproc, tgtmem, payload), 
+                 gasnet_wait_syncnb_all(handles, depth), 0);
+    }
 
-    QUEUE_TEST("gasnet_put_nbi_bulk", 
-               gasnet_put_nbi_bulk(peerproc, tgtmem, msgbuf, payload), 
-               gasnet_wait_syncnbi_all());
+    if (do_puts && do_bulk) {
+      QUEUE_TEST("gasnet_put_nbi_bulk", 
+                 gasnet_put_nbi_bulk(peerproc, tgtmem, msgbuf, payload), 
+                 gasnet_wait_syncnbi_all(), 0);
+    }
 
-    QUEUE_TEST("gasnet_get_nbi_bulk", 
-               gasnet_get_nbi_bulk(msgbuf, peerproc, tgtmem, payload), 
-               gasnet_wait_syncnbi_all());
+    if (do_gets && do_bulk) {
+      QUEUE_TEST("gasnet_get_nbi_bulk", 
+                 gasnet_get_nbi_bulk(msgbuf, peerproc, tgtmem, payload), 
+                 gasnet_wait_syncnbi_all(), 0);
+    }
 
-    QUEUE_TEST("gasnet_put_nb", 
-               handles[i] = gasnet_put_nb(peerproc, tgtmem, msgbuf, payload), 
-               gasnet_wait_syncnb_all(handles, depth));
+    if (do_puts && do_nonbulk) {
+      QUEUE_TEST("gasnet_put_nb", 
+                 handles[i] = gasnet_put_nb(peerproc, tgtmem, msgbuf, payload), 
+                 gasnet_wait_syncnb_all(handles, depth), 0);
+    }
 
-    QUEUE_TEST("gasnet_get_nb", 
-               handles[i] = gasnet_get_nb(msgbuf, peerproc, tgtmem, payload), 
-               gasnet_wait_syncnb_all(handles, depth));
+    if (do_gets && do_nonbulk) {
+      QUEUE_TEST("gasnet_get_nb", 
+                 handles[i] = gasnet_get_nb(msgbuf, peerproc, tgtmem, payload), 
+                 gasnet_wait_syncnb_all(handles, depth), 0);
+    }
 
-    QUEUE_TEST("gasnet_put_nbi", 
-               gasnet_put_nbi(peerproc, tgtmem, msgbuf, payload), 
-               gasnet_wait_syncnbi_all());
+    if (do_puts && do_nonbulk) {
+      QUEUE_TEST("gasnet_put_nbi", 
+                 gasnet_put_nbi(peerproc, tgtmem, msgbuf, payload), 
+                 gasnet_wait_syncnbi_all(), 0);
+    }
 
-    QUEUE_TEST("gasnet_get_nbi", 
-               gasnet_get_nbi(msgbuf, peerproc, tgtmem, payload), 
-               gasnet_wait_syncnbi_all());
+    if (do_gets && do_nonbulk) {
+      QUEUE_TEST("gasnet_get_nbi", 
+                 gasnet_get_nbi(msgbuf, peerproc, tgtmem, payload), 
+                 gasnet_wait_syncnbi_all(), 0);
+    }
+
+    if (do_amshort) {
+      QUEUE_TEST("gasnet_AMRequestShort0", 
+                 gasnet_AMRequestShort0(peerproc, hidx_ping_shorthandler), 
+                 (void)0, min_payload);
+    }
+
+    if (do_ammedium) {
+      QUEUE_TEST("gasnet_AMRequestMedium0", 
+                 gasnet_AMRequestMedium0(peerproc, hidx_ping_medhandler, msgbuf, payload), 
+                 (void)0, gasnet_AMMaxMedium());
+    }
+
+    if (do_amlong) {
+      QUEUE_TEST("gasnet_AMRequestLong0", 
+                 gasnet_AMRequestLong0(peerproc, hidx_ping_medhandler, msgbuf, payload, tgtmem), 
+                 (void)0, gasnet_AMMaxLongRequest());
+    }
 
     BARRIER();
     test_free(handles);
