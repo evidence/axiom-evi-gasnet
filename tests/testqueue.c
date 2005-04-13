@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2005/04/13 02:47:24 $
- * $Revision: 1.3 $
+ *     $Date: 2005/04/13 04:47:32 $
+ * $Revision: 1.4 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -27,6 +27,7 @@ int myproc;
 int numprocs;
 int peerproc = -1;
 int iamsender = 0;
+int iamrecver = 0;
 int multisender = 0;
 
 int min_payload;
@@ -41,13 +42,16 @@ gasnet_handle_t *handles;
 #define hidx_ping_medhandler     202
 #define hidx_ping_longhandler    203
 
-volatile int flag = 0;
+gasnett_atomic_t amcount = gasnett_atomic_init(0);
 
 void ping_shorthandler(gasnet_token_t token) {
+  gasnett_atomic_increment(&amcount);
 }
 void ping_medhandler(gasnet_token_t token, void *buf, size_t nbytes) {
+  gasnett_atomic_increment(&amcount);
 }
 void ping_longhandler(gasnet_token_t token, void *buf, size_t nbytes) {
+  gasnett_atomic_increment(&amcount);
 }
 
 gasnet_handlerentry_t htable[] = { 
@@ -179,12 +183,17 @@ int main(int argc, char **argv) {
     if (firstlastmode) {
       peerproc = numprocs-1;
       iamsender = (myproc == 0);
+      iamrecver = (myproc == numprocs-1);
+      multisender = 0;
     } else if (numprocs == 1) {
       peerproc = 0;
       iamsender = 1;
+      iamrecver = 1;
+      multisender = 0;
     } else { 
       peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
       iamsender = (fullduplexmode || myproc % 2 == 0);
+      iamrecver = (fullduplexmode || !iamsender);
       multisender = (fullduplexmode || numprocs >= 4);
     }
     multisender = 1; /* messes up output on some systems */
@@ -217,7 +226,7 @@ int main(int argc, char **argv) {
 
     handles = (gasnet_handle_t *) test_malloc(sizeof(gasnet_handle_t) * maxdepth);
 
-    #define QUEUE_TEST(OPDESC, OP, SYNC, PAYLOAD_LIMIT) do {                \
+    #define QUEUE_TEST(OPDESC, OP, SYNC, RECVRSYNC, PAYLOAD_LIMIT) do {     \
       int depth, payload, last_payload;                                     \
       BARRIER();                                                            \
       MSG0("\n%s\n--------------------\n", OPDESC);                         \
@@ -236,12 +245,13 @@ int main(int argc, char **argv) {
         char *prow = row;                                                   \
         sprintf(prow, "%-8i", payload); prow += strlen(prow);               \
         if (!multisender) { printf("%s",row); fflush(stdout); prow = row; } \
+        depth = 1;                                                          \
         if (iamsender) { /* Prime i-cache, free-lists, firehose, etc. */    \
           int i = 0;                                                        \
-          depth = 1;                                                        \
           OP;                                                               \
           { SYNC; }                                                         \
         }                                                                   \
+        if (iamrecver) { RECVRSYNC; }                                       \
         for (depth = 1; depth <= maxdepth; depth *= 2) {                    \
           BARRIER();                                                        \
                                                                             \
@@ -260,6 +270,7 @@ int main(int argc, char **argv) {
                 }                                                           \
               end = gasnett_ticks_now();                                    \
               { SYNC; }                                                     \
+              if (iamrecver) { RECVRSYNC; }                                 \
               BARRIER();                                                    \
               thistime = (end - begin);                                     \
               total += thistime;                                            \
@@ -282,7 +293,9 @@ int main(int argc, char **argv) {
             }                                                               \
           } else {                                                          \
             int i;                                                          \
-            for (i = 0; i < 2*iters; i++) {                                 \
+            for (i = 0; i < iters; i++) {                                   \
+              BARRIER();                                                    \
+              if (iamrecver) { RECVRSYNC; }                                 \
               BARRIER();                                                    \
             }                                                               \
           }                                                                 \
@@ -296,67 +309,79 @@ int main(int argc, char **argv) {
     if (do_puts && do_bulk) {
       QUEUE_TEST("gasnet_put_nb_bulk", 
                  handles[i] = gasnet_put_nb_bulk(peerproc, tgtmem, msgbuf, payload), 
-                 gasnet_wait_syncnb_all(handles, depth), 0);
+                 gasnet_wait_syncnb_all(handles, depth), (void)0, 0);
     }
 
     if (do_gets && do_bulk) {
       QUEUE_TEST("gasnet_get_nb_bulk", 
                  handles[i] = gasnet_get_nb_bulk(msgbuf, peerproc, tgtmem, payload), 
-                 gasnet_wait_syncnb_all(handles, depth), 0);
+                 gasnet_wait_syncnb_all(handles, depth), (void)0, 0);
     }
 
     if (do_puts && do_bulk) {
       QUEUE_TEST("gasnet_put_nbi_bulk", 
                  gasnet_put_nbi_bulk(peerproc, tgtmem, msgbuf, payload), 
-                 gasnet_wait_syncnbi_all(), 0);
+                 gasnet_wait_syncnbi_all(), (void)0, 0);
     }
 
     if (do_gets && do_bulk) {
       QUEUE_TEST("gasnet_get_nbi_bulk", 
                  gasnet_get_nbi_bulk(msgbuf, peerproc, tgtmem, payload), 
-                 gasnet_wait_syncnbi_all(), 0);
+                 gasnet_wait_syncnbi_all(), (void)0, 0);
     }
 
     if (do_puts && do_nonbulk) {
       QUEUE_TEST("gasnet_put_nb", 
                  handles[i] = gasnet_put_nb(peerproc, tgtmem, msgbuf, payload), 
-                 gasnet_wait_syncnb_all(handles, depth), 0);
+                 gasnet_wait_syncnb_all(handles, depth), (void)0, 0);
     }
 
     if (do_gets && do_nonbulk) {
       QUEUE_TEST("gasnet_get_nb", 
                  handles[i] = gasnet_get_nb(msgbuf, peerproc, tgtmem, payload), 
-                 gasnet_wait_syncnb_all(handles, depth), 0);
+                 gasnet_wait_syncnb_all(handles, depth), (void)0, 0);
     }
 
     if (do_puts && do_nonbulk) {
       QUEUE_TEST("gasnet_put_nbi", 
                  gasnet_put_nbi(peerproc, tgtmem, msgbuf, payload), 
-                 gasnet_wait_syncnbi_all(), 0);
+                 gasnet_wait_syncnbi_all(), (void)0, 0);
     }
 
     if (do_gets && do_nonbulk) {
       QUEUE_TEST("gasnet_get_nbi", 
                  gasnet_get_nbi(msgbuf, peerproc, tgtmem, payload), 
-                 gasnet_wait_syncnbi_all(), 0);
+                 gasnet_wait_syncnbi_all(), (void)0, 0);
     }
 
     if (do_amshort) {
+      gasnett_atomic_set(&amcount, 0);
       QUEUE_TEST("gasnet_AMRequestShort0", 
-                 gasnet_AMRequestShort0(peerproc, hidx_ping_shorthandler), 
-                 (void)0, min_payload);
+                 gasnet_AMRequestShort0(peerproc, hidx_ping_shorthandler), (void)0,
+                { assert(iamrecver);
+                  GASNET_BLOCKUNTIL(gasnett_atomic_read(&amcount) == depth); 
+                  gasnett_atomic_set(&amcount, 0); }, 
+                 min_payload);
     }
 
     if (do_ammedium) {
+      gasnett_atomic_set(&amcount, 0);
       QUEUE_TEST("gasnet_AMRequestMedium0", 
-                 gasnet_AMRequestMedium0(peerproc, hidx_ping_medhandler, msgbuf, payload), 
-                 (void)0, gasnet_AMMaxMedium());
+                 gasnet_AMRequestMedium0(peerproc, hidx_ping_medhandler, msgbuf, payload), (void)0,
+                { assert(iamrecver);
+                  GASNET_BLOCKUNTIL(gasnett_atomic_read(&amcount) == depth); 
+                  gasnett_atomic_set(&amcount, 0); }, 
+                 gasnet_AMMaxMedium());
     }
 
     if (do_amlong) {
+      gasnett_atomic_set(&amcount, 0);
       QUEUE_TEST("gasnet_AMRequestLong0", 
-                 gasnet_AMRequestLong0(peerproc, hidx_ping_medhandler, msgbuf, payload, tgtmem), 
-                 (void)0, gasnet_AMMaxLongRequest());
+                 gasnet_AMRequestLong0(peerproc, hidx_ping_medhandler, msgbuf, payload, tgtmem), (void)0,
+                { assert(iamrecver);
+                  GASNET_BLOCKUNTIL(gasnett_atomic_read(&amcount) == depth); 
+                  gasnett_atomic_set(&amcount, 0); }, 
+                 gasnet_AMMaxLongRequest());
     }
 
     BARRIER();
