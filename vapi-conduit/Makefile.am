@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/04/14 17:29:21 $
-# $Revision: 1.35 $
+#     $Date: 2005/04/14 19:25:50 $
+# $Revision: 1.36 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -29,9 +29,9 @@ $(builddir)/firehose_region-$(THREAD_MODEL).o: force
 ## MPI bootstrap support (optional)
 ##
 if VAPI_BOOTSTRAP_MPI
+mpi_defines = -DHAVE_MPI_SPAWNER
 mpi_srcdir = $(top_srcdir)/other/mpi-spawner
-mpi_includes = -I$(mpi_srcdir)
-mpi_hdrs = $(mpi_srcdir)/*.h
+mpi_deps = $(mpi_srcdir)/*.h $(mpi_srcdir)/*.c
 mpi_subdirs = contrib
 # We must compile this one object with MPI_CC.
 mpi_special_objs = $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o
@@ -44,9 +44,9 @@ endif
 ## SSH bootstrap support (optional)
 ##
 if VAPI_BOOTSTRAP_SSH
+ssh_defines = -DHAVE_SSH_SPAWNER
 ssh_srcdir = $(top_srcdir)/other/ssh-spawner
-ssh_includes = -I$(ssh_srcdir)
-ssh_hdrs = $(ssh_srcdir)/*.h
+ssh_deps = $(ssh_srcdir)/*.h
 ssh_srcs = $(ssh_srcdir)/gasnet_bootstrap_ssh.c
 endif
 
@@ -90,7 +90,7 @@ CONDUIT_SOURCELIST =                 \
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ -I$(fh_srcdir) $(ssh_includes) $(mpi_includes)\
+CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ -I$(fh_srcdir) $(ssh_defines) $(mpi_defines)\
 			 @VAPI_LIBCFLAGS@ $(rcv_thread_defines)
 
 # additional conduit header files to install from external, non-standard directories
@@ -98,7 +98,7 @@ CONDUIT_EXTRAHEADERS =
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(fh_srcdir)/*.h $(mpi_hdrs) $(ssh_hdrs)
+CONDUIT_EXTRADEPS = $(fh_srcdir)/*.h $(mpi_deps) $(ssh_deps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as

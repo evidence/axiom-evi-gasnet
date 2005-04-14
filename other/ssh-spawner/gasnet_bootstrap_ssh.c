@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/14 17:29:15 $
- * $Revision: 1.38 $
+ *     $Date: 2005/04/14 19:25:48 $
+ * $Revision: 1.39 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -75,33 +75,27 @@
    The tree structure is used to provide scalable implementations of
    the following "service" routines for use during the bootstrap, as
    required in the template-conduit:
-      extern void gasneti_bootstrapBarrier(void);
-      extern void gasneti_bootstrapExchange(void *src, size_t len, void *dest);
-      extern void gasneti_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode);
+      extern void gasneti_bootstrapBarrier_ssh(void);
+      extern void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest);
+      extern void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootnode);
    
    Additionally, the following is useful (at least in vapi-conduit)
    for exchanging endpoint identifiers in a scalable manner:
-      extern void gasneti_bootstrapAlltoall(void *src, size_t len, void *dest);
+      extern void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest);
 
    If demand exists, scalable Scatter and Gather are possible.
 
    The following are needed to handle startup and termination:
-      extern void gasneti_bootstrapInit(int *argc_p, char ***argv_p,
-                                        gasnet_node_t *nodes_p,
-                                        gasnet_node_t *mynode_p);
-      extern void gasneti_bootstrapFini(void);
-      extern void gasneti_bootstrapAbort(int exitcode);
+      extern void gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p,
+                                            gasnet_node_t *nodes_p,
+                                            gasnet_node_t *mynode_p);
+      extern void gasneti_bootstrapFini_ssh(void);
+      extern void gasneti_bootstrapAbort_ssh(int exitcode);
    In the case of normal termination, all nodes should call
-   gasneti_bootstrapFini() before they call exit().  In the event that
+   gasneti_bootstrapFini_ssh() before they call exit().  In the event that
    gasnet is unable to arrange for an orderly shutdown, a call to
-   gasneti_bootstrapAbort() will try to force all processes to exit
+   gasneti_bootstrapAbort_ssh() will try to force all processes to exit
    with the given exit code.
-
-   To deal with global environment propagation, one should
-      #define GASNETI_CONDUIT_GETENV gasneti_bootstrapGetenv
-   A call to gasneti_setupGlobalEnvironment() is not required.
-   A call to gasneti_bootstrapGetenv() can safely be made at anytime,
-   but will return NULL until after the call to gasneti_bootstrapInit().
 
    To control the spawner, there are a few environment variables, all
    of which are processed only by the master process (which send the
@@ -1445,14 +1439,14 @@ static void gather_pids(void)
  * Upon return:
  *   + argc and argv are those the user specified
  *   + *nodes_p and *mynode_p are set
- *   + the global environment is available via gasneti_bootstrapGetenv()
+ *   + the global environment is available via gasneti_getenv()
  * There is no barrier at the end, so it is possible that in a multi-level
  * tree, there are still some processes not yet spawned.  This is OK, since
  * we assume that at least one gasneti_bootstrap*() collectives will follow.
  * Not waiting here allows any subsequent that first collective to overlap
  * with the spawning.
  */
-void gasneti_bootstrapInit(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
+void gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
   int argc = *argc_p;
   char **argv = *argv_p;
 
@@ -1475,7 +1469,7 @@ void gasneti_bootstrapInit(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, 
  *
  * Waits for children to exit.
  */
-void gasneti_bootstrapFini(void) {
+void gasneti_bootstrapFini_ssh(void) {
   static const char F = 'F';
   char cmd;
   int j;
@@ -1512,12 +1506,12 @@ void gasneti_bootstrapFini(void) {
  *
  * Force immediate (abnormal) termination.
  */
-void gasneti_bootstrapAbort(int exitcode) {
+void gasneti_bootstrapAbort_ssh(int exitcode) {
   do_abort((unsigned char)exitcode);
   /* NOT REACHED */
 }
 
-void gasneti_bootstrapBarrier(void) {
+void gasneti_bootstrapBarrier_ssh(void) {
   int cmd, j;
 
   /* UP */
@@ -1536,7 +1530,7 @@ void gasneti_bootstrapBarrier(void) {
   gasneti_assert(cmd == 1);
 }
 
-void gasneti_bootstrapExchange(void *src, size_t len, void *dest) {
+void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
   int j;
 
   /* Gather data up the tree, assembling partial results in-place in dest */
@@ -1556,7 +1550,7 @@ void gasneti_bootstrapExchange(void *src, size_t len, void *dest) {
   }
 }
 
-void gasneti_bootstrapAlltoall(void *src, size_t len, void *dest) {
+void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
   size_t row_len = len * nproc;
   char *tmp;
                                                                                                               
@@ -1586,7 +1580,7 @@ void gasneti_bootstrapAlltoall(void *src, size_t len, void *dest) {
   gasneti_free(tmp);
 }
 
-void gasneti_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode) {
+void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootnode) {
   int j;
 
   /* Move up the tree to proc 0 */

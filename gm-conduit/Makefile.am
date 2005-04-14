@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/04/14 17:29:11 $
-# $Revision: 1.50 $
+#     $Date: 2005/04/14 19:25:44 $
+# $Revision: 1.51 $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -53,7 +53,7 @@ if GM_MPI_ENABLE_COMPAT
 mpi_srcdir = $(top_srcdir)/other/mpi-spawner
 mpi_cflags = -I$(mpi_srcdir)
 mpi_srcs = $(mpi_srcdir)/gasnet_bootstrap_mpi.c
-mpi_hdrs = $(mpi_srcdir)/*.h
+mpi_deps = $(mpi_srcdir)/*.h $(mpi_srcdir)/*.c
 mpi_objs = $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o
 $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: force
 	@MPI_CC@ @MPI_CFLAGS@ $(LIBDEFINES) $(CONDUIT_EXTRALIBCFLAGS) $(LIBINCLUDES) -o $@ -c $(mpi_srcs)
@@ -82,7 +82,7 @@ CONDUIT_EXTRAHEADERS =
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(fh_srcdir)/*.h $(mpi_hdrs)
+CONDUIT_EXTRADEPS = $(fh_srcdir)/*.h $(mpi_deps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as
