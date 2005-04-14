@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/14 03:12:50 $
- * $Revision: 1.37 $
+ *     $Date: 2005/04/14 17:29:15 $
+ * $Revision: 1.38 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -260,6 +260,26 @@ static void die(int exitcode, const char *msg, ...) {
     fflush(stderr);
   va_end(argptr);
   gasneti_killmyprocess(exitcode);
+}
+
+
+/* Fetch a variable from the environment on the master node.
+ * (more or less copied from amudp_spmd.cpp)
+ */
+static char *do_getenv(const char *var) {
+  if (master_env && var && (*var != '\0')) {
+    char *p = master_env;
+    size_t len = strlen(var);
+
+    while (*p) {
+      if (!strncmp(var, p, len) && (p[len] == '=')) {
+        return p + len + 1;
+      } else {
+        p += strlen(p) + 1;
+      }
+    }
+  }
+  return NULL;
 }
 
 static void kill_one(const char *rem_host, pid_t rem_pid) {
@@ -1350,6 +1370,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
 
   *nodes_p = nproc;
   *mynode_p = myproc;
+  gasneti_conduit_getenv = &do_getenv;
 }
 
 /* dest is >= len*tree_procs, used as temp space on all but root */
@@ -1588,25 +1609,4 @@ void gasneti_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode)
 
   /* Now move it down */
   do_bcast0(len, dest);
-}
-
-/* gasneti_bootstrapGetenv
- *
- * Fetch a variable from the environment on the master node.
- * (more or less copied from amudp_spmd.cpp)
- */
-char *gasneti_bootstrapGetenv(const char *var) {
-  if (master_env && var && (*var != '\0')) {
-    char *p = master_env;
-    size_t len = strlen(var);
-
-    while (*p) {
-      if (!strncmp(var, p, len) && (p[len] == '=')) {
-        return p + len + 1;
-      } else {
-        p += strlen(p) + 1;
-      }
-    }
-  }
-  return NULL;
 }

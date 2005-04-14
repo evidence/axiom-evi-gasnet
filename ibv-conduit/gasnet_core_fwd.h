@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2005/04/02 00:55:56 $
- * $Revision: 1.24 $
+ *     $Date: 2005/04/14 17:29:21 $
+ * $Revision: 1.25 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,8 +36,6 @@
 typedef uint16_t gasnet_node_t;
 #define _GASNET_HANDLER_T
 typedef uint8_t gasnet_handler_t;
-
-#include <gasnet_bootstrap_fwd.h>	/* After definition of gasnet_node_t */
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */

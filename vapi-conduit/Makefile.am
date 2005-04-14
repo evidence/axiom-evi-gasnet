@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/04/11 00:20:10 $
-# $Revision: 1.34 $
+#     $Date: 2005/04/14 17:29:21 $
+# $Revision: 1.35 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -94,7 +94,7 @@ CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ -I$(fh_srcdir) $(ssh_includes) $(mpi_i
 			 @VAPI_LIBCFLAGS@ $(rcv_thread_defines)
 
 # additional conduit header files to install from external, non-standard directories
-CONDUIT_EXTRAHEADERS = $(mpi_hdrs) $(ssh_hdrs)
+CONDUIT_EXTRAHEADERS = 
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
