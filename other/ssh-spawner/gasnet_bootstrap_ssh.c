@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/07 01:26:59 $
- * $Revision: 1.36 $
+ *     $Date: 2005/04/14 03:12:50 $
+ * $Revision: 1.37 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -821,19 +821,19 @@ static void send_nodelist(int s, int count, char ** list) {
   gasnet_node_t i;
 
   /* length of list is already known to the recipient */
+  count = MAX(count, 1);
   for (i = 0; i < count; ++i) {
     do_write_string(s, list[i]);
   }
 }
 
 static void recv_nodelist(int s, int count) {
-  if (count) {
-    gasnet_node_t i;
+  gasnet_node_t i;
+  count = MAX(count, 1);
 
-    nodelist = gasneti_malloc(count * sizeof(char *));
-    for (i = 0; i < count; ++i) {
-      nodelist[i] = do_read_string(s);
-    }
+  nodelist = gasneti_malloc(count * sizeof(char *));
+  for (i = 0; i < count; ++i) {
+    nodelist[i] = do_read_string(s);
   }
 }
 
@@ -1061,7 +1061,7 @@ static void do_connect(gasnet_node_t child_id, const char *parent_name, int pare
 }
 
 static void spawn_one(gasnet_node_t child_id, const char *myhost) {
-  const char *host = child[child_id].nodelist ? child[child_id].nodelist[0] : NULL;
+  const char *host = child[child_id].nodelist ? child[child_id].nodelist[0] : nodelist[0];
   pid_t pid;
   int is_local = (GASNETI_BOOTSTRAP_LOCAL_SPAWN && (!host || !strcmp(host, myhost)));
 
@@ -1318,7 +1318,7 @@ static void do_slave(int *argc_p, char ***argv_p, gasnet_node_t *nodes_p, gasnet
 	child[j].rank = rank++;
 	child[j].procs = 1;
 	child[j].nodes = 0; /* N/A */
-        child[j].nodelist = NULL;
+        child[j].nodelist = nodelist;
     }
 
     /* Map out the child nodes */
