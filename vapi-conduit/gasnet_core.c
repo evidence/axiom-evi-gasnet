@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/04/16 03:17:35 $
- * $Revision: 1.91 $
+ *     $Date: 2005/04/16 05:26:21 $
+ * $Revision: 1.92 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -357,8 +357,8 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_OUST_LIMIT, GASNETC_DEFAULT_AM_OUST_LIMIT, 1);
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_OUST_PP, GASNETC_DEFAULT_AM_OUST_PP, 1);
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_LIMIT, GASNETC_DEFAULT_BBUF_LIMIT, 1);
-  GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINE_LIMIT, GASNETC_DEFAULT_INLINE_LIMIT, 1);
-  GASNETC_ENVINT(gasnetc_bounce_limit, GASNET_BOUNCE_LIMIT, GASNETC_DEFAULT_BOUNCE_LIMIT, 1);
+  GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINE_LIMIT, GASNETC_DEFAULT_INLINE_LIMIT, 0);
+  GASNETC_ENVINT(gasnetc_bounce_limit, GASNET_BOUNCE_LIMIT, GASNETC_DEFAULT_BOUNCE_LIMIT, 0);
   #if GASNETC_PIN_SEGMENT
   { char *val;
     long tmp;
