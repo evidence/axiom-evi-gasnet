@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/04/13 19:41:54 $
- * $Revision: 1.89 $
+ *     $Date: 2005/04/16 02:35:27 $
+ * $Revision: 1.90 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,6 +23,10 @@ extern unsigned long fh_getenv(const char *var, unsigned long multiplier);
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
 
+GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
+#if HAVE_MPI_SPAWNER
+  GASNETI_IDENT(gasnetc_IdentString_HaveMPISpawner, "$GASNetMPISpawner: 1 $");
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -433,6 +437,43 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(C,  ("}"));
 
   return GASNET_OK;
+}
+
+static void (*gasneti_bootstrapFini_p)(void);
+static void (*gasneti_bootstrapAbort_p)(int exitcode);
+static void (*gasneti_bootstrapBarrier_p)(void);
+static void (*gasneti_bootstrapExchange_p)(void *src, size_t len, void *dest);
+static void (*gasneti_bootstrapAlltoall_p)(void *src, size_t len, void *dest);
+static void (*gasneti_bootstrapBroadcast_p)(void *src, size_t len, void *dest, int rootnode);
+#define gasneti_bootstrapFini		(*gasneti_bootstrapFini_p)	
+#define gasneti_bootstrapAbort		(*gasneti_bootstrapAbort_p)	
+#define gasneti_bootstrapBarrier	(*gasneti_bootstrapBarrier_p)	
+#define gasneti_bootstrapExchange	(*gasneti_bootstrapExchange_p)	
+#define gasneti_bootstrapAlltoall	(*gasneti_bootstrapAlltoall_p)	
+#define gasneti_bootstrapBroadcast	(*gasneti_bootstrapBroadcast_p)	
+
+static void gasneti_bootstrapInit(int *argc_p, char ***argv_p,
+				  gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
+#if HAVE_MPI_SPAWNER
+  if ((*argc_p < 2) || strncmp((*argv_p)[1], "-GASNET-SPAWN-", 14)) {
+    gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
+    gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_mpi;
+    gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_mpi;
+    gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_mpi;
+    gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
+    gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
+    gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+  } else
+#endif
+  {
+    gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
+    gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_ssh;
+    gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_ssh;
+    gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_ssh;
+    gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_ssh;
+    gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_ssh;
+    gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
+  }
 }
 
 static int gasnetc_init(int *argc, char ***argv) {
@@ -1086,7 +1127,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #else	/* just allocate the segment but don't pin it */
   {
     /* allocate the segment and exchange seginfo */
-    gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasneti_bootstrapExchange);
+    gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, gasneti_bootstrapExchange);
     segbase = gasneti_seginfo[gasneti_mynode].addr;
     segsize = gasneti_seginfo[gasneti_mynode].size;
   }

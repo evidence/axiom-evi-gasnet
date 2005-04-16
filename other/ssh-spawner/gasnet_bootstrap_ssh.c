@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/14 19:25:48 $
- * $Revision: 1.39 $
+ *     $Date: 2005/04/16 02:35:25 $
+ * $Revision: 1.40 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -294,7 +294,7 @@ static void kill_one(const char *rem_host, pid_t rem_pid) {
     (void)dup2(STDERR_FILENO, devnull);
 #endif
     ssh_argv[ssh_argc] = (/* noconst */ char *)rem_host;
-    ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -kill %d",
+    ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -GASNET-SPAWN-kill %d",
 				      quote_arg(cwd), quote_arg(argv0), rem_pid);
     execvp(ssh_argv[0], ssh_argv);
     gasneti_fatalerror("execvp(ssh kill) failed");
@@ -1095,7 +1095,7 @@ static void spawn_one(gasnet_node_t child_id, const char *myhost) {
       BOOTSTRAP_VERBOSE(("[%d] spawning process %d on %s via fork()\n",
 			 (is_master ? -1 : (int)myproc),
 			 (int)child[child_id].rank, myhost));
-      execlp(argv0, argv0, "-slave", "localhost",
+      execlp(argv0, argv0, "-GASNET-SPAWN-slave", "localhost",
 	     sappendf(NULL, "%d", listen_port),
 	     sappendf(NULL, "%d", (int)child_id),
 	     is_verbose ? "-v" : NULL,
@@ -1110,7 +1110,7 @@ static void spawn_one(gasnet_node_t child_id, const char *myhost) {
 			 (is_master ? -1 : (int)myproc),
 			 (int)child[child_id].rank, host, ssh_argv[0]));
       ssh_argv[ssh_argc] = (/* noconst */ char *)host;
-      ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -slave %s %d %d%s",
+      ssh_argv[ssh_argc+1] = sappendf(NULL, "cd %s; exec %s -GASNET-SPAWN-slave %s %d %d%s",
 				      quote_arg(cwd), quote_arg(argv0),
 				      myhost, listen_port, (int)child_id,
 				      is_verbose ? " -v" : "");
@@ -1132,7 +1132,7 @@ static void do_spawn(int argc, char **argv, char *myhost) {
 }
 
 static void usage(const char *argv0) {
-  die(1, "usage: %s [-master] [-v] NPROC[:NODES] [--] [ARGS...]", argv0);
+  die(1, "usage: %s [-GASNET-SPAWN-master] [-v] NPROC[:NODES] [--] [ARGS...]", argv0);
 }
 
 static void do_kill(int argc, char **argv) GASNET_NORETURN;
@@ -1171,7 +1171,7 @@ static void do_master(int argc, char **argv) {
   is_master = 1;
   gasneti_reghandler(SIGURG, &sigurg_handler);
 
-  if ((argi < argc) && (strcmp(argv[argi], "-master") == 0)) {
+  if ((argi < argc) && (strcmp(argv[argi], "-GASNET-SPAWN-master") == 0)) {
     argi++;
   }
   if ((argi < argc) && (strcmp(argv[argi], "-v") == 0)) {
@@ -1456,9 +1456,9 @@ void gasneti_bootstrapInit_ssh(int *argc_p, char ***argv_p, gasnet_node_t *nodes
 
   argv0 = argv[0];
 
-  if (strcmp(argv[1], "-slave") == 0) {
+  if (strcmp(argv[1], "-GASNET-SPAWN-slave") == 0) {
     do_slave(argc_p, argv_p, nodes_p, mynode_p);
-  } else if (strcmp(argv[1], "-kill") == 0) {
+  } else if (strcmp(argv[1], "-GASNET-SPAWN-kill") == 0) {
     do_kill(argc, argv); /* Does not return */
   } else {
     do_master(argc, argv); /* Does not return */

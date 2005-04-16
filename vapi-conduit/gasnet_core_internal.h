@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/04/14 19:25:50 $
- * $Revision: 1.76 $
+ *     $Date: 2005/04/16 02:35:27 $
+ * $Revision: 1.77 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,29 +14,9 @@
 #include <gasnet_internal.h>
 #include <firehose.h>
 
-/* Presently support only one spawner */
-#if defined(HAVE_SSH_SPAWNER) && defined(HAVE_MPI_SPAWNER)
-  #error "vapi-conduit does not yet support multiple spawners simultaneously"
-#endif
-#if HAVE_SSH_SPAWNER
-  #include <ssh-spawner/gasnet_bootstrap_internal.h>
-  #define gasneti_bootstrapInit		gasneti_bootstrapInit_ssh
-  #define gasneti_bootstrapFini		gasneti_bootstrapFini_ssh
-  #define gasneti_bootstrapAbort	gasneti_bootstrapAbort_ssh
-  #define gasneti_bootstrapBarrier	gasneti_bootstrapBarrier_ssh
-  #define gasneti_bootstrapExchange	gasneti_bootstrapExchange_ssh
-  #define gasneti_bootstrapAlltoall	gasneti_bootstrapAlltoall_ssh
-  #define gasneti_bootstrapBroadcast	gasneti_bootstrapBroadcast_ssh
-#endif
+#include <ssh-spawner/gasnet_bootstrap_internal.h>
 #if HAVE_MPI_SPAWNER
   #include <mpi-spawner/gasnet_bootstrap_internal.h>
-  #define gasneti_bootstrapInit		gasneti_bootstrapInit_mpi
-  #define gasneti_bootstrapFini		gasneti_bootstrapFini_mpi
-  #define gasneti_bootstrapAbort	gasneti_bootstrapAbort_mpi
-  #define gasneti_bootstrapBarrier	gasneti_bootstrapBarrier_mpi
-  #define gasneti_bootstrapExchange	gasneti_bootstrapExchange_mpi
-  #define gasneti_bootstrapAlltoall	gasneti_bootstrapAlltoall_mpi
-  #define gasneti_bootstrapBroadcast	gasneti_bootstrapBroadcast_mpi
 #endif
 
 #include <vapi.h>
