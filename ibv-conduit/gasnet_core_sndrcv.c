@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/04/14 17:01:22 $
- * $Revision: 1.93 $
+ *     $Date: 2005/04/16 03:17:35 $
+ * $Revision: 1.94 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -35,6 +35,8 @@ gasnetc_memreg_t			gasnetc_snd_reg;
 VAPI_cq_hndl_t                          gasnetc_rcv_cq;
 VAPI_cq_hndl_t				gasnetc_snd_cq;
 size_t					gasnetc_fh_maxsz;
+size_t                   		gasnetc_inline_limit;
+size_t                   		gasnetc_bounce_limit;
 int					gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
 int					gasnetc_use_firehose = 1;
 
@@ -1000,7 +1002,6 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   uint32_t flags;
   size_t msg_len;
   int retval, i;
-  int use_inline = 0;
 
   /* FIRST, if using firehose then Long requests may need AMs for moves.
    * Thus we MUST do any RDMA before getting credits.  It can't hurt to queue
@@ -1086,9 +1087,6 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     args = buf->shortmsg.args;
     msg_len = offsetof(gasnetc_buffer_t, shortmsg.args[numargs]);
     if (!msg_len) msg_len = 1; /* Mellanox bug (zero-length sends) work-around */
-    use_inline = (GASNETC_AM_INLINE_LIMIT != 0) &&
-	    	  ((sizeof(gasnetc_shortmsg_t) <= GASNETC_AM_INLINE_LIMIT) ||
-	    	   (msg_len <= GASNETC_AM_INLINE_LIMIT));
     break;
 
   case gasnetc_Medium:
@@ -1096,7 +1094,6 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     buf->medmsg.nBytes = nbytes;
     memcpy(GASNETC_MSG_MED_DATA(buf, numargs), src_addr, nbytes);
     msg_len = GASNETC_MSG_MED_OFFSET(numargs) + nbytes;
-    use_inline = ((GASNETC_AM_INLINE_LIMIT != 0) && (msg_len <= GASNETC_AM_INLINE_LIMIT));
     break;
 
   case gasnetc_Long:
@@ -1107,12 +1104,8 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s) */
       memcpy(GASNETC_MSG_LONG_DATA(buf, numargs), src_addr, nbytes);
       msg_len = GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
-      use_inline = (GASNETC_AM_INLINE_LIMIT != 0) && (msg_len <= GASNETC_AM_INLINE_LIMIT);
     } else {
       msg_len = offsetof(gasnetc_buffer_t, longmsg.args[numargs]);
-      use_inline = (GASNETC_AM_INLINE_LIMIT != 0) &&
-	    	    ((sizeof(gasnetc_longmsg_t) <= GASNETC_AM_INLINE_LIMIT) ||
-	    	     (msg_len <= GASNETC_AM_INLINE_LIMIT));
     }
     break;
 
@@ -1159,7 +1152,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       sreq->req_oust = req_oust;
     }
 
-    if_pt (use_inline) {
+    if_pt (msg_len <= gasnetc_inline_limit) {
       gasnetc_snd_post_inline(sreq, sr_desc);
     } else {
       gasnetc_snd_post(sreq, sr_desc);
@@ -1283,7 +1276,7 @@ static void gasnetc_do_put_inline(gasnetc_cep_t *cep, VAPI_rkey_t rkey,
   GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, nbytes);
 
   gasneti_assert(nbytes != 0);
-  gasneti_assert(nbytes <= GASNETC_PUT_INLINE_LIMIT);
+  gasneti_assert(nbytes <= gasnetc_inline_limit);
 
   sreq = gasnetc_get_sreq();
   sreq->cep = cep;
@@ -1662,11 +1655,11 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq, VAPI_wr_opcode_t op) {
 }
 
 static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq, const firehose_request_t *fh_rem, size_t nbytes) {
-  if ((GASNETC_PUT_INLINE_LIMIT != 0) && (nbytes <= GASNETC_PUT_INLINE_LIMIT)) {
+  if (nbytes <= gasnetc_inline_limit) {
     /* Inline when small enough */
     GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, nbytes);
     gasnetc_fh_put_inline(sreq, fh_rem, nbytes);
-  } else if ((nbytes <= GASNETC_PUT_COPY_LIMIT) && (sreq->mem_oust != NULL)) {
+  } else if ((nbytes <= gasnetc_bounce_limit) && (sreq->mem_oust != NULL)) {
     /* Bounce buffer use for non-bulk puts (upto a limit) */
     GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_BOUNCE, nbytes);
     gasnetc_fh_put_bounce(sreq, fh_rem, nbytes);
@@ -1782,8 +1775,8 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
   /* Get local firehose(s) IFF inline and bounce-buffers are not to be used.
    * We do this here to overlap with the in-flight AM if applicable.
    */
-  if (!((GASNETC_PUT_INLINE_LIMIT != 0) && (len <= GASNETC_PUT_INLINE_LIMIT)) &&
-      !((len <= GASNETC_PUT_COPY_LIMIT) && (sreq->mem_oust != NULL))) {
+  if (!(len <= gasnetc_inline_limit) &&
+      !((len <= gasnetc_bounce_limit) && (sreq->mem_oust != NULL))) {
     len = gasnetc_get_local_fh(sreq, loc_addr, len);
   }
   sreq->fh_len = len;
@@ -2039,7 +2032,7 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     VAPI_rkey_t rkey;
     gasnetc_get_rkey(cep, dst, &count, &rkey);
 
-    if ((GASNETC_PUT_INLINE_LIMIT != 0) && (count <= GASNETC_PUT_INLINE_LIMIT)) {
+    if (count <= gasnetc_inline_limit) {
       /* Use a short-cut for sends that are short enough.
        *
        * Note that we do this based only on the size of the request, without bothering to check whether
@@ -2050,7 +2043,7 @@ extern int gasnetc_rdma_put(int node, void *src_ptr, void *dst_ptr, size_t nbyte
     } else if_pf (!gasnetc_use_firehose && gasnetc_unpinned(src, &count)) {
       /* Firehose disabled.  Use bounce buffers since src is out-of-segment */
       gasnetc_do_put_bounce(cep, rkey, src, dst, count, req_oust);
-    } else if ((count <= GASNETC_PUT_COPY_LIMIT) && (mem_oust != NULL)) {
+    } else if ((count <= gasnetc_bounce_limit) && (mem_oust != NULL)) {
       /* Because VAPI lacks any indication of "local" completion, the only ways to
        * implement non-bulk puts (mem_oust != NULL) are as fully blocking puts, or
        * with bounce buffers.  So, if a non-bulk put is "not too large" use bounce

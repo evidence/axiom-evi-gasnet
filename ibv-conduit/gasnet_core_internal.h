@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/04/16 02:35:27 $
- * $Revision: 1.77 $
+ *     $Date: 2005/04/16 03:17:35 $
+ * $Revision: 1.78 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -182,27 +182,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 /* Defined non-zero in gasnet_config.h to enable a progress thread for receiving AMs . */
 #ifndef GASNETC_VAPI_RCV_THREAD
   #define GASNETC_VAPI_RCV_THREAD	0
-#endif
-
-#if GASNETC_VAPI_ENABLE_INLINE_PUTS
-  /* AM req/rep <= this size will be done w/ VAPI-level copy, 0 disables */
-  #ifndef GASNETC_AM_INLINE_LIMIT
-    #define GASNETC_AM_INLINE_LIMIT	72
-  #endif
-  /* puts <= this size will be done w/ VAPI-level copy, 0 disables */
-  #ifndef GASNETC_PUT_INLINE_LIMIT
-    #define GASNETC_PUT_INLINE_LIMIT	72
-  #endif
-#else
-  #undef GASNETC_AM_INLINE_LIMIT
-  #define GASNETC_AM_INLINE_LIMIT	0
-  #undef GASNETC_PUT_INLINE_LIMIT
-  #define GASNETC_PUT_INLINE_LIMIT	0
-#endif
-
-/* puts <= this size will be done w/ local copies iff sender will wait for local completion */
-#ifndef GASNETC_PUT_COPY_LIMIT
-  #define GASNETC_PUT_COPY_LIMIT	(64*1024)
 #endif
 
 /* maximum number of ops reaped from the send CQ per poll */
@@ -605,6 +584,8 @@ extern firehose_info_t		gasnetc_firehose_info;
 #if FIREHOSE_VAPI_USE_FMR
   extern EVAPI_fmr_t		gasnetc_fmr_props;
 #endif
+extern size_t			gasnetc_inline_limit;
+extern size_t			gasnetc_bounce_limit;
 
 extern VAPI_cq_hndl_t	gasnetc_snd_cq;
 extern VAPI_cq_hndl_t	gasnetc_rcv_cq;

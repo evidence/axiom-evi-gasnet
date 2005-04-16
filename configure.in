@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/04/16 02:35:21 $
-# $Revision: 1.251 $
+#     $Date: 2005/04/16 03:17:33 $
+# $Revision: 1.252 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.251 $)
+AC_REVISION($Revision: 1.252 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1635,12 +1635,6 @@ if test "$enabled_vapi" = yes; then
     LIBS="$OLDLIBS"
 
     # Collect some VAPI-specifc configure options
-    GASNET_IF_ENABLED_WITH_AUTO(vapi-inline-puts, [See vapi-conduit/README (enabled by default)], 
-      enabled_vapi_inline_puts=yes, enabled_vapi_inline_puts=no, enabled_vapi_inline_puts=yes)
-      if test "$enabled_vapi_inline_puts" = yes; then
-        AC_DEFINE(GASNETC_VAPI_ENABLE_INLINE_PUTS)
-      fi
-
     GASNET_IF_ENABLED_WITH_AUTO(vapi-force-poll-lock, [See vapi-conduit/README (disabled by default)], 
       enabled_vapi_force_poll_lock=yes, enabled_vapi_force_poll_lock=no, enabled_vapi_force_poll_lock=no)
       if test "$enabled_vapi_force_poll_lock" = yes; then

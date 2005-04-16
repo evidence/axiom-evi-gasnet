@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.20 $
+$Revision: 1.21 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -102,35 +102,14 @@ $Revision: 1.20 $
   reduction in latencies by allowing some locking operations to
   compile away.
 
-  There are two known bugs in older InfiniHost firmware versions.
-  Normally you shouldn't need to do anything special with regards
-  to them.  However, if you do need to override the defaults the
-  remainder of this section explains the issues.
+  In firmware versions prior to 3.0, the VAPI_poll_cq() call is
+  not thread safe under some conditions.  For this reason,
+  vapi-conduit will check the firmware version at runtime and will
+  use its own mutex around calls to VAPI_poll_cq() if needed.  If
+  you believe this bug is appearing in firmware 3.0 or later, you
+  can force use of this mutex by configuring GASNet with the flag
+  '--enable-vapi-force-poll-lock'.
 
-  + Thread safety of VAPI_poll_cq()
-    In firmware versions prior to 3.0, the VAPI_poll_cq() call is
-    not thread safe under some conditions.  For this reason,
-    vapi-conduit will check the firmware version at runtime and will
-    use its own mutex around calls to VAPI_poll_cq() if needed.
-
-    If you believe this bug is appearing in firmware 3.0 or later,
-    you can force use of this mutex by configuring GASNet with the
-    flag '--enable-vapi-force-poll-lock'.
-
-  + Performance loss in EVAPI_post_inline_sr()
-    In firmware versions after 1.17 and prior to 3.0, there is a
-    performance anomaly with the call EVAPI_post_inline_sr().
-    By default, vapi-conduit will use this call to perform small
-    puts.  If firmware in the range [1.18, 3.0) is detected at
-    runtime, a warning will be printed but the call will still
-    be used.
-
-    If you believe this bug is affecting your performance under
-    other firmware versions, or to silence this warning without
-    updating your firmware, configure GASNet with the flag
-    '--disable-vapi-inline-puts'.  This will disable the use of
-    the EVAPI_post_inline_sr() call, and disable the warning.
-    
 @ Section: Runtime Configuration @
 
   There are a number of parameters in vapi-conduit which can be tuned
@@ -208,6 +187,36 @@ $Revision: 1.20 $
     the GASNet segment is not preregistred and use of firehose is required.
     Thus it is an error to disable firehose in such a configuration.
 
+  Protocol configuration:
+  The following environment variables control the selection of protocols
+  for performing certain transfers.
+
+  These parameters must be equal across all nodes, and the behavior
+  otherwise is undefined.
+
+  + GASNET_INLINE_LIMIT
+    VAPI includes an "inline" put operation that transfers the data to
+    the HCA at the same time it transfers the request.  This normally
+    provides a measurable performance improvement, but is only available
+    up to an firmware-dependent maximum size.  Therefore, the default of
+    72 is normally correct.
+   
+    In firmware versions after 1.17 and prior to 3.0, there is a
+    performance anomaly with the call EVAPI_post_inline_sr().
+    By default, vapi-conduit will use this call to perform small
+    puts.  If firmware in the range [1.18, 3.0) is detected at
+    runtime, a warning will be printed but the call will still
+    be used.  In this case (or if you believe that the same anomaly
+    is affecting some other version) you should try setting this
+    variable to 0.
+
+  + GASNET_BOUNCE_LIMIT
+    To perform a non-bulk PUT, vapi-conduit must either copy the date into
+    bounce buffers, or block until remote completion is signalled by the
+    HCA.  For non-bulk PUT, transfers upto and including this size are
+    performed using bounce buffers and larger transfers are transfered
+    using blocking PUTs.
+    
   Resource usage parameters:
   The following environment variables control how much memory is
   preallocated at startup time to serve various functions.  Because these
