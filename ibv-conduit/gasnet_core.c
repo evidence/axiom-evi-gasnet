@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/04/16 05:26:21 $
- * $Revision: 1.92 $
+ *     $Date: 2005/04/16 05:35:18 $
+ * $Revision: 1.93 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -818,7 +818,12 @@ static int gasnetc_init(int *argc, char ***argv) {
 
       vstat = VAPI_modify_qp(gasnetc_hca, gasnetc_cep[i].qp_handle, &qp_attr, &qp_mask, &qp_cap);
       GASNETC_VAPI_CHECK(vstat, "from VAPI_modify_qp(RTS)");
-      gasnetc_inline_limit = MIN(qp_cap.max_inline_data_sq, gasnetc_inline_limit);
+      if (qp_cap.max_inline_data_sq < gasnetc_inline_limit) {
+	fprintf(stderr,
+		"WARNING: Requested GASNET_INLINE_LIMIT %d reduced to HCA limit %d\n",
+		(int)gasnetc_inline_limit, (int)qp_cap.max_inline_data_sq);
+        gasnetc_inline_limit = qp_cap.max_inline_data_sq;
+      }
     }
   }
   gasnetc_bounce_limit = MIN(gasnetc_hca_port.max_msg_sz, gasnetc_bounce_limit);
