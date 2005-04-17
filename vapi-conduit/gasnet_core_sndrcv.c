@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/04/16 03:17:35 $
- * $Revision: 1.94 $
+ *     $Date: 2005/04/17 06:47:00 $
+ * $Revision: 1.95 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -287,11 +287,7 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
     case gasnetc_Short:
       { 
 	args = buf->shortmsg.args;
-        if (GASNETC_MSG_ISREQUEST(flags))
-          GASNETI_TRACE_AMSHORT_REQHANDLER(handler_id, rbuf, numargs, args);
-        else
-          GASNETI_TRACE_AMSHORT_REPHANDLER(handler_id, rbuf, numargs, args);
-        GASNETI_RUN_HANDLER_SHORT(handler_fn,rbuf,args,numargs);
+        GASNETI_RUN_HANDLER_SHORT(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs);
       }
       break;
 
@@ -300,12 +296,7 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
         nbytes = buf->medmsg.nBytes;
         data = GASNETC_MSG_MED_DATA(buf, numargs);
 	args = buf->medmsg.args;
-
-        if (GASNETC_MSG_ISREQUEST(flags))
-          GASNETI_TRACE_AMMEDIUM_REQHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
-        else
-          GASNETI_TRACE_AMMEDIUM_REPHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
-        GASNETI_RUN_HANDLER_MEDIUM(handler_fn,rbuf,args,numargs,data,nbytes);
+        GASNETI_RUN_HANDLER_MEDIUM(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;
 
@@ -314,18 +305,15 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
         nbytes = buf->longmsg.nBytes;
         data = (void *)(buf->longmsg.destLoc);
 	args = buf->longmsg.args;
-        if (GASNETC_MSG_ISREQUEST(flags)) {
-          GASNETI_TRACE_AMLONG_REQHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
-        } else {
+        if (!GASNETC_MSG_ISREQUEST(flags)) {
 	  #if !GASNETC_PIN_SEGMENT
 	    if (GASNETC_MSG_SRCIDX(flags) != gasneti_mynode) {
 	      /* No RDMA for ReplyLong.  So, must relocate the payload. */
 	      memcpy(data, GASNETC_MSG_LONG_DATA(buf, numargs), nbytes);
 	    }
 	  #endif
-          GASNETI_TRACE_AMLONG_REPHANDLER(handler_id, rbuf, data, (int)nbytes, numargs, args);
 	}
-        GASNETI_RUN_HANDLER_LONG(handler_fn,rbuf,args,numargs,data,nbytes);
+        GASNETI_RUN_HANDLER_LONG(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;
 
