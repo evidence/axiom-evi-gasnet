@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2005/04/06 06:59:14 $
- * $Revision: 1.25 $
+ *     $Date: 2005/04/17 08:58:17 $
+ * $Revision: 1.26 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1013,7 +1013,8 @@ extern int AM_GetMsgTag(void *token, tag_t *tagp) {
   return AM_OK;
   }
 /* ------------------------------------------------------------------------------------ */
-extern int AMMPI_SetHandlerCallbacks(ep_t ep, void (*preHandlerCallback)(), void (*postHandlerCallback)()) {
+extern int AMMPI_SetHandlerCallbacks(ep_t ep, AMMPI_preHandlerCallback_t preHandlerCallback, 
+                                              AMMPI_postHandlerCallback_t postHandlerCallback) {
   AMMPI_CHECKINIT();
   if (!ep) AMMPI_RETURN_ERR(BAD_ARG);
   ep->preHandlerCallback = preHandlerCallback;

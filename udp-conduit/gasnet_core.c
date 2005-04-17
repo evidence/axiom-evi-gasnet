@@ -1,7 +1,7 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2005/04/14 17:29:19 $
- * $Revision: 1.22 $
- * Description: GASNet MPI conduit Implementation
+ *     $Date: 2005/04/17 08:58:22 $
+ * $Revision: 1.23 $
+ * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
@@ -29,6 +29,11 @@ ep_t gasnetc_endpoint;
 
 gasneti_mutex_t gasnetc_AMlock = GASNETI_MUTEX_INITIALIZER; /*  protect access to AMUDP */
 
+#if GASNET_TRACE
+  extern void gasnetc_enteringHandler_hook(amudp_category_t cat, int isReq, int handlerId, void *token, 
+                                         void *buf, size_t nbytes, int numargs, uint32_t *args);
+  extern void gasnetc_leavingHandler_hook(amudp_category_t cat, int isReq);
+#endif
 
 #if defined(GASNET_CSPAWN_CMD)
   #define GASNETC_DEFAULT_SPAWNFN C
@@ -383,6 +388,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       if (retval != AM_OK) INITERR(RESOURCE, "AM_SetSeg() failed");
     }
 
+    #if GASNET_TRACE
+      if (GASNETI_TRACE_ENABLED(A))
+        GASNETI_AM_SAFE(AMUDP_SetHandlerCallbacks(gasnetc_endpoint,
+          gasnetc_enteringHandler_hook, gasnetc_leavingHandler_hook));
+    #endif
+
     /* ------------------------------------------------------------------------------------ */
     /*  primary attach complete */
     gasneti_attach_done = 1;
@@ -467,7 +478,7 @@ extern void gasnetc_trace_finish() {
 }
 extern void gasnetc_fatalsignal_callback(int sig) {
   if (gasnetc_exitcalled) {
-  /* if we get a fatal signal during exit, it's almost certainly a signal-safety or MPI shutdown
+  /* if we get a fatal signal during exit, it's almost certainly a signal-safety or UDP shutdown
      issue and not a client bug, so don't bother reporting it verbosely, 
      just die silently
    */
@@ -787,6 +798,43 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
   }
 }
 #endif
+/* ------------------------------------------------------------------------------------ */
+#if GASNET_TRACE
+  /* called when entering/leaving handler - also called when entering/leaving AM_Reply call */
+  extern void gasnetc_enteringHandler_hook(amudp_category_t cat, int isReq, int handlerId, void *token, 
+                                           void *buf, size_t nbytes, int numargs, uint32_t *args) {
+    switch (cat) {
+      case amudp_Short:
+        if (isReq) GASNETI_TRACE_AMSHORT_REQHANDLER(handlerId, token, numargs, args);
+        else       GASNETI_TRACE_AMSHORT_REPHANDLER(handlerId, token, numargs, args);
+        break;
+      case amudp_Medium:
+        if (isReq) GASNETI_TRACE_AMMEDIUM_REQHANDLER(handlerId, token, buf, nbytes, numargs, args);
+        else       GASNETI_TRACE_AMMEDIUM_REPHANDLER(handlerId, token, buf, nbytes, numargs, args);
+        break;
+      case amudp_Long:
+        if (isReq) GASNETI_TRACE_AMLONG_REQHANDLER(handlerId, token, buf, nbytes, numargs, args);
+        else       GASNETI_TRACE_AMLONG_REPHANDLER(handlerId, token, buf, nbytes, numargs, args);
+        break;
+      default: gasneti_fatalerror("Unknown handler type in gasnetc_enteringHandler_hook(): %i", cat);
+    }
+  }
+  extern void gasnetc_leavingHandler_hook(amudp_category_t cat, int isReq) {
+    switch (cat) {
+      case amudp_Short:
+        GASNETI_TRACE_PRINTF(A,("AM%s_SHORT_HANDLER: handler execution complete", (isReq?"REQUEST":"REPLY"))); \
+        break;
+      case amudp_Medium:
+        GASNETI_TRACE_PRINTF(A,("AM%s_MEDIUM_HANDLER: handler execution complete", (isReq?"REQUEST":"REPLY"))); \
+        break;
+      case amudp_Long:
+        GASNETI_TRACE_PRINTF(A,("AM%s_LONG_HANDLER: handler execution complete", (isReq?"REQUEST":"REPLY"))); \
+        break;
+      default: gasneti_fatalerror("Unknown handler type in gasnetc_leavingHandler_hook(): %i", cat);
+    }
+  }
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Private Handlers:
