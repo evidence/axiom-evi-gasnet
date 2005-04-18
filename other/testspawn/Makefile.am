@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/testspawn/Makefile.am,v $
-#     $Date: 2005/01/21 22:05:53 $
-# $Revision: 1.1 $
+#     $Date: 2005/04/18 00:31:55 $
+# $Revision: 1.2 $
 # Description: 
 # Copyright 2005, Regents of the University of California
 # Terms of use are as specified in license.txt
@@ -60,9 +60,9 @@ testspawn_cflags =                \
         $(MANUAL_LIBCFLAGS)
 
 # These two rules are 'active' when $(spawner) is empty
-testspawn-ssh$(spawner)$(EXEEXT):
+testspawn-ssh$(spawner)$(EXEEXT): force
 	$(MAKE) $@ spawner=ssh
-testspawn-mpi$(spawner)$(EXEEXT):
+testspawn-mpi$(spawner)$(EXEEXT): force
 	$(MAKE) $@ spawner=mpi
 
 # This rule does the real work, when $(spawner) is non-empty
@@ -70,4 +70,7 @@ testspawn-$(spawner)$(EXEEXT): $(testspawn_dependencies)
 	$($(spawner)_cc) $($(spawner)_cflags) $(testspawn_cflags) \
 		-o $@ $(testspawn_sources) \
 		@LIBGCC@ @LIBS@ @LIBM@ $($(spawner)_ldflags) \
-		$(MANUAL_LDFLAGS) $(MANUAL_LIBS)
+		-DSPAWNER=$(spawner) $(MANUAL_LDFLAGS) $(MANUAL_LIBS)
+
+.PHONY: force
+force:
