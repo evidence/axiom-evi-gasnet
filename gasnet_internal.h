@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/04/17 06:46:46 $
- * $Revision: 1.72 $
+ *     $Date: 2005/04/18 01:50:48 $
+ * $Revision: 1.73 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -473,15 +473,15 @@ typedef void (*gasneti_HandlerLong)  (gasnet_token_t token, void *buf, size_t nb
 
 #define GASNETI_RUN_HANDLER_MEDIUM(isReq, hid, phandlerfn, token, pArgs, numargs, pData, datalen) do {      \
     gasneti_assert(((uintptr_t)pData) % GASNETI_MEDBUF_ALIGNMENT == 0);                                     \
-    if (isReq) GASNETI_TRACE_AMMEDIUM_REQHANDLER(hid, token, pData, datalen, numargs, pArgs);               \
-    else       GASNETI_TRACE_AMMEDIUM_REPHANDLER(hid, token, pData, datalen, numargs, pArgs);               \
+    if (isReq) GASNETI_TRACE_AMMEDIUM_REQHANDLER(hid, token, pData, (int)datalen, numargs, pArgs);          \
+    else       GASNETI_TRACE_AMMEDIUM_REPHANDLER(hid, token, pData, (int)datalen, numargs, pArgs);          \
     _GASNETI_RUN_HANDLER_MEDLONG((gasneti_HandlerMedium)phandlerfn, (gasnet_token_t)token,                  \
                                  pArgs, numargs, (void *)pData, (int)datalen);                              \
     GASNETI_TRACE_PRINTF(A,("AM%s_MEDIUM_HANDLER: handler execution complete", (isReq?"REQUEST":"REPLY"))); \
   } while (0)
 #define GASNETI_RUN_HANDLER_LONG(isReq, hid, phandlerfn, token, pArgs, numargs, pData, datalen) do {      \
-    if (isReq) GASNETI_TRACE_AMLONG_REQHANDLER(hid, token, pData, datalen, numargs, pArgs);               \
-    else       GASNETI_TRACE_AMLONG_REPHANDLER(hid, token, pData, datalen, numargs, pArgs);               \
+    if (isReq) GASNETI_TRACE_AMLONG_REQHANDLER(hid, token, pData, (int)datalen, numargs, pArgs);          \
+    else       GASNETI_TRACE_AMLONG_REPHANDLER(hid, token, pData, (int)datalen, numargs, pArgs);          \
     _GASNETI_RUN_HANDLER_MEDLONG((gasneti_HandlerLong)phandlerfn, (gasnet_token_t)token,                  \
                                  pArgs, numargs, (void *)pData, (int)datalen);                            \
     GASNETI_TRACE_PRINTF(A,("AM%s_LONG_HANDLER: handler execution complete", (isReq?"REQUEST":"REPLY"))); \
