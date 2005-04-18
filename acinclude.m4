@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/04/14 20:05:25 $
-dnl $Revision: 1.58 $
+dnl     $Date: 2005/04/18 23:17:24 $
+dnl $Revision: 1.59 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -260,8 +260,9 @@ AC_DEFUN([GASNET_ENV_DEFAULT],[
 
   envval_src_[$1]="cached"
   AC_CACHE_VAL(cv_prefix[]envvar_$1, [
-      case "$[$1]" in
-	'') if test "$with_[]lowerscorename" != ""; then
+      case "${[$1]-__NOT_SET__}" in
+	__NOT_SET__) 
+            if test "$with_[]lowerscorename" != ""; then
 	      cv_prefix[]envvar_$1="$with_[]lowerscorename"
 	      envval_src_[$1]=given
 	    else
