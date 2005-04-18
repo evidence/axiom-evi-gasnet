@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/gasnetrun_vapi.pl,v $
-#     $Date: 2005/04/17 03:55:17 $
-# $Revision: 1.2 $
+#     $Date: 2005/04/18 01:04:33 $
+# $Revision: 1.3 $
 # Description: GASNet VAPI spawner
 # Terms of use are as specified in license.txt
 
@@ -83,11 +83,11 @@ sub usage
 	} elsif (m/^-/) {
 	    usage ("unrecognized option '$_'\n");
 	} else {
+	    pop @mpi_args; # pop off program name
 	    last;
 	}
 	shift;
     }
-    pop @mpi_args; # pop off program name
     push @mpi_args, @ARGV;
     $spawner = uc($spawner);
 
