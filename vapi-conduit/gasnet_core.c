@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/04/16 05:35:18 $
- * $Revision: 1.93 $
+ *     $Date: 2005/04/18 02:08:24 $
+ * $Revision: 1.94 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -220,6 +220,10 @@ static unsigned long gasnetc_get_physpages()
   }
 
   while (fgets(line, _BUFSZ, fp)) {
+    if (sscanf(line, "MemTotal: %lu kB", &mem) > 0) {
+      mem *= 1024;
+      break;
+    }
     if (sscanf(line, "Mem: %lu", &mem) > 0) {
       break;
     }
