@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/04/19 03:47:17 $
-# $Revision: 1.254 $
+#     $Date: 2005/04/20 03:09:59 $
+# $Revision: 1.255 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.254 $)
+AC_REVISION($Revision: 1.255 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1664,11 +1664,6 @@ if test "$enabled_vapi" = yes; then
     AC_SUBST(GASNET_VAPI_SPAWNER)
     if test "$GASNET_VAPI_SPAWNER$have_mpi" = mpino; then
       AC_MSG_ERROR([--with-vapi-spawner=mpi requires MPI support and MPI $mpi_reason]);
-    fi
-
-    # Configure corrrect flags/vars (inc. CC and LD) based on MPI availability
-    if test "$have_mpi" = yes; then
-      VAPI_LIBS="$MPI_LIBS $VAPI_LIBS"
     fi
   fi
 fi
