@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/04/07 20:06:05 $
-# $Revision: 1.23 $
+#     $Date: 2005/04/21 20:43:33 $
+# $Revision: 1.24 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -71,6 +71,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 		    'val' => ''
 		  );
 	$find_exe = 0;
+        $extra_quote_argv = 1;
     } elsif ($is_mvich) {
 	# pass env as "/usr/bin/env 'A=1' 'B=2' 'C=3'"
 	%envfmt = ( 'pre' => $envprog,
