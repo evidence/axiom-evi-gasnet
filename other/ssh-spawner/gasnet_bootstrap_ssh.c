@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/22 20:38:12 $
- * $Revision: 1.42 $
+ *     $Date: 2005/04/22 21:43:09 $
+ * $Revision: 1.43 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1032,24 +1032,27 @@ static void post_spawn(int count, int argc, char * const *argv) {
     ++accepted;
   }
 
-  /* Close listener and /dev/null */
+  /* Close listener */
   close(listener);
-  close(devnull);
 
-  /* Free the nodelist and ssh_argv */
-  if (myproc != (gasnet_node_t)(-1L)) {
-    gasnet_node_t i;
-    int j;
+  if (!is_master) {
+    close(devnull);
 
-    for (i = 0; i < tree_nodes; ++i) {
-      gasneti_free(nodelist[i]);
+    /* Free the nodelist and ssh_argv */
+    if (myproc != (gasnet_node_t)(-1L)) {
+      gasnet_node_t i;
+      int j;
+
+      for (i = 0; i < tree_nodes; ++i) {
+        gasneti_free(nodelist[i]);
+      }
+      gasneti_free(nodelist);
+
+      for (j = 0; j < ssh_argc; ++j) {
+        gasneti_free(ssh_argv[j]);
+      }
+      gasneti_free(ssh_argv);
     }
-    gasneti_free(nodelist);
-
-    for (j = 0; j < ssh_argc; ++j) {
-      gasneti_free(ssh_argv[j]);
-    }
-    gasneti_free(ssh_argv);
   }
 }
 
