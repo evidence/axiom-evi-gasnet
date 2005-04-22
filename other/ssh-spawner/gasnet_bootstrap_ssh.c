@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/18 00:44:48 $
- * $Revision: 1.41 $
+ *     $Date: 2005/04/22 20:38:12 $
+ * $Revision: 1.42 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1253,10 +1253,10 @@ static void do_master(int argc, char **argv) {
     for (j = 0, rank = 0; j < nnodes; ++j) {
       gasnet_node_t i;
       for (i = p_quot + ((j<p_rem)?1:0); i != 0; --i, ++rank) {
-        child[j].rank = rank;
-        child[j].procs = 1;
-        child[j].nodes = 1;
-        child[j].nodelist = nodelist+j;
+        child[rank].rank = rank;
+        child[rank].procs = 1;
+        child[rank].nodes = 1;
+        child[rank].nodelist = nodelist+j;
       }
     }
   }
