@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.am,v $
-#     $Date: 2005/04/13 00:55:48 $
-# $Revision: 1.28 $
+#     $Date: 2005/04/26 10:08:49 $
+# $Revision: 1.29 $
 # Description: Makefile for AMMPI/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -143,7 +143,7 @@ check-exports: libammpi.a
             grep -v -e ' [\._]*ammpi_' -e ' [\._]*AMMPI_' -e ' [\._]*AM_'           \
                     -e ' [\._]*gasnett_' -e ' [\._]*gasneti_'                       \
                     -e __FUNCTION__ -e __PRETTY_FUNCTION__ -e debug_info_seg |      \
-            @AWK@ ' /^[0-9a-fA-F]+ [[:upper:]]/ { print $$0 }' > .$$lib.exp;        \
+            @PERL@ -n -e 'print if /^[0-9a-fA-F]+\s+[A-Z]\s+/' > .$$lib.exp;        \
           if test -s .$$lib.exp ; then                                              \
             cat .$$lib.exp ;                                                        \
             echo FAILED ;                                                           \
