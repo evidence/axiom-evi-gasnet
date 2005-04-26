@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2005/04/04 09:38:46 $
- * $Revision: 1.51 $
+ * $Date: 2005/04/26 16:02:34 $
+ * $Revision: 1.52 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -95,7 +95,7 @@ firehose_move_callback(gasnet_node_t node,
 		       gm_strerror(status));
 		GASNETI_TRACE_PRINTF(C,
 		  ("Firehose unpinlocal = %p, %d", (void *) unpin_list[i].addr,
-			unpin_list[i].len));
+			(int)unpin_list[i].len));
 	}
 	GASNETI_TRACE_EVENT_VAL(C, FIREHOSE_LOCALUNPIN_PAGES, unpin_num);
 
@@ -110,7 +110,7 @@ firehose_move_callback(gasnet_node_t node,
 		       gm_strerror(status));
 		GASNETI_TRACE_PRINTF(C,
 		  ("Firehose pinlocal = %p, %d", (void *) pin_list[i].addr,
-			pin_list[i].len));
+			(int)pin_list[i].len));
 	}
 	GASNETI_TRACE_EVENT_VAL(C, FIREHOSE_LOCALPIN_PAGES, pin_num);
 
