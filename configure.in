@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/04/20 03:09:59 $
-# $Revision: 1.255 $
+#     $Date: 2005/04/27 02:23:08 $
+# $Revision: 1.256 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.255 $)
+AC_REVISION($Revision: 1.256 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -749,7 +749,7 @@ GASNET_IF_ENABLED(throttle-poll, throttle polling threads in multi-threaded conf
 CONDUITS=
 AC_SUBST(CONDUITS)
 # reporting file output at completion
-CONDUIT_LIST=conduits.tmp
+CONDUIT_LIST=.gasnet-conduit-list.tmp
 echo > $CONDUIT_LIST
 AC_DEFUN([CONDUIT_REPORT],[echo "  CONDUIT_DESC m4_substr([                                                  ],len(CONDUIT_DESC))$1" >> $CONDUIT_LIST])
 echo " Portable conduits:" >> $CONDUIT_LIST
@@ -2214,16 +2214,6 @@ AC_SUBST(TOOL_PREFIX)
 ##  Final Output
 ##
 
-echo "----------------------------------------------------------------------"
-echo "GASNet conduit configuration: $CONDUITS"
-cat $CONDUIT_LIST
-echo " "
-echo " Some conduits require --enable-XXX configure flags and/or additional"
-echo " variables providing the install location of vendor drivers."
-echo " See the GASNet documentation for details."
-echo "----------------------------------------------------------------------"
-rm -f $CONDUIT_LIST
-
 GASNET_SAVE_AUTOCONF_ENV()
 GASNET_ERR_CLEANUP()
 
@@ -2285,7 +2275,20 @@ other/contrib/gasnet_trace
 other/testspawn/Makefile
 tests/Makefile
 config-aux/Makefile
-,
-GASNET_FIX_EXEC_OUTPUT(), GASNET_FIX_EXEC_SETUP()
+, [
+GASNET_FIX_EXEC_OUTPUT()
+CONDUIT_LIST=.gasnet-conduit-list.tmp
+if test -f "$CONDUIT_LIST" ; then
+  echo "----------------------------------------------------------------------"
+  echo "GASNet conduit configuration: $CONDUITS"
+  cat $CONDUIT_LIST
+  echo " "
+  echo " Some conduits require --enable-XXX configure flags and/or additional"
+  echo " variables providing the install location of vendor drivers."
+  echo " See the GASNet documentation for details."
+  echo "----------------------------------------------------------------------"
+  rm -f $CONDUIT_LIST
+fi
+] , GASNET_FIX_EXEC_SETUP()
 )
 
