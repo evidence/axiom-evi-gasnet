@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/Makefile.am,v $
-#     $Date: 2005/04/16 02:35:23 $
-# $Revision: 1.8 $
+#     $Date: 2005/04/27 20:49:33 $
+# $Revision: 1.9 $
 # Description: Makefile for GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -20,12 +20,12 @@ $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 $(target): $(top_builddir)/other/perlstart
 all-local: $(builddir)/$(target).pl $(target)
 $(builddir)/$(target).pl: force
-	@if test "`cd $(builddir);@PWD_PROG@`" != "`cd $(srcdir);@PWD_PROG@`"; then \
+	@if test "@BUILD_IS_SRC@" = no; then \
 	    echo cp -f $(srcdir)/$(target).pl $(builddir); \
 	    cp -f $(srcdir)/$(target).pl $(builddir); \
 	 fi
 distclean-local:
-	@if test "`cd $(builddir);@PWD_PROG@`" != "`cd $(srcdir);@PWD_PROG@`"; then \
+	@if test "@BUILD_IS_SRC@" = no; then \
 	    echo rm -f $(builddir)/$(target).pl; \
 	    rm -f $(builddir)/$(target).pl; \
 	fi
