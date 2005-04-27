@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/04/27 20:06:55 $
-dnl $Revision: 1.60 $
+dnl     $Date: 2005/04/27 22:20:00 $
+dnl $Revision: 1.61 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -308,6 +308,13 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
   TOP_BUILDDIR=`${PWD_PROG}`
   AC_MSG_RESULT( TOP_BUILDDIR:   $TOP_BUILDDIR)
   AC_SUBST(TOP_BUILDDIR)
+  dnl check against bug 1083 (spaces in directory name break things)
+  if `echo $TOP_SRCDIR | grep ' ' >/dev/null 2>/dev/null`; then
+    AC_MSG_ERROR(TOP_SRCDIR contains space characters - please unpack the source in a different directory.)
+  fi
+  if `echo $TOP_BUILDDIR | grep ' ' >/dev/null 2>/dev/null`; then
+    AC_MSG_ERROR(TOP_BUILDDIR contains space characters - please build in a different directory.)
+  fi
   dnl set AM_CONDITIONAL BUILD_IS_SRC for ease of use in generated Makefiles
   AM_CONDITIONAL(BUILD_IS_SRC, test "$TOP_BUILDDIR" = "$TOP_SRCDIR")
   dnl set AC_SUBST variable BUILD_IS_SRC for ease of use in generated scripts
