@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/04/27 03:57:18 $
-# $Revision: 1.257 $
+#     $Date: 2005/04/27 19:32:25 $
+# $Revision: 1.258 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.257 $)
+AC_REVISION($Revision: 1.258 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1412,7 +1412,7 @@ if test $enabled_elan = yes; then
   # Don't actually place -I/usr/include on the compile line, because this
   # breaks IA64 Intel C, which relies on preceding /usr/include with its own
   # include directory that overrides some system headers (eg asm/*)
-  if test `cd ${ELAN_INCLUDE} 2>/dev/null; pwd` = "/usr/include"; then
+  if test "`cd ${ELAN_INCLUDE} 2>/dev/null; pwd`" = "/usr/include"; then
     ELAN_INCLUDE=.
   fi
 
