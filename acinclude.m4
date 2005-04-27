@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/04/18 23:17:24 $
-dnl $Revision: 1.59 $
+dnl     $Date: 2005/04/27 20:06:55 $
+dnl $Revision: 1.60 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -308,6 +308,15 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
   TOP_BUILDDIR=`${PWD_PROG}`
   AC_MSG_RESULT( TOP_BUILDDIR:   $TOP_BUILDDIR)
   AC_SUBST(TOP_BUILDDIR)
+  dnl set AM_CONDITIONAL BUILD_IS_SRC for ease of use in generated Makefiles
+  AM_CONDITIONAL(BUILD_IS_SRC, test "$TOP_BUILDDIR" = "$TOP_SRCDIR")
+  dnl set AC_SUBST variable BUILD_IS_SRC for ease of use in generated scripts
+  if test "$TOP_BUILDDIR" = "$TOP_SRCDIR"; then
+    BUILD_IS_SRC=yes
+  else
+    BUILD_IS_SRC=no
+  fi
+  AC_SUBST(BUILD_IS_SRC)
   SYSTEM_NAME="`hostname`"
   AC_SUBST(SYSTEM_NAME)
   SYSTEM_TUPLE="$host"
