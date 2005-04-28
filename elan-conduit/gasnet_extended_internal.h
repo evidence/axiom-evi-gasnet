@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2005/02/20 10:13:28 $
- * $Revision: 1.20 $
+ *     $Date: 2005/04/28 02:54:26 $
+ * $Revision: 1.21 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,11 +14,6 @@
 #include <gasnet_core_internal.h>
 
 /* ------------------------------------------------------------------------------------ */
-#ifdef ELAN_VER_1_2
-  #define GASNETE_USE_PGCTRL_NBI  0 /* pgctrl not available on 1.2 */
-#else
-  #define GASNETE_USE_PGCTRL_NBI  0
-#endif
 
 typedef uint8_t gasnete_threadidx_t;
 
@@ -63,11 +58,6 @@ typedef struct _gasnete_eop_t {
   gasnete_bouncebuf_t *bouncebuf; 
 } gasnete_eop_t;
 
-typedef struct {
-  ELAN_EVENT  **evt_lst; 
-  int          evt_cnt;
-} gasnete_putgetctrl;
-
 typedef struct _gasnete_iop_t {
   uint8_t flags;                  /*  state flags */
   gasnete_threadidx_t threadidx;  /*  thread that owns me */
@@ -77,12 +67,9 @@ typedef struct _gasnete_iop_t {
 
   struct _gasnete_iop_t *next;    /*  next cell while in free list, deferred iop while being filled */
 
-  #if GASNETE_USE_PGCTRL_NBI
-    ELAN_PGCTRL *elan_pgctrl;     /* put/get controller for direct elan put/gets, (NULL for not init) */
-  #else
-    gasnete_putgetctrl putctrl;  /* direct elan puts/gets */
-    gasnete_putgetctrl getctrl;
-  #endif
+  gasnete_evtbin_t putbin;  /* direct elan puts/gets */
+  gasnete_evtbin_t getbin;
+
   gasnete_eop_t *elan_putbb_list; /* list of bounce-buffered elan put eops */
   gasnete_eop_t *elan_getbb_list; /* list of bounce-buffered elan get eops */
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2005/04/17 06:46:48 $
- * $Revision: 1.27 $
+ *     $Date: 2005/04/28 02:54:26 $
+ * $Revision: 1.28 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,12 +42,21 @@
 #define GASNETC_MEDHEADER_PADARG(numargs) \
         ((numargs & 0x1) ^ ((GASNETC_MED_HEADERSZ>>2) & 0x1))
 
-/* round up a size to a given power of 2 */
-#define ROUNDUP_TO_ALIGN(sz, align) ( ((sz) + (align)-1) & ~((align)-1) )
-
 /* ------------------------------------------------------------------------------------ */
 static ELAN_QUEUE *gasnetc_queue = NULL;
-static ELAN_MAIN_QUEUE *gasnetc_mainqueue = NULL;
+#if GASNETC_USE_MAINQUEUE
+  static ELAN_MAIN_QUEUE *gasnetc_mainqueue = NULL;
+#else
+  static ELAN_QUEUE_TX *gasnetc_queuetx = NULL;
+  static ELAN_QUEUE_RX *gasnetc_queuerx = NULL;
+  #if GASNETC_OVERLAP_AMQUEUE
+    static gasnete_evtbin_t gasnetc_am_evtbin;
+    static int gasnetc_am_throttle = 0;
+    #ifndef GASNETC_DEFAULT_AM_THROTTLE
+    #define GASNETC_DEFAULT_AM_THROTTLE 8
+    #endif
+  #endif
+#endif
 static int gasnetc_queuesz = 0; /* queue size for main queue and tport bufs */
 
 static gasnetc_bufdesc_t *gasnetc_tportTxFree = NULL; /* list of free tx bufs (from startup) */
@@ -169,7 +178,12 @@ static gasnetc_bufdesc_t *gasnetc_tportCheckRx() {
   gasnetc_bufdesc_t *desc = gasnetc_tportRxFIFOHead;
   ASSERT_ELAN_LOCKED();
 
-  if (desc && elan_tportRxDone(desc->event)) {
+  if (desc && 
+    #if HAVE_ELAN_DONE
+      /* shaves 0.5 us off do-nothing elan_tportRxDone by avoiding a deviceCheck */
+      elan_done(desc->event, 0) && 
+    #endif
+      elan_tportRxDone(desc->event)) {
     int sender,tag;
     ELAN_SIZE_T size;
 
@@ -269,10 +283,11 @@ extern void gasnetc_initbufs() {
                                       BASE()->shm_fragsize
     #endif
     #if ELAN_VERSION_GE(1,4,8)
-                                    , 0 /* flags */
+                                    , BASE()->tport_flags
     #endif
                                       );
 
+  /* TODO: is this a good size? */
   gasnetc_queuesz = BASE()->tport_nslots;
 
   /* setup main queue */
@@ -283,18 +298,46 @@ extern void gasnetc_initbufs() {
   #endif
   if_pf(gasnetc_queue == NULL) 
     gasneti_fatalerror("error on elan_gallocQueue in gasnetc_initbufs()");
-  gasnetc_mainqueue = elan_mainQueueInit(STATE(), gasnetc_queue, gasnetc_queuesz, GASNETC_ELAN_MAX_QUEUEMSG
-    #if ELAN_VERSION_GE(1,4,8)
-                                      , 0 /* flags */
+  #if GASNETC_USE_MAINQUEUE
+    gasnetc_mainqueue = elan_mainQueueInit(STATE(), gasnetc_queue, gasnetc_queuesz, GASNETC_ELAN_MAX_QUEUEMSG
+      #if ELAN_VERSION_GE(1,4,8)
+                                        , BASE()->mqueue_flags
+      #endif
+      );
+    if_pf(gasnetc_mainqueue == NULL) 
+      gasneti_fatalerror("error on elan_mainQueueInit in gasnetc_initbufs()");
+  #else
+    /* TODO: try removing LIBELAN_QUEUEREUSEBUF and doing our own buffer mgt
+             to avoid a mandatory memcpy on entry to elan_queueTx */
+    gasnetc_queuetx = elan_queueTxInit(STATE(), gasnetc_queue,
+                                       ELAN_RAIL_ALL, 
+                                    #if GASNETC_OVERLAP_AMQUEUE
+                                       LIBELAN_QUEUEREUSEBUF
+                                    #else 
+                                       0
+                                    #endif
+                                       );
+    if_pf(gasnetc_queuetx == NULL) 
+      gasneti_fatalerror("error on elan_queueTxInit in gasnetc_initbufs()");
+
+    #if GASNETC_OVERLAP_AMQUEUE
+      gasnetc_am_throttle = atoi(
+        gasneti_getenv_withdefault("GASNET_AM_THROTTLE", _STRINGIFY(GASNETC_DEFAULT_AM_THROTTLE)));
+      if (gasnetc_am_throttle < 1) gasnetc_am_throttle = GASNETC_DEFAULT_AM_THROTTLE;
+      gasnete_evtbin_init(&gasnetc_am_evtbin, gasnetc_am_throttle, gasneti_malloc(gasnetc_am_throttle*sizeof(ELAN_EVENT*)));
     #endif
-    );
-  if_pf(gasnetc_mainqueue == NULL) 
-    gasneti_fatalerror("error on elan_mainQueueInit in gasnetc_initbufs()");
+
+    gasnetc_queuerx = elan_queueRxInit(STATE(), gasnetc_queue,
+                                       gasnetc_queuesz, GASNETC_ELAN_MAX_QUEUEMSG,
+                                       ELAN_RAIL_ALL, 0);
+    if_pf(gasnetc_queuerx == NULL) 
+      gasneti_fatalerror("error on elan_queueRxInit in gasnetc_initbufs()");
+  #endif
 
   { /* setup buffers */
     gasnetc_bufdesc_t *txdesc = elan_allocMain(STATE(), 8, gasnetc_queuesz*sizeof(gasnetc_bufdesc_t));
     gasnetc_bufdesc_t *rxdesc = elan_allocMain(STATE(), 8, gasnetc_queuesz*sizeof(gasnetc_bufdesc_t));
-    int bufsize = ROUNDUP_TO_ALIGN(sizeof(gasnetc_buf_t),64);
+    int bufsize = GASNETI_ALIGNUP(sizeof(gasnetc_buf_t), 64);
     uint8_t *txbuf = elan_allocMain(STATE(), 64, gasnetc_queuesz*bufsize);
     uint8_t *rxbuf = elan_allocMain(STATE(), 64, gasnetc_queuesz*bufsize);
     int i;
@@ -391,13 +434,30 @@ extern int gasnetc_AMPoll() {
     /* TODO: this gives precedence to queue messages, which may starve tport messages 
         while both are arriving
      */
+  #if GASNETC_USE_MAINQUEUE
     if (elan_queueHaveReq(gasnetc_mainqueue)) {
+  #else
+    if (elan_queueRxPoll(gasnetc_queuerx, 0)) {
+  #endif
+    gasnetc_bufdesc_t _desc;
+    #if GASNETC_USE_MAINQUEUE || GASNET_PAR
       char _buf[GASNETC_ELAN_MAX_QUEUEMSG+8]; /* ensure 8-byte buf alignment */
-      gasnetc_bufdesc_t _desc;
       desc = &_desc;
       desc->buf = (gasnetc_buf_t *)( ((((uintptr_t)_buf) >> 3) << 3) + 8); 
       gasneti_assert((void *)&(desc->buf->msg) == (void *)desc->buf);
+    #else
+      desc = &_desc;
+    #endif
+    #if GASNETC_USE_MAINQUEUE 
       elan_queueWait(gasnetc_mainqueue, desc->buf, ELAN_POLL_EVENT);
+    #elif GASNET_PAR
+      /* need to memcpy message out of queue if we want to allow AM concurrency */
+      /* TODO: we can perform a smarter memcpy than libelan by inspecting the message */
+      elan_queueRxWait(gasnetc_queuerx, desc->buf, ELAN_POLL_EVENT);
+    #else
+      /* run from system buffer to avoid copy-out which always copies entire slot size */
+      desc->buf = elan_queueRxWait(gasnetc_queuerx, NULL, ELAN_POLL_EVENT);
+    #endif
       UNLOCK_ELAN();
 
       gasnetc_processPacket(desc);
@@ -502,7 +562,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
         if (GASNETC_IS_SMALLPUT(nbytes) ||
             gasnetc_elan_addressable(source_addr, nbytes)) {
           /* safe to put directly from source */
-          putevt = elan_put(STATE(), source_addr, dest_ptr, nbytes, dest);
+          putevt = gasnete_elan_put(source_addr, dest_ptr, nbytes, dest);
           UNLOCKRELOCK_ELAN_WEAK_IFTRACE(GASNETI_TRACE_EVENT_VAL(C,AMLONG_DIRECT,nbytes));
         } else { /* need to use a bounce buffer */
           /* TODO: this may fail for unmapped segment under GASNET_SEGMENT_EVERYTHING */
@@ -518,14 +578,14 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
                 nbytes);
           #endif
           memcpy(bouncebuf, source_addr, nbytes);
-          putevt = elan_put(STATE(), bouncebuf, dest_ptr, nbytes, dest);
+          putevt = gasnete_elan_put(bouncebuf, dest_ptr, nbytes, dest);
           UNLOCKRELOCK_ELAN_WEAK_IFTRACE(GASNETI_TRACE_EVENT_VAL(C,AMLONG_BUFFERED,nbytes));
         }
         /* loop until put is complete (required to ensure ordering semantics) 
            could make this totally asynchronous with lots more work, 
            but this isn't that bad because the put DMA is totally one-sided
          */
-        while (!elan_poll(putevt, 5)) {
+        while (!elan_poll(putevt, GASNETC_ELAN_POLLITERS_AM)) {
           UNLOCKRELOCK_ELAN_WEAK(gasneti_AMPoll());
         }
         #if !GASNETC_PREALLOC_AMLONG_BOUNCEBUF
@@ -535,7 +595,24 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
 
       if (msgsz <= GASNETC_ELAN_MAX_QUEUEMSG) {
         gasneti_assert(desc == &_descbuf);
+      #if GASNETC_USE_MAINQUEUE
         elan_queueReq(gasnetc_mainqueue, dest, &(buf->msg), msgsz);
+      #else
+        { ELAN_EVENT *evt; 
+          evt = elan_queueTx(gasnetc_queuetx, dest, &(buf->msg), msgsz, ELAN_RAIL_ALL);
+        #if GASNETC_OVERLAP_AMQUEUE && !GASNET_PAR
+          /* TODO - add per-thread AM evtbins? */
+          if (!elan_poll(evt, GASNETC_ELAN_POLLITERS_AM)) 
+            gasnete_evtbin_save(&gasnetc_am_evtbin, evt);
+        #else
+          { /* poll-block for elan_queueTx completion */
+            while (!elan_poll(evt, GASNETC_ELAN_POLLITERS_AM)) { 
+              UNLOCKRELOCK_ELAN_WEAK(gasneti_AMPoll());
+            }
+          }
+        #endif
+        }
+      #endif
       }
       else {
         desc->event = elan_tportTxStart(TPORT(), 0, dest, 

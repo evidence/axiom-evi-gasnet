@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/04/14 01:34:25 $
- * $Revision: 1.32 $
+ *     $Date: 2005/04/28 02:54:26 $
+ * $Revision: 1.33 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -79,10 +79,19 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #define GASNETC_ELAN_MAX_QUEUEMSG   320   /* max message in a mainqueue */
 #endif
 #define GASNETC_ELAN_SMALLPUTSZ      64   /* max put that elan_put copies to an elan buffer */
-#if ELAN_VERSION_GE(1,4,8)
-  #define GASNETC_IS_SMALLPUT(sz) (sz <= BASE()->putget_smallputsize)
-#else
-  #define GASNETC_IS_SMALLPUT(sz) (sz <= GASNETC_ELAN_SMALLPUTSZ)
+
+/* number of iterations to use when testing a put/get elan event with elan_poll */
+#ifndef GASNETC_ELAN_POLLITERS
+  #ifdef GASNETC_ELAN4
+    /* TODO: using 0 should be faster, but testsmall shows it reduces put/get performance */
+    #define GASNETC_ELAN_POLLITERS 1
+  #else
+    #define GASNETC_ELAN_POLLITERS 0
+  #endif
+#endif
+/* number of iterations to use when testing an AM-related elan event with elan_poll */
+#ifndef GASNETC_ELAN_POLLITERS_AM
+#define GASNETC_ELAN_POLLITERS_AM 0
 #endif
 
 #ifdef ELAN_GLOBAL_DEST
@@ -93,6 +102,32 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 
 #ifndef GASNETC_PREALLOC_AMLONG_BOUNCEBUF
 #define GASNETC_PREALLOC_AMLONG_BOUNCEBUF 1
+#endif
+
+/* whether our PGCTRL pool supports non-contiguous put/gets */
+#ifndef GASNETE_PGCTRL_PGVSUPPORT
+#define GASNETE_PGCTRL_PGVSUPPORT 0
+#endif
+
+/* libelan's tuning knobs for multi-rail NIC striping (TODO: are these good vals?) */
+#ifndef GASNETC_PGCTRL_SPLITPUTSZ
+#define GASNETC_PGCTRL_SPLITPUTSZ BASE()->putget_stripeputsize
+#endif
+#ifndef GASNETC_PGCTRL_SPLITGETSZ
+#define GASNETC_PGCTRL_SPLITGETSZ BASE()->putget_stripegetsize
+#endif
+#ifndef GASNETC_PGCTRL_RAIL
+  #ifdef ELAN_RAIL_ALL
+    #define GASNETC_PGCTRL_RAIL ELAN_RAIL_ALL
+  #else
+    #define GASNETC_PGCTRL_RAIL 0
+  #endif
+#endif
+
+/* max concurrent puts that can be issued to a pgctrl without software throttling 
+   libelan currently requires this to be <= 64  */
+#ifndef GASNETC_PGCTRL_THROTTLE
+#define GASNETC_PGCTRL_THROTTLE 64
 #endif
 
 #ifndef GASNETC_ALLOW_ELAN_VERSION_MISMATCH
@@ -145,6 +180,7 @@ extern ELAN_TPORT *gasnetc_elan_tport;
     #define GASNETC_USE_SIGNALING_EXIT 0
   #endif
 #endif
+
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
   /* need real atomic ops for signalling exit - force it off */
   #undef GASNETC_USE_SIGNALING_EXIT
@@ -159,6 +195,122 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #else 
   #define GASNETC_EXITINPROGRESS() 0
   #define GASNETC_REMOTEEXITINPROGRESS() 0
+#endif
+
+#ifndef GASNETC_USE_MAINQUEUE
+  #if HAVE_ELAN_QUEUETXINIT && defined(GASNETC_ELAN4) /* lemieux has elan_queuetxinit, but it doesn't work */
+    #if GASNET_PAR
+      /* ELAN_QUEUE_TX/RX are apparently not thread-safe, at least not as of 1.8.13 */
+      #define GASNETC_USE_MAINQUEUE 1
+    #else
+      #define GASNETC_USE_MAINQUEUE 0
+    #endif
+  #else
+    #define GASNETC_USE_MAINQUEUE 1
+  #endif
+#endif
+
+#ifndef GASNETC_OVERLAP_AMQUEUE
+  #if GASNETC_USE_MAINQUEUE
+    #define GASNETC_OVERLAP_AMQUEUE 0
+  #else
+    /* define to 1 to enable overlap of elan_queuetx for AM's */
+    #define GASNETC_OVERLAP_AMQUEUE 1
+  #endif
+#elif GASNETC_OVERLAP_AMQUEUE && GASNETC_USE_MAINQUEUE
+  #error cannot overlap AMs when using main queue
+#endif
+
+typedef struct {
+  ELAN_EVENT  **evt_lst; 
+  uint16_t      evt_cnt;
+  uint16_t      evt_sz;
+} gasnete_evtbin_t;
+extern int gasnete_evtbin_done(gasnete_evtbin_t *bin);
+extern void gasnete_evtbin_save(gasnete_evtbin_t *bin, ELAN_EVENT *evt);
+/* init evtbin with space of sizeof(ELAN_EVENT *)*sz */
+GASNET_INLINE_MODIFIER(gasnete_evtbin_init)
+void gasnete_evtbin_init(gasnete_evtbin_t *bin, uint16_t sz, ELAN_EVENT **space) {
+  bin->evt_cnt = 0;
+  bin->evt_sz = sz;
+  bin->evt_lst = space;
+}
+
+/* add a define that was missing from many versions of elan4 */
+#ifndef LIBELAN_QUEUEREUSEBUF
+#define LIBELAN_QUEUEREUSEBUF 0x10000 
+#endif
+
+/* whether or not to stripe elan puts across multiple PGCTRL objects,
+   to avoid software backpressure from libelan throttling during 
+   message injection
+*/
+#ifndef GASNETE_MULTI_PGCTRL
+  #ifdef ELAN_VER_1_2
+    #define GASNETE_MULTI_PGCTRL 0 /* pgctrl not available on 1.2 */
+  #else
+    #define GASNETE_MULTI_PGCTRL 1
+  #endif
+#endif
+
+#if GASNETE_MULTI_PGCTRL
+  /* distribute puts round-robin onto different pgctrls to provide 
+     a deeper effective put queue before software backpressure is applied
+     this algorithm works probablistically under the assumption that put
+     sizes are randomply distributed and drain fairly from all pgctrls - 
+     for degenerate access patterns with multiple different put sizes 
+     or unfair queue drainage, we might hit a full pgctrl queue backpressure 
+     when some pgctrls still have available slots - a smarter algorithm 
+     would try to query or predict the available slots and choose the 
+     least loaded pgctrl
+   */
+  #ifndef GASNETE_NUMPGCTRL_CNTMAX
+  #define GASNETE_NUMPGCTRL_CNTMAX  1024
+  #endif
+  extern int gasnete_elan_pgctrl_cnt;
+  extern int _gasnete_elan_pgctrl_cur;
+  extern ELAN_PGCTRL *gasnete_elan_pgctrl[GASNETE_NUMPGCTRL_CNTMAX];
+  /* there's a race here for PAR mode, but it's benign - 
+     this is a probabalistic heuristic anyhow 
+     TODO: does assigning per-thread ELAN_PGCTRL's reduce locking contention in libelan?
+   */
+  GASNET_INLINE_MODIFIER(gasnetc_next_PGCTRL)
+  ELAN_PGCTRL *gasnetc_next_PGCTRL() {
+    int myidx = _gasnete_elan_pgctrl_cur;
+    int newidx = myidx+1;
+    gasneti_assert(gasnete_elan_pgctrl_cnt);
+    gasneti_assert(gasnete_elan_pgctrl_cnt < GASNETE_NUMPGCTRL_CNTMAX);
+    gasneti_assert(myidx < gasnete_elan_pgctrl_cnt);
+    gasneti_assert(gasnete_elan_pgctrl[myidx]);
+    if (newidx == gasnete_elan_pgctrl_cnt) newidx = 0;
+    _gasnete_elan_pgctrl_cur = newidx;
+    return gasnete_elan_pgctrl[myidx];
+  }
+
+  #define gasnete_elan_put(src, dest, nbytes, node) ( \
+          ASSERT_ELAN_LOCKED_WEAK(),                  \
+          elan_doput(gasnetc_next_PGCTRL(), src, dest, 0, nbytes, node, GASNETC_PGCTRL_RAIL))
+  /* elan gets are not software-throttled, so currently always 
+     assign them to the default PGCTRL, to avoid interference with puts
+   */
+  #define gasnete_elan_get(src, dest, nbytes, node) ( \
+          ASSERT_ELAN_LOCKED_WEAK(),                  \
+          elan_get(STATE(), src, dest, nbytes, node))
+
+  #define GASNETC_IS_SMALLPUT(sz) (sz <= GASNETC_ELAN_SMALLPUTSZ)
+#else
+  #define gasnete_elan_put(src, dest, nbytes, node) ( \
+          ASSERT_ELAN_LOCKED_WEAK(),                  \
+          elan_put(STATE(), src, dest, nbytes, node))
+  #define gasnete_elan_get(src, dest, nbytes, node) ( \
+          ASSERT_ELAN_LOCKED_WEAK(),                  \
+          elan_get(STATE(), src, dest, nbytes, node))
+
+  #if ELAN_VERSION_GE(1,4,8)
+    #define GASNETC_IS_SMALLPUT(sz) (sz <= BASE()->putget_smallputsize)
+  #else
+    #define GASNETC_IS_SMALLPUT(sz) (sz <= GASNETC_ELAN_SMALLPUTSZ)
+  #endif
 #endif
 
 
@@ -294,7 +446,7 @@ extern gasneti_mutex_t gasnetc_sendfifoLock;
     /* elan library v1.4+ thread-safe - no weak locking required */
     #define LOCK_ELAN_WEAK()   gasneti_suspend_spinpollers()
     #define UNLOCK_ELAN_WEAK() gasneti_resume_spinpollers()
-    #define ASSERT_ELAN_LOCKED_WEAK()
+    #define ASSERT_ELAN_LOCKED_WEAK() ((void)0)
   #endif
 #else
   /* doesn't actually lock anything - just preserves debug checking */
