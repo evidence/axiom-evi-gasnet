@@ -135,6 +135,11 @@ tests-par: force libgasnet-$(CONDUIT_NAME)-par.a $(CONDUIT_NAME)-par.mak $(CONDU
 	  configfile="$(CONDUIT_NAME)-par.mak" \
 	  CONDUIT_TESTS="$(CONDUIT_TESTS)" $(CONDUIT_TEST_MAKEARGS)
 
+tests-mpi: force 
+	@echo "*** Building all MPI tests ***"
+	@$(MAKE) -f $(top_builddir)/tests/Makefile tests-mpi \
+	  CONDUIT_TESTS="$(CONDUIT_TESTS)" $(CONDUIT_TEST_MAKEARGS)
+
 test%: $(top_srcdir)/tests/test%.c force 
 	@$(MAKE) libgasnet-$(CONDUIT_NAME)-$(THREAD_MODEL_LC).a $(CONDUIT_NAME)-$(THREAD_MODEL_LC).mak
 	@echo "*** Building $@ in $(THREAD_MODEL)/$(GASNET_SEGMENT_STR) mode ***"
@@ -147,6 +152,11 @@ test%: $(top_srcdir)/tests/test%.cc force
 	@echo "*** Building $@ in $(THREAD_MODEL)/$(GASNET_SEGMENT_STR) mode ***"
 	@$(MAKE) -f $(top_builddir)/tests/Makefile $@   \
 	  configfile="$(CONDUIT_NAME)-$(THREAD_MODEL_LC).mak" \
+	  CONDUIT_TESTS="$(CONDUIT_TESTS)" $(CONDUIT_TEST_MAKEARGS)
+
+test%: $(top_srcdir)/tests/mpi/test%.c force 
+	@echo "*** Building MPI test $@ ***"
+	@$(MAKE) -f $(top_builddir)/tests/Makefile $@   \
 	  CONDUIT_TESTS="$(CONDUIT_TESTS)" $(CONDUIT_TEST_MAKEARGS)
 
 test%-seq: force 
@@ -176,6 +186,7 @@ run-tests do-run-testexit: check-run-tests-deps
 run-tests-seq: tests-clean tests-seq run-tests
 run-tests-par: tests-clean tests-par run-tests
 run-tests-parsync: tests-clean tests-parsync run-tests
+run-tests-mpi: tests-clean tests-mpi run-tests
 
 .PRECIOUS: run-testexit
 run-testexit: force

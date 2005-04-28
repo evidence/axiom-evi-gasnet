@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/04/28 06:19:20 $
-# $Revision: 1.61 $
+#     $Date: 2005/04/28 09:16:03 $
+# $Revision: 1.62 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -22,8 +22,19 @@ Makefile: @TOP_SRCDIR@/tests/Makefile.in
 	cd @TOP_BUILDDIR@ ; \
 	CONFIG_HEADERS= CONFIG_FILES=tests/Makefile ./config.status
 
-@USE_MPI_CONDUIT_TRUE@ MPI_TESTS = testmpiperf testmpineighbor
+# GASNet-related MPI tests
+@USE_MPI_CONDUIT_TRUE@ MPI_TESTS_SEQ = 
 @USE_MPI_CONDUIT_TRUE@ MPI_TESTS_PAR = testmpi
+
+# non-GASNet plain MPI tests
+MPI_TESTS_ALL = 		\
+	testmpiperf 		\
+	testmpinbr		\
+	testmvapich_bw  	\
+	testmvapich_bw2 	\
+	testmvapich_lat 	
+
+@USE_MPI_CONDUIT_TRUE@ MPI_TESTS = $(MPI_TESTS_ALL)
 
 # tests that can be built in any mode
 # in order of most useful execution
@@ -48,10 +59,10 @@ testprograms_seq =      \
         testbarrierlate \
         testtools       \
         testcoll        \
-        testneighbor    \
+        testnbr    	\
 	testqueue	\
         $(CONDUIT_TESTS) \
-        $(MPI_TESTS)
+        $(MPI_TESTS_SEQ)
   
 
 # tests that should only be built in PARSYNC and PAR modes
@@ -64,7 +75,7 @@ testprograms_par =  \
 	testcas     \
 	$(MPI_TESTS_PAR)
 
-testprograms = $(testprograms_seq) $(testprograms_parsync) $(testprograms_par)
+testprograms = $(testprograms_seq) $(testprograms_parsync) $(testprograms_par) $(MPI_TESTS)
 
 tests-seq: clean $(testprograms_seq)
 	
@@ -72,6 +83,8 @@ tests-parsync: clean $(testprograms_seq) $(testprograms_parsync)
 	
 tests-par: clean $(testprograms_seq) $(testprograms_parsync) $(testprograms_par)
 	
+tests-mpi: $(MPI_TESTS)
+
 clean:
 	rm -f $(testprograms:=@EXESUFFIX@)
 
@@ -95,7 +108,8 @@ TEST_PARAMS=                    					\
    testthreads_args="2";						\
    testmisc_nodes="1";							\
    testbarrierconf_nodes="3";						\
-   testmpiperf_args="BPF";						\
+   testmpi_args="2";							\
+   testmpiperf_args="BPFE 1000";					\
    testqueue_args="1 256 262144"; 					\
    testenv_args='GASNet is \"Global Address Space Networking\"';	\
    $(CONDUIT_TESTPARAMS) dummy=1 ; 					\
@@ -105,7 +119,7 @@ TEST_PARAMS=                    					\
 testprograms_err =      \
         testexit        \
         testhsl         \
-	$(MPI_TESTS)	\
+	$(MPI_TESTS_SEQ) \
 	$(MPI_TESTS_PAR)
 
 # tests that do not link libgasnet and should execute directly on the frontend with no spawner
@@ -154,6 +168,7 @@ run-tests: force
 	if test -z "$$TEST_RUNCMD" ; then                                               \
 	  TEST_RUNCMD="$(CONDUIT_RUNCMD)" ;                                             \
 	fi ;                                                                            \
+	MPI_RUNCMD="$${MPI_RUNCMD:=@MPIRUN_CMD@}" export MPI_RUNCMD ;                   \
 	if test -z "$$TIMECMD" ; then                                                   \
 	  TIMECMD="@TIMECMD@" ;                                                         \
 	fi ;                                                                            \
@@ -162,9 +177,13 @@ run-tests: force
 	    args="`eval echo $$args`" ;                                                 \
 	    nodes="$$\{""$${file}_nodes-$(TEST_NODES)\}" ;                              \
 	    nodes="`eval eval echo $$nodes`" ;                                          \
-	    if test "`echo \"$(testprograms_nongasnet)\"| grep $$file ; exit 0`"; then  \
+	    if test "`echo \" $(testprograms_nongasnet) \"| grep \" $$file \" ; exit 0`" ; then  \
 	      echo "*** Running $(CONDUIT_NAME)-conduit $$file ***" ;                   \
 	      cmd="./$$file $$args" ;                                                   \
+	    elif test "`echo \" $(MPI_TESTS) \"| grep \" $$file \" ; exit 0`" ; then    \
+	      echo "*** Running MPI test $$file ***" ;                                  \
+              awk_cmdbuild=`echo "$(awk_cmdbuild)"` ; 					\
+	      cmd=`echo "$$MPI_RUNCMD" | eval @AWK@ \'$$awk_cmdbuild\'` ;         	\
 	    else                                                                        \
 	      threadmode=`@PERL@ -n -e '$(perl_threadscan)'                             \
                           $$file@EXESUFFIX@ 2> /dev/null` ;                             \
@@ -261,9 +280,9 @@ testmpi: force
 	rm -f $@.o	
 
 # the following are just plain MPI programs
-# testmpineighbor requires libm
-testmpiperf testmpineighbor: force
-	@MPI_CC@ $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
+# testmpinbr requires libm
+$(MPI_TESTS): force
+	@MPI_CC@ -I$(srcdir)/mpi -I@TOP_SRCDIR@/other @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/mpi/$@.c
 	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ @LIBM@
 	rm -f $@.o	
 
@@ -283,4 +302,4 @@ test% : force
 force:
 	
 
-.PHONY: force all
+.PHONY: force all tests-mpi

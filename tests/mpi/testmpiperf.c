@@ -484,7 +484,7 @@ int main(int argc, char **argv) {
   if (dopingpongtest) { /* ping-pong test */
     if (rank == 0) {
       printf("=====> testmpiperf-pingpong nprocs=%d config=MPI\n", nproc);
-      printf("running %i iterations of ping-pong test per size...\n", iters);
+      printf("running %i iterations of ping-pong MPI_Send/MPI_IRecv test per size...\n", iters);
       fflush(stdout);
     }
     barrier();
@@ -512,7 +512,7 @@ int main(int argc, char **argv) {
   if (dofloodtest) { /* flood test */
     if (rank == 0) {
       printf("=====> testmpiperf-flood nprocs=%d config=MPI\n", nproc);
-      printf("running %i iterations of flood test per size, with queuedepth=%i...\n", 
+      printf("running %i iterations of flood MPI_Isend/MPI_Irecv test per size, with queuedepth=%i...\n", 
         iters, queuedepth);
       printf("Flood test using %s method\n", mpi_testwait_desc);
       fflush(stdout);
@@ -539,6 +539,7 @@ int main(int argc, char **argv) {
       }
     }
   }
+  fflush(NULL); sleep(1); /* pause for output */
   barrier();
   if (doexchangetest) { /* Exchange (all-to-all) test */
     if (rank == 0) {
