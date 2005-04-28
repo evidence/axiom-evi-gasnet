@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/04/28 02:54:26 $
- * $Revision: 1.33 $
+ *     $Date: 2005/04/28 04:35:23 $
+ * $Revision: 1.34 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -101,7 +101,12 @@ extern ELAN_TPORT *gasnetc_elan_tport;
 #endif
 
 #ifndef GASNETC_PREALLOC_AMLONG_BOUNCEBUF
-#define GASNETC_PREALLOC_AMLONG_BOUNCEBUF 1
+  #ifdef GASNETC_ELAN4
+    /* elan4 should never need an AMLong bounce buffer */
+    #define GASNETC_PREALLOC_AMLONG_BOUNCEBUF 0
+  #else
+    #define GASNETC_PREALLOC_AMLONG_BOUNCEBUF 1
+  #endif
 #endif
 
 /* whether our PGCTRL pool supports non-contiguous put/gets */

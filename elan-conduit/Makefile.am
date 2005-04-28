@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v $
-#     $Date: 2004/10/09 14:53:59 $
-# $Revision: 1.29 $
+#     $Date: 2005/04/28 04:35:23 $
+# $Revision: 1.30 $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -38,7 +38,7 @@ CONDUIT_SOURCELIST =		     \
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I@ELAN_INCLUDE@ @ELAN_FLAGS@
+CONDUIT_EXTRALIBCFLAGS = -I@ELAN_INCLUDE@
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = 

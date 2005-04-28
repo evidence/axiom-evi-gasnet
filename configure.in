@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/04/27 19:32:25 $
-# $Revision: 1.258 $
+#     $Date: 2005/04/28 04:35:21 $
+# $Revision: 1.259 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.258 $)
+AC_REVISION($Revision: 1.259 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1420,13 +1420,13 @@ if test $enabled_elan = yes; then
   if test -f "$ELAN_HEADERBASE/elan4/library.h" ; then
         AC_MSG_RESULT(elan4)
 	ELANDEVLIB="-lelan4"
-        ELAN_FLAGS="-DGASNETC_ELAN4"
+        AC_DEFINE(GASNETC_ELAN4)
         have_elan=yes
   else
     if test -f "$ELAN_HEADERBASE/elan3/elan3.h" ; then
         AC_MSG_RESULT(elan3)
 	ELANDEVLIB="-lelan3"
-        ELAN_FLAGS="-DGASNETC_ELAN3"
+        AC_DEFINE(GASNETC_ELAN3)
         have_elan=yes
     else
         AC_MSG_RESULT(none found)
@@ -1503,10 +1503,11 @@ if test $enabled_elan = yes; then
     if test "$majorver" = "" -o "$minorver" = "" -o "$subver" = "" ; then
       AC_MSG_ERROR(["libelan present, but unable to determine libelan version"])
     fi
-    ELAN_FLAGS="$ELAN_FLAGS -DELAN_VERSION_MAJOR=${majorver} -DELAN_VERSION_MINOR=${minorver} -DELAN_VERSION_SUB=${subver}"
+    AC_DEFINE_UNQUOTED(ELAN_VERSION_MAJOR, $majorver)
+    AC_DEFINE_UNQUOTED(ELAN_VERSION_MINOR, $minorver)
+    AC_DEFINE_UNQUOTED(ELAN_VERSION_SUB, $subver)
   else
     AC_MSG_RESULT(no)
-    ELAN_FLAGS=""
     have_elan=no
   fi
  fi
@@ -1518,7 +1519,6 @@ fi
 
 AC_SUBST(ELAN_INCLUDE)
 AC_SUBST(ELAN_LIBS)
-AC_SUBST(ELAN_FLAGS)
 AM_CONDITIONAL(USE_ELAN_CONDUIT, test "$enabled_elan$have_elan" = yesyes)
 if test "$enabled_elan$have_elan" = yesyes ; then
   CONDUITS="$CONDUITS elan"
