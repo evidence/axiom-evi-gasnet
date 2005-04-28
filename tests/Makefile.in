@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/04/13 00:55:52 $
-# $Revision: 1.60 $
+#     $Date: 2005/04/28 06:19:20 $
+# $Revision: 1.61 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -22,7 +22,7 @@ Makefile: @TOP_SRCDIR@/tests/Makefile.in
 	cd @TOP_BUILDDIR@ ; \
 	CONFIG_HEADERS= CONFIG_FILES=tests/Makefile ./config.status
 
-@USE_MPI_CONDUIT_TRUE@ MPI_TESTS = testmpiperf testmpineighbour
+@USE_MPI_CONDUIT_TRUE@ MPI_TESTS = testmpiperf testmpineighbor
 @USE_MPI_CONDUIT_TRUE@ MPI_TESTS_PAR = testmpi
 
 # tests that can be built in any mode
@@ -48,7 +48,7 @@ testprograms_seq =      \
         testbarrierlate \
         testtools       \
         testcoll        \
-        testneighbour   \
+        testneighbor    \
 	testqueue	\
         $(CONDUIT_TESTS) \
         $(MPI_TESTS)
@@ -261,8 +261,8 @@ testmpi: force
 	rm -f $@.o	
 
 # the following are just plain MPI programs
-# testmpineighbour requires libm
-testmpiperf testmpineighbour: force
+# testmpineighbor requires libm
+testmpiperf testmpineighbor: force
 	@MPI_CC@ $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ @LIBM@
 	rm -f $@.o	
