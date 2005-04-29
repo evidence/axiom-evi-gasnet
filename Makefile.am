@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/04/29 04:29:26 $
-# $Revision: 1.40 $
+#     $Date: 2005/04/29 05:31:03 $
+# $Revision: 1.41 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -130,8 +130,18 @@ uninstall-local:
 	@$(MAKE) $(recurse_local) DO_WHAT=uninstall
 	rm -Rf $(DESTDIR)$(docdir)
 
+# automake 1.4 doesn't automatically make distclean in DIST_SUBDIRS
+# So, we run it here if it doesn't appear to have already been run.
+# We also take care of tests, which contains a generated Makefile
+# that older autotools fail to automatically remove as well.
+distclean-local:
+	@for dir in $(CONDUIT_DIRS) tests; do        \
+	   if test -f "$$dir/Makefile"; then         \
+	     $(MAKE) -C "$$dir" distclean || exit 1; \
+	   fi;                                       \
+	 done
 
-.PHONY: force clean tests test                                        \
+.PHONY: force tests test                                              \
         other-tests other-run-tests tests-seq tests-par tests-parsync \
         run-tests-seq run-tests-par run-tests-parsync                 \
 	$(recurse_local)
