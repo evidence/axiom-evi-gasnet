@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/04/29 04:22:51 $
-# $Revision: 1.39 $
+#     $Date: 2005/04/29 04:29:26 $
+# $Revision: 1.40 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -113,7 +113,9 @@ $(recurse_local):
 all-local:
 	@$(MAKE) $(recurse_local) DO_WHAT=all
 clean-local:
-	test -f Makefile -a -f smp-conduit/Makefile && $(MAKE) $(recurse_local) DO_WHAT=clean
+	@if test -f Makefile -a -f smp-conduit/Makefile; then \
+	  $(MAKE) $(recurse_local) DO_WHAT=clean; \
+	 fi
 check:
 	@$(MAKE) $(recurse_local) DO_WHAT=check
 install-data-local:
