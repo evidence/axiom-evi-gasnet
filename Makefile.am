@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/04/29 06:41:25 $
-# $Revision: 1.42 $
+#     $Date: 2005/04/29 23:59:22 $
+# $Revision: 1.43 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -74,29 +74,29 @@ test: tests-seq
 tests: tests-seq
 
 other-tests:
-	@$(MAKE) -C $(top_builddir)/other all tests
+	@cd $(top_builddir)/other && $(MAKE) all tests
 
 other-run-tests:
-	@$(MAKE) -C $(top_builddir)/other run-tests
+	@cd $(top_builddir)/other && $(MAKE) run-tests
 
 tests-seq: other-tests
-	@for conduit in $(CONDUITS) ; do                                      \
-	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" tests-seq || exit 1; \
+	@for conduit in $(CONDUITS) ; do                                             \
+	  ( cd "$(top_builddir)/$$conduit-conduit" && $(MAKE) tests-seq ) || exit 1; \
 	done
 
 tests-par: other-tests
-	@for conduit in $(CONDUITS) ; do                                      \
-	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" tests-par || exit 1; \
+	@for conduit in $(CONDUITS) ; do                                             \
+	  ( cd "$(top_builddir)/$$conduit-conduit" && $(MAKE) tests-par ) || exit 1; \
 	done
 
 tests-parsync: other-tests
-	@for conduit in $(CONDUITS) ; do                                          \
-	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" tests-parsync || exit 1; \
+	@for conduit in $(CONDUITS) ; do                                                 \
+	  ( cd "$(top_builddir)/$$conduit-conduit" && $(MAKE) tests-parsync ) || exit 1; \
 	done
 
 run-tests: other-run-tests
-	@for conduit in $(CONDUITS) ; do                                      \
-	  $(MAKE) -C "$(top_builddir)/$$conduit-conduit" run-tests || exit 1; \
+	@for conduit in $(CONDUITS) ; do                                             \
+	  ( cd "$(top_builddir)/$$conduit-conduit" && $(MAKE) run-tests ) || exit 1; \
 	done
 
 run-tests-seq: tests-seq run-tests
@@ -107,9 +107,12 @@ run-tests-parsync: tests-parsync run-tests
 # Instead of automake's loop over subdir, we expand to one target per subdir.
 # Care is taken w/ the 'clean-local' rule in case distclean has wiped the 
 # local or conduit Makefiles (order depends on the version of automake).
+# Note that if ($VAR:%=%FOO) doesn't work for a given make, then we are
+# reduced to using actual conduit names as PHONY targets, but the rule for
+# $(recurse_local) is tailored to work correctly regardless.
 recurse_local = $(CONDUITS:%=%-recurse)
 $(recurse_local):
-	@$(MAKE) -C `echo $@ | sed s/recurse/conduit/` $(DO_WHAT)
+	@cd `echo $@ | sed s/-recurse//`-conduit && $(MAKE) $(DO_WHAT)
 all-local:
 	@$(MAKE) $(recurse_local) DO_WHAT=all
 clean-local:
@@ -135,10 +138,10 @@ uninstall-local:
 # We also take care of tests, which contains a generated Makefile
 # that older autotools fail to automatically remove as well.
 distclean-local:
-	@for dir in $(CONDUIT_DIRS) tests; do        \
-	   if test -f "$$dir/Makefile"; then         \
-	     $(MAKE) -C "$$dir" distclean || exit 1; \
-	   fi;                                       \
+	@for dir in $(CONDUIT_DIRS) tests; do               \
+	   if test -f "$$dir/Makefile"; then                \
+	     ( cd "$$dir" && $(MAKE) distclean ) || exit 1; \
+	   fi;                                              \
 	 done
 
 .PHONY: force tests test                                              \
@@ -149,7 +152,7 @@ distclean-local:
 
 dist-hook:
 	if test -f $(distdir)/docs/Makefile ; then \
-          $(MAKE) -C $(distdir)/docs dist-hook ; \
+          cd $(distdir)/docs && $(MAKE) dist-hook ; \
         fi
 	mkdir -p $(distdir)/tests  # need this special hack to handle tests or distcheck will fail
 	fulldistdir=`cd $(distdir) ; @PWD_PROG@` export fulldistdir ; \

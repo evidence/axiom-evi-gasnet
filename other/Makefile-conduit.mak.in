@@ -173,7 +173,7 @@ tests-clean:
 check-run-tests-deps: force
 	@if test "$(SUBDIRS)" != "" ; then 	\
 	   for dir in ""$(SUBDIRS) ; do 	\
-	   	$(MAKE) -C $$dir ;  		\
+	   	( cd "$$dir" && $(MAKE) ) ;	\
 	   done ;				\
 	 fi
 

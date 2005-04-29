@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/Makefile.am,v $
-#     $Date: 2005/04/06 23:39:39 $
-# $Revision: 1.20 $
+#     $Date: 2005/04/29 23:59:30 $
+# $Revision: 1.21 $
 # Description: Makefile for GASNet other 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -35,7 +35,7 @@ testdirs= $(UDP_dir) $(MPI_dir)
 
 tests run-tests check-exports: 
 	@list='$(testdirs)'; for dir in $$list ; do \
-	  $(MAKE) -C "$$dir" $@ || exit $?;  \
+	  ( cd "$$dir" && $(MAKE) $@ ) || exit $$?; \
 	done
 
 all-local: Makefile-conduit.mak perlstart

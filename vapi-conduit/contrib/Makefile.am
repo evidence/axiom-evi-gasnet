@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/Makefile.am,v $
-#     $Date: 2005/04/29 06:41:27 $
-# $Revision: 1.11 $
+#     $Date: 2005/04/29 23:59:40 $
+# $Revision: 1.12 $
 # Description: Makefile for GASNet VAPI spawner
 # Terms of use are as specified in vapi-conduit/license.txt
 
@@ -11,7 +11,7 @@ AUTOMAKE_OPTIONS = foreign 1.4
 if VAPI_BOOTSTRAP_MPI
 mpi_target_pl = gasnetrun_vapi-mpi.pl
 $(mpi_target_pl): $(top_srcdir)/mpi-conduit/contrib/gasnetrun_mpi.pl
-	cp -f "$<" $@
+	cp -f "$?" $@
 else
 mpi_target_pl =
 endif
@@ -24,7 +24,7 @@ dotpldir = $(bindir)
 # Make sure the perl script and shell wrapper are always current locally.
 # This ensures we can run from the build directory if needed.
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
-	@$(MAKE) -C $(top_builddir)/other perlstart
+	@cd $(top_builddir)/other && $(MAKE) perlstart
 $(target): $(top_builddir)/other/perlstart
 all-local: $(target).pl $(target) $(mpi_target_pl)
 
@@ -34,7 +34,7 @@ files_we_copy =
 else
 files_we_copy = $(target).pl
 $(files_we_copy): force
-	cp -f "$(srcdir)/$@" .
+	cp -f "$(srcdir)/`basename $@`" .
 endif
 DISTCLEANFILES = $(files_we_copy) $(mpi_target_pl)
 

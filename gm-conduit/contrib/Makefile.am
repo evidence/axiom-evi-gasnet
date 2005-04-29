@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/Makefile.am,v $
-#     $Date: 2005/04/29 04:22:53 $
-# $Revision: 1.15 $
+#     $Date: 2005/04/29 23:59:24 $
+# $Revision: 1.16 $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -17,7 +17,7 @@ dotpldir = $(bindir)
 # Make sure the perl script and shell wrapper are always current locally.
 # This ensures we can run from the build directory if needed.
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
-	@$(MAKE) -C $(top_builddir)/other perlstart
+	@cd $(top_builddir)/other && $(MAKE) perlstart
 $(target): $(top_builddir)/other/perlstart
 all-local: $(target).pl $(target)
 
@@ -27,7 +27,7 @@ files_we_copy =
 else
 files_we_copy = $(target).pl
 $(files_we_copy): force
-	cp -f "$(srcdir)/$@" .
+	cp -f "$(srcdir)/`basename $@`" .
 endif
 DISTCLEANFILES = $(files_we_copy)
 

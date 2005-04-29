@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2005/04/29 16:30:45 $
-# $Revision: 1.28 $
+#     $Date: 2005/04/29 23:59:34 $
+# $Revision: 1.29 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -184,9 +184,15 @@ endif
 # No check-exports by default due to name mangling
 check: tests
 
-clean_local_files = libamudp.a $(testprograms:%=%$(EXESUFFIX)) *.o core
+clean_local_files = libamudp.a *.o core
+clean-local:
+	@for f in $(testprograms); do                                \
+	  cmd="rm -f '$$f$(EXESUFFIX)'"; echo "$$cmd"; eval "$$cmd"; \
+	 done;
 else
 clean_local_files =
+clean-local:
+	@: #empty rule
 endif
 
 CLEANFILES = $(clean_local_files)

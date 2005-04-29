@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.am,v $
-#     $Date: 2005/04/29 04:22:57 $
-# $Revision: 1.30 $
+#     $Date: 2005/04/29 23:59:32 $
+# $Revision: 1.31 $
 # Description: Makefile for AMMPI/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -160,9 +160,15 @@ endif
 
 check: check-exports tests
 
-clean_local_files = libammpi.a $(testprograms:%=%$(EXESUFFIX)) *.o core
+clean_local_files = libammpi.a *.o core
+clean-local:
+	@for f in $(testprograms); do                                \
+	  cmd="rm -f '$$f$(EXESUFFIX)'"; echo "$$cmd"; eval "$$cmd"; \
+	 done;
 else
 clean_local_files =
+clean-local:
+	@: #empty rule
 endif
 
 CLEANFILES = $(clean_local_files)
