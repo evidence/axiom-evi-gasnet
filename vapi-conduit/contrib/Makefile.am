@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/Makefile.am,v $
-#     $Date: 2005/04/29 04:23:03 $
-# $Revision: 1.10 $
+#     $Date: 2005/04/29 06:41:27 $
+# $Revision: 1.11 $
 # Description: Makefile for GASNet VAPI spawner
 # Terms of use are as specified in vapi-conduit/license.txt
 
@@ -15,8 +15,6 @@ $(mpi_target_pl): $(top_srcdir)/mpi-conduit/contrib/gasnetrun_mpi.pl
 else
 mpi_target_pl =
 endif
-
-AUTOMAKE_OPTIONS = foreign 1.4
 
 target = gasnetrun_vapi
 
