@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2005/04/29 04:22:59 $
-# $Revision: 1.27 $
+#     $Date: 2005/04/29 16:30:45 $
+# $Revision: 1.28 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -181,6 +181,7 @@ check-exports: libamudp.a
 	@echo check-exports test SKIPPED
 endif
 
+# No check-exports by default due to name mangling
 check: tests
 
 clean_local_files = libamudp.a $(testprograms:%=%$(EXESUFFIX)) *.o core
