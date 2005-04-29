@@ -1,44 +1,44 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/Makefile.am,v $
-#     $Date: 2005/04/27 20:49:37 $
-# $Revision: 1.9 $
+#     $Date: 2005/04/29 04:23:03 $
+# $Revision: 1.10 $
 # Description: Makefile for GASNet VAPI spawner
 # Terms of use are as specified in vapi-conduit/license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-builddir = $(top_builddir)/vapi-conduit/contrib
-target = gasnetrun_vapi
-
-# Need a bin_DATA rule, but automake disallows that.  So, fake it.
-mybindir = $(bindir)
-
 # Use of the MPI spawning support is optional
 if VAPI_BOOTSTRAP_MPI
-mpi_target_pl = $(target)-mpi.pl
+mpi_target_pl = gasnetrun_vapi-mpi.pl
+$(mpi_target_pl): $(top_srcdir)/mpi-conduit/contrib/gasnetrun_mpi.pl
+	cp -f "$<" $@
 else
 mpi_target_pl =
 endif
+
+AUTOMAKE_OPTIONS = foreign 1.4
+
+target = gasnetrun_vapi
+
+# Need a bin_DATA rule, but automake disallows that.  So, fake it.
+dotpldir = $(bindir)
 
 # Make sure the perl script and shell wrapper are always current locally.
 # This ensures we can run from the build directory if needed.
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@$(MAKE) -C $(top_builddir)/other perlstart
 $(target): $(top_builddir)/other/perlstart
-all-local: $(builddir)/$(target).pl $(target) $(mpi_target_pl)
-$(builddir)/$(target).pl: force
-	@if test "@BUILD_IS_SRC@" = no; then \
-	    echo cp -f $(srcdir)/$(target).pl $(builddir); \
-	    cp -f $(srcdir)/$(target).pl $(builddir); \
-	fi
-$(target)-mpi.pl: $(top_srcdir)/mpi-conduit/contrib/gasnetrun_mpi.pl
-	cp -f $< $@
-distclean-local:
-	rm -f $(target)-mpi.pl
-	@if test "@BUILD_IS_SRC@" = no; then \
-	    echo rm -f $(builddir)/$(target).pl; \
-	    rm -f $(builddir)/$(target).pl; \
-	fi
+all-local: $(target).pl $(target) $(mpi_target_pl)
+
+# Files to copy from srcdir to builddir if they differ
+if BUILD_IS_SRC
+files_we_copy =
+else
+files_we_copy = $(target).pl
+$(files_we_copy): force
+	cp -f "$(srcdir)/$@" .
+endif
+DISTCLEANFILES = $(files_we_copy) $(mpi_target_pl)
 
 # Ensure the .pl is distributed, even if not installed
 EXTRA_DIST = $(target).pl
@@ -52,7 +52,7 @@ scripts =
 data =
 endif
 bin_SCRIPTS = $(scripts)
-mybin_DATA = $(data)
+dotpl_DATA = $(data)
 
 .PHONY: force
 force:

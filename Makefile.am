@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/04/28 21:15:19 $
-# $Revision: 1.38 $
+#     $Date: 2005/04/29 04:22:51 $
+# $Revision: 1.39 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -107,50 +107,32 @@ run-tests-parsync: tests-parsync run-tests
 # Instead of automake's loop over subdir, we expand to one target per subdir.
 # Care is taken w/ the 'clean-local' rule in case distclean has wiped the 
 # local or conduit Makefiles (order depends on the version of automake).
+recurse_local = $(CONDUITS:%=%-recurse)
+$(recurse_local):
+	$(MAKE) -C `echo $@ | sed s/recurse/conduit/` $(DO_WHAT)
 all-local:
-	@$(MAKE) DO_WHAT=all `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+	@$(MAKE) $(recurse_local) DO_WHAT=all
 clean-local:
-	@if test -f Makefile -a -f smp-conduit/Makefile; then \
-	  $(MAKE) DO_WHAT=clean `for conduit in $(CONDUITS); do echo do-$$conduit; done`; \
-	 fi
+	test -f Makefile -a -f smp-conduit/Makefile && $(MAKE) $(recurse_local) DO_WHAT=clean
 check:
-	@$(MAKE) DO_WHAT=check `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+	@$(MAKE) $(recurse_local) DO_WHAT=check
 install-data-local:
-	@$(MAKE) DO_WHAT=install-data `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+	@$(MAKE) $(recurse_local) DO_WHAT=install-data
 	$(mkinstalldirs) $(DESTDIR)$(docdir)
 	cp -f $(top_srcdir)/README $(DESTDIR)$(docdir)/README
 	cp -f $(top_srcdir)/extended-ref/README $(DESTDIR)$(docdir)/README-extref
 	cp -f $(top_srcdir)/license.txt $(DESTDIR)$(docdir)/license.txt
 install-exec-local:
-	@$(MAKE) DO_WHAT=install-exec `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+	@$(MAKE) $(recurse_local) DO_WHAT=install-exec
 uninstall-local:
-	@$(MAKE) DO_WHAT=uninstall `for conduit in $(CONDUITS) ; do echo do-$$conduit; done`
+	@$(MAKE) $(recurse_local) DO_WHAT=uninstall
 	rm -Rf $(DESTDIR)$(docdir)
-
-do-elan:
-	$(MAKE) -C elan-conduit $(DO_WHAT)
-do-gm:
-	$(MAKE) -C gm-conduit $(DO_WHAT)
-do-lapi:
-	$(MAKE) -C lapi-conduit $(DO_WHAT)
-do-mpi:
-	$(MAKE) -C mpi-conduit $(DO_WHAT)
-do-sci:
-	$(MAKE) -C sci-conduit $(DO_WHAT)
-do-shmem:
-	$(MAKE) -C shmem-conduit $(DO_WHAT)
-do-smp:
-	$(MAKE) -C smp-conduit $(DO_WHAT)
-do-udp:
-	$(MAKE) -C udp-conduit $(DO_WHAT)
-do-vapi:
-	$(MAKE) -C vapi-conduit $(DO_WHAT)
 
 
 .PHONY: force clean tests test                                        \
         other-tests other-run-tests tests-seq tests-par tests-parsync \
         run-tests-seq run-tests-par run-tests-parsync                 \
-        do-elan do-gm do-lapi do-mpi do-sci do-smp do-udp do-vapi
+	$(recurse_local)
 
 
 dist-hook:

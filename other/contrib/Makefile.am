@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/Makefile.am,v $
-#     $Date: 2005/04/27 20:49:35 $
-# $Revision: 1.4 $
+#     $Date: 2005/04/29 04:23:01 $
+# $Revision: 1.5 $
 # Description: Makefile for GASNet other/contrib
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -10,38 +10,29 @@ AUTOMAKE_OPTIONS = foreign 1.4
 
 SUBDIRS =         
 
-EXTRA_DIST = gasnet_trace.pl
+EXTRA_DIST = $(dotpl_DATA)
 
-# Need a bin_DATA rule, but automake disallows that.  So, fake it.
-mybindir = $(bindir)
+dotpldir = $(bindir)
+dotpl_DATA = gasnet_trace.pl
 
-bin_SCRIPTS = gasnet_trace gasnet_trace.pl
-mybin_DATA = gasnet_trace.pl
+bin_SCRIPTS = gasnet_trace
 
-builddir = $(top_builddir)/other/contrib
-
-all-local: gasnet_trace $(builddir)/gasnet_trace.pl
+all-local: $(bin_SCRIPTS) $(dotpl_DATA)
 
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@$(MAKE) -C $(top_builddir)/other perlstart
 
-gasnet_trace: $(top_builddir)/other/perlstart $(builddir)/gasnet_trace.pl
+gasnet_trace: $(top_builddir)/other/perlstart gasnet_trace.pl
 
-$(builddir)/gasnet_trace.pl: force
-	@if test "@BUILD_IS_SRC@" = no; then \
-            echo cp -f $(srcdir)/gasnet_trace.pl $@; \
-            cp -f $(srcdir)/gasnet_trace.pl $@; \
-         fi;
-
-distclean-local:
-	@if test "@BUILD_IS_SRC@" = no; then \
-            echo rm -f $(builddir)/gasnet_trace.pl; \
-            rm -f $(builddir)/gasnet_trace.pl; \
-         fi;
-
-install-data-local:
-	chmod -x $(DESTDIR)$(bindir)/gasnet_trace.pl
-
+# Files to copy from srcdir to builddir if they differ
+if BUILD_IS_SRC
+files_we_copy = 
+else
+files_we_copy = $(dotpl_DATA)
+$(files_we_copy): force
+	cp -f "$(srcdir)/$@" .
+endif
+DISTCLEANFILES = $(files_we_copy)
 
 .PHONY: force
 

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2005/04/26 10:08:52 $
-# $Revision: 1.26 $
+#     $Date: 2005/04/29 04:22:59 $
+# $Revision: 1.27 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -158,9 +158,6 @@ apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h $(headers)
 	$(cxxcompile) -o $@ -c $<
 
 if USE_UDP_CONDUIT
-clean-local:
-	rm -f libamudp.a $(testprograms:%=%$(EXESUFFIX)) *.o core
-
 if GNU_NM
 check-exports: libamudp.a
 	@echo Checking libamudp exports...
@@ -185,9 +182,15 @@ check-exports: libamudp.a
 endif
 
 check: tests
+
+clean_local_files = libamudp.a $(testprograms:%=%$(EXESUFFIX)) *.o core
+else
+clean_local_files =
 endif
+
+CLEANFILES = $(clean_local_files)
 
 force:
 
-.PHONY: force clean-local tests run-tests
+.PHONY: force tests run-tests
 

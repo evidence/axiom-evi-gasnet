@@ -1,34 +1,33 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/Makefile.am,v $
-#     $Date: 2005/04/27 20:49:33 $
-# $Revision: 1.9 $
+#     $Date: 2005/04/29 04:22:55 $
+# $Revision: 1.10 $
 # Description: Makefile for GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-builddir = $(top_builddir)/mpi-conduit/contrib
 target = gasnetrun_mpi
 
 # Need a bin_DATA rule, but automake disallows that.  So, fake it.
-mybindir = $(bindir)
+dotpldir = $(bindir)
 
 # Make sure the perl script and shell wrapper are always current locally.
 # This ensures we can run from the build directory if needed.
 $(top_builddir)/other/perlstart: $(top_srcdir)/other/perlstart.in
 	@$(MAKE) -C $(top_builddir)/other perlstart
 $(target): $(top_builddir)/other/perlstart
-all-local: $(builddir)/$(target).pl $(target)
-$(builddir)/$(target).pl: force
-	@if test "@BUILD_IS_SRC@" = no; then \
-	    echo cp -f $(srcdir)/$(target).pl $(builddir); \
-	    cp -f $(srcdir)/$(target).pl $(builddir); \
-	 fi
-distclean-local:
-	@if test "@BUILD_IS_SRC@" = no; then \
-	    echo rm -f $(builddir)/$(target).pl; \
-	    rm -f $(builddir)/$(target).pl; \
-	fi
+all-local: $(target).pl $(target)
+
+# Files to copy from srcdir to builddir if they differ
+if BUILD_IS_SRC
+files_we_copy =
+else
+files_we_copy = $(target).pl
+$(files_we_copy): force
+	cp -f "$(srcdir)/$@" .
+endif
+DISTCLEANFILES = $(files_we_copy)
 
 # Ensure the .pl is distributed, even if not installed
 EXTRA_DIST = $(target).pl
@@ -42,7 +41,7 @@ scripts =
 data =
 endif
 bin_SCRIPTS = $(scripts)
-mybin_DATA = $(data)
+dotpl_DATA = $(data)
 
 .PHONY: force
 force:
