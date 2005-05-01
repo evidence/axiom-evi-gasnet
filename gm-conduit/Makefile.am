@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/04/19 03:47:19 $
-# $Revision: 1.52 $
+#     $Date: 2005/05/01 03:26:47 $
+# $Revision: 1.53 $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -63,6 +63,10 @@ endif
 if GM_RODATA_WORKAROUND
 # bug 1036: ensure .rodata section in executable is actually writeable, because GM
 # registration fails on read-only virtual pages
+# bug 1044: this is now off by default, because the Linux linker is buggy and 
+# intermittently barfs with fatal error "Not enough room for program headers" 
+# when it mispredicts the section requirements of the program (instead of restarting 
+# with a larger value, which would be a reasonable approach)
 rodata_objs = $(builddir)/gasnet_rodata-$(THREAD_MODEL).o
 rodata_flags = -DGASNETI_GM_RODATA_WORKAROUND=1
 $(builddir)/gasnet_rodata-$(THREAD_MODEL).o: force

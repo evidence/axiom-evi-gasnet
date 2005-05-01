@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2005/04/26 16:02:34 $
- * $Revision: 1.52 $
+ * $Date: 2005/05/01 03:26:47 $
+ * $Revision: 1.53 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,6 +10,7 @@
 #include <gasnet_extended_internal.h>
 #include <gasnet_core_internal.h>
 #include <gasnet_handler.h>
+#include <sys/mman.h>
 
 #define GASNETE_FH_HAVE_TOKEN		0
 #define GASNETE_FH_POLL_TOKEN		1
@@ -100,14 +101,41 @@ firehose_move_callback(gasnet_node_t node,
 	GASNETI_TRACE_EVENT_VAL(C, FIREHOSE_LOCALUNPIN_PAGES, unpin_num);
 
 	for (i = 0; i < pin_num; i++) {
+                int perm_adj = 0;
+              retry_register:
 		gasneti_assert(pin_list[i].addr % GASNET_PAGESIZE == 0);
 		gasneti_assert(pin_list[i].len % GASNET_PAGESIZE == 0);
 		status = gm_register_memory(_gmc.port, (void *)
 				pin_list[i].addr, pin_list[i].len);
-		if (status != GM_SUCCESS) 
+		if (status != GM_SUCCESS) {
+                  if (perm_adj) {
 		    gasneti_fatalerror("gm_register_memory() failed for "
 		       "page located at %p (%s)", (void*)pin_list[i].addr, 
 		       gm_strerror(status));
+                  } else { /* bug 1036 - GM cannot register read-only data memory */
+                    int j, num_pages = pin_list[i].len / GASNET_PAGESIZE;
+                    char *p;
+                    static char tst = 0;
+                    /* check for readability before we mess with mprotect */
+		    GASNETI_TRACE_PRINTF(C,("gm_register_memory() failed for "
+		       "page located at %p len=%i pages (%s) -- checking readability", 
+                       (void*)pin_list[i].addr, num_pages, gm_strerror(status)));
+                    p = (void *)pin_list[i].addr;
+                    for (j = 0 ; j < num_pages; j++) {
+                      tst += *p; /* if you get a seg fault here, it means firehose tried to register unmapped memory */
+                      p += GASNET_PAGESIZE;
+                    }
+                    p = (void *)pin_list[i].addr;
+                    for (j = 0 ; j < num_pages; j++) {
+		      GASNETI_TRACE_PRINTF(C,("Attempting mprotect for page located at %p", (void*)p));
+                      if (mprotect(p, GASNET_PAGESIZE, PROT_READ|PROT_WRITE))
+                        gasneti_fatalerror("mprotect failed in firehose_move_callback: %s", strerror(errno));
+                      p += GASNET_PAGESIZE;
+                    }
+                    perm_adj = 1;
+                    goto retry_register;
+                  }
+                }
 		GASNETI_TRACE_PRINTF(C,
 		  ("Firehose pinlocal = %p, %d", (void *) pin_list[i].addr,
 			(int)pin_list[i].len));
