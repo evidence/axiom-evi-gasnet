@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/04/29 23:59:22 $
-# $Revision: 1.43 $
+#     $Date: 2005/05/01 00:51:24 $
+# $Revision: 1.44 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -117,7 +117,7 @@ all-local:
 	@$(MAKE) $(recurse_local) DO_WHAT=all
 clean-local:
 	@if test -f Makefile -a -f smp-conduit/Makefile; then \
-	  $(MAKE) $(recurse_local) DO_WHAT=clean; \
+	  $(MAKE) $(recurse_local) DO_WHAT=clean || exit $$? ; \
 	 fi
 check:
 	@$(MAKE) $(recurse_local) DO_WHAT=check
@@ -152,16 +152,16 @@ distclean-local:
 
 dist-hook:
 	if test -f $(distdir)/docs/Makefile ; then \
-          cd $(distdir)/docs && $(MAKE) dist-hook ; \
+          cd $(distdir)/docs && $(MAKE) dist-hook || exit $$? ; \
         fi
 	mkdir -p $(distdir)/tests  # need this special hack to handle tests or distcheck will fail
 	fulldistdir=`cd $(distdir) ; @PWD_PROG@` export fulldistdir ; \
         cd $(srcdir)/tests ; for file in `find . -print` ; do \
  	  if test -d $$file -a ! -d $$fulldistdir/tests/$$file ; then \
-	     mkdir -p $$fulldistdir/tests/$$file ; \
+	     mkdir -p $$fulldistdir/tests/$$file || exit $$? ; \
           fi; \
 	  if test -f $$file -a ! -f $$fulldistdir/tests/$$file ; then \
-	     cp -p $$file $$fulldistdir/tests/$$file ; \
+	     cp -p $$file $$fulldistdir/tests/$$file || exit $$? ; \
           fi ; \
         done
 	rm -Rf `find $(distdir) -name CVS -type d -print`
