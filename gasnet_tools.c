@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/04/14 17:29:09 $
- * $Revision: 1.103 $
+ *     $Date: 2005/05/02 17:06:00 $
+ * $Revision: 1.104 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -433,6 +433,12 @@ void gasneti_defaultSignalHandler(int sig) {
       break;
     default: 
       /* translate signal to SIGQUIT */
+      { static int sigquit_raised = 0;
+        if (sigquit_raised) {
+          /* sigquit was already raised - we cannot safely reraise it, so just die */
+          _exit(1);
+        } else sigquit_raised = 1;
+      }
       fprintf(stderr,"*** Caught a signal: %s(%i) on node %i/%i\n",
         signame, sig, (int)gasnet_mynode(), (int)gasnet_nodes()); 
       fflush(stderr);
