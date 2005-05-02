@@ -910,6 +910,10 @@ where each line of input produces a line of output.}
       \edef\mylbrace{\iftrue \string{\else}\fi}\let\{=\mylbrace
       \edef\myrbrace{\iffalse{\else\string}\fi}\let\}=\myrbrace
       %
+      % DOB: hack to get correct underscores in bookmarks with no xeatspaces and other texinfo garbage
+      \edef\myunderscore{_}\let\_=\myunderscore
+      \edef\xeatspaces ##1{##1}
+      %
       \def\chapentry ##1##2##3{}
       \def\unnumbchapentry ##1##2{}
       \def\secentry ##1##2##3##4{\advancenumber{chap##2}}

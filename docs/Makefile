@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/docs/Makefile,v $
-#     $Date: 2004/08/26 04:53:30 $
-# $Revision: 1.6 $
+#     $Date: 2005/05/02 13:23:47 $
+# $Revision: 1.7 $
 # Description: Makefile for GASNet documentation
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -11,7 +11,7 @@ all: gasnet.txt gasnet.html gasnet.ps gasnet.pdf
 
 # ------------------------------------------------------------------------------------
 # TeX Postscript
-gasnet.dvi: gasnet.texi
+gasnet.dvi: gasnet.texi texinfo.tex
 	texi2dvi -c -q gasnet.texi
 
 gasnet.ps: gasnet.dvi
@@ -20,7 +20,7 @@ gasnet.ps: gasnet.dvi
 
 # ------------------------------------------------------------------------------------
 # Adobe PDF
-gasnet.pdf: gasnet.texi
+gasnet.pdf: gasnet.texi texinfo.tex
 	rm -f gasnet.pdf
 	texi2dvi -c -p -o gasnet.pdf gasnet.texi
 
@@ -30,19 +30,19 @@ gasnet2.pdf: gasnet.dvi
 
 # ------------------------------------------------------------------------------------
 # Text
-gasnet.txt: gasnet.texi
+gasnet.txt: gasnet.texi texinfo.tex
 	makeinfo --no-headers --no-validate gasnet.texi > gasnet.txt
 # ------------------------------------------------------------------------------------
 # Monolithic HTML
-gasnet.html: gasnet.texi
+gasnet.html: gasnet.texi texinfo.tex
 	makeinfo --html --no-split --no-headers --no-validate gasnet.texi > gasnet.html
 # ------------------------------------------------------------------------------------
 # Segmented HTML (not really supported)
-gasnet: gasnet.texi
+gasnet: gasnet.texi texinfo.tex
 	makeinfo --html --no-validate gasnet.texi
 # ------------------------------------------------------------------------------------
 # info file (not really supported)
-gasnet.info: gasnet.texi
+gasnet.info: gasnet.texi texinfo.tex
 	makeinfo gasnet.texi
 
 info: gasnet.info
