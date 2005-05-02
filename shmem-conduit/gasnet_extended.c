@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2005/02/23 04:50:50 $
- * $Revision: 1.8 $
+ *     $Date: 2005/05/02 10:42:07 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -220,18 +220,26 @@ gasnete_try_syncnb(gasnet_handle_t handle)
 extern int  
 gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles) 
 {
+    int success = 0;
+    int empty = 1;
     int	i;
     GASNETI_SAFE(gasnet_AMPoll());
 
     gasneti_assert(phandle != NULL);
 
     for (i = 0; i < numhandles; i++) {
-	if_pf (phandle[i] == GASNET_INVALID_HANDLE)
-	    continue;
-	gasnete_try_syncnb_inner(phandle[i]);
+      gasnet_handle_t handle = phandle[i];
+      if (handle != GASNET_INVALID_HANDLE) {
+        empty = 0;
+        if (gasnete_try_syncnb_inner(handle) == GASNET_OK) { 
+          phandle[i] = GASNET_INVALID_HANDLE;
+          success = 1;
+        }  
+      }
     }
 
-    return GASNET_OK;
+    if (success || empty) return GASNET_OK;
+    else return GASNET_ERR_NOT_READY;
 }
 
 /*
