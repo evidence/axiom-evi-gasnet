@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/05/01 03:26:45 $
-# $Revision: 1.260 $
+#     $Date: 2005/05/02 17:13:52 $
+# $Revision: 1.261 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.260 $)
+AC_REVISION($Revision: 1.261 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -456,6 +456,8 @@ fi
 ##  Cluster computing libraries
 ##
 
+# -lm should only live in LIBM, and only if we have it (not in LIBS)
+GASNET_LIBM()
 
 GASNET_CHECK_LIB(ens, NameServer_Init, have_libens=yes, , -L/usr/lib ${with_ens:+-L$with_ens})
 AC_CHECK_LIB(glunix, Glib_Initialize, have_libglunix=yes, , -lsocket)
@@ -1020,6 +1022,40 @@ if test $enabled_mpi = yes; then
 
   # now run a basic test of the MPI configuration to make sure it works
   if test $have_mpi = yes; then
+
+    AC_MSG_CHECKING(building MPI helper object)
+    # we link in an object compiled with CC that uses libc, to ensure that's working
+    MPIHELPER_BASE=conftest_cfunc
+    MPIHELPER_SRC=$MPIHELPER_BASE.c
+    MPIHELPER_OBJ=$MPIHELPER_BASE.o
+    MPIHELPER_LIBS="$MPIHELPER_OBJ $LIBM"
+    MPIHELPER_CODE="extern int mpihelper_cint; extern void mpihelper_cfunc(int val); mpihelper_cfunc(mpihelper_cint);"
+    cat >$MPIHELPER_BASE.c <<_GASNET_EOF
+    #include <stdio.h>
+    #include <string.h>
+    #include <assert.h>
+    #include <math.h>
+    int mpihelper_cint = 0xFFFF;
+    extern void mpihelper_cfunc(int val) {
+      char s[[255]], s2[[255]];
+      int a[[40]] = {1}; /* trigger Intel C issue */
+      assert(val == mpihelper_cint);
+      s[[4]] = '\0';
+      s[[5]] = (char)(sin((double)val)+cos((double)val))+sqrt((double)val)+log((double)val);
+      strcpy(s2, s);
+      memcpy(s2, s, strlen(s)); memmove(s2, s, strlen(s));
+      memcpy(s2, s, 4); memmove(s2, s, 4);
+      fprintf(stdout,"hi\n");
+    }
+_GASNET_EOF
+    compile="$CC $CFLAGS $CPPFLAGS -c $MPIHELPER_SRC"
+    eval echo "$compile" >&5
+    if eval $compile 2>&5 && test -s $MPIHELPER_OBJ ; then
+	AC_MSG_RESULT(ok)
+    else
+	AC_MSG_ERROR(failed while building MPI helper object)
+    fi
+
     AC_MSG_CHECKING(for working MPI configuration)
     # we need a clean slate here because MPI config may be totally different
     OLDCC="$CC"
@@ -1031,11 +1067,12 @@ if test $enabled_mpi = yes; then
     CFLAGS="$MPI_CFLAGS"
     CPPFLAGS=""
     LDFLAGS=""
-    LIBS="$MPI_LIBS"
+    LIBS="$MPIHELPER_LIBS $MPI_LIBS"
     # we just try to link an MPI app - running MPI apps is a whole new can of worms
     AC_TRY_LINK( [
       #include <mpi.h>
     ], [
+      $MPIHELPER_CODE
       MPI_Init((void*)0,(void*)0);
       MPI_Finalize();
     ], [ mpi_test_worked=yes ], [ mpi_test_worked=no GASNET_ERR_SAVE() ] )
@@ -1044,6 +1081,7 @@ if test $enabled_mpi = yes; then
     CPPFLAGS="$OLDCPPFLAGS"
     LDFLAGS="$OLDLDFLAGS"
     LIBS="$OLDLIBS"
+    rm -f $MPIHELPER_OBJ
   fi
   if test "$mpi_test_worked" = yes ; then
       AC_MSG_RESULT(yes)
@@ -1924,21 +1962,6 @@ esac
 
 # Check for alloca in C code
 GASNET_FUNC_ALLOCA
-
-# -lm should only live in LIBM, and only if we have it (not in LIBS)
-OLDLIBS="$LIBS"
-case "$target_os" in
-  darwin*)
-    # libm is just an alias for the system default lib
-    # Naming it explicitly causes linker failures when linking w/ mpich
-  ;;
-  *)
-    # sin should be in everyone's libm if they've got one.
-    AC_CHECK_LIB(m, sin, LIBM="-lm", LIBM="")
-  ;;
-esac
-AC_SUBST(LIBS)
-AC_SUBST(LIBM)
 
 LIBS="$OLDLIBS"
 

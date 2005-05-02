@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/04/27 22:20:00 $
-dnl $Revision: 1.61 $
+dnl     $Date: 2005/05/02 17:13:52 $
+dnl $Revision: 1.62 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -238,6 +238,23 @@ fi
 cv_prefix[]lib_gcc="$LIBGCC"])
 LIBGCC="$cv_prefix[]lib_gcc"
 AC_SUBST(LIBGCC)
+])
+
+AC_DEFUN([GASNET_LIBM],[
+AC_REQUIRE([AC_PROG_CC])
+OLDLIBS="$LIBS"
+case "$target_os" in
+  darwin*)
+    # libm is just an alias for the system default lib
+    # Naming it explicitly causes linker failures when linking w/ mpich
+  ;;
+  *)
+    # sin should be in everyone's libm if they've got one.
+    AC_CHECK_LIB(m, sin, LIBM="-lm", LIBM="")
+  ;;
+esac
+AC_SUBST(LIBM)
+LIBS="$OLDLIBS"
 ])
 
 dnl GASNET_ENV_DEFAULT(envvar-name, default-value)
