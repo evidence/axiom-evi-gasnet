@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/04/18 17:40:11 $
- * $Revision: 1.96 $
+ *     $Date: 2005/05/02 20:43:11 $
+ * $Revision: 1.97 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1822,25 +1822,34 @@ int gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
  *  Externally visible functions                                                        *
  * ------------------------------------------------------------------------------------ */
 
-extern void gasnetc_sndrcv_init(void) {
+extern int gasnetc_sndrcv_init(void) {
   VAPI_cqe_num_t	act_size;
   VAPI_ret_t		vstat;
   gasnetc_buffer_t	*buf;
   gasnetc_rbuf_t	*rbuf;
   gasnetc_sreq_t	*sreq;
-  int 			padded_size, count, i;
+  int 			padded_size, rcv_count, i;
+
+  /* Check limits before allocating anything: */
+  gasnetc_am_oust_limit = MIN(gasnetc_am_oust_limit, gasnetc_am_oust_pp * (gasneti_nodes - 1));
+  rcv_count = /* max inbound Req: */ gasnetc_am_oust_pp * (gasneti_nodes - 1) +
+	      /* max inbound Rep: */ gasnetc_am_oust_limit +
+	      /* dedicated spare: */ (gasnetc_use_rcv_thread ? 1 : 0);
+  if (rcv_count > gasnetc_hca_cap.max_num_ent_cq) {
+    GASNETI_RETURN_ERRR(RESOURCE, "GASNET_AM_CREDIT_{PP,TOTAL} exceed HCA capabilities");
+  }
+  gasnetc_op_oust_limit = MIN(gasnetc_op_oust_limit, gasnetc_op_oust_pp * (gasneti_nodes - 1));
+  if (gasnetc_op_oust_limit > gasnetc_hca_cap.max_num_ent_cq) {
+    GASNETI_RETURN_ERRR(RESOURCE, "GASNET_NETWORKDEPTH_{PP,TOTAL} exceed HCA capabilities");
+  }
 
   /*
    * setup RCV resources
    */
-  count = gasnetc_am_oust_pp * (gasneti_nodes - 1)	/* max inbound requests */
-	  + gasnetc_am_oust_limit			/* max inbound replies */
-	  + (gasnetc_use_rcv_thread ? 1 : 0);		/* dedicated spare */
-
   /* create the RCV CQ */
-  vstat = VAPI_create_cq(gasnetc_hca, count , &gasnetc_rcv_cq, &act_size);
+  vstat = VAPI_create_cq(gasnetc_hca, rcv_count , &gasnetc_rcv_cq, &act_size);
   GASNETC_VAPI_CHECK(vstat, "from VAPI_create_cq(rcv_cq)");
-  gasneti_assert(act_size >= count);
+  gasneti_assert(act_size >= rcv_count);
 
   if (gasneti_nodes > 1) {
     if (gasnetc_use_rcv_thread) {
@@ -1853,19 +1862,21 @@ extern void gasnetc_sndrcv_init(void) {
     }
 
     /* Allocated pinned memory for receive buffers */
-    buf = gasnetc_alloc_pinned(count * sizeof(gasnetc_buffer_t),
+    buf = gasnetc_alloc_pinned(rcv_count * sizeof(gasnetc_buffer_t),
 			       VAPI_EN_LOCAL_WRITE, &gasnetc_rcv_reg);
     if_pf (buf == NULL) {
-      gasneti_fatalerror("Unable to allocate pinned memory for AM recv buffers");
+      (void)VAPI_destroy_cq(gasnetc_hca, gasnetc_snd_cq);
+      (void)VAPI_destroy_cq(gasnetc_hca, gasnetc_rcv_cq);
+      GASNETI_RETURN_ERRR(RESOURCE, "Unable to allocate pinned memory for AM recv buffers");
     }
 
     /* Allocated normal memory for receive descriptors (rbuf's) */
     padded_size = GASNETC_ALIGNUP(sizeof(gasnetc_rbuf_t), GASNETI_CACHE_LINE_BYTES);
-    gasnetc_rbuf_alloc = gasneti_malloc(count*padded_size + GASNETI_CACHE_LINE_BYTES-1);
+    gasnetc_rbuf_alloc = gasneti_malloc(rcv_count*padded_size + GASNETI_CACHE_LINE_BYTES-1);
 
     /* Initialize the rbuf's */
     rbuf = (gasnetc_rbuf_t *)GASNETC_ALIGNUP(gasnetc_rbuf_alloc, GASNETI_CACHE_LINE_BYTES);
-    for (i = 0; i < count; ++i) {
+    for (i = 0; i < rcv_count; ++i) {
       rbuf->rr_desc.id         = (uintptr_t)rbuf;	/* CQE will point back to this request */
       rbuf->rr_desc.opcode     = VAPI_RECEIVE;
       rbuf->rr_desc.comp_type  = VAPI_SIGNALED;
@@ -1887,38 +1898,48 @@ extern void gasnetc_sndrcv_init(void) {
   /*
    * setup SND resources
    */
-  count = MIN(gasnetc_op_oust_limit, gasnetc_op_oust_pp * (gasneti_nodes - 1));
-  gasnetc_op_oust_limit = count;
-  gasnetc_sema_init(&gasnetc_cq_sema, count);
+  gasnetc_sema_init(&gasnetc_cq_sema, gasnetc_op_oust_limit);
 
   /* create the SND CQ */
-  vstat = VAPI_create_cq(gasnetc_hca, count, &gasnetc_snd_cq, &act_size);
+  vstat = VAPI_create_cq(gasnetc_hca, gasnetc_op_oust_limit, &gasnetc_snd_cq, &act_size);
   GASNETC_VAPI_CHECK(vstat, "from VAPI_create_cq(snd_cq)");
-  gasneti_assert(act_size >= count);
+  gasneti_assert(act_size >= gasnetc_op_oust_limit);
 
   /* Allocated pinned memory for bounce buffers */
-  count = MIN(gasnetc_bbuf_limit, gasnetc_op_oust_pp * gasneti_nodes);
-  gasnetc_bbuf_limit = count;
-  buf = gasnetc_alloc_pinned(count * sizeof(gasnetc_buffer_t),
+  gasnetc_bbuf_limit = MIN(gasnetc_bbuf_limit, gasnetc_op_oust_pp * gasneti_nodes);
+  buf = gasnetc_alloc_pinned(gasnetc_bbuf_limit * sizeof(gasnetc_buffer_t),
 			     VAPI_EN_LOCAL_WRITE, &gasnetc_snd_reg);
   if_pf (buf == NULL) {
-    gasneti_fatalerror("Unable to allocate pinned memory for AM/bounce buffers");
+    if (gasneti_nodes > 1) {
+      if (gasnetc_use_rcv_thread) {
+	vstat = EVAPI_clear_comp_eventh(gasnetc_hca, gasnetc_rcv_handler);
+      }
+      gasneti_free(gasnetc_rbuf_alloc);
+      gasnetc_free_pinned(&gasnetc_rcv_reg);
+    }
+    (void)VAPI_destroy_cq(gasnetc_hca, gasnetc_snd_cq);
+    (void)VAPI_destroy_cq(gasnetc_hca, gasnetc_rcv_cq);
+    GASNETI_RETURN_ERRR(RESOURCE, "Unable to allocate pinned memory for AM/bounce buffers");
   }
-  for (i = 0; i < count; ++i) {
+  for (i = 0; i < gasnetc_bbuf_limit; ++i) {
     gasneti_freelist_put(&gasnetc_bbuf_freelist, buf);
     ++buf;
   }
 
   /* Allocated normal memory for send requests (sreq's) */
+  /* This initial allocation is the same size as the BBUF limit,
+   * but this pool can grow dynamically if more are needed. */
   padded_size = GASNETC_ALIGNUP(MAX(sizeof(gasnetc_sreq_t),
 				    sizeof(gasneti_freelist_ptr_t)),
 			        GASNETI_CACHE_LINE_BYTES);
-  gasnetc_sreq_alloc = gasneti_malloc(count*padded_size + GASNETI_CACHE_LINE_BYTES-1);
+  gasnetc_sreq_alloc = gasneti_malloc(gasnetc_bbuf_limit*padded_size + GASNETI_CACHE_LINE_BYTES-1);
   sreq = (gasnetc_sreq_t *)GASNETC_ALIGNUP(gasnetc_sreq_alloc, GASNETI_CACHE_LINE_BYTES);
-  for (i = 0; i < count; ++i) {
+  for (i = 0; i < gasnetc_bbuf_limit; ++i) {
     gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
     sreq = (gasnetc_sreq_t *)((uintptr_t)sreq + padded_size);
   }
+
+  return GASNET_OK;
 }
 
 extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep) {
@@ -1954,7 +1975,7 @@ extern void gasnetc_sndrcv_fini(void) {
     gasnetc_free_pinned(&gasnetc_snd_reg);
     
     /* XXX: can only free the "big" piece here.
-     * So we  leak any singletons we may have allocated
+     * So we leak any singletons we may have allocated
      */
     gasneti_free(gasnetc_sreq_alloc);
   }

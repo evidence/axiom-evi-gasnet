@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/04/16 03:17:35 $
- * $Revision: 1.78 $
+ *     $Date: 2005/05/02 20:43:11 $
+ * $Revision: 1.79 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -533,7 +533,7 @@ typedef struct {
 } gasnetc_memreg_t;
 
 /* Routines in gasnet_core_sndrcv.c */
-extern void gasnetc_sndrcv_init(void);
+extern int gasnetc_sndrcv_init(void);
 extern void gasnetc_sndrcv_fini(void);
 extern void gasnetc_sndrcv_init_cep(gasnetc_cep_t *cep);
 extern void gasnetc_sndrcv_fini_cep(gasnetc_cep_t *cep);

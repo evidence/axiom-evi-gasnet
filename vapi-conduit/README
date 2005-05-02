@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.21 $
+$Revision: 1.22 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -194,7 +194,7 @@ $Revision: 1.21 $
   These parameters must be equal across all nodes, and the behavior
   otherwise is undefined.
 
-  + GASNET_INLINE_LIMIT
+  + GASNET_INLINESEND_LIMIT
     VAPI includes an "inline" put operation that transfers the data to
     the HCA at the same time it transfers the request.  This normally
     provides a measurable performance improvement, but is only available
@@ -210,10 +210,10 @@ $Revision: 1.21 $
     is affecting some other version) you should try setting this
     variable to 0.
 
-  + GASNET_BOUNCE_LIMIT
-    To perform a non-bulk PUT, vapi-conduit must either copy the date into
+  + GASNET_NONBULKPUT_BOUNCE_LIMIT
+    To perform a non-bulk PUT, vapi-conduit must either copy the data into
     bounce buffers, or block until remote completion is signalled by the
-    HCA.  For non-bulk PUT, transfers upto and including this size are
+    HCA.  For non-bulk PUTs, transfers upto and including this size are
     performed using bounce buffers and larger transfers are transfered
     using blocking PUTs.
     
@@ -228,7 +228,7 @@ $Revision: 1.21 $
   These parameters must be equal across all nodes, and the behavior
   otherwise is undefined.
 
-  + GASNET_OP_OUST_PP
+  + GASNET_NETWORKDEPTH_PP
     This gives the maximum number of outstanding ops (RDMA + AMs) which
     can be in-flight simultaneously from a node to each of its peers.
     Here "in-flight" means queued to the send work queue and not yet
@@ -236,29 +236,25 @@ $Revision: 1.21 $
     are reaped in FIFO order, independent of when any corresponding
     GASNet operation is synced.
     This value is the depth of each send work queue.  Thus the memory
-    consumed for send work queues scales as GASNET_OP_OUST_PP*(N-1),
+    consumed for send work queues scales as GASNET_NETWORKDEPTH_PP*(N-1),
     on each node.
     The default value is 64.
     Reducing this parameter may limit small message throughput.  If you
     believe your small message throughput is too low, you may try
     increasing this value.
 
-  + GASNET_OP_OUST_LIMIT
+  + GASNET_NETWORKDEPTH_TOTAL
     This gives the maximum number of outstanding ops (RDMA + AMs) which
-    can be in-flight simultaneously from each node, with "in-flight"
-    defined as in GASNET_OP_OUST_PP.
-    This is (potentially) the depth of the send completion queue and the
-    number of 'sreq' data structures allocated to track in-flight ops.
-    However, for a given value of GASNET_OP_OUST_PP and N, it might not
-    be possible to launch GASNET_OP_OUST_LIMIT operations.  Therefore,
-    the memory consumed for the send completion queue and sreqs scales
-    as min(GASNET_OP_OUST_LIMIT, GASNET_OP_OUST_PP*(N-1)), on each node.
+    can be in-flight simultaneously from each node (with "in-flight"
+    defined as in GASNET_NETWORKDEPTH_PP.)
+    The depth of the send completion queue on each node is
+    min(GASNET_NETWORKDEPTH_TOTAL, GASNET_NETWORKDEPTH_PP*(N-1)).
     The default value is 1024.
     Reducing this parameter may limit small message throughput.  If you
     believe your small message throughput is too low, you may try
     increasing this value.
 
-  + GASNET_AM_OUST_PP
+  + GASNET_AM_CREDITS
     This give the maximum number of outstanding AM Requests which can
     be in-flight simultaneously from a node to each of its peers.  Here
     "in-flight" means the Request is queued to the send work queue, but
@@ -266,20 +262,24 @@ $Revision: 1.21 $
     (described in another section of this README).
     This is the number of receive buffers which must be preposted to each
     endpoint for AM Requests.
+    This value should be less than or equal to GASNET_NETWORKDEPTH_PP,
+    and will be trimmed to GASNET_NETWORKDEPTH_PP if larger.
     Thus, the memory consumed for the receive work queues and the receive
-    completion queue each scale as GASNET_AM_OUST_PP*(N-1) on each node.
+    completion queue each scale as GASNET_AM_CREDITS*(N-1) on each node.
     The default value is 32 (128KB*(N-1) for receive buffers).
     Reducing this parameter may limit Active Message throughput.  If you
     believe your Active Message throughput is too low, you may try
     increasing this value.
 
-  + GASNET_AM_OUST_LIMIT
+  + GASNET_AM_CREDITS_TOTAL
     This gives the integer number of outstanding AM Requests which can
     be in-flight simultaneously from each node, with "in-flight" defined
-    as in GASNET_AM_OUST_PP.
+    as in GASNET_AM_CREDITS.
     This is the number of receive buffers which must be allocated for
     posting to an endpoint for the AM Reply which follows each AM Request.
     The default is 1024 (4MB for reply buffers).
+    This value should be less than or equal to GASNET_NETWORKDEPTH_TOTAL,
+    and will be trimmed to GASNET_NETWORKDEPTH_TOTAL if larger.
     Reducing this parameter may limit Active Message throughput.  If you
     believe your Active Message throughput is too low, you may try
     increasing this value.
@@ -291,12 +291,12 @@ $Revision: 1.21 $
     address outside the GASNet segment.  The default is 1024, which results
     in a limit of 4MB (unless GASNETC_BUFSZ is changed at compile time).
     The actual number of buffers allocated maybe less if the values of
-    GASNET_OP_OUST_PP and GASNET_AP_OUST_LIMIT are such that all
+    GASNET_NETWORKDEPTH_PP and GASNET_AM_CREDITS_PP are such that all
     GASNET_BBUF_LIMIT buffers could never be consumed.
     Reducing this parameter limits the outstanding number of operations
     which consume bounce buffers.  This includes all Active Messages,
     and non-bulk non-blocking puts with a source outside the GASNet segment
-    (excluding those of size less than or equal to GASNETC_PUT_INLINE_LIMIT
+    (excluding those of size less than or equal to GASNET_INLINESEND_LIMIT
     which is currently 72 bytes).  If you believe that throughput of these
     operations is too small, you may try increasing this value.
    
