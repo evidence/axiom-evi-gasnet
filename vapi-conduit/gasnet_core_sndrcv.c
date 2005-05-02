@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/02 20:43:11 $
- * $Revision: 1.97 $
+ *     $Date: 2005/05/02 22:51:49 $
+ * $Revision: 1.98 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1830,22 +1830,48 @@ extern int gasnetc_sndrcv_init(void) {
   gasnetc_sreq_t	*sreq;
   int 			padded_size, rcv_count, i;
 
-  /* Check limits before allocating anything: */
+  /*
+   * Check/compute limits before allocating anything
+   */
+
+
+  if (gasnetc_op_oust_limit == 0) { /* 0 = automatic limit computation */
+    gasnetc_op_oust_limit = gasnetc_hca_cap.max_num_ent_cq;
+  }
+  gasnetc_op_oust_limit = MIN(gasnetc_op_oust_limit, gasnetc_op_oust_pp * (gasneti_nodes - 1));
+  GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_NETWORKDEPTH_TOTAL = %d", gasnetc_op_oust_limit));
+  if (gasnetc_op_oust_limit > gasnetc_hca_cap.max_num_ent_cq) {
+    GASNETI_RETURN_ERRR(RESOURCE, "GASNET_NETWORKDEPTH_{PP,TOTAL} exceed HCA capabilities");
+  }
+
+  if (gasnetc_am_oust_limit == 0) { /* 0 = automatic limit computation */
+    int used = /* max inbound Req: */ gasnetc_am_oust_pp * (gasneti_nodes - 1) +
+	       /* dedicated spare: */ (gasnetc_use_rcv_thread ? 1 : 0);
+    gasnetc_am_oust_limit = gasnetc_hca_cap.max_num_ent_cq - used;
+  }
   gasnetc_am_oust_limit = MIN(gasnetc_am_oust_limit, gasnetc_am_oust_pp * (gasneti_nodes - 1));
+  gasnetc_am_oust_limit = MIN(gasnetc_am_oust_limit, gasnetc_op_oust_limit);
+  GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_AM_CREDITS_TOTAL = %d", gasnetc_am_oust_limit));
   rcv_count = /* max inbound Req: */ gasnetc_am_oust_pp * (gasneti_nodes - 1) +
 	      /* max inbound Rep: */ gasnetc_am_oust_limit +
 	      /* dedicated spare: */ (gasnetc_use_rcv_thread ? 1 : 0);
   if (rcv_count > gasnetc_hca_cap.max_num_ent_cq) {
     GASNETI_RETURN_ERRR(RESOURCE, "GASNET_AM_CREDIT_{PP,TOTAL} exceed HCA capabilities");
   }
-  gasnetc_op_oust_limit = MIN(gasnetc_op_oust_limit, gasnetc_op_oust_pp * (gasneti_nodes - 1));
-  if (gasnetc_op_oust_limit > gasnetc_hca_cap.max_num_ent_cq) {
-    GASNETI_RETURN_ERRR(RESOURCE, "GASNET_NETWORKDEPTH_{PP,TOTAL} exceed HCA capabilities");
+
+  if (gasnetc_bbuf_limit == 0) { /* 0 = automatic limit computation */
+    /* We effectively count local AMs against gasnetc_op_oust_limit for simplicity,
+     * but only expect one in-flight per thread anyway. */
+    gasnetc_bbuf_limit = gasnetc_op_oust_limit;
+  } else {
+    gasnetc_bbuf_limit = MIN(gasnetc_bbuf_limit, gasnetc_op_oust_limit);
   }
+  GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_BBUF_LIMIT = %d", gasnetc_bbuf_limit));
 
   /*
    * setup RCV resources
    */
+
   /* create the RCV CQ */
   vstat = VAPI_create_cq(gasnetc_hca, rcv_count , &gasnetc_rcv_cq, &act_size);
   GASNETC_VAPI_CHECK(vstat, "from VAPI_create_cq(rcv_cq)");
@@ -1905,8 +1931,7 @@ extern int gasnetc_sndrcv_init(void) {
   GASNETC_VAPI_CHECK(vstat, "from VAPI_create_cq(snd_cq)");
   gasneti_assert(act_size >= gasnetc_op_oust_limit);
 
-  /* Allocated pinned memory for bounce buffers */
-  gasnetc_bbuf_limit = MIN(gasnetc_bbuf_limit, gasnetc_op_oust_pp * gasneti_nodes);
+  /* Allocated pinned memory for AMs and bounce buffers */
   buf = gasnetc_alloc_pinned(gasnetc_bbuf_limit * sizeof(gasnetc_buffer_t),
 			     VAPI_EN_LOCAL_WRITE, &gasnetc_snd_reg);
   if_pf (buf == NULL) {

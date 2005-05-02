@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/05/02 20:43:11 $
- * $Revision: 1.96 $
+ *     $Date: 2005/05/02 22:51:49 $
+ * $Revision: 1.97 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,15 +42,15 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
 #define GASNETC_DEFAULT_PORT_NUM	0		/* 0 = use lowest-numbered active port */
 
 /* Limits on in-flight (queued but not reaped) RDMA Ops */
-#define GASNETC_DEFAULT_NETWORKDEPTH_TOTAL	1024	/* Max ops (RMDA + AM) outstanding at source */
+#define GASNETC_DEFAULT_NETWORKDEPTH_TOTAL	0	/* Max ops (RMDA + AM) outstanding at source, 0 = automatic */
 #define GASNETC_DEFAULT_NETWORKDEPTH_PP		64	/* Max ops (RMDA + AM) outstanding to each peer */
 
 /* Limits on in-flight (queued but not acknowledged) AM Requests */
-#define GASNETC_DEFAULT_AM_CREDITS_TOTAL	1024	/* Max AM requests outstanding at source */
+#define GASNETC_DEFAULT_AM_CREDITS_TOTAL	0	/* Max AM requests outstanding at source, 0 = automatic */
 #define GASNETC_DEFAULT_AM_CREDITS_PP		32	/* Max AM requests outstanding to each peer */
 
 /* Limit on prepinned send bounce buffers */
-#define GASNETC_DEFAULT_BBUF_LIMIT	1024	/* Max bounce buffers prepinned */
+#define GASNETC_DEFAULT_BBUF_COUNT		0	/* Max bounce buffers prepinned, 0 = automatic */
 
 /* Limit on size of prepinned regions */
 #define GASNETC_DEFAULT_PIN_MAXSZ	(256*1024)
@@ -366,10 +366,10 @@ static int gasnetc_load_settings(void) {
     } while (0)
 
   GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_NETWORKDEPTH_PP, GASNETC_DEFAULT_NETWORKDEPTH_PP, 1);
-  GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_NETWORKDEPTH_TOTAL, GASNETC_DEFAULT_NETWORKDEPTH_TOTAL, 1);
+  GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_NETWORKDEPTH_TOTAL, GASNETC_DEFAULT_NETWORKDEPTH_TOTAL, 0);
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_CREDITS_PP, GASNETC_DEFAULT_AM_CREDITS_PP, 1);
-  GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_CREDITS_TOTAL, GASNETC_DEFAULT_AM_CREDITS_TOTAL, 1);
-  GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_LIMIT, GASNETC_DEFAULT_BBUF_LIMIT, 1);
+  GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_CREDITS_TOTAL, GASNETC_DEFAULT_AM_CREDITS_TOTAL, 0);
+  GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_COUNT, GASNETC_DEFAULT_BBUF_COUNT, 0);
   GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINESEND_LIMIT, GASNETC_DEFAULT_INLINESEND_LIMIT, 0);
   GASNETC_ENVINT(gasnetc_bounce_limit, GASNET_NONBULKPUT_BOUNCE_LIMIT, GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT, 0);
   #if GASNETC_PIN_SEGMENT
@@ -393,6 +393,8 @@ static int gasnetc_load_settings(void) {
   }
   #endif
   gasnetc_use_rcv_thread = gasneti_getenv_yesno_withdefault("GASNET_RCV_THREAD", GASNETC_DEFAULT_RCV_THREAD); /* Bug 1012 - right default? */
+
+  /* Verify correctness/sanity of values */
   if (gasnetc_use_rcv_thread && !GASNETC_VAPI_RCV_THREAD) {
     gasneti_fatalerror("VAPI AM receive thread enabled by environment variable GASNET_RCV_THREAD, but was disabled at GASNet build time");
   }
@@ -400,7 +402,20 @@ static int gasnetc_load_settings(void) {
   if (!GASNETC_PIN_SEGMENT && !gasnetc_use_firehose) {
     gasneti_fatalerror("Use of the 'firehose' dynamic pinning library disabled by environment variable GASNET_USE_FIREHOSE, but is required in a GASNET_SEGMENT_" _STRINGIFY(GASNETI_SEGMENT_CONFIG) " configuration");
   }
+  if_pf (gasnetc_op_oust_limit && (gasnetc_am_oust_limit > gasnetc_op_oust_limit)) {
+    fprintf(stderr,
+            "WARNING: GASNET_AM_CREDITS_TOTAL reduced to GASNET_NETWORKDEPTH_TOTAL (from %d to %d)\n",
+            gasnetc_am_oust_limit, gasnetc_op_oust_limit);
+    gasnetc_am_oust_limit = gasnetc_op_oust_limit;
+  }
+  if_pf (gasnetc_am_oust_pp > gasnetc_op_oust_pp) {
+    fprintf(stderr,
+            "WARNING: GASNET_AM_CREDITS_PP reduced to GASNET_NETWORKDEPTH_PP (from %d to %d)\n",
+            gasnetc_am_oust_pp, gasnetc_op_oust_pp);
+    gasnetc_am_oust_pp = gasnetc_op_oust_pp;
+  }
 
+  /* Report */
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_VAPI_RCV_THREAD)",
 				GASNETC_VAPI_RCV_THREAD ? "en" : "dis"));
@@ -427,10 +442,13 @@ static int gasnetc_load_settings(void) {
     GASNETI_TRACE_PRINTF(C,("  GASNET_PORT_NUM                 unset or zero  (will probe)"));
   }
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_NETWORKDEPTH_PP          = %d", gasnetc_op_oust_pp));
-  GASNETI_TRACE_PRINTF(C,  ("  GASNET_NETWORKDEPTH_TOTAL       = %d", gasnetc_op_oust_limit));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_NETWORKDEPTH_TOTAL       = %d%s",
+			  	gasnetc_op_oust_limit, gasnetc_op_oust_limit ? "" : " (automatic)"));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_CREDITS_PP            = %d", gasnetc_am_oust_pp));
-  GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_CREDITS_TOTAL         = %d", gasnetc_am_oust_limit));
-  GASNETI_TRACE_PRINTF(C,  ("  GASNET_BBUF_LIMIT               = %d", gasnetc_bbuf_limit));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_CREDITS_TOTAL         = %d%s",
+			  	gasnetc_am_oust_limit, gasnetc_am_oust_limit ? "" : " (automatic)"));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_BBUF_COUNT               = %d%s",
+			  	gasnetc_bbuf_limit, gasnetc_bbuf_limit ? "": " (automatic)"));
 #if GASNETC_PIN_SEGMENT
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_PIN_MAXSZ                = %lu", gasnetc_pin_maxsz));
 #endif
@@ -709,18 +727,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   if_pf (gasneti_nodes > gasnetc_hca_cap.max_num_qp) {
     (void)EVAPI_release_hca_hndl(gasnetc_hca);
     GASNETI_RETURN_ERRR(RESOURCE, "gasnet_nodes exceeds HCA capabilities");
-  }
-  if_pf (gasnetc_am_oust_limit > gasnetc_op_oust_limit) {
-    fprintf(stderr,
-            "WARNING: GASNET_AM_CREDITS_TOTAL reduced to GASNET_NETWORKDEPTH_TOTAL (from %d to %d)\n",
-            gasnetc_am_oust_limit, gasnetc_op_oust_limit);
-    gasnetc_am_oust_limit = gasnetc_op_oust_limit;
-  }
-  if_pf (gasnetc_am_oust_pp > gasnetc_op_oust_pp) {
-    fprintf(stderr,
-            "WARNING: GASNET_AM_CREDITS_PP reduced to GASNET_NETWORKDEPTH_PP (from %d to %d)\n",
-            gasnetc_am_oust_pp, gasnetc_op_oust_pp);
-    gasnetc_am_oust_pp = gasnetc_op_oust_pp;
   }
   if_pf (gasnetc_am_oust_pp * 2 > gasnetc_hca_cap.max_qp_ous_wr) {
     (void)EVAPI_release_hca_hndl(gasnetc_hca);
