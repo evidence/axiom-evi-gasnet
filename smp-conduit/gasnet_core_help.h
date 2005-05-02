@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core_help.h,v $
- *     $Date: 2005/02/12 11:29:35 $
- * $Revision: 1.4 $
+ *     $Date: 2005/05/02 07:00:24 $
+ * $Revision: 1.5 $
  * Description: GASNet smp conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,7 +19,7 @@ BEGIN_EXTERNC
 
 #define GASNETC_MAX_ARGS   16
 #define GASNETC_MAX_MEDIUM 65536   /* limited only by bufferring constraints */
-#define GASNETC_MAX_LONG   (1<<30) /* unlimited */
+#define GASNETC_MAX_LONG   ((size_t)0x7fffffff) /* unlimited */
 
 END_EXTERNC
 
