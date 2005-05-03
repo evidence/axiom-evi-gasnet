@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/05/02 22:51:49 $
- * $Revision: 1.97 $
+ *     $Date: 2005/05/03 18:24:56 $
+ * $Revision: 1.98 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,11 +46,11 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
 #define GASNETC_DEFAULT_NETWORKDEPTH_PP		64	/* Max ops (RMDA + AM) outstanding to each peer */
 
 /* Limits on in-flight (queued but not acknowledged) AM Requests */
-#define GASNETC_DEFAULT_AM_CREDITS_TOTAL	0	/* Max AM requests outstanding at source, 0 = automatic */
+#define GASNETC_DEFAULT_AM_CREDITS_TOTAL	1024	/* Max AM requests outstanding at source, 0 = automatic */
 #define GASNETC_DEFAULT_AM_CREDITS_PP		32	/* Max AM requests outstanding to each peer */
 
 /* Limit on prepinned send bounce buffers */
-#define GASNETC_DEFAULT_BBUF_COUNT		0	/* Max bounce buffers prepinned, 0 = automatic */
+#define GASNETC_DEFAULT_BBUF_COUNT		1024	/* Max bounce buffers prepinned, 0 = automatic */
 
 /* Limit on size of prepinned regions */
 #define GASNETC_DEFAULT_PIN_MAXSZ	(256*1024)
