@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.24 $
+$Revision: 1.25 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -278,7 +278,7 @@ $Revision: 1.24 $
     follows each AM Request.
     If set to zero, the value is set to the maximum usable value computed
     from GASNET_AM_CREDITS_PP and the HCA's reported capabilities.
-    The default value is 0 (compute automatically).
+    The default value is 1024 (up to 4MB for receiving AM Replies).
     This value should be less than or equal to GASNET_NETWORKDEPTH_TOTAL,
     and will be trimmed to GASNET_NETWORKDEPTH_TOTAL if larger.
     Reducing this parameter may limit Active Message throughput.  If you
@@ -295,13 +295,13 @@ $Revision: 1.24 $
     network depth bounds the number of in-flight operations that might
     need these buffers.
     If set to zero, the value is set to GASNET_NETWORKDEPTH_TOTAL.
-    The default value is 0 (compute automatically).
+    The default value is 1024 (up to 4MB for buffers).
     Reducing this parameter limits the number of in-flight operations
-    which consume bounce buffers.  This includes all Active Messages,
-    and PUTs subject to the GASNET_NONBULKPUT_BOUNCE_LIMIT.  If you
-    believe that throughput of these operations is too small, you may try
-    increasing this value (or setting it to zero), at a cost in additional
-    pinned memory.
+    which consume bounce buffers.  This includes AMs too large for an
+    inline send and PUTs subject to the GASNET_NONBULKPUT_BOUNCE_LIMIT.
+    If you believe that throughput of these operations is too small, you
+    may try increasing this value (or setting it to zero), at a cost in
+    additional pinned memory.
    
   + GASNET_PIN_MAXSZ
     This gives the maximum size of a single VAPI pinned region, and must
