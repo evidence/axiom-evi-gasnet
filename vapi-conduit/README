@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.23 $
+$Revision: 1.24 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -195,7 +195,7 @@ $Revision: 1.23 $
   otherwise is undefined.
 
   + GASNET_INLINESEND_LIMIT
-    VAPI includes an "inline" put operation that transfers the data to
+    VAPI includes an "inline send" operation that transfers the data to
     the HCA at the same time it transfers the request.  This normally
     provides a measurable performance improvement, but is only available
     up to an firmware-dependent maximum size.  Therefore, the default of
@@ -214,8 +214,8 @@ $Revision: 1.23 $
     To perform a non-bulk PUT, vapi-conduit must either copy the data into
     bounce buffers, or block until remote completion is signalled by the
     HCA.  For non-bulk PUTs, transfers upto and including this size are
-    performed using bounce buffers and larger transfers are transfered
-    using blocking PUTs.
+    performed using bounce buffers (or inline sends) and larger transfers
+    are transfered using blocking PUTs.
     
   Resource usage parameters:
   The following environment variables control how much memory is
@@ -233,7 +233,11 @@ $Revision: 1.23 $
     in-flight simultaneously from a node to each of its peers.  Here
     "in-flight" means queued to the send work queue and not yet reaped
     from the send completion queue.  This value is the depth of each
-    send work queue.
+    send work queue.  This limit is on the number of vapi-level ops
+    in-flight, and the number of GASNet-level operations may be less
+    (for example, when the remote range of a PUT or GET covers more
+    than one pinned region, due to GASNET_MAX_PINSZ, or because an AM
+    Long uses separate ops for the payload and header).
     The default value is 64.
     Reducing this parameter may limit small message throughput.  If you
     believe your small message throughput is too low, you may try
