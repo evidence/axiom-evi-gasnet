@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/02 22:51:49 $
- * $Revision: 1.98 $
+ *     $Date: 2005/05/03 04:21:10 $
+ * $Revision: 1.99 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1865,6 +1865,10 @@ extern int gasnetc_sndrcv_init(void) {
     gasnetc_bbuf_limit = gasnetc_op_oust_limit;
   } else {
     gasnetc_bbuf_limit = MIN(gasnetc_bbuf_limit, gasnetc_op_oust_limit);
+  }
+  if (gasneti_nodes == 1) {
+    /* no AM or RDMA on the wire, but still need bufs for constructing AMs */
+    gasnetc_bbuf_limit = gasnetc_am_oust_pp;
   }
   GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_BBUF_LIMIT = %d", gasnetc_bbuf_limit));
 
