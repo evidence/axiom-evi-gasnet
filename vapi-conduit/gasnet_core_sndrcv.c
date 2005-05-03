@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/03 04:21:10 $
- * $Revision: 1.99 $
+ *     $Date: 2005/05/03 21:36:12 $
+ * $Revision: 1.100 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -406,11 +406,12 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 
 	  case VAPI_CQE_SQ_SEND_DATA:	/* AM send */
 	    gasneti_assert(sreq->mem_oust == NULL);
-	    gasneti_assert(sreq->am_buff != NULL);
             if (sreq->req_oust) {
               gasnetc_counter_dec(sreq->req_oust);
 	    }
-	    gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->am_buff);
+	    if_pf (sreq->am_buff != NULL) {
+	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->am_buff);
+	    }
 	    break;
 
 	  default:
@@ -991,38 +992,67 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   uint32_t flags;
   size_t msg_len;
   int retval, i;
+  union {         
+    gasnetc_shortmsg_t    shortmsg;
+    gasnetc_medmsg_t      medmsg;
+    gasnetc_longmsg_t     longmsg;
+    uint8_t		  raw[72];	/* could be gasnetc_inline_limit if we had VLA */
+  } tmp_buf;
 
-  /* FIRST, if using firehose then Long requests may need AMs for moves.
+
+  /* FIRST, figure out msg_len so we know if we can use inline or not.
+   * Also, if using firehose then Long requests may need AMs for moves.
    * Thus we MUST do any RDMA before getting credits.  It can't hurt to queue
    * the Long RDMA as early as possible even when firehose is not in use.
    */
-  if ((category == gasnetc_Long) && nbytes) {
-    if (dest == gasneti_mynode) {
-      memcpy(dst_addr, src_addr, nbytes);
-    } else {
-      /* XXX check for error returns */
-      #if GASNETC_PIN_SEGMENT
-	/* Queue the RDMA.  We can count on point-to-point ordering to deliver payload before header */
-        (void)gasnetc_rdma_put(dest, src_addr, dst_addr, nbytes, mem_oust, NULL);
-      #else
-	if (!token) {
-	  /* Point-to-point ordering still holds, but only once the RDMA is actually queued.
-	   * In the case of a firehose hit, the RDMA is already queued before return from
-	   * gasnetc_rdma_put_fh().  On a miss, however, we'll need to spin on am_oust to
-	   * determine when all the RDMA is actually queued.
-	   * It would have been nice to move the wait down further in this function, but
-	   * that would lead to deadlock if we hold the resources needed to queue the RDMA.
-	   */
-	  gasnetc_counter_t am_oust = GASNETC_COUNTER_INITIALIZER;
-	  (void)gasnetc_rdma_put_fh(dest, src_addr, dst_addr, nbytes, mem_oust, NULL, &am_oust);
-	  gasnetc_counter_wait(&am_oust, 0);
-	} else {
-	  /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s).
-	   * We'll send it like a Medium below.
-	   */
-	}
-      #endif
+  switch (category) {
+  case gasnetc_System: /* Currently System == Short.  Fall through... */
+  case gasnetc_Short:
+    msg_len = offsetof(gasnetc_buffer_t, shortmsg.args[numargs]);
+    if (!msg_len) msg_len = 1; /* Mellanox bug (zero-length sends) work-around */
+    break;
+
+  case gasnetc_Medium:
+    msg_len = GASNETC_MSG_MED_OFFSET(numargs) + nbytes;
+    break;
+
+  case gasnetc_Long:
+    msg_len = offsetof(gasnetc_buffer_t, longmsg.args[numargs]);
+    /* Start moving the Long payload if possible */
+    if (nbytes) {
+      if (dest == gasneti_mynode) {
+        memcpy(dst_addr, src_addr, nbytes);
+      } else {
+        /* XXX check for error returns */
+        #if GASNETC_PIN_SEGMENT
+	  /* Queue the RDMA.  We can count on point-to-point ordering to deliver payload before header */
+          (void)gasnetc_rdma_put(dest, src_addr, dst_addr, nbytes, mem_oust, NULL);
+        #else
+	  if (!token) {
+	    /* Point-to-point ordering still holds, but only once the RDMA is actually queued.
+	     * In the case of a firehose hit, the RDMA is already queued before return from
+	     * gasnetc_rdma_put_fh().  On a miss, however, we'll need to spin on am_oust to
+	     * determine when all the RDMA is actually queued.
+	     * It would have been nice to move the wait down further in this function, but
+	     * that would lead to deadlock if we hold the resources needed to queue the RDMA.
+	     */
+	    gasnetc_counter_t am_oust = GASNETC_COUNTER_INITIALIZER;
+	    (void)gasnetc_rdma_put_fh(dest, src_addr, dst_addr, nbytes, mem_oust, NULL, &am_oust);
+	    gasnetc_counter_wait(&am_oust, 0);
+	  } else {
+	    /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s).
+	     * We'll send it like a Medium below.
+	     */
+	    msg_len = GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
+	  }
+        #endif
+      }
     }
+    break;
+
+  default:
+    gasneti_fatalerror("invalid AM category on send");
+    /* NOT REACHED */
   }
 
   /* NEXT, get the flow-control credit needed for AM Requests.
@@ -1063,26 +1093,26 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     }
   }
 
-  /* Now get an sreq and buffer to start building the message */
+  /* Now get an sreq and buffer and start building the message */
   sreq = gasnetc_get_sreq();
-  buf = sreq->am_buff = gasnetc_get_bbuf(1);
+  if_pt ((msg_len <= gasnetc_inline_limit) && (msg_len <= sizeof(tmp_buf))) {
+    buf = (gasnetc_buffer_t *)&tmp_buf;
+    sreq->am_buff = NULL;
+  } else {
+    buf = gasnetc_get_bbuf(1);
+    sreq->am_buff = buf;
+  }
 
   switch (category) {
-  case gasnetc_System:
-    /* currently all System AMs are shorts, they could be mediums later */
-    /* fall through... */
-
+  case gasnetc_System: /* Currently System == Short.  Fall through... */
   case gasnetc_Short:
     args = buf->shortmsg.args;
-    msg_len = offsetof(gasnetc_buffer_t, shortmsg.args[numargs]);
-    if (!msg_len) msg_len = 1; /* Mellanox bug (zero-length sends) work-around */
     break;
 
   case gasnetc_Medium:
     args = buf->medmsg.args;
     buf->medmsg.nBytes = nbytes;
     memcpy(GASNETC_MSG_MED_DATA(buf, numargs), src_addr, nbytes);
-    msg_len = GASNETC_MSG_MED_OFFSET(numargs) + nbytes;
     break;
 
   case gasnetc_Long:
@@ -1092,9 +1122,6 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     if (!GASNETC_PIN_SEGMENT && nbytes && (dest != gasneti_mynode) && token) {
       /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s) */
       memcpy(GASNETC_MSG_LONG_DATA(buf, numargs), src_addr, nbytes);
-      msg_len = GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
-    } else {
-      msg_len = offsetof(gasnetc_buffer_t, longmsg.args[numargs]);
     }
     break;
 
@@ -1122,7 +1149,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     rbuf.rr_sg.addr = (uintptr_t)buf;
 
     gasnetc_processPacket(&rbuf, flags);
-    gasneti_freelist_put(&gasnetc_bbuf_freelist, buf);
+    if_pf (sreq->am_buff != NULL) {
+      gasneti_freelist_put(&gasnetc_bbuf_freelist, buf);
+    }
     gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
     retval = GASNET_OK;
   } else {
@@ -1141,7 +1170,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       sreq->req_oust = req_oust;
     }
 
-    if_pt (msg_len <= gasnetc_inline_limit) {
+    if_pt (sreq->am_buff == NULL) {
       gasnetc_snd_post_inline(sreq, sr_desc);
     } else {
       gasnetc_snd_post(sreq, sr_desc);
