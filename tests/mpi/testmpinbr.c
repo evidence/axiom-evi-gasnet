@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/mpi/testmpinbr.c,v $
- *     $Date: 2005/04/28 09:16:06 $
- * $Revision: 1.4 $
+ *     $Date: 2005/05/03 18:54:19 $
+ * $Revision: 1.5 $
  * Description: MG-like neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -833,7 +833,7 @@ ge_give3(nbr_t *nb, int dir, int axis, MPI_Request *req)
     int	    node, srcp, destp;
     size_t  len;
 
-    //printf("%d> in give dir=%d, axis=%d\n", myproc, dir, axis);
+    /*printf("%d> in give dir=%d, axis=%d\n", myproc, dir, axis);*/
     if (dir == GHOST_DIR_UPPER) {
 	node = nb->nodeidUpper[axis];
 	srcp = nb->dims[axis]-2;
@@ -869,7 +869,6 @@ ge_give3(nbr_t *nb, int dir, int axis, MPI_Request *req)
 	default:
 	    break;
     }
-    //MPI_SAFE(
 	MPI_Isend(src, len, MPI_BYTE, node, myproc, MPI_COMM_WORLD, req);
 
     return;

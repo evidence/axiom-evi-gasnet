@@ -53,8 +53,8 @@ int main(int argc, char *argv[])
 
     if (myid == 0) {
         fprintf(stdout, "# OSU MPI Bandwidth Test (Version 2.0)\n");
-        fprintf(stdout, "# Size\t\tBandwidth (MB/s)  \n");
         fprintf(stdout, "# Modified to report: 1 MB == 2^20 bytes\n");
+        fprintf(stdout, "# Size\t\tBandwidth (MB/s)  \n");
     }
 
     /* Bandwidth test */
