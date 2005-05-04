@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.am,v $
-#     $Date: 2005/05/01 00:51:28 $
-# $Revision: 1.32 $
+#     $Date: 2005/05/04 08:12:52 $
+# $Revision: 1.33 $
 # Description: Makefile for AMMPI/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -87,48 +87,38 @@ test%: test%.o apputils.o libammpi.a
 
 TEST_NODES=2
 AMMPI_RUNCMD='@MPIRUN_CMD@'
-AMMPI_RUNCMD_EXP=`echo $(AMMPI_RUNCMD) | sed 's/%N/$(TEST_NODES)/;s/%C//;s/%P//;s/%A//;s/%V//'`
-TEST_RUNCMD=$(AMMPI_RUNCMD_EXP)
+TEST_LINE=++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+AMMPI_RUNCMD_EXP=\
+      TEST_RUN_P=`echo "$$TEST_RUN" | sed 's/ .*$$//'`  \
+      TEST_RUN_A=`echo "$$TEST_RUN" | sed 's/^[^ ]* //'` \
+      TEST_DOIT=`echo $(AMMPI_RUNCMD) | sed 's/%N/$(TEST_NODES)/;s@%C@'"$$TEST_RUN"'@;s@%P@'"$$TEST_RUN_P"'@;s@%A@'"$$TEST_RUN_A"'@;s/%V//'`
+TEST_RUNCMD=$(AMMPI_RUNCMD_EXP) ; 				\
+         if test -x "$$TEST_RUN_P" ; then                       \
+            echo "  **** `basename $$TEST_RUN_P` **** "; 	\
+            echo $$TEST_DOIT ; 					\
+            $$TEST_DOIT ; 					\
+            echo $(TEST_LINE) ;					\
+         fi
 TEST_ITERS=100
 TEST_MODE=P
 TEST_DEPTH=32
 TEST_DUPLEX=H
 AMMPI_NETWORKDEPTH=$(TEST_DEPTH)
 run-tests: tests
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo $(TEST_LINE)
 	@echo  Running AMMPI tests...
 	@echo  If this fails to spawn a job, you may need to re-run with a
 	@echo   command like: gmake run-tests AMMPI_RUNCMD=\"$(AMMPI_RUNCMD)\"
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTPING
-	$(TEST_RUNCMD) ./testping $(TEST_ITERS) $(TEST_MODE)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTLATENCY
-	$(TEST_RUNCMD) ./testlatency $(TEST_ITERS) $(TEST_MODE)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTLATENCYM
-	$(TEST_RUNCMD) ./testlatencyM $(TEST_ITERS) $(TEST_MODE) 64
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTBULK
-	$(TEST_RUNCMD) ./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTAM
-	$(TEST_RUNCMD) ./testam $(TEST_ITERS) $(TEST_MODE)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTBOUNCE
-	$(TEST_RUNCMD) ./testbounce $(TEST_ITERS) $(TEST_MODE) 
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTREDUCE
-	$(TEST_RUNCMD) ./testreduce 
-if PLATFORM_ILP32
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
-	@echo TESTGETPUT 
-	$(TEST_RUNCMD) ./testgetput $(TEST_ITERS) 
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTREADWRITE
-	$(TEST_RUNCMD) ./testreadwrite $(TEST_ITERS)
-endif
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+	@echo $(TEST_LINE)
+	@TEST_RUN="./testping $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
+	@TEST_RUN="./testlatency $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
+	@TEST_RUN="./testlatencyM $(TEST_ITERS) $(TEST_MODE) 64" $(TEST_RUNCMD)
+	@TEST_RUN="./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)" $(TEST_RUNCMD)
+	@TEST_RUN="./testam $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
+	@TEST_RUN="./testbounce $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
+	@TEST_RUN="./testreduce" $(TEST_RUNCMD)
+	@TEST_RUN="./testgetput $(TEST_ITERS)" $(TEST_RUNCMD)
+	@TEST_RUN="./testreadwrite $(TEST_ITERS)" $(TEST_RUNCMD)
 	@echo TESTS COMPLETE
 
 %.o: %.c ammpi.h ammpi_spmd.h ammpi_internal.h

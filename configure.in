@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/05/02 17:13:52 $
-# $Revision: 1.261 $
+#     $Date: 2005/05/04 08:12:48 $
+# $Revision: 1.262 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.261 $)
+AC_REVISION($Revision: 1.262 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -281,11 +281,8 @@ case "$gasnet_cv_cc_family" in
   PGI) MISC_CFLAGS="-Masmkeyword" ;;
   MTA) MISC_CFLAGS="-display_error_number -WS 111,174,238" ;;
   Sun) MISC_CFLAGS="-errtags" ;; # show warning tag ids in warnings
-  XLC) MISC_CFLAGS="-qsuppress=1500-010" # 1500-010 = infinite loop (such as in our tests)
-       case "$target_os" in
-	  linux*) MISC_CFLAGS="$MISC_CFLAGS -qsuppress=1506-1108";; # 1506-1108 = __inline__ non-portable
-       esac;;
-  *)    MISC_CFLAGS="" ;;
+  XLC) MISC_CFLAGS="-qsuppress=1500-010" ;; # 1500-010 = infinite loop (such as in our tests)
+  *)   MISC_CFLAGS="" ;;
 esac
 
 case "$gasnet_cv_cc_family" in
@@ -954,7 +951,7 @@ if test $enabled_mpi = yes; then
 	fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, [-Wl,-bbigtoc])
-	GASNET_ENV_DEFAULT(MPIRUN_CMD, poe %C -nodes %N -tasks_per_node 1 -rmpool 1 -euilib us -retry 1 -retrycount 10000)
+	GASNET_ENV_DEFAULT(MPIRUN_CMD, poe %C -nodes %N -tasks_per_node 1 -rmpool 1 -euilib us -retry 1 -retrycount 10000 -msg_api mpi)
         ;;
     osf*)
 	GASNET_ENV_DEFAULT(MPI_CC, cc)
@@ -1974,6 +1971,10 @@ AC_CHECK_FUNCS(setenv unsetenv putenv)
 inlinemod=""
 case "$gasnet_cv_cc_family" in
   Compaq) # force __inline on Compaq C, because it's the most effective
+    AC_DEFINE(CC_INLINE_MODIFIER, __inline)
+    inlinemod=__inline
+  ;;
+  XLC) # force __inline on XLC, to avoid warnings
     AC_DEFINE(CC_INLINE_MODIFIER, __inline)
     inlinemod=__inline
   ;;

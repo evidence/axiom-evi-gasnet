@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/04/09 01:59:12 $
- * $Revision: 1.19 $
+ *     $Date: 2005/05/04 08:12:54 $
+ * $Revision: 1.20 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,7 +94,8 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 #define CALL(FUNC,DST,SRC,FLAGS) \
   gasnet_coll_##FUNC(GASNET_TEAM_ALL,DST,SRC,sizeof(int),\
 			FLAGS|GASNET_COLL_SRC_IN_SEGMENT|GASNET_COLL_DST_IN_SEGMENT);
-#define DEFN(PREFIX, DESC, FLAGS, SUFFIX)                                    \
+#define DEFN(PREFIX, DESC, FLAGS, SUFFIX) _DEFN(PREFIX, DESC, FLAGS, SUFFIX)
+#define _DEFN(PREFIX, DESC, FLAGS, SUFFIX)                                   \
 /* NO/NO - in/out data is not generated/consumed in same barrier phase */    \
 void PREFIX##_NONO(int iters, gasnet_node_t root) {                          \
     const char name[] = DESC " NO/NO";                                       \
@@ -292,12 +293,13 @@ void PREFIX##_ALLALL(int iters, gasnet_node_t root) {                        \
                                                                              \
     BARRIER(); /* ensure validation completes before next test */            \
 }
+#define EMPTY
 
 #define ALL(X)		X
 #define ROOT(X)		root, X
 #define LOCAL(X)	X
 #define REMOTE(X,N)	X
-DEFN(testSS, "SINGLE/single-addr", GASNET_COLL_SINGLE,)
+DEFN(testSS, "SINGLE/single-addr", GASNET_COLL_SINGLE, EMPTY)
 #undef ALL
 #undef ROOT
 #undef LOCAL
@@ -317,7 +319,7 @@ DEFN(testSM, "SINGLE/multi-addr", GASNET_COLL_SINGLE, M)
 #define ROOT(X)		root, (myproc==root)?X##v[root]:NULL
 #define LOCAL(X)	(X##v[myproc])
 #define REMOTE(X,N)	X##v[N]
-DEFN(testLS, "LOCAL/single-addr", GASNET_COLL_LOCAL,)
+DEFN(testLS, "LOCAL/single-addr", GASNET_COLL_LOCAL, EMPTY)
 #undef ALL
 #undef ROOT
 #undef LOCAL

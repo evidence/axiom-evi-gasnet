@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/04/21 20:43:33 $
-# $Revision: 1.24 $
+#     $Date: 2005/05/04 08:12:50 $
+# $Revision: 1.25 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -44,27 +44,33 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 
 # Probe for which MPI is running
     my $mpirun_cmd  = $spawncmd;
-       $mpirun_cmd  =~ s/\s-.*/ -help/;
-       $mpirun_cmd  =~ s/\s%[A-Za-z]+//; # required for Cray MPI
+       $mpirun_cmd  =~ s/\s-.*/ -h/; # poe hangs on -help, so use -h
+       $mpirun_cmd  =~ s/\s%[A-Za-z]+//g; # required for Cray MPI
+    #print "probing: $mpirun_cmd\n";
     my $mpirun_help = `$mpirun_cmd 2>&1`;
+    #print "probe result: $mpirun_help\n";
     my $is_lam      = ($mpirun_help =~ m|LAM/MPI|);
     my $is_mpich_nt = ($mpirun_help =~ m|MPIRun|);
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
     my $is_mvich    = ($mpirun_help =~ m|MV(AP)?ICH|i);
     my $is_cray_mpi = ($mpirun_help =~ m|Psched|);
+    my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
       chomp $envprog;
     }
     my $extra_quote_argv = 0;
+    my $spawner_desc = undef;
 
     if ($is_lam) {
+	$spawner_desc = "LAM/MPI";
 	# pass env as "-x A,B,C"
 	%envfmt = ( 'pre' => '-x',
 		    'join' => ','
 		  );
     } elsif ($is_mpich_nt) {
+	$spawner_desc = "MPICH/NT";
 	# pass env as "-env A=1|B=2|C=3"
 	%envfmt = ( 'pre' => '-env',
 		    'join' => '|',
@@ -73,25 +79,35 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	$find_exe = 0;
         $extra_quote_argv = 1;
     } elsif ($is_mvich) {
+	$spawner_desc = "MVICH/MVAPICH";
 	# pass env as "/usr/bin/env 'A=1' 'B=2' 'C=3'"
 	%envfmt = ( 'pre' => $envprog,
 		    'val' => "'"
 		  );
         $extra_quote_argv = 1;
     } elsif ($is_cray_mpi) {
+	$spawner_desc = "Cray MPI";
 	# cannot reliably use /usr/bin/env at all when running via aprun 
         # (the binary doesnt support placed execution)
 	# however, the OS already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1
                   );
+        $extra_quote_argv = 1;
+    } elsif ($is_poe) {
+	$spawner_desc = "IBM POE";
+	# the OS already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1
+                  );
+        $extra_quote_argv = 1;
     } else {
+	$spawner_desc = "unknown program (using generic MPI spawner)";
+	# the OS already propagates the environment for us automatically
 	# pass env as "/usr/bin/env A=1 B=2 C=3"
 	# Our nearly universal default
 	%envfmt = ( 'pre' => $envprog,
 		    'val' => ''
 		  );
     }
-
 
 sub usage
 {
@@ -177,6 +193,8 @@ sub expand {
 	}
 	shift;
     }
+
+    print "gasnetrun: identified MPI spawner as $spawner_desc\n" if ($verbose);
 
 # Validate -n as needed
     if (!defined($numproc) && $spawncmd =~ /%N/) {
