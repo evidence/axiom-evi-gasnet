@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/04/28 04:35:21 $ */
-/*  $Revision: 1.53 $ */
+/*      $Date: 2005/05/04 18:45:46 $ */
+/*  $Revision: 1.54 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -114,6 +114,7 @@
 #undef CYGWIN
 #undef DARWIN
 #undef ALTIX
+#undef GASNETI_ARCH_SPARCV9
 
 /* GASNet segment definition */
 #undef GASNET_SEGMENT_FAST

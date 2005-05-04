@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/05/04 08:12:48 $
-# $Revision: 1.262 $
+#     $Date: 2005/05/04 18:45:46 $
+# $Revision: 1.263 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.262 $)
+AC_REVISION($Revision: 1.263 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -265,6 +265,14 @@ case "$gasnet_cv_cc_family" in
 esac
 
 case "$gasnet_cv_cc_family" in
+  GNU)
+    case "$target_cpu" in
+      sparc) # Get sparc v9 ISA
+	GASNET_TRY_CFLAG([-mcpu=ultrasparc -mtune=ultrasparc], 
+	                 [ MISC_CFLAGS="-mcpu=ultrasparc -mtune=ultrasparc" 
+	                   AC_DEFINE(GASNETI_ARCH_SPARCV9) ] ) ;; 
+      *) ;; 
+    esac ;;
   Cray) 
     case "$target_cpu" in
       alphaev5) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; # T3E
@@ -785,6 +793,13 @@ if test $enabled_udp = yes; then
        oldCXXFLAGS="$CXXFLAGS"  
        GASNET_GET_GNUWARNINGFLAGS(CXX)
        MISC_CXXFLAGS="$CXXFLAGS" 
+       case "$target_cpu" in
+         sparc) # Get sparc v9 ISA
+	  GASNET_TRY_CXXFLAG([-mcpu=ultrasparc -mtune=ultrasparc], 
+	                     [ MISC_CXXFLAGS="$MISC_CXXFLAGS -mcpu=ultrasparc -mtune=ultrasparc" 
+	                       AC_DEFINE(GASNETI_ARCH_SPARCV9) ] ) ;; 
+         *) ;; 
+       esac 
        CXXFLAGS="$oldCXXFLAGS"
     ;;
     PGI)   MISC_CXXFLAGS="-w -Masmkeyword" ;; # apparently has no way to indep control warnings

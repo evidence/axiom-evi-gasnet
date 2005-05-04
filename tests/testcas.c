@@ -1,4 +1,4 @@
-/* $Id: testcas.c,v 1.9 2005/03/11 19:15:55 csbell Exp $
+/* $Id: testcas.c,v 1.10 2005/05/04 18:45:48 bonachea Exp $
  *
  * Description: GASNet atomic CAS.
  *   The test verifies the atomic compare-and-swap on platforms which support it.
@@ -90,6 +90,13 @@ main(int argc, char **argv)
 	    print_testname("testcas", gasnet_nodes());
 
 	MSG("running...");
+
+        #ifdef GASNETT_USING_GENERIC_ATOMICOPS
+          fprintf(stderr, 
+            "WARNING: using generic mutex-based GASNet atomics, which are likely to have high overhead\n"             
+            "WARNING: consider implementing true GASNet atomics, if supported by your platform/compiler\n");
+          fflush(stderr);
+        #endif
 
 	if (argc > 1) iters = atoi(argv[1]);
 	if (!iters) iters = DEFAULT_ITERS;

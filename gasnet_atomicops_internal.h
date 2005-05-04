@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2005/03/12 13:03:17 $
- * $Revision: 1.14 $
+ *     $Date: 2005/05/04 18:45:46 $
+ * $Revision: 1.15 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -143,6 +143,20 @@
      }
      #define GASNETI_HAVE_ATOMIC_CAS 1
   #endif
+#elif defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9) && defined(__GNUC__)
+    GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
+    int gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
+      register volatile uint32_t * addr = &(v->ctr);
+      __asm__ __volatile__ ( 
+          "membar #StoreLoad | #LoadLoad   \n\t" /* complete all previous ops before next load */
+          "cas      [%2],%1,%0 \n\t"             /* if (*addr == oldval) { *addr = newval; }  newval = *addr; */
+          "membar #StoreLoad | #StoreStore \n\t" /* complete previous cas store before all subsequent ops */
+          : "+r"(newval)
+          : "r"(oldval), "r" (addr)
+          : "memory");
+      return (int)(newval == oldval);
+    }
+    #define GASNETI_HAVE_ATOMIC_CAS 1
 #elif defined(__crayx1) /* This works on X1, but NOT the T3E */
     GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
     int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, long oldval, long newval) {

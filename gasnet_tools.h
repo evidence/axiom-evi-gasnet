@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/03/22 18:30:38 $
- * $Revision: 1.28 $
+ *     $Date: 2005/05/04 18:45:46 $
+ * $Revision: 1.29 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,6 +59,10 @@
 
 /* tight spin loop CPU hint */
 #define gasnett_spinloop_hint()      gasneti_spinloop_hint() 
+
+#ifdef GASNETI_USE_GENERIC_ATOMICOPS
+#define GASNETT_USING_GENERIC_ATOMICOPS
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 

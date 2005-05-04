@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/03/12 11:21:16 $
- * $Revision: 1.24 $
+ *     $Date: 2005/05/04 18:45:48 $
+ * $Revision: 1.25 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,6 +57,13 @@ int main(int argc, char **argv) {
       MSG("System page size is 2^%i == %i", GASNETT_PAGESHIFT, GASNETT_PAGESIZE);
   #endif
    
+  #ifdef GASNETT_USING_GENERIC_ATOMICOPS
+    fprintf(stderr, 
+      "WARNING: using generic mutex-based GASNet atomics, which are likely to have high overhead\n"             
+      "WARNING: consider implementing true GASNet atomics, if supported by your platform/compiler\n");
+    fflush(stderr);
+  #endif
+
   TEST_HEADER("Testing high-performance timers...")
   { /* high performance timers */
     int i;
@@ -257,6 +264,7 @@ void * thread_fn(void *arg) {
   /* sanity check - ensure thread barriers are working */
   TEST_HEADER("parallel atomic-op barrier test...") {  
     for (i=0;i<iters;i++) {
+      int tmp;
       /* simple count-up barrier */
       gasnett_atomic_increment(&up);
       while (gasnett_atomic_read(&up) < NUM_THREADS) gasnett_sched_yield(); 
@@ -266,8 +274,9 @@ void * thread_fn(void *arg) {
       gasnett_atomic_increment(&up);
       while (gasnett_atomic_read(&up) < 2*NUM_THREADS) gasnett_sched_yield(); 
 
-      if (gasnett_atomic_read(&up) != 2*NUM_THREADS)
-        ERR("count-up post-barrier read");
+      tmp = gasnett_atomic_read(&up);
+      if (tmp != 2*NUM_THREADS)
+        ERR("count-up post-barrier read: %i != %i", tmp, 2*NUM_THREADS);
 
       /* simple count-down barrier */
       gasnett_atomic_decrement(&down);
@@ -278,8 +287,9 @@ void * thread_fn(void *arg) {
       gasnett_atomic_decrement(&down);
       while (gasnett_atomic_read(&down) > 0) gasnett_sched_yield(); 
 
-      if (gasnett_atomic_read(&down) != 0)
-        ERR("count-down post-barrier read");
+      tmp = gasnett_atomic_read(&down);
+      if (tmp != 0)
+        ERR("count-down post-barrier read: %i != 0");
     }
   }
 

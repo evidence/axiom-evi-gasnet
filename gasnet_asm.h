@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2005/03/12 11:21:10 $
- * $Revision: 1.65 $
+ *     $Date: 2005/05/04 18:45:46 $
+ * $Revision: 1.66 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,11 +32,12 @@
       atomically decrement *p, return non-zero iff the new value is 0
  */
 
-#if defined(__sparc)   || /* SPARC seems to have no atomic ops */            \
-    defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
+#if defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
     defined(_SX)       || /* NEC SX-6 atomics not available to user code? */ \
     defined(__hppa)    || /* PA-RISC seems to have no atomic ops */          \
-    (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) /* haven't implemented atomics for PGI */
+    (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) || /* haven't implemented atomics for PGI */ \
+    (defined(__sparc) && /* SPARC pre-v9 lacks RMW instructions */ \
+       !(defined(__GNUC__) && (defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9))))
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
 /* misc rerequisites to detection logic below */
@@ -421,6 +422,41 @@
       #error unrecognized Alpha compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
   /* ------------------------------------------------------------------------------------ */
+  #elif defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9) /* SPARC v9 */
+    #if defined(__GNUC__)
+      static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
+        /* SPARC v9 architecture manual, p.333 
+         * This function requires the cas instruction in Sparc V9, and therefore gcc -mcpu=ultrasparc
+         */
+        register int32_t volatile * addr = (int32_t volatile *)v;
+        register int32_t oldval;
+        register int32_t newval;
+        __asm__ __volatile__ ( 
+          "0:\t" 
+          "membar #StoreLoad | #LoadLoad    \n\t" /* complete all previous ops before next load */
+          "ld       [%2],%0 \n\t"    /* oldval = *addr; */
+          "add      %0,%3,%1 \n\t"   /* newval = oldval + op; */
+          "cas      [%2],%0,%1 \n\t" /* if (*addr == oldval) { *addr = newval; }  newval = *addr; */
+          "cmp      %0, %1 \n\t"     /* check if newval == oldval (swap succeeded) */
+          "bne      0b \n\t"         /* otherwise, try again */
+          "membar #StoreLoad | #StoreStore    \n\t" /* complete previous cas store before all subsequent ops */
+          : "=&r"(oldval), "=&r"(newval)
+          : "r" (addr), "rn"(op) 
+          : "memory");
+        return oldval;
+      }
+      typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
+      #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
+      #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
+      #define gasneti_atomic_read(p)      ((p)->ctr)
+      #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+      #define gasneti_atomic_init(v)      { (v) }
+      #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1) == 1)
+
+    #else
+      #error unrecognized Sparc v9 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
+    #endif
+  /* ------------------------------------------------------------------------------------ */
   #elif defined(__crayx1) /* This works on X1, but NOT the T3E */
     #include <intrinsics.h>
     typedef volatile long gasneti_atomic_t;
@@ -657,10 +693,27 @@
 
 
 #if defined(__sparc__) || defined(__sparc) || defined(sparc)
- GASNET_INLINE_MODIFIER(gasneti_local_wmb)
- void gasneti_local_wmb(void) {
-   GASNETI_ASM("stbar"); /* SPARC store barrier */
- }
+  #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_SPARCV9) /* SPARC v9 */
+    GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+    void gasneti_local_wmb(void) {
+      GASNETI_ASM("membar #StoreLoad | #StoreStore"); 
+    }
+    GASNET_INLINE_MODIFIER(_gasneti_local_rmb)
+    void _gasneti_local_rmb(void) {
+      GASNETI_ASM("membar #LoadStore | #LoadLoad"); 
+    }
+    #define gasneti_local_rmb() _gasneti_local_rmb()
+    GASNET_INLINE_MODIFIER(_gasneti_local_mb)
+    void _gasneti_local_mb(void) {
+      GASNETI_ASM("membar #LoadStore | #LoadLoad | #StoreLoad | #StoreStore");
+    }
+    #define gasneti_local_mb() _gasneti_local_mb()
+  #else /* SPARC v7/8 */
+    GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+    void gasneti_local_wmb(void) {
+      GASNETI_ASM("stbar"); /* SPARC store barrier */
+    }
+  #endif
 #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
  GASNET_INLINE_MODIFIER(gasneti_local_wmb)
  void gasneti_local_wmb(void) {
