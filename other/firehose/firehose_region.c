@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/04/20 03:49:51 $
- * $Revision: 1.9 $
+ *     $Date: 2005/05/04 20:24:13 $
+ * $Revision: 1.10 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1198,8 +1198,6 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		param_M = max_pinnable_memory - param_VM;
 	else if (param_VM == 0)
 		param_VM = max_pinnable_memory - param_M;
-	GASNETI_TRACE_PRINTF(C,
-			("param_M=%ld param_VM=%ld", param_M, param_VM));
 
 	if (param_RS == 0) {
 		/* We always send one AM to pin one region.  So, we need to
@@ -1214,7 +1212,6 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	}
 	/* Round down to multiple of FH_BUCKET_SIZE for sanity */
 	param_RS &= ~FH_PAGE_MASK;
-	GASNETI_TRACE_PRINTF(C, ("param_RS=%ld", param_RS));
 
 
 	/* Try to work it all out with the given RS
@@ -1240,20 +1237,23 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		param_R  = FIREHOSE_CLIENT_MAXREGIONS - num_reg - param_VR;
 	else if (param_VR == 0)
 		param_VR = FIREHOSE_CLIENT_MAXREGIONS - num_reg - param_R;
-	GASNETI_TRACE_PRINTF(C,
-			("param_R=%ld param_VR=%ld", param_R, param_VR));
 
 	/* Trim and eliminate round-off so that limits are self-consistent */
-	param_R  = MIN(param_R,  (param_M - m_prepinned)  / param_RS);
+	param_R  = MIN(param_R,  num_reg + ((param_M - m_prepinned) / param_RS));
 	param_VR = MIN(param_VR, param_VM / param_RS);
-	param_M  = param_RS * param_R + m_prepinned;
+	param_M  = param_RS * (param_R - num_reg) + m_prepinned;
 	param_VM = param_RS * param_VR;
+
+	/* Report final values */
+	GASNETI_TRACE_PRINTF(C, ("param_M=%ld param_VM=%ld", param_M, param_VM));
+	GASNETI_TRACE_PRINTF(C, ("param_RS=%ld", param_RS));
+	GASNETI_TRACE_PRINTF(C, ("param_R=%ld param_VR=%ld", param_R, param_VR));
 
 	/* 
 	 * Validate firehose parameters parameters 
 	 */ 
 	{
-		/* Want at least 1k buckets per node */
+		/* Want at least 32 buckets per node */
 		unsigned long	M_min = FH_BUCKET_SIZE * num_nodes * 32;
 
 		/* Want at least 4k buckets of victim FIFO */
