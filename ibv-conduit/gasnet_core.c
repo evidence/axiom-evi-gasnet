@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/05/03 18:24:56 $
- * $Revision: 1.98 $
+ *     $Date: 2005/05/04 20:35:47 $
+ * $Revision: 1.99 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1178,6 +1178,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   {
     int i, reg_count;
     firehose_region_t prereg[2];
+    size_t reg_size;
 
     /* Setup prepinned regions list */
     prereg[0].addr          = gasnetc_snd_reg.addr;
@@ -1185,6 +1186,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     prereg[0].client.handle = VAPI_INVAL_HNDL;	/* unreg must fail */
     prereg[0].client.lkey   = gasnetc_snd_reg.lkey;
     prereg[0].client.rkey   = gasnetc_snd_reg.rkey;
+    reg_size = gasnetc_snd_reg.len;
     reg_count = 1;
     if (gasneti_nodes > 1) {
 	prereg[reg_count].addr          = gasnetc_rcv_reg.addr;
@@ -1192,6 +1194,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 	prereg[reg_count].client.handle = VAPI_INVAL_HNDL;	/* unreg must fail */
 	prereg[reg_count].client.lkey   = gasnetc_rcv_reg.lkey;
 	prereg[reg_count].client.rkey   = gasnetc_rcv_reg.rkey;
+        reg_size += gasnetc_rcv_reg.len;
 	reg_count++;
     }
 
@@ -1207,11 +1210,38 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     #endif
 
     #if GASNETC_PIN_SEGMENT
-      /* XXX:
+      /* 
        * When region is prepinned we will NEVER request/grant any remote firehoses.
-       * What might we do to avoid alloacting unused firehose tables?
-       * Do we need to subtract gasnetc_seg_reg_count from agsnetc_pin_info.regions?
+       * Therefore, we lie about resources so that none are actually reserved for
+       * use by remote firehoses.
        */
+
+      /* Lie about memory to ensure that MAXVICTIM_M can use it all */
+      if (!gasneti_getenv("GASNET_FIREHOSE_M") &&
+	  !gasneti_getenv("GASNET_FIREHOSE_MAXVICTIM_M")) {
+	char value[24];
+	uintptr_t tmp = gasneti_nodes * 32 * GASNET_PAGESIZE; /* This is the minimum FH will accept */
+	snprintf(value, sizeof(value), "%luK", (unsigned long)((tmp + reg_size)/1024));
+	gasneti_setenv("GASNET_FIREHOSE_M", value);
+	gasnetc_pin_info.memory += tmp;
+	if (gasnetc_pin_info.memory < tmp) {
+	  /* overflow! (such as 4GB memory on a 32-bit platform) */
+	  gasnetc_pin_info.memory = GASNETI_ALIGNDOWN(~((uintptr_t)0), GASNET_PAGESIZE);
+	}
+      }
+
+      /* Lie about regions to ensure that MAXVICTIM_R can use them all */
+      if (!gasneti_getenv("GASNET_FIREHOSE_R") &&
+	  !gasneti_getenv("GASNET_FIREHOSE_MAXVICTIM_R")) {
+	char value[10];
+	int tmp = gasneti_nodes + reg_count; /* Min is 1 per node + any preregistered */
+	snprintf(value, sizeof(value), "%d", tmp);
+	gasneti_setenv("GASNET_FIREHOSE_R", value);
+        gasnetc_pin_info.regions += gasneti_nodes;
+      }
+
+      /* Correct for regions we stole but don't count in prereg */
+      gasnetc_pin_info.regions -= gasnetc_seg_reg_count;
     #endif
 
     /* Now initialize firehose */
