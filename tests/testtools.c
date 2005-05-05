@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/05/04 18:45:48 $
- * $Revision: 1.25 $
+ *     $Date: 2005/05/05 21:03:38 $
+ * $Revision: 1.26 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -289,7 +289,7 @@ void * thread_fn(void *arg) {
 
       tmp = gasnett_atomic_read(&down);
       if (tmp != 0)
-        ERR("count-down post-barrier read: %i != 0");
+        ERR("count-down post-barrier read: %i != 0", tmp);
     }
   }
 
