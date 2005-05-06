@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/05/04 08:12:54 $
- * $Revision: 1.20 $
+ *     $Date: 2005/05/06 09:19:26 $
+ * $Revision: 1.21 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,8 +94,7 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 #define CALL(FUNC,DST,SRC,FLAGS) \
   gasnet_coll_##FUNC(GASNET_TEAM_ALL,DST,SRC,sizeof(int),\
 			FLAGS|GASNET_COLL_SRC_IN_SEGMENT|GASNET_COLL_DST_IN_SEGMENT);
-#define DEFN(PREFIX, DESC, FLAGS, SUFFIX) _DEFN(PREFIX, DESC, FLAGS, SUFFIX)
-#define _DEFN(PREFIX, DESC, FLAGS, SUFFIX)                                   \
+#define DEFN(PREFIX, DESC, FLAGS, SUFFIX)                                    \
 /* NO/NO - in/out data is not generated/consumed in same barrier phase */    \
 void PREFIX##_NONO(int iters, gasnet_node_t root) {                          \
     const char name[] = DESC " NO/NO";                                       \
@@ -293,7 +292,13 @@ void PREFIX##_ALLALL(int iters, gasnet_node_t root) {                        \
                                                                              \
     BARRIER(); /* ensure validation completes before next test */            \
 }
-#define EMPTY
+
+#define gasnet_coll_broadcastEMPTY   gasnet_coll_broadcast
+#define gasnet_coll_gatherEMPTY      gasnet_coll_gather
+#define gasnet_coll_scatterEMPTY     gasnet_coll_scatter
+#define gasnet_coll_gather_allEMPTY  gasnet_coll_gather_all
+#define gasnet_coll_exchangeEMPTY    gasnet_coll_exchange
+
 
 #define ALL(X)		X
 #define ROOT(X)		root, X
