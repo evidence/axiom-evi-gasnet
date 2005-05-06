@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.h,v $
- *     $Date: 2005/02/17 13:19:03 $
- * $Revision: 1.12 $
+ *     $Date: 2005/05/06 18:34:56 $
+ * $Revision: 1.13 $
  * Description: Public Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -326,7 +326,7 @@ extern gasnet_handlerentry_t * firehose_get_handlertable();
 extern void
 firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
 	      const firehose_region_t *prepinned_regions,
-              size_t num_reg, firehose_info_t *info);
+              size_t num_reg, uint32_t flags, firehose_info_t *info);
 
 /* Environment variables used in firehose initialization
  *
@@ -376,6 +376,9 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
  * maximum amount of memory and regions to be allocated at
  * initialization. 
  */
+
+/* Firehose Initialization Flags */
+/* Proposed/unimplemented: #define FIREHOSE_INIT_FLAG_LOCAL_ONLY	0x01 */
 
 /************************
  * Firehose Finalization

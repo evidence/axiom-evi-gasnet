@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/04/12 00:03:41 $
- * $Revision: 1.21 $
+ *     $Date: 2005/05/06 18:34:56 $
+ * $Revision: 1.22 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -291,7 +291,7 @@ struct _firehose_private_t {
 
 void	fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions, 
 		       const firehose_region_t *prepinned_regions,
-                       size_t num_reg, firehose_info_t *info);
+                       size_t num_reg, uint32_t flags, firehose_info_t *info);
 void	fh_fini_plugin(void);
 
 /* ##################################################################### */

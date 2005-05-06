@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/05/04 20:35:47 $
- * $Revision: 1.99 $
+ *     $Date: 2005/05/06 18:34:54 $
+ * $Revision: 1.100 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1246,25 +1246,11 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     /* Now initialize firehose */
     firehose_init(gasnetc_pin_info.memory, gasnetc_pin_info.regions,
-		  prereg, reg_count,
-		  &gasnetc_firehose_info);
+		  prereg, reg_count, 0, &gasnetc_firehose_info);
     gasnetc_fh_maxsz = MIN(gasnetc_hca_port.max_msg_sz,
 			  MIN(gasnetc_firehose_info.max_LocalPinSize,
 			      gasnetc_firehose_info.max_RemotePinSize));
     gasneti_assert_always(gasnetc_fh_maxsz >= (GASNET_PAGESIZE + gasnetc_inline_limit));
-
-    /* Ensure the permanently pinned regions stay in the firehose table */
-    for (i = 0; i < reg_count; ++i) {
-	firehose_request_t r;
-	const firehose_request_t *p;
-	p = firehose_try_local_pin(prereg[i].addr, prereg[i].len, &r);
-	gasneti_assert(p == &r);
-	gasneti_assert(p->addr          == prereg[i].addr         );
-	gasneti_assert(p->len           == prereg[i].len          );
-	gasneti_assert(p->client.handle == prereg[i].client.handle);
-	gasneti_assert(p->client.lkey   == prereg[i].client.lkey  );
-	gasneti_assert(p->client.rkey   == prereg[i].client.rkey  );
-    }
   }
 
   /* ------------------------------------------------------------------------------------ */

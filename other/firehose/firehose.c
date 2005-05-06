@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2005/04/08 10:57:15 $
- * $Revision: 1.19 $
+ *     $Date: 2005/05/06 18:34:56 $
+ * $Revision: 1.20 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -80,7 +80,7 @@ gasnet_node_t	fh_mynode = (gasnet_node_t)-1;
 extern void
 firehose_init(uintptr_t max_pinnable_memory, size_t max_regions, 
 	      const firehose_region_t *prepinned_regions,
-              size_t num_reg, firehose_info_t *info)
+              size_t num_reg, uint32_t flags, firehose_info_t *info)
 {
 	int	i;
 
@@ -140,7 +140,7 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
 	/* Initialize -page OR -region specific data. _MUST_ be the last thing
 	 * called before return */
 	fh_init_plugin(max_pinnable_memory, max_regions, prepinned_regions, 
-		       num_reg, info);
+		       num_reg, flags, info);
 
 	FH_TABLE_UNLOCK;
 

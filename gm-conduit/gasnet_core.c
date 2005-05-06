@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/04/18 01:02:20 $
- * $Revision: 1.86 $
+ * $Date: 2005/05/06 18:34:52 $
+ * $Revision: 1.87 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -405,7 +405,7 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 		}
 
 		firehose_init(gasnetc_MaxPinnableMemory, 0, preg, pnum,
-					&gasnetc_firehose_info);
+					0, &gasnetc_firehose_info);
 	}
 	#else /* GASNET_SEGMENT_EVERYTHING | GASNET_SEGMENT_LARGE */
 	{
@@ -422,7 +422,7 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 		#endif
 
 		firehose_init(gasnetc_MaxPinnableMemory, 0, NULL, 0,
-			&gasnetc_firehose_info);
+			0, &gasnetc_firehose_info);
 	}
 	#endif
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/04/20 03:49:51 $
- * $Revision: 1.39 $
+ *     $Date: 2005/05/06 18:34:56 $
+ * $Revision: 1.40 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -572,7 +572,7 @@ firehose_get_params(uintptr_t max_pinnable_memory,
 void
 fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions, 
 	       const firehose_region_t *regions, size_t num_reg,
-	       firehose_info_t *fhinfo)
+	       uint32_t flags, firehose_info_t *fhinfo)
 {
     int	      i,j;
     uintptr_t M, maxvictim, firehoses, m_prepinned = 0;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/05/04 20:24:13 $
- * $Revision: 1.10 $
+ *     $Date: 2005/05/06 18:34:56 $
+ * $Revision: 1.11 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1138,7 +1138,7 @@ fh_find_pending_callbacks(gasnet_node_t node, firehose_region_t *region,
 void
 fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
                const firehose_region_t *regions, size_t num_reg,
-	       firehose_info_t *fhinfo)
+	       uint32_t flags, firehose_info_t *fhinfo)
 {
 	unsigned long param_M, param_VM;
 	unsigned long param_R, param_VR;
@@ -1355,7 +1355,9 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		tmp = (firehose_region_t *)&(regions[i]);
 		priv = fhi_init_local_region(1, tmp);
 		fhc_LocalOnlyBucketsPinned++;
-		fh_priv_release_local(1, priv);
+		#if 0
+		  fh_priv_release_local(1, priv);
+		#endif
 	}
 
 
