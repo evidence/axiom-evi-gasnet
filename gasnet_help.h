@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/04/14 17:29:09 $
- * $Revision: 1.51 $
+ *     $Date: 2005/05/06 09:59:16 $
+ * $Revision: 1.52 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,6 +22,7 @@
   #endif
   #include <pthread.h>
 #endif
+#include <gasnet_membar.h>
 #include <gasnet_atomicops.h>
 
 BEGIN_EXTERNC

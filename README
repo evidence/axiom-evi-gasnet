@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.55 $
+$Revision: 1.56 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -519,7 +519,7 @@ Required porting steps:
   MISC_CFLAGS and MISC_CXXFLAGS if appropriate. 
 
 * For a new C/C++ compiler, implement GASNETI_ASM for inline assembly 
-  to gasnet_atomicops.h, if supported by the compiler. Ensure configure
+  to gasnet_membar.h, if supported by the compiler. Ensure configure
   inline modifier detection worked, otherwise tweak it in gasnet_basic.h.
 
 * For a new CPU, implement atomic increment/decrement operations in 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/05/04 18:45:46 $
- * $Revision: 1.29 $
+ *     $Date: 2005/05/06 09:59:16 $
+ * $Revision: 1.30 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,6 +37,16 @@
 #endif
 
 /* ------------------------------------------------------------------------------------ */
+/* portable memory barriers */
+
+#include <gasnet_membar.h>
+
+#define gasnett_local_wmb()          gasneti_local_wmb()
+#define gasnett_local_rmb()          gasneti_local_rmb()
+#define gasnett_local_mb()           gasneti_local_mb()
+#define gasnett_compiler_fence()     gasneti_compiler_fence()
+
+/* ------------------------------------------------------------------------------------ */
 /* portable atomic increment/decrement */
 
 #include <gasnet_atomicops.h>
@@ -49,13 +59,6 @@
 #define gasnett_atomic_decrement(p)  gasneti_atomic_decrement(p)
 #define gasnett_atomic_decrement_and_test(p)  \
                                      gasneti_atomic_decrement_and_test(p)
-
-/* portable memory barriers */
-
-#define gasnett_local_wmb()          gasneti_local_wmb()
-#define gasnett_local_rmb()          gasneti_local_rmb()
-#define gasnett_local_mb()           gasneti_local_mb()
-#define gasnett_compiler_fence()     gasneti_compiler_fence()
 
 /* tight spin loop CPU hint */
 #define gasnett_spinloop_hint()      gasneti_spinloop_hint() 
