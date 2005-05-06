@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2005/03/12 11:21:16 $
- * $Revision: 1.16 $
+ *     $Date: 2005/05/06 06:31:55 $
+ * $Revision: 1.17 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -119,19 +119,23 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-#define TIME_OPERATION_FULL(desc, preop, op, postop)     \
-  { gasnett_tick_t start,end;  /* use ticks interface */ \
-    int i, _iters = iters;     /* for best accuracy */   \
-    BARRIER();                                           \
-    start = ticktime();                                  \
-    preop;                                               \
-    for (i=0; i < _iters; i++) { op; }                   \
-    postop;                                              \
-    end = ticktime();                                    \
-    BARRIER();                                           \
-    if (((const char *)(desc)) && ((char*)(desc))[0])    \
-      report((desc), tickcvt(end - start), iters);       \
-    else report(#op, tickcvt(end - start), iters);       \
+#define TIME_OPERATION_FULL(desc, preop, op, postop)       \
+  { int i, _iters = iters, _warmupiters = MAX(1,iters/10); \
+    gasnett_tick_t start,end;  /* use ticks interface */   \
+    BARRIER();                 /* for best accuracy */     \
+    preop;       /* warm-up */                             \
+    for (i=0; i < _warmupiters; i++) { op; }               \
+    postop;                                                \
+    BARRIER();                                             \
+    start = ticktime();                                    \
+    preop;                                                 \
+    for (i=0; i < _iters; i++) { op; }                     \
+    postop;                                                \
+    end = ticktime();                                      \
+    BARRIER();                                             \
+    if (((const char *)(desc)) && ((char*)(desc))[0])      \
+      report((desc), tickcvt(end - start), iters);         \
+    else report(#op, tickcvt(end - start), iters);         \
   }
 #define TIME_OPERATION(desc, op) TIME_OPERATION_FULL(desc, {}, op, {})
 
