@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/05/06 18:34:56 $
- * $Revision: 1.11 $
+ *     $Date: 2005/05/06 20:20:11 $
+ * $Revision: 1.12 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1268,23 +1268,25 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		unsigned long	VR_min = 2;
 
 		if_pf (param_RS < FH_BUCKET_SIZE)
-			gasneti_fatalerror("GASNET_FIREHOSE_MAXREGION_SIZE "
-			    "is less than the minimum %d", FH_BUCKET_SIZE); 
+			gasneti_fatalerror("GASNET_FIREHOSE_MAXREGION_SIZE (%ld) "
+			    "is less than the minimum %d",
+			    param_RS, FH_BUCKET_SIZE); 
 
 		if_pf (param_RS > (med_regions-1)*FH_BUCKET_SIZE)
-			gasneti_fatalerror("GASNET_FIREHOSE_MAXREGION_SIZE "
+			gasneti_fatalerror("GASNET_FIREHOSE_MAXREGION_SIZE (%ld) "
 			    "is too large to encode in an AM Medium payload "
-			    "(%d bytes max)", FH_BUCKET_SIZE*(med_regions-1));
+			    "(%d bytes max)",
+			    param_RS, FH_BUCKET_SIZE*(med_regions-1));
 
 		if_pf (param_M < M_min)
-			gasneti_fatalerror("GASNET_FIREHOSE_M is less "
-			    "than the minimum %ld (%ld buckets)", M_min, 
-			    M_min >> FH_BUCKET_SHIFT);
+			gasneti_fatalerror("GASNET_FIREHOSE_M (%ld) is less "
+			    "than the minimum %ld (%ld buckets)",
+			    param_M, M_min, M_min >> FH_BUCKET_SHIFT);
 
 		if_pf (param_VM < VM_min)
-			gasneti_fatalerror("GASNET_MAXVICTIM_M is less than "
-			    "the minimum %ld (%ld buckets)", VM_min,
-			    VM_min >> FH_BUCKET_SHIFT);
+			gasneti_fatalerror("GASNET_MAXVICTIM_M (%ld) is less than "
+			    "the minimum %ld (%ld buckets)",
+			    param_VM, VM_min, VM_min >> FH_BUCKET_SHIFT);
 
 		if_pf (param_M - m_prepinned < M_min)
 			gasneti_fatalerror("Too many bytes in initial"
@@ -1293,12 +1295,12 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 			    m_prepinned, param_M);
 
 		if_pf (param_R < R_min)
-			gasneti_fatalerror("GASNET_FIREHOSE_R is less"
-			    "than the minimum %ld", R_min);
+			gasneti_fatalerror("GASNET_FIREHOSE_R (%ld) is less"
+			    "than the minimum %ld", param_R, R_min);
 
 		if_pf (param_VR < VR_min)
-			gasneti_fatalerror("GASNET_MAXVICTIM_R is less than "
-			    "the minimum %ld", VR_min);
+			gasneti_fatalerror("GASNET_MAXVICTIM_R (%ld) is less than "
+			    "the minimum %ld", param_VR, VR_min);
 
 		if_pf (param_R - num_reg < R_min)
 			gasneti_fatalerror("Too many regions passed on initial"
