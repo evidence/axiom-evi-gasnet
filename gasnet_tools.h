@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/05/06 09:59:16 $
- * $Revision: 1.30 $
+ *     $Date: 2005/05/06 20:12:18 $
+ * $Revision: 1.31 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,23 @@
 
 #include <gasnet_config.h>
 #include <gasnet_basic.h>
+
+/* ------------------------------------------------------------------------------------ */
+/* stub versions of selected gasnet internal macros needed by the headers included below */
+
+#if !defined(_INCLUDED_GASNET_H) 
+  #if defined(GASNET_NDEBUG) || defined(NDEBUG)
+    #define gasneti_assert(expr) ((void)0)
+  #else
+    GASNET_INLINE_MODIFIER(gasneti_assert_fail)
+    void gasneti_assert_fail(const char *file, int line, const char *cond) {
+      fprintf(stderr, "*** FATAL ERROR: Assertion failure at %s:%i: %s\n", file, line, cond);
+      abort();
+    }
+    #define gasneti_assert(expr) \
+      (PREDICT_TRUE(expr) ? (void)0 : gasneti_assert_fail(__FILE__, __LINE__, #expr))
+  #endif
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* portable high-performance, low-overhead timers */
@@ -51,14 +68,30 @@
 
 #include <gasnet_atomicops.h>
 
-#define gasnett_atomic_t             gasneti_atomic_t
-#define gasnett_atomic_read(p)       gasneti_atomic_read(p)
-#define gasnett_atomic_init(v)       gasneti_atomic_init(v)
-#define gasnett_atomic_set(p,v)      gasneti_atomic_set(p,v) 
-#define gasnett_atomic_increment(p)  gasneti_atomic_increment(p)
-#define gasnett_atomic_decrement(p)  gasneti_atomic_decrement(p)
-#define gasnett_atomic_decrement_and_test(p)  \
-                                     gasneti_atomic_decrement_and_test(p)
+#ifdef GASNET_SEQ
+  /* safe to use weak atomics here, because the client is single-threaded and 
+     should only be modifying atomics from the host CPU (using these calls). 
+     TODO: consider exposing "signal-safe" atomics (only avail on some platforms)
+  */
+  #define gasnett_atomic_t             gasneti_weakatomic_t
+  #define gasnett_atomic_read(p)       gasneti_weakatomic_read(p)
+  #define gasnett_atomic_init(v)       gasneti_weakatomic_init(v)
+  #define gasnett_atomic_set(p,v)      gasneti_weakatomic_set(p,v) 
+  #define gasnett_atomic_increment(p)  gasneti_weakatomic_increment(p)
+  #define gasnett_atomic_decrement(p)  gasneti_weakatomic_decrement(p)
+  #define gasnett_atomic_decrement_and_test(p)  \
+                                       gasneti_weakatomic_decrement_and_test(p)
+#else
+  /* PAR, PARSYNC and non-libgasnet clients (which may have threads) */
+  #define gasnett_atomic_t             gasneti_atomic_t
+  #define gasnett_atomic_read(p)       gasneti_atomic_read(p)
+  #define gasnett_atomic_init(v)       gasneti_atomic_init(v)
+  #define gasnett_atomic_set(p,v)      gasneti_atomic_set(p,v) 
+  #define gasnett_atomic_increment(p)  gasneti_atomic_increment(p)
+  #define gasnett_atomic_decrement(p)  gasneti_atomic_decrement(p)
+  #define gasnett_atomic_decrement_and_test(p)  \
+                                       gasneti_atomic_decrement_and_test(p)
+#endif
 
 /* tight spin loop CPU hint */
 #define gasnett_spinloop_hint()      gasneti_spinloop_hint() 

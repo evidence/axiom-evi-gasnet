@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2005/03/03 16:43:26 $
- * $Revision: 1.36 $
+ *     $Date: 2005/05/06 20:12:18 $
+ * $Revision: 1.37 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -328,6 +328,16 @@ END_EXTERNC
   #ifndef GASNETE_EXTRA_CONFIG_INFO
     #define GASNETE_EXTRA_CONFIG_INFO
   #endif
+  #ifdef GASNETI_USING_GETTIMEOFDAY
+    #define GASNETI_TIMER_CONFIG   timers_os
+  #else
+    #define GASNETI_TIMER_CONFIG   timers_native
+  #endif
+  #ifdef GASNETI_USE_GENERIC_ATOMICOPS
+    #define GASNETI_ATOMIC_CONFIG   atomics_os
+  #else
+    #define GASNETI_ATOMIC_CONFIG   atomics_native
+  #endif
   #define GASNET_CONFIG_STRING                                            \
              "RELEASE=" _STRINGIFY(GASNETI_RELEASE_VERSION) ","           \
              "SPEC=" _STRINGIFY(GASNET_VERSION) ","                       \
@@ -340,7 +350,9 @@ END_EXTERNC
              _STRINGIFY(GASNETI_ALIGN_CONFIG) ","                         \
              _STRINGIFY(GASNETI_DEBUG_CONFIG) ","                         \
              _STRINGIFY(GASNETI_TRACE_CONFIG) ","                         \
-             _STRINGIFY(GASNETI_STATS_CONFIG)                             \
+             _STRINGIFY(GASNETI_STATS_CONFIG) ","                         \
+             _STRINGIFY(GASNETI_TIMER_CONFIG) ","                         \
+             _STRINGIFY(GASNETI_ATOMIC_CONFIG)                            \
              GASNETC_EXTRA_CONFIG_INFO                                    \
              GASNETE_EXTRA_CONFIG_INFO                                    
 #endif
@@ -358,6 +370,8 @@ extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG);
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TIMER_CONFIG);
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME));
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME));
 
@@ -372,6 +386,8 @@ static int *gasneti_linkconfig_idiotcheck() {
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG)
+        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TIMER_CONFIG)
+        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ATOMIC_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME))
         + GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME))
         ;

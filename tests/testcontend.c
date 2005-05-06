@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2005/03/11 19:15:55 $
- * $Revision: 1.8 $
+ *     $Date: 2005/05/06 20:12:22 $
+ * $Revision: 1.9 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -40,7 +40,7 @@ int peer = -1;
 char *peerseg = NULL;
 int threads;
 gasnett_atomic_t pong;
-int signal_done = 0;
+volatile int signal_done = 0;
 #define thread_barrier() PTHREAD_BARRIER(threads)
 
 typedef void * (*threadmain_t)(void *args);

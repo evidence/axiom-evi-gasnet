@@ -1,6 +1,6 @@
 /*  $Archive:: /Ti/GASNet/gasnet_atomicops_internal.h                               $
- *     $Date: 2005/05/04 18:45:46 $
- * $Revision: 1.15 $
+ *     $Date: 2005/05/06 20:12:18 $
+ * $Revision: 1.16 $
  * Description: GASNet header for semi-portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -143,7 +143,8 @@
      }
      #define GASNETI_HAVE_ATOMIC_CAS 1
   #endif
-#elif defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9) && defined(__GNUC__)
+#elif (defined(__sparc) || defined(__sparc__)) && defined(__GNUC__)
+  #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9) /* SPARC v9 */
     GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
     int gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
       register volatile uint32_t * addr = &(v->ctr);
@@ -155,6 +156,42 @@
           : "r"(oldval), "r" (addr)
           : "memory");
       return (int)(newval == oldval);
+    }
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+  #else /* SPARC pre-v9 */
+    GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
+    int32_t gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+      int32_t tmp;
+      int retval;
+      gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
+      gasneti_local_wmb();
+      gasneti_atomic_spinuntil(p->ctr && (tmp = gasneti_loadandclear_32(&(p->ctr))));
+      gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
+      retval = ((tmp & ~GASNETI_ATOMIC_PRESENT) == oldval);
+      if_pt (retval) {
+        tmp = (GASNETI_ATOMIC_PRESENT | newval);
+      }
+      p->ctr = tmp;
+      return retval;
+    }
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+  #endif
+#elif defined(__hppa) || defined(__hppa__)
+    GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
+    int32_t gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+      volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+      int32_t tmp;
+      int retval;
+      gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
+      gasneti_local_wmb();
+      gasneti_atomic_spinuntil(*pctr && (tmp = gasneti_loadandclear_32(pctr)));
+      gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
+      retval = ((tmp & ~GASNETI_ATOMIC_PRESENT) == oldval);
+      if_pt (retval) {
+        tmp = (GASNETI_ATOMIC_PRESENT | newval);
+      }
+      *pctr = tmp;
+      return retval;
     }
     #define GASNETI_HAVE_ATOMIC_CAS 1
 #elif defined(__crayx1) /* This works on X1, but NOT the T3E */
@@ -241,7 +278,7 @@
  */
 #if 0
   /* TODO Some platforms may have cheaper implementations than atomic-CAS. */
-#elif defined(GASNETI_USE_GENERIC_ATOMICOPS)
+#elif defined(GASNETI_ATOMICOPS_NOT_SIGNALSAFE)
   /* We don't implement this case due to lack of signal safety */
 #elif defined(GASNETI_HAVE_ATOMIC_CAS)
   #define GASNETI_SPINLOCK_LOCKED	1

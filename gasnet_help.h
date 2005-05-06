@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/05/06 09:59:16 $
- * $Revision: 1.52 $
+ *     $Date: 2005/05/06 20:12:18 $
+ * $Revision: 1.53 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,7 +23,6 @@
   #include <pthread.h>
 #endif
 #include <gasnet_membar.h>
-#include <gasnet_atomicops.h>
 
 BEGIN_EXTERNC
 
@@ -258,6 +257,12 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
 
 #undef  gasneti_sched_yield
 #define gasneti_sched_yield() gasneti_assert_zeroret(_gasneti_sched_yield())
+
+/* ------------------------------------------------------------------------------------ */
+/* GASNet atomic memory operations */
+#include <gasnet_atomicops.h>
+
+/* ------------------------------------------------------------------------------------ */
 
 /* conduits may replace the following types, 
    but they should at least include all the following fields */

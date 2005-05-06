@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2005/04/06 06:59:08 $
- * $Revision: 1.37 $
+ *     $Date: 2005/05/06 20:12:18 $
+ * $Revision: 1.38 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,6 +83,16 @@
 #define GASNETI_MAKEWORD(hi,lo) ((((uint64_t)(hi)) << 32) | (((uint64_t)(lo)) & 0xFFFFFFFF))
 #define GASNETI_HIWORD(arg)     ((uint32_t)(((uint64_t)(arg)) >> 32))
 #define GASNETI_LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
+
+/* alignment macros */
+#define GASNETI_POWEROFTWO(P)    (((P)&((P)-1)) == 0)
+
+#define GASNETI_ALIGNDOWN(p,P)    (gasneti_assert(GASNETI_POWEROFTWO(P)), \
+                                   ((uintptr_t)(p))&~((uintptr_t)((P)-1)))
+#define GASNETI_ALIGNUP(p,P)     (GASNETI_ALIGNDOWN((uintptr_t)(p)+((uintptr_t)((P)-1)),P))
+
+#define GASNETI_PAGE_ALIGNDOWN(p) (GASNETI_ALIGNDOWN(p,GASNET_PAGESIZE))
+#define GASNETI_PAGE_ALIGNUP(p)   (GASNETI_ALIGNUP(p,GASNET_PAGESIZE))
 
 #define GASNETI_PRAGMA(x) _Pragma ( #x )
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2005/05/06 09:59:16 $
- * $Revision: 1.67 $
+ *     $Date: 2005/05/06 20:12:18 $
+ * $Revision: 1.68 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,12 +32,12 @@
       atomically decrement *p, return non-zero iff the new value is 0
  */
 
-#if defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
+#if defined(GASNETI_FORCE_GENERIC_ATOMICOPS) || /* for debugging */          \
+    defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
     defined(_SX)       || /* NEC SX-6 atomics not available to user code? */ \
-    defined(__hppa)    || /* PA-RISC seems to have no atomic ops */          \
+    (defined(__hppa) && !defined(__GNUC__)) || /* haven't implemented atomics for HPC */          \
     (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) || /* haven't implemented atomics for PGI */ \
-    (defined(__sparc) && /* SPARC pre-v9 lacks RMW instructions */ \
-       !(defined(__GNUC__) && (defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9))))
+    (defined(__sparc) && !defined(__GNUC__)) /* haven't implemented atomics for SunCC */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
 /* misc rerequisites to detection logic below */
@@ -48,6 +48,7 @@
 /* ------------------------------------------------------------------------------------ */
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
   /* a very slow but portable implementation of atomic ops */
+  #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1
   #ifdef _INCLUDED_GASNET_H
     extern void *gasneti_patomicop_lock; /* bug 693: avoid header dependency cycle */
     typedef struct { volatile uint32_t ctr; } gasneti_atomic_t;
@@ -422,39 +423,200 @@
       #error unrecognized Alpha compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
   /* ------------------------------------------------------------------------------------ */
-  #elif defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9) /* SPARC v9 */
-    #if defined(__GNUC__)
-      static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
-        /* SPARC v9 architecture manual, p.333 
-         * This function requires the cas instruction in Sparc V9, and therefore gcc -mcpu=ultrasparc
-         */
-        register int32_t volatile * addr = (int32_t volatile *)v;
-        register int32_t oldval;
-        register int32_t newval;
-        __asm__ __volatile__ ( 
-          "0:\t" 
-          "membar #StoreLoad | #LoadLoad    \n\t" /* complete all previous ops before next load */
-          "ld       [%2],%0 \n\t"    /* oldval = *addr; */
-          "add      %0,%3,%1 \n\t"   /* newval = oldval + op; */
-          "cas      [%2],%0,%1 \n\t" /* if (*addr == oldval) { *addr = newval; }  newval = *addr; */
-          "cmp      %0, %1 \n\t"     /* check if newval == oldval (swap succeeded) */
-          "bne      0b \n\t"         /* otherwise, try again */
-          "membar #StoreLoad | #StoreStore    \n\t" /* complete previous cas store before all subsequent ops */
-          : "=&r"(oldval), "=&r"(newval)
-          : "r" (addr), "rn"(op) 
-          : "memory");
-        return oldval;
-      }
-      typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
-      #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
-      #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
-      #define gasneti_atomic_read(p)      ((p)->ctr)
-      #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
-      #define gasneti_atomic_init(v)      { (v) }
-      #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1) == 1)
+  #elif defined(__sparc) || defined(__sparc__)
+    #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9) /* SPARC v9 */
+      #if defined(__GNUC__)
+        static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
+          /* SPARC v9 architecture manual, p.333 
+           * This function requires the cas instruction in Sparc V9, and therefore gcc -mcpu=ultrasparc
+           */
+          register int32_t volatile * addr = (int32_t volatile *)v;
+          register int32_t oldval;
+          register int32_t newval;
+          __asm__ __volatile__ ( 
+            "0:\t" 
+            "membar #StoreLoad | #LoadLoad    \n\t" /* complete all previous ops before next load */
+            "ld       [%2],%0 \n\t"    /* oldval = *addr; */
+            "add      %0,%3,%1 \n\t"   /* newval = oldval + op; */
+            "cas      [%2],%0,%1 \n\t" /* if (*addr == oldval) { *addr = newval; }  newval = *addr; */
+            "cmp      %0, %1 \n\t"     /* check if newval == oldval (swap succeeded) */
+            "bne      0b \n\t"         /* otherwise, try again */
+            "membar #StoreLoad | #StoreStore    \n\t" /* complete previous cas store before all subsequent ops */
+            : "=&r"(oldval), "=&r"(newval)
+            : "r" (addr), "rn"(op) 
+            : "memory");
+          return oldval;
+        }
+        typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
+        #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
+        #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
+        #define gasneti_atomic_read(p)      ((p)->ctr)
+        #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+        #define gasneti_atomic_init(v)      { (v) }
+        #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1) == 1)
 
+      #else
+        #error unrecognized Sparc v9 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
+      #endif
+    #else /* SPARC pre-v9 lacks RMW instructions - 
+             all we get is atomic swap, but that's actually just barely enough  */
+      #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
+      #if defined(__GNUC__)
+        GASNET_INLINE_MODIFIER(gasneti_loadandclear_32)
+        uint32_t gasneti_loadandclear_32(int32_t volatile *v) {
+          register int32_t volatile * addr = (int32_t volatile *)v;
+          register int32_t val = 0;
+          __asm__ __volatile__ ( 
+            "swap [%1], %0 \n"   
+            : "+r"(val)
+            : "r" (addr)
+            : "memory");
+          return val;
+        }
+        #define GASNETI_ATOMIC_PRESENT    ((int32_t)0x80000000)
+        #define GASNETI_ATOMIC_INIT_MAGIC ((uint64_t)0x8BDEF66BAD1E3F3AULL)
+        typedef struct { volatile uint64_t initflag; volatile int32_t ctr; } gasneti_atomic_t;
+        #define gasneti_atomic_init(v)      { GASNETI_ATOMIC_INIT_MAGIC, (GASNETI_ATOMIC_PRESENT|(v)) }
+        /* would like to use gasneti_waituntil here, but it requires libgasnet for waitmode */
+        #define gasneti_atomic_spinuntil(cond) do {       \
+                while (!(cond)) gasneti_compiler_fence(); \
+                gasneti_local_rmb();                      \
+                } while (0)
+        GASNET_INLINE_MODIFIER(gasneti_atomic_addandfetch_32)
+        int32_t gasneti_atomic_addandfetch_32(gasneti_atomic_t *p, int32_t op) {
+          int32_t tmp;
+          gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
+          gasneti_local_wmb();
+          gasneti_atomic_spinuntil(p->ctr && (tmp = gasneti_loadandclear_32(&(p->ctr))));
+          gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
+          p->ctr = (GASNETI_ATOMIC_PRESENT | (tmp + op));
+          return (tmp & ~GASNETI_ATOMIC_PRESENT);
+        }
+        #if 0
+          /* this version fails if set is used in a race with addandfetch */
+          GASNET_INLINE_MODIFIER(gasneti_atomic_set)
+          void gasneti_atomic_set(gasneti_atomic_t *p, int32_t val) {
+            gasneti_local_wmb();
+            p->ctr = (GASNETI_ATOMIC_PRESENT | val);
+          }
+        #else
+          GASNET_INLINE_MODIFIER(gasneti_atomic_set)
+          void gasneti_atomic_set(gasneti_atomic_t *p, int32_t val) {
+            int32_t tmp;
+            gasneti_local_wmb();
+            if_pf (p->initflag != GASNETI_ATOMIC_INIT_MAGIC) {
+              p->ctr = (GASNETI_ATOMIC_PRESENT | val);
+              gasneti_local_wmb();
+              p->initflag = GASNETI_ATOMIC_INIT_MAGIC;
+            } else {
+              gasneti_atomic_spinuntil(p->ctr && (tmp = gasneti_loadandclear_32(&(p->ctr))));
+              gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
+              p->ctr = (GASNETI_ATOMIC_PRESENT | val);
+            }
+          }
+        #endif
+        GASNET_INLINE_MODIFIER(gasneti_atomic_read)
+        int32_t gasneti_atomic_read(gasneti_atomic_t *p) {
+          int32_t tmp;
+          gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
+          gasneti_atomic_spinuntil((tmp = p->ctr));
+          gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
+          return (tmp & ~GASNETI_ATOMIC_PRESENT);
+        }
+        #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(p,1))
+        #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(p,-1))
+        #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(p,-1) == 1)
+      #else
+        #error unrecognized Sparc pre-v9 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
+      #endif
+    #endif
+  /* ------------------------------------------------------------------------------------ */
+  #elif defined(__hppa) || defined(__hppa__)
+    #if defined(__GNUC__)
+      /* all we get is atomic load-and-clear, but that's actually just barely enough  */
+      #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
+      GASNET_INLINE_MODIFIER(gasneti_loadandclear_32)
+      uint32_t gasneti_loadandclear_32(int32_t volatile *v) {
+        register int32_t volatile * addr = (int32_t volatile *)v;
+        register int32_t val = 0;
+        gasneti_assert(!(((uintptr_t)addr) & 0xF)); /* ldcws requires 16-byte alignment */
+        __asm__ __volatile__ ( 
+          "ldcws 0(%1), %0 \n"  
+          /* should be using "ldcws,co" here for better performance, 
+             but GNU assembler rejects it (works with system assembler) 
+             this was apparently a known bug (41317) at one time, but doesn't appear to be fixed
+           */
+          : "=r"(val)
+          : "r" (addr)
+          : "memory");
+        return val;
+      }
+      #define GASNETI_ATOMIC_CTR(p)     ((volatile int32_t *)GASNETI_ALIGNUP(&(p->_ctr),16))
+      #define GASNETI_ATOMIC_PRESENT    ((int32_t)0x80000000)
+      #define GASNETI_ATOMIC_INIT_MAGIC ((uint64_t)0x8BDEF66BAD1E3F3AULL)
+      typedef struct { volatile uint64_t initflag; volatile int32_t _ctr[4]; } gasneti_atomic_t;
+      #define gasneti_atomic_init(v)      {    \
+              GASNETI_ATOMIC_INIT_MAGIC,       \
+              { (GASNETI_ATOMIC_PRESENT|(v)),  \
+                (GASNETI_ATOMIC_PRESENT|(v)),  \
+                (GASNETI_ATOMIC_PRESENT|(v)),  \
+                (GASNETI_ATOMIC_PRESENT|(v)) } \
+              }
+      /* would like to use gasneti_waituntil here, but it requires libgasnet for waitmode */
+      #define gasneti_atomic_spinuntil(cond) do {       \
+              while (!(cond)) gasneti_compiler_fence(); \
+              gasneti_local_rmb();                      \
+              } while (0)
+      GASNET_INLINE_MODIFIER(gasneti_atomic_addandfetch_32)
+      int32_t gasneti_atomic_addandfetch_32(gasneti_atomic_t *p, int32_t op) {
+        int32_t tmp;
+        volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+        gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
+        gasneti_local_wmb();
+        gasneti_atomic_spinuntil(*pctr && (tmp = gasneti_loadandclear_32(pctr)));
+        gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
+        *pctr = (GASNETI_ATOMIC_PRESENT | (tmp + op));
+        return (tmp & ~GASNETI_ATOMIC_PRESENT);
+      }
+      #if 0
+        /* this version fails if set is used in a race with addandfetch */
+        GASNET_INLINE_MODIFIER(gasneti_atomic_set)
+        void gasneti_atomic_set(gasneti_atomic_t *p, int32_t val) {
+          volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+          gasneti_local_wmb();
+          *pctr = (GASNETI_ATOMIC_PRESENT | val);
+        }
+      #else
+        GASNET_INLINE_MODIFIER(gasneti_atomic_set)
+        void gasneti_atomic_set(gasneti_atomic_t *p, int32_t val) {
+          int32_t tmp;
+          volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+          gasneti_local_wmb();
+          if_pf (p->initflag != GASNETI_ATOMIC_INIT_MAGIC) {
+            *pctr = (GASNETI_ATOMIC_PRESENT | val);
+            gasneti_local_wmb();
+            p->initflag = GASNETI_ATOMIC_INIT_MAGIC;
+          } else {
+            gasneti_atomic_spinuntil(*pctr && (tmp = gasneti_loadandclear_32(pctr)));
+            gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
+            *pctr = (GASNETI_ATOMIC_PRESENT | val);
+          }
+        }
+      #endif
+      GASNET_INLINE_MODIFIER(gasneti_atomic_read)
+      int32_t gasneti_atomic_read(gasneti_atomic_t *p) {
+        int32_t tmp;
+        volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+        gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
+        gasneti_atomic_spinuntil((tmp = *pctr));
+        gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
+        return (tmp & ~GASNETI_ATOMIC_PRESENT);
+      }
+      #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(p,1))
+      #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(p,-1))
+      #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(p,-1) == 1)
     #else
-      #error unrecognized Sparc v9 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
+      #error unrecognized PA-RISC compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
   /* ------------------------------------------------------------------------------------ */
   #elif defined(__crayx1) /* This works on X1, but NOT the T3E */
@@ -607,9 +769,9 @@
   #define gasneti_weakatomic_init(v)                (v)
   #define gasneti_weakatomic_set(p,v)               (*(p) = (v))
   #define gasneti_weakatomic_read(p)                (*(p))
-  #define gasneti_weakatomic_increment(p)           ((*p)++)
-  #define gasneti_weakatomic_decrement(p)           ((*p)--)
-  #define gasneti_weakatomic_decrement_and_test(p)  (!(--(*p))) 
+  #define gasneti_weakatomic_increment(p)           ((*(p))++)
+  #define gasneti_weakatomic_decrement(p)           ((*(p))--)
+  #define gasneti_weakatomic_decrement_and_test(p)  (!(--(*(p)))) 
 #endif
 
 /* ------------------------------------------------------------------------------------ */

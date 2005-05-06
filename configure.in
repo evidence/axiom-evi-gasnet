@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/05/04 18:45:46 $
-# $Revision: 1.263 $
+#     $Date: 2005/05/06 20:12:18 $
+# $Revision: 1.264 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.263 $)
+AC_REVISION($Revision: 1.264 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -280,7 +280,7 @@ case "$gasnet_cv_cc_family" in
     esac ;;
   MIPS) MISC_CFLAGS="-common -diag_error 1035 -diag_suppress1171,1174,1209,1552 -LD_MSG:off=84" ;; # 1035 ensures "#error" is fatal
   Compaq) MISC_CFLAGS="-msg_disable extrasemi" ;;
-  HP)     MISC_CFLAGS="+W612 +W2111 +W2174 +W2177 +W2236 +W2550" ;;
+  HP)     MISC_CFLAGS="+W612 +W2111 +W2174 +W2177 +W2236 +W2550 -Wp,-H100000" ;; # -H increases internal preprocessor table size
   Intel) MISC_CFLAGS="-wd177 -wd279" 
          GASNET_TRY_CFLAG([-wd1572],
                           [MISC_CFLAGS="$MISC_CFLAGS -wd1572"])

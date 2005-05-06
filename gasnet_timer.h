@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/03/21 03:29:35 $
- * $Revision: 1.36 $
+ *     $Date: 2005/05/06 20:12:18 $
+ * $Revision: 1.37 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,6 @@
 #ifndef _GASNET_TIMER_H
 #define _GASNET_TIMER_H
 
-#include <assert.h> /* permit assert.h and assert for gasnet_tools headers */
 /* all of this to support gasneti_getMicrosecondTimeStamp */
 #include <time.h>
 #include <sys/time.h>
@@ -83,7 +82,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     timebasestruct_t t;
     #if GASNET_DEBUG
       read_real_time(&t,TIMEBASE_SZ);
-      assert(t.flag == RTC_POWER_PC); /* otherwise timer arithmetic (min/max/sum) is compromised */
+      gasneti_assert(t.flag == RTC_POWER_PC); /* otherwise timer arithmetic (min/max/sum) is compromised */
     #endif
     t.flag = RTC_POWER_PC;
     t.tb_high = (uint32_t)(st >> 32);
@@ -171,7 +170,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   typedef hrtime_t gasneti_stattime_t;
   GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
   uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
-    assert(sizeof(gasneti_stattime_t) == 8);
+    gasneti_assert(sizeof(gasneti_stattime_t) == 8);
     return (*(uint64_t*)&st)/1000;
   }
   #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)(((uint64_t)-1)>>1))
@@ -228,13 +227,13 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
           char *p = strchr(input,':');
 	  double MHz = 0.0;
           if (p) MHz = atof(p+1);
-          assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
+          gasneti_assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
           Tick = 1. / MHz;
           break;
         }
       }
       fclose(fp);
-      assert(Tick != 0.0);
+      gasneti_assert(Tick != 0.0);
       firstTime = 0;
     }
     return (uint64_t)(st * Tick);
@@ -311,7 +310,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 	abort();
       }
       fclose(fp);
-      assert(freq > 1000000 && freq < 1000000000); /* ensure it looks reasonable (1MHz to 1Ghz) */
+      gasneti_assert(freq > 1000000 && freq < 1000000000); /* ensure it looks reasonable (1MHz to 1Ghz) */
       Tick = 1.0e6 / freq;
       firstTime = 0;
     }
@@ -353,7 +352,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   gasneti_stattime_t gasneti_stattime_now() {
     LARGE_INTEGER val;
     if_pf (!QueryPerformanceCounter(&val)) abort();
-    assert(val.QuadPart > 0);
+    gasneti_assert(val.QuadPart > 0);
     return (gasneti_stattime_t)val.QuadPart;
   }
   GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
@@ -436,7 +435,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 #endif
 GASNET_INLINE_MODIFIER(gasneti_stattime_metric)
 double gasneti_stattime_metric(unsigned int idx) {
-  assert(idx <= 1);
+  gasneti_assert(idx <= 1);
   if_pf (_gasneti_stattime_metric == NULL) {
     int i, ticks, iters = 1000, minticks = 10;
     gasneti_stattime_t min = GASNETI_STATTIME_MAX;
@@ -452,7 +451,7 @@ double gasneti_stattime_metric(unsigned int idx) {
       last = x;
     }
     _gasneti_stattime_metric = (double *)malloc(2*sizeof(double));
-    assert(_gasneti_stattime_metric != NULL);
+    gasneti_assert(_gasneti_stattime_metric != NULL);
     /* granularity */
     _gasneti_stattime_metric[0] = ((double)GASNETI_STATTIME_TO_US(min*1000))/1000.0;
     /* overhead */

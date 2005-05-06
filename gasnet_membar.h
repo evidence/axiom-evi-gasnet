@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2005/05/06 09:59:16 $
- * $Revision: 1.67 $
+ *     $Date: 2005/05/06 20:12:18 $
+ * $Revision: 1.68 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -124,10 +124,18 @@
 #elif defined(_PA_RISC1_1) || defined(__hppa) /* HP PA-RISC */
  GASNET_INLINE_MODIFIER(gasneti_local_wmb)
  void gasneti_local_wmb(void) {
+   #if defined(__HP_cc) 
+     _flush_globals();
+   #endif
    GASNETI_ASM("SYNC");  /* PA RISC load/store ordering */ 
  }
- #if defined(__HP_cc) /* HP C doesn't like an empty asm statement */
-   #define gasneti_compiler_fence() _asm("OR",0,0,0) /* NOP */
+ #if defined(__HP_cc) 
+   #if 0
+     /* HP C doesn't like an empty asm statement */
+     #define gasneti_compiler_fence() _asm("OR",0,0,0) /* NOP */
+   #else
+     #define gasneti_compiler_fence() _flush_globals() /* compiler intrinsic forces spills */
+   #endif
  #endif
 #elif defined(__i386__) || defined(__i386) || defined(i386) || \
       defined(__i486__) || defined(__i486) || defined(i486) || \
