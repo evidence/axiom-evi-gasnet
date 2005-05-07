@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/06 23:06:06 $
- * $Revision: 1.101 $
+ *     $Date: 2005/05/07 02:12:35 $
+ * $Revision: 1.102 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -399,9 +399,7 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
         gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.id;
         if_pt (sreq) {
 	  gasnetc_sema_up_n(&sreq->ep->sq_sema, sreq->count);
-          GASNETC_SEMA_CHECK(&sreq->ep->sq_sema, gasnetc_op_oust_pp);
 	  gasnetc_sema_up(&gasnetc_cq_sema);
-          GASNETC_SEMA_CHECK(&gasnetc_cq_sema, gasnetc_op_oust_limit);
 
 	  switch (comp.opcode) {
 	  case VAPI_CQE_SQ_RDMA_READ:	/* Get */
@@ -532,7 +530,6 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
 
     /* Process the implicitly received flow control credit */
     gasnetc_sema_up(&cep->am_sema);
-    GASNETC_SEMA_CHECK(&(cep->am_sema), gasnetc_am_oust_pp);
 
     /* Now process the packet */
     gasnetc_processPacket(rbuf, flags);
@@ -743,7 +740,9 @@ void gasnetc_snd_validate(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int cou
   gasneti_assert(count > 0);
   gasneti_assert(type);
 
-  GASNETI_TRACE_PRINTF(D,("%s sreq=%p\n", type, sreq));
+  GASNETI_TRACE_PRINTF(D,("%s sreq=%p node=%d qpi=%d\n", type, sreq,
+			  (int)(sreq->ep - gasnetc_cep)/GASNETC_CEPS,
+			  (int)(sreq->ep - gasnetc_cep)%GASNETC_CEPS));
   for (i = 0; i < count; ++i, ++sr_desc) {
     uintptr_t r_addr = sr_desc->remote_addr;
 
@@ -2032,7 +2031,7 @@ extern int gasnetc_sndrcv_init(void) {
   /*
    * setup SND resources
    */
-  gasnetc_sema_init(&gasnetc_cq_sema, gasnetc_op_oust_limit);
+  gasnetc_sema_init(&gasnetc_cq_sema, gasnetc_op_oust_limit, gasnetc_op_oust_limit);
 
   /* create the SND CQ */
   vstat = VAPI_create_cq(gasnetc_hca, gasnetc_op_oust_limit, &gasnetc_snd_cq, &act_size);
@@ -2090,15 +2089,15 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       for (j = 0; j < gasnetc_am_oust_pp; ++j) {
         gasnetc_rcv_post(&cep[i], gasneti_freelist_get(&gasnetc_rbuf_freelist));
       }
-      gasnetc_sema_init(&cep[i].am_sema, gasnetc_am_oust_pp);
-      gasnetc_sema_init(&cep[i].sq_sema, gasnetc_op_oust_pp);
+      gasnetc_sema_init(&cep[i].am_sema, gasnetc_am_oust_pp, gasnetc_am_oust_pp);
+      gasnetc_sema_init(&cep[i].sq_sema, gasnetc_op_oust_pp, gasnetc_op_oust_pp);
     }
   } else {
     /* Should never use these for loopback */
     for (i = 0; i < GASNETC_CEPS; ++i) {
       cep[i].epid = gasnetc_epid(node, i);
-      gasnetc_sema_init(&cep[i].am_sema, 0);
-      gasnetc_sema_init(&cep[i].sq_sema, 0);
+      gasnetc_sema_init(&cep[i].am_sema, 0, 0);
+      gasnetc_sema_init(&cep[i].sq_sema, 0, 0);
     }
   }
 }
