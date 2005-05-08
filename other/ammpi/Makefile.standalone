@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.standalone,v $
-#     $Date: 2005/05/04 08:12:52 $
-# $Revision: 1.17 $
+#     $Date: 2005/05/08 17:47:18 $
+# $Revision: 1.18 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -61,6 +61,9 @@ tests: apputils.o $(testprograms)
 test%.o : $(testdir)/test%.c $(testdir)/*.h $(headers)
 	$(Ccompile) -DAMMPI -I$(testdir) $< -o $@
 
+tests-clean:
+	rm -f $(testprograms)
+
 apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h $(headers)
 	$(Ccompile) -DAMMPI -I$(testdir) $(testdir)/apputils.c -o apputils.o
 
@@ -95,39 +98,6 @@ amxdist:
 test% : test%.o apputils.o libammpi.a $(libufxp)
 	$(link) -o $@ $< apputils.o -L. -lammpi $(linkend)
 
-TEST_NODES=2
 AMMPI_RUNCMD=$${MPIRUN_CMD:-mpirun -np $(TEST_NODES)}
-TEST_LINE=++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-AMMPI_RUNCMD_EXP=\
-      TEST_RUN_P=`echo "$$TEST_RUN" | sed 's/ .*$$//'`  \
-      TEST_RUN_A=`echo "$$TEST_RUN" | sed 's/^[^ ]* //'` \
-      TEST_DOIT=`echo $(AMMPI_RUNCMD) | sed 's/%N/$(TEST_NODES)/;s@%C@'"$$TEST_RUN"'@;s@%P@'"$$TEST_RUN_P"'@;s@%A@'"$$TEST_RUN_A"'@;s/%V//'`
-TEST_RUNCMD=$(AMMPI_RUNCMD_EXP) ;                               \
-         if test -x "$$TEST_RUN_P" ; then                       \
-            echo "  **** `basename $$TEST_RUN_P` **** ";        \
-            echo $$TEST_DOIT ;                                  \
-            $$TEST_DOIT ;                                       \
-            echo $(TEST_LINE) ;                                 \
-         fi
-TEST_ITERS=100
-TEST_MODE=P
-TEST_DEPTH=32
-TEST_DUPLEX=H
-AMMPI_NETWORKDEPTH=$(TEST_DEPTH)
-run-tests: tests
-	@echo $(TEST_LINE)
-	@echo  Running AMMPI tests...
-	@echo  If this fails to spawn a job, you may need to re-run with a
-	@echo   command like: gmake run-tests AMMPI_RUNCMD=\"$(AMMPI_RUNCMD)\"
-	@echo $(TEST_LINE)
-	@TEST_RUN="./testping $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
-	@TEST_RUN="./testlatency $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
-	@TEST_RUN="./testlatencyM $(TEST_ITERS) $(TEST_MODE) 64" $(TEST_RUNCMD)
-	@TEST_RUN="./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)" $(TEST_RUNCMD)
-	@TEST_RUN="./testam $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
-	@TEST_RUN="./testbounce $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
-	@TEST_RUN="./testreduce" $(TEST_RUNCMD)
-	@TEST_RUN="./testgetput $(TEST_ITERS)" $(TEST_RUNCMD)
-	@TEST_RUN="./testreadwrite $(TEST_ITERS)" $(TEST_RUNCMD)
-	@echo TESTS COMPLETE
+include Makefile.tests
 

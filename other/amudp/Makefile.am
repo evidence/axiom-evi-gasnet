@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2005/05/01 00:51:30 $
-# $Revision: 1.30 $
+#     $Date: 2005/05/08 17:47:20 $
+# $Revision: 1.31 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -69,6 +69,7 @@ libamudp_a_DEPENDENCIES = $(libamudp_a_SOURCES:%.cpp=%.o)
 EXTRA_DIST = \
 	Makefile.common 	\
 	Makefile.standalone 	\
+	Makefile.tests  	\
 	Makefile.titanium.in 	\
 	license.txt
 
@@ -97,53 +98,10 @@ tests: apputils.o $(testprograms)
 test%: test%.o apputils.o libamudp.a 
 	$(link) -o $@ $< apputils.o -L. -lamudp $(linkend)
 
+tests-clean:
+	rm -f $(testprograms)
 
-TEST_NODES=2
-TEST_ITERS=100
-AMUDP_SPAWNFN=L
-TEST_SPAWNFN=$(AMUDP_SPAWNFN)
-TEST_MODE=P
-TEST_DEPTH=32
-TEST_DUPLEX=H
-AMUDP_RUNCMD=
-TEST_RUNCMD=$(AMUDP_RUNCMD)
-AMUDP_NETWORKDEPTH=$(TEST_DEPTH)
-run-tests: tests
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo  Running AMUDP tests...
-	@echo  If this fails to spawn a job, you may need to re-run with a
-	@echo   command like: gmake run-tests AMUDP_SPAWNFN=S
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTPING
-	$(TEST_RUNCMD) ./testping $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTLATENCY
-	$(TEST_RUNCMD) ./testlatency $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTLATENCYM
-	$(TEST_RUNCMD) ./testlatencyM $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE) 64
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTBULK
-	$(TEST_RUNCMD) ./testbulk $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTAM
-	$(TEST_RUNCMD) ./testam $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTBOUNCE
-	$(TEST_RUNCMD) ./testbounce $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE) 
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTREDUCE
-	$(TEST_RUNCMD) ./testreduce $(TEST_NODES) $(TEST_SPAWNFN)  
-if PLATFORM_ILP32
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ 
-	@echo TESTGETPUT 
-	$(TEST_RUNCMD) ./testgetput $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) 
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTREADWRITE
-	$(TEST_RUNCMD) ./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS)
-endif
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTS COMPLETE
+include Makefile.tests
 
 test%.o : $(testdir)/test%.c $(testdir)/*.h $(headers)
 	$(compile) -DAMUDP -I$(testdir) -c $< -o $@
@@ -184,7 +142,7 @@ endif
 # No check-exports by default due to name mangling
 check: tests
 
-clean_local_files = libamudp.a *.o core
+clean_local_files = libamudp.a *.o core .test-results
 clean-local:
 	@for f in $(testprograms); do                                \
 	  cmd="rm -f '$$f$(EXESUFFIX)'"; echo "$$cmd"; eval "$$cmd" || exit $$? ; \

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/05/06 09:59:16 $
-# $Revision: 1.45 $
+#     $Date: 2005/05/08 17:47:14 $
+# $Revision: 1.46 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -77,32 +77,51 @@ tests: tests-seq
 other-tests:
 	@cd $(top_builddir)/other && $(MAKE) all tests
 
-other-run-tests:
-	@cd $(top_builddir)/other && $(MAKE) run-tests
-
-tests-seq: other-tests
-	@for conduit in $(CONDUITS) ; do                                             \
-	  ( cd "$(top_builddir)/$$conduit-conduit" && $(MAKE) tests-seq ) || exit 1; \
+tests-seq tests-parsync tests-par: other-tests
+	@for conduit in $(CONDUITS) ; do                                       \
+	  ( cd "$(top_builddir)/$$conduit-conduit" && $(MAKE) $@ ) || exit $?; \
 	done
 
-tests-par: other-tests
-	@for conduit in $(CONDUITS) ; do                                             \
-	  ( cd "$(top_builddir)/$$conduit-conduit" && $(MAKE) tests-par ) || exit 1; \
-	done
+TESTINSTANCE=$$PPID
+TESTLOG=`pwd`/.test-results
 
-tests-parsync: other-tests
-	@for conduit in $(CONDUITS) ; do                                                 \
-	  ( cd "$(top_builddir)/$$conduit-conduit" && $(MAKE) tests-parsync ) || exit 1; \
-	done
 
-run-tests: other-run-tests
-	@for conduit in $(CONDUITS) ; do                                             \
-	  ( cd "$(top_builddir)/$$conduit-conduit" && $(MAKE) run-tests ) || exit 1; \
-	done
+run-tests run-tests-seq run-tests-parsync run-tests-par: do-begin-tests other-run-tests
+	@testinst=$(TESTINSTANCE) ; 							\
+	testlog=$(TESTLOG) ; 								\
+        err=0 ; 									\
+	for conduit in $(CONDUITS) ; do                                        		\
+	  ( cd "$(top_builddir)/$$conduit-conduit" &&                          		\
+            $(MAKE) TESTINSTANCE=$$testinst TESTLOG=$$testlog $@ ) || err=$$? ;		\
+          if test "$$err" != "0" ; then break ; fi ;                        		\
+	done ; 										\
+        if test "$$err" = "0" ; then  							\
+	  ( cd $(top_builddir)/other &&  						\
+            $(MAKE) TESTINSTANCE=$$testinst TESTLOG=$$testlog run-tests ) || err=$$? ; 	\
+        fi ; 										\
+	$(MAKE) TESTINSTANCE=$(TESTINSTANCE) TESTLOG=$(TESTLOG) do-end-tests ; 		\
+	exit $$err
 
-run-tests-seq: tests-seq run-tests
-run-tests-par: tests-par run-tests
-run-tests-parsync: tests-parsync run-tests
+do-begin-tests:
+	@testinst=$(TESTINSTANCE) ; \
+	testlog=$(TESTLOG) ; \
+	if test "`head -1 $$testlog 2> /dev/null`" != "$$testinst" ; then \
+	  echo "$$testinst" > $$testlog ; \
+	  echo Starting a new test instance, log=$$testlog ; \
+	fi 
+
+do-end-tests:
+	@testinst=$(TESTINSTANCE) ; \
+	testlog=$(TESTLOG) ; \
+	if test "`head -1 $$testlog 2> /dev/null`" == "$$testinst" ; then \
+	  line='+++++++++++++++++++++++++++++++++++++++' ; line="$$line$$line" ; \
+	  echo "$$line" ; \
+	  echo Test results: `tail +2 $$testlog | grep "\*\-\*" | wc -l` failures ; \
+	  tail +2 $$testlog ; \
+	  echo "$$line" ; \
+	fi
+
+CLEANFILES = $(TESTLOG) 
 
 # Build, clean, install, uninstall, etc. the conduits - in parallel if possible.
 # Instead of automake's loop over subdir, we expand to one target per subdir.
@@ -120,8 +139,9 @@ clean-local:
 	@if test -f Makefile -a -f smp-conduit/Makefile; then \
 	  $(MAKE) $(recurse_local) DO_WHAT=clean || exit $$? ; \
 	 fi
-check:
-	@$(MAKE) $(recurse_local) DO_WHAT=check
+check tests-clean:
+	@$(MAKE) $(recurse_local) DO_WHAT=$@
+	@cd "$(top_builddir)/other" && $(MAKE) $@
 install-data-local:
 	@$(MAKE) $(recurse_local) DO_WHAT=install-data
 	$(mkinstalldirs) $(DESTDIR)$(docdir)
@@ -145,7 +165,7 @@ distclean-local:
 	   fi;                                              \
 	 done
 
-.PHONY: force tests test                                              \
+.PHONY: force tests test do-begin-tests do-end-tests                  \
         other-tests other-run-tests tests-seq tests-par tests-parsync \
         run-tests-seq run-tests-par run-tests-parsync                 \
 	$(recurse_local)

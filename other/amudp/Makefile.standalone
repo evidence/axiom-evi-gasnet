@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.standalone,v $
-#     $Date: 2005/03/15 13:54:52 $
-# $Revision: 1.18 $
+#     $Date: 2005/05/08 17:47:20 $
+# $Revision: 1.19 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -69,6 +69,9 @@ tests: apputils.o $(testprograms)
 # method to convert .cpp to .o (more reliable than ".cpp.o" method)
 test%.o : $(testdir)/test%.c $(testdir)/*.h $(headers)
 	$(Ccompile) -DAMUDP -I$(testdir) $< -o $@
+
+tests-clean:
+	rm -f $(testprograms)
 	
 apputils.o : $(testdir)/apputils.c $(headers)
 	$(Ccompile) -DAMUDP -I$(testdir) $(testdir)/apputils.c -o apputils.o
@@ -109,54 +112,5 @@ amxdist:
 test% : test%.o apputils.o libamudp.a $(ueth_libraries)
 	$(link) -o $@ $< apputils.o -L. -lamudp $(linkend)
 
-TEST_NODES=2
-TEST_ITERS=100
-AMUDP_SPAWNFN=L
-TEST_SPAWNFN=$(AMUDP_SPAWNFN)
-TEST_MODE=P
-TEST_DEPTH=32
-TEST_DUPLEX=H
-AMUDP_RUNCMD=
-TEST_RUNCMD=$(AMUDP_RUNCMD)
-AMUDP_NETWORKDEPTH=$(TEST_DEPTH)
-run-tests: tests
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo  Running AMUDP tests...
-	@echo  If this fails to spawn a job, you may need to re-run with a
-	@echo   command like: gmake run-tests TEST_SPAWNFN=S
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTPING
-	$(TEST_RUNCMD) ./testping $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTLATENCY
-	$(TEST_RUNCMD) ./testlatency $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTLATENCYM
-	$(TEST_RUNCMD) ./testlatencyM $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 64
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTBULK
-	$(TEST_RUNCMD) ./testbulk $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTAM
-	$(TEST_RUNCMD) ./testam $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE)
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTBOUNCE
-	$(TEST_RUNCMD) ./testbounce $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) $(TEST_MODE) 
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTREDUCE
-	$(TEST_RUNCMD) ./testreduce $(TEST_NODES) $(TEST_SPAWNFN) 
-	@if test -x ./testgetput ; then \
-	   echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ; \
-	   echo TESTGETPUT ; \
-           echo $(TEST_RUNCMD) ./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; \
-           $(TEST_RUNCMD) ./testgetput $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; \
-        fi
-	@if test -x ./testreadwrite ; then \
-	   echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ ; \
-	   echo TESTREADWRITE ; \
-           echo $(TEST_RUNCMD) ./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; \
-           $(TEST_RUNCMD) ./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN) $(TEST_ITERS) ; \
-        fi
-	@echo +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-	@echo TESTS COMPLETE
+include Makefile.tests
 

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.am,v $
-#     $Date: 2005/05/04 08:12:52 $
-# $Revision: 1.33 $
+#     $Date: 2005/05/08 17:47:18 $
+# $Revision: 1.34 $
 # Description: Makefile for AMMPI/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -51,6 +51,7 @@ libammpi_a_DEPENDENCIES = $(libammpi_a_SOURCES:%.c=%.o)
 EXTRA_DIST = \
 	Makefile.common 	\
 	Makefile.standalone 	\
+	Makefile.tests  	\
 	Makefile.titanium.in	\
 	license.txt
 
@@ -85,41 +86,11 @@ apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h $(headers)
 test%: test%.o apputils.o libammpi.a 
 	$(link) -o $@ $< apputils.o -L. -lammpi $(linkend)
 
-TEST_NODES=2
+tests-clean:
+	rm -f $(testprograms)
+
 AMMPI_RUNCMD='@MPIRUN_CMD@'
-TEST_LINE=++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-AMMPI_RUNCMD_EXP=\
-      TEST_RUN_P=`echo "$$TEST_RUN" | sed 's/ .*$$//'`  \
-      TEST_RUN_A=`echo "$$TEST_RUN" | sed 's/^[^ ]* //'` \
-      TEST_DOIT=`echo $(AMMPI_RUNCMD) | sed 's/%N/$(TEST_NODES)/;s@%C@'"$$TEST_RUN"'@;s@%P@'"$$TEST_RUN_P"'@;s@%A@'"$$TEST_RUN_A"'@;s/%V//'`
-TEST_RUNCMD=$(AMMPI_RUNCMD_EXP) ; 				\
-         if test -x "$$TEST_RUN_P" ; then                       \
-            echo "  **** `basename $$TEST_RUN_P` **** "; 	\
-            echo $$TEST_DOIT ; 					\
-            $$TEST_DOIT ; 					\
-            echo $(TEST_LINE) ;					\
-         fi
-TEST_ITERS=100
-TEST_MODE=P
-TEST_DEPTH=32
-TEST_DUPLEX=H
-AMMPI_NETWORKDEPTH=$(TEST_DEPTH)
-run-tests: tests
-	@echo $(TEST_LINE)
-	@echo  Running AMMPI tests...
-	@echo  If this fails to spawn a job, you may need to re-run with a
-	@echo   command like: gmake run-tests AMMPI_RUNCMD=\"$(AMMPI_RUNCMD)\"
-	@echo $(TEST_LINE)
-	@TEST_RUN="./testping $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
-	@TEST_RUN="./testlatency $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
-	@TEST_RUN="./testlatencyM $(TEST_ITERS) $(TEST_MODE) 64" $(TEST_RUNCMD)
-	@TEST_RUN="./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)" $(TEST_RUNCMD)
-	@TEST_RUN="./testam $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
-	@TEST_RUN="./testbounce $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
-	@TEST_RUN="./testreduce" $(TEST_RUNCMD)
-	@TEST_RUN="./testgetput $(TEST_ITERS)" $(TEST_RUNCMD)
-	@TEST_RUN="./testreadwrite $(TEST_ITERS)" $(TEST_RUNCMD)
-	@echo TESTS COMPLETE
+include Makefile.tests
 
 %.o: %.c ammpi.h ammpi_spmd.h ammpi_internal.h
 	$(compile) -DAMMPI -o $@ -c $<
@@ -150,7 +121,7 @@ endif
 
 check: check-exports tests
 
-clean_local_files = libammpi.a *.o core
+clean_local_files = libammpi.a *.o core .test-results
 clean-local:
 	@for f in $(testprograms); do                                \
 	  cmd="rm -f '$$f$(EXESUFFIX)'"; echo "$$cmd"; eval "$$cmd" || exit $$? ; \

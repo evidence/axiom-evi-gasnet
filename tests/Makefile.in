@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/05/06 20:12:22 $
-# $Revision: 1.64 $
+#     $Date: 2005/05/08 17:47:22 $
+# $Revision: 1.65 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -105,6 +105,9 @@ distclean:
 @GASNET_SEGMENT_FAST_TRUE@GASNET_SEGMENT_STR="FAST"
 @GASNET_SEGMENT_LARGE_TRUE@GASNET_SEGMENT_STR="LARGE"
 @GASNET_SEGMENT_EVERYTHING_TRUE@GASNET_SEGMENT_STR="EVERYTHING"
+@BUILDCONFIG_DEBUG_TRUE@ GASNET_DEBUG_STR="debug"
+@BUILDCONFIG_DEBUG_FALSE@GASNET_DEBUG_STR="nodebug"
+GASNET_CONFIG_STR=$(GASNET_SEGMENT_STR)-$(GASNET_DEBUG_STR)
 
 @BUILDCONFIG_DEBUG_TRUE@DEBUG_MALLOC=MALLOC_CHECK_=2
 TEST_ENV=$(DEBUG_MALLOC)
@@ -191,10 +194,12 @@ run-tests: force
 	    if test "`echo \" $(testprograms_nongasnet) \"| grep \" $$file \" ; exit 0`" ; then  \
 	      echo "*** Running $(CONDUIT_NAME)-conduit $$file ***" ;                   \
 	      cmd="./$$file $$args" ;                                                   \
+	      faildesc="$(CONDUIT_NAME)-conduit/$(GASNET_CONFIG_STR)/$$file $$args" ;   \
 	    elif test "`echo \" $(MPI_TESTS) \"| grep \" $$file \" ; exit 0`" ; then    \
 	      echo "*** Running MPI test $$file ***" ;                                  \
               awk_cmdbuild=`echo "$(awk_cmdbuild)"` ; 					\
 	      cmd=`echo "$$MPI_RUNCMD" | eval @AWK@ \'$$awk_cmdbuild\'` ;         	\
+	      faildesc="MPI test: $$file $$args" ;                                      \
 	    else                                                                        \
 	      threadmode=`@PERL@ -n -e '$(perl_threadscan)'                             \
                           $$file@EXESUFFIX@ 2> /dev/null` ;                             \
@@ -202,10 +207,20 @@ run-tests: force
 		   "in $$threadmode/$(GASNET_SEGMENT_STR) mode ***" ;                   \
               awk_cmdbuild=`echo "$(awk_cmdbuild)"` ; 					\
 	      cmd=`echo "$$TEST_RUNCMD" | eval @AWK@ \'$$awk_cmdbuild\'` ;         	\
+	      faildesc="$(CONDUIT_NAME)-conduit/$$threadmode-$(GASNET_CONFIG_STR)/$$file $$args" ; \
 	    fi;                                                                         \
 	    echo "$$cmd" ;                                                              \
-	    eval env GASNET_DUMMY=\"GASNet dummy value\" $(TEST_ENV)                    \
-	    $$TIMECMD $$cmd || echo "ERROR: Test exited with failure code=$$?" ;        \
+	    ( eval env GASNET_DUMMY=\"GASNet dummy value\" $(TEST_ENV)                  \
+	    $$TIMECMD $$cmd || echo "ERROR: Test exited with failure code=$$?" )        \
+                             2>&1 | tee .test-output ;                                  \
+            failure=`grep -e ERROR -e 'fatal signal' .test-output` ;                    \
+            if test "$$failure" != "" ; then                                            \
+               echo " " >> $(TESTLOG) ;                                                 \
+               echo " *-* $$faildesc *-*" >> $(TESTLOG) ;                               \
+               echo " " >> $(TESTLOG) ;                                                 \
+               echo "$$failure" >> $(TESTLOG) ;                                         \
+            fi ;                                                                        \
+            rm -f .test-output ;                                                        \
 	    echo $$line ;                                                               \
 	done ;                                                                          \
 	echo "TESTS COMPLETE"
