@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/05/06 21:35:40 $
- * $Revision: 1.32 $
+ *     $Date: 2005/05/08 00:24:05 $
+ * $Revision: 1.33 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,9 @@
 #include <gasnet_config.h>
 #include <gasnet_basic.h>
 
+#include <stdio.h>
+#include <stdlib.h>
+
 /* ------------------------------------------------------------------------------------ */
 /* stub versions of selected gasnet internal macros needed by the headers included below */
 
@@ -26,7 +29,6 @@
   #if defined(GASNET_NDEBUG) || defined(NDEBUG)
     #define gasneti_assert(expr) ((void)0)
   #else
-    #include <stdio.h>
     GASNET_INLINE_MODIFIER(gasneti_assert_fail)
     void gasneti_assert_fail(const char *file, int line, const char *cond) {
       fprintf(stderr, "*** FATAL ERROR: Assertion failure at %s:%i: %s\n", file, line, cond);
