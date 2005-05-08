@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/05/02 17:13:52 $
-dnl $Revision: 1.62 $
+dnl     $Date: 2005/05/08 09:26:29 $
+dnl $Revision: 1.63 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -936,21 +936,41 @@ AC_REQUIRE_CPP
 AC_CACHE_CHECK(for $1 compiler family, $3, [
   $3=unknown
 
-  GASNET_IFDEF(__GNUC__, $3=GNU) dnl Note this one must precede many of those below
-  GASNET_IFDEF(__PATHCC__, $3=Pathscale)
-  GASNET_IFDEF(__PGI, $3=PGI)
-  GASNET_IFDEF(__xlC__, $3=XLC)
-  GASNET_IFDEF(__KCC, $3=KAI)
-  GASNET_IFDEF(__SUNPRO_C, $3=Sun)  # Sun C
-  GASNET_IFDEF(__SUNPRO_CC, $3=Sun) # Sun C++
-  GASNET_IFDEF(__MTA__, $3=MTA)
-  GASNET_IFDEF(_CRAYC, $3=Cray)
-  GASNET_IFDEF(__INTEL_COMPILER, $3=Intel)
-  GASNET_IFDEF(__DECC, $3=Compaq) # Compaq C
-  GASNET_IFDEF(__DECCXX, $3=Compaq) # Compaq C++
-  GASNET_IFDEF(__HP_cc, $3=HP)  # HP C
-  GASNET_IFDEF(__HP_aCC, $3=HP) # HP aCC (C++)
+  dnl start with compilers having very slow preprocessors
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__xlC__, $3=XLC)
+  fi
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(_CRAYC, $3=Cray)
+  fi
+  dnl gcc-like compilers, which may define __GNUC__ - order matters here
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__GNUC__, $3=GNU) dnl Note this one must precede many of those below
+    GASNET_IFDEF(__PATHCC__, $3=Pathscale)
+    GASNET_IFDEF(__PGI, $3=PGI)
+    GASNET_IFDEF(__INTEL_COMPILER, $3=Intel)
+  fi
+  dnl other vendor compilers
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__DECC, $3=Compaq) # Compaq C
+    GASNET_IFDEF(__DECCXX, $3=Compaq) # Compaq C++
+  fi
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__SUNPRO_C, $3=Sun)  # Sun C
+    GASNET_IFDEF(__SUNPRO_CC, $3=Sun) # Sun C++
+  fi
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__HP_cc, $3=HP)  # HP C
+    GASNET_IFDEF(__HP_aCC, $3=HP) # HP aCC (C++)
+  fi
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__MTA__, $3=MTA)
+  fi
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__KCC, $3=KAI)
+  fi
 
+  dnl compilers lacking specific identifying marks - identify by platform
   if test "$$3" = "unknown"; then
     GASNET_IFDEF(mips, $3=MIPS)
     GASNET_IFDEF(_SX, $3=NEC)
