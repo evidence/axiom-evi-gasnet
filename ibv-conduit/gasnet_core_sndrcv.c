@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/07 02:12:35 $
- * $Revision: 1.102 $
+ *     $Date: 2005/05/09 22:56:44 $
+ * $Revision: 1.103 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -552,6 +552,7 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
       gasnetc_buffer_t *buf = gasneti_malloc(sizeof(gasnetc_buffer_t));
       memcpy(buf, (void *)(uintptr_t)rbuf->rr_sg.addr, sizeof(gasnetc_buffer_t));
       emergency_spare.rr_sg.addr = (uintptr_t)buf;
+      emergency_spare.epid = rbuf->epid;
   
       gasnetc_rcv_post(cep, rbuf);
 
@@ -1225,6 +1226,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     gasnetc_rbuf_t	rbuf;
 
     rbuf.rr_sg.addr = (uintptr_t)buf;
+    #if GASNET_DEBUG
+      rbuf.epid = ~0;	/* ensure field is not used */
+    #endif
 
     gasnetc_processPacket(&rbuf, flags);
     if_pf (sreq->am_buff != NULL) {
