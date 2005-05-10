@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/05/06 20:12:18 $
- * $Revision: 1.105 $
+ *     $Date: 2005/05/10 16:32:39 $
+ * $Revision: 1.106 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -266,6 +266,9 @@ extern void gasneti_close_streams() {
 #define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
 #elif defined(_CRAYT3E)
 #define _SC_NPROCESSORS_ONLN _SC_CRAY_MAXPES
+#elif defined(HPUX)
+#include <sys/param.h>
+#include <sys/pstat.h>
 #elif defined(__APPLE__) || defined(FREEBSD) || defined(NETBSD)
 #include <sys/param.h>
 #include <sys/sysctl.h>
@@ -290,7 +293,17 @@ extern int gasneti_cpu_count() {
         }
         if (hwprocs < 1) hwprocs = 0;
       }
-  #elif defined(HPUX) || defined(SUPERUX) || defined(__MTA__)
+  #elif defined(HPUX) 
+      {
+        struct pst_dynamic psd;
+        if (pstat_getdynamic(&psd, sizeof(psd), (size_t)1, 0) == -1) {
+          perror("pstat_getdynamic");
+          abort();
+        } else {
+          hwprocs = psd.psd_proc_cnt;
+        }
+      }
+  #elif defined(SUPERUX) || defined(__MTA__)
       hwprocs = 0; /* appears to be no way to query CPU count on these */
   #else
       hwprocs = sysconf(_SC_NPROCESSORS_ONLN);
@@ -1247,6 +1260,7 @@ extern void gasneti_trace_init(int argc, char **argv) {
   gasneti_tracestats_printf("GASNet configure system:  " GASNETI_SYSTEM_NAME);
   gasneti_tracestats_printf("gasnet_mynode(): %i", (int)gasnet_mynode());
   gasneti_tracestats_printf("gasnet_nodes(): %i", (int)gasnet_nodes());
+  gasneti_tracestats_printf("gasneti_cpu_count(): %i", (int)gasneti_cpu_count());
 
   #if GASNET_NDEBUG
   { char *NDEBUG_warning =
