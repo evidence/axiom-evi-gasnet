@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2005/03/03 16:43:29 $
- * $Revision: 1.21 $
+ *     $Date: 2005/05/12 19:16:19 $
+ * $Revision: 1.22 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1551,7 +1551,7 @@ typedef struct {
     /* used only as keys when caching: */
     gasnete_coll_tree_kind_t	kind;
     gasnet_node_t		root;
-    gasneti_atomic_t		ref_count;
+    gasneti_weakatomic_t	ref_count;
 } gasnete_coll_tree_geom_t;
                                                                                                               
 /* Data for a given tree-based operation */
