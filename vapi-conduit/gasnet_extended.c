@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/03/22 00:05:16 $
- * $Revision: 1.33 $
+ *     $Date: 2005/05/12 21:34:48 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -343,72 +343,6 @@ extern void gasnete_init() {
   Non-blocking memory-to-memory transfers (explicit handle)
   ==========================================================
 */
-/* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_getmed_reqh_inner)
-void gasnete_getmed_reqh_inner(gasnet_token_t token, 
-  gasnet_handlerarg_t nbytes, void *dest, void *src, void *counter) {
-  gasneti_assert(nbytes <= gasnet_AMMaxMedium());
-  GASNETI_SAFE(
-    MEDIUM_REP(2,4,(token, gasneti_handleridx(gasnete_getmed_reph),
-                  src, nbytes, 
-                  PACK(dest), PACK(counter))));
-}
-SHORT_HANDLER(gasnete_getmed_reqh,4,7, 
-              (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
-              (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
-/* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_getmed_reph_inner)
-void gasnete_getmed_reph_inner(gasnet_token_t token, 
-  void *addr, size_t nbytes,
-  void *dest, void *counter) {
-  GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
-  gasneti_sync_writes();
-  gasnete_done_reph_inner(token, counter);
-}
-MEDIUM_HANDLER(gasnete_getmed_reph,2,4,
-              (token,addr,nbytes, UNPACK(a0),      UNPACK(a1)    ),
-              (token,addr,nbytes, UNPACK2(a0, a1), UNPACK2(a2, a3)));
-/* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_getlong_reqh_inner)
-void gasnete_getlong_reqh_inner(gasnet_token_t token, 
-  gasnet_handlerarg_t nbytes, void *dest, void *src, void *counter) {
-  int rc;
-  gasnet_node_t node;
-
-  rc = gasnet_AMGetMsgSource(token, &node);
-  gasneti_assert(rc != 0);
-  gasneti_assert(node != gasneti_mynode);	/* loopback gets should not reach here */
-
-  /* This is more-or-less a AMReplyLongAsync, except that the reply handler
-   * doesn't get the "nbytes" and "addr" (they are not needed in this case).
-   * XXX: Consider implementing a gasnetc_AMReplyLongAsyncM() as in gm-conduit.
-   *      I have not bothered yet, since this is the only place it is used.
-   *
-   * The semantics allow this handler to return as soon as both the RDMA put
-   * and the AM for the "done" have been queued.  Ordering ensures that those
-   * will be delivered in the proper order.  There is nothing in the GASNet
-   * spec that ensures that the "get" will read the memory atomically with
-   * respect to the running of handlers, so we are permitted the "bulk put"
-   * semantic in which we don't wait for the "safe reuse" of the source memory
-   * before returning, and possibly running the next handler.
-   */
-  gasnetc_rdma_put(node, src, dest, nbytes, NULL, NULL);
-  GASNETE_DONE(token, counter);
-}
-SHORT_HANDLER(gasnete_getlong_reqh,4,7, 
-              (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
-              (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
-/* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_put_reqh_inner)
-void gasnete_put_reqh_inner(gasnet_token_t token, 
-  void *addr, size_t nbytes, void *dest, void *counter) {
-  GASNETE_FAST_UNALIGNED_MEMCPY(dest, addr, nbytes);
-  gasneti_sync_writes();
-  GASNETE_DONE(token, counter);
-}
-MEDIUM_HANDLER(gasnete_put_reqh,2,4, 
-               (token,addr,nbytes, UNPACK(a0),      UNPACK(a1)     ),
-               (token,addr,nbytes, UNPACK2(a0, a1), UNPACK2(a2, a3)));
 /* ------------------------------------------------------------------------------------ */
 GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
 void gasnete_memset_reqh_inner(gasnet_token_t token, 
@@ -802,10 +736,6 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
 
   /* ptr-width dependent handlers */
   gasneti_handler_tableentry_with_bits(gasnete_done_reph),
-  gasneti_handler_tableentry_with_bits(gasnete_getmed_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_getmed_reph),
-  gasneti_handler_tableentry_with_bits(gasnete_getlong_reqh),
-  gasneti_handler_tableentry_with_bits(gasnete_put_reqh),
   gasneti_handler_tableentry_with_bits(gasnete_memset_reqh),
 
   { 0, NULL }
