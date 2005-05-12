@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/05/06 23:06:06 $
- * $Revision: 1.101 $
+ *     $Date: 2005/05/12 20:30:18 $
+ * $Revision: 1.102 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1502,6 +1502,9 @@ static void gasnetc_exit_tail(void) {
  * DOES NOT RETURN
  */
 static void gasnetc_exit_sighandler(int sig) {
+  int exitcode = (int)gasneti_atomic_read(&gasnetc_exit_code);
+  static gasneti_atomic_t once = gasneti_atomic_init(1);
+
   #if GASNET_DEBUG
   /* note - can't call trace macros here, or even sprintf */
   if (sig == SIGALRM) {
@@ -1526,7 +1529,15 @@ static void gasnetc_exit_sighandler(int sig) {
   }
   #endif
 
-  gasnetc_exit_now((int)gasneti_atomic_read(&gasnetc_exit_code));
+  if (gasneti_atomic_decrement_and_test(&once)) {
+    /* We ask the bootstrap support to kill us, but only once */
+    gasneti_reghandler(SIGALRM, gasnetc_exit_sighandler);
+    alarm(5);
+    gasneti_bootstrapAbort(exitcode);
+  } else {
+    gasnetc_exit_now(exitcode);
+  }
+
   /* NOT REACHED */
 }
 
