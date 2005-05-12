@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/04/12 01:09:52 $
- * $Revision: 1.28 $
+ *     $Date: 2005/05/12 18:25:33 $
+ * $Revision: 1.29 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1169,7 +1169,7 @@ static gasnete_coll_tree_geom_t *gasnete_coll_tree_geom_init(gasnete_coll_tree_k
   geom = gasneti_malloc(sizeof(gasnete_coll_tree_geom_t));
   geom->kind = kind;
   geom->root = root;
-  gasneti_atomic_set(&(geom->ref_count), 1);
+  gasneti_weakatomic_set(&(geom->ref_count), 1);
 
   geom->parent = (gasnet_node_t)(-1);
   geom->child_id = -1;
@@ -1475,7 +1475,7 @@ static gasnete_coll_tree_geom_t *gasnete_coll_tree_geom_init(gasnete_coll_tree_k
  * therefore cannot receive additional references.
  */
 static void gasnete_coll_tree_geom_put(gasnete_coll_tree_geom_t *geom) {
-  if (gasneti_atomic_decrement_and_test(&(geom->ref_count))) {
+  if (gasneti_weakatomic_decrement_and_test(&(geom->ref_count))) {
     if (geom->child_list) {
       gasneti_free(geom->child_list);
     }
@@ -1507,7 +1507,7 @@ static gasnete_coll_tree_geom_t *gasnete_coll_tree_geom_get(gasnete_coll_tree_ki
       geom = gasnete_coll_tree_geom_cache = gasnete_coll_tree_geom_init(kind, root);
     }
 
-    gasneti_atomic_increment(&(geom->ref_count));
+    gasneti_weakatomic_increment(&(geom->ref_count));
   gasneti_mutex_unlock(&gasnete_coll_geom_lock);
 
   return geom;
