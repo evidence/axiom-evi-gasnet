@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/05/07 02:12:35 $
- * $Revision: 1.81 $
+ *     $Date: 2005/05/12 21:31:22 $
+ * $Revision: 1.82 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -246,23 +246,40 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
  * some resource of known multiplicity.
  */
 typedef struct {
-  #ifdef GASNETI_HAVE_ATOMIC_CAS
-    gasneti_atomic_t	count;
-    char		_pad[GASNETC_CACHE_PAD(sizeof(gasneti_atomic_t))];
-  #else
-    gasnetc_mutex_t	lock;
-    gasneti_atomic_t	count;
-    char		_pad[GASNETC_CACHE_PAD(sizeof(gasnetc_mutex_t)+sizeof(gasneti_atomic_t))];
-  #endif
   #if GASNET_DEBUG
-    uint32_t		limit;
+    uint32_t			limit;
+  #endif
+  #ifdef GASNETI_HAVE_ATOMIC_CAS
+    gasneti_weakatomic_t	count;
+    #if GASNET_DEBUG
+      char			_pad[GASNETC_CACHE_PAD(sizeof(uint32_t)+sizeof(gasneti_weakatomic_t))];
+    #else
+      char			_pad[GASNETC_CACHE_PAD(sizeof(gasneti_weakatomic_t))];
+    #endif
+  #else
+    gasnetc_mutex_t		lock;
+    gasneti_weakatomic_t	count;
+    #if GASNET_DEBUG
+      char			_pad[GASNETC_CACHE_PAD(sizeof(uint32_t)+sizeof(gasnetc_mutex_t)+sizeof(gasneti_weakatomic_t))];
+    #else
+      char			_pad[GASNETC_CACHE_PAD(sizeof(gasnetc_mutex_t)+sizeof(gasneti_weakatomic_t))];
+    #endif
   #endif
 } gasnetc_sema_t;
 
 #ifdef GASNETI_HAVE_ATOMIC_CAS
-  #define GASNETC_SEMA_INITIALIZER(N) {gasneti_atomic_init(N)}
+  #define GASNETC_SEMA_INITIALIZER(N) {gasneti_weakatomic_init(N)}
 #else
-  #define GASNETC_SEMA_INITIALIZER(N) {GASNETC_MUTEX_INITIALIZER, gasneti_atomic_init(N)}
+  #define GASNETC_SEMA_INITIALIZER(N) {GASNETC_MUTEX_INITIALIZER, gasneti_weakatomic_init(N)}
+#endif
+
+#if GASNET_DEBUG
+  #define GASNETC_SEMA_CHECK(_s)	do {                                  \
+      uint32_t _tmp = gasneti_weakatomic_read(&((_s)->count));                \
+      gasneti_assert((_tmp >= 0) && ((_tmp <= (_s)->limit) || !(_s)->limit)); \
+    } while (0)
+#else
+  #define GASNETC_SEMA_CHECK(_s)	do {} while(0)
 #endif
 
 /* gasnetc_sema_init */
@@ -271,7 +288,7 @@ void gasnetc_sema_init(gasnetc_sema_t *s, int n, uint32_t limit) {
   #ifndef GASNETI_HAVE_ATOMIC_CAS
     gasnetc_mutex_init(&(s->lock));
   #endif
-  gasneti_atomic_set(&(s->count), n);
+  gasneti_weakatomic_set(&(s->count), n);
   #if GASNET_DEBUG
     s->limit = limit;
   #endif
@@ -292,7 +309,8 @@ void gasnetc_sema_destroy(gasnetc_sema_t *s) {
 GASNET_INLINE_MODIFIER(gasnetc_sema_read)
 uint32_t gasnetc_sema_read(gasnetc_sema_t *s) {
   /* no locking needed here */
-  return gasneti_atomic_read(&(s->count));
+  GASNETC_SEMA_CHECK(s);
+  return gasneti_weakatomic_read(&(s->count));
 }
 
 /* gasnetc_sema_up
@@ -303,13 +321,9 @@ uint32_t gasnetc_sema_read(gasnetc_sema_t *s) {
 GASNET_INLINE_MODIFIER(gasnetc_sema_up)
 void gasnetc_sema_up(gasnetc_sema_t *s) {
   /* no locking needed here */
-  gasneti_atomic_increment(&(s->count));
-  #if GASNET_DEBUG
-  {
-    uint32_t old = gasneti_atomic_read(&(s->count));
-    gasneti_assert((old >= 0) && ((old <= s->limit) || !s->limit));
-  }
-  #endif
+  GASNETC_SEMA_CHECK(s);
+  gasneti_weakatomic_increment(&(s->count));
+  GASNETC_SEMA_CHECK(s);
 }
 
 /* gasnetc_sema_trydown
@@ -324,21 +338,21 @@ GASNET_INLINE_MODIFIER(gasnetc_sema_trydown)
 int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
   int retval;
 
+  GASNETC_SEMA_CHECK(s);
   #ifdef GASNETI_HAVE_ATOMIC_CAS
-    uint32_t old = gasneti_atomic_read(&(s->count));
-    gasneti_assert((old >= 0) && ((old <= s->limit) || !s->limit));
-    retval = (old > 0) && gasneti_atomic_compare_and_swap(&(s->count), old, old - 1);
+    uint32_t old = gasneti_weakatomic_read(&(s->count));
+    retval = (old > 0) && gasneti_weakatomic_compare_and_swap(&(s->count), old, old - 1);
     if (retval) gasneti_sync_reads();
   #else
     gasnetc_mutex_lock(&(s->lock), concurrent);
 
-    retval = gasneti_atomic_read(&(s->count));
-    gasneti_assert((retval >= 0) && ((retval <= s->limit) || !s->limit));
+    retval = gasneti_weakatomic_read(&(s->count));
     if_pt(retval != 0)
-      gasneti_atomic_decrement(&(s->count));
+      gasneti_weakatomic_decrement(&(s->count));
 
     gasnetc_mutex_unlock(&(s->lock), concurrent);
   #endif
+  GASNETC_SEMA_CHECK(s);
 
   return retval;
 }
@@ -350,22 +364,18 @@ int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
  */
 GASNET_INLINE_MODIFIER(gasnetc_sema_up_n)
 void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
+  GASNETC_SEMA_CHECK(s);
   #ifdef GASNETI_HAVE_ATOMIC_CAS
     uint32_t old;
     do {
-      old = gasneti_atomic_read(&(s->count));
-    } while (!gasneti_atomic_compare_and_swap(&(s->count), old, n + old));
+      old = gasneti_weakatomic_read(&(s->count));
+    } while (!gasneti_weakatomic_compare_and_swap(&(s->count), old, n + old));
   #else
     gasnetc_mutex_lock(&(s->lock), concurrent);
-    gasneti_atomic_write(&(s->count), n + gasneti_atomic_read(&(s->count)));
+    gasneti_weakatomic_write(&(s->count), n + gasneti_weakatomic_read(&(s->count)));
     gasnetc_mutex_unlock(&(s->lock), concurrent);
   #endif
-  #if GASNET_DEBUG
-  {
-    uint32_t old = gasneti_atomic_read(&(s->count));
-    gasneti_assert((old >= 0) && ((old <= s->limit) || !s->limit));
-  }
-  #endif
+  GASNETC_SEMA_CHECK(s);
 }
 
 /* gasnetc_sema_trydown_n
@@ -382,25 +392,25 @@ GASNET_INLINE_MODIFIER(gasnetc_sema_trydown_n)
 uint32_t gasnetc_sema_trydown_n(gasnetc_sema_t *s, uint32_t n, int concurrent) {
   uint32_t retval, old;
 
+  GASNETC_SEMA_CHECK(s);
   #ifdef GASNETI_HAVE_ATOMIC_CAS
     do {
-      old = gasneti_atomic_read(&(s->count));
-      gasneti_assert((old >= 0) && ((old <= s->limit) || !s->limit));
+      old = gasneti_weakatomic_read(&(s->count));
       if_pf (old == 0)
         return 0;
       retval = MIN(old, n);
-    } while(!gasneti_atomic_compare_and_swap(&(s->count), old, old - retval));
+    } while(!gasneti_weakatomic_compare_and_swap(&(s->count), old, old - retval));
     gasneti_sync_reads();
   #else
     gasnetc_mutex_lock(&(s->lock), concurrent);
 
-    old = gasneti_atomic_read(&(s->count));
-    gasneti_assert((old >= 0) && ((old <= s->limit) || !s->limit));
+    old = gasneti_weakatomic_read(&(s->count));
     retval = MIN(old, n);
-    gasneti_atomic_write(&(s->count), old - retval);
+    gasneti_weakatomic_write(&(s->count), old - retval);
 
     gasnetc_mutex_unlock(&(s->lock), concurrent);
   #endif
+  GASNETC_SEMA_CHECK(s);
 
   return retval;
 }

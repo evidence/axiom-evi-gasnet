@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/12 19:33:33 $
- * $Revision: 1.104 $
+ *     $Date: 2005/05/12 21:31:22 $
+ * $Revision: 1.105 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -128,7 +128,7 @@ typedef struct {
       uintptr_t			fh_loc_addr;
       uintptr_t			fh_rem_addr;
       gasnetc_buffer_t		*fh_bbuf;
-      gasneti_atomic_t		fh_ready;	/* 0 when loc and rem both ready */
+      gasneti_weakatomic_t	fh_ready;	/* 0 when loc and rem both ready */
       gasnetc_counter_t		*fh_oust;	/* fh transactions outstanding */
     } fh;
     struct { /* AM buffer */
@@ -1794,7 +1794,7 @@ static void gasnetc_fh_put_cb(void *context, const firehose_request_t *fh_rem, i
   #endif
 
   sreq->fh_ptr[0] = fh_rem;
-  if (gasneti_atomic_decrement_and_test(&sreq->fh_ready)) {
+  if (gasneti_weakatomic_decrement_and_test(&sreq->fh_ready)) {
     gasnetc_fh_do_put(sreq, fh_rem, sreq->fh_len);
   }
 }
@@ -1808,7 +1808,7 @@ static void gasnetc_fh_get_cb(void *context, const firehose_request_t *fh_rem, i
   gasnetc_sreq_t *sreq = context;
 
   sreq->fh_ptr[0] = fh_rem;
-  if (gasneti_atomic_decrement_and_test(&sreq->fh_ready)) {
+  if (gasneti_weakatomic_decrement_and_test(&sreq->fh_ready)) {
     gasnetc_fh_do_get(sreq);
   }
 
@@ -1872,7 +1872,7 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
     len = MIN(len, (fh_rem->addr + fh_rem->len - rem_addr));
   } else {
     /* MISS - Some initial part (or all) of the region is unpinned */
-    gasneti_atomic_set(&sreq->fh_ready, 2);
+    gasneti_weakatomic_set(&sreq->fh_ready, 2);
     len = MIN(len, (gasnetc_fh_maxsz - (rem_addr & (FH_BUCKET_SIZE - 1))));
     (void)firehose_remote_pin(node, rem_addr, len, 0, NULL,
 			      NULL, &gasnetc_fh_put_cb, sreq);
@@ -1887,7 +1887,7 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
   }
   sreq->fh_len = len;
 
-  if ((fh_rem != NULL) || gasneti_atomic_decrement_and_test(&sreq->fh_ready)) {
+  if ((fh_rem != NULL) || gasneti_weakatomic_decrement_and_test(&sreq->fh_ready)) {
     gasnetc_fh_do_put(sreq, fh_rem, len);
   }
 
@@ -1918,7 +1918,7 @@ int gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
     len = MIN(len, (fh_rem->addr + fh_rem->len - rem_addr));
   } else {
     /* MISS: Some initial part (or all) of the region is unpinned */
-    gasneti_atomic_set(&sreq->fh_ready, 2);
+    gasneti_weakatomic_set(&sreq->fh_ready, 2);
     len = MIN(len, (gasnetc_fh_maxsz - (rem_addr & (FH_BUCKET_SIZE - 1))));
     (void)firehose_remote_pin(node, rem_addr, len, 0, NULL,
 			      NULL, &gasnetc_fh_get_cb, sreq);
@@ -1927,7 +1927,7 @@ int gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
   len = gasnetc_get_local_fh(sreq, loc_addr, len);
   sreq->fh_len = len;
 
-  if ((fh_rem != NULL) || gasneti_atomic_decrement_and_test(&sreq->fh_ready)) {
+  if ((fh_rem != NULL) || gasneti_weakatomic_decrement_and_test(&sreq->fh_ready)) {
     gasnetc_fh_do_get(sreq);
   }
 

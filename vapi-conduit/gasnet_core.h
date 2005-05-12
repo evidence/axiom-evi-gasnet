@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2005/05/06 23:06:06 $
- * $Revision: 1.34 $
+ *     $Date: 2005/05/12 21:31:22 $
+ * $Revision: 1.35 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -119,17 +119,17 @@ typedef struct _gasnet_hsl_t {
 /* ------------------------------------------------------------------------------------ */
 /* Type and ops for rdma counters */
 #include <gasnet_atomicops.h> /* must come after hsl defs */
-typedef gasneti_atomic_t gasnetc_counter_t;
-#define GASNETC_COUNTER_INITIALIZER	gasneti_atomic_init(0)
-#define gasnetc_counter_reset(P)	gasneti_atomic_set((P), 0)
-#define gasnetc_counter_done(P)		(gasneti_atomic_read(P) == 0)
-#define gasnetc_counter_inc(P)		gasneti_atomic_increment(P)
+typedef gasneti_weakatomic_t gasnetc_counter_t;
+#define GASNETC_COUNTER_INITIALIZER	gasneti_weakatomic_init(0)
+#define gasnetc_counter_reset(P)	gasneti_weakatomic_set((P), 0)
+#define gasnetc_counter_done(P)		(gasneti_weakatomic_read(P) == 0)
+#define gasnetc_counter_inc(P)		gasneti_weakatomic_increment(P)
 #define gasnetc_counter_dec(P)	do {                                              \
 					gasneti_assert(!gasnetc_counter_done(P)); \
-					gasneti_atomic_decrement(P);              \
+					gasneti_weakatomic_decrement(P);          \
 				} while (0)
 #if GASNETI_STATS_OR_TRACE
-  #define gasnetc_counter_val(P)	gasneti_atomic_read(P)
+  #define gasnetc_counter_val(P)	gasneti_weakatomic_read(P)
 #endif
 
 /* Wait until given counter is marked as done.
