@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/09 22:56:44 $
- * $Revision: 1.103 $
+ *     $Date: 2005/05/12 19:33:33 $
+ * $Revision: 1.104 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -165,35 +165,27 @@ static gasnetc_sema_t			gasnetc_cq_sema;
  * ------------------------------------------------------------------------------------ */
 
 #if GASNETC_CEPS > 1
-  #define gasnetc_epid2node(E)    ((E)&0xffff)
-  #define gasnetc_epid2qpi(E)     ((E)>>16)
+  #define gasnetc_epid2node(E)	((E)&0xffff)
+  #define gasnetc_epid2qpi(E)	((E)>>16)
   #define gasnetc_epid(N,Q)	((N)|(((Q)+1)<<16))
 
   /* Given an epid return a non-zero qpi */
   GASNET_INLINE_MODIFIER(gasnetc_epid_select_qpi)
   gasnetc_epid_t gasnetc_epid_select_qpi(gasnetc_epid_t epid) {
-    gasnetc_epid_t qpi = gasnetc_epid2qpi(epid);
-    if_pt (!qpi) {
-      /* Search for largest space avail */
-      gasnetc_cep_t *cep = gasnetc_peer[gasnetc_epid2node(epid)].cep;
-      uint32_t space, best_space;
-      int i;
-      qpi = best_space = 0;
-      for (i = 0; i < GASNETC_CEPS; ++i) {
-	if ((space = gasnetc_sema_read(&cep[i].sq_sema)) > best_space) {
-	  best_space = space;
-	  qpi = i;
-	}
+    /* Search for largest space avail */
+    gasnetc_cep_t *cep = gasnetc_peer[gasnetc_epid2node(epid)].cep;
+    uint32_t space, best_space;
+    gasnetc_epid_t qpi;
+    int i;
+
+    qpi = best_space = 0;
+    for (i = 0; i < GASNETC_CEPS; ++i) {
+      if ((space = gasnetc_sema_read(&cep[i].sq_sema)) > best_space) {
+	best_space = space;
+	qpi = i;
       }
-    } else {
-      qpi -= 1;
     }
     return qpi;
-  }
-
-  GASNET_INLINE_MODIFIER(gasnetc_epid_select_cep)
-  gasnetc_cep_t *gasnetc_epid_select_cep(gasnetc_epid_t epid) {
-    return &gasnetc_peer[gasnetc_epid2node(epid)].cep[gasnetc_epid_select_qpi(epid)];
   }
 
   GASNET_INLINE_MODIFIER(gasnetc_epid2cep)
@@ -202,13 +194,30 @@ static gasnetc_sema_t			gasnetc_cq_sema;
     return &gasnetc_peer[gasnetc_epid2node(epid)].cep[gasnetc_epid2qpi(epid)-1];
   }
 
+  GASNET_INLINE_MODIFIER(gasnetc_epid_select_cep)
+  void gasnetc_epid_select_cep(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc) {
+    gasnetc_epid_t epid = sreq->epid;
+
+    if_pt (!gasnetc_epid2qpi(epid)) {
+      gasneti_assert(sr_desc->opcode != VAPI_SEND_WITH_IMM);
+      if (sr_desc->sg_lst_p[0].len >= 2048) {
+	sreq->ep = &gasnetc_peer[gasnetc_epid2node(epid)].cep[gasnetc_epid_select_qpi(epid)];
+      } else {
+	sreq->ep = &gasnetc_peer[gasnetc_epid2node(epid)].cep[0];
+      }
+    } else {
+      sreq->ep = gasnetc_epid2cep(epid);
+    }
+  }
+
   GASNET_INLINE_MODIFIER(gasnetc_epid2peer)
   gasnetc_peer_t *gasnetc_epid2peer(gasnetc_epid_t epid) {
     return &gasnetc_peer[gasnetc_epid2node(epid)];
   }
 #else
   #define gasnetc_epid(N,Q)		(N)
-  #define gasnetc_epid_select_cep(epid)	(gasnetc_peer[(epid)].cep)
+  #define gasnetc_epid_select_cep(sreq,desc) \
+					((sreq)->ep = gasnetc_peer[(sreq)->epid].cep)
   #define gasnetc_epid2cep(epid)	(gasnetc_peer[(epid)].cep)
   #define gasnetc_epid2peer(epid)	(&gasnetc_peer[(epid)])
 #endif
@@ -820,13 +829,13 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc) {
 
   /* Loop until space is available on the SQ for 1 new entry.
    * If we hold the last one then threads sending to the same node will stall. */
-  sreq->ep = gasnetc_epid_select_cep(sreq->epid);
+  gasnetc_epid_select_cep(sreq, sr_desc);
   if_pf (!gasnetc_sema_trydown(&sreq->ep->sq_sema, GASNETC_ANY_PAR)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-      sreq->ep = gasnetc_epid_select_cep(sreq->epid);	/* try new load-balancing assignment */
+      gasnetc_epid_select_cep(sreq, sr_desc);	/* try new load-balancing assignment */
     } while (!gasnetc_sema_trydown(&sreq->ep->sq_sema, GASNETC_ANY_PAR));
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
   }
