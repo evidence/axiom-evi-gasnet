@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlarge.c,v $
- *     $Date: 2005/05/13 16:33:06 $
- * $Revision: 1.36 $
+ *     $Date: 2005/05/13 17:22:02 $
+ * $Revision: 1.37 $
  * Description: GASNet bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet bulk gets and puts
@@ -49,6 +49,7 @@ int myproc;
 int numprocs;
 int peerproc = -1;
 int iamsender = 0;
+int unitsMB = 0;
 
 int min_payload;
 int max_payload;
@@ -88,11 +89,12 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 		fflush(stdout);
 		break;
 	case PRINT_THROUGHPUT:
-		printf("Proc %3i - %10i byte : %7i iters,"
-			" throughput %11.3f KB/sec (%s)\n",
+		printf((unitsMB ? "Proc %3i - %10i byte : %7i iters, throughput %11.6f MB/sec (%s)\n":
+                                  "Proc %3i - %10i byte : %7i iters, throughput %11.3f KB/sec (%s)\n"),
 			myproc, st->datasize, st->iters,
                         ((int)st->time == 0 ? 0.0 :
-                        (1000000.0 * st->datasize * st->iters / 1024.0) / ((int)st->time)),
+                        (1000000.0 * st->datasize * st->iters / 
+                          (unitsMB?(1024.0*1024.0):1024.0)) / ((int)st->time)),
 			name);
 		fflush(stdout);
 		break;
@@ -286,6 +288,9 @@ int main(int argc, char **argv)
       } else if (!strcmp(argv[arg], "-a")) {
         fullduplexmode = 1;
         ++arg;
+      } else if (!strcmp(argv[arg], "-m")) {
+        unitsMB = 1;
+        ++arg;
       } else if (argv[arg][0] == '-') {
         help = 1;
         ++arg;
@@ -296,6 +301,7 @@ int main(int argc, char **argv)
         printf("Usage: %s [-in|-out] (iters) (maxsz)\n"
                "  The 'in' or 'out' option selects whether the initiator-side\n"
                "  memory is in the GASNet segment or not (default it not).\n"
+               "  The -m option enables MB/sec units for bandwidth output (MB=2^20 bytes).\n"
                "  The -a option enables full-duplex mode, where all nodes send.\n"
                "  The -f option enables 'first/last' mode, where the first/last\n"
                "  nodes communicate with each other, while all other nodes sit idle.\n",

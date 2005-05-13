@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testsmall.c,v $
- *     $Date: 2005/05/13 16:33:06 $
- * $Revision: 1.33 $
+ *     $Date: 2005/05/13 17:22:02 $
+ * $Revision: 1.34 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -40,6 +40,7 @@ int myproc;
 int numprocs;
 int peerproc = -1;
 int iamsender = 0;
+int unitsMB = 0;
 
 void *tgtmem;
 char *msgbuf;
@@ -69,7 +70,7 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 {
 	switch (operation) {
 	case PRINT_LATENCY:
-		printf("Proc %2i - %4i byte : %7i iters,"
+		printf("Proc %2i - %10i byte : %7i iters,"
 			   " latency %10i us total, %9.3f us ave. (%s)\n",
 			myproc, st->datasize, st->iters, (int) st->time,
 			((double)st->time) / st->iters,
@@ -77,20 +78,12 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 		fflush(stdout);
 		break;
 	case PRINT_THROUGHPUT:
-		printf("Proc %2i - %4i byte : %7i iters,"
-#if 1
-			" throughput %11.3f KB/sec (%s)\n"
-#else
-			" inv. throughput %9.3f us (%s)\n"
-#endif
-                        ,
+		printf((unitsMB?"Proc %2i - %10i byte : %7i iters, throughput %11.6f MB/sec (%s)\n":
+                                "Proc %2i - %10i byte : %7i iters, throughput %11.3f KB/sec (%s)\n"),
 			myproc, st->datasize, st->iters,
-#if 1
 			((int)st->time == 0 ? 0.0 :
-                        (1000000.0 * st->datasize * st->iters / 1024.0) / ((int)st->time)),
-#else
-                        (((double)((int)st->time)) / st->iters),
-#endif
+                        (1000000.0 * st->datasize * st->iters / 
+                          (unitsMB?(1024.0*1024.0):1024.0)) / ((int)st->time)),
 			name);
 		fflush(stdout);
 		break;
@@ -457,6 +450,9 @@ int main(int argc, char **argv)
       } else if (!strcmp(argv[arg], "-a")) {
         fullduplexmode = 1;
         ++arg;
+      } else if (!strcmp(argv[arg], "-m")) {
+        unitsMB = 1;
+        ++arg;
       } else if (argv[arg][0] == '-') {
         help = 1;
         ++arg;
@@ -467,6 +463,7 @@ int main(int argc, char **argv)
         printf("Usage: %s [-in|-out|-f] (iters) (maxsz)\n"
                "  The 'in' or 'out' option selects whether the initiator-side\n"
                "  memory is in the GASNet segment or not (default it not).\n"
+               "  The -m option enables MB/sec units for bandwidth output (MB=2^20 bytes).\n"
                "  The -a option enables full-duplex mode, where all nodes send.\n"
                "  The -f option enables 'first/last' mode, where the first/last\n"
                "  nodes communicate with each other, while all other nodes sit idle.\n",

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testalign.c,v $
- *     $Date: 2005/03/31 00:47:03 $
- * $Revision: 1.13 $
+ *     $Date: 2005/05/13 17:22:02 $
+ * $Revision: 1.14 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -35,6 +35,7 @@ int myproc;
 int numprocs;
 int peerproc;
 int iamsender = 0;
+int unitsMB = 0;
 
 char *rembuf;
 char *locbuf;
@@ -64,7 +65,7 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 {
 	switch (operation) {
 	case PRINT_LATENCY:
-		printf("Proc %2i - %4i byte %4i byte aligned : %7i iters,"
+		printf("Proc %2i - %5i byte %5i byte aligned : %7i iters,"
 			   " latency %10i us total, %9.3f us ave. (%s)\n",
 			myproc, st->datasize, st->alignment, st->iters, (int) st->time,
 			((float)st->time) / st->iters,
@@ -72,20 +73,12 @@ void _print_stat(int myproc, stat_struct_t *st, const char *name, int operation)
 		fflush(stdout);
 		break;
 	case PRINT_THROUGHPUT:
-		printf("Proc %2i - %4i byte %4i byte aligned : %7i iters,"
-#if 1
-			" throughput %9.3f KB/sec (%s)\n"
-#else
-			" inv. throughput %9.3f us (%s)\n"
-#endif
-                        ,
+		printf((unitsMB?"Proc %2i - %5i byte %5i byte aligned : %7i iters, throughput %11.6f MB/sec (%s)\n":
+                                "Proc %2i - %5i byte %5i byte aligned : %7i iters, throughput %11.3f KB/sec (%s)\n"),
 			myproc, st->datasize, st->alignment, st->iters,
-#if 1
 			((int)st->time == 0 ? 0.0 :
-                        (1000000.0 * st->datasize * st->iters / 1024.0) / ((int)st->time)),
-#else
-                        (((float)((int)st->time)) / st->iters),
-#endif
+                                (1000000.0 * st->datasize * st->iters / 
+                                  (unitsMB?(1024.0*1024.0):1024.0)) / ((int)st->time)),
 			name);
 		fflush(stdout);
 		break;
@@ -259,26 +252,35 @@ int main(int argc, char **argv)
     int iters = 0;
     int size = 0;
     int j;
-   
+    int help = 0;   
+
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
     TEST_DEBUGPERFORMANCE_WARNING();
 
-    /* parse arguments (we could do better) */
+    /* parse arguments */
     arg = 1;
-    if (argc > arg && !strcmp(argv[arg], "-in")) {
+    while (argc > arg) {
+      if (!strcmp(argv[arg], "-in")) {
         insegment = 1;
         ++arg;
-    }
-    if (argc > arg && !strcmp(argv[arg], "-out")) {
+      } else if (!strcmp(argv[arg], "-out")) {
         insegment = 0;
         ++arg;
+      } else if (!strcmp(argv[arg], "-m")) {
+        unitsMB = 1;
+        ++arg;
+      } else if (argv[arg][0] == '-') {
+        help = 1;
+        ++arg;
+      } else break;
     }
-    if (argc > arg+2) {
+    if (help || argc > arg+2) {
         printf("Usage: %s [-in|-out] (iters) (size)\n"
                "  The 'in' or 'out' option selects whether the initiator-side\n"
-               "  memory is in the GASNet segment or not (default it not).\n",
+               "  memory is in the GASNet segment or not (default it not).\n"
+               "  The -m option enables MB/sec units for bandwidth output (MB=2^20 bytes).\n",
                argv[0]);
         gasnet_exit(1);
     }
