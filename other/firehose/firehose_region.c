@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/05/06 20:20:11 $
- * $Revision: 1.12 $
+ *     $Date: 2005/05/13 17:34:34 $
+ * $Revision: 1.13 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1153,11 +1153,6 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
         fh_BucketTable1 = fh_hash_create(1<<16); /* 64k */
         fh_BucketTable2 = fh_hash_create(1<<17); /* 128k */
 
-	i = 1.2 * FIREHOSE_CLIENT_MAXREGIONS;	/* factor 1.2 is arbitrary */
-	/* round 'i' up to a power of two: */
-	for (j = 1; j < i; j *= 2) { /* nothing */ }
-       	fh_PrivTable = fh_hash_create(j);
-
 	/* Count how many regions fit into an AM Medium payload */
 	med_regions = (gasnet_AMMaxMedium() 
 				- sizeof(firehose_remotecallback_args_t))
@@ -1334,12 +1329,12 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 						<= max_pinnable_memory);
 
 
-#if 0
-	/* Initialize bucket freelist with the total amount of buckets
-	 * to be pinned (including the ones the client passed) */
-	/* XXX/PHH: to check w/ christian: looks like prepinned memory is double counted */
-	fh_bucket_init_freelist(firehoses + fhc_MaxVictimBuckets);
-#endif
+	/* Allocate hash table for region tracking */
+	i = 1.2 * (param_R + param_VR + num_reg);	/* factor 1.2 is arbitrary */
+	/* round 'i' up to a power of two: */
+	for (j = 1; j < i; j *= 2) { /* nothing */ }
+       	fh_PrivTable = fh_hash_create(j);
+
 
 	/*
 	 * Prepin optimization: PHASE 2.
