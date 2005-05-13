@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testsmall.c,v $
- *     $Date: 2005/05/02 08:14:24 $
- * $Revision: 1.32 $
+ *     $Date: 2005/05/13 16:33:06 $
+ * $Revision: 1.33 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -541,18 +541,19 @@ int main(int argc, char **argv)
 
         if (iamsender) { /* pay some warm-up costs */
            int i;
-           gasnet_handle_t *h = test_malloc(2*sizeof(gasnet_handle_t)*iters);
-           for (i = 0; i < iters; i++) {
+           int warm_iters = MIN(iters, 32767);  /* avoid hitting 65535-handle limit */
+           gasnet_handle_t *h = test_malloc(2*sizeof(gasnet_handle_t)*warm_iters);
+           for (i = 0; i < warm_iters; i++) {
               gasnet_put(peerproc, tgtmem, msgbuf, 8);
               gasnet_get(msgbuf, peerproc, tgtmem, 8);
               gasnet_put_nbi(peerproc, tgtmem, msgbuf, 8);
               gasnet_get_nbi(msgbuf, peerproc, tgtmem, 8);
               h[i] = gasnet_put_nb(peerproc, tgtmem, msgbuf, 8);
-              h[i+iters] = gasnet_get_nb(msgbuf, peerproc, tgtmem, 8);
+              h[i+warm_iters] = gasnet_get_nb(msgbuf, peerproc, tgtmem, 8);
            }
            gasnet_put(peerproc, tgtmem, msgbuf, max_payload);
            gasnet_get(msgbuf, peerproc, tgtmem, max_payload);
-           gasnet_wait_syncnb_all(h, 2*iters);
+           gasnet_wait_syncnb_all(h, 2*warm_iters);
            gasnet_wait_syncnbi_all();
            test_free(h);
         }
