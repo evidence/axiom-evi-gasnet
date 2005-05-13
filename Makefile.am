@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/05/08 17:47:14 $
-# $Revision: 1.46 $
+#     $Date: 2005/05/13 19:05:45 $
+# $Revision: 1.47 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -113,7 +113,7 @@ do-begin-tests:
 do-end-tests:
 	@testinst=$(TESTINSTANCE) ; \
 	testlog=$(TESTLOG) ; \
-	if test "`head -1 $$testlog 2> /dev/null`" == "$$testinst" ; then \
+	if test "`head -1 $$testlog 2> /dev/null`" = "$$testinst" ; then \
 	  line='+++++++++++++++++++++++++++++++++++++++' ; line="$$line$$line" ; \
 	  echo "$$line" ; \
 	  echo Test results: `tail +2 $$testlog | grep "\*\-\*" | wc -l` failures ; \

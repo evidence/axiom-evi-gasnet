@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/04/28 02:54:26 $
- * $Revision: 1.58 $
+ *     $Date: 2005/05/13 19:05:47 $
+ * $Revision: 1.59 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -627,7 +627,7 @@ static void gasnetc_atexit(void) {
     char *p;
     int resourceid, retval;
 
-  #if HAVE_RMS_KILLRESOURCE
+  #if defined(RMS_RCONTROL_PATH) || HAVE_RMS_KILLRESOURCE
     batchid = gasnet_getenv("RMS_RESOURCEID");
     if (!batchid) gasneti_fatalerror("failed to getenv(RMS_RESOURCEID)");
 
@@ -636,21 +636,31 @@ static void gasnetc_atexit(void) {
     resourceid = atoi(p+1);
     if (resourceid <= 0) gasneti_fatalerror("bad RMS_RESOURCEID: %s", batchid);
 
-    retval = rms_killResource(resourceid, sig); /* global signal */
-    if (retval) {
-      /* rms_killResource fails intermittently, probably due to race conditions 
-         with remote signaling
-      */
-      GASNETI_TRACE_PRINTF(C,("rms_killResource(%i) failed: %s", 
-                              resourceid, rms_errorString(retval)));
-      gasneti_sched_yield();
-      sleep(1);
-      if (GASNETC_REMOTEEXITINPROGRESS()) return; /* some other node beat us to it */
-
-      /* retry */
+    #ifdef RMS_RCONTROL_PATH
+      /* prefer the use of rcontrol, because it avoids ugly intermitted rms database 
+         warnings, and avoids the need to link all the RMS libraries */
+      { char cmd[1024];
+        sprintf(cmd, "%s kill resource name = %i signal = %i", 
+                     _STRINGIFY(RMS_RCONTROL_PATH), resourceid, sig);
+        system(cmd);
+      }
+    #else /* HAVE_RMS_KILLRESOURCE */
       retval = rms_killResource(resourceid, sig); /* global signal */
-      gasneti_fatalerror("rms_killResource(%i) failed twice: %s", resourceid, rms_errorString(retval));
-    }
+      if (retval) {
+        /* rms_killResource fails intermittently, probably due to race conditions 
+           with remote signaling
+        */
+        GASNETI_TRACE_PRINTF(C,("rms_killResource(%i) failed: %s", 
+                                resourceid, rms_errorString(retval)));
+        gasneti_sched_yield();
+        sleep(1);
+        if (GASNETC_REMOTEEXITINPROGRESS()) return; /* some other node beat us to it */
+
+        /* retry */
+        retval = rms_killResource(resourceid, sig); /* global signal */
+        gasneti_fatalerror("rms_killResource(%i) failed twice: %s", resourceid, rms_errorString(retval));
+      }
+    #endif
   #elif defined(SLURM_SCANCEL_PATH) || HAVE_SLURM_KILL_JOB
     batchid = gasnet_getenv("SLURM_JOBID");
     if (!batchid) gasneti_fatalerror("failed to getenv(SLURM_JOBID)");
