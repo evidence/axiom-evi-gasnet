@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/05/12 21:31:22 $
- * $Revision: 1.82 $
+ *     $Date: 2005/05/13 18:29:38 $
+ * $Revision: 1.83 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -340,9 +340,11 @@ int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
 
   GASNETC_SEMA_CHECK(s);
   #ifdef GASNETI_HAVE_ATOMIC_CAS
+  {
     uint32_t old = gasneti_weakatomic_read(&(s->count));
     retval = (old > 0) && gasneti_weakatomic_compare_and_swap(&(s->count), old, old - 1);
     if (retval) gasneti_sync_reads();
+  }
   #else
     gasnetc_mutex_lock(&(s->lock), concurrent);
 
@@ -366,10 +368,12 @@ GASNET_INLINE_MODIFIER(gasnetc_sema_up_n)
 void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
   GASNETC_SEMA_CHECK(s);
   #ifdef GASNETI_HAVE_ATOMIC_CAS
+  {
     uint32_t old;
     do {
       old = gasneti_weakatomic_read(&(s->count));
     } while (!gasneti_weakatomic_compare_and_swap(&(s->count), old, n + old));
+  }
   #else
     gasnetc_mutex_lock(&(s->lock), concurrent);
     gasneti_weakatomic_write(&(s->count), n + gasneti_weakatomic_read(&(s->count)));
