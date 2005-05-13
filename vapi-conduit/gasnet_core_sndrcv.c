@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/12 21:31:22 $
- * $Revision: 1.105 $
+ *     $Date: 2005/05/13 20:11:23 $
+ * $Revision: 1.106 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -172,20 +172,26 @@ static gasnetc_sema_t			gasnetc_cq_sema;
   /* Given an epid return a non-zero qpi */
   GASNET_INLINE_MODIFIER(gasnetc_epid_select_qpi)
   gasnetc_epid_t gasnetc_epid_select_qpi(gasnetc_epid_t epid) {
-    /* Search for largest space avail */
+    /* Select by largest space avail */
+#if GASNETC_CEPS == 2
     gasnetc_cep_t *cep = gasnetc_peer[gasnetc_epid2node(epid)].cep;
-    uint32_t space, best_space;
+    return (gasnetc_sema_read(&cep[0].sq_sema) >= gasnetc_sema_read(&cep[1].sq_sema)) ? 0 : 1;
+#else
+    gasnetc_cep_t *cep = gasnetc_peer[gasnetc_epid2node(epid)].cep;
     gasnetc_epid_t qpi;
+    uint32_t space, best_space;
     int i;
 
-    qpi = best_space = 0;
-    for (i = 0; i < GASNETC_CEPS; ++i) {
+    qpi = 0;
+    best_space = gasnetc_sema_read(&cep[0].sq_sema);
+    for (i = 1; i < GASNETC_CEPS; ++i) {
       if ((space = gasnetc_sema_read(&cep[i].sq_sema)) > best_space) {
 	best_space = space;
 	qpi = i;
       }
     }
     return qpi;
+#endif
   }
 
   GASNET_INLINE_MODIFIER(gasnetc_epid2cep)
@@ -197,17 +203,21 @@ static gasnetc_sema_t			gasnetc_cq_sema;
   GASNET_INLINE_MODIFIER(gasnetc_epid_select_cep)
   void gasnetc_epid_select_cep(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc) {
     gasnetc_epid_t epid = sreq->epid;
+    gasnetc_epid_t qpi = gasnetc_epid2qpi(epid);
+    gasnetc_peer_t *peer = &gasnetc_peer[gasnetc_epid2node(epid)];
 
-    if_pt (!gasnetc_epid2qpi(epid)) {
+    if_pt (qpi == 0) {
       gasneti_assert(sr_desc->opcode != VAPI_SEND_WITH_IMM);
-      if (sr_desc->sg_lst_p[0].len >= 2048) {
-	sreq->ep = &gasnetc_peer[gasnetc_epid2node(epid)].cep[gasnetc_epid_select_qpi(epid)];
+      if ((sr_desc->opcode != VAPI_RDMA_WRITE) || (sr_desc->sg_lst_p[0].len >= 2048)) {
+        qpi = gasnetc_epid_select_qpi(epid);
       } else {
-	sreq->ep = &gasnetc_peer[gasnetc_epid2node(epid)].cep[0];
+	/* Nothing, because qpi == 0 already */
       }
     } else {
-      sreq->ep = gasnetc_epid2cep(epid);
+      --qpi;
     }
+
+    sreq->ep = &peer->cep[qpi];
   }
 
   GASNET_INLINE_MODIFIER(gasnetc_epid2peer)
@@ -1071,15 +1081,23 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   if (token) {
     epid = token->epid;
   } else if (dest != gasneti_mynode) {
-    if (GASNETC_CEPS == 1) {
+    /* Select by largest credits */
+    #if GASNETC_CEPS == 1
       epid = dest;
-    } else {
-      /* Search for largest credits */
+    #elif GASNETC_CEPS == 2
+    {
+      gasnetc_cep_t *cep = gasnetc_peer[dest].cep;
+      int qpi = (gasnetc_sema_read(&cep[0].am_sema) >= gasnetc_sema_read(&cep[1].am_sema)) ? 0 : 1;
+      epid = gasnetc_epid(dest, qpi);
+    }
+    #else
+    {
       gasnetc_cep_t *cep = gasnetc_peer[dest].cep;
       int qpi, best_qpi;
       uint32_t credits, best_credits;
-      best_qpi = best_credits = 0;
-      for (qpi = 0; qpi < GASNETC_CEPS; ++qpi) {
+      best_qpi = 0;
+      best_credits = gasnetc_sema_read(&cep[0].am_sema);
+      for (qpi = 1; qpi < GASNETC_CEPS; ++qpi) {
 	if ((credits = gasnetc_sema_read(&cep[qpi].am_sema)) > best_credits) {
 	  best_credits = credits;
 	  best_qpi = qpi;
@@ -1087,6 +1105,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       }
       epid = gasnetc_epid(dest, best_qpi);
     }
+    #endif
   }
 
   /* FIRST, figure out msg_len so we know if we can use inline or not.
