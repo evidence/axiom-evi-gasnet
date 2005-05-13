@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/13 20:11:23 $
- * $Revision: 1.106 $
+ *     $Date: 2005/05/13 21:28:45 $
+ * $Revision: 1.107 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -208,7 +208,7 @@ static gasnetc_sema_t			gasnetc_cq_sema;
 
     if_pt (qpi == 0) {
       gasneti_assert(sr_desc->opcode != VAPI_SEND_WITH_IMM);
-      if ((sr_desc->opcode != VAPI_RDMA_WRITE) || (sr_desc->sg_lst_p[0].len >= 2048)) {
+      if ((sr_desc->opcode != VAPI_RDMA_WRITE) || (sr_desc->sg_lst_p[0].len > 2048)) {
         qpi = gasnetc_epid_select_qpi(epid);
       } else {
 	/* Nothing, because qpi == 0 already */
