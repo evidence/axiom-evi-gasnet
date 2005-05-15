@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2005/05/06 20:12:18 $
- * $Revision: 1.68 $
+ *     $Date: 2005/05/15 09:56:22 $
+ * $Revision: 1.69 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -74,7 +74,7 @@
   #include <c_asm.h>
   #define GASNETI_ASM(mnemonic) asm(mnemonic)
 #elif defined(MIPSPRO_COMPILER)
-  #define GASNETI_ASM(mnemonic)  /* TODO: broken - doesn't have inline assembly */
+  #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL /* not supported or used */
 #elif defined(__SUNPRO_C) /* Sun C works, Sun C++ lacks inline assembly support (man inline) */
   #define GASNETI_ASM(mnemonic)  __asm(mnemonic)
 #elif defined(_SX)  
@@ -117,10 +117,20 @@
     }
   #endif
 #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
- GASNET_INLINE_MODIFIER(gasneti_local_wmb)
- void gasneti_local_wmb(void) {
-   GASNETI_ASM("sync");  /* MIPS II+ memory barrier */ 
- }
+  #if defined(MIPSPRO_COMPILER)
+    GASNET_INLINE_MODIFIER(_gasneti_compiler_fence)
+    void _gasneti_compiler_fence(void) {
+      volatile int x; x = 1;
+    }
+    #define gasneti_compiler_fence() _gasneti_compiler_fence()
+    #define gasneti_local_wmb() __synchronize()
+    #define gasneti_local_mb()  __synchronize()
+  #else
+    GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+    void gasneti_local_wmb(void) {
+      GASNETI_ASM("sync");  /* MIPS II+ memory barrier */ 
+    }
+  #endif
 #elif defined(_PA_RISC1_1) || defined(__hppa) /* HP PA-RISC */
  GASNET_INLINE_MODIFIER(gasneti_local_wmb)
  void gasneti_local_wmb(void) {

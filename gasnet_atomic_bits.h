@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2005/05/06 20:12:18 $
- * $Revision: 1.68 $
+ *     $Date: 2005/05/15 09:56:22 $
+ * $Revision: 1.69 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -175,8 +175,8 @@
       typedef __uint32_t gasneti_atomic_t;
       #define gasneti_atomic_increment(p) (test_then_add32((p),1))
       #define gasneti_atomic_decrement(p) (test_then_add32((p),(uint32_t)-1))
-      #define gasneti_atomic_read(p)      (*(p))
-      #define gasneti_atomic_set(p,v)     (*(p) = (v))
+      #define gasneti_atomic_read(p)      (*(volatile __uint32_t *)(p))
+      #define gasneti_atomic_set(p,v)     (*(volatile __uint32_t *)(p) = (v))
       #define gasneti_atomic_init(v)      (v)
       #define gasneti_atomic_decrement_and_test(p) \
                                           (add_then_test32((p),(uint32_t)-1) == 0) 
@@ -185,8 +185,8 @@
       typedef int64_t gasneti_atomic_t;
       #define gasneti_atomic_increment(p) (int_fetch_add((p),1))
       #define gasneti_atomic_decrement(p) (int_fetch_add((p),-1))
-      #define gasneti_atomic_read(p)      (*(p))
-      #define gasneti_atomic_set(p,v)     (*(p) = (v))
+      #define gasneti_atomic_read(p)      (*(volatile int64_t)(p))
+      #define gasneti_atomic_set(p,v)     (*(volatile int64_t)(p) = (v))
       #define gasneti_atomic_init(v)      (v)
       #define gasneti_atomic_decrement_and_test(p) \
                                           (int_fetch_add((p),-1) == 1) 
