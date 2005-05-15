@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2005/05/15 22:01:36 $
- * $Revision: 1.19 $
+ *     $Date: 2005/05/15 22:28:16 $
+ * $Revision: 1.20 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -204,6 +204,7 @@ void doAMShort() {
     {
       int64_t start = TIME();
       flag = -1;
+      BARRIER();
       if (sender && recvr) {
         assert(peer == mynode);
         for (i=0; i < iters; i++) {
@@ -238,7 +239,7 @@ void doAMShort() {
       for (i=0; i < iters; i++) {
         GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_pong_shorthandler_flood));
       }
-      if (peer == mynode) GASNET_BLOCKUNTIL(flag == iters);
+      if (recvr) GASNET_BLOCKUNTIL(flag == iters);
       BARRIER();
       report("AMShort flood one-way Req throughput",TIME() - start, iters);
     } else {
@@ -305,6 +306,7 @@ void doAMShort() {
         {                                                                        \
           int64_t start = TIME();                                                \
           flag = -1;                                                             \
+          BARRIER();                                                             \
           if (sender && recvr) {                                                 \
             assert(peer == mynode);                                              \
             for (i=0; i < iters; i++) {                                          \
@@ -345,7 +347,7 @@ void doAMShort() {
           for (i=0; i < iters; i++) {                                            \
             GASNET_Safe(AMREQUEST(peer, PONG_HIDX##_flood, myseg, sz DEST));     \
           }                                                                      \
-          if (peer == mynode) GASNET_BLOCKUNTIL(flag == iters);                  \
+          if (recvr) GASNET_BLOCKUNTIL(flag == iters);                           \
           BARRIER();                                                             \
           report(msg,TIME() - start, iters);                                     \
         } else {                                                                 \
