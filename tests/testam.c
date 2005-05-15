@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2005/05/10 17:33:09 $
- * $Revision: 1.18 $
+ *     $Date: 2005/05/15 22:01:36 $
+ * $Revision: 1.19 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -12,14 +12,17 @@
 
 int mynode = 0;
 void *myseg = NULL;
-int sender;
+int sender, recvr;
 int peer;
 void *peerseg = NULL;
 
 void report(const char *desc, int64_t totaltime, int iters) {
-  if (mynode == 0) {
-      printf("%-50s: %8.3f sec  %8.3f us\n",
-        desc, ((float)totaltime)/1000000, ((float)totaltime)/iters);
+  if (sender) {
+      char nodestr[10];
+      if (gasnet_nodes() > 2) sprintf(nodestr,"%i: ",mynode);
+      else nodestr[0] = '\0';
+      printf("%s%-56s: %7.3f sec %7.3f us\n",
+        nodestr, desc, ((float)totaltime)/1000000, ((float)totaltime)/iters);
       fflush(stdout);
   }
 }
@@ -101,11 +104,16 @@ void pong_longhandler_flood(gasnet_token_t token, void *buf, size_t nbytes) {
 }
 
 /* ------------------------------------------------------------------------------------ */
+int iters=0;
+int i = 0;
+int maxsz=64*1024;
+int maxmed, maxlong;
+void doAMShort();
+void doAMMed();
+void doAMLong();
+void doAMLongAsync();
+
 int main(int argc, char **argv) {
-  int iters=0;
-  int i = 0;
-  int maxsz=64*1024;
-  int maxmed, maxlong;
   gasnet_handlerentry_t htable[] = { 
     { hidx_ping_shorthandler,  ping_shorthandler  },
     { hidx_pong_shorthandler,  pong_shorthandler  },
@@ -145,19 +153,30 @@ int main(int argc, char **argv) {
     /* w/ odd # of nodes, last one talks to self */
     peer = mynode;
   }
-  sender = mynode % 2 == 0;
-
   peerseg = TEST_SEG(peer);
+  sender = mynode % 2 == 0;
+  recvr = (!sender || (gasnet_nodes()%2 == 1 && mynode == gasnet_nodes()-1));
 
   if (mynode == 0) {
       printf("Running AM performance test with %i iterations...\n",iters);
-      printf("%-50s    Total time    Avg. time\n"
-             "%-50s    ----------    ---------\n", "", "");
+      printf("%-50s         Total time  Avg. time\n"
+             "%-50s         ----------  ---------\n", "", "");
       fflush(stdout);
   }
 
-  /* ------------------------------------------------------------------------------------ */
-  { GASNET_BEGIN_FUNCTION();
+  doAMShort();
+  doAMMed();
+  doAMLong();
+  doAMLongAsync();
+
+  MSG("done.");
+
+  gasnet_exit(0);
+  return 0;
+}
+/* ------------------------------------------------------------------------------------ */
+void doAMShort() {
+    GASNET_BEGIN_FUNCTION();
 
     if (sender) { /* warm-up */
       flag = 0;                                                                                  
@@ -177,7 +196,36 @@ int main(int argc, char **argv) {
         GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_ping_shorthandler));
         GASNET_BLOCKUNTIL(flag == i);
       }
-      report("AMShort ping-pong, roundtrip latency",TIME() - start, iters);
+      report("AMShort ping-pong ReqRep roundtrip latency",TIME() - start, iters);
+    }
+
+    BARRIER();
+    /* ------------------------------------------------------------------------------------ */
+    {
+      int64_t start = TIME();
+      flag = -1;
+      if (sender && recvr) {
+        assert(peer == mynode);
+        for (i=0; i < iters; i++) {
+          int lim = i << 1;
+          GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_pong_shorthandler));
+          GASNET_BLOCKUNTIL(flag == lim);
+          lim++;
+          GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_pong_shorthandler));
+          GASNET_BLOCKUNTIL(flag == lim);
+        }
+      } else if (sender) {
+        for (i=0; i < iters; i++) {
+          GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_pong_shorthandler));
+          GASNET_BLOCKUNTIL(flag == i);
+        }
+      } else if (recvr) {
+        for (i=0; i < iters; i++) {
+          GASNET_BLOCKUNTIL(flag == i);
+          GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_pong_shorthandler));
+        }
+      }
+      report("AMShort ping-pong ReqReq roundtrip latency",TIME() - start, iters);
     }
 
     if (mynode == 0) { printf("\n"); fflush(stdout); }
@@ -192,7 +240,7 @@ int main(int argc, char **argv) {
       }
       if (peer == mynode) GASNET_BLOCKUNTIL(flag == iters);
       BARRIER();
-      report("AMShort one-way flood, inv. throughput",TIME() - start, iters);
+      report("AMShort flood one-way Req throughput",TIME() - start, iters);
     } else {
       flag = 0;
       BARRIER();
@@ -210,11 +258,12 @@ int main(int argc, char **argv) {
         GASNET_Safe(gasnet_AMRequestShort0(peer, hidx_ping_shorthandler_flood));
       }
       GASNET_BLOCKUNTIL(flag == iters);
-      report("AMShort roundtrip flood, inv. throughput",TIME() - start, iters);
+      report("AMShort flood roundtrip ReqRep throughput",TIME() - start, iters);
     }
 
     if (mynode == 0) { printf("\n"); fflush(stdout); }
     BARRIER();
+}
     /* ------------------------------------------------------------------------------------ */
 #define TESTAM_PERF(DESC_STR, AMREQUEST, PING_HIDX, PONG_HIDX, MAXSZ, DEST) do { \
     if (sender) { /* warm-up */                                                  \
@@ -231,7 +280,7 @@ int main(int argc, char **argv) {
     { int sz;                                                                    \
       char msg[255];                                                             \
       for (sz = 0; sz <= MAXSZ; sz = (sz?sz*2:1)) {                              \
-        sprintf(msg, DESC_STR"(sz=%5i) ping-pong, roundtrip latency", sz);       \
+        sprintf(msg, DESC_STR"(sz=%5i) ping-pong ReqRep roundtrip latency", sz); \
         BARRIER();                                                               \
         if (sender) {                                                            \
           int64_t start = TIME();                                                \
@@ -251,8 +300,45 @@ int main(int argc, char **argv) {
     { int sz;                                                                    \
       char msg[255];                                                             \
       for (sz = 0; sz <= MAXSZ; sz = (sz?sz*2:1)) {                              \
+        sprintf(msg, DESC_STR"(sz=%5i) ping-pong ReqReq roundtrip latency", sz); \
+        BARRIER();                                                               \
+        {                                                                        \
+          int64_t start = TIME();                                                \
+          flag = -1;                                                             \
+          if (sender && recvr) {                                                 \
+            assert(peer == mynode);                                              \
+            for (i=0; i < iters; i++) {                                          \
+              int lim = i << 1;                                                  \
+              GASNET_Safe(AMREQUEST(peer, PONG_HIDX, myseg, sz DEST));           \
+              GASNET_BLOCKUNTIL(flag == lim);                                    \
+              lim++;                                                             \
+              GASNET_Safe(AMREQUEST(peer, PONG_HIDX, myseg, sz DEST));           \
+              GASNET_BLOCKUNTIL(flag == lim);                                    \
+            }                                                                    \
+          } else if (sender) {                                                   \
+            for (i=0; i < iters; i++) {                                          \
+              GASNET_Safe(AMREQUEST(peer, PONG_HIDX, myseg, sz DEST));           \
+              GASNET_BLOCKUNTIL(flag == i);                                      \
+            }                                                                    \
+          } else if (recvr) {                                                    \
+            for (i=0; i < iters; i++) {                                          \
+              GASNET_BLOCKUNTIL(flag == i);                                      \
+              GASNET_Safe(AMREQUEST(peer, PONG_HIDX, myseg, sz DEST));           \
+            }                                                                    \
+          }                                                                      \
+          report(msg,TIME() - start, iters);                                     \
+        }                                                                        \
+        BARRIER();                                                               \
+      }                                                                          \
+    }                                                                            \
+    if (mynode == 0) { printf("\n"); fflush(stdout); }                           \
+    BARRIER();                                                                   \
+    /* ---------------------------------------------------------- */             \
+    { int sz;                                                                    \
+      char msg[255];                                                             \
+      for (sz = 0; sz <= MAXSZ; sz = (sz?sz*2:1)) {                              \
         flag = 0;                                                                \
-        sprintf(msg, DESC_STR"(sz=%5i) one-way flood, inv. throughput", sz);     \
+        sprintf(msg, DESC_STR"(sz=%5i) flood one-way Req throughput", sz);       \
         BARRIER();                                                               \
         if (sender) {                                                            \
           int64_t start = TIME();                                                \
@@ -275,7 +361,7 @@ int main(int argc, char **argv) {
     { int sz;                                                                    \
       char msg[255];                                                             \
       for (sz = 0; sz <= MAXSZ; sz = (sz?sz*2:1)) {                              \
-        sprintf(msg, DESC_STR"(sz=%5i) roundtrip flood, inv. throughput", sz);   \
+        sprintf(msg, DESC_STR"(sz=%5i) flood roundtrip ReqRep throughput", sz);  \
         BARRIER();                                                               \
         if (sender) {                                                            \
           int64_t start = TIME();                                                \
@@ -295,15 +381,19 @@ int main(int argc, char **argv) {
 
   #define MEDDEST
   #define LONGDEST , peerseg
+/* ------------------------------------------------------------------------------------ */
+void doAMMed() {
+  GASNET_BEGIN_FUNCTION();
   TESTAM_PERF("AMMedium",    gasnet_AMRequestMedium0,    hidx_ping_medhandler,  hidx_pong_medhandler,  maxmed,  MEDDEST);
-  TESTAM_PERF("AMLong",      gasnet_AMRequestLong0,      hidx_ping_longhandler, hidx_pong_longhandler, maxlong, LONGDEST);
-  TESTAM_PERF("AMLongAsync", gasnet_AMRequestLongAsync0, hidx_ping_longhandler, hidx_pong_longhandler, maxlong, LONGDEST);
-
-  /* ------------------------------------------------------------------------------------ */
-  }
-
-  MSG("done.");
-
-  gasnet_exit(0);
-  return 0;
 }
+/* ------------------------------------------------------------------------------------ */
+void doAMLong() {
+  GASNET_BEGIN_FUNCTION();
+  TESTAM_PERF("AMLong",      gasnet_AMRequestLong0,      hidx_ping_longhandler, hidx_pong_longhandler, maxlong, LONGDEST);
+}
+/* ------------------------------------------------------------------------------------ */
+void doAMLongAsync() {
+  GASNET_BEGIN_FUNCTION();
+  TESTAM_PERF("AMLongAsync", gasnet_AMRequestLongAsync0, hidx_ping_longhandler, hidx_pong_longhandler, maxlong, LONGDEST);
+}
+/* ------------------------------------------------------------------------------------ */
