@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/13 21:28:45 $
- * $Revision: 1.107 $
+ *     $Date: 2005/05/16 23:07:22 $
+ * $Revision: 1.108 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -258,7 +258,8 @@ VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
  *   3-7: numargs (5 bits, but only 0-16 are legal values)
  *  8-15: handlerID
  * 16-29: source node (14 bit LID space in IB)
- * 30-31: UNUSED
+ *    30: extra credit (in addition to the one implicit in every Reply)
+ *    31: UNUSED
  */
 
 #define GASNETC_MSG_NUMARGS(flags)      (((flags) >> 3) & 0x1f)
@@ -267,13 +268,16 @@ VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
 #define GASNETC_MSG_CATEGORY(flags)     ((gasnetc_category_t)((flags) & 0x3))
 #define GASNETC_MSG_HANDLERID(flags)    ((gasnet_handler_t)((flags) >> 8))
 #define GASNETC_MSG_SRCIDX(flags)       ((gasnet_node_t)((flags) >> 16) & 0x3fff)
+#define GASNETC_MSG_CREDITS(flags)      ((flags) >> 30)
 
-#define GASNETC_MSG_GENFLAGS(isreq, cat, nargs, hand, srcidx)   \
+#define GASNETC_MSG_GENFLAGS(isreq, cat, nargs, hand, srcidx, credits)   \
  (gasneti_assert(!((isreq) & ~1)),              \
   gasneti_assert(!((cat) & ~3)),                \
   gasneti_assert((nargs) <= GASNETC_MAX_ARGS),  \
   gasneti_assert((srcidx) < gasneti_nodes),     \
-  (uint32_t)(  (((srcidx) & 0x3fff) << 16)      \
+  gasneti_assert(!((credits) & ~1)),            \
+  (uint32_t)(  (((credits)& 0x1   ) << 30)      \
+	     | (((srcidx) & 0x3fff) << 16)      \
 	     | (((hand)   & 0xff  ) << 8 )      \
 	     | (((nargs)  & 0x1f  ) << 3 )      \
 	     | ((!(isreq)         ) << 2 )      \
@@ -541,6 +545,14 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
   gasnetc_cep_t *cep = gasnetc_epid2cep(epid);
   gasnetc_rbuf_t *spare;
 
+  /* Process a possible extra-credit (coalesced at the sender) */
+  if (GASNETC_MSG_CREDITS(flags)) {
+    gasnetc_sema_up(&cep->am_sema);
+    gasnetc_sema_up(&cep->am_unrcvd);
+    GASNETI_TRACE_PRINTF(C,("RCV_DELAYED_CREDIT\n"));
+    GASNETC_STAT_EVENT(RCV_DELAYED_CREDIT);
+  }
+
   if (GASNETC_MSG_ISREPLY(flags)) {
 #if GASNETI_STATS_OR_TRACE
     gasneti_stattime_t _starttime = ((gasnetc_buffer_t *)(uintptr_t)(rbuf->rr_sg.addr))->stamp;
@@ -585,9 +597,20 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
 
     /* Finalize flow control */
     if_pf (rbuf->rbuf_needReply) {
-      int retval = gasnetc_ReplySystem((gasnet_token_t)rbuf, NULL,
-		    		       gasneti_handleridx(gasnetc_SYS_ack), 0 /* no args */);
-      gasneti_assert(retval == GASNET_OK);
+      /* XXX: reimplement w/ fewer atomic ops */
+      gasnetc_sema_up(&cep->am_unsent);
+      if (gasnetc_sema_read(&cep->am_unsent) > 1) {
+        /* A race might result in sending non-coalesced ACKs if a Request
+         * or Reply in another thread picks up one we expect to find here.
+         * However, we'll always send the correct total number of credits
+         * and we'll never have more than one delayed for coalescing.
+         */
+	if (gasnetc_sema_trydown(&cep->am_unsent, GASNETC_ANY_PAR)) {
+	  int retval = gasnetc_ReplySystem((gasnet_token_t)rbuf, NULL,
+					   gasneti_handleridx(gasnetc_SYS_ack), 0 /* no args */);
+	  gasneti_assert(retval == GASNET_OK);
+	}
+      }
     }
     if_pf (!spare) {
       /* Free the temporary buffer we created */
@@ -1068,6 +1091,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   size_t msg_len;
   int retval, i;
   gasnetc_epid_t epid;
+  gasnetc_cep_t *cep;
   union {         
     gasnetc_shortmsg_t    shortmsg;
     gasnetc_medmsg_t      medmsg;
@@ -1080,21 +1104,25 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
    */
   if (token) {
     epid = token->epid;
+    cep = gasnetc_epid2cep(epid);
   } else if (dest != gasneti_mynode) {
     /* Select by largest credits */
     #if GASNETC_CEPS == 1
       epid = dest;
+      cep = &gasnetc_peer[dest].cep[0];
     #elif GASNETC_CEPS == 2
     {
-      gasnetc_cep_t *cep = gasnetc_peer[dest].cep;
-      int qpi = (gasnetc_sema_read(&cep[0].am_sema) >= gasnetc_sema_read(&cep[1].am_sema)) ? 0 : 1;
+      int qpi;
+      cep = gasnetc_peer[dest].cep;
+      qpi = (gasnetc_sema_read(&cep[0].am_sema) >= gasnetc_sema_read(&cep[1].am_sema)) ? 0 : 1;
       epid = gasnetc_epid(dest, qpi);
+      cep += qpi;
     }
     #else
     {
-      gasnetc_cep_t *cep = gasnetc_peer[dest].cep;
       int qpi, best_qpi;
       uint32_t credits, best_credits;
+      cep = gasnetc_peer[dest].cep;
       best_qpi = 0;
       best_credits = gasnetc_sema_read(&cep[0].am_sema);
       for (qpi = 1; qpi < GASNETC_CEPS; ++qpi) {
@@ -1104,6 +1132,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 	}
       }
       epid = gasnetc_epid(dest, best_qpi);
+      cep += best_qpi;
     }
     #endif
   }
@@ -1168,7 +1197,6 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
    * while spinning on the rcv queue waiting for credits.
    */
   if (!token && (dest != gasneti_mynode)) {
-    gasnetc_cep_t *cep = gasnetc_epid2cep(epid);
     GASNETC_STAT_EVENT(GET_AMREQ_CREDIT);
 
     /* Get the p2p credit needed */
@@ -1185,7 +1213,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     }
 
     /* Post the rbuf needed for the reply */
-    {
+    if (gasnetc_sema_trydown(&cep->am_unrcvd, GASNETC_ANY_PAR)) {
+      /* We'll use one that was left over due to ACK coalescing */
+    } else {
 	gasnetc_rbuf_t	*rbuf = gasneti_freelist_get(&gasnetc_rbuf_freelist);
         if_pf (rbuf == NULL) {
           GASNETC_TRACE_WAIT_BEGIN();
@@ -1243,7 +1273,14 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   }
 
   /* generate flags */
-  flags = GASNETC_MSG_GENFLAGS(!token, category, numargs, handler, gasneti_mynode);
+  {
+    int extra_credit = (dest == gasneti_mynode) ? 0 : gasnetc_sema_trydown(&cep->am_unsent, GASNETC_ANY_PAR);
+    if (extra_credit) {
+      GASNETI_TRACE_PRINTF(C,("SND_DELAYED_CREDIT\n"));
+      GASNETC_STAT_EVENT(SND_DELAYED_CREDIT);
+    }
+    flags = GASNETC_MSG_GENFLAGS(!token, category, numargs, handler, gasneti_mynode, extra_credit);
+  }
 
   #if GASNETI_STATS_OR_TRACE
     buf->stamp = token ? ((gasnetc_buffer_t *)(uintptr_t)(token->rr_sg.addr))->stamp : GASNETI_STATTIME_NOW_IFENABLED(C);
@@ -2123,6 +2160,8 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       }
       gasnetc_sema_init(&cep[i].am_sema, gasnetc_am_oust_pp, gasnetc_am_oust_pp);
       gasnetc_sema_init(&cep[i].sq_sema, gasnetc_op_oust_pp, gasnetc_op_oust_pp);
+      gasnetc_sema_init(&cep[i].am_unsent, 0, 0);
+      gasnetc_sema_init(&cep[i].am_unrcvd, 0, 0);
     }
   } else {
     /* Should never use these for loopback */
@@ -2130,6 +2169,8 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       cep[i].epid = gasnetc_epid(node, i);
       gasnetc_sema_init(&cep[i].am_sema, 0, 0);
       gasnetc_sema_init(&cep[i].sq_sema, 0, 0);
+      gasnetc_sema_init(&cep[i].am_unsent, 0, 0);
+      gasnetc_sema_init(&cep[i].am_unrcvd, 0, 0);
     }
   }
 }
