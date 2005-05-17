@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.26 $
+$Revision: 1.27 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -270,6 +270,22 @@ $Revision: 1.26 $
     believe your Active Message throughput is too low, you may try
     increasing this value.
 
+  + GASNET_AM_CREDITS_TOTAL
+    This gives the integer number of AM Requests which can be in-flight
+    simultaneously from each node, with "in-flight" defined as in
+    GASNET_AM_CREDITS_PP.  This is the number of receive buffers which
+    will be allocated for posting to an endpoint for the AM Reply which
+    follows each AM Request.
+    If set to zero, the value is set to the maximum usable value computed
+    from GASNET_AM_CREDITS_PP and the HCA's reported capabilities.
+    The default value is MAX(1024, nodes).
+    This value should be less than or equal to GASNET_NETWORKDEPTH_TOTAL,
+    and will be trimmed to GASNET_NETWORKDEPTH_TOTAL if larger.
+    Reducing this parameter may limit Active Message throughput.  If you
+    believe your Active Message throughput is too low, you may try
+    increasing this value (or setting it to zero), at a cost in additional
+    pinned memory.
+
   + GASNET_AM_CREDITS_SLACK
     This gives the maximum number of flow-control credits that can be
     delayed at the responder.  If a Request handler does not produce a
@@ -279,24 +295,11 @@ $Revision: 1.26 $
     be banked before a hidden Reply is generated to convey credits back
     to the requester.
     The default value is 1.
+    GASNET_AM_CREDITS_SLACK must be less than the value of
+    GASNET_AM_CREDITS_TOTAL/(nodes-1) and will automatically be reduced
+    if needed.
     Reducing this parameter to zero or setting it too high may
     increase the latency of Active Message traffic.
-
-  + GASNET_AM_CREDITS_TOTAL
-    This gives the integer number of AM Requests which can be in-flight
-    simultaneously from each node, with "in-flight" defined as in
-    GASNET_AM_CREDITS_PP.  This is the number of receive buffers which
-    will be allocated for posting to an endpoint for the AM Reply which
-    follows each AM Request.
-    If set to zero, the value is set to the maximum usable value computed
-    from GASNET_AM_CREDITS_PP and the HCA's reported capabilities.
-    The default value is 1024 (up to 4MB for receiving AM Replies).
-    This value should be less than or equal to GASNET_NETWORKDEPTH_TOTAL,
-    and will be trimmed to GASNET_NETWORKDEPTH_TOTAL if larger.
-    Reducing this parameter may limit Active Message throughput.  If you
-    believe your Active Message throughput is too low, you may try
-    increasing this value (or setting it to zero), at a cost in additional
-    pinned memory.
 
   + GASNET_BBUF_COUNT
     This gives the number of pre-pinned buffers allocated on each node.
