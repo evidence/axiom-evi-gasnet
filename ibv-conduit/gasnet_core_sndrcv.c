@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/17 02:24:48 $
- * $Revision: 1.109 $
+ *     $Date: 2005/05/17 20:42:38 $
+ * $Revision: 1.110 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -63,8 +63,8 @@ typedef struct {
     }				am;
   } u;
 
-  /* Field that changes each time the rbuf is reposted */
-  gasnetc_epid_t		epid;
+  /* Field that changes each time the rbuf is posted */
+  gasnetc_cep_t			*cep;
 
   /* Fields fixed for life of the rbuf as it is reused */
   VAPI_rr_desc_t        	rr_desc;        /* recv request descriptor */
@@ -256,10 +256,10 @@ VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
 /* Use of IB's 32-bit immediate data:
  *   0-1: category
  *     2: request (0) or reply (1)
- *   3-7: numargs (5 bits, but only 0-16 are legal values)
+ *   3-7: numargs (5 bits, but only 0-GASNETC_MAX_ARGS (17) are legal values)
  *  8-15: handlerID
  * 16-29: source node (14 bit LID space in IB)
- *    30: extra credit (in addition to the one implicit in every Reply)
+ *    30: carries extra credits (in addition to the one implicit in every Reply)
  *    31: UNUSED
  */
 
@@ -269,19 +269,18 @@ VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
 #define GASNETC_MSG_CATEGORY(flags)     ((gasnetc_category_t)((flags) & 0x3))
 #define GASNETC_MSG_HANDLERID(flags)    ((gasnet_handler_t)((flags) >> 8))
 #define GASNETC_MSG_SRCIDX(flags)       ((gasnet_node_t)((flags) >> 16) & 0x3fff)
-#define GASNETC_MSG_CREDITS(flags)      ((flags) >> 30)
+#define GASNETC_MSG_CREDITS(flags)      ((flags) & (1<<30))
 
 #define GASNETC_MSG_GENFLAGS(isreq, cat, nargs, hand, srcidx, credits)   \
  (gasneti_assert(!((isreq) & ~1)),              \
   gasneti_assert(!((cat) & ~3)),                \
   gasneti_assert((nargs) <= GASNETC_MAX_ARGS),  \
   gasneti_assert((srcidx) < gasneti_nodes),     \
-  gasneti_assert(!((credits) & ~1)),            \
-  (uint32_t)(  (((credits)& 0x1   ) << 30)      \
+  (uint32_t)(  ( (credits)? (1<<30) : 0  )      \
 	     | (((srcidx) & 0x3fff) << 16)      \
 	     | (((hand)   & 0xff  ) << 8 )      \
 	     | (((nargs)  & 0x1f  ) << 3 )      \
-	     | ((!(isreq)         ) << 2 )      \
+	     | ( (isreq)  ? 0 : (1<<2)   )      \
 	     | (((cat)    & 0x3   )      )))
 
 /* Work around apparent thread-safety bug in VAPI_poll_cq (and peek as well?) */
@@ -319,7 +318,7 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf) {
   /* check for attempted loopback traffic */
   gasneti_assert((cep - gasnetc_cep)/GASNETC_CEPS != gasneti_mynode);
   
-  rbuf->epid = cep->epid;
+  rbuf->cep = cep;
   vstat = VAPI_post_rr(gasnetc_hca, cep->qp_handle, &rbuf->rr_desc);
 
   if_pt (vstat == VAPI_OK) {
@@ -335,7 +334,7 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf) {
 }
 
 /* GASNET_INLINE_MODIFIER(gasnetc_processPacket) */
-void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
+void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t flags) {
   gasnetc_buffer_t *buf = (gasnetc_buffer_t *)(uintptr_t)(rbuf->rr_sg.addr);
   gasnet_handler_t handler_id = GASNETC_MSG_HANDLERID(flags);
   gasnetc_handler_fn_t handler_fn = gasnetc_handler[handler_id];
@@ -349,11 +348,44 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
   rbuf->rbuf_handlerRunning = 1;
   rbuf->rbuf_flags = flags;
 
+  /* Locate arguments */
+  switch (category) {
+    case gasnetc_System:
+    case gasnetc_Short:
+      args = buf->shortmsg.args;
+      break;
+
+    case gasnetc_Medium:
+      args = buf->medmsg.args;
+      break;
+
+    case gasnetc_Long:
+      args = buf->longmsg.args;
+      break;
+
+    default:
+    gasneti_fatalerror("invalid AM category on recv");
+  }
+
+  /* Process any piggybacked credits */
+  if_pf (GASNETC_MSG_CREDITS(flags)) {
+    int credits = *args;
+    ++args;
+    --numargs;
+    gasneti_assert(cep != NULL);
+    if_pt (credits) {
+      gasnetc_sema_up_n(&cep->am_sema, credits);
+      gasnetc_sema_up_n(&cep->am_unrcvd, credits);
+    }
+    GASNETI_TRACE_PRINTF(C,("RCV_AM_CREDITS %d\n", credits));
+    GASNETC_STAT_EVENT_VAL(RCV_AM_CREDITS, credits);
+  }
+
+  /* Run the handler */
   switch (category) {
     case gasnetc_System:
       {
         gasnetc_sys_handler_fn_t sys_handler_fn = gasnetc_sys_handler[handler_id];
-	args = buf->shortmsg.args;
         if (GASNETC_MSG_ISREQUEST(flags))
           GASNETC_TRACE_SYSTEM_REQHANDLER(handler_id, rbuf, numargs, args);
         else
@@ -364,7 +396,6 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
 
     case gasnetc_Short:
       { 
-	args = buf->shortmsg.args;
         GASNETI_RUN_HANDLER_SHORT(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs);
       }
       break;
@@ -373,7 +404,6 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
       {
         nbytes = buf->medmsg.nBytes;
         data = GASNETC_MSG_MED_DATA(buf, numargs);
-	args = buf->medmsg.args;
         GASNETI_RUN_HANDLER_MEDIUM(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;
@@ -382,7 +412,6 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
       { 
         nbytes = buf->longmsg.nBytes;
         data = (void *)(buf->longmsg.destLoc);
-	args = buf->longmsg.args;
         if (!GASNETC_MSG_ISREQUEST(flags)) {
 	  #if !GASNETC_PIN_SEGMENT
 	    if (GASNETC_MSG_SRCIDX(flags) != gasneti_mynode) {
@@ -394,9 +423,6 @@ void gasnetc_processPacket(gasnetc_rbuf_t *rbuf, uint32_t flags) {
         GASNETI_RUN_HANDLER_LONG(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;
-
-    default:
-    gasneti_fatalerror("invalid AM category on recv");
   }
   
   rbuf->rbuf_handlerRunning = 0;
@@ -542,17 +568,8 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
   gasnetc_rbuf_t emergency_spare;
   gasnetc_rbuf_t *rbuf = (gasnetc_rbuf_t *)(uintptr_t)comp->id;
   uint32_t flags = comp->imm_data;
-  gasnetc_epid_t epid = rbuf->epid;
-  gasnetc_cep_t *cep = gasnetc_epid2cep(epid);
+  gasnetc_cep_t *cep = rbuf->cep;
   gasnetc_rbuf_t *spare;
-
-  /* Process a possible extra-credit (coalesced at the sender) */
-  if (GASNETC_MSG_CREDITS(flags)) {
-    gasnetc_sema_up(&cep->am_sema);
-    gasnetc_sema_up(&cep->am_unrcvd);
-    GASNETI_TRACE_PRINTF(C,("RCV_DELAYED_CREDIT\n"));
-    GASNETC_STAT_EVENT(RCV_DELAYED_CREDIT);
-  }
 
   if (GASNETC_MSG_ISREPLY(flags)) {
 #if GASNETI_STATS_OR_TRACE
@@ -564,7 +581,7 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
     gasnetc_sema_up(&cep->am_sema);
 
     /* Now process the packet */
-    gasnetc_processPacket(rbuf, flags);
+    gasnetc_processPacket(cep, rbuf, flags);
 
     /* Return the rcv buffer to the free list */
     gasneti_freelist_put(&gasnetc_rbuf_freelist, rbuf);
@@ -584,7 +601,7 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
       gasnetc_buffer_t *buf = gasneti_malloc(sizeof(gasnetc_buffer_t));
       memcpy(buf, (void *)(uintptr_t)rbuf->rr_sg.addr, sizeof(gasnetc_buffer_t));
       emergency_spare.rr_sg.addr = (uintptr_t)buf;
-      emergency_spare.epid = rbuf->epid;
+      emergency_spare.cep = rbuf->cep;
   
       gasnetc_rcv_post(cep, rbuf);
 
@@ -594,7 +611,7 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
     }
 
     /* Now process the packet */
-    gasnetc_processPacket(rbuf, flags);
+    gasnetc_processPacket(cep, rbuf, flags);
 
     /* Finalize flow control */
     if_pf (rbuf->rbuf_needReply) {
@@ -1092,7 +1109,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   gasnet_handlerarg_t *args;
   uint32_t flags;
   size_t msg_len;
-  int retval, i;
+  int credits, retval, i;
   gasnetc_epid_t epid;
   gasnetc_cep_t *cep;
   union {         
@@ -1105,9 +1122,15 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   /* For a Reply, we must go back via the same qp that the Request came in on.
    * For a Request, we bind to a qp now to be sure everything goes on one qp.
    */
-  if (token) {
-    epid = token->epid;
-    cep = gasnetc_epid2cep(epid);
+  if (dest == gasneti_mynode) {
+    /* epid an cep will not get used */
+    #if GASNET_DEBUG
+      cep = NULL;
+      epid = ~0;
+    #endif
+  } else if (token) {
+    cep = token->cep;
+    epid = cep->epid;
   } else if (dest != gasneti_mynode) {
     /* Select by largest credits */
     #if GASNETC_CEPS == 1
@@ -1145,6 +1168,20 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
    * Thus we MUST do any RDMA before getting credits.  It can't hurt to queue
    * the Long RDMA as early as possible even when firehose is not in use.
    */
+  if (dest == gasneti_mynode) {
+    credits = 0;
+  } else {
+    /* Reserve space for an extra argument if we *might* carry piggbbacked
+     * credits.  We need to know numargs before we allocate a large enough
+     * buffer, which could block and thus delay the credit update.  So, we
+     * allow a race where we allocate space for the credits, but end up
+     * with a credit count of zero.
+     */
+    credits = gasneti_weakatomic_read(&cep->am_unsent);
+    if (credits) {
+      ++numargs;
+    }
+  }
   switch (category) {
   case gasnetc_System: /* Currently System == Short.  Fall through... */
   case gasnetc_Short:
@@ -1196,7 +1233,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   }
 
   /* NEXT, get the flow-control credit needed for AM Requests.
-   * This way we can be sure that we never hold the last pinned buffer
+   * This order ensures that we never hold the last pinned buffer
    * while spinning on the rcv queue waiting for credits.
    */
   if (!token && (dest != gasneti_mynode)) {
@@ -1239,10 +1276,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     buf = (gasnetc_buffer_t *)&tmp_buf;
     sreq->am_buff = NULL;
   } else {
-    buf = gasnetc_get_bbuf(1);
+    buf = gasnetc_get_bbuf(1);	/* may block */
     sreq->am_buff = buf;
   }
-
   switch (category) {
   case gasnetc_System: /* Currently System == Short.  Fall through... */
   case gasnetc_Short:
@@ -1264,52 +1300,45 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       memcpy(GASNETC_MSG_LONG_DATA(buf, numargs), src_addr, nbytes);
     }
     break;
-
-  default:
-    gasneti_fatalerror("invalid AM category on send");
-    /* NOT REACHED */
   }
  
+  /* generate flags */
+  flags = GASNETC_MSG_GENFLAGS(!token, category, numargs, handler, gasneti_mynode, credits);
+
+  /* piggybacked credits travel as first argument, remaining args are shifted */
+  if_pf (credits) {
+    do {
+      /* Send whatever credits are banked, could be zero in the event of a race */
+      credits = gasneti_weakatomic_read(&cep->am_unsent);
+    } while (credits && !gasneti_weakatomic_compare_and_swap(&cep->am_unsent, credits, 0));
+    *args = credits;
+    ++args;
+    --numargs;
+    GASNETI_TRACE_PRINTF(C,("SND_AM_CREDITS %d\n", credits));
+    GASNETC_STAT_EVENT_VAL(SND_AM_CREDITS, credits);
+  }
+
   /* copy args */
-  for (i=0; i <numargs; ++i) {
+  for (i=0; i < numargs; ++i) {
     args[i] = va_arg(argptr, gasnet_handlerarg_t);
   }
 
-  /* generate flags */
-  {
-    int extra_credit;
-   
-    if (dest != gasneti_mynode) {
-      uint32_t old;
-      do {
-	old = gasneti_weakatomic_read(&cep->am_unsent);
-      } while (old && !gasneti_weakatomic_compare_and_swap(&cep->am_unsent, old, old-1));
-      extra_credit = old ? 1 : 0;
-    } else {
-      extra_credit = 0;
-    }
-
-    if (extra_credit) {
-      GASNETI_TRACE_PRINTF(C,("SND_DELAYED_CREDIT\n"));
-      GASNETC_STAT_EVENT(SND_DELAYED_CREDIT);
-    }
-    flags = GASNETC_MSG_GENFLAGS(!token, category, numargs, handler, gasneti_mynode, extra_credit);
-  }
-
+  /* Add/forward optional timestamp timestamp */
   #if GASNETI_STATS_OR_TRACE
     buf->stamp = token ? ((gasnetc_buffer_t *)(uintptr_t)(token->rr_sg.addr))->stamp : GASNETI_STATTIME_NOW_IFENABLED(C);
   #endif
 
+  /* Send it out or process locally */
   if (dest == gasneti_mynode) {
     /* process loopback AM */
     gasnetc_rbuf_t	rbuf;
 
     rbuf.rr_sg.addr = (uintptr_t)buf;
     #if GASNET_DEBUG
-      rbuf.epid = ~0;	/* ensure field is not used */
+      rbuf.cep = NULL;	/* ensure field is not used */
     #endif
 
-    gasnetc_processPacket(&rbuf, flags);
+    gasnetc_processPacket(NULL, &rbuf, flags);
     if_pf (sreq->am_buff != NULL) {
       gasneti_freelist_put(&gasnetc_bbuf_freelist, buf);
     }
@@ -2044,6 +2073,15 @@ extern int gasnetc_sndrcv_init(void) {
   if (rcv_count > gasnetc_hca_cap.max_num_ent_cq) {
     GASNETI_RETURN_ERRR(RESOURCE, "GASNET_AM_CREDIT_{PP,TOTAL} exceed HCA capabilities");
   }
+
+  if ((gasneti_nodes > 1) & (gasnetc_am_credits_slack*(gasneti_nodes-1) >= gasnetc_am_oust_limit)) {
+    int newval = (gasnetc_am_oust_limit - 1) / (gasneti_nodes - 1);
+    fprintf(stderr,
+            "WARNING: GASNET_AM_CREDITS_SLACK reduced to (GASNET_AM_CREDITS_TOTAL-1)/(nodes-1) (from %d to %d)\n",
+            gasnetc_am_credits_slack, newval);
+    gasnetc_am_credits_slack = newval;
+  }
+  GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_AM_CREDITS_SLACK = %d", gasnetc_am_credits_slack));
 
   if (gasnetc_bbuf_limit == 0) { /* 0 = automatic limit computation */
     /* We effectively count local AMs against gasnetc_op_oust_limit for simplicity,

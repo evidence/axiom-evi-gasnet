@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.h,v $
- *     $Date: 2005/05/12 21:31:22 $
- * $Revision: 1.35 $
+ *     $Date: 2005/05/17 20:42:38 $
+ * $Revision: 1.36 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -163,7 +163,9 @@ void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) {
   #define GASNETC_LONG_HDRSZ	(4 + SIZEOF_VOID_P)
 #endif
 
-#define GASNETC_MAX_ARGS	16
+#define GASNETC_MAX_ARGS_USER	16
+#define GASNETC_MAX_ARGS_EXTRA	1	/* 1 for piggbacked credits */
+#define GASNETC_MAX_ARGS	(GASNETC_MAX_ARGS_USER + GASNETC_MAX_ARGS_EXTRA)
 #define GASNETC_MAX_MEDIUM	\
 		(GASNETC_BUFSZ - GASNETC_ALIGNUP(GASNETC_MEDIUM_HDRSZ + 4*GASNETC_MAX_ARGS, 8))
 #define GASNETC_MAX_LONG_REQ	((size_t)0x7fffffff)
@@ -173,7 +175,7 @@ void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) {
   #define GASNETC_MAX_LONG_REP  (GASNETC_BUFSZ - GASNETC_LONG_HDRSZ - 4*GASNETC_MAX_ARGS)
 #endif
 
-#define gasnet_AMMaxArgs()          ((size_t)GASNETC_MAX_ARGS)
+#define gasnet_AMMaxArgs()          ((size_t)GASNETC_MAX_ARGS_USER)
 #define gasnet_AMMaxMedium()        ((size_t)GASNETC_MAX_MEDIUM)
 #define gasnet_AMMaxLongRequest()   ((size_t)GASNETC_MAX_LONG_REQ)	
 #define gasnet_AMMaxLongReply()     ((size_t)GASNETC_MAX_LONG_REP)

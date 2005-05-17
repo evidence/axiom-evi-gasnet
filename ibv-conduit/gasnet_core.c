@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/05/17 17:25:50 $
- * $Revision: 1.104 $
+ *     $Date: 2005/05/17 20:42:38 $
+ * $Revision: 1.105 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,8 +46,7 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
 #define GASNETC_DEFAULT_NETWORKDEPTH_PP		64	/* Max ops (RMDA + AM) outstanding to each peer */
 
 /* Limits on in-flight (queued but not acknowledged) AM Requests */
-#define GASNETC_DEFAULT_AM_CREDITS_TOTAL	1024	/* Max AM requests outstanding at source, 0 = automatic */
-  							/* Actual default is MAX(nodes, THIS) */
+#define GASNETC_DEFAULT_AM_CREDITS_TOTAL	MAX(1024,gasneti_nodes)	/* Max AM requests outstanding at source, 0 = automatic */
 #define GASNETC_DEFAULT_AM_CREDITS_PP		32	/* Max AM requests outstanding to each peer */
 #define GASNETC_DEFAULT_AM_CREDITS_SLACK	1	/* Max AM credits delayed by coalescing */
 
@@ -371,7 +370,7 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_NETWORKDEPTH_PP, GASNETC_DEFAULT_NETWORKDEPTH_PP, 1);
   GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_NETWORKDEPTH_TOTAL, GASNETC_DEFAULT_NETWORKDEPTH_TOTAL, 0);
   GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_CREDITS_PP, GASNETC_DEFAULT_AM_CREDITS_PP, 1);
-  GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_CREDITS_TOTAL, MAX(gasneti_nodes, GASNETC_DEFAULT_AM_CREDITS_TOTAL), 0);
+  GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_CREDITS_TOTAL, GASNETC_DEFAULT_AM_CREDITS_TOTAL, 0);
   GASNETC_ENVINT(gasnetc_am_credits_slack, GASNET_AM_CREDITS_SLACK, GASNETC_DEFAULT_AM_CREDITS_SLACK, 0);
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_COUNT, GASNETC_DEFAULT_BBUF_COUNT, 0);
   GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINESEND_LIMIT, GASNETC_DEFAULT_INLINESEND_LIMIT, 0);
@@ -418,13 +417,6 @@ static int gasnetc_load_settings(void) {
             gasnetc_am_oust_pp, gasnetc_op_oust_pp);
     gasnetc_am_oust_pp = gasnetc_op_oust_pp;
   }
-  if_pf (gasnetc_am_credits_slack*(gasneti_nodes-1) >= gasnetc_am_oust_limit) {
-    int newval = (gasnetc_am_oust_limit - 1) / (gasneti_nodes - 1);
-    fprintf(stderr,
-            "WARNING: GASNET_AM_CREDITS_SLACK reduced to (GASNET_AM_CREDITS_TOTAL-1)/(nodes-1) (from %d to %d)\n",
-            gasnetc_am_credits_slack, newval);
-    gasnetc_am_credits_slack = newval;
-  }
   if_pf (gasnetc_am_credits_slack >= gasnetc_am_oust_pp) {
     fprintf(stderr,
             "WARNING: GASNET_AM_CREDITS_SLACK reduced to GASNET_AM_CREDITS_PP-1 (from %d to %d)\n",
@@ -464,6 +456,7 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_CREDITS_PP            = %d", gasnetc_am_oust_pp));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_CREDITS_TOTAL         = %d%s",
 			  	gasnetc_am_oust_limit, gasnetc_am_oust_limit ? "" : " (automatic)"));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_AM_CREDITS_SLACK         = %d", gasnetc_am_credits_slack));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_BBUF_COUNT               = %d%s",
 			  	gasnetc_bbuf_limit, gasnetc_bbuf_limit ? "": " (automatic)"));
 #if GASNETC_PIN_SEGMENT
@@ -1201,7 +1194,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   #endif
 
   {
-    int i, reg_count;
+    int reg_count;
     firehose_region_t prereg[2];
     size_t reg_size;
 

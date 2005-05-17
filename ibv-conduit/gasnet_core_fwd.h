@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2005/05/16 23:07:22 $
- * $Revision: 1.26 $
+ *     $Date: 2005/05/17 20:42:38 $
+ * $Revision: 1.27 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -54,8 +54,8 @@ typedef uint8_t gasnet_handler_t;
         VAL(C, RDMA_GET_BOUNCE, bytes)            \
         VAL(C, RDMA_GET_ZEROCP, bytes)            \
         CNT(C, ALLOC_AM_SPARE, cnt)	          \
-        CNT(C, SND_DELAYED_CREDIT, cnt)           \
-        CNT(C, RCV_DELAYED_CREDIT, cnt)           \
+        VAL(C, SND_AM_CREDITS, piggybacked credits) \
+        VAL(C, RCV_AM_CREDITS, piggybacked credits) \
         CNT(C, GET_AMREQ_CREDIT, cnt)             \
 	TIME(C, GET_AMREQ_CREDIT_STALL, stalled time) \
 	TIME(C, GET_AMREQ_BUFFER_STALL, stalled time) \
