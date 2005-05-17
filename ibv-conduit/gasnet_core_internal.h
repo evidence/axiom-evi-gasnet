@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/05/16 23:07:22 $
- * $Revision: 1.84 $
+ *     $Date: 2005/05/17 02:24:48 $
+ * $Revision: 1.85 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -533,11 +533,11 @@ void *gasneti_freelist_next(void *elem) {
 typedef struct {
   gasnetc_sema_t	sq_sema;	/* control in-flight RDMA ops (send queue slots) */
   gasnetc_sema_t	am_sema;	/* control in-flight AM Requests */
-  gasnetc_sema_t	am_unsent;	/* ACK coalescing - unsent credits */
   gasnetc_sema_t	am_unrcvd;	/* ACK coalescing - unmatched rcv buffers */
+  gasneti_weakatomic_t	am_unsent;	/* ACK coalescing - unsent credits */
   VAPI_qp_hndl_t	qp_handle;	/* == unsigned long */
   gasnetc_epid_t	epid;
-  char			_pad[GASNETC_CACHE_PAD(4*sizeof(gasnetc_sema_t)+sizeof(VAPI_qp_hndl_t)+sizeof(gasnetc_epid_t))];
+  char			_pad[GASNETC_CACHE_PAD(3*sizeof(gasnetc_sema_t)+sizeof(gasneti_weakatomic_t)+sizeof(VAPI_qp_hndl_t)+sizeof(gasnetc_epid_t))];
 } gasnetc_cep_t;
 
 /* Structure for a peer */
@@ -597,6 +597,7 @@ extern int		gasnetc_bbuf_limit;
 extern int		gasnetc_use_poll_lock;
 extern int		gasnetc_use_rcv_thread;
 extern int		gasnetc_use_firehose;
+extern int		gasnetc_am_credits_slack;
 
 /* Global variables */
 extern gasnetc_cep_t	*gasnetc_cep;

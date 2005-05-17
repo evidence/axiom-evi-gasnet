@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/16 23:07:22 $
- * $Revision: 1.108 $
+ *     $Date: 2005/05/17 02:24:48 $
+ * $Revision: 1.109 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -39,6 +39,7 @@ size_t                   		gasnetc_inline_limit;
 size_t                   		gasnetc_bounce_limit;
 int					gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
 int					gasnetc_use_firehose = 1;
+int					gasnetc_am_credits_slack;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped types                                                                   *
@@ -597,20 +598,22 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
 
     /* Finalize flow control */
     if_pf (rbuf->rbuf_needReply) {
-      /* XXX: reimplement w/ fewer atomic ops */
-      gasnetc_sema_up(&cep->am_unsent);
-      if (gasnetc_sema_read(&cep->am_unsent) > 1) {
-        /* A race might result in sending non-coalesced ACKs if a Request
-         * or Reply in another thread picks up one we expect to find here.
-         * However, we'll always send the correct total number of credits
-         * and we'll never have more than one delayed for coalescing.
-         */
-	if (gasnetc_sema_trydown(&cep->am_unsent, GASNETC_ANY_PAR)) {
+      /* A race might result in sending non-coalesced ACKs if a Request
+       * or Reply in another thread picks up one we expect to find.
+       * However, we'll always send the correct total number of credits
+       * and we'll never have more than gasnetc_am_credits_slack delayed.
+       */
+      uint32_t old;
+      do {
+	old = gasneti_weakatomic_read(&cep->am_unsent);
+	if (old >= gasnetc_am_credits_slack) {
+	  /* MUST send back a reply */
 	  int retval = gasnetc_ReplySystem((gasnet_token_t)rbuf, NULL,
 					   gasneti_handleridx(gasnetc_SYS_ack), 0 /* no args */);
 	  gasneti_assert(retval == GASNET_OK);
+	  break;
 	}
-      }
+      } while (!gasneti_weakatomic_compare_and_swap(&cep->am_unsent, old, old+1));
     }
     if_pf (!spare) {
       /* Free the temporary buffer we created */
@@ -1274,7 +1277,18 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 
   /* generate flags */
   {
-    int extra_credit = (dest == gasneti_mynode) ? 0 : gasnetc_sema_trydown(&cep->am_unsent, GASNETC_ANY_PAR);
+    int extra_credit;
+   
+    if (dest != gasneti_mynode) {
+      uint32_t old;
+      do {
+	old = gasneti_weakatomic_read(&cep->am_unsent);
+      } while (old && !gasneti_weakatomic_compare_and_swap(&cep->am_unsent, old, old-1));
+      extra_credit = old ? 1 : 0;
+    } else {
+      extra_credit = 0;
+    }
+
     if (extra_credit) {
       GASNETI_TRACE_PRINTF(C,("SND_DELAYED_CREDIT\n"));
       GASNETC_STAT_EVENT(SND_DELAYED_CREDIT);
@@ -2160,8 +2174,8 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       }
       gasnetc_sema_init(&cep[i].am_sema, gasnetc_am_oust_pp, gasnetc_am_oust_pp);
       gasnetc_sema_init(&cep[i].sq_sema, gasnetc_op_oust_pp, gasnetc_op_oust_pp);
-      gasnetc_sema_init(&cep[i].am_unsent, 0, 0);
       gasnetc_sema_init(&cep[i].am_unrcvd, 0, 0);
+      gasneti_weakatomic_set(&cep[i].am_unsent, 0);
     }
   } else {
     /* Should never use these for loopback */
@@ -2169,8 +2183,8 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       cep[i].epid = gasnetc_epid(node, i);
       gasnetc_sema_init(&cep[i].am_sema, 0, 0);
       gasnetc_sema_init(&cep[i].sq_sema, 0, 0);
-      gasnetc_sema_init(&cep[i].am_unsent, 0, 0);
       gasnetc_sema_init(&cep[i].am_unrcvd, 0, 0);
+      gasneti_weakatomic_set(&cep[i].am_unsent, 0);
     }
   }
 }
