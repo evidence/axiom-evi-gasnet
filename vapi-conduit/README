@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.28 $
+$Revision: 1.29 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -210,15 +210,6 @@ $Revision: 1.28 $
     is affecting some other version) you should try setting this
     variable to 0.
 
-  + GASNET_NONBULKPUT_BOUNCE_LIMIT
-    To perform a non-bulk PUT, vapi-conduit must either copy the data into
-    bounce buffers, or block until remote completion is signalled by the
-    HCA.  For non-bulk PUTs, transfers upto and including this size are
-    performed using bounce buffers (or inline sends) and larger transfers
-    are transfered using blocking PUTs.
-    The default value is 64KB.
-    A value of zero makes all non-bulk PUTs blocking.
-    
   + GASNET_PACKEDLONG_LIMIT
     To perform an AMLong or AMLongAsync with non-empty payload, vapi-conduit
     vapi-conduit must transfer both the payload and the header.  For
@@ -230,6 +221,17 @@ $Revision: 1.28 $
     The default value is the maximum that fits into a 4KB buffer together
     with the maximum sized header (currently 4012).
     A value of zero ensures the payload and header always travel separately.
+    
+  + GASNET_NONBULKPUT_BOUNCE_LIMIT
+    To perform a non-bulk PUT with nbytes > GASNET_INLINESEND_LIMIT or to
+    transfer the payload of an AMLong (but not AMLongAsync) with nbytes >
+    MAX(GASNET_INLINESEND_LIMIT, GASNET_PACKEDLONG_LIMIT), vapi-conduit must
+    either copy the data into bounce buffers, or block until remote
+    completion is signalled by the HCA.  Such transfers upto and including
+    size GASNET_NONBULKPUT_BOUNCE_LIMIT are performed using bounce buffers
+    while larger transfers are transfered using blocking PUTs.
+    The default value is 64KB.
+    A value of zero disables use of bounce buffers.
     
   Resource usage parameters:
   The following environment variables control how much memory is
