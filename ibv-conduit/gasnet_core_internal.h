@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/05/18 18:25:16 $
- * $Revision: 1.86 $
+ *     $Date: 2005/05/18 22:35:42 $
+ * $Revision: 1.87 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -198,11 +198,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
  * amount of memory we will pin. */
 #ifndef GASNETC_HONOR_RLIMIT_MEMLOCK
   #define GASNETC_HONOR_RLIMIT_MEMLOCK 0
-#endif
-
-/* Number of qps to stripe over */
-#ifndef GASNETC_CEPS
-  #define GASNETC_CEPS 1
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -599,6 +594,7 @@ extern int		gasnetc_use_rcv_thread;
 extern int		gasnetc_use_firehose;
 extern int		gasnetc_am_credits_slack;
 extern int		gasnetc_packedlong_limit;
+extern int		gasnetc_num_qps;
 
 /* Global variables */
 extern gasnetc_cep_t	*gasnetc_cep;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2005/05/18 18:25:16 $
- * $Revision: 1.38 $
+ *     $Date: 2005/05/18 22:35:42 $
+ * $Revision: 1.39 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -219,8 +219,7 @@ extern int gasnetc_ReplySystem(
 
 /*
  * gasnetc_epid_d is node and qp encoded together
- * qpi = 0 means wildcard, any other value is the index+1
- * Thus passing a node (the default) means any qp to that node
+ * passing just a node (the default) means any qp to that node
  */
 typedef uint32_t gasnetc_epid_t;
 
