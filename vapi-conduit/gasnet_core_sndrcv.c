@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/17 20:42:38 $
- * $Revision: 1.110 $
+ *     $Date: 2005/05/18 05:54:49 $
+ * $Revision: 1.111 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -25,6 +25,13 @@
 #else
   /* Max firehose per op is one per local scatter/gather segment + one remote */
   #define GASNETC_MAX_FH	(GASNETC_SND_SG + 1)
+#endif
+
+#ifndef GASNETC_PACKEDLONG_LIMIT
+  #define GASNETC_PACKEDLONG_LIMIT (GASNETC_BUFSZ - GASNETC_LONG_HDRSZ - 4*GASNETC_MAX_ARGS)
+#endif
+#if !GASNETC_PIN_SEGMENT && (GASNETC_PACKEDLONG_LIMIT < GASNETC_MAX_LONG_REP)
+  #error "GASNETC_PACKEDLONG_LIMIT < GASNETC_MAX_LONG_REP with un-pinned segment"
 #endif
 
 /* ------------------------------------------------------------------------------------ *
@@ -412,13 +419,9 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
       { 
         nbytes = buf->longmsg.nBytes;
         data = (void *)(buf->longmsg.destLoc);
-        if (!GASNETC_MSG_ISREQUEST(flags)) {
-	  #if !GASNETC_PIN_SEGMENT
-	    if (GASNETC_MSG_SRCIDX(flags) != gasneti_mynode) {
-	      /* No RDMA for ReplyLong.  So, must relocate the payload. */
-	      memcpy(data, GASNETC_MSG_LONG_DATA(buf, numargs), nbytes);
-	    }
-	  #endif
+	if ((nbytes <= GASNETC_PACKEDLONG_LIMIT) && (GASNETC_MSG_SRCIDX(flags) != gasneti_mynode)) {
+	  /* Must relocate the payload which is packed like a Medium. */
+	  memcpy(data, GASNETC_MSG_LONG_DATA(buf, numargs), nbytes);
 	}
         GASNETI_RUN_HANDLER_LONG(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs,data,nbytes);
       }
@@ -1201,11 +1204,17 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
         memcpy(dst_addr, src_addr, nbytes);
       } else {
         /* XXX check for error returns */
-        #if GASNETC_PIN_SEGMENT
-	  /* Queue the RDMA.  We can count on point-to-point ordering to deliver payload before header */
-          (void)gasnetc_rdma_put(epid, src_addr, dst_addr, nbytes, mem_oust, NULL);
-        #else
-	  if (!token) {
+	if (nbytes <= GASNETC_PACKEDLONG_LIMIT) {
+	  /* Small enough to send like a Medium.
+	   * This includes all Long Replies when not pinning the segment
+	   * since we can't send AM requests for remote firehose moves.
+	   */
+	    msg_len = GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
+	} else {
+          #if GASNETC_PIN_SEGMENT
+	    /* Queue the RDMA.  We can count on point-to-point ordering to deliver payload before header */
+            (void)gasnetc_rdma_put(epid, src_addr, dst_addr, nbytes, mem_oust, NULL);
+          #else
 	    /* Point-to-point ordering still holds, but only once the RDMA is actually queued.
 	     * In the case of a firehose hit, the RDMA is already queued before return from
 	     * gasnetc_rdma_put_fh().  On a miss, however, we'll need to spin on am_oust to
@@ -1214,15 +1223,11 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 	     * that would lead to deadlock if we hold the resources needed to queue the RDMA.
 	     */
 	    gasnetc_counter_t am_oust = GASNETC_COUNTER_INITIALIZER;
+	    gasneti_assert(!token);	/* Replies MUST have been caught above */
 	    (void)gasnetc_rdma_put_fh(epid, src_addr, dst_addr, nbytes, mem_oust, NULL, &am_oust);
 	    gasnetc_counter_wait(&am_oust, 0);
-	  } else {
-	    /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s).
-	     * We'll send it like a Medium below.
-	     */
-	    msg_len = GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
-	  }
-        #endif
+          #endif
+	}
       }
     }
     break;
@@ -1295,8 +1300,8 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     args = buf->longmsg.args;
     buf->longmsg.destLoc = (uintptr_t)dst_addr;
     buf->longmsg.nBytes  = nbytes;
-    if (!GASNETC_PIN_SEGMENT && nbytes && (dest != gasneti_mynode) && token) {
-      /* No RDMA for Long Reply's when using firehose, since we can't send the AM request(s) */
+    if (nbytes <= GASNETC_PACKEDLONG_LIMIT) {
+      /* Pack like a Medium */
       memcpy(GASNETC_MSG_LONG_DATA(buf, numargs), src_addr, nbytes);
     }
     break;
