@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/18 17:46:10 $
- * $Revision: 1.112 $
+ *     $Date: 2005/05/18 18:25:16 $
+ * $Revision: 1.113 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -27,13 +27,6 @@
   #define GASNETC_MAX_FH	(GASNETC_SND_SG + 1)
 #endif
 
-#ifndef GASNETC_PACKEDLONG_LIMIT
-  #define GASNETC_PACKEDLONG_LIMIT (GASNETC_BUFSZ - GASNETC_LONG_HDRSZ - 4*GASNETC_MAX_ARGS)
-#endif
-#if !GASNETC_PIN_SEGMENT && (GASNETC_PACKEDLONG_LIMIT < GASNETC_MAX_LONG_REP)
-  #error "GASNETC_PACKEDLONG_LIMIT < GASNETC_MAX_LONG_REP with un-pinned segment"
-#endif
-
 /* ------------------------------------------------------------------------------------ *
  *  Global variables                                                                    *
  * ------------------------------------------------------------------------------------ */
@@ -47,6 +40,7 @@ size_t                   		gasnetc_bounce_limit;
 int					gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
 int					gasnetc_use_firehose = 1;
 int					gasnetc_am_credits_slack;
+int					gasnetc_packedlong_limit;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped types                                                                   *
@@ -420,7 +414,8 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
       { 
         nbytes = buf->longmsg.nBytes;
         data = (void *)(buf->longmsg.destLoc);
-	if ((nbytes <= GASNETC_PACKEDLONG_LIMIT) && (GASNETC_MSG_SRCIDX(flags) != gasneti_mynode)) {
+	if (nbytes && (GASNETC_MSG_SRCIDX(flags) != gasneti_mynode) &&
+	    ((nbytes <= gasnetc_packedlong_limit) || (!GASNETC_PIN_SEGMENT && GASNETC_MSG_ISREPLY(flags)))) {
 	  /* Must relocate the payload which is packed like a Medium. */
 	  memcpy(data, GASNETC_MSG_LONG_DATA(buf, orig_numargs), nbytes);
 	}
@@ -1114,6 +1109,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   uint32_t flags;
   size_t msg_len;
   int credits, retval, i;
+  int packedlong = 0;
   gasnetc_epid_t epid;
   gasnetc_cep_t *cep;
   union {         
@@ -1127,7 +1123,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
    * For a Request, we bind to a qp now to be sure everything goes on one qp.
    */
   if (dest == gasneti_mynode) {
-    /* epid an cep will not get used */
+    /* cep and epid will not get used */
     #if GASNET_DEBUG
       cep = NULL;
       epid = ~0;
@@ -1203,32 +1199,28 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     if (nbytes) {
       if (dest == gasneti_mynode) {
         memcpy(dst_addr, src_addr, nbytes);
+      } else if ((nbytes <= gasnetc_packedlong_limit) || (!GASNETC_PIN_SEGMENT && token)) {
+	/* Small enough to send like a Medium, or a Reply when using remote firehose. */
+	msg_len = GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
+	packedlong = 1;
       } else {
         /* XXX check for error returns */
-	if (nbytes <= GASNETC_PACKEDLONG_LIMIT) {
-	  /* Small enough to send like a Medium.
-	   * This includes all Long Replies when not pinning the segment
-	   * since we can't send AM requests for remote firehose moves.
+        #if GASNETC_PIN_SEGMENT
+	  /* Queue the RDMA.  We can count on point-to-point ordering to deliver payload before header */
+          (void)gasnetc_rdma_put(epid, src_addr, dst_addr, nbytes, mem_oust, NULL);
+        #else
+	  /* Point-to-point ordering still holds, but only once the RDMA is actually queued.
+	   * In the case of a firehose hit, the RDMA is already queued before return from
+	   * gasnetc_rdma_put_fh().  On a miss, however, we'll need to spin on am_oust to
+	   * determine when all the RDMA is actually queued.
+	   * It would have been nice to move the wait down further in this function, but
+	   * that would lead to deadlock if we hold the resources needed to queue the RDMA.
 	   */
-	    msg_len = GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
-	} else {
-          #if GASNETC_PIN_SEGMENT
-	    /* Queue the RDMA.  We can count on point-to-point ordering to deliver payload before header */
-            (void)gasnetc_rdma_put(epid, src_addr, dst_addr, nbytes, mem_oust, NULL);
-          #else
-	    /* Point-to-point ordering still holds, but only once the RDMA is actually queued.
-	     * In the case of a firehose hit, the RDMA is already queued before return from
-	     * gasnetc_rdma_put_fh().  On a miss, however, we'll need to spin on am_oust to
-	     * determine when all the RDMA is actually queued.
-	     * It would have been nice to move the wait down further in this function, but
-	     * that would lead to deadlock if we hold the resources needed to queue the RDMA.
-	     */
-	    gasnetc_counter_t am_oust = GASNETC_COUNTER_INITIALIZER;
-	    gasneti_assert(!token);	/* Replies MUST have been caught above */
-	    (void)gasnetc_rdma_put_fh(epid, src_addr, dst_addr, nbytes, mem_oust, NULL, &am_oust);
-	    gasnetc_counter_wait(&am_oust, 0);
-          #endif
-	}
+	  gasnetc_counter_t am_oust = GASNETC_COUNTER_INITIALIZER;
+	  gasneti_assert(!token);	/* Replies MUST have been caught above */
+	  (void)gasnetc_rdma_put_fh(epid, src_addr, dst_addr, nbytes, mem_oust, NULL, &am_oust);
+	  gasnetc_counter_wait(&am_oust, 0);
+        #endif
       }
     }
     break;
@@ -1301,8 +1293,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     args = buf->longmsg.args;
     buf->longmsg.destLoc = (uintptr_t)dst_addr;
     buf->longmsg.nBytes  = nbytes;
-    if (nbytes <= GASNETC_PACKEDLONG_LIMIT) {
+    if (packedlong) {
       /* Pack like a Medium */
+      gasneti_assert(nbytes <= GASNETC_MAX_PACKEDLONG);
       memcpy(GASNETC_MSG_LONG_DATA(buf, numargs), src_addr, nbytes);
     }
     break;

@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.27 $
+$Revision: 1.28 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -204,7 +204,7 @@ $Revision: 1.27 $
     In firmware versions after 1.17 and prior to 3.0, there is a
     performance anomaly with the call EVAPI_post_inline_sr().
     By default, vapi-conduit will use this call to perform small
-    puts.  If firmware in the range [1.18, 3.0) is detected at
+    PUTs.  If firmware in the range [1.18, 3.0) is detected at
     runtime, a warning will be printed but the call will still
     be used.  In this case (or if you believe that the same anomaly
     is affecting some other version) you should try setting this
@@ -216,6 +216,20 @@ $Revision: 1.27 $
     HCA.  For non-bulk PUTs, transfers upto and including this size are
     performed using bounce buffers (or inline sends) and larger transfers
     are transfered using blocking PUTs.
+    The default value is 64KB.
+    A value of zero makes all non-bulk PUTs blocking.
+    
+  + GASNET_PACKEDLONG_LIMIT
+    To perform an AMLong or AMLongAsync with non-empty payload, vapi-conduit
+    vapi-conduit must transfer both the payload and the header.  For
+    sufficiently small payloads, it is more efficient (in terms of both CPU
+    overhead and network latency) to pack the header and payload together
+    and copy the payload into place on the target before running the
+    handler.  Thus, for payload upto and including this size this packing
+    is used.
+    The default value is the maximum that fits into a 4KB buffer together
+    with the maximum sized header (currently 4012).
+    A value of zero ensures the payload and header always travel separately.
     
   Resource usage parameters:
   The following environment variables control how much memory is
@@ -236,7 +250,7 @@ $Revision: 1.27 $
     send work queue.  This limit is on the number of vapi-level ops
     in-flight, and the number of GASNet-level operations may be less
     (for example, when the remote range of a PUT or GET covers more
-    than one pinned region, due to GASNET_MAX_PINSZ, or because an AM
+    than one pinned region, due to GASNET_PIN_MAXSZ, or because an AM
     Long uses separate ops for the payload and header).
     The default value is 64.
     Reducing this parameter may limit small message throughput.  If you
@@ -484,9 +498,11 @@ Notes for myself for extended API:
     implementation, and uses thread-local data to avoid locks.
 
 + The memsets can be more efficiently implemented as a _local_ memset
-  followed by a RDMA put, for small enough sizes.  The cutoff is
+  followed by a PUT, for small enough sizes.  The cutoff is
   presently the size of one bounce buffer, but has not been tuned.
-  Larger memsets are still done by Active Messages.
+
+  This was disabled when GASNET_PIN_MAXSZ was introduced.  Therefore,
+  all memsets are currently done by Active Messages.
   
 
 @ Section: Graceful exits @

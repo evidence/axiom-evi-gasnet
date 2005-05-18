@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/05/17 20:42:38 $
- * $Revision: 1.105 $
+ *     $Date: 2005/05/18 18:25:16 $
+ * $Revision: 1.106 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -66,6 +66,7 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
 /* Protocol switch points */
 #define GASNETC_DEFAULT_INLINESEND_LIMIT	72
 #define GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT	(64*1024)
+#define GASNETC_DEFAULT_PACKEDLONG_LIMIT	GASNETC_MAX_PACKEDLONG
 
 /*
   These calues cannot yet be overridden by environment variables.
@@ -375,6 +376,8 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_COUNT, GASNETC_DEFAULT_BBUF_COUNT, 0);
   GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINESEND_LIMIT, GASNETC_DEFAULT_INLINESEND_LIMIT, 0);
   GASNETC_ENVINT(gasnetc_bounce_limit, GASNET_NONBULKPUT_BOUNCE_LIMIT, GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT, 0);
+  GASNETC_ENVINT(gasnetc_packedlong_limit, GASNET_PACKEDLONG_LIMIT, GASNETC_DEFAULT_PACKEDLONG_LIMIT, 0);
+
   #if GASNETC_PIN_SEGMENT
   { char *val;
     long tmp;
@@ -423,6 +426,13 @@ static int gasnetc_load_settings(void) {
             gasnetc_am_credits_slack, gasnetc_am_oust_pp-1);
     gasnetc_am_credits_slack = gasnetc_am_oust_pp - 1;
   }
+  if_pf (gasnetc_packedlong_limit > GASNETC_MAX_PACKEDLONG) {
+    fprintf(stderr,
+            "WARNING: GASNETC_PACKEDLONG_LIMIT reduced from %d to %d\n",
+            gasnetc_packedlong_limit, GASNETC_MAX_PACKEDLONG);
+    gasnetc_packedlong_limit = GASNETC_MAX_PACKEDLONG;
+  }
+
 
   /* Report */
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
