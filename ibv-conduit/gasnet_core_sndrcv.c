@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/18 05:54:49 $
- * $Revision: 1.111 $
+ *     $Date: 2005/05/18 17:46:10 $
+ * $Revision: 1.112 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -347,6 +347,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   gasnetc_handler_fn_t handler_fn = gasnetc_handler[handler_id];
   gasnetc_category_t category = GASNETC_MSG_CATEGORY(flags);
   int numargs = GASNETC_MSG_NUMARGS(flags);
+  int orig_numargs = numargs;
   gasnet_handlerarg_t *args;
   size_t nbytes;
   void *data;
@@ -410,7 +411,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
     case gasnetc_Medium:
       {
         nbytes = buf->medmsg.nBytes;
-        data = GASNETC_MSG_MED_DATA(buf, numargs);
+        data = GASNETC_MSG_MED_DATA(buf, orig_numargs);
         GASNETI_RUN_HANDLER_MEDIUM(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs,data,nbytes);
       }
       break;
@@ -421,7 +422,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
         data = (void *)(buf->longmsg.destLoc);
 	if ((nbytes <= GASNETC_PACKEDLONG_LIMIT) && (GASNETC_MSG_SRCIDX(flags) != gasneti_mynode)) {
 	  /* Must relocate the payload which is packed like a Medium. */
-	  memcpy(data, GASNETC_MSG_LONG_DATA(buf, numargs), nbytes);
+	  memcpy(data, GASNETC_MSG_LONG_DATA(buf, orig_numargs), nbytes);
 	}
         GASNETI_RUN_HANDLER_LONG(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs,data,nbytes);
       }
