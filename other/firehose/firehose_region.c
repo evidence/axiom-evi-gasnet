@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/05/13 17:34:34 $
- * $Revision: 1.13 $
+ *     $Date: 2005/05/19 02:07:37 $
+ * $Revision: 1.14 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -493,7 +493,8 @@ fh_update_priv(firehose_private_t *priv, const firehose_region_t *reg)
  *
  * XXX: Dan has noted that if we tracked which pages were *ever* pinned then
  * we could enlarge regions even more agressively, to cover pages that were
- * once used but not recently enough to be in the table.
+ * once used but not recently enough to be in the table.  However, we'd hit
+ * problems when glibc's malloc unmaps freed pages.
  */
 GASNET_INLINE_MODIFIER(fhi_merge_regions)
 void
@@ -1138,7 +1139,7 @@ fh_find_pending_callbacks(gasnet_node_t node, firehose_region_t *region,
 void
 fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
                const firehose_region_t *regions, size_t num_reg,
-	       uint32_t flags, firehose_info_t *fhinfo)
+	       firehose_info_t *fhinfo)
 {
 	unsigned long param_M, param_VM;
 	unsigned long param_R, param_VR;
@@ -1184,10 +1185,15 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 
 	/* Now assign decent "M" defaults based on physical memory */
 	if (param_M == 0 && param_VM == 0) {
-		param_M  = (unsigned long) max_pinnable_memory *
+		if ((fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
+			param_M  = m_prepinned;
+			param_VM = max_pinnable_memory - param_M;
+		} else {
+			param_M  = (unsigned long) max_pinnable_memory *
 				(1-FH_MAXVICTIM_TO_PHYSMEM_RATIO);
-		param_VM = (unsigned long) max_pinnable_memory *
+			param_VM = (unsigned long) max_pinnable_memory *
 				    FH_MAXVICTIM_TO_PHYSMEM_RATIO;
+		}
 	}
 	else if (param_M == 0)
 		param_M = max_pinnable_memory - param_VM;
@@ -1195,15 +1201,19 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		param_VM = max_pinnable_memory - param_M;
 
 	if (param_RS == 0) {
-		/* We always send one AM to pin one region.  So, we need to
-		 * have enough room AM to encode the requested region plus
-		 * some number of regions to unpin.  In the worst case, the
-		 * regions selected for replacement will be single-bucket
-		 * sized (the minimum possible).
-		 * So, we require param_RS <= (med_regions-1)*FH_BUCKET_SIZE
-		 */
-		param_RS = MIN(FIREHOSE_CLIENT_MAXREGION_SIZE,
-			       (med_regions-1)*FH_BUCKET_SIZE);
+		if ((fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
+			param_RS = FIREHOSE_CLIENT_MAXREGION_SIZE;
+		} else {
+			/* We always send one AM to pin one region.  So, we need to
+			 * have enough room AM to encode the requested region plus
+			 * some number of regions to unpin.  In the worst case, the
+			 * regions selected for replacement will be single-bucket
+			 * sized (the minimum possible).
+			 * So, we require param_RS <= (med_regions-1)*FH_BUCKET_SIZE
+			 */
+			param_RS = MIN(FIREHOSE_CLIENT_MAXREGION_SIZE,
+				       (med_regions-1)*FH_BUCKET_SIZE);
+		}
 	}
 	/* Round down to multiple of FH_BUCKET_SIZE for sanity */
 	param_RS &= ~FH_PAGE_MASK;
@@ -1214,18 +1224,23 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
          * reduce the number of available regions as needed.
 	 */
 	if (param_R == 0 && param_VR == 0) {
-		double ratio;
+		if ((fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
+			param_R  = num_reg;
+			param_VR = FIREHOSE_CLIENT_MAXREGIONS - param_R;
+		} else {
+			double ratio;
 
-		/* try naively... */
-		param_R  = (param_M - m_prepinned)  / param_RS;
-		param_VR = param_VM / param_RS;
+			/* try naively... */
+			param_R  = (param_M - m_prepinned)  / param_RS;
+			param_VR = param_VM / param_RS;
 			
-		/* then rescale if needed */
-		ratio = (FIREHOSE_CLIENT_MAXREGIONS - num_reg) /
-				(double)(param_R + param_VR);
-		if (ratio < 1.) {
-			param_R  *= ratio;
-			param_VR *= ratio;
+			/* then rescale if needed */
+			ratio = (FIREHOSE_CLIENT_MAXREGIONS - num_reg) /
+					(double)(param_R + param_VR);
+			if (ratio < 1.) {
+				param_R  *= ratio;
+				param_VR *= ratio;
+			}
 		}
 	}
 	else if (param_R == 0)
@@ -1247,7 +1262,39 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	/* 
 	 * Validate firehose parameters parameters 
 	 */ 
-	{
+	if ((fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
+		/* Want at least 4k buckets of victim FIFO */
+		unsigned long	VM_min = FH_BUCKET_SIZE * 4096;
+
+		/* Want at least 32 regions of FIFO */
+		unsigned long	VR_min = 2;
+
+		if_pf (param_RS < FH_BUCKET_SIZE)
+			gasneti_fatalerror("GASNET_FIREHOSE_MAXREGION_SIZE (%ld) "
+			    "is less than the minimum %d",
+			    param_RS, FH_BUCKET_SIZE); 
+
+		if_pf (param_VM < VM_min)
+			gasneti_fatalerror("GASNET_MAXVICTIM_M (%ld) is less than "
+			    "the minimum %ld (%ld buckets)",
+			    param_VM, VM_min, VM_min >> FH_BUCKET_SHIFT);
+
+		if_pf (param_VR < VR_min)
+			gasneti_fatalerror("GASNET_MAXVICTIM_R (%ld) is less than "
+			    "the minimum %ld", param_VR, VR_min);
+
+		if_pf (param_M < m_prepinned)	/* XXX: need this check? */
+			gasneti_fatalerror("Too many bytes in initial"
+			    " pinned regions list (%ld) for current "
+			    "GASNET_FIREHOSE_M parameter (%ld)", 
+			    m_prepinned, param_M);
+
+		if_pf (param_R < num_reg)	/* XXX: need this check? */
+			gasneti_fatalerror("Too many regions passed on initial"
+			    " pinned bucket list (%ld) for current "
+			    "GASNET_FIREHOSE_R parameter (%ld)", 
+			    (unsigned long)num_reg, param_R);
+	} else {
 		/* Want at least 32 buckets per node */
 		unsigned long	M_min = FH_BUCKET_SIZE * num_nodes * 32;
 
@@ -1317,9 +1364,11 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	 * Set remote parameters
 	 */
 	firehoses = MIN(param_R, (param_M - m_prepinned) / param_RS);
-	fhc_RemoteBucketsM = num_nodes > 1
+	if (!(fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
+		fhc_RemoteBucketsM = num_nodes > 1
 				? firehoses / (num_nodes - 1)
 				: firehoses;
+	}
 
 	GASNETI_TRACE_PRINTF(C, 
 		    ("Maximum pinnable=%ld\tMax allowed=%ld", 
@@ -1363,13 +1412,17 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	 * established by the firehose parameters.
 	 */
 	{
-		fhc_MaxRemoteBuckets = param_RS >> FH_BUCKET_SHIFT;
-
-		fhinfo->max_RemoteRegions = fhc_RemoteBucketsM;
 		fhinfo->max_LocalRegions  = param_VR;
-
 		fhinfo->max_LocalPinSize  = param_RS;
-		fhinfo->max_RemotePinSize = param_RS;
+		if ((fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
+			fhc_MaxRemoteBuckets = 0;
+			fhinfo->max_RemoteRegions = 0;
+			fhinfo->max_RemotePinSize = 0;
+		} else {
+			fhc_MaxRemoteBuckets = param_RS >> FH_BUCKET_SHIFT;
+			fhinfo->max_RemoteRegions = fhc_RemoteBucketsM;
+			fhinfo->max_RemotePinSize = param_RS;
+		}
 
 		GASNETI_TRACE_PRINTF(C, 
 		    ("Firehose M=%ld (fh=%ld)\tprepinned=%ld (buckets=%d)",

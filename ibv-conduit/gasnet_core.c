@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/05/19 01:59:20 $
- * $Revision: 1.108 $
+ *     $Date: 2005/05/19 02:07:39 $
+ * $Revision: 1.109 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1243,47 +1243,19 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     }
     #endif
 
-    #if GASNETC_PIN_SEGMENT
-      /* 
-       * When region is prepinned we will NEVER request/grant any remote firehoses.
-       * Therefore, we lie about resources so that none are actually reserved for
-       * use by remote firehoses.
-       */
-
-      /* Lie about memory to ensure that MAXVICTIM_M can use it all */
-      if (!gasneti_getenv("GASNET_FIREHOSE_M") &&
-	  !gasneti_getenv("GASNET_FIREHOSE_MAXVICTIM_M")) {
-	char value[24];
-	uintptr_t tmp = gasneti_nodes * 32 * GASNET_PAGESIZE; /* This is the minimum FH will accept */
-	snprintf(value, sizeof(value), "%luK", (unsigned long)((tmp + reg_size)/1024));
-	gasneti_setenv("GASNET_FIREHOSE_M", value);
-	gasnetc_pin_info.memory += tmp;
-	if (gasnetc_pin_info.memory < tmp) {
-	  /* overflow! (such as 4GB memory on a 32-bit platform) */
-	  gasnetc_pin_info.memory = GASNETI_ALIGNDOWN(~((uintptr_t)0), GASNET_PAGESIZE);
-	}
-      }
-
-      /* Lie about regions to ensure that MAXVICTIM_R can use them all */
-      if (!gasneti_getenv("GASNET_FIREHOSE_R") &&
-	  !gasneti_getenv("GASNET_FIREHOSE_MAXVICTIM_R")) {
-	char value[10];
-	int tmp = gasneti_nodes + reg_count; /* Min is 1 per node + any preregistered */
-	snprintf(value, sizeof(value), "%d", tmp);
-	gasneti_setenv("GASNET_FIREHOSE_R", value);
-        gasnetc_pin_info.regions += gasneti_nodes;
-      }
-
-      /* Correct for regions we stole but don't count in prereg */
-      gasnetc_pin_info.regions -= gasnetc_seg_reg_count;
-    #endif
-
     /* Now initialize firehose */
-    firehose_init(gasnetc_pin_info.memory, gasnetc_pin_info.regions,
-		  prereg, reg_count, 0, &gasnetc_firehose_info);
-    gasnetc_fh_maxsz = MIN(gasnetc_hca_port.max_msg_sz,
-			  MIN(gasnetc_firehose_info.max_LocalPinSize,
-			      gasnetc_firehose_info.max_RemotePinSize));
+    #if GASNETC_PIN_SEGMENT
+      gasnetc_pin_info.regions -= gasnetc_seg_reg_count;
+      firehose_init(gasnetc_pin_info.memory, gasnetc_pin_info.regions,
+		    prereg, reg_count, FIREHOSE_INIT_FLAG_LOCAL_ONLY, &gasnetc_firehose_info);
+      gasnetc_fh_maxsz = MIN(gasnetc_hca_port.max_msg_sz, gasnetc_firehose_info.max_LocalPinSize);
+    #else
+      firehose_init(gasnetc_pin_info.memory, gasnetc_pin_info.regions,
+		    prereg, reg_count, 0, &gasnetc_firehose_info);
+      gasnetc_fh_maxsz = MIN(gasnetc_hca_port.max_msg_sz,
+			     MIN(gasnetc_firehose_info.max_LocalPinSize,
+				 gasnetc_firehose_info.max_RemotePinSize));
+    #endif
     gasneti_assert_always(gasnetc_fh_maxsz >= (GASNET_PAGESIZE + gasnetc_inline_limit));
   }
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/05/06 18:34:56 $
- * $Revision: 1.22 $
+ *     $Date: 2005/05/19 02:07:37 $
+ * $Revision: 1.23 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -62,6 +62,15 @@ extern gasneti_mutex_t		fh_table_lock;
   #define FH_POLLQ_LOCK		!!! error - no firehose polling !!!
   #define FH_POLLQ_UNLOCK	!!! error - no firehose polling !!!
 #endif
+
+/* 
+ * INIT FLAGS
+ * fhi_InitFlags -
+ *     Holds value of 'flags' argument passed to firehose_init().
+ *     This makes these flags available to the firehose_fini and
+ *     to the _init and _fini plugins.
+ */
+extern uint32_t fhi_InitFlags;
 
 /* 
  * LOCAL COUNTERS
@@ -291,7 +300,7 @@ struct _firehose_private_t {
 
 void	fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions, 
 		       const firehose_region_t *prepinned_regions,
-                       size_t num_reg, uint32_t flags, firehose_info_t *info);
+                       size_t num_reg, firehose_info_t *info);
 void	fh_fini_plugin(void);
 
 /* ##################################################################### */

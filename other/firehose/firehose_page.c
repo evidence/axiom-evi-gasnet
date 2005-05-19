@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/05/06 18:34:56 $
- * $Revision: 1.40 $
+ *     $Date: 2005/05/19 02:07:37 $
+ * $Revision: 1.41 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -572,11 +572,15 @@ firehose_get_params(uintptr_t max_pinnable_memory,
 void
 fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions, 
 	       const firehose_region_t *regions, size_t num_reg,
-	       uint32_t flags, firehose_info_t *fhinfo)
+	       firehose_info_t *fhinfo)
 {
     int	      i,j;
     uintptr_t M, maxvictim, firehoses, m_prepinned = 0;
     size_t    b_prepinned = 0;
+
+    if (fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY) {
+      fprintf(stderr, "Warning: firehose_page does not yet implement FIREHOSE_INIT_FLAG_LOCAL_ONLY (resource allocation may not be as desired).\n");
+    }
 
         /* Initialize the Bucket table to 128k lists */
     fh_BucketTable = fh_hash_create((1<<17));

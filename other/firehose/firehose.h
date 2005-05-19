@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.h,v $
- *     $Date: 2005/05/06 18:34:56 $
- * $Revision: 1.13 $
+ *     $Date: 2005/05/19 02:07:37 $
+ * $Revision: 1.14 $
  * Description: Public Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -378,7 +378,7 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
  */
 
 /* Firehose Initialization Flags */
-/* Proposed/unimplemented: #define FIREHOSE_INIT_FLAG_LOCAL_ONLY	0x01 */
+#define FIREHOSE_INIT_FLAG_LOCAL_ONLY	0x01
 
 /************************
  * Firehose Finalization

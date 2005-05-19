@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2005/05/06 18:34:56 $
- * $Revision: 1.20 $
+ *     $Date: 2005/05/19 02:07:37 $
+ * $Revision: 1.21 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -76,6 +76,7 @@ static int fhi_regpool_numbig = 0;
  */
 
 gasnet_node_t	fh_mynode = (gasnet_node_t)-1;
+uint32_t	fhi_InitFlags = 0;
 
 extern void
 firehose_init(uintptr_t max_pinnable_memory, size_t max_regions, 
@@ -122,16 +123,18 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
 	}
 
         /* Allocate the per-node FIFOs and counters */
-	fh_RemoteNodeFifo = (fh_fifoq_t *) 
-		gasneti_malloc(gasnet_nodes() * sizeof(fh_fifoq_t));
-        fhc_RemoteBucketsUsed = (int *)
-                gasneti_malloc(gasnet_nodes() * sizeof(int));
-        fhc_RemoteVictimFifoBuckets = (int *)
-                gasneti_malloc(gasnet_nodes() * sizeof(int));
-	for (i = 0; i < gasnet_nodes(); i++) {
-		FH_TAILQ_INIT(&fh_RemoteNodeFifo[i]);
-		fhc_RemoteBucketsUsed[i] = 0;
-		fhc_RemoteVictimFifoBuckets[i] = 0;
+	if (!(flags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
+		fh_RemoteNodeFifo = (fh_fifoq_t *) 
+			gasneti_malloc(gasnet_nodes() * sizeof(fh_fifoq_t));
+		fhc_RemoteBucketsUsed = (int *)
+			gasneti_malloc(gasnet_nodes() * sizeof(int));
+		fhc_RemoteVictimFifoBuckets = (int *)
+			gasneti_malloc(gasnet_nodes() * sizeof(int));
+		for (i = 0; i < gasnet_nodes(); i++) {
+			FH_TAILQ_INIT(&fh_RemoteNodeFifo[i]);
+			fhc_RemoteBucketsUsed[i] = 0;
+			fhc_RemoteVictimFifoBuckets[i] = 0;
+		}
 	}
 
         /* Init the region pool freelist */
@@ -139,8 +142,9 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
 
 	/* Initialize -page OR -region specific data. _MUST_ be the last thing
 	 * called before return */
+	fhi_InitFlags = flags;
 	fh_init_plugin(max_pinnable_memory, max_regions, prepinned_regions, 
-		       num_reg, flags, info);
+		       num_reg, info);
 
 	FH_TABLE_UNLOCK;
 
@@ -163,9 +167,11 @@ firehose_fini()
 	fh_fini_plugin();
 
 	/* Free the per-node firehose FIFO queues and counters */
-	gasneti_free(fh_RemoteNodeFifo);
-        gasneti_free(fhc_RemoteBucketsUsed);
-        gasneti_free(fhc_RemoteVictimFifoBuckets);
+	if (!(fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
+		gasneti_free(fh_RemoteNodeFifo);
+		gasneti_free(fhc_RemoteBucketsUsed);
+		gasneti_free(fhc_RemoteVictimFifoBuckets);
+	}
 
 	/* Free the region pool freelist */
 	while (!FH_STAILQ_EMPTY(&fhi_regpool_list)) {
