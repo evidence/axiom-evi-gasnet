@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.h,v $
- *     $Date: 2005/05/19 02:07:37 $
- * $Revision: 1.14 $
+ *     $Date: 2005/05/19 18:51:55 $
+ * $Revision: 1.15 $
  * Description: Public Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -377,7 +377,25 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
  * initialization. 
  */
 
-/* Firehose Initialization Flags */
+/* Flags passed to firehose initialization
+ *
+ * FIREHOSE_INIT_FLAG_LOCAL_ONLY
+ *   Though firehose is designed to address the management of remote
+ *   pinning resources, it is also usefull for managing purely local
+ *   dynamic pinnings (for instance when the GASNet conduit has
+ *   prepinned the segment and only needs to dynamically pin local
+ *   out-of-segment memory).
+ *   When firehose_init() is passed FIREHOSE_INIT_FLAG_LOCAL_ONLY,
+ *   firehose will manage only local pinnings.  All resources indicated
+ *   by the max_pinnable_memory and max_regions arguments will be used
+ *   for the victim FIFO (local only firehoses), subject to override by
+ *   the corresponding environment variables.  Tables used to track
+ *   remote firehoses will not be allocated.  If this flag is passed, it
+ *   is an error to call firehose_remote_pin(), firehose_try_remote_pin()
+ *   or firehose_partial_remote_pin.  The max_RemotePinSize and
+ *   max_RemoteRegions values in the firehose_info_t will be zero.
+ *   CURRENTLY ONLY IMPLEMENTED FOR FIREHOSE-REGION
+ */
 #define FIREHOSE_INIT_FLAG_LOCAL_ONLY	0x01
 
 /************************
@@ -563,14 +581,6 @@ firehose_get_params(uintptr_t max_pinnable_memory,
  * return success when the request can be satisfied based on local
  * knowledge of what memory is already pinned.  For this reason, spin
  * polling on these functions is not recommended.
- *
- * [XXX What about using firehose_try_remote_pin() to poll for completion
- * of a firehose_remote_pin() issued earlier (with appropriate calls to
- * firehose_poll())?  I don't see any reason to prohibit this behavior.
- * Though use of a callback to set some flag would achieve the samething,
- * the firehose_poll() would still be required.
- * Should we call firehose_poll() inside the _try_ and _partial_ functions?
- * What are your thoughts - Paul]
  */
 
 /********************************************************************/
@@ -700,6 +710,8 @@ firehose_partial_local_pin(uintptr_t addr, size_t len,
  * that was successfully pinned.  The 'allLocalHit' parameter is set
  * to non-zero if the remote pin operation could be successfully
  * completed without requiring any firehose moves (network roundtrips).
+ * Thus if 'allLocalHit' is non-zero, any callback requested by the flag
+ * FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK has NOT run on the remote node.
  *
  * AM-handler context: Runs within AM handler if (and only if) client
  *                     defines FIREHOSE_COMPLETION_IN_HANDLER.
@@ -728,11 +740,19 @@ typedef void (*firehose_completed_fn_t)
  * It is invalid to call this function with the local node number as
  * a destination node.
  *
- * If FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK is set, the client must a
- * valid pointer to a remotecallback_args_t type as defined in
- * firehose_fwd.h.  The contents of this type is copied over in the
- * firehose move and passed to the remote callback when
- * firehose_remote_callback() is invoked. 
+ * If FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK is set, the client must pass
+ * as 'remote_args', a valid pointer to type remotecallback_args_t as
+ * defined in firehose_fwd.h.  The contents of this type is copied over
+ * in the firehose move (if one is requred) and passed to the remote
+ * callback when firehose_remote_callback() is invoked.  The contents
+ * of 'remote_args' are copied before firehose_remote_pin() returns,
+ * making the memory reusable immediately.  If the request can be
+ * satisfied from local tables, no network communication will take
+ * place.  In that case, the remote callback is NOT run.  If the
+ * flag FIREHOSE_FLAG_RETURN_IF_PINNED is set, this case is indicated
+ * by a non-NULL return value.  If FIREHOSE_FLAG_RETURN_IF_PINNED is
+ * not set, a non-zero value of 'allLocalHit' passed to the completion
+ * callback indicates the remote callback was not run.
  *
  * See the section "FIREHOSE PINNING FUNCTIONS (LOCAL & REMOTE)" for the
  * use of the "req" argument, and additional semantics common to all
