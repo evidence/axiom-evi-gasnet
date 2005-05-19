@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2005/05/15 09:56:22 $
- * $Revision: 1.69 $
+ *     $Date: 2005/05/19 02:32:24 $
+ * $Revision: 1.70 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,7 +35,6 @@
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS) || /* for debugging */          \
     defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
     defined(_SX)       || /* NEC SX-6 atomics not available to user code? */ \
-    (defined(__hppa) && !defined(__GNUC__)) || /* haven't implemented atomics for HPC */          \
     (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) || /* haven't implemented atomics for PGI */ \
     (defined(__sparc) && !defined(__GNUC__)) /* haven't implemented atomics for SunCC */
   #define GASNETI_USE_GENERIC_ATOMICOPS
@@ -532,29 +531,44 @@
     #endif
   /* ------------------------------------------------------------------------------------ */
   #elif defined(__hppa) || defined(__hppa__)
-    #if defined(__GNUC__)
-      /* all we get is atomic load-and-clear, but that's actually just barely enough  */
-      #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
+    /* all we get is atomic load-and-clear, but that's actually just barely enough  */
+    #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
+    #if defined(__HP_aCC) /* HP C++ compiler */
+      extern "C" uint32_t gasneti_slow_loadandclear_32(int32_t volatile *v);
+      #define gasneti_loadandclear_32 gasneti_slow_loadandclear_32
+    #else
       GASNET_INLINE_MODIFIER(gasneti_loadandclear_32)
       uint32_t gasneti_loadandclear_32(int32_t volatile *v) {
         register int32_t volatile * addr = (int32_t volatile *)v;
         register int32_t val = 0;
         gasneti_assert(!(((uintptr_t)addr) & 0xF)); /* ldcws requires 16-byte alignment */
-        __asm__ __volatile__ ( 
-          "ldcws 0(%1), %0 \n"  
-          /* should be using "ldcws,co" here for better performance, 
-             but GNU assembler rejects it (works with system assembler) 
-             this was apparently a known bug (41317) at one time, but doesn't appear to be fixed
-           */
-          : "=r"(val)
-          : "r" (addr)
-          : "memory");
+        *(volatile char *)(v+1) = 0; /* fetch this cache line as a dirty word - speeds up ldcw */
+        #if defined(__GNUC__)
+          __asm__ __volatile__ ( 
+          #if 0
+            "ldcws 0(%1), %0 \n"  
+            /* should be using "ldcws,co" here for better performance, 
+               but GNU assembler rejects it (works with system assembler) 
+             */
+          #else
+            "ldcw,co 0(%1), %0 \n"  
+            /* this alternate, undocumented pseudo-op instruction appears to do the right thing */
+          #endif
+            : "=r"(val)
+            : "r" (addr)
+            : "memory");
+        #elif defined(__HP_cc) /* HP C compiler */
+          _asm("LDCWS,CO",0,0,addr,val);
+        #else
+          #error unrecognized PA-RISC compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
+        #endif
         return val;
       }
+    #endif
       #define GASNETI_ATOMIC_CTR(p)     ((volatile int32_t *)GASNETI_ALIGNUP(&(p->_ctr),16))
       #define GASNETI_ATOMIC_PRESENT    ((int32_t)0x80000000)
       #define GASNETI_ATOMIC_INIT_MAGIC ((uint64_t)0x8BDEF66BAD1E3F3AULL)
-      typedef struct { volatile uint64_t initflag; volatile int32_t _ctr[4]; } gasneti_atomic_t;
+      typedef struct { volatile uint64_t initflag; volatile int32_t _ctr[4]; char _pad; } gasneti_atomic_t;
       #define gasneti_atomic_init(v)      {    \
               GASNETI_ATOMIC_INIT_MAGIC,       \
               { (GASNETI_ATOMIC_PRESENT|(v)),  \
@@ -615,9 +629,6 @@
       #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(p,1))
       #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(p,-1))
       #define gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(p,-1) == 1)
-    #else
-      #error unrecognized PA-RISC compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
-    #endif
   /* ------------------------------------------------------------------------------------ */
   #elif defined(__crayx1) /* This works on X1, but NOT the T3E */
     #include <intrinsics.h>

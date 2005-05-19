@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/05/10 16:32:39 $
- * $Revision: 1.106 $
+ *     $Date: 2005/05/19 02:32:24 $
+ * $Revision: 1.107 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,6 +33,7 @@
 /* set to non-zero for verbose error reporting */
 int gasneti_VerboseErrors = 1;
 
+/* atomics support */
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
   gasnet_hsl_t gasneti_atomicop_lock = GASNET_HSL_INITIALIZER;
   void *gasneti_patomicop_lock = (void*)&gasneti_atomicop_lock;
@@ -40,6 +41,17 @@ int gasneti_VerboseErrors = 1;
   #ifdef GASNETI_GENERIC_CAS_DEF
     GASNETI_GENERIC_CAS_DEF
   #endif
+#elif defined(__hppa) || defined(__hppa__)
+  /* support for HP C++ compiler which lacks inline assembly */
+  extern uint32_t gasneti_slow_loadandclear_32(int32_t volatile *v) {
+    return gasneti_loadandclear_32(v);
+  }
+  extern void gasneti_slow_compiler_fence() {
+    gasneti_compiler_fence();
+  }
+  extern void gasneti_slow_local_wmb() {
+    gasneti_local_wmb();
+  }
 #endif
 
 #if GASNETI_THROTTLE_POLLERS
@@ -1490,6 +1502,11 @@ extern void gasneti_trace_finish() {
       { 0, GASNETI_STATTIME_MAX, GASNETI_STATTIME_MIN, 0 };
   GASNETI_ALL_STATS(DEF_CTR, DEF_INTVAL, DEF_TIMEVAL)
 
+/* TODO: these routines are probably a bottleneck for stats performance, 
+         especially with pthreads. We could reduce the performance impact
+         of statistical collection by using inlined functions that 
+         increment weak atomics or thread-private counters that are combined at shutdown.
+ */
 static gasneti_mutex_t gasneti_statlock = GASNETI_MUTEX_INITIALIZER;
 #define GASNETI_STAT_LOCK()   gasneti_mutex_lock(&gasneti_statlock);
 #define GASNETI_STAT_UNLOCK() gasneti_mutex_unlock(&gasneti_statlock);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2005/05/15 09:56:22 $
- * $Revision: 1.69 $
+ *     $Date: 2005/05/19 02:32:24 $
+ * $Revision: 1.70 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -132,14 +132,22 @@
     }
   #endif
 #elif defined(_PA_RISC1_1) || defined(__hppa) /* HP PA-RISC */
- GASNET_INLINE_MODIFIER(gasneti_local_wmb)
- void gasneti_local_wmb(void) {
-   #if defined(__HP_cc) 
-     _flush_globals();
-   #endif
-   GASNETI_ASM("SYNC");  /* PA RISC load/store ordering */ 
- }
- #if defined(__HP_cc) 
+ #if defined(__HP_aCC)
+   extern "C" void gasneti_slow_local_wmb();
+   #define gasneti_local_wmb() gasneti_slow_local_wmb()
+ #else
+   GASNET_INLINE_MODIFIER(gasneti_local_wmb)
+   void gasneti_local_wmb(void) {
+     #if defined(__HP_cc) 
+       _flush_globals();
+     #endif
+     GASNETI_ASM("SYNC");  /* PA RISC load/store ordering */ 
+   }
+ #endif
+ #if defined(__HP_aCC)
+   extern "C" void gasneti_slow_compiler_fence();
+   #define gasneti_compiler_fence() gasneti_slow_compiler_fence()
+ #elif defined(__HP_cc) 
    #if 0
      /* HP C doesn't like an empty asm statement */
      #define gasneti_compiler_fence() _asm("OR",0,0,0) /* NOP */
