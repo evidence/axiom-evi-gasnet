@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/05/18 22:35:42 $
- * $Revision: 1.107 $
+ *     $Date: 2005/05/19 01:59:20 $
+ * $Revision: 1.108 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -464,6 +464,7 @@ static int gasnetc_load_settings(void) {
   } else {
     GASNETI_TRACE_PRINTF(C,("  GASNET_PORT_NUM                 unset or zero  (will probe)"));
   }
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_NUM_QPS                  = %d", gasnetc_num_qps));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_NETWORKDEPTH_PP          = %d", gasnetc_op_oust_pp));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_NETWORKDEPTH_TOTAL       = %d%s",
 			  	gasnetc_op_oust_limit, gasnetc_op_oust_limit ? "" : " (automatic)"));
@@ -477,6 +478,7 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_PIN_MAXSZ                = %lu", gasnetc_pin_maxsz));
 #endif
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_INLINESEND_LIMIT         = %u", (unsigned int)gasnetc_inline_limit));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_PACKEDLONG_LIMIT         = %u", (unsigned int)gasnetc_packedlong_limit));
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_NONBULKPUT_BOUNCE_LIMIT  = %u", (unsigned int)gasnetc_bounce_limit));
 #if GASNETC_VAPI_RCV_THREAD
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_RCV_THREAD               = %d (%sabled)", gasnetc_use_rcv_thread,
