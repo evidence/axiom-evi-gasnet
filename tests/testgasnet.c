@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2005/04/28 04:35:25 $
- * $Revision: 1.29 $
+ *     $Date: 2005/05/20 06:22:27 $
+ * $Revision: 1.30 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -99,18 +99,7 @@ int main(int argc, char **argv) {
   if (!gasnet_mynode())
 	print_testname("testgasnet", gasnet_nodes());
 
-  MSG0("conduit: %s v%s   GASNET_ALIGNED_SEGMENTS=%i\n"
-       " gasnet_AMMaxArgs():        %i\n"
-       " gasnet_AMMaxMedium():      %i\n"
-       " gasnet_AMMaxLongRequest(): %i\n"
-       " gasnet_AMMaxLongReply():   %i"
-    ,
-    _STRINGIFY(GASNET_CORE_NAME), _STRINGIFY(GASNET_CORE_VERSION),
-    GASNET_ALIGNED_SEGMENTS,
-    (int)gasnet_AMMaxArgs(),
-    (int)gasnet_AMMaxMedium(),
-    (int)gasnet_AMMaxLongRequest(),
-    (int)gasnet_AMMaxLongReply());
+  TEST_PRINT_CONDUITINFO();
 
   MSG("running...");
 

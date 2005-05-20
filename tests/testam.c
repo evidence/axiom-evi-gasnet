@@ -1,13 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2005/05/17 12:18:44 $
- * $Revision: 1.21 $
+ *     $Date: 2005/05/20 06:22:27 $
+ * $Revision: 1.22 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>
-int maxsz = 0;
+uintptr_t maxsz = 0;
 #ifndef TEST_SEGSZ
   #define TEST_SEGSZ_EXPR ((uintptr_t)maxsz)
 #endif
@@ -19,7 +19,7 @@ int sender, recvr;
 int peer;
 void *peerseg = NULL;
 
-void report(const char *desc, int64_t totaltime, int iters, size_t sz, int rt) {
+void report(const char *desc, int64_t totaltime, int iters, uintptr_t sz, int rt) {
   if (sender) {
       char nodestr[10];
       if (gasnet_nodes() > 2) sprintf(nodestr,"%i: ",mynode);
@@ -112,7 +112,7 @@ void pong_longhandler_flood(gasnet_token_t token, void *buf, size_t nbytes) {
 /* ------------------------------------------------------------------------------------ */
 int iters=0;
 int i = 0;
-int maxmed, maxlong;
+uintptr_t maxmed, maxlongreq, maxlongrep;
 void doAMShort();
 void doAMMed();
 void doAMLong();
@@ -150,12 +150,14 @@ int main(int argc, char **argv) {
   TEST_DEBUGPERFORMANCE_WARNING();
   TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
 
+  TEST_PRINT_CONDUITINFO();
   MSG("running...");
 
   myseg = TEST_MYSEG();
 
   maxmed = MIN(maxsz, gasnet_AMMaxMedium());
-  maxlong = MIN(maxsz, MIN(gasnet_AMMaxLongRequest(),gasnet_AMMaxLongReply()));
+  maxlongreq = MIN(maxsz, gasnet_AMMaxLongRequest());
+  maxlongrep = MIN(maxsz, gasnet_AMMaxLongReply());
   peer = mynode ^ 1;
   if (peer == gasnet_nodes()) {
     /* w/ odd # of nodes, last one talks to self */
@@ -275,23 +277,36 @@ void doAMShort() {
     if (mynode == 0) { printf("\n"); fflush(stdout); }
     BARRIER();
 }
-    /* ------------------------------------------------------------------------------------ */
-#define TESTAM_PERF(DESC_STR, AMREQUEST, PING_HIDX, PONG_HIDX, MAXSZ, DEST) do { \
+
+/* ------------------------------------------------------------------------------------ */
+#define ADVANCESZ(sz, maxsz) do {                   \
+        if (!sz) sz = 1;                            \
+        else if (sz < maxsz && sz*2 > maxsz) {      \
+           /* indicate final non-power-of-two sz */ \
+           if (!gasnet_mynode()) printf(" max:\n"); \
+           sz = maxsz;                              \
+        } else sz *= 2;                             \
+  } while (0)
+
+#define TESTAM_PERF(DESC_STR, AMREQUEST, PING_HIDX, PONG_HIDX,                   \
+                                                      MAXREQ, MAXREP, DEST) do { \
+    uintptr_t MAXREQREP = MIN(MAXREQ, MAXREP);                                   \
     if (sender) { /* warm-up */                                                  \
       flag = 0;                                                                  \
       for (i=0; i < iters; i++) {                                                \
-        GASNET_Safe(AMREQUEST(peer, PING_HIDX##_flood, myseg, MAXSZ DEST));      \
+        GASNET_Safe(AMREQUEST(peer, PING_HIDX##_flood, myseg, MAXREQREP DEST));  \
       }                                                                          \
       GASNET_BLOCKUNTIL(flag == iters);                                          \
-      GASNET_Safe(AMREQUEST(peer, PING_HIDX, myseg, MAXSZ DEST));                \
+      GASNET_Safe(AMREQUEST(peer, PING_HIDX, myseg, MAXREQREP DEST));            \
       GASNET_BLOCKUNTIL(flag == iters+1);                                        \
     }                                                                            \
     BARRIER();                                                                   \
     /* ---------------------------------------------------------- */             \
-    { int sz;                                                                    \
+    { uintptr_t sz;                                                              \
       char msg[255];                                                             \
-      for (sz = 0; sz <= MAXSZ; sz = (sz?sz*2:1)) {                              \
-        sprintf(msg, "%7i "DESC_STR" ping-pong roundtrip ReqRep", sz);           \
+      for (sz = 0; sz <= MAXREQREP; ) {                                          \
+        sprintf(msg, "%7llu "DESC_STR" ping-pong roundtrip ReqRep",              \
+                     (unsigned long long)sz);                                    \
         BARRIER();                                                               \
         if (sender) {                                                            \
           int64_t start = TIME();                                                \
@@ -303,15 +318,17 @@ void doAMShort() {
           report(msg,TIME() - start, iters, sz, 1);                              \
         }                                                                        \
         BARRIER();                                                               \
+        ADVANCESZ(sz, MAXREQREP);                                                \
       }                                                                          \
     }                                                                            \
     if (mynode == 0) { printf("\n"); fflush(stdout); }                           \
     BARRIER();                                                                   \
     /* ---------------------------------------------------------- */             \
-    { int sz;                                                                    \
+    { uintptr_t sz;                                                              \
       char msg[255];                                                             \
-      for (sz = 0; sz <= MAXSZ; sz = (sz?sz*2:1)) {                              \
-        sprintf(msg, "%7i "DESC_STR" ping-pong roundtrip ReqReq", sz);           \
+      for (sz = 0; sz <= MAXREQ; ) {                                             \
+        sprintf(msg, "%7llu "DESC_STR" ping-pong roundtrip ReqReq",              \
+                     (unsigned long long)sz);                                    \
         BARRIER();                                                               \
         {                                                                        \
           int64_t start = TIME();                                                \
@@ -341,16 +358,18 @@ void doAMShort() {
           report(msg,TIME() - start, iters, sz, 1);                              \
         }                                                                        \
         BARRIER();                                                               \
+        ADVANCESZ(sz, MAXREQ);                                                   \
       }                                                                          \
     }                                                                            \
     if (mynode == 0) { printf("\n"); fflush(stdout); }                           \
     BARRIER();                                                                   \
     /* ---------------------------------------------------------- */             \
-    { int sz;                                                                    \
+    { uintptr_t sz;                                                              \
       char msg[255];                                                             \
-      for (sz = 0; sz <= MAXSZ; sz = (sz?sz*2:1)) {                              \
+      for (sz = 0; sz <= MAXREQ; ) {                                             \
         flag = 0;                                                                \
-        sprintf(msg, "%7i "DESC_STR" flood     one-way   Req", sz);              \
+        sprintf(msg, "%7llu "DESC_STR" flood     one-way   Req",                 \
+                     (unsigned long long)sz);                                    \
         BARRIER();                                                               \
         if (sender) {                                                            \
           int64_t start = TIME();                                                \
@@ -365,15 +384,17 @@ void doAMShort() {
           BARRIER();                                                             \
         }                                                                        \
         BARRIER();                                                               \
+        ADVANCESZ(sz, MAXREQ);                                                   \
       }                                                                          \
     }                                                                            \
     if (mynode == 0) { printf("\n"); fflush(stdout); }                           \
     BARRIER();                                                                   \
     /* ---------------------------------------------------------- */             \
-    { int sz;                                                                    \
+    { uintptr_t sz;                                                              \
       char msg[255];                                                             \
-      for (sz = 0; sz <= MAXSZ; sz = (sz?sz*2:1)) {                              \
-        sprintf(msg, "%7i "DESC_STR" flood     roundtrip ReqRep", sz);           \
+      for (sz = 0; sz <= MAXREQREP; ) {                                          \
+        sprintf(msg, "%7llu "DESC_STR" flood     roundtrip ReqRep",              \
+                     (unsigned long long)sz);                                    \
         BARRIER();                                                               \
         if (sender) {                                                            \
           int64_t start = TIME();                                                \
@@ -385,6 +406,7 @@ void doAMShort() {
           report(msg,TIME() - start, iters, sz, 1);                              \
         }                                                                        \
         BARRIER();                                                               \
+        ADVANCESZ(sz, MAXREQREP);                                                \
       }                                                                          \
     }                                                                            \
     if (mynode == 0) { printf("\n"); fflush(stdout); }                           \
@@ -396,16 +418,16 @@ void doAMShort() {
 /* ------------------------------------------------------------------------------------ */
 void doAMMed() {
   GASNET_BEGIN_FUNCTION();
-  TESTAM_PERF("AMMedium   ",    gasnet_AMRequestMedium0,    hidx_ping_medhandler,  hidx_pong_medhandler,  maxmed,  MEDDEST);
+  TESTAM_PERF("AMMedium   ",    gasnet_AMRequestMedium0,    hidx_ping_medhandler,  hidx_pong_medhandler,  maxmed, maxmed, MEDDEST);
 }
 /* ------------------------------------------------------------------------------------ */
 void doAMLong() {
   GASNET_BEGIN_FUNCTION();
-  TESTAM_PERF("AMLong     ",      gasnet_AMRequestLong0,      hidx_ping_longhandler, hidx_pong_longhandler, maxlong, LONGDEST);
+  TESTAM_PERF("AMLong     ",      gasnet_AMRequestLong0,      hidx_ping_longhandler, hidx_pong_longhandler, maxlongreq, maxlongrep, LONGDEST);
 }
 /* ------------------------------------------------------------------------------------ */
 void doAMLongAsync() {
   GASNET_BEGIN_FUNCTION();
-  TESTAM_PERF("AMLongAsync", gasnet_AMRequestLongAsync0, hidx_ping_longhandler, hidx_pong_longhandler, maxlong, LONGDEST);
+  TESTAM_PERF("AMLongAsync", gasnet_AMRequestLongAsync0, hidx_ping_longhandler, hidx_pong_longhandler, maxlongreq, maxlongrep, LONGDEST);
 }
 /* ------------------------------------------------------------------------------------ */

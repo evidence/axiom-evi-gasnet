@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/04/11 14:55:22 $
- * $Revision: 1.53 $
+ *     $Date: 2005/05/20 06:22:27 $
+ * $Revision: 1.54 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -484,6 +484,21 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
   }
   BARRIER();
 }
+
+#define TEST_PRINT_CONDUITINFO() do {                              \
+  MSG0("%s conduit: v%s GASNET_ALIGNED_SEGMENTS=%i\n"              \
+       " gasnet_AMMaxArgs():        %i\n"                          \
+       " gasnet_AMMaxMedium():      %i\n"                          \
+       " gasnet_AMMaxLongRequest(): %i\n"                          \
+       " gasnet_AMMaxLongReply():   %i"                            \
+    ,                                                              \
+    _STRINGIFY(GASNET_CORE_NAME), _STRINGIFY(GASNET_CORE_VERSION), \
+    GASNET_ALIGNED_SEGMENTS,                                       \
+    (int)gasnet_AMMaxArgs(),                                       \
+    (int)gasnet_AMMaxMedium(),                                     \
+    (int)gasnet_AMMaxLongRequest(),                                \
+    (int)gasnet_AMMaxLongReply());                                 \
+  } while (0)
 
 /* ------------------------------------------------------------------------------------ */
 /* segment management */
