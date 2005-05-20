@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/05/04 08:12:50 $
-# $Revision: 1.25 $
+#     $Date: 2005/05/20 05:17:11 $
+# $Revision: 1.26 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -50,6 +50,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $mpirun_help = `$mpirun_cmd 2>&1`;
     #print "probe result: $mpirun_help\n";
     my $is_lam      = ($mpirun_help =~ m|LAM/MPI|);
+    my $is_mpiexec  = ($mpirun_help =~ m|mpiexec|);
     my $is_mpich_nt = ($mpirun_help =~ m|MPIRun|);
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
     my $is_mvich    = ($mpirun_help =~ m|MV(AP)?ICH|i);
@@ -69,6 +70,13 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	%envfmt = ( 'pre' => '-x',
 		    'join' => ','
 		  );
+    } elsif ($is_mpiexec) {
+	$spawner_desc = "mpiexec";
+	# handles env for us
+	%envfmt = ( 'noenv' => 1 
+		  );
+	# mpiexec seems to brokenly insist on splitting argv on spaces, regardless of quoting
+        # not much we can do about it...
     } elsif ($is_mpich_nt) {
 	$spawner_desc = "MPICH/NT";
 	# pass env as "-env A=1|B=2|C=3"
