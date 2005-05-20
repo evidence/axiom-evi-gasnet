@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/05/20 06:22:27 $
- * $Revision: 1.54 $
+ *     $Date: 2005/05/20 06:54:11 $
+ * $Revision: 1.55 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,10 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <signal.h>
+#ifdef IRIX
+#define signal(a,b) bsd_signal(a,b)
+#endif
 
 #ifdef TEST_GASNET_TOOLS_ONLY
   /* do not use gasnet.h */
@@ -188,8 +192,19 @@ static void _test_makeErrMsg(const char *format, ...) {
   va_end(argptr);
 }
 
+/* misc init stuff */
+#if defined(__alpha) || defined(_CRAYT3E)
+  #define TEST_INIT() do {                              \
+      if (signal(SIGFPE, SIG_IGN) == SIG_ERR)           \
+        { perror("signal(SIGFPE, SIG_IGN)"); abort(); } \
+  } while (0)
+#else
+  #define TEST_INIT()
+#endif
+
 #ifndef TEST_GASNET_TOOLS_ONLY
 static void print_testname(const char *testname, int nprocs) {
+    TEST_INIT();
     printf("=====> %s nprocs=%d config=%s\n",
 	testname, nprocs, GASNET_CONFIG_STRING);
     return;

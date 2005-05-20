@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testam.c,v $
- *     $Date: 2005/05/20 06:22:27 $
- * $Revision: 1.22 $
+ *     $Date: 2005/05/20 06:54:11 $
+ * $Revision: 1.23 $
  * Description: GASNet Active Messages performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,9 +25,9 @@ void report(const char *desc, int64_t totaltime, int iters, uintptr_t sz, int rt
       if (gasnet_nodes() > 2) sprintf(nodestr,"%i: ",mynode);
       else nodestr[0] = '\0';
       printf("%s%-46s: %6.3f sec %8.3f us",
-        nodestr, desc, ((float)totaltime)/1000000, ((float)totaltime)/iters);
+        nodestr, desc, ((double)totaltime)/1000000, ((double)totaltime)/iters);
       if (sz) printf("  %7.3f MB/s", 
-        (((float)sz)*(rt?2:1)*iters/(1024*1024)) / (((float)totaltime)/1000000));
+        (((double)sz)*(rt?2:1)*iters/(1024*1024)) / (((double)totaltime)/1000000));
       printf("\n");
       fflush(stdout);
   }
