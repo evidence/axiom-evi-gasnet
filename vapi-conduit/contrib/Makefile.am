@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/Makefile.am,v $
-#     $Date: 2005/04/29 23:59:40 $
-# $Revision: 1.12 $
+#     $Date: 2005/05/22 13:01:56 $
+# $Revision: 1.13 $
 # Description: Makefile for GASNet VAPI spawner
 # Terms of use are as specified in vapi-conduit/license.txt
 
@@ -34,7 +34,11 @@ files_we_copy =
 else
 files_we_copy = $(target).pl
 $(files_we_copy): force
-	cp -f "$(srcdir)/`basename $@`" .
+	@srcfile="$(srcdir)/`basename $@`" ; \
+         if test ! -f "$@" -o "`find $$srcfile -newer '$@' 2>&1`" ; then \
+          echo cp -f "$$srcfile" . ;         \
+          cp -f "$$srcfile" . ;              \
+         fi
 endif
 DISTCLEANFILES = $(files_we_copy) $(mpi_target_pl)
 

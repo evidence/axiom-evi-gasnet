@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/Makefile.am,v $
-#     $Date: 2005/05/17 06:02:49 $
-# $Revision: 1.9 $
+#     $Date: 2005/05/22 13:01:54 $
+# $Revision: 1.10 $
 # Description: Makefile for GASNet other/contrib
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -31,7 +31,7 @@ else
 files_we_copy = $(dotpl_DATA)
 $(files_we_copy): force
 	@srcfile="$(srcdir)/`basename $@`" ; \
-         if test ! -f "$@" -o "`find '$$srcfile' -newer '$@' 2>&1`" ; then \
+         if test ! -f "$@" -o "`find $$srcfile -newer '$@' 2>&1`" ; then \
           echo cp -f "$$srcfile" . ;         \
           cp -f "$$srcfile" . ;              \
          fi

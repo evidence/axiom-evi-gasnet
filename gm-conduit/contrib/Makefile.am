@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in       -*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/contrib/Attic/Makefile.am,v $
-#     $Date: 2005/04/29 23:59:24 $
-# $Revision: 1.16 $
+#     $Date: 2005/05/22 13:01:50 $
+# $Revision: 1.17 $
 # Description: Makefile for GASNet gm conduit
 # Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -27,7 +27,11 @@ files_we_copy =
 else
 files_we_copy = $(target).pl
 $(files_we_copy): force
-	cp -f "$(srcdir)/`basename $@`" .
+	@srcfile="$(srcdir)/`basename $@`" ; \
+         if test ! -f "$@" -o "`find $$srcfile -newer '$@' 2>&1`" ; then \
+          echo cp -f "$$srcfile" . ;         \
+          cp -f "$$srcfile" . ;              \
+         fi
 endif
 DISTCLEANFILES = $(files_we_copy)
 
