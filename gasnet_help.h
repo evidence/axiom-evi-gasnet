@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/05/06 20:12:18 $
- * $Revision: 1.53 $
+ *     $Date: 2005/05/23 22:25:51 $
+ * $Revision: 1.54 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -860,7 +860,7 @@ extern int gasneti_wait_mode; /* current waitmode hint */
     extern uintptr_t gasneti_MaxGlobalSegmentSize;
     #define gasnet_getMaxLocalSegmentSize() \
             (GASNETI_CHECKINIT(), (uintptr_t)gasneti_MaxLocalSegmentSize)
-    #define gasnet_MaxGlobalSegmentSize() \
+    #define gasnet_getMaxGlobalSegmentSize() \
             (GASNETI_CHECKINIT(), (uintptr_t)gasneti_MaxGlobalSegmentSize)
   #endif
 #endif

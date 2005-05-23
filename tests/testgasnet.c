@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2005/05/20 06:22:27 $
- * $Revision: 1.30 $
+ *     $Date: 2005/05/23 22:25:53 $
+ * $Revision: 1.31 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -91,6 +91,15 @@ int main(int argc, char **argv) {
   gasnet_handlerentry_t handlers[] = { EVERYTHING_SEG_HANDLERS() ALLAM_HANDLERS() };
 
   GASNET_Safe(gasnet_init(&argc, &argv));
+  #if GASNET_SEGMENT_EVERYTHING
+    assert(gasnet_getMaxLocalSegmentSize() == (uintptr_t)-1);
+    assert(gasnet_getMaxGlobalSegmentSize() == (uintptr_t)-1);
+  #else
+    assert(gasnet_getMaxLocalSegmentSize() >= gasnet_getMaxGlobalSegmentSize());
+    assert(gasnet_getMaxLocalSegmentSize() % GASNET_PAGESIZE == 0);
+    assert(gasnet_getMaxGlobalSegmentSize() % GASNET_PAGESIZE == 0);
+    assert(gasnet_getMaxGlobalSegmentSize() > 0);
+  #endif
   GASNET_Safe(gasnet_attach(handlers, sizeof(handlers)/sizeof(gasnet_handlerentry_t), 
                             TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
   TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
