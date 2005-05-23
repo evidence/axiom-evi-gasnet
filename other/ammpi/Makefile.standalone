@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.standalone,v $
-#     $Date: 2005/05/10 20:43:01 $
-# $Revision: 1.19 $
+#     $Date: 2005/05/23 11:36:31 $
+# $Revision: 1.20 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -19,15 +19,15 @@ include Makefile.$(HOSTSYSTEM)
 #-------------------------------------------------------------------------------------
 # You should never need to change things below this line
 
-set_debug_ccflags = -DAMMPI_DEBUG=1 $(ccdebugflags) $(apputils_flags)
-set_opt_ccflags = -DAMMPI_NDEBUG=1 $(ccoptflags) $(apputils_flags)
+set_debug_ccflags = -DAMMPI_DEBUG=1  $(ccdebugflags) $(MANUAL_CFLAGS) $(apputils_flags)
+set_opt_ccflags =   -DAMMPI_NDEBUG=1 $(ccoptflags)   $(MANUAL_CFLAGS) $(apputils_flags)
 
 VPATH = $(srcdir)
 includes = -I$(srcdir) -I$(altincdir)
 libraries = $(platform_libraries)
-Ccompile = $(CC) -c $(ccflags) $(platform_defines) $(includes)
-link = $(CC) $(ccflags) $(platform_ldflags) $(platform_defines) $(includes) 
-linkend = $(libraries)
+Ccompile = $(CC) -c $(ccflags) $(platform_defines) $(includes) $(MANUAL_DEFINES)
+link = $(CC) $(ccflags) $(platform_ldflags) $(MANUAL_LDFLAGS) $(platform_defines) $(includes) 
+linkend = $(libraries) $(MANUAL_LIBS)
 
 # all the test executables
 testprograms =                  \

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.am,v $
-#     $Date: 2005/05/08 17:47:18 $
-# $Revision: 1.34 $
+#     $Date: 2005/05/23 11:36:31 $
+# $Revision: 1.35 $
 # Description: Makefile for AMMPI/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -17,10 +17,10 @@ else
 endif
 
 CC = @MPI_CC@
-CFLAGS = @MPI_CFLAGS@ $(apputils_flags)
-LDFLAGS = @LDFLAGS@
+CFLAGS = @MPI_CFLAGS@ $(MANUAL_CFLAGS) $(apputils_flags)
+LDFLAGS = @LDFLAGS@ $(MANUAL_LDFLAGS)
 
-platform_defines = @GASNET_MACHINE_DEFINES@ @INTTYPES_DEFINES@ -DAMMPI_DISABLE_AMTAGS
+platform_defines = @GASNET_MACHINE_DEFINES@ @INTTYPES_DEFINES@ -DAMMPI_DISABLE_AMTAGS $(MANUAL_DEFINES)
 
 platform_libraries = @LIBS@ @MPI_LIBS@
 
@@ -30,7 +30,7 @@ altincdir = $(srcdir)/..
 INCLUDES = -I$(srcdir) -I$(altincdir) $(platform_defines)
 compile = $(CC) $(CFLAGS) $(INCLUDES)
 link = $(CC) $(CFLAGS) $(LDFLAGS) $(platform_defines) $(INCLUDES) 
-linkend = $(platform_libraries)
+linkend = $(platform_libraries) $(MANUAL_LIBS)
 
 if USE_MPI_CONDUIT
 lib_LIBRARIES = libammpi.a

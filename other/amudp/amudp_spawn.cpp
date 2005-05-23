@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spawn.cpp,v $
- *     $Date: 2005/04/06 01:56:13 $
- * $Revision: 1.11 $
+ *     $Date: 2005/05/23 11:36:34 $
+ * $Revision: 1.12 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -183,7 +183,7 @@ int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
   AMUDP_assert(!argv[i]);
 
   /* build the rexec command */
-  sprintf(cmd2, "%s %s -n %i sh -c \"%s%s\" " /* shell wrapper required because of crappy rexec implementation */
+  sprintf(cmd2, "%s %s -n %i /bin/sh -c \"%s%s\" " /* shell wrapper required because of crappy rexec implementation */
    " || ( echo \"rexec spawn failed.\" ; kill %i ) ",
   rexec_cmd, rexec_options, nproc,
 
@@ -469,7 +469,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
      }
     AMUDP_assert(!argv[i]);
 
-    sprintf(workercmd, "sh -c \"%s%s\" || ( echo \"spawn failed.\" ; kill %i ) ",
+    sprintf(workercmd, "/bin/sh -c \"%s%s\" || ( echo \"spawn failed.\" ; kill %i ) ",
       (AMUDP_SilentMode?"":"echo connected to `uname -n`... ; "),
       temp, pid
      );

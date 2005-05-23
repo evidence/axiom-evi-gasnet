@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2005/05/08 17:47:20 $
-# $Revision: 1.31 $
+#     $Date: 2005/05/23 11:36:34 $
+# $Revision: 1.32 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -17,12 +17,12 @@ else
 endif
 
 CC  = @CC@
-CFLAGS = @CFLAGS@ @MISC_CFLAGS@ $(apputils_flags)
+CFLAGS = @CFLAGS@ @MISC_CFLAGS@ $(MANUAL_CFLAGS) $(apputils_flags)
 CXX = @CXX@
-CXXFLAGS = @CXXFLAGS@ @MISC_CXXFLAGS@
-LDFLAGS = @LDFLAGS@
+CXXFLAGS = @CXXFLAGS@ @MISC_CXXFLAGS@ $(MANUAL_CXXFLAGS)
+LDFLAGS = @LDFLAGS@ $(MANUAL_LDFLAGS)
 
-platform_defines = @GASNET_MACHINE_DEFINES@ @BUILDCONFIG_DEFINES@ @INTTYPES_DEFINES@ -DAMUDP_ENV_PREFIX=GASNET
+platform_defines = @GASNET_MACHINE_DEFINES@ @BUILDCONFIG_DEFINES@ @INTTYPES_DEFINES@ -DAMUDP_ENV_PREFIX=GASNET $(MANUAL_DEFINES)
 
 platform_libraries = @LIBS@ @GASNET_UDP_LIBS@
 
@@ -34,7 +34,7 @@ INCLUDES = -I$(srcdir) -I$(altincdir) $(platform_defines) $(gasnet_tools)
 compile = $(CC) $(CFLAGS) $(INCLUDES)
 cxxcompile = $(CXX) $(CXXFLAGS) $(INCLUDES)
 link = $(CXX) $(CXXFLAGS) $(LDFLAGS) $(INCLUDES) 
-linkend = $(platform_libraries)
+linkend = $(platform_libraries) $(MANUAL_LIBS)
 
 if USE_UDP_CONDUIT
 lib_LIBRARIES = libamudp.a
