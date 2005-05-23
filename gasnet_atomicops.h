@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2005/05/19 02:32:24 $
- * $Revision: 1.70 $
+ *     $Date: 2005/05/23 05:31:06 $
+ * $Revision: 1.71 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -536,6 +536,7 @@
     #if defined(__HP_aCC) /* HP C++ compiler */
       extern "C" uint32_t gasneti_slow_loadandclear_32(int32_t volatile *v);
       #define gasneti_loadandclear_32 gasneti_slow_loadandclear_32
+      #define GASNETI_USING_SLOW_ATOMICS 1
     #else
       GASNET_INLINE_MODIFIER(gasneti_loadandclear_32)
       uint32_t gasneti_loadandclear_32(int32_t volatile *v) {

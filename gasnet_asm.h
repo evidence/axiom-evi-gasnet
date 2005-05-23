@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2005/05/19 02:32:24 $
- * $Revision: 1.70 $
+ *     $Date: 2005/05/23 05:31:06 $
+ * $Revision: 1.71 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -135,6 +135,7 @@
  #if defined(__HP_aCC)
    extern "C" void gasneti_slow_local_wmb();
    #define gasneti_local_wmb() gasneti_slow_local_wmb()
+   #define GASNETI_USING_SLOW_ATOMICS 1
  #else
    GASNET_INLINE_MODIFIER(gasneti_local_wmb)
    void gasneti_local_wmb(void) {
@@ -147,6 +148,7 @@
  #if defined(__HP_aCC)
    extern "C" void gasneti_slow_compiler_fence();
    #define gasneti_compiler_fence() gasneti_slow_compiler_fence()
+   #define GASNETI_USING_SLOW_ATOMICS 1
  #elif defined(__HP_cc) 
    #if 0
      /* HP C doesn't like an empty asm statement */

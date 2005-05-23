@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/05/19 02:32:24 $
- * $Revision: 1.107 $
+ *     $Date: 2005/05/23 05:31:06 $
+ * $Revision: 1.108 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -43,6 +43,9 @@ int gasneti_VerboseErrors = 1;
   #endif
 #elif defined(__hppa) || defined(__hppa__)
   /* support for HP C++ compiler which lacks inline assembly */
+  #ifdef GASNETI_USING_SLOW_ATOMICS
+  #error gasnet_internal.c must be compiled with support for inline assembly
+  #endif
   extern uint32_t gasneti_slow_loadandclear_32(int32_t volatile *v) {
     return gasneti_loadandclear_32(v);
   }
