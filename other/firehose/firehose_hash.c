@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_hash.c,v $
- *     $Date: 2004/08/26 04:53:57 $
- * $Revision: 1.8 $
+ *     $Date: 2005/05/24 21:08:43 $
+ * $Revision: 1.9 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -318,4 +318,21 @@ fh_hash_replace(fh_hash_t *hash, void *val, void *newval)
 		cur = next;
 	}
 }
+
+/* Return ANY entry from a hash table.
+ * Combined with deletion, this lets us iterate over and destroy all entries.
+ */
+void *
+fh_hash_any(fh_hash_t *hash)
+{
+	void		*val = NULL;
+	fh_int_t	keyhash;
+
+        for (keyhash = 0; (keyhash < hash->fh_entries) && (val == NULL); ++keyhash) {
+	  val = hash->fh_table[keyhash];
+	}
+
+	return val;
+}
+
 #endif /* defined(FIREHOSE_REGION) */

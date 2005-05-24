@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/05/24 05:02:51 $
- * $Revision: 1.15 $
+ *     $Date: 2005/05/24 21:08:43 $
+ * $Revision: 1.16 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1463,6 +1463,24 @@ void
 fh_fini_plugin(void)
 {
 	firehose_private_t *priv;
+
+	if (fhi_InitFlags & FIREHOSE_INIT_FLAG_UNPIN_ON_FINI) {
+		/* Unpin and free everything we pinned: */
+		FH_TABLE_LOCK;
+        	while ((priv = fh_hash_any(fh_PrivTable)) != NULL) {
+			if (FH_IS_LOCAL_FIFO(priv) || !FH_BUCKET_REFC(priv)->refc_l) {
+				firehose_region_t unpin_region;
+				CP_PRIV_TO_REG(&unpin_region, priv);
+				FH_TABLE_UNLOCK;
+				firehose_move_callback(fh_mynode, &unpin_region, 1, NULL, 0);
+				FH_TABLE_LOCK;
+			} else {
+				/* Indicates pre-pinned (or conduit error!!) */
+			}
+			fh_destroy_priv(priv);
+        	}
+		FH_TABLE_UNLOCK;
+	}
 
         fh_hash_destroy(fh_BucketTable2);
         fh_hash_destroy(fh_BucketTable1);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/05/24 05:03:29 $
- * $Revision: 1.110 $
+ *     $Date: 2005/05/24 21:08:41 $
+ * $Revision: 1.111 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1244,18 +1244,25 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     #endif
 
     /* Now initialize firehose */
-    #if GASNETC_PIN_SEGMENT
-      gasnetc_pin_info.memory -= maxsize;
-      gasnetc_pin_info.regions -= gasnetc_seg_reg_count;
+    {
+      uint32_t flags = 0;
+
+      #if GASNETC_PIN_SEGMENT
+        gasnetc_pin_info.memory -= maxsize;
+        gasnetc_pin_info.regions -= gasnetc_seg_reg_count;
+	flags |= FIREHOSE_INIT_FLAG_LOCAL_ONLY;
+      #endif
+      #if defined(__APPLE__) && defined(__MACH__)
+	flags |= FIREHOSE_INIT_FLAG_UNPIN_ON_FINI;
+      #endif
+
       firehose_init(gasnetc_pin_info.memory, gasnetc_pin_info.regions,
-		    prereg, reg_count, FIREHOSE_INIT_FLAG_LOCAL_ONLY, &gasnetc_firehose_info);
-      gasnetc_fh_maxsz = MIN(gasnetc_hca_port.max_msg_sz, gasnetc_firehose_info.max_LocalPinSize);
-    #else
-      firehose_init(gasnetc_pin_info.memory, gasnetc_pin_info.regions,
-		    prereg, reg_count, 0, &gasnetc_firehose_info);
-      gasnetc_fh_maxsz = MIN(gasnetc_hca_port.max_msg_sz,
-			     MIN(gasnetc_firehose_info.max_LocalPinSize,
-				 gasnetc_firehose_info.max_RemotePinSize));
+		    prereg, reg_count, flags, &gasnetc_firehose_info);
+    }
+
+    gasnetc_fh_maxsz = MIN(gasnetc_hca_port.max_msg_sz, gasnetc_firehose_info.max_LocalPinSize);
+    #if !GASNETC_PIN_SEGMENT
+      gasnetc_fh_maxsz = MIN(gasnetc_fh_maxsz, gasnetc_firehose_info.max_RemotePinSize));
     #endif
     gasneti_assert_always(gasnetc_fh_maxsz >= (GASNET_PAGESIZE + gasnetc_inline_limit));
   }
@@ -1727,18 +1734,14 @@ static void gasnetc_exit_body(void) {
 	    /* MISS */
 	    prev = NULL;
 	  } else {
-	    if ((p->addr == gasnetc_snd_reg.addr)
-	 	|| ((gasneti_nodes > 0) && (p->addr == gasnetc_rcv_reg.addr))) {
-		/* Skip pre-pinned regions */
-		i += (p->len / 4096 - 1);
-	    } else if (p->internal != prev) {
+	    if (p->internal != prev) {
 	      fprintf(stderr, "%d> %d %d\n", gasneti_mynode, i, (int)p->len/4096);
 	    }
 	    prev = p->internal;
 	    firehose_release(&p, 1);
 	  }
 	}
-}
+      }
 #endif
       firehose_fini();
 #if GASNETC_PIN_SEGMENT

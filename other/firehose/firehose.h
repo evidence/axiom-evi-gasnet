@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.h,v $
- *     $Date: 2005/05/19 18:51:55 $
- * $Revision: 1.15 $
+ *     $Date: 2005/05/24 21:08:43 $
+ * $Revision: 1.16 $
  * Description: Public Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -395,8 +395,17 @@ firehose_init(uintptr_t max_pinnable_memory, size_t max_regions,
  *   or firehose_partial_remote_pin.  The max_RemotePinSize and
  *   max_RemoteRegions values in the firehose_info_t will be zero.
  *   CURRENTLY ONLY IMPLEMENTED FOR FIREHOSE-REGION
+ *
+ * FIREHOSE_INIT_FLAG_UNPIN_ON_FINI
+ *   If this flag is set, firehose_fini() will unpin all memory it
+ *   has pinned (excludes pre-pinned regions passed to firehose_init()).
+ *   This may add significantly to the exit cost, and so should be used
+ *   only if you believe that the system does not cleanup properly when
+ *   a process exits.
+ *   CURRENTLY ONLY IMPLEMENTED FOR FIREHOSE-REGION
  */
-#define FIREHOSE_INIT_FLAG_LOCAL_ONLY	0x01
+#define FIREHOSE_INIT_FLAG_LOCAL_ONLY		0x01
+#define FIREHOSE_INIT_FLAG_UNPIN_ON_FINI	0x02
 
 /************************
  * Firehose Finalization
