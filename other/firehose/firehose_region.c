@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/05/19 02:07:37 $
- * $Revision: 1.14 $
+ *     $Date: 2005/05/24 05:02:51 $
+ * $Revision: 1.15 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -522,6 +522,7 @@ fhi_merge_regions(firehose_region_t *pin_region)
 	        /* We cover the other region fully */
 		len += extend;
 		space_avail -= extend;
+		/* XXX: for bug 1124 add bd to "dead" list (freeing some at a threshhold?) */
 	    }
 #else
 	    extend = MIN(end_addr - next_addr, space_avail);
@@ -549,6 +550,7 @@ fhi_merge_regions(firehose_region_t *pin_region)
 	        addr -= extend;
 	        len += extend;
 	        space_avail -= extend;
+		/* XXX: for bug 1124 add bd to "dead" list (freeing some at a threshhold?) */
 	    }
 #else
 	    extend = MIN(addr - FH_BADDR(priv), space_avail);
@@ -575,6 +577,14 @@ fhi_wait_for_one(const firehose_private_t *priv) {
 	gasneti_assert(FH_BUCKET_REFC(priv)->refc_r > 0);
 	gasneti_assert(FH_BUCKET_REFC(priv)->refc_l == 0);
 	gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL == 0);
+
+	/* for bug 1124:
+	if (!FH_TAILQ_EMPTY(dead_head)) {
+	  unpin all regions on the dead list
+	  gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL > 0);
+	  return;
+	}
+	*/
 
 	num_unpin = fh_WaitLocalFirehoses(1, &unpin_region);
 	if (num_unpin) {
@@ -803,6 +813,12 @@ retry:
 	pin_region.len  = req->len;
 
 	fhi_merge_regions(&pin_region);
+
+	/* for bug 1124:
+	if ((FHC_MAXVICTIM_BUCKETS_AVAIL == 0) && !FH_TAILQ_EMPTY(dead_head)) {
+	  unpin all regions on the dead list
+	}
+	*/
 
 	num_unpin = fh_WaitLocalFirehoses(1, &unpin_region);
 	gasneti_assert ((num_unpin == 0) || (num_unpin == 1));
