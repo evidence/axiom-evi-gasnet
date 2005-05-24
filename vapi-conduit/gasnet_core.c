@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/05/19 02:07:39 $
- * $Revision: 1.109 $
+ *     $Date: 2005/05/24 05:03:29 $
+ * $Revision: 1.110 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1043,6 +1043,7 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
                           uintptr_t segsize, uintptr_t minheapoffset) {
   void *segbase = NULL;
+  size_t maxsize = 0;
   int numreg = 0;
   
   GASNETI_TRACE_PRINTF(C,("gasnetc_attach(table (%i entries), segsize=%lu, minheapoffset=%lu)",
@@ -1160,7 +1161,6 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     /* Find the largest number of pinned regions required */
     { gasnet_node_t i;
-      size_t maxsize = 0;
       for (i=0; i<gasneti_nodes; ++i) {
 	maxsize = MAX(maxsize, gasneti_seginfo[i].size);
       }
@@ -1245,6 +1245,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     /* Now initialize firehose */
     #if GASNETC_PIN_SEGMENT
+      gasnetc_pin_info.memory -= maxsize;
       gasnetc_pin_info.regions -= gasnetc_seg_reg_count;
       firehose_init(gasnetc_pin_info.memory, gasnetc_pin_info.regions,
 		    prereg, reg_count, FIREHOSE_INIT_FLAG_LOCAL_ONLY, &gasnetc_firehose_info);
