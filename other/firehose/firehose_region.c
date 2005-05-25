@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/05/24 21:08:43 $
- * $Revision: 1.16 $
+ *     $Date: 2005/05/25 03:42:40 $
+ * $Revision: 1.17 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1459,6 +1459,23 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	return;
 }
 
+static void
+fh_priv_cleanup_fn(void *val, void *arg)
+{
+	firehose_private_t *priv = val;
+
+	if (FH_IS_LOCAL_FIFO(priv) || !FH_BUCKET_REFC(priv)->refc_l) {
+		firehose_region_t unpin_region;
+		CP_PRIV_TO_REG(&unpin_region, priv);
+		FH_TABLE_UNLOCK;
+		firehose_move_callback(fh_mynode, &unpin_region, 1, NULL, 0);
+		FH_TABLE_LOCK;
+	} else {
+		/* Indicates pre-pinned (or conduit error!!) */
+	}
+	fh_destroy_priv(priv);
+}
+
 void
 fh_fini_plugin(void)
 {
@@ -1467,18 +1484,7 @@ fh_fini_plugin(void)
 	if (fhi_InitFlags & FIREHOSE_INIT_FLAG_UNPIN_ON_FINI) {
 		/* Unpin and free everything we pinned: */
 		FH_TABLE_LOCK;
-        	while ((priv = fh_hash_any(fh_PrivTable)) != NULL) {
-			if (FH_IS_LOCAL_FIFO(priv) || !FH_BUCKET_REFC(priv)->refc_l) {
-				firehose_region_t unpin_region;
-				CP_PRIV_TO_REG(&unpin_region, priv);
-				FH_TABLE_UNLOCK;
-				firehose_move_callback(fh_mynode, &unpin_region, 1, NULL, 0);
-				FH_TABLE_LOCK;
-			} else {
-				/* Indicates pre-pinned (or conduit error!!) */
-			}
-			fh_destroy_priv(priv);
-        	}
+		fh_hash_apply(fh_PrivTable, &fh_priv_cleanup_fn, NULL);
 		FH_TABLE_UNLOCK;
 	}
 

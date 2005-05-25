@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/05/24 21:08:43 $
- * $Revision: 1.24 $
+ *     $Date: 2005/05/25 03:42:40 $
+ * $Revision: 1.25 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -327,7 +327,7 @@ void *		fh_hash_find(fh_hash_t *hash, fh_int_t key);
 void *		fh_hash_insert(fh_hash_t *hash, fh_int_t key, void *newval);
 void *		fh_hash_next(fh_hash_t *hash, void *val);
 void		fh_hash_replace(fh_hash_t *hash, void *val, void *newval);
-void *		fh_hash_any(fh_hash_t *hash);
+void		fh_hash_apply(fh_hash_t *hash, void (*fn)(void *val, void *arg), void *arg);
 
 /* ##################################################################### */
 /* FIFO (local and remote) management operations (COMMON, firehose.c)    */
