@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/05/19 02:07:37 $
- * $Revision: 1.41 $
+ *     $Date: 2005/05/25 05:09:07 $
+ * $Revision: 1.42 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -580,6 +580,9 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 
     if (fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY) {
       fprintf(stderr, "Warning: firehose_page does not yet implement FIREHOSE_INIT_FLAG_LOCAL_ONLY (resource allocation may not be as desired).\n");
+    }
+    if (fhi_InitFlags & FIREHOSE_INIT_FLAG_UNPIN_ON_FINI) {
+      fprintf(stderr, "Warning: firehose_page does not yet implement FIREHOSE_INIT_FLAG_UNPIN_ON_FINI (resources may not be released on exit as desired).\n");
     }
 
         /* Initialize the Bucket table to 128k lists */
