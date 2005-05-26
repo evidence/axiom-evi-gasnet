@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/05/26 02:18:32 $
- * $Revision: 1.112 $
+ *     $Date: 2005/05/26 20:13:57 $
+ * $Revision: 1.113 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1262,7 +1262,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
     gasnetc_fh_maxsz = MIN(gasnetc_hca_port.max_msg_sz, gasnetc_firehose_info.max_LocalPinSize);
     #if !GASNETC_PIN_SEGMENT
-      gasnetc_fh_maxsz = MIN(gasnetc_fh_maxsz, gasnetc_firehose_info.max_RemotePinSize));
+      gasnetc_fh_maxsz = MIN(gasnetc_fh_maxsz, gasnetc_firehose_info.max_RemotePinSize);
     #endif
     gasneti_assert_always(gasnetc_fh_maxsz >= (GASNET_PAGESIZE + gasnetc_inline_limit));
   }
