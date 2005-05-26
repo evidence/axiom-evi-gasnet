@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/05/06 18:34:52 $
- * $Revision: 1.87 $
+ * $Date: 2005/05/26 02:18:30 $
+ * $Revision: 1.88 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -909,7 +909,7 @@ static void gasnetc_exit_body(void) {
     if (!gasneti_atomic_decrement_and_test(&exit_lock)) {
       /* poll until it is time to exit */
       while (!gasneti_atomic_read(&gasnetc_exit_done)) {
-	sleep(1);
+        gasneti_sched_yield(); /* NOT safe to use sleep() here - conflicts with alarm() */
       }
       gasnetc_exit_tail();
       /* NOT REACHED */

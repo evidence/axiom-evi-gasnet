@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/05/24 21:08:41 $
- * $Revision: 1.111 $
+ *     $Date: 2005/05/26 02:18:32 $
+ * $Revision: 1.112 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1652,7 +1652,7 @@ static void gasnetc_exit_body(void) {
     if (!gasneti_atomic_decrement_and_test(&exit_lock)) {
       /* poll until it is time to exit */
       while (!gasneti_atomic_read(&gasnetc_exit_done)) {
-	sleep(1);
+        gasneti_sched_yield(); /* NOT safe to use sleep() here - conflicts with alarm() */
       }
       gasnetc_exit_tail();
       /* NOT REACHED */
