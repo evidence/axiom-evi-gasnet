@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/05/08 09:26:29 $
-dnl $Revision: 1.63 $
+dnl     $Date: 2005/05/27 22:52:08 $
+dnl $Revision: 1.64 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1030,3 +1030,21 @@ AC_DEFUN([GASNET_GET_SIG], [
   AC_SUBST(SIG$1)
 ])
 
+dnl If PTHREAD_INCLUDE and/or PTHREAD_LIB set, check to see that pthread.h and libpthread exist,
+dnl and set -I and -L to use them.  Die if set, but files don't exist
+AC_DEFUN([GASNET_CHECK_OVERRIDE_PTHREADS], [
+  if test -n "$PTHREADS_INCLUDE" || test -n "$PTHREADS_LIB"; then
+    if test -z "$PTHREADS_INCLUDE" || test -z "$PTHREADS_LIB"; then
+        AC_MSG_ERROR(['Both \$PTHREADS_INCLUDE and \$PTHREADS_LIB must be set, or neither'])
+    fi
+    # test to see if files exist
+    if test ! -f "$PTHREADS_INCLUDE/pthread.h"; then 
+        AC_MSG_ERROR(["Could not find $PTHREADS_INCLUDE/pthread.h: bad \$PTHREADS_INCLUDE"])
+    fi
+    if test ! -f "$PTHREADS_LIB/libpthread.a" || test ! -f "$PTHREADS_LIB/libpthread.so" ; then 
+        AC_MSG_ERROR(["Could not find $PTHREADS_LIB/libpthread.{a,so}: bad \$PTHREADS_LIB"])
+    fi
+    CFLAGS="-I$PTHREADS_INCLUDE -L$PTHREADS_LIB $CFLAGS"
+  fi
+])
+ 
