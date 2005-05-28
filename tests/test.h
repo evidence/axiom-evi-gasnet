@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/05/20 06:54:11 $
- * $Revision: 1.55 $
+ *     $Date: 2005/05/28 09:48:46 $
+ * $Revision: 1.56 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -194,17 +194,29 @@ static void _test_makeErrMsg(const char *format, ...) {
 
 /* misc init stuff */
 #if defined(__alpha) || defined(_CRAYT3E)
-  #define TEST_INIT() do {                              \
+  #define TEST_SIG_INIT() do {                          \
       if (signal(SIGFPE, SIG_IGN) == SIG_ERR)           \
         { perror("signal(SIGFPE, SIG_IGN)"); abort(); } \
   } while (0)
 #else
-  #define TEST_INIT()
+  #define TEST_SIG_INIT()
 #endif
 
 #ifndef TEST_GASNET_TOOLS_ONLY
+static void test_init() {
+  /* convenient place to put inits we want in all tests */
+  TEST_SIG_INIT();
+
+  { const char *p = gasnet_getenv("TEST_POLITE_SYNC");
+    if (p && (!*p || *p == 'Y' || *p == 'y' || atoi(p))) {
+      MSG0("WARNING: TEST_POLITE_SYNC is set - enabling  \"polite\", low-performance synchronization algorithms");
+      gasnet_set_waitmode(GASNET_WAIT_BLOCK);
+    }
+  }
+}
+
 static void print_testname(const char *testname, int nprocs) {
-    TEST_INIT();
+    test_init();
     printf("=====> %s nprocs=%d config=%s\n",
 	testname, nprocs, GASNET_CONFIG_STRING);
     return;
