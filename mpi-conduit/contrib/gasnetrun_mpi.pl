@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/05/20 05:17:11 $
-# $Revision: 1.26 $
+#     $Date: 2005/05/29 23:57:02 $
+# $Revision: 1.27 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -93,6 +93,12 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 		    'val' => "'"
 		  );
         $extra_quote_argv = 1;
+    } elsif ($is_mpich) {
+	$spawner_desc = "MPICH";
+	# pass env as "/usr/bin/env 'A=1' 'B=2' 'C=3'"
+	%envfmt = ( 'pre' => $envprog,
+		    'val' => "'"
+		  );
     } elsif ($is_cray_mpi) {
 	$spawner_desc = "Cray MPI";
 	# cannot reliably use /usr/bin/env at all when running via aprun 
