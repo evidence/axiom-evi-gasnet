@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2005/05/06 20:12:18 $
- * $Revision: 1.37 $
+ *     $Date: 2005/05/30 02:09:09 $
+ * $Revision: 1.38 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -327,16 +327,6 @@ END_EXTERNC
   #endif
   #ifndef GASNETE_EXTRA_CONFIG_INFO
     #define GASNETE_EXTRA_CONFIG_INFO
-  #endif
-  #ifdef GASNETI_USING_GETTIMEOFDAY
-    #define GASNETI_TIMER_CONFIG   timers_os
-  #else
-    #define GASNETI_TIMER_CONFIG   timers_native
-  #endif
-  #ifdef GASNETI_USE_GENERIC_ATOMICOPS
-    #define GASNETI_ATOMIC_CONFIG   atomics_os
-  #else
-    #define GASNETI_ATOMIC_CONFIG   atomics_native
   #endif
   #define GASNET_CONFIG_STRING                                            \
              "RELEASE=" _STRINGIFY(GASNETI_RELEASE_VERSION) ","           \

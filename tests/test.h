@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/05/28 09:48:46 $
- * $Revision: 1.56 $
+ *     $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.57 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -191,37 +191,6 @@ static void _test_makeErrMsg(const char *format, ...) {
     }
   va_end(argptr);
 }
-
-/* misc init stuff */
-#if defined(__alpha) || defined(_CRAYT3E)
-  #define TEST_SIG_INIT() do {                          \
-      if (signal(SIGFPE, SIG_IGN) == SIG_ERR)           \
-        { perror("signal(SIGFPE, SIG_IGN)"); abort(); } \
-  } while (0)
-#else
-  #define TEST_SIG_INIT()
-#endif
-
-#ifndef TEST_GASNET_TOOLS_ONLY
-static void test_init() {
-  /* convenient place to put inits we want in all tests */
-  TEST_SIG_INIT();
-
-  { const char *p = gasnet_getenv("TEST_POLITE_SYNC");
-    if (p && (!*p || *p == 'Y' || *p == 'y' || atoi(p))) {
-      MSG0("WARNING: TEST_POLITE_SYNC is set - enabling  \"polite\", low-performance synchronization algorithms");
-      gasnet_set_waitmode(GASNET_WAIT_BLOCK);
-    }
-  }
-}
-
-static void print_testname(const char *testname, int nprocs) {
-    test_init();
-    printf("=====> %s nprocs=%d config=%s\n",
-	testname, nprocs, GASNET_CONFIG_STRING);
-    return;
-}
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* memory management */
@@ -468,7 +437,6 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
 /* ------------------------------------------------------------------------------------ */
 /* standard messages */
 static void TEST_DEBUGPERFORMANCE_WARNING() {
-  BARRIER();
   if (gasnet_mynode() == 0) {
     const char *debug = "";
     const char *trace = "";
@@ -483,7 +451,8 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
       stats = "statistical collection ";
     #endif
     if (*debug || *trace || *stats) {
-      fprintf(stderr,
+      fflush(NULL);
+      fprintf(stdout,
         "-----------------------------------------------------------------------\n"
         " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
         "\n"
@@ -497,19 +466,9 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
         " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
         "-----------------------------------------------------------------------\n"
         ,debug,trace,stats);
-      fflush(stderr);
+      fflush(NULL);
     }
-    #ifdef GASNETT_USING_GETTIMEOFDAY
-      fprintf(stderr, 
-        "WARNING: using gettimeofday() for timing measurement - all short-term time measurements\n"             
-        "WARNING: will be very rough and include significant timer overheads\n");
-      fflush(stderr);
-    #endif
-    fprintf(stdout, "Timer granularity: <= %.3f us, overhead: ~ %.3f us\n",
-     gasnett_timer_granularityus(), gasnett_timer_overheadus());
-    fflush(stdout);
   }
-  BARRIER();
 }
 
 #define TEST_PRINT_CONDUITINFO() do {                              \
@@ -678,5 +637,80 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
 
 #endif /* TEST_GASNET_H */
 /* ------------------------------------------------------------------------------------ */
+/* test initialization boilerplate */
+#if defined(__alpha) || defined(_CRAYT3E)
+  #define TEST_SIG_INIT() do {                          \
+      if (signal(SIGFPE, SIG_IGN) == SIG_ERR)           \
+        { perror("signal(SIGFPE, SIG_IGN)"); abort(); } \
+  } while (0)
+#else
+  #define TEST_SIG_INIT()
+#endif
+
+static int test_getenv_yesno(const char *key, int deflt) {
+  #ifdef TEST_GASNET_H
+    const char *p = gasnet_getenv(key);
+  #else
+    const char *p = getenv(key);
+  #endif
+  if (!p) return deflt;
+  if (!*p) return 1; /* empty == yes */
+  if (*p == 'Y' || *p == 'y' || atoi(p)) return 1;
+  return 0;
+}
+
+static void TEST_GENERICS_WARNING() {
+  #ifdef TEST_GASNET_H
+    if (gasnet_mynode() == 0)
+  #endif
+  {
+    #ifdef GASNETT_USING_GETTIMEOFDAY
+      fflush(NULL);
+      fprintf(stdout, 
+        "WARNING: using gettimeofday() for timing measurement - all short-term time measurements\n"             
+        "WARNING: will be very rough and include significant timer overheads\n");
+      fflush(NULL);
+    #endif
+    #ifdef GASNETT_USING_GENERIC_ATOMICOPS
+      fflush(NULL);
+      fprintf(stdout, 
+        "WARNING: using generic mutex-based GASNet atomics, which are likely to have high overhead\n"             
+        "WARNING: consider implementing true GASNet atomics, if supported by your platform/compiler\n");
+      fflush(NULL);
+    #endif
+  }
+}
+
+static void _test_init(const char *testname, int reports_performance, int early) {
+  /* convenient place to put inits we want in all tests */
+  TEST_SIG_INIT();
+  #ifdef TEST_GASNET_H
+    if (!early) BARRIER();
+    if (reports_performance) {
+      TEST_DEBUGPERFORMANCE_WARNING();
+      TEST_GENERICS_WARNING();
+      if (gasnet_mynode() == 0)
+        fprintf(stdout, "Timer granularity: <= %.3f us, overhead: ~ %.3f us\n",
+                       gasnett_timer_granularityus(), gasnett_timer_overheadus());
+      fflush(NULL);
+    }
+    if (test_getenv_yesno("GASNET_TEST_POLITE_SYNC",0)) {
+      MSG0("WARNING: GASNET_TEST_POLITE_SYNC is set - enabling  \"polite\", low-performance synchronization algorithms");
+      gasnet_set_waitmode(GASNET_WAIT_BLOCK);
+    }
+    MSG0("=====> %s nprocs=%d config=%s",
+        testname, gasnet_nodes(), GASNET_CONFIG_STRING);
+    if (!early) {
+      TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
+      BARRIER();
+    }
+  #else
+    MSG0("=====> %s config=%s",
+        testname, GASNETT_CONFIG_STRING);
+  #endif
+  if (test_getenv_yesno("GASNET_VERBOSEENV",0)) MSG("%s running...", testname);
+}
+#define test_init(testname, reports_performance) _test_init(testname, reports_performance, 0)
+#define test_init_early(testname, reports_performance) _test_init(testname, reports_performance, 1)
 
 #endif

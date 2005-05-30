@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
- * $Date: 2005/03/31 00:47:03 $
- * $Revision: 1.16 $
+ * $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.17 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -227,6 +227,7 @@ main(int argc, char **argv)
 	/* call startup */
         GASNET_Safe(gasnet_init(&argc, &argv));
         GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+	test_init("testcore1",0);
 
         assert(CHKSUM_TOTAL <= gasnet_AMMaxMedium());
 
@@ -243,8 +244,6 @@ main(int argc, char **argv)
 	chksum_iters = iters;
 	myproc = gasnet_mynode();
 	numprocs = gasnet_nodes();
-	if (!gasnet_mynode())
-	    print_testname("testcore1", gasnet_nodes());
         /* Only allow even number for numprocs */
         if (numprocs % 2 != 0) {
           MSG("WARNING: This test requires an even number of threads. Test skipped.\n");

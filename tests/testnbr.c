@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2005/04/28 09:16:03 $
- * $Revision: 1.9 $
+ *     $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.10 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -427,9 +427,6 @@ main(int argc, char **argv)
 	gasnet_exit(1);
     }
 
-    if (!myproc)
-	print_testname("testnbr", nprocs);
-
     /* setup max grid we intend to use, so we can get enough 
      * memory per proc at startup */
     setupGrid(&Nbr, maxdim);
@@ -439,8 +436,7 @@ main(int argc, char **argv)
     GASNET_Safe(gasnet_attach(
 	htable, sizeof(htable)/sizeof(gasnet_handlerentry_t),
 	TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-
-    TEST_DEBUGPERFORMANCE_WARNING();
+    test_init("testnbr",1);
 
     initNbr(&Nbr);
 

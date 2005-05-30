@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2005/03/31 00:47:03 $
- * $Revision: 1.15 $
+ *     $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.16 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -166,6 +166,7 @@ int main(int argc, char **argv) {
   };
 
   GASNET_Safe(gasnet_init(&argc, &argv));
+  test_init_early("testexit",0);
 
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
@@ -175,11 +176,6 @@ int main(int argc, char **argv) {
     /* w/ odd # of nodes, last one talks to self */
     peer = mynode;
   }
-
-  if (!mynode)
-	print_testname("testexit", nodes);
-	  
-  MSG("running...");
 
   argvzero = argv[0];
   argv++; argc--;

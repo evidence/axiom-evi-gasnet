@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testrand.c,v $
- *     $Date: 2005/04/11 04:16:00 $
- * $Revision: 1.11 $
+ *     $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.12 $
  * Description: GASNet get/put performance test
  *   measures measures the total time to write to each page of the
  *   remote test segment, using blocking puts in a random order.
@@ -109,10 +109,7 @@ int main(int argc, char **argv)
       if (maxsz > TEST_SEGSZ) { MSG("maxsz must be <= %lu on GASNET_SEGMENT_EVERYTHING",(unsigned long)TEST_SEGSZ); gasnet_exit(1); }
     #endif
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-    if (!gasnet_mynode())
-	print_testname("testrand", gasnet_nodes());
-    TEST_DEBUGPERFORMANCE_WARNING();
-    TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
+    test_init("testrand",1);
 
     /* get SPMD info */
     myproc = gasnet_mynode();

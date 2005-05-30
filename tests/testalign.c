@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testalign.c,v $
- *     $Date: 2005/05/13 17:22:02 $
- * $Revision: 1.14 $
+ *     $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.15 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -257,8 +257,8 @@ int main(int argc, char **argv)
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-    TEST_DEBUGPERFORMANCE_WARNING();
-
+    test_init("testalign", 1);
+    
     /* parse arguments */
     arg = 1;
     while (argc > arg) {
@@ -301,9 +301,6 @@ int main(int argc, char **argv)
       gasnet_exit(0); /* exit 0 to prevent false negatives in test harnesses for smp-conduit */
     }
 
-    if (!myproc)
-	print_testname("testalign", numprocs);
-    
     /* Setting peer thread rank */
     peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
     iamsender = (myproc % 2 == 0);

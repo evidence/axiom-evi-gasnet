@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/05/05 21:03:38 $
- * $Revision: 1.26 $
+ *     $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.27 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,6 +47,8 @@ int main(int argc, char **argv) {
     while (*p) *(q++) = toupper(*(p++));
   }
 
+  test_init("testtools", 0);
+  TEST_GENERICS_WARNING();
   MSG("Running testtools with %i iterations", iters);
 
   #if defined(GASNETT_PAGESIZE) && defined(GASNETT_PAGESHIFT)
@@ -57,13 +59,6 @@ int main(int argc, char **argv) {
       MSG("System page size is 2^%i == %i", GASNETT_PAGESHIFT, GASNETT_PAGESIZE);
   #endif
    
-  #ifdef GASNETT_USING_GENERIC_ATOMICOPS
-    fprintf(stderr, 
-      "WARNING: using generic mutex-based GASNet atomics, which are likely to have high overhead\n"             
-      "WARNING: consider implementing true GASNet atomics, if supported by your platform/compiler\n");
-    fflush(stderr);
-  #endif
-
   TEST_HEADER("Testing high-performance timers...")
   { /* high performance timers */
     int i;

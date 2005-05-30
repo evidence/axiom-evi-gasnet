@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/05/06 09:19:26 $
- * $Revision: 1.21 $
+ *     $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.22 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -498,13 +498,11 @@ int main(int argc, char **argv)
     /* call startup */
     GASNET_Safe(gasnet_init(&argc, &argv));
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+    test_init("testcoll",0);
 
     /* get SPMD info */
     myproc = gasnet_mynode();
     numprocs = gasnet_nodes();
-
-    if (!myproc)
-	print_testname("testcoll", numprocs);
 
     if (argc > 1) {
       iters = atoi(argv[1]);
@@ -520,7 +518,6 @@ int main(int argc, char **argv)
 
     segment = (int *) TEST_MYSEG();
 
-    MSG("running.");
     BARRIER();
 
     srandom(1);

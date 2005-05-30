@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2005/04/26 09:57:53 $
- * $Revision: 1.6 $
+ *     $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.7 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -198,9 +198,6 @@ int main(int argc, char **argv) {
     myproc = gasnet_mynode();
     numprocs = gasnet_nodes();
 
-    if (!myproc)
-	print_testname("testqueue", numprocs);
-    
     if (!firstlastmode) {
       /* Only allow 1 or even number for numprocs */
       if (numprocs > 1 && numprocs % 2 != 0) {
@@ -233,7 +230,8 @@ int main(int argc, char **argv) {
     #endif
     GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), 
                               TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-    TEST_DEBUGPERFORMANCE_WARNING();
+    test_init("testqueue",1);
+    
     myseg = TEST_SEG(myproc);
     tgtmem = TEST_SEG(peerproc);
 

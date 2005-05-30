@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testsmall.c,v $
- *     $Date: 2005/05/13 17:22:02 $
- * $Revision: 1.34 $
+ *     $Date: 2005/05/30 02:09:11 $
+ * $Revision: 1.35 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -488,9 +488,6 @@ int main(int argc, char **argv)
     myproc = gasnet_mynode();
     numprocs = gasnet_nodes();
 
-    if (!myproc)
-	print_testname("testsmall", numprocs);
-    
     if (!firstlastmode) {
       /* Only allow 1 or even number for numprocs */
       if (numprocs > 1 && numprocs % 2 != 0) {
@@ -515,7 +512,8 @@ int main(int argc, char **argv)
       if (maxsz > TEST_SEGSZ/2) { MSG("maxsz must be <= %lu on GASNET_SEGMENT_EVERYTHING", (unsigned long)(TEST_SEGSZ/2)); gasnet_exit(1); }
     #endif
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-    TEST_DEBUGPERFORMANCE_WARNING();
+    test_init("testsmall",1);
+    
     myseg = TEST_SEG(myproc);
     tgtmem = TEST_SEG(peerproc);
 

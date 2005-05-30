@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2005/05/23 05:31:06 $
- * $Revision: 1.71 $
+ *     $Date: 2005/05/30 02:09:09 $
+ * $Revision: 1.72 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -761,6 +761,13 @@
     #error Unrecognized platform - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
   #endif
 #endif
+
+#ifdef GASNETI_USE_GENERIC_ATOMICOPS
+  #define GASNETI_ATOMIC_CONFIG   atomics_os
+#else
+  #define GASNETI_ATOMIC_CONFIG   atomics_native
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 /* GASNet weak atomics - these operations are guaranteed to be atomic if and only if 
     the sole updates are from the host processor(s), with no signals involved.
