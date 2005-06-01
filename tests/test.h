@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.57 $
+ *     $Date: 2005/06/01 09:46:55 $
+ * $Revision: 1.58 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,6 +177,7 @@ static void _test_doErrMsg(const char *format, ...) {
       }
     va_end(argptr);
     printf(_test_baseformat, output); 
+    GASNETT_TRACE_PRINTF(_test_baseformat, output);
     fflush(stdout);
   }
   _test_UNLOCKMSG();

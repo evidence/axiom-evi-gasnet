@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/06/01 03:52:52 $
- * $Revision: 1.35 $
+ *     $Date: 2005/06/01 09:46:52 $
+ * $Revision: 1.36 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -148,6 +148,10 @@ BEGIN_EXTERNC
   #define GASNETT_TRACE_UNFREEZESOURCELINE GASNETI_TRACE_UNFREEZESOURCELINE
   #define GASNETT_TRACE_PRINTF  _gasnett_trace_printf
   extern void _gasnett_trace_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
+  #define GASNETT_TRACE_GETMASK()     GASNETI_TRACE_GETMASK()
+  #define GASNETT_TRACE_SETMASK(mask) GASNETI_TRACE_SETMASK(mask)
+  #define GASNETT_TRACE_GET_TRACELOCAL()        GASNETI_TRACE_GET_TRACELOCAL()
+  #define GASNETT_TRACE_SET_TRACELOCAL(newval)  GASNETI_TRACE_SET_TRACELOCAL(newval)
 #else
   #define GASNETT_TRACE_SETSOURCELINE(file,line)    ((void)0)
   #define GASNETT_TRACE_GETSOURCELINE(pfile,pline)  ((void)0)
@@ -162,6 +166,10 @@ BEGIN_EXTERNC
     #endif
     return; 
   }
+  #define GASNETT_TRACE_GETMASK()               ""
+  #define GASNETT_TRACE_SETMASK(mask)           ((void)0)
+  #define GASNETT_TRACE_GET_TRACELOCAL()        (0)
+  #define GASNETT_TRACE_SET_TRACELOCAL(newval)  ((void)0)
 #endif
 
 #if defined(_INCLUDED_GASNET_H) && defined(GASNET_STATS)
@@ -171,8 +179,12 @@ BEGIN_EXTERNC
    */
   #define GASNETT_STATS_INIT(callbackfn) \
     (gasnett_stats_callback = (callbackfn), GASNETI_STATS_ENABLED(H))
+  #define GASNETT_STATS_GETMASK()     GASNETI_STATS_GETMASK()
+  #define GASNETT_STATS_SETMASK(mask) GASNETI_STATS_SETMASK(mask)
 #else
   #define GASNETT_STATS_INIT(callbackfn) 0
+  #define GASNETT_STATS_GETMASK()     ""
+  #define GASNETT_STATS_SETMASK(mask) ((void)0)
 #endif
 
 #if defined(_INCLUDED_GASNET_H) 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/05/23 05:31:06 $
- * $Revision: 1.108 $
+ *     $Date: 2005/06/01 09:46:52 $
+ * $Revision: 1.109 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -776,8 +776,13 @@ extern void gasneti_unsetenv(const char *key) {
 #endif
 
 gasneti_mutex_t gasneti_tracelock = GASNETI_MUTEX_INITIALIZER;
-char gasneti_tracetypes[256];
-char gasneti_statstypes[256];
+#define GASNETI_MAX_MASKBITS 256
+char gasneti_tracetypes[GASNETI_MAX_MASKBITS];
+char gasneti_tracetypes_all[GASNETI_MAX_MASKBITS];
+char gasneti_statstypes[GASNETI_MAX_MASKBITS];
+char gasneti_statstypes_all[GASNETI_MAX_MASKBITS];
+char gasneti_trace_maskstr[GASNETI_MAX_MASKBITS+1];
+char gasneti_stats_maskstr[GASNETI_MAX_MASKBITS+1];
 int gasneti_trace_suppresslocal;
 FILE *gasneti_tracefile = NULL;
 FILE *gasneti_statsfile = NULL;
@@ -1182,22 +1187,70 @@ static FILE *gasneti_open_outputfile(const char *filename, const char *desc) {
   return fp;
 }
 
+/* overwrite the current stats/trace mask (types) with the provided human-readable newmask,
+   updating the human-readable maskstr. Unrecognized human-readable types are ignored.
+ */
+extern void gasneti_trace_updatemask(const char *newmask, char *maskstr, char *types) {
+  char *typesall;
+  const char *desc; 
+  const char *p;
+  char *newmaskstr = maskstr;
+  
+  if (types == gasneti_tracetypes) { 
+    typesall = gasneti_tracetypes_all; 
+    desc = "GASNET_TRACEMASK"; 
+    #if !GASNET_TRACE
+      return;
+    #endif
+  } else if (types == gasneti_statstypes) { 
+    typesall = gasneti_statstypes_all; 
+    desc = "GASNET_STATSMASK"; 
+    #if !GASNET_STATS
+      return;
+    #endif
+  } else gasneti_fatalerror("Bad call to gasneti_trace_updatemask");
+
+  { static gasneti_mutex_t maskupdate_mutex = GASNETI_MUTEX_INITIALIZER;
+    /* ensure mutual exclusion for concurrent mask updates - 
+       we do not attempt to prevent races with concurrent tracing, any such desired
+       synchronization must be provided by the client
+     */
+    gasneti_mutex_lock(&maskupdate_mutex);
+
+    for (p = GASNETI_ALLTYPES; *p; p++) { 
+      gasneti_assert(!types[(int)*p] || typesall[(int)*p]);
+      types[(int)*p] = !!strchr(newmask, *p);
+      typesall[(int)*p] |= types[(int)*p];
+      if (types[(int)*p]) *(newmaskstr++) = *p;
+    }
+    *newmaskstr = '\0';
+
+    { /* ensure tracemask change messages always makes it into the trace */
+      char tmpi = gasneti_tracetypes[(int)'I'];
+      gasneti_tracetypes[(int)'I'] = 1;
+      GASNETI_TRACE_PRINTF(I,("Setting %s to: %s", desc, maskstr));
+      gasneti_tracetypes[(int)'I'] = tmpi;
+    }
+
+    gasneti_mutex_unlock(&maskupdate_mutex);
+  }
+}
+
 extern void gasneti_trace_init(int argc, char **argv) {
   gasneti_free(gasneti_malloc(1)); /* touch the malloc system to ensure it's intialized */
 
  #if GASNETI_STATS_OR_TRACE
-{ const char *tracetypes = NULL;
-  const char *statstypes = NULL;
-
   starttime = GASNETI_STATTIME_NOW();
+
   { /* setup tracefile */
+    FILE *gasneti_tracefile_tmp = NULL, *gasneti_statsfile_tmp = NULL;
     char *tracefilename = gasneti_getenv_withdefault("GASNET_TRACEFILE","");
     char *statsfilename = gasneti_getenv_withdefault("GASNET_STATSFILE","");
     if (tracefilename && !strcmp(tracefilename, "")) tracefilename = NULL;
     if (statsfilename && !strcmp(statsfilename, "")) statsfilename = NULL;
     #if GASNET_TRACE || (GASNET_STATS && GASNETI_STATS_ECHOED_TO_TRACEFILE)
       if (tracefilename) {
-        gasneti_tracefile = gasneti_open_outputfile(tracefilename, 
+        gasneti_tracefile_tmp = gasneti_open_outputfile(tracefilename, 
         #if GASNET_TRACE
           "tracing"
           #if GASNET_STATS && GASNETI_STATS_ECHOED_TO_TRACEFILE
@@ -1210,32 +1263,29 @@ extern void gasneti_trace_init(int argc, char **argv) {
         );
       } else 
     #endif
-      gasneti_tracefile = NULL;
+      gasneti_tracefile_tmp = NULL;
     #if GASNET_STATS
-      if (statsfilename) gasneti_statsfile = gasneti_open_outputfile(statsfilename, "statistical");
+      if (statsfilename) gasneti_statsfile_tmp = gasneti_open_outputfile(statsfilename, "statistical");
       else 
     #endif
-        gasneti_statsfile = NULL;
-  }
+        gasneti_statsfile_tmp = NULL;
 
-  { /* setup tracetypes */
-    const char *types;
-    types = gasneti_getenv_withdefault("GASNET_TRACEMASK", GASNETI_ALLTYPES);
-    tracetypes = types;
-    while (*types) {
-      gasneti_tracetypes[(int)(*types)] = 1;
-      types++;
-    }
-    types = gasneti_getenv_withdefault("GASNET_STATSMASK", GASNETI_ALLTYPES);
-    statstypes = types;
-    while (*types) {
-      gasneti_statstypes[(int)(*types)] = 1;
-      types++;
-    }
-  }
+    /* query tracing environment variables with tracing still disabled */
+    if (gasneti_tracefile_tmp) { 
+      GASNETI_TRACE_SETMASK(gasneti_getenv_withdefault("GASNET_TRACEMASK", GASNETI_ALLTYPES));
+    } else GASNETI_TRACE_SETMASK("");
 
-  gasneti_autoflush = gasneti_getenv_yesno_withdefault("GASNET_TRACEFLUSH",0);
-  gasneti_trace_suppresslocal = !gasneti_getenv_yesno_withdefault("GASNET_TRACELOCAL",1);
+    if (gasneti_statsfile_tmp || gasneti_tracefile_tmp) { 
+      GASNETI_STATS_SETMASK(gasneti_getenv_withdefault("GASNET_STATSMASK", GASNETI_ALLTYPES));
+    } else GASNETI_STATS_SETMASK("");
+
+    gasneti_autoflush = gasneti_getenv_yesno_withdefault("GASNET_TRACEFLUSH",0);
+    gasneti_trace_suppresslocal = !gasneti_getenv_yesno_withdefault("GASNET_TRACELOCAL",1);
+
+    /* begin tracing */
+    gasneti_tracefile = gasneti_tracefile_tmp;
+    gasneti_statsfile = gasneti_statsfile_tmp;
+  }
 
   { time_t ltime;
     int i;
@@ -1259,12 +1309,6 @@ extern void gasneti_trace_init(int argc, char **argv) {
       p += strlen(p);
     }
     gasneti_tracestats_printf("Command-line: %s", temp);
-    #if GASNET_STATS
-      gasneti_stats_printf("GASNET_STATSMASK: %s", statstypes);
-    #endif
-    #if GASNET_TRACE
-      gasneti_trace_printf("GASNET_TRACEMASK: %s", tracetypes);
-    #endif
   }
 
   gasneti_tracestats_printf("GASNET_CONFIG_STRING: %s", GASNET_CONFIG_STRING);
@@ -1276,6 +1320,14 @@ extern void gasneti_trace_init(int argc, char **argv) {
   gasneti_tracestats_printf("gasnet_mynode(): %i", (int)gasnet_mynode());
   gasneti_tracestats_printf("gasnet_nodes(): %i", (int)gasnet_nodes());
   gasneti_tracestats_printf("gasneti_cpu_count(): %i", (int)gasneti_cpu_count());
+  #if GASNET_STATS
+    gasneti_stats_printf("GASNET_STATSMASK: %s", GASNETI_STATS_GETMASK());
+  #endif
+  #if GASNET_TRACE
+    gasneti_trace_printf("GASNET_TRACEMASK: %s", GASNETI_TRACE_GETMASK());
+    gasneti_trace_printf("GASNET_TRACEFLUSH: %i", gasneti_autoflush);
+    gasneti_trace_printf("GASNET_TRACELOCAL: %i", !gasneti_trace_suppresslocal);
+  #endif
 
   #if GASNET_NDEBUG
   { char *NDEBUG_warning =
@@ -1296,12 +1348,8 @@ extern void gasneti_trace_init(int argc, char **argv) {
   gasneti_tracestats_printf("Timer granularity: ~ %.3f us, overhead: ~ %.3f us",
    GASNETI_STATTIME_GRANULARITY(), GASNETI_STATTIME_OVERHEAD());
 
-  if (!gasneti_tracefile) /* clear types entries if we're not tracing */
-    memset(gasneti_tracetypes, 0, 256);
-  if (!gasneti_statsfile && !gasneti_tracefile)
-    memset(gasneti_statstypes, 0, 256);
-  }
-  #endif
+  fflush(NULL);
+ #endif
 }
 
 #define AGGRNAME(cat,type) gasneti_aggregate_##cat##_##type
@@ -1332,8 +1380,12 @@ extern void gasneti_trace_finish() {
     double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
     gasneti_tracestats_printf("Total application run time: %10.6fs", time);
 
+    fflush(NULL);
     #if GASNET_STATS
     { /* output statistical summary */
+
+      /* reenable all statistics that have ever been enabled, for the final aggregation dump */
+      memcpy(gasneti_statstypes, gasneti_statstypes_all, GASNETI_MAX_MASKBITS);
 
       if (gasnett_stats_callback && GASNETI_STATS_ENABLED(H)) {
         gasneti_stats_printf("--------------------------------------------------------------------------------");
@@ -1477,6 +1529,7 @@ extern void gasneti_trace_finish() {
     #endif
 
     GASNETC_TRACE_FINISH(); /* allow for final output of conduit-specific statistics */
+    fflush(NULL);
 
     gasneti_mutex_lock(&gasneti_tracelock);
     if (gasneti_tracefile && gasneti_tracefile != stdout && gasneti_tracefile != stderr) 

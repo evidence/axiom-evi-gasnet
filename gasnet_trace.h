@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2005/04/18 05:49:17 $
- * $Revision: 1.40 $
+ *     $Date: 2005/06/01 09:46:52 $
+ * $Revision: 1.41 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -817,15 +817,29 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
 
   extern char gasneti_tracetypes[];
   extern char gasneti_statstypes[];
+  extern char gasneti_trace_maskstr[];
+  extern char gasneti_stats_maskstr[];
+  extern void gasneti_trace_updatemask(const char *newmask, char *maskstr, char *types);
+
   extern int gasneti_trace_suppresslocal;
 #endif
 #if GASNET_TRACE
   #define GASNETI_TRACE_ENABLED(type) (gasneti_tracetypes[(int)*(char*)#type])
+  #define GASNETI_TRACE_GETMASK()     ((const char *)gasneti_trace_maskstr)
+  #define GASNETI_TRACE_SETMASK(mask) gasneti_trace_updatemask(mask, gasneti_trace_maskstr, gasneti_tracetypes)
+  #define GASNETI_TRACE_GET_TRACELOCAL()        (!gasneti_trace_suppresslocal)
+  #define GASNETI_TRACE_SET_TRACELOCAL(newval)  do {                                \
+    int _val = (newval);                                                            \
+    GASNETI_TRACE_PRINTF(I,("%s GASNET_TRACELOCAL",(_val?"Enabling":"Disabling"))); \
+    gasneti_trace_suppresslocal = !_val;                                            \
+  } while (0)
 #else
   #define GASNETI_TRACE_ENABLED(type) 0
 #endif
 #if GASNET_STATS
   #define GASNETI_STATS_ENABLED(type) (gasneti_statstypes[(int)*(char*)#type])
+  #define GASNETI_STATS_GETMASK()     ((const char *)gasneti_stats_maskstr)
+  #define GASNETI_STATS_SETMASK(mask) gasneti_trace_updatemask(mask, gasneti_stats_maskstr, gasneti_statstypes)
 #else
   #define GASNETI_STATS_ENABLED(type) 0
 #endif
