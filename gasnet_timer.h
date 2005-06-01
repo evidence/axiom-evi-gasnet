@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/05/30 02:09:09 $
- * $Revision: 1.39 $
+ *     $Date: 2005/06/01 03:30:58 $
+ * $Revision: 1.40 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -80,8 +80,8 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
   uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
     timebasestruct_t t;
-    gasneti_assert(read_real_time(&t,TIMEBASE_SZ), 
-                   t.flag == RTC_POWER_PC); /* otherwise timer arithmetic (min/max/sum) is compromised */
+    gasneti_assert((read_real_time(&t,TIMEBASE_SZ), 
+                   t.flag == RTC_POWER_PC)); /* otherwise timer arithmetic (min/max/sum) is compromised */
     t.flag = RTC_POWER_PC;
     t.tb_high = (uint32_t)(st >> 32);
     t.tb_low =  (uint32_t)(st);
