@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/06/01 03:52:56 $
- * $Revision: 1.28 $
+ *     $Date: 2005/06/01 21:54:29 $
+ * $Revision: 1.29 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -55,7 +55,11 @@ int main(int argc, char **argv) {
 
   test_init("testtools", 0);
   TEST_GENERICS_WARNING();
-  MSG("Running testtools with %i iterations and %i threads", iters, NUM_THREADS);
+  #ifdef HAVE_PTHREAD_H
+    MSG("Running testtools with %i iterations and %i threads", iters, NUM_THREADS);
+  #else
+    MSG("Running testtools with %i iterations", iters);
+  #endif
 
   #if defined(GASNETT_PAGESIZE) && defined(GASNETT_PAGESHIFT)
     if (0x1 << GASNETT_PAGESHIFT != GASNETT_PAGESIZE)

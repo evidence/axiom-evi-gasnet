@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/05/27 22:52:08 $
-# $Revision: 1.267 $
+#     $Date: 2005/06/01 21:54:26 $
+# $Revision: 1.268 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.267 $)
+AC_REVISION($Revision: 1.268 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -653,9 +653,9 @@ if test "$have_pthread" = no ; then
   GASNET_THREAD_DEFINES=""
   GASNET_THREAD_LIBS=""
 else
-  OLDCFLAGS="$CFLAGS"
+  OLDCPPFLAGS="$CPPFLAGS"
   OLDLIBS="$LIBS"
-  CFLAGS="$CFLAGS $GASNET_THREAD_DEFINES -I$TOP_SRCDIR/other"
+  CPPFLAGS="$CPPFLAGS $GASNET_THREAD_DEFINES -I$TOP_SRCDIR/other"
   LIBS="$GASNET_THREAD_LIBS"
 
   # define HAVE_PTHREAD_H
@@ -680,7 +680,7 @@ else
   esac
   
   GASNET_THREAD_LIBS="$LIBS"
-  CFLAGS="$OLDCFLAGS"
+  CPPFLAGS="$OLDCPPFLAGS"
   LIBS="$OLDLIBS"
 fi
 if test "$GASNETI_CACHE_LINE_BYTES" = "" ; then
