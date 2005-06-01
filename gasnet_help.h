@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/05/23 22:25:51 $
- * $Revision: 1.54 $
+ *     $Date: 2005/06/01 03:52:52 $
+ * $Revision: 1.55 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -367,6 +367,80 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
   #else
     #define gasneti_sync_mem() gasneti_local_mb()
   #endif
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* semi-portable spinlocks using gasneti_atomic_t
+   This useful primitive is not available on all platforms and it therefore reserved 
+   for internal use only.
+
+   On platforms where implemented, the following are roughly equivalent to the
+   corresponding pthread_mutex_* calls:
+     GASNETI_SPINLOCK_INITIALIZER
+     gasneti_spinlock_{init,destroy,lock,unlock,trylock}
+   The functions return 0 on success to match the corresponding pthread_mutex functions.
+
+   There is no gasneti_spinlock_t, these functions operate on gasneti_atomic_t.
+   
+   Unlike the pthread_mutex, the use of spinlocks have no fairness guarantees.  For
+   instance, it would be perfectly legal for a race to always grant the lock to the CPU
+   which "owns" the associated memory.  Therefore, spinlocks must be used with care.
+   Also unlike pthread_mutex, it is safe to unlock one from signal context.  Though
+   trying to acquire a spinlock in signal context is legal, it is dangerous.
+
+   GASNETI_HAVE_SPINLOCK will be defined to 1 on platforms supporting this primitive.
+
+   TODO Possibly add debugging wrappers as well.  That will require an actual struct.
+ */
+#if 0
+  /* TODO Some platforms may have cheaper implementations than atomic-CAS. */
+  /* eg. some platforms (SPARC?) can support spinlock using test-and-set */
+#elif defined(GASNETI_ATOMICOPS_NOT_SIGNALSAFE)
+  /* We don't implement this case due to lack of signal safety */
+#elif defined(GASNETI_HAVE_ATOMIC_CAS)
+  #define GASNETI_SPINLOCK_LOCKED	1
+  #define GASNETI_SPINLOCK_UNLOCKED	0
+  #define GASNETI_SPINLOCK_INITIALIZER gasneti_atomic_init(GASNETI_SPINLOCK_UNLOCKED)
+  #define gasneti_spinlock_init(plock) do {                   \
+      gasneti_atomic_set((plock), GASNETI_SPINLOCK_UNLOCKED); \
+      gasneti_local_wmb();      /* ??? needed? */             \
+  } while (0)
+  #define gasneti_spinlock_destroy(plock) \
+      gasneti_assert(gasneti_atomic_read(plock) == GASNETI_SPINLOCK_UNLOCKED)
+  #define gasneti_spinlock_lock(plock) do {                                  \
+      gasneti_waituntil(                                                     \
+        gasneti_atomic_compare_and_swap(plock,                               \
+          GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_LOCKED)                \
+      ); /* Acquire: the rmb() is in the gasneti_waituntil() */              \
+      gasneti_assert(gasneti_atomic_read(plock) == GASNETI_SPINLOCK_LOCKED); \
+  } while (0)
+  GASNET_INLINE_MODIFIER(gasneti_spinlock_unlock)
+  int gasneti_spinlock_unlock(gasneti_atomic_t *plock) {
+      gasneti_assert(gasneti_atomic_read(plock) == GASNETI_SPINLOCK_LOCKED);
+      gasneti_local_wmb();	/* Release */
+      #if GASNET_DEBUG
+        { /* Using CAS for release is more costly, but adds validation */
+          int did_swap;
+          did_swap = gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_LOCKED, GASNETI_SPINLOCK_UNLOCKED);
+          gasneti_assert(did_swap);
+        }
+      #else
+        gasneti_atomic_set(plock, GASNETI_SPINLOCK_UNLOCKED);
+      #endif
+      return 0;
+  }
+  /* return 0/EBUSY on success/failure to match pthreads */
+  GASNET_INLINE_MODIFIER(gasneti_spinlock_trylock)
+  int gasneti_spinlock_trylock(gasneti_atomic_t *plock) {
+      if (gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_LOCKED)) {
+	  gasneti_local_rmb();	/* Acquire */  
+          gasneti_assert(gasneti_atomic_read(plock) == GASNETI_SPINLOCK_LOCKED);
+	  return 0;
+      } else {
+	  return EBUSY;
+      }
+  }
+  #define GASNETI_HAVE_SPINLOCK 1
 #endif
 
 /* ------------------------------------------------------------------------------------ */

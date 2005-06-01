@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.27 $
+ *     $Date: 2005/06/01 03:52:56 $
+ * $Revision: 1.28 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,14 +18,16 @@
 #endif
 
 #ifdef HAVE_PTHREAD_H
-  #ifndef NUM_THREADS
-    #define NUM_THREADS 10
+  #ifndef MAX_NUM_THREADS
+    #define MAX_NUM_THREADS 255
   #endif
-  gasnett_atomic_t thread_flag[NUM_THREADS];
-  int valX[NUM_THREADS];
-  int valY[NUM_THREADS];
+  int NUM_THREADS = 0;
+  gasnett_atomic_t thread_flag[MAX_NUM_THREADS];
+  int valX[MAX_NUM_THREADS];
+  int valY[MAX_NUM_THREADS];
 #endif
 
+#define DEFAULT_THREADS 10
 #define DEFAULT_ITERS 100
 int iters = 0;
 char tests[255];
@@ -41,15 +43,19 @@ int main(int argc, char **argv) {
 
   if (argc > 1) iters = atoi(argv[1]);
   if (iters < 1) iters = DEFAULT_ITERS;
-  if (argc > 2) {
-    const char *p = argv[2];
+  #ifdef HAVE_PTHREAD_H
+    if (argc > 2) NUM_THREADS = atoi(argv[2]);
+    if (NUM_THREADS < 1) NUM_THREADS = DEFAULT_THREADS;
+  #endif
+  if (argc > 3) {
+    const char *p = argv[3];
     char *q = tests;
     while (*p) *(q++) = toupper(*(p++));
   }
 
   test_init("testtools", 0);
   TEST_GENERICS_WARNING();
-  MSG("Running testtools with %i iterations", iters);
+  MSG("Running testtools with %i iterations and %i threads", iters, NUM_THREADS);
 
   #if defined(GASNETT_PAGESIZE) && defined(GASNETT_PAGESHIFT)
     if (0x1 << GASNETT_PAGESHIFT != GASNETT_PAGESIZE)
@@ -177,13 +183,29 @@ int main(int argc, char **argv) {
       ERR("gasnett_atomic_decrement_and_test got wrong value at zero");
     if (gasnett_atomic_read(&var) != 0)
       ERR("gasnett_atomic_decrement_and_test set wrong value at zero");
+
+    #if defined(GASNETT_HAVE_ATOMIC_CAS)
+      gasnett_atomic_set(&var,0);
+      for (i=0;i<=iters;i++) {
+	if (gasnett_atomic_compare_and_swap(&var, i-1, i-2))
+          ERR("gasnett_atomic_compare_and_swap succeeded at i=%i when it should have failed", i);
+	if (gasnett_atomic_compare_and_swap(&var, i+1, i-2))
+          ERR("gasnett_atomic_compare_and_swap succeeded at i=%i when it should have failed", i);
+        if (gasnett_atomic_read(&var) != i)
+          ERR("gasnett_atomic_compare_and_swap altered value when it should not have at i=%i", i);
+	if (!gasnett_atomic_compare_and_swap(&var, i, i+1))
+          ERR("gasnett_atomic_compare_and_swap failed at i=%i when it should have succeeded", i);
+        if (gasnett_atomic_read(&var) != i+1)
+          ERR("gasnett_atomic_compare_and_swap set wrong updated value at i=%i", i);
+      }
+    #endif
   }
 
 #ifdef HAVE_PTHREAD_H
   MSG("Spawning pthreads...");
   { 
     int i;
-    pthread_t threadid[NUM_THREADS];
+    pthread_t threadid[MAX_NUM_THREADS];
 
     for(i=0;i<NUM_THREADS;i++) gasnett_atomic_set(thread_flag+i,1);
     gasnett_local_mb();
@@ -219,7 +241,7 @@ int main(int argc, char **argv) {
                             id, "%s", __FILE__, __LINE__), 1, test_errs++)
 
 gasnett_atomic_t up = gasnett_atomic_init(0);
-gasnett_atomic_t down = gasnett_atomic_init(2*NUM_THREADS);
+gasnett_atomic_t down = gasnett_atomic_init(0);
 gasnett_atomic_t x1 = gasnett_atomic_init(10000);
 gasnett_atomic_t x2 = gasnett_atomic_init(10000);
 gasnett_atomic_t x3 = gasnett_atomic_init(10000);
@@ -402,6 +424,45 @@ void * thread_fn(void *arg) {
       }
     }
   }
+
+  #if defined(GASNETT_HAVE_ATOMIC_CAS)
+    TEST_HEADER("parallel compare-and-swap test...") {
+      static gasneti_atomic_t counter2 = gasneti_atomic_init(0);
+      uint32_t goal = (NUM_THREADS * iters);
+      uint32_t woncnt = 0;
+      uint32_t oldval;
+      while (woncnt < iters &&
+             (oldval = gasneti_atomic_read(&counter2)) != goal) {
+        if (gasneti_atomic_compare_and_swap(&counter2, oldval, (oldval + 1))) {
+           woncnt++;
+        }
+      }
+      THREAD_BARRIER();
+      oldval = gasneti_atomic_read(&counter2);
+      if (oldval != (NUM_THREADS * iters)) 
+        ERR("failed compare-and-swap test: counter=%i expecting=%i", oldval, (NUM_THREADS * iters));
+      if (woncnt != iters) 
+        ERR("failed compare-and-swap test: woncnt=%i iters=%i", woncnt, iters);
+    }
+  #endif
+
+  #if defined(GASNETI_HAVE_SPINLOCK)
+    /* spinlocks are GASNet-internal and not available via gasnet_tools,
+       so this test is currently disabled */
+    TEST_HEADER("parallel spinlock test...") {
+      static gasneti_atomic_t my_lock = GASNETI_SPINLOCK_INITIALIZER;
+      static uint32_t counter1 = 0;
+
+      for (i=0;i<=iters;i++) {
+	gasneti_spinlock_lock(&my_lock);
+	++counter1;
+	gasneti_spinlock_unlock(&my_lock);
+      }
+      THREAD_BARRIER();
+      if (counter1 != (NUM_THREADS * iters)) 
+        ERR("failed spinlock test: counter=%i expecting=%i", counter, (NUM_THREADS * iters));
+    }
+  #endif
 
   THREAD_BARRIER();
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/02/18 13:32:15 $
- * $Revision: 1.39 $
+ *     $Date: 2005/06/01 03:52:54 $
+ * $Revision: 1.40 $
  * Description: GASNet lapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,9 +177,6 @@ typedef struct gasnetc_token_rec {
  */
 
 #if GASNETC_USE_SPINLOCKS
-  #if !GASNETI_HAVE_SPINLOCK
-    #error Missing required spinlock support
-  #endif
   #define gasnetc_spinlock_init(lock)     gasneti_spinlock_init((lock))
   #define gasnetc_spinlock_destroy(lock)  gasneti_spinlock_destroy((lock))
   #define gasnetc_spinlock_lock(lock)     gasneti_spinlock_lock((lock))

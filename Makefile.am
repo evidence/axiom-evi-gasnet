@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/05/13 19:05:45 $
-# $Revision: 1.47 $
+#     $Date: 2005/06/01 03:52:52 $
+# $Revision: 1.48 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -35,7 +35,6 @@ headers =                  \
         gasnet.h           \
 	gasnet_ammacros.h  \
 	gasnet_atomicops.h \
-	gasnet_atomicops_internal.h \
         gasnet_basic.h     \
         gasnet_handler.h   \
         gasnet_help.h      \

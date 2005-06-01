@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/05/30 02:09:09 $
- * $Revision: 1.34 $
+ *     $Date: 2005/06/01 03:52:52 $
+ * $Revision: 1.35 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -84,6 +84,9 @@
   #define gasnett_atomic_decrement(p)  gasneti_weakatomic_decrement(p)
   #define gasnett_atomic_decrement_and_test(p)  \
                                        gasneti_weakatomic_decrement_and_test(p)
+  #define GASNETT_HAVE_ATOMIC_CAS 1
+  #define gasnett_atomic_compare_and_swap(p,oldval,newval)  \
+                                       gasneti_weakatomic_compare_and_swap(p,oldval,newval)
 #else
   /* PAR, PARSYNC and non-libgasnet clients (which may have threads) */
   #define gasnett_atomic_t             gasneti_atomic_t
@@ -94,6 +97,11 @@
   #define gasnett_atomic_decrement(p)  gasneti_atomic_decrement(p)
   #define gasnett_atomic_decrement_and_test(p)  \
                                        gasneti_atomic_decrement_and_test(p)
+  #ifdef GASNETI_HAVE_ATOMIC_CAS
+    #define GASNETT_HAVE_ATOMIC_CAS 1
+    #define gasnett_atomic_compare_and_swap(p,oldval,newval)  \
+                                       gasneti_atomic_compare_and_swap(p,oldval,newval)
+  #endif
 #endif
 
 /* tight spin loop CPU hint */
