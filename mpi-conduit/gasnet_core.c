@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2005/04/17 08:58:15 $
- * $Revision: 1.60 $
+ *     $Date: 2005/06/02 04:25:04 $
+ * $Revision: 1.61 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -387,6 +387,20 @@ extern void gasnetc_exit(int exitcode) {
   gasneti_flush_streams();
   gasneti_trace_finish();
   gasneti_sched_yield();
+
+  { int i;
+   /* try to prevent races where we exit while other local pthreads are in MPI 
+     can't use a blocking lock here, because may be in a signal context
+   */
+   for (i=0; i < 5; i++) {
+     #if GASNET_DEBUG
+       /* ignore recursive lock attempts */
+       if (gasnetc_AMlock.owner == GASNETI_THREADIDQUERY()) break;
+     #endif
+     if (!gasneti_mutex_trylock(&gasnetc_AMlock)) break;
+     gasneti_sched_yield();
+   }
+  }
 
   AMMPI_SPMDExit(exitcode);
   abort();
