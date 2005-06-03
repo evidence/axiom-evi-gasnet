@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/05/18 22:35:42 $
- * $Revision: 1.114 $
+ *     $Date: 2005/06/03 03:28:23 $
+ * $Revision: 1.115 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -391,14 +391,13 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 	    if_pf (sreq->fh_count < 0) {
 	      /* complete bounced RMDA read */
 	      gasneti_assert(!gasnetc_use_firehose); /* Only possible when firehose disabled */
+	      gasneti_assert(sreq->req_oust != NULL);
 	      gasneti_assert(sreq->bb_buff != NULL);
 	      gasneti_assert(sreq->bb_addr != NULL);
 	      gasneti_assert(sreq->bb_len > 0);
 	      memcpy(sreq->bb_addr, sreq->bb_buff, sreq->bb_len);
               gasneti_sync_writes();
-	      if (GASNETC_ANY_PAR || sreq->req_oust) {
-                gasnetc_counter_dec(sreq->req_oust);
-	      }
+              gasnetc_counter_dec(sreq->req_oust);
 	      gasneti_freelist_put(&gasnetc_bbuf_freelist, sreq->bb_buff);
 	    } else
 	    #endif
@@ -725,19 +724,21 @@ gasnetc_sreq_t *gasnetc_get_sreq(void) {
   gasnetc_sreq_t *tail;
   int count;
 
-  /* 1) try to get an unused sreq by reaping the send CQ */
-  count = gasnetc_snd_reap(1, &sreq, &tail);
-  if_pf (count == 0) {
-    /* 2) try the free list */
-    sreq = gasneti_freelist_get(&gasnetc_sreq_freelist);
-    if_pf (!sreq) {
+  /* XXX: If we had the thread-local data pointer here, we could use a thread-local freelist */
+
+  /* 1) try the free list */
+  sreq = gasneti_freelist_get(&gasnetc_sreq_freelist);
+  if_pf (!sreq) {
+    /* 2) try to get an unused sreq by reaping the send CQ */
+    count = gasnetc_snd_reap(1, &sreq, &tail);
+    if_pf (count == 0) {
       /* 3) malloc a new one */
       sreq = gasneti_malloc(MAX(sizeof(gasnetc_sreq_t), sizeof(gasneti_freelist_ptr_t)));
       GASNETC_STAT_EVENT(ALLOC_SBUF);
       GASNETI_TRACE_PRINTF(C,("ALLOC_SBUF\n"));
+    } else {
+      gasneti_assert(count == 1);
     }
-  } else {
-    gasneti_assert(count == 1);
   }
 
   gasneti_assert(sreq != NULL);
