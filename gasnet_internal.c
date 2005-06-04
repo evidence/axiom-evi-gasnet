@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/06/01 09:46:52 $
- * $Revision: 1.109 $
+ *     $Date: 2005/06/04 10:02:29 $
+ * $Revision: 1.110 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1191,7 +1191,7 @@ static FILE *gasneti_open_outputfile(const char *filename, const char *desc) {
    updating the human-readable maskstr. Unrecognized human-readable types are ignored.
  */
 extern void gasneti_trace_updatemask(const char *newmask, char *maskstr, char *types) {
-  char *typesall;
+  char *typesall = NULL;
   const char *desc; 
   const char *p;
   char *newmaskstr = maskstr;
