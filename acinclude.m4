@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/05/27 22:52:08 $
-dnl $Revision: 1.64 $
+dnl     $Date: 2005/06/07 21:52:06 $
+dnl $Revision: 1.65 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1033,6 +1033,8 @@ AC_DEFUN([GASNET_GET_SIG], [
 dnl If PTHREAD_INCLUDE and/or PTHREAD_LIB set, check to see that pthread.h and libpthread exist,
 dnl and set -I and -L to use them.  Die if set, but files don't exist
 AC_DEFUN([GASNET_CHECK_OVERRIDE_PTHREADS], [
+  GASNET_ENV_DEFAULT(PTHREADS_INCLUDE, )
+  GASNET_ENV_DEFAULT(PTHREADS_LIB, )
   if test -n "$PTHREADS_INCLUDE" || test -n "$PTHREADS_LIB"; then
     if test -z "$PTHREADS_INCLUDE" || test -z "$PTHREADS_LIB"; then
         AC_MSG_ERROR(['Both \$PTHREADS_INCLUDE and \$PTHREADS_LIB must be set, or neither'])

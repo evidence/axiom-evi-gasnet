@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/06/07 01:13:54 $
-# $Revision: 1.269 $
+#     $Date: 2005/06/07 21:52:06 $
+# $Revision: 1.270 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.269 $)
+AC_REVISION($Revision: 1.270 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -625,9 +625,9 @@ AC_SUBST(EXESUFFIX)
 
 ## POSIX threads
 #             
-GASNET_CHECK_OVERRIDE_PTHREADS
 have_pthread=no
 if test "$use_pthreads" != "no"; then
+  GASNET_CHECK_OVERRIDE_PTHREADS
   AC_MSG_CHECKING([for working pthreads support])
   OLDLIBS="$LIBS"   
   OLDCFLAGS="$CFLAGS"
