@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2005/02/17 13:18:55 $
- * $Revision: 1.21 $
+ *     $Date: 2005/06/08 18:25:50 $
+ * $Revision: 1.22 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,7 @@
 #ifdef GASNETE_USE_AMDISSEMINATION_REFBARRIER
 /* ------------------------------------------------------------------------------------ */
 /* use the AM-based Dissemination implementation of barrier */
+GASNETI_IDENT(gasnete_IdentString_Barrier, "$GASNetDefaultBarrier: AMDISSEM $");
 #define gasnete_ambarrier_init        gasnete_refbarrier_init
 #define gasnete_ambarrier_notify      gasnete_refbarrier_notify
 #define gasnete_ambarrier_wait        gasnete_refbarrier_wait
@@ -272,6 +273,7 @@ extern int gasnete_ambarrier_try(int id, int flags) {
 #else	/* default */
 /* ------------------------------------------------------------------------------------ */
 /* use the AM-based reference implementation of barrier */
+GASNETI_IDENT(gasnete_IdentString_Barrier, "$GASNetDefaultBarrier: AMCENTRAL $");
 #define gasnete_ambarrier_init        gasnete_refbarrier_init
 #define gasnete_ambarrier_notify      gasnete_refbarrier_notify
 #define gasnete_ambarrier_wait        gasnete_refbarrier_wait
