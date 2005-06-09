@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/06/07 21:52:06 $
-dnl $Revision: 1.65 $
+dnl     $Date: 2005/06/09 23:47:22 $
+dnl $Revision: 1.66 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -682,6 +682,34 @@ AC_DEFUN([GASNET_CHECK_OPTIMIZEDDEBUG],[
   CFLAGS="$OLDCFLAGS"
   AC_LANG_RESTORE
  fi
+])
+
+dnl Checks if 'restrict' C99 keyword (or variants) supported
+dnl #defines GASNET_RESTRICT to correct variant, or to nothing
+AC_DEFUN([GASNET_CHECK_RESTRICT],[
+  dnl Check for restrict keyword
+  restrict_keyword=""
+  if test "$restrict_keyword" = ""; then
+    GASNET_TRY_CACHE_CHECK(for restrict keyword, cc_keyrestrict,
+      [int dummy(void * restrict p) { return 1; }], [],
+      AC_DEFINE(GASNET_RESTRICT, restrict)
+      restrict_keyword="restrict")
+  fi
+  if test "$restrict_keyword" = ""; then
+    GASNET_TRY_CACHE_CHECK(for __restrict__ keyword, cc_key__restrict__,
+      [int dummy(void * __restrict__ p) { return 1; }], [],
+      AC_DEFINE(GASNET_RESTRICT, __restrict__)
+      restrict_keyword="__restrict__")
+  fi
+  if test "$restrict_keyword" = ""; then
+    GASNET_TRY_CACHE_CHECK(for __restrict keyword, cc_key__restrict,
+      [int dummy(void * __restrict p) { return 1; }], [],
+      AC_DEFINE(GASNET_RESTRICT, __restrict)
+      restrict_keyword="__restrict")
+  fi
+  if test "$restrict_keyword" = ""; then
+      AC_DEFINE(GASNET_RESTRICT,)
+  fi
 ])
 
 dnl Output compilation error information, if available and do a AC_MSG_ERROR

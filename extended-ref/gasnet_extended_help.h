@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2005/02/14 05:13:36 $
- * $Revision: 1.25 $
+ *     $Date: 2005/06/09 23:47:26 $
+ * $Revision: 1.26 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,7 +176,7 @@ BEGIN_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 /* thread-id optimization support */
 #ifdef GASNETI_THREADINFO_OPT
-  #define GASNETE_THREAD_FARG_ALONE   gasnet_threadinfo_t const _threadinfo
+  #define GASNETE_THREAD_FARG_ALONE   gasnet_threadinfo_t const GASNET_RESTRICT _threadinfo
   #define GASNETE_THREAD_FARG         , GASNETE_THREAD_FARG_ALONE
   #define GASNETE_THREAD_GET_ALONE    GASNET_GET_THREADINFO()
   #define GASNETE_THREAD_GET          , GASNETE_THREAD_GET_ALONE

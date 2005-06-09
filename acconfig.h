@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/06/08 18:25:46 $ */
-/*  $Revision: 1.56 $ */
+/*      $Date: 2005/06/09 23:47:22 $ */
+/*  $Revision: 1.57 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -23,6 +23,9 @@
 
 /* Defined to be the inline function modifier supported by the C compiler (if supported) */
 #undef CC_INLINE_MODIFIER
+
+/* C compilers 'restrict' keyword (or empty) */
+#undef GASNET_RESTRICT
 
 /* Functions may be declared "static inline" */
 #undef STATIC_INLINE_WORKS
