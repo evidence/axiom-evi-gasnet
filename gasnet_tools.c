@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/06/10 11:45:07 $
- * $Revision: 1.111 $
+ *     $Date: 2005/06/10 23:10:17 $
+ * $Revision: 1.112 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -742,9 +742,19 @@ extern void gasneti_setenv(const char *key, const char *value) {
 extern void gasneti_unsetenv(const char *key) {
   /* prefer unsetenv because it's documented to remove env vars */
   #if HAVE_UNSETENV
+   #if 0
+    /* bug 1135: POSIX requires unsetenv to return int, but several OS's (at least Linux and BSD)
+                 are non-compliant and return void. It's not worth our trouble to detect
+                 this (since the possible errors are few) so ignore the return value */
     int retval = unsetenv(key);
     if (!retval) gasneti_fatalerror("Failed to unsetenv(\"%s\") in gasneti_unsetenv => %s(%i)",
                                      key, strerror(errno), errno);
+   #else
+    /* check for a few error cases ourselves */
+    if (!key || strlen(key)==0 || strchr(key,'=')) 
+       gasneti_fatalerror("Bad key (\"%s\") passed to gasneti_unsetenv",key);
+    unsetenv(key);
+   #endif
   #elif HAVE_PUTENV
     /* this relies on undocumented putenv behavior, and may or may not work */
     char *tmp = gasneti_malloc(strlen(key) + 2);
