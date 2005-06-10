@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2005/06/10 23:10:20 $
- * $Revision: 1.23 $
+ *     $Date: 2005/06/10 23:17:44 $
+ * $Revision: 1.24 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,8 +15,7 @@
 /*  TODO: add more reference barrier implementation options (bug 264) */
 
 /* Default is the original AM-based centralized barrier, the last one in this file */
-#if 1
-/*#ifdef GASNETE_USE_AMDISSEMINATION_REFBARRIER*/
+#ifdef GASNETE_USE_AMDISSEMINATION_REFBARRIER
 /* ------------------------------------------------------------------------------------ */
 /* use the AM-based Dissemination implementation of barrier */
 GASNETI_IDENT(gasnete_IdentString_Barrier, "$GASNetDefaultBarrier: AMDISSEM $");
