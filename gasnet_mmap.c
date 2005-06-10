@@ -1,14 +1,12 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2005/02/19 04:43:57 $
- * $Revision: 1.29 $
+ *     $Date: 2005/06/10 11:45:07 $
+ * $Revision: 1.30 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#ifndef GASNETI_GASNET_INTERNAL_C
-  #error This file not meant to be compiled directly - included by gasnet_internal.c
-#endif
+#include <gasnet_internal.h>
 
 #include <unistd.h>
 #include <errno.h>

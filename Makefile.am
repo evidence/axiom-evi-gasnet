@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/06/01 03:52:52 $
-# $Revision: 1.48 $
+#     $Date: 2005/06/10 11:45:07 $
+# $Revision: 1.49 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -59,7 +59,8 @@ EXTRA_DIST =              \
         $(headers)        \
         gasnet_internal.h \
         gasnet_internal.c \
-        gasnet_mmap.c 
+        gasnet_mmap.c  	  \
+        gasnet_trace.c
 #       tests handled below
 
 include_HEADERS = $(headers)

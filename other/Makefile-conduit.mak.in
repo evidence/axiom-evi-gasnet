@@ -47,7 +47,9 @@ LIBCFLAGS =                       \
 
 libgasnet_sources =           \
 	$(CONDUIT_SOURCELIST) \
-	$(top_srcdir)/gasnet_internal.c	  
+	$(top_srcdir)/gasnet_internal.c	  \
+	$(top_srcdir)/gasnet_trace.c	  \
+	$(top_srcdir)/gasnet_mmap.c	  
 
 libgasnet_objects = \
 	`for file in $(libgasnet_sources) ; do echo \`basename $$file .c\`.o ; done` \
