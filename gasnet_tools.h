@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/06/01 09:46:52 $
- * $Revision: 1.36 $
+ *     $Date: 2005/06/11 00:09:33 $
+ * $Revision: 1.37 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -135,6 +135,7 @@
 #define GASNETT_CACHE_LINE_BYTES GASNETI_CACHE_LINE_BYTES
 
 #define GASNETT_INLINE_MODIFIER(fnname) GASNET_INLINE_MODIFIER(fnname) 
+#define GASNETT_RESTRICT                GASNET_RESTRICT
 
 /* ------------------------------------------------------------------------------------ */
 
