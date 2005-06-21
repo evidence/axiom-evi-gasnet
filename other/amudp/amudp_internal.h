@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2005/04/06 06:59:16 $
- * $Revision: 1.18 $
+ *     $Date: 2005/06/21 19:05:23 $
+ * $Revision: 1.19 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -251,6 +251,30 @@ static const char *AMUDP_ErrorDesc(int errval) {
   return val;                                                     \
   } while (0)
 
+#ifndef AMUDP_ENABLE_ERRCHECKS
+  #if GASNETI_ENABLE_ERRCHECKS
+    #define AMUDP_ENABLE_ERRCHECKS 1
+  #else
+    #define AMUDP_ENABLE_ERRCHECKS 0
+  #endif
+#endif
+
+#if AMUDP_DEBUG || AMUDP_ENABLE_ERRCHECKS
+  #define AMUDP_CHECK_ERR(errcond, type) \
+    if_pf (errcond) AMUDP_RETURN_ERR(type)
+  #define AMUDP_CHECK_ERRF(errcond, type, fromfn) \
+    if_pf (errcond) AMUDP_RETURN_ERRF(type, fromfn)
+  #define AMUDP_CHECK_ERRR(errcond, type, reason) \
+    if_pf (errcond) AMUDP_RETURN_ERRR(type, reason)
+  #define AMUDP_CHECK_ERRFR(errcond, type, fromfn, reason) \
+    if_pf (errcond) AMUDP_RETURN_ERRFR(type, fromfn, reason)
+#else
+  #define AMUDP_CHECK_ERR(errcond, type)                    ((void)0)
+  #define AMUDP_CHECK_ERRF(errcond, type, fromfn)           ((void)0)
+  #define AMUDP_CHECK_ERRR(errcond, type, reason)           ((void)0)
+  #define AMUDP_CHECK_ERRFR(errcond, type, fromfn, reason)  ((void)0)
+#endif
+
 static int ErrMessage(const char *msg, ...) {
   static va_list argptr;
   char *expandedmsg = (char *)AMUDP_malloc(strlen(msg)+50);
@@ -321,7 +345,7 @@ extern double AMUDP_FaultInjectionEnabled;
   extern ep_t AMUDP_UETH_endpoint; /* the one-and-only UETH endpoint */
 #endif
 extern int amudp_Initialized;
-#define AMUDP_CHECKINIT() if (!amudp_Initialized) AMUDP_RETURN_ERR(NOT_INIT)
+#define AMUDP_CHECKINIT() AMUDP_CHECK_ERR((!amudp_Initialized),NOT_INIT)
 /* ------------------------------------------------------------------------------------ */
 /* these handle indexing into our 2-D array of desriptors and buffers */
 #define GET_REQ_DESC(ep, remoteProc, inst) \

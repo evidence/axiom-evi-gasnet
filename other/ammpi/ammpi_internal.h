@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2005/04/06 06:59:14 $
- * $Revision: 1.22 $
+ *     $Date: 2005/06/21 19:05:17 $
+ * $Revision: 1.23 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -264,6 +264,30 @@ static const char *MPI_ErrorName(int errval) {
   return AM_ERR_ ## type;                                                            \
   } while (0)
 
+#ifndef AMMPI_ENABLE_ERRCHECKS
+  #if GASNETI_ENABLE_ERRCHECKS
+    #define AMMPI_ENABLE_ERRCHECKS 1
+  #else
+    #define AMMPI_ENABLE_ERRCHECKS 0
+  #endif
+#endif
+
+#if AMMPI_DEBUG || AMMPI_ENABLE_ERRCHECKS
+  #define AMMPI_CHECK_ERR(errcond, type) \
+    if_pf (errcond) AMMPI_RETURN_ERR(type)
+  #define AMMPI_CHECK_ERRF(errcond, type, fromfn) \
+    if_pf (errcond) AMMPI_RETURN_ERRF(type, fromfn)
+  #define AMMPI_CHECK_ERRR(errcond, type, reason) \
+    if_pf (errcond) AMMPI_RETURN_ERRR(type, reason)
+  #define AMMPI_CHECK_ERRFR(errcond, type, fromfn, reason) \
+    if_pf (errcond) AMMPI_RETURN_ERRFR(type, fromfn, reason)
+#else
+  #define AMMPI_CHECK_ERR(errcond, type)                    ((void)0)
+  #define AMMPI_CHECK_ERRF(errcond, type, fromfn)           ((void)0)
+  #define AMMPI_CHECK_ERRR(errcond, type, reason)           ((void)0)
+  #define AMMPI_CHECK_ERRFR(errcond, type, fromfn, reason)  ((void)0)
+#endif
+
 /* make an MPI call - if it fails, print error message and return */
 #define MPI_SAFE(fncall) do {                                                                     \
    int retcode = (fncall);                                                                        \
@@ -346,7 +370,7 @@ extern int AMMPI_numBundles;
 extern eb_t AMMPI_bundles[AMMPI_MAX_BUNDLES];
 
 extern int ammpi_Initialized;
-#define AMMPI_CHECKINIT() if_pf (!ammpi_Initialized) AMMPI_RETURN_ERR(NOT_INIT)
+#define AMMPI_CHECKINIT() AMMPI_CHECK_ERR((!ammpi_Initialized), NOT_INIT)
 /* ------------------------------------------------------------------------------------ */
 /*  global helper functions */
 extern int AMMPI_Block(eb_t eb); 

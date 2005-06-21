@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/05/26 02:18:30 $
- * $Revision: 1.88 $
+ * $Date: 2005/06/21 19:05:01 $
+ * $Revision: 1.89 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -499,10 +499,7 @@ gasnetc_attach(gasnet_handlerentry_t *table, int numentries, uintptr_t segsize,
 extern int 
 gasnet_init(int *argc, char ***argv)
 {
-	int retval = gasnetc_init(argc, argv);
-	if (retval != GASNET_OK) 
-		GASNETI_RETURN(retval);
-	return GASNET_OK;
+	GASNETI_RETURN(gasnetc_init(argc, argv));
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -1196,8 +1193,8 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   gasnet_node_t sourceid;
   gasnetc_bufdesc_t *bufd;
 
-  if_pf (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
-  if_pf (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
+  GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
+  GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
 
   bufd = (gasnetc_bufdesc_t *) token;
   if ((void *)token == (void *)-1) {
@@ -1225,14 +1222,7 @@ gasnetc_AMRequestShortM(gasnet_node_t dest, gasnet_handler_t handler,
 	va_list argptr;
 	gasnetc_bufdesc_t *bufd;
 	int len;
-
-	GASNETI_CHECKINIT();
-	gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-
-	if_pf (dest >= gasneti_nodes) 
-		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-	GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
-
+        GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs);
 	va_start(argptr, numargs);
 
 	if (dest == gasneti_mynode) { /* local handler */
@@ -1260,22 +1250,13 @@ extern int gasnetc_AMRequestMediumM(
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
                             int numargs, ...) {
-  int retval;
   va_list argptr;
   gasnetc_bufdesc_t *bufd;
   int len;
-  GASNETI_CHECKINIT();
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-
-  if_pf (dest >= gasneti_nodes)
-	  gasneti_fatalerror("node index too high, dest (%d) >= gasneti_nodes (%d)\n",
-	    dest, gasneti_nodes);
-  if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
+  GASNETI_COMMON_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
   gasneti_assert(nbytes <= GASNETC_AM_MEDIUM_MAX);
-  retval = 1;
   if (dest == gasneti_mynode) { /* local handler */
     void *loopbuf;
     int argbuf[GASNETC_AM_MAX_ARGS];
@@ -1297,8 +1278,7 @@ extern int gasnetc_AMRequestMediumM(
   }
 
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  return GASNET_OK;
 }
 
 /* 
@@ -1426,22 +1406,10 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...)
 {
-	int	retval;
 	va_list	argptr;
-
-	GASNETI_CHECKINIT();
-  
-	gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-	if_pf (dest >= gasneti_nodes) 
-		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-	if_pf (nbytes > gasnet_AMMaxLongRequest()) 
-		GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-        if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-                GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-	GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
+        GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
 	va_start(argptr, numargs); /*  pass in last argument */
 
-	retval = 1;
 	gasneti_assert(nbytes <= GASNETC_AM_LONG_REQUEST_MAX);
 
 	if (dest == gasneti_mynode) {
@@ -1477,8 +1445,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
 	}
 
 	va_end(argptr);
-	if (retval) return GASNET_OK;
-	else GASNETI_RETURN_ERR(RESOURCE);
+	return GASNET_OK;
 }
 
 extern int 
@@ -1489,26 +1456,13 @@ gasnetc_AMRequestLongAsyncM(
 	void *dest_addr,           /* data destination on destination node */
 	int numargs, ...)
 {
-	int	retval;
 	va_list	argptr;
 
 	const firehose_request_t	*reql, *reqr;
 
 	gasnetc_bufdesc_t	*bufd;
-	GASNETI_CHECKINIT();
-
-        gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-	if_pf (dest >= gasneti_nodes)
-		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-        if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-        if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-                GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
-	GASNETI_TRACE_AMREQUESTLONGASYNC(
-		dest,handler,source_addr,nbytes,dest_addr,numargs);
-
+        GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
 	va_start(argptr, numargs); /*  pass in last argument */
-	retval = 1;
 
 	if (dest == gasneti_mynode) {
 		int	argbuf[GASNETC_AM_MAX_ARGS];
@@ -1568,8 +1522,7 @@ gasnetc_AMRequestLongAsyncM(
 	}
 
 	va_end(argptr);
-	if (retval) return GASNET_OK;
-	else GASNETI_RETURN_ERR(RESOURCE);
+	return GASNET_OK;
 }
 
 /*
@@ -1582,17 +1535,15 @@ extern int gasnetc_RequestSystem(
                             void *source_addr, size_t nbytes,   /* data payload */
                             int numargs, ...) 
 {
-  int retval;
   va_list argptr;
   gasnetc_bufdesc_t *bufd;
   int len;
   gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
 
-  if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
+  GASNETI_CHECK_ERRR((nbytes > gasnet_AMMaxMedium()),BAD_ARG,"nbytes too large");
   va_start(argptr, numargs); /*  pass in last argument */
   gasneti_assert(nbytes <= GASNETC_AM_MEDIUM_MAX);
 
-  retval = 1;
   if (dest == gasneti_mynode) { /* local handler */
     void *loopbuf;
     int argbuf[GASNETC_AM_MAX_ARGS];
@@ -1621,8 +1572,7 @@ extern int gasnetc_RequestSystem(
   }
 
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  return GASNET_OK;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -1758,10 +1708,8 @@ gasnetc_AMReplyShortM(gasnet_token_t token, gasnet_handler_t handler,
 {
 	va_list argptr;
 	gasnetc_bufdesc_t *bufd;
-
+        GASNETI_COMMON_AMREPLYSHORT(token,handler,numargs);
 	va_start(argptr, numargs); /*  pass in last argument */
-	GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs);
-	gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
 
 	if ((void *)token == (void*)-1) { /* local handler */
 		int argbuf[GASNETC_AM_MAX_ARGS];
@@ -1794,15 +1742,11 @@ extern int gasnetc_AMReplyMediumM(
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
                             int numargs, ...) {
-  int retval;
   va_list argptr;
   gasnetc_bufdesc_t *bufd;
+  GASNETI_COMMON_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  GASNETI_TRACE_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
-  retval = 1;
   gasneti_assert(nbytes <= GASNETC_AM_MEDIUM_MAX);
   if ((void *)token == (void *)-1) { /* local handler */
     int argbuf[GASNETC_AM_MAX_ARGS];
@@ -1813,10 +1757,7 @@ extern int gasnetc_AMReplyMediumM(
     GASNETC_ARGS_WRITE(argbuf, argptr, numargs);
     GASNETI_RUN_HANDLER_MEDIUM(0, handler, _gmc.handlers[handler], token,
 				argbuf, numargs, loopbuf, nbytes);
-  }
-  else {
-    if_pf (nbytes > GASNETC_AM_MEDIUM_MAX) 
-	    GASNETI_RETURN_ERRR(BAD_ARG,"AMMedium Payload too large");
+  } else {
     bufd = gasnetc_bufdesc_from_token(token);
     bufd->len = 
 	    gasnetc_write_AMBufferMedium(bufd->buf, handler, numargs, 
@@ -1832,8 +1773,7 @@ extern int gasnetc_AMReplyMediumM(
   }
   
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  return GASNET_OK;
 }
 
 extern int gasnetc_AMReplyLongM( 
@@ -1843,24 +1783,13 @@ extern int gasnetc_AMReplyLongM(
 		void *dest_addr,                    /* data destination on destination node */
 		int numargs, ...)
 {
-	int	retval;
 	va_list	argptr;
 	gasnet_node_t		dest;
 	gasnetc_bufdesc_t 	*bufd;
 
-	retval = gasnet_AMGetMsgSource(token, &dest);
-	if (retval != GASNET_OK) GASNETI_RETURN(retval);
-        gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-	if_pf (dest >= gasneti_nodes) 
-		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-        if_pf (nbytes > gasnet_AMMaxLongReply()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-        if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-                GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
+        GASNETI_COMMON_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs); 
+        GASNETI_SAFE_PROPAGATE(gasnet_AMGetMsgSource(token, &dest));
 	va_start(argptr, numargs); /*  pass in last argument */
-	GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,
-	    numargs);
-	retval = 1;
 	gasneti_assert(nbytes <= GASNETC_AM_LONG_REPLY_MAX);
 	if ((void *)token == (void *)-1) {
 		int	argbuf[GASNETC_AM_MAX_ARGS];
@@ -1950,8 +1879,7 @@ extern int gasnetc_AMReplyLongM(
 		#endif
 	}
 	va_end(argptr);
-	if (retval) return GASNET_OK;
-	else GASNETI_RETURN_ERR(RESOURCE);
+	return GASNET_OK;
 }
 
 /*
@@ -1969,21 +1897,17 @@ gasnetc_AMReplyLongAsyncM(
 		void *dest_addr,                    /* data destination on destination node */
 		int numargs, ...)
 {
-	int	retval;
 	va_list	argptr;
 	unsigned int		len;
 	gasnet_node_t		dest;
 	gasnetc_bufdesc_t 	*bufd;
 
-	retval = gasnet_AMGetMsgSource(token, &dest);
-	if (retval != GASNET_OK) GASNETI_RETURN(retval);
-	if_pf (dest >= gasneti_nodes) 
-		GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
+        GASNETI_SAFE_PROPAGATE(gasnet_AMGetMsgSource(token, &dest));
+	GASNETI_CHECK_ERRR((dest >= gasneti_nodes),BAD_ARG,"node index too high");
         gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
 	va_start(argptr, numargs); /*  pass in last argument */
 	GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,
 	    numargs);
-	retval = 1;
 
 	bufd = gasnetc_bufdesc_from_token(token);
 	len =
@@ -2034,8 +1958,7 @@ gasnetc_AMReplyLongAsyncM(
 	#endif
 
 	va_end(argptr);
-	if (retval) return GASNET_OK;
-	else GASNETI_RETURN_ERR(RESOURCE);
+	return GASNET_OK;
 }
 
 int gasnetc_ReplySystem( 
@@ -2044,7 +1967,6 @@ int gasnetc_ReplySystem(
 	void *source_addr, size_t nbytes,   /* data payload */
 	int numargs, ...) 
 {
-  int retval;
   va_list argptr;
   gasnetc_bufdesc_t *bufd;
   va_start(argptr, numargs); /*  pass in last argument */
@@ -2052,7 +1974,6 @@ int gasnetc_ReplySystem(
   gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
   gasneti_assert(nbytes <= GASNETC_AM_MEDIUM_MAX);
 
-  retval = 1;
   if ((void *)token == (void *)-1) { /* local handler */
     void *loopbuf;
     int argbuf[GASNETC_AM_MAX_ARGS];
@@ -2080,8 +2001,7 @@ int gasnetc_ReplySystem(
   }
   
   va_end(argptr);
-  if (retval) return GASNET_OK;
-  else GASNETI_RETURN_ERR(RESOURCE);
+  return GASNET_OK;
 }
 
 /* -------------------------------------------------------------------------- */

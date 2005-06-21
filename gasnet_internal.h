@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/06/01 03:52:52 $
- * $Revision: 1.76 $
+ *     $Date: 2005/06/21 19:04:50 $
+ * $Revision: 1.77 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -366,16 +366,37 @@ extern int gasneti_VerboseErrors;
   return GASNET_ERR_ ## type;                                                              \
   } while (0)
 
+#ifndef GASNETI_ENABLE_ERRCHECKS
+#define GASNETI_ENABLE_ERRCHECKS 0
+#endif
+
+#if GASNET_DEBUG || GASNETI_ENABLE_ERRCHECKS
+  #define GASNETI_CHECK_ERR(errcond, type) \
+    if_pf (errcond) GASNETI_RETURN_ERR(type)
+  #define GASNETI_CHECK_ERRF(errcond, type, fromfn) \
+    if_pf (errcond) GASNETI_RETURN_ERRF(type, fromfn)
+  #define GASNETI_CHECK_ERRR(errcond, type, reason) \
+    if_pf (errcond) GASNETI_RETURN_ERRR(type, reason)
+  #define GASNETI_CHECK_ERRFR(errcond, type, fromfn, reason) \
+    if_pf (errcond) GASNETI_RETURN_ERRFR(type, fromfn, reason)
+#else
+  #define GASNETI_CHECK_ERR(errcond, type)                    ((void)0)
+  #define GASNETI_CHECK_ERRF(errcond, type, fromfn)           ((void)0)
+  #define GASNETI_CHECK_ERRR(errcond, type, reason)           ((void)0)
+  #define GASNETI_CHECK_ERRFR(errcond, type, fromfn, reason)  ((void)0)
+#endif
+
 /* return a possible error */
-#define GASNETI_RETURN(val) do {                                             \
-  if (gasneti_VerboseErrors && val != GASNET_OK) {                           \
+#define GASNETI_RETURN(expr) do {                                            \
+  int _val = (expr);                                                         \
+  if_pf (_val != GASNET_OK && gasneti_VerboseErrors) {                       \
     fprintf(stderr, "GASNet %s returning an error code: %s (%s)\n"           \
       "  at %s:%i\n"                                                         \
       ,GASNETI_CURRENT_FUNCTION                                              \
-      , gasnet_ErrorName(val), gasnet_ErrorDesc(val), __FILE__, __LINE__);   \
+      , gasnet_ErrorName(_val), gasnet_ErrorDesc(_val), __FILE__, __LINE__); \
     fflush(stderr);                                                          \
     }                                                                        \
-  return val;                                                                \
+  return _val;                                                               \
   } while (0)
 
 /* make a GASNet call - if it fails, print error message and return error */
@@ -388,6 +409,67 @@ extern int gasneti_VerboseErrors;
      GASNETI_RETURN_ERRFR(RESOURCE, fncall, msg);            \
    }                                                         \
  } while (0)
+
+/* ------------------------------------------------------------------------------------ */
+/* common error-checking code for AM request/reply entry points */
+
+#define GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs) do {               \
+    GASNETI_CHECKATTACH();                                                     \
+    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());             \
+    GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);                        \
+    GASNETI_CHECK_ERRR((dest >= gasneti_nodes),BAD_ARG,"node index too high"); \
+  } while (0)
+#define GASNETI_COMMON_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs) do { \
+    GASNETI_CHECKATTACH();                                                           \
+    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());                   \
+    GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);          \
+    GASNETI_CHECK_ERRR((dest >= gasneti_nodes),BAD_ARG,"node index too high");       \
+    GASNETI_CHECK_ERRR((nbytes > gasnet_AMMaxMedium()),BAD_ARG,"nbytes too large");  \
+  } while (0)
+#define GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs) do { \
+    GASNETI_CHECKATTACH();                                                                   \
+    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());                           \
+    GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);          \
+    GASNETI_CHECK_ERRR((dest >= gasneti_nodes),BAD_ARG,"node index too high");               \
+    GASNETI_CHECK_ERRR((nbytes > gasnet_AMMaxLongRequest()),BAD_ARG,"nbytes too large");     \
+    GASNETI_CHECK_ERRR((!gasneti_in_segment(dest, dest_addr, nbytes)),                       \
+            BAD_ARG,"destination address out of segment range");                             \
+  } while (0)
+#define GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs) do { \
+    GASNETI_CHECKATTACH();                                                                        \
+    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());                                \
+    GASNETI_TRACE_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);          \
+    GASNETI_CHECK_ERRR((dest >= gasneti_nodes),BAD_ARG,"node index too high");                    \
+    GASNETI_CHECK_ERRR((nbytes > gasnet_AMMaxLongRequest()),BAD_ARG,"nbytes too large");          \
+    GASNETI_CHECK_ERRR((!gasneti_in_segment(dest, dest_addr, nbytes)),                            \
+            BAD_ARG,"destination address out of segment range");                                  \
+  } while (0)
+#define GASNETI_COMMON_AMREPLYSHORT(token,handler,numargs) do {    \
+    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs()); \
+    GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs);             \
+  } while (0)
+#define GASNETI_COMMON_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs) do { \
+    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());                  \
+    GASNETI_CHECK_ERRR((nbytes > gasnet_AMMaxMedium()),BAD_ARG,"nbytes too large"); \
+    GASNETI_TRACE_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);          \
+  } while (0)
+#if GASNET_DEBUG || GASNETI_ENABLE_ERRCHECKS
+  #define _GASNETI_COMMON_AMREPLYLONG_CHECKS(token,handler,source_addr,nbytes,dest_addr,numargs) do { \
+      gasnet_node_t dest;                                                                             \
+      GASNETI_SAFE_PROPAGATE(gasnet_AMGetMsgSource(token, &dest));                                    \
+      GASNETI_CHECK_ERRR((dest >= gasneti_nodes),BAD_ARG,"node index too high");                      \
+      GASNETI_CHECK_ERRR((nbytes > gasnet_AMMaxLongReply()),BAD_ARG,"nbytes too large");              \
+      GASNETI_CHECK_ERRR((!gasneti_in_segment(dest, dest_addr, nbytes)),                              \
+              BAD_ARG,"destination address out of segment range");                                    \
+    } while (0)
+#else
+  #define _GASNETI_COMMON_AMREPLYLONG_CHECKS(token,handler,source_addr,nbytes,dest_addr,numargs) ((void)0)
+#endif
+#define GASNETI_COMMON_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs) do { \
+    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());                          \
+    GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);          \
+    _GASNETI_COMMON_AMREPLYLONG_CHECKS(token,handler,source_addr,nbytes,dest_addr,numargs); \
+  } while (0)
 
 /* ------------------------------------------------------------------------------------ */
 /* utility macros for dispatching AM handlers */

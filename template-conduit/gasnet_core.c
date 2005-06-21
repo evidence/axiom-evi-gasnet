@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
- *     $Date: 2005/02/17 13:19:19 $
- * $Revision: 1.48 $
+ *     $Date: 2005/06/21 19:05:44 $
+ * $Revision: 1.49 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -326,8 +326,8 @@ extern void gasnetc_exit(int exitcode) {
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
   gasnet_node_t sourceid;
   GASNETI_CHECKATTACH();
-  if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
-  if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
+  GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
+  GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
 
   /* (###) add code here to write the source index into sourceid */
   sourceid = ###;
@@ -358,10 +358,7 @@ extern int gasnetc_AMRequestShortM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETI_CHECKATTACH();
-  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
+  GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -380,11 +377,7 @@ extern int gasnetc_AMRequestMediumM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETI_CHECKATTACH();
-  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
+  GASNETI_COMMON_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -403,15 +396,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETI_CHECKATTACH();
-  
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
-  GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
+  GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -430,15 +415,7 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETI_CHECKATTACH();
-  
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
-  GASNETI_TRACE_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
+  GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -456,8 +433,7 @@ extern int gasnetc_AMReplyShortM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs);
+  GASNETI_COMMON_AMREPLYSHORT(token,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -476,9 +452,7 @@ extern int gasnetc_AMReplyMediumM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  GASNETI_TRACE_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
+  GASNETI_COMMON_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 
@@ -497,18 +471,8 @@ extern int gasnetc_AMReplyLongM(
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...) {
   int retval;
-  gasnet_node_t dest;
   va_list argptr;
-  
-  retval = gasnet_AMGetMsgSource(token, &dest);
-  if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (nbytes > gasnet_AMMaxLongReply()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
-  GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);
+  GASNETI_COMMON_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs); 
   va_start(argptr, numargs); /*  pass in last argument */
 
     /* (###) add code here to read the arguments using va_arg(argptr, gasnet_handlerarg_t) 

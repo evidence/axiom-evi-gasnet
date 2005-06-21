@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/06/03 03:28:23 $
- * $Revision: 1.115 $
+ *     $Date: 2005/06/21 19:05:54 $
+ * $Revision: 1.116 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2554,8 +2554,8 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   uint32_t flags;
   gasnet_node_t sourceid;
 
-  if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
-  if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
+  GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
+  GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
 
   flags = ((gasnetc_rbuf_t *)token)->rbuf_flags;
 

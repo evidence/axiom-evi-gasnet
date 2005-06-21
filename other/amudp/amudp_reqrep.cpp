@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2005/05/23 11:36:34 $
- * $Revision: 1.27 $
+ *     $Date: 2005/06/21 19:05:23 $
+ * $Revision: 1.28 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -254,7 +254,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
     int totalBytesDrained = 0;
     while (1) {
       IOCTL_FIONREAD_ARG_T bytesAvail = 0;
-      if (ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
+      if_pf (ioctlsocket(ep->s, _FIONREAD, &bytesAvail) == SOCKET_ERROR)
         AMUDP_RETURN_ERRFR(RESOURCE, "ioctlsocket()", sockErrDesc());
       if (bytesAvail == 0) break; 
 
@@ -305,7 +305,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         #if USE_TRUE_BULK_XFERS
           #if !BROKEN_IOCTL
             /* can't do this check when ioctl is broken */
-            if (bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
+            if_pf (bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
               char x;
               int retval = recvfrom(ep->s, (char *)&x, 1, MSG_PEEK, NULL, NULL);
               fprintf(stderr, "bytesAvail=%lu  recvfrom(MSG_PEEK)=%i\n", (unsigned long)bytesAvail, retval); fflush(stderr);
@@ -326,16 +326,16 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         retval = myrecvfrom(ep->s, (char *)destbuf, destbufsz, 0, 
                           &sa, &sz);
 
-        if (retval == SOCKET_ERROR)
+        if_pf (retval == SOCKET_ERROR)
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom()", sockErrDesc());
-        else if (retval == 0)
+        else if_pf (retval == 0)
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: recvfrom() returned zero", sockErrDesc());
-        else if (retval < AMUDP_MIN_NETWORK_MSG) 
+        else if_pf (retval < AMUDP_MIN_NETWORK_MSG) 
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: incomplete message received in recvfrom()", sockErrDesc());
-        else if (retval > destbufsz) 
+        else if_pf (retval > destbufsz) 
             AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: buffer overrun in recvfrom()", sockErrDesc());
         #if AMUDP_DEBUG && !BROKEN_IOCTL
-        else if (retval != (int)bytesAvail) { /* detect other broken ioctl implementations */
+        else if_pf (retval != (int)bytesAvail) { /* detect other broken ioctl implementations */
           fprintf(stderr, "bytesAvail=%i  recvfrom returned:%i  ioctl() is probably broken\n", (int)bytesAvail, retval); fflush(stderr);
           }
         #endif
@@ -414,7 +414,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
       starttime = getMicrosecondTimeStamp();
       { int retval = select(maxfd+1, psockset, NULL, NULL, tv);
         if (AMUDP_SPMDControlSocket != INVALID_SOCKET) ASYNC_TCP_ENABLE();
-        if (retval == SOCKET_ERROR) { 
+        if_pf (retval == SOCKET_ERROR) { 
           AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_Block: select()", sockErrDesc());
           }
         else if (retval == 0) return -1; /* time limit expired */
@@ -692,9 +692,8 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
       AMUDP_assert(ep->rxReadyIdx != ep->rxFreeIdx);
       basicbuf = &ep->rxBuf[ep->rxReadyIdx];
       buf = (basicbuf->status.bulkBuffer ? basicbuf->status.bulkBuffer : basicbuf);
-      if_pf (basicbuf->status.handlerRunning) {
-        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_ServiceIncomingMessages, "user caused a poll to occur while handler on the same bundle was running");
-        }
+      AMUDP_CHECK_ERRFR((basicbuf->status.handlerRunning),
+        RESOURCE, AMUDP_ServiceIncomingMessages, "user caused a poll to occur while handler on the same bundle was running");
     #endif
 
       status = &basicbuf->status;
@@ -1022,7 +1021,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
 extern int AM_Poll(eb_t eb) {
   int i;
   AMUDP_CHECKINIT();
-  if (!eb) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!eb),BAD_ARG);
 
   for (i = 0; i < eb->n_endpoints; i++) {
     int retval;
@@ -1324,11 +1323,11 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
 extern int AMUDP_RequestVA(ep_t request_endpoint, int reply_endpoint, handler_t handler, 
                          int numargs, va_list argptr) {
   AMUDP_CHECKINIT();
-  if_pf (!request_endpoint || reply_endpoint < 0) AMUDP_RETURN_ERR(BAD_ARG);
-  if (AMUDP_BADHANDLERVAL(handler)) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (request_endpoint->depth == -1) AMUDP_RETURN_ERR(NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  if_pf (reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
-     !request_endpoint->translation[reply_endpoint].inuse) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!request_endpoint || reply_endpoint < 0),BAD_ARG);
+  AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
+  AMUDP_CHECK_ERR((request_endpoint->depth == -1),NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
+  AMUDP_CHECK_ERR((reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
+     !request_endpoint->translation[reply_endpoint].inuse),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
   return AMUDP_RequestGeneric(amudp_Short, 
@@ -1353,13 +1352,13 @@ extern int AMUDP_RequestIVA(ep_t request_endpoint, int reply_endpoint, handler_t
                           void *source_addr, int nbytes,
                           int numargs, va_list argptr) {
   AMUDP_CHECKINIT();
-  if_pf (!request_endpoint || reply_endpoint < 0) AMUDP_RETURN_ERR(BAD_ARG);
-  if (AMUDP_BADHANDLERVAL(handler)) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (request_endpoint->depth == -1) AMUDP_RETURN_ERR(NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  if_pf (reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
-     !request_endpoint->translation[reply_endpoint].inuse) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (!source_addr) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (nbytes < 0 || nbytes > AMUDP_MAX_MEDIUM) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!request_endpoint || reply_endpoint < 0),BAD_ARG);
+  AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
+  AMUDP_CHECK_ERR((request_endpoint->depth == -1),NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
+  AMUDP_CHECK_ERR((reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
+     !request_endpoint->translation[reply_endpoint].inuse),BAD_ARG);
+  AMUDP_CHECK_ERR((!source_addr),BAD_ARG);
+  AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_MEDIUM),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
   return AMUDP_RequestGeneric(amudp_Medium, 
@@ -1422,14 +1421,14 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
                           int async, 
                           int numargs, va_list argptr) {
   AMUDP_CHECKINIT();
-  if_pf (!request_endpoint || reply_endpoint < 0) AMUDP_RETURN_ERR(BAD_ARG);
-  if (AMUDP_BADHANDLERVAL(handler)) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (request_endpoint->depth == -1) AMUDP_RETURN_ERR(NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
-  if_pf (reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
-     !request_endpoint->translation[reply_endpoint].inuse) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (!source_addr) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (nbytes < 0 || nbytes > AMUDP_MAX_LONG) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (dest_offset > AMUDP_MAX_SEGLENGTH) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!request_endpoint || reply_endpoint < 0),BAD_ARG);
+  AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
+  AMUDP_CHECK_ERR((request_endpoint->depth == -1),NOT_INIT); /* it's an error to call before AM_SetExpectedResources */
+  AMUDP_CHECK_ERR((reply_endpoint >= AMUDP_MAX_NUMTRANSLATIONS ||
+     !request_endpoint->translation[reply_endpoint].inuse),BAD_ARG);
+  AMUDP_CHECK_ERR((!source_addr),BAD_ARG);
+  AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_LONG),BAD_ARG);
+  AMUDP_CHECK_ERR((dest_offset > AMUDP_MAX_SEGLENGTH),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
   #if USE_TRUE_BULK_XFERS
   {
@@ -1569,19 +1568,19 @@ extern int AMUDP_ReplyVA(void *token, handler_t handler,
   amudp_buf_t *requestbuf;
 
   AMUDP_CHECKINIT();
-  if_pf (!token) AMUDP_RETURN_ERR(BAD_ARG);
-  if (AMUDP_BADHANDLERVAL(handler)) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!token),BAD_ARG);
+  AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
   { /*  semantic checking on reply (are we in a handler, is this the first reply, etc.) */
     basicbuf = (amudp_buf_t *)token;
     requestbuf = (basicbuf->status.bulkBuffer ? basicbuf->status.bulkBuffer : basicbuf);
-    if_pf (!AMUDP_MSG_ISREQUEST(&requestbuf->Msg)) AMUDP_RETURN_ERR(RESOURCE); /* token is not a request */
-    if_pf (!basicbuf->status.handlerRunning) AMUDP_RETURN_ERR(RESOURCE); /* token is not for an active request */
-    if_pf (basicbuf->status.replyIssued) AMUDP_RETURN_ERR(RESOURCE);     /* already issued a reply */
-    if_pf (((amudp_system_messagetype_t)requestbuf->Msg.systemMessageType) != amudp_system_user) 
-      AMUDP_RETURN_ERR(RESOURCE); /* can't reply to a system message (returned message) */
-    }
+    AMUDP_CHECK_ERR((!AMUDP_MSG_ISREQUEST(&requestbuf->Msg)),RESOURCE); /* token is not a request */
+    AMUDP_CHECK_ERR((!basicbuf->status.handlerRunning),RESOURCE); /* token is not for an active request */
+    AMUDP_CHECK_ERR((basicbuf->status.replyIssued),RESOURCE);     /* already issued a reply */
+    AMUDP_CHECK_ERR((((amudp_system_messagetype_t)requestbuf->Msg.systemMessageType) != amudp_system_user),
+                    RESOURCE); /* can't reply to a system message (returned message) */
+  }
 
   return AMUDP_ReplyGeneric(amudp_Short, 
                                   basicbuf, handler, 
@@ -1607,20 +1606,20 @@ extern int AMUDP_ReplyIVA(void *token, handler_t handler,
   amudp_buf_t *requestbuf;
 
   AMUDP_CHECKINIT();
-  if_pf (!token) AMUDP_RETURN_ERR(BAD_ARG);
-  if (AMUDP_BADHANDLERVAL(handler)) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (!source_addr) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (nbytes < 0 || nbytes > AMUDP_MAX_MEDIUM) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!token),BAD_ARG);
+  AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
+  AMUDP_CHECK_ERR((!source_addr),BAD_ARG);
+  AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_MEDIUM),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
   { /*  semantic checking on reply (are we in a handler, is this the first reply, etc.) */
     basicbuf = (amudp_buf_t *)token;
     requestbuf = (basicbuf->status.bulkBuffer ? basicbuf->status.bulkBuffer : basicbuf);
-    if_pf (!AMUDP_MSG_ISREQUEST(&requestbuf->Msg)) AMUDP_RETURN_ERR(RESOURCE); /* token is not a request */
-    if_pf (!basicbuf->status.handlerRunning) AMUDP_RETURN_ERR(RESOURCE); /* token is not for an active request */
-    if_pf (basicbuf->status.replyIssued) AMUDP_RETURN_ERR(RESOURCE);     /* already issued a reply */
-    if_pf (((amudp_system_messagetype_t)requestbuf->Msg.systemMessageType) != amudp_system_user) 
-      AMUDP_RETURN_ERR(RESOURCE); /* can't reply to a system message (returned message) */
+    AMUDP_CHECK_ERR((!AMUDP_MSG_ISREQUEST(&requestbuf->Msg)),RESOURCE); /* token is not a request */
+    AMUDP_CHECK_ERR((!basicbuf->status.handlerRunning),RESOURCE); /* token is not for an active request */
+    AMUDP_CHECK_ERR((basicbuf->status.replyIssued),RESOURCE);     /* already issued a reply */
+    AMUDP_CHECK_ERR((((amudp_system_messagetype_t)requestbuf->Msg.systemMessageType) != amudp_system_user),
+                    RESOURCE); /* can't reply to a system message (returned message) */
     }
 
   return AMUDP_ReplyGeneric(amudp_Medium, 
@@ -1649,27 +1648,26 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
   amudp_buf_t *requestbuf;
 
   AMUDP_CHECKINIT();
-  if_pf (!token) AMUDP_RETURN_ERR(BAD_ARG);
-  if (AMUDP_BADHANDLERVAL(handler)) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (!source_addr) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (nbytes < 0 || nbytes > AMUDP_MAX_LONG) AMUDP_RETURN_ERR(BAD_ARG);
-  if_pf (dest_offset > AMUDP_MAX_SEGLENGTH) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!token),BAD_ARG);
+  AMUDP_CHECK_ERR((AMUDP_BADHANDLERVAL(handler)),BAD_ARG);
+  AMUDP_CHECK_ERR((!source_addr),BAD_ARG);
+  AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_LONG),BAD_ARG);
+  AMUDP_CHECK_ERR((dest_offset > AMUDP_MAX_SEGLENGTH),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
 
-  if_pf (nbytes > AMUDP_MAX_MEDIUM && !USE_TRUE_BULK_XFERS) 
-    AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_ReplyXfer, 
+  AMUDP_CHECK_ERRFR((nbytes > AMUDP_MAX_MEDIUM && !USE_TRUE_BULK_XFERS), 
+    RESOURCE, AMUDP_ReplyXfer, 
       "ReplyXfer() exceeding AM_Medium()=" _STRINGIFY(AMUDP_MAX_MEDIUM) " bytes not implemented.");
 
   { /*  semantic checking on reply (are we in a handler, is this the first reply, etc.) */
     basicbuf = (amudp_buf_t *)token;
     requestbuf = (basicbuf->status.bulkBuffer ? basicbuf->status.bulkBuffer : basicbuf);
-    if_pf (!AMUDP_MSG_ISREQUEST(&requestbuf->Msg)) AMUDP_RETURN_ERR(RESOURCE); /* token is not a request */
-    if_pf (!basicbuf->status.handlerRunning) AMUDP_RETURN_ERR(RESOURCE); /* token is not for an active request */
-    if_pf (basicbuf->status.replyIssued) AMUDP_RETURN_ERR(RESOURCE);     /* already issued a reply */
-    if_pf (((amudp_system_messagetype_t)requestbuf->Msg.systemMessageType) != amudp_system_user) 
-      AMUDP_RETURN_ERR(RESOURCE); /* can't reply to a system message (returned message) */
-    }
-
+    AMUDP_CHECK_ERR((!AMUDP_MSG_ISREQUEST(&requestbuf->Msg)),RESOURCE); /* token is not a request */
+    AMUDP_CHECK_ERR((!basicbuf->status.handlerRunning),RESOURCE); /* token is not for an active request */
+    AMUDP_CHECK_ERR((basicbuf->status.replyIssued),RESOURCE);     /* already issued a reply */
+    AMUDP_CHECK_ERR((((amudp_system_messagetype_t)requestbuf->Msg.systemMessageType) != amudp_system_user),
+      RESOURCE); /* can't reply to a system message (returned message) */
+  }
 
   return AMUDP_ReplyGeneric(amudp_Long, 
                                   basicbuf, handler, 

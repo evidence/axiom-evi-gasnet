@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2005/04/17 08:58:19 $
- * $Revision: 1.11 $
+ *     $Date: 2005/06/21 19:05:23 $
+ * $Revision: 1.12 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -780,7 +780,7 @@ extern int _AM_SetHandlerAny(ep_t ea, handler_t *handler, amudp_handler_fn_t fun
  *------------------------------------------------------------------------------------ */
 extern int AM_GetEventMask(eb_t eb, int *mask) {
   AMUDP_CHECKINIT();
-  if (!eb) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!eb),BAD_ARG);
 
   *mask = eb->event_mask;
   return AM_OK;
@@ -788,8 +788,8 @@ extern int AM_GetEventMask(eb_t eb, int *mask) {
 /* ------------------------------------------------------------------------------------ */
 extern int AM_SetEventMask(eb_t eb, int mask) {
   AMUDP_CHECKINIT();
-  if (!eb) AMUDP_RETURN_ERR(BAD_ARG);
-  if (mask < 0 || ((amudp_eventmask_t)mask) >= AM_NUMEVENTMASKS) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!eb),BAD_ARG);
+  AMUDP_CHECK_ERR((mask < 0 || ((amudp_eventmask_t)mask) >= AM_NUMEVENTMASKS),BAD_ARG);
 
   eb->event_mask = (uint8_t)mask;
   return AM_OK;
@@ -798,7 +798,7 @@ extern int AM_SetEventMask(eb_t eb, int mask) {
 extern int AM_WaitSema(eb_t eb) {
   int retval;
   AMUDP_CHECKINIT();
-  if (!eb) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!eb),BAD_ARG);
   
   if (eb->event_mask == AM_NOEVENTS) 
     abort(); /* it's an error to block when the mask is not set - will never return */
@@ -819,7 +819,7 @@ extern int AM_WaitSema(eb_t eb) {
  *------------------------------------------------------------------------------------ */
 extern int AM_GetSourceEndpoint(void *token, en_t *gan) {
   AMUDP_CHECKINIT();
-  if (!token || !gan) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!token || !gan),BAD_ARG);
 
   *gan = ((amudp_buf_t *)token)->status.sourceAddr;
   return AM_OK;
@@ -827,7 +827,7 @@ extern int AM_GetSourceEndpoint(void *token, en_t *gan) {
 /* ------------------------------------------------------------------------------------ */
 extern int AMUDP_GetSourceId(void *token, int *srcid) {
   AMUDP_CHECKINIT();
-  if (!token || !srcid) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!token || !srcid),BAD_ARG);
 
   *srcid = ((amudp_buf_t *)token)->status.sourceId;
   return AM_OK;
@@ -835,7 +835,7 @@ extern int AMUDP_GetSourceId(void *token, int *srcid) {
 /* ------------------------------------------------------------------------------------ */
 extern int AM_GetDestEndpoint(void *token, ep_t *endp) {
   AMUDP_CHECKINIT();
-  if (!token || !endp) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!token || !endp),BAD_ARG);
 
   *endp = ((amudp_buf_t *)token)->status.dest;
   return AM_OK;
@@ -843,7 +843,7 @@ extern int AM_GetDestEndpoint(void *token, ep_t *endp) {
 /* ------------------------------------------------------------------------------------ */
 extern int AM_GetMsgTag(void *token, tag_t *tagp) {
   AMUDP_CHECKINIT();
-  if (!token || !tagp) AMUDP_RETURN_ERR(BAD_ARG);
+  AMUDP_CHECK_ERR((!token || !tagp),BAD_ARG);
   
   if (((amudp_buf_t *)token)->status.bulkBuffer)
     *tagp = ((amudp_buf_t *)token)->status.bulkBuffer->Msg.tag;

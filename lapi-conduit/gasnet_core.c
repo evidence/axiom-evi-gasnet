@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/04/17 06:46:52 $
- * $Revision: 1.73 $
+ *     $Date: 2005/06/21 19:05:07 $
+ * $Revision: 1.74 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -682,8 +682,8 @@ extern void gasnetc_exit(int exitcode) {
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex) {
     gasnet_node_t sourceid;
     GASNETI_CHECKATTACH();
-    if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
-    if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
+    GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
+    GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
 
     /* (###) add code here to write the source index into sourceid */
     sourceid = ((gasnetc_token_t*)token)->msg.sourceId;
@@ -757,10 +757,7 @@ extern int gasnetc_AMRequestShortM(
     lapi_cntr_t *p_cntr = NULL;
     va_list argptr;
 
-    GASNETI_CHECKATTACH();
-    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-    GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
+    GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs);
 
     token = (gasnetc_token_t*)GASNETC_ALIGN_PTR(&raw_token[0]);
     msg = &token->msg;
@@ -835,11 +832,7 @@ extern int gasnetc_AMRequestMediumM(
     lapi_cntr_t *p_cntr = NULL;
     va_list argptr;
 
-    GASNETI_CHECKATTACH();
-    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-    if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-    GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
+    GASNETI_COMMON_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
 
     token = (gasnetc_token_t*)GASNETC_ALIGN_PTR(&raw_token[0]);
     msg = &token->msg;
@@ -936,14 +929,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
     lapi_cntr_t *p_cntr = NULL;
     va_list argptr;
 
-    GASNETI_CHECKATTACH();
-    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-    if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-    if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-            GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
-    GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
+    GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
 
     token = (gasnetc_token_t*)GASNETC_ALIGN_PTR(&raw_token[0]);
     msg = &token->msg;
@@ -1030,15 +1016,8 @@ extern int gasnetc_AMRequestLongAsyncM( gasnet_node_t dest,        /* destinatio
     int cur_cntr = 0;
 #endif
     lapi_cntr_t *p_cntr = NULL;
-    GASNETI_CHECKATTACH();
-  
-    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-    if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-    if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-            GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
 
-    GASNETI_TRACE_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
+    GASNETI_COMMON_AMREQUESTLONGASYNC(dest,handler,source_addr,nbytes,dest_addr,numargs);
 
     token = gasnetc_uhdr_alloc();
     msg = &token->msg;
@@ -1134,8 +1113,7 @@ extern int gasnetc_AMReplyShortM(
     lapi_cntr_t *p_cntr = NULL;
 
     va_list argptr;
-    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-    GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs);
+    GASNETI_COMMON_AMREPLYSHORT(token,handler,numargs);
     va_start(argptr, numargs); /*  pass in last argument */
 
     /* we can re-use the token passed into us.  It was allocated in the
@@ -1212,9 +1190,7 @@ extern int gasnetc_AMReplyMediumM(
     lapi_cntr_t *p_cntr = NULL;
     
     va_list argptr;
-    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-    if_pf (nbytes > gasnet_AMMaxMedium()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-    GASNETI_TRACE_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
+    GASNETI_COMMON_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
 
     /* we can re-use the token passed into us.  It was allocated in the
      * LAPI header handler to be large enough to contain the maximum
@@ -1310,15 +1286,8 @@ extern int gasnetc_AMReplyLongM(
     lapi_cntr_t *p_cntr = NULL;
     va_list argptr;
   
-    retval = gasnet_AMGetMsgSource(token, &dest);
-    if (retval != GASNET_OK) GASNETI_RETURN(retval);
-    gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-    if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-    if_pf (nbytes > gasnet_AMMaxLongReply()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-    if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-            GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
-
-    GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);
+    GASNETI_COMMON_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs); 
+    GASNETI_SAFE_PROPAGATE(gasnet_AMGetMsgSource(token, &dest));
 
     /* re-use the token passed to us */
     GASNETC_MSG_SETFLAGS(msg,0,gasnetc_Long,0,numargs);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2005/06/02 04:25:04 $
- * $Revision: 1.61 $
+ *     $Date: 2005/06/21 19:05:12 $
+ * $Revision: 1.62 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -427,8 +427,8 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   int retval;
   int sourceid;
   GASNETI_CHECKATTACH();
-  if (!token) GASNETI_RETURN_ERRR(BAD_ARG,"bad token");
-  if (!srcindex) GASNETI_RETURN_ERRR(BAD_ARG,"bad src ptr");
+  GASNETI_CHECK_ERRR((!token),BAD_ARG,"bad token");
+  GASNETI_CHECK_ERRR((!srcindex),BAD_ARG,"bad src ptr");
 
   retval = GASNETI_AM_SAFE_NORETURN(AMMPI_GetSourceId(token, &sourceid));
 
@@ -462,10 +462,8 @@ extern int gasnetc_AMRequestShortM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETI_CHECKATTACH();
   CHECKCALLNIS();
-  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  GASNETI_TRACE_AMREQUESTSHORT(dest,handler,numargs);
+  GASNETI_COMMON_AMREQUESTSHORT(dest,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AMLOCK_TOSEND();
       retval = GASNETI_AM_SAFE_NORETURN(
@@ -484,10 +482,8 @@ extern int gasnetc_AMRequestMediumM(
                             int numargs, ...) {
   int retval;
   va_list argptr;
-  GASNETI_CHECKATTACH();
   CHECKCALLNIS();
-  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  GASNETI_TRACE_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
+  GASNETI_COMMON_AMREQUESTMEDIUM(dest,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AMLOCK_TOSEND();
       retval = GASNETI_AM_SAFE_NORETURN(
@@ -508,17 +504,11 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   int retval;
   uintptr_t dest_offset;
   va_list argptr;
-  GASNETI_CHECKATTACH();
   CHECKCALLNIS();
+  GASNETI_COMMON_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
 
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (nbytes > gasnet_AMMaxLongRequest()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
   dest_offset = ((uintptr_t)dest_addr) - ((uintptr_t)gasneti_seginfo[dest].addr);
 
-  GASNETI_TRACE_AMREQUESTLONG(dest,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AMLOCK_TOSEND();
       retval = GASNETI_AM_SAFE_NORETURN(
@@ -539,7 +529,7 @@ extern int gasnetc_AMReplyShortM(
   int retval;
   va_list argptr;
   CHECKCALLHSL();
-  GASNETI_TRACE_AMREPLYSHORT(token,handler,numargs);
+  GASNETI_COMMON_AMREPLYSHORT(token,handler,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AM_ASSERT_LOCKED();
     retval = GASNETI_AM_SAFE_NORETURN(
@@ -557,7 +547,7 @@ extern int gasnetc_AMReplyMediumM(
   int retval;
   va_list argptr;
   CHECKCALLHSL();
-  GASNETI_TRACE_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
+  GASNETI_COMMON_AMREPLYMEDIUM(token,handler,source_addr,nbytes,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AM_ASSERT_LOCKED();
     retval = GASNETI_AM_SAFE_NORETURN(
@@ -579,16 +569,10 @@ extern int gasnetc_AMReplyLongM(
   va_list argptr;
   
   CHECKCALLHSL();
-  retval = gasnet_AMGetMsgSource(token, &dest);
-  if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasneti_assert(numargs >= 0 && numargs <= gasnet_AMMaxArgs());
-  if_pf (dest >= gasneti_nodes) GASNETI_RETURN_ERRR(BAD_ARG,"node index too high");
-  if_pf (nbytes > gasnet_AMMaxLongReply()) GASNETI_RETURN_ERRR(BAD_ARG,"nbytes too large");
-  if_pf (!gasneti_in_segment(dest, dest_addr, nbytes)) 
-          GASNETI_RETURN_ERRR(BAD_ARG,"destination address out of segment range");
+  GASNETI_COMMON_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs); 
+  GASNETI_SAFE_PROPAGATE(gasnet_AMGetMsgSource(token, &dest));
   dest_offset = ((uintptr_t)dest_addr) - ((uintptr_t)gasneti_seginfo[dest].addr);
 
-  GASNETI_TRACE_AMREPLYLONG(token,handler,source_addr,nbytes,dest_addr,numargs);
   va_start(argptr, numargs); /*  pass in last argument */
     AM_ASSERT_LOCKED();
     retval = GASNETI_AM_SAFE_NORETURN(
@@ -614,7 +598,7 @@ extern int gasnetc_AMReplyLongM(
   typedef struct { /* per-thread HSL err-checking info */
     gasnet_hsl_t *locksheld;
     int inExplicitNIS;
-    int inhandler;
+    unsigned int inhandler;
     int64_t NIStimestamp;
   } gasnetc_hsl_errcheckinfo_t;
   static gasnetc_hsl_errcheckinfo_t _info_init = { NULL, 0, 0 };
@@ -882,12 +866,11 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
     #if (!GASNETC_NULL_HSL && GASNETC_HSL_ERRCHECK)
     {
       gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
-      gasneti_assert(!info->inhandler);
       if (info->locksheld)
           gasneti_fatalerror("HSL USAGE VIOLATION: tried to make a GASNet network call while holding an HSL");
       if (info->inExplicitNIS)
           gasneti_fatalerror("HSL USAGE VIOLATION: tried to make a GASNet network call with interrupts disabled");
-      info->inhandler = 1;
+      info->inhandler++;
     }
     #endif
   }
@@ -907,11 +890,11 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
     #if (!GASNETC_NULL_HSL && GASNETC_HSL_ERRCHECK)
     {
       gasnetc_hsl_errcheckinfo_t *info = gasnetc_get_errcheckinfo();
-      gasneti_assert(info->inhandler);
+      gasneti_assert(info->inhandler > 0);
       gasneti_assert(!info->inExplicitNIS);
       if (info->locksheld)
           gasneti_fatalerror("HSL USAGE VIOLATION: tried to exit a handler while holding an HSL");
-      info->inhandler = 0;
+      info->inhandler--;
     }
     #endif
   }

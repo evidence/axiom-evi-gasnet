@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2005/04/17 08:58:17 $
- * $Revision: 1.26 $
+ *     $Date: 2005/06/21 19:05:17 $
+ * $Revision: 1.27 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -932,7 +932,7 @@ extern int AMMPI_RegisterControlMessageHandler(ep_t ea, ammpi_handler_fn_t funct
  *------------------------------------------------------------------------------------ */
 extern int AM_GetEventMask(eb_t eb, int *mask) {
   AMMPI_CHECKINIT();
-  if (!eb) AMMPI_RETURN_ERR(BAD_ARG);
+  AMMPI_CHECK_ERR((!eb),BAD_ARG);
 
   *mask = eb->event_mask;
   return AM_OK;
@@ -940,8 +940,8 @@ extern int AM_GetEventMask(eb_t eb, int *mask) {
 /* ------------------------------------------------------------------------------------ */
 extern int AM_SetEventMask(eb_t eb, int mask) {
   AMMPI_CHECKINIT();
-  if (!eb) AMMPI_RETURN_ERR(BAD_ARG);
-  if (mask < 0 || ((ammpi_eventmask_t)mask) >= AM_NUMEVENTMASKS) AMMPI_RETURN_ERR(BAD_ARG);
+  AMMPI_CHECK_ERR((!eb),BAD_ARG);
+  AMMPI_CHECK_ERR((mask < 0 || ((ammpi_eventmask_t)mask) >= AM_NUMEVENTMASKS),BAD_ARG);
 
   eb->event_mask = (uint8_t)mask;
   return AM_OK;
@@ -950,7 +950,7 @@ extern int AM_SetEventMask(eb_t eb, int mask) {
 extern int AM_WaitSema(eb_t eb) {
   int retval;
   AMMPI_CHECKINIT();
-  if (!eb) AMMPI_RETURN_ERR(BAD_ARG);
+  AMMPI_CHECK_ERR((!eb),BAD_ARG);
   
   if (eb->event_mask == AM_NOEVENTS) 
     abort(); /* it's an error to block when the mask is not set - will never return */
@@ -966,9 +966,9 @@ extern int AM_WaitSema(eb_t eb) {
  *------------------------------------------------------------------------------------ */
 extern int AM_GetSourceEndpoint(void *token, en_t *gan) {
   AMMPI_CHECKINIT();
-  if (!token || !gan) AMMPI_RETURN_ERR(BAD_ARG);
-  if (!((ammpi_buf_t *)token)->status.handlerRunning) 
-    AMMPI_RETURN_ERRFR(RESOURCE,AM_GetSourceEndpoint,"handler not running");
+  AMMPI_CHECK_ERR((!token || !gan),BAD_ARG);
+  AMMPI_CHECK_ERRFR((!((ammpi_buf_t *)token)->status.handlerRunning),
+                    RESOURCE,AM_GetSourceEndpoint,"handler not running");
 
   *gan = ((ammpi_buf_t *)token)->status.sourceAddr;
   return AM_OK;
@@ -976,9 +976,9 @@ extern int AM_GetSourceEndpoint(void *token, en_t *gan) {
 /* ------------------------------------------------------------------------------------ */
 extern int AMMPI_GetSourceId(void *token, int *srcid) {
   AMMPI_CHECKINIT();
-  if (!token || !srcid) AMMPI_RETURN_ERR(BAD_ARG);
-  if (!((ammpi_buf_t *)token)->status.handlerRunning) 
-    AMMPI_RETURN_ERRFR(RESOURCE,AM_GetSourceEndpoint,"handler not running");
+  AMMPI_CHECK_ERR((!token || !srcid),BAD_ARG);
+  AMMPI_CHECK_ERRFR((!((ammpi_buf_t *)token)->status.handlerRunning),
+                    RESOURCE,AM_GetSourceEndpoint,"handler not running");
 
   *srcid = ((ammpi_buf_t *)token)->status.sourceId;
   return AM_OK;
@@ -986,9 +986,9 @@ extern int AMMPI_GetSourceId(void *token, int *srcid) {
 /* ------------------------------------------------------------------------------------ */
 extern int AM_GetDestEndpoint(void *token, ep_t *endp) {
   AMMPI_CHECKINIT();
-  if (!token || !endp) AMMPI_RETURN_ERR(BAD_ARG);
-  if (!((ammpi_buf_t *)token)->status.handlerRunning) 
-    AMMPI_RETURN_ERRFR(RESOURCE,AM_GetSourceEndpoint,"handler not running");
+  AMMPI_CHECK_ERR((!token || !endp),BAD_ARG);
+  AMMPI_CHECK_ERRFR((!((ammpi_buf_t *)token)->status.handlerRunning),
+                    RESOURCE,AM_GetSourceEndpoint,"handler not running");
 
   *endp = ((ammpi_buf_t *)token)->status.dest;
   return AM_OK;
@@ -996,9 +996,9 @@ extern int AM_GetDestEndpoint(void *token, ep_t *endp) {
 /* ------------------------------------------------------------------------------------ */
 extern int AM_GetMsgTag(void *token, tag_t *tagp) {
   AMMPI_CHECKINIT();
-  if (!token || !tagp) AMMPI_RETURN_ERR(BAD_ARG);
-  if (!((ammpi_buf_t *)token)->status.handlerRunning) 
-    AMMPI_RETURN_ERRFR(RESOURCE,AM_GetSourceEndpoint,"handler not running");
+  AMMPI_CHECK_ERR((!token || !tagp),BAD_ARG);
+  AMMPI_CHECK_ERRFR((!((ammpi_buf_t *)token)->status.handlerRunning),
+                    RESOURCE,AM_GetSourceEndpoint,"handler not running");
 
   #if AMMPI_USE_AMTAGS
     *tagp = ((ammpi_buf_t *)token)->Msg.tag;
