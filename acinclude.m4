@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/06/09 23:47:22 $
-dnl $Revision: 1.66 $
+dnl     $Date: 2005/06/22 07:40:28 $
+dnl $Revision: 1.67 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -199,6 +199,42 @@ AC_DEFUN([GASNET_APPEND_DEFINE],[
   fi
 ]) 
 
+dnl push a new value into variable varname, saving the old value
+dnl GASNET_PUSHVAR(varname, new value)
+AC_DEFUN([GASNET_PUSHVAR],[
+  dnl echo "old value of $1: $[$1]"
+  if test "$_pushcnt_$1" = "" ; then
+    _pushcnt_$1=0
+  fi
+  if test "$_total_pushcnt" = "" ; then
+    _total_pushcnt=0
+  fi
+  eval _pushedvar_$1_$_pushcnt_$1=\$[$1]
+  let _pushcnt_$1++
+  let _total_pushcnt++
+  $1=$2
+  dnl echo "pushed new value: $[$1]"
+]) 
+
+dnl restore the old value of varname, from a previous push
+dnl GASNET_POPVAR(varname)
+AC_DEFUN([GASNET_POPVAR],[
+  if test "$_pushcnt_$1" -ge "1"; then
+    let _pushcnt_$1--
+    let _total_pushcnt--
+    eval $1=\$_pushedvar_$1_$_pushcnt_$1
+    dnl echo "popping $1 back to: $[$1]"
+  else
+    AC_MSG_ERROR([INTERNAL ERROR: GASNET_PUSH/POPVAR underflow on $1])
+  fi
+]) 
+
+AC_DEFUN([GASNET_PUSHPOP_CHECK],[
+  if test "$_total_pushcnt" -ge "1" ; then
+    AC_MSG_ERROR([INTERNAL ERROR: GASNET_PUSH/POPVAR mismatch: $_total_pushcnt more pushes than pops])
+  fi
+])
+
 dnl add file to list of executable outputs that should be marked +x
 dnl would be nice to use AC_CONFIG_COMMANDS() for each file, but autoconf 2.53
 dnl  stupidly fails to execute commands having the same tag as a config output file
@@ -242,7 +278,7 @@ AC_SUBST(LIBGCC)
 
 AC_DEFUN([GASNET_LIBM],[
 AC_REQUIRE([AC_PROG_CC])
-OLDLIBS="$LIBS"
+GASNET_PUSHVAR(LIBS,"$LIBS")
 case "$target_os" in
   darwin*)
     # libm is just an alias for the system default lib
@@ -254,7 +290,7 @@ case "$target_os" in
   ;;
 esac
 AC_SUBST(LIBM)
-LIBS="$OLDLIBS"
+GASNET_POPVAR(LIBS)
 ])
 
 dnl GASNET_ENV_DEFAULT(envvar-name, default-value)
@@ -352,6 +388,12 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
   AC_SUBST(BUILD_ID)
 
   GASNET_RESTORE_AUTOCONF_ENV([CC CXX CFLAGS CXXFLAGS CPPFLAGS LIBS MAKE GMAKE AR AS RANLIB PERL SUM LEX YACC $1])
+])
+
+AC_DEFUN([GASNET_END_CONFIGURE],[
+  GASNET_ERR_CLEANUP()
+  GASNET_SAVE_AUTOCONF_ENV()
+  GASNET_PUSHPOP_CHECK()
 ])
 
 dnl AC_DEFINE the configure information variables detected by GASNET_START_CONFIGURE, with prefix
@@ -515,10 +557,10 @@ fi
 
 dnl GASNET_CHECK_LIB(library, function, action-if-found, action-if-not-found, other-flags, other-libraries)
 AC_DEFUN([GASNET_CHECK_LIB],[
-GASNET_check_lib_old_ldflags="$LDFLAGS"
-LDFLAGS="$LDFLAGS $5"
+GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS $5")
 AC_CHECK_LIB($1, $2, $3, $4, $6)
-LDFLAGS="$GASNET_check_lib_old_ldflags"])
+GASNET_POPVAR(LDFLAGS)
+])
 
 dnl GASNET_TRY_RUNCMD(command, action-success-nooutput, action-success-output, action-error)
 dnl run a command, and take action based on the result code and output (in $gasnet_cmd_stdout/$gasnet_cmd_stderr)
@@ -598,39 +640,37 @@ EOF
 
 dnl GASNET_TRY_CFLAG(flags, action-if-supported, action-if-not-supported)
 AC_DEFUN([GASNET_TRY_CFLAG],[
-gasnet_tryflag_oldflags="$CFLAGS"
-CFLAGS="$CFLAGS $1"
+GASNET_PUSHVAR(CFLAGS,"$CFLAGS $1")
 AC_MSG_CHECKING(for C compiler flag $1)
 GASNET_TRY_CCOMPILE_WITHWARN([], [], [
  AC_MSG_RESULT(yes)
- CFLAGS="$gasnet_tryflag_oldflags"
+ GASNET_POPVAR(CFLAGS)
  $2
 ], [
  AC_MSG_RESULT(no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr)
- CFLAGS="$gasnet_tryflag_oldflags"
+ GASNET_POPVAR(CFLAGS)
  $3
 ], [
  AC_MSG_RESULT(no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr)
- CFLAGS="$gasnet_tryflag_oldflags"
+ GASNET_POPVAR(CFLAGS)
  $3
 ])])
 
 dnl GASNET_TRY_CXXFLAG(flags, action-if-supported, action-if-not-supported)
 AC_DEFUN([GASNET_TRY_CXXFLAG],[
-gasnet_tryflag_oldflags="$CXXFLAGS"
-CXXFLAGS="$CXXFLAGS $1"
+GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS $1")
 AC_MSG_CHECKING(for C++ compiler flag $1)
 GASNET_TRY_CXXCOMPILE_WITHWARN([], [], [
  AC_MSG_RESULT(yes)
- CXXFLAGS="$gasnet_tryflag_oldflags"
+ GASNET_POPVAR(CXXFLAGS)
  $2
 ], [
  AC_MSG_RESULT(no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr)
- CXXFLAGS="$gasnet_tryflag_oldflags"
+ GASNET_POPVAR(CXXFLAGS)
  $3
 ], [
  AC_MSG_RESULT(no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr)
- CXXFLAGS="$gasnet_tryflag_oldflags"
+ GASNET_POPVAR(CXXFLAGS)
  $3
 ])])
 
@@ -644,16 +684,14 @@ if test "$[$2]" != "" ; then
   GASNET_ENV_DEFAULT([$2], []) # user-provided flags
 else
   GASNET_ENV_DEFAULT([$2], [$3]) # try DEFAULT_CFLAGS
-  oldCC="$CC"
-  oldCFLAGS="$CFLAGS"
-  CC="$[$1]"
-  CFLAGS=""
+  GASNET_PUSHVAR(CC,"$[$1]")
+  GASNET_PUSHVAR(CFLAGS,"")
     GASNET_TRY_CFLAG([$[$2]], [], [
 	AC_MSG_WARN([Unable to use default $2="$[$2]" so using "$4" instead. Consider manually seting $2])
         $2="$4"
     ])
-  CC="$oldCC"
-  CFLAGS="$oldCFLAGS"
+  GASNET_POPVAR(CC)
+  GASNET_POPVAR(CFLAGS)
 fi
 ])
 
@@ -665,10 +703,8 @@ AC_DEFUN([GASNET_CHECK_OPTIMIZEDDEBUG],[
   AC_MSG_CHECKING([$1 for debug vs. optimize compilation conflict])
   AC_LANG_SAVE
   AC_LANG_C
-  OLDCC="$CC"
-  OLDCFLAGS="$CFLAGS"
-  CC="$[$1]"
-  CFLAGS="$[$2] $3"
+  GASNET_PUSHVAR(CC,"$[$1]")
+  GASNET_PUSHVAR(CFLAGS,"$[$2] $3")
   AC_TRY_COMPILE( [
     $4
     #if defined(__OPTIMIZE__) || defined(NDEBUG)
@@ -678,8 +714,8 @@ AC_DEFUN([GASNET_CHECK_OPTIMIZEDDEBUG],[
     AC_MSG_RESULT([yes])
     GASNET_MSG_ERROR([User requested --enable-debug but $1 or $2 has enabled optimization (-O) or disabled assertions (-DNDEBUG). Try setting $1='$[$1] -O0 -UNDEBUG' or changing $2])
   ])
-  CC="$OLDCC"
-  CFLAGS="$OLDCFLAGS"
+  GASNET_POPVAR(CC)
+  GASNET_POPVAR(CFLAGS)
   AC_LANG_RESTORE
  fi
 ])

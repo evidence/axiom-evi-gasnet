@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/06/11 15:04:27 $
-# $Revision: 1.273 $
+#     $Date: 2005/06/22 07:40:28 $
+# $Revision: 1.274 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.273 $)
+AC_REVISION($Revision: 1.274 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -150,8 +150,7 @@ fi
 
 case "$gasnet_cv_cc_family" in
   GNU)  GASNET_GCC_VERSION_CHECK(CC)
-        oldCFLAGS="$CFLAGS"
-        CFLAGS="-O3"
+	GASNET_PUSHVAR(CFLAGS,"-O3")
 	# prefer the --param inliner option(s), which give us finer control
         GASNET_TRY_CFLAG([--param max-inline-insns-single=10000],
 			 [CFLAGS="$CFLAGS --param max-inline-insns-single=10000"
@@ -171,7 +170,7 @@ case "$gasnet_cv_cc_family" in
         # for inlining operations which the user did not request.
         # Detect that gcc bug and avoid -Winline for those versions
         GASNET_TRY_CFLAG([-Winline],[
-          oldCFLAGS2="$CFLAGS"
+          noninlineCFLAGS="$CFLAGS"
           CFLAGS="$CFLAGS -Winline"
           AC_MSG_CHECKING(for buggy -Winline)
           GASNET_TRY_CCOMPILE_WITHWARN([
@@ -181,12 +180,12 @@ case "$gasnet_cv_cc_family" in
            int x = bar(); 
           ], [ AC_MSG_RESULT(ok) # keep -Winline
           ], [ AC_MSG_RESULT(buggy)
-               CFLAGS="$oldCFLAGS2" # remove -Winline
+               CFLAGS="$noninlineCFLAGS" # remove -Winline
           ], [ AC_MSG_ERROR(failure when detecting buggy -Winline)])
         ])
 
         CCOPTFLAGS="$CFLAGS"
-        CFLAGS="$oldCFLAGS"
+	GASNET_POPVAR(CFLAGS)
   ;;
   Pathscale)  CCOPTFLAGS="-O3 -Winline" ;;
   Sun)  CCOPTFLAGS="-fast -xO5" ;;
@@ -253,10 +252,10 @@ AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[
 ])
 
 case "$gasnet_cv_cc_family" in
-  GNU)  oldCFLAGS="$CFLAGS"
+  GNU)  GASNET_PUSHVAR(CFLAGS,"$CFLAGS")
         GASNET_GET_GNUWARNINGFLAGS(C)
         CCDEBUGFLAGS="$CFLAGS"
-        CFLAGS="$oldCFLAGS"
+        GASNET_POPVAR(CFLAGS)
   ;;
   NEC)   CCDEBUGFLAGS="-g -Cnoopt -Cdebug" ;; 
   HP)   CCDEBUGFLAGS="-g +ESdbgasm" ;; # need +ESdbgasm to use -g with _asm()
@@ -644,13 +643,11 @@ have_pthread=no
 if test "$use_pthreads" != "no"; then
   GASNET_CHECK_OVERRIDE_PTHREADS
   AC_MSG_CHECKING([for working pthreads support])
-  OLDLIBS="$LIBS"   
-  OLDCFLAGS="$CFLAGS"
-  CFLAGS="$CFLAGS $GASNET_THREAD_DEFINES"
-  LIBS="$LIBS $GASNET_THREAD_LIBS"
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS $GASNET_THREAD_DEFINES")
+  GASNET_PUSHVAR(LIBS,"$LIBS $GASNET_THREAD_LIBS")
   AC_TRY_LINK( [ #include <pthread.h> ], [ pthread_create(NULL,NULL,NULL,NULL); ], [have_pthread=yes])
-  LIBS="$OLDLIBS"
-  CFLAGS="$OLDCFLAGS"
+  GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(LIBS)
   AC_MSG_RESULT($have_pthread)
 else
   pthread_reason="was disabled"
@@ -668,10 +665,8 @@ if test "$have_pthread" = no ; then
   GASNET_THREAD_DEFINES=""
   GASNET_THREAD_LIBS=""
 else
-  OLDCPPFLAGS="$CPPFLAGS"
-  OLDLIBS="$LIBS"
-  CPPFLAGS="$CPPFLAGS $GASNET_THREAD_DEFINES -I$TOP_SRCDIR/other"
-  LIBS="$GASNET_THREAD_LIBS"
+  GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS $GASNET_THREAD_DEFINES -I$TOP_SRCDIR/other")
+  GASNET_PUSHVAR(LIBS,"$GASNET_THREAD_LIBS")
 
   # define HAVE_PTHREAD_H
   AC_CHECK_HEADERS(pthread.h)
@@ -695,8 +690,8 @@ else
   esac
   
   GASNET_THREAD_LIBS="$LIBS"
-  CPPFLAGS="$OLDCPPFLAGS"
-  LIBS="$OLDLIBS"
+  GASNET_POPVAR(CPPFLAGS)
+  GASNET_POPVAR(LIBS)
 fi
 if test "$GASNETI_CACHE_LINE_BYTES" = "" ; then
   GASNETI_CACHE_LINE_BYTES=128
@@ -806,7 +801,7 @@ if test $enabled_udp = yes; then
   case "$gasnet_cv_cxx_family" in
     GNU) 
        GASNET_GCC_VERSION_CHECK(CXX)
-       oldCXXFLAGS="$CXXFLAGS"  
+       GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS")
        GASNET_GET_GNUWARNINGFLAGS(CXX)
        MISC_CXXFLAGS="$CXXFLAGS" 
        case "$target_cpu" in
@@ -816,7 +811,7 @@ if test $enabled_udp = yes; then
 	                       AC_DEFINE(GASNETI_ARCH_SPARCV9) ] ) ;; 
          *) ;; 
        esac 
-       CXXFLAGS="$oldCXXFLAGS"
+       GASNET_POPVAR(CXXFLAGS)
     ;;
     PGI)   MISC_CXXFLAGS="-w -Masmkeyword" ;; # apparently has no way to indep control warnings
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
@@ -853,8 +848,7 @@ if test $enabled_udp = yes; then
     CXXFLAGS="$CXXDEBUGFLAGS"
   fi
   GASNET_CHECK_OPTIMIZEDDEBUG(CXX,CXXFLAGS,[$CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES],[])
-  oldCXXFLAGS="$CXXFLAGS"
-  CXXFLAGS="$CXXFLAGS $CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES"
+  GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS $CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES")
   GASNET_TRY_CACHE_RUN( [for working C++ exceptions], cxx_exceptions, [
     int main() {
      try {
@@ -869,7 +863,7 @@ if test $enabled_udp = yes; then
   ], [ ], [ 
     GASNET_MSG_ERROR("I can\'t figure out how to build and run a program that uses C++ exceptions")
   ] )  
-  CXXFLAGS="$oldCXXFLAGS"
+  GASNET_POPVAR(CXXFLAGS)
   AC_SUBST(MISC_CXXFLAGS)
 
   AC_LANG_RESTORE
@@ -881,8 +875,7 @@ if test $enabled_udp = yes; then
 
   if test $supported_amudp = yes; then
     # detect libraries necessary for udp-* backends
-    OLDLIBS="$LIBS"
-      LIBS=""
+    GASNET_PUSHVAR(LIBS,"")
       AC_SEARCH_LIBS(socket, socket, have_udp=yes, have_udp=no)
       AC_SEARCH_LIBS(gethostbyname, nsl, , have_udp=no)
       GASNET_UDP_LIBS="$GASNET_UDP_LIBS $LIBS"
@@ -905,8 +898,7 @@ if test $enabled_udp = yes; then
       if test "$force_udp$have_udp" = yesno ; then
 	GASNET_MSG_ERROR(User requested --enable-udp but I don't know how to build UDP programs for your system)
       fi
-
-    LIBS="$OLDLIBS"
+    GASNET_POPVAR(LIBS)
   fi
 fi
 AM_CONDITIONAL(HAVE_CXX, test "$have_cxx" = 1)
@@ -1086,16 +1078,11 @@ _GASNET_EOF
 
     AC_MSG_CHECKING(for working MPI configuration)
     # we need a clean slate here because MPI config may be totally different
-    OLDCC="$CC"
-    OLDCFLAGS="$CFLAGS"
-    OLDCPPFLAGS="$CPPFLAGS"
-    OLDLDFLAGS="$LDFLAGS"
-    OLDLIBS="$LIBS"
-    CC="$MPI_CC"
-    CFLAGS="$MPI_CFLAGS"
-    CPPFLAGS=""
-    LDFLAGS=""
-    LIBS="$MPIHELPER_LIBS $MPI_LIBS"
+    GASNET_PUSHVAR(CC,"$MPI_CC")
+    GASNET_PUSHVAR(CFLAGS,"$MPI_CFLAGS")
+    GASNET_PUSHVAR(CPPFLAGS,"")
+    GASNET_PUSHVAR(LDFLAGS,"")
+    GASNET_PUSHVAR(LIBS,"$MPIHELPER_LIBS $MPI_LIBS")
     # we just try to link an MPI app - running MPI apps is a whole new can of worms
     AC_TRY_LINK( [
       #include <mpi.h>
@@ -1104,11 +1091,11 @@ _GASNET_EOF
       MPI_Init((void*)0,(void*)0);
       MPI_Finalize();
     ], [ mpi_test_worked=yes ], [ mpi_test_worked=no GASNET_ERR_SAVE() ] )
-    CC="$OLDCC"
-    CFLAGS="$OLDCFLAGS"
-    CPPFLAGS="$OLDCPPFLAGS"
-    LDFLAGS="$OLDLDFLAGS"
-    LIBS="$OLDLIBS"
+    GASNET_POPVAR(CC)
+    GASNET_POPVAR(CFLAGS)
+    GASNET_POPVAR(CPPFLAGS)
+    GASNET_POPVAR(LDFLAGS)
+    GASNET_POPVAR(LIBS)
     rm -f $MPIHELPER_OBJ
   fi
   if test "$mpi_test_worked" = yes ; then
@@ -1211,10 +1198,8 @@ if test $enabled_gm = yes; then
 
   if test $have_gm = yes; then
     AC_MSG_CHECKING(for working GM configuration)
-    OLDCFLAGS="$CFLAGS"
-    OLDLIBS="$LIBS"
-    CFLAGS="-I$GM_INCLUDE -L$GM_LIB"
-    LIBS="-lgm"
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$GM_INCLUDE -L$GM_LIB")
+    GASNET_PUSHVAR(LIBS,"$LIBS -lgm")
     # try to compile and link a simple gm_init, gm_finalize
     AC_TRY_LINK( [
       #include <stdlib.h>
@@ -1223,8 +1208,8 @@ if test $enabled_gm = yes; then
       gm_init();
       gm_finalize();
     ], [ gm_test_worked=yes ], [ gm_test_worked=no GASNET_ERR_SAVE() ] )
-    CFLAGS="$OLDCFLAGS"
-    LIBS="$OLDLIBS"
+    GASNET_POPVAR(CFLAGS)
+    GASNET_POPVAR(LIBS)
 
     if test "$gm_test_worked" = yes; then
       AC_MSG_RESULT(yes)
@@ -1254,10 +1239,8 @@ if test $enabled_gm = yes; then
       # Now test to see if the targetted GM is a broken one 
       # broken gm builds
       AC_MSG_CHECKING(for broken GM 2.x RDMA gets build)
-      OLDCFLAGS="$CFLAGS"
-      OLDLIBS="$LIBS"
-      CFLAGS="-I$GM_INCLUDE -L$GM_LIB"
-      LIBS="-lgm"
+      GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$GM_INCLUDE -L$GM_LIB")
+      GASNET_PUSHVAR(LIBS,"$LIBS -lgm")
       AC_TRY_COMPILE([
         #include <gm.h>
         ], [
@@ -1277,8 +1260,8 @@ if test $enabled_gm = yes; then
       else
           AC_MSG_RESULT(no)
       fi
-      CFLAGS="$OLDCFLAGS"
-      LIBS="$OLDLIBS"
+      GASNET_POPVAR(CFLAGS)
+      GASNET_POPVAR(LIBS)
 
       force_enable_gm_mpi_compat=no
       AC_MSG_CHECKING(for GM interoperability with MPI)
@@ -1346,8 +1329,7 @@ if test "$enabled_lapi$have_pthread" = yesno; then
 fi
 if test "$enabled_lapi" = yes; then
   AC_MSG_CHECKING(for working LAPI configuration)
-  OLDLIBS="$LIBS"
-  LIBS="-llapi_r -lpthread"
+  GASNET_PUSHVAR(LIBS,"$LIBS -llapi_r -lpthread")
   # try to compile and link a simple LAPI program
   AC_TRY_LINK( [
     #include <lapi.h>
@@ -1359,7 +1341,7 @@ if test "$enabled_lapi" = yes; then
       memset(&gasnetc_lapi_info, 0, sizeof(lapi_info_t));
       LAPI_Init(&gasnetc_lapi_context, &gasnetc_lapi_info);
     }], [ have_lapi=yes ], [ have_lapi=no GASNET_ERR_SAVE() ] )
-  LIBS="$OLDLIBS"
+  GASNET_POPVAR(LIBS)
   AC_MSG_RESULT($have_lapi)
 
   # Check for hardware version
@@ -1502,10 +1484,8 @@ if test $enabled_elan = yes; then
   fi
 
  if test $have_elan = yes; then
-
-  OLDCFLAGS="$CFLAGS"
-  OLDLIBS="$LIBS"
-  CFLAGS="-I$ELAN_INCLUDE"
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$ELAN_INCLUDE")
+  GASNET_PUSHVAR(LIBS,"$LIBS")
   # librmscall used by any elan program, librms also used on older systems
   RMSLIBS="-lrmscall"
   AC_CHECK_LIB(rms, main, RMSLIBS="$RMSLIBS -lrms")
@@ -1560,8 +1540,8 @@ if test $enabled_elan = yes; then
      elan_baseInit();
    #endif
   ], [ elan_test_worked=yes ], [ elan_test_worked=no ] )
-  CFLAGS="$OLDCFLAGS"
-  LIBS="$OLDLIBS"
+  GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(LIBS)
 
   if test "$elan_test_worked" = yes; then
     AC_MSG_RESULT(yes)
@@ -1665,10 +1645,8 @@ if test "$enabled_vapi" = yes; then
 
   # Try to compile and link a basic VAPI program
   AC_MSG_CHECKING(for working VAPI configuration)
-  OLDCFLAGS="$CFLAGS"
-  OLDLIBS="$LIBS"
-  CFLAGS="-I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS"
-  LIBS="-L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS"
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
+  GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
   # try to compile and link a simple VAPI program
   AC_TRY_LINK( [
     #include <evapi.h>
@@ -1679,8 +1657,8 @@ if test "$enabled_vapi" = yes; then
 
     rc = EVAPI_list_hcas(1, &num_of_hcas, &inst_hca_id);
     }], [ vapi_test_worked=yes ], [ vapi_test_worked=no GASNET_ERR_SAVE() ] )
-  CFLAGS="$OLDCFLAGS"
-  LIBS="$OLDLIBS"
+  GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(LIBS)
   if test "$vapi_test_worked" = yes; then
     AC_MSG_RESULT(yes)
   else
@@ -1695,10 +1673,8 @@ if test "$enabled_vapi" = yes; then
 
   if test "$have_vapi" = yes; then
     AC_MSG_CHECKING(for VAPI FMR support)
-    OLDCFLAGS="$CFLAGS"
-    OLDLIBS="$LIBS"
-    CFLAGS="-I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS"
-    LIBS="-L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS"
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
+    GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
     AC_TRY_LINK( [
       #include <vapi.h>
       #include <evapi.h>
@@ -1708,8 +1684,8 @@ if test "$enabled_vapi" = yes; then
       EVAPI_unmap_fmr(my_hca, 1, handles);
     }], [ AC_DEFINE(HAVE_VAPI_FMR)
           AC_MSG_RESULT(yes) ], [ AC_MSG_RESULT(no) ] )
-    CFLAGS="$OLDCFLAGS"
-    LIBS="$OLDLIBS"
+    GASNET_POPVAR(CFLAGS)
+    GASNET_POPVAR(LIBS)
 
     # Collect some VAPI-specifc configure options
     GASNET_IF_ENABLED_WITH_AUTO(vapi-force-poll-lock, [See vapi-conduit/README (disabled by default)], 
@@ -1823,10 +1799,8 @@ if test $enabled_shmem = yes; then
 
 
   if test $have_shmem = yes; then
-    OLDCFLAGS="$CFLAGS"
-    OLDLIBS="$LIBS"
-    CFLAGS="-I${SHMEM_INCLUDE} -I${SHMEM_INCLUDE}/mpp"
-    LIBS="-L${SHMEM_LIBDIR} ${SHMEM_LIBS}"
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I${SHMEM_INCLUDE} -I${SHMEM_INCLUDE}/mpp")
+    GASNET_PUSHVAR(LIBS,"$LIBS -L${SHMEM_LIBDIR} ${SHMEM_LIBS}")
     SHMEM_FLAGS="-D${SHMEM_FLAVOUR}"
 
     AC_MSG_CHECKING(for working SHMEM configuration)
@@ -1840,8 +1814,8 @@ if test $enabled_shmem = yes; then
       mype = shmem_my_pe();
       numpes = shmem_n_pes();
       }], [ shmem_test_worked=yes ], [ shmem_test_worked=no GASNET_ERR_SAVE() ] )
-    CFLAGS="$OLDCFLAGS"
-    LIBS="$OLDLIBS"
+    GASNET_POPVAR(CFLAGS)
+    GASNET_POPVAR(LIBS)
   
     if test "$shmem_test_worked" = yes; then
       AC_MSG_RESULT(yes)
@@ -1895,10 +1869,8 @@ if test "$enabled_sci" = yes; then
   GASNET_ENV_DEFAULT(SCI_LIBS, [-L$SCIHOME/lib -lsisci])
 
   AC_MSG_CHECKING(for working SCI configuration)
-  OLDCFLAGS="$CFLAGS"
-  OLDLIBS="$LIBS"
-  CFLAGS="$CFLAGS $SCI_INCLUDES"
-  LIBS="$LIBS $SCI_LIBS"
+  GASNET_PUSHVAR(CFLAGS,"$CFLAGS $SCI_INCLUDES")
+  GASNET_PUSHVAR(LIBS,"$LIBS $SCI_LIBS")
   # try to compile and link a simple SCI program
   AC_TRY_LINK( [
      #include <sisci_types.h>
@@ -1909,8 +1881,8 @@ if test "$enabled_sci" = yes; then
      sci_error_t err;
      SCIOpen(&sd, 0, &err);
     }], [ have_sci=yes ], [ have_sci=no GASNET_ERR_SAVE() ] )
-  CFLAGS="$OLDCFLAGS"
-  LIBS="$OLDLIBS"
+  GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(LIBS)
   AC_MSG_RESULT($have_sci)
 
   # Check for conflict
@@ -2003,8 +1975,6 @@ esac
 
 # Check for alloca in C code
 GASNET_FUNC_ALLOCA
-
-LIBS="$OLDLIBS"
 
 AC_CHECK_FUNCS(setenv unsetenv putenv)
 
@@ -2282,9 +2252,6 @@ AC_SUBST(TOOL_PREFIX)
 ##  Final Output
 ##
 
-GASNET_SAVE_AUTOCONF_ENV()
-GASNET_ERR_CLEANUP()
-
 GASNET_FIX_EXEC(gm-conduit/contrib/gasnetrun_gm)
 GASNET_FIX_EXEC(mpi-conduit/contrib/gasnetrun_mpi)
 GASNET_FIX_EXEC(sci-conduit/contrib/gasnetrun_sci)
@@ -2292,7 +2259,7 @@ GASNET_FIX_EXEC(vapi-conduit/contrib/gasnetrun_vapi)
 GASNET_FIX_EXEC(other/contrib/gasnet_trace)
 
 # Files added here should also be added to ./unBootstrap
-
+GASNET_END_CONFIGURE()
 AC_OUTPUT(
 Makefile
 other/perlstart dnl must precede files that use it
