@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2005/04/28 02:54:26 $
- * $Revision: 1.28 $
+ *     $Date: 2005/06/22 09:57:07 $
+ * $Revision: 1.29 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -485,7 +485,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
                          int dest, gasnet_handler_t handler, 
                          void *source_addr, int nbytes, void *dest_ptr, 
                          int numargs, va_list argptr) {
-  char _shortbuf[GASNETC_ELAN_MAX_QUEUEMSG]; 
+  char _shortbuf[GASNETC_ELAN_MAX_QUEUEMSG+GASNETI_MEDBUF_ALIGNMENT]; 
   gasnetc_bufdesc_t _descbuf; 
   gasnetc_bufdesc_t *desc = NULL;
   gasnetc_buf_t *buf = NULL;
@@ -510,7 +510,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
         msgsz = GASNETC_MED_HEADERSZ + (actualargs<<2) + nbytes;
         if (msgsz <= GASNETC_ELAN_MAX_QUEUEMSG) {
           desc = &_descbuf;
-          buf = (gasnetc_buf_t *)_shortbuf;
+          buf = (gasnetc_buf_t *)GASNETI_ALIGNUP(_shortbuf,GASNETI_MEDBUF_ALIGNMENT);
           desc->buf = buf;
         }
         else {
