@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/06/21 19:05:54 $
- * $Revision: 1.116 $
+ *     $Date: 2005/06/23 00:12:37 $
+ * $Revision: 1.117 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1117,12 +1117,13 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   int packedlong = 0;
   gasnetc_epid_t epid;
   gasnetc_cep_t *cep;
-  union {         
+  union tmp_buf {         
     gasnetc_shortmsg_t    shortmsg;
     gasnetc_medmsg_t      medmsg;
     gasnetc_longmsg_t     longmsg;
     uint8_t		  raw[72];	/* could be gasnetc_inline_limit if we had VLA */
-  } tmp_buf;
+  };
+  char tmp_buf[sizeof(union tmp_buf) + 8];
 
   /* For a Reply, we must go back via the same qp that the Request came in on.
    * For a Request, we bind to a qp now to be sure everything goes on one qp.
@@ -1263,8 +1264,8 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 
   /* Now get an sreq and buffer and start building the message */
   sreq = gasnetc_get_sreq();
-  if_pt ((msg_len <= gasnetc_inline_limit) && (msg_len <= sizeof(tmp_buf))) {
-    buf = (gasnetc_buffer_t *)&tmp_buf;
+  if_pt ((msg_len <= gasnetc_inline_limit) && (msg_len <= sizeof(union tmp_buf))) {
+    buf = (gasnetc_buffer_t *)GASNETI_ALIGNUP(tmp_buf, 8);
     sreq->am_buff = NULL;
   } else {
     buf = gasnetc_get_bbuf(1);	/* may block */
