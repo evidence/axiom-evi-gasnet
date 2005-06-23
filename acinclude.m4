@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/06/22 07:40:28 $
-dnl $Revision: 1.67 $
+dnl     $Date: 2005/06/23 00:04:13 $
+dnl $Revision: 1.68 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -210,8 +210,8 @@ AC_DEFUN([GASNET_PUSHVAR],[
     _total_pushcnt=0
   fi
   eval _pushedvar_$1_$_pushcnt_$1=\$[$1]
-  let _pushcnt_$1++
-  let _total_pushcnt++
+  _pushcnt_$1=`expr $_pushcnt_$1 + 1`
+  _total_pushcnt=`expr $_total_pushcnt + 1`
   $1=$2
   dnl echo "pushed new value: $[$1]"
 ]) 
@@ -220,8 +220,8 @@ dnl restore the old value of varname, from a previous push
 dnl GASNET_POPVAR(varname)
 AC_DEFUN([GASNET_POPVAR],[
   if test "$_pushcnt_$1" -ge "1"; then
-    let _pushcnt_$1--
-    let _total_pushcnt--
+    _pushcnt_$1=`expr $_pushcnt_$1 - 1`
+    _total_pushcnt=`expr $_total_pushcnt - 1`
     eval $1=\$_pushedvar_$1_$_pushcnt_$1
     dnl echo "popping $1 back to: $[$1]"
   else
