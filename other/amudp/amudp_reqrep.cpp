@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2005/06/21 19:05:23 $
- * $Revision: 1.28 $
+ *     $Date: 2005/06/28 08:40:52 $
+ * $Revision: 1.29 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -65,12 +65,12 @@ static int sendPacket(ep_t ep, amudp_buf_t *packet, int packetlength, en_t desta
   #ifdef UETH
     switch (packettype) {
       case RETRANSMISSION_PACKET:
-      case REQUESTREPLY_PACKET: // address is pre-set
+      case REQUESTREPLY_PACKET: /*  address is pre-set */
         if (ueth_send_preset(packet, packetlength, &packet->bufhandle) != UETH_OK) {
           AMUDP_RETURN_ERRFR(RESOURCE, sendPacket, "ueth_send_preset() failed");
           }
         break;
-      case REFUSAL_PACKET: // address is not pre-set
+      case REFUSAL_PACKET: /*  address is not pre-set */
         if (ueth_send(packet, packetlength, &destaddress, &packet->bufhandle) != UETH_OK) {
           AMUDP_RETURN_ERRFR(RESOURCE, sendPacket, "ueth_send() failed");
           }
@@ -226,7 +226,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
 
         waittime -= thiswait;
         }
-      return -1; // timed out
+      return -1; /*  timed out */
       }
     }
 /* ------------------------------------------------------------------------------------ */
@@ -243,9 +243,9 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   #define BROKEN_IOCTL 1
 #elif defined(AIX) || defined(IRIX) || defined(FREEBSD) || defined(HPUX) || defined(MTA) || \
       defined(OSF) || defined(DARWIN) || defined(MACOSX) || defined(SUPERUX) || defined(NETBSD) || defined(UNICOS)
-  #define BROKEN_IOCTL 1 // seems these are broken too... 
+  #define BROKEN_IOCTL 1 /*  seems these are broken too...  */
 #else 
-  #define BROKEN_IOCTL 0 // at least Linux and Solaris work as documented
+  #define BROKEN_IOCTL 0 /*  at least Linux and Solaris work as documented */
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -520,7 +520,7 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
           /* tag should NOT be changed for retransmit */
           #ifdef UETH
             if (ueth_query_send(outgoingbuf, outgoingbuf->bufhandle)) { 
-              // previous send still waiting in outgoing FIFO, so don't bother to retransmit at this time
+              /*  previous send still waiting in outgoing FIFO, so don't bother to retransmit at this time */
               #if AMUDP_DEBUG_VERBOSE
                 fprintf(stderr, "Skipping a retransmit (last send still in FIFO)..."); fflush(stderr);
               #endif
@@ -625,18 +625,308 @@ extern int AMUDP_Block(eb_t eb) {
 #endif
 
 /* this is a local-use-only macro for AMUDP_ServiceIncomingMessages */
-#define AMUDP_REFUSEMESSAGE(ep, basicbuf, errcode) do {                         \
-    amudp_buf_t *buf = ((basicbuf)->status.bulkBuffer ? (basicbuf)->status.bulkBuffer : (basicbuf));\
-    int retval;                                                                 \
-    buf->Msg.systemMessageType = (uint8_t)amudp_system_returnedmessage;         \
-    buf->Msg.systemMessageArg = (uint8_t)errcode;                               \
-    retval = sendPacket(ep, buf, GET_PACKET_LENGTH(buf), (basicbuf)->status.sourceAddr, REFUSAL_PACKET); \
-       /* ignore errors sending this */                                         \
-    if (retval != AM_OK) ErrMessage("failed to sendPacket to refuse message");  \
-    else REFUSE_NOTICE(#errcode);                                               \
-    goto donewithmessage;                                                       \
-    } while(0)
+#define AMUDP_REFUSEMESSAGE(errcode) do {                                        \
+    buf->Msg.systemMessageType = (uint8_t)amudp_system_returnedmessage;          \
+    buf->Msg.systemMessageArg = (uint8_t)errcode;                                \
+    if (isloopback) {                                                            \
+      AMUDP_processPacket(buf, 1);                                               \
+    } else {                                                                     \
+      int retval = sendPacket(ep, buf, GET_PACKET_LENGTH(buf),                   \
+                        (basicbuf)->status.sourceAddr, REFUSAL_PACKET);          \
+       /* ignore errors sending this */                                          \
+      if (retval != AM_OK) ErrMessage("failed to sendPacket to refuse message"); \
+      else REFUSE_NOTICE(#errcode);                                              \
+    }                                                                            \
+    return;                                                                      \
+  } while(0)
 
+void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
+  /* basicbuf: the (possible placeholder) buffer in the recv queue that holds status bits */
+  /* buf: the true buffer or bulk buffer that holds the msg */
+  amudp_buf_t *buf = (basicbuf->status.bulkBuffer ? basicbuf->status.bulkBuffer : basicbuf);
+  amudp_msg_t * const msg = &buf->Msg;
+  amudp_bufstatus_t * const status = &basicbuf->status; /* the status block for this buffer */
+  ep_t const ep = status->dest;
+  int const sourceID = status->sourceId;
+  int const numargs = AMUDP_MSG_NUMARGS(msg);
+  int seqnum = AMUDP_MSG_SEQNUM(msg);
+  uint16_t instance = AMUDP_MSG_INSTANCE(msg);
+  int const isrequest = AMUDP_MSG_ISREQUEST(msg);
+  amudp_category_t const cat = AMUDP_MSG_CATEGORY(msg);
+  int const issystemmsg = ((amudp_system_messagetype_t)msg->systemMessageType) != amudp_system_user;
+
+  /* handle returned messages */
+  if (issystemmsg) { 
+    amudp_system_messagetype_t type = ((amudp_system_messagetype_t)msg->systemMessageType);
+    if_pf (type == amudp_system_returnedmessage) { 
+      AMUDP_HandlerReturned handlerfn = (AMUDP_HandlerReturned)ep->handler[0];
+      op_t opcode;
+      if (sourceID < 0) return; /*  unknown source, ignore message */
+      if (isrequest && !isloopback) { /*  the returned message is a request, so free that request buffer */
+        uint16_t instance = AMUDP_MSG_INSTANCE(msg);
+        amudp_bufdesc_t *desc = GET_REQ_DESC(ep, sourceID, instance);
+        amudp_buf_t *basicreqbuf = GET_REQ_BUF(ep, sourceID, instance);
+        if (desc->inuse && desc->seqNum == seqnum) {
+          desc->inuse = FALSE;
+          ep->outstandingRequests--;
+          if (basicreqbuf->status.bulkBuffer) {
+            AMUDP_ReleaseBulkBuffer(ep, basicreqbuf->status.bulkBuffer);
+            basicreqbuf->status.bulkBuffer = NULL;
+          }
+          desc->seqNum = (uint8_t)!(desc->seqNum);
+          ep->perProcInfo[sourceID].instanceHint = instance;
+        }
+      }
+      opcode = AMUDP_GetOpcode(isrequest, cat);
+
+      /* note that source/dest for returned mesgs reflect the virtual "message denied" packet 
+       * although it doesn't really matter because the AM2 spec is too vague
+       * about the argblock returned message argument for it to be of any use to anyone
+       */
+      status->replyIssued = TRUE; /* prevent any reply */
+      status->handlerRunning = TRUE;
+        AMUDP_assert(handlerfn != NULL);
+        (*handlerfn)(msg->systemMessageArg, opcode, (void *)basicbuf);
+      status->handlerRunning = FALSE;
+      ep->stats.ReturnedMessages++;
+      return;
+    }
+  }
+
+  if (isrequest) ep->stats.RequestsReceived[cat]++;
+  else ep->stats.RepliesReceived[cat]++;
+
+  /* perform acceptance checks */
+
+  if_pf (ep->tag == AM_NONE || 
+     (ep->tag != msg->tag && ep->tag != AM_ALL))
+      AMUDP_REFUSEMESSAGE(EBADTAG);
+  if_pf (instance >= ep->depth)
+      AMUDP_REFUSEMESSAGE(EUNREACHABLE);
+  if_pf (ep->handler[msg->handlerId] == amudp_unused_handler &&
+      !issystemmsg && msg->handlerId != 0)
+      AMUDP_REFUSEMESSAGE(EBADHANDLER);
+
+  switch (cat) {
+    case amudp_Short:
+      if_pf (msg->nBytes > 0 || msg->destOffset > 0)
+        AMUDP_REFUSEMESSAGE(EBADLENGTH);
+      break;
+    case amudp_Medium:
+      if_pf (msg->nBytes > AMUDP_MAX_MEDIUM || msg->destOffset > 0)
+        AMUDP_REFUSEMESSAGE(EBADLENGTH);
+      break;
+    case amudp_Long: 
+      /* check segment limits */
+      #if USE_TRUE_BULK_XFERS
+        if_pf (msg->nBytes > AMUDP_MAX_LONG)
+          AMUDP_REFUSEMESSAGE(EBADLENGTH);
+      #else
+        if_pf (msg->nBytes > AMUDP_MAX_MEDIUM)
+          AMUDP_REFUSEMESSAGE(EBADLENGTH);
+      #endif
+      if_pf ( ep->segLength == 0 || /* empty seg */
+              ((uintptr_t)ep->segAddr + msg->destOffset) == 0) /* NULL target */
+        AMUDP_REFUSEMESSAGE(EBADSEGOFF);
+      if_pf (msg->destOffset + msg->nBytes > ep->segLength)
+        AMUDP_REFUSEMESSAGE(EBADLENGTH);
+      break;
+    default:
+      abort();
+  }
+
+  /*  check the source id */
+  if_pf (sourceID < 0) AMUDP_REFUSEMESSAGE(EBADENDPOINT);
+
+  if (!isloopback) {
+    /* check sequence number to see if this is a new request/reply or a duplicate */
+    if (isrequest) {
+      amudp_bufdesc_t *desc = GET_REP_DESC(ep, sourceID, instance);
+      if_pf (seqnum != desc->seqNum) { 
+        /*  request resent or reply got dropped - resend reply */
+        amudp_buf_t *replybuf = GET_REP_BUF(ep, sourceID, instance);
+        AMUDP_assert(replybuf != NULL);
+        if (replybuf->status.bulkBuffer) replybuf = replybuf->status.bulkBuffer;
+        #ifdef UETH
+          if (ueth_query_send(replybuf, replybuf->bufhandle)) { 
+            /*  previous send still waiting in outgoing FIFO, so don't bother to retransmit at this time */
+            #if AMUDP_DEBUG_VERBOSE
+              fprintf(stderr, "Skipping a reply retransmit (last send still in FIFO)..."); fflush(stderr);
+            #endif
+          } else
+        #endif
+        {
+          int retval;
+          #if AMUDP_DEBUG_VERBOSE
+            WarnMessage("Got a duplicate request - resending previous reply.");
+          #endif
+          retval = sendPacket(ep, replybuf, GET_PACKET_LENGTH(replybuf),
+            ep->perProcInfo[sourceID].remoteName, RETRANSMISSION_PACKET);
+          if (retval != AM_OK) ErrMessage("sendPacket failed while resending a reply");
+          desc->transmitCount++;
+          ep->stats.RepliesRetransmitted[AMUDP_MSG_CATEGORY(&replybuf->Msg)]++;
+          /*  ignore error return */
+        }
+        return;
+      }
+    } else {
+      amudp_bufdesc_t *desc = GET_REQ_DESC(ep, sourceID, instance);
+      if (seqnum != desc->seqNum) { /*  duplicate reply, we already ran handler - ignore it */
+        #if AMUDP_DEBUG_VERBOSE
+          WarnMessage("Ignoring a duplicate reply.");
+        #endif
+        return;
+      }
+    }
+
+    /* --- message accepted --- */
+
+    if (!isrequest) { /* it's a reply, free the corresponding request */
+      amudp_bufdesc_t *desc = GET_REQ_DESC(ep, sourceID, instance);
+      if_pt (desc->inuse) { 
+        amudp_buf_t *basicreqbuf = GET_REQ_BUF(ep, sourceID, instance);
+        desc->inuse = FALSE;
+        ep->outstandingRequests--;
+        if (basicreqbuf->status.bulkBuffer) {
+          AMUDP_ReleaseBulkBuffer(ep, basicreqbuf->status.bulkBuffer);
+          basicreqbuf->status.bulkBuffer = NULL;
+        }
+        desc->seqNum = (uint8_t)!(desc->seqNum); 
+        ep->perProcInfo[sourceID].instanceHint = instance;
+        #if AMUDP_COLLECT_LATENCY_STATS
+          { /* gather some latency statistics */
+            amudp_cputick_t now = getCPUTicks();
+            amudp_cputick_t latency = (now - desc->firstSendTime);
+            ep->stats.RequestSumLatency += latency;
+            if (latency < ep->stats.RequestMinLatency) ep->stats.RequestMinLatency = latency;
+            if (latency > ep->stats.RequestMaxLatency) ep->stats.RequestMaxLatency = latency;
+            }
+        #endif
+      } else { /* request timed out and we decided it was undeliverable, then a reply arrived */
+        desc->seqNum = (uint8_t)!(desc->seqNum); /* toggle the seq num */
+        /* TODO: seq numbers may get out of sync on timeout 
+         * if request got through but replies got lost 
+         * we also may do bad things if a reply to an undeliverable message 
+         * arrives after we've reused the request buffer (very unlikely)
+         * possible soln: add an epoch number
+         */
+        return; /* reply handler should NOT be run in this situation */
+      }
+    }
+  }
+
+  { /*  run the handler */
+    status->replyIssued = FALSE;
+    status->handlerRunning = TRUE;
+    if (issystemmsg) { /* an AMUDP system message */
+      amudp_system_messagetype_t type = ((amudp_system_messagetype_t)(msg->systemMessageType & 0xF));
+      switch (type) {
+        case amudp_system_autoreply:
+          AMUDP_assert(!isloopback);
+          /*  do nothing, already taken care of */
+          break;
+        case amudp_system_bulkxferfragment:
+          /*  perform bulk copy of fragment */
+          AMUDP_assert(!isloopback);
+          memcpy(((int8_t *)ep->segAddr) + msg->destOffset, GET_PACKET_DATA(buf), msg->nBytes);
+          { /* update our slot info and see if bulk xfer is complete */
+            int slotnum = msg->systemMessageType >> 4;
+            bulkslot_t *slot = &ep->perProcInfo[sourceID].inboundBulkSlot[slotnum];
+            if (slot->packetsRemaining == 0) {
+              /*  this is the first packet of bulk xfer */
+              AMUDP_assert(msg->systemMessageArg > 0);
+              slot->packetsRemaining = msg->systemMessageArg;
+              slot->minDestOffset = msg->destOffset;
+              slot->runningLength = msg->nBytes;
+
+              if (numargs > 0) { /* arguments arrived with this fragment - cache them */
+                slot->numargs = numargs;
+                memcpy(slot->args, GET_PACKET_ARGS(buf), numargs*4);
+              } else slot->numargs = 0;
+            } else { /*  not first, but possibly last  */
+              AMUDP_assert(slot->packetsRemaining <= msg->systemMessageArg);
+              slot->packetsRemaining--;
+              if (msg->destOffset < slot->minDestOffset) slot->minDestOffset = msg->destOffset;
+              slot->runningLength += msg->nBytes;
+              if (slot->packetsRemaining == 0) { /*  just processed last message, now run handler */
+                /*  mark it as a user message before running handler */
+                buf->Msg.systemMessageType = amudp_system_user; 
+                buf->Msg.systemMessageArg = 0;
+
+                int tmpnumargs=0;
+                uint32_t *tmpargs=NULL;
+                if (numargs > 0) /* args arrived in final fragment */
+                  { tmpnumargs = numargs; tmpargs = GET_PACKET_ARGS(buf); }
+                else /* args were cached by a previous fragment */
+                  { tmpnumargs = slot->numargs; tmpargs = slot->args; }
+                
+                RUN_HANDLER_LONG(ep->handler[msg->handlerId], basicbuf,
+                  tmpargs, tmpnumargs,  
+                  (((int8_t *)ep->segAddr) + slot->minDestOffset), slot->runningLength);
+              } else if (numargs > 0) { /* arguments arrived with this fragment - cache them */
+                slot->numargs = numargs;
+                memcpy(slot->args, GET_PACKET_ARGS(buf), numargs*4);
+              }
+            }
+          }
+          break;
+        default:
+          abort();
+      }
+    } else { /* a user message */
+      switch (cat) {
+        case amudp_Short: 
+          if (ep->preHandlerCallback) 
+            ep->preHandlerCallback(amudp_Short, isrequest, msg->handlerId, basicbuf, 
+                                   NULL, 0, numargs, GET_PACKET_ARGS(buf));
+          RUN_HANDLER_SHORT(ep->handler[msg->handlerId], basicbuf, 
+                            GET_PACKET_ARGS(buf), numargs);
+          if (ep->postHandlerCallback) ep->postHandlerCallback(cat, isrequest);
+          break;
+        case amudp_Medium: 
+          if (ep->preHandlerCallback) 
+            ep->preHandlerCallback(amudp_Medium, isrequest, msg->handlerId, basicbuf, 
+                                   GET_PACKET_DATA(buf), msg->nBytes, numargs, GET_PACKET_ARGS(buf));
+          RUN_HANDLER_MEDIUM(ep->handler[msg->handlerId], basicbuf, 
+                             GET_PACKET_ARGS(buf), numargs, 
+                             GET_PACKET_DATA(buf), msg->nBytes);
+          if (ep->postHandlerCallback) ep->postHandlerCallback(cat, isrequest);
+          break;
+        case amudp_Long: {
+          int8_t *pData = ((int8_t *)ep->segAddr) + msg->destOffset;
+          /*  a single-message bulk transfer. do the copy */
+          if (!isloopback) memcpy(pData, GET_PACKET_DATA(buf), msg->nBytes);
+          if (ep->preHandlerCallback) 
+            ep->preHandlerCallback(amudp_Long, isrequest, msg->handlerId, basicbuf, 
+                                   pData, msg->nBytes, numargs, GET_PACKET_ARGS(buf));
+          RUN_HANDLER_LONG(ep->handler[msg->handlerId], basicbuf, 
+                             GET_PACKET_ARGS(buf), numargs, 
+                             pData, msg->nBytes);
+          if (ep->postHandlerCallback) ep->postHandlerCallback(cat, isrequest);
+          break;
+          }
+        default:
+          abort();
+      }
+    }
+    status->handlerRunning = FALSE;
+    if (!isloopback) {
+      if_pf (isrequest && !status->replyIssued) {
+        static va_list va_dummy; /* dummy value - static to prevent uninit warnings */
+        /*  user didn't reply, so issue an auto-reply */
+        if (AMUDP_ReplyGeneric(amudp_Short, basicbuf, 0, 0, 0, 0, 0, va_dummy, amudp_system_autoreply, 0) 
+            != AM_OK) /*  should never happen - don't return here to prevent leaking buffer */
+          ErrMessage("Failed to issue auto reply in AMUDP_ServiceIncomingMessages");
+      }
+      if (isrequest) { /*  message was a request, alternate the reply sequence number so duplicates of this request get ignored */
+        amudp_bufdesc_t *desc = GET_REP_DESC(ep, sourceID, instance);
+        desc->seqNum = (uint8_t)!(desc->seqNum);
+      }
+    }
+  }
+}
+#undef AMUDP_REFUSEMESSAGE  /* this is a local-use-only macro */
+/* ------------------------------------------------------------------------------------ */
 /* main message receive workhorse - 
  * drain network once and service available incoming messages, up to AMUDP_MAX_RECVMSGS_PER_POLL
  */
@@ -648,37 +938,35 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
   #endif
 
   for (int i = 0; AMUDP_MAX_RECVMSGS_PER_POLL == 0 || i < MAX(AMUDP_MAX_RECVMSGS_PER_POLL, ep->depth); i++) {
-    amudp_buf_t *basicbuf; /* the true buffer in the recv queue that holds status bits */
-    amudp_buf_t *buf; /* the true buffer or bulk buffer that holds the msg */
-    amudp_bufstatus_t* status; /* the status block for this buffer */
-    amudp_msg_t *msg;
+    amudp_buf_t *basicbuf; /* the (possible placeholder) buffer in the recv queue that holds status bits */
+    amudp_bufstatus_t * status; /* the status block for this buffer */
 
     #ifdef UETH
     { unsigned int buflen;
       en_t sourceAddr;
 
       int retval = ueth_recv((void **)&basicbuf, &buflen, 0, &sourceAddr); 
+      status = &basicbuf->status;
       switch (retval) {
         case UETH_ERR_TIMEDOUT:
           return AM_OK; /* nothing else waiting */
         case UETH_OK:
-          buf = basicbuf; // TODO: support true bulk on UETH
-	  basicbuf->status.bulkBuffer = NULL;
+	  status->bulkBuffer = NULL; /*  TODO: support true bulk on UETH */
 
           #if AMUDP_DEBUG_VERBOSE
           { char temp[80];
             printf("ueth_recv returned %i buflen=%i sourceAddr=%s\n", 
               retval, buflen, AMUDP_enStr(sourceAddr, temp));
             fflush(stdout);
-            }
+          }
           #endif
 
-          if_pf (buflen > AMUDP_MAX_NETWORK_MSG)
-            AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_ServiceIncomingMessages, "buffer overrun - received message too long");
-          else if_pf (buflen < AMUDP_MIN_NETWORK_MSG) 
-            AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_ServiceIncomingMessages, "incomplete message received in ueth_recv()");
+          AMUDP_CHECK_ERRFR((buflen > AMUDP_MAX_NETWORK_MSG),
+            RESOURCE, AMUDP_ServiceIncomingMessages, "buffer overrun - received message too long");
+          AMUDP_CHECK_ERRFR((buflen < AMUDP_MIN_NETWORK_MSG),
+            RESOURCE, AMUDP_ServiceIncomingMessages, "incomplete message received in ueth_recv()");
 
-          basicbuf->status.sourceAddr = sourceAddr;
+          status->sourceAddr = sourceAddr;
         break;
         default:
           AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_ServiceIncomingMessages, "ueth_recv NULL wait failed");
@@ -691,14 +979,13 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
       AMUDP_assert(ep->rxFreeIdx < ep->rxNumBufs);
       AMUDP_assert(ep->rxReadyIdx != ep->rxFreeIdx);
       basicbuf = &ep->rxBuf[ep->rxReadyIdx];
-      buf = (basicbuf->status.bulkBuffer ? basicbuf->status.bulkBuffer : basicbuf);
+      status = &basicbuf->status;
       AMUDP_CHECK_ERRFR((basicbuf->status.handlerRunning),
         RESOURCE, AMUDP_ServiceIncomingMessages, "user caused a poll to occur while handler on the same bundle was running");
     #endif
 
-      status = &basicbuf->status;
       status->dest = ep; /* remember which ep recvd this message */
-      msg = &buf->Msg;
+      status->sourceId = (uint8_t)sourceAddrToId(ep, status->sourceAddr);
 
       if (AMUDP_FaultInjectionEnabled) { /* allow fault injection to drop some revcd messages */
         double randval = rand() / (double)RAND_MAX;
@@ -708,302 +995,21 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
             fprintf(stderr, "fault injection dropping a packet..\n"); fflush(stderr);
           #endif
           goto donewithmessage;
-          }
         }
-
-      /* perform acceptance checks */
-      { int numargs = AMUDP_MSG_NUMARGS(msg);
-        int seqnum = AMUDP_MSG_SEQNUM(msg);
-        uint16_t instance = AMUDP_MSG_INSTANCE(msg);
-        int isrequest = AMUDP_MSG_ISREQUEST(msg);
-        amudp_category_t cat = AMUDP_MSG_CATEGORY(msg);
-        int issystemmsg = ((amudp_system_messagetype_t)msg->systemMessageType) != amudp_system_user;
-
-        /* handle returned messages */
-        if (issystemmsg) { 
-          amudp_system_messagetype_t type = ((amudp_system_messagetype_t)msg->systemMessageType);
-          if_pf (type == amudp_system_returnedmessage) { 
-            AMUDP_HandlerReturned handlerfn = (AMUDP_HandlerReturned)ep->handler[0];
-            op_t opcode;
-            int sourceID = sourceAddrToId(ep, buf->status.sourceAddr);
-            if (sourceID < 0) goto donewithmessage; /*  unknown source, ignore message */
-            status->sourceId = (uint8_t)sourceID;
-            if (isrequest) { /*  the returned message is a request, so free that request buffer */
-              uint16_t instance = AMUDP_MSG_INSTANCE(msg);
-              amudp_bufdesc_t *desc = GET_REQ_DESC(ep, status->sourceId, instance);
-              amudp_buf_t *basicreqbuf = GET_REQ_BUF(ep, status->sourceId, instance);
-              if (desc->inuse && desc->seqNum == seqnum) {
-                desc->inuse = FALSE;
-                ep->outstandingRequests--;
-                if (basicreqbuf->status.bulkBuffer) {
-                  AMUDP_ReleaseBulkBuffer(ep, basicreqbuf->status.bulkBuffer);
-                  basicreqbuf->status.bulkBuffer = NULL;
-                  }
-                desc->seqNum = (uint8_t)!(desc->seqNum);
-                ep->perProcInfo[status->sourceId].instanceHint = instance;
-                }
-              }
-            opcode = AMUDP_GetOpcode(isrequest, cat);
-
-            /* note that source/dest for returned mesgs reflect the virtual "message denied" packet 
-             * although it doesn't really matter because the AM2 spec is too vague
-             * about the argblock returned message argument for it to be of any use to anyone
-             */
-            status->replyIssued = TRUE; /* prevent any reply */
-            status->handlerRunning = TRUE;
-              AMUDP_assert(handlerfn != NULL);
-              (*handlerfn)(msg->systemMessageArg, opcode, (void *)basicbuf);
-            status->handlerRunning = FALSE;
-            ep->stats.ReturnedMessages++;
-            goto donewithmessage;
-            }
-          }
-
-        if (isrequest) ep->stats.RequestsReceived[cat]++;
-        else ep->stats.RepliesReceived[cat]++;
-
-        if_pf (ep->tag == AM_NONE || 
-           (ep->tag != msg->tag && ep->tag != AM_ALL))
-            AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADTAG);
-        if_pf (instance >= ep->depth)
-            AMUDP_REFUSEMESSAGE(ep, basicbuf, EUNREACHABLE);
-        if_pf (ep->handler[msg->handlerId] == amudp_unused_handler &&
-            !issystemmsg && msg->handlerId != 0)
-            AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADHANDLER);
-      
-        switch (cat) {
-          case amudp_Short:
-            if_pf (msg->nBytes > 0 || msg->destOffset > 0)
-              AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADLENGTH);
-            break;
-          case amudp_Medium:
-            if_pf (msg->nBytes > AMUDP_MAX_MEDIUM || msg->destOffset > 0)
-              AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADLENGTH);
-            break;
-          case amudp_Long: 
-            /* check segment limits */
-            #if USE_TRUE_BULK_XFERS
-              if_pf (msg->nBytes > AMUDP_MAX_LONG)
-                AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADLENGTH);
-            #else
-              if_pf (msg->nBytes > AMUDP_MAX_MEDIUM)
-                AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADLENGTH);
-            #endif
-            if_pf ( ep->segLength == 0 || /* empty seg */
-                    ((uintptr_t)ep->segAddr + msg->destOffset) == 0) /* NULL target */
-              AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADSEGOFF);
-            if_pf (msg->destOffset + msg->nBytes > ep->segLength || msg->nBytes > AMUDP_MAX_LONG)
-              AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADLENGTH);
-            break;
-          default:
-            abort();
-          }
-
-        { /*  find the source id */
-          int sourceID = sourceAddrToId(ep, status->sourceAddr);
-          if_pf (sourceID < 0) AMUDP_REFUSEMESSAGE(ep, basicbuf, EBADENDPOINT);
-          status->sourceId = (uint8_t)sourceID;
-          }
-
-        /* check sequence number to see if this is a new request/reply or a duplicate */
-        if (isrequest) {
-          amudp_bufdesc_t *desc = GET_REP_DESC(ep, status->sourceId, instance);
-          if_pf (seqnum != desc->seqNum) { 
-            /*  request resent or reply got dropped - resend reply */
-            amudp_buf_t *replybuf = GET_REP_BUF(ep, status->sourceId, instance);
-            AMUDP_assert(replybuf != NULL);
-            if (replybuf->status.bulkBuffer) replybuf = replybuf->status.bulkBuffer;
-            #ifdef UETH
-              if (ueth_query_send(replybuf, replybuf->bufhandle)) { 
-                // previous send still waiting in outgoing FIFO, so don't bother to retransmit at this time
-                #if AMUDP_DEBUG_VERBOSE
-                  fprintf(stderr, "Skipping a reply retransmit (last send still in FIFO)..."); fflush(stderr);
-                #endif
-              } else
-            #endif
-            {
-              int retval;
-              #if AMUDP_DEBUG_VERBOSE
-                WarnMessage("Got a duplicate request - resending previous reply.");
-              #endif
-              retval = sendPacket(ep, replybuf, GET_PACKET_LENGTH(replybuf),
-                ep->perProcInfo[status->sourceId].remoteName, RETRANSMISSION_PACKET);
-              if (retval != AM_OK) ErrMessage("sendPacket failed while resending a reply");
-              desc->transmitCount++;
-              ep->stats.RepliesRetransmitted[AMUDP_MSG_CATEGORY(&replybuf->Msg)]++;
-              /*  ignore error return */
-            }
-            goto donewithmessage;
-            }
-          }
-        else {
-          amudp_bufdesc_t *desc = GET_REQ_DESC(ep, status->sourceId, instance);
-          if (seqnum != desc->seqNum) { /*  duplicate reply, we already ran handler - ignore it */
-            #if AMUDP_DEBUG_VERBOSE
-              WarnMessage("Ignoring a duplicate reply.");
-            #endif
-            goto donewithmessage;
-            }
-          }
-
-        /* --- message accepted --- */
-
-        if (!isrequest) { /* it's a reply, free the corresponding request */
-          int sourceId = status->sourceId;
-          amudp_bufdesc_t *desc = GET_REQ_DESC(ep, sourceId, instance);
-          if_pt (desc->inuse) { 
-            amudp_buf_t *basicreqbuf = GET_REQ_BUF(ep, sourceId, instance);
-            desc->inuse = FALSE;
-            ep->outstandingRequests--;
-            if (basicreqbuf->status.bulkBuffer) {
-              AMUDP_ReleaseBulkBuffer(ep, basicreqbuf->status.bulkBuffer);
-              basicreqbuf->status.bulkBuffer = NULL;
-              }
-            desc->seqNum = (uint8_t)!(desc->seqNum); 
-            ep->perProcInfo[sourceId].instanceHint = instance;
-            #if AMUDP_COLLECT_LATENCY_STATS
-              { /* gather some latency statistics */
-                amudp_cputick_t now = getCPUTicks();
-                amudp_cputick_t latency = (now - desc->firstSendTime);
-                ep->stats.RequestSumLatency += latency;
-                if (latency < ep->stats.RequestMinLatency) ep->stats.RequestMinLatency = latency;
-                if (latency > ep->stats.RequestMaxLatency) ep->stats.RequestMaxLatency = latency;
-                }
-            #endif
-            }
-          else { /* request timed out and we decided it was undeliverable, then a reply arrived */
-            desc->seqNum = (uint8_t)!(desc->seqNum); /* toggle the seq num */
-            /* TODO: seq numbers may get out of sync on timeout 
-             * if request got through but replies got lost 
-             * we also may do bad things if a reply to an undeliverable message 
-             * arrives after we've reused the request buffer (very unlikely)
-             * possible soln: add an epoch number
-             */
-            goto donewithmessage; /* reply handler should NOT be run in this situation */
-            }
-          }
-
-        { /*  run the handler */
-          status->replyIssued = FALSE;
-          status->handlerRunning = TRUE;
-          if (issystemmsg) { /* an AMUDP system message */
-            amudp_system_messagetype_t type = ((amudp_system_messagetype_t)(msg->systemMessageType & 0xF));
-            switch (type) {
-              case amudp_system_autoreply:
-                /*  do nothing, already taken care of */
-                break;
-              case amudp_system_bulkxferfragment:
-                /*  perform bulk copy of fragment */
-                memcpy(((int8_t *)ep->segAddr) + msg->destOffset, GET_PACKET_DATA(buf), msg->nBytes);
-                { /* update our slot info and see if bulk xfer is complete */
-                  int slotnum = msg->systemMessageType >> 4;
-                  bulkslot_t *slot = &ep->perProcInfo[status->sourceId].inboundBulkSlot[slotnum];
-                  if (slot->packetsRemaining == 0) {
-                    /*  this is the first packet of bulk xfer */
-                    AMUDP_assert(msg->systemMessageArg > 0);
-                    slot->packetsRemaining = msg->systemMessageArg;
-                    slot->minDestOffset = msg->destOffset;
-                    slot->runningLength = msg->nBytes;
-
-                    if (numargs > 0) { /* arguments arrived with this fragment - cache them */
-                      slot->numargs = numargs;
-                      memcpy(slot->args, GET_PACKET_ARGS(buf), numargs*4);
-                    } else slot->numargs = 0;
-                    }
-                  else { /*  not first, but possibly last  */
-                    AMUDP_assert(slot->packetsRemaining <= msg->systemMessageArg);
-                    slot->packetsRemaining--;
-                    if (msg->destOffset < slot->minDestOffset) slot->minDestOffset = msg->destOffset;
-                    slot->runningLength += msg->nBytes;
-                    if (slot->packetsRemaining == 0) { /*  just processed last message, now run handler */
-                      /*  mark it as a user message before running handler */
-                      buf->Msg.systemMessageType = amudp_system_user; 
-                      buf->Msg.systemMessageArg = 0;
-
-                      int tmpnumargs=0;
-                      uint32_t *tmpargs=NULL;
-                      if (numargs > 0) /* args arrived in final fragment */
-                        { tmpnumargs = numargs; tmpargs = GET_PACKET_ARGS(buf); }
-                      else /* args were cached by a previous fragment */
-                        { tmpnumargs = slot->numargs; tmpargs = slot->args; }
-                      
-                      RUN_HANDLER_LONG(ep->handler[msg->handlerId], basicbuf,
-                        tmpargs, tmpnumargs,  
-                        (((int8_t *)ep->segAddr) + slot->minDestOffset), slot->runningLength);
-                    } else if (numargs > 0) { /* arguments arrived with this fragment - cache them */
-                      slot->numargs = numargs;
-                      memcpy(slot->args, GET_PACKET_ARGS(buf), numargs*4);
-                    }
-                    }
-                  }
-                break;
-              default:
-                abort();
-              }
-            }
-          else { /* a user message */
-            switch (cat) {
-              case amudp_Short: 
-                if (ep->preHandlerCallback) 
-                  ep->preHandlerCallback(amudp_Short, isrequest, msg->handlerId, basicbuf, 
-                                         NULL, 0, numargs, GET_PACKET_ARGS(buf));
-                RUN_HANDLER_SHORT(ep->handler[msg->handlerId], basicbuf, 
-                                  GET_PACKET_ARGS(buf), numargs);
-                if (ep->postHandlerCallback) ep->postHandlerCallback(cat, isrequest);
-                break;
-              case amudp_Medium: 
-                if (ep->preHandlerCallback) 
-                  ep->preHandlerCallback(amudp_Medium, isrequest, msg->handlerId, basicbuf, 
-                                         GET_PACKET_DATA(buf), msg->nBytes, numargs, GET_PACKET_ARGS(buf));
-                RUN_HANDLER_MEDIUM(ep->handler[msg->handlerId], basicbuf, 
-                                   GET_PACKET_ARGS(buf), numargs, 
-                                   GET_PACKET_DATA(buf), msg->nBytes);
-                if (ep->postHandlerCallback) ep->postHandlerCallback(cat, isrequest);
-                break;
-              case amudp_Long: {
-                int8_t *pData = ((int8_t *)ep->segAddr) + msg->destOffset;
-                /*  a single-message bulk transfer. do the copy */
-                memcpy(pData, GET_PACKET_DATA(buf), msg->nBytes);
-                if (ep->preHandlerCallback) 
-                  ep->preHandlerCallback(amudp_Long, isrequest, msg->handlerId, basicbuf, 
-                                         pData, msg->nBytes, numargs, GET_PACKET_ARGS(buf));
-                RUN_HANDLER_LONG(ep->handler[msg->handlerId], basicbuf, 
-                                   GET_PACKET_ARGS(buf), numargs, 
-                                   pData, msg->nBytes);
-                if (ep->postHandlerCallback) ep->postHandlerCallback(cat, isrequest);
-                break;
-                }
-              default:
-                abort();
-              }
-            }
-          status->handlerRunning = FALSE;
-          if_pf (isrequest && !status->replyIssued) {
-            static va_list va_dummy; /* dummy value - static to prevent uninit warnings */
-            /*  user didn't reply, so issue an auto-reply */
-            if (AMUDP_ReplyGeneric(amudp_Short, basicbuf, 0, 0, 0, 0, 0, va_dummy, amudp_system_autoreply, 0) 
-                != AM_OK) /*  should never happen - don't return here to prevent leaking buffer */
-              ErrMessage("Failed to issue auto reply in AMUDP_ServiceIncomingMessages");
-            }
-          if (isrequest) { /*  message was a request, alternate the reply sequence number so duplicates of this request get ignored */
-            amudp_bufdesc_t *desc = GET_REP_DESC(ep, status->sourceId, instance);
-            desc->seqNum = (uint8_t)!(desc->seqNum);
-            }
-          }
-        } /*  acceptance checks */
-
+      }
+  
+      AMUDP_processPacket(basicbuf, 0);
       donewithmessage: /* message handled - continue to next one */
 
       /* free the handled buffer */
       if (status->bulkBuffer) {
         AMUDP_ReleaseBulkBuffer(ep, status->bulkBuffer);
         status->bulkBuffer = NULL;
-        }
+      }
       #ifdef UETH
-        { int retval;
-          retval = ueth_freerxbuf(buf);
-          if (retval != UETH_OK) AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_ServiceIncomingMessages, "ueth_freerxbuf failed");
-          }
+        { int retval = ueth_freerxbuf(buf);
+          AMUDP_CHECK_ERRFR((retval != UETH_OK), RESOURCE, AMUDP_ServiceIncomingMessages, "ueth_freerxbuf failed");
+        }
       #else
         AMUDP_assert(ep->rxReadyIdx < ep->rxNumBufs);
         AMUDP_assert(ep->rxFreeIdx < ep->rxNumBufs);
@@ -1013,8 +1019,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
 
     }  /*  for */
   return AM_OK;
-  } /*  AMUDP_ServiceIncomingMessages */
-#undef AMUDP_REFUSEMESSAGE  /* this is a local-use-only macro */
+} /*  AMUDP_ServiceIncomingMessages */
 /*------------------------------------------------------------------------------------
  * Poll
  *------------------------------------------------------------------------------------ */
@@ -1030,7 +1035,7 @@ extern int AM_Poll(eb_t eb) {
     if (ep->depth != -1) { /* only poll endpoints which have buffers */
 
       #if USE_ASYNC_TCP_CONTROL
-        if_pf (AMUDP_SPMDIsActiveControlSocket) // async check
+        if_pf (AMUDP_SPMDIsActiveControlSocket) /*  async check */
       #endif
         { retval = AMUDP_SPMDHandleControlTraffic(NULL);
           if (retval != AM_OK) AMUDP_RETURN(retval);
@@ -1056,20 +1061,25 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr, 
                           uint8_t systemType, uint8_t systemArg) {
-  int destP;
+  static amudp_buf_t stagingbuf; /* for loopback */
   int instance;
   amudp_buf_t *basicbuf;
   amudp_buf_t *outgoingbuf;
   amudp_bufdesc_t *outgoingdesc;
-  int packetlength;
+  int const destP = request_endpoint->translation[reply_endpoint].id;
+  en_t const destaddress = request_endpoint->translation[reply_endpoint].name;
+  const int isloopback = enEqual(destaddress, request_endpoint->name);
 
   /*  always poll before sending a request */
   AM_Poll(request_endpoint->eb);
 
-  destP = request_endpoint->translation[reply_endpoint].id;
-
-  /*  acquire a free request buffer */
-  {
+  if (isloopback) {
+    outgoingbuf = &stagingbuf;
+    basicbuf = outgoingbuf;
+    basicbuf->status.bulkBuffer = NULL;
+    outgoingdesc = NULL; /* not used */
+    instance = 0; /* not used */
+  } else { /*  acquire a free request buffer */
     int depth = request_endpoint->depth;
     int found = FALSE;
     while (!found) {
@@ -1079,16 +1089,15 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
         hint++;
         request_endpoint->perProcInfo[destP].instanceHint = (uint16_t)(hint==depth?0:hint);
         found = TRUE;
-        }
-      else { /*  hint is wrong */
+      } else { /*  hint is wrong */
         /*  search for a free instance */
         instance = ((hint+1)==depth?0:hint+1);
         for ( ; instance != hint; instance = (((instance+1)==depth)?0:(instance+1))) {
           if (!GET_REQ_DESC(request_endpoint, destP, instance)->inuse) {
             found = TRUE;
             break;
-            }
           }
+        }
         if (!found) { 
           /*  no buffers available - wait until one is open 
            *  (hint will point to a free buffer) 
@@ -1101,68 +1110,84 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
             retval = AM_Poll(request_endpoint->eb);
             if (retval != AM_OK) AMUDP_RETURN(retval);
             hint = request_endpoint->perProcInfo[destP].instanceHint;
-            } while (GET_REQ_DESC(request_endpoint, destP, hint)->inuse);
-          }
+          } while (GET_REQ_DESC(request_endpoint, destP, hint)->inuse);
         }
       }
     }
-  basicbuf = GET_REQ_BUF(request_endpoint, destP, instance);
-  outgoingdesc = GET_REQ_DESC(request_endpoint, destP, instance);
-  AMUDP_assert(!outgoingdesc->inuse);
-  outgoingdesc->inuse = TRUE; /*  grab it now to claim as ours */
-  request_endpoint->outstandingRequests++;
+    basicbuf = GET_REQ_BUF(request_endpoint, destP, instance);
+    outgoingdesc = GET_REQ_DESC(request_endpoint, destP, instance);
+    AMUDP_assert(!outgoingdesc->inuse);
+    outgoingdesc->inuse = TRUE; /*  grab it now to claim as ours */
+    request_endpoint->outstandingRequests++;
 
   #ifdef UETH
     if_pf (outgoingdesc->transmitCount > 1) {
-      // this buffer was previously used for a retransmit, and therefore could still be waiting in the 
-      // outgoing send FIFO - check if this is the case and cancel that message if so
+      /*  this buffer was previously used for a retransmit, and therefore could still be waiting in the  */
+      /*  outgoing send FIFO - check if this is the case and cancel that message if so */
       int cancelled = ueth_cancel_send(basicbuf, basicbuf->bufhandle);
-      if (cancelled) { // pretend it never happenned 
+      if (cancelled) { /*  pretend it never happenned  */
         request_endpoint->stats.RequestsRetransmitted[AMUDP_MSG_CATEGORY(&basicbuf->Msg)]--;
         request_endpoint->stats.TotalBytesSent -= GET_PACKET_LENGTH(basicbuf);
       }
     }
   #endif
 
-  if (nbytes > AMUDP_MAX_MEDIUM) {
-    AMUDP_assert(category == amudp_Long && USE_TRUE_BULK_XFERS);
-    outgoingbuf = AMUDP_AcquireBulkBuffer(request_endpoint);
-    basicbuf->status.bulkBuffer = outgoingbuf;
+    if (nbytes > AMUDP_MAX_MEDIUM) {
+      AMUDP_assert(category == amudp_Long && USE_TRUE_BULK_XFERS);
+      outgoingbuf = AMUDP_AcquireBulkBuffer(request_endpoint);
+      basicbuf->status.bulkBuffer = outgoingbuf;
+    } else {
+      basicbuf->status.bulkBuffer = NULL;
+      outgoingbuf = basicbuf;
     }
-  else {
-    basicbuf->status.bulkBuffer = NULL;
-    outgoingbuf = basicbuf;
-    }
+  }
 
   /*  setup message meta-data */
   { amudp_msg_t *msg = &outgoingbuf->Msg;
-    AMUDP_MSG_SETFLAGS(msg, TRUE, category, numargs, outgoingdesc->seqNum, instance);
+    if (isloopback) AMUDP_MSG_SETFLAGS(msg, TRUE, category, numargs, 0, 0);
+    else AMUDP_MSG_SETFLAGS(msg, TRUE, category, numargs, outgoingdesc->seqNum, instance);
     msg->destOffset = dest_offset;
     msg->handlerId = handler;
     msg->nBytes = (uint16_t)nbytes;
     msg->systemMessageType = systemType;
     msg->systemMessageArg = systemArg;
-    }
+    msg->tag = request_endpoint->translation[reply_endpoint].tag;
+  }
 
   { /*  setup args */
     int i;
     uint32_t *args = GET_PACKET_ARGS(outgoingbuf);
     for (i = 0; i < numargs; i++) {
       args[i] = (uint32_t)va_arg(argptr, int); /* must be int due to default argument promotion */
+    }
+  }
+
+  if (isloopback) { /* run handler synchronously */
+    amudp_bufstatus_t* const status = &(outgoingbuf->status); /* the status block for this buffer */
+    if (nbytes > 0) { /* setup data */
+      if (category == amudp_Long) { /* one-copy */
+        AMUDP_CHECK_ERR((dest_offset + nbytes > request_endpoint->segLength), BAD_ARG);
+        memmove(((int8_t *)request_endpoint->segAddr) + dest_offset, 
+                source_addr, nbytes);
+      } else { /* mediums still need data copy */
+        memcpy(GET_PACKET_DATA(outgoingbuf), source_addr, nbytes);
       }
     }
+    status->dest = request_endpoint;
+    status->sourceId = reply_endpoint;
+    status->sourceAddr = request_endpoint->name;
 
-  { /*  setup data */
+    AMUDP_processPacket(outgoingbuf, 1);
+  } else { /* perform the send */
+    int retval;
+    int packetlength;
+
+    /*  setup data */
     if (nbytes > 0) {
       memcpy(GET_PACKET_DATA(outgoingbuf), source_addr, nbytes);
-      }
     }
 
-  { /*  perform the send */
-    en_t destaddress = request_endpoint->translation[reply_endpoint].name;
-    int retval;
     packetlength = GET_PACKET_LENGTH(outgoingbuf);
-    outgoingbuf->Msg.tag = request_endpoint->translation[reply_endpoint].tag;
     retval = sendPacket(request_endpoint, outgoingbuf, packetlength, destaddress, REQUESTREPLY_PACKET);
     if_pf (retval != AM_OK) {
       outgoingdesc->inuse = FALSE; /*  send failed, so message rejected - release buffer */
@@ -1170,152 +1195,171 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
       if (basicbuf->status.bulkBuffer) {
         AMUDP_ReleaseBulkBuffer(request_endpoint, basicbuf->status.bulkBuffer);
         basicbuf->status.bulkBuffer = NULL;
-        }
+      }
       request_endpoint->perProcInfo[reply_endpoint].instanceHint = (uint16_t)instance;
       AMUDP_RETURN(retval);
-      }
     }
 
-  /* outgoingdesc->seqNum = !(outgoingdesc->seqNum); */ /* this gets handled by AMUDP_ServiceIncomingMessages */
-  { amudp_cputick_t now = getCPUTicks();
-    uint32_t ustimeout = AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC;
-    /* we carefully use 32-bit datatypes here to avoid 64-bit multiply/divide */
-    static uint32_t expectedusperbyte = 0; /* cache precomputed value */
-    static amudp_cputick_t ticksperus = 0;
-    static int firsttime = 1;
-    if_pf (firsttime) {
-      ticksperus = us2ticks(1);
-      expectedusperbyte = /* allow 2x of slop for reply */
-        (uint32_t)((2 * 1000000.0 / 1024.0) / AMUDP_ExpectedBandwidth);
-      firsttime = 0;
-    }
-    uint32_t expectedus = (packetlength * expectedusperbyte);
-    /* bulk transfers may have a noticeable wire delay, so we grow the initial timeout
-     * accordingly to allow time for the transfer to arrive and be serviced
-     * These are the transfers that are really expensive to retransmit, 
-     * so we want to avoid that until we're relatively certain they've really been lost
-     */
-    int retryCount = 0;
-    outgoingdesc->transmitCount = 1;
-    while (ustimeout < expectedus &&
-      ustimeout < AMUDP_MAX_REQUESTTIMEOUT_MICROSEC) {
-      ustimeout *= AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER;
-      retryCount++;
+    /* outgoingdesc->seqNum = !(outgoingdesc->seqNum); */ /* this gets handled by AMUDP_ServiceIncomingMessages */
+    { amudp_cputick_t now = getCPUTicks();
+      uint32_t ustimeout = AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC;
+      /* we carefully use 32-bit datatypes here to avoid 64-bit multiply/divide */
+      static uint32_t expectedusperbyte = 0; /* cache precomputed value */
+      static amudp_cputick_t ticksperus = 0;
+      static int firsttime = 1;
+      if_pf (firsttime) {
+        ticksperus = us2ticks(1);
+        expectedusperbyte = /* allow 2x of slop for reply */
+          (uint32_t)((2 * 1000000.0 / 1024.0) / AMUDP_ExpectedBandwidth);
+        firsttime = 0;
       }
-    outgoingdesc->timestamp = now + (((amudp_cputick_t)ustimeout)*ticksperus);
-    outgoingdesc->retryCount = retryCount;
-    request_endpoint->stats.RequestsSent[category]++;
-    #if AMUDP_COLLECT_LATENCY_STATS
-      outgoingdesc->firstSendTime = now;
-    #endif
-    request_endpoint->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes;
+      uint32_t expectedus = (packetlength * expectedusperbyte);
+      /* bulk transfers may have a noticeable wire delay, so we grow the initial timeout
+       * accordingly to allow time for the transfer to arrive and be serviced
+       * These are the transfers that are really expensive to retransmit, 
+       * so we want to avoid that until we're relatively certain they've really been lost
+       */
+      int retryCount = 0;
+      outgoingdesc->transmitCount = 1;
+      while (ustimeout < expectedus &&
+        ustimeout < AMUDP_MAX_REQUESTTIMEOUT_MICROSEC) {
+        ustimeout *= AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER;
+        retryCount++;
+      }
+      outgoingdesc->timestamp = now + (((amudp_cputick_t)ustimeout)*ticksperus);
+      outgoingdesc->retryCount = retryCount;
+      #if AMUDP_COLLECT_LATENCY_STATS
+        outgoingdesc->firstSendTime = now;
+      #endif
     }
-  return AM_OK;
   }
+
+  request_endpoint->stats.RequestsSent[category]++;
+  request_endpoint->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes;
+  return AM_OK;
+}
 /* ------------------------------------------------------------------------------------ */
 static int AMUDP_ReplyGeneric(amudp_category_t category, 
                           amudp_buf_t *requestbuf, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr,
                           uint8_t systemType, uint8_t systemArg) {
-  ep_t ep;
-  int destP;
-  int instance;
-  amudp_buf_t *requestbasicbuf;
+  static amudp_buf_t stagingbuf; /* for loopback */
   amudp_buf_t *basicbuf;
   amudp_buf_t *outgoingbuf;
   amudp_bufdesc_t *outgoingdesc;
+  amudp_buf_t * const requestbasicbuf = requestbuf;
+  ep_t const ep = requestbasicbuf->status.dest;
+  int const destP = requestbasicbuf->status.sourceId;
+  const int isloopback = enEqual(requestbuf->status.sourceAddr, ep->name);
+  int instance;
+  requestbuf = (requestbasicbuf->status.bulkBuffer ? requestbasicbuf->status.bulkBuffer : requestbasicbuf);
 
   /*  we don't poll within a reply because by definition we are already polling somewhere in the call chain */
 
-  requestbasicbuf = requestbuf;
-  requestbuf = (requestbasicbuf->status.bulkBuffer ? requestbasicbuf->status.bulkBuffer : requestbasicbuf);
-  destP = requestbasicbuf->status.sourceId;
-  ep = requestbasicbuf->status.dest;
-
-  /*  acquire a free buffer  */
-  /*  trivial because replies can safely overwrite previous reply in request instance */
-  instance = AMUDP_MSG_INSTANCE(&(requestbuf->Msg)); 
-
-  basicbuf = GET_REP_BUF(ep, destP, instance);
-  outgoingdesc = GET_REP_DESC(ep, destP, instance);
-
-  #ifdef UETH
-    if_pf (outgoingdesc->transmitCount > 1) {
-      // this buffer was previously used for a retransmit, and therefore could still be waiting in the 
-      // outgoing send FIFO - check if this is the case and cancel that message if so
-      int cancelled = ueth_cancel_send(basicbuf, basicbuf->bufhandle);
-      if (cancelled) { // pretend it never happenned 
-        ep->stats.RepliesRetransmitted[AMUDP_MSG_CATEGORY(&basicbuf->Msg)]--;
-        ep->stats.TotalBytesSent -= GET_PACKET_LENGTH(basicbuf);
-      }
-    }
-  #endif
-
-  if (basicbuf->status.bulkBuffer) { /* free bulk buffer of previous reply */
-    AMUDP_ReleaseBulkBuffer(ep, basicbuf->status.bulkBuffer);
-    basicbuf->status.bulkBuffer = NULL;
-    }
-
-  if (nbytes > AMUDP_MAX_MEDIUM) {
-    AMUDP_assert(category == amudp_Long && USE_TRUE_BULK_XFERS);
-    outgoingbuf = AMUDP_AcquireBulkBuffer(ep);
-    basicbuf->status.bulkBuffer = outgoingbuf;
-    }
-  else {
-    basicbuf->status.bulkBuffer = NULL;
+  if (isloopback) {
+    basicbuf = &stagingbuf;
     outgoingbuf = basicbuf;
+    basicbuf->status.bulkBuffer = NULL;
+    outgoingdesc = NULL; /* not used */
+    instance = 0; /* not used */
+  } else {
+    /*  acquire a free buffer  */
+    /*  trivial because replies can safely overwrite previous reply in request instance */
+    instance = AMUDP_MSG_INSTANCE(&(requestbuf->Msg)); 
+    basicbuf = GET_REP_BUF(ep, destP, instance);
+    outgoingdesc = GET_REP_DESC(ep, destP, instance);
+
+    #ifdef UETH
+      if_pf (outgoingdesc->transmitCount > 1) {
+        /*  this buffer was previously used for a retransmit, and therefore could still be waiting in the  */
+        /*  outgoing send FIFO - check if this is the case and cancel that message if so */
+        int cancelled = ueth_cancel_send(basicbuf, basicbuf->bufhandle);
+        if (cancelled) { /*  pretend it never happenned  */
+          ep->stats.RepliesRetransmitted[AMUDP_MSG_CATEGORY(&basicbuf->Msg)]--;
+          ep->stats.TotalBytesSent -= GET_PACKET_LENGTH(basicbuf);
+        }
+      }
+    #endif
+
+    if (basicbuf->status.bulkBuffer) { /* free bulk buffer of previous reply */
+      AMUDP_ReleaseBulkBuffer(ep, basicbuf->status.bulkBuffer);
+      basicbuf->status.bulkBuffer = NULL;
     }
+
+    if (nbytes > AMUDP_MAX_MEDIUM) {
+      AMUDP_assert(category == amudp_Long && USE_TRUE_BULK_XFERS);
+      outgoingbuf = AMUDP_AcquireBulkBuffer(ep);
+      basicbuf->status.bulkBuffer = outgoingbuf;
+    } else {
+      basicbuf->status.bulkBuffer = NULL;
+      outgoingbuf = basicbuf;
+    }
+  }
 
   /*  setup message meta-data */
   { amudp_msg_t *msg = &outgoingbuf->Msg;
-    AMUDP_MSG_SETFLAGS(msg, FALSE, category, numargs, outgoingdesc->seqNum, instance);
+    if (isloopback) AMUDP_MSG_SETFLAGS(msg, FALSE, category, numargs, 0, 0);
+    else AMUDP_MSG_SETFLAGS(msg, FALSE, category, numargs, outgoingdesc->seqNum, instance);
     msg->destOffset = dest_offset;
     msg->handlerId = handler;
     msg->nBytes = (uint16_t)nbytes;
     msg->systemMessageType = systemType;
     msg->systemMessageArg = systemArg;
-    }
+    msg->tag = ep->perProcInfo[destP].tag;
+  }
 
   { /*  setup args */
     int i;
     uint32_t *args = GET_PACKET_ARGS(outgoingbuf);
     for (i = 0; i < numargs; i++) {
       args[i] = (uint32_t)va_arg(argptr, int); /* must be int due to default argument promotion */
-      }
+    }
     #if USE_CLEAR_UNUSED_SPACE
       for ( ; i < AMUDP_MAX_SHORT; i++) {
         args[i] = 0;
-        }
+      }
     #endif
-    }
+  }
 
-  { /*  setup data */
+  if (isloopback) { /* run handler synchronously */
+    amudp_bufstatus_t* const status = &(outgoingbuf->status); /* the status block for this buffer */
+    if (nbytes > 0) { /* setup data */
+      if (category == amudp_Long) { /* one-copy */
+        AMUDP_CHECK_ERR((dest_offset + nbytes > ep->segLength), BAD_ARG);
+        memmove(((int8_t *)ep->segAddr) + dest_offset, 
+                source_addr, nbytes);
+      } else { /* mediums still need data copy */
+        memcpy(GET_PACKET_DATA(outgoingbuf), source_addr, nbytes);
+      }
+    }
+    status->dest = ep;
+    status->sourceId = destP;
+    status->sourceAddr = ep->name;
+
+    AMUDP_processPacket(outgoingbuf, 1);
+  } else { /* perform the send */
+    int packetlength = GET_PACKET_LENGTH(outgoingbuf);
+    en_t destaddress = ep->perProcInfo[destP].remoteName;
+    int retval;
+    /*  setup data */
     memcpy(GET_PACKET_DATA(outgoingbuf), source_addr, nbytes);
     #if 0 /* not necessary- we never send this stuff */
       #if USE_CLEAR_UNUSED_SPACE
         memset(&(GET_PACKET_DATA(outgoingbuf)[nbytes]), 0, AMUDP_MAX_LONG - nbytes);
       #endif
     #endif
-    }
-
-  { /*  perform the send */
-    int packetlength = GET_PACKET_LENGTH(outgoingbuf);
-    int destId = requestbasicbuf->status.sourceId;
-    en_t destaddress = ep->perProcInfo[destId].remoteName;
-    int retval;
-    outgoingbuf->Msg.tag = ep->perProcInfo[destId].tag;
     retval = sendPacket(ep, outgoingbuf, packetlength, destaddress, REQUESTREPLY_PACKET);
     if_pf (retval != AM_OK) AMUDP_RETURN(retval);
-    }
+    /* outgoingdesc->seqNum = !(outgoingdesc->seqNum); */ /* this gets handled by AMUDP_ServiceIncomingMessages */
+    outgoingdesc->transmitCount = 1;
+  }
 
-  /* outgoingdesc->seqNum = !(outgoingdesc->seqNum); */ /* this gets handled by AMUDP_ServiceIncomingMessages */
-  outgoingdesc->transmitCount = 1;
   requestbasicbuf->status.replyIssued = TRUE;
   ep->stats.RepliesSent[category]++;
   ep->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes;
   return AM_OK;
-  }
+}
 
 /*------------------------------------------------------------------------------------
  * Request
@@ -1430,10 +1474,12 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
   AMUDP_CHECK_ERR((nbytes < 0 || nbytes > AMUDP_MAX_LONG),BAD_ARG);
   AMUDP_CHECK_ERR((dest_offset > AMUDP_MAX_SEGLENGTH),BAD_ARG);
   AMUDP_assert(numargs >= 0 && numargs <= AMUDP_MAX_SHORT);
+
+  int destP = request_endpoint->translation[reply_endpoint].id;
+  const int isloopback = enEqual(request_endpoint->translation[reply_endpoint].name, request_endpoint->name);
+
   #if USE_TRUE_BULK_XFERS
-  {
-    int destP = request_endpoint->translation[reply_endpoint].id;
-    if (async) { /*  decide if we can satisfy request without blocking */
+    if (async && !isloopback) { /*  decide if we can satisfy request without blocking */
       int i;
       /* it's unclear from the spec whether we should poll before an async failure,
        * but by definition the app must be prepared for handlers to run when calling this 
@@ -1448,20 +1494,18 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
       if (i == request_endpoint->depth)         
         AMUDP_RETURN_ERRFR(IN_USE, AMUDP_RequestXferAsync, 
           "Request can't be satisfied without blocking right now");
-      }
-
-      /* perform the send */
-      return AMUDP_RequestGeneric(amudp_Long, 
-                                    request_endpoint, reply_endpoint, handler, 
-                                    source_addr, nbytes, dest_offset,
-                                    numargs, argptr,
-                                    amudp_system_user, 0);
     }
+
+    /* perform the send */
+    return AMUDP_RequestGeneric(amudp_Long, 
+                                  request_endpoint, reply_endpoint, handler, 
+                                  source_addr, nbytes, dest_offset,
+                                  numargs, argptr,
+                                  amudp_system_user, 0);
   #else
   { /* segmented bulk transfers - break large xfers into chunks */
     int numchunks = ((nbytes-1) / AMUDP_MAX_MEDIUM)+1; /*  number of chunks required for data */
-    int destP = request_endpoint->translation[reply_endpoint].id;
-    if (async) { /*  decide if we can satisfy request without blocking */
+    if (async && !isloopback) { /*  decide if we can satisfy request without blocking */
       int i, freecnt=0;
 
       if (numchunks > request_endpoint->depth) 
@@ -1494,15 +1538,14 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
             "Request can't be satisfied without blocking right now - out of bulk xfer slots");
         }
       }
-    if (numchunks == 1) { /*  single-message bulk xfer, just a user message */
+    if (numchunks == 1 || isloopback) { /*  single-message bulk xfer, just a user message */
       /*  call the generic requestor */
       return AMUDP_RequestGeneric(amudp_Long, 
                                     request_endpoint, reply_endpoint, handler, 
                                     source_addr, nbytes, dest_offset,
                                     numargs, argptr,
                                     amudp_system_user, 0);
-      }
-    else { 
+    } else { 
       int fragidx;
       char *chunk_source_addr = (char*)source_addr;
       uintptr_t chunk_dest_offset = dest_offset;

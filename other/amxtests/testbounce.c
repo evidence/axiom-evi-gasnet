@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testbounce.c,v $
- *     $Date: 2004/08/26 04:53:53 $
- * $Revision: 1.6 $
+ *     $Date: 2005/06/28 08:40:54 $
+ * $Revision: 1.7 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,7 +47,7 @@ static void large_request_handler(void *token, void *buf, int nbytes, int arg) {
     for (i = 0; i < AM_MaxLong()/4; i++) {
       recvdbuf[i] = (uint32_t)((count << 16) + i);
       }
-    count++;
+    if (numprocs > 1) count++;
     }
 
   #if VERBOSE
@@ -71,7 +71,7 @@ static void large_reply_handler(void *token, void *buf, int nbytes, int arg) {
   assert(buf == ((uint8_t *)VMseg) + 100);
   assert(nbytes == AM_MaxLong());
 
-  count++;
+  if (numprocs > 1) count++;
   /*  verify the result */
   { int i;
     for (i = 0; i < AM_MaxLong()/4; i++) {
@@ -122,8 +122,8 @@ int main(int argc, char **argv) {
       default: printf("polling must be 'P' or 'B'..\n"); AMX_SPMDExit(1);
       }
     }
-  if (numprocs % 2 != 0) {
-     printf("requires an even number of processors\n"); AMX_SPMDExit(1);
+  if (numprocs % 2 != 0 && numprocs > 1) {
+     printf("requires an even or unary number of processors\n"); AMX_SPMDExit(1);
     }
   VMseg = (uint32_t *)malloc(AM_MaxLong()+100);
   memset(VMseg, 0, AM_MaxLong()+100);
@@ -138,7 +138,7 @@ int main(int argc, char **argv) {
 
   begin = getCurrentTimeMicrosec();
 
-  if (myproc % 2 == 1) {
+  if (myproc % 2 == 1 || numprocs == 1) {
     int q;
     for (q=0; q<iters; q++) {
       /*  init my source mem */

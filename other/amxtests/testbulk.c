@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testbulk.c,v $
- *     $Date: 2004/08/26 04:53:53 $
- * $Revision: 1.7 $
+ *     $Date: 2005/06/28 08:40:54 $
+ * $Revision: 1.8 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -111,7 +111,7 @@ int main(int argc, char **argv) {
       default: printf("duplex must be H or F..\n"); AMX_SPMDExit(1);
       }
     }
-  if (!fullduplex && numprocs % 2 != 0) {
+  if (!fullduplex && numprocs > 1 && numprocs % 2 != 0) {
      printf("half duplex requires an even number of processors\n"); AMX_SPMDExit(1);
     }
   msg_size = (size > AM_MaxLong() ? AM_MaxLong() : size);
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
 
   begin = getCurrentTimeMicrosec();
 
-  if (fullduplex || myproc % 2 == 1) {
+  if (fullduplex || myproc % 2 == 1 || numprocs == 1) {
     int q;
     for (q=0; q<iters; q++) {
       int j;
@@ -152,25 +152,26 @@ int main(int argc, char **argv) {
       }
     }
 
-  if (polling) { /* poll until everyone done */
-    int expectedmsgs = fullduplex ? 2*nummsgs*iters:nummsgs*iters;
-    while (done<expectedmsgs) {
-      AM_Safe(AM_Poll(eb));
+  { int expectedmsgs = nummsgs*iters;
+    if (numprocs == 1 || fullduplex) expectedmsgs *= 2;
+
+    if (polling) { /* poll until everyone done */
+      while (done<expectedmsgs) {
+        AM_Safe(AM_Poll(eb));
+        }
+    } else {
+      while (done<expectedmsgs) {
+        AM_Safe(AM_SetEventMask(eb, AM_NOTEMPTY)); 
+        AM_Safe(AM_WaitSema(eb));
+        AM_Safe(AM_Poll(eb));
       }
     }
-  else {
-    int expectedmsgs = fullduplex ? 2*nummsgs*iters:nummsgs*iters;
-    while (done<expectedmsgs) {
-      AM_Safe(AM_SetEventMask(eb, AM_NOTEMPTY)); 
-      AM_Safe(AM_WaitSema(eb));
-      AM_Safe(AM_Poll(eb));
-      }
-    }
+  }
 
   end = getCurrentTimeMicrosec();
 
   total = end - begin;
-  if (fullduplex || myproc % 2 == 1) 
+  if (fullduplex || myproc % 2 == 1 || numprocs == 1) 
     printf("Slave %i: %i microseconds total, throughput: %8.3f KB/sec\n", 
       myproc, (int)total, (float)(((float)1000000)*size*iters/((int)total))/1024.0);
   fflush(stdout);

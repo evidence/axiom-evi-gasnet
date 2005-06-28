@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2005/06/21 19:05:23 $
- * $Revision: 1.12 $
+ *     $Date: 2005/06/28 08:40:52 $
+ * $Revision: 1.13 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -970,7 +970,7 @@ extern const char *AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int glob
     (int)repliesSent, (int)repliesRetransmitted, (int)repliesReceived,
     stats->ReturnedMessages,
   #if AMUDP_COLLECT_LATENCY_STATS
-    (int)ticks2us(stats->RequestMinLatency),
+    (int)(stats->RequestMinLatency == (amudp_cputick_t)-1?-1:ticks2us(stats->RequestMinLatency)),
     (int)ticks2us(stats->RequestMaxLatency),
     (requestsSent>0?(int)(ticks2us(stats->RequestSumLatency) / requestsSent):-1),
   #endif

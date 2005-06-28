@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2005/04/17 08:58:19 $
- * $Revision: 1.23 $
+ *     $Date: 2005/06/28 08:40:52 $
+ * $Revision: 1.24 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -262,7 +262,7 @@ typedef struct amudp_ep {
   amudp_bufdesc_t* requestDesc;
   amudp_bufdesc_t* replyDesc;
 
-  int outstandingRequests; /* number of requests awaiting a reply */
+  int outstandingRequests; /* number of requests awaiting a reply, does NOT include loopback */
   int timeoutCheckPosn; /* current position of the timeout-checking circular walk */
 
   amudp_perproc_info_t *perProcInfo; 

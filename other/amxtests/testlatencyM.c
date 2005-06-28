@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testlatencyM.c,v $
- *     $Date: 2004/08/26 04:53:53 $
- * $Revision: 1.8 $
+ *     $Date: 2005/06/28 08:40:54 $
+ * $Revision: 1.9 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,22 +94,22 @@ int main(int argc, char **argv) {
   if (argc > 3) msgsz = atoi(argv[3]);
   if (!msgsz) msgsz = 1;
 
-  if (myproc == 0) numleft = (numprocs-1)*iters;
-  else numleft = iters;
-
   outputTimerStats();
 
   AM_Safe(AMX_SPMDBarrier());
 
   if (myproc == 0) printf("Running %i iterations of latency test (MSGSZ=%i)...\n", iters, msgsz);
-  else msg = (char *)malloc(msgsz);
+  msg = (char *)malloc(msgsz);
 
   begin = getCurrentTimeMicrosec();
 
-  if (myproc == 0) mywait(polling);
-  else { /* everybody sends packets to 0 */
+  if (myproc == 0 && numprocs > 1) {
+    numleft = (numprocs-1)*iters;
+    mywait(polling);
+  } else { /* everybody sends packets to 0 */
+    int expect = (numprocs > 1 ? 1 : 2);
     for (k=0;k < iters; k++) {
-      numleft = 1;
+      numleft = expect;
       #if VERBOSE
         printf("%i: sending request...", myproc); fflush(stdout);
       #endif
@@ -121,7 +121,7 @@ int main(int argc, char **argv) {
   end = getCurrentTimeMicrosec();
 
   total = end - begin;
-  if (myproc != 0) printf("Slave %i: %i microseconds total, throughput: %i requests/sec (%i us / request)\n", 
+  if (myproc != 0 || numprocs == 1) printf("Slave %i: %i microseconds total, throughput: %i requests/sec (%i us / request)\n", 
     myproc, (int)total, (int)(((float)1000000)*iters/((int)total)), ((int)total)/iters);
   else printf("Slave 0 done.\n");
   fflush(stdout);

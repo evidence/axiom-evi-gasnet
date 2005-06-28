@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testping.c,v $
- *     $Date: 2004/08/26 04:53:53 $
- * $Revision: 1.6 $
+ *     $Date: 2005/06/28 08:40:54 $
+ * $Revision: 1.7 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -73,7 +73,8 @@ int main(int argc, char **argv) {
       }
     }
 
-  if (myproc == 0) numleft = (numprocs-1)*iters;
+  if (numprocs == 1) numleft = 2*iters;
+  else if (myproc == 0) numleft = (numprocs-1)*iters;
   else numleft = iters;
 
   AM_Safe(AMX_SPMDBarrier());
@@ -82,7 +83,7 @@ int main(int argc, char **argv) {
 
   begin = getCurrentTimeMicrosec();
 
-  if (myproc != 0) { /* everybody sends packets to 0 */
+  if (myproc != 0 || numprocs == 1) { /* everybody sends packets to 0 */
     for (k=0;k < iters; k++) {
       #if VERBOSE
         printf("%i: sending request...", myproc); fflush(stdout);
@@ -107,7 +108,7 @@ int main(int argc, char **argv) {
   end = getCurrentTimeMicrosec();
 
   total = end - begin;
-  if (myproc != 0) printf("Slave %i: %i microseconds total, throughput: %i requests/sec (%i us / request)\n", 
+  if (myproc != 0 || numprocs == 1) printf("Slave %i: %i microseconds total, throughput: %i requests/sec (%i us / request)\n", 
     myproc, (int)total, (int)(((float)1000000)*iters/((int)total)), ((int)total)/iters);
   else printf("Slave 0 done.\n");
   fflush(stdout);
