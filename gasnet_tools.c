@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/06/10 23:10:17 $
- * $Revision: 1.112 $
+ *     $Date: 2005/06/29 22:51:15 $
+ * $Revision: 1.113 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -769,6 +769,21 @@ extern void gasneti_unsetenv(const char *key) {
   #endif
 }
 
+/* ------------------------------------------------------------------------------------ */
+/* Bits for conduits which want/need to override pthread_create() */
+
+#if defined(PTHREAD_MUTEX_INITIALIZER) /* only if pthread.h available */ && !GASNET_SEQ
+  #ifndef GASNETC_PTHREAD_CREATE_OVERRIDE
+    /* Default is just pass through */
+    #define GASNETC_PTHREAD_CREATE_OVERRIDE(create_fn, thread, attr, start_routine, arg) \
+      (*create_fn)(thread, attr, start_routine, arg)
+  #endif
+
+  int gasneti_pthread_create(gasneti_pthread_create_fn_t *create_fn, pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void *), void *arg) {
+    GASNETI_TRACE_PRINTF(I, ("gasneti_pthread_create(%p, %p, %p, %p, %p)", create_fn, thread, attr, start_routine, arg));
+    return GASNETC_PTHREAD_CREATE_OVERRIDE(create_fn, thread, attr, start_routine, arg);
+  }
+#endif
 /* ------------------------------------------------------------------------------------ */
 /* Debug memory management
    debug memory format:
