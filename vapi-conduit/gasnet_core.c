@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/06/21 19:05:54 $
- * $Revision: 1.114 $
+ *     $Date: 2005/06/29 22:31:43 $
+ * $Revision: 1.115 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -965,7 +965,10 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* XXX: The gasneti_segmentInit call replicates the mmap search and min-of-max done above */
   #if GASNET_SEGMENT_FAST
-    gasneti_segmentInit(gasnetc_pin_info.memory, &gasneti_bootstrapExchange);
+  {
+    /* Reserve space for use by firehose: 4096 pages */
+    gasneti_segmentInit(gasnetc_pin_info.memory - 4096*GASNET_PAGESIZE, &gasneti_bootstrapExchange);
+  }
   #elif GASNET_SEGMENT_LARGE
     gasneti_segmentInit((uintptr_t)(-1), &gasneti_bootstrapExchange);
   #elif GASNET_SEGMENT_EVERYTHING
@@ -1231,6 +1234,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         reg_size += gasnetc_rcv_reg.len;
 	reg_count++;
     }
+    /* Adjust for prepinned regions, which were pinned before physmem probe */
+    gasnetc_pin_info.memory += reg_size;
 
     #if FIREHOSE_VAPI_USE_FMR
     {
@@ -1248,8 +1253,12 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
       uint32_t flags = 0;
 
       #if GASNETC_PIN_SEGMENT
+        /* Adjust for the pinned segment (which is not advertised to firehose as prepinned) */
+        gasneti_assert_always(gasnetc_pin_info.memory > maxsize);
         gasnetc_pin_info.memory -= maxsize;
+        gasneti_assert_always(gasnetc_pin_info.regions > gasnetc_seg_reg_count);
         gasnetc_pin_info.regions -= gasnetc_seg_reg_count;
+
 	flags |= FIREHOSE_INIT_FLAG_LOCAL_ONLY;
       #endif
       #if defined(__APPLE__) && defined(__MACH__)
