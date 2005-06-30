@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/06/10 11:45:07 $
-# $Revision: 1.49 $
+#     $Date: 2005/06/30 08:10:12 $
+# $Revision: 1.50 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -86,7 +86,7 @@ TESTINSTANCE=$$PPID
 TESTLOG=`pwd`/.test-results
 
 
-run-tests run-tests-seq run-tests-parsync run-tests-par: do-begin-tests other-run-tests
+run-tests run-tests-seq run-tests-parsync run-tests-par: do-begin-tests
 	@testinst=$(TESTINSTANCE) ; 							\
 	testlog=$(TESTLOG) ; 								\
         err=0 ; 									\
