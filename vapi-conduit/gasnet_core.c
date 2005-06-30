@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/06/30 17:56:39 $
- * $Revision: 1.118 $
+ *     $Date: 2005/06/30 23:44:48 $
+ * $Revision: 1.119 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -952,6 +952,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       if_pf (addr == NULL) {
         gasneti_fatalerror("Unable to register/pin memory");
       }
+      gasneti_bootstrapBarrier();
     }
 
     /* Determine the number of local processes and distinguish one */
@@ -983,6 +984,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_assert(gasnetc_pin_info.regions != 0);
 
     if (reserved_mem != 0) {
+      /* No Barrier needed due to Exchange above */
       gasnetc_free_pinned(&tmp_reg);
       gasnetc_pin_info.memory += reserved_mem;
     }
