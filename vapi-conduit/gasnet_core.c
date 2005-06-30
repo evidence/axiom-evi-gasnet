@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/06/29 22:51:17 $
- * $Revision: 1.116 $
+ *     $Date: 2005/06/30 01:10:25 $
+ * $Revision: 1.117 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,6 +36,9 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
   These calues can be overridden by environment variables.
   Variable names are formed by replacing GASNETC_DEFAULT_ by GASNET_
 */
+
+/* Minimum number of pages to reserve for firehoses in SEGMENT_FAST: */
+#define GASNETC_MIN_FH_PAGES		4096
 
 /* Default HCA and Port */
 #define GASNETC_DEFAULT_HCA_ID		""		/* NULL or empty = probe */
@@ -966,8 +969,9 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* XXX: The gasneti_segmentInit call replicates the mmap search and min-of-max done above */
   #if GASNET_SEGMENT_FAST
   {
-    /* Reserve space for use by firehose: 4096 pages */
-    gasneti_segmentInit(gasnetc_pin_info.memory - 4096*GASNET_PAGESIZE, &gasneti_bootstrapExchange);
+    /* Reserve space for use by firehose */
+    gasneti_segmentInit(gasnetc_pin_info.memory - GASNETC_MIN_FH_PAGES*GASNET_PAGESIZE,
+			&gasneti_bootstrapExchange);
   }
   #elif GASNET_SEGMENT_LARGE
     gasneti_segmentInit((uintptr_t)(-1), &gasneti_bootstrapExchange);
