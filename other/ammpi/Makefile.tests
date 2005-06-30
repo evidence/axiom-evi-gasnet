@@ -41,7 +41,7 @@ run-tests: tests
 	@TEST_RUN="./testbulk $(TEST_ITERS) 1048576 $(TEST_MODE) $(TEST_DUPLEX)" $(TEST_RUNCMD)
 	@TEST_RUN="./testam $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
 	@TEST_RUN="./testbounce $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
-	@TEST_RUN="./testreduce" $(TEST_RUNCMD)
+	@TEST_RUN="./testreduce " $(TEST_RUNCMD)
 	@TEST_RUN="./testgetput $(TEST_ITERS)" $(TEST_RUNCMD)
 	@TEST_RUN="./testreadwrite $(TEST_ITERS)" $(TEST_RUNCMD)
 	@echo TESTS COMPLETE
