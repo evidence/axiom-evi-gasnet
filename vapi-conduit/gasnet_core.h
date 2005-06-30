@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2005/05/18 22:35:42 $
- * $Revision: 1.39 $
+ *     $Date: 2005/06/30 02:14:08 $
+ * $Revision: 1.40 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -128,6 +128,9 @@ typedef gasneti_weakatomic_t gasnetc_counter_t;
 					gasneti_assert(!gasnetc_counter_done(P)); \
 					gasneti_weakatomic_decrement(P);          \
 				} while (0)
+#define gasnetc_counter_dec_if(P)	do { if(P) gasnetc_counter_dec(P); } while (0)
+#define gasnetc_counter_dec_if_pf(P)	do { if_pf(P) gasnetc_counter_dec(P); } while (0)
+#define gasnetc_counter_dec_if_pt(P)	do { if_pt(P) gasnetc_counter_dec(P); } while (0)
 #if GASNETI_STATS_OR_TRACE
   #define gasnetc_counter_val(P)	gasneti_weakatomic_read(P)
 #endif
