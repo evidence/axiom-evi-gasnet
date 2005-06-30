@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testlatencyM.c,v $
- *     $Date: 2005/06/28 08:40:54 $
- * $Revision: 1.9 $
+ *     $Date: 2005/06/30 08:52:22 $
+ * $Revision: 1.10 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -99,12 +99,14 @@ int main(int argc, char **argv) {
   AM_Safe(AMX_SPMDBarrier());
 
   if (myproc == 0) printf("Running %i iterations of latency test (MSGSZ=%i)...\n", iters, msgsz);
+  if (myproc == 0 && numprocs > 1) numleft = (numprocs-1)*iters;
+  AM_Safe(AMX_SPMDBarrier());
+
   msg = (char *)malloc(msgsz);
 
   begin = getCurrentTimeMicrosec();
 
   if (myproc == 0 && numprocs > 1) {
-    numleft = (numprocs-1)*iters;
     mywait(polling);
   } else { /* everybody sends packets to 0 */
     int expect = (numprocs > 1 ? 1 : 2);
