@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2005/06/21 19:05:17 $
- * $Revision: 1.21 $
+ *     $Date: 2005/07/01 00:39:19 $
+ * $Revision: 1.22 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -255,7 +255,7 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
     if (type == ammpi_system_returnedmessage) { 
       AMMPI_HandlerReturned handlerfn = (AMMPI_HandlerReturned)ep->handler[0];
       op_t opcode;
-      if (sourceId < 0) return; /*  unknown source, ignore message */
+      if (sourceId == (ammpi_node_t)-1) return; /*  unknown source, ignore message */
       opcode = AMMPI_GetOpcode(isrequest, cat);
 
       /* note that source/dest for returned mesgs reflect the virtual "message denied" packet 
@@ -275,7 +275,7 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
   if (isrequest) ep->stats.RequestsReceived[cat]++;
   else ep->stats.RepliesReceived[cat]++;
 
-  if_pf (sourceId < 0) AMMPI_REFUSEMESSAGE(ep, buf, EBADENDPOINT);
+  if_pf (sourceId == (ammpi_node_t)-1) AMMPI_REFUSEMESSAGE(ep, buf, EBADENDPOINT);
 
 #if AMMPI_USE_AMTAGS
   if_pf (ep->tag == AM_NONE || 
