@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/06/21 19:05:01 $
- * $Revision: 1.89 $
+ * $Date: 2005/07/01 01:04:24 $
+ * $Revision: 1.90 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2592,7 +2592,7 @@ gasnetc_gmport_allocate(int *board, int *port)
 		for (board_id = 0; board_id < GASNETC_GM_MAXBOARDS; board_id++) {
 
 			status = gm_open(&p, board_id, port_id, 
-					"GASNet/GM", GM_API_VERSION_1_4);
+					"GASNet/GM", (enum gm_api_version)GM_API_VERSION_1_4);
 
 			switch (status) {
 				case GM_SUCCESS:
@@ -2708,7 +2708,7 @@ gasnetc_getconf_conffile()
 	gm_init();
 	status = 
 		gm_open(&p, GASNETC_DEFAULT_GM_BOARD_NUM, thisport,"GASNet/GM", 
-		    GM_API_VERSION_1_4);
+		    (enum gm_api_version)GM_API_VERSION_1_4);
 	if (status != GM_SUCCESS) {
 		char	msg[64];
 		sprintf(msg, "could not open GM port %d", thisport);

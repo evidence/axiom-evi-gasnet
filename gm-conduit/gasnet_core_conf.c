@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_conf.c,v $
- * $Date: 2005/04/14 19:25:44 $
- * $Revision: 1.22 $
+ * $Date: 2005/07/01 01:04:24 $
+ * $Revision: 1.23 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -238,7 +238,7 @@ void
 gasnetc_getconf_mpiexec()
 {
 	char	*magic, *master, *port;
-	char	*id, *np, *board;
+	char	*np, *board;
 	char	buffer[GASNETC_SOCKET_BUFSIZ];
 	char	*temp;
 	int	sockfd, sockfd2;
@@ -280,8 +280,8 @@ gasnetc_getconf_mpiexec()
 		
 	if (sscanf (port, "%ud", &master_port) != 1) 
 		gasneti_fatalerror(
-		    "Bootstrap: Bad master port 1 (%s out of %d processes", 
-		    id, gasneti_nodes);
+		    "Bootstrap: Bad master port 1 '%s', out of %d processes", 
+		    port, gasneti_nodes);
 	_gmc.master_port = master_port;
 
 	if (sscanf (board, "%ud", &board_id) != 1)
