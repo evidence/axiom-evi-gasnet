@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/06/30 02:14:08 $
- * $Revision: 1.118 $
+ *     $Date: 2005/07/02 04:13:18 $
+ * $Revision: 1.119 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -484,7 +484,7 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
             #if !GASNETC_PIN_SEGMENT
 	    {
 	      /* Bounce buffer PUT */
-	      GASNETC_COLLECT_BBUF_PF(sreq->fh_buff);
+	      GASNETC_COLLECT_BBUF_PF(sreq->fh_bbuf);
 	    }
 	    #else
 	    if_pf (sreq->fh_count < 0) {
