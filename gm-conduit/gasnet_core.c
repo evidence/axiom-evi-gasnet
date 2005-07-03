@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/07/01 01:04:24 $
- * $Revision: 1.90 $
+ * $Date: 2005/07/03 14:33:30 $
+ * $Revision: 1.91 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -728,7 +728,7 @@ static int gasnetc_exit_head(int exitcode) {
  *
  * DOES NOT RETURN
  */
-static void gasnetc_exit_now(int) GASNET_NORETURN;
+static void gasnetc_exit_now(int) GASNETI_NORETURN;
 static void gasnetc_exit_now(int exitcode) {
   /* If anybody is still waiting, let them go */
   gasneti_atomic_set(&gasnetc_exit_done, 1);
@@ -755,7 +755,7 @@ static void gasnetc_exit_now(int exitcode) {
  *
  * DOES NOT RETURN
  */
-static void gasnetc_exit_tail(void) GASNET_NORETURN;
+static void gasnetc_exit_tail(void) GASNETI_NORETURN;
 static void gasnetc_exit_tail(void) {
   gasnetc_exit_now((int)gasneti_atomic_read(&gasnetc_exit_code));
   /* NOT REACHED */

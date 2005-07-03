@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/06/30 08:10:12 $
-# $Revision: 1.50 $
+#     $Date: 2005/07/03 14:33:20 $
+# $Revision: 1.51 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -93,7 +93,10 @@ run-tests run-tests-seq run-tests-parsync run-tests-par: do-begin-tests
 	for conduit in $(CONDUITS) ; do                                        		\
 	  ( cd "$(top_builddir)/$$conduit-conduit" &&                          		\
             $(MAKE) TESTINSTANCE=$$testinst TESTLOG=$$testlog $@ ) || err=$$? ;		\
-          if test "$$err" != "0" ; then break ; fi ;                        		\
+          if test "$$err" != "0" ; then                             			\
+		echo " *-* COMPILE FAILURE: $$conduit-conduit $@ *-*" >> $(TESTLOG) ;   \
+		break ; 								\
+	  fi ;                        							\
 	done ; 										\
         if test "$$err" = "0" ; then  							\
 	  ( cd $(top_builddir)/other &&  						\

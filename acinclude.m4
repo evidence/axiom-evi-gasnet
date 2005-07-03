@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/07/03 06:42:45 $
-dnl $Revision: 1.69 $
+dnl     $Date: 2005/07/03 14:33:20 $
+dnl $Revision: 1.70 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -732,23 +732,23 @@ AC_DEFUN([GASNET_CHECK_RESTRICT],[
   if test "$restrict_keyword" = ""; then
     GASNET_TRY_CACHE_CHECK(for restrict keyword, cc_keyrestrict,
       [int dummy(void * restrict p) { return 1; }], [],
-      AC_DEFINE(GASNET_RESTRICT, restrict)
+      AC_DEFINE(GASNETI_RESTRICT, restrict)
       restrict_keyword="restrict")
   fi
   if test "$restrict_keyword" = ""; then
     GASNET_TRY_CACHE_CHECK(for __restrict__ keyword, cc_key__restrict__,
       [int dummy(void * __restrict__ p) { return 1; }], [],
-      AC_DEFINE(GASNET_RESTRICT, __restrict__)
+      AC_DEFINE(GASNETI_RESTRICT, __restrict__)
       restrict_keyword="__restrict__")
   fi
   if test "$restrict_keyword" = ""; then
     GASNET_TRY_CACHE_CHECK(for __restrict keyword, cc_key__restrict,
       [int dummy(void * __restrict p) { return 1; }], [],
-      AC_DEFINE(GASNET_RESTRICT, __restrict)
+      AC_DEFINE(GASNETI_RESTRICT, __restrict)
       restrict_keyword="__restrict")
   fi
   if test "$restrict_keyword" = ""; then
-      AC_DEFINE(GASNET_RESTRICT,)
+      AC_DEFINE(GASNETI_RESTRICT,)
   fi
 ])
 

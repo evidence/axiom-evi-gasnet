@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.h,v $
- * $Date: 2005/02/12 11:29:21 $
- * $Revision: 1.23 $
+ * $Date: 2005/07/03 14:33:30 $
+ * $Revision: 1.24 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -31,7 +31,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
                           uintptr_t segsize, uintptr_t minheapoffset);
 #define gasnet_attach gasnetc_attach
 
-extern void gasnetc_exit(int exitcode) GASNET_NORETURN;
+extern void gasnetc_exit(int exitcode) GASNETI_NORETURN;
 #define gasnet_exit gasnetc_exit
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/04/22 21:43:09 $
- * $Revision: 1.43 $
+ *     $Date: 2005/07/03 14:33:42 $
+ * $Revision: 1.44 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -248,7 +248,7 @@ static char *quote_arg(const char *arg) {
 /* Like gasneti_fatalerror, but w/o dumping core
  * This is used for probable user errors
  */
-static void die(int exitcode, const char *msg, ...) GASNET_NORETURN __attribute__((__format__ (__printf__, 2, 3)));
+static void die(int exitcode, const char *msg, ...) GASNETI_NORETURN __attribute__((__format__ (__printf__, 2, 3)));
 static void die(int exitcode, const char *msg, ...) {
   va_list argptr;
   char expandedmsg[255];
@@ -1163,7 +1163,7 @@ static void usage(const char *argv0) {
   die(1, "usage: %s [-GASNET-SPAWN-master] [-v] NPROC[:NODES] [--] [ARGS...]", argv0);
 }
 
-static void do_kill(int argc, char **argv) GASNET_NORETURN;
+static void do_kill(int argc, char **argv) GASNETI_NORETURN;
 static void do_kill(int argc, char **argv) {
   int pid;
   int rc;
@@ -1190,7 +1190,7 @@ static void do_kill(int argc, char **argv) {
   _exit(0);
 }
 
-static void do_master(int argc, char **argv) GASNET_NORETURN;
+static void do_master(int argc, char **argv) GASNETI_NORETURN;
 static void do_master(int argc, char **argv) {
   char myhost[1024];
   char *p;

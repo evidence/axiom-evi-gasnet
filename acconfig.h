@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/06/09 23:47:22 $ */
-/*  $Revision: 1.57 $ */
+/*      $Date: 2005/07/03 14:33:20 $ */
+/*  $Revision: 1.58 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -25,7 +25,7 @@
 #undef CC_INLINE_MODIFIER
 
 /* C compilers 'restrict' keyword (or empty) */
-#undef GASNET_RESTRICT
+#undef GASNETI_RESTRICT
 
 /* Functions may be declared "static inline" */
 #undef STATIC_INLINE_WORKS
@@ -173,11 +173,15 @@
 #endif
 
 #if defined(__GNUC__)
-#define GASNET_NORETURN __attribute__((__noreturn__))
+#define GASNETI_NORETURN __attribute__((__noreturn__))
 #else
-#define GASNET_NORETURN 
+#define GASNETI_NORETURN 
 #endif
 
-
+#if defined(__PGI) && defined(__cplusplus)
+  /* PGI C++ appears to have no functional restrict keyword, even with --restrict */
+  #undef GASNETI_RESTRICT
+  #define GASNETI_RESTRICT
+#endif
 
 #endif

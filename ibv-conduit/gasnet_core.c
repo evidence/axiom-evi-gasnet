@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/02 04:34:51 $
- * $Revision: 1.120 $
+ *     $Date: 2005/07/03 14:34:03 $
+ * $Revision: 1.121 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1536,7 +1536,7 @@ static int gasnetc_exit_head(int exitcode) {
  *
  * DOES NOT RETURN
  */
-static void gasnetc_exit_now(int) GASNET_NORETURN;
+static void gasnetc_exit_now(int) GASNETI_NORETURN;
 static void gasnetc_exit_now(int exitcode) {
   /* If anybody is still waiting, let them go */
   gasneti_atomic_set(&gasnetc_exit_done, 1);
@@ -1563,7 +1563,7 @@ static void gasnetc_exit_now(int exitcode) {
  *
  * DOES NOT RETURN
  */
-static void gasnetc_exit_tail(void) GASNET_NORETURN;
+static void gasnetc_exit_tail(void) GASNETI_NORETURN;
 static void gasnetc_exit_tail(void) {
   gasnetc_exit_now((int)gasneti_atomic_read(&gasnetc_exit_code));
   /* NOT REACHED */

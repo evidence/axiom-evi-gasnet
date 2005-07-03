@@ -1,11 +1,12 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/delay.c,v $
- *     $Date: 2005/03/12 11:21:16 $
- * $Revision: 1.6 $
+ *     $Date: 2005/07/03 14:33:57 $
+ * $Revision: 1.7 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
  */
 #include <float.h>
+#include <gasnet.h>
 #include <gasnet_tools.h>
 
 static volatile float x, y;

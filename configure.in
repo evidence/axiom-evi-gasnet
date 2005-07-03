@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/06/30 23:17:40 $
-# $Revision: 1.275 $
+#     $Date: 2005/07/03 14:33:20 $
+# $Revision: 1.276 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.275 $)
+AC_REVISION($Revision: 1.276 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -99,7 +99,6 @@ GASNET_PROG_CC
 AC_PROG_LN_S
 AC_C_BIGENDIAN
 AC_CHECK_PROG(have_mpcc_r,mpcc_r,yes,no)
-GASNET_CHECK_RESTRICT
 
 ## DOB: this is more trouble than it's worth because so many OS's define
 ## LITTLE_ENDIAN or BIG_ENDIAN in random and sultry header files
@@ -286,7 +285,7 @@ case "$gasnet_cv_cc_family" in
                           [MISC_CFLAGS="$MISC_CFLAGS -wd1572"])
          ;;
   NEC) MISC_CFLAGS="-woff=68:111:174:177:236:301:550:940" ;; 
-  PGI) MISC_CFLAGS="-Masmkeyword" ;;
+  PGI) MISC_CFLAGS="-Masmkeyword -c9x" ;; # get inline assembly and restrict
   MTA) MISC_CFLAGS="-display_error_number -WS 111,174,238" ;;
   Sun) MISC_CFLAGS="-errtags" ;; # show warning tag ids in warnings
   XLC) MISC_CFLAGS="-qsuppress=1500-010" ;; # 1500-010 = infinite loop (such as in our tests)
@@ -410,6 +409,9 @@ GASNET_WITH(barrier,
 popdef([BARRIERVALS])
 
 GASNET_LIBGCC
+GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS")
+GASNET_CHECK_RESTRICT
+GASNET_POPVAR(CFLAGS)
 
 ########################################################################
 # hunt for 16-, 32-, and 64-bit integer types

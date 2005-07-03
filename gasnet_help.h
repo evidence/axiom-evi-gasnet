@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/06/29 22:51:15 $
- * $Revision: 1.56 $
+ *     $Date: 2005/07/03 14:33:20 $
+ * $Revision: 1.57 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,7 +26,7 @@
 
 BEGIN_EXTERNC
 
-extern void gasneti_fatalerror(const char *msg, ...) GASNET_NORETURN __attribute__((__format__ (__printf__, 1, 2)));
+extern void gasneti_fatalerror(const char *msg, ...) GASNETI_NORETURN __attribute__((__format__ (__printf__, 1, 2)));
 /* internal GASNet environment query function
  * uses the gasneti_globalEnv if available or regular getenv otherwise
  * legal to call before gasnet_init, but may malfunction if

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/06/22 09:57:04 $
- * $Revision: 1.78 $
+ *     $Date: 2005/07/03 14:33:20 $
+ * $Revision: 1.79 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -223,7 +223,7 @@ char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) {
 /* ------------------------------------------------------------------------------------ */
 
 extern void gasneti_freezeForDebugger();
-extern void gasneti_killmyprocess(int exitcode) GASNET_NORETURN;
+extern void gasneti_killmyprocess(int exitcode) GASNETI_NORETURN;
 extern void gasneti_flush_streams(); /* flush all open streams */
 extern void gasneti_close_streams(); /* close standard streams (for shutdown) */
 
