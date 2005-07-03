@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2005/04/17 08:58:17 $
- * $Revision: 1.28 $
+ *     $Date: 2005/07/03 23:30:34 $
+ * $Revision: 1.29 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -446,7 +446,7 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
 #endif
 
 #if defined(AMMPI_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
-  #ifndef AMMPI_ALLOW_OPTIMIZED_DEBUG
+  #if !defined(AMMPI_ALLOW_OPTIMIZED_DEBUG) && !defined(GASNET_ALLOW_OPTIMIZED_DEBUG)
     #error Tried to compile AMMPI client code with optimization enabled but also AMMPI_DEBUG (which seriously hurts performance). Disable C and MPI_CC compiler optimization or reconfigure/rebuild without --enable-debug
   #endif
 #endif

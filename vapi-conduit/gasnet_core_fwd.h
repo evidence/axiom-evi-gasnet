@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2005/06/29 22:51:17 $
- * $Revision: 1.28 $
+ *     $Date: 2005/07/03 23:30:40 $
+ * $Revision: 1.29 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -91,6 +91,24 @@ typedef uint8_t gasnet_handler_t;
 #if defined(__APPLE__) && defined(__MACH__) && !GASNET_SEQ
   #define GASNETC_PTHREAD_CREATE_OVERRIDE(create_fn, thread, attr, start_routine, arg) \
 	gasnetc_pthread_create(create_fn, thread, attr, start_routine, arg)
+#endif
+
+#if defined(__PGI)
+  /* VAPI headers rely on the non-portable u_int*_t names
+     PGI lacks these, so translate them to the versions guaranteed by the C99 spec and portable_inttypes
+   */
+ #ifndef u_int8_t
+  #define u_int8_t  uint8_t
+ #endif
+ #ifndef u_int16_t
+  #define u_int16_t uint16_t
+ #endif
+ #ifndef u_int32_t
+  #define u_int32_t uint32_t
+ #endif
+ #if 0 && !defined(u_int64_t)
+  #define u_int64_t uint64_t
+ #endif
 #endif
 
 #endif

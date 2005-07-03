@@ -121,9 +121,10 @@ test: tests
 
 TESTINSTANCE=$$PPID
 TESTLOG=`pwd`/.test-results
+TESTLOG_INHERIT=0
 
 do-begin-tests do-end-tests:
-	@if test "$(MAKELEVEL)" = "1"; then \
+	@if test "$(TESTLOG_INHERIT)" = "0"; then \
           ( cd "$(top_builddir)" && $(MAKE) TESTINSTANCE=$(TESTINSTANCE) TESTLOG=$(TESTLOG) $@ ) || exit $? ; \
         fi
 
@@ -201,11 +202,18 @@ run-tests do-run-testexit: check-run-tests-deps
 	  CONDUIT_TESTS="$(CONDUIT_TESTS)" $(CONDUIT_TEST_MAKEARGS)
 	@$(MAKE) TESTINSTANCE=$(TESTINSTANCE) TESTLOG=$(TESTLOG) do-end-tests
 
-run-tests-seq: tests-clean tests-seq run-tests
-run-tests-par: tests-clean tests-par run-tests
-run-tests-parsync: tests-clean tests-parsync run-tests
-run-tests-mpi: tests-clean tests-mpi run-tests
-run-tests-mpi2: tests-clean tests-mpi2 run-tests
+# these are separate make commands to ensure they can be composed 
+# and still get multiple run-tests invocations
+run-tests-seq: tests-clean
+	$(MAKE) tests-seq run-tests
+run-tests-par: tests-clean
+	@$(MAKE) tests-par run-tests
+run-tests-parsync: tests-clean 
+	@$(MAKE) tests-parsync run-tests
+run-tests-mpi: tests-clean 
+	@$(MAKE) tests-mpi run-tests
+run-tests-mpi2: tests-clean 
+	@$(MAKE) tests-mpi2 run-tests
 
 .PRECIOUS: run-testexit
 run-testexit: force

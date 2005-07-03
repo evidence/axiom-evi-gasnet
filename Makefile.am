@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2005/07/03 14:33:20 $
-# $Revision: 1.51 $
+#     $Date: 2005/07/03 23:30:29 $
+# $Revision: 1.52 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -92,7 +92,8 @@ run-tests run-tests-seq run-tests-parsync run-tests-par: do-begin-tests
         err=0 ; 									\
 	for conduit in $(CONDUITS) ; do                                        		\
 	  ( cd "$(top_builddir)/$$conduit-conduit" &&                          		\
-            $(MAKE) TESTINSTANCE=$$testinst TESTLOG=$$testlog $@ ) || err=$$? ;		\
+            $(MAKE) TESTINSTANCE=$$testinst TESTLOG=$$testlog 				\
+		    TESTLOG_INHERIT=1 $@ ) || err=$$? ;					\
           if test "$$err" != "0" ; then                             			\
 		echo " *-* COMPILE FAILURE: $$conduit-conduit $@ *-*" >> $(TESTLOG) ;   \
 		break ; 								\
@@ -100,7 +101,8 @@ run-tests run-tests-seq run-tests-parsync run-tests-par: do-begin-tests
 	done ; 										\
         if test "$$err" = "0" ; then  							\
 	  ( cd $(top_builddir)/other &&  						\
-            $(MAKE) TESTINSTANCE=$$testinst TESTLOG=$$testlog run-tests ) || err=$$? ; 	\
+            $(MAKE) TESTINSTANCE=$$testinst TESTLOG=$$testlog 				\
+		    TESTLOG_INHERIT=1 run-tests ) || err=$$? ; 				\
         fi ; 										\
 	$(MAKE) TESTINSTANCE=$(TESTINSTANCE) TESTLOG=$(TESTLOG) do-end-tests ; 		\
 	exit $$err
