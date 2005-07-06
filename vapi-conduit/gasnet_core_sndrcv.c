@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/07/02 04:13:18 $
- * $Revision: 1.119 $
+ *     $Date: 2005/07/06 21:25:17 $
+ * $Revision: 1.120 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -50,10 +50,10 @@ VAPI_cq_hndl_t				gasnetc_snd_cq;
 size_t					gasnetc_fh_maxsz;
 size_t                   		gasnetc_inline_limit;
 size_t                   		gasnetc_bounce_limit;
+size_t					gasnetc_packedlong_limit;
 int					gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
 int					gasnetc_use_firehose = 1;
 int					gasnetc_am_credits_slack;
-int					gasnetc_packedlong_limit;
 int					gasnetc_num_qps;
 
 /* ------------------------------------------------------------------------------------ *

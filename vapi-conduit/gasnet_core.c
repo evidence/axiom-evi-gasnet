@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/06 01:59:33 $
- * $Revision: 1.122 $
+ *     $Date: 2005/07/06 21:25:17 $
+ * $Revision: 1.123 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -446,10 +446,12 @@ static int gasnetc_load_settings(void) {
 
   #define GASNETC_ENVINT(program_var, env_key, default_val, minval) do { \
       char _defval[10];                                                  \
-      sprintf(_defval,"%i",(default_val));                               \
-      program_var = atoi(gasneti_getenv_withdefault(#env_key, _defval)); \
-      if (program_var < minval)                                          \
+      int _tmp;                                                          \
+      sprintf(_defval,"%i",(int)(default_val));                          \
+      _tmp = atoi(gasneti_getenv_withdefault(#env_key, _defval));        \
+      if (_tmp < minval)                                                 \
         GASNETI_RETURN_ERRR(BAD_ARG, "("#env_key" < "#minval") in environment"); \
+      program_var = _tmp;                                                \
     } while (0)
 
   GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_NETWORKDEPTH_PP, GASNETC_DEFAULT_NETWORKDEPTH_PP, 1);
@@ -458,10 +460,10 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_CREDITS_TOTAL, GASNETC_DEFAULT_AM_CREDITS_TOTAL, 0);
   GASNETC_ENVINT(gasnetc_am_credits_slack, GASNET_AM_CREDITS_SLACK, GASNETC_DEFAULT_AM_CREDITS_SLACK, 0);
   GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_COUNT, GASNETC_DEFAULT_BBUF_COUNT, 0);
+  GASNETC_ENVINT(gasnetc_num_qps, GASNET_NUM_QPS, GASNETC_DEFAULT_NUM_QPS, 1);
   GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINESEND_LIMIT, GASNETC_DEFAULT_INLINESEND_LIMIT, 0);
   GASNETC_ENVINT(gasnetc_bounce_limit, GASNET_NONBULKPUT_BOUNCE_LIMIT, GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT, 0);
   GASNETC_ENVINT(gasnetc_packedlong_limit, GASNET_PACKEDLONG_LIMIT, GASNETC_DEFAULT_PACKEDLONG_LIMIT, 0);
-  GASNETC_ENVINT(gasnetc_num_qps, GASNET_NUM_QPS, GASNETC_DEFAULT_NUM_QPS, 1);
 
   #if GASNETC_PIN_SEGMENT
   { char *val;
@@ -513,8 +515,8 @@ static int gasnetc_load_settings(void) {
   }
   if_pf (gasnetc_packedlong_limit > GASNETC_MAX_PACKEDLONG) {
     fprintf(stderr,
-            "WARNING: GASNETC_PACKEDLONG_LIMIT reduced from %d to %d\n",
-            gasnetc_packedlong_limit, GASNETC_MAX_PACKEDLONG);
+            "WARNING: GASNETC_PACKEDLONG_LIMIT reduced from %u to %u\n",
+            (unsigned int)gasnetc_packedlong_limit, GASNETC_MAX_PACKEDLONG);
     gasnetc_packedlong_limit = GASNETC_MAX_PACKEDLONG;
   }
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/07/03 14:33:42 $
- * $Revision: 1.44 $
+ *     $Date: 2005/07/06 21:25:14 $
+ * $Revision: 1.45 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -956,7 +956,7 @@ static void recv_argv(int s, int *argc_p, char ***argv_p) {
   *argv_p = argv;
 }
 
-static void pre_spawn(count) {
+static void pre_spawn(int count) {
   struct sockaddr_in sock_addr;
   socklen_t addr_len;
 
