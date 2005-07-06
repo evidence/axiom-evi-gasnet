@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/06/21 19:05:29 $
- * $Revision: 1.15 $
+ *     $Date: 2005/07/06 01:59:23 $
+ * $Revision: 1.16 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -198,7 +198,9 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
              on index (gasnet_handler_t)newindex */
       gasnetc_sci_handler_table[(gasnet_handler_t) newindex] = table[i].fnptr;
 
-    if (dontcare) table[i].index = newindex;
+    if (dontcare && !table[i].index) table[i].index = newindex;
+    else gasneti_assert(table[i].index == newindex);
+
     (*numregistered)++;
   }
   return GASNET_OK;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2005/06/21 19:05:39 $
- * $Revision: 1.36 $
+ *     $Date: 2005/07/06 01:59:27 $
+ * $Revision: 1.37 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -172,7 +172,9 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
              on index (gasnet_handler_t)newindex */
     gasnetc_handler[(gasnet_handler_t)newindex] = (gasnetc_handler_fn_t)table[i].fnptr;
 
-    if (dontcare) table[i].index = newindex;
+    if (dontcare && !table[i].index) table[i].index = newindex;
+    else gasneti_assert(table[i].index == newindex);
+
     (*numregistered)++;
   }
   return GASNET_OK;

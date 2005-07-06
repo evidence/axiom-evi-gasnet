@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/06/21 19:04:56 $
- * $Revision: 1.60 $
+ *     $Date: 2005/07/06 01:59:15 $
+ * $Revision: 1.61 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -364,7 +364,9 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     /* register the handler */
     gasnetc_handler[newindex] = table[i].fnptr;
 
-    if (dontcare) table[i].index = newindex;
+    if (dontcare && !table[i].index) table[i].index = newindex;
+    else gasneti_assert(table[i].index == newindex);
+
     (*numregistered)++;
   }
   return GASNET_OK;

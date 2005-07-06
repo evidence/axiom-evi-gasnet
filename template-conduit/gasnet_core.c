@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
- *     $Date: 2005/06/21 19:05:44 $
- * $Revision: 1.49 $
+ *     $Date: 2005/07/06 01:59:29 $
+ * $Revision: 1.50 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -159,7 +159,9 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     /* (###) add code here to register table[i].fnptr 
              on index (gasnet_handler_t)newindex */
 
-    if (dontcare) table[i].index = newindex;
+    if (dontcare && !table[i].index) table[i].index = newindex;
+    else gasneti_assert(table[i].index == newindex);
+
     (*numregistered)++;
   }
   return GASNET_OK;

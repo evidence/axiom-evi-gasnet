@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2005/06/21 19:05:12 $
- * $Revision: 1.62 $
+ *     $Date: 2005/07/06 01:59:21 $
+ * $Revision: 1.63 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -205,7 +205,9 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     if (AM_SetHandler(gasnetc_endpoint, (handler_t)newindex, table[i].fnptr) != AM_OK) 
       GASNETI_RETURN_ERRR(RESOURCE, "AM_SetHandler() failed while registering handlers");
 
-    if (dontcare) table[i].index = newindex;
+    if (dontcare && !table[i].index) table[i].index = newindex;
+    else gasneti_assert(table[i].index == newindex);
+
     (*numregistered)++;
   }
   return GASNET_OK;

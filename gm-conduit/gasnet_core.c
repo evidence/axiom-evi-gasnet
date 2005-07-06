@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/07/03 14:33:30 $
- * $Revision: 1.91 $
+ * $Date: 2005/07/06 01:59:17 $
+ * $Revision: 1.92 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -231,7 +231,9 @@ gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     if (retval != GASNET_OK)
         GASNETI_RETURN_ERRR(RESOURCE, "AM_SetHandler() failed while registering core handlers");
 
-    if (dontcare) table[i].index = newindex;
+    if (dontcare && !table[i].index) table[i].index = newindex;
+    else gasneti_assert(table[i].index == newindex);
+
     (*numregistered)++;
   }
   return GASNET_OK;
