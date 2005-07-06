@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/06 01:59:19 $
- * $Revision: 1.75 $
+ *     $Date: 2005/07/06 02:25:48 $
+ * $Revision: 1.76 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -366,9 +366,6 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 	if (dontcare && !table[i].index) table[i].index = newindex;
 	else gasneti_assert(table[i].index == newindex);
 
-      (*numregistered)++;
-    }
-    return GASNET_OK;
 	(*numregistered)++;
     }
     return GASNET_OK;
