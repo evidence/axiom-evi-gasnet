@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/06 01:59:31 $
- * $Revision: 1.26 $
+ *     $Date: 2005/07/07 02:42:04 $
+ * $Revision: 1.27 $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -277,8 +277,10 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     if (AM_SetHandler(gasnetc_endpoint, (handler_t)newindex, table[i].fnptr) != AM_OK) 
       GASNETI_RETURN_ERRR(RESOURCE, "AM_SetHandler() failed while registering handlers");
 
+    /* The check below for !table[i].index is redundant and present
+     * only to defeat the over-aggressive optimizer in pathcc 2.1
+     */
     if (dontcare && !table[i].index) table[i].index = newindex;
-    else gasneti_assert(table[i].index == newindex);
 
     (*numregistered)++;
   }

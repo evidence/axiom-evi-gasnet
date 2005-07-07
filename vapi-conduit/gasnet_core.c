@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/06 21:25:17 $
- * $Revision: 1.123 $
+ *     $Date: 2005/07/07 02:42:06 $
+ * $Revision: 1.124 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1099,8 +1099,10 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
     /* register the handler */
     gasnetc_handler[newindex] = table[i].fnptr;
 
+    /* The check below for !table[i].index is redundant and present
+     * only to defeat the over-aggressive optimizer in pathcc 2.1
+     */
     if (dontcare && !table[i].index) table[i].index = newindex;
-    else gasneti_assert(table[i].index == newindex);
 
     (*numregistered)++;
   }

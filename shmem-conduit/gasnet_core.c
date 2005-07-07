@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/06 01:59:25 $
- * $Revision: 1.15 $
+ *     $Date: 2005/07/07 02:41:58 $
+ * $Revision: 1.16 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -248,8 +248,10 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
              on index (gasnet_handler_t)newindex */
     gasnetc_handler[(gasnet_handler_t)newindex] = (gasnetc_handler_fn_t)table[i].fnptr;
 
+    /* The check below for !table[i].index is redundant and present
+     * only to defeat the over-aggressive optimizer in pathcc 2.1
+     */
     if (dontcare && !table[i].index) table[i].index = newindex;
-    else gasneti_assert(table[i].index == newindex);
 
     (*numregistered)++;
   }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/06 02:25:48 $
- * $Revision: 1.76 $
+ *     $Date: 2005/07/07 02:41:52 $
+ * $Revision: 1.77 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -363,8 +363,10 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
 	GASNETI_TRACE_PRINTF(C,("Registered handler "GASNETI_LADDRFMT" at index %d",
 				GASNETI_LADDRSTR(table[i].fnptr),newindex));
 
+	/* The check below for !table[i].index is redundant and present
+	 * only to defeat the over-aggressive optimizer in pathcc 2.1
+	 */
 	if (dontcare && !table[i].index) table[i].index = newindex;
-	else gasneti_assert(table[i].index == newindex);
 
 	(*numregistered)++;
     }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/06 01:59:23 $
- * $Revision: 1.16 $
+ *     $Date: 2005/07/07 02:41:56 $
+ * $Revision: 1.17 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -198,8 +198,10 @@ static int gasnetc_reghandlers(gasnet_handlerentry_t *table, int numentries,
              on index (gasnet_handler_t)newindex */
       gasnetc_sci_handler_table[(gasnet_handler_t) newindex] = table[i].fnptr;
 
+    /* The check below for !table[i].index is redundant and present
+     * only to defeat the over-aggressive optimizer in pathcc 2.1
+     */
     if (dontcare && !table[i].index) table[i].index = newindex;
-    else gasneti_assert(table[i].index == newindex);
 
     (*numregistered)++;
   }
