@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/07 02:42:06 $
- * $Revision: 1.124 $
+ *     $Date: 2005/07/07 17:53:47 $
+ * $Revision: 1.125 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -611,19 +611,19 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   if (gasneti_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
-  gasneti_init_done = 1; /* enable early to allow tracing */
 
-
-  gasneti_freezeForDebugger();
-
+  /* Initialize the bootstrapping support. */
+  /* Must come very early to get the global ENV. */
   #if GASNET_DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
     fprintf(stderr,"gasnetc_init(): about to spawn...\n"); fflush(stderr);
   #endif
-
-  /* Initialize the bootstrapping support */
   gasneti_bootstrapInit(argc, argv, &gasneti_nodes, &gasneti_mynode);
-    
+
+  gasneti_init_done = 1; /* enable early to allow tracing */
+
+  gasneti_freezeForDebugger();
+
   /* Now enable tracing of all the following steps */
   gasneti_trace_init(*argc, *argv);
 
