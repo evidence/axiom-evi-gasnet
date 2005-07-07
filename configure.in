@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/07/03 14:33:20 $
-# $Revision: 1.276 $
+#     $Date: 2005/07/07 10:20:48 $
+# $Revision: 1.277 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.276 $)
+AC_REVISION($Revision: 1.277 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2145,6 +2145,20 @@ GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
   }],[AC_DEFINE(HAVE_MMAP)])
   ;;
 esac
+
+dnl Check for ptmalloc's mallopt() to work aroung bugs 495 and 955
+AC_CHECK_HEADERS([malloc.h])
+GASNET_TRY_CACHE_LINK(for ptmalloc, malloc_is_ptmalloc,
+  [ #if HAVE_STDLIB_H
+      #include <stdlib.h>
+    #endif
+    #if HAVE_MALLOC_H
+      #include <malloc.h>
+    #endif
+  ],[
+    mallopt(M_TRIM_THRESHOLD, -1);
+    mallopt(M_MMAP_MAX, 0);
+  ],[ AC_DEFINE(HAVE_PTMALLOC) ])
 
 AC_SUBST(LIBS)
 

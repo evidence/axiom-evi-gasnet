@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/07/03 14:33:20 $ */
-/*  $Revision: 1.58 $ */
+/*      $Date: 2005/07/07 10:20:48 $ */
+/*  $Revision: 1.59 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -47,6 +47,9 @@
 
 /* has sched_yield() */
 #undef HAVE_SCHED_YIELD
+
+/* have ptmalloc's mallopt() options */
+#undef HAVE_PTMALLOC
 
 /* have pthread_setconcurrency */
 #undef HAVE_PTHREAD_SETCONCURRENCY

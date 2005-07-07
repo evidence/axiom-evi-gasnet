@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/07/03 14:33:20 $
-dnl $Revision: 1.70 $
+dnl     $Date: 2005/07/07 10:20:48 $
+dnl $Revision: 1.71 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -447,7 +447,7 @@ dnl  but no substr or format
 dnl This incantation ensures m4_substr works regardless
 ifdef([substr],[define([m4_substr], defn([substr]))])
 
-AC_DEFUN([GASNET_OPTION_HELP],[[  --$1 ]m4_substr[([                         ],len([$1]))$2]])
+AC_DEFUN([GASNET_OPTION_HELP],[  --$1 ]m4_substr[([                         ],len([$1]))[$2]])
 
 dnl provide a --with-foo=bar configure option
 dnl action-withval runs for a named value in $withval (or withval=yes if named arg missing)

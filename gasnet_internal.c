@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/06/29 22:51:15 $
- * $Revision: 1.113 $
+ *     $Date: 2005/07/07 10:20:48 $
+ * $Revision: 1.114 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,10 @@
 #include <errno.h>
 
 #include <signal.h>
+#if HAVE_MALLOC_H
+  #include <malloc.h>
+#endif
+
 #ifdef IRIX
 #define signal(a,b) bsd_signal(a,b)
 #endif
@@ -193,6 +197,21 @@ extern void gasneti_check_config_postattach() {
 
   gasneti_assert_always(gasnet_nodes() >= 1);
   gasneti_assert_always(gasnet_mynode() < gasnet_nodes());
+  { static int firstcall = 1;
+    if (firstcall) { /* miscellaneous conduit-independent initializations */
+      firstcall = 0;
+
+      if (gasneti_getenv_yesno_withdefault("GASNET_DISABLE_MUNMAP",0)) {
+        #if HAVE_PTMALLOC                                        
+          mallopt(M_TRIM_THRESHOLD, -1);
+          mallopt(M_MMAP_MAX, 0);
+          GASNETI_TRACE_PRINTF(I,("Setting mallopt M_TRIM_THRESHOLD=-1 and M_MMAP_MAX=0"));
+        #else
+          fprintf(stderr, "WARNING: GASNET_DISABLE_MUNMAP set on an unsupported platform\n");
+        #endif
+      }
+    }
+  }
   gasneti_memcheck_all();
 }
 
