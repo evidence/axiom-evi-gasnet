@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2005/02/02 19:06:47 $
-# $Revision: 1.30 $
+#     $Date: 2005/07/07 09:59:30 $
+# $Revision: 1.31 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -54,19 +54,24 @@ use Getopt::Long;
 # Global Variables
 ########################
 
-my $version = "1.1";
+my $version = "1.2";
 
 my ($opt_sort, $opt_output, $opt_help, $opt_report);
 my ($opt_internal, $opt_full, $opt_thread, $opt_filter);
 
-my (%data, %report, %threads, %nodes);
-my (%node_threads); 
-my (%job_nodes, %job_seen, %job_uniq); 
+my (%data, %report);
+my (%threads); # maps thread pidstring => global thread num
+my (%nodes); # maps thread pidstring => node num
+my (%node_threads); # maps node num => the number of threads on that node
+my (%job_nodes); # maps job idstring => num nodes
+my (%job_seen); # maps job idstring => boolean job encountered before
+my (%job_uniq); 
 my $tool_prefix = $ENV{'TOOL_PREFIX'} || 'gasnet';
 my $tool_prefix_mc = ucfirst($tool_prefix);
 $tool_prefix_mc =~ s/Gasnet/GASNet/;
 $tool_prefix_mc =~ s/Upc/UPC/;
 my $gasnet_version = $ENV{'VERSION'} || '?.?';
+my $opt_debug = 0;
 
 #%nodes, %threads are identifier->thread(node)num
 
@@ -88,6 +93,7 @@ my $gasnet_version = $ENV{'VERSION'} || '?.?';
 
 GetOptions (
     'h|?|help'		=> \$opt_help,
+    'd'			=> \$opt_debug,
     'sort=s'		=> \$opt_sort,
     'o=s'		=> \$opt_output,
     'report=s'		=> \$opt_report,
@@ -178,6 +184,7 @@ Options:
     -i -[no]internal    Show internal events (such as the initial and final
                         barriers) which do not correspond to user source code. 
     -f -[no]full        Show the full source file name.
+    -d                  Enable debugging output for the parsing script.
 EOF
     exit(-1);
 }
@@ -190,38 +197,54 @@ EOF
 ########################
 sub parse_threadinfo
 {
-    open (TRACEFILE, $_[0]) or die "Could not open $_[0]: $!\n";
-    print STDERR "Parsing thread info for $_[0]..\n";
-    my (%thread_seen, %node_threads_seen);
+    my $filename = $_[0];
+    open (TRACEFILE, $filename) or die "Could not open $filename: $!\n";
+    print STDERR "Parsing thread info for $filename..\n";
+    my ($nodes_complete);
+    my (%thread_magic_seen, %node_seen, %node_magic_seen, %node_done, %node_threads_seen);
  
     LINE:
     while (<TRACEFILE>) {
-        next unless /MAGIC/ || /\(B\)/;
         if (/MAGIC/) {
             m/^(\S+).*?I am thread (\d+) of (\d+).*?on node (\d+) of (\d+).*?in job <([^>]+)>.*$/;
             $threads{$1} = $2;
             $nodes{$1} = $4;
-            $node_threads_seen{$4}++;
-            $node_threads{$4} = $3;
-            $thread_seen{$1}++;
+	    $node_magic_seen{$4} = 1;   # remember we saw magic from some thread on this node
+            $thread_magic_seen{$1} = 1; # remember we saw this thread's magic
+            $node_threads_seen{$4}++;   # track number of threads on this node
             # for error checking of total nodes/threads
             $job_nodes{$6} = $5;
             $job_seen{$6}++;
             if ($job_uniq{$6,$2}++) {
                 print STDERR "WARNING: duplicate tracing data for thread $2 of job $5\n";
-                }
             }
-            # After the first barrier of magic lines for each node, stop parsing
-            # for that node
-            if (/\(B\)/) {
-                m/^(\S+)/;
-                next unless (scalar keys %thread_seen);
-                foreach my $key (keys %node_threads) {
-                        next LINE if ($node_threads_seen{$key} < $node_threads{$key});
-                }
-                # By now magic lines of every thread seen have been processed 
-                return;
-            }
+        } 
+        elsif (/^(\d+).*?\(B\) BARRIER_WAIT/) {
+		my $barrier_node = $1;
+  		# ensure we got them all - esp tricky if multiple nodes are in same file
+                # stop parsing for each node at the second barrier after magic lines for that node
+                $node_done{$barrier_node}++ if ($node_magic_seen{$barrier_node});	
+	        $nodes_complete++ if ($node_done{$barrier_node} == 2);
+                next if ($nodes_complete == 0 || $nodes_complete < (scalar keys %node_seen));
+                # By now magic lines of every thread seen have been processed
+		if ($opt_debug) {
+		  foreach my $node (keys %node_seen) {
+		    print " - Node $node has threads: ";
+		    foreach my $threadid (keys %nodes) {
+			print $threads{$threadid}."[$threadid]  " if ($nodes{$threadid} == $node);
+		    }
+		    print "\n";
+		  }
+		}
+		last;
+        } elsif (/^(\d+)> Program/) {
+	    $node_seen{$1} = 1;   # remember we saw this node's trace output in this file
+	}
+    }
+	
+    # remember the number of threads per node
+    foreach my $key (keys %node_threads_seen) {
+      $node_threads{$key} = $node_threads_seen{$key};
     }
 }
 
@@ -365,6 +388,8 @@ sub convert_report
     	    	        $total += $ttotal;
     	    	        $totalc += $ttotalc;
                     }		
+                    #print "pgb=$pgb line=$line type=$type thread=$thread ".
+                    #      "node_threads{$thread}=".$node_threads{$thread}." total=$total totalc=$totalc\n";
     	    	}
 		die "INTERNAL ERROR" unless $totalc;
     	    	$avg = $total / $totalc;
@@ -515,6 +540,18 @@ EOF
         else {
             $source = substr $source, -14, 14;
             $handle->format_name("DEFAULT");
+        }
+	if ($pgb =~ /BARRIER/) {
+	  # bug 762 - don't display any cross-thread barrier call total if
+	  # we're showing call totals for each thread, because it's confusing
+	  if ($opt_thread) { $calls = ""; }
+	  else { # and divide barrier call counts by thread count in non-thread
+                 # view to represent the number of global calls. This could result
+		 # in a fractional call count for non-single barriers, but that's
+                 # an uncommon case, and this way the sum of the global barrier call
+                 # count across source lines always represents the total number of global barriers
+		$calls /= (scalar keys %nodes);
+	  }
         }
         write($handle);
         
