@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/06/10 11:45:07 $
- * $Revision: 1.111 $
+ *     $Date: 2005/07/07 14:34:12 $
+ * $Revision: 1.112 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -532,13 +532,17 @@ extern void gasneti_trace_init(int argc, char **argv) {
         gasneti_statsfile_tmp = NULL;
 
     /* query tracing environment variables with tracing still disabled */
+  #if GASNET_TRACE
     if (gasneti_tracefile_tmp) { 
       GASNETI_TRACE_SETMASK(gasneti_getenv_withdefault("GASNET_TRACEMASK", GASNETI_ALLTYPES));
     } else GASNETI_TRACE_SETMASK("");
+  #endif
 
+  #if GASNET_STATS
     if (gasneti_statsfile_tmp || gasneti_tracefile_tmp) { 
       GASNETI_STATS_SETMASK(gasneti_getenv_withdefault("GASNET_STATSMASK", GASNETI_ALLTYPES));
     } else GASNETI_STATS_SETMASK("");
+  #endif
 
     gasneti_autoflush = gasneti_getenv_yesno_withdefault("GASNET_TRACEFLUSH",0);
     gasneti_trace_suppresslocal = !gasneti_getenv_yesno_withdefault("GASNET_TRACELOCAL",1);
