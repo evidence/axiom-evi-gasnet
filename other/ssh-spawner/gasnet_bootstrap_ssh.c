@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/07/06 21:25:14 $
- * $Revision: 1.45 $
+ *     $Date: 2005/07/08 15:24:47 $
+ * $Revision: 1.46 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -207,15 +207,7 @@ static char *sappendf(char *s, const char *fmt, ...)
   /* grow the string, including space for '\0': */
   if (s) {
     old_len = strlen(s);
-#if 0 /* No gasneti_realloc */
     s = gasneti_realloc(s, old_len + add_len + 1);
-#else
-    { char *tmp = gasneti_malloc(old_len + add_len + 1);
-      memcpy(tmp, s, old_len + 1);
-      gasneti_free(s);
-      s = tmp;
-    }
-#endif
   } else {
     old_len = 0;
     s = gasneti_malloc(add_len + 1);
