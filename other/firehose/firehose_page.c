@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/05/25 05:09:07 $
- * $Revision: 1.42 $
+ *     $Date: 2005/07/08 15:39:52 $
+ * $Revision: 1.43 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -624,7 +624,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		    (unsigned long) m_prepinned, (unsigned long) M);
 
     fh_MaxPinnableMemory = max_pinnable_memory;
-    if (gasnet_getenv("GASNET_FIREHOSE_VERBOSE"))
+    if (gasneti_getenv_yesno_withdefault("GASNET_FIREHOSE_VERBOSE", 0))
 	fh_dump_fhparams(stderr);
 
     GASNETI_TRACE_PRINTF(C, ("Firehose M=(%d MB,%ld), MAXVICTIM_M=(%d MB,%ld)", 

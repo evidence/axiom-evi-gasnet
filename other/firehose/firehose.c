@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2005/05/19 02:07:37 $
- * $Revision: 1.21 $
+ *     $Date: 2005/07/08 15:39:52 $
+ * $Revision: 1.22 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -587,7 +587,7 @@ fh_getenv(const char *var, unsigned long multiplier)
         int	i;
         double	num;
 
-        env = gasnet_getenv(var);
+        env = gasneti_getenv_withdefault(var, "");
 
         if (env == NULL || *env == '\0')
                 return 0;
