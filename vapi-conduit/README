@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.29 $
+$Revision: 1.30 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -11,6 +11,7 @@ $Revision: 1.29 $
 @ Section: Extended API @
 @ Section: Graceful exits @
 @ Section: TO DO @
+@ Section: References @
 
 
 @ Section: Job Spawning @
@@ -160,32 +161,6 @@ $Revision: 1.29 $
     is ignored.
     Currently the default is enabled (1), but this is subject to change
     in a future version.
-
-  + GASNET_USE_FIREHOSE
-    This gives a boolean: "0" to disable or "1" to enable the use
-    of the "firehose" dynamic pinning library in a GASNET_SEGMENT_FAST
-    configuration.  In a GASNET_SEGMENT_FAST configuration, the GASNet
-    segment is registered (pinned) with the HCA at initialization time,
-    because pinning is required for RDMA.  However, GASNet allows for
-    local addresses (source of a PUT or destination of a GET) to lie
-    outside of the GASNet segment.  So, to perform RDMA GETs and PUTs,
-    vapi-conduit must either copy out-of-segment transfers though
-    preregistered bounce buffers, or dynamically register memory.  By
-    default the firehose dynamic registration library is used to manage
-    registration of out-of-segment memory.  (default is ON).
-    Setting this environment variable to "0" (or "no") will disable use
-    of firehose, forcing the use of bounce buffers for out-of-segment
-    transfers.  This will result in a significantly lower peak bandwidth
-    for large PUTs and GETs, with little or no affect on small message
-    latency.  See http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=955
-    for an example of a situation where one may wish to disable firehose.
-    If you believe that you are observing communication failures due
-    to the behavior described at the link above, then you should
-    try setting GASNET_USE_FIREHOSE=no in your environment to see if
-    your problems go away.
-    In a GASNET_SEGMENT_LARGE or GASNET_SEGMENT_EVERYTHING configuration,
-    the GASNet segment is not preregistred and use of firehose is required.
-    Thus it is an error to disable firehose in such a configuration.
 
   Protocol configuration:
   The following environment variables control the selection of protocols
@@ -347,6 +322,81 @@ $Revision: 1.29 $
     The suffixes "K", "M" and "G" are interpreted as Kilobytes, Megabytes
     and Gigabytes respectively.  The current default is 256K.
    
+  Firehose configuration:
+  These parameters must be equal across all nodes, and the behavior
+  otherwise is undefined.
+
+  The following environment variables control the resources used by the
+  "firehose" [ref 1] dynamic registration library.  By default firehose
+  will use as much pinned memory as the HCA and O/S will permit.
+
+  Resource use is divided into two pools.  The main pool is for managing
+  of pinning of the GASNet segment on remote nodes, while the "victim"
+  pool is used to manage pinnings for local use.  By default in a
+  GASNET_SEGMENT_LARGE or GASNET_SEGMENT_EVERYTHING configurations, 75%
+  of the pinnable memory will go in the main pool and 25% into the victim
+  pool.  In a GASNET_SEGMENT_FAST configuration, firehose is not needed
+  for management of the statically pinned GASNet segment, and by default
+  only a small fraction of the the available memory is placed in the main
+  pool and the majority is placed in the victim pool.
+
+  + GASNET_USE_FIREHOSE
+    This gives a boolean: "0" to disable or "1" to enable the use
+    of the firehose dynamic pinning library in a GASNET_SEGMENT_FAST
+    configuration.  In a GASNET_SEGMENT_FAST configuration, the GASNet
+    segment is registered (pinned) with the HCA at initialization time,
+    because pinning is required for RDMA.  However, GASNet allows for
+    local addresses (source of a PUT or destination of a GET) to lie
+    outside of the GASNet segment.  So, to perform RDMA GETs and PUTs,
+    vapi-conduit must either copy out-of-segment transfers though
+    preregistered bounce buffers, or dynamically register memory.  By
+    default firehose is used to manage registration of out-of-segment
+    memory.  (default is ON).
+    Setting this environment variable to "0" (or "no") will disable use
+    of firehose, forcing the use of bounce buffers for out-of-segment
+    transfers.  This will result in a significantly lower peak bandwidth
+    for large PUTs and GETs, with little or no affect on small message
+    latency.
+    In a GASNET_SEGMENT_LARGE or GASNET_SEGMENT_EVERYTHING configuration,
+    the GASNet segment is not preregistred and use of firehose is
+    required.  Thus it is an error to disable firehose in such a
+    configuration.
+
+  + GASNET_FIREHOSE_M
+    This gives the amount of memory to place in the main pool.  The
+    suffixes "K", "M" and "G" are interpreted as Kilobytes, Megabytes
+    and Gigabytes respectively, with "M" assumed if no suffix is given.
+    When GASNET_FIREHOSE_MAXVICTIM_M is set, the default is the maximum
+    pinnable memory minus GASNET_FIREHOSE_MAXVICTIM_M.  Otherwise the
+    default is 75% of the maximum pinnable memory (in a GASNET_SEGMENT_LARGE
+    or GASNET_SEGMENT_EVERYTHING configuration), or the size of the
+    prepinned bounce buffer pool (in a GASNET_SEGMENT_FAST configuration).
+
+  + GASNET_FIREHOSE_MAXVICTIM_M
+    This gives the amount of memory to place in the victim (local) pool.
+    The suffixes "K", "M" and "G" are interpreted as Kilobytes, Megabytes
+    and Gigabytes respectively, with "M" assumed if no suffix is given.
+    The default is the maximum pinnable memory minus GASNET_FIREHOSE_M.
+
+  + GASNET_FIREHOSE_MAXREGION_SIZE
+    This gives the maximum size of a single dynamically pinned region,
+    should be a multiple of the pagesize, and preferably a power of two.
+    The suffixes "K", "M" and "G" are interpreted as Kilobytes, Megabytes
+    and Gigabytes respectively, with "M" assumed if no suffix is given.
+    The current default is 128k.  Larger values have been known to trigger
+    a performance anomaly in some HCAs.
+
+  + GASNET_FIREHOSE_R
+    This gives the number of pinned regions to allocate for the management
+    of the main pool.  Values will be truncated if larger than the
+    default of (GASNET_FIREHOSE_M / GASNET_FIREHOSE_MAXREGION_SIZE).
+
+  + GASNET_FIREHOSE_MAXVICTIM_R
+    This gives the number of pinned regions to allocate for the management
+    of the victim (local) pool.  Values will be truncated if larger than
+    the default of (GASNET_FIREHOSE_MAXVICTIM_M /
+    GASNET_FIREHOSE_MAXREGION_SIZE).
+
 @ Section: Core API @
 
 + Flow-control for AMs.
@@ -722,3 +772,10 @@ The average case is somewhere between these two.
       CPU copies HCA_mem->host_mem
 
   Of course I can't get a program to allocate from HCA memory!
+
+@ Section: References @
+
+[1]	Bell, Bonachea. "A New DMA Registration Strategy for Pinning-Based
+	High Performance Networks", Workshop on Communication Architecture
+	for Clusters (CAC'03), 2003.
+	Also at  http://upc.lbl.gov/publications/
