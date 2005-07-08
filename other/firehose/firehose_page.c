@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/07/08 15:39:52 $
- * $Revision: 1.43 $
+ *     $Date: 2005/07/08 22:34:09 $
+ * $Revision: 1.44 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -502,6 +502,13 @@ firehose_get_params(uintptr_t max_pinnable_memory,
 		 uintptr_t *M, uintptr_t *Maxvictim)
 {
     uintptr_t nM, nMaxvictim;
+    int dfltM, dfltMaxvictim;
+    int verboseenv = 0;
+    #if GASNET_DEBUG_VERBOSE
+	verboseenv = 1;
+    #else
+	verboseenv = !!gasnet_getenv("GASNET_VERBOSEENV");
+    #endif
 
     if (fh_MaxPinnableMemory == max_pinnable_memory && fh_M && fh_Maxvictim) {
 	*M = fh_M;
@@ -512,7 +519,9 @@ firehose_get_params(uintptr_t max_pinnable_memory,
     fh_MaxPinnableMemory = max_pinnable_memory;
 
     nM = fh_getenv("GASNET_FIREHOSE_M", (1<<20));
+    dfltM = !nM;
     nMaxvictim   = fh_getenv("GASNET_FIREHOSE_MAXVICTIM_M", (1<<20));
+    dfltMaxvictim = !nMaxvictim;
 
     /* First assign values based on either what the user passed or what
      * is determined to be the best M and maxvictim parameters based on
@@ -535,6 +544,10 @@ firehose_get_params(uintptr_t max_pinnable_memory,
 		"than the amount of determined pinnable memory (%d Mb)\n", 
 		FH_PRINTMB(nM), FH_PRINTMB(max_pinnable_memory));
     	nMaxvictim = max_pinnable_memory - nM;
+    }
+    if (!gasnet_mynode() && verboseenv) {
+	fh_env_display_MB("GASNET_FIREHOSE_M", nM, dfltM);
+	fh_env_display_MB("GASNET_FIREHOSE_MAXVICTIM_M", nMaxvictim, dfltMaxvictim);
     }
 
     /* 
@@ -677,7 +690,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		 * passes a list of regions to prepin, but allow that these
 		 * pinned pages be unpinned as replacements later */
 		#if 0
-		if (gasnet_getenv("GASNET_FIREHOSE_REUSE_PREPINNED")
+		if (gasneti_getenv_withdefault("GASNET_FIREHOSE_REUSE_PREPINNED",0)
 		    fh_priv_release_local(1, bd);
 		#endif
 	    }

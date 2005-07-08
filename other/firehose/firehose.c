@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2005/07/08 15:39:52 $
- * $Revision: 1.22 $
+ *     $Date: 2005/07/08 22:34:09 $
+ * $Revision: 1.23 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -587,7 +587,7 @@ fh_getenv(const char *var, unsigned long multiplier)
         int	i;
         double	num;
 
-        env = gasneti_getenv_withdefault(var, "");
+        env = gasneti_getenv(var);
 
         if (env == NULL || *env == '\0')
                 return 0;
@@ -614,6 +614,63 @@ fh_getenv(const char *var, unsigned long multiplier)
         num *= multiplier;
 
         return (unsigned long) num;
+}
+
+/* 
+ * fh_env_display()
+ * fh_env_display_MB()
+ *
+ * For displaying firehose environement variables
+ */ 
+void
+fh_env_display(const char *key, int val, int is_dflt)
+{   
+    char displayval[11];
+    const char *dflt = is_dflt ? "   (default)" : "";
+    int width;
+
+    snprintf(displayval, sizeof(displayval), "%d", val);
+    width = MAX(10,55 - strlen(key) - strlen(displayval));
+    fprintf(stderr, "ENV parameter: %s = %s%*s\n", key, displayval, width, dflt);
+    fflush(stderr);
+}
+
+void
+fh_env_display_MB(const char *key, uintptr_t val, int is_dflt)
+{   
+    char displayval[55];
+    const char *dflt = is_dflt ? "   (default)" : "";
+    const char *unit;
+    int width;
+    int divisor;
+
+    /* Try to strike a compromise between digits and round off */
+    #define FH_USE_DIV(val, div) \
+	((val >= 10*div) || ((val >= div) && !(val % div)))
+    if (FH_USE_DIV(val, 1024*1024)) {
+	divisor = 1024*1024;
+	unit = "MB";
+    }
+    else if (FH_USE_DIV(val, 1024)) {
+	divisor = 1024;
+	unit = "KB";
+    }
+    else {
+	divisor = 1;
+	unit = "B";
+    }
+
+    if (is_dflt) {
+	/* Use the numerical value */
+	snprintf(displayval, sizeof(displayval), "%d %s", (int)(val/divisor), unit);
+    }
+    else {
+	/* Use the environment string and numerical value */
+	snprintf(displayval, sizeof(displayval), "%s (%d %s)", gasnet_getenv(key), (int)(val/divisor), unit);
+    }
+    width = MAX(10,55 - strlen(key) - strlen(displayval));
+    fprintf(stderr, "ENV parameter: %s = %s%*s\n", key, displayval, width, dflt);
+    fflush(stderr);
 }
 
 /* 

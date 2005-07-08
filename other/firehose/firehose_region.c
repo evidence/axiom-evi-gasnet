@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/05/25 03:42:40 $
- * $Revision: 1.17 $
+ *     $Date: 2005/07/08 22:34:09 $
+ * $Revision: 1.18 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1165,6 +1165,16 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	unsigned med_regions;
 	int b_prepinned = 0;
 	int num_nodes = gasnet_nodes();
+	int dflt_M, dflt_VM;
+	int dflt_R, dflt_VR;
+	int dflt_RS;
+	int verboseenv = 0;
+	#if GASNET_DEBUG_VERBOSE
+		verboseenv = 1;
+	#else
+		verboseenv = !!gasnet_getenv("GASNET_VERBOSEENV");
+	#endif
+
 
         /* Initialize the Bucket tables */
         fh_BucketTable1 = fh_hash_create(1<<16); /* 64k */
@@ -1188,10 +1198,15 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 
 	/* Get limits from the environment */
 	param_M  = fh_getenv("GASNET_FIREHOSE_M", (1<<20));
+	dflt_M   = !param_M;
 	param_VM = fh_getenv("GASNET_FIREHOSE_MAXVICTIM_M", (1<<20));
+	dflt_VM  = !param_VM;
 	param_R  = fh_getenv("GASNET_FIREHOSE_R", 1);
+	dflt_R   = !param_R;
 	param_VR = fh_getenv("GASNET_FIREHOSE_MAXVICTIM_R", 1);
+	dflt_VR  = !param_VR;
 	param_RS = fh_getenv("GASNET_FIREHOSE_MAXREGION_SIZE", (1<<20));
+	dflt_RS  = !param_RS;
 	GASNETI_TRACE_PRINTF(C, 
 	    ("ENV: Firehose M=%ld, MAXVICTIM_M=%ld", param_M, param_VM));
 	GASNETI_TRACE_PRINTF(C, 
@@ -1274,6 +1289,13 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	GASNETI_TRACE_PRINTF(C, ("param_M=%ld param_VM=%ld", param_M, param_VM));
 	GASNETI_TRACE_PRINTF(C, ("param_RS=%ld", param_RS));
 	GASNETI_TRACE_PRINTF(C, ("param_R=%ld param_VR=%ld", param_R, param_VR));
+	if (!fh_mynode && verboseenv) {
+		fh_env_display_MB("GASNET_FIREHOSE_M", param_M, dflt_M);
+		fh_env_display_MB("GASNET_FIREHOSE_MAXVICTIM_M", param_VM, dflt_VM);
+		fh_env_display("GASNET_FIREHOSE_R", param_R, dflt_R);
+		fh_env_display("GASNET_FIREHOSE_MAXVICTIM_R", param_VR, dflt_VR);
+		fh_env_display_MB("GASNET_FIREHOSE_MAXREGION_SIZE", (int)param_RS, dflt_RS);
+	}
 
 	/* 
 	 * Validate firehose parameters parameters 
@@ -1283,7 +1305,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		unsigned long	VM_min = FH_BUCKET_SIZE * 4096;
 
 		/* Want at least 32 regions of FIFO */
-		unsigned long	VR_min = 2;
+		unsigned long	VR_min = 32;
 
 		if_pf (param_RS < FH_BUCKET_SIZE)
 			gasneti_fatalerror("GASNET_FIREHOSE_MAXREGION_SIZE (%ld) "
@@ -1291,12 +1313,12 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 			    param_RS, FH_BUCKET_SIZE); 
 
 		if_pf (param_VM < VM_min)
-			gasneti_fatalerror("GASNET_MAXVICTIM_M (%ld) is less than "
+			gasneti_fatalerror("GASNET_FIREHOSE_MAXVICTIM_M (%ld) is less than "
 			    "the minimum %ld (%ld buckets)",
 			    param_VM, VM_min, VM_min >> FH_BUCKET_SHIFT);
 
 		if_pf (param_VR < VR_min)
-			gasneti_fatalerror("GASNET_MAXVICTIM_R (%ld) is less than "
+			gasneti_fatalerror("GASNET_FIREHOSE_MAXVICTIM_R (%ld) is less than "
 			    "the minimum %ld", param_VR, VR_min);
 
 		if_pf (param_M < m_prepinned)	/* XXX: need this check? */
@@ -1342,7 +1364,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 			    param_M, M_min, M_min >> FH_BUCKET_SHIFT);
 
 		if_pf (param_VM < VM_min)
-			gasneti_fatalerror("GASNET_MAXVICTIM_M (%ld) is less than "
+			gasneti_fatalerror("GASNET_FIREHOSE_MAXVICTIM_M (%ld) is less than "
 			    "the minimum %ld (%ld buckets)",
 			    param_VM, VM_min, VM_min >> FH_BUCKET_SHIFT);
 
@@ -1357,7 +1379,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 			    "than the minimum %ld", param_R, R_min);
 
 		if_pf (param_VR < VR_min)
-			gasneti_fatalerror("GASNET_MAXVICTIM_R (%ld) is less than "
+			gasneti_fatalerror("GASNET_FIREHOSE_MAXVICTIM_R (%ld) is less than "
 			    "the minimum %ld", param_VR, VR_min);
 
 		if_pf (param_R - num_reg < R_min)
