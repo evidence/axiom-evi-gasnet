@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/07/07 10:20:48 $
-# $Revision: 1.277 $
+#     $Date: 2005/07/10 20:08:01 $
+# $Revision: 1.278 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.277 $)
+AC_REVISION($Revision: 1.278 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -97,7 +97,7 @@ esac
 GASNET_PROG_CPP
 GASNET_PROG_CC
 AC_PROG_LN_S
-AC_C_BIGENDIAN
+GASNET_C_BIGENDIAN
 AC_CHECK_PROG(have_mpcc_r,mpcc_r,yes,no)
 
 ## DOB: this is more trouble than it's worth because so many OS's define
@@ -423,6 +423,8 @@ GASNET_SETUP_INTTYPES()
 ##  Page size
 ##
 
+GASNET_CROSS_VAR(GASNETI_PAGESIZE,PAGESIZE)
+
 if test "$GASNETI_PAGESIZE" = ""; then
 GASNET_TRY_CACHE_RUN_EXPR(PAGESIZE, PAGESIZE,
   [ #include <limits.h> ], [ val = PAGESIZE; if (val<=0) exit(1); ], GASNETI_PAGESIZE)
@@ -677,6 +679,7 @@ else
   AC_SEARCH_LIBS(pthread_setconcurrency, pthread pthreads c_r, AC_DEFINE(HAVE_PTHREAD_SETCONCURRENCY))
   AC_SEARCH_LIBS(pthread_kill_other_threads_np, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
 
+ if test "$cross_compiling" = "no"; then
   case "$target_os" in
     darwin*)
       AC_MSG_CHECKING(for shared data cache line size)
@@ -690,7 +693,8 @@ else
        val = detect_cachesz(79.0, 0); if (val<=0) exit(1); ], GASNETI_CACHE_LINE_BYTES)
       ;;
   esac
-  
+ fi
+ 
   GASNET_THREAD_LIBS="$LIBS"
   GASNET_POPVAR(CPPFLAGS)
   GASNET_POPVAR(LIBS)
@@ -851,8 +855,7 @@ if test $enabled_udp = yes; then
   fi
   GASNET_CHECK_OPTIMIZEDDEBUG(CXX,CXXFLAGS,[$CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES],[])
   GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS $CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES")
-  GASNET_TRY_CACHE_RUN( [for working C++ exceptions], cxx_exceptions, [
-    int main() {
+  GASNET_TRY_CACHE_VERIFY_RUN( [for working C++ exceptions], cxx_exceptions, [ ], [
      try {
        int *p = new int[[10]];
        throw p;
@@ -861,10 +864,7 @@ if test $enabled_udp = yes; then
        if (exn) return 0;
        else return 2;
      }
-    }
-  ], [ ], [ 
-    GASNET_MSG_ERROR("I can\'t figure out how to build and run a program that uses C++ exceptions")
-  ] )  
+  ], [ "I can\'t figure out how to build and run a program that uses C++ exceptions" ] )  
   GASNET_POPVAR(CXXFLAGS)
   AC_SUBST(MISC_CXXFLAGS)
 
@@ -2102,8 +2102,12 @@ GASNET_TRY_CACHE_CHECK(for sched_yield(), cc_has_sched_yield, [
 case "$target_os" in
   cygwin*)  
   # mmap is known to be broken on Cygwin - dont even try
+  HAVE_MMAP=0
   ;;
   *)
+if test "$cross_compiling" = "yes" ; then
+GASNET_CROSS_VAR(HAVE_MMAP,HAVE_MMAP)
+else
 GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
   #include <unistd.h>
   #include <sys/mman.h>
@@ -2142,9 +2146,13 @@ GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
     if (ptr2 == MAP_FAILED || ptr2 == NULL || ptr2 != ptr) return 5;
     if (munmap(ptr,16384) != 0) return 6;
     return 0;
-  }],[AC_DEFINE(HAVE_MMAP)])
+  }],[ HAVE_MMAP=1 ],[ HAVE_MMAP=0 ])
+fi
   ;;
 esac
+if test "$HAVE_MMAP" != "0" ; then
+  AC_DEFINE(HAVE_MMAP)
+fi
 
 dnl Check for ptmalloc's mallopt() to work aroung bugs 495 and 955
 AC_CHECK_HEADERS([malloc.h])

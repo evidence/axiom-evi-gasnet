@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/07/07 10:20:48 $
-dnl $Revision: 1.71 $
+dnl     $Date: 2005/07/10 20:08:01 $
+dnl $Revision: 1.72 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -105,12 +105,17 @@ AC_DEFUN([GASNET_CHECK_SIZEOF],[
   pushdef([lowername],patsubst(patsubst([$1], [\ ], [_]), [\*], [p]))
   pushdef([uppername],translit(lowername,'a-z','A-Z'))
 
-  AC_CHECK_SIZEOF($1, $2)
+  if test "$cross_compiling" = "yes" ; then
+    GASNET_CROSS_VAR(SIZEOF_[]uppername,SIZEOF_[]uppername)
+    ac_cv_sizeof_[]lowername=$SIZEOF_[]uppername
+  fi
+  dnl use bare AC_CHECK_SIZEOF here to get correct .h behavior & avoid duplicate defs
+  AC_CHECK_SIZEOF($1, $SIZEOF_[]uppername) 
   SIZEOF_[]uppername=$ac_cv_sizeof_[]lowername
-  AC_SUBST(SIZEOF_[]uppername)
-  if test "$SIZEOF_[]uppername" = "0" ; then
+  if test "$SIZEOF_[]uppername" = "0" -o "$SIZEOF_[]uppername" = ""; then
     AC_MSG_ERROR(failed to find sizeof($1))
   fi
+  AC_SUBST(SIZEOF_[]uppername)
 
   popdef([lowername])
   popdef([uppername])
@@ -120,15 +125,9 @@ dnl GASNET_CHECK_INTTYPES(headername)
 dnl AC_DEFINE and set HAVE_HEADERNAME_H if the header exists
 dnl AC_DEFINE and AC_SUBST COMPLETE_HEADERNAME_H if it contains all the inttypes 
 dnl that we care about (all of which are mandated by C99 and POSIX!)
-AC_DEFUN([GASNET_CHECK_INTTYPES],[
-  AC_CHECK_HEADERS([$1])
-  pushdef([lowername],patsubst(patsubst(patsubst([$1], [/], [_]), [\.], [_]), [-], [_]))
-  pushdef([uppername],translit(lowername,'a-z','A-Z'))
- if test "$ac_cv_header_[]lowername" = "yes"; then
-  HAVE_[]uppername=1
-  GASNET_TRY_CACHE_RUN([for a complete $1],[COMPLETE_[]uppername],[
+AC_DEFUN([GASNET_CHECK_INTTYPES_HELPERPROG],[
     #include <$1>
-    int main() {
+    int check() {
     	int8_t    i8;
     	uint8_t   u8;
     	int16_t  i16;
@@ -151,11 +150,33 @@ AC_DEFUN([GASNET_CHECK_INTTYPES],[
 	if (sizeof(up) != sizeof(void*)) return 1;
         return 0;
     }
-  ],[ 
-    COMPLETE_[]uppername=1
-    AC_SUBST(COMPLETE_[]uppername)
-    AC_DEFINE(COMPLETE_[]uppername)
-  ])
+])
+AC_DEFUN([GASNET_CHECK_INTTYPES],[
+  AC_CHECK_HEADERS([$1])
+  pushdef([lowername],patsubst(patsubst(patsubst([$1], [/], [_]), [\.], [_]), [-], [_]))
+  pushdef([uppername],translit(lowername,'a-z','A-Z'))
+ if test "$ac_cv_header_[]lowername" = "yes"; then
+  HAVE_[]uppername=1
+  if test "$cross_compiling" = "yes" ; then
+    dnl if cross-compiling, just ensure the header can build the inttypes program and hope for the best
+    GASNET_TRY_CACHE_CHECK([for a complete $1],[COMPLETE_[]uppername],[
+      GASNET_CHECK_INTTYPES_HELPERPROG($1)
+    ],[ return check(); ], [
+      COMPLETE_[]uppername=1
+      AC_SUBST(COMPLETE_[]uppername)
+      AC_DEFINE(COMPLETE_[]uppername)
+    ])
+  else 
+    dnl otherwise, build and run the inttypes program to ensure the header values are actually correct
+    GASNET_TRY_CACHE_RUN([for a complete $1],[COMPLETE_[]uppername],[
+      GASNET_CHECK_INTTYPES_HELPERPROG($1)
+      int main() { return check(); }
+    ],[ 
+      COMPLETE_[]uppername=1
+      AC_SUBST(COMPLETE_[]uppername)
+      AC_DEFINE(COMPLETE_[]uppername)
+    ])
+  fi
  fi
   popdef([lowername])
   popdef([uppername])
@@ -164,12 +185,12 @@ AC_DEFUN([GASNET_CHECK_INTTYPES],[
 dnl all the inttypes goop required for portable_inttypes.h
 AC_DEFUN([GASNET_SETUP_INTTYPES], [ 
   # Check sizes
-  GASNET_CHECK_SIZEOF(char, $cross_char)
-  GASNET_CHECK_SIZEOF(short, $cross_short)
-  GASNET_CHECK_SIZEOF(int, $cross_int)
-  GASNET_CHECK_SIZEOF(long, $cross_long)
-  GASNET_CHECK_SIZEOF(long long, $cross_long_long)
-  GASNET_CHECK_SIZEOF(void *, $cross_void_P)
+  GASNET_CHECK_SIZEOF(char)
+  GASNET_CHECK_SIZEOF(short)
+  GASNET_CHECK_SIZEOF(int)
+  GASNET_CHECK_SIZEOF(long)
+  GASNET_CHECK_SIZEOF(long long)
+  GASNET_CHECK_SIZEOF(void *)
  
   AM_CONDITIONAL(PLATFORM_ILP32, test x"$ac_cv_sizeof_int$ac_cv_sizeof_long$ac_cv_sizeof_void_p" = x444)
   AM_CONDITIONAL(PLATFORM_LP64, test x"$ac_cv_sizeof_int$ac_cv_sizeof_long$ac_cv_sizeof_void_p" = x488)
@@ -840,9 +861,24 @@ else
   $5
 fi])
 
+dnl compile and run a program, error out if one fails (cross-compilation will skip the run)
+dnl GASNET_TRY_CACHE_VERIFY_RUN(description,cache_name,includes,program,errormsg-on-failure)
+AC_DEFUN([GASNET_TRY_CACHE_VERIFY_RUN],[
+  if test "$cross_compiling" = "yes" ; then
+    GASNET_TRY_CACHE_LINK([$1],[$2],[$3],[$4],[ ],[ GASNET_MSG_ERROR([$5]) ])
+  else
+    GASNET_TRY_CACHE_RUN([$1],[$2],[
+      $3
+      int main() {
+        $4
+      }
+    ],[ ],[ GASNET_MSG_ERROR([$5]) ])
+  fi
+])
+
 dnl run a program to extract the value of a runtime expression 
 dnl the provided code should set the integer val to the relevant value
-dnl GASNET_TRY_CACHE_RUN(description,cache_name,headers,code_to_set_val,result_variable)
+dnl GASNET_TRY_CACHE_RUN_EXPR(description,cache_name,headers,code_to_set_val,result_variable)
 AC_DEFUN([GASNET_TRY_CACHE_RUN_EXPR],[
 AC_CACHE_CHECK($1, cv_prefix[]$2,
 AC_TRY_RUN([
@@ -934,14 +970,21 @@ AC_DEFUN([GASNET_PROG_CC], [
               [AC_MSG_ERROR(Your C linker is broken - reported success when it should have failed)], [])
   AC_TRY_LINK([], [], [], [GASNET_MSG_ERROR(Your C link is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes)
-  dnl reset autoconf cross compilation setting, which is wrong if executables are broken
-  dnl (we don't currently support cross-compilation anyhow)
-  cross_compiling=no
-  ac_cv_prog_cc_cross=no
-  AC_MSG_CHECKING([working C compiler executables])
-  AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
-  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR(Cannot run executables created with C compiler)], 
+  AC_MSG_CHECKING(if user enabled cross-compile)
+  GASNET_IF_ENABLED(cross-compile, [ Enable cross-compilation (experimental) ], [
+    AC_MSG_RESULT(yes)
+    cross_compiling=yes 
+    ac_cv_prog_cc_cross=yes 
+  ], [
+    dnl reset autoconf cross compilation setting, which is wrong if executables are broken
+    AC_MSG_RESULT(no)
+    cross_compiling=no
+    ac_cv_prog_cc_cross=no
+    AC_MSG_CHECKING([working C compiler executables])
+    AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
+  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR(Cannot run executables created with C compiler. If you're attempting to cross-compile, use --enable-cross-compile)], 
   	     [AC_MSG_ERROR(Internal configure error - please report)])
+  ])
   AC_LANG_RESTORE
 ])
 
@@ -962,13 +1005,21 @@ AC_DEFUN([GASNET_PROG_CXX], [
   AC_TRY_LINK([], [], [], [GASNET_MSG_ERROR(Your C++ link is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes)
   dnl reset autoconf cross compilation setting, which is wrong if executables are broken
-  dnl (we don't currently support cross-compilation anyhow)
-  cross_compiling=no
-  ac_cv_prog_cc_cross=no
-  AC_MSG_CHECKING([working C++ compiler executables])
-  AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
-  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR(Cannot run executables created with C++ compiler)], 
+  AC_MSG_CHECKING(if user enabled cross-compile)
+  GASNET_IF_ENABLED(cross-compile, [ Enable cross-compilation (experimental) ], [
+    AC_MSG_RESULT(yes)
+    cross_compiling=yes 
+    ac_cv_prog_cxx_cross=yes 
+  ], [
+    dnl reset autoconf cross compilation setting, which is wrong if executables are broken
+    AC_MSG_RESULT(no)
+    cross_compiling=no
+    ac_cv_prog_cxx_cross=no
+    AC_MSG_CHECKING([working C++ compiler executables])
+    AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
+  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR(Cannot run executables created with C++ compiler. If you're attempting to cross-compile, use --enable-cross-compile)], 
   	     [AC_MSG_ERROR(Internal configure error - please report)])
+  ])
   AC_LANG_RESTORE
 ])
 
@@ -1092,9 +1143,28 @@ AC_DEFUN([GASNET_SUBCONFIGURE_ARG],[
 ac_configure_args="$ac_configure_args $1"
 ])
 
+dnl fetch a cross-compilation variable, if we are cross compiling
+dnl GASNET_CROSS_VAR(variable-to-set, basicname)
+AC_DEFUN([GASNET_CROSS_VAR],[
+  pushdef([cross_varname],CROSS_$2)
+  if test "$cross_compiling" = "yes" ; then
+    GASNET_ENV_DEFAULT(cross_varname,)
+    if test "$cross_varname" = "" ; then
+      AC_MSG_ERROR([This configure script requires \$cross_varname be set for cross-compilation])
+    else 
+      $1="$cross_varname"
+    fi
+  fi
+  popdef([cross_varname])
+])
+
 dnl query the numerical value of a system signal and AC_SUBST it
 AC_DEFUN([GASNET_GET_SIG], [
-  GASNET_TRY_CACHE_RUN_EXPR([value of SIG$1], SIG$1, [#include <signal.h>], [val = (int)SIG$1;], SIG$1)
+  if test "$cross_compiling" = "yes" ; then
+    GASNET_CROSS_VAR(SIG$1,SIG$1)
+  else 
+    GASNET_TRY_CACHE_RUN_EXPR([value of SIG$1], SIG$1, [#include <signal.h>], [val = (int)SIG$1;], SIG$1)
+  fi
   AC_SUBST(SIG$1)
 ])
 
@@ -1117,4 +1187,52 @@ AC_DEFUN([GASNET_CHECK_OVERRIDE_PTHREADS], [
     CFLAGS="-I$PTHREADS_INCLUDE -L$PTHREADS_LIB $CFLAGS"
   fi
 ])
- 
+
+dnl check for endianness in a cross-compiling friendly way (using an object scan)
+AC_DEFUN([GASNET_C_BIGENDIAN], [
+AC_REQUIRE([GASNET_PROG_PERL])
+if test "$cross_compiling" = "no" ; then
+  GASNET_TRY_CACHE_RUN_EXPR([whether byte ordering is bigendian], c_bigendian,[ ],[
+    { /* Are we little or big endian?  From Harbison&Steele.  */
+      union {
+        long l;
+        char c[[sizeof (long)]];
+      } u;
+      u.l = 1;
+      val = (u.c[[sizeof (long) - 1]] == 1);
+    }], WORDS_BIGENDIAN)
+else
+  AC_MSG_CHECKING(whether byte ordering is bigendian (binary probe))
+[
+cat >conftest.c <<EOF
+short ascii_mm[] = { 0x4249, 0x4765, 0x6E44, 0x6961, 0x6E53, 0x7953, 0 };
+short ascii_ii[] = { 0x694C, 0x5454, 0x656C, 0x6E45, 0x6944, 0x6E61, 0 };
+void _ascii() { char* s = (char*) ascii_mm; s = (char*) ascii_ii; }
+short ebcdic_ii[] = { 0x89D3, 0xE3E3, 0x8593, 0x95C5, 0x89C4, 0x9581, 0 };
+short ebcdic_mm[] = { 0xC2C9, 0xC785, 0x95C4, 0x8981, 0x95E2, 0xA8E2, 0 };
+void _ebcdic() { char* s = (char*) ebcdic_mm; s = (char*) ebcdic_ii; }
+int main() { _ascii (); _ebcdic (); return 0; }
+EOF
+]
+  WORDS_BIGENDIAN=""
+  if test -f conftest.c ; then
+     if ${CC-cc} -c conftest.c -o conftest.o && test -f conftest.o ; then
+        # use perl here, because some greps barf on binary files (eg Solaris)
+        if test `$PERL -ne 'if (m/BIGenDianSyS/) { print "yes\n"; }' conftest.o` ; then
+           WORDS_BIGENDIAN=1
+        fi
+        if test `$PERL -ne 'if (m/LiTTleEnDian/) { print "yes\n"; }' conftest.o` ; then
+          if test "$WORDS_BIGENDIAN" != "1" ; then
+            WORDS_BIGENDIAN=0
+          fi
+        fi
+     fi
+  fi
+  AC_MSG_RESULT($WORDS_BIGENDIAN)
+fi 
+if test "$WORDS_BIGENDIAN" = "1"; then
+  AC_DEFINE(WORDS_BIGENDIAN, 1, [whether byteorder is bigendian])
+elif test "$WORDS_BIGENDIAN" = ""; then
+  AC_MSG_ERROR(Inconsistent results from endian probe)
+fi
+]) 
