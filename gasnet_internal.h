@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/07/03 14:33:20 $
- * $Revision: 1.79 $
+ *     $Date: 2005/07/10 06:39:01 $
+ * $Revision: 1.80 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,6 +23,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
+#ifdef HAVE_MALLOC_H
+#include <malloc.h> /* prevent problems with redefinition of malloc on solaris */
+#endif
 
 BEGIN_EXTERNC
 
@@ -149,32 +152,32 @@ extern void gasneti_check_config_postattach();
 #undef malloc
 #endif
 #define malloc_error  ERROR__GASNet_conduit_code_must_use_gasneti_malloc
-#define malloc() malloc_error
+#define malloc(n) malloc_error
 #ifdef calloc
 #undef calloc
 #endif
 #define calloc_error  ERROR__GASNet_conduit_code_must_use_gasneti_calloc
-#define calloc() calloc_error
+#define calloc(n,s) calloc_error
 #ifdef realloc
 #undef realloc
 #endif
 #define realloc_error  ERROR__GASNet_conduit_code_must_use_gasneti_realloc
-#define realloc() realloc_error
+#define realloc(p,n) realloc_error
 #ifdef strdup
 #undef strdup
 #endif
 #define strdup_error  ERROR__GASNet_conduit_code_must_use_gasneti_strdup
-#define strdup() strdup_error
+#define strdup(p) strdup_error
 #ifdef strndup
 #undef strndup
 #endif
 #define strndup_error  ERROR__GASNet_conduit_code_must_use_gasneti_strndup
-#define strndup() strndup_error
+#define strndup(p,n) strndup_error
 #ifdef free
 #undef free
 #endif
 #define free_error    ERROR__GASNet_conduit_code_must_use_gasneti_free
-#define free() free_error
+#define free(p) free_error
 
 #include <assert.h>
 #undef assert

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2005/06/01 03:52:52 $
- * $Revision: 1.73 $
+ *     $Date: 2005/07/10 06:39:01 $
+ * $Revision: 1.74 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -575,7 +575,7 @@
 
         GASNET_INLINE_MODIFIER(gasneti_atomic_compare_and_swap)
         int gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
-          register volatile uint32_t * addr = &(v->ctr);
+          register volatile uint32_t * addr = (volatile uint32_t *)&(v->ctr);
           __asm__ __volatile__ ( 
               "membar #StoreLoad | #LoadLoad   \n\t" /* complete all previous ops before next load */
               "cas      [%2],%1,%0 \n\t"             /* if (*addr == oldval) { *addr = newval; }  newval = *addr; */
