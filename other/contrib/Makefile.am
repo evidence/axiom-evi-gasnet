@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/Makefile.am,v $
-#     $Date: 2005/05/22 13:01:54 $
-# $Revision: 1.10 $
+#     $Date: 2005/07/11 11:13:54 $
+# $Revision: 1.11 $
 # Description: Makefile for GASNet other/contrib
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -10,7 +10,8 @@ AUTOMAKE_OPTIONS = foreign 1.4
 
 SUBDIRS =         
 
-EXTRA_DIST = $(dotpl_DATA)
+EXTRA_DIST = $(dotpl_DATA) \
+	cross-configure-phoenix
 
 dotpldir = $(bindir)
 dotpl_DATA = gasnet_trace.pl

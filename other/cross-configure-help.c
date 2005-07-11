@@ -148,8 +148,11 @@ int main() {
   printf("#MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC\n");
   printf("#MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC\n");
   printf("#MPIRUN_CMD='mpirun -np %%N %%C' ; export MPIRUN_CMD  # launch command for MPI jobs\n");
-  printf("\n# 2. Review the automatically-detected settings below and make corrections as necessary.\n");
-  printf("\n# 3. Place this output script in your top-level source directory and run it,\n");
+  printf("\n# 2. Fill in the canonical target machine type. You can usually obtain this\n");
+  printf("#   by running config-aux/config.guess on the target machine\n");
+  printf("TARGET_ID=''\n");
+  printf("\n# 3. Review the automatically-detected settings below and make corrections as necessary.\n");
+  printf("\n# 4. Place this output script in your top-level source directory and run it,\n");
   printf("#   passing it any additional configure arguments as usual (see configure --help).\n");
 
   printf("\n################################################\n");
@@ -184,9 +187,38 @@ int main() {
   CHECK_SIG(TERM);
   CHECK_SIG(USR1);
 
-  printf("\n\n# Now that everything is setup, run the actual configure script\n");
-  printf("SRCDIR=`dirname $0`\n");
-  printf("$SRCDIR/configure --enable-cross-compile \"$@\"\n");
+  printf(
+"\n\nSRCDIR=`dirname $0`\n"
+"if test ! -f \"$SRCDIR/configure\" ; then\n"
+"  echo 'ERROR: The $0 script should be placed in the same directory as the configure script before execution'\n"
+"  exit 1\n"
+"fi\n"
+"# Detect the build host machine type\n"
+"HOST_ARG=`echo \"$@\" | grep -e --host`\n"
+"HOST_APPEND=\n"
+"if test \"$HOST_ARG\" = \"\"; then\n"
+"  oldCC_FOR_BUILD=\"$CC_FOR_BUILD\"\n"
+"  oldHOST_CC=\"$HOST_CC\"\n"
+"  oldCC=\"$CC\"\n"
+"  CC_FOR_BUILD=\n"
+"  HOST_CC=\n"
+"  CC=\n"
+"  if test \"$HOST_ID\" = \"\"; then\n"
+"    HOST_ID=`$SRCDIR/config-aux/config.guess`\n"
+"  fi\n"                                          
+"  if test \"$HOST_ID\" = \"\"; then\n"
+"    echo 'ERROR: failed to auto-detect build host. Please run with --host=machineid to identify the host machine running this script'\n"
+"    exit 1\n"
+"  else\n"
+"    HOST_APPEND=\"--host=$HOST_ID\"\n"
+"  fi\n"
+"  CC_FOR_BUILD=\"$oldCC_FOR_BUILD\"\n"
+"  HOST_CC=\"$oldHOST_CC\"\n"
+"  CC=\"$oldCC\"\n"
+"fi\n"
+"# Now that everything is setup, run the actual configure script\n"
+"$SRCDIR/configure --enable-cross-compile $HOST_APPEND --build=$TARGET_ID --target=$TARGET_ID \"$@\"\n");
+
   fflush(stdout);
   return 0;
 }

@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/07/10 20:08:01 $
-dnl $Revision: 1.72 $
+dnl     $Date: 2005/07/11 11:13:41 $
+dnl $Revision: 1.73 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -400,9 +400,9 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
   AC_SUBST(BUILD_IS_SRC)
   SYSTEM_NAME="`hostname`"
   AC_SUBST(SYSTEM_NAME)
-  SYSTEM_TUPLE="$host"
+  SYSTEM_TUPLE="$target"
   AC_SUBST(SYSTEM_TUPLE)
-  AC_MSG_RESULT( host info:      $SYSTEM_NAME $SYSTEM_TUPLE)
+  AC_MSG_RESULT( system info:      $SYSTEM_NAME $SYSTEM_TUPLE)
   BUILD_USER=`whoami 2> /dev/null || id -un 2> /dev/null || echo $USER`
   BUILD_ID="`date` $BUILD_USER"
   AC_MSG_RESULT( build id:       $BUILD_ID)
@@ -1216,17 +1216,23 @@ EOF
 ]
   WORDS_BIGENDIAN=""
   if test -f conftest.c ; then
-     if ${CC-cc} -c conftest.c -o conftest.o && test -f conftest.o ; then
+     dnl do a full link, because otherwise some systems (X1) have a garbed string table
+     if ${CC-cc} -c conftest.c -o conftest.o && \
+        ${CC-cc} conftest.o -o conftest && \
+        test -f conftest.o && test -f conftest ; then
         # use perl here, because some greps barf on binary files (eg Solaris)
-        if test `$PERL -ne 'if (m/BIGenDianSyS/) { print "yes\n"; }' conftest.o` ; then
+        if test `$PERL -ne 'if (m/BIGenDianSyS/) { print "yes\n"; }' conftest.o` || \
+           test `$PERL -ne 'if (m/BIGenDianSyS/) { print "yes\n"; }' conftest` ; then
            WORDS_BIGENDIAN=1
         fi
-        if test `$PERL -ne 'if (m/LiTTleEnDian/) { print "yes\n"; }' conftest.o` ; then
+        if test `$PERL -ne 'if (m/LiTTleEnDian/) { print "yes\n"; }' conftest.o` || \
+           test `$PERL -ne 'if (m/LiTTleEnDian/) { print "yes\n"; }' conftest`; then
           if test "$WORDS_BIGENDIAN" != "1" ; then
             WORDS_BIGENDIAN=0
           fi
         fi
      fi
+     rm -f conftest.c conftest.o conftest
   fi
   AC_MSG_RESULT($WORDS_BIGENDIAN)
 fi 

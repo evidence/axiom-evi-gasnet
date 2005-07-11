@@ -1,7 +1,7 @@
 # @configure_input@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/perlstart.in,v $
-#     $Date: 2004/11/13 04:15:29 $
-# $Revision: 1.11 $
+#     $Date: 2005/07/11 11:13:49 $
+# $Revision: 1.12 $
 # Description: 
 # Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -27,6 +27,13 @@ if test -x "$readlink" ; then
   link=`$readlink ${scriptname}`
 else
   link=`/bin/ls -al ${scriptname} | @AWK@ 'BEGIN{FS=">"}{split($2,A," ") ; print A[1]}'`
+fi
+# fall back on versions in PATH if our hard-coded ones disappear
+if test ! -x "$dirname" -a "`dirname foo/bar`" = "foo" ; then
+  dirname=dirname
+fi
+if test ! -x "$basename" -a "`basename foo/bar`" = "bar" ; then
+  basename=basename
 fi
 
 # be sure to follow any symbolic links to reach the location

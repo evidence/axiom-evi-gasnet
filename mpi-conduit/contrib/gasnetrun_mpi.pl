@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/05/29 23:57:02 $
-# $Revision: 1.27 $
+#     $Date: 2005/07/11 11:13:45 $
+# $Revision: 1.28 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -106,7 +106,6 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	# however, the OS already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1
                   );
-        $extra_quote_argv = 1;
     } elsif ($is_poe) {
 	$spawner_desc = "IBM POE";
 	# the OS already propagates the environment for us automatically
