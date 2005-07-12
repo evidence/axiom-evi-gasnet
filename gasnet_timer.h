@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/06/01 03:30:58 $
- * $Revision: 1.40 $
+ *     $Date: 2005/07/12 15:28:29 $
+ * $Revision: 1.41 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -292,12 +292,12 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 	  break;
 	}
       } while (de);
-      closedir(dp);
       if (!de) {
         fprintf(stderr,"*** ERROR: Failure to find a PowerPC CPU in /proc/device-tree/cpus\n");
 	abort();
       }
       snprintf(fname, sizeof(fname), "/proc/device-tree/cpus/%s/timebase-frequency", de->d_name);
+      closedir(dp);
       fp = fopen(fname, "r");
       if (!fp) {
 	fprintf(stderr,"*** ERROR: Failure in fopen('%s','r'): %s\n",fname,strerror(errno));

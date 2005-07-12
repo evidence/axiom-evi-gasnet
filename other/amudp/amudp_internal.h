@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2005/06/21 19:05:23 $
- * $Revision: 1.19 $
+ *     $Date: 2005/07/12 15:28:31 $
+ * $Revision: 1.20 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -400,7 +400,6 @@ extern void AMUDP_ReleaseBulkBuffer(ep_t ep, amudp_buf_t *buf); // release a bul
 extern char *AMUDP_enStr(en_t en, char *buf);
 extern char *AMUDP_tagStr(tag_t tag, char *buf);
 
-void abort();
 extern amudp_handler_fn_t amudp_unused_handler;
 extern void AMUDP_DefaultReturnedMsg_Handler(int status, op_t opcode, void *token);
 

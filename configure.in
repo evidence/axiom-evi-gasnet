@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/07/10 20:08:01 $
-# $Revision: 1.278 $
+#     $Date: 2005/07/12 15:28:29 $
+# $Revision: 1.279 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.278 $)
+AC_REVISION($Revision: 1.279 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -288,7 +288,8 @@ case "$gasnet_cv_cc_family" in
   PGI) MISC_CFLAGS="-Masmkeyword -c9x" ;; # get inline assembly and restrict
   MTA) MISC_CFLAGS="-display_error_number -WS 111,174,238" ;;
   Sun) MISC_CFLAGS="-errtags" ;; # show warning tag ids in warnings
-  XLC) MISC_CFLAGS="-qsuppress=1500-010" ;; # 1500-010 = infinite loop (such as in our tests)
+  XLC) MISC_CFLAGS="-qsuppress=1500-010:1506-229" ;; # 1500-010 = infinite loop (such as in our tests)
+	# 1506-229 = empty source file (some linux headers)
   *)   MISC_CFLAGS="" ;;
 esac
 
@@ -833,9 +834,10 @@ if test $enabled_udp = yes; then
                           [MISC_CXXFLAGS="$MISC_CXXFLAGS -wd1572"])
            ;;
     XLC)
+     MISC_CXXFLAGS="-qsuppress=1540-0809" # 1540-0809 = empty source file (some linux headers)
      case "$target_os" in
-      aix*) MISC_CXXFLAGS="-qeh -qweaksymbol" ;;
-      *) MISC_CXXFLAGS="-qeh" ;;
+      aix*) MISC_CXXFLAGS="$MISC_CXXFLAGS -qeh -qweaksymbol" ;;
+      *) MISC_CXXFLAGS="$MISC_CXXFLAGS -qeh" ;;
      esac ;;
     NEC)   MISC_CXXFLAGS="-woff=68:111:174:177:236:301:550:940 -Kexceptions" 
            CXXDEBUGFLAGS="-g -Cnoopt -Cdebug"
