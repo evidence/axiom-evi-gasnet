@@ -34,6 +34,9 @@
 #define CHECK_MMAP 1         /* test for working mmap() */
 #endif
 /* ------------------------------ */
+#ifndef CHECK_VERBOSE
+#define CHECK_VERBOSE 1         /* enable verbose error reporting during checks */
+#endif
 
 #include <stdio.h>
 
@@ -43,6 +46,15 @@ void warning(const char *str) {
   fprintf(stderr,"# WARNING: %s - you'll need to edit the resulting script for correctness\n", str);
   fflush(stderr);
 }
+#if CHECK_VERBOSE
+  #include <errno.h>
+  #define VERBOSE(args) do { \
+      printf("# Auto-detect status: "); printf args; \
+      printf(", errno=%i '%s'\n", errno, strerror(errno)); \
+  } while (0)
+#else
+  #define VERBOSE(args) ((void)0)
+#endif
 #define NOOP_CHECK(type, name,str) \
 type name() { \
     char msg[255]; \
@@ -148,6 +160,7 @@ int main() {
   printf("#MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC\n");
   printf("#MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC\n");
   printf("#MPIRUN_CMD='mpirun -np %%N %%C' ; export MPIRUN_CMD  # launch command for MPI jobs\n");
+  printf("EXTRA_CONFIGURE_ARGS='' ; export EXTRA_CONFIGURE_ARGS  # misc configure args to pass\n");
   printf("\n# 2. Fill in the canonical target machine type. You can usually obtain this\n");
   printf("#   by running config-aux/config.guess on the target machine\n");
   printf("TARGET_ID=''\n");
@@ -190,7 +203,7 @@ int main() {
   printf(
 "\n\nSRCDIR=`dirname $0`\n"
 "if test ! -f \"$SRCDIR/configure\" ; then\n"
-"  echo 'ERROR: The $0 script should be placed in the same directory as the configure script before execution'\n"
+"  echo \"ERROR: The $0 script should be placed in the same directory as the configure script before execution\"\n"
 "  exit 1\n"
 "fi\n"
 "# Detect the build host machine type\n"
@@ -217,7 +230,7 @@ int main() {
 "  CC=\"$oldCC\"\n"
 "fi\n"
 "# Now that everything is setup, run the actual configure script\n"
-"$SRCDIR/configure --enable-cross-compile $HOST_APPEND --build=$TARGET_ID --target=$TARGET_ID \"$@\"\n");
+"$SRCDIR/configure --enable-cross-compile $HOST_APPEND --build=$TARGET_ID --target=$TARGET_ID $EXTRA_CONFIGURE_ARGS \"$@\"\n");
 
   fflush(stdout);
   return 0;
@@ -249,16 +262,16 @@ int main() {
   }
   int testfd(int fd) {
     void *ptr,*ptr2;
-    if (fd == -1) return 1;
-    if (write(fd, junk, 16384) == -1) return 2;
+    if (fd == -1) { VERBOSE(("failed to open file")); return 1; }
+    if (write(fd, junk, 16384) == -1) { VERBOSE(("failed to write")); return 2; }
     ptr = mmap(0, 16384, (PROT_READ|PROT_WRITE),
         MAP_PRIVATE, fd, 0);
-    if (ptr == MAP_FAILED || ptr == NULL) return 3;
-    if (munmap(ptr,16384) != 0) return 4;
+    if (ptr == MAP_FAILED || ptr == NULL) { VERBOSE(("failed to mmap anon")); return 3; }
+    if (munmap(ptr,16384) != 0)  { VERBOSE(("failed to munmap anon")); return 4; }
     ptr2 = mmap(ptr, 16384, (PROT_READ|PROT_WRITE),
         (MAP_PRIVATE | MAP_FIXED), fd, 0);
-    if (ptr2 == MAP_FAILED || ptr2 == NULL || ptr2 != ptr) return 5;
-    if (munmap(ptr,16384) != 0) return 6;
+    if (ptr2 == MAP_FAILED || ptr2 == NULL || ptr2 != ptr)  { VERBOSE(("failed to mmap fixed")); return 5; }
+    if (munmap(ptr,16384) != 0) { VERBOSE(("failed to munmap fixed")); return 6; }
     return 0;
   }
 #else

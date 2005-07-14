@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2005/07/10 06:39:01 $
- * $Revision: 1.74 $
+ *     $Date: 2005/07/14 22:02:24 $
+ * $Revision: 1.75 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,7 +58,7 @@
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
 /* misc rerequisites to detection logic below */
-#if defined(LINUX)
+#if defined(LINUX) && !defined(BROKEN_LINUX_ASM_ATOMIC_H)
   #include <linux/config.h>
 #endif
 

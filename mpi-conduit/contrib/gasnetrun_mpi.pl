@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/07/11 11:13:45 $
-# $Revision: 1.28 $
+#     $Date: 2005/07/14 22:02:27 $
+# $Revision: 1.29 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -56,6 +56,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_mvich    = ($mpirun_help =~ m|MV(AP)?ICH|i);
     my $is_cray_mpi = ($mpirun_help =~ m|Psched|);
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
+    my $is_yod      = ($mpirun_help =~ m| yod |);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
@@ -108,6 +109,12 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
                   );
     } elsif ($is_poe) {
 	$spawner_desc = "IBM POE";
+	# the OS already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1
+                  );
+        $extra_quote_argv = 1;
+    } elsif ($is_yod) {
+	$spawner_desc = "Catamount yod";
 	# the OS already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1
                   );
@@ -207,7 +214,7 @@ sub expand {
 	shift;
     }
 
-    print "gasnetrun: identified MPI spawner as $spawner_desc\n" if ($verbose);
+    print "gasnetrun: identified MPI spawner as: $spawner_desc\n" if ($verbose);
 
 # Validate -n as needed
     if (!defined($numproc) && $spawncmd =~ /%N/) {
