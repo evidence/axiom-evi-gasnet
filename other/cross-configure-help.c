@@ -230,7 +230,7 @@ int main() {
 "  CC=\"$oldCC\"\n"
 "fi\n"
 "# Now that everything is setup, run the actual configure script\n"
-"$SRCDIR/configure --enable-cross-compile $HOST_APPEND --build=$TARGET_ID --target=$TARGET_ID $EXTRA_CONFIGURE_ARGS \"$@\"\n");
+"$SRCDIR/configure --enable-cross-compile $HOST_APPEND --build=$TARGET_ID --target=$TARGET_ID --program-prefix='' $EXTRA_CONFIGURE_ARGS \"$@\"\n");
 
   fflush(stdout);
   return 0;

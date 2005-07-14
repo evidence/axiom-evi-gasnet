@@ -15,6 +15,7 @@ CXX='CC -hinstantiate=local' ; export CXX  # vanilla target C++ compiler
 #MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC
 #MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC
 #MPIRUN_CMD='mpirun -np %N %C' ; export MPIRUN_CMD  # launch command for MPI jobs
+EXTRA_CONFIGURE_ARGS=''
 
 # 2. Fill in the canonical target machine type. You can usually obtain this
 #   by running config-aux/config.guess on the target machine
@@ -95,4 +96,4 @@ if test "$HOST_ARG" = ""; then
   CC="$oldCC"
 fi
 # Now that everything is setup, run the actual configure script
-$SRCDIR/configure --enable-cross-compile $HOST_APPEND --build=$TARGET_ID --target=$TARGET_ID "$@"
+$SRCDIR/configure --enable-cross-compile $HOST_APPEND --build=$TARGET_ID --target=$TARGET_ID --program-prefix='' $EXTRA_CONFIGURE_ARGS "$@"
