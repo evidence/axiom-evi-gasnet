@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/07/14 22:02:24 $
-# $Revision: 1.280 $
+#     $Date: 2005/07/15 20:03:59 $
+# $Revision: 1.281 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.280 $)
+AC_REVISION($Revision: 1.281 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -151,8 +151,8 @@ case "$gasnet_cv_cc_family" in
   GNU)  GASNET_GCC_VERSION_CHECK(CC)
 	GASNET_PUSHVAR(CFLAGS,"-O3")
 	# prefer the --param inliner option(s), which give us finer control
-        GASNET_TRY_CFLAG([--param max-inline-insns-single=10000],
-			 [CFLAGS="$CFLAGS --param max-inline-insns-single=10000"
+        GASNET_TRY_CFLAG([--param max-inline-insns-single=35000],
+			 [CFLAGS="$CFLAGS --param max-inline-insns-single=35000"
 			  GASNET_TRY_CFLAG([--param max-inline-insns=100000],
 					   [CFLAGS="$CFLAGS --param max-inline-insns=100000"])],
 			 GASNET_TRY_CFLAG([-finline-limit=10000],
