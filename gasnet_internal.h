@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/07/10 06:39:01 $
- * $Revision: 1.80 $
+ *     $Date: 2005/07/15 17:36:36 $
+ * $Revision: 1.81 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -316,7 +316,8 @@ uintptr_t gasneti_auxseg_preattach(uintptr_t client_request_sz);
 void gasneti_auxseg_attach();
 
 #if GASNET_SEGMENT_EVERYTHING
-  extern void gasnetc_auxseg_reqh(gasnet_token_t token, void *buf, size_t nbytes, gasnet_handlerarg_t msg);
+  extern void gasnetc_auxseg_reqh(gasnet_token_t token, void *buf, size_t nbytes, 
+                                  gasnet_handlerarg_t msg, gasnet_handlerarg_t offset);
   #define GASNETC_AUXSEG_HANDLERS() \
     gasneti_handler_tableentry_no_bits(gasnetc_auxseg_reqh)
 #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2005/06/10 11:45:07 $
- * $Revision: 1.30 $
+ *     $Date: 2005/07/15 17:36:36 $
+ * $Revision: 1.31 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -658,15 +658,17 @@ void gasneti_auxseg_init() {
 #if GASNET_SEGMENT_EVERYTHING
   static volatile gasnet_seginfo_t *_gasneti_auxseg_everything = NULL;
   static gasneti_atomic_t _gasneti_auxseg_gatherdone = gasneti_atomic_init(0);
-  static volatile int _gasneti_auxseg_bcastdone = 0;
+  static gasneti_atomic_t _gasneti_auxseg_bcastdone = gasneti_atomic_init(0);
 
-  extern void gasnetc_auxseg_reqh(gasnet_token_t token, void *buf, size_t nbytes, gasnet_handlerarg_t msg) {
+  extern void gasnetc_auxseg_reqh(gasnet_token_t token, void *buf, size_t nbytes, 
+                                  gasnet_handlerarg_t msg, gasnet_handlerarg_t offset) {
     gasnet_node_t srcid;
     gasnet_AMGetMsgSource(token, &srcid);
     gasneti_assert(srcid < gasneti_nodes);
     switch (msg) {
       case 0:
         gasneti_assert(gasneti_mynode == 0);
+        gasneti_assert(offset == 0);
         gasneti_assert(nbytes == sizeof(gasnet_seginfo_t));
         gasneti_assert(_gasneti_auxseg_everything != NULL);
         _gasneti_auxseg_everything[srcid] = *(gasnet_seginfo_t *)buf;
@@ -675,11 +677,12 @@ void gasneti_auxseg_init() {
         break;
       case 1:
         gasneti_assert(srcid == 0);
-        gasneti_assert(nbytes == sizeof(gasnet_seginfo_t)*gasneti_nodes);
+        gasneti_assert(nbytes <= sizeof(gasnet_seginfo_t)*gasneti_nodes);
+        gasneti_assert(nbytes % sizeof(gasnet_seginfo_t) == 0);
         gasneti_assert(_gasneti_auxseg_everything != NULL);
-        memcpy((void *)_gasneti_auxseg_everything, buf, nbytes);
+        memcpy((void *)(_gasneti_auxseg_everything+offset), buf, nbytes);
         gasneti_local_wmb();
-        _gasneti_auxseg_bcastdone = 1;
+        gasneti_atomic_increment(&_gasneti_auxseg_bcastdone);
         break;
     }
   }
@@ -728,16 +731,25 @@ void gasneti_auxseg_attach() {
 
   /* point si at the auxseg */
   #if GASNET_SEGMENT_EVERYTHING
+  { /* need to packetize this broadcast to avoid overflowing max medium with high node count */
+    int chunkelems = MIN(gasnet_AMMaxMedium()/sizeof(gasnet_seginfo_t), gasneti_nodes);
+    int chunks = (gasneti_nodes / chunkelems) + (gasneti_nodes % chunkelems == 0 ? 0 : 1);
     /* exchange locations into si */
-    GASNETI_SAFE(gasnet_AMRequestMedium1(0, _hidx_gasnetc_auxseg_reqh, (void *)(_gasneti_auxseg_everything+gasneti_mynode), sizeof(gasnet_seginfo_t), 0));
+    GASNETI_SAFE(gasnet_AMRequestMedium2(0, _hidx_gasnetc_auxseg_reqh, 
+                  (void *)(_gasneti_auxseg_everything+gasneti_mynode), sizeof(gasnet_seginfo_t), 0, 0));
     if (gasnet_mynode() == 0) {
       GASNET_BLOCKUNTIL((int)gasneti_atomic_read(&_gasneti_auxseg_gatherdone) == (int)gasnet_nodes());
       for (i=0; i < gasneti_nodes; i++) {
-        GASNETI_SAFE(gasnet_AMRequestMedium1(i, _hidx_gasnetc_auxseg_reqh, (void *)_gasneti_auxseg_everything, gasneti_nodes*sizeof(gasnet_seginfo_t), 1));
+        for (j=0; j < chunks; j++) {
+          GASNETI_SAFE(gasnet_AMRequestMedium2(i, _hidx_gasnetc_auxseg_reqh, 
+                    (void *)(_gasneti_auxseg_everything+j*chunkelems), 
+                    MIN(chunkelems, gasneti_nodes-j*chunkelems)*sizeof(gasnet_seginfo_t), 1, j*chunkelems));
+        }
       }
     }
-    GASNET_BLOCKUNTIL(_gasneti_auxseg_bcastdone);
+    GASNET_BLOCKUNTIL((int)gasneti_atomic_read(&_gasneti_auxseg_bcastdone) == (int)chunks);
     si = (gasnet_seginfo_t *)_gasneti_auxseg_everything;
+  }
   #else
     si = gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
     /* break up fullseg into client seg and auxseg */
