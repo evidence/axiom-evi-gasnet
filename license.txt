@@ -1,4 +1,4 @@
-/* $Header: /Users/kamil/work/gasnet-cvs2/gasnet/license.txt,v 1.8 2004/10/07 23:28:11 csbell Exp $
+/* $Header: /Users/kamil/work/gasnet-cvs2/gasnet/license.txt,v 1.9 2005/07/15 18:06:28 bonachea Exp $
  * All files in this directory and all sub-directories (except where otherwise noted)
  * are subject to the following licensing terms: 
  *
@@ -42,7 +42,7 @@
  *  Paul H. Hargrove <phhargrove@lbl.gov>: vapi-conduit
  * 
  * For more information about GASNet, visit our home page at:
- *  http://www.cs.berkeley.edu/~bonachea/gasnet
+ *  http://gasnet.cs.berkeley.edu/
  * Or send email to:
  *  <upc@lbl.gov>
  *

@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.60 $
+$Revision: 1.61 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -318,7 +318,7 @@ See the GASNet specification for information about the GASNet API. A copy is
 included with this archive in docs/, and the definitive version is located on
 the GASNet webpage here:
 
-  http://www.cs.berkeley.edu/~bonachea/gasnet
+  http://gasnet.cs.berkeley.edu/
 
 The GASNet API is a two-level interface consisting of the lower-level "core API"
 and the upper-level "extended API". All of the functions in the extended API can
