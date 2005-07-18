@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/07/18 02:56:45 $
- * $Revision: 1.63 $
+ *     $Date: 2005/07/18 19:24:04 $
+ * $Revision: 1.64 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1506,13 +1506,13 @@ typedef struct {
 } gasnete_barrier_state_t;
 static gasnete_barrier_state_t *barrier_state = NULL;
 static int volatile barrier_blocking = 0;
-static uintptr_t barrier_blocking_thread = 0;
+static gasnet_threadinfo_t barrier_blocking_thread = 0;
 static int barrier_phase = 0;
 int gasnete_barrier_poll(void *handle, unsigned int *ready) {
   if_pf (barrier_blocking && !GASNETC_EXITINPROGRESS()) {
     static uint32_t pollidx = 0;
     if (((pollidx++) & (GASNETE_BARRIERBLOCKING_POLLFREQ-1)) == 0 &&
-        (barrier_blocking_thread == GASNETI_THREADIDQUERY())) {
+        (barrier_blocking_thread == GASNET_GET_THREADINFO())) {
       UNLOCK_ELAN_WEAK();
         barrier_blocking = 0;
         #if 0
@@ -1583,7 +1583,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
 
   if (gasneti_nodes > 1) {
     LOCK_ELAN_WEAK();
-    barrier_blocking_thread = GASNETI_THREADIDQUERY(); 
+    barrier_blocking_thread = GASNET_GET_THREADINFO(); 
       /* Bug 1021: only this thread may poll inside a barrier, 
          otherwise we get poll reentrancy, which causes all sorts of problems */
     barrier_blocking = 1; /* allow polling while inside blocking barriers */
