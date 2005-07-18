@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/07 17:53:47 $
- * $Revision: 1.125 $
+ *     $Date: 2005/07/18 20:34:19 $
+ * $Revision: 1.126 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,6 +22,8 @@
  
 /* In firehose_internal.h */
 extern unsigned long fh_getenv(const char *var, unsigned long multiplier);
+extern void fh_env_display(const char *key, int val, int is_dflt);
+extern void fh_env_display_MB(const char *key, uintptr_t val, int is_dflt);
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
@@ -438,6 +440,13 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
 
 /* Process defaults and the environment to get configuration settings */
 static int gasnetc_load_settings(void) {
+  int verboseenv = 0;
+  #if GASNET_DEBUG_VERBOSE
+    verboseenv = 1; 
+  #else   
+       verboseenv = !!gasnet_getenv("GASNET_VERBOSEENV");
+  #endif 
+
   gasnetc_hca_id = gasneti_strdup(
     gasneti_getenv_withdefault("GASNET_HCA_ID",GASNETC_DEFAULT_HCA_ID));
 
@@ -468,21 +477,22 @@ static int gasnetc_load_settings(void) {
   #if GASNETC_PIN_SEGMENT
   { char *val;
     long tmp;
+    int dflt;
 
     val = gasneti_getenv("GASNET_PIN_MAXSZ");
-    if ((val == NULL) || (*val == '\0')) {
-      gasnetc_pin_maxsz = GASNETC_DEFAULT_PIN_MAXSZ;
-    } else {
-      gasnetc_pin_maxsz = fh_getenv("GASNET_PIN_MAXSZ", 1);
+    dflt = ((val == NULL) || (*val == '\0'));
+    gasnetc_pin_maxsz = dflt ? GASNETC_DEFAULT_PIN_MAXSZ : fh_getenv("GASNET_PIN_MAXSZ", 1);
+    if (!gasneti_mynode && verboseenv) {
+      fh_env_display_MB("GASNET_PIN_MAXSZ", gasnetc_pin_maxsz, dflt);
     }
     if (gasnetc_pin_maxsz < GASNET_PAGESIZE) {
       GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_PIN_MAXSZ < GASNET_PAGESIZE) in environment");
     }
-    tmp = gasnetc_pin_maxsz;
-    for (gasnetc_pin_maxsz_shift=-1; tmp != 0; ++gasnetc_pin_maxsz_shift) { tmp >>= 1; }
-    if_pf ((1UL << gasnetc_pin_maxsz_shift) != gasnetc_pin_maxsz) {
+    if_pf (!GASNETI_POWEROFTWO(gasnetc_pin_maxsz)) {
       gasneti_fatalerror("GASNET_PIN_MAXSZ (%lu) is not a power of 2", gasnetc_pin_maxsz);
     }
+    tmp = gasnetc_pin_maxsz;
+    for (gasnetc_pin_maxsz_shift=-1; tmp != 0; ++gasnetc_pin_maxsz_shift) { tmp >>= 1; }
   }
   #endif
   gasnetc_use_rcv_thread = gasneti_getenv_yesno_withdefault("GASNET_RCV_THREAD", GASNETC_DEFAULT_RCV_THREAD); /* Bug 1012 - right default? */
