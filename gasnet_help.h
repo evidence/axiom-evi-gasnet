@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/07/03 14:33:20 $
- * $Revision: 1.57 $
+ *     $Date: 2005/07/18 02:56:38 $
+ * $Revision: 1.58 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -747,13 +747,15 @@ static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
       /* assert this thread hasn't already suspended */ \
       gasneti_assert((int)(intptr_t)gasneti_threadkey_get(gasneti_throttledebug_key) == 0)
     #define gasneti_suspend_spinpollers_check() do {                                        \
+      int _mythrottlecnt = (int)(intptr_t)gasneti_threadkey_get(gasneti_throttledebug_key); \
       /* assert this thread hasn't already suspended */                                     \
-      gasneti_assert((int)(intptr_t)gasneti_threadkey_get(gasneti_throttledebug_key) == 0); \
+      gasneti_assert(_mythrottlecnt == 0);                                                  \
       gasneti_threadkey_set(gasneti_throttledebug_key, (void *)(intptr_t)1);                \
     } while(0)
     #define gasneti_resume_spinpollers_check() do {                                         \
+      int _mythrottlecnt = (int)(intptr_t)gasneti_threadkey_get(gasneti_throttledebug_key); \
       /* assert this thread previously suspended */                                         \
-      gasneti_assert((int)(intptr_t)gasneti_threadkey_get(gasneti_throttledebug_key) == 1); \
+      gasneti_assert(_mythrottlecnt == 1);                                                  \
       gasneti_threadkey_set(gasneti_throttledebug_key, (void *)(intptr_t)0);                \
     } while(0)
   #elif GASNET_DEBUG
