@@ -2,6 +2,7 @@
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -388,6 +389,111 @@ double floodtest(int iters, int msgsz) {
   return (double)(endtime - starttime);
 }
 /*------------------------------------------------------------------*/
+/* run a queue depth detection test sending messages 
+ * of a message of size msgsz bytes and no acknowledgements -
+ * messages are shoveled into a send queue of size up to queuesz,
+ * as quickly as MPI will take them and injection rate is timed for each queue size
+ */
+void queuetest(int iters, int msgsz, int printoutput) {
+  int iamsender = (rank % 2 == 0);
+  int iamreceiver = !iamsender || peerid == rank; /* handle loopback */
+  MPI_Request *recvHandle = NULL;
+  MPI_Request *sendHandle = NULL;
+  char *sendbuffer = NULL;
+  char *recvbuffer = NULL;
+  MPI_Status *statustmp = malloc(sizeof(MPI_Status)*queuedepth);
+  int depth;
+  char row[1024];
+  char *prow = row;
+
+
+  if (iamsender) {
+    int i;
+    sendbuffer = (char*)malloc(msgsz);
+    sendHandle = (MPI_Request*)malloc(sizeof(MPI_Request)*queuedepth);
+    assert(sendbuffer && sendHandle);
+    for (i=0; i < queuedepth; i++) {
+      sendHandle[i] = MPI_REQUEST_NULL;
+    }
+    sprintf(prow, "%-8i", msgsz); prow += strlen(prow);
+  }
+  if (iamreceiver) {
+    recvbuffer = (char*)malloc(msgsz);
+    recvHandle = (MPI_Request*)malloc(sizeof(MPI_Request)*queuedepth);
+    assert(recvbuffer && recvHandle);
+  }
+
+  barrier();
+
+  for (depth = 1; depth <= queuedepth; depth *= 2) {
+    int64_t totaltime = 0;
+    int it;
+    
+    for (it = 0; it < iters; it++) {
+
+      barrier();
+      if (iamreceiver) { /* prepost recieves */
+        int i;
+        for (i=0; i < depth; i++) {
+          recvHandle[i] = MPI_REQUEST_NULL;
+          /* prepost recvs */
+          MPI_SAFE(MPI_Irecv(recvbuffer, msgsz, MPI_BYTE, 
+                    peerid, MPI_ANY_TAG, MPI_COMM_WORLD, 
+                    &recvHandle[i]));
+          assert(recvHandle[i] != MPI_REQUEST_NULL);
+        }
+      }
+
+      barrier();
+
+      if (iamsender) { 
+        int i;
+        int64_t starttime, endtime;
+        /* measure time to inject depth operations of payload sz */
+        starttime = getMicrosecondTimeStamp();
+        for (i=0; i < depth; i++) {
+          MPI_SAFE(MPI_Isend(sendbuffer, msgsz, MPI_BYTE, peerid, peermpitag, MPI_COMM_WORLD, &sendHandle[i]));
+          assert(sendHandle[i] != MPI_REQUEST_NULL);
+        }
+        endtime = getMicrosecondTimeStamp();
+        totaltime += (endtime - starttime);
+      }
+
+      if (iamreceiver) { /* complete nb recvs */
+          int i;
+          MPI_SAFE(MPI_Waitall(depth, recvHandle, statustmp));
+          for (i=0; i < depth; i++) {
+            CHECKTAG(statustmp[i].MPI_TAG);
+          }
+      }
+      if (iamsender) { /* complete nb sends */
+          MPI_SAFE(MPI_Waitall(depth, sendHandle, statustmp));
+      }
+    }
+
+    if (iamsender) { /* output */
+      double avgus = totaltime / (double)iters / (double)depth;
+      int prec;
+      if (avgus < 1000.0) prec = 3;
+      else if (avgus < 10000.0) prec = 2;
+      else if (avgus < 100000.0) prec = 1;
+      else prec = 0;
+      sprintf(prow, " %7.*f", prec, avgus); prow += strlen(prow);
+    }
+  }
+  if (iamsender && printoutput) {
+    printf("%s\n", row); fflush(stdout);
+  }
+
+  if (recvHandle) free(recvHandle);
+  if (sendHandle) free(sendHandle);
+  if (sendbuffer) free(sendbuffer);
+  if (recvbuffer) free(recvbuffer);
+  free(statustmp);
+
+  return;
+}
+/*------------------------------------------------------------------*/
 /* run an exchange test with msgsz bytes per proc with bytes transferred
  * actually nproc*msgsz per exchange (all-to-all).
  */
@@ -435,6 +541,7 @@ int main(int argc, char **argv) {
   int dofloodtest = 0;
   int dobarriertest = 0;
   int doexchangetest = 0;
+  int doqueuetest = 0;
   int iters = -1;
 
   /* init */
@@ -449,6 +556,7 @@ int main(int argc, char **argv) {
         case 'P': case 'p': dopingpongtest = 1; break;
         case 'F': case 'f': dofloodtest = 1; break;
         case 'B': case 'b': dobarriertest = 1; break;
+        case 'Q': case 'q': doqueuetest = 1; break;
         default: Usage(argv[0]);
       }
     }
@@ -536,6 +644,39 @@ int main(int argc, char **argv) {
             (((double)msgsz)*iters/KB)/(totaltime/1000000));
           fflush(stdout);
         }
+      }
+    }
+  }
+  fflush(NULL); sleep(1); /* pause for output */
+  barrier();
+  if (doqueuetest) { /* queue test */
+    if (rank == 0) {
+      printf("=====> testmpiperf-queue nprocs=%d config=MPI\n", nproc);
+      printf("running %i iterations of MPI_Isend queue test per size, with maxqueuedepth=%i...\n", 
+        iters, queuedepth);
+      { char header[1024];
+        char *pheader = header;
+        int depth;
+        sprintf(pheader, "        "); pheader += strlen(pheader);
+        for (depth = 1; depth <= queuedepth; depth *= 2) {
+          sprintf(pheader, " %7i", depth); pheader += strlen(pheader);
+        }
+        printf("%s\n", header);
+      }    
+      fflush(stdout);
+    }
+    barrier();
+
+
+    { int msgsz;
+      for (msgsz = FIRSTSZ(); !DONESZ(msgsz); msgsz = NEXTSZ(msgsz)) {
+        double totaltime;
+
+        queuetest(1, msgsz, 0); /* "warm-up" run */
+        barrier();
+        queuetest(iters, msgsz, 1);
+        barrier();
+
       }
     }
   }
