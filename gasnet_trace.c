@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/07/07 14:34:12 $
- * $Revision: 1.112 $
+ *     $Date: 2005/07/23 01:39:01 $
+ * $Revision: 1.113 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,7 +25,13 @@
 #else
 #include <sys/param.h>
 #endif 
-
+#ifndef MAXHOSTNAMELEN
+  #ifdef HOST_NAME_MAX
+    #define MAXHOSTNAMELEN HOST_NAME_MAX
+  #else
+    #define MAXHOSTNAMELEN 1024 /* give up */
+  #endif
+#endif
 /* ------------------------------------------------------------------------------------ */
 /* GASNet Tracing and Statistics */
 

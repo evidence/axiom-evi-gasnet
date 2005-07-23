@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/mpi/testmpinbr.c,v $
- *     $Date: 2005/05/03 18:54:19 $
- * $Revision: 1.5 $
+ *     $Date: 2005/07/23 01:40:09 $
+ * $Revision: 1.6 $
  * Description: MG-like neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -370,11 +370,7 @@ void startupMPI(int* argc, char ***argv) {
 }
 
 void shutdownMPI() {
-  char *buffer= NULL;
-  int sz = 0;
   DEBUGMSG("shutting down");
-  MPI_SAFE(MPI_Buffer_detach(&buffer, &sz));
-  free(buffer);
   MPI_SAFE(MPI_Finalize());
 
   printf("P%i exiting...\n", myproc); fflush(stdout);

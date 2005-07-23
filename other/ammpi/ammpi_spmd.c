@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2005/04/06 06:59:14 $
- * $Revision: 1.26 $
+ *     $Date: 2005/07/23 01:39:24 $
+ * $Revision: 1.27 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -11,9 +11,7 @@
   #include <process.h>
 #else
   #include <unistd.h>
-  #include <time.h>
-  #include <sys/time.h>
-  #if defined(LINUX) && !defined(__USE_GNU)
+  #if defined(__linux__) && !defined(__USE_GNU)
     /* some Linuxes need this to pull in F_SETSIG */
     #define __USE_GNU
     #include <fcntl.h>
@@ -41,7 +39,7 @@ static void _freezeForDebugger(int depth) {
     volatile int i = 0;
     while (ammpi_frozen) {
       i++;
-      sleep(1);
+      ammpi_sched_yield();
       }
     }
   }
@@ -94,7 +92,7 @@ static void flushStreams(const char *context) {
     perror("fflush");
     exit(1);
   }
-  sched_yield();
+  ammpi_sched_yield();
 }
 /* ------------------------------------------------------------------------------------ */
 extern char *AMMPI_enStr(en_t en, char *buf) {
@@ -195,7 +193,7 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
     fflush(stderr);
   #endif
 
-  #if USE_MPI_COMMUNICATORS
+  #if AMMPI_MPI_COMMUNICATORS
     { /* setup comm for isolation */
       MPI_Group world_group;
       MPI_SAFE(MPI_Comm_group(MPI_COMM_WORLD, &world_group));
@@ -209,6 +207,8 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
   {
     int mypid = getpid();
     int networkpidtemp = 0;
+    if (!mypid) mypid = (int)AMMPI_getMicrosecondTimeStamp() | 0x1; /* ensure nonzero pid */
+    AMMPI_assert(mypid);
     MPI_SAFE(MPI_Allreduce(&mypid, &networkpidtemp, 1, MPI_INT, MPI_SUM, AMMPI_SPMDMPIComm));
     prvnetworkpid = (uint64_t)networkpidtemp;
     mytag = (((tag_t)prvnetworkpid) << 32 ) | (tag_t)AMMPI_SPMDMYPROC;
@@ -363,7 +363,7 @@ static int AMMPI_SPMDShutdown(int exitcode) {
   #endif
   }
 
-  sched_yield();
+  ammpi_sched_yield();
 
   if (AM_Terminate() != AM_OK) 
     ErrMessage("failed to AM_Terminate() in AMMPI_SPMDExit()");
@@ -372,7 +372,7 @@ static int AMMPI_SPMDShutdown(int exitcode) {
     MPI_SAFE(MPI_Abort(AMMPI_SPMDMPIComm, exitcode));
   #endif
 
-  #if USE_MPI_COMMUNICATORS
+  #if AMMPI_MPI_COMMUNICATORS
     MPI_SAFE(MPI_Comm_free(&AMMPI_SPMDMPIComm));
     AMMPI_SPMDMPIComm = MPI_COMM_WORLD;
   #endif
@@ -416,7 +416,7 @@ extern int AMMPI_SPMDExit(int exitcode) {
  * ------------------------------------------------------------------------------------ */
 extern int AMMPI_SPMDBarrier() {
   int oldmask;
-  #if !USE_BLOCKING_SPMD_BARRIER
+  #if !AMMPI_BLOCKING_SPMD_BARRIER
     uint32_t timeoutusec = 100;
   #endif
 
@@ -443,16 +443,12 @@ extern int AMMPI_SPMDBarrier() {
     /*  wait for each processor to report */
     AM_Poll(AMMPI_SPMDBundle);
     while (AMMPI_SPMDBarrierCount != AMMPI_SPMDNUMPROCS) {
-      #if USE_BLOCKING_SPMD_BARRIER
+      #if AMMPI_BLOCKING_SPMD_BARRIER
         AM_SetEventMask(AMMPI_SPMDBundle, AM_NOTEMPTY);
         AM_WaitSema(AMMPI_SPMDBundle);
         AM_Poll(AMMPI_SPMDBundle);
       #else
-        struct timeval tv;
-        tv.tv_sec  = timeoutusec / 1000000;
-        tv.tv_usec = timeoutusec % 1000000;
-        select(1, NULL, NULL, NULL, &tv); /* sleep a little while */
-
+        ammpi_usleep(timeoutusec);
         AM_Poll(AMMPI_SPMDBundle);
         if (timeoutusec < 10000) timeoutusec *= 2;
       #endif
@@ -480,16 +476,12 @@ extern int AMMPI_SPMDBarrier() {
     /*  wait for completion */
     AM_Poll(AMMPI_SPMDBundle);
     while (!AMMPI_SPMDBarrierDone) {
-      #if USE_BLOCKING_SPMD_BARRIER
+      #if AMMPI_BLOCKING_SPMD_BARRIER
         AM_SetEventMask(AMMPI_SPMDBundle, AM_NOTEMPTY);
         AM_WaitSema(AMMPI_SPMDBundle);
         AM_Poll(AMMPI_SPMDBundle);
       #else
-        struct timeval tv;
-        tv.tv_sec  = timeoutusec / 1000000;
-        tv.tv_usec = timeoutusec % 1000000;
-        select(1, NULL, NULL, NULL, &tv); /* sleep a little while */
-
+        ammpi_usleep(timeoutusec);
         AM_Poll(AMMPI_SPMDBundle);
         if (timeoutusec < 10000) timeoutusec *= 2;
       #endif

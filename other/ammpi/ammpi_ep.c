@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2005/06/21 19:05:17 $
- * $Revision: 1.27 $
+ *     $Date: 2005/07/23 01:39:24 $
+ * $Revision: 1.28 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -299,7 +299,7 @@ static int AMMPI_freeSendBufferPool(ammpi_sendbuffer_pool_t* pool) {
               for (j = 0; j < RETRIES; j++) {
                 retval &= MPI_SAFE_NORETURN(MPI_Test(&pool->txHandle[i], &flag, &mpistatus));
                 if (flag) break;
-                else sleep(1);
+                else ammpi_usleep(1000);
               }
               if (j == RETRIES) {
                 #if AMMPI_DEBUG_VERBOSE
@@ -436,21 +436,22 @@ tryagain:
         }
       }
     #endif
-    sched_yield(); 
+    ammpi_sched_yield(); 
     { int retval = AMMPI_ServiceIncomingMessages(ep, FALSE, &junk); /* NOTE this may actually cause reentrancy to this fn on reply pool */
       if (retval != AM_OK) AMMPI_RETURN(retval);
     }
     goto tryagain;
   }
   else { /* replies cannot poll - grow the pool (yuk) */
-    int newnumBufs = pool->numBufs * 2;
+    int newnumBufs = pool->numBufs + (int)(pool->numBufs * (AMMPI_REPLYBUF_POOL_GROWTHFACTOR-1));
     MPI_Request *newtxHandle = (MPI_Request *)AMMPI_malloc(newnumBufs*sizeof(MPI_Request));
     ammpi_buf_t**newtxBuf = (ammpi_buf_t**)AMMPI_malloc(newnumBufs*sizeof(ammpi_buf_t*));
     char **newmemBlocks = (char **)AMMPI_malloc(sizeof(char *)*(pool->numBlocks+1));
-    char* newBlock = (char*)AMMPI_malloc(pool->numBufs*pool->bufSize);
+    char* newBlock = (char*)AMMPI_malloc((newnumBufs-pool->numBufs)*pool->bufSize);
     int * newtmpIndexArray = (int *)AMMPI_malloc(newnumBufs * sizeof(int));
     MPI_Status *newtmpStatusArray = (MPI_Status *)AMMPI_malloc(newnumBufs * sizeof(MPI_Status));
     int i;
+    AMMPI_assert(newnumBufs > pool->numBufs);
 
     if (!newtxHandle || !newtxBuf || !newmemBlocks || !newBlock || 
         !newtmpIndexArray || !newtmpStatusArray) AMMPI_RETURN_ERR(RESOURCE); /* out of mem */
@@ -527,6 +528,8 @@ extern int AM_Init() {
     AMMPI_assert(sizeof(ammpi_buf_t) % 8 == 0); /* needed for payload alignment */
 
     { char *buffer;
+      /* we attach a buffer regardless of AMMPI_NONBLOCKING_SENDS, 
+         to ensure we can always use BSend to perform AM refusal */
       buffer = (char *)AMMPI_malloc(AMMPI_SENDBUFFER_SZ);
       MPI_SAFE(MPI_Buffer_attach(buffer, AMMPI_SENDBUFFER_SZ));
     }
@@ -1003,7 +1006,7 @@ extern int AM_GetMsgTag(void *token, tag_t *tagp) {
   #if AMMPI_USE_AMTAGS
     *tagp = ((ammpi_buf_t *)token)->Msg.tag;
   #else
-    #if DEBUG_VERBOSE
+    #if AMMPI_DEBUG_VERBOSE
     { static int first = 1;
       if (first) { first = 0; fprintf(stderr,"WARNING: AM_GetMsgTag called when AM tags disabled (AMMPI_DISABLE_AMTAGS)\n");}
     }

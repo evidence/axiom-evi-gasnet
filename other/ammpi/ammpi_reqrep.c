@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2005/07/01 00:39:19 $
- * $Revision: 1.22 $
+ *     $Date: 2005/07/23 01:39:24 $
+ * $Revision: 1.23 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -215,11 +215,14 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
     }                                                                                   \
   } while (0)
 #define RUN_HANDLER_MEDIUM(phandlerfn, token, pArgs, numargs, pData, datalen) do {      \
-    AMMPI_assert(((uintptr_t)pData) % 8 == 0);  /* we guarantee double-word alignment for data payload of medium xfers */ \
-    _RUN_HANDLER_MEDLONG((AMMPI_HandlerMedium)phandlerfn, (void *)token, pArgs, numargs, (void *)pData, (int)datalen); \
-    } while(0)
-#define RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen)             \
-  _RUN_HANDLER_MEDLONG((AMMPI_HandlerLong)phandlerfn, (void *)token, pArgs, numargs, (void *)pData, (int)datalen)
+    void *_pData = (void *)(pData); /* expand only once to help codegen */              \
+    AMMPI_assert(((uintptr_t)_pData) % 8 == 0);  /* we guarantee double-word alignment for data payload of medium xfers */ \
+    _RUN_HANDLER_MEDLONG((AMMPI_HandlerMedium)phandlerfn, (void *)token, pArgs, numargs, _pData, (int)datalen); \
+  } while(0)
+#define RUN_HANDLER_LONG(phandlerfn, token, pArgs, numargs, pData, datalen) do {        \
+    void *_pData = (void *)(pData); /* expand only once to help codegen */              \
+    _RUN_HANDLER_MEDLONG((AMMPI_HandlerLong)phandlerfn, (void *)token, pArgs, numargs, _pData, (int)datalen); \
+  } while(0)
 /* ------------------------------------------------------------------------------------ */
 #if AMMPI_DEBUG
   #define REFUSE_NOTICE(reason) ErrMessage("I just refused a message and returned to sender. Reason: %s", reason)
@@ -599,7 +602,7 @@ static int AMMPI_RequestGeneric(ammpi_category_t category,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr, 
                           uint8_t systemType, uint8_t systemArg) {
-  static ammpi_buf_t stagingbuf;
+  static char _stagingbuf[sizeof(ammpi_buf_t)+8];
   int packetlength;
   ammpi_buf_t *outgoingbuf;
   en_t destaddress = request_endpoint->translation[reply_endpoint].name;
@@ -615,7 +618,7 @@ static int AMMPI_RequestGeneric(ammpi_category_t category,
   MPI_Request *mpihandle = NULL;
   #if AMMPI_NONBLOCKING_SENDS
     if (isloopback) {
-     outgoingbuf = &stagingbuf;
+     outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
    } else {
       /*  acquire a free request buffer */
       int retval;
@@ -625,7 +628,7 @@ static int AMMPI_RequestGeneric(ammpi_category_t category,
       AMMPI_assert(outgoingbuf && mpihandle && *mpihandle == MPI_REQUEST_NULL);
     }
   #else
-    outgoingbuf = &stagingbuf;
+    outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
   #endif
 
   /*  setup message meta-data */
@@ -696,7 +699,7 @@ static int AMMPI_ReplyGeneric(ammpi_category_t category,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr,
                           uint8_t systemType, uint8_t systemArg) {
-  static ammpi_buf_t stagingbuf;
+  static char _stagingbuf[sizeof(ammpi_buf_t)+8];
   ammpi_buf_t *outgoingbuf;
   ep_t const ep = requestbuf->status.dest;
   ammpi_node_t const destP = requestbuf->status.sourceId;
@@ -711,7 +714,7 @@ static int AMMPI_ReplyGeneric(ammpi_category_t category,
   MPI_Request *mpihandle = NULL;
   #if AMMPI_NONBLOCKING_SENDS
     if (isloopback) {
-     outgoingbuf = &stagingbuf;
+     outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
    } else {
       /*  acquire a free reply buffer */
       int retval;
@@ -721,7 +724,7 @@ static int AMMPI_ReplyGeneric(ammpi_category_t category,
       AMMPI_assert(outgoingbuf && mpihandle && *mpihandle == MPI_REQUEST_NULL);
    }
   #else
-    outgoingbuf = &stagingbuf;
+    outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
   #endif
 
   /*  setup message meta-data */

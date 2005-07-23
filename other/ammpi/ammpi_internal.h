@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2005/06/21 19:05:17 $
- * $Revision: 1.23 $
+ *     $Date: 2005/07/23 01:39:24 $
+ * $Revision: 1.24 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -16,18 +16,37 @@
 #ifdef UNIX
   #include <unistd.h>
   #include <errno.h>
+  #include <time.h>
+  #include <sys/time.h>
 #endif
 
 #ifdef WIN32
-  #define sched_yield() Sleep(0)
-  #define sleep(x) Sleep(x*1000)
-#elif defined(_CRAYT3E) || defined(_SX) || defined(__MTA__)
+  #define ammpi_sched_yield() Sleep(0)
+  #define ammpi_usleep(x) Sleep(x)
+#elif defined(_CRAYT3E) || defined(_SX) || defined(__MTA__) || defined(__blrts__)
   /* these implement sched_yield() in libpthread only, which we may not want */
   #include <unistd.h>
-  #define sched_yield() sleep(0)
+  #define ammpi_sched_yield() sleep(0)
 #else
   #include <unistd.h>
   #include <sched.h>
+  #define ammpi_sched_yield() sched_yield()
+#endif
+
+#if defined(__blrts__)
+  /* lacks working select */
+  #define ammpi_usleep(timeoutusec) sleep(timeoutusec/1000000)
+#endif
+
+#ifndef ammpi_usleep
+  #define ammpi_usleep(timeoutusec) do {                                  \
+    struct timeval _tv;                                                   \
+    int64_t _timeoutusec = (timeoutusec);                                 \
+    _tv.tv_sec  = _timeoutusec / 1000000;                                 \
+    _tv.tv_usec = _timeoutusec % 1000000;                                 \
+    if (select(1, NULL, NULL, NULL, &_tv) < 0) /* sleep a little while */ \
+       ErrMessage("failed to select(): %s(%i)", strerror(errno), errno);  \
+  } while (0)
 #endif
 
 #ifdef __AMMPI_H
@@ -41,22 +60,40 @@
 #endif
 
 /* AMMPI system configuration parameters */
+#ifndef AMMPI_MAX_RECVMSGS_PER_POLL
 #define AMMPI_MAX_RECVMSGS_PER_POLL 10  /* max number of waiting messages serviced per poll (0 for unlimited) */
+#endif
+#ifndef AMMPI_INITIAL_NUMENDPOINTS
 #define AMMPI_INITIAL_NUMENDPOINTS  1   /* initial size of bundle endpoint table */
+#endif
+#ifndef AMMPI_DEFAULT_NETWORKDEPTH
 #define AMMPI_DEFAULT_NETWORKDEPTH  4   /* default depth if none specified */
+#endif
+#ifndef AMMPI_MPIIRECV_ORDERING_WORKS
 #define AMMPI_MPIIRECV_ORDERING_WORKS 1 /* assume recv matching correctly ordered as reqd by MPI spec */
+#endif
+#ifndef AMMPI_PREPOST_RECVS
 #define AMMPI_PREPOST_RECVS         1   /* pre-post non-blocking MPI recv's */
+#endif
+#ifndef AMMPI_NONBLOCKING_SENDS
 #define AMMPI_NONBLOCKING_SENDS     1   /* use non-blocking MPI send's */
+#endif
 #if AMMPI_NONBLOCKING_SENDS
 #define AMMPI_SENDBUFFER_SZ         2*AMMPI_MAX_NETWORK_MSG /* size of MPI send buffer (used for rejections) */
 #else
 #define AMMPI_SENDBUFFER_SZ         1048576 /* size of MPI send buffer */
 #endif
+#ifndef AMMPI_REPLYBUF_POOL_GROWTHFACTOR
+#define AMMPI_REPLYBUF_POOL_GROWTHFACTOR 1.5
+#endif
 
 /* AMMPI-SPMD system configuration parameters */
-#define USE_MPI_COMMUNICATORS       1   /* use MPI communicators to isolate endpoints */
-#define ABORT_JOB_ON_NODE_FAILURE   1   /* kill everyone if any slave drops the TCP coord */
-#define USE_BLOCKING_SPMD_BARRIER   1   /* use blocking AM calls in SPMDBarrier() */
+#ifndef AMMPI_MPI_COMMUNICATORS
+#define AMMPI_MPI_COMMUNICATORS       1   /* use MPI communicators to isolate endpoints */
+#endif
+#ifndef AMMPI_BLOCKING_SPMD_BARRIER
+#define AMMPI_BLOCKING_SPMD_BARRIER   1   /* use blocking AM calls in SPMDBarrier() */
+#endif
 
 #ifndef AMMPI_DEBUG_VERBOSE
   #if GASNET_DEBUG_VERBOSE
@@ -87,6 +124,13 @@
 #if ! defined (__GNUC__) && ! defined (__attribute__)
   #define __attribute__(flags)
 #endif
+
+/* alignment macros */
+#define AMMPI_POWEROFTWO(P)    (((P)&((P)-1)) == 0)
+
+#define AMMPI_ALIGNDOWN(p,P)    (AMMPI_assert(AMMPI_POWEROFTWO(P)), \
+                                   ((uintptr_t)(p))&~((uintptr_t)((P)-1)))
+#define AMMPI_ALIGNUP(p,P)     (AMMPI_ALIGNDOWN((uintptr_t)(p)+((uintptr_t)((P)-1)),P))
 
 /* ------------------------------------------------------------------------------------ */
 /* Branch prediction:
@@ -360,6 +404,17 @@ static int ErrMessage(const char *msg, ...) {
     (PREDICT_TRUE(expr) ? (void)0 :                              \
       AMMPI_assertfail((__CURR_FUNCTION ? __CURR_FUNCTION : ""), \
                         __FILE__, __LINE__, #expr))
+#endif
+
+#ifdef AMMPI_HERE
+  #undef AMMPI_HERE
+  #ifdef AMX_SPMDStartup
+    #define AMMPI_HERE() do { printf("%i: AMMPI at: %s:%i\n",AMMPI_SPMDMYPROC,__FILE__,__LINE__); fflush(stdout); } while(0)
+  #else
+    #define AMMPI_HERE() do { printf("AMMPI at: %s:%i\n",__FILE__,__LINE__); fflush(stdout); } while(0)
+  #endif
+#else
+  #define AMMPI_HERE() ((void)0)
 #endif
 
 extern int AMMPI_enEqual(en_t en1, en_t en2);

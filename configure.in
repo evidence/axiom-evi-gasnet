@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/07/15 20:03:59 $
-# $Revision: 1.281 $
+#     $Date: 2005/07/23 01:39:01 $
+# $Revision: 1.282 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.281 $)
+AC_REVISION($Revision: 1.282 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -650,7 +650,7 @@ if test "$use_pthreads" != "no"; then
   AC_MSG_CHECKING([for working pthreads support])
   GASNET_PUSHVAR(CFLAGS,"$CFLAGS $GASNET_THREAD_DEFINES")
   GASNET_PUSHVAR(LIBS,"$LIBS $GASNET_THREAD_LIBS")
-  AC_TRY_LINK( [ #include <pthread.h> ], [ pthread_create(NULL,NULL,NULL,NULL); ], [have_pthread=yes])
+  AC_TRY_LINK( [ #include <pthread.h> ], [ pthread_create(0,0,0,0); ], [have_pthread=yes])
   GASNET_POPVAR(CFLAGS)
   GASNET_POPVAR(LIBS)
   AC_MSG_RESULT($have_pthread)
@@ -2173,6 +2173,12 @@ GASNET_TRY_CACHE_LINK(for ptmalloc, malloc_is_ptmalloc,
     mallopt(M_MMAP_MAX, 0);
   ],[ AC_DEFINE(HAVE_PTMALLOC) ])
 esac
+
+case "$target" in
+*-blrts-*) debugmalloc_support=no ;; # debug malloc vars crash BG/L RTS
+*) debugmalloc_support=yes ;; # it's a glibc feature, but appears harmless elsewhere
+esac
+AM_CONDITIONAL(DEBUGMALLOC,test "$debugmalloc_support" = "yes")
 
 AC_SUBST(LIBS)
 

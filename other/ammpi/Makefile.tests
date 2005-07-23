@@ -5,14 +5,15 @@ TEST_LINE=++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 AMMPI_RUNCMD_EXP=\
       TEST_RUN_P=`echo "$$TEST_RUN" | sed 's/ .*$$//'`  \
       TEST_RUN_A=`echo "$$TEST_RUN" | sed 's/^[^ ]* //'` \
-      TEST_DOIT=`echo $(AMMPI_RUNCMD) | sed 's/%N/$(TEST_NODES)/;s@%C@'"$$TEST_RUN"'@;s@%P@'"$$TEST_RUN_P"'@;s@%A@'"$$TEST_RUN_A"'@;s/%V//'`
+      TEST_RUN_D=`pwd` \
+      TEST_DOIT=`echo $(AMMPI_RUNCMD) | sed 's/%N/$(TEST_NODES)/;s@%C@'"$$TEST_RUN"'@;s@%P@'"$$TEST_RUN_P"'@;s@%A@'"$$TEST_RUN_A"'@;s@%D@'"$$TEST_RUN_D"'@;s/%V//'`
 TEST_RUNCMD=$(AMMPI_RUNCMD_EXP) ; 				\
 	 testname=`basename $$TEST_RUN_P` ;                     \
 	 faildesc="ammpi/$$testname" ;                          \
          if test -x "$$TEST_RUN_P" ; then                       \
             echo "  **** $$testname **** "; 	                \
             echo $$TEST_DOIT ; 					\
-            ( $$TEST_DOIT || echo "ERROR: Test exited with failure code=$$?" 2>&1 ) | tee .test-output ; \
+            ( eval $$TEST_DOIT || echo "ERROR: Test exited with failure code=$$?" 2>&1 ) | tee .test-output ; \
             failure=`grep -e ERROR -e 'fatal signal' .test-output` ;                    \
             if test "$$failure" != "" ; then                                            \
                echo " " >> $(TESTLOG) ;                                                 \

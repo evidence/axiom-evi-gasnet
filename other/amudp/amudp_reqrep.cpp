@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2005/06/28 08:40:52 $
- * $Revision: 1.29 $
+ *     $Date: 2005/07/23 01:39:32 $
+ * $Revision: 1.30 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1061,7 +1061,7 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr, 
                           uint8_t systemType, uint8_t systemArg) {
-  static amudp_buf_t stagingbuf; /* for loopback */
+  static char _stagingbuf[sizeof(amudp_buf_t)+8]; /* for loopback */
   int instance;
   amudp_buf_t *basicbuf;
   amudp_buf_t *outgoingbuf;
@@ -1074,7 +1074,7 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
   AM_Poll(request_endpoint->eb);
 
   if (isloopback) {
-    outgoingbuf = &stagingbuf;
+    outgoingbuf = (amudp_buf_t *)AMUDP_ALIGNUP(&_stagingbuf,8);
     basicbuf = outgoingbuf;
     basicbuf->status.bulkBuffer = NULL;
     outgoingdesc = NULL; /* not used */
@@ -1244,7 +1244,7 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, va_list argptr,
                           uint8_t systemType, uint8_t systemArg) {
-  static amudp_buf_t stagingbuf; /* for loopback */
+  static char _stagingbuf[sizeof(amudp_buf_t)+8]; /* for loopback */
   amudp_buf_t *basicbuf;
   amudp_buf_t *outgoingbuf;
   amudp_bufdesc_t *outgoingdesc;
@@ -1258,7 +1258,7 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
   /*  we don't poll within a reply because by definition we are already polling somewhere in the call chain */
 
   if (isloopback) {
-    basicbuf = &stagingbuf;
+    basicbuf = (amudp_buf_t *)AMUDP_ALIGNUP(&_stagingbuf,8);
     outgoingbuf = basicbuf;
     basicbuf->status.bulkBuffer = NULL;
     outgoingdesc = NULL; /* not used */

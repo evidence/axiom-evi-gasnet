@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/07 02:41:58 $
- * $Revision: 1.16 $
+ *     $Date: 2005/07/23 01:39:49 $
+ * $Revision: 1.17 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1225,7 +1225,7 @@ gasnetc_SHMallocBinarySearch(size_t low, size_t high)
 	}
 }
 
-#ifdef LINUX
+#ifdef __linux__
 uintptr_t
 gasnetc_getMaxMem()
 {

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2005/05/23 05:31:06 $
- * $Revision: 1.71 $
+ *     $Date: 2005/07/23 01:39:01 $
+ * $Revision: 1.72 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -236,10 +236,11 @@
       #define gasneti_local_mb() GASNETI_ASM("mf")
     #endif
    #endif
-#elif defined(_POWER) || (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(LINUX) && defined(__PPC__))
+#elif defined(_POWER) || (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(__linux__) && defined(__PPC__)) || (defined(__blrts__) && defined(__PPC__))
  /* (_POWER) == IBM SP POWER[234]
   * (__APPLE__ && __MACH__ && __ppc__) == Darwin, OS/X
-  * (LINUX && __PPC__) == Linux
+  * (__linux__ && __PPC__) == Linux
+  * (__blrts__ && __PPC__) == BlueGene/L
   */
  #ifdef __xlC__
    /* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly

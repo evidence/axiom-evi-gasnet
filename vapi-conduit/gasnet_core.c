@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/18 20:34:19 $
- * $Revision: 1.126 $
+ *     $Date: 2005/07/23 01:40:16 $
+ * $Revision: 1.127 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -237,7 +237,7 @@ static unsigned long gasnetc_get_physpages(void)
 
   return pages;
 }
-#elif defined(LINUX)
+#elif defined(__linux__)
 #define _BUFSZ	120
 static unsigned long gasnetc_get_physpages(void)
 {

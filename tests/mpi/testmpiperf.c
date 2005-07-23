@@ -22,8 +22,6 @@
   #define mpi_testwait_desc "nonblocking poll (MPI_Testsome)"
 #endif
 
-#define   SEND_BUFFER_SZ   1048576
-
 #ifdef DEBUG
   #define DEBUGMSG(s) do { \
     printf("P%i: %s\n", rank, s); fflush(stdout); \
@@ -70,11 +68,6 @@ void startupMPI(int* argc, char ***argv) {
   MPI_SAFE(MPI_Comm_rank(MPI_COMM_WORLD, &rank));
   MPI_SAFE(MPI_Comm_size(MPI_COMM_WORLD, &nproc));
 
-  { /* attach a send buffer (only used for buffered sends) */
-    char *buffer = (char *)malloc(SEND_BUFFER_SZ);
-    MPI_SAFE(MPI_Buffer_attach(buffer, SEND_BUFFER_SZ));
-  }
-
   printf("P%i/%i starting...\n", rank, nproc); fflush(stdout);
 
   /* pair up the processors (if nproc is 1, do a loopback test) */
@@ -104,11 +97,7 @@ void startupMPI(int* argc, char ***argv) {
 }
 
 void shutdownMPI() {
-  char *buffer= NULL;
-  int sz = 0;
   DEBUGMSG("shutting down");
-  MPI_SAFE(MPI_Buffer_detach(&buffer, &sz));
-  free(buffer);
   MPI_SAFE(MPI_Finalize());
 
   printf("P%i exiting...\n", rank); fflush(stdout);

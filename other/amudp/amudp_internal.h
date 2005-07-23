@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2005/07/12 15:28:31 $
- * $Revision: 1.20 $
+ *     $Date: 2005/07/23 01:39:32 $
+ * $Revision: 1.21 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -108,6 +108,13 @@
 #else
   #define __CURR_FUNCTION ((const char *) 0) /* could use __func__ for C99 compilers.. */
 #endif
+
+/* alignment macros */
+#define AMUDP_POWEROFTWO(P)    (((P)&((P)-1)) == 0)
+
+#define AMUDP_ALIGNDOWN(p,P)    (AMUDP_assert(AMUDP_POWEROFTWO(P)), \
+                                   ((uintptr_t)(p))&~((uintptr_t)((P)-1)))
+#define AMUDP_ALIGNUP(p,P)     (AMUDP_ALIGNDOWN((uintptr_t)(p)+((uintptr_t)((P)-1)),P))
 
 /* these macros return the value of the expression given, but pass on
    a hint that you expect the value to be true or false.

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/07/07 02:41:50 $
- * $Revision: 1.93 $
+ * $Date: 2005/07/23 01:39:12 $
+ * $Revision: 1.94 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -2770,7 +2770,7 @@ gasnetc_getconf_conffile()
 	return;
 }
 
-#ifdef LINUX
+#ifdef __linux__
 uintptr_t
 gasnetc_getPhysMem()
 {

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/07/12 15:28:29 $
- * $Revision: 1.41 $
+ *     $Date: 2005/07/23 01:39:01 $
+ * $Revision: 1.42 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -175,7 +175,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gethrtime())
 #endif
-#elif defined(LINUX) && (defined(__GNUC__) || defined(__INTEL_COMPILER)) && \
+#elif defined(__linux__) && (defined(__GNUC__) || defined(__INTEL_COMPILER)) && \
      (defined(__i386__) || defined(__x86_64__) || defined(__ia64__))
   #include <stdio.h>
   #include <stdlib.h>
@@ -238,7 +238,9 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
-#elif defined(LINUX) && defined(__GNUC__) && defined(__PPC__)
+#elif defined(__PPC__) && \
+      ( defined(__GNUC__) || defined(__xlC__) ) && \
+      ( defined(__linux__) || defined(__blrts__) )
   /* 
    * This code uses the 64-bit "timebase" register on both 32- and 64-bit PowerPC CPUs.
    */
@@ -249,6 +251,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #include <sys/types.h>
   #include <dirent.h>
   typedef uint64_t gasneti_stattime_t;
+ #ifdef __GNUC__
   GASNET_INLINE_MODIFIER(gasneti_stattime_now)
   uint64_t gasneti_stattime_now (void) {
     uint64_t ret;
@@ -271,16 +274,56 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     #endif
     return ret;
   } 
+ #elif defined(__xlC__)
+   #if defined(__PPC64__)
+      static uint64_t gasneti_stattime_now (void);
+      #pragma mc_func gasneti_stattime_now {  \
+        "7c6c42e6"      /* mftb r3         */ \
+        /* RETURN counter in r3 */            \
+      }
+      #pragma reg_killed_by gasneti_stattime_now 
+   #else
+      static uint32_t gasneti_mftb_low (void);
+      #pragma mc_func gasneti_mftb_low {  \
+        "7c6c42e6"      /* mftb r3     */ \
+        /* RETURN counter in r3 */        \
+      }
+      #pragma reg_killed_by gasneti_mftb_low 
+      
+      static uint32_t gasneti_mftb_high (void);
+      #pragma mc_func gasneti_mftb_high {  \
+        "7c6d42e6"      /* mftbu r3     */ \
+        /* RETURN counter in r3 */         \
+      }
+      #pragma reg_killed_by gasneti_mftb_high 
+      
+      GASNET_INLINE_MODIFIER(gasneti_stattime_now)
+      uint64_t gasneti_stattime_now (void) {
+        register uint32_t hi, hi2, lo;
+        /* Note we must read hi twice to protect against wrap of lo */
+        do {
+           hi = gasneti_mftb_high();
+           lo = gasneti_mftb_low();        
+           hi2 = gasneti_mftb_high();
+        } while (hi != hi2);
+        return ((uint64_t)hi << 32) | lo;
+      } 
+   #endif
+ #endif
   GASNET_INLINE_MODIFIER(gasneti_stattime_to_us)
   uint64_t gasneti_stattime_to_us(gasneti_stattime_t st) {
     static int firstTime = 1;
     static double Tick = 0.0;
     if_pf (firstTime) {
+      uint32_t freq;
+     #ifdef __blrts__
+      /* don't know how to query this, so hard-code it for now */
+      freq = 700000000;
+     #else 
       DIR *dp = opendir("/proc/device-tree/cpus");
       struct dirent *de = NULL;
       FILE *fp = NULL;
       double MHz = 0.0;
-      uint32_t freq;
       char fname[128];
       if (!dp) {
         fprintf(stderr,"*** ERROR: Failure in opendir('/proc/device-tree/cpus'): %s\n",strerror(errno));
@@ -308,6 +351,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 	abort();
       }
       fclose(fp);
+     #endif
       gasneti_assert(freq > 1000000 && freq < 1000000000); /* ensure it looks reasonable (1MHz to 1Ghz) */
       Tick = 1.0e6 / freq;
       firstTime = 0;

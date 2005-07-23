@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/07/03 23:30:38 $
-# $Revision: 1.70 $
+#     $Date: 2005/07/23 01:40:00 $
+# $Revision: 1.71 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -107,8 +107,10 @@ distclean:
 @BUILDCONFIG_DEBUG_TRUE@ GASNET_DEBUG_STR="debug"
 @BUILDCONFIG_DEBUG_FALSE@GASNET_DEBUG_STR="nodebug"
 GASNET_CONFIG_STR=$(GASNET_SEGMENT_STR)-$(GASNET_DEBUG_STR)
+@CROSS_COMPILING_TRUE@CROSS_COMPILING=yes
+@CROSS_COMPILING_FALSE@CROSS_COMPILING=no
 
-@BUILDCONFIG_DEBUG_TRUE@DEBUG_MALLOC=MALLOC_CHECK_=2
+@BUILDCONFIG_DEBUG_TRUE@@DEBUGMALLOC_TRUE@DEBUG_MALLOC=MALLOC_CHECK_=2
 TEST_ENV=$(DEBUG_MALLOC)
 
 # default node count
@@ -136,6 +138,7 @@ testprograms_err =      \
 	$(MPI_TESTS_PAR)
 
 # tests that do not link libgasnet and should execute directly on the frontend with no spawner
+# (except in the case of cross-compilation, where we run them on the compute node using MPIRUN_CMD)
 testprograms_nongasnet = \
 	testtools
 
@@ -147,6 +150,7 @@ awk_cmdbuild={  qargs="'"'"$$args"'"'"; gsub("'"'"\x22"'"'","'"'"\x5C\x22"'"'",q
 		gsub("'"'"%V "'"'","'"'""'"'");            \
 		gsub("'"'"%N"'"'", "'"'"$$nodes"'"'");     \
 		gsub("'"'"%A"'"'", "'"'"$$args"'"'");      \
+		gsub("'"'"%D"'"'", "'"'"$$cwd"'"'");       \
 		gsub("'"'"%H"'"'", "'"'"$${GASNET_NODEFILE:-$$PBS_NODEFILE}"'"'");     \
 		gsub("'"'"%Q"'"'", qargs); print }
 perl_threadscan=print $$1 if (/\\\$$GASNetThreadModel: GASNET_([^ ]*) \\\$$/);
@@ -182,24 +186,31 @@ run-tests: force
 	if test -z "$$TEST_RUNCMD" ; then                                               \
 	  TEST_RUNCMD="$(CONDUIT_RUNCMD)" ;                                             \
 	fi ;                                                                            \
-	MPI_RUNCMD="$${MPI_RUNCMD:=@MPIRUN_CMD@}" export MPI_RUNCMD ;                   \
+	MPI_RUNCMD="$${MPI_RUNCMD:=@TOP_BUILDDIR@/mpi-conduit/contrib/gasnetrun_mpi -np %N %C}" \
+        export MPI_RUNCMD ;                                                             \
 	if test -z "$$TIMECMD" ; then                                                   \
 	  TIMECMD="@TIMECMD@" ;                                                         \
 	fi ;                                                                            \
 	for file in $$tests_to_run ; do                                                 \
+            test_nongasnet=`echo " $(testprograms_nongasnet) "| grep " $$file "` ;      \
+            test_mpi=`echo " $(MPI_TESTS) " | grep " $$file "` ;                        \
+            if test "$$test_nongasnet" -a "$(CROSS_COMPILING)" = "yes"; then            \
+              test_mpi=1 ; eval $${file}_nodes=1 ;                                      \
+            fi ;                                                                        \
 	    args="$$""$${file}_args" ;                                                  \
 	    args="`eval echo $$args`" ;                                                 \
 	    nodes="$$\{""$${file}_nodes-$(TEST_NODES)\}" ;                              \
 	    nodes="`eval eval echo $$nodes`" ;                                          \
-	    if test "`echo \" $(testprograms_nongasnet) \"| grep \" $$file \" ; exit 0`" ; then  \
-	      echo "*** Running $(CONDUIT_NAME)-conduit $$file ***" ;                   \
-	      cmd="./$$file $$args" ;                                                   \
-	      faildesc="$(CONDUIT_NAME)-conduit/$(GASNET_CONFIG_STR)/$$file $$args" ;   \
-	    elif test "`echo \" $(MPI_TESTS) \"| grep \" $$file \" ; exit 0`" ; then    \
+	    cwd=`pwd` ;                                          			\
+	    if test "$$test_mpi" ; then                                                 \
 	      echo "*** Running MPI test $$file ***" ;                                  \
               awk_cmdbuild=`echo "$(awk_cmdbuild)"` ; 					\
 	      cmd=`echo "$$MPI_RUNCMD" | eval @AWK@ \'$$awk_cmdbuild\'` ;         	\
 	      faildesc="MPI test: $$file $$args" ;                                      \
+	    elif test "$$test_nongasnet" ; then                                         \
+	      echo "*** Running conduit-independent $$file ***" ;                       \
+	      cmd="./$$file $$args" ;                                                   \
+	      faildesc="$(CONDUIT_NAME)-conduit/$(GASNET_CONFIG_STR)/$$file $$args" ;   \
 	    else                                                                        \
 	      threadmode=`@PERL@ -n -e '$(perl_threadscan)'                             \
                           $$file@EXESUFFIX@ 2> /dev/null` ;                             \

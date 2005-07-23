@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/07/18 02:56:38 $
- * $Revision: 1.58 $
+ *     $Date: 2005/07/23 01:39:01 $
+ * $Revision: 1.59 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,7 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 #if GASNETI_THREADS
-  #ifdef LINUX
+  #ifdef __linux__
    struct timespec; /* avoid an annoying warning on Linux */
   #endif
   #include <pthread.h>
