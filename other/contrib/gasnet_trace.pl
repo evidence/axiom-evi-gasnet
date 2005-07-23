@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2005/07/07 09:59:30 $
-# $Revision: 1.31 $
+#     $Date: 2005/07/23 09:06:50 $
+# $Revision: 1.32 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -54,7 +54,7 @@ use Getopt::Long;
 # Global Variables
 ########################
 
-my $version = "1.2";
+my $version = "1.3";
 
 my ($opt_sort, $opt_output, $opt_help, $opt_report);
 my ($opt_internal, $opt_full, $opt_thread, $opt_filter);
@@ -72,6 +72,7 @@ $tool_prefix_mc =~ s/Gasnet/GASNet/;
 $tool_prefix_mc =~ s/Upc/UPC/;
 my $gasnet_version = $ENV{'VERSION'} || '?.?';
 my $opt_debug = 0;
+my $lang_mode = "GASNET";
 
 #%nodes, %threads are identifier->thread(node)num
 
@@ -120,7 +121,7 @@ if ($opt_output) {
 }
 
 if (!$opt_report) {
-    $opt_report="GET,PUT,BARRIER";
+    $opt_report="GET,PUT,BARRIER,TI_ARRAY_COPY";
 } 
 
 ARG: while (@ARGV) {
@@ -152,6 +153,7 @@ sort_report();
 trace_output(*STDOUT, "GET") if $opt_report =~ /GET/;
 trace_output(*STDOUT, "PUT") if $opt_report =~ /PUT/;
 trace_output(*STDOUT, "BARRIER") if $opt_report =~ /BARRIER/;
+trace_output(*STDOUT, "TI_ARRAY_COPY") if ($opt_report =~ /TI_ARRAY_COPY/ && $lang_mode == "TITANIUM");
 # Show program usage
 ########################
 sub usage 
@@ -171,7 +173,7 @@ Options:
     -h -? -help         See this message.
     -o [filename]       Output results to file. Default is STDOUT.
     -report [r1][r2]..  Indicate which reports to generate: 
-    			PUT, GET, and/or BARRIER.
+    			PUT, GET, BARRIER, and/or TI_ARRAY_COPY.
                         Default: all reports.
     -sort [f1],[f2]...  Sort output by one or more fields: TOTAL, AVG, MIN, MAX,
                         CALLS, TYPE, or SRC. (for GETS/PUTS, TOTAL, AVG, MIN,
@@ -218,6 +220,8 @@ sub parse_threadinfo
             if ($job_uniq{$6,$2}++) {
                 print STDERR "WARNING: duplicate tracing data for thread $2 of job $5\n";
             }
+            $lang_mode = "TITANIUM" if ($6 =~ /^Ti:/);
+            $lang_mode = "UPC" if ($6 =~ /^UPC:/);
         } 
         elsif (/^(\d+).*?\(B\) BARRIER_WAIT/) {
 		my $barrier_node = $1;
@@ -269,6 +273,7 @@ sub parse_tracefile
     
     # Flag for internal region
     my $inRegion;
+    my %arraycopy_not_nb; # flag for nb copy failure detection
     while (<TRACEFILE>) {
     	if ($opt_internal) {
     	    # If in region, skip unless we have a leaveregion
@@ -295,7 +300,7 @@ sub parse_tracefile
 	    print STDERR "\b\b$percentage%";
 	    $counter = 0;
 	}
-        if (/^(\S+) \S+ \[([^\]]+)\] \([HPGB]\) (PUT|GET|BARRIER)([^:]*):\D+(\d+)/) { 
+        if (/^(\S+) \S+ \[([^\]]+)\] \([HPGB]\) (PUT|GET|BARRIER|TI_ARRAY_COPY)([^:]*):\D+(\d+)?/) { 
             ($thread, $src, $pgb, $type, $sz) = ($1, $2, $3, $4, $5);
             # filter out lines that are not going to be in the report
             next unless $reports{$pgb};
@@ -308,6 +313,29 @@ sub parse_tracefile
                 next unless ($type =~ /^(?:NOTIFYWAIT|WAIT)/);	# discard unknowns
                 next if $filters{$type};
                 $thread = $nodes{$thread};
+            } elsif ($pgb =~ /^TI_ARRAY_COPY/) {
+		my $desc;
+		if (/(issued as non-blocking.*)$/) {
+		  $arraycopy_not_nb{$thread} = $1;
+		  next;
+                } else {
+	          /TI_ARRAY_COPY: \(.*?\) \S+ (.*)$/;
+                  $desc = $1; 
+		  $desc .= "|NOTE: " . $arraycopy_not_nb{$thread} if ($arraycopy_not_nb{$thread});
+		  $arraycopy_not_nb{$thread} = undef;
+                }
+		#$desc =~ s/ copy(?:ing)?//g;
+		$desc =~ s/ region//g;
+		$desc =~ s/\(local <- local\)//g;
+		$desc =~ s/contiguous/contig/g;
+		$desc =~ s/direction/dir/g;
+		$desc =~ s/scatter-gather AM-based copy/strided /g;
+		$desc =~ s/\(put:.*?\)/put/g;
+		$desc =~ s/\(get:.*?\)/get/g;
+		$type = "LOCAL";
+		$type = "GLOBAL" if (m/remote/);
+                next if $filters{$type};
+		$type .= "|$desc";
             }
             push @{$data{$pgb}{$src}{$type}{$thread}}, $sz;	
 	}
@@ -324,7 +352,7 @@ sub parse_tracefile
 sub shorten
 {
     my ($msg_sz, $type) = @_;
-    if ($type =~ /GET|PUT/) {
+    if ($type =~ /GET|PUT|TI_ARRAY_COPY/) {
     	if ($msg_sz < 1024) {
     	    return sprintf("%.0f B", $msg_sz);
     	} elsif ($msg_sz < 1024 * 1024) {
@@ -509,12 +537,12 @@ sub trace_output
     
 
     print <<EOF;
-SOURCE         LINE  TYPE          MSG:(min    max     avg     total)     CALLS  
+SOURCE         LINE    TYPE        MSG:(min    max     avg     total)     CALLS  
 ===============================================================================    	
 EOF
     
     # Setting up variables;
-    my ($src_num, $source, $lnum, $type, $min, $max, $avg, $total, $calls);
+    my ($src_num, $source, $lnum, $type, $min, $max, $avg, $total, $calls, $extra);
     my ($threadnum, $tmin, $tmax, $tavg, $ttotal, $tcalls);
 
     if (!$report{$pgb}) {
@@ -553,11 +581,21 @@ EOF
 		$calls /= (scalar keys %nodes);
 	  }
         }
+        my $oldtype = $type;
+        $type =~ m/^(.*?)(\|.*)?$/;
+	($type, $extra) = ($1, $2);
         write($handle);
+	$extra =~ s/^\|//; 
+	for my $line (split(/\|/,$extra)) {
+	  $extra = $line;
+          $handle->format_name("EXTRA");
+          write($handle);
+        }
+	$type = $oldtype;
         
         if ($opt_thread) {
             foreach my $thread (sort keys %{$data{$pgb}{$src_num}{$type}}) {
-            	if ($pgb =~ /P|G/) {
+            	if ($pgb =~ /PUT|GET|TI_ARRAY_COPY/) {
             	    $threadnum = $threads{$thread};
             	} else {
             	    $threadnum = get_threads($thread);
@@ -578,6 +616,7 @@ EOF
     
 # formats
 ########################
+#@<<<<<<<<<<<<< @>>>> @>>>>>>>>>  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>@*
 
     format DEFAULT = 
 @<<<<<<<<<<<<< @>>>> @>>>>>>>>>  @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
@@ -589,6 +628,11 @@ $source, $lnum, $type, $min, $max, $avg, $total, $calls
                $lnum, $type, $min, $max, $avg, $total, $calls
 .
 	    
+    format EXTRA = 
+~~  ^<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+                  $extra
+.
+
     format THREAD =
     Thread @<<<<<<<<<<<<         @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>>>> @>>>>>
 $threadnum, $tmin, $tmax, $tavg, $ttotal, $tcalls
