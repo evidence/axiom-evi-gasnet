@@ -2,8 +2,8 @@
 
 #############################################################
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/gasnet_trace.pl,v $
-#     $Date: 2005/07/23 09:06:50 $
-# $Revision: 1.32 $
+#     $Date: 2005/07/24 23:22:13 $
+# $Revision: 1.33 $
 #
 # All files in this directory (except where otherwise noted) are subject to the
 #following licensing terms:
@@ -153,7 +153,7 @@ sort_report();
 trace_output(*STDOUT, "GET") if $opt_report =~ /GET/;
 trace_output(*STDOUT, "PUT") if $opt_report =~ /PUT/;
 trace_output(*STDOUT, "BARRIER") if $opt_report =~ /BARRIER/;
-trace_output(*STDOUT, "TI_ARRAY_COPY") if ($opt_report =~ /TI_ARRAY_COPY/ && $lang_mode == "TITANIUM");
+trace_output(*STDOUT, "TI_ARRAY_COPY") if ($opt_report =~ /TI_ARRAY_COPY/ && $lang_mode eq "TITANIUM");
 # Show program usage
 ########################
 sub usage 
@@ -209,19 +209,20 @@ sub parse_threadinfo
     while (<TRACEFILE>) {
         if (/MAGIC/) {
             m/^(\S+).*?I am thread (\d+) of (\d+).*?on node (\d+) of (\d+).*?in job <([^>]+)>.*$/;
+  	    my $job_id = $6;
             $threads{$1} = $2;
             $nodes{$1} = $4;
 	    $node_magic_seen{$4} = 1;   # remember we saw magic from some thread on this node
             $thread_magic_seen{$1} = 1; # remember we saw this thread's magic
             $node_threads_seen{$4}++;   # track number of threads on this node
             # for error checking of total nodes/threads
-            $job_nodes{$6} = $5;
-            $job_seen{$6}++;
-            if ($job_uniq{$6,$2}++) {
-                print STDERR "WARNING: duplicate tracing data for thread $2 of job $5\n";
+            $job_nodes{$job_id} = $5;
+            $job_seen{$job_id}++;
+            if ($job_uniq{$job_id,$2}++) {
+                print STDERR "WARNING: duplicate tracing data for thread $2 of job $job_id\n";
             }
-            $lang_mode = "TITANIUM" if ($6 =~ /^Ti:/);
-            $lang_mode = "UPC" if ($6 =~ /^UPC:/);
+            $lang_mode = "TITANIUM" if ($job_id =~ /^Ti:/);
+            $lang_mode = "UPC" if ($job_id =~ /^UPC:/);
         } 
         elsif (/^(\d+).*?\(B\) BARRIER_WAIT/) {
 		my $barrier_node = $1;
