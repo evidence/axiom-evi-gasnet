@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testlatency.c,v $
- *     $Date: 2005/06/30 08:52:22 $
- * $Revision: 1.9 $
+ *     $Date: 2005/07/24 05:01:47 $
+ * $Revision: 1.10 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -117,8 +117,8 @@ int main(int argc, char **argv) {
   end = getCurrentTimeMicrosec();
 
   total = end - begin;
-  if (myproc != 0 || numprocs == 1) printf("Slave %i: %i microseconds total, throughput: %i requests/sec (%i us / request)\n", 
-    myproc, (int)total, (int)(((float)1000000)*iters/((int)total)), ((int)total)/iters);
+  if (myproc != 0 || numprocs == 1) printf("Slave %i: %i microseconds total, throughput: %i requests/sec (%.3f us / request)\n", 
+    myproc, (int)total, (int)(((float)1000000)*iters/((int)total)), ((double)total)/iters);
   else printf("Slave 0 done.\n");
   fflush(stdout);
 
