@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2005/07/23 01:39:01 $
- * $Revision: 1.39 $
+ *     $Date: 2005/07/25 00:05:54 $
+ * $Revision: 1.40 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@
 
 /* ------------------------------------------------------------------------------------ */
 /* include files that may conflict with macros defined later */
-#if defined(IRIX) || defined(HPUX) || defined(UNICOS) || defined(NETBSD)
+#if defined(IRIX) || defined(HPUX) || defined(UNICOS) || defined(NETBSD) || defined(__blrts__)
   #include <sys/param.h>
 #endif
 

@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/07/23 01:39:00 $
-dnl $Revision: 1.74 $
+dnl     $Date: 2005/07/25 00:05:54 $
+dnl $Revision: 1.75 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -375,6 +375,8 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
   CONFIGURE_ARGS="$ac_configure_args"
   AC_SUBST(CONFIGURE_ARGS)
   AC_MSG_RESULT( configure args: $CONFIGURE_ARGS)
+  dnl ensure the cache is used in all reconfigures
+  ac_configure_args="$ac_configure_args --cache-file=$cache_file"
   dnl don't trust shell's builtin pwd, because it may include symlinks
   TOP_SRCDIR=`cd ${srcdir} && ${PWD_PROG}` 
   AC_MSG_RESULT( TOP_SRCDIR:     $TOP_SRCDIR)
