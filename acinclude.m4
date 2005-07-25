@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/07/25 00:05:54 $
-dnl $Revision: 1.75 $
+dnl     $Date: 2005/07/25 06:20:20 $
+dnl $Revision: 1.76 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -976,11 +976,13 @@ AC_DEFUN([GASNET_PROG_CC], [
   GASNET_IF_ENABLED(cross-compile, [ Enable cross-compilation (experimental) ], [
     AC_MSG_RESULT(yes)
     cross_compiling=yes 
+    CROSS_COMPILING=1
     ac_cv_prog_cc_cross=yes 
   ], [
     dnl reset autoconf cross compilation setting, which is wrong if executables are broken
     AC_MSG_RESULT(no)
     cross_compiling=no
+    CROSS_COMPILING=0
     ac_cv_prog_cc_cross=no
     AC_MSG_CHECKING([working C compiler executables])
     AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
@@ -988,6 +990,7 @@ AC_DEFUN([GASNET_PROG_CC], [
   	     [AC_MSG_ERROR(Internal configure error - please report)])
   ])
   AM_CONDITIONAL(CROSS_COMPILING, test "$cross_compiling" = "yes")
+  AC_SUBST(CROSS_COMPILING)
   AC_LANG_RESTORE
 ])
 
