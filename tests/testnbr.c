@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.10 $
+ *     $Date: 2005/07/27 01:23:20 $
+ * $Revision: 1.11 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -792,6 +792,8 @@ allocMultiGrid(nbr_t *nb)
 	nb->DirSyncComm3[i] = (uintptr_t) segaddr;
 	segaddr += 8*NBR_SYNC_LEN*sizeof(int);
 	if (i == 0) {/* save address for stats at 0 */
+	    /* No allocator to give us word alignement */
+	    segaddr = alignup_ptr(segaddr,8);
 	    nb->stats0 = (stat_struct_t *) segaddr;
 	    segaddr += sizeof(stat_struct_t)*nprocs;
 	}
