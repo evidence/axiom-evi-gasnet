@@ -1,7 +1,5 @@
 #!/bin/sh
 
-# This is an automatically-generated cross-configuration setup script
-
 ################################################
 # Usage Instructions: 
 #  1. fill in the following values to point to the target compilers:
@@ -9,13 +7,15 @@
 if test "$USE_GCC" != "" ; then
 # GCC-based compilers
 CC='mpicc' ; export CC  # vanilla target C compiler
-#CXX='mpicxx' ; export CXX  # vanilla target C++ compiler
 CXX='g++' ; export CXX  # use PPC-32 host C++ compiler
 else
 # XLC-based compilers
 CC='blrts_xlc' ; export CC  # vanilla target C compiler
-#CXX='blrts_xlC' ; export CXX  # vanilla target C++ compiler
-CXX='xlC' ; export CXX  # use PPC-32 host C++ compiler
+# g++ is recommended for building Titanium's tc, even when using an xlc backend,
+# because the g++ STL is faster and improves application compiation time
+# if you don't have g++, you can safely use xlC instead
+#CXX='xlC' ; export CXX  # use PPC-32 host C++ compiler
+CXX='g++' ; export CXX  # use PPC-32 host C++ compiler
 fi
 
 # Optional additional settings: (see configure --help for complete list)
@@ -33,7 +33,7 @@ fi
 # system batch submit command:
 MPIRUN_CMD='cqsub -q short -t 10 -n %N %C' ; export MPIRUN_CMD  # launch command for MPI jobs
 # BEWARE: the mpirun below boots its own partition on the BG/L, which may disrupt the system resource scheduler and anger the admins
-#MPIRUN_CMD='mpirun -np %N %V -verbose 0 -cwd %D -exe %P -args "%A"' ; export MPIRUN_CMD  # launch command for MPI jobs
+#MPIRUN_CMD='mpirun -timeout 600 -np %N %V -verbose 0 -cwd %D -exe %P -args "%A"' ; export MPIRUN_CMD  # launch command for MPI jobs
 EXTRA_CONFIGURE_ARGS='--enable-allow-gcc32' ; export EXTRA_CONFIGURE_ARGS  # misc configure args to pass
 
 # 2. Fill in the canonical target machine type. You can usually obtain this
