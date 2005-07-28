@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2005/07/23 01:39:24 $
- * $Revision: 1.24 $
+ *     $Date: 2005/07/28 10:11:11 $
+ * $Revision: 1.25 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -33,8 +33,8 @@
   #define ammpi_sched_yield() sched_yield()
 #endif
 
-#if defined(__blrts__)
-  /* lacks working select */
+#if defined(__blrts__) || defined(__LIBCATAMOUNT__)
+  /* lack working select */
   #define ammpi_usleep(timeoutusec) sleep(timeoutusec/1000000)
 #endif
 
@@ -187,15 +187,15 @@ static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf_
   #define AMMPI_curloc __FILE__ ":" _STRINGIFY(__LINE__)
   #define AMMPI_malloc(sz)                             \
     ( (PREDICT_FALSE(gasnett_debug_malloc_fn==NULL) ?  \
-        gasnett_debug_malloc_fn = &_AMMPI_malloc : 0), \
+        gasnett_debug_malloc_fn = &_AMMPI_malloc : NULL), \
       (*gasnett_debug_malloc_fn)(sz, AMMPI_curloc))
   #define AMMPI_calloc(N,S)                            \
     ( (PREDICT_FALSE(gasnett_debug_calloc_fn==NULL) ?  \
-        gasnett_debug_calloc_fn = &_AMMPI_calloc : 0), \
+        gasnett_debug_calloc_fn = &_AMMPI_calloc : NULL), \
       (*gasnett_debug_calloc_fn)((N),(S), AMMPI_curloc))
   #define AMMPI_free(ptr)                           \
     ( (PREDICT_FALSE(gasnett_debug_free_fn==NULL) ? \
-        gasnett_debug_free_fn = &_AMMPI_free : 0),  \
+        gasnett_debug_free_fn = &_AMMPI_free : NULL), \
       (*gasnett_debug_free_fn)(ptr, AMMPI_curloc))
 
   #undef malloc

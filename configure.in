@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/07/23 01:39:01 $
-# $Revision: 1.282 $
+#     $Date: 2005/07/28 10:11:03 $
+# $Revision: 1.283 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.282 $)
+AC_REVISION($Revision: 1.283 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -521,11 +521,16 @@ case "$target_os" in
 	GASNET_MACHINE_DEFINES="-DLINUX"
 	# Check for SGI Altix, using a device heuristic.  SGI has assured us
 	# that /dev/hw is specific (and standard) on their system
-	GASNET_MACHINE_DEFINES="-DLINUX"
 	if test -d "/dev/hw/cpunum"; then
 	  AC_DEFINE(ALTIX)
 	  GASNET_MACHINE_DEFINES="$GASNET_MACHINE_DEFINES -DALTIX"
 	fi
+        case "$target" in
+          *-catamount-*) 
+	    AC_DEFINE(CATAMOUNT)
+	    GASNET_MACHINE_DEFINES="-DCATAMOUNT"
+          ;;
+        esac
         # Defining _GNU_SOURCE gives us accesss to the "adaptive"
         # implementation of pthread_mutex_t, which is faster then
         # the default implementation for our purposes.
