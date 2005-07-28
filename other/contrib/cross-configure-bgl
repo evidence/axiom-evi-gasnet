@@ -18,6 +18,10 @@ CC='blrts_xlc' ; export CC  # vanilla target C compiler
 CXX='g++' ; export CXX  # use PPC-32 host C++ compiler
 fi
 
+# Host C compiler
+HOST_CC="gcc" ; export HOST_CC
+HOST_CFLAGS="-g -O2" ; export HOST_CFLAGS
+
 # Optional additional settings: (see configure --help for complete list)
 
 if test "$USE_GCC" != "" ; then

@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/07/25 06:20:20 $
-dnl $Revision: 1.76 $
+dnl     $Date: 2005/07/28 00:34:02 $
+dnl $Revision: 1.77 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -223,6 +223,8 @@ AC_DEFUN([GASNET_APPEND_DEFINE],[
 dnl push a new value into variable varname, saving the old value
 dnl GASNET_PUSHVAR(varname, new value)
 AC_DEFUN([GASNET_PUSHVAR],[
+  # ---------------------------------------
+  # [GASNET_PUSHVAR]($1, $2)
   dnl echo "old value of $1: $[$1]"
   if test "$_pushcnt_$1" = "" ; then
     _pushcnt_$1=0
@@ -235,11 +237,14 @@ AC_DEFUN([GASNET_PUSHVAR],[
   _total_pushcnt=`expr $_total_pushcnt + 1`
   $1=$2
   dnl echo "pushed new value: $[$1]"
+  # ---------------------------------------
 ]) 
 
 dnl restore the old value of varname, from a previous push
 dnl GASNET_POPVAR(varname)
 AC_DEFUN([GASNET_POPVAR],[
+  # ---------------------------------------
+  # [GASNET_POPVAR]($1)
   if test "$_pushcnt_$1" -ge "1"; then
     _pushcnt_$1=`expr $_pushcnt_$1 - 1`
     _total_pushcnt=`expr $_total_pushcnt - 1`
@@ -248,6 +253,7 @@ AC_DEFUN([GASNET_POPVAR],[
   else
     AC_MSG_ERROR([INTERNAL ERROR: GASNET_PUSH/POPVAR underflow on $1])
   fi
+  # ---------------------------------------
 ]) 
 
 AC_DEFUN([GASNET_PUSHPOP_CHECK],[
@@ -321,7 +327,9 @@ dnl  also adds a --with-foo-bar= option for the env variable FOO_BAR
 AC_DEFUN([GASNET_ENV_DEFAULT],[
   pushdef([lowerdashname],patsubst(translit([$1],'A-Z','a-z'), _, -))
   pushdef([lowerscorename],patsubst(translit([$1],'A-Z','a-z'), -, _))
-
+  
+  # ---------------------------------------
+  # [GASNET_ENV_DEFAULT]($1, $2)
   AC_MSG_CHECKING(for $1 in environment)
 
   dnl create the help prompt just once
@@ -360,6 +368,7 @@ AC_DEFUN([GASNET_ENV_DEFAULT],[
       *) AC_MSG_ERROR(_GASNET_ENV_DEFAULT broken)
   esac
 
+  # ---------------------------------------
   popdef([lowerdashname])
   popdef([lowerscorename])
 ])
@@ -564,6 +573,8 @@ GASNET_IF_DISABLED(full-path-expansion, [Disable expansion of program names to f
                    [cv_prefix[]_gfp_disable=1])
 ])
 AC_DEFUN([GASNET_GETFULLPATH],[
+# ----------------------------------------------
+# [GASNET_GETFULLPATH]($1)
 AC_REQUIRE([AC_PROG_AWK])
 AC_REQUIRE([GASNET_GETFULLPATH_CHECK])
 if test "$cv_prefix[]_gfp_disable" = ""; then
@@ -571,7 +582,10 @@ if test "$cv_prefix[]_gfp_disable" = ""; then
   gasnet_gfp_progargs=`echo "$$1" | $AWK -F' ' 'BEGIN { ORS=" "; } { for (i=2;i<=NF;i++) print $i; }'`
   gasnet_gfp_progname0=`echo "$gasnet_gfp_progname" | $AWK '{ print sub[]str([$]0,1,1) }'`
   if test "$gasnet_gfp_progname0" != "/" ; then
-    cv_prefix[]_gfp_fullprogname_$1=
+    # clear cached values, in case this is a pushed var
+    unset cv_prefix[]_gfp_fullprogname_$1
+    unset ac_cv_path_[]cv_prefix[]_gfp_fullprogname_$1
+    # [AC_PATH_PROG](cv_prefix[]_gfp_fullprogname_$1, $gasnet_gfp_progname,[])
     AC_PATH_PROG(cv_prefix[]_gfp_fullprogname_$1, $gasnet_gfp_progname,[])
     AC_MSG_CHECKING(for full path expansion of $1)
     if test "$cv_prefix[]_gfp_fullprogname_$1" != "" ; then
@@ -580,6 +594,7 @@ if test "$cv_prefix[]_gfp_disable" = ""; then
     AC_MSG_RESULT($$1)
   fi
 fi
+# ----------------------------------------------
 ])
 
 dnl GASNET_CHECK_LIB(library, function, action-if-found, action-if-not-found, other-flags, other-libraries)
@@ -1027,6 +1042,32 @@ AC_DEFUN([GASNET_PROG_CXX], [
   	     [AC_MSG_ERROR(Internal configure error - please report)])
   ])
   AC_LANG_RESTORE
+])
+
+AC_DEFUN([GASNET_PROG_HOSTCC], [
+if test "$cross_compiling" = "yes" ; then
+  HOST_MSG="When cross-compiling, \$HOST_CC or --with-host-cc= must be set to indicate a C compiler for the host machine (ie the machine running this configure script)"
+  GASNET_ENV_DEFAULT(HOST_CC, )
+  GASNET_ENV_DEFAULT(HOST_CFLAGS, )
+  if test ! "$HOST_CC" ; then
+    AC_MSG_ERROR([$HOST_MSG])
+  fi
+  GASNET_PUSHVAR(CC,"$HOST_CC")
+  GASNET_PUSHVAR(CFLAGS,"$HOST_CFLAGS")
+    GASNET_PROG_CC
+    GASNET_PUSHVAR(cross_compiling,"no")
+    AC_MSG_CHECKING([working host C compiler executables])
+    AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
+             [AC_MSG_RESULT(no) GASNET_MSG_ERROR($HOST_MSG)],
+             [AC_MSG_ERROR(Internal configure error - please report)])
+    GASNET_POPVAR(cross_compiling)
+  HOST_CC="$CC"
+  HOST_CFLAGS="$CFLAGS"
+  AC_SUBST(HOST_CC)
+  AC_SUBST(HOST_CFLAGS)
+  GASNET_POPVAR(CC)
+  GASNET_POPVAR(CFLAGS)
+fi
 ])
 
 dnl find working version of perl.  Checks to see if 'bytes' module is available,
