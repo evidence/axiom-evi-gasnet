@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/23 01:39:49 $
- * $Revision: 1.17 $
+ *     $Date: 2005/07/28 02:29:34 $
+ * $Revision: 1.18 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1237,10 +1237,17 @@ gasnetc_getMaxMem()
 		gasneti_fatalerror("Can't open /proc/meminfo");
 
 	while (fgets(line, 128, fp)) {
+		/* Mem: only on 2.4 kernels */
 		if (sscanf(line, "Mem: %lu", &mem) > 0)
 			break;
+                /* MemTotal: on 2.4 and 2.6 kernels */
+                if (sscanf(line, "MemTotal: %lu kB", &mem) > 0) {
+                        mem *= 1024;
+			break;
+                }
 	}
 	fclose(fp);
+        gasneti_assert(mem);
 	return (uintptr_t) mem;
 }
 
