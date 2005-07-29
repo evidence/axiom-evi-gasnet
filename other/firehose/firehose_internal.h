@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/07/29 21:16:25 $
- * $Revision: 1.27 $
+ *     $Date: 2005/07/29 23:40:32 $
+ * $Revision: 1.28 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -688,16 +688,22 @@ int fhi_FreeVictimRemote(gasnet_node_t node, int count, firehose_region_t *reg)
 #endif
 
 #if GASNET_TRACE
-/* XXX:
- * FH_TRACE_BUCKET is currently broken in firehose-region because the
- * macro FH_NODE is applied to a "private_t", which doesn't have the
- * necessary node info in the key
- */
+#ifdef FIREHOSE_REGION
+  /* Total hack:
+   * FH_NODE(priv) doesn't work in firehose-region because the
+   * "private_t" doesn't have the node info in the "key" field.
+   * This hack lets us grab the info from the "key" field of the first
+   * bucket w/o exposing the bucket_t outside of firehose_region.c
+   */
+  #define FH_PRIV_NODE(p) ((p)->bucket ? (*(fh_int_t*)((p)->bucket) & FH_PAGE_MASK) : -1)
+#else
+  #define FH_PRIV_NODE(p) FH_NODE(p)
+#endif
 #define FH_TRACE_BUCKET(bd, bmsg) 					\
 	do {								\
 		char	msg[64];					\
 		fh_refc_t *rp = FH_BUCKET_REFC(bd);			\
-		if (FH_NODE(bd) != fh_mynode) {				\
+		if (FH_PRIV_NODE(bd) != fh_mynode) {			\
 			if (FH_IS_REMOTE_PENDING(bd)) 			\
 				sprintf(msg, "rrefc=%d PENDING",	\
 				    rp->refc_r);			\
@@ -716,8 +722,8 @@ int fhi_FreeVictimRemote(gasnet_node_t node, int count, firehose_region_t *reg)
 		GASNETI_TRACE_PRINTF(C,					\
 		    ("Firehose Bucket %s %s node=%d,addr="              \
 		     GASNETI_LADDRFMT",%s", #bmsg,                      \
-		     FH_NODE(bd) == fh_mynode ? "Local " : "Remote",	\
-		     (int) FH_NODE(bd),                                 \
+		     FH_PRIV_NODE(bd) == fh_mynode ? "Local ":"Remote", \
+		     (int) FH_PRIV_NODE(bd),                            \
 		     GASNETI_LADDRSTR(FH_BADDR(bd)), msg));		\
 	} while (0)
 
