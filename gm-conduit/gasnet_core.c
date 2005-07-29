@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/07/23 01:39:12 $
- * $Revision: 1.94 $
+ * $Date: 2005/07/29 07:51:27 $
+ * $Revision: 1.95 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -110,7 +110,7 @@ gasnetc_init(int *argc, char ***argv)
 				       "must be between 0 and 1");
 
 		gasnetc_MaxPinnableMemory = 
-		    (uintptr_t) gasnetc_getPhysMem() * pm_ratio;
+		    (uintptr_t) (gasneti_getPhysMemSz(1) * pm_ratio);
 
 		gasnetc_bootstrapExchange(
 		    &gasnetc_MaxPinnableMemory, sizeof(uintptr_t), global_exch);
@@ -2770,56 +2770,6 @@ gasnetc_getconf_conffile()
 	return;
 }
 
-#ifdef __linux__
-uintptr_t
-gasnetc_getPhysMem()
-{
-	FILE		*fp;
-	char		line[128];
-	int		found = 0;
-	unsigned long	mem = 0;
-
-	if ((fp = fopen("/proc/meminfo", "r")) == NULL)
-		gasneti_fatalerror("Can't open /proc/meminfo");
-
-	while (fgets(line, 128, fp)) {
-		/* MemTotal: on 2.4 and 2.6 kernels */
-		if (sscanf(line, "MemTotal: %lu kB", &mem) > 0) {
-			mem *= 1024;
-			found++;
-			break;
-		}
-		/* Mem: only on 2.4 kernels */
-		else if (sscanf(line, "Mem: %lu", &mem) > 0) {
-			found++;
-			break;
-		}
-	}
-	fclose(fp);
-	if (!found)
-	    gasneti_fatalerror("Cannot find physical memory size from /proc/meminfo");
-	return (uintptr_t) mem;
-}
-#elif defined(FREEBSD)
-#include <sys/types.h>
-#include <sys/sysctl.h>
-uintptr_t
-gasnetc_getPhysMem()
-{
-	uintptr_t	mem = 0;
-	size_t		len = sizeof(uintptr_t);
-
-	if (sysctlbyname("hw.physmem", &mem, &len, NULL, NULL))
-		gasneti_fatalerror("couldn't query systcl(hw.physmem");
-	return mem;
-}
-#else
-uintptr_t
-gasnetc_getPhysMem()
-{
-	return (uintptr_t) 0;
-}
-#endif
 
 #ifdef GASNETI_GM_RODATA_WORKAROUND
   /* ensure rodata object is linked into every executable */

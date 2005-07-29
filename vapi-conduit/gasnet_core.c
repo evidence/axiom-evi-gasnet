@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/23 01:40:16 $
- * $Revision: 1.127 $
+ *     $Date: 2005/07/29 07:51:42 $
+ * $Revision: 1.128 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -225,64 +225,6 @@ extern void gasnetc_free_pinned(gasnetc_memreg_t *reg) {
   gasneti_munmap(reg->req_addr, reg->req_size);
 }
 
-#if defined(_SC_PHYS_PAGES)
-static unsigned long gasnetc_get_physpages(void)
-{
-  long pages;
-
-  pages = sysconf(_SC_PHYS_PAGES);
-  if (pages == -1) {
-    gasneti_fatalerror("sysconf(_SC_PHYS_PAGES) failed");
-  }
-
-  return pages;
-}
-#elif defined(__linux__)
-#define _BUFSZ	120
-static unsigned long gasnetc_get_physpages(void)
-{
-  FILE            *fp;
-  char            line[_BUFSZ+1];
-  unsigned long   mem = 0;
-  unsigned long   pages = 0;
-
-  if ((fp = fopen("/proc/meminfo", "r")) == NULL) {
-    gasneti_fatalerror("Can't open /proc/meminfo");
-  }
-
-  while (fgets(line, _BUFSZ, fp)) {
-    if (sscanf(line, "MemTotal: %lu kB", &mem) > 0) {
-      pages = mem / (GASNET_PAGESIZE / 1024);
-      break;
-    }
-    if (sscanf(line, "Mem: %lu", &mem) > 0) {
-      /* XXX how does this fair on systems w/ >4GB */
-      pages = mem / GASNET_PAGESIZE;
-      break;
-    }
-  }
-  fclose(fp);
-
-  return pages;
-}
-#elif defined(__APPLE__) || defined(FREEBSD)
-  #include <sys/types.h>
-  #include <sys/sysctl.h>
-  static unsigned long gasnetc_get_physpages(void)  { /* see "man 3 sysctl" */
-    int mib[2];
-    unsigned long mem;
-    size_t len = sizeof(mem);
-
-    mib[0] = CTL_HW;
-    mib[1] = HW_PHYSMEM;
-    if (sysctl(mib, 2, &mem, &len, NULL, 0)) 
-      gasneti_fatalerror("sysctl(CTL_HW.HW_PHYSMEM) failed: %s(%i)",strerror(errno),errno);
-    return mem / GASNET_PAGESIZE;
-  }
-#else
-#error "Don't know how to get physical memory size on your O/S"
-#endif
-
 static uintptr_t gasnetc_trypin(void *addr, uintptr_t hi, gasnetc_memreg_t *reg) {
   uintptr_t lo = GASNETI_MMAP_GRANULARITY;
   VAPI_ret_t vstat;
@@ -364,9 +306,9 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
    *   GASNETI_MMAP_LIMIT
    */
 #if defined(__APPLE__)
-  pages = (gasnetc_get_physpages() / 4) - 1;
+  pages = ((gasneti_getPhysMemSz(1)/GASNET_PAGESIZE) / 4) - 1;
 #else
-  pages = 2 * (gasnetc_get_physpages() / 3);
+  pages = 2 * ((gasneti_getPhysMemSz(1)/GASNET_PAGESIZE) / 3);
 #endif
   pages = MIN(pages, gasnetc_hca_cap.max_mr_size / GASNET_PAGESIZE);
   #if defined(RLIMIT_MEMLOCK) && GASNETC_HONOR_RLIMIT_MEMLOCK

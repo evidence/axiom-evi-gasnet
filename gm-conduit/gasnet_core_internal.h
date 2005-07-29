@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_internal.h,v $
- * $Date: 2005/07/23 01:39:12 $
- * $Revision: 1.69 $
+ * $Date: 2005/07/29 07:51:27 $
+ * $Revision: 1.70 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -96,7 +96,6 @@ void	gasnetc_getconf(int *argc, char ***argv);
 void	gasnetc_getconf_bootmpi(int *argc, char ***argv);
 #endif
 
-uintptr_t 	gasnetc_getPhysMem();
 void		gasnetc_am_medcopy(gasnet_token_t token, void *addr, 
 				   size_t nbytes, void *dest);
 

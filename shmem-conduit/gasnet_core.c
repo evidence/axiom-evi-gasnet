@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/29 01:19:32 $
- * $Revision: 1.19 $
+ *     $Date: 2005/07/29 07:51:35 $
+ * $Revision: 1.20 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1235,41 +1235,14 @@ gasnetc_SHMallocBinarySearch(size_t low, size_t high)
 	}
 }
 
-#ifdef __linux__
-uintptr_t
-gasnetc_getMaxMem()
-{
-	FILE		*fp;
-	char		line[128];
-	unsigned long	mem = 0;
-
-	if ((fp = fopen("/proc/meminfo", "r")) == NULL)
-		gasneti_fatalerror("Can't open /proc/meminfo");
-
-	while (fgets(line, 128, fp)) {
-		/* Mem: only on 2.4 kernels */
-		if (sscanf(line, "Mem: %lu", &mem) > 0)
-			break;
-                /* MemTotal: on 2.4 and 2.6 kernels */
-                if (sscanf(line, "MemTotal: %lu kB", &mem) > 0) {
-                        mem *= 1024;
-			break;
-                }
-	}
-	fclose(fp);
-        gasneti_assert(mem);
-	return (uintptr_t) mem;
+uintptr_t gasnetc_getMaxMem() {
+  #if CRAY_SHMEM
+    return (uintptr_t)(64UL<<30);
+  #else
+    return gasneti_getPhysMemSz(1);
+  #endif
 }
 
-#elif CRAY_SHMEM
-uintptr_t
-gasnetc_getMaxMem()
-{
-	return (64UL<<30);
-}
-#else
-  #error No gasnetc_getMaxMem() defined for this platform
-#endif
 
 static
 uintptr_t
@@ -1338,7 +1311,7 @@ gasnetc_SHMallocSegmentSearch()
 	if (gasnetc_verbose_spawn && gasneti_mynode == 0)
 		printf("maxsiz = %lu (%.2f GB), pagesize=%d\n\n", 
 			maxsz, (float) maxsz / (1024*1024*1024),
-			(int) gasnetc_pagesize);
+			(int) GASNET_PAGESIZE);
 
 #if 0
 		{
