@@ -7,7 +7,8 @@
 #  1. fill in the following values to point to the target compilers:
 
 CC='cc' ; export CC  # vanilla target C compiler
-CXX='CC -hinstantiate=local' ; export CXX  # vanilla target C++ compiler
+#CXX='CC -hinstantiate=local' ; export CXX  # vanilla target C++ compiler
+CXX='/usr/bin/g++' ; export CXX  # host C++ compiler
 
 # Optional additional settings: (see configure --help for complete list)
 
@@ -15,7 +16,13 @@ CXX='CC -hinstantiate=local' ; export CXX  # vanilla target C++ compiler
 #MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC
 #MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC
 #MPIRUN_CMD='mpirun -np %N %C' ; export MPIRUN_CMD  # launch command for MPI jobs
-EXTRA_CONFIGURE_ARGS=''
+EXTRA_CONFIGURE_ARGS='--disable-udp'
+
+# Host C compiler
+# NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/ 
+# in your environment to get the correct assembler for gcc
+HOST_CC="/usr/bin/gcc" ; export HOST_CC
+HOST_CFLAGS="-g -O2" ; export HOST_CFLAGS
 
 # 2. Fill in the canonical target machine type. You can usually obtain this
 #   by running config-aux/config.guess on the target machine
