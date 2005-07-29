@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/07/28 10:11:03 $
-# $Revision: 1.283 $
+#     $Date: 2005/07/29 01:19:14 $
+# $Revision: 1.284 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.283 $)
+AC_REVISION($Revision: 1.284 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1800,7 +1800,7 @@ if test $enabled_shmem = yes; then
         # Work around stoopid bug in Intel ecc on Altix: programs won't compile
         # if -L/usr/lib is explicitly passed.
 	GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /anything/but/usr/lib)
-        GASNET_ENV_DEFAULT(SHMEM_LIBS, "-lsma")
+        GASNET_ENV_DEFAULT(SHMEM_LIBS, [-lsma -lmpi])
       else
         AC_MSG_RESULT(unknown)
         have_shmem=no

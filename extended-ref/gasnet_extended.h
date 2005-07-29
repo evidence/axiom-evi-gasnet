@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.h,v $
- *     $Date: 2005/02/14 05:13:36 $
- * $Revision: 1.31 $
+ *     $Date: 2005/07/29 01:19:23 $
+ * $Revision: 1.32 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -386,8 +386,12 @@ void   _gasnet_memset_nbi   (gasnet_node_t node, void *dest, int val, size_t nby
   ===========================================================
 */
 
-extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE);
-extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE);
+#ifndef gasnete_try_syncnbi_gets
+  extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE);
+#endif
+#ifndef gasnete_try_syncnbi_puts
+  extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE);
+#endif
 
 GASNET_INLINE_MODIFIER(_gasnet_try_syncnbi_gets)
 int _gasnet_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
@@ -720,7 +724,9 @@ typedef struct _gasnet_valget_op_t *gasnet_valget_handle_t;
 #endif
 
 extern gasnet_valget_handle_t gasnete_get_nb_val(gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG);
+#ifndef gasnete_wait_syncnb_valget
 extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t handle);
+#endif
 
 GASNET_INLINE_MODIFIER(_gasnet_get_nb_val)
 gasnet_valget_handle_t _gasnet_get_nb_val (gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {

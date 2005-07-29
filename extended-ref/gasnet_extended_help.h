@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2005/07/03 14:33:27 $
- * $Revision: 1.27 $
+ *     $Date: 2005/07/29 01:19:23 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -197,6 +197,10 @@ BEGIN_EXTERNC
   #define GASNETE_MYTHREAD            (gasnete_mythread())
 #endif
 /* ------------------------------------------------------------------------------------ */
+
+#ifdef GASNETE_HAVE_EXTENDED_HELP_EXTRA_H
+  #include <gasnet_extended_help_extra.h>
+#endif
 
 END_EXTERNC
 

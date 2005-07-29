@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/28 02:29:34 $
- * $Revision: 1.18 $
+ *     $Date: 2005/07/29 01:19:32 $
+ * $Revision: 1.19 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -117,6 +117,16 @@ static int gasnetc_init(int *argc, char ***argv) {
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
 
   gasneti_freezeForDebugger();
+
+  /*
+   * Print information about shmalloc segment search when verbose environment
+   * or debug mode
+   */
+  #ifdef GASNET_DEBUG
+    gasnetc_verbose_spawn = 1;
+  #else
+    gasnetc_verbose_spawn = !!gasnet_getenv("GASNET_SHMEM_DEBUGALLOC");
+  #endif
 
   #if GASNET_DEBUG_VERBOSE
     /* note - can't call trace macros during gasnet_init because trace system not yet initialized */
@@ -1351,6 +1361,7 @@ gasnetc_SHMallocSegmentSearch()
 
 	    while (alloc_perthread > 0) {
 		si.addr = shmemalign(GASNETT_PAGESIZE, alloc_perthread);
+		//printf("Difference is %lx\n", (long)shmem_ptr(si.addr,1)  - (long)shmem_ptr(si.addr,0));
 		if (si.addr != NULL)
 			break;
 		alloc_perthread /= 2;

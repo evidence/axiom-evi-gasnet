@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2005/05/02 10:42:07 $
- * $Revision: 1.9 $
+ *     $Date: 2005/07/29 01:19:32 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,41 +11,8 @@
 #include <gasnet_extended_internal.h>
 #include <gasnet_handler.h>
 
-/*
- * Under shmem, nb gets and puts in the same phase get the same handle
- */
-#define GASNETE_MAX_HANDLES	    4096
-#define GASNETE_HANDLES_MASK	    4095
-
-/*
- * NBs use up to GASNETE_MAX_HANDLES handles, and can have two states:
- *
- * 1. NB_POLL:  The NB is an active message and is currently waiting for a
- *              completion.
- * 2. NB_QUIET: The NB is part of a quiet phase that requires a shmem quiet.
- *              XXX It may be possible to turn NB_QUIET state into DONE state
- *              if a barrier is executed (this seems to depend on various shmem
- *              flavours).
- */
-
-int	    gasnete_handles[GASNETE_MAX_HANDLES];
-int	    gasnete_nbi_sync       = 0;
-int	    gasnete_handleno_cur   = 1;
-int	    gasnete_handleno_phase = 0;
-
-/* 
- * NBIs use a single handle, and has a single phase.  However, it uses two
- * counters to differentiate substates from the NBI state.
- *
- * gasnete_nbi_sync:   Set by puts which require quiets.
- * gasnete_nbi_am_ctr: Incremented each time an AM is sent as part of the NBI.
- *
- */
-static int	    gasnete_nbi_region_phase = 0;
-static volatile int gasnete_nbi_am_ctr       = 0;
-static int	    gasnete_nbi_handle       = GASNETE_HANDLE_DONE;
-
-intptr_t	    gasnete_segment_base = 0;
+int	    *gasnete_nbisync_cur = GASNETE_SYNC_NONE;
+intptr_t     gasnete_segment_base = 0;
 
 #ifdef CRAY_SHMEM
 uintptr_t gasnete_pe_bits_shift = 0;
@@ -57,19 +24,8 @@ uintptr_t gasnete_addr_bits_mask = 0;
   #error shmem-conduit currently does not support threads
 #endif
 
-gasnete_threaddata_t	gasnete_threaddata;
+gasnete_threaddata_t	     gasnete_threaddata;
 #define gasnete_mythread() (&gasnete_threaddata)
-
-#define GASNETE_HANDLE_INC() do {					      \
-    gasnete_handleno_cur = (gasnete_handleno_cur + 1) & GASNETE_HANDLES_MASK; \
-    if_pf (gasnete_handles[gasnete_handleno_cur] != GASNETE_HANDLE_DONE)      \
-	    gasneti_fatalerror("GASNet ran out of handles (max=%d)",	      \
-			    GASNETE_MAX_HANDLES);			      \
-    } while (0)
-#define GASNETE_HANDLE_INC_PHASE()  do {		    \
-	    gasnete_handleno_phase = gasnete_handleno_cur;  \
-	    GASNETE_HANDLE_INC();			    \
-	} while (0)
 
 extern void gasnete_init() {
   int	    i;
@@ -78,244 +34,72 @@ extern void gasnete_init() {
   gasneti_assert(firstcall); /*  make sure we haven't been called before */
   firstcall = 0;
 
-    gasneti_assert(GASNETC_POW_2(GASNETE_MAX_HANDLES));
-
     gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
     gasnete_segment_base = (intptr_t) gasneti_seginfo[gasneti_mynode].addr;
-
-    for (i = 0; i < GASNETE_MAX_HANDLES; i++)
-	gasnete_handles[i] = GASNETE_HANDLE_DONE;
 }
-
-extern gasnet_handle_t 
-gasnete_shmem_put_nb_bulk(gasnet_node_t node, void *dest, void *src, 
-		    size_t nbytes GASNETE_THREAD_FARG) 
-{
-    shmem_putmem(dest, src, nbytes, node);
-    gasnete_handles[gasnete_handleno_phase] = GASNETE_HANDLE_NB_QUIET;
-    return &gasnete_handles[gasnete_handleno_phase];
-}
-
-/*
- * Non-blocking gets are self-syncing, as there is no non-blocking shmem get.
- * We treat this as a special case of explicit non-blocking ops and give them a
- * whole handle to themselves.
- */
-extern gasnet_handle_t 
-gasnete_get_nb_bulk(void *dest, gasnet_node_t node, void *src, 
-		    size_t nbytes GASNETE_THREAD_FARG)
-{
-    int	*handle = &gasnete_handles[gasnete_handleno_cur];
-    gasnete_get_bulk(dest,node,src,nbytes);
-
-    *handle = GASNETE_HANDLE_DONE;
-    GASNETE_HANDLE_INC_PHASE();
-    return handle;
-}
-
-extern gasnet_handle_t
-gasnete_global_memset_nb(gasnet_node_t node, void *dest, int val, 
-		    size_t nbytes) 
-{
-    int  *handle = &gasnete_handles[gasnete_handleno_cur];
-
-    memset(dest, val, nbytes);
-    gasneti_sync_writes();
-
-    *handle = GASNETE_HANDLE_DONE;
-    GASNETE_HANDLE_INC();
-    return handle;
-}
-
-extern gasnet_handle_t
-gasnete_am_memset_nb(gasnet_node_t node, void *dest, int val, 
-		    size_t nbytes GASNETE_THREAD_FARG) 
-{
-    int  *handle = &gasnete_handles[gasnete_handleno_cur];
-    int	 *ptr = GASNETE_SHMPTR_AM(dest,node);
-
-    *handle = GASNETE_HANDLE_NB_POLL;
-
-    GASNETI_SAFE(
-	SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
-		      (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes, 
-		      PACK(ptr), PACK(handle))));
-
-    GASNETE_HANDLE_INC();
-    return handle;
-}
-    
-/* ------------------------------------------------------------------------ */
-/*
-  Synchronization for explicit-handle non-blocking operations:
-  ===========================================================
-*/
-GASNET_INLINE_MODIFIER(gasnete_try_syncnb_inner)
-int
-gasnete_try_syncnb_inner(gasnet_handle_t handle)
-{
-    switch (*handle) {
-	case GASNETE_HANDLE_DONE:
-	    return GASNET_OK;
-	break;
-
-	case GASNETE_HANDLE_NB_POLL:
-	    GASNETI_SAFE(gasnet_AMPoll());
-	    if (*handle == GASNETE_HANDLE_DONE)
-		return GASNET_OK;
-	    else
-		return GASNET_ERR_NOT_READY;
-	    break;
-
-	case GASNETE_HANDLE_NB_QUIET:
-	    gasneti_assert(handle == 
-			   &(gasnete_handles[gasnete_handleno_phase]));
-	    shmem_quiet();
-	    *handle = GASNETE_HANDLE_DONE;
-	    GASNETE_HANDLE_INC_PHASE();
-	    return GASNET_OK;
-	    break;
-
-	case GASNETE_HANDLE_NBI:
-	    gasneti_assert(handle == &gasnete_nbi_handle);
-	    /* Quiet iff at least one put */
-	    if (gasnete_nbi_sync || GASNETE_NBISYNC_ALWAYS_QUIET) {
-		shmem_quiet();
-		gasnete_nbi_sync = 0;
-	    }
-	    if (gasnete_nbi_am_ctr == 0) {
-		*handle = GASNETE_HANDLE_DONE;
-		return GASNET_OK;
-	    }
-	    *handle = GASNETE_HANDLE_NBI_POLL;
-	    /* Fallthrough, poll and poll only next time */
-	
-	case GASNETE_HANDLE_NBI_POLL:
-	    gasneti_assert(handle == &gasnete_nbi_handle);
-	    GASNETI_SAFE(gasnet_AMPoll());
-	    if (gasnete_nbi_am_ctr == 0) {
-		*handle = GASNETE_HANDLE_DONE;
-		return GASNET_OK;
-	    }
-	    else
-		return GASNET_ERR_NOT_READY;
-	    break;
-
-	default:
-	    gasneti_fatalerror("Invalid handle value %d", (int)*handle);
-	    break;
-    }
-
-    /* XXX can't reach */
-    gasneti_fatalerror("can't reach in syncnb_inner");
-    return GASNET_OK;
-}
-
-extern int
-gasnete_try_syncnb(gasnet_handle_t handle)
-{
-	return gasnete_try_syncnb_inner(handle);
-}
-
-extern int  
-gasnete_try_syncnb_some (gasnet_handle_t *phandle, size_t numhandles) 
-{
-    int success = 0;
-    int empty = 1;
-    int	i;
-    GASNETI_SAFE(gasnet_AMPoll());
-
-    gasneti_assert(phandle != NULL);
-
-    for (i = 0; i < numhandles; i++) {
-      gasnet_handle_t handle = phandle[i];
-      if (handle != GASNET_INVALID_HANDLE) {
-        empty = 0;
-        if (gasnete_try_syncnb_inner(handle) == GASNET_OK) { 
-          phandle[i] = GASNET_INVALID_HANDLE;
-          success = 1;
-        }  
-      }
-    }
-
-    if (success || empty) return GASNET_OK;
-    else return GASNET_ERR_NOT_READY;
-}
-
-/*
- * gasnete_try_syncnb_all() is the same as gasnete_try_syncnb_some()
- */
 
 /* ------------------------------------------------------------------------ */
 /*
-  Non-blocking memory-to-memory transfers (implicit handle)
+  Non-blocking AM-based memory-to-memory transfers (implicit handle)
   ==========================================================
 */
 
-extern void 
-gasnete_global_memset_nbi(gasnet_node_t node, void *dest, int val, 
-  		    size_t nbytes) 
-{
-      /* By doing a synchronous write and flushing the write buffer, there's no
-       * need to poll for completion */
-      memset(dest, val, nbytes);
-      gasneti_sync_writes();
-      return;
-}
-
-extern void 
-gasnete_am_memset_nbi(gasnet_node_t node, void *dest, int val, 
-		    size_t nbytes GASNETE_THREAD_FARG) 
+/*
+ * Non-blocking memsets are always completed as blocking operations, for
+ * simplifying the code path in synchronizing messages
+ * See comments in gasnet_extended_fwd.h
+ */
+extern gasnet_handle_t
+gasnete_am_memset_nb(gasnet_node_t node, void *dest, int val, 
+		     size_t nbytes GASNETE_THREAD_FARG) 
 {
     int	 *ptr = GASNETE_SHMPTR_AM(dest,node);
-    int *p_nbi_handle = &gasnete_nbi_handle;
-    gasnete_nbi_handle = GASNETE_HANDLE_NBI;
+    int	 isdone = 0;
+
     GASNETI_SAFE(
 	SHORT_REQ(4,6,(node, gasneti_handleridx(gasnete_memset_reqh),
 		      (gasnet_handlerarg_t)val, (gasnet_handlerarg_t)nbytes, 
-		      PACK(ptr), PACK(p_nbi_handle))));
+		      PACK(ptr), PACK((void*)&isdone))));
 
-    gasnete_nbi_am_ctr++;
+    /* Always blocking, even if an AM */
+    GASNET_BLOCKUNTIL(isdone != 0);
 
+    return GASNETE_SYNC_NONE;
+}
+
+GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
+void 
+gasnete_memset_reqh_inner(gasnet_token_t token, gasnet_handlerarg_t val, 
+			  gasnet_handlerarg_t nbytes, void *dest, void *op) 
+{
+    memset(dest, (int)(uint32_t)val, nbytes);
+    gasneti_sync_writes();
+
+    GASNETI_SAFE(
+	SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
+                  PACK(op))));
+}
+SHORT_HANDLER(gasnete_memset_reqh,4,6,
+              (token, a0, a1, UNPACK(a2),      UNPACK(a3)     ),
+              (token, a0, a1, UNPACK2(a2, a3), UNPACK2(a4, a5)));
+
+GASNET_INLINE_MODIFIER(gasnete_markdone_reph_inner)
+void 
+gasnete_markdone_reph_inner(gasnet_token_t token, void *h) 
+{
+    int	*handle  = (int *) h;
+    *handle = 1; /* Marks as done, requester spinning on handle != 0 */
     return;
 }
+SHORT_HANDLER(gasnete_markdone_reph,1,2,
+              (token, UNPACK(a0)    ),
+              (token, UNPACK2(a0, a1)));
 
 /* ------------------------------------------------------------------------------------ */
 /*
   Synchronization for implicit-handle non-blocking operations:
   ===========================================================
 */
-
-extern int  
-gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) 
-{
-    #if GASNET_DEBUG
-    if (gasnete_nbi_region_phase)
-        gasneti_fatalerror(
-	    "VIOLATION: attempted to call gasnete_try_syncnbi_gets() "
-	    "inside an NBI access region");
-    #endif
-
-    /* All gets are blocking. Unless there are puts or ams in flight, the nbi
-     * handle can be set as done. */
-    if (gasnete_nbi_am_ctr == 0 && gasnete_nbi_sync == 0)
-	gasnete_nbi_handle = GASNETE_HANDLE_DONE;
-
-    return GASNET_OK;
-}
-
-extern int
-gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) 
-{
-    #if GASNET_DEBUG
-    if (gasnete_nbi_region_phase)
-        gasneti_fatalerror(
-	    "VIOLATION: attempted to call gasnete_try_syncnbi_puts() "
-	    "inside an NBI access region");
-
-    #endif
-    return gasnete_try_syncnb_inner(&gasnete_nbi_handle);
-}
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -329,33 +113,19 @@ gasnete_begin_nbi_accessregion(int allowrecursion GASNETE_THREAD_FARG)
 {
     GASNETI_TRACE_PRINTF(S,("BEGIN_NBI_ACCESSREGION"));
     #if GASNET_DEBUG
-    if (!allowrecursion && gasnete_nbi_region_phase)
+    if (!allowrecursion && gasnete_nbisync_cur != GASNETE_SYNC_NONE)
 	gasneti_fatalerror(
 	    "VIOLATION: tried to initiate a recursive NBI access region");
     #endif
-
-    gasnete_nbi_region_phase = 1;
-
-    /* Only reset the nbi handle if previous ops were sync'd */
-    if (gasnete_nbi_handle == GASNETE_HANDLE_DONE) {
-	gasnete_nbi_handle = GASNETE_HANDLE_NBI;
-	gasnete_nbi_sync = 0;
-	gasnete_nbi_am_ctr = 0;
-    }
 }
 
 extern gasnet_handle_t 
 gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE) 
 {
-  /* GASNETI_TRACE_EVENT_VAL(S,END_NBI_ACCESSREGION,iop->initiated_get_cnt + * iop->initiated_put_cnt); */
-    #if GASNET_DEBUG
-    if (!gasnete_nbi_region_phase)
-	gasneti_fatalerror(
-	    "VIOLATION: tried to end an accessregion before starting one");
-    #endif
-
-    gasnete_nbi_region_phase = 0;
-    return &gasnete_nbi_handle;
+    int	*hval;
+    hval = gasnete_nbisync_cur;
+    gasnete_nbisync_cur = GASNETE_SYNC_NONE;
+    return hval;
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -416,7 +186,6 @@ gasnete_end_nbi_accessregion(GASNETE_THREAD_FARG_ALONE)
 	static char __barrier_pad ## name[BARRIER_PAD_CACHELINE_SIZE] = { 0 }
 #else
 #define BARRIER_READ_NOTIFYCTR	0
-//#define _BARRIER_PAD(name) 
 #define _BARRIER_PAD(name)  \
 	static char __barrier_pad ## name[BARRIER_PAD_CACHELINE_SIZE] = { 0 }
 #endif
@@ -605,40 +374,6 @@ gasnete_barrier_try(int id, int flags)
 #endif
 
 /* ------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
-void 
-gasnete_memset_reqh_inner(gasnet_token_t token, gasnet_handlerarg_t val, 
-			  gasnet_handlerarg_t nbytes, void *dest, void *op) 
-{
-    memset(dest, (int)(uint32_t)val, nbytes);
-    gasneti_sync_writes();
-
-    GASNETI_SAFE(
-	SHORT_REP(1,2,(token, gasneti_handleridx(gasnete_markdone_reph),
-                  PACK(op))));
-}
-SHORT_HANDLER(gasnete_memset_reqh,4,6,
-              (token, a0, a1, UNPACK(a2),      UNPACK(a3)     ),
-              (token, a0, a1, UNPACK2(a2, a3), UNPACK2(a4, a5)));
-/* ------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_markdone_reph_inner)
-void 
-gasnete_markdone_reph_inner(gasnet_token_t token, void *h) 
-{
-    int	*handle  = (int *) h;
-
-    if (handle == &gasnete_nbi_handle)		/* NBI */ {
-	    gasnete_nbi_am_ctr--;
-    }
-    else					/* NB */ {
-	    *handle = GASNETE_HANDLE_DONE;
-    }
-    return;
-}
-SHORT_HANDLER(gasnete_markdone_reph,1,2,
-              (token, UNPACK(a0)    ),
-              (token, UNPACK2(a0, a1)));
-/* ------------------------------------------------------------------------------------ */
 /*
   Vector, Indexed & Strided:
   =========================
