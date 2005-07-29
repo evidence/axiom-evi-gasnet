@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/07/08 22:34:09 $
- * $Revision: 1.18 $
+ *     $Date: 2005/07/29 21:16:25 $
+ * $Revision: 1.19 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -167,6 +167,38 @@ fh_bucket_t *fh_best_bucket(fh_bucket_t *a, fh_bucket_t *b)
 fh_hash_t *fh_BucketTable1;
 fh_hash_t *fh_BucketTable2;
 
+
+#define fh_bucket_uncover(B)	do { ((B)->priv)->visible += 1; } while(0)
+#define fh_bucket_cover(B)	do { ((B)->priv)->visible -= 1; } while(0)
+
+GASNET_INLINE_MODIFIER(fh_bucket_cover_and_check)
+void fh_bucket_cover_and_check(fh_bucket_t *bucket)
+{
+  firehose_private_t *priv = bucket->priv;
+  fh_bucket_cover(bucket);
+  if (priv->visible == 0) {
+    fh_fifoq_t *fifo_head = NULL;
+    gasnet_node_t node = FH_NODE(bucket);
+    if (node == fh_mynode) {
+      if (FH_IS_LOCAL_FIFO(priv)) {
+	fifo_head = &fh_LocalFifo;
+      }
+    } else {
+      if (FH_IS_REMOTE_FIFO(priv)) {
+	fifo_head = &fh_RemoteNodeFifo[node];
+      }
+    }
+    if (fifo_head) {
+      /* Move to HEAD of the FIFO */
+      gasneti_assert(!FH_TAILQ_EMPTY(fifo_head));
+      FH_TAILQ_REMOVE(fifo_head, priv);
+      FH_TAILQ_INSERT_HEAD(fifo_head, priv);
+    } else {
+      /* Not yet in FIFO */
+    }
+  }
+}
+
 static fh_bucket_t
 *fh_bucket_lookup(gasnet_node_t node, uintptr_t addr)
 {
@@ -197,9 +229,13 @@ fh_bucket_hash(fh_bucket_t *bucket, fh_int_t key)
 		/* resolve conflict */
 		if (fh_bucket_is_better(bucket, other)) {
 			fh_hash_replace(fh_BucketTable1, other, bucket);
+			fh_bucket_uncover(bucket);
+			fh_bucket_cover_and_check(other);
 			bucket = other;
 		}
 		hash = fh_BucketTable2;
+	} else {
+		fh_bucket_uncover(bucket);
 	}
 
 	fh_hash_insert(hash, key, bucket);
@@ -232,10 +268,13 @@ fh_bucket_unhash(fh_bucket_t *bucket)
 
 	    fh_hash_replace(fh_BucketTable2, best, NULL);
 	    fh_hash_replace(fh_BucketTable1, bucket, best);
+	    fh_bucket_uncover(best);
 	}
 	else {
 	    fh_hash_replace(fh_BucketTable1, bucket, NULL);
 	}
+
+	fh_bucket_cover(bucket); /* NOT fh_bucket_cover_and_check() which would place in FIFO */
     }
     else {
 	fh_hash_replace(fh_BucketTable2, bucket, NULL);
@@ -261,6 +300,8 @@ fh_bucket_rehash(fh_bucket_t *bucket)
 	fh_hash_replace(fh_BucketTable2, bucket, NULL);
 	fh_hash_replace(fh_BucketTable1, other, bucket);
 	fh_hash_insert(fh_BucketTable2, key, other);
+	fh_bucket_uncover(bucket);
+	fh_bucket_cover_and_check(other);
     }
 
     return;
@@ -522,7 +563,6 @@ fhi_merge_regions(firehose_region_t *pin_region)
 	        /* We cover the other region fully */
 		len += extend;
 		space_avail -= extend;
-		/* XXX: for bug 1124 add bd to "dead" list (freeing some at a threshhold?) */
 	    }
 #else
 	    extend = MIN(end_addr - next_addr, space_avail);
@@ -550,7 +590,6 @@ fhi_merge_regions(firehose_region_t *pin_region)
 	        addr -= extend;
 	        len += extend;
 	        space_avail -= extend;
-		/* XXX: for bug 1124 add bd to "dead" list (freeing some at a threshhold?) */
 	    }
 #else
 	    extend = MIN(addr - FH_BADDR(priv), space_avail);
@@ -578,13 +617,7 @@ fhi_wait_for_one(const firehose_private_t *priv) {
 	gasneti_assert(FH_BUCKET_REFC(priv)->refc_l == 0);
 	gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL == 0);
 
-	/* for bug 1124:
-	if (!FH_TAILQ_EMPTY(dead_head)) {
-	  unpin all regions on the dead list
-	  gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL > 0);
-	  return;
-	}
-	*/
+	/* bug 1124: unpin all/some !visible regions on the Fifo */
 
 	num_unpin = fh_WaitLocalFirehoses(1, &unpin_region);
 	if (num_unpin) {
@@ -797,9 +830,6 @@ fh_acquire_local_region(firehose_request_t *req)
     gasneti_assert(req->node == fh_mynode);
     gasneti_assert(req->len <= fhi_MaxRegionSize);
 
-    /* Make sure the size of the region respects the local limits */
-    gasneti_assert(FH_NUM_BUCKETS(req->addr, req->len)
-		    				<= fhc_MaxVictimBuckets);
     FH_TABLE_ASSERT_LOCKED;
 
 retry:
@@ -814,11 +844,7 @@ retry:
 
 	fhi_merge_regions(&pin_region);
 
-	/* for bug 1124:
-	if ((FHC_MAXVICTIM_BUCKETS_AVAIL == 0) && !FH_TAILQ_EMPTY(dead_head)) {
-	  unpin all regions on the dead list
-	}
-	*/
+	/* bug 1124: unpin all/some !visible regions on the Fifo */
 
 	num_unpin = fh_WaitLocalFirehoses(1, &unpin_region);
 	gasneti_assert ((num_unpin == 0) || (num_unpin == 1));
@@ -945,9 +971,6 @@ fh_acquire_remote_region(firehose_request_t *req,
 
     node = req->node;
 
-    /* Make sure the size of the region respects the remote limits */
-    gasneti_assert(FH_NUM_BUCKETS(req->addr, req->len)
-		    				<= fhc_RemoteBucketsM);
     FH_TABLE_ASSERT_LOCKED;
 
     priv = fhi_find_priv(node, req->addr, req->len);
@@ -962,6 +985,8 @@ fh_acquire_remote_region(firehose_request_t *req,
 
 	pin_region->addr = req->addr;
 	pin_region->len  = req->len;
+
+	/* bug 1124: unpin all/some !visible regions on the Fifo */
 
 	/* Acquire resources for the pinning */
 	if_pt (fhc_RemoteBucketsM > fhc_RemoteBucketsUsed[node]) {

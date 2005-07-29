@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/07/08 22:34:09 $
- * $Revision: 1.26 $
+ *     $Date: 2005/07/29 21:16:25 $
+ * $Revision: 1.27 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -211,6 +211,7 @@ struct _firehose_private_t {
 	#ifdef FIREHOSE_REGION
 	size_t			len;
 	struct _fh_bucket_t	*bucket;	/* pointer to first bucket */
+	int			visible;
 
 	#ifdef FIREHOSE_CLIENT_T
 	firehose_client_t	client;
@@ -435,7 +436,7 @@ struct name {				\
 } while (0)
 #define FH_STAILQ_INIT(head)	FH_TAILQ_INIT(head)
 
-/* Double/singe list tail addition */
+/* Double/single list tail addition */
 #define FH_TAILQ_INSERT_TAIL(head, elem) do {				\
 	FH_TAILQ_NEXT(elem) = NULL;					\
 	FH_TAILQ_PREV(elem) = FH_TAILQ_LAST(head);			\
@@ -448,6 +449,16 @@ struct name {				\
 	FH_STAILQ_LAST(head) = &FH_STAILQ_NEXT(elem);			\
 } while (0)
 
+/* Double/single list head addition */
+#define FH_TAILQ_INSERT_HEAD(head, elem) do {				\
+	if ((FH_TAILQ_NEXT(elem) = FH_TAILQ_FIRST(head)) == NULL)	\
+		FH_TAILQ_LAST(head) = &FH_TAILQ_NEXT(elem);		\
+	else                                                            \
+		FH_TAILQ_PREV(FH_TAILQ_FIRST(head)) =			\
+			&FH_TAILQ_NEXT(elem);				\
+	FH_TAILQ_FIRST(head) = (elem);					\
+	FH_TAILQ_PREV(elem) = &FH_TAILQ_FIRST(head);			\
+} while (0)
 #define FH_STAILQ_INSERT_HEAD(head, elem) do {				\
 	if ((FH_STAILQ_NEXT(elem) = FH_STAILQ_FIRST(head)) == NULL)	\
 		FH_STAILQ_LAST(head) = &FH_STAILQ_NEXT(elem);		\

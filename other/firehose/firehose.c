@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2005/07/08 22:34:09 $
- * $Revision: 1.23 $
+ *     $Date: 2005/07/29 21:16:25 $
+ * $Revision: 1.24 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -896,7 +896,12 @@ fh_priv_release_local(int local_ref, firehose_private_t *entry)
 	/* As a result, the bucket may be unused */
 	if (rp->refc_r == 0 && rp->refc_l == 0) {
 		/* Have entered state "B" (FIFO) */
-		FH_TAILQ_INSERT_TAIL(&fh_LocalFifo, entry);
+		#ifdef FIREHOSE_REGION
+		if (!entry->visible)
+		    FH_TAILQ_INSERT_HEAD(&fh_LocalFifo, entry);
+		else
+		#endif
+		    FH_TAILQ_INSERT_TAIL(&fh_LocalFifo, entry);
 
 		/* We must inc LOnly if coming from state "E" */
 		fhc_LocalOnlyBucketsPinned += !local_ref;
@@ -936,7 +941,12 @@ fh_priv_release_remote(gasnet_node_t node, firehose_private_t *entry)
 	rp->refc_r--;
 
 	if (rp->refc_r == 0) {
-		FH_TAILQ_INSERT_TAIL(&fh_RemoteNodeFifo[node], entry);
+		#ifdef FIREHOSE_REGION
+		if (!entry->visible)
+		    FH_TAILQ_INSERT_HEAD(&fh_RemoteNodeFifo[node], entry);
+		else
+		#endif
+		    FH_TAILQ_INSERT_TAIL(&fh_RemoteNodeFifo[node], entry);
 
 		fhc_RemoteVictimFifoBuckets[node]++;
 
@@ -1009,6 +1019,7 @@ fh_WaitLocalFirehoses(int count, firehose_region_t *region)
 			fhc_LocalOnlyBucketsPinned += b_avail;
 			b_remain -= b_avail;
 		}
+
 	}
 
 	gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL >= 0);
