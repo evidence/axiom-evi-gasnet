@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2005/07/29 01:19:32 $
- * $Revision: 1.10 $
+ *     $Date: 2005/07/30 12:15:38 $
+ * $Revision: 1.11 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -218,6 +218,14 @@ _BARRIER_PAD(n1);
 static long volatile		    barrier_notify_ctr[2] = { 0, 0 };
 static gasnete_barrier_state_t	    barrier_state[2];
 
+static void gasnete_barrier_broadcastmismatch() {
+  int i;
+  for (i=0; i < gasneti_nodes; i++) 
+    *((int *)shmem_ptr(&barrier_mismatch[barrier_phase], i)) = 1;
+  shmem_quiet();
+  gasneti_local_wmb();
+}
+
 extern void
 gasnete_barrier_notify(int id, int flags)
 {
@@ -239,10 +247,7 @@ gasnete_barrier_notify(int id, int flags)
      * Client-initiated mismatch -- broadcast to the mismatch flag.  Operation
      * is in a failure, non-optimized code path.
      */
-    if (flags & GASNET_BARRIERFLAG_MISMATCH) {
-	for (i=0; i < gasneti_nodes; i++) 
-	    *((int *)shmem_ptr(&barrier_mismatch[barrier_phase], i)) = 1;
-    }
+    if (flags & GASNET_BARRIERFLAG_MISMATCH) gasnete_barrier_broadcastmismatch();
     else if (!(flags & GASNET_BARRIERFLAG_ANONYMOUS)) {
 	#ifdef CRAYX1
 	    curval = _amo_acswap(
@@ -256,10 +261,7 @@ gasnete_barrier_notify(int id, int flags)
 	 * Value mismatch -- broadcast to the mismatch flag. Operation is in a
 	 * failure, non-optimized path.
 	 */
-	if_pf (curval != BARRIER_INITVAL && curval != id) {
-	    for (i=0; i < gasneti_nodes; i++)
-		*((int *)shmem_ptr(&barrier_mismatch[barrier_phase], i)) = 1;
-	}
+	if_pf (curval != BARRIER_INITVAL && curval != id) gasnete_barrier_broadcastmismatch();
     }
 	
     /* Atomic increment at node 0 */
