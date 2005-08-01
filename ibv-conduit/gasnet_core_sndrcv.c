@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/07/14 22:21:33 $
- * $Revision: 1.121 $
+ *     $Date: 2005/08/01 20:36:21 $
+ * $Revision: 1.122 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1792,6 +1792,7 @@ void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq, const firehose_request_t *fh_re
   GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
   gasnetc_counter_t *mem_oust;
 
+  gasneti_assert(fh_rem != NULL);
   gasneti_assert(sreq->fh_rem_addr >= fh_rem->addr);
   gasneti_assert(sreq->fh_rem_addr + (len - 1) <= fh_rem->addr + (fh_rem->len - 1));
 
@@ -1912,7 +1913,10 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq, VAPI_wr_opcode_t op) {
   gasnetc_snd_post(sreq, sr_desc);
 }
 
-static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq, const firehose_request_t *fh_rem, size_t nbytes) {
+static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq) {
+  const firehose_request_t *fh_rem = sreq->fh_ptr[0];
+  const size_t nbytes = sreq->fh_len;
+
   if (nbytes <= gasnetc_inline_limit) {
     /* Inline when small enough */
     GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, nbytes);
@@ -1930,6 +1934,10 @@ static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq, const firehose_request_t *fh
   gasnetc_counter_dec_if(sreq->fh_oust);
 }
 
+#define gasnetc_sreq_is_ready(S) \
+	(gasneti_sync_writes(),	\
+	 gasneti_weakatomic_decrement_and_test(&((S)->fh_ready)))
+
 static void gasnetc_fh_put_cb(void *context, const firehose_request_t *fh_rem, int allLocalHit) {
   gasnetc_sreq_t *sreq = context;
 
@@ -1943,9 +1951,11 @@ static void gasnetc_fh_put_cb(void *context, const firehose_request_t *fh_rem, i
   }
   #endif
 
+  gasneti_assert(fh_rem != NULL);
   sreq->fh_ptr[0] = fh_rem;
-  if (gasneti_weakatomic_decrement_and_test(&sreq->fh_ready)) {
-    gasnetc_fh_do_put(sreq, fh_rem, sreq->fh_len);
+
+  if (gasnetc_sreq_is_ready(sreq)) {
+    gasnetc_fh_do_put(sreq);
   }
 }
 
@@ -1958,7 +1968,8 @@ static void gasnetc_fh_get_cb(void *context, const firehose_request_t *fh_rem, i
   gasnetc_sreq_t *sreq = context;
 
   sreq->fh_ptr[0] = fh_rem;
-  if (gasneti_weakatomic_decrement_and_test(&sreq->fh_ready)) {
+
+  if (gasnetc_sreq_is_ready(sreq)) {
     gasnetc_fh_do_get(sreq);
   }
 
@@ -2039,8 +2050,8 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
   }
   sreq->fh_len = len;
 
-  if ((fh_rem != NULL) || gasneti_weakatomic_decrement_and_test(&sreq->fh_ready)) {
-    gasnetc_fh_do_put(sreq, fh_rem, len);
+  if ((fh_rem != NULL) || gasnetc_sreq_is_ready(sreq)) {
+    gasnetc_fh_do_put(sreq);
   }
 
   return len;
@@ -2083,7 +2094,7 @@ int gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
   len = gasnetc_get_local_fh(sreq, loc_addr, len);
   sreq->fh_len = len;
 
-  if ((fh_rem != NULL) || gasneti_weakatomic_decrement_and_test(&sreq->fh_ready)) {
+  if ((fh_rem != NULL) || gasnetc_sreq_is_ready(sreq)) {
     gasnetc_fh_do_get(sreq);
   }
 
