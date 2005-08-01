@@ -8,7 +8,7 @@
 
 CC='cc' ; export CC  # vanilla target C compiler
 #CXX='CC -hinstantiate=local' ; export CXX  # vanilla target C++ compiler
-CXX='/usr/bin/g++' ; export CXX  # host C++ compiler
+CXX='g++' ; export CXX  # host C++ compiler
 
 # Optional additional settings: (see configure --help for complete list)
 
@@ -21,7 +21,7 @@ EXTRA_CONFIGURE_ARGS='--disable-udp'
 # Host C compiler
 # NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/ 
 # in your environment to get the correct assembler for gcc
-HOST_CC="/usr/bin/gcc" ; export HOST_CC
+HOST_CC="gcc" ; export HOST_CC
 HOST_CFLAGS="-g -O2" ; export HOST_CFLAGS
 
 # 2. Fill in the canonical target machine type. You can usually obtain this
