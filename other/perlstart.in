@@ -1,7 +1,7 @@
 # @configure_input@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/perlstart.in,v $
-#     $Date: 2005/07/11 11:13:49 $
-# $Revision: 1.12 $
+#     $Date: 2005/08/01 21:17:38 $
+# $Revision: 1.13 $
 # Description: 
 # Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -18,22 +18,38 @@
 
 scriptname=$0
 
+perl='@PERL@'
+perlopts='@GASNET_PERL_BYTESFLAG@'
 readlink='@READLINK@'
 dirname='@DIRNAME@'
 basename='@BASENAME@'
+pwd_prog='@PWD_PROG@'
+awk='@AWK@'
 
-# written carefully to still work if readlink is missing
-if test -x "$readlink" ; then
+# written carefully to still work if readlink is missing or broken
+if test -x "$readlink" -a "`$readlink / 2>&1 > /dev/null`" = ""; then
   link=`$readlink ${scriptname}`
 else
-  link=`/bin/ls -al ${scriptname} | @AWK@ 'BEGIN{FS=">"}{split($2,A," ") ; print A[1]}'`
+  readlink=
+  if test ! -x "$awk" -o "`$awk '{}' /dev/null 2>&1`" != ""; then
+    awk=awk
+  fi
+  link=`/bin/ls -al ${scriptname} | $awk 'BEGIN{FS=">"}{split($2,A," ") ; print A[1]}'`
 fi
 # fall back on versions in PATH if our hard-coded ones disappear
-if test ! -x "$dirname" -a "`dirname foo/bar`" = "foo" ; then
+# carefully detect stderr output
+if test ! -x "$dirname" -o "`dirname foo/bar 2>&1`" != "foo" ; then
   dirname=dirname
 fi
-if test ! -x "$basename" -a "`basename foo/bar`" = "bar" ; then
+if test ! -x "$basename" -o "`basename foo/bar 2>&1`" != "bar" ; then
   basename=basename
+fi
+if test ! -x "$pwd_prog" -o "`$pwd_prog 2>&1 > /dev/null`" != "" ; then
+  pwd_prog=pwd
+fi
+if test ! -x "$perl" -o "`$perl -v 2>&1 > /dev/null`" != "" ; then
+  perl=perl
+  perlopts=
 fi
 
 # be sure to follow any symbolic links to reach the location
@@ -46,7 +62,7 @@ while  test "$link" && \
   newpath="$link";
   newdir=`"$dirname" ${newpath}`;
   newname=`"$basename" ${newpath}`;
-  dir=`cd ${dir} >/dev/null 2>&1; cd ${newdir} >/dev/null 2>&1; @PWD_PROG@`;
+  dir=`cd ${dir} >/dev/null 2>&1; cd ${newdir} >/dev/null 2>&1; $pwd_prog`;
   scriptname="${dir}/${newname}";
 
   oldlink="$link"
@@ -64,9 +80,9 @@ done
 
 # be sure we always use a full path
 dir=`"$dirname" ${scriptname}`;
-scriptname=`cd ${dir} >/dev/null 2>&1; @PWD_PROG@`/`"$basename" ${scriptname}`;
+scriptname=`cd ${dir} >/dev/null 2>&1; $pwd_prog`/`"$basename" ${scriptname}`;
 
-exec '@PERL@' @GASNET_PERL_BYTESFLAG@ $PERLSTART_FLAGS "${scriptname}.pl" "$@"
+exec $perl $perlopts $PERLSTART_FLAGS "${scriptname}.pl" "$@"
 
 echo "${scriptname}: exec failed." >&2
 exit 1
