@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_help_extra.h,v $
- *     $Date: 2005/07/29 01:19:32 $
- * $Revision: 1.1 $
+ *     $Date: 2005/08/02 11:08:24 $
+ * $Revision: 1.2 $
  * Description: GASNet Extended Shmem-specific Header 
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,8 +18,8 @@
 
 #include <string.h> /* memcpy */
 
-#ifndef _GASNET_EXTENDED_SHMEM_H
-#define _GASNET_EXTENDED_SHMEM_H
+#ifndef _GASNET_EXTENDED_HELP_EXTRA_H
+#define _GASNET_EXTENDED_HELP_EXTRA_H
 
 /*
  * Defining GASNETE_NBISYNC_ALWAYS_QUIET causes a quiet to be generated at
@@ -444,7 +444,7 @@ _gasnete_try_syncnb(gasnet_handle_t handle)
 }
 #define gasnete_try_syncnb(handle)	_gasnete_try_syncnb(handle)
 
-GASNET_INLINE_MODIFIER(_gasnete_try_syncnb)
+GASNET_INLINE_MODIFIER(_gasnete_try_syncnb_some)
 _gasnete_try_syncnb_some(gasnet_handle_t *phandle, size_t numhandles) 
 {
     int success = 0;
@@ -518,7 +518,7 @@ _gasnete_try_syncnb_some(gasnet_handle_t *phandle, size_t numhandles)
 #endif
 
 #ifdef GASNETE_GLOBAL_ADDRESS
-GASNET_INLINE_MODIFIER(gasnete_get_nb_val)
+GASNET_INLINE_MODIFIER(_gasnete_get_nb_val)
 gasnet_valget_handle_t 
 _gasnete_get_nb_val(gasnet_node_t node, void *src, 
 		   size_t nbytes) 
@@ -632,7 +632,7 @@ gasnete_get_nb_val(gasnet_node_t node, void *src,
   ====================================
 */
 #ifdef GASNETE_GLOBAL_ADDRESS
-GASNET_INLINE_MODIFIER(gasnet_put_val_inner)
+GASNET_INLINE_MODIFIER(gasnete_put_val_inner)
 void 
 gasnete_put_val_inner(gasnet_node_t node, void *dest, 
 		      gasnet_register_value_t value, 
@@ -662,7 +662,7 @@ gasnete_put_val_inner(gasnet_node_t node, void *dest,
     return;
 }
 #else
-GASNET_INLINE_MODIFIER(gasnet_put_val_inner)
+GASNET_INLINE_MODIFIER(gasnete_put_val_inner)
 void 
 gasnete_put_val_inner(gasnet_node_t node, void *dest, 
 		      gasnet_register_value_t value, 
@@ -694,7 +694,7 @@ gasnete_put_val_inner(gasnet_node_t node, void *dest,
 }
 #endif
 
-GASNET_INLINE_MODIFIER(gasnete_put_val)
+GASNET_INLINE_MODIFIER(_gasnete_put_val)
 void 
 _gasnete_put_val(gasnet_node_t node, void *dest, gasnet_register_value_t value, 
 		size_t nbytes)
@@ -705,7 +705,7 @@ _gasnete_put_val(gasnet_node_t node, void *dest, gasnet_register_value_t value,
 }
 #define gasnete_put_val _gasnete_put_val
 
-GASNET_INLINE_MODIFIER(gasnete_put_nb_val)
+GASNET_INLINE_MODIFIER(_gasnete_put_nb_val)
 gasnet_handle_t 
 _gasnete_put_nb_val(gasnet_node_t node, void *dest, gasnet_register_value_t value, 
 		    size_t nbytes)
@@ -715,7 +715,7 @@ _gasnete_put_nb_val(gasnet_node_t node, void *dest, gasnet_register_value_t valu
 }
 #define gasnete_put_nb_val _gasnete_put_nb_val 
 
-GASNET_INLINE_MODIFIER(gasnete_put_nb_val)
+GASNET_INLINE_MODIFIER(_gasnete_put_nbi_val)
 void 
 _gasnete_put_nbi_val(gasnet_node_t node, void *dest, 
 		    gasnet_register_value_t value, 
