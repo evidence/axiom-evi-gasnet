@@ -29,9 +29,10 @@ Recognized environment variables:
 
 * All the standard GASNet environment variables (see top-level README)
 
-* GASNET_SHMEM_QDEPTH
+* GASNET_NETWORKDEPTH
   Can be set to a any power of 2, smaller or equal to 256 and constitutes the
-  queue depth set aside for GASNet core AM operations.
+  queue depth set aside for incoming GASNet core AM requests from all nodes
+  that can be queued at a given node without blocking.
 
 * GASNET_SHMEM_DEBUGALLOC
   Set to 1 to output shmem allocation debug information (such as which

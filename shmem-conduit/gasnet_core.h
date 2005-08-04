@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.h,v $
- *     $Date: 2005/08/02 11:08:24 $
- * $Revision: 1.9 $
+ *     $Date: 2005/08/04 13:51:25 $
+ * $Revision: 1.10 $
  * Description: GASNet header for shmem conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -129,7 +129,7 @@ typedef struct _gasnet_hsl_t {
 #define GASNETC_MAX_ARGS             16
 #define GASNETC_MAX_MEDIUM          512
 #define GASNETC_MAX_MEDIUM_TOTAL    (GASNETC_MAX_MEDIUM + GASNETC_MED_HEADERSZ \
-				     + 4*GASNETC_MAX_ARGS)
+				     + 4*(GASNETC_MAX_ARGS))
 #define GASNETC_MAX_LONG            ((size_t)0x7fffffff) /* unlimited */
 
 #define gasnet_AMMaxArgs()          ((size_t)GASNETC_MAX_ARGS)
@@ -142,9 +142,7 @@ typedef struct _gasnet_hsl_t {
   ==============================
 */
 extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex);
-extern int gasnetc_AMPoll();
 
-#define gasnet_AMPoll          gasnetc_AMPoll
 #define gasnet_AMGetMsgSource  gasnetc_AMGetMsgSource
 
 #define GASNET_BLOCKUNTIL(cond) gasneti_polluntil(cond)
@@ -206,4 +204,3 @@ END_EXTERNC
 #endif
 
 #include <gasnet_ammacros.h>
-

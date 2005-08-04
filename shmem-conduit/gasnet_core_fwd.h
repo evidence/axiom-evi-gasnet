@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2005/07/29 01:19:32 $
- * $Revision: 1.7 $
+ *     $Date: 2005/08/04 13:51:25 $
+ * $Revision: 1.8 $
  * Description: GASNet header for shmem conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -60,5 +60,9 @@ typedef uintptr_t    gasnet_token_t;
   #define GASNETI_AUXSEG_PRESERVE_POW2_FULLSEGSZ 1
   #define GASNETI_FORCE_CLIENTSEG_TO_BASE 1
 #endif
+
+#define GASNETI_GASNETC_AMPOLL
+extern int _gasnetc_AMPoll(int replyonly);
+#define gasnetc_AMPoll()   _gasnetc_AMPoll(0)
 
 #endif

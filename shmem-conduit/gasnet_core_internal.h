@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/02/18 13:32:25 $
- * $Revision: 1.8 $
+ *     $Date: 2005/08/04 13:51:25 $
+ * $Revision: 1.9 $
  * Description: GASNet shmem conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -118,15 +118,18 @@ extern intptr_t		*gasnetc_segment_shptr_off;
 /*
  * AMQUEUE DEPTH and maximum sizes
  */
-#define GASNETC_AMQUEUE_DEFAULT_DEPTH	64
+#ifdef CRAYX1
+  #define GASNETC_AMQUEUE_DEFAULT_DEPTH 32 /* allow polling with a single bitfield load */
+#else
+  #define GASNETC_AMQUEUE_DEFAULT_DEPTH 64
+#endif
 #define GASNETC_AMQUEUE_MAX_DEPTH	256
-#define GASNETC_AMQUEUE_MAX_FIELDS	(GASNETC_AMQUEUE_MAX_DEPTH/sizeof(uintptr_t))
+#define GASNETC_AMQUEUE_MAX_FIELDS	(2*GASNETC_AMQUEUE_MAX_DEPTH/sizeof(uintptr_t))
 #define GASNETC_AMQUEUE_FREE_S		0
 #define GASNETC_AMQUEUE_USED_S		1
 #define GASNETC_AMQUEUE_DONE_S		2
 
-#define GASNETC_POW_2(n)		(!((n)&((n)-1)))
-#define GASNETC_AMQUEUE_SIZE_VALID(q)	(GASNETC_POW_2(q) && (q)>1 && \
+#define GASNETC_AMQUEUE_SIZE_VALID(q)	(GASNETI_POWEROFTWO(q) && (q)>1 && \
 					    (q)<=GASNETC_AMQUEUE_MAX_DEPTH)
 
 /*
@@ -181,66 +184,47 @@ struct _gasnetc_am_header
 }
 gasnetc_am_header_t;
 
-extern int  gasnetc_amq_idx;
+extern int  gasnetc_amq_idx[2]; /* request, reply */
 extern int  gasnetc_amq_depth;
 extern int  gasnetc_amq_mask;
 
-extern gasnetc_am_packet_t  gasnetc_amq_reqs[GASNETC_AMQUEUE_MAX_DEPTH];
+extern gasnetc_am_packet_t  gasnetc_amq_reqs[2*GASNETC_AMQUEUE_MAX_DEPTH];
 
 #ifdef CRAY_SHMEM
 extern volatile long	gasnetc_amq_reqfields[GASNETC_AMQUEUE_MAX_FIELDS];
 extern long		gasnetc_amq_numfields;
 #endif
 
-GASNET_INLINE_MODIFIER(gasnetc_AMQueueRequest)
-int gasnetc_AMQueueRequest(gasnet_node_t pe)
-{
+GASNET_INLINE_MODIFIER(gasnetc_AMQueueAcquire)
+int gasnetc_AMQueueAcquire(gasnet_node_t pe, int reqrep) {
     int	idx;
+    const int isreply = (reqrep == GASNETC_REPLY_T);
 
     #ifdef QUADRICS_SHMEM
-        idx = random() & gasnetc_amq_mask;
+      idx = random() & gasnetc_amq_mask;
     #else
-        idx = shmem_int_finc(&gasnetc_amq_idx, (int) pe) & gasnetc_amq_mask;
+      idx = shmem_int_finc(&gasnetc_amq_idx[isreply], (int) pe) & gasnetc_amq_mask;
     #endif
+    if (isreply) idx += gasnetc_amq_depth;
 
     /* Once we have the ID, cswap until the selected slot is free  */
 
     while (shmem_int_cswap(&gasnetc_amq_reqs[idx].state, 
 	    GASNETC_AMQUEUE_FREE_S, GASNETC_AMQUEUE_USED_S, (int) pe) 
-	    != GASNETC_AMQUEUE_FREE_S)
-	gasnetc_AMPoll();
-
+            != GASNETC_AMQUEUE_FREE_S) {
+        /* while queuing a reply, we must drain incoming replies to prevent deadlock
+           also, it is *only* safe to run reply handlers here, otherwise the 
+           progress engine might erroneously try to re-execute the request already being run
+         */
+	_gasnetc_AMPoll(isreply);
+    }
     return idx;
 }
-
-/*
- * AMQueueReply is exactly like AMQueueRequest, but it doesn't Poll.
- */
-GASNET_INLINE_MODIFIER(gasnetc_AMQueueReply)
-int gasnetc_AMQueueReply(gasnet_node_t pe)
-{
-    int	idx;
-
-    #ifdef QUADRICS_SHMEM
-    idx = random() & gasnetc_amq_mask;
-    #else /* ! QUADRICS_SHMEM */
-    idx = shmem_int_finc(&gasnetc_amq_idx, (int) pe) & gasnetc_amq_mask;
-    #endif
-
-    /* Once we have the ID, cswap until the selected slot is free  */
-    while (shmem_int_cswap(&gasnetc_amq_reqs[idx].state, 
-	    GASNETC_AMQUEUE_FREE_S, GASNETC_AMQUEUE_USED_S, (int) pe) 
-	    != GASNETC_AMQUEUE_FREE_S)
-	{}
-
-    return idx;
-}
-
 
 GASNET_INLINE_MODIFIER(gasnetc_AMQueueRelease)
 void gasnetc_AMQueueRelease(gasnet_node_t pe, int idx)
 {
-    #ifdef CRAY_SHMEM
+  #ifdef CRAY_SHMEM
     /*
      * We are trying to find to which id in the bitvector the current idx will
      * map to.  For a long of 64 bits, bits map to bit vector indeces as
@@ -264,18 +248,18 @@ void gasnetc_AMQueueRelease(gasnet_node_t pe, int idx)
     field_no = (unsigned long) idx >> 6;
     field_mask = 0x8000000000000000ul >> (idx & 63);
 
-    gasneti_assert(idx >= 0 && idx < gasnetc_amq_depth);
+    gasneti_assert(idx >= 0 && idx < 2*gasnetc_amq_depth);
     gasneti_assert(field_no >= 0 && field_no < GASNETC_AMQUEUE_MAX_FIELDS);
 
     shmem_long_mswap((long *) &gasnetc_amq_reqfields[field_no], 
 		     field_mask, field_mask, pe);
 
-    #else /* ! CRAY_SHMEM */
-    gasneti_assert(idx >= 0 && idx < gasnetc_amq_depth);
+  #else /* ! CRAY_SHMEM */
+    gasneti_assert(idx >= 0 && idx < 2*gasnetc_amq_depth);
     gasneti_assert(sizeof(int) == sizeof(uint32_t));
     shmem_int_p(&(gasnetc_amq_reqs[idx].state), 
 		GASNETC_AMQUEUE_DONE_S, (int) pe);
-    #endif
+  #endif
 
     return;
 }

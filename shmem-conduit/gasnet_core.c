@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/29 07:51:35 $
- * $Revision: 1.20 $
+ *     $Date: 2005/08/04 13:51:25 $
+ * $Revision: 1.21 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -34,13 +34,14 @@ int			 gasnetc_seginfo_allocated = 0;
 size_t			 gasnetc_pagesize;
 pid_t                   *gasnetc_pid = NULL;
 
-int  gasnetc_amq_idx = 0;
+int  gasnetc_amq_idx[2] = { 0, 0 }; /* request, reply */
 int  gasnetc_amq_depth = -1;	/* max is GASNETC_AMQUEUE_MAX_DEPTH */
+int  gasnetc_amq_depth_log2;
 int  gasnetc_amq_mask;
 
 int  gasnetc_verbose_spawn = 0;
 
-gasnetc_am_packet_t  gasnetc_amq_reqs[GASNETC_AMQUEUE_MAX_DEPTH];
+gasnetc_am_packet_t  gasnetc_amq_reqs[2*GASNETC_AMQUEUE_MAX_DEPTH];
 
 #ifdef CRAY_SHMEM
   volatile long	gasnetc_amq_reqfields[GASNETC_AMQUEUE_MAX_FIELDS];
@@ -63,9 +64,13 @@ gasnetc_am_packet_t  gasnetc_amq_reqs[GASNETC_AMQUEUE_MAX_DEPTH];
 */
 /* called at startup to check configuration sanity */
 static void gasnetc_check_config() {
-  /* TODO ?? */
   /* add code to do some sanity checks on the number of nodes, handlers
    * and/or segment sizes */ 
+  /* ensure our AM buffer placement and sizes are 8-byte aligned */
+  gasneti_assert((void *)GASNETI_ALIGNUP(gasnetc_amq_reqs,8) == (void *)gasnetc_amq_reqs);
+  gasneti_assert((size_t)GASNETI_ALIGNUP(sizeof(gasnetc_amq_reqs[0]),8) == sizeof(gasnetc_amq_reqs[0]));
+  /* assert various other properties assumed for correct AM alignment */
+  gasneti_assert(sizeof(gasnetc_amq_reqs[0].state) == 4);
 }
 
 static void gasnetc_bootstrapBarrier() {
@@ -144,12 +149,17 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   /* setup queue depth once we have node id, for best env tracing */
   gasnetc_amq_depth = atoi(
-    gasneti_getenv_withdefault("GASNET_SHMEM_QDEPTH", _STRINGIFY(GASNETC_AMQUEUE_DEFAULT_DEPTH)));
+    gasneti_getenv_withdefault("GASNET_NETWORKDEPTH", _STRINGIFY(GASNETC_AMQUEUE_DEFAULT_DEPTH)));
   if (!GASNETC_AMQUEUE_SIZE_VALID(gasnetc_amq_depth))
       GASNETI_RETURN_ERRR(BAD_ARG, "Invalid QDepth parameter");
   gasnetc_amq_mask = (gasnetc_amq_depth-1);
-  #if CRAY_SHMEM
-    gasnetc_amq_numfields = (gasnetc_amq_depth+63)/64;
+  gasnetc_amq_depth_log2 = 0;
+  { int tmp = gasnetc_amq_mask; 
+    while (tmp) { gasnetc_amq_depth_log2++; tmp >>= 1; }
+    gasneti_assert((1<<gasnetc_amq_depth_log2) == gasnetc_amq_depth);
+  }
+  #ifdef CRAY_SHMEM
+    gasnetc_amq_numfields = GASNETI_ALIGNUP(2*gasnetc_amq_depth,64)/64;
   #endif
 
   gasnetc_pid = gasneti_malloc(gasneti_nodes*sizeof(pid_t));
@@ -663,11 +673,8 @@ gasnetc_AMProcess(gasnetc_am_header_t *hdr, uint32_t *args /* header */)
 	return;
 }
 
-#ifdef CRAYX1
-extern int
-gasnetc_AMPoll()
-{
-    int	    retval;
+#ifdef CRAY_SHMEM
+extern int _gasnetc_AMPoll(int replyonly) {
     int	    i;
     long    idx, bits, index, off, mask;
 
@@ -675,17 +682,16 @@ gasnetc_AMPoll()
 
     for (i = 0, off = 0; i < gasnetc_amq_numfields; i++, off += 64) {
 	
+        /* we use _amo_afax here although all we need is a simple load -
+           the rules for atomic ops require all access be through
+           the atomic interface to ensure proper cache coherence */
 	bits = _amo_afax((volatile unsigned long *) &gasnetc_amq_reqfields[i], 
 			 0xffffffffffffffff, 0);
-	if (bits == 0)
-		continue;
 
-	/*
-	 * Under Cray, we use the leadz intrinsics to process each field
-	 */
-	index = _leadz64(bits);
+        while (bits) {
+	    /* fetch the number of leading zeros in the field */
+	    index = _leadz64(bits);
 
-	do {
 	    /* map the (field no,idx) --> index */
 	    idx = index + off;
 
@@ -697,58 +703,118 @@ gasnetc_AMPoll()
 		amhdr.reqrep, amhdr.type, amhdr.numargs, 
 		amhdr.handler, amhdr.pe);
 
-	    gasnetc_AMProcess(&amhdr, &gasnetc_amq_reqs[idx].header);
+            if (!replyonly || amhdr.reqrep == GASNETC_REPLY_T) {
+	      gasnetc_AMProcess(&amhdr, &gasnetc_amq_reqs[idx].header);
 
-	    /* Mask off the index in the global bitfield */
-	    _amo_aax((volatile unsigned long *) &gasnetc_amq_reqfields[i], 
-		    ~mask, 0);
+	      /* Mask off the index in the global bitfield */
+	      _amo_aax((volatile unsigned long *) &gasnetc_amq_reqfields[i], 
+		      ~mask, 0);
 
-	    /* Mark the slot as free */
-	    gasnetc_amq_reqs[idx].state = GASNETC_AMQUEUE_FREE_S;
+	      /* Mark the slot as free */
+	      gasnetc_amq_reqs[idx].state = GASNETC_AMQUEUE_FREE_S;
+            }
 
 	    /* Mask off the index in the current bitfield */
 	    bits &= ~mask;
-	    index = _leadz64(bits);
-	}
-	while (index < 64);
+        }
     }
     return GASNET_OK;
 }
+#elif defined(SGI_SHMEM)
+extern int _gasnetc_AMPoll(int replyonly) {
+  static int serviced_gidx[2] = { 0, 0 };
+
+  GASNETI_CHECKATTACH();
+
+  /* take advantage of the fact that AM queue arbitration uses
+     an atomic increment with a modulus >>> max queue depth + max node count : 
+       each remote enqueue increments the gasnetc_amq_idx counter, 
+       and each local dequeue increments the serviced_gidx counter
+     if the two counters are equal, then we've serviced the same number of 
+       AM's that have ever been enqueued, and nothing can be pending
+     otherwise, some AM has arrived or is in the process of arriving and
+       poll operations need to scan for it until it is serviced
+     note this works correctly even with wraparound (no < or > comparisons)
+     also note we may service AM's in a different order than they were 
+       queued, because deliveries complete out of order with respect to enqueue,
+       and we sometimes dequeue AM's out of order - so the actual idx value
+       does not reliably tell us *which* slot needs serviced, only how many
+   */
+  /* service requests (optionally), then replies - we could safely use a loop with 
+     two iterations here, but manually unrolling the loop provides a measurable
+     improvement in unsuccessful poll time with Intel C
+   */
+
+  #define AMPOLL_SERVICE(ISREPLY) do {                                                               \
+      int const gidx = gasnetc_amq_idx[ISREPLY]; /* unmod-ed index we need to reach */               \
+      int idx = gidx;                                                                                \
+      int iters = gasnetc_amq_depth;                                                                 \
+      while (serviced_gidx[ISREPLY] != gidx && iters-- > 0) {                                        \
+        /* repeat until we've scanned all slots or nothing further is pending */                     \
+        idx = ((idx - 1) & gasnetc_amq_mask) + (ISREPLY ? gasnetc_amq_depth : 0);                    \
+        if (gasnetc_amq_reqs[idx].state == GASNETC_AMQUEUE_DONE_S) {                                 \
+            gasnetc_am_header_t amhdr;                                                               \
+            gasneti_local_rmb(); /* ensure we see updated contents after successful flag read */     \
+            GASNETC_AMHEADER_UNPACK(                                                                 \
+                gasnetc_amq_reqs[idx].header,                                                        \
+                amhdr.reqrep, amhdr.type, amhdr.numargs,                                             \
+                amhdr.handler, amhdr.pe);                                                            \
+            gasneti_assert((amhdr.reqrep==GASNETC_REPLY_T) == ISREPLY);                              \
+            gasneti_assert(!replyonly || (amhdr.reqrep==GASNETC_REPLY_T));                           \
+            gasnetc_AMProcess(&amhdr, &gasnetc_amq_reqs[idx].header);                                \
+                                                                                                     \
+            /* ensure any handler modifications to the med buf are committed before releasing buf */ \
+            if (amhdr.type == GASNETC_AMMED_T) gasneti_local_wmb();                                  \
+                                                                                                     \
+            gasnetc_amq_reqs[idx].state = GASNETC_AMQUEUE_FREE_S;                                    \
+            serviced_gidx[ISREPLY]++; /* serviced an AM */                                           \
+        }                                                                                            \
+      }                                                                                              \
+    } while (0)
+  if (!replyonly) AMPOLL_SERVICE(0); /* REQUESTS */
+  AMPOLL_SERVICE(1); /* REPLIES */
+  #undef AMPOLL_SERVICE
+
+  return GASNET_OK;
+}
 #else
 /* 
- * Unlike the Cray AMPoll, this (generic) poll has not been tuned yet.  It
+ * Unlike the Cray/SGI AMPoll, this (generic) poll has not been tuned yet.  It
  * currently cycles through every AM slot every time AMPoll is called.
  *
  */
-extern int 
-gasnetc_AMPoll() 
-{
-    int	    retval;
-    int	    iters = gasnetc_amq_depth;
-    int	    idx;
-    gasnetc_am_header_t	amhdr;
+extern int _gasnetc_AMPoll(int replyonly) {
+  int repoff = !!replyonly;
+  gasnetc_am_header_t amhdr;
 
-    GASNETI_CHECKATTACH();
+  GASNETI_CHECKATTACH();
 
-    idx = gasnetc_amq_idx & gasnetc_amq_mask;
+  for ( ; repoff < 2; repoff++) { /* service requests (optionally), then replies */
+    int idx = gasnetc_amq_idx[repoff];
+    int iters = gasnetc_amq_depth;
 
     while (iters-- > 0) {
-	if (gasnetc_amq_reqs[idx].state == GASNETC_AMQUEUE_DONE_S) {
-	    GASNETC_AMHEADER_UNPACK(
-		gasnetc_amq_reqs[idx].header,
-		amhdr.reqrep, amhdr.type, amhdr.numargs, 
-		amhdr.handler, amhdr.pe);
+      idx = ((idx - 1) & gasnetc_amq_mask) | (repoff << gasnetc_amq_depth_log2);
 
-	    gasnetc_AMProcess(&amhdr, &gasnetc_amq_reqs[idx].header);
+      if (gasnetc_amq_reqs[idx].state == GASNETC_AMQUEUE_DONE_S) {
+          gasneti_local_rmb(); /* ensure we see updated contents after successful flag read */
+          GASNETC_AMHEADER_UNPACK(
+              gasnetc_amq_reqs[idx].header,
+              amhdr.reqrep, amhdr.type, amhdr.numargs, 
+              amhdr.handler, amhdr.pe);
+          gasneti_assert((amhdr.reqrep==GASNETC_REPLY_T) == repoff);
+          gasneti_assert(!replyonly || (amhdr.reqrep==GASNETC_REPLY_T));
+          gasnetc_AMProcess(&amhdr, &gasnetc_amq_reqs[idx].header);
 
-	    gasnetc_amq_reqs[idx].state = GASNETC_AMQUEUE_FREE_S;
+          /* ensure any handler modifications to the med buf are committed before releasing buf */
+          if (amhdr.type == GASNETC_AMMED_T) gasneti_local_wmb();
 
-	}
-
-	idx = (idx - 1) & gasnetc_amq_mask;
+          gasnetc_amq_reqs[idx].state = GASNETC_AMQUEUE_FREE_S;
+      }
     }
+  }
 
-    return GASNET_OK;
+  return GASNET_OK;
 }
 #endif
 
@@ -762,8 +828,7 @@ extern int gasnetc_AMRequestShortM(
                             gasnet_node_t dest,       /* destination node */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             int numargs, ...) {
-  int retval, myidx, i;
-  size_t    len;
+  int retval, i;
   va_list argptr;
   gasnetc_am_stub_t   _amstub;
   uint32_t  *args;
@@ -774,7 +839,7 @@ extern int gasnetc_AMRequestShortM(
   gasneti_AMPoll();
 
 #if 0 && defined(CRAYX1)
-  myidx = gasnetc_AMQueueRequest(dest);
+  myidx = gasnetc_AMQueueAcquire(dest, GASNETC_REQUEST_T);
 
   args = (uint32_t *) shmem_ptr(&gasnetc_amq_reqs[myidx].header, dest);
   args[0] = GASNETC_AMHEADER_PACK(
@@ -794,20 +859,25 @@ extern int gasnetc_AMRequestShortM(
   GASNETC_VECTORIZE
   for (i = 1; i <= numargs; i++)
 	  _amstub.args[i] = (gasnet_handlerarg_t)va_arg(argptr, uint32_t);
-  len = GASNETC_SHORT_HEADERSZ + 4 * numargs;
 
-  /* Get a slot in shared AMQueue */
-  myidx = gasnetc_AMQueueRequest(dest);
+  if (dest == gasneti_mynode) { /* loopback */
+    static gasnetc_am_header_t amhdr = { GASNETC_REQUEST_T, GASNETC_AMSHORT_T };
+    amhdr.numargs = numargs; amhdr.handler = handler; amhdr.pe = gasneti_mynode;
+    gasnetc_AMProcess(&amhdr, _amstub.args);
+  } else {
+    size_t const len = GASNETC_SHORT_HEADERSZ + 4 * numargs;
 
-  /* Put the header and arguments */
-  shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
-  shmem_fence();
+    /* Get a slot in shared AMQueue */
+    int const myidx = gasnetc_AMQueueAcquire(dest, GASNETC_REQUEST_T);;
 
+    /* Put the header and arguments */
+    shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
+    shmem_fence();
+
+    /* Release a slot in shared AMQueue */
+    gasnetc_AMQueueRelease(dest, myidx);
+  }
 #endif
-
-  /* Release a slot in shared AMQueue */
-  gasnetc_AMQueueRelease(dest, myidx);
-
   retval = GASNET_OK;
   va_end(argptr);
   GASNETI_RETURN(retval);
@@ -818,7 +888,7 @@ extern int gasnetc_AMRequestMediumM(
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
                             int numargs, ...) {
-  int retval, myidx, i;
+  int retval, i;
   size_t    len;
   va_list argptr;
   uint32_t *args, *pptr;
@@ -842,21 +912,34 @@ extern int gasnetc_AMRequestMediumM(
 	  args[i] = (gasnet_handlerarg_t)va_arg(argptr, uint32_t);
   len = GASNETC_MED_HEADERSZ + 4 * numargs;
 
-  /* Get a slot in shared AMQueue */
-  myidx = gasnetc_AMQueueRequest(dest);
+  if (dest == gasneti_mynode) { /* loopback */
+    static char	_payload[GASNETC_MAX_MEDIUM_TOTAL+8]; /* XXX: needs to be tweaked if we ever add pthread support */
+    static uint8_t *payload = NULL;
+    static gasnetc_am_header_t amhdr = { GASNETC_REQUEST_T, GASNETC_AMMED_T };
+    if_pf (!payload) { /* match the alignment of _gasnetc_am_packet.header */
+      payload = ((uint8_t *)GASNETI_ALIGNUP(&_payload[0],8))+4; 
+      amhdr.pe = gasneti_mynode; 
+    }
+    amhdr.numargs = numargs; amhdr.handler = handler; 
+    memcpy(payload, &_amstub, len);
+    memcpy(payload + len + (GASNETC_MEDHEADER_PADARG(numargs)<<2), source_addr, nbytes);
+    gasnetc_AMProcess(&amhdr, (uint32_t*)payload);
+  } else {
+    /* Get a slot in shared AMQueue */
+    int const myidx = gasnetc_AMQueueAcquire(dest, GASNETC_REQUEST_T);
 
-  /* Adjust payload pointer according to numargs */
-  pptr = (uint32_t *) &gasnetc_amq_reqs[myidx].payload + 1 + numargs +
-	    GASNETC_MEDHEADER_PADARG(numargs);
+    /* Adjust payload pointer according to numargs */
+    pptr = (uint32_t *) &gasnetc_amq_reqs[myidx].payload + numargs + 1 +
+	      GASNETC_MEDHEADER_PADARG(numargs);
 
-  /* Put the header and arguments, followed by payload and a fence */
-  shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
-  shmem_putmem(pptr, source_addr, nbytes, dest);
-  shmem_fence();
+    /* Put the header and arguments, followed by payload and a fence */
+    shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
+    shmem_putmem(pptr, source_addr, nbytes, dest);
+    shmem_fence();
 
-  /* Release a slot in shared AMQueue */
-  gasnetc_AMQueueRelease(dest, myidx);
-
+    /* Release a slot in shared AMQueue */
+    gasnetc_AMQueueRelease(dest, myidx);
+  }
   retval = GASNET_OK;
   va_end(argptr);
   GASNETI_RETURN(retval);
@@ -867,8 +950,7 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
                             void *source_addr, size_t nbytes,   /* data payload */
                             void *dest_addr,                    /* data destination on destination node */
                             int numargs, ...) {
-  int retval, myidx, i;
-  size_t    len;
+  int retval, i;
   va_list argptr;
   uint32_t *args, *pptr;
   gasnetc_am_stub_t   _amstub;
@@ -894,25 +976,31 @@ extern int gasnetc_AMRequestLongM( gasnet_node_t dest,        /* destination nod
   for (i = 0; i < numargs; i++)
 	  args[i] = (gasnet_handlerarg_t)va_arg(argptr, uint32_t);
 
-  len = GASNETC_LONG_HEADERSZ + 4 * numargs;
+  if (dest == gasneti_mynode) { /* loopback */
+    static gasnetc_am_header_t amhdr = { GASNETC_REQUEST_T, GASNETC_AMLONG_T };
+    amhdr.numargs = numargs; amhdr.handler = handler; amhdr.pe = gasneti_mynode;
+    memcpy(dest_addr, source_addr, nbytes);
+    gasnetc_AMProcess(&amhdr, _amstub.args);
+  } else {
+    size_t const len = GASNETC_LONG_HEADERSZ + 4 * numargs;
 
-  /* Get a slot in shared AMQueue */
-  myidx = gasnetc_AMQueueRequest(dest);
+    /* Get a slot in shared AMQueue */
+    int const myidx = gasnetc_AMQueueAcquire(dest, GASNETC_REQUEST_T);
 
-#if defined(GASNETC_GLOBAL_ADDRESS) && !defined(GASNET_SEGMENT_EVERYTHING)
-  memcpy(dest_addr, source_addr, nbytes);
-#else
-  shmem_putmem(dest_addr, source_addr, nbytes, dest);
-#endif
-  shmem_quiet();
-  /* Put the header and arguments, followed by payload and a fence */
-  shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
-  shmem_fence();
+  #if defined(GASNETC_GLOBAL_ADDRESS) && !defined(GASNET_SEGMENT_EVERYTHING)
+    memcpy(dest_addr, source_addr, nbytes);
+  #else
+    shmem_putmem(dest_addr, source_addr, nbytes, dest);
+  #endif
+    shmem_quiet();
+    /* Put the header and arguments, followed by payload and a fence */
+    shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
+    shmem_fence();
 
-  /* Release a slot in shared AMQueue */
-  gasnetc_AMQueueRelease(dest, myidx);
-
-    retval = GASNET_OK;
+    /* Release a slot in shared AMQueue */
+    gasnetc_AMQueueRelease(dest, myidx);
+  }
+  retval = GASNET_OK;
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -921,8 +1009,7 @@ extern int gasnetc_AMReplyShortM(
                             gasnet_token_t token,       /* token provided on handler entry */
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             int numargs, ...) {
-  int retval, myidx, i;
-  size_t    len;
+  int retval, i;
   va_list argptr;
   gasnet_node_t	dest;
   gasnetc_am_stub_t   _amstub;
@@ -940,18 +1027,23 @@ extern int gasnetc_AMReplyShortM(
 			numargs, handler, gasneti_mynode);
   for (i = 1; i <= numargs; i++)
 	  _amstub.args[i] = (gasnet_handlerarg_t)va_arg(argptr, uint32_t);
-  len = GASNETC_SHORT_HEADERSZ + 4 * numargs;
+  if (dest == gasneti_mynode) { /* loopback */
+    static gasnetc_am_header_t amhdr = { GASNETC_REPLY_T, GASNETC_AMSHORT_T };
+    amhdr.numargs = numargs; amhdr.handler = handler; amhdr.pe = gasneti_mynode;
+    gasnetc_AMProcess(&amhdr, _amstub.args);
+  } else {
+    size_t const len = GASNETC_SHORT_HEADERSZ + 4 * numargs;
 
-  /* Get a slot in shared AMQueue */
-  myidx = gasnetc_AMQueueReply(dest);
+    /* Get a slot in shared AMQueue */
+    int const myidx = gasnetc_AMQueueAcquire(dest, GASNETC_REPLY_T);
 
-  /* Put the header and arguments */
-  shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
-  shmem_fence();
+    /* Put the header and arguments */
+    shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
+    shmem_fence();
 
-  /* Release a slot in shared AMQueue */
-  gasnetc_AMQueueRelease(dest, myidx);
-
+    /* Release a slot in shared AMQueue */
+    gasnetc_AMQueueRelease(dest, myidx);
+  }
   retval = GASNET_OK;
   va_end(argptr);
   GASNETI_RETURN(retval);
@@ -962,7 +1054,7 @@ extern int gasnetc_AMReplyMediumM(
                             gasnet_handler_t handler, /* index into destination endpoint's handler table */ 
                             void *source_addr, size_t nbytes,   /* data payload */
                             int numargs, ...) {
-  int retval, i, myidx;
+  int retval, i;
   va_list argptr;
   uint32_t *args, *pptr;
   size_t    len;
@@ -986,22 +1078,35 @@ extern int gasnetc_AMReplyMediumM(
 	  args[i] = (uint32_t) (gasnet_handlerarg_t)va_arg(argptr, int);
   len = GASNETC_MED_HEADERSZ + 4 * numargs;
 
-  /* Get a slot in shared AMQueue */
-  myidx = gasnetc_AMQueueReply(dest);
+  if (dest == gasneti_mynode) { /* loopback */
+    static char	_payload[GASNETC_MAX_MEDIUM_TOTAL+12]; /* XXX: needs to be tweaked if we ever add pthread support */
+    static uint8_t *payload = NULL;
+    static gasnetc_am_header_t amhdr = { GASNETC_REPLY_T, GASNETC_AMMED_T };
+    if_pf (!payload) { /* match the alignment of _gasnetc_am_packet.header */
+      payload = ((uint8_t *)GASNETI_ALIGNUP(&_payload[0],8))+4; 
+      amhdr.pe = gasneti_mynode; 
+    }
+    amhdr.numargs = numargs; amhdr.handler = handler; 
+    memcpy(payload, &_amstub, len);
+    memcpy(payload + len + (GASNETC_MEDHEADER_PADARG(numargs)<<2), source_addr, nbytes);
+    gasnetc_AMProcess(&amhdr, (uint32_t*)payload);
+  } else {
+    /* Get a slot in shared AMQueue */
+    int const myidx = gasnetc_AMQueueAcquire(dest, GASNETC_REPLY_T);
 
-  /* Adjust payload pointer according to numargs */
-  pptr = (uint32_t *) &gasnetc_amq_reqs[myidx].payload + numargs + 1 +
-	    GASNETC_MEDHEADER_PADARG(numargs);
+    /* Adjust payload pointer according to numargs */
+    pptr = (uint32_t *) &gasnetc_amq_reqs[myidx].payload + numargs + 1 +
+	      GASNETC_MEDHEADER_PADARG(numargs);
 
-  /* Put the header and arguments, followed by payload and a fence */
-  shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
-  shmem_putmem(pptr, source_addr, nbytes, dest);
-  shmem_fence();
+    /* Put the header and arguments, followed by payload and a fence */
+    shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
+    shmem_putmem(pptr, source_addr, nbytes, dest);
+    shmem_fence();
 
-  /* Release a slot in shared AMQueue */
-  gasnetc_AMQueueRelease(dest, myidx);
-
-    retval = GASNET_OK;
+    /* Release a slot in shared AMQueue */
+    gasnetc_AMQueueRelease(dest, myidx);
+  }
+  retval = GASNET_OK;
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -1039,27 +1144,33 @@ extern int gasnetc_AMReplyLongM(
   for (i = 0; i < numargs; i++)
 	  args[i] = (gasnet_handlerarg_t)va_arg(argptr, uint32_t);
 
-  len = GASNETC_LONG_HEADERSZ + 4 * numargs;
+  if (dest == gasneti_mynode) { /* loopback */
+    static gasnetc_am_header_t amhdr = { GASNETC_REPLY_T, GASNETC_AMLONG_T };
+    amhdr.numargs = numargs; amhdr.handler = handler; amhdr.pe = gasneti_mynode;
+    memcpy(dest_addr, source_addr, nbytes);
+    gasnetc_AMProcess(&amhdr, _amstub.args);
+  } else {
+    size_t const len = GASNETC_LONG_HEADERSZ + 4 * numargs;
 
-  /* Get a slot in shared AMQueue */
-  myidx = gasnetc_AMQueueReply(dest);
+    /* Get a slot in shared AMQueue */
+    int const myidx = gasnetc_AMQueueAcquire(dest, GASNETC_REPLY_T);
 
-//#if defined(GASNETC_GLOBAL_ADDRESS) 
-#if defined(GASNETC_GLOBAL_ADDRESS) && !defined(GASNET_SEGMENT_EVERYTHING)
-  //&& !defined(GASNET_SEGMENT_EVERYTHING)
-  memcpy(dest_addr, source_addr, nbytes);
-#else
-  shmem_putmem(dest_addr, source_addr, nbytes, dest);
-#endif
-  shmem_quiet();
-  /* Put the header and arguments, followed by payload and a fence */
-  shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
-  shmem_fence();
+  //#if defined(GASNETC_GLOBAL_ADDRESS) 
+  #if defined(GASNETC_GLOBAL_ADDRESS) && !defined(GASNET_SEGMENT_EVERYTHING)
+    //&& !defined(GASNET_SEGMENT_EVERYTHING)
+    memcpy(dest_addr, source_addr, nbytes);
+  #else
+    shmem_putmem(dest_addr, source_addr, nbytes, dest);
+  #endif
+    shmem_quiet();
+    /* Put the header and arguments, followed by payload and a fence */
+    shmem_putmem(&gasnetc_amq_reqs[myidx].header, &_amstub, len, dest);
+    shmem_fence();
 
-  /* Release a slot in shared AMQueue */
-  gasnetc_AMQueueRelease(dest, myidx);
-
-    retval = GASNET_OK;
+    /* Release a slot in shared AMQueue */
+    gasnetc_AMQueueRelease(dest, myidx);
+  }
+  retval = GASNET_OK;
   va_end(argptr);
   GASNETI_RETURN(retval);
 }
@@ -1236,7 +1347,7 @@ gasnetc_SHMallocBinarySearch(size_t low, size_t high)
 }
 
 uintptr_t gasnetc_getMaxMem() {
-  #if CRAY_SHMEM
+  #ifdef CRAY_SHMEM
     return (uintptr_t)(64UL<<30);
   #else
     return gasneti_getPhysMemSz(1);
