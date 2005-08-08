@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/08 02:20:43 $
- * $Revision: 1.129 $
+ *     $Date: 2005/08/08 23:59:24 $
+ * $Revision: 1.130 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,8 +20,6 @@
   #include <sys/mman.h> /* For MAP_FAILED */
 #endif
  
-/* In firehose_internal.h */
-extern unsigned long fh_getenv(const char *var, unsigned long multiplier);
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
@@ -352,11 +350,12 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
       gasneti_fatalerror("ERROR: Failure to determine the max pinnable memory.  VAPI may be misconfigured.");
     }
 
-    /* May be possible to pin more than can be mmap()ed into a single region 
-       DOB: respect GASNETI_MMAP_LIMIT here, to allow user to set hard bound on seg size
+    /* May be possible to pin more than can be mmap()ed into a single region.
+     * Such memory will be used only by firehose. 
+     * XXX: according to bug 1175 we need a way to bound this search.
      */
     if (size == si.size) {
-      size += gasnetc_trypin_more(MIN(pages*GASNET_PAGESIZE,GASNETI_MMAP_LIMIT) - size, GASNETI_MMAP_GRANULARITY);
+      size += gasnetc_trypin_more(pages*GASNET_PAGESIZE - size, GASNETI_MMAP_GRANULARITY);
     }
     gasnetc_pin_info.memory_total = size;
     gasnetc_unpin(&reg);
@@ -390,7 +389,7 @@ static int gasnetc_load_settings(void) {
     gasneti_getenv_withdefault("GASNET_PORT_NUM", _STRINGIFY(GASNETC_DEFAULT_PORT_NUM)));
 
   #define GASNETC_ENVINT(program_var, env_key, default_val, minval, is_mem) do {     \
-      int _tmp = (int)gasneti_getenv_int_withdefault(#env_key, default_val, is_mem); \
+      int64_t _tmp = gasneti_getenv_int_withdefault(#env_key, default_val, is_mem);  \
       if (_tmp < minval)                                                             \
         GASNETI_RETURN_ERRR(BAD_ARG, "("#env_key" < "#minval") in environment");     \
       program_var = _tmp;                                                            \
@@ -410,10 +409,7 @@ static int gasnetc_load_settings(void) {
   #if GASNETC_PIN_SEGMENT
   { long tmp;
 
-    gasnetc_pin_maxsz = gasneti_getenv_int_withdefault("GASNET_PIN_MAXSZ", GASNETC_DEFAULT_PIN_MAXSZ, 1);
-    if (gasnetc_pin_maxsz < GASNET_PAGESIZE) {
-      GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_PIN_MAXSZ < GASNET_PAGESIZE) in environment");
-    }
+    GASNETC_ENVINT(gasnetc_pin_maxsz, GASNET_PIN_MAXSZ, GASNETC_DEFAULT_PIN_MAXSZ, GASNET_PAGESIZE, 1);
     if_pf (!GASNETI_POWEROFTWO(gasnetc_pin_maxsz)) {
       gasneti_fatalerror("GASNET_PIN_MAXSZ (%lu) is not a power of 2", gasnetc_pin_maxsz);
     }
