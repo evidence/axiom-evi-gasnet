@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2005/07/29 07:51:17 $
- * $Revision: 1.32 $
+ *     $Date: 2005/08/08 02:20:16 $
+ * $Revision: 1.33 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -190,6 +190,11 @@ extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz) {
   int mmaped = 0;
 
   maxsz = GASNETI_PAGE_ALIGNDOWN(maxsz);
+  if (maxsz == 0) {
+    si.size = 0;
+    si.addr = NULL;
+    return si;
+  }
   si.addr = gasneti_mmap(maxsz);
   if (si.addr != MAP_FAILED) { /* succeeded at max value - done */
     si.size = maxsz;
@@ -239,6 +244,35 @@ extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz) {
 }
 /* ------------------------------------------------------------------------------------ */
 #endif /* HAVE_MMAP */
+
+/* return user-selected limit for the max segment size, as gleaned from several sources */
+uint64_t gasnet_max_segsize; /* intentional tentative definition, to allow client override */
+uintptr_t _gasneti_max_segsize(uint64_t configure_val) {
+  static uintptr_t result = 0;
+  uint64_t tmp;
+  if (!result) {
+    char *p;
+    int is_dflt = 1;
+    /* start with the configure-selected default */
+    tmp = configure_val;
+    /* next, check the compile-time override */
+    if (gasnet_max_segsize) tmp = gasnet_max_segsize;
+    /* finally, check the environment override */
+    { const char *envstr = gasneti_getenv("GASNET_MAX_SEGSIZE");
+      if (envstr) { tmp = gasneti_parse_int(envstr, 1); is_dflt = 0; }
+    }
+    #ifdef GASNETI_PTR32
+      /* need to be careful about 32-bit overflow: hard limit is 2^32 - pagesz */
+      result = MIN(tmp,(uint32_t)-1);
+    #else
+      result = tmp;
+    #endif
+    result = (uintptr_t)GASNETI_PAGE_ALIGNDOWN(result); /* ensure page alignment */
+    result = MAX(GASNET_PAGESIZE, result); /* ensure at least one page */
+    gasneti_envint_display("GASNET_MAX_SEGSIZE", result, is_dflt, 1);
+  }
+  return result;
+}
 
 #if !GASNET_SEGMENT_EVERYTHING
 /* mmap-based segment init/attach */
@@ -345,14 +379,11 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
     #if GASNET_ALIGNED_SEGMENTS && !GASNET_CONDUIT_SMP
       #error bad config: dont know how to provide GASNET_ALIGNED_SEGMENTS when !HAVE_MMAP
     #endif
-    /* some systems don't support mmap - find a way to determine a true max seg sz */
-    if (localSegmentLimit < GASNETI_MAX_MALLOCSEGMENT_SZ) {
-      gasneti_MaxLocalSegmentSize =  localSegmentLimit;
-      gasneti_MaxGlobalSegmentSize = localSegmentLimit;
-    } else {
-      gasneti_MaxLocalSegmentSize =  GASNETI_PAGE_ALIGNUP(GASNETI_MAX_MALLOCSEGMENT_SZ);
-      gasneti_MaxGlobalSegmentSize = GASNETI_PAGE_ALIGNUP(GASNETI_MAX_MALLOCSEGMENT_SZ);
-    }
+    /* some systems don't support mmap - 
+       TODO: safe mechanism to determine a true max seg sz, 
+       for now just trust the GASNETI_MALLOCSEGMENT_LIMIT size */
+    gasneti_MaxLocalSegmentSize = GASNETI_PAGE_ALIGNDOWN(MIN(localSegmentLimit, GASNETI_MALLOCSEGMENT_LIMIT));
+    gasneti_MaxGlobalSegmentSize = gasneti_MaxLocalSegmentSize;
   #endif
   GASNETI_TRACE_PRINTF(C, ("MaxLocalSegmentSize = %lu   "
                      "MaxGlobalSegmentSize = %lu",

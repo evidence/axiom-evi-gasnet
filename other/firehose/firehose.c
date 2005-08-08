@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2005/07/29 21:16:25 $
- * $Revision: 1.24 $
+ *     $Date: 2005/08/08 02:20:34 $
+ * $Revision: 1.25 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -575,102 +575,13 @@ fh_request_free(firehose_request_t *req)
 /* 
  * fh_getenv()
  *
- * Firehose environement variables are units given 
+ * Read firehose environment variables, default to units given 
  *
  * Recognizes modifiers [Mm][Kk][Gg] in numbers 
  */ 
-unsigned long
-fh_getenv(const char *var, unsigned long multiplier)
-{
-        char	*env;
-        char	numbuf[32], c;
-        int	i;
-        double	num;
-
-        env = gasneti_getenv(var);
-
-        if (env == NULL || *env == '\0')
-                return 0;
-
-        memset(numbuf, '\0', 32);
-        for (i = 0; i < strlen(env) && i < 32; i++) {
-                c = env[i];
-                if ((c >= '0' && c <= '9') || c == '.')
-                        numbuf[i] = c;
-                else {  
-                        if (c == 'M' || c == 'm')
-                                multiplier = 1U<<20;
-                        else if (c == 'G' || c == 'g')
-                                multiplier = 1U<<30;
-                        else if (c == 'K' || c == 'k')
-                                multiplier = 1U<<10;
-			/* XXX this is only here for testing purposes */
-			else if (c == 'b')
-				multiplier = 1;
-                        break;
-                }
-        }
-        num = atof(numbuf);
-        num *= multiplier;
-
-        return (unsigned long) num;
-}
-
-/* 
- * fh_env_display()
- * fh_env_display_MB()
- *
- * For displaying firehose environement variables
- */ 
-void
-fh_env_display(const char *key, int val, int is_dflt)
-{   
-    char displayval[11];
-    const char *dflt = is_dflt ? "   (default)" : "";
-    int width;
-
-    snprintf(displayval, sizeof(displayval), "%d", val);
-    width = MAX(10,55 - strlen(key) - strlen(displayval));
-    fprintf(stderr, "ENV parameter: %s = %s%*s\n", key, displayval, width, dflt);
-    fflush(stderr);
-}
-
-void
-fh_env_display_MB(const char *key, uintptr_t val, int is_dflt)
-{   
-    char displayval[55];
-    const char *dflt = is_dflt ? "   (default)" : "";
-    const char *unit;
-    int width;
-    int divisor;
-
-    /* Try to strike a compromise between digits and round off */
-    #define FH_USE_DIV(val, div) \
-	((val >= 10*div) || ((val >= div) && !(val % div)))
-    if (FH_USE_DIV(val, 1024*1024)) {
-	divisor = 1024*1024;
-	unit = "MB";
-    }
-    else if (FH_USE_DIV(val, 1024)) {
-	divisor = 1024;
-	unit = "KB";
-    }
-    else {
-	divisor = 1;
-	unit = "B";
-    }
-
-    if (is_dflt) {
-	/* Use the numerical value */
-	snprintf(displayval, sizeof(displayval), "%d %s", (int)(val/divisor), unit);
-    }
-    else {
-	/* Use the environment string and numerical value */
-	snprintf(displayval, sizeof(displayval), "%s (%d %s)", gasnet_getenv(key), (int)(val/divisor), unit);
-    }
-    width = MAX(10,55 - strlen(key) - strlen(displayval));
-    fprintf(stderr, "ENV parameter: %s = %s%*s\n", key, displayval, width, dflt);
-    fflush(stderr);
+unsigned long fh_getenv(const char *var, unsigned long multiplier) {
+  const char *env = gasneti_getenv(var);
+  return gasneti_parse_int(env, multiplier);
 }
 
 /* 

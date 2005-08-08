@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/07/23 01:39:01 $
- * $Revision: 1.59 $
+ *     $Date: 2005/08/08 02:20:16 $
+ * $Revision: 1.60 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -57,6 +57,28 @@ extern char *gasneti_getenv_withdefault(const char *keyname, const char *default
    same restrictions on gasneti_getenv_withdefault also apply
  */
 extern int gasneti_getenv_yesno_withdefault(const char *keyname, int defaultval);
+
+/* internal conduit query for a system integral parameter
+   if mem_size_multiplier non-zero, expect a (possibly fractional) memory size with suffix (B|KB|MB|GB|TB)
+     and the default multiplier is mem_size_multiplier (eg 1024 for KB)
+   otherwise, expect a positive or negative integer in decimal or hex ("0x" prefix)
+   the return value indicates their selection
+   if value is not set, the provided default value is returned
+   same restrictions on gasneti_getenv_withdefault also apply
+ */
+extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defaultval, uint64_t mem_size_multiplier);
+
+/* return true iff GASNET_VERBOSEENV reporting is enabled on this node */
+extern int gasneti_verboseenv();
+
+/* display an integral/string environment setting iff gasneti_verboseenv() */
+extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size);
+extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt);
+
+/* format a integer value as a human-friendly string, with appropriate mem suffix */
+extern char *gasneti_format_number(int64_t val, char *buf, size_t bufsz, int is_mem_size);
+/* parse it back out again */
+extern int64_t gasneti_parse_int(const char *str, uint64_t mem_size_multiplier);
 
 /* set/unset an environment variable, for the local process ONLY */
 extern void gasneti_setenv(const char *key, const char *value);
@@ -130,6 +152,7 @@ extern char *_gasneti_extern_strndup(const char *s, size_t n
 extern char *gasneti_build_loc_str(const char *funcname, const char *filename, int linenum);
 #define gasneti_current_loc gasneti_build_loc_str(GASNETI_CURRENT_FUNCTION,__FILE__,__LINE__)
 
+extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
 #if GASNET_SEGMENT_EVERYTHING
   #define gasneti_in_clientsegment(node,ptr,nbytes) (gasneti_assert((node) < gasneti_nodes), 1)
   #define gasneti_in_fullsegment(node,ptr,nbytes)   (gasneti_assert((node) < gasneti_nodes), 1)

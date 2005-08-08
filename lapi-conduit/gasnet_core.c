@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/07 02:41:52 $
- * $Revision: 1.77 $
+ *     $Date: 2005/08/08 02:20:26 $
+ * $Revision: 1.78 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -178,7 +178,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     {
 	char *gas_ver = getenv("GASNET_LAPI_VERSION");
 	int to_stderr = (gasneti_mynode == 0) && 
-          (((gas_ver != NULL) && (gas_ver[0] != '0')) || !!getenv("GASNET_VERBOSEENV"));
+          (((gas_ver != NULL) && (gas_ver[0] != '0')) || gasneti_verboseenv());
 	char buf[80];
 
 #if GASNETC_LAPI_FEDERATION

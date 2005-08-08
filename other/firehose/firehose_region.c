@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/07/29 21:16:25 $
- * $Revision: 1.19 $
+ *     $Date: 2005/08/08 02:20:34 $
+ * $Revision: 1.20 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1193,13 +1193,6 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	int dflt_M, dflt_VM;
 	int dflt_R, dflt_VR;
 	int dflt_RS;
-	int verboseenv = 0;
-	#if GASNET_DEBUG_VERBOSE
-		verboseenv = 1;
-	#else
-		verboseenv = !!gasnet_getenv("GASNET_VERBOSEENV");
-	#endif
-
 
         /* Initialize the Bucket tables */
         fh_BucketTable1 = fh_hash_create(1<<16); /* 64k */
@@ -1314,13 +1307,11 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	GASNETI_TRACE_PRINTF(C, ("param_M=%ld param_VM=%ld", param_M, param_VM));
 	GASNETI_TRACE_PRINTF(C, ("param_RS=%ld", param_RS));
 	GASNETI_TRACE_PRINTF(C, ("param_R=%ld param_VR=%ld", param_R, param_VR));
-	if (!fh_mynode && verboseenv) {
-		fh_env_display_MB("GASNET_FIREHOSE_M", param_M, dflt_M);
-		fh_env_display_MB("GASNET_FIREHOSE_MAXVICTIM_M", param_VM, dflt_VM);
-		fh_env_display("GASNET_FIREHOSE_R", param_R, dflt_R);
-		fh_env_display("GASNET_FIREHOSE_MAXVICTIM_R", param_VR, dflt_VR);
-		fh_env_display_MB("GASNET_FIREHOSE_MAXREGION_SIZE", (int)param_RS, dflt_RS);
-	}
+	gasneti_envint_display("GASNET_FIREHOSE_M", param_M, dflt_M, 1);
+	gasneti_envint_display("GASNET_FIREHOSE_MAXVICTIM_M", param_VM, dflt_VM, 1);
+	gasneti_envint_display("GASNET_FIREHOSE_R", param_R, dflt_R, 0);
+	gasneti_envint_display("GASNET_FIREHOSE_MAXVICTIM_R", param_VR, dflt_VR, 0);
+	gasneti_envint_display("GASNET_FIREHOSE_MAXREGION_SIZE", (int)param_RS, dflt_RS, 1);
 
 	/* 
 	 * Validate firehose parameters parameters 

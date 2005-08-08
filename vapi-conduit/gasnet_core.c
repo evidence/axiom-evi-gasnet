@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/29 07:51:42 $
- * $Revision: 1.128 $
+ *     $Date: 2005/08/08 02:20:43 $
+ * $Revision: 1.129 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,8 +22,6 @@
  
 /* In firehose_internal.h */
 extern unsigned long fh_getenv(const char *var, unsigned long multiplier);
-extern void fh_env_display(const char *key, int val, int is_dflt);
-extern void fh_env_display_MB(const char *key, uintptr_t val, int is_dflt);
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
@@ -354,9 +352,11 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
       gasneti_fatalerror("ERROR: Failure to determine the max pinnable memory.  VAPI may be misconfigured.");
     }
 
-    /* May be possible to pin more than can be mmap()ed into a single region */
+    /* May be possible to pin more than can be mmap()ed into a single region 
+       DOB: respect GASNETI_MMAP_LIMIT here, to allow user to set hard bound on seg size
+     */
     if (size == si.size) {
-      size += gasnetc_trypin_more(pages*GASNET_PAGESIZE - size, GASNETI_MMAP_GRANULARITY);
+      size += gasnetc_trypin_more(MIN(pages*GASNET_PAGESIZE,GASNETI_MMAP_LIMIT) - size, GASNETI_MMAP_GRANULARITY);
     }
     gasnetc_pin_info.memory_total = size;
     gasnetc_unpin(&reg);
@@ -382,12 +382,6 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
 
 /* Process defaults and the environment to get configuration settings */
 static int gasnetc_load_settings(void) {
-  int verboseenv = 0;
-  #if GASNET_DEBUG_VERBOSE
-    verboseenv = 1; 
-  #else   
-       verboseenv = !!gasnet_getenv("GASNET_VERBOSEENV");
-  #endif 
 
   gasnetc_hca_id = gasneti_strdup(
     gasneti_getenv_withdefault("GASNET_HCA_ID",GASNETC_DEFAULT_HCA_ID));
@@ -395,38 +389,28 @@ static int gasnetc_load_settings(void) {
   gasnetc_port_num = atoi(
     gasneti_getenv_withdefault("GASNET_PORT_NUM", _STRINGIFY(GASNETC_DEFAULT_PORT_NUM)));
 
-  #define GASNETC_ENVINT(program_var, env_key, default_val, minval) do { \
-      char _defval[10];                                                  \
-      int _tmp;                                                          \
-      sprintf(_defval,"%i",(int)(default_val));                          \
-      _tmp = atoi(gasneti_getenv_withdefault(#env_key, _defval));        \
-      if (_tmp < minval)                                                 \
-        GASNETI_RETURN_ERRR(BAD_ARG, "("#env_key" < "#minval") in environment"); \
-      program_var = _tmp;                                                \
+  #define GASNETC_ENVINT(program_var, env_key, default_val, minval, is_mem) do {     \
+      int _tmp = (int)gasneti_getenv_int_withdefault(#env_key, default_val, is_mem); \
+      if (_tmp < minval)                                                             \
+        GASNETI_RETURN_ERRR(BAD_ARG, "("#env_key" < "#minval") in environment");     \
+      program_var = _tmp;                                                            \
     } while (0)
 
-  GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_NETWORKDEPTH_PP, GASNETC_DEFAULT_NETWORKDEPTH_PP, 1);
-  GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_NETWORKDEPTH_TOTAL, GASNETC_DEFAULT_NETWORKDEPTH_TOTAL, 0);
-  GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_CREDITS_PP, GASNETC_DEFAULT_AM_CREDITS_PP, 1);
-  GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_CREDITS_TOTAL, GASNETC_DEFAULT_AM_CREDITS_TOTAL, 0);
-  GASNETC_ENVINT(gasnetc_am_credits_slack, GASNET_AM_CREDITS_SLACK, GASNETC_DEFAULT_AM_CREDITS_SLACK, 0);
-  GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_COUNT, GASNETC_DEFAULT_BBUF_COUNT, 0);
-  GASNETC_ENVINT(gasnetc_num_qps, GASNET_NUM_QPS, GASNETC_DEFAULT_NUM_QPS, 1);
-  GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINESEND_LIMIT, GASNETC_DEFAULT_INLINESEND_LIMIT, 0);
-  GASNETC_ENVINT(gasnetc_bounce_limit, GASNET_NONBULKPUT_BOUNCE_LIMIT, GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT, 0);
-  GASNETC_ENVINT(gasnetc_packedlong_limit, GASNET_PACKEDLONG_LIMIT, GASNETC_DEFAULT_PACKEDLONG_LIMIT, 0);
+  GASNETC_ENVINT(gasnetc_op_oust_pp, GASNET_NETWORKDEPTH_PP, GASNETC_DEFAULT_NETWORKDEPTH_PP, 1, 0);
+  GASNETC_ENVINT(gasnetc_op_oust_limit, GASNET_NETWORKDEPTH_TOTAL, GASNETC_DEFAULT_NETWORKDEPTH_TOTAL, 0, 0);
+  GASNETC_ENVINT(gasnetc_am_oust_pp, GASNET_AM_CREDITS_PP, GASNETC_DEFAULT_AM_CREDITS_PP, 1, 0);
+  GASNETC_ENVINT(gasnetc_am_oust_limit, GASNET_AM_CREDITS_TOTAL, GASNETC_DEFAULT_AM_CREDITS_TOTAL, 0, 0);
+  GASNETC_ENVINT(gasnetc_am_credits_slack, GASNET_AM_CREDITS_SLACK, GASNETC_DEFAULT_AM_CREDITS_SLACK, 0, 0);
+  GASNETC_ENVINT(gasnetc_bbuf_limit, GASNET_BBUF_COUNT, GASNETC_DEFAULT_BBUF_COUNT, 0, 0);
+  GASNETC_ENVINT(gasnetc_num_qps, GASNET_NUM_QPS, GASNETC_DEFAULT_NUM_QPS, 1, 0);
+  GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINESEND_LIMIT, GASNETC_DEFAULT_INLINESEND_LIMIT, 0, 1);
+  GASNETC_ENVINT(gasnetc_bounce_limit, GASNET_NONBULKPUT_BOUNCE_LIMIT, GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT, 0, 1);
+  GASNETC_ENVINT(gasnetc_packedlong_limit, GASNET_PACKEDLONG_LIMIT, GASNETC_DEFAULT_PACKEDLONG_LIMIT, 0, 1);
 
   #if GASNETC_PIN_SEGMENT
-  { char *val;
-    long tmp;
-    int dflt;
+  { long tmp;
 
-    val = gasneti_getenv("GASNET_PIN_MAXSZ");
-    dflt = ((val == NULL) || (*val == '\0'));
-    gasnetc_pin_maxsz = dflt ? GASNETC_DEFAULT_PIN_MAXSZ : fh_getenv("GASNET_PIN_MAXSZ", 1);
-    if (!gasneti_mynode && verboseenv) {
-      fh_env_display_MB("GASNET_PIN_MAXSZ", gasnetc_pin_maxsz, dflt);
-    }
+    gasnetc_pin_maxsz = gasneti_getenv_int_withdefault("GASNET_PIN_MAXSZ", GASNETC_DEFAULT_PIN_MAXSZ, 1);
     if (gasnetc_pin_maxsz < GASNET_PAGESIZE) {
       GASNETI_RETURN_ERRR(BAD_ARG, "(GASNET_PIN_MAXSZ < GASNET_PAGESIZE) in environment");
     }

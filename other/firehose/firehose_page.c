@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/07/08 22:34:09 $
- * $Revision: 1.44 $
+ *     $Date: 2005/08/08 02:20:34 $
+ * $Revision: 1.45 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -503,12 +503,6 @@ firehose_get_params(uintptr_t max_pinnable_memory,
 {
     uintptr_t nM, nMaxvictim;
     int dfltM, dfltMaxvictim;
-    int verboseenv = 0;
-    #if GASNET_DEBUG_VERBOSE
-	verboseenv = 1;
-    #else
-	verboseenv = !!gasnet_getenv("GASNET_VERBOSEENV");
-    #endif
 
     if (fh_MaxPinnableMemory == max_pinnable_memory && fh_M && fh_Maxvictim) {
 	*M = fh_M;
@@ -545,10 +539,8 @@ firehose_get_params(uintptr_t max_pinnable_memory,
 		FH_PRINTMB(nM), FH_PRINTMB(max_pinnable_memory));
     	nMaxvictim = max_pinnable_memory - nM;
     }
-    if (!gasnet_mynode() && verboseenv) {
-	fh_env_display_MB("GASNET_FIREHOSE_M", nM, dfltM);
-	fh_env_display_MB("GASNET_FIREHOSE_MAXVICTIM_M", nMaxvictim, dfltMaxvictim);
-    }
+    gasneti_envint_display("GASNET_FIREHOSE_M", nM, dfltM, 1);
+    gasneti_envint_display("GASNET_FIREHOSE_MAXVICTIM_M", nMaxvictim, dfltMaxvictim, 1);
 
     /* 
      * Validate firehose parameters parameters 

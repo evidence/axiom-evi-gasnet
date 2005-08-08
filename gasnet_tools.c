@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/07/23 01:39:01 $
- * $Revision: 1.115 $
+ *     $Date: 2005/08/08 02:20:16 $
+ * $Revision: 1.116 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -682,6 +682,88 @@ extern char *gasneti_getenv(const char *keyname) {
   return retval;
 }
 
+extern int64_t gasneti_parse_int(const char *str, uint64_t mem_size_multiplier) {
+  uint64_t val = 0;
+  int base = 10;
+  int neg = 0;
+  const char *p = str;
+  #define GASNETI_NUMBUF_SZ 80
+  int isfrac = 0;
+  char numbuf[GASNETI_NUMBUF_SZ+1];
+  int i = 0;
+
+  if (!str) return 0; /* null returns 0 */
+
+  if (*p == '+') p++; /* check for sign */
+  else if (*p == '-') { neg=1; p++; }
+  while (*p && isspace(*p)) p++; /* eat spaces */
+  if (!*p) return 0; /* empty string returns 0 */
+  if (*p == '0' && toupper(*(p+1)) == 'X') { base = 16; p += 2; } /* check for hex */
+
+  while (*p && i < GASNETI_NUMBUF_SZ &&
+         ( (isdigit(*p) && *p < ('0'+base)) ||
+           (isalpha(*p) && toupper(*p) < ('A'+base-10)) || *p == '.') ) {
+    if (isdigit(*p)) { val = (val * base) + (*p - '0'); }
+    else if (isalpha(*p)) { val = (val * base) + (10 + toupper(*p) - 'A'); }
+    else if (*p == '.') { 
+      isfrac = 1; /* user value is a fraction */
+      if (base != 10) gasneti_fatalerror("Format error in numerical string: %s", str);
+    }
+    numbuf[i++] = *p;
+    p++;
+  }
+  numbuf[i] = '\0';
+  while (*p && isspace(*p)) p++; /* eat spaces */
+  if (mem_size_multiplier) { /* its a mem size, check for provided unit overridder */
+    if      (*p == 'T' || *p == 't') mem_size_multiplier = ((uint64_t)1)<<40;
+    else if (*p == 'G' || *p == 'g') mem_size_multiplier = ((uint64_t)1)<<30;
+    else if (*p == 'M' || *p == 'm') mem_size_multiplier = ((uint64_t)1)<<20;
+    else if (*p == 'K' || *p == 'k') mem_size_multiplier = ((uint64_t)1)<<10;
+    else if (*p == 'B' || *p == 'b') mem_size_multiplier = 1;
+  }
+  if (isfrac) {
+    double dval = atof(numbuf);
+    val = (uint64_t)(int64_t)(dval*(double)mem_size_multiplier);
+  } else {
+    val = val * mem_size_multiplier;
+  }
+
+  if (neg) return -((int64_t)val);
+  return (int64_t)val;
+  #undef GASNETI_NUMBUF_SZ
+}
+
+extern char *gasneti_format_number(int64_t val, char *buf, size_t bufsz, int is_mem_size) {
+  const char *unit = "";
+  const char *neg = "";
+  int64_t divisor = 1;
+  if (val < 0) { val = -val; neg = "-"; }
+  if (val >= ((int64_t)1) << 50) divisor = -1; /* use hex for huge vals */
+  else if (is_mem_size) {
+    /* Try to strike a compromise between digits and round off */
+    #define GASNETI_USE_DIV(div, unit_str)                           \
+      if ((val >= 10*(div)) || ((val >= (div)) && !(val % (div)))) { \
+        divisor = (div); unit = (unit_str); break;                   \
+      }
+    do {
+      GASNETI_USE_DIV(((int64_t)1) << 40, " TB");
+      GASNETI_USE_DIV(((int64_t)1) << 30, " GB");
+      GASNETI_USE_DIV(((int64_t)1) << 20, " MB");
+      GASNETI_USE_DIV(((int64_t)1) << 10, " KB");
+      GASNETI_USE_DIV(((int64_t)1), " B");
+    } while (0);
+    #undef GASNETI_USE_DIV
+  } 
+
+  if (divisor > 0) {
+    snprintf(buf, bufsz, "%s%llu%s", neg, (unsigned long long)(val/divisor), unit);
+  } else if (divisor == -1) {
+    if (neg) val = -val;
+    snprintf(buf, bufsz, "0x%llx", (unsigned long long)val);
+  } else gasneti_fatalerror("internal error in gasneti_envint_display");
+  return buf;
+}
+
 /* expression that defines whether the given process should report to the console
    on env queries - needs to work before gasnet_init
  */
@@ -690,26 +772,59 @@ extern char *gasneti_getenv(const char *keyname) {
         (gasneti_mynode == 0 || gasneti_mynode == (gasnet_node_t)-1)
 #endif
 
-static char *_gasneti_getenv_withdefault(const char *keyname, const char *defaultval, int yesno) {
-  const char * retval = NULL;
+/* return true iff GASNET_VERBOSEENV reporting is enabled on this node */
+extern int gasneti_verboseenv() {
   static int firsttime = 1;
   static int verboseenv = 0;
-  const char *dflt = "";
   if (firsttime) {
     #if GASNET_DEBUG_VERBOSE
-      verboseenv = 1;
+      verboseenv = GASNETI_ENV_OUTPUT_NODE();
     #else
-      verboseenv = !!gasneti_getenv("GASNET_VERBOSEENV");
+      verboseenv = !!gasneti_getenv("GASNET_VERBOSEENV") && GASNETI_ENV_OUTPUT_NODE();
     #endif
     if (gasneti_init_done) firsttime = 0;
   }
+  return verboseenv;
+}
+/* display an integral/string environment setting iff gasneti_verboseenv() */
+extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt) {
+  const char *dflt = (is_dflt?"   (default)":"");
+  if (gasneti_verboseenv()) {
+    const char *displayval = val;
+    int width;
+    if (strlen(val) == 0) displayval = "*empty*";
+    width = MAX(10,55 - strlen(key) - strlen(displayval));
+    fprintf(stderr, "ENV parameter: %s = %s%*s\n", key, displayval, width, dflt);
+    fflush(stderr);
+  }
+  GASNETI_TRACE_PRINTF(I,("ENV parameter: %s = %s%s", key, val, dflt));
+}
+extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size) {
+  char valstr[80];
+  char displayval[80];
+  if (!gasneti_verboseenv() && !GASNETI_TRACE_ENABLED(I)) return;
+
+  gasneti_format_number(val, valstr, 80, is_mem_size);
+
+  if (is_dflt) { /* Use the numerical value */
+    strcpy(displayval, valstr);
+  } else { /* Use the environment string and numerical value */
+    snprintf(displayval, sizeof(displayval), "%s (%s)", gasneti_getenv(key), valstr);
+  }
+  gasneti_envstr_display(key, displayval, is_dflt);
+}
+
+static char *_gasneti_getenv_withdefault(const char *keyname, const char *defaultval, int valmode, int64_t *val) {
+  const char * retval = NULL;
+  int is_dflt = 0;
   gasneti_assert(defaultval != NULL);
   retval = gasneti_getenv(keyname);
-  if (retval == NULL) {
-    retval = defaultval;
-    dflt = "   (default)";
-  }
-  if (yesno) {
+  if (retval == NULL) { retval = defaultval; is_dflt = 1; }
+
+  if (valmode == 0) {
+    /* just a string value */
+    gasneti_envstr_display(keyname, retval, is_dflt);
+  } else if (valmode == 1) { /* yes/no value */
     char s[10];
     int i;
     strncpy(s, retval, 10); s[9] = '\0';
@@ -717,23 +832,28 @@ static char *_gasneti_getenv_withdefault(const char *keyname, const char *defaul
     if (!strcmp(s, "N") || !strcmp(s, "NO") || !strcmp(s, "0")) retval = "NO";
     else if (!strcmp(s, "Y") || !strcmp(s, "YES") || !strcmp(s, "1")) retval = "YES";
     else gasneti_fatalerror("If used, environment variable '%s' must be set to 'Y|YES|y|yes|1' or 'N|n|NO|no|0'", keyname);
-  }
-  if (verboseenv && GASNETI_ENV_OUTPUT_NODE()) {
-    const char *displayval = retval;
-    int width;
-    if (strlen(retval) == 0) displayval = "*empty*";
-    width = MAX(10,55 - strlen(keyname) - strlen(displayval));
-    fprintf(stderr, "ENV parameter: %s = %s%*s\n", keyname, displayval, width, dflt);
-    fflush(stderr);
-  }
-  GASNETI_TRACE_PRINTF(I,("ENV parameter: %s = %s%s", keyname, retval, dflt));
+    gasneti_envstr_display(keyname, retval, is_dflt);
+  } else if (valmode == 2 || valmode == 3) { /* int value, regular or memsize */
+    int is_mem_size = (valmode == 3);
+    gasneti_assert(val);
+    *val = gasneti_parse_int(retval, *val);
+    gasneti_envint_display(keyname, *val, is_dflt, is_mem_size);
+  } else gasneti_fatalerror("internal error in _gasneti_getenv_withdefault");
+
   return (char *)retval;
 }
 extern char *gasneti_getenv_withdefault(const char *keyname, const char *defaultval) {
-  return _gasneti_getenv_withdefault(keyname, defaultval, 0);
+  return _gasneti_getenv_withdefault(keyname, defaultval, 0, NULL);
 }
 extern int gasneti_getenv_yesno_withdefault(const char *keyname, int defaultval) {
-  return !strcmp(_gasneti_getenv_withdefault(keyname, (defaultval?"YES":"NO"), 1), "YES");
+  return !strcmp(_gasneti_getenv_withdefault(keyname, (defaultval?"YES":"NO"), 1, NULL), "YES");
+}
+extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defaultval, uint64_t mem_size_multiplier) {
+  int64_t val = mem_size_multiplier;
+  char defstr[80];
+  gasneti_format_number(defaultval, defstr, 80, mem_size_multiplier);
+  _gasneti_getenv_withdefault(keyname, defstr, (mem_size_multiplier?3:2), &val);
+  return val;
 }
 
 /* set an environment variable, for the local process ONLY */
@@ -867,28 +987,7 @@ extern void gasneti_unsetenv(const char *key) {
     if (!strcmp(tmp, "NAN")) return sNAN;
     else if (!strcmp(tmp, "SNAN")) return sNAN;
     else if (!strcmp(tmp, "QNAN")) return qNAN;
-    else if (!strncmp(tmp, "0X", 2)) { /* hex value */
-      p = tmp+2;
-      if (strlen(p) > 16) gasneti_fatalerror("too many digits in hex value %s=%s", name, envval);
-      for ( ; *p; p++) {
-        uint8_t byte;
-        if (*p >= '0' && *p <= '9') byte = *p - '0';
-        else if (*p >= 'A' && *p <= 'F') byte = *p - 'A';
-        else gasneti_fatalerror("illegal hex value %s=%s", name, envval);
-        val = (val << 4) | (uint64_t)byte;
-      } 
-    } else { /* int rep */
-      int neg = 0;
-      p = tmp;
-      if (*p == '-') { neg = 1; p++; }
-      for ( ; *p; p++) {
-        uint8_t digit;
-        if (*p >= '0' && *p <= '9') digit = *p - '0';
-        else gasneti_fatalerror("illegal decimal value %s=%s", name, envval);
-        val = (val * 10) + (uint64_t)digit;
-      } 
-      if (neg) val = (uint64_t)(-(int64_t)val);
-    }
+    else val = gasneti_parse_int(tmp, 0);
     if (val <= 0xFF) {
       int i;
       uint64_t byte = val;

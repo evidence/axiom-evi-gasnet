@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/07/29 23:40:32 $
- * $Revision: 1.28 $
+ *     $Date: 2005/08/08 02:20:34 $
+ * $Revision: 1.29 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -402,8 +402,6 @@ int	fh_region_partial(gasnet_node_t node, uintptr_t *addr_p, size_t *len_p);
 /* Misc functions (COMMON, firehose.c)                                   */
 /* ##################################################################### */
 unsigned long	fh_getenv(const char *var, unsigned long multiplier);
-void fh_env_display(const char *key, int val, int is_dflt);
-void fh_env_display_MB(const char *key, uintptr_t val, int is_dflt);
 
 /* Common Queue Macros for Firehose FIFO and Local Bucket FIFO */
 #define FH_TAILQ_HEAD(name, type)	\

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/07/29 07:51:17 $
- * $Revision: 1.82 $
+ *     $Date: 2005/08/08 02:20:16 $
+ * $Revision: 1.83 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -250,24 +250,28 @@ gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t
   extern void gasneti_mmap_fixed(void *segbase, uintptr_t segsize);
   extern void *gasneti_mmap(uintptr_t segsize);
   extern void gasneti_munmap(void *segbase, uintptr_t segsize);
+  #ifndef GASNETI_MMAP_MAX_SIZE
+    /* GASNETI_MMAP_MAX_SIZE controls the maz size segment attempted by the mmap binary search
+       can't use a full 2 GB due to sign bit problems 
+       on the int argument to mmap() for some 32-bit systems
+       This setting can be overridden using configure --with-segment-mmap-max=XGB
+     */
+    #define GASNETI_MMAP_MAX_SIZE	  ((((uint64_t)1)<<31) - GASNET_PAGESIZE)  /* 2 GB */
+  #endif
+  uintptr_t _gasneti_max_segsize(uint64_t configure_val);
+  /* GASNETI_MMAP_LIMIT is the user-selected limit for the max mmap size, as gleaned from several sources */
+  #define GASNETI_MMAP_LIMIT _gasneti_max_segsize(GASNETI_MMAP_MAX_SIZE)
+  #ifndef GASNETI_MMAP_GRANULARITY
+    /* GASNETI_MMAP_GRANULARITY is the minimum increment used by the mmap binary search */
+    #define GASNETI_MMAP_GRANULARITY  (((size_t)2)<<21)  /* 4 MB */
+  #endif
+#else
+  #ifndef GASNETI_MALLOCSEGMENT_MAX_SIZE
+  #define GASNETI_MALLOCSEGMENT_MAX_SIZE (100*1048576) /* Max segment sz to use when mmap not avail */
+  #endif
+  #define GASNETI_MALLOCSEGMENT_LIMIT _gasneti_max_segsize(GASNETI_MALLOCSEGMENT_MAX_SIZE)
 #endif
 
-#ifndef GASNETI_MMAP_MAX_SIZE
-  /* GASNETI_MMAP_MAX_SIZE controls the maz size segment attempted by the mmap binary search
-     can't use a full 2 GB due to sign bit problems 
-     on the int argument to mmap() for some 32-bit systems
-   */
-  #define GASNETI_MMAP_MAX_SIZE	  ((((uint64_t)1)<<31) - GASNET_PAGESIZE)  /* 2 GB */
-#endif
-#define GASNETI_MMAP_LIMIT ((uintptr_t)GASNETI_PAGE_ALIGNDOWN((uint64_t)(GASNETI_MMAP_MAX_SIZE)))
-
-#ifndef GASNETI_MMAP_GRANULARITY
-  /* GASNETI_MMAP_GRANULARITY is the minimum increment used by the mmap binary search */
-  #define GASNETI_MMAP_GRANULARITY  (((size_t)2)<<21)  /* 4 MB */
-#endif
-#ifndef GASNETI_MAX_MALLOCSEGMENT_SZ
-#define GASNETI_MAX_MALLOCSEGMENT_SZ (100*1048576) /* Max segment sz to use when mmap not avail */
-#endif
 #ifndef GASNETI_USE_HIGHSEGMENT
 #define GASNETI_USE_HIGHSEGMENT 1  /* use the high end of mmap segments */
 #endif
