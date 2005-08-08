@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/08/08 02:20:16 $
- * $Revision: 1.116 $
+ *     $Date: 2005/08/08 23:19:58 $
+ * $Revision: 1.117 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -720,6 +720,9 @@ extern int64_t gasneti_parse_int(const char *str, uint64_t mem_size_multiplier) 
     else if (*p == 'M' || *p == 'm') mem_size_multiplier = ((uint64_t)1)<<20;
     else if (*p == 'K' || *p == 'k') mem_size_multiplier = ((uint64_t)1)<<10;
     else if (*p == 'B' || *p == 'b') mem_size_multiplier = 1;
+    /* else warn? */
+  } else {
+    mem_size_multiplier = 1;
   }
   if (isfrac) {
     double dval = atof(numbuf);
