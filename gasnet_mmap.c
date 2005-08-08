@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2005/08/08 02:20:16 $
- * $Revision: 1.33 $
+ *     $Date: 2005/08/08 03:05:08 $
+ * $Revision: 1.34 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -796,9 +796,12 @@ void gasneti_auxseg_attach() {
         si[j].addr = gasneti_seginfo[j].addr;
         si[j].size = gasneti_auxseg_sz;
       #endif
-      /* trim client segment, which may be inflated due to GASNETI_AUXSEG_PRESERVE_POW2_FULLSEGSZ */
-      if (gasneti_seginfo_client[j].size > gasneti_auxseg_client_request_sz)
-        gasneti_seginfo_client[j].size = gasneti_auxseg_client_request_sz;
+      #if GASNETI_AUXSEG_PRESERVE_POW2_FULLSEGSZ 
+        /* bug 361: cannot safely do this in general without a bootstrap exchange, because segsize requests may differ across conduits */
+        /* trim client segment, which may be inflated due to GASNETI_AUXSEG_PRESERVE_POW2_FULLSEGSZ */
+        if (gasneti_seginfo_client[j].size > gasneti_auxseg_client_request_sz)
+          gasneti_seginfo_client[j].size = gasneti_auxseg_client_request_sz;
+      #endif
     }
   #endif
 
