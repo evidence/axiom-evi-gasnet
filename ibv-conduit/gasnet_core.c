@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/09 22:55:42 $
- * $Revision: 1.134 $
+ *     $Date: 2005/08/09 22:59:14 $
+ * $Revision: 1.135 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -313,7 +313,10 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
 
   if (do_probe) {
     /* Now search for largest pinnable memory, on one process per machine */
-    unsigned long step = MAX(gasnetc_pin_maxsz, GASNETI_MMAP_GRANULARITY);
+    unsigned long step = GASNETI_MMAP_GRANULARITY;
+    #if GASNETC_PIN_SEGMENT
+      step = MAX(step, gasnetc_pin_maxsz);
+    #endif
     if (gasneti_mynode == first_local) {
       uintptr_t size = gasnetc_trypin(limit, step);
       if_pf (!size) {
