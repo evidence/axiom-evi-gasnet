@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/08/09 12:07:15 $
- * $Revision: 1.133 $
+ *     $Date: 2005/08/09 22:55:42 $
+ * $Revision: 1.134 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -281,8 +281,8 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
   }
   #endif
   { /* Honor Firehose params if set */
-    unsigned long fh_M = gasneti_getenv_int_withdefault("GASNET_FIREHOSE_M", 0, 1);
-    unsigned long fh_VM = gasneti_getenv_int_withdefault("GASNET_FIREHOSE_MAXVICTIM_M", 0, 1);
+    unsigned long fh_M = gasneti_parse_int(gasnet_getenv("GASNET_FIREHOSE_M"),(1<<20));
+    unsigned long fh_VM = gasneti_parse_int(gasnet_getenv("GASNET_FIREHOSE_MAXVICTIM_M"),(1<<20));
     if (fh_M && fh_VM) {
       #if GASNETC_PIN_SEGMENT
 	limit = MIN(limit, (fh_M + fh_VM + GASNETI_MMAP_LIMIT + GASNETI_MMAP_GRANULARITY));
