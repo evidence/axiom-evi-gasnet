@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/09 01:49:21 $
- * $Revision: 1.131 $
+ *     $Date: 2005/08/09 02:23:58 $
+ * $Revision: 1.132 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -248,9 +248,6 @@ static void gasnetc_fakepin(uintptr_t limit, uintptr_t step) {
     }
   }
 }
-
-/* Some stuff not exported from gasnet_mmap.c: */
-extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz);
 
 /* Search for the total amount of memory we can pin per process.
  */
@@ -910,6 +907,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     /* Query the pinning limits of the HCA */
     gasnetc_init_pin_info(first_local, num_local);
+
     gasneti_assert(gasnetc_pin_info.memory != 0);
     gasneti_assert(gasnetc_pin_info.memory != (uintptr_t)(-1));
     gasneti_assert(gasnetc_pin_info.regions != 0);
