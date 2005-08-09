@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/09 02:23:58 $
- * $Revision: 1.132 $
+ *     $Date: 2005/08/09 12:07:15 $
+ * $Revision: 1.133 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -523,7 +523,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   gasneti_freezeForDebugger();
 
   /* Now enable tracing of all the following steps */
-  gasneti_trace_init(*argc, *argv);
+  gasneti_trace_init(argc, argv);
 
   /* Process the environment for configuration/settings */
   i = gasnetc_load_settings();
@@ -953,7 +953,7 @@ extern int gasnet_init(int *argc, char ***argv) {
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   #if 0
     /* Already done in gasnetc_init() to allow tracing of init steps */
-    gasneti_trace_init(*argc, *argv);
+    gasneti_trace_init(argc, argv);
   #endif
   return GASNET_OK;
 }

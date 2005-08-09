@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/08/08 02:20:16 $
- * $Revision: 1.60 $
+ *     $Date: 2005/08/09 12:06:15 $
+ * $Revision: 1.61 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -77,7 +77,10 @@ extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt
 
 /* format a integer value as a human-friendly string, with appropriate mem suffix */
 extern char *gasneti_format_number(int64_t val, char *buf, size_t bufsz, int is_mem_size);
-/* parse it back out again */
+/* parse an integer value back out again
+  if mem_size_multiplier==0, it's a unitless quantity
+  otherwise, it's a memory size quantity, and mem_size_multiplier provides the 
+    default memory unit (ie 1024=1KB) if the string provides none  */
 extern int64_t gasneti_parse_int(const char *str, uint64_t mem_size_multiplier);
 
 /* set/unset an environment variable, for the local process ONLY */

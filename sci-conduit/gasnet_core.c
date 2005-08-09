@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/07/07 02:41:56 $
- * $Revision: 1.17 $
+ *     $Date: 2005/08/09 12:06:45 $
+ * $Revision: 1.18 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -154,7 +154,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 extern int gasnet_init(int *argc, char ***argv) {
   int retval = gasnetc_init(argc, argv);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasneti_trace_init(*argc, *argv);
+  gasneti_trace_init(argc, argv);
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */

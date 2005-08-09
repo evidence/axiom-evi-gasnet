@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/08/08 02:20:26 $
- * $Revision: 1.78 $
+ *     $Date: 2005/08/09 12:06:34 $
+ * $Revision: 1.79 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -173,7 +173,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     GASNETC_LCHECK(LAPI_Qenv(gasnetc_lapi_context, MAX_UHDR_SZ, &gasnetc_max_lapi_uhdr_size));
 
     /* Init tracing early */
-    gasneti_trace_init(*argc, *argv);
+    gasneti_trace_init(argc, argv);
 
     {
 	char *gas_ver = getenv("GASNET_LAPI_VERSION");
@@ -314,7 +314,7 @@ extern int gasnet_init(int *argc, char ***argv) {
     if (retval != GASNET_OK) GASNETI_RETURN(retval);
 #if 0
     /* Already done in gasnetc_init() to allow tracing of init steps */
-    gasneti_trace_init(*argc, *argv);
+    gasneti_trace_init(argc, argv);
 #endif
 
     return GASNET_OK;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/08/08 23:19:58 $
- * $Revision: 1.117 $
+ *     $Date: 2005/08/09 12:06:15 $
+ * $Revision: 1.118 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -648,10 +648,113 @@ extern void gasneti_setupGlobalEnvironment(gasnet_node_t numnodes, gasnet_node_t
 
 }
 
+/* decode src into dst, arguments permitted to overlap exactly */
+extern size_t gasneti_decodestr(char *dst, const char *src) {
+  #define IS_HEX_DIGIT(c)  (isdigit(c) || (isalpha(c) && toupper(c) <= 'F'))
+  #define VAL_HEX_DIGIT(c) ((unsigned int)(isdigit(c) ? (c)-'0' : 10 + toupper(c) - 'A'))
+  size_t dstidx = 0;
+  const char *p = src;
+  gasneti_assert(src && dst);
+  while (*p) {
+    char c;
+    if (p[0] == '%' && p[1] == '0' && 
+        p[2] && IS_HEX_DIGIT(p[2]) && p[3] && IS_HEX_DIGIT(p[3])) {
+      c = (char)(VAL_HEX_DIGIT(p[2]) << 4) | VAL_HEX_DIGIT(p[3]);
+      p += 4;
+    } else c = *(p++);
+    dst[dstidx++] = c;
+  }
+  dst[dstidx] = '\0';
+  return dstidx;
+  #undef IS_HEX_DIGIT
+}
+
+static const char *gasneti_decode_envval(const char *val) {
+  static struct _gasneti_envtable_S {
+    const char *pre;
+    char *post;
+    struct _gasneti_envtable_S *next;
+  } *gasneti_envtable = NULL;
+  static gasneti_mutex_t gasneti_envtable_lock = GASNETI_MUTEX_INITIALIZER;
+  if (strstr(val,"%0")) {
+    struct _gasneti_envtable_S *p;
+    gasneti_mutex_lock(&gasneti_envtable_lock);
+      p = gasneti_envtable;
+      while (p) {
+        if (!strcmp(val, p->pre)) break;
+        p = p->next;
+      }
+      if (p) val = p->post;
+      else { /* decode it and save the result (can't trust setenv to safely set it back) */
+        struct _gasneti_envtable_S *newentry = gasneti_malloc(sizeof(struct _gasneti_envtable_S));
+        newentry->pre = gasneti_strdup(val);
+        newentry->post = gasneti_malloc(strlen(val)+1);
+        gasneti_decodestr(newentry->post, newentry->pre);
+        if (!strcmp(newentry->post, newentry->pre)) { 
+          gasneti_free(newentry); 
+        } else {
+          newentry->next = gasneti_envtable;
+          gasneti_envtable = newentry;
+          val = newentry->post;
+        }
+      }
+    gasneti_mutex_unlock(&gasneti_envtable_lock);
+  }
+  return val;
+}
+/* expose environment decode to external packages in case we ever need it */
+extern const char * (*gasnett_decode_envval_fn)(const char *);
+const char * (*gasnett_decode_envval_fn)(const char *) = &gasneti_decode_envval;
+
+extern void gasneti_decode_args(int *argc, char ***argv) {
+  static int firsttime = 1;
+  if (!firsttime) return; /* ignore subsequent calls, to allow early decode */
+  firsttime = 0;
+  if (!gasneti_getenv_yesno_withdefault("GASNET_DISABLE_ARGDECODE",0)) {
+    int argidx;
+    char **origargv = *argv;
+    for (argidx = 0; argidx < *argc; argidx++) {
+      if (strstr((*argv)[argidx], "%0")) {
+        char *tmp = gasneti_strdup((*argv)[argidx]);
+        int newsz = gasneti_decodestr(tmp, tmp);
+        if (newsz == strlen((*argv)[argidx])) gasneti_free(tmp); /* no change */
+        else {
+          int i, newcnt = 0;
+          for (i = 0; i < newsz; i++) if (!tmp[i]) newcnt++; /* count growth due to inserted NULLs */
+          if (newcnt == 0) { /* simple parameter replacement */
+            (*argv)[argidx] = tmp;
+          } else { /* need to grow argv */
+            char **newargv = gasneti_malloc(sizeof(char *)*(*argc+1+newcnt));
+            memcpy(newargv, *argv, sizeof(char *)*argidx);
+            newargv[argidx] = tmp; /* base arg */
+            memcpy(newargv+argidx+newcnt, (*argv)+argidx, sizeof(char *)*(*argc - argidx - 1));
+            for (i = 0; i < newsz; i++) /* hook up new args */
+              if (!tmp[i]) newargv[1+argidx++] = &(tmp[i+1]); 
+            *argc += newcnt;
+            if (*argv != origargv) gasneti_free(*argv);
+            *argv = newargv;
+            (*argv)[*argc] = NULL; /* ensure null-termination of arg list */
+          }
+        } 
+      }
+    }
+  }
+}
+
 gasneti_getenv_fn_t *gasneti_conduit_getenv = NULL;
 
 extern char *gasneti_getenv(const char *keyname) {
   char *retval = NULL;
+  static int firsttime = 1;
+  static int decodeenv = 1;
+  if (firsttime && strcmp(keyname, "GASNET_DISABLE_ENVDECODE") /* prevent inf recursion */
+                && strcmp(keyname, "GASNET_VERBOSEENV")) {
+    decodeenv = !gasneti_getenv("GASNET_DISABLE_ENVDECODE");
+    if (gasneti_init_done) {
+      gasneti_envstr_display("GASNET_DISABLE_ENVDECODE",(decodeenv?"NO":"YES"),decodeenv);
+      firsttime = 0;
+    }
+  }
 
   if (keyname && gasneti_conduit_getenv) {
     /* highest priority given to conduit-specific getenv */
@@ -676,6 +779,10 @@ extern char *gasneti_getenv(const char *keyname) {
   if (keyname && !retval) /* try local environment */
     retval = getenv(keyname);
   
+  if (retval && decodeenv) { /* check if environment value needs decoding */
+    retval = (char *)gasneti_decode_envval(retval);
+  }
+
   GASNETI_TRACE_PRINTF(I,("gasnet_getenv(%s) => '%s'",
                           (keyname?keyname:"NULL"),(retval?retval:"NULL")));
 
@@ -720,7 +827,7 @@ extern int64_t gasneti_parse_int(const char *str, uint64_t mem_size_multiplier) 
     else if (*p == 'M' || *p == 'm') mem_size_multiplier = ((uint64_t)1)<<20;
     else if (*p == 'K' || *p == 'k') mem_size_multiplier = ((uint64_t)1)<<10;
     else if (*p == 'B' || *p == 'b') mem_size_multiplier = 1;
-    /* else warn? */
+    /* else - default to the context-sensitive mem_size_multiplier of the caller */
   } else {
     mem_size_multiplier = 1;
   }
@@ -763,7 +870,7 @@ extern char *gasneti_format_number(int64_t val, char *buf, size_t bufsz, int is_
   } else if (divisor == -1) {
     if (neg) val = -val;
     snprintf(buf, bufsz, "0x%llx", (unsigned long long)val);
-  } else gasneti_fatalerror("internal error in gasneti_envint_display");
+  } else gasneti_fatalerror("internal error in gasneti_format_number");
   return buf;
 }
 

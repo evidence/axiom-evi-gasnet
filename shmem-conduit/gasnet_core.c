@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/04 13:51:25 $
- * $Revision: 1.21 $
+ *     $Date: 2005/08/09 12:06:52 $
+ * $Revision: 1.22 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -210,7 +210,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   gasneti_init_done = 1;  
 
-  gasneti_trace_init(*argc, *argv);
+  gasneti_trace_init(argc, argv);
 
   gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
 
@@ -223,7 +223,7 @@ extern int gasnet_init(int *argc, char ***argv) {
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   #if 0
     /* Already done in gasnetc_init() to allow tracing of init steps */
-    gasneti_trace_init(*argc, *argv);
+    gasneti_trace_init(argc, argv);
   #endif
   return GASNET_OK;
 }

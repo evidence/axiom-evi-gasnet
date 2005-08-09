@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2005/07/29 07:51:27 $
- * $Revision: 1.95 $
+ * $Date: 2005/08/09 12:06:28 $
+ * $Revision: 1.96 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -140,7 +140,7 @@ gasnetc_init(int *argc, char ***argv)
 	atexit(gasnetc_atexit);
 
 	gasneti_init_done = 1;
-	gasneti_trace_init(*argc, *argv);
+	gasneti_trace_init(argc, argv);
 
         gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
 

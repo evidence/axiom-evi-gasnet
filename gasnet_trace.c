@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/07/23 01:39:01 $
- * $Revision: 1.113 $
+ *     $Date: 2005/08/09 12:06:15 $
+ * $Revision: 1.114 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -503,8 +503,11 @@ extern void gasneti_trace_updatemask(const char *newmask, char *maskstr, char *t
   }
 }
 
-extern void gasneti_trace_init(int argc, char **argv) {
+extern void gasneti_trace_init(int *pargc, char ***pargv) {
   gasneti_free(gasneti_malloc(1)); /* touch the malloc system to ensure it's intialized */
+
+  /* ensure the arguments have been decoded */
+  gasneti_decode_args(pargc, pargv); 
 
  #if GASNETI_STATS_OR_TRACE
   starttime = GASNETI_STATTIME_NOW();
@@ -568,15 +571,15 @@ extern void gasneti_trace_init(int argc, char **argv) {
     if (temp[strlen(temp)-1] == '\n') temp[strlen(temp)-1] = '\0';
     gethostname(hostname, MAXHOSTNAMELEN);
     gasneti_tracestats_printf("Program %s (pid=%i) starting on %s at: %s", 
-      argv[0], (int)getpid(), hostname, temp);
+      (*pargv)[0], (int)getpid(), hostname, temp);
     p = temp;
-    for (i=0; i < argc; i++) { 
-      char *q = argv[i];
+    for (i=0; i < *pargc; i++) { 
+      char *q = (*pargv)[i];
       int hasspace = 0;
       for (;*q;q++) if (isspace((int)*q)) hasspace = 1;
-      if (hasspace) sprintf(p, "'%s'", argv[i]);
-      else sprintf(p, "%s", argv[i]);
-      if (i < argc-1) strcat(p, " ");
+      if (hasspace) sprintf(p, "'%s'", (*pargv)[i]);
+      else sprintf(p, "%s", (*pargv)[i]);
+      if (i < *pargc-1) strcat(p, " ");
       p += strlen(p);
     }
     gasneti_tracestats_printf("Command-line: %s", temp);

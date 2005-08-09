@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.63 $
+$Revision: 1.64 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -198,15 +198,20 @@ Recognized Environment Variables
 * GASNET_MALLOC_* : control the GASNet debug malloc features, if enabled at configure time.
  See usage information below.
 
+* GASNET_MAX_SEGSIZE - control the upper limit for FAST/LARGE segment size on most conduits
+ This setting defaults to the value passed to configure: --with-segment-mmap-max=XGB
+ or the one provided by the GASNet client at link-time with a definition like:
+   uint64_t gasnet_max_segsize = ((uint64_t)8) << 30; /* set to 8GB */
+
 * GASNET_DISABLE_MUNMAP - requests the use of mallopt() on glibc systems to disable
  mmap-based allocation for satisfying malloc. This can be used to work-around a
  known bug in firehose (bug 495) that could lead to incorrect behavior after 
  free()ing out-of-segment memory areas previously used for communication.
 
-* GASNET_MAX_SEGSIZE - control the upper limit for FAST/LARGE segment size on most conduits
- This setting defaults to the value passed to configure: --with-segment-mmap-max=XGB
- or the one provided by the GASNet client at link-time with a definition like:
-   uint64_t gasnet_max_segsize = ((uint64_t)8) << 30; /* set to 8GB */
+* GASNET_DISABLE_ENVDECODE/GASNET_DISABLE_ARGDECODE - disable the automatic decoding 
+ of environment variable values/command-line arguments. Some GASNet spawners 
+ automatically encode shell meta-characters passing through non-GASNet spawn scripts, 
+ in to order to ensure their safe delivery to the GASNet client program.
 
 * see conduit-specific documentation in conduit directories for more settings
 

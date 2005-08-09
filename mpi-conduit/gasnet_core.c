@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/07 02:41:54 $
- * $Revision: 1.64 $
+ *     $Date: 2005/08/09 12:06:40 $
+ * $Revision: 1.65 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,7 +127,7 @@ static int gasnetc_init(int *argc, char ***argv) {
                                    gasnetc_bootstrapExchange, gasnetc_bootstrapBroadcast);
 
     /* enable tracing */
-    gasneti_trace_init(*argc, *argv);
+    gasneti_trace_init(argc, argv);
     GASNETI_AM_SAFE(AMMPI_SPMDSetExitCallback(gasnetc_traceoutput));
 
     #if GASNET_DEBUG_VERBOSE
@@ -161,7 +161,7 @@ extern int gasnet_init(int *argc, char ***argv) {
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   #if 0
     /* called within gasnet_init to allow init tracing */
-    gasneti_trace_init(*argc, *argv);
+    gasneti_trace_init(argc, argv);
   #endif
   return GASNET_OK;
 }

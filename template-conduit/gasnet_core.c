@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/07 02:42:02 $
- * $Revision: 1.51 $
+ *     $Date: 2005/08/09 12:07:03 $
+ * $Revision: 1.52 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -116,7 +116,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 extern int gasnet_init(int *argc, char ***argv) {
   int retval = gasnetc_init(argc, argv);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasneti_trace_init(*argc, *argv);
+  gasneti_trace_init(argc, argv);
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */

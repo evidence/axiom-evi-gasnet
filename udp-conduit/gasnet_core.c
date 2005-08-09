@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2005/07/07 02:42:04 $
- * $Revision: 1.27 $
+ *     $Date: 2005/08/09 12:07:10 $
+ * $Revision: 1.28 $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -193,7 +193,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     gasneti_nodes = AMUDP_SPMDNumProcs();
 
     /* enable tracing */
-    gasneti_trace_init(*argc, *argv);
+    gasneti_trace_init(argc, argv);
     GASNETI_AM_SAFE(AMUDP_SPMDSetExitCallback(gasnetc_traceoutput));
 
     /* for local spawn, assume we want to wait-block */
@@ -233,7 +233,7 @@ extern int gasnet_init(int *argc, char ***argv) {
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
   #if 0
     /* called within gasnet_init to allow init tracing */
-    gasneti_trace_init(*argc, *argv);
+    gasneti_trace_init(argc, argv);
   #endif
   return GASNET_OK;
 }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2005/06/01 09:46:52 $
- * $Revision: 1.41 $
+ *     $Date: 2005/08/09 12:06:15 $
+ * $Revision: 1.42 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -655,7 +655,7 @@ typedef struct {
 } gasneti_stat_timeval_t;
 
 /* startup & cleanup called by GASNet */
-extern void gasneti_trace_init(int argc, char **argv);
+extern void gasneti_trace_init(int *argc, char ***argv);
 extern void gasneti_trace_finish();
 
 /* defines all the types */
