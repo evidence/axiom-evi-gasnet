@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/08 23:59:24 $
- * $Revision: 1.130 $
+ *     $Date: 2005/08/09 01:49:21 $
+ * $Revision: 1.131 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,8 +127,7 @@ int		gasnetc_bbuf_limit;
 
 /* Maximum pinning capabilities of the HCA */
 typedef struct gasnetc_pin_info_t_ {
-    uintptr_t	memory_single;	/* How much in a single mmapped/pinned region */
-    uintptr_t	memory_total;	/* How much pinned all together (per proc) */
+    uintptr_t	memory;		/* How much pinnable (per proc) */
     uint32_t	regions;
     int		num_local;	/* How many procs */
 } gasnetc_pin_info_t;
@@ -221,46 +220,15 @@ extern void gasnetc_free_pinned(gasnetc_memreg_t *reg) {
   gasneti_munmap(reg->req_addr, reg->req_size);
 }
 
-static uintptr_t gasnetc_trypin(void *addr, uintptr_t hi, gasnetc_memreg_t *reg) {
-  uintptr_t lo = GASNETI_MMAP_GRANULARITY;
-  VAPI_ret_t vstat;
-  size_t size;
-
-#if 0 /* Binary search */
-  size = hi;
-  do {
-    vstat = gasnetc_pin(addr, size, 0, reg);
-    if (vstat != VAPI_OK) {
-      hi = size;
-    } else {
-      gasnetc_unpin(reg);
-      lo = size;
-    }
-
-    size = GASNETI_PAGE_ALIGNDOWN(lo + (hi - lo) / 2);
-  } while (size > lo);
-  vstat = gasnetc_pin(addr, size, 0, reg);
-  gasneti_assert(vstat == VAPI_OK);
-#else /* Linear-descending search */
-  for (size = hi; size >= lo; size -= GASNETI_MMAP_GRANULARITY) {
-    vstat = gasnetc_pin(addr, size, 0, reg);
-    if (vstat == VAPI_OK) {
-      break;
-    }
-  }
-#endif
-
-  return size;
-}
-
-static uintptr_t gasnetc_trypin_more(uintptr_t limit, uintptr_t step) {
+/* Try to pin up to 'limit' in chunks of size 'step' */
+static uintptr_t gasnetc_trypin(uintptr_t limit, uintptr_t step) {
   uintptr_t size = 0;
 
   if (limit != 0) {
     gasnetc_memreg_t reg;
     step = MIN(limit, step);
     if (gasnetc_alloc_pinned(step, 0, &reg) != NULL) {
-      size = step + gasnetc_trypin_more(limit - step, step);
+      size = step + gasnetc_trypin(limit - step, step);
       gasnetc_free_pinned(&reg);
     }
   }
@@ -269,13 +237,13 @@ static uintptr_t gasnetc_trypin_more(uintptr_t limit, uintptr_t step) {
 }
 
 /* Reproduce the mmap()/munmap() steps to keep compatible VM spaces */
-static void gasnetc_fakepin_more(uintptr_t limit, uintptr_t step) {
+static void gasnetc_fakepin(uintptr_t limit, uintptr_t step) {
   if (limit != 0) {
     void *addr;
     step = MIN(limit, step);
     addr = gasneti_mmap(step);
     if (addr != MAP_FAILED) {
-      gasnetc_fakepin_more(limit - step, step);
+      gasnetc_fakepin(limit - step, step);
       gasneti_munmap(addr, step);
     }
   }
@@ -284,97 +252,98 @@ static void gasnetc_fakepin_more(uintptr_t limit, uintptr_t step) {
 /* Some stuff not exported from gasnet_mmap.c: */
 extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz);
 
-/* Search for largest region we can allocate and pin, and the total
- * amount we can pin per process..
+/* Search for the total amount of memory we can pin per process.
  */
 static void gasnetc_init_pin_info(int first_local, int num_local) {
   gasnetc_pin_info_t *all_info = gasneti_malloc(gasneti_nodes * sizeof(gasnetc_pin_info_t));
-  gasnet_seginfo_t si;
-  unsigned long pages;
-  uintptr_t size = 0;
+  unsigned long limit;
+  int do_probe = 1;
   int i;
 
-  /* search for largest mmap() region
+  /* 
    * We bound our search by the smallest of:
-   *   2/3 of physical memory (1/4 for Darwin)
-   *   HCA's capability
+   *   2/3 of physical memory (1/4 or 1GB for Darwin)
    *   User's current (soft) mlock limit (optional)
-   *   GASNETI_MMAP_LIMIT
+   *   env(GASNET_PHYSMEM_LIMIT)
+   *   if FIREHOSE_M and FIREHOSE_MAXVICTIM_M are both set:
+   *     (SEGMENT_FAST ? MMAP_LIMIT : 0 ) + (FIREHOSE_M + FIREHOSE_MAXVICTIM_M + eplison)
    */
+
 #if defined(__APPLE__)
-  pages = ((gasneti_getPhysMemSz(1)/GASNET_PAGESIZE) / 4) - 1;
+  /* Note bug #532: Pin requests >= 1GB kill Cluster X nodes */
+  limit = MIN((gasneti_getPhysMemSz(1) / 4) - 1, 0x3fffffff /*1GB-1*/);
 #else
-  pages = 2 * ((gasneti_getPhysMemSz(1)/GASNET_PAGESIZE) / 3);
+  limit = 2 * (gasneti_getPhysMemSz(1) / 3);
 #endif
-  pages = MIN(pages, gasnetc_hca_cap.max_mr_size / GASNET_PAGESIZE);
   #if defined(RLIMIT_MEMLOCK) && GASNETC_HONOR_RLIMIT_MEMLOCK
-  {
+  { /* Honor soft mlock limit (build-time option) */
     struct rlimit r;
     if ((getrlimit(RLIMIT_MEMLOCK, &r) == 0) && (r.rlim_cur != RLIM_INFINITY)) {
-      pages = MIN(pages, r.rlim_cur / GASNET_PAGESIZE);
+      limit = MIN(limit, r.rlim_cur);
     }
   }
   #endif
-  #if defined(__APPLE__)
-    /* work around bug #532: Pin requests >= 1GB kill Cluster X nodes */
-    pages = MIN(pages, 0x3fffffff / GASNET_PAGESIZE);
-  #endif
-  pages = MIN(pages, (~((uintptr_t)0) / GASNET_PAGESIZE)); /* Protect against overflow */
-  if_pf (pages == 0) {
-    gasneti_fatalerror("Failed to determine the available physical memory");
+  { /* Honor Firehose params if set */
+    unsigned long fh_M = gasneti_getenv_int_withdefault("GASNET_FIREHOSE_M", 0, 1);
+    unsigned long fh_VM = gasneti_getenv_int_withdefault("GASNET_FIREHOSE_MAXVICTIM_M", 0, 1);
+    if (fh_M && fh_VM) {
+      #if GASNETC_PIN_SEGMENT
+	limit = MIN(limit, (fh_M + fh_VM + GASNETI_MMAP_LIMIT + GASNETI_MMAP_GRANULARITY));
+      #else
+	limit = MIN(limit, (fh_M + fh_VM + GASNETI_MMAP_GRANULARITY));
+      #endif
+    }
   }
-  si = gasneti_mmap_segment_search(MIN(pages*GASNET_PAGESIZE,GASNETI_MMAP_LIMIT));
-  if_pf (si.addr == NULL) {
-    gasneti_fatalerror("Failed to determine the maximum mmap()able memory");
-  }
-  if_pf (si.size < GASNETI_MMAP_GRANULARITY) {
-    gasneti_munmap(si.addr, si.size);
-    gasneti_fatalerror("Found the maximum pinnable memory to be less than %lu", (unsigned long)GASNETI_MMAP_GRANULARITY);
+  { /* Honor PHYSMEM_LIMIT if set */
+    int tmp = gasneti_getenv_int_withdefault("GASNET_PHYSMEM_LIMIT", 0, 1);
+    if (tmp) {
+      limit = MIN(limit, tmp);
+      if_pf (gasneti_getenv_yesno_withdefault("GASNET_PHYSMEM_NOPROBE", 0)) {
+	/* Force use of PHYSMEM_LIMIT w/o probing */
+	limit = tmp;
+	do_probe = 0;
+      }
+    }
   }
 
+  if_pf (limit == 0) {
+    gasneti_fatalerror("Failed to determine the available physical memory");
+  }
+
+  gasnetc_pin_info.memory    = ~((uintptr_t)0);
   gasnetc_pin_info.regions   = gasnetc_hca_cap.max_num_mr;
   gasnetc_pin_info.num_local = num_local;
 
-  /* Now search for largest pinnable portion of the mmap()ed region */
-  if (gasneti_mynode != first_local) {
-    gasnetc_pin_info.memory_single = ~((uintptr_t)0);
-    gasnetc_pin_info.memory_total  = ~((uintptr_t)0);
+  if (do_probe) {
+    /* Now search for largest pinnable memory, on one process per machine */
+    unsigned long step = MAX(gasnetc_pin_maxsz, GASNETI_MMAP_GRANULARITY);
+    if (gasneti_mynode == first_local) {
+      uintptr_t size = gasnetc_trypin(limit, step);
+      if_pf (!size) {
+        gasneti_fatalerror("ERROR: Failure to determine the max pinnable memory.  VAPI may be misconfigured.");
+      }
+      gasnetc_pin_info.memory = size;
+    }
     gasneti_bootstrapExchange(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
-    /* reproduce mmap() steps of peer to ensure compatible VM spaces */
-    gasnetc_fakepin_more(all_info[first_local].memory_total - all_info[first_local].memory_single, GASNETI_MMAP_GRANULARITY);
+    if (gasneti_mynode != first_local) {
+      /* Extra mmap traffic to ensure compatible VM spaces */
+      gasnetc_fakepin(all_info[first_local].memory, step);
+    }
   } else {
-    gasnetc_memreg_t reg;
-    size = gasnetc_trypin(si.addr, si.size, &reg);
-    gasnetc_pin_info.memory_single = size;
-    if_pf (!size) {
-      gasneti_fatalerror("ERROR: Failure to determine the max pinnable memory.  VAPI may be misconfigured.");
-    }
-
-    /* May be possible to pin more than can be mmap()ed into a single region.
-     * Such memory will be used only by firehose. 
-     * XXX: according to bug 1175 we need a way to bound this search.
-     */
-    if (size == si.size) {
-      size += gasnetc_trypin_more(pages*GASNET_PAGESIZE - size, GASNETI_MMAP_GRANULARITY);
-    }
-    gasnetc_pin_info.memory_total = size;
-    gasnetc_unpin(&reg);
-
+    /* Note that README says PHYSMEM_NOPROBE must be equal on all nodes */
+    gasnetc_pin_info.memory = limit;
     gasneti_bootstrapExchange(&gasnetc_pin_info, sizeof(gasnetc_pin_info_t), all_info);
   }
-  gasneti_munmap(si.addr, si.size);
-
 
   /* Determine the global values (min of maxes) from the local values */
   for (i = 0; i < gasneti_nodes; i++) {
     gasnetc_pin_info_t *info = &all_info[i];
 
-    info->memory_total = GASNETI_PAGE_ALIGNDOWN(info->memory_total / info->num_local);
+    info->memory = GASNETI_PAGE_ALIGNDOWN(info->memory / info->num_local);
     info->regions /= info->num_local;
 
-    gasnetc_pin_info.memory_single  = MIN(gasnetc_pin_info.memory_single, info->memory_single );
-    gasnetc_pin_info.memory_total   = MIN(gasnetc_pin_info.memory_total,  info->memory_total );
-    gasnetc_pin_info.regions        = MIN(gasnetc_pin_info.regions,       info->regions);
+    gasnetc_pin_info.memory  = MIN(gasnetc_pin_info.memory,  info->memory );
+    gasnetc_pin_info.regions = MIN(gasnetc_pin_info.regions, info->regions);
   }
   gasneti_free(all_info);
 }
@@ -941,10 +910,8 @@ static int gasnetc_init(int *argc, char ***argv) {
 
     /* Query the pinning limits of the HCA */
     gasnetc_init_pin_info(first_local, num_local);
-    gasneti_assert(gasnetc_pin_info.memory_single != 0);
-    gasneti_assert(gasnetc_pin_info.memory_single != (uintptr_t)(-1));
-    gasneti_assert(gasnetc_pin_info.memory_total  != 0);
-    gasneti_assert(gasnetc_pin_info.memory_total  != (uintptr_t)(-1));
+    gasneti_assert(gasnetc_pin_info.memory != 0);
+    gasneti_assert(gasnetc_pin_info.memory != (uintptr_t)(-1));
     gasneti_assert(gasnetc_pin_info.regions != 0);
   }
 
@@ -958,10 +925,10 @@ static int gasnetc_init(int *argc, char ***argv) {
      * is only made available for debugging. */
     size_t reserved_mem = GASNETC_MIN_FH_PAGES * GASNET_PAGESIZE;
 
-    if_pf (gasnetc_pin_info.memory_total < reserved_mem) {
-      gasneti_fatalerror("Pinnable memory is less than reserved minimum %lu\n", (unsigned long)reserved_mem);
+    if_pf (gasnetc_pin_info.memory < reserved_mem) {
+      gasneti_fatalerror("Pinnable memory (%lu) is less than reserved minimum %lu\n", (unsigned long)gasnetc_pin_info.memory, (unsigned long)reserved_mem);
     }
-    gasneti_segmentInit(MIN(gasnetc_pin_info.memory_single, gasnetc_pin_info.memory_total - reserved_mem), &gasneti_bootstrapExchange);
+    gasneti_segmentInit((gasnetc_pin_info.memory - reserved_mem), &gasneti_bootstrapExchange);
   }
   #elif GASNET_SEGMENT_LARGE
     gasneti_segmentInit((uintptr_t)(-1), &gasneti_bootstrapExchange);
@@ -1212,7 +1179,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 
   /* Initialize firehose */
   if (gasnetc_use_firehose) {
-    uintptr_t firehose_mem = gasnetc_pin_info.memory_total;
+    uintptr_t firehose_mem = gasnetc_pin_info.memory;
     int firehose_reg = gasnetc_pin_info.regions;
     int reg_count;
     firehose_region_t prereg[2];

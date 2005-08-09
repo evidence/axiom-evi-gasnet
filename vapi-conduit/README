@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.31 $
+$Revision: 1.32 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -168,6 +168,24 @@ $Revision: 1.31 $
 
   These parameters must be equal across all nodes, and the behavior
   otherwise is undefined.
+
+  + GASNET_PHYSMEM_MAX
+    If non-zero this parameter tells vapi-conduit the maximum amount of
+    physical memory to pin.  The suffixes "M" and "G" are interpreted as
+    Megabytes and Gigabytes respectively.  The current default is zero,
+    which means to probe the limits imposed by the O/S and HCA.
+    Setting to a non-zero value will limit how large the GASNet segment
+    can be, and how much memory is available for firehose (see below),
+    but may speed startup by bounding the probe.
+
+  + GASNET_PHYSMEM_NOPROBE
+    This gives a boolean: "0" to disable or "1" to enable the use of
+    GASNET_PHYSMEM_MAX without probing.
+    Enabling this setting may greatly speed startup, but can lead to
+    unexpected runtime failures if GASNET_PHYSMEM_MAX exceedes the limts
+    imposed by the O/S and HCA.
+    If GASNET_PHYSMEM_MAX is zero (or unset) this variable is ignored.
+    The default is OFF.
 
   + GASNET_INLINESEND_LIMIT
     VAPI includes an "inline send" operation that transfers the data to
