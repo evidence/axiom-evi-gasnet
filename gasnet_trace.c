@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/08/09 12:06:15 $
- * $Revision: 1.114 $
+ *     $Date: 2005/08/10 22:50:51 $
+ * $Revision: 1.115 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,13 +63,15 @@ static gasneti_stattime_t starttime;
   extern void _gasnett_trace_printf(const char *format, ...) {
     #define TMPBUFSZ 1024
     char output[TMPBUFSZ];
-    va_list argptr;
-    va_start(argptr, format); /*  pass in last argument */
-      { int sz = vsnprintf(output, TMPBUFSZ, format, argptr);
-        if (sz >= (TMPBUFSZ-5) || sz < 0) strcpy(output+(TMPBUFSZ-5),"...");
-      }
-    va_end(argptr);
-    GASNETI_TRACE_MSG(H, output);
+    if (GASNETI_TRACE_ENABLED(H)) { /* skip some varargs/vsnprintf overhead */
+      va_list argptr;
+      va_start(argptr, format); /*  pass in last argument */
+        { int sz = vsnprintf(output, TMPBUFSZ, format, argptr);
+          if (sz >= (TMPBUFSZ-5) || sz < 0) strcpy(output+(TMPBUFSZ-5),"...");
+        }
+      va_end(argptr);
+      GASNETI_TRACE_MSG(H, output);
+    }
     #undef TMPBUFSZ
   }
 #endif
