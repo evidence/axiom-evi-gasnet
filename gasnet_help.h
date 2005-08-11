@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/08/09 12:06:15 $
- * $Revision: 1.61 $
+ *     $Date: 2005/08/11 10:06:58 $
+ * $Revision: 1.62 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -123,17 +123,17 @@ typedef struct {
 
 /* extern versions of gasnet malloc fns for use in public headers */
 extern void *_gasneti_extern_malloc(size_t sz 
-             GASNETI_CURLOCFARG) __attribute__((__malloc__));
+             GASNETI_CURLOCFARG) GASNETI_MALLOC;
 extern void *_gasneti_extern_realloc(void *ptr, size_t sz 
              GASNETI_CURLOCFARG);
 extern void *_gasneti_extern_calloc(size_t N, size_t S 
-             GASNETI_CURLOCFARG) __attribute__((__malloc__));
+             GASNETI_CURLOCFARG) GASNETI_MALLOC;
 extern void _gasneti_extern_free(void *ptr
              GASNETI_CURLOCFARG);
 extern char *_gasneti_extern_strdup(const char *s
-              GASNETI_CURLOCFARG) __attribute__((__malloc__));
+              GASNETI_CURLOCFARG) GASNETI_MALLOC;
 extern char *_gasneti_extern_strndup(const char *s, size_t n 
-              GASNETI_CURLOCFARG) __attribute__((__malloc__));
+              GASNETI_CURLOCFARG) GASNETI_MALLOC;
 #ifdef __SUNPRO_C
   #pragma returns_new_memory(_gasneti_extern_malloc, _gasneti_extern_calloc, _gasneti_extern_strdup, _gasneti_extern_strndup)
 #endif

@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/07/28 10:11:03 $ */
-/*  $Revision: 1.60 $ */
+/*      $Date: 2005/08/11 10:06:58 $ */
+/*  $Revision: 1.61 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -171,21 +171,17 @@
 #define __attribute__(flags)
 #endif
 
-#if defined(__GNUC__) && __GNUC__ <= 2 && __GNUC_MINOR__ <= 95
-/* malloc attribute missing in egcs-2.91.66 and gcc 2.95.2 */
-#define __malloc__
+#if defined(__GNUC__) && !(__GNUC__ <= 2 && __GNUC_MINOR__ <= 95)
+  #define GASNETI_MALLOC __attribute__((__malloc__))
+#else
+  /* malloc attribute missing in egcs-2.91.66, gcc 2.95.4, and non-gcc compilers */
+  #define GASNETI_MALLOC
 #endif
 
 #if defined(__GNUC__)
 #define GASNETI_NORETURN __attribute__((__noreturn__))
 #else
 #define GASNETI_NORETURN 
-#endif
-
-#if defined(__PGI) && defined(__cplusplus)
-  /* PGI C++ appears to have no functional restrict keyword, even with --restrict */
-  #undef GASNETI_RESTRICT
-  #define GASNETI_RESTRICT
 #endif
 
 #endif

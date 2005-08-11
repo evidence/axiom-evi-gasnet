@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/08/01 20:36:21 $
- * $Revision: 1.122 $
+ *     $Date: 2005/08/11 10:07:00 $
+ * $Revision: 1.123 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -778,7 +778,7 @@ void gasnetc_epid_bind(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc) {
 /* allocate a send request structure, trying to reap existing ones first */
 #ifdef __GNUC__
   GASNET_INLINE_MODIFIER(gasnetc_get_sreq)
-  gasnetc_sreq_t *gasnetc_get_sreq(void) __attribute__((__malloc__));
+  gasnetc_sreq_t *gasnetc_get_sreq(void) GASNETI_MALLOC;
 #endif
 GASNET_INLINE_MODIFIER(gasnetc_get_sreq)
 gasnetc_sreq_t *gasnetc_get_sreq(void) {
@@ -828,7 +828,7 @@ gasnetc_sreq_t *gasnetc_get_sreq(void) {
 /* allocate a pre-pinned bounce buffer */
 #ifdef __GNUC__
   GASNET_INLINE_MODIFIER(gasnetc_get_bbuf)
-  gasnetc_buffer_t *gasnetc_get_bbuf(int block) __attribute__((__malloc__));
+  gasnetc_buffer_t *gasnetc_get_bbuf(int block) GASNETI_MALLOC;
 #endif
 GASNET_INLINE_MODIFIER(gasnetc_get_bbuf)
 gasnetc_buffer_t *gasnetc_get_bbuf(int block) {

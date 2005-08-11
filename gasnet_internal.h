@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/08/09 12:06:15 $
- * $Revision: 1.84 $
+ *     $Date: 2005/08/11 10:06:58 $
+ * $Revision: 1.85 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -77,22 +77,22 @@ extern void gasneti_decode_args(int *argc, char ***argv);
 /* corresponding gasneti_memcheck fns are in gasnet_help.h */
 
 #if GASNET_DEBUG
-  extern void *_gasneti_malloc(size_t nbytes, const char *curloc) __attribute__((__malloc__));
-  extern void *_gasneti_malloc_allowfail(size_t nbytes, const char *curloc) __attribute__((__malloc__));
+  extern void *_gasneti_malloc(size_t nbytes, const char *curloc) GASNETI_MALLOC;
+  extern void *_gasneti_malloc_allowfail(size_t nbytes, const char *curloc) GASNETI_MALLOC;
   extern void _gasneti_free(void *ptr, const char *curloc);
   extern void *_gasneti_realloc(void *ptr, size_t sz, const char *curloc);
-  extern void *_gasneti_calloc(size_t N, size_t S, const char *curloc) __attribute__((__malloc__));
+  extern void *_gasneti_calloc(size_t N, size_t S, const char *curloc) GASNETI_MALLOC;
   extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int checktype);
 #else
   #ifdef __GNUC__
     /* provide gcc with additional information about the aliasing qualities
        of the return value (being malloc-like) to improve caller optimization */
     GASNET_INLINE_MODIFIER(_gasneti_malloc)
-    void *_gasneti_malloc(size_t nbytes) __attribute__((__malloc__));
+    void *_gasneti_malloc(size_t nbytes) GASNETI_MALLOC;
     GASNET_INLINE_MODIFIER(_gasneti_malloc_allowfail)
-    void *_gasneti_malloc_allowfail(size_t nbytes) __attribute__((__malloc__));
+    void *_gasneti_malloc_allowfail(size_t nbytes) GASNETI_MALLOC;
     GASNET_INLINE_MODIFIER(_gasneti_calloc)
-    void *_gasneti_calloc(size_t N, size_t S) __attribute__((__malloc__));
+    void *_gasneti_calloc(size_t N, size_t S) GASNETI_MALLOC;
   #endif
   GASNET_INLINE_MODIFIER(_gasneti_malloc)
   void *_gasneti_malloc(size_t nbytes) {
@@ -190,9 +190,9 @@ extern void gasneti_decode_args(int *argc, char ***argv);
 /* Version of strdup() which is compatible w/ gasneti_free(), instead of plain free() */
 #ifdef __GNUC__ 
   GASNET_INLINE_MODIFIER(_gasneti_strdup)
-  char *_gasneti_strdup(const char *s GASNETI_CURLOCFARG) __attribute__((__malloc__));
+  char *_gasneti_strdup(const char *s GASNETI_CURLOCFARG) GASNETI_MALLOC;
   GASNET_INLINE_MODIFIER(_gasneti_strndup)
-  char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) __attribute__((__malloc__));
+  char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) GASNETI_MALLOC;
 #endif
 GASNET_INLINE_MODIFIER(_gasneti_strdup)
 char *_gasneti_strdup(const char *s GASNETI_CURLOCFARG) {

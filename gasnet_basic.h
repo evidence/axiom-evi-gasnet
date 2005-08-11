@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2005/08/11 04:00:21 $
- * $Revision: 1.42 $
+ *     $Date: 2005/08/11 10:06:58 $
+ * $Revision: 1.43 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,6 +40,13 @@
     #define BEGIN_EXTERNC 
     #define END_EXTERNC 
   #endif
+#endif
+
+#if defined(__cplusplus)
+  /* bug 1206: the restrict keyword is not part of the C++ spec, and many C++
+     compilers lack it -- so define it away to nothing, which should always be safe */
+  #undef GASNETI_RESTRICT
+  #define GASNETI_RESTRICT
 #endif
 
 #ifndef _STRINGIFY
