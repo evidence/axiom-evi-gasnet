@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/07/29 01:19:14 $
-# $Revision: 1.284 $
+#     $Date: 2005/08/11 04:00:21 $
+# $Revision: 1.285 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.284 $)
+AC_REVISION($Revision: 1.285 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -541,13 +541,13 @@ case "$target_os" in
 	AC_DEFINE(FREEBSD)
 	GASNET_MACHINE_DEFINES="-DFREEBSD"
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
-        GASNET_THREAD_LIBS="-pthread -lc_r"
+        GASNET_THREAD_LIBS="-pthread" # bug 1205: do not explicitly select threading lib
 	;;
   netbsd*) 
 	AC_DEFINE(NETBSD)
 	GASNET_MACHINE_DEFINES="-DNETBSD"
 	GASNET_THREAD_DEFINES="-D_REENTRANT"
-        GASNET_THREAD_LIBS="-pthread -lc_r"
+        GASNET_THREAD_LIBS="-pthread" # bug 1205: do not explicitly select threading lib
 	;;
   cygwin*) 
 	AC_DEFINE(CYGWIN)
@@ -700,8 +700,12 @@ else
       ;;
   esac
  fi
- 
-  GASNET_THREAD_LIBS="$LIBS"
+
+  case "$target_os" in
+    freebsd*) ;; # bug 1205: intentionally avoid -lpthread on BSD, where it causes problems
+    netbsd*)  ;;
+    *) GASNET_THREAD_LIBS="$LIBS" ;;
+  esac
   GASNET_POPVAR(CPPFLAGS)
   GASNET_POPVAR(LIBS)
 fi
@@ -2203,6 +2207,11 @@ GASNET_TRY_CACHE_LINK(for __func__, cc_has_func,
 [],
 [const char* p = __func__;],
 AC_DEFINE(HAVE_FUNC))
+
+########################################################################
+## Misc Header checks
+
+AC_CHECK_HEADERS(sys/param.h)
 
 
 ########################################################################
