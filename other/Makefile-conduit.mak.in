@@ -125,7 +125,7 @@ TESTLOG_INHERIT=0
 
 do-begin-tests do-end-tests:
 	@if test "$(TESTLOG_INHERIT)" = "0"; then \
-          ( cd "$(top_builddir)" && $(MAKE) TESTINSTANCE=$(TESTINSTANCE) TESTLOG=$(TESTLOG) $@ ) || exit $? ; \
+          ( cd "$(top_builddir)" && $(MAKE) TESTINSTANCE=$(TESTINSTANCE) TESTLOG=$(TESTLOG) $@ ) || exit $$? ; \
         fi
 
 tests-seq: force libgasnet-$(CONDUIT_NAME)-seq.a $(CONDUIT_NAME)-seq.mak $(CONDUIT_SEQ_HOOK)
