@@ -119,7 +119,7 @@ tests: force
 
 test: tests
 
-TESTINSTANCE=$$PPID
+TESTINSTANCE=$${PPID:-xxxx}
 TESTLOG=`pwd`/.test-results
 TESTLOG_INHERIT=0
 

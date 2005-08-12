@@ -5,7 +5,7 @@ AMUDP_RUNCMD_EXP=\
       TEST_RUN_P=`echo "$$TEST_RUN" | sed 's/ .*$$//'`  \
       TEST_RUN_A=`echo "$$TEST_RUN" | sed 's/^[^ ]* //'` \
       TEST_DOIT="$$TEST_RUN"
-TEST_RUNCMD=$(AMUDP_RUNCMD_EXP) ; 				\
+TEST_RUNCMD= ; $(AMUDP_RUNCMD_EXP) ; 				\
 	 testname=`basename $$TEST_RUN_P` ;                     \
 	 faildesc="amudp/$$testname" ;                          \
          if test -x "$$TEST_RUN_P" ; then                       \
