@@ -1,13 +1,13 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/socklist.cpp,v $
-//     $Date: 2004/08/26 04:53:50 $
-// $Revision: 1.2 $
+//     $Date: 2005/08/12 12:27:45 $
+// $Revision: 1.3 $
 // Description: 
 // Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
 #include <assert.h>
 #include "socklist.h"
 
-#ifdef _MT
+#ifdef SOCKLIST_MT
   semaphore SocketList::lock("socketlist"); 
   #define LOCK   do { if (TS) lock.wait(); } while (0)
   #define UNLOCK do { if (TS) lock.signal(); } while (0)
@@ -120,7 +120,7 @@ SOCKET* SocketList::getIntersection(fd_set* set, SOCKET* buffer, int* size) {
   }
    
 SocketList::SocketList(SocketList& other) { // copy ctr
-  #ifdef _MT
+  #ifdef SOCKLIST_MT
     int locked = (TS || other.TS);
     if (locked) lock.wait();
   #endif
@@ -132,7 +132,7 @@ SocketList::SocketList(SocketList& other) { // copy ctr
     table[i] = other.table[i];
     }
   memcpy(&prvSet,&other.prvSet,sizeof(fd_set));
-  #ifdef _MT
+  #ifdef SOCKLIST_MT
     if (locked) lock.signal();
   #endif
   }

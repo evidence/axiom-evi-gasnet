@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/socklist.h,v $
-//     $Date: 2004/08/26 04:53:50 $
-// $Revision: 1.2 $
+//     $Date: 2005/08/12 12:27:45 $
+// $Revision: 1.3 $
 // Description: 
 // Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -10,7 +10,7 @@
 #include "socket.h"
 #include <stdlib.h>
 
-#ifdef _MT
+#ifdef SOCKLIST_MT
   #include "semaphor.h"
 #endif
 
@@ -22,7 +22,7 @@ class SocketList {
     unsigned long maxfd;
     fd_set prvSet;
 
-    #ifdef _MT
+    #ifdef SOCKLIST_MT
       static semaphore lock; 
     #endif
     int TS; // threadsafe?
@@ -37,7 +37,7 @@ class SocketList {
     unsigned long getCount() { return count; }
     unsigned long getMaxFd() { return maxfd; }
 
-    #ifdef _MT
+    #ifdef SOCKLIST_MT
       void setThreadSafe(int ThreadSafe) { TS = ThreadSafe; }
     #endif
 
