@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/08/02 19:04:12 $
- * $Revision: 1.59 $
+ *     $Date: 2005/08/12 04:07:48 $
+ * $Revision: 1.60 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,6 +44,12 @@
   #endif
 #endif
 #include <assert.h>
+
+#if defined(__DECCXX) && defined(NDEBUG) 
+  /* bug 1206: workaround a broken assert.h header in Compaq C++ */
+  #undef assert
+  #define assert(x) ((void)0)
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* misc tools */
