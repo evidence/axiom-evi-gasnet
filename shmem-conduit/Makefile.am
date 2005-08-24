@@ -1,5 +1,5 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/Makefile.am,v 1.5 2005/07/29 01:19:32 csbell Exp $
+# $Header: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/Makefile.am,v 1.6 2005/08/24 10:21:33 bonachea Exp $
 # Description: Makefile for GASNet shmem conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -10,7 +10,7 @@ CONDUIT_NAME=shmem
 
 # any conduit-specific subdirectories containing Makefile.am's
 #SUBDIRS = contrib Nothing to make in this contrib
-SUBDIRS = 
+SUBDIRS = .
 
 # complete list of files in the conduit directory
 # include all headers, documentation, etc. 

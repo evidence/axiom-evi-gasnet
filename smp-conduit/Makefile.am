@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/Makefile.am,v $
-#     $Date: 2004/10/09 14:54:17 $
-# $Revision: 1.19 $
+#     $Date: 2005/08/24 10:21:35 $
+# $Revision: 1.20 $
 # Description: Makefile for GASNet smp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -11,7 +11,7 @@ AUTOMAKE_OPTIONS = foreign 1.4
 CONDUIT_NAME=smp
 
 # any conduit-specific subdirectories containing Makefile.am's
-SUBDIRS = 
+SUBDIRS = .
 
 # complete list of files in the conduit directory
 # include all headers, documentation, etc. 

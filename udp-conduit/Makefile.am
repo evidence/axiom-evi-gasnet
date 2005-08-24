@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/Makefile.am,v $
-#     $Date: 2005/04/29 23:59:38 $
-# $Revision: 1.16 $
+#     $Date: 2005/08/24 10:21:39 $
+# $Revision: 1.17 $
 # Description: Makefile for GASNet udp conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -11,7 +11,7 @@ AUTOMAKE_OPTIONS = foreign 1.4
 CONDUIT_NAME=udp
 
 # any conduit-specific subdirectories containing Makefile.am's
-SUBDIRS = 
+SUBDIRS = .
 
 # complete list of files in the conduit directory
 # include all headers, documentation, etc. 

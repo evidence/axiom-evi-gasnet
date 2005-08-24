@@ -1,14 +1,14 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/contrib/Makefile.am,v $
-#     $Date: 2005/07/29 11:14:40 $
-# $Revision: 1.13 $
+#     $Date: 2005/08/24 10:21:31 $
+# $Revision: 1.14 $
 # Description: Makefile for GASNet other/contrib
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-SUBDIRS =         
+SUBDIRS = .
 
 EXTRA_DIST = $(dotpl_DATA) 
 # exclude these from distribution for now

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v $
-#     $Date: 2005/04/28 04:35:23 $
-# $Revision: 1.30 $
+#     $Date: 2005/08/24 10:21:27 $
+# $Revision: 1.31 $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -11,7 +11,7 @@ AUTOMAKE_OPTIONS = foreign 1.4
 CONDUIT_NAME=elan
 
 # any conduit-specific subdirectories containing Makefile.am's
-SUBDIRS = 
+SUBDIRS = .
 
 # complete list of files in the conduit directory
 # include all headers, documentation, etc. 
