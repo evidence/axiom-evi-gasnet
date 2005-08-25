@@ -74,8 +74,10 @@ GASNet Release Procedure
    Linux-Quadrics: mpi, elan
    Linux-Ethernet: mpi
    Linux-InfiniBand: mpi, vapi
+   Linux-Altix: shmem
+   Linux-Dolphin: sci
    Origin 2000: mpi - 32 & 64 bit
-   Cray T3E: mpi
+   Cray X1: mpi, shmem
 
 * Merge with Titanium and test SEGMENT_EVERYTHING functionality 
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/08/19 04:59:57 $
- * $Revision: 1.41 $
+ *     $Date: 2005/08/25 10:36:25 $
+ * $Revision: 1.42 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,23 +37,6 @@
     #define gasneti_assert(expr) \
       (PREDICT_TRUE(expr) ? (void)0 : gasneti_assert_fail(__FILE__, __LINE__, #expr))
   #endif
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-/* portable high-performance, low-overhead timers */
-
-#include <gasnet_timer.h>
-
-#define gasnett_tick_t               gasneti_stattime_t
-#define GASNETT_TICK_MIN             GASNETI_STATTIME_MIN
-#define GASNETT_TICK_MAX             GASNETI_STATTIME_MAX
-#define gasnett_ticks_to_us(ticks)   GASNETI_STATTIME_TO_US(ticks)
-#define gasnett_ticks_now()          GASNETI_STATTIME_NOW()
-#define gasnett_timer_granularityus()   GASNETI_STATTIME_GRANULARITY()
-#define gasnett_timer_overheadus()      GASNETI_STATTIME_OVERHEAD()
-
-#ifdef GASNETI_USING_GETTIMEOFDAY
-#define GASNETT_USING_GETTIMEOFDAY
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -116,6 +99,23 @@
        "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) "," \
        _STRINGIFY(GASNETI_TIMER_CONFIG) ","      \
        _STRINGIFY(GASNETI_ATOMIC_CONFIG)         
+
+/* ------------------------------------------------------------------------------------ */
+/* portable high-performance, low-overhead timers */
+
+#include <gasnet_timer.h>
+
+#define gasnett_tick_t               gasneti_stattime_t
+#define GASNETT_TICK_MIN             GASNETI_STATTIME_MIN
+#define GASNETT_TICK_MAX             GASNETI_STATTIME_MAX
+#define gasnett_ticks_to_us(ticks)   GASNETI_STATTIME_TO_US(ticks)
+#define gasnett_ticks_now()          GASNETI_STATTIME_NOW()
+#define gasnett_timer_granularityus()   GASNETI_STATTIME_GRANULARITY()
+#define gasnett_timer_overheadus()      GASNETI_STATTIME_OVERHEAD()
+
+#ifdef GASNETI_USING_GETTIMEOFDAY
+#define GASNETT_USING_GETTIMEOFDAY
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 

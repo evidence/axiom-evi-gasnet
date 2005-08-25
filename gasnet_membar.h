@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2005/08/20 06:24:47 $
- * $Revision: 1.74 $
+ *     $Date: 2005/08/25 10:36:25 $
+ * $Revision: 1.75 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -366,6 +366,7 @@
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif
 
+/* ------------------------------------------------------------------------------------ */
 /* Default gasneti_compiler_fence() */
 #ifndef gasneti_compiler_fence
   #define gasneti_compiler_fence() GASNETI_ASM("")
@@ -382,6 +383,46 @@
 #ifndef gasneti_local_mb
   #define gasneti_local_mb() do { gasneti_local_wmb(); gasneti_local_rmb(); } while (0)
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Conditionally compiled memory barriers -
+
+   gasneti_sync_{reads,writes,mem} are like gasneti_local_{rmb,wmb,mb} except that when
+   not using threads we want them to compile away to nothing, and when compiling for
+   threads on a uniprocessor we want only a compiler optimization barrier
+*/
+
+#ifndef gasneti_sync_writes
+  #if GASNET_SEQ && !GASNETI_THREADS
+    #define gasneti_sync_writes() /* NO-OP */
+  #elif GASNETI_UNI_BUILD
+    #define gasneti_sync_writes() gasneti_compiler_fence()
+  #else
+    #define gasneti_sync_writes() gasneti_local_wmb()
+  #endif
+#endif
+
+#ifndef gasneti_sync_reads
+  #if GASNET_SEQ && !GASNETI_THREADS
+    #define gasneti_sync_reads() /* NO-OP */
+  #elif GASNETI_UNI_BUILD
+    #define gasneti_sync_reads() gasneti_compiler_fence()
+  #else
+    #define gasneti_sync_reads() gasneti_local_rmb()
+  #endif
+#endif
+
+#ifndef gasneti_sync_mem
+  #if GASNET_SEQ && !GASNETI_THREADS
+    #define gasneti_sync_mem() /* NO-OP */
+  #elif GASNETI_UNI_BUILD
+    #define gasneti_sync_mem() gasneti_compiler_fence()
+  #else
+    #define gasneti_sync_mem() gasneti_local_mb()
+  #endif
+#endif
+
+/* ------------------------------------------------------------------------------------ */
 
 #ifndef gasneti_spinloop_hint
  #ifdef HAVE_X86_PAUSE_INSTRUCTION

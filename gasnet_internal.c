@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/08/16 07:02:08 $
- * $Revision: 1.119 $
+ *     $Date: 2005/08/25 10:36:25 $
+ * $Revision: 1.120 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -754,9 +754,10 @@ extern char *gasneti_getenv(const char *keyname) {
     decodeenv = !gasneti_getenv("GASNET_DISABLE_ENVDECODE");
     if (gasneti_init_done) {
       gasneti_envstr_display("GASNET_DISABLE_ENVDECODE",(decodeenv?"NO":"YES"),decodeenv);
+      gasneti_sync_writes();
       firsttime = 0;
     }
-  }
+  } else gasneti_sync_reads();
 
   if (keyname && gasneti_conduit_getenv) {
     /* highest priority given to conduit-specific getenv */
@@ -894,8 +895,9 @@ extern int gasneti_verboseenv() {
     #else
       verboseenv = !!gasneti_getenv("GASNET_VERBOSEENV") && GASNETI_ENV_OUTPUT_NODE();
     #endif
+    gasneti_sync_writes();
     if (gasneti_init_done) firsttime = 0;
-  }
+  } else gasneti_sync_reads();
   return verboseenv;
 }
 /* display an integral/string environment setting iff gasneti_verboseenv() */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/07/23 01:39:01 $
- * $Revision: 1.42 $
+ *     $Date: 2005/08/25 10:36:25 $
+ * $Revision: 1.43 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -140,12 +140,13 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     if_pf(firsttime) {
       double freq = mta_clock_freq();
       adjust = 1000000.0/freq;
+      gasneti_sync_writes();
       firsttime = 0;
       #if 0
         printf("first time: ticks=%llu  freq=%f adjust=%f\n", 
               (unsigned long long) ticks, freq, adjust);
       #endif
-    }
+    } else gasneti_sync_reads();
     return (uint64_t)(((double)ticks) * adjust);
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
@@ -232,8 +233,9 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
       }
       fclose(fp);
       gasneti_assert(Tick != 0.0);
+      gasneti_sync_writes();
       firstTime = 0;
-    }
+    } else gasneti_sync_reads();
     return (uint64_t)(st * Tick);
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
@@ -354,8 +356,9 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
      #endif
       gasneti_assert(freq > 1000000 && freq < 1000000000); /* ensure it looks reasonable (1MHz to 1Ghz) */
       Tick = 1.0e6 / freq;
+      gasneti_sync_writes();
       firstTime = 0;
-    }
+    } else gasneti_sync_reads();
     return (uint64_t)(st * Tick);
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
@@ -406,8 +409,9 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
       if (!QueryPerformanceFrequency(&temp)) abort();
       freq = ((double)temp.QuadPart) / 1000000.0;
       freq = 1 / freq;
+      gasneti_sync_writes();
       firsttime = 0;
-    }
+    } else gasneti_sync_reads();
     return (uint64_t)(st * freq);
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
@@ -425,8 +429,9 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
       mach_timebase_info_data_t tb;
       if (mach_timebase_info(&tb)) abort();
       freq = 1.e-3 * ((double)tb.numer) / ((double)tb.denom);
+      gasneti_sync_writes();
       firsttime = 0;
-    }
+    } else gasneti_sync_reads();
     return (uint64_t)(st * freq);
   }
   #define GASNETI_STATTIME_TO_US(st)  (gasneti_stattime_to_us(st))
@@ -486,6 +491,7 @@ double gasneti_stattime_metric(unsigned int idx) {
   gasneti_assert(idx <= 1);
   if_pf (_gasneti_stattime_metric == NULL) {
     int i, ticks, iters = 1000, minticks = 10;
+    double *_tmp_metric;
     gasneti_stattime_t min = GASNETI_STATTIME_MAX;
     gasneti_stattime_t start = GASNETI_STATTIME_NOW();
     gasneti_stattime_t last = start;
@@ -498,13 +504,15 @@ double gasneti_stattime_metric(unsigned int idx) {
       }
       last = x;
     }
-    _gasneti_stattime_metric = (double *)malloc(2*sizeof(double));
-    gasneti_assert(_gasneti_stattime_metric != NULL);
+    _tmp_metric = (double *)malloc(2*sizeof(double));
+    gasneti_assert(_tmp_metric != NULL);
     /* granularity */
-    _gasneti_stattime_metric[0] = ((double)GASNETI_STATTIME_TO_US(min*1000))/1000.0;
+    _tmp_metric[0] = ((double)GASNETI_STATTIME_TO_US(min*1000))/1000.0;
     /* overhead */
-    _gasneti_stattime_metric[1] = ((double)(GASNETI_STATTIME_TO_US(last - start)))/i;
-  }
+    _tmp_metric[1] = ((double)(GASNETI_STATTIME_TO_US(last - start)))/i;
+    gasneti_sync_writes();
+    _gasneti_stattime_metric = _tmp_metric;
+  } else gasneti_sync_reads();
   return _gasneti_stattime_metric[idx];
 }
 /* ------------------------------------------------------------------------------------ */
