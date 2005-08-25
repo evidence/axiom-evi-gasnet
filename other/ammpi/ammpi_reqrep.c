@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2005/07/23 01:39:24 $
- * $Revision: 1.23 $
+ *     $Date: 2005/08/25 09:13:58 $
+ * $Revision: 1.24 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -537,6 +537,7 @@ extern int _AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *nu
       #if AMMPI_PREPOST_RECVS
         /* repost the recv */
         AMMPI_assert(ep->rxHandle[idxready] == MPI_REQUEST_NULL);
+        AMMPI_assert(((uintptr_t)&ep->rxBuf[idxready]) % AMMPI_BUF_ALIGN == 0);
         MPI_SAFE(MPI_Irecv(&ep->rxBuf[idxready], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
                            MPI_ANY_SOURCE, MPI_ANY_TAG, *(ep->pmpicomm), 
                            &ep->rxHandle[idxready]));

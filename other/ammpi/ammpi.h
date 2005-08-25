@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2005/08/20 11:03:10 $
- * $Revision: 1.30 $
+ *     $Date: 2005/08/25 09:13:58 $
+ * $Revision: 1.31 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -63,6 +63,9 @@ typedef uint32_t ammpi_node_t;
 #else
   #define AMMPI_USE_AMTAGS 1
 #endif
+
+/* alignment to use for buffers - optimized for cache lines (min is 8) */
+#define AMMPI_BUF_ALIGN 128 
 
 #define AMMPI_COLLECT_LATENCY_STATS   0 /* not yet implemented */
 /* ------------------------------------------------------------------------------------ */
@@ -148,8 +151,19 @@ typedef struct ammpi_buf {
   /* received requests & replies only */
   ammpi_bufstatus_t status;
 
-  /* yuk - dirty hack to enforce sizeof(ammpi_buf_t)%8 == 0 */
-  uint32_t _pad[(sizeof(ammpi_bufstatus_t)+sizeof(ammpi_msg_t))%8==0?2:1]; 
+  /* padding to enforce sizeof(ammpi_buf_t)%AMMPI_BUF_ALIGN == 0 */
+  #define __EXP ((AMMPI_BUF_ALIGN - \
+                  (sizeof(ammpi_msg_t) + \
+                   (4*AMMPI_MAX_SHORT)+AMMPI_MAX_LONG + \
+                   sizeof(ammpi_bufstatus_t)) % AMMPI_BUF_ALIGN) \
+                 % AMMPI_BUF_ALIGN)
+  #ifdef __GNUC__
+    uint8_t _pad[__EXP];
+  #else
+    /* non-GNU compilers may choke on 0-length array in a struct */
+    uint8_t _pad[__EXP == 0 ? AMMPI_BUF_ALIGN : __EXP];
+  #endif
+  #undef __EXP
   } ammpi_buf_t;
 
 #define AMMPI_MIN_NETWORK_MSG ((int)(uintptr_t)&((ammpi_buf_t *)NULL)->_Data[0])
@@ -243,7 +257,8 @@ typedef struct ammpi_ep {
   AMMPI_postHandlerCallback_t postHandlerCallback;
 
   /* recv buffer tables */
-  ammpi_buf_t* rxBuf;    /* recv buffers */
+  ammpi_buf_t* rxBuf;    /* recv buffers (aligned) */
+  ammpi_buf_t* rxBuf_alloc; /* recv buffers (mallocated ptr) */
   MPI_Request* rxHandle; /* recv buffer handles */
   uint32_t rxNumBufs;    /* number of recv buffers */
   int rxCurr;            /* the oldest recv buffer index, for AMMPI_MPIIRECV_ORDERING_WORKS */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2005/07/23 01:39:24 $
- * $Revision: 1.28 $
+ *     $Date: 2005/08/25 09:13:58 $
+ * $Revision: 1.29 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -131,10 +131,12 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
 
   #if AMMPI_PREPOST_RECVS 
     /* setup recv buffers */
-    ep->rxBuf = (ammpi_buf_t *)AMMPI_malloc(numBufs * sizeof(ammpi_buf_t));
+    ep->rxBuf_alloc = (ammpi_buf_t *)AMMPI_malloc((numBufs * sizeof(ammpi_buf_t))+AMMPI_BUF_ALIGN);
     ep->rxHandle = (MPI_Request *)AMMPI_malloc(numBufs * sizeof(MPI_Request));
-    if (ep->rxBuf == NULL || ep->rxHandle == NULL) return FALSE;
-    AMMPI_assert(((uintptr_t)ep->rxBuf) % 8 == 0);
+    if (ep->rxBuf_alloc == NULL || ep->rxHandle == NULL) return FALSE;
+    ep->rxBuf = (ammpi_buf_t *)AMMPI_ALIGNUP(ep->rxBuf_alloc,AMMPI_BUF_ALIGN);
+    AMMPI_assert(((uintptr_t)ep->rxBuf) % AMMPI_BUF_ALIGN == 0);
+    AMMPI_assert(sizeof(ammpi_buf_t) % AMMPI_BUF_ALIGN == 0);
     ep->rxNumBufs = numBufs;
 
     { int i;
@@ -199,7 +201,8 @@ static int AMMPI_FreeEndpointBuffers(ep_t ep) {
     }  
 
 
-    AMMPI_free(ep->rxBuf);
+    AMMPI_free(ep->rxBuf_alloc);
+    ep->rxBuf_alloc = NULL;
     ep->rxBuf = NULL;
 
     AMMPI_free(ep->rxHandle);
@@ -224,9 +227,10 @@ static int AMMPI_initSendBufferPool(ammpi_sendbuffer_pool_t* pool, int count, in
   int i;
   AMMPI_assert(pool && count > 0 && bufsize > 0);
   AMMPI_assert(bufsize % sizeof(int) == 0);
+  bufsize = AMMPI_ALIGNUP(bufsize, AMMPI_BUF_ALIGN);
   pool->txHandle = (MPI_Request *)AMMPI_malloc(count*sizeof(MPI_Request));
   pool->txBuf = (ammpi_buf_t**)AMMPI_malloc(count*sizeof(ammpi_buf_t*)); 
-  tmp = (char*)AMMPI_malloc(count*bufsize);
+  tmp = (char*)AMMPI_malloc(count*bufsize+AMMPI_BUF_ALIGN);
   pool->memBlocks = (char **)AMMPI_malloc(sizeof(char *));
   pool->tmpIndexArray = (int *)AMMPI_malloc(count * sizeof(int));
   pool->tmpStatusArray = (MPI_Status *)AMMPI_malloc(count * sizeof(MPI_Status));
@@ -235,7 +239,9 @@ static int AMMPI_initSendBufferPool(ammpi_sendbuffer_pool_t* pool, int count, in
     return FALSE; /* out of mem */
   pool->numBlocks = 1;
   pool->memBlocks[0] = tmp;
+  tmp = (char *)AMMPI_ALIGNUP(tmp, AMMPI_BUF_ALIGN);
   for (i=0; i < count; i++) {
+    AMMPI_assert(((uintptr_t)tmp) % AMMPI_BUF_ALIGN == 0);
     pool->txBuf[i] = (ammpi_buf_t*)tmp;
     tmp += bufsize;
     pool->txHandle[i] = MPI_REQUEST_NULL;
@@ -368,14 +374,10 @@ extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest,
   AMMPI_assert(numBytes >= AMMPI_MIN_NETWORK_MSG && numBytes <= AMMPI_MAX_NETWORK_MSG);
 
   /* select the appropriate pool */
-  if (isrequest) {
-    if (numBytes <= AMMPI_MAX_SMALL_NETWORK_MSG) pool = &ep->sendPool_smallRequest;
-    else pool = &ep->sendPool_largeRequest;
-  }
-  else {
-    if (numBytes <= AMMPI_MAX_SMALL_NETWORK_MSG) pool = &ep->sendPool_smallReply;
-    else pool = &ep->sendPool_largeReply;
-  }
+  if (numBytes <= AMMPI_ALIGNUP(AMMPI_MAX_SMALL_NETWORK_MSG, AMMPI_BUF_ALIGN)) 
+    pool = (isrequest ? &ep->sendPool_smallRequest : &ep->sendPool_smallReply);
+  else 
+    pool = (isrequest ? &ep->sendPool_largeRequest : &ep->sendPool_largeReply);
 
 tryagain:
   /* reap any pending pool completions */
@@ -416,6 +418,7 @@ tryagain:
   if (pool->numActive < pool->numBufs) { /* buffer available */
     int idx = pool->numActive;
     AMMPI_assert(pool->txBuf[idx] && pool->txHandle[idx] == MPI_REQUEST_NULL);
+    AMMPI_assert(((uintptr_t)pool->txBuf[idx]) % AMMPI_BUF_ALIGN == 0);
     *pbuf = pool->txBuf[idx];
     *pHandle = &pool->txHandle[idx];
     pool->numActive++;
@@ -447,7 +450,7 @@ tryagain:
     MPI_Request *newtxHandle = (MPI_Request *)AMMPI_malloc(newnumBufs*sizeof(MPI_Request));
     ammpi_buf_t**newtxBuf = (ammpi_buf_t**)AMMPI_malloc(newnumBufs*sizeof(ammpi_buf_t*));
     char **newmemBlocks = (char **)AMMPI_malloc(sizeof(char *)*(pool->numBlocks+1));
-    char* newBlock = (char*)AMMPI_malloc((newnumBufs-pool->numBufs)*pool->bufSize);
+    char* newBlock = (char*)AMMPI_malloc((newnumBufs-pool->numBufs)*pool->bufSize+AMMPI_BUF_ALIGN);
     int * newtmpIndexArray = (int *)AMMPI_malloc(newnumBufs * sizeof(int));
     MPI_Status *newtmpStatusArray = (MPI_Status *)AMMPI_malloc(newnumBufs * sizeof(MPI_Status));
     int i;
@@ -467,7 +470,10 @@ tryagain:
     newmemBlocks[pool->numBlocks] = newBlock;
     /* tmps needs not be preserved */
 
+    newBlock = (char *)AMMPI_ALIGNUP(newBlock, AMMPI_BUF_ALIGN);
+    AMMPI_assert(pool->bufSize % AMMPI_BUF_ALIGN == 0);
     for (i=pool->numBufs; i < newnumBufs; i++) {
+      AMMPI_assert(((uintptr_t)newBlock) % AMMPI_BUF_ALIGN == 0);
       newtxBuf[i] = (ammpi_buf_t*)newBlock;
       newBlock += pool->bufSize;
       newtxHandle[i] = MPI_REQUEST_NULL;
