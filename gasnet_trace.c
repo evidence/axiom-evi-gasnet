@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/08/10 22:50:51 $
- * $Revision: 1.115 $
+ *     $Date: 2005/08/25 11:08:32 $
+ * $Revision: 1.116 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -443,7 +443,11 @@ static FILE *gasneti_open_outputfile(const char *filename, const char *desc) {
       strcpy(pathtemp,temp);
     }
     filename = pathtemp;
-    fp = fopen(filename, "wt");
+    #ifdef HAVE_FOPEN64
+      fp = fopen64(filename, "wt");
+    #else
+      fp = fopen(filename, "wt");
+    #endif
     if (!fp) {
       fprintf(stderr, "ERROR: Failed to open '%s' for %s output (%s). Redirecting output to stderr.\n",
               filename, desc, strerror(errno));
