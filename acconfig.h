@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/08/11 10:06:58 $ */
-/*  $Revision: 1.61 $ */
+/*      $Date: 2005/08/26 00:46:10 $ */
+/*  $Revision: 1.62 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -182,6 +182,15 @@
 #define GASNETI_NORETURN __attribute__((__noreturn__))
 #else
 #define GASNETI_NORETURN 
+#endif
+
+
+#ifdef HAVE_FEATURES_H
+/* these get us 64-bit file declarations under several Unixen */
+/* they must come before the first include of features.h (included by many system headers) */
+#define _LARGEFILE64_SOURCE 1
+#define _LARGEFILE_SOURCE 1
+# include <features.h>
 #endif
 
 #endif
