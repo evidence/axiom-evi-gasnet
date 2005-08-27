@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/08/08 02:20:34 $
- * $Revision: 1.45 $
+ *     $Date: 2005/08/27 04:21:45 $
+ * $Revision: 1.46 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2392,7 +2392,7 @@ outer_again:
 	    goto outer_again;
 	}
 
-	//fh_dump_counters();
+	/*fh_dump_counters();*/
 
 	/* Poll, hoping that more resources are available */
 	FH_UPYL;
