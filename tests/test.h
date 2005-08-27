@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/08/15 06:28:50 $
- * $Revision: 1.61 $
+ *     $Date: 2005/08/27 00:57:27 $
+ * $Revision: 1.62 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,6 +9,15 @@
 
 #ifndef _TEST_H
 #define _TEST_H
+
+#ifdef TEST_GASNET_TOOLS_ONLY
+  /* do not use gasnet.h */
+  #include <gasnet_tools.h>
+#else
+  #include <gasnet.h>
+  #include <gasnet_tools.h>
+  #define TEST_GASNET_H
+#endif
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -21,15 +30,6 @@
 #include <signal.h>
 #ifdef IRIX
 #define signal(a,b) bsd_signal(a,b)
-#endif
-
-#ifdef TEST_GASNET_TOOLS_ONLY
-  /* do not use gasnet.h */
-  #include <gasnet_tools.h>
-#else
-  #include <gasnet.h>
-  #include <gasnet_tools.h>
-  #define TEST_GASNET_H
 #endif
 
 #if defined(HAVE_PTHREAD_H) && !defined(GASNET_SEQ)
