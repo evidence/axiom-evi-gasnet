@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/contrib/gasnetrun_ibv.pl,v $
-#     $Date: 2005/04/23 02:08:02 $
-# $Revision: 1.4 $
+#     $Date: 2005/08/29 21:12:32 $
+# $Revision: 1.5 $
 # Description: GASNet VAPI spawner
 # Terms of use are as specified in license.txt
 
@@ -15,7 +15,9 @@ my $numnode = undef;
 my $verbose = 0;
 my $keep = 0;
 my $dryrun = 0;
-my $exename = undef;
+my $exebase = undef;
+my $exepath = undef;
+my $exeindex = undef;
 my $nodefile = $ENV{'GASNET_NODEFILE'} || $ENV{'PBS_NODEFILE'};
 my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile") : ();
 my $spawner = $ENV{'GASNET_VAPI_SPAWNER'};
@@ -35,6 +37,31 @@ sub usage
     print "      -spawner=(ssh|mpi)    force use of MPI or SSH for spawning\n";
     print "      --                    ends option parsing\n";
     exit 1;
+}
+
+sub fullpath($)
+{
+    my $file = shift;
+    my $result = undef;
+    if ($file =~ m|^/|) {
+	# full path, don't do anything to it
+	$result = $file;
+    } elsif ($file =~ m|/| || -x $file) {
+	# has directory components or exists in cwd
+	my $cwd = `pwd`;
+	chomp $cwd;
+	$result = "$cwd/$file";
+    } else {
+	# search PATH
+	foreach (split(':', $ENV{PATH})) {
+	    my $tmp = "$_/$file";
+	    if (-x $tmp) {
+		$result = $tmp;
+		last;
+	    }
+	}
+    }
+    return $result
 }
 
 # We need to parse our command-line arguments
@@ -88,7 +115,6 @@ sub usage
 	}
 	shift;
     }
-    push @mpi_args, @ARGV;
     $spawner = uc($spawner);
 
 # Validate flags
@@ -102,46 +128,50 @@ sub usage
         usage "Spawner is set to MPI, but MPI support was not compiled in\n"
     }
 
-# Find the program
-    my $exebase = shift or usage "No program specified\n";
-    if ($exebase =~ m|^/|) {
-	# full path, don't do anything to it
-	$exename = $exebase;
-    } elsif ($exebase =~ m|/| || -x $exebase) {
-	# has directory components or exists in cwd
-	my $cwd = `pwd`;
-	chomp $cwd;
-	$exename = "$cwd/$exebase";
-    } else {
-	# search PATH
-	foreach (split(':', $ENV{PATH})) {
-	    my $tmp = "$_/$exebase";
-	    if (-x $tmp) {
-		$exename = $tmp;
-		last;
+# Find the program (possibly a wrapper)
+    $exebase = $ARGV[0] or usage "No program specified\n";
+    $exepath = fullpath($exebase);
+    die "gasnetrun: unable to locate program '$exebase'\n"
+			unless (defined($exepath) && -x $exepath);
+    print "gasnetrun: located executable '$exepath'\n" if ($verbose);
+    $ARGV[0] = $exepath;
+
+# Find the GASNet executable and verify its capabilities
+    my $pattern = "^GASNet" . $spawner . "Spawner: 1 \\\$";
+    my $found = undef;
+    $exeindex = 0;
+    foreach my $arg (@ARGV) {
+	++$exeindex;
+	next if ($arg =~ m/^-/); # skip obvious options
+	my $file = fullpath($arg);
+	next unless (defined($file) && -x $file); # not found or not executable
+        my $is_gasnet = undef;
+	next unless open (FILE, $file);
+	{   local $/ = '$'; # use $ as the line break symbol
+            while (<FILE>) {
+                next unless(/^GASNet/);
+		if (/GASNetConduitName: VAPI $/) { $is_gasnet = 1; next; }
+                if (/$pattern/o) { $found = 1; last; }
+            }
+        }
+        close (FILE);
+	if ($found) {
+	    if ($exeindex > 1) { # wrapper in use
+		$arg = $file;	# canonicalize (foreach is by reference)
+		print "gasnetrun: located GASNet executable '$file'\n" if ($verbose);
 	    }
+	    last;
+	} elsif ($is_gasnet) {
+	    die "GASNet executable '$file' does not support spawner '$spawner'\n";
 	}
     }
-    die("gasnetrun: unable to locate program '$exebase'\n")
-		unless (defined($exename) && -x $exename);
-    print("gasnetrun: located executable '$exename'\n") if ($verbose);
-
-# Verify the program's capabilities
-    open (FILE, $exename) or die "can't open file '$exename'\n";
-    {   local $/ = '$'; # use $ as the line break symbol
-	my $pattern = "^GASNet" . $spawner . "Spawner: 1 \\\$";
-	my $found = 0;
-        while (<FILE>) {
-            if (/$pattern/o) { $found = 1; last; }
-        }
-        die "Executable does not support spawner '$spawner'\n" unless $found;
-    }
+    warn "gasnetrun: unable to locate a GASNet program in '@ARGV'\n" unless ($found);
 
 # Run it which ever way makes sense
     $ENV{"GASNET_VERBOSEENV"} = "1" if ($verbose);
     if ($spawner eq 'MPI') {
         print("gasnetrun: forwarding to mpi-based spawner\n") if ($verbose);
-        @ARGV = @mpi_args;
+        @ARGV = (@mpi_args, @ARGV);
         (my $mpi = $0) =~ s/\.pl$/-mpi.pl/;
         die "cannot find $mpi: $!" unless -f $mpi;
         my $err = do $mpi; # use 'do' to load another perl file (reduce forks, etc)
@@ -149,10 +179,12 @@ sub usage
           die "error running $mpi:\n $@ $err\n";
         }
     } elsif ($spawner eq 'SSH') {
-	my @cmd = grep { defined($_); } ($exename, '-GASNET-SPAWN-master',
-					 $verbose ? '-v' : undef,
-					 "$numproc" . ($numnode ? ":$numnode" : ''),
-					 '--', @ARGV);
+	my @extra_args = grep { defined($_); } ('-GASNET-SPAWN-master',
+						$verbose ? '-v' : undef,
+						"$numproc" . ($numnode ? ":$numnode" : ''),
+						'--');
+	my @cmd = @ARGV;
+	splice @cmd, $exeindex, 0, @extra_args;
 	print("gasnetrun: running: ", join(' ', @cmd), "\n") if ($verbose);
 	unless ($dryrun) { exec(@cmd) or die "failed to exec $exebase\n"; }
     } else {
