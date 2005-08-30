@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/08/26 00:46:10 $
-# $Revision: 1.288 $
+#     $Date: 2005/08/30 01:44:30 $
+# $Revision: 1.289 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.288 $)
+AC_REVISION($Revision: 1.289 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -97,7 +97,7 @@ esac
 GASNET_PROG_CPP
 GASNET_PROG_CC
 AC_PROG_LN_S
-GASNET_C_BIGENDIAN
+GASNET_BIGENDIAN
 AC_CHECK_PROG(have_mpcc_r,mpcc_r,yes,no)
 
 ## DOB: this is more trouble than it's worth because so many OS's define

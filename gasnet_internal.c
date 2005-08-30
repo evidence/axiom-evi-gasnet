@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/08/25 10:36:25 $
- * $Revision: 1.120 $
+ *     $Date: 2005/08/30 01:44:30 $
+ * $Revision: 1.121 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,6 +137,15 @@ int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME)) = 1;
   void **gasneti_seginfo_client_ub = NULL;
 #endif
 
+static int gasneti_isLittleEndian() {
+  union {
+    int i;                  // machine word
+    unsigned char b[sizeof(int)];    // b[0] overlaid with first byte of i
+  } x;
+  x.i = 0xFF;    // set lsb, zero all others
+  return x.b[0] == 0xFF;
+}
+
 /* ------------------------------------------------------------------------------------ */
 /* conduit-independent sanity checks */
 extern void gasneti_check_config_preinit() {
@@ -153,9 +162,15 @@ extern void gasneti_check_config_preinit() {
 
   gasneti_assert_always(sizeof(uintptr_t) >= sizeof(void *));
 
+  #if WORDS_BIGENDIAN
+    gasneti_assert_always(!gasneti_isLittleEndian());
+  #else
+    gasneti_assert_always(gasneti_isLittleEndian());
+  #endif
+
   /* check GASNET_PAGESIZE is a power of 2 and > 0 */
-  gasneti_assert_always(GASNET_PAGESIZE > 0 && 
-         (GASNET_PAGESIZE & (GASNET_PAGESIZE - 1)) == 0);
+  gasneti_assert_always(GASNET_PAGESIZE > 0);
+  gasneti_assert_always(GASNETI_POWEROFTWO(GASNET_PAGESIZE));
 
   gasneti_assert_always(SIZEOF_GASNET_REGISTER_VALUE_T == sizeof(gasnet_register_value_t));
   gasneti_assert_always(SIZEOF_GASNET_REGISTER_VALUE_T >= sizeof(int));
