@@ -9,18 +9,22 @@
 if test "$USE_GCC" != "" ; then
   # GCC-based compilers
   CC='/opt/gcc-catamount/3.3/bin/gcc' ; export CC  # vanilla target C compiler
-  #CC='/opt/gcc-catamount/3.3/bin/g++' ; export CXX  # host C++ compiler
-  CXX='/usr/bin/g++' ; export CXX  # host C++ compiler
+  CXX='/opt/gcc-catamount/3.3/bin/g++' ; export CXX  # vanilla target C++ compiler
 else
   # PGI-based compilers
   CC='mpicc' ; export CC  # vanilla target C compiler
-  #CXX='mpicxx' ; export CXX  # vanilla target C++ compiler
-  CXX='/usr/bin/g++' ; export CXX  # host C++ compiler
+  CXX='mpicxx' ; export CXX  # vanilla target C++ compiler
 fi
 
 # Host C compiler
+# NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/ 
+# in your environment to get the correct assembler for gcc
 HOST_CC="/usr/bin/gcc" ; export HOST_CC
 HOST_CFLAGS="-g -O2" ; export HOST_CFLAGS
+
+# Host C++ compiler - required by Titanium, not required for UPC or GASNet
+HOST_CXX='/usr/bin/g++' ; export HOST_CXX
+HOST_CXXFLAGS='' ; export HOST_CXXFLAGS
 
 # Optional additional settings: (see configure --help for complete list)
 
@@ -28,7 +32,7 @@ MPI_CC='mpicc' ; export MPI_CC     # MPI-enabled C compiler
 MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC
 MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC
 MPIRUN_CMD='pbsyod -size %N %C' ; export MPIRUN_CMD  # launch command for MPI jobs
-EXTRA_CONFIGURE_ARGS='--enable-mpi --disable-udp --disable-pthreads'
+EXTRA_CONFIGURE_ARGS='--enable-mpi --disable-udp --disable-amudp --disable-pthreads'
 
 # 2. Fill in the canonical target machine type. You can usually obtain this
 #   by running config-aux/config.guess on the target machine

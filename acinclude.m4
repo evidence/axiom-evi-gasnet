@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/08/30 04:51:08 $
-dnl $Revision: 1.79 $
+dnl     $Date: 2005/08/30 10:55:27 $
+dnl $Revision: 1.80 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -297,17 +297,23 @@ AC_DEFUN([GASNET_PUSHVAR],[
   if test "$_total_pushcnt" = "" ; then
     _total_pushcnt=0
   fi
+  if test "${$1+set}" = set; then
+   _gasnet_pushvar_isset=1
+  else
+   _gasnet_pushvar_isset=0
+  fi
   eval _pushedvar_$1_$_pushcnt_$1=\$[$1]
+  eval _pushedvarset_$1_$_pushcnt_$1=$_gasnet_pushvar_isset
   _pushcnt_$1=`expr $_pushcnt_$1 + 1`
   _total_pushcnt=`expr $_total_pushcnt + 1`
   $1=$2
-  dnl echo "pushed new value: $[$1]"
+  echo "pushed new $1 value: $[$1]" >&5
   GASNET_FUN_END([$0($1,$2)])
 ]) 
 dnl push a variable, then unset it
 AC_DEFUN([GASNET_PUSHVAR_UNSET],[
   GASNET_FUN_BEGIN([$0($1)])
-    GASNET_PUSHVAR($1,"-unset-dummy-") 
+    GASNET_PUSHVAR($1,"<unset>") 
     unset $1
   GASNET_FUN_END([$0($1)])
 ])
@@ -319,8 +325,14 @@ AC_DEFUN([GASNET_POPVAR],[
   if test "$_pushcnt_$1" -ge "1"; then
     _pushcnt_$1=`expr $_pushcnt_$1 - 1`
     _total_pushcnt=`expr $_total_pushcnt - 1`
-    eval $1=\$_pushedvar_$1_$_pushcnt_$1
-    dnl echo "popping $1 back to: $[$1]"
+    eval _gasnet_pushvar_isset=\$_pushedvarset_$1_$_pushcnt_$1
+    if test "$_gasnet_pushvar_isset" = "1" ; then
+      eval $1=\$_pushedvar_$1_$_pushcnt_$1
+      echo "popping $1 back to: $[$1]" >&5
+    else
+      unset $1
+      echo "popping $1 back to: <unset>" >&5
+    fi
   else
     AC_MSG_ERROR([INTERNAL ERROR: GASNET_PUSH/POPVAR underflow on $1])
   fi
@@ -1209,6 +1221,7 @@ if test "$cross_compiling" = "yes" ; then
   GASNET_PUSHVAR(CFLAGS,"$HOST_CFLAGS")
   dnl push all the other goop that AC_PROG_C(PP) caches away
   GASNET_PUSHVAR_UNSET(CPP)
+  GASNET_PUSHVAR_UNSET(CPPFLAGS)
   GASNET_PUSHVAR_UNSET(ac_cv_prog_CC)
   GASNET_PUSHVAR_UNSET(ac_cv_prog_CPP)
   GASNET_PUSHVAR_UNSET(ac_cv_c_compiler_gnu)
@@ -1224,11 +1237,14 @@ if test "$cross_compiling" = "yes" ; then
              [AC_MSG_ERROR(Internal configure error - please report)])
     GASNET_POPVAR(cross_compiling)
     HOST_CC="$CC"
+    HOST_CPP="$CPP"
+    HOST_CPPFLAGS="$CPPFLAGS"
     HOST_CFLAGS="$CFLAGS"
     AC_LANG_RESTORE
   GASNET_POPVAR(CC)
   GASNET_POPVAR(CFLAGS)
   GASNET_POPVAR(CPP)
+  GASNET_POPVAR(CPPFLAGS)
   GASNET_POPVAR(ac_cv_prog_CC)
   GASNET_POPVAR(ac_cv_prog_CPP)
   GASNET_POPVAR(ac_cv_c_compiler_gnu)
@@ -1270,6 +1286,7 @@ if test "$cross_compiling" = "yes" ; then
              [AC_MSG_ERROR(Internal configure error - please report)])
     GASNET_POPVAR(cross_compiling)
     HOST_CXX="$CXX"
+    HOST_CXXCPP="$CXXCPP"
     HOST_CXXFLAGS="$CXXFLAGS"
     AC_LANG_RESTORE
   GASNET_POPVAR(CXX)
