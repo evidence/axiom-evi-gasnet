@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/08/30 01:44:30 $
-# $Revision: 1.289 $
+#     $Date: 2005/08/30 04:51:08 $
+# $Revision: 1.290 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.289 $)
+AC_REVISION($Revision: 1.290 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -94,7 +94,6 @@ case "$target_os" in
      GASNET_ENV_DEFAULT(CC, c++ -Xa) ;; # may also/alternately want -Kc99
 esac
 
-GASNET_PROG_CPP
 GASNET_PROG_CC
 AC_PROG_LN_S
 GASNET_BIGENDIAN
@@ -805,7 +804,6 @@ if test $enabled_udp = yes; then
   # Do C++ configuration
   AC_LANG_SAVE
 
-  GASNET_PROG_CXXCPP
   GASNET_PROG_CXX
   have_cxx=1
 

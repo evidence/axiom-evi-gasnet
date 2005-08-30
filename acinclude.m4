@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/08/30 01:44:30 $
-dnl $Revision: 1.78 $
+dnl     $Date: 2005/08/30 04:51:08 $
+dnl $Revision: 1.79 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -143,14 +143,20 @@ AC_DEFUN([GASNET_CHECK_SIZEOF],[
     AC_MSG_CHECKING([$2 size:])
   fi
   AC_CHECK_SIZEOF($1, $uppername) 
-  ac_cv_[]lowername="$ac_cv_[]barename"
+  gasnet_checksizeoftmp_[]lowername="$ac_cv_[]barename"
   GASNET_POPVAR(ac_cv_[]barename)
-  uppername=$ac_cv_[]lowername
+  uppername=$gasnet_checksizeoftmp_[]lowername
   if test "$uppername" = "0" -o "$uppername" = ""; then
     AC_MSG_ERROR(failed to find sizeof($1))
   fi
   if test "$2" != ""; then
-    AC_DEFINE_UNQUOTED(uppername,$uppername) dnl must appear exactly once to prevent errors
+    dnl work around an irritating autoheader bug - 
+    dnl different autoheader versions handle the auto-AC_DEFINE done by
+    dnl AC_CHECK_SIZEOF differently. This mantra should ensure we get exactly one
+    dnl copy of each def in the config.h.in for any autoheader version
+    ac_cv_[]uppername[]_indirect=uppername
+    dnl following must appear exactly once to prevent errors
+    AC_DEFINE_UNQUOTED($ac_cv_[]uppername[]_indirect,$uppername) 
   fi
   AC_SUBST(uppername)
 
@@ -197,7 +203,8 @@ AC_DEFUN([GASNET_CHECK_INTTYPES],[
   pushdef([lowername],patsubst(patsubst(patsubst([$1], [/], [_]), [\.], [_]), [-], [_]))
   pushdef([uppername],translit(lowername,'a-z','A-Z'))
  GASNET_PUSHVAR(HAVE_[]uppername,"")
- unset ac_cv_header_[]lowername dnl force a recheck
+ dnl force a recheck
+ unset ac_cv_header_[]lowername 
  AC_CHECK_HEADERS([$1])
  GASNET_POPVAR(HAVE_[]uppername)
  if test "$ac_cv_header_[]lowername" = "yes"; then
@@ -242,8 +249,10 @@ AC_DEFUN([GASNET_SETUP_INTTYPES], [
   GASNET_CHECK_SIZEOF(void *, $1)
  
   pushdef([cvsizeof],translit(ac_cv_[$1]sizeof_,'A-Z','a-z'))
-  AM_CONDITIONAL(PLATFORM_ILP32,:) dnl workaround buggy automake which mishandles m4 expansions in AM_CONDITIONAL
-  AM_CONDITIONAL(PLATFORM_LP64,:)  dnl these versions just shut up its whining
+  dnl following worksaround buggy automake which mishandles m4 expansions in AM_CONDITIONAL
+  dnl these versions just shut up its whining
+  AM_CONDITIONAL(PLATFORM_ILP32,:) 
+  AM_CONDITIONAL(PLATFORM_LP64,:)  
   AM_CONDITIONAL(PLATFORM_ILP64,:)
   AM_CONDITIONAL($1[]PLATFORM_ILP32, test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x444)
   AM_CONDITIONAL($1[]PLATFORM_LP64,  test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x488)
@@ -295,6 +304,13 @@ AC_DEFUN([GASNET_PUSHVAR],[
   dnl echo "pushed new value: $[$1]"
   GASNET_FUN_END([$0($1,$2)])
 ]) 
+dnl push a variable, then unset it
+AC_DEFUN([GASNET_PUSHVAR_UNSET],[
+  GASNET_FUN_BEGIN([$0($1)])
+    GASNET_PUSHVAR($1,"-unset-dummy-") 
+    unset $1
+  GASNET_FUN_END([$0($1)])
+])
 
 dnl restore the old value of varname, from a previous push
 dnl GASNET_POPVAR(varname)
@@ -1043,8 +1059,8 @@ GASNET_FUN_END([$0($1,$2,...)])
 AC_DEFUN([GASNET_PROG_CPP], [
   GASNET_FUN_BEGIN([$0])
   AC_PROVIDE([$0])
-  AC_REQUIRE([AC_PROG_CC])
-  AC_REQUIRE([AC_PROG_CPP])
+  AC_PROG_CC
+  AC_PROG_CPP
   GASNET_GETFULLPATH(CPP)
   AC_SUBST(CPP)
   AC_SUBST(CPPFLAGS)
@@ -1073,8 +1089,8 @@ AC_DEFUN([GASNET_PROG_CPP], [
 AC_DEFUN([GASNET_PROG_CXXCPP], [
   GASNET_FUN_BEGIN([$0])
   AC_PROVIDE([$0])
-  AC_REQUIRE([AC_PROG_CXX])
-  AC_REQUIRE([AC_PROG_CXXCPP])
+  AC_PROG_CXX
+  AC_PROG_CXXCPP
   GASNET_GETFULLPATH(CXXCPP)
   AC_SUBST(CXXCPP)
   AC_SUBST(CXXCPPFLAGS)
@@ -1102,7 +1118,7 @@ AC_DEFUN([GASNET_PROG_CXXCPP], [
 
 AC_DEFUN([GASNET_PROG_CC], [
   GASNET_FUN_BEGIN([$0])
-  AC_REQUIRE([GASNET_PROG_CPP])
+  GASNET_PROG_CPP
   GASNET_GETFULLPATH(CC)
   AC_SUBST(CC)
   AC_SUBST(CFLAGS)
@@ -1142,7 +1158,7 @@ AC_DEFUN([GASNET_PROG_CC], [
 
 AC_DEFUN([GASNET_PROG_CXX], [
   GASNET_FUN_BEGIN([$0])
-  AC_REQUIRE([GASNET_PROG_CXXCPP])
+  GASNET_PROG_CXXCPP
   GASNET_GETFULLPATH(CXX)
   AC_SUBST(CXX)
   AC_SUBST(CXXFLAGS)
@@ -1178,24 +1194,26 @@ AC_DEFUN([GASNET_PROG_CXX], [
 ])
 
 dnl fetch the host C compiler
-dnl this is a two part macro which must be called one after the other at the top level
-dnl in order to avoid some annoying bugs in autoconf AC_REQUIRE 
-AC_DEFUN([GASNET_PROG_HOSTCC1], [
-GASNET_FUN_BEGIN([GASNET_PROG_HOSTCC])
+AC_DEFUN([GASNET_PROG_HOSTCC], [
+GASNET_FUN_BEGIN([$0])
 if test "$cross_compiling" = "yes" ; then
   HOST_MSG="When cross-compiling, \$HOST_CC or --with-host-cc= must be set to indicate a C compiler for the host machine (ie the machine running this configure script)"
   GASNET_ENV_DEFAULT(HOST_CC, )
   GASNET_ENV_DEFAULT(HOST_CFLAGS, )
+  AC_SUBST(HOST_CC)
+  AC_SUBST(HOST_CFLAGS)
   if test ! "$HOST_CC" ; then
     AC_MSG_ERROR([$HOST_MSG])
   fi
   GASNET_PUSHVAR(CC,"$HOST_CC")
   GASNET_PUSHVAR(CFLAGS,"$HOST_CFLAGS")
-  AC_SUBST(HOST_CC)
-  AC_SUBST(HOST_CFLAGS)
-])
-AC_DEFUN([GASNET_PROG_HOSTCC2], [
-    GASNET_PROG_CPP
+  dnl push all the other goop that AC_PROG_C(PP) caches away
+  GASNET_PUSHVAR_UNSET(CPP)
+  GASNET_PUSHVAR_UNSET(ac_cv_prog_CC)
+  GASNET_PUSHVAR_UNSET(ac_cv_prog_CPP)
+  GASNET_PUSHVAR_UNSET(ac_cv_c_compiler_gnu)
+  GASNET_PUSHVAR_UNSET(ac_cv_prog_cc_g)
+  GASNET_PUSHVAR_UNSET(ac_cv_prog_cc_stdc)
     GASNET_PROG_CC
     AC_LANG_SAVE
     AC_LANG_C
@@ -1210,29 +1228,38 @@ AC_DEFUN([GASNET_PROG_HOSTCC2], [
     AC_LANG_RESTORE
   GASNET_POPVAR(CC)
   GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(CPP)
+  GASNET_POPVAR(ac_cv_prog_CC)
+  GASNET_POPVAR(ac_cv_prog_CPP)
+  GASNET_POPVAR(ac_cv_c_compiler_gnu)
+  GASNET_POPVAR(ac_cv_prog_cc_g)
+  GASNET_POPVAR(ac_cv_prog_cc_stdc)
 fi
-GASNET_FUN_END([GASNET_PROG_HOSTCC])
+GASNET_FUN_END([$0])
 ])
 
 dnl fetch the host C++ compiler
 dnl this is a two part macro which must be called one after the other at the top level
 dnl in order to avoid some annoying bugs in autoconf AC_REQUIRE 
-AC_DEFUN([GASNET_PROG_HOSTCXX1], [
-GASNET_FUN_BEGIN([GASNET_PROG_HOSTCXX])
+AC_DEFUN([GASNET_PROG_HOSTCXX], [
+GASNET_FUN_BEGIN([$0])
 if test "$cross_compiling" = "yes" ; then
   HOST_MSG="When cross-compiling, \$HOST_CXX or --with-host-cxx= must be set to indicate a C++ compiler for the host machine (ie the machine running this configure script)"
   GASNET_ENV_DEFAULT(HOST_CXX, )
   GASNET_ENV_DEFAULT(HOST_CXXFLAGS, )
+  AC_SUBST(HOST_CXX)
+  AC_SUBST(HOST_CXXFLAGS)
   if test ! "$HOST_CXX" ; then
     AC_MSG_ERROR([$HOST_MSG])
   fi
   GASNET_PUSHVAR(CXX,"$HOST_CXX")
   GASNET_PUSHVAR(CXXFLAGS,"$HOST_CXXFLAGS")
-  AC_SUBST(HOST_CXX)
-  AC_SUBST(HOST_CXXFLAGS)
-])
-AC_DEFUN([GASNET_PROG_HOSTCXX2], [
-    GASNET_PROG_CXXCPP
+  dnl push all the other goop that AC_PROG_CXX(CPP) caches away
+  GASNET_PUSHVAR_UNSET(CXXCPP)
+  GASNET_PUSHVAR_UNSET(ac_cv_prog_CXX)
+  GASNET_PUSHVAR_UNSET(ac_cv_prog_CXXCPP)
+  GASNET_PUSHVAR_UNSET(ac_cv_cxx_compiler_gnu)
+  GASNET_PUSHVAR_UNSET(ac_cv_prog_cxx_g)
     GASNET_PROG_CXX
     AC_LANG_SAVE
     AC_LANG_CPLUSPLUS
@@ -1247,8 +1274,13 @@ AC_DEFUN([GASNET_PROG_HOSTCXX2], [
     AC_LANG_RESTORE
   GASNET_POPVAR(CXX)
   GASNET_POPVAR(CXXFLAGS)
+  GASNET_POPVAR(CXXCPP)
+  GASNET_POPVAR(ac_cv_prog_CXX)
+  GASNET_POPVAR(ac_cv_prog_CXXCPP)
+  GASNET_POPVAR(ac_cv_cxx_compiler_gnu)
+  GASNET_POPVAR(ac_cv_prog_cxx_g)
 fi
-GASNET_FUN_END([GASNET_PROG_HOSTCXX])
+GASNET_FUN_END([$0])
 ])
 
 dnl find working version of perl.  Checks to see if 'bytes' module is available,
@@ -1298,7 +1330,8 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
   fi
   dnl gcc-like compilers, which may define __GNUC__ - order matters here
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(__GNUC__, $3=GNU) dnl Note this one must precede many of those below
+    GASNET_IFDEF(__GNUC__, $3=GNU) 
+    dnl Note GNUC one above must precede many of those below
     GASNET_IFDEF(__PATHCC__, $3=Pathscale)
     GASNET_IFDEF(__PGI, $3=PGI)
     GASNET_IFDEF(__INTEL_COMPILER, $3=Intel)
