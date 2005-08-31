@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/08/30 10:55:27 $
-dnl $Revision: 1.80 $
+dnl     $Date: 2005/08/31 04:05:03 $
+dnl $Revision: 1.81 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -145,8 +145,10 @@ AC_DEFUN([GASNET_CHECK_SIZEOF],[
   AC_CHECK_SIZEOF($1, $uppername) 
   gasnet_checksizeoftmp_[]lowername="$ac_cv_[]barename"
   GASNET_POPVAR(ac_cv_[]barename)
+  ac_cv_[]lowername=$gasnet_checksizeoftmp_[]lowername
   uppername=$gasnet_checksizeoftmp_[]lowername
-  if test "$uppername" = "0" -o "$uppername" = ""; then
+  if test "$uppername" = "0" -o "$uppername" = "" -o \ 
+          "$ac_cv_[]lowername" != "$uppername"; then
     AC_MSG_ERROR(failed to find sizeof($1))
   fi
   if test "$2" != ""; then
