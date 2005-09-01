@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/08/31 04:05:03 $
-dnl $Revision: 1.81 $
+dnl     $Date: 2005/09/01 10:50:50 $
+dnl $Revision: 1.82 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -147,8 +147,7 @@ AC_DEFUN([GASNET_CHECK_SIZEOF],[
   GASNET_POPVAR(ac_cv_[]barename)
   ac_cv_[]lowername=$gasnet_checksizeoftmp_[]lowername
   uppername=$gasnet_checksizeoftmp_[]lowername
-  if test "$uppername" = "0" -o "$uppername" = "" -o \ 
-          "$ac_cv_[]lowername" != "$uppername"; then
+  if test "$uppername" = "0" -o "$uppername" = "" -o "$ac_cv_[]lowername" != "$uppername"; then
     AC_MSG_ERROR(failed to find sizeof($1))
   fi
   if test "$2" != ""; then
@@ -239,17 +238,9 @@ AC_DEFUN([GASNET_CHECK_INTTYPES],[
   GASNET_FUN_END([$0($1,$2)])
 ])
 
-dnl all the inttypes goop required for portable_inttypes.h
-dnl second arg is optional prefix for defs
-AC_DEFUN([GASNET_SETUP_INTTYPES], [ 
-  GASNET_FUN_BEGIN([$0($1,$2)])
-  GASNET_CHECK_SIZEOF(char, $1)
-  GASNET_CHECK_SIZEOF(short, $1)
-  GASNET_CHECK_SIZEOF(int, $1)
-  GASNET_CHECK_SIZEOF(long, $1)
-  GASNET_CHECK_SIZEOF(long long, $1)
-  GASNET_CHECK_SIZEOF(void *, $1)
- 
+dnl PR828: AM_CONDITIONAL must appear on all control paths
+dnl this macro runs them for a prefix which is not encountered
+AC_DEFUN([GASNET_SETUP_INTTYPES_DUMMY], [ 
   pushdef([cvsizeof],translit(ac_cv_[$1]sizeof_,'A-Z','a-z'))
   dnl following worksaround buggy automake which mishandles m4 expansions in AM_CONDITIONAL
   dnl these versions just shut up its whining
@@ -260,6 +251,20 @@ AC_DEFUN([GASNET_SETUP_INTTYPES], [
   AM_CONDITIONAL($1[]PLATFORM_LP64,  test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x488)
   AM_CONDITIONAL($1[]PLATFORM_ILP64, test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x888)
   popdef([cvsizeof])
+])
+
+dnl all the inttypes goop required for portable_inttypes.h
+dnl second arg is optional prefix for defs
+AC_DEFUN([GASNET_SETUP_INTTYPES], [ 
+  GASNET_FUN_BEGIN([$0($1,$2)])
+  GASNET_CHECK_SIZEOF(char, $1)
+  GASNET_CHECK_SIZEOF(short, $1)
+  GASNET_CHECK_SIZEOF(int, $1)
+  GASNET_CHECK_SIZEOF(long, $1)
+  GASNET_CHECK_SIZEOF(long long, $1)
+  GASNET_CHECK_SIZEOF(void *, $1)
+
+  GASNET_SETUP_INTTYPES_DUMMY($1) 
  
   GASNET_CHECK_INTTYPES(stdint.h,$1)
   GASNET_CHECK_INTTYPES(inttypes.h,$1)
