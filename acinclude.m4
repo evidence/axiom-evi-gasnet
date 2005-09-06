@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/09/01 10:50:50 $
-dnl $Revision: 1.82 $
+dnl     $Date: 2005/09/06 11:39:00 $
+dnl $Revision: 1.83 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -242,14 +242,24 @@ dnl PR828: AM_CONDITIONAL must appear on all control paths
 dnl this macro runs them for a prefix which is not encountered
 AC_DEFUN([GASNET_SETUP_INTTYPES_DUMMY], [ 
   pushdef([cvsizeof],translit(ac_cv_[$1]sizeof_,'A-Z','a-z'))
+  if test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x444; then
+    $1[]PLATFORM_ILP32=yes
+  fi
+  if test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x488; then
+    $1[]PLATFORM_LP64=yes
+  fi
+  if test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x888; then
+    $1[]PLATFORM_ILP64=yes
+  fi
   dnl following worksaround buggy automake which mishandles m4 expansions in AM_CONDITIONAL
-  dnl these versions just shut up its whining
-  AM_CONDITIONAL(PLATFORM_ILP32,:) 
-  AM_CONDITIONAL(PLATFORM_LP64,:)  
-  AM_CONDITIONAL(PLATFORM_ILP64,:)
-  AM_CONDITIONAL($1[]PLATFORM_ILP32, test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x444)
-  AM_CONDITIONAL($1[]PLATFORM_LP64,  test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x488)
-  AM_CONDITIONAL($1[]PLATFORM_ILP64, test x"$[]cvsizeof[]int$[]cvsizeof[]long$[]cvsizeof[]void_p" = x888)
+  dnl these versions just shut up its whining (but still provide correct values)
+  AM_CONDITIONAL(PLATFORM_ILP32, test "$PLATFORM_ILP32" = "yes") 
+  AM_CONDITIONAL(PLATFORM_LP64,  test "$PLATFORM_LP64" = "yes")
+  AM_CONDITIONAL(PLATFORM_ILP64, test "$PLATFORM_ILP64" = "yes")
+  dnl and now the real versions..
+  AM_CONDITIONAL($1[]PLATFORM_ILP32, test "$[$1]PLATFORM_ILP32" = "yes") 
+  AM_CONDITIONAL($1[]PLATFORM_LP64,  test "$[$1]PLATFORM_LP64" = "yes")
+  AM_CONDITIONAL($1[]PLATFORM_ILP64, test "$[$1]PLATFORM_ILP64" = "yes")
   popdef([cvsizeof])
 ])
 
