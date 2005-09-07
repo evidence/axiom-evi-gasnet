@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/07/08 15:24:47 $
- * $Revision: 1.46 $
+ *     $Date: 2005/09/07 23:38:31 $
+ * $Revision: 1.47 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1571,7 +1571,7 @@ void gasneti_bootstrapFini_ssh(void) {
   if (is_master) {
     for (j = 0; j < children; ++j) {
       do_read(child[j].sock, &cmd, sizeof(cmd));
-      gasneti_assert(cmd == BOOTSTRAP_CMD_FINI0);
+      if (cmd != BOOTSTRAP_CMD_FINI0) return;
     }
     if (in_abort) return;
     finalized = 1;
@@ -1589,7 +1589,7 @@ void gasneti_bootstrapFini_ssh(void) {
   gasneti_assert(!is_master);
   for (j = 0; j < children; ++j) {
     do_read(child[j].sock, &cmd, sizeof(cmd));
-    gasneti_assert(cmd == BOOTSTRAP_CMD_FINI0);
+    if (cmd != BOOTSTRAP_CMD_FINI0) return;
   }
   finalized = 1;
   cmd = BOOTSTRAP_CMD_FINI0;
