@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/08/18 18:33:21 $
-# $Revision: 1.31 $
+#     $Date: 2005/09/13 21:16:03 $
+# $Revision: 1.32 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -64,6 +64,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi  = ($mpirun_help =~ m| BG/L |);
+    my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
@@ -135,6 +136,13 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	$group_join_argv = 1;
 	$env_before_exe = 0;
 	@verbose_opt = ("-verbose", "2");
+    } elsif ($is_jacquard) {
+	$spawner_desc = "NERSC/Jacquard mpirun";
+	# pass env as "/usr/bin/env 'A=1' 'B=2' 'C=3'"
+	%envfmt = ( 'pre' => $envprog,
+		    'val' => "'"
+		  );
+        $extra_quote_argv = 1;
     } else {
 	$spawner_desc = "unknown program (using generic MPI spawner)";
 	# the OS already propagates the environment for us automatically
