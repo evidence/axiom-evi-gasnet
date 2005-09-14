@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/09/14 01:47:07 $
-# $Revision: 1.293 $
+#     $Date: 2005/09/14 04:00:36 $
+# $Revision: 1.294 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.293 $)
+AC_REVISION($Revision: 1.294 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1956,6 +1956,32 @@ case "$target_os" in
       ])
   ;;
 esac
+
+AC_MSG_CHECKING([for socklen_t or its equivalent])
+AC_CACHE_VAL(gasnet_cv_socklen_t,[
+  # 'float' is to check the compiler is reliable
+  gasnet_socklen_t=""
+  for gasnet_socklen_try in float socklen_t size_t int long unsigned "unsigned long"; do
+    GASNET_TRY_CCOMPILE_WITHWARN(
+       [#include <stddef.h>
+	#include <sys/types.h>
+	#include <sys/socket.h>],
+       [$gasnet_socklen_try x = 0;
+	getpeername(0,NULL,&x);
+	getsockname(0,NULL,&x);],
+       [gasnet_socklen_t="$gasnet_socklen_try"
+	break])
+  done
+  gasnet_cv_socklen_t="$gasnet_socklen_t"])
+if test x"$gasnet_cv_socklen_t" = x; then
+  AC_MSG_RESULT([not found])
+elif test "$gasnet_cv_socklen_t" = float; then
+  AC_MSG_RESULT([compiler unreliable - defaulting to socklen_t])
+  AC_DEFINE_UNQUOTED(GASNET_SOCKLEN_T, socklen_t)
+else
+  AC_MSG_RESULT($gasnet_cv_socklen_t)
+  AC_DEFINE_UNQUOTED(GASNET_SOCKLEN_T, $gasnet_cv_socklen_t)
+fi
 
 ########################################################################
 

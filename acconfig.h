@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/08/30 08:36:04 $ */
-/*  $Revision: 1.63 $ */
+/*      $Date: 2005/09/14 04:00:36 $ */
+/*  $Revision: 1.64 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -122,6 +122,9 @@
 #undef ALTIX
 #undef GASNETI_ARCH_SPARCV9
 #undef CATAMOUNT
+
+/* Type to use as socklen_t */
+#undef GASNET_SOCKLEN_T
 
 /* GASNet segment definition */
 #undef GASNET_SEGMENT_FAST

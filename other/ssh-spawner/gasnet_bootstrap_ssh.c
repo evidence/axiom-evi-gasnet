@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/09/07 23:38:31 $
- * $Revision: 1.47 $
+ *     $Date: 2005/09/14 04:00:38 $
+ * $Revision: 1.48 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -35,6 +35,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <netdb.h>
+
+#ifndef GASNET_SOCKLEN_T
+  #error "Don't know socklen_t or equivalent"
+#endif
 
 /* NOTES
 
@@ -950,7 +954,7 @@ static void recv_argv(int s, int *argc_p, char ***argv_p) {
 
 static void pre_spawn(int count) {
   struct sockaddr_in sock_addr;
-  socklen_t addr_len;
+  GASNET_SOCKLEN_T addr_len;
 
   /* Get the cwd */
   if (!getcwd(cwd, sizeof(cwd))) {
@@ -989,7 +993,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
   /* Accept count connections */
   while (count--) {
     struct sockaddr_in sock_addr;
-    socklen_t addr_len = sizeof(sock_addr);
+    GASNET_SOCKLEN_T addr_len = sizeof(sock_addr);
     static const int one = 1;
     gasnet_node_t child_id;
     struct child *ch = NULL;
@@ -1050,7 +1054,7 @@ static void post_spawn(int count, int argc, char * const *argv) {
 
 static void do_connect(gasnet_node_t child_id, const char *parent_name, int parent_port, int *argc_p, char ***argv_p) {
   struct sockaddr_in sock_addr;
-  socklen_t addr_len;
+  GASNET_SOCKLEN_T addr_len;
   static const int one = 1;
   struct hostent *h = gethostbyname(parent_name);
   int rc, retry = 4;
