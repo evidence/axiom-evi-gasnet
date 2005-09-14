@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/09/09 16:50:20 $
-# $Revision: 1.291 $
+#     $Date: 2005/09/14 01:21:49 $
+# $Revision: 1.292 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.291 $)
+AC_REVISION($Revision: 1.292 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1616,8 +1616,29 @@ if test "$enabled_vapi" = yes; then
   # Start by assuming we do have VAPI
   have_vapi=yes
 
-  # Start with some sensable defaults
-  GASNET_ENV_DEFAULT(MTHOME, /usr/mellanox)
+  # Start by finding a reasonable default
+  AC_PATH_PROG(vstat, vstat)
+  if test "$vstat"; then
+    vapi_guess=`dirname \`dirname $vstat\``
+  elif test -e /usr/mellanox; then
+    vapi_guess=/usr/mellanox
+  else
+    vapi_guess=/usr
+  fi
+  GASNET_ENV_DEFAULT(MTHOME, $vapi_guess)
+
+  # MTHOME may point to either 'true' home, or to symlinked location
+  AC_MSG_CHECKING(if MTHOME=$MTHOME is the install directory)
+  if test -e $MTHOME/include/vapi.h; then
+    # MTHOME looks OK
+    AC_MSG_RESULT(ok)
+  elif test -e $MTHOME/bin/vstat; then
+    vstat=$MTHOME/bin/vstat
+    GASNET_FOLLOWLINKS(vstat)
+    MTHOME=`dirname \`dirname $vstat\``
+    AC_MSG_RESULT([no - using $MTHOME])
+  fi
+
   GASNET_ENV_DEFAULT(VAPI_INCLUDE, $MTHOME/include)
   GASNET_ENV_DEFAULT(VAPI_LIBS, -lvapi -lmtl_common -lmosal -lmpga)
   # Note 'test -d $foo/.' works even if $foo is a symlink

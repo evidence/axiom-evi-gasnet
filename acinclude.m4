@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/09/06 11:39:00 $
-dnl $Revision: 1.83 $
+dnl     $Date: 2005/09/14 01:21:49 $
+dnl $Revision: 1.84 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -730,6 +730,23 @@ if test "$cv_prefix[]_gfp_disable" = ""; then
     AC_MSG_RESULT($$1)
   fi
 fi
+GASNET_FUN_END([$0($1)])
+])
+
+dnl GASNET_FOLLOWLINKS(var)
+dnl var contains a filename
+dnl If it is a symlink, follow it until a non-symlink is reached
+dnl Designed not to use readlink, which might not exist.
+AC_DEFUN([GASNET_FOLLOWLINKS],[
+GASNET_FUN_BEGIN([$0($1)])
+AC_REQUIRE([AC_PROG_AWK])
+  gasnet_fl_file="$$1"
+  gasnet_fl_link=`/bin/ls -al "$gasnet_fl_file" | $AWK 'BEGIN{FS=">"}{split([$]2,A," ") ; print A[[1]]}'`
+  while test "$gasnet_fl_link"; do
+    gasnet_fl_file="$gasnet_fl_link"
+    gasnet_fl_link=`/bin/ls -al "$gasnet_fl_file" | $AWK 'BEGIN{FS=">"}{split([$]2,A," ") ; print A[[1]]}'`
+  done
+  $1="$gasnet_fl_file"
 GASNET_FUN_END([$0($1)])
 ])
 
