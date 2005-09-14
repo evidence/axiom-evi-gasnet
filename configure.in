@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/09/14 01:21:49 $
-# $Revision: 1.292 $
+#     $Date: 2005/09/14 01:47:07 $
+# $Revision: 1.293 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.292 $)
+AC_REVISION($Revision: 1.293 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1183,14 +1183,12 @@ if test $enabled_gm = yes; then
 
   # Look for gm binaries in our path
   AC_PATH_PROGS(gm_board_info, gm_board_info)
-  case "$gm_board_info" in
-    '') gm_guess=/usr/local/gm
-    ;;
-
-    *) gm_guess=`dirname $gm_board_info`
-       gm_guess=`dirname $gm_guess`
-    ;;
-  esac
+  if test "$gm_board_info"; then
+    GASNET_FOLLOWLINKS(gm_board_info)
+    gm_guess=`dirname \`dirname $gm_board_info\``
+  else
+    gm_guess=/usr/local/gm
+  fi
   GASNET_ENV_DEFAULT(GMHOME, $gm_guess)
   case "$target_os" in
     solaris*)
@@ -1617,7 +1615,7 @@ if test "$enabled_vapi" = yes; then
   have_vapi=yes
 
   # Start by finding a reasonable default
-  AC_PATH_PROG(vstat, vstat)
+  AC_PATH_PROGS(vstat, vstat)
   if test "$vstat"; then
     vapi_guess=`dirname \`dirname $vstat\``
   elif test -e /usr/mellanox; then
@@ -1628,15 +1626,17 @@ if test "$enabled_vapi" = yes; then
   GASNET_ENV_DEFAULT(MTHOME, $vapi_guess)
 
   # MTHOME may point to either 'true' home, or to symlinked location
-  AC_MSG_CHECKING(if MTHOME=$MTHOME is the install directory)
+  AC_MSG_CHECKING(if $MTHOME is the VAPI install directory)
   if test -e $MTHOME/include/vapi.h; then
     # MTHOME looks OK
-    AC_MSG_RESULT(ok)
+    AC_MSG_RESULT([yes])
   elif test -e $MTHOME/bin/vstat; then
     vstat=$MTHOME/bin/vstat
     GASNET_FOLLOWLINKS(vstat)
     MTHOME=`dirname \`dirname $vstat\``
-    AC_MSG_RESULT([no - using $MTHOME])
+    AC_MSG_RESULT([no - followed symlink to $MTHOME])
+  else
+    AC_MSG_RESULT([probably not])
   fi
 
   GASNET_ENV_DEFAULT(VAPI_INCLUDE, $MTHOME/include)
@@ -1894,14 +1894,12 @@ GASNET_IF_ENABLED_WITH_AUTO(sci, Enable the CONDUIT_DESC (auto-detected),
 if test "$enabled_sci" = yes; then
   # Look for sci binaries in our path
   AC_PATH_PROGS(scibench2, scibench2)
-  case "$scibench2" in
-    '') sci_guess=/opt/DIS
-    ;;
-
-    *) sci_guess=`dirname $scibench2`
-       sci_guess=`dirname $sci_guess`
-    ;;
-  esac
+  if test "$scibench2"; then
+    GASNET_FOLLOWLINKS(scibench2)
+    sci_guess=`dirname \`dirname $scibench2\``
+  else
+    sci_guess=/opt/DIS
+  fi
   GASNET_ENV_DEFAULT(SCIHOME, $sci_guess)
   GASNET_ENV_DEFAULT(SCI_INCLUDES, [-I$SCIHOME/include -I$SCIHOME/lib/api])
   GASNET_ENV_DEFAULT(SCI_LIBS, [-L$SCIHOME/lib -lsisci])
