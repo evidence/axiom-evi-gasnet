@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/09/16 21:00:52 $
-# $Revision: 1.33 $
+#     $Date: 2005/09/16 22:40:53 $
+# $Revision: 1.34 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -64,7 +64,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi  = ($mpirun_help =~ m| BG/L |);
-    my $is_jacquard = ($mpirun_help =~ m| \[-noenv\ ]|) && ($mpirun_help !~ m|ELAN|);
+    my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && ($mpirun_help !~ m|ELAN|);
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
       $envprog = `which env`;
