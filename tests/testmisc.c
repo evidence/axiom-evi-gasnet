@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.19 $
+ *     $Date: 2005/09/21 13:51:41 $
+ * $Revision: 1.20 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -139,6 +139,7 @@ char p[1];
 gasnet_hsl_t hsl = GASNET_HSL_INITIALIZER;
 gasnett_atomic_t a = gasnett_atomic_init(0);
 int32_t temp = 0;
+gasnett_tick_t timertemp = 0;
 int8_t bigtemp[1024];
 gasnet_handle_t handles[8];
 
@@ -148,6 +149,12 @@ void doit1() { GASNET_BEGIN_FUNCTION();
     { int i; for (i=0;i<8;i++) handles[i] = GASNET_INVALID_HANDLE; }
 
     TIME_OPERATION("Tester overhead", {});
+    
+    TIME_OPERATION("gasnett_ticks_now()",
+      { timertemp = gasnett_ticks_now(); });
+    
+    TIME_OPERATION("gasnett_ticks_to_us()",
+      { timertemp = (gasnett_tick_t)gasnett_ticks_to_us(timertemp); });
     
     TIME_OPERATION("Do-nothing gasnet_AMPoll()",
       { gasnet_AMPoll(); });
