@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2005/09/26 21:48:59 $
- * $Revision: 1.30 $
+ *     $Date: 2005/09/27 00:26:04 $
+ * $Revision: 1.31 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -138,6 +138,48 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
    * + check that mynode is a member of the team (requires a teams interface)
    */
 }
+
+/*---------------------------------------------------------------------------------*/
+
+#if GASNET_PAR && GASNET_DEBUG
+  /* readers/writers lock construct to check for violations of the reentrance
+   * rules regarding calls with and without GASNET_COLL_ALL_THREADS.
+   */
+
+  static struct {
+    gasneti_mutex_t 	lock;
+    int			with;		/* aka READERS */
+    int			without;	/* aka WRITERS */
+  } gasnete_coll_check_enter_state = {GASNETI_MUTEX_INITIALIZER,0,0};
+
+  extern void 
+  gasnete_coll_check_enter(int flags GASNETE_THREAD_FARG) {
+    gasneti_mutex_lock(&gasnete_coll_check_enter_state.lock);
+    if (flags & GASNET_COLL_ALL_THREADS) {
+      if_pf (gasnete_coll_check_enter_state.without != 0)
+	gasneti_fatalerror("GASNET_COLL_ALL_THREADS call overlaps !GASNET_COLL_ALL_THREADS call");
+      ++gasnete_coll_check_enter_state.with;
+    } else {
+      if_pf (gasnete_coll_check_enter_state.without != 0)
+	gasneti_fatalerror("!GASNET_COLL_ALL_THREADS call overlaps !GASNET_COLL_ALL_THREADS call");
+      if_pf (gasnete_coll_check_enter_state.with != 0)
+	gasneti_fatalerror("!GASNET_COLL_ALL_THREADS call overlaps GASNET_COLL_ALL_THREADS call");
+      ++gasnete_coll_check_enter_state.without;
+    }
+    gasneti_mutex_unlock(&gasnete_coll_check_enter_state.lock);
+  }
+
+  extern void 
+  gasnete_coll_check_leave(int flags GASNETE_THREAD_FARG) {
+    gasneti_mutex_lock(&gasnete_coll_check_enter_state.lock);
+    if (flags & GASNET_COLL_ALL_THREADS) {
+      --gasnete_coll_check_enter_state.with;
+    } else {
+      --gasnete_coll_check_enter_state.without;
+    }
+    gasneti_mutex_unlock(&gasnete_coll_check_enter_state.lock);
+  }
+#endif
 
 /*---------------------------------------------------------------------------------*/
 /* Handles */
