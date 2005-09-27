@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2005/09/27 00:26:04 $
- * $Revision: 1.24 $
+ *     $Date: 2005/09/27 00:46:47 $
+ * $Revision: 1.25 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -693,12 +693,16 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
 	if ((flags & GASNET_COLL_SINGLE) && _gasnete_coll_segment_check_aux(dstrooted, dstimage, dst, dstlen)) {
 	  flags |= GASNET_COLL_DST_IN_SEGMENT;
 	}
+      } else {
+	/* Cannot gasneti_assert(gasnete_coll_in_segment()) here, since dst might be in AUX segment */
       }
       /* Check source if caller hasn't asserted that it is in-segment */
       if_pf (!(flags & GASNET_COLL_SRC_IN_SEGMENT)) {
 	if ((flags & GASNET_COLL_SINGLE) && _gasnete_coll_segment_check_aux(srcrooted, srcimage, src, srclen)) {
 	  flags |= GASNET_COLL_SRC_IN_SEGMENT;
 	}
+      } else {
+	/* Cannot gasneti_assert(gasnete_coll_in_segment()) here, since src might be in AUX segment */
       }
       return flags;
     }
@@ -752,12 +756,16 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
 	if ((flags & GASNET_COLL_SINGLE) && _gasnete_coll_segment_checkM_aux(dstrooted, dstimage, dst, dstlen)) {
 	  flags |= GASNET_COLL_DST_IN_SEGMENT;
 	}
+      } else {
+	/* Cannot gasneti_assert(gasnete_coll_in_segment()) here, since dst might be in AUX segment */
       }
       /* Check source if caller hasn't asserted that it is in-segment */
       if_pf (!(flags & GASNET_COLL_SRC_IN_SEGMENT)) {
 	if ((flags & GASNET_COLL_SINGLE) && _gasnete_coll_segment_checkM_aux(srcrooted, srcimage, src, srclen)) {
 	  flags |= GASNET_COLL_SRC_IN_SEGMENT;
 	}
+      } else {
+	/* Cannot gasneti_assert(gasnete_coll_in_segment()) here, since src might be in AUX segment */
       }
       return flags;
     }
