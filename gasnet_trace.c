@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/08/29 12:39:26 $
- * $Revision: 1.117 $
+ *     $Date: 2005/09/28 01:07:38 $
+ * $Revision: 1.118 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -143,26 +143,8 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
   return stats;
 }
 
-#if GASNETI_STATS_OR_TRACE
-  #define BUILD_STATS(type,name,desc) { #type, #name, #desc },
-  gasneti_statinfo_t gasneti_stats[] = {
-    GASNETI_ALL_STATS(BUILD_STATS, BUILD_STATS, BUILD_STATS)
-    {NULL, NULL, NULL}
-  };
-
-  #define BUFSZ     8192
-  #define NUMBUFS   32
-  static char gasneti_printbufs[NUMBUFS][BUFSZ];
-  static int gasneti_curbuf = 0;
-  static gasneti_mutex_t gasneti_buflock = GASNETI_MUTEX_INITIALIZER;
-
-  /* give gcc enough information to type-check our format strings */
-  static void gasneti_file_vprintf(FILE *fp, const char *format, va_list argptr) __attribute__((__format__ (__printf__, 2, 0)));
-  static void gasneti_trace_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
-  static void gasneti_stats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
-  static void gasneti_tracestats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
-
-  /* line number control */
+/* line number control */
+#if GASNET_SRCLINES
   #if GASNETI_CLIENT_THREADS
     gasneti_threadkey_t gasneti_srclineinfo_key = GASNETI_THREADKEY_INITIALIZER;
     typedef struct {
@@ -208,6 +190,26 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
     unsigned int gasneti_srclinenum = 0;
     unsigned int gasneti_srcfreeze = 0;
   #endif
+#endif
+
+#if GASNETI_STATS_OR_TRACE
+  #define BUILD_STATS(type,name,desc) { #type, #name, #desc },
+  gasneti_statinfo_t gasneti_stats[] = {
+    GASNETI_ALL_STATS(BUILD_STATS, BUILD_STATS, BUILD_STATS)
+    {NULL, NULL, NULL}
+  };
+
+  #define BUFSZ     8192
+  #define NUMBUFS   32
+  static char gasneti_printbufs[NUMBUFS][BUFSZ];
+  static int gasneti_curbuf = 0;
+  static gasneti_mutex_t gasneti_buflock = GASNETI_MUTEX_INITIALIZER;
+
+  /* give gcc enough information to type-check our format strings */
+  static void gasneti_file_vprintf(FILE *fp, const char *format, va_list argptr) __attribute__((__format__ (__printf__, 2, 0)));
+  static void gasneti_trace_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
+  static void gasneti_stats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
+  static void gasneti_tracestats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
 
   static char *gasneti_getbuf() {
     int bufidx;

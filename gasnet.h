@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2005/08/20 10:52:50 $
- * $Revision: 1.39 $
+ *     $Date: 2005/09/28 01:07:38 $
+ * $Revision: 1.40 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -79,6 +79,14 @@
   #define GASNETI_STATS_CONFIG nostats
 #endif
 
+#if defined(GASNET_SRCLINES) || defined(GASNET_TRACE)
+  #undef GASNET_SRCLINES
+  #define GASNET_SRCLINES 1
+  #define GASNETI_SRCLINES_CONFIG srclines
+#else
+  #define GASNETI_SRCLINES_CONFIG nosrclines
+#endif
+
 #if defined(GASNET_STATS) || defined(GASNET_TRACE)
   #define GASNETI_STATS_OR_TRACE 1
 #elif defined(GASNETI_STATS_OR_TRACE)
@@ -111,7 +119,14 @@
 #endif
 
 /* additional safety check, in case a very smart linker removes all of the checks at the end of this file */
-#define gasnet_init _CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(gasnet_init_GASNET_,GASNETI_THREADMODEL),GASNETI_SEGMENT_CONFIG),GASNETI_DEBUG_CONFIG),GASNETI_TRACE_CONFIG),GASNETI_STATS_CONFIG)
+#define gasnet_init _CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT( \
+                    gasnet_init_GASNET_,                             \
+                    GASNETI_THREADMODEL),                            \
+                    GASNETI_SEGMENT_CONFIG),                         \
+                    GASNETI_DEBUG_CONFIG),                           \
+                    GASNETI_TRACE_CONFIG),                           \
+                    GASNETI_STATS_CONFIG),                           \
+                    GASNETI_SRCLINES_CONFIG)
 
 /* ------------------------------------------------------------------------------------ */
 /* GASNet forward definitions, which may override some of the defaults below */
@@ -341,6 +356,7 @@ END_EXTERNC
              _STRINGIFY(GASNETI_DEBUG_CONFIG) ","                         \
              _STRINGIFY(GASNETI_TRACE_CONFIG) ","                         \
              _STRINGIFY(GASNETI_STATS_CONFIG) ","                         \
+             _STRINGIFY(GASNETI_SRCLINES_CONFIG) ","                      \
              _STRINGIFY(GASNETI_TIMER_CONFIG) ","                         \
              _STRINGIFY(GASNETI_ATOMIC_CONFIG)                            \
              GASNETC_EXTRA_CONFIG_INFO                                    \
@@ -358,6 +374,7 @@ extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SEGMENT_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_DEBUG_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG);
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SRCLINES_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TIMER_CONFIG);
@@ -374,6 +391,7 @@ static int *gasneti_linkconfig_idiotcheck() {
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_DEBUG_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_STATS_CONFIG)
+        + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SRCLINES_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_ALIGN_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_PTR_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TIMER_CONFIG)

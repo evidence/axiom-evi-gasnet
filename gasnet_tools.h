@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/08/29 12:39:26 $
- * $Revision: 1.43 $
+ *     $Date: 2005/09/28 01:07:38 $
+ * $Revision: 1.44 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -147,11 +147,19 @@
 /* misc internal GASNet things we wish to expose when available */
 BEGIN_EXTERNC
 
-#if defined(_INCLUDED_GASNET_H) && defined(GASNET_TRACE)
-  #define GASNETT_TRACE_SETSOURCELINE GASNETI_TRACE_SETSOURCELINE
-  #define GASNETT_TRACE_GETSOURCELINE GASNETI_TRACE_GETSOURCELINE
+#if defined(_INCLUDED_GASNET_H) && defined(GASNET_SRCLINES)
+  #define GASNETT_TRACE_SETSOURCELINE      GASNETI_TRACE_SETSOURCELINE
+  #define GASNETT_TRACE_GETSOURCELINE      GASNETI_TRACE_GETSOURCELINE
   #define GASNETT_TRACE_FREEZESOURCELINE   GASNETI_TRACE_FREEZESOURCELINE
   #define GASNETT_TRACE_UNFREEZESOURCELINE GASNETI_TRACE_UNFREEZESOURCELINE
+#else
+  #define GASNETT_TRACE_SETSOURCELINE(file,line)    ((void)0)
+  #define GASNETT_TRACE_GETSOURCELINE(pfile,pline)  ((void)0)
+  #define GASNETT_TRACE_FREEZESOURCELINE()          ((void)0)
+  #define GASNETT_TRACE_UNFREEZESOURCELINE()        ((void)0)
+#endif
+
+#if defined(_INCLUDED_GASNET_H) && defined(GASNET_TRACE)
   #define GASNETT_TRACE_ENABLED  GASNETI_TRACE_ENABLED(H)
   #define GASNETT_TRACE_PRINTF        _gasnett_trace_printf
   #define GASNETT_TRACE_PRINTF_FORCE  _gasnett_trace_printf_force
@@ -162,10 +170,6 @@ BEGIN_EXTERNC
   #define GASNETT_TRACE_GET_TRACELOCAL()        GASNETI_TRACE_GET_TRACELOCAL()
   #define GASNETT_TRACE_SET_TRACELOCAL(newval)  GASNETI_TRACE_SET_TRACELOCAL(newval)
 #else
-  #define GASNETT_TRACE_SETSOURCELINE(file,line)    ((void)0)
-  #define GASNETT_TRACE_GETSOURCELINE(pfile,pline)  ((void)0)
-  #define GASNETT_TRACE_FREEZESOURCELINE()          ((void)0)
-  #define GASNETT_TRACE_UNFREEZESOURCELINE()        ((void)0)
   #define GASNETT_TRACE_ENABLED  0
   #define GASNETT_TRACE_PRINTF        _gasnett_trace_printf
   #define GASNETT_TRACE_PRINTF_FORCE  _gasnett_trace_printf

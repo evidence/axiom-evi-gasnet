@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/09/14 18:04:16 $
-# $Revision: 1.295 $
+#     $Date: 2005/09/28 01:07:38 $
+# $Revision: 1.296 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.295 $)
+AC_REVISION($Revision: 1.296 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -345,6 +345,14 @@ GASNET_IF_ENABLED_WITH_AUTO(stats, Build GASNet with statistical collection enab
     BUILDCONFIG_DEFINES="$BUILDCONFIG_DEFINES -DGASNET_STATS"
   fi
 AM_CONDITIONAL(BUILDCONFIG_STATS, test "$enabled_stats" = yes)
+
+enabled_srclines=$enabled_trace
+GASNET_IF_ENABLED(srclines, Build GASNet with srclines support (enabled by default with --enable-trace), 
+  [ enabled_srclines=yes ])
+  if test "$enabled_srclines" = yes; then
+    BUILDCONFIG_DEFINES="$BUILDCONFIG_DEFINES -DGASNET_SRCLINES"
+  fi
+AM_CONDITIONAL(BUILDCONFIG_SRCLINES, test "$enabled_srclines" = yes)
 
 GASNET_CHECK_OPTIMIZEDDEBUG(CC,CFLAGS,[$CPPFLAGS $MISC_CFLAGS $MISC_CPPFLAGS $BUILDCONFIG_DEFINES],[])
 

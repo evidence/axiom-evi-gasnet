@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2005/09/26 21:48:55 $
- * $Revision: 1.43 $
+ *     $Date: 2005/09/28 01:07:38 $
+ * $Revision: 1.44 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -112,7 +112,7 @@ BEGIN_EXTERNC
 #define GASNETI_STATS_ECHOED_TO_TRACEFILE 1
 #endif
 
-#if GASNET_TRACE
+#if GASNET_SRCLINES
   /* GASNETI_TRACE_SETSOURCELINE(filename, linenum): 
      set the current "high-level" source file and line for the current thread
      to the given value. This information is used to dump out current line information
