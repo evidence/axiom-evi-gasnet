@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2005/08/20 10:53:04 $
- * $Revision: 1.9 $
+ *     $Date: 2005/09/28 00:54:47 $
+ * $Revision: 1.10 $
  * Description: GASNet header for shmem conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,7 +46,7 @@ typedef uint32_t        gasnet_handler_t;
 #define _GASNET_TOKEN_T
 typedef uintptr_t    gasnet_token_t;
 
-//#if !defined(GASNET_SEGMENT_EVERYTHING) && (defined(SGI_SHMEM) || defined(CRAYX1))
+/*#if !defined(GASNET_SEGMENT_EVERYTHING) && (defined(SGI_SHMEM) || defined(CRAYX1))*/
 #if (defined(SGI_SHMEM) || defined(CRAYX1))
   #define GASNETC_GLOBAL_ADDRESS
   #define GASNETE_GLOBAL_ADDRESS

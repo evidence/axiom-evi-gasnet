@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2005/08/19 00:22:20 $
- * $Revision: 1.12 $
+ *     $Date: 2005/09/28 00:54:47 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -336,7 +336,7 @@ gasnete_barrier_wait(int id, int flags)
 	    barrier_done[!barrier_phase] = 0;
 	    *done_ctr = 1;
 	#else
-	    //GASNETC_VECTORIZE
+	    /*GASNETC_VECTORIZE*/
 	    for (i=0; i < gasneti_nodes; i++) 
 		#ifdef CRAYX1
 		    *((long *) GASNETE_TRANSLATE_X1(done_ctr, i)) = 1;

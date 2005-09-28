@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core_internal.c,v $
- *     $Date: 2005/04/17 06:46:54 $
- * $Revision: 1.11 $
+ *     $Date: 2005/09/28 00:54:45 $
+ * $Revision: 1.12 $
  * Description: GASNet sci conduit c-file for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -1036,7 +1036,7 @@ void gasnetc_sci_handle_msg (gasnet_node_t sender_id, uint8_t msg_number, uint8_
           int hidx = gasnetc_get_msg_handler (Medium_msg->header);
           void *func_ptr = gasnetc_sci_handler_table[hidx];
           /*  payload starts right after the largest sized header */
-          // void *msg_payload = ((uint8_t *) Medium_msg) + sizeof (gasnetc_Long_header_t);
+          /* void *msg_payload = ((uint8_t *) Medium_msg) + sizeof (gasnetc_Long_header_t); */
           void *msg_payload = ((uint8_t *) Medium_msg) + Medium_msg->header_size;
 
           GASNETI_RUN_HANDLER_MEDIUM(1, hidx, func_ptr, handler_token, Medium_msg->args, msg_numargs, msg_payload, Medium_msg->payload_size);
@@ -1051,7 +1051,7 @@ void gasnetc_sci_handle_msg (gasnet_node_t sender_id, uint8_t msg_number, uint8_
           /*  handle the unaligned data */
           if (Long_msg->payload_size <= gasnet_AMMaxMedium())
           {
-                // uint8_t *payload_source  = ((uint8_t *) Long_msg) + sizeof (gasnetc_Long_header_t);
+                /* uint8_t *payload_source  = ((uint8_t *) Long_msg) + sizeof (gasnetc_Long_header_t); */
                 uint8_t *payload_source  = ((uint8_t *) Long_msg) + Long_msg->header_size;
                 memcpy (Long_msg->payload, payload_source, Long_msg->payload_size);
           }
@@ -1060,7 +1060,7 @@ void gasnetc_sci_handle_msg (gasnet_node_t sender_id, uint8_t msg_number, uint8_
                 /* copy unaligned data to correct location */
                 uint8_t start_unaligned_bytes, right_unaligned_bytes;
                 gasnetc_send_unaligned_offset_calculation  (gasneti_seginfo[gasneti_mynode].addr, Long_msg->payload, Long_msg->payload_size, &start_unaligned_bytes, &right_unaligned_bytes);
-                // uint8_t *payload_source  = ((uint8_t *) Long_msg) + sizeof (gasnetc_Long_header_t);
+                /* uint8_t *payload_source  = ((uint8_t *) Long_msg) + sizeof (gasnetc_Long_header_t); */
                 uint8_t *payload_source  = ((uint8_t *) Long_msg) + Long_msg->header_size;
 
                 /* handle start addr offset */

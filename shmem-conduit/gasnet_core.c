@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/09 12:06:52 $
- * $Revision: 1.22 $
+ *     $Date: 2005/09/28 00:54:47 $
+ * $Revision: 1.23 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -415,7 +415,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 		segsize = gasnetc_seginfo_init.size;
 	    }
 
-	    //printf("segbase=%p, segsize=%lu\n", segbase, segsize);
+            #if 0
+	    printf("segbase=%p, segsize=%lu\n", segbase, segsize);
+            #endif
 
 	    #ifdef CRAY_SHMEM
 	    {
@@ -1155,9 +1157,7 @@ extern int gasnetc_AMReplyLongM(
     /* Get a slot in shared AMQueue */
     int const myidx = gasnetc_AMQueueAcquire(dest, GASNETC_REPLY_T);
 
-  //#if defined(GASNETC_GLOBAL_ADDRESS) 
   #if defined(GASNETC_GLOBAL_ADDRESS) && !defined(GASNET_SEGMENT_EVERYTHING)
-    //&& !defined(GASNET_SEGMENT_EVERYTHING)
     memcpy(dest_addr, source_addr, nbytes);
   #else
     shmem_putmem(dest_addr, source_addr, nbytes, dest);
@@ -1445,7 +1445,9 @@ gasnetc_SHMallocSegmentSearch()
 
 	    while (alloc_perthread > 0) {
 		si.addr = shmemalign(GASNETT_PAGESIZE, alloc_perthread);
-		//printf("Difference is %lx\n", (long)shmem_ptr(si.addr,1)  - (long)shmem_ptr(si.addr,0));
+                #if 0
+		printf("Difference is %lx\n", (long)shmem_ptr(si.addr,1)  - (long)shmem_ptr(si.addr,0));
+                #endif
 		if (si.addr != NULL)
 			break;
 		alloc_perthread /= 2;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/08/30 01:44:30 $
- * $Revision: 1.121 $
+ *     $Date: 2005/09/28 00:54:41 $
+ * $Revision: 1.122 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -139,10 +139,10 @@ int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME)) = 1;
 
 static int gasneti_isLittleEndian() {
   union {
-    int i;                  // machine word
-    unsigned char b[sizeof(int)];    // b[0] overlaid with first byte of i
+    int i;                  /* machine word */
+    unsigned char b[sizeof(int)];    /* b[0] overlaid with first byte of i */
   } x;
-  x.i = 0xFF;    // set lsb, zero all others
+  x.i = 0xFF;    /* set lsb, zero all others */
   return x.b[0] == 0xFF;
 }
 

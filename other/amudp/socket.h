@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/socket.h,v $
- *      $Date: 2005/08/19 04:37:37 $
- *  $Revision: 1.10 $
+ *      $Date: 2005/09/28 00:54:43 $
+ *  $Revision: 1.11 $
  *  Description: portable header socket functions
  *  (c) Scott McPeak, 1998-1999, Modified by Dan Bonachea
  */
@@ -158,7 +158,7 @@ typedef fd_set FD_SET;
   #define IOCTL_FIONREAD_ARG_T unsigned long
 #endif
 
-// addr-length argument type fiasco..
+/* addr-length argument type fiasco.. */
 #if defined(LINUX) || defined(FREEBSD) || defined(AIX) || \
     defined(SOLARIS) || defined(NETBSD)
 #  define LENGTH_PARAM socklen_t
