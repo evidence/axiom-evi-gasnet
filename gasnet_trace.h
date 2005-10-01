@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2005/09/28 01:07:38 $
- * $Revision: 1.44 $
+ *     $Date: 2005/10/01 10:23:49 $
+ * $Revision: 1.45 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -153,14 +153,20 @@ BEGIN_EXTERNC
       gasneti_srcfreeze--;
     }
   #endif
+
+  #ifdef GASNETI_SRCLINES_FORCE
+    #define GASNETI_SRCLINE_TRACKING() (1)
+  #else
+    #define GASNETI_SRCLINE_TRACKING() GASNETI_TRACE_ENABLED(N)
+  #endif
   #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) \
-      (GASNETI_TRACE_ENABLED(N) ? gasneti_trace_setsourceline(filename, linenum) : ((void)0))
+      (GASNETI_SRCLINE_TRACKING() ? gasneti_trace_setsourceline(filename, linenum) : ((void)0))
   #define GASNETI_TRACE_GETSOURCELINE(pfilename, plinenum) \
-      (GASNETI_TRACE_ENABLED(N) ? gasneti_trace_getsourceline(pfilename, plinenum) : ((void)0))
+      (GASNETI_SRCLINE_TRACKING() ? gasneti_trace_getsourceline(pfilename, plinenum) : ((void)0))
   #define GASNETI_TRACE_FREEZESOURCELINE() \
-      (GASNETI_TRACE_ENABLED(N) ? gasneti_trace_freezesourceline() : ((void)0))
+      (GASNETI_SRCLINE_TRACKING() ? gasneti_trace_freezesourceline() : ((void)0))
   #define GASNETI_TRACE_UNFREEZESOURCELINE() \
-      (GASNETI_TRACE_ENABLED(N) ? gasneti_trace_unfreezesourceline() : ((void)0))
+      (GASNETI_SRCLINE_TRACKING() ? gasneti_trace_unfreezesourceline() : ((void)0))
 #else
   #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) ((void)0)
   #define GASNETI_TRACE_GETSOURCELINE(pfilename, plinenum) ((void)0)

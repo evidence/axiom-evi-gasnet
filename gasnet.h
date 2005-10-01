@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2005/09/28 01:07:38 $
- * $Revision: 1.40 $
+ *     $Date: 2005/10/01 10:23:49 $
+ * $Revision: 1.41 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -79,6 +79,9 @@
   #define GASNETI_STATS_CONFIG nostats
 #endif
 
+#if defined(GASNET_SRCLINES)
+  #define GASNETI_SRCLINES_FORCE
+#endif
 #if defined(GASNET_SRCLINES) || defined(GASNET_TRACE)
   #undef GASNET_SRCLINES
   #define GASNET_SRCLINES 1
