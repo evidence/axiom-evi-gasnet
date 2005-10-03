@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2005/10/03 19:03:04 $
- * $Revision: 1.33 $
+ *     $Date: 2005/10/03 23:27:32 $
+ * $Revision: 1.34 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,6 +38,7 @@ gasnet_image_t gasnete_coll_my_offset;	/* count of images before my first image 
 #endif
 #if GASNET_PAR
   int gasnete_coll_multi_images;	/* count of local images > 1 */
+  int gasnete_coll_multi_images_any;	/* count of any node's images > 1 */
 #endif
 
 #define GASNETE_COLL_1ST_IMAGE(LIST,NODE) \
@@ -64,9 +65,36 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
   /* XXX: temporary limitation: */
   gasneti_assert(team == GASNET_TEAM_ALL);
 
+  /* Rules for GASNET_COLL_LOCAL:
+   * 1) Don't use with multi-image when a caller can have only a single address:
+   *  1a) GASNET_SEQ: LOCAL
+   *  1b) GASNET_PAR: LOCAL w/ ALL_THREADS
+   * 2) Don't use with single-image when a caller can't provide sufficient information
+   *  2a) GASNET_PAR: LOCAL w/o ALL_THREADS if any node has >1 image (OK otherwise, for now).
+   */
+  if (flags & GASNET_COLL_LOCAL) {
+    if (dstisv || srcisv) {
+      /* Multi-address (M-suffixed) interfaces */
+      #if GASNET_SEQ
+        gasneti_fatalerror("Use of GASNET_COLL_LOCAL is prohibited with multi-address collectives in a GASNET_SEQ build - use single-address collectives instead");
+      #else
+        if (flags & GASNET_COLL_ALL_THREADS) {
+          gasneti_fatalerror("Use of GASNET_COLL_LOCAL and GASNET_COLL_ALL_THREADS together is prohibited with multi-address collectives - use single-address collectives instead");
+        }
+      #endif
+    } else {
+      /* Single-address interfaces */
+      #if GASNET_PAR
+        if (!(flags & GASNET_COLL_ALL_THREADS) && gasnete_coll_multi_images_any) {
+          gasneti_fatalerror("Use of GASNET_COLL_LOCAL without GASNET_COLL_ALL_THREADS is prohibited with single-address collectives if any node has multiple images/threads - use multi-address collectives instead");
+        }
+      #endif
+    }
+  }
+
   #if GASNET_PARSYNC
     gasneti_assert(!(flags & GASNET_COLL_ALL_THREADS));
-  #else
+  #elif GASNET_PAR
     /* XXX: temporary limitation: */
     if ((flags & GASNET_COLL_ALL_THREADS) && (flags & GASNET_COLL_LOCAL)) {
       gasneti_fatalerror("GASNET_COLL_ALL_THREADS + GASNET_COLL_LOCAL is unimplemented");
@@ -877,9 +905,23 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
     gasnete_coll_my_images = gasnete_coll_all_images[gasneti_mynode];
     gasnete_coll_my_offset = gasnete_coll_all_offset[gasneti_mynode];
     #if GASNET_PAR
-      gasnete_coll_multi_images = (gasnete_coll_my_images != 1);
+      if (!images) {
+        gasnete_coll_multi_images = 0;
+        gasnete_coll_multi_images_any = 0;
+      } else if (gasnete_coll_my_images != 1) {
+        gasnete_coll_multi_images = 1;
+        gasnete_coll_multi_images_any = 1;
+      } else {
+        gasnete_coll_multi_images = 0;
+        gasnete_coll_multi_images_any = 0;
+        for (i = 0; i < gasneti_nodes; ++i) {
+          if (gasnete_coll_all_images[i] > 1) {
+	    gasnete_coll_multi_images_any = 1;
+	    break;
+          }
+        }
+      }
     #endif
-
 
     #if !GASNET_SEQ
     {
