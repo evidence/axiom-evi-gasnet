@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/10/04 21:08:58 $
- * $Revision: 1.35 $
+ *     $Date: 2005/10/04 22:17:50 $
+ * $Revision: 1.36 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,13 +53,19 @@ int gasnete_coll_init_done = 0;
 void gasnete_coll_validate(gasnet_team_handle_t team,
 			   gasnet_image_t dstimage, const void *dst, size_t dstlen, int dstisv,
 			   gasnet_image_t srcimage, const void *src, size_t srclen, int srcisv,
-			   int flags) {
-  gasnet_node_t dstnode = gasnete_coll_image_node(dstimage);
-  gasnet_node_t srcnode = gasnete_coll_image_node(srcimage);
+			   int flags GASNETE_THREAD_FARG) {
+  gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
   int i;
 
   if_pf (!gasnete_coll_init_done) {
     gasneti_fatalerror("Illegal call to GASNet collectives before gasnet_coll_init()\n");
+  }
+
+  if (dstimage == (gasnet_image_t)(-1)) {
+    dstimage = td->my_image;
+  }
+  if (srcimage == (gasnet_image_t)(-1)) {
+    srcimage = td->my_image;
   }
 
   /* XXX: temporary limitation: */
@@ -130,7 +136,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 
   /* Bounds check any local portion of dst/dstlist which user claims is in-segment */
   gasneti_assert(dstlen > 0);
-  if ((dstnode == gasneti_mynode) && (flags & GASNET_COLL_DST_IN_SEGMENT)) {
+  if ((dstimage == td->my_image) && (flags & GASNET_COLL_DST_IN_SEGMENT)) {
     if (!dstisv) {
       gasneti_boundscheck(gasneti_mynode, dst, dstlen);
     } else {
@@ -144,7 +150,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 
   /* Bounds check any local portion of src/srclist which user claims is in-segment */
   gasneti_assert(srclen > 0);
-  if ((srcnode == gasneti_mynode) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
+  if ((srcimage == td->my_image) && (flags & GASNET_COLL_SRC_IN_SEGMENT)) {
     if (!srcisv) {
       gasneti_boundscheck(gasneti_mynode, src, srclen);
     } else {

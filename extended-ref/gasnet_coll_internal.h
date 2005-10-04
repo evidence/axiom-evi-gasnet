@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2005/10/04 21:08:58 $
- * $Revision: 1.27 $
+ *     $Date: 2005/10/04 22:17:50 $
+ * $Revision: 1.28 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -574,8 +574,9 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
   extern void gasnete_coll_validate(gasnet_team_handle_t team,
                                     gasnet_image_t dstimage, const void *dstaddr, size_t dstlen, int dstisv,
                                     gasnet_image_t srcimage, const void *srcaddr, size_t srclen, int srcisv,
-                                    int flags);
-  #define GASNETE_COLL_VALIDATE gasnete_coll_validate
+                                    int flags GASNETE_THREAD_FARG);
+  #define GASNETE_COLL_VALIDATE(T,DI,DA,DL,DV,SI,SA,SL,SV,F) \
+		gasnete_coll_validate(T,DI,DA,DL,DV,SI,SA,SL,SV,F GASNETE_THREAD_PASS)
 
   /* Check for violation of reentrance rules */
   #if GASNET_PAR
@@ -585,33 +586,33 @@ extern void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE);
     #define GASNETE_COLL_LEAVE_FN(flags) gasnete_coll_check_leave(flags GASNETE_THREAD_PASS)
   #endif
 #else
-  #define GASNETE_COLL_VALIDATE(T,DN,DA,DL,DV,SN,SA,SL,SV,F)
+  #define GASNETE_COLL_VALIDATE(T,DI,DA,DL,DV,SI,SA,SL,SV,F)
 #endif
 
 #define GASNETE_COLL_VALIDATE_BROADCAST(T,D,R,S,N,F)   \
-	GASNETE_COLL_VALIDATE(T,gasneti_mynode,D,N,0,R,S,N,0,F)
+	GASNETE_COLL_VALIDATE(T,(gasnet_image_t)(-1),D,N,0,R,S,N,0,F)
 #define GASNETE_COLL_VALIDATE_BROADCAST_M(T,D,R,S,N,F)   \
-	GASNETE_COLL_VALIDATE(T,gasneti_mynode,D,N,1,R,S,N,0,F)
+	GASNETE_COLL_VALIDATE(T,(gasnet_image_t)(-1),D,N,1,R,S,N,0,F)
 
 #define GASNETE_COLL_VALIDATE_SCATTER(T,D,R,S,N,F)   \
-	GASNETE_COLL_VALIDATE(T,gasneti_mynode,D,N,0,R,S,(N)*gasneti_nodes,0,F)
+	GASNETE_COLL_VALIDATE(T,(gasnet_image_t)(-1),D,N,0,R,S,(N)*gasneti_nodes,0,F)
 #define GASNETE_COLL_VALIDATE_SCATTER_M(T,D,R,S,N,F)   \
-	GASNETE_COLL_VALIDATE(T,gasneti_mynode,D,N,1,R,S,(N)*gasneti_nodes,0,F)
+	GASNETE_COLL_VALIDATE(T,(gasnet_image_t)(-1),D,N,1,R,S,(N)*gasneti_nodes,0,F)
 
 #define GASNETE_COLL_VALIDATE_GATHER(T,R,D,S,N,F)     \
-	GASNETE_COLL_VALIDATE(T,R,D,(N)*gasneti_nodes,0,gasneti_mynode,S,N,0,F)
+	GASNETE_COLL_VALIDATE(T,R,D,(N)*gasneti_nodes,0,(gasnet_image_t)(-1),S,N,0,F)
 #define GASNETE_COLL_VALIDATE_GATHER_M(T,R,D,S,N,F)     \
-	GASNETE_COLL_VALIDATE(T,R,D,(N)*gasneti_nodes,0,gasneti_mynode,S,N,1,F)
+	GASNETE_COLL_VALIDATE(T,R,D,(N)*gasneti_nodes,0,(gasnet_image_t)(-1),S,N,1,F)
 
 #define GASNETE_COLL_VALIDATE_GATHER_ALL(T,D,S,N,F)                \
-	GASNETE_COLL_VALIDATE(T,gasneti_mynode,D,(N)*gasneti_nodes,0,gasneti_mynode,S,N,0,F)
+	GASNETE_COLL_VALIDATE(T,(gasnet_image_t)(-1),D,(N)*gasneti_nodes,0,(gasnet_image_t)(-1),S,N,0,F)
 #define GASNETE_COLL_VALIDATE_GATHER_ALL_M(T,D,S,N,F)                \
-	GASNETE_COLL_VALIDATE(T,gasneti_mynode,D,(N)*gasneti_nodes,1,gasneti_mynode,S,N,1,F)
+	GASNETE_COLL_VALIDATE(T,(gasnet_image_t)(-1),D,(N)*gasneti_nodes,1,(gasnet_image_t)(-1),S,N,1,F)
 
 #define GASNETE_COLL_VALIDATE_EXCHANGE(T,D,S,N,F)                  \
-        GASNETE_COLL_VALIDATE(T,gasneti_mynode,D,(N)*gasneti_nodes,0,gasneti_mynode,S,(N)*gasneti_nodes,0,F)
+        GASNETE_COLL_VALIDATE(T,(gasnet_image_t)(-1),D,(N)*gasneti_nodes,0,(gasnet_image_t)(-1),S,(N)*gasneti_nodes,0,F)
 #define GASNETE_COLL_VALIDATE_EXCHANGE_M(T,D,S,N,F)                  \
-        GASNETE_COLL_VALIDATE(T,gasneti_mynode,D,(N)*gasneti_nodes,1,gasneti_mynode,S,(N)*gasneti_nodes,1,F)
+        GASNETE_COLL_VALIDATE(T,(gasnet_image_t)(-1),D,(N)*gasneti_nodes,1,(gasnet_image_t)(-1),S,(N)*gasneti_nodes,1,F)
 
 /* XXX: following arg validations unimplemented */
 #define GASNETE_COLL_VALIDATE_REDUCE(T,DI,D,S,SB,SO,ES,EC,FN,FA,F)
