@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/09/26 21:48:55 $
- * $Revision: 1.66 $
+ *     $Date: 2005/10/04 05:35:33 $
+ * $Revision: 1.67 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,6 +27,10 @@
 BEGIN_EXTERNC
 
 extern void gasneti_fatalerror(const char *msg, ...) GASNETI_NORETURN __attribute__((__format__ (__printf__, 1, 2)));
+#ifdef __xlC__ /* xlc wants a special pragma for never-return fns */
+  #pragma leaves(gasneti_fatalerror)
+#endif
+
 /* internal GASNet environment query function
  * uses the gasneti_globalEnv if available or regular getenv otherwise
  * legal to call before gasnet_init, but may malfunction if
