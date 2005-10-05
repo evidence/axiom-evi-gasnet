@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/09/14 04:00:38 $
- * $Revision: 1.48 $
+ *     $Date: 2005/10/05 22:41:43 $
+ * $Revision: 1.49 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -718,7 +718,7 @@ static void configure_ssh(void) {
   }
 
   /* Now build the command line */
-  ssh_argc = optcount + (is_openssh ? 7 : 1);
+  ssh_argc = optcount + (is_openssh ? 9 : 1);
   ssh_argv = gasneti_calloc((ssh_argc + 3 /* host + cmd + NULL = 3 */), sizeof(char *));
   ssh_argv[0] = ssh_argv0;
   argi = 1;
@@ -726,6 +726,7 @@ static void configure_ssh(void) {
     ssh_argv[argi++] = (char *)"-o"; ssh_argv[argi++] = (char *)"StrictHostKeyChecking no";
     ssh_argv[argi++] = (char *)"-o"; ssh_argv[argi++] = (char *)"FallBackToRsh no";
     ssh_argv[argi++] = (char *)"-o"; ssh_argv[argi++] = (char *)"BatchMode yes";
+    ssh_argv[argi++] = (char *)"-o"; ssh_argv[argi++] = (char *)"ForwardX11 no";
   }
   if (optcount) {
     for (i=0; i<optcount; ++i, ++argi) {
