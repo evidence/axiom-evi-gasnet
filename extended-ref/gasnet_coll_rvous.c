@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2005/10/05 22:45:16 $
- * $Revision: 1.37 $
+ *     $Date: 2005/10/05 23:50:35 $
+ * $Revision: 1.38 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -965,7 +965,12 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
       gasneti_assert(fn_tbl[i].fnptr == gasnete_coll_fn_tbl[i].fnptr);
     }
   #endif
-  td->my_local_image = my_image - gasnete_coll_my_offset;
+  if (images) {
+    td->my_local_image = my_image - gasnete_coll_my_offset;
+    gasneti_assert(td->my_local_image < gasnete_coll_my_images);
+  } else {
+    td->my_local_image = 0;
+  }
   gasnete_coll_init_done = 1;
 }
 
