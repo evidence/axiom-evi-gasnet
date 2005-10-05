@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/Attic/gasnet_extended_coll.h,v $
- *     $Date: 2005/10/04 22:17:50 $
- * $Revision: 1.28 $
+ *     $Date: 2005/10/05 22:45:16 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -301,7 +301,7 @@ extern int gasnete_coll_consensus_try(gasnete_coll_consensus_t id);
 #endif
 #ifndef GASNETE_COLL_P2P_EAGER_MIN
     /* Minumum number of bytes to allocate for eager data */
-    #define GASNETE_COLL_P2P_EAGER_MIN		MAX(16,sizeof(gasneti_weakatomic_t))
+    #define GASNETE_COLL_P2P_EAGER_MIN		16
 #endif
 
 #ifndef GASNETE_COLL_P2P_OVERRIDE
@@ -318,6 +318,9 @@ extern int gasnete_coll_consensus_try(gasnete_coll_consensus_t id);
 	/* Volatile arrays of data and state for the point-to-point synchronization */
 	uint8_t			*data;
 	volatile uint32_t	*state;
+
+	/* Handler-safe lock (if needed) */
+	gasnet_hsl_t		lock;
 
 	#ifdef GASNETE_COLL_P2P_EXTRA_FIELDS
 	  GASNETE_COLL_P2P_EXTRA_FIELDS
@@ -2259,6 +2262,12 @@ gasnete_coll_scat_RVGet(gasnet_team_handle_t team,
 		        gasnet_image_t srcimage, void *src,
 		        size_t nbytes, int flags GASNETE_THREAD_FARG);
 
+extern gasnet_coll_handle_t
+gasnete_coll_scat_RVous(gasnet_team_handle_t team,
+		        void *dst,
+		        gasnet_image_t srcimage, void *src,
+		        size_t nbytes, int flags GASNETE_THREAD_FARG);
+
 /*---------------------------------------------------------------------------------*/
 
 extern gasnet_coll_handle_t
@@ -2281,6 +2290,12 @@ gasnete_coll_scatM_Eager(gasnet_team_handle_t team,
 
 extern gasnet_coll_handle_t
 gasnete_coll_scatM_RVGet(gasnet_team_handle_t team,
+		         void * const dstlist[],
+		         gasnet_image_t srcimage, void *src,
+		         size_t nbytes, int flags GASNETE_THREAD_FARG);
+
+extern gasnet_coll_handle_t
+gasnete_coll_scatM_RVous(gasnet_team_handle_t team,
 		         void * const dstlist[],
 		         gasnet_image_t srcimage, void *src,
 		         size_t nbytes, int flags GASNETE_THREAD_FARG);
