@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2005/10/05 22:45:16 $
- * $Revision: 1.29 $
+ *     $Date: 2005/10/06 00:45:43 $
+ * $Revision: 1.30 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2334,6 +2334,12 @@ gasnete_coll_gath_RVPut(gasnet_team_handle_t team,
 		        void *src,
 		        size_t nbytes, int flags GASNETE_THREAD_FARG);
 
+extern gasnet_coll_handle_t
+gasnete_coll_gath_RVous(gasnet_team_handle_t team,
+		        gasnet_image_t dstimage, void *dst,
+		        void *src,
+		        size_t nbytes, int flags GASNETE_THREAD_FARG);
+
 /*---------------------------------------------------------------------------------*/
 
 extern gasnet_coll_handle_t
@@ -2356,6 +2362,12 @@ gasnete_coll_gathM_Eager(gasnet_team_handle_t team,
 
 extern gasnet_coll_handle_t
 gasnete_coll_gathM_RVPut(gasnet_team_handle_t team,
+		         gasnet_image_t dstimage, void *dst,
+		         void * const srclist[],
+		         size_t nbytes, int flags GASNETE_THREAD_FARG);
+
+extern gasnet_coll_handle_t
+gasnete_coll_gathM_RVous(gasnet_team_handle_t team,
 		         gasnet_image_t dstimage, void *dst,
 		         void * const srclist[],
 		         size_t nbytes, int flags GASNETE_THREAD_FARG);

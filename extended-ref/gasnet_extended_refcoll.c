@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/10/05 23:50:35 $
- * $Revision: 1.38 $
+ *     $Date: 2005/10/06 00:45:43 $
+ * $Revision: 1.39 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1420,7 +1420,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
     /* Respond to a gasnete_coll_p2p_send_rtr */
     int gasnete_coll_p2p_send_data(gasnete_coll_op_t *op, gasnete_coll_p2p_t *p2p,
 				   gasnet_node_t node, uint32_t offset,
-				   void *src, size_t nbytes) {
+				   const void *src, size_t nbytes) {
       struct gasnete_coll_p2p_send_struct *status = (struct gasnete_coll_p2p_send_struct *)p2p->data;
       if (p2p->state[offset] == 1) {
 	size_t sent = status[offset].sent;
@@ -4760,6 +4760,72 @@ gasnete_coll_gath_RVPut(gasnet_team_handle_t team,
 					NULL GASNETE_THREAD_PASS);
 }
 
+/* gath RVous: non-root nodes use AM Mediums to send to addrs provided by root */
+/* Requires GASNETE_COLL_GENERIC_OPT_P2P on all nodes */
+static int gasnete_coll_pf_gath_RVous(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
+  gasnete_coll_generic_data_t *data = op->data;
+  const gasnete_coll_gather_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, gather);
+  int result = 0;
+
+  switch (data->state) {
+    case 0:	/* Optional IN barrier */
+      if (!gasnete_coll_generic_all_threads(data) ||
+	  !gasnete_coll_generic_insync(data)) {
+	break;
+      }
+      data->state = 1;
+
+    case 1:	/* Root send addrs */
+      if (gasneti_mynode == args->dstnode) {
+	gasnet_node_t i;
+	for (i = 0; i < gasneti_nodes; ++i) {
+	  if (i == gasneti_mynode) continue;
+	  gasnete_coll_p2p_send_rtr(op, data->p2p, 0,
+				    gasnete_coll_scale_ptr(args->dst, i, args->nbytes),
+				    i, args->nbytes);
+	}
+	GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
+				      args->src, args->nbytes);
+      }
+      data->state = 2;
+
+    case 2:
+      if (gasneti_mynode != args->dstnode) {
+	/* non-root nodes send at most one AM per poll */
+	int done = gasnete_coll_p2p_send_data(op, data->p2p, args->dstnode, 0, args->src, args->nbytes);
+	if (!done) {break;}
+      } else if (!gasnete_coll_p2p_send_done(data->p2p)) {
+	/* Not all data has arrived yet */
+	break;
+      }
+      data->state = 3;
+
+    case 3:	/* Optional OUT barrier */
+      if (!gasnete_coll_generic_outsync(data)) {
+	break;
+      }
+
+      gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
+      result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
+  }
+
+  return result;
+}
+extern gasnet_coll_handle_t
+gasnete_coll_gath_RVous(gasnet_team_handle_t team,
+			gasnet_image_t dstimage, void *dst,
+			void *src,
+			size_t nbytes, int flags GASNETE_THREAD_FARG)
+{
+  int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF ((flags & GASNET_COLL_IN_ALLSYNC)) |
+		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF((flags & GASNET_COLL_OUT_ALLSYNC)) |
+		GASNETE_COLL_GENERIC_OPT_P2P;
+
+  return gasnete_coll_generic_gather_nb(team, dstimage, dst, src, nbytes, flags,
+					&gasnete_coll_pf_gath_RVous, options,
+					NULL GASNETE_THREAD_PASS);
+}
+
 extern gasnet_coll_handle_t
 gasnete_coll_generic_gather_nb(gasnet_team_handle_t team,
 			       gasnet_image_t dstimage, void *dst,
@@ -4838,12 +4904,11 @@ gasnete_coll_generic_gather_nb(gasnet_team_handle_t team,
         if (flags & GASNET_COLL_SINGLE) {
 	  return gasnete_coll_gath_Get(team, dstimage, dst, src, nbytes, flags GASNETE_THREAD_PASS);
 	} else {
-	  gasneti_fatalerror("Currently only in-segment destination is fully supported for this operation");
-	  return GASNET_COLL_INVALID_HANDLE;
+	  /* XXX: could do better since src is in-segment */
+	  return gasnete_coll_gath_RVous(team, dstimage, dst, src, nbytes, flags GASNETE_THREAD_PASS);
 	}
       } else {
-	gasneti_fatalerror("Currently only in-segment destination is fully supported for this operation");
-	return GASNET_COLL_INVALID_HANDLE;
+	return gasnete_coll_gath_RVous(team, dstimage, dst, src, nbytes, flags GASNETE_THREAD_PASS);
       }
     }
 #endif
@@ -5193,6 +5258,84 @@ gasnete_coll_gathM_RVPut(gasnet_team_handle_t team,
 					 NULL GASNETE_THREAD_PASS);
 }
 
+/* gathM RVous: non-root nodes use AM Mediums to send to addrs provided by root */
+/* Requires GASNETE_COLL_GENERIC_OPT_P2P on all nodes */
+static int gasnete_coll_pf_gathM_RVous(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
+  gasnete_coll_generic_data_t *data = op->data;
+  const gasnete_coll_gatherM_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, gatherM);
+  int result = 0;
+
+  switch (data->state) {
+    case 0:	/* Optional IN barrier */
+      if (!gasnete_coll_generic_all_threads(data) ||
+	  !gasnete_coll_generic_insync(data)) {
+	break;
+      }
+      data->state = 1;
+
+    case 1:	/* Root send addrs */
+      if (gasneti_mynode == args->dstnode) {
+	void **tmp = gasneti_malloc(sizeof(void *) * gasnete_coll_total_images);
+	gasnet_image_t j;
+	gasnet_node_t i;
+	for (j = 0; j < gasnete_coll_total_images; ++j) {
+	  tmp[j] = gasnete_coll_scale_ptr(args->dst, j, args->nbytes);
+	}
+	for (i = 0; i < gasneti_nodes; ++i) {
+	  if (i == gasneti_mynode) continue;
+	  gasnete_coll_p2p_send_rtrM(op, data->p2p, 0, &GASNETE_COLL_1ST_IMAGE(tmp, i),
+				     i, args->nbytes, gasnete_coll_all_images[i]);
+	}
+	gasneti_free(tmp);
+	gasnete_coll_local_gather(gasnete_coll_my_images,
+				  gasnete_coll_scale_ptr(args->dst, gasnete_coll_my_offset, args->nbytes),
+				  &GASNETE_COLL_MY_1ST_IMAGE(args->srclist, op->flags), args->nbytes);
+      }
+      data->state = 2;
+
+    case 2:
+      if (gasneti_mynode != args->dstnode) {
+	/* non-root nodes send at most one AM per image each poll */
+	void * const *p = &GASNETE_COLL_MY_1ST_IMAGE(args->srclist, op->flags);
+	int done = 1;
+	gasnet_image_t i;
+	for (i = 0; i < gasnete_coll_my_images; ++i) {
+	  done &= gasnete_coll_p2p_send_data(op, data->p2p, args->dstnode, i, p[i], args->nbytes);
+	}
+	if (!done) {break;}
+      } else if (!gasnete_coll_p2p_send_done(data->p2p)) {
+	/* Not all data has arrived yet */
+	break;
+      }
+      data->state = 3;
+
+    case 3:	/* Optional OUT barrier */
+      if (!gasnete_coll_generic_outsync(data)) {
+	break;
+      }
+
+      gasnete_coll_generic_free(data GASNETE_THREAD_PASS);
+      result = (GASNETE_COLL_OP_COMPLETE | GASNETE_COLL_OP_INACTIVE);
+  }
+
+  return result;
+}
+extern gasnet_coll_handle_t
+gasnete_coll_gathM_RVous(gasnet_team_handle_t team,
+			 gasnet_image_t dstimage, void *dst,
+			 void * const srclist[],
+			 size_t nbytes, int flags GASNETE_THREAD_FARG)
+{
+  int options = GASNETE_COLL_GENERIC_OPT_INSYNC_IF ((flags & GASNET_COLL_IN_ALLSYNC)) |
+		GASNETE_COLL_GENERIC_OPT_OUTSYNC_IF((flags & GASNET_COLL_OUT_ALLSYNC)) |
+		GASNETE_COLL_GENERIC_OPT_P2P;
+
+  return gasnete_coll_generic_gatherM_nb(team, dstimage, dst, srclist, nbytes, flags,
+					 &gasnete_coll_pf_gathM_RVous, options,
+					 NULL GASNETE_THREAD_PASS);
+}
+
+
 extern gasnet_coll_handle_t
 gasnete_coll_generic_gatherM_nb(gasnet_team_handle_t team,
 				gasnet_image_t dstimage, void *dst,
@@ -5264,12 +5407,11 @@ gasnete_coll_generic_gatherM_nb(gasnet_team_handle_t team,
         if (flags & GASNET_COLL_SINGLE) {
 	  return gasnete_coll_gathM_Get(team, dstimage, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
 	} else {
-	  gasneti_fatalerror("Currently only in-segment destination is fully supported for this operation");
-	  return GASNET_COLL_INVALID_HANDLE;
+	  /* XXX: could do better since src is in-segment */
+	  return gasnete_coll_gathM_RVous(team, dstimage, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
 	}
       } else {
-	gasneti_fatalerror("Currently only in-segment destination is fully supported for this operation");
-	return GASNET_COLL_INVALID_HANDLE;
+	return gasnete_coll_gathM_RVous(team, dstimage, dst, srclist, nbytes, flags GASNETE_THREAD_PASS);
       }
     }
 #endif
