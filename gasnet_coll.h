@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2005/10/07 22:51:43 $
- * $Revision: 1.31 $
+ *     $Date: 2005/10/07 23:25:17 $
+ * $Revision: 1.32 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1741,7 +1741,7 @@ typedef struct {
 
 #if GASNET_PAR
 typedef struct {
-    void **dstlist;
+    void * volatile *dstlist;
     gasnet_image_t srcimage;
     void *src;
     size_t nbytes;
@@ -1770,7 +1770,7 @@ typedef struct {
 
 #if GASNET_PAR
 typedef struct {
-    void **dstlist;
+    void * volatile *dstlist;
     gasnet_image_t srcimage;
     void *src;
     size_t nbytes;
@@ -1801,7 +1801,7 @@ typedef struct {
 typedef struct {
     gasnet_image_t dstimage;
     void *dst;
-    void **srclist;
+    void * volatile *srclist;
     size_t nbytes;
 } gasnete_coll_gatherT_args_t;
 #endif
@@ -1820,8 +1820,8 @@ typedef struct {
 
 #if GASNET_PAR
 typedef struct {
-    void **dstlist;
-    void **srclist;
+    void * volatile *dstlist;
+    void * volatile *srclist;
     size_t nbytes;
 } gasnete_coll_gather_allT_args_t;
 #endif
@@ -1840,8 +1840,8 @@ typedef struct {
 
 #if GASNET_PAR
 typedef struct {
-    void **dstlist;
-    void **srclist;
+    void * volatile *dstlist;
+    void * volatile *srclist;
     size_t nbytes;
 } gasnete_coll_exchangeT_args_t;
 #endif
