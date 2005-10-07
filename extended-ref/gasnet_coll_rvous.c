@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2005/10/07 22:51:43 $
- * $Revision: 1.40 $
+ *     $Date: 2005/10/07 23:18:20 $
+ * $Revision: 1.41 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2029,7 +2029,7 @@ extern void gasnete_coll_tree_free(gasnete_coll_tree_data_t *tree GASNETE_THREAD
 /* bcast Threads: collect address(es) from each thread and then call bcastM */
 static int gasnete_coll_pf_bcast_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
   gasnete_coll_generic_data_t *data = op->data;
-  const gasnete_coll_broadcastT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, broadcastT);
+  volatile gasnete_coll_broadcastT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, broadcastT);
   int result = 0;
 
   switch (data->state) {
@@ -2037,7 +2037,6 @@ static int gasnete_coll_pf_bcast_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FA
       if (!gasnete_coll_generic_all_threads(data)) {
 	break;
       }
-      gasneti_sync_reads();
       data->state = 1;
 
     case 1:	/* Forward to broadcastM once we have all threads */
@@ -3404,7 +3403,7 @@ gasnete_coll_generic_broadcastM_nb(gasnet_team_handle_t team,
 /* scat Threads: collect address(es) from each thread and then call scatM */
 static int gasnete_coll_pf_scat_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
   gasnete_coll_generic_data_t *data = op->data;
-  const gasnete_coll_scatterT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, scatterT);
+  volatile gasnete_coll_scatterT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, scatterT);
   int result = 0;
 
   switch (data->state) {
@@ -3412,7 +3411,6 @@ static int gasnete_coll_pf_scat_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
       if (!gasnete_coll_generic_all_threads(data)) {
 	break;
       }
-      gasneti_sync_reads();
       data->state = 1;
 
     case 1:	/* Forward to scatterM once we have all threads */
@@ -4200,7 +4198,7 @@ gasnete_coll_scatM_Eager(gasnet_team_handle_t team,
 		GASNETE_COLL_GENERIC_OPT_P2P_IF(!gasnete_coll_image_is_local(srcimage));
 
   return gasnete_coll_generic_scatterM_nb(team, dstlist, srcimage, src, nbytes, flags,
-					    &gasnete_coll_pf_scatM_Eager, options,
+					  &gasnete_coll_pf_scatM_Eager, options,
 					  NULL GASNETE_THREAD_PASS);
 }
 
@@ -4444,7 +4442,7 @@ gasnete_coll_generic_scatterM_nb(gasnet_team_handle_t team,
 /* gath Threads: collect address(es) from each thread and then call gathM */
 static int gasnete_coll_pf_gath_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
   gasnete_coll_generic_data_t *data = op->data;
-  const gasnete_coll_gatherT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, gatherT);
+  volatile gasnete_coll_gatherT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, gatherT);
   int result = 0;
 
   switch (data->state) {
@@ -4452,7 +4450,6 @@ static int gasnete_coll_pf_gath_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
       if (!gasnete_coll_generic_all_threads(data)) {
 	break;
       }
-      gasneti_sync_reads();
       data->state = 1;
 
     case 1:	/* Forward to gatherM once we have all threads */
@@ -5482,7 +5479,7 @@ gasnete_coll_generic_gatherM_nb(gasnet_team_handle_t team,
 /* gall Threads: collect address(es) from each thread and then call gallM */
 static int gasnete_coll_pf_gall_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
   gasnete_coll_generic_data_t *data = op->data;
-  const gasnete_coll_gather_allT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, gather_allT);
+  volatile gasnete_coll_gather_allT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, gather_allT);
   int result = 0;
 
   switch (data->state) {
@@ -5490,7 +5487,6 @@ static int gasnete_coll_pf_gall_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
       if (!gasnete_coll_generic_all_threads(data)) {
 	break;
       }
-      gasneti_sync_reads();
       data->state = 1;
 
     case 1:	/* Forward to gather_allM once we have all threads */
@@ -5814,7 +5810,7 @@ gasnete_coll_generic_gather_allM_nb(gasnet_team_handle_t team,
 /* exchg Threads: collect address(es) from each thread and then call exchgM */
 static int gasnete_coll_pf_exchg_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
   gasnete_coll_generic_data_t *data = op->data;
-  const gasnete_coll_exchangeT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, exchangeT);
+  volatile gasnete_coll_exchangeT_args_t *args = GASNETE_COLL_GENERIC_ARGS(data, exchangeT);
   int result = 0;
 
   switch (data->state) {
@@ -5822,14 +5818,13 @@ static int gasnete_coll_pf_exchg_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FA
       if (!gasnete_coll_generic_all_threads(data)) {
 	break;
       }
-      gasneti_sync_reads();
       data->state = 1;
 
     case 1:	/* Forward to exchangeM once we have all threads */
       data->coll_handle =
 		gasnete_coll_exchangeM_nb(op->team, args->dstlist,
-					    args->srclist, args->nbytes,
-					    (op->flags & ~GASNET_COLL_ALL_THREADS)
+					  args->srclist, args->nbytes,
+					  (op->flags & ~GASNET_COLL_ALL_THREADS)
 					    GASNETE_THREAD_PASS);
       gasnete_coll_save_coll_handle(&data->coll_handle GASNETE_THREAD_PASS);
       data->state = 2;
