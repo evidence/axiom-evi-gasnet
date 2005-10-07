@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2005/10/06 00:45:43 $
- * $Revision: 1.30 $
+ *     $Date: 2005/10/07 22:51:43 $
+ * $Revision: 1.31 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -498,6 +498,13 @@ typedef struct {
     gasnete_coll_op_t			*op_freelist;
     gasnete_coll_generic_data_t 	*generic_data_freelist;
     gasnete_coll_tree_data_t	 	*tree_data_freelist;
+
+    /* Outstanding handles this thread must sync */
+    struct {
+	int				    used;
+	int				    allocated;
+	void				    *array;
+    }					handles;
 
     /* Linkage used by the thread-specific handle freelist . */
     #ifndef GASNETE_COLL_HANDLE_OVERRIDE
@@ -1857,9 +1864,6 @@ typedef struct {
 #endif
 
 struct gasnete_coll_generic_data_t_ {
-    #if GASNETI_USE_TRUE_MUTEXES || GASNET_DEBUG
-      void				*owner;	/* gasnete_threaddata_t not yet defined */
-    #endif
     #if GASNET_DEBUG
       #define GASNETE_COLL_GENERIC_TAG(T)	_CONCAT(GASNETE_COLL_GENERIC_TAG_,T)
       #define GASNETE_COLL_GENERIC_SET_TAG(D,T)	(D)->tag = GASNETE_COLL_GENERIC_TAG(T)
@@ -1962,7 +1966,7 @@ extern gasnet_coll_handle_t gasnete_coll_op_generic_init(gasnete_coll_team_t tea
 							 gasnete_coll_generic_data_t *data,
 							 gasnete_coll_poll_fn poll_fn
 							 GASNETE_THREAD_FARG);
-extern int gasnete_coll_generic_syncnb(gasnete_coll_generic_data_t *data GASNETE_THREAD_FARG);
+extern int gasnete_coll_generic_syncnb(gasnete_coll_generic_data_t *data);
 
 #if GASNET_PAR
   extern void gasnete_coll_threads_lock(int flags GASNETE_THREAD_FARG);
