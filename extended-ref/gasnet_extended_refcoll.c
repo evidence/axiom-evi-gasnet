@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/10/07 23:18:20 $
- * $Revision: 1.41 $
+ *     $Date: 2005/10/08 00:26:00 $
+ * $Revision: 1.42 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2041,7 +2041,7 @@ static int gasnete_coll_pf_bcast_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FA
 
     case 1:	/* Forward to broadcastM once we have all threads */
       data->coll_handle =
-		gasnete_coll_broadcastM_nb(op->team, args->dstlist,
+		gasnete_coll_broadcastM_nb(op->team, (void * const *)args->dstlist,
 					   args->srcimage, args->src, args->nbytes,
 					   (op->flags & ~GASNET_COLL_ALL_THREADS)
 					   GASNETE_THREAD_PASS);
@@ -3415,7 +3415,7 @@ static int gasnete_coll_pf_scat_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
 
     case 1:	/* Forward to scatterM once we have all threads */
       data->coll_handle =
-		gasnete_coll_scatterM_nb(op->team, args->dstlist,
+		gasnete_coll_scatterM_nb(op->team, (void * const *)args->dstlist,
 					 args->srcimage, args->src, args->nbytes,
 					 (op->flags & ~GASNET_COLL_ALL_THREADS)
 					 GASNETE_THREAD_PASS);
@@ -4455,7 +4455,7 @@ static int gasnete_coll_pf_gath_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
     case 1:	/* Forward to gatherM once we have all threads */
       data->coll_handle =
 		gasnete_coll_gatherM_nb(op->team, args->dstimage, args->dst,
-					args->srclist, args->nbytes,
+					(void * const *)args->srclist, args->nbytes,
 					(op->flags & ~GASNET_COLL_ALL_THREADS)
 					GASNETE_THREAD_PASS);
       gasnete_coll_save_coll_handle(&data->coll_handle GASNETE_THREAD_PASS);
@@ -5491,8 +5491,8 @@ static int gasnete_coll_pf_gall_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
 
     case 1:	/* Forward to gather_allM once we have all threads */
       data->coll_handle =
-		gasnete_coll_gather_allM_nb(op->team, args->dstlist,
-					    args->srclist, args->nbytes,
+		gasnete_coll_gather_allM_nb(op->team, (void * const *)args->dstlist,
+					    (void * const *)args->srclist, args->nbytes,
 					    (op->flags & ~GASNET_COLL_ALL_THREADS)
 					    GASNETE_THREAD_PASS);
       gasnete_coll_save_coll_handle(&data->coll_handle GASNETE_THREAD_PASS);
@@ -5822,8 +5822,8 @@ static int gasnete_coll_pf_exchg_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FA
 
     case 1:	/* Forward to exchangeM once we have all threads */
       data->coll_handle =
-		gasnete_coll_exchangeM_nb(op->team, args->dstlist,
-					  args->srclist, args->nbytes,
+		gasnete_coll_exchangeM_nb(op->team, (void * const *)args->dstlist,
+					  (void * const *)args->srclist, args->nbytes,
 					  (op->flags & ~GASNET_COLL_ALL_THREADS)
 					    GASNETE_THREAD_PASS);
       gasnete_coll_save_coll_handle(&data->coll_handle GASNETE_THREAD_PASS);
