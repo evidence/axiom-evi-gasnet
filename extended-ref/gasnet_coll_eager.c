@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_eager.c,v $
- *     $Date: 2005/10/08 00:26:00 $
- * $Revision: 1.42 $
+ *     $Date: 2005/10/08 00:33:21 $
+ * $Revision: 1.43 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -347,15 +347,9 @@ gasnete_coll_local_handles(gasnete_coll_threaddata_t *td, int grow) {
     if (grow) {
 	int allocated = td->handles.allocated;
 	if_pf (allocated == td->handles.used) {
-	    if_pf (allocated == 0) {
-		/* XXX: gasneti_realloc(NULL, sz) broken? */
-		allocated = 8;
-		result = gasneti_malloc(allocated*sizeof(gasnete_coll_local_handle_t));
-	    } else {
-		allocated += 8;
-		result = gasneti_realloc(result, allocated*sizeof(gasnete_coll_local_handle_t));
-	    }
+	    allocated += 8;
 	    td->handles.allocated = allocated;
+	    result = gasneti_realloc(result, allocated*sizeof(gasnete_coll_local_handle_t));
 	    td->handles.array = result;
 	}
     }
