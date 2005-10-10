@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2005/10/07 23:25:17 $
- * $Revision: 1.32 $
+ *     $Date: 2005/10/10 04:34:04 $
+ * $Revision: 1.33 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,7 +106,7 @@ typedef struct gasnete_coll_tree_data_t_ gasnete_coll_tree_data_t;
   #else
     typedef volatile uintptr_t *gasnet_coll_handle_t;
   #endif
-  #define GASNET_COLL_INVALID_HANDLE NULL
+  #define GASNET_COLL_INVALID_HANDLE ((gasnet_coll_handle_t)NULL)
   #define GASNETE_COLL_NO_HANDLE ((void*)(intptr_t)(~0))	/* Internal use only */
 #endif
 
