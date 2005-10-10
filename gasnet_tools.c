@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/10/10 19:21:23 $
- * $Revision: 1.125 $
+ *     $Date: 2005/10/10 21:36:38 $
+ * $Revision: 1.126 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -377,10 +377,27 @@ void gasneti_set_affinity_default(int rank) {
       }
       /* becomes a NO-OP */
     } else {
-      cpu_set_t mask;
-      CPU_ZERO(&mask);
-      CPU_SET(rank % cpus, &mask);
-      gasneti_assert_zeroret(sched_setaffinity(0, sizeof(mask), &mask));
+      #if GASNET_SCHED_SETAFFINITY_ARGS == 1
+	unsigned long int *mask;
+	const int bits_per_long = 8*sizeof(*mask);
+	int len = (cpus + bits_per_long - 1) / bits_per_long;
+	mask = gasneti_calloc(len, sizeof(*mask));
+	mask[rank / bits_per_long] = 1 << (rank % bits_per_long);
+        gasneti_assert_zeroret(sched_setaffinity(0, len*sizeof(*mask), mask));
+	gasneti_free(mask);
+      #elif GASNET_SCHED_SETAFFINITY_ARGS == 2
+        cpu_set_t mask;
+        memset(&mask,0,sizeof(mask)); /* in place of CPU_ZERO which is sometimes broken */
+        CPU_SET(rank % cpus, &mask);
+        gasneti_assert_zeroret(sched_setaffinity(0, &mask));
+      #elif GASNET_SCHED_SETAFFINITY_ARGS == 3
+        cpu_set_t mask;
+        memset(&mask,0,sizeof(mask)); /* in place of CPU_ZERO which is sometimes broken */
+        CPU_SET(rank % cpus, &mask);
+        gasneti_assert_zeroret(sched_setaffinity(0, sizeof(mask), &mask));
+      #else
+	#error "Unknown scehd_setaffinity prototype"
+      #endif
     }
   #endif
 }
