@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/09/28 01:07:38 $
- * $Revision: 1.44 $
+ *     $Date: 2005/10/10 19:21:23 $
+ * $Revision: 1.45 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -206,6 +206,8 @@ BEGIN_EXTERNC
   /* these tools ONLY available when linking a libgasnet.a */
   extern int gasneti_cpu_count();
   #define gasnett_cpu_count() gasneti_cpu_count()
+  extern void gasneti_set_affinity(int);
+  #define gasnett_set_affinity(r) gasneti_set_affinity(r) 
   #ifdef HAVE_MMAP
     extern void *gasneti_mmap(uintptr_t segsize);
     #define gasnett_mmap(sz) gasneti_mmap(sz)
@@ -238,6 +240,7 @@ BEGIN_EXTERNC
   #endif
 #else
   #define gasnett_cpu_count()     abort()
+  #define gasnett_set_affinity(r) abort()
   #define gasnett_mmap(sz)        abort()
   #define gasnett_flush_streams() abort()
 

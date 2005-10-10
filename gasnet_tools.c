@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/10/08 00:30:06 $
- * $Revision: 1.124 $
+ *     $Date: 2005/10/10 19:21:23 $
+ * $Revision: 1.125 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -356,6 +356,42 @@ extern int gasneti_cpu_count() {
 
   gasneti_assert_always(hwprocs >= 0);
   return hwprocs;
+}
+/* ------------------------------------------------------------------------------------ */
+#if HAVE_SCHED_SETAFFINITY
+  #include <sched.h>
+#endif
+void gasneti_set_affinity_default(int rank) {
+  #if !HAVE_SCHED_SETAFFINITY
+    /* NO-OP */
+    return;
+  #else
+    int cpus = gasneti_cpu_count();
+
+    if_pf (cpus == 0) {
+      static int once = 1;
+      if (once) {
+	once = 0;
+        fprintf(stderr, "WARNING: gasneti_set_affinity called, but cannot determine cpu count.\n");
+        fflush(stderr);
+      }
+      /* becomes a NO-OP */
+    } else {
+      cpu_set_t mask;
+      CPU_ZERO(&mask);
+      CPU_SET(rank % cpus, &mask);
+      gasneti_assert_zeroret(sched_setaffinity(0, sizeof(mask), &mask));
+    }
+  #endif
+}
+#ifndef GASNETC_SET_AFFINITY
+  #define GASNETC_SET_AFFINITY(rank) gasneti_set_affinity_default(rank)
+#else
+  /* Will use conduit-specific GASNETC_SET_AFFINITY() */
+#endif
+void gasneti_set_affinity(int rank) {
+  GASNETI_TRACE_PRINTF(I,("gasnett_set_affinity(%d)", rank));
+  GASNETC_SET_AFFINITY(rank);
 }
 /* ------------------------------------------------------------------------------------ */
 /* build a code-location string (used by gasnete_current_loc) */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/08/11 10:06:58 $
- * $Revision: 1.85 $
+ *     $Date: 2005/10/10 19:21:23 $
+ * $Revision: 1.86 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -225,6 +225,10 @@ char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) {
   }
   return retval;
 }
+
+/* ------------------------------------------------------------------------------------ */
+/* CPU affinity */
+extern void gasneti_set_affinity(int rank);
 
 /* ------------------------------------------------------------------------------------ */
 

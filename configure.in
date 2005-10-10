@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/10/01 10:23:49 $
-# $Revision: 1.297 $
+#     $Date: 2005/10/10 19:21:23 $
+# $Revision: 1.298 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.297 $)
+AC_REVISION($Revision: 1.298 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2164,6 +2164,24 @@ GASNET_TRY_CACHE_CHECK(for sched_yield(), cc_has_sched_yield, [
   sched_yield();
 ],
   AC_SEARCH_LIBS(sched_yield, posix4, AC_DEFINE(HAVE_SCHED_YIELD), AC_MSG_RESULT(entry point not found - disabled)))
+
+# Check linux systems for sched_setaffinity (requires -D_GNU_SOURCE)
+case "$target_os" in
+  linux*)  
+    GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS -D_GNU_SOURCE")
+    GASNET_TRY_CACHE_RUN(for working linux sched_setaffinity(),have_sched_setaffinity, [
+      #include <sched.h>
+      int main() {
+        cpu_set_t mask;
+        CPU_ZERO(&mask);
+        CPU_SET(0,&mask);
+        return (sched_setaffinity(0, sizeof(mask), &mask) != 0);
+      }
+    ], [AC_DEFINE(HAVE_SCHED_SETAFFINITY)
+        GASNET_MACHINE_DEFINES="$GASNET_MACHINE_DEFINES -D_GNU_SOURCE"])
+    GASNET_POPVAR(CPPFLAGS)
+  ;;
+esac
 
 #  AC_FUNC_MMAP
 # Check for mmap functionality we actually use
