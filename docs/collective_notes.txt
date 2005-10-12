@@ -1,6 +1,6 @@
 GASNet collectives design notes
 ===============================
-* $Revision: 1.32 $
+* $Revision: 1.33 $
 * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu> and Paul Hargrove <PHHargrove@lbl.gov>
 * Terms of use are as specified in license.txt
 
@@ -180,14 +180,12 @@ In the presence of partial information (see Partial Information,
 below) the descriptions above "all data areas specified in the call"
 means the union of the information available from all nodes.
 
-For the output syncs, I think the following names are more appropriate
-to GASNet than the UPC names (where the prefix is TBD):
 
-+ UPC_OUT_ALLSYNC -> *_ALL    implies all buffers are safe for reuse.
-+ UPC_OUT_MYSYNC  -> *_LOCAL  implies local buffers are reusable
-+ UPC_OUT_NOSYNC  -> *_NONE   implies no specific buffers are reusable,
-                              until the last thread enters the next
-                              collective (barrier included)
++ _OUT_ALLSYNC -> implies all buffers are safe for reuse.
++ _OUT_MYSYNC  -> implies local buffers are reusable
++ _OUT_NOSYNC  -> implies no specific buffers are reusable,
+                  until the last thread enters the next
+                  collective (barrier included)
 
 
 //===========================================================================
@@ -197,18 +195,21 @@ Consistent with the VIS (Vector, Indexed and Strided) interface, the
 collectives are specified only for "bulk" data lifetimes.  This means
 that if the client reads or writes source or destination memory areas
 between the initiation and synchronization of that memory, the results
-are undefined.  As noted in "Synchronization Modes" the point at which
+are undefined.  The same applies for meta-data passed by reference, such
+as vectors of addresses to the multi-address interfaces.
+
+As noted in "Synchronization Modes" the point at which
 the memory (as opposed to the collective operation) is considered
 synchronized depends on the synchronization mode.
 
-+ _OUT_ALLSYNC: memory on all participating nodes is synchronized when the
-collective operation is synchronized on any node.
++ _OUT_ALLSYNC: memory in all participating images is synchronized when the
+collective operation is synchronized in any image.
 
-+ _OUT_MYSYNC: memory on each participating node is synchronized when the
-collective operation is synchronized on the same node.
++ _OUT_MYSYNC: memory in each participating image is synchronized when the
+collective operation is synchronized by that image.
 
 + _OUT_NOSYNC: memory is synchronized when the collective operation is
-synchronized on all participating nodes.
+synchronized in all participating images.
 
 
 //===========================================================================
@@ -271,67 +272,34 @@ when possible.
 
 Collectives must be initiated in the same order on all participating nodes.
 To execute a collective operation a collective initiation function
-must be called on all nodes.  Depending on flag values, this call may
-be made either by all threads on each node (when GASNET_COLL_ALL_THREADS
-appears in the flags argument), or exactly once on each node, by any
-one representative thread (when GASNET_COLL_ALL_THREADS is absent from
-the flags).  When GASNET_COLL_ALL_THREADS is included in the flags, all
-threads must sync their respective handles.
-
-To disambiguate the order in which collectives are
-initiated by representative threads on multi-threaded clients, the client
-must serialize calls to the collective initiation functions which lack
-GASNET_COLL_ALL_THREADS in the flags, to ensure that such calls are never
-concurrent with any other collective initiation calls on the same node
-(regardless of the presence of absence of GASNET_COLL_ALL_THREADS in the
-flags).
-
-At present, all nodes must agree on the use of GASNET_COLL_ALL_THREADS
-in the flags.  However, this requirement may be relaxed in a future
-specification.
+must be called on all nodes by all "images" (threads that have called
+gasnet_coll_init()) and the handles each thread receives must be synced
+by the same thread.
 
 The type gasnet_coll_handle_t specifies a handle which may be
 synchronized only by the thread to which it was returned when initiating
-the collective.
-(ie the gasnet_coll_handle_t handle is thread-specific. This
-imposes a non-trivial synchronization requirement on a multi-
-threaded client when not using GASNET_COLL_ALL_THREADS.
-Specifically, the thread (A) elected to be the
-local representative for the purpose of initiating a given non-blocking
-collective must make independent progress towards syncing that collective
-and not be blocked waiting for some action by another local thread (B) which 
-is contingent on B first completing the collective with a try-sync, as 
-this dependency cycle would lead to deadlock. This requirement is
-user-visible and will need to be exposed in the non-blocking extensions to the
-UPC collective library).  
-Handles are also node-specific - each node gets a separate
-handle_t for the operation, which it independently synchronizes in any
-order with respect to other outstanding collectives. Handles may not
-be passed across nodes.
+the collective  (ie the gasnet_coll_handle_t handle is node-specific
+and thread-specific.)
 
 //===========================================================================
 * Data segment
 
-For the present we want to implement only cases where the source and
+We want to optimize implementation in cases where the source and
 destination of the data movement collectives are in the GASNet
-segment.  However, we also wish to allow a path for extension.  So, we
+segment.  However, we do not wish to require extra copies by the client
+to achive this.  Therefore, we allow the client to
 specify the following flags
 
- + *_DST_IN_SEGMENT -> If set, this bit is an assertion by the client
+ + GASNET_COLL_DST_IN_SEGMENT -> If set, this bit is an assertion by the client
    that the destination address argument(s) to this collective
    operation lie in the GASNet segment.
 
- + *_SRC_IN_SEGMENT -> If set, this bit is an assertion by the client
+ + GASNET_COLL_SRC_IN_SEGMENT -> If set, this bit is an assertion by the client
    that the source address argument(s) to this collective operation
    lie in the GASNet segment.
 
 It is an error to set either of these flag bits when any portion of
 the corresponding memory lies outside the GASNet segment.
-
-The current specification *REQUIRES* that these bits are *BOTH* set,
-and thus currently only supports collective operations on data within
-the GASNet segment.  This restriction should be relaxed in some future
-revision.
 
 
 //===========================================================================
@@ -1130,7 +1098,6 @@ gasnet_coll_init(const gasnet_image_t images[], gasnet_image_t my_image,
  *	  agree.
  *	+ GASNET_COLL_LOCAL: This indicates Titanium-type addressing
  *	  in which each caller provides only the local address(es).
- *        See GASNET_COLL_ALL_THREADS below, for more information.
  *      Defaults:
  *	There are no default values for these three categories of flags.
  *	The client must provide exactly one flag value from each of the
@@ -1139,22 +1106,13 @@ gasnet_coll_init(const gasnet_image_t images[], gasnet_image_t my_image,
  *	If present, the flag GASNET_COLL_AGGREGATE indicates that a
  *	sequence of non-blocking collective initiation calls should be
  *	aggregated together into a operation with a single handle.
- *	Callers:
- *	If present, the flag GASNET_COLL_ALL_THREADS indicates that all
- *	threads on each node will call this function collectively.  In this
- *	case the input and output synchronization flags are applied at a
- *	per-image granularity, where the thread-to-image correspondence is
- *	that established by the call to gasnet_coll_init().  Combining
- *      this flag with GASNET_COLL_LOCAL means that the address(es)
- *	provided by the caller are local to the calling image only.
- *      If this flag is absent, then one representative thread from each
- *	node will call this function, and the synchronization flags will be
- *	applied to the union of all images on each node.  Without this
- *	flag, use of GASNET_COLL_LOCAL means that the address(es) provided
- *	by the caller are those of all images on the local node.
- *	In GASNET_SEQ mode, this flag is legal, but meaningless.
- *	In GASNET_PARSYNC mode, this flag is illegal.
- *	In GASNET_PAR mode, this flag is legal and meaningfull.
+ *	GASNet Segment:
+ *	+ GASNET_COLL_DST_IN_SEGMENT: If present, this bit is an assertion
+ *        by the client that the destination address argument(s) to this
+ *        collective operation lie in the GASNet segment.
+ *	+ GASNET_COLL_SRC_IN_SEGMENT: If present, this bit is an assertion
+ *        by the client that the source address argument(s) to this
+ *        collective operation lie in the GASNet segment.
  *
  * nbytes: Byte count
  *	This is the number of bytes to be transfered per source block.
@@ -1172,13 +1130,6 @@ gasnet_coll_init(const gasnet_image_t images[], gasnet_image_t my_image,
  *	to gasnet_coll_init().
  *
  * {dst,src}: Destination (Source) address.
- *	When GASNET_COLL_ALL_THREADS is not specified in the 'flags' the
- *	one calling thread on each node represents all of the threads on
- *	the same node.  Therefore, the term "root image/node" will be used
- *	here to refer either to the root image (when GASNET_COLL_ALL_THREADS
- *	is given) or the one calling thread on the same node as the given
- *	root image otherwise.
- *
  *	For Broadcast and Scatter the source address is only applicable
  *	to the root image/node.  For the Gather operation the destination
  *	address is only applicable to the root image/node.  For the remaining
@@ -1227,20 +1178,6 @@ gasnet_coll_init(const gasnet_image_t images[], gasnet_image_t my_image,
  *    i'th block of the destination.
  *  + Exchange
  *    There are no exceptions for the exchange operation.
- *
- * There are important interactions to be aware of between the flags
- * GASNET_COLL_LOCAL and GASNET_COLL_ALL_THREADS:
- *	* Calling the single-address interfaces with GASNET_COLL_LOCAL in
- *	  the 'flags' but without GASNET_COLL_ALL_THREADS is NOT permitted
- *	  when there are multiple images on any node.  This is the case
- *	  because there would be no way to obtain the addresses for the
- *	  non-calling images on such nodes.
- *	* Calling the multiple-address interfaces with GASNET_COLL_LOCAL
- *	  set in the 'flags' is NOT permitted in a GASNET_SEQ configuration
- *	  or in combination with GASNET_COLL_ALL_THREADS.  This is because
- *	  there can only ever be one address per caller in these cases and
- *	  identical behavior can therefore be achieved less expensively via
- *	  the single-address interfaces.
  */
 
 gasnet_coll_handle_t gasnet_coll_broadcast_nb(
@@ -1357,13 +1294,6 @@ void gasnet_coll_exchangem(
  *	image numbering is the one established by the 'my_image' arguments
  *	to gasnet_coll_init().
  * dst: Destination Address
- *	When GASNET_COLL_ALL_THREADS is not specified in the 'flags' the
- *	one calling thread on each node represents all of the threads on
- *	the same node.  Therefore, the term "destination image/node" will
- *	be used here to refer either to the destination image (when
- *	GASNET_COLL_ALL_THREADS is given) or the one calling thread on the
- *	same node as the given destination image otherwise.
- *
  *	This argument gives the address at which the result will be
  *	placed on the destination image/node.  For GASNET_COLL_LOCAL the
  *	'dst' address is ignored on all callers except the destination
@@ -1469,23 +1399,20 @@ void gasnet_coll_exchangem(
  *	The value of this argument must be equal across all callers or
  *	the behavior is undefined.  This argument gives a bitwise OR
  *	of flags which determine how the operation will be performed
- *	Flags are identical to those defined above for the data
- *	movement collectives.
- * [NOTE: need to revise to include inclusive/exclusive flag]
- *
- * There are important interactions to be aware of between the flags
- * GASNET_COLL_LOCAL and GASNET_COLL_ALL_THREADS:
- *	* Calling the single-address interfaces with GASNET_COLL_LOCAL in
- *	  the 'flags' but without GASNET_COLL_ALL_THREADS is NOT permitted
- *	  when there are multiple images on any node.  This is the case
- *	  because there would be no way to obtain the addresses for the
- *	  non-calling images on such nodes.
- *	* Calling the multiple-address interfaces with GASNET_COLL_LOCAL
- *	  set in the 'flags' is NOT permitted in a GASNET_SEQ configuration
- *	  or in combination with GASNET_COLL_ALL_THREADS.  This is because
- *	  there can only ever be one address per caller in these cases and
- *	  identical behavior can therefore be achieved less expensively via
- *	  the single-address interfaces.
+ *	The folowwing flags are identical to those defined above for
+ *	the data movement collectives:
+ *	+ GASNET_COLL_{IN,OUT}_{NO,MY,ALL}SYNC
+ *	+ GASNET_COLL_{SINGLE,LOCAL}
+ *	+ GASNET_COLL_AGGREGATE
+ *	+ GASNET_COLL_{DST,SRC}_IN_SEGMENT
+ *	Additionally, every scan operation must include exactly one of
+ *	GASNET_COLL_INCLUSIVE_SCAN or GASNET_COLL_EXCLUSIVE_SCAN:
+ *	+ GASNET_COLL_INCLUSIVE_SCAN indicates that element i of the
+ *	  result is the generalized sum over input elements 0 though i.
+ *	+ GASNET_COLL_EXCLUSIVE_SCAN indicates that element i of the
+ *	  result is the generalized sum over input elements 0 though i-1,
+ *	  leaving element 0 of the output undefined.
+ *	There is no default for the scan type.
  */
 
 gasnet_coll_handle_t gasnet_coll_reduce_nb(
