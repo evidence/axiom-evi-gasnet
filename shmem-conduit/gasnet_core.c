@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/09/28 00:54:47 $
- * $Revision: 1.23 $
+ *     $Date: 2005/10/12 12:36:27 $
+ * $Revision: 1.24 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -386,7 +386,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 				: segup;
 		#endif
 
-		#ifdef CRAY_SHMEM
+		#if defined(CRAY_SHMEM) || defined(SGI_SHMEM)
 		    /* X1: shrealloc on a pointer returned by shmemalign dumps core */
 		    shfree(gasnetc_seginfo_init.addr);
 		    segbase = shmemalign(GASNETT_PAGESIZE, segsize);
@@ -396,7 +396,8 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 			    "%lu bytes down to %lu bytes\n", 
 			    gasnetc_seginfo_init.size, segsize);
 
-		#elif defined(SGI_SHMEM)
+		#endif
+		#if 0
 		    segbase = 
 			shrealloc(gasnetc_seginfo_init.addr, segsize);
 
@@ -405,8 +406,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 			gasneti_fatalerror(
 			    "shrealloc() failed on initial GASNet segment");
 		    }
-		#endif
-
+                #endif
 		gasnetc_seginfo_init.addr = (void *) segbase;
 		gasnetc_seginfo_init.size = segsize;
 	    }
