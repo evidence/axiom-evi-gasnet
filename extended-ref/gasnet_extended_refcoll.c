@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/10/12 00:01:13 $
- * $Revision: 1.45 $
+ *     $Date: 2005/10/12 20:54:28 $
+ * $Revision: 1.46 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -489,7 +489,6 @@ void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
       } else {
 	/* multi-threaded */
         const uint32_t sequence = td->threads.sequence;
-//fprintf(stderr, "%d> thread %d at sequence %u (of %d) caller=%p\n", gasneti_mynode, td->my_image, sequence, gasnete_coll_threads_sequence, __builtin_return_address(0));
 
         ++td->threads.sequence;
         if (sequence == gasnete_coll_threads_sequence) {
