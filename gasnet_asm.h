@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2005/08/25 10:36:25 $
- * $Revision: 1.75 $
+ *     $Date: 2005/10/12 18:29:00 $
+ * $Revision: 1.76 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -394,7 +394,7 @@
 
 #ifndef gasneti_sync_writes
   #if GASNET_SEQ && !GASNETI_THREADS
-    #define gasneti_sync_writes() /* NO-OP */
+    #define gasneti_sync_writes() ((void)0)
   #elif GASNETI_UNI_BUILD
     #define gasneti_sync_writes() gasneti_compiler_fence()
   #else
@@ -404,7 +404,7 @@
 
 #ifndef gasneti_sync_reads
   #if GASNET_SEQ && !GASNETI_THREADS
-    #define gasneti_sync_reads() /* NO-OP */
+    #define gasneti_sync_reads() ((void)0)
   #elif GASNETI_UNI_BUILD
     #define gasneti_sync_reads() gasneti_compiler_fence()
   #else
@@ -414,7 +414,7 @@
 
 #ifndef gasneti_sync_mem
   #if GASNET_SEQ && !GASNETI_THREADS
-    #define gasneti_sync_mem() /* NO-OP */
+    #define gasneti_sync_mem() ((void)0)
   #elif GASNETI_UNI_BUILD
     #define gasneti_sync_mem() gasneti_compiler_fence()
   #else
