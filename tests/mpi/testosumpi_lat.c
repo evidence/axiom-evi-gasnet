@@ -13,6 +13,10 @@
 #define MAX_MSG_SIZE (1<<22)
 #define MYBUFSIZE (MAX_MSG_SIZE + MESSAGE_ALIGNMENT)
 
+#ifndef ZERO_ACK
+#define ZERO_ACK 1
+#endif
+
 char s_buf_original[MYBUFSIZE];
 char r_buf_original[MYBUFSIZE];
 
@@ -49,6 +53,9 @@ int main(int argc, char *argv[])
     if (myid == 0) {
         fprintf(stdout, "# OSU MPI Latency Test (Version 2.0)\n");
         fprintf(stdout, "# Modified to report round-trip latency (MPI_Send/MPI_Recv)\n");
+#if ZERO_ACK
+        fprintf(stdout, "# Modified to use zero-byte ack\n");
+#endif
         fprintf(stdout, "# Size\t\tLatency (us) \n");
     }
 
@@ -73,16 +80,22 @@ int main(int argc, char *argv[])
                 if (i == skip)
                     t_start = MPI_Wtime();
                 MPI_Send(s_buf, size, MPI_CHAR, 1, 1, MPI_COMM_WORLD);
-                MPI_Recv(r_buf, size, MPI_CHAR, 1, 1, MPI_COMM_WORLD,
-                         &reqstat);
+             #if ZERO_ACK
+                MPI_Recv(r_buf, 0, MPI_CHAR, 1, 1, MPI_COMM_WORLD, &reqstat);
+             #else
+                MPI_Recv(r_buf, size, MPI_CHAR, 1, 1, MPI_COMM_WORLD, &reqstat);
+             #endif
             }
             t_end = MPI_Wtime();
 
         } else if (myid == 1) {
             for (i = 0; i < loop + skip; i++) {
-                MPI_Recv(r_buf, size, MPI_CHAR, 0, 1, MPI_COMM_WORLD,
-                         &reqstat);
+                MPI_Recv(r_buf, size, MPI_CHAR, 0, 1, MPI_COMM_WORLD, &reqstat);
+             #if ZERO_ACK
+                MPI_Send(s_buf, 0, MPI_CHAR, 0, 1, MPI_COMM_WORLD);
+             #else
                 MPI_Send(s_buf, size, MPI_CHAR, 0, 1, MPI_COMM_WORLD);
+             #endif
             }
         }
 
