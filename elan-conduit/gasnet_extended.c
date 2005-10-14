@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/07/18 19:24:04 $
- * $Revision: 1.64 $
+ *     $Date: 2005/10/14 21:30:04 $
+ * $Revision: 1.65 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -893,11 +893,11 @@ extern int  gasnete_try_syncnb(gasnet_handle_t handle) {
            so avoid it when not strictly necessary  */
  #if 0
   int val = gasnete_try_syncnb_inner(handle);
-  if_pf (val == GASNET_ERR_NOT_READY) GASNETE_SAFE(gasneti_AMPoll());
+  if_pf (val == GASNET_ERR_NOT_READY) GASNETI_SAFE(gasneti_AMPoll());
   return val;
  #else
   if (gasnete_try_syncnb_inner(handle) == GASNET_OK) return GASNET_OK;
-  GASNETE_SAFE(gasneti_AMPoll());
+  GASNETI_SAFE(gasneti_AMPoll());
   return GASNET_ERR_NOT_READY;
  #endif
 #else
