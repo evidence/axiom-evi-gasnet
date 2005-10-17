@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2005/10/12 20:54:28 $
- * $Revision: 1.46 $
+ *     $Date: 2005/10/17 18:43:55 $
+ * $Revision: 1.47 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -567,6 +567,30 @@ void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
         }
         gasneti_mutex_unlock(&gasnete_coll_threads_mutex);
       }
+    }
+
+    int gasnete_coll_threads_addrs_ready(void * volatile *list GASNETE_THREAD_FARG) {
+      /* The idea is to scan a list of thread-local addresses to see that they have all
+       * been set to non-NULL values.  This function tries to lessen the amount of ping-
+       * ponging of cache lines by eliminating the potential "hot spot" at the beginning
+       * of the list.  This only ends up making a difference if the list spans cachelines.
+       *
+       * Note that non-application threads are OK, and will have my_image == 0.
+       */
+      const gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
+      int i;
+
+      for (i = td->my_image; i < gasnete_coll_my_images; ++i) { /* >= self */
+	if (list[i] == NULL) {
+	  return 0;
+	}
+      }
+      for (i = 0; i < td->my_image; ++i) { /* < self */
+	if (list[i] == NULL) {
+	  return 0;
+	}
+      }
+      return 1;
     }
 #endif
 
@@ -1965,17 +1989,10 @@ static int gasnete_coll_pf_bcast_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FA
 
   switch (data->state) {
     case 0:	/* Mandatory "thread barrier" to collect local addrs */
-      gasneti_sync_reads();
-      {
-        int i, done = 1;
-	for (i = 0; i < gasnete_coll_my_images; ++i) {
-	  if (args->dstlist[i] == NULL) {
-	    done = 0;
-	    break;
-	  }
-	}
-	if (!done) break;
+      if (!gasnete_coll_threads_addrs_ready(args->dstlist GASNETE_THREAD_PASS)) {
+	break;
       }
+      gasneti_sync_reads();
       data->state = 1;
 
     case 1:	/* Optional IN barrier */
@@ -1985,7 +2002,6 @@ static int gasnete_coll_pf_bcast_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FA
       data->state = 2;
 
     case 2:	/* Forward to broadcastM once we have all threads */
-      gasneti_sync_reads();
       data->coll_handle =
 		gasnete_coll_broadcastM_nb(op->team, (void * const *)args->dstlist,
 					   args->srcimage, args->src, args->nbytes,
@@ -3347,16 +3363,11 @@ static int gasnete_coll_pf_scat_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
 
   switch (data->state) {
     case 0:	/* Mandatory "thread barrier" to collect local addrs */
-      {
-        int i, done = 1;
-	for (i = 0; i < gasnete_coll_my_images; ++i) {
-	  if (args->dstlist[i] == NULL) {
-	    done = 0;
-	    break;
-	  }
-	}
-	if (!done) break;
+      if (!gasnete_coll_threads_addrs_ready(args->dstlist GASNETE_THREAD_PASS)) {
+	break;
       }
+      gasneti_sync_reads();
+      data->state = 1;
 
     case 1:	/* Optional IN barrier */
       if (!gasnete_coll_generic_insync(data)) {
@@ -3365,7 +3376,6 @@ static int gasnete_coll_pf_scat_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
       data->state = 2;
 
     case 2:	/* Forward to scatterM once we have all threads */
-      gasneti_sync_reads();
       data->coll_handle =
 		gasnete_coll_scatterM_nb(op->team, (void * const *)args->dstlist,
 					 args->srcimage, args->src, args->nbytes,
@@ -4393,16 +4403,10 @@ static int gasnete_coll_pf_gath_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
 
   switch (data->state) {
     case 0:	/* Mandatory "thread barrier" to collect local addrs */
-      {
-        int i, done = 1;
-	for (i = 0; i < gasnete_coll_my_images; ++i) {
-	  if (args->srclist[i] == NULL) {
-	    done = 0;
-	    break;
-	  }
-	}
-	if (!done) break;
+      if (!gasnete_coll_threads_addrs_ready(args->srclist GASNETE_THREAD_PASS)) {
+	break;
       }
+      gasneti_sync_reads();
       data->state = 1;
 
     case 1:	/* Optional IN barrier */
@@ -4412,7 +4416,6 @@ static int gasnete_coll_pf_gath_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
       data->state = 2;
 
     case 2:	/* Forward to gatherM once we have all threads */
-      gasneti_sync_reads();
       data->coll_handle =
 		gasnete_coll_gatherM_nb(op->team, args->dstimage, args->dst,
 					(void * const *)args->srclist, args->nbytes,
@@ -5440,16 +5443,11 @@ static int gasnete_coll_pf_gall_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
 
   switch (data->state) {
     case 0:	/* Mandatory "thread barrier" to collect local addrs */
-      {
-        int i, done = 1;
-	for (i = 0; i < gasnete_coll_my_images; ++i) {
-	  if ((args->srclist[i] == NULL) || (args->dstlist[i] == NULL)) {
-	    done = 0;
-	    break;
-	  }
-	}
-	if (!done) break;
+      if (!gasnete_coll_threads_addrs_ready(args->dstlist GASNETE_THREAD_PASS) ||
+	  !gasnete_coll_threads_addrs_ready(args->srclist GASNETE_THREAD_PASS)) {
+	break;
       }
+      gasneti_sync_reads();
       data->state = 1;
 
     case 1:	/* Optional IN barrier */
@@ -5459,7 +5457,6 @@ static int gasnete_coll_pf_gall_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FAR
       data->state = 2;
 
     case 2:	/* Forward to gather_allM once we have all threads */
-      gasneti_sync_reads();
       data->coll_handle =
 		gasnete_coll_gather_allM_nb(op->team, (void * const *)args->dstlist,
 					    (void * const *)args->srclist, args->nbytes,
@@ -5774,16 +5771,11 @@ static int gasnete_coll_pf_exchg_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FA
 
   switch (data->state) {
     case 0:	/* Mandatory "thread barrier" to collect local addrs */
-      {
-        int i, done = 1;
-	for (i = 0; i < gasnete_coll_my_images; ++i) {
-	  if ((args->srclist[i] == NULL) || (args->dstlist[i] == NULL)) {
-	    done = 0;
-	    break;
-	  }
-	}
-	if (!done) break;
+      if (!gasnete_coll_threads_addrs_ready(args->dstlist GASNETE_THREAD_PASS) ||
+	  !gasnete_coll_threads_addrs_ready(args->srclist GASNETE_THREAD_PASS)) {
+	break;
       }
+      gasneti_sync_reads();
       data->state = 1;
 
     case 1:	/* Optional IN barrier */
@@ -5793,7 +5785,6 @@ static int gasnete_coll_pf_exchg_Threads(gasnete_coll_op_t *op GASNETE_THREAD_FA
       data->state = 2;
 
     case 2:	/* Forward to exchangeM once we have all threads */
-      gasneti_sync_reads();
       data->coll_handle =
 		gasnete_coll_exchangeM_nb(op->team, (void * const *)args->dstlist,
 					  (void * const *)args->srclist, args->nbytes,
