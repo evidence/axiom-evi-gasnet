@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/10/10 21:36:38 $ */
-/*  $Revision: 1.66 $ */
+/*      $Date: 2005/10/17 18:51:16 $ */
+/*  $Revision: 1.67 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -56,6 +56,12 @@
 
 /* have ptmalloc's mallopt() options */
 #undef HAVE_PTMALLOC
+
+/* support for glibc backtracing */
+#undef HAVE_EXECINFO_H
+#undef HAVE_BACKTRACE
+#undef HAVE_BACKTRACE_SYMBOLS
+#undef ADDR2LINE_PATH
 
 /* have pthread_setconcurrency */
 #undef HAVE_PTHREAD_SETCONCURRENCY

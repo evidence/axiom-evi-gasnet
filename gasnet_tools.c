@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/10/10 21:36:38 $
- * $Revision: 1.126 $
+ *     $Date: 2005/10/17 18:51:16 $
+ * $Revision: 1.127 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,6 +20,9 @@
 #include <signal.h>
 #if HAVE_MALLOC_H
   #include <malloc.h>
+#endif
+#if HAVE_EXECINFO_H
+  #include <execinfo.h>
 #endif
 
 #ifdef IRIX
@@ -533,6 +536,8 @@ void gasneti_defaultSignalHandler(int sig) {
       GASNETC_FATALSIGNAL_CALLBACK(sig); /* give conduit first crack at it */
       fprintf(stderr,"*** Caught a fatal signal: %s(%i) on node %i/%i\n",
         signame, sig, (int)gasnet_mynode(), (int)gasnet_nodes()); 
+      fflush(stderr);
+      gasneti_print_backtrace();
       fflush(stderr);
       signal(sig, SIG_DFL); /* restore default core-dumping handler and re-raise */
       #if 1
@@ -1106,6 +1111,54 @@ extern void gasneti_unsetenv(const char *key) {
     return GASNETC_PTHREAD_CREATE_OVERRIDE(create_fn, thread, attr, start_routine, arg);
   }
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Dynamic backtrace support */
+void gasneti_print_backtrace() {
+#if HAVE_BACKTRACE
+  static gasneti_mutex_t btlock = GASNETI_MUTEX_INITIALIZER;
+  gasneti_mutex_lock(&btlock);
+  #define MAXBT 1024
+  { static void *btaddrs[MAXBT];
+    int entries;
+    char **fnnames = NULL;
+    int i;
+    entries = backtrace(btaddrs, MAXBT);
+    #if HAVE_BACKTRACE_SYMBOLS
+      fnnames = backtrace_symbols(btaddrs, entries);
+    #endif
+    for (i=0; i < entries; i++) {
+      FILE *xlate;
+      #define XLBUF 1024
+      static char xlstr[XLBUF];
+      xlstr[0] = '\0';
+      #ifdef ADDR2LINE_PATH /* use addr2line when available to retrieve symbolic info */
+        { static char cmd[255];
+          sprintf(cmd,"%s -f -e '%s' %p", _STRINGIFY(ADDR2LINE_PATH), gasneti_exename, btaddrs[i]);
+          xlate = popen(cmd, "r");
+          if (xlate) {
+            char *p = xlstr;
+            int sz = XLBUF;
+            int rsz;
+            while (fgets(p, sz, xlate)) {
+              p += strlen(p) - 1;
+              if (*p != '\n') p++;
+              strcpy(p, " ");
+              p += strlen(p);
+            }
+            pclose(xlate);
+          }
+        }
+      #endif
+      fprintf(stderr,"%i: %s %s\n",i,(fnnames?fnnames[i]:""),xlstr);
+    }
+    fflush(stderr);
+    /* if (fnnames) free(fnnames); */
+  }
+  gasneti_mutex_unlock(&btlock);
+#endif
+}
+  
 /* ------------------------------------------------------------------------------------ */
 /* Debug memory management
    debug memory format:

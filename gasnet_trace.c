@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/09/28 01:07:38 $
- * $Revision: 1.118 $
+ *     $Date: 2005/10/17 18:51:16 $
+ * $Revision: 1.119 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -521,11 +521,17 @@ extern void gasneti_trace_updatemask(const char *newmask, char *maskstr, char *t
   }
 }
 
+char gasneti_exename[1024];
+
 extern void gasneti_trace_init(int *pargc, char ***pargv) {
   gasneti_free(gasneti_malloc(1)); /* touch the malloc system to ensure it's intialized */
 
   /* ensure the arguments have been decoded */
   gasneti_decode_args(pargc, pargv); 
+
+  if ((*pargv)[0][0] == '/' || (*pargv)[0][0] == '\\') gasneti_exename[0] = '\0';
+  else { getcwd(gasneti_exename, 1024); strcat(gasneti_exename,"/"); }
+  strcat(gasneti_exename, (*pargv)[0]);
 
  #if GASNETI_STATS_OR_TRACE
   starttime = GASNETI_STATTIME_NOW();
@@ -589,7 +595,7 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
     if (temp[strlen(temp)-1] == '\n') temp[strlen(temp)-1] = '\0';
     gethostname(hostname, MAXHOSTNAMELEN);
     gasneti_tracestats_printf("Program %s (pid=%i) starting on %s at: %s", 
-      (*pargv)[0], (int)getpid(), hostname, temp);
+      gasneti_exename, (int)getpid(), hostname, temp);
     p = temp;
     for (i=0; i < *pargc; i++) { 
       char *q = (*pargv)[i];
