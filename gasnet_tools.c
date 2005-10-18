@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/10/18 19:45:51 $
- * $Revision: 1.128 $
+ *     $Date: 2005/10/18 23:50:34 $
+ * $Revision: 1.129 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,6 +16,9 @@
 #include <ctype.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <fcntl.h>
 
 #include <signal.h>
 #if HAVE_MALLOC_H
@@ -1114,12 +1117,110 @@ extern void gasneti_unsetenv(const char *key) {
 
 /* ------------------------------------------------------------------------------------ */
 /* Dynamic backtrace support */
-void gasneti_print_backtrace() {
+
+#ifdef LADEBUG_PATH
+  static int gasneti_bt_ladebug(void) {
+    char cmd[1024];
+    int rc;
+
+    (void)fflush(NULL);
+
+    rc = sprintf(cmd, "echo 'set $stoponattach; attach %d; where; quit' | %s %s",
+			(int)getpid(),
+			/* Try to be smart if not in same place as at configure time */
+			(access(LADEBUG_PATH, X_OK) ? "ladebug" : LADEBUG_PATH),
+			gasneti_exename);
+    if (rc < 0) return -1;
+
+    rc = system(cmd);
+    return rc;
+  }
+#endif
+
+#ifdef GDB_PATH
+  static int gasneti_bt_gdb(void) {
+    #if GASNET_DEBUG_VERBOSE
+      /* Backtrace plus local variables in each frame.  Too much for normal builds -PHH */
+      char commands[] = "backtrace full\nquit\n";
+    #else
+      char commands[] = "backtrace\nquit\n";
+    #endif
+    char filename[] = "/tmp/gasnet_XXXXXX";	/* Honor $TMPDIR? */
+    int rc, pid;
+
+    /* Build gdb commands file */
+    {
+      int fd, len;
+
+      fd = mkstemp(filename);
+      if (fd < 0) return -1;
+
+      len = sizeof(commands) - 1;
+      rc = write(fd, commands, len);
+      if (rc != len) return -1;
+
+      rc = close(fd);
+      if (rc < 0) return -1;
+    }
+
+    fflush(NULL);
+    pid = fork();
+    if (pid == 0) {
+      char pidstring[16];
+      const char *argv[] = {	"gdb",
+				"-nx",	 	/* Don't read .gdbinit */
+				"-batch",	/* Suppress certain output at start and end */
+				"-x", filename,	/* File from which to read commands */
+				gasneti_exename,/* Executable */
+				pidstring,	/* PID */
+				NULL };
+
+      /* Send gdb's output to our stderr and gdb's stderr to /dev/null */
+      #ifndef STDOUT_FILENO
+        #define STDOUT_FILENO 1
+      #endif
+      #ifndef STDERR_FILENO
+        #define STDERR_FILENO 2
+      #endif
+      dup2(STDOUT_FILENO, STDERR_FILENO);
+      rc = open("/dev/null", O_WRONLY);
+      dup2(STDERR_FILENO, rc);
+      close(rc);
+
+      /* PARENT's pid as a string */
+      pid = getppid();
+      if (pid < 0) _exit(1);
+      rc = snprintf(pidstring, sizeof(pidstring), "%d", pid);
+      if (rc < 0) _exit(1);
+
+      /* Try to be smart if not in same place as at configure time */
+      if (access(GDB_PATH, X_OK)) {
+        (void)execvp("gdb", (char * const *)argv);
+      } else {
+        (void)execv(GDB_PATH, (char * const *)argv);
+      }
+
+      /* Unable to exec gdb */
+      _exit(1);
+    } else if (pid > 0) {
+      int status;
+
+      /* Wait for the child */
+      rc = waitpid(pid, &status, 0);
+
+      /* Clean up */
+      (void)unlink(filename);
+
+      return ((rc < 0) || !WIFEXITED(status) || WEXITSTATUS(status)) ? -1 : 0;
+    }
+    return -1; /* fork() failed */
+  }
+#endif
+
 #if HAVE_BACKTRACE
-  static gasneti_mutex_t btlock = GASNETI_MUTEX_INITIALIZER;
-  gasneti_mutex_lock(&btlock);
-  #define MAXBT 1024
-  { static void *btaddrs[MAXBT];
+  static int gasneti_bt_execinfo(void) {
+    #define MAXBT 1024
+    static void *btaddrs[MAXBT];
     int entries;
     char **fnnames = NULL;
     int i;
@@ -1153,11 +1254,35 @@ void gasneti_print_backtrace() {
     }
     fflush(stderr);
     /* if (fnnames) free(fnnames); */
+    return 0;
+  }
+#endif
+
+void gasneti_print_backtrace() {
+  /* declare fn_table as static array of const pointer to function(void) returning int */
+  static int (* const fn_table[])(void) = {
+    #ifdef LADEBUG_PATH
+	&gasneti_bt_ladebug,
+    #endif
+    #ifdef GDB_PATH
+	&gasneti_bt_gdb,
+    #endif
+    #if HAVE_BACKTRACE
+	&gasneti_bt_execinfo,
+    #endif
+	NULL
+  };
+  static gasneti_mutex_t btlock = GASNETI_MUTEX_INITIALIZER;
+  int i;
+
+  gasneti_mutex_lock(&btlock);
+  /* Loop over table until success */
+  for (i = 0; i < (sizeof(fn_table)/sizeof(fn_table[0])) - 1; ++i) {
+    if ((*fn_table[i])() == 0) break;
   }
   gasneti_mutex_unlock(&btlock);
-#endif
 }
-  
+
 /* ------------------------------------------------------------------------------------ */
 /* Debug memory management
    debug memory format:

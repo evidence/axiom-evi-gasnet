@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/10/18 21:16:24 $
-# $Revision: 1.302 $
+#     $Date: 2005/10/18 23:50:34 $
+# $Revision: 1.303 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.302 $)
+AC_REVISION($Revision: 1.303 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2360,6 +2360,14 @@ AC_PATH_PROGS(ENVCMD, $ENVCMD env, , /usr/bin:${PATH})
 AC_PATH_PROGS(ADDR2LINE_PATH, addr2line, , /usr/bin:${PATH})
 if test -n "$ADDR2LINE_PATH"; then
   AC_DEFINE_UNQUOTED(ADDR2LINE_PATH,"$ADDR2LINE_PATH")
+fi
+AC_PATH_PROGS(GDB_PATH, $GDB gdb, , /usr/bin:${PATH})
+if test -n "$GDB_PATH"; then
+  AC_DEFINE_UNQUOTED(GDB_PATH,"$GDB_PATH")
+fi
+AC_PATH_PROGS(LADEBUG_PATH, $LADEBUG ladebug, , /usr/bin:${PATH})
+if test -n "$LADEBUG_PATH"; then
+  AC_DEFINE_UNQUOTED(LADEBUG_PATH,"$LADEBUG_PATH")
 fi
 
 AC_SUBST(BOURNE_SHELL)
