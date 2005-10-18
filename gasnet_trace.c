@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/10/17 18:51:16 $
- * $Revision: 1.119 $
+ *     $Date: 2005/10/18 19:45:51 $
+ * $Revision: 1.120 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -530,7 +530,7 @@ extern void gasneti_trace_init(int *pargc, char ***pargv) {
   gasneti_decode_args(pargc, pargv); 
 
   if ((*pargv)[0][0] == '/' || (*pargv)[0][0] == '\\') gasneti_exename[0] = '\0';
-  else { getcwd(gasneti_exename, 1024); strcat(gasneti_exename,"/"); }
+  else { getcwd(gasneti_exename, sizeof(gasneti_exename)); strcat(gasneti_exename,"/"); }
   strcat(gasneti_exename, (*pargv)[0]);
 
  #if GASNETI_STATS_OR_TRACE

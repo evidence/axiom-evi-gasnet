@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/10/17 18:51:16 $
- * $Revision: 1.127 $
+ *     $Date: 2005/10/18 19:45:51 $
+ * $Revision: 1.128 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1134,12 +1134,11 @@ void gasneti_print_backtrace() {
       xlstr[0] = '\0';
       #ifdef ADDR2LINE_PATH /* use addr2line when available to retrieve symbolic info */
         { static char cmd[255];
-          sprintf(cmd,"%s -f -e '%s' %p", _STRINGIFY(ADDR2LINE_PATH), gasneti_exename, btaddrs[i]);
+          sprintf(cmd,"%s -f -e '%s' %p", ADDR2LINE_PATH, gasneti_exename, btaddrs[i]);
           xlate = popen(cmd, "r");
           if (xlate) {
             char *p = xlstr;
             int sz = XLBUF;
-            int rsz;
             while (fgets(p, sz, xlate)) {
               p += strlen(p) - 1;
               if (*p != '\n') p++;
