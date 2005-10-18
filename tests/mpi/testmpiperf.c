@@ -544,6 +544,7 @@ void Usage(char *argvzero) {
     "  B = Barrier latency test\n"
     "  P = Ping/pong latency test (no communication overlap)\n"
     "  F = Flood bandwidth test (overlap messages)\n"
+    "  Q = Queue depth test \n"
     "  E = Exchange test (All-to-All)\n",
     argvzero);
   exit(1);
