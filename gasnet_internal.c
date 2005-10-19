@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/10/19 20:31:28 $
- * $Revision: 1.131 $
+ *     $Date: 2005/10/19 20:52:52 $
+ * $Revision: 1.132 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1194,6 +1194,7 @@ extern void gasneti_unsetenv(const char *key) {
 
 #ifdef GASNETI_BT_GDB
   static int gasneti_bt_gdb(int fd) {
+    /* Change "backtrace" to "backtrace full" to also see local vars from each frame */
     #if GASNETI_THREADS
       const char commands[] = "info threads\nthread apply all backtrace\nquit\n";
     #else
