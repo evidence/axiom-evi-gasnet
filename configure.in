@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/10/18 23:50:34 $
-# $Revision: 1.303 $
+#     $Date: 2005/10/19 20:31:28 $
+# $Revision: 1.304 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.303 $)
+AC_REVISION($Revision: 1.304 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2289,6 +2289,16 @@ case "$target" in
 *) debugmalloc_support=yes ;; # it's a glibc feature, but appears harmless elsewhere
 esac
 AM_CONDITIONAL(DEBUGMALLOC,test "$debugmalloc_support" = "yes")
+
+dnl Global disable of fork() (and related calls) on "special" systems.
+dnl Conduits may also set GASNETI_NO_FORK individually
+GASNET_IF_ENABLED_WITH_AUTO(fork, Allow internal use of fork() and related calls (default is to probe at configure time),
+  [ AC_DEFINE(GASNETI_NO_FORK) ],
+  [ : ],
+  [ AC_CHECK_FUNCS(fork popen system,
+		   [:],
+		   [AC_DEFINE(GASNETI_NO_FORK)
+		    break])])
 
 AC_SUBST(LIBS)
 

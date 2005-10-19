@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/10/19 18:37:17 $
- * $Revision: 1.130 $
+ *     $Date: 2005/10/19 20:31:28 $
+ * $Revision: 1.131 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -551,7 +551,6 @@ void gasneti_defaultSignalHandler(int sig) {
         signame, sig, (int)gasnet_mynode(), (int)gasnet_nodes()); 
       fflush(stderr);
       gasneti_print_backtrace(STDERR_FILENO);
-      fflush(stderr);
       signal(sig, SIG_DFL); /* restore default core-dumping handler and re-raise */
       #if 1
         raise(sig);
@@ -1134,10 +1133,10 @@ extern void gasneti_unsetenv(const char *key) {
 #if GASNETI_THREADS && HAVE_BACKTRACE
   /* Since we have libc support, only enable debuggers that do OK w/ threads. */
   #define GASNETI_BT_EXECINFO	&gasneti_bt_execinfo
-  #ifdef GDB_PATH
+  #if defined(GDB_PATH) && !GASNETI_NO_FORK
     #define GASNETI_BT_GDB	&gasneti_bt_gdb
   #endif
-  #ifdef LADEBUG_PATH
+  #if defined(LADEBUG_PATH) && !GASNETI_NO_FORK
     #define GASNETI_BT_LADEBUG	&gasneti_bt_ladebug
   #endif
 #else
@@ -1145,10 +1144,10 @@ extern void gasneti_unsetenv(const char *key) {
   #if HAVE_BACKTRACE
     #define GASNETI_BT_EXECINFO	&gasneti_bt_execinfo
   #endif
-  #ifdef GDB_PATH
+  #if defined(GDB_PATH) && !GASNETI_NO_FORK
     #define GASNETI_BT_GDB	&gasneti_bt_gdb
   #endif
-  #ifdef LADEBUG_PATH
+  #if defined(LADEBUG_PATH) && !GASNETI_NO_FORK
     #define GASNETI_BT_LADEBUG	&gasneti_bt_ladebug
   #endif
 #endif
@@ -1283,7 +1282,8 @@ extern void gasneti_unsetenv(const char *key) {
       static char linebuf[XLBUF];
       int len;
       xlstr[0] = '\0';
-      #ifdef ADDR2LINE_PATH /* use addr2line when available to retrieve symbolic info */
+      #if defined(ADDR2LINE_PATH) && !GASNETI_NO_FORK
+        /* use addr2line when available to retrieve symbolic info */
         { static char cmd[255];
           sprintf(cmd,"%s -f -e '%s' %p", ADDR2LINE_PATH, gasneti_exename, btaddrs[i]);
           xlate = popen(cmd, "r");
@@ -1300,10 +1300,8 @@ extern void gasneti_unsetenv(const char *key) {
           }
         }
       #endif
-      sprintf(linebuf, "%i: ", i);
-      if (fnnames) strcat(linebuf, fnnames[i]);
+      sprintf(linebuf, "%i: %s ", i, (fnnames?fnnames[i]:""));
       write(fd, linebuf, strlen(linebuf));
-      write(fd, " ", 1);
       write(fd, xlstr, strlen(xlstr));
       write(fd, "\n", 1);
     }
@@ -1314,6 +1312,7 @@ extern void gasneti_unsetenv(const char *key) {
 
 /* "best effort" to produce a backtrace
  * Returns 0 on apparent success, non-zero otherwise.
+ * NOTE: If fd corresponds to a FILE*, caller should fflush() it first.
  */
 int _gasneti_print_backtrace(int fd) {
   /* declare fn_table as static array of const pointer to function(int) returning int */
@@ -1327,17 +1326,29 @@ int _gasneti_print_backtrace(int fd) {
     #ifdef GASNETI_BT_EXECINFO
       GASNETI_BT_EXECINFO,
     #endif
-    NULL
+    NULL	/* Avoids empty initializer and trailing commas */
   };
   static gasneti_mutex_t btlock = GASNETI_MUTEX_INITIALIZER;
+  int count = (sizeof(fn_table)/sizeof(fn_table[0])) - 1; /* excludes the NULL */
+
   int retval = 1;
   int i;
 
+  if (!gasneti_getenv_yesno_withdefault("GASNET_BACKTRACE",0)) {
+    if (count) {
+      /* XXX: Should this be going to the caller-provided fd instead of stderr? */
+      fprintf(stderr, "NOTICE: Before reporting bugs, run with GASNET_BACKTRACE=1 in the environment to generate a backtrace. \n");
+      fflush(stderr);
+    } else {
+      /* We don't support any backtrace methods, so avoid false advertising. */
+    }
+    return 1;
+  }
+
   gasneti_mutex_lock(&btlock);
-  gasneti_flush_streams();
   /* Loop over table until success or end */
-  for (i = 0; i < (sizeof(fn_table)/sizeof(fn_table[0])) - 1; ++i) {
-     retval = (*fn_table[i])(fd);
+  for (i = 0; i < count; ++i) {
+    retval = (*fn_table[i])(fd);
     if (retval == 0) break;
   }
   gasneti_mutex_unlock(&btlock);

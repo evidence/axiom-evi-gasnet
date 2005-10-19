@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/10/17 18:51:16 $
- * $Revision: 1.87 $
+ *     $Date: 2005/10/19 20:31:28 $
+ * $Revision: 1.88 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -187,6 +187,29 @@ extern void gasneti_decode_args(int *argc, char ***argv);
 #include <assert.h>
 #undef assert
 #define assert(x)     ERROR__GASNet_conduit_code_should_use_gasneti_assert
+
+#if GASNETI_NO_FORK
+  #ifdef fork
+    #undef fork
+  #endif
+  #define fork_error	ERROR__GASNet_conduit_code_calling_fork_while_GASNETI_NO_FORK
+  #define fork()	fork_error
+  #ifdef vfork
+    #undef vfork
+  #endif
+  #define vfork_error	ERROR__GASNet_conduit_code_calling_vfork_while_GASNETI_NO_FORK
+  #define vfork()	vfork_error
+  #ifdef popen
+    #undef popen
+  #endif
+  #define popen_error	ERROR__GASNet_conduit_code_calling_popen_while_GASNETI_NO_FORK
+  #define popen(c,t)	popen_error
+  #ifdef system
+    #undef system
+  #endif
+  #define system_error	ERROR__GASNet_conduit_code_calling_system_while_GASNETI_NO_FORK
+  #define system(s)	system_error
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* Version of strdup() which is compatible w/ gasneti_free(), instead of plain free() */
