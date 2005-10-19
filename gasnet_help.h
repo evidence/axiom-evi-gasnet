@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/10/17 18:51:16 $
- * $Revision: 1.68 $
+ *     $Date: 2005/10/19 18:37:17 $
+ * $Revision: 1.69 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,7 +30,7 @@ extern void gasneti_fatalerror(const char *msg, ...) GASNETI_NORETURN __attribut
 #ifdef __xlC__ /* xlc wants a special pragma for never-return fns */
   #pragma leaves(gasneti_fatalerror)
 #endif
-extern void gasneti_print_backtrace();
+extern int (*gasneti_print_backtrace)(int);
 
 /* internal GASNet environment query function
  * uses the gasneti_globalEnv if available or regular getenv otherwise
