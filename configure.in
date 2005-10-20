@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/10/19 20:31:28 $
-# $Revision: 1.304 $
+#     $Date: 2005/10/20 18:48:22 $
+# $Revision: 1.305 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.304 $)
+AC_REVISION($Revision: 1.305 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -739,6 +739,24 @@ AC_TRY_COMPILE([], [
 ], [AC_DEFINE(HAVE_X86_PAUSE_INSTRUCTION)
     AC_MSG_RESULT(yes)
 ], [AC_MSG_RESULT(no)])
+
+#---------------------------------------------------------------------------------------------------------------
+
+# Global disable of fork() (and related calls) on "special" systems.
+# Conduits may also set GASNETI_NO_FORK individually
+have_fork=yes
+GASNET_IF_ENABLED_WITH_AUTO(fork, Allow internal use of fork() and related calls (default is to probe at configure time),
+  [ : ],
+  [ have_fork=no
+    fork_reason="was disabled" ],
+  [ AC_CHECK_FUNCS(fork popen system,
+		   [ : ],
+		   [ have_fork=no
+		     fork_reason="appears to be missing or broken"
+		     break])])
+if test $have_fork = no; then
+  AC_DEFINE(GASNETI_NO_FORK)
+fi
 
 #---------------------------------------------------------------------------------------------------------------
 # Check for overrides of compile-time checks for SMPs
@@ -1617,6 +1635,13 @@ if test "$enabled_vapi$have_pthread" = yesno; then
   enabled_vapi=no
   AC_MSG_WARN([vapi-conduit requires pthread support but pthreads $pthread_reason - disabling vapi])
 fi
+if test "$force_vapi$have_mpi$have_fork" = yesnono; then
+  AC_MSG_ERROR([vapi-conduit requires either MPI ($mpi_reason) or fork() ($fork_reason) for startup]);
+fi
+if test "$enabled_vapi$have_mpi$have_fork" = yesnono; then
+  enabled_vapi=no
+  AC_MSG_WARN([vapi-conduit requires either MPI ($mpi_reason) or fork() ($fork_reason) for startup - disabling vapi]);
+fi
 if test "$enabled_vapi" = yes; then
   # Start by assuming we do have VAPI
   have_vapi=yes
@@ -1763,7 +1788,10 @@ if test "$enabled_vapi" = yes; then
         fi])
     AC_SUBST(GASNET_VAPI_SPAWNER)
     if test "$GASNET_VAPI_SPAWNER$have_mpi" = mpino; then
-      AC_MSG_ERROR([--with-vapi-spawner=mpi requires MPI support and MPI $mpi_reason]);
+      AC_MSG_ERROR([--with-vapi-spawner=mpi requires MPI support which $mpi_reason]);
+    fi
+    if test "$GASNET_VAPI_SPAWNER$have_fork" = sshno; then
+      AC_MSG_ERROR([--with-vapi-spawner=ssh requires fork() support which $fork_reason]);
     fi
   fi
 fi
@@ -2289,16 +2317,6 @@ case "$target" in
 *) debugmalloc_support=yes ;; # it's a glibc feature, but appears harmless elsewhere
 esac
 AM_CONDITIONAL(DEBUGMALLOC,test "$debugmalloc_support" = "yes")
-
-dnl Global disable of fork() (and related calls) on "special" systems.
-dnl Conduits may also set GASNETI_NO_FORK individually
-GASNET_IF_ENABLED_WITH_AUTO(fork, Allow internal use of fork() and related calls (default is to probe at configure time),
-  [ AC_DEFINE(GASNETI_NO_FORK) ],
-  [ : ],
-  [ AC_CHECK_FUNCS(fork popen system,
-		   [:],
-		   [AC_DEFINE(GASNETI_NO_FORK)
-		    break])])
 
 AC_SUBST(LIBS)
 
