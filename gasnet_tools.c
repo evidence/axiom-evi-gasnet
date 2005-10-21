@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/10/19 20:52:52 $
- * $Revision: 1.132 $
+ *     $Date: 2005/10/21 00:41:16 $
+ * $Revision: 1.133 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1176,17 +1176,17 @@ extern void gasneti_unsetenv(const char *key) {
     saved_stdin = dup(STDIN_FILENO);
     saved_stdout = dup(STDOUT_FILENO);
     saved_stderr = dup(STDERR_FILENO);
-    dup2(STDOUT_FILENO, fd);
-    rc = open("/dev/null", O_WRONLY); dup2(STDERR_FILENO, rc); close(rc);
-    rc = open("/dev/null", O_RDONLY); dup2(STDIN_FILENO, rc); close(rc);
+    dup2(fd, STDOUT_FILENO);
+    rc = open("/dev/null", O_WRONLY); dup2(rc, STDERR_FILENO); close(rc);
+    rc = open("/dev/null", O_RDONLY); dup2(rc, STDIN_FILENO); close(rc);
 
     /* Run the command */
     rc = system(cmd);
 
     /* Restore I/O */
-    dup2(STDOUT_FILENO, saved_stdout); close(saved_stdout);
-    dup2(STDERR_FILENO, saved_stderr); close(saved_stderr);
-    dup2(STDIN_FILENO, saved_stdin); close(saved_stdin);
+    dup2(saved_stdout, STDOUT_FILENO); close(saved_stdout);
+    dup2(saved_stderr, STDERR_FILENO); close(saved_stderr);
+    dup2(saved_stdin, STDIN_FILENO); close(saved_stdin);
 
     return rc;
   }
@@ -1196,9 +1196,9 @@ extern void gasneti_unsetenv(const char *key) {
   static int gasneti_bt_gdb(int fd) {
     /* Change "backtrace" to "backtrace full" to also see local vars from each frame */
     #if GASNETI_THREADS
-      const char commands[] = "info threads\nthread apply all backtrace\nquit\n";
+      const char commands[] = "info threads\nthread apply all backtrace\ndetach\nquit\n";
     #else
-      const char commands[] = "backtrace\nquit\n";
+      const char commands[] = "backtrace\ndetach\nquit\n";
     #endif
     char *filename = gasneti_strdup("/tmp/gasnet_XXXXXX");	/* Honor $TMPDIR? */
     int rc, pid;
@@ -1230,9 +1230,9 @@ extern void gasneti_unsetenv(const char *key) {
 				NULL };
 
       /* Send gdb's output to 'fd' and gdb's stderr to /dev/null */
-      dup2(STDOUT_FILENO, fd);
-      rc = open("/dev/null", O_WRONLY); dup2(STDERR_FILENO, rc); close(rc);
-      rc = open("/dev/null", O_RDONLY); dup2(STDIN_FILENO, rc); close(rc);
+      dup2(fd, STDOUT_FILENO);
+      rc = open("/dev/null", O_WRONLY); dup2(rc, STDERR_FILENO); close(rc);
+      rc = open("/dev/null", O_RDONLY); dup2(rc, STDIN_FILENO); close(rc);
 
       /* PARENT's pid as a string */
       pid = getppid();
@@ -1350,7 +1350,20 @@ int _gasneti_print_backtrace(int fd) {
   /* Loop over table until success or end */
   for (i = 0; i < count; ++i) {
     retval = (*fn_table[i])(fd);
-    if (retval == 0) break;
+    if (retval == 0) {
+#if GASNET_TRACE
+      /* Also send to the tracefile if any */
+      if (gasneti_tracefile) {
+	int tracefd = fileno(gasneti_tracefile);
+	if (tracefd >= 0) {
+	  GASNETI_TRACE_PRINTF(U,("========== BEGIN BACKTRACE ==========")); fflush(gasneti_tracefile);
+	  (*fn_table[i])(tracefd);
+	  GASNETI_TRACE_PRINTF(U,("========== END BACKTRACE ==========")); fflush(gasneti_tracefile);
+	}
+      }
+#endif
+      break;
+    }
   }
   gasneti_mutex_unlock(&btlock);
   return retval;
