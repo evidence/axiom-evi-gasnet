@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2005/10/12 00:01:13 $
- * $Revision: 1.34 $
+ *     $Date: 2005/10/23 11:18:38 $
+ * $Revision: 1.35 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,7 +37,7 @@
 #define GASNET_COLL_EXCLUSIVE_SCAN	(1<<12)
 
 /* Flag values for INTERNAL use */
-#define GASNETE_COLL_INTERNAL		(1<<31)
+#define GASNETE_COLL_INTERNAL		(((uint32_t)1)<<31)
 
 #define GASNETE_COLL_IN_MODE(flags) \
 	((flags) & (GASNET_COLL_IN_NOSYNC  | GASNET_COLL_IN_MYSYNC  | GASNET_COLL_IN_ALLSYNC))
