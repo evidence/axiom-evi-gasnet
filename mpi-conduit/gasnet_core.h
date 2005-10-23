@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.h,v $
- *     $Date: 2005/07/03 14:33:36 $
- * $Revision: 1.20 $
+ *     $Date: 2005/10/23 12:28:21 $
+ * $Revision: 1.21 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,6 +36,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 #define gasnet_attach gasnetc_attach
 
 extern void gasnetc_exit(int exitcode) GASNETI_NORETURN;
+GASNETI_NORETURNP(gasnetc_exit)
 #define gasnet_exit gasnetc_exit
 
 /* ------------------------------------------------------------------------------------ */

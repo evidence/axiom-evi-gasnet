@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2005/08/27 00:57:25 $
- * $Revision: 1.44 $
+ *     $Date: 2005/10/23 12:28:15 $
+ * $Revision: 1.45 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -119,6 +119,16 @@
   #define GASNET_INLINE_MODIFIER(fnname) GASNETI_PRAGMA(mta inline) static
 #else
   #define GASNET_INLINE_MODIFIER(fnname) static
+#endif
+
+/* pragma for indicating a function never returns on pragma-based compilers 
+   supplements GASNETI_NORETURN which is used for attribute-based compilers */
+#ifdef __SUNPRO_C
+  #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(does_not_return(fnname))
+#elif defined (__xlC__)
+  #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(leaves(fnname))
+#else
+  #define GASNETI_NORETURNP(fnname)
 #endif
 
 /* ------------------------------------------------------------------------------------ */

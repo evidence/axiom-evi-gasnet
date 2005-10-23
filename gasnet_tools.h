@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/10/22 10:58:31 $
- * $Revision: 1.48 $
+ *     $Date: 2005/10/23 12:28:15 $
+ * $Revision: 1.49 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -140,6 +140,7 @@
 #define GASNETT_INLINE_MODIFIER(fnname) GASNET_INLINE_MODIFIER(fnname) 
 #define GASNETT_RESTRICT                GASNETI_RESTRICT
 #define GASNETT_NORETURN                GASNETI_NORETURN
+#define GASNETT_NORETURNP               GASNETI_NORETURNP
 #define GASNETT_MALLOC                  GASNETI_MALLOC
 
 /* ------------------------------------------------------------------------------------ */

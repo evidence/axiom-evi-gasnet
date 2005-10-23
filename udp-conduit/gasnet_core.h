@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.h,v $
- *     $Date: 2005/07/03 14:34:00 $
- * $Revision: 1.10 $
+ *     $Date: 2005/10/23 12:28:31 $
+ * $Revision: 1.11 $
  * Description: GASNet header for UDP conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,6 +37,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 #define gasnet_attach gasnetc_attach
 
 extern void gasnetc_exit(int exitcode) GASNETI_NORETURN;
+GASNETI_NORETURNP(gasnetc_exit)
 #define gasnet_exit gasnetc_exit
 /* ------------------------------------------------------------------------------------ */
 /*
