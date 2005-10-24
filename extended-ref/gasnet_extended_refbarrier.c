@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2005/10/24 20:19:40 $
- * $Revision: 1.25 $
+ *     $Date: 2005/10/24 20:25:04 $
+ * $Revision: 1.26 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -155,7 +155,7 @@ static void gasnete_ambarrier_kick() {
 	   * must forward it to allow for matching tests.
 	   */
 	  flags = 0;
-	  value = (gasneti_sync_read(), ambarrier_recv_value[phase]);
+	  value = (gasneti_sync_reads(), ambarrier_recv_value[phase]);
 	}
 
         GASNETI_SAFE(
