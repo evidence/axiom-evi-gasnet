@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2005/06/10 23:17:44 $
- * $Revision: 1.24 $
+ *     $Date: 2005/10/24 20:19:40 $
+ * $Revision: 1.25 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -34,8 +34,7 @@ GASNETI_IDENT(gasnete_IdentString_Barrier, "$GASNetDefaultBarrier: AMDISSEM $");
     The distributed nature makes this barrier more scalable than a centralized
      barrier, but also more sensitive to any lack of attentiveness to the
      network.
-    Also since we don't currently have an _init hook for the barriers, we use a
-     static allocation, limiting us to 2^GASNETE_AMBARRIER_MAXSTEP nodes.
+    We use a static allocation, limiting us to 2^GASNETE_AMBARRIER_MAXSTEP nodes.
 
     Algorithm is described in section 3.3 of
     John M. Mellor-Crummey and Michael L. Scott. "Algorithms for scalable synchronization
@@ -86,8 +85,9 @@ static void gasnete_ambarrier_notify_reqh(gasnet_token_t token,
      */
     if (!(flags & (GASNET_BARRIERFLAG_ANONYMOUS|GASNET_BARRIERFLAG_MISMATCH)) && 
         !ambarrier_recv_value_present[phase]) {
-      ambarrier_recv_value_present[phase] = 1;
       ambarrier_recv_value[phase] = (int)value;
+      gasneti_sync_writes();
+      ambarrier_recv_value_present[phase] = 1;
     } else if ((flags & GASNET_BARRIERFLAG_MISMATCH) ||
                (!(flags & GASNET_BARRIERFLAG_ANONYMOUS) && 
                  ambarrier_recv_value[phase] != (int)value)) {
@@ -109,11 +109,10 @@ static void gasnete_ambarrier_kick() {
 
   if_pt (step != ambarrier_size) {
     if (ambarrier_step_done[phase][step]) {
-      gasneti_sync_reads(); /* ensure we read up-to-date values in the following conditional */
-      if_pf (ambarrier_mismatch[phase] ||
+      if_pf ((gasneti_sync_reads(), ambarrier_mismatch[phase]) ||
 	     ((ambarrier_flags == 0) && 
 	      ambarrier_recv_value_present[phase] &&
-	      (ambarrier_recv_value[phase] != ambarrier_value))) {
+	      ((gasneti_sync_reads(), ambarrier_recv_value[phase]) != ambarrier_value))) {
         ambarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
       }
 
@@ -156,7 +155,7 @@ static void gasnete_ambarrier_kick() {
 	   * must forward it to allow for matching tests.
 	   */
 	  flags = 0;
-	  value = ambarrier_recv_value[phase];
+	  value = (gasneti_sync_read(), ambarrier_recv_value[phase]);
 	}
 
         GASNETI_SAFE(
