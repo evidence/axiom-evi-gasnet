@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2005/10/25 07:14:00 $
- * $Revision: 1.33 $
+ *     $Date: 2005/10/25 09:44:27 $
+ * $Revision: 1.34 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -159,6 +159,7 @@ void test_libgasnet_tools() {
   #endif
   #if GASNET_PAR
   { pthread_t threadid[NUM_THREADS];
+    int i;
 
     #ifdef HAVE_PTHREAD_SETCONCURRENCY
       pthread_setconcurrency(NUM_THREADS);
