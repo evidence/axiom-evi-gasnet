@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/10/19 20:31:28 $ */
-/*  $Revision: 1.69 $ */
+/*      $Date: 2005/10/25 09:26:23 $ */
+/*  $Revision: 1.70 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -67,6 +67,7 @@
 #undef ADDR2LINE_PATH
 #undef GDB_PATH
 #undef LADEBUG_PATH
+#undef DBX_PATH
 
 /* have pthread_setconcurrency */
 #undef HAVE_PTHREAD_SETCONCURRENCY

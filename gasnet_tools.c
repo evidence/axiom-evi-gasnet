@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/10/21 00:41:16 $
- * $Revision: 1.133 $
+ *     $Date: 2005/10/25 09:26:23 $
+ * $Revision: 1.134 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1150,7 +1150,33 @@ extern void gasneti_unsetenv(const char *key) {
   #if defined(LADEBUG_PATH) && !GASNETI_NO_FORK
     #define GASNETI_BT_LADEBUG	&gasneti_bt_ladebug
   #endif
+  #if defined(DBX_PATH) && !GASNETI_NO_FORK
+    #define GASNETI_BT_DBX	&gasneti_bt_dbx
+  #endif
 #endif
+
+/* Execute system w/ stdout redirected to 'fd' and std{in,err} to /dev/null */
+static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
+  int rc;
+  int saved_stdin, saved_stdout, saved_stderr;
+
+  /* Redirect output to 'fd' and std{in,err} to /dev/null */
+  saved_stdin = dup(STDIN_FILENO);
+  saved_stdout = dup(STDOUT_FILENO);
+  saved_stderr = dup(STDERR_FILENO);
+  dup2(stdout_fd, STDOUT_FILENO);
+  rc = open("/dev/null", O_WRONLY); dup2(rc, STDERR_FILENO); close(rc);
+  rc = open("/dev/null", O_RDONLY); dup2(rc, STDIN_FILENO); close(rc);
+
+  /* Run the command */
+  rc = system(cmd);
+
+  /* Restore I/O */
+  dup2(saved_stdout, STDOUT_FILENO); close(saved_stdout);
+  dup2(saved_stderr, STDERR_FILENO); close(saved_stderr);
+  dup2(saved_stdin, STDIN_FILENO); close(saved_stdin);
+  return rc;
+}
 
 #ifdef GASNETI_BT_LADEBUG
   static int gasneti_bt_ladebug(int fd) {
@@ -1160,35 +1186,23 @@ extern void gasneti_unsetenv(const char *key) {
       const char fmt[] = "echo 'set $stoponattach; attach %d; where; quit' | %s %s"; 
     #endif
     static char cmd[1024];
-    const char *ladebug;
-    int rc;
-    int saved_stdin;
-    int saved_stdout;
-    int saved_stderr;
-
     /* Try to be smart if not in same place as at configure time */
-    ladebug = (access(LADEBUG_PATH, X_OK) ? "ladebug" : LADEBUG_PATH);
-
-    rc = sprintf(cmd, fmt, (int)getpid(), ladebug, gasneti_exename);
+    const char *ladebug = (access(LADEBUG_PATH, X_OK) ? "ladebug" : LADEBUG_PATH);
+    int rc = sprintf(cmd, fmt, (int)getpid(), ladebug, gasneti_exename);
     if (rc < 0) return -1;
+    return gasneti_system_redirected(cmd, fd);
+  }
+#endif
 
-    /* Redirect output to 'fd' and std{in,err} to /dev/null */
-    saved_stdin = dup(STDIN_FILENO);
-    saved_stdout = dup(STDOUT_FILENO);
-    saved_stderr = dup(STDERR_FILENO);
-    dup2(fd, STDOUT_FILENO);
-    rc = open("/dev/null", O_WRONLY); dup2(rc, STDERR_FILENO); close(rc);
-    rc = open("/dev/null", O_RDONLY); dup2(rc, STDIN_FILENO); close(rc);
-
-    /* Run the command */
-    rc = system(cmd);
-
-    /* Restore I/O */
-    dup2(saved_stdout, STDOUT_FILENO); close(saved_stdout);
-    dup2(saved_stderr, STDERR_FILENO); close(saved_stderr);
-    dup2(saved_stdin, STDIN_FILENO); close(saved_stdin);
-
-    return rc;
+#ifdef GASNETI_BT_DBX
+  static int gasneti_bt_dbx(int fd) {
+    /* dbx's thread support is poor and not easily scriptable */
+    const char fmt[] = "echo 'attach %d; where; quit' | %s %s";  
+    static char cmd[1024];
+    const char *dbx = (access(DBX_PATH, X_OK) ? "dbx" : DBX_PATH);
+    int rc = sprintf(cmd, fmt, (int)getpid(), dbx, gasneti_exename);
+    if (rc < 0) return -1;
+    return gasneti_system_redirected(cmd, fd);
   }
 #endif
 
@@ -1323,6 +1337,9 @@ int _gasneti_print_backtrace(int fd) {
     #endif
     #ifdef GASNETI_BT_GDB
       GASNETI_BT_GDB,
+    #endif
+    #ifdef GASNETI_BT_DBX
+      GASNETI_BT_DBX,
     #endif
     #ifdef GASNETI_BT_EXECINFO
       GASNETI_BT_EXECINFO,
