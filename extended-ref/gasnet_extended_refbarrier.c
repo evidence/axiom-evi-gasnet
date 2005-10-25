@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2005/10/24 20:25:04 $
- * $Revision: 1.26 $
+ *     $Date: 2005/10/25 06:26:21 $
+ * $Revision: 1.27 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,11 +109,11 @@ static void gasnete_ambarrier_kick() {
 
   if_pt (step != ambarrier_size) {
     if (ambarrier_step_done[phase][step]) {
-      if_pf ((gasneti_sync_reads(), ambarrier_mismatch[phase]) ||
-	     ((ambarrier_flags == 0) && 
-	      ambarrier_recv_value_present[phase] &&
-	      ((gasneti_sync_reads(), ambarrier_recv_value[phase]) != ambarrier_value))) {
-        ambarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
+      gasneti_sync_reads();
+      if_pf (ambarrier_mismatch[phase]) ambarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
+      if (ambarrier_flags == 0 && ambarrier_recv_value_present[phase]) {
+        gasneti_sync_reads();
+        if_pf (ambarrier_recv_value[phase] != ambarrier_value) ambarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
       }
 
       ++step;
@@ -155,7 +155,8 @@ static void gasnete_ambarrier_kick() {
 	   * must forward it to allow for matching tests.
 	   */
 	  flags = 0;
-	  value = (gasneti_sync_reads(), ambarrier_recv_value[phase]);
+          gasneti_sync_reads();
+	  value = ambarrier_recv_value[phase];
 	}
 
         GASNETI_SAFE(
