@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2005/10/25 06:26:21 $
- * $Revision: 1.27 $
+ *     $Date: 2005/10/25 16:52:56 $
+ * $Revision: 1.28 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -102,6 +102,16 @@ static void gasnete_ambarrier_notify_reqh(gasnet_token_t token,
   gasnet_hsl_unlock(&ambarrier_lock);
 }
 
+/* For a rmb() between unlocked reads of _recv_value_present and _recv_value
+ * Equivalent to ``(gasneti_sync_reads(), ambarrier_recv_value[phase])'',
+ * except w/o assuming gasneti_sync_reads() to be valid in expression context.
+ */
+GASNET_INLINE_MODIFIER(ambarrier_recv_value_synced)
+int ambarrier_recv_value_synced(int phase) {
+  gasneti_sync_reads();
+  return ambarrier_recv_value[phase];
+}
+
 static void gasnete_ambarrier_kick() {
   int phase = ambarrier_phase;
   int step = ambarrier_step;
@@ -109,11 +119,12 @@ static void gasnete_ambarrier_kick() {
 
   if_pt (step != ambarrier_size) {
     if (ambarrier_step_done[phase][step]) {
-      gasneti_sync_reads();
-      if_pf (ambarrier_mismatch[phase]) ambarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
-      if (ambarrier_flags == 0 && ambarrier_recv_value_present[phase]) {
-        gasneti_sync_reads();
-        if_pf (ambarrier_recv_value[phase] != ambarrier_value) ambarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
+      gasneti_sync_reads(); /* between unlocked reads of _step_done and _mismatch */
+      if_pf (ambarrier_mismatch[phase] ||
+	     ((ambarrier_flags == 0) && 
+	      ambarrier_recv_value_present[phase] &&
+	      (ambarrier_recv_value_synced(phase) != ambarrier_value))) {
+        ambarrier_flags = GASNET_BARRIERFLAG_MISMATCH;
       }
 
       ++step;
@@ -154,8 +165,8 @@ static void gasnete_ambarrier_kick() {
 	   * may have received a barrier name from another node.  If so we
 	   * must forward it to allow for matching tests.
 	   */
+	  gasneti_sync_reads(); /* Between unlocked reads of _recv_value_present and _recv_value */
 	  flags = 0;
-          gasneti_sync_reads();
 	  value = ambarrier_recv_value[phase];
 	}
 

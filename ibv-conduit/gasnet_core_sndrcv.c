@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/08/11 10:07:00 $
- * $Revision: 1.123 $
+ *     $Date: 2005/10/25 16:52:58 $
+ * $Revision: 1.124 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1934,9 +1934,11 @@ static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq) {
   gasnetc_counter_dec_if(sreq->fh_oust);
 }
 
-#define gasnetc_sreq_is_ready(S) \
-	(gasneti_sync_writes(),	\
-	 gasneti_weakatomic_decrement_and_test(&((S)->fh_ready)))
+GASNET_INLINE_MODIFIER(gasnetc_sreq_is_ready)
+int gasnetc_sreq_is_ready(gasnetc_sreq_t *sreq) {
+  gasneti_sync_writes();
+  return gasneti_weakatomic_decrement_and_test(&(sreq->fh_ready));
+}
 
 static void gasnetc_fh_put_cb(void *context, const firehose_request_t *fh_rem, int allLocalHit) {
   gasnetc_sreq_t *sreq = context;
