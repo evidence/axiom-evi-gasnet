@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/08/15 06:28:50 $
- * $Revision: 1.30 $
+ *     $Date: 2005/10/25 07:14:00 $
+ * $Revision: 1.31 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,6 +39,17 @@ char curtest = 'A';
 
 void * thread_fn(void *arg);
 
+/* test gasnet tools modifier convenience macros */
+GASNETT_INLINE_MODIFIER(test_dummy)
+void test_dummy(void * GASNETT_RESTRICT p) {}
+
+void test_dummy2(void) GASNETT_NORETURN;
+GASNETT_NORETURNP(test_dummy2)
+void test_dummy2(void) { abort(); }
+
+void *test_dummy3(void) GASNETT_MALLOC;
+void *test_dummy3(void) { return malloc(1); }
+
 int main(int argc, char **argv) {
 
   if (argc > 1) iters = atoi(argv[1]);
@@ -69,6 +80,13 @@ int main(int argc, char **argv) {
       MSG("System page size is 2^%i == %i", GASNETT_PAGESHIFT, GASNETT_PAGESIZE);
   #endif
    
+  MSG("Cache line size estimated to be: %i", GASNETT_CACHE_LINE_BYTES);
+  if ((GASNETT_CACHE_LINE_BYTES & (GASNETT_CACHE_LINE_BYTES-1)) != 0)
+        ERR("GASNETT_CACHE_LINE_BYTES not a power of two!");
+
+  gasnett_sched_yield();
+  TEST_TRACING_MACROS();
+
   TEST_HEADER("Testing high-performance timers...")
   { /* high performance timers */
     int i;

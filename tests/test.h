@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2005/08/27 00:57:27 $
- * $Revision: 1.62 $
+ *     $Date: 2005/10/25 07:14:00 $
+ * $Revision: 1.63 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -720,5 +720,20 @@ static void _test_init(const char *testname, int reports_performance, int early)
 }
 #define test_init(testname, reports_performance) _test_init(testname, reports_performance, 0)
 #define test_init_early(testname, reports_performance) _test_init(testname, reports_performance, 1)
+
+
+#define TEST_TRACING_MACROS() do {                                                 \
+  const char *file; unsigned int line;                                             \
+  GASNETT_TRACE_GETSOURCELINE(&file, &line);                                       \
+  GASNETT_TRACE_SETSOURCELINE(file, line);                                         \
+  GASNETT_TRACE_FREEZESOURCELINE();                                                \
+  GASNETT_TRACE_UNFREEZESOURCELINE();                                              \
+  if (GASNETT_TRACE_ENABLED)                                                       \
+    GASNETT_TRACE_PRINTF("TEST_TRACING_MACROS: GASNETT_TRACE_PRINTF()");           \
+  GASNETT_TRACE_PRINTF_FORCE("TEST_TRACING_MACROS: GASNETT_TRACE_PRINTF_FORCE()"); \
+  GASNETT_TRACE_SETMASK(GASNETT_TRACE_GETMASK());                                  \
+  GASNETT_STATS_SETMASK(GASNETT_STATS_GETMASK());                                  \
+  GASNETT_TRACE_SET_TRACELOCAL(GASNETT_TRACE_GET_TRACELOCAL());                    \
+} while (0)
 
 #endif

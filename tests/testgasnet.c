@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.32 $
+ *     $Date: 2005/10/25 07:14:00 $
+ * $Revision: 1.33 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,7 @@
 
 void doit(int partner, int *partnerseg);
 
+/* ------------------------------------------------------------------------------------ */
 #if GASNET_SEGMENT_EVERYTHING
   typedef struct {
     void *static_seg;
@@ -84,7 +85,98 @@ void doit(int partner, int *partnerseg);
 #else
   #define EVERYTHING_SEG_HANDLERS()
 #endif
+/* ------------------------------------------------------------------------------------ */
+/* test libgasnet-specific gasnet_tools interfaces */
+typedef struct {
+  gasnett_threadkey_t key1;
+  gasnett_threadkey_t key2;
+} test_keys_t;
+test_keys_t sertest_keys = {GASNETT_THREADKEY_INITIALIZER,GASNETT_THREADKEY_INITIALIZER};
+test_keys_t partest_keys = {GASNETT_THREADKEY_INITIALIZER,GASNETT_THREADKEY_INITIALIZER};
+void test_libgasnet_keys(test_keys_t *s) {
+  void *val = gasneti_threadkey_get(s->key1);
+  assert(val == NULL);
+  gasneti_threadkey_set(s->key1,(void *)&val);
+  val = gasneti_threadkey_get(s->key1);
+  assert(val == &val);
 
+  gasneti_threadkey_init(&(s->key2));
+  val = gasneti_threadkey_get_noinit(s->key2);
+  assert(val == NULL);
+  gasneti_threadkey_set_noinit(s->key2,(void *)&val);
+  val = gasneti_threadkey_get_noinit(s->key2);
+  assert(val == &val);
+  gasneti_threadkey_init(&(s->key2));
+  val = gasneti_threadkey_get_noinit(s->key2);
+  assert(val == &val);
+}
+#if GASNET_PAR
+  /* thread-parallel gasnet_tools tests */
+  #define NUM_THREADS 10
+  void *test_libgasnetpar_tools(void *p) {
+    int idx = (int)(uintptr_t)p;
+    PTHREAD_LOCALBARRIER(NUM_THREADS);
+    gasnett_set_affinity(idx);
+    PTHREAD_LOCALBARRIER(NUM_THREADS);
+    test_libgasnet_keys(&partest_keys);
+    PTHREAD_LOCALBARRIER(NUM_THREADS);
+    return NULL;
+  }
+#endif
+void test_libgasnet_tools() {
+  void *p;
+  int cpucnt = gasnett_cpu_count();
+  TEST_TRACING_MACROS();
+  MSG0("CPU count estimated to be: %i", cpucnt);
+  assert(cpucnt >= 1);
+  gasnett_flush_streams();
+  p = gasnett_mmap(GASNETT_PAGESIZE);
+  assert(p);
+  assert(((uintptr_t)p)%GASNETT_PAGESIZE == 0);
+  test_libgasnet_keys(&sertest_keys);
+  #if GASNET_DEBUG
+  { char *ptr = gasnett_debug_malloc(10); 
+    char *ptr2;
+    gasnett_heapstats_t hs;
+    assert(ptr);
+    gasnett_debug_memcheck(ptr);
+    ptr = gasnett_debug_realloc(ptr,20);
+    assert(ptr);
+    gasnett_debug_free(ptr);
+    ptr = gasnett_debug_calloc(10,20);
+    strcpy(ptr,"testing 1 2 3");
+    ptr2 = gasnett_debug_strdup(ptr);
+    assert(ptr2 && ptr != ptr2 && !strcmp(ptr,ptr2));
+    gasnett_debug_free(ptr2);
+    ptr2 = gasnett_debug_strndup(ptr,4);
+    assert(ptr2 && ptr != ptr2 && !strncmp(ptr,ptr2,4) && strlen(ptr2) == 4);
+    gasnett_debug_memcheck_one();
+    gasnett_debug_memcheck_all(); 
+    gasnett_debug_free(ptr2);
+    gasnett_debug_free(ptr);
+    gasnett_getheapstats(&hs);
+  }
+  #endif
+  #if GASNET_PAR
+  { pthread_t threadid[NUM_THREADS];
+
+    #ifdef HAVE_PTHREAD_SETCONCURRENCY
+      pthread_setconcurrency(NUM_THREADS);
+    #endif
+    for(i=0;i<NUM_THREADS;i++) {
+      pthread_attr_t attr;   
+      pthread_attr_init(&attr);   
+      pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); 
+      if (pthread_create(&threadid[i], &attr, &test_libgasnetpar_tools, (void *)(uintptr_t)i)) 
+        perror("pthread_create");
+    }
+    for(i=0;i<NUM_THREADS;i++) {
+      if (pthread_join(threadid[i], NULL)) perror("pthread_join");
+    }
+  }
+  #endif
+}
+/* ------------------------------------------------------------------------------------ */
 int main(int argc, char **argv) {
   int partner;
   
@@ -115,6 +207,7 @@ int main(int argc, char **argv) {
     }
     printf("]\n"); fflush(stdout);
   }
+  test_libgasnet_tools();
   partner = (gasnet_mynode() + 1) % gasnet_nodes();
   #if GASNET_SEGMENT_EVERYTHING
     everything_tests(partner);
