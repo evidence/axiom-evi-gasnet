@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/08/08 02:20:34 $
- * $Revision: 1.20 $
+ *     $Date: 2005/10/25 21:18:45 $
+ * $Revision: 1.21 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -41,6 +41,14 @@ static firehose_private_t *fhi_lookup_cache;
 static firehose_private_t *fhi_priv_freelist;
 
 static size_t fhi_MaxRegionSize;
+
+/* Maximum number of regions to unpin per move callback */
+#ifndef FH_MAX_UNPIN_REM
+  #define FH_MAX_UNPIN_REM 4
+#endif
+#ifndef FH_MAX_UNPIN_LOC
+  #define FH_MAX_UNPIN_LOC 4
+#endif
 
 /* ##################################################################### */
 /* FORWARD DECLARATIONS, INTERNAL MACROS, ETC.                           */
@@ -333,6 +341,34 @@ void fh_bucket_free(fh_bucket_t *bucket)
     fhi_bucket_freelist = bucket;
 }
 
+GASNET_INLINE_MODIFIER(fh_clean_covered)
+int fh_clean_covered(int limit, firehose_region_t *reg, fh_fifoq_t *fifo_head) {
+  firehose_private_t *priv = FH_TAILQ_FIRST(fifo_head);
+  int count = 0;
+  while ((count < limit) && priv && !priv->visible) {
+    ++count;
+    priv =  FH_TAILQ_NEXT(priv);
+  }
+  if (count) {
+    fh_FreeVictim(count, reg, fifo_head);
+  }
+  return count;
+}
+
+GASNET_INLINE_MODIFIER(fh_clean_covered_local)
+int fh_clean_covered_local(int limit, firehose_region_t *reg) {
+  int count = fh_clean_covered(limit, reg, &fh_LocalFifo);
+  fhc_LocalVictimFifoBuckets -= count;
+  return count;
+}
+
+GASNET_INLINE_MODIFIER(fh_clean_covered_remote)
+int fh_clean_covered_remote(gasnet_node_t node, int limit, firehose_region_t *reg) {
+  int count = fh_clean_covered(limit, reg, &fh_RemoteNodeFifo[node]);
+  fhc_RemoteVictimFifoBuckets[node] -= count;
+  return count;
+}
+
 /* Also keep a hash table of the local private_t's we create so that we can
  * match them when received in an AM (pin reply or unpin request).
  * XXX: This use is trashing the NODE portion of priv->fh_key.  We've been
@@ -609,7 +645,7 @@ fhi_merge_regions(firehose_region_t *pin_region)
 GASNET_INLINE_MODIFIER(fhi_wait_for_one)
 void
 fhi_wait_for_one(const firehose_private_t *priv) {
-	firehose_region_t unpin_region;
+	firehose_region_t unpin_regions[FH_MAX_UNPIN_LOC];
 	int num_unpin;
 
 	/* Verify the state is what we think it is */
@@ -617,13 +653,12 @@ fhi_wait_for_one(const firehose_private_t *priv) {
 	gasneti_assert(FH_BUCKET_REFC(priv)->refc_l == 0);
 	gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL == 0);
 
-	/* bug 1124: unpin all/some !visible regions on the Fifo */
-
-	num_unpin = fh_WaitLocalFirehoses(1, &unpin_region);
+	num_unpin = fh_WaitLocalFirehoses(1, unpin_regions);
 	if (num_unpin) {
 	    gasneti_assert(num_unpin == 1);
+	    num_unpin += fh_clean_covered_local(FH_MAX_UNPIN_LOC - num_unpin, unpin_regions + num_unpin);
 	    FH_TABLE_UNLOCK;
-	    firehose_move_callback(fh_mynode, &unpin_region, 1, NULL, 0);
+	    firehose_move_callback(fh_mynode, unpin_regions, 1, NULL, 0);
 	    FH_TABLE_LOCK;
 	}
 	fhc_LocalOnlyBucketsPinned--;
@@ -728,18 +763,15 @@ fhi_find_priv(gasnet_node_t node, uintptr_t addr, size_t len)
 int
 fh_FreeVictim(int count, firehose_region_t *reg, fh_fifoq_t *fifo_head)
 {
-	firehose_private_t	*priv;
+    firehose_private_t	*priv;
+    int i;
 
-	FH_TABLE_ASSERT_LOCKED;
+    FH_TABLE_ASSERT_LOCKED;
 
-	/* For now we know we only ever perform one-for-one replacement.
-	 * Even when we may release multiple small regions to create one
-	 * larger one, we'll need to release one at a time until the free
-	 * space is large enough.
-	 */
-	gasneti_assert(count == 1);
+    gasneti_assert(count > 0);
 
-	/* There must be a buckets in the victim FIFO to unpin.  This
+    for (i = 0; i < count; ++i) {
+	/* There must be enough buckets in the victim FIFO to unpin.  This
 	 * criteria should always hold true per the constraints on
 	 * fhc_LocalOnlyBucketsPinned. */
 	gasneti_assert(!FH_TAILQ_EMPTY(fifo_head));
@@ -747,11 +779,12 @@ fh_FreeVictim(int count, firehose_region_t *reg, fh_fifoq_t *fifo_head)
 	/* Now do the real work */
 	priv = FH_TAILQ_FIRST(fifo_head);
 	FH_TAILQ_REMOVE(fifo_head, priv);
-	CP_PRIV_TO_REG(reg, priv);
+	CP_PRIV_TO_REG(reg+i, priv);
 	FH_TRACE_BUCKET(priv, REMFIFO);
 	fh_destroy_priv(priv);
+    }
 
-	return 1;
+    return count;
 }
 
 /* ##################################################################### */
@@ -836,7 +869,8 @@ retry:
     priv = fhi_find_priv(fh_mynode, req->addr, req->len);
     if_pf (priv == NULL) {
 	/* Firehose MISS, now must pin it */
-	firehose_region_t pin_region, unpin_region;
+	firehose_region_t pin_region;
+        firehose_region_t unpin_regions[FH_MAX_UNPIN_LOC];
 	int num_unpin;
 
 	pin_region.addr = req->addr;
@@ -844,14 +878,15 @@ retry:
 
 	fhi_merge_regions(&pin_region);
 
-	/* bug 1124: unpin all/some !visible regions on the Fifo */
-
-	num_unpin = fh_WaitLocalFirehoses(1, &unpin_region);
+	num_unpin = fh_WaitLocalFirehoses(1, unpin_regions);
 	gasneti_assert ((num_unpin == 0) || (num_unpin == 1));
+
+	/* unpin !visible regions on the Fifo */
+	num_unpin += fh_clean_covered_local(FH_MAX_UNPIN_LOC - num_unpin, unpin_regions + num_unpin);
 
 	FH_TABLE_UNLOCK;
 	firehose_move_callback(fh_mynode,
-				&unpin_region, num_unpin,
+				unpin_regions, num_unpin,
 				&pin_region, 1);
 	FH_TABLE_LOCK;
 
@@ -972,32 +1007,35 @@ fh_acquire_remote_region(firehose_request_t *req,
     node = req->node;
 
     FH_TABLE_ASSERT_LOCKED;
+#define FH_MAXGC 3
 
     priv = fhi_find_priv(node, req->addr, req->len);
     if_pf (priv == NULL) {
 	/* MISS */
-    	char *payload[2*sizeof(firehose_region_t) +
+    	char *payload[(1+FH_MAX_UNPIN_REM)*sizeof(firehose_region_t) +
 		      sizeof(firehose_remotecallback_args_t)];
     	firehose_region_t *pin_region = (firehose_region_t *)payload;
-    	firehose_region_t *unpin_region = pin_region + 1;
+    	firehose_region_t *unpin_regions = pin_region + 1;
 	size_t payload_size = sizeof(firehose_region_t);
 	int num_unpin = 0;
 
 	pin_region->addr = req->addr;
 	pin_region->len  = req->len;
 
-	/* bug 1124: unpin all/some !visible regions on the Fifo */
-
 	/* Acquire resources for the pinning */
 	if_pt (fhc_RemoteBucketsM > fhc_RemoteBucketsUsed[node]) {
 	    fhc_RemoteBucketsUsed[node]++;
 	}
 	else {
-	    num_unpin = fh_WaitRemoteFirehoses(node, 1, unpin_region);
-	    payload_size += sizeof(firehose_region_t);
+	    num_unpin = fh_WaitRemoteFirehoses(node, 1, unpin_regions);
 	    gasneti_assert(num_unpin == 1);
 	}
 	gasneti_assert ((num_unpin == 0) || (num_unpin == 1));
+
+	/* unpin !visible regions on the Fifo */
+	num_unpin += fh_clean_covered_remote(node, FH_MAX_UNPIN_REM - num_unpin, unpin_regions + num_unpin);
+
+	payload_size += num_unpin * sizeof(firehose_region_t);
 
 	/* Create the "pending bucket" */
         priv = fh_create_priv(node, pin_region);
@@ -1010,7 +1048,7 @@ fh_acquire_remote_region(firehose_request_t *req,
                                                                                                               
 	/* Assemble AM payload */
 	if (flags & FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK) {
-	    memcpy(unpin_region + num_unpin, remote_args,
+	    memcpy(payload + payload_size, remote_args,
 		   sizeof(firehose_remotecallback_args_t));
 	    payload_size += sizeof(firehose_remotecallback_args_t);
 	}
