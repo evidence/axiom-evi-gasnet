@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2005/10/26 03:25:32 $
- * $Revision: 1.35 $
+ *     $Date: 2005/10/26 12:36:37 $
+ * $Revision: 1.36 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,15 +137,15 @@ void test_libgasnet_tools() {
   #endif
   test_libgasnet_keys(&sertest_keys);
   #if GASNET_DEBUG
-  { char *ptr = gasnett_debug_malloc(10); 
+  { char *ptr = (char *)gasnett_debug_malloc(10); 
     char *ptr2;
     gasnett_heapstats_t hs;
     assert(ptr);
     gasnett_debug_memcheck(ptr);
-    ptr = gasnett_debug_realloc(ptr,20);
+    ptr = (char *)gasnett_debug_realloc(ptr,20);
     assert(ptr);
     gasnett_debug_free(ptr);
-    ptr = gasnett_debug_calloc(10,20);
+    ptr = (char *)gasnett_debug_calloc(10,20);
     strcpy(ptr,"testing 1 2 3");
     ptr2 = gasnett_debug_strdup(ptr);
     assert(ptr2 && ptr != ptr2 && !strcmp(ptr,ptr2));
