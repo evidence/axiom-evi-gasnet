@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/10/26 03:25:28 $
- * $Revision: 1.135 $
+ *     $Date: 2005/10/26 22:06:48 $
+ * $Revision: 1.136 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1155,6 +1155,11 @@ extern void gasneti_unsetenv(const char *key) {
   #endif
 #endif
 
+/* Format for labelling output lines */
+#ifndef GASNETI_BT_LABEL_FMT
+  #define GASNETI_BT_LABEL_FMT "[%d] "
+#endif
+
 #if !GASNETI_NO_FORK
 /* Execute system w/ stdout redirected to 'fd' and std{in,err} to /dev/null */
 static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
@@ -1183,9 +1188,9 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
 #ifdef GASNETI_BT_LADEBUG
   static int gasneti_bt_ladebug(int fd) {
     #if GASNETI_THREADS
-      const char fmt[] = "echo 'set $stoponattach; attach %d; show thread *; where thread *; quit' | %s %s"; 
+      const char fmt[] = "echo 'set $stoponattach; attach %d; show thread *; where thread *; quit' | %s '%s'"; 
     #else
-      const char fmt[] = "echo 'set $stoponattach; attach %d; where; quit' | %s %s"; 
+      const char fmt[] = "echo 'set $stoponattach; attach %d; where; quit' | %s '%s'"; 
     #endif
     static char cmd[1024];
     /* Try to be smart if not in same place as at configure time */
@@ -1199,7 +1204,7 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
 #ifdef GASNETI_BT_DBX
   static int gasneti_bt_dbx(int fd) {
     /* dbx's thread support is poor and not easily scriptable */
-    const char fmt[] = "echo 'attach %d; where; quit' | %s %s";  
+    const char fmt[] = "echo 'attach %d; where; quit' | %s '%s'";  
     static char cmd[1024];
     const char *dbx = (access(DBX_PATH, X_OK) ? "dbx" : DBX_PATH);
     int rc = sprintf(cmd, fmt, (int)getpid(), dbx, gasneti_exename);
@@ -1216,13 +1221,17 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
     #else
       const char commands[] = "backtrace\ndetach\nquit\n";
     #endif
-    char *filename = gasneti_strdup("/tmp/gasnet_XXXXXX");	/* Honor $TMPDIR? */
-    int rc, pid;
+    const char fmt[] = "%s -nx -batch -x %s '%s' %d";
+    static char cmd[1024];
+    char *filename;
+    const char *gdb = (access(GDB_PATH, X_OK) ? "gdb" : GDB_PATH);
+    int rc;
 
-    /* Build gdb commands file */
+    /* Build gdb commands file, since it won't take commands on stdin */
     {
       int tmpfd, len;
 
+      filename = gasneti_strdup("/tmp/gasnet_XXXXXX");	/* Honor $TMPDIR? */
       tmpfd = mkstemp(filename);
       if (tmpfd < 0) return -1;
 
@@ -1234,50 +1243,15 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
       if (rc < 0) return -1;
     }
 
-    pid = fork();
-    if (pid == 0) {
-      char pidstring[16];
-      const char *argv[] = {	"gdb",
-				"-nx",	 	/* Don't read .gdbinit */
-				"-batch",	/* Suppress certain output at start and end */
-				"-x", filename,	/* File from which to read commands */
-				gasneti_exename,/* Executable */
-				pidstring,	/* PID */
-				NULL };
+    rc = sprintf(cmd, fmt, gdb, filename, gasneti_exename, (int)getpid());
+    if (rc < 0) return -1;
 
-      /* Send gdb's output to 'fd' and gdb's stderr to /dev/null */
-      dup2(fd, STDOUT_FILENO);
-      rc = open("/dev/null", O_WRONLY); dup2(rc, STDERR_FILENO); close(rc);
-      rc = open("/dev/null", O_RDONLY); dup2(rc, STDIN_FILENO); close(rc);
+    rc = gasneti_system_redirected(cmd, fd);
 
-      /* PARENT's pid as a string */
-      pid = getppid();
-      if (pid < 0) _exit(1);
-      rc = snprintf(pidstring, sizeof(pidstring), "%d", pid);
-      if (rc < 0) _exit(1);
+    (void)unlink(filename);
+    gasneti_free(filename);
 
-      /* Try to be smart if not in same place as at configure time */
-      if (access(GDB_PATH, X_OK)) {
-        (void)execvp("gdb", (char * const *)argv);
-      } else {
-        (void)execv(GDB_PATH, (char * const *)argv);
-      }
-
-      /* Unable to exec gdb */
-      _exit(1);
-    } else if (pid > 0) {
-      int status;
-
-      /* Wait for the child */
-      rc = waitpid(pid, &status, 0);
-
-      /* Clean up */
-      (void)unlink(filename);
-      gasneti_free(filename);
-
-      return ((rc < 0) || !WIFEXITED(status) || WEXITSTATUS(status)) ? -1 : 0;
-    }
-    return -1; /* fork() failed */
+    return rc;
   }
 #endif
 
@@ -1350,9 +1324,16 @@ int _gasneti_print_backtrace(int fd) {
   };
   static gasneti_mutex_t btlock = GASNETI_MUTEX_INITIALIZER;
   int count = (sizeof(fn_table)/sizeof(fn_table[0])) - 1; /* excludes the NULL */
-
+  gasneti_sighandlerfn_t old_ABRT, old_ILL, old_SEGV, old_BUS, old_FPE;
   int retval = 1;
   int i;
+
+  /* Save signal handlers to avoid recursion */
+  old_ABRT = (gasneti_sighandlerfn_t)signal(SIGABRT, SIG_DFL);
+  old_ILL  = (gasneti_sighandlerfn_t)signal(SIGILL,  SIG_DFL);
+  old_SEGV = (gasneti_sighandlerfn_t)signal(SIGSEGV, SIG_DFL);
+  old_BUS  = (gasneti_sighandlerfn_t)signal(SIGBUS,  SIG_DFL);
+  old_FPE  = (gasneti_sighandlerfn_t)signal(SIGFPE,  SIG_DFL);
 
   if (!gasneti_getenv_yesno_withdefault("GASNET_BACKTRACE",0)) {
     if (count) {
@@ -1362,29 +1343,70 @@ int _gasneti_print_backtrace(int fd) {
     } else {
       /* We don't support any backtrace methods, so avoid false advertising. */
     }
-    return 1;
+    retval = 1;
+  } else {
+    FILE *file;
+
+    gasneti_mutex_lock(&btlock);
+
+    /* Create a tmpfile to hold the backtrace */
+    file = tmpfile ();
+
+    if (file) {
+      int tmpfd = fileno(file);
+      /* Loop over table until success or end */
+      for (i = 0; i < count; ++i) {
+        retval = (*fn_table[i])(tmpfd);
+        if (retval == 0) {
+	  static char linebuf[1024];
+	  char *p;
+	  int len;
+#if GASNET_TRACE
+	  int tracefd = fileno(gasneti_tracefile);
+#endif
+          sprintf(linebuf, GASNETI_BT_LABEL_FMT, gasneti_mynode);
+          len = strlen(linebuf);
+          p = linebuf + len;
+	  len = sizeof(linebuf) - len;
+
+	  /* Send to requested destination (and tracefile if any) */
+#if GASNET_TRACE
+	  if (tracefd >= 0) {
+	    GASNETI_TRACE_PRINTF(U,("========== BEGIN BACKTRACE ==========")); fflush(gasneti_tracefile);
+	  }
+#endif
+	  rewind(file);
+	  while (fgets(p, len, file)) {
+	    write(fd, linebuf, strlen(linebuf)); /* w/ node prefix */
+#if GASNET_TRACE
+	    if (tracefd >= 0) {
+	      write(tracefd, p, strlen(p)); /* w/o node prefix */
+	    }
+#endif
+	  }
+#if GASNET_TRACE
+	  if (tracefd >= 0) {
+	    GASNETI_TRACE_PRINTF(U,("========== END BACKTRACE ==========")); fflush(gasneti_tracefile);
+          }
+#endif
+          break;
+        } else {
+	  rewind(file);
+        }
+      }
+
+      fclose(file);
+    }
+
+    gasneti_mutex_unlock(&btlock);
   }
 
-  gasneti_mutex_lock(&btlock);
-  /* Loop over table until success or end */
-  for (i = 0; i < count; ++i) {
-    retval = (*fn_table[i])(fd);
-    if (retval == 0) {
-#if GASNET_TRACE
-      /* Also send to the tracefile if any */
-      if (gasneti_tracefile) {
-	int tracefd = fileno(gasneti_tracefile);
-	if (tracefd >= 0) {
-	  GASNETI_TRACE_PRINTF(U,("========== BEGIN BACKTRACE ==========")); fflush(gasneti_tracefile);
-	  (*fn_table[i])(tracefd);
-	  GASNETI_TRACE_PRINTF(U,("========== END BACKTRACE ==========")); fflush(gasneti_tracefile);
-	}
-      }
-#endif
-      break;
-    }
-  }
-  gasneti_mutex_unlock(&btlock);
+  signal(SIGABRT, old_ABRT);
+  signal(SIGILL,  old_ILL);
+  signal(SIGSEGV, old_SEGV);
+  signal(SIGBUS,  old_BUS);
+  signal(SIGFPE,  old_FPE);
+
   return retval;
 }
 
