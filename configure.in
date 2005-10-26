@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/10/25 09:26:23 $
-# $Revision: 1.306 $
+#     $Date: 2005/10/26 03:25:28 $
+# $Revision: 1.307 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.306 $)
+AC_REVISION($Revision: 1.307 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2082,7 +2082,9 @@ AC_CHECK_HEADERS(features.h)
 AC_CHECK_FUNCS(fopen64)
 
 AC_CHECK_HEADERS(execinfo.h)
-AC_CHECK_FUNCS(backtrace backtrace_symbols)
+if test "$ac_cv_header_execinfo_h" = "yes" ; then
+  AC_CHECK_FUNCS(backtrace backtrace_symbols)
+fi
 
 ########################################################################
 
@@ -2196,6 +2198,7 @@ GASNET_TRY_CACHE_CHECK(for sched_yield(), cc_has_sched_yield, [
   AC_SEARCH_LIBS(sched_yield, posix4, AC_DEFINE(HAVE_SCHED_YIELD), AC_MSG_RESULT(entry point not found - disabled)))
 
 # Check linux systems for 3 variants of sched_setaffinity (requires -D_GNU_SOURCE)
+if test "$cross_compiling" = "no" ; then
 case "$target_os" in
   linux*)  
     GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS -D_GNU_SOURCE")
@@ -2236,6 +2239,7 @@ case "$target_os" in
     GASNET_POPVAR(CPPFLAGS)
   ;;
 esac
+fi
 
 #  AC_FUNC_MMAP
 # Check for mmap functionality we actually use

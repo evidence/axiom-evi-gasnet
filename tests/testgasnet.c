@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2005/10/25 09:44:27 $
- * $Revision: 1.34 $
+ *     $Date: 2005/10/26 03:25:32 $
+ * $Revision: 1.35 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -130,9 +130,11 @@ void test_libgasnet_tools() {
   MSG0("CPU count estimated to be: %i", cpucnt);
   assert(cpucnt >= 1);
   gasnett_flush_streams();
-  p = gasnett_mmap(GASNETT_PAGESIZE);
-  assert(p);
-  assert(((uintptr_t)p)%GASNETT_PAGESIZE == 0);
+  #ifdef HAVE_MMAP
+    p = gasnett_mmap(GASNETT_PAGESIZE);
+    assert(p);
+    assert(((uintptr_t)p)%GASNETT_PAGESIZE == 0);
+  #endif
   test_libgasnet_keys(&sertest_keys);
   #if GASNET_DEBUG
   { char *ptr = gasnett_debug_malloc(10); 

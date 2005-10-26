@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/10/25 09:26:23 $
- * $Revision: 1.134 $
+ *     $Date: 2005/10/26 03:25:28 $
+ * $Revision: 1.135 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1155,6 +1155,7 @@ extern void gasneti_unsetenv(const char *key) {
   #endif
 #endif
 
+#if !GASNETI_NO_FORK
 /* Execute system w/ stdout redirected to 'fd' and std{in,err} to /dev/null */
 static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
   int rc;
@@ -1177,6 +1178,7 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
   dup2(saved_stdin, STDIN_FILENO); close(saved_stdin);
   return rc;
 }
+#endif
 
 #ifdef GASNETI_BT_LADEBUG
   static int gasneti_bt_ladebug(int fd) {
