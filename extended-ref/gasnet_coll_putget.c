@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2005/10/17 18:43:55 $
- * $Revision: 1.47 $
+ *     $Date: 2005/10/26 17:56:26 $
+ * $Revision: 1.48 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -575,17 +575,17 @@ void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
        * ponging of cache lines by eliminating the potential "hot spot" at the beginning
        * of the list.  This only ends up making a difference if the list spans cachelines.
        *
-       * Note that non-application threads are OK, and will have my_image == 0.
+       * Note that non-application threads are OK, and will have my_local_image == 0.
        */
       const gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
       int i;
 
-      for (i = td->my_image; i < gasnete_coll_my_images; ++i) { /* >= self */
+      for (i = td->my_local_image; i < gasnete_coll_my_images; ++i) { /* >= self */
 	if (list[i] == NULL) {
 	  return 0;
 	}
       }
-      for (i = 0; i < td->my_image; ++i) { /* < self */
+      for (i = 0; i < td->my_local_image; ++i) { /* < self */
 	if (list[i] == NULL) {
 	  return 0;
 	}
