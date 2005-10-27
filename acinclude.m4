@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/10/27 01:21:40 $
-dnl $Revision: 1.85 $
+dnl     $Date: 2005/10/27 06:09:40 $
+dnl $Revision: 1.86 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1208,7 +1208,7 @@ AC_DEFUN([GASNET_PROG_CC], [
     ac_cv_prog_cc_cross=no
     AC_MSG_CHECKING([working C compiler executables])
     AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
-  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR(Cannot run executables created with C compiler. If you're attempting to cross-compile, use --enable-cross-compile)], 
+  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR([Cannot run executables created with C compiler. If you're attempting to cross-compile, use --enable-cross-compile])], 
   	     [AC_MSG_ERROR(Internal configure error - please report)])
   ])
   AM_CONDITIONAL(CROSS_COMPILING, test "$cross_compiling" = "yes")
@@ -1247,7 +1247,7 @@ AC_DEFUN([GASNET_PROG_CXX], [
     ac_cv_prog_cxx_cross=no
     AC_MSG_CHECKING([working C++ compiler executables])
     AC_TRY_RUN([int main() { return 0; }], [AC_MSG_RESULT(yes)],
-  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR(Cannot run executables created with C++ compiler. If you're attempting to cross-compile, use --enable-cross-compile)], 
+  	     [AC_MSG_RESULT(no) GASNET_MSG_ERROR([Cannot run executables created with C++ compiler. If you're attempting to cross-compile, use --enable-cross-compile])], 
   	     [AC_MSG_ERROR(Internal configure error - please report)])
   ])
   AC_LANG_RESTORE
