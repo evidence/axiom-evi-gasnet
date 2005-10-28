@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/10/27 06:09:40 $
-dnl $Revision: 1.86 $
+dnl     $Date: 2005/10/28 00:21:56 $
+dnl $Revision: 1.87 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -99,6 +99,7 @@ pushdef([uppername],translit(lowername,'a-z','A-Z'))
 if test "$ac_cv_header_[]lowername" = "yes"; then
   AC_MSG_CHECKING(for location of $1)
   echo "#include <$1>" > conftest.c
+  header_pathname=
   if test "$GASNET_FIND_HEADER_CPP"; then
     echo "$GASNET_FIND_HEADER_CPP conftest.c" >&5
     header_pathname=`$GASNET_FIND_HEADER_CPP conftest.c 2>&5 | grep $1 | head -1`
