@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/10/04 22:45:23 $
- * $Revision: 1.23 $
+ *     $Date: 2005/10/28 03:08:04 $
+ * $Revision: 1.24 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -570,12 +570,10 @@ int main(int argc, char **argv)
       testLS_MYMY(iters, i);
       testLS_ALLALL(iters, i);
       testLS_NB(iters, i);
-#if !GASNET_SEQ
       testLM_NONO(iters, i);
       testLM_MYMY(iters, i);
       testLM_ALLALL(iters, i);
       testLM_NB(iters, i);
-#endif
     }
 
     BARRIER();
