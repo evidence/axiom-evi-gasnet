@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2005/10/28 03:08:06 $
- * $Revision: 1.36 $
+ *     $Date: 2005/10/28 09:52:05 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1840,15 +1840,6 @@ typedef struct {
     size_t nbytes;
 } gasnete_coll_scatterM_args_t;
 
-#if GASNET_PAR
-typedef struct {
-    void * volatile *dstlist;
-    gasnet_image_t srcimage;
-    void *src;
-    size_t nbytes;
-} gasnete_coll_scatterT_args_t;
-#endif
-
 typedef struct {
 #if !GASNET_SEQ
     gasnet_image_t dstimage;
@@ -1869,15 +1860,6 @@ typedef struct {
     size_t nbytes;
 } gasnete_coll_gatherM_args_t;
 
-#if GASNET_PAR
-typedef struct {
-    gasnet_image_t dstimage;
-    void *dst;
-    void * volatile *srclist;
-    size_t nbytes;
-} gasnete_coll_gatherT_args_t;
-#endif
-
 typedef struct {
     void *dst;
     void *src;
@@ -1889,14 +1871,6 @@ typedef struct {
     void * *srclist;
     size_t nbytes;
 } gasnete_coll_gather_allM_args_t;
-
-#if GASNET_PAR
-typedef struct {
-    void * volatile *dstlist;
-    void * volatile *srclist;
-    size_t nbytes;
-} gasnete_coll_gather_allT_args_t;
-#endif
 
 typedef struct {
     void *dst;
@@ -1910,13 +1884,6 @@ typedef struct {
     size_t nbytes;
 } gasnete_coll_exchangeM_args_t;
 
-#if GASNET_PAR
-typedef struct {
-    void * volatile *dstlist;
-    void * volatile *srclist;
-    size_t nbytes;
-} gasnete_coll_exchangeT_args_t;
-#endif
 
 /* Options for gasnete_coll_generic_* */
 #define GASNETE_COLL_GENERIC_OPT_INSYNC		0x0001
@@ -1999,13 +1966,6 @@ struct gasnete_coll_generic_data_t_ {
 	gasnete_coll_gatherM_args_t		gatherM;
 	gasnete_coll_gather_allM_args_t		gather_allM;
 	gasnete_coll_exchangeM_args_t		exchangeM;
-	#if GASNET_PAR
-	  /* Single-address/multi-thread interfaces: */
-	  gasnete_coll_scatterT_args_t		scatterT;
-	  gasnete_coll_gatherT_args_t		gatherT;
-	  gasnete_coll_gather_allT_args_t	gather_allT;
-	  gasnete_coll_exchangeT_args_t		exchangeT;
-	#endif
 
 	/* XXX: still need a few more */
 
