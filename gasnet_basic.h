@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2005/10/25 07:57:10 $
- * $Revision: 1.46 $
+ *     $Date: 2005/10/29 12:07:36 $
+ * $Revision: 1.47 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -125,9 +125,8 @@
    supplements GASNETI_NORETURN which is used for attribute-based compilers */
 #ifdef __SUNPRO_C
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(does_not_return(fnname))
-#elif defined(__xlC__) && defined(_AIX) 
-  /* this *should* work on any XLC platform, but it causes bizarre failures on 
-     at least Linux/PPC/xlc7 and MacOS/PPC/xlc6 */
+#elif defined(__xlC__) && 0
+  /* this *should* work but it causes bizarre compile failures, so disable it */
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(leaves(fnname))
 #else
   #define GASNETI_NORETURNP(fnname)
