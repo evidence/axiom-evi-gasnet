@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/09 22:59:14 $
- * $Revision: 1.135 $
+ *     $Date: 2005/10/31 23:38:40 $
+ * $Revision: 1.136 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1184,7 +1184,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     int firehose_reg = gasnetc_pin_info.regions;
     int reg_count;
     firehose_region_t prereg[2];
-    size_t reg_size;
+    size_t reg_size, maxsz;
 
     /* Setup prepinned regions list */
     prereg[0].addr          = gasnetc_snd_reg.addr;
@@ -1238,11 +1238,17 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
 		    prereg, reg_count, flags, &gasnetc_firehose_info);
     }
 
-    gasnetc_fh_maxsz = MIN(gasnetc_hca_port.max_msg_sz, gasnetc_firehose_info.max_LocalPinSize);
+    /* Determine alignment (and max size) for fh requests - a power-of-two <= max_region/2 */
+    maxsz = MIN(gasnetc_hca_port.max_msg_sz, gasnetc_firehose_info.max_LocalPinSize);
     #if !GASNETC_PIN_SEGMENT
-      gasnetc_fh_maxsz = MIN(gasnetc_fh_maxsz, gasnetc_firehose_info.max_RemotePinSize);
+      maxsz = MIN(maxsz, gasnetc_firehose_info.max_RemotePinSize);
     #endif
-    gasneti_assert_always(gasnetc_fh_maxsz >= (GASNET_PAGESIZE + gasnetc_inline_limit));
+    gasneti_assert_always(maxsz >= (GASNET_PAGESIZE + gasnetc_inline_limit));
+    gasnetc_fh_align = GASNET_PAGESIZE;
+    while ((gasnetc_fh_align * 2) <= (maxsz / 2)) {
+      gasnetc_fh_align *= 2;
+    }
+    gasnetc_fh_align_mask = gasnetc_fh_align - 1;
   }
 
   /* ------------------------------------------------------------------------------------ */
@@ -1697,30 +1703,6 @@ static void gasnetc_exit_body(void) {
     }
     gasnetc_sndrcv_fini();
     if (gasneti_attach_done) {
-#if 0	/* Dump firehose table as pairs: page_number length_in_pages */
-      {
-	firehose_request_t r;
-	const firehose_request_t *p;
-	void *prev = NULL;
-	uintptr_t segbase = (uintptr_t)gasneti_seginfo[gasneti_mynode].addr;
-	int count = gasneti_seginfo[gasneti_mynode].size / 4096UL;
-	int i;
-
-	for (i = 0; i < count; ++i) {
-	  p = firehose_try_local_pin(segbase+i*4096, 8, &r);
-	  if (!p) {
-	    /* MISS */
-	    prev = NULL;
-	  } else {
-	    if (p->internal != prev) {
-	      fprintf(stderr, "%d> %d %d\n", gasneti_mynode, i, (int)p->len/4096);
-	    }
-	    prev = p->internal;
-	    firehose_release(&p, 1);
-	  }
-	}
-      }
-#endif
       if (gasnetc_use_firehose) {
         firehose_fini();
       }

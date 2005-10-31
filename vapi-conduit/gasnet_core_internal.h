@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/08/11 10:07:00 $
- * $Revision: 1.89 $
+ *     $Date: 2005/10/31 23:38:40 $
+ * $Revision: 1.90 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -615,7 +615,8 @@ extern gasnetc_memreg_t		gasnetc_rcv_reg;
   extern unsigned long		gasnetc_pin_maxsz;
   extern int			gasnetc_pin_maxsz_shift;
 #endif
-extern size_t			gasnetc_fh_maxsz;
+extern size_t			gasnetc_fh_align;
+extern size_t			gasnetc_fh_align_mask;
 extern firehose_info_t		gasnetc_firehose_info;
 #if FIREHOSE_VAPI_USE_FMR
   extern EVAPI_fmr_t		gasnetc_fmr_props;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/10/25 16:52:58 $
- * $Revision: 1.124 $
+ *     $Date: 2005/10/31 23:38:40 $
+ * $Revision: 1.125 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -47,7 +47,8 @@ gasnetc_memreg_t                        gasnetc_rcv_reg;
 gasnetc_memreg_t			gasnetc_snd_reg;
 VAPI_cq_hndl_t                          gasnetc_rcv_cq;
 VAPI_cq_hndl_t				gasnetc_snd_cq;
-size_t					gasnetc_fh_maxsz;
+size_t					gasnetc_fh_align;
+size_t					gasnetc_fh_align_mask;
 size_t                   		gasnetc_inline_limit;
 size_t                   		gasnetc_bounce_limit;
 size_t					gasnetc_packedlong_limit;
@@ -179,6 +180,12 @@ static gasnetc_sema_t			gasnetc_cq_sema;
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped functions and macros                                                    *
  * ------------------------------------------------------------------------------------ */
+
+GASNET_INLINE_MODIFIER(gasnetc_fh_aligned_len)
+size_t gasnetc_fh_aligned_len(uintptr_t start, size_t len) {
+  size_t result = 2 * gasnetc_fh_align - (start & gasnetc_fh_align_mask);
+  return MIN(len, result);
+}
 
 GASNET_INLINE_MODIFIER(gasnetc_sr_desc_init)
 VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
@@ -1482,8 +1489,7 @@ size_t gasnetc_get_lkey(uintptr_t start, size_t len, gasnetc_sreq_t *sreq, VAPI_
     int count = sreq->fh_count;
 
     if (count == 0) {
-      /* Local (mis)alignment could limit how much we can pin */
-      len = MIN(len, (gasnetc_fh_maxsz - (start & (FH_BUCKET_SIZE - 1))));
+      len = gasnetc_fh_aligned_len(start, len);
       fh_loc = firehose_local_pin(start, len, NULL);
     } else {
       /* We hold a local firehose already, we can only 'try' or risk deadlock */
@@ -2000,8 +2006,7 @@ size_t gasnetc_get_local_fh(gasnetc_sreq_t *sreq, uintptr_t loc_addr, size_t len
     sreq->fh_count = i;
     len -= remain;
   } else {
-    /* Local (mis)alignment could limit how much we can pin */
-    len = MIN(len, (gasnetc_fh_maxsz - (loc_addr & (FH_BUCKET_SIZE - 1))));
+    len = gasnetc_fh_aligned_len(loc_addr, len);
     sreq->fh_ptr[1] = firehose_local_pin(loc_addr, len, NULL);
     sreq->fh_count = 2;
   }
@@ -2011,10 +2016,8 @@ size_t gasnetc_get_local_fh(gasnetc_sreq_t *sreq, uintptr_t loc_addr, size_t len
 
 GASNET_INLINE_MODIFIER(gasnetc_fh_put_helper)
 int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
-		          uintptr_t loc_addr, uintptr_t rem_addr, size_t len,
-			  size_t *space) {
+		          uintptr_t loc_addr, uintptr_t rem_addr, size_t len) {
   const firehose_request_t *fh_rem;
-  size_t tmp_space = MIN(len, *space); /* to help encourage coalescing on misses */
 
   sreq->fh_rem_addr = rem_addr;
   sreq->fh_loc_addr = loc_addr;
@@ -2033,14 +2036,12 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
     gasneti_assert(rem_addr >= fh_rem->addr);
     gasneti_assert(rem_addr <= (fh_rem->addr + fh_rem->len - 1));
     len = MIN(len, (fh_rem->addr + fh_rem->len - rem_addr));
-    *space = (tmp_space > fh_rem->len) ? (tmp_space - fh_rem->len) : gasnetc_fh_maxsz;
   } else {
-    /* MISS - Some initial part (or all) of the region is unpinned */
+    /* MISS: Some initial part (or all) of the region is unpinned */
     gasneti_weakatomic_set(&sreq->fh_ready, 2);
-    len = MIN(tmp_space, (gasnetc_fh_maxsz - (rem_addr & (FH_BUCKET_SIZE - 1))));
+    len = gasnetc_fh_aligned_len(rem_addr, len);
     (void)firehose_remote_pin(node, rem_addr, len, 0, NULL,
 			      NULL, &gasnetc_fh_put_cb, sreq);
-    *space = gasnetc_fh_maxsz;
   }
 
   /* Get local firehose(s) IFF inline and bounce-buffers are not to be used.
@@ -2061,10 +2062,8 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
 
 GASNET_INLINE_MODIFIER(gasnetc_fh_get_helper)
 int gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
-		          uintptr_t loc_addr, uintptr_t rem_addr, size_t len,
-			  size_t *space) {
+		          uintptr_t loc_addr, uintptr_t rem_addr, size_t len) {
   const firehose_request_t *fh_rem;
-  size_t tmp_space = MIN(len, *space); /* to help encourage coalescing on misses */
 
   sreq->fh_rem_addr = rem_addr;
   sreq->fh_loc_addr = loc_addr;
@@ -2083,14 +2082,12 @@ int gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
     gasneti_assert(rem_addr >= fh_rem->addr);
     gasneti_assert(rem_addr <= (fh_rem->addr + fh_rem->len - 1));
     len = MIN(len, (fh_rem->addr + fh_rem->len - rem_addr));
-    *space = (tmp_space > fh_rem->len) ? (tmp_space - fh_rem->len) : gasnetc_fh_maxsz;
   } else {
     /* MISS: Some initial part (or all) of the region is unpinned */
     gasneti_weakatomic_set(&sreq->fh_ready, 2);
-    len = MIN(tmp_space, (gasnetc_fh_maxsz - (rem_addr & (FH_BUCKET_SIZE - 1)))); /* consider alignment */
+    len = gasnetc_fh_aligned_len(rem_addr, len);
     (void)firehose_remote_pin(node, rem_addr, len, 0, NULL,
 			      NULL, &gasnetc_fh_get_cb, sreq);
-    *space = gasnetc_fh_maxsz;
   }
 
   len = gasnetc_get_local_fh(sreq, loc_addr, len);
@@ -2458,7 +2455,6 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
 extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *mem_oust, gasnetc_counter_t *req_oust, gasnetc_counter_t *am_oust) {
   uintptr_t src = (uintptr_t)src_ptr;
   uintptr_t dst = (uintptr_t)dst_ptr;
-  size_t space = gasnetc_fh_maxsz;
 
   gasneti_assert(nbytes != 0);
 
@@ -2482,7 +2478,7 @@ extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr
       sreq->fh_oust = am_oust;
     }
 
-    count = gasnetc_fh_put_helper(epid, sreq, src, dst, nbytes, &space);
+    count = gasnetc_fh_put_helper(epid, sreq, src, dst, nbytes);
 
     src += count;
     dst += count;
@@ -2496,7 +2492,6 @@ extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr
 extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, size_t nbytes, gasnetc_counter_t *req_oust) {
   uintptr_t src = (uintptr_t)src_ptr;
   uintptr_t dst = (uintptr_t)dst_ptr;
-  size_t space = gasnetc_fh_maxsz;
 
   gasneti_assert(nbytes != 0);
   gasneti_assert(req_oust != NULL);
@@ -2510,7 +2505,7 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
     sreq->req_oust = req_oust;
     gasnetc_counter_inc(req_oust);
 
-    count = gasnetc_fh_get_helper(epid, sreq, dst, src, nbytes, &space);
+    count = gasnetc_fh_get_helper(epid, sreq, dst, src, nbytes);
 
     src += count;
     dst += count;
