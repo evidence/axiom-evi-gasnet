@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/10/25 21:18:45 $
- * $Revision: 1.21 $
+ *     $Date: 2005/10/31 23:32:11 $
+ * $Revision: 1.22 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1536,6 +1536,19 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 }
 
 static void
+fh_priv_print_fn(void *val, void *arg)
+{
+	firehose_private_t *priv = val;
+	int lref = FH_IS_LOCAL_FIFO(priv) ? 0 : FH_BUCKET_REFC(priv)->refc_l;
+	int rref = FH_IS_LOCAL_FIFO(priv) ? 0 : FH_BUCKET_REFC(priv)->refc_r;
+
+	fprintf(stderr, "[n%d] %p - %p (%4d of %4d pages visible) refc=(%4dL, %4dR)\n",
+			(int)fh_mynode, (void*)FH_BADDR(priv), (void*)fh_priv_end(priv),
+			priv->visible, (int)(priv->len>>FH_BUCKET_SHIFT),
+			lref, rref);
+}
+
+static void
 fh_priv_cleanup_fn(void *val, void *arg)
 {
 	firehose_private_t *priv = val;
@@ -1556,6 +1569,14 @@ void
 fh_fini_plugin(void)
 {
 	firehose_private_t *priv;
+
+	if (gasneti_getenv_yesno_withdefault("GASNET_FIREHOSE_VERBOSE", 0)) {
+		/* Dump the table, unsorted */
+		FH_TABLE_LOCK;
+		fprintf(stderr, "[n%d] Final local firehose table:\n", fh_mynode);
+		fh_hash_apply(fh_PrivTable, &fh_priv_print_fn, NULL);
+		FH_TABLE_UNLOCK;
+	}
 
 	if (fhi_InitFlags & FIREHOSE_INIT_FLAG_UNPIN_ON_FINI) {
 		/* Unpin and free everything we pinned: */
