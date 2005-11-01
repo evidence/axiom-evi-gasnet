@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.32 $
+$Revision: 1.33 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -414,6 +414,12 @@ $Revision: 1.32 $
     of the victim (local) pool.  Values will be truncated if larger than
     the default of (GASNET_FIREHOSE_MAXVICTIM_M /
     GASNET_FIREHOSE_MAXREGION_SIZE).
+
+  + GASNET_FIREHOSE_VERBOSE
+    This gives a boolean: "0" to disable or "1" to enable the output of
+    internal information of use to the developers.  You may be asked
+    to run with this environment variable set if you report a bug that
+    appears related to the firehose algorithm. 
 
 @ Section: Core API @
 
