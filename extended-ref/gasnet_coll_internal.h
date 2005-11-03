@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2005/11/03 19:21:00 $
- * $Revision: 1.38 $
+ *     $Date: 2005/11/03 21:31:05 $
+ * $Revision: 1.39 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1907,6 +1907,9 @@ typedef struct {
 #define GASNETE_COLL_GENERIC_OPT_P2P_IF(COND)		((COND) ? GASNETE_COLL_GENERIC_OPT_P2P : 0)
 
 struct gasnete_coll_generic_data_t_ {
+    #if GASNETI_USE_TRUE_MUTEXES || GASNET_DEBUG
+      void				*owner; /* has type gasnete_threaddata_t* (not yet defined) */
+    #endif
     #if GASNET_DEBUG
       #define GASNETE_COLL_GENERIC_TAG(T)	_CONCAT(GASNETE_COLL_GENERIC_TAG_,T)
       #define GASNETE_COLL_GENERIC_SET_TAG(D,T)	(D)->tag = GASNETE_COLL_GENERIC_TAG(T)
