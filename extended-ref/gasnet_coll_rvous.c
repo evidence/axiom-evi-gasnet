@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2005/10/28 03:08:06 $
- * $Revision: 1.49 $
+ *     $Date: 2005/11/03 19:21:00 $
+ * $Revision: 1.50 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -185,9 +185,11 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 
   extern void gasnete_coll_handle_signal(gasnet_coll_handle_t handle GASNETE_THREAD_FARG) {
     gasneti_assert(handle != GASNET_COLL_INVALID_HANDLE);
+    gasneti_mutex_assertlocked(&gasnete_coll_active_lock);
     #if GASNET_PAR
       do {
 	gasnet_coll_handle_t next = GASNETE_COLL_HANDLE_NEXT(handle);
+        gasneti_sync_writes(); /* XXX? */
 	GASNETE_COLL_HANDLE_DONE(handle) = 1;
 	handle = next;
       } while (handle != GASNET_COLL_INVALID_HANDLE);
@@ -217,7 +219,6 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
   gasnete_coll_try_sync(gasnet_coll_handle_t handle GASNETE_THREAD_FARG) {
     gasneti_assert(handle != GASNET_COLL_INVALID_HANDLE); /* caller must check */
 
-    gasneti_AMPoll();
     gasnete_coll_poll(GASNETE_THREAD_PASS_ALONE);
 
     return gasnete_coll_handle_done(handle GASNETE_THREAD_PASS) ? GASNET_OK : GASNET_ERR_NOT_READY;
@@ -234,7 +235,6 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 
     gasneti_assert(phandle != NULL);
 
-    gasneti_AMPoll();
     gasnete_coll_poll(GASNETE_THREAD_PASS_ALONE);
 
     for (i = 0; i < numhandles; ++i, ++phandle) {
@@ -260,7 +260,6 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
 
     gasneti_assert(phandle != NULL);
 
-    gasneti_AMPoll();
     gasnete_coll_poll(GASNETE_THREAD_PASS_ALONE);
 
     for (i = 0; i < numhandles; ++i, ++phandle) {
@@ -503,18 +502,36 @@ void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
     gasnete_coll_op_t *gasnete_coll_threads_get_op(GASNETE_THREAD_FARG_ALONE) {
       gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
       const uint32_t sequence = td->threads.sequence - 1;
-      gasnete_coll_op_t *op = gasnete_coll_threads_head; /* XXX: Use a simple hash table here? */
-      while (op && op->threads.sequence != sequence) {
-	/* Entries are sorted in decreasing order (w/ wrap-around).  Stop if we've passed it.*/
-	op = ((int32_t)(op->threads.sequence - sequence) < 0) ? NULL : op->threads.next;
+      gasnete_coll_op_t *op;
+
+      gasneti_mutex_assertlocked(&gasnete_coll_active_lock);
+      op = gasnete_coll_active_first();
+      while (op && ((op->flags & GASNETE_COLL_SUBORDINATE) || (op->threads.sequence != sequence))) {
+	op = gasnete_coll_active_next(op);
       }
       return op;
     }
 
-    /* Default thread-arrival function */
-    gasnet_coll_handle_t gasnete_coll_threads_arrive(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
+    gasnet_coll_handle_t gasnete_coll_threads_add_handle(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
       gasnet_coll_handle_t handle = GASNET_COLL_INVALID_HANDLE;
 
+      gasneti_mutex_assertlocked(&gasnete_coll_active_lock);
+      if (op->handle != GASNET_COLL_INVALID_HANDLE) {
+        handle = gasnete_coll_handle_create(GASNETE_THREAD_PASS_ALONE);
+        GASNETE_COLL_HANDLE_NEXT(handle) = op->handle;
+        op->handle = handle;
+      }
+
+      return handle;
+    }
+
+    /* Default thread-arrival function */
+    gasnet_coll_handle_t gasnete_coll_threads_get_handle(GASNETE_THREAD_FARG_ALONE) {
+      gasnete_coll_op_t *op;
+      gasnet_coll_handle_t result = GASNET_COLL_INVALID_HANDLE;
+
+      gasneti_mutex_lock(&gasnete_coll_active_lock);
+      op = gasnete_coll_threads_get_op(GASNETE_THREAD_PASS_ALONE);
       if_pt (op != NULL) {
         /* Deal with IN_*SYNC */
         if (op->flags & (GASNET_COLL_IN_ALLSYNC | GASNET_COLL_IN_MYSYNC)) {
@@ -525,48 +542,33 @@ void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
 
         /* Deal with OUT_*SYNC */
         if (op->flags & (GASNET_COLL_OUT_ALLSYNC | GASNET_COLL_OUT_MYSYNC)) {
-	  handle = gasnete_coll_handle_create(GASNETE_THREAD_PASS_ALONE);
-	  GASNETE_COLL_HANDLE_NEXT(handle) = op->handle;
-	  op->handle = handle;
+	  result = gasnete_coll_threads_add_handle(op GASNETE_THREAD_PASS);
         }
       }
+      gasneti_mutex_unlock(&gasnete_coll_active_lock);
 
-      return handle;
+      return result;
     }
 
-    gasnet_coll_handle_t gasnete_coll_threads_get_handle(GASNETE_THREAD_FARG_ALONE) {
-      gasnete_coll_op_t *op = gasnete_coll_threads_get_op(GASNETE_THREAD_PASS_ALONE);
-      return gasnete_coll_threads_arrive(op GASNETE_THREAD_PASS);
-    }
+    /* Thread-arrival function when collecting thread-local addrs */
+    gasnet_coll_handle_t
+    gasnete_coll_threads_get_handle_and_data(gasnete_coll_generic_data_t **data_p GASNETE_THREAD_FARG) {
+      gasnete_coll_op_t *op;
+      gasnet_coll_handle_t result;
 
-    void gasnete_coll_threads_insert(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
-      gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
-
-      gasneti_assert(gasnete_coll_multi_images);
-      gasneti_mutex_assertlocked(&gasnete_coll_threads_mutex);
-
-      op->threads.sequence = td->threads.sequence - 1;
-      if ((op->threads.next = gasnete_coll_threads_head) == NULL) {
-	gasnete_coll_threads_tail_p = &(op->threads.next);
+      gasneti_mutex_lock(&gasnete_coll_active_lock);
+      op = gasnete_coll_threads_get_op(GASNETE_THREAD_PASS_ALONE);
+      gasneti_assert(op != NULL);
+      if (op->flags & (GASNET_COLL_OUT_ALLSYNC | GASNET_COLL_OUT_MYSYNC)) {
+        result = gasnete_coll_threads_add_handle(op GASNETE_THREAD_PASS);
       } else {
-	gasnete_coll_threads_head->threads.prev_p = &(op->threads.next);
+        result = GASNET_COLL_INVALID_HANDLE;
       }
-      gasnete_coll_threads_head = op;
-      op->threads.prev_p = &gasnete_coll_threads_head;
-    }
+      gasneti_mutex_unlock(&gasnete_coll_active_lock);
 
-    void gasnete_coll_threads_delete(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
-      if (op->threads.prev_p) {
-        gasnete_coll_op_t *next = op->threads.next;
-        gasneti_mutex_lock(&gasnete_coll_threads_mutex);
-        *(op->threads.prev_p) = next;
-        if (next) {
-          next->threads.prev_p = op->threads.prev_p;
-        } else {
-          gasnete_coll_threads_tail_p = op->threads.prev_p;
-        }
-        gasneti_mutex_unlock(&gasnete_coll_threads_mutex);
-      }
+      *data_p = op->data;
+
+      return result;
     }
 
     int gasnete_coll_threads_addrs_ready(void * volatile *list GASNETE_THREAD_FARG) {
@@ -615,9 +617,9 @@ void gasnete_coll_sync_saved_handles(GASNETE_THREAD_FARG_ALONE) {
 #endif
 
 /*---------------------------------------------------------------------------------*/
-/* The per-thread list of active collective ops (coll ops) */
+/* The list of active collective ops (coll ops) */
 
-/* There exists a per-thread "active list".
+/* There exists a "active list".
  * Ops in the active table will be polled to make progress.
  *
  * Operations of the active list
@@ -790,8 +792,8 @@ extern gasnete_coll_threaddata_t *gasnete_coll_new_threaddata(void) {
       if (poll_result & GASNETE_COLL_OP_COMPLETE) {
 	if_pt (op->handle != GASNET_COLL_INVALID_HANDLE) {
 	    /* Normal case, just signal the handle */
-	    gasnete_coll_threads_delete(op GASNETE_THREAD_PASS);
 	    gasnete_coll_handle_signal(op->handle GASNETE_THREAD_PASS);
+	    op->handle = GASNET_COLL_INVALID_HANDLE;
 	    gasneti_assert(op->agg_head == NULL);
 	} else if (op->agg_next) {
 	  gasnete_coll_op_t *head;
@@ -803,8 +805,8 @@ extern gasnete_coll_threaddata_t *gasnete_coll_new_threaddata(void) {
 	  /* If the container op exists and is now empty, mark it's handle as done. */
 	  head = op->agg_head;
 	  if (head && (head->agg_next == head)) {
-	    gasnete_coll_threads_delete(op GASNETE_THREAD_PASS);
 	    gasnete_coll_handle_signal(head->handle GASNETE_THREAD_PASS);
+	    head->handle = GASNET_COLL_INVALID_HANDLE;
 	    gasnete_coll_op_destroy(head GASNETE_THREAD_PASS);
 	  }
 	}
@@ -839,9 +841,6 @@ gasnete_coll_op_create(gasnete_coll_team_t team, uint32_t sequence, int flags GA
   op->flags    = flags;
   op->handle   = GASNET_COLL_INVALID_HANDLE;
   op->poll_fn  = (gasnete_coll_poll_fn)NULL;
-  #if GASNET_PAR
-    op->threads.prev_p = NULL;
-  #endif
 
   /* The aggregation and 'data' fields are setup elsewhere */
 
@@ -857,6 +856,8 @@ gasnete_coll_op_destroy(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
 
 void gasnete_coll_poll(GASNETE_THREAD_FARG_ALONE) {
   static gasneti_mutex_t poll_lock = GASNETI_MUTEX_INITIALIZER;
+
+  gasneti_AMPoll();
 
   /* First try to make progress on any handles this thread has initiated */
   gasnete_coll_sync_saved_handles(GASNETE_THREAD_PASS_ALONE);
@@ -1606,18 +1607,17 @@ gasnete_coll_op_generic_init(gasnete_coll_team_t team, int flags,
       op->data = data;
       op->poll_fn = poll_fn;
 
-      /* Submit the op via aggregation filter */
-      handle = gasnete_coll_op_submit(op, handle GASNETE_THREAD_PASS);
-
       #if GASNET_PAR
-      /* Place on the threads list unless we are the only thread */
       if (gasnete_coll_multi_images && !(flags & GASNETE_COLL_SUBORDINATE)) {
+        op->threads.sequence = gasnete_coll_threads_sequence - 1;
         gasneti_atomic_set(&data->threads.remaining, (flags & GASNET_COLL_IN_NOSYNC) ? 0 : (gasnete_coll_my_images - 1));
-	gasnete_coll_threads_insert(op GASNETE_THREAD_PASS);
       } else {
         gasneti_atomic_set(&data->threads.remaining, 0);
       }
       #endif
+
+      /* Submit the op via aggregation filter */
+      handle = gasnete_coll_op_submit(op, handle GASNETE_THREAD_PASS);
 
       return handle;
 }
@@ -3257,13 +3257,12 @@ gasnete_coll_generic_broadcastM_nb(gasnet_team_handle_t team,
   #if GASNET_PAR
   if (flags & GASNETE_COLL_THREAD_LOCAL) {
     gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
-    gasneti_assert(*dstlist != NULL);
+    gasnete_coll_generic_data_t *data;
     if_pt (gasnete_coll_threads_first(GASNETE_THREAD_PASS_ALONE)) {
-      gasnete_coll_generic_data_t *data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
+      data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
       GASNETE_COLL_GENERIC_SET_TAG(data, broadcastM);
       data->threads.data = gasneti_calloc(gasnete_coll_my_images, sizeof(void *));
       data->args.broadcastM.dstlist    = (void**)data->threads.data;
-      data->args.broadcastM.dstlist[td->my_local_image] = *dstlist;
       data->args.broadcastM.srcimage   = srcimage;
       data->args.broadcastM.srcnode    = gasnete_coll_image_node(srcimage);
       data->args.broadcastM.src        = src; /* may get overwritten, but not worth a branch */
@@ -3272,21 +3271,15 @@ gasnete_coll_generic_broadcastM_nb(gasnet_team_handle_t team,
       data->private_data = private_data;
       result = gasnete_coll_op_generic_init(team, flags, data, poll_fn, sequence GASNETE_THREAD_PASS);
     } else {
-      gasnete_coll_op_t *op = gasnete_coll_threads_get_op(GASNETE_THREAD_PASS_ALONE);
-      gasnete_coll_generic_data_t *data = op->data;
+      result = gasnete_coll_threads_get_handle_and_data(&data GASNETE_THREAD_PASS);
       if (td->my_image == srcimage) {
+	gasneti_assert(src != NULL);
         data->args.broadcastM.src = src;
         gasneti_sync_writes();
       }
-      data->args.broadcastM.dstlist[td->my_local_image] = *dstlist; /* signalling write */
-      if (op->flags & (GASNET_COLL_OUT_ALLSYNC | GASNET_COLL_OUT_MYSYNC)) {
-        result = gasnete_coll_handle_create(GASNETE_THREAD_PASS_ALONE);
-        GASNETE_COLL_HANDLE_NEXT(result) = op->handle;
-        op->handle = result;
-      } else {
-        result = GASNET_COLL_INVALID_HANDLE;
-      }
     }
+    gasneti_assert(*dstlist != NULL);
+    data->args.broadcastM.dstlist[td->my_local_image] = *dstlist; /* signalling write */
   } else
   #endif
 
@@ -3319,6 +3312,15 @@ gasnete_coll_broadcastM_nb_default(gasnet_team_handle_t team,
                                    GASNETE_THREAD_FARG)
 {
   const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
+
+  #if GASNET_SEQ
+  /* Exactly one thread-local addr - forward to bcast_nb() */
+  if (flags & GASNET_COLL_LOCAL) {
+    return gasnete_coll_broadcast_nb(team, dstlist[0], srcimage, src, nbytes,
+				     flags, sequence GASNETE_THREAD_PASS);
+  }
+  #endif
+
 
   /* "Discover" in-segment flags if needed/possible */
   flags = gasnete_coll_segment_checkM(flags, 0, 0, dstlist, nbytes, 1, srcimage, src, nbytes);
@@ -4244,13 +4246,12 @@ gasnete_coll_generic_scatterM_nb(gasnet_team_handle_t team,
   #if GASNET_PAR
   if (flags & GASNETE_COLL_THREAD_LOCAL) {
     gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
-    gasneti_assert(*dstlist != NULL);
+    gasnete_coll_generic_data_t *data;
     if_pt (gasnete_coll_threads_first(GASNETE_THREAD_PASS_ALONE)) {
-      gasnete_coll_generic_data_t *data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
+      data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
       GASNETE_COLL_GENERIC_SET_TAG(data, scatterM);
       data->threads.data = gasneti_calloc(gasnete_coll_my_images, sizeof(void *));
       data->args.scatterM.dstlist    = (void**)data->threads.data;
-      data->args.scatterM.dstlist[td->my_local_image] = *dstlist;
       data->args.scatterM.srcimage   = srcimage;
       data->args.scatterM.srcnode    = gasnete_coll_image_node(srcimage);
       data->args.scatterM.src        = src; /* may get overwritten, but not worth a branch */
@@ -4259,21 +4260,15 @@ gasnete_coll_generic_scatterM_nb(gasnet_team_handle_t team,
       data->private_data = private_data;
       result = gasnete_coll_op_generic_init(team, flags, data, poll_fn, sequence GASNETE_THREAD_PASS);
     } else {
-      gasnete_coll_op_t *op = gasnete_coll_threads_get_op(GASNETE_THREAD_PASS_ALONE);
-      gasnete_coll_generic_data_t *data = op->data;
+      result = gasnete_coll_threads_get_handle_and_data(&data GASNETE_THREAD_PASS);
       if (td->my_image == srcimage) {
+	gasneti_assert(src != NULL);
         data->args.scatterM.src = src;
         gasneti_sync_writes();
       }
-      data->args.scatterM.dstlist[td->my_local_image] = *dstlist; /* signalling write */
-      if (op->flags & (GASNET_COLL_OUT_ALLSYNC | GASNET_COLL_OUT_MYSYNC)) {
-        result = gasnete_coll_handle_create(GASNETE_THREAD_PASS_ALONE);
-        GASNETE_COLL_HANDLE_NEXT(result) = op->handle;
-        op->handle = result;
-      } else {
-        result = GASNET_COLL_INVALID_HANDLE;
-      }
     }
+    gasneti_assert(*dstlist != NULL);
+    data->args.scatterM.dstlist[td->my_local_image] = *dstlist; /* signalling write */
   } else
   #endif
 
@@ -4306,6 +4301,14 @@ gasnete_coll_scatterM_nb_default(gasnet_team_handle_t team,
                                  GASNETE_THREAD_FARG)
 {
   const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
+
+  #if GASNET_SEQ
+  /* Exactly one thread-local addr - forward to scat_nb() */
+  if (flags & GASNET_COLL_LOCAL) {
+    return gasnete_coll_scatter_nb(team, dstlist[0], srcimage, src, nbytes,
+				   flags, sequence GASNETE_THREAD_PASS);
+  }
+  #endif
 
   /* "Discover" in-segment flags if needed/possible */
   flags = gasnete_coll_segment_checkM(flags, 0, 0, dstlist, nbytes,
@@ -5238,13 +5241,12 @@ gasnete_coll_generic_gatherM_nb(gasnet_team_handle_t team,
   #if GASNET_PAR
   if (flags & GASNETE_COLL_THREAD_LOCAL) {
     gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
-    gasneti_assert(*srclist != NULL);
+    gasnete_coll_generic_data_t *data;
     if_pt (gasnete_coll_threads_first(GASNETE_THREAD_PASS_ALONE)) {
-      gasnete_coll_generic_data_t *data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
+      data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
       GASNETE_COLL_GENERIC_SET_TAG(data, gatherM);
       data->threads.data = gasneti_calloc(gasnete_coll_my_images, sizeof(void *));
       data->args.gatherM.srclist    = (void**)data->threads.data;
-      data->args.gatherM.srclist[td->my_local_image] = *srclist;
       data->args.gatherM.dstimage   = dstimage;
       data->args.gatherM.dstnode    = gasnete_coll_image_node(dstimage);
       data->args.gatherM.dst        = dst; /* may get overwritten, but not worth a branch */
@@ -5253,21 +5255,15 @@ gasnete_coll_generic_gatherM_nb(gasnet_team_handle_t team,
       data->private_data = private_data;
       result = gasnete_coll_op_generic_init(team, flags, data, poll_fn, sequence GASNETE_THREAD_PASS);
     } else {
-      gasnete_coll_op_t *op = gasnete_coll_threads_get_op(GASNETE_THREAD_PASS_ALONE);
-      gasnete_coll_generic_data_t *data = op->data;
+      result = gasnete_coll_threads_get_handle_and_data(&data GASNETE_THREAD_PASS);
       if (td->my_image == dstimage) {
+	gasneti_assert(dst != NULL);
         data->args.gatherM.dst = dst;
         gasneti_sync_writes();
       }
-      data->args.gatherM.srclist[td->my_local_image] = *srclist; /* signalling write */
-      if (op->flags & (GASNET_COLL_OUT_ALLSYNC | GASNET_COLL_OUT_MYSYNC)) {
-        result = gasnete_coll_handle_create(GASNETE_THREAD_PASS_ALONE);
-        GASNETE_COLL_HANDLE_NEXT(result) = op->handle;
-        op->handle = result;
-      } else {
-        result = GASNET_COLL_INVALID_HANDLE;
-      }
     }
+    gasneti_assert(*srclist != NULL);
+    data->args.gatherM.srclist[td->my_local_image] = *srclist; /* signalling write */
   } else
   #endif
 
@@ -5300,6 +5296,14 @@ gasnete_coll_gatherM_nb_default(gasnet_team_handle_t team,
                                 GASNETE_THREAD_FARG)
 {
   const size_t eager_limit = GASNETE_COLL_P2P_EAGER_MIN;
+
+  #if GASNET_SEQ
+  /* Exactly one thread-local addr - forward to gath_nb() */
+  if (flags & GASNET_COLL_LOCAL) {
+    return gasnete_coll_gather_nb(team, dstimage, dst, srclist[0], nbytes,
+				  flags, sequence GASNETE_THREAD_PASS);
+  }
+  #endif
 
   /* "Discover" in-segment flags if needed/possible */
   flags = gasnete_coll_segment_checkM(flags, 1, dstimage, dst, nbytes*gasneti_nodes,
@@ -5562,33 +5566,24 @@ gasnete_coll_generic_gather_allM_nb(gasnet_team_handle_t team,
   #if GASNET_PAR
   if (flags & GASNETE_COLL_THREAD_LOCAL) {
     gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
-    gasneti_assert(*srclist != NULL);
-    gasneti_assert(*dstlist != NULL);
+    gasnete_coll_generic_data_t *data;
     if_pt (gasnete_coll_threads_first(GASNETE_THREAD_PASS_ALONE)) {
-      gasnete_coll_generic_data_t *data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
+      data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
       GASNETE_COLL_GENERIC_SET_TAG(data, gather_allM);
       data->threads.data = gasneti_calloc(2 * gasnete_coll_my_images, sizeof(void *));
       data->args.gather_allM.srclist    = (void**)data->threads.data;
-      data->args.gather_allM.srclist[td->my_local_image] = *srclist;
       data->args.gather_allM.dstlist    = (void**)data->threads.data + gasnete_coll_my_images;
-      data->args.gather_allM.dstlist[td->my_local_image] = *dstlist;
       data->args.gather_allM.nbytes     = nbytes;
       data->options = options;
       data->private_data = private_data;
       result = gasnete_coll_op_generic_init(team, flags, data, poll_fn, sequence GASNETE_THREAD_PASS);
     } else {
-      gasnete_coll_op_t *op = gasnete_coll_threads_get_op(GASNETE_THREAD_PASS_ALONE);
-      gasnete_coll_generic_data_t *data = op->data;
-      data->args.gather_allM.srclist[td->my_local_image] = *srclist;
-      data->args.gather_allM.dstlist[td->my_local_image] = *dstlist;
-      if (op->flags & (GASNET_COLL_OUT_ALLSYNC | GASNET_COLL_OUT_MYSYNC)) {
-        result = gasnete_coll_handle_create(GASNETE_THREAD_PASS_ALONE);
-        GASNETE_COLL_HANDLE_NEXT(result) = op->handle;
-        op->handle = result;
-      } else {
-        result = GASNET_COLL_INVALID_HANDLE;
-      }
+      result = gasnete_coll_threads_get_handle_and_data(&data GASNETE_THREAD_PASS);
     }
+    gasneti_assert(*srclist != NULL);
+    data->args.gather_allM.srclist[td->my_local_image] = *srclist;
+    gasneti_assert(*dstlist != NULL);
+    data->args.gather_allM.dstlist[td->my_local_image] = *dstlist;
   } else
   #endif
 
@@ -5615,6 +5610,14 @@ gasnete_coll_gather_allM_nb_default(gasnet_team_handle_t team,
 				    size_t nbytes, int flags, uint32_t sequence
 				    GASNETE_THREAD_FARG)
 {
+  #if GASNET_SEQ
+  /* Exactly one thread-local addr per list - forward to gall_nb() */
+  if (flags & GASNET_COLL_LOCAL) {
+    return gasnete_coll_gather_all_nb(team, dstlist[0], srclist[0], nbytes,
+				      flags, sequence GASNETE_THREAD_PASS);
+  }
+  #endif
+
   /* "Discover" in-segment flags if needed/possible */
   flags = gasnete_coll_segment_checkM(flags, 0, 0, dstlist, nbytes*gasneti_nodes,
     					 0, 0, srclist, nbytes);
@@ -5871,33 +5874,24 @@ gasnete_coll_generic_exchangeM_nb(gasnet_team_handle_t team,
   #if GASNET_PAR
   if (flags & GASNETE_COLL_THREAD_LOCAL) {
     gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
-    gasneti_assert(*srclist != NULL);
-    gasneti_assert(*dstlist != NULL);
+    gasnete_coll_generic_data_t *data;
     if_pt (gasnete_coll_threads_first(GASNETE_THREAD_PASS_ALONE)) {
-      gasnete_coll_generic_data_t *data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
+      data = gasnete_coll_generic_alloc(GASNETE_THREAD_PASS_ALONE);
       GASNETE_COLL_GENERIC_SET_TAG(data, exchangeM);
       data->threads.data = gasneti_calloc(2 * gasnete_coll_my_images, sizeof(void *));
       data->args.exchangeM.srclist    = (void**)data->threads.data;
-      data->args.exchangeM.srclist[td->my_local_image] = *srclist;
       data->args.exchangeM.dstlist    = (void**)data->threads.data + gasnete_coll_my_images;
-      data->args.exchangeM.dstlist[td->my_local_image] = *dstlist;
       data->args.exchangeM.nbytes     = nbytes;
       data->options = options;
       data->private_data = private_data;
       result = gasnete_coll_op_generic_init(team, flags, data, poll_fn, sequence GASNETE_THREAD_PASS);
     } else {
-      gasnete_coll_op_t *op = gasnete_coll_threads_get_op(GASNETE_THREAD_PASS_ALONE);
-      gasnete_coll_generic_data_t *data = op->data;
-      data->args.exchangeM.srclist[td->my_local_image] = *srclist;
-      data->args.exchangeM.dstlist[td->my_local_image] = *dstlist;
-      if (op->flags & (GASNET_COLL_OUT_ALLSYNC | GASNET_COLL_OUT_MYSYNC)) {
-        result = gasnete_coll_handle_create(GASNETE_THREAD_PASS_ALONE);
-        GASNETE_COLL_HANDLE_NEXT(result) = op->handle;
-        op->handle = result;
-      } else {
-        result = GASNET_COLL_INVALID_HANDLE;
-      }
+      result = gasnete_coll_threads_get_handle_and_data(&data GASNETE_THREAD_PASS);
     }
+    gasneti_assert(*srclist != NULL);
+    data->args.exchangeM.srclist[td->my_local_image] = *srclist;
+    gasneti_assert(*dstlist != NULL);
+    data->args.exchangeM.dstlist[td->my_local_image] = *dstlist;
   } else
   #endif
 
@@ -5924,6 +5918,14 @@ gasnete_coll_exchangeM_nb_default(gasnet_team_handle_t team,
 				  size_t nbytes, int flags, uint32_t sequence
 				  GASNETE_THREAD_FARG)
 {
+  #if GASNET_SEQ
+  /* Exactly one thread-local addr per list - forward to exchg_nb() */
+  if (flags & GASNET_COLL_LOCAL) {
+    return gasnete_coll_exchange_nb(team, dstlist[0], srclist[0], nbytes,
+				    flags, sequence GASNETE_THREAD_PASS);
+  }
+  #endif
+
   /* "Discover" in-segment flags if needed/possible */
   flags = gasnete_coll_segment_checkM(flags, 0, 0, dstlist, nbytes*gasneti_nodes,
 				      0, 0, srclist, nbytes*gasneti_nodes);

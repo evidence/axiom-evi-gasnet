@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2005/10/28 09:52:05 $
- * $Revision: 1.37 $
+ *     $Date: 2005/11/03 19:21:00 $
+ * $Revision: 1.38 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -115,6 +115,18 @@ typedef struct gasnete_coll_tree_data_t_ gasnete_coll_tree_data_t;
 extern gasnet_coll_handle_t gasnete_coll_handle_create(GASNETE_THREAD_FARG_ALONE);
 extern void gasnete_coll_handle_signal(gasnet_coll_handle_t handle GASNETE_THREAD_FARG);
 extern int gasnete_coll_handle_done(gasnet_coll_handle_t handle GASNETE_THREAD_FARG);
+
+/*---------------------------------------------------------------------------------*/
+/* Operations of the active list */
+
+extern gasneti_mutex_t gasnete_coll_active_lock;
+extern void gasnete_coll_active_init(void);
+extern void gasnete_coll_active_fini(void);
+extern gasnete_coll_op_t *gasnete_coll_active_first(void);
+extern gasnete_coll_op_t *gasnete_coll_active_next(gasnete_coll_op_t *op);
+extern void gasnete_coll_active_new(gasnete_coll_op_t *op);
+extern void gasnete_coll_active_ins(gasnete_coll_op_t *op);
+extern void gasnete_coll_active_del(gasnete_coll_op_t *op);
 
 /*---------------------------------------------------------------------------------*/
 
@@ -262,7 +274,6 @@ struct gasnete_coll_op_t_ {
     #if GASNET_PAR
 	struct {
 	    uint32_t			sequence;
-	    gasnete_coll_op_t		*next, **prev_p;
 	}			threads;
     #endif
 
