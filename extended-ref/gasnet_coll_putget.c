@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_putget.c,v $
- *     $Date: 2005/11/03 21:31:05 $
- * $Revision: 1.51 $
+ *     $Date: 2005/11/03 22:28:06 $
+ * $Revision: 1.52 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,11 +13,19 @@
 /*---------------------------------------------------------------------------------*/
 /* Forward decls and macros */
 
-#define GASNETE_COLL_FORWARD_FLAGS(flags) \
+#if GASNET_PAR
+  #define GASNETE_COLL_FORWARD_FLAGS(flags) \
+	(((flags) & ~(GASNET_COLL_IN_ALLSYNC|GASNET_COLL_IN_MYSYNC|\
+		      GASNET_COLL_OUT_ALLSYNC|GASNET_COLL_OUT_MYSYNC|\
+		      GASNET_COLL_AGGREGATE|GASNETE_COLL_THREAD_LOCAL)) \
+	  | (GASNET_COLL_IN_NOSYNC|GASNET_COLL_OUT_NOSYNC|GASNETE_COLL_SUBORDINATE))
+#else
+  #define GASNETE_COLL_FORWARD_FLAGS(flags) \
 	(((flags) & ~(GASNET_COLL_IN_ALLSYNC|GASNET_COLL_IN_MYSYNC|\
 		      GASNET_COLL_OUT_ALLSYNC|GASNET_COLL_OUT_MYSYNC|\
 		      GASNET_COLL_AGGREGATE)) \
 	  | (GASNET_COLL_IN_NOSYNC|GASNET_COLL_OUT_NOSYNC|GASNETE_COLL_SUBORDINATE))
+#endif
 
 /* XXX: Until we have gasnete_poll, a thread will only poll the collectives when
    it does a try/wait on a collective handle.  So we must ensure a polling thread
@@ -115,17 +123,23 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
   /* XXX: temporary limitation: */
   gasneti_assert(team == GASNET_TEAM_ALL);
 
-  #if GASNET_SEQ && GASNET_DEBUG
-    if ((flags & GASNET_COLL_LOCAL) && (dstisv || srcisv) && !gasneti_mynode) {
-      static int once = 1;
-      if_pf (once) {
-        fprintf(stderr, "NOTICE: Use of GASNET_COLL_LOCAL is discouraged with multi-address collectives in a GASNET_SEQ build - use single-address collectives instead\n");
-	once = 0;
-      }
-    }
-  #endif
 
   #if GASNET_DEBUG
+    #if GASNET_SEQ
+      if ((flags & GASNET_COLL_LOCAL) && (dstisv || srcisv) && !gasneti_mynode) {
+        static int once = 1;
+        if_pf (once) {
+          fprintf(stderr, "NOTICE: Use of GASNET_COLL_LOCAL is discouraged with multi-address collectives in a GASNET_SEQ build - use single-address collectives instead\n");
+	  once = 0;
+        }
+      }
+    #endif
+    #if GASNET_PAR
+      if ((flags & GASNET_COLL_SINGLE) && !(dstisv || srcisv)) {
+        gasneti_fatalerror("illegal use of GASNET_COLL_SINGLE with single-address collectives in a GASNET_PAR build");
+      }
+    #endif
+
     /* Validate IN sync mode */
     switch (GASNETE_COLL_IN_MODE(flags)) {
       case 0:
@@ -6063,3 +6077,36 @@ gasnete_coll_scanM_nb_default(gasnet_team_handle_t team,
 #endif
 #define GASNETE_REFCOLL_HANDLERS()                                 \
   GASNETE_COLL_P2P_HANDLERS
+
+/*---------------------------------------------------------------------------------*/
+
+#if GASNET_DEBUG
+void gasnete_coll_stat_(GASNETE_THREAD_FARG_ALONE) {
+  gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
+  int used = td->handles.used;
+  gasnete_coll_op_t *op;
+  fprintf(stderr, "%d:%d> %d handles used\n", gasneti_mynode, td->my_local_image, used);
+
+  if (used) {
+    gasnete_coll_local_handle_t *curr = gasnete_coll_local_handles(td, 0);
+    int i;
+
+    for (i = 0; i < used; ++i, ++curr) {
+      uintptr_t addr = curr->addr;
+      fprintf(stderr, "%sHANDLE %p\n", (addr&1)?"COLL_":"", (void*)(curr->u.handle));
+    }
+  }
+
+  /* gasneti_mutex_lock(&gasnete_coll_active_lock); */
+  op = gasnete_coll_active_first();
+  while (op) {
+    gasnete_coll_generic_data_t *data = op->data;
+    fprintf(stderr, "OP: %p in state %d\n", op, data->state);
+    op = gasnete_coll_active_next(op);
+  }
+  /* gasneti_mutex_unlock(&gasnete_coll_active_lock); */
+}
+
+extern void gasnete_coll_stat(void) { gasnete_coll_stat_(GASNETE_THREAD_GET_ALONE); }
+#endif
+
