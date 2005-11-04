@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2005/11/03 22:28:06 $
- * $Revision: 1.52 $
+ *     $Date: 2005/11/04 23:57:00 $
+ * $Revision: 1.53 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -135,8 +135,8 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
       }
     #endif
     #if GASNET_PAR
-      if ((flags & GASNET_COLL_SINGLE) && !(dstisv || srcisv)) {
-        gasneti_fatalerror("illegal use of GASNET_COLL_SINGLE with single-address collectives in a GASNET_PAR build");
+      if ((flags & GASNET_COLL_SINGLE) && !(dstisv || srcisv) && gasnete_coll_multi_images_any) {
+        gasneti_fatalerror("illegal use of GASNET_COLL_SINGLE with single-address collectives and multiple threads");
       }
     #endif
 
