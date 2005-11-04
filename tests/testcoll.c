@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/11/03 23:20:30 $
- * $Revision: 1.26 $
+ *     $Date: 2005/11/04 23:58:11 $
+ * $Revision: 1.27 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@
 #include <fcntl.h>
 
 #if GASNET_PAR
-  #define DEFAULT_THREADS 1	/* until unbroken */
+  #define DEFAULT_THREADS 2
 #else
   #define DEFAULT_THREADS 1
 #endif
@@ -444,13 +444,15 @@ void *thread_main(void *arg) {
 
 #if (GASNET_ALIGNED_SEGMENTS != 1)
     MSG00("Skipping SINGLE/single-addr tests (unaligned segments)");
-#elif GASNET_PAR
-    MSG00("Skipping SINGLE/single-addr tests (GASNET_PAR build)");
 #else
-    testSS_NONO(root, td);
-    testSS_MYMY(root, td);
-    testSS_ALLALL(root, td);
-    testSS_NB(root, td);
+    if (threads > 1) {
+      MSG00("Skipping SINGLE/single-addr tests (multiple threads)");
+    } else {
+      testSS_NONO(root, td);
+      testSS_MYMY(root, td);
+      testSS_ALLALL(root, td);
+      testSS_NB(root, td);
+    }
 #endif
     testSM_NONO(root, td);
     testSM_MYMY(root, td);
@@ -492,7 +494,7 @@ int main(int argc, char **argv)
       threads = atoi(argv[2]);
     }
     if (threads > TEST_MAXTHREADS || threads < 1) {
-      printf("ERROR: Threads must be between 1 and 256\n");
+      printf("ERROR: Threads must be between 1 and %d\n", TEST_MAXTHREADS);
       exit(EXIT_FAILURE);
     }
 #endif
