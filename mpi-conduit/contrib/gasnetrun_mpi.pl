@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/11/05 01:00:52 $
-# $Revision: 1.35 $
+#     $Date: 2005/11/05 01:08:16 $
+# $Revision: 1.36 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -143,14 +143,15 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	  %envfmt = ( 'pre' => $envprog,
 		      'val' => "'"
 		    );
+          $extra_quote_argv = 1;
 	} else {
 	  # front-end node: pass env as [/usr/bin/env '"A=1"' '"B=2"' '"C=3"'] to allow for extra shell
 	  %envfmt = ( 'pre' => $envprog,
 		      'lquote' => "'\"",
 		      'rquote' => "\"'"
 		    );
+          $extra_quote_argv = 2;
 	}
-        $extra_quote_argv = 1;
     } else {
 	$spawner_desc = "unknown program (using generic MPI spawner)";
 	# the OS already propagates the environment for us automatically
@@ -442,7 +443,9 @@ EOF
 			  } elsif ($_ eq '%D') {
                               $cwd;
                           } elsif ($_ eq '%A') {
-			      my @argv = ($extra_quote_argv ? (map { "'$_'" } @ARGV) : (@ARGV));
+			      my @argv = ( $extra_quote_argv == 1 ? (map { "'$_'" } @ARGV)
+					 : $extra_quote_argv == 2 ? (map { "'\"$_\"'" } @ARGV)
+					 : (@ARGV) );
 			      ($force_nonempty_argv && !@argv ? ("") : 
                                 ($group_join_argv ? join(' ', @argv) : @argv) );
                           } elsif ($_ eq '%V') {
