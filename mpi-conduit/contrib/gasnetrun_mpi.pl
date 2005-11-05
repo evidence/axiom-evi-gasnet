@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2005/09/16 22:40:53 $
-# $Revision: 1.34 $
+#     $Date: 2005/11/05 01:00:52 $
+# $Revision: 1.35 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -138,10 +138,18 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	@verbose_opt = ("-verbose", "2");
     } elsif ($is_jacquard) {
 	$spawner_desc = "NERSC/Jacquard mpirun";
-	# pass env as "/usr/bin/env 'A=1' 'B=2' 'C=3'"
-	%envfmt = ( 'pre' => $envprog,
-		    'val' => "'"
-		  );
+	if (`hostname` =~ m/jaccn/) {
+	  # compute node: pass env as "/usr/bin/env 'A=1' 'B=2' 'C=3'"
+	  %envfmt = ( 'pre' => $envprog,
+		      'val' => "'"
+		    );
+	} else {
+	  # front-end node: pass env as [/usr/bin/env '"A=1"' '"B=2"' '"C=3"'] to allow for extra shell
+	  %envfmt = ( 'pre' => $envprog,
+		      'lquote' => "'\"",
+		      'rquote' => "\"'"
+		    );
+	}
         $extra_quote_argv = 1;
     } else {
 	$spawner_desc = "unknown program (using generic MPI spawner)";
@@ -292,6 +300,10 @@ sub expand {
         if (defined $envfmt{val}) {
 	    my $q = $envfmt{val};
 	    @envargs = map { "$_=$q$ENV{$_}$q" } @envargs;
+        } elsif (defined $envfmt{lquote} || defined $envfmt{rquote}) {
+	    my $lq = $envfmt{lquote};
+	    my $rq = $envfmt{rquote};
+	    @envargs = map { "$_=$lq$ENV{$_}$rq" } @envargs;
         }
         # join them into a single argument if desired
         if (defined $envfmt{join}) {
