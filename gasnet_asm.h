@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2005/10/12 18:29:00 $
- * $Revision: 1.76 $
+ *     $Date: 2005/11/09 08:45:49 $
+ * $Revision: 1.77 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -169,7 +169,7 @@
       * only the stack, it is highly unlikely to result in extra coherence
       * traffic.
       */
-     #if defined(__PGI)
+     #if defined(__PGI) || defined(__SUNPRO_C)
        GASNETI_ASM("lock; addl $0,0(%esp)");
      #else
        GASNETI_ASM("lock; addl $0,0(%%esp)");
