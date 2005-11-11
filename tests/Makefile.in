@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2005/07/23 01:40:00 $
-# $Revision: 1.71 $
+#     $Date: 2005/11/11 06:48:40 $
+# $Revision: 1.72 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -224,7 +224,8 @@ run-tests: force
 	    ( eval env GASNET_DUMMY=\"GASNet dummy value\" $(TEST_ENV)                  \
 	    $$TIMECMD $$cmd || echo "ERROR: Test exited with failure code=$$?" )        \
                              2>&1 | tee .test-output ;                                  \
-            failure=`grep -e ERROR -e 'fatal signal' .test-output` ;                    \
+            failure=`grep -e ERROR -e 'fatal signal' .test-output |                     \
+                     grep -v 'Retrying allocation'` ;                                   \
             if test "$$failure" != "" ; then                                            \
                echo " " >> $(TESTLOG) ;                                                 \
                echo " *-* $$faildesc *-*" >> $(TESTLOG) ;                               \
