@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2005/10/31 18:53:39 $
- * $Revision: 1.137 $
+ *     $Date: 2005/11/20 03:59:15 $
+ * $Revision: 1.138 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1365,7 +1365,7 @@ int _gasneti_print_backtrace(int fd) {
 #if GASNET_TRACE
 	  int tracefd = fileno(gasneti_tracefile);
 #endif
-          sprintf(linebuf, GASNETI_BT_LABEL_FMT, gasneti_mynode);
+          sprintf(linebuf, GASNETI_BT_LABEL_FMT, (int)gasneti_mynode);
           len = strlen(linebuf);
           p = linebuf + len;
 	  len = sizeof(linebuf) - len;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2005/11/04 23:57:00 $
- * $Revision: 1.53 $
+ *     $Date: 2005/11/20 03:59:13 $
+ * $Revision: 1.54 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -6085,7 +6085,7 @@ void gasnete_coll_stat_(GASNETE_THREAD_FARG_ALONE) {
   gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
   int used = td->handles.used;
   gasnete_coll_op_t *op;
-  fprintf(stderr, "%d:%d> %d handles used\n", gasneti_mynode, td->my_local_image, used);
+  fprintf(stderr, "%d:%d> %d handles used\n", (int)gasneti_mynode, (int)td->my_local_image, used);
 
   if (used) {
     gasnete_coll_local_handle_t *curr = gasnete_coll_local_handles(td, 0);
