@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/Attic/gasnet_extended_coll.h,v $
- *     $Date: 2005/11/03 21:31:05 $
- * $Revision: 1.39 $
+ *     $Date: 2005/11/22 09:21:24 $
+ * $Revision: 1.40 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -908,6 +908,79 @@ void _gasnet_coll_wait_sync_all(gasnet_coll_handle_t *phandle, size_t numhandles
 #define gasnet_coll_wait_sync_all(phandle,numhandles) \
        _gasnet_coll_wait_sync_all(phandle,numhandles GASNETE_THREAD_GET)
 
+/*---------------------------------------------------------------------------------*/
+#ifdef __GNUC__
+/* bug1334: provide gcc with additional information about explicit handle return vals, 
+ * which should never be ignored */
+GASNET_INLINE_MODIFIER(_gasnet_coll_broadcast_nb)
+gasnet_coll_handle_t _gasnet_coll_broadcast_nb(gasnet_team_handle_t team, void *dst,
+                          gasnet_image_t srcimage, void *src,
+                          size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_broadcastM_nb)
+gasnet_coll_handle_t _gasnet_coll_broadcastM_nb(gasnet_team_handle_t team, void * const dstlist[],
+                           gasnet_image_t srcimage, void *src,
+                           size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_scatter_nb)
+gasnet_coll_handle_t _gasnet_coll_scatter_nb(gasnet_team_handle_t team, void *dst,
+                        gasnet_image_t srcimage, void *src,
+                        size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_scatterM_nb)
+gasnet_coll_handle_t _gasnet_coll_scatterM_nb(gasnet_team_handle_t team, void * const dstlist[],
+                         gasnet_image_t srcimage, void *src,
+                         size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_gather_nb)
+gasnet_coll_handle_t _gasnet_coll_gather_nb(gasnet_team_handle_t team,
+                       gasnet_image_t dstimage, void *dst, void *src,
+                       size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_gatherM_nb)
+gasnet_coll_handle_t _gasnet_coll_gatherM_nb(gasnet_team_handle_t team,
+                        gasnet_image_t dstimage, void *dst, void * const srclist[],
+                        size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_gather_all_nb)
+gasnet_coll_handle_t _gasnet_coll_gather_all_nb(gasnet_team_handle_t team,
+                           void *dst, void *src,
+                           size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_gather_allM_nb)
+gasnet_coll_handle_t _gasnet_coll_gather_allM_nb(gasnet_team_handle_t team,
+                            void * const dstlist[], void * const srclist[],
+                            size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_exchange_nb)
+gasnet_coll_handle_t _gasnet_coll_exchange_nb(gasnet_team_handle_t team,
+                         void *dst, void *src,
+                         size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_exchangeM_nb)
+gasnet_coll_handle_t _gasnet_coll_exchangeM_nb(gasnet_team_handle_t team,
+                          void * const dstlist[], void * const srclist[],
+                          size_t nbytes, int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_reduce_nb)
+gasnet_coll_handle_t _gasnet_coll_reduce_nb(gasnet_team_handle_t team,
+                       gasnet_image_t dstimage, void *dst,
+                       void *src, size_t src_blksz, size_t src_offset,
+                       size_t elem_size, size_t elem_count,
+                       gasnet_coll_fn_handle_t func, int func_arg,
+                       int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_reduceM_nb)
+gasnet_coll_handle_t _gasnet_coll_reduceM_nb(gasnet_team_handle_t team,
+                        gasnet_image_t dstimage, void *dst,
+                        void * const srclist[], size_t src_blksz, size_t src_offset,
+                        size_t elem_size, size_t elem_count,
+                        gasnet_coll_fn_handle_t func, int func_arg,
+                        int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_scan_nb)
+gasnet_coll_handle_t _gasnet_coll_scan_nb(gasnet_team_handle_t team,
+                     void *dst, size_t dst_blksz, size_t dst_offset,
+                     void *src, size_t src_blksz, size_t src_offset,
+                     size_t elem_size, size_t elem_count,
+                     gasnet_coll_fn_handle_t func, int func_arg,
+                     int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_coll_scanM_nb)
+gasnet_coll_handle_t _gasnet_coll_scanM_nb(gasnet_team_handle_t team,
+                      void * const dstlist[], size_t dst_blksz, size_t dst_offset,
+                      void * const srclist[], size_t src_blksz, size_t src_offset,
+                      size_t elem_size, size_t elem_count,
+                      gasnet_coll_fn_handle_t func, int func_arg,
+                      int flags GASNETE_THREAD_FARG) GASNETI_WARN_UNUSED_RESULT;
+#endif
 /*---------------------------------------------------------------------------------*/
 
 #ifndef gasnete_coll_broadcast_nb

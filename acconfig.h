@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/10/25 09:26:23 $ */
-/*  $Revision: 1.70 $ */
+/*      $Date: 2005/11/22 09:21:22 $ */
+/*  $Revision: 1.71 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -203,6 +203,13 @@
 #define GASNETI_NORETURN __attribute__((__noreturn__))
 #else
 #define GASNETI_NORETURN 
+#endif
+
+#if (__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4)
+  /* Warn if return value is ignored.  Available on gcc-3.4 and newer. */
+  #define GASNETI_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+#else
+  #define GASNETI_WARN_UNUSED_RESULT
 #endif
 
 /* these get us 64-bit file declarations under several Unixen */

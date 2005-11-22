@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
- *     $Date: 2005/03/12 11:21:12 $
- * $Revision: 1.8 $
+ *     $Date: 2005/11/22 09:21:24 $
+ * $Revision: 1.9 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -454,6 +454,43 @@ typedef enum _gasnete_synctype_t {
   gasnete_synctype_nb,
   gasnete_synctype_nbi
 } gasnete_synctype_t;
+
+#ifdef __GNUC__
+/* provide gcc with additional information about explicit handle returns, 
+ * which should never be ignored */
+GASNET_INLINE_MODIFIER(_gasnet_putv_nb_bulk)
+gasnet_handle_t _gasnet_putv_nb_bulk(gasnet_node_t dstnode,
+                                     size_t dstcount, gasnet_memvec_t const dstlist[], 
+                                     size_t srccount, gasnet_memvec_t const srclist[] GASNETE_THREAD_FARG)
+                                     GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_getv_nb_bulk)
+gasnet_handle_t _gasnet_getv_nb_bulk(size_t dstcount, gasnet_memvec_t const dstlist[], 
+                                     gasnet_node_t srcnode,
+                                     size_t srccount, gasnet_memvec_t const srclist[] GASNETE_THREAD_FARG)
+                                     GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_puti_nb_bulk)
+gasnet_handle_t _gasnet_puti_nb_bulk(gasnet_node_t dstnode,
+                                     size_t dstcount, void * const dstlist[], size_t dstlen,
+                                     size_t srccount, void * const srclist[], size_t srclen GASNETE_THREAD_FARG)
+                                     GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_geti_nb_bulk)
+gasnet_handle_t _gasnet_geti_nb_bulk(size_t dstcount, void * const dstlist[], size_t dstlen,
+                                     gasnet_node_t srcnode,
+                                     size_t srccount, void * const srclist[], size_t srclen GASNETE_THREAD_FARG)
+                                     GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_puts_nb_bulk)
+gasnet_handle_t _gasnet_puts_nb_bulk(gasnet_node_t dstnode,
+                                     void *dstaddr, const size_t dststrides[],
+                                     void *srcaddr, const size_t srcstrides[],
+                                     const size_t count[], size_t stridelevels GASNETE_THREAD_FARG)
+                                     GASNETI_WARN_UNUSED_RESULT;
+GASNET_INLINE_MODIFIER(_gasnet_gets_nb_bulk)
+gasnet_handle_t _gasnet_gets_nb_bulk(void *dstaddr, const size_t dststrides[],
+                                     gasnet_node_t srcnode,
+                                     void *srcaddr, const size_t srcstrides[],
+                                     const size_t count[], size_t stridelevels GASNETE_THREAD_FARG)
+                                     GASNETI_WARN_UNUSED_RESULT;
+#endif 
 
 /*---------------------------------------------------------------------------------*/
 /* Vector */
