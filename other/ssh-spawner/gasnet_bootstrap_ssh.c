@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/10/05 22:41:43 $
- * $Revision: 1.49 $
+ *     $Date: 2005/11/22 22:00:42 $
+ * $Revision: 1.50 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -956,9 +956,12 @@ static void recv_argv(int s, int *argc_p, char ***argv_p) {
 static void pre_spawn(int count) {
   struct sockaddr_in sock_addr;
   GASNET_SOCKLEN_T addr_len;
+  char *env_string;
 
   /* Get the cwd */
-  if (!getcwd(cwd, sizeof(cwd))) {
+  if ((env_string = getenv(ENV_PREFIX "SSH_REMOTE_PATH")) != NULL && strlen(env_string)) {
+    strncpy(cwd, env_string, sizeof(cwd));
+  } else if (!getcwd(cwd, sizeof(cwd))) {
     gasneti_fatalerror("getcwd() failed");
   }
 
