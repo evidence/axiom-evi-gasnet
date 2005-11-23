@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/11/22 09:21:22 $ */
-/*  $Revision: 1.71 $ */
+/*      $Date: 2005/11/23 02:03:40 $ */
+/*  $Revision: 1.72 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -192,7 +192,11 @@
 #define __attribute__(flags)
 #endif
 
-#if defined(__GNUC__) && !(__GNUC__ <= 2 && __GNUC_MINOR__ <= 95)
+#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4))
+  /* gcc-3.4 and newer: assert return value is unaliased + warn if unused */
+  #define GASNETI_MALLOC __attribute__((__malloc__,__warn_unused_result__))
+#elif defined(__GNUC__) && !(__GNUC__ <= 2 && __GNUC_MINOR__ <= 95)
+  /* gcc-2.96 and newer: assert return value is unaliased */
   #define GASNETI_MALLOC __attribute__((__malloc__))
 #else
   /* malloc attribute missing in egcs-2.91.66, gcc 2.95.4, and non-gcc compilers */
@@ -207,7 +211,7 @@
 
 #if (__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4)
   /* Warn if return value is ignored.  Available on gcc-3.4 and newer. */
-  #define GASNETI_WARN_UNUSED_RESULT __attribute__((warn_unused_result))
+  #define GASNETI_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
 #else
   #define GASNETI_WARN_UNUSED_RESULT
 #endif
