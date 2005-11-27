@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/11/22 21:34:07 $
- * $Revision: 1.51 $
+ *     $Date: 2005/11/27 16:00:07 $
+ * $Revision: 1.52 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -108,7 +108,8 @@
 #define gasnett_tick_t               gasneti_stattime_t
 #define GASNETT_TICK_MIN             GASNETI_STATTIME_MIN
 #define GASNETT_TICK_MAX             GASNETI_STATTIME_MAX
-#define gasnett_ticks_to_us(ticks)   GASNETI_STATTIME_TO_US(ticks)
+#define gasnett_ticks_to_us(ticks)  (GASNETI_STATTIME_TO_NS(ticks)/1000)
+#define gasnett_ticks_to_ns(ticks)   GASNETI_STATTIME_TO_NS(ticks)
 #define gasnett_ticks_now()          GASNETI_STATTIME_NOW()
 #define gasnett_timer_granularityus()   GASNETI_STATTIME_GRANULARITY()
 #define gasnett_timer_overheadus()      GASNETI_STATTIME_OVERHEAD()

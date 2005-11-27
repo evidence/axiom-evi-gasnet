@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2005/08/08 03:05:08 $
- * $Revision: 1.34 $
+ *     $Date: 2005/11/27 16:00:07 $
+ * $Revision: 1.35 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -62,10 +62,10 @@ static void *gasneti_mmap_internal(void *segbase, uintptr_t segsize) {
   t2 = GASNETI_STATTIME_NOW();
 
   GASNETI_TRACE_PRINTF(C, 
-      ("mmap %s("GASNETI_LADDRFMT", %lu): %dus => "GASNETI_LADDRFMT"%s%s\n", 
+      ("mmap %s("GASNETI_LADDRFMT", %lu): %.3fus => "GASNETI_LADDRFMT"%s%s\n", 
         (segbase == NULL?"":"fixed"),
         GASNETI_LADDRSTR(segbase), (unsigned long)segsize,
-        (unsigned int) GASNETI_STATTIME_TO_US(t2-t1),
+        GASNETI_STATTIME_TO_NS(t2-t1)/1000.0,
         GASNETI_LADDRSTR(ptr),
         (ptr == MAP_FAILED?"  MAP_FAILED: ":""),
         (ptr == MAP_FAILED?strerror(errno):"")));
@@ -116,9 +116,9 @@ extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
 	      GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
   t2 = GASNETI_STATTIME_NOW();
 
-  GASNETI_TRACE_PRINTF(D,("munmap("GASNETI_LADDRFMT", %lu): %dus\n", 
+  GASNETI_TRACE_PRINTF(D,("munmap("GASNETI_LADDRFMT", %lu): %.3fus\n", 
      GASNETI_LADDRSTR(segbase), (unsigned long)segsize,
-     (unsigned int) GASNETI_STATTIME_TO_US(t2-t1)) );
+     GASNETI_STATTIME_TO_NS(t2-t1)/1000.0) );
 }
 /* ------------------------------------------------------------------------------------ */
 /* binary search for segment - returns location, not mmaped */

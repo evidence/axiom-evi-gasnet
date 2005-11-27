@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2005/09/21 13:51:41 $
- * $Revision: 1.20 $
+ *     $Date: 2005/11/27 16:00:15 $
+ * $Revision: 1.21 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -27,14 +27,14 @@ void report(const char *desc, int64_t totaltime, int iters) {
       char format[80];
       sprintf(format, "%%-50s: %%%i.%if sec  %%%i.%if us/iter\n", 
               (4+accuracy), accuracy, (4+accuracy), accuracy);
-      printf(format, desc, ((float)totaltime)/1000000, ((float)totaltime)/iters);
+      printf(format, desc, totaltime/1.0E9, (totaltime/1000.0)/iters);
       fflush(stdout);
   }
 }
 
 /* placed in a function to avoid excessive inlining */
 gasnett_tick_t ticktime() { return gasnett_ticks_now(); }
-uint64_t tickcvt(gasnett_tick_t ticks) { return gasnett_ticks_to_us(ticks); }
+uint64_t tickcvt(gasnett_tick_t ticks) { return gasnett_ticks_to_ns(ticks); }
 
 void doit1();
 void doit2();
@@ -155,6 +155,9 @@ void doit1() { GASNET_BEGIN_FUNCTION();
     
     TIME_OPERATION("gasnett_ticks_to_us()",
       { timertemp = (gasnett_tick_t)gasnett_ticks_to_us(timertemp); });
+    
+    TIME_OPERATION("gasnett_ticks_to_ns()",
+      { timertemp = (gasnett_tick_t)gasnett_ticks_to_ns(timertemp); });
     
     TIME_OPERATION("Do-nothing gasnet_AMPoll()",
       { gasnet_AMPoll(); });

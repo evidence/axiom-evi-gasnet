@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.7 $
+ *     $Date: 2005/11/27 16:00:15 $
+ * $Revision: 1.8 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -322,10 +322,10 @@ int main(int argc, char **argv) {
               min = MIN(min,thistime);                                      \
               max = MAX(max,thistime);                                      \
             }                                                               \
-            { double avgus = gasnett_ticks_to_us(total) /                   \
+            { double avgus = gasnett_ticks_to_ns(total) / 1000.0 /          \
                              (double)iters / (double)depth;                 \
-              double minus = gasnett_ticks_to_us(min) / (double)depth;      \
-              double maxus = gasnett_ticks_to_us(max) / (double)depth;      \
+              double minus = gasnett_ticks_to_ns(min) / 1000.0 / (double)depth; \
+              double maxus = gasnett_ticks_to_ns(max) / 1000.0 / (double)depth; \
               int prec;                                                     \
               if (avgus < 1000.0) prec = 3;                                 \
               else if (avgus < 10000.0) prec = 2;                           \

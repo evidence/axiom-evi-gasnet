@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/10/12 12:36:27 $
- * $Revision: 1.24 $
+ *     $Date: 2005/11/27 16:00:13 $
+ * $Revision: 1.25 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1466,7 +1466,7 @@ gasnetc_SHMallocSegmentSearch()
 	if (gasnetc_verbose_spawn)
 		printf("shmalloc search for %lu bytes (max=%lu) took %lu us (%p,%lu)\n", 
 		    si.size, maxsz, 
-		    (long)GASNETI_STATTIME_TO_US(endtime-starttime),
+		    (long)GASNETI_STATTIME_TO_NS(endtime-starttime)/1000,
 		    (void*)si.addr,(uintptr_t)si.size);
 
 	return si;

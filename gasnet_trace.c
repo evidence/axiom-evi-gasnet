@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/10/18 19:45:51 $
- * $Revision: 1.120 $
+ *     $Date: 2005/11/27 16:00:07 $
+ * $Revision: 1.121 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -340,7 +340,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
   /* dump message to tracefile */
   extern void gasneti_trace_output(const char *type, const char *msg, int traceheader) {
     if (gasneti_tracefile) {
-      double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
+      double time = GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - starttime) / 1.0E9;
       gasneti_mutex_lock(&gasneti_tracelock);
         if (gasneti_tracefile) 
           gasneti_file_output(gasneti_tracefile, time, type, msg, traceheader);
@@ -349,7 +349,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
   }
   extern void gasneti_stats_output(const char *type, const char *msg, int traceheader) {
     if (gasneti_tracefile || gasneti_statsfile) {
-      double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
+      double time = GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - starttime) / 1.0E9;
       gasneti_mutex_lock(&gasneti_tracelock);
         if (gasneti_statsfile) 
           gasneti_file_output(gasneti_statsfile, time, type, msg, traceheader);
@@ -362,7 +362,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
   }
   extern void gasneti_tracestats_output(const char *type, const char *msg, int traceheader) {
     if (gasneti_tracefile || gasneti_statsfile) {
-      double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
+      double time = GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - starttime) / 1.0E9;
       gasneti_mutex_lock(&gasneti_tracelock);
         if (gasneti_statsfile) 
           gasneti_file_output(gasneti_statsfile, time, type, msg, traceheader);
@@ -675,7 +675,7 @@ extern void gasneti_trace_finish() {
   gasneti_mutex_lock(&gasneti_tracefinishlock);
   if (gasneti_tracefile || gasneti_statsfile) {
 
-    double time = GASNETI_STATTIME_TO_US(GASNETI_STATTIME_NOW() - starttime) / 1000000.0;
+    double time = GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - starttime) / 1.0E9;
     gasneti_tracestats_printf("Total application run time: %10.6fs", time);
 
     fflush(NULL);
@@ -730,13 +730,13 @@ extern void gasneti_trace_finish() {
           if (!p->count)                                                                \
             gasneti_stats_printf(" %-25s %6i", #name":", 0);                            \
           else                                                                          \
-            gasneti_stats_printf(" %-25s %6i  avg/min/max/total %s (us) = %i/%i/%i/%i", \
+            gasneti_stats_printf(" %-25s %6i  avg/min/max/total %s (us) = %.3f/%.3f/%.3f/%.3f", \
                   #name":", (int)p->count,                                              \
                   pdesc,                                                                \
-                  (int)GASNETI_STATTIME_TO_US(CALC_AVG(p->sumval, p->count)),           \
-                  (int)GASNETI_STATTIME_TO_US(p->minval),                               \
-                  (int)GASNETI_STATTIME_TO_US(p->maxval),                               \
-                  (int)GASNETI_STATTIME_TO_US(p->sumval));                              \
+                  GASNETI_STATTIME_TO_NS(CALC_AVG(p->sumval, p->count))/1000.0,         \
+                  GASNETI_STATTIME_TO_NS(p->minval)/1000.0,                             \
+                  GASNETI_STATTIME_TO_NS(p->maxval)/1000.0,                             \
+                  GASNETI_STATTIME_TO_NS(p->sumval)/1000.0);                            \
           ACCUM((&AGGRNAME(timeval,type)), p);                                          \
         }
 
@@ -793,12 +793,12 @@ extern void gasneti_trace_finish() {
         if (!wait_time->count)
           gasneti_stats_printf("%-25s  %6i","Total wait sync. calls:",0);
         else
-          gasneti_stats_printf("%-25s  %6i  avg/min/max/total waittime (us) = %i/%i/%i/%i", 
+          gasneti_stats_printf("%-25s  %6i  avg/min/max/total waittime (us) = %.3f/%.3f/%.3f/%.3f", 
             "Total wait sync. calls:", ((int)wait_time->count),
-            (int)GASNETI_STATTIME_TO_US(CALC_AVG(wait_time->sumval, wait_time->count)),
-            (int)GASNETI_STATTIME_TO_US(wait_time->minval),
-            (int)GASNETI_STATTIME_TO_US(wait_time->maxval),
-            (int)GASNETI_STATTIME_TO_US(wait_time->sumval));
+            GASNETI_STATTIME_TO_NS(CALC_AVG(wait_time->sumval, wait_time->count))/1000.0,
+            GASNETI_STATTIME_TO_NS(wait_time->minval)/1000.0,
+            GASNETI_STATTIME_TO_NS(wait_time->maxval)/1000.0,
+            GASNETI_STATTIME_TO_NS(wait_time->sumval)/1000.0);
       }
       if (GASNETI_STATS_ENABLED(X)) {
         gasneti_stat_intval_t *try_succ = &AGGRNAME(intval,X);
@@ -812,12 +812,12 @@ extern void gasneti_trace_finish() {
         if (!wait_time->count)
           gasneti_stats_printf("%-25s  %6i","Total coll. wait syncs:",0);
         else
-          gasneti_stats_printf("%-25s  %6i  avg/min/max/total waittime (us) = %i/%i/%i/%i", 
+          gasneti_stats_printf("%-25s  %6i  avg/min/max/total waittime (us) = %.3f/%.3f/%.3f/%.3f", 
             "Total coll. wait syncs:", ((int)wait_time->count),
-            (int)GASNETI_STATTIME_TO_US(CALC_AVG(wait_time->sumval, wait_time->count)),
-            (int)GASNETI_STATTIME_TO_US(wait_time->minval),
-            (int)GASNETI_STATTIME_TO_US(wait_time->maxval),
-            (int)GASNETI_STATTIME_TO_US(wait_time->sumval));
+            GASNETI_STATTIME_TO_NS(CALC_AVG(wait_time->sumval, wait_time->count))/1000.0,
+            GASNETI_STATTIME_TO_NS(wait_time->minval)/1000.0,
+            GASNETI_STATTIME_TO_NS(wait_time->maxval)/1000.0,
+            GASNETI_STATTIME_TO_NS(wait_time->sumval)/1000.0);
       }
       if (GASNETI_STATS_ENABLED(A)) 
         gasneti_stats_printf("%-25s  %6i", "Total AM's:", (int)AGGRNAME(ctr,A));

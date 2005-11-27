@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2005/10/01 10:23:49 $
- * $Revision: 1.45 $
+ *     $Date: 2005/11/27 16:00:07 $
+ * $Revision: 1.46 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -878,9 +878,9 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
     GASNETI_TRACE_PRINTF(type, ("%s: %s = %6llu",     \
         #name, gasneti_stats[(int)GASNETI_STAT_##name].desc, (unsigned long long)val))
   #define _GASNETI_TRACE_EVENT_TIME(type, name, time)        \
-    GASNETI_TRACE_PRINTF(type, ("%s: %s = %6lluus",            \
+    GASNETI_TRACE_PRINTF(type, ("%s: %s = %6.3fus",            \
         #name, gasneti_stats[(int)GASNETI_STAT_##name].desc, \
-        (unsigned long long)GASNETI_STATTIME_TO_US(time)))
+        GASNETI_STATTIME_TO_NS(time)/1000.0))
 #else
   #define _GASNETI_TRACE_EVENT(type, name) 
   #define _GASNETI_TRACE_EVENT_VAL(type, name, val) 
