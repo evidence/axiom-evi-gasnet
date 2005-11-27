@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2005/11/26 06:40:25 $
- * $Revision: 1.139 $
+ *     $Date: 2005/11/27 07:01:46 $
+ * $Revision: 1.140 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1363,8 +1363,10 @@ int _gasneti_print_backtrace(int fd) {
 	  char *p;
 	  int len;
           int tracefd = -1;
+          FILE *tracefp = NULL;
 #if GASNET_TRACE
-	  if (gasneti_tracefile) tracefd = fileno(gasneti_tracefile);
+          tracefp = gasneti_tracefile;
+	  if (tracefp) tracefd = fileno(tracefp);
 #endif
           sprintf(linebuf, GASNETI_BT_LABEL_FMT, (int)gasneti_mynode);
           len = strlen(linebuf);
@@ -1373,7 +1375,7 @@ int _gasneti_print_backtrace(int fd) {
 
 	  /* Send to requested destination (and tracefile if any) */
 	  if (tracefd >= 0) {
-	    GASNETI_TRACE_PRINTF(U,("========== BEGIN BACKTRACE ==========")); fflush(gasneti_tracefile);
+	    GASNETI_TRACE_PRINTF(U,("========== BEGIN BACKTRACE ==========")); fflush(tracefp);
 	  }
 	  rewind(file);
 	  while (fgets(p, len, file)) {
@@ -1383,7 +1385,7 @@ int _gasneti_print_backtrace(int fd) {
 	    }
 	  }
 	  if (tracefd >= 0) {
-	    GASNETI_TRACE_PRINTF(U,("========== END BACKTRACE ==========")); fflush(gasneti_tracefile);
+	    GASNETI_TRACE_PRINTF(U,("========== END BACKTRACE ==========")); fflush(tracefp);
           }
           break;
         } else {
