@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2005/11/27 16:00:09 $
- * $Revision: 1.22 $
+ *     $Date: 2005/11/27 16:13:25 $
+ * $Revision: 1.23 $
  * Description: GASNet header for elan conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,12 +44,17 @@ BEGIN_EXTERNC
         VAL(C, GET_AMLONG, sz)         
 
 /* ------------------------------------------------------------------------------------ */
-/* use ELAN-specific high-performance nanosecond timer */
+/* use ELAN-specific high-performance nanosecond timer -
+   currently only a win on Alpha, where the native timer support is poor
+ */
+#if defined(__alpha__) || defined(__alpha) || \
+    defined(GASNETC_FORCE_ELAN_TIMERS)
 #define GASNETC_CONDUIT_SPECIFIC_TIMERS
 typedef uint64_t gasneti_stattime_t;
 extern uint64_t gasnetc_clock();
 #define GASNETI_STATTIME_NOW()      (gasnetc_clock())
 #define GASNETI_STATTIME_TO_NS(st)  (st)
+#endif
 /* ------------------------------------------------------------------------------------ */
 
 #define GASNETC_TRACE_FINISH()  gasnetc_trace_finish()
