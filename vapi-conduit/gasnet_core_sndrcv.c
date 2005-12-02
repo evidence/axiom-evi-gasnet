@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/10/31 23:38:40 $
- * $Revision: 1.125 $
+ *     $Date: 2005/12/02 22:49:03 $
+ * $Revision: 1.126 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1793,6 +1793,14 @@ static void gasnetc_do_get_zerocp(gasnetc_epid_t epid, VAPI_rkey_t rkey,
   gasneti_assert(seg_count == 0);
 }
 #else
+GASNET_INLINE_MODIFIER(gasnetc_fh_drop_local)
+void gasnetc_fh_drop_local(gasnetc_sreq_t *sreq) {
+  if_pf (sreq->fh_count > 1) {
+    firehose_release(sreq->fh_ptr+1, sreq->fh_count-1);
+    sreq->fh_count = 1;
+  }
+}
+
 GASNET_INLINE_MODIFIER(gasnetc_fh_put_inline)
 void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq, const firehose_request_t *fh_rem, size_t len) {
   GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
@@ -1802,7 +1810,8 @@ void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq, const firehose_request_t *fh_re
   gasneti_assert(sreq->fh_rem_addr >= fh_rem->addr);
   gasneti_assert(sreq->fh_rem_addr + (len - 1) <= fh_rem->addr + (fh_rem->len - 1));
 
-  sreq->fh_count = 1;
+  /* If we managed to pick up any local firehoses then release them now */
+  gasnetc_fh_drop_local(sreq);
 
   sr_desc->opcode      = VAPI_RDMA_WRITE;
   sr_desc->remote_addr = sreq->fh_rem_addr;
@@ -1827,6 +1836,9 @@ void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq, const firehose_request_t *
   uintptr_t dst = orig_sreq->fh_rem_addr;
   VAPI_rkey_t rkey = fh_rem->client.rkey;
   gasnetc_counter_t *mem_oust;
+
+  /* If we managed to pick up any local firehoses then release them now */
+  gasnetc_fh_drop_local(orig_sreq);
 
   gasneti_assert(nbytes != 0);
   gasneti_assert(orig_sreq->mem_oust != NULL);
@@ -1861,7 +1873,6 @@ void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq, const firehose_request_t *
 
   mem_oust = orig_sreq->mem_oust;
   orig_sreq->mem_oust = NULL;
-  orig_sreq->fh_count = 1;
 
   orig_sreq->fh_bbuf = gasnetc_get_bbuf(1);
   memcpy(orig_sreq->fh_bbuf, (void *)src, nbytes);
@@ -2047,6 +2058,7 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
   /* Get local firehose(s) IFF inline and bounce-buffers are not to be used.
    * We do this here to overlap with the in-flight AM if applicable.
    */
+  sreq->fh_count = 1;
   if (!(len <= gasnetc_inline_limit) &&
       !((len <= gasnetc_bounce_limit) && (sreq->mem_oust != NULL))) {
     len = gasnetc_get_local_fh(sreq, loc_addr, len);
