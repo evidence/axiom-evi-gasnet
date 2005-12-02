@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/10/31 23:32:11 $
- * $Revision: 1.22 $
+ *     $Date: 2005/12/02 20:18:16 $
+ * $Revision: 1.23 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1012,8 +1012,8 @@ fh_acquire_remote_region(firehose_request_t *req,
     priv = fhi_find_priv(node, req->addr, req->len);
     if_pf (priv == NULL) {
 	/* MISS */
-    	char *payload[(1+FH_MAX_UNPIN_REM)*sizeof(firehose_region_t) +
-		      sizeof(firehose_remotecallback_args_t)];
+    	char payload[(1+FH_MAX_UNPIN_REM)*sizeof(firehose_region_t) +
+		     sizeof(firehose_remotecallback_args_t)];
     	firehose_region_t *pin_region = (firehose_region_t *)payload;
     	firehose_region_t *unpin_regions = pin_region + 1;
 	size_t payload_size = sizeof(firehose_region_t);
@@ -1059,6 +1059,8 @@ fh_acquire_remote_region(firehose_request_t *req,
 	if (num_unpin)
 	    firehose_unbind_callback(node, unpin_region, 1);
 	#endif
+
+	req->flags |= FH_FLAG_INFLIGHT;
 
 	MEDIUM_REQ(4,5,
 		   (node,
