@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_firehose.c,v $
- *     $Date: 2005/06/29 22:51:17 $
- * $Revision: 1.7 $
+ *     $Date: 2005/12/02 00:21:08 $
+ * $Revision: 1.8 $
  * Description: Client-specific firehose code
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -107,8 +107,18 @@ firehose_move_callback(gasnet_node_t node,
 		    VAPI_EN_REMOTE_WRITE |
 		    VAPI_EN_REMOTE_READ;
 
-    /* Perform replacements where possible */
     repin_num = MIN(unpin_num, pin_num);
+
+    /* Take care of any unpairable unpins first */
+    for (i = repin_num; i < unpin_num; i++) {
+	VAPI_mr_hndl_t old_handle = unpin_list[i].client.handle;
+
+	vstat = VAPI_deregister_mr(gasnetc_hca, old_handle);
+        GASNETC_VAPI_CHECK(vstat, "from VAPI_deregister_mr");
+	GASNETC_TRACE_UNPIN(&unpin_list[i]);
+    }
+
+    /* Perform replacements where possible */
     for (i = 0; i < repin_num; i++) {
 	firehose_region_t *region = pin_list + i;
 	firehose_client_t *client = &region->client;
@@ -131,41 +141,25 @@ firehose_move_callback(gasnet_node_t node,
 	client->lkey     = mr_out.l_key;
 	client->rkey     = mr_out.r_key;
     }
-    unpin_list += repin_num;
-    unpin_num -= repin_num;
-    pin_list += repin_num;
-    pin_num -= repin_num;
 
-    /* Take care of any "left over".
-     * Note that we can't have entries left in *both* lists */
-    if (unpin_num) {
-        for (i = 0; i < unpin_num; i++) {
-	    VAPI_mr_hndl_t old_handle = unpin_list[i].client.handle;
-
-	    vstat = VAPI_deregister_mr(gasnetc_hca, old_handle);
-            GASNETC_VAPI_CHECK(vstat, "from VAPI_deregister_mr");
-	    GASNETC_TRACE_UNPIN(&unpin_list[i]);
-        }
-    }
-    else if (pin_num) {
-        for (i = 0; i < pin_num; i++) {
-	    firehose_region_t *region = pin_list + i;
-	    firehose_client_t *client = &region->client;
-	    VAPI_mr_t mr_out;
+    /* Take care of any unpairable pins */
+    for (i = repin_num; i < pin_num; i++) {
+	firehose_region_t *region = pin_list + i;
+	firehose_client_t *client = &region->client;
+	VAPI_mr_t mr_out;
     
-	    gasneti_assert(region->addr % GASNET_PAGESIZE == 0);
-	    gasneti_assert(region->len % GASNET_PAGESIZE == 0);
+	gasneti_assert(region->addr % GASNET_PAGESIZE == 0);
+	gasneti_assert(region->len % GASNET_PAGESIZE == 0);
     
-	    mr_in.start = (uintptr_t)region->addr;
-	    mr_in.size  = region->len;
+	mr_in.start = (uintptr_t)region->addr;
+	mr_in.size  = region->len;
     
-	    vstat = VAPI_register_mr(gasnetc_hca, &mr_in, &client->handle, &mr_out);
-            GASNETC_VAPI_CHECK(vstat, "from VAPI_register_mr");
-	    GASNETC_TRACE_PIN(&pin_list[i]);
+	vstat = VAPI_register_mr(gasnetc_hca, &mr_in, &client->handle, &mr_out);
+        GASNETC_VAPI_CHECK(vstat, "from VAPI_register_mr");
+	GASNETC_TRACE_PIN(&pin_list[i]);
     
-	    client->lkey     = mr_out.l_key;
-	    client->rkey     = mr_out.r_key;
-	}
+	client->lkey     = mr_out.l_key;
+	client->rkey     = mr_out.r_key;
     }
 
     GASNETC_TRACE_WAIT_END(FIREHOSE_MOVE);
