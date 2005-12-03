@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2005/11/04 23:58:11 $
- * $Revision: 1.27 $
+ *     $Date: 2005/12/03 15:04:05 $
+ * $Revision: 1.28 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -496,6 +496,11 @@ int main(int argc, char **argv)
     if (threads > TEST_MAXTHREADS || threads < 1) {
       printf("ERROR: Threads must be between 1 and %d\n", TEST_MAXTHREADS);
       exit(EXIT_FAILURE);
+    }
+    if (threads > gasnett_cpu_count()) {
+      MSG0("WARNING: thread count (%i) exceeds physical cpu count (%i) - enabling  \"polite\", low-performance synchronization algorithms",
+        threads, gasnett_cpu_count());
+      gasnet_set_waitmode(GASNET_WAIT_BLOCK);
     }
 #endif
 
