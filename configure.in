@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/11/28 07:29:34 $
-# $Revision: 1.308 $
+#     $Date: 2005/12/03 16:40:51 $
+# $Revision: 1.309 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.308 $)
+AC_REVISION($Revision: 1.309 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -957,7 +957,7 @@ fi
 #---------------------------------------------------------------------------------------------------------------
 # MPI/AMMPI Configuration
 # (In the future it would be nice to try and discover MPI setup automatically)
-pushdef([CONDUIT_DESC],[portable MPI-1.1 network conduit (mpi)])
+pushdef([CONDUIT_DESC],[portable MPI-1.1/2.x network conduit (mpi)])
 GASNET_IF_ENABLED_WITH_AUTO(mpi, Enable/disable the CONDUIT_DESC (auto-detected),
   [enabled_mpi=yes;force_mpi=yes],
   enabled_mpi=no,
