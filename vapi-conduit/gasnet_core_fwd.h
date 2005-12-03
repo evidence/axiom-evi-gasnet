@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2005/08/20 10:53:10 $
- * $Revision: 1.30 $
+ *     $Date: 2005/12/03 01:42:23 $
+ * $Revision: 1.31 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -48,6 +48,7 @@ typedef uint8_t gasnet_handler_t;
         CNT(C, AMREPLY_SYS, cnt)                  \
         CNT(C, AMREQUEST_SYS_HANDLER, cnt)        \
         CNT(C, AMREPLY_SYS_HANDLER, cnt)          \
+        VAL(C, RDMA_PUT_IN_MOVE, bytes)           \
         VAL(C, RDMA_PUT_INLINE, bytes)            \
         VAL(C, RDMA_PUT_BOUNCE, bytes)            \
         VAL(C, RDMA_PUT_ZEROCP, bytes)            \

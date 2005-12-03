@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/02 22:49:03 $
- * $Revision: 1.126 $
+ *     $Date: 2005/12/03 01:42:23 $
+ * $Revision: 1.127 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -142,6 +142,9 @@ typedef struct {
       int			fh_count;
       const firehose_request_t	*fh_ptr[GASNETC_MAX_FH];
       size_t			fh_len;
+#if GASNETC_PUTINMOVE_LIMIT
+      size_t			fh_skip;
+#endif
       uintptr_t			fh_loc_addr;
       uintptr_t			fh_rem_addr;
       gasnetc_buffer_t		*fh_bbuf;
@@ -155,6 +158,7 @@ typedef struct {
   #define fh_count	u.fh.fh_count
   #define fh_ptr	u.fh.fh_ptr
   #define fh_len	u.fh.fh_len
+  #define fh_skip	u.fh.fh_skip
   #define fh_loc_addr	u.fh.fh_loc_addr
   #define fh_rem_addr	u.fh.fh_rem_addr
   #define fh_bbuf	u.fh.fh_bbuf
@@ -818,6 +822,7 @@ gasnetc_sreq_t *gasnetc_get_sreq(void) {
     sreq->cep = NULL;
     sreq->fh_count = GASNETC_MAX_FH + 1;
     #if !GASNETC_PIN_SEGMENT
+    sreq->fh_count = ~0;
     sreq->fh_len = ~0;
     #endif
   #endif
@@ -1792,7 +1797,7 @@ static void gasnetc_do_get_zerocp(gasnetc_epid_t epid, VAPI_rkey_t rkey,
 
   gasneti_assert(seg_count == 0);
 }
-#else
+#else /* !GASNETC_PIN_SEGMENT */
 GASNET_INLINE_MODIFIER(gasnetc_fh_drop_local)
 void gasnetc_fh_drop_local(gasnetc_sreq_t *sreq) {
   if_pf (sreq->fh_count > 1) {
@@ -1837,13 +1842,13 @@ void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq, const firehose_request_t *
   VAPI_rkey_t rkey = fh_rem->client.rkey;
   gasnetc_counter_t *mem_oust;
 
-  /* If we managed to pick up any local firehoses then release them now */
-  gasnetc_fh_drop_local(orig_sreq);
-
   gasneti_assert(nbytes != 0);
   gasneti_assert(orig_sreq->mem_oust != NULL);
   gasneti_assert(orig_sreq->fh_rem_addr >= fh_rem->addr);
   gasneti_assert(orig_sreq->fh_rem_addr + (nbytes - 1) <= fh_rem->addr + (fh_rem->len - 1));
+
+  /* If we managed to pick up any local firehoses then release them now */
+  gasnetc_fh_drop_local(orig_sreq);
 
   /* Use full bounce buffers until just one buffer worth of data remains */
   while (nbytes > GASNETC_BUFSZ) {
@@ -1912,7 +1917,18 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq, VAPI_wr_opcode_t op) {
   sg_entry = sr_desc->sg_lst_p;
   for (i = 1; i < sreq->fh_count; ++i) {
     const firehose_request_t *fh_req = sreq->fh_ptr[i];
-    size_t nbytes = MIN(remain, (fh_req->addr + fh_req->len - loc_addr));
+    uintptr_t next = fh_req->addr + fh_req->len;
+    size_t nbytes = MIN(remain, (next - loc_addr));
+
+#if GASNETC_PUTINMOVE_LIMIT
+    if_pf (loc_addr >= next) {
+      /* The MOVE AM must have advanced us beyond this local firehose */
+      gasneti_assert(op == VAPI_RDMA_WRITE);
+      gasneti_assert(sreq->fh_skip > 0);
+      sr_desc->sg_lst_len -= 1;
+      continue;
+    }
+#endif
 
     gasneti_assert(remain > 0);
     gasneti_assert(nbytes > 0);
@@ -1932,7 +1948,38 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq, VAPI_wr_opcode_t op) {
 
 static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq) {
   const firehose_request_t *fh_rem = sreq->fh_ptr[0];
+#if !GASNETC_PUTINMOVE_LIMIT
   const size_t nbytes = sreq->fh_len;
+#else
+  const size_t miss_skip = sreq->fh_skip;	/* bytes sent by AM on a fh MISS */
+  const size_t nbytes = sreq->fh_len - miss_skip;
+
+  /* If miss_skip is non-zero, then we are processing a firehose MISS that has
+   * sent the first fh_skip bytes in the move AM.  Since we are here, we
+   * know that the Reply to that AM has arrived.
+   */
+  if_pf (miss_skip) {
+    GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_IN_MOVE, miss_skip);
+  }
+
+  if_pf (!nbytes) {
+    /* All done in the AM.  Free the sreq since snd_reap will never see it. */
+    gasnetc_counter_dec_if(sreq->mem_oust);
+    gasnetc_counter_dec_if(sreq->req_oust);
+    gasnetc_counter_dec_if(sreq->fh_oust);
+    gasnetc_fh_drop_local(sreq);
+    gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
+    return;
+  }
+
+  /*
+   * Common fixup done unconditionally to avoid a branch.
+   * Additional fixups are done in gasnetc_fh_put_{inline,bounce} or gasnetc_fh_post.
+   */
+  sreq->fh_len = nbytes;
+  sreq->fh_loc_addr += miss_skip;
+  sreq->fh_rem_addr += miss_skip;
+#endif
 
   if (nbytes <= gasnetc_inline_limit) {
     /* Inline when small enough */
@@ -1960,15 +2007,27 @@ int gasnetc_sreq_is_ready(gasnetc_sreq_t *sreq) {
 static void gasnetc_fh_put_cb(void *context, const firehose_request_t *fh_rem, int allLocalHit) {
   gasnetc_sreq_t *sreq = context;
 
-  #if 0
-  /* XXX when implementing a piggybacked Put for bug #1057, we must check allLocalHit
-     to determine is any AM was sent or not. */
-  if (!allLocalHit) {
-    /* We *did* send an AM */
-    sreq->fh_skip = ...
-    /* everything else happens in gasnetc_fh_post, when everything is ready */
-  }
+  /* allLocalHit indicates that we made a firehose_remote_pin() request that was
+   * satisfied fully from local knowledge.  Since our calls to firehose_remote_pin()
+   * always follow a failed firehose_try_remote_pin(), this can only happen in
+   * a race with another thread.
+   * The AM progress thread can't make remote firehose pin requests, since it can
+   * only initiate AM Replies.   However, it can process the Reply to a firehose
+   * move Request, and thus create firehose table entries between our calls to
+   * firehose_try_remote_pin() and firehose_remote_pin().
+   *
+   * The most we can do is to set fh_skip.  We can't perform the fixup on the sreq
+   * because gasnetc_get_local_fh() may be reading it concurrently.  The actual
+   * fixup is done after both the local and remote firehoses have been obtained.
+   */
+#if GASNETC_PUTINMOVE_LIMIT
+  #if GASNETC_ANY_PAR
+    sreq->fh_skip = allLocalHit ? 0 : MIN(GASNETC_PUTINMOVE_LIMIT, sreq->fh_len);
+  #else
+    gasneti_assert(!allLocalHit);
+    sreq->fh_skip = min(GASNETC_PUTINMOVE_LIMIT, sreq->fh_len);
   #endif
+#endif
 
   gasneti_assert(fh_rem != NULL);
   sreq->fh_ptr[0] = fh_rem;
@@ -2044,6 +2103,9 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
   if_pt (fh_rem != NULL) {
     /* HIT in remote firehose table - some initial part of the region is pinned */
     sreq->fh_ptr[0] = fh_rem;
+#if GASNETC_PUTINMOVE_LIMIT
+    sreq->fh_skip = 0;
+#endif
     gasneti_assert(rem_addr >= fh_rem->addr);
     gasneti_assert(rem_addr <= (fh_rem->addr + fh_rem->len - 1));
     len = MIN(len, (fh_rem->addr + fh_rem->len - rem_addr));
@@ -2051,8 +2113,19 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
     /* MISS: Some initial part (or all) of the region is unpinned */
     gasneti_weakatomic_set(&sreq->fh_ready, 2);
     len = gasnetc_fh_aligned_len(rem_addr, len);
+#if GASNETC_PUTINMOVE_LIMIT
+    { firehose_remotecallback_args_t cb_args;
+      cb_args.addr = (void *)rem_addr;
+      cb_args.len = MIN(len, GASNETC_PUTINMOVE_LIMIT);
+      memcpy(cb_args.data, (void *)loc_addr, cb_args.len);
+      (void)firehose_remote_pin(node, rem_addr, len,
+			        FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK,
+			        NULL, &cb_args, &gasnetc_fh_put_cb, sreq);
+    }
+#else
     (void)firehose_remote_pin(node, rem_addr, len, 0, NULL,
 			      NULL, &gasnetc_fh_put_cb, sreq);
+#endif
   }
 
   /* Get local firehose(s) IFF inline and bounce-buffers are not to be used.
