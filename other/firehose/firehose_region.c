@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/12/02 20:18:16 $
- * $Revision: 1.23 $
+ *     $Date: 2005/12/03 01:03:44 $
+ * $Revision: 1.24 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1227,7 +1227,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	unsigned long param_RS;
 	int i, j;
 	unsigned long firehoses, m_prepinned;
-	unsigned med_regions;
+	int med_regions;
 	int b_prepinned = 0;
 	int num_nodes = gasnet_nodes();
 	int dflt_M, dflt_VM;
@@ -1242,6 +1242,7 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 	med_regions = (gasnet_AMMaxMedium() 
 				- sizeof(firehose_remotecallback_args_t))
 				/ sizeof(firehose_region_t);
+	gasneti_assert(med_regions > FH_MAX_UNPIN_REM); /* firehose_remotecallback_args_t too big? */
 
 	/*
 	 * Prepin optimization: PHASE 1.
