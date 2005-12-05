@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/03 01:42:23 $
- * $Revision: 1.127 $
+ *     $Date: 2005/12/05 17:20:31 $
+ * $Revision: 1.128 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2025,7 +2025,7 @@ static void gasnetc_fh_put_cb(void *context, const firehose_request_t *fh_rem, i
     sreq->fh_skip = allLocalHit ? 0 : MIN(GASNETC_PUTINMOVE_LIMIT, sreq->fh_len);
   #else
     gasneti_assert(!allLocalHit);
-    sreq->fh_skip = min(GASNETC_PUTINMOVE_LIMIT, sreq->fh_len);
+    sreq->fh_skip = MIN(GASNETC_PUTINMOVE_LIMIT, sreq->fh_len);
   #endif
 #endif
 
