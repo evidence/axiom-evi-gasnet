@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/08/08 02:20:34 $
- * $Revision: 1.29 $
+ *     $Date: 2005/12/06 00:33:35 $
+ * $Revision: 1.30 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -539,8 +539,6 @@ fh_callback_t;
 #define FH_CALLBACK_TYPE_COMPLETION	0x02
 #define FH_CALLBACK_TYPE_PENDING	0x04
 
-/* The remote callback type is pretty page-specific right now, waiting for
- * firehose-region to catch up before making a "standard" remote_callback_t */
 typedef
 struct _fh_remote_callback_t {
 	uint32_t		flags;
@@ -584,7 +582,7 @@ void	fh_release_local_region(firehose_request_t *);
 void	fh_acquire_remote_region(firehose_request_t *req,
 				firehose_completed_fn_t callback, 
 				void *context, uint32_t flags,
-		        	firehose_remotecallback_args_t *remote_args);
+		        	firehose_remotecallback_args_fn_t args_fn);
 void	fh_commit_try_remote_region(firehose_request_t *);
 void	fh_release_remote_region(firehose_request_t *);
 int	fh_move_request(gasnet_node_t node,

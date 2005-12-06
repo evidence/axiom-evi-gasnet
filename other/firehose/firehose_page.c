@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/08/27 04:21:45 $
- * $Revision: 1.46 $
+ *     $Date: 2005/12/06 00:33:35 $
+ * $Revision: 1.47 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2259,7 +2259,7 @@ void
 fh_acquire_remote_region(firehose_request_t *req,
 			 firehose_completed_fn_t callback, void *context,
 			 uint32_t flags, 
-			 firehose_remotecallback_args_t *args)
+			 firehose_remotecallback_args_fn_t args_fn)
 {
     int	da_count = 0, b_total;
     int	my_da = 0;
@@ -2485,10 +2485,10 @@ send_am:
         fhi_FreeRegionPool(unpin_p);
 	FH_TABLE_UNLOCK;
 
-	/* Copy remote callback if required */
+	/* Construct remote callback args if required */
 	if (args_len > 0) {
-	    memcpy(reg_alloc + tot_r, args,
-		   sizeof(firehose_remotecallback_args_t));
+	    args_len = args_fn(context,
+			       (firehose_remotecallback_args_t *)(reg_alloc + tot_r));
 	}
 
 	#ifdef FIREHOSE_UNBIND_CALLBACK
@@ -2723,7 +2723,7 @@ fh_acquire_local_region(firehose_request_t *req)
 }
 
 /* fh_acquire_remote_region(request, callback, context, flags,
- *                          remotecallback_args)
+ *                          remotecallback_args_fn)
  *
  * The function only requests a remote pin operation (AM) if one of the pages
  * covered in the region is not known to be pinned on the remote host.  Unless
@@ -2747,7 +2747,7 @@ void
 fh_acquire_remote_region(firehose_request_t *req,
 			 firehose_completed_fn_t callback, void *context,
 			 uint32_t flags, 
-			 firehose_remotecallback_args_t *args)
+			 firehose_remotecallback_args_fn_t args_fn)
 {
 	int			 notpinned, new_r = 0;
 	fh_completion_callback_t  ccb;
@@ -2835,10 +2835,11 @@ fh_acquire_remote_region(firehose_request_t *req,
 		gasneti_assert(fhc_RemoteBucketsUsed[node] <= fhc_RemoteBucketsM);
 		FH_TABLE_UNLOCK;
 
-		if (args_len > 0)
-			memcpy(reg_alloc_old + old_r, args, 
-				sizeof(firehose_remotecallback_args_t));
-
+		/* Construct remote callback args if required */
+		if (args_len > 0) {
+			args_len = args_fn(context,
+					   (firehose_remotecallback_args_t *)(reg_alloc_old + old_r));
+		}
 
 		#ifdef FIREHOSE_UNBIND_CALLBACK
 		if (old_r > 0)

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2005/05/01 03:26:47 $
- * $Revision: 1.53 $
+ * $Date: 2005/12/06 00:33:33 $
+ * $Revision: 1.54 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -631,6 +631,19 @@ gasnete_fh_request_get_am(void *_gop, const firehose_request_t *req, int allLoca
 	return;
 }
 
+static size_t gasnete_fh_remote_args_fn(void *context, firehose_remotecallback_args_t *args)
+{
+	gasnete_eop_t	*gop = context;
+
+	/* Since Put is in reverse direction, the source is the local address
+	 * and the destination is the remote address */
+	args->local_addr  = gop->src;
+	args->remote_addr = gop->dest;
+	args->nbytes      = gop->len;
+
+	return sizeof(firehose_remotecallback_args_t);
+}
+
 GASNET_INLINE_MODIFIER(gasnete_firehose_get)
 gasnet_handle_t
 gasnete_firehose_get(void *dest, gasnet_node_t node, void *src, 
@@ -675,7 +688,8 @@ gasnete_firehose_get(void *dest, gasnet_node_t node, void *src,
 
 	    firehose_remote_pin(node, (uintptr_t) src, nbytes,
 		FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK,
-		(firehose_request_t *) &(gop->req_remote), &args, 
+		(firehose_request_t *) &(gop->req_remote),
+		gasnete_fh_remote_args_fn,
 		gasnete_fh_request_get_fn, gop);
 	#endif
 

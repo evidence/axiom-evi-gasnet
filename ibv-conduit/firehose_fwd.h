@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/firehose_fwd.h,v $
- *     $Date: 2005/12/03 01:42:23 $
- * $Revision: 1.6 $
+ *     $Date: 2005/12/06 00:33:37 $
+ * $Revision: 1.7 $
  * Description: Configuration of firehose code to fit vapi-conduit
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -48,9 +48,6 @@ typedef struct _firehose_client_t {
  * that can be completed entirely via the AM.  For larger puts we've
  * moved some data from one message to another and expect to roughly
  * break even except for the added memcpy() overheads of the piggyback.
- *
- * XXX: run-time variable-length callback args would be nice here
- * XXX: So would an interface that could eliminate a memcpy on the sender
  */
 #ifndef GASNETC_PUTINMOVE_LIMIT
   /* max bytes to piggyback on a put/miss */
@@ -63,7 +60,7 @@ typedef struct _firehose_client_t {
 	char	data[GASNETC_PUTINMOVE_LIMIT];
     } firehose_remotecallback_args_t;
 #else
-    typedef int firehose_remotecallback_args_t; /* can't disable entirely */
+    typedef char firehose_remotecallback_args_t; /* no way to disable */
 #endif
 
 #define FIREHOSE_REMOTE_CALLBACK_IN_HANDLER

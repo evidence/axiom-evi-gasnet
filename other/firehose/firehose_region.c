@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/12/03 01:03:44 $
- * $Revision: 1.24 $
+ *     $Date: 2005/12/06 00:33:35 $
+ * $Revision: 1.25 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -995,7 +995,7 @@ void
 fh_acquire_remote_region(firehose_request_t *req, 
 		         firehose_completed_fn_t callback, void *context,
                          uint32_t flags,
-                         firehose_remotecallback_args_t *remote_args)
+                         firehose_remotecallback_args_fn_t args_fn)
 {
     firehose_private_t *priv;
     gasnet_node_t node;
@@ -1048,9 +1048,8 @@ fh_acquire_remote_region(firehose_request_t *req,
                                                                                                               
 	/* Assemble AM payload */
 	if (flags & FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK) {
-	    memcpy(payload + payload_size, remote_args,
-		   sizeof(firehose_remotecallback_args_t));
-	    payload_size += sizeof(firehose_remotecallback_args_t);
+	    payload_size += args_fn(context,
+			            (firehose_remotecallback_args_t *)(payload + payload_size));
 	}
 
 	FH_TABLE_UNLOCK;

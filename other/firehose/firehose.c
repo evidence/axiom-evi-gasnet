@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2005/08/08 02:20:34 $
- * $Revision: 1.25 $
+ *     $Date: 2005/12/06 00:33:35 $
+ * $Revision: 1.26 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -323,7 +323,7 @@ firehose_partial_local_pin(uintptr_t addr, size_t len,
 extern const firehose_request_t *
 firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 		    uint32_t flags, firehose_request_t *ureq,
-		    firehose_remotecallback_args_t *remote_args,
+		    firehose_remotecallback_args_fn_t remote_args_callback,
 		    firehose_completed_fn_t callback, void *context)
 {
 	firehose_request_t	*req = NULL;
@@ -331,7 +331,7 @@ firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 	if_pf (node == fh_mynode)
 		gasneti_fatalerror("Cannot request a Remote pin on a local node.");
 
-	gasneti_assert(remote_args == NULL ? 1 : 
+	gasneti_assert(remote_args_callback == NULL ? 1 : 
 		       (flags & FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK));
 
 	FH_TABLE_LOCK;
@@ -341,7 +341,7 @@ firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 	req->addr = FH_ADDR_ALIGN(addr); 
 	req->len  = FH_SIZE_ALIGN(addr,len);
 
-	fh_acquire_remote_region(req, callback, context, flags, remote_args);
+	fh_acquire_remote_region(req, callback, context, flags, remote_args_callback);
 
 	/* Note that fh_acquire_remote_region unlocks before returning */
 	FH_TABLE_ASSERT_UNLOCKED;
