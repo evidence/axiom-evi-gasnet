@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/06 02:05:34 $
- * $Revision: 1.130 $
+ *     $Date: 2005/12/06 22:38:59 $
+ * $Revision: 1.131 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -143,7 +143,7 @@ typedef struct {
       const firehose_request_t	*fh_ptr[GASNETC_MAX_FH];
       size_t			fh_len;
 #if GASNETC_PUTINMOVE_LIMIT
-      size_t			fh_skip;
+      size_t			fh_putinmove;	/* bytes piggybacked on an Move AM */
 #endif
       uintptr_t			fh_loc_addr;
       uintptr_t			fh_rem_addr;
@@ -158,7 +158,7 @@ typedef struct {
   #define fh_count	u.fh.fh_count
   #define fh_ptr	u.fh.fh_ptr
   #define fh_len	u.fh.fh_len
-  #define fh_skip	u.fh.fh_skip
+  #define fh_putinmove	u.fh.fh_putinmove
   #define fh_loc_addr	u.fh.fh_loc_addr
   #define fh_rem_addr	u.fh.fh_rem_addr
   #define fh_bbuf	u.fh.fh_bbuf
@@ -1944,12 +1944,12 @@ static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq) {
   const size_t nbytes = sreq->fh_len;
 
 #if GASNETC_PUTINMOVE_LIMIT
-  /* If fh_skip is non-zero, then we are processing a firehose MISS that has
-   * sent the first fh_skip bytes in the move AM.  Since we are here, we
+  /* If fh_putinmove is non-zero, then we are processing a firehose MISS that has
+   * sent the first fh_putinmove bytes in the move AM.  Since we are here, we
    * know that the Reply to that AM has arrived.
    */
-  if_pf (sreq->fh_skip) {
-    GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_IN_MOVE, sreq->fh_skip);
+  if_pf (sreq->fh_putinmove) {
+    GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_IN_MOVE, sreq->fh_putinmove);
   }
 
   if_pf (!nbytes) {
@@ -2055,9 +2055,8 @@ static size_t gasnetc_fh_put_args_fn(void * context, firehose_remotecallback_arg
     args->len = len;
     memcpy(args->data, (void *)(sreq->fh_loc_addr), len);
 
-    /* Can set fh_skip here, since we know remote callback will run. */
-    /* Don't perform complete fixup, since fh lock is held while we run */
-    sreq->fh_skip = len;
+    /* Can set fh_putinmove here, since we know remote callback will run. */
+    sreq->fh_putinmove = len;
 
     return offsetof(firehose_remotecallback_args_t, data[len]);
 }
@@ -2067,12 +2066,12 @@ GASNET_INLINE_MODIFIER(gasnetc_fh_put_helper)
 int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
 		          uintptr_t loc_addr, uintptr_t rem_addr, size_t len) {
   const firehose_request_t *fh_rem;
+#if GASNETC_PUTINMOVE_LIMIT
+  size_t putinmove = sreq->fh_putinmove = 0;
+#endif
 
   sreq->fh_rem_addr = rem_addr;
   sreq->fh_loc_addr = loc_addr;
-#if GASNETC_PUTINMOVE_LIMIT
-    sreq->fh_skip = 0;
-#endif
 
   /* See how much (if any) is already pinned.  A call to firehose_partial_remote_pin()
    * might acquire a firehose for a region starting above rem_addr.  By instead calling
@@ -2103,19 +2102,19 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
     fh_rem = firehose_remote_pin(node, rem_addr, len, flags,
 				 NULL, args_fn, &gasnetc_fh_put_cb, sreq);
     if_pf (fh_rem != NULL) { /* Another thread must have raced to pin it */
-      gasneti_assert(sreq->fh_skip == 0);
+      gasneti_assert(sreq->fh_putinmove == 0);
       sreq->fh_ptr[0] = fh_rem;
     }
 #if GASNETC_PUTINMOVE_LIMIT
     else {
       /* Fixup for data sent in the Move AM.
-       * If we HIT a PENDING bucket then we can reach here w/ fh_skip == 0.
+       * If we HIT a PENDING bucket then we can reach here w/ fh_putinmove == 0.
        * We perform the "pointless" arithmetic rather than branch again.
        */
-      size_t skip = sreq->fh_skip;
-      sreq->fh_len      = (len -= skip);
-      sreq->fh_rem_addr = (rem_addr += skip);
-      sreq->fh_loc_addr = (loc_addr += skip);
+      putinmove = sreq->fh_putinmove;
+      sreq->fh_len      = (len -= putinmove);
+      sreq->fh_rem_addr = (rem_addr += putinmove);
+      sreq->fh_loc_addr = (loc_addr += putinmove);
     }
 #endif
   }
@@ -2133,6 +2132,11 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
     gasnetc_fh_do_put(sreq);
   }
 
+#if GASNETC_PUTINMOVE_LIMIT
+  len += putinmove;
+#endif
+
+  gasneti_assert(len > 0);
   return len;
 }
 
@@ -2172,6 +2176,7 @@ int gasnetc_fh_get_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
     gasnetc_fh_do_get(sreq);
   }
 
+  gasneti_assert(len > 0);
   return len;
 }
 #endif
