@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/06 00:33:37 $
- * $Revision: 1.129 $
+ *     $Date: 2005/12/06 02:05:34 $
+ * $Revision: 1.130 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -641,11 +641,6 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
       gasneti_free((void *)(uintptr_t)emergency_spare.rr_sg.addr);
     }
   }
-
-  #if !defined(FIREHOSE_COMPLETION_IN_HANDLER)
-    /* Handler might have queued work */
-    firehose_poll();
-  #endif
 }
 
 static int gasnetc_rcv_reap(int limit, gasnetc_rbuf_t **spare_p) {
@@ -687,8 +682,14 @@ static int gasnetc_rcv_reap(int limit, gasnetc_rbuf_t **spare_p) {
     }
   } 
 
-  if (count)
+  if (count) {
     GASNETC_STAT_EVENT_VAL(RCV_REAP,count);
+
+    #if !GASNETC_PIN_SEGMENT
+    /* Handler might have queued work for firehose */
+    firehose_poll();
+    #endif
+  }
 
   return count;
 }
