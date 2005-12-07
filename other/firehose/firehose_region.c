@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/12/06 00:33:35 $
- * $Revision: 1.25 $
+ *     $Date: 2005/12/07 00:04:16 $
+ * $Revision: 1.26 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1050,6 +1050,7 @@ fh_acquire_remote_region(firehose_request_t *req,
 	if (flags & FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK) {
 	    payload_size += args_fn(context,
 			            (firehose_remotecallback_args_t *)(payload + payload_size));
+	    gasneti_assert(payload_size <= gasnet_AMMaxMedium());
 	}
 
 	FH_TABLE_UNLOCK;
@@ -1293,6 +1294,10 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		if ((fhi_InitFlags & FIREHOSE_INIT_FLAG_LOCAL_ONLY)) {
 			param_RS = FIREHOSE_CLIENT_MAXREGION_SIZE;
 		} else {
+/* We don't (yet) do accounting against param_R, so the worst case
+ * is unpining FH_MAX_UNPIN_REM regions, rather than param_RS/FH_BUCKET_SIZE.
+ */
+#if 0
 			/* We always send one AM to pin one region.  So, we need to
 			 * have enough room AM to encode the requested region plus
 			 * some number of regions to unpin.  In the worst case, the
@@ -1302,6 +1307,9 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 			 */
 			param_RS = MIN(FIREHOSE_CLIENT_MAXREGION_SIZE,
 				       (med_regions-1)*FH_BUCKET_SIZE);
+#else
+			param_RS = FIREHOSE_CLIENT_MAXREGION_SIZE;
+#endif
 		}
 	}
 	/* Round down to multiple of FH_BUCKET_SIZE for sanity */
@@ -1408,11 +1416,16 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 			    "is less than the minimum %d",
 			    param_RS, FH_BUCKET_SIZE); 
 
+/* We don't (yet) do accounting against param_R, so the worst case
+ * is unpining FH_MAX_UNPIN_REM regions, rather than param_RS/FH_BUCKET_SIZE.
+ */
+#if 0
 		if_pf (param_RS > (med_regions-1)*FH_BUCKET_SIZE)
 			gasneti_fatalerror("GASNET_FIREHOSE_MAXREGION_SIZE (%ld) "
 			    "is too large to encode in an AM Medium payload "
 			    "(%d bytes max)",
 			    param_RS, FH_BUCKET_SIZE*(med_regions-1));
+#endif
 
 		if_pf (param_M < M_min)
 			gasneti_fatalerror("GASNET_FIREHOSE_M (%ld) is less "
