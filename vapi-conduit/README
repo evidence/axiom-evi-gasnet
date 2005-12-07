@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.33 $
+$Revision: 1.34 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -226,6 +226,19 @@ $Revision: 1.33 $
     The default value is 64KB.
     A value of zero disables use of bounce buffers.
     
+  + GASNET_PUTINMOVE_LIMIT (only for GASNET_SEGMENT_{LARGE,EVERYTHING})
+    When the firehose algorithm (see below) is in use for managing the
+    pinning of remote memory, a PUT that misses in the firehose cache
+    may be accelerated by piggybacking data on the AMMedium that is
+    used to obtain a remote pinning.  The value of GASNET_PUTINMOVE_LIMIT
+    is the maximum number of bytes to send in this way.  The value is
+    bounded by the maximum value set at compile time, and it is an
+    error to request a larger value.
+    Note that in a GASNET_SEGMENT_FAST configuration, the remote segment
+    is pinned statically and this optimization is never applicable.
+    The default value is 3KB (the current maximum value).
+    A value of zero disables this optimization.
+
   Resource usage parameters:
   The following environment variables control how much memory is
   preallocated at startup time to serve various functions.  Because these

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/10/31 23:38:40 $
- * $Revision: 1.90 $
+ *     $Date: 2005/12/07 00:20:44 $
+ * $Revision: 1.91 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -597,6 +597,9 @@ extern int		gasnetc_num_qps;
 extern size_t		gasnetc_packedlong_limit;
 extern size_t		gasnetc_inline_limit;
 extern size_t		gasnetc_bounce_limit;
+#if !GASNETC_PIN_SEGMENT
+  extern size_t		gasnetc_putinmove_limit;
+#endif
 
 /* Global variables */
 extern gasnetc_cep_t	*gasnetc_cep;

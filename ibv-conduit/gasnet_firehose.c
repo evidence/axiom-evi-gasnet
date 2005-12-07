@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_firehose.c,v $
- *     $Date: 2005/12/03 01:42:23 $
- * $Revision: 1.9 $
+ *     $Date: 2005/12/07 00:20:44 $
+ * $Revision: 1.10 $
  * Description: Client-specific firehose code
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -172,7 +172,7 @@ firehose_remote_callback(gasnet_node_t node,
                          const firehose_region_t *pin_list, size_t num_pinned,
                          firehose_remotecallback_args_t *args)
 {
-    #if GASNETC_PIN_SEGMENT || !GASNETC_PUTINMOVE_LIMIT
+    #if GASNETC_PIN_SEGMENT
 	/* DO NOTHING.  IF WE GET CALLED WE COMPLAIN. */
 	gasneti_fatalerror("invalid attempted to call firehose_remote_callback()");
 	return -1;
@@ -181,7 +181,7 @@ firehose_remote_callback(gasnet_node_t node,
 	gasneti_assert(args != NULL);
 	gasneti_assert(args->addr != NULL);
 	gasneti_assert(args->len > 0);
-	gasneti_assert(args->len <= GASNETC_PUTINMOVE_LIMIT);
+	gasneti_assert(args->len <= gasnetc_putinmove_limit);
 	memcpy(args->addr, args->data, args->len);
 	gasneti_sync_writes();
 	return 0;

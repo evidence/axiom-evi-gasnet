@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/firehose_fwd.h,v $
- *     $Date: 2005/12/06 00:33:37 $
- * $Revision: 1.7 $
+ *     $Date: 2005/12/07 00:20:44 $
+ * $Revision: 1.8 $
  * Description: Configuration of firehose code to fit vapi-conduit
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -42,26 +42,17 @@ typedef struct _firehose_client_t {
     VAPI_rkey_t      rkey;	/* used for remote access by HCA */
 } firehose_client_t;
 
-/* Simple tests show that the additional roundtrip AM latency we pay
- * for piggybacking a large put is smaller than the latency of a small
- * blocking put.  Thus, we expect this to always be a win for puts
- * that can be completed entirely via the AM.  For larger puts we've
- * moved some data from one message to another and expect to roughly
- * break even except for the added memcpy() overheads of the piggyback.
- */
-#ifndef GASNETC_PUTINMOVE_LIMIT
-  /* max bytes to piggyback on a put/miss */
-  #define GASNETC_PUTINMOVE_LIMIT 2048	/* XXX: untuned */
+#ifndef GASNETC_PUTINMOVE_LIMIT_MAX
+  /* Compile-time max bytes to piggyback on a put/miss.
+   * Environment can always specify a lesser limit, but not larger.
+   */
+  #define GASNETC_PUTINMOVE_LIMIT_MAX 3072
 #endif
-#if GASNETC_PUTINMOVE_LIMIT
-    typedef struct {
-	void	*addr;
-	size_t	len;
-	char	data[GASNETC_PUTINMOVE_LIMIT];
-    } firehose_remotecallback_args_t;
-#else
-    typedef char firehose_remotecallback_args_t; /* no way to disable */
-#endif
+typedef struct {
+    void	*addr;
+    size_t	len;
+    char	data[GASNETC_PUTINMOVE_LIMIT_MAX];
+} firehose_remotecallback_args_t;
 
 #define FIREHOSE_REMOTE_CALLBACK_IN_HANDLER
 
