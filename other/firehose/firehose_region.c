@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/12/08 01:46:11 $
- * $Revision: 1.27 $
+ *     $Date: 2005/12/08 19:35:02 $
+ * $Revision: 1.28 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1608,18 +1608,16 @@ fh_fini_plugin(void)
 {
 	firehose_private_t *priv;
 
-#ifdef DEBUG_BUCKETS
-	FH_TABLE_LOCK;
-	fh_hash_apply(fh_BucketTable1, &fh_priv_check_fn, NULL);
-	fh_hash_apply(fh_BucketTable2, &fh_priv_check_fn, NULL);
-	FH_TABLE_UNLOCK;
-#endif
-
 	if (gasneti_getenv_yesno_withdefault("GASNET_FIREHOSE_VERBOSE", 0)) {
-		/* Dump the table, unsorted */
+		/* Dump the local table, unsorted */
 		FH_TABLE_LOCK;
 		fprintf(stderr, "[n%d] Final local firehose table:\n", fh_mynode);
 		fh_hash_apply(fh_PrivTable, &fh_priv_print_fn, NULL);
+#ifdef DEBUG_BUCKETS
+		/* Check the hash for leaks */
+		fh_hash_apply(fh_BucketTable1, &fh_priv_check_fn, NULL);
+		fh_hash_apply(fh_BucketTable2, &fh_priv_check_fn, NULL);
+#endif
 		FH_TABLE_UNLOCK;
 	}
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/12/08 01:46:11 $
- * $Revision: 1.48 $
+ *     $Date: 2005/12/08 19:35:02 $
+ * $Revision: 1.49 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -786,9 +786,11 @@ fh_fini_plugin()
 	int			i;
 
 #ifdef DEBUG_BUCKETS
-	FH_TABLE_LOCK;
-	fh_hash_apply(fh_BucketTable, &fh_priv_check_fn, NULL);
-	FH_TABLE_UNLOCK;
+	if (gasneti_getenv_yesno_withdefault("GASNET_FIREHOSE_VERBOSE", 0)) {
+	    FH_TABLE_LOCK;
+	    fh_hash_apply(fh_BucketTable, &fh_priv_check_fn, NULL);
+	    FH_TABLE_UNLOCK;
+	}
 #endif
 
         /* Deallocate the arrays of bucket buffers used, if applicable */
