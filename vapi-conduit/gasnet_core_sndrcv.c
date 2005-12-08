@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/07 00:20:44 $
- * $Revision: 1.132 $
+ *     $Date: 2005/12/08 04:02:55 $
+ * $Revision: 1.133 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -54,6 +54,7 @@ size_t                   		gasnetc_bounce_limit;
 size_t					gasnetc_packedlong_limit;
 #if !GASNETC_PIN_SEGMENT
   size_t				gasnetc_putinmove_limit;
+  size_t				gasnetc_putinmove_limit_adjusted;
 #endif
 int					gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
 int					gasnetc_use_firehose = 1;
@@ -1923,7 +1924,6 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq, VAPI_wr_opcode_t op) {
     size_t nbytes = MIN(remain, (next - loc_addr));
 
     gasneti_assert(loc_addr < next);
-
     gasneti_assert(remain > 0);
     gasneti_assert(nbytes > 0);
 
@@ -1943,43 +1943,44 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq, VAPI_wr_opcode_t op) {
 static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq) {
   const firehose_request_t *fh_rem = sreq->fh_ptr[0];
   const size_t nbytes = sreq->fh_len;
+  gasnetc_counter_t * const am_oust = sreq->fh_oust;
 
-  /* If fh_putinmove is non-zero, then we are processing a firehose MISS that has
-   * sent the first fh_putinmove bytes in the move AM.  Since we are here, we
-   * know that the Reply to that AM has arrived.
-   */
   if_pf (sreq->fh_putinmove) {
+    /* We are processing a firehose MISS that has sent the first fh_putinmove bytes in
+     * the move AM.  Since we are here, we know that the Reply to that AM has arrived.
+     * We also know that the "remainder" is either empty, or under the inline limit.
+     */
     GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_IN_MOVE, sreq->fh_putinmove);
-  }
-
-  if_pf (!nbytes) {
-    /* All done in the AM.  Free the sreq since snd_reap will never see it. */
-    gasnetc_counter_dec_if(sreq->mem_oust);
-    gasnetc_counter_dec_if(sreq->req_oust);
-    gasnetc_counter_dec_if(sreq->fh_oust);
-    gasneti_assert(sreq->fh_count > 0);
-    firehose_release(sreq->fh_ptr, sreq->fh_count);
-    gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
-    return;
-  }
-
-  gasneti_assert(nbytes > 0);
-
-  if (nbytes <= gasnetc_inline_limit) {
-    /* Inline when small enough */
-    GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, nbytes);
-    gasnetc_fh_put_inline(sreq, fh_rem, nbytes);
-  } else if ((nbytes <= gasnetc_bounce_limit) && (sreq->mem_oust != NULL)) {
-    /* Bounce buffer use for non-bulk puts (upto a limit) */
-    GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_BOUNCE, nbytes);
-    gasnetc_fh_put_bounce(sreq, fh_rem, nbytes);
+    if_pt (nbytes) {
+      gasneti_assert(nbytes <= gasnetc_inline_limit);
+      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, nbytes);
+      gasnetc_fh_put_inline(sreq, fh_rem, nbytes);
+    } else {
+      /* All done in the AM.  Free the sreq since snd_reap will never see it. */
+      gasnetc_counter_dec_if(sreq->mem_oust);
+      gasnetc_counter_dec_if(sreq->req_oust);
+      gasneti_assert(sreq->fh_count > 0);
+      firehose_release(sreq->fh_ptr, sreq->fh_count);
+      gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
+    }
   } else {
-    /* Use the local firehose(s) obtained earlier */
-    GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_ZEROCP, nbytes);
-    gasnetc_fh_post(sreq, VAPI_RDMA_WRITE);
+    gasneti_assert(nbytes > 0);
+    if (nbytes <= gasnetc_inline_limit) {
+      /* Inline when small enough */
+      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, nbytes);
+      gasnetc_fh_put_inline(sreq, fh_rem, nbytes);
+    } else if ((nbytes <= gasnetc_bounce_limit) && (sreq->mem_oust != NULL)) {
+      /* Bounce buffer use for non-bulk puts (upto a limit) */
+      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_BOUNCE, nbytes);
+      gasnetc_fh_put_bounce(sreq, fh_rem, nbytes);
+    } else {
+      /* Use the local firehose(s) obtained earlier */
+      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_ZEROCP, nbytes);
+      gasnetc_fh_post(sreq, VAPI_RDMA_WRITE);
+    }
   }
 
-  gasnetc_counter_dec_if(sreq->fh_oust);
+  gasnetc_counter_dec_if(am_oust);
 }
 
 GASNET_INLINE_MODIFIER(gasnetc_sreq_is_ready)
@@ -2051,11 +2052,8 @@ static size_t gasnetc_fh_put_args_fn(void * context, firehose_remotecallback_arg
     const size_t len = MIN(gasnetc_putinmove_limit, sreq->fh_len);
 
     args->addr = (void *)(sreq->fh_rem_addr);
-    args->len = len;
+    sreq->fh_putinmove = args->len = len;
     memcpy(args->data, (void *)(sreq->fh_loc_addr), len);
-
-    /* Can set fh_putinmove here, since we know remote callback will run. */
-    sreq->fh_putinmove = len;
 
     return offsetof(firehose_remotecallback_args_t, data[len]);
 }
@@ -2085,44 +2083,61 @@ int gasnetc_fh_put_helper(gasnet_node_t node, gasnetc_sreq_t *sreq,
     len = sreq->fh_len = MIN(len, (fh_rem->addr + fh_rem->len - rem_addr));
   } else {
     /* MISS: Some initial part (or all) of the region is unpinned */
-    firehose_remotecallback_args_fn_t args_fn = &gasnetc_fh_put_args_fn;
+    uint32_t flags = FIREHOSE_FLAG_RETURN_IF_PINNED;
+    firehose_remotecallback_args_fn_t args_fn = NULL;
     gasneti_weakatomic_set(&sreq->fh_ready, 2);
     len = sreq->fh_len = gasnetc_fh_aligned_len(rem_addr, len);
-    fh_rem = firehose_remote_pin(node, rem_addr, len,
-				 FIREHOSE_FLAG_RETURN_IF_PINNED |
-					FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK,
-				 NULL, &gasnetc_fh_put_args_fn,
-				 &gasnetc_fh_put_cb, sreq);
+    if (len <= gasnetc_putinmove_limit_adjusted) {
+      /* Put-in-move optimization used only if the entire xfer can be
+       * piggybacked, or if the remainder fits in an inline.
+       */
+      flags |= FIREHOSE_FLAG_ENABLE_REMOTE_CALLBACK;
+      args_fn = &gasnetc_fh_put_args_fn;
+    }
+    fh_rem = firehose_remote_pin(node, rem_addr, len, flags, NULL,
+				 args_fn, &gasnetc_fh_put_cb, sreq);
     if_pf (fh_rem != NULL) { /* Another thread must have raced to pin it */
       gasneti_assert(sreq->fh_putinmove == 0);
+      gasneti_assert(GASNETC_ANY_PAR); /* no race if no threads */
       sreq->fh_ptr[0] = fh_rem;
-    } else {
-      /* Fixup for data sent in the Move AM.
-       * If we HIT a PENDING bucket then we can reach here w/ fh_putinmove == 0.
-       * We perform the "pointless" arithmetic rather than branch again.
-       */
-      putinmove = sreq->fh_putinmove;
-      sreq->fh_len      = (len -= putinmove);
-      sreq->fh_rem_addr = (rem_addr += putinmove);
-      sreq->fh_loc_addr = (loc_addr += putinmove);
     }
+    putinmove = sreq->fh_putinmove;
   }
 
-  /* Get local firehose(s) IFF inline and bounce-buffers are not to be used.
-   * We do this here to overlap with the in-flight AM if applicable.
+  /* Experiments show that w/o any special knowledge of the application's
+   * memory reference pattern, the best policy is just to acquire the
+   * local firehose now, regardless of the put-in-move and inline
+   * optimizations, if performing blocking or bulk PUTs.
+   * However, non-bulk PUTs (mem_oust != NULL) small enough to perform
+   * via bounce buffers will *not* acquire any local firehoses.  In many
+   * UPC programs, this will account for the bulk (no pun intended) of
+   * the PUTs.
    */
-  sreq->fh_count = 1;
-  if (!(len <= gasnetc_inline_limit) &&
-      !((len <= gasnetc_bounce_limit) && (sreq->mem_oust != NULL))) {
-    len = sreq->fh_len = gasnetc_get_local_fh(sreq, loc_addr, len);
+  if ((sreq->mem_oust != NULL) && (len <= gasnetc_bounce_limit)) {
+    sreq->fh_count = 1; /* Just the remote one */
+  } else {
+    len = gasnetc_get_local_fh(sreq, loc_addr, len);
+  }
+  if_pf (len <= putinmove) {
+    /* AM is carrying at least as much as we could pin locally */
+    sreq->fh_len = 0;
+    len = putinmove;
+  } else {
+    /* Adjust sreq for len (which may have been reduced for local alignment)
+     * and for any data piggybacked on the AM (if any).
+     */
+    sreq->fh_len = (len - putinmove);
+    sreq->fh_rem_addr += putinmove;
+    sreq->fh_loc_addr += putinmove;
   }
 
   if ((fh_rem != NULL) || gasnetc_sreq_is_ready(sreq)) {
     gasnetc_fh_do_put(sreq);
   }
 
-  gasneti_assert((len + putinmove) > 0);
-  return len + putinmove;
+  gasneti_assert(len >= putinmove);
+  gasneti_assert(len > 0);
+  return len;
 }
 
 GASNET_INLINE_MODIFIER(gasnetc_fh_get_helper)
@@ -2324,6 +2339,13 @@ extern int gasnetc_sndrcv_init(void) {
     sreq = (gasnetc_sreq_t *)((uintptr_t)sreq + padded_size);
   }
 
+  /* Misc: */
+#if !GASNETC_PIN_SEGMENT
+  gasnetc_putinmove_limit_adjusted = gasnetc_putinmove_limit
+	  				? (gasnetc_putinmove_limit + gasnetc_inline_limit)
+					: 0;
+#endif
+
   return GASNET_OK;
 }
 
@@ -2450,7 +2472,7 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
        *
        * Note that we do this based only on the size of the request, without bothering to check whether
        * the caller cares about local completion, or whether zero-copy is possible.
-       * We do this is because the cost of this small copy appears cheaper then the alternative logic.
+       * We do this is because the cost of this small copy is cheaper than the alternative logic.
        */
       gasnetc_do_put_inline(epid, rkey, src, dst, count, req_oust);
     } else if_pf (!gasnetc_use_firehose && gasnetc_unpinned(src, &count)) {
