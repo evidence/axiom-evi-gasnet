@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/12/06 00:33:35 $
- * $Revision: 1.47 $
+ *     $Date: 2005/12/08 01:46:11 $
+ * $Revision: 1.48 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -677,6 +677,9 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		FH_SET_LOCAL_INUSE(bd);
 		FH_BUCKET_REFC(bd)->refc_l = 1;
 		FH_BUCKET_REFC(bd)->refc_r = 0;
+		#ifdef DEBUG_BUCKETS
+		bd->prepinned = 1;
+		#endif
 		/*
 		 * Eventually, we may want to have an option where the client
 		 * passes a list of regions to prepin, but allow that these
@@ -759,11 +762,34 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
     return;
 }
 
+#ifdef DEBUG_BUCKETS
+static void
+fh_priv_check_fn(void *val, void *arg)
+{
+    fh_bucket_t *bd = val;
+    int live = (FH_NODE(bd) == fh_mynode)
+			? (!FH_IS_LOCAL_FIFO(bd) && FH_BUCKET_REFC(bd)->refc_l)
+			: (!FH_IS_REMOTE_FIFO(bd) && FH_BUCKET_REFC(bd)->refc_r);
+
+    if_pf (live && !bd->prepinned) {
+	/* XXX: promote to fatalerror? */
+	fprintf(stderr, "WARNING: firehose leak detected on node %d - %d:%p\n",
+		(int)fh_mynode, (int)FH_NODE(bd), (void*)FH_BADDR(bd));
+    }
+}
+#endif
+
 void
 fh_fini_plugin()
 {
 	fhi_RegionPool_t	*rpool;
 	int			i;
+
+#ifdef DEBUG_BUCKETS
+	FH_TABLE_LOCK;
+	fh_hash_apply(fh_BucketTable, &fh_priv_check_fn, NULL);
+	FH_TABLE_UNLOCK;
+#endif
 
         /* Deallocate the arrays of bucket buffers used, if applicable */
         for (i = 0; i < FH_BUCKETS_BUFS; i++) {

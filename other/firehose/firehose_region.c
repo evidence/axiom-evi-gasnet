@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2005/12/07 00:04:16 $
- * $Revision: 1.26 $
+ *     $Date: 2005/12/08 01:46:11 $
+ * $Revision: 1.27 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1507,6 +1507,9 @@ fh_init_plugin(uintptr_t max_pinnable_memory, size_t max_regions,
 		 */
 		tmp = (firehose_region_t *)&(regions[i]);
 		priv = fhi_init_local_region(1, tmp);
+		#ifdef DEBUG_BUCKETS
+		priv->prepinned = 1;
+		#endif
 		fhc_LocalOnlyBucketsPinned++;
 		#if 0
 		  fh_priv_release_local(1, priv);
@@ -1563,6 +1566,26 @@ fh_priv_print_fn(void *val, void *arg)
 			lref, rref);
 }
 
+#ifdef DEBUG_BUCKETS
+static void
+fh_priv_check_fn(void *val, void *arg)
+{
+	fh_bucket_t *bucket = val;
+	firehose_private_t *priv = bucket->priv;
+	int live = (FH_NODE(bucket) == fh_mynode)
+			? (!FH_IS_LOCAL_FIFO(priv) && FH_BUCKET_REFC(priv)->refc_l)
+			: (!FH_IS_REMOTE_FIFO(priv) && FH_BUCKET_REFC(priv)->refc_r);
+
+	if_pf (live && !priv->prepinned) {
+		/* XXX: promote to fatalerror? */
+		fprintf(stderr, "WARNING: firehose leak detected on node %d - %d:%p %4d pages (%4d pages visible)\n",
+			(int)fh_mynode, (int)FH_NODE(bucket), (void*)FH_BADDR(priv), 
+			(int)(priv->len>>FH_BUCKET_SHIFT), priv->visible);
+		priv->prepinned = 1; /* Avoids duplicates in output */
+	}
+}
+#endif
+
 static void
 fh_priv_cleanup_fn(void *val, void *arg)
 {
@@ -1575,7 +1598,7 @@ fh_priv_cleanup_fn(void *val, void *arg)
 		firehose_move_callback(fh_mynode, &unpin_region, 1, NULL, 0);
 		FH_TABLE_LOCK;
 	} else {
-		/* Indicates pre-pinned (or conduit error!!) */
+		/* Indicates pre-pinned (or a leak!!) */
 	}
 	fh_destroy_priv(priv);
 }
@@ -1584,6 +1607,13 @@ void
 fh_fini_plugin(void)
 {
 	firehose_private_t *priv;
+
+#ifdef DEBUG_BUCKETS
+	FH_TABLE_LOCK;
+	fh_hash_apply(fh_BucketTable1, &fh_priv_check_fn, NULL);
+	fh_hash_apply(fh_BucketTable2, &fh_priv_check_fn, NULL);
+	FH_TABLE_UNLOCK;
+#endif
 
 	if (gasneti_getenv_yesno_withdefault("GASNET_FIREHOSE_VERBOSE", 0)) {
 		/* Dump the table, unsorted */

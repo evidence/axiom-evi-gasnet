@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/12/08 00:17:23 $
- * $Revision: 1.31 $
+ *     $Date: 2005/12/08 01:46:11 $
+ * $Revision: 1.32 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -206,6 +206,7 @@ struct _firehose_private_t {
 
 	#ifdef DEBUG_BUCKETS
 	fh_bstate_t	fh_state;
+	int		prepinned;
 	#endif
 
 	/* Region-specific additional fields: */
