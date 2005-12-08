@@ -1,7 +1,7 @@
 #!/bin/sh
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Bootstrap,v $
-#     $Date: 2005/07/07 17:29:05 $
-# $Revision: 1.15 $
+#     $Date: 2005/12/08 03:04:48 $
+# $Revision: 1.16 $
 # Description: GASNet developer Bootstrap script
 # Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -73,16 +73,13 @@ fi
 fi
 
 set -x
-(
     cd $srcdir
     rm -Rf autom4te*.cache
     aclocal
-)
 set +x
     echo '+ autoheader $autoheaderfilter'
     eval autoheader $autoheaderfilter
 set -x
-(
     autoconf
 
     # Perform some postprocessing to fix bugs in the configure script:
@@ -106,5 +103,4 @@ set -x
     
     automake -a
     rm -Rf autom4te*.cache
-)
 rm -f config.cache
