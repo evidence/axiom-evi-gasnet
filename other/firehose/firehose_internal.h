@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/12/06 00:33:35 $
- * $Revision: 1.30 $
+ *     $Date: 2005/12/08 00:17:23 $
+ * $Revision: 1.31 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,14 +176,15 @@ fh_refc_t;
 /*
  * Bucket and private types
  */
-#define DEBUG_BUCKETS
+#if GASNET_DEBUG
+  #define DEBUG_BUCKETS
+#endif
 #ifdef DEBUG_BUCKETS
   typedef enum { fh_local_fifo, fh_remote_fifo, fh_pending, fh_pending_commit, fh_used, fh_unused }
   fh_bstate_t;
   #define FH_BSTATE_ASSERT(entry, state) gasneti_assert((entry)->fh_state == state)
   #define FH_BSTATE_SET(entry, state)	 (entry)->fh_state = state
-  #define FH_BSTATE(entry)		 (entry)->fh_state
-  #else
+#else
   #define FH_BSTATE_ASSERT(entry, state)
   #define FH_BSTATE_SET(entry, state)
 #endif
