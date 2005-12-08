@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/12/03 16:40:51 $
-# $Revision: 1.309 $
+#     $Date: 2005/12/08 19:00:05 $
+# $Revision: 1.310 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.309 $)
+AC_REVISION($Revision: 1.310 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1444,6 +1444,15 @@ if test "$enabled_lapi" = yes; then
       AC_MSG_WARN([No IBM SP Switch hardware $lapi_how - disabling lapi])
       have_lapi="no"
     fi
+  fi
+
+  # Check for LAPI-RDMA
+  # - TODO: detect this automatically, and/or check to see if actually present
+  # when user requests it
+  GASNET_IF_ENABLED_WITH_AUTO(lapi-rdma, [use LAPI RDMA], [use_lapi_rdma=yes],
+                              [use_lapi_rdma=no], [use_lapi_rdma=try])
+  if test "$use_lapi_rdma" = yes; then
+      AC_DEFINE(GASNETC_LAPI_RDMA)
   fi
 
   # Check for conflict
