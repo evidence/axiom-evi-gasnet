@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/12/14 01:46:14 $
- * $Revision: 1.138 $
+ *     $Date: 2005/12/14 18:18:06 $
+ * $Revision: 1.139 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,10 +16,6 @@
 
 #include <sys/time.h>
 #include <sys/resource.h>
-#if HAVE_MMAP
-  #include <sys/mman.h> /* For MAP_FAILED */
-#endif
- 
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
 GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");

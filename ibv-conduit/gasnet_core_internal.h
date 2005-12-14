@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/12/14 01:46:14 $
- * $Revision: 1.92 $
+ *     $Date: 2005/12/14 18:18:06 $
+ * $Revision: 1.93 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,6 +22,10 @@
 #include <vapi.h>
 #include <evapi.h>
 #include <vapi_common.h>
+
+#if HAVE_MMAP
+  #include <sys/mman.h> /* For MAP_FAILED */
+#endif
 
 /*  whether or not to use spin-locking for HSL's */
 #define GASNETC_HSL_SPINLOCK 1
