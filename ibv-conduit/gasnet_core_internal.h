@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/12/14 18:18:06 $
- * $Revision: 1.93 $
+ *     $Date: 2005/12/15 01:40:03 $
+ * $Revision: 1.94 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -179,11 +179,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* ------------------------------------------------------------------------------------ */
 /* Configuration */
-
-/* how many HCAs can we deal with */
-#ifndef GASNETC_MAX_HCAS
-  #define GASNETC_MAX_HCAS 1
-#endif
 
 /* Maximum number of segments to gather on send */
 #define GASNETC_SND_SG	4
@@ -533,6 +528,16 @@ void *gasneti_freelist_next(void *elem) {
 
 /* ------------------------------------------------------------------------------------ */
 
+#if GASNETC_VAPI_MAX_HCAS > 1
+  #define GASNETC_FOR_ALL_HCA_INDEX(h)	for (h = 0; h < gasnetc_num_hcas; ++h)
+  #define GASNETC_FOR_ALL_HCA(p)	for (p = &gasnetc_hca[0]; p < &gasnetc_hca[gasnetc_num_hcas]; ++p)
+#else
+  #define GASNETC_FOR_ALL_HCA_INDEX(h)	h = 0;
+  #define GASNETC_FOR_ALL_HCA(p)	p = &gasnetc_hca[0];
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+
 
 /* Description of a pre-pinned memory region */
 typedef struct {
@@ -556,6 +561,7 @@ typedef struct {
   gasnetc_memreg_t	snd_reg;
 #if GASNETC_PIN_SEGMENT
   gasnetc_memreg_t	*seg_reg;
+  VAPI_rkey_t		*rkeys;	/* RKey(s) registered at attach time */
 #endif
   VAPI_cq_hndl_t	rcv_cq;
   VAPI_cq_hndl_t	snd_cq;
@@ -565,41 +571,59 @@ typedef struct {
 #if FIREHOSE_VAPI_USE_FMR
   EVAPI_fmr_t		fmr_props;
 #endif
+  char			*hca_id;
+  IB_port_t		port_num;
+
+  void			*rbuf_alloc;
+  gasneti_freelist_t	rbuf_freelist;
+
+  /* Rcv thread */
+  EVAPI_compl_handler_hndl_t rcv_handler;
+  void			*rcv_thread_priv;
 } gasnetc_hca_t;
+
+/* Keys in a cep, all replicated from other data */
+struct gasnetc_cep_keys_ {
+#if GASNETC_PIN_SEGMENT
+  gasnetc_memreg_t	*seg_reg;
+  VAPI_rkey_t		*rkeys;	/* RKey(s) registered at attach time (== uint32_t) */
+#endif
+  VAPI_lkey_t		rcv_lkey;
+  VAPI_lkey_t		snd_lkey;
+};
 
 /* Structure for a cep (connection end-point) */
 typedef struct {
+  /* Read/write fields */
   gasnetc_sema_t	sq_sema;	/* control in-flight RDMA ops (send queue slots) */
   gasnetc_sema_t	am_sema;	/* control in-flight AM Requests */
   gasnetc_sema_t	am_unrcvd;	/* ACK coalescing - unmatched rcv buffers */
   gasneti_weakatomic_t	am_unsent;	/* ACK coalescing - unsent credits */
-  VAPI_qp_hndl_t	qp_handle;	/* == unsigned long */
-  VAPI_hca_hndl_t	hca_handle;	/* == uint32 */
-  gasnetc_epid_t	epid;
-  char			_pad[GASNETC_CACHE_PAD(3*sizeof(gasnetc_sema_t)+
-						 sizeof(gasneti_weakatomic_t)+
-						 sizeof(VAPI_qp_hndl_t)+
-						 sizeof(VAPI_hca_hndl_t)+
-						 sizeof(gasnetc_epid_t))];
-} gasnetc_cep_t;
+  char			_pad0[GASNETC_CACHE_PAD(3*sizeof(gasnetc_sema_t)+
+						 sizeof(gasneti_weakatomic_t))];
 
-/* Structure for a peer */
-typedef struct {
-  gasnetc_cep_t		*cep;
-  #if GASNETC_PIN_SEGMENT
-    /* Bounds and RKey(s) for the segment, registered at attach time */
-    uintptr_t		end;	/* Cached inclusive ending address of the remote segment */
-    VAPI_rkey_t		*rkeys;	/* RKey(s) registered at attach time (== uint32_t) */
-    char		_pad[GASNETC_CACHE_PAD(sizeof(gasnetc_cep_t *)+sizeof(uintptr_t)+sizeof(void*))];
-  #else
-    char		_pad[GASNETC_CACHE_PAD(sizeof(gasnetc_cep_t *))];
-  #endif
-} gasnetc_peer_t;
+  /* Read-only fields */
+  struct gasnetc_cep_keys_ keys;
+  gasneti_freelist_t	*rbuf_freelist;	/* Source of rcv buffers for AMs */
+  gasnetc_hca_t		*hca;
+  VAPI_qp_hndl_t	qp_handle;	/* == unsigned long */
+  VAPI_hca_hndl_t	hca_handle;	/* == uint32_t */
+  int			hca_index;
+  gasnetc_epid_t	epid;		/* == uint32_t */
+  char			_pad1[GASNETC_CACHE_PAD(sizeof(struct gasnetc_cep_keys_) +
+						sizeof(gasneti_freelist_t*)+
+						sizeof(gasnetc_hca_t*)+
+						sizeof(VAPI_qp_hndl_t)+
+						sizeof(VAPI_hca_hndl_t)+
+						sizeof(int)+
+						sizeof(gasnetc_epid_t))];
+} gasnetc_cep_t;
 
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_init(void);
 extern void gasnetc_sndrcv_fini(void);
 extern void gasnetc_sndrcv_init_peer(gasnet_node_t node);
+extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node);
 extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node);
 extern void gasnetc_sndrcv_poll(void);
 extern int gasnetc_RequestGeneric(gasnetc_category_t category,
@@ -617,8 +641,6 @@ extern void gasnetc_unpin(gasnetc_memreg_t *reg);
 #define gasnetc_unmap(reg)	gasneti_munmap((reg)->req_addr, (reg)->req_size)
 
 /* Global configuration variables */
-extern char		*gasnetc_hca_id;
-extern IB_port_t	gasnetc_port_num;
 extern int		gasnetc_op_oust_limit;
 extern int		gasnetc_op_oust_pp;
 extern int		gasnetc_am_oust_limit;
@@ -637,12 +659,12 @@ extern size_t		gasnetc_bounce_limit;
 #endif
 
 /* Global variables */
-extern int		gasnetc_hcas;
-extern gasnetc_hca_t	gasnetc_hca[GASNETC_MAX_HCAS];
+extern int		gasnetc_num_hcas;
+extern gasnetc_hca_t	gasnetc_hca[GASNETC_VAPI_MAX_HCAS];
 extern gasnetc_cep_t	*gasnetc_cep;
-extern gasnetc_peer_t	*gasnetc_peer;
 #if GASNETC_PIN_SEGMENT
   extern int			gasnetc_seg_reg_count;
+  extern int			gasnetc_max_regs; /* max of gasnetc_seg_reg_count over all nodes */
   extern uintptr_t		gasnetc_seg_start;
   extern uintptr_t		gasnetc_seg_end;
   extern unsigned long		gasnetc_pin_maxsz;
