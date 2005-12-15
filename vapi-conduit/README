@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.34 $
+$Revision: 1.35 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -124,20 +124,16 @@ $Revision: 1.34 $
   Port.  These parameters may legally take different values on each node.
 
   + GASNET_HCA_ID
-    This gives the "HCA ID" string of the InfiniBand Host Channel
-    Adapter (HCA) to open.  This string is assigned by the device driver
-    at boot time.  A typical HCA ID is "InfiniHost0", for the first HCA
-    with the InfiniHost chip.
-    The default value is an empty string, which causes vapi-conduit to
-    try all HCAs detected by the device driver and use the first one
-    which can be opened.
-
   + GASNET_PORT_NUM
-    This gives the integer port number to use on the HCA.  The "port"
-    is a physical port on the HCA, not to be confused with IP port
-    numbers.  IB defines the port numbers to start at 1.
-    The default value is 0, which causes vapi-conduit to probe the HCA
-    for the lowest-numbered physical port which is configured as ACTIVE.
+    These environment variables, used in older releases, are no longer
+    supported.  Setting them to anything but the empty string will
+    result in a run-time warning.
+
+  + GASNET_VAPI_PORTS
+    **UNIMPLEMENTED**
+    Looking at implementing a format like
+      InfiniHost0:1,2+InfiniHost1:2
+    
 
   Software configuration settings:
   There are some optional behaviors in vapi-conduit that can be turnned

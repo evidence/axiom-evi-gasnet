@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2005/12/15 01:40:03 $
- * $Revision: 1.94 $
+ *     $Date: 2005/12/15 23:33:19 $
+ * $Revision: 1.95 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -565,14 +565,14 @@ typedef struct {
 #endif
   VAPI_cq_hndl_t	rcv_cq;
   VAPI_cq_hndl_t	snd_cq;
-  VAPI_hca_cap_t	hca_cap;
-  VAPI_hca_port_t	hca_port;
   VAPI_pd_hndl_t	pd;
 #if FIREHOSE_VAPI_USE_FMR
   EVAPI_fmr_t		fmr_props;
 #endif
+  int			hca_index;
   char			*hca_id;
-  IB_port_t		port_num;
+  VAPI_hca_cap_t	hca_cap;
+  VAPI_hca_vendor_t	hca_vendor;
 
   void			*rbuf_alloc;
   gasneti_freelist_t	rbuf_freelist;
@@ -662,6 +662,7 @@ extern size_t		gasnetc_bounce_limit;
 extern int		gasnetc_num_hcas;
 extern gasnetc_hca_t	gasnetc_hca[GASNETC_VAPI_MAX_HCAS];
 extern gasnetc_cep_t	*gasnetc_cep;
+extern uintptr_t	gasnetc_max_msg_sz;
 #if GASNETC_PIN_SEGMENT
   extern int			gasnetc_seg_reg_count;
   extern int			gasnetc_max_regs; /* max of gasnetc_seg_reg_count over all nodes */

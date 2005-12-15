@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/15 01:40:03 $
- * $Revision: 1.137 $
+ *     $Date: 2005/12/15 23:33:19 $
+ * $Revision: 1.138 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -980,16 +980,15 @@ void gasnetc_snd_validate(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int cou
     #if GASNET_DEBUG
     {
       u_int32_t	sum = 0;
-      const size_t maxsz = sreq->cep->hca->hca_port.max_msg_sz;
 
       for (i = 0; i < sr_desc->sg_lst_len; ++i) {
         sum += sr_desc->sg_lst_p[i].len;
         gasneti_assert(sr_desc->sg_lst_p[i].len != 0);
-        gasneti_assert(sr_desc->sg_lst_p[i].len <= maxsz);
+        gasneti_assert(sr_desc->sg_lst_p[i].len <= gasnetc_max_msg_sz);
         gasneti_assert(sr_desc->sg_lst_p[i].len <= sum); /* check for overflow of 'sum' */
       }
 
-      gasneti_assert(sum <= maxsz);
+      gasneti_assert(sum <= gasnetc_max_msg_sz);
     }
   #endif
   }
