@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/12/15 23:33:19 $
- * $Revision: 1.141 $
+ *     $Date: 2005/12/15 23:42:07 $
+ * $Revision: 1.142 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,10 +38,6 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
   The following values can be overridden by environment variables.
   Variable names are formed by replacing GASNETC_DEFAULT_ by GASNET_
 */
-
-/* Default HCA and Port */
-#define GASNETC_DEFAULT_HCA_ID		""		/* NULL or empty = probe */
-#define GASNETC_DEFAULT_PORT_NUM	0		/* 0 = use lowest-numbered active port */
 
 /* Limits on in-flight (queued but not reaped) RDMA Ops */
 #define GASNETC_DEFAULT_NETWORKDEPTH_TOTAL	0	/* Max ops (RMDA + AM) outstanding at source, 0 = automatic */
