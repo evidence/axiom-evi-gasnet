@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/12/15 23:42:07 $
- * $Revision: 1.142 $
+ *     $Date: 2005/12/16 00:37:14 $
+ * $Revision: 1.143 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -670,9 +670,15 @@ static int gasnetc_init(int *argc, char ***argv) {
   port_tbl = gasnetc_probe_ports(&num_ports);
 
   /* Distribute the qps to each peer round-robin over the ports */
-  for (i = 0; i < ceps; ++i) {
-    if (i/gasnetc_num_qps == gasneti_mynode) continue;
-    port_map[i] = &port_tbl[i % num_ports];
+  for (i = 0; i < ceps; ) {
+    if (i/gasnetc_num_qps == gasneti_mynode) {
+      i += gasnetc_num_qps;
+    } else {
+      int j;
+      for (j = 0; j < gasnetc_num_qps; ++j, ++i) {
+        port_map[i] = &port_tbl[j % num_ports];
+      }
+    }
   }
 
   /* Report/check hca and port properties */
