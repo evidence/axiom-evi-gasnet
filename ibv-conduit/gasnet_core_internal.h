@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/12/15 23:33:19 $
- * $Revision: 1.95 $
+ *     $Date: 2005/12/16 21:59:04 $
+ * $Revision: 1.96 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -532,8 +532,8 @@ void *gasneti_freelist_next(void *elem) {
   #define GASNETC_FOR_ALL_HCA_INDEX(h)	for (h = 0; h < gasnetc_num_hcas; ++h)
   #define GASNETC_FOR_ALL_HCA(p)	for (p = &gasnetc_hca[0]; p < &gasnetc_hca[gasnetc_num_hcas]; ++p)
 #else
-  #define GASNETC_FOR_ALL_HCA_INDEX(h)	h = 0;
-  #define GASNETC_FOR_ALL_HCA(p)	p = &gasnetc_hca[0];
+  #define GASNETC_FOR_ALL_HCA_INDEX(h)	for (h = 0; h < 1; ++h)
+  #define GASNETC_FOR_ALL_HCA(p)	for (p = &gasnetc_hca[0]; p < &gasnetc_hca[1]; ++p)
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -674,8 +674,5 @@ extern uintptr_t	gasnetc_max_msg_sz;
 extern size_t			gasnetc_fh_align;
 extern size_t			gasnetc_fh_align_mask;
 extern firehose_info_t		gasnetc_firehose_info;
-
-/* XXX: remove eventually */
-#define GASNETC_HCA_ZERO	gasnetc_hca[0]
 
 #endif

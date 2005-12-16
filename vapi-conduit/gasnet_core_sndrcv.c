@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/16 00:37:27 $
- * $Revision: 1.139 $
+ *     $Date: 2005/12/16 21:59:04 $
+ * $Revision: 1.140 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2321,7 +2321,7 @@ extern int gasnetc_sndrcv_init(void) {
     buf = NULL;
   } else {
     int h;
-    for (h = 0; h < gasnetc_num_hcas; ++h) { /* Not GASNET_FOR... because we want a 'break' */
+    GASNETC_FOR_ALL_HCA_INDEX(h) {
       vstat = gasnetc_pin(&gasnetc_hca[h], buf, size,
 		          VAPI_EN_LOCAL_WRITE, &gasnetc_hca[h].snd_reg);
       if (vstat != VAPI_OK) {
@@ -2794,7 +2794,7 @@ extern int gasnetc_AMPoll() {
   /* XXX: multi-rail must either peek all, or give up on the peek optimization */
   work = 0;
   CQ_LOCK;
-  for (h = 0; h < gasnetc_num_hcas; ++h) {
+  GASNETC_FOR_ALL_HCA_INDEX(h) {
     if ((gasnetc_peek_rcv_cq(&gasnetc_hca[h], 1) == VAPI_OK) ||
         (gasnetc_peek_snd_cq(&gasnetc_hca[h], 1) == VAPI_OK)) {
       work = 1;

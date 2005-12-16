@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2005/12/08 19:00:05 $
-# $Revision: 1.310 $
+#     $Date: 2005/12/16 21:59:02 $
+# $Revision: 1.311 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.310 $)
+AC_REVISION($Revision: 1.311 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1802,6 +1802,21 @@ if test "$enabled_vapi" = yes; then
     fi
     if test "$GASNET_VAPI_SPAWNER$have_fork" = sshno; then
       AC_MSG_ERROR([--with-vapi-spawner=ssh requires fork() support which $fork_reason]);
+    fi
+
+    gasnetc_vapi_max_hcas=2
+    GASNET_IF_ENABLED_WITH_AUTO(vapi-multirail, [Enable/disable vapi over multiple HCAs, see vapi-conduit/README (enabled by default)], enabled_vapi_multirail=yes, enabled_vapi_multirail=no, enabled_vapi_multirail=yes)
+    GASNET_WITH(vapi-max-hcas,
+       [maximum number of VAPI HCAs to open for multi-rail support (default is 2)],
+       [if expr "${withval}" : "[[1-9]][[0-9]]*" >/dev/null; then
+	  gasnetc_vapi_max_hcas="$withval"
+	else
+          AC_MSG_ERROR([--with-vapi-max-hcas requires a postive integer argument])
+        fi],
+       [AC_MSG_ERROR([--with-vapi-max-hcas requires a postive integer argument])],
+       [:])
+    if test "$enabled_vapi_multirail" = yes; then
+      AC_DEFINE_UNQUOTED(GASNETC_VAPI_MAX_HCAS, $gasnetc_vapi_max_hcas)
     fi
   fi
 fi

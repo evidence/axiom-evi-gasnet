@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/firehose_fwd.h,v $
- *     $Date: 2005/12/15 01:40:03 $
- * $Revision: 1.9 $
+ *     $Date: 2005/12/16 21:59:04 $
+ * $Revision: 1.10 $
  * Description: Configuration of firehose code to fit vapi-conduit
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -25,7 +25,8 @@
 #endif
 
 #ifndef GASNETC_VAPI_MAX_HCAS
-  #define GASNETC_VAPI_MAX_HCAS 2
+  /* Undefined means no multi-rail support */
+  #define GASNETC_VAPI_MAX_HCAS 1
 #endif
 
 /* vapi-conduit uses firehose-region */
