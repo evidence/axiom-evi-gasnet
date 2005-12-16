@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/15 23:33:19 $
- * $Revision: 1.138 $
+ *     $Date: 2005/12/16 00:37:27 $
+ * $Revision: 1.139 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -356,6 +356,10 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf) {
   
   rbuf->cep = cep;
   rbuf->rr_sg.lkey = GASNETC_RCV_LKEY(cep);
+  GASNETI_TRACE_PRINTF(D,("POST_RR rbuf=%p peer=%d qp=%d hca=%d lkey=0x%08x", 
+			  rbuf, gasnetc_epid2node(cep->epid),
+			  gasnetc_epid2qpi(cep->epid) - 1, cep->hca_index,
+			  (unsigned int)(rbuf->rr_sg.lkey)));
   vstat = VAPI_post_rr(cep->hca_handle, cep->qp_handle, &rbuf->rr_desc);
 
   if_pt (vstat == VAPI_OK) {
@@ -922,9 +926,10 @@ void gasnetc_snd_validate(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int cou
   gasneti_assert(count > 0);
   gasneti_assert(type);
 
-  GASNETI_TRACE_PRINTF(D,("%s sreq=%p node=%d qpi=%d\n", type, sreq,
-			  (int)(sreq->cep - gasnetc_cep)/gasnetc_num_qps,
-			  (int)(sreq->cep - gasnetc_cep)%gasnetc_num_qps));
+  GASNETI_TRACE_PRINTF(D,("%s sreq=%p peer=%d qp=%d hca=%d\n", type, sreq,
+			  gasnetc_epid2node(sreq->cep->epid),
+			  gasnetc_epid2qpi(sreq->cep->epid) - 1,
+			  sreq->cep->hca_index));
   for (i = 0; i < count; ++i, ++sr_desc) {
     uintptr_t r_addr = sr_desc->remote_addr;
 
