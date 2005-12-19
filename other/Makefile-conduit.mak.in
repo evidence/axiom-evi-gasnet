@@ -251,7 +251,8 @@ run-testexit: force
 @GNU_NM_FALSE@check-exports: $(libraries)
 @GNU_NM_FALSE@	@echo check-exports test SKIPPED
 
-check: check-exports tests-par
+@HAVE_PTHREAD_TRUE@check: check-exports tests-par
+@HAVE_PTHREAD_FALSE@check: check-exports tests-seq
 
 force:
 
