@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/12/16 21:59:04 $
- * $Revision: 1.96 $
+ *     $Date: 2005/12/20 20:08:53 $
+ * $Revision: 1.97 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -573,6 +573,7 @@ typedef struct {
   char			*hca_id;
   VAPI_hca_cap_t	hca_cap;
   VAPI_hca_vendor_t	hca_vendor;
+  int			total_qps;
 
   void			*rbuf_alloc;
   gasneti_freelist_t	rbuf_freelist;
@@ -595,11 +596,13 @@ struct gasnetc_cep_keys_ {
 /* Structure for a cep (connection end-point) */
 typedef struct {
   /* Read/write fields */
-  gasnetc_sema_t	sq_sema;	/* control in-flight RDMA ops (send queue slots) */
-  gasnetc_sema_t	am_sema;	/* control in-flight AM Requests */
+  gasnetc_sema_t	sq_sema;	/* control in-flight ops (send queue slots) */
+  gasnetc_sema_t	am_sema;	/* control in-flight AM Requests (recv queue slots )*/
   gasnetc_sema_t	am_unrcvd;	/* ACK coalescing - unmatched rcv buffers */
+  gasnetc_sema_t	*snd_cq_sema_p;	/* control in-flight ops (send completion queue slots) */
   gasneti_weakatomic_t	am_unsent;	/* ACK coalescing - unsent credits */
   char			_pad0[GASNETC_CACHE_PAD(3*sizeof(gasnetc_sema_t)+
+						 sizeof(gasnetc_sema_t*)+
 						 sizeof(gasneti_weakatomic_t))];
 
   /* Read-only fields */

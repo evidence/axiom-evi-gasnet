@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/12/16 21:59:04 $
- * $Revision: 1.144 $
+ *     $Date: 2005/12/20 20:08:53 $
+ * $Revision: 1.145 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -745,6 +745,7 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
     if (found) {
       gasnetc_hca_t *hca = &gasnetc_hca[hca_count];
 
+      memset(hca, 0, sizeof(gasnetc_hca_t));
       hca->handle	= hca_handle;
       hca->hca_index	= hca_count;
       hca->hca_id	= gasneti_strdup(hca_ids[curr_hca]);
@@ -834,6 +835,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       int j;
       for (j = 0; j < gasnetc_num_qps; ++j, ++i) {
         port_map[i] = &port_tbl[j % num_ports];
+	++(gasnetc_hca[port_map[i]->hca_index].total_qps);
       }
     }
   }
