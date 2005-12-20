@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2005/12/20 20:08:53 $
- * $Revision: 1.145 $
+ *     $Date: 2005/12/20 23:17:27 $
+ * $Revision: 1.146 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -838,6 +838,10 @@ static int gasnetc_init(int *argc, char ***argv) {
 	++(gasnetc_hca[port_map[i]->hca_index].total_qps);
       }
     }
+  }
+  if (gasneti_nodes == 1) {
+    /* Avoid a later division by zero */
+    GASNETC_FOR_ALL_HCA(hca) { hca->total_qps = 1; }
   }
 
   /* Report/check hca and port properties */
