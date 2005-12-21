@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/12/20 23:17:27 $
- * $Revision: 1.146 $
+ *     $Date: 2005/12/21 00:06:28 $
+ * $Revision: 1.147 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -548,7 +548,7 @@ gasnetc_match_port(const char *id, int port) {
   if (gasnetc_port_list != NULL) {
     found = 0;
     for (prev = NULL, curr = gasnetc_port_list; curr && !found; prev = curr, curr = curr->next) {
-      if (0 == strcmp(id, curr->id)) {
+      if (!curr->matched && !strcmp(id, curr->id)) {
 	if (!port) { /* match HCA only */
 	  found = 1;
 	} else if (!curr->port || (curr->port == port)) { /* 0 is a wild card */
@@ -644,9 +644,9 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
   }
 
   if (max_ports) {
-    GASNETI_TRACE_PRINTF(C,("Probing HCAs for up to %d active ports", max_ports));
+    GASNETI_TRACE_PRINTF(C,("Probing HCAs for active ports (max %d)", max_ports));
   } else {
-    GASNETI_TRACE_PRINTF(C,("Probing HCAs for all active ports"));
+    GASNETI_TRACE_PRINTF(C,("Probing HCAs for active ports"));
     max_ports = 128;	/* If you have more than 128 IB ports per node, then I owe you $20 :-) */
   }
 
@@ -718,6 +718,10 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
         this_port->hca_index = hca_count;
 	this_port->rd_atom   = MIN(hca_cap.max_qp_init_rd_atom, hca_cap.max_qp_ous_rd_atom);
         GASNETI_TRACE_PRINTF(C,("Probe found HCA '%s', port %d", hca_ids[curr_hca], curr_port));
+	if (gasnetc_port_list == NULL) {
+	  /* By default one at most 1 port per HCA */
+	  break;
+	}
       } else {
 	const char *state;
 
