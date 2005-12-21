@@ -1,11 +1,11 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.36 $
+$Revision: 1.37 $
 
 @ TOC: @
 @ Section: Job Spawning @
-@ Section: Build-time Configuration @
+@ Section: Multi-rail Support @
 @ Section: Runtime Configuration @
 @ Section: Core API @
 @ Section: Extended API @
@@ -90,6 +90,26 @@ $Revision: 1.36 $
   + Resolution for all given hostnames must be possible from both the
     master node and the compute nodes.
 
+@ Section: Multi-rail Support @
+
+  Multi-rail support is ON in GASNet vapi-conduit by default.
+
+  By default, GASNet vapi-conduit will open up to two InfiniBand Host
+  Channel Adapters (HCAs) per node, and will stripe communications over
+  one active port on each adapters.  See the sections "Build-time
+  Configuration" and "Runtime Configuration" for information on
+  how to open more or fewer HCas/ports, or to control which HCAs/ports
+  are used.
+
+  To first order, the use of multiple ports or multiple adapters will
+  yield increases in both bandwidth (good) and software overhead (bad).
+  How the resulting trade off works for a given application may be
+  hard to predict.  If one is concerned with obtaining the maximum
+  possible performance for a given appliction, then experiment with
+  the GASNET_NUM_QPS and/or GASNET_VAPI_PORTR environment variables
+  (documented in "Runtime Configuration") to determine how a given
+  application runs best.
+
 @ Section: Build-time Configuration @
 
   By default vapi-conduit ensures network attentiveness (timely
@@ -127,9 +147,9 @@ $Revision: 1.36 $
   Connection settings:
   Under normal conditions, Host Channel Adapters and Ports will be
   located automatically.  However, in the event you have multiple
-  adapters or multiple active ports on a single adapter, you may need
-  to set these environment variables to identify the correct HCA and
-  Port.  These parameters may legally take different values on each node.
+  adapters or multiple active ports on a single adapter, you may wish
+  to set these environment variables to identify the correct HCAs and
+  Ports.  These parameters may legally take different values on each node.
 
   See "Build-time Configuration", above, for information on enabling
   use of multiple HCAs in GASNet vapi-conduit.
@@ -145,28 +165,31 @@ $Revision: 1.36 $
     This variable gives the number of VAPI Queue Pairs (QPs) over which to 
     stripe traffic between each pair of peers.  This can yield an increase
     in throughput and bandwidth when multiple physical ports are used
-    (on one or more adapters).
+    on one or more adapters.
     If the number of QPs exceeds the number of available physical ports 
     then multiple QPs will be mapped round-robin to the ports.  Be aware
     that mapping multiple QPs per port may yield either a performance
     improvement or a degradation, depending on traffic pattern.
-    The default is 0, which means one QP per available physical port.
+    The default is 0, which means one QP per HCA/port used.
 
   + GASNET_VAPI_PORTS
-    By default, GASNet will open and use every active IB port (when
-    GASNET_NUM_QPS is zero), or the first GASNET_NUM_QPS ports found
-    (when GASNET_NUM_QPS is non-zero).  Setting GASNET_VAPI_PORTS will
-    specify a filter for which ports will be used.
+    By default, GASNet will open and use one active IB port on each HCA
+    used, which will be all HCAs (when GASNET_NUM_QPS is zero), or the
+    first GASNET_NUM_QPS HCAs found (when GASNET_NUM_QPS is non-zero).
+    Setting GASNET_VAPI_PORTS will specify a filter for which ports will
+    be used.  This can be used for instance to cause multiple physical
+    ports to be used per HCA, or to specify specific ports and/or HCAs
+    to be considered (up to GASNETC_NUM_QPS if it is non-zero).
     This variable is a string of one or more HCA/port specifications,
     separated by '+' characters.  Each such specification gives an HCA
     identifier and an optional comma-separated list of port numbers.
     The list of port numbers, if provided, is separated from the HCA id
     by a ':'.  If a list of ports is given, only those ports may be used.
-    Otherwise all active ports on the given HCA may be used.  The
-    following example allows all active ports on HCA InfiniHost0, and
-    only port 2 on InifiniHost1:
+    Otherwise the first active port on the given HCA may be used.  The
+    following example allows the first active port on HCA InfiniHost0,
+    and only port 2 on InifiniHost1:
 	GASNET_VAPI_PORTS="InfiniHost0+InfiniHost1:2".
-    Note that this list is only a filter, which means:
+    Note that this list is a *filter*, which means:
     + Duplicate entries do not cause multiple opens of a port or HCA
     + Entries describing non-existant HCAs are silently ignored
     + Entries describing inactive ports are silently ignored
