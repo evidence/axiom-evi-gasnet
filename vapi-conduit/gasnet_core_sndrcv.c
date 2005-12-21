@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/20 20:08:53 $
- * $Revision: 1.141 $
+ *     $Date: 2005/12/21 00:51:29 $
+ * $Revision: 1.142 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -191,66 +191,6 @@ static gasnetc_cep_t			**gasnetc_node2cep;
 #define gasnetc_epid2node(E)	((E)&0xffff)
 #define gasnetc_epid2qpi(E)	((E)>>16)
 #define gasnetc_epid(N,Q)	((N)|(((Q)+1)<<16))
-
-#if GASNETC_VAPI_MAX_HCAS > 1
-/* Take *unbound* epid, return a qp number */
-GASNET_INLINE_MODIFIER(gasnetc_epid_select_qpi)
-gasnetc_epid_t gasnetc_epid_select_qpi(gasnetc_cep_t *ceps, gasnetc_epid_t epid) {
-  uint32_t space, best_space;
-  int i;
-  gasnetc_epid_t qpi;
-
-  gasneti_assert(gasnetc_num_qps > 1);
-
-  /* Select by largest space avail */
-  qpi = 0;
-  best_space = gasnetc_sema_read(&ceps[0].sq_sema);
-  for (i = 1; i < gasnetc_num_qps; ++i) {
-    space = gasnetc_sema_read(&ceps[i].sq_sema);
-    if (space > best_space) {
-      best_space = space;
-      qpi = i;
-    }
-  }
-
-  return qpi;
-}
-#endif
-
-/* Take *bound* epid, return (gasnetc_cep_t *),
- * currently used only in assertions */
-GASNET_INLINE_MODIFIER(gasnetc_epid2cep)
-gasnetc_cep_t *gasnetc_epid2cep(gasnetc_epid_t epid) {
-  gasneti_assert(gasnetc_epid2qpi(epid) != 0);
-  return gasnetc_node2cep[gasnetc_epid2node(epid)] + (gasnetc_epid2qpi(epid) - 1);
-}
-
-/* Take (sreq,sr_desc) and bind the sreq to a specific (not wildcard) qp */
-GASNET_INLINE_MODIFIER(gasnetc_epid_bind)
-gasnetc_cep_t *gasnetc_epid_bind(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
-				 VAPI_wr_opcode_t op, size_t len) {
-  gasnetc_cep_t *ceps = gasnetc_node2cep[gasnetc_epid2node(epid)];
-  gasnetc_epid_t qpi = gasnetc_epid2qpi(epid);
-
-#if GASNETC_VAPI_MAX_HCAS > 1
-  if_pt (qpi == 0) {
-    gasneti_assert(op != VAPI_SEND_WITH_IMM); /* AMs never wildcard */
-    qpi = gasnetc_epid_select_qpi(ceps, epid);
-    epid = gasnetc_epid(epid,qpi);
-  } else {
-    gasneti_assert((sreq->cep == NULL) || (sreq->cep == gasnetc_epid2cep(epid)));
-    --qpi;
-  }
-#else
-  qpi = 0;
-  epid = gasnetc_epid(epid,0);
-#endif
-
-  sreq->epid = epid;
-  sreq->cep = &ceps[qpi];
-
-  return sreq->cep;
-}
 
 #define GASNETC_SND_LKEY(cep)		((cep)->keys.snd_lkey)
 #define GASNETC_RCV_LKEY(cep)		((cep)->keys.rcv_lkey)
@@ -676,6 +616,81 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
   return count;
 }
 
+/* Take *unbound* epid, return a qp number */
+GASNET_INLINE_MODIFIER(gasnetc_epid_select_qpi)
+gasnetc_epid_t gasnetc_epid_select_qpi(gasnetc_cep_t *ceps, gasnetc_epid_t epid,
+				       VAPI_wr_opcode_t op, size_t len) {
+#if GASNETC_VAPI_MAX_HCAS > 1
+  gasnetc_epid_t qpi = gasnetc_epid2qpi(epid);
+
+  if_pt (qpi == 0) {
+#if 0
+    /* Select by largest space avail */
+    uint32_t space, best_space;
+    int i;
+    gasneti_assert(op != VAPI_SEND_WITH_IMM); /* AMs never wildcard */
+    qpi = 0;
+    best_space = gasnetc_sema_read(&ceps[0].sq_sema);
+    for (i = 1; i < gasnetc_num_qps; ++i) {
+      space = gasnetc_sema_read(&ceps[i].sq_sema);
+      if (space > best_space) {
+        best_space = space;
+        qpi = i;
+      }
+    }
+#else
+    /* Simple round-robin (w/ a harmless multi-thread race) */
+    static volatile int prev = 0;
+    qpi = prev;
+    qpi = (qpi == 0) ? (gasnetc_num_qps - 1) : (qpi - 1);
+    prev = qpi;
+#endif
+  } else {
+    --qpi; /* offset */
+  }
+
+  gasneti_assert(qpi >= 0);
+  gasneti_assert(qpi < gasnetc_num_qps);
+  return qpi;
+#else
+  return 0;
+#endif
+}
+
+/* Take (sreq,op,len) and bind the sreq to a specific (not wildcard) qp */
+GASNET_INLINE_MODIFIER(gasnetc_bind_cep)
+gasnetc_cep_t *gasnetc_bind_cep(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
+				VAPI_wr_opcode_t op, size_t len) {
+  gasnetc_cep_t *ceps = gasnetc_node2cep[gasnetc_epid2node(epid)];
+  gasnetc_cep_t *cep;
+  int qpi;
+
+  /* Loop until space is available on the selected SQ for 1 new entry.
+   * If we hold the last one then threads sending to the same node will stall. */
+  qpi = gasnetc_epid_select_qpi(ceps, epid, op, len);
+  cep = &ceps[qpi];
+  if_pf (!gasnetc_sema_trydown(&cep->sq_sema, GASNETC_ANY_PAR)) {
+    GASNETC_TRACE_WAIT_BEGIN();
+    do {
+      gasnetc_sreq_t *head, *tail;
+      if (gasnetc_snd_reap(1, &head, &tail)) {
+        gasneti_freelist_put(&gasnetc_sreq_freelist, head);
+      } else {
+        GASNETI_WAITHOOK();
+      }
+      /* Redo load balancing choice */
+      qpi = gasnetc_epid_select_qpi(ceps, epid, op, len);
+      cep = &ceps[qpi];
+    } while (!gasnetc_sema_trydown(&cep->sq_sema, GASNETC_ANY_PAR));
+    GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
+  }
+
+  sreq->epid = gasnetc_epid(epid, qpi);
+  sreq->cep = cep;
+
+  return cep;
+}
+
 GASNET_INLINE_MODIFIER(gasnetc_rcv_am)
 void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
   gasnetc_rbuf_t emergency_spare;
@@ -908,7 +923,7 @@ gasnetc_buffer_t *gasnetc_get_bbuf(int block) {
         bbuf = gasneti_freelist_get(&gasnetc_bbuf_freelist);
       }
     }
-    GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
+    GASNETC_TRACE_WAIT_END(GET_BBUF_STALL);
   }
   gasneti_assert((bbuf != NULL) || !block);
 
@@ -1013,19 +1028,7 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int 
 
   /* Must be bound to a qp by now */
   gasneti_assert(cep != NULL );
-  gasneti_assert(cep == gasnetc_epid2cep(sreq->epid));
   gasneti_assert(gasnetc_epid2node(sreq->epid) != gasneti_mynode);
-
-  /* Loop until space is available on the SQ for 1 new entry.
-   * If we hold the last one then threads sending to the same node will stall. */
-  if_pf (!gasnetc_sema_trydown(&cep->sq_sema, GASNETC_ANY_PAR)) {
-    GASNETC_TRACE_WAIT_BEGIN();
-    do {
-      GASNETI_WAITHOOK();
-      gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(&cep->sq_sema, GASNETC_ANY_PAR));
-    GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
-  }
 
   /* Loop until space is available for 1 new entry on the CQ.
    * If we hold the last one then threads sending to ANY node will stall. */
@@ -1455,7 +1458,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       sreq->req_oust = req_oust;
     }
 
-    (void)gasnetc_epid_bind(epid, sreq, VAPI_SEND_WITH_IMM, msg_len);
+    (void)gasnetc_bind_cep(epid, sreq, VAPI_SEND_WITH_IMM, msg_len);
     gasnetc_snd_post_common(sreq, sr_desc, sreq->am_buff == NULL);
 
     retval = GASNET_OK;
@@ -1514,7 +1517,7 @@ void gasnetc_bounce_common(gasnetc_epid_t epid, int rkey_index, uintptr_t rem_ad
   sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->bb_buff;
   sr_desc->sg_lst_p[0].len  = len;
 
-  cep = gasnetc_epid_bind(epid, sreq, op, len);
+  cep = gasnetc_bind_cep(epid, sreq, op, len);
   sr_desc->r_key = GASNETC_SEG_RKEY(cep, rkey_index);
   sr_desc->sg_lst_p[0].lkey = GASNETC_SND_LKEY(cep);
 
@@ -1562,7 +1565,7 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, uintptr_t loc_
     gasneti_assert(sr_desc->sg_lst_len > 0);
     gasneti_assert((remain >= 0) && (remain < len));
     len -= remain;
-    cep = gasnetc_epid_bind(epid, sreq, op, len);
+    cep = gasnetc_bind_cep(epid, sreq, op, len);
     for (seg = 0; seg < sr_desc->sg_lst_len; ++seg) {
       /* Xlate index to actual lkey */
       sr_desc->sg_lst_p[seg].lkey = GASNETC_SEG_LKEY(cep, base+seg);
@@ -1592,7 +1595,7 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, uintptr_t loc_
     sr_desc->sg_lst_len = sreq->fh_count;
     gasneti_assert((remain >= 0) && (remain < len));
     len -= remain;
-    cep = gasnetc_epid_bind(epid, sreq, op, len);
+    cep = gasnetc_bind_cep(epid, sreq, op, len);
     for (seg = 0; seg < sr_desc->sg_lst_len; ++seg) {
       /* Xlate to actual lkeys */
       sr_desc->sg_lst_p[seg].lkey = GASNETC_FH_LKEY(cep, sreq->fh_ptr[seg]);
@@ -1657,7 +1660,7 @@ static void gasnetc_do_put_inline(const gasnetc_epid_t epid, int rkey_index,
   sr_desc->sg_lst_p[0].addr       = src;
   sr_desc->sg_lst_p[0].len        = nbytes;
 
-  cep = gasnetc_epid_bind(epid, sreq, VAPI_RDMA_WRITE, nbytes);
+  cep = gasnetc_bind_cep(epid, sreq, VAPI_RDMA_WRITE, nbytes);
   sr_desc->r_key = GASNETC_SEG_RKEY(cep, rkey_index);
 
   gasnetc_snd_post_inline(sreq, sr_desc);
@@ -1814,7 +1817,7 @@ void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq, const firehose_request_t *fh_re
   mem_oust = sreq->mem_oust;
   sreq->mem_oust = NULL;
 
-  cep = gasnetc_epid_bind(sreq->epid, sreq, VAPI_RDMA_WRITE, len);
+  cep = gasnetc_bind_cep(sreq->epid, sreq, VAPI_RDMA_WRITE, len);
   sr_desc->r_key = GASNETC_FH_RKEY(cep, fh_rem);
 
   gasnetc_snd_post_inline(sreq, sr_desc);
@@ -1852,7 +1855,7 @@ void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq, const firehose_request_t *
     sr_desc->sg_lst_p[0].addr = (uintptr_t)sreq->fh_bbuf;
     sr_desc->sg_lst_p[0].len  = GASNETC_BUFSZ;
 
-    cep = gasnetc_epid_bind(orig_epid, sreq, VAPI_RDMA_WRITE, GASNETC_BUFSZ);
+    cep = gasnetc_bind_cep(orig_epid, sreq, VAPI_RDMA_WRITE, GASNETC_BUFSZ);
     sr_desc->r_key       = GASNETC_FH_RKEY(cep, fh_rem);
     sr_desc->sg_lst_p[0].lkey = GASNETC_SND_LKEY(cep);
 
@@ -1879,7 +1882,7 @@ void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq, const firehose_request_t *
   sr_desc->sg_lst_p[0].addr = (uintptr_t)orig_sreq->fh_bbuf;
   sr_desc->sg_lst_p[0].len  = nbytes;
 
-  cep = gasnetc_epid_bind(orig_epid, orig_sreq, VAPI_RDMA_WRITE, nbytes);
+  cep = gasnetc_bind_cep(orig_epid, orig_sreq, VAPI_RDMA_WRITE, nbytes);
   sr_desc->r_key       = GASNETC_FH_RKEY(cep, fh_rem);
   sr_desc->sg_lst_p[0].lkey = GASNETC_SND_LKEY(cep);
 
@@ -1908,7 +1911,7 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq, VAPI_wr_opcode_t op) {
   loc_addr = sreq->fh_loc_addr;
   sg_entry = sr_desc->sg_lst_p;
 
-  cep = gasnetc_epid_bind(sreq->epid, sreq, op, sreq->fh_len);
+  cep = gasnetc_bind_cep(sreq->epid, sreq, op, sreq->fh_len);
   sr_desc->r_key = GASNETC_FH_RKEY(cep, sreq->fh_ptr[0]);
 
   for (i = 1; i < sreq->fh_count; ++i) {
