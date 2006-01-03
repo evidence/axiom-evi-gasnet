@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2005/12/21 00:51:29 $
- * $Revision: 1.142 $
+ *     $Date: 2006/01/03 21:33:11 $
+ * $Revision: 1.143 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2193,7 +2193,7 @@ extern int gasnetc_sndrcv_init(void) {
 
   if (gasnetc_op_oust_limit == 0) { /* 0 = automatic limit computation */
     op_oust_per_qp = gasnetc_hca[0].hca_cap.max_num_ent_cq / gasnetc_hca[0].total_qps;
-    for (i = 1; i < gasnetc_num_hcas; ++i) {
+    for (h = 1; h < gasnetc_num_hcas; ++h) {
       op_oust_per_qp = MIN(op_oust_per_qp,
 		          (gasnetc_hca[h].hca_cap.max_num_ent_cq / gasnetc_hca[h].total_qps));
     }
@@ -2213,8 +2213,8 @@ extern int gasnetc_sndrcv_init(void) {
   if (gasnetc_am_oust_limit == 0) { /* 0 = automatic limit computation */
     int tmp = (gasnetc_hca[0].hca_cap.max_num_ent_cq - (gasnetc_use_rcv_thread ? 1 : 0)) / gasnetc_hca[0].total_qps;
     am_oust_per_qp = tmp - gasnetc_am_oust_pp; /* Subtract space for incomming Reqs */
-    for (i = 1; i < gasnetc_num_hcas; ++i) {
-      int tmp = (gasnetc_hca[i].hca_cap.max_num_ent_cq - (gasnetc_use_rcv_thread ? 1 : 0)) / gasnetc_hca[i].total_qps;
+    for (h = 1; h < gasnetc_num_hcas; ++h) {
+      int tmp = (gasnetc_hca[h].hca_cap.max_num_ent_cq - (gasnetc_use_rcv_thread ? 1 : 0)) / gasnetc_hca[h].total_qps;
       am_oust_per_qp = MIN(am_oust_per_qp, tmp - gasnetc_am_oust_pp);
     }
   } else {
