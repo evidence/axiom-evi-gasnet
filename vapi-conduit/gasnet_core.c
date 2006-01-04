@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2005/12/21 00:06:28 $
- * $Revision: 1.147 $
+ *     $Date: 2006/01/04 22:39:16 $
+ * $Revision: 1.148 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -222,13 +222,16 @@ static void *gasnetc_try_pin_inner(size_t size, gasnetc_memreg_t *reg) {
 /* Try to pin up to 'limit' in chunks of size 'step' */
 static uintptr_t gasnetc_trypin(uintptr_t limit, uintptr_t step) {
   uintptr_t size = 0;
+  int h;
 
   if (limit != 0) {
     gasnetc_memreg_t reg[GASNETC_VAPI_MAX_HCAS];
     step = MIN(limit, step);
     if (gasnetc_try_pin_inner(step, reg) != NULL) {
       size = step + gasnetc_trypin(limit - step, step);
-      gasnetc_unpin(&reg[0]);
+      GASNETC_FOR_ALL_HCA_INDEX(h) {
+        gasnetc_unpin(&reg[h]);
+      }
       gasneti_munmap(reg[0].req_addr, reg[0].req_size);
     }
   }
