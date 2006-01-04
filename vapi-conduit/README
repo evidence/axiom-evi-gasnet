@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.37 $
+$Revision: 1.38 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -96,9 +96,9 @@ $Revision: 1.37 $
 
   By default, GASNet vapi-conduit will open up to two InfiniBand Host
   Channel Adapters (HCAs) per node, and will stripe communications over
-  one active port on each adapters.  See the sections "Build-time
+  one active port on each adapter.  See the sections "Build-time
   Configuration" and "Runtime Configuration" for information on
-  how to open more or fewer HCas/ports, or to control which HCAs/ports
+  how to open more or fewer HCAs/ports, or to control which HCAs/ports
   are used.
 
   To first order, the use of multiple ports or multiple adapters will
@@ -106,7 +106,7 @@ $Revision: 1.37 $
   How the resulting trade off works for a given application may be
   hard to predict.  If one is concerned with obtaining the maximum
   possible performance for a given appliction, then experiment with
-  the GASNET_NUM_QPS and/or GASNET_VAPI_PORTR environment variables
+  the GASNET_NUM_QPS and/or GASNET_VAPI_PORTS environment variables
   (documented in "Runtime Configuration") to determine how a given
   application runs best.
 
