@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/12/20 20:08:53 $
- * $Revision: 1.97 $
+ *     $Date: 2006/01/05 02:09:31 $
+ * $Revision: 1.98 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -327,7 +327,7 @@ void gasnetc_sema_up(gasnetc_sema_t *s) {
 
 /* gasnetc_sema_trydown
  *
- * If the value of the semaphore is non-zero, decrements it and returns the old value.
+ * If the value of the semaphore is non-zero, decrements it and returns non-zero.
  * If the value is zero, returns zero.
  *
  * If non-zero, the "concurrent" argument indicates that there are multiple threads
@@ -340,9 +340,23 @@ int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
   GASNETC_SEMA_CHECK(s);
   #ifdef GASNETI_HAVE_ATOMIC_CAS
   {
-    uint32_t old = gasneti_weakatomic_read(&(s->count));
-    retval = (old > 0) && gasneti_weakatomic_compare_and_swap(&(s->count), old, old - 1);
-    if (retval) gasneti_sync_reads();
+    uint32_t old;
+    retval = 0;
+again:
+    old = gasneti_weakatomic_read(&(s->count));
+    if_pt (old) {
+      if (concurrent) { /* "concurrent" is a compile-time constant 0 or 1 */
+        retval = gasneti_weakatomic_compare_and_swap(&(s->count), old, old - 1);
+        if_pf (!retval) {
+	  /* contention in CAS */
+	  goto again;
+        }
+      } else {
+        gasneti_weakatomic_set(&(s->count), old - 1);
+        retval = 1;
+      }
+      gasneti_sync_reads();
+    }
   }
   #else
     gasnetc_mutex_lock(&(s->lock), concurrent);
