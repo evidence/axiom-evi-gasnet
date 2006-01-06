@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/01/04 22:39:16 $
- * $Revision: 1.148 $
+ *     $Date: 2006/01/06 18:58:53 $
+ * $Revision: 1.149 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -264,7 +264,7 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
    * We bound our search by the smallest of:
    *   2/3 of physical memory (1/4 or 1GB for Darwin)
    *   User's current (soft) mlock limit (optional)
-   *   env(GASNET_PHYSMEM_LIMIT)
+   *   env(GASNET_PHYSMEM_MAX)
    *   if FIREHOSE_M and FIREHOSE_MAXVICTIM_M are both set:
    *     (SEGMENT_FAST ? MMAP_LIMIT : 0 ) + (FIREHOSE_M + FIREHOSE_MAXVICTIM_M + eplison)
    */
@@ -294,12 +294,12 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
       #endif
     }
   }
-  { /* Honor PHYSMEM_LIMIT if set */
-    int tmp = gasneti_getenv_int_withdefault("GASNET_PHYSMEM_LIMIT", 0, 1);
+  { /* Honor PHYSMEM_MAX if set */
+    int tmp = gasneti_getenv_int_withdefault("GASNET_PHYSMEM_MAX", 0, 1);
     if (tmp) {
       limit = MIN(limit, tmp);
       if_pf (gasneti_getenv_yesno_withdefault("GASNET_PHYSMEM_NOPROBE", 0)) {
-	/* Force use of PHYSMEM_LIMIT w/o probing */
+	/* Force use of PHYSMEM_MAX w/o probing */
 	limit = tmp;
 	do_probe = 0;
       }
