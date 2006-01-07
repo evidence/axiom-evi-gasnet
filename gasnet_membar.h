@@ -1,12 +1,12 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2005/11/09 08:45:49 $
- * $Revision: 1.77 $
+ *     $Date: 2006/01/07 01:02:09 $
+ * $Revision: 1.78 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#if !defined(_IN_GASNET_TOOLS_H) && !defined(_IN_GASNET_H)
+#if !defined(_IN_GASNET_TOOLS_H) && !defined(_IN_GASNET_H) && !defined(_IN_CONFIGURE)
   #error This file is not meant to be included directly- clients should include gasnet.h or gasnet_tools.h
 #endif
 
@@ -93,6 +93,10 @@
   #error "Don't know how to use inline assembly for your compiler"
 #endif
 
+
+#ifdef _IN_CONFIGURE
+  /* the file effectively ends here */
+#else
 
 #if defined(__sparc__) || defined(__sparc) || defined(sparc)
   #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_SPARCV9) /* SPARC v9 */
@@ -425,18 +429,26 @@
 /* ------------------------------------------------------------------------------------ */
 
 #ifndef gasneti_spinloop_hint
- #ifdef HAVE_X86_PAUSE_INSTRUCTION
+ #if defined(GASNETI_PAUSE_INSTRUCTION)
    /* Pentium 4 processors get measurably better performance when a "pause" instruction
-      is inserted in spin-loops - this instruction is documented as a "spin-loop hint"
-      which avoids a memory hazard stall on spin loop exit and reduces power consumption
-      Other Intel CPU's treat this instruction as a no-op
+    * is inserted in spin-loops - this instruction is documented as a "spin-loop hint"
+    * which avoids a memory hazard stall on spin loop exit and reduces power consumption
+    * Other Intel CPU's treat this instruction as a no-op
+    *
+    * IA64 includes a "hint" for use in spinloops
    */
-   #define gasneti_spinloop_hint() GASNETI_ASM("pause")
+   #define gasneti_spinloop_hint() GASNETI_ASM(GASNETI_PAUSE_INSTRUCTION)
+ #elif (defined(__ia64__) || defined(__ia64)) && defined(__INTEL_COMPILER)
+   /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
+   #include <ia64intrin.h>
+   #define gasneti_spinloop_hint() __hint(__hint_pause)
  #else
    #define gasneti_spinloop_hint() ((void)0)
  #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */
+
+#endif
 
 #endif

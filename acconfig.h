@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2005/12/16 21:59:02 $ */
-/*  $Revision: 1.74 $ */
+/*      $Date: 2006/01/07 01:02:09 $ */
+/*  $Revision: 1.75 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -75,8 +75,8 @@
 /* has pthread_kill_other_threads_np() */
 #undef HAVE_PTHREAD_KILL_OTHER_THREADS_NP
 
-/* have pause instruction, only relevant on Pentium4 */
-#undef HAVE_X86_PAUSE_INSTRUCTION
+/* pause instruction, if any */
+#undef GASNETI_PAUSE_INSTRUCTION
 
 /* has __builtin_expect */
 #undef HAVE_BUILTIN_EXPECT
@@ -211,7 +211,7 @@
 #define GASNETI_NORETURN 
 #endif
 
-#if (__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4)
+#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4))
   /* Warn if return value is ignored.  Available on gcc-3.4 and newer. */
   #define GASNETI_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
 #else

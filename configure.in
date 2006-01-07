@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/01/05 19:39:33 $
-# $Revision: 1.312 $
+#     $Date: 2006/01/07 01:02:09 $
+# $Revision: 1.313 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.312 $)
+AC_REVISION($Revision: 1.313 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -730,16 +730,33 @@ AC_SUBST(PTHREADS)
 
 AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
 
+## Spinloop hints
+GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -D_IN_CONFIGURE")
 AC_MSG_CHECKING(for x86 pause instruction)
-AC_TRY_COMPILE([], [
-  #if defined(__i386__) || defined(__x86_64__) || defined(__ia64__)
-    __asm__ __volatile__ ("pause" : : : "memory");
+AC_TRY_COMPILE([
+  #include "gasnet_membar.h" /* For GASNET_ASM() only */
+], [
+  #if defined(__i386__) || defined(__x86_64__)
+    GASNETI_ASM("pause");
   #else
     #error wrong CPU architecture
   #endif
-], [AC_DEFINE(HAVE_X86_PAUSE_INSTRUCTION)
+], [AC_DEFINE(GASNETI_PAUSE_INSTRUCTION, "pause")
     AC_MSG_RESULT(yes)
 ], [AC_MSG_RESULT(no)])
+AC_MSG_CHECKING(for ia64 pause hint)
+AC_TRY_COMPILE([
+  #include "gasnet_membar.h" /* For GASNET_ASM() only */
+], [
+  #if defined(__ia64__)
+    GASNETI_ASM("hint @pause");
+  #else
+    #error wrong CPU architecture
+  #endif
+], [AC_DEFINE(GASNETI_PAUSE_INSTRUCTION, "hint @pause")
+    AC_MSG_RESULT(yes)
+], [AC_MSG_RESULT(no)])
+GASNET_POPVAR(CFLAGS)
 
 #---------------------------------------------------------------------------------------------------------------
 
