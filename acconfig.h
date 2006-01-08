@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/01/07 01:02:09 $ */
-/*  $Revision: 1.75 $ */
+/*      $Date: 2006/01/08 22:33:59 $ */
+/*  $Revision: 1.76 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -194,7 +194,8 @@
 #define __attribute__(flags)
 #endif
 
-#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4))
+#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4)) \
+    && !defined(__INTEL_COMPILER) /* __warn_unused_result__ not available in icc */
   /* gcc-3.4 and newer: assert return value is unaliased + warn if unused */
   #define GASNETI_MALLOC __attribute__((__malloc__,__warn_unused_result__))
 #elif defined(__GNUC__) && !(__GNUC__ <= 2 && __GNUC_MINOR__ <= 95)
@@ -211,7 +212,8 @@
 #define GASNETI_NORETURN 
 #endif
 
-#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4))
+#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4)) \
+    && !defined(__INTEL_COMPILER) /* not available in icc */
   /* Warn if return value is ignored.  Available on gcc-3.4 and newer. */
   #define GASNETI_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
 #else
