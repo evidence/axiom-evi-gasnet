@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/01/07 01:02:09 $
- * $Revision: 1.78 $
+ *     $Date: 2006/01/09 17:03:36 $
+ * $Revision: 1.79 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -438,7 +438,7 @@
     * IA64 includes a "hint" for use in spinloops
    */
    #define gasneti_spinloop_hint() GASNETI_ASM(GASNETI_PAUSE_INSTRUCTION)
- #elif (defined(__ia64__) || defined(__ia64)) && defined(__INTEL_COMPILER)
+ #elif (defined(__ia64__) || defined(__ia64)) && defined(__INTEL_COMPILER) && 0 /* DISABLED */
    /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
    #include <ia64intrin.h>
    #define gasneti_spinloop_hint() __hint(__hint_pause)
