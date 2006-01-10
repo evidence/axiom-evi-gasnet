@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/01/05 02:09:31 $
- * $Revision: 1.98 $
+ *     $Date: 2006/01/10 19:26:20 $
+ * $Revision: 1.99 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -663,7 +663,6 @@ extern int		gasnetc_op_oust_pp;
 extern int		gasnetc_am_oust_limit;
 extern int		gasnetc_am_oust_pp;
 extern int		gasnetc_bbuf_limit;
-extern int		gasnetc_use_poll_lock;
 extern int		gasnetc_use_rcv_thread;
 extern int		gasnetc_use_firehose;
 extern int		gasnetc_am_credits_slack;

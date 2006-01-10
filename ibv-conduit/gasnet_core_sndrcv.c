@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/04 21:39:54 $
- * $Revision: 1.145 $
+ *     $Date: 2006/01/10 19:26:20 $
+ * $Revision: 1.146 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -261,20 +261,13 @@ VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
 	     | (((cat)    & 0x3   )      )))
 
 /* Work around apparent thread-safety bug in VAPI_poll_cq (and peek as well?) */
-int gasnetc_use_poll_lock;
-static gasnetc_mutex_t gasnetc_cq_poll_lock = GASNETC_MUTEX_INITIALIZER;
-#if GASNETC_VAPI_FORCE_POLL_LOCK
-  /* ALWAYS on */
-  #define CQ_LOCK	gasnetc_mutex_lock(&gasnetc_cq_poll_lock, GASNETC_ANY_PAR);
-  #define CQ_UNLOCK	gasnetc_mutex_unlock(&gasnetc_cq_poll_lock, GASNETC_ANY_PAR);
+#if GASNETC_VAPI_POLL_LOCK
+  static gasneti_mutex_t gasnetc_cq_poll_lock = GASNETI_MUTEX_INITIALIZER;
+  #define CQ_LOCK	gasneti_mutex_lock(&gasnetc_cq_poll_lock);
+  #define CQ_UNLOCK	gasneti_mutex_unlock(&gasnetc_cq_poll_lock);
 #else
-  /* Conditionally on */
-  #define CQ_LOCK	if_pf (gasnetc_use_poll_lock) {\
-  				gasnetc_mutex_lock(&gasnetc_cq_poll_lock, GASNETC_ANY_PAR);\
-			}
-  #define CQ_UNLOCK	if_pf (gasnetc_use_poll_lock) {\
-				gasnetc_mutex_unlock(&gasnetc_cq_poll_lock, GASNETC_ANY_PAR);\
-			}
+  #define CQ_LOCK	do {} while (0)
+  #define CQ_UNLOCK	do {} while (0)
 #endif
 
 #define gasnetc_poll_snd_cq(HCA, COMP_P)	VAPI_poll_cq((HCA)->handle, (HCA)->snd_cq, (COMP_P))

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/01/06 18:58:53 $
- * $Revision: 1.149 $
+ *     $Date: 2006/01/10 19:26:20 $
+ * $Revision: 1.150 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -443,10 +443,10 @@ static int gasnetc_load_settings(void) {
   GASNETI_TRACE_PRINTF(C,("vapi-conduit build time configuration settings = {"));
   GASNETI_TRACE_PRINTF(C,("  AM receives in internal thread %sabled (GASNETC_VAPI_RCV_THREAD)",
 				GASNETC_VAPI_RCV_THREAD ? "en" : "dis"));
-#if GASNETC_VAPI_FORCE_POLL_LOCK
-  GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls            forced (--enable-vapi-force-poll-lock)"));
+#if GASNETC_VAPI_POLL_LOCK
+  GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls            YES (--enable-vapi-poll-lock)"));
 #else
-  GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls            probe for buggy firmware (default)"));
+  GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls            NO (default)"));
 #endif
   GASNETI_TRACE_PRINTF(C,("  Max. snd completions per poll  %d (GASNETC_SND_REAP_LIMIT)",
 				GASNETC_SND_REAP_LIMIT));
@@ -905,25 +905,28 @@ static int gasnetc_init(int *argc, char ***argv) {
       #endif
     }
   
-    /* For some firmware there is a thread safety bug with VAPI_poll_cq(). */
-    #if GASNETC_VAPI_FORCE_POLL_LOCK
-      /* The poll lock is used unconditionally */
-      GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls      : forced at compile time"));
-    #else
-      if (hca->hca_vendor.vendor_id == MT_MELLANOX_IEEE_VENDOR_ID) {
-        /* Use the poll lock only for known bad fw (<3.0.0): */
-        int defect = (hca->hca_vendor.fw_ver < (uint64_t)(0x300000000LL));
+    /* Vendor-specific firmware checks */
+    if (hca->hca_vendor.vendor_id == MT_MELLANOX_IEEE_VENDOR_ID) {
+       int defect;
+
+      #if !GASNETC_VAPI_POLL_LOCK
+        /* For firmware < 3.0 there is a thread safety bug with VAPI_poll_cq(). */
+        defect = (hca->hca_vendor.fw_ver < (uint64_t)(0x300000000LL));
         GASNETI_TRACE_PRINTF(C,("  Serialized CQ polls      : %srequired for this firmware",
 			        defect ? "" : "not "));
-        gasnetc_use_poll_lock |= defect;
-      }
-    #endif
+	if (defect) {
+	  GASNETI_RETURN_ERRR(RESOURCE, "\n"
+		  "Your HCA firmware is suspected to include a thread safety bug in\n"
+		  "VAPI_poll_cq(), which may cause hangs, crashes or incorrect results.\n"
+		  "You must either upgrade your firmware, or rebuild GASNet passing the\n"
+		  "flag '--enable-vapi-poll-lock' to configure.  See vapi-conduit/README.\n");
+	}
+      #endif
 
-    /* For some firmware there is a performance bug with EVAPI_post_inline_sr(). */
-    if (hca->hca_vendor.vendor_id == MT_MELLANOX_IEEE_VENDOR_ID) {
+      /* For some firmware there is a performance bug with EVAPI_post_inline_sr(). */
       /* (1.18 <= fw_ver < 3.0) is known bad */
-      int defect = (hca->hca_vendor.fw_ver >= (uint64_t)(0x100180000LL)) &&
-		   (hca->hca_vendor.fw_ver <  (uint64_t)(0x300000000LL));
+      defect = (hca->hca_vendor.fw_ver >= (uint64_t)(0x100180000LL)) &&
+	       (hca->hca_vendor.fw_ver <  (uint64_t)(0x300000000LL));
       if (defect && gasnetc_inline_limit) {
 	  fprintf(stderr,
 		  "WARNING: Your HCA firmware is suspected to include a performance defect\n"

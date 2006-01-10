@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.38 $
+$Revision: 1.39 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -124,12 +124,13 @@ $Revision: 1.38 $
   compile away.
 
   In firmware versions prior to 3.0, the VAPI_poll_cq() call is
-  not thread safe under some conditions.  For this reason,
-  vapi-conduit will check the firmware version at runtime and will
-  use its own mutex around calls to VAPI_poll_cq() if needed.  If
-  you believe this bug is appearing in firmware 3.0 or later, you
-  can force use of this mutex by configuring GASNet with the flag
-  '--enable-vapi-force-poll-lock'.
+  not thread safe under some conditions.  To run correctly with
+  pre-3.0 firmware, one must configure GASNet with the flag
+  '--enable-vapi-poll-lock'.  One may also pass this flag if
+  there is reason to believe that VAPI_poll_cq() and/or
+  EVAPI_peek_cq() are not thread-safe.
+  If vapi-conduit detects pre-3.0 firmware at startup, a fatal
+  error will be issued.
 
   By default, vapi-conduit will open at most two Host Channel Adapters
   (HCAs) on a node.  To utilize more than two HCAs in a host, specify
