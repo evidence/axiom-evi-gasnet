@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2005/12/16 22:52:10 $
- * $Revision: 1.46 $
+ *     $Date: 2006/01/11 01:16:33 $
+ * $Revision: 1.47 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -233,7 +233,11 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
         abort();
       }
       while (!feof(fp) && fgets(input, 255, fp)) {
+      #if defined(__ia64__) /* itc and cpu need not run at the same rate */
+        if (strstr(input,"itc MHz")) {
+      #else
         if (strstr(input,"cpu MHz")) {
+      #endif
           char *p = strchr(input,':');
 	  double MHz = 0.0;
           if (p) MHz = atof(p+1);
