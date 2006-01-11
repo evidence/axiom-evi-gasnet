@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/01/11 01:25:28 $
-# $Revision: 1.316 $
+#     $Date: 2006/01/11 01:35:11 $
+# $Revision: 1.317 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.316 $)
+AC_REVISION($Revision: 1.317 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -746,7 +746,7 @@ AC_TRY_COMPILE([
 ], [AC_MSG_RESULT(no)])
 ## Disabled ia64 pause hint until we see an actual need for it -PHH 2006.01.09
 #AC_MSG_CHECKING(for ia64 pause hint)
-#AC_TRY_LINK([ /* Link (not compile) to catch failure on HP compiler */
+#AC_TRY_COMPILE([
 #  #include "gasnet_membar.h" /* For GASNET_ASM() only */
 #], [
 #  #if defined(__ia64__)
