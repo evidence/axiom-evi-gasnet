@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/10 19:26:20 $
- * $Revision: 1.146 $
+ *     $Date: 2006/01/12 20:51:55 $
+ * $Revision: 1.147 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -507,7 +507,7 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 
 	  switch (comp.opcode) {
 	  case VAPI_CQE_SQ_RDMA_READ:	/* Get */
-	    gasneti_assert((sreq->req_oust != NULL) || !GASNETC_ANY_PAR);
+	    gasneti_assert(sreq->req_oust != NULL);
 	    gasneti_assert(sreq->mem_oust == NULL);
             #if GASNETC_PIN_SEGMENT
 	    if_pf (sreq->fh_count < 0) {
