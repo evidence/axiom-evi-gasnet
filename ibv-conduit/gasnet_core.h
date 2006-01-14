@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.h,v $
- *     $Date: 2005/10/23 12:28:33 $
- * $Revision: 1.42 $
+ *     $Date: 2006/01/14 02:05:22 $
+ * $Revision: 1.43 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -125,6 +125,9 @@ typedef gasneti_weakatomic_t gasnetc_counter_t;
 #define gasnetc_counter_reset(P)	gasneti_weakatomic_set((P), 0)
 #define gasnetc_counter_done(P)		(gasneti_weakatomic_read(P) == 0)
 #define gasnetc_counter_inc(P)		gasneti_weakatomic_increment(P)
+#define gasnetc_counter_inc_if(P)	do { if(P) gasnetc_counter_inc(P); } while (0)
+#define gasnetc_counter_inc_if_pf(P)	do { if_pf(P) gasnetc_counter_inc(P); } while (0)
+#define gasnetc_counter_inc_if_pt(P)	do { if_pt(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_dec(P)	do {                                              \
 					gasneti_assert(!gasnetc_counter_done(P)); \
 					gasneti_weakatomic_decrement(P);          \
