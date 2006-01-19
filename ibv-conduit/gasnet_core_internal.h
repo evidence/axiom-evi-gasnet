@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/10 19:26:20 $
- * $Revision: 1.99 $
+ *     $Date: 2006/01/19 03:50:34 $
+ * $Revision: 1.100 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -238,6 +238,62 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* ------------------------------------------------------------------------------------ */
 
+/* Optional CAS2 for pointers */
+
+#if !GASNETC_ANY_PAR
+  /* No threads, so we use the mutex code that compiles away. */
+#elif 1
+  /* CURRENTLY DISABLED */
+#elif defined(__i386__) /* x86 but NOT x86_64 */ \
+  && (defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__))
+    typedef struct {
+      volatile uintptr_t 	ptr;
+      volatile uintptr_t 	ABA_tag;
+    } gasneti_casptr_t;
+
+    GASNET_INLINE_MODIFIER(gasneti_casptr_cas1)
+    int gasneti_casptr_cas1(gasneti_casptr_t *v, void *oldval, void *newval) {
+      register unsigned char retval;
+      register uintptr_t readval;
+      __asm__ __volatile__ (GASNETI_LOCK "cmpxchgl %3, %1\n\tsete %0"
+                                : "=mq" (retval), "=m" (v->ptr), "=a" (readval)
+                                : "r" (newval), "m" (v->ptr), "a" (oldval)
+                                : "memory");
+      return (int)retval;
+    }
+    GASNET_INLINE_MODIFIER(gasneti_casptr_cas2)
+    int gasneti_casptr_cas2(gasneti_casptr_t *v, void *oldval, void *newval) {
+      register unsigned char retval;
+      register uintptr_t readtag, readptr;
+      __asm__ __volatile__ ("movl %4, %%ecx\n\t"
+			    "incl %%ecx\n\t"
+			    GASNETI_LOCK "cmpxchg8b %3\n\t"
+			    "sete %0"
+				: "=mq" (retval), "=d" (readtag), "=a" (readptr)
+				: "m" (v->ptr), "d" (v->ABA_tag), "a" (oldval), "b" (newval)
+				: "memory", "ecx");
+      return (int)retval;
+    }
+    #define GASNETI_CASPTR_INITIALIZER(P)	{(uintptr_t)(P),}
+    #define GASNETI_HAVE_CASPTR	1
+#endif
+
+#ifdef GASNETI_HAVE_CASPTR
+  GASNET_INLINE_MODIFIER(gasneti_casptr_init)
+  void gasneti_casptr_init(gasneti_casptr_t *v, void *initval) {
+    v->ptr = (uintptr_t)initval;
+  }
+  GASNET_INLINE_MODIFIER(gasneti_casptr_read)
+  void *gasneti_casptr_read(const gasneti_casptr_t *v) {
+    return (void *)(v->ptr);
+  }
+#else
+  #define GASNETI_HAVE_CASPTR	0
+#endif
+
+
+/* ------------------------------------------------------------------------------------ */
+
 /*
  * gasnetc_sema_t
  *
@@ -439,7 +495,7 @@ uint32_t gasnetc_sema_trydown_n(gasnetc_sema_t *s, uint32_t n, int concurrent) {
  * Freelists in vapi-conduit have multiple consumers and multiple producers.
  * Thread-local lists don't use this data structure.
  *
- * Current implementation is a LIFO (stack) with a mutex.
+ * Current implementation is a LIFO (stack) with a mutex (and optionally lock-free).
  * Other possibilities include FIFO (queue) with mutex, or lock-free LIFO or FIFO
  */
 
@@ -467,19 +523,32 @@ typedef struct _gasneti_freelist_ptr_s {
  * Data type for the "head" of a freelist.
  */
 typedef struct {
+#if GASNETI_HAVE_CASPTR
+  gasneti_casptr_t		head;
+  char				_pad[GASNETC_CACHE_PAD(sizeof(gasneti_casptr_t))];
+#else
   gasneti_mutex_t		lock;
   gasneti_freelist_ptr_t	*head;
   char				_pad[GASNETC_CACHE_PAD(sizeof(gasneti_mutex_t)+sizeof(gasneti_freelist_ptr_t *))];
+#endif
 } gasneti_freelist_t;
 
 /* Initializer for staticly allocated freelists */
-#define GASNETI_FREELIST_INITIALIZER	{ GASNETI_MUTEX_INITIALIZER, NULL }
+#if GASNETI_HAVE_CASPTR
+  #define GASNETI_FREELIST_INITIALIZER	{ GASNETI_CASPTR_INITIALIZER(NULL) }
+#else
+  #define GASNETI_FREELIST_INITIALIZER	{ GASNETI_MUTEX_INITIALIZER, NULL }
+#endif
 
 /* Initializer for dynamically allocated freelists */
 GASNET_INLINE_MODIFIER(gasneti_freelist_init)
 void gasneti_freelist_init(gasneti_freelist_t *fl) {
+#if GASNETI_HAVE_CASPTR
+  gasneti_casptr_init(&(fl->head), NULL);
+#else
   gasneti_mutex_init(&(fl->lock));
   fl->head = NULL;
+#endif
 }
 
 /* Get one element from the freelist or NULL if it is empty */
@@ -489,6 +558,18 @@ void gasneti_freelist_init(gasneti_freelist_t *fl) {
 #endif
 GASNET_INLINE_MODIFIER(gasneti_freelist_get)
 void *gasneti_freelist_get(gasneti_freelist_t *fl) {
+#if GASNETI_HAVE_CASPTR
+  gasneti_freelist_ptr_t *head, *next;
+
+  do {
+    head = gasneti_casptr_read(&(fl->head));
+    if_pf (head == NULL) {
+      break;
+    }
+    next = head->next;
+  } while (!gasneti_casptr_cas2(&(fl->head), head, next));
+  gasneti_sync_reads();
+#else
   gasneti_freelist_ptr_t *head;
 
   gasneti_mutex_lock(&((fl)->lock));
@@ -497,6 +578,7 @@ void *gasneti_freelist_get(gasneti_freelist_t *fl) {
     fl->head = head->next;
   }
   gasneti_mutex_unlock(&((fl)->lock));
+#endif
 
   return (void *)head;
 }
@@ -504,17 +586,39 @@ void *gasneti_freelist_get(gasneti_freelist_t *fl) {
 /* Put an unused element into the freelist */
 GASNET_INLINE_MODIFIER(gasneti_freelist_put)
 void gasneti_freelist_put(gasneti_freelist_t *fl, void *elem) {
+#if GASNETI_HAVE_CASPTR
+  void *old;
+  gasneti_assert(elem != NULL);
+
+  do {
+    old = gasneti_casptr_read(&(fl->head));
+    ((gasneti_freelist_ptr_t *)elem)->next = old;
+  } while (!gasneti_casptr_cas1(&(fl->head), old, elem));
+  gasneti_sync_reads();
+#else
   gasneti_assert(elem != NULL);
 
   gasneti_mutex_lock(&((fl)->lock));
   ((gasneti_freelist_ptr_t *)elem)->next = fl->head;
   fl->head = elem;
   gasneti_mutex_unlock(&((fl)->lock));
+#endif
 }
 
 /* Put a chain of unused elements into the freelist */
 GASNET_INLINE_MODIFIER(gasneti_freelist_put_many)
 void gasneti_freelist_put_many(gasneti_freelist_t *fl, void *head, void *tail) {
+#if GASNETI_HAVE_CASPTR
+  void *old;
+  gasneti_assert(head != NULL);
+  gasneti_assert(tail != NULL);
+
+  do {
+    old = gasneti_casptr_read(&(fl->head));
+    ((gasneti_freelist_ptr_t *)tail)->next = old;
+  } while (!gasneti_casptr_cas1(&(fl->head), old, head));
+  gasneti_sync_reads();
+#else
   gasneti_assert(head != NULL);
   gasneti_assert(tail != NULL);
 
@@ -522,6 +626,7 @@ void gasneti_freelist_put_many(gasneti_freelist_t *fl, void *head, void *tail) {
   ((gasneti_freelist_ptr_t *)tail)->next = fl->head;
   fl->head = head;
   gasneti_mutex_unlock(&((fl)->lock));
+#endif
 }
 
 /* Build a chain (q follows p) for use with _put_many() */
