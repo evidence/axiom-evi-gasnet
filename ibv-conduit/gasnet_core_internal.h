@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/20 00:35:39 $
- * $Revision: 1.103 $
+ *     $Date: 2006/01/20 03:13:22 $
+ * $Revision: 1.104 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -479,35 +479,29 @@ typedef struct _gasneti_freelist_ptr_s {
 
     GASNET_INLINE_MODIFIER(gasneti_fl_push)
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
-      register uintptr_t tmp1;
-      __asm__ __volatile__ ("1: movl	%0, %1	\n\t"	/* tmp1 = p->head */
-			    "movl	%1, %3	\n\t"	/* tail->next = tmp1 */
-			    GASNETI_LOCK		
-			    "cmpxchgl	%2, %0	\n\t"	/* p->head = head */
-			    "jne	1b"		/* retry on conflict */
-                                : "=m" (p->head), "=&a" (tmp1)
+      __asm__ __volatile__ ("1: movl	%0, %%eax	\n\t"	/* eax = p->head */
+                            "movl	%%eax, %2	\n\t"	/* tail->next = eax */
+               GASNETI_LOCK "cmpxchgl	%1, %0		\n\t"	/* p->head = head */
+                            "jne	1b"		/* retry on conflict */
+                                : "=m" (p->head)
                                 : "r" (head), "m" (tail->next)
-                                : "memory");
+                                : "memory", "eax");
     }
     GASNET_INLINE_MODIFIER(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
-      register gasneti_freelist_ptr_t *head;
-      register unsigned char casval;
-      do {
-        register uintptr_t readtag, readptr;
-        head = (gasneti_freelist_ptr_t *)(p->head);
-        if_pf (head == NULL) {
-          break;
-        }
-        __asm__ __volatile__ ("movl %4, %%ecx\n\t"
-			      "incl %%ecx\n\t"
-			      GASNETI_LOCK "cmpxchg8b %3\n\t"
-			      "sete %0"
-				: "=mq" (casval), "=d" (readtag), "=a" (readptr)
-				: "m" (p->head), "d" (p->ABA_tag), "a" (head), "b" (head->next)
-				: "memory", "ecx");
-      } while (!casval);
-      return head;
+      register uintptr_t retval = p->head;
+      __asm__ __volatile__ ("1: test	%0,%0		\n\t"	/* terminate loop ... */
+                            "jz		2f		\n\t"	/*        ... on NULL */
+                            "mov	(%0), %%ebx	\n\t"	/* ebx = p->head->next */
+                            "movl	%3, %%ecx	\n\t"	/* ebc = ... */
+                            "incl	%%ecx		\n\t"   /*       ABA_tag + 1 */
+               GASNETI_LOCK "cmpxchg8b	%1		\n\t"	/* p->(head,ABA_tag) = (ebx,ecx) */
+                            "jne	1b		\n\t"	/* retry w/ updated (eax,edx) */
+                            "2:"
+                                : "=a" (retval)
+                                : "m" (p->head), "a" (retval), "d" (p->ABA_tag)
+                                : "memory", "ebx", "ecx");
+      return (void *)retval;
     }
     GASNET_INLINE_MODIFIER(gasneti_fl_init)
     void gasneti_fl_init(gasneti_freelist_t *p) {
@@ -516,6 +510,15 @@ typedef struct _gasneti_freelist_ptr_s {
     #define GASNETI_FREELIST_INITIALIZER	{0,}
     #define GASNETI_HAVE_ARCH_FL	1
   #endif
+#elif defined(__x86_64__)
+  /* No support yet because there is no CAS2 or DCSS (double-compare single-swap) support for 8-byte
+   * pointers.  While the architecture includes an optional cmpxchg16b (CAS2), no current CPU implements
+   * it.  The CS literature offers many ways to simulate CAS2 or DCSS using just CAS (cmpxchg8b), but
+   * they all are either very complex and/or require thread-specific data to help resolve the ABA
+   * problem.  I'll continue to look into this.  -PHH 2006.01.19
+   */
+#elif defined(__ia64__) || defined(__ia64)
+  /* Issues are similar to x86_64, lacking CAS2 or DCSS instructions (even optional ones) */
 #elif (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(__linux__) && defined(__PPC__))
   /* PowerPC
    * (__APPLE__) && __MACH__ && __ppc__) == OS/X, Darwin
@@ -529,7 +532,7 @@ typedef struct _gasneti_freelist_ptr_s {
 
     GASNET_INLINE_MODIFIER(gasneti_fl_push)
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
-      /* Roughly based on Appendix D of IBM's Programming Environments Manual for PPC64.
+      /* Roughly based on Appendix D of IBM's "Programming Environments Manual for 64-bit Microprocessors."
        * The key is moving the store to tail->next outside the loop and rechecking tmp1==tmp2 inside.
        */
       register uintptr_t tmp1, tmp2;
@@ -604,6 +607,8 @@ typedef struct _gasneti_freelist_ptr_s {
     #define GASNETI_FREELIST_INITIALIZER	{NULL,}
     #define GASNETI_HAVE_ARCH_FL
   #endif
+#else
+  /* Not x86, x86_64, ia64 or ppc?  Where else is VAPI running? */
 #endif
 
 /* Generic mutex-based default implementation */
