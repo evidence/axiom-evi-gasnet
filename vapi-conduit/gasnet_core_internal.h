@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/01/20 03:17:06 $
- * $Revision: 1.105 $
+ *     $Date: 2006/01/20 03:26:00 $
+ * $Revision: 1.106 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -571,6 +571,9 @@ typedef struct _gasneti_freelist_ptr_s {
     GASNET_INLINE_MODIFIER(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
       register uintptr_t head, next;
+      if_pf (p->head == NULL) {
+	return NULL;
+      }
       #if (SIZEOF_VOID_P == 4)
         __asm__ __volatile__ ("1: lwarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpwi	0,%1,0     \n\t" /* head == NULL? */
