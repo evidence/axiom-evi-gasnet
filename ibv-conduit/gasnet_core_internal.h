@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/20 03:13:22 $
- * $Revision: 1.104 $
+ *     $Date: 2006/01/20 03:17:06 $
+ * $Revision: 1.105 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -606,6 +606,8 @@ typedef struct _gasneti_freelist_ptr_s {
     }
     #define GASNETI_FREELIST_INITIALIZER	{NULL,}
     #define GASNETI_HAVE_ARCH_FL
+  #elif defined(__xlC__)
+    /* XLC assembly is too painful to consider this yet */
   #endif
 #else
   /* Not x86, x86_64, ia64 or ppc?  Where else is VAPI running? */
