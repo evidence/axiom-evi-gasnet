@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/01/19 19:10:04 $
- * $Revision: 1.101 $
+ *     $Date: 2006/01/20 00:31:46 $
+ * $Revision: 1.102 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -479,16 +479,15 @@ typedef struct _gasneti_freelist_ptr_s {
 
     GASNET_INLINE_MODIFIER(gasneti_fl_push)
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
-      register unsigned char casval;
-      do {
-        register uintptr_t readval;
-        register uintptr_t oldval = p->head;
-        tail->next = (gasneti_freelist_ptr_t *)oldval;
-        __asm__ __volatile__ (GASNETI_LOCK "cmpxchgl %3, %1\n\tsete %0"
-                                : "=mq" (casval), "=m" (p->head), "=a" (readval)
-                                : "r" (head), "m" (p->head), "a" (oldval)
+      register uintptr_t tmp1;
+      __asm__ __volatile__ ("1: movl	%0, %1	\n\t"	/* tmp1 = p->head */
+			    "movl	%1, %3	\n\t"	/* tail->next = tmp1 */
+			    GASNETI_LOCK		
+			    "cmpxchgl	%2, %0	\n\t"	/* p->head = head */
+			    "jne	1b"		/* retry on conflict */
+                                : "=m" (p->head), "=&a" (tmp1)
+                                : "r" (head), "m" (tail->next)
                                 : "memory");
-      } while (!casval);
     }
     GASNET_INLINE_MODIFIER(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
