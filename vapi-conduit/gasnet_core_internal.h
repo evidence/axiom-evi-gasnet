@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/01/20 03:26:00 $
- * $Revision: 1.106 $
+ *     $Date: 2006/01/20 23:34:25 $
+ * $Revision: 1.107 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -479,6 +479,7 @@ typedef struct _gasneti_freelist_ptr_s {
 
     GASNET_INLINE_MODIFIER(gasneti_fl_push)
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
+      /* RELEASE semantics: the locked cmpxchgl is a wmb on ia32 */
       __asm__ __volatile__ ("1: movl	%0, %%eax	\n\t"	/* eax = p->head */
                             "movl	%%eax, %2	\n\t"	/* tail->next = eax */
                GASNETI_LOCK "cmpxchgl	%1, %0		\n\t"	/* p->head = head */
@@ -489,6 +490,7 @@ typedef struct _gasneti_freelist_ptr_s {
     }
     GASNET_INLINE_MODIFIER(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
+      /* ACQUIRE semantics: rmb is a noop on ia32 */
       register uintptr_t retval = p->head;
       __asm__ __volatile__ ("1: test	%0,%0		\n\t"	/* terminate loop ... */
                             "jz		2f		\n\t"	/*        ... on NULL */
@@ -534,13 +536,15 @@ typedef struct _gasneti_freelist_ptr_s {
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
       /* Roughly based on Appendix D of IBM's "Programming Environments Manual for 64-bit Microprocessors."
        * The key is moving the store to tail->next outside the loop and rechecking tmp1==tmp2 inside.
+       * This is needed because a store in the l[wd]arx/st[wd]cx interval can lead to livelock.
        */
+      /* RELEASE semantics: 'sync' is wmb after the write to tail->next */
       register uintptr_t tmp1, tmp2;
       #if (SIZEOF_VOID_P == 4)
         __asm__ __volatile__ ("lwz	%3,0(%0)   \n\t" /* tmp1 = p->head */
 			      "1: mr	%4,%3      \n\t" /* tmp2 = tmp1 */
 			      "stw	%3,0(%2)   \n\t" /* tail->next = tmp1 */
-			      "sync	           \n\t" /* order stw ahead of ll/sc */
+			      "sync	           \n\t" /* wmb */
 			      "2: lwarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
 			      "cmpw	%3,%4      \n\t" /* check tmp1 still == tmp2 */
 			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
@@ -554,13 +558,12 @@ typedef struct _gasneti_freelist_ptr_s {
         __asm__ __volatile__ ("ld	%3,0(%0)   \n\t" /* tmp1 = p->head */
 			      "1: mr	%4,%3      \n\t" /* tmp2 = tmp1 */
 			      "std	%3,0(%2)   \n\t" /* tail->next = tmp1 */
-			      "sync	           \n\t" /* order std ahead of ll/sc */
+			      "sync	           \n\t" /* wmb */
 			      "2: ldarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
 			      "cmpd	%3,%4      \n\t" /* check tmp1 still == tmp2 */
 			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
 			      "stdcx.	%1,0,%0    \n\t" /* p->head = head */
-			      "bne-	2b         \n\t" /* retry on conflict */
-			      "isync"
+			      "bne-	2b"		 /* retry on conflict */
 				: "=b" (p), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
 				: "0" (p), "1" (head), "2" (tail) 
 				: "memory", "cc");
@@ -570,18 +573,24 @@ typedef struct _gasneti_freelist_ptr_s {
     }
     GASNET_INLINE_MODIFIER(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
+      /* ACQUIRE semantics: 'isync' between read of head and head->next */
       register uintptr_t head, next;
       if_pf (p->head == NULL) {
+	/* One expects the empty list case to be the most prone to contention because
+	 * many threads may be continuously polling for it become non-empty.  The l[wd]arx
+	 * involves obtaining the cache line in an Exclusive state, while this normal
+	 * load does not.  Thus this redundant check is IBM's recommended practice.
+	 */
 	return NULL;
       }
       #if (SIZEOF_VOID_P == 4)
         __asm__ __volatile__ ("1: lwarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpwi	0,%1,0     \n\t" /* head == NULL? */
 			      "beq-	2f         \n\t" /* end on NULL */
+			      "isync               \n\t" /* rmb */
 			      "lwz	%2,0(%1)   \n\t" /* next = head->next */
 			      "stwcx.	%2,0,%0    \n\t" /* p->head = next */
 			      "bne-	1b         \n\t" /* retry on conflict */
-			      "isync                 \n\t"
 			      "2: "
 				: "=b" (p), "=b" (head), "=r" (next)
 				: "0" (p)
@@ -590,10 +599,10 @@ typedef struct _gasneti_freelist_ptr_s {
         __asm__ __volatile__ ("1: ldarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpdi	0,%1,0     \n\t" /* head == NULL? */
 			      "beq-	2f         \n\t" /* end on NULL */
+			      "isync               \n\t" /* rmb */
 			      "ld	%2,0(%1)   \n\t" /* next = head->next */
 			      "stdcx.	%2,0,%0    \n\t" /* p->head = next */
 			      "bne-	1b         \n\t" /* retry on conflict */
-			      "isync                 \n\t"
 			      "2: "
 				: "=b" (p), "=b" (head), "=r" (next)
 				: "0" (p)
