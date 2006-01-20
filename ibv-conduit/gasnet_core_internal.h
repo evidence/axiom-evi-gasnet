@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/20 00:31:46 $
- * $Revision: 1.102 $
+ *     $Date: 2006/01/20 00:35:39 $
+ * $Revision: 1.103 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -469,8 +469,8 @@ typedef struct _gasneti_freelist_ptr_s {
   /* No threads, so we use the mutex code that compiles away. */
 #elif 1
   /* CURRENTLY DISABLED */
-#elif defined(__i386__) /* x86 but NOT x86_64 */ \
-  && (defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__))
+#elif defined(__i386__) /* x86 but NOT x86_64 */
+  #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__)
     typedef struct {
       volatile uintptr_t 	head;
       volatile uintptr_t 	ABA_tag;
@@ -515,6 +515,95 @@ typedef struct _gasneti_freelist_ptr_s {
     }
     #define GASNETI_FREELIST_INITIALIZER	{0,}
     #define GASNETI_HAVE_ARCH_FL	1
+  #endif
+#elif (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(__linux__) && defined(__PPC__))
+  /* PowerPC
+   * (__APPLE__) && __MACH__ && __ppc__) == OS/X, Darwin
+   * (__linux__ && __PPC__) == Linux
+   */
+  #if defined(__GNUC__)
+    typedef struct {
+      volatile gasneti_freelist_ptr_t *head;
+      char			_pad[GASNETC_CACHE_PAD(sizeof(gasneti_freelist_ptr_t *))];
+    } gasneti_freelist_t;
+
+    GASNET_INLINE_MODIFIER(gasneti_fl_push)
+    void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
+      /* Roughly based on Appendix D of IBM's Programming Environments Manual for PPC64.
+       * The key is moving the store to tail->next outside the loop and rechecking tmp1==tmp2 inside.
+       */
+      register uintptr_t tmp1, tmp2;
+      #if (SIZEOF_VOID_P == 4)
+        __asm__ __volatile__ ("lwz	%3,0(%0)   \n\t" /* tmp1 = p->head */
+			      "1: mr	%4,%3      \n\t" /* tmp2 = tmp1 */
+			      "stw	%3,0(%2)   \n\t" /* tail->next = tmp1 */
+			      "sync	           \n\t" /* order stw ahead of ll/sc */
+			      "2: lwarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
+			      "cmpw	%3,%4      \n\t" /* check tmp1 still == tmp2 */
+			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
+			      "stwcx.	%1,0,%0    \n\t" /* p->head = head */
+			      "bne-	2b         \n\t" /* retry on conflict */
+			      "isync"
+				: "=b" (p), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
+				: "0" (p), "1" (head), "2" (tail) 
+				: "memory", "cc");
+      #elif (SIZEOF_VOID_P == 8)
+        __asm__ __volatile__ ("ld	%3,0(%0)   \n\t" /* tmp1 = p->head */
+			      "1: mr	%4,%3      \n\t" /* tmp2 = tmp1 */
+			      "std	%3,0(%2)   \n\t" /* tail->next = tmp1 */
+			      "sync	           \n\t" /* order std ahead of ll/sc */
+			      "2: ldarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
+			      "cmpd	%3,%4      \n\t" /* check tmp1 still == tmp2 */
+			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
+			      "stdcx.	%1,0,%0    \n\t" /* p->head = head */
+			      "bne-	2b         \n\t" /* retry on conflict */
+			      "isync"
+				: "=b" (p), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
+				: "0" (p), "1" (head), "2" (tail) 
+				: "memory", "cc");
+      #else
+        #error "PPC w/ unknown word size"
+      #endif
+    }
+    GASNET_INLINE_MODIFIER(gasneti_fl_pop)
+    void *gasneti_fl_pop(gasneti_freelist_t *p) {
+      register uintptr_t head, next;
+      #if (SIZEOF_VOID_P == 4)
+        __asm__ __volatile__ ("1: lwarx	%1,0,%0    \n\t" /* head = p->head */
+			      "cmpwi	0,%1,0     \n\t" /* head == NULL? */
+			      "beq-	2f         \n\t" /* end on NULL */
+			      "lwz	%2,0(%1)   \n\t" /* next = head->next */
+			      "stwcx.	%2,0,%0    \n\t" /* p->head = next */
+			      "bne-	1b         \n\t" /* retry on conflict */
+			      "isync                 \n\t"
+			      "2: "
+				: "=b" (p), "=b" (head), "=r" (next)
+				: "0" (p)
+				: "memory", "cc");
+      #elif (SIZEOF_VOID_P == 8)
+        __asm__ __volatile__ ("1: ldarx	%1,0,%0    \n\t" /* head = p->head */
+			      "cmpdi	0,%1,0     \n\t" /* head == NULL? */
+			      "beq-	2f         \n\t" /* end on NULL */
+			      "ld	%2,0(%1)   \n\t" /* next = head->next */
+			      "stdcx.	%2,0,%0    \n\t" /* p->head = next */
+			      "bne-	1b         \n\t" /* retry on conflict */
+			      "isync                 \n\t"
+			      "2: "
+				: "=b" (p), "=b" (head), "=r" (next)
+				: "0" (p)
+				: "memory", "cc");
+      #else
+        #error "PPC w/ unknown word size"
+      #endif
+      return (void *)head;
+    }
+    GASNET_INLINE_MODIFIER(gasneti_fl_init)
+    void gasneti_fl_init(gasneti_freelist_t *p) {
+      p->head = NULL;
+    }
+    #define GASNETI_FREELIST_INITIALIZER	{NULL,}
+    #define GASNETI_HAVE_ARCH_FL
+  #endif
 #endif
 
 /* Generic mutex-based default implementation */
