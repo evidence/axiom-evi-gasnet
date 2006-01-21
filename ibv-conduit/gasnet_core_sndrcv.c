@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/14 02:05:22 $
- * $Revision: 1.150 $
+ *     $Date: 2006/01/21 03:36:16 $
+ * $Revision: 1.151 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -179,6 +179,18 @@ typedef struct {
 #endif
 } gasnetc_sreq_t;
 
+/* Per-thread data
+ * Unlike gasnete_threaddata_t, this is associated w/ conduit-internal threads as well.
+ */
+typedef struct {
+  /* Thread-local (bounded) freelist of sreq's.
+   * By bounding the local lists we prevent one polling thread from hoarding
+   * all the memory allocated by a thread that is initiating many ops.
+   */
+  gasnetc_sreq_t	*sreq_list;
+  int			sreq_space;
+} gasnetc_per_thread_t;
+
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped variables
  * ------------------------------------------------------------------------------------ */
@@ -194,6 +206,71 @@ static gasnetc_cep_t			**gasnetc_node2cep;
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped functions and macros                                                    *
  * ------------------------------------------------------------------------------------ */
+
+#if GASNETC_ANY_PAR
+  static gasneti_threadkey_t gasnetc_sreq_key = GASNETI_THREADKEY_INITIALIZER;
+
+  GASNET_INLINE_MODIFIER(gasnetc_mythread) __attribute__ ((const))
+  gasnetc_per_thread_t *gasnetc_mythread(void)
+  {
+    gasnetc_per_thread_t *retval = gasneti_threadkey_get_noinit(gasnetc_sreq_key);
+    if_pf (retval == NULL) {
+      void *alloc= gasneti_malloc(GASNETI_CACHE_LINE_BYTES +
+				  GASNETI_ALIGNUP(sizeof(gasnetc_per_thread_t), GASNETI_CACHE_LINE_BYTES));
+      retval = (gasnetc_per_thread_t *)GASNETI_ALIGNUP(alloc, GASNETI_CACHE_LINE_BYTES);
+      retval->sreq_list = NULL;
+      retval->sreq_space = 2 * GASNETC_SND_REAP_LIMIT;
+      gasneti_threadkey_set_noinit(gasnetc_sreq_key, retval);
+    }
+    gasneti_assert(retval != NULL);
+    return retval;
+  }
+#endif
+
+GASNET_INLINE_MODIFIER(gasnetc_put_sreq_multi)
+void gasnetc_put_sreq_multi(gasnetc_sreq_t *head, gasnetc_sreq_t *tail, int count)
+{
+#if GASNETC_ANY_PAR
+  gasnetc_per_thread_t *td = gasnetc_mythread();
+  int space = td->sreq_space;
+  if (space >= count) {
+    /* Add all entries to thread-local list */
+    *(void **)tail = td->sreq_list;
+    td->sreq_list = head;
+    td->sreq_space -= count;
+  } else if (space != 0) {
+    /* Add first 'space' entries to thread-local list, reminder to global list */
+    void *tmp1, *tmp2;
+    tmp1 = head;
+    while (--space) { tmp1 = *(void**)tmp1; }
+    tmp2 = *(void**)tmp1;
+    *(void **)tmp1 = td->sreq_list;
+    td->sreq_list = head;
+    td->sreq_space = 0;
+    gasneti_freelist_put_many(&gasnetc_sreq_freelist, tmp2, tail);
+  } else
+#endif
+  {
+    /* Add all entries to global list */
+    gasneti_freelist_put_many(&gasnetc_sreq_freelist, head, tail);
+  }
+}
+
+GASNET_INLINE_MODIFIER(gasnetc_put_sreq)
+void gasnetc_put_sreq(gasnetc_sreq_t *sreq)
+{
+#if GASNETC_ANY_PAR
+  gasnetc_per_thread_t *td = gasnetc_mythread();
+  if (td->sreq_space != 0) {
+    *(void **)sreq = td->sreq_list;
+    td->sreq_list = sreq;
+    td->sreq_space--;
+  } else
+#endif
+  {
+    gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
+  }
+}
 
 /* The 'epid' type holds 'node' in the low 16 bits.
  * The upper 16 bits holds a qp index (qpi).
@@ -706,7 +783,7 @@ gasnetc_cep_t *gasnetc_bind_cep(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
     do {
       gasnetc_sreq_t *head, *tail;
       if (gasnetc_snd_reap(1, &head, &tail)) {
-        gasneti_freelist_put(&gasnetc_sreq_freelist, head);
+        gasnetc_put_sreq(head);
       } else {
         GASNETI_WAITHOOK();
       }
@@ -876,12 +953,12 @@ void gasnetc_do_poll(int poll_rcv, int poll_snd) {
 
     count = gasnetc_snd_reap(GASNETC_SND_REAP_LIMIT, &head, &tail);
     if (count > 0) {
-	gasneti_freelist_put_many(&gasnetc_sreq_freelist, head, tail);
+	gasnetc_put_sreq_multi(head, tail, count);
     }
   }
 }
 
-/* allocate a send request structure, trying to reap existing ones first */
+/* allocate a send request structure */
 #ifdef __GNUC__
   GASNET_INLINE_MODIFIER(gasnetc_get_sreq)
   gasnetc_sreq_t *gasnetc_get_sreq(void) GASNETI_MALLOC;
@@ -892,20 +969,29 @@ gasnetc_sreq_t *gasnetc_get_sreq(void) {
   gasnetc_sreq_t *tail;
   int count;
 
-  /* XXX: If we had the thread-local data pointer here, we could use a thread-local freelist */
-
-  /* 1) try the free list */
-  sreq = gasneti_freelist_get(&gasnetc_sreq_freelist);
-  if_pf (!sreq) {
-    /* 2) try to get an unused sreq by reaping the send CQ */
-    count = gasnetc_snd_reap(1, &sreq, &tail);
-    if_pf (count == 0) {
-      /* 3) malloc a new one */
-      sreq = gasneti_malloc(MAX(sizeof(gasnetc_sreq_t), sizeof(gasneti_freelist_ptr_t)));
-      GASNETC_STAT_EVENT(ALLOC_SBUF);
-      GASNETI_TRACE_PRINTF(C,("ALLOC_SBUF\n"));
-    } else {
-      gasneti_assert(count == 1);
+#if GASNETC_ANY_PAR
+  /* 1) try the thread-local free list */
+  gasnetc_per_thread_t *td = gasnetc_mythread();
+  sreq = td->sreq_list;
+  if (sreq != NULL) {
+    td->sreq_list = *(void**)sreq; /* next ptr */
+    td->sreq_space++;
+  } else
+#endif
+  {
+    /* 2) try the global free list */
+    sreq = gasneti_freelist_get(&gasnetc_sreq_freelist);
+    if_pf (sreq == NULL) {
+      /* 3) try to get an unused sreq by reaping the send CQ */
+      count = gasnetc_snd_reap(1, &sreq, &tail);
+      if_pf (count == 0) {
+        /* 4) malloc a new one */
+        sreq = gasneti_malloc(MAX(sizeof(gasnetc_sreq_t), sizeof(gasneti_freelist_ptr_t)));
+        GASNETC_STAT_EVENT(ALLOC_SBUF);
+        GASNETI_TRACE_PRINTF(C,("ALLOC_SBUF\n"));
+      } else {
+        gasneti_assert(count == 1);
+      }
     }
   }
 
@@ -1475,7 +1561,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     if_pf (sreq->am_buff != NULL) {
       gasneti_freelist_put(&gasnetc_bbuf_freelist, buf);
     }
-    gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
+    gasnetc_put_sreq(sreq);
     retval = GASNET_OK;
   } else {
     /* send the AM */
@@ -1990,7 +2076,7 @@ static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq) {
       gasnetc_counter_dec_if(sreq->req_oust);
       gasneti_assert(sreq->fh_count > 0);
       firehose_release(sreq->fh_ptr, sreq->fh_count);
-      gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
+      gasnetc_put_sreq(sreq);
       break;
 
     case GASNETC_OP_PUT_INLINE:
@@ -2480,6 +2566,10 @@ extern int gasnetc_sndrcv_init(void) {
 	  GASNETI_ALIGNUP(gasneti_malloc(gasneti_nodes*sizeof(gasnetc_cep_t *)
 				  	 + GASNETI_CACHE_LINE_BYTES - 1),
 			  GASNETI_CACHE_LINE_BYTES);
+
+#if GASNETC_ANY_PAR
+  gasneti_threadkey_init(&gasnetc_sreq_key);
+#endif
 
   return GASNET_OK;
 }
