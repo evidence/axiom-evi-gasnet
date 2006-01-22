@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/21 03:36:16 $
- * $Revision: 1.151 $
+ *     $Date: 2006/01/22 23:08:13 $
+ * $Revision: 1.152 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -91,6 +91,7 @@ typedef struct {
 #define rbuf_flags		u.am.flags
 
 typedef enum {
+	GASNETC_OP_FREE,
 	GASNETC_OP_AM,
 	GASNETC_OP_AM_BLOCK,
 	GASNETC_OP_GET_ZEROCP,
@@ -110,7 +111,13 @@ typedef enum {
  *
  * Note that use of the freelist will overwrite the first sizeof(gasneti_freelist_ptr_t) bytes.
  */
-typedef struct {
+typedef struct gasnetc_sreq_t_ {
+  /* List linkage */
+  struct gasnetc_sreq_t_	*next;
+
+  /* Opcode for completion, and as tag for union */
+  gasnetc_sreq_opcode_t		opcode;
+
   /* Communication end point */
   gasnetc_epid_t		epid;
   gasnetc_cep_t			*cep;
@@ -121,9 +128,6 @@ typedef struct {
   /* Completion counters */
   gasnetc_counter_t		*mem_oust;	/* source memory refs outstanding (local completion)*/
   gasnetc_counter_t		*req_oust;	/* requests outstanding (remote completion)*/
-
-  /* Opcode for completion, and as tag for union */
-  gasnetc_sreq_opcode_t		opcode;
 
 #if GASNETC_PIN_SEGMENT
   /* Firehose, bounce buffers, and AMs are mutually exclusive. */
@@ -187,18 +191,14 @@ typedef struct {
    * By bounding the local lists we prevent one polling thread from hoarding
    * all the memory allocated by a thread that is initiating many ops.
    */
-  gasnetc_sreq_t	*sreq_list;
-  int			sreq_space;
+  gasnetc_sreq_t	*sreqs;
 } gasnetc_per_thread_t;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped variables
  * ------------------------------------------------------------------------------------ */
 
-static void				*gasnetc_sreq_alloc;
-
 static gasneti_freelist_t		gasnetc_bbuf_freelist = GASNETI_FREELIST_INITIALIZER;
-static gasneti_freelist_t		gasnetc_sreq_freelist = GASNETI_FREELIST_INITIALIZER;
 
 static gasnetc_sema_t			*gasnetc_cq_semas;
 static gasnetc_cep_t			**gasnetc_node2cep;
@@ -206,6 +206,29 @@ static gasnetc_cep_t			**gasnetc_node2cep;
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped functions and macros                                                    *
  * ------------------------------------------------------------------------------------ */
+
+GASNET_INLINE_MODIFIER(gasnetc_alloc_sreqs)
+void gasnetc_alloc_sreqs(int count, gasnetc_sreq_t **head_p, gasnetc_sreq_t **tail_p)
+{
+  size_t bytes = GASNETC_ALIGNUP(sizeof(gasnetc_sreq_t), GASNETI_CACHE_LINE_BYTES);
+  gasnetc_sreq_t *ptr = gasneti_malloc(count * bytes + GASNETI_CACHE_LINE_BYTES-1);
+  int i;
+  *head_p = ptr = (gasnetc_sreq_t *)GASNETC_ALIGNUP(ptr, GASNETI_CACHE_LINE_BYTES);
+  for (i = 1; i < count; ++i, ptr = ptr->next) {
+    ptr->next = (gasnetc_sreq_t *)((uintptr_t)ptr + bytes);
+    ptr->opcode = GASNETC_OP_FREE;
+  }
+  ptr->opcode = GASNETC_OP_FREE;
+  *tail_p = ptr;
+  GASNETC_STAT_EVENT_VAL(ALLOC_SREQ, count);
+}
+
+void gasnetc_per_thread_init(gasnetc_per_thread_t *td)
+{
+  gasnetc_sreq_t *tail;
+  gasnetc_alloc_sreqs(32, &td->sreqs, &tail);
+  tail->next = td->sreqs;
+}
 
 #if GASNETC_ANY_PAR
   static gasneti_threadkey_t gasnetc_sreq_key = GASNETI_THREADKEY_INITIALIZER;
@@ -218,59 +241,16 @@ static gasnetc_cep_t			**gasnetc_node2cep;
       void *alloc= gasneti_malloc(GASNETI_CACHE_LINE_BYTES +
 				  GASNETI_ALIGNUP(sizeof(gasnetc_per_thread_t), GASNETI_CACHE_LINE_BYTES));
       retval = (gasnetc_per_thread_t *)GASNETI_ALIGNUP(alloc, GASNETI_CACHE_LINE_BYTES);
-      retval->sreq_list = NULL;
-      retval->sreq_space = 2 * GASNETC_SND_REAP_LIMIT;
       gasneti_threadkey_set_noinit(gasnetc_sreq_key, retval);
+      gasnetc_per_thread_init(retval);
     }
     gasneti_assert(retval != NULL);
     return retval;
   }
+#else
+  static gasnetc_per_thread_t gasnetc_per_thread;
+  #define gasnetc_mythread() (&gasnetc_per_thread)
 #endif
-
-GASNET_INLINE_MODIFIER(gasnetc_put_sreq_multi)
-void gasnetc_put_sreq_multi(gasnetc_sreq_t *head, gasnetc_sreq_t *tail, int count)
-{
-#if GASNETC_ANY_PAR
-  gasnetc_per_thread_t *td = gasnetc_mythread();
-  int space = td->sreq_space;
-  if (space >= count) {
-    /* Add all entries to thread-local list */
-    *(void **)tail = td->sreq_list;
-    td->sreq_list = head;
-    td->sreq_space -= count;
-  } else if (space != 0) {
-    /* Add first 'space' entries to thread-local list, reminder to global list */
-    void *tmp1, *tmp2;
-    tmp1 = head;
-    while (--space) { tmp1 = *(void**)tmp1; }
-    tmp2 = *(void**)tmp1;
-    *(void **)tmp1 = td->sreq_list;
-    td->sreq_list = head;
-    td->sreq_space = 0;
-    gasneti_freelist_put_many(&gasnetc_sreq_freelist, tmp2, tail);
-  } else
-#endif
-  {
-    /* Add all entries to global list */
-    gasneti_freelist_put_many(&gasnetc_sreq_freelist, head, tail);
-  }
-}
-
-GASNET_INLINE_MODIFIER(gasnetc_put_sreq)
-void gasnetc_put_sreq(gasnetc_sreq_t *sreq)
-{
-#if GASNETC_ANY_PAR
-  gasnetc_per_thread_t *td = gasnetc_mythread();
-  if (td->sreq_space != 0) {
-    *(void **)sreq = td->sreq_list;
-    td->sreq_list = sreq;
-    td->sreq_space--;
-  } else
-#endif
-  {
-    gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
-  }
-}
 
 /* The 'epid' type holds 'node' in the low 16 bits.
  * The upper 16 bits holds a qp index (qpi).
@@ -556,12 +536,10 @@ gasnetc_hca_t *gasnetc_next_hca(gasneti_weakatomic_t *p) {
 #endif
 
 /* Try to pull completed entries (if any) from the send CQ(s). */
-static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t **tail_p) {
+static int gasnetc_snd_reap(int limit) {
   gasnetc_hca_t *hca;
   VAPI_ret_t vstat;
   VAPI_wc_desc_t comp;
-  gasneti_freelist_ptr_t sreq_dummy;
-  void *sreq_tail = &sreq_dummy;
   int fh_num = 0;
   int i, count;
   #if GASNETC_SND_REAP_COLLECT
@@ -677,9 +655,8 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 	    gasneti_fatalerror("Reaped send with invalid/unknown opcode %d", (int)sreq->opcode);
 	  }
 
-	  /* keep a list of reaped sreqs */
-	  gasneti_freelist_link(sreq_tail, sreq);
-	  sreq_tail = sreq;
+	  /* Mark sreq free */
+	  sreq->opcode = GASNETC_OP_FREE;
         } else {
           gasneti_fatalerror("snd_reap reaped NULL sreq");
           break;
@@ -710,17 +687,12 @@ static int gasnetc_snd_reap(int limit, gasnetc_sreq_t **head_p, gasnetc_sreq_t *
 
   if (count) {
     GASNETC_STAT_EVENT_VAL(SND_REAP,count);
+    gasneti_sync_writes();	/* push out our OP_FREE writes */
   }
 
   /* Release any firehoses and bounce buffers we've collected */
   GASNETC_FREE_FHS();
   GASNETC_FREE_BBUFS();
-
-  /* The following is unneccesary when count == 0, but we rather avoid the branch
-   * knowing the caller won't look at these in that case. */
-  gasneti_freelist_link(sreq_tail, NULL);
-  *head_p = gasneti_freelist_next(&sreq_dummy);
-  *tail_p = sreq_tail;
 
   return count;
 }
@@ -781,10 +753,7 @@ gasnetc_cep_t *gasnetc_bind_cep(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
   if_pf (!gasnetc_sema_trydown(&cep->sq_sema, GASNETC_ANY_PAR)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
-      gasnetc_sreq_t *head, *tail;
-      if (gasnetc_snd_reap(1, &head, &tail)) {
-        gasnetc_put_sreq(head);
-      } else {
+      if (!gasnetc_snd_reap(1)) {
         GASNETI_WAITHOOK();
       }
       /* Redo load balancing choice */
@@ -948,13 +917,7 @@ void gasnetc_do_poll(int poll_rcv, int poll_snd) {
   }
 
   if (poll_snd) {
-    gasnetc_sreq_t *head, *tail;
-    int count;
-
-    count = gasnetc_snd_reap(GASNETC_SND_REAP_LIMIT, &head, &tail);
-    if (count > 0) {
-	gasnetc_put_sreq_multi(head, tail, count);
-    }
+    (void)gasnetc_snd_reap(GASNETC_SND_REAP_LIMIT);
   }
 }
 
@@ -965,37 +928,36 @@ void gasnetc_do_poll(int poll_rcv, int poll_snd) {
 #endif
 GASNET_INLINE_MODIFIER(gasnetc_get_sreq)
 gasnetc_sreq_t *gasnetc_get_sreq(void) {
-  gasnetc_sreq_t *sreq;
-  gasnetc_sreq_t *tail;
-  int count;
-
-#if GASNETC_ANY_PAR
-  /* 1) try the thread-local free list */
   gasnetc_per_thread_t *td = gasnetc_mythread();
-  sreq = td->sreq_list;
-  if (sreq != NULL) {
-    td->sreq_list = *(void**)sreq; /* next ptr */
-    td->sreq_space++;
-  } else
-#endif
-  {
-    /* 2) try the global free list */
-    sreq = gasneti_freelist_get(&gasnetc_sreq_freelist);
-    if_pf (sreq == NULL) {
-      /* 3) try to get an unused sreq by reaping the send CQ */
-      count = gasnetc_snd_reap(1, &sreq, &tail);
-      if_pf (count == 0) {
-        /* 4) malloc a new one */
-        sreq = gasneti_malloc(MAX(sizeof(gasnetc_sreq_t), sizeof(gasneti_freelist_ptr_t)));
-        GASNETC_STAT_EVENT(ALLOC_SBUF);
-        GASNETI_TRACE_PRINTF(C,("ALLOC_SBUF\n"));
-      } else {
-        gasneti_assert(count == 1);
+  gasnetc_sreq_t *sreq;
+
+  /* 1) First try the oldest sreq in our list */
+  sreq = td->sreqs;
+  gasneti_assert(sreq != NULL);
+  if_pf (sreq->opcode != GASNETC_OP_FREE) {
+    /* 2) Next poll CQs and then check the oldest again */
+    int h;
+    GASNETC_FOR_ALL_HCA_INDEX(h) {
+      (void)gasnetc_snd_reap(1);
+    }
+    if_pf (sreq->opcode != GASNETC_OP_FREE) {
+      /* 3) Next scan ahead, skipping over in-flight firehose misses for instance */
+      do {
+        sreq = sreq->next;
+      } while ((sreq->opcode != GASNETC_OP_FREE) && (sreq != td->sreqs));
+      if_pf (sreq->opcode != GASNETC_OP_FREE) {
+        /* 4) Finally allocate more */
+        gasnetc_sreq_t *head, *tail;
+        gasnetc_alloc_sreqs(32, &head, &tail);
+        tail->next = sreq->next;
+        sreq = (sreq->next = head);
       }
     }
   }
+  gasneti_assert(sreq->opcode == GASNETC_OP_FREE);
 
-  gasneti_assert(sreq != NULL);
+  td->sreqs = sreq->next;
+  gasneti_assert(td->sreqs != NULL);
 
   #if GASNET_DEBUG
     /* invalidate field(s) which should always be set by caller */
@@ -1561,7 +1523,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     if_pf (sreq->am_buff != NULL) {
       gasneti_freelist_put(&gasnetc_bbuf_freelist, buf);
     }
-    gasnetc_put_sreq(sreq);
+    sreq->opcode = GASNETC_OP_FREE;
     retval = GASNET_OK;
   } else {
     /* send the AM */
@@ -2076,7 +2038,7 @@ static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq) {
       gasnetc_counter_dec_if(sreq->req_oust);
       gasneti_assert(sreq->fh_count > 0);
       firehose_release(sreq->fh_ptr, sreq->fh_count);
-      gasnetc_put_sreq(sreq);
+      sreq->opcode = GASNETC_OP_FREE;
       break;
 
     case GASNETC_OP_PUT_INLINE:
@@ -2542,19 +2504,6 @@ extern int gasnetc_sndrcv_init(void) {
     ++buf;
   }
 
-  /* Allocated normal memory for send requests (sreq's) */
-  /* This initial allocation is the same size as the BBUF limit,
-   * but this pool can grow dynamically if more are needed. */
-  padded_size = GASNETC_ALIGNUP(MAX(sizeof(gasnetc_sreq_t),
-				    sizeof(gasneti_freelist_ptr_t)),
-			        GASNETI_CACHE_LINE_BYTES);
-  gasnetc_sreq_alloc = gasneti_malloc(gasnetc_bbuf_limit*padded_size + GASNETI_CACHE_LINE_BYTES-1);
-  sreq = (gasnetc_sreq_t *)GASNETC_ALIGNUP(gasnetc_sreq_alloc, GASNETI_CACHE_LINE_BYTES);
-  for (i = 0; i < gasnetc_bbuf_limit; ++i) {
-    gasneti_freelist_put(&gasnetc_sreq_freelist, sreq);
-    sreq = (gasnetc_sreq_t *)((uintptr_t)sreq + padded_size);
-  }
-
   /* Misc: */
 #if !GASNETC_PIN_SEGMENT
   gasnetc_putinmove_limit_adjusted = gasnetc_putinmove_limit
@@ -2567,8 +2516,12 @@ extern int gasnetc_sndrcv_init(void) {
 				  	 + GASNETI_CACHE_LINE_BYTES - 1),
 			  GASNETI_CACHE_LINE_BYTES);
 
+  /* Init thread-local data */
 #if GASNETC_ANY_PAR
   gasneti_threadkey_init(&gasnetc_sreq_key);
+  (void)gasnetc_mythread();
+#else
+  gasnetc_per_thread_init(&gasnetc_per_thread);
 #endif
 
   return GASNET_OK;
@@ -2654,11 +2607,6 @@ extern void gasnetc_sndrcv_fini(void) {
     vstat = VAPI_destroy_cq(hca->handle, hca->snd_cq);
     GASNETC_VAPI_CHECK(vstat, "from VAPI_destroy_cq(snd_cq)");
   }
-    
-  /* XXX: can only free the "big" piece here.
-   * So we leak any singletons we may have allocated
-   */
-  gasneti_free(gasnetc_sreq_alloc);
 }
 
 extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node) {

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2005/12/03 01:42:23 $
- * $Revision: 1.31 $
+ *     $Date: 2006/01/22 23:08:13 $
+ * $Revision: 1.32 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -64,7 +64,7 @@ typedef uint8_t gasnet_handler_t;
 	TIME(C, RCV_THREAD_WAKE, time awake)      \
 	CNT(C, GET_BBUF, cnt)                     \
 	TIME(C, GET_BBUF_STALL, stalled time)     \
-	CNT(C, ALLOC_SBUF, cnt)                   \
+	VAL(C, ALLOC_SREQ, sreqs)                 \
 	VAL(C, POST_SR, segments)                 \
 	CNT(C, POST_INLINE_SR, cnt)               \
 	TIME(C, POST_SR_STALL_CQ, stalled time)   \
