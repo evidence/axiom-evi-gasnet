@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/01/21 20:25:29 $
- * $Revision: 1.64 $
+ *     $Date: 2006/01/22 21:44:40 $
+ * $Revision: 1.65 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -493,6 +493,14 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
     (int)gasnet_AMMaxLongRequest(),                                \
     (int)gasnet_AMMaxLongReply());                                 \
   } while (0)
+
+#if defined(GASNET_SEQ)
+  #define TEST_PARSEQ SEQ
+#elif defined(GASNET_PAR)
+  #define TEST_PARSEQ PAR
+#elif defined(GASNET_PARSYNC)
+  #define TEST_PARSEQ PARSYNC
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* segment management */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2005/11/27 16:00:15 $
- * $Revision: 1.21 $
+ *     $Date: 2006/01/22 21:44:40 $
+ * $Revision: 1.22 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -42,6 +42,7 @@ void doit3();
 void doit4();
 void doit5();
 void doit6();
+void doit7();
 /* ------------------------------------------------------------------------------------ */
 #define hidx_null_shorthandler        201
 #define hidx_justreply_shorthandler   202
@@ -195,7 +196,7 @@ void doit2() { GASNET_BEGIN_FUNCTION();
       }
     #endif
 
-    TIME_OPERATION("lock/unlock uncontended HSL",
+    TIME_OPERATION("lock/unlock uncontended HSL (" _STRINGIFY(TEST_PARSEQ) " mode)",
       { gasnet_hsl_lock(&hsl); gasnet_hsl_unlock(&hsl); });
 
     TIME_OPERATION("gasnett_local_wmb", gasnett_local_wmb());
@@ -211,7 +212,40 @@ void doit2() { GASNET_BEGIN_FUNCTION();
     doit3();
 }
 /* ------------------------------------------------------------------------------------ */
-void doit3() { GASNET_BEGIN_FUNCTION();
+void doit3() { 
+  void * volatile x = 0;
+  volatile gasnet_threadinfo_t ti;
+  volatile uintptr_t y = 0;
+
+  { GASNET_BEGIN_FUNCTION();
+    gasnett_threadkey_t key = GASNETI_THREADKEY_INITIALIZER;
+
+    gasnett_threadkey_init(&key);
+    TIME_OPERATION("gasnett_threadkey_get (" _STRINGIFY(TEST_PARSEQ) " mode)",
+      { x = gasnett_threadkey_get(key); });
+    TIME_OPERATION("gasnett_threadkey_set (" _STRINGIFY(TEST_PARSEQ) " mode)",
+      { gasnett_threadkey_set(key, x); });
+    TIME_OPERATION("gasnett_threadkey_get_noinit (" _STRINGIFY(TEST_PARSEQ) " mode)",
+      { x = gasnett_threadkey_get_noinit(key); });
+    TIME_OPERATION("gasnett_threadkey_set_noinit (" _STRINGIFY(TEST_PARSEQ) " mode)",
+      { gasnett_threadkey_set_noinit(key, x); });
+  }
+
+  TIME_OPERATION("GASNET_BEGIN_FUNCTION (" _STRINGIFY(TEST_PARSEQ) " mode)", 
+      { GASNET_BEGIN_FUNCTION(); });
+  TIME_OPERATION("GASNET_POST_THREADINFO (" _STRINGIFY(TEST_PARSEQ) " mode)", 
+      { GASNET_POST_THREADINFO(ti); });
+  { GASNET_BEGIN_FUNCTION();
+    TIME_OPERATION("GASNET_GET_THREADINFO (w/ BEGIN) (" _STRINGIFY(TEST_PARSEQ) " mode)", 
+      { y ^= (uintptr_t)GASNET_GET_THREADINFO(); });
+  }
+  TIME_OPERATION("GASNET_GET_THREADINFO (no BEGIN) (" _STRINGIFY(TEST_PARSEQ) " mode)", 
+      { y ^= (uintptr_t)GASNET_GET_THREADINFO(); });
+
+  doit4();
+}
+/* ------------------------------------------------------------------------------------ */
+void doit4() { GASNET_BEGIN_FUNCTION();
 
     TIME_OPERATION("local 4-byte gasnet_put",
       { gasnet_put(mynode, myseg, &temp, 4); });
@@ -246,10 +280,10 @@ void doit3() { GASNET_BEGIN_FUNCTION();
     TIME_OPERATION("local 1024-byte gasnet_put_bulk",
       { gasnet_put_bulk(mynode, myseg, &bigtemp, 1024); });
 
-    doit4();
+    doit5();
 }
 /* ------------------------------------------------------------------------------------ */
-void doit4() { GASNET_BEGIN_FUNCTION();
+void doit5() { GASNET_BEGIN_FUNCTION();
 
     TIME_OPERATION("local 4-byte gasnet_get",
       { gasnet_get(&temp, mynode, myseg, 4); });
@@ -282,10 +316,10 @@ void doit4() { GASNET_BEGIN_FUNCTION();
     TIME_OPERATION("local 1024-byte gasnet_get_bulk",
       { gasnet_get_bulk(&bigtemp, mynode, myseg, 1024); });
 
-    doit5();
+    doit6();
 }
 /* ------------------------------------------------------------------------------------ */
-void doit5() { GASNET_BEGIN_FUNCTION();
+void doit6() { GASNET_BEGIN_FUNCTION();
 
     { int32_t temp1 = 0;
       int32_t temp2 = 0;
@@ -302,10 +336,10 @@ void doit5() { GASNET_BEGIN_FUNCTION();
         { memcpy(temp1, temp2, 1024); });
     }
 
-    doit6();
+    doit7();
 }
 /* ------------------------------------------------------------------------------------ */
-void doit6() { GASNET_BEGIN_FUNCTION();
+void doit7() { GASNET_BEGIN_FUNCTION();
 
     TIME_OPERATION("do-nothing gasnet_wait_syncnb()",
       { gasnet_wait_syncnb(GASNET_INVALID_HANDLE);  });
