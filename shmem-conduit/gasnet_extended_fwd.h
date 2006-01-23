@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2005/08/20 10:53:04 $
- * $Revision: 1.9 $
+ *     $Date: 2006/01/23 17:34:11 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -50,6 +50,10 @@ typedef uintptr_t gasnet_register_value_t;
   #define gasneti_in_segment_bc _gasneti_in_segment_bc
   #define gasneti_in_nodes_bc(node) (node == (gasnet_node_t)-1 || node < gasneti_nodes)
   #define gasneti_in_segment_allowoutofseg_bc gasneti_in_segment_bc
+#endif
+
+#ifdef GASNETE_SHMEM_BARRIER
+  #define GASNETE_BARRIER_PROGRESSFN(FN) 
 #endif
 
 #endif

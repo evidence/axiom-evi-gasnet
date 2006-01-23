@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2005/11/15 18:22:31 $
- * $Revision: 1.71 $
+ *     $Date: 2006/01/23 17:34:03 $
+ * $Revision: 1.72 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -744,6 +744,106 @@ static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
   } while (0)
 
 /* ------------------------------------------------------------------------------------ */
+/* GASNet progressfn support
+ * progressfns are internal functions that are called "periodically" by a conduit to 
+ *  allow internal GASNet modules to make progress. 
+ * Each progressfn is associated with a named subsystem (one-to-one mapping)
+ * GASNETI_PROGRESSFNS_ENABLE/GASNETI_PROGRESSFNS_DISABLE are used by the conduit
+ *  to provide a hint when a particular subsystem's progressfns want to be serviced
+ * Each progressfn has either a BOOLEAN hint or COUNTED hint flavor
+ *  COUNTED flavor: ENABLE/DISABLE manipulate an atomic reference count, initially zero 
+ *    and hinting that calls are requested whenever the count > 0
+ *  BOOLEAN flavor: ENABLE/DISABLE is a simple (non-atomic) flag, and the conduit
+ *    is responsible for arbitrating any races between different threads when  
+ *    setting/clearing that flag under GASNETI_THREADS
+ * progressfns are called from a non-AM context, but they should never block or perform collective ops
+ * they may be called concurrently (if GASNETI_THREADS), and must be prepared to
+ *  receive calls even when the hint indicates the given subsytem does not need service
+ *  additionally, progressfns that make gasnet calls must be prepared to recieve 
+ *  reentrant calls (ie without infinite recursion or deadlock)
+ */
+typedef void (*gasneti_progressfn_t)();
+
+/* currently the list of progressfns is compile-time constant for dispatch performance 
+ * reasons (a static dispatch is about 3x faster than a dynamic one on modern CPUs)
+ * in the future it may be expanded with a dynamic function registration facility
+ * PROGRESSFNS_LIST entries should look like:
+   FN(token subsysname, flavor [COUNTED|BOOLEAN], gasneti_progressfn_t progressfn)
+ */
+#define GASNETI_REFCOLL_PROGRESSFNS(FN)
+#define GASNETI_REFVIS_PROGRESSFNS(FN)
+
+#ifndef GASNETC_PROGRESSFNS_LIST
+#define GASNETC_PROGRESSFNS_LIST(FN)
+#endif
+
+#ifndef GASNETE_PROGRESSFNS_LIST
+  #ifndef GASNETE_BARRIER_PROGRESSFN
+    extern void gasnete_ambarrier_kick();
+    #define GASNETE_BARRIER_PROGRESSFN(FN) \
+      FN(barrier, BOOLEAN, gasnete_ambarrier_kick) 
+  #endif
+
+  #define GASNETE_PROGRESSFNS_LIST(FN) \
+    GASNETE_BARRIER_PROGRESSFN(FN)     \
+    GASNETI_REFCOLL_PROGRESSFNS(FN)    \
+    GASNETI_REFVIS_PROGRESSFNS(FN)     
+#endif
+#define GASNETI_PROGRESSFNS_LIST(FN) \
+  GASNETE_PROGRESSFNS_LIST(FN) \
+  GASNETC_PROGRESSFNS_LIST(FN) 
+
+/* default to one atomic counter per subsystem, because atomic_read
+   is many times faster than a do-nothing function call 
+*/
+#ifndef GASNETI_PROGRESSFNS_ENABLE
+  #define _GASNETI_PROGRESSFNS_DEFAULT
+  #define _GASNETI_PROGRESSFNS_FLAG(subsysname,flavor) \
+          _gasneti_progressfn_enabled_##subsysname##_##flavor
+
+  #define _GASNETI_PROGRESSFNS_TYPE_BOOLEAN volatile int
+  #define _GASNETI_PROGRESSFNS_TYPE_COUNTED gasneti_weakatomic_t
+  #define _GASNETI_PROGRESSFNS_TYPE(flavor) _GASNETI_PROGRESSFNS_TYPE_##flavor
+
+  #define _GASNETI_PROGRESSFNS_INIT_BOOLEAN = 0
+  #define _GASNETI_PROGRESSFNS_INIT_COUNTED = gasneti_weakatomic_init(0)
+  #define _GASNETI_PROGRESSFNS_INIT(flavor) _GASNETI_PROGRESSFNS_INIT_##flavor
+
+  #define _GASNETI_PROGRESSFNS_DECLARE_FLAGS(subsysname, flavor, progressfn) \
+    extern _GASNETI_PROGRESSFNS_TYPE(flavor) _GASNETI_PROGRESSFNS_FLAG(subsysname, flavor);
+  #define _GASNETI_PROGRESSFNS_DEFINE_FLAGS(subsysname, flavor, progressfn)         \
+    _GASNETI_PROGRESSFNS_TYPE(flavor) _GASNETI_PROGRESSFNS_FLAG(subsysname, flavor) \
+                                      _GASNETI_PROGRESSFNS_INIT(flavor);
+  GASNETI_PROGRESSFNS_LIST(_GASNETI_PROGRESSFNS_DECLARE_FLAGS) /* forward declaration */
+
+  #define _GASNETI_PROGRESSFNS_ENABLE_BOOLEAN(subsysname) \
+    (_GASNETI_PROGRESSFNS_FLAG(subsysname,BOOLEAN) = 1)
+  #define _GASNETI_PROGRESSFNS_DISABLE_BOOLEAN(subsysname) \
+    (_GASNETI_PROGRESSFNS_FLAG(subsysname,BOOLEAN) = 0)
+  #define _GASNETI_PROGRESSFNS_ENABLE_COUNTED(subsysname) (                             \
+    gasneti_weakatomic_increment(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)),       \
+    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname)) > 0) \
+    )
+  #define _GASNETI_PROGRESSFNS_DISABLE_COUNTED(subsysname) (                                     \
+    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)) > 0), \
+    gasneti_weakatomic_decrement(&_GASNETI_PROGRESSFNS_FLAG(subsysname))                         \
+    )
+  #define GASNETI_PROGRESSFNS_ENABLE(subsysname,flavor) \
+         _GASNETI_PROGRESSFNS_ENABLE_##flavor(subsysname)
+  #define GASNETI_PROGRESSFNS_DISABLE(subsysname,flavor) \
+         _GASNETI_PROGRESSFNS_DISABLE_##flavor(subsysname)
+
+  #define _GASNETI_PROGRESSFNS_ISENABLED_BOOLEAN(subsysname) \
+    _GASNETI_PROGRESSFNS_FLAG(subsysname,BOOLEAN)
+  #define _GASNETI_PROGRESSFNS_ISENABLED_COUNTED(subsysname) \
+    gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED))
+  #define _GASNETI_PROGRESSFNS_RUN_IFENABLED(subsysname, flavor, progressfn) \
+    (_GASNETI_PROGRESSFNS_ISENABLED_##flavor(subsysname) ? progressfn() : ((void)0)) ,
+  #define GASNETI_PROGRESSFNS_RUN()                        \
+   ( GASNETI_PROGRESSFNS_LIST(_GASNETI_PROGRESSFNS_RUN_IFENABLED) ((void)0) ) 
+#endif
+
+/* ------------------------------------------------------------------------------------ */
 #ifndef GASNETI_GASNETI_AMPOLL
   /*
    gasnet_AMPoll() - public poll function called by the client, throttled and traced 
@@ -807,8 +907,15 @@ static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
   #endif
 
   #if !GASNETI_THROTTLE_POLLERS 
-    #define gasneti_AMPoll() (gasneti_AMPoll_spinpollers_check(), \
-                              gasneti_memcheck_one(), gasnetc_AMPoll())
+    GASNET_INLINE_MODIFIER(gasneti_AMPoll)
+    int gasneti_AMPoll() {
+       int retval;
+       gasneti_AMPoll_spinpollers_check();
+       gasneti_memcheck_one();
+       retval = gasnetc_AMPoll();
+       GASNETI_PROGRESSFNS_RUN();
+       return retval;
+    }
     #define gasneti_suspend_spinpollers() gasneti_suspend_spinpollers_check()
     #define gasneti_resume_spinpollers()  gasneti_resume_spinpollers_check()
   #else
@@ -850,6 +957,7 @@ static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
          return GASNET_OK; /* another thread spin-polling - skip the poll */
        retval = gasnetc_AMPoll();
        gasneti_mutex_unlock(&gasneti_throttle_spinpoller);
+       GASNETI_PROGRESSFNS_RUN();
        return retval;
     }
   #endif
@@ -865,7 +973,7 @@ extern int gasneti_wait_mode; /* current waitmode hint */
     if (gasneti_wait_mode != GASNET_WAIT_SPIN) gasneti_sched_yield(); \
     /* prevent optimizer from hoisting the condition check out of */  \
     /* the enclosing spin loop - this is our way of telling the */    \
-    /* optimizer "the wholse world could change here" */              \
+    /* optimizer "the whole world could change here" */               \
     gasneti_compiler_fence();                                         \
     gasneti_spinloop_hint();                                          \
   } while (0)

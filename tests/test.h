@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/01/22 21:44:40 $
- * $Revision: 1.65 $
+ *     $Date: 2006/01/23 17:34:13 $
+ * $Revision: 1.66 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -260,7 +260,7 @@ static void test_free(void *ptr) {
 #ifdef TEST_DELAY
 /* NOTE: If you #define TEST_DELAY, be certain Makefile.in shows you depend on delay.o */
 
-extern void test_delay(int64_t n);	 /* in delay.o */
+extern void test_delay(int64_t n, int pollcnt);	 /* in delay.o */
 
 /* smallest number of delay loops to try in calibration */
 #ifndef TEST_DELAY_LOOP_MIN
@@ -272,13 +272,13 @@ extern void test_delay(int64_t n);	 /* in delay.o */
 #endif
 
 /* Compute the number of loops needed to get no less that the specified delay
- * when executing "test_delay(loops)" excatly 'iters' times.
+ * when executing "test_delay(loops, pollcnt)" exactly 'iters' times.
  *
  * Returns the number of loops needed and overwrites the argument with the
  * actual achieved delay for 'iters' calls to "delay(*time_p)".
  * The 'time_p' is given in microseconds.
  */
-static int64_t test_calibrate_delay(int iters, int64_t *time_p) 
+static int64_t test_calibrate_delay(int iters, int pollcnt, int64_t *time_p) 
 {
 	int64_t begin, end, time;
 	float target = *time_p;
@@ -302,7 +302,7 @@ static int64_t test_calibrate_delay(int iters, int64_t *time_p)
 		}
 
 		begin = TIME();
-		for (i = 0; i < iters; i++) { test_delay(loops); }
+		for (i = 0; i < iters; i++) { test_delay(loops, pollcnt); }
 		end = TIME();
 		time = end - begin;
                 assert(time >= 0);
@@ -310,8 +310,8 @@ static int64_t test_calibrate_delay(int iters, int64_t *time_p)
                 else ratio = target / (float)time;
                 caliters++;
                 if (caliters > TEST_DELAY_CALIBRATION_LIMIT) {
-                  fprintf(stderr,"ERROR: test_calibrate_delay(%i,%i) failed to converge after %i iterations.\n",
-                          iters, (int)*time_p, iters);
+                  fprintf(stderr,"ERROR: test_calibrate_delay(%i,%i,%i) failed to converge after %i iterations.\n",
+                          iters, pollcnt, (int)*time_p, iters);
                   abort();
                 }
               #if 0
