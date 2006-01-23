@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/01/23 23:51:48 $
- * $Revision: 1.67 $
+ *     $Date: 2006/01/23 23:59:05 $
+ * $Revision: 1.68 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -719,11 +719,12 @@ static void _test_init(const char *testname, int reports_performance, int early)
     if (!early) {
       char hostname[255];
       TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
+      BARRIER();
       if (!gethostname(hostname,255)) {
         MSG("hostname is: %s", hostname);
         fflush(NULL);
+        BARRIER();
       }
-      BARRIER();
     }
   #else
     MSG0("=====> %s config=%s",
