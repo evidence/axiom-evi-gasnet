@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/01/23 17:34:03 $
- * $Revision: 1.72 $
+ *     $Date: 2006/01/23 23:06:20 $
+ * $Revision: 1.73 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -454,6 +454,71 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
       }
   }
   #define GASNETI_HAVE_SPINLOCK 1
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* public threadinfo support */
+
+#if GASNETI_CLIENT_THREADS
+  #ifndef GASNETI_THREADINFO_OPT
+  #define GASNETI_THREADINFO_OPT      1
+  #endif
+  #ifndef GASNETI_LAZY_BEGINFUNCTION
+  #define GASNETI_LAZY_BEGINFUNCTION  1
+  #endif
+#endif
+
+#if GASNETI_THREADINFO_OPT
+  /* Here we use a clever trick - GASNET_GET_THREADINFO() uses the sizeof(gasneti_threadinfo_available)
+      to determine whether gasneti_threadinfo_cache was bound a value posted by GASNET_POST_THREADINFO()
+      of if it bound to the globally declared dummy variables. 
+     Even a very stupid C optimizer should constant-fold away the unused calls to gasneti_get_threadinfo() 
+      and discard the unused variables
+     We need 2 separate variables to ensure correct name-binding semantics for GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
+   */
+  static uint8_t gasnete_threadinfo_cache = 0;
+  static uint8_t gasnete_threadinfo_available = 
+    sizeof(gasnete_threadinfo_cache) + sizeof(gasnete_threadinfo_available);
+    /* silly little trick to prevent unused variable warning on gcc -Wall */
+
+  #define GASNET_POST_THREADINFO(info)                     \
+    gasnet_threadinfo_t gasnete_threadinfo_cache = (info); \
+    uint32_t gasnete_threadinfo_available = 0
+    /* if you get an unused variable warning on gasnete_threadinfo_available, 
+       it means you POST'ed in a function which made no GASNet calls that needed it */
+
+  #if GASNETI_LAZY_BEGINFUNCTION
+    #define GASNET_GET_THREADINFO()                              \
+      ( (sizeof(gasnete_threadinfo_available) == 1) ?            \
+        (gasnet_threadinfo_t)gasnete_mythread() :                \
+        ( (uintptr_t)gasnete_threadinfo_cache == 0 ?             \
+          ((*(gasnet_threadinfo_t *)&gasnete_threadinfo_cache) = \
+            (gasnet_threadinfo_t)gasnete_mythread()) :           \
+          (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache) )
+  #else
+    #define GASNET_GET_THREADINFO()                   \
+      ( (sizeof(gasnete_threadinfo_available) == 1) ? \
+        (gasnet_threadinfo_t)gasnete_mythread() :     \
+        (gasnet_threadinfo_t)(uintptr_t)gasnete_threadinfo_cache )
+  #endif
+
+  /* the gasnet_threadinfo_t pointer points to a thread data-structure owned by
+     the extended API, whose first element is a pointer reserved
+     for use by the core API (initialized to NULL)
+   */
+
+  #if GASNETI_LAZY_BEGINFUNCTION
+    /* postpone thread discovery to first use */
+    #define GASNET_BEGIN_FUNCTION() GASNET_POST_THREADINFO(0)
+  #else
+    #define GASNET_BEGIN_FUNCTION() GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
+  #endif
+
+#else
+  #define GASNET_POST_THREADINFO(info)   \
+    static uint8_t gasnete_dummy = sizeof(gasnete_dummy) /* prevent a parse error */
+  #define GASNET_GET_THREADINFO() (NULL)
+  #define GASNET_BEGIN_FUNCTION() GASNET_POST_THREADINFO(GASNET_GET_THREADINFO())
 #endif
 
 /* ------------------------------------------------------------------------------------ */
