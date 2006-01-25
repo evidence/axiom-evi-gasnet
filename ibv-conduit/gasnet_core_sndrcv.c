@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/25 02:10:12 $
- * $Revision: 1.154 $
+ *     $Date: 2006/01/25 03:52:13 $
+ * $Revision: 1.155 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -202,6 +202,10 @@ static gasneti_freelist_t		gasnetc_bbuf_freelist = GASNETI_FREELIST_INITIALIZER;
 
 static gasnetc_sema_t			*gasnetc_cq_semas;
 static gasnetc_cep_t			**gasnetc_node2cep;
+
+#if GASNETC_PIN_SEGMENT
+  static uintptr_t			*gasnetc_seg_ends;
+#endif
 
 #if GASNETI_THREADS
   static gasneti_threadkey_t gasnetc_per_thread_key = GASNETI_THREADKEY_INITIALIZER;
@@ -1734,8 +1738,7 @@ int gasnetc_get_rkey_index(uintptr_t start, size_t *len_p) {
   gasneti_assert(index >= 0);
   gasneti_assert(index < gasnetc_seg_reg_count);
 
-  /* if in last region might still run past end, but that should be caught elsewhere */
-  tmp = (gasnetc_seg_start - 1) + ((index+1) << gasnetc_pin_maxsz_shift);
+  tmp = gasnetc_seg_ends[index];
   if (end > tmp) {
     *len_p = (tmp - start) + 1;
   }
@@ -2608,6 +2611,13 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
     gasnetc_hca_t *hca = cep->hca;
     cep->keys.seg_reg = (node == gasneti_mynode) ? NULL : hca->seg_reg;
     cep->keys.rkeys   = (node == gasneti_mynode) ? NULL : &hca->rkeys[node * gasnetc_max_regs];
+  }
+
+  if (node == gasneti_mynode) { /* Needed exactly once */
+    gasnetc_seg_ends = gasneti_malloc(gasnetc_seg_reg_count * sizeof(uintptr_t));
+    for (i = 0; i < gasnetc_seg_reg_count; ++i) {
+      gasnetc_seg_ends[i] = gasnetc_hca[0].seg_reg[i].end;
+    }
   }
 #else
   /* Nothing currently needed */
