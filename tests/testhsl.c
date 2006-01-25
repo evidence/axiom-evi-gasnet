@@ -1,7 +1,7 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.11 $
- * Description: GASNet barrier performance test
+ *     $Date: 2006/01/25 02:52:39 $
+ * $Revision: 1.12 $
+ * Description: GASNet HSL correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
@@ -10,7 +10,11 @@
 
 #include <test.h>
 
+int peer = -1;
 int flag = 0;
+int iters = 100;
+gasnet_hsl_t globallock = GASNET_HSL_INITIALIZER;
+
 void okhandler1(gasnet_token_t token) {
   gasnet_hold_interrupts();
   flag++;
@@ -19,8 +23,13 @@ void okhandler2(gasnet_token_t token) {
   gasnet_resume_interrupts();
   flag++;
 }
+void okhandler3(gasnet_token_t token) {
+  gasnet_hsl_lock(&globallock);
+  flag++;
+  gasnet_hsl_unlock(&globallock);
+}
 
-gasnet_hsl_t globallock = GASNET_HSL_INITIALIZER;
+
 void badhandler1(gasnet_token_t token) {
   gasnet_hsl_lock(&globallock);
 }
@@ -29,14 +38,41 @@ void badhandler2(gasnet_token_t token) {
   gasnet_AMReplyShort0(token, 255);
 }
 
+uint64_t counter = 0;
+void increq(gasnet_token_t token) {
+  gasnet_hsl_lock(&globallock);
+  counter++;
+  gasnet_hsl_unlock(&globallock);
+  gasnet_AMReplyShort0(token, 222);
+}
+gasnet_hsl_t replock = GASNET_HSL_INITIALIZER;
+uint64_t repcounter = 0;
+void increp(gasnet_token_t token) {
+  gasnet_hsl_lock(&replock);
+  repcounter++;
+  gasnet_hsl_unlock(&replock);
+}
+
+
 void donothing(gasnet_token_t token) {
 }
 
+#if GASNET_PAR
+  #ifndef NUM_THREADS
+    #define NUM_THREADS 4
+  #endif
+  void * thread_fn(void *arg);
+#endif
+
 int main(int argc, char **argv) {
-  int mynode, nodes, partner;
+  int mynode, nodes;
   gasnet_handlerentry_t htable[] = { 
     { 201, okhandler1 },
     { 202, okhandler2 },
+    { 203, okhandler3 },
+
+    { 221, increq },
+    { 222, increp },
 
     { 231, badhandler1 },
     { 232, badhandler2 },
@@ -51,10 +87,11 @@ int main(int argc, char **argv) {
 
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
-  partner = (gasnet_mynode() + 1) % gasnet_nodes();
+  peer = (gasnet_mynode() ^ 1);
+  if (peer == gasnet_nodes()) peer = gasnet_mynode();
 
   if (argc < 2) {
-    printf("Usage: %s (errtestnum:1..16)\n", argv[0]);fflush(stdout);
+    printf("Usage: %s (0|errtestnum:1..16)\n", argv[0]);fflush(stdout);
     gasnet_exit(1);
   }
   {
@@ -63,7 +100,7 @@ int main(int argc, char **argv) {
     gasnet_hsl_t lock2;
     gasnet_hsl_init(&lock2);
 
-    MSG("testing legal cases...");
+    MSG0("testing legal local cases...");
     gasnet_hsl_lock(&lock1);
     gasnet_resume_interrupts(); /* ignored */
     gasnet_hsl_unlock(&lock1);
@@ -87,13 +124,24 @@ int main(int argc, char **argv) {
     assert(nodes == gasnet_nodes());
     gasnet_resume_interrupts(); 
 
-    gasnet_AMRequestShort0(gasnet_mynode(), 201);
+    BARRIER();
+    MSG0("testing legal AM cases...");
+
+    gasnet_AMRequestShort0(peer, 201);
     GASNET_BLOCKUNTIL(flag == 1);
+    BARRIER();
 
-    gasnet_AMRequestShort0(gasnet_mynode(), 202);
+    gasnet_AMRequestShort0(peer, 202);
     GASNET_BLOCKUNTIL(flag == 2);
+    BARRIER();
 
-    MSG("testing illegal case %i...", errtest);
+    gasnet_AMRequestShort0(peer, 203);
+    GASNET_BLOCKUNTIL(flag == 3);
+
+    BARRIER();
+
+   if (errtest) {
+    MSG0("testing illegal case %i...", errtest);
     switch(errtest) {
       case 1:
         gasnet_hold_interrupts();
@@ -168,16 +216,111 @@ int main(int argc, char **argv) {
         MSG("bad err test num.");
         abort();
     }
-  }
+    MSG("ERROR: FAILED: err test failed.");
+    abort();
+   } else {
+  #if GASNET_PAR
+    int i;
+    pthread_t threadid[NUM_THREADS];
 
-  MSG("ERROR: FAILED: err test failed.");
-  abort();
+    MSG0("Spawning pthreads...");
+    #ifdef HAVE_PTHREAD_SETCONCURRENCY
+        pthread_setconcurrency(NUM_THREADS);
+    #endif
+
+    for(i=0;i<NUM_THREADS;i++) {
+      pthread_attr_t attr;   
+      pthread_attr_init(&attr);   
+      pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); 
+      if (pthread_create(&threadid[i], &attr, &thread_fn, (void *)(uintptr_t)i)) 
+        perror("pthread_create");
+    }
+
+    for(i=0;i<NUM_THREADS;i++) {
+      if (pthread_join(threadid[i], NULL))
+        perror("pthread_join");
+    }
+  #endif
+   }
+  }
 
 done:
   BARRIER();
 
-  MSG("done.");
+  MSG0("done.");
 
+  BARRIER();
   gasnet_exit(0);
   return 0;
 }
+
+#if GASNET_PAR
+
+#undef MSG0
+#undef ERR
+#define MSG0  test_makeMsg(("%s\n","%s"), (gasnet_mynode() == 0 && id == 0), 0)
+#define ERR   test_makeMsg(("ERROR: thread %i: %s (at %s:%i)\n", \
+                            id, "%s", __FILE__, __LINE__), 1, test_errs++)
+
+void * thread_fn(void *arg) {
+  int id = (int)(uintptr_t)arg;
+  int iters2 = iters*100;
+  int i;
+
+  counter = 0; repcounter = 0;
+  PTHREAD_BARRIER(NUM_THREADS);
+
+  MSG0("hsl exclusion test, local-only...");
+    for (i=0;i<iters2;i++) {
+      gasnet_hsl_lock(&globallock);
+      counter++;
+      gasnet_hsl_unlock(&globallock);
+    }
+
+    PTHREAD_LOCALBARRIER(NUM_THREADS);
+
+    if (counter != (NUM_THREADS * iters2)) 
+      ERR("failed hsl test: counter=%llu expecting=%llu", 
+          (unsigned long long)counter, (unsigned long long)(NUM_THREADS * iters2));
+
+  PTHREAD_BARRIER(NUM_THREADS);
+  counter = 0; repcounter = 0;
+  PTHREAD_BARRIER(NUM_THREADS);
+
+  MSG0("hsl exclusion test, AM-only...");
+    for (i=0;i<iters;i++) {
+      gasnet_AMRequestShort0(peer, 221);
+    }
+    GASNET_BLOCKUNTIL(repcounter == NUM_THREADS * iters);
+    PTHREAD_BARRIER(NUM_THREADS);
+
+    if (counter != (NUM_THREADS * iters)) 
+      ERR("failed hsl test: counter=%llu expecting=%llu", 
+          (unsigned long long)counter, (unsigned long long)(NUM_THREADS * iters));
+
+  PTHREAD_BARRIER(NUM_THREADS);
+  counter = 0; repcounter = 0;
+  PTHREAD_BARRIER(NUM_THREADS);
+
+  MSG0("hsl exclusion test, AM & local...");
+    for (i=0;i<iters;i++) {
+      gasnet_AMRequestShort0(peer, 221);
+      gasnet_hsl_lock(&globallock);
+      counter++;
+      gasnet_hsl_unlock(&globallock);
+    }
+    GASNET_BLOCKUNTIL(repcounter == NUM_THREADS * iters);
+    PTHREAD_BARRIER(NUM_THREADS);
+
+    if (counter != (2 * NUM_THREADS * iters)) 
+      ERR("failed hsl test: counter=%llu expecting=%llu", 
+          (unsigned long long)counter, (unsigned long long)(2 * NUM_THREADS * iters));
+
+  PTHREAD_BARRIER(NUM_THREADS);
+  counter = 0; repcounter = 0;
+  PTHREAD_BARRIER(NUM_THREADS);
+
+  return NULL;
+}
+
+#endif

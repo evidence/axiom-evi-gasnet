@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/01/23 23:59:05 $
- * $Revision: 1.68 $
+ *     $Date: 2006/01/25 02:52:39 $
+ * $Revision: 1.69 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -396,37 +396,63 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
 
 #if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
   /* Cheap (but functional!) pthread + gasnet barrier */
-  void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
+  #if defined(__crayx1) || defined(__CYGWIN__)
+    /* pthread_cond is unreliable on some versions of these OS's - use semaphores */
+    #include <semaphore.h>
+    void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
       static pthread_mutex_t barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
-      static pthread_cond_t barrier_cond = PTHREAD_COND_INITIALIZER;
+      static volatile int phase = 0;
+      static volatile unsigned int barrier_count = 0;
+      static sem_t sem[2];
+      check_zeroret(pthread_mutex_lock(&barrier_mutex));
+      { int myphase = phase;
+        static volatile int firsttime = 1;
+        if (firsttime) {
+          check_zeroret(sem_init(&sem[0], 0, 0));
+          check_zeroret(sem_init(&sem[1], 0, 0));
+          firsttime = 0;
+        }
+        barrier_count++;
+        if (barrier_count < local_pthread_count) { 
+          check_zeroret(pthread_mutex_unlock(&barrier_mutex));
+          check_zeroret(sem_wait(&sem[myphase]));
+        } else {
+          int i;
+          if (doGASNetbarrier) BARRIER();
+          barrier_count = 0;
+          phase = !phase;
+          check_zeroret(pthread_mutex_unlock(&barrier_mutex));
+          for (i=0; i < local_pthread_count-1; i++) {
+            check_zeroret(sem_post(&sem[myphase]));
+          }
+        }
+      }
+    }
+  #else
+    void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
+      static pthread_cond_t barrier_cond[2] = /* must be phased on some OS's (HPUX) */
+        { PTHREAD_COND_INITIALIZER, PTHREAD_COND_INITIALIZER };
+      static pthread_mutex_t barrier_mutex[2] = 
+        { PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER };
       static volatile unsigned int barrier_count = 0;
       static int volatile phase = 0;
-      check_zeroret(pthread_mutex_lock(&barrier_mutex));
-      #ifdef __crayx1
-        /* this should not be necessary, but broken pthreads impl on x1 
-            segfaults in pthread_cond_broadcast otherwise */
-        { static int firsttime = 1;
-          if (firsttime) {
-            check_zeroret(pthread_cond_init(&barrier_cond, NULL));
-            firsttime = 0;
-          }  
-        }
-      #endif
+      check_zeroret(pthread_mutex_lock(&barrier_mutex[phase]));
       barrier_count++;
       if (barrier_count < local_pthread_count) {
         int myphase = phase;
         while (myphase == phase) {
-          check_zeroret(pthread_cond_wait(&barrier_cond, &barrier_mutex));
+          check_zeroret(pthread_cond_wait(&barrier_cond[phase], &barrier_mutex[phase]));
         }
       } else {  
         /* Now do the gasnet barrier */
         if (doGASNetbarrier) BARRIER();
         barrier_count = 0;
         phase = !phase;
-        check_zeroret(pthread_cond_broadcast(&barrier_cond));
+        check_zeroret(pthread_cond_broadcast(&barrier_cond[!phase]));
       }       
-      check_zeroret(pthread_mutex_unlock(&barrier_mutex));
-  }
+      check_zeroret(pthread_mutex_unlock(&barrier_mutex[!phase]));
+    }
+  #endif
   #define PTHREAD_BARRIER(local_pthread_count)      \
     test_pthread_barrier(local_pthread_count, 1)
   #define PTHREAD_LOCALBARRIER(local_pthread_count) \
