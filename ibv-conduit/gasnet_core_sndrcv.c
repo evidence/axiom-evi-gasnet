@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/25 03:52:13 $
- * $Revision: 1.155 $
+ *     $Date: 2006/01/25 20:16:35 $
+ * $Revision: 1.156 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2614,9 +2614,9 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
   }
 
   if (node == gasneti_mynode) { /* Needed exactly once */
-    gasnetc_seg_ends = gasneti_malloc(gasnetc_seg_reg_count * sizeof(uintptr_t));
-    for (i = 0; i < gasnetc_seg_reg_count; ++i) {
-      gasnetc_seg_ends[i] = gasnetc_hca[0].seg_reg[i].end;
+    gasnetc_seg_ends = gasneti_malloc(gasnetc_max_regs * sizeof(uintptr_t));
+    for (i = 0; i < gasnetc_max_regs; ++i) {
+      gasnetc_seg_ends[i] = (gasnetc_seg_start - 1) + ((i+1) << gasnetc_pin_maxsz_shift);
     }
   }
 #else
