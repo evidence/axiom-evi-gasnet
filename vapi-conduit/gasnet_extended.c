@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/05/12 21:34:48 $
- * $Revision: 1.34 $
+ *     $Date: 2006/01/25 02:10:12 $
+ * $Revision: 1.35 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -225,7 +225,13 @@ int gasnete_eop_test(gasnete_eop_t *eop) {
 GASNET_INLINE_MODIFIER(gasnete_iop_test)
 int gasnete_iop_test(gasnete_iop_t *iop) {
   gasnete_iop_check(iop);
-  return (gasnetc_counter_done(&(iop->get_req_oust)) && gasnetc_counter_done(&(iop->put_req_oust)));
+  if (gasnetc_counter_done(&(iop->get_req_oust)) &&
+      gasnetc_counter_done(&(iop->put_req_oust))) {
+    gasnetc_counter_reset(&(iop->get_req_oust));
+    gasnetc_counter_reset(&(iop->put_req_oust));
+    return 1;
+  }
+  return 0;
 }
 
 /*  query an op for completeness 
@@ -416,7 +422,9 @@ extern void gasnete_wait_syncnb(gasnet_handle_t op) {
     } else {
       gasnete_iop_t *iop = (gasnete_iop_t*)op;
       gasnetc_counter_wait(&iop->get_req_oust, 0);
+      gasnetc_counter_reset(&iop->get_req_oust);
       gasnetc_counter_wait(&iop->put_req_oust, 0);
+      gasnetc_counter_reset(&iop->put_req_oust);
       gasnete_iop_free(iop);
     }
   }
@@ -526,7 +534,11 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
   #endif
 
-  return gasnetc_counter_done(&iop->get_req_oust) ? GASNET_OK: GASNET_ERR_NOT_READY;
+  if (gasnetc_counter_done(&iop->get_req_oust)) {
+    gasnetc_counter_reset(&iop->get_req_oust); /* Avoid overflow */
+    return GASNET_OK;
+  }
+  return GASNET_ERR_NOT_READY;
 }
 
 extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
@@ -539,7 +551,11 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
       gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_puts() inside an NBI access region");
   #endif
 
-  return gasnetc_counter_done(&iop->put_req_oust) ? GASNET_OK: GASNET_ERR_NOT_READY;
+  if (gasnetc_counter_done(&iop->put_req_oust)) {
+    gasnetc_counter_reset(&iop->put_req_oust); /* Avoid overflow */
+    return GASNET_OK;
+  }
+  return GASNET_ERR_NOT_READY;
 }
 
 extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
@@ -553,6 +569,7 @@ extern void gasnete_wait_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
   #endif
 
   gasnetc_counter_wait(&iop->get_req_oust, 0);
+  gasnetc_counter_reset(&iop->get_req_oust);
 }
 
 extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
@@ -566,6 +583,7 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
   #endif
 
   gasnetc_counter_wait(&iop->put_req_oust, 0);
+  gasnetc_counter_reset(&iop->put_req_oust);
 }
 
 /* ------------------------------------------------------------------------------------ */

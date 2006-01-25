@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/24 04:21:45 $
- * $Revision: 1.153 $
+ *     $Date: 2006/01/25 02:10:12 $
+ * $Revision: 1.154 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2660,17 +2660,18 @@ extern void gasnetc_sndrcv_poll(void) {
 
 extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context)
 {
+  const int initiated = counter->initiated;
   if (handler_context) {
     do {
       /* must not poll rcv queue in hander context */
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-    } while (!gasnetc_counter_done(counter));
+    } while (initiated != gasneti_weakatomic_read(&(counter->completed)));
   } else {
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_both();
-    } while (!gasnetc_counter_done(counter));
+    } while (initiated != gasneti_weakatomic_read(&(counter->completed)));
   }
 }
 

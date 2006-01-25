@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.h,v $
- *     $Date: 2006/01/14 02:05:22 $
- * $Revision: 1.43 $
+ *     $Date: 2006/01/25 02:10:12 $
+ * $Revision: 1.44 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,23 +120,27 @@ typedef struct _gasnet_hsl_t {
 /* ------------------------------------------------------------------------------------ */
 /* Type and ops for rdma counters */
 #include <gasnet_atomicops.h> /* must come after hsl defs */
-typedef gasneti_weakatomic_t gasnetc_counter_t;
-#define GASNETC_COUNTER_INITIALIZER	gasneti_weakatomic_init(0)
-#define gasnetc_counter_reset(P)	gasneti_weakatomic_set((P), 0)
-#define gasnetc_counter_done(P)		(gasneti_weakatomic_read(P) == 0)
-#define gasnetc_counter_inc(P)		gasneti_weakatomic_increment(P)
+typedef struct {
+	gasneti_weakatomic_t	completed;
+	int			initiated;
+} gasnetc_counter_t;
+#define GASNETC_COUNTER_INITIALIZER	{gasneti_weakatomic_init(0), 0}
+#define gasnetc_counter_reset(P)	do { gasneti_weakatomic_set(&(P)->completed, 0); \
+					     (P)->initiated = 0;                         \
+					} while (0)
+#define gasnetc_counter_done(P)		((P)->initiated == gasneti_weakatomic_read(&(P)->completed))
+#define gasnetc_counter_inc(P)		do { (P)->initiated++; } while (0)
 #define gasnetc_counter_inc_if(P)	do { if(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pf(P)	do { if_pf(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pt(P)	do { if_pt(P) gasnetc_counter_inc(P); } while (0)
-#define gasnetc_counter_dec(P)	do {                                              \
-					gasneti_assert(!gasnetc_counter_done(P)); \
-					gasneti_weakatomic_decrement(P);          \
-				} while (0)
+#define gasnetc_counter_dec(P)		do { gasneti_assert(!gasnetc_counter_done(P));      \
+					     gasneti_weakatomic_increment(&(P)->completed); \
+					} while (0)
 #define gasnetc_counter_dec_if(P)	do { if(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pf(P)	do { if_pf(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pt(P)	do { if_pt(P) gasnetc_counter_dec(P); } while (0)
 #if GASNETI_STATS_OR_TRACE
-  #define gasnetc_counter_val(P)	gasneti_weakatomic_read(P)
+  #define gasnetc_counter_val(P)	((P)->initiated)
 #endif
 
 /* Wait until given counter is marked as done.
