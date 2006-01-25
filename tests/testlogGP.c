@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlogGP.c,v $
- *     $Date: 2006/01/23 17:34:13 $
- * $Revision: 1.27 $
+ *     $Date: 2006/01/25 00:16:26 $
+ * $Revision: 1.28 $
  * Description: GASNet logGP tester.
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -395,7 +395,7 @@ int main(int argc, char **argv)
     
     peermem = (void *) TEST_SEG(peerproc);
 
-    for (i = 2; i < argc; ++i) {
+    for (i = 3; i < argc; ++i) {
         int size = atoi(argv[i]);
 
         if (size < 0 || size > TEST_SEGSZ) {
