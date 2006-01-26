@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/01/10 19:26:20 $
- * $Revision: 1.150 $
+ *     $Date: 2006/01/26 01:40:30 $
+ * $Revision: 1.151 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -544,18 +544,19 @@ gasnetc_add_port(char *id, int port) {
 }
 
 static int
-gasnetc_match_port(const char *id, int port) {
-  gasnetc_port_list_t *prev, *curr;
+gasnetc_match_port(const char *id, int port, int mark) {
+  gasnetc_port_list_t *curr;
   int found;
 
   if (gasnetc_port_list != NULL) {
     found = 0;
-    for (prev = NULL, curr = gasnetc_port_list; curr && !found; prev = curr, curr = curr->next) {
+    for (curr = gasnetc_port_list; curr && !found; curr = curr->next) {
       if (!curr->matched && !strcmp(id, curr->id)) {
 	if (!port) { /* match HCA only */
 	  found = 1;
 	} else if (!curr->port || (curr->port == port)) { /* 0 is a wild card */
-	  found = curr->matched = 1;
+	  found = 1;
+	  curr->matched = mark;
         }
       }
     }
@@ -683,7 +684,7 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
     int found = 0;
     int curr_port;
 
-    if (!gasnetc_match_port(hca_ids[curr_hca], 0)) {
+    if (!gasnetc_match_port(hca_ids[curr_hca], 0, 0)) {
       GASNETI_TRACE_PRINTF(C,("Probe skipping HCA '%s' - no match in GASNET_VAPI_PORTS", hca_ids[curr_hca]));
       continue;
     }
@@ -695,7 +696,7 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
     if (vstat == VAPI_OK) {
       GASNETI_TRACE_PRINTF(C,("Probe found HCA '%s'", hca_ids[curr_hca]));
     } else {
-      GASNETI_TRACE_PRINTF(C,("Probe failed to open HCA '%s'", hca_ids[curr_hca]));
+      GASNETI_TRACE_PRINTF(C,("Probe failed to open HCA '%s'", gasneti_mynode, hca_ids[curr_hca]));
       continue;	/* OK, keep trying HCAs */
     }
     vstat = VAPI_query_hca_cap(hca_handle, &hca_vendor, &hca_cap);
@@ -707,7 +708,7 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
 	 ++curr_port) {
       gasnetc_port_info_t *this_port = &port_tbl[port_count];
 
-      if (!gasnetc_match_port(hca_ids[curr_hca], curr_port)) {
+      if (!gasnetc_match_port(hca_ids[curr_hca], curr_port, 0)) {
         GASNETI_TRACE_PRINTF(C,("Probe skipping HCA '%s', port %d - no match in GASNET_VAPI_PORTS", hca_ids[curr_hca], curr_port));
 	continue;
       }
@@ -721,6 +722,7 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
         this_port->hca_index = hca_count;
 	this_port->rd_atom   = MIN(hca_cap.max_qp_init_rd_atom, hca_cap.max_qp_ous_rd_atom);
         GASNETI_TRACE_PRINTF(C,("Probe found HCA '%s', port %d", hca_ids[curr_hca], curr_port));
+        (void)gasnetc_match_port(hca_ids[curr_hca], curr_port, 1);
 	if (gasnetc_port_list == NULL) {
 	  /* By default one at most 1 port per HCA */
 	  break;
@@ -729,9 +731,6 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
 	const char *state;
 
 	switch (this_port->port.state) {
-	case PORT_ACTIVE:
-		state = "ACTIVE";
-		break;
 	case PORT_DOWN:
 		state = "DOWN";
 		break;
