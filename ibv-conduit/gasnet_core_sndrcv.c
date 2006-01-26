@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/25 20:16:35 $
- * $Revision: 1.156 $
+ *     $Date: 2006/01/26 03:03:22 $
+ * $Revision: 1.157 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -552,22 +552,8 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
 #define GASNETC_COLLECT_BBUF_IF(_bbuf) _GASNETC_COLLECT_BBUF(if,(_bbuf))
   
 
-#if GASNETC_VAPI_MAX_HCAS > 1
-/* Round-robin over HCAs when polling */
-GASNET_INLINE_MODIFIER(gasnetc_next_hca)
-gasnetc_hca_t *gasnetc_next_hca(gasneti_weakatomic_t *p) {
-  int old, new;
-  do {
-    old = gasneti_weakatomic_read(p);
-    new = (old == 0) ? (gasnetc_num_hcas - 1) : (old - 1);
-  } while(!gasneti_weakatomic_compare_and_swap(p, old, new));
-  return &gasnetc_hca[old];
-}
-#endif
-
 /* Try to pull completed entries (if any) from the send CQ(s). */
 static int gasnetc_snd_reap(int limit) {
-  gasnetc_hca_t *hca;
   VAPI_ret_t vstat;
   VAPI_wc_desc_t comp;
   int fh_num = 0;
@@ -578,13 +564,16 @@ static int gasnetc_snd_reap(int limit) {
     const firehose_request_t *fh_ptrs[GASNETC_SND_REAP_LIMIT * GASNETC_MAX_FH];
   #endif
 
-#if GASNETC_VAPI_MAX_HCAS > 1
-  /* Pollers hit the HCAs round-robin */
-  static gasneti_weakatomic_t next = gasneti_weakatomic_init(0);
-  hca = gasnetc_next_hca(&next);
-#else
-  hca = &gasnetc_hca[0];
-#endif
+  #if GASNETC_VAPI_MAX_HCAS > 1
+    /* Simple round-robin (w/ a harmless multi-thread race) */
+    gasnetc_hca_t *hca;
+    static volatile int index = 0;
+    int tmp = index;
+    index = ((tmp == 0) ? gasnetc_num_hcas : tmp) - 1;
+    hca = &gasnetc_hca[tmp];
+  #else
+    gasnetc_hca_t *hca = &gasnetc_hca[0];
+  #endif
 
   gasneti_assert(limit <= GASNETC_SND_REAP_LIMIT);
 
@@ -698,11 +687,13 @@ static int gasnetc_snd_reap(int limit) {
 #if 1 
         gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.id;
         fprintf(stderr, "@ %d> snd comp.status=%d comp.opcode=%d dst_node=%d dst_qp=%d\n", gasneti_mynode, comp.status, comp.opcode, (int)(sreq->cep - gasnetc_cep)/gasnetc_num_qps, (int)(sreq->cep - gasnetc_cep)%gasnetc_num_qps);
+  #if 0 /* Not quite right for multi rail */
         while((vstat = gasnetc_poll_rcv_cq(hca, &comp)) == VAPI_OK) {
 	  if (comp.status != VAPI_WR_FLUSH_ERR) {
             fprintf(stderr, "@ %d> - rcv comp.status=%d\n", gasneti_mynode, comp.status);
 	  }
         }
+  #endif
 #endif
         gasneti_fatalerror("aborting on reap of failed send");
         break;
@@ -753,7 +744,7 @@ gasnetc_epid_t gasnetc_epid_select_qpi(gasnetc_cep_t *ceps, gasnetc_epid_t epid,
     /* Simple round-robin (w/ a harmless multi-thread race) */
     static volatile int prev = 0;
     qpi = prev;
-    qpi = (qpi == 0) ? (gasnetc_num_qps - 1) : (qpi - 1);
+    qpi = ((qpi == 0) ? gasnetc_num_qps : qpi) - 1;
     prev = qpi;
 #endif
   } else {
@@ -897,11 +888,13 @@ static int gasnetc_rcv_reap(gasnetc_hca_t *hca, int limit, gasnetc_rbuf_t **spar
       } else {
 #if 1
         fprintf(stderr, "@ %d> rcv comp.status=%d\n", gasneti_mynode, comp.status);
+  #if 0 /* Not quite right for multi rail */
         while((vstat = gasnetc_poll_snd_cq(hca, &comp)) == VAPI_OK) {
 	  if (comp.status != VAPI_WR_FLUSH_ERR) {
             fprintf(stderr, "@ %d> - snd comp.status=%d\n", gasneti_mynode, comp.status);
 	  }
         }
+  #endif
 #endif
         gasneti_fatalerror("aborting on reap of failed recv");
 	break;
@@ -926,24 +919,29 @@ static int gasnetc_rcv_reap(gasnetc_hca_t *hca, int limit, gasnetc_rbuf_t **spar
   return count;
 }
 
+GASNET_INLINE_MODIFIER(gasnetc_poll_rcv_hca)
+void gasnetc_poll_rcv_hca(gasnetc_hca_t *hca, int limit) {
+  gasnetc_rbuf_t *spare = NULL;
+  (void)gasnetc_rcv_reap(hca, limit, &spare);
+  if (spare) {
+    gasneti_freelist_put(&hca->rbuf_freelist, spare);
+  }
+}
+
 GASNET_INLINE_MODIFIER(gasnetc_do_poll)
 void gasnetc_do_poll(int poll_rcv, int poll_snd) {
   if (poll_rcv) {
+  #if GASNETC_VAPI_MAX_HCAS > 1
+    /* Simple round-robin (w/ a harmless multi-thread race) */
     gasnetc_hca_t *hca;
-    gasnetc_rbuf_t *spare = NULL;
-
-#if GASNETC_VAPI_MAX_HCAS > 1
-    /* Pollers hit the HCAs round-robin */
-    static gasneti_weakatomic_t next = gasneti_weakatomic_init(0);
-    hca = gasnetc_next_hca(&next);
-#else
-    hca = &gasnetc_hca[0];
-#endif
-
-    (void)gasnetc_rcv_reap(hca, GASNETC_RCV_REAP_LIMIT, &spare);
-    if (spare) {
-      gasneti_freelist_put(&hca->rbuf_freelist, spare);
-    }
+    static volatile int index = 0;
+    int tmp = index;
+    index = ((tmp == 0) ? gasnetc_num_hcas : tmp) - 1;
+    hca = &gasnetc_hca[tmp];
+  #else
+    gasnetc_hca_t *hca = &gasnetc_hca[0];
+  #endif
+    gasnetc_poll_rcv_hca(hca, GASNETC_RCV_REAP_LIMIT);
   }
 
   if (poll_snd) {
@@ -965,7 +963,7 @@ gasnetc_sreq_t *gasnetc_get_sreq(GASNETC_PERTHREAD_FARG_ALONE) {
   sreq = td->sreqs;
   gasneti_assert(sreq != NULL);
   if_pf (sreq->opcode != GASNETC_OP_FREE) {
-    /* 2) Next poll CQs and then check the oldest again */
+    /* 2) Next poll all CQs and then check the oldest sreq again */
     int h;
     GASNETC_FOR_ALL_HCA_INDEX(h) {
       (void)gasnetc_snd_reap(1);
@@ -1299,7 +1297,7 @@ static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
   gasneti_assert(hca_hndl == hca->handle);
   gasneti_assert(cq_hndl == hca->rcv_cq);
 
-  (void)gasnetc_rcv_reap(hca, (int)(unsigned int)-1, (gasnetc_rbuf_t **)&hca->rcv_thread_priv);
+  (void)gasnetc_rcv_reap(hca, (int)(((unsigned int)-1)>>1), (gasnetc_rbuf_t **)&hca->rcv_thread_priv);
 
   vstat = VAPI_req_comp_notif(hca_hndl, cq_hndl, VAPI_NEXT_COMP);
 
@@ -1312,7 +1310,7 @@ static void gasnetc_rcv_thread(VAPI_hca_hndl_t	hca_hndl,
     }
   }
 
-  (void)gasnetc_rcv_reap(hca, (int)(unsigned int)-1, (gasnetc_rbuf_t **)&hca->rcv_thread_priv);
+  (void)gasnetc_rcv_reap(hca, (int)(((unsigned int)-1)>>1), (gasnetc_rbuf_t **)&hca->rcv_thread_priv);
   GASNETC_TRACE_WAIT_END(RCV_THREAD_WAKE);
 #else
   gasneti_fatalerror("unexpected call to gasnetc_rcv_thread");
@@ -1456,7 +1454,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
           GASNETC_TRACE_WAIT_BEGIN();
           do {
 	    GASNETI_WAITHOOK();
-            gasnetc_poll_rcv();
+            gasnetc_poll_rcv_hca(cep->hca, 1);
           } while (!gasnetc_sema_trydown(sema, GASNETC_ANY_PAR));
           GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
         }
@@ -1471,7 +1469,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
         GASNETC_TRACE_WAIT_BEGIN();
         do {
 	  GASNETI_WAITHOOK();
-          gasnetc_poll_rcv();
+          gasnetc_poll_rcv_hca(cep->hca, 1);
 	  rbuf = gasneti_freelist_get(cep->rbuf_freelist);
         } while (rbuf == NULL);
         GASNETC_TRACE_WAIT_END(GET_AMREQ_BUFFER_STALL);
@@ -2967,6 +2965,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 }
 
 extern int gasnetc_AMPoll() {
+#if 0 /* Timings show peek optimization is no longer effective */
   int h, work;
 
   GASNETI_CHECKATTACH();
@@ -2986,6 +2985,10 @@ extern int gasnetc_AMPoll() {
   if_pf (work) {
     gasnetc_poll_both();
   }
+#else
+  GASNETI_CHECKATTACH();
+  gasnetc_poll_both();
+#endif
 
   return GASNET_OK;
 }

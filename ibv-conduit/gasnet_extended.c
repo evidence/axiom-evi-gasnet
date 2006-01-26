@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2006/01/25 02:10:12 $
- * $Revision: 1.35 $
+ *     $Date: 2006/01/26 03:03:22 $
+ * $Revision: 1.36 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -237,6 +237,7 @@ int gasnete_iop_test(gasnete_iop_t *iop) {
 /*  query an op for completeness 
  *  free it if complete
  *  returns 0 or 1 */
+GASNET_INLINE_MODIFIER(gasnete_op_try_free)
 int gasnete_op_try_free(gasnet_handle_t handle) {
   gasnete_op_t *op = (gasnete_op_t *)handle;
 
@@ -249,7 +250,6 @@ int gasnete_op_try_free(gasnet_handle_t handle) {
       gasnete_eop_free(eop);
       return 1;
     }
-    return 0;
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
 
@@ -258,13 +258,14 @@ int gasnete_op_try_free(gasnet_handle_t handle) {
       gasnete_iop_free(iop);
       return 1;
     }
-    return 0;
   }
+  return 0;
 }
 
 /*  query an op for completeness 
  *  free it and clear the handle if complete
  *  returns 0 or 1 */
+GASNET_INLINE_MODIFIER(gasnete_op_try_free_clear)
 int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
   gasnete_op_t *op = (gasnete_op_t *)(*handle_p);
 
@@ -278,7 +279,6 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
       *handle_p = GASNET_INVALID_HANDLE;
       return 1;
     }
-    return 0;
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;
 
@@ -288,8 +288,8 @@ int gasnete_op_try_free_clear(gasnet_handle_t *handle_p) {
       *handle_p = GASNET_INVALID_HANDLE;
       return 1;
     }
-    return 0;
   }
+  return 0;
 }
 
 /* Reply handler to complete an op - might be replaced w/ IB atomics one day */
