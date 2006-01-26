@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/01/26 01:40:30 $
- * $Revision: 1.151 $
+ *     $Date: 2006/01/26 02:44:30 $
+ * $Revision: 1.152 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -696,7 +696,7 @@ static gasnetc_port_info_t* gasnetc_probe_ports(int *port_count_p) {
     if (vstat == VAPI_OK) {
       GASNETI_TRACE_PRINTF(C,("Probe found HCA '%s'", hca_ids[curr_hca]));
     } else {
-      GASNETI_TRACE_PRINTF(C,("Probe failed to open HCA '%s'", gasneti_mynode, hca_ids[curr_hca]));
+      GASNETI_TRACE_PRINTF(C,("Probe failed to open HCA '%s'", hca_ids[curr_hca]));
       continue;	/* OK, keep trying HCAs */
     }
     vstat = VAPI_query_hca_cap(hca_handle, &hca_vendor, &hca_cap);
