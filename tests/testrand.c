@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testrand.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.12 $
+ *     $Date: 2006/01/26 17:33:50 $
+ * $Revision: 1.13 $
  * Description: GASNet get/put performance test
  *   measures measures the total time to write to each page of the
  *   remote test segment, using blocking puts in a random order.
@@ -36,6 +36,8 @@ int nbytes = 8;
 
 void *remmem;
 void *locmem;
+
+#undef rem_addr /* AIX 5.3 header bug */
 
 void do_test(void) {GASNET_BEGIN_FUNCTION();
     int i;
@@ -80,6 +82,8 @@ void do_test(void) {GASNET_BEGIN_FUNCTION();
 		end = TIME();
 		printf("Proc %3i - %5i bytes, seed %10u, %7i pages: %12i us total, %9.3f us ave. per page\n",
 			myproc, nbytes, seed, pages, (int)(end-begin), ((double)(end-begin))/pages);
+                fflush(stdout);
+                sleep(1);
 	}
 
 	BARRIER();
