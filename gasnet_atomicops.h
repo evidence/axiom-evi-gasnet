@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2005/11/09 08:45:49 $
- * $Revision: 1.78 $
+ *     $Date: 2006/01/27 20:51:43 $
+ * $Revision: 1.79 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -323,7 +323,7 @@
         __asm__ __volatile__ (GASNETI_LOCK "cmpxchgl %3, %1\n\tsete %0"
 			          : "=mq" (retval), "=m" (v->ctr), "=a" (readval)
 			          : "r" (newval), "m" (v->ctr), "a" (oldval)
-			          : "memory");
+			          : "cc", "memory");
         return (int)retval;
       }
       #define GASNETI_HAVE_ATOMIC_CAS 1

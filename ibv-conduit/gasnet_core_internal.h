@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/27 20:38:49 $
- * $Revision: 1.110 $
+ *     $Date: 2006/01/27 20:51:45 $
+ * $Revision: 1.111 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -486,7 +486,7 @@ typedef struct _gasneti_freelist_ptr_s {
                             "jne	1b"		/* retry on conflict */
                                 : "=m" (p->head)
                                 : "r" (head), "m" (tail->next)
-                                : "memory", "eax");
+                                : "cc", "memory", "eax");
     }
     GASNET_INLINE_MODIFIER(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
@@ -501,7 +501,7 @@ typedef struct _gasneti_freelist_ptr_s {
                             "2:"
                                 : "=a" (retval)
                                 : "m" (p->head), "a" (retval), "d" (p->ABA_tag)
-                                : "memory", "ebx", "ecx");
+                                : "cc", "memory", "ebx", "ecx");
       return (void *)retval;
     }
     GASNET_INLINE_MODIFIER(gasneti_fl_init)
