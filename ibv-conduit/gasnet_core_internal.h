@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/27 02:19:08 $
- * $Revision: 1.109 $
+ *     $Date: 2006/01/27 20:38:49 $
+ * $Revision: 1.110 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -490,13 +490,12 @@ typedef struct _gasneti_freelist_ptr_s {
     }
     GASNET_INLINE_MODIFIER(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
-      /* ACQUIRE semantics: rmb is a noop on ia32 */
+      /* ACQUIRE semantics: rmb is a no-op on ia32 */
       register uintptr_t retval = p->head;
       __asm__ __volatile__ ("1: test	%0,%0		\n\t"	/* terminate loop ... */
                             "jz		2f		\n\t"	/*        ... on NULL */
                             "mov	(%0), %%ebx	\n\t"	/* ebx = p->head->next */
-                            "movl	%3, %%ecx	\n\t"	/* ebc = ... */
-                            "incl	%%ecx		\n\t"   /*       ABA_tag + 1 */
+                            "lea	1(%3), %%ecx	\n\t"	/* ecx = ABA_tag + 1 */ 
                GASNETI_LOCK "cmpxchg8b	%1		\n\t"	/* p->(head,ABA_tag) = (ebx,ecx) */
                             "jne	1b		\n\t"	/* retry w/ updated (eax,edx) */
                             "2:"
