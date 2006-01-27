@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/01/25 02:52:39 $
- * $Revision: 1.69 $
+ *     $Date: 2006/01/27 02:49:57 $
+ * $Revision: 1.70 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -44,6 +44,8 @@
   #endif
 #endif
 #include <assert.h>
+#define assert_always(expr) \
+    ((expr) ? (void)0 : FATALERR("Assertion failure: %s", #expr))
 
 #if defined(__DECCXX) && defined(NDEBUG) 
   /* bug 1206: workaround a broken assert.h header in Compaq C++ */
@@ -92,63 +94,49 @@ static int _test_rand(int low, int high) {
 #define TEST_HIWORD(arg)     ((uint32_t)(((uint64_t)(arg)) >> 32))
 #define TEST_LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
 
-#define check_zeroret(op) do {                                  \
-  int _retval = (op);                                           \
-  if_pf(_retval) MSG(#op": %s(%i)",strerror(_retval), _retval); \
+#define check_zeroret(op) do {                                       \
+  int _retval = (op);                                                \
+  if_pf(_retval) FATALERR(#op": %s(%i)",strerror(_retval), _retval); \
 } while (0)
 
-#define check_nzeroret(op) do {                                  \
-  int _retval = (op);                                            \
-  if_pf(!_retval) MSG(#op": %s(%i)",strerror(_retval), _retval); \
+#define check_nzeroret(op) do {                                       \
+  int _retval = (op);                                                 \
+  if_pf(!_retval) FATALERR(#op": %s(%i)",strerror(_retval), _retval); \
 } while (0)
-
-/* ------------------------------------------------------------------------------------ */
-/* timing - TIME() returns a microsecond time-stamp */
-
-#ifdef FORCE_GETTIMEOFDAY
-  static int64_t mygetMicrosecondTimeStamp(void) {
-      int64_t retval;
-      struct timeval tv;
-      if (gettimeofday(&tv, NULL)) {
-	  perror("gettimeofday");
-	  abort();
-      }
-      retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
-      return retval;
-  }
-  #define TIME() mygetMicrosecondTimeStamp()
-#else
-  #define TIME() gasnett_ticks_to_us(gasnett_ticks_now()) 
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* generic message output utility
    test_makeMsg(baseformatargs, msgpred, msgeval): 
      baseformatargs - parenthesized printf-style argument defining the generic stem
      msgpred - predicate which must evaluate to true to perform message output (eg 1 for always)
+     isfatal - non-zero to request an abort after the message output
      msgeval - expression which is evaluated in a critical section, 
                immediately before each message output (or 0 for none)
  */
-#define test_makeMsg(baseformatargs, msgpred, msgeval)              \
+#define test_makeMsg(baseformatargs, msgpred, isfatal, msgeval)     \
   ( _test_makeErrMsg baseformatargs ,                               \
     ( (msgpred) ? (void)(msgeval) : (void)(_test_squashmsg = 1) ) , \
+    (void)(_test_fatalmsg = (isfatal)),                             \
     _test_doErrMsg )
 
 /* define several useful messaging macros */
 int test_errs;
 #ifdef TEST_GASNET_H
-  #define MSG   test_makeMsg(("node %i/%i %s\n", (int)gasnet_mynode(), (int)gasnet_nodes(), "%s"), 1, \
+  #define MSG   test_makeMsg(("node %i/%i %s\n", (int)gasnet_mynode(), (int)gasnet_nodes(), "%s"), 1, 0, \
                              GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__))
-  #define MSG0  test_makeMsg(("%s\n","%s"), (gasnet_mynode() == 0), \
+  #define MSG0  test_makeMsg(("%s\n","%s"), (gasnet_mynode() == 0), 0, \
                              GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__))
-  #define ERR   test_makeMsg(("ERROR: node %i/%i %s (at %s:%i)\n",                                    \
-                              (int)gasnet_mynode(), (int)gasnet_nodes(), "%s",__FILE__, __LINE__), 1, \
+  #define TERR(isfatal)                                                                                        \
+                test_makeMsg(("ERROR: node %i/%i %s (at %s:%i)\n",                                             \
+                              (int)gasnet_mynode(), (int)gasnet_nodes(), "%s",__FILE__, __LINE__), 1, isfatal, \
                              (test_errs++, GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__)))
 #else
-  #define MSG   test_makeMsg(("%s\n","%s"), 1, 0)
+  #define MSG   test_makeMsg(("%s\n","%s"), 1, 0, 0)
   #define MSG0  MSG
-  #define ERR   test_makeMsg(("ERROR: %s (at %s:%i)\n","%s",__FILE__, __LINE__), 1, test_errs++)
+  #define TERR(isfatal) test_makeMsg(("ERROR: %s (at %s:%i)\n","%s",__FILE__, __LINE__), 1, isfatal, test_errs++)
 #endif
+#define ERR      TERR(0)
+#define FATALERR TERR(1)
 
 #if defined(_AIX) && defined(__cplusplus)
   /* AIX's stdio.h won't provide prototypes for snprintf() and vsnprintf()
@@ -163,6 +151,7 @@ int test_errs;
 #define _TEST_MSG_BUFSZ 1024
 static char _test_baseformat[_TEST_MSG_BUFSZ];
 static volatile int _test_squashmsg = 0;
+static volatile int _test_fatalmsg = 0;
 #if defined(HAVE_PTHREAD_H) && !defined(GASNET_SEQ)
   pthread_mutex_t _test_msg_lock = PTHREAD_MUTEX_INITIALIZER;
   #define _test_LOCKMSG()   pthread_mutex_lock(&_test_msg_lock)
@@ -173,7 +162,7 @@ static volatile int _test_squashmsg = 0;
 #endif
 static void _test_doErrMsg(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
 static void _test_doErrMsg(const char *format, ...) {
-  if (_test_squashmsg) _test_squashmsg = 0;
+  if (_test_squashmsg) _test_squashmsg = 0; 
   else {
     char output[_TEST_MSG_BUFSZ];
     va_list argptr;
@@ -185,6 +174,11 @@ static void _test_doErrMsg(const char *format, ...) {
     printf(_test_baseformat, output); 
     GASNETT_TRACE_PRINTF(_test_baseformat, output);
     fflush(stdout);
+  }
+  if (_test_fatalmsg) {
+    fflush(NULL);
+    sleep(1);
+    abort();
   }
   _test_UNLOCKMSG();
 }
@@ -198,6 +192,22 @@ static void _test_makeErrMsg(const char *format, ...) {
     }
   va_end(argptr);
 }
+
+/* ------------------------------------------------------------------------------------ */
+/* timing - TIME() returns a microsecond time-stamp */
+
+#ifdef FORCE_GETTIMEOFDAY
+  static int64_t mygetMicrosecondTimeStamp(void) {
+      int64_t retval;
+      struct timeval tv;
+      check_zeroret(gettimeofday(&tv, NULL));
+      retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
+      return retval;
+  }
+  #define TIME() mygetMicrosecondTimeStamp()
+#else
+  #define TIME() gasnett_ticks_to_us(gasnett_ticks_now()) 
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* memory management */
@@ -458,13 +468,15 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
   #define PTHREAD_LOCALBARRIER(local_pthread_count) \
     test_pthread_barrier(local_pthread_count, 0)
 #else
-  #define PTHREAD_BARRIER(local_pthread_count) do {               \
-    MSG("ERROR: cannot call PTHREAD_BARRIER in GASNET_SEQ mode"); \
-    abort();                                                      \
-  } while (0)
-  #define PTHREAD_LOCALBARRIER(local_pthread_count) do {          \
-    MSG("ERROR: cannot call PTHREAD_BARRIER in GASNET_SEQ mode"); \
-    abort();                                                      \
+  #define PTHREAD_BARRIER(local_pthread_count) do { \
+    PTHREAD_LOCALBARRIER(local_pthread_count);      \
+    BARRIER();                                      \
+  } while (0)                                       \
+  #define PTHREAD_LOCALBARRIER(local_pthread_count) do {            \
+    if (local_pthread_count != 1) {                                 \
+      MSG("ERROR: cannot call PTHREAD_BARRIER in GASNET_SEQ mode"); \
+      abort();                                                      \
+    }                                                               \
   } while (0)
 #endif
 
@@ -647,8 +659,8 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
     GASNET_BLOCKUNTIL(_test_segbcast_done);
     BARRIER();
     for (i=0; i < (int)gasnet_nodes(); i++) {
-      assert(_test_seginfo[i].size >= TEST_SEGSZ);
-      assert((((uintptr_t)_test_seginfo[i].addr) % PAGESZ) == 0);
+      assert_always(_test_seginfo[i].size >= TEST_SEGSZ);
+      assert_always((((uintptr_t)_test_seginfo[i].addr) % PAGESZ) == 0);
     }
     return result;
   }
@@ -662,10 +674,10 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
       gasnet_seginfo_t *s = (gasnet_seginfo_t *)test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
       GASNET_Safe(gasnet_getSegmentInfo(s, gasnet_nodes()));
       for (i=0; i < gasnet_nodes(); i++) {
-        assert(s[i].size >= TEST_SEGSZ);
-        assert(((uintptr_t)s[i].size) % PAGESZ == 0);
+        assert_always(s[i].size >= TEST_SEGSZ);
+        assert_always(((uintptr_t)s[i].size) % PAGESZ == 0);
         #if GASNET_ALIGNED_SEGMENTS == 1
-          assert(s[i].addr == s[0].addr);
+          assert_always(s[i].addr == s[0].addr);
         #endif
       }
       si = s;

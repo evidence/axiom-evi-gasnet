@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2005/10/26 12:36:37 $
- * $Revision: 1.36 $
+ *     $Date: 2006/01/27 02:49:57 $
+ * $Revision: 1.37 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -85,6 +85,36 @@ void doit(int partner, int *partnerseg);
 #else
   #define EVERYTHING_SEG_HANDLERS()
 #endif
+
+#if GASNET_PAR
+  #define NUM_THREADS 10
+#else
+  #define NUM_THREADS 1
+#endif
+
+void test_threadinfo(int threadid, int numthreads) {
+  int i;
+  gasnet_threadinfo_t my_ti;
+  static gasnet_threadinfo_t all_ti[NUM_THREADS];
+
+  { GASNET_BEGIN_FUNCTION();
+    my_ti = GASNET_GET_THREADINFO();
+  }
+  { gasnet_threadinfo_t ti = GASNET_GET_THREADINFO();
+    assert(ti == my_ti);
+  }
+  { GASNET_POST_THREADINFO(my_ti);
+    gasnet_threadinfo_t ti = GASNET_GET_THREADINFO();
+    assert(ti == my_ti);
+  }
+  assert(threadid < numthreads && numthreads <= NUM_THREADS);
+  all_ti[threadid] = my_ti;
+  PTHREAD_LOCALBARRIER(numthreads);
+  for (i = 0; i < numthreads; i++) {
+    if (i != threadid) assert(my_ti != all_ti[i]);
+  }
+  PTHREAD_LOCALBARRIER(numthreads);
+}
 /* ------------------------------------------------------------------------------------ */
 /* test libgasnet-specific gasnet_tools interfaces */
 typedef struct {
@@ -94,27 +124,28 @@ typedef struct {
 test_keys_t sertest_keys = {GASNETT_THREADKEY_INITIALIZER,GASNETT_THREADKEY_INITIALIZER};
 test_keys_t partest_keys = {GASNETT_THREADKEY_INITIALIZER,GASNETT_THREADKEY_INITIALIZER};
 void test_libgasnet_keys(test_keys_t *s) {
-  void *val = gasneti_threadkey_get(s->key1);
+  void *val = gasnett_threadkey_get(s->key1);
   assert(val == NULL);
-  gasneti_threadkey_set(s->key1,(void *)&val);
-  val = gasneti_threadkey_get(s->key1);
+  gasnett_threadkey_set(s->key1,(void *)&val);
+  val = gasnett_threadkey_get(s->key1);
   assert(val == &val);
 
-  gasneti_threadkey_init(&(s->key2));
-  val = gasneti_threadkey_get_noinit(s->key2);
+  gasnett_threadkey_init(&(s->key2));
+  val = gasnett_threadkey_get_noinit(s->key2);
   assert(val == NULL);
-  gasneti_threadkey_set_noinit(s->key2,(void *)&val);
-  val = gasneti_threadkey_get_noinit(s->key2);
+  gasnett_threadkey_set_noinit(s->key2,(void *)&val);
+  val = gasnett_threadkey_get_noinit(s->key2);
   assert(val == &val);
-  gasneti_threadkey_init(&(s->key2));
-  val = gasneti_threadkey_get_noinit(s->key2);
+  gasnett_threadkey_init(&(s->key2));
+  val = gasnett_threadkey_get_noinit(s->key2);
   assert(val == &val);
 }
 #if GASNET_PAR
   /* thread-parallel gasnet_tools tests */
-  #define NUM_THREADS 10
   void *test_libgasnetpar_tools(void *p) {
     int idx = (int)(uintptr_t)p;
+    PTHREAD_LOCALBARRIER(NUM_THREADS);
+    test_threadinfo(idx, NUM_THREADS);
     PTHREAD_LOCALBARRIER(NUM_THREADS);
     gasnett_set_affinity(idx);
     PTHREAD_LOCALBARRIER(NUM_THREADS);
@@ -136,6 +167,7 @@ void test_libgasnet_tools() {
     assert(((uintptr_t)p)%GASNETT_PAGESIZE == 0);
   #endif
   test_libgasnet_keys(&sertest_keys);
+  test_threadinfo(0, 1);
   #if GASNET_DEBUG
   { char *ptr = (char *)gasnett_debug_malloc(10); 
     char *ptr2;
