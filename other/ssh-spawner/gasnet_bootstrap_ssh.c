@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2005/11/22 22:00:42 $
- * $Revision: 1.50 $
+ *     $Date: 2006/01/27 20:02:30 $
+ * $Revision: 1.51 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -429,6 +429,7 @@ static void do_abort(unsigned char exitcode) {
   } else {
     in_abort = 1;
   }
+fprintf(stderr, "Proc %d : in do_abort()\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
 
   do_oob(exitcode);
   if (is_master) {
@@ -472,6 +473,7 @@ static void reap_one(pid_t pid, int status)
 	}
         if (!finalized) {
 	  BOOTSTRAP_VERBOSE(("[%d] Process %d exited before finalize\n", is_master ? -1 : myproc, child[j].rank));
+fprintf(stderr, "Proc -1 : child %d reaped w/o finalize -> abort\n",j); fflush(NULL); /* to help find bug 1392 */
 	  do_abort(-1);
 	}
 	break;
@@ -543,6 +545,7 @@ static void sigurg_handler(int sig)
     }
   }
 
+fprintf(stderr, "Proc %d : rcv SIGURG\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
   do_abort(exitcode);
   /* NOT REACHED */
 }
@@ -553,6 +556,7 @@ static void do_write(int fd, const void *buf, size_t len)
   while (len) {
     ssize_t rc = write(fd, p, len);
     if_pf (rc <= 0) {
+fprintf(stderr, "Proc %d : write() failed w/ errno=%d\n",  is_master ? -1 : myproc, errno); fflush(NULL); /* to help find bug 1392 */
       do_abort(-1);
       break;
     }
@@ -573,6 +577,7 @@ static void do_read(int fd, void *buf, size_t len)
   while (len) {
     ssize_t rc = read(fd, p, len);
     if_pf (rc <= 0) {
+fprintf(stderr, "Proc %d : read() failed w/ errno=%d\n",  is_master ? -1 : myproc, errno); fflush(NULL); /* to help find bug 1392 */
       do_abort(-1);
       break;
     }
@@ -1300,6 +1305,7 @@ static void do_master(int argc, char **argv) {
 	if (errno == EINTR) {
 	  continue;
 	} else {
+fprintf(stderr, "Proc %d : select() failed w/ errno=%d\n",  is_master ? -1 : myproc, errno); fflush(NULL); /* to help find bug 1392 */
 	  do_abort(-1);
 	  break;
 	}
@@ -1630,6 +1636,7 @@ void gasneti_bootstrapFini_ssh(void) {
  */
 void gasneti_bootstrapAbort_ssh(int exitcode) {
   gasneti_assert(!is_master);
+fprintf(stderr, "Proc %d : client called bootstrapAbort w/ exitcode=%d\n",  is_master ? -1 : myproc, exitcode); fflush(NULL); /* to help find bug 1392 */
   do_abort((unsigned char)exitcode);
   abort();
   /* NOT REACHED */
