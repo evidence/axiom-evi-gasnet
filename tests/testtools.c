@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2005/11/27 16:00:15 $
- * $Revision: 1.32 $
+ *     $Date: 2006/01/27 02:54:59 $
+ * $Revision: 1.33 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -262,9 +262,9 @@ int main(int argc, char **argv) {
 
 #undef MSG0
 #undef ERR
-#define MSG0  test_makeMsg(("%s\n","%s"), (id == 0), 0)
+#define MSG0  test_makeMsg(("%s\n","%s"), (id == 0), 0, 0)
 #define ERR   test_makeMsg(("ERROR: thread %i: %s (at %s:%i)\n", \
-                            id, "%s", __FILE__, __LINE__), 1, test_errs++)
+                            id, "%s", __FILE__, __LINE__), 1, 0, test_errs++)
 
 gasnett_atomic_t up = gasnett_atomic_init(0);
 gasnett_atomic_t down = gasnett_atomic_init(0);

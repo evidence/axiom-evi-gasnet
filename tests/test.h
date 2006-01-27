@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/01/27 02:49:57 $
- * $Revision: 1.70 $
+ *     $Date: 2006/01/27 02:54:59 $
+ * $Revision: 1.71 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,7 +106,7 @@ static int _test_rand(int low, int high) {
 
 /* ------------------------------------------------------------------------------------ */
 /* generic message output utility
-   test_makeMsg(baseformatargs, msgpred, msgeval): 
+   test_makeMsg(baseformatargs, msgpred, isfatal, msgeval): 
      baseformatargs - parenthesized printf-style argument defining the generic stem
      msgpred - predicate which must evaluate to true to perform message output (eg 1 for always)
      isfatal - non-zero to request an abort after the message output

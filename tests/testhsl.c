@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2006/01/25 02:52:39 $
- * $Revision: 1.12 $
+ *     $Date: 2006/01/27 02:54:59 $
+ * $Revision: 1.13 $
  * Description: GASNet HSL correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -258,9 +258,9 @@ done:
 
 #undef MSG0
 #undef ERR
-#define MSG0  test_makeMsg(("%s\n","%s"), (gasnet_mynode() == 0 && id == 0), 0)
+#define MSG0  test_makeMsg(("%s\n","%s"), (gasnet_mynode() == 0 && id == 0), 0, 0)
 #define ERR   test_makeMsg(("ERROR: thread %i: %s (at %s:%i)\n", \
-                            id, "%s", __FILE__, __LINE__), 1, test_errs++)
+                            id, "%s", __FILE__, __LINE__), 1, 0, test_errs++)
 
 void * thread_fn(void *arg) {
   int id = (int)(uintptr_t)arg;
