@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/27 20:51:45 $
- * $Revision: 1.111 $
+ *     $Date: 2006/01/27 22:44:54 $
+ * $Revision: 1.112 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -321,6 +321,7 @@ GASNET_INLINE_MODIFIER(gasnetc_sema_up)
 void gasnetc_sema_up(gasnetc_sema_t *s) {
   /* no locking needed here */
   GASNETC_SEMA_CHECK(s);
+  gasneti_sync_writes();
   gasneti_weakatomic_increment(&(s->count));
   GASNETC_SEMA_CHECK(s);
 }
@@ -383,6 +384,7 @@ void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
   #ifdef GASNETI_HAVE_ATOMIC_CAS
   {
     uint32_t old;
+    gasneti_sync_writes();
     do {
       old = gasneti_weakatomic_read(&(s->count));
     } while (!gasneti_weakatomic_compare_and_swap(&(s->count), old, n + old));
