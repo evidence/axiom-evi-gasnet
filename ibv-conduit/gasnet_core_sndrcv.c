@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/27 01:16:50 $
- * $Revision: 1.159 $
+ *     $Date: 2006/01/27 02:01:11 $
+ * $Revision: 1.160 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -752,7 +752,6 @@ gasnetc_epid_t gasnetc_epid_select_qpi(gasnetc_cep_t *ceps, gasnetc_epid_t epid,
     --qpi; /* offset */
   }
 
-  gasneti_assert(qpi >= 0);
   gasneti_assert(qpi < gasnetc_num_qps);
   return qpi;
 #else
@@ -1676,7 +1675,7 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, uintptr_t loc_
       remain -= count;
     }
     gasneti_assert(sr_desc->sg_lst_len > 0);
-    gasneti_assert((remain >= 0) && (remain < len));
+    gasneti_assert(remain < len);
     len -= remain;
     cep = gasnetc_bind_cep(epid, sreq, op, len);
     for (seg = 0; seg < sr_desc->sg_lst_len; ++seg) {
@@ -1706,7 +1705,7 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, uintptr_t loc_
     }
     gasneti_assert(sreq->fh_count > 0);
     sr_desc->sg_lst_len = sreq->fh_count;
-    gasneti_assert((remain >= 0) && (remain < len));
+    gasneti_assert(remain < len);
     len -= remain;
     cep = gasnetc_bind_cep(epid, sreq, op, len);
     for (seg = 0; seg < sr_desc->sg_lst_len; ++seg) {
