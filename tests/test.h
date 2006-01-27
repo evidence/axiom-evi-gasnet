@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/01/27 02:54:59 $
- * $Revision: 1.71 $
+ *     $Date: 2006/01/27 04:53:06 $
+ * $Revision: 1.72 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -471,7 +471,7 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
   #define PTHREAD_BARRIER(local_pthread_count) do { \
     PTHREAD_LOCALBARRIER(local_pthread_count);      \
     BARRIER();                                      \
-  } while (0)                                       \
+  } while (0)
   #define PTHREAD_LOCALBARRIER(local_pthread_count) do {            \
     if (local_pthread_count != 1) {                                 \
       MSG("ERROR: cannot call PTHREAD_BARRIER in GASNET_SEQ mode"); \
