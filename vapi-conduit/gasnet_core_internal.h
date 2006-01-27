@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/01/27 01:16:50 $
- * $Revision: 1.108 $
+ *     $Date: 2006/01/27 02:19:08 $
+ * $Revision: 1.109 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -470,7 +470,7 @@ typedef struct _gasneti_freelist_ptr_s {
 #elif 1
   /* CURRENTLY DISABLED */
 #elif defined(__i386__) /* x86 but NOT x86_64 */
-  #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__)
+  #if defined(__GNUC__) || defined(__INTEL_COMPILER)
     typedef struct {
       volatile uintptr_t 	head;
       volatile uintptr_t 	ABA_tag;
