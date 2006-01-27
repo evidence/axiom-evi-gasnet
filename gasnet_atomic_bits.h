@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/01/27 20:51:43 $
- * $Revision: 1.79 $
+ *     $Date: 2006/01/27 22:32:30 $
+ * $Revision: 1.80 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,6 +46,12 @@
     } else {
       return 0;
     }
+
+   NOTE: This funtion has neither Acquire nor Release semantics on it own.
+   Use of gasneti_atomic_compare_and_swap() to Release should be preceded
+   by gasneti_sync_writes() (or gasneti_local_wmb()).
+   To Acquire, gasneti_sync_reads() (or gasneti_local_rmb()) should follow
+   a "successful" call to gasneti_atomic_compare_and_swap().
 
    GASNETI_HAVE_ATOMIC_CAS will be defined to 1 on platforms supporting this operation.
  */
@@ -835,7 +841,6 @@
 	"38840001"	/*    addi	r4,r4,0x1	*/ \
 	"7c80192d"	/*    stwcx.	r4,0,r3		*/ \
 	"40a2fff4"	/*    bne-	0b		*/ \
-	"4c00012c"	/*    isync			*/ \
       }
       #pragma reg_killed_by gasneti_atomic_inc_32 cr0, gr4
 
@@ -846,7 +851,6 @@
 	"3884ffff"	/*    subi	r4,r4,0x1	*/ \
 	"7c80192d"	/*    stwcx.	r4,0,r3		*/ \
 	"40a2fff4"	/*    bne-	0b		*/ \
-	"4c00012c"	/*    isync			*/ \
       }
       #pragma reg_killed_by gasneti_atomic_dec_32 cr0, gr4
 
@@ -887,6 +891,19 @@
 	(gasneti_atomic_swap_not_32(&((p)->ctr),(oldval),(newval)) == 0)
       #define GASNETI_HAVE_ATOMIC_CAS 1
     #elif defined(__GNUC__)
+      static __inline__ void gasneti_atomic_add_32(int32_t volatile *v, int32_t op) {
+        register int32_t volatile * addr = (int32_t volatile *)v;
+        register int32_t result;
+        __asm__ __volatile__ ( 
+          "0:\t" 
+          "lwarx    %0,0,%1 \n\t" 
+          "add%I2   %0,%0,%2 \n\t"
+          "stwcx.   %0,0,%1 \n\t"
+          "bne-     0b \n\t" 
+          : "=&b"(result)		/* constraint b = "b"ase register (not r0) */
+          : "r" (addr), "Ir"(op) 
+          : "cr0", "memory");
+      }
       static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
         register int32_t volatile * addr = (int32_t volatile *)v;
         register int32_t result;
@@ -897,14 +914,14 @@
           "stwcx.   %0,0,%1 \n\t"
           "bne-     0b \n\t" 
           "isync"
-          : "=&b"(result)		/* constraint b = not in r0 */
+          : "=&b"(result)		/* constraint b = "b"ase register (not r0) */
           : "r" (addr), "Ir"(op) 
           : "cr0", "memory");
         return result;
       }
       typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
-      #define gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
-      #define gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
+      #define gasneti_atomic_increment(p) (gasneti_atomic_add_32(&((p)->ctr),1))
+      #define gasneti_atomic_decrement(p) (gasneti_atomic_add_32(&((p)->ctr),-1))
       #define gasneti_atomic_read(p)      ((p)->ctr)
       #define gasneti_atomic_set(p,v)     ((p)->ctr = (v))
       #define gasneti_atomic_init(v)      { (v) }
