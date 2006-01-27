@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/27 22:44:54 $
- * $Revision: 1.112 $
+ *     $Date: 2006/01/27 23:39:35 $
+ * $Revision: 1.113 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -238,6 +238,17 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* ------------------------------------------------------------------------------------ */
 
+#if defined(__i386__) || defined(__x86_64__)
+  /* Since the LOCK prefix is already a full mb() */
+  #define gasneti_wmb_before_atomic_op()	do {} while (0)
+  #define gasneti_rmb_after_atomic_op()		do {} while (0)
+#else
+  #define gasneti_wmb_before_atomic_op()	gasneti_sync_writes()
+  #define gasneti_rmb_after_atomic_op()		gasneti_sync_reads()
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+
 /*
  * gasnetc_sema_t
  *
@@ -321,7 +332,7 @@ GASNET_INLINE_MODIFIER(gasnetc_sema_up)
 void gasnetc_sema_up(gasnetc_sema_t *s) {
   /* no locking needed here */
   GASNETC_SEMA_CHECK(s);
-  gasneti_sync_writes();
+  gasneti_wmb_before_atomic_op();
   gasneti_weakatomic_increment(&(s->count));
   GASNETC_SEMA_CHECK(s);
 }
@@ -356,7 +367,7 @@ again:
         gasneti_weakatomic_set(&(s->count), old - 1);
         retval = 1;
       }
-      gasneti_sync_reads();
+      gasneti_rmb_after_atomic_op();
     }
   }
   #else
@@ -384,7 +395,7 @@ void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
   #ifdef GASNETI_HAVE_ATOMIC_CAS
   {
     uint32_t old;
-    gasneti_sync_writes();
+    gasneti_wmb_before_atomic_op();
     do {
       old = gasneti_weakatomic_read(&(s->count));
     } while (!gasneti_weakatomic_compare_and_swap(&(s->count), old, n + old));
@@ -419,7 +430,7 @@ uint32_t gasnetc_sema_trydown_n(gasnetc_sema_t *s, uint32_t n, int concurrent) {
         return 0;
       retval = MIN(old, n);
     } while(!gasneti_weakatomic_compare_and_swap(&(s->count), old, old - retval));
-    gasneti_sync_reads();
+    gasneti_rmb_after_atomic_op();
   #else
     gasnetc_mutex_lock(&(s->lock), concurrent);
 
@@ -481,7 +492,7 @@ typedef struct _gasneti_freelist_ptr_s {
 
     GASNET_INLINE_MODIFIER(gasneti_fl_push)
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
-      /* RELEASE semantics: the locked cmpxchgl is a wmb on ia32 */
+      /* RELEASE semantics: LOCK prefix is a full mb() */
       __asm__ __volatile__ ("1: movl	%0, %%eax	\n\t"	/* eax = p->head */
                             "movl	%%eax, %2	\n\t"	/* tail->next = eax */
                GASNETI_LOCK "cmpxchgl	%1, %0		\n\t"	/* p->head = head */
@@ -492,7 +503,7 @@ typedef struct _gasneti_freelist_ptr_s {
     }
     GASNET_INLINE_MODIFIER(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
-      /* ACQUIRE semantics: rmb is a no-op on ia32 */
+      /* ACQUIRE semantics: LOCK prefix is a full mb() */
       register uintptr_t retval = p->head;
       __asm__ __volatile__ ("1: test	%0,%0		\n\t"	/* terminate loop ... */
                             "jz		2f		\n\t"	/*        ... on NULL */
