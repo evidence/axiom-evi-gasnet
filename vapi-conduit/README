@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.39 $
+$Revision: 1.40 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -435,6 +435,8 @@ $Revision: 1.39 $
   pool and the majority is placed in the victim pool.
 
   + GASNET_USE_FIREHOSE
+    This environment variable is only available in a DEBUG build of
+    GASNet (one configured with --enable-debug).
     This gives a boolean: "0" to disable or "1" to enable the use
     of the firehose dynamic pinning library in a GASNET_SEGMENT_FAST
     configuration.  In a GASNET_SEGMENT_FAST configuration, the GASNet
@@ -450,7 +452,7 @@ $Revision: 1.39 $
     of firehose, forcing the use of bounce buffers for out-of-segment
     transfers.  This will result in a significantly lower peak bandwidth
     for large PUTs and GETs, with little or no affect on small message
-    latency.
+    latency.  It is available only for debugging purposes.
     In a GASNET_SEGMENT_LARGE or GASNET_SEGMENT_EVERYTHING configuration,
     the GASNet segment is not preregistred and use of firehose is
     required.  Thus it is an error to disable firehose in such a

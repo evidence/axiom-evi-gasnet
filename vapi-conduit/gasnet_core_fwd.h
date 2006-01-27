@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2006/01/22 23:08:13 $
- * $Revision: 1.32 $
+ *     $Date: 2006/01/27 01:16:50 $
+ * $Revision: 1.33 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -76,6 +76,9 @@ typedef uint8_t gasnet_handler_t;
 	TIME(C, FIREHOSE_MOVE, processing time)   \
 	VAL(C, FIREHOSE_PIN, pages)               \
 	VAL(C, FIREHOSE_UNPIN, pages)
+
+#define GASNETC_FATALSIGNAL_CALLBACK(sig) gasnetc_fatalsignal_callback(sig)
+extern void gasnetc_fatalsignal_callback(int sig);
 
 /*
  * The VAPI conduit may have a network progress thread, even for GASNET_SEQ

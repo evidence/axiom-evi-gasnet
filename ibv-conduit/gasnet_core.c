@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/01/26 02:44:30 $
- * $Revision: 1.152 $
+ *     $Date: 2006/01/27 01:16:50 $
+ * $Revision: 1.153 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -409,10 +409,17 @@ static int gasnetc_load_settings(void) {
   if (gasnetc_use_rcv_thread && !GASNETC_VAPI_RCV_THREAD) {
     gasneti_fatalerror("VAPI AM receive thread enabled by environment variable GASNET_RCV_THREAD, but was disabled at GASNet build time");
   }
+#if GASNET_DEBUG
   gasnetc_use_firehose = gasneti_getenv_yesno_withdefault("GASNET_USE_FIREHOSE", 1);
   if (!GASNETC_PIN_SEGMENT && !gasnetc_use_firehose) {
     gasneti_fatalerror("Use of the 'firehose' dynamic pinning library disabled by environment variable GASNET_USE_FIREHOSE, but is required in a GASNET_SEGMENT_" _STRINGIFY(GASNETI_SEGMENT_CONFIG) " configuration");
   }
+#else
+  if (!gasneti_getenv_yesno_withdefault("GASNET_USE_FIREHOSE", 1)) {
+    fprintf(stderr,
+	    "WARNING: Environment variable GASNET_USE_FIREHOSE ignored.  It is only available in a DEBUG build of GASNet\n");
+  }
+#endif
   if_pf (gasnetc_op_oust_limit && (gasnetc_am_oust_limit > gasnetc_op_oust_limit)) {
     fprintf(stderr,
             "WARNING: GASNET_AM_CREDITS_TOTAL reduced to GASNET_NETWORKDEPTH_TOTAL (from %d to %d)\n",
@@ -1426,7 +1433,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
   }
 
   /* Initialize firehose */
-  if (gasnetc_use_firehose) {
+  if (GASNETC_USE_FIREHOSE) {
     uintptr_t firehose_mem = gasnetc_pin_info.memory;
     int firehose_reg = gasnetc_pin_info.regions;
     int reg_count, h;
@@ -1539,6 +1546,7 @@ static gasneti_atomic_t gasnetc_exit_reqs = gasneti_atomic_init(0);	/* count of 
 static gasneti_atomic_t gasnetc_exit_reps = gasneti_atomic_init(0);	/* count of remote exit replies */
 static gasneti_atomic_t gasnetc_exit_done = gasneti_atomic_init(0);	/* flag to show exit coordination done */
 static gasnetc_counter_t gasnetc_exit_repl_oust = GASNETC_COUNTER_INITIALIZER; /* track send of our AM reply */
+static int gasnetc_exit_in_signal = 0;	/* to avoid certain things in signal context */
 
 #define GASNETC_ROOT_NODE 0
 
@@ -1549,6 +1557,10 @@ enum {
 };
 
 static gasneti_atomic_t gasnetc_exit_role = gasneti_atomic_init(GASNETC_EXIT_ROLE_UNKNOWN);
+
+extern void gasnetc_fatalsignal_callback(int sig) {
+  gasnetc_exit_in_signal = 1;
+}
 
 /*
  * Code to disable user's AM handlers when exiting.  We need this because we must call
@@ -1956,7 +1968,8 @@ static void gasnetc_exit_body(void) {
     }
     gasnetc_sndrcv_fini();
     if (gasneti_attach_done) {
-      if (gasnetc_use_firehose) {
+      if (GASNETC_USE_FIREHOSE && !gasnetc_exit_in_signal) {
+	/* Note we skip firehose_fini() on exit via a signal */
         firehose_fini();
       }
 #if GASNETC_PIN_SEGMENT
