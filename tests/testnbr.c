@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2005/07/27 01:23:20 $
- * $Revision: 1.11 $
+ *     $Date: 2006/01/27 05:25:45 $
+ * $Revision: 1.12 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -622,9 +622,9 @@ setupGrid(nbr_t *nb, int dimsz)
 	int blocksz = elemsPerDim / nb->procGrid[axis];
 
 	/* We don't handle corner cases, yet */
-	assert(blocksz > 0);
-	assert(elemsPerDim > nb->procGrid[axis]);
-	assert(elemsPerDim % nb->procGrid[axis] == 0);
+	assert_always(blocksz > 0);
+	assert_always(elemsPerDim > nb->procGrid[axis]);
+	assert_always(elemsPerDim % nb->procGrid[axis] == 0);
 
 	nb->idGridUpper[axis] = 
 	    nb->idGrid[axis] == nb->procGrid[axis]-1 

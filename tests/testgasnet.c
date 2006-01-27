@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2006/01/27 02:49:57 $
- * $Revision: 1.37 $
+ *     $Date: 2006/01/27 05:25:45 $
+ * $Revision: 1.38 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -101,17 +101,17 @@ void test_threadinfo(int threadid, int numthreads) {
     my_ti = GASNET_GET_THREADINFO();
   }
   { gasnet_threadinfo_t ti = GASNET_GET_THREADINFO();
-    assert(ti == my_ti);
+    assert_always(ti == my_ti);
   }
   { GASNET_POST_THREADINFO(my_ti);
     gasnet_threadinfo_t ti = GASNET_GET_THREADINFO();
-    assert(ti == my_ti);
+    assert_always(ti == my_ti);
   }
   assert(threadid < numthreads && numthreads <= NUM_THREADS);
   all_ti[threadid] = my_ti;
   PTHREAD_LOCALBARRIER(numthreads);
   for (i = 0; i < numthreads; i++) {
-    if (i != threadid) assert(my_ti != all_ti[i]);
+    if (i != threadid) assert_always(my_ti != all_ti[i]);
   }
   PTHREAD_LOCALBARRIER(numthreads);
 }
@@ -125,20 +125,20 @@ test_keys_t sertest_keys = {GASNETT_THREADKEY_INITIALIZER,GASNETT_THREADKEY_INIT
 test_keys_t partest_keys = {GASNETT_THREADKEY_INITIALIZER,GASNETT_THREADKEY_INITIALIZER};
 void test_libgasnet_keys(test_keys_t *s) {
   void *val = gasnett_threadkey_get(s->key1);
-  assert(val == NULL);
+  assert_always(val == NULL);
   gasnett_threadkey_set(s->key1,(void *)&val);
   val = gasnett_threadkey_get(s->key1);
-  assert(val == &val);
+  assert_always(val == &val);
 
   gasnett_threadkey_init(&(s->key2));
   val = gasnett_threadkey_get_noinit(s->key2);
-  assert(val == NULL);
+  assert_always(val == NULL);
   gasnett_threadkey_set_noinit(s->key2,(void *)&val);
   val = gasnett_threadkey_get_noinit(s->key2);
-  assert(val == &val);
+  assert_always(val == &val);
   gasnett_threadkey_init(&(s->key2));
   val = gasnett_threadkey_get_noinit(s->key2);
-  assert(val == &val);
+  assert_always(val == &val);
 }
 #if GASNET_PAR
   /* thread-parallel gasnet_tools tests */
@@ -159,12 +159,12 @@ void test_libgasnet_tools() {
   int cpucnt = gasnett_cpu_count();
   TEST_TRACING_MACROS();
   MSG0("CPU count estimated to be: %i", cpucnt);
-  assert(cpucnt >= 1);
+  assert_always(cpucnt >= 1);
   gasnett_flush_streams();
   #ifdef HAVE_MMAP
     p = gasnett_mmap(GASNETT_PAGESIZE);
-    assert(p);
-    assert(((uintptr_t)p)%GASNETT_PAGESIZE == 0);
+    assert_always(p);
+    assert_always(((uintptr_t)p)%GASNETT_PAGESIZE == 0);
   #endif
   test_libgasnet_keys(&sertest_keys);
   test_threadinfo(0, 1);
@@ -172,18 +172,18 @@ void test_libgasnet_tools() {
   { char *ptr = (char *)gasnett_debug_malloc(10); 
     char *ptr2;
     gasnett_heapstats_t hs;
-    assert(ptr);
+    assert_always(ptr);
     gasnett_debug_memcheck(ptr);
     ptr = (char *)gasnett_debug_realloc(ptr,20);
-    assert(ptr);
+    assert_always(ptr);
     gasnett_debug_free(ptr);
     ptr = (char *)gasnett_debug_calloc(10,20);
     strcpy(ptr,"testing 1 2 3");
     ptr2 = gasnett_debug_strdup(ptr);
-    assert(ptr2 && ptr != ptr2 && !strcmp(ptr,ptr2));
+    assert_always(ptr2 && ptr != ptr2 && !strcmp(ptr,ptr2));
     gasnett_debug_free(ptr2);
     ptr2 = gasnett_debug_strndup(ptr,4);
-    assert(ptr2 && ptr != ptr2 && !strncmp(ptr,ptr2,4) && strlen(ptr2) == 4);
+    assert_always(ptr2 && ptr != ptr2 && !strncmp(ptr,ptr2,4) && strlen(ptr2) == 4);
     gasnett_debug_memcheck_one();
     gasnett_debug_memcheck_all(); 
     gasnett_debug_free(ptr2);
@@ -219,13 +219,13 @@ int main(int argc, char **argv) {
 
   GASNET_Safe(gasnet_init(&argc, &argv));
   #if GASNET_SEGMENT_EVERYTHING
-    assert(gasnet_getMaxLocalSegmentSize() == (uintptr_t)-1);
-    assert(gasnet_getMaxGlobalSegmentSize() == (uintptr_t)-1);
+    assert_always(gasnet_getMaxLocalSegmentSize() == (uintptr_t)-1);
+    assert_always(gasnet_getMaxGlobalSegmentSize() == (uintptr_t)-1);
   #else
-    assert(gasnet_getMaxLocalSegmentSize() >= gasnet_getMaxGlobalSegmentSize());
-    assert(gasnet_getMaxLocalSegmentSize() % GASNET_PAGESIZE == 0);
-    assert(gasnet_getMaxGlobalSegmentSize() % GASNET_PAGESIZE == 0);
-    assert(gasnet_getMaxGlobalSegmentSize() > 0);
+    assert_always(gasnet_getMaxLocalSegmentSize() >= gasnet_getMaxGlobalSegmentSize());
+    assert_always(gasnet_getMaxLocalSegmentSize() % GASNET_PAGESIZE == 0);
+    assert_always(gasnet_getMaxGlobalSegmentSize() % GASNET_PAGESIZE == 0);
+    assert_always(gasnet_getMaxGlobalSegmentSize() > 0);
   #endif
   GASNET_Safe(gasnet_attach(handlers, sizeof(handlers)/sizeof(gasnet_handlerentry_t), 
                             TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));

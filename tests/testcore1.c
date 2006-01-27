@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
- * $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.17 $
+ * $Date: 2006/01/27 05:25:45 $
+ * $Revision: 1.18 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -198,8 +198,8 @@ chksum_reph(gasnet_token_t token,
 	void *buf, size_t nbytes, gasnet_handlerarg_t iter) 
 {
 	gasnett_atomic_increment(&chksum_received);
-	assert(iter < chksum_iters && iter >= 0);
-	assert(nbytes == CHKSUM_TOTAL);
+	assert_always(iter < chksum_iters && iter >= 0);
+	assert_always(nbytes == CHKSUM_TOTAL);
 	monoseed_trace(iter, _mseed[iter].seed, &_mseed[iter].chksum, buf);
 	if (memcmp(&_mseed[iter].chksum, buf, CHKSUM_LENGTH) == 0) 
   	        gasnett_atomic_increment(&chksum_success);

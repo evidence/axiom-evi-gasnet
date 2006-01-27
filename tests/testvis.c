@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.11 $
+ *     $Date: 2006/01/27 05:25:45 $
+ * $Revision: 1.12 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -437,29 +437,29 @@ void _verify_strided_desc(test_strided_desc *sd, const char *file, int line) {
     sz *= sd->count[i];
     srcvol *= sd->srcextents[i];
     dstvol *= sd->dstextents[i];
-    assert(sd->contigstrides[i] == sz);
+    assert_always(sd->contigstrides[i] == sz);
     if (i == 0)
-      assert(sd->count[i]/VEC_SZ <= sd->srcextents[i] && sd->count[i]/VEC_SZ <= sd->dstextents[i]);
+      assert_always(sd->count[i]/VEC_SZ <= sd->srcextents[i] && sd->count[i]/VEC_SZ <= sd->dstextents[i]);
     else
-      assert(sd->count[i] <= sd->srcextents[i] && sd->count[i] <= sd->dstextents[i]);
-    assert(sd->srcstrides[i] == srcvol);
-    assert(sd->dststrides[i] == dstvol);
+      assert_always(sd->count[i] <= sd->srcextents[i] && sd->count[i] <= sd->dstextents[i]);
+    assert_always(sd->srcstrides[i] == srcvol);
+    assert_always(sd->dststrides[i] == dstvol);
   }
   sz *= sd->count[i];
   srcvol *= sd->srcextents[i];
   dstvol *= sd->dstextents[i];
   if (i == 0)
-    assert(sd->count[i]/VEC_SZ <= sd->srcextents[i] && sd->count[i]/VEC_SZ <= sd->dstextents[i]);
+    assert_always(sd->count[i]/VEC_SZ <= sd->srcextents[i] && sd->count[i]/VEC_SZ <= sd->dstextents[i]);
   else
-    assert(sd->count[i] <= sd->srcextents[i] && sd->count[i] <= sd->dstextents[i]);
+    assert_always(sd->count[i] <= sd->srcextents[i] && sd->count[i] <= sd->dstextents[i]);
 
-  assert(sz == sd->totalsz);
-  assert(sd->srcvolume == srcvol);
-  assert(sd->dstvolume == dstvol);
-  if (sz != 0) assert(sd->count[0] >= VEC_SZ && sd->count[0] % VEC_SZ == 0);
+  assert_always(sz == sd->totalsz);
+  assert_always(sd->srcvolume == srcvol);
+  assert_always(sd->dstvolume == dstvol);
+  if (sz != 0) assert_always(sd->count[0] >= VEC_SZ && sd->count[0] % VEC_SZ == 0);
   if (sd->stridelevels > 0) {
-    assert(sd->srcvolume == sd->srcstrides[sd->stridelevels-1]*sd->srcextents[sd->stridelevels]);
-    assert(sd->dstvolume == sd->dststrides[sd->stridelevels-1]*sd->dstextents[sd->stridelevels]);
+    assert_always(sd->srcvolume == sd->srcstrides[sd->stridelevels-1]*sd->srcextents[sd->stridelevels]);
+    assert_always(sd->dstvolume == sd->dststrides[sd->stridelevels-1]*sd->dstextents[sd->stridelevels]);
   }
 }
 #define verify_strided_desc(sd) _verify_strided_desc(sd, __FILE__, __LINE__)
@@ -1028,7 +1028,7 @@ int main(int argc, char **argv) {
   int runtests = 0;
   int i;
 
-  assert(VEC_SZ == sizeof(VEC_T));
+  assert_always(VEC_SZ == sizeof(VEC_T));
   GASNET_Safe(gasnet_init(&argc, &argv));
   GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
   test_init("testvis",0);
