@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/01/09 17:03:36 $
- * $Revision: 1.79 $
+ *     $Date: 2006/01/27 23:06:02 $
+ * $Revision: 1.80 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -172,10 +172,16 @@
       * available on all the Intel and clone CPUs.  Also, since it touches
       * only the stack, it is highly unlikely to result in extra coherence
       * traffic.
+      * Unfortunately, all read-modify-write operations also set condition
+      * codes.  So, we have an extra messy case for gcc, icc, etc.
       */
      #if defined(__PGI) || defined(__SUNPRO_C)
        GASNETI_ASM("lock; addl $0,0(%esp)");
+     #elif defined(__GNUC__) || defined(__INTEL_COMPILER)
+       /* For gcc, icc and other gcc look-alikes */
+       __asm__ __volatile__ ("lock; addl $0,0(%%esp)" : : : "memory", "cc");
      #else
+       /* Others? */
        GASNETI_ASM("lock; addl $0,0(%%esp)");
      #endif
    }
