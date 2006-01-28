@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/28 01:32:22 $
- * $Revision: 1.114 $
+ *     $Date: 2006/01/28 01:33:53 $
+ * $Revision: 1.115 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -452,9 +452,6 @@ void gasnetc_sema_up(gasnetc_sema_t *s) {
  *
  * If the value of the semaphore is non-zero, decrements it and returns non-zero.
  * If the value is zero, returns zero.
- *
- * If non-zero, the "concurrent" argument indicates that there are multiple threads
- * calling gasnetc_sema_trydown, and thus locking is required.
  */
 GASNET_INLINE_MODIFIER(gasnetc_sema_trydown) GASNETI_WARN_UNUSED_RESULT
 int gasnetc_sema_trydown(gasnetc_sema_t *s) {
@@ -485,9 +482,6 @@ void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
  * obtained.  The decrement is the smaller of 'n' and the "old" value of the semaphore,
  * and this value is returned.
  * If the "old" value is zero, returns zero.
- *
- * If non-zero, the "concurrent" argument indicates that there are multiple threads
- * calling gasnetc_sema_trydown, and thus locking is required.
  */
 GASNET_INLINE_MODIFIER(gasnetc_sema_trydown_n) GASNETI_WARN_UNUSED_RESULT
 uint32_t gasnetc_sema_trydown_n(gasnetc_sema_t *s, uint32_t n) {
