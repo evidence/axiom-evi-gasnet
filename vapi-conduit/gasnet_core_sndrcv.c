@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/27 02:01:11 $
- * $Revision: 1.160 $
+ *     $Date: 2006/01/28 01:32:22 $
+ * $Revision: 1.161 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -771,7 +771,7 @@ gasnetc_cep_t *gasnetc_bind_cep(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
    * If we hold the last one then threads sending to the same node will stall. */
   qpi = gasnetc_epid_select_qpi(ceps, epid, op, len);
   cep = &ceps[qpi];
-  if_pf (!gasnetc_sema_trydown(&cep->sq_sema, GASNETC_ANY_PAR)) {
+  if_pf (!gasnetc_sema_trydown(&cep->sq_sema)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       if (!gasnetc_snd_reap(1)) {
@@ -780,7 +780,7 @@ gasnetc_cep_t *gasnetc_bind_cep(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
       /* Redo load balancing choice */
       qpi = gasnetc_epid_select_qpi(ceps, epid, op, len);
       cep = &ceps[qpi];
-    } while (!gasnetc_sema_trydown(&cep->sq_sema, GASNETC_ANY_PAR));
+    } while (!gasnetc_sema_trydown(&cep->sq_sema));
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
   }
 
@@ -1140,12 +1140,12 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int 
 
   /* Loop until space is available for 1 new entry on the CQ.
    * If we hold the last one then threads sending to ANY node will stall. */
-  if_pf (!gasnetc_sema_trydown(cep->snd_cq_sema_p, GASNETC_ANY_PAR)) {
+  if_pf (!gasnetc_sema_trydown(cep->snd_cq_sema_p)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(cep->snd_cq_sema_p, GASNETC_ANY_PAR));
+    } while (!gasnetc_sema_trydown(cep->snd_cq_sema_p));
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
   }
 
@@ -1197,13 +1197,13 @@ void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc,
   /* Loop until space is available on the SQ for at least 1 new entry.
    * If we hold the last one then threads sending to the same node will stall. */
   sq_sema = &sreq->cep->sq_sema;
-  tmp = gasnetc_sema_trydown_n(sq_sema, count, GASNETC_ANY_PAR);
+  tmp = gasnetc_sema_trydown_n(sq_sema, count);
   if_pf (!tmp) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-      tmp = gasnetc_sema_trydown_n(sq_sema, count, GASNETC_ANY_PAR);
+      tmp = gasnetc_sema_trydown_n(sq_sema, count);
     } while (!tmp);
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
   }
@@ -1211,12 +1211,12 @@ void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc,
   /* Loop until space is available for 1 new entry on the CQ.
    * If we hold the last one then threads sending to ANY node will stall. */
   cq_sema = sreq->cep->snd_cq_sema_p;
-  if_pf (!gasnetc_sema_trydown(cq_sema, GASNETC_ANY_PAR)) {
+  if_pf (!gasnetc_sema_trydown(cq_sema)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(cq_sema, GASNETC_ANY_PAR));
+    } while (!gasnetc_sema_trydown(cq_sema));
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
   }
 
@@ -1450,18 +1450,18 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     /* Get the p2p credit needed */
     {
 	gasnetc_sema_t *sema = &(cep->am_sema);
-        if_pf (!gasnetc_sema_trydown(sema, GASNETC_ANY_PAR)) {
+        if_pf (!gasnetc_sema_trydown(sema)) {
           GASNETC_TRACE_WAIT_BEGIN();
           do {
 	    GASNETI_WAITHOOK();
             gasnetc_poll_rcv_hca(cep->hca, 1);
-          } while (!gasnetc_sema_trydown(sema, GASNETC_ANY_PAR));
+          } while (!gasnetc_sema_trydown(sema));
           GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
         }
     }
 
     /* Post the rbuf needed for the reply */
-    if (gasnetc_sema_trydown(&cep->am_unrcvd, GASNETC_ANY_PAR)) {
+    if (gasnetc_sema_trydown(&cep->am_unrcvd)) {
       /* We'll use one that was left over due to ACK coalescing */
     } else {
       gasnetc_rbuf_t *rbuf = gasneti_freelist_get(cep->rbuf_freelist);

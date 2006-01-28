@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/01/27 23:39:35 $
- * $Revision: 1.113 $
+ *     $Date: 2006/01/28 01:32:22 $
+ * $Revision: 1.114 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -226,18 +226,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* ------------------------------------------------------------------------------------ */
 
-/* Lock ops that depend on the level of concurrency */
-#define gasnetc_mutex_t                      gasneti_mutex_t
-#define GASNETC_MUTEX_INITIALIZER            GASNETI_MUTEX_INITIALIZER
-#define gasnetc_mutex_init                   gasneti_mutex_init
-#define gasnetc_mutex_destroy                gasneti_mutex_destroy
-#define gasnetc_mutex_lock(X,C)              if (C) { gasneti_mutex_lock(X); }
-#define gasnetc_mutex_unlock(X,C)            if (C) { gasneti_mutex_unlock(X); }
-#define gasnetc_mutex_assertlocked(X,C)      if (C) { gasneti_mutex_assertlocked(X); }
-#define gasnetc_mutex_assertunlocked(X,C)    if (C) { gasneti_mutex_assertlocked(X); }
-
-/* ------------------------------------------------------------------------------------ */
-
 #if defined(__i386__) || defined(__x86_64__)
   /* Since the LOCK prefix is already a full mb() */
   #define gasneti_wmb_before_atomic_op()	do {} while (0)
@@ -255,61 +243,187 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
  * This is a simple busy-waiting semaphore used, for instance, to control access to
  * some resource of known multiplicity.
  */
+
+#if !GASNETC_ANY_PAR
+  /* No threads, so we use the mutex code that compiles away. */
+#elif defined(GASNETI_HAVE_ATOMIC_CAS)
+  /* Semi-generic implementation for CAS-capable systems */
+
+  typedef gasneti_weakatomic_t _gasnetc_sema_t;
+
+  #define _GASNETC_SEMA_INITIALIZER(N) {gasneti_weakatomic_init(N)}
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_init)
+  void _gasnetc_sema_init(_gasnetc_sema_t *s, int n) {
+    gasneti_weakatomic_set(s, n);
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_destroy)
+  void _gasnetc_sema_destroy(_gasnetc_sema_t *s) {
+    /* Nothing */
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_read)
+  uint32_t _gasnetc_sema_read(_gasnetc_sema_t *s) {
+    return gasneti_weakatomic_read(s);
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_up)
+  void _gasnetc_sema_up(_gasnetc_sema_t *s) {
+    gasneti_wmb_before_atomic_op();
+    gasneti_weakatomic_increment(s);
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown)
+  int _gasnetc_sema_trydown(_gasnetc_sema_t *s) {
+    uint32_t old;
+    int retval = 0;
+
+  again:
+    old = gasneti_weakatomic_read(s);
+    if_pt (old) {
+      retval = gasneti_weakatomic_compare_and_swap(s, old, old - 1);
+      if_pf (!retval) {
+	/* contention in CAS */
+	goto again;
+      }
+      gasneti_rmb_after_atomic_op();
+    }
+
+    return retval;
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_up_n)
+  void _gasnetc_sema_up_n(_gasnetc_sema_t *s, uint32_t n) {
+    uint32_t old;
+    gasneti_wmb_before_atomic_op();
+    do {
+      old = gasneti_weakatomic_read(s);
+    } while (!gasneti_weakatomic_compare_and_swap(s, old, n + old));
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown_n)
+  uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
+    uint32_t retval, old;
+
+    do {
+      old = gasneti_weakatomic_read(s);
+      if_pf (old == 0)
+        return 0;
+      retval = MIN(old, n);
+    } while(!gasneti_weakatomic_compare_and_swap(s, old, old - retval));
+    gasneti_rmb_after_atomic_op();
+
+    return retval;
+  }
+
+  #define GASNETC_HAVE_ARCH_SEMA 1
+#endif
+
+#ifndef GASNETC_HAVE_ARCH_SEMA
+  /* Generic mutex-based implementation */
+  typedef struct {
+    gasneti_mutex_t		lock;
+    gasneti_weakatomic_t	count;
+  } _gasnetc_sema_t;
+
+  #define _GASNETC_SEMA_INITIALIZER(N) {GASNETI_MUTEX_INITIALIZER, gasneti_weakatomic_init(N)}
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_init)
+  void _gasnetc_sema_init(_gasnetc_sema_t *s, int n) {
+    gasneti_mutex_init(&(s->lock));
+    gasneti_weakatomic_set(&(s->count), n);
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_destroy)
+  void _gasnetc_sema_destroy(_gasnetc_sema_t *s) {
+    gasneti_mutex_destroy(&(s->lock));
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_read)
+  uint32_t _gasnetc_sema_read(_gasnetc_sema_t *s) {
+    return gasneti_weakatomic_read(&(s->count));
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_up)
+  void _gasnetc_sema_up(_gasnetc_sema_t *s) {
+    gasneti_wmb_before_atomic_op();
+    gasneti_weakatomic_increment(&(s->count));
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown)
+  int _gasnetc_sema_trydown(_gasnetc_sema_t *s) {
+    int retval;
+
+    gasneti_mutex_lock(&(s->lock));
+    retval = gasneti_weakatomic_read(&(s->count));
+    if_pt(retval != 0)
+      gasneti_weakatomic_decrement(&(s->count));
+    gasneti_mutex_unlock(&(s->lock));
+
+    return retval;
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_up_n)
+  void _gasnetc_sema_up_n(_gasnetc_sema_t *s, uint32_t n) {
+    gasneti_mutex_lock(&(s->lock));
+    gasneti_weakatomic_set(&(s->count), n + gasneti_weakatomic_read(&(s->count)));
+    gasneti_mutex_unlock(&(s->lock));
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown_n)
+  uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
+    uint32_t retval, old;
+
+    gasneti_mutex_lock(&(s->lock));
+    old = gasneti_weakatomic_read(&(s->count));
+    retval = MIN(old, n);
+    gasneti_weakatomic_set(&(s->count), old - retval);
+    gasneti_mutex_unlock(&(s->lock));
+
+    return retval;
+  }
+
+  #define GASNETC_HAVE_ARCH_SEMA 0
+#endif
+
 typedef struct {
   #if GASNET_DEBUG
-    uint32_t			limit;
-  #endif
-  #ifdef GASNETI_HAVE_ATOMIC_CAS
-    gasneti_weakatomic_t	count;
-    #if GASNET_DEBUG
-      char			_pad[GASNETC_CACHE_PAD(sizeof(uint32_t)+sizeof(gasneti_weakatomic_t))];
-    #else
-      char			_pad[GASNETC_CACHE_PAD(sizeof(gasneti_weakatomic_t))];
-    #endif
+    _gasnetc_sema_t	S;
+    uint32_t		limit;
+    char		_pad[GASNETC_CACHE_PAD(sizeof(uint32_t)+sizeof(_gasnetc_sema_t))];
   #else
-    gasnetc_mutex_t		lock;
-    gasneti_weakatomic_t	count;
-    #if GASNET_DEBUG
-      char			_pad[GASNETC_CACHE_PAD(sizeof(uint32_t)+sizeof(gasnetc_mutex_t)+sizeof(gasneti_weakatomic_t))];
-    #else
-      char			_pad[GASNETC_CACHE_PAD(sizeof(gasnetc_mutex_t)+sizeof(gasneti_weakatomic_t))];
-    #endif
+    _gasnetc_sema_t	S;
+    char		_pad[GASNETC_CACHE_PAD(sizeof(_gasnetc_sema_t))];
   #endif
 } gasnetc_sema_t;
 
-#ifdef GASNETI_HAVE_ATOMIC_CAS
-  #define GASNETC_SEMA_INITIALIZER(N) {gasneti_weakatomic_init(N)}
-#else
-  #define GASNETC_SEMA_INITIALIZER(N) {GASNETC_MUTEX_INITIALIZER, gasneti_weakatomic_init(N)}
-#endif
-
 #if GASNET_DEBUG
+  #define GASNETC_SEMA_INITIALIZER(N) {_GASNETC_SEMA_INITIALIZER(N), (N),}
   #define GASNETC_SEMA_CHECK(_s)	do {                                  \
-      uint32_t _tmp = gasneti_weakatomic_read(&((_s)->count));                \
+      uint32_t _tmp = _gasnetc_sema_read(&(_s)->S);                           \
       gasneti_assert((_tmp >= 0) && ((_tmp <= (_s)->limit) || !(_s)->limit)); \
     } while (0)
 #else
+  #define GASNETC_SEMA_INITIALIZER(N) {_GASNETC_SEMA_INITIALIZER(N),}
   #define GASNETC_SEMA_CHECK(_s)	do {} while(0)
 #endif
 
 /* gasnetc_sema_init */
 GASNET_INLINE_MODIFIER(gasnetc_sema_init)
 void gasnetc_sema_init(gasnetc_sema_t *s, int n, uint32_t limit) {
-  #ifndef GASNETI_HAVE_ATOMIC_CAS
-    gasnetc_mutex_init(&(s->lock));
-  #endif
-  gasneti_weakatomic_set(&(s->count), n);
+  _gasnetc_sema_init(&(s->S), n);
   #if GASNET_DEBUG
     s->limit = limit;
   #endif
+  GASNETC_SEMA_CHECK(s);
 }
 
 /* gasnetc_sema_destroy */
 GASNET_INLINE_MODIFIER(gasnetc_sema_destroy)
 void gasnetc_sema_destroy(gasnetc_sema_t *s) {
-  #ifndef GASNETI_HAVE_ATOMIC_CAS
-    gasnetc_mutex_destroy(&(s->lock));
-  #endif
+  GASNETC_SEMA_CHECK(s);
+  _gasnetc_sema_destroy(&(s->S));
 }
 
 /* gasnetc_sema_read
@@ -318,9 +432,8 @@ void gasnetc_sema_destroy(gasnetc_sema_t *s) {
  */
 GASNET_INLINE_MODIFIER(gasnetc_sema_read)
 uint32_t gasnetc_sema_read(gasnetc_sema_t *s) {
-  /* no locking needed here */
   GASNETC_SEMA_CHECK(s);
-  return gasneti_weakatomic_read(&(s->count));
+  return _gasnetc_sema_read(&(s->S));
 }
 
 /* gasnetc_sema_up
@@ -330,10 +443,8 @@ uint32_t gasnetc_sema_read(gasnetc_sema_t *s) {
  */
 GASNET_INLINE_MODIFIER(gasnetc_sema_up)
 void gasnetc_sema_up(gasnetc_sema_t *s) {
-  /* no locking needed here */
   GASNETC_SEMA_CHECK(s);
-  gasneti_wmb_before_atomic_op();
-  gasneti_weakatomic_increment(&(s->count));
+  _gasnetc_sema_up(&(s->S));
   GASNETC_SEMA_CHECK(s);
 }
 
@@ -345,40 +456,12 @@ void gasnetc_sema_up(gasnetc_sema_t *s) {
  * If non-zero, the "concurrent" argument indicates that there are multiple threads
  * calling gasnetc_sema_trydown, and thus locking is required.
  */
-GASNET_INLINE_MODIFIER(gasnetc_sema_trydown)
-int gasnetc_sema_trydown(gasnetc_sema_t *s, int concurrent) {
+GASNET_INLINE_MODIFIER(gasnetc_sema_trydown) GASNETI_WARN_UNUSED_RESULT
+int gasnetc_sema_trydown(gasnetc_sema_t *s) {
   int retval;
 
   GASNETC_SEMA_CHECK(s);
-  #ifdef GASNETI_HAVE_ATOMIC_CAS
-  {
-    uint32_t old;
-    retval = 0;
-again:
-    old = gasneti_weakatomic_read(&(s->count));
-    if_pt (old) {
-      if (concurrent) { /* "concurrent" is a compile-time constant 0 or 1 */
-        retval = gasneti_weakatomic_compare_and_swap(&(s->count), old, old - 1);
-        if_pf (!retval) {
-	  /* contention in CAS */
-	  goto again;
-        }
-      } else {
-        gasneti_weakatomic_set(&(s->count), old - 1);
-        retval = 1;
-      }
-      gasneti_rmb_after_atomic_op();
-    }
-  }
-  #else
-    gasnetc_mutex_lock(&(s->lock), concurrent);
-
-    retval = gasneti_weakatomic_read(&(s->count));
-    if_pt(retval != 0)
-      gasneti_weakatomic_decrement(&(s->count));
-
-    gasnetc_mutex_unlock(&(s->lock), concurrent);
-  #endif
+  retval = _gasnetc_sema_trydown(&(s->S));
   GASNETC_SEMA_CHECK(s);
 
   return retval;
@@ -392,19 +475,7 @@ again:
 GASNET_INLINE_MODIFIER(gasnetc_sema_up_n)
 void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
   GASNETC_SEMA_CHECK(s);
-  #ifdef GASNETI_HAVE_ATOMIC_CAS
-  {
-    uint32_t old;
-    gasneti_wmb_before_atomic_op();
-    do {
-      old = gasneti_weakatomic_read(&(s->count));
-    } while (!gasneti_weakatomic_compare_and_swap(&(s->count), old, n + old));
-  }
-  #else
-    gasnetc_mutex_lock(&(s->lock), concurrent);
-    gasneti_weakatomic_write(&(s->count), n + gasneti_weakatomic_read(&(s->count)));
-    gasnetc_mutex_unlock(&(s->lock), concurrent);
-  #endif
+  _gasnetc_sema_up_n(&(s->S), n);
   GASNETC_SEMA_CHECK(s);
 }
 
@@ -418,28 +489,12 @@ void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
  * If non-zero, the "concurrent" argument indicates that there are multiple threads
  * calling gasnetc_sema_trydown, and thus locking is required.
  */
-GASNET_INLINE_MODIFIER(gasnetc_sema_trydown_n)
-uint32_t gasnetc_sema_trydown_n(gasnetc_sema_t *s, uint32_t n, int concurrent) {
-  uint32_t retval, old;
+GASNET_INLINE_MODIFIER(gasnetc_sema_trydown_n) GASNETI_WARN_UNUSED_RESULT
+uint32_t gasnetc_sema_trydown_n(gasnetc_sema_t *s, uint32_t n) {
+  uint32_t retval;
 
   GASNETC_SEMA_CHECK(s);
-  #ifdef GASNETI_HAVE_ATOMIC_CAS
-    do {
-      old = gasneti_weakatomic_read(&(s->count));
-      if_pf (old == 0)
-        return 0;
-      retval = MIN(old, n);
-    } while(!gasneti_weakatomic_compare_and_swap(&(s->count), old, old - retval));
-    gasneti_rmb_after_atomic_op();
-  #else
-    gasnetc_mutex_lock(&(s->lock), concurrent);
-
-    old = gasneti_weakatomic_read(&(s->count));
-    retval = MIN(old, n);
-    gasneti_weakatomic_write(&(s->count), old - retval);
-
-    gasnetc_mutex_unlock(&(s->lock), concurrent);
-  #endif
+  retval = _gasnetc_sema_trydown_n(&(s->S), n);
   GASNETC_SEMA_CHECK(s);
 
   return retval;
