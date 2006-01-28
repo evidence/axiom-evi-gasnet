@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testbarrierlate.c,v $
- *     $Date: 2006/01/23 17:34:13 $
- * $Revision: 1.9 $
+ *     $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.10 $
  * Description: GASNet barrier performance test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,7 +26,7 @@ int main(int argc, char **argv) {
 
   GASNET_Safe(gasnet_init(&argc, &argv));
   GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-  test_init("testbarrierlate",1);
+  test_init("testbarrierlate",1,"(iters) (pollcnt)");
 
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 10000;
   if (argc > 2) pollcnt = atoi(argv[2]);
+  if (argc > 3) test_usage();
 
   if (mynode == 0) {
       printf("Running barrier late arrival test with %i iterations, pollcnt=%i...\n",iters, pollcnt);

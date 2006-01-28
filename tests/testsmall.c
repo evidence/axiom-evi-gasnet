@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testsmall.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.35 $
+ *     $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.36 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -459,29 +459,31 @@ int main(int argc, char **argv)
       } else break;
     }
     if (fullduplexmode && firstlastmode) help = 1;
-    if (help || argc > arg+2) {
-        printf("Usage: %s [-in|-out|-f] (iters) (maxsz)\n"
-               "  The 'in' or 'out' option selects whether the initiator-side\n"
-               "  memory is in the GASNet segment or not (default it not).\n"
-               "  The -m option enables MB/sec units for bandwidth output (MB=2^20 bytes).\n"
-               "  The -a option enables full-duplex mode, where all nodes send.\n"
-               "  The -f option enables 'first/last' mode, where the first/last\n"
-               "  nodes communicate with each other, while all other nodes sit idle.\n",
-               argv[0]);
-        gasnet_exit(1);
-    }
 
     if (argc > arg) { iters = atoi(argv[arg]); arg++; }
     if (!iters) iters = 1000;
     if (argc > arg) { maxsz = atoi(argv[arg]); arg++; }
     if (!maxsz) maxsz = 2048; /* 2 KB default */
 
+    #ifdef GASNET_SEGMENT_EVERYTHING
+      if (maxsz > TEST_SEGSZ/2) { MSG("maxsz must be <= %lu on GASNET_SEGMENT_EVERYTHING", (unsigned long)(TEST_SEGSZ/2)); gasnet_exit(1); }
+    #endif
+    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+    test_init("testsmall",1, "[-in|-out|-f] (iters) (maxsz)\n"
+               "  The 'in' or 'out' option selects whether the initiator-side\n"
+               "  memory is in the GASNet segment or not (default it not).\n"
+               "  The -m option enables MB/sec units for bandwidth output (MB=2^20 bytes).\n"
+               "  The -a option enables full-duplex mode, where all nodes send.\n"
+               "  The -f option enables 'first/last' mode, where the first/last\n"
+               "  nodes communicate with each other, while all other nodes sit idle.\n");
+    if (help || argc > arg) test_usage();
+
     min_payload = 1;
     max_payload = maxsz;
 
     if (max_payload < min_payload) {
-      printf("ERROR: maxsz must be >= %i\n",min_payload);
-      gasnet_exit(1);
+      ERR("maxsz must be >= %i\n",min_payload);
+      test_usage();
     }
 
     /* get SPMD info */
@@ -508,11 +510,6 @@ int main(int argc, char **argv)
       iamsender = (fullduplexmode || myproc % 2 == 0);
     }
 
-    #ifdef GASNET_SEGMENT_EVERYTHING
-      if (maxsz > TEST_SEGSZ/2) { MSG("maxsz must be <= %lu on GASNET_SEGMENT_EVERYTHING", (unsigned long)(TEST_SEGSZ/2)); gasnet_exit(1); }
-    #endif
-    GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-    test_init("testsmall",1);
     
     myseg = TEST_SEG(myproc);
     tgtmem = TEST_SEG(peerproc);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.21 $
+ *     $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.22 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -157,26 +157,7 @@ gasnet_handlerentry_t htable[] = {
 };
 #define HANDLER_TABLE_SIZE (sizeof(htable)/sizeof(gasnet_handlerentry_t))
 
-void
-usage(char *progname)
-{
-	printf("usage: %s [ -pgalvt ] [ -i <iters> ] <threads_per_node>\n\n", progname);
-	printf("<threads_per_node> must be between 1 and %i       \n",TEST_MAXTHREADS);
-	printf("no options means run all tests with %i iterations\n",DEFAULT_ITERS);
-	printf("options:                                      \n");
-	printf("  -p  use puts                                   \n");
-	printf("  -g  use puts                                   \n");
-	printf("  -a  use Active Messages                        \n");
-	printf("  -l  use local Active Messages                  \n");
-      #if TEST_MPI
-	printf("  -m  use MPI calls                              \n");
-      #endif
-	printf("  -v  output information about actions taken     \n");
-	printf("  -t  include AM handler actions with -v         \n");
-	printf("  -i <iters> use <iters> iterations per thread   \n\n");
-
-	exit(EXIT_FAILURE);
-}
+	
 
 int
 main(int argc, char **argv)
@@ -197,7 +178,20 @@ main(int argc, char **argv)
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(htable, HANDLER_TABLE_SIZE,
 		    TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-	test_init("testthreads",0);
+	test_init("testthreads",0, "[ -pgalvt ] [ -i <iters> ] <threads_per_node>\n\n"
+	    "<threads_per_node> must be between 1 and "_STRINGIFY(TEST_MAXTHREADS)"       \n"
+	    "no options means run all tests with "_STRINGIFY(DEFAULT_ITERS)" iterations\n"
+	    "options:                                      \n"
+	    "  -p  use puts                                   \n"
+	    "  -g  use puts                                   \n"
+	    "  -a  use Active Messages                        \n"
+	    "  -l  use local Active Messages                  \n"
+          #if TEST_MPI
+	    "  -m  use MPI calls                              \n"
+          #endif
+	    "  -v  output information about actions taken     \n"
+	    "  -t  include AM handler actions with -v         \n"
+	    "  -i <iters> use <iters> iterations per thread   \n");
 
 	while ((i = getopt (argc, argv, getopt_str)) != EOF) {
           switch (i) {
@@ -209,8 +203,7 @@ main(int argc, char **argv)
 		case 'i': iters = atoi(optarg); break;
                 case 'v': verbose = 1; break;
                 case 't': amtrace = 1; break;
-		default:
-			usage(argv[0]);
+		default: test_usage();
           }
 	}
 
@@ -237,8 +230,7 @@ main(int argc, char **argv)
 
 	argc -= optind;
 
-	if (argc != 1)
-		usage(argv[0]);
+	if (argc != 1) test_usage();
 	else {
 		argv += optind;
 		threads_num = threads = atoi(argv[0]);

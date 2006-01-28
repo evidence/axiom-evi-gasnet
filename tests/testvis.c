@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2006/01/27 05:25:45 $
- * $Revision: 1.12 $
+ *     $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.13 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1014,14 +1014,6 @@ void doit(int iters, int runtests) {
   BARRIER();
 }
 /* ------------------------------------------------------------------------------------ */
-void Usage(char *argvzero) {
-  fprintf(stderr,"Usage: testvis [-v] [-i] [-s] [-n] <iters> <seed>\n");
-  fprintf(stderr," -v/-i/-s/-n  run vector/indexed/strided/non-blocking tests (defaults to all)\n");
-  fprintf(stderr," iters     number of testing iterations\n");
-  fprintf(stderr," seed      seed offset for PRNG (for single node run, \n");
-  fprintf(stderr,"             seed=i runs node i's sequence from multi-node job) \n");
-  exit(1);
-}
 int main(int argc, char **argv) {
   int iters = 100;
   int seedoffset = 0;
@@ -1031,7 +1023,11 @@ int main(int argc, char **argv) {
   assert_always(VEC_SZ == sizeof(VEC_T));
   GASNET_Safe(gasnet_init(&argc, &argv));
   GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-  test_init("testvis",0);
+  test_init("testvis",0, "[-v] [-i] [-s] [-n] (iters) (seed)\n"
+            " -v/-i/-s/-n  run vector/indexed/strided/non-blocking tests (defaults to all)\n"
+            " iters     number of testing iterations\n"
+            " seed      seed offset for PRNG (for single node run, \n"
+            "             seed=i runs node i's sequence from multi-node job) \n");
 
   for (i = 1; i < argc; i++) {
     if (argv[i][0] == '-') {
@@ -1042,7 +1038,7 @@ int main(int argc, char **argv) {
           case 'i': case 'I': runtests |= RUN_INDEXED; break;
           case 's': case 'S': runtests |= RUN_STRIDED; break;
           case 'n': case 'N': runtests |= RUN_NB; break;
-          default: Usage(argv[0]);
+          default: test_usage();
         }
       }
     } else break;
@@ -1050,7 +1046,7 @@ int main(int argc, char **argv) {
   if (runtests == 0) runtests = RUN_VECTOR | RUN_INDEXED | RUN_STRIDED | RUN_NB;
   if (i < argc) { iters = atoi(argv[i]); i++; }
   if (i < argc) { seedoffset = atoi(argv[i]); i++; }
-  if (i < argc) Usage(argv[0]);
+  if (i < argc) test_usage();
 
   MSG("running %i iterations of %s%s%s%s test...", 
     iters, 

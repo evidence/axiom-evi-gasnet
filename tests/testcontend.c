@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2005/05/30 02:09:11 $
- * $Revision: 1.10 $
+ *     $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.11 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -315,10 +315,11 @@ int main(int argc, char **argv) {
 
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(htable, HANDLER_TABLE_SIZE, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-	test_init("testcontend",1);
+	test_init("testcontend",1,"(maxthreads) (iters)");
 
 	if (argc >= 2) maxthreads = atoi(argv[1]);
 	if (argc >= 3) iters = atoi(argv[2]);
+        if (argc > 3) test_usage();
 
 	if (maxthreads > TEST_MAXTHREADS || maxthreads < 1) {
 	  printf("Threads must be between 1 and %i\n", TEST_MAXTHREADS);

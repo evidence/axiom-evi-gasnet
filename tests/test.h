@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/01/27 04:53:06 $
- * $Revision: 1.72 $
+ *     $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.73 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -735,8 +735,44 @@ static void TEST_GENERICS_WARNING() {
   }
 }
 
-static void _test_init(const char *testname, int reports_performance, int early) {
+static const char *_test_usagestr = NULL;
+static const char *_test_testname = NULL;
+static const char *_test_argvzero = NULL;
+static void _test_usage(int early) {
+  #ifdef TEST_GASNET_H
+    if (gasnet_mynode() == 0) {
+      fprintf(stderr, "%s %s\n", _test_testname, GASNET_CONFIG_STRING);
+      fprintf(stderr, "Usage: %s %s%s", _test_argvzero, _test_usagestr,
+        (_test_usagestr[strlen(_test_usagestr)-1] == '\n' ? "" : "\n"));
+      fflush(NULL);
+      sleep(1);
+      gasnet_exit(1);
+    } else { /* wait to die */
+      if (early) while(1) gasnett_sched_yield();
+      else BARRIER();
+    }
+  #else
+      fprintf(stderr, "%s %s\n", _test_testname, GASNETT_CONFIG_STRING);
+      fprintf(stderr, "Usage: %s %s%s", _test_argvzero, _test_usagestr,
+        (_test_usagestr[strlen(_test_usagestr)-1] == '\n' ? "" : "\n"));
+      fflush(NULL);
+      sleep(1);
+      exit(1);
+  #endif
+}
+#define test_usage() _test_usage(0)
+static void _test_init(const char *testname, int reports_performance, int early,
+                       int argc, const char * const *argv, const char *usagestr) {
   /* convenient place to put inits we want in all tests */
+  int i;
+  _test_usagestr = strdup(usagestr);
+  _test_testname = strdup(testname);
+  _test_argvzero = strdup(argv[0]);
+  for (i = 0; i < argc; i++) { /* check for standard help option */
+    if (!strcmp(argv[i],"-h") || !strcmp(argv[i],"--h") || 
+        !strcmp(argv[i],"-help") || !strcmp(argv[i],"--help")) _test_usage(early);
+  }
+
   TEST_SIG_INIT();
   #ifdef TEST_GASNET_H
     if (!early) BARRIER();
@@ -770,8 +806,10 @@ static void _test_init(const char *testname, int reports_performance, int early)
   #endif
   if (test_getenv_yesno("GASNET_VERBOSEENV",0)) MSG("%s running...", testname);
 }
-#define test_init(testname, reports_performance) _test_init(testname, reports_performance, 0)
-#define test_init_early(testname, reports_performance) _test_init(testname, reports_performance, 1)
+#define test_init(testname, reports_performance, usagestr) \
+       _test_init(testname, reports_performance, 0, argc, (const char * const *)argv, usagestr)
+#define test_init_early(testname, reports_performance, usagestr) \
+       _test_init(testname, reports_performance, 1, argc, (const char * const *)argv, usagestr)
 
 
 #define TEST_TRACING_MACROS() do {                                                 \

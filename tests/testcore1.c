@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
- * $Date: 2006/01/27 05:25:45 $
- * $Revision: 1.18 $
+ * $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.19 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -227,17 +227,13 @@ main(int argc, char **argv)
 	/* call startup */
         GASNET_Safe(gasnet_init(&argc, &argv));
         GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-	test_init("testcore1",0);
+	test_init("testcore1",0,"(iters)");
 
         assert(CHKSUM_TOTAL <= gasnet_AMMaxMedium());
 
-	if (argc < 2) {
-		printf("Usage: %s <iters>\n", argv[0]);
-		gasnet_exit(1);
-	}
 	if (argc > 1) iters = atoi(argv[1]);
-	if (!iters) iters = 1;
-
+	if (!iters) iters = 1000;
+        if (argc > 2) test_usage();
 	
 
 	/* get SPMD info */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2006/01/27 02:54:59 $
- * $Revision: 1.13 $
+ *     $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.14 $
  * Description: GASNet HSL correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -83,17 +83,14 @@ int main(int argc, char **argv) {
   GASNET_Safe(gasnet_init(&argc, &argv));
   GASNET_Safe(gasnet_attach(htable, sizeof(htable)/sizeof(gasnet_handlerentry_t), 
                             TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-  test_init("testhsl",0);
+  test_init("testhsl",0,"(0|errtestnum:1..16)");
 
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
   peer = (gasnet_mynode() ^ 1);
   if (peer == gasnet_nodes()) peer = gasnet_mynode();
 
-  if (argc < 2) {
-    printf("Usage: %s (0|errtestnum:1..16)\n", argv[0]);fflush(stdout);
-    gasnet_exit(1);
-  }
+  if (argc < 2) test_usage();
   {
     int errtest = atoi(argv[1]);
     gasnet_hsl_t lock1 = GASNET_HSL_INITIALIZER;
@@ -213,8 +210,8 @@ int main(int argc, char **argv) {
         goto done;
       break;
       default:
-        MSG("bad err test num.");
-        abort();
+        ERR("bad err test num.");
+        test_usage();
     }
     MSG("ERROR: FAILED: err test failed.");
     abort();

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2006/01/08 22:19:28 $
- * $Revision: 1.17 $
+ *     $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.18 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -157,8 +157,7 @@ void testSignalHandler(int sig) {
 }
 
 int main(int argc, char **argv) {
-  char *argvzero;
-  const char *pth_args = "";
+  char usagestr[255];
   gasnet_handlerentry_t htable[] = { 
     { hidx_exit_handler, test_exit_handler },
     { hidx_ping_handler, ping_handler },
@@ -166,7 +165,11 @@ int main(int argc, char **argv) {
   };
 
   GASNET_Safe(gasnet_init(&argc, &argv));
-  test_init_early("testexit",0);
+  sprintf(usagestr,"(exittestnum:1..%i)", (int)MAXTEST);
+  #ifdef GASNET_PAR
+    strcat(usagestr, " (num_pthreads)");
+  #endif
+  test_init_early("testexit",0,usagestr);
 
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();
@@ -177,17 +180,12 @@ int main(int argc, char **argv) {
     peer = mynode;
   }
 
-  argvzero = argv[0];
   argv++; argc--;
   if (argc > 0) { testid = atoi(*argv); argv++; argc--; }
   #ifdef GASNET_PAR
     if (argc > 0) { numpthreads = atoi(*argv); argv++; argc--; }
-    pth_args = " (num_pthreads)";
   #endif
-  if (argc > 0 || testid <= 0 || testid > MAXTEST || numpthreads <= 1) {
-    printf("Usage: %s (errtestnum:1..%i)%s\n", argvzero, (int)MAXTEST, pth_args);fflush(stdout);
-    gasnet_exit(-1);
-  }
+  if (argc > 0 || testid <= 0 || testid > MAXTEST || numpthreads <= 1) test_usage();
 
   if (testid == 6 || testid == 7) {
     if (mynode == 0) {

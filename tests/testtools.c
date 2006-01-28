@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/01/27 02:54:59 $
- * $Revision: 1.33 $
+ *     $Date: 2006/01/28 21:21:46 $
+ * $Revision: 1.34 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,19 +52,23 @@ void *test_dummy3(void) { return malloc(1); }
 
 int main(int argc, char **argv) {
 
+  test_init("testtools", 0,"(iters) (num_threads) (tests_to_run)");
+
   if (argc > 1) iters = atoi(argv[1]);
   if (iters < 1) iters = DEFAULT_ITERS;
   #ifdef HAVE_PTHREAD_H
     if (argc > 2) NUM_THREADS = atoi(argv[2]);
     if (NUM_THREADS < 1) NUM_THREADS = DEFAULT_THREADS;
+  #else
+    if (argc > 2 && atoi(argv[2]) != 1) { ERR("no pthreads - only one thread available."); test_usage(); }
   #endif
   if (argc > 3) {
     const char *p = argv[3];
     char *q = tests;
     while (*p) *(q++) = toupper(*(p++));
   }
+  if (argc > 4) test_usage();
 
-  test_init("testtools", 0);
   TEST_GENERICS_WARNING();
   #ifdef HAVE_PTHREAD_H
     MSG("Running testtools with %i iterations and %i threads", iters, NUM_THREADS);
