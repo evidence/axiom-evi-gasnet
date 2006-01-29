@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2005/11/20 04:08:39 $
-dnl $Revision: 1.88 $
+dnl     $Date: 2006/01/29 23:09:24 $
+dnl $Revision: 1.89 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1156,6 +1156,11 @@ AC_DEFUN([GASNET_PROG_CPP], [
     # error
   ], [AC_MSG_ERROR(Your C preprocessor is broken - reported success when it should have failed)], [])
   AC_TRY_CPP([], [], [GASNET_MSG_ERROR(Your C preprocessor is broken - reported failure when it should have succeeded)])
+  AC_TRY_CPP([
+    #ifdef __cplusplus
+      #error __cplusplus should not be defined in a C preprocessor!
+    #endif
+  ], [], [GASNET_MSG_ERROR([Your C preprocessor is broken, it erroneously defines __cplusplus. This software requires a true, working ANSI C compiler - a C++ compiler is not an acceptable replacement.])])
   AC_MSG_RESULT(yes$gasnet_progcpp_extrainfo)
   AC_LANG_RESTORE
   GASNET_FUN_END([$0])
@@ -1186,6 +1191,11 @@ AC_DEFUN([GASNET_PROG_CXXCPP], [
     # error
   ], [AC_MSG_ERROR(Your C++ preprocessor is broken - reported success when it should have failed)], [])
   AC_TRY_CPP([], [], [GASNET_MSG_ERROR(Your C++ preprocessor is broken - reported failure when it should have succeeded)])
+  AC_TRY_CPP([
+    #ifndef __cplusplus
+      #error __cplusplus must be defined in a C++ preprocessor!
+    #endif
+  ], [], [GASNET_MSG_ERROR([Your C++ preprocessor is broken, it fails to define __cplusplus.])])
   AC_MSG_RESULT(yes$gasnet_progcxxcpp_extrainfo)
   AC_LANG_RESTORE
   GASNET_FUN_END([$0])
@@ -1204,6 +1214,16 @@ AC_DEFUN([GASNET_PROG_CC], [
     fail for me
   ], [AC_MSG_ERROR(Your C compiler is broken - reported success when it should have failed)], [])
   AC_TRY_COMPILE([], [], [], [GASNET_MSG_ERROR(Your C compiler is broken - reported failure when it should have succeeded)])
+  AC_TRY_COMPILE([
+    double *p;
+    void *foo(double *d) { 
+      return d; 
+    }
+  ], [
+    double d;
+    /* (void *) is compatible with any pointer type in a C program */
+    p = foo((void *)&d);
+  ], [], [GASNET_MSG_ERROR([Your C compiler is broken, it fails to compile a simple C program using implicit void* conversion. This software requires a true, working ANSI C compiler - note that a C++ compiler is not an acceptable replacement.])])
   AC_TRY_LINK([ extern int some_bogus_nonexistent_symbol(); ], [ int x = some_bogus_nonexistent_symbol(); ],
               [AC_MSG_ERROR(Your C linker is broken - reported success when it should have failed)], [])
   AC_TRY_LINK([], [], [], [GASNET_MSG_ERROR(Your C link is broken - reported failure when it should have succeeded)])
