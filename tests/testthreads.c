@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2006/01/28 21:21:46 $
- * $Revision: 1.22 $
+ *     $Date: 2006/01/29 23:20:50 $
+ * $Revision: 1.23 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -178,6 +178,12 @@ main(int argc, char **argv)
 	GASNET_Safe(gasnet_init(&argc, &argv));
     	GASNET_Safe(gasnet_attach(htable, HANDLER_TABLE_SIZE,
 		    TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
+
+        #if TEST_MPI
+          #define TEST_MPI_USAGE  "  -m  use MPI calls                              \n"
+        #else
+          #define TEST_MPI_USAGE  ""
+        #endif
 	test_init("testthreads",0, "[ -pgalvt ] [ -i <iters> ] <threads_per_node>\n\n"
 	    "<threads_per_node> must be between 1 and "_STRINGIFY(TEST_MAXTHREADS)"       \n"
 	    "no options means run all tests with "_STRINGIFY(DEFAULT_ITERS)" iterations\n"
@@ -186,9 +192,7 @@ main(int argc, char **argv)
 	    "  -g  use puts                                   \n"
 	    "  -a  use Active Messages                        \n"
 	    "  -l  use local Active Messages                  \n"
-          #if TEST_MPI
-	    "  -m  use MPI calls                              \n"
-          #endif
+            TEST_MPI_USAGE
 	    "  -v  output information about actions taken     \n"
 	    "  -t  include AM handler actions with -v         \n"
 	    "  -i <iters> use <iters> iterations per thread   \n");
