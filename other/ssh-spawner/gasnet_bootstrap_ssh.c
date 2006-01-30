@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/01/27 20:02:30 $
- * $Revision: 1.51 $
+ *     $Date: 2006/01/30 05:24:02 $
+ * $Revision: 1.52 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1581,6 +1581,7 @@ void gasneti_bootstrapFini_ssh(void) {
   char cmd;
   int j;
 
+fprintf(stderr, "Proc %d : ENTER Finalize code\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
 #if GASNETI_BOOTSTRAP_FLAT_TREE
   if (is_master) {
     for (j = 0; j < children; ++j) {
@@ -1599,6 +1600,7 @@ void gasneti_bootstrapFini_ssh(void) {
     do_read(parent, &cmd, sizeof(cmd));
     gasneti_assert(cmd == BOOTSTRAP_CMD_FINI1);
   }
+fprintf(stderr, "Proc %d : LEAVE Finalize code\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
 #else
   gasneti_assert(!is_master);
   for (j = 0; j < children; ++j) {
