@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/01/11 01:35:11 $
-# $Revision: 1.317 $
+#     $Date: 2006/01/30 01:51:58 $
+# $Revision: 1.318 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.317 $)
+AC_REVISION($Revision: 1.318 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -536,6 +536,9 @@ case "$target_os" in
           *-catamount-*) 
 	    AC_DEFINE(CATAMOUNT)
 	    GASNET_MACHINE_DEFINES="-DCATAMOUNT"
+	    GASNET_IFDEF(__LIBCATAMOUNT__,[],[
+	      AC_MSG_ERROR([Compiling for a catamount target, but __LIBCATAMOUNT__ is not predefined! Are you using the right compiler? (perhaps try mpicc)])
+	    ])
           ;;
         esac
         # Defining _GNU_SOURCE gives us accesss to the "adaptive"
