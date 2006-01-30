@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/01/30 05:24:02 $
- * $Revision: 1.52 $
+ *     $Date: 2006/01/30 21:58:50 $
+ * $Revision: 1.53 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -508,6 +508,7 @@ static void wait_for_all(void)
   sigset_t child_set;
   sigset_t old_set;
 
+fprintf(stderr, "Proc %d : ENTER wait_for_all()\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
   sigemptyset(&child_set);
   sigaddset(&child_set, SIGCHLD);
   sigprocmask(SIG_BLOCK, &child_set, &old_set);
@@ -523,6 +524,7 @@ static void wait_for_all(void)
 			    is_master ? -1 : myproc, gasneti_atomic_read(&live)));
     sigsuspend(&old_set);
   }
+fprintf(stderr, "Proc %d : LEAVE wait_for_all()\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
 }
 
 static void sigurg_handler(int sig)
@@ -1320,6 +1322,7 @@ fprintf(stderr, "Proc %d : select() failed w/ errno=%d\n",  is_master ? -1 : myp
       gasneti_assert(i < children);
       rc = recv(child[i].sock, &cmd, sizeof(cmd), MSG_PEEK);
       if (rc != sizeof(cmd)) {
+fprintf(stderr, "Proc %d : recv(MSG_PEEK) failed w/ rc=%d errno=%d\n",  is_master ? -1 : myproc, rc, errno); fflush(NULL); /* to help find bug 1392 */
 	/* do_read() hit EOF because a child has died */
 	break;
       }
