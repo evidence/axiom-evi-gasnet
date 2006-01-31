@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/01/30 21:58:50 $
- * $Revision: 1.53 $
+ *     $Date: 2006/01/31 19:09:11 $
+ * $Revision: 1.54 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1313,22 +1313,32 @@ fprintf(stderr, "Proc %d : select() failed w/ errno=%d\n",  is_master ? -1 : myp
 	}
       }
 
-      /* Read 1 command byte */
-      for (i = 0; i < children; ++i) {
-	if (FD_ISSET(child[i].sock, &fds)) {
-	  break;
+      /* Peek 1 command byte */
+      i = -1;
+      do {
+        for (++i; i < children; ++i) {
+	  if (FD_ISSET(child[i].sock, &fds)) {
+	    break;
+	  }
+        }
+        if (i != children) {
+          gasneti_assert(FD_ISSET(child[i].sock, &fds));
+          rc = recv(child[i].sock, &cmd, sizeof(cmd), MSG_PEEK);
 	}
+      } while ((i != children) && (rc == 0));
+      if (i == children) {
+fprintf(stderr, "Proc %d : select() found no readable sockets\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1394 */
+	break;
       }
-      gasneti_assert(i < children);
-      rc = recv(child[i].sock, &cmd, sizeof(cmd), MSG_PEEK);
       if (rc != sizeof(cmd)) {
-fprintf(stderr, "Proc %d : recv(MSG_PEEK) failed w/ rc=%d errno=%d\n",  is_master ? -1 : myproc, rc, errno); fflush(NULL); /* to help find bug 1392 */
-	/* do_read() hit EOF because a child has died */
+fprintf(stderr, "Proc %d : recv(%d,MSG_PEEK) failed w/ rc=%d errno=%d\n",  is_master ? -1 : myproc, i, rc, errno); fflush(NULL); /* to help find bug 1394 */
+	/* do_read() hit EOF because a child has died? */
 	break;
       }
 
       switch (cmd) {
         case BOOTSTRAP_CMD_NO_OP:
+          do_read(child[i].sock, &cmd, sizeof(cmd));
 	  break;
         case BOOTSTRAP_CMD_FINI0:
 	  gasneti_bootstrapFini_ssh();
