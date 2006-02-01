@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2006/01/27 01:18:21 $
- * $Revision: 1.29 $
+ *     $Date: 2006/02/01 21:08:50 $
+ * $Revision: 1.30 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -414,7 +414,7 @@ fh_region_to_priv(const firehose_region_t *reg)
 
 /* Given a node and a region_t, create the necessary hash table entries.
  * The FIFO linkage is NOT initialized */
-firehose_private_t *
+static firehose_private_t * GASNETI_MALLOC
 fh_create_priv(gasnet_node_t node, const firehose_region_t *reg)
 {
     uintptr_t end_addr, bucket_addr;
@@ -459,7 +459,7 @@ fh_create_priv(gasnet_node_t node, const firehose_region_t *reg)
     return priv;
 }
 
-void
+static void
 fh_destroy_priv(firehose_private_t *priv)
 {
     fh_bucket_t *bucket;
@@ -490,7 +490,7 @@ fh_destroy_priv(firehose_private_t *priv)
 /* Given an existing private_t and a region_t, change the necessary hash
  * table entries.
  */
-void
+static void
 fh_update_priv(firehose_private_t *priv, const firehose_region_t *reg)
 {
     uintptr_t bucket_addr;
@@ -957,9 +957,9 @@ fh_release_local_region(firehose_request_t *request)
 /* REMOTE PINNING                                                        */
 /* ##################################################################### */
 
-void
+static void
 fhi_hang_callback(firehose_private_t *priv, firehose_request_t *req, 
-		  firehose_completed_fn_t callback, void *context)
+		  firehose_completed_fn_t callback, void * context)
 {
     fh_completion_callback_t *ccb = fh_alloc_completion_callback();
 
@@ -993,7 +993,7 @@ fhi_hang_callback(firehose_private_t *priv, firehose_request_t *req,
 
 void
 fh_acquire_remote_region(firehose_request_t *req, 
-		         firehose_completed_fn_t callback, void *context,
+		         firehose_completed_fn_t callback, void * context,
                          uint32_t flags,
                          firehose_remotecallback_args_fn_t args_fn)
 {
