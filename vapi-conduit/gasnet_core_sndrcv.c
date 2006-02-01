@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/02/01 20:43:58 $
- * $Revision: 1.162 $
+ *     $Date: 2006/02/01 23:37:21 $
+ * $Revision: 1.163 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -969,10 +969,10 @@ void gasnetc_do_poll(int poll_rcv, int poll_snd) {
 /* allocate a send request structure */
 #ifdef __GNUC__
   GASNET_INLINE_MODIFIER(gasnetc_get_sreq)
-  gasnetc_sreq_t *gasnetc_get_sreq(GASNETC_PERTHREAD_FARG_ALONE) GASNETI_MALLOC;
+  gasnetc_sreq_t *gasnetc_get_sreq(gasnetc_sreq_opcode_t GASNETC_PERTHREAD_FARG) GASNETI_MALLOC;
 #endif
 GASNET_INLINE_MODIFIER(gasnetc_get_sreq)
-gasnetc_sreq_t *gasnetc_get_sreq(GASNETC_PERTHREAD_FARG_ALONE) {
+gasnetc_sreq_t *gasnetc_get_sreq(gasnetc_sreq_opcode_t opcode GASNETC_PERTHREAD_FARG) {
   gasnetc_per_thread_t *td = GASNETC_MY_PERTHREAD();
   gasnetc_sreq_t *sreq;
 
@@ -1008,7 +1008,6 @@ gasnetc_sreq_t *gasnetc_get_sreq(GASNETC_PERTHREAD_FARG_ALONE) {
     /* invalidate field(s) which should always be set by caller */
     sreq->epid = ~0;
     sreq->cep = NULL;
-    sreq->opcode = GASNETC_OP_INVALID;
     sreq->fh_count = -1;
     #if !GASNETC_PIN_SEGMENT
     sreq->fh_len = ~0;
@@ -1021,6 +1020,9 @@ gasnetc_sreq_t *gasnetc_get_sreq(GASNETC_PERTHREAD_FARG_ALONE) {
   #if !GASNETC_PIN_SEGMENT
     sreq->fh_oust = NULL;
   #endif
+
+  gasneti_assert(opcode != GASNETC_OP_FREE);
+  sreq->opcode = opcode;
 
   return sreq;
 }
@@ -1154,6 +1156,9 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int 
   /* Must be bound to a qp by now */
   gasneti_assert(cep != NULL );
   gasneti_assert(gasnetc_epid2node(sreq->epid) != gasneti_mynode);
+
+  gasneti_assert(sreq->opcode != GASNETC_OP_FREE);
+  gasneti_assert(sreq->opcode != GASNETC_OP_INVALID);
 
   /* Loop until space is available for 1 new entry on the CQ.
    * If we hold the last one then threads sending to ANY node will stall. */
@@ -1502,8 +1507,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   }
 
   /* Now get an sreq and buffer and start building the message */
-  sreq = gasnetc_get_sreq(GASNETC_PERTHREAD_PASS_ALONE);
-  sreq->opcode = GASNETC_OP_AM; /* Will overwrite for System AM's which block */
+  sreq = gasnetc_get_sreq(GASNETC_OP_AM GASNETC_PERTHREAD_PASS);
   if_pt ((msg_len <= gasnetc_inline_limit) && (msg_len <= sizeof(union tmp_buf))) {
     buf = (gasnetc_buffer_t *)GASNETI_ALIGNUP(tmp_buf, 8);
     sreq->am_buff = NULL;
@@ -1782,8 +1786,7 @@ static void gasnetc_do_put_inline(const gasnetc_epid_t epid, int rkey_index,
   gasneti_assert(nbytes != 0);
   gasneti_assert(nbytes <= gasnetc_inline_limit);
 
-  sreq = gasnetc_get_sreq(GASNETC_PERTHREAD_PASS_ALONE);
-  sreq->opcode = GASNETC_OP_PUT_INLINE;
+  sreq = gasnetc_get_sreq(GASNETC_OP_PUT_INLINE GASNETC_PERTHREAD_PASS);
   sreq->fh_count = 0;
   if (req_oust) {
     gasnetc_counter_inc(req_oust);
@@ -1812,10 +1815,9 @@ static void gasnetc_do_put_bounce(const gasnetc_epid_t epid, int rkey_index,
   gasneti_assert(nbytes != 0);
 
   do {
-    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_PERTHREAD_PASS_ALONE);
+    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_OP_PUT_BOUNCE GASNETC_PERTHREAD_PASS);
     const size_t count = MIN(GASNETC_BUFSZ, nbytes);
 
-    sreq->opcode = GASNETC_OP_PUT_BOUNCE;
     sreq->bb_buff = gasnetc_get_bbuf(1);
     memcpy(sreq->bb_buff, (void *)src, count);
     if (req_oust) {
@@ -1842,10 +1844,8 @@ static void gasnetc_do_put_zerocp(const gasnetc_epid_t epid, int rkey_index,
 
   /* loop over local pinned regions */
   do {
-    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_PERTHREAD_PASS_ALONE);
+    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_OP_PUT_ZEROCP GASNETC_PERTHREAD_PASS);
     size_t count;
-
-    sreq->opcode = GASNETC_OP_PUT_ZEROCP;
 
     /* The init or the sync (or neither) might wait on completion, but never both */
     if (mem_oust != NULL) {
@@ -1877,10 +1877,9 @@ static void gasnetc_do_get_bounce(const gasnetc_epid_t epid, int rkey_index,
   gasneti_assert(req_oust != NULL);
 
   do {
-    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_PERTHREAD_PASS_ALONE);
+    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_OP_GET_BOUNCE GASNETC_PERTHREAD_PASS);
     const size_t count = MIN(GASNETC_BUFSZ, nbytes);
 
-    sreq->opcode = GASNETC_OP_GET_BOUNCE;
     sreq->bb_addr  = (void *)dst;
     sreq->bb_len   = count;
     sreq->bb_buff  = gasnetc_get_bbuf(1);
@@ -1910,10 +1909,9 @@ static void gasnetc_do_get_zerocp(const gasnetc_epid_t epid, int rkey_index,
 
   /* loop over local pinned regions */
   do {
-    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_PERTHREAD_PASS_ALONE);
+    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_OP_GET_ZEROCP GASNETC_PERTHREAD_PASS);
     size_t count;
 
-    sreq->opcode = GASNETC_OP_GET_ZEROCP;
     sreq->req_oust = req_oust;
     gasnetc_counter_inc(req_oust);
 
@@ -1979,11 +1977,10 @@ void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq) {
 
   /* Use full bounce buffers until just one buffer worth of data remains */
   while (nbytes > GASNETC_BUFSZ) {
-    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_PERTHREAD_PASS_ALONE);
+    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_OP_PUT_BOUNCE GASNETC_PERTHREAD_PASS);
     sreq->fh_bbuf = gasnetc_get_bbuf(1);
     memcpy(sreq->fh_bbuf, (void *)src, GASNETC_BUFSZ);
     sreq->fh_count = 0;
-    sreq->opcode = GASNETC_OP_PUT_BOUNCE;
 
     sr_desc->opcode      = VAPI_RDMA_WRITE;
     sr_desc->remote_addr = dst;
@@ -2804,7 +2801,7 @@ extern int gasnetc_rdma_put_fh(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr
   gasneti_assert(nbytes != 0);
 
   do {
-    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_PERTHREAD_PASS_ALONE);
+    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_OP_INVALID GASNETC_PERTHREAD_PASS);
     size_t count;
 
     sreq->epid = epid;
@@ -2834,11 +2831,10 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
   gasneti_assert(req_oust != NULL);
 
   do {
-    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_PERTHREAD_PASS_ALONE);
+    gasnetc_sreq_t * const sreq = gasnetc_get_sreq(GASNETC_OP_GET_ZEROCP GASNETC_PERTHREAD_PASS);
     size_t count;
 
     sreq->epid = epid;
-    sreq->opcode = GASNETC_OP_GET_ZEROCP;
  
     sreq->req_oust = req_oust;
     gasnetc_counter_inc(req_oust);
