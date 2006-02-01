@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/01/28 01:32:22 $
- * $Revision: 1.161 $
+ *     $Date: 2006/02/01 20:43:58 $
+ * $Revision: 1.162 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -39,6 +39,9 @@
 #else
   #define GASNETC_SND_REAP_COLLECT 0
 #endif
+
+/* Remove when post-list code is fixed or permanently removed */
+#define GASNETC_USE_POST_LIST 0
 
 /* ------------------------------------------------------------------------------------ *
  *  Global variables                                                                    *
@@ -124,8 +127,10 @@ typedef struct gasnetc_sreq_t_ {
   gasnetc_epid_t		epid;
   gasnetc_cep_t			*cep;
 
+#if GASNETC_USE_POST_LIST
   /* Number of Work Request entries */
   uint32_t			count;
+#endif
 
   /* Completion counters */
   gasnetc_counter_t		*mem_oust;	/* source memory refs outstanding (local completion)*/
@@ -317,14 +322,22 @@ VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
 {
   VAPI_sr_desc_t *result = (VAPI_sr_desc_t *)base;
   VAPI_sg_lst_entry_t *sg_lst_p = (VAPI_sg_lst_entry_t *)((uintptr_t)result + count*sizeof(VAPI_sr_desc_t));
-  int i;
 
-  for (i=0; i<count; ++i, sg_lst_p += sg_lst_len) {
-        #if GASNET_DEBUG
-	  result[i].sg_lst_len = 0; /* invalid to ensure caller sets it */
-	#endif
-	result[i].sg_lst_p = sg_lst_p;
-  }
+  #if GASNETC_USE_POST_LIST
+    int i;
+    for (i=0; i<count; ++i, sg_lst_p += sg_lst_len) {
+          #if GASNET_DEBUG
+	    result[i].sg_lst_len = 0; /* invalid to ensure caller sets it */
+	  #endif
+	  result[i].sg_lst_p = sg_lst_p;
+    }
+  #else
+    gasneti_assert(count == 1);
+    #if GASNET_DEBUG
+      result->sg_lst_len = 0; /* invalid to ensure caller sets it */
+    #endif
+    result->sg_lst_p = sg_lst_p;
+  #endif
   
   return result;
 }
@@ -592,7 +605,11 @@ static int gasnetc_snd_reap(int limit) {
         gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.id;
         if_pt (sreq) {
 	  gasneti_assert(sreq->opcode != GASNETC_OP_INVALID);
-	  gasnetc_sema_up_n(&sreq->cep->sq_sema, sreq->count);
+	  #if GASNETC_USE_POST_LIST
+	    gasnetc_sema_up_n(&sreq->cep->sq_sema, sreq->count);
+	  #else
+	    gasnetc_sema_up(&sreq->cep->sq_sema);
+	  #endif
 	  gasnetc_sema_up(sreq->cep->snd_cq_sema_p);
 
 	  switch (sreq->opcode) {
@@ -1150,7 +1167,9 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int 
   }
 
   /* setup some invariant fields */
-  sreq->count = 1;
+  #if GASNETC_USE_POST_LIST
+    sreq->count = 1;
+  #endif
   sr_desc[0].id        = (uintptr_t)sreq;
   sr_desc[0].comp_type = VAPI_SIGNALED;
   sr_desc[0].set_se    = FALSE;
@@ -1181,11 +1200,15 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int 
 #define gasnetc_snd_post(x,y)		gasnetc_snd_post_common(x,y,0)
 #define gasnetc_snd_post_inline(x,y)	gasnetc_snd_post_common(x,y,1)
 
-#if 0 && GASNET_PIN_SEGMENT
+#if GASNETC_USE_POST_LIST
 /* XXX: Broken now that FAST uses firehose, too.
  * In particular we don't do anything with firehose resources if we needed to
- * split the request across multiple sreqs.  This is because there is no way to
- * correlate the firehose_request_t's with the sr_desc's at the current time.
+ * split the request across multiple sreqs.  The easiest way to correlate the
+ * firehose_request_t's with the sr_desc's at the current time is by examining
+ * the rkeys.
+ * This code has also not been kept up-to-date as mutil-qp and multi-rail
+ * support was added.
+ * Finally, there is no support for this in OpenIB, to which we hope to port.
  */
 GASNET_INLINE_MODIFIER(gasnetc_snd_post_list_common)
 void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, uint32_t count) {
@@ -1910,8 +1933,10 @@ static void gasnetc_do_get_zerocp(const gasnetc_epid_t epid, int rkey_index,
  * ###############################################################
  */
 GASNET_INLINE_MODIFIER(gasnetc_fh_put_inline)
-void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq, const firehose_request_t *fh_rem, size_t len) {
+void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq) {
   GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
+  const firehose_request_t * const fh_rem = sreq->fh_ptr[0];
+  size_t len = sreq->fh_len;
   gasnetc_counter_t *mem_oust;
   gasnetc_cep_t *cep;
 
@@ -1937,10 +1962,12 @@ void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq, const firehose_request_t *fh_re
 }
 
 GASNET_INLINE_MODIFIER(gasnetc_fh_put_bounce)
-void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq, const firehose_request_t *fh_rem, size_t nbytes) {
+void gasnetc_fh_put_bounce(gasnetc_sreq_t *orig_sreq) {
   GASNETC_PERTHREAD_LOOKUP;
   GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
+  const firehose_request_t * const fh_rem = orig_sreq->fh_ptr[0];
   gasnetc_epid_t epid = orig_sreq->epid;
+  size_t nbytes = orig_sreq->fh_len;
   gasnetc_cep_t *cep;
   uintptr_t src = orig_sreq->fh_loc_addr;
   uintptr_t dst = orig_sreq->fh_rem_addr;
@@ -2049,14 +2076,12 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq, VAPI_wr_opcode_t op) {
 }
 
 static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq) {
-  const firehose_request_t *fh_rem = sreq->fh_ptr[0];
-  const size_t nbytes = sreq->fh_len;
   gasnetc_counter_t * const am_oust = sreq->fh_oust;
 
   switch (sreq->opcode) {
     case GASNETC_OP_PUT_INMOVE:
       /* All done in the AM.  Complete the sreq here since snd_reap will never see it. */
-      gasneti_assert(nbytes == 0);
+      gasneti_assert(sreq->fh_len == 0);
       gasnetc_counter_dec_if(sreq->req_oust);
       gasneti_assert(sreq->fh_count > 0);
       firehose_release(sreq->fh_ptr, sreq->fh_count);
@@ -2064,19 +2089,20 @@ static void gasnetc_fh_do_put(gasnetc_sreq_t *sreq) {
       break;
 
     case GASNETC_OP_PUT_INLINE:
-      gasneti_assert(nbytes > 0);
-      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, nbytes);
-      gasnetc_fh_put_inline(sreq, fh_rem, nbytes);
+      gasneti_assert(sreq->fh_len > 0);
+      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_INLINE, sreq->fh_len);
+      gasnetc_fh_put_inline(sreq);
       break;
 
     case GASNETC_OP_PUT_BOUNCE:
-      gasneti_assert(nbytes > 0);
-      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_BOUNCE, nbytes);
-      gasnetc_fh_put_bounce(sreq, fh_rem, nbytes);
+      gasneti_assert(sreq->fh_len > 0);
+      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_BOUNCE, sreq->fh_len);
+      gasnetc_fh_put_bounce(sreq);
       break;
 
     case GASNETC_OP_PUT_ZEROCP:
-      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_ZEROCP, nbytes);
+      gasneti_assert(sreq->fh_len > 0);
+      GASNETI_TRACE_EVENT_VAL(C, RDMA_PUT_ZEROCP, sreq->fh_len);
       gasnetc_fh_post(sreq, VAPI_RDMA_WRITE);
       break;
 
