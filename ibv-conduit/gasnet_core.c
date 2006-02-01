@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/01/27 01:16:50 $
- * $Revision: 1.153 $
+ *     $Date: 2006/02/01 18:54:02 $
+ * $Revision: 1.154 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1755,6 +1755,12 @@ static void gasnetc_exit_tail(void) {
  *
  * DOES NOT RETURN
  */
+#if GASNET_DEBUG
+  static const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
+  #define GASNETC_EXIT_STATE(st) gasnetc_exit_state = st
+#else
+  #define GASNETC_EXIT_STATE(st) do {} while (0)
+#endif
 static void gasnetc_exit_sighandler(int sig) {
   int exitcode = (int)gasneti_atomic_read(&gasnetc_exit_code);
   static gasneti_atomic_t once = gasneti_atomic_init(1);
@@ -1762,11 +1768,15 @@ static void gasnetc_exit_sighandler(int sig) {
   #if GASNET_DEBUG
   /* note - can't call trace macros here, or even sprintf */
   if (sig == SIGALRM) {
-    static const char msg[] = "gasnet_exit(): timeout during exit... goodbye\n";
+    static const char msg[] = "gasnet_exit(): timeout during exit... goodbye.  [";
+    const char * state = gasnetc_exit_state;
     write(STDERR_FILENO, msg, sizeof(msg) - 1);
+    write(STDERR_FILENO, state, strlen(state));
+    write(STDERR_FILENO, "]\n", 2);
   } else {
     static const char msg1[] = "gasnet_exit(): signal ";
-    static const char msg2[] = " received during exit... goodbye\n";
+    static const char msg2[] = " received during exit... goodbye.  [";
+    const char * state = gasnetc_exit_state;
     char digit;
 
     write(STDERR_FILENO, msg1, sizeof(msg1) - 1);
@@ -1780,12 +1790,15 @@ static void gasnetc_exit_sighandler(int sig) {
     write(STDERR_FILENO, &digit, 1);
     
     write(STDERR_FILENO, msg2, sizeof(msg2) - 1);
+    write(STDERR_FILENO, state, strlen(state));
+    write(STDERR_FILENO, "]\n", 2);
   }
   #endif
 
   if (gasneti_atomic_decrement_and_test(&once)) {
     /* We ask the bootstrap support to kill us, but only once */
     gasneti_reghandler(SIGALRM, gasnetc_exit_sighandler);
+    GASNETC_EXIT_STATE("in suicide timer");
     alarm(5);
     gasneti_bootstrapAbort(exitcode);
   } else {
@@ -1863,6 +1876,7 @@ static int gasnetc_exit_slave(int64_t timeout_us) {
   }
 
   /* wait until out reply has been placed on the wire */
+  gasneti_sync_reads(); /* For non-atomic portion of gasnetc_exit_repl_oust */
   gasnetc_counter_wait(&gasnetc_exit_repl_oust, 1);
 
   return 0;
@@ -1930,6 +1944,7 @@ static void gasnetc_exit_body(void) {
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
 
   /* Try to flush out all the output, allowing upto 30s */
+  GASNETC_EXIT_STATE("flushing output");
   alarm(30);
   {
     gasneti_flush_streams();
@@ -1939,10 +1954,12 @@ static void gasnetc_exit_body(void) {
   }
 
   /* Determine our role (master or slave) in the coordination of this shutdown */
+  GASNETC_EXIT_STATE("determining exit role");
   alarm(10);
   role = gasnetc_get_exit_role();
 
   /* Attempt a coordinated shutdown */
+  GASNETC_EXIT_STATE("coordinating shutdown");
   timeout_us = 2000000 + gasneti_nodes*250000; /* 2s + 0.25s * nodes */
   alarm(1 + timeout_us/1000000);
   switch (role) {
@@ -1963,17 +1980,21 @@ static void gasnetc_exit_body(void) {
   /* Clean up transport resources, allowing upto 30s */
   alarm(30);
   { gasnetc_hca_t *hca = NULL;
+    GASNETC_EXIT_STATE("in gasnetc_sndrcv_fini_peer()");
     for (i = 0; i < gasneti_nodes; ++i) {
       gasnetc_sndrcv_fini_peer(i);
     }
+    GASNETC_EXIT_STATE("in gasnetc_sndrcv_fini()");
     gasnetc_sndrcv_fini();
     if (gasneti_attach_done) {
       if (GASNETC_USE_FIREHOSE && !gasnetc_exit_in_signal) {
 	/* Note we skip firehose_fini() on exit via a signal */
+        GASNETC_EXIT_STATE("in firehose_fini()");
         firehose_fini();
       }
 #if GASNETC_PIN_SEGMENT
       GASNETC_FOR_ALL_HCA(hca) {
+        GASNETC_EXIT_STATE("in gasnetc_unpin()");
         for (i=0; i<gasnetc_seg_reg_count; ++i) {
       	  gasnetc_unpin(&hca->seg_reg[i]);
         }
@@ -1982,15 +2003,18 @@ static void gasnetc_exit_body(void) {
 #endif
     }
     GASNETC_FOR_ALL_HCA(hca) {
+      GASNETC_EXIT_STATE("in VAPI_dealloc_pd()");
       (void)VAPI_dealloc_pd(hca->handle, hca->pd);
-      if (gasnetc_use_rcv_thread)	{
+      if (!gasnetc_use_rcv_thread)	{
         /* can't release if we could possibly be inside the RCV thread */
+        GASNETC_EXIT_STATE("in EVAPI_release_hca_hndl()");
         (void)EVAPI_release_hca_hndl(hca->handle);
       }
     }
   }
 
   /* Try again to flush out any recent output, allowing upto 5s */
+  GASNETC_EXIT_STATE("closing output");
   alarm(5);
   {
     gasneti_flush_streams();
@@ -2003,9 +2027,17 @@ static void gasnetc_exit_body(void) {
   alarm(10);
   {
     if (graceful) {
+      #if GASNET_DEBUG_VERBOSE
+	fprintf(stderr, "Graceful exit initiated by node %d\n", (int)gasneti_mynode);
+      #endif
+      GASNETC_EXIT_STATE("in gasneti_bootstrapFini()");
       gasneti_bootstrapFini();
     } else {
       /* We couldn't reach our peers, so hope the bootstrap code can kill the entire job */
+      #if GASNET_DEBUG_VERBOSE
+	fprintf(stderr, "Ungraceful exit initiated by node %d\n", (int)gasneti_mynode);
+      #endif
+      GASNETC_EXIT_STATE("in gasneti_bootstrapAbort()");
       gasneti_bootstrapAbort(exitcode);
       /* NOT REACHED */
     }
@@ -2036,9 +2068,6 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
   /* We should never receive this AM multiple times */
   gasneti_assert(gasneti_atomic_read(&gasnetc_exit_reqs) == 0);
 
-  /* Count the exit requests, so gasnetc_exit_wait() knows when to return */
-  gasneti_atomic_increment(&gasnetc_exit_reqs);
-
   /* If we didn't already know, we are now certain our role is "slave" */
   (void)gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE);
 
@@ -2046,6 +2075,10 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
   rc = gasnetc_ReplySystem(token, &gasnetc_exit_repl_oust,
 		  	   gasneti_handleridx(gasnetc_SYS_exit_rep), /* no args */ 0);
   gasneti_assert(rc == GASNET_OK);
+
+  /* Count the exit requests, so gasnetc_exit_slave() knows when to return */
+  gasneti_sync_writes(); /* For non-atomic portion of gasnetc_exit_repl_oust */
+  gasneti_atomic_increment(&gasnetc_exit_reqs);
 
   /* Initiate an exit IFF this is the first we've heard of it */
   if (gasnetc_exit_head(args[0])) {
