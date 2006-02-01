@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/02/01 01:46:41 $
- * $Revision: 1.55 $
+ *     $Date: 2006/02/01 18:19:34 $
+ * $Revision: 1.56 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -429,7 +429,6 @@ static void do_abort(unsigned char exitcode) {
   } else {
     in_abort = 1;
   }
-fprintf(stderr, "Proc %d : in do_abort()\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
 
   do_oob(exitcode);
   if (is_master) {
@@ -473,7 +472,6 @@ static void reap_one(pid_t pid, int status)
 	}
         if (!finalized) {
 	  BOOTSTRAP_VERBOSE(("[%d] Process %d exited before finalize\n", is_master ? -1 : myproc, child[j].rank));
-fprintf(stderr, "Proc -1 : child %d reaped w/o finalize -> abort\n",j); fflush(NULL); /* to help find bug 1392 */
 	  do_abort(-1);
 	}
 	break;
@@ -508,7 +506,6 @@ static void wait_for_all(void)
   sigset_t child_set;
   sigset_t old_set;
 
-fprintf(stderr, "Proc %d : ENTER wait_for_all()\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
   sigemptyset(&child_set);
   sigaddset(&child_set, SIGCHLD);
   sigprocmask(SIG_BLOCK, &child_set, &old_set);
@@ -524,7 +521,6 @@ fprintf(stderr, "Proc %d : ENTER wait_for_all()\n",  is_master ? -1 : myproc); f
 			    is_master ? -1 : myproc, gasneti_atomic_read(&live)));
     sigsuspend(&old_set);
   }
-fprintf(stderr, "Proc %d : LEAVE wait_for_all()\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
 }
 
 static void sigurg_handler(int sig)
@@ -547,7 +543,6 @@ static void sigurg_handler(int sig)
     }
   }
 
-fprintf(stderr, "Proc %d : rcv SIGURG\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
   do_abort(exitcode);
   /* NOT REACHED */
 }
@@ -558,7 +553,6 @@ static void do_write(int fd, const void *buf, size_t len)
   while (len) {
     ssize_t rc = write(fd, p, len);
     if_pf (rc <= 0) {
-fprintf(stderr, "Proc %d : write() failed w/ errno=%d\n",  is_master ? -1 : myproc, errno); fflush(NULL); /* to help find bug 1392 */
       do_abort(-1);
       break;
     }
@@ -579,7 +573,6 @@ static void do_read(int fd, void *buf, size_t len)
   while (len) {
     ssize_t rc = read(fd, p, len);
     if_pf (rc <= 0) {
-fprintf(stderr, "Proc %d : read() failed w/ errno=%d\n",  is_master ? -1 : myproc, errno); fflush(NULL); /* to help find bug 1392 */
       do_abort(-1);
       break;
     }
@@ -1307,15 +1300,12 @@ static void do_master(int argc, char **argv) {
 	if (errno == EINTR) {
 	  continue;
 	} else {
-fprintf(stderr, "Proc %d : select() failed w/ errno=%d\n",  is_master ? -1 : myproc, errno); fflush(NULL); /* to help find bug 1392 */
 	  do_abort(-1);
 	  break;
 	}
       }
-fprintf(stderr, "Proc %d : select() returned %d\n",  is_master ? -1 : myproc, rc); fflush(NULL); /* to help find bug 1392 */
 
       /* Peek 1 command byte */
-      /* Read 1 command byte */
       for (i = 0; i < children; ++i) {
 	if (FD_ISSET(child[i].sock, &fds)) {
 	  break;
@@ -1325,7 +1315,6 @@ fprintf(stderr, "Proc %d : select() returned %d\n",  is_master ? -1 : myproc, rc
       rc = recv(child[i].sock, &cmd, sizeof(cmd), MSG_PEEK);
       if (rc != sizeof(cmd)) {
 	/* do_read() hit EOF because a child has died */
-fprintf(stderr, "Proc %d : recv(%d,MSG_PEEK) failed w/ rc=%d errno=%d\n",  is_master ? -1 : myproc, i, rc, errno); fflush(NULL); /* to help find bug 1394 */
 	break;
       }
 
@@ -1587,7 +1576,6 @@ void gasneti_bootstrapFini_ssh(void) {
   char cmd;
   int j;
 
-fprintf(stderr, "Proc %d : ENTER Finalize code\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
 #if GASNETI_BOOTSTRAP_FLAT_TREE
   if (is_master) {
     for (j = 0; j < children; ++j) {
@@ -1606,7 +1594,6 @@ fprintf(stderr, "Proc %d : ENTER Finalize code\n",  is_master ? -1 : myproc); ff
     do_read(parent, &cmd, sizeof(cmd));
     gasneti_assert(cmd == BOOTSTRAP_CMD_FINI1);
   }
-fprintf(stderr, "Proc %d : LEAVE Finalize code\n",  is_master ? -1 : myproc); fflush(NULL); /* to help find bug 1392 */
 #else
   gasneti_assert(!is_master);
   for (j = 0; j < children; ++j) {
@@ -1644,7 +1631,6 @@ fprintf(stderr, "Proc %d : LEAVE Finalize code\n",  is_master ? -1 : myproc); ff
  */
 void gasneti_bootstrapAbort_ssh(int exitcode) {
   gasneti_assert(!is_master);
-fprintf(stderr, "Proc %d : client called bootstrapAbort w/ exitcode=%d\n",  is_master ? -1 : myproc, exitcode); fflush(NULL); /* to help find bug 1392 */
   do_abort((unsigned char)exitcode);
   abort();
   /* NOT REACHED */
