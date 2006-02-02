@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/01/28 01:33:53 $
- * $Revision: 1.115 $
+ *     $Date: 2006/02/02 01:53:23 $
+ * $Revision: 1.116 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -228,8 +228,8 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 #if defined(__i386__) || defined(__x86_64__)
   /* Since the LOCK prefix is already a full mb() */
-  #define gasneti_wmb_before_atomic_op()	do {} while (0)
-  #define gasneti_rmb_after_atomic_op()		do {} while (0)
+  #define gasneti_wmb_before_atomic_op()	gasneti_compiler_fence()
+  #define gasneti_rmb_after_atomic_op()		gasneti_compiler_fence()
 #else
   #define gasneti_wmb_before_atomic_op()	gasneti_sync_writes()
   #define gasneti_rmb_after_atomic_op()		gasneti_sync_reads()
@@ -246,6 +246,75 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 #if !GASNETC_ANY_PAR
   /* No threads, so we use the mutex code that compiles away. */
+#elif defined(__i386__) || defined(__x86_64__)
+  /* optimized implementation for x86 and x86-64 systems */
+
+  typedef gasneti_weakatomic_t _gasnetc_sema_t;
+
+  #define _GASNETC_SEMA_INITIALIZER(N) {gasneti_weakatomic_init(N)}
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_init)
+  void _gasnetc_sema_init(_gasnetc_sema_t *s, int n) {
+    gasneti_weakatomic_set(s, n);
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_destroy)
+  void _gasnetc_sema_destroy(_gasnetc_sema_t *s) {
+    /* Nothing */
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_read)
+  uint32_t _gasnetc_sema_read(_gasnetc_sema_t *s) {
+    return gasneti_weakatomic_read(s);
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_up)
+  void _gasnetc_sema_up(_gasnetc_sema_t *s) {
+    __asm__ __volatile__ (GASNETI_LOCK "incl %0" : "=m" (*s) : : "cc", "memory");
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown)
+  int _gasnetc_sema_trydown(_gasnetc_sema_t *s) {
+    register int tmp, retval;
+
+    __asm__ __volatile__ ("movl		%0, %1		\n\t"	/* retval = *s */
+		          "1: testl	%1, %1		\n\t"	/* test retval */
+		          "leal		-1(%1), %2	\n\t"	/* tmp = retval-1 w/o changing cc */
+		          "je		2f		\n\t"	/* fail if retval 0 */
+             GASNETI_LOCK "cmpxchgl	%2, %0		\n\t"	/* swap */
+                          "jne		1b		\n\t"	/* retry on conflict */
+			  "2: "
+                                : "=m" (*s), "=&a" (retval), "=&r" (tmp)
+				: /* no inputs */
+                                : "cc", "memory");
+
+    return retval;
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_up_n)
+  void _gasnetc_sema_up_n(_gasnetc_sema_t *s, uint32_t n) {
+    __asm__ __volatile__ (GASNETI_LOCK "addl %1, %0" : "=m" (*s) : "ri" (n) : "cc", "memory");
+  }
+
+  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown_n)
+  uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
+    register int oldval, newval;
+
+    __asm__ __volatile__ ("movl		%0, %1		\n\t"	/* oldval = *s */
+		          "1: movl	%1, %2		\n\t"	/* newval = ... */
+		          "subl		%3, %2		\n\t"	/*          oldval - n */
+		          "js		2f		\n\t"	/* fail if newval < 0 */
+             GASNETI_LOCK "cmpxchgl	%2, %0		\n\t"	/* swap */
+                          "jne		1b		\n\t"	/* retry on conflict */
+			  "2: "
+                                : "=m" (*s), "=&a" (oldval), "=&r" (newval)
+				: "ri" (n)
+                                : "cc", "memory");
+
+    return (newval >= 0);
+  }
+
+  #define GASNETC_HAVE_ARCH_SEMA 1
 #elif defined(GASNETI_HAVE_ATOMIC_CAS)
   /* Semi-generic implementation for CAS-capable systems */
 
@@ -401,7 +470,7 @@ typedef struct {
 #if GASNET_DEBUG
   #define GASNETC_SEMA_INITIALIZER(N) {_GASNETC_SEMA_INITIALIZER(N), (N),}
   #define GASNETC_SEMA_CHECK(_s)	do {                                  \
-      uint32_t _tmp = _gasnetc_sema_read(&(_s)->S);                           \
+      int32_t _tmp = _gasnetc_sema_read(&(_s)->S);                            \
       gasneti_assert((_tmp >= 0) && ((_tmp <= (_s)->limit) || !(_s)->limit)); \
     } while (0)
 #else
