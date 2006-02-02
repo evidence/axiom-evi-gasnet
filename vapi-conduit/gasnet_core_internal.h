@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/02/02 01:53:23 $
- * $Revision: 1.116 $
+ *     $Date: 2006/02/02 03:18:41 $
+ * $Revision: 1.117 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -246,7 +246,8 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 #if !GASNETC_ANY_PAR
   /* No threads, so we use the mutex code that compiles away. */
-#elif defined(__i386__) || defined(__x86_64__)
+#elif (defined(__i386__) || defined(__x86_64__)) && \
+	(defined(__GNUC__) || defined(__INTEL_COMPILER))
   /* optimized implementation for x86 and x86-64 systems */
 
   typedef gasneti_weakatomic_t _gasnetc_sema_t;
