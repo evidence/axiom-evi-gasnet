@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.68 $
+$Revision: 1.69 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -469,7 +469,7 @@ There are a few other important caveats to be aware of when mixing GASNet and MP
  and MPI code must be followed by an MPI_Barrier--is followed, deadlock should
  not occur. This usage is demonstrated in the code above.
 
-* GASNet and MPI both number processes with a unique non-zero index (ie gasnet_mynode()
+* GASNet and MPI both number processes with a unique non-negative index (ie gasnet_mynode()
   and MPI_Comm_rank(MPI_COMM_WORLD)). Every attempt is made to ensure this
   numbering matches between layers, but it might not always be possible to ensure this. 
   To maximize portability, apps using both layers should use a GASNet or MPI collective 
