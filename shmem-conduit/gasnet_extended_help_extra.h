@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_help_extra.h,v $
- *     $Date: 2005/08/13 08:23:14 $
- * $Revision: 1.3 $
+ *     $Date: 2006/02/04 07:51:32 $
+ * $Revision: 1.4 $
  * Description: GASNet Extended Shmem-specific Header 
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,16 +36,6 @@
 #endif
 
 #define GASNETE_OK  0 /* Always 0, same as GASNET_OK */
-
-#ifndef _GASNET_ERRORS
-#define _GASNET_ERRORS
-  #define _GASNET_ERR_BASE 10000
-  #define GASNET_ERR_NOT_INIT             (_GASNET_ERR_BASE+1)
-  #define GASNET_ERR_RESOURCE             (_GASNET_ERR_BASE+2)
-  #define GASNET_ERR_BAD_ARG              (_GASNET_ERR_BASE+3)
-  #define GASNET_ERR_NOT_READY            (_GASNET_ERR_BASE+4)
-  #define GASNET_ERR_BARRIER_MISMATCH     (_GASNET_ERR_BASE+5)
-#endif
 
 #if defined(CRAY_SHMEM)
   #include <intrinsics.h>
