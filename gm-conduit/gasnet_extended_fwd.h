@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_fwd.h,v $
- *     $Date: 2006/01/23 23:06:26 $
- * $Revision: 1.28 $
+ *     $Date: 2006/02/04 01:20:19 $
+ * $Revision: 1.29 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,10 +10,11 @@
   #error This file is not meant to be included directly- clients should include gasnet.h
 #endif
 
-#include <gm.h>
-
 #ifndef _GASNET_EXTENDED_FWD_H
 #define _GASNET_EXTENDED_FWD_H
+
+#include <gm.h>
+#include <firehose/firehose_trace.h>
 
 #define GASNET_EXTENDED_VERSION      1.7
 #define GASNET_EXTENDED_VERSION_STR  _STRINGIFY(GASNET_EXTENDED_VERSION)
@@ -44,6 +45,7 @@ typedef struct _gasnete_op_t *gasnet_handle_t;
 #define GASNETE_CONDUIT_STATS(CNT,VAL,TIME) 		\
         GASNETI_REFVIS_STATS(CNT,VAL,TIME)              \
         GASNETI_REFCOLL_STATS(CNT,VAL,TIME)             \
+	GASNETI_FIREHOSE_STATS(CNT,VAL,TIME)            \
         CNT(C, DYNAMIC_THREADLOOKUP, cnt)		\
 	VAL(C, FIREHOSE_MOVES, firehoses moved for puts)\
 	VAL(C, FIREHOSE_MOVE_OLD_BUCKETS,		\

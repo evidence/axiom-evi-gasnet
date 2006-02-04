@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2006/02/01 21:08:50 $
- * $Revision: 1.30 $
+ *     $Date: 2006/02/04 01:20:21 $
+ * $Revision: 1.31 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -891,6 +891,7 @@ retry:
 	FH_TABLE_LOCK;
 
 	priv = fhi_init_local_region(1, &pin_region);
+	GASNETI_TRACE_EVENT(C,FH_LOCAL_MISS);
     }
     else if_pf (!FH_IS_READY(1, priv)) {
 	/* We hit, but the region currently has only remote referrences and
@@ -909,6 +910,7 @@ retry:
     else {
 	/* HIT on a region we can acquire w/o blocking */
 	fh_priv_acquire_local(1, priv);
+	GASNETI_TRACE_EVENT(C,FH_LOCAL_HIT);
     }
 
     CP_PRIV_TO_REQ(req, priv);

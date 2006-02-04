@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2005/12/08 19:35:02 $
- * $Revision: 1.49 $
+ *     $Date: 2006/02/04 01:20:21 $
+ * $Revision: 1.50 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2222,6 +2222,12 @@ again:
         /* 
 	 * We have everything we need... commit
 	 */
+	if (pin_p->regions_num) {
+	    GASNETI_TRACE_EVENT(C,FH_LOCAL_MISS);
+	}
+	else {
+	    GASNETI_TRACE_EVENT(C,FH_LOCAL_HIT);
+	}
 
 	FH_TABLE_ASSERT_LOCKED;
         FH_TABLE_UNLOCK;
@@ -2743,6 +2749,10 @@ fh_acquire_local_region(firehose_request_t *req)
 					 pin_p->regions, pin_p->regions_num);
 
 		fhi_FreeRegionPool(unpin_p);
+		GASNETI_TRACE_EVENT(C,FH_LOCAL_MISS);
+	}
+	else {
+		GASNETI_TRACE_EVENT(C,FH_LOCAL_HIT);
 	}
 
 	fhi_FreeRegionPool(pin_p);

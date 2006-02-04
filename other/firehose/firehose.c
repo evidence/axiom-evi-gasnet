@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2005/12/06 00:33:35 $
- * $Revision: 1.26 $
+ *     $Date: 2006/02/04 01:20:21 $
+ * $Revision: 1.27 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -265,7 +265,9 @@ firehose_local_pin(uintptr_t addr, size_t nbytes, firehose_request_t *ureq)
 	req->addr   = FH_ADDR_ALIGN(addr);
 	req->len    = FH_SIZE_ALIGN(addr,nbytes);
 	req->flags |= FH_FLAG_PINNED;
+	GASNETI_TRACE_EVENT_VAL(C,FH_LOCAL_PIN,(req->len >> FH_BUCKET_SHIFT));
 
+	/* HIT/MISS tracing is done in fh_acquire_local_region() */
 	fh_acquire_local_region(req);
 
 	FH_TABLE_UNLOCK;
@@ -280,6 +282,7 @@ firehose_try_local_pin(uintptr_t addr, size_t len, firehose_request_t *ureq)
 
 	addr = FH_ADDR_ALIGN(addr);
 	len  = FH_SIZE_ALIGN(addr,len);
+	GASNETI_TRACE_EVENT_VAL(C,FH_TRY_LOCAL_PIN,(len >> FH_BUCKET_SHIFT));
 
 	FH_TABLE_LOCK;
 	if (fh_region_ispinned(fh_mynode, addr, len)) {
@@ -290,6 +293,10 @@ firehose_try_local_pin(uintptr_t addr, size_t len, firehose_request_t *ureq)
 		req->flags |= FH_FLAG_PINNED;
 
 		fh_commit_try_local_region(req);
+		GASNETI_TRACE_EVENT(C,FH_TRY_LOCAL_HIT);
+	}
+	else {
+		GASNETI_TRACE_EVENT(C,FH_TRY_LOCAL_MISS);
 	}
 	FH_TABLE_UNLOCK;
 
@@ -304,6 +311,7 @@ firehose_partial_local_pin(uintptr_t addr, size_t len,
 
 	addr = FH_ADDR_ALIGN(addr);
 	len  = FH_SIZE_ALIGN(addr,len);
+	GASNETI_TRACE_EVENT_VAL(C,FH_PARTIAL_LOCAL_PIN,(len >> FH_BUCKET_SHIFT));
 
 	FH_TABLE_LOCK;
 	if (fh_region_partial(fh_mynode, &addr, &len)) {
@@ -314,6 +322,10 @@ firehose_partial_local_pin(uintptr_t addr, size_t len,
 		req->flags |= FH_FLAG_PINNED;
 
 		fh_commit_try_local_region(req);
+		GASNETI_TRACE_EVENT(C,FH_PARTIAL_LOCAL_HIT);
+	}
+	else {
+		GASNETI_TRACE_EVENT(C,FH_PARTIAL_LOCAL_MISS);
 	}
 	FH_TABLE_UNLOCK;
 
@@ -340,6 +352,7 @@ firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 	req->node = node;
 	req->addr = FH_ADDR_ALIGN(addr); 
 	req->len  = FH_SIZE_ALIGN(addr,len);
+	GASNETI_TRACE_EVENT_VAL(C,FH_REMOTE_PIN,(req->len >> FH_BUCKET_SHIFT));
 
 	fh_acquire_remote_region(req, callback, context, flags, remote_args_callback);
 
@@ -351,6 +364,7 @@ firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 		 * callback or return to user.  If it could not be pinned, the
 		 * callback will be subsequently called from within the
 		 * firehose library */
+		GASNETI_TRACE_EVENT(C, FH_REMOTE_HIT);
 
 		if (flags & FIREHOSE_FLAG_RETURN_IF_PINNED) {
 			return req;
@@ -360,6 +374,12 @@ firehose_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 			    ("Firehose callback req=%p", req));
 			callback(context, req, 1);
 		}
+	}
+	else if (req->flags & FH_FLAG_INFLIGHT) {
+		GASNETI_TRACE_EVENT(C, FH_REMOTE_MISS);
+	}
+	else {
+		GASNETI_TRACE_EVENT(C, FH_REMOTE_PENDING);
 	}
 
 	return NULL;
@@ -376,6 +396,7 @@ firehose_try_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 
 	addr = FH_ADDR_ALIGN(addr);
 	len  = FH_SIZE_ALIGN(addr,len);
+	GASNETI_TRACE_EVENT_VAL(C,FH_TRY_REMOTE_PIN,(len >> FH_BUCKET_SHIFT));
 
 	FH_TABLE_LOCK;
 
@@ -386,6 +407,10 @@ firehose_try_remote_pin(gasnet_node_t node, uintptr_t addr, size_t len,
 		req->len  = len;
 
 		fh_commit_try_remote_region(req);
+		GASNETI_TRACE_EVENT(C,FH_TRY_REMOTE_HIT);
+	}
+	else {
+		GASNETI_TRACE_EVENT(C,FH_TRY_REMOTE_MISS);
 	}
 	FH_TABLE_UNLOCK;
 
@@ -404,6 +429,7 @@ firehose_partial_remote_pin(gasnet_node_t node, uintptr_t addr,
 
 	addr = FH_ADDR_ALIGN(addr);
 	len  = FH_SIZE_ALIGN(addr,len);
+	GASNETI_TRACE_EVENT_VAL(C,FH_PARTIAL_REMOTE_PIN,(len >> FH_BUCKET_SHIFT));
 
 	FH_TABLE_LOCK;
 
@@ -414,6 +440,10 @@ firehose_partial_remote_pin(gasnet_node_t node, uintptr_t addr,
 		req->len  = len;
 
 		fh_commit_try_remote_region(req);
+		GASNETI_TRACE_EVENT(C,FH_TRY_REMOTE_HIT);
+	}
+	else {
+		GASNETI_TRACE_EVENT(C,FH_TRY_REMOTE_MISS);
 	}
 	FH_TABLE_UNLOCK;
 
@@ -424,6 +454,8 @@ extern void
 firehose_release(firehose_request_t const **reqs, int numreqs)
 {
 	int			i;
+
+	GASNETI_TRACE_EVENT_VAL(C, FH_RELEASE, numreqs);
 
 	FH_TABLE_LOCK;
 
@@ -505,6 +537,8 @@ fh_request_new(firehose_request_t *ureq)
 	else {
 		firehose_request_t	*buf;
 		int			 i;
+
+		GASNETI_STAT_EVENT_VAL(C, FH_REQUEST_ALLOC, FH_REQUEST_ALLOC_PERIDX);
 
 		if (fh_request_bufidx == 256)
 			gasneti_fatalerror("Firehose: Ran out "
