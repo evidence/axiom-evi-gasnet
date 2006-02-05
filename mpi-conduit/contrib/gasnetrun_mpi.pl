@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/02/02 01:37:46 $
-# $Revision: 1.37 $
+#     $Date: 2006/02/05 02:11:42 $
+# $Revision: 1.38 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -125,7 +125,8 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	# the OS already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1
                   );
-        $extra_quote_argv = 1;
+	# what a mess: pbsyod needs extra quoting, bare yod does not...
+        #$extra_quote_argv = 1;
     } elsif ($is_bgl_mpi) {
 	$spawner_desc = "IBM BG/L MPI";
 	# pass as: -exp_env A -exp_env B
