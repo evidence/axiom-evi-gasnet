@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/02/02 03:18:41 $
- * $Revision: 1.117 $
+ *     $Date: 2006/02/07 00:31:13 $
+ * $Revision: 1.118 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -278,9 +278,14 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   int _gasnetc_sema_trydown(_gasnetc_sema_t *s) {
     register int tmp, retval;
 
+    #if defined(__x86_64__) /* 1-character difference for 32-bit arithmetic via leal (bug 1411) */
+      #define _GASNETC_SEMA_LEAL "leal	-1(%q1), %2"
+    #else
+      #define _GASNETC_SEMA_LEAL "leal	-1(%1), %2"
+    #endif
     __asm__ __volatile__ ("movl		%0, %1		\n\t"	/* retval = *s */
 		          "1: testl	%1, %1		\n\t"	/* test retval */
-		          "leal		-1(%1), %2	\n\t"	/* tmp = retval-1 w/o changing cc */
+		          _GASNETC_SEMA_LEAL	       "\n\t"   /* tmp = retval-1 w/o changing cc */
 		          "je		2f		\n\t"	/* fail if retval 0 */
              GASNETI_LOCK "cmpxchgl	%2, %0		\n\t"	/* swap */
                           "jne		1b		\n\t"	/* retry on conflict */
@@ -288,6 +293,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
                                 : "=m" (*s), "=&a" (retval), "=&r" (tmp)
 				: /* no inputs */
                                 : "cc", "memory");
+    #undef _GASNETC_SEMA_LEAL
 
     return retval;
   }
