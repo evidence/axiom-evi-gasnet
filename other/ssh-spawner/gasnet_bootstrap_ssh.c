@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/02/01 18:19:34 $
- * $Revision: 1.56 $
+ *     $Date: 2006/02/07 04:04:32 $
+ * $Revision: 1.57 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1644,7 +1644,12 @@ void gasneti_bootstrapBarrier_ssh(void) {
   if (is_master) {
     for (j = 0; j < children; ++j) {
       do_read(child[j].sock, &cmd, sizeof(cmd));
-      gasneti_assert(cmd == BOOTSTRAP_CMD_BARR0);
+      if_pf (cmd == BOOTSTRAP_CMD_FINI0) {
+	/* looks like an exit between gasnet_init() and gasnet_attach() */
+	do_abort(255);
+	break;
+      }
+      gasneti_assert(cmd == BOOTSTRAP_CMD_BARR0 || in_abort);
     }
     if (in_abort) return;
     cmd = BOOTSTRAP_CMD_BARR1;
@@ -1684,6 +1689,11 @@ void gasneti_bootstrapExchange_ssh(void *src, size_t len, void *dest) {
     char cmd, *tmp, *p;
     for (j = 0; j < children; ++j) {
       do_read(child[j].sock, &cmd, sizeof(cmd));
+      if_pf (cmd == BOOTSTRAP_CMD_FINI0) {
+	/* looks like an exit between gasnet_init() and gasnet_attach() */
+	do_abort(255);
+	break;
+      }
       gasneti_assert(cmd == BOOTSTRAP_CMD_EXCHG || in_abort);
       do_read(child[j].sock, &len, sizeof(len));
     }
@@ -1731,6 +1741,11 @@ void gasneti_bootstrapAlltoall_ssh(void *src, size_t len, void *dest) {
     size_t row_len;
     for (j = 0; j < children; ++j) {
       do_read(child[j].sock, &cmd, sizeof(cmd));
+      if_pf (cmd == BOOTSTRAP_CMD_FINI0) {
+	/* looks like an exit between gasnet_init() and gasnet_attach() */
+	do_abort(255);
+	break;
+      }
       gasneti_assert(cmd == BOOTSTRAP_CMD_TRANS || in_abort);
       do_read(child[j].sock, &len, sizeof(len));
     }
@@ -1803,6 +1818,11 @@ void gasneti_bootstrapBroadcast_ssh(void *src, size_t len, void *dest, int rootn
     char cmd, *tmp;
     for (j = 0; j < children; ++j) {
       do_read(child[j].sock, &cmd, sizeof(cmd));
+      if_pf (cmd == BOOTSTRAP_CMD_FINI0) {
+	/* looks like an exit between gasnet_init() and gasnet_attach() */
+	do_abort(255);
+	break;
+      }
       gasneti_assert(cmd == BOOTSTRAP_CMD_BCAST || in_abort);
       do_read(child[j].sock, &len, sizeof(len));
       do_read(child[j].sock, &rootnode, sizeof(rootnode));
