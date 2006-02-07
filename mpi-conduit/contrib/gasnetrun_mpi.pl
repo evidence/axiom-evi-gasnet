@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/02/05 06:02:19 $
-# $Revision: 1.39 $
+#     $Date: 2006/02/07 23:04:23 $
+# $Revision: 1.40 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -38,7 +38,8 @@ my $extra_quote_argv = 0; # add extra quotes around each argument
 my $group_join_argv = 0; # join all the args into one for %A?
 my $force_nonempty_argv = 0; # if args are empty, still pass empty arg for %A
 my $tmpdir = undef;
-my $nodefile = $ENV{'GASNET_NODEFILE'} || $ENV{'PBS_NODEFILE'};
+my $nodefile = $ENV{'GASNET_NODEFILE'} || $ENV{'PBS_NODEFILE'} ||
+		($ENV{'PE_HOSTFILE'} && $ENV{'TMP'} && "$ENV{'TMP'}/machines");
 my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile") : ();
 
 # Define how to pass the environment vars

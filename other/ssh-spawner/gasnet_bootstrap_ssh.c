@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/02/07 04:04:32 $
- * $Revision: 1.57 $
+ *     $Date: 2006/02/07 23:04:25 $
+ * $Revision: 1.58 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -832,6 +832,8 @@ static void build_nodelist(void)
   } else if ((env_string = getenv(ENV_PREFIX "SSH_SERVERS")) != NULL && strlen(env_string)) {
     nodelist = parse_servers(env_string);
   } else if ((env_string = getenv("PBS_NODEFILE")) != NULL && strlen(env_string)) {
+    nodelist = parse_nodefile(env_string);
+  } else if ((env_string = getenv("PE_HOSTFILE")) != NULL && strlen(env_string)) {
     nodelist = parse_nodefile(env_string);
   } else if ((env_string = getenv("SSS_HOSTLIST")) != NULL && strlen(env_string)) {
     nodelist = parse_servers(env_string);
