@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2005/10/01 10:23:49 $
- * $Revision: 1.41 $
+ *     $Date: 2006/02/08 08:52:48 $
+ * $Revision: 1.42 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -289,11 +289,6 @@ END_EXTERNC
   /*  SIZEOF_GASNET_REGISTER_VALUE_T is a preprocess-time literal integer constant (i.e. not "sizeof()")indicating the size of this type in bytes */
   typedef uintptr_t gasnet_register_value_t;
   #define SIZEOF_GASNET_REGISTER_VALUE_T  SIZEOF_VOID_P
-#endif
-
-#ifndef _GASNET_THREADINFO_T
-#define _GASNET_THREADINFO_T
-  typedef void *gasnet_threadinfo_t;
 #endif
 
 #ifndef _GASNET_MEMVEC_T
