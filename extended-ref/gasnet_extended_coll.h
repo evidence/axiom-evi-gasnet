@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/Attic/gasnet_extended_coll.h,v $
- *     $Date: 2005/11/22 09:21:24 $
- * $Revision: 1.40 $
+ *     $Date: 2006/02/08 18:39:54 $
+ * $Revision: 1.41 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1999,16 +1999,16 @@ struct gasnete_coll_generic_data_t_ {
 	GASNETE_COLL_GENERIC_TAG(scatterM),
 	GASNETE_COLL_GENERIC_TAG(gatherM),
 	GASNETE_COLL_GENERIC_TAG(gather_allM),
-	GASNETE_COLL_GENERIC_TAG(exchangeM),
+	GASNETE_COLL_GENERIC_TAG(exchangeM)
 	#if GASNET_PAR
 	  /* Single-address/multi-thread interfaces: */
-	  GASNETE_COLL_GENERIC_TAG(broadcastT),
+	  , GASNETE_COLL_GENERIC_TAG(broadcastT),
 	  GASNETE_COLL_GENERIC_TAG(scatterT),
 	  GASNETE_COLL_GENERIC_TAG(gatherT),
 	  GASNETE_COLL_GENERIC_TAG(gather_allT),
 	  GASNETE_COLL_GENERIC_TAG(exchangeT)
 	#endif
-	/* XXX: still need a few more */
+	/* XXX: still need a few more for scan and reduce */
 
 	/* Hook for conduit-specific extension */
 	#ifdef GASNETE_COLL_GENERIC_TAG_EXTRA
