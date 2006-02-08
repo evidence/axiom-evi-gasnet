@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/01/28 00:06:38 $
- * $Revision: 1.81 $
+ *     $Date: 2006/02/08 05:54:30 $
+ * $Revision: 1.82 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -60,7 +60,7 @@
     defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
     defined(_SX)       || /* NEC SX-6 atomics not available to user code? */ \
     (defined(__PGI) && defined(BROKEN_LINUX_ASM_ATOMIC_H)) || /* haven't implemented atomics for PGI */ \
-    defined(__SUNPRO_C) /* haven't implemented atomics for SunCC */
+    defined(__SUNPRO_C) || defined(__SUNPRO_CC) /* haven't implemented atomics for SunCC */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #endif
 /* misc rerequisites to detection logic below */
