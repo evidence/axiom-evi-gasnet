@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/02/01 23:37:21 $
- * $Revision: 1.163 $
+ *     $Date: 2006/02/08 23:18:16 $
+ * $Revision: 1.164 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2380,15 +2380,19 @@ extern int gasnetc_sndrcv_init(void) {
   gasnetc_op_oust_limit = gasnetc_num_qps * op_oust_per_qp;
   GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_NETWORKDEPTH_TOTAL = %d", gasnetc_op_oust_limit));
 
+  /* XXX: see bug 1418.  This code ends up ignoring gasnetc_am_oust_limit
+   * This is bad in terms of resource usage on large systems, but does have
+   * the benefit of preventing the deadlock described in bug 1418.
+   * Should consider removing gasnetc_am_oust_limit entirely if this is
+   * determined to be the best solution.
+   */
+  am_oust_per_qp = gasnetc_am_oust_pp;
   if (gasnetc_am_oust_limit == 0) { /* 0 = automatic limit computation */
-    int tmp = (gasnetc_hca[0].hca_cap.max_num_ent_cq - (gasnetc_use_rcv_thread ? 1 : 0)) / gasnetc_hca[0].total_qps;
-    am_oust_per_qp = tmp - gasnetc_am_oust_pp; /* Subtract space for incomming Reqs */
-    for (h = 1; h < gasnetc_num_hcas; ++h) {
-      int tmp = (gasnetc_hca[h].hca_cap.max_num_ent_cq - (gasnetc_use_rcv_thread ? 1 : 0)) / gasnetc_hca[h].total_qps;
+    GASNETC_FOR_ALL_HCA(hca) {
+      int tmp = (hca->hca_cap.max_num_ent_cq - (gasnetc_use_rcv_thread ? 1 : 0)) / hca->total_qps;
       am_oust_per_qp = MIN(am_oust_per_qp, tmp - gasnetc_am_oust_pp);
     }
   } else {
-    am_oust_per_qp = gasnetc_am_oust_limit / gasnetc_num_qps;
     GASNETC_FOR_ALL_HCA(hca) {
       int tmp = hca->total_qps * (gasnetc_am_oust_pp + am_oust_per_qp) + (gasnetc_use_rcv_thread ? 1 : 0);
       if (tmp > hca->hca_cap.max_num_ent_cq) {
@@ -2396,7 +2400,6 @@ extern int gasnetc_sndrcv_init(void) {
       }
     }
   }
-  am_oust_per_qp = MIN(am_oust_per_qp, gasnetc_am_oust_pp);
   gasnetc_am_oust_limit = gasnetc_num_qps * am_oust_per_qp;
   GASNETI_TRACE_PRINTF(C, ("Final/effective GASNET_AM_CREDITS_TOTAL = %d", gasnetc_am_oust_limit));
 
