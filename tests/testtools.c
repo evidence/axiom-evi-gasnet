@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/01/28 21:21:46 $
- * $Revision: 1.34 $
+ *     $Date: 2006/02/08 11:40:31 $
+ * $Revision: 1.35 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -457,18 +457,18 @@ void * thread_fn(void *arg) {
 
   #if defined(GASNETT_HAVE_ATOMIC_CAS)
     TEST_HEADER("parallel compare-and-swap test...") {
-      static gasneti_atomic_t counter2 = gasneti_atomic_init(0);
+      static gasnett_atomic_t counter2 = gasnett_atomic_init(0);
       uint32_t goal = (NUM_THREADS * iters);
       uint32_t woncnt = 0;
       uint32_t oldval;
       while (woncnt < iters &&
-             (oldval = gasneti_atomic_read(&counter2)) != goal) {
-        if (gasneti_atomic_compare_and_swap(&counter2, oldval, (oldval + 1))) {
+             (oldval = gasnett_atomic_read(&counter2)) != goal) {
+        if (gasnett_atomic_compare_and_swap(&counter2, oldval, (oldval + 1))) {
            woncnt++;
         }
       }
       THREAD_BARRIER();
-      oldval = gasneti_atomic_read(&counter2);
+      oldval = gasnett_atomic_read(&counter2);
       if (oldval != (NUM_THREADS * iters)) 
         ERR("failed compare-and-swap test: counter=%i expecting=%i", (int)oldval, (int)(NUM_THREADS * iters));
       if (woncnt != iters) 
