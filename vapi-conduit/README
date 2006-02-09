@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.40 $
+$Revision: 1.41 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -380,9 +380,8 @@ $Revision: 1.40 $
     be banked before a hidden Reply is generated to convey credits back
     to the requester.
     The default value is 1.
-    GASNET_AM_CREDITS_SLACK must be less than the value of
-    GASNET_AM_CREDITS_TOTAL/(nodes-1) and will automatically be reduced
-    if needed.
+    GASNET_AM_CREDITS_SLACK will be silently reduced if needed to
+    ensure deadlock will not occur.
     Reducing this parameter to zero or setting it too high may
     increase the latency of Active Message traffic.
 

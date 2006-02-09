@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/02/07 18:40:13 $
- * $Revision: 1.119 $
+ *     $Date: 2006/02/09 03:49:22 $
+ * $Revision: 1.120 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -891,7 +891,8 @@ typedef struct {
   char			*hca_id;
   VAPI_hca_cap_t	hca_cap;
   VAPI_hca_vendor_t	hca_vendor;
-  int			total_qps;
+  int			qps; /* qps per peer */
+  int			total_qps; /* total over all peers */
 
   void			*rbuf_alloc;
   gasneti_freelist_t	rbuf_freelist;

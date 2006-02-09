@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/02/01 18:54:02 $
- * $Revision: 1.154 $
+ *     $Date: 2006/02/09 03:49:22 $
+ * $Revision: 1.155 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -853,8 +853,15 @@ static int gasnetc_init(int *argc, char ***argv) {
     }
   }
   if (gasneti_nodes == 1) {
-    /* Avoid a later division by zero */
-    GASNETC_FOR_ALL_HCA(hca) { hca->total_qps = 1; }
+    GASNETC_FOR_ALL_HCA(hca) {
+      /* Avoid a later division by zero */
+      hca->total_qps = 1;
+      hca->qps = 1;
+    }
+  } else {
+    GASNETC_FOR_ALL_HCA(hca) {
+      hca->qps = hca->total_qps / (gasneti_nodes - 1);
+    }
   }
 
   /* Report/check hca and port properties */
