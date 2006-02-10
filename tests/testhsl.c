@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2006/01/28 21:21:46 $
- * $Revision: 1.14 $
+ *     $Date: 2006/02/10 07:38:12 $
+ * $Revision: 1.15 $
  * Description: GASNet HSL correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -217,26 +217,8 @@ int main(int argc, char **argv) {
     abort();
    } else {
   #if GASNET_PAR
-    int i;
-    pthread_t threadid[NUM_THREADS];
-
     MSG0("Spawning pthreads...");
-    #ifdef HAVE_PTHREAD_SETCONCURRENCY
-        pthread_setconcurrency(NUM_THREADS);
-    #endif
-
-    for(i=0;i<NUM_THREADS;i++) {
-      pthread_attr_t attr;   
-      pthread_attr_init(&attr);   
-      pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); 
-      if (pthread_create(&threadid[i], &attr, &thread_fn, (void *)(uintptr_t)i)) 
-        perror("pthread_create");
-    }
-
-    for(i=0;i<NUM_THREADS;i++) {
-      if (pthread_join(threadid[i], NULL))
-        perror("pthread_join");
-    }
+    test_createandjoin_pthreads(NUM_THREADS, &thread_fn, NULL, 0);
   #endif
    }
   }
@@ -255,9 +237,8 @@ done:
 
 #undef MSG0
 #undef ERR
-#define MSG0  test_makeMsg(("%s\n","%s"), (gasnet_mynode() == 0 && id == 0), 0, 0)
-#define ERR   test_makeMsg(("ERROR: thread %i: %s (at %s:%i)\n", \
-                            id, "%s", __FILE__, __LINE__), 1, 0, test_errs++)
+#define MSG0 THREAD_MSG0(id)
+#define ERR  THREAD_ERR(id)
 
 void * thread_fn(void *arg) {
   int id = (int)(uintptr_t)arg;

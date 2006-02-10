@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2006/01/28 21:21:46 $
- * $Revision: 1.18 $
+ *     $Date: 2006/02/10 07:38:12 $
+ * $Revision: 1.19 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -279,15 +279,7 @@ int main(int argc, char **argv) {
       break;
   #ifdef GASNET_PAR
     case 14: case 15: case 16: case 17: case 18: {
-      pthread_t *tt_tids = test_malloc(numpthreads*sizeof(pthread_t));
-      int i;
-      for (i = 1; i < numpthreads; i++) {
-        pthread_attr_t attr;
-        pthread_attr_init(&attr);
-        pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-        if (pthread_create(&tt_tids[i], &attr, workerthread, (void *)(intptr_t)i) != 0) { MSG("ERROR forking threads\n"); gasnet_exit(-1); }
-      }
-      workerthread(0);
+      test_createandjoin_pthreads(numpthreads, &workerthread, NULL, 0);
       break;
     }
   #endif

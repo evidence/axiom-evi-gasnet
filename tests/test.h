@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/01/28 21:21:46 $
- * $Revision: 1.73 $
+ *     $Date: 2006/02/10 07:38:12 $
+ * $Revision: 1.74 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -130,10 +130,16 @@ int test_errs;
                 test_makeMsg(("ERROR: node %i/%i %s (at %s:%i)\n",                                             \
                               (int)gasnet_mynode(), (int)gasnet_nodes(), "%s",__FILE__, __LINE__), 1, isfatal, \
                              (test_errs++, GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__)))
+  #define THREAD_MSG0(id)  test_makeMsg(("%s\n","%s"), (gasnet_mynode() == 0 && id == 0), 0, 0)
+  #define THREAD_ERR(id)   test_makeMsg(("ERROR: node %i/%i thread %i: %s (at %s:%i)\n", \
+                              (int)gasnet_mynode(), (int)gasnet_nodes(),id, "%s", __FILE__, __LINE__), 1, 0, test_errs++)
 #else
   #define MSG   test_makeMsg(("%s\n","%s"), 1, 0, 0)
   #define MSG0  MSG
   #define TERR(isfatal) test_makeMsg(("ERROR: %s (at %s:%i)\n","%s",__FILE__, __LINE__), 1, isfatal, test_errs++)
+  #define THREAD_MSG0(id)  test_makeMsg(("%s\n","%s"), (id == 0), 0, 0)
+  #define THREAD_ERR(id)   test_makeMsg(("ERROR: thread %i: %s (at %s:%i)\n", \
+                              id, "%s", __FILE__, __LINE__), 1, 0, test_errs++)
 #endif
 #define ERR      TERR(0)
 #define FATALERR TERR(1)
@@ -153,7 +159,7 @@ static char _test_baseformat[_TEST_MSG_BUFSZ];
 static volatile int _test_squashmsg = 0;
 static volatile int _test_fatalmsg = 0;
 #if defined(HAVE_PTHREAD_H) && !defined(GASNET_SEQ)
-  pthread_mutex_t _test_msg_lock = PTHREAD_MUTEX_INITIALIZER;
+  static pthread_mutex_t _test_msg_lock = PTHREAD_MUTEX_INITIALIZER;
   #define _test_LOCKMSG()   pthread_mutex_lock(&_test_msg_lock)
   #define _test_UNLOCKMSG() pthread_mutex_unlock(&_test_msg_lock)
 #else
@@ -374,6 +380,42 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
  "$TitaniumCompilerFlags: *** GASNet test *** -g $");
 #endif
 
+#if defined(HAVE_PTHREAD_H) && !defined(GASNET_SEQ)
+/* create numthreads pthreads to call start_routine. 
+   if threadarg_arr is NULL, then a unique 0-based integer threadid is passed as arg to start_routine
+   else threadarg_arr is an array of numthreads opaque datastructures of size threadarg_elemsz bytes each,
+     and each thread recieves a pointer to a unique element of this array as the arg to start_routine
+   then join the threads and add any non-zero results to test_errs
+ */
+static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(void *), 
+                                      void *threadarg_arr, size_t threadarg_elemsz) {
+    int i;
+    uint8_t *threadarg_pos = threadarg_arr;
+    pthread_t *threadid = test_malloc(sizeof(pthread_t)*numthreads);
+    #ifdef HAVE_PTHREAD_SETCONCURRENCY
+      pthread_setconcurrency(numthreads);
+    #endif
+
+    for(i=0;i<numthreads;i++) {
+      void *threadarg;
+      pthread_attr_t attr;   
+      pthread_attr_init(&attr);   
+      pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); /* ignore failures */
+      if (threadarg_arr == NULL) threadarg = (void *)(uintptr_t)i;
+      else { threadarg = threadarg_pos; threadarg_pos += threadarg_elemsz; }
+      check_zeroret(pthread_create(&threadid[i], &attr, start_routine, threadarg));
+      check_zeroret(pthread_attr_destroy(&attr));
+    }
+
+    for(i=0;i<numthreads;i++) {
+      void *retval = NULL;
+      check_zeroret(pthread_join(threadid[i], &retval));
+      test_errs += (intptr_t)retval;
+    }
+    test_free(threadid);
+  }
+#endif
+
 /* ------------------------------------------------------------------------------------ *
  * ------------------------------------------------------------------------------------ *
  *                        begin gasnet.h specific stuff                                 *
@@ -409,7 +451,7 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
   #if defined(__crayx1) || defined(__CYGWIN__)
     /* pthread_cond is unreliable on some versions of these OS's - use semaphores */
     #include <semaphore.h>
-    void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
+    static void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
       static pthread_mutex_t barrier_mutex = PTHREAD_MUTEX_INITIALIZER;
       static volatile int phase = 0;
       static volatile unsigned int barrier_count = 0;
@@ -439,7 +481,7 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
       }
     }
   #else
-    void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
+    static void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
       static pthread_cond_t barrier_cond[2] = /* must be phased on some OS's (HPUX) */
         { PTHREAD_COND_INITIALIZER, PTHREAD_COND_INITIALIZER };
       static pthread_mutex_t barrier_mutex[2] = 

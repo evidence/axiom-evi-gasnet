@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2006/01/29 23:20:50 $
- * $Revision: 1.23 $
+ *     $Date: 2006/02/10 07:38:12 $
+ * $Revision: 1.24 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -24,8 +24,6 @@
 
 #include "test.h"
 
-#define CACHE_LINE_BYTES	(128)
-
 #ifndef GASNET_PAR
 #error This test can only be built for GASNet PAR configuration
 #endif
@@ -39,7 +37,7 @@ struct _threaddata_t {
 	int	tid_peer_local; /* global thread id of local peer thread */
 
 	volatile int	flag;
-	char	_pad[CACHE_LINE_BYTES-5*sizeof(int)];
+	char _pad[GASNETT_CACHE_LINE_BYTES];
 } 
 threaddata_t;
 
@@ -77,7 +75,6 @@ int	sizes[] = { 0, /* gasnet_AMMaxMedium()-1      */
 
 int		AM_loopback = 0;
 int		threads_num;
-pthread_t	*tt_tids;
 gasnet_node_t	*tt_thread_map;
 void		**tt_addr_map;
 threaddata_t	*tt_thread_data;
@@ -164,7 +161,6 @@ main(int argc, char **argv)
 {
 	int 		threads = 1;
 	int		i;
-	pthread_t	*tids;
         const char *getopt_str;
         int opt_p=0, opt_g=0, opt_a=0, opt_m=0;
 
@@ -265,29 +261,8 @@ main(int argc, char **argv)
           attach_test_mpi();
         #endif
 
-	{
-		int 	i;
-		void	*ret;
-
-		MSG("Forking %d gasnet threads", threads);
-		for (i = 0; i < threads; i++) {
-                        pthread_attr_t attr;
-                        pthread_attr_init(&attr);
-                        pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-			if (pthread_create(&tt_tids[i], &attr, threadmain, 
-					(void *) &tt_thread_data[i]) != 0) {
-				printf("ERROR forking threads\n");
-				exit(EXIT_FAILURE);
-			}
-		}
-
-		for (i = 0; i < threads; i++) {
-			if (pthread_join(tt_tids[i], &ret) != 0) {
-				printf("ERROR joining threads\n");
-				exit(EXIT_FAILURE);
-			}
-		}
-	}
+	MSG("Forking %d gasnet threads", threads);
+        test_createandjoin_pthreads(threads, &threadmain, tt_thread_data, sizeof(threaddata_t));
 
         BARRIER();
 
@@ -339,7 +314,6 @@ alloc_thread_data(int threads)
 	nodes = gasnet_nodes();
 	tot_threads = nodes * threads;
 
-	tt_tids = (pthread_t *) test_malloc(sizeof(pthread_t) * threads);
 	tt_thread_map = (gasnet_node_t *) test_malloc(sizeof(gasnet_node_t) * tot_threads);
 	tt_thread_data = (threaddata_t *) test_malloc(sizeof(threaddata_t) * threads);
 	tt_addr_map = (void **) test_malloc(sizeof(void *) * tot_threads);
@@ -380,7 +354,6 @@ alloc_thread_data(int threads)
 void
 free_thread_data()
 {
-	test_free(tt_tids);
 	test_free(tt_thread_map);
 	test_free(tt_addr_map);
 	test_free(tt_thread_data);

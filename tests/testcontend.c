@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2006/01/28 21:21:46 $
- * $Revision: 1.11 $
+ *     $Date: 2006/02/10 07:38:12 $
+ * $Revision: 1.12 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -34,7 +34,6 @@ typedef gasnet_handlerarg_t harg_t;
 /* configurable parameters */
 #define DEFAULT_ITERS 50
 int	iters = DEFAULT_ITERS;
-pthread_t	*tt_tids;
 int amactive;
 int peer = -1;
 char *peerseg = NULL;
@@ -338,28 +337,14 @@ int main(int argc, char **argv) {
         for (i = 1; i <= maxthreads; i++) { ptcount->activecnt = i; ptcount->passivecnt = 1; ptcount++; }
         for (i = 1; i <= maxthreads; i++) { ptcount->activecnt = 1; ptcount->passivecnt = i; ptcount++; }
         for (i = 1; i <= maxthreads; i++) { ptcount->activecnt = i; ptcount->passivecnt = i; ptcount++; }
-        tt_tids = test_malloc(maxthreads * sizeof(pthread_t));
         peer = gasnet_mynode() ^ 1;
         amactive = (gasnet_mynode() % 2 == 0);
 
         peerseg = TEST_SEG(peer);
 
-        threads = maxthreads;
         /* create all worker threads */
-	for (i = 1; i < maxthreads; i++) {
-          pthread_attr_t attr;
-          pthread_attr_init(&attr);
-          pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM);
-          if (pthread_create(&tt_tids[i], &attr, workerthread, (void *)(intptr_t)i) != 0) { MSG("ERROR forking threads\n"); gasnet_exit(-1); }
-	}
-
-        workerthread(0);
-
-        /* reap all worker threads */
-	for (i = 1; i < maxthreads; i++) {
-	  void	*ret;
-          if (pthread_join(tt_tids[i], &ret) != 0) { MSG("ERROR joining threads\n"); gasnet_exit(-1); }
-	}
+        threads = maxthreads;
+        test_createandjoin_pthreads(maxthreads, &workerthread, NULL, 0);
 
         BARRIER();
 	if (gasnet_mynode() == 0) MSG("Tests complete");

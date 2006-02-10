@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2006/01/28 21:21:46 $
- * $Revision: 1.39 $
+ *     $Date: 2006/02/10 07:38:12 $
+ * $Revision: 1.40 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -192,24 +192,9 @@ void test_libgasnet_tools() {
   }
   #endif
   #if GASNET_PAR
-  { pthread_t threadid[NUM_THREADS];
-    int i;
-
-    #ifdef HAVE_PTHREAD_SETCONCURRENCY
-      pthread_setconcurrency(NUM_THREADS);
-    #endif
-    for(i=0;i<NUM_THREADS;i++) {
-      pthread_attr_t attr;   
-      pthread_attr_init(&attr);   
-      pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); 
-      if (pthread_create(&threadid[i], &attr, &test_libgasnetpar_tools, (void *)(uintptr_t)i)) 
-        perror("pthread_create");
-    }
-    for(i=0;i<NUM_THREADS;i++) {
-      if (pthread_join(threadid[i], NULL)) perror("pthread_join");
-    }
-  }
+    test_createandjoin_pthreads(NUM_THREADS, &test_libgasnetpar_tools, NULL, 0);
   #endif
+  MSG("*** passed libgasnet_tools test!!");
 }
 /* ------------------------------------------------------------------------------------ */
 int main(int argc, char **argv) {

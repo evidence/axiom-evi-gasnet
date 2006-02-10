@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/02/08 11:40:31 $
- * $Revision: 1.35 $
+ *     $Date: 2006/02/10 07:38:12 $
+ * $Revision: 1.36 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,6 +59,7 @@ int main(int argc, char **argv) {
   #ifdef HAVE_PTHREAD_H
     if (argc > 2) NUM_THREADS = atoi(argv[2]);
     if (NUM_THREADS < 1) NUM_THREADS = DEFAULT_THREADS;
+    if (NUM_THREADS > MAX_NUM_THREADS) NUM_THREADS = MAX_NUM_THREADS;
   #else
     if (argc > 2 && atoi(argv[2]) != 1) { ERR("no pthreads - only one thread available."); test_usage(); }
   #endif
@@ -235,26 +236,9 @@ int main(int argc, char **argv) {
   MSG("Spawning pthreads...");
   { 
     int i;
-    pthread_t threadid[MAX_NUM_THREADS];
-
     for(i=0;i<NUM_THREADS;i++) gasnett_atomic_set(thread_flag+i,1);
     gasnett_local_mb();
-    #ifdef HAVE_PTHREAD_SETCONCURRENCY
-        pthread_setconcurrency(NUM_THREADS);
-    #endif
-
-    for(i=0;i<NUM_THREADS;i++) {
-      pthread_attr_t attr;   
-      pthread_attr_init(&attr);   
-      pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); 
-      if (pthread_create(&threadid[i], &attr, &thread_fn, (void *)(uintptr_t)i)) 
-        perror("pthread_create");
-    }
-
-    for(i=0;i<NUM_THREADS;i++) {
-      if (pthread_join(threadid[i], NULL))
-        perror("pthread_join");
-    }
+    test_createandjoin_pthreads(NUM_THREADS, &thread_fn, NULL, 0);
   }
 #endif
 
@@ -266,9 +250,8 @@ int main(int argc, char **argv) {
 
 #undef MSG0
 #undef ERR
-#define MSG0  test_makeMsg(("%s\n","%s"), (id == 0), 0, 0)
-#define ERR   test_makeMsg(("ERROR: thread %i: %s (at %s:%i)\n", \
-                            id, "%s", __FILE__, __LINE__), 1, 0, test_errs++)
+#define MSG0 THREAD_MSG0(id)
+#define ERR  THREAD_ERR(id)
 
 gasnett_atomic_t up = gasnett_atomic_init(0);
 gasnett_atomic_t down = gasnett_atomic_init(0);
@@ -473,24 +456,6 @@ void * thread_fn(void *arg) {
         ERR("failed compare-and-swap test: counter=%i expecting=%i", (int)oldval, (int)(NUM_THREADS * iters));
       if (woncnt != iters) 
         ERR("failed compare-and-swap test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
-    }
-  #endif
-
-  #if defined(GASNETI_HAVE_SPINLOCK)
-    /* spinlocks are GASNet-internal and not available via gasnet_tools,
-       so this test is currently disabled */
-    TEST_HEADER("parallel spinlock test...") {
-      static gasneti_atomic_t my_lock = GASNETI_SPINLOCK_INITIALIZER;
-      static uint32_t counter1 = 0;
-
-      for (i=0;i<=iters;i++) {
-	gasneti_spinlock_lock(&my_lock);
-	++counter1;
-	gasneti_spinlock_unlock(&my_lock);
-      }
-      THREAD_BARRIER();
-      if (counter1 != (NUM_THREADS * iters)) 
-        ERR("failed spinlock test: counter=%i expecting=%i", counter, (NUM_THREADS * iters));
     }
   #endif
 
