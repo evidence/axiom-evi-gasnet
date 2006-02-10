@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2005/11/27 16:00:07 $
- * $Revision: 1.52 $
+ *     $Date: 2006/02/10 23:34:32 $
+ * $Revision: 1.53 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -222,6 +222,8 @@ BEGIN_EXTERNC
   extern void gasneti_flush_streams();
   #define gasnett_flush_streams() gasneti_flush_streams()
   #define gasnett_print_backtrace gasneti_print_backtrace
+  extern int gasneti_run_diagnostics(int iters, int threadcnt);
+  #define gasnett_run_diagnostics gasneti_run_diagnostics
 
   #define gasnett_threadkey_t           gasneti_threadkey_t
   #define GASNETT_THREADKEY_INITIALIZER GASNETI_THREADKEY_INITIALIZER

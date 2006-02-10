@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2005/11/27 16:00:07 $
- * $Revision: 1.35 $
+ *     $Date: 2006/02/10 23:34:32 $
+ * $Revision: 1.36 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -623,16 +623,33 @@ static int gasneti_auxseg_numfns;
 #if GASNET_DEBUG
   gasneti_auxseg_request_t gasneti_auxseg_dummy(gasnet_seginfo_t *auxseg_info) {
     gasneti_auxseg_request_t retval;
-    int i;
+    static gasnet_seginfo_t *auxseg_save = NULL;
+    int i, selftest=0;
     retval.minsz = 213;
     retval.optimalsz = 463;
-    if (auxseg_info == NULL) return retval;
-    for (i=0; i < gasneti_nodes; i++) {
-      gasneti_assert(auxseg_info[i].addr);
-      gasneti_assert(auxseg_info[i].size >= retval.minsz);
-      gasneti_assert(auxseg_info[i].size <= retval.optimalsz);
+    if (auxseg_info == NULL) return retval; /* initial query */
+    if (auxseg_info == (void*)(uintptr_t)-1) { /* self test */
+      selftest = 1;
+      gasneti_assert(auxseg_save);
+    } else { /* auxseg granted */
+      gasneti_assert(!auxseg_save);
+      auxseg_save = gasneti_malloc(gasneti_nodes*sizeof(gasnet_seginfo_t));
+      memcpy(auxseg_save, auxseg_info, gasneti_nodes*sizeof(gasnet_seginfo_t));
     }
-    memset(auxseg_info[gasneti_mynode].addr, 0x3F, auxseg_info[gasneti_mynode].size);
+    for (i=0; i < gasneti_nodes; i++) {
+      gasneti_assert(auxseg_save[i].addr);
+      gasneti_assert(((uintptr_t)auxseg_save[i].addr) % GASNETI_CACHE_LINE_BYTES == 0);
+      gasneti_assert(((uintptr_t)auxseg_save[i].addr) % 8 == 0);
+      gasneti_assert(auxseg_save[i].size >= retval.minsz);
+      gasneti_assert(auxseg_save[i].size <= retval.optimalsz);
+    }
+    for (i=0; i < auxseg_save[gasneti_mynode].size; i++) {
+      uint8_t *p = (uint8_t *)auxseg_save[gasneti_mynode].addr;
+      #define AUXSEG_TESTVAL(i) ((uint8_t)(8|((i+0x3F)^(i>>8))))
+      if (selftest) gasneti_assert(p[i] == AUXSEG_TESTVAL(i));
+      else p[i] = AUXSEG_TESTVAL(i);
+      #undef AUXSEG_TESTVAL
+    }
     return retval;
   }
 #endif

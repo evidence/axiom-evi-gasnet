@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/01/23 23:06:20 $
- * $Revision: 1.73 $
+ *     $Date: 2006/02/10 23:34:32 $
+ * $Revision: 1.74 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -698,7 +698,7 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
   typedef pthread_cond_t            gasneti_cond_t;
 
   #define GASNETI_COND_INITIALIZER    PTHREAD_COND_INITIALIZER
-  #define gasneti_cond_init(pc)       gasneti_assert_zeroret(pthread_cond_init(pc))
+  #define gasneti_cond_init(pc)       gasneti_assert_zeroret(pthread_cond_init(pc, NULL))
   #define gasneti_cond_destroy(pc)    gasneti_assert_zeroret(pthread_cond_destroy(pc))
   #define gasneti_cond_signal(pc)     gasneti_assert_zeroret(pthread_cond_signal(pc))
   #define gasneti_cond_broadcast(pc)  gasneti_assert_zeroret(pthread_cond_broadcast(pc))
@@ -913,7 +913,7 @@ typedef void (*gasneti_progressfn_t)();
   /*
    gasnet_AMPoll() - public poll function called by the client, throttled and traced 
                      should not be called from within GASNet (so we only trace directly user-initiated calls)
-   gasneti_AMPoll() - called internally by GASNet, provides throttling (if enabled), but no tracing
+   gasneti_AMPoll() - called internally by GASNet, provides throttling (if enabled), progress functions, but no tracing
    gasnetc_AMPoll() - conduit AM dispatcher, should only be called from gasneti_AMPoll()
    */
   #ifndef GASNETI_GASNETC_AMPOLL

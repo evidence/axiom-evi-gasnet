@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2006/02/10 07:38:12 $
- * $Revision: 1.15 $
+ *     $Date: 2006/02/10 23:34:36 $
+ * $Revision: 1.16 $
  * Description: GASNet HSL correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -112,14 +112,19 @@ int main(int argc, char **argv) {
     gasnet_hsl_unlock(&lock1);
 
     gasnet_hsl_lock(&lock1);
+    gasnet_hsl_lock(&lock2);
     assert(mynode == gasnet_mynode()); 
     assert(nodes == gasnet_nodes());
+    gasnet_hsl_unlock(&lock2);
     gasnet_hsl_unlock(&lock1);
 
     gasnet_hold_interrupts();
     assert(mynode == gasnet_mynode()); 
     assert(nodes == gasnet_nodes());
     gasnet_resume_interrupts(); 
+
+    assert_always(gasnet_hsl_trylock(&lock1) == GASNET_OK);
+    gasnet_hsl_unlock(&lock1);
 
     BARRIER();
     MSG0("testing legal AM cases...");
@@ -250,7 +255,14 @@ void * thread_fn(void *arg) {
 
   MSG0("hsl exclusion test, local-only...");
     for (i=0;i<iters2;i++) {
-      gasnet_hsl_lock(&globallock);
+      if (i&1) {
+        gasnet_hsl_lock(&globallock);
+      } else {
+        int retval;
+        while ((retval=gasnet_hsl_trylock(&globallock)) != GASNET_OK) {
+          assert_always(retval == GASNET_ERR_NOT_READY);
+        }
+      }
       counter++;
       gasnet_hsl_unlock(&globallock);
     }
@@ -283,7 +295,14 @@ void * thread_fn(void *arg) {
   MSG0("hsl exclusion test, AM & local...");
     for (i=0;i<iters;i++) {
       gasnet_AMRequestShort0(peer, 221);
-      gasnet_hsl_lock(&globallock);
+      if (i&1) {
+        gasnet_hsl_lock(&globallock);
+      } else {
+        int retval;
+        while ((retval=gasnet_hsl_trylock(&globallock)) != GASNET_OK) {
+          assert_always(retval == GASNET_ERR_NOT_READY);
+        }
+      }
       counter++;
       gasnet_hsl_unlock(&globallock);
     }

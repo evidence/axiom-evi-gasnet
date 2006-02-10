@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/02/08 05:54:30 $
- * $Revision: 1.142 $
+ *     $Date: 2006/02/10 23:34:32 $
+ * $Revision: 1.143 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1801,7 +1801,8 @@ int (* gasneti_print_backtrace)(int) = &_gasneti_print_backtrace;
   extern void *_gasneti_realloc(void *ptr, size_t sz, const char *curloc) {
     void *ret = _gasneti_malloc(sz, curloc);
     if_pt (ptr != NULL) {
-      memcpy(ret,ptr,sz);
+      size_t nbytes = _gasneti_memcheck(ptr, curloc, 0);
+      memcpy(ret, ptr, MIN(nbytes, sz));
       _gasneti_free(ptr, curloc);
     }
     _gasneti_memcheck(ret,curloc,0);

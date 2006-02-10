@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/01/25 02:52:39 $
-# $Revision: 1.74 $
+#     $Date: 2006/02/10 23:34:36 $
+# $Revision: 1.75 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -51,22 +51,23 @@ MPI2_TESTS = 			\
 #   please also add it to upcr/upc-tests/gasnet-tests/harness.conf
 testprograms_seq =      \
         testgasnet      \
+        testtools       \
+        testinternal    \
         testenv         \
+        testhsl         \
         testsmall       \
         testlarge       \
         testam          \
+        testmisc        \
         testcore1       \
         testbarrier     \
+        testbarrierconf \
+        testbarrierlate \
         testlogGP       \
-        testvis         \
-        testmisc        \
         testalign       \
         testrand        \
         testexit        \
-        testhsl         \
-        testbarrierconf \
-        testbarrierlate \
-        testtools       \
+        testvis         \
         testcoll        \
         testnbr    	\
 	testqueue	\

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/02/10 07:38:12 $
- * $Revision: 1.74 $
+ *     $Date: 2006/02/10 23:34:36 $
+ * $Revision: 1.75 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -390,8 +390,8 @@ GASNETT_IDENT(GASNetT_TiCompiler_IdentString,
 static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(void *), 
                                       void *threadarg_arr, size_t threadarg_elemsz) {
     int i;
-    uint8_t *threadarg_pos = threadarg_arr;
-    pthread_t *threadid = test_malloc(sizeof(pthread_t)*numthreads);
+    uint8_t *threadarg_pos = (uint8_t *)threadarg_arr;
+    pthread_t *threadid = (pthread_t *)test_malloc(sizeof(pthread_t)*numthreads);
     #ifdef HAVE_PTHREAD_SETCONCURRENCY
       pthread_setconcurrency(numthreads);
     #endif
