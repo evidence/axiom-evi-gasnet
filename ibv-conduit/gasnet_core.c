@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/02/09 03:49:22 $
- * $Revision: 1.155 $
+ *     $Date: 2006/02/11 01:29:58 $
+ * $Revision: 1.156 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1011,7 +1011,6 @@ static int gasnetc_init(int *argc, char ***argv) {
   /* create all the endpoints */
   {
     gasnetc_cep_t *cep = &gasnetc_cep[0];
-    gasnetc_addr_t *addr = &local_addr[0];
     VAPI_qp_init_attr_t	qp_init_attr;
     VAPI_qp_prop_t	qp_prop;
 
@@ -1396,7 +1395,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasnetc_max_regs = (maxsize + gasnetc_pin_maxsz - 1) >> gasnetc_pin_maxsz_shift;
 
     /* pin the segment and exchange the RKeys, once per HCA */
-    { VAPI_rkey_t	*rkeys, *my_rkeys;
+    { VAPI_rkey_t	*my_rkeys;
       VAPI_ret_t	vstat;
       int		j;
 
