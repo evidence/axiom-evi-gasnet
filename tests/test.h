@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/02/10 23:34:36 $
- * $Revision: 1.75 $
+ *     $Date: 2006/02/11 02:38:44 $
+ * $Revision: 1.76 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,7 +120,7 @@ static int _test_rand(int low, int high) {
     _test_doErrMsg )
 
 /* define several useful messaging macros */
-int test_errs;
+static int test_errs = 0;
 #ifdef TEST_GASNET_H
   #define MSG   test_makeMsg(("node %i/%i %s\n", (int)gasnet_mynode(), (int)gasnet_nodes(), "%s"), 1, 0, \
                              GASNETT_TRACE_SETSOURCELINE(__FILE__,__LINE__))

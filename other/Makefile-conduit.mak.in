@@ -6,7 +6,8 @@
         do-clean-local do-install-data-local do-uninstall-local \
         do-libgasnet-seq do-libgasnet-par do-libgasnet-parsync  \
 	do-libgasnet do-run-testexit do-error do-pthreads-error \
-	test tests tests-seq tests-par tests-parsync tests-clean 
+	test tests tests-seq tests-par tests-parsync tests-clean \
+	tests-check
 
 thread_defines = @GASNET_THREAD_DEFINES@
 
@@ -252,8 +253,23 @@ run-testexit: force
 @GNU_NM_FALSE@check-exports: $(libraries)
 @GNU_NM_FALSE@	@echo check-exports test SKIPPED
 
-@HAVE_PTHREAD_TRUE@check: check-exports tests-par
-@HAVE_PTHREAD_FALSE@check: check-exports tests-seq
+@GNU_NM_TRUE@tests-check:
+@GNU_NM_TRUE@	@echo "checking for diagnostic export..."
+@GNU_NM_TRUE@	@symbols=`@NM@ testgasnet 2>&1 | grep gasneti_run_diagnostics`; \
+@GNU_NM_TRUE@   if test "$$symbols" ; then                                      \
+@GNU_NM_TRUE@       echo "$$symbols" ;                                          \
+@GNU_NM_TRUE@       echo FAILED ;                                               \
+@GNU_NM_TRUE@       failed=1 ;                                                  \
+@GNU_NM_TRUE@   else                                                            \
+@GNU_NM_TRUE@       echo PASSED ;                                               \
+@GNU_NM_TRUE@   fi ;                                                            \
+@GNU_NM_TRUE@   exit $$failed
+
+@GNU_NM_FALSE@tests-check:
+@GNU_NM_FALSE@	@echo "diagnostic export test SKIPPED"
+
+@HAVE_PTHREAD_TRUE@check: check-exports tests-par tests-check
+@HAVE_PTHREAD_FALSE@check: check-exports tests-seq tests-check
 
 force:
 

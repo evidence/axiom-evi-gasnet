@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/02/10 23:34:32 $
- * $Revision: 1.1 $
+ *     $Date: 2006/02/11 02:38:40 $
+ * $Revision: 1.2 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,13 +21,15 @@
 #include <../tests/test.h>
 
 /* this file should *only* contain symbols used for internal diagnostics,
-   so that we can avoid needlessly linking it into production executables */
+   so that we can avoid needlessly linking it into production executables 
+   everything except the main entry point should be static, to prevent namespace pollution
+*/
 
-GASNETT_IDENT(GASNet_IdentString_diagnostics, 
+GASNETT_IDENT(gasneti_IdentString_diagnostics, 
  "$GASNetDiagnostics: (<link>) INCLUDES gasnet_diagnostic.o $");
 
 #if GASNET_PAR
-  void * thread_fn(void *arg);
+  static void * thread_fn(void *arg);
 #endif
 static int num_threads = 1;
 static int iters = 0;
@@ -60,7 +62,7 @@ static int iters2 = 0;
 
 #if GASNET_DEBUG
   extern gasneti_auxseg_request_t gasneti_auxseg_dummy(gasnet_seginfo_t *auxseg_info);
-  void auxseg_test() {
+  static void auxseg_test() {
     BARRIER();
     MSG0("auxseg test...");
     gasneti_auxseg_dummy((void *)(uintptr_t)-1); /* call self-test */
@@ -69,10 +71,10 @@ static int iters2 = 0;
   #define auxseg_test() ((void)0)
 #endif
 
-void mutex_test(int id);
-void spinlock_test(int id);
-void cond_test(int id);
-void malloc_test(int id);
+static void mutex_test(int id);
+static void spinlock_test(int id);
+static void cond_test(int id);
+static void malloc_test(int id);
 
 /* ------------------------------------------------------------------------------------ */
 /* run iters iterations of diagnostics and return zero on success 
@@ -145,7 +147,7 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt) {
 /*  mixed parallel / sequential tests */
 /* ------------------------------------------------------------------------------------ */
 
-void malloc_test(int id) { 
+static void malloc_test(int id) { 
   int i, cnt = 0;
   void **ptrs;
   gasneti_heapstats_t stats_before, stats_after;
@@ -219,7 +221,7 @@ void malloc_test(int id) {
   }
 }
 /* ------------------------------------------------------------------------------------ */
-void cond_test(int id) {
+static void cond_test(int id) {
   static gasneti_cond_t cond1 = GASNETI_COND_INITIALIZER;
   static gasneti_cond_t cond2;
   static gasneti_mutex_t lock1 = GASNETI_MUTEX_INITIALIZER;
@@ -270,7 +272,7 @@ void cond_test(int id) {
   PTHREAD_BARRIER(num_threads);
 }
 /* ------------------------------------------------------------------------------------ */
-void mutex_test(int id) {
+static void mutex_test(int id) {
   static gasneti_mutex_t lock1 = GASNETI_MUTEX_INITIALIZER;
   static gasneti_mutex_t lock2;
   static uint32_t counter;
@@ -326,7 +328,7 @@ void mutex_test(int id) {
 }
 /* ------------------------------------------------------------------------------------ */
 #if GASNETI_HAVE_SPINLOCK
-void spinlock_test(int id) {
+static void spinlock_test(int id) {
   static gasneti_atomic_t lock1 = GASNETI_SPINLOCK_INITIALIZER;
   static gasneti_atomic_t lock2;
   static uint32_t counter;
@@ -374,14 +376,14 @@ void spinlock_test(int id) {
   PTHREAD_BARRIER(num_threads);
 }
 #else
-void spinlock_test(int id) {
+static void spinlock_test(int id) {
   MSG0("spinlocks not available - spinlock test skipped.");
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
 #if GASNET_PAR
 
-void * thread_fn(void *arg) {
+static void * thread_fn(void *arg) {
   int test_errs = 0;
   int id = (int)(uintptr_t)arg;
 
