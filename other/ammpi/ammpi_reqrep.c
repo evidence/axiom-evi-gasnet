@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2005/08/25 09:13:58 $
- * $Revision: 1.24 $
+ *     $Date: 2006/02/11 12:09:45 $
+ * $Revision: 1.25 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -533,7 +533,7 @@ extern int _AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *nu
       AMMPI_processPacket(buf, 0);
       (*numUserHandlersRun)++;
 
-      donewithmessage: /* message handled - continue to next one */
+      donewithmessage: ; /* message handled - continue to next one */
       #if AMMPI_PREPOST_RECVS
         /* repost the recv */
         AMMPI_assert(ep->rxHandle[idxready] == MPI_REQUEST_NULL);
