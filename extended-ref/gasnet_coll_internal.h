@@ -1,17 +1,15 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2006/02/08 18:39:54 $
- * $Revision: 1.41 $
+ *     $Date: 2006/02/11 11:42:35 $
+ * $Revision: 1.42 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#ifndef _IN_GASNET_H
-  #error This file is not meant to be included directly- clients should include gasnet.h
-#endif
+#ifndef _GASNET_COLL_H
+#define _GASNET_COLL_H
 
-#ifndef _GASNET_EXTENDED_COLL_H
-#define _GASNET_EXTENDED_COLL_H
+#include <gasnet.h>
 
 /*---------------------------------------------------------------------------------*/
 /* Flag values: */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/02/10 23:34:32 $
- * $Revision: 1.74 $
+ *     $Date: 2006/02/11 11:42:35 $
+ * $Revision: 1.75 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -304,83 +304,6 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
 /* ------------------------------------------------------------------------------------ */
 /* GASNet atomic memory operations */
 #include <gasnet_atomicops.h>
-
-/* ------------------------------------------------------------------------------------ */
-
-/* conduits may replace the following types, 
-   but they should at least include all the following fields */
-#ifndef GASNETI_MEMVECLIST_STATS_T
-  typedef struct {
-    size_t minsz;
-    size_t maxsz;
-    uintptr_t totalsz;
-    void *minaddr;
-    void *maxaddr;
-  } gasneti_memveclist_stats_t;
-#endif
-
-#ifndef GASNETI_ADDRLIST_STATS_T
-  typedef struct {
-    void *minaddr;
-    void *maxaddr;
-  } gasneti_addrlist_stats_t;
-#endif
-
-/* stats needed by the VIS reference implementation */
-#ifndef GASNETI_REFVIS_STATS
-  #define GASNETI_REFVIS_STATS(CNT,VAL,TIME) \
-        CNT(C, PUTV_REF_INDIV, cnt)          \
-        CNT(C, GETV_REF_INDIV, cnt)          \
-        CNT(C, PUTI_REF_INDIV, cnt)          \
-        CNT(C, GETI_REF_INDIV, cnt)          \
-        CNT(C, PUTI_REF_VECTOR, cnt)         \
-        CNT(C, GETI_REF_VECTOR, cnt)         \
-        CNT(C, PUTS_REF_INDIV, cnt)          \
-        CNT(C, GETS_REF_INDIV, cnt)          \
-        CNT(C, PUTS_REF_VECTOR, cnt)         \
-        CNT(C, GETS_REF_VECTOR, cnt)         \
-        CNT(C, PUTS_REF_INDEXED, cnt)        \
-        CNT(C, GETS_REF_INDEXED, cnt)
-#endif
-
-/* stats needed by the COLL reference implementation */
-#ifndef GASNETI_REFCOLL_STATS
-  #define GASNETI_REFCOLL_STATS(CNT,VAL,TIME) \
-        VAL(X, COLL_TRY_SYNC, success)        \
-        VAL(X, COLL_TRY_SYNC_ALL, success)    \
-        VAL(X, COLL_TRY_SYNC_SOME, success)   \
-        TIME(X, COLL_WAIT_SYNC, waittime)     \
-        TIME(X, COLL_WAIT_SYNC_ALL, waittime) \
-        TIME(X, COLL_WAIT_SYNC_SOME, waittime)\
-        VAL(W, COLL_BROADCAST, sz)            \
-        VAL(W, COLL_BROADCAST_NB, sz)         \
-        VAL(W, COLL_BROADCAST_M, sz)          \
-        VAL(W, COLL_BROADCAST_M_NB, sz)       \
-        VAL(W, COLL_SCATTER, sz)              \
-        VAL(W, COLL_SCATTER_NB, sz)           \
-        VAL(W, COLL_SCATTER_M, sz)            \
-        VAL(W, COLL_SCATTER_M_NB, sz)         \
-        VAL(W, COLL_GATHER, sz)               \
-        VAL(W, COLL_GATHER_NB, sz)            \
-        VAL(W, COLL_GATHER_M, sz)             \
-        VAL(W, COLL_GATHER_M_NB, sz)          \
-        VAL(W, COLL_GATHER_ALL, sz)           \
-        VAL(W, COLL_GATHER_ALL_NB, sz)        \
-        VAL(W, COLL_GATHER_ALL_M, sz)         \
-        VAL(W, COLL_GATHER_ALL_M_NB, sz)      \
-        VAL(W, COLL_EXCHANGE, sz)             \
-        VAL(W, COLL_EXCHANGE_NB, sz)          \
-        VAL(W, COLL_EXCHANGE_M, sz)           \
-        VAL(W, COLL_EXCHANGE_M_NB, sz)        \
-        VAL(W, COLL_REDUCE, cnt)              \
-        VAL(W, COLL_REDUCE_NB, cnt)           \
-        VAL(W, COLL_REDUCE_M, cnt)            \
-        VAL(W, COLL_REDUCE_M_NB, cnt)         \
-        VAL(W, COLL_SCAN, cnt)                \
-        VAL(W, COLL_SCAN_NB, cnt)             \
-        VAL(W, COLL_SCAN_M, cnt)              \
-        VAL(W, COLL_SCAN_M_NB, cnt)
-#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* semi-portable spinlocks using gasneti_atomic_t
@@ -835,8 +758,6 @@ typedef void (*gasneti_progressfn_t)();
  * PROGRESSFNS_LIST entries should look like:
    FN(token subsysname, flavor [COUNTED|BOOLEAN], gasneti_progressfn_t progressfn)
  */
-#define GASNETI_REFCOLL_PROGRESSFNS(FN)
-#define GASNETI_REFVIS_PROGRESSFNS(FN)
 
 #ifndef GASNETC_PROGRESSFNS_LIST
 #define GASNETC_PROGRESSFNS_LIST(FN)
@@ -850,12 +771,12 @@ typedef void (*gasneti_progressfn_t)();
   #endif
 
   #define GASNETE_PROGRESSFNS_LIST(FN) \
-    GASNETE_BARRIER_PROGRESSFN(FN)     \
-    GASNETI_REFCOLL_PROGRESSFNS(FN)    \
-    GASNETI_REFVIS_PROGRESSFNS(FN)     
+    GASNETE_BARRIER_PROGRESSFN(FN)     
 #endif
 #define GASNETI_PROGRESSFNS_LIST(FN) \
-  GASNETE_PROGRESSFNS_LIST(FN) \
+  GASNETI_COLL_PROGRESSFNS(FN)       \
+  GASNETI_VIS_PROGRESSFNS(FN)        \
+  GASNETE_PROGRESSFNS_LIST(FN)       \
   GASNETC_PROGRESSFNS_LIST(FN) 
 
 /* default to one atomic counter per subsystem, because atomic_read

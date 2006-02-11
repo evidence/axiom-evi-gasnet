@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/02/08 08:52:48 $
- * $Revision: 1.42 $
+ *     $Date: 2006/02/11 11:42:35 $
+ * $Revision: 1.43 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -135,6 +135,9 @@
 /* GASNet forward definitions, which may override some of the defaults below */
 #include <gasnet_core_fwd.h>
 #include <gasnet_extended_fwd.h>
+
+#include <gasnet_vis_fwd.h>
+#include <gasnet_coll_fwd.h>
 
 /* GASNETI_CONDUIT_THREADS = GASNet conduit has one or more private threads
                              which may be used to run AM handlers */

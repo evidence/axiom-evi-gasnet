@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_internal.h,v $
- *     $Date: 2005/04/06 09:43:38 $
- * $Revision: 1.12 $
+ *     $Date: 2006/02/11 11:42:39 $
+ * $Revision: 1.13 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,6 +9,8 @@
 #ifndef GASNETI_GASNET_EXTENDED_VIS_C
   #error This file not meant to be compiled directly - included by gasnet_extended.c
 #endif
+
+#include <gasnet_vis.h>
 
 /*---------------------------------------------------------------------------------*/
 /* ***  Parameters *** */

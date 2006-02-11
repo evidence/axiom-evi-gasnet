@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2005/11/20 03:59:13 $
- * $Revision: 1.54 $
+ *     $Date: 2006/02/11 11:42:39 $
+ * $Revision: 1.55 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,6 +9,8 @@
 #ifndef GASNETI_GASNET_EXTENDED_COLL_C
   #error This file not meant to be compiled directly - included by gasnet_extended.c
 #endif
+
+#include <gasnet_coll.h>
 
 /*---------------------------------------------------------------------------------*/
 /* Forward decls and macros */

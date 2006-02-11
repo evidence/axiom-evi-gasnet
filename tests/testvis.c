@@ -1,12 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2006/01/28 21:21:46 $
- * $Revision: 1.13 $
+ *     $Date: 2006/02/11 11:42:48 $
+ * $Revision: 1.14 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 #include <gasnet.h>
+#include <gasnet_vis.h>
 
 #ifndef TEST_SEGSZ
   /* select a larger than default segment, 

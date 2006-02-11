@@ -1,17 +1,15 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
- *     $Date: 2005/11/22 09:21:24 $
- * $Revision: 1.9 $
+ *     $Date: 2006/02/11 11:42:35 $
+ * $Revision: 1.10 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#ifndef _IN_GASNET_H
-  #error This file is not meant to be included directly- clients should include gasnet.h
-#endif
+#ifndef _GASNET_VIS_H
+#define _GASNET_VIS_H
 
-#ifndef _GASNET_EXTENDED_VIS_H
-#define _GASNET_EXTENDED_VIS_H
+#include <gasnet.h>
 
 /*---------------------------------------------------------------------------------*/
 

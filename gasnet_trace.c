@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2005/11/27 16:00:07 $
- * $Revision: 1.121 $
+ *     $Date: 2006/02/11 11:42:35 $
+ * $Revision: 1.122 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,6 +8,8 @@
 
 #include <gasnet_internal.h>
 #include <gasnet_tools.h>
+#include <gasnet_vis.h>
+#include <gasnet_coll.h>
 
 #include <time.h>
 #include <sys/time.h>

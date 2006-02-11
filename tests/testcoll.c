@@ -1,12 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2006/02/10 07:38:12 $
- * $Revision: 1.30 $
+ *     $Date: 2006/02/11 11:42:48 $
+ * $Revision: 1.31 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
 #include "gasnet.h"
+#include "gasnet_coll.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
