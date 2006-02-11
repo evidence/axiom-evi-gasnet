@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2006/01/25 02:10:12 $
- * $Revision: 1.44 $
+ *     $Date: 2006/02/11 01:30:42 $
+ * $Revision: 1.45 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -168,11 +168,10 @@ void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) {
 #define GASNETC_BUFSZ		4096
 #if GASNET_STATS
   #define GASNETC_MEDIUM_HDRSZ	12
-  #define GASNETC_LONG_HDRSZ	(12 + SIZEOF_VOID_P)
 #else
   #define GASNETC_MEDIUM_HDRSZ	4
-  #define GASNETC_LONG_HDRSZ	(4 + SIZEOF_VOID_P)
 #endif
+#define GASNETC_LONG_HDRSZ	(SIZEOF_VOID_P + GASNETC_MEDIUM_HDRSZ)
 
 #define GASNETC_MAX_ARGS_USER	16
 #define GASNETC_MAX_ARGS_EXTRA	1	/* 1 for piggbacked credits */
