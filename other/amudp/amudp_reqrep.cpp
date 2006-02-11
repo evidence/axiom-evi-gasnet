@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2005/08/19 04:37:37 $
- * $Revision: 1.32 $
+ *     $Date: 2006/02/11 02:16:05 $
+ * $Revision: 1.33 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -259,7 +259,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
       if (bytesAvail == 0) break; 
 
       #if BROKEN_IOCTL && USE_TRUE_BULK_XFERS
-        if (bytesAvail > AMUDP_MAX_NETWORK_MSG) { 
+        if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { 
           /* this workaround is a HACK that lets us decide if we truly have a bulk message */
           static char *junk = NULL;
           int retval;
@@ -305,14 +305,14 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         #if USE_TRUE_BULK_XFERS
           #if !BROKEN_IOCTL
             /* can't do this check when ioctl is broken */
-            if_pf (bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
+            if_pf ((int)bytesAvail > AMUDP_MAXBULK_NETWORK_MSG) {
               char x;
               int retval = recvfrom(ep->s, (char *)&x, 1, MSG_PEEK, NULL, NULL);
               fprintf(stderr, "bytesAvail=%lu  recvfrom(MSG_PEEK)=%i\n", (unsigned long)bytesAvail, retval); fflush(stderr);
               AMUDP_RETURN_ERRFR(RESOURCE, "AMUDP_DrainNetwork: received message that was too long", sockErrDesc());
               }
           #endif
-          if (bytesAvail > AMUDP_MAX_NETWORK_MSG) { /* this is a true bulk buffer */
+          if ((int)bytesAvail > AMUDP_MAX_NETWORK_MSG) { /* this is a true bulk buffer */
             destbuf = AMUDP_AcquireBulkBuffer(ep);
             freebuf->status.bulkBuffer = destbuf;
             destbufsz = AMUDP_MAXBULK_NETWORK_MSG;
