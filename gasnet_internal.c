@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/02/10 23:34:32 $
- * $Revision: 1.143 $
+ *     $Date: 2006/02/13 15:00:54 $
+ * $Revision: 1.144 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -180,14 +180,18 @@ static int gasneti_isLittleEndian() {
 extern void gasneti_check_config_preinit() {
   gasneti_assert_always(sizeof(int8_t) == 1);
   gasneti_assert_always(sizeof(uint8_t) == 1);
+  gasneti_assert_always(sizeof(gasnete_anytype8_t) == 1);
   #ifndef INTTYPES_16BIT_MISSING
     gasneti_assert_always(sizeof(int16_t) == 2);
     gasneti_assert_always(sizeof(uint16_t) == 2);
+    gasneti_assert_always(sizeof(gasnete_anytype16_t) == 2);
   #endif
   gasneti_assert_always(sizeof(int32_t) == 4);
   gasneti_assert_always(sizeof(uint32_t) == 4);
+  gasneti_assert_always(sizeof(gasnete_anytype32_t) == 4);
   gasneti_assert_always(sizeof(int64_t) == 8);
   gasneti_assert_always(sizeof(uint64_t) == 8);
+  gasneti_assert_always(sizeof(gasnete_anytype64_t) == 8);
 
   gasneti_assert_always(sizeof(uintptr_t) >= sizeof(void *));
 
