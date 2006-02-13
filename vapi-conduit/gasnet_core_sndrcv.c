@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/02/13 23:31:26 $
- * $Revision: 1.166 $
+ *     $Date: 2006/02/13 23:44:01 $
+ * $Revision: 1.167 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2735,6 +2735,7 @@ extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_con
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_both();
+      GASNETI_PROGRESSFNS_RUN();
     } while (initiated != gasneti_weakatomic_read(&(counter->completed)));
   }
 }
