@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/02/08 08:52:48 $
-dnl $Revision: 1.90 $
+dnl     $Date: 2006/02/13 10:25:18 $
+dnl $Revision: 1.91 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -640,7 +640,7 @@ dnl action-none runs for no foo arg given
 dnl GASNET_WITH(foo, description, action-withval, [action-without], [action-none])
 AC_DEFUN([GASNET_WITH],[
 GASNET_FUN_BEGIN([$0($1,...)])
-AC_ARG_WITH($1,GASNET_OPTION_HELP(with-$1=value,$2), [
+AC_ARG_WITH($1,GASNET_OPTION_HELP(with-$1=value,[$2]), [
   case "$withval" in
     no) :
         $4 ;;
