@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/02/10 23:34:32 $
- * $Revision: 1.53 $
+ *     $Date: 2006/02/13 15:32:48 $
+ * $Revision: 1.54 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -232,6 +232,11 @@ BEGIN_EXTERNC
   #define gasnett_threadkey_init(pkey)              gasneti_threadkey_init(pkey)
   #define gasnett_threadkey_get_noinit(key)         gasneti_threadkey_get_noinit(key)
   #define gasnett_threadkey_set_noinit(key,newval)  gasneti_threadkey_set_noinit(key,newval)
+
+  #define GASNETT_FAST_ALIGNED_MEMCPY   GASNETE_FAST_ALIGNED_MEMCPY
+  #define GASNETT_FAST_UNALIGNED_MEMCPY GASNETE_FAST_UNALIGNED_MEMCPY
+  #define GASNETT_VALUE_ASSIGN          GASNETE_VALUE_ASSIGN
+  #define GASNETT_VALUE_RETURN          GASNETE_VALUE_RETURN
 
   #if GASNET_DEBUG
     #define gasnett_debug_malloc(sz)      gasneti_extern_malloc(sz) 

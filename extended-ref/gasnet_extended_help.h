@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/02/13 15:00:56 $
- * $Revision: 1.31 $
+ *     $Date: 2006/02/13 15:32:50 $
+ * $Revision: 1.32 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -180,6 +180,30 @@ typedef union {
       memcpy((dest), GASNETE_STARTOFBITS(&(value),nbytes), nbytes);   \
   }                                                                   \
   } while (0)
+
+/* interpret *src as a ptr to an nbytes type,
+   and return the value as a gasnet_register_value_t */
+#define GASNETE_VALUE_RETURN(src, nbytes) do {                                     \
+    gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));       \
+    switch (nbytes) {                                                              \
+      case 1: return (gasnet_register_value_t)((gasnete_anytype8_t *)(src))->u8;   \
+        break;                                                                     \
+    OMIT_WHEN_MISSING_16BIT(                                                       \
+      case 2: return (gasnet_register_value_t)((gasnete_anytype16_t *)(src))->u16; \
+        break;                                                                     \
+    )                                                                              \
+      case 4: return (gasnet_register_value_t)((gasnete_anytype32_t *)(src))->u32; \
+        break;                                                                     \
+      case 8: return (gasnet_register_value_t)((gasnete_anytype64_t *)(src))->u64; \
+        break;                                                                     \
+      default: { /* no such native nbytes integral type */                         \
+          gasnet_register_value_t result = 0;                                      \
+          memcpy(GASNETE_STARTOFBITS(&result,nbytes), src, nbytes);                \
+          return result;                                                           \
+      }                                                                            \
+    }                                                                              \
+  } while (0)
+
 
 #if GASNET_NDEBUG
   #define gasnete_aligncheck(ptr,nbytes)

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.h,v $
- *     $Date: 2006/02/11 11:42:39 $
- * $Revision: 1.34 $
+ *     $Date: 2006/02/13 15:32:50 $
+ * $Revision: 1.35 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -782,26 +782,12 @@ gasnet_register_value_t gasnet_wait_syncnb_valget (gasnet_valget_handle_t handle
 
 GASNET_INLINE_MODIFIER(_gasnet_get_val)
 gasnet_register_value_t _gasnet_get_val (gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG) {
-  gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));
   gasneti_boundscheck(node, src, nbytes);
   gasnete_aligncheck(src, nbytes);
   if (gasnete_islocal(node)) {
     GASNETI_TRACE_GET_LOCAL(VAL,NULL,node,src,nbytes);
-    switch (nbytes) {
-      case sizeof(uint8_t):  return (gasnet_register_value_t)*((uint8_t  *)(src)); 
-     OMIT_WHEN_MISSING_16BIT(
-      case sizeof(uint16_t): return (gasnet_register_value_t)*((uint16_t *)(src)); 
-     )
-      case sizeof(uint32_t): return (gasnet_register_value_t)*((uint32_t *)(src)); 
-      case sizeof(uint64_t): return (gasnet_register_value_t)*((uint64_t *)(src)); 
-      default: { /* no such native nbytes integral type */               
-        gasnet_register_value_t result = 0;                                  
-        memcpy(GASNETE_STARTOFBITS(&result,nbytes), src, nbytes);          
-        return result;
-      }                                                                  
-    }
-  }
-  else {
+    GASNETE_VALUE_RETURN(src, nbytes);
+  } else {
     GASNETI_TRACE_GET(VAL,NULL,node,src,nbytes);
     #if GASNETI_DIRECT_GET_VAL || defined(gasnete_get_val)
       return gasnete_get_val(node, src, nbytes GASNETE_THREAD_PASS);
