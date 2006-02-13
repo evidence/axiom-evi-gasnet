@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/02/09 03:49:22 $
- * $Revision: 1.165 $
+ *     $Date: 2006/02/13 23:31:26 $
+ * $Revision: 1.166 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -431,11 +431,9 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   gasnet_handler_t handler_id = GASNETC_MSG_HANDLERID(flags);
   gasnetc_handler_fn_t handler_fn = gasnetc_handler[handler_id];
   gasnetc_category_t category = GASNETC_MSG_CATEGORY(flags);
-  int numargs = GASNETC_MSG_NUMARGS(flags);
-  int orig_numargs = numargs;
+  int full_numargs = GASNETC_MSG_NUMARGS(flags);
+  int user_numargs = full_numargs;
   gasnet_handlerarg_t *args;
-  size_t nbytes;
-  void *data;
 
   rbuf->rbuf_needReply = GASNETC_MSG_ISREQUEST(flags);
   rbuf->rbuf_handlerRunning = 1;
@@ -464,7 +462,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   if_pf (GASNETC_MSG_CREDITS(flags)) {
     int credits = *args;
     ++args;
-    --numargs;
+    --user_numargs;
     gasneti_assert(cep != NULL);
     if_pt (credits) {
       gasnetc_sema_up_n(&cep->am_unrcvd, credits);
@@ -480,37 +478,39 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
       {
         gasnetc_sys_handler_fn_t sys_handler_fn = gasnetc_sys_handler[handler_id];
         if (GASNETC_MSG_ISREQUEST(flags))
-          GASNETC_TRACE_SYSTEM_REQHANDLER(handler_id, rbuf, numargs, args);
+          GASNETC_TRACE_SYSTEM_REQHANDLER(handler_id, rbuf, user_numargs, args);
         else
-          GASNETC_TRACE_SYSTEM_REPHANDLER(handler_id, rbuf, numargs, args);
-        RUN_HANDLER_SYSTEM(sys_handler_fn,rbuf,args,numargs);
+          GASNETC_TRACE_SYSTEM_REPHANDLER(handler_id, rbuf, user_numargs, args);
+        RUN_HANDLER_SYSTEM(sys_handler_fn,rbuf,args,user_numargs);
       }
       break;
 
     case gasnetc_Short:
       { 
-        GASNETI_RUN_HANDLER_SHORT(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs);
+        GASNETI_RUN_HANDLER_SHORT(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,user_numargs);
       }
       break;
 
     case gasnetc_Medium:
       {
-        nbytes = buf->medmsg.nBytes;
-        data = GASNETC_MSG_MED_DATA(buf, orig_numargs);
-        GASNETI_RUN_HANDLER_MEDIUM(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs,data,nbytes);
+        void * data = GASNETC_MSG_MED_DATA(buf, full_numargs);
+        size_t nbytes = buf->medmsg.nBytes;
+        GASNETI_RUN_HANDLER_MEDIUM(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,user_numargs,data,nbytes);
       }
       break;
 
     case gasnetc_Long:
       { 
-        nbytes = buf->longmsg.nBytes;
-        data = (void *)(buf->longmsg.destLoc);
-	if (nbytes && (GASNETC_MSG_SRCIDX(flags) != gasneti_mynode) &&
-	    ((nbytes <= gasnetc_packedlong_limit) || (!GASNETC_PIN_SEGMENT && GASNETC_MSG_ISREPLY(flags)))) {
+        void * data = (void *)(buf->longmsg.destLoc);
+	size_t nbytes = buf->longmsg.nBytes & 0x7fffffff;
+	if (buf->longmsg.nBytes & 0x80000000) {
 	  /* Must relocate the payload which is packed like a Medium. */
-	  memcpy(data, GASNETC_MSG_LONG_DATA(buf, orig_numargs), nbytes);
+	  gasneti_assert(nbytes <= GASNETC_MAX_PACKEDLONG);
+	  gasneti_assert((nbytes <= gasnetc_packedlong_limit) ||
+			 (!GASNETC_PIN_SEGMENT && GASNETC_MSG_ISREPLY(flags)));
+	  memcpy(data, GASNETC_MSG_LONG_DATA(buf, full_numargs), (size_t)nbytes);
 	}
-        GASNETI_RUN_HANDLER_LONG(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,numargs,data,nbytes);
+        GASNETI_RUN_HANDLER_LONG(GASNETC_MSG_ISREQUEST(flags),handler_id,handler_fn,rbuf,args,user_numargs,data,(size_t)nbytes);
       }
       break;
   }
@@ -1351,64 +1351,98 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 			  void *src_addr, int nbytes, void *dst_addr,
 			  int numargs, gasnetc_counter_t *mem_oust,
 			  gasnetc_counter_t *req_oust, va_list argptr) {
-  GASNETC_PERTHREAD_LOOKUP;	/* XXX: Reply could hide this in the token */
-  gasnetc_sreq_t *sreq;
-  gasnetc_buffer_t *buf;
-  gasnet_handlerarg_t *args;
-  uint32_t flags;
-  size_t msg_len;
-  int credits, retval, i;
-  int packedlong = 0;
-  gasnetc_epid_t epid;
-  gasnetc_cep_t *cep;
-  union tmp_buf {         
-    gasnetc_shortmsg_t    shortmsg;
-    gasnetc_medmsg_t      medmsg;
-    gasnetc_longmsg_t     longmsg;
-    uint8_t		  raw[72];	/* could be gasnetc_inline_limit if we had VLA */
-  };
-  char tmp_buf[sizeof(union tmp_buf) + 8];
+  if_pt (dest == gasneti_mynode) {
+    /* Local Case */
+    char tmp_buf[GASNETC_BUFSZ+8];
+    gasnetc_buffer_t * const buf = (gasnetc_buffer_t *)GASNETI_ALIGNUP(tmp_buf, 8);
+    gasnet_handlerarg_t *args;
+    int i;
 
-  /* For a Reply, we must go back via the same qp that the Request came in on.
-   * For a Request, we bind to a qp now to be sure everything goes on one qp.
-   */
-  if (dest == gasneti_mynode) {
-    /* cep and epid will not get used */
-    #if GASNET_DEBUG
-      cep = NULL;
-      epid = ~0;
-    #endif
-  } else if (token) {
-    cep = token->cep;
-    epid = cep->epid;
-  } else if (dest != gasneti_mynode) {
-    /* Bind to a specific queue pair, selecting by largest credits */
-    int qpi = 0;
-    cep = gasnetc_node2cep[dest];
-    if (gasnetc_num_qps > 1) {
-      uint32_t credits, best_credits;
-      int i;
-      /* gasnetc_poll_snd(); */
-      best_credits = gasnetc_sema_read(&cep[0].am_sema);
-      for (i = 1; i < gasnetc_num_qps; ++i) {
-	if ((credits = gasnetc_sema_read(&cep[i].am_sema)) > best_credits) {
-	  best_credits = credits;
-	  qpi = i;
-	}
-      }
+    switch (category) {
+    case gasnetc_System: /* Currently System == Short.  Fall through... */
+    case gasnetc_Short:
+      args = buf->shortmsg.args;
+      break;
+
+    case gasnetc_Medium:
+      memcpy(GASNETC_MSG_MED_DATA(buf, numargs), src_addr, nbytes);
+      buf->medmsg.nBytes = nbytes;
+      args = buf->medmsg.args;
+      break;
+
+    case gasnetc_Long:
+      memcpy(dst_addr, src_addr, nbytes);
+      buf->longmsg.destLoc = (uintptr_t)dst_addr;
+      buf->longmsg.nBytes  = nbytes;
+      args = buf->longmsg.args;
+      break;
+
+    default:
+      gasneti_fatalerror("invalid AM category on send");
+      /* NOT REACHED */
     }
-    epid = gasnetc_epid(dest, qpi);
-    cep += qpi;
-  }
 
-  /* FIRST, figure out msg_len so we know if we can use inline or not.
-   * Also, if using firehose then Long requests may need AMs for moves.
-   * Thus we MUST do any RDMA before getting credits.  It can't hurt to queue
-   * the Long RDMA as early as possible even when firehose is not in use.
-   */
-  if (dest == gasneti_mynode) {
-    credits = 0;
+    /* copy args */
+    for (i=0; i < numargs; ++i) {
+      args[i] = va_arg(argptr, gasnet_handlerarg_t);
+    }
+  
+    /* process the loopback AM */
+    {
+      uint32_t flags = GASNETC_MSG_GENFLAGS(!token, category, numargs, handler, gasneti_mynode, 0);
+      gasnetc_rbuf_t rbuf;
+      rbuf.rr_sg.addr = (uintptr_t)buf;
+      #if GASNET_DEBUG
+        rbuf.cep = NULL;	/* ensure field is not used */
+      #endif
+
+      gasnetc_processPacket(NULL, &rbuf, flags);
+    }
   } else {
+    /* Remote Case */
+    gasnetc_buffer_t *buf;
+    gasnet_handlerarg_t *args;
+    size_t msg_len;
+    int i, credits;
+    int packedlong = 0;
+    int inlinesized = 0;
+    gasnetc_epid_t epid;
+    gasnetc_cep_t *cep;
+    union tmp_buf {         
+      gasnetc_shortmsg_t    shortmsg;
+      gasnetc_medmsg_t      medmsg;
+      gasnetc_longmsg_t     longmsg;
+      uint8_t		  raw[72];	/* could be gasnetc_inline_limit if we had VLA */
+    };
+    char tmp_buf[sizeof(union tmp_buf) + 8];
+  
+    /* For a Reply, we must go back via the same qp that the Request came in on.
+     * For a Request, we bind to a qp now to be sure everything goes on one qp.
+     */
+    if (token) {
+      cep = token->cep;
+      epid = cep->epid;
+    } else {
+      /* Bind to a specific queue pair, selecting by largest credits */
+      int qpi = 0;
+      cep = gasnetc_node2cep[dest];
+      if (gasnetc_num_qps > 1) {
+        uint32_t best_credits;
+        int i;
+        /* gasnetc_poll_snd(); here? */
+        best_credits = gasnetc_sema_read(&cep[0].am_sema);
+        for (i = 1; i < gasnetc_num_qps; ++i) {
+	  const uint32_t tmp = gasnetc_sema_read(&cep[i].am_sema);
+	  if (tmp > best_credits) {
+	    best_credits = tmp;
+	    qpi = i;
+	  }
+        }
+      }
+      epid = gasnetc_epid(dest, qpi);
+      cep += qpi;
+    }
+  
     /* Reserve space for an extra argument if we *might* carry piggbbacked
      * credits.  We need to know numargs before we allocate a large enough
      * buffer, which could block and thus delay the credit update.  So, we
@@ -1419,191 +1453,179 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     if (credits) {
       ++numargs;
     }
-  }
-  switch (category) {
-  case gasnetc_System: /* Currently System == Short.  Fall through... */
-  case gasnetc_Short:
-    msg_len = offsetof(gasnetc_buffer_t, shortmsg.args[numargs]);
-    if (!msg_len) msg_len = 1; /* Mellanox bug (zero-length sends) work-around */
-    break;
-
-  case gasnetc_Medium:
-    msg_len = GASNETC_MSG_MED_OFFSET(numargs) + nbytes;
-    break;
-
-  case gasnetc_Long:
-    msg_len = offsetof(gasnetc_buffer_t, longmsg.args[numargs]);
-    /* Start moving the Long payload if possible */
-    if (nbytes) {
-      if (dest == gasneti_mynode) {
-        memcpy(dst_addr, src_addr, nbytes);
-      } else if ((nbytes <= gasnetc_packedlong_limit) || (!GASNETC_PIN_SEGMENT && token)) {
-	/* Small enough to send like a Medium, or a Reply when using remote firehose. */
-	msg_len = GASNETC_MSG_LONG_OFFSET(numargs) + nbytes;
-	packedlong = 1;
-      } else {
-        /* XXX check for error returns */
-        #if GASNETC_PIN_SEGMENT
-	  /* Queue the RDMA.  We can count on point-to-point ordering to deliver payload before header */
-          (void)gasnetc_rdma_put(epid, src_addr, dst_addr, nbytes, mem_oust, NULL);
-        #else
-	  /* Point-to-point ordering still holds, but only once the RDMA is actually queued.
-	   * In the case of a firehose hit, the RDMA is already queued before return from
-	   * gasnetc_rdma_put_fh().  On a miss, however, we'll need to spin on am_oust to
-	   * determine when all the RDMA is actually queued.
-	   * It would have been nice to move the wait down further in this function, but
-	   * that would lead to deadlock if we hold the resources needed to queue the RDMA.
-	   */
-	  gasnetc_counter_t am_oust = GASNETC_COUNTER_INITIALIZER;
-	  gasneti_assert(!token);	/* Replies MUST have been caught above */
-	  (void)gasnetc_rdma_put_fh(epid, src_addr, dst_addr, nbytes, mem_oust, NULL, &am_oust);
-	  gasnetc_counter_wait(&am_oust, 0);
-        #endif
+  
+    /* Figure out msg_len so we know if we can use inline or not.
+     * Also, if using firehose then Long requests may need AMs for moves.
+     * Thus we MUST do any RDMA before getting credits.  It can't hurt to queue
+     * the Long RDMA as early as possible even when firehose is not in use.
+     */
+    switch (category) {
+    case gasnetc_System: /* Currently System == Short.  Fall through... */
+    case gasnetc_Short:
+      msg_len = GASNETC_MSG_SHORT_ARGSEND(numargs);
+      if (!msg_len) msg_len = 1; /* Mellanox bug (zero-length sends) work-around */
+      break;
+  
+    case gasnetc_Medium:
+      /* XXX: When nbytes == 0 we still round up the header to 8-bytes */
+      msg_len = GASNETC_MSG_MED_ARGSEND(numargs) + nbytes;
+      break;
+  
+    case gasnetc_Long:
+      msg_len = GASNETC_MSG_LONG_ARGSEND(numargs);
+      /* Start moving the Long payload if possible */
+      if (nbytes) {
+        if ((nbytes <= gasnetc_packedlong_limit) || (!GASNETC_PIN_SEGMENT && token)) {
+	  /* Small enough to send like a Medium, or a Reply when using remote firehose. */
+	  msg_len += nbytes;
+	  packedlong = 1;
+        } else {
+          /* XXX check for error returns */
+          #if GASNETC_PIN_SEGMENT
+	    /* Queue the RDMA.  We can count on point-to-point ordering to deliver payload before header */
+            (void)gasnetc_rdma_put(epid, src_addr, dst_addr, nbytes, mem_oust, NULL);
+          #else
+	    /* Point-to-point ordering still holds, but only once the RDMA is actually queued.
+	     * In the case of a firehose hit, the RDMA is already queued before return from
+	     * gasnetc_rdma_put_fh().  On a miss, however, we'll need to spin on am_oust to
+	     * determine when all the RDMA is actually queued.
+	     * It would have been nice to move the wait down further in this function, but
+	     * that would lead to deadlock if we hold the resources needed to queue the RDMA.
+	     */
+	    gasnetc_counter_t am_oust = GASNETC_COUNTER_INITIALIZER;
+	    gasneti_assert(!token);	/* Replies MUST have been caught above */
+	    (void)gasnetc_rdma_put_fh(epid, src_addr, dst_addr, nbytes, mem_oust, NULL, &am_oust);
+	    gasnetc_counter_wait(&am_oust, 0);
+          #endif
+        }
       }
+      break;
+  
+    default:
+      gasneti_fatalerror("invalid AM category on send");
+      /* NOT REACHED */
     }
-    break;
-
-  default:
-    gasneti_fatalerror("invalid AM category on send");
-    /* NOT REACHED */
-  }
-
-  /* NEXT, get the flow-control credit needed for AM Requests.
-   * This order ensures that we never hold the last pinned buffer
-   * while spinning on the rcv queue waiting for credits.
-   */
-  if (!token && (dest != gasneti_mynode)) {
-    GASNETC_STAT_EVENT(GET_AMREQ_CREDIT);
-
-    /* Get the p2p credit needed */
-    {
-	gasnetc_sema_t *sema = &(cep->am_sema);
-        if_pf (!gasnetc_sema_trydown(sema)) {
+  
+    /* NEXT, get the flow-control credit needed for AM Requests.
+     * This order ensures that we never hold the last pinned buffer
+     * while spinning on the rcv queue waiting for credits.
+     */
+    if (!token) {
+      GASNETC_STAT_EVENT(GET_AMREQ_CREDIT);
+  
+      /* Get the p2p credit needed */
+      {
+	  gasnetc_sema_t *sema = &(cep->am_sema);
+          if_pf (!gasnetc_sema_trydown(sema)) {
+            GASNETC_TRACE_WAIT_BEGIN();
+            do {
+	      GASNETI_WAITHOOK();
+              gasnetc_poll_rcv_hca(cep->hca, 1);
+            } while (!gasnetc_sema_trydown(sema));
+            GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
+          }
+      }
+  
+      /* Post the rbuf needed for the reply */
+      if (gasnetc_sema_trydown(&cep->am_unrcvd)) {
+        /* We'll use one that was left over due to ACK coalescing */
+      } else {
+        gasnetc_rbuf_t *rbuf = gasneti_freelist_get(cep->rbuf_freelist);
+        if_pf (rbuf == NULL) {
           GASNETC_TRACE_WAIT_BEGIN();
           do {
 	    GASNETI_WAITHOOK();
             gasnetc_poll_rcv_hca(cep->hca, 1);
-          } while (!gasnetc_sema_trydown(sema));
-          GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
+	    rbuf = gasneti_freelist_get(cep->rbuf_freelist);
+          } while (rbuf == NULL);
+          GASNETC_TRACE_WAIT_END(GET_AMREQ_BUFFER_STALL);
         }
-    }
-
-    /* Post the rbuf needed for the reply */
-    if (gasnetc_sema_trydown(&cep->am_unrcvd)) {
-      /* We'll use one that was left over due to ACK coalescing */
-    } else {
-      gasnetc_rbuf_t *rbuf = gasneti_freelist_get(cep->rbuf_freelist);
-      if_pf (rbuf == NULL) {
-        GASNETC_TRACE_WAIT_BEGIN();
-        do {
-	  GASNETI_WAITHOOK();
-          gasnetc_poll_rcv_hca(cep->hca, 1);
-	  rbuf = gasneti_freelist_get(cep->rbuf_freelist);
-        } while (rbuf == NULL);
-        GASNETC_TRACE_WAIT_END(GET_AMREQ_BUFFER_STALL);
+        gasnetc_rcv_post(cep, rbuf);
       }
-      gasnetc_rcv_post(cep, rbuf);
     }
-  }
-
-  /* Now get an sreq and buffer and start building the message */
-  sreq = gasnetc_get_sreq(GASNETC_OP_AM GASNETC_PERTHREAD_PASS);
-  if_pt ((msg_len <= gasnetc_inline_limit) && (msg_len <= sizeof(union tmp_buf))) {
-    buf = (gasnetc_buffer_t *)GASNETI_ALIGNUP(tmp_buf, 8);
-    sreq->am_buff = NULL;
-  } else {
-    buf = gasnetc_get_bbuf(1);	/* may block */
-    sreq->am_buff = buf;
-  }
-  switch (category) {
-  case gasnetc_System: /* Currently System == Short.  Fall through... */
-  case gasnetc_Short:
-    args = buf->shortmsg.args;
-    break;
-
-  case gasnetc_Medium:
-    args = buf->medmsg.args;
-    buf->medmsg.nBytes = nbytes;
-    memcpy(GASNETC_MSG_MED_DATA(buf, numargs), src_addr, nbytes);
-    break;
-
-  case gasnetc_Long:
-    args = buf->longmsg.args;
-    buf->longmsg.destLoc = (uintptr_t)dst_addr;
-    buf->longmsg.nBytes  = nbytes;
-    if (packedlong) {
-      /* Pack like a Medium */
-      gasneti_assert(nbytes <= GASNETC_MAX_PACKEDLONG);
-      memcpy(GASNETC_MSG_LONG_DATA(buf, numargs), src_addr, nbytes);
+  
+    /* Now get a buffer and start building the message */
+    if_pt ((msg_len <= gasnetc_inline_limit) && (msg_len <= sizeof(union tmp_buf))) {
+      buf = (gasnetc_buffer_t *)GASNETI_ALIGNUP(tmp_buf, 8);
+      inlinesized = 1;
+    } else {
+      buf = gasnetc_get_bbuf(1);	/* may block */
     }
-    break;
-  }
- 
-  /* generate flags */
-  flags = GASNETC_MSG_GENFLAGS(!token, category, numargs, handler, gasneti_mynode, credits);
-
-  /* piggybacked credits travel as first argument, remaining args are shifted */
-  if_pf (credits) {
-    do {
-      /* Send whatever credits are banked, could be zero in the event of a race */
-      credits = gasneti_weakatomic_read(&cep->am_unsent);
-    } while (credits && !gasneti_weakatomic_compare_and_swap(&cep->am_unsent, credits, 0));
-    *args = credits;
-    ++args;
-    --numargs;
-    GASNETI_TRACE_PRINTF(C,("SND_AM_CREDITS %d\n", credits));
-    GASNETC_STAT_EVENT_VAL(SND_AM_CREDITS, credits);
-  }
-
-  /* copy args */
-  for (i=0; i < numargs; ++i) {
-    args[i] = va_arg(argptr, gasnet_handlerarg_t);
-  }
-
-  /* Add/forward optional timestamp */
-  #if GASNETI_STATS_OR_TRACE
-    buf->stamp = token ? ((gasnetc_buffer_t *)(uintptr_t)(token->rr_sg.addr))->stamp : GASNETI_STATTIME_NOW_IFENABLED(C);
-  #endif
-
-  /* Send it out or process locally */
-  if (dest == gasneti_mynode) {
-    /* process loopback AM */
-    gasnetc_rbuf_t	rbuf;
-
-    rbuf.rr_sg.addr = (uintptr_t)buf;
-    #if GASNET_DEBUG
-      rbuf.cep = NULL;	/* ensure field is not used */
+    switch (category) {
+    case gasnetc_System: /* Currently System == Short.  Fall through... */
+    case gasnetc_Short:
+      args = buf->shortmsg.args;
+      break;
+  
+    case gasnetc_Medium:
+      memcpy(GASNETC_MSG_MED_DATA(buf, numargs), src_addr, nbytes);
+      buf->medmsg.nBytes = nbytes;
+      args = buf->medmsg.args;
+      break;
+  
+    case gasnetc_Long:
+      buf->longmsg.destLoc = (uintptr_t)dst_addr;
+      buf->longmsg.nBytes  = nbytes;
+      if (packedlong) {
+        /* Pack like a Medium */
+        gasneti_assert(nbytes <= GASNETC_MAX_PACKEDLONG);
+        buf->longmsg.nBytes |= 0x80000000; /* IDs the packedlong case */
+        memcpy(GASNETC_MSG_LONG_DATA(buf, numargs), src_addr, nbytes);
+      }
+      args = buf->longmsg.args;
+      break;
+    }
+   
+    /* Assemble an array of arguments.
+     * Piggybacked credits travel as first argument, remaining args are shifted */
+    i = 0;
+    if_pf (credits) {
+      /* Send whatever credits are banked, could be zero in the event of a (harmless) race */
+      uint32_t tmp;
+      do { /* This loop is an unconditional atomic swap with zero. */
+        tmp = gasneti_weakatomic_read(&cep->am_unsent);
+      } while (tmp && !gasneti_weakatomic_compare_and_swap(&cep->am_unsent, tmp, 0));
+      args[0] = tmp;
+      i = 1;
+      GASNETI_TRACE_PRINTF(C,("SND_AM_CREDITS %d\n", credits));
+      GASNETC_STAT_EVENT_VAL(SND_AM_CREDITS, credits);
+    }
+    for (/*EMPTY*/; i < numargs; ++i) {
+      args[i] = va_arg(argptr, gasnet_handlerarg_t);
+    }
+  
+    /* Add/forward optional timestamp */
+    #if GASNETI_STATS_OR_TRACE
+      buf->stamp = token ? ((gasnetc_buffer_t *)(uintptr_t)(token->rr_sg.addr))->stamp : GASNETI_STATTIME_NOW_IFENABLED(C);
     #endif
-
-    gasnetc_processPacket(NULL, &rbuf, flags);
-    if_pf (sreq->am_buff != NULL) {
-      gasneti_freelist_put(&gasnetc_bbuf_freelist, buf);
-    }
-    sreq->opcode = GASNETC_OP_FREE;
-    retval = GASNET_OK;
-  } else {
+  
     /* send the AM */
-    GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
-    sr_desc->opcode     = VAPI_SEND_WITH_IMM;
-    sr_desc->imm_data   = flags;
-    sr_desc->sg_lst_len = 1;
-    sr_desc->sg_lst_p[0].addr      = (uintptr_t)buf;
-    sr_desc->sg_lst_p[0].len       = msg_len;
-    sr_desc->sg_lst_p[0].lkey      = GASNETC_SND_LKEY(cep);
+    {
+      GASNETC_PERTHREAD_LOOKUP;	/* XXX: Reply could hide this in the token */
+      GASNETC_DECL_SR_DESC(sr_desc, 1, 1);
+      gasnetc_sreq_t *sreq;
 
-    if_pf (req_oust) {
-      gasnetc_counter_inc(req_oust);
-      sreq->req_oust = req_oust;
-      sreq->opcode = GASNETC_OP_AM_BLOCK;
+      sr_desc->opcode     = VAPI_SEND_WITH_IMM;
+      sr_desc->imm_data   = GASNETC_MSG_GENFLAGS(!token, category, numargs, handler, gasneti_mynode, credits);
+      sr_desc->sg_lst_len = 1;
+      sr_desc->sg_lst_p[0].addr      = (uintptr_t)buf;
+      sr_desc->sg_lst_p[0].len       = msg_len;
+      sr_desc->sg_lst_p[0].lkey      = GASNETC_SND_LKEY(cep);
+  
+      sreq = gasnetc_get_sreq(GASNETC_OP_AM GASNETC_PERTHREAD_PASS);
+      sreq->am_buff = inlinesized ? NULL : buf;
+      if_pf (req_oust) {
+        gasnetc_counter_inc(req_oust);
+        sreq->req_oust = req_oust;
+        sreq->opcode = GASNETC_OP_AM_BLOCK;
+      }
+  
+      (void)gasnetc_bind_cep(epid, sreq, VAPI_SEND_WITH_IMM, msg_len);
+      gasnetc_snd_post_common(sreq, sr_desc, inlinesized);
     }
+  } 
 
-    (void)gasnetc_bind_cep(epid, sreq, VAPI_SEND_WITH_IMM, msg_len);
-    gasnetc_snd_post_common(sreq, sr_desc, sreq->am_buff == NULL);
-
-    retval = GASNET_OK;
-  }
-
-  GASNETI_RETURN(retval);
+  GASNETI_RETURN(GASNET_OK);
 }
 
 #if GASNETC_PIN_SEGMENT
@@ -1900,8 +1922,6 @@ static void gasnetc_do_get_zerocp(const gasnetc_epid_t epid, int rkey_index,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
                                   gasnetc_counter_t *req_oust
 				  GASNETC_PERTHREAD_FARG) {
-  gasnetc_sreq_t *sreq = NULL;
-
   GASNETI_TRACE_EVENT_VAL(C, RDMA_GET_ZEROCP, nbytes);
 
   gasneti_assert(nbytes != 0);
@@ -2352,7 +2372,6 @@ extern int gasnetc_sndrcv_init(void) {
   VAPI_ret_t		vstat;
   gasnetc_buffer_t	*buf;
   gasnetc_rbuf_t	*rbuf;
-  gasnetc_sreq_t	*sreq;
   int 			padded_size, h, i;
   int			op_oust_per_qp;
   int			am_repl_per_qp;
@@ -2698,6 +2717,7 @@ extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node) {
   }
 }
 
+/* Just gasnetc_AMPoll w/o CHECKATTACH */
 extern void gasnetc_sndrcv_poll(void) {
   gasnetc_poll_both();
 }
@@ -2912,7 +2932,7 @@ extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
 				  void *src_addr, int nbytes, void *dst_addr,
 				  int numargs, gasnetc_counter_t *mem_oust, va_list argptr) {
-  gasnetc_poll_rcv();	/* ensure progress */
+  gasneti_AMPoll();	/* ensure progress */
 
   return gasnetc_ReqRepGeneric(category, NULL, dest, handler,
                                src_addr, nbytes, dst_addr,

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/02/11 01:32:14 $
- * $Revision: 1.121 $
+ *     $Date: 2006/02/13 23:31:26 $
+ * $Revision: 1.122 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,24 +63,30 @@ typedef struct {
 #endif
   gasnet_handlerarg_t	args[GASNETC_MAX_ARGS];	
 } gasnetc_shortmsg_t;
+#define GASNETC_MSG_SHORT_ARGSEND(nargs) offsetof(gasnetc_shortmsg_t,args[(unsigned int)nargs])
 
 typedef struct {
 #if GASNETI_STATS_OR_TRACE
   gasneti_stattime_t	stamp;
 #endif
-  uint16_t		nBytes;
-  uint16_t		_pad0;
+  uint32_t		nBytes;	/* 16 bits would be sufficient if we ever need the space */
   gasnet_handlerarg_t	args[GASNETC_MAX_ARGS];	
 } gasnetc_medmsg_t;
+#define GASNETC_MSG_MED_ARGSEND(nargs) /* Note 8-byte alignment for payload */ \
+		GASNETI_ALIGNUP(offsetof(gasnetc_medmsg_t,args[(unsigned int)nargs]), 8)
+#define GASNETC_MSG_MED_DATA(msg,nargs) \
+		((void *)((uintptr_t)(msg) + GASNETC_MSG_MED_ARGSEND(nargs)))
 
 typedef struct {
 #if GASNETI_STATS_OR_TRACE
   gasneti_stattime_t	stamp;
 #endif
   uintptr_t		destLoc;
-  uint32_t		nBytes;
+  int32_t		nBytes;
   gasnet_handlerarg_t	args[GASNETC_MAX_ARGS];	
 } gasnetc_longmsg_t;
+#define GASNETC_MSG_LONG_ARGSEND(nargs)  offsetof(gasnetc_longmsg_t,args[(unsigned int)nargs])
+#define GASNETC_MSG_LONG_DATA(msg,nargs) (void *)(&msg->longmsg.args[(unsigned int)nargs])
 
 typedef union {
   uint8_t		raw[GASNETC_BUFSZ];
@@ -98,22 +104,6 @@ typedef enum {
   gasnetc_Long=2,
   gasnetc_System=3
 } gasnetc_category_t;
-
-/* The a Medium AM's payload starts as soon after the args as possible while still
-   providing the required 8-byte alignment.
-*/
-#define GASNETC_MSG_MED_OFFSET(nargs)	\
-	(offsetof(gasnetc_medmsg_t,args) + ((nargs + ((nargs & 0x1) ^ ((GASNETC_MEDIUM_HDRSZ>>2) & 0x1))) << 2))
-#define GASNETC_MSG_MED_DATA(msg, nargs) \
-	((void *)((uintptr_t)(msg) + GASNETC_MSG_MED_OFFSET(nargs)))
-
-/* Only needed for non-RDMA ReplyLong, used when remote segment not pinned.
-   This is a much simpler expression than the medium, since we don't 8-byte align.
-*/
-#define GASNETC_MSG_LONG_OFFSET(nargs)	\
-	(offsetof(gasnetc_longmsg_t,args) + (nargs << 2))
-#define GASNETC_MSG_LONG_DATA(msg, nargs) \
-	((void *)((uintptr_t)(msg) + GASNETC_MSG_LONG_OFFSET(nargs)))
 
 /* ------------------------------------------------------------------------------------ */
 
