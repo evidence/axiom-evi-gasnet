@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/02/11 02:38:40 $
- * $Revision: 1.2 $
+ *     $Date: 2006/02/14 05:03:10 $
+ * $Revision: 1.3 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -275,7 +275,7 @@ static void cond_test(int id) {
 static void mutex_test(int id) {
   static gasneti_mutex_t lock1 = GASNETI_MUTEX_INITIALIZER;
   static gasneti_mutex_t lock2;
-  static uint32_t counter;
+  static unsigned int counter;
   int i;
 
   PTHREAD_BARRIER(num_threads);
@@ -331,7 +331,7 @@ static void mutex_test(int id) {
 static void spinlock_test(int id) {
   static gasneti_atomic_t lock1 = GASNETI_SPINLOCK_INITIALIZER;
   static gasneti_atomic_t lock2;
-  static uint32_t counter;
+  static unsigned int counter;
   int i;
 
   MSG0("%s spinlock test...",(num_threads > 1?"parallel":"sequential"));

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/02/11 11:42:35 $
- * $Revision: 1.75 $
+ *     $Date: 2006/02/14 05:03:10 $
+ * $Revision: 1.76 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -621,7 +621,10 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
   typedef pthread_cond_t            gasneti_cond_t;
 
   #define GASNETI_COND_INITIALIZER    PTHREAD_COND_INITIALIZER
-  #define gasneti_cond_init(pc)       gasneti_assert_zeroret(pthread_cond_init(pc, NULL))
+  #define gasneti_cond_init(pc) do {                       \
+      GASNETI_MUTEX_INITCLEAR(pc);                         \
+      gasneti_assert_zeroret(pthread_cond_init(pc, NULL)); \
+  } while (0)
   #define gasneti_cond_destroy(pc)    gasneti_assert_zeroret(pthread_cond_destroy(pc))
   #define gasneti_cond_signal(pc)     gasneti_assert_zeroret(pthread_cond_signal(pc))
   #define gasneti_cond_broadcast(pc)  gasneti_assert_zeroret(pthread_cond_broadcast(pc))
