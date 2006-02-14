@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/02/13 23:44:01 $
- * $Revision: 1.167 $
+ *     $Date: 2006/02/14 00:13:39 $
+ * $Revision: 1.168 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -39,6 +39,9 @@
 #else
   #define GASNETC_SND_REAP_COLLECT 0
 #endif
+
+/* Define non-zero to allow loopback AMs to be assembled on the stack */
+#define GASNETC_LOOPBACK_AMS_ON_STACK 1
 
 /* Remove when post-list code is fixed or permanently removed */
 #define GASNETC_USE_POST_LIST 0
@@ -1353,10 +1356,18 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 			  gasnetc_counter_t *req_oust, va_list argptr) {
   if_pt (dest == gasneti_mynode) {
     /* Local Case */
-    char tmp_buf[GASNETC_BUFSZ+8];
-    gasnetc_buffer_t * const buf = (gasnetc_buffer_t *)GASNETI_ALIGNUP(tmp_buf, 8);
     gasnet_handlerarg_t *args;
     int i;
+    #if GASNETC_LOOPBACK_AMS_ON_STACK
+      char tmp_buf[GASNETC_BUFSZ+8];
+      gasnetc_buffer_t * const buf = (gasnetc_buffer_t *)GASNETI_ALIGNUP(tmp_buf, 8);
+    #else
+      static gasneti_freelist_t	buf_freelist = GASNETI_FREELIST_INITIALIZER;
+      gasnetc_buffer_t *buf = gasneti_freelist_get(&buf_freelist);
+      if_pf (buf == NULL) {
+	buf = gasneti_malloc(GASNETC_BUFSZ);
+      }
+    #endif
 
     switch (category) {
     case gasnetc_System: /* Currently System == Short.  Fall through... */
@@ -1398,6 +1409,10 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 
       gasnetc_processPacket(NULL, &rbuf, flags);
     }
+
+    #if !GASNETC_LOOPBACK_AMS_ON_STACK
+      gasneti_freelist_put(&buf_freelist, buf);
+    #endif
   } else {
     /* Remote Case */
     gasnetc_buffer_t *buf;
