@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/02/11 02:38:44 $
- * $Revision: 1.76 $
+ *     $Date: 2006/02/14 02:48:58 $
+ * $Revision: 1.77 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -43,66 +43,20 @@
     #define NDEBUG 1
   #endif
 #endif
+
+/* bug 1206: several systems (notably Compaq C++ and OSX gcc) have an assert.h header 
+   which is broken in one or more subtle ways. Don't trust the system assert.h. */
 #include <assert.h>
+#undef assert
+
 #define assert_always(expr) \
-    ((expr) ? (void)0 : FATALERR("Assertion failure: %s", #expr))
+    ((expr) ? (void)0 : (void)FATALERR("Assertion failure: %s", #expr))
 
-#if defined(__DECCXX) && defined(NDEBUG) 
-  /* bug 1206: workaround a broken assert.h header in Compaq C++ */
-  #undef assert
+#ifdef NDEBUG
   #define assert(x) ((void)0)
+#else
+  #define assert(x) assert_always(x)
 #endif
-
-/* ------------------------------------------------------------------------------------ */
-/* misc tools */
-
-#ifndef MIN
-  #define MIN(x,y) ((x)<(y)?(x):(y))
-#endif
-
-#ifndef MAX
-  #define MAX(x,y) ((x)>(y)?(x):(y))
-#endif
-
-static uint64_t test_checksum(void *p, int numbytes) {
- uint8_t *buf = (uint8_t *)p;
- uint64_t result = 0;
- int i;
- for (i=0;i<numbytes;i++) {
-   result = ((result << 8) | ((result >> 56) & 0xFF) ) ^ *buf;
-   buf++;
- }
- return result;
-}
-
-#define PAGESZ GASNETT_PAGESIZE
-#define alignup(a,b) ((((a)+(b)-1)/(b))*(b))
-#define alignup_ptr(a,b) ((void *)(((((uintptr_t)(a))+(b)-1)/(b))*(b)))
-
-static int _test_rand(int low, int high) {
-  int result;
-  assert(low <= high);
-  result = low+(int)(((double)(high-low+1))*rand()/(RAND_MAX+1.0));
-  assert(result >= low && result <= high);
-  return result;
-}
-#define TEST_RAND(low,high) _test_rand((low), (high))
-#define TEST_RAND_PICK(a,b) (TEST_RAND(0,1)==1?(a):(b))
-#define TEST_SRAND(seed)    srand(seed)
-#define TEST_RAND_ONEIN(p)  (TEST_RAND(1,p) == 1)
-
-#define TEST_HIWORD(arg)     ((uint32_t)(((uint64_t)(arg)) >> 32))
-#define TEST_LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
-
-#define check_zeroret(op) do {                                       \
-  int _retval = (op);                                                \
-  if_pf(_retval) FATALERR(#op": %s(%i)",strerror(_retval), _retval); \
-} while (0)
-
-#define check_nzeroret(op) do {                                       \
-  int _retval = (op);                                                 \
-  if_pf(!_retval) FATALERR(#op": %s(%i)",strerror(_retval), _retval); \
-} while (0)
 
 /* ------------------------------------------------------------------------------------ */
 /* generic message output utility
@@ -198,6 +152,56 @@ static void _test_makeErrMsg(const char *format, ...) {
     }
   va_end(argptr);
 }
+/* ------------------------------------------------------------------------------------ */
+/* misc tools */
+
+#ifndef MIN
+  #define MIN(x,y) ((x)<(y)?(x):(y))
+#endif
+
+#ifndef MAX
+  #define MAX(x,y) ((x)>(y)?(x):(y))
+#endif
+
+static uint64_t test_checksum(void *p, int numbytes) {
+ uint8_t *buf = (uint8_t *)p;
+ uint64_t result = 0;
+ int i;
+ for (i=0;i<numbytes;i++) {
+   result = ((result << 8) | ((result >> 56) & 0xFF) ) ^ *buf;
+   buf++;
+ }
+ return result;
+}
+
+#define PAGESZ GASNETT_PAGESIZE
+#define alignup(a,b) ((((a)+(b)-1)/(b))*(b))
+#define alignup_ptr(a,b) ((void *)(((((uintptr_t)(a))+(b)-1)/(b))*(b)))
+
+static int _test_rand(int low, int high) {
+  int result;
+  assert(low <= high);
+  result = low+(int)(((double)(high-low+1))*rand()/(RAND_MAX+1.0));
+  assert(result >= low && result <= high);
+  return result;
+}
+#define TEST_RAND(low,high) _test_rand((low), (high))
+#define TEST_RAND_PICK(a,b) (TEST_RAND(0,1)==1?(a):(b))
+#define TEST_SRAND(seed)    srand(seed)
+#define TEST_RAND_ONEIN(p)  (TEST_RAND(1,p) == 1)
+
+#define TEST_HIWORD(arg)     ((uint32_t)(((uint64_t)(arg)) >> 32))
+#define TEST_LOWORD(arg)     ((uint32_t)((uint64_t)(arg)))
+
+#define check_zeroret(op) do {                                       \
+  int _retval = (op);                                                \
+  if_pf(_retval) FATALERR(#op": %s(%i)",strerror(_retval), _retval); \
+} while (0)
+
+#define check_nzeroret(op) do {                                       \
+  int _retval = (op);                                                 \
+  if_pf(!_retval) FATALERR(#op": %s(%i)",strerror(_retval), _retval); \
+} while (0)
 
 /* ------------------------------------------------------------------------------------ */
 /* timing - TIME() returns a microsecond time-stamp */
