@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testinternal.c,v $
- *     $Date: 2006/02/10 23:34:36 $
- * $Revision: 1.1 $
+ *     $Date: 2006/02/14 10:59:05 $
+ * $Revision: 1.2 $
  * Description: GASNet internal diagnostic tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,9 +14,11 @@
 /* ------------------------------------------------------------------------------------ */
 int main(int argc, char **argv) {
   int iters = 0, threads=0;
+  gasnet_handlerentry_t *htable; int htable_cnt;
+  gasnett_diagnostic_gethandlers(&htable, &htable_cnt);
 
   GASNET_Safe(gasnet_init(&argc, &argv));
-  GASNET_Safe(gasnet_attach(NULL, 0, 
+  GASNET_Safe(gasnet_attach(htable, htable_cnt, 
                             TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
   #if GASNET_PAR
     test_init("testinternal",0,"(iters) (threadcnt)");

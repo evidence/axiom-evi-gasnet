@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/02/14 05:03:10 $
- * $Revision: 1.76 $
+ *     $Date: 2006/02/14 10:59:03 $
+ * $Revision: 1.77 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -747,7 +747,8 @@ static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
  *  BOOLEAN flavor: ENABLE/DISABLE is a simple (non-atomic) flag, and the conduit
  *    is responsible for arbitrating any races between different threads when  
  *    setting/clearing that flag under GASNETI_THREADS
- * progressfns are called from a non-AM context, but they should never block or perform collective ops
+ * progressfns are called from a non-AM context, but they should never perform collective ops
+ *  or execute any code that might block (aside from aquiring hsls in an AM-safe manner)
  * they may be called concurrently (if GASNETI_THREADS), and must be prepared to
  *  receive calls even when the hint indicates the given subsytem does not need service
  *  additionally, progressfns that make gasnet calls must be prepared to recieve 
@@ -776,7 +777,19 @@ typedef void (*gasneti_progressfn_t)();
   #define GASNETE_PROGRESSFNS_LIST(FN) \
     GASNETE_BARRIER_PROGRESSFN(FN)     
 #endif
+
+#if GASNET_DEBUG
+  extern void (*gasneti_debug_progressfn_bool)();
+  extern void (*gasneti_debug_progressfn_counted)();
+  #define GASNETI_DEBUG_PROGRESSFNS(FN) \
+      FN(debug_boolean, BOOLEAN, gasneti_debug_progressfn_bool) \
+      FN(debug_counted, COUNTED, gasneti_debug_progressfn_counted) 
+#else
+  #define GASNETI_DEBUG_PROGRESSFNS(FN)
+#endif
+
 #define GASNETI_PROGRESSFNS_LIST(FN) \
+  GASNETI_DEBUG_PROGRESSFNS(FN)      \
   GASNETI_COLL_PROGRESSFNS(FN)       \
   GASNETI_VIS_PROGRESSFNS(FN)        \
   GASNETE_PROGRESSFNS_LIST(FN)       \
@@ -809,13 +822,13 @@ typedef void (*gasneti_progressfn_t)();
     (_GASNETI_PROGRESSFNS_FLAG(subsysname,BOOLEAN) = 1)
   #define _GASNETI_PROGRESSFNS_DISABLE_BOOLEAN(subsysname) \
     (_GASNETI_PROGRESSFNS_FLAG(subsysname,BOOLEAN) = 0)
-  #define _GASNETI_PROGRESSFNS_ENABLE_COUNTED(subsysname) (                             \
-    gasneti_weakatomic_increment(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)),       \
-    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname)) > 0) \
+  #define _GASNETI_PROGRESSFNS_ENABLE_COUNTED(subsysname) (                                     \
+    gasneti_weakatomic_increment(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)),               \
+    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)) > 0) \
     )
   #define _GASNETI_PROGRESSFNS_DISABLE_COUNTED(subsysname) (                                     \
     gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)) > 0), \
-    gasneti_weakatomic_decrement(&_GASNETI_PROGRESSFNS_FLAG(subsysname))                         \
+    gasneti_weakatomic_decrement(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED))                         \
     )
   #define GASNETI_PROGRESSFNS_ENABLE(subsysname,flavor) \
          _GASNETI_PROGRESSFNS_ENABLE_##flavor(subsysname)

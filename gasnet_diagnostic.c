@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/02/14 05:03:10 $
- * $Revision: 1.3 $
+ *     $Date: 2006/02/14 10:59:03 $
+ * $Revision: 1.4 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,7 @@
 
 #define TEST_OMIT_CONFIGSTRINGS 1
 #include <../tests/test.h>
+#include <gasnet_handler.h>
 
 /* this file should *only* contain symbols used for internal diagnostics,
    so that we can avoid needlessly linking it into production executables 
@@ -32,8 +33,14 @@ GASNETT_IDENT(gasneti_IdentString_diagnostics,
   static void * thread_fn(void *arg);
 #endif
 static int num_threads = 1;
+static int peer = -1;
 static int iters = 0;
 static int iters2 = 0;
+
+#define gasneti_diag_hidx_base 128
+#define gasnetc_diag_hidx_base 160
+#define gasnete_diag_hidx_base 200
+static int gasneti_diag_havehandlers = 0; /* true iff caller has registered our handler table */
 
 #ifdef GASNETC_DIAGNOSTICS_SETUP
   GASNETC_DIAGNOSTICS_SETUP /* can include helper source files, etc */
@@ -75,6 +82,7 @@ static void mutex_test(int id);
 static void spinlock_test(int id);
 static void cond_test(int id);
 static void malloc_test(int id);
+static void progressfns_test(int id);
 
 /* ------------------------------------------------------------------------------------ */
 /* run iters iterations of diagnostics and return zero on success 
@@ -87,13 +95,12 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt) {
   test_errs = 0;
   iters = iter_cnt;
   iters2 = iters*100;
+  peer = gasnet_mynode()^1;
+  if (peer == gasnet_nodes()) peer = gasnet_mynode();
 
   TEST_GENERICS_WARNING();
 
   auxseg_test();
-
-  BARRIER();
-  MSG0("progress functions test...");
 
   BARRIER();
   MSG0("sequential malloc test...");
@@ -118,6 +125,9 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt) {
 
   BARRIER();
   spinlock_test(0);
+
+  BARRIER();
+  progressfns_test(0);
 
   BARRIER();
   MSG0("sequential conduit tests...");
@@ -381,6 +391,107 @@ static void spinlock_test(int id) {
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
+static int pf_cnt_boolean, pf_cnt_counted;
+static gasnet_hsl_t pf_lock = GASNET_HSL_INITIALIZER;
+static void progressfn_reqh(gasnet_token_t token, void *buf, size_t nbytes) {
+  GASNET_Safe(gasnet_AMReplyMedium0(token, gasneti_diag_hidx_base + 1, buf, nbytes));
+}
+static void progressfn_reph(gasnet_token_t token, void *buf, size_t nbytes) {
+}
+static void progressfn_tester(int *counter) {
+  static int active = 0; /* protocol provides mutual exclusion & recursion protection */
+  int iamactive = 0;
+  gasnet_hsl_lock(&pf_lock);
+    (*counter)++;
+    if (!active) { active = 1; iamactive = 1; }
+  gasnet_hsl_unlock(&pf_lock);
+  if (!iamactive) return;
+
+  /* do some work that should be legal inside a progress fn */
+  { static int tmp = 47;
+    int sz;
+    gasnet_put_nbi(peer, TEST_SEG(peer), &tmp, sizeof(tmp));
+    gasnet_get_nbi(&tmp, peer, TEST_SEG(peer), sizeof(tmp));
+    for (sz = 1; sz <= 128*1024; sz *= 2) {
+      gasnet_put_nbi_bulk(peer, TEST_SEG(peer), TEST_MYSEG(), sz);
+      gasnet_get_nbi_bulk(TEST_MYSEG(), peer, TEST_SEG(peer), sz);
+    }
+    gasnet_try_syncnbi_all();
+    if (gasneti_diag_havehandlers) {
+      for (sz = 1; sz <= MIN(gasnet_AMMaxMedium(),MIN(64*1024,TEST_SEGSZ)); sz *= 2) {
+        gasnet_AMRequestMedium0(peer, gasneti_diag_hidx_base + 0, TEST_MYSEG(), sz);
+        gasnet_AMRequestLong0(peer, gasneti_diag_hidx_base + 0, TEST_MYSEG(), sz, TEST_SEG(peer));
+      }
+    }
+  }
+
+  gasneti_local_mb();
+  active = 0;
+}
+static void progressfn_bool() { progressfn_tester(&pf_cnt_boolean); }
+static void progressfn_counted() { progressfn_tester(&pf_cnt_counted); }
+static void progressfns_test(int id) {
+#if !GASNET_DEBUG
+  return;
+#else
+  { int i;
+    int cnt_c = 0, cnt_b = 0;
+    MSG0("%s progress functions test...",(num_threads>1?"parallel":"sequential"));
+
+    PTHREAD_BARRIER(num_threads);
+    gasneti_debug_progressfn_bool = progressfn_bool;
+    gasneti_debug_progressfn_counted = progressfn_counted;
+    pf_cnt_boolean = 0;
+    pf_cnt_counted = 0;
+    PTHREAD_BARRIER(num_threads);
+
+    if (!id) GASNETI_PROGRESSFNS_ENABLE(debug_boolean,BOOLEAN);
+    PTHREAD_BARRIER(num_threads);
+    GASNETI_PROGRESSFNS_ENABLE(debug_counted,COUNTED);
+    GASNETI_PROGRESSFNS_ENABLE(debug_counted,COUNTED);
+    GASNETI_PROGRESSFNS_DISABLE(debug_counted,COUNTED);
+
+    /* do some work that should cause progress fns to run */
+    for (i=0; i < 10; i++) {
+      int tmp;
+      gasnet_put(peer, TEST_SEG(peer), &tmp, sizeof(tmp));
+      gasnet_get(&tmp, peer, TEST_SEG(peer), sizeof(tmp));
+      gasnet_put_bulk(peer, TEST_SEG(peer), TEST_MYSEG(), 1024);
+      gasnet_get_bulk(TEST_MYSEG(), peer, TEST_SEG(peer), 1024);
+      gasnet_AMPoll();
+    }
+
+    /* ensure they did run */
+    cnt_c = pf_cnt_counted; cnt_b = pf_cnt_boolean;
+    assert_always(cnt_c > 0); assert_always(cnt_b > 0);
+
+    /* disable progress fns and quiesce the system */
+    PTHREAD_BARRIER(num_threads);
+    if (!id) GASNETI_PROGRESSFNS_DISABLE(debug_boolean,BOOLEAN);
+    GASNETI_PROGRESSFNS_DISABLE(debug_counted,COUNTED);
+    PTHREAD_BARRIER(num_threads);
+    for (i=0; i < 1000; i++) { gasnet_AMPoll(); gasneti_sched_yield(); }
+    PTHREAD_BARRIER(num_threads);
+    cnt_c = pf_cnt_counted; cnt_b = pf_cnt_boolean;
+    PTHREAD_BARRIER(num_threads);
+
+    /* do some work that might cause progress fns to run */
+    for (i=0; i < 10; i++) {
+      int tmp;
+      gasnet_put(peer, TEST_SEG(peer), &tmp, sizeof(tmp));
+      gasnet_get(&tmp, peer, TEST_SEG(peer), sizeof(tmp));
+      gasnet_put_bulk(peer, TEST_SEG(peer), TEST_MYSEG(), 1024);
+      gasnet_get_bulk(TEST_MYSEG(), peer, TEST_SEG(peer), 1024);
+      gasnet_AMPoll();
+    }
+
+    PTHREAD_BARRIER(num_threads);
+    /* ensure they did not run */
+    assert_always(cnt_c == pf_cnt_counted); assert_always(cnt_b == pf_cnt_boolean);
+  }
+#endif
+}
+/* ------------------------------------------------------------------------------------ */
 #if GASNET_PAR
 
 static void * thread_fn(void *arg) {
@@ -407,6 +518,10 @@ static void * thread_fn(void *arg) {
   malloc_test(id);
   
   PTHREAD_BARRIER(num_threads);
+
+  progressfns_test(id);
+
+  PTHREAD_BARRIER(num_threads);
   MSG0("parallel conduit tests...");
   PTHREAD_BARRIER(num_threads);
   test_errs += GASNETC_RUN_DIAGNOSTICS_PAR(iters,id,num_threads);
@@ -417,3 +532,24 @@ static void * thread_fn(void *arg) {
   return (void *)(uintptr_t)test_errs;
 }
 #endif
+
+static gasnet_handlerentry_t gasneti_diag_handlers[] = {
+  #ifdef GASNETC_DIAG_HANDLERS
+    GASNETC_DIAG_HANDLERS(), /* should start at gasnetc_diag_hidx_base */
+  #endif
+  #ifdef GASNETE_DIAG_HANDLERS
+    GASNETE_DIAG_HANDLERS(), /* should start at gasnete_diag_hidx_base */
+  #endif
+
+  { gasneti_diag_hidx_base + 0, (gasneti_handler_fn_t)progressfn_reqh },
+  { gasneti_diag_hidx_base + 1, (gasneti_handler_fn_t)progressfn_reph }
+};
+
+
+void gasneti_diagnostic_gethandlers(gasnet_handlerentry_t **htable, int *htable_cnt) {
+  assert(htable && htable_cnt);
+  *htable = gasneti_diag_handlers;
+  *htable_cnt = (int)(sizeof(gasneti_diag_handlers)/sizeof(gasnet_handlerentry_t));
+  gasneti_diag_havehandlers = 1;
+}
+

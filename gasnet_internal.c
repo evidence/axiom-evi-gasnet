@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/02/13 15:00:54 $
- * $Revision: 1.144 $
+ *     $Date: 2006/02/14 10:59:03 $
+ * $Revision: 1.145 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -157,6 +157,11 @@ int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME)) = 1;
 
 #ifdef _GASNETI_PROGRESSFNS_DEFAULT
   GASNETI_PROGRESSFNS_LIST(_GASNETI_PROGRESSFNS_DEFINE_FLAGS)
+#endif
+
+#if GASNET_DEBUG
+  void (*gasneti_debug_progressfn_bool)() = abort;
+  void (*gasneti_debug_progressfn_counted)() = abort;
 #endif
 
 #ifdef _GASNETI_SEGINFO_DEFAULT
