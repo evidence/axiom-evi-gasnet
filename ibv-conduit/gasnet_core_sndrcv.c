@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/02/14 00:13:39 $
- * $Revision: 1.168 $
+ *     $Date: 2006/02/15 01:17:12 $
+ * $Revision: 1.169 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1961,9 +1961,9 @@ static void gasnetc_do_get_zerocp(const gasnetc_epid_t epid, int rkey_index,
 
 #else /* !GASNETC_PIN_SEGMENT */
 /*
- * ###############################################################
- * Static helper functions for RDMA when the segment is pre-pinned
- * ###############################################################
+ * ###################################################################
+ * Static helper functions for RDMA when the segment is NOT pre-pinned
+ * ###################################################################
  */
 GASNET_INLINE_MODIFIER(gasnetc_fh_put_inline)
 void gasnetc_fh_put_inline(gasnetc_sreq_t *sreq) {

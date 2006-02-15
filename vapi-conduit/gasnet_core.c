@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/02/13 23:31:26 $
- * $Revision: 1.157 $
+ *     $Date: 2006/02/15 01:17:12 $
+ * $Revision: 1.158 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,7 +39,7 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
   Variable names are formed by replacing GASNETC_DEFAULT_ by GASNET_
 */
 
-/* Default is to open all available HCA ports */
+/* Default is to open one physical port per HCA */
 #define GASNETC_DEFAULT_VAPI_PORTS		""
 
 /* Limits on in-flight (queued but not reaped) RDMA Ops */
@@ -65,7 +65,7 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
 #endif
 
 /* Use of multiple QPs */
-#define GASNETC_DEFAULT_NUM_QPS			0	/* 0 = one per physical port */
+#define GASNETC_DEFAULT_NUM_QPS			0	/* 0 = one per HCA */
 
 /* Protocol switch points */
 #define GASNETC_DEFAULT_INLINESEND_LIMIT	72
