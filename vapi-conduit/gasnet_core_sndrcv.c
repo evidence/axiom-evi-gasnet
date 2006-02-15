@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/02/15 01:17:12 $
- * $Revision: 1.169 $
+ *     $Date: 2006/02/15 01:22:03 $
+ * $Revision: 1.170 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2948,7 +2948,9 @@ extern int gasnetc_RequestGeneric(gasnetc_category_t category,
 				  int dest, gasnet_handler_t handler,
 				  void *src_addr, int nbytes, void *dst_addr,
 				  int numargs, gasnetc_counter_t *mem_oust, va_list argptr) {
-  gasneti_AMPoll();	/* ensure progress */
+  /* ensure progress */
+  gasnetc_poll_rcv();
+  GASNETI_PROGRESSFNS_RUN();
 
   return gasnetc_ReqRepGeneric(category, NULL, dest, handler,
                                src_addr, nbytes, dst_addr,
