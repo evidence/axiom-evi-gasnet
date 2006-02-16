@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/02/14 10:59:03 $
- * $Revision: 1.4 $
+ *     $Date: 2006/02/16 01:14:15 $
+ * $Revision: 1.5 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -412,7 +412,7 @@ static void progressfn_tester(int *counter) {
     int sz;
     gasnet_put_nbi(peer, TEST_SEG(peer), &tmp, sizeof(tmp));
     gasnet_get_nbi(&tmp, peer, TEST_SEG(peer), sizeof(tmp));
-    for (sz = 1; sz <= 128*1024; sz *= 2) {
+    for (sz = 1; sz <= MIN(128*1024,TEST_SEGSZ); sz *= 2) {
       gasnet_put_nbi_bulk(peer, TEST_SEG(peer), TEST_MYSEG(), sz);
       gasnet_get_nbi_bulk(TEST_MYSEG(), peer, TEST_SEG(peer), sz);
     }
