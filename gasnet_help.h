@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/02/14 10:59:03 $
- * $Revision: 1.77 $
+ *     $Date: 2006/02/16 02:19:53 $
+ * $Revision: 1.78 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -822,14 +822,14 @@ typedef void (*gasneti_progressfn_t)();
     (_GASNETI_PROGRESSFNS_FLAG(subsysname,BOOLEAN) = 1)
   #define _GASNETI_PROGRESSFNS_DISABLE_BOOLEAN(subsysname) \
     (_GASNETI_PROGRESSFNS_FLAG(subsysname,BOOLEAN) = 0)
-  #define _GASNETI_PROGRESSFNS_ENABLE_COUNTED(subsysname) (                                     \
-    gasneti_weakatomic_increment(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)),               \
-    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)) > 0) \
-    )
-  #define _GASNETI_PROGRESSFNS_DISABLE_COUNTED(subsysname) (                                     \
-    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)) > 0), \
-    gasneti_weakatomic_decrement(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED))                         \
-    )
+  #define _GASNETI_PROGRESSFNS_ENABLE_COUNTED(subsysname) do {                                   \
+    gasneti_weakatomic_increment(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED));                \
+    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)) > 0); \
+  } while (0)
+  #define _GASNETI_PROGRESSFNS_DISABLE_COUNTED(subsysname) do {                                  \
+    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)) > 0); \
+    gasneti_weakatomic_decrement(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED));                \
+  } while (0)
   #define GASNETI_PROGRESSFNS_ENABLE(subsysname,flavor) \
          _GASNETI_PROGRESSFNS_ENABLE_##flavor(subsysname)
   #define GASNETI_PROGRESSFNS_DISABLE(subsysname,flavor) \
