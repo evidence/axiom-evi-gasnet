@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testinternal.c,v $
- *     $Date: 2006/02/14 10:59:05 $
- * $Revision: 1.2 $
+ *     $Date: 2006/02/16 17:45:58 $
+ * $Revision: 1.3 $
  * Description: GASNet internal diagnostic tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,7 +39,7 @@ int main(int argc, char **argv) {
   #endif
 
   BARRIER();
-  test_errs = gasnett_run_diagnostics(iters, threads);
+  test_errs = gasnett_run_diagnostics(iters, threads, TEST_SEGINFO());
   BARRIER();
 
   if (test_errs) ERR("gasnett_run_diagnostics(%i) failed.", iters);

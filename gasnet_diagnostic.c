@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/02/16 07:48:00 $
- * $Revision: 1.7 $
+ *     $Date: 2006/02/16 17:45:56 $
+ * $Revision: 1.8 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -91,7 +91,8 @@ static void progressfns_test(int id);
    must be called collectively by exactly one thread on each node
    in par mode, the test may internally spawn up to threadcnt threads
  */
-extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt) { 
+extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, gasnet_seginfo_t const *seginfo) { 
+  int i;
   int partner = (gasnet_mynode() ^ 1);
   if (partner == gasnet_nodes()) partner = gasnet_mynode();
   test_errs = 0;
@@ -99,9 +100,14 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt) {
   iters2 = iters*100;
   peer = gasnet_mynode()^1;
   if (peer == gasnet_nodes()) peer = gasnet_mynode();
+  assert_always(seginfo);
+  _test_seginfo = (gasnet_seginfo_t *)seginfo;
+  for (i=0; i < (int)gasnet_nodes(); i++) {
+    assert_always(_test_seginfo[i].size >= TEST_SEGSZ);
+    assert_always((((uintptr_t)_test_seginfo[i].addr) % PAGESZ) == 0);
+  }
   myseg = TEST_MYSEG();
   peerseg = TEST_SEG(peer);
-  assert_always(myseg != NULL && peerseg != NULL);
 
   TEST_GENERICS_WARNING();
 

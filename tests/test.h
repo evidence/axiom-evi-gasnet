@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/02/16 02:01:14 $
- * $Revision: 1.78 $
+ *     $Date: 2006/02/16 17:45:58 $
+ * $Revision: 1.79 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -633,8 +633,9 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
 #endif
 
 #ifdef GASNET_SEGMENT_EVERYTHING
-  gasnet_seginfo_t *_test_seginfo;
+  static gasnet_seginfo_t *_test_seginfo;
   #define TEST_SEG(node) (assert(_test_seginfo), _test_seginfo[node].addr)
+  #define TEST_SEGINFO() (assert(_test_seginfo), (gasnet_seginfo_t const *)_test_seginfo)
   /* following trivially handles the case where static data is aligned
      across the nodes, and also works on X-1 where the static data is
      misaligned across nodes. 
@@ -713,9 +714,9 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
   #undef gasnet_attach
   #define gasnet_attach _test_attach
 #else
+  static gasnet_seginfo_t *_test_seginfo;
   static void *_test_getseg(gasnet_node_t node) {
-    static gasnet_seginfo_t *si = NULL;
-    if (si == NULL) {
+    if (_test_seginfo == NULL) {
       gasnet_node_t i;
       gasnet_seginfo_t *s = (gasnet_seginfo_t *)test_malloc(gasnet_nodes()*sizeof(gasnet_seginfo_t));
       GASNET_Safe(gasnet_getSegmentInfo(s, gasnet_nodes()));
@@ -726,11 +727,12 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
           assert_always(s[i].addr == s[0].addr);
         #endif
       }
-      si = s;
+      _test_seginfo = s;
     }
-    return si[node].addr;
+    return _test_seginfo[node].addr;
   }
   #define TEST_SEG(node) (_test_getseg(node))
+  #define TEST_SEGINFO() (assert(_test_seginfo), (gasnet_seginfo_t const *)_test_seginfo)
 #endif
 
 #define TEST_MYSEG()          (TEST_SEG(gasnet_mynode()))
