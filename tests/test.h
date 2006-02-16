@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/02/14 02:48:58 $
- * $Revision: 1.77 $
+ *     $Date: 2006/02/16 02:01:14 $
+ * $Revision: 1.78 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -633,7 +633,7 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
 #endif
 
 #ifdef GASNET_SEGMENT_EVERYTHING
-  static gasnet_seginfo_t *_test_seginfo = NULL;
+  gasnet_seginfo_t *_test_seginfo;
   #define TEST_SEG(node) (assert(_test_seginfo), _test_seginfo[node].addr)
   /* following trivially handles the case where static data is aligned
      across the nodes, and also works on X-1 where the static data is
