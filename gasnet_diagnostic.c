@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/02/16 17:45:56 $
- * $Revision: 1.8 $
+ *     $Date: 2006/02/17 11:54:39 $
+ * $Revision: 1.9 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -233,9 +233,14 @@ static void malloc_test(int id) {
   if (!id) {
     gasneti_getheapstats(&stats_after);
     #if GASNET_DEBUG
-      if (stats_before.live_bytes != stats_after.live_bytes ||
-          stats_before.live_objects != stats_after.live_objects) 
-        MSG("WARNING: unexpected heap size change:\n"
+    #if GASNETI_CONDUIT_THREADS
+      float tol = 0.1; /* allow for some heap change if a conduit thread is around */
+    #else
+      float tol = 0; /* we have all the threads, and nothing else should be allocating */
+    #endif
+      if (abs(stats_before.live_bytes - stats_after.live_bytes)/(double)stats_after.live_bytes > tol ||
+          abs(stats_before.live_objects - stats_after.live_objects)/(double)stats_after.live_objects > tol) 
+        MSG("ERROR: unexpected heap size change:\n"
         "  stats_before.live_bytes=%llu stats_after.live_bytes=%llu\n"
         "  stats_before.live_objects=%llu stats_after.live_objects=%llu",
         (unsigned long long)stats_before.live_bytes,   (unsigned long long)stats_after.live_bytes,
