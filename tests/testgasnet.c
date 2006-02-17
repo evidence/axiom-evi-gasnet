@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2006/02/10 07:38:12 $
- * $Revision: 1.40 $
+ *     $Date: 2006/02/17 19:45:17 $
+ * $Revision: 1.41 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -142,6 +142,9 @@ void test_libgasnet_keys(test_keys_t *s) {
 }
 #if GASNET_PAR
   /* thread-parallel gasnet_tools tests */
+  #ifdef __cplusplus
+    extern "C"
+  #endif
   void *test_libgasnetpar_tools(void *p) {
     int idx = (int)(uintptr_t)p;
     PTHREAD_LOCALBARRIER(NUM_THREADS);
