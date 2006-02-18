@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/02/17 11:54:39 $
- * $Revision: 1.9 $
+ *     $Date: 2006/02/18 00:13:51 $
+ * $Revision: 1.10 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -233,6 +233,7 @@ static void malloc_test(int id) {
   if (!id) {
     gasneti_getheapstats(&stats_after);
     #if GASNET_DEBUG
+    {
     #if GASNETI_CONDUIT_THREADS
       float tol = 0.1; /* allow for some heap change if a conduit thread is around */
     #else
@@ -245,6 +246,7 @@ static void malloc_test(int id) {
         "  stats_before.live_objects=%llu stats_after.live_objects=%llu",
         (unsigned long long)stats_before.live_bytes,   (unsigned long long)stats_after.live_bytes,
         (unsigned long long)stats_before.live_objects, (unsigned long long)stats_after.live_objects);
+    }
     #endif
   }
   PTHREAD_BARRIER(num_threads);
