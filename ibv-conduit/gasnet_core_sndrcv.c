@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/02/15 01:22:03 $
- * $Revision: 1.170 $
+ *     $Date: 2006/02/18 01:41:44 $
+ * $Revision: 1.171 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -349,34 +349,35 @@ VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
 	VAPI_sr_desc_t *_name = gasnetc_sr_desc_init(_CONCAT(_name,_space), _sg_lst_len, _count) /* note intentional lack of final semicolon */
 
 /* Use of IB's 32-bit immediate data:
- *   0-1: category
- *     2: request (0) or reply (1)
- *   3-7: numargs (5 bits, but only 0-GASNETC_MAX_ARGS (17) are legal values)
- *  8-15: handlerID
+ *   0-7: handlerID
+ *   8-9: category
+ * 10-14: numargs (5 bits, but only 0-GASNETC_MAX_ARGS (17) are legal values)
+ *    15: request (0) or reply (1)
  * 16-29: source node (14 bit LID space in IB)
  *    30: carries extra credits (in addition to the one implicit in every Reply)
  *    31: UNUSED
  */
 
-#define GASNETC_MSG_NUMARGS(flags)      (((flags) >> 3) & 0x1f)
-#define GASNETC_MSG_ISREPLY(flags)      ((flags) & 0x4)
+#define GASNETC_MSG_HANDLERID(flags)    ((gasnet_handler_t)(flags))
+#define GASNETC_MSG_CATEGORY(flags)     ((gasnetc_category_t)(((flags) >> 8) & 0x3))
+#define GASNETC_MSG_NUMARGS(flags)      (((flags) >> 10) & 0x1f)
+#define GASNETC_MSG_ISREPLY(flags)      ((flags) & (1<<15))
 #define GASNETC_MSG_ISREQUEST(flags)    (!GASNETC_MSG_ISREPLY(flags))
-#define GASNETC_MSG_CATEGORY(flags)     ((gasnetc_category_t)((flags) & 0x3))
-#define GASNETC_MSG_HANDLERID(flags)    ((gasnet_handler_t)((flags) >> 8))
 #define GASNETC_MSG_SRCIDX(flags)       ((gasnet_node_t)((flags) >> 16) & 0x3fff)
 #define GASNETC_MSG_CREDITS(flags)      ((flags) & (1<<30))
 
 #define GASNETC_MSG_GENFLAGS(isreq, cat, nargs, hand, srcidx, credits)   \
- (gasneti_assert(!((isreq) & ~1)),              \
-  gasneti_assert(!((cat) & ~3)),                \
+ (gasneti_assert(0 == ((srcidx) & ~0x3fff)),    \
+  gasneti_assert(0 == ((nargs)  & ~0x1f)),      \
+  gasneti_assert(0 == ((cat)    & ~3)),         \
   gasneti_assert((nargs) <= GASNETC_MAX_ARGS),  \
   gasneti_assert((srcidx) < gasneti_nodes),     \
-  (uint32_t)(  ( (credits)? (1<<30) : 0  )      \
-	     | (((srcidx) & 0x3fff) << 16)      \
-	     | (((hand)   & 0xff  ) << 8 )      \
-	     | (((nargs)  & 0x1f  ) << 3 )      \
-	     | ( (isreq)  ? 0 : (1<<2)   )      \
-	     | (((cat)    & 0x3   )      )))
+  (uint32_t)(  ((credits) ? (1<<30) : 0)        \
+             | ((nargs)   << 10        )        \
+             | ((isreq)   ? 0 : (1<<15))        \
+             | ((srcidx)  << 16        )        \
+             | ((cat)     << 8         )        \
+             | ((hand)                 )))
 
 /* Work around apparent thread-safety bug in VAPI_poll_cq (and peek as well?) */
 #if GASNETC_VAPI_POLL_LOCK
