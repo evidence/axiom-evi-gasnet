@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/02/18 09:41:06 $
-# $Revision: 1.43 $
+#     $Date: 2006/02/19 08:50:57 $
+# $Revision: 1.44 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -32,6 +32,7 @@ my @verbose_opt = ("-v");
 my $keep = 0;
 my $dryrun = 0;
 my $exename = undef;
+my $uname = `uname`;
 my $find_exe = 1;	# should we find full path of executable?
 my $env_before_exe = 1; # place env cmd before exe?
 my $extra_quote_argv = 0; # add extra quotes around each argument
@@ -59,7 +60,8 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_lam      = ($mpirun_help =~ m|LAM/MPI|);
     my $is_ompi     = ($mpirun_help =~ m|OpenRTE|);
     my $is_mpiexec  = ($mpirun_help =~ m|mpiexec|);
-    my $is_mpich_nt = ($mpirun_help =~ m|Unknown option| && `uname` =~ m|cygwin|i );
+    my $is_mpiexec_nt = ($mpirun_help =~ m|mpiexec| && $uname =~ m|cygwin|i );
+    my $is_mpich_nt = ($mpirun_help =~ m|Unknown option| && $uname =~ m|cygwin|i );
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
     my $is_mvich    = ($mpirun_help =~ m|MV(AP)?ICH|i);
     my $is_cray_mpi = ($mpirun_help =~ m|Psched|);
@@ -87,6 +89,10 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	%envfmt = ( 'pre' => '-x',
 		    'inter' => '-x'
 		  );
+    } elsif ($is_mpiexec) {
+	$spawner_desc = "mpiexec/NT";
+	# handles env for us
+	%envfmt = ( 'noenv' => 1 );
     } elsif ($is_mpiexec) {
 	$spawner_desc = "mpiexec";
 	# handles env for us
@@ -296,6 +302,10 @@ sub expand {
 	        }
 	    }
         }
+	if ($uname =~ m|cygwin|i) { # convert cygwin paths to windows paths for non-cygwin spawners
+	  $exename = `cygpath -a -m $exename`;
+	  chomp($exename);
+	}
         die("gasnetrun: unable to locate program '$exebase'\n")
 		    unless (defined($exename) && -x $exename);
         print("gasnetrun: located executable '$exename'\n") if ($verbose);
