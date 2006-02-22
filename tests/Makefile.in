@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/02/10 23:34:36 $
-# $Revision: 1.75 $
+#     $Date: 2006/02/22 21:32:35 $
+# $Revision: 1.76 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -330,7 +330,7 @@ $(MPI_TESTS): force
 # testcxx tests support for compiling a C++-based GASNet client 
 # this is unlikely to work on conduits requiring a special linker (eg mpi-conduit)
 testcxx: force
-	@CXX@ @CXXFLAGS@ @MISC_CXXFLAGS@ -I$(srcdir) $(GASNET_CPPFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.cc
+	@CXX@ @CXXFLAGS@ @MISC_CXXFLAGS@ -I$(srcdir) $(GASNET_DEFINES) $(GASNET_INCLUDES) $(MANUAL_CXXFLAGS) -c -o $@.o $(srcdir)/$@.cc
 	@CXX@ @CXXFLAGS@ $(GASNET_LDFLAGS) -o $@ $@.o $($@_extraobjs) $(GASNET_LIBS)
 	rm -f $@.o
 
