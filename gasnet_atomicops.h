@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/02/08 05:54:30 $
- * $Revision: 1.82 $
+ *     $Date: 2006/02/22 04:39:03 $
+ * $Revision: 1.83 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -823,12 +823,9 @@
                                         (muadd(&((p)->ctr),-1) == 0)
    #endif
   /* ------------------------------------------------------------------------------------ */
-  #elif (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(__linux__) && defined(__PPC__)) || (defined(__blrts__) && defined(__PPC__))
-    /* PowerPC
-     * (__APPLE__) && __MACH__ && __ppc__) == OS/X, Darwin
-     * (__linux__ && __PPC__) == Linux
-     * (__blrts__ && __PPC__) == BlueGene/L
-     */
+  #elif (defined(__APPLE__) && defined(__MACH__) && (defined(__ppc__) || defined(__ppc64__))) /* PowerPC OSX */ || \
+        (defined(__linux__) && defined(__PPC__)) /* PowerPC Linux */ || \
+        (defined(__blrts__) && defined(__PPC__)) /* BlueGene/L */
     #if defined(__xlC__)
       /* XLC machine code functions are very rigid, thus we produce all
        * three read-modify-write ops as distinct functions in order to

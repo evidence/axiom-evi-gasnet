@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/02/08 05:54:30 $
- * $Revision: 1.81 $
+ *     $Date: 2006/02/22 04:39:03 $
+ * $Revision: 1.82 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -251,12 +251,10 @@
       #define gasneti_local_mb() GASNETI_ASM("mf")
     #endif
    #endif
-#elif defined(_POWER) || (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(__linux__) && defined(__PPC__)) || (defined(__blrts__) && defined(__PPC__))
- /* (_POWER) == IBM SP POWER[234]
-  * (__APPLE__ && __MACH__ && __ppc__) == Darwin, OS/X
-  * (__linux__ && __PPC__) == Linux
-  * (__blrts__ && __PPC__) == BlueGene/L
-  */
+#elif defined(_POWER) /* IBM SP POWER[234] */ || \
+     (defined(__APPLE__) && defined(__MACH__) && (defined(__ppc__) || defined(__ppc64__))) /* PowerPC OSX */ || \
+     (defined(__linux__) && defined(__PPC__)) /* PPC Linux */ || \
+     (defined(__blrts__) && defined(__PPC__)) /* BlueGene/L */
  #ifdef __xlC__
    /* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly
     * you have to hard-code the opcodes in a pragma that defines an assembly 
