@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/02/13 10:25:18 $
-dnl $Revision: 1.91 $
+dnl     $Date: 2006/02/23 19:41:03 $
+dnl $Revision: 1.92 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1294,13 +1294,19 @@ if test "$cross_compiling" = "yes" ; then
   HOST_MSG="When cross-compiling, \$HOST_CC or --with-host-cc= must be set to indicate a C compiler for the host machine (ie the machine running this configure script)"
   GASNET_ENV_DEFAULT(HOST_CC, )
   GASNET_ENV_DEFAULT(HOST_CFLAGS, )
+  GASNET_ENV_DEFAULT(HOST_LDFLAGS, )
+  GASNET_ENV_DEFAULT(HOST_LIBS, )
   AC_SUBST(HOST_CC)
   AC_SUBST(HOST_CFLAGS)
+  AC_SUBST(HOST_LDFLAGS)
+  AC_SUBST(HOST_LIBS)
   if test ! "$HOST_CC" ; then
     AC_MSG_ERROR([$HOST_MSG])
   fi
   GASNET_PUSHVAR(CC,"$HOST_CC")
   GASNET_PUSHVAR(CFLAGS,"$HOST_CFLAGS")
+  GASNET_PUSHVAR(LDFLAGS,"$HOST_LDFLAGS")
+  GASNET_PUSHVAR(LIBS,"$HOST_LIBS")
   dnl push all the other goop that AC_PROG_C(PP) caches away
   GASNET_PUSHVAR_UNSET(CPP)
   GASNET_PUSHVAR_UNSET(CPPFLAGS)
@@ -1322,9 +1328,13 @@ if test "$cross_compiling" = "yes" ; then
     HOST_CPP="$CPP"
     HOST_CPPFLAGS="$CPPFLAGS"
     HOST_CFLAGS="$CFLAGS"
+    HOST_LDFLAGS="$LDFLAGS"
+    HOST_LIBS="$LIBS"
     AC_LANG_RESTORE
   GASNET_POPVAR(CC)
   GASNET_POPVAR(CFLAGS)
+  GASNET_POPVAR(LDFLAGS)
+  GASNET_POPVAR(LIBS)
   GASNET_POPVAR(CPP)
   GASNET_POPVAR(CPPFLAGS)
   GASNET_POPVAR(ac_cv_prog_CC)
@@ -1345,13 +1355,19 @@ if test "$cross_compiling" = "yes" ; then
   HOST_MSG="When cross-compiling, \$HOST_CXX or --with-host-cxx= must be set to indicate a C++ compiler for the host machine (ie the machine running this configure script)"
   GASNET_ENV_DEFAULT(HOST_CXX, )
   GASNET_ENV_DEFAULT(HOST_CXXFLAGS, )
+  GASNET_ENV_DEFAULT(HOST_CXX_LDFLAGS, )
+  GASNET_ENV_DEFAULT(HOST_CXX_LIBS, )
   AC_SUBST(HOST_CXX)
   AC_SUBST(HOST_CXXFLAGS)
+  AC_SUBST(HOST_CXX_LDFLAGS)
+  AC_SUBST(HOST_CXX_LIBS)
   if test ! "$HOST_CXX" ; then
     AC_MSG_ERROR([$HOST_MSG])
   fi
   GASNET_PUSHVAR(CXX,"$HOST_CXX")
   GASNET_PUSHVAR(CXXFLAGS,"$HOST_CXXFLAGS")
+  GASNET_PUSHVAR(LDFLAGS,"$HOST_CXX_LDFLAGS")
+  GASNET_PUSHVAR(LIBS,"$HOST_CXX_LIBS")
   dnl push all the other goop that AC_PROG_CXX(CPP) caches away
   GASNET_PUSHVAR_UNSET(CXXCPP)
   GASNET_PUSHVAR_UNSET(ac_cv_prog_CXX)
@@ -1370,10 +1386,14 @@ if test "$cross_compiling" = "yes" ; then
     HOST_CXX="$CXX"
     HOST_CXXCPP="$CXXCPP"
     HOST_CXXFLAGS="$CXXFLAGS"
+    HOST_CXX_LDFLAGS="$LDFLAGS"
+    HOST_CXX_LIBS="$LIBS"
     AC_LANG_RESTORE
   GASNET_POPVAR(CXX)
   GASNET_POPVAR(CXXFLAGS)
   GASNET_POPVAR(CXXCPP)
+  GASNET_POPVAR(LDFLAGS)
+  GASNET_POPVAR(LIBS)
   GASNET_POPVAR(ac_cv_prog_CXX)
   GASNET_POPVAR(ac_cv_prog_CXXCPP)
   GASNET_POPVAR(ac_cv_cxx_compiler_gnu)

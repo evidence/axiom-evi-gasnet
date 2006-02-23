@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/02/22 21:32:35 $
-# $Revision: 1.76 $
+#     $Date: 2006/02/23 19:41:07 $
+# $Revision: 1.77 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -299,7 +299,7 @@ do-run-testexit: force
 @BUILDCONFIG_DEBUG_FALSE@ TOOLS_CPPFLAGS = -DNDEBUG
 testtools: force
 	@CC@ @CFLAGS@ @MISC_CFLAGS@ @MISC_CPPFLAGS@ $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@ $(TOOLS_CPPFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
-	@CC@ @CFLAGS@ @MISC_CFLAGS@ -o $@ $@.o @GASNET_THREAD_LIBS@ @LIBS@ @LIBM@
+	@CC@ @CFLAGS@ @MISC_CFLAGS@ @LDFLAGS@ -o $@ $@.o @GASNET_THREAD_LIBS@ @LIBS@ @LIBM@
 	rm -f $@.o
 
 # some tests need delay.o
