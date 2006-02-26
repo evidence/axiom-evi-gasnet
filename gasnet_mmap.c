@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2006/02/18 09:46:07 $
- * $Revision: 1.38 $
+ *     $Date: 2006/02/26 14:00:02 $
+ * $Revision: 1.39 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -951,6 +951,11 @@ uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
           gasneti_fatalerror("sysctl(CTL_HW.HW_PHYSMEM) failed to get required size, got len=%i: %s(%i)",
             (int)len, strerror(errno), errno);
       }
+    }
+  #elif defined(_AIX)
+    { /* returns amount of real memory in kilobytes */
+      long int val = sysconf(_SC_AIX_REALMEM);
+      if (val > 0) retval = (1024 * (uint64_t)val);
     }
   #else  /* unknown OS */
     { }
