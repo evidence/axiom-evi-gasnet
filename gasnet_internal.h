@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2005/10/23 12:28:15 $
- * $Revision: 1.90 $
+ *     $Date: 2006/02/28 23:51:42 $
+ * $Revision: 1.91 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -368,6 +368,64 @@ void gasneti_auxseg_attach();
     gasneti_handler_tableentry_no_bits(gasnetc_auxseg_reqh)
 #endif
 
+/* ------------------------------------------------------------------------------------ */
+#ifndef GASNETI_DISABLE_EOP_INTERFACE
+#define GASNETI_HAVE_EOP_INTERFACE 1
+#endif
+#if GASNETI_HAVE_EOP_INTERFACE
+/* GASNET-Internal OP Interface - provides a mechanism for conduit-independent services (like VIS)
+   to expose non-blocking operations that utilize the regular GASNet op sync mechanisms
+   Conduits provide two opaque types: gasneti_eop_t and gasneti_iop_t
+   and the following manipulator functions
+ */
+#ifndef _GASNETI_EOP_T
+#define _GASNETI_EOP_T
+typedef const void *gasneti_eop_t;
+#endif
+
+#ifndef _GASNETI_IOP_T
+#define _GASNETI_IOP_T
+typedef const void *gasneti_iop_t;
+#endif
+
+/* create a new explicit-handle NB operation
+   represented with abstract type gasneti_eop_t
+   and mark it in-flight */
+gasneti_eop_t *gasneti_eop_create(GASNETE_THREAD_FARG_ALONE);
+
+/* convert an gasneti_eop_t* created by an earlier call from this
+   thread to gasneti_new_eop(), into a gasnet_handle_t suitable
+   for this thread to later pass to gasnet_wait_syncnb & friends */
+#if GASNETI_EOP_IS_HANDLE
+  #define gasneti_eop_to_handle(eop) ((gasnet_handle_t)(eop))
+#else
+  gasnet_handle_t gasneti_eop_to_handle(gasneti_eop_t *eop);
+#endif
+
+/* register noperations in-flight operations on the currently selected 
+   implicit-handle NB context represented with abstract type gasneti_iop_t, 
+   and return a pointer to that context
+   if isput is non-zero, the registered operations are puts, otherwise they are gets */
+gasneti_iop_t *gasneti_iop_register(unsigned int noperations, int isget GASNETE_THREAD_FARG);
+
+/* given an gasneti_eop_t* returned by an earlier call from any thread
+   to gasneti_new_eop(), mark that explicit-handle NB operation complete
+   such that a subsequent sync call on the relevant operation by the initiating
+   thread may return success
+   Caller is responsible for calling gasneti_sync_writes before calling this fn, if necessary
+   AMSAFE: must be safe to call in AM context */
+void gasneti_eop_markdone(gasneti_eop_t *eop);
+
+/* given an gasneti_iop_t* returned by an earlier call from any thread
+   to gasneti_iop_register(), increment that implicit-handle NB context
+   to indicate that noperations have completed.
+   if isput is non-zero, the operations are puts, otherwise they are gets
+   noperations must not exceed the number of isput-type operations initiated
+   on the given gasneti_iop_t by earlier calls to gasneti_iop_register
+   Caller is responsible for calling gasneti_sync_writes before calling this fn, if necessary
+   AMSAFE: must be safe to call in AM context */
+void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isget);
+#endif
 /* ------------------------------------------------------------------------------------ */
 /* macros for returning errors that allow verbose error tracking */
 extern int gasneti_VerboseErrors;

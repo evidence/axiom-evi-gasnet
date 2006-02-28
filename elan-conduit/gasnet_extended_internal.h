@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2005/04/28 02:54:26 $
- * $Revision: 1.21 $
+ *     $Date: 2006/02/28 23:51:44 $
+ * $Revision: 1.22 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -130,7 +130,7 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 #define OPCAT_AMGET     3
 #define OPCAT_AMPUT     4
 #define OPCAT_MEMSET    5
-#define OPCAT_RESERVED6 6 /* unused */
+#define OPCAT_OTHER     6 /* gasnet-internal op interface */
 #define OPCAT_RESERVED7 7 /* unused */
 #define OPCAT(op) (((op)->flags >> 2) & 0x07)
 GASNET_INLINE_MODIFIER(SET_OPCAT)

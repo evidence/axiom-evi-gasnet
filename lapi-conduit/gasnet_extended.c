@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2005/02/17 13:18:59 $
- * $Revision: 1.42 $
+ *     $Date: 2006/02/28 23:51:50 $
+ * $Revision: 1.43 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -264,6 +264,8 @@ gasnete_iop_t *gasnete_iop_new(gasnete_threaddata_t * const thread) {
 	iop->initiated_put_cnt = 0;
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->get_cntr,0));
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&iop->put_cntr,0));
+        gasneti_weakatomic_set(&iop->put_aux_cntr, 0);
+        gasneti_weakatomic_set(&iop->get_aux_cntr, 0);
         gasnete_iop_check(iop);
 	return iop;
 }
@@ -285,6 +287,8 @@ int gasnete_op_isdone(gasnete_op_t *op) {
 	/* only call getcntr if we need to */
 	gasnete_iop_t *iop = (gasnete_iop_t*)op;
         gasnete_iop_check(iop);
+        if (gasneti_weakatomic_read(&iop->get_aux_cntr) > 0 || 
+            gasneti_weakatomic_read(&iop->put_aux_cntr) > 0) return 0;
 	if (iop->initiated_get_cnt > 0) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&iop->get_cntr,&cnt));
 	    gasneti_assert(cnt <= iop->initiated_get_cnt);
@@ -301,19 +305,15 @@ int gasnete_op_isdone(gasnete_op_t *op) {
 }
 
 /* mark an op done
- * Not called by handlers in LAPI version, just here for completeness
  */
 void gasnete_op_markdone(gasnete_op_t *op, int isget) {
     if (OPTYPE(op) == OPTYPE_EXPLICIT) {
 	gasnete_eop_t *eop = (gasnete_eop_t *)op;
-	int cnt = 0;
 	gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
         gasnete_eop_check(eop);
-	if (eop->initiated_cnt > 0) {
-	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&eop->cntr,&cnt));
-	    gasneti_assert(eop->initiated_cnt == cnt);
-	}
+	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt));
 	SET_OPSTATE(eop, OPSTATE_COMPLETE);
+        gasnete_eop_check(eop);
     } else {
 	/* gasnete_iop_t *iop = (gasnete_iop_t *)op; */
         gasneti_fatalerror("this should not happen");
@@ -361,6 +361,62 @@ static void gasnete_wait_syncnbi_myputs(int numputs GASNETE_THREAD_FARG)
     gasneti_sync_reads();  /* MLW: is this needed? */
 }
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* GASNET-Internal OP Interface */
+gasneti_eop_t *gasneti_eop_create(GASNETE_THREAD_FARG_ALONE) {
+  gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
+  op->initiated_cnt = 1;
+  return (gasneti_eop_t *)op;
+}
+gasneti_iop_t *gasneti_iop_register(unsigned int noperations, int isget GASNETE_THREAD_FARG) {
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  gasnete_iop_t * const op = mythread->current_iop;
+  gasneti_weakatomic_t * const pctr = (isget ? &(op->get_aux_cntr) : &(op->put_aux_cntr));
+  gasnete_iop_check(op);
+  if (noperations == 1) gasneti_weakatomic_increment(pctr);
+  else {
+    #ifdef gasneti_weakatomic_compare_and_swap
+    { unsigned int oldval;
+      do {
+        oldval = gasneti_weakatomic_read(pctr);
+      } while (!gasneti_weakatomic_compare_and_swap(pctr, oldval, oldval+noperations));
+    }
+    #else /* yuk */
+      while (noperations) {
+        gasneti_weakatomic_increment(pctr);
+        noperations--;
+      }
+    #endif
+  }
+  gasnete_iop_check(op);
+  return (gasneti_iop_t *)op;
+}
+void gasneti_eop_markdone(gasneti_eop_t *eop) {
+  gasnete_op_markdone((gasnete_op_t *)eop, 0);
+}
+void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isget) {
+  gasnete_iop_t *op = (gasnete_iop_t *)iop;
+  gasneti_weakatomic_t * const pctr = (isget ? &(op->get_aux_cntr) : &(op->put_aux_cntr));
+  gasnete_iop_check(op);
+  if (noperations == 1) gasneti_weakatomic_decrement(pctr);
+  else {
+    #ifdef gasneti_weakatomic_compare_and_swap
+    { unsigned int oldval;
+      do {
+        oldval = gasneti_weakatomic_read(pctr);
+        gasneti_assert(oldval >= noperations);
+      } while (!gasneti_weakatomic_compare_and_swap(pctr, oldval, oldval-noperations));
+    }
+    #else /* yuk */
+      while (noperations) {
+        gasneti_weakatomic_decrement(pctr);
+        noperations--;
+      }
+    #endif
+  }
+  gasnete_iop_check(op);
+}
 
 /* --------------------------------------------------------------------------
  * This is the LAPI Header Handler that executes a gasnet_memset operation
@@ -707,6 +763,10 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
 	    gasneti_assert(cnt == 0);
 	    iop->initiated_put_cnt = 0;
 	}
+        if (gasneti_weakatomic_read(&iop->get_aux_cntr)) /* avoid extra rmb when possible */
+          GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->get_aux_cntr) == 0);
+        if (gasneti_weakatomic_read(&iop->put_aux_cntr)) /* avoid extra rmb when possible */
+          GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->put_aux_cntr) == 0);
     }
     gasneti_sync_reads();
     gasnete_op_free(handle);
@@ -886,7 +946,7 @@ extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {
 	if (iop->next != NULL)
 	    gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_gets() inside an NBI access region");
 #endif
-
+        if (gasneti_weakatomic_read(&iop->get_aux_cntr) > 0) return GASNET_ERR_NOT_READY;
 	if (iop->initiated_get_cnt > 0) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&iop->get_cntr,&cnt));
 	    gasneti_assert(cnt <= iop->initiated_get_cnt);
@@ -914,7 +974,7 @@ extern int  gasnete_try_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
 	if (iop->next != NULL)
 	    gasneti_fatalerror("VIOLATION: attempted to call gasnete_try_syncnbi_puts() inside an NBI access region");
 #endif
-
+        if (gasneti_weakatomic_read(&iop->put_aux_cntr) > 0) return GASNET_ERR_NOT_READY;
 	if (iop->initiated_put_cnt > 0) {
 	    GASNETC_LCHECK(LAPI_Getcntr(gasnetc_lapi_context,&iop->put_cntr,&cnt));
 	    gasneti_assert(cnt <= iop->initiated_put_cnt);
@@ -943,6 +1003,8 @@ extern void gasnete_wait_syncnbi_puts(GASNETE_THREAD_FARG_ALONE) {
     if (iop->next != NULL)
 	gasneti_fatalerror("VIOLATION: attempted to call gasnete_wait_syncnbi_puts() inside an NBI access region");
 #endif
+    if (gasneti_weakatomic_read(&iop->put_aux_cntr)) /* avoid extra rmb when possible */
+      GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->put_aux_cntr) == 0);
     if (iop->initiated_put_cnt > 0) {
 	GASNETC_LCHECK(LAPI_Waitcntr(gasnetc_lapi_context,&iop->put_cntr,iop->initiated_put_cnt,&cnt));
 	/* note that waitcntr decreemnts counter by amount waited for */

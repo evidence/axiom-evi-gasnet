@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_extended.c,v $
- *     $Date: 2006/01/26 03:03:22 $
- * $Revision: 1.36 $
+ *     $Date: 2006/02/28 23:51:54 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -304,6 +304,37 @@ SHORT_HANDLER(gasnete_done_reph,1,2,
   GASNETI_SAFE(                                                                    \
     SHORT_REP(1,2,((token), gasneti_handleridx(gasnete_done_reph), PACK(counter))) \
   )
+
+/* ------------------------------------------------------------------------------------ */
+/* GASNET-Internal OP Interface */
+gasneti_eop_t *gasneti_eop_create(GASNETE_THREAD_FARG_ALONE) {
+  gasnete_eop_t *op = gasnete_eop_new(GASNETE_MYTHREAD);
+  gasnetc_counter_inc(&op->req_oust);
+  gasnete_eop_check(op);
+  return (gasneti_eop_t *)op;
+}
+gasneti_iop_t *gasneti_iop_register(unsigned int noperations, int isget GASNETE_THREAD_FARG) {
+  gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
+  gasnete_iop_t * const op = mythread->current_iop;
+  gasnete_iop_check(op);
+  if (isget) gasnetc_counter_inc_by(&op->get_req_oust,noperations);
+  else       gasnetc_counter_inc_by(&op->put_req_oust,noperations);
+  gasnete_iop_check(op);
+  return (gasneti_iop_t *)op;
+}
+void gasneti_eop_markdone(gasneti_eop_t *eop) {
+  gasnete_eop_t *op = (gasnete_eop_t *)eop;
+  gasnete_eop_check(op);
+  gasnetc_counter_dec(&op->req_oust);
+  gasnete_eop_check(op);
+}
+void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isget) {
+  gasnete_iop_t *op = (gasnete_iop_t *)iop;
+  gasnetc_counter_t * const pctr = (isget ? &(op->get_req_oust) : &(op->put_req_oust));
+  gasnete_iop_check(op);
+  gasnetc_counter_dec_by(pctr,noperations);
+  gasnete_iop_check(op);
+}
 
 /* ------------------------------------------------------------------------------------ */
 /*

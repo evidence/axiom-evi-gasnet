@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.h,v $
- *     $Date: 2006/02/13 23:31:26 $
- * $Revision: 1.46 $
+ *     $Date: 2006/02/28 23:51:54 $
+ * $Revision: 1.47 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -130,12 +130,30 @@ typedef struct {
 					} while (0)
 #define gasnetc_counter_done(P)		((P)->initiated == gasneti_weakatomic_read(&(P)->completed))
 #define gasnetc_counter_inc(P)		do { (P)->initiated++; } while (0)
+#define gasnetc_counter_inc_by(P,v)	do { (P)->initiated += (v); } while (0)
 #define gasnetc_counter_inc_if(P)	do { if(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pf(P)	do { if_pf(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_inc_if_pt(P)	do { if_pt(P) gasnetc_counter_inc(P); } while (0)
 #define gasnetc_counter_dec(P)		do { gasneti_assert(!gasnetc_counter_done(P));      \
 					     gasneti_weakatomic_increment(&(P)->completed); \
 					} while (0)
+#ifdef gasneti_weakatomic_compare_and_swap
+  #define gasnetc_counter_dec_by(P,v)   do {                  \
+      if (v == 1) gasnetc_counter_dec(P);                     \
+      else {                                                  \
+        unsigned int _oldval;                                 \
+        do {                                                  \
+          _oldval = gasneti_weakatomic_read(&(P)->completed); \
+        } while (!gasneti_weakatomic_compare_and_swap(        \
+                   &(P)->completed, _oldval, _oldval+v));     \
+      }                                                       \
+    } while (0)
+#else /* yuk */
+  #define gasnetc_counter_dec_by(P,v)   do {       \
+      int _i = (v);                                \
+      while (_i) { gasnetc_counter_dec(P); _i--; } \
+    } while (0)
+#endif
 #define gasnetc_counter_dec_if(P)	do { if(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pf(P)	do { if_pf(P) gasnetc_counter_dec(P); } while (0)
 #define gasnetc_counter_dec_if_pt(P)	do { if_pt(P) gasnetc_counter_dec(P); } while (0)
