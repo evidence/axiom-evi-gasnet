@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/02/14 10:59:03 $
- * $Revision: 1.145 $
+ *     $Date: 2006/02/28 07:39:07 $
+ * $Revision: 1.146 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1245,7 +1245,7 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
     #endif
     const char fmt[] = "%s -nx -batch -x %s '%s' %d";
     static char cmd[1024];
-    char *filename;
+    char filename[255];
     const char *gdb = (access(GDB_PATH, X_OK) ? "gdb" : GDB_PATH);
     int rc;
 
@@ -1253,7 +1253,9 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
     {
       int tmpfd, len;
 
-      filename = gasneti_strdup("/tmp/gasnet_XXXXXX");	/* Honor $TMPDIR? */
+      if (getenv("TMPDIR")) strcpy(filename,getenv("TMPDIR"));
+      else strcpy(filename,"/tmp");
+      strcat(filename,"/gasnet_XXXXXX");
       tmpfd = mkstemp(filename);
       if (tmpfd < 0) return -1;
 
@@ -1271,7 +1273,6 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
     rc = gasneti_system_redirected(cmd, fd);
 
     (void)unlink(filename);
-    gasneti_free(filename);
 
     return rc;
   }
