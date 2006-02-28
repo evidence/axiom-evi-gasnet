@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/02/23 12:22:08 $
-# $Revision: 1.320 $
+#     $Date: 2006/02/28 07:39:07 $
+# $Revision: 1.321 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.320 $)
+AC_REVISION($Revision: 1.321 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2355,7 +2355,9 @@ GASNET_TRY_CACHE_RUN(for working mmap(), have_mmap, [
       fd = open(filename, O_RDWR | O_CREAT);
     #else
       char filename[[255]];
-      strcpy(filename,"/tmp/gasnet-conftemp-XXXXXX");
+      if (getenv("TMPDIR")) strcpy(filename,getenv("TMPDIR"));
+      else strcpy(filename,"/tmp");
+      strcat(filename,"/gasnet-conftemp-XXXXXX");
       fd = mkstemp(filename); /* leaves crap laying around */
     #endif
     retval = testfd(fd);
