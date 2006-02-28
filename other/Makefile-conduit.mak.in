@@ -113,6 +113,15 @@ do-libgasnet-parsync: $(libgasnet_dependencies) $(CONDUIT_PARSYNC_HOOK)
           builddir=`@PWD_PROG@`                             \
           do-libgasnet
 
+# convenience aliases
+seq par parsync: force
+	@$(MAKE) $(CONDUIT_NAME)-$@.mak libgasnet-$(CONDUIT_NAME)-$@.a
+	@for dir in $(SUBDIRS) ; do 		\
+	  if test "$$dir" != "." ; then 	\
+	    $(MAKE) -C $$dir all || exit 1 ; 	\
+	  fi ;					\
+	 done
+
 # test targets 
 
 tests: force

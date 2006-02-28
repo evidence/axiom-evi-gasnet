@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.70 $
+$Revision: 1.71 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -50,6 +50,8 @@ compilers, including which GASNet conduits are supported.
 * make all
   Build the GASNet libraries. A number of other useful makefile targets 
   are available from the top-level:
+    make {seq,par,parsync}
+      build the conduit libraries in a given mode
     make tests-{seq,par,parsync}  
       build all the GASNet tests in a given mode
     make run-tests-{seq,par,parsync}  
@@ -58,7 +60,11 @@ compilers, including which GASNet conduits are supported.
       run whatever tests are already built in the conduit directories
     make run-tests TESTS="test1 test2..."
       run specifically-listed tests that are already built in the conduit directories
+    make DO_WHAT="<makefile target>"
+      build selected makefile target in all supported conduit directories
   Each conduit also has several useful makefile targets:
+    make {seq,par,parsync}
+      build the conduit libraries in a given mode
     make tests-{seq,par,parsync}  
       build the conduit tests in a given mode
     make testXXX 

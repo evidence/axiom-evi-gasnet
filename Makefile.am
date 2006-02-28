@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2006/02/11 11:42:35 $
-# $Revision: 1.56 $
+#     $Date: 2006/02/28 23:13:37 $
+# $Revision: 1.57 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -142,11 +142,13 @@ recurse_local = $(CONDUITS:%=%-recurse)
 $(recurse_local):
 	@cd `echo $@ | sed s/-recurse//`-conduit && $(MAKE) $(DO_WHAT)
 all-local:
-	@$(MAKE) $(recurse_local) DO_WHAT=all
+	@$(MAKE) $(recurse_local) DO_WHAT=$${DO_WHAT=all}
 clean-local:
 	@if test -f Makefile -a -f smp-conduit/Makefile; then \
 	  $(MAKE) $(recurse_local) DO_WHAT=clean || exit $$? ; \
 	 fi
+seq par parsync:
+	@$(MAKE) $(recurse_local) DO_WHAT=$@
 check tests-clean:
 	@$(MAKE) $(recurse_local) DO_WHAT=$@
 	@cd "$(top_builddir)/other" && $(MAKE) $@
