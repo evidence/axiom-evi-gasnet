@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/02/19 08:50:57 $
-# $Revision: 1.44 $
+#     $Date: 2006/03/01 07:11:17 $
+# $Revision: 1.45 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -68,6 +68,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi  = ($mpirun_help =~ m| BG/L |);
+    my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|);
     my $is_elan_mpi  = ($mpirun_help =~ m|ELAN|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
     my $envprog = $ENV{'ENVCMD'};
@@ -157,6 +158,13 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	$group_join_argv = 1;
 	$env_before_exe = 0;
 	@verbose_opt = ("-verbose", "2");
+    } elsif ($is_bgl_cqsub) {
+	$spawner_desc = "IBM BG/L cqsub";
+	# pass as: -e A=val:B=val
+	%envfmt = ( 'pre' => '-e',
+		    'join' => ':',
+		    'val' => ''
+		  );
     } elsif ($is_jacquard) {
 	$spawner_desc = "NERSC/Jacquard mpirun";
 	if (`hostname` =~ m/jaccn/) {
