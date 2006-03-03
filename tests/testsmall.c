@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testsmall.c,v $
- *     $Date: 2006/01/28 21:21:46 $
- * $Revision: 1.36 $
+ *     $Date: 2006/03/03 09:17:44 $
+ * $Revision: 1.37 $
  * Description: GASNet non-bulk get/put performance test
  *   measures the ping-pong average round-trip time and
  *   average flood throughput of GASNet gets and puts
@@ -431,6 +431,7 @@ int main(int argc, char **argv)
     int i, j;
     int firstlastmode = 0;
     int fullduplexmode = 0;
+    int crossmachinemode = 0;
     int help = 0;   
    
     /* call startup */
@@ -447,6 +448,9 @@ int main(int argc, char **argv)
       } else if (!strcmp(argv[arg], "-f")) {
         firstlastmode = 1;
         ++arg;
+      } else if (!strcmp(argv[arg], "-c")) {
+        crossmachinemode = 1;
+        ++arg;
       } else if (!strcmp(argv[arg], "-a")) {
         fullduplexmode = 1;
         ++arg;
@@ -458,7 +462,6 @@ int main(int argc, char **argv)
         ++arg;
       } else break;
     }
-    if (fullduplexmode && firstlastmode) help = 1;
 
     if (argc > arg) { iters = atoi(argv[arg]); arg++; }
     if (!iters) iters = 1000;
@@ -469,13 +472,14 @@ int main(int argc, char **argv)
       if (maxsz > TEST_SEGSZ/2) { MSG("maxsz must be <= %lu on GASNET_SEGMENT_EVERYTHING", (unsigned long)(TEST_SEGSZ/2)); gasnet_exit(1); }
     #endif
     GASNET_Safe(gasnet_attach(NULL, 0, TEST_SEGSZ_REQUEST, TEST_MINHEAPOFFSET));
-    test_init("testsmall",1, "[-in|-out|-f] (iters) (maxsz)\n"
+    test_init("testsmall",1, "[options] (iters) (maxsz)\n"
                "  The 'in' or 'out' option selects whether the initiator-side\n"
-               "  memory is in the GASNet segment or not (default it not).\n"
+               "   memory is in the GASNet segment or not (default it not).\n"
                "  The -m option enables MB/sec units for bandwidth output (MB=2^20 bytes).\n"
                "  The -a option enables full-duplex mode, where all nodes send.\n"
+               "  The -c option enables cross-machine pairing, default is nearest neighbor.\n"
                "  The -f option enables 'first/last' mode, where the first/last\n"
-               "  nodes communicate with each other, while all other nodes sit idle.\n");
+               "   nodes communicate with each other, while all other nodes sit idle.\n");
     if (help || argc > arg) test_usage();
 
     min_payload = 1;
@@ -500,11 +504,19 @@ int main(int argc, char **argv)
     
     /* Setting peer thread rank */
     if (firstlastmode) {
-      peerproc = numprocs-1;
-      iamsender = (myproc == 0);
+      peerproc = (myproc == 0 ? numprocs-1 : 0);
+      iamsender = (fullduplexmode ? myproc == 0 || myproc == numprocs-1 : myproc == 0);
     }  else if (numprocs == 1) {
       peerproc = 0;
       iamsender = 1;
+    } else if (crossmachinemode) {
+      if (myproc < numprocs / 2) {
+        peerproc = myproc + numprocs/2;
+        iamsender = 1;
+      } else {
+        peerproc = myproc - numprocs/2;
+        iamsender = fullduplexmode;
+      }
     } else { 
       peerproc = (myproc % 2) ? (myproc - 1) : (myproc + 1);
       iamsender = (fullduplexmode || myproc % 2 == 0);
@@ -524,9 +536,11 @@ int main(int argc, char **argv)
         assert(((uintptr_t)msgbuf) % PAGESZ == 0);
         assert(((uintptr_t)ackbuf) % PAGESZ == 0);
         if (myproc == 0) 
-          MSG("Running %i iterations of %snon-bulk put/get with local addresses %sside the segment for sizes: %i...%i\n", 
+          MSG("Running %i iterations of %s%s%snon-bulk put/get with local addresses %sside the segment for sizes: %i...%i\n", 
           iters, 
-          firstlastmode ? "first/last " : (fullduplexmode ? "full-duplex ": ""),
+          (firstlastmode ? "first/last " : ""),
+          (fullduplexmode ? "full-duplex ": ""),
+          (crossmachinemode ? "cross-machine ": ""),
           insegment ? "in" : "out", 
           min_payload, max_payload);
         BARRIER();
