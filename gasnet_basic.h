@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/01/30 01:51:58 $
- * $Revision: 1.48 $
+ *     $Date: 2006/03/06 14:23:37 $
+ * $Revision: 1.49 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -144,6 +144,10 @@
 #if defined(_CRAYC)
   #define GASNETI_IDENT(identName, identText) \
     GASNETI_PRAGMA(_CRI ident identText);     \
+    _GASNETI_IDENT(identName, identText)
+#elif defined(__HP_cc)
+  #define GASNETI_IDENT(identName, identText) \
+    GASNETI_PRAGMA(VERSIONID identText);      \
     _GASNETI_IDENT(identName, identText)
 #elif defined(__xlC__)
     /* #pragma comment(user,"text...") 
