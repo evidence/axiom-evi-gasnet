@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/02/28 07:41:29 $
-# $Revision: 1.322 $
+#     $Date: 2006/03/07 07:20:17 $
+# $Revision: 1.323 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.322 $)
+AC_REVISION($Revision: 1.323 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -877,7 +877,9 @@ if test $enabled_udp = yes; then
     PGI)   MISC_CXXFLAGS="-w -Masmkeyword" ;; # apparently has no way to indep control warnings
     KAI)   MISC_CXXFLAGS="--diag_suppress 611 --diag_suppress 610" ;;
     MIPS)  MISC_CXXFLAGS="-diag_error 1035 -diag_suppress 1171,1174,1209,1552,1681,1682 -LANG:std -common" ;;
-    HP)    MISC_CXXFLAGS="+W612 +W749 +W2111 +W2174 +W2177 +W2236 +W2550" ;;
+    HP)    MISC_CXXFLAGS="+W612 +W749 +W2111 +W2174 +W2177 +W2236 +W2550"
+           CXXOPTFLAGS="+O3"
+           ;;
     Compaq) MISC_CXXFLAGS="-msg_disable extrasemi,boolexprconst,codeunreachable" ;;
     MTA)   MISC_CXXFLAGS="-exceptions -display_error_number -WS 111,174,238" 
            CXXDEBUGFLAGS="-g2"
