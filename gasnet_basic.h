@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/06 15:48:21 $
- * $Revision: 1.50 $
+ *     $Date: 2006/03/07 10:25:35 $
+ * $Revision: 1.51 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -102,7 +102,32 @@
 #define GASNETI_PAGE_ALIGNDOWN(p) (GASNETI_ALIGNDOWN(p,GASNET_PAGESIZE))
 #define GASNETI_PAGE_ALIGNUP(p)   (GASNETI_ALIGNUP(p,GASNET_PAGESIZE))
 
+/* special GCC features */
+#if ! defined (__GNUC__) && ! defined (__attribute__)
+  #define __attribute__(flags)
+#endif
+
 #define GASNETI_PRAGMA(x) _Pragma ( #x )
+
+#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4)) \
+    && !defined(__INTEL_COMPILER) /* __warn_unused_result__ not available in icc */
+  /* gcc-3.4 and newer: assert return value is unaliased + warn if unused */
+  #define GASNETI_MALLOC __attribute__((__malloc__,__warn_unused_result__))
+#elif defined(__GNUC__) && !(__GNUC__ <= 2 && __GNUC_MINOR__ <= 95)
+  /* gcc-2.96 and newer: assert return value is unaliased */
+  #define GASNETI_MALLOC __attribute__((__malloc__))
+#else
+  /* malloc attribute missing in egcs-2.91.66, gcc 2.95.4, and non-gcc compilers */
+  #define GASNETI_MALLOC
+#endif
+
+#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4)) \
+    && !defined(__INTEL_COMPILER) /* not available in icc */
+  /* Warn if return value is ignored.  Available on gcc-3.4 and newer. */
+  #define GASNETI_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
+#else
+  #define GASNETI_WARN_UNUSED_RESULT
+#endif
 
 #if defined(__cplusplus)
   #define GASNET_INLINE_MODIFIER(fnname) inline
@@ -119,6 +144,12 @@
   #define GASNET_INLINE_MODIFIER(fnname) GASNETI_PRAGMA(mta inline) static
 #else
   #define GASNET_INLINE_MODIFIER(fnname) static
+#endif
+
+#if defined(__GNUC__)
+  #define GASNETI_NORETURN __attribute__((__noreturn__))
+#else
+  #define GASNETI_NORETURN 
 #endif
 
 /* pragma for indicating a function never returns on pragma-based compilers 
