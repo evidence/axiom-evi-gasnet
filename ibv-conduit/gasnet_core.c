@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/02/15 01:17:12 $
- * $Revision: 1.158 $
+ *     $Date: 2006/03/09 00:33:07 $
+ * $Revision: 1.159 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1144,6 +1144,32 @@ static int gasnetc_init(int *argc, char ***argv) {
       gasneti_mynode, gasneti_nodes); fflush(stderr);
   #endif
   
+  /* Verify that we are actually connected. */
+  if (gasnetc_use_rcv_thread) {
+    /* All QPs must reach RTS before we can test connectivity.
+     * Otherwise the rcv thread (which has already been created) might try to
+     * send a reply while still in RTR.
+     */
+    gasneti_bootstrapBarrier();
+  }
+  /* BLOCKING AM Send */
+  {
+    gasnetc_counter_t counter = GASNETC_COUNTER_INITIALIZER;
+    gasnet_node_t peer;
+#if 1 /* Each node sends an AM to node i-1 and then waits for local completion. */
+    peer = (gasneti_mynode ? gasneti_mynode : gasneti_nodes) - 1;
+    GASNETI_SAFE(gasnetc_RequestSystem(peer, &counter, gasneti_handleridx(gasnetc_SYS_init_ping), 0));
+#else /* XXX: If we every actually want a full all-to-all here */
+    for (peer = gasneti_mynode + 1; peer < gasneti_nodes; ++peer) {
+      GASNETI_SAFE(gasnetc_RequestSystem(peer, &counter, gasneti_handleridx(gasnetc_SYS_init_ping), 0));
+    }
+    for (peer = 0; peer < gasneti_mynode; ++peer) {
+      GASNETI_SAFE(gasnetc_RequestSystem(peer, &counter, gasneti_handleridx(gasnetc_SYS_init_ping), 0));
+    }
+#endif
+    gasnetc_counter_wait(&counter, gasnetc_use_rcv_thread);
+  }
+
   /* Find max pinnable size before we start carving up memory w/ mmap()s.
    *
    * Take care that only one process per LID (node) performs the probe.
@@ -1593,15 +1619,13 @@ static void gasnetc_disable_AMs(void) {
 static void gasnetc_exit_role_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs) {
   gasnet_node_t src;
   int local_role, result;
-  int rc;
 
   gasneti_assert(numargs == 0);
   gasneti_assert(gasneti_mynode == GASNETC_ROOT_NODE);	/* May only send this request to the root node */
 
   
   /* What role would the local node get if the requester is made the master? */
-  rc = gasnet_AMGetMsgSource(token, &src);
-  gasneti_assert(rc == GASNET_OK);
+  GASNETI_SAFE(gasnet_AMGetMsgSource(token, &src));
   local_role = (src == GASNETC_ROOT_NODE) ? GASNETC_EXIT_ROLE_MASTER : GASNETC_EXIT_ROLE_SLAVE;
 
   /* Try atomically to assume the proper role.  Result determines role of requester */
@@ -1609,9 +1633,8 @@ static void gasnetc_exit_role_reqh(gasnet_token_t token, gasnet_handlerarg_t *ar
                 ? GASNETC_EXIT_ROLE_MASTER : GASNETC_EXIT_ROLE_SLAVE;
 
   /* Inform the requester of the outcome. */
-  rc = gasnetc_ReplySystem(token, NULL, gasneti_handleridx(gasnetc_SYS_exit_role_rep),
-			   1, (gasnet_handlerarg_t)result);
-  gasneti_assert(rc == GASNET_OK);
+  GASNETI_SAFE(gasnetc_ReplySystem(token, NULL, gasneti_handleridx(gasnetc_SYS_exit_role_rep),
+				   1, (gasnet_handlerarg_t)result));
 }
 
 /*
@@ -1626,10 +1649,7 @@ static void gasnetc_exit_role_reph(gasnet_token_t token, gasnet_handlerarg_t *ar
   #if GASNET_DEBUG
   {
     gasnet_node_t src;
-    int rc;
-
-    rc = gasnet_AMGetMsgSource(token, &src);
-    gasneti_assert(rc == GASNET_OK);
+    GASNETI_SAFE(gasnet_AMGetMsgSource(token, &src));
     gasneti_assert(src == GASNETC_ROOT_NODE);	/* May only receive this reply from the root node */
   }
   #endif
@@ -1666,12 +1686,9 @@ static int gasnetc_get_exit_role()
 
   role = gasneti_atomic_read(&gasnetc_exit_role);
   if (role == GASNETC_EXIT_ROLE_UNKNOWN) {
-    int rc;
-
     /* Don't know our role yet.  So, send a system-category AM Request to determine our role */
-    rc = gasnetc_RequestSystem(GASNETC_ROOT_NODE, NULL,
-		    	       gasneti_handleridx(gasnetc_SYS_exit_role_req), 0);
-    gasneti_assert(rc == GASNET_OK);
+    GASNETI_SAFE(gasnetc_RequestSystem(GASNETC_ROOT_NODE, NULL,
+			    	       gasneti_handleridx(gasnetc_SYS_exit_role_req), 0));
 
     /* Now spin until somebody tells us what our role is */
     do {
@@ -2063,8 +2080,6 @@ static void gasnetc_exit_body(void) {
  * firing off a SIGQUIT to let the user's handler, if any, run before we begin to exit.
  */
 static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs) {
-  int rc;
-
   gasneti_assert(args != NULL);
   gasneti_assert(numargs == 1);
 
@@ -2078,9 +2093,8 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
   (void)gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE);
 
   /* Send a reply so the master knows we are reachable */
-  rc = gasnetc_ReplySystem(token, &gasnetc_exit_repl_oust,
-		  	   gasneti_handleridx(gasnetc_SYS_exit_rep), /* no args */ 0);
-  gasneti_assert(rc == GASNET_OK);
+  GASNETI_SAFE(gasnetc_ReplySystem(token, &gasnetc_exit_repl_oust,
+				   gasneti_handleridx(gasnetc_SYS_exit_rep), /* no args */ 0));
 
   /* Count the exit requests, so gasnetc_exit_slave() knows when to return */
   gasneti_sync_writes(); /* For non-atomic portion of gasnetc_exit_repl_oust */
@@ -2182,6 +2196,19 @@ extern void gasnetc_exit(int exitcode) {
   gasnetc_exit_body();
   gasnetc_exit_tail();
   /* NOT REACHED */
+}
+
+/* ------------------------------------------------------------------------------------ */
+
+static void gasnetc_init_ping(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs) {
+  #if GASNET_DEBUG_VERBOSE
+  {
+    gasnet_node_t src;
+    GASNETI_SAFE(gasnet_AMGetMsgSource(token, &src));
+    fprintf(stderr, "%d> init_ping from %d\n", (int)gasneti_mynode, (int)src);
+  }
+  #endif
+  GASNETI_SAFE(gasnetc_ReplySystem(token, NULL, gasneti_handleridx(gasnetc_SYS_ack), 0 /* no args */));
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -2481,7 +2508,8 @@ const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLERS] = {
   gasnetc_exit_role_reph,
   gasnetc_exit_reqh,
   gasnetc_exit_reph,
-  NULL,
+  gasnetc_init_ping,
+  NULL
 };
   
 /* ------------------------------------------------------------------------------------ */

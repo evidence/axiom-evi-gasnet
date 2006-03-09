@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/02/18 01:41:44 $
- * $Revision: 1.171 $
+ *     $Date: 2006/03/09 00:33:07 $
+ * $Revision: 1.172 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -705,17 +705,20 @@ static int gasnetc_snd_reap(int limit) {
       } else if (GASNETC_IS_EXITING()) {
         /* disconnected */
 	break;	/* can't exit since we can be called in exit path */
+      } else if (!gasneti_attach_done) {
+        gasneti_fatalerror("failed to connect");
+        break;
       } else {
 #if 1 
         gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.id;
         fprintf(stderr, "@ %d> snd comp.status=%d comp.opcode=%d dst_node=%d dst_qp=%d\n", gasneti_mynode, comp.status, comp.opcode, (int)(sreq->cep - gasnetc_cep)/gasnetc_num_qps, (int)(sreq->cep - gasnetc_cep)%gasnetc_num_qps);
-  #if 0 /* Not quite right for multi rail */
         while((vstat = gasnetc_poll_rcv_cq(hca, &comp)) == VAPI_OK) {
 	  if (comp.status != VAPI_WR_FLUSH_ERR) {
             fprintf(stderr, "@ %d> - rcv comp.status=%d\n", gasneti_mynode, comp.status);
+	  } else {
+            fprintf(stderr, "@ %d> - rcv FLUSHED\n", gasneti_mynode);
 	  }
         }
-  #endif
 #endif
         gasneti_fatalerror("aborting on reap of failed send");
         break;
@@ -873,9 +876,8 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
 	old = gasneti_weakatomic_read(&cep->am_unsent);
 	if (old >= gasnetc_am_credits_slack) {
 	  /* MUST send back a reply */
-	  int retval = gasnetc_ReplySystem((gasnet_token_t)rbuf, NULL,
-					   gasneti_handleridx(gasnetc_SYS_ack), 0 /* no args */);
-	  gasneti_assert(retval == GASNET_OK);
+	  GASNETI_SAFE(gasnetc_ReplySystem((gasnet_token_t)rbuf, NULL,
+					   gasneti_handleridx(gasnetc_SYS_ack), 0 /* no args */));
 	  break;
 	}
       } while (!gasneti_weakatomic_compare_and_swap(&cep->am_unsent, old, old+1));
@@ -906,16 +908,19 @@ static int gasnetc_rcv_reap(gasnetc_hca_t *hca, int limit, gasnetc_rbuf_t **spar
       } else if (GASNETC_IS_EXITING()) {
         /* disconnected */
 	break;	/* can't exit since we can be called in exit path */
+      } else if (!gasneti_attach_done) {
+        gasneti_fatalerror("failed to connect");
+        break;
       } else {
 #if 1
         fprintf(stderr, "@ %d> rcv comp.status=%d\n", gasneti_mynode, comp.status);
-  #if 0 /* Not quite right for multi rail */
         while((vstat = gasnetc_poll_snd_cq(hca, &comp)) == VAPI_OK) {
 	  if (comp.status != VAPI_WR_FLUSH_ERR) {
             fprintf(stderr, "@ %d> - snd comp.status=%d\n", gasneti_mynode, comp.status);
+	  } else {
+            fprintf(stderr, "@ %d> - snd FLUSHED\n", gasneti_mynode);
 	  }
         }
-  #endif
 #endif
         gasneti_fatalerror("aborting on reap of failed recv");
 	break;
