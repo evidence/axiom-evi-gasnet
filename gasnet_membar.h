@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/02/22 04:39:03 $
- * $Revision: 1.82 $
+ *     $Date: 2006/03/11 22:36:25 $
+ * $Revision: 1.83 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -407,6 +407,11 @@
    gasneti_sync_{reads,writes,mem} are like gasneti_local_{rmb,wmb,mb} except that when
    not using threads we want them to compile away to nothing, and when compiling for
    threads on a uniprocessor we want only a compiler optimization barrier
+
+   Note these should *only* be used when synchronizing node-private memory
+   between local pthreads - they are not guaranteed to provide synchonization with
+   respect to put/gets by remote nodes (in the presence of RDMA), and therefore
+   are generally unsuitable for synchronizing memory locations in the gasnet segment
 */
 
 #ifndef gasneti_sync_writes
