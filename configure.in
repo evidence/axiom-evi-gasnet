@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/03/13 23:09:25 $
-# $Revision: 1.324 $
+#     $Date: 2006/03/14 19:55:29 $
+# $Revision: 1.325 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.324 $)
+AC_REVISION($Revision: 1.325 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1925,20 +1925,9 @@ if test $enabled_shmem = yes; then
       AC_MSG_WARN(Currently no access to shmem on IRIX)
       have_shmem=no
       ;;
-    # Linux shmem may mean Quadrics shmem, or SGI shmem.  A first try is to
-    # look for _ELAN_SHMEM_H in /usr/include/shmem.h.
+    # Linux shmem may mean Quadrics shmem or SGI shmem, but only SGI shmem is supported.
     linux*)
-      # This first case should catch Elan shmem 
-      if test -e ${SHMEM_INCLUDE}/shmem.h; then
-	is_quadrics=`grep ELAN_SHMEM ${SHMEM_INCLUDE}/shmem.h`
-	if test -n "$is_quadrics"; then
-	  SHMEM_FLAVOUR="ELAN_SHMEM"
-	  AC_MSG_RESULT(Quadrics/Elan)
-	  GASNET_ENV_DEFAULT(SHMEM_INCLUDE, /usr/include)
-	  GASNET_ENV_DEFAULT(SHMEM_LIBDIR, /usr/lib)
-	  GASNET_ENV_DEFAULT(SHMEM_LIBS, "-lshmem")
-	fi
-      elif test -e /dev/xpmem; then
+      if test -e /dev/xpmem; then
         # SGI Altix uhas xpmem device
 	SHMEM_FLAVOUR="SGI_SHMEM"
 	AC_MSG_RESULT(SGI/Altix)
