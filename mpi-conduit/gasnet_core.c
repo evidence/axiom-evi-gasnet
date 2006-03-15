@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/09 12:06:40 $
- * $Revision: 1.65 $
+ *     $Date: 2006/03/15 19:04:52 $
+ * $Revision: 1.66 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -603,7 +603,7 @@ extern int gasnetc_AMReplyLongM(
     gasnet_hsl_t *locksheld;
     int inExplicitNIS;
     unsigned int inhandler;
-    int64_t NIStimestamp;
+    gasneti_stattime_t NIStimestamp;
   } gasnetc_hsl_errcheckinfo_t;
   static gasnetc_hsl_errcheckinfo_t _info_init = { NULL, 0, 0 };
 
@@ -654,7 +654,7 @@ extern int gasnetc_AMReplyLongM(
       if (info->inExplicitNIS)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to disable interrupts when they were already disabled");
       info->inExplicitNIS = 1;
-      info->NIStimestamp = gasneti_getMicrosecondTimeStamp();
+      info->NIStimestamp = GASNETI_STATTIME_NOW();
     }
   }
   extern void gasnetc_resume_interrupts() {
@@ -670,7 +670,7 @@ extern int gasnetc_AMReplyLongM(
       }
       if (!info->inExplicitNIS)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to resume interrupts when they were not disabled");
-      { float NIStime = (float)(gasneti_getMicrosecondTimeStamp() - info->NIStimestamp);
+      { float NIStime = GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - info->NIStimestamp)/1000.0;
         if (NIStime > GASNETC_NISTIMEOUT_WARNING_THRESHOLD) {
           fprintf(stderr,"HSL USAGE WARNING: held a no-interrupt section for a long interval (%8.3f sec)\n", NIStime/1000000.0);
           fflush(stderr);
@@ -773,7 +773,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
     hsl->islocked = 1;
     hsl->next = info->locksheld;
     info->locksheld = hsl;
-    hsl->timestamp = gasneti_getMicrosecondTimeStamp();
+    hsl->timestamp = GASNETI_STATTIME_NOW();
   }
   #endif
 }
@@ -793,7 +793,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to gasnet_hsl_unlock() an HSL I didn't own");
     if (info->locksheld != hsl)
         gasneti_fatalerror("HSL USAGE VIOLATION: tried to gasnet_hsl_unlock() an HSL out of order");
-    { float NIStime = (float)(gasneti_getMicrosecondTimeStamp() - hsl->timestamp);
+    { float NIStime = GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - hsl->timestamp)/1000.0;
       if (NIStime > GASNETC_NISTIMEOUT_WARNING_THRESHOLD) {
         fprintf(stderr,"HSL USAGE WARNING: held an HSL for a long interval (%8.3f sec)\n", NIStime/1000000.0);
         fflush(stderr);
@@ -838,7 +838,7 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
         hsl->islocked = 1;
         hsl->next = info->locksheld;
         info->locksheld = hsl;
-        hsl->timestamp = gasneti_getMicrosecondTimeStamp();
+        hsl->timestamp = GASNETI_STATTIME_NOW();
       }
       #endif
     }
