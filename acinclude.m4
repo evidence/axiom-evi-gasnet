@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/02/23 19:41:03 $
-dnl $Revision: 1.92 $
+dnl     $Date: 2006/03/17 06:42:44 $
+dnl $Revision: 1.93 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -818,7 +818,38 @@ AC_DEFUN([GASNET_TRY_RUNCMD],[
 
 dnl GASNET_TRY_CCOMPILE_WITHWARN(includes, function-body, action-success, action-warning, action-error)
 dnl Compile a C program and take different actions based on complete success, error or warning
+dnl Automatically handles compilers that issue unrelated warnings on every compile
+
 AC_DEFUN([GASNET_TRY_CCOMPILE_WITHWARN],[
+  GASNET_FUN_BEGIN([$0(...)])
+  GASNET_TRY_CCOMPILE_WITHWARN_NORETRY([$1],[$2],[$3],[
+    dnl got a warning - does same warning also happen with an empty program?
+    _GASNET_TRY_COMPILE_WITHWARN_OUTTMP="$gasnet_cmd_stdout"
+    _GASNET_TRY_COMPILE_WITHWARN_ERRTMP="$gasnet_cmd_stderr"
+    GASNET_TRY_CCOMPILE_WITHWARN_NORETRY([],[],[
+        dnl no warning on empty program => warning caused by input
+	gasnet_cmd_stdout="$_GASNET_TRY_COMPILE_WITHWARN_OUTTMP"
+	gasnet_cmd_stderr="$_GASNET_TRY_COMPILE_WITHWARN_ERRTMP"
+    	$4
+    ],[ dnl still got a warning - is the same?
+      if test "$gasnet_cmd_stdout$gasnet_cmd_stderr" = "$_GASNET_TRY_COMPILE_WITHWARN_OUTTMP$_GASNET_TRY_COMPILE_WITHWARN_ERRTMP" ; then
+        dnl identical warnings => no new warnings caused by program
+	$3
+      else
+        dnl different warnings => program is likely causal factor
+	gasnet_cmd_stdout="$_GASNET_TRY_COMPILE_WITHWARN_OUTTMP"
+	gasnet_cmd_stderr="$_GASNET_TRY_COMPILE_WITHWARN_ERRTMP"
+	$4
+      fi
+    ],[ dnl got an error on an empty program!
+      GASNET_MSG_ERROR([unknown failure case in TRY_CCOMPILE_WITHWARN])
+    ])
+  ],[$5])
+  GASNET_FUN_END([$0(...)])
+])
+
+dnl for internal use only
+AC_DEFUN([GASNET_TRY_CCOMPILE_WITHWARN_NORETRY],[
   GASNET_FUN_BEGIN([$0(...)])
   gasnet_testname=gasnet-conftest
   gasnet_testfile=${gasnet_testname}.c
@@ -845,7 +876,38 @@ EOF
 
 dnl GASNET_TRY_CXXCOMPILE_WITHWARN(includes, function-body, action-success, action-warning, action-error)
 dnl Compile a C++ program and take different actions based on complete success, error or warning
+dnl Automatically handles compilers that issue unrelated warnings on every compile
+
 AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN],[
+  GASNET_FUN_BEGIN([$0(...)])
+  GASNET_TRY_CXXCOMPILE_WITHWARN_NORETRY([$1],[$2],[$3],[
+    dnl got a warning - does same warning also happen with an empty program?
+    _GASNET_TRY_COMPILE_WITHWARN_OUTTMP="$gasnet_cmd_stdout"
+    _GASNET_TRY_COMPILE_WITHWARN_ERRTMP="$gasnet_cmd_stderr"
+    GASNET_TRY_CXXCOMPILE_WITHWARN_NORETRY([],[],[
+        dnl no warning on empty program => warning caused by input
+	gasnet_cmd_stdout="$_GASNET_TRY_COMPILE_WITHWARN_OUTTMP"
+	gasnet_cmd_stderr="$_GASNET_TRY_COMPILE_WITHWARN_ERRTMP"
+    	$4
+    ],[ dnl still got a warning - is the same?
+      if test "$gasnet_cmd_stdout$gasnet_cmd_stderr" = "$_GASNET_TRY_COMPILE_WITHWARN_OUTTMP$_GASNET_TRY_COMPILE_WITHWARN_ERRTMP" ; then
+        dnl identical warnings => no new warnings caused by program
+	$3
+      else
+        dnl different warnings => program is likely causal factor
+	gasnet_cmd_stdout="$_GASNET_TRY_COMPILE_WITHWARN_OUTTMP"
+	gasnet_cmd_stderr="$_GASNET_TRY_COMPILE_WITHWARN_ERRTMP"
+	$4
+      fi
+    ],[ dnl got an error on an empty program!
+      GASNET_MSG_ERROR([unknown failure case in TRY_CXXCOMPILE_WITHWARN])
+    ])
+  ],[$5])
+  GASNET_FUN_END([$0(...)])
+])
+
+dnl for internal use only
+AC_DEFUN([GASNET_TRY_CXXCOMPILE_WITHWARN_NORETRY],[
   GASNET_FUN_BEGIN([$0(...)])
   gasnet_testname=gasnet-conftest
   gasnet_testfile=${gasnet_testname}.cc
@@ -875,14 +937,33 @@ AC_DEFUN([GASNET_TRY_CFLAG],[
 GASNET_FUN_BEGIN([$0($1)])
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $1")
 AC_MSG_CHECKING(for C compiler flag $1)
-GASNET_TRY_CCOMPILE_WITHWARN([], [], [
+GASNET_TRY_CCOMPILE_WITHWARN_NORETRY([], [], [
  AC_MSG_RESULT(yes)
  GASNET_POPVAR(CFLAGS)
  $2
 ], [
- AC_MSG_RESULT(no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr)
+ dnl some compilers issue a warning on *every* compile, 
+ dnl so save the warning and try again without the flag being tested, 
+ dnl to verify the warning we saw is actually a new warning
+ _GASNET_TRY_CFLAG_TMP="$gasnet_cmd_stdout$gasnet_cmd_stderr"
  GASNET_POPVAR(CFLAGS)
- $3
+ GASNET_TRY_CCOMPILE_WITHWARN_NORETRY([], [], [
+   dnl warning disappeared when flag removed => flag is the cause
+   AC_MSG_RESULT(no/warning: $_GASNET_TRY_CFLAG_TMP)
+   $3
+ ],[ 
+   if test "$gasnet_cmd_stdout$gasnet_cmd_stderr" = "$_GASNET_TRY_CFLAG_TMP" ; then
+     dnl got same warning => flag does not create new warnings
+     AC_MSG_RESULT(yes/persistent-warning: $_GASNET_TRY_CFLAG_TMP)
+     $2
+   else
+     dnl warnings differ with and without flag => flag is probably a causal factor
+     AC_MSG_RESULT(no/new-warning: $_GASNET_TRY_CFLAG_TMP)
+     $3
+   fi
+ ],[ dnl got an error - should never happen?
+   GASNET_MSG_ERROR([unknown failure case in TRY_CFLAG])
+ ])
 ], [
  AC_MSG_RESULT(no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr)
  GASNET_POPVAR(CFLAGS)
@@ -896,14 +977,33 @@ AC_DEFUN([GASNET_TRY_CXXFLAG],[
 GASNET_FUN_BEGIN([$0($1)])
 GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS $1")
 AC_MSG_CHECKING(for C++ compiler flag $1)
-GASNET_TRY_CXXCOMPILE_WITHWARN([], [], [
+GASNET_TRY_CXXCOMPILE_WITHWARN_NORETRY([], [], [
  AC_MSG_RESULT(yes)
  GASNET_POPVAR(CXXFLAGS)
  $2
 ], [
- AC_MSG_RESULT(no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr)
+ dnl some compilers issue a warning on *every* compile, 
+ dnl so save the warning and try again without the flag being tested, 
+ dnl to verify the warning we saw is actually a new warning
+ _GASNET_TRY_CXXFLAG_TMP="$gasnet_cmd_stdout$gasnet_cmd_stderr"
  GASNET_POPVAR(CXXFLAGS)
- $3
+ GASNET_TRY_CCOMPILE_WITHWARN_NORETRY([], [], [
+   dnl warning disappeared when flag removed => flag is the cause
+   AC_MSG_RESULT(no/warning: $_GASNET_TRY_CXXFLAG_TMP)
+   $3
+ ],[ 
+   if test "$gasnet_cmd_stdout$gasnet_cmd_stderr" = "$_GASNET_TRY_CXXFLAG_TMP" ; then
+     dnl got same warning => flag does not create new warnings
+     AC_MSG_RESULT(yes/persistent-warning: $_GASNET_TRY_CXXFLAG_TMP)
+     $2
+   else
+     dnl warnings differ with and without flag => flag is probably a causal factor
+     AC_MSG_RESULT(no/new-warning: $_GASNET_TRY_CXXFLAG_TMP)
+     $3
+   fi
+ ],[ dnl got an error - should never happen?
+   GASNET_MSG_ERROR([unknown failure case in TRY_CXXFLAG])
+ ])
 ], [
  AC_MSG_RESULT(no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr)
  GASNET_POPVAR(CXXFLAGS)
