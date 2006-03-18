@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/03/09 00:33:07 $
- * $Revision: 1.123 $
+ *     $Date: 2006/03/18 03:31:09 $
+ * $Revision: 1.124 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,7 +39,7 @@
 
 /* check for exit in progress */
 extern gasneti_atomic_t gasnetc_exit_running;
-#define GASNETC_IS_EXITING() gasneti_atomic_read(&gasnetc_exit_running)
+#define GASNETC_IS_EXITING() gasneti_atomic_read(&gasnetc_exit_running, GASNETI_ATOMIC_RMB_PRE)
 
 /* ------------------------------------------------------------------------------------ */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
@@ -217,17 +217,6 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* ------------------------------------------------------------------------------------ */
 
-#if defined(__i386__) || defined(__x86_64__)
-  /* Since the LOCK prefix is already a full mb() */
-  #define gasneti_wmb_before_atomic_op()	gasneti_compiler_fence()
-  #define gasneti_rmb_after_atomic_op()		gasneti_compiler_fence()
-#else
-  #define gasneti_wmb_before_atomic_op()	gasneti_sync_writes()
-  #define gasneti_rmb_after_atomic_op()		gasneti_sync_reads()
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-
 /*
  * gasnetc_sema_t
  *
@@ -247,7 +236,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_init)
   void _gasnetc_sema_init(_gasnetc_sema_t *s, int n) {
-    gasneti_weakatomic_set(s, n);
+    gasneti_weakatomic_set(s, n, 0);
   }
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_destroy)
@@ -257,7 +246,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_read)
   uint32_t _gasnetc_sema_read(_gasnetc_sema_t *s) {
-    return gasneti_weakatomic_read(s);
+    return gasneti_weakatomic_read(s, 0);
   }
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_up)
@@ -322,7 +311,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_init)
   void _gasnetc_sema_init(_gasnetc_sema_t *s, int n) {
-    gasneti_weakatomic_set(s, n);
+    gasneti_weakatomic_set(s, n, 0);
   }
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_destroy)
@@ -332,13 +321,12 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_read)
   uint32_t _gasnetc_sema_read(_gasnetc_sema_t *s) {
-    return gasneti_weakatomic_read(s);
+    return gasneti_weakatomic_read(s, 0);
   }
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_up)
   void _gasnetc_sema_up(_gasnetc_sema_t *s) {
-    gasneti_wmb_before_atomic_op();
-    gasneti_weakatomic_increment(s);
+    gasneti_weakatomic_increment(s, GASNETI_ATOMIC_REL);
   }
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown)
@@ -347,14 +335,13 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     int retval = 0;
 
   again:
-    old = gasneti_weakatomic_read(s);
+    old = gasneti_weakatomic_read(s, 0);
     if_pt (old) {
-      retval = gasneti_weakatomic_compare_and_swap(s, old, old - 1);
+      retval = gasneti_weakatomic_compare_and_swap(s, old, old - 1, GASNETI_ATOMIC_ACQ_IF_TRUE);
       if_pf (!retval) {
 	/* contention in CAS */
 	goto again;
       }
-      gasneti_rmb_after_atomic_op();
     }
 
     return retval;
@@ -363,10 +350,9 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   GASNET_INLINE_MODIFIER(_gasnetc_sema_up_n)
   void _gasnetc_sema_up_n(_gasnetc_sema_t *s, uint32_t n) {
     uint32_t old;
-    gasneti_wmb_before_atomic_op();
     do {
-      old = gasneti_weakatomic_read(s);
-    } while (!gasneti_weakatomic_compare_and_swap(s, old, n + old));
+      old = gasneti_weakatomic_read(s, 0);
+    } while (!gasneti_weakatomic_compare_and_swap(s, old, n + old, GASNETI_ATOMIC_REL));
   }
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown_n)
@@ -374,12 +360,11 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     uint32_t retval, old;
 
     do {
-      old = gasneti_weakatomic_read(s);
+      old = gasneti_weakatomic_read(s, 0);
       if_pf (old == 0)
         return 0;
       retval = MIN(old, n);
-    } while(!gasneti_weakatomic_compare_and_swap(s, old, old - retval));
-    gasneti_rmb_after_atomic_op();
+    } while(!gasneti_weakatomic_compare_and_swap(s, old, old - retval, GASNETI_ATOMIC_ACQ_IF_TRUE));
 
     return retval;
   }
@@ -399,7 +384,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   GASNET_INLINE_MODIFIER(_gasnetc_sema_init)
   void _gasnetc_sema_init(_gasnetc_sema_t *s, int n) {
     gasneti_mutex_init(&(s->lock));
-    gasneti_weakatomic_set(&(s->count), n);
+    gasneti_weakatomic_set(&(s->count), n, 0);
   }
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_destroy)
@@ -409,13 +394,12 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_read)
   uint32_t _gasnetc_sema_read(_gasnetc_sema_t *s) {
-    return gasneti_weakatomic_read(&(s->count));
+    return gasneti_weakatomic_read(&(s->count, 0));
   }
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_up)
   void _gasnetc_sema_up(_gasnetc_sema_t *s) {
-    gasneti_wmb_before_atomic_op();
-    gasneti_weakatomic_increment(&(s->count));
+    gasneti_weakatomic_increment(&(s->count), GASNETI_ATOMIC_REL);
   }
 
   GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown)
@@ -423,9 +407,9 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     int retval;
 
     gasneti_mutex_lock(&(s->lock));
-    retval = gasneti_weakatomic_read(&(s->count));
+    retval = gasneti_weakatomic_read(&(s->count, 0));
     if_pt(retval != 0)
-      gasneti_weakatomic_decrement(&(s->count));
+      gasneti_weakatomic_decrement(&(s->count, 0));
     gasneti_mutex_unlock(&(s->lock));
 
     return retval;
@@ -434,7 +418,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   GASNET_INLINE_MODIFIER(_gasnetc_sema_up_n)
   void _gasnetc_sema_up_n(_gasnetc_sema_t *s, uint32_t n) {
     gasneti_mutex_lock(&(s->lock));
-    gasneti_weakatomic_set(&(s->count), n + gasneti_weakatomic_read(&(s->count)));
+    gasneti_weakatomic_set(&(s->count), n + gasneti_weakatomic_read(&(s->count, 0)), 0);
     gasneti_mutex_unlock(&(s->lock));
   }
 
@@ -443,9 +427,9 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     uint32_t retval, old;
 
     gasneti_mutex_lock(&(s->lock));
-    old = gasneti_weakatomic_read(&(s->count));
+    old = gasneti_weakatomic_read(&(s->count), 0);
     retval = MIN(old, n);
-    gasneti_weakatomic_set(&(s->count), old - retval);
+    gasneti_weakatomic_set(&(s->count), old - retval, 0);
     gasneti_mutex_unlock(&(s->lock));
 
     return retval;

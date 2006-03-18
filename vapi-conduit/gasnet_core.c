@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/03/09 00:33:07 $
- * $Revision: 1.159 $
+ *     $Date: 2006/03/18 03:31:09 $
+ * $Revision: 1.160 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1629,7 +1629,7 @@ static void gasnetc_exit_role_reqh(gasnet_token_t token, gasnet_handlerarg_t *ar
   local_role = (src == GASNETC_ROOT_NODE) ? GASNETC_EXIT_ROLE_MASTER : GASNETC_EXIT_ROLE_SLAVE;
 
   /* Try atomically to assume the proper role.  Result determines role of requester */
-  result = gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, local_role)
+  result = gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, local_role, 0)
                 ? GASNETC_EXIT_ROLE_MASTER : GASNETC_EXIT_ROLE_SLAVE;
 
   /* Inform the requester of the outcome. */
@@ -1663,8 +1663,8 @@ static void gasnetc_exit_role_reph(gasnet_token_t token, gasnet_handlerarg_t *ar
   /* Set the role if not yet set.  Then assert that the assigned role has been assumed.
    * This way the assertion is checking that if the role was obtained by other means
    * (namely by receiving an exit request) it must match the election result. */
-  gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, role);
-  gasneti_assert(gasneti_atomic_read(&gasnetc_exit_role) == role);
+  gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, role, 0);
+  gasneti_assert(gasneti_atomic_read(&gasnetc_exit_role, 0) == role);
 }
 
 /*
@@ -1684,7 +1684,7 @@ static int gasnetc_get_exit_role()
 {
   int role;
 
-  role = gasneti_atomic_read(&gasnetc_exit_role);
+  role = gasneti_atomic_read(&gasnetc_exit_role, 0);
   if (role == GASNETC_EXIT_ROLE_UNKNOWN) {
     /* Don't know our role yet.  So, send a system-category AM Request to determine our role */
     GASNETI_SAFE(gasnetc_RequestSystem(GASNETC_ROOT_NODE, NULL,
@@ -1693,7 +1693,7 @@ static int gasnetc_get_exit_role()
     /* Now spin until somebody tells us what our role is */
     do {
       gasnetc_sndrcv_poll(); /* works even before _attach */
-      role = gasneti_atomic_read(&gasnetc_exit_role);
+      role = gasneti_atomic_read(&gasnetc_exit_role, 0);
     } while (role == GASNETC_EXIT_ROLE_UNKNOWN);
   }
 
@@ -1715,13 +1715,13 @@ static int gasnetc_exit_head(int exitcode) {
   static gasneti_atomic_t once = gasneti_atomic_init(1);
   int retval;
 
-  gasneti_atomic_set(&gasnetc_exit_running, 1);
+  gasneti_atomic_set(&gasnetc_exit_running, 1, GASNETI_ATOMIC_WMB_POST);
 
-  retval = gasneti_atomic_decrement_and_test(&once);
+  retval = gasneti_atomic_decrement_and_test(&once, 0);
 
   if (retval) {
     /* Store the exit code for later use */
-    gasneti_atomic_set(&gasnetc_exit_code, exitcode);
+    gasneti_atomic_set(&gasnetc_exit_code, exitcode, GASNETI_ATOMIC_WMB_POST);
   }
 
   return retval;
@@ -1739,7 +1739,7 @@ static int gasnetc_exit_head(int exitcode) {
 static void gasnetc_exit_now(int) GASNETI_NORETURN;
 static void gasnetc_exit_now(int exitcode) {
   /* If anybody is still waiting, let them go */
-  gasneti_atomic_set(&gasnetc_exit_done, 1);
+  gasneti_atomic_set(&gasnetc_exit_done, 1, GASNETI_ATOMIC_WMB_POST);
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_exit(): node %i/%i calling killmyprocess...\n", 
@@ -1765,7 +1765,7 @@ static void gasnetc_exit_now(int exitcode) {
  */
 static void gasnetc_exit_tail(void) GASNETI_NORETURN;
 static void gasnetc_exit_tail(void) {
-  gasnetc_exit_now((int)gasneti_atomic_read(&gasnetc_exit_code));
+  gasnetc_exit_now((int)gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE));
   /* NOT REACHED */
 }
 
@@ -1785,7 +1785,7 @@ static void gasnetc_exit_tail(void) {
   #define GASNETC_EXIT_STATE(st) do {} while (0)
 #endif
 static void gasnetc_exit_sighandler(int sig) {
-  int exitcode = (int)gasneti_atomic_read(&gasnetc_exit_code);
+  int exitcode = (int)gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
   static gasneti_atomic_t once = gasneti_atomic_init(1);
 
   #if GASNET_DEBUG
@@ -1818,7 +1818,7 @@ static void gasnetc_exit_sighandler(int sig) {
   }
   #endif
 
-  if (gasneti_atomic_decrement_and_test(&once)) {
+  if (gasneti_atomic_decrement_and_test(&once, 0)) {
     /* We ask the bootstrap support to kill us, but only once */
     gasneti_reghandler(SIGALRM, gasnetc_exit_sighandler);
     GASNETC_EXIT_STATE("in suicide timer");
@@ -1848,17 +1848,17 @@ static void gasnetc_exit_sighandler(int sig) {
  */
 static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
   int i, rc;
-  int64_t start_time;
+  gasneti_stattime_t start_time;
 
   gasneti_assert(timeout_us > 0); 
 
-  start_time = gasneti_getMicrosecondTimeStamp();
+  start_time = GASNETI_STATTIME_NOW();
 
   /* Notify phase */
   for (i = 0; i < gasneti_nodes; ++i) {
     if (i == gasneti_mynode) continue;
 
-    if ((gasneti_getMicrosecondTimeStamp() - start_time) > timeout_us) return -1;
+    if (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) / 1000 > timeout_us) return -1;
 
     rc = gasnetc_RequestSystem(i, NULL,
 		    	       gasneti_handleridx(gasnetc_SYS_exit_req),
@@ -1867,8 +1867,8 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
   }
 
   /* Wait phase - wait for replies from our N-1 peers */
-  while (gasneti_atomic_read(&gasnetc_exit_reps) < (gasneti_nodes - 1)) {
-    if ((gasneti_getMicrosecondTimeStamp() - start_time) > timeout_us) return -1;
+  while (gasneti_atomic_read(&gasnetc_exit_reps, 0) < (gasneti_nodes - 1)) {
+    if (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) / 1000 > timeout_us) return -1;
 
     gasnetc_sndrcv_poll(); /* works even before _attach */
   }
@@ -1885,15 +1885,15 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
  * Returns 0 on success, non-zero on timeout.
  */
 static int gasnetc_exit_slave(int64_t timeout_us) {
-  int64_t start_time;
+  gasneti_stattime_t start_time;
 
   gasneti_assert(timeout_us > 0); 
 
-  start_time = gasneti_getMicrosecondTimeStamp();
+  start_time = GASNETI_STATTIME_NOW();
 
   /* wait until the exit request is received from the master */
-  while (gasneti_atomic_read(&gasnetc_exit_reqs) == 0) {
-    if ((gasneti_getMicrosecondTimeStamp() - start_time) > timeout_us) return -1;
+  while (gasneti_atomic_read(&gasnetc_exit_reqs, 0) == 0) {
+    if (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) / 1000 > timeout_us) return -1;
 
     gasnetc_sndrcv_poll(); /* works even before _attach */
   }
@@ -1935,9 +1935,9 @@ static void gasnetc_exit_body(void) {
   #endif
   {
     static gasneti_atomic_t exit_lock = gasneti_atomic_init(1);
-    if (!gasneti_atomic_decrement_and_test(&exit_lock)) {
+    if (!gasneti_atomic_decrement_and_test(&exit_lock, 0)) {
       /* poll until it is time to exit */
-      while (!gasneti_atomic_read(&gasnetc_exit_done)) {
+      while (!gasneti_atomic_read(&gasnetc_exit_done, GASNETI_ATOMIC_RMB_PRE)) {
         gasneti_sched_yield(); /* NOT safe to use sleep() here - conflicts with alarm() */
       }
       gasnetc_exit_tail();
@@ -1946,7 +1946,7 @@ static void gasnetc_exit_body(void) {
   }
 
   /* read exit code, stored by first caller to gasnetc_exit_head() */
-  exitcode = gasneti_atomic_read(&gasnetc_exit_code);
+  exitcode = gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
 
   /* Establish a last-ditch signal handler in case of failure. */
   alarm(0);
@@ -1977,7 +1977,7 @@ static void gasnetc_exit_body(void) {
   }
 
   /* Determine our role (master or slave) in the coordination of this shutdown */
-  GASNETC_EXIT_STATE("determining exit role");
+  GASNETC_EXIT_STATE("initiating collective exit");
   alarm(10);
   role = gasnetc_get_exit_role();
 
@@ -2084,21 +2084,21 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
   gasneti_assert(numargs == 1);
 
   /* The master will send this AM, but should _never_ receive it */
-  gasneti_assert(gasneti_atomic_read(&gasnetc_exit_role) != GASNETC_EXIT_ROLE_MASTER);
+  gasneti_assert(gasneti_atomic_read(&gasnetc_exit_role, 0) != GASNETC_EXIT_ROLE_MASTER);
 
   /* We should never receive this AM multiple times */
-  gasneti_assert(gasneti_atomic_read(&gasnetc_exit_reqs) == 0);
+  gasneti_assert(gasneti_atomic_read(&gasnetc_exit_reqs, 0) == 0);
 
   /* If we didn't already know, we are now certain our role is "slave" */
-  (void)gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE);
+  (void)gasneti_atomic_compare_and_swap(&gasnetc_exit_role, GASNETC_EXIT_ROLE_UNKNOWN, GASNETC_EXIT_ROLE_SLAVE, 0);
 
   /* Send a reply so the master knows we are reachable */
   GASNETI_SAFE(gasnetc_ReplySystem(token, &gasnetc_exit_repl_oust,
 				   gasneti_handleridx(gasnetc_SYS_exit_rep), /* no args */ 0));
+  gasneti_sync_writes(); /* For non-atomic portion of gasnetc_exit_repl_oust */
 
   /* Count the exit requests, so gasnetc_exit_slave() knows when to return */
-  gasneti_sync_writes(); /* For non-atomic portion of gasnetc_exit_repl_oust */
-  gasneti_atomic_increment(&gasnetc_exit_reqs);
+  gasneti_atomic_increment(&gasnetc_exit_reqs, 0);
 
   /* Initiate an exit IFF this is the first we've heard of it */
   if (gasnetc_exit_head(args[0])) {
@@ -2156,7 +2156,7 @@ static void gasnetc_exit_reqh(gasnet_token_t token, gasnet_handlerarg_t *args, i
 static void gasnetc_exit_reph(gasnet_token_t token, gasnet_handlerarg_t *args, int numargs) {
   gasneti_assert(numargs == 0);
 
-  gasneti_atomic_increment(&gasnetc_exit_reps);
+  gasneti_atomic_increment(&gasnetc_exit_reps, 0);
 }
   
 /* gasnetc_atexit

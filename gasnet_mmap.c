@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2006/02/26 14:00:02 $
- * $Revision: 1.39 $
+ *     $Date: 2006/03/18 03:30:53 $
+ * $Revision: 1.40 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -729,8 +729,7 @@ void gasneti_auxseg_init() {
         gasneti_assert(nbytes == sizeof(gasnet_seginfo_t));
         gasneti_assert(_gasneti_auxseg_everything != NULL);
         _gasneti_auxseg_everything[srcid] = *(gasnet_seginfo_t *)buf;
-        gasneti_local_wmb();
-        gasneti_atomic_increment(&_gasneti_auxseg_gatherdone);
+        gasneti_atomic_increment(&_gasneti_auxseg_gatherdone, GASNETI_ATOMIC_REL);
         break;
       case 1:
         gasneti_assert(srcid == 0);
@@ -738,8 +737,7 @@ void gasneti_auxseg_init() {
         gasneti_assert(nbytes % sizeof(gasnet_seginfo_t) == 0);
         gasneti_assert(_gasneti_auxseg_everything != NULL);
         memcpy((void *)(_gasneti_auxseg_everything+offset), buf, nbytes);
-        gasneti_local_wmb();
-        gasneti_atomic_increment(&_gasneti_auxseg_bcastdone);
+        gasneti_atomic_increment(&_gasneti_auxseg_bcastdone, GASNETI_ATOMIC_REL);
         break;
     }
   }
@@ -795,7 +793,7 @@ void gasneti_auxseg_attach() {
     GASNETI_SAFE(gasnet_AMRequestMedium2(0, _hidx_gasnetc_auxseg_reqh, 
                   (void *)(_gasneti_auxseg_everything+gasneti_mynode), sizeof(gasnet_seginfo_t), 0, 0));
     if (gasnet_mynode() == 0) {
-      GASNET_BLOCKUNTIL((int)gasneti_atomic_read(&_gasneti_auxseg_gatherdone) == (int)gasnet_nodes());
+      GASNET_BLOCKUNTIL((int)gasneti_atomic_read(&_gasneti_auxseg_gatherdone, 0) == (int)gasnet_nodes());
       for (i=0; i < gasneti_nodes; i++) {
         for (j=0; j < chunks; j++) {
           GASNETI_SAFE(gasnet_AMRequestMedium2(i, _hidx_gasnetc_auxseg_reqh, 
@@ -804,7 +802,7 @@ void gasneti_auxseg_attach() {
         }
       }
     }
-    GASNET_BLOCKUNTIL((int)gasneti_atomic_read(&_gasneti_auxseg_bcastdone) == (int)chunks);
+    GASNET_BLOCKUNTIL((int)gasneti_atomic_read(&_gasneti_auxseg_bcastdone, 0) == (int)chunks);
     si = (gasnet_seginfo_t *)_gasneti_auxseg_everything;
   }
   #else

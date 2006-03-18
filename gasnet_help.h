@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/02/16 02:19:53 $
- * $Revision: 1.78 $
+ *     $Date: 2006/03/18 03:30:53 $
+ * $Revision: 1.79 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -325,8 +325,6 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
    trying to acquire a spinlock in signal context is legal, it is dangerous.
 
    GASNETI_HAVE_SPINLOCK will be defined to 1 on platforms supporting this primitive.
-
-   TODO Possibly add debugging wrappers as well.  That will require an actual struct.
  */
 #if 0
   /* TODO Some platforms may have cheaper implementations than atomic-CAS. */
@@ -334,43 +332,54 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
 #elif defined(GASNETI_ATOMICOPS_NOT_SIGNALSAFE)
   /* We don't implement this case due to lack of signal safety */
 #elif defined(GASNETI_HAVE_ATOMIC_CAS)
-  #define GASNETI_SPINLOCK_LOCKED	1
-  #define GASNETI_SPINLOCK_UNLOCKED	0
+  #if GASNET_DEBUG
+    #define GASNETI_SPINLOCK_LOCKED	0xa5a5
+    #define GASNETI_SPINLOCK_UNLOCKED	0xaa55
+    #define GASNETI_SPINLOCK_DESTROYED	0xDEAD
+    GASNET_INLINE_MODIFIER(gasneti_spinlock_is_valid)
+    int gasneti_spinlock_is_valid(gasneti_atomic_t *plock) {
+      uint32_t tmp = gasneti_atomic_read(plock, GASNETI_ATOMIC_RMB_PRE);
+      return ((tmp == GASNETI_SPINLOCK_LOCKED) || (tmp == GASNETI_SPINLOCK_UNLOCKED));
+    }
+    GASNET_INLINE_MODIFIER(gasneti_spinlock_is_locked)
+    int gasneti_spinlock_is_locked(gasneti_atomic_t *plock) {
+      uint32_t tmp = gasneti_atomic_read(plock, GASNETI_ATOMIC_RMB_PRE);
+      return (tmp == GASNETI_SPINLOCK_LOCKED);
+    }
+  #else
+    #define GASNETI_SPINLOCK_LOCKED	1
+    #define GASNETI_SPINLOCK_UNLOCKED	0
+    #define gasneti_spinlock_is_valid(plock) 1
+  #endif
   #define GASNETI_SPINLOCK_INITIALIZER gasneti_atomic_init(GASNETI_SPINLOCK_UNLOCKED)
-  #define gasneti_spinlock_init(plock) do {                   \
-      gasneti_atomic_set((plock), GASNETI_SPINLOCK_UNLOCKED); \
-      gasneti_local_wmb();      /* ??? needed? */             \
-  } while (0)
+  #define gasneti_spinlock_init(plock) \
+      gasneti_atomic_set((plock), GASNETI_SPINLOCK_UNLOCKED, GASNETI_ATOMIC_WMB_POST)
   #define gasneti_spinlock_destroy(plock) \
-      gasneti_assert(gasneti_atomic_read(plock) == GASNETI_SPINLOCK_UNLOCKED)
-  #define gasneti_spinlock_lock(plock) do {                                  \
-      gasneti_waituntil(                                                     \
-        gasneti_atomic_compare_and_swap(plock,                               \
-          GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_LOCKED)                \
-      ); /* Acquire: the rmb() is in the gasneti_waituntil() */              \
-      gasneti_assert(gasneti_atomic_read(plock) == GASNETI_SPINLOCK_LOCKED); \
+      gasneti_assert(gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_DESTROYED, GASNETI_ATOMIC_WMB_POST))
+  #define gasneti_spinlock_lock(plock) do {                                     \
+      gasneti_waituntil(                                                        \
+	!gasneti_spinlock_is_valid(plock) ||                                    \
+        gasneti_atomic_compare_and_swap(plock,                                  \
+          GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_LOCKED, 0)                \
+      ); /* Acquire: the rmb() is in the gasneti_waituntil() */                 \
+      gasneti_assert(gasneti_spinlock_is_locked(plock));                        \
   } while (0)
   GASNET_INLINE_MODIFIER(gasneti_spinlock_unlock)
   int gasneti_spinlock_unlock(gasneti_atomic_t *plock) {
-      gasneti_assert(gasneti_atomic_read(plock) == GASNETI_SPINLOCK_LOCKED);
-      gasneti_local_wmb();	/* Release */
       #if GASNET_DEBUG
-        { /* Using CAS for release is more costly, but adds validation */
-          int did_swap;
-          did_swap = gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_LOCKED, GASNETI_SPINLOCK_UNLOCKED);
-          gasneti_assert(did_swap);
-        }
+        /* Using CAS for release is more costly, but adds validation */
+        gasneti_assert(gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_LOCKED, GASNETI_SPINLOCK_UNLOCKED, GASNETI_ATOMIC_REL));
       #else
-        gasneti_atomic_set(plock, GASNETI_SPINLOCK_UNLOCKED);
+        gasneti_atomic_set(plock, GASNETI_SPINLOCK_UNLOCKED, GASNETI_ATOMIC_REL);
       #endif
       return 0;
   }
   /* return 0/EBUSY on success/failure to match pthreads */
   GASNET_INLINE_MODIFIER(gasneti_spinlock_trylock)
   int gasneti_spinlock_trylock(gasneti_atomic_t *plock) {
-      if (gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_LOCKED)) {
-	  gasneti_local_rmb();	/* Acquire */  
-          gasneti_assert(gasneti_atomic_read(plock) == GASNETI_SPINLOCK_LOCKED);
+      gasneti_assert(gasneti_spinlock_is_valid(plock));
+      if (gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_LOCKED, GASNETI_ATOMIC_ACQ_IF_TRUE)) {
+	  gasneti_assert(gasneti_spinlock_is_locked(plock));
 	  return 0;
       } else {
 	  return EBUSY;
@@ -823,12 +832,12 @@ typedef void (*gasneti_progressfn_t)();
   #define _GASNETI_PROGRESSFNS_DISABLE_BOOLEAN(subsysname) \
     (_GASNETI_PROGRESSFNS_FLAG(subsysname,BOOLEAN) = 0)
   #define _GASNETI_PROGRESSFNS_ENABLE_COUNTED(subsysname) do {                                   \
-    gasneti_weakatomic_increment(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED));                \
-    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)) > 0); \
+    gasneti_weakatomic_increment(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED),0);                \
+    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED),0) > 0); \
   } while (0)
   #define _GASNETI_PROGRESSFNS_DISABLE_COUNTED(subsysname) do {                                  \
-    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED)) > 0); \
-    gasneti_weakatomic_decrement(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED));                \
+    gasneti_assert(gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED),0) > 0); \
+    gasneti_weakatomic_decrement(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED),0);                \
   } while (0)
   #define GASNETI_PROGRESSFNS_ENABLE(subsysname,flavor) \
          _GASNETI_PROGRESSFNS_ENABLE_##flavor(subsysname)
@@ -838,7 +847,7 @@ typedef void (*gasneti_progressfn_t)();
   #define _GASNETI_PROGRESSFNS_ISENABLED_BOOLEAN(subsysname) \
     _GASNETI_PROGRESSFNS_FLAG(subsysname,BOOLEAN)
   #define _GASNETI_PROGRESSFNS_ISENABLED_COUNTED(subsysname) \
-    gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED))
+    gasneti_weakatomic_read(&_GASNETI_PROGRESSFNS_FLAG(subsysname,COUNTED),0)
   #define _GASNETI_PROGRESSFNS_RUN_IFENABLED(subsysname, flavor, progressfn) \
     (_GASNETI_PROGRESSFNS_ISENABLED_##flavor(subsysname) ? progressfn() : ((void)0)) ,
   #define GASNETI_PROGRESSFNS_RUN()                        \
@@ -940,11 +949,11 @@ typedef void (*gasneti_progressfn_t)();
 
     #define gasneti_suspend_spinpollers() do {                      \
         gasneti_suspend_spinpollers_check();                        \
-        gasneti_atomic_increment(&gasneti_throttle_haveusefulwork); \
+        gasneti_atomic_increment(&gasneti_throttle_haveusefulwork,0); \
     } while (0)
     #define gasneti_resume_spinpollers() do {                       \
         gasneti_resume_spinpollers_check();                         \
-        gasneti_atomic_decrement(&gasneti_throttle_haveusefulwork); \
+        gasneti_atomic_decrement(&gasneti_throttle_haveusefulwork,0); \
     } while (0)
 
     /* and finally, the throttled poll implementation */
@@ -953,7 +962,7 @@ typedef void (*gasneti_progressfn_t)();
        int retval;
        gasneti_AMPoll_spinpollers_check();
        gasneti_memcheck_one();
-       if (gasneti_atomic_read(&gasneti_throttle_haveusefulwork) > 0) 
+       if (gasneti_atomic_read(&gasneti_throttle_haveusefulwork,0) > 0) 
          return GASNET_OK; /* another thread sending - skip the poll */
        if (gasneti_mutex_trylock(&gasneti_throttle_spinpoller) != 0)
          return GASNET_OK; /* another thread spin-polling - skip the poll */
