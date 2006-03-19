@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2006/02/04 01:20:21 $
- * $Revision: 1.31 $
+ *     $Date: 2006/03/19 02:08:14 $
+ * $Revision: 1.32 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -93,7 +93,7 @@ static size_t fhi_MaxRegionSize;
 /* ##################################################################### */
 
 /* compute ending address of "region" */
-GASNET_INLINE_MODIFIER(fh_region_end)
+GASNETI_INLINE(fh_region_end)
 uintptr_t fh_region_end(const firehose_region_t *region)
 {
 	gasneti_assert(region != NULL);
@@ -101,7 +101,7 @@ uintptr_t fh_region_end(const firehose_region_t *region)
 }
 
 /* compute ending address of "req" */
-GASNET_INLINE_MODIFIER(fh_req_end)
+GASNETI_INLINE(fh_req_end)
 uintptr_t fh_req_end(const firehose_request_t *req)
 {
 	gasneti_assert(req != NULL);
@@ -109,7 +109,7 @@ uintptr_t fh_req_end(const firehose_request_t *req)
 }
 
 /* compute ending address of "priv" */
-GASNET_INLINE_MODIFIER(fh_priv_end)
+GASNETI_INLINE(fh_priv_end)
 uintptr_t fh_priv_end(const firehose_private_t *priv)
 {
 	gasneti_assert(priv != NULL);
@@ -117,7 +117,7 @@ uintptr_t fh_priv_end(const firehose_private_t *priv)
 }
 
 /* compute ending address of "bucket" */
-GASNET_INLINE_MODIFIER(fh_bucket_end)
+GASNETI_INLINE(fh_bucket_end)
 uintptr_t fh_bucket_end(const fh_bucket_t *bucket)
 {
 	gasneti_assert(bucket != NULL);
@@ -130,7 +130,7 @@ uintptr_t fh_bucket_end(const fh_bucket_t *bucket)
  * In case of a tie on forward extent, the longer region wins.
  * In case of a complete tie, we return 0.
  */
-GASNET_INLINE_MODIFIER(fh_bucket_is_better)
+GASNETI_INLINE(fh_bucket_is_better)
 int fh_bucket_is_better(const fh_bucket_t *a, const fh_bucket_t *b)
 {
   uintptr_t end_a, end_b;
@@ -153,7 +153,7 @@ int fh_bucket_is_better(const fh_bucket_t *a, const fh_bucket_t *b)
 }
 
 /* Compare two buckets with the same (node, address) to pick the "best" one */
-GASNET_INLINE_MODIFIER(fh_best_bucket)
+GASNETI_INLINE(fh_best_bucket)
 fh_bucket_t *fh_best_bucket(fh_bucket_t *a, fh_bucket_t *b)
 {
   return (fh_bucket_is_better(a,b)) ? a : b;
@@ -179,7 +179,7 @@ fh_hash_t *fh_BucketTable2;
 #define fh_bucket_uncover(B)	do { ((B)->priv)->visible += 1; } while(0)
 #define fh_bucket_cover(B)	do { ((B)->priv)->visible -= 1; } while(0)
 
-GASNET_INLINE_MODIFIER(fh_bucket_cover_and_check)
+GASNETI_INLINE(fh_bucket_cover_and_check)
 void fh_bucket_cover_and_check(fh_bucket_t *bucket)
 {
   firehose_private_t *priv = bucket->priv;
@@ -318,7 +318,7 @@ fh_bucket_rehash(fh_bucket_t *bucket)
 /* XXX: merge freelist w/ page? */
 static fh_bucket_t *fhi_bucket_freelist = NULL;
 
-GASNET_INLINE_MODIFIER(fh_bucket_new)
+GASNETI_INLINE(fh_bucket_new)
 fh_bucket_t *fh_bucket_new(void)
 {
     fh_bucket_t *bucket = fhi_bucket_freelist;
@@ -334,14 +334,14 @@ fh_bucket_t *fh_bucket_new(void)
     return bucket;
 }
 
-GASNET_INLINE_MODIFIER(fh_bucket_free)
+GASNETI_INLINE(fh_bucket_free)
 void fh_bucket_free(fh_bucket_t *bucket)
 {
     bucket->fh_next = fhi_bucket_freelist;
     fhi_bucket_freelist = bucket;
 }
 
-GASNET_INLINE_MODIFIER(fh_clean_covered)
+GASNETI_INLINE(fh_clean_covered)
 int fh_clean_covered(int limit, firehose_region_t *reg, fh_fifoq_t *fifo_head) {
   firehose_private_t *priv = FH_TAILQ_FIRST(fifo_head);
   int count = 0;
@@ -355,14 +355,14 @@ int fh_clean_covered(int limit, firehose_region_t *reg, fh_fifoq_t *fifo_head) {
   return count;
 }
 
-GASNET_INLINE_MODIFIER(fh_clean_covered_local)
+GASNETI_INLINE(fh_clean_covered_local)
 int fh_clean_covered_local(int limit, firehose_region_t *reg) {
   int count = fh_clean_covered(limit, reg, &fh_LocalFifo);
   fhc_LocalVictimFifoBuckets -= count;
   return count;
 }
 
-GASNET_INLINE_MODIFIER(fh_clean_covered_remote)
+GASNETI_INLINE(fh_clean_covered_remote)
 int fh_clean_covered_remote(gasnet_node_t node, int limit, firehose_region_t *reg) {
   int count = fh_clean_covered(limit, reg, &fh_RemoteNodeFifo[node]);
   fhc_RemoteVictimFifoBuckets[node] -= count;
@@ -397,7 +397,7 @@ fh_hash_t *fh_PrivTable;
 	FH_KEYMAKE((addr), ((len) >> FH_BUCKET_SHIFT))
 #endif
 
-GASNET_INLINE_MODIFIER(fh_region_to_priv)
+GASNETI_INLINE(fh_region_to_priv)
 firehose_private_t *
 fh_region_to_priv(const firehose_region_t *reg)
 {
@@ -573,7 +573,7 @@ fh_update_priv(firehose_private_t *priv, const firehose_region_t *reg)
  * once used but not recently enough to be in the table.  However, we'd hit
  * problems when glibc's malloc unmaps freed pages.
  */
-GASNET_INLINE_MODIFIER(fhi_merge_regions)
+GASNETI_INLINE(fhi_merge_regions)
 void
 fhi_merge_regions(firehose_region_t *pin_region)
 {
@@ -642,7 +642,7 @@ fhi_merge_regions(firehose_region_t *pin_region)
 }
 
 /* Spin to get some more space */
-GASNET_INLINE_MODIFIER(fhi_wait_for_one)
+GASNETI_INLINE(fhi_wait_for_one)
 void
 fhi_wait_for_one(const firehose_private_t *priv) {
 	firehose_region_t unpin_regions[FH_MAX_UNPIN_LOC];
@@ -666,7 +666,7 @@ fhi_wait_for_one(const firehose_private_t *priv) {
 }
 
 /* add a locally pinned region to the tables */
-GASNET_INLINE_MODIFIER(fhi_init_local_region)
+GASNETI_INLINE(fhi_init_local_region)
 firehose_private_t *
 fhi_init_local_region(int local_ref, firehose_region_t *region)
 {
@@ -732,7 +732,7 @@ fhi_init_local_region(int local_ref, firehose_region_t *region)
 
 /* Lookup a region, returning the coresponding priv if found, else NULL.
  */
-GASNET_INLINE_MODIFIER(fhi_find_priv)
+GASNETI_INLINE(fhi_find_priv)
 firehose_private_t *
 fhi_find_priv(gasnet_node_t node, uintptr_t addr, size_t len)
 {

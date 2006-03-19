@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2006/02/26 13:57:08 $
- * $Revision: 1.49 $
+ *     $Date: 2006/03/19 02:07:54 $
+ * $Revision: 1.50 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@
 
 #include <stdio.h>
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /* Statistical collection & tracing 
@@ -131,23 +131,23 @@ BEGIN_EXTERNC
     extern const char *gasneti_srcfilename;
     extern unsigned int gasneti_srclinenum;
     extern unsigned int gasneti_srcfreeze;
-    GASNET_INLINE_MODIFIER(gasneti_trace_setsourceline)
+    GASNETI_INLINE(gasneti_trace_setsourceline)
     void gasneti_trace_setsourceline(const char *filename, unsigned int linenum) {
       if_pt (gasneti_srcfreeze == 0) {
         if_pt (filename != NULL) gasneti_srcfilename = filename;
         gasneti_srclinenum = linenum;
       }
     }
-    GASNET_INLINE_MODIFIER(gasneti_trace_getsourceline)
+    GASNETI_INLINE(gasneti_trace_getsourceline)
     void gasneti_trace_getsourceline(const char **pfilename, unsigned int *plinenum) {
       *pfilename = gasneti_srcfilename;
       *plinenum = gasneti_srclinenum;
     }
-    GASNET_INLINE_MODIFIER(gasneti_trace_freezesourceline)
+    GASNETI_INLINE(gasneti_trace_freezesourceline)
     void gasneti_trace_freezesourceline() {
       gasneti_srcfreeze++;
     }
-    GASNET_INLINE_MODIFIER(gasneti_trace_unfreezesourceline)
+    GASNETI_INLINE(gasneti_trace_unfreezesourceline)
     void gasneti_trace_unfreezesourceline() {
       gasneti_assert(gasneti_srcfreeze > 0);
       gasneti_srcfreeze--;
@@ -939,6 +939,6 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
 
 /* ------------------------------------------------------------------------------------ */
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif

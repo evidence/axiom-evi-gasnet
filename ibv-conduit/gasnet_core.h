@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.h,v $
- *     $Date: 2006/03/18 03:31:09 $
- * $Revision: 1.48 $
+ *     $Date: 2006/03/19 02:08:30 $
+ * $Revision: 1.49 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@
 
 #include <gasnet_core_help.h>
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -165,7 +165,7 @@ typedef struct {
  * Note that no AMPoll is done in the best case.
  */
 extern void gasnetc_counter_wait_aux(gasnetc_counter_t *counter, int handler_context);
-GASNET_INLINE_MODIFIER(gasnetc_counter_wait)
+GASNETI_INLINE(gasnetc_counter_wait)
 void gasnetc_counter_wait(gasnetc_counter_t *counter, int handler_context) { 
   if_pf (!gasnetc_counter_done(counter)) {
     gasnetc_counter_wait_aux(counter, handler_context);
@@ -267,7 +267,7 @@ extern int gasnetc_rdma_getv(gasnetc_epid_t epid, void *src_ptr, size_t dstcount
 
 /* ------------------------------------------------------------------------------------ */
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif
 

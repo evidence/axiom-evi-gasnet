@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2005/08/25 09:13:58 $
- * $Revision: 1.31 $
+ *     $Date: 2006/03/19 02:08:08 $
+ * $Revision: 1.32 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -329,14 +329,14 @@ typedef int op_t;
 
 /* ------------------------------------------------------------------------------------ */
 #ifdef __cplusplus
-  #define BEGIN_EXTERNC extern "C" {
-  #define END_EXTERNC }
+  #define AMMPI_BEGIN_EXTERNC extern "C" {
+  #define AMMPI_END_EXTERNC }
 #else
-  #define BEGIN_EXTERNC 
-  #define END_EXTERNC 
+  #define AMMPI_BEGIN_EXTERNC 
+  #define AMMPI_END_EXTERNC 
 #endif
 
-BEGIN_EXTERNC
+AMMPI_BEGIN_EXTERNC
 
 /* AMMPI-specific user entry points */
 extern int AMMPI_VerboseErrors; /* set to non-zero for verbose error reporting */
@@ -836,6 +836,6 @@ extern int AMMPI_ReplyXferVA(void *token, handler_t handler,
    AMMPI_ReplyXfer(token, hnum, sa, cnt, desto, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 
-END_EXTERNC
+AMMPI_END_EXTERNC
 
 #endif

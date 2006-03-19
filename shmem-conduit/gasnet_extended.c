@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2006/02/26 13:57:10 $
- * $Revision: 1.14 $
+ *     $Date: 2006/03/19 02:08:20 $
+ * $Revision: 1.15 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,7 +81,7 @@ gasnete_am_memset_nb(gasnet_node_t node, void *dest, int val,
     return GASNETE_SYNC_NONE;
 }
 
-GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
+GASNETI_INLINE(gasnete_memset_reqh_inner)
 void 
 gasnete_memset_reqh_inner(gasnet_token_t token, gasnet_handlerarg_t val, 
 			  gasnet_handlerarg_t nbytes, void *dest, void *op) 
@@ -97,7 +97,7 @@ SHORT_HANDLER(gasnete_memset_reqh,4,6,
               (token, a0, a1, UNPACK(a2),      UNPACK(a3)     ),
               (token, a0, a1, UNPACK2(a2, a3), UNPACK2(a4, a5)));
 
-GASNET_INLINE_MODIFIER(gasnete_markdone_reph_inner)
+GASNETI_INLINE(gasnete_markdone_reph_inner)
 void 
 gasnete_markdone_reph_inner(gasnet_token_t token, void *h) 
 {

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refbarrier.c,v $
- *     $Date: 2006/01/23 17:34:07 $
- * $Revision: 1.29 $
+ *     $Date: 2006/03/19 02:08:00 $
+ * $Revision: 1.30 $
  * Description: Reference implemetation of GASNet Barrier, using Active Messages
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,7 +106,7 @@ static void gasnete_ambarrier_notify_reqh(gasnet_token_t token,
  * Equivalent to ``(gasneti_sync_reads(), ambarrier_recv_value[phase])'',
  * except w/o assuming gasneti_sync_reads() to be valid in expression context.
  */
-GASNET_INLINE_MODIFIER(ambarrier_recv_value_synced)
+GASNETI_INLINE(ambarrier_recv_value_synced)
 int ambarrier_recv_value_synced(int phase) {
   gasneti_sync_reads();
   return ambarrier_recv_value[phase];

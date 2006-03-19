@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2006/03/18 03:30:57 $
- * $Revision: 1.56 $
+ *     $Date: 2006/03/19 02:08:00 $
+ * $Revision: 1.57 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -343,7 +343,7 @@ typedef struct {
     }		u;
 } gasnete_coll_local_handle_t;
 
-GASNET_INLINE_MODIFIER(gasnete_coll_local_handles)
+GASNETI_INLINE(gasnete_coll_local_handles)
 gasnete_coll_local_handle_t *
 gasnete_coll_local_handles(gasnete_coll_threaddata_t *td, int grow) {
     gasnete_coll_local_handle_t *result = (gasnete_coll_local_handle_t *)td->handles.array;
@@ -1125,7 +1125,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
       return gasnete_coll_issued_id++;
     }
 
-    GASNET_INLINE_MODIFIER(gasnete_coll_consensus_do_try)
+    GASNETI_INLINE(gasnete_coll_consensus_do_try)
     int gasnete_coll_consensus_do_try(void) {
 #if GASNET_DEBUG
       int rc = gasnet_barrier_try(gasnete_coll_consensus_id, 0);
@@ -1150,7 +1150,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 #endif
     }
 
-    GASNET_INLINE_MODIFIER(gasnete_coll_consensus_do_notify)
+    GASNETI_INLINE(gasnete_coll_consensus_do_notify)
     void gasnete_coll_consensus_do_notify(void) {
 	  ++gasnete_coll_consensus_id;
 #if GASNET_DEBUG
@@ -1397,7 +1397,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
     }
 
     /* Memcopy payload and then decrement atomic counter if requested */
-    GASNET_INLINE_MODIFIER(gasnete_coll_p2p_memcpy_reqh_inner)
+    GASNETI_INLINE(gasnete_coll_p2p_memcpy_reqh_inner)
     void gasnete_coll_p2p_memcpy_reqh_inner(gasnet_token_t token, void *buf, size_t nbytes,
 						   void *dest,
 						   gasnet_handlerarg_t team_id,

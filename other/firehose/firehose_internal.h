@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2005/12/08 01:46:11 $
- * $Revision: 1.32 $
+ *     $Date: 2006/03/19 02:08:14 $
+ * $Revision: 1.33 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -616,14 +616,14 @@ extern gasnet_handlerentry_t fh_am_handlers[];
 int	fh_FreeVictim(int count, firehose_region_t *reg,
 			fh_fifoq_t *fifo_head);
 
-GASNET_INLINE_MODIFIER(fhi_FreeVictimLocal)
+GASNETI_INLINE(fhi_FreeVictimLocal)
 int fhi_FreeVictimLocal(int count, firehose_region_t *reg)
 {
 	gasneti_assert(count <= fhc_LocalVictimFifoBuckets);
 	return fh_FreeVictim(count, reg, &fh_LocalFifo);
 }
 
-GASNET_INLINE_MODIFIER(fhi_FreeVictimRemote)
+GASNETI_INLINE(fhi_FreeVictimRemote)
 int fhi_FreeVictimRemote(gasnet_node_t node, int count, firehose_region_t *reg)
 {
 	gasneti_assert(count <= fhc_RemoteVictimFifoBuckets[node]);

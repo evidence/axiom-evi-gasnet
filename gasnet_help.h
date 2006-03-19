@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/03/18 03:30:53 $
- * $Revision: 1.79 $
+ *     $Date: 2006/03/19 02:07:54 $
+ * $Revision: 1.80 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,7 +24,7 @@
 #endif
 #include <gasnet_membar.h>
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 extern void gasneti_fatalerror(const char *msg, ...) GASNETI_NORETURN __attribute__((__format__ (__printf__, 1, 2)));
 GASNETI_NORETURNP(gasneti_fatalerror)
@@ -336,12 +336,12 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
     #define GASNETI_SPINLOCK_LOCKED	0xa5a5
     #define GASNETI_SPINLOCK_UNLOCKED	0xaa55
     #define GASNETI_SPINLOCK_DESTROYED	0xDEAD
-    GASNET_INLINE_MODIFIER(gasneti_spinlock_is_valid)
+    GASNETI_INLINE(gasneti_spinlock_is_valid)
     int gasneti_spinlock_is_valid(gasneti_atomic_t *plock) {
       uint32_t tmp = gasneti_atomic_read(plock, GASNETI_ATOMIC_RMB_PRE);
       return ((tmp == GASNETI_SPINLOCK_LOCKED) || (tmp == GASNETI_SPINLOCK_UNLOCKED));
     }
-    GASNET_INLINE_MODIFIER(gasneti_spinlock_is_locked)
+    GASNETI_INLINE(gasneti_spinlock_is_locked)
     int gasneti_spinlock_is_locked(gasneti_atomic_t *plock) {
       uint32_t tmp = gasneti_atomic_read(plock, GASNETI_ATOMIC_RMB_PRE);
       return (tmp == GASNETI_SPINLOCK_LOCKED);
@@ -364,7 +364,7 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
       ); /* Acquire: the rmb() is in the gasneti_waituntil() */                 \
       gasneti_assert(gasneti_spinlock_is_locked(plock));                        \
   } while (0)
-  GASNET_INLINE_MODIFIER(gasneti_spinlock_unlock)
+  GASNETI_INLINE(gasneti_spinlock_unlock)
   int gasneti_spinlock_unlock(gasneti_atomic_t *plock) {
       #if GASNET_DEBUG
         /* Using CAS for release is more costly, but adds validation */
@@ -375,7 +375,7 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
       return 0;
   }
   /* return 0/EBUSY on success/failure to match pthreads */
-  GASNET_INLINE_MODIFIER(gasneti_spinlock_trylock)
+  GASNETI_INLINE(gasneti_spinlock_trylock)
   int gasneti_spinlock_trylock(gasneti_atomic_t *plock) {
       gasneti_assert(gasneti_spinlock_is_valid(plock));
       if (gasneti_atomic_compare_and_swap(plock, GASNETI_SPINLOCK_UNLOCKED, GASNETI_SPINLOCK_LOCKED, GASNETI_ATOMIC_ACQ_IF_TRUE)) {
@@ -516,7 +516,7 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
               gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);            \
               (pl)->owner = GASNETI_THREADIDQUERY();                           \
             } while (0)
-    GASNET_INLINE_MODIFIER(gasneti_mutex_trylock)
+    GASNETI_INLINE(gasneti_mutex_trylock)
     int gasneti_mutex_trylock(gasneti_mutex_t *pl) {
               int retval;
               gasneti_assert((pl)->owner != GASNETI_THREADIDQUERY());
@@ -548,7 +548,7 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
               gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER); \
               (pl)->owner = GASNETI_THREADIDQUERY();                \
             } while (0)
-    GASNET_INLINE_MODIFIER(gasneti_mutex_trylock)
+    GASNETI_INLINE(gasneti_mutex_trylock)
     int gasneti_mutex_trylock(gasneti_mutex_t *pl) {
               gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);
               (pl)->owner = GASNETI_THREADIDQUERY();
@@ -918,7 +918,7 @@ typedef void (*gasneti_progressfn_t)();
   #endif
 
   #if !GASNETI_THROTTLE_POLLERS 
-    GASNET_INLINE_MODIFIER(gasneti_AMPoll)
+    GASNETI_INLINE(gasneti_AMPoll)
     int gasneti_AMPoll() {
        int retval;
        gasneti_AMPoll_spinpollers_check();
@@ -957,7 +957,7 @@ typedef void (*gasneti_progressfn_t)();
     } while (0)
 
     /* and finally, the throttled poll implementation */
-    GASNET_INLINE_MODIFIER(gasneti_AMPoll)
+    GASNETI_INLINE(gasneti_AMPoll)
     int gasneti_AMPoll() {
        int retval;
        gasneti_AMPoll_spinpollers_check();
@@ -1031,7 +1031,7 @@ extern int gasneti_wait_mode; /* current waitmode hint */
 #ifndef _GASNET_AMPOLL
 #define _GASNET_AMPOLL
   /* GASNet client calls gasnet_AMPoll(), which throttles and traces */
-  GASNET_INLINE_MODIFIER(gasnet_AMPoll)
+  GASNETI_INLINE(gasnet_AMPoll)
   int gasnet_AMPoll() {
     GASNETI_TRACE_EVENT(I, AMPOLL);
     return gasneti_AMPoll();
@@ -1040,7 +1040,7 @@ extern int gasneti_wait_mode; /* current waitmode hint */
 
 #ifndef _GASNET_GETENV
 #define _GASNET_GETENV
-  GASNET_INLINE_MODIFIER(gasnet_getenv)
+  GASNETI_INLINE(gasnet_getenv)
   char *gasnet_getenv(const char *s) {
     GASNETI_CHECKINIT();
     return gasneti_getenv(s);
@@ -1122,6 +1122,6 @@ extern int gasneti_wait_mode; /* current waitmode hint */
 #endif
 /* ------------------------------------------------------------------------------------ */
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif

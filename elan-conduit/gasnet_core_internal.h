@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/03/19 00:31:18 $
- * $Revision: 1.38 $
+ *     $Date: 2006/03/19 02:07:58 $
+ * $Revision: 1.39 $
  * Description: GASNet elan conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -238,7 +238,7 @@ typedef struct {
 extern int gasnete_evtbin_done(gasnete_evtbin_t *bin);
 extern void gasnete_evtbin_save(gasnete_evtbin_t *bin, ELAN_EVENT *evt);
 /* init evtbin with space of sizeof(ELAN_EVENT *)*sz */
-GASNET_INLINE_MODIFIER(gasnete_evtbin_init)
+GASNETI_INLINE(gasnete_evtbin_init)
 void gasnete_evtbin_init(gasnete_evtbin_t *bin, uint16_t sz, ELAN_EVENT **space) {
   bin->evt_cnt = 0;
   bin->evt_sz = sz;
@@ -283,7 +283,7 @@ void gasnete_evtbin_init(gasnete_evtbin_t *bin, uint16_t sz, ELAN_EVENT **space)
      this is a probabalistic heuristic anyhow 
      TODO: does assigning per-thread ELAN_PGCTRL's reduce locking contention in libelan?
    */
-  GASNET_INLINE_MODIFIER(gasnetc_next_PGCTRL)
+  GASNETI_INLINE(gasnetc_next_PGCTRL)
   ELAN_PGCTRL *gasnetc_next_PGCTRL() {
     int myidx = _gasnete_elan_pgctrl_cur;
     int newidx = myidx+1;

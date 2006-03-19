@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_page.c,v $
- *     $Date: 2006/02/04 01:20:21 $
- * $Revision: 1.50 $
+ *     $Date: 2006/03/19 02:08:14 $
+ * $Revision: 1.51 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -181,7 +181,7 @@ fh_bucket_init_freelist(int max_buckets_pinned)
 	return;
 }
 
-GASNET_INLINE_MODIFIER(fh_bucket_lookup)
+GASNETI_INLINE(fh_bucket_lookup)
 fh_bucket_t *
 fh_bucket_lookup(gasnet_node_t node, uintptr_t bucket_addr)
 {
@@ -269,7 +269,7 @@ fh_bucket_remove(fh_bucket_t *bucket)
  * Add a bucket addr to a pool of regions, and attempt to coalesce it in the
  * process
  */
-GASNET_INLINE_MODIFIER(fh_bucket_AddtoPool)
+GASNETI_INLINE(fh_bucket_AddtoPool)
 void
 fh_bucket_AddtoPool(fhi_RegionPool_t *rpool, uintptr_t bucket_addr)
 {
@@ -1223,7 +1223,7 @@ fh_find_pending_callbacks(gasnet_node_t node, firehose_region_t *region,
     return callspend;
 }
 
-GASNET_INLINE_MODIFIER(fh_PendingCallbacksEnqueue)
+GASNETI_INLINE(fh_PendingCallbacksEnqueue)
 void
 fh_PendingCallbacksEnqueue(firehose_request_t *req,
 			fh_bucket_t *bd, 

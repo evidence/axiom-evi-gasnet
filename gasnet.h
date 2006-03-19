@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/02/11 11:42:35 $
- * $Revision: 1.43 $
+ *     $Date: 2006/03/19 02:07:54 $
+ * $Revision: 1.44 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -200,10 +200,10 @@
   #define GASNET_ERR_BARRIER_MISMATCH     (_GASNET_ERR_BASE+5)
 #endif
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 extern const char *gasnet_ErrorName(int);
 extern const char *gasnet_ErrorDesc(int);
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /* core types */
@@ -420,7 +420,7 @@ static int *gasneti_linkconfig_idiotcheck() {
 #if defined(_INCLUDED_GASNET_INTERNAL_H) && !defined(GASNETI_INTERNAL_TEST_PROGRAM) && !defined(_GASNET_INTERNAL_IDIOTCHECK)
   #define _GASNET_INTERNAL_IDIOTCHECK
   #undef gasnet_attach
-  GASNET_INLINE_MODIFIER(gasnet_attach)
+  GASNETI_INLINE(gasnet_attach)
   int gasnet_attach(gasnet_handlerentry_t *table, int numentries,
                     uintptr_t segsize, uintptr_t minheapoffset) {
     gasneti_fatalerror("GASNet client code must NOT #include <gasnet_internal.h>\n"

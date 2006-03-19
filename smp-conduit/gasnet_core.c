@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2005/08/09 12:06:58 $
- * $Revision: 1.39 $
+ *     $Date: 2006/03/19 02:08:22 $
+ * $Revision: 1.40 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -376,7 +376,7 @@ extern int gasnetc_AMPoll() {
   ================================
 */
 
-GASNET_INLINE_MODIFIER(gasnetc_ReqRepGeneric)
+GASNETI_INLINE(gasnetc_ReqRepGeneric)
 int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
                          int dest, gasnet_handler_t handler, 
                          void *source_addr, int nbytes, void *dest_ptr, 

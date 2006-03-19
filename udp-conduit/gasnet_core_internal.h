@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core_internal.h,v $
- *     $Date: 2005/02/17 13:19:24 $
- * $Revision: 1.6 $
+ *     $Date: 2006/03/19 02:08:28 $
+ * $Revision: 1.7 $
  * Description: GASNet MPI conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,7 +30,7 @@ extern gasneti_mutex_t gasnetc_AMlock; /*  protect access to AMUDP */
 /* ------------------------------------------------------------------------------------
  *  AM Error Handling
  * ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasneti_AMErrorName)
+GASNETI_INLINE(gasneti_AMErrorName)
 const char *gasneti_AMErrorName(int errval) {
   switch (errval) {
     case AM_OK:           return "AM_OK";      
@@ -64,7 +64,7 @@ const char *gasneti_AMErrorName(int errval) {
       gasneti_checkAMreturn(fncall, #fncall,                             \
                           GASNETI_CURRENT_FUNCTION, __FILE__, __LINE__): \
       (fncall) == AM_OK)
-GASNET_INLINE_MODIFIER(gasneti_checkAMreturn)
+GASNETI_INLINE(gasneti_checkAMreturn)
 int gasneti_checkAMreturn(int retcode, const char *fncallstr, 
                                 const char *context, const char *file, int line) {
    if (retcode != AM_OK) {  

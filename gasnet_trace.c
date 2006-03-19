@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2006/02/11 11:42:35 $
- * $Revision: 1.122 $
+ *     $Date: 2006/03/19 02:07:54 $
+ * $Revision: 1.123 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -154,7 +154,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
       unsigned int linenum;
       unsigned int frozen;
     } gasneti_srclineinfo_t;
-    GASNET_INLINE_MODIFIER(gasneti_mysrclineinfo)
+    GASNETI_INLINE(gasneti_mysrclineinfo)
     gasneti_srclineinfo_t *gasneti_mysrclineinfo() {
       gasneti_srclineinfo_t *srclineinfo = gasneti_threadkey_get(gasneti_srclineinfo_key);
       if_pt (srclineinfo) {

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/03/18 03:31:09 $
- * $Revision: 1.124 $
+ *     $Date: 2006/03/19 02:08:30 $
+ * $Revision: 1.125 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -234,27 +234,27 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
   #define _GASNETC_SEMA_INITIALIZER(N) {gasneti_weakatomic_init(N)}
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_init)
+  GASNETI_INLINE(_gasnetc_sema_init)
   void _gasnetc_sema_init(_gasnetc_sema_t *s, int n) {
     gasneti_weakatomic_set(s, n, 0);
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_destroy)
+  GASNETI_INLINE(_gasnetc_sema_destroy)
   void _gasnetc_sema_destroy(_gasnetc_sema_t *s) {
     /* Nothing */
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_read)
+  GASNETI_INLINE(_gasnetc_sema_read)
   uint32_t _gasnetc_sema_read(_gasnetc_sema_t *s) {
     return gasneti_weakatomic_read(s, 0);
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_up)
+  GASNETI_INLINE(_gasnetc_sema_up)
   void _gasnetc_sema_up(_gasnetc_sema_t *s) {
     __asm__ __volatile__ (GASNETI_LOCK "incl %0" : "=m" (*s) : : "cc", "memory");
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown)
+  GASNETI_INLINE(_gasnetc_sema_trydown)
   int _gasnetc_sema_trydown(_gasnetc_sema_t *s) {
     register int tmp, retval;
 
@@ -278,12 +278,12 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     return retval;
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_up_n)
+  GASNETI_INLINE(_gasnetc_sema_up_n)
   void _gasnetc_sema_up_n(_gasnetc_sema_t *s, uint32_t n) {
     __asm__ __volatile__ (GASNETI_LOCK "addl %1, %0" : "=m" (*s) : "ri" (n) : "cc", "memory");
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown_n)
+  GASNETI_INLINE(_gasnetc_sema_trydown_n)
   uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
     register int oldval, newval;
 
@@ -309,27 +309,27 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
   #define _GASNETC_SEMA_INITIALIZER(N) {gasneti_weakatomic_init(N)}
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_init)
+  GASNETI_INLINE(_gasnetc_sema_init)
   void _gasnetc_sema_init(_gasnetc_sema_t *s, int n) {
     gasneti_weakatomic_set(s, n, 0);
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_destroy)
+  GASNETI_INLINE(_gasnetc_sema_destroy)
   void _gasnetc_sema_destroy(_gasnetc_sema_t *s) {
     /* Nothing */
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_read)
+  GASNETI_INLINE(_gasnetc_sema_read)
   uint32_t _gasnetc_sema_read(_gasnetc_sema_t *s) {
     return gasneti_weakatomic_read(s, 0);
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_up)
+  GASNETI_INLINE(_gasnetc_sema_up)
   void _gasnetc_sema_up(_gasnetc_sema_t *s) {
     gasneti_weakatomic_increment(s, GASNETI_ATOMIC_REL);
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown)
+  GASNETI_INLINE(_gasnetc_sema_trydown)
   int _gasnetc_sema_trydown(_gasnetc_sema_t *s) {
     uint32_t old;
     int retval = 0;
@@ -347,7 +347,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     return retval;
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_up_n)
+  GASNETI_INLINE(_gasnetc_sema_up_n)
   void _gasnetc_sema_up_n(_gasnetc_sema_t *s, uint32_t n) {
     uint32_t old;
     do {
@@ -355,7 +355,7 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     } while (!gasneti_weakatomic_compare_and_swap(s, old, n + old, GASNETI_ATOMIC_REL));
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown_n)
+  GASNETI_INLINE(_gasnetc_sema_trydown_n)
   uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
     uint32_t retval, old;
 
@@ -381,28 +381,28 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
   #define _GASNETC_SEMA_INITIALIZER(N) {GASNETI_MUTEX_INITIALIZER, gasneti_weakatomic_init(N)}
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_init)
+  GASNETI_INLINE(_gasnetc_sema_init)
   void _gasnetc_sema_init(_gasnetc_sema_t *s, int n) {
     gasneti_mutex_init(&(s->lock));
     gasneti_weakatomic_set(&(s->count), n, 0);
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_destroy)
+  GASNETI_INLINE(_gasnetc_sema_destroy)
   void _gasnetc_sema_destroy(_gasnetc_sema_t *s) {
     gasneti_mutex_destroy(&(s->lock));
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_read)
+  GASNETI_INLINE(_gasnetc_sema_read)
   uint32_t _gasnetc_sema_read(_gasnetc_sema_t *s) {
     return gasneti_weakatomic_read(&(s->count, 0));
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_up)
+  GASNETI_INLINE(_gasnetc_sema_up)
   void _gasnetc_sema_up(_gasnetc_sema_t *s) {
     gasneti_weakatomic_increment(&(s->count), GASNETI_ATOMIC_REL);
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown)
+  GASNETI_INLINE(_gasnetc_sema_trydown)
   int _gasnetc_sema_trydown(_gasnetc_sema_t *s) {
     int retval;
 
@@ -415,14 +415,14 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     return retval;
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_up_n)
+  GASNETI_INLINE(_gasnetc_sema_up_n)
   void _gasnetc_sema_up_n(_gasnetc_sema_t *s, uint32_t n) {
     gasneti_mutex_lock(&(s->lock));
     gasneti_weakatomic_set(&(s->count), n + gasneti_weakatomic_read(&(s->count, 0)), 0);
     gasneti_mutex_unlock(&(s->lock));
   }
 
-  GASNET_INLINE_MODIFIER(_gasnetc_sema_trydown_n)
+  GASNETI_INLINE(_gasnetc_sema_trydown_n)
   uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
     uint32_t retval, old;
 
@@ -461,7 +461,7 @@ typedef struct {
 #endif
 
 /* gasnetc_sema_init */
-GASNET_INLINE_MODIFIER(gasnetc_sema_init)
+GASNETI_INLINE(gasnetc_sema_init)
 void gasnetc_sema_init(gasnetc_sema_t *s, int n, uint32_t limit) {
   _gasnetc_sema_init(&(s->S), n);
   #if GASNET_DEBUG
@@ -471,7 +471,7 @@ void gasnetc_sema_init(gasnetc_sema_t *s, int n, uint32_t limit) {
 }
 
 /* gasnetc_sema_destroy */
-GASNET_INLINE_MODIFIER(gasnetc_sema_destroy)
+GASNETI_INLINE(gasnetc_sema_destroy)
 void gasnetc_sema_destroy(gasnetc_sema_t *s) {
   GASNETC_SEMA_CHECK(s);
   _gasnetc_sema_destroy(&(s->S));
@@ -481,7 +481,7 @@ void gasnetc_sema_destroy(gasnetc_sema_t *s) {
  *
  * Returns current value of the semaphore
  */
-GASNET_INLINE_MODIFIER(gasnetc_sema_read)
+GASNETI_INLINE(gasnetc_sema_read)
 uint32_t gasnetc_sema_read(gasnetc_sema_t *s) {
   GASNETC_SEMA_CHECK(s);
   return _gasnetc_sema_read(&(s->S));
@@ -492,7 +492,7 @@ uint32_t gasnetc_sema_read(gasnetc_sema_t *s) {
  * Atomically increments the value of the semaphore.
  * Since this just a busy-waiting semaphore, no waking operations are required.
  */
-GASNET_INLINE_MODIFIER(gasnetc_sema_up)
+GASNETI_INLINE(gasnetc_sema_up)
 void gasnetc_sema_up(gasnetc_sema_t *s) {
   GASNETC_SEMA_CHECK(s);
   _gasnetc_sema_up(&(s->S));
@@ -504,7 +504,7 @@ void gasnetc_sema_up(gasnetc_sema_t *s) {
  * If the value of the semaphore is non-zero, decrements it and returns non-zero.
  * If the value is zero, returns zero.
  */
-GASNET_INLINE_MODIFIER(gasnetc_sema_trydown) GASNETI_WARN_UNUSED_RESULT
+GASNETI_INLINE(gasnetc_sema_trydown) GASNETI_WARN_UNUSED_RESULT
 int gasnetc_sema_trydown(gasnetc_sema_t *s) {
   int retval;
 
@@ -520,7 +520,7 @@ int gasnetc_sema_trydown(gasnetc_sema_t *s) {
  * Increases the value of the semaphore by the indicated count.
  * Since this just a busy-waiting semaphore, no waking operations are required.
  */
-GASNET_INLINE_MODIFIER(gasnetc_sema_up_n)
+GASNETI_INLINE(gasnetc_sema_up_n)
 void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
   GASNETC_SEMA_CHECK(s);
   _gasnetc_sema_up_n(&(s->S), n);
@@ -534,7 +534,7 @@ void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
  * and this value is returned.
  * If the "old" value is zero, returns zero.
  */
-GASNET_INLINE_MODIFIER(gasnetc_sema_trydown_n) GASNETI_WARN_UNUSED_RESULT
+GASNETI_INLINE(gasnetc_sema_trydown_n) GASNETI_WARN_UNUSED_RESULT
 uint32_t gasnetc_sema_trydown_n(gasnetc_sema_t *s, uint32_t n) {
   uint32_t retval;
 
@@ -588,7 +588,7 @@ typedef struct _gasneti_freelist_ptr_s {
       char			_pad[GASNETC_CACHE_PAD(2*sizeof(uintptr_t))];
     } gasneti_freelist_t;
 
-    GASNET_INLINE_MODIFIER(gasneti_fl_push)
+    GASNETI_INLINE(gasneti_fl_push)
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
       /* RELEASE semantics: LOCK prefix is a full mb() */
       __asm__ __volatile__ ("1: movl	%0, %%eax	\n\t"	/* eax = p->head */
@@ -599,7 +599,7 @@ typedef struct _gasneti_freelist_ptr_s {
                                 : "r" (head), "m" (tail->next)
                                 : "cc", "memory", "eax");
     }
-    GASNET_INLINE_MODIFIER(gasneti_fl_pop)
+    GASNETI_INLINE(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
       /* ACQUIRE semantics: LOCK prefix is a full mb() */
       register uintptr_t retval = p->head;
@@ -615,7 +615,7 @@ typedef struct _gasneti_freelist_ptr_s {
                                 : "cc", "memory", "ebx", "ecx");
       return (void *)retval;
     }
-    GASNET_INLINE_MODIFIER(gasneti_fl_init)
+    GASNETI_INLINE(gasneti_fl_init)
     void gasneti_fl_init(gasneti_freelist_t *p) {
       p->head = 0;
     }
@@ -642,7 +642,7 @@ typedef struct _gasneti_freelist_ptr_s {
       char			_pad[GASNETC_CACHE_PAD(sizeof(gasneti_freelist_ptr_t *))];
     } gasneti_freelist_t;
 
-    GASNET_INLINE_MODIFIER(gasneti_fl_push)
+    GASNETI_INLINE(gasneti_fl_push)
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
       /* Roughly based on Appendix D of IBM's "Programming Environments Manual for 64-bit Microprocessors."
        * The key is moving the store to tail->next outside the loop and rechecking tmp1==tmp2 inside.
@@ -681,7 +681,7 @@ typedef struct _gasneti_freelist_ptr_s {
         #error "PPC w/ unknown word size"
       #endif
     }
-    GASNET_INLINE_MODIFIER(gasneti_fl_pop)
+    GASNETI_INLINE(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
       /* ACQUIRE semantics: 'isync' between read of head and head->next */
       register uintptr_t head, next;
@@ -722,7 +722,7 @@ typedef struct _gasneti_freelist_ptr_s {
       #endif
       return (void *)head;
     }
-    GASNET_INLINE_MODIFIER(gasneti_fl_init)
+    GASNETI_INLINE(gasneti_fl_init)
     void gasneti_fl_init(gasneti_freelist_t *p) {
       p->head = NULL;
     }
@@ -743,14 +743,14 @@ typedef struct _gasneti_freelist_ptr_s {
       char			_pad[GASNETC_CACHE_PAD(sizeof(gasneti_mutex_t)+sizeof(gasneti_freelist_ptr_t *))];
     } gasneti_freelist_t;
 
-    GASNET_INLINE_MODIFIER(gasneti_fl_push)
+    GASNETI_INLINE(gasneti_fl_push)
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
       gasneti_mutex_lock(&(p->lock));
       tail->next = p->head;
       p->head = head;
       gasneti_mutex_unlock(&(p->lock));
     }
-    GASNET_INLINE_MODIFIER(gasneti_fl_pop)
+    GASNETI_INLINE(gasneti_fl_pop)
     void *gasneti_fl_pop(gasneti_freelist_t *p) {
       gasneti_freelist_ptr_t *head;
       gasneti_mutex_lock(&(p->lock));
@@ -761,7 +761,7 @@ typedef struct _gasneti_freelist_ptr_s {
       gasneti_mutex_unlock(&(p->lock));
       return (void *)head;
     }
-    GASNET_INLINE_MODIFIER(gasneti_fl_init)
+    GASNETI_INLINE(gasneti_fl_init)
     void gasneti_fl_init(gasneti_freelist_t *p) {
       gasneti_mutex_init(&(p->lock));
       p->head = NULL;
@@ -773,30 +773,30 @@ typedef struct _gasneti_freelist_ptr_s {
 
 
 /* Initializer for dynamically allocated freelists */
-GASNET_INLINE_MODIFIER(gasneti_freelist_init)
+GASNETI_INLINE(gasneti_freelist_init)
 void gasneti_freelist_init(gasneti_freelist_t *fl) {
   gasneti_fl_init(fl);
 }
 
 /* Get one element from the freelist or NULL if it is empty */
 #ifdef __GNUC__
-  GASNET_INLINE_MODIFIER(gasneti_freelist_get)
+  GASNETI_INLINE(gasneti_freelist_get)
   void *gasneti_freelist_get(gasneti_freelist_t *fl) GASNETI_MALLOC;
 #endif
-GASNET_INLINE_MODIFIER(gasneti_freelist_get)
+GASNETI_INLINE(gasneti_freelist_get)
 void *gasneti_freelist_get(gasneti_freelist_t *fl) {
   return gasneti_fl_pop(fl);
 }
 
 /* Put an unused element into the freelist */
-GASNET_INLINE_MODIFIER(gasneti_freelist_put)
+GASNETI_INLINE(gasneti_freelist_put)
 void gasneti_freelist_put(gasneti_freelist_t *fl, void *elem) {
   gasneti_assert(elem != NULL);
   gasneti_fl_push(fl, (gasneti_freelist_ptr_t *)elem, (gasneti_freelist_ptr_t *)elem);
 }
 
 /* Put a chain of unused elements into the freelist */
-GASNET_INLINE_MODIFIER(gasneti_freelist_put_many)
+GASNETI_INLINE(gasneti_freelist_put_many)
 void gasneti_freelist_put_many(gasneti_freelist_t *fl, void *head, void *tail) {
   gasneti_assert(head != NULL);
   gasneti_assert(tail != NULL);
@@ -804,7 +804,7 @@ void gasneti_freelist_put_many(gasneti_freelist_t *fl, void *head, void *tail) {
 }
 
 /* Build a chain (q follows p) for use with _put_many() */
-GASNET_INLINE_MODIFIER(gasneti_freelist_link)
+GASNETI_INLINE(gasneti_freelist_link)
 void gasneti_freelist_link(void *p, void *q) {
   gasneti_assert(p != NULL);
 
@@ -812,7 +812,7 @@ void gasneti_freelist_link(void *p, void *q) {
 }
 
 /* Get next element in a chain */
-GASNET_INLINE_MODIFIER(gasneti_freelist_next)
+GASNETI_INLINE(gasneti_freelist_next)
 void *gasneti_freelist_next(void *elem) {
   gasneti_assert(elem != NULL);
 

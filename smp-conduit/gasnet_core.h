@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.h,v $
- *     $Date: 2005/10/23 12:28:27 $
- * $Revision: 1.18 $
+ *     $Date: 2006/03/19 02:08:22 $
+ * $Revision: 1.19 $
  * Description: GASNet header for smp conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@
 
 #include <gasnet_core_help.h>
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -146,7 +146,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
 
 /* ------------------------------------------------------------------------------------ */
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif
 

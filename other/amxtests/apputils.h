@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.h,v $
- *     $Date: 2004/09/27 09:53:01 $
- * $Revision: 1.12 $
+ *     $Date: 2006/03/19 02:08:12 $
+ * $Revision: 1.13 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -56,7 +56,9 @@
   #pragma warning(disable: 4127)
 #endif
 
-BEGIN_EXTERNC
+#ifdef __cplusplus
+  extern "C" {
+#endif
 
 /* in a multi-threaded program, this would also include a lock */
 #define AM_Safe(fncall) do {                \
@@ -118,5 +120,7 @@ void writeWord(int proc, void *addr, uint32_t val);
 void writeSync();
 #endif
 
-END_EXTERNC
+#ifdef __cplusplus
+  }
+#endif
 #endif

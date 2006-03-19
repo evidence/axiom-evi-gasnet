@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2005/08/20 11:03:12 $
- * $Revision: 1.27 $
+ *     $Date: 2006/03/19 02:08:10 $
+ * $Revision: 1.28 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -353,7 +353,7 @@ typedef int op_t;
 
 /* ------------------------------------------------------------------------------------ */
 
-BEGIN_EXTERNC
+SOCK_BEGIN_EXTERNC
 
 /* AMUDP-specific user entry points */
 extern int AMUDP_VerboseErrors; /* set to non-zero for verbose error reporting */
@@ -845,6 +845,6 @@ extern int AMUDP_ReplyXferVA(void *token, handler_t handler,
    AMUDP_ReplyXfer(token, hnum, sa, cnt, desto, 16, (int32_t)a0, (int32_t)a1, (int32_t)a2, (int32_t)a3, (int32_t)a4, (int32_t)a5, (int32_t)a6, (int32_t)a7, (int32_t)a8, (int32_t)a9, (int32_t)a10, (int32_t)a11, (int32_t)a12, (int32_t)a13, (int32_t)a14, (int32_t)a15)
 
 
-END_EXTERNC
+SOCK_END_EXTERNC
 
 #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.h,v $
- *     $Date: 2006/03/15 19:04:52 $
- * $Revision: 1.22 $
+ *     $Date: 2006/03/19 02:08:06 $
+ * $Revision: 1.23 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,7 +17,7 @@
 
 #include <gasnet_core_help.h>
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 /*  TODO enhance AMMPI to support thread-safe MPI libraries */
 /*  TODO add MPI bypass to loopback messages */
@@ -170,7 +170,7 @@ extern int gasnetc_AMPoll();
 
 /* ------------------------------------------------------------------------------------ */
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif
 

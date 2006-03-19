@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/02/28 07:39:07 $
- * $Revision: 1.146 $
+ *     $Date: 2006/03/19 02:07:54 $
+ * $Revision: 1.147 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1541,7 +1541,7 @@ int (* gasneti_print_backtrace)(int) = &_gasneti_print_backtrace;
     return NULL;
   }
 
-  GASNET_INLINE_MODIFIER(gasneti_memalloc_envinit)
+  GASNETI_INLINE(gasneti_memalloc_envinit)
   void gasneti_memalloc_envinit() {
     if (!gasneti_memalloc_envisinit) {
       gasneti_mutex_lock(&gasneti_memalloc_lock);

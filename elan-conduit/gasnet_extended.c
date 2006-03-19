@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/03/18 03:30:55 $
- * $Revision: 1.68 $
+ *     $Date: 2006/03/19 02:07:58 $
+ * $Revision: 1.69 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -566,7 +566,7 @@ static int gasnete_warned_nbp_AM = 0;
   _GASNETE_WARN_NOTADDRESSABLE(mem_AM, "Exhausted the libelan main memory heap trying to get a bounce buffer", "active messages")
 
 /* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_get_reqh_inner)
+GASNETI_INLINE(gasnete_get_reqh_inner)
 void gasnete_get_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t nbytes, void *dest, void *src, void *op) {
   gasneti_assert(nbytes <= gasnet_AMMaxMedium());
@@ -579,7 +579,7 @@ SHORT_HANDLER(gasnete_get_reqh,4,7,
               (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
               (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
 /* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_get_reph_inner)
+GASNETI_INLINE(gasnete_get_reph_inner)
 void gasnete_get_reph_inner(gasnet_token_t token, 
   void *addr, size_t nbytes,
   void *dest, void *op) {
@@ -591,7 +591,7 @@ MEDIUM_HANDLER(gasnete_get_reph,2,4,
               (token,addr,nbytes, UNPACK(a0),      UNPACK(a1)    ),
               (token,addr,nbytes, UNPACK2(a0, a1), UNPACK2(a2, a3)));
 /* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_getlong_reqh_inner)
+GASNETI_INLINE(gasnete_getlong_reqh_inner)
 void gasnete_getlong_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t nbytes, void *dest, void *src, void *op) {
 
@@ -604,7 +604,7 @@ SHORT_HANDLER(gasnete_getlong_reqh,4,7,
               (token, a0, UNPACK(a1),      UNPACK(a2),      UNPACK(a3)     ),
               (token, a0, UNPACK2(a1, a2), UNPACK2(a3, a4), UNPACK2(a5, a6)));
 /* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_getlong_reph_inner)
+GASNETI_INLINE(gasnete_getlong_reph_inner)
 void gasnete_getlong_reph_inner(gasnet_token_t token, 
   void *addr, size_t nbytes, 
   void *op) {
@@ -615,7 +615,7 @@ LONG_HANDLER(gasnete_getlong_reph,1,2,
               (token,addr,nbytes, UNPACK(a0)     ),
               (token,addr,nbytes, UNPACK2(a0, a1)));
 /* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_put_reqh_inner)
+GASNETI_INLINE(gasnete_put_reqh_inner)
 void gasnete_put_reqh_inner(gasnet_token_t token, 
   void *addr, size_t nbytes,
   void *dest, void *op) {
@@ -629,7 +629,7 @@ MEDIUM_HANDLER(gasnete_put_reqh,2,4,
               (token,addr,nbytes, UNPACK(a0),      UNPACK(a1)     ),
               (token,addr,nbytes, UNPACK2(a0, a1), UNPACK2(a2, a3)));
 /* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_putlong_reqh_inner)
+GASNETI_INLINE(gasnete_putlong_reqh_inner)
 void gasnete_putlong_reqh_inner(gasnet_token_t token, 
   void *addr, size_t nbytes,
   void *op) {
@@ -642,7 +642,7 @@ LONG_HANDLER(gasnete_putlong_reqh,1,2,
               (token,addr,nbytes, UNPACK(a0)     ),
               (token,addr,nbytes, UNPACK2(a0, a1)));
 /* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_memset_reqh_inner)
+GASNETI_INLINE(gasnete_memset_reqh_inner)
 void gasnete_memset_reqh_inner(gasnet_token_t token, 
   gasnet_handlerarg_t val, gasnet_handlerarg_t nbytes, void *dest, void *op) {
   memset(dest, (int)(uint32_t)val, nbytes);
@@ -655,7 +655,7 @@ SHORT_HANDLER(gasnete_memset_reqh,4,6,
               (token, a0, a1, UNPACK(a2),      UNPACK(a3)     ),
               (token, a0, a1, UNPACK2(a2, a3), UNPACK2(a4, a5)));
 /* ------------------------------------------------------------------------------------ */
-GASNET_INLINE_MODIFIER(gasnete_markdone_reph_inner)
+GASNETI_INLINE(gasnete_markdone_reph_inner)
 void gasnete_markdone_reph_inner(gasnet_token_t token, 
   void *op) {
   gasnete_op_markdone((gasnete_op_t *)op, 0); /*  assumes this is a put or explicit */
@@ -733,7 +733,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
   }
 }
 
-GASNET_INLINE_MODIFIER(gasnete_put_nb_inner)
+GASNETI_INLINE(gasnete_put_nb_inner)
 gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, size_t nbytes, int isbulk GASNETE_THREAD_FARG) {
 #if GASNETE_USE_ELAN_PUTGET
   LOCK_ELAN_WEAK();
@@ -859,7 +859,7 @@ extern gasnet_handle_t gasnete_memset_nb   (gasnet_node_t node, void *dest, int 
   Synchronization for explicit-handle non-blocking operations:
   ===========================================================
 */
-GASNET_INLINE_MODIFIER(gasnete_try_syncnb_inner)
+GASNETI_INLINE(gasnete_try_syncnb_inner)
 int gasnete_try_syncnb_inner(gasnet_handle_t handle) {
   ASSERT_ELAN_UNLOCKED();
   if (GASNETE_HANDLE_IS_OP(handle)) {
@@ -1130,7 +1130,7 @@ extern void gasnete_get_nbi_bulk (void *dest, gasnet_node_t node, void *src, siz
   }
 }
 
-GASNET_INLINE_MODIFIER(gasnete_put_nbi_inner)
+GASNETI_INLINE(gasnete_put_nbi_inner)
 void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nbytes, int isbulk GASNETE_THREAD_FARG) {
   gasnete_threaddata_t * const mythread = GASNETE_MYTHREAD;
   gasnete_iop_t * const iop = mythread->current_iop;

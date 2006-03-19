@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2006/03/18 03:30:59 $
- * $Revision: 1.98 $
+ * $Date: 2006/03/19 02:08:02 $
+ * $Revision: 1.99 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -1297,7 +1297,7 @@ extern int gasnetc_AMRequestMediumM(
  * DMA_inner allows to DMA an AMLong when the local buffer isn't pinned and the
  * remote buffer is
  */
-GASNET_INLINE_MODIFIER(gasnetc_AMRequestLongM_DMA_inner)
+GASNETI_INLINE(gasnetc_AMRequestLongM_DMA_inner)
 void
 gasnetc_AMRequestLongM_DMA_inner(gasnet_node_t node, gasnet_handler_t handler,
 		void *source_addr, size_t nbytes, const firehose_request_t *req,
@@ -1360,7 +1360,7 @@ gasnetc_AMRequestLongM_DMA_inner(gasnet_node_t node, gasnet_handler_t handler,
  * Mediums are sent for the entire payload.  Once the payloads are sent, an
  * AMLong header is sent (with no payload)
  */
-GASNET_INLINE_MODIFIER(gasnetc_AMRequestLongM_inner)
+GASNETI_INLINE(gasnetc_AMRequestLongM_inner)
 void
 gasnetc_AMRequestLongM_inner(gasnet_node_t node, gasnet_handler_t handler,
 		void *source_addr, size_t nbytes, void *dest_addr, int numargs, 

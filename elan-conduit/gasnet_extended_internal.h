@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2006/03/18 03:30:55 $
- * $Revision: 1.23 $
+ *     $Date: 2006/03/19 02:07:58 $
+ * $Revision: 1.24 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -104,7 +104,7 @@ typedef struct _gasnete_threaddata_t {
 #define OPTYPE_EXPLICIT               0x00  /*  gasnete_eop_new() relies on this value */
 #define OPTYPE_IMPLICIT               0x80
 #define OPTYPE(op) ((op)->flags & 0x80)
-GASNET_INLINE_MODIFIER(SET_OPTYPE)
+GASNETI_INLINE(SET_OPTYPE)
 void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
   op->flags = (op->flags & 0x7F) | (type & 0x80);
 }
@@ -114,7 +114,7 @@ void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
 #define OPSTATE_INFLIGHT  1
 #define OPSTATE_COMPLETE  2
 #define OPSTATE(op) ((op)->flags & 0x03) 
-GASNET_INLINE_MODIFIER(SET_OPSTATE)
+GASNETI_INLINE(SET_OPSTATE)
 void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
   op->flags = (op->flags & 0xFC) | (state & 0x03);
   /* RACE: If we are marking the op COMPLETE, don't assert for completion
@@ -133,7 +133,7 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 #define OPCAT_OTHER     6 /* gasnet-internal op interface */
 #define OPCAT_RESERVED7 7 /* unused */
 #define OPCAT(op) (((op)->flags >> 2) & 0x07)
-GASNET_INLINE_MODIFIER(SET_OPCAT)
+GASNETI_INLINE(SET_OPCAT)
 void SET_OPCAT(gasnete_eop_t *op, uint8_t cat) {
   op->flags = (op->flags & 0xE3) | ((cat & 0x07) << 2);
   gasneti_assert(OPCAT(op) == cat);

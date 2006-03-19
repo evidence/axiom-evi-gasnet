@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2006/03/18 03:30:59 $
- * $Revision: 1.55 $
+ * $Date: 2006/03/19 02:08:02 $
+ * $Revision: 1.56 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,7 +24,7 @@ void gasnete_fh_request_get_rdma(void *, const firehose_request_t *, int);
 
 int gasnete_getrdma_enabled = 1;    /* default to being enabled, on GM 2.x */
 
-GASNET_INLINE_MODIFIER(gasnete_fh_request_get)
+GASNETI_INLINE(gasnete_fh_request_get)
 void 
 gasnete_fh_request_get(void *op, const firehose_request_t *req, int loc)
 {
@@ -251,7 +251,7 @@ gasnete_fh_request_put(void *_pop, const firehose_request_t *req,
 	return;
 }
 
-GASNET_INLINE_MODIFIER(gasnete_firehose_put_bulk)
+GASNETI_INLINE(gasnete_firehose_put_bulk)
 gasnet_handle_t
 gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src, 
 			  size_t nbytes, gasnete_iop_t *iop GASNETE_THREAD_FARG)
@@ -320,7 +320,7 @@ gasnete_put_nbi_bulk (gasnet_node_t node, void *dest, void *src,
 	return;
 }
 
-GASNET_INLINE_MODIFIER(gasnete_firehose_put)
+GASNETI_INLINE(gasnete_firehose_put)
 gasnet_handle_t
 gasnete_firehose_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
 		     gasnete_iop_t *iop GASNETE_THREAD_FARG)
@@ -423,7 +423,7 @@ gasnete_put_nbi(gasnet_node_t node, void *dest, void *src,
  * the firehose reply (which optimizes firehose misses to be a single roundtrip
  * instead of two).
  */
-GASNET_INLINE_MODIFIER(gasnete_get_fh_done)
+GASNETI_INLINE(gasnete_get_fh_done)
 void
 gasnete_get_fh_done(gasnete_eop_t *eop)
 {
@@ -562,7 +562,7 @@ gasnete_fh_request_get_rdma(void *_gop, const firehose_request_t *req,
 /*
  * AM Handler: Reply to get into a pinned memory location
  */
-GASNET_INLINE_MODIFIER(gasnete_get_dma_reph_inner)
+GASNETI_INLINE(gasnete_get_dma_reph_inner)
 void gasnete_get_dma_reph_inner(gasnet_token_t token, void *op) {
         GASNET_BEGIN_FUNCTION(); /* thread cache for *_IN_UNKNOWN */
 	gasnete_eop_t	*gop = (gasnete_eop_t *) op;
@@ -577,7 +577,7 @@ LONG_HANDLER(gasnete_get_dma_reph,1,2,
 
 /* In GM 1.x, we can send a request for a ReplyLongAsync which essentially
  * translates to doing a put in the reverse direction */
-GASNET_INLINE_MODIFIER(gasnete_get_dma_reqh_inner)
+GASNETI_INLINE(gasnete_get_dma_reqh_inner)
 void
 gasnete_get_dma_reqh_inner(gasnet_token_t token, 
 				    gasnet_handlerarg_t nbytes, 
@@ -644,7 +644,7 @@ static size_t gasnete_fh_remote_args_fn(void *context, firehose_remotecallback_a
 	return sizeof(firehose_remotecallback_args_t);
 }
 
-GASNET_INLINE_MODIFIER(gasnete_firehose_get)
+GASNETI_INLINE(gasnete_firehose_get)
 gasnet_handle_t
 gasnete_firehose_get(void *dest, gasnet_node_t node, void *src, 
 		     size_t nbytes, gasnete_iop_t *iop GASNETE_THREAD_FARG)

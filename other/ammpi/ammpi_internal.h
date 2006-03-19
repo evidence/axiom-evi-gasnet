@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2006/03/19 00:35:46 $
- * $Revision: 1.27 $
+ *     $Date: 2006/03/19 02:08:08 $
+ * $Revision: 1.28 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -169,7 +169,7 @@
   #define if_pt(cond) if (PREDICT_TRUE(cond))
 #endif
 
-BEGIN_EXTERNC
+AMMPI_BEGIN_EXTERNC
 
 static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf__, 1, 2)));
 
@@ -519,6 +519,6 @@ typedef enum {
 
 /* ------------------------------------------------------------------------------------ */
 
-END_EXTERNC
+AMMPI_END_EXTERNC
 
 #endif

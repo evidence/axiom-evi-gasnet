@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2006/03/18 03:30:59 $
- * $Revision: 1.27 $
+ *     $Date: 2006/03/19 02:08:02 $
+ * $Revision: 1.28 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -127,7 +127,7 @@ typedef struct _gasnete_threaddata_t {
 #define OPTYPE_EXPLICIT		0x00  /* gasnete_eop_new() relies on this value */
 #define OPTYPE_IMPLICIT		0x80
 #define OPTYPE(op)		((op)->flags & 0x80)
-GASNET_INLINE_MODIFIER(SET_OPTYPE)
+GASNETI_INLINE(SET_OPTYPE)
 void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
 	op->flags = (op->flags & 0x7F) | (type & 0x80);
 	gasneti_assert(OPTYPE(op) == type);
@@ -141,7 +141,7 @@ void SET_OPTYPE(gasnete_op_t *op, uint8_t type) {
 #define OPMISC_NONAMBUF		4
 #define OPMISC_AMBUF		8
 #define OPMISC(op)		((op)->flags & 0x0C)
-GASNET_INLINE_MODIFIER(SET_OPSTATE)
+GASNETI_INLINE(SET_OPSTATE)
 void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 	op->flags = (op->flags & 0xFC) | (state & 0x03);
 	/* RACE: If we are marking the op COMPLETE, don't assert for completion
@@ -150,7 +150,7 @@ void SET_OPSTATE(gasnete_eop_t *op, uint8_t state) {
 	gasneti_assert(state == OPSTATE_COMPLETE ? 1 : OPSTATE(op) == state);
 }
 
-GASNET_INLINE_MODIFIER(SET_OPMISC)
+GASNETI_INLINE(SET_OPMISC)
 void SET_OPMISC(gasnete_eop_t *op, uint8_t misc) {
 	op->flags = (op->flags & 0xF3) | (misc & 0x0C);
 	gasneti_assert(OPMISC(op) == misc);

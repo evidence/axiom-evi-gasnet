@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/03/18 03:30:53 $
- * $Revision: 1.57 $
+ *     $Date: 2006/03/19 02:07:54 $
+ * $Revision: 1.58 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,7 +29,7 @@
   #if defined(GASNET_NDEBUG) || defined(NDEBUG)
     #define gasneti_assert(expr) ((void)0)
   #else
-    GASNET_INLINE_MODIFIER(gasneti_assert_fail)
+    GASNETI_INLINE(gasneti_assert_fail)
     void gasneti_assert_fail(const char *file, int line, const char *cond) {
       fprintf(stderr, "*** FATAL ERROR: Assertion failure at %s:%i: %s\n", file, line, cond);
       abort();
@@ -152,7 +152,7 @@
 #define GASNETT_CACHE_LINE_BYTES GASNETI_CACHE_LINE_BYTES
 
 /* various configure-detected C compiler features available in only some compilers */
-#define GASNETT_INLINE_MODIFIER(fnname) GASNET_INLINE_MODIFIER(fnname) 
+#define GASNETT_INLINE(fnname)          GASNETI_INLINE(fnname) 
 #define GASNETT_RESTRICT                GASNETI_RESTRICT
 #define GASNETT_NORETURN                GASNETI_NORETURN
 #define GASNETT_NORETURNP               GASNETI_NORETURNP
@@ -161,10 +161,13 @@
 
 #define GASNETT_CURRENT_FUNCTION        GASNETI_CURRENT_FUNCTION
 
+#define GASNETT_BEGIN_EXTERNC           GASNETI_BEGIN_EXTERNC
+#define GASNETT_END_EXTERNC             GASNETI_END_EXTERNC
+#define GASNETT_EXTERNC                 GASNETI_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 
 /* misc internal GASNet things we wish to expose when available */
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 #if defined(_INCLUDED_GASNET_H) && defined(GASNET_SRCLINES)
   #define GASNETT_TRACE_SETSOURCELINE      GASNETI_TRACE_SETSOURCELINE
@@ -192,7 +195,7 @@ BEGIN_EXTERNC
   #define GASNETT_TRACE_ENABLED  0
   #define GASNETT_TRACE_PRINTF        _gasnett_trace_printf
   #define GASNETT_TRACE_PRINTF_FORCE  _gasnett_trace_printf
-  /*GASNET_INLINE_MODIFIER(_gasnett_trace_printf) 
+  /*GASNETI_INLINE(_gasnett_trace_printf) 
    * causes many warnings because vararg fns cannot be inlined */
   static void _gasnett_trace_printf(const char *_format, ...) { 
     #ifdef __PGI
@@ -282,7 +285,7 @@ BEGIN_EXTERNC
   #define gasnett_threadkey_set_noinit(key,newval)  abort()
 #endif
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #undef _IN_GASNET_TOOLS_H
 #endif

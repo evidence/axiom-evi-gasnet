@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/02/28 23:51:42 $
- * $Revision: 1.91 $
+ *     $Date: 2006/03/19 02:07:54 $
+ * $Revision: 1.92 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,7 +27,7 @@
 #include <malloc.h> /* prevent problems with redefinition of malloc on solaris */
 #endif
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 #if defined(_AIX)
   /* AIX's stdio.h won't provide prototypes for snprintf() and vsnprintf()
@@ -89,14 +89,14 @@ extern void gasneti_decode_args(int *argc, char ***argv);
   #ifdef __GNUC__
     /* provide gcc with additional information about the aliasing qualities
        of the return value (being malloc-like) to improve caller optimization */
-    GASNET_INLINE_MODIFIER(_gasneti_malloc)
+    GASNETI_INLINE(_gasneti_malloc)
     void *_gasneti_malloc(size_t nbytes) GASNETI_MALLOC;
-    GASNET_INLINE_MODIFIER(_gasneti_malloc_allowfail)
+    GASNETI_INLINE(_gasneti_malloc_allowfail)
     void *_gasneti_malloc_allowfail(size_t nbytes) GASNETI_MALLOC;
-    GASNET_INLINE_MODIFIER(_gasneti_calloc)
+    GASNETI_INLINE(_gasneti_calloc)
     void *_gasneti_calloc(size_t N, size_t S) GASNETI_MALLOC;
   #endif
-  GASNET_INLINE_MODIFIER(_gasneti_malloc)
+  GASNETI_INLINE(_gasneti_malloc)
   void *_gasneti_malloc(size_t nbytes) {
     void *ret = NULL;
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
@@ -107,7 +107,7 @@ extern void gasneti_decode_args(int *argc, char ***argv);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;
   }
-  GASNET_INLINE_MODIFIER(_gasneti_malloc_allowfail)
+  GASNETI_INLINE(_gasneti_malloc_allowfail)
   void *_gasneti_malloc_allowfail(size_t nbytes) {
     void *ret = NULL;
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
@@ -118,7 +118,7 @@ extern void gasneti_decode_args(int *argc, char ***argv);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;
   }
-  GASNET_INLINE_MODIFIER(_gasneti_calloc)
+  GASNETI_INLINE(_gasneti_calloc)
   void *_gasneti_calloc(size_t N, size_t S) {
     void *ret = NULL;
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, (N*S));
@@ -129,7 +129,7 @@ extern void gasneti_decode_args(int *argc, char ***argv);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;
   }
-  GASNET_INLINE_MODIFIER(_gasneti_realloc)
+  GASNETI_INLINE(_gasneti_realloc)
   void *_gasneti_realloc(void *ptr, size_t nbytes) {
     void *ret = NULL;
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
@@ -140,7 +140,7 @@ extern void gasneti_decode_args(int *argc, char ***argv);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;
   }
-  GASNET_INLINE_MODIFIER(_gasneti_free)
+  GASNETI_INLINE(_gasneti_free)
   void _gasneti_free(void *ptr) {
     GASNETI_STAT_EVENT_VAL(I, GASNET_FREE, 0); /* don't track free size in ndebug mode */
     if_pf (ptr == NULL) return;
@@ -214,12 +214,12 @@ extern void gasneti_decode_args(int *argc, char ***argv);
 /* ------------------------------------------------------------------------------------ */
 /* Version of strdup() which is compatible w/ gasneti_free(), instead of plain free() */
 #ifdef __GNUC__ 
-  GASNET_INLINE_MODIFIER(_gasneti_strdup)
+  GASNETI_INLINE(_gasneti_strdup)
   char *_gasneti_strdup(const char *s GASNETI_CURLOCFARG) GASNETI_MALLOC;
-  GASNET_INLINE_MODIFIER(_gasneti_strndup)
+  GASNETI_INLINE(_gasneti_strndup)
   char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) GASNETI_MALLOC;
 #endif
-GASNET_INLINE_MODIFIER(_gasneti_strdup)
+GASNETI_INLINE(_gasneti_strdup)
 char *_gasneti_strdup(const char *s GASNETI_CURLOCFARG) {
   char *retval;
   if_pf (s == NULL) {
@@ -235,7 +235,7 @@ char *_gasneti_strdup(const char *s GASNETI_CURLOCFARG) {
 /* Like gasneti_strdup, but copy is limited to at most n characters.
  * Note allocation is upto n+1 bytes, due to the '\0' termination.
  */
-GASNET_INLINE_MODIFIER(_gasneti_strndup)
+GASNETI_INLINE(_gasneti_strndup)
 char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) {
   char *retval;
   if_pf (s == NULL) {
@@ -667,7 +667,7 @@ typedef void (*gasneti_HandlerLong)  (gasnet_token_t token, void *buf, size_t nb
   } while (0)
 /* ------------------------------------------------------------------------------------ */
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #undef _IN_GASNET_INTERNAL_H
 #endif

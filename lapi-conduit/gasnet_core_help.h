@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_help.h,v $
- *     $Date: 2005/06/01 03:52:54 $
- * $Revision: 1.23 $
+ *     $Date: 2006/03/19 02:08:04 $
+ * $Revision: 1.24 $
  * Description: GASNet lapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 #ifndef _GASNET_CORE_HELP_H
 #define _GASNET_CORE_HELP_H
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 #include <gasnet_help.h>
 #include <lapi.h>
@@ -76,6 +76,6 @@ extern gasnetc_lapimode_t gasnetc_lapi_default_mode;
 #endif
 
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif

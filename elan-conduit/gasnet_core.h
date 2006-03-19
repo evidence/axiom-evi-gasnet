@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2005/10/23 12:28:17 $
- * $Revision: 1.19 $
+ *     $Date: 2006/03/19 02:07:58 $
+ * $Revision: 1.20 $
  * Description: GASNet header for elan conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@
 
 #include <gasnet_core_help.h>
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -158,7 +158,7 @@ extern int gasnetc_AMPoll();
 
 /* ------------------------------------------------------------------------------------ */
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif
 

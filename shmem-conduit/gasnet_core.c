@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2005/11/27 16:00:13 $
- * $Revision: 1.25 $
+ *     $Date: 2006/03/19 02:08:20 $
+ * $Revision: 1.26 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -626,7 +626,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   return GASNET_OK;
 }
 
-GASNET_INLINE_MODIFIER(gasnetc_AMProcess)
+GASNETI_INLINE(gasnetc_AMProcess)
 void
 gasnetc_AMProcess(gasnetc_am_header_t *hdr, uint32_t *args /* header */)
 {

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.h,v $
- * $Date: 2005/07/03 14:33:30 $
- * $Revision: 1.24 $
+ * $Date: 2006/03/19 02:08:02 $
+ * $Revision: 1.25 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -16,7 +16,7 @@
 
 #include <gasnet_core_help.h>
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -144,7 +144,7 @@ extern int gasnetc_AMPoll();
 
 /* ------------------------------------------------------------------------------------ */
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif
 

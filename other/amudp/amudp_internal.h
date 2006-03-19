@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2006/02/08 08:52:52 $
- * $Revision: 1.22 $
+ *     $Date: 2006/03/19 02:08:10 $
+ * $Revision: 1.23 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -137,7 +137,7 @@
   #define if_pt(cond) if (PREDICT_TRUE(cond))
 #endif
 
-BEGIN_EXTERNC
+SOCK_BEGIN_EXTERNC
 
 static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf__, 1, 2)));
 
@@ -608,6 +608,6 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
 #endif
 //------------------------------------------------------------------------------------
 
-END_EXTERNC
+SOCK_END_EXTERNC
 
 #endif

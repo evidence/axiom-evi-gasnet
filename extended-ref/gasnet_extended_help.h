@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/02/13 15:32:50 $
- * $Revision: 1.32 $
+ *     $Date: 2006/03/19 02:08:00 $
+ * $Revision: 1.33 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 #ifndef _GASNET_EXTENDED_HELP_H
 #define _GASNET_EXTENDED_HELP_H
 
-BEGIN_EXTERNC
+GASNETI_BEGIN_EXTERNC
 
 #include <gasnet_help.h>
 
@@ -298,6 +298,6 @@ typedef union {
   #include <gasnet_extended_help_extra.h>
 #endif
 
-END_EXTERNC
+GASNETI_END_EXTERNC
 
 #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/07 10:25:35 $
- * $Revision: 1.51 $
+ *     $Date: 2006/03/19 02:07:54 $
+ * $Revision: 1.52 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,15 +32,15 @@
   #error GASNet currently only supports 32-bit and 64-bit platforms
 #endif
 
-  /* miscellaneous macro helpers */
-#ifndef BEGIN_EXTERNC
-  #ifdef __cplusplus
-    #define BEGIN_EXTERNC extern "C" {
-    #define END_EXTERNC }
-  #else
-    #define BEGIN_EXTERNC 
-    #define END_EXTERNC 
-  #endif
+/* miscellaneous macro helpers */
+#ifdef __cplusplus
+  #define GASNETI_BEGIN_EXTERNC extern "C" {
+  #define GASNETI_EXTERNC       extern "C" 
+  #define GASNETI_END_EXTERNC   }
+#else
+  #define GASNETI_BEGIN_EXTERNC 
+  #define GASNETI_EXTERNC       
+  #define GASNETI_END_EXTERNC 
 #endif
 
 #if defined(__cplusplus)
@@ -130,20 +130,20 @@
 #endif
 
 #if defined(__cplusplus)
-  #define GASNET_INLINE_MODIFIER(fnname) inline
+  #define GASNETI_INLINE(fnname) inline
 #elif defined(STATIC_INLINE_WORKS)
-  #define GASNET_INLINE_MODIFIER(fnname) static CC_INLINE_MODIFIER
+  #define GASNETI_INLINE(fnname) static CC_INLINE_MODIFIER
 #elif defined(CC_INLINE_MODIFIER)
-  #define GASNET_INLINE_MODIFIER(fnname) CC_INLINE_MODIFIER
+  #define GASNETI_INLINE(fnname) CC_INLINE_MODIFIER
 #elif defined(_CRAYC)
   /* CrayC has a really #&#$&! stupidly designed #pragma for inlining functions 
      that requires providing the function name 
      (the only way to request inlining a particular fn from C) */
-  #define GASNET_INLINE_MODIFIER(fnname) GASNETI_PRAGMA(_CRI inline fnname) static
+  #define GASNETI_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname) static
 #elif defined(__MTA__)
-  #define GASNET_INLINE_MODIFIER(fnname) GASNETI_PRAGMA(mta inline) static
+  #define GASNETI_INLINE(fnname) GASNETI_PRAGMA(mta inline) static
 #else
-  #define GASNET_INLINE_MODIFIER(fnname) static
+  #define GASNETI_INLINE(fnname) static
 #endif
 
 #if defined(__GNUC__)
