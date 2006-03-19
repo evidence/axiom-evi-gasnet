@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/03/18 03:30:55 $
- * $Revision: 1.68 $
+ *     $Date: 2006/03/19 00:31:18 $
+ * $Revision: 1.69 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -873,6 +873,7 @@ static void gasnetc_atexit(void) {
     abort();
   }
   extern void gasnetc_fatalsignal_callback(int sig) {
+    gasneti_local_rmb();
     if (GASNETC_EXITINPROGRESS()) {
     /* if we get a fatal signal during exit, it's almost certainly a signal-safety
        issue and not a client bug, so don't bother reporting it verbosely, 
