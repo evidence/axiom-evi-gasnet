@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2005/10/26 03:25:30 $
- * $Revision: 1.26 $
+ *     $Date: 2006/03/19 00:35:46 $
+ * $Revision: 1.27 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -82,6 +82,14 @@
 #define AMMPI_SENDBUFFER_SZ         2*AMMPI_MAX_NETWORK_MSG /* size of MPI send buffer (used for rejections) */
 #else
 #define AMMPI_SENDBUFFER_SZ         1048576 /* size of MPI send buffer */
+#endif
+#ifndef AMMPI_DEFAULT_SYNCSEND_THRESH  
+  /* size threshhold above which to use synchronous non-blocking MPI send's */
+  #if defined(__LIBCATAMOUNT__)
+    #define AMMPI_DEFAULT_SYNCSEND_THRESH 1024 /* workaround for lacking MPI-level flow-control */
+  #else
+    #define AMMPI_DEFAULT_SYNCSEND_THRESH -1 /* -1 == never use sync sends */
+  #endif
 #endif
 #ifndef AMMPI_REPLYBUF_POOL_GROWTHFACTOR
 #define AMMPI_REPLYBUF_POOL_GROWTHFACTOR 1.5

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2006/02/11 12:09:45 $
- * $Revision: 1.25 $
+ *     $Date: 2006/03/19 00:35:46 $
+ * $Revision: 1.26 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -95,9 +95,20 @@ static int sendPacket(ep_t ep, void *packet, int packetlength, en_t destaddress,
   #endif
 
   #if AMMPI_NONBLOCKING_SENDS
-    if (mpihandle && *mpihandle == MPI_REQUEST_NULL) {
-      /* could also use synchronous mode non-blocking send here */
-      retval = MPI_Isend(packet, packetlength, MPI_BYTE, destaddress.mpirank, destaddress.mpitag, *(ep->pmpicomm), mpihandle);
+    if_pt (mpihandle && *mpihandle == MPI_REQUEST_NULL) {
+      extern int AMMPI_syncsend_thresh;
+      if (packetlength >= AMMPI_syncsend_thresh) {
+        /* synchronous mode non-blocking send - for MPI implementations lacking 
+           a reasonable implementation of back-pressure. This doesn't guarantee we dont
+           get unexpected messages if the target is inattentive, but it at least 
+           limits the max number of messages in the unexpected message queue which
+           exceed the syncsend threshold - limit is one depth of such messages
+           (and an unlimited number of messages smaller than the threshold)
+         */
+        retval = MPI_Issend(packet, packetlength, MPI_BYTE, destaddress.mpirank, destaddress.mpitag, *(ep->pmpicomm), mpihandle);
+      } else {
+        retval = MPI_Isend(packet, packetlength, MPI_BYTE, destaddress.mpirank, destaddress.mpitag, *(ep->pmpicomm), mpihandle);
+      }
     } else
   #endif
     {

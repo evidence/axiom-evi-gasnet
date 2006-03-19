@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2005/10/31 00:48:07 $
- * $Revision: 1.30 $
+ *     $Date: 2006/03/19 00:35:46 $
+ * $Revision: 1.31 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -17,6 +17,7 @@ ammpi_handler_fn_t ammpi_unused_handler = (ammpi_handler_fn_t)&abort;
 ammpi_handler_fn_t ammpi_defaultreturnedmsg_handler = (ammpi_handler_fn_t)&AMMPI_DefaultReturnedMsg_Handler;
 int AMMPI_VerboseErrors = 0;
 int AMMPI_SilentMode = 0; 
+int AMMPI_syncsend_thresh = 0;
 AMMPI_IDENT(AMMPI_IdentString_Version, "$AMMPILibraryVersion: " AMMPI_LIBRARY_VERSION_STR " $");
 
 const ammpi_stats_t AMMPI_initial_stats = /* the initial state for stats type */
@@ -26,7 +27,6 @@ const ammpi_stats_t AMMPI_initial_stats = /* the initial state for stats type */
               (uint64_t)-1, 0, 0,
               {0,0,0}, 0
               };
-
 /* ------------------------------------------------------------------------------------ */
 extern int AMMPI_enEqual(en_t en1, en_t en2) {
   return (en1.mpirank == en2.mpirank && en1.mpitag == en2.mpitag);
@@ -551,7 +551,13 @@ extern int AM_Init() {
       MPI_SAFE(MPI_Buffer_attach(buffer, AMMPI_SENDBUFFER_SZ));
     }
   }
-
+  {
+    const char *syncsend_str = getenv("AMMPI_SYNCSEND_THRESH");
+    int thresh = AMMPI_DEFAULT_SYNCSEND_THRESH;
+    if (syncsend_str) thresh = atoi(syncsend_str);
+    if (thresh < 0) thresh = ((unsigned int)-1)>>1; /* negative == infinite */
+    AMMPI_syncsend_thresh = thresh;
+  }
 
   ammpi_Initialized++;
   return AM_OK;
