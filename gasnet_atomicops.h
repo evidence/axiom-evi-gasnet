@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.87 $
+ *     $Date: 2006/03/19 23:02:03 $
+ * $Revision: 1.88 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -574,7 +574,7 @@
             "add      %0,%3,%1 \n\t"   /* newval = oldval + op; */
             "cas      [%2],%0,%1 \n\t" /* if (*addr == oldval) { *addr = newval; }  newval = *addr; */
             "cmp      %0, %1 \n\t"     /* check if newval == oldval (swap succeeded) */
-            "bne,pn   0b \n\t"         /* otherwise, try again (,pn == predict not taken) */
+            "bne,pn   %%icc, 0b \n\t"         /* otherwise, try again (,pn == predict not taken) */
             "membar #StoreLoad | #StoreStore    \n\t" /* complete previous cas store before all subsequent ops */
             : "=&r"(oldval), "=&r"(newval)
             : "r" (addr), "rn"(op) 
