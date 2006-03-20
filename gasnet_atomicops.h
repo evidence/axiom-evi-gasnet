@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/19 23:02:03 $
- * $Revision: 1.88 $
+ *     $Date: 2006/03/20 20:35:48 $
+ * $Revision: 1.89 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -139,7 +139,7 @@
     #if (GASNET_PAR || GASNETI_CONDUIT_THREADS)
       /* Using real HSLs which yeild an ACQ/RMB before and REL/WMB after the atomic */
       #define GASNETI_ATOMIC_FENCE_SET (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
-      #define GASNETI_ATOMIC_FENCE_SET (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
+      #define GASNETI_ATOMIC_FENCE_RMB (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
     #else
       /* HSLs compile away, so use defaults */
     #endif
@@ -221,7 +221,7 @@
     #else
       /* Using real mutexes which yeild an ACQ/RMB before and REL/WMB after the atomic */
       #define GASNETI_ATOMIC_FENCE_SET (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
-      #define GASNETI_ATOMIC_FENCE_SET (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
+      #define GASNETI_ATOMIC_FENCE_RMB (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
     #endif
   #else
     /* only one thread - everything atomic by definition */
@@ -1060,32 +1060,29 @@
 
 /* Default implementations of fences in atomics. */
 
-#define _gasneti_atomic_fence_before(__f) do {                     \
-    int __tmp = ((__f) & GASNETI_ATOMIC_MB_PRE);                   \
-    if      (__tmp == GASNETI_ATOMIC_MB_PRE)  gasneti_local_mb();  \
-    else if (__tmp == GASNETI_ATOMIC_WMB_PRE) gasneti_local_wmb(); \
-    else if (__tmp == GASNETI_ATOMIC_RMB_PRE) gasneti_local_rmb(); \
+#define _gasneti_atomic_fence_before(__f) do { \
+    if      (((__f) & GASNETI_ATOMIC_MB_PRE) == GASNETI_ATOMIC_MB_PRE)  gasneti_local_mb();  \
+    else if (((__f) & GASNETI_ATOMIC_MB_PRE) == GASNETI_ATOMIC_WMB_PRE) gasneti_local_wmb(); \
+    else if (((__f) & GASNETI_ATOMIC_MB_PRE) == GASNETI_ATOMIC_RMB_PRE) gasneti_local_rmb(); \
   } while(0)
-#define _gasneti_atomic_fence_after(__f) do {                       \
-    int __tmp = ((__f) & GASNETI_ATOMIC_MB_POST);                   \
-    if      (__tmp == GASNETI_ATOMIC_MB_POST)  gasneti_local_mb();  \
-    else if (__tmp == GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb(); \
-    else if (__tmp == GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb(); \
-    else gasneti_assert(__tmp == 0); /* Detect RMB_POST_IF_*  */    \
+#define _gasneti_atomic_fence_after(__f) do {  \
+    if      (((__f) & GASNETI_ATOMIC_MB_POST) == GASNETI_ATOMIC_MB_POST)  gasneti_local_mb();  \
+    else if (((__f) & GASNETI_ATOMIC_MB_POST) == GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb(); \
+    else if (((__f) & GASNETI_ATOMIC_MB_POST) == GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb(); \
+    else gasneti_assert(((__f) & GASNETI_ATOMIC_MB_POST) == 0); /* Detect RMB_POST_IF_*  */    \
   } while(0)
-#define _gasneti_atomic_fence_after_bool(__f, __v) do {                    \
-    int __tmp = ((__f) & GASNETI_ATOMIC_MB_POST);                          \
-    if      (__tmp == GASNETI_ATOMIC_MB_POST)  gasneti_local_mb();         \
-    else if (__tmp == GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb();        \
-    else if (__tmp == GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb();        \
-    else { /* TODO: deal better w/ systems where MB < RMB+WMB */           \
-      if (__tmp & GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb();            \
-      if (__v) {                                                           \
-        if (__tmp & GASNETI_ATOMIC_RMB_POST_IF_TRUE) gasneti_local_rmb();  \
-      } else {                                                             \
-        if (__tmp & GASNETI_ATOMIC_RMB_POST_IF_FALSE) gasneti_local_rmb(); \
-      }                                                                    \
-    }                                                                      \
+#define _gasneti_atomic_fence_after_bool(__f, __v) do { \
+    if      (((__f) & GASNETI_ATOMIC_MB_POST) == GASNETI_ATOMIC_MB_POST)  gasneti_local_mb();  \
+    else if (((__f) & GASNETI_ATOMIC_MB_POST) == GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb(); \
+    else if (((__f) & GASNETI_ATOMIC_MB_POST) == GASNETI_ATOMIC_RMB_POST) gasneti_local_rmb(); \
+    else { /* TODO: deal better w/ systems where MB < RMB+WMB */                               \
+      if (__f & GASNETI_ATOMIC_WMB_POST) gasneti_local_wmb();                                  \
+      if (__v) {                                                                               \
+        if (__f & GASNETI_ATOMIC_RMB_POST_IF_TRUE) gasneti_local_rmb();                        \
+      } else {                                                                                 \
+        if (__f & GASNETI_ATOMIC_RMB_POST_IF_FALSE) gasneti_local_rmb();                       \
+      }                                                                                        \
+    }                                                                                          \
   } while(0)
 
 /* Fences included in a given implementation, default to none */
@@ -1114,11 +1111,11 @@
   GASNETI_INLINE(gasneti_atomic_read)
   uint32_t gasneti_atomic_read(gasneti_atomic_t *p, int flags) {
     const int __flags = flags & ~GASNETI_ATOMIC_FENCE_READ;
-    uint32_t retval;
     _gasneti_atomic_fence_before(__flags);
-    retval = _gasneti_atomic_read(p);
-    _gasneti_atomic_fence_after(__flags);
-    return retval;
+    { const uint32_t retval = _gasneti_atomic_read(p);
+      _gasneti_atomic_fence_after(__flags);
+      return retval;
+    }
   }
 #endif
 #ifndef gasneti_atomic_increment
@@ -1141,23 +1138,24 @@
   GASNETI_INLINE(gasneti_atomic_decrement_and_test)
   int gasneti_atomic_decrement_and_test(gasneti_atomic_t *p, int flags) {
     const int __flags = flags & ~GASNETI_ATOMIC_FENCE_RMW;
-    int retval;
     _gasneti_atomic_fence_before(__flags);
-    retval = _gasneti_atomic_decrement_and_test(p);
-    _gasneti_atomic_fence_after_bool(__flags, retval);
-    return retval;
+    { const int retval = _gasneti_atomic_decrement_and_test(p);
+      _gasneti_atomic_fence_after_bool(__flags, retval);
+      return retval;
+    }
   }
 #endif
 #if defined(GASNETI_HAVE_ATOMIC_CAS) && !defined(gasneti_atomic_compare_and_swap)
   GASNETI_INLINE(gasneti_atomic_compare_and_swap)
   int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval, int flags) {
     const int __flags = flags & ~GASNETI_ATOMIC_FENCE_RMW;
-    int retval;
     _gasneti_atomic_fence_before(__flags);
-    retval = _gasneti_atomic_compare_and_swap((p),(oldval),(newval));
-    _gasneti_atomic_fence_after_bool(__flags, retval);
-    return retval;
+    { const int retval = _gasneti_atomic_compare_and_swap((p),(oldval),(newval));
+      _gasneti_atomic_fence_after_bool(__flags, retval);
+      return retval;
+    }
   }
+
 #endif
 
 /* ------------------------------------------------------------------------------------ */
