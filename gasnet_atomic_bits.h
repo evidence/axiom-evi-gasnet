@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/20 20:35:48 $
- * $Revision: 1.89 $
+ *     $Date: 2006/03/20 21:05:18 $
+ * $Revision: 1.90 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1155,7 +1155,6 @@
       return retval;
     }
   }
-
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -1178,15 +1177,54 @@
             gasneti_atomic_compare_and_swap(p,oldval,newval,f)
   #endif
 #else
+  /* May not need any exclusion mechanism, but we still want to include any fences that
+     the caller has requested, since any memory in the gasnet segment "protected" by a
+     fenced atomic may be written by a network adapter.
+   */
   typedef volatile int gasneti_weakatomic_t;
   #define gasneti_weakatomic_init(v)                  (v)
-  #define gasneti_weakatomic_set(p,v,f)               (*(p) = (v))
-  #define gasneti_weakatomic_read(p,f)                (*(p))
-  #define gasneti_weakatomic_increment(p,f)           ((*(p))++)
-  #define gasneti_weakatomic_decrement(p,f)           ((*(p))--)
-  #define gasneti_weakatomic_decrement_and_test(p,f)  (!(--(*(p)))) 
-  #define gasneti_weakatomic_compare_and_swap(p,oldval,newval,f)  \
-          (*(p) == (oldval) ? *(p) = (newval), 1 : 0)
+  #define gasneti_weakatomic_set(p,v,f) do { \
+    const int __flags = (f);                 \
+    _gasneti_atomic_fence_before(__flags);   \
+    (*(p) = (v));                            \
+    _gasneti_atomic_fence_after(__flags);    \
+  } while (0)
+  GASNETI_INLINE(gasneti_weakatomic_read)
+  int gasneti_weakatomic_read(gasneti_weakatomic_t *p, const int flags) {
+    _gasneti_atomic_fence_before(flags);
+    { const int retval = *(p);
+      _gasneti_atomic_fence_after(flags);
+      return retval;
+    }
+  }
+  #define gasneti_weakatomic_increment(p,f) do { \
+    const int __flags = (f);                     \
+    _gasneti_atomic_fence_before(__flags);       \
+    (*(p))++;                                    \
+    _gasneti_atomic_fence_after(__flags);        \
+  } while (0)
+  #define gasneti_weakatomic_decrement(p,f) do { \
+    const int __flags = (f);                     \
+    _gasneti_atomic_fence_before(__flags);       \
+    (*(p))--;                                    \
+    _gasneti_atomic_fence_after(__flags);        \
+  } while (0)
+  GASNETI_INLINE(gasneti_weakatomic_decrement_and_test)
+  int gasneti_weakatomic_decrement_and_test(gasneti_weakatomic_t *p, const int flags) {
+    _gasneti_atomic_fence_before(flags);
+    { const int retval = !(--(*p));
+      _gasneti_atomic_fence_after_bool(flags, retval);
+      return retval;
+    }
+  }
+  GASNETI_INLINE(gasneti_weakatomic_compare_and_swap)
+  int gasneti_weakatomic_compare_and_swap(gasneti_weakatomic_t *p, uint32_t oldval, uint32_t newval, const int flags) {
+    _gasneti_atomic_fence_before(flags);
+    { const int retval = ((*p == (oldval)) ? (*p = (newval), 1) : 0);
+      _gasneti_atomic_fence_after_bool(flags, retval);
+      return retval;
+    }
+  }
 #endif
 
 /* ------------------------------------------------------------------------------------ */
