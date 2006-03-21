@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/20 21:05:18 $
- * $Revision: 1.90 $
+ *     $Date: 2006/03/21 03:47:35 $
+ * $Revision: 1.91 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1173,6 +1173,7 @@
   #define gasneti_weakatomic_decrement(p,f)           gasneti_atomic_decrement(p,f)
   #define gasneti_weakatomic_decrement_and_test(p,f)  gasneti_atomic_decrement_and_test(p,f)
   #ifdef GASNETI_HAVE_ATOMIC_CAS
+    #define GASNETI_HAVE_WEAKATOMIC_CAS 1
     #define gasneti_weakatomic_compare_and_swap(p,oldval,newval,f)  \
             gasneti_atomic_compare_and_swap(p,oldval,newval,f)
   #endif
@@ -1217,6 +1218,7 @@
       return retval;
     }
   }
+  #define GASNETI_HAVE_WEAKATOMIC_CAS 1
   GASNETI_INLINE(gasneti_weakatomic_compare_and_swap)
   int gasneti_weakatomic_compare_and_swap(gasneti_weakatomic_t *p, uint32_t oldval, uint32_t newval, const int flags) {
     _gasneti_atomic_fence_before(flags);
