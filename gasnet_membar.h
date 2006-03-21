@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/03/21 20:09:19 $
- * $Revision: 1.85 $
+ *     $Date: 2006/03/21 21:50:42 $
+ * $Revision: 1.86 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -439,18 +439,6 @@
 
    THESE ARE *NOT* INTENDED FOR GENERAL USE IN CONDUIT CODE.
  */
-#ifndef GASNETI_RMB_IS_MB
-  #define GASNETI_RMB_IS_MB	0
-#else
-  #undef GASNETI_RMB_IS_MB
-  #define GASNETI_RMB_IS_MB	1
-#endif
-#ifndef GASNETI_WMB_IS_MB
-  #define GASNETI_WMB_IS_MB	0
-#else
-  #undef GASNETI_WMB_IS_MB
-  #define GASNETI_WMB_IS_MB	1
-#endif
 #ifndef GASNETI_RMB_IS_EMPTY
   #define GASNETI_RMB_IS_EMPTY	0
 #else
@@ -473,6 +461,28 @@
 #else
   #undef GASNETI_MB_IS_EMPTY
   #define GASNETI_MB_IS_EMPTY	1
+#endif
+#ifndef GASNETI_RMB_IS_MB
+  /* non-trivial default */
+  #if GASNETI_MB_IS_EMPTY || (GASNETI_WMB_IS_EMPTY && defined(GASNETI_MB_IS_SUM))
+    #define GASNETI_RMB_IS_MB	1
+  #else
+    #define GASNETI_RMB_IS_MB	0
+  #endif
+#else
+  #undef GASNETI_RMB_IS_MB
+  #define GASNETI_RMB_IS_MB	1
+#endif
+#ifndef GASNETI_WMB_IS_MB
+  /* non-trivial default */
+  #if GASNETI_MB_IS_EMPTY || (GASNETI_RMB_IS_EMPTY && defined(GASNETI_MB_IS_SUM))
+    #define GASNETI_WMB_IS_MB	1
+  #else
+    #define GASNETI_WMB_IS_MB	0
+  #endif
+#else
+  #undef GASNETI_WMB_IS_MB
+  #define GASNETI_WMB_IS_MB	1
 #endif
 #ifndef GASNETI_MB_IS_SUM
   /* non-trivial default */
