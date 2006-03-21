@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.84 $
+ *     $Date: 2006/03/21 20:09:19 $
+ * $Revision: 1.85 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -46,7 +46,7 @@
    A barrier to compiler optimizations that would reorder any memory references across
    this point in the code.
 
-  Note that for all five memory barriers, we require only that a given architecture's
+  Note that for all four memory barriers, we require only that a given architecture's
   "normal" loads and stores are ordered as required.  "Extended" instructions such as
   MMX, SSE, SSE2, Altivec and vector ISAs on various other machines often bypass some
   or all of the machine's memory hierarchy and therefore may not be ordered by the same
@@ -119,6 +119,7 @@
       GASNETI_ASM("membar #LoadStore | #LoadLoad | #StoreLoad | #StoreStore");
     }
     #define gasneti_local_mb() _gasneti_local_mb()
+    #define GASNETI_MB_IS_SUM	/* close enough, since the alternative involves an extra branch */
   #else /* SPARC v7/8 */
     GASNETI_INLINE(gasneti_local_wmb)
     void gasneti_local_wmb(void) {
@@ -134,6 +135,7 @@
     #define gasneti_compiler_fence() _gasneti_compiler_fence()
     #define gasneti_local_wmb() __synchronize()
     #define gasneti_local_mb()  __synchronize()
+    #define GASNETI_WMB_IS_MB
   #else
     GASNETI_INLINE(gasneti_local_wmb)
     void gasneti_local_wmb(void) {
@@ -208,6 +210,8 @@
       /* bug 1000: empirically observed that IA64 requires a full memory fence for both wmb and rmb */
       #define gasneti_local_rmb() gasneti_local_wmb()
       #define gasneti_local_mb()  gasneti_local_wmb()
+      #define GASNETI_RMB_IS_MB
+      #define GASNETI_WMB_IS_MB
    #elif defined(__HP_cc) || defined(__HP_aCC)
       #include <machine/sys/inline.h>
       /* HP compilers have no inline assembly on Itanium - use intrinsics */
@@ -223,6 +227,8 @@
       /* bug 1000: empirically observed that IA64 requires a full memory fence for both wmb and rmb */
       #define gasneti_local_rmb() gasneti_local_wmb()
       #define gasneti_local_mb()  gasneti_local_wmb()
+      #define GASNETI_RMB_IS_MB
+      #define GASNETI_WMB_IS_MB
     #else
       /* according to section 4.4.7 in:
          "Intel Itanium Architecture Software Developer's Manual, Vol 2 System Architecture"
@@ -304,6 +310,7 @@
      GASNETI_ASM("mb");
    }
    #define gasneti_local_mb() _gasneti_local_mb()
+   #define GASNETI_RMB_IS_MB
  #elif defined(__osf__) && 0
    /* Use compaq C built-ins */
    /* Note this is heavier weight than required */
@@ -311,6 +318,8 @@
    #define gasneti_local_wmb() __MB()
    #define gasneti_local_rmb() __MB()
    #define gasneti_local_mb() __MB()
+   #define GASNETI_RMB_IS_MB
+   #define GASNETI_WMB_IS_MB
  #endif
 #elif defined(_CRAYT3E) /* Takes care of e-regs also */
    #include <intrinsics.h>
@@ -318,6 +327,8 @@
    #define gasneti_local_rmb() _memory_barrier()
    #define gasneti_local_mb() _memory_barrier()
    #define gasneti_compiler_fence() do { int volatile x = 0; } while (0)
+   #define GASNETI_RMB_IS_MB
+   #define GASNETI_WMB_IS_MB
 #elif defined(__crayx1)
   GASNETI_INLINE(_gasneti_compiler_fence)
   void _gasneti_compiler_fence(void) {
@@ -336,10 +347,13 @@
     }
     #define gasneti_local_rmb gasneti_local_wmb
     #define gasneti_local_mb  gasneti_local_wmb
+    #define GASNETI_RMB_IS_MB
+    #define GASNETI_WMB_IS_MB
   #else
     /* Many memory barrier intrinsics on the X1, but none seem to actually
      * deliver what we need in a local (scalar-scalar) membar */
      #define gasneti_local_wmb gasneti_compiler_fence
+     #define GASNETI_WMB_IS_EMPTY
   #endif
 #elif defined(__MTA__)
    #if 0 /* causes warnings */
@@ -357,6 +371,11 @@
    #define gasnet_local_wmb() gasneti_compiler_fence()
    #define gasnet_local_rmb() gasneti_compiler_fence()
    #define gasnet_local_mb()  gasneti_compiler_fence()
+   #define GASNETI_RMB_IS_MB
+   #define GASNETI_WMB_IS_MB
+   #define GASNETI_RMB_IS_EMPTY
+   #define GASNETI_WMB_IS_EMPTY
+   #define GASNETI_MB_IS_EMPTY
 #elif defined(_SX)
    GASNETI_INLINE(gasneti_local_wmb)
    void gasneti_local_wmb(void) {
@@ -365,6 +384,7 @@
      x = 1;
      /* GASNETI_ASM("nop"); - leads to "FATAL COMPILER ERROR, Unknown statement. c++: Internal Error: Please report." */
    }
+   #define GASNETI_WMB_IS_EMPTY
 #else
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif
@@ -392,6 +412,7 @@
 /* Default gasneti_local_rmb() */
 #ifndef gasneti_local_rmb
   #define gasneti_local_rmb() gasneti_compiler_fence()
+  #define GASNETI_RMB_IS_EMPTY
 #endif
 
 /* NO Default for gasneti_local_wmb() to avoid mistakes - it must be explicitly provided */
@@ -399,8 +420,73 @@
 /* Default gasneti_local_mb() */
 #ifndef gasneti_local_mb
   #define gasneti_local_mb() do { gasneti_local_wmb(); gasneti_local_rmb(); } while (0)
+  #define GASNETI_MB_IS_SUM
 #endif
 
+
+/* ------------------------------------------------------------------------------------ */
+/* Properties of the memory barriers (as boolean preprocessor tokens)
+	GASNETI_RMB_IS_MB	rmb() is sufficient for mb()
+	GASNETI_WMB_IS_MB	wmb() is sufficient for mb()
+	GASNETI_RMB_IS_EMPTY	rmb() is nothing but a compiler fence
+	GASNETI_WMB_IS_EMPTY	wmb() is nothing but a compiler fence
+	GASNETI_MB_IS_EMPTY	mb() is nothing but a compiler fence
+	GASNETI_MB_IS_SUM	wmb()+rmb() is mb(), as opposed to a double mb()
+   These tokens are used by the fenced atomics to produce minimal code.
+   What follows "normalizes" these tokens to 0 or 1 and applies defaults.
+   The defaults are always safe, but perhaps sub-optimal.
+   The defns of the membars should define non-defaults appropriately.
+
+   THESE ARE *NOT* INTENDED FOR GENERAL USE IN CONDUIT CODE.
+ */
+#ifndef GASNETI_RMB_IS_MB
+  #define GASNETI_RMB_IS_MB	0
+#else
+  #undef GASNETI_RMB_IS_MB
+  #define GASNETI_RMB_IS_MB	1
+#endif
+#ifndef GASNETI_WMB_IS_MB
+  #define GASNETI_WMB_IS_MB	0
+#else
+  #undef GASNETI_WMB_IS_MB
+  #define GASNETI_WMB_IS_MB	1
+#endif
+#ifndef GASNETI_RMB_IS_EMPTY
+  #define GASNETI_RMB_IS_EMPTY	0
+#else
+  #undef GASNETI_RMB_IS_EMPTY
+  #define GASNETI_RMB_IS_EMPTY	1
+#endif
+#ifndef GASNETI_WMB_IS_EMPTY
+  #define GASNETI_WMB_IS_EMPTY	0
+#else
+  #undef GASNETI_WMB_IS_EMPTY
+  #define GASNETI_WMB_IS_EMPTY	1
+#endif
+#ifndef GASNETI_MB_IS_EMPTY
+  /* non-trivial default */
+  #if (GASNETI_RMB_IS_EMPTY && GASNETI_WMB_IS_EMPTY)
+    #define GASNETI_MB_IS_EMPTY	1
+  #else
+    #define GASNETI_MB_IS_EMPTY	0
+  #endif
+#else
+  #undef GASNETI_MB_IS_EMPTY
+  #define GASNETI_MB_IS_EMPTY	1
+#endif
+#ifndef GASNETI_MB_IS_SUM
+  /* non-trivial default */
+  #if ((GASNETI_RMB_IS_MB && GASNETI_WMB_IS_EMPTY) || \
+       (GASNETI_WMB_IS_MB && GASNETI_RMB_IS_EMPTY))
+    #define GASNETI_MB_IS_SUM	1
+  #else
+    #define GASNETI_MB_IS_SUM	0
+  #endif
+#else
+  #undef GASNETI_MB_IS_SUM
+  #define GASNETI_MB_IS_SUM	1
+#endif
+ 
 /* ------------------------------------------------------------------------------------ */
 /* Conditionally compiled memory barriers -
 
