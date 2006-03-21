@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2006/03/19 02:08:08 $
- * $Revision: 1.28 $
+ *     $Date: 2006/03/21 02:49:00 $
+ * $Revision: 1.29 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -61,19 +61,22 @@
 
 /* AMMPI system configuration parameters */
 #ifndef AMMPI_MAX_RECVMSGS_PER_POLL
-#define AMMPI_MAX_RECVMSGS_PER_POLL 10  /* max number of waiting messages serviced per poll (0 for unlimited) */
+#define AMMPI_MAX_RECVMSGS_PER_POLL 10  /* max number of waiting messages serviced per poll (-1 for unlimited) */
 #endif
 #ifndef AMMPI_INITIAL_NUMENDPOINTS
 #define AMMPI_INITIAL_NUMENDPOINTS  1   /* initial size of bundle endpoint table */
 #endif
 #ifndef AMMPI_DEFAULT_NETWORKDEPTH
-#define AMMPI_DEFAULT_NETWORKDEPTH  4   /* default depth if none specified */
-#endif
-#ifndef AMMPI_MPIIRECV_ORDERING_WORKS
-#define AMMPI_MPIIRECV_ORDERING_WORKS 1 /* assume recv matching correctly ordered as reqd by MPI spec */
+#define AMMPI_DEFAULT_NETWORKDEPTH  4  /* default depth if none specified */
 #endif
 #ifndef AMMPI_PREPOST_RECVS
 #define AMMPI_PREPOST_RECVS         1   /* pre-post non-blocking MPI recv's */
+#endif
+#ifndef AMMPI_SEPARATE_TEST
+#define AMMPI_SEPARATE_TEST         1   /* issue separate MPI_Test calls in the common case, instead of a single MPI_TestAny */
+#endif
+#ifndef AMMPI_SEPARATE_TEST_BOUNCE
+#define AMMPI_SEPARATE_TEST_BOUNCE  1   /* same as AMMPI_SEPARATE_TEST, but alternate pools */
 #endif
 #ifndef AMMPI_NONBLOCKING_SENDS
 #define AMMPI_NONBLOCKING_SENDS     1   /* use non-blocking MPI send's */
@@ -96,9 +99,6 @@
 #endif
 
 /* AMMPI-SPMD system configuration parameters */
-#ifndef AMMPI_MPI_COMMUNICATORS
-#define AMMPI_MPI_COMMUNICATORS       1   /* use MPI communicators to isolate endpoints */
-#endif
 #ifndef AMMPI_BLOCKING_SPMD_BARRIER
 #define AMMPI_BLOCKING_SPMD_BARRIER   1   /* use blocking AM calls in SPMDBarrier() */
 #endif
@@ -440,7 +440,7 @@ extern int AMMPI_Block(eb_t eb);
   /* block until some endpoint receive buffer becomes non-empty with a user message
    * may poll, and does handle SPMD control events
    */
-extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int *numUserHandlersRun);
+extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int repliesOnly);
 
 /*  debugging printouts */
 extern char *AMMPI_enStr(en_t en, char *buf);

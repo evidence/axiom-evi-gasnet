@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2006/03/19 02:08:08 $
- * $Revision: 1.32 $
+ *     $Date: 2006/03/21 02:49:00 $
+ * $Revision: 1.33 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -31,7 +31,7 @@
 #define _STRINGIFY_HELPER(x) #x
 #define _STRINGIFY(x) _STRINGIFY_HELPER(x)
 
-#define AMMPI_LIBRARY_VERSION      1.1
+#define AMMPI_LIBRARY_VERSION      1.2
 #define AMMPI_LIBRARY_VERSION_STR  _STRINGIFY(AMMPI_LIBRARY_VERSION)
 
 /* naming policy:
@@ -53,7 +53,7 @@
 typedef uint32_t ammpi_node_t;
 
 #define AMMPI_MAX_BUNDLES          255  /* max bundles that can be allocated */
-#define AMMPI_MAX_NETWORKDEPTH     1024 /* max depth we ever allow user to ask for */
+#define AMMPI_MAX_NETWORKDEPTH     (1024*1024) /* max depth we ever allow user to ask for */
 #define AMMPI_MAX_SPMDPROCS        AMMPI_MAX_NUMTRANSLATIONS  /* max SPMD procs we support */
 
 #ifdef AMMPI_DISABLE_AMTAGS 
@@ -126,8 +126,8 @@ typedef struct {
   uint8_t       systemMessageArg;
   handler_t     handlerId;
 
-  uintptr_t	destOffset;
   uint16_t      nBytes;
+  uintptr_t	destOffset;
 
   } ammpi_msg_t;
 
@@ -220,6 +220,21 @@ typedef struct {
   MPI_Status *tmpStatusArray;
 } ammpi_sendbuffer_pool_t;
 
+typedef struct {
+  MPI_Comm *mpicomm;
+
+  /* send buffer tables (for AMMPI_NONBLOCKING_SENDS) */
+  ammpi_sendbuffer_pool_t sendPool_small;
+  ammpi_sendbuffer_pool_t sendPool_large;
+
+  /* recv buffer tables (for AMMPI_PREPOST_RECVS) */
+  MPI_Request* rxHandle;
+  ammpi_buf_t* rxBuf;     /* recv buffers (aligned) */
+  uint32_t rxNumBufs;     /* number of recv buffers in each pool */
+  int rxCurr;             /* the oldest recv buffer index */
+
+} ammpi_virtual_network_t;
+
 /* Endpoint bundle object */
 typedef struct ammpi_eb {
   struct ammpi_ep **endpoints;   /* dynamically-grown array of endpoints in bundle */
@@ -233,7 +248,6 @@ typedef struct ammpi_ep {
   en_t name;            /* Endpoint name */
   tag_t tag;            /* current tag */
   eb_t eb;              /* Bundle of endpoint */
-  MPI_Comm *pmpicomm;   /* MPI communicator of this EP */
 
   void *segAddr;          /* Start address of EP VM segment */
   uintptr_t segLength;    /* Length of EP VM segment    */
@@ -256,20 +270,13 @@ typedef struct ammpi_ep {
   AMMPI_preHandlerCallback_t preHandlerCallback; /* client hooks for statistical/debugging usage */
   AMMPI_postHandlerCallback_t postHandlerCallback;
 
-  /* recv buffer tables */
-  ammpi_buf_t* rxBuf;    /* recv buffers (aligned) */
   ammpi_buf_t* rxBuf_alloc; /* recv buffers (mallocated ptr) */
-  MPI_Request* rxHandle; /* recv buffer handles */
-  uint32_t rxNumBufs;    /* number of recv buffers */
-  int rxCurr;            /* the oldest recv buffer index, for AMMPI_MPIIRECV_ORDERING_WORKS */
+  MPI_Request* rxHandle_both; /* all the recv handles, reply then request */
 
-  /* send buffer tables (for AMMPI_NONBLOCKING_SENDS) */
-  ammpi_sendbuffer_pool_t sendPool_smallRequest;
-  ammpi_sendbuffer_pool_t sendPool_largeRequest;
-  ammpi_sendbuffer_pool_t sendPool_smallReply;
-  ammpi_sendbuffer_pool_t sendPool_largeReply;
+  ammpi_virtual_network_t Req; /* requests */
+  ammpi_virtual_network_t Rep; /* replies */
 
-  } *ep_t;
+} *ep_t;
 
 /* ------------------------------------------------------------------------------------ */
 /* User-visible constants */
@@ -342,14 +349,14 @@ AMMPI_BEGIN_EXTERNC
 extern int AMMPI_VerboseErrors; /* set to non-zero for verbose error reporting */
 extern int AMMPI_SilentMode; /* set to non-zero to silence any non-error output */
 
-
-/* set the communicator to be used in the next call to AM_AllocateEndpoint()
- * MUST be called once before each call to AM_AllocateEndpoint(),
- * and the comm MUST NOT be used for ANY other purposes by the caller
- * specifically, if the caller passes a ptr to MPI_COMM_WORLD, then the application
- * may not make any subsequent MPI calls that utilize MPI_COMM_WORLD
- * client may pass NULL to indicate MPI_COMM_WORLD should be used
- * endpoints may only map other endpoints in the same communicator
+/* define the communicator to be used as the basis for all
+ * subsequent calls to AM_AllocateEndpoint(), which must be called 
+ * collectively across the selected comm
+ * the call is optional and the comm defaults to MPI_COMM_WORLD
+ * the provided comm is only used to establish subcommunicators for library
+ * communication, and is not otherwise directly utilized by AMMPI
+ * endpoints may only map other endpoints created in the same collective call 
+ * to AM_AllocateEndpoint()
  */
 extern int AMMPI_SetEndpointCommunicator(MPI_Comm *comm);
 

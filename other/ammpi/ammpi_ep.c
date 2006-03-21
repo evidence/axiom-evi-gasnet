@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/03/19 00:35:46 $
- * $Revision: 1.31 $
+ *     $Date: 2006/03/21 02:49:00 $
+ * $Revision: 1.32 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -79,17 +79,18 @@ static void AMMPI_RemoveEndpoint(eb_t eb, ep_t ep) {
 /*------------------------------------------------------------------------------------
  * Endpoint resource management
  *------------------------------------------------------------------------------------ */
-static MPI_Comm currentComm = MPI_COMM_NULL;
+static MPI_Comm currentComm = MPI_COMM_WORLD;
 extern int AMMPI_SetEndpointCommunicator(MPI_Comm *comm) {
-  if (comm) currentComm = *comm;
-  else currentComm = MPI_COMM_WORLD;
+  AMMPI_assert(comm);
+  currentComm = *comm;
   return AM_OK;
 }
-/* ------------------------------------------------------------------------------------ */
+/*------------------------------------------------------------------------------------*/
 static int AMMPI_AllocateEndpointResource(ep_t ep) {
   int procnum;
   int mpitag;
   int pid = getpid();
+  static int callcnt = 0;
   AMMPI_assert(ep);
 
   ep->translation = AMMPI_calloc(AMMPI_INIT_NUMTRANSLATIONS, sizeof(ammpi_translation_t));
@@ -98,16 +99,27 @@ static int AMMPI_AllocateEndpointResource(ep_t ep) {
   ep->translationsz = AMMPI_INIT_NUMTRANSLATIONS;
 
   /* base MPI tag on pid to prevent receiving cross-talk messages sent to dead processes */
-  mpitag = pid % (MPI_TAG_UB+1);
+  mpitag = (pid + (callcnt<<16)) % (MPI_TAG_UB+1);
   if (mpitag == MPI_ANY_TAG) mpitag = (mpitag + 1) % (MPI_TAG_UB+1);
+  callcnt++;
+
+  { /* setup MPI communicators for isolation */
+    MPI_Group world_group;
+    MPI_SAFE(MPI_Comm_group(currentComm, &world_group));
+    ep->Req.mpicomm = AMMPI_malloc(sizeof(MPI_Comm));
+    ep->Rep.mpicomm = AMMPI_malloc(sizeof(MPI_Comm));
+    if (!ep->Req.mpicomm || !ep->Rep.mpicomm) 
+      AMMPI_RETURN_ERRFR(RESOURCE, AMMPI_AllocateEndpointResource, "out of memory");
+    MPI_SAFE(MPI_Comm_create(currentComm, world_group, ep->Req.mpicomm));
+    MPI_SAFE(MPI_Comm_create(currentComm, world_group, ep->Rep.mpicomm));
+    MPI_SAFE(MPI_Group_free(&world_group));
+  }
 
   MPI_SAFE(MPI_Comm_rank(currentComm, &procnum));
   ep->name.mpirank = procnum;
   ep->name.mpitag = mpitag;
-  MPI_SAFE(MPI_Errhandler_set(currentComm, MPI_ERRORS_RETURN));
-  ep->pmpicomm = AMMPI_malloc(sizeof(MPI_Comm));
-  *(ep->pmpicomm) = currentComm;
-  currentComm = MPI_COMM_NULL;
+  MPI_SAFE(MPI_Errhandler_set(*ep->Req.mpicomm, MPI_ERRORS_RETURN));
+  MPI_SAFE(MPI_Errhandler_set(*ep->Rep.mpicomm, MPI_ERRORS_RETURN));
 
   return AM_OK;
   }
@@ -122,7 +134,7 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
   AMMPI_assert(ep->totalP <= ep->translationsz);
   AMMPI_assert(sizeof(ammpi_buf_t) % sizeof(int) == 0); /* assume word-addressable machine */
 
-  numBufs = ep->depth;
+  numBufs = 2*ep->depth; /* 2x to match small/large split in send pool */
 
   /* compressed translation table */
   ep->perProcInfo = (ammpi_perproc_info_t *)AMMPI_malloc(ep->totalP * sizeof(ammpi_perproc_info_t));
@@ -131,25 +143,36 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
 
   #if AMMPI_PREPOST_RECVS 
     /* setup recv buffers */
-    ep->rxBuf_alloc = (ammpi_buf_t *)AMMPI_malloc((numBufs * sizeof(ammpi_buf_t))+AMMPI_BUF_ALIGN);
-    ep->rxHandle = (MPI_Request *)AMMPI_malloc(numBufs * sizeof(MPI_Request));
-    if (ep->rxBuf_alloc == NULL || ep->rxHandle == NULL) return FALSE;
-    ep->rxBuf = (ammpi_buf_t *)AMMPI_ALIGNUP(ep->rxBuf_alloc,AMMPI_BUF_ALIGN);
-    AMMPI_assert(((uintptr_t)ep->rxBuf) % AMMPI_BUF_ALIGN == 0);
+    ep->rxBuf_alloc = (ammpi_buf_t *)AMMPI_malloc((2*numBufs * sizeof(ammpi_buf_t))+AMMPI_BUF_ALIGN);
+    ep->rxHandle_both = (MPI_Request *)AMMPI_malloc(2*numBufs * sizeof(MPI_Request));
+    if (!ep->rxBuf_alloc || !ep->rxHandle_both) return FALSE;
+    ep->Rep.rxBuf = (ammpi_buf_t *)AMMPI_ALIGNUP(ep->rxBuf_alloc,AMMPI_BUF_ALIGN);
+    ep->Req.rxBuf = ep->Rep.rxBuf + numBufs;
+    ep->Rep.rxHandle = ep->rxHandle_both;
+    ep->Req.rxHandle = ep->rxHandle_both + numBufs;
+    AMMPI_assert(((uintptr_t)ep->Rep.rxBuf) % AMMPI_BUF_ALIGN == 0);
+    AMMPI_assert(((uintptr_t)ep->Req.rxBuf) % AMMPI_BUF_ALIGN == 0);
     AMMPI_assert(sizeof(ammpi_buf_t) % AMMPI_BUF_ALIGN == 0);
-    ep->rxNumBufs = numBufs;
+    ep->Rep.rxNumBufs = numBufs;
+    ep->Req.rxNumBufs = numBufs;
 
     { int i;
       for(i=0;i<numBufs;i++) {
-        ep->rxHandle[i] = MPI_REQUEST_NULL;
+        ep->Req.rxHandle[i] = MPI_REQUEST_NULL;
+        ep->Rep.rxHandle[i] = MPI_REQUEST_NULL;
       }
       for(i=0;i<numBufs;i++) {
-        retval &= MPI_SAFE_NORETURN(MPI_Irecv(&ep->rxBuf[i], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
-                           MPI_ANY_SOURCE, MPI_ANY_TAG, *(ep->pmpicomm), 
-                           &ep->rxHandle[i]));
-        AMMPI_assert(ep->rxHandle[i] != MPI_REQUEST_NULL);
+        retval &= MPI_SAFE_NORETURN(MPI_Irecv(&ep->Req.rxBuf[i], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
+                           MPI_ANY_SOURCE, MPI_ANY_TAG, *ep->Req.mpicomm, 
+                           &ep->Req.rxHandle[i]));
+        AMMPI_assert(ep->Req.rxHandle[i] != MPI_REQUEST_NULL);
+        retval &= MPI_SAFE_NORETURN(MPI_Irecv(&ep->Rep.rxBuf[i], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
+                           MPI_ANY_SOURCE, MPI_ANY_TAG, *ep->Rep.mpicomm, 
+                           &ep->Rep.rxHandle[i]));
+        AMMPI_assert(ep->Rep.rxHandle[i] != MPI_REQUEST_NULL);
       }
-      ep->rxCurr = 0; /* oldest recv */
+      ep->Req.rxCurr = 0; /* oldest recv */
+      ep->Rep.rxCurr = 0;
     }
   #endif
 
@@ -165,9 +188,12 @@ static int AMMPI_FreeEndpointResource(ep_t ep) {
   AMMPI_assert(ep->translation);
   AMMPI_free(ep->translation);
   ep->translation = NULL;
-  AMMPI_assert(ep->pmpicomm);
-  AMMPI_free(ep->pmpicomm);
-  ep->pmpicomm = NULL;
+  MPI_SAFE(MPI_Comm_free(ep->Req.mpicomm));
+  MPI_SAFE(MPI_Comm_free(ep->Rep.mpicomm));
+  AMMPI_free(ep->Req.mpicomm);
+  AMMPI_free(ep->Rep.mpicomm);
+  ep->Req.mpicomm = NULL;
+  ep->Rep.mpicomm = NULL;
   return TRUE;
   }
 /* ------------------------------------------------------------------------------------ */
@@ -179,36 +205,37 @@ static int AMMPI_FreeEndpointBuffers(ep_t ep) {
   ep->perProcInfo = NULL;
 
   #if AMMPI_PREPOST_RECVS 
-    { int i;
-      for(i=0; i < ep->rxNumBufs; i++) {
-        if (ep->rxHandle[i] != MPI_REQUEST_NULL) {
-          MPI_Status mpistatus;
-          retval &= MPI_SAFE_NORETURN(MPI_Cancel(&ep->rxHandle[i]));
-          #ifdef CRAYT3E
-            /* Cray MPI implementation sometimes hangs forever if you cancel-wait */
-            retval &= MPI_SAFE_NORETURN(MPI_Request_free(&ep->rxHandle[i]));
-          #elif defined(_AIX)
-            /* AIX 5.2 32-bit MPI implementation is unreliable for cancel-wait
-               (frequent crashes observed for Titanium shutdown on 
-                MPI-over-LAPI 3.5.0.15, for 2 or more nodes) */
-            retval &= MPI_SAFE_NORETURN(MPI_Request_free(&ep->rxHandle[i]));
-          #else
-            retval &= MPI_SAFE_NORETURN(MPI_Wait(&ep->rxHandle[i], &mpistatus));
-          #endif
-          ep->rxHandle[i] = MPI_REQUEST_NULL;
+    { int i,j;
+      for (j=0; j < 2; j++) {
+        ammpi_virtual_network_t *net = (j ? &ep->Req : &ep->Rep);
+        for(i=0; i < net->rxNumBufs; i++) {
+          MPI_Request *rxh = &net->rxHandle[i];
+          if (*rxh != MPI_REQUEST_NULL) {
+            MPI_Status mpistatus;
+            retval &= MPI_SAFE_NORETURN(MPI_Cancel(rxh));
+            #ifdef CRAYT3E
+              /* Cray MPI implementation sometimes hangs forever if you cancel-wait */
+              retval &= MPI_SAFE_NORETURN(MPI_Request_free(rxh));
+            #elif defined(_AIX)
+              /* AIX 5.2 32-bit MPI implementation is unreliable for cancel-wait
+                 (frequent crashes observed for Titanium shutdown on 
+                  MPI-over-LAPI 3.5.0.15, for 2 or more nodes) */
+              retval &= MPI_SAFE_NORETURN(MPI_Request_free(rxh));
+            #else
+              retval &= MPI_SAFE_NORETURN(MPI_Wait(rxh, &mpistatus));
+            #endif
+            *rxh = MPI_REQUEST_NULL;
+          }
         }
+        net->rxBuf = NULL;
+        net->rxHandle = NULL;
+        net->rxNumBufs = 0;
       }
     }  
-
-
+    AMMPI_free(ep->rxHandle_both);
+    ep->rxHandle_both = NULL;
     AMMPI_free(ep->rxBuf_alloc);
     ep->rxBuf_alloc = NULL;
-    ep->rxBuf = NULL;
-
-    AMMPI_free(ep->rxHandle);
-    ep->rxHandle = NULL;
-
-    ep->rxNumBufs = 0;
   #endif
 
   #if AMMPI_NONBLOCKING_SENDS
@@ -262,10 +289,10 @@ extern int AMMPI_AllocateSendBuffers(ep_t ep) {
   AMMPI_assert(ep->translationsz <= AMMPI_MAX_NUMTRANSLATIONS);
   AMMPI_assert(ep->totalP <= ep->translationsz);
   
-  retval &= AMMPI_initSendBufferPool(&(ep->sendPool_smallRequest), ep->depth, AMMPI_MAX_SMALL_NETWORK_MSG);
-  retval &= AMMPI_initSendBufferPool(&(ep->sendPool_smallReply),   ep->depth, AMMPI_MAX_SMALL_NETWORK_MSG);
-  retval &= AMMPI_initSendBufferPool(&(ep->sendPool_largeRequest), ep->depth, AMMPI_MAX_NETWORK_MSG);
-  retval &= AMMPI_initSendBufferPool(&(ep->sendPool_largeReply),   ep->depth, AMMPI_MAX_NETWORK_MSG);
+  retval &= AMMPI_initSendBufferPool(&(ep->Req.sendPool_small), ep->depth, AMMPI_MAX_SMALL_NETWORK_MSG);
+  retval &= AMMPI_initSendBufferPool(&(ep->Rep.sendPool_small), ep->depth, AMMPI_MAX_SMALL_NETWORK_MSG);
+  retval &= AMMPI_initSendBufferPool(&(ep->Req.sendPool_large), ep->depth, AMMPI_MAX_NETWORK_MSG);
+  retval &= AMMPI_initSendBufferPool(&(ep->Rep.sendPool_large), ep->depth, AMMPI_MAX_NETWORK_MSG);
 
   return retval;
 }
@@ -348,13 +375,28 @@ extern int AMMPI_ReleaseSendBuffers(ep_t ep) {
   int retval = TRUE;
   AMMPI_assert(ep);
 
-  retval &= AMMPI_freeSendBufferPool(&(ep->sendPool_smallRequest));
-  retval &= AMMPI_freeSendBufferPool(&(ep->sendPool_smallReply));
-  retval &= AMMPI_freeSendBufferPool(&(ep->sendPool_largeRequest));
-  retval &= AMMPI_freeSendBufferPool(&(ep->sendPool_largeReply));
+  retval &= AMMPI_freeSendBufferPool(&(ep->Req.sendPool_small));
+  retval &= AMMPI_freeSendBufferPool(&(ep->Rep.sendPool_small));
+  retval &= AMMPI_freeSendBufferPool(&(ep->Req.sendPool_large));
+  retval &= AMMPI_freeSendBufferPool(&(ep->Rep.sendPool_large));
 
   return retval;
 }
+/* ------------------------------------------------------------------------------------ */
+#if AMMPI_DEBUG
+  #define AMMPI_BACKPRESSURE_WARNING(reqrep) do {                               \
+      static int repeatcnt = 0;                                                 \
+      static unsigned int reportmask = 0xFF;                                    \
+      repeatcnt++;                                                              \
+      if (AMMPI_DEBUG_VERBOSE || (repeatcnt & reportmask) == 0) {               \
+        reportmask = (reportmask << 1) | 0x1;                                   \
+        fprintf(stderr, "*** AMMPI WARNING: Out of %s send buffers. polling..." \
+          "(has happenned %i times)\n", #reqrep, repeatcnt); fflush(stderr);    \
+      }                                                                         \
+    } while (0)
+#else
+  #define AMMPI_BACKPRESSURE_WARNING(reqrep) ((void)0)
+#endif
 /* ------------------------------------------------------------------------------------ */
 /* acquire a buffer of at least the given size numBytes associated with ep, 
  * to be used in a subsequent non-blocking MPI send operation
@@ -375,11 +417,23 @@ extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest,
 
   /* select the appropriate pool */
   if (numBytes <= AMMPI_ALIGNUP(AMMPI_MAX_SMALL_NETWORK_MSG, AMMPI_BUF_ALIGN)) 
-    pool = (isrequest ? &ep->sendPool_smallRequest : &ep->sendPool_smallReply);
+    pool = (isrequest ? &ep->Req.sendPool_small : &ep->Rep.sendPool_small);
   else 
-    pool = (isrequest ? &ep->sendPool_largeRequest : &ep->sendPool_largeReply);
+    pool = (isrequest ? &ep->Req.sendPool_large : &ep->Rep.sendPool_large);
 
-tryagain:
+  /* find a free buffer to fulfill request */
+ tryagain:
+  if (pool->numActive < pool->numBufs) { /* buffer available */
+    const int idx = pool->numActive;
+    AMMPI_assert(pool->txBuf[idx] && pool->txHandle[idx] == MPI_REQUEST_NULL);
+    AMMPI_assert(((uintptr_t)pool->txBuf[idx]) % AMMPI_BUF_ALIGN == 0);
+    *pbuf = pool->txBuf[idx];
+    *pHandle = &pool->txHandle[idx];
+    pool->numActive++;
+    return AM_OK;
+  }
+
+ while (1) {
   /* reap any pending pool completions */
   if (pool->numActive > 0) {
     int numcompleted = 0;
@@ -423,40 +477,23 @@ tryagain:
       }
       pool->numActive--;
     }
-  }
-
-  /* find a free buffer to fulfill request */
-  if (pool->numActive < pool->numBufs) { /* buffer available */
-    int idx = pool->numActive;
-    AMMPI_assert(pool->txBuf[idx] && pool->txHandle[idx] == MPI_REQUEST_NULL);
-    AMMPI_assert(((uintptr_t)pool->txBuf[idx]) % AMMPI_BUF_ALIGN == 0);
-    *pbuf = pool->txBuf[idx];
-    *pHandle = &pool->txHandle[idx];
-    pool->numActive++;
-    return AM_OK;
+    if (numcompleted) goto tryagain; /* should now succeed */
+    else AMMPI_assert(pool->numActive == pool->numBufs);
   }
 
   /* nothing immediately available */
   if (isrequest) { /* poll until something available */
-    int junk;
-    #if AMMPI_DEBUG
-      { static int repeatcnt = 0; 
-        static unsigned int reportmask = 0xFF;
-        /* TODO: can we grow send buffer pool here? */
-        repeatcnt++;
-        if (AMMPI_DEBUG_VERBOSE || (repeatcnt & reportmask) == 0) {
-          reportmask = (reportmask << 1) | 0x1;
-          fprintf(stderr, "*** AMMPI WARNING: Out of request send buffers. polling...(has happenned %i times)\n", repeatcnt); fflush(stderr);
-        }
-      }
-    #endif
-    ammpi_sched_yield(); 
-    { int retval = AMMPI_ServiceIncomingMessages(ep, FALSE, &junk); /* NOTE this may actually cause reentrancy to this fn on reply pool */
-      if (retval != AM_OK) AMMPI_RETURN(retval);
-    }
-    goto tryagain;
-  }
-  else { /* replies cannot poll - grow the pool (yuk) */
+    int retval;
+    AMMPI_BACKPRESSURE_WARNING(request);
+    retval = AMMPI_ServiceIncomingMessages(ep, FALSE, FALSE); /* NOTE this may actually cause reentrancy to this fn on reply pool */
+    if_pf (retval != AM_OK) AMMPI_RETURN(retval);
+  } else { 
+   #if 1 /* poll the reply network only */
+    int retval;
+    AMMPI_BACKPRESSURE_WARNING(reply);
+    retval = AMMPI_ServiceIncomingMessages(ep, FALSE, TRUE); 
+    if_pf (retval != AM_OK) AMMPI_RETURN(retval);
+   #else /* old code to grow the reply pool instead of polling -- can lead to unbounded buffer growth */
     int newnumBufs = pool->numBufs + (int)(pool->numBufs * (AMMPI_REPLYBUF_POOL_GROWTHFACTOR-1));
     MPI_Request *newtxHandle = (MPI_Request *)AMMPI_malloc(newnumBufs*sizeof(MPI_Request));
     ammpi_buf_t**newtxBuf = (ammpi_buf_t**)AMMPI_malloc(newnumBufs*sizeof(ammpi_buf_t*));
@@ -504,8 +541,9 @@ tryagain:
     pool->numBlocks++;
     pool->numBufs = newnumBufs;
 
-    goto tryagain; /* now there should be room */
+   #endif
   }
+ }
 
   abort();
   return AM_OK;
@@ -642,9 +680,6 @@ extern int AM_AllocateEndpoint(eb_t bundle, ep_t *endp, en_t *endpoint_name) {
   AMMPI_CHECKINIT();
   if (!bundle || !endp || !endpoint_name) AMMPI_RETURN_ERR(BAD_ARG);
 
-  if (currentComm == MPI_COMM_NULL) 
-    AMMPI_RETURN_ERRFR(RESOURCE, AM_AllocateEndpoint, "required AMMPI_SetEndpointCommunicator() has not been called");
-
   ep = (ep_t)AMMPI_malloc(sizeof(struct ammpi_ep));
   if (!ep) AMMPI_RETURN_ERRFR(RESOURCE, AM_AllocateEndpoint, "out of memory");
 
@@ -762,7 +797,7 @@ extern int AMMPI_Map(ep_t ea, int index, en_t *name, tag_t tag) {
   if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
   { int commsz; /* check communicator */
-    MPI_SAFE(MPI_Comm_size(*(ea->pmpicomm), &commsz));
+    MPI_SAFE(MPI_Comm_size(*ea->Req.mpicomm, &commsz));
     if (name->mpirank < 0 || name->mpirank >= commsz)
       AMMPI_RETURN_ERRFR(RESOURCE, AM_Map, "Bad endpoint name - may be due to a MPI communicator mismatch");
   }
@@ -780,7 +815,7 @@ extern int AMMPI_MapAny(ep_t ea, int *index, en_t *name, tag_t tag) {
   if (ea->depth != -1) AMMPI_RETURN_ERR(RESOURCE); /* it's an error to map after call to AM_SetExpectedResources */
 
   { int commsz; /* check communicator */
-    MPI_SAFE(MPI_Comm_size(*(ea->pmpicomm), &commsz));
+    MPI_SAFE(MPI_Comm_size(*ea->Req.mpicomm, &commsz));
     if (name->mpirank < 0 || name->mpirank >= commsz)
       AMMPI_RETURN_ERRFR(RESOURCE, AM_Map, "Bad endpoint name - may be due to a MPI communicator mismatch");
   }

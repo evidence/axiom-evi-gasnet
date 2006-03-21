@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2005/07/23 01:39:24 $
- * $Revision: 1.27 $
+ *     $Date: 2006/03/21 02:49:00 $
+ * $Revision: 1.28 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -193,16 +193,12 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
     fflush(stderr);
   #endif
 
-  #if AMMPI_MPI_COMMUNICATORS
-    { /* setup comm for isolation */
-      MPI_Group world_group;
-      MPI_SAFE(MPI_Comm_group(MPI_COMM_WORLD, &world_group));
-      MPI_SAFE(MPI_Comm_create(MPI_COMM_WORLD, world_group, &AMMPI_SPMDMPIComm));
-      MPI_SAFE(MPI_Group_free(&world_group));
-    }
-  #else
-    AMMPI_SPMDMPIComm = MPI_COMM_WORLD;
-  #endif
+  { /* setup comm for isolation */
+    MPI_Group world_group;
+    MPI_SAFE(MPI_Comm_group(MPI_COMM_WORLD, &world_group));
+    MPI_SAFE(MPI_Comm_create(MPI_COMM_WORLD, world_group, &AMMPI_SPMDMPIComm));
+    MPI_SAFE(MPI_Group_free(&world_group));
+  }
 
   {
     int mypid = getpid();
@@ -223,8 +219,6 @@ extern int AMMPI_SPMDStartup(int *argc, char ***argv,
       AMMPI_RETURN(temp);
     }
   
-    AMMPI_SetEndpointCommunicator(&AMMPI_SPMDMPIComm);
-
     temp = AM_AllocateEndpoint(AMMPI_SPMDBundle, &AMMPI_SPMDEndpoint, &AMMPI_SPMDName);
     if (temp != AM_OK) {
       ErrMessage("Failed to create endpoint in AMMPI_SPMDStartup");
@@ -372,10 +366,8 @@ static int AMMPI_SPMDShutdown(int exitcode) {
     MPI_SAFE(MPI_Abort(AMMPI_SPMDMPIComm, exitcode));
   #endif
 
-  #if AMMPI_MPI_COMMUNICATORS
-    MPI_SAFE(MPI_Comm_free(&AMMPI_SPMDMPIComm));
-    AMMPI_SPMDMPIComm = MPI_COMM_WORLD;
-  #endif
+  MPI_SAFE(MPI_Comm_free(&AMMPI_SPMDMPIComm));
+  AMMPI_SPMDMPIComm = MPI_COMM_WORLD;
 
   MPI_SAFE(MPI_Finalize());
 
