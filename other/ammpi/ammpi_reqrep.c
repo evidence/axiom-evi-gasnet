@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2006/03/21 02:49:00 $
- * $Revision: 1.27 $
+ *     $Date: 2006/03/21 06:08:35 $
+ * $Revision: 1.28 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -443,6 +443,29 @@ extern int _AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int rep
     /* check for message */
     #if AMMPI_PREPOST_RECVS
       { int msgready = 0;
+        #if AMMPI_MPIIRECV_ORDERING_BUGCHECK
+          static int recvorder_bugcheck = 0;
+          if (recvorder_bugcheck < 0 ||
+              recvorder_bugcheck++ == AMMPI_MPIIRECV_ORDERING_BUGCHECK) { 
+            int idxready;
+            static int alt = 0;
+            activeNet = &ep->Rep;
+            if (!repliesOnly && ((alt++)&1)) activeNet = &ep->Req;
+            MPI_SAFE(MPI_Testany(activeNet->rxNumBufs, activeNet->rxHandle, &idxready, &msgready, &mpistatus));
+            if (msgready) {
+              if (idxready != activeNet->rxCurr && recvorder_bugcheck > 0) { 
+                #ifdef AMMPI_DEBUG
+                  fprintf(stderr,"*** AMMPI WARNING: Detected bug in MPI recv ordering - activating workaround (%s,%i,%i)\n", 
+                    (activeNet == &ep->Req ? "Req":"Rep"), idxready, activeNet->rxCurr); 
+                  fflush(NULL); 
+                #endif
+                recvorder_bugcheck = -1; /* ordering is now messed up - enable the hack for the remainder of this run */
+              }
+              activeNet->rxCurr = idxready;
+              goto gotone;
+            } else if (recvorder_bugcheck > 0) recvorder_bugcheck = 0;
+          }
+        #endif
         #if AMMPI_SEPARATE_TEST /* use separate test calls */
             #if AMMPI_SEPARATE_TEST_BOUNCE
               static int bounce = 0; /* bounce back and forth between pools */
@@ -492,6 +515,9 @@ extern int _AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int rep
           } else return AM_OK; /* nothing else waiting */
         }
       gotone:
+        #if AMMPI_MPIIRECV_ORDERING_BUGCHECK
+          if (recvorder_bugcheck > 0) recvorder_bugcheck = 0; /* reset */
+        #endif
         AMMPI_assert(activeNet == &ep->Rep || !repliesOnly);
         activeidx = activeNet->rxCurr;
         AMMPI_assert(activeNet->rxHandle[activeidx] == MPI_REQUEST_NULL);

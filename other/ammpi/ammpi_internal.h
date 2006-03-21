@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2006/03/21 02:49:00 $
- * $Revision: 1.29 $
+ *     $Date: 2006/03/21 06:08:35 $
+ * $Revision: 1.30 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -80,6 +80,15 @@
 #endif
 #ifndef AMMPI_NONBLOCKING_SENDS
 #define AMMPI_NONBLOCKING_SENDS     1   /* use non-blocking MPI send's */
+#endif
+#ifndef AMMPI_MPIIRECV_ORDERING_BUGCHECK
+  #ifdef _AIX
+    /* some MPI implementations intermittently fail to correctly maintain irecv ordering required by MPI spec
+       number is how often to check for this bug */
+    #define AMMPI_MPIIRECV_ORDERING_BUGCHECK 100
+  #else
+    #define AMMPI_MPIIRECV_ORDERING_BUGCHECK 0
+  #endif
 #endif
 #if AMMPI_NONBLOCKING_SENDS
 #define AMMPI_SENDBUFFER_SZ         2*AMMPI_MAX_NETWORK_MSG /* size of MPI send buffer (used for rejections) */
