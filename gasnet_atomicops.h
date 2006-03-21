@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/21 04:43:01 $
- * $Revision: 1.93 $
+ *     $Date: 2006/03/21 08:11:40 $
+ * $Revision: 1.94 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -481,58 +481,39 @@
   /* ------------------------------------------------------------------------------------ */
   #elif defined(__alpha__) || defined(__alpha) /* DEC Alpha */
     #if defined(__GNUC__)
-      GASNETI_INLINE(gasneti_atomic_subandfetch_32)
-      int32_t gasneti_atomic_subandfetch_32(int32_t volatile *v, int32_t op) {
-        register int32_t volatile * addr = (int32_t volatile *)v;
+      GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
+      int32_t gasneti_atomic_fetchandadd_32(int32_t volatile *v, int32_t op) {
         register int32_t temp;
         register int32_t result;
         __asm__ __volatile__(
-          "1: \n\t"
-          "ldl_l %0, 0(%2)\n\t"
-          "subl %0, %3, %0\n\t"
-          "mov %0, %1\n\t"
-          "stl_c %0, 0(%2)\n\t"
+          "1: ldl_l %1, %2\n\t"
+          "addl %1, %3, %0\n\t"
+          "stl_c %0, %2\n\t"
           "beq %0, 1b"
-          : "=&r" (temp), "=&r" (result) /* outputs */
-          : "r" (addr), "Ir" (op)        /* inputs */
+          : "=&r" (temp), "=&r" (result), "=m" (*v) /* outputs */
+          : "IOr" (op)       /* inputs */
           : "memory", "cc");             /* kills */
         return result;
       }
-      GASNETI_INLINE(gasneti_atomic_sub_32)
-      void gasneti_atomic_sub_32(int32_t volatile *v, int32_t op) {
-        register int32_t volatile * addr = (int32_t volatile *)v;
-        register int32_t temp;
-        __asm__ __volatile__(
-          "1: \n\t"
-          "ldl_l %0, 0(%1)\n\t"
-          "subl %0, %2, %0\n\t"
-          "stl_c %0, 0(%1)\n\t"
-          "beq %0, 1b"
-          : "=&r" (temp) /* outputs */
-          : "r" (addr), "Ir" (op)        /* inputs */
-          : "memory", "cc");             /* kills */
-      }
       GASNETI_INLINE(gasneti_atomic_add_32)
       void gasneti_atomic_add_32(int32_t volatile *v, int32_t op) {
-        register int32_t volatile * addr = (int32_t volatile *)v;
         register int32_t temp;
         __asm__ __volatile__(
-          "1: \n\t"
-          "ldl_l %0, 0(%1)\n\t"
+          "1: ldl_l %0, %1\n\t"
           "addl %0, %2, %0\n\t"
-          "stl_c %0, 0(%1)\n\t"
+          "stl_c %0, %1\n\t"
           "beq %0, 1b"
-          : "=&r" (temp) /* outputs */
-          : "r" (addr), "Ir" (op)        /* inputs */
+          : "=&r" (temp), "=m" (*v) /* outputs */
+          : "IOr" (op)       /* inputs */
           : "memory", "cc");             /* kills */
       }
      typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
      #define _gasneti_atomic_increment(p) (gasneti_atomic_add_32(&((p)->ctr),1))
-     #define _gasneti_atomic_decrement(p) (gasneti_atomic_sub_32(&((p)->ctr),1))
+     #define _gasneti_atomic_decrement(p) (gasneti_atomic_add_32(&((p)->ctr),-1))
      #define _gasneti_atomic_read(p)      ((p)->ctr)
      #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
      #define _gasneti_atomic_init(v)      { (v) }
-     #define _gasneti_atomic_decrement_and_test(p) (gasneti_atomic_subandfetch_32(&((p)->ctr),1) == 0)
+     #define _gasneti_atomic_decrement_and_test(p) (gasneti_atomic_fetchandadd_32(&((p)->ctr),-1) == 1)
      GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
      int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
        unsigned long ret;
