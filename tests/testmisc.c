@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2006/03/18 03:31:07 $
- * $Revision: 1.27 $
+ *     $Date: 2006/03/21 05:54:57 $
+ * $Revision: 1.28 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
   if (argc > 2) accuracy = atoi(argv[2]);
   if (!accuracy) accuracy = 3;
 
-  if (argc > 2) test_usage();
+  if (argc > 3) test_usage();
 
   if (mynode == 0) {
       printf("Running misc performance test with %i iterations...\n",iters);
