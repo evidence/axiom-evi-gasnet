@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/21 03:47:35 $
- * $Revision: 1.91 $
+ *     $Date: 2006/03/21 04:22:53 $
+ * $Revision: 1.92 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -492,8 +492,7 @@
           "addl %0, %3, %0\n\t"
           "mov %0, %1\n\t"
           "stl_c %0, 0(%2)\n\t"
-          "beq %0, 1b\n\t"
-          "nop\n"
+          "beq %0, 1b"
           : "=&r" (temp), "=&r" (result) /* outputs */
           : "r" (addr), "r" (op)         /* inputs */
           : "memory", "cc");             /* kills */
