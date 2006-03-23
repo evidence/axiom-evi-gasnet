@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2006/03/19 02:08:02 $
- * $Revision: 1.99 $
+ * $Date: 2006/03/23 09:55:51 $
+ * $Revision: 1.100 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -798,13 +798,14 @@ static void gasnetc_exit_sighandler(int sig) {
   #endif
 
   #ifdef GASNETC_GM_MPI_COMPAT
-    /* We ask the bootstrap support to kill us, but only once */
+  { /* We ask the bootstrap support to kill us, but only once */
     static gasneti_atomic_t once = gasneti_atomic_init(1);
     if (gasneti_atomic_decrement_and_test(&once, 0)) {
       gasneti_reghandler(SIGALRM, gasnetc_exit_sighandler);
       alarm(5);
       gasneti_bootstrapAbort_mpi((int)gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE));
     }
+  }
   #endif
 
   gasnetc_exit_now((int)gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE));
