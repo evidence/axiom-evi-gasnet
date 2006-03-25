@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2006/03/21 05:54:57 $
- * $Revision: 1.28 $
+ *     $Date: 2006/03/25 21:10:49 $
+ * $Revision: 1.29 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -242,6 +242,7 @@ void doit3() {
 
   TIME_OPERATION("GASNET_BEGIN_FUNCTION (" _STRINGIFY(TEST_PARSEQ) " mode)", 
       { GASNET_BEGIN_FUNCTION(); });
+  memset((void *)&ti,0,sizeof(ti));
   TIME_OPERATION("GASNET_POST_THREADINFO (" _STRINGIFY(TEST_PARSEQ) " mode)", 
       { GASNET_POST_THREADINFO(ti); });
   { GASNET_BEGIN_FUNCTION();
