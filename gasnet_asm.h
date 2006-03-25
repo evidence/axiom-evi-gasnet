@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/03/23 03:23:29 $
- * $Revision: 1.87 $
+ *     $Date: 2006/03/25 00:31:58 $
+ * $Revision: 1.88 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -198,6 +198,13 @@
    }
    #define gasneti_local_mb() _gasneti_local_mb()
 #elif defined(__ia64__) || defined(__ia64) /* Itanium */
+    /* Empirically observed that IA64 requires a full "mf" for both wmb and rmb (see bug 1000).
+     * The reason is that the Itanium memeory model only ensures ordering in one direction when
+     * using st.rel or ld.acq.  In particular, they implement the minimum required for proper
+     * mutex implementation.  While preventing loads and stores from moving OUT of the creitical
+     * section, this still allows for loads before the lock and stored after the unlock to reorder
+     * INTO the critical section.  We need more than that.
+     */
    #ifdef __INTEL_COMPILER
       /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
       #include <ia64intrin.h>
@@ -207,7 +214,6 @@
         gasneti_compiler_fence();           \
         __mf();  /* memory fence instruction */  \
       } while (0)
-      /* bug 1000: empirically observed that IA64 requires a full memory fence for both wmb and rmb */
       #define gasneti_local_rmb() gasneti_local_wmb()
       #define gasneti_local_mb()  gasneti_local_wmb()
       #define GASNETI_RMB_IS_MB
@@ -217,50 +223,24 @@
       /* HP compilers have no inline assembly on Itanium - use intrinsics */
       #define gasneti_compiler_fence() \
          _Asm_sched_fence((_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE)) 
-      /* bug 1000: empirically observed that IA64 requires a full memory fence for both wmb and rmb */
-      #define gasneti_local_wmb() _Asm_mf((_Asm_fence)(_UP_MEM_FENCE))
-      #define gasneti_local_rmb() _Asm_mf((_Asm_fence)(_DOWN_MEM_FENCE))
       #define gasneti_local_mb() _Asm_mf((_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE))
+      #define gasneti_local_wmb gasneti_local_mb
+      #define gasneti_local_rmb gasneti_local_mb
+      #define GASNETI_RMB_IS_MB
+      #define GASNETI_WMB_IS_MB
    #else
-    #if 1
       #define gasneti_local_wmb() GASNETI_ASM("mf")
-      /* bug 1000: empirically observed that IA64 requires a full memory fence for both wmb and rmb */
       #define gasneti_local_rmb() gasneti_local_wmb()
       #define gasneti_local_mb()  gasneti_local_wmb()
       #define GASNETI_RMB_IS_MB
       #define GASNETI_WMB_IS_MB
-    #else
-      /* according to section 4.4.7 in:
-         "Intel Itanium Architecture Software Developer's Manual, Vol 2 System Architecture"
-         the following should work, but for some reason it does not
-       */
-      GASNETI_INLINE(_gasneti_local_wmb)
-      void _gasneti_local_wmb() {
-        int tmp;
-        __asm__ __volatile__(
-                ";;\n\tst4.rel %0 = r0\n\t;;"
-                :"=m" (tmp)
-                :);
-      }
-      #define gasneti_local_wmb _gasneti_local_wmb
-
-      GASNETI_INLINE(_gasneti_local_rmb)
-      void _gasneti_local_rmb() {
-        register int r;
-        int tmp;
-        __asm__ __volatile__(
-                ";;\n\tld4.acq %0 = %1\n\t;;"
-                : "=r" (r) : "m" (tmp) : "memory");
-      }
-      #define gasneti_local_rmb _gasneti_local_rmb
-
-      #define gasneti_local_mb() GASNETI_ASM("mf")
-    #endif
    #endif
-#elif defined(_POWER) /* IBM SP POWER[234] */ || \
-     (defined(__APPLE__) && defined(__MACH__) && (defined(__ppc__) || defined(__ppc64__))) /* PowerPC OSX */ || \
-     (defined(__linux__) && defined(__PPC__)) /* PPC Linux */ || \
-     (defined(__blrts__) && defined(__PPC__)) /* BlueGene/L */
+/* PowerPPC ids:
+ * AIX: _POWER
+ * Darwin: __ppc__ or __ppc64__
+ * Linux: __PPC__
+ */
+#elif defined(_POWER) || defined(__PPC__) || defined(__ppc__) || defined(__ppc64__)
  #ifdef __xlC__
    /* VisualAge C compiler (mpcc_r) has no support for inline symbolic assembly
     * you have to hard-code the opcodes in a pragma that defines an assembly 
@@ -440,19 +420,21 @@
    THESE ARE *NOT* INTENDED FOR GENERAL USE IN CONDUIT CODE.
  */
 #ifndef GASNETI_RMB_IS_EMPTY
+  /* Default: assume rmb() is non-empty. */
   #define GASNETI_RMB_IS_EMPTY	0
 #else
   #undef GASNETI_RMB_IS_EMPTY
   #define GASNETI_RMB_IS_EMPTY	1
 #endif
 #ifndef GASNETI_WMB_IS_EMPTY
+  /* Default: assume wmb() is non-empty. */
   #define GASNETI_WMB_IS_EMPTY	0
 #else
   #undef GASNETI_WMB_IS_EMPTY
   #define GASNETI_WMB_IS_EMPTY	1
 #endif
 #ifndef GASNETI_MB_IS_EMPTY
-  /* non-trivial default */
+  /* Default: assume mb() is empty IFF rmb() and wmb() are both empty */
   #if (GASNETI_RMB_IS_EMPTY && GASNETI_WMB_IS_EMPTY)
     #define GASNETI_MB_IS_EMPTY	1
   #else
@@ -463,7 +445,9 @@
   #define GASNETI_MB_IS_EMPTY	1
 #endif
 #ifndef GASNETI_RMB_IS_MB
-  /* non-trivial default */
+  /* Default: assume rmb() is a full mb() if:
+   *  Either mb() is empty (sequential consistency)
+   *  Or mb() = rmb() + wmb(), while wmb() is known empty */
   #if GASNETI_MB_IS_EMPTY || (GASNETI_WMB_IS_EMPTY && defined(GASNETI_MB_IS_SUM))
     #define GASNETI_RMB_IS_MB	1
   #else
@@ -474,7 +458,9 @@
   #define GASNETI_RMB_IS_MB	1
 #endif
 #ifndef GASNETI_WMB_IS_MB
-  /* non-trivial default */
+  /* Default: assume wmb() is a full mb() if:
+   *  Either mb() is empty (sequential consistency)
+   *  Or mb() = rmb() + wmb(), while rmb() is known empty */
   #if GASNETI_MB_IS_EMPTY || (GASNETI_RMB_IS_EMPTY && defined(GASNETI_MB_IS_SUM))
     #define GASNETI_WMB_IS_MB	1
   #else
@@ -485,7 +471,9 @@
   #define GASNETI_WMB_IS_MB	1
 #endif
 #ifndef GASNETI_MB_IS_SUM
-  /* non-trivial default */
+  /* Default: assume mb() = rmb() + wmb() if:
+   *  Either mb() = rmb(), while wmb() is known empty
+   *  Or mb() = wmb(), while rmb() is known empty */
   #if ((GASNETI_RMB_IS_MB && GASNETI_WMB_IS_EMPTY) || \
        (GASNETI_WMB_IS_MB && GASNETI_RMB_IS_EMPTY))
     #define GASNETI_MB_IS_SUM	1
