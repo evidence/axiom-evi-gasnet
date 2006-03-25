@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/25 00:31:58 $
- * $Revision: 1.95 $
+ *     $Date: 2006/03/25 01:18:54 $
+ * $Revision: 1.96 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -248,7 +248,7 @@
     #define _gasneti_atomic_decrement_and_test(p) ((--(*(p))) == 0)
     #define _gasneti_atomic_compare_and_swap(p,oldval,newval) \
               (*(p) == (oldval) ? *(p) = (newval), 1 : 0)
-    /* bug1405: using default fences */
+    /* Using default fences */
   #endif
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
   /* ------------------------------------------------------------------------------------
@@ -270,7 +270,7 @@
         return compare_and_swap( (atomic_p)p, &oldval, newval );
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      /* bug1405: no syncs in these calls, so use default fences */
+      /* No syncs in these calls, so use default fences */
   #elif defined(IRIX)
       #include <mutex.h>
       typedef __uint32_t gasneti_atomic_t;
@@ -286,7 +286,7 @@
         return __compare_and_swap( p, oldval, newval );
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      /* XXX bug1405: using default fences (TODO: VERIFY THAT WE NEED THEM) */
+      /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
   #elif defined(__MTA__)
       /* use MTA intrinsics */
       typedef int64_t gasneti_atomic_t;
@@ -297,7 +297,7 @@
       #define _gasneti_atomic_init(v)      (v)
       #define _gasneti_atomic_decrement_and_test(p) \
                                           (int_fetch_add((p),-1) == 1) 
-      /* XXX bug1405: using default fences (TODO: VERIFY THAT WE NEED THEM) */
+      /* Using default fences, but this machine is Sequential Consistent anyway */
   #elif defined(SOLARIS)	/* BROKEN */
       /* $%*(! Solaris has atomic functions in the kernel but refuses to expose them
          to the user... after all, what application would be interested in performance? */
@@ -322,7 +322,7 @@
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
 	   (InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      /* bug1405: MSDN docs ensure memory fence in these, even on ia64 */
+      /* MSDN docs ensure memory fence in these calls, even on ia64 */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
   #elif defined(__linux__) 
       /* ------------------------------------------------------------------------------------
@@ -372,7 +372,7 @@
              (cmpxchg(&((p)->counter),oval,nval) == (oval))
         #define GASNETI_HAVE_ATOMIC_CAS 1
       #endif
-      /* bug1405: using default fences as we can't hope to know what to expect on new platforms */
+      /* Using default fences as we can't hope to know what to expect on new platforms */
   #else
     #error GASNETI_USE_OS_ATOMICS defined on unsupported OS - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
   #endif
@@ -432,7 +432,7 @@
         return (int)retval;
       }
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      /* bug1405: x86 and x86_64 include full memory fence in locked RMW insns */
+      /* x86 and x86_64 include full memory fence in locked RMW insns */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
     #else
       #error unrecognized x86 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
@@ -453,7 +453,7 @@
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
                     (_InterlockedCompareExchange((volatile int *)&((p)->ctr),nval,oval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      /* XXX bug1405: using default fences (TODO: VERIFY THAT WE NEED THEM) */
+      /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
     #elif defined(__GNUC__)
       GASNETI_INLINE(gasneti_cmpxchg)
       int32_t gasneti_cmpxchg(int32_t volatile *ptr, int32_t oldval, int32_t newval) {                                                                                      \
@@ -490,10 +490,7 @@
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
         (gasneti_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      #if 0	/* related to bug1000, we don't trust fence properties of .acq */
-        /* bug1405: our asm includes the following fences: */
-        #define GASNETI_ATOMIC_FENCE_RMW GASNETI_ATOMIC_ACQ
-      #endif
+      /* Using default fences, as we have none in our asm */
     #elif defined(__HP_cc) || defined(__HP_aCC) /* HP C/C++ Itanium intrinsics */
       #include <machine/sys/inline.h>
       /* legal values for imm are -16, -8, -4, -1, 1, 4, 8, and 16 
@@ -521,10 +518,7 @@
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
         (gasneti_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      #if 0	/* related to bug1000, we don't trust fence properties of .acq */
-        /* bug1405: built-in ACQ on RMW */
-        #define GASNETI_ATOMIC_FENCE_RMW GASNETI_ATOMIC_ACQ
-      #endif
+      /* Using default fences, as there are none in these intrinsics */
     #else
       #error unrecognized Itanium compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
@@ -582,7 +576,7 @@
        return ret;
      }
      #define GASNETI_HAVE_ATOMIC_CAS 1
-     /* bug1405: no fences in our asm, so using default fences */
+     /* No fences in our asm, so using default fences */
     #elif (defined(__DECC) || defined(__DECCXX)) && defined(__osf__)
        /* Compaq C / OSF atomics are compiler built-ins */
        #include <sys/machine/builtins.h>
@@ -609,7 +603,7 @@
 		    "2:	", p, oldval, newval);  /* Returns value from %v0 */
        }
        #define GASNETI_HAVE_ATOMIC_CAS 1
-       /* XXX bug1405: using default fences (TODO: VERIFY THAT WE NEED THEM) */
+       /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
     #else
       #error unrecognized Alpha compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
@@ -660,7 +654,6 @@
           return (int)(newval == oldval);
         }
         #define GASNETI_HAVE_ATOMIC_CAS 1
-        /* XXX bug1405: our asm includes the following: (TODO: CUSTOMIZE?) */
 	#define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
       #else
         #error unrecognized Sparc v9 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
@@ -750,11 +743,11 @@
           return retval;
         }
         #define GASNETI_HAVE_ATOMIC_CAS 1
-        /* bug1405: Our asm has the following fences */
+        /* Our asm has the following fences: */
 	#define GASNETI_ATOMIC_FENCE_READ	GASNETI_ATOMIC_RMB_POST
 	#define GASNETI_ATOMIC_FENCE_SET	GASNETI_ATOMIC_WMB_PRE
 	#define GASNETI_ATOMIC_FENCE_RMW	GASNETI_ATOMIC_MB_PRE
-        /* XXX bug1405: TODO: Our set also has RMB_PRE unless uninitialized */
+        /* TODO: Our SET also has RMB_PRE unless uninitialized */
       #else
         #error unrecognized Sparc pre-v9 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
       #endif
@@ -878,11 +871,11 @@
         return retval;
       }
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      /* bug1405: Our asm has the following fences */
+      /* Our asm has the following fences: */
       #define GASNETI_ATOMIC_FENCE_READ	GASNETI_ATOMIC_RMB_POST
       #define GASNETI_ATOMIC_FENCE_SET	GASNETI_ATOMIC_WMB_PRE
       #define GASNETI_ATOMIC_FENCE_RMW	GASNETI_ATOMIC_MB_PRE
-      /* XXX bug1405: TODO: Our set also has RMB_PRE unless uninitialized */
+      /* TODO: Our SET also has RMB_PRE unless uninitialized */
   /* ------------------------------------------------------------------------------------ */
   #elif defined(__crayx1) /* This works on X1, but NOT the T3E */
     #include <intrinsics.h>
@@ -920,7 +913,7 @@
       return (result == oldval); 
     }
     #define GASNETI_HAVE_ATOMIC_CAS 1
-    /* XXX bug1405: using default fences (TODO: VERIFY THAT WE NEED THEM) */
+    /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
   /* ------------------------------------------------------------------------------------ */
   #elif defined(_SX) /* NEC SX-6 */
     /* these are disabled for now because they don't link */
@@ -943,7 +936,7 @@
     #define _gasneti_atomic_decrement_and_test(p) \
                                         (muadd(&((p)->ctr),-1) == 0)
    #endif
-    /* XXX bug1405: using default fences (TODO: VERIFY THAT WE NEED THEM) */
+    /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
   /* ------------------------------------------------------------------------------------ */
   /* PowerPPC ids:
    * AIX: _POWER
@@ -1011,7 +1004,7 @@
       #define _gasneti_atomic_compare_and_swap(p, oldval, newval) \
 	(gasneti_atomic_swap_not_32(&((p)->ctr),(oldval),(newval)) == 0)
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      /* bug1405: using default fences as we have none in our asms */
+      /* Using default fences as we have none in our asms */
     #elif defined(__GNUC__)
       static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
         register int32_t volatile * addr = (int32_t volatile *)v;
@@ -1053,7 +1046,7 @@
         return (result == 0);
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      /* bug1405: using default fences as we have none in our asms */
+      /* Using default fences as we have none in our asms */
     #else
       #error Unrecognized PowerPC - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
