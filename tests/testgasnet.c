@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2006/03/17 22:46:41 $
- * $Revision: 1.42 $
+ *     $Date: 2006/03/25 00:21:48 $
+ * $Revision: 1.43 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,6 +15,9 @@
 #define TEST_GASNET 1
 #define SHORT_REQ_BASE 128
 #include <other/amxtests/testam.h>
+
+/* Define to get one big function that pushes the gcc inliner heursitics */
+#undef TESTGASNET_NO_SPLIT
 
 void doit(int partner, int *partnerseg);
 void doit2(int partner, int *partnerseg);
@@ -290,10 +293,12 @@ void doit(int partner, int *partnerseg) {
     if (success) MSG("*** passed blocking list test!!");
   }
 
+#ifndef TESTGASNET_NO_SPLIT
   doit2(partner, partnerseg);
 }
 void doit2(int partner, int *partnerseg) {
   int mynode = gasnet_mynode();
+#endif
 
   BARRIER();
   { /*  implicit test */
@@ -318,10 +323,12 @@ void doit2(int partner, int *partnerseg) {
     if (success) MSG("*** passed nbi test!!");
   }
 
+#ifndef TESTGASNET_NO_SPLIT
   doit3(partner, partnerseg);
 }
 void doit3(int partner, int *partnerseg) {
   int mynode = gasnet_mynode();
+#endif
 
   BARRIER();
 
@@ -410,10 +417,12 @@ void doit3(int partner, int *partnerseg) {
     if (success) MSG("*** passed value test!!");
   }
 
+#ifndef TESTGASNET_NO_SPLIT
   doit4(partner, partnerseg);
 }
 void doit4(int partner, int *partnerseg) {
   int mynode = gasnet_mynode();
+#endif
 
   BARRIER();
 
@@ -449,10 +458,12 @@ void doit4(int partner, int *partnerseg) {
     if (success) MSG("*** passed memset test!!");
   }
 
+#ifndef TESTGASNET_NO_SPLIT
   doit5(partner, partnerseg);
 }
 void doit5(int partner, int *partnerseg) {
   int mynode = gasnet_mynode();
+#endif
 
   BARRIER();
 
