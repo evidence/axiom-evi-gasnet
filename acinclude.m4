@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/03/25 12:35:20 $
-dnl $Revision: 1.94 $
+dnl     $Date: 2006/03/25 20:50:49 $
+dnl $Revision: 1.95 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1101,8 +1101,10 @@ AC_DEFUN([GASNET_CHECK_GCC_ATTRIBUTE],[
       AC_MSG_RESULT(yes)
       AC_DEFINE(GASNETI_HAVE_GCC_ATTRIBUTE_[]uppername)
       AC_DEFINE(GASNETI_HAVE_GCC_ATTRIBUTE)
-    ],[ AC_MSG_RESULT([no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr])
-    ],[ AC_MSG_RESULT([no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr]) 
+    ],[ dnl AC_MSG_RESULT([no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr])
+        AC_MSG_RESULT([no/warning])
+    ],[ dnl AC_MSG_RESULT([no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr]) 
+        AC_MSG_RESULT([no/error]) 
   ])
   GASNET_FUN_END([$0($1)])
   popdef([uppername])
