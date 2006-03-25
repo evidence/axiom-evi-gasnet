@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/03/19 02:08:26 $
- * $Revision: 1.38 $
+ *     $Date: 2006/03/25 12:35:23 $
+ * $Revision: 1.39 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -50,10 +50,12 @@ void test_dummy2(void) { abort(); }
 GASNETT_BEGIN_EXTERNC
 void *test_dummy3(void) GASNETT_MALLOC;
 void *test_dummy3(void) { return malloc(1); }
+GASNETT_INLINE(test_dummy4) GASNETT_MALLOC
+void *test_dummy4(void) { return malloc(1); }
 GASNETT_END_EXTERNC
 
 GASNETT_EXTERNC
-void test_dummy4(void) { }
+void test_dummy5(void) { }
 
 int main(int argc, char **argv) {
 

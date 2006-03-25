@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.92 $
+ *     $Date: 2006/03/25 12:35:20 $
+ * $Revision: 1.93 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -86,17 +86,7 @@ extern void gasneti_decode_args(int *argc, char ***argv);
   extern void *_gasneti_calloc(size_t N, size_t S, const char *curloc) GASNETI_MALLOC;
   extern size_t _gasneti_memcheck(void *ptr, const char *curloc, int checktype);
 #else
-  #ifdef __GNUC__
-    /* provide gcc with additional information about the aliasing qualities
-       of the return value (being malloc-like) to improve caller optimization */
-    GASNETI_INLINE(_gasneti_malloc)
-    void *_gasneti_malloc(size_t nbytes) GASNETI_MALLOC;
-    GASNETI_INLINE(_gasneti_malloc_allowfail)
-    void *_gasneti_malloc_allowfail(size_t nbytes) GASNETI_MALLOC;
-    GASNETI_INLINE(_gasneti_calloc)
-    void *_gasneti_calloc(size_t N, size_t S) GASNETI_MALLOC;
-  #endif
-  GASNETI_INLINE(_gasneti_malloc)
+  GASNETI_INLINE(_gasneti_malloc) GASNETI_MALLOC
   void *_gasneti_malloc(size_t nbytes) {
     void *ret = NULL;
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
@@ -107,7 +97,7 @@ extern void gasneti_decode_args(int *argc, char ***argv);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;
   }
-  GASNETI_INLINE(_gasneti_malloc_allowfail)
+  GASNETI_INLINE(_gasneti_malloc_allowfail) GASNETI_MALLOC
   void *_gasneti_malloc_allowfail(size_t nbytes) {
     void *ret = NULL;
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, nbytes);
@@ -118,7 +108,7 @@ extern void gasneti_decode_args(int *argc, char ***argv);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
     return ret;
   }
-  GASNETI_INLINE(_gasneti_calloc)
+  GASNETI_INLINE(_gasneti_calloc) GASNETI_MALLOC
   void *_gasneti_calloc(size_t N, size_t S) {
     void *ret = NULL;
     GASNETI_STAT_EVENT_VAL(I, GASNET_MALLOC, (N*S));
@@ -213,13 +203,7 @@ extern void gasneti_decode_args(int *argc, char ***argv);
 
 /* ------------------------------------------------------------------------------------ */
 /* Version of strdup() which is compatible w/ gasneti_free(), instead of plain free() */
-#ifdef __GNUC__ 
-  GASNETI_INLINE(_gasneti_strdup)
-  char *_gasneti_strdup(const char *s GASNETI_CURLOCFARG) GASNETI_MALLOC;
-  GASNETI_INLINE(_gasneti_strndup)
-  char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) GASNETI_MALLOC;
-#endif
-GASNETI_INLINE(_gasneti_strdup)
+GASNETI_INLINE(_gasneti_strdup) GASNETI_MALLOC
 char *_gasneti_strdup(const char *s GASNETI_CURLOCFARG) {
   char *retval;
   if_pf (s == NULL) {
@@ -235,7 +219,7 @@ char *_gasneti_strdup(const char *s GASNETI_CURLOCFARG) {
 /* Like gasneti_strdup, but copy is limited to at most n characters.
  * Note allocation is upto n+1 bytes, due to the '\0' termination.
  */
-GASNETI_INLINE(_gasneti_strndup)
+GASNETI_INLINE(_gasneti_strndup) GASNETI_MALLOC
 char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) {
   char *retval;
   if_pf (s == NULL) {

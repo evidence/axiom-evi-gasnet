@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/03/25 00:32:00 $
- * $Revision: 1.126 $
+ *     $Date: 2006/03/25 12:35:25 $
+ * $Revision: 1.127 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -779,11 +779,7 @@ void gasneti_freelist_init(gasneti_freelist_t *fl) {
 }
 
 /* Get one element from the freelist or NULL if it is empty */
-#ifdef __GNUC__
-  GASNETI_INLINE(gasneti_freelist_get)
-  void *gasneti_freelist_get(gasneti_freelist_t *fl) GASNETI_MALLOC;
-#endif
-GASNETI_INLINE(gasneti_freelist_get)
+GASNETI_INLINE(gasneti_freelist_get) GASNETI_MALLOC
 void *gasneti_freelist_get(gasneti_freelist_t *fl) {
   return gasneti_fl_pop(fl);
 }

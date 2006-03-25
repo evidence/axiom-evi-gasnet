@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/03/19 02:08:30 $
- * $Revision: 1.174 $
+ *     $Date: 2006/03/25 12:35:25 $
+ * $Revision: 1.175 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -976,11 +976,7 @@ void gasnetc_do_poll(int poll_rcv, int poll_snd) {
 }
 
 /* allocate a send request structure */
-#ifdef __GNUC__
-  GASNETI_INLINE(gasnetc_get_sreq)
-  gasnetc_sreq_t *gasnetc_get_sreq(gasnetc_sreq_opcode_t GASNETC_PERTHREAD_FARG) GASNETI_MALLOC;
-#endif
-GASNETI_INLINE(gasnetc_get_sreq)
+GASNETI_INLINE(gasnetc_get_sreq) GASNETI_MALLOC
 gasnetc_sreq_t *gasnetc_get_sreq(gasnetc_sreq_opcode_t opcode GASNETC_PERTHREAD_FARG) {
   gasnetc_per_thread_t *td = GASNETC_MY_PERTHREAD();
   gasnetc_sreq_t *sreq;
@@ -1037,11 +1033,7 @@ gasnetc_sreq_t *gasnetc_get_sreq(gasnetc_sreq_opcode_t opcode GASNETC_PERTHREAD_
 }
 
 /* allocate a pre-pinned bounce buffer */
-#ifdef __GNUC__
-  GASNETI_INLINE(gasnetc_get_bbuf)
-  gasnetc_buffer_t *gasnetc_get_bbuf(int block) GASNETI_MALLOC;
-#endif
-GASNETI_INLINE(gasnetc_get_bbuf)
+GASNETI_INLINE(gasnetc_get_bbuf) GASNETI_MALLOC
 gasnetc_buffer_t *gasnetc_get_bbuf(int block) {
   gasnetc_buffer_t *bbuf = NULL;
 

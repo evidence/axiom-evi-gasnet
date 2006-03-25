@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/03/25 00:31:58 $
-# $Revision: 1.326 $
+#     $Date: 2006/03/25 12:35:20 $
+# $Revision: 1.327 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.326 $)
+AC_REVISION($Revision: 1.327 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -419,6 +419,16 @@ popdef([BARRIERVALS])
 GASNET_LIBGCC
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS")
 GASNET_CHECK_RESTRICT
+GASNET_CHECK_GCC_ATTRIBUTE([__always_inline__],
+            [__attribute__((__always_inline__)) int dummy() { return 1; }])
+GASNET_CHECK_GCC_ATTRIBUTE([__malloc__],
+            [#include <stdlib.h>
+	     __attribute__((__malloc__)) void * dummy() { return malloc(14); }])
+GASNET_CHECK_GCC_ATTRIBUTE([__warn_unused_result__],
+            [__attribute__((__warn_unused_result__)) void * dummy() { return 0; }])
+GASNET_CHECK_GCC_ATTRIBUTE([__noreturn__],
+            [#include <stdlib.h>
+	     __attribute__((__noreturn__)) void dummy() { abort(); }])
 GASNET_POPVAR(CFLAGS)
 
 ########################################################################
@@ -2113,8 +2123,8 @@ if test "$ac_cv_header_execinfo_h" = "yes" ; then
   AC_CHECK_FUNCS(backtrace backtrace_symbols)
 fi
 
-########################################################################
 
+########################################################################
 # Try to discover the C compiler's inline modifier
 
 inlinemod=""

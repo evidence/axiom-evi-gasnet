@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.52 $
+ *     $Date: 2006/03/25 12:35:20 $
+ * $Revision: 1.53 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -103,50 +103,27 @@
 #define GASNETI_PAGE_ALIGNUP(p)   (GASNETI_ALIGNUP(p,GASNET_PAGESIZE))
 
 /* special GCC features */
-#if ! defined (__GNUC__) && ! defined (__attribute__)
+#if ! defined(GASNETI_HAVE_GCC_ATTRIBUTE) && \
+    ! defined (__GNUC__) && ! defined (__attribute__)
   #define __attribute__(flags)
 #endif
 
 #define GASNETI_PRAGMA(x) _Pragma ( #x )
 
-#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4)) \
-    && !defined(__INTEL_COMPILER) /* __warn_unused_result__ not available in icc */
-  /* gcc-3.4 and newer: assert return value is unaliased + warn if unused */
-  #define GASNETI_MALLOC __attribute__((__malloc__,__warn_unused_result__))
-#elif defined(__GNUC__) && !(__GNUC__ <= 2 && __GNUC_MINOR__ <= 95)
-  /* gcc-2.96 and newer: assert return value is unaliased */
-  #define GASNETI_MALLOC __attribute__((__malloc__))
-#else
-  /* malloc attribute missing in egcs-2.91.66, gcc 2.95.4, and non-gcc compilers */
-  #define GASNETI_MALLOC
-#endif
-
-#if defined(__GNUC__) && ((__GNUC__ > 3) || (__GNUC__ == 3  && __GNUC_MINOR__ >= 4)) \
-    && !defined(__INTEL_COMPILER) /* not available in icc */
-  /* Warn if return value is ignored.  Available on gcc-3.4 and newer. */
+#if GASNETI_HAVE_GCC_ATTRIBUTE_WARNUNUSEDRESULT /* Warn if return value is ignored */
   #define GASNETI_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
 #else
   #define GASNETI_WARN_UNUSED_RESULT
 #endif
 
-#if defined(__cplusplus)
-  #define GASNETI_INLINE(fnname) inline
-#elif defined(STATIC_INLINE_WORKS)
-  #define GASNETI_INLINE(fnname) static CC_INLINE_MODIFIER
-#elif defined(CC_INLINE_MODIFIER)
-  #define GASNETI_INLINE(fnname) CC_INLINE_MODIFIER
-#elif defined(_CRAYC)
-  /* CrayC has a really #&#$&! stupidly designed #pragma for inlining functions 
-     that requires providing the function name 
-     (the only way to request inlining a particular fn from C) */
-  #define GASNETI_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname) static
-#elif defined(__MTA__)
-  #define GASNETI_INLINE(fnname) GASNETI_PRAGMA(mta inline) static
+#if GASNETI_HAVE_GCC_ATTRIBUTE_MALLOC 
+  /* assert return value is unaliased, and should not be ignored */
+  #define GASNETI_MALLOC __attribute__((__malloc__)) GASNETI_WARN_UNUSED_RESULT
 #else
-  #define GASNETI_INLINE(fnname) static
+  #define GASNETI_MALLOC GASNETI_WARN_UNUSED_RESULT
 #endif
 
-#if defined(__GNUC__)
+#if GASNETI_HAVE_GCC_ATTRIBUTE_NORETURN
   #define GASNETI_NORETURN __attribute__((__noreturn__))
 #else
   #define GASNETI_NORETURN 
@@ -161,6 +138,30 @@
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(leaves(fnname))
 #else
   #define GASNETI_NORETURNP(fnname)
+#endif
+
+#if GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE && !GASNET_DEBUG
+  /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
+  #define GASNETI_ALWAYS_INLINE __attribute__((__always_inline__))
+#else
+  #define GASNETI_ALWAYS_INLINE
+#endif
+
+#if defined(__cplusplus)
+  #define GASNETI_INLINE(fnname) inline GASNETI_ALWAYS_INLINE
+#elif defined(STATIC_INLINE_WORKS)
+  #define GASNETI_INLINE(fnname) static CC_INLINE_MODIFIER GASNETI_ALWAYS_INLINE
+#elif defined(CC_INLINE_MODIFIER)
+  #define GASNETI_INLINE(fnname) CC_INLINE_MODIFIER GASNETI_ALWAYS_INLINE
+#elif defined(_CRAYC)
+  /* CrayC has a really #&#$&! stupidly designed #pragma for inlining functions 
+     that requires providing the function name 
+     (the only way to request inlining a particular fn from C) */
+  #define GASNETI_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname) static 
+#elif defined(__MTA__)
+  #define GASNETI_INLINE(fnname) GASNETI_PRAGMA(mta inline) static
+#else
+  #define GASNETI_INLINE(fnname) static GASNETI_ALWAYS_INLINE
 #endif
 
 /* ------------------------------------------------------------------------------------ */

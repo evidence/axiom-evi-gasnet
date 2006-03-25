@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/03/17 06:42:44 $
-dnl $Revision: 1.93 $
+dnl     $Date: 2006/03/25 12:35:20 $
+dnl $Revision: 1.94 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1090,6 +1090,23 @@ GASNET_FUN_BEGIN([$0])
     AC_DEFINE(GASNETI_RESTRICT_MAY_QUALIFY_TYPEDEFS))
 GASNET_FUN_END([$0])
 ])
+
+dnl check whether a given gcc attribute is available
+dnl GASNET_CHECK_GCC_ATTRIBUTE(attribute-name, declaration, code)
+AC_DEFUN([GASNET_CHECK_GCC_ATTRIBUTE],[
+  GASNET_FUN_BEGIN([$0($1)])
+  pushdef([uppername],translit(patsubst([$1], [_], []),'a-z','A-Z'))
+  AC_MSG_CHECKING(for __attribute__(($1)))
+  GASNET_TRY_CCOMPILE_WITHWARN([$2], [$3], [
+      AC_MSG_RESULT(yes)
+      AC_DEFINE(GASNETI_HAVE_GCC_ATTRIBUTE_[]uppername)
+      AC_DEFINE(GASNETI_HAVE_GCC_ATTRIBUTE)
+    ],[ AC_MSG_RESULT([no/warning: $gasnet_cmd_stdout$gasnet_cmd_stderr])
+    ],[ AC_MSG_RESULT([no/error: $gasnet_cmd_stdout$gasnet_cmd_stderr]) 
+  ])
+  GASNET_FUN_END([$0($1)])
+  popdef([uppername])
+]) 
 
 dnl Output compilation error information, if available and do a AC_MSG_ERROR
 dnl should be used within the failed branch of the compile macro, otherwise
