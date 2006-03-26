@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.80 $
+ *     $Date: 2006/03/26 14:03:45 $
+ * $Revision: 1.81 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -632,21 +632,42 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
   #define GASNETI_COND_INITIALIZER    PTHREAD_COND_INITIALIZER
   #define gasneti_cond_init(pc) do {                       \
       GASNETI_MUTEX_INITCLEAR(pc);                         \
-      gasneti_assert_zeroret(pthread_cond_init(pc, NULL)); \
+      gasneti_assert_zeroret(pthread_cond_init((pc), NULL)); \
   } while (0)
   #define gasneti_cond_destroy(pc)    gasneti_assert_zeroret(pthread_cond_destroy(pc))
-  #define gasneti_cond_signal(pc)     gasneti_assert_zeroret(pthread_cond_signal(pc))
-  #define gasneti_cond_broadcast(pc)  gasneti_assert_zeroret(pthread_cond_broadcast(pc))
+
+  #if defined(__crayx1) /* bug 993 - workaround for buggy pthread library */
+    static gasneti_cond_t const gasneti_cond_staticinitialized = GASNETI_COND_INITIALIZER;
+    #define GASNETI_COND_INIT_CHECK(pc) \
+      (!memcmp(&gasneti_cond_staticinitialized,(pc),sizeof(gasneti_cond_t)) ? \
+        (void)pthread_cond_init((pc), NULL) : (void)0 )
+  #else
+    #define GASNETI_COND_INIT_CHECK(pc) ((void)0)
+  #endif
+
+  #define gasneti_cond_signal(pc) do {                 \
+      GASNETI_COND_INIT_CHECK(pc);                     \
+      gasneti_assert_zeroret(pthread_cond_signal(pc)); \
+    } while (0)
+  #define gasneti_cond_broadcast(pc) do {                 \
+      GASNETI_COND_INIT_CHECK(pc);                        \
+      gasneti_assert_zeroret(pthread_cond_broadcast(pc)); \
+    } while (0)
+
   #if GASNET_DEBUG
     #define gasneti_cond_wait(pc,pl)  do {                          \
       gasneti_assert((pl)->owner == GASNETI_THREADIDQUERY());       \
       (pl)->owner = GASNETI_MUTEX_NOOWNER;                          \
+      GASNETI_COND_INIT_CHECK(pc);                                  \
       gasneti_assert_zeroret(pthread_cond_wait(pc, &((pl)->lock))); \
       gasneti_assert((pl)->owner == GASNETI_MUTEX_NOOWNER);         \
       (pl)->owner = GASNETI_THREADIDQUERY();                        \
     } while (0)
   #else
-    #define gasneti_cond_wait(pc,pl)  gasneti_assert_zeroret(pthread_cond_wait(pc, pl))
+    #define gasneti_cond_wait(pc,pl)  do {               \
+      GASNETI_COND_INIT_CHECK(pc);                       \
+      gasneti_assert_zeroret(pthread_cond_wait(pc, pl)); \
+    } while (0)
   #endif
 #else
   typedef char           gasneti_cond_t;
