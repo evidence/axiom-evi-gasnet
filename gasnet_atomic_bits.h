@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/25 01:18:54 $
- * $Revision: 1.96 $
+ *     $Date: 2006/03/26 13:19:13 $
+ * $Revision: 1.97 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -882,7 +882,10 @@
     typedef volatile long gasneti_atomic_t;
     /* man pages for atomic ops claim gsync is required for using atomic ops,
        but it's unclear when exactly it is required for our purposes - 
-       experimentally determined using testtools that it's only required after the amo.
+       technically we shouldn't need any sync for a bare unfenced AMO, but 
+       experimentally determined using testtools that without a gsync in the vicinity
+       of the AMO call, the compiler/architecture will break the semantics of the AMO
+       with respect to the atomic location, even with only a single thread!
        Note gsync call MUST be _gsync(0x1) - the manpage docs are gratuitiously wrong, 
        everything else gives a bus error
      */
@@ -913,7 +916,7 @@
       return (result == oldval); 
     }
     #define GASNETI_HAVE_ATOMIC_CAS 1
-    /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
+    #define GASNETI_ATOMIC_FENCE_RMW	GASNETI_ATOMIC_MB_POST
   /* ------------------------------------------------------------------------------------ */
   #elif defined(_SX) /* NEC SX-6 */
     /* these are disabled for now because they don't link */

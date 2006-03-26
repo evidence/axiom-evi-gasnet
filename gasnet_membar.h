@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/03/25 00:31:58 $
- * $Revision: 1.88 $
+ *     $Date: 2006/03/26 13:19:13 $
+ * $Revision: 1.89 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -317,23 +317,36 @@
   }
   #define gasneti_compiler_fence _gasneti_compiler_fence
   #pragma _CRI suppress _gasneti_compiler_fence
-  #ifdef GASNET_X1_SHMEM_MB 
-    /* using shmem for memory barriers seems effective, but the performance
-       and usability impact is unclear */
+  /* bug1195: Many memory barrier intrinsics on the X1, but none seem to actually
+   * deliver what we need in a local (scalar-scalar) membar. Not even gsync is sufficient.
+   * shmem_quiet and pthread_mutex_lock/unlock are both sufficient, but shmem_quiet is cheaper.
+   */
+  #if 1
     #include <mpp/shmem.h>
-    GASNETI_INLINE(gasneti_local_wmb)
-    void gasneti_local_wmb(void) {
-      shmem_quiet(); /* bug 1195: this is the only option that appears to be effective */
-    }
-    #define gasneti_local_rmb gasneti_local_wmb
-    #define gasneti_local_mb  gasneti_local_wmb
+    #define gasneti_local_mb() shmem_quiet()
+    #define gasneti_local_rmb  gasneti_local_mb
+    #define gasneti_local_wmb  gasneti_local_mb
     #define GASNETI_RMB_IS_MB
     #define GASNETI_WMB_IS_MB
-  #else
-    /* Many memory barrier intrinsics on the X1, but none seem to actually
-     * deliver what we need in a local (scalar-scalar) membar */
-     #define gasneti_local_wmb gasneti_compiler_fence
-     #define GASNETI_WMB_IS_EMPTY
+  #elif 1
+    #include <pthread.h>
+    GASNETI_INLINE(gasneti_local_wmb)
+    void gasneti_local_mb(void) {
+     #if 1
+      pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+      pthread_mutex_lock(&m);
+      pthread_mutex_unlock(&m);
+     #else
+      pthread_testcancel(); /* also seems to work */
+     #endif
+    }
+    #define gasneti_local_rmb gasneti_local_mb
+    #define gasneti_local_wmb gasneti_local_mb
+    #define GASNETI_RMB_IS_MB
+    #define GASNETI_WMB_IS_MB
+  #else /* NOT safe */
+    #define gasneti_local_wmb gasneti_compiler_fence
+    #define GASNETI_WMB_IS_EMPTY
   #endif
 #elif defined(__MTA__)
    #if 0 /* causes warnings */
