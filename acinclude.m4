@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/03/25 20:50:49 $
-dnl $Revision: 1.95 $
+dnl     $Date: 2006/03/26 03:04:06 $
+dnl $Revision: 1.96 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1280,6 +1280,15 @@ AC_DEFUN([GASNET_PROG_CPP], [
     #endif
   ], [], [GASNET_MSG_ERROR([Your C preprocessor is broken, it erroneously defines __cplusplus. This software requires a true, working ANSI C compiler - a C++ compiler is not an acceptable replacement.])])
   AC_MSG_RESULT(yes$gasnet_progcpp_extrainfo)
+  if test "$CPP" = "/lib/cpp" ; then
+    badlibcppmsg="Autoconf detected your preprocessor to be '/lib/cpp' instead of '$CC -E'. This is almost always a mistake, resulting from either a broken C compiler or an outdated version of autoconf. Proceeding is very likely to result in incorrect configure decisions."
+    GASNET_IF_ENABLED(allow-libcpp, Allow the use of /lib/cpp for preprocessing, [
+      AC_MSG_WARN([$badlibcppmsg])
+    ],[
+      AC_MSG_ERROR([$badlibcppmsg \
+        You may enable use of this preprocessor at your own risk by passing the --enable-allow-libcpp flag.])
+    ])
+  fi
   AC_LANG_RESTORE
   GASNET_FUN_END([$0])
 ])
