@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2006/03/21 06:08:35 $
- * $Revision: 1.30 $
+ *     $Date: 2006/03/26 03:45:35 $
+ * $Revision: 1.31 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -97,7 +97,7 @@
 #endif
 #ifndef AMMPI_DEFAULT_SYNCSEND_THRESH  
   /* size threshhold above which to use synchronous non-blocking MPI send's */
-  #if defined(__LIBCATAMOUNT__)
+  #if defined(__LIBCATAMOUNT__) && 0
     #define AMMPI_DEFAULT_SYNCSEND_THRESH 1024 /* workaround for lacking MPI-level flow-control */
   #else
     #define AMMPI_DEFAULT_SYNCSEND_THRESH -1 /* -1 == never use sync sends */
@@ -434,6 +434,22 @@ static int ErrMessage(const char *msg, ...) {
   #define AMMPI_HERE() ((void)0)
 #endif
 
+#if AMMPI_DEBUG
+  #define AMMPI_BACKPRESSURE_WARNING(msg) do {                    \
+      static uint64_t repeatcnt = 0;                              \
+      static uint64_t reportmask = 0xFF;                          \
+      repeatcnt++;                                                \
+      if (AMMPI_DEBUG_VERBOSE || (repeatcnt & reportmask) == 0) { \
+        reportmask = (reportmask << 1) | 0x1;                     \
+        fprintf(stderr, "*** AMMPI WARNING: %s. polling..."       \
+          "(has happened %llu times)\n", msg,                     \
+          (unsigned long long)repeatcnt); fflush(stderr);         \
+      }                                                           \
+    } while (0)
+#else
+  #define AMMPI_BACKPRESSURE_WARNING(msg) ((void)0)
+#endif
+
 extern int AMMPI_enEqual(en_t en1, en_t en2);
 extern int64_t AMMPI_getMicrosecondTimeStamp();
 /* ------------------------------------------------------------------------------------ */
@@ -510,11 +526,7 @@ typedef void (*AMMPI_HandlerLong)(void *token, void *buf, int nbytes, ...);
 typedef void (*AMMPI_HandlerReturned)(int status, op_t opcode, void *token);
 
 
-/* system message type field:
- *  low  4 bits are actual type
- *  high 4 bits are bulk transfer slot (all zero for non-bulk messages)
- * slot is only used if bulk xfer is spanned - more than one packet (arg > 0)
- */
+/* system message type field */
 
 typedef enum {
   ammpi_system_user=0,      /*  not a system message */

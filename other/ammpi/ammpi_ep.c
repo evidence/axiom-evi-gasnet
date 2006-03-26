@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/03/21 02:49:00 $
- * $Revision: 1.32 $
+ *     $Date: 2006/03/26 03:45:35 $
+ * $Revision: 1.33 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -383,21 +383,6 @@ extern int AMMPI_ReleaseSendBuffers(ep_t ep) {
   return retval;
 }
 /* ------------------------------------------------------------------------------------ */
-#if AMMPI_DEBUG
-  #define AMMPI_BACKPRESSURE_WARNING(reqrep) do {                               \
-      static int repeatcnt = 0;                                                 \
-      static unsigned int reportmask = 0xFF;                                    \
-      repeatcnt++;                                                              \
-      if (AMMPI_DEBUG_VERBOSE || (repeatcnt & reportmask) == 0) {               \
-        reportmask = (reportmask << 1) | 0x1;                                   \
-        fprintf(stderr, "*** AMMPI WARNING: Out of %s send buffers. polling..." \
-          "(has happenned %i times)\n", #reqrep, repeatcnt); fflush(stderr);    \
-      }                                                                         \
-    } while (0)
-#else
-  #define AMMPI_BACKPRESSURE_WARNING(reqrep) ((void)0)
-#endif
-/* ------------------------------------------------------------------------------------ */
 /* acquire a buffer of at least the given size numBytes associated with ep, 
  * to be used in a subsequent non-blocking MPI send operation
  * return a pointer to the buffer and the location that should be used to store the MPI
@@ -484,13 +469,13 @@ extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest,
   /* nothing immediately available */
   if (isrequest) { /* poll until something available */
     int retval;
-    AMMPI_BACKPRESSURE_WARNING(request);
+    AMMPI_BACKPRESSURE_WARNING("Out of request send buffers");
     retval = AMMPI_ServiceIncomingMessages(ep, FALSE, FALSE); /* NOTE this may actually cause reentrancy to this fn on reply pool */
     if_pf (retval != AM_OK) AMMPI_RETURN(retval);
   } else { 
    #if 1 /* poll the reply network only */
     int retval;
-    AMMPI_BACKPRESSURE_WARNING(reply);
+    AMMPI_BACKPRESSURE_WARNING("Out of reply send buffers");
     retval = AMMPI_ServiceIncomingMessages(ep, FALSE, TRUE); 
     if_pf (retval != AM_OK) AMMPI_RETURN(retval);
    #else /* old code to grow the reply pool instead of polling -- can lead to unbounded buffer growth */
@@ -910,9 +895,11 @@ extern int AMMPI_SetTranslationTag(ep_t ea, int index, tag_t tag) {
 
   ea->translation[index].tag = tag;
 
-  if (ea->depth != -1) { /* after call to AM_SetExpectedResources we must update compressed table */
-    ea->perProcInfo[ea->translation[index].id].tag = tag;
+  #if AMMPI_USE_AMTAGS
+    if (ea->depth != -1) { /* after call to AM_SetExpectedResources we must update compressed table */
+      ea->perProcInfo[ea->translation[index].id].tag = tag;
     }
+  #endif
 
   return AM_OK;
   }
@@ -938,6 +925,19 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
 
   ea->depth = n_outstanding_requests;
 
+  #if AMMPI_FLOW_CONTROL
+    ea->tokens_perhost = 2*ea->depth;
+    { const char *t_str = getenv("AMMPI_CREDITS_PP");
+      if (t_str) ea->tokens_perhost = atoi(t_str);
+      if (ea->tokens_perhost < 1) ea->tokens_perhost = 1;
+    }
+    ea->tokens_slack = ea->tokens_perhost * 0.75;
+    { const char *t_str = getenv("AMMPI_CREDITS_SLACK");
+      if (t_str) ea->tokens_slack = atoi(t_str);
+    }
+    ea->tokens_slack = MIN(ea->tokens_slack,ea->tokens_perhost-1);
+  #endif
+
   if (!AMMPI_AllocateEndpointBuffers(ea)) retval = AM_ERR_RESOURCE;
 
   /*  compact a copy of the translation table into our perproc info array */
@@ -946,7 +946,13 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
     for (i=0; i < ea->translationsz; i++) {
       if (ea->translation[i].inuse) {
         ea->perProcInfo[procid].remoteName = ea->translation[i].name;
-        ea->perProcInfo[procid].tag = ea->translation[i].tag;
+        #if AMMPI_USE_AMTAGS
+          ea->perProcInfo[procid].tag = ea->translation[i].tag;
+        #endif
+        #if AMMPI_FLOW_CONTROL
+          ea->perProcInfo[procid].tokens_in = 0;
+          ea->perProcInfo[procid].tokens_out = ea->tokens_perhost;
+        #endif
         ea->translation[i].id = procid;
         procid++;
         if (procid == ea->totalP) break; /*  should have all of them now */

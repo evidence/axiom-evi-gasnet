@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2006/03/21 06:08:35 $
- * $Revision: 1.28 $
+ *     $Date: 2006/03/26 03:45:35 $
+ * $Revision: 1.29 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -158,6 +158,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
 /* accessors for packet args, data and length
  * the only complication here is we want data to be double-word aligned, so we may add
  * an extra unused 4-byte argument to make sure the data lands on a double-word boundary
+ * TODO: remove padding arg for shorts and longs, where it's irrelevant
  */
 #define HEADER_EVEN_WORDLENGTH  (((int)(uintptr_t)((&((ammpi_buf_t *)NULL)->_Data)-1))%8==0?1:0)
 #define ACTUAL_NUM_ARGS(pMsg) (AMMPI_MSG_NUMARGS(pMsg)%2==0?       \
@@ -342,6 +343,11 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
     switch (type) {
       case ammpi_system_autoreply:
         /*  do nothing, already taken care of */
+        #if AMMPI_FLOW_CONTROL
+          AMMPI_assert(!isloopback);
+          ep->perProcInfo[sourceId].tokens_out += msg->systemMessageArg; /* returned tokens */
+          AMMPI_assert(ep->perProcInfo[sourceId].tokens_out <= ep->tokens_perhost);
+        #endif
         break;
       case ammpi_system_controlmessage:
         /*  run a control handler */
@@ -356,6 +362,15 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
         abort();
     }
   } else { /* a user message */
+    #if AMMPI_FLOW_CONTROL
+      if (!isloopback) {
+        if (isrequest) ep->perProcInfo[sourceId].tokens_in++; /* coalesce tokens */
+        AMMPI_assert(ep->perProcInfo[sourceId].tokens_in <= ep->tokens_perhost);
+        ep->perProcInfo[sourceId].tokens_out += msg->systemMessageArg; /* returned tokens */
+        AMMPI_assert(ep->perProcInfo[sourceId].tokens_out <= ep->tokens_perhost);
+      }
+    #endif
+
     switch (cat) {
       case ammpi_Short: 
         if (ep->preHandlerCallback) 
@@ -393,12 +408,13 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
   }
   status->handlerRunning = FALSE;
 
-  #if AMMPI_COLLECT_LATENCY_STATS
-    if (isrequest && !status->replyIssued) { /* auto-reply is only required for latency collection */
+  #if AMMPI_FLOW_CONTROL || AMMPI_COLLECT_LATENCY_STATS
+    if (isrequest && !status->replyIssued &&
+        ep->perProcInfo[sourceId].tokens_in > ep->tokens_slack) { 
       va_list va_dummy; va_list *p_dummy = &va_dummy; /* dummy value */
       /*  user didn't reply, so issue an auto-reply */
-      if_pf (AMMPI_ReplyGeneric(ammpi_Short, buf, 0, 0, 0, 0, 0, va_dummy, ammpi_system_autoreply, 0) 
-          != AM_OK) /*  should never happen - don't return here to prevent leaking buffer */
+      if_pf (AMMPI_ReplyGeneric(ammpi_Short, buf, 0, 0, 0, 0, 0, va_dummy, 
+                                ammpi_system_autoreply, 0) != AM_OK) /*  should never happen */
         ErrMessage("Failed to issue auto reply in AMMPI_ServiceIncomingMessages");
     }
   #endif
@@ -683,20 +699,33 @@ static int AMMPI_RequestGeneric(ammpi_category_t category,
 
   {
   MPI_Request *mpihandle = NULL;
-  #if AMMPI_NONBLOCKING_SENDS
-    if (isloopback) {
-     outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
-   } else {
+  if (isloopback) {
+    outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
+  } else {
+    #if AMMPI_NONBLOCKING_SENDS
       /*  acquire a free request buffer */
       int retval;
       predictedsz = PREDICT_PACKET_LENGTH(numargs, nbytes);
       retval = AMMPI_AcquireSendBuffer(request_endpoint, predictedsz, TRUE, &outgoingbuf, &mpihandle);
       if_pf (retval != AM_OK) AMMPI_RETURN(retval);
       AMMPI_assert(outgoingbuf && mpihandle && *mpihandle == MPI_REQUEST_NULL);
+    #else
+      outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
+    #endif
+    #if AMMPI_FLOW_CONTROL
+    { int remoteid = request_endpoint->translation[reply_endpoint].id;
+      AMMPI_assert(systemType == ammpi_system_user);
+      AMMPI_assert(systemArg == 0);
+      while (request_endpoint->perProcInfo[remoteid].tokens_out == 0) { /* back pressure */
+        AMMPI_BACKPRESSURE_WARNING("Out of request send credits");
+        AM_Poll(request_endpoint->eb);
+      }
+      request_endpoint->perProcInfo[remoteid].tokens_out--;
+      systemArg = MIN(255,request_endpoint->perProcInfo[remoteid].tokens_in); /* return tokens */
+      request_endpoint->perProcInfo[remoteid].tokens_in -= systemArg;
     }
-  #else
-    outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
-  #endif
+    #endif
+  }
 
   /*  setup message meta-data */
   { ammpi_msg_t *msg = &outgoingbuf->Msg;
@@ -780,20 +809,27 @@ static int AMMPI_ReplyGeneric(ammpi_category_t category,
 
   {
   MPI_Request *mpihandle = NULL;
-  #if AMMPI_NONBLOCKING_SENDS
-    if (isloopback) {
-     outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
-   } else {
+  if (isloopback) {
+    outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
+  } else {
+    #if AMMPI_NONBLOCKING_SENDS
       /*  acquire a free reply buffer */
       int retval;
       predictedsz = PREDICT_PACKET_LENGTH(numargs, nbytes);
       retval = AMMPI_AcquireSendBuffer(ep, predictedsz, FALSE, &outgoingbuf, &mpihandle);
       if_pf (retval != AM_OK) AMMPI_RETURN(retval);
       AMMPI_assert(outgoingbuf && mpihandle && *mpihandle == MPI_REQUEST_NULL);
-   }
-  #else
-    outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
-  #endif
+    #else
+      outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
+    #endif
+    #if AMMPI_FLOW_CONTROL
+      if (systemType == ammpi_system_user || systemType == ammpi_system_autoreply) {
+        AMMPI_assert(systemArg == 0);
+        systemArg = MIN(255,ep->perProcInfo[destP].tokens_in);
+        ep->perProcInfo[destP].tokens_in -= systemArg;
+      }
+    #endif
+  }
 
   /*  setup message meta-data */
   { ammpi_msg_t *msg = &outgoingbuf->Msg;

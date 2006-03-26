@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2006/03/21 02:49:00 $
- * $Revision: 1.33 $
+ *     $Date: 2006/03/26 03:45:35 $
+ * $Revision: 1.34 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -67,6 +67,8 @@ typedef uint32_t ammpi_node_t;
 /* alignment to use for buffers - optimized for cache lines (min is 8) */
 #define AMMPI_BUF_ALIGN 128 
 
+#define AMMPI_FLOW_CONTROL 1
+
 #define AMMPI_COLLECT_LATENCY_STATS   0 /* not yet implemented */
 /* ------------------------------------------------------------------------------------ */
 /* Simple user-visible types */
@@ -126,8 +128,8 @@ typedef struct {
   uint8_t       systemMessageArg;
   handler_t     handlerId;
 
-  uint16_t      nBytes;
-  uintptr_t	destOffset;
+  uint16_t      nBytes;     /* TODO: remove for short */
+  uintptr_t	destOffset; /* TODO: remove for short/med */
 
   } ammpi_msg_t;
 
@@ -198,8 +200,14 @@ typedef struct {
   } ammpi_translation_t;
 
 typedef struct { /* gives us a compacted version of the translation table */
-  tag_t     tag;
   en_t      remoteName;  
+  #if AMMPI_USE_AMTAGS
+    tag_t     tag;
+  #endif
+  #if AMMPI_FLOW_CONTROL
+    uint32_t  tokens_out; /* remaining tokens for sends to this host */
+    uint32_t  tokens_in;  /* coalesced tokens recieved from this host */
+  #endif
   } ammpi_perproc_info_t;
 
 typedef void (*AMMPI_preHandlerCallback_t)(ammpi_category_t cat, int isReq, int handlerId, void *token, 
@@ -262,6 +270,11 @@ typedef struct ammpi_ep {
 
   ammpi_node_t totalP; /* the number of endpoints we communicate with - also number of translations currently in use */
   int depth;           /* network depth, -1 until AM_SetExpectedResources is called */
+
+  #if AMMPI_FLOW_CONTROL
+    uint32_t tokens_perhost;
+    uint32_t tokens_slack;
+  #endif
 
   ammpi_perproc_info_t *perProcInfo; 
 
