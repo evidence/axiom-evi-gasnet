@@ -199,8 +199,10 @@ tests-clean:
 
 check-run-tests-deps: force
 	@if test "$(SUBDIRS)" != "" ; then 	\
-	   for dir in ""$(SUBDIRS) ; do 	\
+	   for dir in "$(SUBDIRS)" ; do 	\
+	     if test "$$dir" != "."; then       \
 	   	( cd "$$dir" && $(MAKE) ) || exit $$?;	\
+             fi ;                               \
 	   done ;				\
 	 fi
 
