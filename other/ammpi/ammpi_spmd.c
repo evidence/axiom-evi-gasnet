@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2006/03/21 02:49:00 $
- * $Revision: 1.28 $
+ *     $Date: 2006/03/26 06:31:00 $
+ * $Revision: 1.29 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -69,7 +69,6 @@ static int AMMPI_SPMDStartupCalled = 0;
 static int AMMPI_SPMDNUMPROCS = -1;
 static int AMMPI_SPMDMYPROC = -1;
 static MPI_Comm AMMPI_SPMDMPIComm;
-
 
 /* ------------------------------------------------------------------------------------ 
  *  misc helpers

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/03/26 03:45:35 $
- * $Revision: 1.33 $
+ *     $Date: 2006/03/26 06:31:00 $
+ * $Revision: 1.34 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -80,9 +80,9 @@ static void AMMPI_RemoveEndpoint(eb_t eb, ep_t ep) {
  * Endpoint resource management
  *------------------------------------------------------------------------------------ */
 static MPI_Comm currentComm = MPI_COMM_WORLD;
-extern int AMMPI_SetEndpointCommunicator(MPI_Comm *comm) {
-  AMMPI_assert(comm);
-  currentComm = *comm;
+extern int AMMPI_SetEndpointCommunicator(void *ptr_to_MPI_Comm) {
+  AMMPI_assert(ptr_to_MPI_Comm);
+  currentComm = *(MPI_Comm*)ptr_to_MPI_Comm;
   return AM_OK;
 }
 /*------------------------------------------------------------------------------------*/
