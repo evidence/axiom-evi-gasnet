@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/02/28 23:51:42 $
- * $Revision: 1.11 $
+ *     $Date: 2006/03/27 12:15:09 $
+ * $Revision: 1.12 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,6 +177,7 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, gasnet_seginfo_t
 
 static void malloc_test(int id) { 
   int i, cnt = 0;
+  int maxobjs;
   void **ptrs;
   gasneti_heapstats_t stats_before, stats_after;
   for (i=0; i < 100; i++) { /* try to trigger any warm-up allocations potentially caused by barrier */
@@ -197,12 +198,13 @@ static void malloc_test(int id) {
   gasneti_free(NULL);
 
   PTHREAD_BARRIER(num_threads);
-
-  ptrs = gasneti_calloc(iters,sizeof(void*));
-  for (i = 0; i < iters; i++) assert_always(ptrs[i] == NULL);
+  
+  maxobjs = MIN(iters,10000/num_threads);
+  ptrs = gasneti_calloc(maxobjs,sizeof(void*));
+  for (i = 0; i < maxobjs; i++) assert_always(ptrs[i] == NULL);
   for (i = 0; i < iters2/num_threads; i++) {
     gasneti_memcheck_one();
-    if (cnt == iters || (cnt > 0 && TEST_RAND_ONEIN(2))) {
+    if (cnt == maxobjs || (cnt > 0 && TEST_RAND_ONEIN(2))) {
       size_t idx = TEST_RAND(0,cnt-1);
       assert_always(ptrs[idx]);
       gasneti_memcheck(ptrs[idx]);
