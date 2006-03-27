@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/03/25 12:35:23 $
- * $Revision: 1.39 $
+ *     $Date: 2006/03/27 22:42:26 $
+ * $Revision: 1.40 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,6 +25,7 @@
   gasnett_atomic_t thread_flag[MAX_NUM_THREADS];
   int valX[MAX_NUM_THREADS];
   int valY[MAX_NUM_THREADS];
+  gasnett_atomic_t atomicX[MAX_NUM_THREADS];
 #endif
 
 #define DEFAULT_THREADS 10
@@ -464,7 +465,50 @@ void * thread_fn(void *arg) {
       if (woncnt != iters) 
         ERR("failed compare-and-swap test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
     }
+
+    TEST_HEADER("parallel spinlock test...") {
+      static gasnett_atomic_t the_lock = gasnett_atomic_init(0xf00d);
+      static uint32_t acquired = 0;
+      uint32_t goal = (NUM_THREADS * iters);
+      uint32_t woncnt = 0;
+      uint32_t oldval;
+      while (woncnt < iters && acquired != goal) {
+        /* Lock */
+	while (!gasnett_atomic_compare_and_swap(&the_lock, 0xf00d, 0xcafe, GASNETT_ATOMIC_ACQ_IF_TRUE)) {
+	  gasnett_sched_yield();
+	}
+	/* Critical section */
+	woncnt += 1;
+	acquired += 1;
+        /* Unlock */
+	gasnett_atomic_set(&the_lock, 0xf00d, GASNETT_ATOMIC_REL);
+      }
+      THREAD_BARRIER();
+      if (acquired != goal)
+        ERR("failed spinlock test: counter=%i expecting=%i", (int)acquired, (int)goal);
+      if (woncnt != iters) 
+        ERR("failed spinlock test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
+    }
   #endif
+
+  TEST_HEADER("parallel fenced set/read pounding test...") {
+    gasnett_atomic_set(&atomicX[id], 0, 0);
+    valY[id] = 0;
+
+    THREAD_BARRIER();
+
+    { int partner = (id + 1) % NUM_THREADS;
+      int lx, ly;
+      for (i=0;i<iters2;i++) {
+        gasnett_atomic_set(&atomicX[id], i, GASNETT_ATOMIC_WMB_POST);
+        valY[id] = i;
+
+        ly = valY[partner];
+        lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
+        if (lx < ly) ERR("pounding fenced set/read mismatch: lx=%i ly=%i", lx, ly);
+      }
+    }
+  }
 
   THREAD_BARRIER();
 
