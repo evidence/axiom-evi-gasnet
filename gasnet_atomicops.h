@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/27 11:51:59 $
- * $Revision: 1.100 $
+ *     $Date: 2006/03/27 20:53:31 $
+ * $Revision: 1.101 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -615,7 +615,7 @@
 		    "2:	", p, oldval, newval);  /* Returns value from %v0 */
        }
        #define GASNETI_HAVE_ATOMIC_CAS 1
-       /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
+       /* Both the instrisics and our asm lack built-in fences.  So, using default fences */
     #else
       #error unrecognized Alpha compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
