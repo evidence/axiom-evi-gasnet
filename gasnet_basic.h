@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/25 12:35:20 $
- * $Revision: 1.53 $
+ *     $Date: 2006/03/27 08:51:46 $
+ * $Revision: 1.54 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -218,8 +218,12 @@
 /* if with branch prediction */
 #ifndef if_pf
 #ifdef __MTA__
-  #define if_pf(cond) _Pragma("mta expect false") if (cond)
-  #define if_pt(cond) _Pragma("mta expect true")  if (cond)
+  /* MTA's pragma mechanism is buggy, so allow it to be selectively disabled */
+  #define GASNETT_MTA_PRAGMA_EXPECT_ENABLED(x) _Pragma(x)
+  #define GASNETT_MTA_PRAGMA_EXPECT_DISABLED(x) 
+  #define GASNETT_MTA_PRAGMA_EXPECT_OVERRIDE GASNETT_MTA_PRAGMA_EXPECT_ENABLED
+  #define if_pf(cond) GASNETT_MTA_PRAGMA_EXPECT_OVERRIDE("mta expect false") if (cond)
+  #define if_pt(cond) GASNETT_MTA_PRAGMA_EXPECT_OVERRIDE("mta expect true")  if (cond)
 #else
   #define if_pf(cond) if (PREDICT_FALSE(cond))
   #define if_pt(cond) if (PREDICT_TRUE(cond))
