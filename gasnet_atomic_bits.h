@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/27 20:53:31 $
- * $Revision: 1.101 $
+ *     $Date: 2006/03/27 21:09:23 $
+ * $Revision: 1.102 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -465,7 +465,7 @@
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
                     (_InterlockedCompareExchange((volatile int *)&((p)->ctr),nval,oval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
-      /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
+      /* Compiler intrinsics contain no 'mf'.  So, using default fences. */
     #elif defined(__GNUC__)
       GASNETI_INLINE(gasneti_cmpxchg)
       int32_t gasneti_cmpxchg(int32_t volatile *ptr, int32_t oldval, int32_t newval) {                                                                                      \
