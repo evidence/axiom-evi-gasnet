@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/27 06:34:34 $
- * $Revision: 1.98 $
+ *     $Date: 2006/03/27 11:12:37 $
+ * $Revision: 1.99 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -273,6 +273,7 @@
       /* No syncs in these calls, so use default fences */
   #elif defined(IRIX)
       #include <mutex.h>
+      #include <ulocks.h>
       typedef __uint32_t gasneti_atomic_t;
       #define _gasneti_atomic_increment(p) (test_then_add32((p),1))
       #define _gasneti_atomic_decrement(p) (test_then_add32((p),(uint32_t)-1))
@@ -281,9 +282,20 @@
       #define _gasneti_atomic_init(v)      (v)
       #define _gasneti_atomic_decrement_and_test(p) \
                                           (add_then_test32((p),(uint32_t)-1) == 0) 
+      usptr_t * volatile _gasneti_usmem_ptr;
+      gasneti_atomic_t _gasneti_usmem_ptr_init;
       GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
       int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, int oldval, int newval) {
-        return __compare_and_swap( p, oldval, newval );
+        #if defined(MIPSPRO_COMPILER)
+          return __compare_and_swap( p, oldval, newval ); /* bug1534: compiler built-in */
+        #else
+          if_pf (!_gasneti_usmem_ptr) { /* need exactly one call to usinit on first invocation */
+            if (test_and_set32(&_gasneti_usmem_ptr_init,1) == 0) {
+              _gasneti_usmem_ptr = usinit("/dev/zero");
+            } else while (!_gasneti_usmem_ptr);
+          }
+          return uscas32( p, oldval, newval, _gasneti_usmem_ptr ); /* from libc */
+        #endif
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
       /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/03/27 06:34:34 $
- * $Revision: 1.90 $
+ *     $Date: 2006/03/27 11:12:37 $
+ * $Revision: 1.91 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -128,19 +128,25 @@
   #endif
 #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
   #if defined(MIPSPRO_COMPILER)
-    GASNETI_INLINE(_gasneti_compiler_fence)
-    void _gasneti_compiler_fence(void) {
-      volatile int x; x = 1;
-    }
-    #define gasneti_compiler_fence() _gasneti_compiler_fence()
+    /* bug1534: issue a full architectural sync for the compiler fence - 
+       this is overkill, but the compiler seems to lack any stand-alone optimization
+       barrier, and the other synchronizing intrinsics (atomics) are even more expensive */
+    #define gasneti_compiler_fence() __synchronize()
     #define gasneti_local_wmb() __synchronize()
+    #define gasneti_local_rmb() __synchronize()
     #define gasneti_local_mb()  __synchronize()
     #define GASNETI_WMB_IS_MB
+    #define GASNETI_RMB_IS_MB
   #else
-    GASNETI_INLINE(gasneti_local_wmb)
-    void gasneti_local_wmb(void) {
+    GASNETI_INLINE(_gasneti_local_mb)
+    void _gasneti_local_mb(void) {
       GASNETI_ASM("sync");  /* MIPS II+ memory barrier */ 
     }
+    #define gasneti_local_mb()  _gasneti_local_mb()
+    #define gasneti_local_wmb() _gasneti_local_mb()
+    #define gasneti_local_rmb() _gasneti_local_mb()
+    #define GASNETI_WMB_IS_MB
+    #define GASNETI_RMB_IS_MB
   #endif
 #elif defined(_PA_RISC1_1) || defined(__hppa) /* HP PA-RISC */
    GASNETI_INLINE(gasneti_local_wmb)
