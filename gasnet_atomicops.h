@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/26 13:19:13 $
- * $Revision: 1.97 $
+ *     $Date: 2006/03/27 06:34:34 $
+ * $Revision: 1.98 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -292,8 +292,8 @@
       typedef int64_t gasneti_atomic_t;
       #define _gasneti_atomic_increment(p) (int_fetch_add((p),1))
       #define _gasneti_atomic_decrement(p) (int_fetch_add((p),-1))
-      #define _gasneti_atomic_read(p)      (*(volatile int64_t)(p))
-      #define _gasneti_atomic_set(p,v)     (*(volatile int64_t)(p) = (v))
+      #define _gasneti_atomic_read(p)      ((int64_t)*(volatile int64_t*)(p))
+      #define _gasneti_atomic_set(p,v)     ((*(volatile int64_t*)(p)) = (v))
       #define _gasneti_atomic_init(v)      (v)
       #define _gasneti_atomic_decrement_and_test(p) \
                                           (int_fetch_add((p),-1) == 1) 

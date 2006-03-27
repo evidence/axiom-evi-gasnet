@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/03/26 13:19:13 $
- * $Revision: 1.89 $
+ *     $Date: 2006/03/27 06:34:34 $
+ * $Revision: 1.90 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -361,9 +361,9 @@
      #define gasneti_compiler_fence() _gasneti_compiler_fence()
    #endif
    /* MTA has no caches or write buffers - just need a compiler reordering fence */
-   #define gasnet_local_wmb() gasneti_compiler_fence()
-   #define gasnet_local_rmb() gasneti_compiler_fence()
-   #define gasnet_local_mb()  gasneti_compiler_fence()
+   #define gasneti_local_wmb() gasneti_compiler_fence()
+   #define gasneti_local_rmb() gasneti_compiler_fence()
+   #define gasneti_local_mb()  gasneti_compiler_fence()
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
    #define GASNETI_RMB_IS_EMPTY
