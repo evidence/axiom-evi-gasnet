@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/03/27 22:42:26 $
- * $Revision: 1.40 $
+ *     $Date: 2006/03/27 23:16:40 $
+ * $Revision: 1.41 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -236,6 +236,18 @@ int main(int argc, char **argv) {
           ERR("gasnett_atomic_compare_and_swap failed at i=%i when it should have succeeded", i);
         if (gasnett_atomic_read(&var,0) != i+1)
           ERR("gasnett_atomic_compare_and_swap set wrong updated value at i=%i", i);
+      }
+    #endif
+
+    #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
+      gasnett_atomic_set(&var, 1, 0);
+      for (i=1;i<=iters;i++) {
+        gasnett_atomic_add(&var, i, 0);
+        if (gasnett_atomic_read(&var,0) != 2*i)
+          ERR("gasnett_atomic_add got wrong value");
+        gasnett_atomic_subtract(&var, i-1, 0);
+        if (gasnett_atomic_read(&var,0) != i+1)
+          ERR("gasnett_atomic_subtract got wrong value");
       }
     #endif
   }
@@ -509,6 +521,32 @@ void * thread_fn(void *arg) {
       }
     }
   }
+
+  #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
+    TEST_HEADER("parallel add/sub pounding test...") {
+      int val;
+      gasnett_atomic_set(&x1, 5, 0);
+      gasnett_atomic_set(&x2, 5+iters2*NUM_THREADS, 0);
+  
+      THREAD_BARRIER();
+  
+      for (i=0;i<iters2;i++) {
+	val = (i & 1) << 1; /* Alternate 0 and 2. (iters2=100*iters is always even) */
+        gasnett_atomic_add(&x1,val,0);
+        gasnett_atomic_subtract(&x2,val,0);
+      }
+  
+      THREAD_BARRIER();
+  
+      val = gasnett_atomic_read(&x1,0);
+      if (val != 5+iters2*NUM_THREADS)
+        ERR("pounding add test mismatch: %i != %i",val,5+iters2*NUM_THREADS);
+  
+      val = gasnett_atomic_read(&x2,0);
+      if (val != 5)
+        ERR("pounding subtract test mismatch: %i != 5",val);
+    }
+  #endif
 
   THREAD_BARRIER();
 

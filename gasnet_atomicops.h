@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/27 21:09:23 $
- * $Revision: 1.102 $
+ *     $Date: 2006/03/27 23:16:38 $
+ * $Revision: 1.103 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -31,24 +31,37 @@
     gasneti_atomic_decrement_and_test(p,f) 
       atomically decrement *p, return non-zero iff the new value is 0
 
-   Semi-portable atomic compare and swap:
-   -------------------------------------
-   This useful operation is not available on all platforms
-   On platforms where it is implemented
+   Semi-portable atomic operations
+   --------------------------------
+   These useful operations are available on most, but not all, platforms.
 
+   + addition and subtraction
+     gasneti_atomic_add(p, op, flags)
+     gasneti_atomic_subtract(p, op, flags)
+
+     These implement atomic addition and subtraction, where op must be non-negative.
+     The result is platform dependent if the value of op is negative or out of the
+     range of gasneti_atomic_t, or if the resulting value is out of range.
+
+    GASNETI_HAVE_ATOMIC_ADD_SUB will be defined to 1 when these operations are available.
+    They are always either both available, or neither is available.
+
+   + compare and swap
      gasneti_atomic_compare_and_swap(p, oldval, newval, flags)
 
-   is the atomic equivalent of:
+     This operation is the atomic equivalent of:
 
-    if (*p == oldval) {
-      *p = newval;
-      return NONZERO;
-    } else {
-      return 0;
-    }
+      if (*p == oldval) {
+        *p = newval;
+        return NONZERO;
+      } else {
+        return 0;
+      }
 
-   GASNETI_HAVE_ATOMIC_CAS will be defined to 1 on platforms supporting this operation.
+     GASNETI_HAVE_ATOMIC_CAS will be defined to 1 when this operation is available
 
+   Memory fence properties of atomic operations
+   --------------------------------------------
 
    NOTE: Atomic operations have no default memory fence properties, as this
    varies by platform.  Every atomic operation except _init() includes a final
@@ -1070,6 +1083,26 @@
   #endif
 #endif
 
+#if defined(GASNETI_HAVE_ATOMIC_CAS) && !defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
+  /* Default add and subtract atomics in terms of CAS */
+  #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
+  GASNETI_INLINE(_gasneti_atomic_add)
+  void _gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op) {
+    uint32_t _tmp;
+    do {
+      _tmp = _gasneti_atomic_read(p);
+    } while (!_gasneti_atomic_compare_and_swap(p, _tmp, _tmp + op));
+  }
+  GASNETI_INLINE(_gasneti_atomic_subtract)
+  void _gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op) {
+    uint32_t _tmp;
+    do {
+      _tmp = _gasneti_atomic_read(p);
+    } while (!_gasneti_atomic_compare_and_swap(p, _tmp, _tmp - op));
+  }
+#endif
+
+
 #if defined(GASNETI_USE_GENERIC_ATOMICOPS)
   #define GASNETI_ATOMIC_CONFIG   atomics_mutex
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
@@ -1455,6 +1488,24 @@
     }
   }
 #endif
+#if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
+  #ifndef gasneti_atomic_add
+    #define gasneti_atomic_add(p,op,f) do {                    \
+      const int __flags = (f);                                 \
+      _gasneti_atomic_fence_before_rmw(__flags)  /* no semi */ \
+      _gasneti_atomic_add(p,op);                               \
+      _gasneti_atomic_fence_after_rmw(__flags)  /* no semi */  \
+    } while (0)
+  #endif
+  #ifndef gasneti_atomic_subtract
+    #define gasneti_atomic_subtract(p,op,f) do {               \
+      const int __flags = (f);                                 \
+      _gasneti_atomic_fence_before_rmw(__flags)  /* no semi */ \
+      _gasneti_atomic_subtract(p,op);                          \
+      _gasneti_atomic_fence_after_rmw(__flags)  /* no semi */  \
+    } while (0)
+  #endif
+#endif 
 
 /* ------------------------------------------------------------------------------------ */
 /* GASNet weak atomics - these operations are guaranteed to be atomic if and only if 
@@ -1475,6 +1526,11 @@
     #define GASNETI_HAVE_WEAKATOMIC_CAS 1
     #define gasneti_weakatomic_compare_and_swap(p,oldval,newval,f)  \
             gasneti_atomic_compare_and_swap(p,oldval,newval,f)
+  #endif
+  #ifdef GASNETI_HAVE_ATOMIC_ADD_SUB
+    #define GASNETI_HAVE_WEAKATOMIC_ADD_SUB 1
+    #define gasneti_weakatomic_add(p,op,f)            gasneti_atomic_add(p,op,f)
+    #define gasneti_weakatomic_subtract(p,op,f)       gasneti_atomic_subtract(p,op,f)
   #endif
 #else
   /* May not need any exclusion mechanism, but we still want to include any fences that
@@ -1528,6 +1584,17 @@
       return retval;
     }
   }
+  #define GASNETI_HAVE_WEAKATOMIC_ADD_SUB 1
+  #define gasneti_weakatomic_add(p,op,f) do {              \
+    _gasneti_weakatomic_fence_before(flags)  /* no semi */ \
+    *(p) += (op);                                          \
+    _gasneti_weakatomic_fence_after(flags)  /* no semi */  \
+  } while (0)
+  #define gasneti_weakatomic_subtract(p,op,f) do {         \
+    _gasneti_weakatomic_fence_before(flags)  /* no semi */ \
+    *(p) -= (op);                                          \
+    _gasneti_weakatomic_fence_after(flags)  /* no semi */  \
+  } while (0)
 #endif
 
 /* ------------------------------------------------------------------------------------ */

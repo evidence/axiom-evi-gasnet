@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2006/03/27 20:22:46 $
- * $Revision: 1.30 $
+ *     $Date: 2006/03/27 23:16:40 $
+ * $Revision: 1.31 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -223,6 +223,13 @@ void doit2() { GASNET_BEGIN_FUNCTION();
 			{ gasnett_atomic_compare_and_swap(&a,0,0,0); }, {});
     TIME_OPERATION_FULL("gasnett_atomic_compare_and_swap.acq (result=0)", { gasnett_atomic_set(&a,1,0); },
 			{ gasnett_atomic_compare_and_swap(&a,0,0,GASNETT_ATOMIC_ACQ); }, {});
+#endif
+
+#if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
+    TIME_OPERATION("gasnett_atomic_add", gasnett_atomic_add(&a,i,0));
+    TIME_OPERATION("gasnett_atomic_add.rel", gasnett_atomic_add(&a,i,GASNETT_ATOMIC_REL));
+    TIME_OPERATION("gasnett_atomic_subtract", gasnett_atomic_subtract(&a,i,0));
+    TIME_OPERATION("gasnett_atomic_subtract.acq", gasnett_atomic_subtract(&a,i,GASNETT_ATOMIC_ACQ));
 #endif
 
     doit3();

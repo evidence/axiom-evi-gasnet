@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/03/21 03:47:35 $
- * $Revision: 1.59 $
+ *     $Date: 2006/03/27 23:16:38 $
+ * $Revision: 1.60 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -86,6 +86,12 @@
     #define gasnett_atomic_compare_and_swap(p,oldval,newval,f)  \
                                          gasneti_weakatomic_compare_and_swap(p,oldval,newval,f)
   #endif
+
+  #ifdef GASNETI_HAVE_WEAKATOMIC_ADD_SUB
+    #define GASNETT_HAVE_ATOMIC_ADD_SUB 1
+    #define gasnett_atomic_add(p,op,f)      gasneti_weakatomic_add(p,op,f)
+    #define gasnett_atomic_subtract(p,op,f) gasneti_weakatomic_subtract(p,op,f)
+  #endif
 #else
   /* PAR, PARSYNC and non-libgasnet clients (which may have threads) */
   #define gasnett_atomic_t               gasneti_atomic_t
@@ -100,6 +106,12 @@
     #define GASNETT_HAVE_ATOMIC_CAS 1
     #define gasnett_atomic_compare_and_swap(p,oldval,newval,f)  \
                                          gasneti_atomic_compare_and_swap(p,oldval,newval,f)
+  #endif
+
+  #ifdef GASNETI_HAVE_WEAKATOMIC_ADD_SUB
+    #define GASNETT_HAVE_ATOMIC_ADD_SUB 1
+    #define gasnett_atomic_add(p,op,f)      gasneti_atomic_add(p,op,f)
+    #define gasnett_atomic_subtract(p,op,f) gasneti_atomic_subtract(p,op,f)
   #endif
 #endif
 
