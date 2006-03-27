@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2006/03/25 21:10:49 $
- * $Revision: 1.29 $
+ *     $Date: 2006/03/27 20:22:46 $
+ * $Revision: 1.30 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -208,14 +208,21 @@ void doit2() { GASNET_BEGIN_FUNCTION();
     TIME_OPERATION("gasnett_atomic_read", gasnett_atomic_read(&a,0));
     TIME_OPERATION("gasnett_atomic_set", gasnett_atomic_set(&a,1,0));
     TIME_OPERATION("gasnett_atomic_increment", gasnett_atomic_increment(&a,0));
+    TIME_OPERATION("gasnett_atomic_increment.rel", gasnett_atomic_increment(&a,GASNETT_ATOMIC_REL));
     TIME_OPERATION("gasnett_atomic_decrement", gasnett_atomic_decrement(&a,0));
+    TIME_OPERATION("gasnett_atomic_decrement.acq", gasnett_atomic_decrement(&a,GASNETT_ATOMIC_ACQ));
     TIME_OPERATION("gasnett_atomic_decrement_and_test", gasnett_atomic_decrement_and_test(&a,0));
+    TIME_OPERATION("gasnett_atomic_decrement_and_test.acq", gasnett_atomic_decrement_and_test(&a,GASNETT_ATOMIC_ACQ));
 
 #if defined(GASNETT_HAVE_ATOMIC_CAS)
     TIME_OPERATION_FULL("gasnett_atomic_compare_and_swap (result=1)", { gasnett_atomic_set(&a,0,0); },
 			{ gasnett_atomic_compare_and_swap(&a,0,0,0); }, {});
+    TIME_OPERATION_FULL("gasnett_atomic_compare_and_swap.acq (result=1)", { gasnett_atomic_set(&a,0,0); },
+			{ gasnett_atomic_compare_and_swap(&a,0,0,GASNETT_ATOMIC_ACQ); }, {});
     TIME_OPERATION_FULL("gasnett_atomic_compare_and_swap (result=0)", { gasnett_atomic_set(&a,1,0); },
 			{ gasnett_atomic_compare_and_swap(&a,0,0,0); }, {});
+    TIME_OPERATION_FULL("gasnett_atomic_compare_and_swap.acq (result=0)", { gasnett_atomic_set(&a,1,0); },
+			{ gasnett_atomic_compare_and_swap(&a,0,0,GASNETT_ATOMIC_ACQ); }, {});
 #endif
 
     doit3();
