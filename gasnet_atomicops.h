@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/27 11:12:37 $
- * $Revision: 1.99 $
+ *     $Date: 2006/03/27 11:51:59 $
+ * $Revision: 1.100 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -286,7 +286,7 @@
       gasneti_atomic_t _gasneti_usmem_ptr_init;
       GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
       int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, int oldval, int newval) {
-        #if defined(MIPSPRO_COMPILER)
+        #if defined(_SGI_COMPILER_VERSION)
           return __compare_and_swap( p, oldval, newval ); /* bug1534: compiler built-in */
         #else
           if_pf (!_gasneti_usmem_ptr) { /* need exactly one call to usinit on first invocation */

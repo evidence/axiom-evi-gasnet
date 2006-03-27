@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/03/26 03:04:06 $
-dnl $Revision: 1.96 $
+dnl     $Date: 2006/03/27 11:51:59 $
+dnl $Revision: 1.97 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1597,6 +1597,9 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
     GASNET_IFDEF(__HP_aCC, $3=HP) # HP aCC (C++)
   fi
   if test "$$3" = "unknown"; then
+    GASNET_IFDEF(_SGI_COMPILER_VERSION, $3=MIPS)
+  fi
+  if test "$$3" = "unknown"; then
     GASNET_IFDEF(__MTA__, $3=MTA)
   fi
   if test "$$3" = "unknown"; then
@@ -1605,7 +1608,6 @@ AC_CACHE_CHECK(for $1 compiler family, $3, [
 
   dnl compilers lacking specific identifying marks - identify by platform
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(mips, $3=MIPS)
     GASNET_IFDEF(_SX, $3=NEC)
   fi
 ])

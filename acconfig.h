@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/03/25 12:35:20 $ */
-/*  $Revision: 1.82 $ */
+/*      $Date: 2006/03/27 11:51:59 $ */
+/*  $Revision: 1.83 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -17,9 +17,6 @@
 #undef GASNETI_CONFIGURE_ARGS
 #undef GASNETI_SYSTEM_TUPLE
 #undef GASNETI_SYSTEM_NAME
-
-/* using the MIPSPro C compiler (which doesn't seem to have other identifying markers) */
-#undef MIPSPRO_COMPILER
 
 /* attributes support */
 #undef GASNETI_HAVE_GCC_ATTRIBUTE

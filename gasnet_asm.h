@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/03/27 11:12:37 $
- * $Revision: 1.91 $
+ *     $Date: 2006/03/27 11:51:59 $
+ * $Revision: 1.92 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -73,7 +73,7 @@
 #elif defined(__DECC) || defined(__DECCXX)
   #include <c_asm.h>
   #define GASNETI_ASM(mnemonic) asm(mnemonic)
-#elif defined(MIPSPRO_COMPILER)
+#elif defined(_SGI_COMPILER_VERSION) /* MIPSPro C */
   #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL /* not supported or used */
 #elif defined(__SUNPRO_C) /* Sun C works, Sun C++ lacks inline assembly support (man inline) */
   #define GASNETI_ASM(mnemonic)  __asm(mnemonic)
@@ -127,7 +127,7 @@
     }
   #endif
 #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
-  #if defined(MIPSPRO_COMPILER)
+  #if defined(_SGI_COMPILER_VERSION)
     /* bug1534: issue a full architectural sync for the compiler fence - 
        this is overkill, but the compiler seems to lack any stand-alone optimization
        barrier, and the other synchronizing intrinsics (atomics) are even more expensive */

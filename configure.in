@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/03/25 12:35:20 $
-# $Revision: 1.327 $
+#     $Date: 2006/03/27 11:51:59 $
+# $Revision: 1.328 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.327 $)
+AC_REVISION($Revision: 1.328 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -132,10 +132,6 @@ dnl AC_SUBST(ENDIANNESS)
 
 GASNET_FAMILY_CACHE_CHECK(C, CC, gasnet_cv_cc_family)
 
-if test "$gasnet_cv_cc_family" = MIPS; then
-  # The MIPSPro C compiler apparently has no identifying markings
-  AC_DEFINE(MIPSPRO_COMPILER)
-fi
 if test "$gasnet_cv_cc_family" = MTA ; then
   # override target_os for MTA, which may be wrong if cross-compiling
   target_os="mtx"  
