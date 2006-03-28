@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/28 00:42:47 $
- * $Revision: 1.106 $
+ *     $Date: 2006/03/28 01:56:10 $
+ * $Revision: 1.107 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -500,6 +500,23 @@
         return (int)retval;
       }
       #define GASNETI_HAVE_ATOMIC_CAS 1
+      GASNETI_INLINE(_gasneti_atomic_add)
+      void _gasneti_atomic_add(gasneti_atomic_t *v, uint32_t op) {
+        __asm__ __volatile__(
+                GASNETI_X86_LOCK_PREFIX "addl %1, %0"
+                : "=m" (v->ctr)
+                : "ir" (op), "m" (v->ctr)
+                : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+      }
+      GASNETI_INLINE(_gasneti_atomic_subtract)
+      void _gasneti_atomic_subtract(gasneti_atomic_t *v, uint32_t op) {
+        __asm__ __volatile__(
+                GASNETI_X86_LOCK_PREFIX "subl %1, %0"
+                : "=m" (v->ctr)
+                : "ir" (op), "m" (v->ctr)
+                : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+      }
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
       /* x86 and x86_64 include full memory fence in locked RMW insns */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
     #else
