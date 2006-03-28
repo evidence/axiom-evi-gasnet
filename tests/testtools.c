@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/03/28 01:20:36 $
- * $Revision: 1.42 $
+ *     $Date: 2006/03/28 01:43:14 $
+ * $Revision: 1.43 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -480,7 +480,6 @@ void * thread_fn(void *arg) {
   #if defined(GASNETT_HAVE_ATOMIC_CAS)
     TEST_HEADER("parallel compare-and-swap test...") {
       static gasnett_atomic_t counter2 = gasnett_atomic_init(0);
-      static volatile uint32_t acquired = 0;
       uint32_t goal = (NUM_THREADS * iters);
       uint32_t woncnt = 0;
       uint32_t oldval;
@@ -496,22 +495,6 @@ void * thread_fn(void *arg) {
         ERR("failed compare-and-swap test: counter=%i expecting=%i", (int)oldval, (int)goal);
       if (woncnt != iters) 
         ERR("failed compare-and-swap test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
-
-      THREAD_BARRIER();
-
-      for (i = 0; i < iters; ++i) {
-        /* Lock */
-	while (!gasnett_atomic_compare_and_swap(&counter2, goal, 0xcafe, GASNETT_ATOMIC_ACQ_IF_TRUE)) {
-	  gasnett_sched_yield();
-	}
-	/* Critical section */
-	acquired += 1;
-        /* Unlock */
-	gasnett_atomic_set(&counter2, goal, GASNETT_ATOMIC_REL);
-      }
-      THREAD_BARRIER();
-      if (acquired != goal)
-        ERR("failed spinlock test: counter=%i expecting=%i", (int)acquired, (int)goal);
     }
   #endif
 
@@ -525,7 +508,7 @@ void * thread_fn(void *arg) {
     THREAD_BARRIER();
 
     for (i=0;i<iters;i++) {
-      gasnett_atomic_set(&atomicX[id], 5*i, GASNETT_ATOMIC_WMB_POST);
+      gasnett_atomic_set(&atomicX[id], 6*i, GASNETT_ATOMIC_WMB_POST);
       valY[id] = 5*i;
       ly = valY[partner];
       lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
@@ -537,6 +520,19 @@ void * thread_fn(void *arg) {
       lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
       if (lx < ly) ERR("pounding fenced dec/read mismatch: lx=%i ly=%i", lx, ly);
 
+      #if defined(GASNETT_HAVE_ATOMIC_COMPARE_AND_SWAP)
+      {
+	uint32_t oldval;
+	do {
+	  oldval = gasnett_atomic_read(&atomicX[id], 0);
+	} while (!gasnett_atomic_compare_and_swap(&atomicX[id], oldval, oldval + 1, GASNETT_ATOMIC_WMB_POST));
+        valY[id]++;
+        ly = valY[partner];
+        lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
+        if (lx < ly) ERR("pounding fenced c-a-s/read mismatch: lx=%i ly=%i", lx, ly);
+      }
+      #endif
+
       #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
       {
         int step = i & 4;
@@ -546,32 +542,45 @@ void * thread_fn(void *arg) {
         lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
         if (lx < ly) ERR("pounding fenced add/read mismatch: lx=%i ly=%i", lx, ly);
       }
-    #endif
+      #endif
     }
 
     THREAD_BARRIER();
 
     for (i=iters-1;i>=0;i--) {
-    #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
+      #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
       {
         int step = i & 4;
         valY[id] -= step;
-        gasnett_atomic_subtract(&atomicX[id], step, GASNETT_ATOMIC_WMB_PRE);
-        lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_POST);
+        gasnett_atomic_subtract(&atomicX[id], step, GASNETT_ATOMIC_REL);
+        lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_ACQ);
         ly = valY[partner];
         if (lx < ly) ERR("pounding fenced sub/read mismatch: lx=%i ly=%i", lx, ly);
       }
-    #endif
+      #endif
+
+      #if defined(GASNETT_HAVE_ATOMIC_COMPARE_AND_SWAP)
+      {
+	uint32_t oldval;
+        valY[id]--;
+	do {
+	  oldval = gasnett_atomic_read(&atomicX[id], 0);
+	} while (!gasnett_atomic_compare_and_swap(&atomicX[id], oldval, oldval - 1, GASNETT_ATOMIC_REL));
+        lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_ACQ);
+        ly = valY[partner];
+        if (lx < ly) ERR("pounding fenced c-a-s/read mismatch: lx=%i ly=%i", lx, ly);
+      }
+      #endif
 
       --valY[id];
-      gasnett_atomic_decrement(&atomicX[id], GASNETT_ATOMIC_WMB_PRE);
-      lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_POST);
+      gasnett_atomic_decrement(&atomicX[id], GASNETT_ATOMIC_REL);
+      lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_ACQ);
       ly = valY[partner];
       if (lx < ly) ERR("pounding fenced dec/read mismatch: lx=%i ly=%i", lx, ly);
 
-      valY[id] = 5*i;
-      gasnett_atomic_set(&atomicX[id], 5*i, GASNETT_ATOMIC_WMB_PRE);
-      lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_POST);
+      valY[id] = 6*i;
+      gasnett_atomic_set(&atomicX[id], 6*i, GASNETT_ATOMIC_REL);
+      lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_ACQ);
       ly = valY[partner];
       if (lx < ly) ERR("pounding fenced set/read mismatch: lx=%i ly=%i", lx, ly);
     }
