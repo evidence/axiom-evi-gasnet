@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/28 02:10:56 $
- * $Revision: 1.109 $
+ *     $Date: 2006/03/28 03:10:40 $
+ * $Revision: 1.110 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -369,6 +369,9 @@
       #define _gasneti_atomic_read(p)      ((p)->ctr)
       #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
       #define _gasneti_atomic_init(v)      { (v) }
+      #define _gasneti_atomic_add(p,op)      (atomic_add_32((uint32_t *)&((p)->ctr),(op)))
+      #define _gasneti_atomic_subtract(p,op) (atomic_add_32((uint32_t *)&((p)->ctr),(op)))
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
   #elif defined(CYGWIN)
       /* These are *NOT* Cywgin calls, but Windows API calls that may actually
        * be intrinsics in the MS compilers on 64-bit systems. */
@@ -538,6 +541,7 @@
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
                     (_InterlockedCompareExchange((volatile int *)&((p)->ctr),nval,oval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
+      /* The default c-a-s based add and subtract are already the best we can do. */
       /* Compiler intrinsics contain no 'mf'.  So, using default fences. */
     #elif defined(__GNUC__)
       GASNETI_INLINE(gasneti_cmpxchg)
@@ -575,6 +579,7 @@
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
         (gasneti_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
+      /* The default c-a-s based add and subtract are already the best we can do. */
       /* Using default fences, as we have none in our asm */
     #elif defined(__HP_cc) || defined(__HP_aCC) /* HP C/C++ Itanium intrinsics */
       #include <machine/sys/inline.h>
@@ -603,6 +608,7 @@
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
         (gasneti_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
+      /* The default c-a-s based add and subtract are already the best we can do. */
       /* Using default fences, as there are none in these intrinsics */
     #else
       #error unrecognized Itanium compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
@@ -959,6 +965,7 @@
         return retval;
       }
       #define GASNETI_HAVE_ATOMIC_CAS 1
+
       /* Our asm has the following fences: */
       #define GASNETI_ATOMIC_FENCE_READ	GASNETI_ATOMIC_RMB_POST
       #define GASNETI_ATOMIC_FENCE_SET	GASNETI_ATOMIC_WMB_PRE
@@ -1004,6 +1011,11 @@
       return (result == oldval); 
     }
     #define GASNETI_HAVE_ATOMIC_CAS 1
+    #define _gasneti_atomic_add(p,op)	\
+      (gasneti_atomic_presync(),_amo_aadd((p),(long)(op)),gasneti_atomic_postsync())
+    #define _gasneti_atomic_subtract(p,op)	\
+      (gasneti_atomic_presync(),_amo_aadd((p),-(long)(op)),gasneti_atomic_postsync())
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
     #define GASNETI_ATOMIC_FENCE_RMW	GASNETI_ATOMIC_MB_POST
   /* ------------------------------------------------------------------------------------ */
   #elif defined(_SX) /* NEC SX-6 */
@@ -1018,6 +1030,9 @@
     #define _gasneti_atomic_init(v)      { (v) }
     #define _gasneti_atomic_decrement_and_test(p) \
                                         (atomic_add4(((p)->ctr),-1) == 0)
+    #define _gasneti_atomic_add(p,op)      (atomic_add4(&((p)->ctr),(op)))
+    #define _gasneti_atomic_subtract(p,op) (atomic_add4(&((p)->ctr),-(op)))
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
    #else
     #define _gasneti_atomic_increment(p) (muadd(&((p)->ctr),1))
     #define _gasneti_atomic_decrement(p) (muadd(&((p)->ctr),-1))
@@ -1026,6 +1041,9 @@
     #define _gasneti_atomic_init(v)      { (v) }
     #define _gasneti_atomic_decrement_and_test(p) \
                                         (muadd(&((p)->ctr),-1) == 0)
+    #define _gasneti_atomic_add(p,op)      (muadd(&((p)->ctr),(op)))
+    #define _gasneti_atomic_subtract(p,op) (muadd(&((p)->ctr),-(op)))
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
    #endif
     /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
   /* ------------------------------------------------------------------------------------ */
