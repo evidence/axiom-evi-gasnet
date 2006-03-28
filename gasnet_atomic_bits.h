@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/27 23:16:38 $
- * $Revision: 1.103 $
+ *     $Date: 2006/03/28 00:07:53 $
+ * $Revision: 1.104 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -159,6 +159,17 @@
       return retval;                                             \
     }
     #define GASNETI_HAVE_ATOMIC_CAS 1
+    #define _gasneti_atomic_add(p,op) do {                        \
+        gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
+        ((p)->ctr) += (op);                                       \
+        gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock); \
+      } while (0)
+    #define _gasneti_atomic_subtract(p,op) do {                   \
+        gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
+        ((p)->ctr) -= (op);                                       \
+        gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock); \
+      } while (0)
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
     #if (GASNET_PAR || GASNETI_CONDUIT_THREADS)
       /* Using real HSLs which yeild an ACQ/RMB before and REL/WMB after the atomic */
       #define GASNETI_ATOMIC_FENCE_SET (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
@@ -238,6 +249,19 @@
       return retval;
     }
     #define GASNETI_HAVE_ATOMIC_CAS 1
+    #define _gasneti_atomic_add(p,op) do {             \
+        GASNETI_ATOMICOP_INITCHECK();                  \
+        pthread_mutex_lock(&gasneti_atomicop_mutex);   \
+        ((p)->ctr) += (op);                            \
+        pthread_mutex_unlock(&gasneti_atomicop_mutex); \
+      } while (0)
+    #define _gasneti_atomic_subtract(p,op) do {        \
+        GASNETI_ATOMICOP_INITCHECK();                  \
+        pthread_mutex_lock(&gasneti_atomicop_mutex);   \
+        ((p)->ctr) -= (op);                            \
+        pthread_mutex_unlock(&gasneti_atomicop_mutex); \
+      } while (0)
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
     #if (defined(__APPLE__) && defined(__MACH__))
       /* OSX/Darwin tries to be too smart when only 1 thread is running, so use defaults */
       /* XXX: determine what fence (if any) might still be present? */
@@ -261,6 +285,10 @@
     #define _gasneti_atomic_decrement_and_test(p) ((--(*(p))) == 0)
     #define _gasneti_atomic_compare_and_swap(p,oldval,newval) \
               (*(p) == (oldval) ? *(p) = (newval), 1 : 0)
+    #define GASNETI_HAVE_ATOMIC_CAS 1
+    #define _gasneti_atomic_add(p,op)      ((*(p))+=(op))
+    #define _gasneti_atomic_subtract(p,op) ((*(p))-=(op))
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
     /* Using default fences */
   #endif
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
@@ -283,6 +311,9 @@
         return compare_and_swap( (atomic_p)p, &oldval, newval );
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
+      #define _gasneti_atomic_add(p,op)      (fetch_and_add((atomic_p)&((p)->ctr),op))
+      #define _gasneti_atomic_subtract(p,op) (fetch_and_add((atomic_p)&((p)->ctr),-(op)))
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
       /* No syncs in these calls, so use default fences */
   #elif defined(IRIX)
       #include <mutex.h>
@@ -311,6 +342,9 @@
         #endif
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
+      #define _gasneti_atomic_add(p,op)      (test_then_add32((p),(op)))
+      #define _gasneti_atomic_subtract(p,op) (test_then_add32((p),(uint32_t)-(op)))
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
       /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
   #elif defined(__MTA__)
       /* use MTA intrinsics */
@@ -322,8 +356,11 @@
       #define _gasneti_atomic_init(v)      (v)
       #define _gasneti_atomic_decrement_and_test(p) \
                                           (int_fetch_add((p),-1) == 1) 
+      #define _gasneti_atomic_add(p,op)      (int_fetch_add((p),(op)))
+      #define _gasneti_atomic_subtract(p,op) (int_fetch_add((p),-(op)))
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
       /* Using default fences, but this machine is Sequential Consistent anyway */
-  #elif defined(SOLARIS)	/* BROKEN */
+  #elif defined(SOLARIS)	/* BROKEN (and incomplete) */
       /* $%*(! Solaris has atomic functions in the kernel but refuses to expose them
          to the user... after all, what application would be interested in performance? */
       #include <sys/atomic.h>
@@ -347,6 +384,9 @@
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
 	   (InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
+      #define _gasneti_atomic_add(p,op)      InterlockedExchangeAdd((LONG *)&((p)->ctr),(op))
+      #define _gasneti_atomic_subtract(p,op) InterlockedExchangeAdd((LONG *)&((p)->ctr),-(op))
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
       /* MSDN docs ensure memory fence in these calls, even on ia64 */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
   #elif defined(__linux__) 
@@ -397,6 +437,9 @@
              (cmpxchg(&((p)->counter),oval,nval) == (oval))
         #define GASNETI_HAVE_ATOMIC_CAS 1
       #endif
+      #define _gasneti_atomic_add(p,op)      atomic_add(p,op)
+      #define _gasneti_atomic_subtract(p,op) atomic_sub(p,op)
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
       /* Using default fences as we can't hope to know what to expect on new platforms */
   #else
     #error GASNETI_USE_OS_ATOMICS defined on unsupported OS - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
