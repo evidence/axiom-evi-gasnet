@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.147 $
+ *     $Date: 2006/03/28 05:10:49 $
+ * $Revision: 1.148 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,6 +52,9 @@ int gasneti_VerboseErrors = 1;
   GASNETI_GENERIC_DEC_AND_TEST_DEF
   #ifdef GASNETI_GENERIC_CAS_DEF
     GASNETI_GENERIC_CAS_DEF
+  #endif
+  #ifdef GASNETI_GENERIC_ADD_SUB_DEF
+    GASNETI_GENERIC_ADD_SUB_DEF
   #endif
 #endif
 
