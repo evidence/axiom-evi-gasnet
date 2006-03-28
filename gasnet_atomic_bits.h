@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/28 01:56:10 $
- * $Revision: 1.107 $
+ *     $Date: 2006/03/28 02:03:06 $
+ * $Revision: 1.108 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1134,6 +1134,9 @@
         return (result == 0);
       } 
       #define GASNETI_HAVE_ATOMIC_CAS 1
+      #define _gasneti_atomic_add(p,op)      (gasneti_atomic_addandfetch_32(&((p)->ctr),op))
+      #define _gasneti_atomic_subtract(p,op) (gasneti_atomic_addandfetch_32(&((p)->ctr),-(op)))
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
       /* Using default fences as we have none in our asms */
     #else
       #error Unrecognized PowerPC - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
