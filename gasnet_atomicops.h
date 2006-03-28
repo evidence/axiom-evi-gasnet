@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/28 00:07:53 $
- * $Revision: 1.104 $
+ *     $Date: 2006/03/28 00:41:07 $
+ * $Revision: 1.105 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1629,11 +1629,13 @@
   }
   #define GASNETI_HAVE_WEAKATOMIC_ADD_SUB 1
   #define gasneti_weakatomic_add(p,op,f) do {              \
+    const int __flags = (f);                               \
     _gasneti_weakatomic_fence_before(flags)  /* no semi */ \
     *(p) += (op);                                          \
     _gasneti_weakatomic_fence_after(flags)  /* no semi */  \
   } while (0)
   #define gasneti_weakatomic_subtract(p,op,f) do {         \
+    const int __flags = (f);                               \
     _gasneti_weakatomic_fence_before(flags)  /* no semi */ \
     *(p) -= (op);                                          \
     _gasneti_weakatomic_fence_after(flags)  /* no semi */  \
