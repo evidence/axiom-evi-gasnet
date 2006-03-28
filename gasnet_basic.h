@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/28 05:54:24 $
- * $Revision: 1.55 $
+ *     $Date: 2006/03/28 11:43:26 $
+ * $Revision: 1.56 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,6 +137,8 @@
 /* pragma version of GASNETI_NORETURN */
 #ifdef __SUNPRO_C
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(does_not_return(fnname))
+#elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 720 && _MIPS_SIM != _ABIO32
+  #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(mips_frequency_hint NEVER fnname)
 #elif defined(__xlC__) && 0
   /* this *should* work but it causes bizarre compile failures, so disable it */
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(leaves(fnname))
@@ -158,6 +160,8 @@
 /* pragma version of GASNETI_PURE */
 #if defined(__xlC__)
   #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(isolated_call(fnname))
+#elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 710
+  #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(no side effects (fnname))
 #else
   #define GASNETI_PUREP(fnname) 
 #endif
@@ -174,32 +178,33 @@
 /* pragma version of GASNETI_CONST */
 #ifdef __SUNPRO_C
   #define GASNETI_CONSTP(fnname) GASNETI_PRAGMA(no_side_effect(fnname))
+#elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 730
+  #define GASNETI_CONSTP(fnname) GASNETI_PRAGMA(pure (fnname))
 #else
   #define GASNETI_CONSTP(fnname) GASNETI_PUREP(fnname)
 #endif
 
 #if GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE && !GASNET_DEBUG
   /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
-  #define GASNETI_ALWAYS_INLINE __attribute__((__always_inline__))
+  #define GASNETI_ALWAYS_INLINE(fnname) __attribute__((__always_inline__))
+#elif defined(_CRAYC) /* the only way to request inlining a particular fn in Cray C */
+  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname)
+#elif defined(__MTA__)
+  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(mta inline)
+#elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 710
+  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline global fnname)
 #else
-  #define GASNETI_ALWAYS_INLINE
+  #define GASNETI_ALWAYS_INLINE(fnname)
 #endif
 
 #if defined(__cplusplus)
-  #define GASNETI_INLINE(fnname) inline GASNETI_ALWAYS_INLINE
+  #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) inline
 #elif defined(STATIC_INLINE_WORKS)
-  #define GASNETI_INLINE(fnname) static CC_INLINE_MODIFIER GASNETI_ALWAYS_INLINE
+  #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) static CC_INLINE_MODIFIER
 #elif defined(CC_INLINE_MODIFIER)
-  #define GASNETI_INLINE(fnname) CC_INLINE_MODIFIER GASNETI_ALWAYS_INLINE
-#elif defined(_CRAYC)
-  /* CrayC has a really #&#$&! stupidly designed #pragma for inlining functions 
-     that requires providing the function name 
-     (the only way to request inlining a particular fn from C) */
-  #define GASNETI_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname) static 
-#elif defined(__MTA__)
-  #define GASNETI_INLINE(fnname) GASNETI_PRAGMA(mta inline) static
+  #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) CC_INLINE_MODIFIER
 #else
-  #define GASNETI_INLINE(fnname) static GASNETI_ALWAYS_INLINE
+  #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) static
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -262,6 +267,10 @@
   #define GASNETT_MTA_PRAGMA_EXPECT_OVERRIDE GASNETT_MTA_PRAGMA_EXPECT_ENABLED
   #define if_pf(cond) GASNETT_MTA_PRAGMA_EXPECT_OVERRIDE("mta expect false") if (cond)
   #define if_pt(cond) GASNETT_MTA_PRAGMA_EXPECT_OVERRIDE("mta expect true")  if (cond)
+#elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 720 && _MIPS_SIM != _ABIO32
+  /* MIPSPro has a predict-false, but unfortunately no predict-true */
+  #define if_pf(cond) if (cond) GASNETI_PRAGMA(mips_frequency_hint NEVER)
+  #define if_pt(cond) if (PREDICT_TRUE(cond))
 #else
   #define if_pf(cond) if (PREDICT_FALSE(cond))
   #define if_pt(cond) if (PREDICT_TRUE(cond))

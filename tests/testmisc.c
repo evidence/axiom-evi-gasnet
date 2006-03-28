@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2006/03/27 23:16:40 $
- * $Revision: 1.31 $
+ *     $Date: 2006/03/28 11:43:28 $
+ * $Revision: 1.32 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -145,7 +145,6 @@ int32_t temp = 0;
 gasnett_tick_t timertemp = 0;
 int8_t bigtemp[1024];
 gasnet_handle_t handles[8];
-
 /* ------------------------------------------------------------------------------------ */
 void doit1() { GASNET_BEGIN_FUNCTION();
 
@@ -186,6 +185,9 @@ void doit1() { GASNET_BEGIN_FUNCTION();
     doit2();
 }
 /* ------------------------------------------------------------------------------------ */
+volatile int val_true = 1;
+volatile int val_false = 0;
+int val_junk = 0;
 void doit2() { GASNET_BEGIN_FUNCTION();
 
     TIME_OPERATION("hold/resume interrupts",
@@ -201,6 +203,19 @@ void doit2() { GASNET_BEGIN_FUNCTION();
     TIME_OPERATION("lock/unlock uncontended HSL (" _STRINGIFY(TEST_PARSEQ) " mode)",
       { gasnet_hsl_lock(&hsl); gasnet_hsl_unlock(&hsl); });
 
+    #define MESSY(i) ((((i+14)*i)+(i+23)*i)&4)
+    TIME_OPERATION("if_pf correct",
+      { if_pf(val_false) val_false ^= MESSY(i); else val_junk++; });
+    
+    TIME_OPERATION("if_pf incorrect",
+      { if_pf(val_true) val_junk++; else val_true ^= MESSY(i); });
+    
+    TIME_OPERATION("if_pt correct",
+      { if_pt(val_true) val_junk++; else val_true ^= MESSY(i); });
+    
+    TIME_OPERATION("if_pt incorrect",
+      { if_pt(val_false) val_false ^= MESSY(i); else val_junk++;});
+    
     TIME_OPERATION("gasnett_local_wmb", gasnett_local_wmb());
     TIME_OPERATION("gasnett_local_rmb", gasnett_local_rmb());
     TIME_OPERATION("gasnett_local_mb", gasnett_local_mb());
