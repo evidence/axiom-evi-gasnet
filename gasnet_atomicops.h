@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/28 03:29:25 $
- * $Revision: 1.112 $
+ *     $Date: 2006/03/28 04:54:03 $
+ * $Revision: 1.113 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -748,6 +748,11 @@
           return (int)(newval == oldval);
         }
         #define GASNETI_HAVE_ATOMIC_CAS 1
+
+        #define _gasneti_atomic_add(p,op)      (gasneti_atomic_addandfetch_32(&((p)->ctr),(op)))
+        #define _gasneti_atomic_subtract(p,op) (gasneti_atomic_addandfetch_32(&((p)->ctr),-(op)))
+        #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
+
 	#define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
       #else
         #error unrecognized Sparc v9 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
@@ -837,6 +842,11 @@
           return retval;
         }
         #define GASNETI_HAVE_ATOMIC_CAS 1
+
+        #define _gasneti_atomic_add(p,op)      (gasneti_atomic_addandfetch_32(p,(op)))
+        #define _gasneti_atomic_subtract(p,op) (gasneti_atomic_addandfetch_32(p,-(op)))
+        #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
+
         /* Our asm has the following fences: */
 	#define GASNETI_ATOMIC_FENCE_READ	GASNETI_ATOMIC_RMB_POST
 	#define GASNETI_ATOMIC_FENCE_SET	GASNETI_ATOMIC_WMB_PRE
