@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/28 05:32:26 $
- * $Revision: 1.116 $
+ *     $Date: 2006/03/28 05:36:01 $
+ * $Revision: 1.117 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -379,12 +379,12 @@
       #define _gasneti_atomic_decrement_and_test(p) \
                                           (int_fetch_add((p),-1) == 1) 
       GASNETI_INLINE(_gasneti_atomic_add)
-      uint32_t _gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op) {
-        return int_fetch_add((atomic_p)&((p)->ctr), op) + op;
+      uint64_t _gasneti_atomic_add(gasneti_atomic_t *p, uint64_t op) {
+        return int_fetch_add((p), op) + op;
       }
       GASNETI_INLINE(_gasneti_atomic_subtract)
-      uint32_t _gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op) {
-        return int_fetch_add((atomic_p)&((p)->ctr), -(op)) - op;
+      uint64_t _gasneti_atomic_subtract(gasneti_atomic_t *p, uint64_t op) {
+        return int_fetch_add((p), -(op)) - op;
       }
       #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
       /* Using default fences, but this machine is Sequential Consistent anyway */
@@ -888,11 +888,11 @@
 
         GASNETI_INLINE(_gasneti_atomic_add)
         uint32_t _gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op) {
-          return fetch_and_add((atomic_p)&((p)->ctr), op) + op;
+          return fetch_and_add(p, op) + op;
         }
         GASNETI_INLINE(_gasneti_atomic_subtract)
         uint32_t _gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op) {
-          return fetch_and_add((atomic_p)&((p)->ctr), -(op)) - op;
+          return fetch_and_add(p, -(op)) - op;
         }
         #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
 
@@ -1027,11 +1027,11 @@
 
       GASNETI_INLINE(_gasneti_atomic_add)
       uint32_t _gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op) {
-        return gasneti_atomic_fetchandadd_32((atomic_p)&((p)->ctr), op) + op;
+        return gasneti_atomic_fetchandadd_32(p, op) + op;
       }
       GASNETI_INLINE(_gasneti_atomic_subtract)
       uint32_t _gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op) {
-        return gasneti_atomic_fetchandadd_32((atomic_p)&((p)->ctr), -(op)) - op;
+        return gasneti_atomic_fetchandadd_32(p, -(op)) - op;
       }
       #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
 
