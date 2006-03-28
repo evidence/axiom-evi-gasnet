@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/28 05:54:55 $
- * $Revision: 1.118 $
+ *     $Date: 2006/03/28 06:51:36 $
+ * $Revision: 1.119 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -348,26 +348,49 @@
       #define _gasneti_atomic_init(v)      (v)
       #define _gasneti_atomic_decrement_and_test(p) \
                                           (add_then_test32((p),(uint32_t)-1) == 0) 
-      usptr_t * volatile _gasneti_usmem_ptr;
-      gasneti_atomic_t _gasneti_usmem_ptr_init;
-      GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
-      int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, int oldval, int newval) {
-        #if defined(_SGI_COMPILER_VERSION)
-          return __compare_and_swap( p, oldval, newval ); /* bug1534: compiler built-in */
-        #else
+      #if defined(_SGI_COMPILER_VERSION)
+        GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
+        int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, int oldval, int newval) {
+            return __compare_and_swap( p, oldval, newval ); /* bug1534: compiler built-in */
+        }
+      #elif defined(__GNUC__)
+        GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
+        int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+           uint32_t temp;
+           int retval;
+           __asm__ __volatile__ (
+                "1:\n\t"
+                "ll        %1,%5\n\t"          /* Load from *p */
+                "move      %0,$0\n\t"          /* Assume mismatch */
+                "bne       %1,%3,2f\n\t"       /* Break loop on mismatch */
+                "move      %0,%4\n\t"          /* Move newval to retval */
+                "sc        %0,%2\n\t"          /* Try SC to store retval */
+                "beqz      %0,1b\n"            /* Retry on contention */
+                "2:\n\t"
+                : "=&r" (retval), "=&r" (temp), "=m" (*p)
+                : "r" (oldval), "r" (newval), "m" (*p)
+                : "memory");
+          return retval;
+        }
+      #else /* flaky OS-provided CAS */
+        usptr_t * volatile _gasneti_usmem_ptr;
+        gasneti_atomic_t _gasneti_usmem_ptr_init;
+        GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
+        int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, int oldval, int newval) {
           if_pf (!_gasneti_usmem_ptr) { /* need exactly one call to usinit on first invocation */
             if (test_and_set32(&_gasneti_usmem_ptr_init,1) == 0) {
               _gasneti_usmem_ptr = usinit("/dev/zero");
             } else while (!_gasneti_usmem_ptr);
           }
           return uscas32( p, oldval, newval, _gasneti_usmem_ptr ); /* from libc */
-        #endif
-      } 
+        }
+      #endif
       #define GASNETI_HAVE_ATOMIC_CAS 1
       #define _gasneti_atomic_add(p,op)      (add_then_test32((p),(op)))
       #define _gasneti_atomic_subtract(p,op) (add_then_test32((p),(uint32_t)-(op)))
       #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
-      /* Using default fences (TODO: VERIFY THAT WE NEED THEM) */
+      /* Using default fences - the docs claim acquire or release "barriers" for the various 
+         intrinsics, but those are only compiler fences and not architectural sync instructions */
   #elif defined(__MTA__)
       /* use MTA intrinsics */
       typedef int64_t gasneti_atomic_t;
