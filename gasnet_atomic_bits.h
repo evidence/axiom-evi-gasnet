@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/28 05:10:49 $
- * $Revision: 1.114 $
+ *     $Date: 2006/03/28 05:17:30 $
+ * $Revision: 1.115 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1253,18 +1253,20 @@
   /* Default add and subtract atomics in terms of CAS */
   #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   GASNETI_INLINE(_gasneti_atomic_add)
-  void _gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op) {
-    uint32_t _tmp;
+  uint32_t _gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op) {
+    uint32_t _old, _new;
     do {
-      _tmp = _gasneti_atomic_read(p);
-    } while (!_gasneti_atomic_compare_and_swap(p, _tmp, _tmp + op));
+      _new = (_old = _gasneti_atomic_read(p)) + op;
+    } while (!_gasneti_atomic_compare_and_swap(p, _old, _new));
+    return _new;
   }
   GASNETI_INLINE(_gasneti_atomic_subtract)
-  void _gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op) {
-    uint32_t _tmp;
+  uint32_t _gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op) {
+    uint32_t _old, _new;
     do {
-      _tmp = _gasneti_atomic_read(p);
-    } while (!_gasneti_atomic_compare_and_swap(p, _tmp, _tmp - op));
+      _new = (_old = _gasneti_atomic_read(p)) - op;
+    } while (!_gasneti_atomic_compare_and_swap(p, _old, _new));
+    return _new;
   }
 #endif
 
@@ -1659,7 +1661,7 @@
     GASNETI_INLINE(gasneti_atomic_add)
     uint32_t gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op, const int flags) {
       _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
-      { const int retval = _gasneti_atomic_add(p, op);
+      { const uint32_t retval = _gasneti_atomic_add(p, op);
         _gasneti_atomic_fence_after_rmw(flags) /* no semi */
         return retval;
       }
@@ -1669,7 +1671,7 @@
     GASNETI_INLINE(gasneti_atomic_subtract)
     uint32_t gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op, const int flags) {
       _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
-      { const int retval = _gasneti_atomic_subtract(p, op);
+      { const uint32_t retval = _gasneti_atomic_subtract(p, op);
         _gasneti_atomic_fence_after_rmw(flags) /* no semi */
         return retval;
       }
