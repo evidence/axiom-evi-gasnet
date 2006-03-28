@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/03/28 01:43:14 $
- * $Revision: 1.43 $
+ *     $Date: 2006/03/28 05:22:19 $
+ * $Revision: 1.44 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -242,11 +242,11 @@ int main(int argc, char **argv) {
     #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
       gasnett_atomic_set(&var, 1, 0);
       for (i=1;i<=iters;i++) {
-        gasnett_atomic_add(&var, i, 0);
-        if (gasnett_atomic_read(&var,0) != 2*i)
+        if ((gasnett_atomic_add(&var, i, 0) != 2*i) ||
+            (gasnett_atomic_read(&var,0) != 2*i))
           ERR("gasnett_atomic_add got wrong value");
-        gasnett_atomic_subtract(&var, i-1, 0);
-        if (gasnett_atomic_read(&var,0) != i+1)
+        if ((gasnett_atomic_subtract(&var, i-1, 0) != i+1) ||
+            (gasnett_atomic_read(&var,0) != i+1))
           ERR("gasnett_atomic_subtract got wrong value");
       }
     #endif
