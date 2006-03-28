@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/03/25 12:35:25 $
- * $Revision: 1.175 $
+ *     $Date: 2006/03/28 05:54:28 $
+ * $Revision: 1.176 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -275,7 +275,7 @@ void gasnetc_per_thread_init(gasnetc_per_thread_t *td)
 }
 
 #if GASNETI_THREADS
-  GASNETI_INLINE(gasnetc_my_perthread) __attribute__((const))
+  GASNETI_INLINE(gasnetc_my_perthread) GASNETI_CONST
   gasnetc_per_thread_t *gasnetc_my_perthread(void) {
     gasnetc_per_thread_t *retval = gasneti_threadkey_get_noinit(gasnetc_per_thread_key);
     if_pf (retval == NULL) {
@@ -288,6 +288,7 @@ void gasnetc_per_thread_init(gasnetc_per_thread_t *td)
     gasneti_assert(retval != NULL);
     return retval;
   }
+  GASNETI_CONSTP(gasnetc_my_perthread)
 #else
   #define gasnetc_my_perthread() (&gasnetc_per_thread)
 #endif

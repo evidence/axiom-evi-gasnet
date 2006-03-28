@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/03/27 11:51:59 $
-# $Revision: 1.328 $
+#     $Date: 2006/03/28 05:54:24 $
+# $Revision: 1.329 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.328 $)
+AC_REVISION($Revision: 1.329 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -425,6 +425,10 @@ GASNET_CHECK_GCC_ATTRIBUTE([__warn_unused_result__],
 GASNET_CHECK_GCC_ATTRIBUTE([__noreturn__],
             [#include <stdlib.h>
 	     __attribute__((__noreturn__)) void dummy() { abort(); }])
+GASNET_CHECK_GCC_ATTRIBUTE([__const__],
+            [__attribute__((__const__)) int dummy(int x) { return x+1; }])
+GASNET_CHECK_GCC_ATTRIBUTE([__pure__],
+            [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
 GASNET_POPVAR(CFLAGS)
 
 ########################################################################

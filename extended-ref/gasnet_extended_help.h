@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/03/19 02:08:00 $
- * $Revision: 1.33 $
+ *     $Date: 2006/03/28 05:54:26 $
+ * $Revision: 1.34 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,17 +21,8 @@ GASNETI_BEGIN_EXTERNC
 
 #if GASNETI_CLIENT_THREADS
   struct _gasnete_threaddata_t;
-  extern struct _gasnete_threaddata_t *gasnete_mythread() __attribute__ ((const));
-  #if defined(__xlC__)
-    #if 0
-      /* this should work according to the &*@&#$! IBM compiler docs, 
-         but of course it doesn't... */
-      #pragma options pure=gasnete_mythread
-    #else
-      #pragma isolated_call(gasnete_mythread)
-    #endif
-  #endif
-  /* TODO: mark gasnete_mythread() as a pure function for other compilers */
+  extern struct _gasnete_threaddata_t *gasnete_mythread() GASNETI_CONST;
+  GASNETI_CONSTP(gasnete_mythread)
 #endif
 
 /* gasnete_islocal() is used by put/get fns to decide whether shared memory on 

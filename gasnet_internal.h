@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/03/25 12:35:20 $
- * $Revision: 1.93 $
+ *     $Date: 2006/03/28 05:54:24 $
+ * $Revision: 1.94 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -138,10 +138,10 @@ extern void gasneti_decode_args(int *argc, char ***argv);
     free(ptr);
     if_pt (gasneti_attach_done) gasnet_resume_interrupts();
   }
-  #ifdef __SUNPRO_C
-    #pragma returns_new_memory(_gasneti_malloc,_gasneti_malloc_allowfail,_gasneti_calloc)
-  #endif
 #endif
+GASNETI_MALLOCP(_gasneti_malloc)
+GASNETI_MALLOCP(_gasneti_malloc_allowfail)
+GASNETI_MALLOCP(_gasneti_calloc)
 
 #ifdef malloc
 #undef malloc

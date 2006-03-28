@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/03/26 14:03:45 $
- * $Revision: 1.81 $
+ *     $Date: 2006/03/28 05:54:24 $
+ * $Revision: 1.82 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -126,21 +126,17 @@ typedef struct {
 #endif
 
 /* extern versions of gasnet malloc fns for use in public headers */
-extern void *_gasneti_extern_malloc(size_t sz 
-             GASNETI_CURLOCFARG) GASNETI_MALLOC;
-extern void *_gasneti_extern_realloc(void *ptr, size_t sz 
-             GASNETI_CURLOCFARG);
-extern void *_gasneti_extern_calloc(size_t N, size_t S 
-             GASNETI_CURLOCFARG) GASNETI_MALLOC;
-extern void _gasneti_extern_free(void *ptr
-             GASNETI_CURLOCFARG);
-extern char *_gasneti_extern_strdup(const char *s
-              GASNETI_CURLOCFARG) GASNETI_MALLOC;
-extern char *_gasneti_extern_strndup(const char *s, size_t n 
-              GASNETI_CURLOCFARG) GASNETI_MALLOC;
-#ifdef __SUNPRO_C
-  #pragma returns_new_memory(_gasneti_extern_malloc, _gasneti_extern_calloc, _gasneti_extern_strdup, _gasneti_extern_strndup)
-#endif
+extern void *_gasneti_extern_malloc(size_t sz GASNETI_CURLOCFARG) GASNETI_MALLOC;
+GASNETI_MALLOCP(_gasneti_extern_malloc)
+extern void *_gasneti_extern_realloc(void *ptr, size_t sz GASNETI_CURLOCFARG);
+extern void *_gasneti_extern_calloc(size_t N, size_t S GASNETI_CURLOCFARG) GASNETI_MALLOC;
+GASNETI_MALLOCP(_gasneti_extern_calloc)
+extern void _gasneti_extern_free(void *ptr GASNETI_CURLOCFARG);
+extern char *_gasneti_extern_strdup(const char *s GASNETI_CURLOCFARG) GASNETI_MALLOC;
+GASNETI_MALLOCP(_gasneti_extern_strdup)
+extern char *_gasneti_extern_strndup(const char *s, size_t n GASNETI_CURLOCFARG) GASNETI_MALLOC;
+GASNETI_MALLOCP(_gasneti_extern_strndup)
+
 #define gasneti_extern_malloc(sz)      _gasneti_extern_malloc((sz) GASNETI_CURLOCAARG)
 #define gasneti_extern_realloc(ptr,sz) _gasneti_extern_realloc((ptr), (sz) GASNETI_CURLOCAARG)
 #define gasneti_extern_calloc(N,S)     _gasneti_extern_calloc((N),(S) GASNETI_CURLOCAARG)

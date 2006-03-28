@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/27 08:51:46 $
- * $Revision: 1.54 $
+ *     $Date: 2006/03/28 05:54:24 $
+ * $Revision: 1.55 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -122,15 +122,19 @@
 #else
   #define GASNETI_MALLOC GASNETI_WARN_UNUSED_RESULT
 #endif
+/* pragma version of GASNETI_MALLOC */
+#ifdef __SUNPRO_C
+  #define GASNETI_MALLOCP(fnname) GASNETI_PRAGMA(returns_new_memory(fnname))
+#else
+  #define GASNETI_MALLOCP(fnname)
+#endif
 
 #if GASNETI_HAVE_GCC_ATTRIBUTE_NORETURN
   #define GASNETI_NORETURN __attribute__((__noreturn__))
 #else
   #define GASNETI_NORETURN 
 #endif
-
-/* pragma for indicating a function never returns on pragma-based compilers 
-   supplements GASNETI_NORETURN which is used for attribute-based compilers */
+/* pragma version of GASNETI_NORETURN */
 #ifdef __SUNPRO_C
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(does_not_return(fnname))
 #elif defined(__xlC__) && 0
@@ -138,6 +142,40 @@
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(leaves(fnname))
 #else
   #define GASNETI_NORETURNP(fnname)
+#endif
+
+#if GASNETI_HAVE_GCC_ATTRIBUTE_PURE
+  /* pure function: one with no effects except the return value, and 
+   * return value depends only on the parameters and/or global variables.
+   * prohibited from performing volatile accesses, compiler fences, I/O,
+   * changing any global variables (including statically scoped ones), or
+   * calling any functions that do so
+   */
+  #define GASNETI_PURE __attribute__((__pure__))
+#else
+  #define GASNETI_PURE 
+#endif
+/* pragma version of GASNETI_PURE */
+#if defined(__xlC__)
+  #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(isolated_call(fnname))
+#else
+  #define GASNETI_PUREP(fnname) 
+#endif
+
+#if GASNETI_HAVE_GCC_ATTRIBUTE_CONST
+  /* const function: a more restricted form of pure function, with all the
+   * same restrictions, except additionally the return value must NOT
+   * depend on global variables or anything pointed to by the arguments
+   */
+  #define GASNETI_CONST __attribute__((__const__))
+#else
+  #define GASNETI_CONST GASNETI_PURE
+#endif
+/* pragma version of GASNETI_CONST */
+#ifdef __SUNPRO_C
+  #define GASNETI_CONSTP(fnname) GASNETI_PRAGMA(no_side_effect(fnname))
+#else
+  #define GASNETI_CONSTP(fnname) GASNETI_PUREP(fnname)
 #endif
 
 #if GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE && !GASNET_DEBUG

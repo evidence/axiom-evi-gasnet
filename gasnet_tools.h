@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/03/27 23:16:38 $
- * $Revision: 1.60 $
+ *     $Date: 2006/03/28 05:54:24 $
+ * $Revision: 1.61 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -169,6 +169,11 @@
 #define GASNETT_NORETURN                GASNETI_NORETURN
 #define GASNETT_NORETURNP               GASNETI_NORETURNP
 #define GASNETT_MALLOC                  GASNETI_MALLOC
+#define GASNETT_MALLOCP                 GASNETI_MALLOCP
+#define GASNETT_PURE                    GASNETI_PURE
+#define GASNETT_PUREP                   GASNETI_PUREP
+#define GASNETT_CONST                   GASNETI_CONST
+#define GASNETT_CONSTP                  GASNETI_CONSTP
 #define GASNETT_WARN_UNUSED_RESULT      GASNETI_WARN_UNUSED_RESULT
 
 #define GASNETT_CURRENT_FUNCTION        GASNETI_CURRENT_FUNCTION
