@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/28 05:17:30 $
- * $Revision: 1.115 $
+ *     $Date: 2006/03/28 05:32:26 $
+ * $Revision: 1.116 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -696,11 +696,11 @@
      #define GASNETI_HAVE_ATOMIC_CAS 1
      GASNETI_INLINE(_gasneti_atomic_add)
      uint32_t _gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op) {
-       return gasneti_atomic_fetchaddadd_32(&((p)->ctr), op) + op;
+       return gasneti_atomic_fetchandadd_32(&((p)->ctr), op) + op;
      }
      GASNETI_INLINE(_gasneti_atomic_subtract)
      uint32_t _gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op) {
-       return gasneti_atomic_fetchaddadd_32(&((p)->ctr), -(op)) - op;
+       return gasneti_atomic_fetchandadd_32(&((p)->ctr), -(op)) - op;
      }
      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
      /* No fences in our asm, so using default fences */
