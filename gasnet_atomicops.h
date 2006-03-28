@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/28 03:26:26 $
- * $Revision: 1.111 $
+ *     $Date: 2006/03/28 03:29:25 $
+ * $Revision: 1.112 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1117,6 +1117,7 @@
       #define _gasneti_atomic_compare_and_swap(p, oldval, newval) \
 	(gasneti_atomic_swap_not_32(&((p)->ctr),(oldval),(newval)) == 0)
       #define GASNETI_HAVE_ATOMIC_CAS 1
+      /* XXX: bug 1514: can/should write "tuned" asm for add/sub, rather than using c-a-s */
       /* Using default fences as we have none in our asms */
     #elif defined(__GNUC__)
       static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
