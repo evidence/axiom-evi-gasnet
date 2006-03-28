@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/28 02:03:06 $
- * $Revision: 1.108 $
+ *     $Date: 2006/03/28 02:10:56 $
+ * $Revision: 1.109 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -661,6 +661,9 @@
        return ret;
      }
      #define GASNETI_HAVE_ATOMIC_CAS 1
+     #define _gasneti_atomic_add(p,op)      (gasneti_atomic_add_32(&((p)->ctr),op))
+     #define _gasneti_atomic_subtract(p,op) (gasneti_atomic_add_32(&((p)->ctr),-(op)))
+     #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
      /* No fences in our asm, so using default fences */
     #elif (defined(__DECC) || defined(__DECCXX)) && defined(__osf__)
        /* Compaq C / OSF atomics are compiler built-ins */
