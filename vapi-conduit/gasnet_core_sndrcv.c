@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/03/28 05:54:28 $
- * $Revision: 1.176 $
+ *     $Date: 2006/03/29 22:09:29 $
+ * $Revision: 1.177 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -572,6 +572,56 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
 #define GASNETC_COLLECT_BBUF_IF(_bbuf) _GASNETC_COLLECT_BBUF(if,(_bbuf))
   
 
+GASNETI_NEVER_INLINE(gasnetc_dump_cqs)
+void gasnetc_dump_cqs(VAPI_wc_desc_t *comp, gasnetc_hca_t *hca, const int is_snd) {
+  static gasnet_hsl_t lock = GASNET_HSL_INITIALIZER;
+  VAPI_ret_t vstat;
+  IB_comp_status_t status = 0;
+  int count = 0;
+  const char *label;
+
+  gasnet_hsl_lock(&lock);
+
+  if (is_snd) {
+    gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp->id;
+    fprintf(stderr, "@ %d> snd status=%d opcode=%d dst_node=%d dst_qp=%d\n", gasneti_mynode, comp->status, comp->opcode, (int)(sreq->cep - gasnetc_cep)/gasnetc_num_qps, (int)(sreq->cep - gasnetc_cep)%gasnetc_num_qps);
+    label = "rcv";
+  } else {
+    fprintf(stderr, "@ %d> rcv comp->status=%d\n", gasneti_mynode, comp->status);
+    label = "snd";
+  }
+
+  do { /* Drain the other CQ */
+    CQ_LOCK;
+    vstat = is_snd ? gasnetc_poll_rcv_cq(hca, comp)
+		   : gasnetc_poll_snd_cq(hca, comp);
+    CQ_UNLOCK;
+    if (vstat != VAPI_OK) {
+      comp->status = -1; /* last pass */
+    }
+    if (comp->status == status) {
+      ++count;
+    } else {
+      if (count) {
+        switch (status) {
+	  case IB_COMP_SUCCESS:
+            fprintf(stderr, "@ %d> - %s %d op(s) OK\n", gasneti_mynode, label, count);
+	    break;
+	  case IB_COMP_WR_FLUSH_ERR:
+            fprintf(stderr, "@ %d> - %s %d op(s) FLUSHED by error\n", gasneti_mynode, label, count);
+	    break;
+	  default:
+            fprintf(stderr, "@ %d> - %s %d op(s) with status=%d\n", gasneti_mynode, label, count, status);
+	    break;
+        }
+      }
+      count = 1;
+      status = comp->status;
+    }
+  } while (status != -1);
+  gasnet_hsl_unlock(&lock);
+}
+
 /* Try to pull completed entries (if any) from the send CQ(s). */
 static int gasnetc_snd_reap(int limit) {
   VAPI_ret_t vstat;
@@ -711,15 +761,7 @@ static int gasnetc_snd_reap(int limit) {
         break;
       } else {
 #if 1 
-        gasnetc_sreq_t *sreq = (gasnetc_sreq_t *)(uintptr_t)comp.id;
-        fprintf(stderr, "@ %d> snd comp.status=%d comp.opcode=%d dst_node=%d dst_qp=%d\n", gasneti_mynode, comp.status, comp.opcode, (int)(sreq->cep - gasnetc_cep)/gasnetc_num_qps, (int)(sreq->cep - gasnetc_cep)%gasnetc_num_qps);
-        while((vstat = gasnetc_poll_rcv_cq(hca, &comp)) == VAPI_OK) {
-	  if (comp.status != VAPI_WR_FLUSH_ERR) {
-            fprintf(stderr, "@ %d> - rcv comp.status=%d\n", gasneti_mynode, comp.status);
-	  } else {
-            fprintf(stderr, "@ %d> - rcv FLUSHED\n", gasneti_mynode);
-	  }
-        }
+	gasnetc_dump_cqs(&comp, hca, 1);
 #endif
         gasneti_fatalerror("aborting on reap of failed send");
         break;
@@ -914,14 +956,7 @@ static int gasnetc_rcv_reap(gasnetc_hca_t *hca, int limit, gasnetc_rbuf_t **spar
         break;
       } else {
 #if 1
-        fprintf(stderr, "@ %d> rcv comp.status=%d\n", gasneti_mynode, comp.status);
-        while((vstat = gasnetc_poll_snd_cq(hca, &comp)) == VAPI_OK) {
-	  if (comp.status != VAPI_WR_FLUSH_ERR) {
-            fprintf(stderr, "@ %d> - snd comp.status=%d\n", gasneti_mynode, comp.status);
-	  } else {
-            fprintf(stderr, "@ %d> - snd FLUSHED\n", gasneti_mynode);
-	  }
-        }
+	gasnetc_dump_cqs(&comp, hca, 0);
 #endif
         gasneti_fatalerror("aborting on reap of failed recv");
 	break;
