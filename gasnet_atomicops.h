@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/29 00:15:30 $
- * $Revision: 1.122 $
+ *     $Date: 2006/03/29 03:48:38 $
+ * $Revision: 1.123 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1700,6 +1700,7 @@
   #ifndef gasneti_atomic_add
     GASNETI_INLINE(gasneti_atomic_add)
     uint32_t gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op, const int flags) {
+      gasneti_assert((int32_t)op >= 0); /* TODO: prohibit zero as well? */
       _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
       { const uint32_t retval = _gasneti_atomic_add(p, op);
         _gasneti_atomic_fence_after_rmw(flags) /* no semi */
@@ -1710,6 +1711,7 @@
   #ifndef gasneti_atomic_subtract
     GASNETI_INLINE(gasneti_atomic_subtract)
     uint32_t gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op, const int flags) {
+      gasneti_assert((int32_t)op >= 0); /* TODO: prohibit zero as well? */
       _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
       { const uint32_t retval = _gasneti_atomic_subtract(p, op);
         _gasneti_atomic_fence_after_rmw(flags) /* no semi */
