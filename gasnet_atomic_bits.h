@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/29 07:50:00 $
- * $Revision: 1.126 $
+ *     $Date: 2006/03/29 17:36:31 $
+ * $Revision: 1.127 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -567,7 +567,7 @@
                     (_InterlockedDecrement((volatile int *)&((p)->ctr)) == 0)
 
       #define _gasneti_atomic_compare_and_swap(p,oval,nval) \
-                    (_InterlockedCompareExchange_acq((volatile int *)&((p)->ctr),nval,oval) == (oval))
+                    (_InterlockedCompareExchange_acq((volatile unsigned int *)&((p)->ctr),nval,oval) == (oval))
       #define GASNETI_HAVE_ATOMIC_CAS 1
 
       /* The default c-a-s based add and subtract are already the best we can do. */
