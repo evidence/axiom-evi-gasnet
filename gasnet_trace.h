@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.50 $
+ *     $Date: 2006/03/29 14:33:50 $
+ * $Revision: 1.51 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -848,7 +848,8 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
 
   extern FILE *gasneti_tracefile;
   extern FILE *gasneti_statsfile;
-  extern char *gasneti_dynsprintf(const char *format,...) __attribute__((__format__ (__printf__, 1, 2)));
+  GASNETI_FORMAT_PRINTF(gasneti_dynsprintf,1,2,
+  extern char *gasneti_dynsprintf(const char *format,...));
   extern char *gasneti_formatdata(void *p, size_t nbytes);
   extern const char *gasneti_format_strides(size_t count, const size_t *list);
   extern void gasneti_trace_output(const char *type, const char *msg, int traceheader);

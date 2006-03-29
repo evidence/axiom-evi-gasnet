@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_coll.h,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.44 $
+ *     $Date: 2006/03/29 14:33:50 $
+ * $Revision: 1.45 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,6 +10,8 @@
 #define _GASNET_COLL_H
 
 #include <gasnet.h>
+
+GASNETI_BEGIN_EXTERNC
 
 /*---------------------------------------------------------------------------------*/
 /* Flag values: */
@@ -2540,5 +2542,7 @@ gasnete_coll_exchgM_Gath(gasnet_team_handle_t team,
                          GASNETE_THREAD_FARG);
 
 /*---------------------------------------------------------------------------------*/
+
+GASNETI_END_EXTERNC
 
 #endif

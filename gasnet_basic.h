@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/29 08:24:19 $
- * $Revision: 1.58 $
+ *     $Date: 2006/03/29 14:33:50 $
+ * $Revision: 1.59 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -110,6 +110,8 @@
 
 #if defined(_SGI_COMPILER_VERSION) && defined(__cplusplus)
   #define GASNETI_PRAGMA(x) /* despite the docs, not supported in MIPSPro C++ */
+#elif defined(__DECC_VER) && __DECC_VER < 60590207
+  #define GASNETI_PRAGMA(x) /* not supported in older versions (60490014) */
 #else
   #define GASNETI_PRAGMA(x) _Pragma ( #x )
 #endif
@@ -143,6 +145,8 @@
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(does_not_return(fnname))
 #elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 720 && _MIPS_SIM != _ABIO32
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(mips_frequency_hint NEVER fnname)
+#elif defined(__DECC) /* not __DECCXX */
+  #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(assert func_attrs(fnname) noreturn)
 #elif defined(__xlC__) && 0
   /* this *should* work but it causes bizarre compile failures, so disable it */
   #define GASNETI_NORETURNP(fnname) GASNETI_PRAGMA(leaves(fnname))
@@ -166,6 +170,9 @@
   #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(isolated_call(fnname))
 #elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 710
   #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(no side effects (fnname))
+#elif defined(__DECC) || defined(__DECCXX)
+  #define GASNETI_PUREP(fnname) \
+          GASNETI_PRAGMA(assert func_attrs(fnname) noeffects file_scope_vars(nowrites))
 #else
   #define GASNETI_PUREP(fnname) 
 #endif
@@ -184,11 +191,16 @@
   #define GASNETI_CONSTP(fnname) GASNETI_PRAGMA(no_side_effect(fnname))
 #elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 730
   #define GASNETI_CONSTP(fnname) GASNETI_PRAGMA(pure (fnname))
+#elif defined(__DECC) || defined(__DECCXX)
+  #define GASNETI_CONSTP(fnname) \
+          GASNETI_PRAGMA(assert func_attrs(fnname) nostate noeffects file_scope_vars(none))
 #else
   #define GASNETI_CONSTP(fnname) GASNETI_PUREP(fnname)
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE && !GASNET_DEBUG
+#if GASNET_DEBUG
+  #define GASNETI_ALWAYS_INLINE(fnname)
+#elif GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE
   /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
   #define GASNETI_ALWAYS_INLINE(fnname) __attribute__((__always_inline__))
 #elif defined(_CRAYC) /* the only way to request inlining a particular fn in Cray C */
@@ -197,11 +209,15 @@
   #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(mta inline)
 #elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 710
   #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline global fnname)
+#elif defined(__DECC) || defined(__DECCXX)
+  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline (fnname))
 #else
   #define GASNETI_ALWAYS_INLINE(fnname)
 #endif
 
-#if defined(__cplusplus)
+#if GASNET_DEBUG
+  #define GASNETI_INLINE(fnname) static
+#elif defined(__cplusplus)
   #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) inline
 #elif defined(STATIC_INLINE_WORKS)
   #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) static CC_INLINE_MODIFIER
@@ -209,6 +225,30 @@
   #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) CC_INLINE_MODIFIER
 #else
   #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) static
+#endif
+
+#if GASNETI_HAVE_GCC_ATTRIBUTE_NOINLINE
+  #define GASNETI_NEVER_INLINE(fnname) __attribute__((__noinline__))
+#elif defined(__SUNPRO_C)
+  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(no_inline(fnname))
+#elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 710
+  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(noinline global fnname)
+#elif defined(__DECC) || defined(__DECCXX)
+  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(noinline (fnname))
+#else
+  #define GASNETI_NEVER_INLINE(fnname)
+#endif
+
+#if GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT
+  #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) \
+          __attribute__((__format__ (__printf__, fmtarg, firstvararg))) declarator
+#elif defined(__DECC) /* not __DECCXX */
+  #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator)  \
+          declarator; /* declaration required before pragma */ \
+          GASNETI_PRAGMA(assert func_attrs(fnname) format (printf,fmtarg,firstvararg)) \
+          declarator
+#else
+  #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) declarator
 #endif
 
 /* ------------------------------------------------------------------------------------ */

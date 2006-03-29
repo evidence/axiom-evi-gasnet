@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/03/18 03:31:05 $
- * $Revision: 1.60 $
+ *     $Date: 2006/03/29 14:33:53 $
+ * $Revision: 1.61 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -186,9 +186,8 @@ enum {
 
 static void gather_pids(void);
 
-static void do_verbose(const char *fmt, ...) __attribute__((__format__ (__printf__, 1, 2)));
-static void do_verbose(const char *fmt, ...)
-{
+GASNETI_FORMAT_PRINTF(do_verbose,1,2,
+static void do_verbose(const char *fmt, ...)) {
   va_list args;
   va_start(args, fmt);
   vfprintf(stderr, fmt, args);
@@ -197,9 +196,8 @@ static void do_verbose(const char *fmt, ...)
 }
 #define BOOTSTRAP_VERBOSE(ARGS)		if_pf (is_verbose) do_verbose ARGS
 
-static char *sappendf(char *s, const char *fmt, ...) __attribute__((__format__ (__printf__, 2, 3)));
-static char *sappendf(char *s, const char *fmt, ...)
-{
+GASNETI_FORMAT_PRINTF(sappendf,2,3,
+static char *sappendf(char *s, const char *fmt, ...)) {
   va_list args;
   int old_len, add_len;
 
@@ -244,8 +242,9 @@ static char *quote_arg(const char *arg) {
 /* Like gasneti_fatalerror, but w/o dumping core
  * This is used for probable user errors
  */
-static void die(int exitcode, const char *msg, ...) GASNETI_NORETURN __attribute__((__format__ (__printf__, 2, 3)));
-static void die(int exitcode, const char *msg, ...) {
+GASNETI_FORMAT_PRINTF(die,2,3, 
+GASNETI_NORETURN
+static void die(int exitcode, const char *msg, ...)) {
   va_list argptr;
   char expandedmsg[255];
 

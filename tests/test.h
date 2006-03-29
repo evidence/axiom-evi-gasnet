@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/03/18 03:31:07 $
- * $Revision: 1.81 $
+ *     $Date: 2006/03/29 14:33:55 $
+ * $Revision: 1.82 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -98,16 +98,6 @@ static int test_errs = 0;
 #define ERR      TERR(0)
 #define FATALERR TERR(1)
 
-#if defined(_AIX) && defined(__cplusplus)
-  /* AIX's stdio.h won't provide prototypes for snprintf() and vsnprintf()
-   * by default since they are in C99 but not C89.
-   */
-  extern int snprintf(char * s, size_t n, const char * format, ...)
-					__attribute__((__format__ (__printf__, 3, 4)));
-  extern int vsnprintf(char * s, size_t n, const char * format, va_list ap)
-					__attribute__((__format__ (__printf__, 3, 0)));
-#endif
-
 #define _TEST_MSG_BUFSZ 1024
 static char _test_baseformat[_TEST_MSG_BUFSZ];
 static volatile int _test_squashmsg = 0;
@@ -120,8 +110,8 @@ static volatile int _test_fatalmsg = 0;
   #define _test_LOCKMSG()   ((void)0)
   #define _test_UNLOCKMSG() ((void)0)
 #endif
-static void _test_doErrMsg(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
-static void _test_doErrMsg(const char *format, ...) {
+GASNETT_FORMAT_PRINTF(_test_doErrMsg,1,2,
+static void _test_doErrMsg(const char *format, ...)) {
   if (_test_squashmsg) _test_squashmsg = 0; 
   else {
     char output[_TEST_MSG_BUFSZ];
@@ -142,8 +132,8 @@ static void _test_doErrMsg(const char *format, ...) {
   }
   _test_UNLOCKMSG();
 }
-static void _test_makeErrMsg(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
-static void _test_makeErrMsg(const char *format, ...) {
+GASNETT_FORMAT_PRINTF(_test_makeErrMsg,1,2,
+static void _test_makeErrMsg(const char *format, ...)) {
   va_list argptr;
   _test_LOCKMSG();
   va_start(argptr, format); /*  pass in last argument */

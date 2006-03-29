@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/03/29 06:48:34 $
-# $Revision: 1.331 $
+#     $Date: 2006/03/29 14:33:50 $
+# $Revision: 1.332 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.331 $)
+AC_REVISION($Revision: 1.332 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -419,6 +419,8 @@ GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS")
 GASNET_CHECK_RESTRICT
 GASNET_CHECK_GCC_ATTRIBUTE([__always_inline__],
             [__attribute__((__always_inline__)) int dummy() { return 1; }])
+GASNET_CHECK_GCC_ATTRIBUTE([__noinline__],
+            [__attribute__((__noinline__)) int dummy() { return 1; }])
 GASNET_CHECK_GCC_ATTRIBUTE([__malloc__],
             [#include <stdlib.h>
 	     __attribute__((__malloc__)) void * dummy() { return malloc(14); }])
@@ -431,6 +433,8 @@ GASNET_CHECK_GCC_ATTRIBUTE([__const__],
             [__attribute__((__const__)) int dummy(int x) { return x+1; }])
 GASNET_CHECK_GCC_ATTRIBUTE([__pure__],
             [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
+GASNET_CHECK_GCC_ATTRIBUTE([__format__],
+            [__attribute__((__format__ (__printf__, 1, 2))) void dummy(const char *fmt,...) { }])
 GASNET_POPVAR(CFLAGS)
 
 ########################################################################

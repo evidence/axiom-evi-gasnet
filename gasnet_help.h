@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/03/29 08:25:49 $
- * $Revision: 1.83 $
+ *     $Date: 2006/03/29 14:33:50 $
+ * $Revision: 1.84 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,7 +26,8 @@
 
 GASNETI_BEGIN_EXTERNC
 
-extern void gasneti_fatalerror(const char *msg, ...) GASNETI_NORETURN __attribute__((__format__ (__printf__, 1, 2)));
+GASNETI_FORMAT_PRINTF(gasneti_fatalerror,1,2,
+extern void gasneti_fatalerror(const char *msg, ...) GASNETI_NORETURN);
 GASNETI_NORETURNP(gasneti_fatalerror)
 
 extern int (*gasneti_print_backtrace)(int);
@@ -728,7 +729,7 @@ typedef struct {
     _gasneti_threadkey_check((key), 1);                                   \
     gasneti_assert_zeroret(pthread_setspecific((key).value, (newvalue))); \
   } while (0)
-  /* not inlined, to avoid inserting overhead for an uncommon path */
+  GASNETI_NEVER_INLINE(gasneti_threadkey_init) /* avoid inserting overhead for an uncommon path */
   static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
     _gasneti_threadkey_check(*pkey, 0);
     gasneti_mutex_lock(&(pkey->initmutex));

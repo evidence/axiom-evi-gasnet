@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.123 $
+ *     $Date: 2006/03/29 14:33:50 $
+ * $Revision: 1.124 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -208,10 +208,14 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
   static gasneti_mutex_t gasneti_buflock = GASNETI_MUTEX_INITIALIZER;
 
   /* give gcc enough information to type-check our format strings */
-  static void gasneti_file_vprintf(FILE *fp, const char *format, va_list argptr) __attribute__((__format__ (__printf__, 2, 0)));
-  static void gasneti_trace_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
-  static void gasneti_stats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
-  static void gasneti_tracestats_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
+  GASNETI_FORMAT_PRINTF(gasneti_file_vprintf,2,0,
+  static void gasneti_file_vprintf(FILE *fp, const char *format, va_list argptr));
+  GASNETI_FORMAT_PRINTF(gasneti_trace_printf,1,2,
+  static void gasneti_trace_printf(const char *format, ...));
+  GASNETI_FORMAT_PRINTF(gasneti_stats_printf,1,2,
+  static void gasneti_stats_printf(const char *format, ...));
+  GASNETI_FORMAT_PRINTF(gasneti_tracestats_printf,1,2,
+  static void gasneti_tracestats_printf(const char *format, ...));
 
   static char *gasneti_getbuf() {
     int bufidx;

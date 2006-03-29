@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/03/29 01:44:51 $
- * $Revision: 1.62 $
+ *     $Date: 2006/03/29 14:33:50 $
+ * $Revision: 1.63 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,6 +177,7 @@
 
 /* various configure-detected C compiler features available in only some compilers */
 #define GASNETT_INLINE(fnname)          GASNETI_INLINE(fnname) 
+#define GASNETT_NEVER_INLINE(fnname)    GASNETI_NEVER_INLINE(fnname) 
 #define GASNETT_RESTRICT                GASNETI_RESTRICT
 #define GASNETT_NORETURN                GASNETI_NORETURN
 #define GASNETT_NORETURNP               GASNETI_NORETURNP
@@ -187,6 +188,7 @@
 #define GASNETT_CONST                   GASNETI_CONST
 #define GASNETT_CONSTP                  GASNETI_CONSTP
 #define GASNETT_WARN_UNUSED_RESULT      GASNETI_WARN_UNUSED_RESULT
+#define GASNETT_FORMAT_PRINTF           GASNETI_FORMAT_PRINTF
 
 #define GASNETT_CURRENT_FUNCTION        GASNETI_CURRENT_FUNCTION
 
@@ -214,8 +216,10 @@ GASNETI_BEGIN_EXTERNC
   #define GASNETT_TRACE_ENABLED  GASNETI_TRACE_ENABLED(H)
   #define GASNETT_TRACE_PRINTF        _gasnett_trace_printf
   #define GASNETT_TRACE_PRINTF_FORCE  _gasnett_trace_printf_force
-  extern void _gasnett_trace_printf(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
-  extern void _gasnett_trace_printf_force(const char *format, ...) __attribute__((__format__ (__printf__, 1, 2)));
+  GASNETI_FORMAT_PRINTF(_gasnett_trace_printf,1,2,
+  extern void _gasnett_trace_printf(const char *format, ...));
+  GASNETI_FORMAT_PRINTF(_gasnett_trace_printf_force,1,2,
+  extern void _gasnett_trace_printf_force(const char *format, ...));
   #define GASNETT_TRACE_GETMASK()     GASNETI_TRACE_GETMASK()
   #define GASNETT_TRACE_SETMASK(mask) GASNETI_TRACE_SETMASK(mask)
   #define GASNETT_TRACE_GET_TRACELOCAL()        GASNETI_TRACE_GET_TRACELOCAL()
@@ -312,6 +316,20 @@ GASNETI_BEGIN_EXTERNC
   #define gasnett_threadkey_init(pkey)              abort()
   #define gasnett_threadkey_get_noinit(key)         abort()
   #define gasnett_threadkey_set_noinit(key,newval)  abort()
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+
+/* other random bits of factored code */
+
+#if defined(_AIX)
+  /* AIX's stdio.h won't provide prototypes for snprintf() and vsnprintf()
+   * by default since they are in C99 but not C89.
+   */
+  GASNETI_FORMAT_PRINTF(snprintf,3,4,
+  extern int snprintf(char * s, size_t n, const char * format, ...));
+  GASNETI_FORMAT_PRINTF(vsnprintf,3,0,
+  extern int vsnprintf(char * s, size_t n, const char * format, va_list ap));
 #endif
 
 GASNETI_END_EXTERNC
