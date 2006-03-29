@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/28 11:43:26 $
- * $Revision: 1.56 $
+ *     $Date: 2006/03/29 06:48:34 $
+ * $Revision: 1.57 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -108,7 +108,11 @@
   #define __attribute__(flags)
 #endif
 
-#define GASNETI_PRAGMA(x) _Pragma ( #x )
+#if defined(_SGI_COMPILER_VERSION) && defined(__cplusplus)
+  #define GASNETI_PRAGMA(x) /* despite the docs, not supported in MIPSPro C++ */
+#else
+  #define GASNETI_PRAGMA(x) _Pragma ( #x )
+#endif
 
 #if GASNETI_HAVE_GCC_ATTRIBUTE_WARNUNUSEDRESULT /* Warn if return value is ignored */
   #define GASNETI_WARN_UNUSED_RESULT __attribute__((__warn_unused_result__))
