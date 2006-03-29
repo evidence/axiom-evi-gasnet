@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/03/28 05:54:24 $
- * $Revision: 1.82 $
+ *     $Date: 2006/03/29 08:25:49 $
+ * $Revision: 1.83 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -697,26 +697,30 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
 #define GASNETI_THREADKEY_MAGIC 0xFF00ABCDEF573921ULL
 
 typedef struct { 
-  uint64_t magic;
-  gasneti_mutex_t initmutex;
-  volatile int isinit;
+  #if GASNET_DEBUG
+    uint64_t magic;
+    #define GASNETI_THREADKEY_MAGIC_INIT GASNETI_THREADKEY_MAGIC,
+  #else
+    #define GASNETI_THREADKEY_MAGIC_INIT
+  #endif
   #if GASNETI_THREADS
+    gasneti_mutex_t initmutex;
+    volatile int isinit;
     pthread_key_t value;
+    #define GASNETI_THREADKEY_REST_INIT GASNETI_MUTEX_INITIALIZER, 0 /* value field left NULL */
   #else
     void *value;
+    #define GASNETI_THREADKEY_REST_INIT 0
   #endif
 } gasneti_threadkey_t;
 
 #define GASNETI_THREADKEY_INITIALIZER \
-  { GASNETI_THREADKEY_MAGIC, GASNETI_MUTEX_INITIALIZER, 0 /* value field left NULL */ }
-
-#define _gasneti_threadkey_check(key, requireinit)         \
- ( gasneti_assert((key).magic == GASNETI_THREADKEY_MAGIC), \
-   (requireinit ? gasneti_assert((key).isinit) : ((void)0)))
+  { GASNETI_THREADKEY_MAGIC_INIT GASNETI_THREADKEY_REST_INIT }
 
 #if GASNETI_THREADS
-  #define _gasneti_threadkey_init(pvalue) \
-    gasneti_assert_zeroret(pthread_key_create((pvalue),NULL));
+  #define _gasneti_threadkey_check(key, requireinit)         \
+   ( gasneti_assert((key).magic == GASNETI_THREADKEY_MAGIC), \
+     (requireinit ? gasneti_assert((key).isinit) : ((void)0)))
   #define gasneti_threadkey_get_noinit(key) \
     ( _gasneti_threadkey_check((key), 1),   \
       pthread_getspecific((key).value) )
@@ -724,41 +728,44 @@ typedef struct {
     _gasneti_threadkey_check((key), 1);                                   \
     gasneti_assert_zeroret(pthread_setspecific((key).value, (newvalue))); \
   } while (0)
-#else
-  #define _gasneti_threadkey_init(pvalue) ((void)0)
-  #define gasneti_threadkey_get_noinit(key) \
-    (_gasneti_threadkey_check((key), 1), (key).value)
-  #define gasneti_threadkey_set_noinit(key, newvalue) do { \
-    _gasneti_threadkey_check((key), 1);                    \
-    (key).value = (newvalue);                              \
-  } while (0)
-#endif
-  
-/* not inlined, to avoid inserting overhead for an uncommon path */
-static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
-  _gasneti_threadkey_check(*pkey, 0);
-  gasneti_mutex_lock(&(pkey->initmutex));
-    if (pkey->isinit == 0) {
-      _gasneti_threadkey_init(&(pkey->value));
-      gasneti_local_wmb();
-      pkey->isinit = 1;
-    }
-  gasneti_mutex_unlock(&(pkey->initmutex));
-}
-  
-#define gasneti_threadkey_get(key)       \
-  ( _gasneti_threadkey_check(key, 0),    \
-    ( PREDICT_FALSE((key).isinit == 0) ? \
-      gasneti_threadkey_init(&(key)) :   \
-      ((void)0) ),                       \
-    gasneti_threadkey_get_noinit(key) )
+  /* not inlined, to avoid inserting overhead for an uncommon path */
+  static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
+    _gasneti_threadkey_check(*pkey, 0);
+    gasneti_mutex_lock(&(pkey->initmutex));
+      if (pkey->isinit == 0) {
+        gasneti_assert_zeroret(pthread_key_create(&(pkey->value),NULL));
+        gasneti_local_wmb();
+        pkey->isinit = 1;
+      }
+    gasneti_mutex_unlock(&(pkey->initmutex));
+    _gasneti_threadkey_check(*pkey, 1);
+  }
+  #define gasneti_threadkey_get(key)       \
+    ( _gasneti_threadkey_check(key, 0),    \
+      ( PREDICT_FALSE((key).isinit == 0) ? \
+        gasneti_threadkey_init(&(key)) :   \
+        ((void)0) ),                       \
+      gasneti_threadkey_get_noinit(key) )
 
-#define gasneti_threadkey_set(key,newvalue) do { \
-    _gasneti_threadkey_check(key, 0);            \
-    if_pf((key).isinit == 0)                     \
-      gasneti_threadkey_init(&(key));            \
-    gasneti_threadkey_set_noinit(key, newvalue); \
-  } while (0)
+  #define gasneti_threadkey_set(key,newvalue) do { \
+      _gasneti_threadkey_check(key, 0);            \
+      if_pf((key).isinit == 0)                     \
+        gasneti_threadkey_init(&(key));            \
+      gasneti_threadkey_set_noinit(key, newvalue); \
+    } while (0)
+#else
+  #define gasneti_threadkey_init(pkey) ((void)0)
+  #define _gasneti_threadkey_check(key)         \
+          gasneti_assert((key).magic == GASNETI_THREADKEY_MAGIC)
+  #define gasneti_threadkey_get_noinit(key) \
+    (_gasneti_threadkey_check(key), (key).value)
+  #define gasneti_threadkey_set_noinit(key, newvalue) do { \
+    _gasneti_threadkey_check(key);                         \
+    (key).value = (newvalue);                              \
+    } while (0)
+  #define gasneti_threadkey_get gasneti_threadkey_get_noinit
+  #define gasneti_threadkey_set gasneti_threadkey_set_noinit
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* GASNet progressfn support
