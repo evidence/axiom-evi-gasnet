@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/29 06:48:34 $
- * $Revision: 1.57 $
+ *     $Date: 2006/03/29 08:24:19 $
+ * $Revision: 1.58 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -256,6 +256,17 @@
      */
    #define PREDICT_TRUE(exp)  __builtin_expect( ((uintptr_t)(exp)), 1 )
    #define PREDICT_FALSE(exp) __builtin_expect( ((uintptr_t)(exp)), 0 )
+  #elif defined(__xlC__) && __xlC__ > 0x0600 && \
+       defined(_ARCH_PWR5) /* usually helps on Power5, usually hurts on Power3, mixed on other PPCs */
+   #if 1 /* execution_frequency pragma only takes effect when it occurs within a block statement */
+     #define PREDICT_TRUE(exp)  ((exp) && ({; _Pragma("execution_frequency(very_high)"); 1; }))
+     #define PREDICT_FALSE(exp) ((exp) && ({; _Pragma("execution_frequency(very_low)"); 1; }))
+   #else /* experimentally determined that pragma is sometimes(?) ignored unless it is
+            preceded by a non-trivial statement - unfortunately the dummy statement can also hurt performance */
+     static __inline gasneti_xlc_pragma_dummy() {} 
+     #define PREDICT_TRUE(exp)  ((exp) && ({ gasneti_xlc_pragma_dummy(); _Pragma("execution_frequency(very_high)"); 1; }))
+     #define PREDICT_FALSE(exp) ((exp) && ({ gasneti_xlc_pragma_dummy(); _Pragma("execution_frequency(very_low)"); 1; }))
+   #endif
   #else
    #define PREDICT_TRUE(exp)  (exp)
    #define PREDICT_FALSE(exp) (exp)
