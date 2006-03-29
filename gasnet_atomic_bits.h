@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/29 07:09:43 $
- * $Revision: 1.125 $
+ *     $Date: 2006/03/29 07:50:00 $
+ * $Revision: 1.126 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1174,7 +1174,19 @@
 	(gasneti_atomic_swap_not_32(&((p)->ctr),(oldval),(newval)) == 0)
       #define GASNETI_HAVE_ATOMIC_CAS 1
 
-      /* XXX: bug 1514: can/should write "tuned" asm for add/sub, rather than using c-a-s */
+      static int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op);
+      #pragma mc_func gasneti_atomic_addandfetch_32 {\
+	/* ARGS: r3 = v  LOCAL: r4 = op, r5 = tmp */ \
+	"7ca01828"	/* 0: lwarx	r5,0,r3		*/ \
+	"7ca52214"	/*    add	r5,r5,r4	*/ \
+	"7ca0192d"	/*    stwcx.	r5,0,r3		*/ \
+	"40a2fff4"	/*    bne-	0b		*/ \
+	"7ca32b78"	/*    mr	r3,r5		*/ \
+	/* RETURN in r3 = result after addition */ \
+      }
+      #pragma reg_killed_by gasneti_atomic_addandfetch_32 cr0, gr5
+      #define gasneti_atomic_addfetch(p,op) gasneti_atomic_addandfetch_32(&((p)->ctr),op)
+
       /* Using default fences as we have none in our asms */
     #elif defined(__GNUC__)
       static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
