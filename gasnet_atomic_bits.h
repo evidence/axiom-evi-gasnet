@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/03/29 05:25:07 $
- * $Revision: 1.124 $
+ *     $Date: 2006/03/29 07:09:43 $
+ * $Revision: 1.125 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -79,7 +79,7 @@
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #elif defined(GASNETI_FORCE_OS_ATOMICOPS) || /* for debugging */          \
     defined(MTA)   ||  \
-    defined(IRIX) /* We could do LL/SC based gcc asm for MIPS */
+    defined(_SGI_COMPILER_VERSION)
   #define GASNETI_USE_OS_ATOMICOPS
 #endif
 
@@ -1223,6 +1223,78 @@
       /* Using default fences as we have none in our asms */
     #else
       #error Unrecognized PowerPC - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
+    #endif
+  #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
+    #if defined(__GNUC__)
+      typedef struct { volatile int ctr; } gasneti_atomic_t;
+      #define _gasneti_atomic_read(p)      ((p)->ctr)
+      #define _gasneti_atomic_init(v)      { (v) }
+      #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
+      GASNETI_INLINE(_gasneti_atomic_increment)
+      void _gasneti_atomic_increment(gasneti_atomic_t *p) {
+	uint32_t tmp;
+	__asm__ __volatile__(
+		"1:		\n\t"
+		"ll	%0,%1	\n\t"
+		"addu	%0,1	\n\t"
+		"sc	%0,%1	\n\t"
+		"beqz	%0,1b	"
+		: "=&r" (tmp), "=m" (p->ctr)
+		: "m" (p->ctr)
+		: "memory");
+      }
+      GASNETI_INLINE(_gasneti_atomic_decrement)
+      void _gasneti_atomic_decrement(gasneti_atomic_t *p) {
+	uint32_t tmp;
+	__asm__ __volatile__(
+		"1:		\n\t"
+		"ll	%0,%1	\n\t"
+		"subu	%0,1 	\n\t"
+		"sc	%0,%1 	\n\t"
+		"beqz	%0,1b	"
+		: "=&r" (tmp), "=m" (p->ctr)
+		: "m" (p->ctr)
+		: "memory");
+      }
+      GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
+      uint32_t gasneti_atomic_fetchandadd_32(gasneti_atomic_t *p, int32_t op) {
+	uint32_t tmp, retval;
+	__asm__ __volatile__(
+		"1:			\n\t"
+		"ll	%0,%2		\n\t"
+		"addu	%1,%0,%3	\n\t"
+		"sc	%1,%2		\n\t"
+		"beqz	%1,1b		"
+		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
+		: "Ir" (op), "m" (p->ctr)
+		: "memory");
+	return retval;
+      }
+      #define _gasneti_atomic_decrement_and_test(p) (gasneti_atomic_fetchandadd_32((p),-1) == 1)
+
+      GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
+      int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+         uint32_t temp;
+         int retval;
+         __asm__ __volatile__ (
+		"1:			\n\t"
+		"ll	%1,%5		\n\t"	/* Load from *p */
+		"move	%0,$0		\n\t"	/* Assume mismatch */
+		"bne	%1,%3,2f	\n\t"	/* Break loop on mismatch */
+		"move	%0,%4		\n\t"	/* Move newval to retval */
+		"sc	%0,%2		\n\t"	/* Try SC to store retval */
+		"beqz	%0,1b		\n"	/* Retry on contention */
+		"2:			"
+                : "=&r" (retval), "=&r" (temp), "=m" (p->ctr)
+                : "r" (oldval), "r" (newval), "m" (p->ctr)
+                : "memory");
+        return retval;
+      }
+      #define GASNETI_HAVE_ATOMIC_CAS 1
+
+      #define gasneti_atomic_fetchadd gasneti_atomic_fetchandadd_32
+
+      /* No memory fences in our asm, so using default fences */
     #endif
   #else
     #error Unrecognized platform - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
