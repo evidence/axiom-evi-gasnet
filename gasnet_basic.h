@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/29 14:33:50 $
- * $Revision: 1.59 $
+ *     $Date: 2006/03/29 17:40:00 $
+ * $Revision: 1.60 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -131,6 +131,8 @@
 /* pragma version of GASNETI_MALLOC */
 #ifdef __SUNPRO_C
   #define GASNETI_MALLOCP(fnname) GASNETI_PRAGMA(returns_new_memory(fnname))
+#elif defined(__HP_cc) && !defined(__ia64)
+  #define GASNETI_MALLOCP(fnname) GASNETI_PRAGMA(ALLOCS_NEW_MEMORY fnname)
 #else
   #define GASNETI_MALLOCP(fnname)
 #endif
@@ -173,6 +175,8 @@
 #elif defined(__DECC) || defined(__DECCXX)
   #define GASNETI_PUREP(fnname) \
           GASNETI_PRAGMA(assert func_attrs(fnname) noeffects file_scope_vars(nowrites))
+#elif defined(__HP_cc) && !defined(__ia64)
+  #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(NO_SIDE_EFFECTS fnname)
 #else
   #define GASNETI_PUREP(fnname) 
 #endif
@@ -204,6 +208,7 @@
   /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
   #define GASNETI_ALWAYS_INLINE(fnname) __attribute__((__always_inline__))
 #elif defined(_CRAYC) /* the only way to request inlining a particular fn in Cray C */
+  /* possibly should be using inline_always here */
   #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname)
 #elif defined(__MTA__)
   #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(mta inline)
@@ -211,6 +216,11 @@
   #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline global fnname)
 #elif defined(__DECC) || defined(__DECCXX)
   #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline (fnname))
+#elif defined(__HP_cc) && GASNET_NDEBUG /* avoid a warning */ \
+   && 0 /* unreliable behavior - Itanium optimizer crashes and 
+           PARISC syntax errors unless it appears on a line by itself */
+  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(INLINE fnname)
+  #undef STATIC_INLINE_WORKS
 #else
   #define GASNETI_ALWAYS_INLINE(fnname)
 #endif
@@ -231,10 +241,15 @@
   #define GASNETI_NEVER_INLINE(fnname) __attribute__((__noinline__))
 #elif defined(__SUNPRO_C)
   #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(no_inline(fnname))
+#elif defined(_CRAYC) 
+  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(_CRI inline_never fnname)
 #elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 710
   #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(noinline global fnname)
 #elif defined(__DECC) || defined(__DECCXX)
   #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(noinline (fnname))
+#elif defined(__HP_cc) && GASNET_NDEBUG /* avoid a warning */ \
+   && defined(__ia64) /* unreliable behavior on PARISC unless it appears on a line by itself */
+  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(NOINLINE fnname)
 #else
   #define GASNETI_NEVER_INLINE(fnname)
 #endif
