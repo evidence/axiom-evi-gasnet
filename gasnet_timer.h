@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.48 $
+ *     $Date: 2006/03/29 01:44:51 $
+ * $Revision: 1.49 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -451,8 +451,28 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   }
   #define GASNETI_STATTIME_TO_NS(st)  (gasneti_stattime_to_ns(st))
   #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
+#elif defined(_POSIX_TIMERS) && 0
+  /* POSIX realtime support - disabled for now because haven't found anywhere that it 
+     outperforms gettimeofday, and it usually requires an additional library */
+  #include <time.h>
+  #define GASNETI_USING_POSIX_REALTIME 1
+  typedef uint64_t gasneti_stattime_t;
+  GASNETI_INLINE(gasneti_stattime_now)
+  gasneti_stattime_t gasneti_stattime_now() {
+    struct timespec tm;
+    #if defined(_POSIX_MONOTONIC_CLOCK) && 0 
+      /* this is probably the better timer to use, but 
+         some implementations define the symbol and then fail at runtime */
+      gasneti_assert_zeroret(clock_gettime(CLOCK_MONOTONIC,&tm));
+    #else
+      gasneti_assert_zeroret(clock_gettime(CLOCK_REALTIME,&tm));
+    #endif
+    return tm.tv_sec*((uint64_t)1E9)+tm.tv_nsec;
+  }
+  #define GASNETI_STATTIME_TO_NS(st)  (st)
+  #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
 #else
-  #define GASNETI_USING_GETTIMEOFDAY
+  #define GASNETI_USING_GETTIMEOFDAY 1
   /* portable microsecond granularity wall-clock timer */
   typedef uint64_t gasneti_stattime_t;
   #define GASNETI_STATTIME_TO_NS(st)  ((st)*1000)
@@ -466,8 +486,10 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 #define GASNETI_STATTIME_MAX        ((gasneti_stattime_t)-1)
 #endif
 
-#ifdef GASNETI_USING_GETTIMEOFDAY
+#if GASNETI_USING_GETTIMEOFDAY
   #define GASNETI_TIMER_CONFIG   timers_os
+#elif GASNETI_USING_POSIX_REALTIME
+  #define GASNETI_TIMER_CONFIG   timers_posixrt
 #else
   #define GASNETI_TIMER_CONFIG   timers_native
 #endif

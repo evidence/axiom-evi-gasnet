@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/03/23 05:30:41 $
-# $Revision: 1.78 $
+#     $Date: 2006/03/29 01:44:53 $
+# $Revision: 1.79 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -311,7 +311,7 @@ do-run-testexit: force
 @BUILDCONFIG_DEBUG_FALSE@ TOOLS_CPPFLAGS = -DNDEBUG
 testtools: force
 	@CC@ @CFLAGS@ @MISC_CFLAGS@ @MISC_CPPFLAGS@ $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@ $(TOOLS_CPPFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
-	@CC@ @CFLAGS@ @MISC_CFLAGS@ @LDFLAGS@ -o $@ $@.o @GASNET_THREAD_LIBS@ @LIBS@ @LIBM@
+	@CC@ @CFLAGS@ @MISC_CFLAGS@ @LDFLAGS@ $(MANUAL_LDFLAGS) -o $@ $@.o @GASNET_THREAD_LIBS@ @LIBS@ @LIBM@ $(MANUAL_LIBS)
 	rm -f $@.o
 
 # some tests need delay.o
@@ -336,7 +336,7 @@ testmpi: force
 # testmpinbr requires libm
 $(MPI_TESTS): force
 	@MPI_CC@ -I$(srcdir)/mpi -I@TOP_SRCDIR@/other @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/mpi/$@.c
-	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ @LIBM@
+	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ @LIBM@ $(MANUAL_LIBS)
 	rm -f $@.o	
 
 # testcxx tests support for compiling a C++-based GASNet client 

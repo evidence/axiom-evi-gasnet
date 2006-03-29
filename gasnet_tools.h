@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/03/28 05:54:24 $
- * $Revision: 1.61 $
+ *     $Date: 2006/03/29 01:44:51 $
+ * $Revision: 1.62 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -28,6 +28,8 @@
 #if !defined(_INCLUDED_GASNET_H) 
   #if defined(GASNET_NDEBUG) || defined(NDEBUG)
     #define gasneti_assert(expr) ((void)0)
+    #define gasneti_assert_zeroret(op)  (op)
+    #define gasneti_assert_nzeroret(op) (op)
   #else
     GASNETI_INLINE(gasneti_assert_fail)
     void gasneti_assert_fail(const char *file, int line, const char *cond) {
@@ -36,6 +38,16 @@
     }
     #define gasneti_assert(expr) \
       (PREDICT_TRUE(expr) ? (void)0 : gasneti_assert_fail(__FILE__, __LINE__, #expr))
+    #define gasneti_assert_zeroret(op) do {                   \
+      int _retval = (op);                                     \
+      if_pf(_retval) gasneti_assert_fail(__FILE__, __LINE__,  \
+                                #op" failed to return zero"); \
+    } while (0)
+    #define gasneti_assert_nzeroret(op) do {                  \
+      int _retval = (op);                                     \
+      if_pf(_retval) gasneti_assert_fail(__FILE__, __LINE__,  \
+                            #op" failed to return non-zero"); \
+    } while (0)
   #endif
 #endif
 
