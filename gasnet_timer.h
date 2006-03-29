@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/03/29 01:44:51 $
- * $Revision: 1.49 $
+ *     $Date: 2006/03/29 03:31:07 $
+ * $Revision: 1.50 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -182,7 +182,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_TO_NS(st)  (gasneti_stattime_to_ns(st))
   #define GASNETI_STATTIME_NOW()      (gethrtime())
 #endif
-#elif defined(__LIBCATAMOUNT__)
+#elif defined(__LIBCATAMOUNT__) && defined(__PGI) /* pgi lacks mechanism for rdtsc */
   #include <catamount/dclock.h>
   typedef uint64_t gasneti_stattime_t;
   #define GASNETI_STATTIME_TO_NS(st)  (st)
@@ -195,6 +195,9 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #include <math.h>
   #if defined(__ia64__) && defined(__INTEL_COMPILER)
     #include <ia64intrin.h>
+  #endif
+  #if defined(__LIBCATAMOUNT__)
+    extern unsigned int __cpu_mhz; /* system provided */
   #endif
   typedef uint64_t gasneti_stattime_t;
   GASNETI_INLINE(gasneti_stattime_now)
@@ -224,8 +227,11 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   GASNETI_INLINE(gasneti_stattime_to_ns)
   uint64_t gasneti_stattime_to_ns(gasneti_stattime_t st) {
     static int firstTime = 1;
-    static double Tick = 0.0;
+    static double Tick = 0.0; /* inverse GHz */
     if_pf (firstTime) {
+     #if defined(__LIBCATAMOUNT__) /* lacks /proc filesystem */
+        Tick = 1000.0 / __cpu_mhz;
+     #else
       FILE *fp = fopen("/proc/cpuinfo","r");
       char input[255];
       if (!fp) {
@@ -247,6 +253,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
         }
       }
       fclose(fp);
+     #endif
       gasneti_assert(Tick != 0.0);
       gasneti_sync_writes();
       firstTime = 0;
