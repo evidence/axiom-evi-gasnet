@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/03/28 05:54:24 $
-# $Revision: 1.329 $
+#     $Date: 2006/03/29 01:55:38 $
+# $Revision: 1.330 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.329 $)
+AC_REVISION($Revision: 1.330 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2063,7 +2063,7 @@ popdef([CONDUIT_DESC])
 # Configure conduit-independent spawners
 
 # Things needed by ssh spawner
-AC_CHECK_HEADERS(netinet/tcp.h)
+AC_CHECK_HEADERS(sys/socket.h netinet/tcp.h)
 case "$target_os" in
   linux*)
     GASNET_IF_ENABLED(ssh-prctl, Enable use of prctl() in the ssh-based spawner (see other/ssh-spawner/README) (disabled by default), [
