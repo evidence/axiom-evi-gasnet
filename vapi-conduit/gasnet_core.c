@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/03/29 23:46:39 $
- * $Revision: 1.161 $
+ *     $Date: 2006/03/30 20:15:39 $
+ * $Revision: 1.162 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1815,6 +1815,11 @@ static void gasnetc_exit_sighandler(int sig) {
     write(STDERR_FILENO, msg2, sizeof(msg2) - 1);
     write(STDERR_FILENO, state, strlen(state));
     write(STDERR_FILENO, "]\n", 2);
+  }
+  /* XXX: temporary hack */
+  {
+    gasneti_reghandler(SIGABRT, SIG_DFL);
+    abort();
   }
   #endif
 
