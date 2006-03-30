@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/03/29 03:31:07 $
- * $Revision: 1.50 $
+ *     $Date: 2006/03/30 12:39:30 $
+ * $Revision: 1.51 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -182,7 +182,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   #define GASNETI_STATTIME_TO_NS(st)  (gasneti_stattime_to_ns(st))
   #define GASNETI_STATTIME_NOW()      (gethrtime())
 #endif
-#elif defined(__LIBCATAMOUNT__) && defined(__PGI) /* pgi lacks mechanism for rdtsc */
+#elif defined(__LIBCATAMOUNT__) && defined(__PGI) && !defined(PGI_WITH_REAL_ASM) /* no way to do rdtsc */
   #include <catamount/dclock.h>
   typedef uint64_t gasneti_stattime_t;
   #define GASNETI_STATTIME_TO_NS(st)  (st)
@@ -200,6 +200,9 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     extern unsigned int __cpu_mhz; /* system provided */
   #endif
   typedef uint64_t gasneti_stattime_t;
+ #if defined(PGI_WITH_REAL_ASM) && defined(__cplusplus)
+  #define GASNETI_USING_SLOW_TIMERS 1
+ #else
   GASNETI_INLINE(gasneti_stattime_now)
   uint64_t gasneti_stattime_now (void) {
     uint64_t ret;
@@ -224,6 +227,8 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     #endif
     return ret;
   } 
+  #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
+ #endif
   GASNETI_INLINE(gasneti_stattime_to_ns)
   uint64_t gasneti_stattime_to_ns(gasneti_stattime_t st) {
     static int firstTime = 1;
@@ -261,7 +266,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     return (uint64_t)(st * Tick);
   }
   #define GASNETI_STATTIME_TO_NS(st)  (gasneti_stattime_to_ns(st))
-  #define GASNETI_STATTIME_NOW()      (gasneti_stattime_now())
 #elif defined(__PPC__) && \
       ( defined(__GNUC__) || defined(__xlC__) ) && \
       ( defined(__linux__) || defined(__blrts__) )
@@ -484,6 +488,14 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
   typedef uint64_t gasneti_stattime_t;
   #define GASNETI_STATTIME_TO_NS(st)  ((st)*1000)
   #define GASNETI_STATTIME_NOW()      ((gasneti_stattime_t)gasneti_getMicrosecondTimeStamp())
+#endif
+
+#ifdef GASNETI_USING_SLOW_TIMERS
+  #ifndef __cplusplus
+    #error Slow timers are only a hack-around for C++ compilers lacking inline assembly support
+  #endif
+  GASNETI_EXTERNC gasneti_stattime_t gasneti_slow_stattime_now();
+  #define GASNETI_STATTIME_NOW()      (gasneti_slow_stattime_now())
 #endif
 
 #ifndef GASNETI_STATTIME_MIN

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/29 17:36:31 $
- * $Revision: 1.127 $
+ *     $Date: 2006/03/30 12:39:30 $
+ * $Revision: 1.128 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -74,7 +74,7 @@
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS) || /* for debugging */          \
     defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
     defined(_SX)       || /* NEC SX-6 atomics not available to user code? */ \
-    defined(__PGI)     || /* haven't implemented atomics for PGI */ \
+    (defined(__PGI) && !defined(PGI_WITH_REAL_ASM)) || /* haven't implemented atomics for PGI older than 6.1 */ \
     defined(__SUNPRO_C) || defined(__SUNPRO_CC) /* haven't implemented atomics for SunCC */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #elif defined(GASNETI_FORCE_OS_ATOMICOPS) || /* for debugging */          \
@@ -103,8 +103,7 @@
 
 /* ------------------------------------------------------------------------------------ */
 /* Yuck */
-#if (defined(__i386__) || defined(__x86_64__)) /* x86 and Athlon/Opteron */ && \
-	(defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__))
+#if (defined(__i386__) || defined(__x86_64__)) /* x86 and Athlon/Opteron */
   #ifdef GASNETI_UNI_BUILD
     #define GASNETI_X86_LOCK_PREFIX ""
   #else
@@ -482,7 +481,12 @@
    * CPU and compiler support for inline assembly code
    * ------------------------------------------------------------------------------------ */
   #if defined(__i386__) || defined(__x86_64__) /* x86 and Athlon/Opteron */
-    #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__)
+    #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
+     typedef struct { volatile int ctr; } gasneti_atomic_t;
+     #define _gasneti_atomic_init(v)      { (v) }
+     #if defined(PGI_WITH_REAL_ASM) && defined(__cplusplus) /* PGI C++ lacks inline assembly */
+        #define GASNETI_USING_SLOW_ATOMICS 1
+     #else
       #if defined(__PATHCC__)
         /* Pathscale optimizer is buggy and fails to clobber memory output location correctly
            unless we include an extraneous full memory clobber 
@@ -491,9 +495,7 @@
       #else
         #define GASNETI_ATOMIC_MEM_CLOBBER
       #endif
-      typedef struct { volatile int ctr; } gasneti_atomic_t;
       #define _gasneti_atomic_read(p)      ((p)->ctr)
-      #define _gasneti_atomic_init(v)      { (v) }
       #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
       GASNETI_INLINE(_gasneti_atomic_increment)
       void _gasneti_atomic_increment(gasneti_atomic_t *v) {
@@ -532,7 +534,6 @@
 			          : "cc", "memory");
         return (int)retval;
       }
-      #define GASNETI_HAVE_ATOMIC_CAS 1
 
       GASNETI_INLINE(_gasneti_atomic_fetchadd)
       uint32_t _gasneti_atomic_fetchadd(gasneti_atomic_t *v, int32_t op) {
@@ -545,10 +546,13 @@
 	return tmp;
 	
       }
-      #define gasneti_atomic_fetchadd _gasneti_atomic_fetchadd
 
       /* x86 and x86_64 include full memory fence in locked RMW insns */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
+     #endif /* !slow atomics */
+
+     #define GASNETI_HAVE_ATOMIC_CAS 1
+     #define gasneti_atomic_fetchadd _gasneti_atomic_fetchadd
     #else
       #error unrecognized x86 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif
@@ -899,12 +903,18 @@
       #endif
     #endif
   /* ------------------------------------------------------------------------------------ */
-  #elif defined(__hppa) || defined(__hppa__)
+  #elif defined(__hppa) || defined(__hppa__) /* PA-RISC */
     /* all we get is atomic load-and-clear, but that's actually just barely enough  */
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
+    typedef struct { volatile uint64_t initflag; volatile int32_t _ctr[4]; char _pad; } gasneti_atomic_t;
+    #define _gasneti_atomic_init(v)      {    \
+            GASNETI_ATOMIC_INIT_MAGIC,       \
+            { (GASNETI_ATOMIC_PRESENT|(v)),  \
+              (GASNETI_ATOMIC_PRESENT|(v)),  \
+              (GASNETI_ATOMIC_PRESENT|(v)),  \
+              (GASNETI_ATOMIC_PRESENT|(v)) } \
+            }
     #if defined(__HP_aCC) /* HP C++ compiler */
-      extern "C" uint32_t gasneti_slow_loadandclear_32(int32_t volatile *v);
-      #define gasneti_loadandclear_32 gasneti_slow_loadandclear_32
       #define GASNETI_USING_SLOW_ATOMICS 1
     #else
       GASNETI_INLINE(gasneti_loadandclear_32)
@@ -934,18 +944,9 @@
         #endif
         return val;
       }
-    #endif
       #define GASNETI_ATOMIC_CTR(p)     ((volatile int32_t *)GASNETI_ALIGNUP(&(p->_ctr),16))
       #define GASNETI_ATOMIC_PRESENT    ((int32_t)0x80000000)
       #define GASNETI_ATOMIC_INIT_MAGIC ((uint64_t)0x8BDEF66BAD1E3F3AULL)
-      typedef struct { volatile uint64_t initflag; volatile int32_t _ctr[4]; char _pad; } gasneti_atomic_t;
-      #define _gasneti_atomic_init(v)      {    \
-              GASNETI_ATOMIC_INIT_MAGIC,       \
-              { (GASNETI_ATOMIC_PRESENT|(v)),  \
-                (GASNETI_ATOMIC_PRESENT|(v)),  \
-                (GASNETI_ATOMIC_PRESENT|(v)),  \
-                (GASNETI_ATOMIC_PRESENT|(v)) } \
-              }
       /* would like to use gasneti_waituntil here, but it requires libgasnet for waitmode */
       #define gasneti_atomic_spinuntil(cond) do {       \
               while (!(cond)) gasneti_compiler_fence(); \
@@ -1016,15 +1017,15 @@
         *pctr = tmp;
         return retval;
       }
-      #define GASNETI_HAVE_ATOMIC_CAS 1
-
-      #define gasneti_atomic_fetchadd gasneti_atomic_fetchandadd_32
 
       /* Our asm has the following fences: */
       #define GASNETI_ATOMIC_FENCE_READ	GASNETI_ATOMIC_RMB_POST
       #define GASNETI_ATOMIC_FENCE_SET	GASNETI_ATOMIC_WMB_PRE
       #define GASNETI_ATOMIC_FENCE_RMW	GASNETI_ATOMIC_MB_PRE
       /* TODO: Our SET also has RMB_PRE unless uninitialized */
+    #endif /* ! slow atomics */
+    #define gasneti_atomic_fetchandadd gasneti_atomic_fetchandadd_32
+    #define GASNETI_HAVE_ATOMIC_CAS 1
   /* ------------------------------------------------------------------------------------ */
   #elif defined(__crayx1) /* This works on X1, but NOT the T3E */
     #include <intrinsics.h>
@@ -1310,6 +1311,35 @@
     #endif
   #else
     #error Unrecognized platform - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
+  #endif
+#endif
+
+#ifdef GASNETI_USING_SLOW_ATOMICS
+  #ifndef __cplusplus
+    #error Slow atomics are only a hack-around for C++ compilers lacking inline assembly support
+  #endif
+  GASNETI_EXTERNC uint32_t gasneti_slow_atomic_read(gasneti_atomic_t *p, const int flags);
+  #define gasneti_atomic_read gasneti_slow_atomic_read
+  GASNETI_EXTERNC void gasneti_slow_atomic_set(gasneti_atomic_t *p, uint32_t v, const int flags);
+  #define gasneti_atomic_set gasneti_slow_atomic_set
+  GASNETI_EXTERNC void gasneti_slow_atomic_increment(gasneti_atomic_t *p, const int flags);
+  #define gasneti_atomic_increment gasneti_slow_atomic_increment
+  GASNETI_EXTERNC void gasneti_slow_atomic_decrement(gasneti_atomic_t *p, const int flags);
+  #define gasneti_atomic_decrement gasneti_slow_atomic_decrement
+  GASNETI_EXTERNC int gasneti_slow_atomic_decrement_and_test(gasneti_atomic_t *p, const int flags);
+  #define gasneti_atomic_decrement_and_test gasneti_slow_atomic_decrement_and_test
+  #if defined(GASNETI_HAVE_ATOMIC_CAS)
+    GASNETI_EXTERNC int gasneti_slow_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval, const int flags);
+    #define gasneti_atomic_compare_and_swap gasneti_slow_atomic_compare_and_swap
+  #endif
+  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB) || \
+      defined(gasneti_atomic_addfetch) || defined(gasneti_atomic_fetchadd) || \
+      defined(GASNETI_HAVE_ATOMIC_CAS)
+    GASNETI_EXTERNC uint32_t gasneti_slow_atomic_add(gasneti_atomic_t *p, uint32_t op, const int flags);
+    #define gasneti_atomic_add gasneti_slow_atomic_add
+    GASNETI_EXTERNC uint32_t gasneti_slow_atomic_subtract(gasneti_atomic_t *p, uint32_t op, const int flags);
+    #define gasneti_atomic_subtract gasneti_slow_atomic_subtract
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   #endif
 #endif
 

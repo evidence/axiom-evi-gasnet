@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/03/27 11:51:59 $
- * $Revision: 1.92 $
+ *     $Date: 2006/03/30 12:39:30 $
+ * $Revision: 1.93 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -64,9 +64,11 @@
 
   For more info on memory barriers: http://gee.cs.oswego.edu/dl/jmm/cookbook.html
  */
-#ifdef __GNUC__
+#if defined(__GNUC__)
   #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
 #elif defined(__INTEL_COMPILER)
+  #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
+#elif defined(PGI_WITH_REAL_ASM)
   #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
 #elif defined(__PGI) /* note this requires compiler flag -Masmkeyword */
   #define GASNETI_ASM(mnemonic) asm(mnemonic)
@@ -100,9 +102,9 @@
   /* the file effectively ends here */
 #else
 
-#if defined(__SUNPRO_CC) || defined(__HP_aCC)
+#if defined(__SUNPRO_CC) || defined(__HP_aCC) || (defined(PGI_WITH_REAL_ASM) && defined(__cplusplus))
   /* no inline assembly in these C++ compilers, so pay a function call overhead */
-  #define GASNETI_USING_SLOW_ATOMICS 1
+  #define GASNETI_USING_SLOW_MEMBARS 1
 #elif defined(__sparc__) || defined(__sparc) || defined(sparc)
   #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9) /* SPARC v9 */
     GASNETI_INLINE(gasneti_local_wmb)
@@ -178,9 +180,9 @@
       * Unfortunately, all read-modify-write operations also set condition
       * codes.  So, we have an extra messy case for gcc, icc, etc.
       */
-     #if defined(__PGI) || defined(__SUNPRO_C)
+     #if (defined(__PGI) && !defined(PGI_WITH_REAL_ASM)) || defined(__SUNPRO_C)
        GASNETI_ASM("lock; addl $0,0(%esp)");
-     #elif defined(__GNUC__) || defined(__INTEL_COMPILER)
+     #elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(PGI_WITH_REAL_ASM)
        /* For gcc, icc and other gcc look-alikes */
        __asm__ __volatile__ ("lock; addl $0,0(%%esp)" : : : "memory", "cc");
      #else
@@ -388,17 +390,17 @@
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif
 
-#if GASNETI_USING_SLOW_ATOMICS
+#if GASNETI_USING_SLOW_MEMBARS
   #ifndef __cplusplus
-    #error Slow atomics are only a hack-around for C++ compilers lacking inline assembly support
+    #error Slow membars are only a hack-around for C++ compilers lacking inline assembly support
   #endif
-  extern "C" void gasneti_slow_local_wmb();
+  GASNETI_EXTERNC void gasneti_slow_local_wmb();
   #define gasneti_local_wmb() gasneti_slow_local_wmb()
-  extern "C" void gasneti_slow_local_rmb();
+  GASNETI_EXTERNC void gasneti_slow_local_rmb();
   #define gasneti_local_rmb() gasneti_slow_local_rmb()
-  extern "C" void gasneti_slow_local_mb();
+  GASNETI_EXTERNC void gasneti_slow_local_mb();
   #define gasneti_local_mb() gasneti_slow_local_mb()
-  extern "C" void gasneti_slow_compiler_fence();
+  GASNETI_EXTERNC void gasneti_slow_compiler_fence();
   #define gasneti_compiler_fence() gasneti_slow_compiler_fence()
 #endif
 

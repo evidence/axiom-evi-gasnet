@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/03/28 05:10:49 $
- * $Revision: 1.148 $
+ *     $Date: 2006/03/30 12:39:30 $
+ * $Revision: 1.149 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,15 +58,16 @@ int gasneti_VerboseErrors = 1;
   #endif
 #endif
 
+/* ------------------------------------------------------------------------------------ */
 /* call-based membar/atomic support for C++ compilers which lack inline assembly */
-#ifdef GASNETI_USING_SLOW_ATOMICS
+#if defined(GASNETI_USING_SLOW_ATOMICS) || \
+    defined(GASNETI_USING_SLOW_MEMBARS) || \
+    defined(GASNETI_USING_SLOW_TIMERS)
 #error gasnet_internal.c must be compiled with support for inline assembly
 #endif
-#if defined(__hppa) || defined(__hppa__)
-  extern uint32_t gasneti_slow_loadandclear_32(int32_t volatile *v) {
-    return gasneti_loadandclear_32(v);
-  }
-#endif
+extern gasneti_stattime_t gasneti_slow_stattime_now() {
+  return GASNETI_STATTIME_NOW();
+}
 extern void gasneti_slow_compiler_fence() {
   gasneti_compiler_fence();
 }
@@ -79,6 +80,35 @@ extern void gasneti_slow_local_rmb() {
 extern void gasneti_slow_local_mb() {
   gasneti_local_mb();
 }
+extern uint32_t gasneti_slow_atomic_read(gasneti_atomic_t *p, const int flags) {
+  return gasneti_atomic_read(p,flags);
+}
+extern void gasneti_slow_atomic_set(gasneti_atomic_t *p, uint32_t v, const int flags) {
+  gasneti_atomic_set(p, v, flags);
+}
+extern void gasneti_slow_atomic_increment(gasneti_atomic_t *p, const int flags) {
+  gasneti_atomic_increment(p, flags);
+}
+extern void gasneti_slow_atomic_decrement(gasneti_atomic_t *p, const int flags) {
+  gasneti_atomic_decrement(p, flags);
+}
+extern int gasneti_slow_atomic_decrement_and_test(gasneti_atomic_t *p, const int flags) {
+  return gasneti_atomic_decrement_and_test(p, flags);
+}
+#if defined(GASNETI_HAVE_ATOMIC_CAS)
+  extern int gasneti_slow_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval, const int flags) {
+    return gasneti_atomic_compare_and_swap(p,oldval,newval,flags);
+  }
+#endif
+#if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
+  extern uint32_t gasneti_slow_atomic_add(gasneti_atomic_t *p, uint32_t op, const int flags) {
+    return gasneti_atomic_add(p,op,flags);
+  }
+  extern uint32_t gasneti_slow_atomic_subtract(gasneti_atomic_t *p, uint32_t op, const int flags) {
+    return gasneti_atomic_subtract(p,op,flags);
+  }
+#endif
+/* ------------------------------------------------------------------------------------ */
 
 #if GASNETI_THROTTLE_POLLERS
   gasneti_atomic_t gasneti_throttle_haveusefulwork = gasneti_atomic_init(0);
