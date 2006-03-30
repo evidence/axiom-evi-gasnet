@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2006/03/29 23:46:37 $
- * $Revision: 1.102 $
+ * $Date: 2006/03/30 00:09:47 $
+ * $Revision: 1.103 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -794,6 +794,11 @@ static void gasnetc_exit_sighandler(int sig) {
     write(STDERR_FILENO, &digit, 1);
     
     write(STDERR_FILENO, msg2, sizeof(msg2) - 1);
+  }
+  /* XXX: temporary hack */
+  {
+    gasneti_reghandler(SIGABRT, SIG_DFL);
+    abort();
   }
   #endif
 
