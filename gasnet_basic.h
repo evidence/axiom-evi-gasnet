@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/29 17:40:00 $
- * $Revision: 1.60 $
+ *     $Date: 2006/03/30 04:05:14 $
+ * $Revision: 1.61 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -168,7 +168,8 @@
   #define GASNETI_PURE 
 #endif
 /* pragma version of GASNETI_PURE */
-#if defined(__xlC__)
+#if defined(__xlC__) && \
+   !(defined(__APPLE__) && __xlC__ <= 0x0600) /* bug 1542 */
   #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(isolated_call(fnname))
 #elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 710
   #define GASNETI_PUREP(fnname) GASNETI_PRAGMA(no side effects (fnname))
