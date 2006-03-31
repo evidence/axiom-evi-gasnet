@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/03/29 14:33:50 $
- * $Revision: 1.84 $
+ *     $Date: 2006/03/31 01:34:16 $
+ * $Revision: 1.85 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -729,8 +729,8 @@ typedef struct {
     _gasneti_threadkey_check((key), 1);                                   \
     gasneti_assert_zeroret(pthread_setspecific((key).value, (newvalue))); \
   } while (0)
-  GASNETI_NEVER_INLINE(gasneti_threadkey_init) /* avoid inserting overhead for an uncommon path */
-  static void gasneti_threadkey_init(gasneti_threadkey_t *pkey) {
+  GASNETI_NEVER_INLINE(gasneti_threadkey_init, /* avoid inserting overhead for an uncommon path */
+  static void gasneti_threadkey_init(gasneti_threadkey_t *pkey)) {
     _gasneti_threadkey_check(*pkey, 0);
     gasneti_mutex_lock(&(pkey->initmutex));
       if (pkey->isinit == 0) {

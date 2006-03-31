@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/03/30 04:05:14 $
- * $Revision: 1.61 $
+ *     $Date: 2006/03/31 01:34:16 $
+ * $Revision: 1.62 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -239,20 +239,20 @@
 #endif
 
 #if GASNETI_HAVE_GCC_ATTRIBUTE_NOINLINE
-  #define GASNETI_NEVER_INLINE(fnname) __attribute__((__noinline__))
+  #define GASNETI_NEVER_INLINE(fnname,declarator) __attribute__((__noinline__)) declarator
 #elif defined(__SUNPRO_C)
-  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(no_inline(fnname))
+  #define GASNETI_NEVER_INLINE(fnname,declarator) declarator; GASNETI_PRAGMA(no_inline(fnname)) declarator
 #elif defined(_CRAYC) 
-  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(_CRI inline_never fnname)
+  #define GASNETI_NEVER_INLINE(fnname,declarator) GASNETI_PRAGMA(_CRI inline_never fnname) declarator
 #elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 710
-  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(noinline global fnname)
+  #define GASNETI_NEVER_INLINE(fnname,declarator) GASNETI_PRAGMA(noinline global fnname) declarator
 #elif defined(__DECC) || defined(__DECCXX)
-  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(noinline (fnname))
+  #define GASNETI_NEVER_INLINE(fnname,declarator) GASNETI_PRAGMA(noinline (fnname)) declarator
 #elif defined(__HP_cc) && GASNET_NDEBUG /* avoid a warning */ \
    && defined(__ia64) /* unreliable behavior on PARISC unless it appears on a line by itself */
-  #define GASNETI_NEVER_INLINE(fnname) GASNETI_PRAGMA(NOINLINE fnname)
+  #define GASNETI_NEVER_INLINE(fnname,declarator) GASNETI_PRAGMA(NOINLINE fnname) declarator
 #else
-  #define GASNETI_NEVER_INLINE(fnname)
+  #define GASNETI_NEVER_INLINE(fnname,declarator) declarator
 #endif
 
 #if GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT

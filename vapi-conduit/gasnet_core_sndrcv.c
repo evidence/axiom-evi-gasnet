@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/03/29 22:09:29 $
- * $Revision: 1.177 $
+ *     $Date: 2006/03/31 01:34:18 $
+ * $Revision: 1.178 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -572,8 +572,8 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
 #define GASNETC_COLLECT_BBUF_IF(_bbuf) _GASNETC_COLLECT_BBUF(if,(_bbuf))
   
 
-GASNETI_NEVER_INLINE(gasnetc_dump_cqs)
-void gasnetc_dump_cqs(VAPI_wc_desc_t *comp, gasnetc_hca_t *hca, const int is_snd) {
+GASNETI_NEVER_INLINE(gasnetc_dump_cqs,
+void gasnetc_dump_cqs(VAPI_wc_desc_t *comp, gasnetc_hca_t *hca, const int is_snd)) {
   static gasnet_hsl_t lock = GASNET_HSL_INITIALIZER;
   VAPI_ret_t vstat;
   IB_comp_status_t status = 0;
