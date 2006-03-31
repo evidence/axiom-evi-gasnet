@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/03/31 07:20:09 $
- * $Revision: 1.83 $
+ *     $Date: 2006/03/31 14:50:54 $
+ * $Revision: 1.84 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -194,10 +194,10 @@ static int _test_rand(int low, int high) {
   if_pf(!_retval) FATALERR(#op": %s(%i)",strerror(_retval), _retval); \
 } while (0)
 
-char test_section = ('A'-1);
+char test_section;
 char test_sections[255];
 
-#define TEST_SECTION_BEGIN()         test_section++
+#define TEST_SECTION_BEGIN()        ((void)(!test_section ? test_section = 'A' : test_section++))
 #define TEST_SECTION_ENABLED()      ((!test_sections[0] || strchr(test_sections, test_section)))
 #define TEST_SECTION_BEGIN_ENABLED() (TEST_SECTION_BEGIN(), TEST_SECTION_ENABLED())
 #define TEST_SECTION_NAME() ((char)test_section)

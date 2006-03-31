@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/03/27 12:15:09 $
- * $Revision: 1.12 $
+ *     $Date: 2006/03/31 14:50:52 $
+ * $Revision: 1.13 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -45,6 +45,15 @@ static int iters2 = 0;
 #define gasnete_diag_hidx_base 200
 static int gasneti_diag_havehandlers = 0; /* true iff caller has registered our handler table */
 
+static int id = 0;
+#define TEST_HEADER(desc)                       \
+  PTHREAD_BARRIER(num_threads);                 \
+  if (!id) TEST_SECTION_BEGIN();                \
+  PTHREAD_BARRIER(num_threads);                 \
+  if (TEST_SECTION_ENABLED() &&                 \
+      (MSG0("%c: %s %s...",TEST_SECTION_NAME(), \
+           (num_threads > 1?"parallel":"sequential"),desc),1))
+
 #ifdef GASNETC_DIAGNOSTICS_SETUP
   GASNETC_DIAGNOSTICS_SETUP /* can include helper source files, etc */
 #endif
@@ -74,11 +83,12 @@ static int gasneti_diag_havehandlers = 0; /* true iff caller has registered our 
   extern gasneti_auxseg_request_t gasneti_auxseg_dummy(gasnet_seginfo_t *auxseg_info);
   static void auxseg_test() {
     BARRIER();
-    MSG0("auxseg test...");
-    gasneti_auxseg_dummy((void *)(uintptr_t)-1); /* call self-test */
+    TEST_HEADER("auxseg test") {
+      gasneti_auxseg_dummy((void *)(uintptr_t)-1); /* call self-test */
+    }
   }
 #else
-  #define auxseg_test() ((void)0)
+  #define auxseg_test()   TEST_HEADER("auxseg test - SKIPPED")
 #endif
 
 static void mutex_test(int id);
@@ -117,12 +127,11 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, gasnet_seginfo_t
   auxseg_test();
 
   BARRIER();
-  MSG0("sequential malloc test...");
-  malloc_test(0);
+  TEST_HEADER("malloc test") malloc_test(0);
 
 
   BARRIER();
-  MSG0("gasneti_getPhysMemSz test...");
+  TEST_HEADER("gasneti_getPhysMemSz test")
   { uint64_t val = gasneti_getPhysMemSz(0);
     if (val == 0) MSG("WARNING: gasneti_getPhysMemSz() failed to discover physical memory size.");
     else if (val > (1ULL<<50) || val < (1ULL<<20)) 
@@ -130,12 +139,10 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, gasnet_seginfo_t
   }
 
   BARRIER();
-  MSG0("sequential gasneti_mutex_t test...");
-  mutex_test(0);
+  TEST_HEADER("gasneti_mutex_t test") mutex_test(0);
 
   BARRIER();
-  MSG0("sequential gasneti_cond_t test...");
-  cond_test(0);
+  TEST_HEADER("gasneti_cond_t test") cond_test(0);
 
   BARRIER();
   spinlock_test(0);
@@ -148,11 +155,12 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, gasnet_seginfo_t
   op_test(0);
 
   BARRIER();
-  MSG0("sequential conduit tests...");
-  BARRIER();
-  test_errs += GASNETC_RUN_DIAGNOSTICS_SEQ(iters);
-  BARRIER();
-  test_errs += GASNETE_RUN_DIAGNOSTICS_SEQ(iters);
+  TEST_HEADER("conduit tests") {
+    BARRIER();
+    test_errs += GASNETC_RUN_DIAGNOSTICS_SEQ(iters);
+    BARRIER();
+    test_errs += GASNETE_RUN_DIAGNOSTICS_SEQ(iters);
+  }
   BARRIER();
 
   #if GASNET_PAR
@@ -374,8 +382,8 @@ static void spinlock_test(int id) {
   static unsigned int counter;
   int i;
 
-  MSG0("%s spinlock test...",(num_threads > 1?"parallel":"sequential"));
   PTHREAD_BARRIER(num_threads);
+  TEST_HEADER("spinlock test"); else return;
 
     if (!id) {
       gasneti_spinlock_lock(&lock1);
@@ -417,7 +425,7 @@ static void spinlock_test(int id) {
 }
 #else
 static void spinlock_test(int id) {
-  MSG0("spinlocks not available - spinlock test skipped.");
+  TEST_HEADER("spinlock test - SKIPPED");
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
@@ -463,9 +471,10 @@ static void progressfn_counted() { progressfn_tester(&pf_cnt_counted); }
 static void progressfns_test(int id) {
   int iter;
 #if !GASNET_DEBUG
+  TEST_HEADER("progress functions test - SKIPPED"); else return;
   return;
 #else
-  MSG0("%s progress functions test...",(num_threads>1?"parallel":"sequential"));
+  TEST_HEADER("progress functions test"); else return;
   for (iter=0; iter < iters0; iter++) {
     int i;
     int cnt_c = 0, cnt_b = 0;
@@ -529,7 +538,7 @@ static void op_test(int id) {
   int iter;
   GASNET_BEGIN_FUNCTION();
   PTHREAD_BARRIER(num_threads);
-  MSG0("%s internal op interface test...",(num_threads>1?"parallel":"sequential"));
+  TEST_HEADER("internal op interface test"); else return;
   for (iter=0; iter < iters0; iter++) {
     int i;
     static void **share = NULL;
@@ -693,7 +702,7 @@ static void op_test(int id) {
 #else
 static void op_test(int id) { 
   PTHREAD_BARRIER(num_threads);
-  MSG0("%s internal op interface test - SKIPPED",(num_threads>1?"parallel":"sequential"));
+  TEST_HEADER("internal op interface test - SKIPPED"); else return;
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
@@ -704,38 +713,30 @@ static void * thread_fn(void *arg) {
   int id = (int)(uintptr_t)arg;
 
   PTHREAD_BARRIER(num_threads);
-
-  MSG0("parallel gasneti_mutex_t test...");
-  mutex_test(id);
+  TEST_HEADER("gasneti_mutex_t test") mutex_test(id);
 
   PTHREAD_BARRIER(num_threads);
-
-  MSG0("parallel gasneti_cond_t test...");
-  cond_test(id);
+  TEST_HEADER("gasneti_cond_t test") cond_test(id);
 
   PTHREAD_BARRIER(num_threads);
-
   spinlock_test(id);
 
   PTHREAD_BARRIER(num_threads);
-
-  MSG0("parallel malloc test...");
-  malloc_test(id);
+  TEST_HEADER("malloc test") malloc_test(id);
   
   PTHREAD_BARRIER(num_threads);
-
   progressfns_test(id);
 
   PTHREAD_BARRIER(num_threads);
-
   op_test(id);
 
   PTHREAD_BARRIER(num_threads);
-  MSG0("parallel conduit tests...");
-  PTHREAD_BARRIER(num_threads);
-  test_errs += GASNETC_RUN_DIAGNOSTICS_PAR(iters,id,num_threads);
-  PTHREAD_BARRIER(num_threads);
-  test_errs += GASNETE_RUN_DIAGNOSTICS_PAR(iters,id,num_threads);
+  TEST_HEADER("conduit tests") {
+    PTHREAD_BARRIER(num_threads);
+    test_errs += GASNETC_RUN_DIAGNOSTICS_PAR(iters,id,num_threads);
+    PTHREAD_BARRIER(num_threads);
+    test_errs += GASNETE_RUN_DIAGNOSTICS_PAR(iters,id,num_threads);
+  }
   PTHREAD_BARRIER(num_threads);
 
   return (void *)(uintptr_t)test_errs;
