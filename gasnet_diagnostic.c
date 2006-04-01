@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/03/31 14:50:52 $
- * $Revision: 1.13 $
+ *     $Date: 2006/04/01 19:51:14 $
+ * $Revision: 1.14 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -103,7 +103,8 @@ static void op_test(int id);
    must be called collectively by exactly one thread on each node
    in par mode, the test may internally spawn up to threadcnt threads
  */
-extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, gasnet_seginfo_t const *seginfo) { 
+extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, const char *testsections,
+                                   gasnet_seginfo_t const *seginfo) { 
   int i;
   int partner = (gasnet_mynode() ^ 1);
   if (partner == gasnet_nodes()) partner = gasnet_mynode();
@@ -121,6 +122,7 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, gasnet_seginfo_t
   }
   myseg = TEST_MYSEG();
   peerseg = TEST_SEG(peer);
+  if (testsections) TEST_SECTION_PARSE(testsections);
 
   TEST_GENERICS_WARNING();
 

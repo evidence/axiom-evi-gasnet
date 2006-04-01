@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testinternal.c,v $
- *     $Date: 2006/03/31 14:50:54 $
- * $Revision: 1.4 $
+ *     $Date: 2006/04/01 19:51:16 $
+ * $Revision: 1.5 $
  * Description: GASNet internal diagnostic tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,6 +16,7 @@ int main(int argc, char **argv) {
   int iters = 0, threads=0;
   int arg = 1;
   gasnet_handlerentry_t *htable; int htable_cnt;
+  char *test_sections = NULL;
   gasnett_diagnostic_gethandlers(&htable, &htable_cnt);
 
   GASNET_Safe(gasnet_init(&argc, &argv));
@@ -34,7 +35,7 @@ int main(int argc, char **argv) {
   if (argc > arg) threads = atoi(argv[arg++]);
   #endif
   if (threads < 1) threads = 4;
-  if (argc > arg) TEST_SECTION_PARSE(argv[arg++]);
+  if (argc > arg) test_sections = argv[arg++];
 
   #if GASNET_PAR
     MSG0("Running GASNet internal diagnostics with iters=%i and threads=%i", iters, threads);
@@ -43,7 +44,7 @@ int main(int argc, char **argv) {
   #endif
 
   BARRIER();
-  test_errs = gasnett_run_diagnostics(iters, threads, TEST_SEGINFO());
+  test_errs = gasnett_run_diagnostics(iters, threads, test_sections, TEST_SEGINFO());
   BARRIER();
 
   if (test_errs) ERR("gasnett_run_diagnostics(%i) failed.", iters);
