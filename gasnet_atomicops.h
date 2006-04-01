@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/01 02:07:54 $
- * $Revision: 1.129 $
+ *     $Date: 2006/04/01 03:26:35 $
+ * $Revision: 1.130 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -764,14 +764,15 @@
           register int32_t oldval;
           register int32_t newval;
           __asm__ __volatile__ ( 
-            "0:\t" 
-            "membar #StoreLoad | #LoadLoad    \n\t" /* complete all previous ops before next load */
+            "membar #StoreLoad | #LoadLoad    \n\t" /* RMB: prevent loads below from moving up */
             "ld       [%2],%0 \n\t"    /* oldval = *addr; */
+            "0:\t" 
             "add      %0,%3,%1 \n\t"   /* newval = oldval + op; */
-            "cas      [%2],%0,%1 \n\t" /* if (*addr == oldval) { *addr = newval; }  newval = *addr; */
+            "cas      [%2],%0,%1 \n\t" /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
             "cmp      %0, %1 \n\t"     /* check if newval == oldval (swap succeeded) */
-            "bne,pn   %%icc, 0b \n\t"         /* otherwise, try again (,pn == predict not taken) */
-            "membar #StoreLoad | #StoreStore    \n\t" /* complete previous cas store before all subsequent ops */
+            "bne,pn   %%icc, 0b \n\t"  /* otherwise, try again (,pn == predict not taken) */
+            "mov      %1, %0 \n\t"     /* oldval = newval; (branch delay slot) */
+            "membar #StoreLoad | #StoreStore    \n\t" /* WMB: complete previous cas store before all subsequent ops */
             : "=&r"(oldval), "=&r"(newval)
             : "r" (addr), "rn"(op) 
             : "memory");
@@ -789,9 +790,9 @@
         int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
           register volatile uint32_t * addr = (volatile uint32_t *)&(v->ctr);
           __asm__ __volatile__ ( 
-              "membar #StoreLoad | #LoadLoad   \n\t" /* complete all previous ops before next load */
-              "cas      [%2],%1,%0 \n\t"             /* if (*addr == oldval) { *addr = newval; }  newval = *addr; */
-              "membar #StoreLoad | #StoreStore \n\t" /* complete previous cas store before all subsequent ops */
+              "membar #StoreLoad | #LoadLoad   \n\t" /* RMB: prevent loads below from moving up */
+              "cas      [%2],%1,%0 \n\t"             /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
+              "membar #StoreLoad | #StoreStore \n\t" /* WMB: complete previous cas store before all subsequent ops */
               : "+r"(newval)
               : "r"(oldval), "r" (addr)
               : "memory");
