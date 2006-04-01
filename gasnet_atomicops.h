@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/03/30 12:39:30 $
- * $Revision: 1.128 $
+ *     $Date: 2006/04/01 02:07:54 $
+ * $Revision: 1.129 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -755,7 +755,7 @@
   #elif defined(__sparc) || defined(__sparc__)
     #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9) /* SPARC v9 */
       #if defined(__GNUC__)
-        static __inline__ int32_t gasneti_atomic_addandfetch_32(int32_t volatile *v, int32_t op) {
+        static __inline__ int32_t gasneti_atomic_fetchandadd_32(int32_t volatile *v, int32_t op) {
           /* SPARC v9 architecture manual, p.333 
            * This function requires the cas instruction in Sparc V9, and therefore gcc -mcpu=ultrasparc
 	   * The manual says (sec A.9) no memory fences in CAS (in conflict w/ JMM web page).
@@ -775,15 +775,15 @@
             : "=&r"(oldval), "=&r"(newval)
             : "r" (addr), "rn"(op) 
             : "memory");
-          return newval;
+          return oldval;
         }
         typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
-        #define _gasneti_atomic_increment(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),1))
-        #define _gasneti_atomic_decrement(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1))
+        #define _gasneti_atomic_increment(p) (gasneti_atomic_fetchandadd_32(&((p)->ctr),1))
+        #define _gasneti_atomic_decrement(p) (gasneti_atomic_fetchandadd_32(&((p)->ctr),-1))
         #define _gasneti_atomic_read(p)      ((p)->ctr)
         #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
         #define _gasneti_atomic_init(v)      { (v) }
-        #define _gasneti_atomic_decrement_and_test(p) (gasneti_atomic_addandfetch_32(&((p)->ctr),-1) == 0)
+        #define _gasneti_atomic_decrement_and_test(p) (gasneti_atomic_fetchandadd_32(&((p)->ctr),-1) == 1)
 
         GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
         int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
@@ -799,7 +799,7 @@
         }
         #define GASNETI_HAVE_ATOMIC_CAS 1
 
-        #define gasneti_atomic_addfetch(p,op) gasneti_atomic_addandfetch_32(&((p)->ctr),op)
+        #define gasneti_atomic_fetchadd(p,op) gasneti_atomic_fetchandadd_32(&((p)->ctr),op)
 
 	#define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
       #else
