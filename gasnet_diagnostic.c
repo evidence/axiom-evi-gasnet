@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/04/01 19:51:14 $
- * $Revision: 1.14 $
+ *     $Date: 2006/04/03 17:40:26 $
+ * $Revision: 1.15 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -488,11 +488,11 @@ static void progressfns_test(int id) {
     pf_cnt_counted = 0;
     PTHREAD_BARRIER(num_threads);
 
-    if (!id) GASNETI_PROGRESSFNS_ENABLE(debug_boolean,BOOLEAN);
+    if (!id) GASNETI_PROGRESSFNS_ENABLE(gasneti_pf_debug_boolean,BOOLEAN);
     PTHREAD_BARRIER(num_threads);
-    GASNETI_PROGRESSFNS_ENABLE(debug_counted,COUNTED);
-    GASNETI_PROGRESSFNS_ENABLE(debug_counted,COUNTED);
-    GASNETI_PROGRESSFNS_DISABLE(debug_counted,COUNTED);
+    GASNETI_PROGRESSFNS_ENABLE(gasneti_pf_debug_counted,COUNTED);
+    GASNETI_PROGRESSFNS_ENABLE(gasneti_pf_debug_counted,COUNTED);
+    GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_debug_counted,COUNTED);
 
     /* do some work that should cause progress fns to run */
     for (i=0; i < 2; i++) {
@@ -510,8 +510,8 @@ static void progressfns_test(int id) {
 
     /* disable progress fns and quiesce the system */
     PTHREAD_BARRIER(num_threads);
-    if (!id) GASNETI_PROGRESSFNS_DISABLE(debug_boolean,BOOLEAN);
-    GASNETI_PROGRESSFNS_DISABLE(debug_counted,COUNTED);
+    if (!id) GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_debug_boolean,BOOLEAN);
+    GASNETI_PROGRESSFNS_DISABLE(gasneti_pf_debug_counted,COUNTED);
     PTHREAD_BARRIER(num_threads);
     for (i=0; i < 1000; i++) { gasnet_AMPoll(); gasneti_sched_yield(); }
     PTHREAD_BARRIER(num_threads);
