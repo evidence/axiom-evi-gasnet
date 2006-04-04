@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/04/03 18:08:42 $
-# $Revision: 1.334 $
+#     $Date: 2006/04/04 04:06:56 $
+# $Revision: 1.335 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.334 $)
+AC_REVISION($Revision: 1.335 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1757,7 +1757,7 @@ if test "$enabled_vapi" = yes; then
 
   # Start by finding a reasonable default
   AC_PATH_PROGS(vstat, vstat)
-  if test "$vstat"; then
+  if test -n "$vstat"; then
     vapi_guess=`dirname \`dirname $vstat\``
   elif test -e /usr/local/ibgd/driver/infinihost; then
     vapi_guess=/usr/local/ibgd/driver/infinihost
