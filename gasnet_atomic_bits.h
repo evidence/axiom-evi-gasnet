@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/01 08:31:33 $
- * $Revision: 1.131 $
+ *     $Date: 2006/04/05 22:48:38 $
+ * $Revision: 1.132 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -753,7 +753,7 @@
     #endif
   /* ------------------------------------------------------------------------------------ */
   #elif defined(__sparc) || defined(__sparc__)
-    #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_SPARCV9) /* SPARC v9 */
+    #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
       #if defined(__GNUC__)
         static __inline__ int32_t gasneti_atomic_fetchandadd_32(int32_t volatile *v, int32_t op) {
           /* SPARC v9 architecture manual, p.333 
