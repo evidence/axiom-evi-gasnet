@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/03/30 12:39:30 $
- * $Revision: 1.149 $
+ *     $Date: 2006/04/05 23:27:24 $
+ * $Revision: 1.150 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,15 +59,87 @@ int gasneti_VerboseErrors = 1;
 #endif
 
 /* ------------------------------------------------------------------------------------ */
+/* call-based atomic support for C compilers with limited inline assembly */
+
+#if defined(GASNETI_ATOMIC_SET_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_set,
+  extern void _gasneti_special_atomic_set()) {
+    GASNETI_ATOMIC_SET_BODY
+  }
+#endif
+#if defined(GASNETI_ATOMIC_READ_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_read,
+  extern void _gasneti_special_atomic_read()) {
+    GASNETI_ATOMIC_READ_BODY
+  }
+#endif
+#if defined(GASNETI_ATOMIC_INCREMENT_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_increment,
+  extern void _gasneti_special_atomic_increment()) {
+    GASNETI_ATOMIC_INCREMENT_BODY
+  }
+#endif
+#if defined(GASNETI_ATOMIC_DECREMENT_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_decrement,
+  extern void _gasneti_special_atomic_decrement()) {
+    GASNETI_ATOMIC_DECREMENT_BODY
+  }
+#endif
+#if defined(GASNETI_ATOMIC_DECREMENT_AND_TEST_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_decrement_and_test,
+  extern void _gasneti_special_atomic_decrement_and_test()) {
+    GASNETI_ATOMIC_DECREMENT_AND_TEST_BODY
+  }
+#endif
+#if defined(GASNETI_ATOMIC_COMPARE_AND_SWAP_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_compare_and_swap,
+  extern void _gasneti_special_atomic_compare_and_swap()) {
+    GASNETI_ATOMIC_COMPARE_AND_SWAP_BODY
+  }
+#endif
+#if defined(GASNETI_ATOMIC_ADD_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_add,
+  extern void _gasneti_special_atomic_add()) {
+    GASNETI_ATOMIC_ADD_BODY
+  }
+#endif
+#if defined(GASNETI_ATOMIC_SUBTRACT_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_subtract,
+  extern void _gasneti_special_atomic_subtract()) {
+    GASNETI_ATOMIC_SUBTRACT_BODY
+  }
+#endif
+#if defined(GASNETI_ATOMIC_FETCHADD_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_fetchadd,
+  extern void _gasneti_special_atomic_fetchadd()) {
+    GASNETI_ATOMIC_FETCHADD_BODY
+  }
+#endif
+#if defined(GASNETI_ATOMIC_ADDFETCH_BODY)
+  GASNETI_NEVER_INLINE(_gasneti_special_atomic_addfetch,
+  extern void _gasneti_special_atomic_addfetch()) {
+    GASNETI_ATOMIC_ADDFETCH_BODY
+  }
+#endif
+
+/* ------------------------------------------------------------------------------------ */
 /* call-based membar/atomic support for C++ compilers which lack inline assembly */
 #if defined(GASNETI_USING_SLOW_ATOMICS) || \
     defined(GASNETI_USING_SLOW_MEMBARS) || \
     defined(GASNETI_USING_SLOW_TIMERS)
 #error gasnet_internal.c must be compiled with support for inline assembly
 #endif
-extern gasneti_stattime_t gasneti_slow_stattime_now() {
-  return GASNETI_STATTIME_NOW();
-}
+
+#if defined(GASNETI_STATTIME_NOW_BODY)
+  GASNETI_NEVER_INLINE(gasneti_slow_stattime_now,
+  extern void gasneti_slow_stattime_now()) {
+    GASNETI_STATTIME_NOW_BODY
+  }
+#else
+  extern gasneti_stattime_t gasneti_slow_stattime_now() {
+    return GASNETI_STATTIME_NOW();
+  }
+#endif
 extern void gasneti_slow_compiler_fence() {
   gasneti_compiler_fence();
 }

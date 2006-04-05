@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/04/05 22:48:38 $
- * $Revision: 1.94 $
+ *     $Date: 2006/04/05 23:27:24 $
+ * $Revision: 1.95 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -109,15 +109,18 @@
   #if defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 ISA */
     GASNETI_INLINE(gasneti_local_wmb)
     void gasneti_local_wmb(void) {
+      /* For TSO SPARCs this is technically oversynced, but costs us nothing extra. */
       GASNETI_ASM("membar #StoreLoad | #StoreStore"); 
     }
     GASNETI_INLINE(_gasneti_local_rmb)
     void _gasneti_local_rmb(void) {
+      /* For TSO SPARCs this is probably unnecessary and might be removed some day. */
       GASNETI_ASM("membar #LoadStore | #LoadLoad"); 
     }
     #define gasneti_local_rmb() _gasneti_local_rmb()
     GASNETI_INLINE(_gasneti_local_mb)
     void _gasneti_local_mb(void) {
+      /* For TSO SPARCs this is technically oversynced, but costs us nothing extra. */
       GASNETI_ASM("membar #LoadStore | #LoadLoad | #StoreLoad | #StoreStore");
     }
     #define gasneti_local_mb() _gasneti_local_mb()
