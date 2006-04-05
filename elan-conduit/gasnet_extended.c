@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/03/19 02:07:58 $
- * $Revision: 1.69 $
+ *     $Date: 2006/04/05 23:13:21 $
+ * $Revision: 1.70 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -519,12 +519,8 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
   gasnete_iop_check(op);
   if (noperations == 1) gasneti_weakatomic_increment(pctr, 0);
   else {
-    #ifdef gasneti_weakatomic_compare_and_swap
-    { unsigned int oldval;
-      do {
-        oldval = gasneti_weakatomic_read(pctr, 0);
-      } while (!gasneti_weakatomic_compare_and_swap(pctr, oldval, oldval+noperations, 0));
-    }
+    #if defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
+      gasneti_weakatomic_add(pctr, noperations, 0);
     #else /* yuk */
       while (noperations) {
         gasneti_weakatomic_increment(pctr, 0);

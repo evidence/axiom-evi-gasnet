@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.h,v $
- *     $Date: 2006/03/19 02:08:30 $
- * $Revision: 1.49 $
+ *     $Date: 2006/04/05 23:13:29 $
+ * $Revision: 1.50 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -137,17 +137,9 @@ typedef struct {
 #define gasnetc_counter_dec(P)		do { gasneti_assert(!gasnetc_counter_done(P));      \
 					     gasneti_weakatomic_increment(&(P)->completed, 0); \
 					} while (0)
-#ifdef gasneti_weakatomic_compare_and_swap
-  #define gasnetc_counter_dec_by(P,v)   do {                  \
-      if (v == 1) gasnetc_counter_dec(P);                     \
-      else {                                                  \
-        unsigned int _oldval;                                 \
-        do {                                                  \
-          _oldval = gasneti_weakatomic_read(&(P)->completed, 0); \
-        } while (!gasneti_weakatomic_compare_and_swap(        \
-                   &(P)->completed, _oldval, _oldval+v, 0));     \
-      }                                                       \
-    } while (0)
+#if defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
+  #define gasnetc_counter_dec_by(P,v)   \
+      gasneti_weakatomic_add(&(P)->completed,(v),0)
 #else /* yuk */
   #define gasnetc_counter_dec_by(P,v)   do {       \
       int _i = (v);                                \
