@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/06 19:31:17 $
- * $Revision: 1.134 $
+ *     $Date: 2006/04/06 20:06:30 $
+ * $Revision: 1.135 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -138,9 +138,9 @@
         ((p)->ctr)--;                                             \
         gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock); \
       } while (0)
-    extern int _gasneti_atomic_decrement_and_test(gasneti_atomic_t *p);
+    extern int _gasneti_atomic_decrement_and_test_32(gasneti_atomic_t *p);
     #define GASNETI_GENERIC_DEC_AND_TEST_DEF                      \
-    int _gasneti_atomic_decrement_and_test(gasneti_atomic_t *p) { \
+    int _gasneti_atomic_decrement_and_test_32(gasneti_atomic_t *p) { \
       uint32_t newval;                                            \
       gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);     \
       newval = p->ctr - 1;                                        \
@@ -148,6 +148,7 @@
       gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
       return (newval == 0);                                       \
     }
+    #define _gasneti_atomic_decrement_and_test _gasneti_atomic_decrement_and_test_32
 
     extern int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval);
     #define GASNETI_GENERIC_CAS_DEF                              \
@@ -232,8 +233,8 @@
         ((p)->ctr)--;                                  \
         pthread_mutex_unlock(&gasneti_atomicop_mutex); \
       } while (0)
-    GASNETI_INLINE(_gasneti_atomic_decrement_and_test)
-    int _gasneti_atomic_decrement_and_test(gasneti_atomic_t *p) {
+    GASNETI_INLINE(_gasneti_atomic_decrement_and_test_32)
+    int _gasneti_atomic_decrement_and_test_32(gasneti_atomic_t *p) {
       uint32_t newval;
       GASNETI_ATOMICOP_INITCHECK();
       pthread_mutex_lock(&gasneti_atomicop_mutex);
@@ -242,6 +243,7 @@
       pthread_mutex_unlock(&gasneti_atomicop_mutex);
       return (newval == 0);
     }
+    #define _gasneti_atomic_decrement_and_test _gasneti_atomic_decrement_and_test_32
 
     GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
     int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, 
@@ -506,8 +508,8 @@
       #define _gasneti_atomic_read(p)      ((p)->ctr)
       #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
 
-      GASNETI_INLINE(_gasneti_atomic_increment)
-      void _gasneti_atomic_increment(gasneti_atomic_t *v) {
+      GASNETI_INLINE(_gasneti_atomic_increment_32)
+      void _gasneti_atomic_increment_32(gasneti_atomic_t *v) {
         __asm__ __volatile__(
                 GASNETI_X86_LOCK_PREFIX
 		"incl %0"
@@ -515,8 +517,9 @@
                 : "m" (v->ctr)
                 : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
       }
-      GASNETI_INLINE(_gasneti_atomic_decrement)
-      void _gasneti_atomic_decrement(gasneti_atomic_t *v) {
+      #define _gasneti_atomic_increment _gasneti_atomic_increment_32
+      GASNETI_INLINE(_gasneti_atomic_decrement_32)
+      void _gasneti_atomic_decrement_32(gasneti_atomic_t *v) {
         __asm__ __volatile__(
                 GASNETI_X86_LOCK_PREFIX
 		"decl %0"
@@ -524,8 +527,9 @@
                 : "m" (v->ctr) 
                 : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
       }
-      GASNETI_INLINE(_gasneti_atomic_decrement_and_test)
-      int _gasneti_atomic_decrement_and_test(gasneti_atomic_t *v) {
+      #define _gasneti_atomic_decrement _gasneti_atomic_decrement_32
+      GASNETI_INLINE(_gasneti_atomic_decrement_and_test_32)
+      int _gasneti_atomic_decrement_and_test_32(gasneti_atomic_t *v) {
           register unsigned char retval;
           __asm__ __volatile__(
 	          GASNETI_X86_LOCK_PREFIX
@@ -536,6 +540,7 @@
                   : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return retval;
       }
+      #define _gasneti_atomic_decrement_and_test _gasneti_atomic_decrement_and_test_32
 
       GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
       int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
@@ -1183,14 +1188,15 @@
     #define _gasneti_atomic_read(p)      (*(p))
     #define _gasneti_atomic_set(p,v)     (*(p) = (v))
     #define _gasneti_atomic_init(v)      (v)
-    GASNETI_INLINE(_gasneti_atomic_decrement_and_test)
-    int _gasneti_atomic_decrement_and_test(gasneti_atomic_t *p) {
+    GASNETI_INLINE(_gasneti_atomic_decrement_and_test_64)
+    int _gasneti_atomic_decrement_and_test_64(gasneti_atomic_t *p) {
        int retval;
        gasneti_atomic_presync();
        retval = (_amo_afadd((p),(long)-1) == 1);
        gasneti_atomic_postsync();
        return retval;
     }
+    #define _gasneti_atomic_decrement_and_test _gasneti_atomic_decrement_and_test_64
 
     GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
     int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, long oldval, long newval) {
@@ -1202,8 +1208,8 @@
     }
     #define GASNETI_HAVE_ATOMIC_CAS 1
 
-    GASNETI_INLINE(gasneti_atomic_addfetch_32)
-    uint32_t gasneti_atomic_addfetch_32(gasneti_atomic_t *p, int32_t op) {
+    GASNETI_INLINE(gasneti_atomic_addfetch_64)
+    uint32_t gasneti_atomic_addfetch_64(gasneti_atomic_t *p, int32_t op) {
        uint32_t retval;
        gasneti_atomic_presync();
        retval = _amo_afadd((p),(long)(op));
@@ -1377,8 +1383,8 @@
       #define _gasneti_atomic_read(p)      ((p)->ctr)
       #define _gasneti_atomic_init(v)      { (v) }
       #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
-      GASNETI_INLINE(_gasneti_atomic_increment)
-      void _gasneti_atomic_increment(gasneti_atomic_t *p) {
+      GASNETI_INLINE(_gasneti_atomic_increment_32)
+      void _gasneti_atomic_increment_32(gasneti_atomic_t *p) {
 	uint32_t tmp;
 	__asm__ __volatile__(
 		"1:		\n\t"
@@ -1389,9 +1395,10 @@
 		: "=&r" (tmp), "=m" (p->ctr)
 		: "m" (p->ctr)
 		: "memory");
-      }
-      GASNETI_INLINE(_gasneti_atomic_decrement)
-      void _gasneti_atomic_decrement(gasneti_atomic_t *p) {
+      } 
+      #define _gasneti_atomic_increment _gasneti_atomic_increment_32
+      GASNETI_INLINE(_gasneti_atomic_decrement_32)
+      void _gasneti_atomic_decrement_32(gasneti_atomic_t *p) {
 	uint32_t tmp;
 	__asm__ __volatile__(
 		"1:		\n\t"
@@ -1403,6 +1410,7 @@
 		: "m" (p->ctr)
 		: "memory");
       }
+      #define _gasneti_atomic_decrement _gasneti_atomic_decrement_32
       GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
       uint32_t gasneti_atomic_fetchandadd_32(gasneti_atomic_t *p, int32_t op) {
 	uint32_t tmp, retval;
