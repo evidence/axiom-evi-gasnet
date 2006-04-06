@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/03/27 11:51:59 $
-dnl $Revision: 1.97 $
+dnl     $Date: 2006/04/06 10:52:39 $
+dnl $Revision: 1.98 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1233,6 +1233,7 @@ AC_CACHE_CHECK($1, cv_prefix[]$2,
 AC_TRY_RUN([
   #include "confdefs.h"
   #include <stdio.h>
+  #include <stdlib.h>
   $3
   int main() {
     FILE *f=fopen("conftestval", "w");
