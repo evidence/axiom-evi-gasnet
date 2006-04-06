@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/04/05 22:48:38 $
-# $Revision: 1.336 $
+#     $Date: 2006/04/06 19:08:08 $
+# $Revision: 1.337 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.336 $)
+AC_REVISION($Revision: 1.337 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -916,12 +916,12 @@ if test $enabled_udp = yes; then
   case "$gasnet_cv_cxx_family" in
     GNU) 
        GASNET_GCC_VERSION_CHECK(CXX)
-       GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS")
        if test "$target_cpu" = "sparc"; then 
          GASNET_GET_ULTRASPARC_FLAGS(CXX,["-mcpu=ultrasparc3 -mtune=ultrasparc3" "-mcpu=ultrasparc -mtune=ultrasparc"])
        fi
+       GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS")
        GASNET_GET_GNUWARNINGFLAGS(CXX)
-       MISC_CXXFLAGS="$CXXFLAGS" 
+       MISC_CXXFLAGS="$MISC_CXXFLAGS $CXXFLAGS" 
        GASNET_POPVAR(CXXFLAGS)
     ;;
     PGI)   MISC_CXXFLAGS="-w -Masmkeyword" ;; # apparently has no way to indep control warnings
