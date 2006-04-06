@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2006/03/26 06:31:00 $
- * $Revision: 1.29 $
+ *     $Date: 2006/04/06 17:15:19 $
+ * $Revision: 1.30 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -91,6 +91,9 @@ static void flushStreams(const char *context) {
     perror("fflush");
     exit(1);
   }
+  fsync(STDOUT_FILENO); /* ignore errors for output is a console */
+  fsync(STDERR_FILENO); /* ignore errors for output is a console */
+  sync();
   ammpi_sched_yield();
 }
 /* ------------------------------------------------------------------------------------ */

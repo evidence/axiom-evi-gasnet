@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/04/05 23:27:24 $
- * $Revision: 1.150 $
+ *     $Date: 2006/04/06 17:15:17 $
+ * $Revision: 1.151 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -435,6 +435,9 @@ extern void gasneti_flush_streams() {
     gasneti_fatalerror("failed to flush stdout: %s", strerror(errno));
   if (fflush(stderr)) 
     gasneti_fatalerror("failed to flush stderr: %s", strerror(errno));
+  fsync(STDOUT_FILENO); /* ignore errors for output is a console */
+  fsync(STDERR_FILENO); /* ignore errors for output is a console */
+  sync();
   gasneti_sched_yield();
 }
 extern void gasneti_close_streams() {

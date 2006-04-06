@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2005/08/24 04:32:48 $
- * $Revision: 1.24 $
+ *     $Date: 2006/04/06 17:15:21 $
+ * $Revision: 1.25 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -173,6 +173,9 @@ static void flushStreams(const char *context) {
     perror("fflush");
     exit(1);
   }
+  fsync(STDOUT_FILENO); /* ignore errors for output is a console */
+  fsync(STDERR_FILENO); /* ignore errors for output is a console */
+  sync();
   sched_yield();
 }
 //------------------------------------------------------------------------------------
