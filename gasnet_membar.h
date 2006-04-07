@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/04/05 23:27:24 $
- * $Revision: 1.95 $
+ *     $Date: 2006/04/07 15:14:23 $
+ * $Revision: 1.96 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -112,19 +112,22 @@
       /* For TSO SPARCs this is technically oversynced, but costs us nothing extra. */
       GASNETI_ASM("membar #StoreLoad | #StoreStore"); 
     }
-    GASNETI_INLINE(_gasneti_local_rmb)
-    void _gasneti_local_rmb(void) {
-      /* For TSO SPARCs this is probably unnecessary and might be removed some day. */
-      GASNETI_ASM("membar #LoadStore | #LoadLoad"); 
-    }
-    #define gasneti_local_rmb() _gasneti_local_rmb()
     GASNETI_INLINE(_gasneti_local_mb)
     void _gasneti_local_mb(void) {
       /* For TSO SPARCs this is technically oversynced, but costs us nothing extra. */
       GASNETI_ASM("membar #LoadStore | #LoadLoad | #StoreLoad | #StoreStore");
     }
     #define gasneti_local_mb() _gasneti_local_mb()
-    #define GASNETI_MB_IS_SUM	/* close enough, since the alternative involves an extra branch */
+    #ifdef GASNETI_ARCH_SPARC_RMO /* Provide an option for SPARC RMO mode (no OS support?) */
+      GASNETI_INLINE(_gasneti_local_rmb)
+      void _gasneti_local_rmb(void) {
+        GASNETI_ASM("membar #LoadStore | #LoadLoad"); 
+      }
+      #define gasneti_local_rmb() _gasneti_local_rmb()
+      #define GASNETI_MB_IS_SUM	/* close enough, since the alternative involves an extra branch */
+    #else /* In the default TSO mode, RMB is a no-op */
+      #define GASNETI_WMB_IS_MB
+    #endif
   #else /* SPARC v7/8 */
     GASNETI_INLINE(gasneti_local_wmb)
     void gasneti_local_wmb(void) {
