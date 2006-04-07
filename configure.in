@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/04/06 19:08:08 $
-# $Revision: 1.337 $
+#     $Date: 2006/04/07 04:21:51 $
+# $Revision: 1.338 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.337 $)
+AC_REVISION($Revision: 1.338 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -249,14 +249,7 @@ dnl GASNET_GET_ULTRASPARC_FLAGS(type,flags)  type=C or CXX
 # flags is compiler options which enable ultrasparc instructions for 32-bit ABI
 GASNET_IF_DISABLED([ultrasparc-probe],[Disable probe for UltraSPARC compiler options],[DISABLE_ULTRASPARC=1])
 AC_DEFUN([GASNET_GET_ULTRASPARC_FLAGS],[
-  if test "$GASNETI_PTR_BITS" = 32 -a "$DISABLE_ULTRASPARC" != 1; then 
-    for flag in $2 ; do
-      ]GASNET_TRY_[$1]FLAG[([$flag],[MISC_[$1]FLAGS="$flag" ; break])
-    done
-  fi
-  AC_MSG_CHECKING(for UltraSPARC instruction support)
-  GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS")
-  ]GASNET_TRY_[$1]COMPILE_WITHWARN[( [
+  pushdef([ultrasparc3code],[
           void foo(void) { 
             #ifdef __GNUC__
               register void * addr = 0;
@@ -270,10 +263,34 @@ AC_DEFUN([GASNET_GET_ULTRASPARC_FLAGS],[
               #error unknown sparc compiler
             #endif
           }
-       ], [ ], [ AC_MSG_RESULT(yes) 
+         ])
+  if test "$GASNETI_PTR_BITS" = 32 -a "$DISABLE_ULTRASPARC" != 1; then 
+    for flag in $2 ; do
+      ]GASNET_TRY_[$1]FLAG[([$flag],[ultrasparc_flag_worked=1])
+      if test "$ultrasparc_flag_worked" = 1; then
+        GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
+	AC_MSG_CHECKING(for working flag $flag)
+	AC_TRY_RUN(ultrasparc3code [ int main() { return 0; } ], 
+	           [ultrasparc_flag_worked=1], [ultrasparc_flag_worked=0], [ultrasparc_flag_worked=1])
+        GASNET_POPVAR([$1]FLAGS)
+	if test "$ultrasparc_flag_worked" = 1; then
+	  AC_MSG_RESULT(yes)
+      	  MISC_[$1]FLAGS="$flag"
+	  break
+	else
+	  AC_MSG_RESULT(no)
+	fi
+      fi
+    done
+  fi
+  AC_MSG_CHECKING(for UltraSPARC instruction support)
+  GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS")
+  ]GASNET_TRY_[$1]COMPILE_WITHWARN[( [ ultrasparc3code ] , [ ], 
+          [ AC_MSG_RESULT(yes) 
                  AC_DEFINE(GASNETI_ARCH_ULTRASPARC)
        ], [ AC_MSG_RESULT(no/warning) ], [ AC_MSG_RESULT(no/error) ])
   GASNET_POPVAR([$1]FLAGS)
+  popdef([ultrasparc3code])
 ])
 
 case "$gasnet_cv_cc_family" in
