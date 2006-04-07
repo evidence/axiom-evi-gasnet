@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/07 05:54:29 $
- * $Revision: 1.136 $
+ *     $Date: 2006/04/07 20:22:38 $
+ * $Revision: 1.137 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1512,36 +1512,7 @@
 
 #if defined(GASNETI_USING_SLOW_ATOMICS)
   /* No default atomics built when using "slow" atomics. */
-#elif defined(_gasneti_atomic_addfetch)
-  #ifndef _gasneti_atomic_increment
-    #define _gasneti_atomic_increment(p)	((void)_gasneti_atomic_addfetch((p),1))
-  #endif
-  #ifndef _gasneti_atomic_decrement
-    #define _gasneti_atomic_decrement(p)	((void)_gasneti_atomic_addfetch((p),-1))
-  #endif
-  #ifndef _gasneti_atomic_decrement_and_test
-    #define _gasneti_atomic_decrement_and_test(p) \
-						(_gasneti_atomic_addfetch((p),-1) == 0)
-  #endif
-  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
-    #define _gasneti_atomic_add(p,op)		((uint32_t)_gasneti_atomic_addfetch(p,op))
-    #define _gasneti_atomic_subtract(p,op)	((uint32_t)_gasneti_atomic_addfetch(p,-op))
-    #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
-  #endif
-#elif defined(_gasneti_atomic_fetchadd) || defined (GASNETI_HAVE_ATOMIC_CAS)
-  #if !defined(_gasneti_atomic_addfetch)
-    /* If needed, build addfetch from compare-and-swap. */
-    GASNETI_INLINE(gasneti_atomic_addfetch)
-    uint32_t gasneti_atomic_addfetch(gasneti_atomic_t *p, int32_t op) {
-      uint32_t _old, _new;
-      do {
-        _new = (_old = _gasneti_atomic_read(p)) + op;
-      } while (!_gasneti_atomic_compare_and_swap(p, _old, _new));
-      return _new;
-    }
-    #define _gasneti_atomic_addfetch gasneti_atomic_addfetch
-  #endif
-
+#elif defined(_gasneti_atomic_fetchadd)
   #ifndef _gasneti_atomic_increment
     #define _gasneti_atomic_increment(p)	((void)_gasneti_atomic_fetchadd((p),1))
   #endif
@@ -1557,6 +1528,35 @@
      * So, these macros can safely expand the arguments multiple times. */
     #define _gasneti_atomic_add(p,op)		((uint32_t)(_gasneti_atomic_fetchadd(p,op) + op))
     #define _gasneti_atomic_subtract(p,op)	((uint32_t)(_gasneti_atomic_fetchadd(p,-op) - op))
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
+  #endif
+#elif defined(_gasneti_atomic_addfetch) || defined (GASNETI_HAVE_ATOMIC_CAS)
+  #if !defined(_gasneti_atomic_addfetch)
+    /* If needed, build addfetch from compare-and-swap. */
+    GASNETI_INLINE(gasneti_atomic_addfetch)
+    uint32_t gasneti_atomic_addfetch(gasneti_atomic_t *p, int32_t op) {
+      uint32_t _old, _new;
+      do {
+        _new = (_old = _gasneti_atomic_read(p)) + op;
+      } while (!_gasneti_atomic_compare_and_swap(p, _old, _new));
+      return _new;
+    }
+    #define _gasneti_atomic_addfetch gasneti_atomic_addfetch
+  #endif
+
+  #ifndef _gasneti_atomic_increment
+    #define _gasneti_atomic_increment(p)	((void)_gasneti_atomic_addfetch((p),1))
+  #endif
+  #ifndef _gasneti_atomic_decrement
+    #define _gasneti_atomic_decrement(p)	((void)_gasneti_atomic_addfetch((p),-1))
+  #endif
+  #ifndef _gasneti_atomic_decrement_and_test
+    #define _gasneti_atomic_decrement_and_test(p) \
+						(_gasneti_atomic_addfetch((p),-1) == 0)
+  #endif
+  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
+    #define _gasneti_atomic_add(p,op)		((uint32_t)_gasneti_atomic_addfetch(p,op))
+    #define _gasneti_atomic_subtract(p,op)	((uint32_t)_gasneti_atomic_addfetch(p,-op))
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   #endif
 #endif
