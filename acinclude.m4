@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/04/06 10:52:39 $
-dnl $Revision: 1.98 $
+dnl     $Date: 2006/04/07 17:29:16 $
+dnl $Revision: 1.99 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1341,7 +1341,10 @@ AC_DEFUN([GASNET_PROG_CC], [
   AC_TRY_COMPILE([], [
     fail for me
   ], [AC_MSG_ERROR(Your C compiler is broken - reported success when it should have failed)], [])
-  AC_TRY_COMPILE([], [], [], [GASNET_MSG_ERROR(Your C compiler is broken - reported failure when it should have succeeded)])
+  AC_TRY_COMPILE([ #include <stdio.h>
+                   #include <stdlib.h>
+		 ], [ printf("hi\n"); exit(0); ], 
+     [], [GASNET_MSG_ERROR(Your C compiler is broken - reported failure when it should have succeeded)])
   AC_TRY_COMPILE([
     double *p;
     void *foo(double *d) { 
@@ -1354,7 +1357,10 @@ AC_DEFUN([GASNET_PROG_CC], [
   ], [], [GASNET_MSG_ERROR([Your C compiler is broken, it fails to compile a simple C program using implicit void* conversion. This software requires a true, working ANSI C compiler - note that a C++ compiler is not an acceptable replacement.])])
   AC_TRY_LINK([ extern int some_bogus_nonexistent_symbol(); ], [ int x = some_bogus_nonexistent_symbol(); ],
               [AC_MSG_ERROR(Your C linker is broken - reported success when it should have failed)], [])
-  AC_TRY_LINK([], [], [], [GASNET_MSG_ERROR(Your C link is broken - reported failure when it should have succeeded)])
+  AC_TRY_LINK([ #include <stdio.h>
+                #include <stdlib.h>
+              ], [ printf("hi\n"); exit(0); ], 
+     [], [GASNET_MSG_ERROR(Your C link is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes)
   AC_MSG_CHECKING(if user enabled cross-compile)
   GASNET_IF_ENABLED(cross-compile, [ Enable cross-compilation (experimental) ], [
@@ -1391,10 +1397,16 @@ AC_DEFUN([GASNET_PROG_CXX], [
   AC_TRY_COMPILE([], [
     fail for me
   ], [AC_MSG_ERROR(Your C++ compiler is broken - reported success when it should have failed)], [])
-  AC_TRY_COMPILE([], [], [], [GASNET_MSG_ERROR(Your C++ compiler is broken - reported failure when it should have succeeded)])
+  AC_TRY_COMPILE([ #include <stdio.h>
+                   #include <stdlib.h>
+                 ], [ printf("hi\n"); exit(0); ], 
+     [], [GASNET_MSG_ERROR(Your C++ compiler is broken - reported failure when it should have succeeded)])
   AC_TRY_LINK([ extern int some_bogus_nonexistent_symbol(); ], [ int x = some_bogus_nonexistent_symbol(); ],
               [AC_MSG_ERROR(Your C++ linker is broken - reported success when it should have failed)], [])
-  AC_TRY_LINK([], [], [], [GASNET_MSG_ERROR(Your C++ link is broken - reported failure when it should have succeeded)])
+  AC_TRY_LINK([ #include <stdio.h>
+                   #include <stdlib.h>
+              ], [ printf("hi\n"); exit(0); ], 
+     [], [GASNET_MSG_ERROR(Your C++ link is broken - reported failure when it should have succeeded)])
   AC_MSG_RESULT(yes)
   dnl reset autoconf cross compilation setting, which is wrong if executables are broken
   AC_MSG_CHECKING(if user enabled cross-compile)
