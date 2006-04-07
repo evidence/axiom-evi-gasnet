@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/03/31 07:20:09 $
- * $Revision: 1.45 $
+ *     $Date: 2006/04/07 22:39:02 $
+ * $Revision: 1.46 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -245,6 +245,46 @@ int main(int argc, char **argv) {
           ERR("gasnett_atomic_subtract got wrong value");
       }
     #endif
+
+    gasnett_atomic_set(&var, GASNETT_ATOMIC_MAX, 0);
+    if (gasnett_atomic_read(&var,0) != GASNETT_ATOMIC_MAX)
+        ERR("gasnett_atomic_set/read could not handle GASNETT_ATOMIC_MAX");
+    gasnett_atomic_decrement(&var, 0);
+    if (gasnett_atomic_read(&var,0) != GASNETT_ATOMIC_MAX - 1)
+        ERR("gasnett_atomic_decrement could not leave GASNETT_ATOMIC_MAX");
+    gasnett_atomic_increment(&var, 0);
+    if (gasnett_atomic_read(&var,0) != GASNETT_ATOMIC_MAX)
+        ERR("gasnett_atomic_increment could not reach GASNETT_ATOMIC_MAX");
+
+    gasnett_atomic_set(&var, -1, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != -1)
+        ERR("gasnett_atomic_set/signed could not handle -1");
+    gasnett_atomic_increment(&var, 0);
+    if (gasnett_atomic_read(&var,0) != 0)
+        ERR("gasnett_atomic_increment could not leave -1");
+    gasnett_atomic_decrement(&var, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != -1)
+        ERR("gasnett_atomic_decrement could not reach -1");
+
+    gasnett_atomic_set(&var, GASNETT_ATOMIC_SIGNED_MIN, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != GASNETT_ATOMIC_SIGNED_MIN)
+        ERR("gasnett_atomic_set/signed could not handle GASNETT_ATOMIC_SIGNED_MIN");
+    gasnett_atomic_increment(&var, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != GASNETT_ATOMIC_SIGNED_MIN + 1)
+        ERR("gasnett_atomic_increment could not leave GASNETT_ATOMIC_SIGNED_MIN");
+    gasnett_atomic_decrement(&var, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != GASNETT_ATOMIC_SIGNED_MIN)
+        ERR("gasnett_atomic_decrement could not reach GASNETT_ATOMIC_SIGNED_MIN");
+
+    gasnett_atomic_set(&var, GASNETT_ATOMIC_SIGNED_MAX, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != GASNETT_ATOMIC_SIGNED_MAX)
+        ERR("gasnett_atomic_set/signed could not handle GASNETT_ATOMIC_SIGNED_MAX");
+    gasnett_atomic_decrement(&var, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != GASNETT_ATOMIC_SIGNED_MAX - 1)
+        ERR("gasnett_atomic_decrement could not leave GASNETT_ATOMIC_SIGNED_MAX");
+    gasnett_atomic_increment(&var, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != GASNETT_ATOMIC_SIGNED_MAX)
+        ERR("gasnett_atomic_increment could not reach GASNETT_ATOMIC_SIGNED_MAX");
   }
 
 #ifdef HAVE_PTHREAD_H

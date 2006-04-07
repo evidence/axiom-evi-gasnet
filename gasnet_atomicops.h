@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/07 20:22:38 $
- * $Revision: 1.137 $
+ *     $Date: 2006/04/07 22:39:00 $
+ * $Revision: 1.138 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,14 +14,16 @@
 #define _GASNET_ATOMICOPS_H
 
 /* ------------------------------------------------------------------------------------ */
-/* portable atomic increment/decrement 
-   -----------------------------------
-   these provide a special datatype (gasneti_atomic_t) representing an atomically
+/* Portable atomic operations
+   --------------------------
+   These provide a special datatype (gasneti_atomic_t) representing an atomically
     updated unsigned integer value and a set of atomic ops
-   atomicity is guaranteed only if ALL accesses to the gasneti_atomic_t data happen
+   Atomicity is guaranteed only if ALL accesses to the gasneti_atomic_t data happen
     through the provided operations (i.e. it is an error to directly access the 
     contents of a gasneti_atomic_t), and if the gasneti_atomic_t data is only  
     addressable by the current process (e.g. not in a System V shared memory segment)
+   It is also an error to access an unintialized gasneti_atomic_t with any operation
+    other than gasneti_atomic_set().
 
     gasneti_atomic_init(v)        initializer for an gasneti_atomic_t to value v
     gasneti_atomic_set(p,v,f)     atomically sets *p to value v
@@ -30,6 +32,7 @@
     gasneti_atomic_decrement(p,f) atomically decrement *p (no return value)
     gasneti_atomic_decrement_and_test(p,f) 
       atomically decrement *p, return non-zero iff the new value is 0
+
 
    Semi-portable atomic operations
    --------------------------------
@@ -61,6 +64,22 @@
 
      GASNETI_HAVE_ATOMIC_CAS will be defined to 1 when this operation is available
 
+
+   Range of atomic type
+   --------------------
+   Internally an atomic type is an unsigned type of at least 24-bits.  No special
+   action is needed to store signed values via gasneti_atomic_set(), however because
+   the type may use less than a full word, gasneti_atomic_signed() is provided to
+   perform any required sign extension if a value read from a gasneti_atomic_t is
+   to be used as a signed type.
+
+    gasneti_atomic_signed(v)      convert an unsigned value returned by 
+                                  gasneti_atomic_{read,add,subtract} to a signed value.
+    GASNETI_ATOMIC_MAX            largest representable unsigned value
+    GASNETI_ATOMIC_SIGNED_MIN     smallest (most negative) representable signed value
+    GASNETI_ATOMIC_SIGNED_MAX     largest (most positive) representable signed value
+
+
    Memory fence properties of atomic operations
    --------------------------------------------
 
@@ -69,6 +88,21 @@
    argument (f or flags) to indicate the caller's minimum fence requirements.
    Depending on the platform, the implementation may use fences stronger than
    those requested, but never weaker.
+
+
+   Storage of atomic type
+   ----------------------
+   Internally an atomic type may use storage significantly larger than the number
+   of significant bits.  This additional space may be needed, for instance, to
+   meet platform-specific alignment constraints, or to hold a mutex on platforms
+   lacking any other means of ensuring atomicity.
+
+
+   Signal safety of atomic operations
+   ----------------------------------
+   On most, but not all, platforms these atomic operations are signal safe.  On
+   the few platforms where this is not the case GASNETI_ATOMICOPS_NOT_SIGNALSAFE
+   will be defined to 1.
  */
 
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS) || /* for debugging */          \
@@ -940,10 +974,16 @@
              all we get is atomic swap, but that's actually just barely enough  */
       #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
       #if defined(__GNUC__)
+        /* Only 31 bits: */
+        #define GASNETI_ATOMIC_MAX		((uint32_t)0x7FFFFFFFU)
+        #define GASNETI_ATOMIC_SIGNED_MIN	((int32_t)0xC0000000)
+        #define GASNETI_ATOMIC_SIGNED_MAX	((int32_t)0x3FFFFFFF)
+        #define gasneti_atomic_signed(val)	(((int32_t)((val)<<1))>>1)
+
         GASNETI_INLINE(gasneti_loadandclear_32)
-        uint32_t gasneti_loadandclear_32(int32_t volatile *v) {
-          register int32_t volatile * addr = (int32_t volatile *)v;
-          register int32_t val = 0;
+        uint32_t gasneti_loadandclear_32(uint32_t volatile *v) {
+          register uint32_t volatile * addr = (uint32_t volatile *)v;
+          register uint32_t val = 0;
           __asm__ __volatile__ ( 
             "swap [%1], %0 \n"   
             : "+r"(val)
@@ -951,9 +991,9 @@
             : "memory");
           return val;
         }
-        #define GASNETI_ATOMIC_PRESENT    ((int32_t)0x80000000)
+        #define GASNETI_ATOMIC_PRESENT    ((uint32_t)0x80000000)
         #define GASNETI_ATOMIC_INIT_MAGIC ((uint64_t)0x8BDEF66BAD1E3F3AULL)
-        typedef struct { volatile uint64_t initflag; volatile int32_t ctr; } gasneti_atomic_t;
+        typedef struct { volatile uint64_t initflag; volatile uint32_t ctr; } gasneti_atomic_t;
         #define _gasneti_atomic_init(v)      { GASNETI_ATOMIC_INIT_MAGIC, (GASNETI_ATOMIC_PRESENT|(v)) }
         /* would like to use gasneti_waituntil here, but it requires libgasnet for waitmode */
         #define gasneti_atomic_spinuntil(cond) do {       \
@@ -961,8 +1001,8 @@
                 gasneti_local_rmb();                      \
                 } while (0)
         GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
-        int32_t gasneti_atomic_fetchandadd_32(gasneti_atomic_t *p, int32_t op) {
-          int32_t tmp;
+        uint32_t gasneti_atomic_fetchandadd_32(gasneti_atomic_t *p, int32_t op) {
+          uint32_t tmp;
           gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
           gasneti_local_wmb();
           gasneti_atomic_spinuntil(p->ctr && (tmp = gasneti_loadandclear_32(&(p->ctr))));
@@ -973,14 +1013,14 @@
         #if 0
           /* this version fails if set is used in a race with fetchandadd */
           GASNETI_INLINE(_gasneti_atomic_set)
-          void _gasneti_atomic_set(gasneti_atomic_t *p, int32_t val) {
+          void _gasneti_atomic_set(gasneti_atomic_t *p, uint32_t val) {
             gasneti_local_wmb();
             p->ctr = (GASNETI_ATOMIC_PRESENT | val);
           }
         #else
           GASNETI_INLINE(_gasneti_atomic_set)
-          void _gasneti_atomic_set(gasneti_atomic_t *p, int32_t val) {
-            int32_t tmp;
+          void _gasneti_atomic_set(gasneti_atomic_t *p, uint32_t val) {
+            uint32_t tmp;
             gasneti_local_wmb();
             if_pf (p->initflag != GASNETI_ATOMIC_INIT_MAGIC) {
               p->ctr = (GASNETI_ATOMIC_PRESENT | val);
@@ -994,8 +1034,8 @@
           }
         #endif
         GASNETI_INLINE(_gasneti_atomic_read)
-        int32_t _gasneti_atomic_read(gasneti_atomic_t *p) {
-          int32_t tmp;
+        uint32_t _gasneti_atomic_read(gasneti_atomic_t *p) {
+          uint32_t tmp;
           gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
           gasneti_atomic_spinuntil((tmp = p->ctr));
           gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
@@ -1006,8 +1046,8 @@
         #define _gasneti_atomic_fetchadd gasneti_atomic_fetchandadd_32
 
         GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
-        int32_t _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
-          int32_t tmp;
+        int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+          uint32_t tmp;
           int retval;
           gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
           gasneti_local_wmb();
@@ -1037,8 +1077,8 @@
      * initializer) replicate the value field 4 times.  The actual ops will only use
      * the one of them that turns out to be 16-byte aligned.
      */
-    typedef struct { volatile uint64_t initflag; volatile int32_t _ctr[4]; char _pad; } gasneti_atomic_t;
-    #define GASNETI_ATOMIC_PRESENT    ((int32_t)0x80000000)
+    typedef struct { volatile uint64_t initflag; volatile uint32_t _ctr[4]; char _pad; } gasneti_atomic_t;
+    #define GASNETI_ATOMIC_PRESENT    ((uint32_t)0x80000000)
     #define GASNETI_ATOMIC_INIT_MAGIC ((uint64_t)0x8BDEF66BAD1E3F3AULL)
     #define _gasneti_atomic_init(v)      {    \
             GASNETI_ATOMIC_INIT_MAGIC,       \
@@ -1047,15 +1087,21 @@
               (GASNETI_ATOMIC_PRESENT|(v)),  \
               (GASNETI_ATOMIC_PRESENT|(v)) } \
             }
+    /* Only 31 bits: */
+    #define GASNETI_ATOMIC_MAX		((uint32_t)0x7FFFFFFFU)
+    #define GASNETI_ATOMIC_SIGNED_MIN	((int32_t)0xC0000000)
+    #define GASNETI_ATOMIC_SIGNED_MAX	((int32_t)0x3FFFFFFF)
+    #define gasneti_atomic_signed(val)	(((int32_t)((val)<<1))>>1)
+
     #if defined(__HP_aCC) /* HP C++ compiler */
       #define GASNETI_HAVE_ATOMIC_CAS 1		/* Explicit */
       #define GASNETI_HAVE_ATOMIC_ADD_SUB 1	/* Derived */
       #define GASNETI_USING_SLOW_ATOMICS 1
     #else
       GASNETI_INLINE(gasneti_loadandclear_32)
-      uint32_t gasneti_loadandclear_32(int32_t volatile *v) {
-        register int32_t volatile * addr = (int32_t volatile *)v;
-        register int32_t val = 0;
+      uint32_t gasneti_loadandclear_32(uint32_t volatile *v) {
+        register uint32_t volatile * addr = (uint32_t volatile *)v;
+        register uint32_t val = 0;
         gasneti_assert(!(((uintptr_t)addr) & 0xF)); /* ldcws requires 16-byte alignment */
         *(volatile char *)(v+1) = 0; /* fetch this cache line as a dirty word - speeds up ldcw */
         #if defined(__GNUC__)
@@ -1079,16 +1125,16 @@
         #endif
         return val;
       }
-      #define GASNETI_ATOMIC_CTR(p)     ((volatile int32_t *)GASNETI_ALIGNUP(&(p->_ctr),16))
+      #define GASNETI_ATOMIC_CTR(p)     ((volatile uint32_t *)GASNETI_ALIGNUP(&(p->_ctr),16))
       /* would like to use gasneti_waituntil here, but it requires libgasnet for waitmode */
       #define gasneti_atomic_spinuntil(cond) do {       \
               while (!(cond)) gasneti_compiler_fence(); \
               gasneti_local_rmb();                      \
               } while (0)
       GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
-      int32_t gasneti_atomic_fetchandadd_32(gasneti_atomic_t *p, int32_t op) {
-        int32_t tmp;
-        volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+      uint32_t gasneti_atomic_fetchandadd_32(gasneti_atomic_t *p, int32_t op) {
+        uint32_t tmp;
+        volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
         gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
         gasneti_local_wmb();
         gasneti_atomic_spinuntil(*pctr && (tmp = gasneti_loadandclear_32(pctr)));
@@ -1099,16 +1145,16 @@
       #if 0
         /* this version fails if set is used in a race with fetchandadd */
         GASNETI_INLINE(_gasneti_atomic_set)
-        void _gasneti_atomic_set(gasneti_atomic_t *p, int32_t val) {
-          volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+        void _gasneti_atomic_set(gasneti_atomic_t *p, uint32_t val) {
+          volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
           gasneti_local_wmb();
           *pctr = (GASNETI_ATOMIC_PRESENT | val);
         }
       #else
         GASNETI_INLINE(_gasneti_atomic_set)
-        void _gasneti_atomic_set(gasneti_atomic_t *p, int32_t val) {
-          int32_t tmp;
-          volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+        void _gasneti_atomic_set(gasneti_atomic_t *p, uint32_t val) {
+          uint32_t tmp;
+          volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
           gasneti_local_wmb();
           if_pf (p->initflag != GASNETI_ATOMIC_INIT_MAGIC) {
             *pctr = (GASNETI_ATOMIC_PRESENT | val);
@@ -1122,9 +1168,9 @@
         }
       #endif
       GASNETI_INLINE(_gasneti_atomic_read)
-      int32_t _gasneti_atomic_read(gasneti_atomic_t *p) {
-        int32_t tmp;
-        volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+      uint32_t _gasneti_atomic_read(gasneti_atomic_t *p) {
+        uint32_t tmp;
+        volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
         gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
         gasneti_atomic_spinuntil((tmp = *pctr));
         gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
@@ -1135,9 +1181,9 @@
       #define gasneti_atomic_fetchandadd gasneti_atomic_fetchandadd_32
 
       GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
-      int32_t _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
-        volatile int32_t * const pctr = GASNETI_ATOMIC_CTR(p);
-        int32_t tmp;
+      int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
+        volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+        uint32_t tmp;
         int retval;
         gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
         gasneti_local_wmb();
@@ -2122,6 +2168,23 @@
       return retval;
     }
   }
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Atomic range and signed treatment
+ */
+
+#ifndef GASNETI_ATOMIC_MAX
+  #define GASNETI_ATOMIC_MAX		((uint32_t)0xFFFFFFFFU)
+#endif
+#ifndef GASNETI_ATOMIC_SIGNED_MIN
+  #define GASNETI_ATOMIC_SIGNED_MIN	((int32_t)0x80000000)
+#endif
+#ifndef GASNETI_ATOMIC_SIGNED_MAX
+  #define GASNETI_ATOMIC_SIGNED_MAX	((int32_t)0x7FFFFFFF)
+#endif
+#ifndef gasneti_atomic_signed
+  #define gasneti_atomic_signed(val)	((int32_t)(val))
 #endif
 
 /* ------------------------------------------------------------------------------------ */
