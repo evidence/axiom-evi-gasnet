@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/07 22:39:00 $
- * $Revision: 1.138 $
+ *     $Date: 2006/04/08 00:46:40 $
+ * $Revision: 1.139 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1053,7 +1053,7 @@
           gasneti_local_wmb();
           gasneti_atomic_spinuntil(p->ctr && (tmp = gasneti_loadandclear_32(&(p->ctr))));
           gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
-          retval = ((tmp & ~GASNETI_ATOMIC_PRESENT) == oldval);
+          retval = (tmp == (GASNETI_ATOMIC_PRESENT | oldval));
           if_pt (retval) {
             tmp = (GASNETI_ATOMIC_PRESENT | newval);
           }
@@ -1189,7 +1189,7 @@
         gasneti_local_wmb();
         gasneti_atomic_spinuntil(*pctr && (tmp = gasneti_loadandclear_32(pctr)));
         gasneti_assert(tmp & GASNETI_ATOMIC_PRESENT);
-        retval = ((tmp & ~GASNETI_ATOMIC_PRESENT) == oldval);
+        retval = (tmp == (GASNETI_ATOMIC_PRESENT | oldval));
         if_pt (retval) {
           tmp = (GASNETI_ATOMIC_PRESENT | newval);
         }
