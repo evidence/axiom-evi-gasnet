@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/04/07 22:39:02 $
- * $Revision: 1.46 $
+ *     $Date: 2006/04/08 00:47:22 $
+ * $Revision: 1.47 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -246,6 +246,7 @@ int main(int argc, char **argv) {
       }
     #endif
 
+    /* Verify "reachability" of limit values */
     gasnett_atomic_set(&var, GASNETT_ATOMIC_MAX, 0);
     if (gasnett_atomic_read(&var,0) != GASNETT_ATOMIC_MAX)
         ERR("gasnett_atomic_set/read could not handle GASNETT_ATOMIC_MAX");
@@ -285,6 +286,43 @@ int main(int argc, char **argv) {
     gasnett_atomic_increment(&var, 0);
     if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != GASNETT_ATOMIC_SIGNED_MAX)
         ERR("gasnett_atomic_increment could not reach GASNETT_ATOMIC_SIGNED_MAX");
+
+   /* Verify expected two's-complement wrap-around properties */
+    gasnett_atomic_set(&var, GASNETT_ATOMIC_MAX, 0);
+    gasnett_atomic_increment(&var, 0);
+    if (gasnett_atomic_read(&var,0) != 0)
+        ERR("failed unsigned wrap-around at GASNETT_ATOMIC_MAX");
+    gasnett_atomic_set(&var, 0, 0);
+    gasnett_atomic_decrement(&var, 0);
+    if (gasnett_atomic_read(&var,0) != GASNETT_ATOMIC_MAX)
+        ERR("failed unsigned wrap-around at 0");
+    gasnett_atomic_set(&var, GASNETT_ATOMIC_SIGNED_MAX, 0);
+    gasnett_atomic_increment(&var, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != GASNETT_ATOMIC_SIGNED_MIN)
+        ERR("failed signed wrap-around at GASNETT_ATOMIC_SIGNED_MAX");
+    gasnett_atomic_set(&var, GASNETT_ATOMIC_SIGNED_MIN, 0);
+    gasnett_atomic_decrement(&var, 0);
+    if (gasnett_atomic_signed(gasnett_atomic_read(&var,0)) != GASNETT_ATOMIC_SIGNED_MAX)
+        ERR("failed signed wrap-around at GASNETT_ATOMIC_SIGNED_MIN");
+
+    #if defined(GASNETT_HAVE_ATOMIC_CAS)
+      /* Verify expected wrap-around properties of "oldval" in c-a-s */
+      gasnett_atomic_set(&var, GASNETT_ATOMIC_MAX, 0);
+      if (!gasnett_atomic_compare_and_swap(&var, -1, 0, 0))
+        ERR("gasnett_atomic_compare_and_swap failed unsigned wrap-around at oldval=-1");
+
+      gasnett_atomic_set(&var, 0, 0);
+      if (!gasnett_atomic_compare_and_swap(&var, GASNETT_ATOMIC_MAX+1, 0, 0))
+        ERR("gasnett_atomic_compare_and_swap failed unsigned wrap-around at oldval=MAX+1");
+
+      gasnett_atomic_set(&var, GASNETT_ATOMIC_SIGNED_MAX, 0);
+      if (!gasnett_atomic_compare_and_swap(&var, GASNETT_ATOMIC_SIGNED_MIN-1, 0, 0))
+        ERR("gasnett_atomic_compare_and_swap failed signed wrap-around at oldval=SIGNED_MIN-1");
+
+      gasnett_atomic_set(&var, GASNETT_ATOMIC_SIGNED_MIN, 0);
+      if (!gasnett_atomic_compare_and_swap(&var, GASNETT_ATOMIC_SIGNED_MAX+1, 0, 0))
+        ERR("gasnett_atomic_compare_and_swap failed signed wrap-around at oldval=SIGNED_MAX+1");
+    #endif
   }
 
 #ifdef HAVE_PTHREAD_H
