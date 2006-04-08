@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/08 01:25:14 $
- * $Revision: 1.140 $
+ *     $Date: 2006/04/08 01:42:48 $
+ * $Revision: 1.141 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -75,9 +75,17 @@
 
     gasneti_atomic_signed(v)      convert an unsigned value returned by 
                                   gasneti_atomic_{read,add,subtract} to a signed value.
-    GASNETI_ATOMIC_MAX            largest representable unsigned value
-    GASNETI_ATOMIC_SIGNED_MIN     smallest (most negative) representable signed value
-    GASNETI_ATOMIC_SIGNED_MAX     largest (most positive) representable signed value
+    GASNETI_ATOMIC_MAX            the largest representable unsigned value
+				  the smallest representable unsigned value is always 0
+    GASNETI_ATOMIC_SIGNED_MIN     the smallest (most negative) representable signed value
+    GASNETI_ATOMIC_SIGNED_MAX     the largest (most positive) representable signed value
+
+   The atomic type is guaranteed to wrap around at it's minimum and maximum values in
+   the normal manner expected of two's-complement integers.  This includes the 'oldval'
+   and 'newval' arguments to gasneti_atomic_compare_and_swap(), and the 'v' arguments
+   to gasneti_atomic_init() and gasneti_atomic_set() which are wrapped (not clipped)
+   to the proper range prior to assignment (for 'newval' and 'v') or comparison (for
+   'oldval').
 
 
    Memory fence properties of atomic operations
@@ -798,9 +806,9 @@
   #elif defined(__alpha__) || defined(__alpha) /* DEC Alpha */
     #if defined(__GNUC__)
       GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
-      int32_t gasneti_atomic_fetchandadd_32(int32_t volatile *v, int32_t op) {
+      uint32_t gasneti_atomic_fetchandadd_32(int32_t volatile *v, int32_t op) {
         register int32_t temp;
-        register int32_t result;
+        register uint32_t result;
         __asm__ __volatile__ (
 		"1:	ldl_l	%1, %2		\n"	/* result = *addr */
 		"	addl	%1, %3, %0	\n"	/* temp = result + op */
