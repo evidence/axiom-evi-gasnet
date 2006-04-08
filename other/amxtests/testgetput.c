@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testgetput.c,v $
- *     $Date: 2004/09/27 09:53:01 $
- * $Revision: 1.7 $
+ *     $Date: 2006/04/08 03:11:26 $
+ * $Revision: 1.8 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -45,7 +45,7 @@ int main(int argc, char **argv) {
 
     /* set just my val */
     {int i;
-     for (i=0;i<MAX_PROCS;i++) vals[i] = -1;
+     for (i=0;i<MAX_PROCS;i++) vals[i] = (uint32_t)(-1);
      vals[myproc] = myproc;
      }
 
