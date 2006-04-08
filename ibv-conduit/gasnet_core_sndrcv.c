@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/03/31 01:34:18 $
- * $Revision: 1.178 $
+ *     $Date: 2006/04/08 01:01:58 $
+ * $Revision: 1.179 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1262,13 +1262,13 @@ void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc,
   /* Loop until space is available on the SQ for at least 1 new entry.
    * If we hold the last one then threads sending to the same node will stall. */
   sq_sema = &sreq->cep->sq_sema;
-  tmp = gasnetc_sema_trydown_n(sq_sema, count);
+  tmp = gasnetc_sema_trydown_partial(sq_sema, count);
   if_pf (!tmp) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-      tmp = gasnetc_sema_trydown_n(sq_sema, count);
+      tmp = gasnetc_sema_trydown_partial(sq_sema, count);
     } while (!tmp);
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
   }

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/04/05 03:07:44 $
- * $Revision: 1.128 $
+ *     $Date: 2006/04/08 01:01:58 $
+ * $Revision: 1.129 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -281,8 +281,8 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     #endif
   }
 
-  GASNETI_INLINE(_gasnetc_sema_trydown_n)
-  uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
+  GASNETI_INLINE(_gasnetc_sema_trydown_partial)
+  uint32_t _gasnetc_sema_trydown_partial(_gasnetc_sema_t *s, uint32_t n) {
     uint32_t retval = 0;
     int swap;
 
@@ -295,6 +295,22 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     } while (PREDICT_FALSE(!swap));
 
     return retval;
+  }
+
+  GASNETI_INLINE(_gasnetc_sema_trydown_n)
+  uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
+    int swap;
+
+    do {
+      const uint32_t old = gasneti_weakatomic_read(s, 0);
+      if_pf (old < n) {
+        n = 0;
+        break;
+      }
+      swap = gasneti_weakatomic_compare_and_swap(s, old, old - n, GASNETI_ATOMIC_ACQ_IF_TRUE);
+    } while (PREDICT_FALSE(!swap));
+
+    return n;
   }
 
   #define GASNETC_HAVE_ARCH_SEMA 1
@@ -350,8 +366,8 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     gasneti_mutex_unlock(&(s->lock));
   }
 
-  GASNETI_INLINE(_gasnetc_sema_trydown_n)
-  uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
+  GASNETI_INLINE(_gasnetc_sema_trydown_partial)
+  uint32_t _gasnetc_sema_trydown_partial(_gasnetc_sema_t *s, uint32_t n) {
     uint32_t retval, old;
 
     gasneti_mutex_lock(&(s->lock));
@@ -363,6 +379,21 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
     return retval;
   }
 
+  GASNETI_INLINE(_gasnetc_sema_trydown_n)
+  uint32_t _gasnetc_sema_trydown_n(_gasnetc_sema_t *s, uint32_t n) {
+    uint32_t old;
+
+    gasneti_mutex_lock(&(s->lock));
+    old = gasneti_weakatomic_read(&(s->count), 0);
+    if_pt (old >= n) {
+      gasneti_weakatomic_set(&(s->count), old - n, 0);
+    } else {
+      n = 0;
+    }
+    gasneti_mutex_unlock(&(s->lock));
+
+    return n;
+  }
   #define GASNETC_HAVE_ARCH_SEMA 0
 #endif
 
@@ -457,9 +488,7 @@ void gasnetc_sema_up_n(gasnetc_sema_t *s, uint32_t n) {
 
 /* gasnetc_sema_trydown_n
  *
- * Decrements the semaphore by as much as 'n' and returns the number of "counts" thus
- * obtained.  The decrement is the smaller of 'n' and the "old" value of the semaphore,
- * and this value is returned.
+ * Decrements the semaphore by 'n' or fails.
  * If the "old" value is zero, returns zero.
  */
 GASNETI_INLINE(gasnetc_sema_trydown_n) GASNETI_WARN_UNUSED_RESULT
@@ -468,6 +497,24 @@ uint32_t gasnetc_sema_trydown_n(gasnetc_sema_t *s, uint32_t n) {
 
   GASNETC_SEMA_CHECK(s);
   retval = _gasnetc_sema_trydown_n(&(s->S), n);
+  GASNETC_SEMA_CHECK(s);
+
+  return retval;
+}
+
+/* gasnetc_sema_trydown_partial
+ *
+ * Decrements the semaphore by as much as 'n' and returns the number of "counts" thus
+ * obtained.  The decrement is the smaller of 'n' and the "old" value of the semaphore,
+ * and this value is returned.
+ * If the "old" value is zero, returns zero.
+ */
+GASNETI_INLINE(gasnetc_sema_trydown_partial) GASNETI_WARN_UNUSED_RESULT
+uint32_t gasnetc_sema_trydown_partial(gasnetc_sema_t *s, uint32_t n) {
+  uint32_t retval;
+
+  GASNETC_SEMA_CHECK(s);
+  retval = _gasnetc_sema_trydown_partial(&(s->S), n);
   GASNETC_SEMA_CHECK(s);
 
   return retval;
