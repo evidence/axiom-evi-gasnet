@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/04/08 02:08:41 $
- * $Revision: 1.68 $
+ *     $Date: 2006/04/08 07:55:14 $
+ * $Revision: 1.69 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -184,7 +184,9 @@
 #define GASNETT_CACHE_LINE_BYTES GASNETI_CACHE_LINE_BYTES
 
 /* various configure-detected C compiler features available in only some compilers */
-#define GASNETT_INLINE(fnname)          GASNETI_INLINE(fnname) 
+#define GASNETT_INLINE                  GASNETI_INLINE
+#define GASNETT_ALWAYS_INLINE           GASNETI_ALWAYS_INLINE
+#define GASNETT_PLEASE_INLINE           GASNETI_PLEASE_INLINE
 #define GASNETT_NEVER_INLINE            GASNETI_NEVER_INLINE
 #define GASNETT_RESTRICT                GASNETI_RESTRICT
 #define GASNETT_NORETURN                GASNETI_NORETURN

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/04/01 08:13:00 $
- * $Revision: 1.63 $
+ *     $Date: 2006/04/08 07:55:14 $
+ * $Revision: 1.64 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -203,41 +203,55 @@
   #define GASNETI_CONSTP(fnname) GASNETI_PUREP(fnname)
 #endif
 
-#if GASNET_DEBUG
-  #define GASNETI_ALWAYS_INLINE(fnname)
-#elif GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE
+#if GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE
   /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
-  #define GASNETI_ALWAYS_INLINE(fnname) __attribute__((__always_inline__))
+  #define _GASNETI_ALWAYS_INLINE(fnname) __attribute__((__always_inline__))
 #elif defined(_CRAYC) /* the only way to request inlining a particular fn in Cray C */
   /* possibly should be using inline_always here */
-  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname)
+  #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname)
 #elif defined(__MTA__)
-  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(mta inline)
+  #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(mta inline)
 #elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION >= 710
-  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline global fnname)
+  #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline global fnname)
 #elif defined(__DECC) /* not __DECCXX */
-  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline (fnname))
+  #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(inline (fnname))
 #elif defined(__HP_cc) && GASNET_NDEBUG /* avoid a warning */ \
    && 0 /* unreliable behavior - Itanium optimizer crashes and 
            PARISC syntax errors unless it appears on a line by itself */
-  #define GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(INLINE fnname)
+  #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(INLINE fnname)
   #undef STATIC_INLINE_WORKS
 #else
-  #define GASNETI_ALWAYS_INLINE(fnname)
+  #define _GASNETI_ALWAYS_INLINE(fnname)
 #endif
 
+/* GASNETI_PLEASE_INLINE: Inline a function if possible, but don't generate an error 
+ * for cases where it is impossible (eg recursive functions)
+ */
 #if GASNET_DEBUG
-  #define GASNETI_INLINE(fnname) static
+  #define GASNETI_PLEASE_INLINE(fnname) static
 #elif defined(__cplusplus)
-  #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) inline
+  #define GASNETI_PLEASE_INLINE(fnname) inline
 #elif defined(STATIC_INLINE_WORKS)
-  #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) static CC_INLINE_MODIFIER
+  #define GASNETI_PLEASE_INLINE(fnname) static CC_INLINE_MODIFIER
 #elif defined(CC_INLINE_MODIFIER)
-  #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) CC_INLINE_MODIFIER
+  #define GASNETI_PLEASE_INLINE(fnname) CC_INLINE_MODIFIER
 #else
-  #define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname) static
+  #define GASNETI_PLEASE_INLINE(fnname) static
 #endif
 
+/* GASNETI_ALWAYS_INLINE aka GASNETI_INLINE: Most forceful inlining demand available.
+ * Might generate errors in cases where inlining is semantically impossible 
+ * (eg recursive functions, varargs fns)
+ */
+#if GASNET_DEBUG
+  #define GASNETI_ALWAYS_INLINE(fnname) static
+#else
+  #define GASNETI_ALWAYS_INLINE(fnname) _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PLEASE_INLINE(fnname)
+#endif
+#define GASNETI_INLINE(fnname) GASNETI_ALWAYS_INLINE(fnname)
+
+/* GASNETI_NEVER_INLINE: Most forceful demand available to disable inlining for function.
+ */
 #if GASNETI_HAVE_GCC_ATTRIBUTE_NOINLINE
   #define GASNETI_NEVER_INLINE(fnname,declarator) __attribute__((__noinline__)) declarator
 #elif defined(__SUNPRO_C)
