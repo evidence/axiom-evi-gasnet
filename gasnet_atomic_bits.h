@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/08 01:42:48 $
- * $Revision: 1.141 $
+ *     $Date: 2006/04/08 02:08:41 $
+ * $Revision: 1.142 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,37 +24,55 @@
     addressable by the current process (e.g. not in a System V shared memory segment)
    It is also an error to access an unintialized gasneti_atomic_t with any operation
     other than gasneti_atomic_set().
+   We define an unsigned type (gasneti_atomic_val_t) and a signed type
+   (gasneti_atomic_sval_t) and provide the following operations on all platforms:
 
-    gasneti_atomic_init(v)        initializer for an gasneti_atomic_t to value v
-    gasneti_atomic_set(p,v,f)     atomically sets *p to value v
-    gasneti_atomic_read(p,f)      atomically read and return the value of *p
-    gasneti_atomic_increment(p,f) atomically increment *p (no return value)
-    gasneti_atomic_decrement(p,f) atomically decrement *p (no return value)
-    gasneti_atomic_decrement_and_test(p,f) 
-      atomically decrement *p, return non-zero iff the new value is 0
+    gasneti_atomic_init(gasneti_atomic_val_t v)
+        Static initializer (macro) for an gasneti_atomic_t to value v.
+
+    void gasneti_atomic_set(gasneti_atomic_t *p,
+                            gasneti_atomic_val_t v,
+                            int flags);
+        Atomically sets *p to value v.
+
+    gasneti_atomic_val_t gasneti_atomic_read(gasneti_atomic_t *p, int flags);
+        Atomically read and return the value of *p.
+
+    void gasneti_atomic_increment(gasneti_atomic_t *p, int flags);
+        Atomically increment *p (no return value).
+
+    void gasneti_atomic_decrement(gasneti_atomic_t *p, int flags);
+        Atomically decrement *p (no return value).
+
+    int gasneti_atomic_decrement_and_test(gasneti_atomic_t *p, int flags);
+        Atomically decrement *p, return non-zero iff the new value is 0.
 
 
    Semi-portable atomic operations
    --------------------------------
    These useful operations are available on most, but not all, platforms.
 
-   + addition and subtraction
-     gasneti_atomic_add(p, op, flags)
-     gasneti_atomic_subtract(p, op, flags)
+    gasneti_atomic_val_t gasneti_atomic_add(gasneti_atomic_t *p,
+                                            gasneti_atomic_val_t op,
+                                            int flags);
+    gasneti_atomic_val_t gasneti_atomic_subtract(gasneti_atomic_t *p,
+                                                 gasneti_atomic_val_t op,
+                                                 int flags);
 
      These implement atomic addition and subtraction, where op must be non-negative.
      The result is platform dependent if the value of op is negative or out of the
-     range of gasneti_atomic_t, or if the resulting value is out of range.
+     range of gasneti_atomic_val_t, or if the resulting value is out of range.
      Both return the value after the addition or subtraction.
 
     GASNETI_HAVE_ATOMIC_ADD_SUB will be defined to 1 when these operations are available.
     They are always either both available, or neither is available.
 
-   + compare and swap
-     gasneti_atomic_compare_and_swap(p, oldval, newval, flags)
+    int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p,
+                                        gasneti_atomic_val_t oldval,
+                                        gasneti_atomic_val_t newval,
+                                        int flags);
 
      This operation is the atomic equivalent of:
-
       if (*p == oldval) {
         *p = newval;
         return NONZERO;
@@ -73,12 +91,13 @@
    perform any required sign extension if a value read from a gasneti_atomic_t is
    to be used as a signed type.
 
-    gasneti_atomic_signed(v)      convert an unsigned value returned by 
-                                  gasneti_atomic_{read,add,subtract} to a signed value.
-    GASNETI_ATOMIC_MAX            the largest representable unsigned value
-				  the smallest representable unsigned value is always 0
-    GASNETI_ATOMIC_SIGNED_MIN     the smallest (most negative) representable signed value
-    GASNETI_ATOMIC_SIGNED_MAX     the largest (most positive) representable signed value
+    gasneti_atomic_signed(v)      Converts a gasneti_atomic_val_t returned by 
+                                  gasneti_atomic_{read,add,subtract} to a signed
+                                  gasneti_atomic_sval_t.
+    GASNETI_ATOMIC_MAX            The largest representable unsigned value
+                                  (the smallest representable unsigned value is always 0).
+    GASNETI_ATOMIC_SIGNED_MIN     The smallest (most negative) representable signed value.
+    GASNETI_ATOMIC_SIGNED_MAX     The largest (most positive) representable signed value.
 
    The atomic type is guaranteed to wrap around at it's minimum and maximum values in
    the normal manner expected of two's-complement integers.  This includes the 'oldval'
@@ -90,10 +109,9 @@
 
    Memory fence properties of atomic operations
    --------------------------------------------
-
    NOTE: Atomic operations have no default memory fence properties, as this
-   varies by platform.  Every atomic operation except _init() includes a final
-   argument (f or flags) to indicate the caller's minimum fence requirements.
+   varies by platform.  Every atomic operation except _init() includes a 'flags'
+   argument to indicate the caller's minimum fence requirements.
    Depending on the platform, the implementation may use fences stronger than
    those requested, but never weaker.
 
@@ -2193,6 +2211,12 @@
 #endif
 #ifndef gasneti_atomic_signed
   #define gasneti_atomic_signed(val)	((int32_t)(val))
+#endif
+#ifndef gasneti_atomic_val_t
+  typedef uint32_t gasneti_atomic_val_t;
+#endif
+#ifndef gasneti_atomic_sval_t
+  typedef int32_t gasneti_atomic_sval_t;
 #endif
 
 /* ------------------------------------------------------------------------------------ */

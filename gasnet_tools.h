@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/04/07 22:39:00 $
- * $Revision: 1.67 $
+ *     $Date: 2006/04/08 02:08:41 $
+ * $Revision: 1.68 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -80,10 +80,13 @@
 #define GASNETT_ATOMIC_MB_PRE			GASNETI_ATOMIC_MB_PRE
 #define GASNETT_ATOMIC_MB_POST			GASNETI_ATOMIC_MB_POST
 
+#define gasnett_atomic_val_t			gasneti_atomic_val_t
 #define GASNETT_ATOMIC_MAX			GASNETI_ATOMIC_MAX
+
+#define gasnett_atomic_sval_t			gasneti_atomic_sval_t
+#define gasnett_atomic_signed(v)		gasneti_atomic_signed(v)
 #define GASNETT_ATOMIC_SIGNED_MIN		GASNETI_ATOMIC_SIGNED_MIN
 #define GASNETT_ATOMIC_SIGNED_MAX		GASNETI_ATOMIC_SIGNED_MAX
-#define gasnett_atomic_signed(v)		gasneti_atomic_signed(v)
 
 #ifdef GASNET_SEQ
   /* safe to use weak atomics here, because the client is single-threaded and 
