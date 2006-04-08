@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/08 02:08:41 $
- * $Revision: 1.142 $
+ *     $Date: 2006/04/08 02:45:23 $
+ * $Revision: 1.143 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -732,8 +732,8 @@
       /* See fence treatment after #endif */
     #elif defined(__GNUC__)
       GASNETI_INLINE(gasneti_cmpxchg)
-      uint32_t gasneti_cmpxchg(int32_t volatile *ptr, int32_t oldval, int32_t newval) {
-        int64_t tmp = (int64_t)oldval;
+      uint32_t gasneti_cmpxchg(int32_t volatile *ptr, uint32_t oldval, uint32_t newval) {
+        uint64_t tmp = oldval;
 
 	/* Load "ar.ccv", the special register used for "oldval" in c-a-s */
         __asm__ __volatile__ ("mov ar.ccv=%0;;" :: "rO"(tmp));
@@ -787,8 +787,8 @@
                        ptr, imm,                      \
                        _LDHINT_NONE, (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE))
       GASNETI_INLINE(gasneti_cmpxchg)
-      int32_t gasneti_cmpxchg(int32_t volatile *ptr, int32_t oldval, int32_t newval) {                                                                                      \
-        register int64_t _r_;
+      int32_t gasneti_cmpxchg(int32_t volatile *ptr, uint32_t oldval, uint32_t newval) {
+        register uint64_t _r_;
         _Asm_mov_to_ar(_AREG_CCV, (int64_t)oldval);
         _r_ = _Asm_cmpxchg(_SZ_W, _SEM_ACQ, 
                            ptr, newval, 
