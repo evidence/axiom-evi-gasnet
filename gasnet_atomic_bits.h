@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/08 00:46:40 $
- * $Revision: 1.139 $
+ *     $Date: 2006/04/08 01:25:14 $
+ * $Revision: 1.140 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1333,7 +1333,7 @@
       #define _gasneti_atomic_init(v)      { (v) }
       #define _gasneti_atomic_decrement_and_test(p) (gasneti_atomic_decandfetch_32(&((p)->ctr)) == 0)
 
-      static int32_t gasneti_atomic_swap_not_32(volatile int32_t *v, int32_t oldval, int32_t newval);
+      static int gasneti_atomic_swap_not_32(volatile int32_t *v, uint32_t oldval, uint32_t newval);
       #pragma mc_func gasneti_atomic_swap_not_32 {\
 	/* ARGS: r3 = p, r4=oldval, r5=newval   LOCAL: r0 = tmp */ \
 	"7c001828"	/* 0: lwarx	r0,0,r3		*/ \
