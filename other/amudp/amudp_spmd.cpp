@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2006/04/06 17:15:21 $
- * $Revision: 1.25 $
+ *     $Date: 2006/04/09 16:36:42 $
+ * $Revision: 1.26 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -387,20 +387,6 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     bootstrapinfo.numprocs = AMUDP_SPMDNUMPROCS;
     bootstrapinfo.translationtablesz = AMUDP_SPMDNUMPROCS * sizeof(amudp_translation_t);
     bootstrapinfo.depth = networkdepth;
-    {
-      int masterpid = getpid();
-      uint32_t masterIP;
-      try {
-        SockAddr dnsAddr = DNSLookup(getMyHostName());
-        masterIP = dnsAddr.IP();
-        }
-      catch (xBase &exn) {
-        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
-        }
-      bootstrapinfo.networkpid = ((uint64_t)masterIP) << 32 | 
-                                 (((uint64_t)masterpid) & 0xFFFF);
-      if (networkpid) *networkpid = bootstrapinfo.networkpid;
-      }
 
     { char *faultRate = getenv("AMUDP_FAULT_RATE");
       if (faultRate && atof(faultRate) != 0.0) {      
@@ -492,6 +478,23 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       slaveargv[k+2] = (*argv)[k];
       }
     slaveargv[slaveargc] = NULL;
+
+    { int masterpid = getpid();
+      uint32_t masterIP;
+      #if 1
+        masterIP = masterAddr.IP();
+      #else /* requires master can resolve its own address */
+        try {
+          SockAddr dnsAddr = DNSLookup(getMyHostName());
+          masterIP = dnsAddr.IP();
+        } catch (xBase &exn) {
+          AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
+        }
+      #endif
+      bootstrapinfo.networkpid = ((uint64_t)masterIP) << 32 | 
+                                 (((uint64_t)masterpid) & 0xFFFF);
+      if (networkpid) *networkpid = bootstrapinfo.networkpid;
+    }
 
     // call system-specific spawning routine
     AMUDP_SPMDSpawnRunning = TRUE;
