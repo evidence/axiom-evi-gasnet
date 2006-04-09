@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/04/07 15:14:23 $
- * $Revision: 1.96 $
+ *     $Date: 2006/04/09 04:14:43 $
+ * $Revision: 1.97 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -392,6 +392,16 @@
      /* GASNETI_ASM("nop"); - leads to "FATAL COMPILER ERROR, Unknown statement. c++: Internal Error: Please report." */
    }
    #define GASNETI_WMB_IS_EMPTY
+#elif defined(__MICROBLAZE__)
+   /* no SMP support */
+   #define gasneti_local_wmb() gasneti_compiler_fence()
+   #define gasneti_local_rmb() gasneti_compiler_fence()
+   #define gasneti_local_mb()  gasneti_compiler_fence()
+   #define GASNETI_RMB_IS_MB
+   #define GASNETI_WMB_IS_MB
+   #define GASNETI_RMB_IS_EMPTY
+   #define GASNETI_WMB_IS_EMPTY
+   #define GASNETI_MB_IS_EMPTY
 #else
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif

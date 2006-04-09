@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/08 02:45:23 $
- * $Revision: 1.143 $
+ *     $Date: 2006/04/09 04:14:43 $
+ * $Revision: 1.144 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -134,6 +134,7 @@
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS) || /* for debugging */          \
     defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
     defined(_SX)       || /* NEC SX-6 atomics not available to user code? */ \
+    defined(__MICROBLAZE__) || /* no atomic instructions */                  \
     ((defined(__SUNPRO_C) || defined(__SUNPRO_CC)) && defined(__sparc) && !defined(GASNETI_ARCH_ULTRASPARC))
 			  /* We've not implemented Sun C support for pre-Ultrasparc CPUs */
   #define GASNETI_USE_GENERIC_ATOMICOPS
