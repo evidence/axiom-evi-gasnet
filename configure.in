@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/04/07 22:26:01 $
-# $Revision: 1.339 $
+#     $Date: 2006/04/09 05:21:21 $
+# $Revision: 1.340 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.339 $)
+AC_REVISION($Revision: 1.340 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -407,7 +407,13 @@ GASNET_IF_ENABLED(srclines, Build GASNet with srclines support (enabled by defau
   fi
 AM_CONDITIONAL(BUILDCONFIG_SRCLINES, test "$enabled_srclines" = yes)
 
-GASNET_CHECK_OPTIMIZEDDEBUG(CC,CFLAGS,[$CPPFLAGS $MISC_CFLAGS $MISC_CPPFLAGS $BUILDCONFIG_DEFINES],[])
+case "$target" in
+  *-uclinux-*) # uclinux requires -Os
+    MISC_CFLAGS="$MISC_CFLAGS -DGASNET_ALLOW_OPTIMIZED_DEBUG=1" ;;
+  *)
+    GASNET_CHECK_OPTIMIZEDDEBUG(CC,CFLAGS,[$CPPFLAGS $MISC_CFLAGS $MISC_CPPFLAGS $BUILDCONFIG_DEFINES],[])
+  ;;
+esac
 
 #AC_SUBST(CFLAGS)	      # opt/debug flags
 AC_SUBST(MISC_CFLAGS)	      # warning suppression and other misc C flags
@@ -982,7 +988,13 @@ if test $enabled_udp = yes; then
   else
     CXXFLAGS="$CXXDEBUGFLAGS"
   fi
-  GASNET_CHECK_OPTIMIZEDDEBUG(CXX,CXXFLAGS,[$CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES],[])
+  case "$target" in
+    *-uclinux-*) # uclinux requires -Os
+      MISC_CXXFLAGS="$MISC_CXXFLAGS -DGASNET_ALLOW_OPTIMIZED_DEBUG=1" ;;
+    *)
+      GASNET_CHECK_OPTIMIZEDDEBUG(CXX,CXXFLAGS,[$CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES],[])
+    ;;
+  esac
   GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS $CXXCPPFLAGS $MISC_CXXFLAGS $BUILDCONFIG_DEFINES")
   GASNET_TRY_CACHE_VERIFY_RUN( [for working C++ exceptions], cxx_exceptions, [ ], [
      try {

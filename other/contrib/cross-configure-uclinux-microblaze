@@ -6,11 +6,10 @@
 # Usage Instructions: 
 #  1. fill in the following values to point to the target and host compilers:
 
-#COMPILEMODE_FLAGS="-Os"
-COMPILEMODE_FLAGS="-g"
+COMPILEMODE_FLAGS="-Os -g" # -Os required for correct operation?
+#COMPILEMODE_FLAGS="-g"
 
 COMPILEDEFS="-DEMBED -Dlinux -D__linux__ -Dunix -D__uClinux__"
-COMPILEDEFS="$COMPILEDEFS -DGASNET_ALLOW_OPTIMIZED_DEBUG=1" # work-around for broken uclinux headers
 
 CODEGENFLAGS="-fomit-frame-pointer -fno-builtin -msoft-float -mxl-soft-mul -mxl-soft-div"
 
