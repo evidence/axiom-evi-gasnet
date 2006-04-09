@@ -4,5 +4,4 @@
 #undef GASNET_PAR
 #undef GASNET_PARSYNC
 
-#include <gasnet_tools.h>
-
+static int dummy=1;
