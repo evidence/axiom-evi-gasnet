@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/09 04:14:43 $
- * $Revision: 1.144 $
+ *     $Date: 2006/04/10 23:43:26 $
+ * $Revision: 1.145 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1396,11 +1396,11 @@
         register int32_t volatile * addr = (int32_t volatile *)v;
         register int32_t result;
         __asm__ __volatile__ ( 
-          "0:\t" 
+          "Lga.0.%=:\t"                 /* AIX assembler doesn't grok "0:"-type local labels */
           "lwarx    %0,0,%1 \n\t" 
           "add%I2   %0,%0,%2 \n\t"
           "stwcx.   %0,0,%1 \n\t"
-          "bne-     0b \n\t" 
+          "bne-     Lga.0.%= \n\t" 
           : "=&b"(result)		/* constraint b = "b"ase register (not r0) */
           : "r" (addr), "Ir"(op) 
           : "cr0", "memory");
@@ -1418,13 +1418,13 @@
       int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
         register uint32_t result;
         __asm__ __volatile__ (
-	  "0:\t"
+          "Lga.0.%=:\t"                   /* AIX assembler doesn't grok "0:"-type local labels */
 	  "lwarx    %0,0,%1 \n\t"         /* load to result */
 	  "xor.     %0,%0,%2 \n\t"        /* xor result w/ oldval */
-	  "bne      1f \n\t"              /* branch on mismatch */
+	  "bne      Lga.1.%= \n\t"        /* branch on mismatch */
 	  "stwcx.   %3,0,%1 \n\t"         /* store newval */
-	  "bne-     0b \n\t"              /* retry on conflict */
-	  "1:	"
+	  "bne-     Lga.0.%= \n\t" 
+	  "Lga.1.%=:	"
 	  : "=&r"(result)
 	  : "r" (p), "r"(oldval), "r"(newval)
 	  : "cr0", "memory");
