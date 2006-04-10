@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockaddr.h,v $
-//     $Date: 2005/08/24 04:32:48 $
-// $Revision: 1.4 $
+//     $Date: 2006/04/10 04:20:12 $
+// $Revision: 1.5 $
 // Description: Objects for encapsulating and hashing SockAddr's
 // Copyright 1998, Dan Bonachea
 
@@ -90,7 +90,7 @@ class SockAddr {
       unsigned int a = pdata[2], b = pdata[3], c = pdata[4], d = pdata[5];
       sprintf(IPBuffer, "%u.%u.%u.%u",a,b,c,d);
       return IPBuffer; 
-      }
+    }
     char *FTPStr() { 
       unsigned char * pdata = (unsigned char *)(((sockaddr*)&addr)->sa_data);
       unsigned int a = pdata[2], b = pdata[3], c = pdata[4], d = pdata[5];
@@ -99,9 +99,9 @@ class SockAddr {
                    f = (prt & 0xFF);
       sprintf(IPBuffer, "%u,%u,%u,%u,%u,%u",a,b,c,d,e,f);
       return IPBuffer; 
-      }
+    }
     int operator==(const SockAddr& other) const { return !memcmp(this, &other.addr, sizeof(sockaddr)); }
     int operator!=(const SockAddr& other) const { return !(*this == other); }
-  };
+};
 
 #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testreduce.c,v $
- *     $Date: 2004/08/26 04:53:53 $
- * $Revision: 1.4 $
+ *     $Date: 2006/04/10 04:20:14 $
+ * $Revision: 1.5 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,7 +15,7 @@ void reduce_request_handler(void *token, int val) {
   printf("reduce_request_handler got: %i\n", val);
   total += val;
   numcalls++;
-  }
+}
 
 int main(int argc, char **argv) {
   eb_t eb;
@@ -57,15 +57,15 @@ int main(int argc, char **argv) {
         AM_Safe(AM_Poll(eb));
       #endif
       printf(".");
-      }
+    }
     printf("Reduction result: %i\n",total);
     { /* verify result */
       int i, correcttotal=0;
       for (i = 0; i < numprocs; i++) correcttotal += i;
       if (total == correcttotal) printf("Result verified!\n");
       else printf("ERROR!!! Result incorrect! total=%i  correcttotal=%i\n", total, correcttotal);
-      }
     }
+  }
 
 
   /* barrier */
@@ -79,5 +79,5 @@ int main(int argc, char **argv) {
   AM_Safe(AMX_SPMDExit(0));
 
   return 0;
-  }
+}
 /* ------------------------------------------------------------------------------------ */

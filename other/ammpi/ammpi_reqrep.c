@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2006/03/26 03:45:35 $
- * $Revision: 1.29 $
+ *     $Date: 2006/04/10 04:20:10 $
+ * $Revision: 1.30 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -36,7 +36,7 @@ static int intpow(int val, int exp) {
   AMMPI_assert(exp >= 0);
   for (i = 0; i < exp; i++) retval *= val;
   return retval;
-  }
+}
 /* ------------------------------------------------------------------------------------ */
 #ifdef WIN32
   extern int64_t AMMPI_getMicrosecondTimeStamp() {
@@ -48,18 +48,17 @@ static int intpow(int val, int exp) {
       else {
         multiplier = 1000000 / (double)freq.QuadPart;
         status = 1;
-        }
       }
+    }
     if (status) { /*  we have a high-performance counter */
       LARGE_INTEGER count;
       QueryPerformanceCounter(&count);
       return (int64_t)(multiplier * count.QuadPart);
-      }
-    else { /*  no high-performance counter */
+    } else { /*  no high-performance counter */
       /*  this is a millisecond-granularity timer that wraps every 50 days */
       return (GetTickCount() * 1000);
-      }
     }
+  }
 /* #elif defined(__I386__) 
  * TODO: it would be nice to take advantage of the Pentium's "rdtsc" instruction,
  * which reads a fast counter incremented on each cycle. Unfortunately, that
@@ -74,10 +73,10 @@ static int intpow(int val, int exp) {
     if (gettimeofday(&tv, NULL)) {
       perror("gettimeofday");
       abort();
-      }
+    }
     retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
     return retval;
-    }
+  }
 #endif
 /* ------------------------------------------------------------------------------------ */
 /* mpihandle points to the MPI_Request to receive the non-blocking send handle, 
@@ -120,7 +119,7 @@ static int sendPacket(ep_t ep, ammpi_virtual_network_t *activeNet, void *packet,
 
   ep->stats.TotalBytesSent += packetlength;
   return AM_OK;
-  }
+}
 /* ------------------------------------------------------------------------------------ */
 static int AMMPI_GetOpcode(int isrequest, ammpi_category_t cat) {
   switch (cat) {
@@ -135,8 +134,8 @@ static int AMMPI_GetOpcode(int isrequest, ammpi_category_t cat) {
       else return AM_REPLY_XFER_M; 
     default: abort();
       return -1;
-    }
   }
+}
 /* ------------------------------------------------------------------------------------ */
 static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   /*  return source id in ep perproc table of this remote addr, or -1 for not found */
@@ -151,9 +150,9 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   for (i = 0; i < ep->totalP; i++) {
     if (AMMPI_enEqual(ep->perProcInfo[i].remoteName, sourceAddr))
       return i;
-    }
-  return -1;
   }
+  return -1;
+}
 /* ------------------------------------------------------------------------------------ */
 /* accessors for packet args, data and length
  * the only complication here is we want data to be double-word aligned, so we may add
@@ -175,55 +174,55 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   ((uint32_t *)pbuf->_Data)
 /* ------------------------------------------------------------------------------------ */
 #define RUN_HANDLER_SHORT(phandlerfn, token, pArgs, numargs) do {                       \
-  AMMPI_assert(phandlerfn);                                                             \
-  if (numargs == 0) (*(AMMPI_HandlerShort)phandlerfn)((void *)token);                   \
-  else {                                                                                \
-    uint32_t *args = (uint32_t *)(pArgs); /* eval only once */                          \
-    switch (numargs) {                                                                  \
-      case 1:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0]); break;         \
-      case 2:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1]); break;\
-      case 3:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2]); break; \
-      case 4:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3]); break; \
-      case 5:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4]); break; \
-      case 6:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5]); break; \
-      case 7:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break; \
-      case 8:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break; \
-      case 9:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]); break; \
-      case 10: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]); break; \
-      case 11: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]); break; \
-      case 12: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]); break; \
-      case 13: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]); break; \
-      case 14: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
-      case 15: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
-      case 16: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
-      default: abort();                                                                 \
+    AMMPI_assert(phandlerfn);                                                             \
+    if (numargs == 0) (*(AMMPI_HandlerShort)phandlerfn)((void *)token);                   \
+    else {                                                                                \
+      uint32_t *args = (uint32_t *)(pArgs); /* eval only once */                          \
+      switch (numargs) {                                                                  \
+        case 1:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0]); break;         \
+        case 2:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1]); break;\
+        case 3:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2]); break; \
+        case 4:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3]); break; \
+        case 5:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4]); break; \
+        case 6:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5]); break; \
+        case 7:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break; \
+        case 8:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break; \
+        case 9:  (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]); break; \
+        case 10: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]); break; \
+        case 11: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]); break; \
+        case 12: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]); break; \
+        case 13: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]); break; \
+        case 14: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
+        case 15: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
+        case 16: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
+        default: abort();                                                                 \
       }                                                                                 \
     }                                                                                   \
   } while (0)
 /* ------------------------------------------------------------------------------------ */
 #define _RUN_HANDLER_MEDLONG(phandlerfn, token, pArgs, numargs, pData, datalen) do {   \
-  AMMPI_assert(phandlerfn);                                                   \
-  if (numargs == 0) (*phandlerfn)(token, pData, datalen);                     \
-  else {                                                                      \
-    uint32_t *args = (uint32_t *)(pArgs); /* eval only once */                \
-    switch (numargs) {                                                        \
-      case 1:  (*phandlerfn)(token, pData, datalen, args[0]); break;           \
-      case 2:  (*phandlerfn)(token, pData, datalen, args[0], args[1]); break;  \
-      case 3:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2]); break; \
-      case 4:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3]); break; \
-      case 5:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4]); break; \
-      case 6:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5]); break; \
-      case 7:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break; \
-      case 8:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break; \
-      case 9:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]); break; \
-      case 10: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]); break; \
-      case 11: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]); break; \
-      case 12: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]); break; \
-      case 13: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]); break; \
-      case 14: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
-      case 15: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
-      case 16: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
-      default: abort();                                                                 \
+    AMMPI_assert(phandlerfn);                                                   \
+    if (numargs == 0) (*phandlerfn)(token, pData, datalen);                     \
+    else {                                                                      \
+      uint32_t *args = (uint32_t *)(pArgs); /* eval only once */                \
+      switch (numargs) {                                                        \
+        case 1:  (*phandlerfn)(token, pData, datalen, args[0]); break;           \
+        case 2:  (*phandlerfn)(token, pData, datalen, args[0], args[1]); break;  \
+        case 3:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2]); break; \
+        case 4:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3]); break; \
+        case 5:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4]); break; \
+        case 6:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5]); break; \
+        case 7:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6]); break; \
+        case 8:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]); break; \
+        case 9:  (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]); break; \
+        case 10: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]); break; \
+        case 11: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10]); break; \
+        case 12: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11]); break; \
+        case 13: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12]); break; \
+        case 14: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
+        case 15: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
+        case 16: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
+        default: abort();                                                                 \
       }                                                                                 \
     }                                                                                   \
   } while (0)
@@ -611,7 +610,7 @@ extern int _AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int rep
         printf("MPI_Recv got buflen=%i sourceAddr=%s\n", 
                recvlen, AMMPI_enStr(status->sourceAddr, temp));
         fflush(stdout);
-        }
+      }
       #endif
 
       if (repliesOnly) AMMPI_assert(!AMMPI_MSG_ISREQUEST(&buf->Msg));
@@ -638,7 +637,7 @@ extern int _AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int rep
       if_pf (blockForActivity && numUserHandlersRun > 0) return AM_OK; /* got one - done blocking */
     } while (numUserHandlersRun < ((unsigned int)AMMPI_MAX_RECVMSGS_PER_POLL));
   return AM_OK;
-  } /*  AMMPI_ServiceIncomingMessages */
+} /*  AMMPI_ServiceIncomingMessages */
 /*------------------------------------------------------------------------------------
  * Poll
  *------------------------------------------------------------------------------------ */
@@ -658,7 +657,7 @@ extern int AM_Poll(eb_t eb) {
   }
 
   return AM_OK;
-  }
+}
 /* ------------------------------------------------------------------------------------ */
 extern int AMMPI_Block(eb_t eb) {
   /* block until some endpoint receive buffer becomes non-empty with a valid user message
@@ -697,7 +696,7 @@ static int AMMPI_RequestGeneric(ammpi_category_t category,
   /*  always poll before sending a request */
   AM_Poll(request_endpoint->eb);
 
-  {
+ {
   MPI_Request *mpihandle = NULL;
   if (isloopback) {
     outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
@@ -788,7 +787,7 @@ static int AMMPI_RequestGeneric(ammpi_category_t category,
   request_endpoint->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes;
   request_endpoint->stats.RequestsSent[category]++;
   return AM_OK;
-  }
+ }
 }
 /* ------------------------------------------------------------------------------------ */
 static int AMMPI_ReplyGeneric(ammpi_category_t category, 
@@ -807,7 +806,7 @@ static int AMMPI_ReplyGeneric(ammpi_category_t category,
 
   /*  we don't poll within a reply because by definition we are already polling somewhere in the call chain */
 
-  {
+ {
   MPI_Request *mpihandle = NULL;
   if (isloopback) {
     outgoingbuf = (ammpi_buf_t *)AMMPI_ALIGNUP(&_stagingbuf,8);
@@ -891,13 +890,13 @@ static int AMMPI_ReplyGeneric(ammpi_category_t category,
     #endif
     retval = sendPacket(ep, &ep->Rep, outgoingbuf, packetlength, destaddress, mpihandle);
     if_pf (retval != AM_OK) AMMPI_RETURN(retval);
-    }
+  }
 
   requestbuf->status.replyIssued = TRUE;
   ep->stats.RepliesSent[category]++;
   ep->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes;
   return AM_OK;
-  }
+ }
 }
 /*------------------------------------------------------------------------------------
  * Request
@@ -918,7 +917,7 @@ extern int AMMPI_RequestVA(ep_t request_endpoint, ammpi_node_t reply_endpoint, h
                                 NULL, 0, 0,
                                 numargs, argptr,
                                 ammpi_system_user, 0);
-  }
+}
 extern int AMMPI_Request(ep_t request_endpoint, ammpi_node_t reply_endpoint, handler_t handler, 
                          int numargs, ...) {
     int retval;
@@ -949,7 +948,7 @@ extern int AMMPI_RequestIVA(ep_t request_endpoint, ammpi_node_t reply_endpoint, 
                                 source_addr, nbytes, 0,
                                 numargs, argptr,
                                 ammpi_system_user, 0);
-  }
+}
 extern int AMMPI_RequestI(ep_t request_endpoint, ammpi_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, ...) {
@@ -977,27 +976,26 @@ extern int AMMPI_RequestXferVA(ep_t request_endpoint, ammpi_node_t reply_endpoin
   AMMPI_CHECK_ERR((nbytes < 0 || nbytes > AMMPI_MAX_LONG),BAD_ARG);
   AMMPI_CHECK_ERR((dest_offset > AMMPI_MAX_SEGLENGTH),BAD_ARG);
   AMMPI_assert(numargs >= 0 && numargs <= AMMPI_MAX_SHORT);
-  {
-    if (async) { /*  decide if we can satisfy request without blocking */
-      /* it's unclear from the spec whether we should poll before an async failure,
-       * but by definition the app must be prepared for handlers to run when calling this 
-       * request, so it shouldn't cause anything to break, and the async request is more likely
-       * to succeed if we do. so:
-       */
-      AM_Poll(request_endpoint->eb);
 
-      /* too hard to compute whether this will block */
-      ErrMessage("unimplemented: AMMPI_RequestXferAsyncM not implemented - use AMMPI_RequestXferM");
-      abort();
-    }
-    /* perform the send */
-    return AMMPI_RequestGeneric(ammpi_Long, 
-                                  request_endpoint, reply_endpoint, handler, 
-                                  source_addr, nbytes, dest_offset,
-                                  numargs, argptr,
-                                  ammpi_system_user, 0);
-    }
+  if (async) { /*  decide if we can satisfy request without blocking */
+    /* it's unclear from the spec whether we should poll before an async failure,
+     * but by definition the app must be prepared for handlers to run when calling this 
+     * request, so it shouldn't cause anything to break, and the async request is more likely
+     * to succeed if we do. so:
+     */
+    AM_Poll(request_endpoint->eb);
+
+    /* too hard to compute whether this will block */
+    ErrMessage("unimplemented: AMMPI_RequestXferAsyncM not implemented - use AMMPI_RequestXferM");
+    abort();
   }
+  /* perform the send */
+  return AMMPI_RequestGeneric(ammpi_Long, 
+                                request_endpoint, reply_endpoint, handler, 
+                                source_addr, nbytes, dest_offset,
+                                numargs, argptr,
+                                ammpi_system_user, 0);
+}
 extern int AMMPI_RequestXfer(ep_t request_endpoint, ammpi_node_t reply_endpoint, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int async, 
@@ -1031,7 +1029,7 @@ extern int AMMPI_ReplyVA(void *token, handler_t handler,
     AMMPI_CHECK_ERR((requestbuf->status.replyIssued),RESOURCE);     /* already issued a reply */
     AMMPI_CHECK_ERR((((ammpi_system_messagetype_t)requestbuf->Msg.systemMessageType) != ammpi_system_user),
                     RESOURCE); /* can't reply to a system message (returned message) */
-    }
+  }
 
   /*  call the generic replier */
   return AMMPI_ReplyGeneric(ammpi_Short, 
@@ -1039,7 +1037,7 @@ extern int AMMPI_ReplyVA(void *token, handler_t handler,
                                 NULL, 0, 0,
                                 numargs, argptr,
                                 ammpi_system_user, 0);
-  }
+}
 extern int AMMPI_Reply(void *token, handler_t handler, 
                        int numargs, ...) {
     int retval;
@@ -1070,7 +1068,7 @@ extern int AMMPI_ReplyIVA(void *token, handler_t handler,
     AMMPI_CHECK_ERR((requestbuf->status.replyIssued),RESOURCE);     /* already issued a reply */
     AMMPI_CHECK_ERR((((ammpi_system_messagetype_t)requestbuf->Msg.systemMessageType) != ammpi_system_user),
                     RESOURCE); /* can't reply to a system message (returned message) */
-    }
+  }
 
   /*  call the generic replier */
   return AMMPI_ReplyGeneric(ammpi_Medium, 
@@ -1078,7 +1076,7 @@ extern int AMMPI_ReplyIVA(void *token, handler_t handler,
                                 source_addr, nbytes, 0,
                                 numargs, argptr,
                                 ammpi_system_user, 0);
-  }
+}
 extern int AMMPI_ReplyI(void *token, handler_t handler, 
                           void *source_addr, int nbytes,
                           int numargs, ...) {
@@ -1120,7 +1118,7 @@ extern int AMMPI_SendControlMessage(ep_t from, en_t to, int numargs, ...) {
                                   ammpi_system_controlmessage, 0);
     va_end(argptr);
     return retval;
-    }
+  }
 }
 /* ------------------------------------------------------------------------------------ */
 extern int AMMPI_ReplyXferVA(void *token, handler_t handler, 
@@ -1143,7 +1141,7 @@ extern int AMMPI_ReplyXferVA(void *token, handler_t handler,
     AMMPI_CHECK_ERR((requestbuf->status.replyIssued),RESOURCE);     /* already issued a reply */
     AMMPI_CHECK_ERR((((ammpi_system_messagetype_t)requestbuf->Msg.systemMessageType) != ammpi_system_user),
                     RESOURCE); /* can't reply to a system message (returned message) */
-    }
+  }
 
 
   /*  call the generic replier */
@@ -1152,7 +1150,7 @@ extern int AMMPI_ReplyXferVA(void *token, handler_t handler,
                                 source_addr, nbytes, dest_offset,
                                 numargs, argptr,
                                 ammpi_system_user, 0);
-  }
+}
 extern int AMMPI_ReplyXfer(void *token, handler_t handler, 
                           void *source_addr, int nbytes, uintptr_t dest_offset, 
                           int numargs, ...) {
@@ -1187,7 +1185,7 @@ extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
     STATCASE(ECONGESTION   , "Congestion at destination endpoint                ");
     STATCASE(EUNREACHABLE  , "Destination endpoint unreachable                  ");
     STATCASE(EREPLYREJECTED, "Destination endpoint refused reply message        ");
-    }
+  }
   #define OPCASE(name) case name: opcodeStr = #name; break;
   switch (opcode) {
     OPCASE(AM_REQUEST_M);
@@ -1196,14 +1194,14 @@ extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
     OPCASE(AM_REPLY_M);
     OPCASE(AM_REPLY_IM);
     OPCASE(AM_REPLY_XFER_M);
-    }
+  }
 
   argStr[0] = '\0';
   for (i=0; i < numArgs; i++) {
     char tmp[20];
     sprintf(tmp, "0x%08x  ", (unsigned int)args[i]);
     strcat(argStr, tmp);
-    }
+  }
   { char temp1[80];
     char temp2[80];
   ErrMessage("An active message was returned to sender,\n"
@@ -1224,7 +1222,7 @@ extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
                "<AM tags disabled>",
              #endif
              numArgs, argStr);
-    }
-  abort();
   }
+  abort();
+}
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2006/03/26 06:31:00 $
- * $Revision: 1.35 $
+ *     $Date: 2006/04/10 04:20:10 $
+ * $Revision: 1.36 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -72,7 +72,7 @@ typedef enum {
   ammpi_Medium=1, 
   ammpi_Long=2,
   ammpi_NumCategories=3
-  } ammpi_category_t;
+} ammpi_category_t;
 
 typedef void (*AMMPI_preHandlerCallback_t)(ammpi_category_t cat, int isReq, int handlerId, void *token, 
                                          void *buf, size_t nbytes, int numargs, uint32_t *args);
@@ -92,7 +92,7 @@ typedef struct {
   uint64_t RequestSumLatency;  /* only if AMMPI_COLLECT_LATENCY_STATS */
   uint64_t DataBytesSent[ammpi_NumCategories];  /* total of args + data payload for all req/rep */
   uint64_t TotalBytesSent; /* total user level packet sizes for all req/rep */
-  } ammpi_stats_t;
+} ammpi_stats_t;
 
 /* ------------------------------------------------------------------------------------ */
 /* User-visible constants */
@@ -106,7 +106,7 @@ typedef enum {
                     a message delivered to it generates an event */
   /* AM_CANSEND, */ /* TODO: can send without blocking */
   AM_NUMEVENTMASKS
-  } ammpi_eventmask_t;
+} ammpi_eventmask_t;
 
 typedef enum {
     AM_SEQ,             /* Sequential bundle/endpoint access */

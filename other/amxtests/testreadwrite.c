@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testreadwrite.c,v $
- *     $Date: 2004/08/26 04:53:53 $
- * $Revision: 1.6 $
+ *     $Date: 2006/04/10 04:20:14 $
+ * $Revision: 1.7 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,17 +40,15 @@ int main(int argc, char **argv) {
   if (myproc == 0) {
     printf("Running %i iterations of read/write test...\n", iters);
     fflush(stdout);
-    }
+  }
 
   for (k=0;k < iters; k++) {
-
     /* set left neighbor's array */
-    {int i;
-     int leftP = myproc-1;
-     if (leftP == -1) leftP = numprocs-1;
-     for (i=0;i<MAX_PROCS;i++) writeWord(leftP, &vals[i], k);
-     writeSync();
-     }
+    int i;
+    int leftP = myproc-1;
+    if (leftP == -1) leftP = numprocs-1;
+    for (i=0;i<MAX_PROCS;i++) writeWord(leftP, &vals[i], k);
+    writeSync();
 
     AM_Safe(AMX_SPMDBarrier()); /* barrier */
 
@@ -68,19 +66,19 @@ int main(int argc, char **argv) {
           printf("Proc %i READ/WRITE TEST FAILED : readarray[%i] = %i   k = %i\n", myproc, i, (int)readarray[i], k);
           fflush(stdout);
           break;
-          }
         }
+      }
       #if DEBUG
         if (i != MAX_PROCS) {
           printf("Proc %i verified.\n", myproc);
           fflush(stdout);
           }
       #endif
-      }
+    }
 
     AM_Safe(AMX_SPMDBarrier()); /* barrier */
 
-    }
+  }
 
   /* dump stats */
   AM_Safe(AMX_SPMDBarrier());
@@ -91,5 +89,5 @@ int main(int argc, char **argv) {
   AM_Safe(AMX_SPMDExit(0));
 
   return 0;
-  }
+}
 /* ------------------------------------------------------------------------------------ */

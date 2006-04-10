@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testam.c,v $
- *     $Date: 2005/06/24 21:20:04 $
- * $Revision: 1.10 $
+ *     $Date: 2006/04/10 04:20:14 $
+ * $Revision: 1.11 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,8 +40,8 @@ int main(int argc, char **argv) {
       case 'p': case 'P': polling = 1; break;
       case 'b': case 'B': polling = 0; break;
       default: printf("polling must be 'P' or 'B'..\n"); AMX_SPMDExit(1);
-      }
     }
+  }
 
   /* setup handlers */
   SETUP_ALLAM();
@@ -75,36 +75,35 @@ int main(int argc, char **argv) {
     while (!ALLAM_DONE(i+1)) {
       if (polling) {
         AM_Safe(AM_Poll(eb));
-        } 
-      else {
+      } else {
         AM_Safe(AM_SetEventMask(eb, AM_NOTEMPTY));
         AM_Safe(AM_WaitSema(eb));
         AM_Safe(AM_Poll(eb));
-        }
       }
     }
+  }
 
 #if defined(AMUDP)
   if (strcmp(AMX_SPMDgetenvMaster("A"),"A")) {
     fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
     abort();
-    }
+  }
   if (strcmp(AMX_SPMDgetenvMaster("B"),"B")) {
     fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
     abort();
-    }
+  }
   if (strcmp(AMX_SPMDgetenvMaster("C"),"C")) {
     fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
     abort();
-    }
+  }
   if (strcmp(AMX_SPMDgetenvMaster("ABC"),"ABC")) {
     fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
     abort();
-    }
+  }
   if (strcmp(AMX_SPMDgetenvMaster("AReallyLongEnvironmentName"),"A Really Long Environment Value")) {
     fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
     abort();
-    }
+  }
 #endif
 
   /* barrier */
@@ -118,5 +117,5 @@ int main(int argc, char **argv) {
   AM_Safe(AMX_SPMDExit(0));
 
   return 0;
-  }
+}
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.h,v $
- *     $Date: 2006/03/19 02:08:12 $
- * $Revision: 1.13 $
+ *     $Date: 2006/04/10 04:20:14 $
+ * $Revision: 1.14 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -73,7 +73,7 @@
         AM_Safe(AM_SetEventMask(eb, AM_NOTEMPTY));  \
         AM_Safe(AM_WaitSema(eb));                   \
         AM_Safe(AM_Poll(eb));                       \
-        } while (0)
+      } while (0)
 
 #if defined(AMUDP)
   #define LEADING_ARGS      2

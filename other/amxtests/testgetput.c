@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testgetput.c,v $
- *     $Date: 2006/04/08 03:11:26 $
- * $Revision: 1.8 $
+ *     $Date: 2006/04/10 04:20:14 $
+ * $Revision: 1.9 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,15 +39,13 @@ int main(int argc, char **argv) {
   if (myproc == 0) {
     printf("Running %i iterations of get/put test...\n", iters);
     fflush(stdout);
-    }
+  }
 
   for (k=0;k < iters; k++) {
-
     /* set just my val */
-    {int i;
-     for (i=0;i<MAX_PROCS;i++) vals[i] = (uint32_t)(-1);
-     vals[myproc] = myproc;
-     }
+    int i;
+    for (i=0;i<MAX_PROCS;i++) vals[i] = (uint32_t)(-1);
+    vals[myproc] = myproc;
 
     AM_Safe(AMX_SPMDBarrier()); /* barrier */
 
@@ -58,18 +56,18 @@ int main(int argc, char **argv) {
       for (i = 0; i < numprocs; i++) {
         sum += getWord(i, &vals[i]); /*  get each peer's value and add them up */
         verify += i;
-        }
+      }
       if (verify != sum) {
         printf("Proc %i GET TEST FAILED : sum = %i   verify = %i\n", myproc, sum, verify);
         fflush(stdout);
-        }
+      }
       #if VERBOSE
         else {
           printf("Proc %i verified.\n", myproc);
           fflush(stdout);
-          }
+        }
       #endif
-      }
+    }
 
     AM_Safe(AMX_SPMDBarrier()); /* barrier */
 
@@ -77,23 +75,22 @@ int main(int argc, char **argv) {
       int i;
       for (i = 0; i < numprocs; i++) {
         putWord(i, &vals[myproc], myproc); /*  push our value to correct position on each peer */
-        }
+      }
       AM_Safe(AMX_SPMDBarrier()); /* barrier */
       for (i = 0; i < numprocs; i++) {
         if (((int)vals[i]) != i) {
           printf("Proc %i PUT TEST FAILED : i = %i   vals[i] = %i\n", myproc, i, (int)vals[i]);
           break;
-          }
         }
+      }
       #if VERBOSE
         if (i == numprocs) {
           printf("Proc %i verified.\n", myproc);
           fflush(stdout);
-          }
+        }
       #endif
-
-      }
     }
+  }
 
   /* dump stats */
   AM_Safe(AMX_SPMDBarrier());
@@ -104,5 +101,5 @@ int main(int argc, char **argv) {
   AM_Safe(AMX_SPMDExit(0));
 
   return 0;
-  }
+}
 /* ------------------------------------------------------------------------------------ */

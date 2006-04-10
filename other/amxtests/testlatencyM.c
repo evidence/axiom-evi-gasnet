@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testlatencyM.c,v $
- *     $Date: 2005/07/24 05:01:47 $
- * $Revision: 1.11 $
+ *     $Date: 2006/04/10 04:20:14 $
+ * $Revision: 1.12 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,7 +27,7 @@ static void ping_request_handler(void *token, void *msg, int nbytes) {
   #endif
 
   AM_Safe(AM_Reply0(token, PING_REP_HANDLER));
-  }
+}
 
 static void ping_reply_handler(void *token) {
 
@@ -36,21 +36,20 @@ static void ping_reply_handler(void *token) {
   #endif
 
   numleft--;
-  }
+}
 
 void mywait(int polling) {
   if (polling) { /* poll until everyone done */
     while (numleft) {
       AM_Safe(AM_Poll(eb));
-      }
     }
-  else {
+  } else {
     while (numleft) {
       AM_Safe(AM_SetEventMask(eb, AM_NOTEMPTY)); 
       AM_Safe(AM_WaitSema(eb));
       AM_Safe(AM_Poll(eb));
-      }
     }
+  }
 }
 
 /* usage: testlatency  numprocs  spawnfn  iters  P/B msgsz
@@ -88,8 +87,8 @@ int main(int argc, char **argv) {
       case 'p': case 'P': polling = 1; break;
       case 'b': case 'B': polling = 0; break;
       default: printf("polling must be 'P' or 'B'..\n"); AMX_SPMDExit(1);
-      }
     }
+  }
 
   if (argc > 3) msgsz = atoi(argv[3]);
   if (!msgsz) msgsz = 1;
@@ -117,8 +116,8 @@ int main(int argc, char **argv) {
       #endif
       AM_Safe(AM_RequestI0(ep, 0, PING_REQ_HANDLER, msg, msgsz));
       mywait(polling);
-      }
     }
+  }
   
   end = getCurrentTimeMicrosec();
 
@@ -137,5 +136,5 @@ int main(int argc, char **argv) {
   AM_Safe(AMX_SPMDExit(0));
 
   return 0;
-  }
+}
 /* ------------------------------------------------------------------------------------ */
