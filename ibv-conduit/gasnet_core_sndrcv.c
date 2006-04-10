@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/04/08 01:01:58 $
- * $Revision: 1.179 $
+ *     $Date: 2006/04/10 21:31:23 $
+ * $Revision: 1.180 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -210,7 +210,7 @@ typedef struct {
 
 static gasneti_freelist_t		gasnetc_bbuf_freelist = GASNETI_FREELIST_INITIALIZER;
 
-static gasnetc_sema_t			*gasnetc_cq_semas;
+static gasneti_semaphore_t			*gasnetc_cq_semas;
 static gasnetc_cep_t			**gasnetc_node2cep;
 
 #if GASNETC_PIN_SEGMENT
@@ -470,8 +470,8 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
     --user_numargs;
     gasneti_assert(cep != NULL);
     if_pt (credits) {
-      gasnetc_sema_up_n(&cep->am_unrcvd, credits);
-      gasnetc_sema_up_n(&cep->am_sema, credits);
+      gasneti_semaphore_up_n(&cep->am_unrcvd, credits);
+      gasneti_semaphore_up_n(&cep->am_sema, credits);
     }
     GASNETI_TRACE_PRINTF(C,("RCV_AM_CREDITS %d\n", credits));
     GASNETC_STAT_EVENT_VAL(RCV_AM_CREDITS, credits);
@@ -661,11 +661,11 @@ static int gasnetc_snd_reap(int limit) {
         if_pt (sreq) {
 	  gasneti_assert(sreq->opcode != GASNETC_OP_INVALID);
 	  #if GASNETC_USE_POST_LIST
-	    gasnetc_sema_up_n(&sreq->cep->sq_sema, sreq->count);
+	    gasneti_semaphore_up_n(&sreq->cep->sq_sema, sreq->count);
 	  #else
-	    gasnetc_sema_up(&sreq->cep->sq_sema);
+	    gasneti_semaphore_up(&sreq->cep->sq_sema);
 	  #endif
-	  gasnetc_sema_up(sreq->cep->snd_cq_sema_p);
+	  gasneti_semaphore_up(sreq->cep->snd_cq_sema_p);
 
 	  switch (sreq->opcode) {
           #if GASNETC_PIN_SEGMENT && GASNET_DEBUG
@@ -800,9 +800,9 @@ gasnetc_epid_t gasnetc_epid_select_qpi(gasnetc_cep_t *ceps, gasnetc_epid_t epid,
     int i;
     gasneti_assert(op != VAPI_SEND_WITH_IMM); /* AMs never wildcard */
     qpi = 0;
-    best_space = gasnetc_sema_read(&ceps[0].sq_sema);
+    best_space = gasneti_semaphore_read(&ceps[0].sq_sema);
     for (i = 1; i < gasnetc_num_qps; ++i) {
-      space = gasnetc_sema_read(&ceps[i].sq_sema);
+      space = gasneti_semaphore_read(&ceps[i].sq_sema);
       if (space > best_space) {
         best_space = space;
         qpi = i;
@@ -838,7 +838,7 @@ gasnetc_cep_t *gasnetc_bind_cep(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
    * If we hold the last one then threads sending to the same node will stall. */
   qpi = gasnetc_epid_select_qpi(ceps, epid, op, len);
   cep = &ceps[qpi];
-  if_pf (!gasnetc_sema_trydown(&cep->sq_sema)) {
+  if_pf (!gasneti_semaphore_trydown(&cep->sq_sema)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       if (!gasnetc_snd_reap(1)) {
@@ -847,7 +847,7 @@ gasnetc_cep_t *gasnetc_bind_cep(gasnetc_epid_t epid, gasnetc_sreq_t *sreq,
       /* Redo load balancing choice */
       qpi = gasnetc_epid_select_qpi(ceps, epid, op, len);
       cep = &ceps[qpi];
-    } while (!gasnetc_sema_trydown(&cep->sq_sema));
+    } while (!gasneti_semaphore_trydown(&cep->sq_sema));
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
   }
 
@@ -872,7 +872,7 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
 #endif
 
     /* Process the implicitly received flow control credit */
-    gasnetc_sema_up(&cep->am_sema);
+    gasneti_semaphore_up(&cep->am_sema);
 
     /* Now process the packet */
     gasnetc_processPacket(cep, rbuf, flags);
@@ -1199,12 +1199,12 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int 
 
   /* Loop until space is available for 1 new entry on the CQ.
    * If we hold the last one then threads sending to ANY node will stall. */
-  if_pf (!gasnetc_sema_trydown(cep->snd_cq_sema_p)) {
+  if_pf (!gasneti_semaphore_trydown(cep->snd_cq_sema_p)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(cep->snd_cq_sema_p));
+    } while (!gasneti_semaphore_trydown(cep->snd_cq_sema_p));
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
   }
 
@@ -1254,21 +1254,21 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int 
  */
 GASNETI_INLINE(gasnetc_snd_post_list_common)
 void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, uint32_t count) {
-  gasnetc_sema_t *sq_sema;
-  gasnetc_sema_t *cq_sema;
+  gasneti_semaphore_t *sq_sema;
+  gasneti_semaphore_t *cq_sema;
   uint32_t tmp;
   int i;
 
   /* Loop until space is available on the SQ for at least 1 new entry.
    * If we hold the last one then threads sending to the same node will stall. */
   sq_sema = &sreq->cep->sq_sema;
-  tmp = gasnetc_sema_trydown_partial(sq_sema, count);
+  tmp = gasneti_semaphore_trydown_partial(sq_sema, count);
   if_pf (!tmp) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-      tmp = gasnetc_sema_trydown_partial(sq_sema, count);
+      tmp = gasneti_semaphore_trydown_partial(sq_sema, count);
     } while (!tmp);
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_SQ);
   }
@@ -1276,12 +1276,12 @@ void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc,
   /* Loop until space is available for 1 new entry on the CQ.
    * If we hold the last one then threads sending to ANY node will stall. */
   cq_sema = sreq->cep->snd_cq_sema_p;
-  if_pf (!gasnetc_sema_trydown(cq_sema)) {
+  if_pf (!gasneti_semaphore_trydown(cq_sema)) {
     GASNETC_TRACE_WAIT_BEGIN();
     do {
       GASNETI_WAITHOOK();
       gasnetc_poll_snd();
-    } while (!gasnetc_sema_trydown(cq_sema));
+    } while (!gasneti_semaphore_trydown(cq_sema));
     GASNETC_TRACE_WAIT_END(POST_SR_STALL_CQ);
   }
 
@@ -1479,9 +1479,9 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
         uint32_t best_credits;
         int i;
         /* gasnetc_poll_snd(); here? */
-        best_credits = gasnetc_sema_read(&cep[0].am_sema);
+        best_credits = gasneti_semaphore_read(&cep[0].am_sema);
         for (i = 1; i < gasnetc_num_qps; ++i) {
-	  const uint32_t tmp = gasnetc_sema_read(&cep[i].am_sema);
+	  const uint32_t tmp = gasneti_semaphore_read(&cep[i].am_sema);
 	  if (tmp > best_credits) {
 	    best_credits = tmp;
 	    qpi = i;
@@ -1564,19 +1564,19 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   
       /* Get the p2p credit needed */
       {
-	  gasnetc_sema_t *sema = &(cep->am_sema);
-          if_pf (!gasnetc_sema_trydown(sema)) {
+	  gasneti_semaphore_t *sema = &(cep->am_sema);
+          if_pf (!gasneti_semaphore_trydown(sema)) {
             GASNETC_TRACE_WAIT_BEGIN();
             do {
 	      GASNETI_WAITHOOK();
               gasnetc_poll_rcv_hca(cep->hca, 1);
-            } while (!gasnetc_sema_trydown(sema));
+            } while (!gasneti_semaphore_trydown(sema));
             GASNETC_TRACE_WAIT_END(GET_AMREQ_CREDIT_STALL);
           }
       }
   
       /* Post the rbuf needed for the reply */
-      if (gasnetc_sema_trydown(&cep->am_unrcvd)) {
+      if (gasneti_semaphore_trydown(&cep->am_unrcvd)) {
         /* We'll use one that was left over due to ACK coalescing */
       } else {
         gasnetc_rbuf_t *rbuf = gasneti_freelist_get(cep->rbuf_freelist);
@@ -2587,8 +2587,8 @@ extern int gasnetc_sndrcv_init(void) {
    */
 
   /* create the SND CQ and associated semaphores */
-  gasnetc_cq_semas = (gasnetc_sema_t *)
-	  GASNETI_ALIGNUP(gasneti_malloc(gasnetc_num_hcas*sizeof(gasnetc_sema_t)
+  gasnetc_cq_semas = (gasneti_semaphore_t *)
+	  GASNETI_ALIGNUP(gasneti_malloc(gasnetc_num_hcas*sizeof(gasneti_semaphore_t)
 				  	 + GASNETI_CACHE_LINE_BYTES - 1),
 			  GASNETI_CACHE_LINE_BYTES);
   GASNETC_FOR_ALL_HCA_INDEX(h) {
@@ -2597,7 +2597,7 @@ extern int gasnetc_sndrcv_init(void) {
     GASNETC_VAPI_CHECK(vstat, "from VAPI_create_cq(snd_cq)");
     gasneti_assert(act_size >= hca->total_qps * op_oust_per_qp);
     /* We use actual size here, since the memory has been allocated anyway */
-    gasnetc_sema_init(&gasnetc_cq_semas[h], act_size, act_size);
+    gasneti_semaphore_init(&gasnetc_cq_semas[h], act_size, act_size);
   }
 
   /* Allocated pinned memory for AMs and bounce buffers */
@@ -2683,9 +2683,9 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       }
 
       /* Setup semaphores/counters */
-      gasnetc_sema_init(&cep->am_sema, gasnetc_am_oust_pp, gasnetc_am_oust_pp);
-      gasnetc_sema_init(&cep->sq_sema, gasnetc_op_oust_pp, gasnetc_op_oust_pp);
-      gasnetc_sema_init(&cep->am_unrcvd, 0, 0);
+      gasneti_semaphore_init(&cep->am_sema, gasnetc_am_oust_pp, gasnetc_am_oust_pp);
+      gasneti_semaphore_init(&cep->sq_sema, gasnetc_op_oust_pp, gasnetc_op_oust_pp);
+      gasneti_semaphore_init(&cep->am_unrcvd, 0, 0);
       gasneti_weakatomic_set(&cep->am_unsent, 0, 0);
       cep->snd_cq_sema_p = &gasnetc_cq_semas[cep->hca_index];
     }
@@ -2693,9 +2693,9 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
     /* Should never use these for loopback */
     for (i = 0; i < gasnetc_num_qps; ++i, ++cep) {
       cep->epid = gasnetc_epid(node, i);
-      gasnetc_sema_init(&cep->am_sema, 0, 0);
-      gasnetc_sema_init(&cep->sq_sema, 0, 0);
-      gasnetc_sema_init(&cep->am_unrcvd, 0, 0);
+      gasneti_semaphore_init(&cep->am_sema, 0, 0);
+      gasneti_semaphore_init(&cep->sq_sema, 0, 0);
+      gasneti_semaphore_init(&cep->am_unrcvd, 0, 0);
       gasneti_weakatomic_set(&cep->am_unsent, 0, 0);
     }
   }
