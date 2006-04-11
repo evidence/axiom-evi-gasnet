@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/03/28 05:54:26 $
- * $Revision: 1.34 $
+ *     $Date: 2006/04/11 18:04:33 $
+ * $Revision: 1.35 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,7 +58,7 @@ typedef union {
 
 typedef union {
   uint16_t u16; /* might be a compiler builtin type */
-  gasnete_anytype8_t _at8; /* necessary for structs of two 16-bit types */
+  gasnete_anytype8_t _at8; /* necessary for structs of two 8-bit types */
   #if SIZEOF_SHORT == 2
     short _s;
   #endif
