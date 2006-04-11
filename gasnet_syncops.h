@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/11 02:51:11 $
- * $Revision: 1.2 $
+ *     $Date: 2006/04/11 18:26:11 $
+ * $Revision: 1.3 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -126,7 +126,7 @@ GASNETI_BEGIN_EXTERNC
   gasneti_atomic_val_t _gasneti_semaphore_trydown_n(_gasneti_semaphore_t *s, gasneti_atomic_val_t n) {
     gasneti_mutex_lock(&(s->lock));
     if_pt (s->count >= n)
-      s->count =- n;
+      s->count -= n;
     else
       n = 0;
     gasneti_mutex_unlock(&(s->lock));
