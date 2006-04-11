@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/10 21:31:21 $
- * $Revision: 1.1 $
+ *     $Date: 2006/04/11 02:51:11 $
+ * $Revision: 1.2 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -135,7 +135,7 @@ GASNETI_BEGIN_EXTERNC
 #elif defined(GASNETI_HAVE_ATOMIC_CAS)
   /* Semi-generic implementation for CAS-capable systems */
   typedef gasneti_weakatomic_t _gasneti_semaphore_t;
-  #define _GASNETI_SEMAPHORE_INITIALIZER(N) {gasneti_weakatomic_init(N)}
+  #define _GASNETI_SEMAPHORE_INITIALIZER gasneti_weakatomic_init
   #define GASNETI_SEMAPHORE_MAX GASNETI_ATOMIC_MAX
   GASNETI_INLINE(_gasneti_semaphore_init)
   void _gasneti_semaphore_init(_gasneti_semaphore_t *s, int n) {
@@ -205,7 +205,7 @@ GASNETI_BEGIN_EXTERNC
 #elif defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
   /* Semi-generic implementation for and-add-fetch capable systems */
   typedef gasneti_weakatomic_t _gasneti_semaphore_t;
-  #define _GASNETI_SEMAPHORE_INITIALIZER(N) {gasneti_weakatomic_init(N)}
+  #define _GASNETI_SEMAPHORE_INITIALIZER gasneti_weakatomic_init
   #define GASNETI_SEMAPHORE_MAX GASNETI_ATOMIC_SIGNED_MAX
   GASNETI_INLINE(_gasneti_semaphore_init)
   void _gasneti_semaphore_init(_gasneti_semaphore_t *s, int n) {
