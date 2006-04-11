@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/04/09 04:14:43 $
- * $Revision: 1.97 $
+ *     $Date: 2006/04/11 22:47:51 $
+ * $Revision: 1.98 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -360,7 +360,6 @@
     #define GASNETI_WMB_IS_MB
   #else /* NOT safe */
     #define gasneti_local_wmb gasneti_compiler_fence
-    #define GASNETI_WMB_IS_EMPTY
   #endif
 #elif defined(__MTA__)
    #if 0 /* causes warnings */
@@ -380,9 +379,6 @@
    #define gasneti_local_mb()  gasneti_compiler_fence()
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
-   #define GASNETI_RMB_IS_EMPTY
-   #define GASNETI_WMB_IS_EMPTY
-   #define GASNETI_MB_IS_EMPTY
 #elif defined(_SX)
    GASNETI_INLINE(gasneti_local_wmb)
    void gasneti_local_wmb(void) {
@@ -391,7 +387,6 @@
      x = 1;
      /* GASNETI_ASM("nop"); - leads to "FATAL COMPILER ERROR, Unknown statement. c++: Internal Error: Please report." */
    }
-   #define GASNETI_WMB_IS_EMPTY
 #elif defined(__MICROBLAZE__)
    /* no SMP support */
    #define gasneti_local_wmb() gasneti_compiler_fence()
@@ -399,9 +394,6 @@
    #define gasneti_local_mb()  gasneti_compiler_fence()
    #define GASNETI_RMB_IS_MB
    #define GASNETI_WMB_IS_MB
-   #define GASNETI_RMB_IS_EMPTY
-   #define GASNETI_WMB_IS_EMPTY
-   #define GASNETI_MB_IS_EMPTY
 #else
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif
@@ -429,7 +421,7 @@
 /* Default gasneti_local_rmb() */
 #ifndef gasneti_local_rmb
   #define gasneti_local_rmb() gasneti_compiler_fence()
-  #define GASNETI_RMB_IS_EMPTY
+  #define GASNETI_RMB_IS_DEFAULT 1
 #endif
 
 /* NO Default for gasneti_local_wmb() to avoid mistakes - it must be explicitly provided */
@@ -437,7 +429,7 @@
 /* Default gasneti_local_mb() */
 #ifndef gasneti_local_mb
   #define gasneti_local_mb() do { gasneti_local_wmb(); gasneti_local_rmb(); } while (0)
-  #define GASNETI_MB_IS_SUM
+  #define GASNETI_MB_IS_DEFAULT 1
 #endif
 
 
@@ -445,9 +437,6 @@
 /* Properties of the memory barriers (as boolean preprocessor tokens)
 	GASNETI_RMB_IS_MB	rmb() is sufficient for mb()
 	GASNETI_WMB_IS_MB	wmb() is sufficient for mb()
-	GASNETI_RMB_IS_EMPTY	rmb() is nothing but a compiler fence
-	GASNETI_WMB_IS_EMPTY	wmb() is nothing but a compiler fence
-	GASNETI_MB_IS_EMPTY	mb() is nothing but a compiler fence
 	GASNETI_MB_IS_SUM	wmb()+rmb() is mb(), as opposed to a double mb()
    These tokens are used by the fenced atomics to produce minimal code.
    What follows "normalizes" these tokens to 0 or 1 and applies defaults.
@@ -456,49 +445,16 @@
 
    THESE ARE *NOT* INTENDED FOR GENERAL USE IN CONDUIT CODE.
  */
-#ifndef GASNETI_RMB_IS_EMPTY
-  /* Default: assume rmb() is non-empty. */
-  #define GASNETI_RMB_IS_EMPTY	0
-#else
-  #undef GASNETI_RMB_IS_EMPTY
-  #define GASNETI_RMB_IS_EMPTY	1
-#endif
-#ifndef GASNETI_WMB_IS_EMPTY
-  /* Default: assume wmb() is non-empty. */
-  #define GASNETI_WMB_IS_EMPTY	0
-#else
-  #undef GASNETI_WMB_IS_EMPTY
-  #define GASNETI_WMB_IS_EMPTY	1
-#endif
-#ifndef GASNETI_MB_IS_EMPTY
-  /* Default: assume mb() is empty IFF rmb() and wmb() are both empty */
-  #if (GASNETI_RMB_IS_EMPTY && GASNETI_WMB_IS_EMPTY)
-    #define GASNETI_MB_IS_EMPTY	1
-  #else
-    #define GASNETI_MB_IS_EMPTY	0
-  #endif
-#else
-  #undef GASNETI_MB_IS_EMPTY
-  #define GASNETI_MB_IS_EMPTY	1
-#endif
 #ifndef GASNETI_RMB_IS_MB
-  /* Default: assume rmb() is a full mb() if:
-   *  Either mb() is empty (sequential consistency)
-   *  Or mb() = rmb() + wmb(), while wmb() is known empty */
-  #if GASNETI_MB_IS_EMPTY || (GASNETI_WMB_IS_EMPTY && defined(GASNETI_MB_IS_SUM))
-    #define GASNETI_RMB_IS_MB	1
-  #else
-    #define GASNETI_RMB_IS_MB	0
-  #endif
+  /* Default: assume rmb() is not a full mb(). */
+  #define GASNETI_RMB_IS_MB	0
 #else
   #undef GASNETI_RMB_IS_MB
   #define GASNETI_RMB_IS_MB	1
 #endif
 #ifndef GASNETI_WMB_IS_MB
-  /* Default: assume wmb() is a full mb() if:
-   *  Either mb() is empty (sequential consistency)
-   *  Or mb() = rmb() + wmb(), while rmb() is known empty */
-  #if GASNETI_MB_IS_EMPTY || (GASNETI_RMB_IS_EMPTY && defined(GASNETI_MB_IS_SUM))
+  /* Default: assume wmb() is a full mb() if using default impls. */
+  #if defined(GASNETI_MB_IS_DEFAULT) && defined(GASNETI_RMB_IS_DEFAULT)
     #define GASNETI_WMB_IS_MB	1
   #else
     #define GASNETI_WMB_IS_MB	0
@@ -508,11 +464,8 @@
   #define GASNETI_WMB_IS_MB	1
 #endif
 #ifndef GASNETI_MB_IS_SUM
-  /* Default: assume mb() = rmb() + wmb() if:
-   *  Either mb() = rmb(), while wmb() is known empty
-   *  Or mb() = wmb(), while rmb() is known empty */
-  #if ((GASNETI_RMB_IS_MB && GASNETI_WMB_IS_EMPTY) || \
-       (GASNETI_WMB_IS_MB && GASNETI_RMB_IS_EMPTY))
+  /* Default: assume mb() = rmb() + wmb() if using the default impl. */
+  #if defined(GASNETI_MB_IS_DEFAULT) 
     #define GASNETI_MB_IS_SUM	1
   #else
     #define GASNETI_MB_IS_SUM	0
@@ -521,6 +474,8 @@
   #undef GASNETI_MB_IS_SUM
   #define GASNETI_MB_IS_SUM	1
 #endif
+#undef GASNETI_MB_IS_DEFAULT
+#undef GASNETI_RMB_IS_DEFAULT
  
 /* ------------------------------------------------------------------------------------ */
 /* Conditionally compiled memory barriers -
