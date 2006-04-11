@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/10 23:43:26 $
- * $Revision: 1.145 $
+ *     $Date: 2006/04/11 18:26:29 $
+ * $Revision: 1.146 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -346,7 +346,7 @@
     #define PTHREAD_MUTEX_INITIALIZER ERROR_include_pthread_h_before_gasnet_tools_h
     extern int pthread_mutex_lock; 
 
-    typedef volatile int gasneti_atomic_t;
+    typedef volatile uint32_t gasneti_atomic_t;
     #define _gasneti_atomic_read(p)      (*(p))
     #define _gasneti_atomic_init(v)      (v)
     #define _gasneti_atomic_set(p,v)     (*(p) = (v))
@@ -358,9 +358,7 @@
               (*(p) == (oldval) ? *(p) = (newval), 1 : 0)
     #define GASNETI_HAVE_ATOMIC_CAS 1
 
-    #define _gasneti_atomic_add(p,op)      ((*(p))+=(op))
-    #define _gasneti_atomic_subtract(p,op) ((*(p))-=(op))
-    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
+    #define _gasneti_atomic_addfetch(p,op)      ((*(p))+=(op))
 
     /* Using default fences */
   #endif
