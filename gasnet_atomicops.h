@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/11 18:26:29 $
- * $Revision: 1.146 $
+ *     $Date: 2006/04/11 18:41:33 $
+ * $Revision: 1.147 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1278,7 +1278,7 @@
        gasneti_atomic_postsync();
        return retval;
     }
-    #define _gasneti_atomic_addfetch gasneti_atomic_addfetch_32
+    #define _gasneti_atomic_addfetch gasneti_atomic_addfetch_64
 
        /* Both the instrisics and our asm lack built-in fences.  So, using default fences */
     #define GASNETI_ATOMIC_FENCE_RMW	GASNETI_ATOMIC_MB_POST
