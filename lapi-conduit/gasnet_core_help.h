@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_help.h,v $
- *     $Date: 2006/03/19 02:08:04 $
- * $Revision: 1.24 $
+ *     $Date: 2006/04/11 17:58:00 $
+ * $Revision: 1.25 $
  * Description: GASNet lapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -69,7 +69,7 @@ extern gasnetc_lapimode_t gasnetc_lapi_default_mode;
     #error Missing required spinlock support
   #endif
   typedef gasneti_atomic_t gasnetc_spinlock_t;
-  #define GASNETC_SPINLOCK_INITIALIZER	gasneti_atomic_init(0)
+  #define GASNETC_SPINLOCK_INITIALIZER	GASNETI_SPINLOCK_INITIALIZER
 #else  /* Use pthread mutex for spinlock */
   typedef gasneti_mutex_t gasnetc_spinlock_t;
   #define GASNETC_SPINLOCK_INITIALIZER	GASNETI_MUTEX_INITIALIZER
