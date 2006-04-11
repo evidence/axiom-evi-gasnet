@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2005/05/23 11:36:34 $
-# $Revision: 1.32 $
+#     $Date: 2006/04/11 03:23:43 $
+# $Revision: 1.33 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -38,6 +38,7 @@ linkend = $(platform_libraries) $(MANUAL_LIBS)
 
 if USE_UDP_CONDUIT
 lib_LIBRARIES = libamudp.a
+bin_PROGRAMS = amudprun
 endif
 headers = \
 	amudp.h			\
@@ -71,6 +72,7 @@ EXTRA_DIST = \
 	Makefile.standalone 	\
 	Makefile.tests  	\
 	Makefile.titanium.in 	\
+	amudprun.c              \
 	license.txt
 
 # ---------- test programs -------------
@@ -108,6 +110,9 @@ test%.o : $(testdir)/test%.c $(testdir)/*.h $(headers)
 
 apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h $(headers)
 	$(compile) -DAMUDP -I$(testdir) -c $(testdir)/apputils.c -o apputils.o
+
+amudprun$(EXEEXT): amudprun.o $(headers) libamudp.a 
+	$(link) -o $@ $< -L. -lamudp $(linkend)
 
 %.o: %.c $(headers)
 	$(compile) -o $@ -c $<

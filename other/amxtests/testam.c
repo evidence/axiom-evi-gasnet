@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testam.c,v $
- *     $Date: 2006/04/10 04:20:14 $
- * $Revision: 1.11 $
+ *     $Date: 2006/04/11 03:23:45 $
+ * $Revision: 1.12 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,10 +16,6 @@ int main(int argc, char **argv) {
   int partner;
   int iters=0, polling = 1, i;
 
-  AMX_VerboseErrors = 1;
-
-  CHECKARGS(argc, argv, 1, 2, "iters (Poll/Block)");
-
 #if defined(AMUDP)
   putenv((char*)"A=A");
   putenv((char*)"B=B");
@@ -28,9 +24,7 @@ int main(int argc, char **argv) {
   putenv((char*)"AReallyLongEnvironmentName=A Really Long Environment Value");
 #endif
 
-  /* call startup */
-  AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            0, &networkpid, &eb, &ep));
+  TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 2, "iters (Poll/Block)");
 
   if (argc > 1) iters = atoi(argv[1]);
   if (!iters) iters = 1;

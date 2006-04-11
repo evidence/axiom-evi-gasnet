@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
-//     $Date: 2006/04/10 04:20:12 $
-// $Revision: 1.13 $
+//     $Date: 2006/04/11 03:23:43 $
+// $Revision: 1.14 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -15,20 +15,31 @@
 bool endianconvert = false;
 
 //-------------------------------------------------------------------------------------
+static int isinit = 0;
+static bool nh_cvt = false;
+#define CHECKINIT() assert(isinit > 0)
 #ifdef WINSOCK
   bool socklibinit(){
     WSADATA d;
-    if (!WSAStartup(MAKEWORD(1,1), &d)) return true;
-    else return false;
+    if (!WSAStartup(MAKEWORD(1,1), &d)) {
+      nh_cvt = isLittleEndian();
+      isinit++;
+      return true;
+    } else return false;
   }
   bool socklibend() {
     WSACleanup();
+    isinit--;
     return true;
   }
 #else
   #include <errno.h>      // errno, strerror
-  bool socklibinit(){ return true; }
-  bool socklibend(){ return true; }
+  bool socklibinit(){ 
+    nh_cvt = isLittleEndian();
+    isinit++; 
+    return true; 
+  }
+  bool socklibend(){ isinit--; return true; }
 #endif
 //-------------------------------------------------------------------------------------
 SOCKET listen_socket(unsigned short port, bool allowshared) {
@@ -272,27 +283,74 @@ int getRemotePort(SOCKET s) {
   return ntohs(saddr.sin_port);
 }
 //------------------------------------------------------------------------------------
-unsigned long byteSwap(unsigned long val) {
-  unsigned char* p = (unsigned char *)&val;
-  unsigned char tmp;
+void byteSwap16(void *val) {
+  uint8_t* p = (uint8_t *)val;
+  uint8_t tmp;
+  tmp = p[0];
+  p[0] = p[1];
+  p[1] = tmp;
+}
+//------------------------------------------------------------------------------------
+void byteSwap32(void *val) {
+  uint8_t* p = (uint8_t *)val;
+  uint8_t tmp;
   tmp = p[0];
   p[0] = p[3];
   p[3] = tmp;
   tmp = p[1];
   p[1] = p[2];
   p[2] = tmp;
-  return val;
+}
+//------------------------------------------------------------------------------------
+void byteSwap64(void *val) {
+  uint8_t* p = (uint8_t *)val;
+  uint8_t tmp;
+  tmp = p[0];
+  p[0] = p[7];
+  p[7] = tmp;
+  tmp = p[1];
+  p[1] = p[6];
+  p[6] = tmp;
+  tmp = p[2];
+  p[2] = p[5];
+  p[5] = tmp;
+  tmp = p[3];
+  p[3] = p[4];
+  p[4] = tmp;
 }
 //-------------------------------------------------------------------------------------
-unsigned long recv32(SOCKET s) { // get 32-bit integer
-  unsigned long temp;
+#define NTOH_DEF(width)                            \
+  uint##width##_t ntoh##width(uint##width##_t v) { \
+    CHECKINIT();                                   \
+    if (nh_cvt) byteSwap##width(&v);               \
+    return v;                                      \
+  }                                                \
+  void ntoh##width##a(void *pv) {                  \
+    CHECKINIT();                                   \
+    if (nh_cvt) byteSwap##width(pv);               \
+  }                                                \
+  uint##width##_t hton##width(uint##width##_t v) { \
+    CHECKINIT();                                   \
+    if (nh_cvt) byteSwap##width(&v);               \
+    return v;                                      \
+  }                                                \
+  void hton##width##a(void *pv) {                  \
+    CHECKINIT();                                   \
+    if (nh_cvt) byteSwap##width(pv);               \
+  }                                                
+NTOH_DEF(16)
+NTOH_DEF(32)
+NTOH_DEF(64)
+//-------------------------------------------------------------------------------------
+uint32_t recv32(SOCKET s) { // get 32-bit integer
+  uint32_t temp;
   recvAll(s, &temp, 4);
-  if (endianconvert) return byteSwap(temp);
-  else return temp;
+  if (endianconvert) byteSwap32(&temp);
+  return temp;
 }
 //-------------------------------------------------------------------------------------
-void send32(SOCKET s, unsigned long value) { // send 32-bit integer
-  if (endianconvert) value = byteSwap(value);
+void send32(SOCKET s, uint32_t value) { // send 32-bit integer
+  if (endianconvert) byteSwap32(&value);
   sendAll(s, &value, 4);
 }
 //-------------------------------------------------------------------------------------

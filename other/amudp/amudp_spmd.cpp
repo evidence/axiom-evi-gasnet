@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2006/04/10 04:20:12 $
- * $Revision: 1.27 $
+ *     $Date: 2006/04/11 03:23:43 $
+ * $Revision: 1.28 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -84,7 +84,8 @@ static int AMUDP_SPMDShutdown(int exitcode);
   static SOCKET AMUDP_SPMDStdoutListenSocket = INVALID_SOCKET; 
   static SOCKET AMUDP_SPMDStderrListenSocket = INVALID_SOCKET; 
   static SOCKET *AMUDP_SPMDSlaveSocket = NULL; /* table of TCP control sockets */
-  static amudp_translation_t *AMUDP_SPMDTranslationTable = NULL;
+  static en_t *AMUDP_SPMDTranslation_name = NULL; 
+  static tag_t *AMUDP_SPMDTranslation_tag = NULL; /* network byte order */
   int AMUDP_SPMDSpawnRunning = FALSE; /* true while spawn is active */
   #if DISABLE_STDSOCKET_REDIRECT
     int AMUDP_SPMDRedirectStdsockets = FALSE; /* true if stdin/stdout/stderr should be redirected */
@@ -115,42 +116,51 @@ static int AMUDP_SPMDShutdown(int exitcode);
   static int AMUDP_SPMDNUMPROCS = -1;
   static char *AMUDP_SPMDMasterEnvironment = NULL;
 
-// used to pass info
+// used to pass info - always stored in network byte order
+// fields carefully ordered by size to avoid cross-platform struct packing differences
 typedef struct {
+  double faultInjectionRate; // AMUDP_FaultInjectionRate
+
+  uint64_t networkpid;  // globally unique pid
+
+  tag_t tag;            // tag for this processor
+  
   int32_t procid;       // id for this processor
   int32_t numprocs;     // num procs in job
-  uint64_t networkpid;  // globally unique pid
+
   int32_t depth;        // network depth
-  tag_t tag;            // tag for this processor
-  double faultInjectionRate; // AMUDP_FaultInjectionRate
+  uint32_t environtablesz; // size of environment table we're about to send
+
   uint16_t stdinMaster; // address of stdin listener
   uint16_t stdoutMaster; // address of stdout listener
   uint16_t stderrMaster; // address of stderr listener
-  uint32_t translationtablesz; // size of translation table we're about to send
-  uint32_t environtablesz; // size of environment table we're about to send
+  uint16_t _pad1; // ensure platform-independent table size
+
 } AMUDP_SPMDBootstrapInfo_t;
 
 /*
   Protocol for TCP bootstrapping/control sockets
   initialization: 
     slave->master (en_t) - send my endpoint name for init
+    master->slave (int32 sizeof(AMUDP_SPMDBootstrapInfo_t))
     master->slave (AMUDP_SPMDBootstrapInfo_t) 
-    master->slave (AMUDP_SPMDTranslationTable (variable size)) 
+    master->slave (AMUDP_SPMDTranslation_name (variable size)) 
+    master->slave (AMUDP_SPMDTranslation_tag (variable size)) 
     master->slave (AMUDP_SPMDMasterEnvironment (variable size)) 
 
   master->slave messages
-    "E"(int exitcode) - die now with this exit code
-    "F"(i)(old en_t)(new en_t) - slave i's NIC just failed over to new en_t
-    "A"(i) - (to slave i) slave acknowledged fail-over of slave i's NIC
+    "E"(int32 exitcode) - die now with this exit code
+    "F"(int32 i)(old en_t)(new en_t) - slave i's NIC just failed over to new en_t
+    "A"(int32 i) - (to slave i) slave acknowledged fail-over of slave i's NIC
     "B" - barrier complete
-    "G"(perproclen)(data) - end an AllGather, here's the result
+    "G"(int32 perproclen)(data) - end an AllGather, here's the result
 
   slave->master messages
-    "E"(int exitcode) - exit with this code
-    "F"(i)(old en_t)(new en_t) - slave i's NIC just failed over to new en_t
-    "A"(i) - acknowledge fail-over of slave i's NIC
+    "E"(int32 exitcode) - exit with this code
+    "F"(int32 i)(old en_t)(new en_t) - slave i's NIC just failed over to new en_t
+    "A"(int32 i) - acknowledge fail-over of slave i's NIC
     "B" - enter barrier
-    "G"(i)(perproclen)(data) - slave i begin an AllGather, here's the length and my data
+    "G"(int32 i)(int32 perproclen)(data) - slave i begin an AllGather, here's the length and my data
 */
 /* ------------------------------------------------------------------------------------ 
  *  misc helpers
@@ -304,6 +314,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
   if ((*argc) < 2 || 
     (strcmp((*argv)[1], AMUDP_SPMDSLAVE_FLAG) && strcmp((*argv)[1], AMUDP_SPMDSLAVE_FLAG_VERBOSE))) { 
     int usingdefaultdegree = 0;
+    uint64_t npid;
     if (nproc < 0 || nproc > AMUDP_MAX_SPMDPROCS) AMUDP_RETURN_ERR(BAD_ARG);
 
     #if AMUDP_DEBUG_VERBOSE
@@ -362,10 +373,23 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
           break;
         }
       }
-      /* readjust params */
-      (*argv)[1] = (*argv)[0];
-      (*argv)++;
-      (*argc)--;
+      if (spawnfn) {
+        /* readjust params */
+        (*argv)[1] = (*argv)[0];
+        (*argv)++;
+        (*argc)--;
+      }
+    }
+    if (!spawnfn) {
+      const char *spawnfn_str = AMUDP_getenv_prefixed_withdefault("SPAWNFN","S");
+      if (spawnfn_str) {
+        for (int i=0; AMUDP_Spawnfn_Desc[i].abbrev; i++) {
+          if (toupper(spawnfn_str[0]) == toupper(AMUDP_Spawnfn_Desc[i].abbrev)) {
+            spawnfn = AMUDP_Spawnfn_Desc[i].fnptr;
+            break;
+          }
+        }
+      }
     }
     if (!spawnfn) {
       fprintf(stderr, 
@@ -383,14 +407,14 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     // setup bootstrap info 
     AMUDP_SPMDBootstrapInfo_t bootstrapinfo;
-    bootstrapinfo.numprocs = AMUDP_SPMDNUMPROCS;
-    bootstrapinfo.translationtablesz = AMUDP_SPMDNUMPROCS * sizeof(amudp_translation_t);
-    bootstrapinfo.depth = networkdepth;
+    bootstrapinfo.numprocs = hton32(AMUDP_SPMDNUMPROCS);
+    bootstrapinfo.depth = hton32(networkdepth);
 
     { char *faultRate = getenv("AMUDP_FAULT_RATE");
       if (faultRate && atof(faultRate) != 0.0) {      
         bootstrapinfo.faultInjectionRate = atof(faultRate);
       } else bootstrapinfo.faultInjectionRate = 0.0;
+      hton64a(&bootstrapinfo.faultInjectionRate);
     }
 
     const char *masterHostname = getMyHostName();
@@ -412,9 +436,9 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       AMUDP_SPMDStdinListenSocket = listen_socket(anyport, false);
       AMUDP_SPMDStdoutListenSocket = listen_socket(anyport, false);
       AMUDP_SPMDStderrListenSocket = listen_socket(anyport, false);
-      bootstrapinfo.stdinMaster = getsockname(AMUDP_SPMDStdinListenSocket).port();
-      bootstrapinfo.stdoutMaster = getsockname(AMUDP_SPMDStdoutListenSocket).port();
-      bootstrapinfo.stderrMaster = getsockname(AMUDP_SPMDStderrListenSocket).port();
+      bootstrapinfo.stdinMaster = hton16(getsockname(AMUDP_SPMDStdinListenSocket).port());
+      bootstrapinfo.stdoutMaster = hton16(getsockname(AMUDP_SPMDStdoutListenSocket).port());
+      bootstrapinfo.stderrMaster = hton16(getsockname(AMUDP_SPMDStderrListenSocket).port());
     } catch (xBase &exn) {
       AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
     }
@@ -423,13 +447,6 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     allList.insert(AMUDP_SPMDStdinListenSocket);
     allList.insert(AMUDP_SPMDStdoutListenSocket);
     allList.insert(AMUDP_SPMDStderrListenSocket);
-
-    // create and initialize the translation table that we'll fill in as slaves connect
-    AMUDP_SPMDTranslationTable = (amudp_translation_t*)AMUDP_malloc(bootstrapinfo.translationtablesz);
-    for (int i=0; i < AMUDP_SPMDNUMPROCS; i++) {
-      AMUDP_SPMDSlaveSocket[i] = INVALID_SOCKET;
-      AMUDP_SPMDTranslationTable[i].tag = bootstrapinfo.networkpid | ((uint64_t)i) << 16;
-    }
 
     { /* flatten a snapshot of the master's environment for transmission to slaves
        * here we assume the standard representation where a pointer to the environment 
@@ -454,7 +471,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       }
       *p = '\0';
       AMUDP_assert((p+1) - AMUDP_SPMDMasterEnvironment == totalEnvSize);
-      bootstrapinfo.environtablesz = totalEnvSize;
+      bootstrapinfo.environtablesz = hton32(totalEnvSize);
     }
 
     // setup a slave argv
@@ -476,20 +493,28 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     slaveargv[slaveargc] = NULL;
 
     { int masterpid = getpid();
-      uint32_t masterIP;
-      #if 1
-        masterIP = masterAddr.IP();
-      #else /* requires master can resolve its own address */
-        try {
-          SockAddr dnsAddr = DNSLookup(getMyHostName());
-          masterIP = dnsAddr.IP();
-        } catch (xBase &exn) {
-          AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
-        }
-      #endif
-      bootstrapinfo.networkpid = ((uint64_t)masterIP) << 32 | 
-                                 (((uint64_t)masterpid) & 0xFFFF);
-      if (networkpid) *networkpid = bootstrapinfo.networkpid;
+      uint32_t masterIP = 0;
+      try { /* requires master can resolve its own address */
+        SockAddr dnsAddr = DNSLookup(getMyHostName());
+        masterIP = dnsAddr.IP();
+      } catch (xBase &exn) {
+        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
+        WarnMessage("Master %s failed to resolve its own hostname: %s",
+          getMyHostName(),exn.why()); 
+        masterIP = masterAddr.IP(); /* failed, try to use listen socket addr */
+      }
+      npid = ((uint64_t)masterIP) << 32 | 
+             (((uint64_t)masterpid) & 0xFFFF);
+      bootstrapinfo.networkpid = hton64(npid);
+      if (networkpid) *networkpid = npid;
+    }
+
+    // create and initialize the translation table that we'll fill in as slaves connect
+    AMUDP_SPMDTranslation_name = (en_t*)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(en_t));
+    AMUDP_SPMDTranslation_tag = (tag_t*)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(tag_t));
+    for (int i=0; i < AMUDP_SPMDNUMPROCS; i++) {
+      AMUDP_SPMDSlaveSocket[i] = INVALID_SOCKET;
+      AMUDP_SPMDTranslation_tag[i] = hton64(npid | ((uint64_t)i) << 16);
     }
 
     // call system-specific spawning routine
@@ -502,9 +527,9 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     if (!AMUDP_SPMDRedirectStdsockets) {
       // spawn function disabled our stdsocket redirect - signal the slaves of this fact
-      bootstrapinfo.stdinMaster = 0;
-      bootstrapinfo.stdoutMaster = 0;
-      bootstrapinfo.stderrMaster = 0;
+      bootstrapinfo.stdinMaster = hton16(0);
+      bootstrapinfo.stdoutMaster = hton16(0);
+      bootstrapinfo.stderrMaster = hton16(0);
     }
 
     // main communication loop for master
@@ -574,7 +599,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
             // receive bootstrapping info
             AMUDP_SPMDSlaveSocket[numSlavesAttached] = newcoord;
-            recvAll(newcoord, &(AMUDP_SPMDTranslationTable[numSlavesAttached].name), sizeof(en_t));
+            recvAll(newcoord, &(AMUDP_SPMDTranslation_name[numSlavesAttached]), sizeof(en_t));
 
             numSlavesAttached++;
             if (numSlavesAttached == AMUDP_SPMDNUMPROCS) { // all have now reported in, so we can begin computation
@@ -583,22 +608,25 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
               allList.remove(AMUDP_SPMDListenSocket);
               AMUDP_SPMDListenSocket = INVALID_SOCKET;
 
+              int32_t bootstrapinfosz_nb = hton32(sizeof(bootstrapinfo));
               // transmit bootstrapping info
               for (int i=0; i < AMUDP_SPMDNUMPROCS; i++) {
                 // fill out process-specific bootstrap info
-                bootstrapinfo.procid = i;
-                bootstrapinfo.tag = AMUDP_SPMDTranslationTable[i].tag;
+                bootstrapinfo.procid = hton32(i);
+                bootstrapinfo.tag = AMUDP_SPMDTranslation_tag[i];
                 // send it
+                sendAll(AMUDP_SPMDSlaveSocket[i], &bootstrapinfosz_nb, sizeof(int32_t));
                 sendAll(AMUDP_SPMDSlaveSocket[i], &bootstrapinfo, sizeof(bootstrapinfo));
-                sendAll(AMUDP_SPMDSlaveSocket[i], AMUDP_SPMDTranslationTable, bootstrapinfo.translationtablesz);
-                sendAll(AMUDP_SPMDSlaveSocket[i], AMUDP_SPMDMasterEnvironment, bootstrapinfo.environtablesz);
+                sendAll(AMUDP_SPMDSlaveSocket[i], AMUDP_SPMDTranslation_name, AMUDP_SPMDNUMPROCS*sizeof(en_t));
+                sendAll(AMUDP_SPMDSlaveSocket[i], AMUDP_SPMDTranslation_tag, AMUDP_SPMDNUMPROCS*sizeof(tag_t));
+                sendAll(AMUDP_SPMDSlaveSocket[i], AMUDP_SPMDMasterEnvironment, ntoh32(bootstrapinfo.environtablesz));
               }
               if (!AMUDP_SilentMode) {
                 printf("Endpoint table (nproc=%i):\n", AMUDP_SPMDNUMPROCS);
                 for (int j=0; j < AMUDP_SPMDNUMPROCS; j++) {
                   char temp[80];
-                  printf(" P#%i:\t%s", j, AMUDP_enStr(AMUDP_SPMDTranslationTable[j].name, temp));
-                  printf("\ttag: %s\n", AMUDP_tagStr(AMUDP_SPMDTranslationTable[j].tag, temp));
+                  printf(" P#%i:\t%s", j, AMUDP_enStr(AMUDP_SPMDTranslation_name[j], temp));
+                  printf("\ttag: %s\n", AMUDP_tagStr(ntoh64(AMUDP_SPMDTranslation_tag[j]), temp));
                 }
                 fflush(stdout);
               }
@@ -619,11 +647,12 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
               #if ABORT_JOB_ON_NODE_FAILURE
                 int exitCode = -1;
+                int32_t exitCode_nb = hton32(exitCode);
                 for (int i=0; i < (int)coordList.getCount(); i++) {
                   sendAll(coordList[i], "E");
-                  sendAll(coordList[i], &exitCode, sizeof(int));
+                  sendAll(coordList[i], &exitCode_nb, sizeof(int32_t));
                   close_socket(coordList[i]);
-                  }
+                }
                 if (!socklibend()) ErrMessage("master failed to socklibend()");
                 DEBUG_MASTER("Lost a worker process - job aborting...");
                 exit(exitCode);
@@ -651,14 +680,18 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                 static int AMUDP_SPMDGatherCount = 0; /* number of processors that have sent gather messages */
                 static int AMUDP_SPMDGatherLen = 0;
                 static char *AMUDP_SPMDGatherBuf = NULL;
-                int len=0;
-                int id=0;
+                int32_t len=0;
+                int32_t len_nb=0;
+                int32_t id=0;
+                int32_t id_nb=0;
                 try {
-                  recvAll(s, &id, sizeof(int));
-                  recvAll(s, &len, sizeof(int));
+                  recvAll(s, &id_nb, sizeof(int32_t));
+                  recvAll(s, &len_nb, sizeof(int32_t));
                 } catch (xSocket& exn) {
                   ErrMessage("got exn while reading gather len: %s", exn.why());
                 }
+                id = ntoh32(id_nb);
+                len = ntoh32(len_nb);
                 AMUDP_assert(id >= 0 && id < AMUDP_SPMDNUMPROCS && len > 0);
                 if (AMUDP_SPMDGatherCount == 0) { // first slave to report
                   AMUDP_assert(AMUDP_SPMDGatherBuf == NULL && AMUDP_SPMDGatherLen == 0);
@@ -673,10 +706,11 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                 AMUDP_SPMDGatherCount++;
                 if (AMUDP_SPMDGatherCount == AMUDP_SPMDNUMPROCS) { // gather complete
                   DEBUG_MASTER("Completed gather");
+                  hton32a(&len);
                   // broadcast completion data
                   for (int i=0; i < (int)coordList.getCount(); i++) {
                     sendAll(coordList[i], "G");
-                    sendAll(coordList[i], &len, sizeof(int));
+                    sendAll(coordList[i], &len_nb, sizeof(int32_t));
                     sendAll(coordList[i], AMUDP_SPMDGatherBuf, AMUDP_SPMDGatherLen*AMUDP_SPMDNUMPROCS);
                   }
                   AMUDP_free(AMUDP_SPMDGatherBuf);
@@ -692,34 +726,32 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
                 // get relevant en_t's
                 en_t olden;
                 en_t newen;
-                int failedidx=1;
+                int failedidx=-1;
+                int32_t failedidx_nb=-1;
                 try {
-                  recvAll(s, &failedidx, sizeof(int));
+                  recvAll(s, &failedidx_nb, sizeof(int32_t));
                   recvAll(s, &olden, sizeof(en_t));
                   recvAll(s, &newen, sizeof(en_t));
                 } catch (xSocket& exn) {
                   ErrMessage("got exn while reading fail-over addresses: %s", exn.why());
                 }
+                failedidx = ntoh32(failedidx_nb);
+                if (failedidx < 0 || failedidx >= AMUDP_SPMDNUMPROCS)
+                  ErrMessage("unrecognized endpoint received in fail-over message");
+                if (!enEqual(AMUDP_SPMDTranslation_name[failedidx], olden)) 
+                  ErrMessage("mismatched slaveid in fail-over message");
                 // update our local table 
-                int j;
-                for (j = 0; j < AMUDP_SPMDNUMPROCS; j++) {
-                  if (enEqual(AMUDP_SPMDTranslationTable[j].name, olden)) {
-                    AMUDP_SPMDTranslationTable[j].name = newen;
-                    break;
-                  }
-                }
-                if (j == AMUDP_SPMDNUMPROCS) ErrMessage("unrecognized endpoint received in fail-over message");
-                if (j != failedidx) ErrMessage("mismatched slaveid in fail-over message");
+                AMUDP_SPMDTranslation_name[failedidx] = newen;
                 // tell all slaves about the change
                 for (int i=0; i < (int)coordList.getCount(); i++) {
                   sendAll(coordList[i], "F");
-                  sendAll(coordList[i], failedidx, sizeof(int));
+                  sendAll(coordList[i], failedidx_nb, sizeof(int32_t));
                   sendAll(coordList[i], &olden, sizeof(en_t));
                   sendAll(coordList[i], &newen, sizeof(en_t));
                 }
                 if (!AMUDP_SilentMode) {
                   char temp[80];
-                  printf("master: processed NIC failover on slave %i: ", j);
+                  printf("master: processed NIC failover on slave %i: ", failedidx);
                   printf("%s ->", AMUDP_enStr(olden, temp));
                   printf(" %s\n", AMUDP_enStr(newen, temp));
                 }
@@ -728,14 +760,16 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
               case 'A': { // NIC fail-over acknowledgement - bounce to slave
                 // get relevant en_t's
-                int failedidx=1;
+                int failedidx=-1;
+                int32_t failedidx_nb=-1;
                 try {
-                  recvAll(s, &failedidx, sizeof(int));
+                  recvAll(s, &failedidx_nb, sizeof(int32_t));
+                  failedidx = ntoh32(failedidx_nb);
 
                   AMUDP_assert(failedidx > 0 && failedidx < AMUDP_SPMDNUMPROCS);
 
                   sendAll(coordList[failedidx], "A");
-                  sendAll(coordList[failedidx], &failedidx, sizeof(int));
+                  sendAll(coordList[failedidx], &failedidx_nb, sizeof(int32_t));
                 } catch (xSocket& exn) {
                   ErrMessage("got exn while handling fail-over ack: %s", exn.why());
                 }
@@ -745,18 +779,20 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
               case 'E': { // exit code
                 // get slave terminate code
+                int32_t exitCode_nb = -1;
                 int exitCode = -1;
                 try {
-                  recvAll(s, &exitCode, sizeof(int));
+                  recvAll(s, &exitCode_nb, sizeof(int32_t));
                 } catch (xSocket& exn) {
                   ErrMessage("got exn while reading exit code: %s", exn.why());
                 }
+                exitCode = ntoh32(exitCode_nb);
                 // tell all other slaves to terminate
                 // TODO: perhaps use an active message for this? for now, just rely on coord socket dying
                 // TODO: it's possblie we can lose some final output because coord and std are asynchronous
                 for (int i=0; i < (int)coordList.getCount(); i++) {
                   sendAll(coordList[i], "E");
-                  sendAll(coordList[i], &exitCode, sizeof(int));
+                  sendAll(coordList[i], &exitCode_nb, sizeof(int32_t));
                   close_socket(coordList[i]);
                 }
                 if (!socklibend()) ErrMessage("master failed to socklibend()");
@@ -822,19 +858,18 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         if (!portStr) {
           ErrMessage("Malformed address argument passed to slave:'%s' (missing port)", (*argv)[2]);
           AMUDP_RETURN_ERR(BAD_ARG);
-          }
+        }
         int masterPort = atoi(portStr+1);
         if (masterPort < 1 || masterPort > 65535) {
           ErrMessage("Malformed address argument passed to slave:'%s' (bad port=%i)", (*argv)[2], masterPort);
           AMUDP_RETURN_ERR(BAD_ARG);
-          }
+        }
         (*portStr) = '\0';
         try {
           masterAddr = SockAddr((uint32_t)DNSLookup(IPStr).IP(), (uint16_t)masterPort);
-          }
-        catch (xSocket &exn) {
+        } catch (xSocket &exn) {
           AMUDP_RETURN_ERRFR(RESOURCE, "slave failed DNSLookup on master host name", exn.why());
-          }
+        }
         AMUDP_free(IPStr);
       #endif
       (*argv)[2] = (*argv)[0]; // strip off our special args
@@ -883,52 +918,60 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       // get information from master 
       // get the bootstrap info and translation table
       AMUDP_SPMDBootstrapInfo_t bootstrapinfo;
+      int32_t bootstrapinfosz_nb;
+      recvAll(AMUDP_SPMDControlSocket, &bootstrapinfosz_nb, sizeof(int32_t));
+      int32_t bootstrapinfosz = ntoh32(bootstrapinfosz_nb);
+      AMUDP_assert(bootstrapinfosz == sizeof(AMUDP_SPMDBootstrapInfo_t));
       recvAll(AMUDP_SPMDControlSocket, &bootstrapinfo, sizeof(AMUDP_SPMDBootstrapInfo_t));
       
       // unpack the bootstrapping info
-      AMUDP_SPMDNUMPROCS = bootstrapinfo.numprocs;
-      AMUDP_SPMDMYPROC = bootstrapinfo.procid;
-      if (networkpid) *networkpid = bootstrapinfo.networkpid;
+      AMUDP_SPMDNUMPROCS = ntoh32(bootstrapinfo.numprocs);
+      AMUDP_SPMDMYPROC = ntoh32(bootstrapinfo.procid);
+      if (networkpid) *networkpid = ntoh64(bootstrapinfo.networkpid);
 
       // sanity checking on bootstrap info
-      AMUDP_assert(AMUDP_SPMDNUMPROCS > 0);
+      AMUDP_assert(AMUDP_SPMDNUMPROCS > 0 && AMUDP_SPMDNUMPROCS < AMUDP_MAX_SPMDPROCS);
       AMUDP_assert(AMUDP_SPMDMYPROC >= 0 && AMUDP_SPMDMYPROC < AMUDP_SPMDNUMPROCS);
-      AMUDP_assert(bootstrapinfo.translationtablesz == bootstrapinfo.numprocs * sizeof(amudp_translation_t)); 
       AMUDP_assert(AMUDP_SPMDMYPROC >= 0 && AMUDP_SPMDMYPROC < AMUDP_SPMDNUMPROCS);
 
-      amudp_translation_t *tempTranslationTable = (amudp_translation_t *)AMUDP_malloc(bootstrapinfo.translationtablesz);
-      AMUDP_assert(tempTranslationTable != NULL);
-      recvAll(AMUDP_SPMDControlSocket, tempTranslationTable, bootstrapinfo.translationtablesz);
+      en_t *tempTranslation_name = (en_t *)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(en_t));
+      tag_t *tempTranslation_tag = (tag_t *)AMUDP_malloc(AMUDP_SPMDNUMPROCS*sizeof(tag_t));
+      AMUDP_assert(tempTranslation_name && tempTranslation_tag);
+      recvAll(AMUDP_SPMDControlSocket, tempTranslation_name, AMUDP_SPMDNUMPROCS*sizeof(en_t));
+      recvAll(AMUDP_SPMDControlSocket, tempTranslation_tag, AMUDP_SPMDNUMPROCS*sizeof(tag_t));
 
-      AMUDP_assert(tempTranslationTable[AMUDP_SPMDMYPROC].tag == bootstrapinfo.tag);
-      AMUDP_assert(enEqual(tempTranslationTable[AMUDP_SPMDMYPROC].name, AMUDP_SPMDName));
+      AMUDP_assert(ntoh64(tempTranslation_tag[AMUDP_SPMDMYPROC]) == ntoh64(bootstrapinfo.tag));
+      AMUDP_assert(enEqual(tempTranslation_name[AMUDP_SPMDMYPROC], AMUDP_SPMDName));
 
       // setup translation table
-      for (int i = 0; i < bootstrapinfo.numprocs; i++) {
-        temp = AM_Map(AMUDP_SPMDEndpoint, i, tempTranslationTable[i].name, tempTranslationTable[i].tag);
+      for (int i = 0; i < AMUDP_SPMDNUMPROCS; i++) {
+        temp = AM_Map(AMUDP_SPMDEndpoint, i, tempTranslation_name[i], ntoh64(tempTranslation_tag[i]));
         if (temp != AM_OK) {
           ErrMessage("Failed to AM_Map() in AMUDP_SPMDStartup");
           AMUDP_RETURN(temp);
         }
       }
 
-      AMUDP_free(tempTranslationTable);
-      tempTranslationTable = NULL;
+      AMUDP_free(tempTranslation_name);
+      tempTranslation_name = NULL;
+      AMUDP_free(tempTranslation_tag);
+      tempTranslation_tag = NULL;
 
       // receive snapshot of master environment
-      AMUDP_SPMDMasterEnvironment = (char *)AMUDP_malloc(bootstrapinfo.environtablesz);
+      int environtablesz = ntoh32(bootstrapinfo.environtablesz);
+      AMUDP_SPMDMasterEnvironment = (char *)AMUDP_malloc(environtablesz);
       AMUDP_assert(AMUDP_SPMDMasterEnvironment != NULL);
-      recvAll(AMUDP_SPMDControlSocket, AMUDP_SPMDMasterEnvironment, bootstrapinfo.environtablesz);
+      recvAll(AMUDP_SPMDControlSocket, AMUDP_SPMDMasterEnvironment, environtablesz);
       
       /* allocate network buffers */
-      temp = AM_SetExpectedResources(AMUDP_SPMDEndpoint, AMUDP_SPMDNUMPROCS, bootstrapinfo.depth);
+      temp = AM_SetExpectedResources(AMUDP_SPMDEndpoint, AMUDP_SPMDNUMPROCS, ntoh32(bootstrapinfo.depth));
       if (temp != AM_OK) {
         ErrMessage("Failed to AM_SetExpectedResources() in AMUDP_SPMDStartup");
         AMUDP_RETURN(temp);
       }
       
       // set tag
-      temp = AM_SetTag(AMUDP_SPMDEndpoint, bootstrapinfo.tag);
+      temp = AM_SetTag(AMUDP_SPMDEndpoint, ntoh64(bootstrapinfo.tag));
       if (temp != AM_OK) {
         ErrMessage("Failed to AM_SetTag() in AMUDP_SPMDStartup");
         AMUDP_RETURN(temp);
@@ -937,9 +980,9 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       #if !DISABLE_STDSOCKET_REDIRECT
         if (bootstrapinfo.stdinMaster) {
             // perform stdin/out/err redirection
-            newstdin  = connect_socket(SockAddr(masterAddr.IP(),bootstrapinfo.stdinMaster));
-            newstdout = connect_socket(SockAddr(masterAddr.IP(),bootstrapinfo.stdoutMaster));
-            newstderr = connect_socket(SockAddr(masterAddr.IP(),bootstrapinfo.stderrMaster));
+            newstdin  = connect_socket(SockAddr(masterAddr.IP(),ntoh16(bootstrapinfo.stdinMaster)));
+            newstdout = connect_socket(SockAddr(masterAddr.IP(),ntoh16(bootstrapinfo.stdoutMaster)));
+            newstderr = connect_socket(SockAddr(masterAddr.IP(),ntoh16(bootstrapinfo.stderrMaster)));
             #if 0
               // disable buffering
               setvbuf(stdin, NULL, _IONBF, 0);
@@ -986,9 +1029,10 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
         }
      #endif
 
-      if (bootstrapinfo.faultInjectionRate != 0.0) {
+      AMUDP_FaultInjectionRate = bootstrapinfo.faultInjectionRate;
+      ntoh64a(&AMUDP_FaultInjectionRate);
+      if (AMUDP_FaultInjectionRate != 0.0) {
         AMUDP_FaultInjectionEnabled = 1;
-        AMUDP_FaultInjectionRate = bootstrapinfo.faultInjectionRate;
         fprintf(stderr, "*** Warning: AMUDP running with fault injection enabled. Rate = %6.2f %%\n",
           100.0 * AMUDP_FaultInjectionRate);
         fflush(stderr);
@@ -1083,8 +1127,9 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
         case 'G': { // gather complete
           AMUDP_assert(!AMUDP_SPMDBarrierDone && AMUDP_SPMDGatherLen > 0 && AMUDP_SPMDGatherData != NULL);
           try {
-            int len = -1;
-            recvAll(s, &len, sizeof(int));
+            int32_t len_nb = -1;
+            recvAll(s, &len_nb, sizeof(int32_t));
+            int32_t len = ntoh32(len_nb);
             AMUDP_assert(len == AMUDP_SPMDGatherLen);
             recvAll(s, AMUDP_SPMDGatherData, AMUDP_SPMDGatherLen*AMUDP_SPMDNUMPROCS);
           } catch (xSocket& exn) {
@@ -1100,15 +1145,17 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
           // get relevant en_t's
           en_t olden;
           en_t newen;
+          int32_t failidx_nb = -1;
           int failidx = -1;
           try {
-            recvAll(s, &failidx, sizeof(int));
+            recvAll(s, &failidx_nb, sizeof(int32_t));
             recvAll(s, &olden, sizeof(en_t));
             recvAll(s, &newen, sizeof(en_t));
           } catch (xSocket& exn) {
             ErrMessage("got exn while reading fail-over addresses: %s", exn.why());
             exit(1);
           }
+          failidx = ntoh32(failidx_nb);
 
           // this update could be rather slow, but we expect it to run extremely infrequently
           DEBUG_SLAVE("Received a NIC fail-over notification. Updating tables...");
@@ -1174,7 +1221,7 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
 
           try { // send acknowledgement to master
             sendAll(s, "A");
-            sendAll(s, &failidx, sizeof(int));
+            sendAll(s, &failidx_nb, sizeof(int32_t));
           } catch (xSocket& exn) {
             ErrMessage("Slave got an xSocket sending failure ACK: %s. Exiting...", exn.why());
             AMUDP_SPMDShutdown(1);
@@ -1182,10 +1229,11 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
           break;
         }
         case 'A': { // NIC fail-over acknowledgement - record an ACK
-          int failedidx=1;
+          int32_t failedidx_nb = -1;
+          int failedidx = -1;
           try {
-            recvAll(s, &failedidx, sizeof(int));
-
+            recvAll(s, &failedidx_nb, sizeof(int32_t));
+            failedidx = ntoh32(failedidx_nb);
             AMUDP_assert(failedidx == AMUDP_SPMDMYPROC);
             AMUDP_assert(AMUDP_FailoverAcksOutstanding > 0);
 
@@ -1199,9 +1247,11 @@ extern int AMUDP_SPMDHandleControlTraffic(int *controlMessagesServiced) {
 
         case 'E': { // exit code
           // get slave terminate code
+          int32_t exitCode_nb = -1;
           int exitCode = -1;
           try {
-            recvAll(s, &exitCode, sizeof(int));
+            recvAll(s, &exitCode_nb, sizeof(int32_t));
+            exitCode = ntoh32(exitCode_nb);
           } catch (xSocket& exn) {
             ErrMessage("got exn while reading exit code: %s", exn.why());
           }
@@ -1235,6 +1285,7 @@ extern void AMUDP_SPMDAddressChangeCallback(ueth_addr_t *address) {
   DEBUG_SLAVE("AMUDP_SPMDAddressChangeCallback() called.. Fail-over starting...");
   AMUDP_assert(AMUDP_UETH_endpoint);
   AMUDP_assert(address);
+  int32_t failid_nb = hton32(AMUDP_SPMDMYPROC);
   en_t olden = AMUDP_UETH_endpoint->name;
   en_t newen = *address;
 
@@ -1247,7 +1298,7 @@ extern void AMUDP_SPMDAddressChangeCallback(ueth_addr_t *address) {
   try {
     ASYNC_TCP_DISABLE();
     sendAll(AMUDP_SPMDControlSocket, "F");
-    sendAll(AMUDP_SPMDControlSocket, &AMUDP_SPMDMYPROC, sizeof(int));
+    sendAll(AMUDP_SPMDControlSocket, &failid_nb, sizeof(int));
     sendAll(AMUDP_SPMDControlSocket, &olden, sizeof(en_t));
     sendAll(AMUDP_SPMDControlSocket, &newen, sizeof(en_t));
     ASYNC_TCP_ENABLE();
@@ -1407,8 +1458,9 @@ extern int AMUDP_SPMDExit(int exitcode) {
 
   /* notify master we're exiting */
   try {
+    int exitcode_nb = hton32(exitcode);
     sendAll(AMUDP_SPMDControlSocket, "E");
-    sendAll(AMUDP_SPMDControlSocket, &exitcode, sizeof(int));
+    sendAll(AMUDP_SPMDControlSocket, &exitcode_nb, sizeof(int32_t));
     while (1) { // swallow everything and wait for master to close
       char temp;
       int retval = recv(AMUDP_SPMDControlSocket, &temp, 1, 0); 
@@ -1483,7 +1535,6 @@ extern int AMUDP_SPMDBarrier() {
  *  them into the dest buffer (which must have length len*numnodes) in rank order
  * ------------------------------------------------------------------------------------ */
 extern int AMUDP_SPMDAllGather(void *source, void *dest, size_t len) {
-  int mylen = len;
   if (!AMUDP_SPMDStartupCalled) {
     ErrMessage("called AMUDP_SPMDAllGather before AMUDP_SPMDStartup()");
     AMUDP_RETURN_ERR(NOT_INIT);
@@ -1495,12 +1546,14 @@ extern int AMUDP_SPMDAllGather(void *source, void *dest, size_t len) {
   AMUDP_assert(AMUDP_SPMDGatherDone == 0);
   AMUDP_SPMDGatherData = dest;
   AMUDP_SPMDGatherLen = len;
+  int32_t myid_nb = hton32(AMUDP_SPMDMYPROC);
+  int32_t mylen_nb = hton32(len);
 
   ASYNC_TCP_DISABLE();
   sendAll(AMUDP_SPMDControlSocket, "G");
-  sendAll(AMUDP_SPMDControlSocket, &AMUDP_SPMDMYPROC, sizeof(int));
-  sendAll(AMUDP_SPMDControlSocket, &mylen, sizeof(int));
-  sendAll(AMUDP_SPMDControlSocket, source, mylen);
+  sendAll(AMUDP_SPMDControlSocket, &myid_nb, sizeof(int));
+  sendAll(AMUDP_SPMDControlSocket, &mylen_nb, sizeof(int));
+  sendAll(AMUDP_SPMDControlSocket, source, len);
   ASYNC_TCP_ENABLE();
   
   AMUDP_SPMDWaitForControl(&AMUDP_SPMDGatherDone);
@@ -1532,7 +1585,7 @@ extern const char* AMUDP_SPMDgetenvMaster(const char *keyname) {
   return NULL; // not found
 }
 
-char *AMUDP_getenv_prefixed(const char *basekey) {
+extern char *AMUDP_getenv_prefixed(const char *basekey) {
   char key[3][255];
   const char *val[3];
   int winner = -1;
@@ -1560,7 +1613,7 @@ char *AMUDP_getenv_prefixed(const char *basekey) {
   else return (char *)val[winner];
 }
 
-char *AMUDP_getenv_prefixed_withdefault(const char *basekey, const char *defaultval) {
+extern char *AMUDP_getenv_prefixed_withdefault(const char *basekey, const char *defaultval) {
   static int firsttime = 1;
   static int verboseenv = 0;
   char * retval = NULL;

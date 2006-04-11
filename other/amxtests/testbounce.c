@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testbounce.c,v $
- *     $Date: 2006/04/10 04:20:14 $
- * $Revision: 1.8 $
+ *     $Date: 2006/04/11 03:23:45 $
+ * $Revision: 1.9 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -95,13 +95,7 @@ int main(int argc, char **argv) {
   int polling = 1;
   int iters = 0;
 
-  AMX_VerboseErrors = 1;
-
-  CHECKARGS(argc, argv, 1, 2, "iters (Poll/Block)");
-
-  /* call startup */
-  AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            0, &networkpid, &eb, &ep));
+  TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 2, "iters (Poll/Block)");
 
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, LARGE_REQ_HANDLER, large_request_handler));

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testreadwrite.c,v $
- *     $Date: 2006/04/10 04:20:14 $
- * $Revision: 1.7 $
+ *     $Date: 2006/04/11 03:23:45 $
+ * $Revision: 1.8 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,13 +20,7 @@ int main(int argc, char **argv) {
   int k;
   int iters = 0;
 
-  CHECKARGS(argc, argv, 1, 1, "iters");
-
-  AMX_VerboseErrors = 1;
-
-  /* call startup */
-  AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            0, &networkpid, &eb, &ep));
+  TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 1, "iters");
 
   /* setup handlers */
   setupUtilHandlers(ep, eb);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testbulk.c,v $
- *     $Date: 2006/04/10 04:20:14 $
- * $Revision: 1.10 $
+ *     $Date: 2006/04/11 03:23:45 $
+ * $Revision: 1.11 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -75,13 +75,7 @@ int main(int argc, char **argv) {
   uint32_t *srcmem;
   int iters = 0;
 
-  AMX_VerboseErrors = 1;
-
-  CHECKARGS(argc, argv, 1, 4, "iters (bulkmsgsize) (Poll/Block) (Half/Full)");
-
-  /* call startup */
-  AM_Safe(AMX_SPMDStartup(&argc, &argv, 
-                            0, &networkpid, &eb, &ep));
+  TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 4, "iters (bulkmsgsize) (Poll/Block) (Half/Full)");
 
   /* setup handlers */
   AM_Safe(AM_SetHandler(ep, BULK_REQ_HANDLER, bulk_request_handler));
