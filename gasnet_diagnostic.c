@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/04/03 17:40:26 $
- * $Revision: 1.15 $
+ *     $Date: 2006/04/11 02:50:39 $
+ * $Revision: 1.16 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -94,6 +94,7 @@ static int id = 0;
 static void mutex_test(int id);
 static void spinlock_test(int id);
 static void cond_test(int id);
+static void semaphore_test(int id);
 static void malloc_test(int id);
 static void progressfns_test(int id);
 static void op_test(int id);
@@ -148,6 +149,9 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, const char *test
 
   BARRIER();
   spinlock_test(0);
+
+  BARRIER();
+  semaphore_test(0);
 
   BARRIER();
   progressfns_test(0);
@@ -430,6 +434,64 @@ static void spinlock_test(int id) {
   TEST_HEADER("spinlock test - SKIPPED");
 }
 #endif
+/* ------------------------------------------------------------------------------------ */
+static void semaphore_test(int id) {
+  static gasneti_semaphore_t sema1 = GASNETI_SEMAPHORE_INITIALIZER(GASNETI_SEMAPHORE_MAX,0);
+  static gasneti_semaphore_t sema2;
+  static gasneti_atomic_t counter;
+  gasneti_atomic_val_t limit = MIN(1000000, num_threads * iters2);
+  int i;
+
+  PTHREAD_BARRIER(num_threads);
+  TEST_HEADER("semaphore test"); else return;
+
+    if (!id) {
+      if (!gasneti_semaphore_trydown(&sema1))
+        ERR("failed semaphore test: 'down' from GASNETI_SEMAPHORE_MAX failed");
+      gasneti_semaphore_up(&sema1);
+
+      if (gasneti_semaphore_read(&sema1) != GASNETI_SEMAPHORE_MAX)
+        ERR("failed semaphore test: 'up' to GASNETI_SEMAPHORE_MAX failed");
+
+      gasneti_semaphore_init(&sema2, limit, limit);
+      if (!gasneti_semaphore_trydown(&sema2))
+        ERR("failed semaphore test: trydown failed");
+      if (gasneti_semaphore_trydown_n(&sema2,4) != 4)
+        ERR("failed semaphore test: trydown_n failed");
+      if (gasneti_semaphore_trydown_partial(&sema2,5) != 5)
+        ERR("failed semaphore test: trydown_partial failed");
+      gasneti_semaphore_up_n(&sema2,10);
+      if (gasneti_semaphore_read(&sema2) != limit)
+        ERR("failed semaphore test: up/down test failed");
+      gasneti_semaphore_destroy(&sema2);
+      gasneti_semaphore_init(&sema2, limit, limit);
+
+      gasneti_atomic_set(&counter, 0, 0);
+    }
+
+  PTHREAD_BARRIER(num_threads);
+
+    for (i=0;i<iters2;i++) {
+      if (gasneti_semaphore_trydown(&sema1))
+        gasneti_semaphore_up(&sema1);
+    }
+
+  PTHREAD_BARRIER(num_threads);
+
+    while (gasneti_semaphore_trydown(&sema2))
+      gasneti_atomic_increment(&counter, 0);
+    if (gasneti_semaphore_trydown(&sema2))
+        ERR("failed semaphore test: trydown pounding test failed");
+
+  PTHREAD_BARRIER(num_threads);
+
+    if (gasneti_semaphore_read(&sema1) != GASNETI_SEMAPHORE_MAX)
+      ERR("failed semaphore test: trydown/up pounding test failed");
+    if (gasneti_atomic_read(&counter, 0) != limit)
+      ERR("failed semaphore test: trydown pounding test failed");
+
+  PTHREAD_BARRIER(num_threads);
+}
 /* ------------------------------------------------------------------------------------ */
 static int pf_cnt_boolean, pf_cnt_counted;
 static gasnet_hsl_t pf_lock = GASNET_HSL_INITIALIZER;
@@ -722,6 +784,9 @@ static void * thread_fn(void *arg) {
 
   PTHREAD_BARRIER(num_threads);
   spinlock_test(id);
+
+  PTHREAD_BARRIER(num_threads);
+  semaphore_test(id);
 
   PTHREAD_BARRIER(num_threads);
   TEST_HEADER("malloc test") malloc_test(id);
