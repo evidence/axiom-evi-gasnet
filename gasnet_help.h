@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/04/10 21:31:21 $
- * $Revision: 1.87 $
+ *     $Date: 2006/04/11 18:03:54 $
+ * $Revision: 1.88 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -336,7 +336,11 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
     GASNETI_INLINE(gasneti_spinlock_is_valid)
     int gasneti_spinlock_is_valid(gasneti_atomic_t *plock) {
       uint32_t tmp = gasneti_atomic_read(plock, GASNETI_ATOMIC_RMB_PRE);
-      return ((tmp == GASNETI_SPINLOCK_LOCKED) || (tmp == GASNETI_SPINLOCK_UNLOCKED));
+      if_pf (tmp == GASNETI_SPINLOCK_DESTROYED)
+        gasneti_fatalerror("Detected use of destroyed spinlock");
+      if_pf (!((tmp == GASNETI_SPINLOCK_LOCKED) || (tmp == GASNETI_SPINLOCK_UNLOCKED)))
+        gasneti_fatalerror("Detected use of uninitialized or corrupted spinlock");
+      return 1;
     }
     GASNETI_INLINE(gasneti_spinlock_is_locked)
     int gasneti_spinlock_is_locked(gasneti_atomic_t *plock) {
