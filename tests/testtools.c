@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/04/08 02:26:10 $
- * $Revision: 1.48 $
+ *     $Date: 2006/04/12 23:29:11 $
+ * $Revision: 1.49 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -587,18 +587,19 @@ void * thread_fn(void *arg) {
 
     THREAD_BARRIER();
 
+    /* First a pass through w/ WMB and RMB */
     for (i=0;i<iters;i++) {
       gasnett_atomic_set(&atomicX[id], 6*i, GASNETT_ATOMIC_WMB_POST);
       valY[id] = 5*i;
       ly = valY[partner];
       lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
-      if (lx < ly) ERR("pounding fenced set/read mismatch: lx=%i ly=%i", lx, ly);
+      if (lx < ly) ERR("pounding fenced set/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
 
       gasnett_atomic_increment(&atomicX[id], GASNETT_ATOMIC_WMB_POST);
       ++valY[id];
       ly = valY[partner];
       lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
-      if (lx < ly) ERR("pounding fenced dec/read mismatch: lx=%i ly=%i", lx, ly);
+      if (lx < ly) ERR("pounding fenced dec/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
 
       #if defined(GASNETT_HAVE_ATOMIC_COMPARE_AND_SWAP)
       {
@@ -609,7 +610,7 @@ void * thread_fn(void *arg) {
         valY[id]++;
         ly = valY[partner];
         lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
-        if (lx < ly) ERR("pounding fenced c-a-s/read mismatch: lx=%i ly=%i", lx, ly);
+        if (lx < ly) ERR("pounding fenced c-a-s/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
       }
       #endif
 
@@ -620,7 +621,7 @@ void * thread_fn(void *arg) {
         valY[id] += step;
         ly = valY[partner];
         lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
-        if (lx < ly) ERR("pounding fenced add/read mismatch: lx=%i ly=%i", lx, ly);
+        if (lx < ly) ERR("pounding fenced add/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
       }
       #endif
     }
@@ -635,7 +636,7 @@ void * thread_fn(void *arg) {
         gasnett_atomic_subtract(&atomicX[id], step, GASNETT_ATOMIC_REL);
         lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_ACQ);
         ly = valY[partner];
-        if (lx < ly) ERR("pounding fenced sub/read mismatch: lx=%i ly=%i", lx, ly);
+        if (lx < ly) ERR("pounding fenced sub/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
       }
       #endif
 
@@ -648,7 +649,7 @@ void * thread_fn(void *arg) {
 	} while (!gasnett_atomic_compare_and_swap(&atomicX[id], oldval, oldval - 1, GASNETT_ATOMIC_REL));
         lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_ACQ);
         ly = valY[partner];
-        if (lx < ly) ERR("pounding fenced c-a-s/read mismatch: lx=%i ly=%i", lx, ly);
+        if (lx < ly) ERR("pounding fenced c-a-s/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
       }
       #endif
 
@@ -656,13 +657,94 @@ void * thread_fn(void *arg) {
       gasnett_atomic_decrement(&atomicX[id], GASNETT_ATOMIC_REL);
       lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_ACQ);
       ly = valY[partner];
-      if (lx < ly) ERR("pounding fenced dec/read mismatch: lx=%i ly=%i", lx, ly);
+      if (lx < ly) ERR("pounding fenced dec/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
 
       valY[id] = 6*i;
       gasnett_atomic_set(&atomicX[id], 6*i, GASNETT_ATOMIC_REL);
       lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_ACQ);
       ly = valY[partner];
-      if (lx < ly) ERR("pounding fenced set/read mismatch: lx=%i ly=%i", lx, ly);
+      if (lx < ly) ERR("pounding fenced set/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
+    }
+
+    THREAD_BARRIER();
+
+    /* Second pass through w/ MB used for both WMB and RMB */
+    for (i=0;i<iters;i++) {
+      gasnett_atomic_set(&atomicX[id], 6*i, GASNETT_ATOMIC_MB_POST);
+      valY[id] = 5*i;
+      ly = valY[partner];
+      lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_MB_PRE);
+      if (lx < ly) ERR("pounding fenced set/read mismatch (mb/mb): lx=%i ly=%i", lx, ly);
+
+      gasnett_atomic_increment(&atomicX[id], GASNETT_ATOMIC_MB_POST);
+      ++valY[id];
+      ly = valY[partner];
+      lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_MB_PRE);
+      if (lx < ly) ERR("pounding fenced dec/read mismatch (mb/mb): lx=%i ly=%i", lx, ly);
+
+      #if defined(GASNETT_HAVE_ATOMIC_COMPARE_AND_SWAP)
+      {
+	uint32_t oldval;
+	do {
+	  oldval = gasnett_atomic_read(&atomicX[id], 0);
+	} while (!gasnett_atomic_compare_and_swap(&atomicX[id], oldval, oldval + 1, GASNETT_ATOMIC_MB_POST));
+        valY[id]++;
+        ly = valY[partner];
+        lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_MB_PRE);
+        if (lx < ly) ERR("pounding fenced c-a-s/read mismatch (mb/mb): lx=%i ly=%i", lx, ly);
+      }
+      #endif
+
+      #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
+      {
+        int step = i & 4;
+        gasnett_atomic_add(&atomicX[id], step, GASNETT_ATOMIC_MB_POST);
+        valY[id] += step;
+        ly = valY[partner];
+        lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_MB_PRE);
+        if (lx < ly) ERR("pounding fenced add/read mismatch (mb/mb): lx=%i ly=%i", lx, ly);
+      }
+      #endif
+    }
+
+    THREAD_BARRIER();
+
+    for (i=iters-1;i>=0;i--) {
+      #if defined(GASNETT_HAVE_ATOMIC_ADD_SUB)
+      {
+        int step = i & 4;
+        valY[id] -= step;
+        gasnett_atomic_subtract(&atomicX[id], step, GASNETT_ATOMIC_MB_PRE);
+        lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_MB_POST);
+        ly = valY[partner];
+        if (lx < ly) ERR("pounding fenced sub/read mismatch (mb/mb): lx=%i ly=%i", lx, ly);
+      }
+      #endif
+
+      #if defined(GASNETT_HAVE_ATOMIC_COMPARE_AND_SWAP)
+      {
+	uint32_t oldval;
+        valY[id]--;
+	do {
+	  oldval = gasnett_atomic_read(&atomicX[id], 0);
+	} while (!gasnett_atomic_compare_and_swap(&atomicX[id], oldval, oldval - 1, GASNETT_ATOMIC_MB_PRE));
+        lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_MB_POST);
+        ly = valY[partner];
+        if (lx < ly) ERR("pounding fenced c-a-s/read mismatch (mb/mb): lx=%i ly=%i", lx, ly);
+      }
+      #endif
+
+      --valY[id];
+      gasnett_atomic_decrement(&atomicX[id], GASNETT_ATOMIC_MB_PRE);
+      lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_MB_POST);
+      ly = valY[partner];
+      if (lx < ly) ERR("pounding fenced dec/read mismatch (mb/mb): lx=%i ly=%i", lx, ly);
+
+      valY[id] = 6*i;
+      gasnett_atomic_set(&atomicX[id], 6*i, GASNETT_ATOMIC_MB_PRE);
+      lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_MB_POST);
+      ly = valY[partner];
+      if (lx < ly) ERR("pounding fenced set/read mismatch (mb/mb): lx=%i ly=%i", lx, ly);
     }
   }
 
