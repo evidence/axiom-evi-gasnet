@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/12 08:19:08 $
- * $Revision: 1.149 $
+ *     $Date: 2006/04/12 21:16:04 $
+ * $Revision: 1.150 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -586,14 +586,18 @@
 
       GASNETI_INLINE(gasneti_atomic_fetchadd_32)
       uint32_t gasneti_atomic_fetchadd_32(gasneti_atomic_t *v, int32_t op) {
-	uint32_t tmp = op;
+	/* CAUTION: Both PathScale and Intel compilers have been seen to be
+         * rather fragile with respect to this asm template (bug 1563).
+         * Change this at your own risk!
+         */
+	uint32_t retval = op;
         __asm__ __volatile__(
                 GASNETI_X86_LOCK_PREFIX
-		"xaddl %1, %0"
-                : "=m" (v->ctr), "=&r" (tmp)
-                : "1" (tmp), "m" (v->ctr)
+		"xaddl %0, %1"
+                : "=&r" (retval), "=m" (v->ctr)
+                : "0" (retval), "m" (v->ctr)
                 : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-	return tmp;
+	return retval;
       }
 
       /* Default versions of add and subtract */
