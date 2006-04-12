@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/04/10 21:31:21 $
- * $Revision: 1.96 $
+ *     $Date: 2006/04/12 08:19:08 $
+ * $Revision: 1.97 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,6 +26,16 @@
 #include <ctype.h>
 #ifdef HAVE_MALLOC_H
 #include <malloc.h> /* prevent problems with redefinition of malloc on solaris */
+#endif
+
+#ifndef STDIN_FILENO
+  #define STDIN_FILENO 0
+#endif
+#ifndef STDOUT_FILENO
+  #define STDOUT_FILENO 1
+#endif
+#ifndef STDERR_FILENO
+  #define STDERR_FILENO 2
 #endif
 
 GASNETI_BEGIN_EXTERNC

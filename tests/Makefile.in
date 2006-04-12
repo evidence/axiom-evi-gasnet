@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/04/01 05:18:16 $
-# $Revision: 1.80 $
+#     $Date: 2006/04/12 08:19:14 $
+# $Revision: 1.81 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -308,10 +308,17 @@ do-run-testexit: force
 
 # testtools is a special minimal case for an app that just uses GASNet tools
 # specifically, we carefully omit BUILDCONFIG_DEFINES
-@BUILDCONFIG_DEBUG_FALSE@ TOOLS_CPPFLAGS = -DNDEBUG
+@BUILDCONFIG_DEBUG_FALSE@ TESTTOOLS_DEBUGFLAGS = -DNDEBUG
+@HAVE_PTHREAD_TRUE@       TESTTOOLS_THREADFLAGS = -DGASNETT_THREAD_SAFE @GASNET_THREAD_DEFINES@
+@HAVE_PTHREAD_TRUE@       TESTTOOLS_TOOLLIB_NAME = gasnet_tools-par
+@HAVE_PTHREAD_TRUE@       TESTTOOLS_TOOLLIB = -L@TOP_BUILDDIR@ -l$(TESTTOOLS_TOOLLIB_NAME) @GASNET_THREAD_LIBS@
+@HAVE_PTHREAD_FALSE@      TESTTOOLS_TOOLLIB_NAME = gasnet_tools-par
+@HAVE_PTHREAD_FALSE@      TESTTOOLS_TOOLLIB = -L@TOP_BUILDDIR@ -l$(TESTTOOLS_TOOLLIB_NAME)
+TOOLS_CPPFLAGS = $(TOOLS_DEBUGFLAGS) $(TESTTOOLS_THREADFLAGS)
 testtools: force
-	@CC@ @CFLAGS@ @MISC_CFLAGS@ @MISC_CPPFLAGS@ $(GASNET_INCLUDES) @GASNET_THREAD_DEFINES@ $(TOOLS_CPPFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
-	@CC@ @CFLAGS@ @MISC_CFLAGS@ @LDFLAGS@ $(MANUAL_LDFLAGS) -o $@ $@.o @GASNET_THREAD_LIBS@ @LIBS@ @LIBM@ $(MANUAL_LIBS)
+	@$(MAKE) -C .. lib$(TESTTOOLS_TOOLLIB_NAME).a
+	@CC@ @CFLAGS@ @MISC_CFLAGS@ @MISC_CPPFLAGS@ $(GASNET_INCLUDES) $(TOOLS_CPPFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
+	@CC@ @CFLAGS@ @MISC_CFLAGS@ @LDFLAGS@ $(MANUAL_LDFLAGS) -o $@ $@.o $(TESTTOOLS_TOOLLIB) @LIBS@ @LIBM@ $(MANUAL_LIBS)
 	rm -f $@.o
 
 # some tests need delay.o

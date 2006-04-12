@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/04/06 17:15:17 $
- * $Revision: 1.151 $
+ *     $Date: 2006/04/12 08:19:08 $
+ * $Revision: 1.152 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,7 +20,6 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
-#include <signal.h>
 #if HAVE_MALLOC_H
   #include <malloc.h>
 #endif
@@ -28,158 +27,9 @@
   #include <execinfo.h>
 #endif
 
-#ifdef IRIX
-#define signal(a,b) bsd_signal(a,b)
-#endif
-
-#ifndef STDIN_FILENO
-  #define STDIN_FILENO 0
-#endif
-#ifndef STDOUT_FILENO
-  #define STDOUT_FILENO 1
-#endif
-#ifndef STDERR_FILENO
-  #define STDERR_FILENO 2
-#endif
-
 /* set to non-zero for verbose error reporting */
 int gasneti_VerboseErrors = 1;
 
-/* atomics support */
-#ifdef GASNETI_USE_GENERIC_ATOMICOPS
-  gasnet_hsl_t gasneti_atomicop_lock = GASNET_HSL_INITIALIZER;
-  void *gasneti_patomicop_lock = (void*)&gasneti_atomicop_lock;
-  GASNETI_GENERIC_DEC_AND_TEST_DEF
-  #ifdef GASNETI_GENERIC_CAS_DEF
-    GASNETI_GENERIC_CAS_DEF
-  #endif
-  #ifdef GASNETI_GENERIC_ADD_SUB_DEF
-    GASNETI_GENERIC_ADD_SUB_DEF
-  #endif
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-/* call-based atomic support for C compilers with limited inline assembly */
-
-#if defined(GASNETI_ATOMIC_SET_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_set,
-  extern void _gasneti_special_atomic_set()) {
-    GASNETI_ATOMIC_SET_BODY
-  }
-#endif
-#if defined(GASNETI_ATOMIC_READ_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_read,
-  extern void _gasneti_special_atomic_read()) {
-    GASNETI_ATOMIC_READ_BODY
-  }
-#endif
-#if defined(GASNETI_ATOMIC_INCREMENT_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_increment,
-  extern void _gasneti_special_atomic_increment()) {
-    GASNETI_ATOMIC_INCREMENT_BODY
-  }
-#endif
-#if defined(GASNETI_ATOMIC_DECREMENT_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_decrement,
-  extern void _gasneti_special_atomic_decrement()) {
-    GASNETI_ATOMIC_DECREMENT_BODY
-  }
-#endif
-#if defined(GASNETI_ATOMIC_DECREMENT_AND_TEST_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_decrement_and_test,
-  extern void _gasneti_special_atomic_decrement_and_test()) {
-    GASNETI_ATOMIC_DECREMENT_AND_TEST_BODY
-  }
-#endif
-#if defined(GASNETI_ATOMIC_COMPARE_AND_SWAP_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_compare_and_swap,
-  extern void _gasneti_special_atomic_compare_and_swap()) {
-    GASNETI_ATOMIC_COMPARE_AND_SWAP_BODY
-  }
-#endif
-#if defined(GASNETI_ATOMIC_ADD_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_add,
-  extern void _gasneti_special_atomic_add()) {
-    GASNETI_ATOMIC_ADD_BODY
-  }
-#endif
-#if defined(GASNETI_ATOMIC_SUBTRACT_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_subtract,
-  extern void _gasneti_special_atomic_subtract()) {
-    GASNETI_ATOMIC_SUBTRACT_BODY
-  }
-#endif
-#if defined(GASNETI_ATOMIC_FETCHADD_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_fetchadd,
-  extern void _gasneti_special_atomic_fetchadd()) {
-    GASNETI_ATOMIC_FETCHADD_BODY
-  }
-#endif
-#if defined(GASNETI_ATOMIC_ADDFETCH_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_addfetch,
-  extern void _gasneti_special_atomic_addfetch()) {
-    GASNETI_ATOMIC_ADDFETCH_BODY
-  }
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-/* call-based membar/atomic support for C++ compilers which lack inline assembly */
-#if defined(GASNETI_USING_SLOW_ATOMICS) || \
-    defined(GASNETI_USING_SLOW_MEMBARS) || \
-    defined(GASNETI_USING_SLOW_TIMERS)
-#error gasnet_internal.c must be compiled with support for inline assembly
-#endif
-
-#if defined(GASNETI_STATTIME_NOW_BODY)
-  GASNETI_NEVER_INLINE(gasneti_slow_stattime_now,
-  extern void gasneti_slow_stattime_now()) {
-    GASNETI_STATTIME_NOW_BODY
-  }
-#else
-  extern gasneti_stattime_t gasneti_slow_stattime_now() {
-    return GASNETI_STATTIME_NOW();
-  }
-#endif
-extern void gasneti_slow_compiler_fence() {
-  gasneti_compiler_fence();
-}
-extern void gasneti_slow_local_wmb() {
-  gasneti_local_wmb();
-}
-extern void gasneti_slow_local_rmb() {
-  gasneti_local_rmb();
-}
-extern void gasneti_slow_local_mb() {
-  gasneti_local_mb();
-}
-extern uint32_t gasneti_slow_atomic_read(gasneti_atomic_t *p, const int flags) {
-  return gasneti_atomic_read(p,flags);
-}
-extern void gasneti_slow_atomic_set(gasneti_atomic_t *p, uint32_t v, const int flags) {
-  gasneti_atomic_set(p, v, flags);
-}
-extern void gasneti_slow_atomic_increment(gasneti_atomic_t *p, const int flags) {
-  gasneti_atomic_increment(p, flags);
-}
-extern void gasneti_slow_atomic_decrement(gasneti_atomic_t *p, const int flags) {
-  gasneti_atomic_decrement(p, flags);
-}
-extern int gasneti_slow_atomic_decrement_and_test(gasneti_atomic_t *p, const int flags) {
-  return gasneti_atomic_decrement_and_test(p, flags);
-}
-#if defined(GASNETI_HAVE_ATOMIC_CAS)
-  extern int gasneti_slow_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval, const int flags) {
-    return gasneti_atomic_compare_and_swap(p,oldval,newval,flags);
-  }
-#endif
-#if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
-  extern uint32_t gasneti_slow_atomic_add(gasneti_atomic_t *p, uint32_t op, const int flags) {
-    return gasneti_atomic_add(p,op,flags);
-  }
-  extern uint32_t gasneti_slow_atomic_subtract(gasneti_atomic_t *p, uint32_t op, const int flags) {
-    return gasneti_atomic_subtract(p,op,flags);
-  }
-#endif
 /* ------------------------------------------------------------------------------------ */
 
 #if GASNETI_THROTTLE_POLLERS
@@ -204,18 +54,6 @@ GASNETI_IDENT(gasneti_IdentString_SegConfig, "$GASNetSegment: GASNET_SEGMENT_" G
 /* embed a string with complete configuration info to support versioning checks */
 GASNETI_IDENT(gasneti_IdentString_libraryConfig, "$GASNetConfig: (libgasnet.a) " GASNET_CONFIG_STRING " $");
 
-GASNETI_IDENT(gasneti_IdentString_BuildTimestamp, 
-             "$GASNetBuildTimestamp: " __DATE__ " " __TIME__ " $");
-
-GASNETI_IDENT(gasneti_IdentString_BuildID, 
-             "$GASNetBuildId: " GASNETI_BUILD_ID " $");
-GASNETI_IDENT(gasneti_IdentString_ConfigureArgs, 
-             "$GASNetConfigureArgs: " GASNETI_CONFIGURE_ARGS " $");
-GASNETI_IDENT(gasneti_IdentString_SystemTuple, 
-             "$GASNetSystemTuple: " GASNETI_SYSTEM_TUPLE " $");
-GASNETI_IDENT(gasneti_IdentString_SystemName, 
-             "$GASNetSystemName: " GASNETI_SYSTEM_NAME " $");
-
 int gasneti_init_done = 0; /*  true after init */
 int gasneti_attach_done = 0; /*  true after attach */
 extern void gasneti_checkinit() {
@@ -229,8 +67,6 @@ extern void gasneti_checkattach() {
 }
 
 int gasneti_wait_mode = GASNET_WAIT_SPIN;
-
-double *_gasneti_stattime_metric = NULL;
 
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREADMODEL) = 1;
 int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SEGMENT_CONFIG) = 1;
@@ -449,58 +285,6 @@ extern void gasneti_close_streams() {
   if (fclose(stderr)) 
     gasneti_fatalerror("failed to fclose(stderr) in gasnetc_exit: %s", strerror(errno));
   gasneti_sched_yield();
-}
-/* ------------------------------------------------------------------------------------ */
-#if defined(__sgi) || defined(__crayx1)
-#define _SC_NPROCESSORS_ONLN _SC_NPROC_ONLN
-#elif defined(_CRAYT3E)
-#define _SC_NPROCESSORS_ONLN _SC_CRAY_MAXPES
-#elif defined(HPUX)
-#include <sys/param.h>
-#include <sys/pstat.h>
-#elif defined(__APPLE__) || defined(FREEBSD) || defined(NETBSD)
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#endif
-/* return the physical count of CPU's on this node, 
-   or zero if that cannot be determined */
-extern int gasneti_cpu_count() {
-  static int hwprocs = -1;
-  if (hwprocs >= 0) return hwprocs;
-
-  #if defined(__APPLE__) || defined(FREEBSD) || defined(NETBSD)
-      {
-        int mib[2];
-        size_t len;
-
-        mib[0] = CTL_HW;
-        mib[1] = HW_NCPU;
-        len = sizeof(hwprocs);
-        if (sysctl(mib, 2, &hwprocs, &len, NULL, 0)) {
-           perror("sysctl");
-           abort();
-        }
-        if (hwprocs < 1) hwprocs = 0;
-      }
-  #elif defined(HPUX) 
-      {
-        struct pst_dynamic psd;
-        if (pstat_getdynamic(&psd, sizeof(psd), (size_t)1, 0) == -1) {
-          perror("pstat_getdynamic");
-          abort();
-        } else {
-          hwprocs = psd.psd_proc_cnt;
-        }
-      }
-  #elif defined(SUPERUX) || defined(__MTA__)
-      hwprocs = 0; /* appears to be no way to query CPU count on these */
-  #else
-      hwprocs = sysconf(_SC_NPROCESSORS_ONLN);
-      if (hwprocs < 1) hwprocs = 0; /* catch failures on Solaris/Cygwin */
-  #endif
-
-  gasneti_assert_always(hwprocs >= 0);
-  return hwprocs;
 }
 /* ------------------------------------------------------------------------------------ */
 #if HAVE_SCHED_SETAFFINITY

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/04/05 23:27:24 $
- * $Revision: 1.52 $
+ *     $Date: 2006/04/12 08:19:08 $
+ * $Revision: 1.53 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -536,54 +536,9 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
    When measuring an event of length (L) using two surrounding timer calls,
    the measured time interval will be: L + overhead +- granularity
 */
+extern double gasneti_stattime_metric(int idx);
 #define GASNETI_STATTIME_GRANULARITY() gasneti_stattime_metric(0)
 #define GASNETI_STATTIME_OVERHEAD()    gasneti_stattime_metric(1)
-#if defined(_INCLUDED_GASNET_H) 
-  extern double *_gasneti_stattime_metric;
-#else
- #if !defined(__cplusplus)
-  /* use a tentative definition, so all files can share the same metric
-     data structures, and to ensure we pay the timing overhead at most once per run */
-  extern double *_gasneti_stattime_metric;
-  double *_gasneti_stattime_metric; 
- #else
-  /* C++ outlaws tentative definitions, and we have no other place to 
-     reliably place this data in gasnet_tools mode. 
-     So we're forced to place it in each compilation unit and possibly
-     pay one timing overhead for each compilation unit that asks
-   */
-  static double *_gasneti_stattime_metric; 
- #endif
-#endif
-GASNETI_INLINE(gasneti_stattime_metric)
-double gasneti_stattime_metric(unsigned int idx) {
-  gasneti_assert(idx <= 1);
-  if_pf (_gasneti_stattime_metric == NULL) {
-    int i, ticks, iters = 1000, minticks = 10;
-    double *_tmp_metric;
-    gasneti_stattime_t min = GASNETI_STATTIME_MAX;
-    gasneti_stattime_t start = GASNETI_STATTIME_NOW();
-    gasneti_stattime_t last = start;
-    for (i=0,ticks=0; i < iters || ticks < minticks; i++) {
-      gasneti_stattime_t x = GASNETI_STATTIME_NOW();
-      gasneti_stattime_t curr = (x - last);
-      if_pt (curr > 0) { 
-        ticks++;
-        if_pf (curr < min) min = curr;
-      }
-      last = x;
-    }
-    _tmp_metric = (double *)malloc(2*sizeof(double));
-    gasneti_assert(_tmp_metric != NULL);
-    /* granularity */
-    _tmp_metric[0] = ((double)GASNETI_STATTIME_TO_NS(min))/1000.0;
-    /* overhead */
-    _tmp_metric[1] = ((double)(GASNETI_STATTIME_TO_NS(last - start)))/(i*1000.0);
-    gasneti_sync_writes();
-    _gasneti_stattime_metric = _tmp_metric;
-  } else gasneti_sync_reads();
-  return _gasneti_stattime_metric[idx];
-}
 /* ------------------------------------------------------------------------------------ */
 
 GASNETI_END_EXTERNC

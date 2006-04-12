@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/04/08 07:55:14 $
- * $Revision: 1.69 $
+ *     $Date: 2006/04/12 08:19:08 $
+ * $Revision: 1.70 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,6 +16,20 @@
          _both_ headers in ALL files that need either header  
 #endif
 
+/* GASNETT_THREAD_SAFE may be defined by client to enable thread-safety */
+#ifdef GASNETT_THREAD_SAFE
+  #undef GASNETT_THREAD_SAFE
+  #define GASNETT_THREAD_SAFE 1
+  #define GASNETT_THREAD_MODEL PAR
+#elif defined(GASNET_PARSYNC) || defined(GASNET_PAR) || \
+      defined(_REENTRANT) || defined(_THREAD_SAFE) || \
+      defined(PTHREAD_MUTEX_INITIALIZER)
+  #define GASNETT_THREAD_SAFE 1
+  #define GASNETT_THREAD_MODEL PAR
+#else
+  #define GASNETT_THREAD_MODEL SEQ
+#endif
+
 #include <gasnet_config.h>
 #include <gasnet_basic.h>
 
@@ -26,18 +40,19 @@
 /* stub versions of selected gasnet internal macros needed by the headers included below */
 
 #if !defined(_INCLUDED_GASNET_H) 
+  GASNETI_INLINE(gasneti_assert_fail)
+  void gasneti_assert_fail(const char *file, int line, const char *cond) {
+    fprintf(stderr, "*** FATAL ERROR: Assertion failure at %s:%i: %s\n", file, line, cond);
+    abort();
+  }
+  #define gasneti_assert_always(expr) \
+    (PREDICT_TRUE(expr) ? (void)0 : gasneti_assert_fail(__FILE__, __LINE__, #expr))
   #if defined(GASNET_NDEBUG) || defined(NDEBUG)
     #define gasneti_assert(expr) ((void)0)
     #define gasneti_assert_zeroret(op)  (op)
     #define gasneti_assert_nzeroret(op) (op)
   #else
-    GASNETI_INLINE(gasneti_assert_fail)
-    void gasneti_assert_fail(const char *file, int line, const char *cond) {
-      fprintf(stderr, "*** FATAL ERROR: Assertion failure at %s:%i: %s\n", file, line, cond);
-      abort();
-    }
-    #define gasneti_assert(expr) \
-      (PREDICT_TRUE(expr) ? (void)0 : gasneti_assert_fail(__FILE__, __LINE__, #expr))
+    #define gasneti_assert(expr) gasneti_assert_always(expr)
     #define gasneti_assert_zeroret(op) do {                   \
       int _retval = (op);                                     \
       if_pf(_retval) gasneti_assert_fail(__FILE__, __LINE__,  \
@@ -50,7 +65,11 @@
     } while (0)
   #endif
 #endif
-
+#if defined(GASNET_NDEBUG) || defined(NDEBUG)
+  #define GASNETT_DEBUG_CONFIG nodebug
+#else
+  #define GASNETT_DEBUG_CONFIG debug
+#endif
 /* ------------------------------------------------------------------------------------ */
 /* portable memory barriers */
 
@@ -88,7 +107,28 @@
 #define GASNETT_ATOMIC_SIGNED_MIN		GASNETI_ATOMIC_SIGNED_MIN
 #define GASNETT_ATOMIC_SIGNED_MAX		GASNETI_ATOMIC_SIGNED_MAX
 
-#ifdef GASNET_SEQ
+#if GASNETT_THREAD_SAFE
+  /* PAR, PARSYNC and thread-safe tools clients */
+  #define gasnett_atomic_t               gasneti_atomic_t
+  #define gasnett_atomic_read(p,f)       gasneti_atomic_read(p,f)
+  #define gasnett_atomic_init(v)         gasneti_atomic_init(v)
+  #define gasnett_atomic_set(p,v,f)      gasneti_atomic_set(p,v,f)
+  #define gasnett_atomic_increment(p,f)  gasneti_atomic_increment(p,f)
+  #define gasnett_atomic_decrement(p,f)  gasneti_atomic_decrement(p,f)
+  #define gasnett_atomic_decrement_and_test(p,f)  \
+                                         gasneti_atomic_decrement_and_test(p,f)
+  #ifdef GASNETI_HAVE_ATOMIC_CAS
+    #define GASNETT_HAVE_ATOMIC_CAS 1
+    #define gasnett_atomic_compare_and_swap(p,oldval,newval,f)  \
+                                         gasneti_atomic_compare_and_swap(p,oldval,newval,f)
+  #endif
+
+  #ifdef GASNETI_HAVE_ATOMIC_ADD_SUB
+    #define GASNETT_HAVE_ATOMIC_ADD_SUB 1
+    #define gasnett_atomic_add(p,op,f)      gasneti_atomic_add(p,op,f)
+    #define gasnett_atomic_subtract(p,op,f) gasneti_atomic_subtract(p,op,f)
+  #endif
+#else /* GASNET_SEQ and non-thread-safe tools clients */
   /* safe to use weak atomics here, because the client is single-threaded and 
      should only be modifying atomics from the host CPU (using these calls). 
      TODO: consider exposing "signal-safe" atomics (only avail on some platforms)
@@ -112,27 +152,6 @@
     #define gasnett_atomic_add(p,op,f)      gasneti_weakatomic_add(p,op,f)
     #define gasnett_atomic_subtract(p,op,f) gasneti_weakatomic_subtract(p,op,f)
   #endif
-#else
-  /* PAR, PARSYNC and non-libgasnet clients (which may have threads) */
-  #define gasnett_atomic_t               gasneti_atomic_t
-  #define gasnett_atomic_read(p,f)       gasneti_atomic_read(p,f)
-  #define gasnett_atomic_init(v)         gasneti_atomic_init(v)
-  #define gasnett_atomic_set(p,v,f)      gasneti_atomic_set(p,v,f)
-  #define gasnett_atomic_increment(p,f)  gasneti_atomic_increment(p,f)
-  #define gasnett_atomic_decrement(p,f)  gasneti_atomic_decrement(p,f)
-  #define gasnett_atomic_decrement_and_test(p,f)  \
-                                         gasneti_atomic_decrement_and_test(p,f)
-  #ifdef GASNETI_HAVE_ATOMIC_CAS
-    #define GASNETT_HAVE_ATOMIC_CAS 1
-    #define gasnett_atomic_compare_and_swap(p,oldval,newval,f)  \
-                                         gasneti_atomic_compare_and_swap(p,oldval,newval,f)
-  #endif
-
-  #ifdef GASNETI_HAVE_ATOMIC_ADD_SUB
-    #define GASNETT_HAVE_ATOMIC_ADD_SUB 1
-    #define gasnett_atomic_add(p,op,f)      gasneti_atomic_add(p,op,f)
-    #define gasnett_atomic_subtract(p,op,f) gasneti_atomic_subtract(p,op,f)
-  #endif
 #endif
 
 /* tight spin loop CPU hint */
@@ -141,10 +160,12 @@
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
 #define GASNETT_USING_GENERIC_ATOMICOPS
 #endif
+#define GASNETT_ATOMIC_CONFIG         GASNETI_ATOMIC_CONFIG
 #define GASNETT_CONFIG_STRING                    \
        "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) "," \
-       _STRINGIFY(GASNETI_TIMER_CONFIG) ","      \
-       _STRINGIFY(GASNETI_ATOMIC_CONFIG)         
+       _STRINGIFY(GASNETT_THREAD_MODEL) ","      \
+       _STRINGIFY(GASNETT_TIMER_CONFIG) ","      \
+       _STRINGIFY(GASNETT_ATOMIC_CONFIG)         
 
 /* ------------------------------------------------------------------------------------ */
 /* portable high-performance, low-overhead timers */
@@ -159,7 +180,7 @@
 #define gasnett_ticks_now()          GASNETI_STATTIME_NOW()
 #define gasnett_timer_granularityus()   GASNETI_STATTIME_GRANULARITY()
 #define gasnett_timer_overheadus()      GASNETI_STATTIME_OVERHEAD()
-
+#define GASNETT_TIMER_CONFIG         GASNETI_TIMER_CONFIG
 #ifdef GASNETI_USING_GETTIMEOFDAY
 #define GASNETT_USING_GETTIMEOFDAY
 #endif
@@ -267,10 +288,11 @@ GASNETI_BEGIN_EXTERNC
   #define GASNETT_STATS_SETMASK(mask) ((void)0)
 #endif
 
+extern int gasneti_cpu_count();
+#define gasnett_cpu_count() gasneti_cpu_count()
+
 #if defined(_INCLUDED_GASNET_H) 
   /* these tools ONLY available when linking a libgasnet.a */
-  extern int gasneti_cpu_count();
-  #define gasnett_cpu_count() gasneti_cpu_count()
   extern void gasneti_set_affinity(int);
   #define gasnett_set_affinity(r) gasneti_set_affinity(r) 
   #ifdef HAVE_MMAP
@@ -315,7 +337,6 @@ GASNETI_BEGIN_EXTERNC
     #define gasnett_getheapstats(pstat)   gasneti_getheapstats(pstat)
   #endif
 #else
-  #define gasnett_cpu_count()     abort()
   #define gasnett_set_affinity(r) abort()
   #define gasnett_mmap(sz)        abort()
   #define gasnett_flush_streams() abort()
@@ -328,6 +349,29 @@ GASNETI_BEGIN_EXTERNC
   #define gasnett_threadkey_get_noinit(key)         abort()
   #define gasnett_threadkey_set_noinit(key,newval)  abort()
 #endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Build config sanity checking */
+#define GASNETT_LINKCONFIG_IDIOTCHECK(name) _CONCAT(gasnett_linkconfig_idiotcheck_,name)
+extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREADMODEL);
+extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG);
+extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_PTR_CONFIG);
+extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG);
+extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG);
+static int *gasnett_linkconfig_idiotcheck();
+static int *(*_gasnett_linkconfig_idiotcheck)() = &gasnett_linkconfig_idiotcheck;
+static int *gasnett_linkconfig_idiotcheck() {
+  static int val;
+  val +=  GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREADMODEL)
+        + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG)
+        + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_PTR_CONFIG)
+        + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG)
+        + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG)
+        ;
+  if (_gasnett_linkconfig_idiotcheck != gasnett_linkconfig_idiotcheck)
+    val += *_gasnett_linkconfig_idiotcheck();
+  return &val;
+}
 
 /* ------------------------------------------------------------------------------------ */
 

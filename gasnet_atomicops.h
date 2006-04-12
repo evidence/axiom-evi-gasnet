@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/11 22:42:03 $
- * $Revision: 1.148 $
+ *     $Date: 2006/04/12 08:19:08 $
+ * $Revision: 1.149 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -249,27 +249,9 @@
   #elif defined(_REENTRANT) || defined(_THREAD_SAFE) || \
         defined(PTHREAD_MUTEX_INITIALIZER) ||           \
         defined(HAVE_PTHREAD) || defined(HAVE_PTHREAD_H)
-    /* a version for pthreads which is independent of GASNet HSL's 
-       requires the client to #define GASNETT_MAIN in exactly one linked file 
-     */
+    /* a version for pthreads which is independent of GASNet HSL's */
     #include <pthread.h>
     extern pthread_mutex_t gasneti_atomicop_mutex; 
-    extern int gasneti_atomicop_initcheck;
-    #ifdef GASNETT_MAIN
-      pthread_mutex_t gasneti_atomicop_mutex = PTHREAD_MUTEX_INITIALIZER;
-      int gasneti_atomicop_initcheck = 1;
-    #endif
-    #if !defined(NDEBUG) && !defined(GASNET_NDEBUG)
-      #define GASNETI_ATOMICOP_INITCHECK() do {                                          \
-        if (!gasneti_atomicop_initcheck) {                                               \
-          fprintf(stderr, "ERROR: on this platform, gasnet_tools.h "                     \
-           "requires exactly one file to #define GASNETT_MAIN in order to use atomics"); \
-          abort();                                                                       \
-        }                                                                                \
-      } while (0)
-    #else
-      #define GASNETI_ATOMICOP_INITCHECK() ((void)0)
-    #endif
     /* intentionally make these a different size than regular 
        GASNet atomics, to cause a link error on attempts to mix them
      */
@@ -277,19 +259,16 @@
     #define _gasneti_atomic_read(p)      ((p)->ctr)
     #define _gasneti_atomic_init(v)      { (v) }
     #define _gasneti_atomic_set(p,v) do {              \
-        GASNETI_ATOMICOP_INITCHECK();                  \
         pthread_mutex_lock(&gasneti_atomicop_mutex);   \
         (p)->ctr = (v);                                \
         pthread_mutex_unlock(&gasneti_atomicop_mutex); \
       } while (0)
     #define _gasneti_atomic_increment(p) do {          \
-        GASNETI_ATOMICOP_INITCHECK();                  \
         pthread_mutex_lock(&gasneti_atomicop_mutex);   \
         ((p)->ctr)++;                                  \
         pthread_mutex_unlock(&gasneti_atomicop_mutex); \
       } while (0)
     #define _gasneti_atomic_decrement(p) do {          \
-        GASNETI_ATOMICOP_INITCHECK();                  \
         pthread_mutex_lock(&gasneti_atomicop_mutex);   \
         ((p)->ctr)--;                                  \
         pthread_mutex_unlock(&gasneti_atomicop_mutex); \
@@ -297,7 +276,6 @@
     GASNETI_INLINE(_gasneti_atomic_decrement_and_test_32)
     int _gasneti_atomic_decrement_and_test_32(gasneti_atomic_t *p) {
       uint32_t newval;
-      GASNETI_ATOMICOP_INITCHECK();
       pthread_mutex_lock(&gasneti_atomicop_mutex);
       newval = p->ctr - 1;
       p->ctr = newval;
@@ -310,7 +288,6 @@
     int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, 
                            uint32_t oldval, uint32_t newval) {
       int retval;
-      GASNETI_ATOMICOP_INITCHECK();
       pthread_mutex_lock(&gasneti_atomicop_mutex);
       retval = (p->ctr == oldval);
       if_pt (retval) {
@@ -324,7 +301,6 @@
     GASNETI_INLINE(gasneti_atomic_addfetch_32)
     uint32_t gasneti_atomic_addfetch_32(gasneti_atomic_t *p, int32_t op) {
       uint32_t retval;
-      GASNETI_ATOMICOP_INITCHECK();
       pthread_mutex_lock(&gasneti_atomicop_mutex);
       retval = (((p)->ctr) += op);
       pthread_mutex_unlock(&gasneti_atomicop_mutex);

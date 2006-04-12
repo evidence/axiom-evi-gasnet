@@ -29,10 +29,12 @@ LIBDEFINES =                        \
         -DGASNET_$(THREAD_MODEL)    \
         @BUILDCONFIG_DEFINES@       \
 
+@BUILDCONFIG_DEBUG_FALSE@ TOOLLIB_DEBUGFLAGS = -DNDEBUG
 TOOLLIBCFLAGS =                   \
         @CFLAGS@                  \
         @MISC_CFLAGS@             \
         $(TOOLLIBDEFINES)         \
+	$(TOOLLIB_DEBUGFLAGS)     \
 	$(TOOLLIBINCLUDES)	  \
 	$(MANUAL_LIBCFLAGS)
 
@@ -45,7 +47,7 @@ LIBCFLAGS =                       \
 	$(MANUAL_LIBCFLAGS)
 
 libgasnet_tools_sources =           \
-	$(top_srcdir)/gasnet_tools_dummy.c	  
+	$(top_srcdir)/gasnet_tools.c	  
 
 libgasnet_sources =            		  \
 	$(CONDUIT_SOURCELIST) 		  \
