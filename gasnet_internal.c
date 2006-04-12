@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/04/12 08:19:08 $
- * $Revision: 1.152 $
+ *     $Date: 2006/04/12 08:53:47 $
+ * $Revision: 1.153 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,11 +20,16 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 
+#include <signal.h>
 #if HAVE_MALLOC_H
   #include <malloc.h>
 #endif
 #if HAVE_EXECINFO_H
   #include <execinfo.h>
+#endif
+
+#ifdef IRIX
+#define signal(a,b) bsd_signal(a,b)
 #endif
 
 /* set to non-zero for verbose error reporting */
