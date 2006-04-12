@@ -222,7 +222,7 @@ Makefile: $(srcdir)/Makefile.am 			\
           $(top_builddir)/other/Makefile-conduit.mak 	\
           $(top_builddir)/other/Makefile-libgasnet.mak 	\
           $(top_builddir)/tests/Makefile
-	cd $(top_builddir) && CONFIG_FILES=$@ CONFIG_HEADERS= ./config.status
+	cd $(top_builddir) && CONFIG_FILES=$(CONDUIT_NAME)-conduit/$@ CONFIG_HEADERS= ./config.status
 
 make_fragment_deps = conduit.mak $(top_builddir)/other/fragment-head.mak $(top_builddir)/other/fragment-body.mak
 
