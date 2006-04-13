@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/04/12 23:29:11 $
- * $Revision: 1.49 $
+ *     $Date: 2006/04/13 00:18:57 $
+ * $Revision: 1.50 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -537,13 +537,12 @@ void * thread_fn(void *arg) {
   }
 
   TEST_HEADER("parallel membar test...") {
-    valX[id] = 0;
-    valY[id] = 0;
-
-    THREAD_BARRIER();
-
     { int partner = (id + 1) % NUM_THREADS;
       int lx, ly;
+
+      valX[id] = 0;
+      valY[id] = 0;
+      THREAD_BARRIER();
       for (i=0;i<iters2;i++) {
         valX[id] = i;
         gasnett_local_wmb();
@@ -554,15 +553,29 @@ void * thread_fn(void *arg) {
         lx = valX[partner];
         if (lx < ly) ERR("mismatch in gasnett_local_wmb/gasnett_local_rmb test: lx=%i ly=%i", lx, ly);
       }
+
+      THREAD_BARRIER();
+      for (i=0;i<iters2;i++) {
+        valX[id] = i + iters2;
+        gasnett_local_mb();
+        valY[id] = i + iters2;
+
+        ly = valY[partner];
+        gasnett_local_mb();
+        lx = valX[partner];
+        if (lx < ly) ERR("mismatch in gasnett_local_mb/gasnett_local_mb test: lx=%i ly=%i", lx, ly);
+      }
     }
   }
 
   #if defined(GASNETT_HAVE_ATOMIC_CAS)
     TEST_HEADER("parallel compare-and-swap test...") {
       static gasnett_atomic_t counter2 = gasnett_atomic_init(0);
+      static uint32_t shared_counter = 0;
       uint32_t goal = (NUM_THREADS * iters);
       uint32_t woncnt = 0;
       uint32_t oldval;
+
       while (woncnt < iters &&
              (oldval = gasnett_atomic_read(&counter2,0)) != goal) {
         if (gasnett_atomic_compare_and_swap(&counter2, oldval, (oldval + 1), 0)) {
@@ -575,6 +588,32 @@ void * thread_fn(void *arg) {
         ERR("failed compare-and-swap test: counter=%i expecting=%i", (int)oldval, (int)goal);
       if (woncnt != iters) 
         ERR("failed compare-and-swap test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
+
+      /* Now try spinlock construct */
+      THREAD_BARRIER();
+      for (i=0;i<iters;i++) {
+	while (!gasnett_atomic_compare_and_swap(&counter2, oldval, 12345, 0)) {};
+        gasnett_local_rmb(); /* Acquire */
+	shared_counter ++;
+        gasnett_local_wmb(); /* Release */
+        gasnett_atomic_set(&counter2, oldval, 0);
+      }
+      THREAD_BARRIER();
+      if (shared_counter != goal)
+        ERR("failed compare-and-swap spinlock (rmb/wmb) test: counter=%i expecting=%i", (int)shared_counter, (int)goal);
+
+      /* Now try spinlock construct using mb() */
+      THREAD_BARRIER();
+      for (i=0;i<iters;i++) {
+	while (!gasnett_atomic_compare_and_swap(&counter2, oldval, 12345, 0)) {};
+        gasnett_local_mb(); /* Acquire */
+	shared_counter --;
+        gasnett_local_mb(); /* Release */
+        gasnett_atomic_set(&counter2, oldval, 0);
+      }
+      THREAD_BARRIER();
+      if (shared_counter != 0)
+        ERR("failed compare-and-swap spinlock (mb/mb) test: counter=%i expecting=0", (int)shared_counter);
     }
   #endif
 
