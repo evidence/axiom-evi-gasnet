@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/04/13 01:38:23 $
- * $Revision: 1.99 $
+ *     $Date: 2006/04/13 01:57:59 $
+ * $Revision: 1.100 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -268,12 +268,17 @@
    #pragma reg_killed_by _gasneti_do_wmb
    #define gasneti_local_wmb() _gasneti_do_wmb()
 
-   #pragma mc_func _gasneti_do_rmb { \
-     /* XXX: lwsync is faster than isync on some CPUs and slower on others */ \
-     "4c00012c" /* isync (instruction sync to squash speculative loads) */    \
-   }
-   #pragma reg_killed_by _gasneti_do_rmb
-   #define gasneti_local_rmb() _gasneti_do_rmb()
+   /* XXX: on G5 (and nowhere else so far)  lwsync is faster than isync */
+   #ifdef GASNETI_PPC_LWSYNC_IS_RMB
+     #define gasneti_local_rmb() _gasneti_do_wmb()
+     #define GASNETI_RMB_IS_MB
+   #else
+     #pragma mc_func _gasneti_do_rmb { \
+       "4c00012c" /* isync (instruction sync to squash speculative loads) */    \
+     }
+     #pragma reg_killed_by _gasneti_do_rmb
+     #define gasneti_local_rmb() _gasneti_do_rmb()
+   #endif
 
    #define gasneti_local_mb() _gasneti_do_wmb()
    #define GASNETI_WMB_IS_MB
@@ -288,12 +293,17 @@
      GASNETI_ASM(".long 0x7c2004ac"); /* "lwsync" = "sync 1", executed as "sync" on older CPUs */
    }
 
-   GASNETI_INLINE(_gasneti_local_rmb)
-   void _gasneti_local_rmb(void) {
-     /* XXX: on G5 (and nowhere else so far)  lwsync is faster than isync */
-     GASNETI_ASM("isync");
-   }
-   #define gasneti_local_rmb() _gasneti_local_rmb()
+   /* XXX: on G5 (and nowhere else so far)  lwsync is faster than isync */
+   #ifdef GASNETI_PPC_LWSYNC_IS_RMB
+     #define gasneti_local_rmb() gasneti_local_wmb()
+     #define GASNETI_RMB_IS_MB
+   #else
+     GASNETI_INLINE(_gasneti_local_rmb)
+     void _gasneti_local_rmb(void) {
+       GASNETI_ASM("isync");
+     }
+     #define gasneti_local_rmb() _gasneti_local_rmb()
+   #endif
 
    #define gasneti_local_mb() gasneti_local_wmb()
    #define GASNETI_WMB_IS_MB
