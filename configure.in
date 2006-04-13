@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/04/11 20:06:03 $
-# $Revision: 1.341 $
+#     $Date: 2006/04/13 02:26:13 $
+# $Revision: 1.342 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.341 $)
+AC_REVISION($Revision: 1.342 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -809,6 +809,22 @@ AC_SUBST(PTHREADS)
 ## Solaris threads
 
 AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
+
+########################################################################
+## CPU feature checks
+
+## Look for G5
+if expr "$target_cpu" : powerpc >/dev/null; then
+  case "$target_os" in
+     aix*) ;; # Don't have a sure-fire check yet
+   linux*) if grep PPC970 /proc/cpuinfo >/dev/null 2>&1; then
+             AC_DEFINE(GASNETI_PPC_LWSYNC_IS_RMB)
+           fi ;;
+  darwin*) if expr `/usr/sbin/sysctl hw.cpusubtype | cut '-d ' -f2` = '100'; then
+             AC_DEFINE(GASNETI_PPC_LWSYNC_IS_RMB)
+           fi ;;
+  esac
+fi
 
 ## Spinloop hints
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -D_IN_CONFIGURE")
