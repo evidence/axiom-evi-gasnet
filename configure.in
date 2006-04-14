@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/04/13 20:18:49 $
-# $Revision: 1.343 $
+#     $Date: 2006/04/14 00:21:05 $
+# $Revision: 1.344 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.343 $)
+AC_REVISION($Revision: 1.344 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -816,18 +816,27 @@ AC_CHECK_LIB(thread, thr_create, have_solthread=yes, have_solthread=no)
 ## Look for PPC970/PPC970FX (aka G5)
 # Both false positives and false negatives are safe, but getting this
 # wrong may hurt performance.
-if expr "$target_cpu" : powerpc >/dev/null; then
+GASNET_IF_ENABLED_WITH_AUTO(tune-ppc970, Enable/disable tuning for PPC970 (aka G5) (auto-detected),
+  enabled_ppc970=yes, enabled_ppc970=no, enabled_ppc970=probe)
+if expr "$enabled_ppc970@$cross_compiling@$target_cpu" : "probe@no@powerpc" >/dev/null; then
+  AC_MSG_CHECKING(whether to tune for PPC970/G5)
   case "$target_os" in
      aix*) if /usr/sbin/lsattr -l proc0 -E | grep -i PowerPC_970 >/dev/null 2>&1; then
-             AC_DEFINE(GASNETI_ARCH_PPC970)
+             enabled_ppc970=yes
            fi ;;
    linux*) if grep -i PPC970 /proc/cpuinfo >/dev/null 2>&1; then
-             AC_DEFINE(GASNETI_ARCH_PPC970)
+             enabled_ppc970=yes
            fi ;;
   darwin*) if test `/usr/sbin/sysctl hw.cpusubtype | cut '-d ' -f2` = '100'; then
-             AC_DEFINE(GASNETI_ARCH_PPC970)
+             enabled_ppc970=yes
            fi ;;
+	*) enabled_ppc970=no
+	   ;;
   esac
+  AC_MSG_RESULT($enabled_ppc970)
+fi
+if test "$enabled_ppc970" = yes; then
+  AC_DEFINE(GASNETI_TUNE_PPC970)
 fi
 
 ## Spinloop hints

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/04/13 20:18:49 $
- * $Revision: 1.101 $
+ *     $Date: 2006/04/14 00:21:05 $
+ * $Revision: 1.102 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -269,7 +269,7 @@
    #define gasneti_local_wmb() _gasneti_do_wmb()
 
    /* On PPC970 (and nowhere else so far)  lwsync is faster than isync */
-   #ifdef GASNETI_ARCH_PPC970
+   #ifdef GASNETI_TUNE_PPC970
      #define gasneti_local_rmb() _gasneti_do_wmb()
      #define GASNETI_RMB_IS_MB
    #else
@@ -294,7 +294,7 @@
    }
 
    /* On PPC970 (and nowhere else so far)  lwsync is faster than isync */
-   #ifdef GASNETI_ARCH_PPC970
+   #ifdef GASNETI_TUNE_PPC970
      #define gasneti_local_rmb() gasneti_local_wmb()
      #define GASNETI_RMB_IS_MB
    #else
