@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/04/12 08:53:47 $
- * $Revision: 1.153 $
+ *     $Date: 2006/04/15 02:30:44 $
+ * $Revision: 1.154 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -114,7 +114,7 @@
 #if defined(GASNETI_USING_SLOW_ATOMICS) || \
     defined(GASNETI_USING_SLOW_MEMBARS) || \
     defined(GASNETI_USING_SLOW_TIMERS)
-#error gasnet_internal.c must be compiled with support for inline assembly
+#error gasnet_tools.c must be compiled with support for inline assembly
 #endif
 
 #if defined(GASNETI_STATTIME_NOW_BODY)
