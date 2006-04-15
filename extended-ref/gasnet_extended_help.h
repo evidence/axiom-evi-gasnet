@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/04/11 18:04:33 $
- * $Revision: 1.35 $
+ *     $Date: 2006/04/15 00:15:48 $
+ * $Revision: 1.36 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -178,15 +178,11 @@ typedef union {
     gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));       \
     switch (nbytes) {                                                              \
       case 1: return (gasnet_register_value_t)((gasnete_anytype8_t *)(src))->u8;   \
-        break;                                                                     \
     OMIT_WHEN_MISSING_16BIT(                                                       \
       case 2: return (gasnet_register_value_t)((gasnete_anytype16_t *)(src))->u16; \
-        break;                                                                     \
     )                                                                              \
       case 4: return (gasnet_register_value_t)((gasnete_anytype32_t *)(src))->u32; \
-        break;                                                                     \
       case 8: return (gasnet_register_value_t)((gasnete_anytype64_t *)(src))->u64; \
-        break;                                                                     \
       default: { /* no such native nbytes integral type */                         \
           gasnet_register_value_t result = 0;                                      \
           memcpy(GASNETE_STARTOFBITS(&result,nbytes), src, nbytes);                \

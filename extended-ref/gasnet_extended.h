@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended.h,v $
- *     $Date: 2006/03/19 02:08:00 $
- * $Revision: 1.36 $
+ *     $Date: 2006/04/15 00:15:48 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -776,6 +776,10 @@ gasnet_register_value_t gasnet_wait_syncnb_valget (gasnet_valget_handle_t handle
   ==================
 */
 
+#ifdef __SUNPRO_C
+  #pragma error_messages(off, E_END_OF_LOOP_CODE_NOT_REACHED)
+#endif
+
 #if !defined(gasnete_get_val) && GASNETI_DIRECT_GET_VAL
   extern gasnet_register_value_t gasnete_get_val (gasnet_node_t node, void *src, size_t nbytes GASNETE_THREAD_FARG);
 #endif
@@ -802,6 +806,9 @@ gasnet_register_value_t _gasnet_get_val (gasnet_node_t node, void *src, size_t n
 #define gasnet_get_val(node,src,nbytes) \
        _gasnet_get_val(node,src,nbytes GASNETE_THREAD_GET)
 
+#ifdef __SUNPRO_C
+  #pragma error_messages(default, E_END_OF_LOOP_CODE_NOT_REACHED)
+#endif
 /* ------------------------------------------------------------------------------------ */
 /*
   Barriers:

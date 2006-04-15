@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/04/08 07:55:14 $
- * $Revision: 1.64 $
+ *     $Date: 2006/04/15 00:15:46 $
+ * $Revision: 1.65 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -112,6 +112,8 @@
   #define GASNETI_PRAGMA(x) /* despite the docs, not supported in MIPSPro C++ */
 #elif defined(__DECC_VER) && __DECC_VER < 60590207
   #define GASNETI_PRAGMA(x) /* not supported in older versions (60490014) */
+#elif defined(__SUNPRO_C) && __SUNPRO_C < 0x570
+  #define GASNETI_PRAGMA(x) /* not supported in older versions (550 fails, 570 works) */
 #else
   #define GASNETI_PRAGMA(x) _Pragma ( #x )
 #endif
