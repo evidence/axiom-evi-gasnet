@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/04/12 21:04:32 $
-# $Revision: 1.82 $
+#     $Date: 2006/04/15 09:57:40 $
+# $Revision: 1.83 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -312,7 +312,7 @@ do-run-testexit: force
 @HAVE_PTHREAD_TRUE@       TESTTOOLS_THREADFLAGS = -DGASNETT_THREAD_SAFE @GASNET_THREAD_DEFINES@
 @HAVE_PTHREAD_TRUE@       TESTTOOLS_TOOLLIB_NAME = gasnet_tools-par
 @HAVE_PTHREAD_TRUE@       TESTTOOLS_TOOLLIB = -L@TOP_BUILDDIR@ -l$(TESTTOOLS_TOOLLIB_NAME) @GASNET_THREAD_LIBS@
-@HAVE_PTHREAD_FALSE@      TESTTOOLS_TOOLLIB_NAME = gasnet_tools-par
+@HAVE_PTHREAD_FALSE@      TESTTOOLS_TOOLLIB_NAME = gasnet_tools-seq
 @HAVE_PTHREAD_FALSE@      TESTTOOLS_TOOLLIB = -L@TOP_BUILDDIR@ -l$(TESTTOOLS_TOOLLIB_NAME)
 TOOLS_CPPFLAGS = $(TESTTOOLS_DEBUGFLAGS) $(TESTTOOLS_THREADFLAGS)
 testtools: force

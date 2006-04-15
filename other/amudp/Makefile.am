@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2006/04/12 08:19:12 $
-# $Revision: 1.34 $
+#     $Date: 2006/04/15 09:57:38 $
+# $Revision: 1.35 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -97,7 +97,7 @@ testprograms =    		\
 
 tests: apputils.o $(testprograms)
 
-test%: test%.o apputils.o libamudp.a 
+test%: test%.o apputils.o $(top_builddir)/libgasnet_tools-seq.a libamudp.a
 	$(link) -o $@ $< apputils.o -L. -lamudp $(linkend)
 
 tests-clean:
@@ -111,7 +111,7 @@ test%.o : $(testdir)/test%.c $(testdir)/*.h $(headers)
 apputils.o : $(testdir)/apputils.c $(testdir)/apputils.h $(headers)
 	$(compile) -DAMUDP -I$(testdir) -c $(testdir)/apputils.c -o apputils.o
 
-amudprun$(EXEEXT): amudprun.o $(headers) libamudp.a 
+amudprun$(EXEEXT): amudprun.o $(headers) $(top_builddir)/libgasnet_tools-seq.a libamudp.a
 	$(link) -o $@ $< -L. -lamudp $(linkend)
 
 %.o: %.c $(headers)
@@ -119,6 +119,9 @@ amudprun$(EXEEXT): amudprun.o $(headers) libamudp.a
 
 %.o: %.cpp $(headers)
 	$(cxxcompile) -o $@ -c $<
+
+$(top_builddir)/libgasnet_tools-seq.a:
+	@$(MAKE) -C $(top_builddir) libgasnet_tools-seq.a
 
 if USE_UDP_CONDUIT
 if GNU_NM
