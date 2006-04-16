@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/04/01 19:51:16 $
- * $Revision: 1.85 $
+ *     $Date: 2006/04/16 10:52:11 $
+ * $Revision: 1.86 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -210,14 +210,14 @@ static char test_sections[255];
 /* ------------------------------------------------------------------------------------ */
 /* timing - TIME() returns a microsecond time-stamp */
 
+static int64_t mygetMicrosecondTimeStamp(void) {
+    int64_t retval;
+    struct timeval tv;
+    check_zeroret(gettimeofday(&tv, NULL));
+    retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
+    return retval;
+}
 #ifdef FORCE_GETTIMEOFDAY
-  static int64_t mygetMicrosecondTimeStamp(void) {
-      int64_t retval;
-      struct timeval tv;
-      check_zeroret(gettimeofday(&tv, NULL));
-      retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
-      return retval;
-  }
   #define TIME() mygetMicrosecondTimeStamp()
 #else
   #define TIME() gasnett_ticks_to_us(gasnett_ticks_now()) 

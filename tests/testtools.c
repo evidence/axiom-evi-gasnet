@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/04/13 00:18:57 $
- * $Revision: 1.50 $
+ *     $Date: 2006/04/16 10:52:11 $
+ * $Revision: 1.51 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,6 +53,7 @@ void *test_dummy3(void) { return malloc(1); }
 GASNETT_INLINE(test_dummy4) GASNETT_MALLOC
 void *test_dummy4(void) { return malloc(1); }
 GASNETT_END_EXTERNC
+double volatile d_junk = 0;
 
 GASNETT_EXTERNC
 void test_dummy5(void) { }
@@ -107,19 +108,36 @@ int main(int argc, char **argv) {
     if (!(gasnett_ticks_now() > ticktimemin)) ERR("!(now > min)");
     if (!(gasnett_ticks_now() < ticktimemax)) ERR("!(now < max)");
 
-    for (i=0; i < 3; i++) {
+    for (i=0; i < iters/10; i++) {
       int time, timeref;
       start = gasnett_ticks_now();
-      startref = TIME();
-        sleep(1);
+      startref = mygetMicrosecondTimeStamp();
+      if (i % (iters/3) == 0) sleep(1); /* sleep wait */
+      else { /* busy wait */
+        gasnett_tick_t last = gasnett_ticks_now();
+        while (gasnett_ticks_to_us(last-start) < 100000) {
+          gasnett_tick_t next = gasnett_ticks_now();
+          if (next < last) 
+            ERR("gasnett_ticks_to_us not monotonic! !(%llu <= %llu)",
+                 (unsigned long long)last, (unsigned long long)next);
+          if (next <= GASNETT_TICK_MIN) 
+            ERR("gasnett_ticks_to_us()=%llu <= GASNETT_TICK_MIN=%llu",
+                 (unsigned long long)next, (unsigned long long)GASNETT_TICK_MIN);
+          if (next >= GASNETT_TICK_MAX) 
+            ERR("gasnett_ticks_to_us()=%llu >= GASNETT_TICK_MAX=%llu",
+                 (unsigned long long)next, (unsigned long long)GASNETT_TICK_MAX);
+          d_junk *= 1.0001;
+          last = next;
+        }
+      }
       end = gasnett_ticks_now();
-      endref = TIME();
+      endref = mygetMicrosecondTimeStamp();
 
       time = gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start);
       timeref = endref - startref;
 
-      if (abs(timeref - time) > 100000)
-        ERR("timer and reference differ by more than 0.1sec:\n"
+      if (abs(timeref - time) > 10000)
+        ERR("timer and reference differ by more than 0.01sec:\n"
                "\ttime=%i  timeref=%i\n",time,timeref);
 
       if (abs( (gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start)) - 
@@ -131,16 +149,15 @@ int main(int argc, char **argv) {
         ERR("ticks_to_ns(A)/1000 != ticks_to_us(A)");
 
     }
-    {
-      double overhead = gasnett_timer_overheadus();
-      double granularity = gasnett_timer_granularityus();
-      if (granularity <= 0.0 || overhead <= 0.0 ||
-          (granularity+0.1) < 0.5*overhead) 
-          /* allow some leeway for noise at granularities approaching cycle speed */
-          /*granularity < 0.5*overhead)*/
-          ERR("nonsensical timer overhead/granularity measurements:\n"
-               "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
-    }
+  }
+  { double overhead = gasnett_timer_overheadus();
+    double granularity = gasnett_timer_granularityus();
+    if (granularity <= 0.0 || overhead <= 0.0 ||
+        (granularity+0.1) < 0.5*overhead) 
+        /* allow some leeway for noise at granularities approaching cycle speed */
+        /*granularity < 0.5*overhead)*/
+        ERR("nonsensical timer overhead/granularity measurements:\n"
+             "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
   }
 
   TEST_HEADER("Testing local membar...")
