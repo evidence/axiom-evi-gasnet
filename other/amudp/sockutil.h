@@ -1,11 +1,13 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.h,v $
-//     $Date: 2006/04/11 03:23:43 $
-// $Revision: 1.4 $
+//     $Date: 2006/04/16 09:28:42 $
+// $Revision: 1.5 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
 #ifndef SOCKUTIL_H
 #define SOCKUTIL_H
+
+#include <portable_inttypes.h>
 
 #include "socket.h"
 #include "sockaddr.h"
