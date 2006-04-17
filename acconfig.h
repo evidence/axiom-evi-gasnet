@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/04/14 00:21:05 $ */
-/*  $Revision: 1.90 $ */
+/*      $Date: 2006/04/17 22:00:55 $ */
+/*  $Revision: 1.91 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -159,6 +159,14 @@
 
 /* Type to use as socklen_t */
 #undef GASNET_SOCKLEN_T
+
+/* GASNet build configuration */
+#undef GASNET_DEBUG
+#undef GASNET_NDEBUG
+#undef GASNET_TRACE
+#undef GASNET_STATS
+#undef GASNET_SRCLINES
+#undef GASNET_DEBUG_VERBOSE
 
 /* GASNet segment definition */
 #undef GASNET_SEGMENT_FAST

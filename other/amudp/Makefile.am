@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2006/04/15 09:57:38 $
-# $Revision: 1.35 $
+#     $Date: 2006/04/17 22:01:01 $
+# $Revision: 1.36 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -16,13 +16,19 @@ else
   apputils_flags = -DAPPUTILS_OMIT_READWRITE
 endif
 
+if BUILDCONFIG_DEBUG
+  BUILDCONFIG_DEFINES = -DAMUDP_DEBUG=1
+else
+  BUILDCONFIG_DEFINES = -DAMUDP_NDEBUG=1
+endif
+
 CC  = @CC@
 CFLAGS = @CFLAGS@ @MISC_CFLAGS@ $(MANUAL_CFLAGS) $(apputils_flags)
 CXX = @CXX@
 CXXFLAGS = @CXXFLAGS@ @MISC_CXXFLAGS@ $(MANUAL_CXXFLAGS)
 LDFLAGS = @LDFLAGS@ $(MANUAL_LDFLAGS)
 
-platform_defines = @GASNET_MACHINE_DEFINES@ @BUILDCONFIG_DEFINES@ @INTTYPES_DEFINES@ -DAMUDP_ENV_PREFIX=GASNET $(MANUAL_DEFINES)
+platform_defines = @GASNET_MACHINE_DEFINES@ $(BUILDCONFIG_DEFINES) @INTTYPES_DEFINES@ -DAMUDP_ENV_PREFIX=GASNET $(MANUAL_DEFINES)
 
 platform_libraries = -L$(top_builddir) -lgasnet_tools-seq @LIBS@ @GASNET_UDP_LIBS@
 

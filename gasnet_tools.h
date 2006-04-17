@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/04/15 02:30:44 $
- * $Revision: 1.71 $
+ *     $Date: 2006/04/17 22:00:55 $
+ * $Revision: 1.72 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -52,7 +52,7 @@
   }
   #define gasneti_assert_always(expr) \
     (PREDICT_TRUE(expr) ? (void)0 : gasneti_assert_fail(__FILE__, __LINE__, #expr))
-  #if defined(GASNET_NDEBUG) || defined(NDEBUG)
+  #if defined(GASNET_NDEBUG)
     #define gasneti_assert(expr) ((void)0)
     #define gasneti_assert_zeroret(op)  (op)
     #define gasneti_assert_nzeroret(op) (op)
@@ -70,7 +70,7 @@
     } while (0)
   #endif
 #endif
-#if defined(GASNET_NDEBUG) || defined(NDEBUG)
+#if defined(GASNET_NDEBUG)
   #define GASNETT_DEBUG_CONFIG nodebug
 #else
   #define GASNETT_DEBUG_CONFIG debug
@@ -168,6 +168,7 @@
 #define GASNETT_ATOMIC_CONFIG         GASNETI_ATOMIC_CONFIG
 #define GASNETT_CONFIG_STRING                    \
        "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) "," \
+       _STRINGIFY(GASNETT_DEBUG_CONFIG) ","      \
        _STRINGIFY(GASNETT_THREAD_MODEL) ","      \
        _STRINGIFY(GASNETT_TIMER_CONFIG) ","      \
        _STRINGIFY(GASNETT_ATOMIC_CONFIG)         

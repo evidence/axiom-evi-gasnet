@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/03/19 02:07:54 $
- * $Revision: 1.44 $
+ *     $Date: 2006/04/17 22:00:55 $
+ * $Revision: 1.45 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -20,10 +20,12 @@
 #endif
 
 /* Usage:
-   see the GASNet specification for details on how to use the GASNet interface
-   clients should #define GASNET_NDEBUG when compiling this implementation for production use
-     or #define GASNET_DEBUG for extra debugging safety checks
+   see the GASNet specification and top-level README for details on how to use the GASNet interface
+   clients should use the automatically-generated Makefile *.mak fragments to get the correct compile settings
 */
+
+/* autoconf-generated configuration header */
+#include <gasnet_config.h>
 
 /* ------------------------------------------------------------------------------------ */
 /* check threading configuration */
@@ -51,7 +53,7 @@
 #endif
 
 #if !((defined(GASNET_DEBUG) && !defined(GASNET_NDEBUG)) || (!defined(GASNET_DEBUG) && defined(GASNET_NDEBUG)))
-  #error Client code #define exactly one of (GASNET_DEBUG or GASNET_NDEBUG) to select GASNet build configuration
+  #error Conflicting or incorrect definitions of GASNET_DEBUG and GASNET_NDEBUG
 #endif
 
 /* codify other configuration settings */
@@ -95,9 +97,6 @@
 #elif defined(GASNETI_STATS_OR_TRACE)
   #error bad def of GASNETI_STATS_OR_TRACE
 #endif
-
-/* autoconf-generated configuration header */
-#include <gasnet_config.h>
 
 /* basic utilities used in the headers */
 #include <gasnet_basic.h>
