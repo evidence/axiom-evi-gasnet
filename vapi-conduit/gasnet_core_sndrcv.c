@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/04/10 21:31:23 $
- * $Revision: 1.180 $
+ *     $Date: 2006/04/17 23:46:30 $
+ * $Revision: 1.181 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -303,16 +303,16 @@ void gasnetc_per_thread_init(gasnetc_per_thread_t *td)
 #define gasnetc_epid2qpi(E)	((E)>>16)
 #define gasnetc_epid(N,Q)	((N)|(((Q)+1)<<16))
 
-#define GASNETC_SND_LKEY(cep)		((cep)->keys.snd_lkey)
-#define GASNETC_RCV_LKEY(cep)		((cep)->keys.rcv_lkey)
-#define GASNETC_SEG_LKEY(cep, index)	((cep)->keys.seg_reg[index].lkey)
-#define GASNETC_SEG_RKEY(cep, index)	((cep)->keys.rkeys[rkey_index])
+#define GASNETC_SND_LKEY(_cep)		((_cep)->keys.snd_lkey)
+#define GASNETC_RCV_LKEY(_cep)		((_cep)->keys.rcv_lkey)
+#define GASNETC_SEG_LKEY(_cep, _index)	((_cep)->keys.seg_reg[_index].lkey)
+#define GASNETC_SEG_RKEY(_cep, _index)	((_cep)->keys.rkeys[_index])
 #if GASNETC_VAPI_MAX_HCAS > 1
-  #define GASNETC_FH_RKEY(cep, fhptr)	((fhptr)->client.rkey[(cep)->hca_index])
-  #define GASNETC_FH_LKEY(cep, fhptr)	((fhptr)->client.lkey[(cep)->hca_index])
+  #define GASNETC_FH_RKEY(_cep, _fhptr)	((_fhptr)->client.rkey[(_cep)->hca_index])
+  #define GASNETC_FH_LKEY(_cep, _fhptr)	((_fhptr)->client.lkey[(_cep)->hca_index])
 #else
-  #define GASNETC_FH_RKEY(cep, fhptr)	((fhptr)->client.rkey[0])
-  #define GASNETC_FH_LKEY(cep, fhptr)	((fhptr)->client.lkey[0])
+  #define GASNETC_FH_RKEY(_cep, _fhptr)	((_fhptr)->client.rkey[0])
+  #define GASNETC_FH_LKEY(_cep, _fhptr)	((_fhptr)->client.lkey[0])
 #endif
 
 GASNETI_INLINE(gasnetc_fh_aligned_len)
@@ -322,11 +322,8 @@ size_t gasnetc_fh_aligned_len(uintptr_t start, size_t len) {
 }
 
 GASNETI_INLINE(gasnetc_sr_desc_init)
-VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
+void *gasnetc_sr_desc_init(VAPI_sr_desc_t *result, VAPI_sg_lst_entry_t *sg_lst_p, int sg_lst_len, int count)
 {
-  VAPI_sr_desc_t *result = (VAPI_sr_desc_t *)base;
-  VAPI_sg_lst_entry_t *sg_lst_p = (VAPI_sg_lst_entry_t *)((uintptr_t)result + count*sizeof(VAPI_sr_desc_t));
-
   #if GASNETC_USE_POST_LIST
     int i;
     for (i=0; i<count; ++i, sg_lst_p += sg_lst_len) {
@@ -345,9 +342,10 @@ VAPI_sr_desc_t *gasnetc_sr_desc_init(void *base, int sg_lst_len, int count)
   
   return result;
 }
-#define GASNETC_DECL_SR_DESC(_name, _sg_lst_len, _count) \
-	char _CONCAT(_name,_space)[_count*(sizeof(VAPI_sr_desc_t)+_sg_lst_len*sizeof(VAPI_sg_lst_entry_t))];\
-	VAPI_sr_desc_t *_name = gasnetc_sr_desc_init(_CONCAT(_name,_space), _sg_lst_len, _count) /* note intentional lack of final semicolon */
+#define GASNETC_DECL_SR_DESC(_name, _sg_lst_len, _count)                \
+	VAPI_sr_desc_t _name[_count];                                   \
+	VAPI_sg_lst_entry_t _CONCAT(_name,_sg_lst)[_count*_sg_lst_len]; \
+	void *_CONCAT(_name,_dummy) = gasnetc_sr_desc_init(_name, _CONCAT(_name,_sg_lst), _sg_lst_len, _count) /* note intentional lack of final semicolon */
 
 /* Use of IB's 32-bit immediate data:
  *   0-7: handlerID
