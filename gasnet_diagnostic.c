@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/04/11 02:50:39 $
- * $Revision: 1.16 $
+ *     $Date: 2006/04/18 13:10:58 $
+ * $Revision: 1.17 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -131,15 +131,6 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, const char *test
 
   BARRIER();
   TEST_HEADER("malloc test") malloc_test(0);
-
-
-  BARRIER();
-  TEST_HEADER("gasneti_getPhysMemSz test")
-  { uint64_t val = gasneti_getPhysMemSz(0);
-    if (val == 0) MSG("WARNING: gasneti_getPhysMemSz() failed to discover physical memory size.");
-    else if (val > (1ULL<<50) || val < (1ULL<<20)) 
-      ERR("gasneti_getPhysMemSz() got a ridiculous result: %llu bytes", (unsigned long long)val);
-  }
 
   BARRIER();
   TEST_HEADER("gasneti_mutex_t test") mutex_test(0);

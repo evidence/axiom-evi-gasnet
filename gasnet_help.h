@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/04/11 18:03:54 $
- * $Revision: 1.88 $
+ *     $Date: 2006/04/18 13:10:58 $
+ * $Revision: 1.89 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,10 +25,6 @@
 #include <gasnet_membar.h>
 
 GASNETI_BEGIN_EXTERNC
-
-GASNETI_FORMAT_PRINTF(gasneti_fatalerror,1,2,
-extern void gasneti_fatalerror(const char *msg, ...) GASNETI_NORETURN);
-GASNETI_NORETURNP(gasneti_fatalerror)
 
 extern int (*gasneti_print_backtrace)(int);
 
@@ -79,18 +75,6 @@ extern int gasneti_verboseenv();
 /* display an integral/string environment setting iff gasneti_verboseenv() */
 extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size);
 extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt);
-
-/* format a integer value as a human-friendly string, with appropriate mem suffix */
-extern char *gasneti_format_number(int64_t val, char *buf, size_t bufsz, int is_mem_size);
-/* parse an integer value back out again
-  if mem_size_multiplier==0, it's a unitless quantity
-  otherwise, it's a memory size quantity, and mem_size_multiplier provides the 
-    default memory unit (ie 1024=1KB) if the string provides none  */
-extern int64_t gasneti_parse_int(const char *str, uint64_t mem_size_multiplier);
-
-/* set/unset an environment variable, for the local process ONLY */
-extern void gasneti_setenv(const char *key, const char *value);
-extern void gasneti_unsetenv(const char *key);
 
 typedef struct { 
   uint64_t allocated_bytes;   /* num bytes ever allocated */
@@ -144,17 +128,6 @@ GASNETI_MALLOCP(_gasneti_extern_strndup)
 #define gasneti_extern_free(ptr)       _gasneti_extern_free((ptr) GASNETI_CURLOCAARG)
 #define gasneti_extern_strdup(s)       _gasneti_extern_strdup((s) GASNETI_CURLOCAARG)
 #define gasneti_extern_strndup(s,n)    _gasneti_extern_strndup((s),(n) GASNETI_CURLOCAARG)
-
-#if defined(__GNUC__) || defined(__FUNCTION__)
-  #define GASNETI_CURRENT_FUNCTION __FUNCTION__
-#elif defined(HAVE_FUNC) && !defined(__cplusplus)
-  /* __func__ should also work for ISO C99 compilers */
-  #define GASNETI_CURRENT_FUNCTION __func__
-#else
-  #define GASNETI_CURRENT_FUNCTION ""
-#endif
-extern char *gasneti_build_loc_str(const char *funcname, const char *filename, int linenum);
-#define gasneti_current_loc gasneti_build_loc_str(GASNETI_CURRENT_FUNCTION,__FILE__,__LINE__)
 
 extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
 #if GASNET_SEGMENT_EVERYTHING

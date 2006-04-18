@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/04/12 08:19:08 $
- * $Revision: 1.97 $
+ *     $Date: 2006/04/18 13:10:59 $
+ * $Revision: 1.98 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -246,10 +246,6 @@ extern void gasneti_set_affinity(int rank);
 /* ------------------------------------------------------------------------------------ */
 
 extern void gasneti_freezeForDebugger();
-extern void gasneti_killmyprocess(int exitcode) GASNETI_NORETURN;
-GASNETI_NORETURNP(gasneti_killmyprocess)
-extern void gasneti_flush_streams(); /* flush all open streams */
-extern void gasneti_close_streams(); /* close standard streams (for shutdown) */
 
 /* GASNET_DEBUG_VERBOSE is set by configure to request job startup and general 
    status messages on stderr 
@@ -261,10 +257,8 @@ extern void gasneti_close_streams(); /* close standard streams (for shutdown) */
 /* ------------------------------------------------------------------------------------ */
 /* memory segment registration and management */
 
-typedef void (*gasneti_sighandlerfn_t)(int);
 void gasneti_registerSignalHandlers(gasneti_sighandlerfn_t handler);
 void gasneti_defaultSignalHandler(int sig);
-gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t fp);
 
 #ifdef HAVE_MMAP
   extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz);
@@ -296,12 +290,6 @@ gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t
 #ifndef GASNETI_USE_HIGHSEGMENT
 #define GASNETI_USE_HIGHSEGMENT 1  /* use the high end of mmap segments */
 #endif
-
-/* return physical memory of machine
-   on failure, failureIsFatal nonzero => fatal error, failureIsFatal zero => return 0
- */
-extern uint64_t gasneti_getPhysMemSz(int failureIsFatal); 
-
 
 typedef void (*gasneti_bootstrapExchangefn_t)(void *src, size_t len, void *dest);
 typedef void (*gasneti_bootstrapBroadcastfn_t)(void *src, size_t len, void *dest, int rootnode);

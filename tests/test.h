@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/04/18 04:37:28 $
- * $Revision: 1.87 $
+ *     $Date: 2006/04/18 13:11:05 $
+ * $Revision: 1.88 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,9 +29,6 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <ctype.h>
-#ifdef IRIX
-#define signal(a,b) bsd_signal(a,b)
-#endif
 
 #if defined(HAVE_PTHREAD_H) && !defined(GASNET_SEQ)
   #include <pthread.h>
@@ -154,16 +151,7 @@ static void _test_makeErrMsg(const char *format, ...)) {
   #define MAX(x,y) ((x)>(y)?(x):(y))
 #endif
 
-static uint64_t test_checksum(void *p, int numbytes) {
- uint8_t *buf = (uint8_t *)p;
- uint64_t result = 0;
- int i;
- for (i=0;i<numbytes;i++) {
-   result = ((result << 8) | ((result >> 56) & 0xFF) ) ^ *buf;
-   buf++;
- }
- return result;
-}
+#define test_checksum gasnett_checksum
 
 #define PAGESZ GASNETT_PAGESIZE
 #define alignup(a,b) ((((a)+(b)-1)/(b))*(b))
@@ -210,15 +198,8 @@ static char test_sections[255];
 /* ------------------------------------------------------------------------------------ */
 /* timing - TIME() returns a microsecond time-stamp */
 
-static int64_t mygetMicrosecondTimeStamp(void) {
-    int64_t retval;
-    struct timeval tv;
-    check_zeroret(gettimeofday(&tv, NULL));
-    retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
-    return retval;
-}
 #ifdef FORCE_GETTIMEOFDAY
-  #define TIME() mygetMicrosecondTimeStamp()
+  #define TIME() gasnett_gettimeofday_us()
 #else
   #define TIME() gasnett_ticks_to_us(gasnett_ticks_now()) 
 #endif
@@ -744,10 +725,7 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
 /* ------------------------------------------------------------------------------------ */
 /* test initialization boilerplate */
 #if defined(__alpha) || defined(_CRAYT3E)
-  #define TEST_SIG_INIT() do {                          \
-      if (signal(SIGFPE, SIG_IGN) == SIG_ERR)           \
-        { perror("signal(SIGFPE, SIG_IGN)"); abort(); } \
-  } while (0)
+  #define TEST_SIG_INIT() gasnett_reghandler(SIGFPE, SIG_IGN)
 #else
   #define TEST_SIG_INIT()
 #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/04/17 22:00:55 $
- * $Revision: 1.45 $
+ *     $Date: 2006/04/18 13:10:58 $
+ * $Revision: 1.46 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,6 +100,7 @@
 
 /* basic utilities used in the headers */
 #include <gasnet_basic.h>
+#include <gasnet_toolhelp.h>
 
 /* ------------------------------------------------------------------------------------ */
 /* check segment configuration */
@@ -253,28 +254,6 @@ GASNETI_END_EXTERNC
   typedef void *gasnet_threadinfo_t;
 #endif
 
-#ifndef GASNET_PAGESIZE
-  #ifdef GASNETI_PAGESIZE
-    #define GASNET_PAGESIZE GASNETI_PAGESIZE
-  #elif defined(CRAYT3E)
-    /* on Cray: shmemalign allocates mem aligned across nodes, 
-        but there seems to be no fixed page size (man pagesize)
-        this is probably because they don't support VM
-       actual page size is set separately for each linker section, 
-        ranging from 512KB(default) to 8MB
-       Here we return 8 to reflect the lack of page alignment constraints
-       (for basic sanity, we want page alignment >= reqd double alignment)
-   */
-
-    #define GASNET_PAGESIZE 8
-  #else
-    #error GASNET_PAGESIZE unknown and not set by conduit
-  #endif
-  #if GASNET_PAGESIZE <= 0
-    #error bad defn of GASNET_PAGESIZE
-  #endif
-#endif
-
 /* ------------------------------------------------------------------------------------ */
 /* extended types */
 
@@ -403,6 +382,8 @@ static int *gasneti_linkconfig_idiotcheck() {
     val += *_gasneti_linkconfig_idiotcheck();
   return &val;
 }
+extern int gasneti_internal_idiotcheck(gasnet_handlerentry_t *table, int numentries,
+                                       uintptr_t segsize, uintptr_t minheapoffset);
 
 #if defined(GASNET_DEBUG) && (defined(__OPTIMIZE__) || defined(NDEBUG))
   #ifndef GASNET_ALLOW_OPTIMIZED_DEBUG
@@ -416,15 +397,8 @@ static int *gasneti_linkconfig_idiotcheck() {
 #endif
 
 /* intentionally expanded on every include */
-#if defined(_INCLUDED_GASNET_INTERNAL_H) && !defined(GASNETI_INTERNAL_TEST_PROGRAM) && !defined(_GASNET_INTERNAL_IDIOTCHECK)
+#if defined(_INCLUDED_GASNET_INTERNAL_H) && !defined(_GASNET_INTERNAL_IDIOTCHECK)
   #define _GASNET_INTERNAL_IDIOTCHECK
   #undef gasnet_attach
-  GASNETI_INLINE(gasnet_attach)
-  int gasnet_attach(gasnet_handlerentry_t *table, int numentries,
-                    uintptr_t segsize, uintptr_t minheapoffset) {
-    gasneti_fatalerror("GASNet client code must NOT #include <gasnet_internal.h>\n"
-                       "gasnet_internal.h is not installed, and modifies the behavior "
-                       "of various internal operations, such as segment safety bounds-checking.");
-    return GASNET_ERR_NOT_INIT;
-  }
+  #define gasnet_attach  gasneti_internal_idiotcheck
 #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/04/18 04:37:08 $
- * $Revision: 1.54 $
+ *     $Date: 2006/04/18 13:10:59 $
+ * $Revision: 1.55 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,13 +13,11 @@
 #ifndef _GASNET_TIMER_H
 #define _GASNET_TIMER_H
 
-/* all of this to support gasneti_getMicrosecondTimeStamp */
-#include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <errno.h>
+/* general includes (to avoid repetition below) */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <errno.h>
 
 GASNETI_BEGIN_EXTERNC
 
@@ -37,29 +35,6 @@ GASNETI_BEGIN_EXTERNC
     GASNETI_TICK_MIN - a value representing the minimum value storable in a gasneti_tick_t
     GASNETI_TICK_MAX - a value representing the maximum value storable in a gasneti_tick_t
 */
-
-/* completely portable (low-performance) microsecond granularity wall-clock timer */
-GASNETI_INLINE(gasneti_getMicrosecondTimeStamp)
-int64_t gasneti_getMicrosecondTimeStamp(void) {
-  int64_t retval;
-  struct timeval tv;
-  #ifdef __crayx1
-  retry:
-  #endif
-  if (gettimeofday(&tv, NULL)) {
-      perror("gettimeofday");
-      abort();
-  }
-  retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
-  #ifdef __crayx1
-    /* fix an empirically observed bug in UNICOS gettimeofday(),
-       which occasionally returns ridiculously incorrect values
-       SPR 728120, fixed in kernel 2.4.34 
-     */
-    if_pf(retval < (((int64_t)3) << 48)) goto retry;
-  #endif
-  return retval;
-}
 
 #if defined(GASNETC_CONDUIT_SPECIFIC_TIMERS)
   #if !defined(gasneti_ticks_to_ns) || !defined(gasneti_ticks_now)
@@ -185,10 +160,6 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 #elif defined(__linux__) && \
      (defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PGI)) && \
      (defined(__i386__) || defined(__x86_64__) || defined(__ia64__))
-  #include <stdio.h>
-  #include <stdlib.h>
-  #include <string.h>
-  #include <math.h>
   #if defined(__ia64__) && defined(__INTEL_COMPILER)
     #include <ia64intrin.h>
   #endif
@@ -277,13 +248,7 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 #elif defined(__PPC__) && \
       ( defined(__GNUC__) || defined(__xlC__) ) && \
       ( defined(__linux__) || defined(__blrts__) )
-  /* 
-   * This code uses the 64-bit "timebase" register on both 32- and 64-bit PowerPC CPUs.
-   */
-  #include <stdio.h>
-  #include <stdlib.h>
-  #include <string.h>
-  #include <math.h>
+  /* Use the 64-bit "timebase" register on both 32- and 64-bit PowerPC CPUs */
   #include <sys/types.h>
   #include <dirent.h>
   typedef uint64_t gasneti_tick_t;
@@ -466,11 +431,33 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
 #elif defined(_POSIX_TIMERS) && 0
   /* POSIX realtime support - disabled for now because haven't found anywhere that it 
      outperforms gettimeofday, and it usually requires an additional library */
+  #define GASNETI_FORCE_POSIX_TIMERS 1
+#else
+  #define GASNETI_FORCE_GETTIMEOFDAY 1
+#endif
+
+/* completely portable (low-performance) microsecond granularity wall-clock time */
+extern uint64_t gasneti_gettimeofday_us(void);
+
+/* portable implementations */
+#if defined(GASNETI_FORCE_GETTIMEOFDAY)
+  #define GASNETI_USING_GETTIMEOFDAY 1
+  /* portable microsecond granularity wall-clock timer */
+  typedef uint64_t _gasneti_tick_t;
+  #undef gasneti_tick_t
+  #define gasneti_tick_t _gasneti_tick_t
+  #undef gasneti_ticks_to_ns
+  #define gasneti_ticks_to_ns(st)  ((st)*1000)
+  #undef gasneti_ticks_now
+  #define gasneti_ticks_now()      ((gasneti_tick_t)gasneti_gettimeofday_us())
+#elif defined(GASNETI_FORCE_POSIX_REALTIME)
   #include <time.h>
   #define GASNETI_USING_POSIX_REALTIME 1
-  typedef uint64_t gasneti_tick_t;
-  GASNETI_INLINE(gasneti_ticks_now)
-  gasneti_tick_t gasneti_ticks_now() {
+  typedef uint64_t _gasneti_tick_t;
+  #undef gasneti_tick_t
+  #define gasneti_tick_t _gasneti_tick_t
+  GASNETI_INLINE(gasneti_ticks_now_posixrt)
+  gasneti_tick_t gasneti_ticks_now_posixrt() {
     struct timespec tm;
     #if defined(_POSIX_MONOTONIC_CLOCK) && 0 
       /* this is probably the better timer to use, but 
@@ -481,13 +468,10 @@ int64_t gasneti_getMicrosecondTimeStamp(void) {
     #endif
     return tm.tv_sec*((uint64_t)1E9)+tm.tv_nsec;
   }
+  #undef gasneti_ticks_now
+  #define gasneti_ticks_now() gasneti_ticks_now_posixrt()
+  #undef gasneti_ticks_to_ns
   #define gasneti_ticks_to_ns(st)  (st)
-#else
-  #define GASNETI_USING_GETTIMEOFDAY 1
-  /* portable microsecond granularity wall-clock timer */
-  typedef uint64_t gasneti_tick_t;
-  #define gasneti_ticks_to_ns(st)  ((st)*1000)
-  #define gasneti_ticks_now()      ((gasneti_tick_t)gasneti_getMicrosecondTimeStamp())
 #endif
 
 #if defined(GASNETI_USING_SLOW_TIMERS) || defined(GASNETI_TICKS_NOW_BODY)

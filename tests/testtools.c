@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/04/18 04:37:28 $
- * $Revision: 1.52 $
+ *     $Date: 2006/04/18 13:11:05 $
+ * $Revision: 1.53 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -88,19 +88,54 @@ int main(int argc, char **argv) {
     else 
       MSG("System page size is 2^%i == %i", GASNETT_PAGESHIFT, GASNETT_PAGESIZE);
   #endif
-   
+
+  { int cpucnt = gasnett_cpu_count();
+    MSG("CPU count estimated to be: %i", cpucnt);
+    assert_always(cpucnt >= 0);
+  }
+
   MSG("Cache line size estimated to be: %i", GASNETT_CACHE_LINE_BYTES);
   if ((GASNETT_CACHE_LINE_BYTES & (GASNETT_CACHE_LINE_BYTES-1)) != 0)
         ERR("GASNETT_CACHE_LINE_BYTES not a power of two!");
 
+  { uint64_t val = gasneti_getPhysMemSz(0);
+    char sz_str[50];
+    gasnett_format_number(val, sz_str, sizeof(sz_str), 1);
+    if (val == 0) MSG("WARNING: gasnett_getPhysMemSz() failed to discover physical memory size.");
+    else MSG("Physical memory size estimated to be: %s", sz_str);
+    if (val > (1ULL<<50) || val < (1ULL<<20)) 
+      ERR("gasnett_getPhysMemSz() got a ridiculous result: %llu bytes", (unsigned long long)val);
+  }
+
+  { char tmp_str[50];
+    int i;
+    gasnett_format_number(0, tmp_str, sizeof(tmp_str), 1);
+    assert_always(gasnett_parse_int(tmp_str, 1) == 0);
+    gasnett_format_number(0, tmp_str, sizeof(tmp_str), 0);
+    assert_always(gasnett_parse_int(tmp_str, 0) == 0);
+    for (i=0; i < 62; i++) {
+      int64_t x = (((int64_t)1) << i);
+      int64_t y;
+      gasnett_format_number(x, tmp_str, sizeof(tmp_str), 1);
+      y = gasnett_parse_int(tmp_str, 1);
+      if (x != y) ERR("gasnett_format_number/gasnett_parse_int memsz mismatch: %lld != %lld (%s)",
+                      (long long)x, (long long)y, tmp_str);
+      gasnett_format_number(x, tmp_str, sizeof(tmp_str), 0);
+      y = gasnett_parse_int(tmp_str, 0);
+      if (x != y) ERR("gasnett_format_number/gasnett_parse_int mismatch: %lld != %lld (%s)",
+                      (long long)x, (long long)y, tmp_str);
+    }
+  }
+
   gasnett_sched_yield();
+  gasnett_flush_streams();
   TEST_TRACING_MACROS();
 
   TEST_HEADER("Testing high-performance timers...")
   { /* high performance timers */
     int i;
     gasnett_tick_t start, end;
-    int64_t startref, endref;
+    uint64_t startref, endref;
     gasnett_tick_t ticktimemin = GASNETT_TICK_MIN;
     gasnett_tick_t ticktimemax = GASNETT_TICK_MAX;
 
@@ -111,7 +146,7 @@ int main(int argc, char **argv) {
     for (i=0; i < iters/10; i++) {
       int time, timeref;
       start = gasnett_ticks_now();
-      startref = mygetMicrosecondTimeStamp();
+      startref = gasnett_gettimeofday_us();
       if (i % (iters/3) == 0) sleep(1); /* sleep wait */
       else { /* busy wait */
         gasnett_tick_t last = gasnett_ticks_now();
@@ -131,7 +166,7 @@ int main(int argc, char **argv) {
         }
       }
       end = gasnett_ticks_now();
-      endref = mygetMicrosecondTimeStamp();
+      endref = gasnett_gettimeofday_us();
 
       time = gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start);
       timeref = endref - startref;

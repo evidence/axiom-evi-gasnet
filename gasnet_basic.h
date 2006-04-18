@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/04/15 00:15:46 $
- * $Revision: 1.65 $
+ *     $Date: 2006/04/18 13:10:58 $
+ * $Revision: 1.66 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -73,18 +73,6 @@
 #define MAX(x,y)  ((x)>(y)?(x):(y))
 #endif
 
-#ifdef __MTA__
-   #include <machine/runtime.h>
-   #define _gasneti_sched_yield() mta_yield()
-#elif defined(HAVE_SCHED_YIELD) && !defined(__blrts__) && !defined(__LIBCATAMOUNT__)
-   #include <sched.h>
-   #define _gasneti_sched_yield() sched_yield()
-#else
-   #include <unistd.h>
-   #define _gasneti_sched_yield() (sleep(0),0)
-#endif
-#define gasneti_sched_yield() _gasneti_sched_yield()
-
 #include <stddef.h> /* get standard types, esp size_t */
 
 /* splitting and reassembling 64-bit quantities */
@@ -101,6 +89,28 @@
 
 #define GASNETI_PAGE_ALIGNDOWN(p) (GASNETI_ALIGNDOWN(p,GASNET_PAGESIZE))
 #define GASNETI_PAGE_ALIGNUP(p)   (GASNETI_ALIGNUP(p,GASNET_PAGESIZE))
+
+#ifndef GASNET_PAGESIZE
+  #ifdef GASNETI_PAGESIZE
+    #define GASNET_PAGESIZE GASNETI_PAGESIZE
+  #elif defined(CRAYT3E)
+    /* on Cray: shmemalign allocates mem aligned across nodes, 
+        but there seems to be no fixed page size (man pagesize)
+        this is probably because they don't support VM
+       actual page size is set separately for each linker section, 
+        ranging from 512KB(default) to 8MB
+       Here we return 8 to reflect the lack of page alignment constraints
+       (for basic sanity, we want page alignment >= reqd double alignment)
+   */
+
+    #define GASNET_PAGESIZE 8
+  #else
+    #error GASNET_PAGESIZE unknown and not set by conduit
+  #endif
+  #if GASNET_PAGESIZE <= 0
+    #error bad defn of GASNET_PAGESIZE
+  #endif
+#endif
 
 /* special GCC features */
 #if ! defined(GASNETI_HAVE_GCC_ATTRIBUTE) && \
@@ -380,5 +390,5 @@
   #define GASNETI_PREFETCH_WRITE_HINT(P)
 #endif
 
-
+/* ------------------------------------------------------------------------------------ */
 #endif

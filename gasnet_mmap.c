@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2006/04/18 04:37:08 $
- * $Revision: 1.41 $
+ *     $Date: 2006/04/18 13:10:59 $
+ * $Revision: 1.42 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -883,84 +883,5 @@ void gasneti_auxseg_attach() {
   }
   gasneti_free(si);
   
-}
-
-/* ------------------------------------------------------------------------------------ */
-#ifdef _SC_PHYS_PAGES
-  /* if the sysconf exists, try to use it */
-  static uint64_t _gasneti_getPhysMemSysconf(void) {
-    long pages = sysconf(_SC_PHYS_PAGES);
-    if (pages < 0) pages = 0;
-    return (((uint64_t)pages)*GASNET_PAGESIZE);
-  }
-#else
-  #define _gasneti_getPhysMemSysconf() 0
-#endif
-#if defined(__APPLE__) || defined(__FreeBSD__)
-  #include <sys/types.h>
-  #include <sys/sysctl.h>
-#endif
-uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
-  uint64_t retval = _gasneti_getPhysMemSysconf();
-  if (retval) return retval;
-  #if defined(__linux__) && !defined(__LIBCATAMOUNT__)
-    #define _BUFSZ        120
-    { FILE *fp;
-      char line[_BUFSZ+1];
-
-      if ((fp = fopen("/proc/meminfo", "r")) == NULL)
-        gasneti_fatalerror("Failed to open /proc/meminfo in gasneti_getPhysMemSz()");
-
-      while (fgets(line, _BUFSZ, fp)) {
-        unsigned long memul = 0;
-        unsigned long long memull = 0;
-        /* MemTotal: on 2.4 and 2.6 kernels - preferred because less chance of scanf overflow */
-        if (sscanf(line, "MemTotal: %lu kB", &memul) > 0 && memul > 0) {
-          retval = ((uint64_t)memul) * 1024;
-        }
-        /* Mem: only on 2.4 kernels */
-        else if (sscanf(line, "Mem: %llu", &memull) > 0 && memull > 0 && !retval) {
-          retval = (uint64_t)memull;
-        }
-      }
-      fclose(fp);
-    }
-    #undef _BUFSZ
-  #elif defined(__APPLE__) || defined(__FreeBSD__)
-    { /* see "man 3 sysctl" */    
-      int mib[2];
-      size_t len = 0;
-      mib[0] = CTL_HW;
-      mib[1] = HW_PHYSMEM;
-      sysctl(mib, 2, NULL, &len, NULL, 0);
-      switch (len) { /* accomodate both 32 and 64-bit systems */
-        case 4: { 
-          uint32_t retval32 = 0;
-          if (sysctl(mib, 2, &retval32, &len, NULL, 0)) 
-            gasneti_fatalerror("sysctl(CTL_HW.HW_PHYSMEM) failed: %s(%i)",strerror(errno),errno);
-          if (retval32) retval = (uint64_t)retval32;
-          break;
-        }
-        case 8:
-          if (sysctl(mib, 2, &retval, &len, NULL, 0)) 
-            gasneti_fatalerror("sysctl(CTL_HW.HW_PHYSMEM) failed: %s(%i)",strerror(errno),errno);
-          break;
-        default:
-          gasneti_fatalerror("sysctl(CTL_HW.HW_PHYSMEM) failed to get required size, got len=%i: %s(%i)",
-            (int)len, strerror(errno), errno);
-      }
-    }
-  #elif defined(_AIX)
-    { /* returns amount of real memory in kilobytes */
-      long int val = sysconf(_SC_AIX_REALMEM);
-      if (val > 0) retval = (1024 * (uint64_t)val);
-    }
-  #else  /* unknown OS */
-    { }
-  #endif
-
-  if (!retval && failureIsFatal) 
-    gasneti_fatalerror("Failed to determine physical memory size in gasneti_getPhysMemSz()");
-  return retval;
 }
 /* ------------------------------------------------------------------------------------ */

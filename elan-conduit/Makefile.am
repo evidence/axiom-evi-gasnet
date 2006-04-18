@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/Makefile.am,v $
-#     $Date: 2006/04/15 02:30:46 $
-# $Revision: 1.32 $
+#     $Date: 2006/04/18 13:11:01 $
+# $Revision: 1.33 $
 # Description: Makefile for GASNet elan conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -21,6 +21,7 @@ CONDUIT_FILELIST =           \
       gasnet_core.h          \
       gasnet_core_fwd.h      \
       gasnet_core_help.h     \
+      gasnet_core_toolhelp.h \
       gasnet_core_internal.h \
       gasnet_core_dump.c         \
       gasnet_core_reqrep.c       \

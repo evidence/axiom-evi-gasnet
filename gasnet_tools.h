@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/04/18 04:37:08 $
- * $Revision: 1.73 $
+ *     $Date: 2006/04/18 13:10:59 $
+ * $Revision: 1.74 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,6 +32,7 @@
 
 #include <gasnet_config.h>
 #include <gasnet_basic.h>
+#include <gasnet_toolhelp.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -184,17 +185,32 @@
 #define gasnett_ticks_to_us(ticks)  (gasneti_ticks_to_ns(ticks)/1000)
 #define gasnett_ticks_to_ns(ticks)   gasneti_ticks_to_ns(ticks)
 #define gasnett_ticks_now()          gasneti_ticks_now()
-#define gasnett_tick_granularityus()   gasneti_tick_granularity()
-#define gasnett_tick_overheadus()      gasneti_tick_overhead()
+#define gasnett_tick_granularityus() gasneti_tick_granularity()
+#define gasnett_tick_overheadus()    gasneti_tick_overhead()
 #define GASNETT_TIMER_CONFIG         GASNETI_TIMER_CONFIG
+#define gasnett_gettimeofday_us()    gasneti_gettimeofday_us()
 #ifdef GASNETI_USING_GETTIMEOFDAY
-#define GASNETT_USING_GETTIMEOFDAY
+#define GASNETT_USING_GETTIMEOFDAY 1
 #endif
 
 /* ------------------------------------------------------------------------------------ */
 
 /* misc */
-#define gasnett_sched_yield()     gasneti_sched_yield() 
+#define gasnett_sched_yield     gasneti_sched_yield 
+#define gasnett_cpu_count       gasneti_cpu_count
+#define gasnett_flush_streams   gasneti_flush_streams
+#define gasnett_close_streams   gasneti_close_streams
+#define gasnett_getPhysMemSz    gasneti_getPhysMemSz
+#define gasnett_fatalerror      gasneti_fatalerror
+#define gasnett_killmyprocess   gasneti_killmyprocess
+#define gasnett_current_loc     gasneti_current_loc
+#define gasnett_sighandlerfn_t  gasneti_sighandlerfn_t
+#define gasnett_reghandler      gasneti_reghandler
+#define gasnett_checksum        gasneti_checksum
+#define gasnett_format_number   gasneti_format_number
+#define gasnett_parse_int       gasneti_parse_int
+#define gasneti_isLittleEndian  gasneti_isLittleEndian
+#define gasnett_set_affinity    gasneti_set_affinity
 
 #define GASNETT_IDENT(identName, identText) GASNETI_IDENT(identName, identText)
 
@@ -294,21 +310,14 @@ GASNETI_BEGIN_EXTERNC
   #define GASNETT_STATS_SETMASK(mask) ((void)0)
 #endif
 
-extern int gasneti_cpu_count();
-#define gasnett_cpu_count() gasneti_cpu_count()
-
 #if defined(_INCLUDED_GASNET_H) 
   /* these tools ONLY available when linking a libgasnet.a */
-  extern void gasneti_set_affinity(int);
-  #define gasnett_set_affinity(r) gasneti_set_affinity(r) 
   #ifdef HAVE_MMAP
     extern void *gasneti_mmap(uintptr_t segsize);
     #define gasnett_mmap(sz) gasneti_mmap(sz)
   #else
     #define gasnett_mmap(sz) abort()
   #endif
-  extern void gasneti_flush_streams();
-  #define gasnett_flush_streams() gasneti_flush_streams()
   #define gasnett_print_backtrace gasneti_print_backtrace
   extern int gasneti_run_diagnostics(int iters, int threadcnt, 
                                      const char *testsections, gasnet_seginfo_t const *seginfo);
@@ -343,9 +352,7 @@ extern int gasneti_cpu_count();
     #define gasnett_getheapstats(pstat)   gasneti_getheapstats(pstat)
   #endif
 #else
-  #define gasnett_set_affinity(r) abort()
   #define gasnett_mmap(sz)        abort()
-  #define gasnett_flush_streams() abort()
 
   #define gasnett_threadkey_t           char
   #define GASNETT_THREADKEY_INITIALIZER 0
@@ -380,18 +387,6 @@ static int *gasnett_linkconfig_idiotcheck() {
 }
 
 /* ------------------------------------------------------------------------------------ */
-
-/* other random bits of factored code */
-
-#if defined(_AIX)
-  /* AIX's stdio.h won't provide prototypes for snprintf() and vsnprintf()
-   * by default since they are in C99 but not C89.
-   */
-  GASNETI_FORMAT_PRINTF(snprintf,3,4,
-  extern int snprintf(char * s, size_t n, const char * format, ...));
-  GASNETI_FORMAT_PRINTF(vsnprintf,3,0,
-  extern int vsnprintf(char * s, size_t n, const char * format, va_list ap));
-#endif
 
 GASNETI_END_EXTERNC
 
