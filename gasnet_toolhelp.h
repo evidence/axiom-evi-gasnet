@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/04/18 13:10:59 $
- * $Revision: 1.1 $
+ *     $Date: 2006/04/18 21:09:27 $
+ * $Revision: 1.2 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,6 +53,8 @@ extern void gasneti_flush_streams(); /* flush all open streams */
 extern void gasneti_close_streams(); /* close standard streams (for shutdown) */
 
 extern int gasneti_cpu_count();
+
+extern void gasneti_set_affinity(int rank);
 
 extern int gasneti_isLittleEndian();
 

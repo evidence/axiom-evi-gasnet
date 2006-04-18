@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/04/18 13:10:59 $
- * $Revision: 1.98 $
+ *     $Date: 2006/04/18 21:09:27 $
+ * $Revision: 1.99 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -238,10 +238,6 @@ char *_gasneti_strndup(const char *s, size_t n GASNETI_CURLOCFARG) {
 #ifdef __SUNPRO_C
   #pragma returns_new_memory(_gasneti_strdup,_gasneti_strndup)
 #endif
-
-/* ------------------------------------------------------------------------------------ */
-/* CPU affinity */
-extern void gasneti_set_affinity(int rank);
 
 /* ------------------------------------------------------------------------------------ */
 
