@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/04/18 04:37:32 $
- * $Revision: 1.131 $
+ *     $Date: 2006/04/18 22:39:02 $
+ * $Revision: 1.132 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -312,6 +312,18 @@ typedef struct _gasneti_freelist_ptr_s {
       char			_pad[GASNETC_CACHE_PAD(sizeof(gasneti_freelist_ptr_t *))];
     } gasneti_freelist_t;
 
+    #ifndef GASNETI_PPC_WMB_ASM
+      /* XXX: Can't count older assemblers to recognize "lwsync" mnemonic */
+      #define GASNETI_PPC_WMB_ASM ".long 0x7c2004ac"
+    #endif
+    #ifndef GASNETI_PPC_RMB_ASM
+      #ifdef GASNETI_TUNE_PPC970
+        #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
+      #else
+        #define GASNETI_PPC_RMB_ASM "isync"
+      #endif
+    #endif
+
     GASNETI_INLINE(gasneti_fl_push)
     void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
       /* Roughly based on Appendix D of IBM's "Programming Environments Manual for 64-bit Microprocessors."
@@ -324,13 +336,13 @@ typedef struct _gasneti_freelist_ptr_s {
         __asm__ __volatile__ ("lwz	%3,0(%0)   \n\t" /* tmp1 = p->head */
 			      "1: mr	%4,%3      \n\t" /* tmp2 = tmp1 */
 			      "stw	%3,0(%2)   \n\t" /* tail->next = tmp1 */
-			      "sync	           \n\t" /* wmb */
+			      GASNETI_PPC_WMB_ASM "\n\t" /* wmb */
 			      "2: lwarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
 			      "cmpw	%3,%4      \n\t" /* check tmp1 still == tmp2 */
 			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
 			      "stwcx.	%1,0,%0    \n\t" /* p->head = head */
 			      "bne-	2b         \n\t" /* retry on conflict */
-			      "isync"
+			      GASNETI_PPC_RMB_ASM
 				: "=b" (p), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
 				: "0" (p), "1" (head), "2" (tail) 
 				: "memory", "cc");
@@ -338,7 +350,7 @@ typedef struct _gasneti_freelist_ptr_s {
         __asm__ __volatile__ ("ld	%3,0(%0)   \n\t" /* tmp1 = p->head */
 			      "1: mr	%4,%3      \n\t" /* tmp2 = tmp1 */
 			      "std	%3,0(%2)   \n\t" /* tail->next = tmp1 */
-			      "sync	           \n\t" /* wmb */
+			      GASNETI_PPC_WMB_ASM "\n\t" /* wmb */
 			      "2: ldarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
 			      "cmpd	%3,%4      \n\t" /* check tmp1 still == tmp2 */
 			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
@@ -367,7 +379,7 @@ typedef struct _gasneti_freelist_ptr_s {
         __asm__ __volatile__ ("1: lwarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpwi	0,%1,0     \n\t" /* head == NULL? */
 			      "beq-	2f         \n\t" /* end on NULL */
-			      "isync               \n\t" /* rmb */
+			      GASNETI_PPC_RMB_ASM "\n\t" /* rmb */
 			      "lwz	%2,0(%1)   \n\t" /* next = head->next */
 			      "stwcx.	%2,0,%0    \n\t" /* p->head = next */
 			      "bne-	1b         \n\t" /* retry on conflict */
@@ -379,7 +391,7 @@ typedef struct _gasneti_freelist_ptr_s {
         __asm__ __volatile__ ("1: ldarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpdi	0,%1,0     \n\t" /* head == NULL? */
 			      "beq-	2f         \n\t" /* end on NULL */
-			      "isync               \n\t" /* rmb */
+			      GASNETI_PPC_RMB_ASM "\n\t" /* rmb */
 			      "ld	%2,0(%1)   \n\t" /* next = head->next */
 			      "stdcx.	%2,0,%0    \n\t" /* p->head = next */
 			      "bne-	1b         \n\t" /* retry on conflict */
