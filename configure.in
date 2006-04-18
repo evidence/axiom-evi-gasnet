@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/04/17 22:00:55 $
-# $Revision: 1.345 $
+#     $Date: 2006/04/18 20:55:00 $
+# $Revision: 1.346 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.345 $)
+AC_REVISION($Revision: 1.346 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -829,13 +829,13 @@ if expr "$enabled_ppc970@$cross_compiling@$target_cpu" : "probe@no@powerpc" >/de
   darwin*) if test `/usr/sbin/sysctl hw.cpusubtype | cut '-d ' -f2` = '100'; then
              enabled_ppc970=yes
            fi ;;
-	*) enabled_ppc970=no
-	   ;;
   esac
-  AC_MSG_RESULT($enabled_ppc970)
-fi
-if test "$enabled_ppc970" = yes; then
-  AC_DEFINE(GASNETI_TUNE_PPC970)
+  if test "$enabled_ppc970" = yes; then
+    AC_DEFINE(GASNETI_TUNE_PPC970)
+    AC_MSG_RESULT(yes)
+  else
+    AC_MSG_RESULT(no)
+  fi
 fi
 
 ## Spinloop hints
