@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/18 21:47:01 $
- * $Revision: 1.151 $
+ *     $Date: 2006/04/18 21:48:30 $
+ * $Revision: 1.152 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -813,7 +813,7 @@
 		"	beq	%0, 1b"			/* Retry on ll/ss failure */
 		: "=&r" (temp), "=&r" (result), "=m" (*v) /* outputs */
 		: "IOr" (op)       /* inputs */
-		: "memory", "cc"); /* kills */
+		: "cc"); /* kills */
         return result;
       }
       GASNETI_INLINE(gasneti_atomic_add_32)
@@ -826,7 +826,7 @@
 		"	beq	%0, 1b"			/* Retry on ll/ss failure */
 		: "=&r" (temp), "=m" (*v) /* outputs */
 		: "IOr" (op)              /* inputs */
-		: "memory", "cc");        /* kills */
+		: "cc");        /* kills */
       }
      typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
      #define _gasneti_atomic_increment(p) (gasneti_atomic_add_32(&((p)->ctr),1))
@@ -849,7 +849,7 @@
 		"2:	"
        		: "=&r"(ret), "=m"(*p)
 		: "r"(oldval), "r"(newval)
-		: "memory", "cc");
+		: "cc");
 
        return ret;
      }
