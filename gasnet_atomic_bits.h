@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/18 21:48:30 $
- * $Revision: 1.152 $
+ *     $Date: 2006/04/18 22:57:38 $
+ * $Revision: 1.153 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -718,23 +718,21 @@
         __asm__ __volatile__ ("mov ar.ccv=%0;;" :: "rO"(tmp));
 
         __asm__ __volatile__ ("cmpxchg4.acq %0=[%1],%2,ar.ccv"
-                                : "=r"(tmp) : "r"(ptr), "r"(newval) : "memory");
+                                : "=r"(tmp) : "r"(ptr), "r"(newval) );
         return (uint32_t) tmp;
       }
       GASNETI_INLINE(gasneti_atomic_fetchandinc_32)
       uint32_t gasneti_atomic_fetchandinc_32(int32_t volatile *ptr) {
         uint64_t result;\
         asm volatile ("fetchadd4.acq %0=[%1],%2"
-                                : "=r"(result) : "r"(ptr), "i" (1)
-                                : "memory");
+                                : "=r"(result) : "r"(ptr), "i" (1) );
         return (uint32_t) result;
       }
       GASNETI_INLINE(gasneti_atomic_fetchanddec_32)
       uint32_t gasneti_atomic_fetchanddec_32(int32_t volatile *ptr) {
         uint64_t result;\
         asm volatile ("fetchadd4.acq %0=[%1],%2"
-                                : "=r"(result) : "r"(ptr), "i" (-1)
-                                : "memory");
+                                : "=r"(result) : "r"(ptr), "i" (-1) );
         return (uint32_t) result;
       }
       typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
