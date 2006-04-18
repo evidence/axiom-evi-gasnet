@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/18 22:57:38 $
- * $Revision: 1.153 $
+ *     $Date: 2006/04/18 23:42:58 $
+ * $Revision: 1.154 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1379,7 +1379,7 @@
           "bne-     Lga.0.%= \n\t" 
           : "=&b"(result)		/* constraint b = "b"ase register (not r0) */
           : "r" (addr), "Ir"(op) 
-          : "cr0", "memory");
+          : "cr0");
         return result;
       }
       typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
@@ -1403,7 +1403,7 @@
 	  "Lga.1.%=:	"
 	  : "=&r"(result)
 	  : "r" (p), "r"(oldval), "r"(newval)
-	  : "cr0", "memory");
+	  : "cr0");
   
         return (result == 0);
       } 
