@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2006/04/18 01:02:01 $
- * $Revision: 1.105 $
+ * $Date: 2006/04/18 04:37:14 $
+ * $Revision: 1.106 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -830,17 +830,17 @@ static void gasnetc_exit_sighandler(int sig) {
  */
 static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
   int i, rc;
-  gasneti_stattime_t start_time;
+  gasneti_tick_t start_time;
 
   gasneti_assert(timeout_us > 0); 
 
-  start_time = GASNETI_STATTIME_NOW();
+  start_time = gasneti_ticks_now();
 
   /* Notify phase */
   for (i = 0; i < gasneti_nodes; ++i) {
     if (i == gasneti_mynode) continue;
 
-    if (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) / 1000 > timeout_us) return -1;
+    if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
 
     /* XXX */
     rc = gasnetc_RequestSystem(i, gasneti_handleridx(gasnetc_SysExit_reqh),
@@ -850,7 +850,7 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
 
   /* Wait phase - wait for replies from our N-1 peers */
   while (gasneti_atomic_read(&gasnetc_exit_reps, 0) < (gasneti_nodes - 1)) {
-    if (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) / 1000 > timeout_us) return -1;
+    if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
 
     gasneti_AMPoll();
   }
@@ -867,15 +867,15 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
  * Returns 0 on success, non-zero on timeout.
  */
 static int gasnetc_exit_slave(int64_t timeout_us) {
-  gasneti_stattime_t start_time;
+  gasneti_tick_t start_time;
 
   gasneti_assert(timeout_us > 0); 
 
-  start_time = GASNETI_STATTIME_NOW();
+  start_time = gasneti_ticks_now();
 
   /* wait until the exit request is received from the master */
   while (gasneti_atomic_read(&gasnetc_exit_reqs, 0) == 0) {
-    if (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) / 1000 > timeout_us) return -1;
+    if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
 
     gasneti_AMPoll(); /* works even before _attach */
   }
@@ -1010,17 +1010,17 @@ static void gasnetc_exit_body(void) {
 	#if !GASNET_SEQ
 	{	const int64_t limit1 = 500000000; /* 0.5s - max time to spin for a lock */
 		const int64_t limit2 = 50000; /* 50us - min time to pause for pollers to clear */
-		gasneti_stattime_t start_time = GASNETI_STATTIME_NOW();
+		gasneti_tick_t start_time = gasneti_ticks_now();
 
 		/* Exclude AMPoll() from calling gm_receive_pending() */
 		gasneti_atomic_set(&gasnetc_exit_running, 1, GASNETI_ATOMIC_WMB_POST);
 
 		/* Try for a bounded time to obtain the gm lock */
 		gasneti_waitwhile((gasneti_mutex_trylock(&gasnetc_lock_gm) != 0) &&
-				  (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) < limit1));
+				  (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) < limit1));
 
 		/* Ensure we've paused long enough for pollers to notice gasnetc_exit_running */
-		gasneti_waitwhile(GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) < limit2);
+		gasneti_waitwhile(gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) < limit2);
 	}
 	#endif
 
@@ -2861,7 +2861,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
 
   {
     #if GASNETI_STATS_OR_TRACE
-      gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
+      gasneti_tick_t startlock = GASNETI_TICKS_NOW_IFENABLED(L);
     #endif
     #if GASNETC_HSL_SPINLOCK
       while (gasneti_mutex_trylock(&(hsl->lock)) == EBUSY) { }
@@ -2869,7 +2869,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
       gasneti_mutex_lock(&(hsl->lock));
     #endif
     #if GASNETI_STATS_OR_TRACE
-      hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+      hsl->acquiretime = GASNETI_TICKS_NOW_IFENABLED(L);
       GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, hsl->acquiretime-startlock);
     #endif
   }
@@ -2894,7 +2894,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
     #error interrupts not implemented
   #endif
 
-  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW_IFENABLED(L)-hsl->acquiretime);
+  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_TICKS_NOW_IFENABLED(L)-hsl->acquiretime);
 
   gasneti_mutex_unlock(&(hsl->lock));
 }
@@ -2908,7 +2908,7 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
     GASNETI_TRACE_EVENT_VAL(L, HSL_TRYLOCK, locked);
     if (locked) {
       #if GASNETI_STATS_OR_TRACE
-        hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+        hsl->acquiretime = GASNETI_TICKS_NOW_IFENABLED(L);
       #endif
       #if GASNETC_USE_INTERRUPTS
         /* conduits with interrupt-based handler dispatch need to add code here to 

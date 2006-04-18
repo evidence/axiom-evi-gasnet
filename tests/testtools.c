@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/04/16 10:52:11 $
- * $Revision: 1.51 $
+ *     $Date: 2006/04/18 04:37:28 $
+ * $Revision: 1.52 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -150,8 +150,8 @@ int main(int argc, char **argv) {
 
     }
   }
-  { double overhead = gasnett_timer_overheadus();
-    double granularity = gasnett_timer_granularityus();
+  { double overhead = gasnett_tick_overheadus();
+    double granularity = gasnett_tick_granularityus();
     if (granularity <= 0.0 || overhead <= 0.0 ||
         (granularity+0.1) < 0.5*overhead) 
         /* allow some leeway for noise at granularities approaching cycle speed */

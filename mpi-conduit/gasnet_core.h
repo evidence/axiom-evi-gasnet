@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.h,v $
- *     $Date: 2006/03/19 02:08:06 $
- * $Revision: 1.23 $
+ *     $Date: 2006/04/18 04:37:18 $
+ * $Revision: 1.24 $
  * Description: GASNet header for MPI conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -73,13 +73,13 @@ typedef struct _gasnet_hsl_t {
   gasneti_mutex_t lock;
 
   #if GASNETI_STATS_OR_TRACE
-    gasneti_stattime_t acquiretime;
+    gasneti_tick_t acquiretime;
   #endif
 
   #if GASNETC_HSL_ERRCHECK
     uint64_t tag;
     int islocked;
-    gasneti_stattime_t timestamp;
+    gasneti_tick_t timestamp;
     struct _gasnet_hsl_t *next;
   #endif
 

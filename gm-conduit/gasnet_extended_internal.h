@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2006/03/19 02:08:02 $
- * $Revision: 1.28 $
+ *     $Date: 2006/04/18 04:37:14 $
+ * $Revision: 1.29 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -70,7 +70,7 @@ typedef struct _gasnete_eop_t {
 
 	#ifdef GASNETC_FIREHOSE_TRACE
 	gasnetc_fh_stats_t	fh_stats;
-	gasneti_stattime_t	starttime;
+	gasneti_tick_t	starttime;
 	#endif
 
 	gasnete_eopaddr_t	addr;      /*  next cell while in free list, 

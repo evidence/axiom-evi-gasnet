@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/04/10 21:31:23 $
- * $Revision: 1.130 $
+ *     $Date: 2006/04/18 04:37:32 $
+ * $Revision: 1.131 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -60,7 +60,7 @@ extern gasneti_atomic_t gasnetc_exit_running;
 
 typedef struct {
 #if GASNETI_STATS_OR_TRACE
-  gasneti_stattime_t	stamp;
+  gasneti_tick_t	stamp;
 #endif
   gasnet_handlerarg_t	args[GASNETC_MAX_ARGS];	
 } gasnetc_shortmsg_t;
@@ -68,7 +68,7 @@ typedef struct {
 
 typedef struct {
 #if GASNETI_STATS_OR_TRACE
-  gasneti_stattime_t	stamp;
+  gasneti_tick_t	stamp;
 #endif
   uint32_t		nBytes;	/* 16 bits would be sufficient if we ever need the space */
   gasnet_handlerarg_t	args[GASNETC_MAX_ARGS];	
@@ -80,7 +80,7 @@ typedef struct {
 
 typedef struct {
 #if GASNETI_STATS_OR_TRACE
-  gasneti_stattime_t	stamp;
+  gasneti_tick_t	stamp;
 #endif
   uintptr_t		destLoc;
   int32_t		nBytes;
@@ -92,7 +92,7 @@ typedef struct {
 typedef union {
   uint8_t		raw[GASNETC_BUFSZ];
 #if GASNETI_STATS_OR_TRACE
-  gasneti_stattime_t	stamp;
+  gasneti_tick_t	stamp;
 #endif
   gasnetc_shortmsg_t	shortmsg;
   gasnetc_medmsg_t	medmsg;
@@ -154,14 +154,14 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 #if GASNETI_STATS_OR_TRACE
   #define GASNETC_TRACE_WAIT_BEGIN() \
-    gasneti_stattime_t _waitstart = GASNETI_STATTIME_NOW_IFENABLED(C)
+    gasneti_tick_t _waitstart = GASNETI_TICKS_NOW_IFENABLED(C)
 #else 
   #define GASNETC_TRACE_WAIT_BEGIN() \
     static char _dummy = (char)sizeof(_dummy)
 #endif
 
 #define GASNETC_TRACE_WAIT_END(name) \
-  GASNETI_TRACE_EVENT_TIME(C,name,GASNETI_STATTIME_NOW() - _waitstart)
+  GASNETI_TRACE_EVENT_TIME(C,name,gasneti_ticks_now() - _waitstart)
 
 #define GASNETC_STAT_EVENT(name) \
   _GASNETI_STAT_EVENT(C,name)

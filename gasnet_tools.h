@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/04/17 22:00:55 $
- * $Revision: 1.72 $
+ *     $Date: 2006/04/18 04:37:08 $
+ * $Revision: 1.73 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -178,14 +178,14 @@
 
 #include <gasnet_timer.h>
 
-#define gasnett_tick_t               gasneti_stattime_t
-#define GASNETT_TICK_MIN             GASNETI_STATTIME_MIN
-#define GASNETT_TICK_MAX             GASNETI_STATTIME_MAX
-#define gasnett_ticks_to_us(ticks)  (GASNETI_STATTIME_TO_NS(ticks)/1000)
-#define gasnett_ticks_to_ns(ticks)   GASNETI_STATTIME_TO_NS(ticks)
-#define gasnett_ticks_now()          GASNETI_STATTIME_NOW()
-#define gasnett_timer_granularityus()   GASNETI_STATTIME_GRANULARITY()
-#define gasnett_timer_overheadus()      GASNETI_STATTIME_OVERHEAD()
+#define gasnett_tick_t               gasneti_tick_t
+#define GASNETT_TICK_MIN             GASNETI_TICK_MIN
+#define GASNETT_TICK_MAX             GASNETI_TICK_MAX
+#define gasnett_ticks_to_us(ticks)  (gasneti_ticks_to_ns(ticks)/1000)
+#define gasnett_ticks_to_ns(ticks)   gasneti_ticks_to_ns(ticks)
+#define gasnett_ticks_now()          gasneti_ticks_now()
+#define gasnett_tick_granularityus()   gasneti_tick_granularity()
+#define gasnett_tick_overheadus()      gasneti_tick_overhead()
 #define GASNETT_TIMER_CONFIG         GASNETI_TIMER_CONFIG
 #ifdef GASNETI_USING_GETTIMEOFDAY
 #define GASNETT_USING_GETTIMEOFDAY

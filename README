@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.72 $
+$Revision: 1.73 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -735,7 +735,7 @@ Required porting steps:
 
 Optional porting steps:
 
-* Implement GASNet high-performance timers (gasneti_stattime_t) in gasnet_timer.h,
+* Implement GASNet high-performance timers (gasneti_tick_t) in gasnet_timer.h,
   if supported by the system.
 
 * Implement a new conduit for the network hardware (see template-conduit/README.template).

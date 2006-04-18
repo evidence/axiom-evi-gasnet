@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2006/03/18 03:30:53 $
- * $Revision: 1.40 $
+ *     $Date: 2006/04/18 04:37:08 $
+ * $Revision: 1.41 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,7 +53,7 @@
 /* ------------------------------------------------------------------------------------ */
 static void *gasneti_mmap_internal(void *segbase, uintptr_t segsize) {
   static int gasneti_mmapfd = -1;
-  gasneti_stattime_t t1, t2;
+  gasneti_tick_t t1, t2;
   void	*ptr;
 
   #ifdef GASNETI_MMAP_FILE
@@ -64,17 +64,17 @@ static void *gasneti_mmap_internal(void *segbase, uintptr_t segsize) {
     }
   #endif
 
-  t1 = GASNETI_STATTIME_NOW();
+  t1 = gasneti_ticks_now();
   ptr = mmap(segbase, segsize, (PROT_READ|PROT_WRITE), 
       (GASNETI_MMAP_FLAGS | (segbase==NULL?GASNETI_MMAP_NOTFIXED_FLAG:GASNETI_MMAP_FIXED_FLAG)), 
       gasneti_mmapfd, 0);
-  t2 = GASNETI_STATTIME_NOW();
+  t2 = gasneti_ticks_now();
 
   GASNETI_TRACE_PRINTF(C, 
       ("mmap %s("GASNETI_LADDRFMT", %lu): %.3fus => "GASNETI_LADDRFMT"%s%s\n", 
         (segbase == NULL?"":"fixed"),
         GASNETI_LADDRSTR(segbase), (unsigned long)segsize,
-        GASNETI_STATTIME_TO_NS(t2-t1)/1000.0,
+        gasneti_ticks_to_ns(t2-t1)/1000.0,
         GASNETI_LADDRSTR(ptr),
         (ptr == MAP_FAILED?"  MAP_FAILED: ":""),
         (ptr == MAP_FAILED?strerror(errno):"")));
@@ -108,9 +108,9 @@ extern void *gasneti_mmap(uintptr_t segsize) {
 }
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
-  gasneti_stattime_t t1, t2;
+  gasneti_tick_t t1, t2;
   gasneti_assert(segsize > 0);
-  t1 = GASNETI_STATTIME_NOW();
+  t1 = gasneti_ticks_now();
     #if 0 && defined(OSF) /* doesn't seem to help */
       /* invalidate the pages before unmap to avoid write-back penalty */
       if (madvise(segbase, segsize, MADV_DONTNEED))
@@ -123,11 +123,11 @@ extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
     if (munmap(segbase, segsize) != 0) 
       gasneti_fatalerror("munmap("GASNETI_LADDRFMT",%lu) failed: %s\n",
 	      GASNETI_LADDRSTR(segbase), (unsigned long)segsize, strerror(errno));
-  t2 = GASNETI_STATTIME_NOW();
+  t2 = gasneti_ticks_now();
 
   GASNETI_TRACE_PRINTF(D,("munmap("GASNETI_LADDRFMT", %lu): %.3fus\n", 
      GASNETI_LADDRSTR(segbase), (unsigned long)segsize,
-     GASNETI_STATTIME_TO_NS(t2-t1)/1000.0) );
+     gasneti_ticks_to_ns(t2-t1)/1000.0) );
 }
 /* ------------------------------------------------------------------------------------ */
 /* binary search for segment - returns location, not mmaped */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.h,v $
- *     $Date: 2006/03/19 02:08:24 $
- * $Revision: 1.22 $
+ *     $Date: 2006/04/18 04:37:26 $
+ * $Revision: 1.23 $
  * Description: GASNet header for <conduitname> conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,7 +59,7 @@ typedef struct _gasnet_hsl_t {
   gasneti_mutex_t lock;
 
   #if GASNETI_STATS_OR_TRACE
-    gasneti_stattime_t acquiretime;
+    gasneti_tick_t acquiretime;
   #endif
 
   #if GASNETC_USE_INTERRUPTS

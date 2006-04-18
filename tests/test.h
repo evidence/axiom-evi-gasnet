@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/04/16 10:52:11 $
- * $Revision: 1.86 $
+ *     $Date: 2006/04/18 04:37:28 $
+ * $Revision: 1.87 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -832,7 +832,7 @@ static void _test_init(const char *testname, int reports_performance, int early,
       TEST_GENERICS_WARNING();
       if (gasnet_mynode() == 0)
         fprintf(stdout, "Timer granularity: <= %.3f us, overhead: ~ %.3f us\n",
-                       gasnett_timer_granularityus(), gasnett_timer_overheadus());
+                       gasnett_tick_granularityus(), gasnett_tick_overheadus());
       fflush(NULL);
     }
     if (test_getenv_yesno("GASNET_TEST_POLITE_SYNC",0)) {

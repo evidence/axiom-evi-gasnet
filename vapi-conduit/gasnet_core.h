@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2006/04/05 23:13:29 $
- * $Revision: 1.50 $
+ *     $Date: 2006/04/18 04:37:32 $
+ * $Revision: 1.51 $
  * Description: GASNet header for vapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,7 +59,7 @@ typedef struct _gasnet_hsl_t {
   gasneti_mutex_t lock;
 
   #if GASNETI_STATS_OR_TRACE
-    gasneti_stattime_t acquiretime;
+    gasneti_tick_t acquiretime;
   #endif
 
   #if GASNETC_USE_INTERRUPTS

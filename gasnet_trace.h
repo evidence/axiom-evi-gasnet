@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2006/03/29 14:33:50 $
- * $Revision: 1.51 $
+ *     $Date: 2006/04/18 04:37:08 $
+ * $Revision: 1.52 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,7 +38,7 @@ GASNETI_BEGIN_EXTERNC
 
   /* emit trace info and accumulate a time stat value */
   #define GASNETI_TRACE_EVENT_TIME(type, name, time) do { \
-       gasneti_stattime_t _time = (time);                 \
+       gasneti_tick_t _time = (time);                     \
        _GASNETI_STAT_EVENT_TIME(type, name, _time);       \
        _GASNETI_TRACE_EVENT_TIME(type, name, _time);      \
       } while (0)
@@ -243,7 +243,7 @@ GASNETI_BEGIN_EXTERNC
 
 #if GASNETI_STATS_OR_TRACE
   #define GASNETI_TRACE_WAITSYNC_BEGIN() \
-    gasneti_stattime_t _waitstart = GASNETI_STATTIME_NOW_IFENABLED(S)
+    gasneti_tick_t _waitstart = GASNETI_TICKS_NOW_IFENABLED(S)
 #else 
   #define GASNETI_TRACE_WAITSYNC_BEGIN() \
     static char _dummy_WAITSYNC = (char)sizeof(_dummy_WAITSYNC)
@@ -255,7 +255,7 @@ GASNETI_BEGIN_EXTERNC
 #endif
 
 #define GASNETI_TRACE_WAITSYNC_END(name) \
-  GASNETI_TRACE_EVENT_TIME(S,name,GASNETI_STATTIME_NOW_IFENABLED(S) - _waitstart)
+  GASNETI_TRACE_EVENT_TIME(S,name,GASNETI_TICKS_NOW_IFENABLED(S) - _waitstart)
 /*------------------------------------------------------------------------------------*/
 /* AM Request/Reply tracing helpers */
 #define _GASNETI_TRACE_GATHERARGS(numargs)                          \
@@ -644,7 +644,7 @@ GASNETI_BEGIN_EXTERNC
     /* XXX: No detail implemented */                                                                       \
   } while (0)
   #define GASNETI_TRACE_COLL_WAITSYNC_BEGIN() \
-	        gasneti_stattime_t _waitstart = GASNETI_STATTIME_NOW_IFENABLED(X)
+	        gasneti_tick_t _waitstart = GASNETI_TICKS_NOW_IFENABLED(X)
 #else
   #define GASNETI_TRACE_COLL_BROADCAST(name,team,dst,root,src,nbytes,flags)
   #define GASNETI_TRACE_COLL_BROADCAST_M(name,team,dstlist,root,src,nbytes,flags)
@@ -666,7 +666,7 @@ GASNETI_BEGIN_EXTERNC
 #define GASNETI_TRACE_COLL_TRYSYNC(name,success) \
 	GASNETI_TRACE_EVENT_VAL(X,name,((success) == GASNET_OK?1:0))
 #define GASNETI_TRACE_COLL_WAITSYNC_END(name) \
-	GASNETI_TRACE_EVENT_TIME(X,name,GASNETI_STATTIME_NOW_IFENABLED(X) - _waitstart)
+	GASNETI_TRACE_EVENT_TIME(X,name,GASNETI_TICKS_NOW_IFENABLED(X) - _waitstart)
 /* ------------------------------------------------------------------------------------ */
 /* Internal implementation of statistical/tracing output */
 
@@ -675,9 +675,9 @@ typedef uint64_t gasneti_statctr_t;
 #define GASNETI_STATCTR_MAX ((gasneti_statctr_t)-1)
 
 
-#define GASNETI_STATTIME_NOW_IFENABLED(type)                      \
+#define GASNETI_TICKS_NOW_IFENABLED(type)                      \
   ((GASNETI_STATS_ENABLED(type) || GASNETI_TRACE_ENABLED(type)) ? \
-   GASNETI_STATTIME_NOW():(gasneti_stattime_t)0)
+   gasneti_ticks_now():(gasneti_tick_t)0)
 typedef struct {
   gasneti_statctr_t count;
   gasneti_statctr_t minval;
@@ -687,9 +687,9 @@ typedef struct {
 
 typedef struct {
   gasneti_statctr_t count;
-  gasneti_stattime_t minval;
-  gasneti_stattime_t maxval;
-  gasneti_stattime_t sumval;
+  gasneti_tick_t minval;
+  gasneti_tick_t maxval;
+  gasneti_tick_t sumval;
 } gasneti_stat_timeval_t;
 
 /* startup & cleanup called by GASNet */
@@ -894,7 +894,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
   #define _GASNETI_TRACE_EVENT_TIME(type, name, time)        \
     GASNETI_TRACE_PRINTF(type, ("%s: %s = %6.3fus",            \
         #name, gasneti_stats[(int)GASNETI_STAT_##name].desc, \
-        GASNETI_STATTIME_TO_NS(time)/1000.0))
+        gasneti_ticks_to_ns(time)/1000.0))
 #else
   #define _GASNETI_TRACE_EVENT(type, name) 
   #define _GASNETI_TRACE_EVENT_VAL(type, name, val) 
@@ -916,7 +916,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
 
   extern void gasneti_stat_count_accumulate(gasneti_statctr_t *pctr);
   extern void gasneti_stat_intval_accumulate(gasneti_stat_intval_t *pintval, gasneti_statctr_t val);
-  extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gasneti_stattime_t val);
+  extern void gasneti_stat_timeval_accumulate(gasneti_stat_timeval_t *pintval, gasneti_tick_t val);
   #define _GASNETI_STAT_EVENT(type, name) do {                 \
     if (GASNETI_STATS_ENABLED(type))                           \
       gasneti_stat_count_accumulate(&gasneti_stat_ctr_##name); \
@@ -927,7 +927,7 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
   } while (0)
   #define _GASNETI_STAT_EVENT_TIME(type, name, time) do {                                  \
     if (GASNETI_STATS_ENABLED(type))                                                       \
-      gasneti_stat_timeval_accumulate(&gasneti_stat_timeval_##name,(gasneti_stattime_t)time);\
+      gasneti_stat_timeval_accumulate(&gasneti_stat_timeval_##name,(gasneti_tick_t)time);\
   } while (0)
 #else
   #define _GASNETI_STAT_EVENT(type, name)

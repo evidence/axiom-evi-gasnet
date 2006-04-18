@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/04/17 23:46:30 $
- * $Revision: 1.181 $
+ *     $Date: 2006/04/18 04:37:32 $
+ * $Revision: 1.182 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -865,8 +865,8 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
 
   if (GASNETC_MSG_ISREPLY(flags)) {
 #if GASNETI_STATS_OR_TRACE
-    gasneti_stattime_t _starttime = ((gasnetc_buffer_t *)(uintptr_t)(rbuf->rr_sg.addr))->stamp;
-    GASNETI_TRACE_EVENT_TIME(C,AM_ROUNDTRIP_TIME,GASNETI_STATTIME_NOW()-_starttime);
+    gasneti_tick_t _starttime = ((gasnetc_buffer_t *)(uintptr_t)(rbuf->rr_sg.addr))->stamp;
+    GASNETI_TRACE_EVENT_TIME(C,AM_ROUNDTRIP_TIME,gasneti_ticks_now()-_starttime);
 #endif
 
     /* Process the implicitly received flow control credit */
@@ -1643,7 +1643,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
   
     /* Add/forward optional timestamp */
     #if GASNETI_STATS_OR_TRACE
-      buf->stamp = token ? ((gasnetc_buffer_t *)(uintptr_t)(token->rr_sg.addr))->stamp : GASNETI_STATTIME_NOW_IFENABLED(C);
+      buf->stamp = token ? ((gasnetc_buffer_t *)(uintptr_t)(token->rr_sg.addr))->stamp : GASNETI_TICKS_NOW_IFENABLED(C);
     #endif
   
     /* send the AM */

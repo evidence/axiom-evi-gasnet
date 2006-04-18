@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/04/07 20:37:08 $
- * $Revision: 1.163 $
+ *     $Date: 2006/04/18 04:37:32 $
+ * $Revision: 1.164 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1848,17 +1848,17 @@ static void gasnetc_exit_sighandler(int sig) {
  */
 static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
   int i, rc;
-  gasneti_stattime_t start_time;
+  gasneti_tick_t start_time;
 
   gasneti_assert(timeout_us > 0); 
 
-  start_time = GASNETI_STATTIME_NOW();
+  start_time = gasneti_ticks_now();
 
   /* Notify phase */
   for (i = 0; i < gasneti_nodes; ++i) {
     if (i == gasneti_mynode) continue;
 
-    if (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) / 1000 > timeout_us) return -1;
+    if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
 
     rc = gasnetc_RequestSystem(i, NULL,
 		    	       gasneti_handleridx(gasnetc_SYS_exit_req),
@@ -1868,7 +1868,7 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
 
   /* Wait phase - wait for replies from our N-1 peers */
   while (gasneti_atomic_read(&gasnetc_exit_reps, 0) < (gasneti_nodes - 1)) {
-    if (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) / 1000 > timeout_us) return -1;
+    if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
 
     gasnetc_sndrcv_poll(); /* works even before _attach */
   }
@@ -1885,15 +1885,15 @@ static int gasnetc_exit_master(int exitcode, int64_t timeout_us) {
  * Returns 0 on success, non-zero on timeout.
  */
 static int gasnetc_exit_slave(int64_t timeout_us) {
-  gasneti_stattime_t start_time;
+  gasneti_tick_t start_time;
 
   gasneti_assert(timeout_us > 0); 
 
-  start_time = GASNETI_STATTIME_NOW();
+  start_time = gasneti_ticks_now();
 
   /* wait until the exit request is received from the master */
   while (gasneti_atomic_read(&gasnetc_exit_reqs, 0) == 0) {
-    if (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) / 1000 > timeout_us) return -1;
+    if (gasneti_ticks_to_ns(gasneti_ticks_now() - start_time) / 1000 > timeout_us) return -1;
 
     gasnetc_sndrcv_poll(); /* works even before _attach */
   }
@@ -2414,7 +2414,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
 
   {
     #if GASNETI_STATS_OR_TRACE
-      gasneti_stattime_t startlock = GASNETI_STATTIME_NOW_IFENABLED(L);
+      gasneti_tick_t startlock = GASNETI_TICKS_NOW_IFENABLED(L);
     #endif
     #if GASNETC_HSL_SPINLOCK
       while (gasneti_mutex_trylock(&(hsl->lock)) == EBUSY) { }
@@ -2422,7 +2422,7 @@ extern void gasnetc_hsl_lock   (gasnet_hsl_t *hsl) {
       gasneti_mutex_lock(&(hsl->lock));
     #endif
     #if GASNETI_STATS_OR_TRACE
-      hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+      hsl->acquiretime = GASNETI_TICKS_NOW_IFENABLED(L);
       GASNETI_TRACE_EVENT_TIME(L, HSL_LOCK, hsl->acquiretime-startlock);
     #endif
   }
@@ -2447,7 +2447,7 @@ extern void gasnetc_hsl_unlock (gasnet_hsl_t *hsl) {
     #error interrupts not implemented
   #endif
 
-  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_STATTIME_NOW_IFENABLED(L)-hsl->acquiretime);
+  GASNETI_TRACE_EVENT_TIME(L, HSL_UNLOCK, GASNETI_TICKS_NOW_IFENABLED(L)-hsl->acquiretime);
 
   gasneti_mutex_unlock(&(hsl->lock));
 }
@@ -2461,7 +2461,7 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
     GASNETI_TRACE_EVENT_VAL(L, HSL_TRYLOCK, locked);
     if (locked) {
       #if GASNETI_STATS_OR_TRACE
-        hsl->acquiretime = GASNETI_STATTIME_NOW_IFENABLED(L);
+        hsl->acquiretime = GASNETI_TICKS_NOW_IFENABLED(L);
       #endif
       #if GASNETC_USE_INTERRUPTS
         /* conduits with interrupt-based handler dispatch need to add code here to 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.h,v $
- *     $Date: 2006/03/19 02:08:04 $
- * $Revision: 1.24 $
+ *     $Date: 2006/04/18 04:37:16 $
+ * $Revision: 1.25 $
  * Description: GASNet header for lapi conduit core
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -60,7 +60,7 @@ typedef struct _gasnet_hsl_t {
   gasnetc_spinlock_t lock;
 
   #if GASNETI_STATS_OR_TRACE
-    gasneti_stattime_t acquiretime;
+    gasneti_tick_t acquiretime;
   #endif
 
   #if GASNETC_USE_INTERRUPTS

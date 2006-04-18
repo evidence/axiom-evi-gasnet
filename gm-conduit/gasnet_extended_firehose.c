@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_firehose.c,v $
- * $Date: 2006/03/19 02:08:02 $
- * $Revision: 1.56 $
+ * $Date: 2006/04/18 04:37:14 $
+ * $Revision: 1.57 $
  * Description: GASNet GM conduit Firehose DMA Registration Algorithm
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -54,15 +54,15 @@ gasnete_fh_request_get_fn(void *op, const firehose_request_t *req, int loc)
 	    switch(eop->fh_stats) {				\
 		case fh_onesided: GASNETI_TRACE_EVENT_TIME(C,	\
 			    FIREHOSE_ ## putget ## _ONESIDED, 	\
-			    GASNETI_STATTIME_NOW_IFENABLED(C)-	\
+			    GASNETI_TICKS_NOW_IFENABLED(C)-	\
 			    eop->starttime); break;		\
 		case fh_one: GASNETI_TRACE_EVENT_TIME(C,	\
 			    FIREHOSE_ ## putget ## _ONE, 	\
-			    GASNETI_STATTIME_NOW_IFENABLED(C)-	\
+			    GASNETI_TICKS_NOW_IFENABLED(C)-	\
 			    eop->starttime); break;		\
 		case fh_many: GASNETI_TRACE_EVENT_TIME(C,	\
 			    FIREHOSE_ ## putget ## _MANY, 	\
-			    GASNETI_STATTIME_NOW_IFENABLED(C)-	\
+			    GASNETI_TICKS_NOW_IFENABLED(C)-	\
 			    eop->starttime); break;		\
 		case fh_none: gasneti_fatalerror("eop stats");	\
 		default: break;					\
@@ -157,7 +157,7 @@ gasnete_fh_callback_put(struct gm_port *p, void *context,
         GASNET_BEGIN_FUNCTION(); /* thread cache for *_IN_UNKNOWN */
 	gasnete_eop_t		*pop = (gasnete_eop_t *) context;
 	gasnet_node_t		node = pop->node;
-	gasneti_stattime_t      starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
+	gasneti_tick_t      starttime = GASNETI_TICKS_NOW_IFENABLED(C);
 	const firehose_request_t	*fhreqs[2];
 	int				numreqs = 1;
 
@@ -209,7 +209,7 @@ gasnete_fh_callback_put(struct gm_port *p, void *context,
         }
 
 	GASNETI_TRACE_EVENT_TIME(C, FIREHOSE_MOVE_LOCAL,
-		    GASNETI_STATTIME_NOW_IFENABLED(C)-starttime);
+		    GASNETI_TICKS_NOW_IFENABLED(C)-starttime);
 
 	return;
 }
@@ -270,7 +270,7 @@ gasnete_firehose_put_bulk(gasnet_node_t node, void *dest, void *src,
 	SET_OPMISC(pop, OPMISC_NONAMBUF);
 	#if GASNETI_STATS_OR_TRACE
 	pop->fh_stats  = fh_onesided;
-	pop->starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
+	pop->starttime = GASNETI_TICKS_NOW_IFENABLED(C);
 	#endif
 
 	/* If we were dealing with implicit put, increment the iop */
@@ -342,7 +342,7 @@ gasnete_firehose_put(gasnet_node_t node, void *dest, void *src, size_t nbytes,
 	pop->iop = iop;
 	SET_OPMISC(pop, OPMISC_AMBUF);
 	#if GASNETI_STATS_OR_TRACE
-	pop->starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
+	pop->starttime = GASNETI_TICKS_NOW_IFENABLED(C);
 	pop->fh_stats  = fh_onesided;
 	#endif
 	GASNETE_FAST_UNALIGNED_MEMCPY(bufd->buf, src, nbytes);
@@ -665,7 +665,7 @@ gasnete_firehose_get(void *dest, gasnet_node_t node, void *src,
 	gop->iop = iop;
 	SET_OPMISC(gop, OPMISC_NONAMBUF);
 	#if GASNETI_STATS_OR_TRACE
-	gop->starttime = GASNETI_STATTIME_NOW_IFENABLED(C);
+	gop->starttime = GASNETI_TICKS_NOW_IFENABLED(C);
 	gop->fh_stats = fh_onesided;
 	#endif
 

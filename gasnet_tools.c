@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/04/15 02:30:44 $
- * $Revision: 1.154 $
+ *     $Date: 2006/04/18 04:37:08 $
+ * $Revision: 1.155 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -117,14 +117,14 @@
 #error gasnet_tools.c must be compiled with support for inline assembly
 #endif
 
-#if defined(GASNETI_STATTIME_NOW_BODY)
-  GASNETI_NEVER_INLINE(gasneti_slow_stattime_now,
-  extern void gasneti_slow_stattime_now()) {
-    GASNETI_STATTIME_NOW_BODY
+#if defined(GASNETI_TICKS_NOW_BODY)
+  GASNETI_NEVER_INLINE(gasneti_slow_ticks_now,
+  extern void gasneti_slow_ticks_now()) {
+    GASNETI_TICKS_NOW_BODY
   }
 #else
-  extern gasneti_stattime_t gasneti_slow_stattime_now() {
-    return GASNETI_STATTIME_NOW();
+  extern gasneti_tick_t gasneti_slow_ticks_now() {
+    return gasneti_ticks_now();
   }
 #endif
 extern void gasneti_slow_compiler_fence() {
@@ -193,18 +193,18 @@ int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG) = 1;
 int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG) = 1;
 
 /* ------------------------------------------------------------------------------------ */
-extern double gasneti_stattime_metric(int idx) {
-  static double *_gasneti_stattime_metric = NULL;
+extern double gasneti_tick_metric(int idx) {
+  static double *_gasneti_tick_metric = NULL;
   gasneti_assert(idx <= 1);
-  if_pf (_gasneti_stattime_metric == NULL) {
+  if_pf (_gasneti_tick_metric == NULL) {
     int i, ticks, iters = 1000, minticks = 10;
     double *_tmp_metric;
-    gasneti_stattime_t min = GASNETI_STATTIME_MAX;
-    gasneti_stattime_t start = GASNETI_STATTIME_NOW();
-    gasneti_stattime_t last = start;
+    gasneti_tick_t min = GASNETI_TICK_MAX;
+    gasneti_tick_t start = gasneti_ticks_now();
+    gasneti_tick_t last = start;
     for (i=0,ticks=0; i < iters || ticks < minticks; i++) {
-      gasneti_stattime_t x = GASNETI_STATTIME_NOW();
-      gasneti_stattime_t curr = (x - last);
+      gasneti_tick_t x = gasneti_ticks_now();
+      gasneti_tick_t curr = (x - last);
       if_pt (curr > 0) { 
         ticks++;
         if_pf (curr < min) min = curr;
@@ -214,13 +214,13 @@ extern double gasneti_stattime_metric(int idx) {
     _tmp_metric = (double *)malloc(2*sizeof(double));
     gasneti_assert(_tmp_metric != NULL);
     /* granularity */
-    _tmp_metric[0] = ((double)GASNETI_STATTIME_TO_NS(min))/1000.0;
+    _tmp_metric[0] = ((double)gasneti_ticks_to_ns(min))/1000.0;
     /* overhead */
-    _tmp_metric[1] = ((double)(GASNETI_STATTIME_TO_NS(last - start)))/(i*1000.0);
+    _tmp_metric[1] = ((double)(gasneti_ticks_to_ns(last - start)))/(i*1000.0);
     gasneti_sync_writes();
-    _gasneti_stattime_metric = _tmp_metric;
+    _gasneti_tick_metric = _tmp_metric;
   } else gasneti_sync_reads();
-  return _gasneti_stattime_metric[idx];
+  return _gasneti_tick_metric[idx];
 }
 
 /* ------------------------------------------------------------------------------------ */

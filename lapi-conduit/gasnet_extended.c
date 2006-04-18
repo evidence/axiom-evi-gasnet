@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/04/05 23:13:27 $
- * $Revision: 1.45 $
+ *     $Date: 2006/04/18 04:37:16 $
+ * $Revision: 1.46 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1129,7 +1129,7 @@ static int volatile barrier_phase = 0;  /*  2-phase operation to improve pipelin
 static int volatile barrier_response_done[2] = { 0, 0 }; /*  non-zero when barrier is complete 
                                                              also has mismatch bit set if root detected mismatch */
 #if GASNETI_STATS_OR_TRACE
-static gasneti_stattime_t barrier_notifytime; /* for statistical purposes */ 
+static gasneti_tick_t barrier_notifytime; /* for statistical purposes */ 
 #endif
 
 /*  global state on P0 */
@@ -1301,7 +1301,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
 
   GASNETI_TRACE_PRINTF(B, ("BARRIER_NOTIFY(id=%i,flags=%i)", id, flags));
 #if GASNETI_STATS_OR_TRACE
-  barrier_notifytime = GASNETI_STATTIME_NOW_IFENABLED(B);
+  barrier_notifytime = GASNETI_TICKS_NOW_IFENABLED(B);
 #endif
 
   {
@@ -1387,7 +1387,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
 
 extern int gasnete_barrier_wait(int id, int flags) {
 #if GASNETI_STATS_OR_TRACE
-    gasneti_stattime_t wait_start = GASNETI_STATTIME_NOW_IFENABLED(B);
+    gasneti_tick_t wait_start = GASNETI_TICKS_NOW_IFENABLED(B);
 #endif
     int phase;
     gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
@@ -1395,12 +1395,12 @@ extern int gasnete_barrier_wait(int id, int flags) {
     if_pf(barrier_splitstate == OUTSIDE_BARRIER) 
 	gasneti_fatalerror("gasnet_barrier_wait() called without a matching notify");
 
-    GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_STATTIME_NOW()-barrier_notifytime);
+    GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,gasneti_ticks_now()-barrier_notifytime);
 
     /*  wait for response */
     gasneti_polluntil(barrier_response_done[phase]);
 
-    GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,GASNETI_STATTIME_NOW()-wait_start);
+    GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,gasneti_ticks_now()-wait_start);
 
     /* if this is the master node, reset the global state */
     if (gasneti_mynode == GASNETE_BARRIER_MASTER) {

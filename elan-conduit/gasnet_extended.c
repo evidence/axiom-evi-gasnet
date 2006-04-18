@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/04/05 23:13:21 $
- * $Revision: 1.70 $
+ *     $Date: 2006/04/18 04:37:10 $
+ * $Revision: 1.71 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1482,7 +1482,7 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
 #else /* GASNETE_USE_ELAN_BARRIER */
 
 #if GASNETI_STATS_OR_TRACE
-  static gasneti_stattime_t barrier_notifytime; /* for statistical purposes */ 
+  static gasneti_tick_t barrier_notifytime; /* for statistical purposes */ 
 #endif
 static enum { OUTSIDE_BARRIER, INSIDE_BARRIER } barrier_splitstate = OUTSIDE_BARRIER;
 
@@ -1556,7 +1556,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
 
   GASNETI_TRACE_PRINTF(B, ("BARRIER_NOTIFY(id=%i,flags=%i)", id, flags));
   #if GASNETI_STATS_OR_TRACE
-    barrier_notifytime = GASNETI_STATTIME_NOW_IFENABLED(B);
+    barrier_notifytime = GASNETI_TICKS_NOW_IFENABLED(B);
   #endif
 
   /* algorithm: three state boxes per phase
@@ -1656,7 +1656,7 @@ extern void gasnete_barrier_notify(int id, int flags) {
 extern int gasnete_barrier_wait(int id, int flags) {
   int phase;
   #if GASNETI_STATS_OR_TRACE
-    gasneti_stattime_t wait_start = GASNETI_STATTIME_NOW_IFENABLED(B);
+    gasneti_tick_t wait_start = GASNETI_TICKS_NOW_IFENABLED(B);
   #endif
   gasneti_sync_reads(); /* ensure we read correct barrier_splitstate */
   if_pf(barrier_splitstate == OUTSIDE_BARRIER) 
@@ -1664,7 +1664,7 @@ extern int gasnete_barrier_wait(int id, int flags) {
   phase = barrier_phase;
   barrier_phase = !phase;
 
-  GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,GASNETI_STATTIME_NOW()-barrier_notifytime);
+  GASNETI_TRACE_EVENT_TIME(B,BARRIER_NOTIFYWAIT,gasneti_ticks_now()-barrier_notifytime);
 
   GASNETI_TRACE_EVENT_TIME(B,BARRIER_WAIT,0);
 
