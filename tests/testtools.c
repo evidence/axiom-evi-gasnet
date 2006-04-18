@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/04/18 13:11:05 $
- * $Revision: 1.53 $
+ *     $Date: 2006/04/18 21:31:58 $
+ * $Revision: 1.54 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -102,9 +102,11 @@ int main(int argc, char **argv) {
     char sz_str[50];
     gasnett_format_number(val, sz_str, sizeof(sz_str), 1);
     if (val == 0) MSG("WARNING: gasnett_getPhysMemSz() failed to discover physical memory size.");
-    else MSG("Physical memory size estimated to be: %s", sz_str);
-    if (val > (1ULL<<50) || val < (1ULL<<20)) 
-      ERR("gasnett_getPhysMemSz() got a ridiculous result: %llu bytes", (unsigned long long)val);
+    else {
+      MSG("Physical memory size estimated to be: %s", sz_str);
+      if (val > (1ULL<<50) || val < (1ULL<<20)) 
+        ERR("gasnett_getPhysMemSz() got a ridiculous result: %llu bytes", (unsigned long long)val);
+    }
   }
 
   { char tmp_str[50];
