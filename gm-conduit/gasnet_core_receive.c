@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_receive.c,v $
- * $Date: 2006/03/19 02:08:02 $
- * $Revision: 1.42 $
+ * $Date: 2006/04/18 01:02:01 $
+ * $Revision: 1.43 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -81,6 +81,13 @@ gasnetc_AMPoll()
 	uint8_t		tag;
 
 	gasnetc_bufdesc_t       *bufd;
+
+	#if !GASNET_SEQ
+		if_pf (gasneti_atomic_read(&gasnetc_exit_running, 0)) {
+			/* Stop this thread if an exit is already in progress */
+			gasnetc_exit(-1);
+		}
+	#endif
 
 	if (!gm_receive_pending(_gmc.port))
 		return GASNET_OK;

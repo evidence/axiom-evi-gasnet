@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2006/04/07 20:37:06 $
- * $Revision: 1.104 $
+ * $Date: 2006/04/18 01:02:01 $
+ * $Revision: 1.105 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -28,6 +28,7 @@ firehose_info_t	  gasnetc_firehose_info;
 gasneti_mutex_t gasnetc_lock_gm      = GASNETI_MUTEX_INITIALIZER;
 gasneti_mutex_t gasnetc_lock_reqpool = GASNETI_MUTEX_INITIALIZER;
 gasneti_mutex_t gasnetc_lock_amreq   = GASNETI_MUTEX_INITIALIZER;
+gasneti_atomic_t gasnetc_exit_running = gasneti_atomic_init(0);	/* boolean used to coordinate w/ AMPoll() */
 
 gasnetc_state_t _gmc;
 
@@ -1005,7 +1006,27 @@ static void gasnetc_exit_body(void) {
 	while (_gmc.stoks.total > tok_drain)
 	    gasnet_AMPoll();
 
+	/* Exclude other threads from calling gm. */
+	#if !GASNET_SEQ
+	{	const int64_t limit1 = 500000000; /* 0.5s - max time to spin for a lock */
+		const int64_t limit2 = 50000; /* 50us - min time to pause for pollers to clear */
+		gasneti_stattime_t start_time = GASNETI_STATTIME_NOW();
+
+		/* Exclude AMPoll() from calling gm_receive_pending() */
+		gasneti_atomic_set(&gasnetc_exit_running, 1, GASNETI_ATOMIC_WMB_POST);
+
+		/* Try for a bounded time to obtain the gm lock */
+		gasneti_waitwhile((gasneti_mutex_trylock(&gasnetc_lock_gm) != 0) &&
+				  (GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) < limit1));
+
+		/* Ensure we've paused long enough for pollers to notice gasnetc_exit_running */
+		gasneti_waitwhile(GASNETI_STATTIME_TO_NS(GASNETI_STATTIME_NOW() - start_time) < limit2);
+	}
+	#endif
+
+	#if GASNET_SEQ /* NOT thread-safe */
 	gasnetc_DestroyPinnedBufs();
+	#endif
 
         gasneti_flush_streams();
 

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_internal.h,v $
- * $Date: 2006/03/19 02:08:02 $
- * $Revision: 1.71 $
+ * $Date: 2006/04/18 01:02:01 $
+ * $Revision: 1.72 $
  * Description: GASNet gm conduit header for internal definitions in Core API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -53,6 +53,8 @@
 extern gasneti_mutex_t	gasnetc_lock_gm;
 extern gasneti_mutex_t	gasnetc_lock_reqpool;
 extern gasneti_mutex_t	gasnetc_lock_amreq;
+extern gasneti_atomic_t gasnetc_exit_running;
+
 /* -------------------------------------------------------------------------- */
 /* Core-specific AMs */
 #define GASNETC_HANDLER_BASE  1 /* reserve 1-63 for the core API */
