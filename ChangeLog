@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.11 $
+$Revision: 1.12 $
 
 ----------------------------------------------------------------------
 ?-?-2006 : Release 1.8
@@ -8,7 +8,7 @@ $Revision: 1.11 $
 * New conduits added:
 
 * New platform support:
-  - New ports: MacOSX/x86, MacOSX/PPC64 and Cray XD1
+  - New ports: MacOSX/x86, MacOSX/PPC64, Cray XD1 and ucLinux/MicroBlaze
 
 * Misc changes:  
   - Change default timer granularity to nanoseconds, adding _ticks_to_ns()
