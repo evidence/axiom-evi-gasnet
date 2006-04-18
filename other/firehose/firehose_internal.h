@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_internal.h,v $
- *     $Date: 2006/03/19 02:08:14 $
- * $Revision: 1.33 $
+ *     $Date: 2006/04/18 18:27:55 $
+ * $Revision: 1.34 $
  * Description: Internal Header file
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -40,7 +40,7 @@
 typedef uintptr_t	fh_uint_t;
 typedef intptr_t	fh_int_t;
 
-extern gasnet_node_t	fh_mynode;
+extern int fh_verbose;
 
 /* 
  * Locks
@@ -701,7 +701,7 @@ int fhi_FreeVictimRemote(gasnet_node_t node, int count, firehose_region_t *reg)
 	do {								\
 		char	msg[64];					\
 		fh_refc_t *rp = FH_BUCKET_REFC(bd);			\
-		if (FH_PRIV_NODE(bd) != fh_mynode) {			\
+		if (FH_PRIV_NODE(bd) != gasneti_mynode) {			\
 			if (FH_IS_REMOTE_PENDING(bd)) 			\
 				sprintf(msg, "rrefc=%d PENDING",	\
 				    rp->refc_r);			\
@@ -720,7 +720,7 @@ int fhi_FreeVictimRemote(gasnet_node_t node, int count, firehose_region_t *reg)
 		GASNETI_TRACE_PRINTF(C,					\
 		    ("Firehose Bucket %s %s node=%d,addr="              \
 		     GASNETI_LADDRFMT",%s", #bmsg,                      \
-		     FH_PRIV_NODE(bd) == fh_mynode ? "Local ":"Remote", \
+		     FH_PRIV_NODE(bd) == gasneti_mynode ? "Local ":"Remote", \
 		     (int) FH_PRIV_NODE(bd),                            \
 		     GASNETI_LADDRSTR(FH_BADDR(bd)), msg));		\
 	} while (0)
@@ -738,6 +738,7 @@ int fhi_FreeVictimRemote(gasnet_node_t node, int count, firehose_region_t *reg)
 #define FH_NUMPINNED_TRACE_LOCAL
 #define FH_NUMPINNED_TRACE_REMOTE
 #endif
+
 
 /*
  * Conduit Features	gm-conduit	vapi-conduit	sci-conduit
