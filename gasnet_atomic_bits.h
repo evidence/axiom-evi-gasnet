@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/12 21:16:04 $
- * $Revision: 1.150 $
+ *     $Date: 2006/04/18 21:47:01 $
+ * $Revision: 1.151 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -579,7 +579,7 @@
 		"sete %0"
 		: "=mq" (retval), "=m" (v->ctr), "=a" (readval)
 		: "r" (newval), "m" (v->ctr), "a" (oldval)
-		: "cc", "memory");
+		: "cc" GASNETI_ATOMIC_MEM_CLOBBER);
         return (int)retval;
       }
       #define GASNETI_HAVE_ATOMIC_CAS 1
