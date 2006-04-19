@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/19 01:41:19 $
- * $Revision: 1.156 $
+ *     $Date: 2006/04/19 02:08:18 $
+ * $Revision: 1.157 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -904,16 +904,15 @@
           register int32_t oldval;
           register int32_t newval;
           __asm__ __volatile__ ( 
-            "ld       [%2],%0    \n\t" /* oldval = *addr; */
+            "ld       %2,%0      \n\t" /* oldval = *addr; */
             "0:			 \t" 
             "add      %0,%3,%1   \n\t" /* newval = oldval + op; */
-            "cas      [%2],%0,%1 \n\t" /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
+            "cas      %2,%0,%1   \n\t" /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
             "cmp      %0, %1     \n\t" /* check if newval == oldval (swap succeeded) */
             "bne,a,pn %%icc, 0b  \n\t" /* otherwise, retry (,pn == predict not taken; ,a == annul) */
             "  mov    %1, %0     "     /* oldval = newval; (branch delay slot, annulled if not taken) */
-            : "=&r"(oldval), "=&r"(newval)
-            : "r" (addr), "rn"(op) 
-            : "memory");
+            : "=&r"(oldval), "=&r"(newval), "=m"(*addr)
+            : "rn"(op) );
           return oldval;
         }
         typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
@@ -928,10 +927,9 @@
         int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
           register volatile uint32_t * addr = (volatile uint32_t *)&(v->ctr);
           __asm__ __volatile__ ( 
-              "cas      [%2],%1,%0"  /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
-              : "+r"(newval)
-              : "r"(oldval), "r" (addr)
-              : "memory");
+              "cas      %1,%2,%0"  /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
+              : "+r"(newval), "=m"(*addr)
+              : "r"(oldval) );
           return (int)(newval == oldval);
         }
         #define GASNETI_HAVE_ATOMIC_CAS 1
@@ -988,10 +986,8 @@
           register uint32_t volatile * addr = (uint32_t volatile *)v;
           register uint32_t val = 0;
           __asm__ __volatile__ ( 
-            "swap [%1], %0 \n"   
-            : "+r"(val)
-            : "r" (addr)
-            : "memory");
+            "swap %1, %0 \n"   
+            : "+r" (val), "=m" (*addr) );
           return val;
         }
         #define GASNETI_ATOMIC_PRESENT    ((uint32_t)0x80000000)
