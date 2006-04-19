@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/19 00:31:01 $
- * $Revision: 1.155 $
+ *     $Date: 2006/04/19 01:41:19 $
+ * $Revision: 1.156 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1110,17 +1110,15 @@
         #if defined(__GNUC__)
           __asm__ __volatile__ ( 
           #if 0
-            "ldcws 0(%1), %0 \n"  
+            "ldcws %1, %0 \n"  
             /* should be using "ldcws,co" here for better performance, 
                but GNU assembler rejects it (works with system assembler) 
              */
           #else
-            "ldcw,co 0(%1), %0 \n"  
+            "ldcw,co %1, %0 \n"  
             /* this alternate, undocumented pseudo-op instruction appears to do the right thing */
           #endif
-            : "=r"(val)
-            : "r" (addr)
-            : "memory");
+            : "=r"(val), "=m" (*addr) );
         #elif defined(__HP_cc) /* HP C compiler */
           _asm("LDCWS,CO",0,0,addr,val);
         #else
