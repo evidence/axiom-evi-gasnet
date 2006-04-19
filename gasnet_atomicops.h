@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/19 02:08:18 $
- * $Revision: 1.157 $
+ *     $Date: 2006/04/19 02:47:04 $
+ * $Revision: 1.158 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -391,8 +391,7 @@
                 "beqz      %0,1b\n"            /* Retry on contention */
                 "2:\n\t"
                 : "=&r" (retval), "=&r" (temp), "=m" (*p)
-                : "r" (oldval), "r" (newval), "m" (*p)
-                : "memory");
+                : "r" (oldval), "r" (newval), "m" (*p) );
           return retval;
         }
       #else /* flaky OS-provided CAS */
