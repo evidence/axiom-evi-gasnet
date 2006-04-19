@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/04/18 13:10:58 $
- * $Revision: 1.17 $
+ *     $Date: 2006/04/19 19:55:31 $
+ * $Revision: 1.18 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -95,6 +95,7 @@ static void mutex_test(int id);
 static void spinlock_test(int id);
 static void cond_test(int id);
 static void semaphore_test(int id);
+static void lifo_test(int id);
 static void malloc_test(int id);
 static void progressfns_test(int id);
 static void op_test(int id);
@@ -143,6 +144,9 @@ extern int gasneti_run_diagnostics(int iter_cnt, int threadcnt, const char *test
 
   BARRIER();
   semaphore_test(0);
+
+  BARRIER();
+  lifo_test(0);
 
   BARRIER();
   progressfns_test(0);
@@ -482,6 +486,81 @@ static void semaphore_test(int id) {
       ERR("failed semaphore test: trydown pounding test failed");
 
   PTHREAD_BARRIER(num_threads);
+  gasneti_semaphore_destroy(&sema2);
+}
+/* ------------------------------------------------------------------------------------ */
+static void lifo_test(int id) {
+  static gasneti_lifo_head_t lifo1 = GASNETI_LIFO_INITIALIZER;
+  static gasneti_lifo_head_t lifo2;
+  static gasneti_atomic_t counter;
+  int limit = MIN(1000000, num_threads * iters2);
+  int i;
+
+  PTHREAD_BARRIER(num_threads);
+  TEST_HEADER("lifo test"); else return;
+
+    if (!id) {
+      gasneti_lifo_init(&lifo2);
+
+      for (i = 0; i < limit; ++i)
+	gasneti_lifo_push(&lifo1, test_malloc(sizeof(void *)));
+
+      for (i = 0; i < limit; ++i) {
+	void * tmp = gasneti_lifo_pop(&lifo1);
+	if (tmp == NULL)
+          ERR("failed lifo test: push/pop test failed");
+	gasneti_lifo_push(&lifo2, tmp);
+      }
+      if (gasneti_lifo_pop(&lifo1) != NULL)
+        ERR("failed lifo test: push/pop test failed");
+
+      for (i = 0; i < limit; ++i) {
+	void * tmp = gasneti_lifo_pop(&lifo2);
+	if (tmp == NULL)
+          ERR("failed lifo test: push/pop test failed");
+	gasneti_lifo_push(&lifo1, tmp);
+      }
+      if (gasneti_lifo_pop(&lifo2) != NULL)
+        ERR("failed lifo test: push/pop test failed");
+
+      gasneti_lifo_destroy(&lifo2);
+      gasneti_lifo_init(&lifo2);
+
+      gasneti_atomic_set(&counter, 0, 0);
+    }
+
+  PTHREAD_BARRIER(num_threads);
+
+    for (i=0;i<iters2;i++) {
+      void * tmp = gasneti_lifo_pop(&lifo1);
+      if (tmp != NULL) {
+        gasneti_lifo_push(&lifo2, tmp);
+	gasneti_atomic_increment(&counter, 0);
+      }
+    }
+
+  PTHREAD_BARRIER(num_threads);
+
+    if ((gasneti_lifo_pop(&lifo1) != NULL) || (gasneti_atomic_read(&counter, 0) != limit))
+      ERR("failed lifo test: push/pop pounding test failed");
+
+  PTHREAD_BARRIER(num_threads);
+
+    for (i=0;i<iters2;i++) {
+      void * tmp = gasneti_lifo_pop(&lifo2);
+      if (tmp != NULL) {
+	test_free(tmp);
+	gasneti_atomic_decrement(&counter, 0);
+      }
+    }
+
+  PTHREAD_BARRIER(num_threads);
+
+    if ((gasneti_lifo_pop(&lifo2) != NULL) || (gasneti_atomic_read(&counter, 0) != 0))
+      ERR("failed lifo test: push/pop pounding test failed");
+
+  PTHREAD_BARRIER(num_threads);
+  gasneti_lifo_destroy(&lifo2);
 }
 /* ------------------------------------------------------------------------------------ */
 static int pf_cnt_boolean, pf_cnt_counted;
@@ -778,6 +857,9 @@ static void * thread_fn(void *arg) {
 
   PTHREAD_BARRIER(num_threads);
   semaphore_test(id);
+
+  PTHREAD_BARRIER(num_threads);
+  lifo_test(id);
 
   PTHREAD_BARRIER(num_threads);
   TEST_HEADER("malloc test") malloc_test(id);
