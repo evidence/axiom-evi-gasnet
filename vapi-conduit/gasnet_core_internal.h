@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/04/18 22:39:02 $
- * $Revision: 1.132 $
+ *     $Date: 2006/04/19 18:58:00 $
+ * $Revision: 1.133 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -217,60 +217,58 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
 
 /* ------------------------------------------------------------------------------------ */
 
-/* Global freelist type
+/* Gasnet internal LIFO (stack) container.
  *
- * Freelists in vapi-conduit have multiple consumers and multiple producers.
- * Thread-local lists don't use this data structure.
+ * This data type provides a last in first out linked list implementation which
+ * is suitable for use as a multiple-producer, multiple-consumer free list.
+ * On architectires where possible, the synchronization is performed with
+ * lock-free algorithms.  On the remaining platforms, gasneti_mutex's are used.
  *
- * Current implementation is a LIFO (stack) with a mutex (and optionally lock-free).
- * Other possibilities include FIFO (queue) with mutex, or lock-free LIFO or FIFO
+ * This container type is independent of the type to be stored.  The only requirement
+ * is that the first sizeof(void *) bytes of the object are used for the list linkage.
+ *
+ *
+ * GASNETI_LIFO_INITIALIZER
+ * 		Static initializer for empty LIFO
+ * void gasneti_lifo_init(gasneti_lifo_head_t *lifo);
+ *		Initializer for dynamically allocated LIFO
+ * void *gasneti_lifo_pop(gasneti_lifo_head_t *lifo);
+ *		Pop "top" element from the LIFO or NULL if it is empty
+ * void gasneti_lifo_push(gasneti_lifo_head_t *lifo, void *elem);
+ *		Push one element on the LIFO
+ * void gasneti_lifo_push_many(gasneti_lifo_head_t *lifo, void *head, void *tail);
+ *		Push a chain of linked elements on the LIFO
+ * void gasneti_lifo_link(void *p, void *q);
+ *		Build a chain (q follows p) for use with _lifo_push_many()
+ * void *gasneti_lifo_next(void *elem);
+ *		Get next element in a chain built with _lifo_link
  */
 
-/*
- * Data type for the linkage of a freelist
- * Must be the first field in the data structure to be held in the list or the
- * data structure should be considered to be a union of this type and the real
- * type.  In the union case one can expect some number of bytes to get clobbered
- * while an element is on the freelist, while making this type the first element
- * (as shown below) preserves the contents of the free element (useful if there
- * are invariants to preserve).
- *
- * struct foobar {
- *   gasneti_freelist_ptr_t	linkage;
- *
- *   int			blah;
- *   double			boo;
- * };
- */
-typedef struct _gasneti_freelist_ptr_s {
-  struct _gasneti_freelist_ptr_s *next;
-} gasneti_freelist_ptr_t;
 
-
-/* Optional arch-specific freelist code */
-#if !GASNETC_ANY_PAR
+/* Optional arch-specific code */
+#if !GASNETI_THREADS
   /* No threads, so we use the mutex code that compiles away. */
 #elif defined(__i386__) /* x86 but NOT x86_64 */
-  #if defined(__GNUC__) || defined(__INTEL_COMPILER)
+  #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(PGI_WITH_REAL_ASM)
     typedef struct {
       volatile uintptr_t 	head;
       volatile uintptr_t 	ABA_tag;
-      char			_pad[GASNETC_CACHE_PAD(2*sizeof(uintptr_t))];
-    } gasneti_freelist_t;
+      char			_pad[GASNETI_CACHE_PAD(2*sizeof(uintptr_t))];
+    } gasneti_lifo_head_t;
 
-    GASNETI_INLINE(gasneti_fl_push)
-    void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
+    GASNETI_INLINE(_gasneti_lifo_push)
+    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
       /* RELEASE semantics: LOCK prefix is a full mb() */
       __asm__ __volatile__ ("1: movl	%0, %%eax	\n\t"	/* eax = p->head */
                             "movl	%%eax, %2	\n\t"	/* tail->next = eax */
     GASNETI_X86_LOCK_PREFIX "cmpxchgl	%1, %0		\n\t"	/* p->head = head */
                             "jne	1b"		/* retry on conflict */
                                 : "=m" (p->head)
-                                : "r" (head), "m" (tail->next)
+                                : "r" (head), "m" (*tail)
                                 : "cc", "memory", "eax");
     }
-    GASNETI_INLINE(gasneti_fl_pop)
-    void *gasneti_fl_pop(gasneti_freelist_t *p) {
+    GASNETI_INLINE(_gasneti_lifo_pop)
+    void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
       /* ACQUIRE semantics: LOCK prefix is a full mb() */
       register uintptr_t retval = p->head;
       __asm__ __volatile__ ("1: test	%0,%0		\n\t"	/* terminate loop ... */
@@ -285,35 +283,32 @@ typedef struct _gasneti_freelist_ptr_s {
                                 : "cc", "memory", "ebx", "ecx");
       return (void *)retval;
     }
-    GASNETI_INLINE(gasneti_fl_init)
-    void gasneti_fl_init(gasneti_freelist_t *p) {
+    GASNETI_INLINE(_gasneti_lifo_init)
+    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
       p->head = 0;
     }
-    #define GASNETI_FREELIST_INITIALIZER	{0,}
-    #define GASNETI_HAVE_ARCH_FL	1
+    #define GASNETI_LIFO_INITIALIZER	{0,}
+    #define GASNETI_HAVE_ARCH_LIFO	1
   #endif
-#elif defined(__x86_64__)
-  /* No support yet because there is no CAS2 or DCSS (double-compare single-swap) support for 8-byte
-   * pointers.  While the architecture includes an optional cmpxchg16b (CAS2), no current CPU implements
-   * it.  The CS literature offers many ways to simulate CAS2 or DCSS using just CAS (cmpxchg8b), but
-   * they all are either very complex and/or require thread-specific data to help resolve the ABA
-   * problem.  I'll continue to look into this.  -PHH 2006.01.19
-   */
-#elif defined(__ia64__) || defined(__ia64)
-  /* Issues are similar to x86_64, lacking CAS2 or DCSS instructions (even optional ones) */
-#elif (defined(__APPLE__) && defined(__MACH__) && defined(__ppc__)) || (defined(__linux__) && defined(__PPC__))
-  /* PowerPC
-   * (__APPLE__) && __MACH__ && __ppc__) == OS/X, Darwin
-   * (__linux__ && __PPC__) == Linux
+#elif defined(_POWER) || defined(__PPC__) || defined(__ppc__) || defined(__ppc64__)
+  /* PowerPPC ids:
+   * AIX: _POWER
+   * Darwin: __ppc__ or __ppc64__
+   * Linux: __PPC__
    */
   #if defined(__GNUC__)
     typedef struct {
-      volatile gasneti_freelist_ptr_t *head;
-      char			_pad[GASNETC_CACHE_PAD(sizeof(gasneti_freelist_ptr_t *))];
-    } gasneti_freelist_t;
+      /* Ensure list head pointer is the only item on its cache line.
+       * This prevents a live-lock which would result if a list element fell
+       * on the same cache line.
+       */
+      char		_pad0[GASNETI_CACHE_LINE_BYTES];
+      volatile void	**head;
+      char		_pad1[GASNETI_CACHE_PAD(sizeof(void **))];
+    } gasneti_lifo_head_t;
 
     #ifndef GASNETI_PPC_WMB_ASM
-      /* XXX: Can't count older assemblers to recognize "lwsync" mnemonic */
+      /* XXX: Can't count on older assemblers to recognize "lwsync" mnemonic */
       #define GASNETI_PPC_WMB_ASM ".long 0x7c2004ac"
     #endif
     #ifndef GASNETI_PPC_RMB_ASM
@@ -324,8 +319,8 @@ typedef struct _gasneti_freelist_ptr_s {
       #endif
     #endif
 
-    GASNETI_INLINE(gasneti_fl_push)
-    void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
+    GASNETI_INLINE(_gasneti_lifo_push)
+    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
       /* Roughly based on Appendix D of IBM's "Programming Environments Manual for 64-bit Microprocessors."
        * The key is moving the store to tail->next outside the loop and rechecking tmp1==tmp2 inside.
        * This is needed because a store in the l[wd]arx/st[wd]cx interval can lead to livelock.
@@ -363,8 +358,8 @@ typedef struct _gasneti_freelist_ptr_s {
         #error "PPC w/ unknown word size"
       #endif
     }
-    GASNETI_INLINE(gasneti_fl_pop)
-    void *gasneti_fl_pop(gasneti_freelist_t *p) {
+    GASNETI_INLINE(_gasneti_lifo_pop)
+    void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
       /* ACQUIRE semantics: 'isync' between read of head and head->next */
       register uintptr_t head, next;
       if_pf (p->head == NULL) {
@@ -404,97 +399,108 @@ typedef struct _gasneti_freelist_ptr_s {
       #endif
       return (void *)head;
     }
-    GASNETI_INLINE(gasneti_fl_init)
-    void gasneti_fl_init(gasneti_freelist_t *p) {
+    GASNETI_INLINE(_gasneti_lifo_init)
+    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
       p->head = NULL;
     }
-    #define GASNETI_FREELIST_INITIALIZER	{NULL,}
-    #define GASNETI_HAVE_ARCH_FL
+    #define GASNETI_LIFO_INITIALIZER	{{0,}, NULL,}
+    #define GASNETI_HAVE_ARCH_LIFO	1
   #elif defined(__xlC__)
     /* XLC assembly is too painful to consider this yet */
   #endif
 #else
-  /* Not x86, x86_64, ia64 or ppc?  Where else is VAPI running? */
+  /* All the LL/SC platforms should be easy targets for porting the PPC asm as time allows.
+   *
+   * No Opteron or Itanium support yet because there is no CAS2 or DCSS (double-compare single-swap)
+   * support for 8-byte pointers.  While the x86_64 architecture includes an optional cmpxchg16b (CAS2),
+   * no current CPU implements it.  For ia64, we lack even an optional CAS2 or DCSS.
+   * The CS literature offers many ways to simulate CAS2 or DCSS using just CAS (cmpxchg8b), but
+   * they all are either very complex and/or require thread-specific data to help resolve the ABA
+   * problem.  I'll continue to look into this.  -PHH 2006.01.19
+   */
 #endif
 
 /* Generic mutex-based default implementation */
-#ifndef GASNETI_HAVE_ARCH_FL
+#ifndef GASNETI_HAVE_ARCH_LIFO
     typedef struct {
       gasneti_mutex_t		lock;
-      gasneti_freelist_ptr_t	*head;
-      char			_pad[GASNETC_CACHE_PAD(sizeof(gasneti_mutex_t)+sizeof(gasneti_freelist_ptr_t *))];
-    } gasneti_freelist_t;
+      void			**head;
+      char			_pad[GASNETI_CACHE_PAD(sizeof(gasneti_mutex_t)+sizeof(void **))];
+    } gasneti_lifo_head_t;
 
-    GASNETI_INLINE(gasneti_fl_push)
-    void gasneti_fl_push(gasneti_freelist_t *p, gasneti_freelist_ptr_t *head, gasneti_freelist_ptr_t *tail) {
+    GASNETI_INLINE(_gasneti_lifo_push)
+    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
       gasneti_mutex_lock(&(p->lock));
-      tail->next = p->head;
+      *tail = p->head;
       p->head = head;
       gasneti_mutex_unlock(&(p->lock));
     }
-    GASNETI_INLINE(gasneti_fl_pop)
-    void *gasneti_fl_pop(gasneti_freelist_t *p) {
-      gasneti_freelist_ptr_t *head;
+    GASNETI_INLINE(_gasneti_lifo_pop)
+    void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
+      void **elem;
       gasneti_mutex_lock(&(p->lock));
-      head = p->head;
-      if_pt (head != NULL) {
-        p->head = head->next;
+      elem = p->head;
+      if_pt (elem != NULL) {
+        p->head = *elem;
       }
       gasneti_mutex_unlock(&(p->lock));
-      return (void *)head;
+      return (void *)elem;
     }
-    GASNETI_INLINE(gasneti_fl_init)
-    void gasneti_fl_init(gasneti_freelist_t *p) {
+    GASNETI_INLINE(_gasneti_lifo_init)
+    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
       gasneti_mutex_init(&(p->lock));
       p->head = NULL;
     }
-    #define GASNETI_FREELIST_INITIALIZER	{ GASNETI_MUTEX_INITIALIZER, NULL }
-    #define GASNETI_HAVE_ARCH_FL	0
+    #define GASNETI_LIFO_INITIALIZER	{ GASNETI_MUTEX_INITIALIZER, NULL }
+    #define GASNETI_HAVE_ARCH_LIFO	0
 #endif
     
 
 
-/* Initializer for dynamically allocated freelists */
-GASNETI_INLINE(gasneti_freelist_init)
-void gasneti_freelist_init(gasneti_freelist_t *fl) {
-  gasneti_fl_init(fl);
+/* Initializer for dynamically allocated lifo heads */
+GASNETI_INLINE(gasneti_lifo_init)
+void gasneti_lifo_init(gasneti_lifo_head_t *lifo) {
+  gasneti_assert(lifo != NULL);
+  _gasneti_lifo_init(lifo);
 }
 
-/* Get one element from the freelist or NULL if it is empty */
-GASNETI_INLINE(gasneti_freelist_get) GASNETI_MALLOC
-void *gasneti_freelist_get(gasneti_freelist_t *fl) {
-  return gasneti_fl_pop(fl);
+/* Get one element from the LIFO or NULL if it is empty */
+GASNETI_INLINE(gasneti_lifo_pop) GASNETI_MALLOC
+void *gasneti_lifo_pop(gasneti_lifo_head_t *lifo) {
+  gasneti_assert(lifo != NULL);
+  return _gasneti_lifo_pop(lifo);
 }
 
-/* Put an unused element into the freelist */
-GASNETI_INLINE(gasneti_freelist_put)
-void gasneti_freelist_put(gasneti_freelist_t *fl, void *elem) {
+/* Push element on the LIFO */
+GASNETI_INLINE(gasneti_lifo_push)
+void gasneti_lifo_push(gasneti_lifo_head_t *lifo, void *elem) {
+  gasneti_assert(lifo != NULL);
   gasneti_assert(elem != NULL);
-  gasneti_fl_push(fl, (gasneti_freelist_ptr_t *)elem, (gasneti_freelist_ptr_t *)elem);
+  _gasneti_lifo_push(lifo, elem, elem);
 }
 
-/* Put a chain of unused elements into the freelist */
-GASNETI_INLINE(gasneti_freelist_put_many)
-void gasneti_freelist_put_many(gasneti_freelist_t *fl, void *head, void *tail) {
+/* Push a chain of linked elements on the LIFO */
+GASNETI_INLINE(gasneti_lifo_push_many)
+void gasneti_lifo_push_many(gasneti_lifo_head_t *lifo, void *head, void *tail) {
+  gasneti_assert(lifo != NULL);
   gasneti_assert(head != NULL);
   gasneti_assert(tail != NULL);
-  gasneti_fl_push(fl, (gasneti_freelist_ptr_t *)head, (gasneti_freelist_ptr_t *)tail);
+  _gasneti_lifo_push(lifo, head, tail);
 }
 
-/* Build a chain (q follows p) for use with _put_many() */
-GASNETI_INLINE(gasneti_freelist_link)
-void gasneti_freelist_link(void *p, void *q) {
+/* Build a chain (q follows p) for use with _lifo_push_many() */
+GASNETI_INLINE(gasneti_lifo_link)
+void gasneti_lifo_link(void *p, void *q) {
   gasneti_assert(p != NULL);
-
-  ((gasneti_freelist_ptr_t *)p)->next = q;
+  gasneti_assert(q != NULL);
+  *((void **)p) = q;
 }
 
-/* Get next element in a chain */
-GASNETI_INLINE(gasneti_freelist_next)
-void *gasneti_freelist_next(void *elem) {
+/* Get next element in a chain built with _lifo_link */
+GASNETI_INLINE(gasneti_lifo_next)
+void *gasneti_lifo_next(void *elem) {
   gasneti_assert(elem != NULL);
-
-  return (void *)(((gasneti_freelist_ptr_t *)elem)->next);
+  return *((void **)elem);
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -548,7 +554,7 @@ typedef struct {
   int			total_qps; /* total over all peers */
 
   void			*rbuf_alloc;
-  gasneti_freelist_t	rbuf_freelist;
+  gasneti_lifo_head_t	rbuf_freelist;
 
   /* Rcv thread */
   EVAPI_compl_handler_hndl_t rcv_handler;
@@ -579,14 +585,14 @@ typedef struct {
 
   /* Read-only fields */
   struct gasnetc_cep_keys_ keys;
-  gasneti_freelist_t	*rbuf_freelist;	/* Source of rcv buffers for AMs */
+  gasneti_lifo_head_t	*rbuf_freelist;	/* Source of rcv buffers for AMs */
   gasnetc_hca_t		*hca;
   VAPI_qp_hndl_t	qp_handle;	/* == unsigned long */
   VAPI_hca_hndl_t	hca_handle;	/* == uint32_t */
   int			hca_index;
   gasnetc_epid_t	epid;		/* == uint32_t */
   char			_pad1[GASNETC_CACHE_PAD(sizeof(struct gasnetc_cep_keys_) +
-						sizeof(gasneti_freelist_t*)+
+						sizeof(gasneti_lifo_head_t*)+
 						sizeof(gasnetc_hca_t*)+
 						sizeof(VAPI_qp_hndl_t)+
 						sizeof(VAPI_hca_hndl_t)+

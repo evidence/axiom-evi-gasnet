@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/04/19 17:46:46 $
- * $Revision: 1.183 $
+ *     $Date: 2006/04/19 18:58:00 $
+ * $Revision: 1.184 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -28,7 +28,7 @@
 #endif
 
 /* If running w/ threads (locks) we want to coalesce calls to
-     gasneti_freelist_put(&gasnetc_bbuf_freelist,*)
+     gasneti_lifo_push(&gasnetc_bbuf_freelist,*)
    and
      firehose_release().
    However, when no threads (no locks) are present, we don't
@@ -71,14 +71,12 @@ int					gasnetc_num_qps;
 
 /* Description of a receive buffer.
  *
- * Note that use of the freelist will overwrite the first sizeof(gasneti_freelist_ptr_t)
- * bytes.  Therefore it is imporant to have the union to ensure the fixed fields are
- * not clobbered regardless of the freelist implementation.  Note the macros following
- * the typedef are used to hide the existence of the union.
+ * Note that use of the freelist will overwrite the first sizeof(void *) bytes (linkage).
+ * Note the macros following the typedef are used to hide the existence of the union.
  */
 typedef struct {
   union {
-    gasneti_freelist_ptr_t	linkage;
+    void 			*linkage;
     struct {
       /* Fields intialized at recv time: */
       int                   	needReply;
@@ -117,7 +115,7 @@ typedef enum {
 
 /* Description of a send request.
  *
- * Note that use of the freelist will overwrite the first sizeof(gasneti_freelist_ptr_t) bytes.
+ * Note that use of the freelist will overwrite the first sizeof(void *) bytes.
  */
 typedef struct gasnetc_sreq_t_ {
   /* List linkage */
@@ -201,16 +199,16 @@ typedef struct {
   gasnetc_sreq_t	*sreqs;
   
   /* Nothing else yet, but lockfree algorithms for x84_64 and ia64 will also need
-   * some thread-local data if they are aver implemented. */
+   * some thread-local data if they are ever implemented. */
 } gasnetc_per_thread_t;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped variables
  * ------------------------------------------------------------------------------------ */
 
-static gasneti_freelist_t		gasnetc_bbuf_freelist = GASNETI_FREELIST_INITIALIZER;
+static gasneti_lifo_head_t		gasnetc_bbuf_freelist = GASNETI_LIFO_INITIALIZER;
 
-static gasneti_semaphore_t			*gasnetc_cq_semas;
+static gasneti_semaphore_t		*gasnetc_cq_semas;
 static gasnetc_cep_t			**gasnetc_node2cep;
 
 #if GASNETC_PIN_SEGMENT
@@ -525,13 +523,13 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   #define _GASNETC_COLLECT_BBUF(_test,_bbuf) do { \
       void *_tmp = (void*)(_bbuf);                \
       _test((_tmp != NULL)) {                     \
-        gasneti_freelist_link(bbuf_tail, _tmp);   \
+        gasneti_lifo_link(bbuf_tail, _tmp);   \
         bbuf_tail = _tmp;                         \
       }                                           \
     } while(0)
   #define GASNETC_FREE_BBUFS() do {    \
       if (bbuf_tail != &bbuf_dummy) {  \
-        gasneti_freelist_put_many(&gasnetc_bbuf_freelist, gasneti_freelist_next(&bbuf_dummy), bbuf_tail); \
+        gasneti_lifo_push_many(&gasnetc_bbuf_freelist, gasneti_lifo_next(&bbuf_dummy), bbuf_tail); \
       }                                \
     } while(0)
   #define GASNETC_COLLECT_FHS() do {                    \
@@ -551,7 +549,7 @@ void gasnetc_processPacket(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf, uint32_t fl
   #define _GASNETC_COLLECT_BBUF(_test,_bbuf) do {          \
       void *_tmp = (void*)(_bbuf);                         \
       _test((_tmp != NULL)) {                              \
-        gasneti_freelist_put(&gasnetc_bbuf_freelist,_tmp); \
+        gasneti_lifo_push(&gasnetc_bbuf_freelist,_tmp); \
       }                                                    \
     } while(0)
   #define GASNETC_FREE_BBUFS()	do {} while (0)
@@ -627,7 +625,7 @@ static int gasnetc_snd_reap(int limit) {
   int fh_num = 0;
   int i, count;
   #if GASNETC_SND_REAP_COLLECT
-    gasneti_freelist_ptr_t bbuf_dummy;
+    void *bbuf_dummy;
     void *bbuf_tail = &bbuf_dummy;
     const firehose_request_t *fh_ptrs[GASNETC_SND_REAP_LIMIT * GASNETC_MAX_FH];
   #endif
@@ -876,12 +874,12 @@ void gasnetc_rcv_am(const VAPI_wc_desc_t *comp, gasnetc_rbuf_t **spare_p) {
     gasnetc_processPacket(cep, rbuf, flags);
 
     /* Return the rcv buffer to the free list */
-    gasneti_freelist_put(cep->rbuf_freelist, rbuf);
+    gasneti_lifo_push(cep->rbuf_freelist, rbuf);
   } else {
     /* Post a replacement buffer before processing the request.
      * This ensures that the credit implicitly sent with every reply will
      * have a corresponding buffer available at this end */
-    spare = (*spare_p) ? (*spare_p) : gasneti_freelist_get(cep->rbuf_freelist);
+    spare = (*spare_p) ? (*spare_p) : gasneti_lifo_pop(cep->rbuf_freelist);
     if_pt (spare) {
       /* This is the normal case */
       gasnetc_rcv_post(cep, spare);
@@ -984,7 +982,7 @@ void gasnetc_poll_rcv_hca(gasnetc_hca_t *hca, int limit) {
   gasnetc_rbuf_t *spare = NULL;
   (void)gasnetc_rcv_reap(hca, limit, &spare);
   if (spare) {
-    gasneti_freelist_put(&hca->rbuf_freelist, spare);
+    gasneti_lifo_push(&hca->rbuf_freelist, spare);
   }
 }
 
@@ -1074,15 +1072,15 @@ gasnetc_buffer_t *gasnetc_get_bbuf(int block) {
   GASNETC_TRACE_WAIT_BEGIN();
   GASNETC_STAT_EVENT(GET_BBUF);
 
-  bbuf = gasneti_freelist_get(&gasnetc_bbuf_freelist);
+  bbuf = gasneti_lifo_pop(&gasnetc_bbuf_freelist);
   if_pf (!bbuf) {
     gasnetc_poll_snd();
-    bbuf = gasneti_freelist_get(&gasnetc_bbuf_freelist);
+    bbuf = gasneti_lifo_pop(&gasnetc_bbuf_freelist);
     if (block) {
       while (!bbuf) {
         GASNETI_WAITHOOK();
         gasnetc_poll_snd();
-        bbuf = gasneti_freelist_get(&gasnetc_bbuf_freelist);
+        bbuf = gasneti_lifo_pop(&gasnetc_bbuf_freelist);
       }
     }
     GASNETC_TRACE_WAIT_END(GET_BBUF_STALL);
@@ -1394,8 +1392,8 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       char tmp_buf[GASNETC_BUFSZ+8];
       gasnetc_buffer_t * const buf = (gasnetc_buffer_t *)GASNETI_ALIGNUP(tmp_buf, 8);
     #else
-      static gasneti_freelist_t	buf_freelist = GASNETI_FREELIST_INITIALIZER;
-      gasnetc_buffer_t *buf = gasneti_freelist_get(&buf_freelist);
+      static gasneti_lifo_head_t buf_freelist = GASNETI_LIFO_INITIALIZER;
+      gasnetc_buffer_t *buf = gasneti_lifo_pop(&buf_freelist);
       if_pf (buf == NULL) {
 	buf = gasneti_malloc(GASNETC_BUFSZ);
       }
@@ -1443,7 +1441,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
     }
 
     #if !GASNETC_LOOPBACK_AMS_ON_STACK
-      gasneti_freelist_put(&buf_freelist, buf);
+      gasneti_lifo_push(&buf_freelist, buf);
     #endif
   } else {
     /* Remote Case */
@@ -1577,13 +1575,13 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       if (gasneti_semaphore_trydown(&cep->am_unrcvd)) {
         /* We'll use one that was left over due to ACK coalescing */
       } else {
-        gasnetc_rbuf_t *rbuf = gasneti_freelist_get(cep->rbuf_freelist);
+        gasnetc_rbuf_t *rbuf = gasneti_lifo_pop(cep->rbuf_freelist);
         if_pf (rbuf == NULL) {
           GASNETC_TRACE_WAIT_BEGIN();
           do {
 	    GASNETI_WAITHOOK();
             gasnetc_poll_rcv_hca(cep->hca, 1);
-	    rbuf = gasneti_freelist_get(cep->rbuf_freelist);
+	    rbuf = gasneti_lifo_pop(cep->rbuf_freelist);
           } while (rbuf == NULL);
           GASNETC_TRACE_WAIT_END(GET_AMREQ_BUFFER_STALL);
         }
@@ -2559,7 +2557,7 @@ extern int gasnetc_sndrcv_init(void) {
       hca->rbuf_alloc = gasneti_malloc(rcv_count*padded_size + GASNETI_CACHE_LINE_BYTES-1);
   
       /* Initialize the rbuf's */
-      gasneti_freelist_init(&hca->rbuf_freelist);
+      gasneti_lifo_init(&hca->rbuf_freelist);
       rbuf = (gasnetc_rbuf_t *)GASNETC_ALIGNUP(hca->rbuf_alloc, GASNETI_CACHE_LINE_BYTES);
       for (i = 0; i < rcv_count; ++i) {
         rbuf->rr_desc.id         = (uintptr_t)rbuf;	/* CQE will point back to this request */
@@ -2569,12 +2567,12 @@ extern int gasnetc_sndrcv_init(void) {
         rbuf->rr_desc.sg_lst_p   = &rbuf->rr_sg;
         rbuf->rr_sg.len          = GASNETC_BUFSZ;
         rbuf->rr_sg.addr         = (uintptr_t)&buf[i];
-        gasneti_freelist_put(&hca->rbuf_freelist, rbuf);
+        gasneti_lifo_push(&hca->rbuf_freelist, rbuf);
   
         rbuf = (gasnetc_rbuf_t *)((uintptr_t)rbuf + padded_size);
       }
       if (gasnetc_use_rcv_thread) {
-        hca->rcv_thread_priv = gasneti_freelist_get(&hca->rbuf_freelist);
+        hca->rcv_thread_priv = gasneti_lifo_pop(&hca->rbuf_freelist);
         gasneti_assert(hca->rcv_thread_priv != NULL);
       }
     }
@@ -2633,7 +2631,7 @@ extern int gasnetc_sndrcv_init(void) {
     }
   }
   for (i = 0; i < gasnetc_bbuf_limit; ++i) {
-    gasneti_freelist_put(&gasnetc_bbuf_freelist, buf);
+    gasneti_lifo_push(&gasnetc_bbuf_freelist, buf);
     ++buf;
   }
 
@@ -2677,7 +2675,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
 
       /* Prepost one rcv buffer for each possible incomming request */
       for (j = 0; j < gasnetc_am_oust_pp; ++j) {
-        gasnetc_rcv_post(cep, gasneti_freelist_get(cep->rbuf_freelist));
+        gasnetc_rcv_post(cep, gasneti_lifo_pop(cep->rbuf_freelist));
       }
 
       /* Setup semaphores/counters */
