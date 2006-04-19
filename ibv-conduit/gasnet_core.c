@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/04/18 04:37:32 $
- * $Revision: 1.164 $
+ *     $Date: 2006/04/19 17:46:46 $
+ * $Revision: 1.165 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1779,7 +1779,7 @@ static void gasnetc_exit_tail(void) {
  * DOES NOT RETURN
  */
 #if GASNET_DEBUG
-  static const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
+  /* temporary for bug 1433 tracking:  static */ const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
   #define GASNETC_EXIT_STATE(st) gasnetc_exit_state = st
 #else
   #define GASNETC_EXIT_STATE(st) do {} while (0)
