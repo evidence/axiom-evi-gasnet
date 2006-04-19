@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/19 20:28:45 $
- * $Revision: 1.6 $
+ *     $Date: 2006/04/19 20:37:31 $
+ * $Revision: 1.7 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -528,6 +528,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 /* Optional arch-specific code */
 #if !GASNETI_THREADS
   /* No threads, so we use the mutex code that compiles away. */
+#elif defined(GASNETI_USING_GENERIC_ATOMICOPS) || defined(GASNETI_USING_OS_ATOMICOPS)
+  /* If not using inline asm in gasnet_atomicops.h, then don't try to here either. */
 #elif defined(__i386__) /* x86 but NOT x86_64 */
   #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(PGI_WITH_REAL_ASM)
     typedef struct {
