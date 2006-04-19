@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/18 23:42:58 $
- * $Revision: 1.154 $
+ *     $Date: 2006/04/19 00:31:01 $
+ * $Revision: 1.155 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1429,8 +1429,7 @@
 		"sc	%0,%1	\n\t"
 		"beqz	%0,1b	"
 		: "=&r" (tmp), "=m" (p->ctr)
-		: "m" (p->ctr)
-		: "memory");
+		: "m" (p->ctr) );
       } 
       #define _gasneti_atomic_increment _gasneti_atomic_increment_32
       GASNETI_INLINE(_gasneti_atomic_decrement_32)
@@ -1443,8 +1442,7 @@
 		"sc	%0,%1 	\n\t"
 		"beqz	%0,1b	"
 		: "=&r" (tmp), "=m" (p->ctr)
-		: "m" (p->ctr)
-		: "memory");
+		: "m" (p->ctr) );
       }
       #define _gasneti_atomic_decrement _gasneti_atomic_decrement_32
       GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
@@ -1457,8 +1455,7 @@
 		"sc	%1,%2		\n\t"
 		"beqz	%1,1b		"
 		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
-		: "Ir" (op), "m" (p->ctr)
-		: "memory");
+		: "Ir" (op), "m" (p->ctr) );
 	return retval;
       }
       #define _gasneti_atomic_decrement_and_test(p) (gasneti_atomic_fetchandadd_32((p),-1) == 1)
@@ -1477,8 +1474,7 @@
 		"beqz	%0,1b		\n"	/* Retry on contention */
 		"2:			"
                 : "=&r" (retval), "=&r" (temp), "=m" (p->ctr)
-                : "r" (oldval), "r" (newval), "m" (p->ctr)
-                : "memory");
+                : "r" (oldval), "r" (newval), "m" (p->ctr) );
         return retval;
       }
       #define GASNETI_HAVE_ATOMIC_CAS 1
