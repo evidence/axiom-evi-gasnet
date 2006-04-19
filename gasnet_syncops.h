@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/19 20:37:31 $
- * $Revision: 1.7 $
+ *     $Date: 2006/04/19 20:50:28 $
+ * $Revision: 1.8 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -600,6 +600,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
        * This is needed because a store in the l[wd]arx/st[wd]cx interval can lead to livelock.
        */
       /* RELEASE semantics: 'sync' is wmb after the write to tail->next */
+      register uintptr_t addr = (uintptr_t)(&p->head);
       register uintptr_t tmp1, tmp2;
       #if (SIZEOF_VOID_P == 4)
         __asm__ __volatile__ ("lwz	%3,0(%0)   \n\t" /* tmp1 = p->head */
@@ -612,8 +613,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 			      "stwcx.	%1,0,%0    \n\t" /* p->head = head */
 			      "bne-	2b         \n\t" /* retry on conflict */
 			      GASNETI_PPC_RMB_ASM
-				: "=b" (p), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
-				: "0" (p), "1" (head), "2" (tail) 
+				: "=b" (addr), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
+				: "0" (addr), "1" (head), "2" (tail) 
 				: "memory", "cc");
       #elif (SIZEOF_VOID_P == 8)
         __asm__ __volatile__ ("ld	%3,0(%0)   \n\t" /* tmp1 = p->head */
@@ -625,8 +626,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
 			      "stdcx.	%1,0,%0    \n\t" /* p->head = head */
 			      "bne-	2b"		 /* retry on conflict */
-				: "=b" (p), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
-				: "0" (p), "1" (head), "2" (tail) 
+				: "=b" (addr), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
+				: "0" (addr), "1" (head), "2" (tail) 
 				: "memory", "cc");
       #else
         #error "PPC w/ unknown word size"
@@ -635,6 +636,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     GASNETI_INLINE(_gasneti_lifo_pop)
     void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
       /* ACQUIRE semantics: 'isync' between read of head and head->next */
+      register uintptr_t addr = (uintptr_t)(&p->head);
       register uintptr_t head, next;
       if_pf (p->head == NULL) {
 	/* One expects the empty list case to be the most prone to contention because
@@ -653,8 +655,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 			      "stwcx.	%2,0,%0    \n\t" /* p->head = next */
 			      "bne-	1b         \n\t" /* retry on conflict */
 			      "2: "
-				: "=b" (p), "=b" (head), "=r" (next)
-				: "0" (p)
+				: "=b" (addr), "=b" (head), "=r" (next)
+				: "0" (addr)
 				: "memory", "cc");
       #elif (SIZEOF_VOID_P == 8)
         __asm__ __volatile__ ("1: ldarx	%1,0,%0    \n\t" /* head = p->head */
@@ -665,8 +667,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 			      "stdcx.	%2,0,%0    \n\t" /* p->head = next */
 			      "bne-	1b         \n\t" /* retry on conflict */
 			      "2: "
-				: "=b" (p), "=b" (head), "=r" (next)
-				: "0" (p)
+				: "=b" (addr), "=b" (head), "=r" (next)
+				: "0" (addr)
 				: "memory", "cc");
       #else
         #error "PPC w/ unknown word size"
