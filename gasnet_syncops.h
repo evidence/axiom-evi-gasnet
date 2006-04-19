@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/19 19:55:31 $
- * $Revision: 1.4 $
+ *     $Date: 2006/04/19 20:16:39 $
+ * $Revision: 1.5 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -518,6 +518,10 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
  *		Build a chain (q follows p) for use with _lifo_push_many()
  * void *gasneti_lifo_next(void *elem);
  *		Get next element in a chain built with _lifo_link
+ *
+ * Unless GASNETI_LIFOS_NOT_SIGNALSAFE is defined, the operations "pop", "push", and
+ * "push_many" are signal safe.  The operations "link" and "next" are always signal
+ * safe since they don't involve access to a share data structure.
  */
 
 
@@ -741,6 +745,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     }
     #define GASNETI_LIFO_INITIALIZER	{ GASNETI_MUTEX_INITIALIZER, NULL }
     #define GASNETI_HAVE_ARCH_LIFO	0
+    #define GASNETI_LIFOS_NOT_SIGNALSAFE 1
 #endif
     
 
