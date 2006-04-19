@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/19 20:16:39 $
- * $Revision: 1.5 $
+ *     $Date: 2006/04/19 20:28:45 $
+ * $Revision: 1.6 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -590,18 +590,6 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       volatile void	**head;
       char		_pad1[GASNETI_CACHE_PAD(sizeof(void **))];
     } gasneti_lifo_head_t;
-
-    #ifndef GASNETI_PPC_WMB_ASM
-      /* XXX: Can't count on older assemblers to recognize "lwsync" mnemonic */
-      #define GASNETI_PPC_WMB_ASM ".long 0x7c2004ac"
-    #endif
-    #ifndef GASNETI_PPC_RMB_ASM
-      #ifdef GASNETI_TUNE_PPC970
-        #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
-      #else
-        #define GASNETI_PPC_RMB_ASM "isync"
-      #endif
-    #endif
 
     GASNETI_INLINE(_gasneti_lifo_push)
     void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {

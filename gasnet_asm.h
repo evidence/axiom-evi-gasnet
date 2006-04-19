@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/04/14 00:21:05 $
- * $Revision: 1.102 $
+ *     $Date: 2006/04/19 20:28:45 $
+ * $Revision: 1.103 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -262,23 +262,25 @@
     * opcodes can be aquired by placing the mnemonics in inline.s and running:
     * as -sinline.lst inline.s
     */ 
-   #pragma mc_func _gasneti_do_wmb { \
-     "7c2004ac" /* "lwsync" = "sync 1", executed as "sync" on older CPUs */ \
-   }
+
+   /* "lwsync" = "sync 1", executed as "sync" on older CPUs */
+   #define GASNETI_PPC_WMB_ASM "7c2004ac"
+   #ifdef GASNETI_TUNE_PPC970
+     /* On PPC970 (and nowhere else so far) lwsync is faster than isync */
+     #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
+     #define GASNETI_RMB_IS_MB
+   #else
+     /* "isync" (instruction sync to squash speculative loads) */
+     #define GASNETI_PPC_RMB_ASM "4c00012c"
+   #endif
+
+   #pragma mc_func _gasneti_do_wmb { GASNETI_PPC_WMB_ASM }
    #pragma reg_killed_by _gasneti_do_wmb
    #define gasneti_local_wmb() _gasneti_do_wmb()
 
-   /* On PPC970 (and nowhere else so far)  lwsync is faster than isync */
-   #ifdef GASNETI_TUNE_PPC970
-     #define gasneti_local_rmb() _gasneti_do_wmb()
-     #define GASNETI_RMB_IS_MB
-   #else
-     #pragma mc_func _gasneti_do_rmb { \
-       "4c00012c" /* isync (instruction sync to squash speculative loads) */    \
-     }
-     #pragma reg_killed_by _gasneti_do_rmb
-     #define gasneti_local_rmb() _gasneti_do_rmb()
-   #endif
+   #pragma mc_func _gasneti_do_rmb { GASNETI_PPC_RMB_ASM }
+   #pragma reg_killed_by _gasneti_do_rmb
+   #define gasneti_local_rmb() _gasneti_do_rmb()
 
    #define gasneti_local_mb() _gasneti_do_wmb()
    #define GASNETI_WMB_IS_MB
@@ -287,23 +289,28 @@
    #pragma reg_killed_by _gasneti_do_compilerfence
    #define gasneti_compiler_fence() _gasneti_do_compilerfence()
  #else
-   GASNETI_INLINE(gasneti_local_wmb)
-   void gasneti_local_wmb(void) {
-     /* We can't count on the assembler to support lwsync.  Sigh. */
-     GASNETI_ASM(".long 0x7c2004ac"); /* "lwsync" = "sync 1", executed as "sync" on older CPUs */
-   }
-
-   /* On PPC970 (and nowhere else so far)  lwsync is faster than isync */
+   /* "lwsync" = "sync 1", executed as "sync" on older CPUs */
+   /* XXX: Can't count on older assemblers to recognize "lwsync" mnemonic */
+   #define GASNETI_PPC_WMB_ASM ".long 0x7c2004ac"
    #ifdef GASNETI_TUNE_PPC970
-     #define gasneti_local_rmb() gasneti_local_wmb()
+     /* On PPC970 (and nowhere else so far) lwsync is faster than isync */
+     #define GASNETI_PPC_RMB_ASM GASNETI_PPC_WMB_ASM
      #define GASNETI_RMB_IS_MB
    #else
-     GASNETI_INLINE(_gasneti_local_rmb)
-     void _gasneti_local_rmb(void) {
-       GASNETI_ASM("isync");
-     }
-     #define gasneti_local_rmb() _gasneti_local_rmb()
+     /* "isync" (instruction sync to squash speculative loads) */
+     #define GASNETI_PPC_RMB_ASM "isync"
    #endif
+
+   GASNETI_INLINE(gasneti_local_wmb)
+   void gasneti_local_wmb(void) {
+     GASNETI_ASM(GASNETI_PPC_WMB_ASM);
+   }
+
+   GASNETI_INLINE(_gasneti_local_rmb)
+   void _gasneti_local_rmb(void) {
+     GASNETI_ASM(GASNETI_PPC_RMB_ASM);
+   }
+   #define gasneti_local_rmb() _gasneti_local_rmb()
 
    #define gasneti_local_mb() gasneti_local_wmb()
    #define GASNETI_WMB_IS_MB
