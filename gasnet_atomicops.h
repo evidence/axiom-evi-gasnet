@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/19 02:47:04 $
- * $Revision: 1.158 $
+ *     $Date: 2006/04/20 20:44:32 $
+ * $Revision: 1.159 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -345,7 +345,7 @@
    * ------------------------------------------------------------------------------------ */
   #if defined(AIX)
       #include <sys/atomic_op.h>
-      typedef struct { volatile int ctr; } gasneti_atomic_t;
+      typedef struct { volatile unsigned int ctr; } gasneti_atomic_t;
       #define _gasneti_atomic_read(p)      ((p)->ctr)
       #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
       #define _gasneti_atomic_init(v)      { (v) }
@@ -516,7 +516,7 @@
       defined(__i586__) || defined(__i586) || defined(i586) || \
       defined(__i686__) || defined(__i686) || defined(i686)
     #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
-     typedef struct { volatile int ctr; } gasneti_atomic_t;
+     typedef struct { volatile uint32_t ctr; } gasneti_atomic_t;
      #define _gasneti_atomic_init(v)      { (v) }
      #if defined(PGI_WITH_REAL_ASM) && defined(__cplusplus) /* PGI C++ lacks inline assembly */
         #define GASNETI_HAVE_ATOMIC_CAS 1	/* Explicit */
@@ -619,7 +619,7 @@
 	#define _gasneti_atomic_load_arg2	"movl 16(%ebp), %edx	\n\t"
       #endif
 
-      typedef struct { volatile int ctr; } gasneti_atomic_t;
+      typedef struct { volatile uint32_t ctr; } gasneti_atomic_t;
       #define _gasneti_atomic_init(v)      { (v) }
       #define _gasneti_atomic_read(p)      ((p)->ctr)
       #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
@@ -1408,7 +1408,7 @@
     #endif
   #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
     #if defined(__GNUC__)
-      typedef struct { volatile int ctr; } gasneti_atomic_t;
+      typedef struct { volatile uint32_t ctr; } gasneti_atomic_t;
       #define _gasneti_atomic_read(p)      ((p)->ctr)
       #define _gasneti_atomic_init(v)      { (v) }
       #define _gasneti_atomic_set(p,v)     ((p)->ctr = (v))
@@ -2028,7 +2028,7 @@
      the caller has requested, since any memory in the gasnet segment "protected" by a
      fenced atomic may be written by a network adapter.
    */
-  typedef volatile int gasneti_weakatomic_t;
+  typedef volatile uint32_t gasneti_weakatomic_t;
   #define gasneti_weakatomic_init(v)                  (v)
   #define gasneti_weakatomic_set(p,v,f) do {                 \
     const int __flags = (f);                                 \
