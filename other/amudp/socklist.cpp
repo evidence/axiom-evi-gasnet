@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/socklist.cpp,v $
-//     $Date: 2006/04/10 04:20:12 $
-// $Revision: 1.4 $
+//     $Date: 2006/04/20 23:45:12 $
+// $Revision: 1.5 $
 // Description: 
 // Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -105,16 +105,16 @@ int SocketList::getIntersection(fd_set* set, SOCKET* buffer, int bufsiz) {
   return bufsiz;
 }
 
-SOCKET* SocketList::getIntersection(fd_set* set, SOCKET* buffer, int* size) {
+SOCKET* SocketList::getIntersection(fd_set* set, SOCKET* buffer, int* sz) {
   LOCK;
   // writes a list of sockets that appear in this list and set into buffer
   unsigned long cur = 0;
-  for (unsigned long i=0; i < count && cur < (unsigned long)*size; i++) {
+  for (unsigned long i=0; i < count && cur < (unsigned long)*sz; i++) {
     if (FD_ISSET(table[i], set)) {
       buffer[cur++] = table[i];
     }
   }
-  *size = cur;
+  *sz = cur;
   UNLOCK;
   return buffer;
 }
