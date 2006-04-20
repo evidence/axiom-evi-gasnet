@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/20 01:02:39 $
- * $Revision: 1.10 $
+ *     $Date: 2006/04/20 02:00:25 $
+ * $Revision: 1.11 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -790,7 +790,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
   #endif
 #else
   /* The LL/SC algorithm used on the PPC will not work on the Alpha or MIPS, which don't
-   * allow for the store we perform between the ll and the sc.  More complex algorithms are
+   * allow for the load we perform between the ll and the sc.  More complex algorithms are
    * probably possible.  I'll continue to look into this.  -PHH 2006.04.19
    *
    * No Opteron or Itanium support yet because there is no CAS2 or DCSS (double-compare single-swap)
@@ -799,6 +799,14 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
    * The CS literature offers many ways to simulate CAS2 or DCSS using just CAS (cmpxchg8b), but
    * they all are either very complex and/or require thread-specific data to help resolve the ABA
    * problem.  I'll continue to look into this.  -PHH 2006.01.19
+   *
+   * One possible solution for all remaining platforms is "software ll/sc".  Using just pointer
+   * CAS, one can implement an ideal LL/SC which allows for arbitrary loads and stores between
+   * the LL and the SC.  This would require a compare-and-swap-pointer atomic operation.
+   * In the contention-free case such an algorithm needs a thread-local data lookup, an rmb()
+   * and two CAS operations, which may or may not make it competative with mutexes.  Because
+   * such an algorithm is "wait free", it is expected to perform better under contention than
+   * mutexes.
    */
 #endif
 
