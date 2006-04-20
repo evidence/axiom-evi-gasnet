@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/04/19 19:55:31 $
- * $Revision: 1.18 $
+ *     $Date: 2006/04/20 23:06:29 $
+ * $Revision: 1.19 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -486,7 +486,7 @@ static void semaphore_test(int id) {
       ERR("failed semaphore test: trydown pounding test failed");
 
   PTHREAD_BARRIER(num_threads);
-  gasneti_semaphore_destroy(&sema2);
+    if (!id) gasneti_semaphore_destroy(&sema2);
 }
 /* ------------------------------------------------------------------------------------ */
 static void lifo_test(int id) {
@@ -560,7 +560,7 @@ static void lifo_test(int id) {
       ERR("failed lifo test: push/pop pounding test failed");
 
   PTHREAD_BARRIER(num_threads);
-  gasneti_lifo_destroy(&lifo2);
+    if (!id) gasneti_lifo_destroy(&lifo2);
 }
 /* ------------------------------------------------------------------------------------ */
 static int pf_cnt_boolean, pf_cnt_counted;
