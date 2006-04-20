@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/20 20:13:01 $
- * $Revision: 1.13 $
+ *     $Date: 2006/04/20 21:24:59 $
+ * $Revision: 1.14 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -277,15 +277,20 @@ GASNETI_BEGIN_EXTERNC
   #define GASNETI_SEMAPHORES_NOT_SIGNALSAFE 1
 #endif
 
-#define GASNETI_CACHE_PAD(SZ) (((SZ+GASNETI_CACHE_LINE_BYTES-1)&~(GASNETI_CACHE_LINE_BYTES-1))-(SZ))
+#if 0
+  /* This version can yield 0-byte padding, which upsets some compilers */
+  #define GASNETI_CACHE_PAD(SZ) (((SZ+GASNETI_CACHE_LINE_BYTES-1)&~(GASNETI_CACHE_LINE_BYTES-1))-(SZ))
+#else
+  #define GASNETI_CACHE_PAD(SZ) (((SZ+GASNETI_CACHE_LINE_BYTES)&~(GASNETI_CACHE_LINE_BYTES-1))-(SZ))
+#endif
 
 typedef struct {
   #if GASNET_DEBUG
-    _gasneti_semaphore_t		S;
+    _gasneti_semaphore_t	S;
     gasneti_atomic_val_t	limit;
     char			_pad[GASNETI_CACHE_PAD(sizeof(gasneti_atomic_val_t)+sizeof(_gasneti_semaphore_t))];
   #else
-    _gasneti_semaphore_t		S;
+    _gasneti_semaphore_t	S;
     char			_pad[GASNETI_CACHE_PAD(sizeof(_gasneti_semaphore_t))];
   #endif
 } gasneti_semaphore_t;
