@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/19 22:47:27 $
- * $Revision: 1.9 $
+ *     $Date: 2006/04/20 01:02:39 $
+ * $Revision: 1.10 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -789,11 +789,13 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     #define GASNETI_HAVE_ARCH_LIFO	1
   #endif
 #else
-  /* All the LL/SC platforms should be easy targets for porting the PPC asm as time allows.
+  /* The LL/SC algorithm used on the PPC will not work on the Alpha or MIPS, which don't
+   * allow for the store we perform between the ll and the sc.  More complex algorithms are
+   * probably possible.  I'll continue to look into this.  -PHH 2006.04.19
    *
    * No Opteron or Itanium support yet because there is no CAS2 or DCSS (double-compare single-swap)
-   * support for 8-byte pointers.  While the x86_64 architecture includes an optional cmpxchg16b (CAS2),
-   * no current CPU implements it.  For ia64, we lack even an optional CAS2 or DCSS.
+   * support for 8-byte pointers.  While the x86_64 architecture includes an optional cmpxchg16b
+   * (CAS2), no current CPU implements it.  For ia64, we lack even an optional CAS2 or DCSS.
    * The CS literature offers many ways to simulate CAS2 or DCSS using just CAS (cmpxchg8b), but
    * they all are either very complex and/or require thread-specific data to help resolve the ABA
    * problem.  I'll continue to look into this.  -PHH 2006.01.19
