@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/20 19:51:02 $
- * $Revision: 1.12 $
+ *     $Date: 2006/04/20 20:13:01 $
+ * $Revision: 1.13 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -625,7 +625,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 			      "cmpd	%3,%4      \n\t" /* check tmp1 still == tmp2 */
 			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
 			      "stdcx.	%1,0,%0    \n\t" /* p->head = head */
-			      "bne-	2b"		 /* retry on conflict */
+			      "bne-	2b         \n\t" /* retry on conflict */
 			      GASNETI_PPC_RMB_ASM
 				: "=b" (addr), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
 				: "0" (addr), "1" (head), "2" (tail) 
