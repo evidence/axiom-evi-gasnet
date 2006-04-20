@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2006/04/10 04:20:12 $
- * $Revision: 1.17 $
+ *     $Date: 2006/04/20 02:02:23 $
+ * $Revision: 1.18 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -151,8 +151,7 @@ extern void AMUDP_growSocketRecvBufferSize(ep_t ep, int targetsize) {
   GETSOCKOPT_LENGTH_T junk = sizeof(int);
   if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_RCVBUF, (char *)&initialsize, &junk) == SOCKET_ERROR) {
     #if AMUDP_DEBUG
-      perror("getsockopt");
-      ErrMessage("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed");
+      WarnMessage("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed: %s",strerror(errno));
     #endif
     initialsize = 65535;
   }
@@ -182,16 +181,14 @@ extern void AMUDP_growSocketRecvBufferSize(ep_t ep, int targetsize) {
     int sz = targetsize; /* prevent OS from tampering */
     if (setsockopt(ep->s, SOL_SOCKET, SO_RCVBUF, (char *)&sz, sizeof(int)) == SOCKET_ERROR) {
       #if AMUDP_DEBUG
-        perror("setsockopt");
-        ErrMessage("setsockopt(SOL_SOCKET, SO_RCVBUF, %i) on UDP socket failed", targetsize);
+        WarnMessage("setsockopt(SOL_SOCKET, SO_RCVBUF, %i) on UDP socket failed: %s", targetsize, strerror(errno));
       #endif
     } else {
       int temp = targetsize;
       junk = sizeof(int);
       if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_RCVBUF, (char *)&temp, &junk) == SOCKET_ERROR) {
         #if AMUDP_DEBUG
-          perror("getsockopt");
-          ErrMessage("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed");
+          WarnMessage("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed: %s", strerror(errno));
         #endif
       }
       if (temp >= targetsize) {
