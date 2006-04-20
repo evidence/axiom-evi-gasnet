@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/20 20:44:32 $
- * $Revision: 1.159 $
+ *     $Date: 2006/04/20 22:27:51 $
+ * $Revision: 1.160 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -903,15 +903,15 @@
           register int32_t oldval;
           register int32_t newval;
           __asm__ __volatile__ ( 
-            "ld       %2,%0      \n\t" /* oldval = *addr; */
+            "ld       [%4],%0    \n\t" /* oldval = *addr; */
             "0:			 \t" 
             "add      %0,%3,%1   \n\t" /* newval = oldval + op; */
-            "cas      %2,%0,%1   \n\t" /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
+            "cas      [%4],%0,%1 \n\t" /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
             "cmp      %0, %1     \n\t" /* check if newval == oldval (swap succeeded) */
             "bne,a,pn %%icc, 0b  \n\t" /* otherwise, retry (,pn == predict not taken; ,a == annul) */
             "  mov    %1, %0     "     /* oldval = newval; (branch delay slot, annulled if not taken) */
             : "=&r"(oldval), "=&r"(newval), "=m"(*addr)
-            : "rn"(op) );
+            : "rn"(op), "r"(addr) );
           return oldval;
         }
         typedef struct { volatile int32_t ctr; } gasneti_atomic_t;
@@ -926,9 +926,9 @@
         int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *v, uint32_t oldval, uint32_t newval) {
           register volatile uint32_t * addr = (volatile uint32_t *)&(v->ctr);
           __asm__ __volatile__ ( 
-              "cas      %1,%2,%0"  /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
+              "cas      [%3],%2,%0"  /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
               : "+r"(newval), "=m"(*addr)
-              : "r"(oldval) );
+              : "r"(oldval), "r"(addr) );
           return (int)(newval == oldval);
         }
         #define GASNETI_HAVE_ATOMIC_CAS 1
