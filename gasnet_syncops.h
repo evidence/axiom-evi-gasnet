@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/20 02:00:25 $
- * $Revision: 1.11 $
+ *     $Date: 2006/04/20 19:51:02 $
+ * $Revision: 1.12 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -701,25 +701,23 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     /* See the GCC versions above for explanation */
 
     static void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail);
+    /* ARGS: r3 = p, r4 = head, r5 = tail  LOCAL: r0 = tmp2, r9 = tmp1, r6 = addr */
     #if (SIZEOF_VOID_P == 4)
       #pragma mc_func _gasneti_lifo_push {\
-        /* ARGS: r3 = p, r4 = head, r5 = tail  LOCAL: r0 = tmp2, r2 = tmp1, r6 = addr */ \
-	"80430080"	/* lwz		r2,128(r3)	*/ \
+	"81230080"	/* lwz		r9,128(r3)	*/ \
 	"38c30080"	/* addi		r6,r3,128	*/ \
-	"7c401378"	/* 1: mr	r0,r2		*/ \
-	"90450000"	/* stw		r2,0(r5)	*/ \
+	"7d204b78"	/* 1: mr	r0,r9		*/ \
+	"91250000"	/* stw		r9,0(r5)	*/ \
 	GASNETI_PPC_WMB_ASM				\
-	"7c403028"	/* 2: lwarx	r2,0,r6		*/ \
-	"7c020000"	/* cmpw		r2,r0		*/ \
+	"7d203028"	/* 2: lwarx	r9,0,r6		*/ \
+	"7c090000"	/* cmpw		r9,r0		*/ \
 	"40a2ffec"	/* bne-		1b		*/ \
 	"7c80312d"	/* stwcx.	r4,0,r6		*/ \
 	"40a2fff0"	/* bne-		2b		*/ \
 	GASNETI_PPC_RMB_ASM				\
       }
-      #pragma reg_killed_by _gasneti_lifo_push cr0, gr0, gr2, gr6
     #elif (SIZEOF_VOID_P == 8)
       #pragma mc_func _gasneti_lifo_push {\
-        /* ARGS: r3 = p, r4 = head, r5 = tail  LOCAL: r0 = tmp2, r9 = tmp1, r6 = addr */ \
 	"e9230080"	/* ld		r9,128(r3)	*/ \
 	"38c30080"	/* addi		r6,r3,128	*/ \
 	"7d204b78"	/* 1: mr	r0,r9		*/ \
@@ -732,33 +730,31 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 	"40a2fff0"	/* bne-		2b		*/ \
 	GASNETI_PPC_RMB_ASM				\
       }
-      #pragma reg_killed_by _gasneti_lifo_push cr0, gr0, gr6, gr9
     #else
       #error "PPC w/ unknown word size"
     #endif
+    #pragma reg_killed_by _gasneti_lifo_push cr0, gr0, gr6, gr9
 
     static void *_gasneti_lifo_pop(gasneti_lifo_head_t *p);
+    /* ARGS: r3 = p  LOCAL: r0 = next, r4 = head */
     #if (SIZEOF_VOID_P == 4)
       #pragma mc_func _gasneti_lifo_pop {\
-        /* ARGS: r3 = p  LOCAL: r0 = next, r2 = head */ \
-	"80430080"	/* lwz		r2,128(r3)	*/ \
+	"80830080"	/* lwz		r4,128(r3)	*/ \
 	"38630080"	/* addi		r3,r3,128	*/ \
-	"2c020000"	/* cmpwi	r2,0		*/ \
-	"38400000"	/* li		r2,0		*/ \
+	"2c040000"	/* cmpwi	r4,0		*/ \
+	"38800000"	/* li		r4,0		*/ \
 	"41820020"	/* beq-		2f		*/ \
-	"7c401828"	/* 1: lwarx	r2,0,r3		*/ \
-	"2c020000"	/* cmpwi	r2,0		*/ \
+	"7c801828"	/* 1: lwarx	r4,0,r3		*/ \
+	"2c040000"	/* cmpwi	r4,0		*/ \
 	"41820014"	/* beq-		2f		*/ \
 	GASNETI_PPC_RMB_ASM				\
-	"80020000"	/* lwz		r0,0(r2)	*/ \
+	"80040000"	/* lwz		r0,0(r4)	*/ \
 	"7c00192d"	/* stwcx.	r0,0,r3		*/ \
 	"40a2ffe8"	/* bne-		1b		*/ \
-	"7c431378"	/* 2: mr	r3,r2		*/ \
+	"7c832378"	/* 2: mr	r3,r4		*/ \
       }
-      #pragma reg_killed_by _gasneti_lifo_pop cr0, gr0, gr2
     #elif (SIZEOF_VOID_P == 8)
       #pragma mc_func _gasneti_lifo_pop {\
-        /* ARGS: r3 = p  LOCAL: r0 = next, r4 = head */ \
 	"e8830080"	/* ld		r4,128(r3)	*/ \
 	"38630080"	/* addi		r3,r3,128	*/ \
 	"2c240000"	/* cmpdi	r4,0		*/ \
@@ -773,10 +769,11 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 	"40a2ffe8"	/* bne-		1b		*/ \
 	"7c832378"	/* mr		r3,r4		*/ \
       }
-      #pragma reg_killed_by _gasneti_lifo_pop cr0, gr0, gr4
     #else
       #error "PPC w/ unknown word size"
     #endif
+    #pragma reg_killed_by _gasneti_lifo_pop cr0, gr0, gr4
+
     GASNETI_INLINE(_gasneti_lifo_init)
     void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
       p->head = NULL;
