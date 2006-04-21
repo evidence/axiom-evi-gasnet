@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/04/20 22:10:14 $
- * $Revision: 1.185 $
+ *     $Date: 2006/04/21 23:34:21 $
+ * $Revision: 1.186 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2719,51 +2719,33 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
 #endif
 }
 
-# if 1 /* Temporary for tracking down bug 1433 */
-  #if GASNET_DEBUG
-    extern const char * volatile gasnetc_exit_state;
-    #define GASNETC_EXIT_STATE(st) gasnetc_exit_state = st
-  #else
-    #define GASNETC_EXIT_STATE(st) do {} while (0)
-  #endif
-#endif
 extern void gasnetc_sndrcv_fini(void) {
   gasnetc_hca_t *hca;
   VAPI_ret_t vstat;
-GASNETC_EXIT_STATE("ENTER gasnetc_sndrcv_fini");
 
   GASNETC_FOR_ALL_HCA(hca) {
     if (gasneti_nodes > 1) {
       if (gasnetc_use_rcv_thread) {
-GASNETC_EXIT_STATE("EVAPI_clear_comp_eventh");
         vstat = EVAPI_clear_comp_eventh(hca->handle, hca->rcv_handler);
         GASNETC_VAPI_CHECK(vstat, "from EVAPI_clear_comp_eventh()");
       }
 
-GASNETC_EXIT_STATE("gasnetc_unpin(&hca->rcv_reg)");
       gasnetc_unpin(&hca->rcv_reg);
-GASNETC_EXIT_STATE("gasnetc_unmap(&hca->rcv_reg)");
       gasnetc_unmap(&hca->rcv_reg);
-GASNETC_EXIT_STATE("gasnetc_unpin(&hca->snd_reg)");
       gasnetc_unpin(&hca->snd_reg);
-GASNETC_EXIT_STATE("gasnetc_unmap(&hca->snd_reg)");
       gasnetc_unmap(&hca->snd_reg);
 
-GASNETC_EXIT_STATE("gasneti_free(hca->rbuf_alloc)");
       gasneti_free(hca->rbuf_alloc);
     }
 
 #if 0 /* SEGVs seen here on lambda.hcs.ufl.edu (bug 1433) */
-GASNETC_EXIT_STATE("VAPI_destroy_cq(hca->handle, hca->rcv_cq)");
     vstat = VAPI_destroy_cq(hca->handle, hca->rcv_cq);
     GASNETC_VAPI_CHECK(vstat, "from VAPI_destroy_cq(rcv_cq)");
 
-GASNETC_EXIT_STATE("VAPI_destroy_cq(hca->handle, hca->snd_cq)");
     vstat = VAPI_destroy_cq(hca->handle, hca->snd_cq);
     GASNETC_VAPI_CHECK(vstat, "from VAPI_destroy_cq(snd_cq)");
 #endif
   }
-GASNETC_EXIT_STATE("LEAVE gasnetc_sndrcv_fini");
 }
 
 extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node) {
