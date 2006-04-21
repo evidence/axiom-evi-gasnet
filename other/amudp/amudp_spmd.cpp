@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2006/04/11 03:23:43 $
- * $Revision: 1.28 $
+ *     $Date: 2006/04/21 08:31:09 $
+ * $Revision: 1.29 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -474,12 +474,28 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
       bootstrapinfo.environtablesz = hton32(totalEnvSize);
     }
 
+    // find the master addr
+    SockAddr masterAddr = getsockname(AMUDP_SPMDListenSocket);
+    { const char *masterIPstr = AMUDP_getenv_prefixed_withdefault("MASTERIP", "");
+      if (*masterIPstr) masterAddr = SockAddr(masterIPstr, masterAddr.port());
+    }
+    if (masterAddr.IP() == 0) {
+      try { /* requires master can resolve its own address */
+        SockAddr dnsAddr = DNSLookup(getMyHostName());
+        masterAddr = SockAddr(dnsAddr.IP(), masterAddr.port());
+      } catch (xBase &exn) {
+        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
+        WarnMessage("Master %s failed to resolve its own hostname: %s%s",
+          getMyHostName(),exn.why(),
+          (USE_NUMERIC_MASTER_ADDR?"\nTry setting AMUDP_MASTERIP":"")); 
+      }
+    }
+
     // setup a slave argv
     const char **slaveargv = (const char**)AMUDP_malloc(sizeof(const char*)*((*argc)+3));
     int slaveargc = (*argc)+2;
     slaveargv[0] = (*argv)[0];
     slaveargv[1] = (AMUDP_SilentMode?AMUDP_SPMDSLAVE_FLAG:AMUDP_SPMDSLAVE_FLAG_VERBOSE);
-    SockAddr masterAddr = getsockname(AMUDP_SPMDListenSocket);
     #if USE_NUMERIC_MASTER_ADDR
       slaveargv[2] = masterAddr.FTPStr();
     #else
@@ -493,16 +509,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     slaveargv[slaveargc] = NULL;
 
     { int masterpid = getpid();
-      uint32_t masterIP = 0;
-      try { /* requires master can resolve its own address */
-        SockAddr dnsAddr = DNSLookup(getMyHostName());
-        masterIP = dnsAddr.IP();
-      } catch (xBase &exn) {
-        AMUDP_RETURN_ERRFR(RESOURCE, AMUDP_SPMDStartup, exn.why());
-        WarnMessage("Master %s failed to resolve its own hostname: %s",
-          getMyHostName(),exn.why()); 
-        masterIP = masterAddr.IP(); /* failed, try to use listen socket addr */
-      }
+      uint32_t masterIP = masterAddr.IP();
       npid = ((uint64_t)masterIP) << 32 | 
              (((uint64_t)masterpid) & 0xFFFF);
       bootstrapinfo.networkpid = hton64(npid);
