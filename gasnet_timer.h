@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/04/18 13:10:59 $
- * $Revision: 1.55 $
+ *     $Date: 2006/04/21 00:39:22 $
+ * $Revision: 1.56 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -103,7 +103,7 @@ GASNETI_BEGIN_EXTERNC
   GASNETI_INLINE(gasneti_ticks_now)
   gasneti_tick_t gasneti_ticks_now() {
     struct timespec t;
-    if_pf (clock_gettime(CLOCK_SGI_CYCLE, &t) == -1) abort();
+    gasneti_assert_zeroret(clock_gettime(CLOCK_SGI_CYCLE, &t));
     return ((((uint64_t)t.tv_sec) & 0xFFFF) * 1000000000) + t.tv_nsec;
   }
   #define gasneti_ticks_to_ns(st)  (st)
@@ -219,10 +219,7 @@ GASNETI_BEGIN_EXTERNC
      #else
       FILE *fp = fopen("/proc/cpuinfo","r");
       char input[255];
-      if (!fp) {
-        fprintf(stderr,"*** ERROR: Failure in fopen('/proc/cpuinfo','r')=%s",strerror(errno));
-        abort();
-      }
+      if (!fp) gasneti_fatalerror("*** ERROR: Failure in fopen('/proc/cpuinfo','r')=%s",strerror(errno));
       while (!feof(fp) && fgets(input, 255, fp)) {
       #if defined(__ia64__) /* itc and cpu need not run at the same rate */
         if (strstr(input,"itc MHz")) {
@@ -326,31 +323,20 @@ GASNETI_BEGIN_EXTERNC
       FILE *fp = NULL;
       double MHz = 0.0;
       char fname[128];
-      if (!dp) {
-        fprintf(stderr,"*** ERROR: Failure in opendir('/proc/device-tree/cpus'): %s\n",strerror(errno));
-        abort();
-      }
+      if (!dp) gasneti_fatalerror("*** ERROR: Failure in opendir('/proc/device-tree/cpus'): %s",strerror(errno));
       do {
         de = readdir(dp);
 	if (de && (de->d_name == strstr(de->d_name, "PowerPC,"))) {
 	  break;
 	}
       } while (de);
-      if (!de) {
-        fprintf(stderr,"*** ERROR: Failure to find a PowerPC CPU in /proc/device-tree/cpus\n");
-	abort();
-      }
+      if (!de) gasneti_fatalerror("*** ERROR: Failure to find a PowerPC CPU in /proc/device-tree/cpus");
       snprintf(fname, sizeof(fname), "/proc/device-tree/cpus/%s/timebase-frequency", de->d_name);
       closedir(dp);
       fp = fopen(fname, "r");
-      if (!fp) {
-	fprintf(stderr,"*** ERROR: Failure in fopen('%s','r'): %s\n",fname,strerror(errno));
-	abort();
-      }
-      if (fread((void *)(&freq), sizeof(uint32_t), 1, fp) != 1) {
-        fprintf(stderr,"*** ERROR: Failure to read timebase frequency from '%s': %s\n", fname,strerror(errno));
-	abort();
-      }
+      if (!fp) gasneti_fatalerror("*** ERROR: Failure in fopen('%s','r'): %s\n",fname,strerror(errno));
+      if (fread((void *)(&freq), sizeof(uint32_t), 1, fp) != 1) 
+        gasneti_fatalerror("*** ERROR: Failure to read timebase frequency from '%s': %s", fname, strerror(errno));
       fclose(fp);
      #endif
       gasneti_assert(freq > 1000000 && freq < 1000000000); /* ensure it looks reasonable (1MHz to 1Ghz) */
@@ -372,7 +358,7 @@ GASNETI_BEGIN_EXTERNC
   GASNETI_INLINE(gasneti_ticks_now)
   gasneti_tick_t gasneti_ticks_now() {
     struct timespec t;
-    if (clock_gettime(CLOCK_REALTIME, &t) == -1) abort();
+    gasneti_assert_zeroret(clock_gettime(CLOCK_REALTIME, &t));
     return ((((uint64_t)t.tv_sec) & 0xFFFF) * 1000000000) + t.tv_nsec;
   }
   #define gasneti_ticks_to_ns(st)  (st)
@@ -392,7 +378,7 @@ GASNETI_BEGIN_EXTERNC
   GASNETI_INLINE(gasneti_ticks_now)
   gasneti_tick_t gasneti_ticks_now() {
     LARGE_INTEGER val;
-    if_pf (!QueryPerformanceCounter(&val)) abort();
+    gasneti_assert_nzeroret(QueryPerformanceCounter(&val));
     gasneti_assert(val.QuadPart > 0);
     return (gasneti_tick_t)val.QuadPart;
   }
@@ -402,7 +388,7 @@ GASNETI_BEGIN_EXTERNC
     static double freq = 0;
     if_pf (firsttime) {
       LARGE_INTEGER temp;
-      if (!QueryPerformanceFrequency(&temp)) abort();
+      gasneti_assert_nzeroret(QueryPerformanceFrequency(&temp));
       freq = ((double)temp.QuadPart) / 1.0E9;
       freq = 1 / freq;
       gasneti_sync_writes();
@@ -421,7 +407,7 @@ GASNETI_BEGIN_EXTERNC
     static double freq = 0;
     if_pf (firsttime) {
       mach_timebase_info_data_t tb;
-      if (mach_timebase_info(&tb)) abort();
+      gasneti_assert_zeroret(mach_timebase_info(&tb));
       freq = ((double)tb.numer) / ((double)tb.denom);
       gasneti_sync_writes();
       firsttime = 0;

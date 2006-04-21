@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/04/18 13:10:58 $
- * $Revision: 1.89 $
+ *     $Date: 2006/04/21 00:39:22 $
+ * $Revision: 1.90 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -203,46 +203,6 @@ extern uint64_t gasnet_max_segsize; /* client-overrideable max segment size */
          _gasneti_boundscheck(node,ptr,nbytes,gasneti_in_nodes_bc,gasneti_in_segment_bc)
   #define gasneti_boundscheck_allowoutseg(node,ptr,nbytes) \
          _gasneti_boundscheck(node,ptr,nbytes,gasneti_in_nodes_bc,gasneti_in_segment_allowoutofseg_bc)
-#endif
-
-/* gasneti_assert_always():
- * an assertion that never compiles away - for sanity checks in non-critical paths 
- */
-#define gasneti_assert_always(expr) \
-    (PREDICT_TRUE(expr) ? (void)0 : gasneti_fatalerror("Assertion failure at %s: %s", gasneti_current_loc, #expr))
-
-/* gasneti_assert():
- * an assertion that compiles away in non-debug mode - for sanity checks in critical paths 
- */
-#if GASNET_NDEBUG
-  #define gasneti_assert(expr) ((void)0)
-#else
-  #define gasneti_assert(expr) gasneti_assert_always(expr)
-#endif
-
-/* gasneti_assert_zeroret(), gasneti_assert_nzeroret():
- * evaluate an expression (always), and in debug mode additionally 
- * assert that it returns zero or non-zero
- * useful for making system calls and checking the result
- */
-#if GASNET_DEBUG
-  #define gasneti_assert_zeroret(op) do {                   \
-    int _retval = (op);                                     \
-    if_pf(_retval)                                          \
-      gasneti_fatalerror(#op": %s(%i), errno=%s(%i) at %s", \
-        strerror(_retval), _retval, strerror(errno), errno, \
-        gasneti_current_loc);                               \
-  } while (0)
-  #define gasneti_assert_nzeroret(op) do {                  \
-    int _retval = (op);                                     \
-    if_pf(!_retval)                                         \
-      gasneti_fatalerror(#op": %s(%i), errno=%s(%i) at %s", \
-        strerror(_retval), _retval, errno, strerror(errno), \
-        gasneti_current_loc);                               \
-  } while (0)
-#else
-  #define gasneti_assert_zeroret(op)  op
-  #define gasneti_assert_nzeroret(op) op
 #endif
 
 /* make a GASNet core API call - if it fails, print error message and abort */

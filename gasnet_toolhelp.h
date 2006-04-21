@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/04/18 21:09:27 $
- * $Revision: 1.2 $
+ *     $Date: 2006/04/21 00:39:22 $
+ * $Revision: 1.3 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,6 +37,46 @@ GASNETI_BEGIN_EXTERNC
 #endif
 extern char *gasneti_build_loc_str(const char *funcname, const char *filename, int linenum);
 #define gasneti_current_loc gasneti_build_loc_str(GASNETI_CURRENT_FUNCTION,__FILE__,__LINE__)
+
+/* gasneti_assert_always():
+ * an assertion that never compiles away - for sanity checks in non-critical paths 
+ */
+#define gasneti_assert_always(expr) \
+    (PREDICT_TRUE(expr) ? (void)0 : gasneti_fatalerror("Assertion failure at %s: %s", gasneti_current_loc, #expr))
+
+/* gasneti_assert():
+ * an assertion that compiles away in non-debug mode - for sanity checks in critical paths 
+ */
+#if GASNET_NDEBUG
+  #define gasneti_assert(expr) ((void)0)
+#else
+  #define gasneti_assert(expr) gasneti_assert_always(expr)
+#endif
+
+/* gasneti_assert_zeroret(), gasneti_assert_nzeroret():
+ * evaluate an expression (always), and in debug mode additionally 
+ * assert that it returns zero or non-zero
+ * useful for making system calls and checking the result
+ */
+#if GASNET_DEBUG
+  #define gasneti_assert_zeroret(op) do {                   \
+    int _retval = (op);                                     \
+    if_pf(_retval)                                          \
+      gasneti_fatalerror(#op": %s(%i), errno=%s(%i) at %s", \
+        strerror(_retval), _retval, strerror(errno), errno, \
+        gasneti_current_loc);                               \
+  } while (0)
+  #define gasneti_assert_nzeroret(op) do {                  \
+    int _retval = (op);                                     \
+    if_pf(!_retval)                                         \
+      gasneti_fatalerror(#op": %s(%i), errno=%s(%i) at %s", \
+        strerror(_retval), _retval, errno, strerror(errno), \
+        gasneti_current_loc);                               \
+  } while (0)
+#else
+  #define gasneti_assert_zeroret(op)  op
+  #define gasneti_assert_nzeroret(op) op
+#endif
 
 /* return physical memory of machine
    on failure, failureIsFatal nonzero => fatal error, failureIsFatal zero => return 0 */

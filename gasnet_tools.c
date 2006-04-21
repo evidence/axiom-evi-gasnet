@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/04/18 13:10:59 $
- * $Revision: 1.156 $
+ *     $Date: 2006/04/21 00:39:22 $
+ * $Revision: 1.157 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -222,10 +222,7 @@ extern uint64_t gasneti_gettimeofday_us(void) {
   #ifdef __crayx1
   retry:
   #endif
-  if (gettimeofday(&tv, NULL)) {
-      perror("gettimeofday");
-      abort();
-  }
+  gasneti_assert_zeroret(gettimeofday(&tv, NULL));
   retval = ((uint64_t)tv.tv_sec) * 1000000 + (uint64_t)tv.tv_usec;
   #ifdef __crayx1
     /* fix an empirically observed bug in UNICOS gettimeofday(),
@@ -536,21 +533,14 @@ extern int gasneti_cpu_count() {
         mib[0] = CTL_HW;
         mib[1] = HW_NCPU;
         len = sizeof(hwprocs);
-        if (sysctl(mib, 2, &hwprocs, &len, NULL, 0)) {
-           perror("sysctl");
-           abort();
-        }
+        gasneti_assert_zeroret(sysctl(mib, 2, &hwprocs, &len, NULL, 0));
         if (hwprocs < 1) hwprocs = 0;
       }
   #elif defined(HPUX) 
       {
         struct pst_dynamic psd;
-        if (pstat_getdynamic(&psd, sizeof(psd), (size_t)1, 0) == -1) {
-          perror("pstat_getdynamic");
-          abort();
-        } else {
-          hwprocs = psd.psd_proc_cnt;
-        }
+        gasneti_assert_zeroret(pstat_getdynamic(&psd, sizeof(psd), (size_t)1, 0) == -1);
+        hwprocs = psd.psd_proc_cnt;
       }
   #elif defined(SUPERUX) || defined(__MTA__)
       hwprocs = 0; /* appears to be no way to query CPU count on these */

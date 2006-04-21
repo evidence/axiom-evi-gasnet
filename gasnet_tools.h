@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/04/18 13:10:59 $
- * $Revision: 1.74 $
+ *     $Date: 2006/04/21 00:39:22 $
+ * $Revision: 1.75 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,35 +42,6 @@
 #include GASNETI_TOOLS_HELPER
 #endif
 
-/* ------------------------------------------------------------------------------------ */
-/* stub versions of selected gasnet internal macros needed by the headers included below */
-
-#if !defined(_INCLUDED_GASNET_H) 
-  GASNETI_INLINE(gasneti_assert_fail)
-  void gasneti_assert_fail(const char *file, int line, const char *cond) {
-    fprintf(stderr, "*** FATAL ERROR: Assertion failure at %s:%i: %s\n", file, line, cond);
-    abort();
-  }
-  #define gasneti_assert_always(expr) \
-    (PREDICT_TRUE(expr) ? (void)0 : gasneti_assert_fail(__FILE__, __LINE__, #expr))
-  #if defined(GASNET_NDEBUG)
-    #define gasneti_assert(expr) ((void)0)
-    #define gasneti_assert_zeroret(op)  (op)
-    #define gasneti_assert_nzeroret(op) (op)
-  #else
-    #define gasneti_assert(expr) gasneti_assert_always(expr)
-    #define gasneti_assert_zeroret(op) do {                   \
-      int _retval = (op);                                     \
-      if_pf(_retval) gasneti_assert_fail(__FILE__, __LINE__,  \
-                                #op" failed to return zero"); \
-    } while (0)
-    #define gasneti_assert_nzeroret(op) do {                  \
-      int _retval = (op);                                     \
-      if_pf(_retval) gasneti_assert_fail(__FILE__, __LINE__,  \
-                            #op" failed to return non-zero"); \
-    } while (0)
-  #endif
-#endif
 #if defined(GASNET_NDEBUG)
   #define GASNETT_DEBUG_CONFIG nodebug
 #else
