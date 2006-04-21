@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/21 00:48:45 $
- * $Revision: 1.15 $
+ *     $Date: 2006/04/21 23:56:12 $
+ * $Revision: 1.16 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -590,6 +590,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
    * Linux: __PPC__
    */
   #if defined(__GNUC__)
+    /* Note use of "Lga.0.%=" for labels works around the AIX assembler, which doesn't like "1:" */
     typedef struct {
       /* Ensure list head pointer is the only item on its cache line.
        * This prevents a live-lock which would result if a list element fell
@@ -610,29 +611,33 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       register uintptr_t addr = (uintptr_t)(&p->head);
       register uintptr_t tmp1, tmp2;
       #if (SIZEOF_VOID_P == 4)
-        __asm__ __volatile__ ("lwz	%3,0(%0)   \n\t" /* tmp1 = p->head */
-			      "1: mr	%4,%3      \n\t" /* tmp2 = tmp1 */
+        __asm__ __volatile__ ("lwz	%3,0(%0)   \n"   /* tmp1 = p->head */
+			      "Lga.1.%=:	   \n\t"
+			      "mr	%4,%3      \n\t" /* tmp2 = tmp1 */
 			      "stw	%3,0(%2)   \n\t" /* tail->next = tmp1 */
-			      GASNETI_PPC_WMB_ASM "\n\t" /* wmb */
-			      "2: lwarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
+			      GASNETI_PPC_WMB_ASM "\n"   /* wmb */
+			      "Lga.2.%=:	   \n\t"
+			      "lwarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
 			      "cmpw	%3,%4      \n\t" /* check tmp1 still == tmp2 */
-			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
+			      "bne-	Lga.1.%=   \n\t" /* retry if p->head changed since starting */
 			      "stwcx.	%1,0,%0    \n\t" /* p->head = head */
-			      "bne-	2b         \n\t" /* retry on conflict */
+			      "bne-	Lga.2.%=   \n\t" /* retry on conflict */
 			      GASNETI_PPC_RMB_ASM
 				: "=b" (addr), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
 				: "0" (addr), "1" (head), "2" (tail) 
 				: "memory", "cc");
       #elif (SIZEOF_VOID_P == 8)
-        __asm__ __volatile__ ("ld	%3,0(%0)   \n\t" /* tmp1 = p->head */
-			      "1: mr	%4,%3      \n\t" /* tmp2 = tmp1 */
+        __asm__ __volatile__ ("ld	%3,0(%0)   \n"   /* tmp1 = p->head */
+			      "Lga.1.%=:	   \n\t"
+			      "mr	%4,%3      \n\t" /* tmp2 = tmp1 */
 			      "std	%3,0(%2)   \n\t" /* tail->next = tmp1 */
-			      GASNETI_PPC_WMB_ASM "\n\t" /* wmb */
-			      "2: ldarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
+			      GASNETI_PPC_WMB_ASM "\n"   /* wmb */
+			      "Lga.2.%=:	   \n\t"
+			      "ldarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
 			      "cmpd	%3,%4      \n\t" /* check tmp1 still == tmp2 */
-			      "bne-	1b         \n\t" /* retry if p->head changed since starting */
+			      "bne-	Lga.1.%=   \n\t" /* retry if p->head changed since starting */
 			      "stdcx.	%1,0,%0    \n\t" /* p->head = head */
-			      "bne-	2b         \n\t" /* retry on conflict */
+			      "bne-	Lga.2.%=   \n\t" /* retry on conflict */
 			      GASNETI_PPC_RMB_ASM
 				: "=b" (addr), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
 				: "0" (addr), "1" (head), "2" (tail) 
@@ -655,26 +660,28 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 	return NULL;
       }
       #if (SIZEOF_VOID_P == 4)
-        __asm__ __volatile__ ("1: lwarx	%1,0,%0    \n\t" /* head = p->head */
+        __asm__ __volatile__ ("Lga.1.%=:	   \n\t"
+			      "lwarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpwi	0,%1,0     \n\t" /* head == NULL? */
-			      "beq-	2f         \n\t" /* end on NULL */
+			      "beq-	Lga.2.%=   \n\t" /* end on NULL */
 			      GASNETI_PPC_RMB_ASM "\n\t" /* rmb */
 			      "lwz	%2,0(%1)   \n\t" /* next = head->next */
 			      "stwcx.	%2,0,%0    \n\t" /* p->head = next */
-			      "bne-	1b         \n\t" /* retry on conflict */
-			      "2: "
+			      "bne-	Lga.1.%=   \n"   /* retry on conflict */
+			      "Lga.2.%=: "
 				: "=b" (addr), "=b" (head), "=r" (next)
 				: "0" (addr)
 				: "memory", "cc");
       #elif (SIZEOF_VOID_P == 8)
-        __asm__ __volatile__ ("1: ldarx	%1,0,%0    \n\t" /* head = p->head */
+        __asm__ __volatile__ ("Lga.1.%=:	   \n\t"
+			      "ldarx	%1,0,%0    \n\t" /* head = p->head */
 			      "cmpdi	0,%1,0     \n\t" /* head == NULL? */
-			      "beq-	2f         \n\t" /* end on NULL */
+			      "beq-	Lga.2.%=   \n\t" /* end on NULL */
 			      GASNETI_PPC_RMB_ASM "\n\t" /* rmb */
 			      "ld	%2,0(%1)   \n\t" /* next = head->next */
 			      "stdcx.	%2,0,%0    \n\t" /* p->head = next */
-			      "bne-	1b         \n\t" /* retry on conflict */
-			      "2: "
+			      "bne-	Lga.1.%=   \n"   /* retry on conflict */
+			      "Lga.2.%=: "
 				: "=b" (addr), "=b" (head), "=r" (next)
 				: "0" (addr)
 				: "memory", "cc");
