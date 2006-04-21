@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/20 21:24:59 $
- * $Revision: 1.14 $
+ *     $Date: 2006/04/21 00:48:45 $
+ * $Revision: 1.15 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -279,8 +279,10 @@ GASNETI_BEGIN_EXTERNC
 
 #if 0
   /* This version can yield 0-byte padding, which upsets some compilers */
+  /* Read as GASNETI_ALIGNUP(SZ,GASNETI_CACHE_LINE_BYTES) - SZ */
   #define GASNETI_CACHE_PAD(SZ) (((SZ+GASNETI_CACHE_LINE_BYTES-1)&~(GASNETI_CACHE_LINE_BYTES-1))-(SZ))
 #else
+  /* Read as GASNETI_ALIGNUP(SZ+1,GASNETI_CACHE_LINE_BYTES) - SZ */
   #define GASNETI_CACHE_PAD(SZ) (((SZ+GASNETI_CACHE_LINE_BYTES)&~(GASNETI_CACHE_LINE_BYTES-1))-(SZ))
 #endif
 
