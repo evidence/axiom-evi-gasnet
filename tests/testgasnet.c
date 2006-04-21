@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2006/04/18 13:11:05 $
- * $Revision: 1.45 $
+ *     $Date: 2006/04/21 21:33:05 $
+ * $Revision: 1.46 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -282,7 +282,8 @@ void doit(int partner, int *partnerseg) {
     gasnet_wait_syncnb_all(handles, iters); 
     for (i=0; i < iters; i++) {
       if (vals[i] != 100 + mynode + i) {
-        MSG("*** ERROR - FAILED NB LIST TEST!!!");
+        MSG("*** ERROR - FAILED NB LIST TEST!!! vals[%i] = %i, expected %i",
+            i, vals[i], 100 + mynode + i);
         success = 0;
       }
     }
@@ -312,7 +313,8 @@ void doit2(int partner, int *partnerseg) {
     gasnet_wait_syncnbi_gets();
     for (i=0; i < 100; i++) {
       if (vals[i] != mynode + i) {
-        MSG("*** ERROR - FAILED NBI TEST!!!");
+        MSG("*** ERROR - FAILED NBI TEST!!! vals[%i] = %i, expected %i",
+            i, vals[i], mynode + i);
         success = 0;
       }
     }

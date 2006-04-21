@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/04/21 00:39:22 $
- * $Revision: 1.3 $
+ *     $Date: 2006/04/21 21:33:03 $
+ * $Revision: 1.4 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -70,7 +70,7 @@ extern char *gasneti_build_loc_str(const char *funcname, const char *filename, i
     int _retval = (op);                                     \
     if_pf(!_retval)                                         \
       gasneti_fatalerror(#op": %s(%i), errno=%s(%i) at %s", \
-        strerror(_retval), _retval, errno, strerror(errno), \
+        strerror(_retval), _retval, strerror(errno), errno, \
         gasneti_current_loc);                               \
   } while (0)
 #else
