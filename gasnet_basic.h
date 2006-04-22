@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/04/18 13:10:58 $
- * $Revision: 1.66 $
+ *     $Date: 2006/04/22 09:36:29 $
+ * $Revision: 1.67 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -120,6 +120,8 @@
 
 #if defined(_SGI_COMPILER_VERSION) && defined(__cplusplus)
   #define GASNETI_PRAGMA(x) /* despite the docs, not supported in MIPSPro C++ */
+#elif defined(_SGI_COMPILER_VERSION) && _SGI_COMPILER_VERSION < 742
+  #define GASNETI_PRAGMA(x) /* bug1555: broken in older versions (740 fails, 742 works) */
 #elif defined(__DECC_VER) && __DECC_VER < 60590207
   #define GASNETI_PRAGMA(x) /* not supported in older versions (60490014) */
 #elif defined(__SUNPRO_C) && __SUNPRO_C < 0x570
