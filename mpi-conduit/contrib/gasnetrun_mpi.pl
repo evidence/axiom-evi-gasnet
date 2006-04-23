@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/03/01 07:11:17 $
-# $Revision: 1.45 $
+#     $Date: 2006/04/23 10:32:38 $
+# $Revision: 1.46 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -65,6 +65,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
     my $is_mvich    = ($mpirun_help =~ m|MV(AP)?ICH|i);
     my $is_cray_mpi = ($mpirun_help =~ m|Psched|);
+    my $is_irix_mpi = ($mpirun_help =~ m|\[-miser\]|);
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi  = ($mpirun_help =~ m| BG/L |);
@@ -135,6 +136,12 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	# however, the OS already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1
                   );
+    } elsif ($is_irix_mpi) {
+	$spawner_desc = "IRIX MPI";
+	# OS already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1 );
+	# but spawner botches the argv quoting
+        $extra_quote_argv = 1;
     } elsif ($is_poe) {
 	$spawner_desc = "IBM POE";
 	# the OS already propagates the environment for us automatically
