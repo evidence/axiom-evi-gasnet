@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/21 23:56:12 $
- * $Revision: 1.16 $
+ *     $Date: 2006/04/24 22:31:53 $
+ * $Revision: 1.17 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -497,6 +497,63 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 #endif
 
 /* ------------------------------------------------------------------------------------ */
+/* Compare and swap of 2 adjacent pointers
+ * FOR USE IN THIS FILE ONLY!!
+ *	gasneti_dblptr_t
+ *	gasneti_dblptr_init(lo, hi)
+ *	gasneti_dblptr_set(ptr, lo, hi)
+ *	gasneti_dblptr_lo(ptr)
+ *	gasneti_dblptr_hi(ptr)
+ *	gasneti_dblptr_cas(ptr, oldlo, oldhi, newlo, newhi, flags)
+ *	GASNETI_HAVE_DBLPTR_CAS
+ */
+#if defined(GASNETI_USING_GENERIC_ATOMICOPS) || defined(GASNETI_USING_OS_ATOMICOPS)
+  /* If not using inline asm in gasnet_atomicops.h, then don't try to here either. */
+#elif defined(__i386__) || defined(__i386) || defined(i386) || \
+      defined(__i486__) || defined(__i486) || defined(i486) || \
+      defined(__i586__) || defined(__i586) || defined(i586) || \
+      defined(__i686__) || defined(__i686) || defined(i686)
+  #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
+    typedef union {
+      struct { volatile uintptr_t ip0, ip1; } ctr;	/* must be first for initializer */
+      uint64_t encourage_8byte_alignment;		/* x86 is still OK, if not aligned */
+    } gasneti_dblptr_t;
+
+    #define gasneti_dblptr_init(lo,hi)     { { (uintptr_t)(lo), (uintptr_t)(hi) } }
+    #define gasneti_dblptr_set(p,lo,hi)    do { (p)->ctr.ip0 = (uintptr_t)(lo); \
+                                                (p)->ctr.ip1 = (uintptr_t)(hi); \
+                                           } while (0)
+    #define gasneti_dblptr_lo(p)           ((p)->ctr.ip0)
+    #define gasneti_dblptr_hi(p)           ((p)->ctr.ip1)
+    GASNETI_INLINE(_gasneti_dblptr_cas)
+    int _gasneti_dblptr_cas(gasneti_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
+       __asm__ __volatile__ (
+		GASNETI_X86_LOCK_PREFIX
+		"cmpxchg8b	%0	\n\t"
+		"sete		%b1	\n\t"
+		"movzbl		%b1,%1"
+		: "=m" (*v), "+a" (oldlo), "+d" (oldhi)
+		: "b" (newlo), "c" (newhi), "m" (*v)
+		: "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+       /* result in %eax (oldlo), for lack of available registers */
+       return (int)oldlo;
+    }
+    #define GASNETI_HAVE_DBLPTR_CAS 1
+  #endif
+#endif
+#if defined(GASNETI_HAVE_DBLPTR_CAS) && !defined(gasneti_dblptr_cas)
+  GASNETI_INLINE(gasneti_dblptr_cas)
+  int gasneti_dblptr_cas(gasneti_dblptr_t *p, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo, int flags) {
+    _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
+    { const int retval = _gasneti_dblptr_cas(p,oldhi,oldlo,newhi,newlo);
+      _gasneti_atomic_fence_after_bool(flags, retval) /* no semi */
+      return retval;
+    }
+  }
+#endif
+
+
+/* ------------------------------------------------------------------------------------ */
 
 /* Gasnet internal LIFO (stack) container.
  *
@@ -537,57 +594,14 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
   /* No threads, so we use the mutex code that compiles away. */
 #elif defined(GASNETI_USING_GENERIC_ATOMICOPS) || defined(GASNETI_USING_OS_ATOMICOPS)
   /* If not using inline asm in gasnet_atomicops.h, then don't try to here either. */
-#elif defined(__i386__) /* x86 but NOT x86_64 */
-  #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(PGI_WITH_REAL_ASM)
-    typedef struct {
-      volatile uintptr_t 	head;
-      volatile uintptr_t 	ABA_tag;
-      char			_pad[GASNETI_CACHE_PAD(2*sizeof(uintptr_t))];
-    } gasneti_lifo_head_t;
-
-    GASNETI_INLINE(_gasneti_lifo_push)
-    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
-      /* RELEASE semantics: LOCK prefix is a full mb() */
-      __asm__ __volatile__ ("1: movl	%0, %%eax	\n\t"	/* eax = p->head */
-                            "movl	%%eax, %2	\n\t"	/* tail->next = eax */
-    GASNETI_X86_LOCK_PREFIX "cmpxchgl	%1, %0		\n\t"	/* p->head = head */
-                            "jne	1b"		/* retry on conflict */
-                                : "=m" (p->head)
-                                : "r" (head), "m" (*tail)
-                                : "cc", "memory", "eax");
-    }
-    GASNETI_INLINE(_gasneti_lifo_pop)
-    void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
-      /* ACQUIRE semantics: LOCK prefix is a full mb() */
-      register uintptr_t retval = p->head;
-      __asm__ __volatile__ ("1: test	%0,%0		\n\t"	/* terminate loop ... */
-                            "jz		2f		\n\t"	/*        ... on NULL */
-                            "mov	(%0), %%ebx	\n\t"	/* ebx = p->head->next */
-                            "lea	1(%3), %%ecx	\n\t"	/* ecx = ABA_tag + 1 */ 
-    GASNETI_X86_LOCK_PREFIX "cmpxchg8b	%1		\n\t"	/* p->(head,ABA_tag) = (ebx,ecx) */
-                            "jne	1b		\n\t"	/* retry w/ updated (eax,edx) */
-                            "2:"
-                                : "=a" (retval)
-                                : "m" (p->head), "a" (retval), "d" (p->ABA_tag)
-                                : "cc", "memory", "ebx", "ecx");
-      return (void *)retval;
-    }
-    GASNETI_INLINE(_gasneti_lifo_init)
-    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
-      p->head = 0;
-    }
-    GASNETI_INLINE(_gasneti_lifo_destroy)
-    void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
-      /* NOTHING */
-    }
-    #define GASNETI_LIFO_INITIALIZER	{0,}
-    #define GASNETI_HAVE_ARCH_LIFO	1
-  #endif
 #elif defined(_POWER) || defined(__PPC__) || defined(__ppc__) || defined(__ppc64__)
   /* PowerPPC ids:
    * AIX: _POWER
    * Darwin: __ppc__ or __ppc64__
    * Linux: __PPC__
+   *
+   * Among the platforms we currently support, PPC is unique in having an LL/SC
+   * construct which allows a load between the LL and the SC.
    */
   #if defined(__GNUC__)
     /* Note use of "Lga.0.%=" for labels works around the AIX assembler, which doesn't like "1:" */
@@ -598,7 +612,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
        */
       char		_pad0[GASNETI_CACHE_LINE_BYTES];
       volatile void	**head;
-      char		_pad1[GASNETI_CACHE_PAD(sizeof(void **))];
+      char		_pad1[GASNETI_CACHE_LINE_BYTES];
     } gasneti_lifo_head_t;
 
     GASNETI_INLINE(_gasneti_lifo_push)
@@ -799,6 +813,49 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     #define GASNETI_LIFO_INITIALIZER	{{0,}, NULL,}
     #define GASNETI_HAVE_ARCH_LIFO	1
   #endif
+#elif defined(GASNETI_HAVE_DBLPTR_CAS)
+    /* Algorithm if we have a compare-and-swap for a type as wide as two pointers.
+     * The lower half holds the head pointer, which the upper half hold a "tag"
+     * which is advanced by one on each Pop to avoid the "classic ABA problem".
+     */
+    typedef struct {
+      char		_pad0[GASNETI_CACHE_LINE_BYTES];
+      gasneti_dblptr_t 	head_and_tag;
+      char		_pad1[GASNETI_CACHE_LINE_BYTES];
+    } gasneti_lifo_head_t;
+
+    GASNETI_INLINE(_gasneti_lifo_push)
+    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
+      uintptr_t tag, oldhead;
+      do {
+	oldhead = gasneti_dblptr_lo(&p->head_and_tag);
+	tag = gasneti_dblptr_hi(&p->head_and_tag); /* No need to advance ABA tag on push */
+	*tail = (void *)oldhead;
+      } while (!gasneti_dblptr_cas(&p->head_and_tag, tag, oldhead, tag, (uintptr_t)head, GASNETI_ATOMIC_REL));
+    }
+    GASNETI_INLINE(_gasneti_lifo_pop)
+    void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
+      uintptr_t oldtag, newtag;
+      uintptr_t oldhead, newhead;
+      do {
+	oldhead = gasneti_dblptr_lo(&p->head_and_tag);
+	oldtag = gasneti_dblptr_hi(&p->head_and_tag);
+	if_pf (!oldhead) break;
+	newtag = oldtag + 1;
+	newhead = (uintptr_t)(*(void **)oldhead);
+      } while (!gasneti_dblptr_cas(&p->head_and_tag, oldtag, oldhead, newtag, newhead, GASNETI_ATOMIC_ACQ_IF_TRUE));
+      return (void *)oldhead;
+    }
+    GASNETI_INLINE(_gasneti_lifo_init)
+    void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
+      gasneti_dblptr_set(&p->head_and_tag, 0, 0);
+    }
+    GASNETI_INLINE(_gasneti_lifo_destroy)
+    void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
+      /* NOTHING */
+    }
+    #define GASNETI_LIFO_INITIALIZER	{gasneti_dblptr_init(0,0),}
+    #define GASNETI_HAVE_ARCH_LIFO	1
 #else
   /* The LL/SC algorithm used on the PPC will not work on the Alpha or MIPS, which don't
    * allow for the load we perform between the ll and the sc.  More complex algorithms are
