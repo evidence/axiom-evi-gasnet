@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
- *     $Date: 2006/04/24 08:31:54 $
- * $Revision: 1.13 $
+ *     $Date: 2006/04/24 09:25:05 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -117,22 +117,21 @@ size_t gasnete_strided_datasize(size_t const *count, size_t stridelevels) {
  */
 GASNETI_INLINE(gasnete_strided_contigsz)
 size_t gasnete_strided_contigsz(size_t const *strides, size_t const *count, size_t stridelevels) {
-  size_t sz;
-  size_t i;
   size_t limit = stridelevels;
+  size_t sz = count[0];
+  size_t i;
 
   /* querying the contiguity of an empty region probably signifies a bug */
   gasneti_assert(!gasnete_strided_empty(count,stridelevels)); 
 
   while (limit && count[limit] == 1) limit--; /* ignore null dimensions */
-  sz = count[0];
-  if (strides[0] > sz) return sz;
-  for (i = 1; i < stridelevels; i++) {
-    if (count[i] != 1) sz *= count[i];
-    if (strides[i] > (count[i]*strides[i-1])) return sz;
+  if (strides[0] > sz || limit == 0) return sz;
+  for (i = 1; i < limit; i++) {
+    sz *= count[i];
+    if (strides[i] > sz) return sz;
     gasneti_assert(strides[i] == (count[i]*strides[i-1]));
   }
-  if (count[stridelevels] != 1) sz *= count[stridelevels];
+  sz *= count[limit];
   return sz;
 }
 
