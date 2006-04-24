@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
- *     $Date: 2006/03/29 14:33:50 $
- * $Revision: 1.12 $
+ *     $Date: 2006/04/24 08:31:54 $
+ * $Revision: 1.13 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -73,7 +73,7 @@ int gasnete_strided_empty(size_t const *count, size_t stridelevels) {
 /* returns the number of top-level dimensions with a count of 1 */
 GASNETI_INLINE(gasnete_strided_nulldims)
 size_t gasnete_strided_nulldims(size_t const *count, size_t stridelevels) {
-  int i;
+  ssize_t i;
   for (i = stridelevels; i >= 0; i--) {
     if_pt (count[i] != 1) return stridelevels-i;
   }
