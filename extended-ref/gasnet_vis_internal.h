@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_internal.h,v $
- *     $Date: 2006/02/11 11:42:39 $
- * $Revision: 1.13 $
+ *     $Date: 2006/04/24 07:46:48 $
+ * $Revision: 1.14 $
  * Description: Reference implemetation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -305,7 +305,6 @@ extern gasnet_handle_t gasnete_getv(gasnete_synctype_t synctype,
     return GASNET_INVALID_HANDLE; 
   if_pf (dstcount + srccount <= 2 ||  /* fully contiguous */
          srcnode == gasneti_mynode) { /* purely local */ 
-    if (dstcount == 0 || srccount == 0) return GASNET_INVALID_HANDLE;
     return gasnete_getv_ref_indiv(synctype,dstcount,dstlist,srcnode,srccount,srclist GASNETE_THREAD_PASS);
   }
 
@@ -687,7 +686,7 @@ extern gasnet_handle_t gasnete_geti(gasnete_synctype_t synctype,
 #endif
 
 #if GASNETE_LOOPING_DIMS > 8
-#error GASNETE_LOOPING_DIMS currently ony supports <= 8
+#error GASNETE_LOOPING_DIMS currently only supports <= 8
 #endif
 #if GASNETE_LOOPING_DIMS >= 8
   #define GASNETE_STRIDED_HELPER_CASE8 GASNETE_STRIDED_HELPER_CASE(7)
