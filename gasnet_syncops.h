@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/24 23:17:17 $
- * $Revision: 1.18 $
+ *     $Date: 2006/04/24 23:28:19 $
+ * $Revision: 1.19 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -500,11 +500,11 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 /* Compare and swap of 2 adjacent pointers
  * FOR USE IN THIS FILE ONLY!!
  *	gasneti_dblptr_t
- *	gasneti_dblptr_init(lo, hi)
- *	gasneti_dblptr_set(ptr, lo, hi)
+ *	gasneti_dblptr_init(hi, lo)
+ *	gasneti_dblptr_set(ptr, hi, lo)
  *	gasneti_dblptr_lo(ptr)
  *	gasneti_dblptr_hi(ptr)
- *	gasneti_dblptr_cas(ptr, oldlo, oldhi, newlo, newhi, flags)
+ *	gasneti_dblptr_cas(ptr, oldhi, oldlo, newhi, newlo, flags)
  *	GASNETI_HAVE_DBLPTR_CAS
  */
 #if defined(GASNETI_USING_GENERIC_ATOMICOPS) || defined(GASNETI_USING_OS_ATOMICOPS)
@@ -515,16 +515,16 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       defined(__i686__) || defined(__i686) || defined(i686)
   #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
     typedef union {
-      struct { volatile uintptr_t ip0, ip1; } ctr;	/* must be first for initializer */
-      uint64_t encourage_8byte_alignment;		/* x86 is still OK, if not aligned */
+      struct { volatile uintptr_t lo32, hi32; } ctr;	/* must be first for initializer */
+      uint64_t u64;
     } gasneti_dblptr_t;
 
-    #define gasneti_dblptr_init(lo,hi)     { { (uintptr_t)(lo), (uintptr_t)(hi) } }
-    #define gasneti_dblptr_set(p,lo,hi)    do { (p)->ctr.ip0 = (uintptr_t)(lo); \
-                                                (p)->ctr.ip1 = (uintptr_t)(hi); \
+    #define gasneti_dblptr_init(hi,lo)     { { (uintptr_t)(lo), (uintptr_t)(hi) } }
+    #define gasneti_dblptr_set(p,hi,lo)    do { (p)->ctr.lo32 = (uintptr_t)(lo); \
+                                                (p)->ctr.hi32 = (uintptr_t)(hi); \
                                            } while (0)
-    #define gasneti_dblptr_lo(p)           ((p)->ctr.ip0)
-    #define gasneti_dblptr_hi(p)           ((p)->ctr.ip1)
+    #define gasneti_dblptr_lo(p)           ((p)->ctr.lo32)
+    #define gasneti_dblptr_hi(p)           ((p)->ctr.hi32)
     GASNETI_INLINE(_gasneti_dblptr_cas)
     int _gasneti_dblptr_cas(gasneti_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
        __asm__ __volatile__ (
