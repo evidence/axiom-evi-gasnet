@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/24 22:31:53 $
- * $Revision: 1.17 $
+ *     $Date: 2006/04/24 23:17:17 $
+ * $Revision: 1.18 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -854,7 +854,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
       /* NOTHING */
     }
-    #define GASNETI_LIFO_INITIALIZER	{gasneti_dblptr_init(0,0),}
+    #define GASNETI_LIFO_INITIALIZER	{{0,}, gasneti_dblptr_init(0,0),}
     #define GASNETI_HAVE_ARCH_LIFO	1
 #else
   /* The LL/SC algorithm used on the PPC will not work on the Alpha or MIPS, which don't
