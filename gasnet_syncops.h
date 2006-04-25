@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/25 20:23:00 $
- * $Revision: 1.23 $
+ *     $Date: 2006/04/25 23:21:40 $
+ * $Revision: 1.24 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -528,7 +528,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       defined(__i486__) || defined(__i486) || defined(i486) || \
       defined(__i586__) || defined(__i586) || defined(i586) || \
       defined(__i686__) || defined(__i686) || defined(i686)
-  #define GASNETI_ATOMIC_PTR_DEFAULT	/* Default is suitable on all x86 platforms w/ native atomics */
+  /* Default is suitable on all x86 platforms w/ native atomics */
+  #define GASNETI_ATOMIC_PTR_DEFAULT
 
   #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
     typedef union {
@@ -560,7 +561,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     /* TO DO: "special" atomics versions for SunPro and PGI < 6.1 */
   #endif
 #elif defined(_MIPS_ISA) && (_MIPS_ISA >= 3) && (SIZEOF_VOID_P == 4) /* 32-bit pointers on 64-bit CPU */
-  #define GASNETI_ATOMIC_PTR_DEFAULT	/* Default is suitable on all 32-bit platforms w/ native atomics */
+  /* Default is suitable on all ILP32 MIPS platforms w/ native atomics */
+  #define GASNETI_ATOMIC_PTR_DEFAULT
 
   #if defined(__GNUC__)
     typedef union {
@@ -596,7 +598,8 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
   #endif /* __GNUC__ */
 #elif defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 or V8plus ISA */
   #if (SIZEOF_VOID_P == 4)
-    #define GASNETI_ATOMIC_PTR_DEFAULT	/* Default is suitable on all 32-bit platforms w/ native atomics */
+    /* Default is suitable on all ILP32 platforms w/ native atomics */
+    #define GASNETI_ATOMIC_PTR_DEFAULT
 
     #if defined(__GNUC__)
       typedef union {
@@ -637,8 +640,53 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
   #endif /* sizeof(void *) == 4 */
 #elif defined(_POWER) || defined(__PPC__) || defined(__ppc__) || defined(__ppc64__)
   #if (SIZEOF_VOID_P == 4)
-    #define GASNETI_ATOMIC_PTR_DEFAULT	/* Default is suitable on all 32-bit platforms w/ native atomics */
-  #endif
+    /* Default is suitable on all ILP32 PPC platforms w/ native atomics */
+    #define GASNETI_ATOMIC_PTR_DEFAULT
+  #elif (SIZEOF_VOID_P == 8)
+    #if defined(__GNUC__)
+      typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
+      #define gasneti_atomic_ptr_init(_v)	{ (_v) }
+      #define gasneti_atomic_ptr_set(_p,_v)	do { (_p)->ctr = (_v); } while(0)
+      #define gasneti_atomic_ptr_read(_p)	((_p)->ctr)
+      GASNETI_INLINE(_gasneti_atomic_ptr_cas)
+      int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *p, uintptr_t oldval, uintptr_t newval) {
+        register uintptr_t result;
+        __asm__ __volatile__ (
+          "Lga.0.%=:\t"                   /* AIX assembler doesn't grok "0:"-type local labels */
+	  "ldarx    %0,0,%1 \n\t"         /* load to result */
+	  "xor.     %0,%0,%2 \n\t"        /* compare result w/ oldval */
+	  "bne      Lga.1.%= \n\t"        /* branch on mismatch */
+	  "stdcx.   %3,0,%1 \n\t"         /* store newval */
+	  "bne-     Lga.0.%= \n\t"        /* retry on conflict */
+	  "Lga.1.%=:	"
+	  : "=&r"(result)
+	  : "r" (p), "r"(oldval), "r"(newval)
+	  : "cr0");
+        return (result == 0);
+      } 
+      #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
+    #elif defined(__xlC__)
+      typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
+      #define gasneti_atomic_ptr_init(_v)	{ (_v) }
+      #define gasneti_atomic_ptr_set(_p,_v)	do { (_p)->ctr = (_v); } while(0)
+      #define gasneti_atomic_ptr_read(_p)	((_p)->ctr)
+      static int gasneti_atomic_ptr_cas_not(gasneti_atomic_ptr_t *p, uintptr_t oldval, uintptr_t newval);
+      #pragma mc_func gasneti_atomic_ptr_cas_not {\
+	/* ARGS: r3 = p, r4=oldval, r5=newval   LOCAL: r0 = tmp */ \
+	"7c0018a8"	/* 0: ldarx   r0,0,r3	*/ \
+	"7c002279"	/*    xor.    r0,r0,r4	*/ \
+	"4082000c"	/*    bne-    1f	*/ \
+	"7ca019ad"	/*    stdcx.  r5,0,r3	*/ \
+	"40a2fff0"	/*    bne-    0b	*/ \
+	"7c030378"	/* 1: mr      r3,r0	*/ \
+	/* RETURN in r3 = 0 iff swap took place */ \
+      }
+      #pragma reg_killed_by gasneti_atomic_ptr_cas_not cr0, gr0
+      #define _gasneti_atomic_ptr_cas(p, oldval, newval) \
+					(gasneti_atomic_ptr_cas_not(p, oldval, newval) == 0)
+      #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
+    #endif /* Switch(Compiler) */
+  #endif /* Switch(SIZEOF_VOID_P) */
 #endif
 
 /* Fences and default implementations: */
@@ -762,62 +810,27 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
        * This prevents a live-lock which would result if a list element fell
        * on the same cache line.
        */
-      char		_pad0[GASNETI_CACHE_LINE_BYTES];
-      volatile void	**head;
-      char		_pad1[GASNETI_CACHE_LINE_BYTES];
+      char			_pad0[GASNETI_CACHE_LINE_BYTES];
+      gasneti_atomic_ptr_t	head;
+      char			_pad1[GASNETI_CACHE_LINE_BYTES];
     } gasneti_lifo_head_t;
 
     GASNETI_INLINE(_gasneti_lifo_push)
     void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
-      /* Roughly based on Appendix D of IBM's "Programming Environments Manual for 64-bit Microprocessors."
-       * The key is moving the store to tail->next outside the loop and rechecking tmp1==tmp2 inside.
-       * This is needed because a store in the l[wd]arx/st[wd]cx interval can lead to livelock.
-       */
-      /* RELEASE semantics: 'sync' is wmb after the write to tail->next */
-      register uintptr_t addr = (uintptr_t)(&p->head);
-      register uintptr_t tmp1, tmp2;
-      #if (SIZEOF_VOID_P == 4)
-        __asm__ __volatile__ ("lwz	%3,0(%0)   \n"   /* tmp1 = p->head */
-			      "Lga.1.%=:	   \n\t"
-			      "mr	%4,%3      \n\t" /* tmp2 = tmp1 */
-			      "stw	%3,0(%2)   \n\t" /* tail->next = tmp1 */
-			      GASNETI_PPC_WMB_ASM "\n"   /* wmb */
-			      "Lga.2.%=:	   \n\t"
-			      "lwarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
-			      "cmpw	%3,%4      \n\t" /* check tmp1 still == tmp2 */
-			      "bne-	Lga.1.%=   \n\t" /* retry if p->head changed since starting */
-			      "stwcx.	%1,0,%0    \n\t" /* p->head = head */
-			      "bne-	Lga.2.%=   \n\t" /* retry on conflict */
-			      GASNETI_PPC_RMB_ASM
-				: "=b" (addr), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
-				: "0" (addr), "1" (head), "2" (tail) 
-				: "memory", "cc");
-      #elif (SIZEOF_VOID_P == 8)
-        __asm__ __volatile__ ("ld	%3,0(%0)   \n"   /* tmp1 = p->head */
-			      "Lga.1.%=:	   \n\t"
-			      "mr	%4,%3      \n\t" /* tmp2 = tmp1 */
-			      "std	%3,0(%2)   \n\t" /* tail->next = tmp1 */
-			      GASNETI_PPC_WMB_ASM "\n"   /* wmb */
-			      "Lga.2.%=:	   \n\t"
-			      "ldarx	%3,0,%0    \n\t" /* reload tmp1 = p->head */
-			      "cmpd	%3,%4      \n\t" /* check tmp1 still == tmp2 */
-			      "bne-	Lga.1.%=   \n\t" /* retry if p->head changed since starting */
-			      "stdcx.	%1,0,%0    \n\t" /* p->head = head */
-			      "bne-	Lga.2.%=   \n\t" /* retry on conflict */
-			      GASNETI_PPC_RMB_ASM
-				: "=b" (addr), "=r" (head), "=b" (tail), "=r" (tmp1), "=r" (tmp2)
-				: "0" (addr), "1" (head), "2" (tail) 
-				: "memory", "cc");
-      #else
-        #error "PPC w/ unknown word size"
-      #endif
+      /* RELEASE semantics */
+      uintptr_t oldhead;
+      do {
+	oldhead = gasneti_atomic_ptr_read(&p->head);
+	*tail = (void *)oldhead;
+      } while (!gasneti_atomic_ptr_cas(&p->head, oldhead, (uintptr_t)head, GASNETI_ATOMIC_REL));
     }
+
     GASNETI_INLINE(_gasneti_lifo_pop)
     void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
       /* ACQUIRE semantics: 'isync' between read of head and head->next */
       register uintptr_t addr = (uintptr_t)(&p->head);
       register uintptr_t head, next;
-      if_pf (p->head == NULL) {
+      if_pf (gasneti_atomic_ptr_read(&p->head) == 0) {
 	/* One expects the empty list case to be the most prone to contention because
 	 * many threads may be continuously polling for it become non-empty.  The l[wd]arx
 	 * involves obtaining the cache line in an Exclusive state, while this normal
@@ -858,13 +871,13 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     }
     GASNETI_INLINE(_gasneti_lifo_init)
     void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
-      p->head = NULL;
+      gasneti_atomic_ptr_set(&p->head, 0);
     }
     GASNETI_INLINE(_gasneti_lifo_destroy)
     void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
       /* NOTHING */
     }
-    #define GASNETI_LIFO_INITIALIZER	{{0,}, NULL,}
+    #define GASNETI_LIFO_INITIALIZER	{{0,}, gasneti_atomic_ptr_init(0),}
     #define GASNETI_HAVE_ARCH_LIFO	1
   #elif defined(__xlC__)
     typedef struct {
@@ -873,47 +886,20 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
        * on the same cache line.
        * XXX: Can't use GASNETI_CACHE_LINE_BYTES w/o some extra indirection.
        */
-      char		_pad0[128];
-      volatile void	**head;
-      char		_pad1[128 - sizeof(void **)];
+      char			_pad0[128];
+      gasneti_atomic_ptr_t	head;
+      char			_pad1[128 - sizeof(void **)];
     } gasneti_lifo_head_t;
 
-    /* See the GCC versions above for explanation */
-
-    static void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail);
-    /* ARGS: r3 = p, r4 = head, r5 = tail  LOCAL: r0 = tmp2, r9 = tmp1, r6 = addr */
-    #if (SIZEOF_VOID_P == 4)
-      #pragma mc_func _gasneti_lifo_push {\
-	"81230080"	/* lwz		r9,128(r3)	*/ \
-	"38c30080"	/* addi		r6,r3,128	*/ \
-	"7d204b78"	/* 1: mr	r0,r9		*/ \
-	"91250000"	/* stw		r9,0(r5)	*/ \
-	GASNETI_PPC_WMB_ASM				\
-	"7d203028"	/* 2: lwarx	r9,0,r6		*/ \
-	"7c090000"	/* cmpw		r9,r0		*/ \
-	"40a2ffec"	/* bne-		1b		*/ \
-	"7c80312d"	/* stwcx.	r4,0,r6		*/ \
-	"40a2fff0"	/* bne-		2b		*/ \
-	GASNETI_PPC_RMB_ASM				\
-      }
-    #elif (SIZEOF_VOID_P == 8)
-      #pragma mc_func _gasneti_lifo_push {\
-	"e9230080"	/* ld		r9,128(r3)	*/ \
-	"38c30080"	/* addi		r6,r3,128	*/ \
-	"7d204b78"	/* 1: mr	r0,r9		*/ \
-	"f9250000"	/* std		r9,0(r5)	*/ \
-	GASNETI_PPC_WMB_ASM				\
-	"7d2030a8"	/* 2: ldarx	r9,r0,r6	*/ \
-	"7c290000"	/* cmpd		r9,r0		*/ \
-	"40a2ffec"	/* bne-		1b		*/ \
-	"7c8031ad"	/* stdcx.	r4,r0,r6	*/ \
-	"40a2fff0"	/* bne-		2b		*/ \
-	GASNETI_PPC_RMB_ASM				\
-      }
-    #else
-      #error "PPC w/ unknown word size"
-    #endif
-    #pragma reg_killed_by _gasneti_lifo_push cr0, gr0, gr6, gr9
+    GASNETI_INLINE(_gasneti_lifo_push)
+    void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
+      /* RELEASE semantics */
+      uintptr_t oldhead;
+      do {
+	oldhead = gasneti_atomic_ptr_read(&p->head);
+	*tail = (void *)oldhead;
+      } while (!gasneti_atomic_ptr_cas(&p->head, oldhead, (uintptr_t)head, GASNETI_ATOMIC_REL));
+    }
 
     static void *_gasneti_lifo_pop(gasneti_lifo_head_t *p);
     /* ARGS: r3 = p  LOCAL: r0 = next, r4 = head */
@@ -956,13 +942,13 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 
     GASNETI_INLINE(_gasneti_lifo_init)
     void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
-      p->head = NULL;
+      gasneti_atomic_ptr_set(&p->head, 0);
     }
     GASNETI_INLINE(_gasneti_lifo_destroy)
     void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
       /* NOTHING */
     }
-    #define GASNETI_LIFO_INITIALIZER	{{0,}, NULL,}
+    #define GASNETI_LIFO_INITIALIZER	{{0,}, gasneti_atomic_ptr_init(0),}
     #define GASNETI_HAVE_ARCH_LIFO	1
   #endif
 #elif defined(GASNETI_HAVE_ATOMIC_DBLPTR_CAS)
@@ -978,7 +964,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 
     GASNETI_INLINE(_gasneti_lifo_push)
     void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
-      uintptr_t tag, oldhead;
+      uintptr_t oldhead;
       do {
 	oldhead = gasneti_atomic_dblptr_read_lo(&p->head_and_tag);
 	*tail = (void *)oldhead;
