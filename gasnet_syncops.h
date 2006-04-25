@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/25 20:10:34 $
- * $Revision: 1.22 $
+ *     $Date: 2006/04/25 20:23:00 $
+ * $Revision: 1.23 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -517,7 +517,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
  *	gasneti_atomic_dblptr_cas_lo(ptr, oldhi, oldlo, flags)
  *	gasneti_atomic_dblptr_cas_hi(ptr, newhi, newlo, flags)
  *
- * All values are uintptr_t (not void*).
+ * All values are uintptr_t, not (void*).
  *
  * NOTE: The set/read operations all currently lack a "flags" argument.
  * It can be added later if ever really needed.
@@ -528,9 +528,9 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       defined(__i486__) || defined(__i486) || defined(i486) || \
       defined(__i586__) || defined(__i586) || defined(i586) || \
       defined(__i686__) || defined(__i686) || defined(i686)
-  #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
-    #define GASNETI_ATOMIC_PTR_DEFAULT	/* gasneti_atomic_t is suitable for gasneti_atomic_ptr_t */
+  #define GASNETI_ATOMIC_PTR_DEFAULT	/* Default is suitable on all x86 platforms w/ native atomics */
 
+  #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
     typedef union {
       struct { volatile uintptr_t lo_ptr, hi_ptr; } ctr;	/* must be first for initializer */
       uint64_t u64;	/* For alignment */
@@ -556,11 +556,13 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
        return (int)oldlo;
     }
     #define GASNETI_HAVE_ATOMIC_DBLPTR_CAS 1
+  #elif defined(__SUNPRO_C) || defined(__SUNPRO_CC) || defined(__PGI)
+    /* TO DO: "special" atomics versions for SunPro and PGI < 6.1 */
   #endif
 #elif defined(_MIPS_ISA) && (_MIPS_ISA >= 3) && (SIZEOF_VOID_P == 4) /* 32-bit pointers on 64-bit CPU */
-  #if defined(__GNUC__)
-    #define GASNETI_ATOMIC_PTR_DEFAULT	/* gasneti_atomic_t is suitable for gasneti_atomic_ptr_t */
+  #define GASNETI_ATOMIC_PTR_DEFAULT	/* Default is suitable on all 32-bit platforms w/ native atomics */
 
+  #if defined(__GNUC__)
     typedef union {
       struct { volatile uintptr_t hi_ptr, lo_ptr; } ctr;	/* must be first for initializer */
       uint64_t u64;	/* For alignment */
@@ -594,9 +596,9 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
   #endif /* __GNUC__ */
 #elif defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 or V8plus ISA */
   #if (SIZEOF_VOID_P == 4)
-    #if defined(__GNUC__)
-      #define GASNETI_ATOMIC_PTR_DEFAULT	/* gasneti_atomic_t is suitable for gasneti_atomic_ptr_t */
+    #define GASNETI_ATOMIC_PTR_DEFAULT	/* Default is suitable on all 32-bit platforms w/ native atomics */
 
+    #if defined(__GNUC__)
       typedef union {
         struct { volatile uintptr_t hi_ptr, lo_ptr; } ctr;	/* must be first for initializer */
         uint64_t u64;	/* For alignment */
@@ -629,9 +631,16 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 	return retval;
       }
       #define GASNETI_HAVE_ATOMIC_DBLPTR_CAS 1
-    #endif /* __GNUC__ */
+    #elif defined(__SUNPRO_C) || defined(__SUNPRO_CC)
+      /* TO DO: "special" atomics versions for SunPro compilers */
+    #endif
   #endif /* sizeof(void *) == 4 */
+#elif defined(_POWER) || defined(__PPC__) || defined(__ppc__) || defined(__ppc64__)
+  #if (SIZEOF_VOID_P == 4)
+    #define GASNETI_ATOMIC_PTR_DEFAULT	/* Default is suitable on all 32-bit platforms w/ native atomics */
+  #endif
 #endif
+
 /* Fences and default implementations: */
 #if defined(GASNETI_ATOMIC_PTR_DEFAULT)
   /* gasneti_atomic_t is suitable for gasneti_atomic_ptr_t (just need some casts) */
