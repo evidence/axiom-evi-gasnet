@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/24 21:37:58 $
- * $Revision: 1.161 $
+ *     $Date: 2006/04/25 02:12:49 $
+ * $Revision: 1.162 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1456,17 +1456,16 @@
       GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
       int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
          uint32_t temp;
-         int retval;
+         int retval = 0;
          __asm__ __volatile__ (
 		"1:			\n\t"
 		"ll	%1,%5		\n\t"	/* Load from *p */
-		"move	%0,$0		\n\t"	/* Assume mismatch */
 		"bne	%1,%3,2f	\n\t"	/* Break loop on mismatch */
 		"move	%0,%4		\n\t"	/* Move newval to retval */
 		"sc	%0,%2		\n\t"	/* Try SC to store retval */
 		"beqz	%0,1b		\n"	/* Retry on contention */
 		"2:			"
-                : "=&r" (retval), "=&r" (temp), "=m" (p->ctr)
+                : "+r" (retval), "=&r" (temp), "=m" (p->ctr)
                 : "r" (oldval), "r" (newval), "m" (p->ctr) );
         return retval;
       }
