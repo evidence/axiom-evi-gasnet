@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/24 23:28:19 $
- * $Revision: 1.19 $
+ *     $Date: 2006/04/25 02:38:14 $
+ * $Revision: 1.20 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -540,6 +540,39 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     }
     #define GASNETI_HAVE_DBLPTR_CAS 1
   #endif
+#elif defined(_MIPS_ISA) && (_MIPS_ISA >= 3) && (SIZEOF_VOID_P == 4) /* 32-bit pointers on 64-bit CPU */
+  #if defined(__GNUC__)
+    typedef union {
+      struct { volatile uintptr_t hi32, lo32; } ctr;	/* must be first for initializer */
+      uint64_t u64;
+    } gasneti_dblptr_t;
+
+    #define gasneti_dblptr_init(hi,lo)     { { (uintptr_t)(hi), (uintptr_t)(lo) } }
+    #define gasneti_dblptr_set(p,hi,lo)    do { (p)->ctr.hi32 = (uintptr_t)(hi); \
+                                                (p)->ctr.lo32 = (uintptr_t)(lo); \
+                                           } while (0)
+    #define gasneti_dblptr_lo(p)           ((p)->ctr.lo32)
+    #define gasneti_dblptr_hi(p)           ((p)->ctr.hi32)
+    GASNETI_INLINE(_gasneti_dblptr_cas)
+    int _gasneti_dblptr_cas(gasneti_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
+      uint64_t temp;
+      uint64_t oldval = ((uint64_t)oldhi << 32) | oldlo;
+      uint64_t newval = ((uint64_t)newhi << 32) | newlo;
+      int retval = 0;
+       __asm__ __volatile__ (
+		"1:			\n\t"
+		"lld	%1,%5		\n\t"	/* Load from *v */
+		"bne	%1,%3,2f	\n\t"	/* Break loop on mismatch */
+		"move	%0,%4		\n\t"	/* Copy newval to retval */
+		"scd	%0,%2		\n\t"	/* Try SC to store retval */
+		"beqz	%0,1b		\n"	/* Retry on contention */
+		"2:			"
+                : "+r" (retval), "=&r" (temp), "=m" (*v)
+                : "r" (oldval), "r" (newval), "R" (*v) );
+      return retval;
+    }
+    #define GASNETI_HAVE_DBLPTR_CAS 1
+  #endif /* __GNUC__ */
 #endif
 #if defined(GASNETI_HAVE_DBLPTR_CAS) && !defined(gasneti_dblptr_cas)
   GASNETI_INLINE(gasneti_dblptr_cas)
