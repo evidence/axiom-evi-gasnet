@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/25 06:02:29 $
- * $Revision: 1.21 $
+ *     $Date: 2006/04/25 20:10:34 $
+ * $Revision: 1.22 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -497,15 +497,30 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-/* Compare and swap of 2 adjacent pointers
+/* Optional atomic operations for pointer-sized data.
  * FOR USE IN THIS FILE ONLY!!
- *	gasneti_dblptr_t
- *	gasneti_dblptr_init(hi, lo)
- *	gasneti_dblptr_set(ptr, hi, lo)
- *	gasneti_dblptr_lo(ptr)
- *	gasneti_dblptr_hi(ptr)
- *	gasneti_dblptr_cas(ptr, oldhi, oldlo, newhi, newlo, flags)
- *	GASNETI_HAVE_DBLPTR_CAS
+ *
+ * If GASNETI_HAVE_ATOMIC_PTR_CAS is defined:
+ *	gasneti_atomic_ptr_t
+ *	gasneti_atomic_ptr_init(val)
+ *	gasneti_atomic_ptr_set(ptr, val)
+ *	gasneti_atomic_ptr_read(ptr)
+ *	gasneti_atomic_ptr_cas(ptr, oldval, newval, flags)
+ *
+ * If GASNETI_HAVE_ATOMIC_DBLPTR_CAS is defined:
+ *	gasneti_atomic_dblptr_t
+ *	gasneti_atomic_dblptr_init(hi, lo)
+ *	gasneti_atomic_dblptr_set(ptr, hi, lo)
+ *	gasneti_atomic_dblptr_read_lo(ptr)
+ *	gasneti_atomic_dblptr_read_hi(ptr)
+ *	gasneti_atomic_dblptr_cas2(ptr, oldhi, oldlo, newhi, newlo, flags)
+ *	gasneti_atomic_dblptr_cas_lo(ptr, oldhi, oldlo, flags)
+ *	gasneti_atomic_dblptr_cas_hi(ptr, newhi, newlo, flags)
+ *
+ * All values are uintptr_t (not void*).
+ *
+ * NOTE: The set/read operations all currently lack a "flags" argument.
+ * It can be added later if ever really needed.
  */
 #if defined(GASNETI_USING_GENERIC_ATOMICOPS) || defined(GASNETI_USING_OS_ATOMICOPS)
   /* If not using inline asm in gasnet_atomicops.h, then don't try to here either. */
@@ -514,19 +529,21 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       defined(__i586__) || defined(__i586) || defined(i586) || \
       defined(__i686__) || defined(__i686) || defined(i686)
   #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
-    typedef union {
-      struct { volatile uintptr_t lo32, hi32; } ctr;	/* must be first for initializer */
-      uint64_t u64;
-    } gasneti_dblptr_t;
+    #define GASNETI_ATOMIC_PTR_DEFAULT	/* gasneti_atomic_t is suitable for gasneti_atomic_ptr_t */
 
-    #define gasneti_dblptr_init(hi,lo)     { { (uintptr_t)(lo), (uintptr_t)(hi) } }
-    #define gasneti_dblptr_set(p,hi,lo)    do { (p)->ctr.lo32 = (uintptr_t)(lo); \
-                                                (p)->ctr.hi32 = (uintptr_t)(hi); \
-                                           } while (0)
-    #define gasneti_dblptr_lo(p)           ((p)->ctr.lo32)
-    #define gasneti_dblptr_hi(p)           ((p)->ctr.hi32)
-    GASNETI_INLINE(_gasneti_dblptr_cas)
-    int _gasneti_dblptr_cas(gasneti_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
+    typedef union {
+      struct { volatile uintptr_t lo_ptr, hi_ptr; } ctr;	/* must be first for initializer */
+      uint64_t u64;	/* For alignment */
+    } gasneti_atomic_dblptr_t;
+
+    #define gasneti_atomic_dblptr_init(hi,lo)     { { (uintptr_t)(lo), (uintptr_t)(hi) } }
+    #define gasneti_atomic_dblptr_set(p,hi,lo)    do { (p)->ctr.lo_ptr = (uintptr_t)(lo); \
+                                                       (p)->ctr.hi_ptr = (uintptr_t)(hi); \
+                                                  } while (0)
+    #define gasneti_atomic_dblptr_read_lo(p)      ((p)->ctr.lo_ptr)
+    #define gasneti_atomic_dblptr_read_hi(p)      ((p)->ctr.hi_ptr)
+    GASNETI_INLINE(_gasneti_atomic_dblptr_cas2)
+    int _gasneti_atomic_dblptr_cas2(gasneti_atomic_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
        __asm__ __volatile__ (
 		GASNETI_X86_LOCK_PREFIX
 		"cmpxchg8b	%0	\n\t"
@@ -538,23 +555,25 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
        /* result in %eax (oldlo), for lack of available registers */
        return (int)oldlo;
     }
-    #define GASNETI_HAVE_DBLPTR_CAS 1
+    #define GASNETI_HAVE_ATOMIC_DBLPTR_CAS 1
   #endif
 #elif defined(_MIPS_ISA) && (_MIPS_ISA >= 3) && (SIZEOF_VOID_P == 4) /* 32-bit pointers on 64-bit CPU */
   #if defined(__GNUC__)
-    typedef union {
-      struct { volatile uintptr_t hi32, lo32; } ctr;	/* must be first for initializer */
-      uint64_t u64;
-    } gasneti_dblptr_t;
+    #define GASNETI_ATOMIC_PTR_DEFAULT	/* gasneti_atomic_t is suitable for gasneti_atomic_ptr_t */
 
-    #define gasneti_dblptr_init(hi,lo)     { { (uintptr_t)(hi), (uintptr_t)(lo) } }
-    #define gasneti_dblptr_set(p,hi,lo)    do { (p)->ctr.hi32 = (uintptr_t)(hi); \
-                                                (p)->ctr.lo32 = (uintptr_t)(lo); \
-                                           } while (0)
-    #define gasneti_dblptr_lo(p)           ((p)->ctr.lo32)
-    #define gasneti_dblptr_hi(p)           ((p)->ctr.hi32)
-    GASNETI_INLINE(_gasneti_dblptr_cas)
-    int _gasneti_dblptr_cas(gasneti_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
+    typedef union {
+      struct { volatile uintptr_t hi_ptr, lo_ptr; } ctr;	/* must be first for initializer */
+      uint64_t u64;	/* For alignment */
+    } gasneti_atomic_dblptr_t;
+
+    #define gasneti_atomic_dblptr_init(hi,lo)     { { (uintptr_t)(hi), (uintptr_t)(lo) } }
+    #define gasneti_atomic_dblptr_set(p,hi,lo)    do { (p)->ctr.hi_ptr = (uintptr_t)(hi); \
+                                                       (p)->ctr.lo_ptr = (uintptr_t)(lo); \
+                                                  } while (0)
+    #define gasneti_atomic_dblptr_read_lo(p)      ((p)->ctr.lo_ptr)
+    #define gasneti_atomic_dblptr_read_hi(p)      ((p)->ctr.hi_ptr)
+    GASNETI_INLINE(_gasneti_atomic_dblptr_cas2)
+    int _gasneti_atomic_dblptr_cas2(gasneti_atomic_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
       uint64_t temp;
       uint64_t oldval = ((uint64_t)oldhi << 32) | oldlo;
       uint64_t newval = ((uint64_t)newhi << 32) | newlo;
@@ -571,24 +590,26 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
                 : "r" (oldval), "r" (newval), "R" (*v) );
       return retval;
     }
-    #define GASNETI_HAVE_DBLPTR_CAS 1
+    #define GASNETI_HAVE_ATOMIC_DBLPTR_CAS 1
   #endif /* __GNUC__ */
 #elif defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 or V8plus ISA */
   #if (SIZEOF_VOID_P == 4)
     #if defined(__GNUC__)
-      typedef union {
-        struct { volatile uintptr_t hi32, lo32; } ctr;	/* must be first for initializer */
-        uint64_t u64;
-      } gasneti_dblptr_t;
+      #define GASNETI_ATOMIC_PTR_DEFAULT	/* gasneti_atomic_t is suitable for gasneti_atomic_ptr_t */
 
-      #define gasneti_dblptr_init(hi,lo)     { { (uintptr_t)(hi), (uintptr_t)(lo) } }
-      #define gasneti_dblptr_set(p,hi,lo)    do { (p)->ctr.hi32 = (uintptr_t)(hi); \
-                                                  (p)->ctr.lo32 = (uintptr_t)(lo); \
-                                             } while (0)
-      #define gasneti_dblptr_lo(p)           ((p)->ctr.lo32)
-      #define gasneti_dblptr_hi(p)           ((p)->ctr.hi32)
-      GASNETI_INLINE(_gasneti_dblptr_cas)
-      int _gasneti_dblptr_cas(gasneti_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
+      typedef union {
+        struct { volatile uintptr_t hi_ptr, lo_ptr; } ctr;	/* must be first for initializer */
+        uint64_t u64;	/* For alignment */
+      } gasneti_atomic_dblptr_t;
+
+      #define gasneti_atomic_dblptr_init(hi,lo)     { { (uintptr_t)(hi), (uintptr_t)(lo) } }
+      #define gasneti_atomic_dblptr_set(p,hi,lo)    do { (p)->ctr.hi_ptr = (uintptr_t)(hi); \
+                                                         (p)->ctr.lo_ptr = (uintptr_t)(lo); \
+                                                    } while (0)
+      #define gasneti_atomic_dblptr_read_lo(p)      ((p)->ctr.lo_ptr)
+      #define gasneti_atomic_dblptr_read_hi(p)      ((p)->ctr.hi_ptr)
+      GASNETI_INLINE(_gasneti_atomic_dblptr_cas2)
+      int _gasneti_atomic_dblptr_cas2(gasneti_atomic_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
 	/* This is more complex than one might expect, because the ILP32 ABI puts 64-bit
  	 * types in 2 adjacent regs while the casx instruction needs them in a single register.
 	 */
@@ -607,19 +628,71 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 		: "cc" );
 	return retval;
       }
-      #define GASNETI_HAVE_DBLPTR_CAS 1
+      #define GASNETI_HAVE_ATOMIC_DBLPTR_CAS 1
     #endif /* __GNUC__ */
   #endif /* sizeof(void *) == 4 */
 #endif
-#if defined(GASNETI_HAVE_DBLPTR_CAS) && !defined(gasneti_dblptr_cas)
-  GASNETI_INLINE(gasneti_dblptr_cas)
-  int gasneti_dblptr_cas(gasneti_dblptr_t *p, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo, int flags) {
+/* Fences and default implementations: */
+#if defined(GASNETI_ATOMIC_PTR_DEFAULT)
+  /* gasneti_atomic_t is suitable for gasneti_atomic_ptr_t (just need some casts) */
+  #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
+  typedef gasneti_atomic_t gasneti_atomic_ptr_t;
+  #define gasneti_atomic_ptr_init(_v)		gasneti_atomic_init((gasneti_atomic_val_t)(_v))
+  #define gasneti_atomic_ptr_set(_p,_v)		gasneti_atomic_set(_p,(gasneti_atomic_val_t)(_v),0)
+  #define gasneti_atomic_ptr_read(_p)		((uintptr_t)gasneti_atomic_read(_p,0))
+  #define gasneti_atomic_ptr_cas(_p,_o,_n,_f)	gasneti_atomic_compare_and_swap(_p,(gasneti_atomic_val_t)(_o),(gasneti_atomic_val_t)(_n),_f)
+#elif defined(GASNETI_HAVE_ATOMIC_PTR_CAS) && !defined(gasneti_atomic_ptr_cas)
+  GASNETI_INLINE(gasneti_atomic_ptr_cas)
+  int gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *p, uintptr_t oldval, uintptr_t newval, int flags) {
     _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
-    { const int retval = _gasneti_dblptr_cas(p,oldhi,oldlo,newhi,newlo);
+    { const int retval = _gasneti_atomic_ptr_cas(p,oldval,newval);
       _gasneti_atomic_fence_after_bool(flags, retval) /* no semi */
       return retval;
     }
   }
+#endif
+#if defined(GASNETI_HAVE_ATOMIC_DBLPTR_CAS)
+  #ifndef gasneti_atomic_dblptr_cas2
+    GASNETI_INLINE(gasneti_atomic_dblptr_cas2)
+    int gasneti_atomic_dblptr_cas2(gasneti_atomic_dblptr_t *p, uintptr_t oldhi, uintptr_t oldlo,
+		                   uintptr_t newhi, uintptr_t newlo, int flags) {
+      _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
+      { const int retval = _gasneti_atomic_dblptr_cas2(p,oldhi,oldlo,newhi,newlo);
+        _gasneti_atomic_fence_after_bool(flags, retval) /* no semi */
+        return retval;
+      }
+    }
+  #endif
+  #if defined(gasneti_atomic_dblptr_cas_lo) && defined(gasneti_atomic_dblptr_cas_hi)
+    /* Use platform-specific versions */
+  #elif defined(gasneti_atomic_dblptr_cas_lo) || defined(gasneti_atomic_dblptr_cas_hi)
+    #error "Define either both or neither of gasneti_atomic_dblptr_cas_{lo,hi}"
+  #elif defined(GASNETI_HAVE_ATOMIC_PTR_CAS)
+    /* Default is to build from normal single ptr cas when available,
+     * NOTE: This default assumes standard naming of fields. */
+    #define gasneti_atomic_dblptr_cas_lo(v,oldlo,newlo,flags) \
+			gasneti_atomic_ptr_cas((gasneti_atomic_ptr_t*)(&(v)->ctr.lo_ptr),oldlo,newlo,flags)
+    #define gasneti_atomic_dblptr_cas_hi(v,oldhi,newhi,flags) \
+			gasneti_atomic_ptr_cas((gasneti_atomic_ptr_t*)(&(v)->ctr.hi_ptr),oldhi,newhi,flags)
+  #else
+    /* Apply flags wrappers to platform-specific _-prefixed versions */
+    GASNETI_INLINE(gasneti_atomic_dblptr_cas_lo)
+    int gasneti_atomic_dblptr_cas_lo(gasneti_atomic_dblptr_t *p, uintptr_t oldval, uintptr_t newval, int flags) {
+      _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
+      { const int retval = _gasneti_atomic_dblptr_cas_lo(p,oldval,newval);
+        _gasneti_atomic_fence_after_bool(flags, retval) /* no semi */
+        return retval;
+      }
+    }
+    GASNETI_INLINE(gasneti_atomic_dblptr_cas_hi)
+    int gasneti_atomic_dblptr_cas_hi(gasneti_atomic_dblptr_t *p, uintptr_t oldval, uintptr_t newval, int flags) {
+      _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
+      { const int retval = _gasneti_atomic_dblptr_cas_hi(p,oldval,newval);
+        _gasneti_atomic_fence_after_bool(flags, retval) /* no semi */
+        return retval;
+      }
+    }
+  #endif
 #endif
 
 
@@ -630,7 +703,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
  * This data type provides a last in first out linked list implementation which
  * is suitable for use as a multiple-producer, multiple-consumer free list.
  * On architectires where possible, the synchronization is performed with
- * lock-free algorithms.  On the remaining platforms, gasneti_mutex's are used.
+ * lock-free/wait-free algorithms.  Elsewhere, gasneti_mutex's are used.
  *
  * This container type is independent of the type to be stored.  The only requirement
  * is that the first sizeof(void *) bytes of the object are used for the list linkage.
@@ -883,14 +956,14 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     #define GASNETI_LIFO_INITIALIZER	{{0,}, NULL,}
     #define GASNETI_HAVE_ARCH_LIFO	1
   #endif
-#elif defined(GASNETI_HAVE_DBLPTR_CAS)
+#elif defined(GASNETI_HAVE_ATOMIC_DBLPTR_CAS)
     /* Algorithm if we have a compare-and-swap for a type as wide as two pointers.
      * The lower half holds the head pointer, which the upper half hold a "tag"
      * which is advanced by one on each Pop to avoid the "classic ABA problem".
      */
     typedef struct {
       char		_pad0[GASNETI_CACHE_LINE_BYTES];
-      gasneti_dblptr_t 	head_and_tag;
+      gasneti_atomic_dblptr_t 	head_and_tag;
       char		_pad1[GASNETI_CACHE_LINE_BYTES];
     } gasneti_lifo_head_t;
 
@@ -898,31 +971,30 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     void _gasneti_lifo_push(gasneti_lifo_head_t *p, void **head, void **tail) {
       uintptr_t tag, oldhead;
       do {
-	oldhead = gasneti_dblptr_lo(&p->head_and_tag);
-	tag = gasneti_dblptr_hi(&p->head_and_tag); /* No need to advance ABA tag on push */
+	oldhead = gasneti_atomic_dblptr_read_lo(&p->head_and_tag);
 	*tail = (void *)oldhead;
-      } while (!gasneti_dblptr_cas(&p->head_and_tag, tag, oldhead, tag, (uintptr_t)head, GASNETI_ATOMIC_REL));
+      } while (!gasneti_atomic_dblptr_cas_lo(&p->head_and_tag, oldhead, (uintptr_t)head, GASNETI_ATOMIC_REL));
     }
     GASNETI_INLINE(_gasneti_lifo_pop)
     void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
       uintptr_t tag, oldhead, newhead;
       do {
-	oldhead = gasneti_dblptr_lo(&p->head_and_tag);
-	tag = gasneti_dblptr_hi(&p->head_and_tag);
+	oldhead = gasneti_atomic_dblptr_read_lo(&p->head_and_tag);
+	tag = gasneti_atomic_dblptr_read_hi(&p->head_and_tag);
 	if_pf (!oldhead) break;
 	newhead = (uintptr_t)(*(void **)oldhead);
-      } while (!gasneti_dblptr_cas(&p->head_and_tag, tag, oldhead, tag+1, newhead, GASNETI_ATOMIC_ACQ_IF_TRUE));
+      } while (!gasneti_atomic_dblptr_cas2(&p->head_and_tag, tag, oldhead, tag+1, newhead, GASNETI_ATOMIC_ACQ_IF_TRUE));
       return (void *)oldhead;
     }
     GASNETI_INLINE(_gasneti_lifo_init)
     void _gasneti_lifo_init(gasneti_lifo_head_t *p) {
-      gasneti_dblptr_set(&p->head_and_tag, 0, 0);
+      gasneti_atomic_dblptr_set(&p->head_and_tag, 0, 0);
     }
     GASNETI_INLINE(_gasneti_lifo_destroy)
     void _gasneti_lifo_destroy(gasneti_lifo_head_t *p) {
       /* NOTHING */
     }
-    #define GASNETI_LIFO_INITIALIZER	{{0,}, gasneti_dblptr_init(0,0),}
+    #define GASNETI_LIFO_INITIALIZER	{{0,}, gasneti_atomic_dblptr_init(0,0),}
     #define GASNETI_HAVE_ARCH_LIFO	1
 #else
   /* The LL/SC algorithm used on the PPC will not work on the Alpha or MIPS, which don't
