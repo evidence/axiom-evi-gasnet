@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/25 02:38:14 $
- * $Revision: 1.20 $
+ *     $Date: 2006/04/25 06:02:29 $
+ * $Revision: 1.21 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -573,6 +573,43 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     }
     #define GASNETI_HAVE_DBLPTR_CAS 1
   #endif /* __GNUC__ */
+#elif defined(__sparcv9) || defined(__sparcv9cpu) || defined(GASNETI_ARCH_ULTRASPARC) /* SPARC v9 or V8plus ISA */
+  #if (SIZEOF_VOID_P == 4)
+    #if defined(__GNUC__)
+      typedef union {
+        struct { volatile uintptr_t hi32, lo32; } ctr;	/* must be first for initializer */
+        uint64_t u64;
+      } gasneti_dblptr_t;
+
+      #define gasneti_dblptr_init(hi,lo)     { { (uintptr_t)(hi), (uintptr_t)(lo) } }
+      #define gasneti_dblptr_set(p,hi,lo)    do { (p)->ctr.hi32 = (uintptr_t)(hi); \
+                                                  (p)->ctr.lo32 = (uintptr_t)(lo); \
+                                             } while (0)
+      #define gasneti_dblptr_lo(p)           ((p)->ctr.lo32)
+      #define gasneti_dblptr_hi(p)           ((p)->ctr.hi32)
+      GASNETI_INLINE(_gasneti_dblptr_cas)
+      int _gasneti_dblptr_cas(gasneti_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
+	/* This is more complex than one might expect, because the ILP32 ABI puts 64-bit
+ 	 * types in 2 adjacent regs while the casx instruction needs them in a single register.
+	 */
+	register int retval, tmp;
+        __asm__ __volatile__ ( 
+		"sllx	%0,32,%0	\n\t"	/* retval = newhi << 32 */
+		"sllx	%1,32,%1	\n\t"	/* tmp = oldhi << 32 */
+		"or	%0,%6,%0	\n\t"	/* retval |= newlo */
+		"or	%1,%8,%1	\n\t"	/* tmp |= oldlo */
+		"casx	[%3],%1,%0	\n\t"	/* atomic CAS, with read value -> retval */
+		"xor	%1,%0,%1	\n\t"	/* tmp = 0 IFF retval == tmp */
+		"cmp	%%g0,%1		\n\t"	/* set/clear carry bit */
+		"subx	%%g0,-1,%0"		/* yield retval = 0 or 1 */
+		: "=h"(retval), "=h"(tmp), "=m"(*v)
+		: "r"(v), "m"(*v), "0"(newhi), "r"(newlo), "1"(oldhi), "r"(oldlo)
+		: "cc" );
+	return retval;
+      }
+      #define GASNETI_HAVE_DBLPTR_CAS 1
+    #endif /* __GNUC__ */
+  #endif /* sizeof(void *) == 4 */
 #endif
 #if defined(GASNETI_HAVE_DBLPTR_CAS) && !defined(gasneti_dblptr_cas)
   GASNETI_INLINE(gasneti_dblptr_cas)
@@ -868,15 +905,13 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     }
     GASNETI_INLINE(_gasneti_lifo_pop)
     void *_gasneti_lifo_pop(gasneti_lifo_head_t *p) {
-      uintptr_t oldtag, newtag;
-      uintptr_t oldhead, newhead;
+      uintptr_t tag, oldhead, newhead;
       do {
 	oldhead = gasneti_dblptr_lo(&p->head_and_tag);
-	oldtag = gasneti_dblptr_hi(&p->head_and_tag);
+	tag = gasneti_dblptr_hi(&p->head_and_tag);
 	if_pf (!oldhead) break;
-	newtag = oldtag + 1;
 	newhead = (uintptr_t)(*(void **)oldhead);
-      } while (!gasneti_dblptr_cas(&p->head_and_tag, oldtag, oldhead, newtag, newhead, GASNETI_ATOMIC_ACQ_IF_TRUE));
+      } while (!gasneti_dblptr_cas(&p->head_and_tag, tag, oldhead, tag+1, newhead, GASNETI_ATOMIC_ACQ_IF_TRUE));
       return (void *)oldhead;
     }
     GASNETI_INLINE(_gasneti_lifo_init)
