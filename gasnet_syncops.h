@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/25 23:21:40 $
- * $Revision: 1.24 $
+ *     $Date: 2006/04/25 23:52:22 $
+ * $Revision: 1.25 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -709,6 +709,9 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
   }
 #endif
 #if defined(GASNETI_HAVE_ATOMIC_DBLPTR_CAS)
+  #ifndef GASNETI_HAVE_ATOMIC_PTR_CAS
+    #error "GASNETI_HAVE_ATOMIC_DBLPTR_CAS defined w/o GASNETI_HAVE_ATOMIC_PTR_CAS"
+  #endif
   #ifndef gasneti_atomic_dblptr_cas2
     GASNETI_INLINE(gasneti_atomic_dblptr_cas2)
     int gasneti_atomic_dblptr_cas2(gasneti_atomic_dblptr_t *p, uintptr_t oldhi, uintptr_t oldlo,

@@ -1,13 +1,13 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/docs/Makefile,v $
-#     $Date: 2006/04/20 02:02:33 $
-# $Revision: 1.9 $
+#     $Date: 2006/04/25 23:52:24 $
+# $Revision: 1.10 $
 # Description: Makefile for GASNet documentation
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 
 # The GASNet specification in distributed in 3 primary formats (text, html and postscript)
 # note that older version of makeinfo and TeX may have trouble correctly generating gasnet.ps
 
-all: gasnet.txt gasnet.html gasnet.ps gasnet.pdf
+all: #gasnet.txt gasnet.html gasnet.ps gasnet.pdf
 
 # ------------------------------------------------------------------------------------
 # TeX Postscript
