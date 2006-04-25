@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/04/10 04:20:10 $
- * $Revision: 1.35 $
+ *     $Date: 2006/04/25 20:06:22 $
+ * $Revision: 1.36 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -214,6 +214,9 @@ static int AMMPI_FreeEndpointBuffers(ep_t ep) {
             retval &= MPI_SAFE_NORETURN(MPI_Cancel(rxh));
             #ifdef CRAYT3E
               /* Cray MPI implementation sometimes hangs forever if you cancel-wait */
+              retval &= MPI_SAFE_NORETURN(MPI_Request_free(rxh));
+            #elif defined(__LIBCATAMOUNT__) && MPI_VERSION == 1
+              /* Sandia MPI implementation hangs on cancel-wait */
               retval &= MPI_SAFE_NORETURN(MPI_Request_free(rxh));
             #elif defined(_AIX)
               /* AIX 5.2 32-bit MPI implementation is unreliable for cancel-wait
