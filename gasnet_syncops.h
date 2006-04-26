@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/26 01:43:11 $
- * $Revision: 1.27 $
+ *     $Date: 2006/04/26 01:47:21 $
+ * $Revision: 1.28 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -566,7 +566,9 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
     /* TO DO: "special" atomics versions for SunPro and PGI < 6.1 */
   #endif
 #elif defined(__x86_64__) || defined(__amd64)
-  #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
+  #if (SIZEOF_VOID_P == 4)
+    /* This should not happen */
+  #elif defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
     typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
     #define gasneti_atomic_ptr_init(_v)		{ (_v) }
     #define gasneti_atomic_ptr_set(_p,_v)	do { (_p)->ctr = (_v); } while(0)
@@ -627,7 +629,9 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 	#define GASNETI_HAVE_ATOMIC_DBLPTR_CAS 1
       #endif /* __GNUC__ */
     #endif /* 64-bit CPU */
-  #endif /* ILP32 */
+  #elif (SIZEOF_VOID_P == 8)
+    /* TO DO: LP64 support yet */
+  #endif /* ILP32 vs LP64 */
 #elif defined(__sparc) || defined(__sparc__)
   #if (SIZEOF_VOID_P == 4)
     /* Default is suitable on all ILP32 platforms w/ native atomics */
@@ -672,7 +676,55 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
         /* TO DO: "special" atomics versions for SunPro compiler */
       #endif
     #endif /* V9 or V8plus */
-  #endif /* ILP32 */
+  #elif (SIZEOF_VOID_P == 8)
+    /* TO DO: No LP64 support yet */
+  #endif /* ILP32 vs LP64 */
+#elif defined(__alpha__) || defined(__alpha) /* DEC Alpha */
+  #if (SIZEOF_VOID_P == 4)
+    /* No ILP32 support */
+  #elif (SIZEOF_VOID_P == 8)
+    #if defined(__GNUC__)
+      typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
+      #define _gasneti_atomic_read(p)      ((p)->ctr)
+      #define _gasneti_atomic_set(p,v)     do { (p)->ctr = (v); } while(0)
+      #define _gasneti_atomic_init(v)      { (v) }
+
+      GASNETI_INLINE(_gasneti_atomic_ptr_cas)
+      int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *p, uintptr_t oldval, uintptr_t newval) {
+        unsigned long ret;
+        __asm__ __volatile__ (
+		"1:	ldl_l	%0,%1\n"	/* Load-linked of current value */
+		"	cmpeq	%0,%2,%0\n"	/* compare to oldval */
+		"	beq	%0,2f\n"	/* done/fail on mismatch (success/fail in ret) */
+		"	mov	%3,%0\n"	/* copy newval to ret */
+		"	stl_c	%0,%1\n"	/* Store-conditional of newval (success/fail in ret) */
+		"	beq	%0,1b\n"	/* Retry on stl_c failure */
+		"2:	"
+       		: "=&r"(ret), "=m"(*p)
+		: "r"(oldval), "r"(newval)
+		: "cc");
+        return ret;
+      }
+      #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
+    #elif defined(__DECC) && defined(__osf__)
+      typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
+      #define _gasneti_atomic_read(p)      ((p)->ctr)
+      #define _gasneti_atomic_set(p,v)     do { (p)->ctr = (v); } while(0)
+      #define _gasneti_atomic_init(v)      { (v) }
+
+      GASNETI_INLINE(_gasneti_atomic_ptr_cas)
+      int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *p, uintptr_t oldval, uintptr_t newval) {
+        return asm("1:	ldd_l	%v0,(%a0);"	/* Load-linked of current value to %v0 */
+		   "	cmpeq	%v0,%a1,%v0;"	/* compare %v0 to oldval w/ result to %v0 */
+		   "	beq	%v0,2f;"	/* done/fail on mismatch (success/fail in %v0) */
+		   "	mov	%a2,%v0;"	/* copy newval to %v0 */
+		   "	std_c	%v0,(%a0);"	/* Store-conditional of newval (success/fail in %v0) */
+		   "	beq	%v0,1b;"	/* Retry on std_c failure */
+		   "2:	", p, oldval, newval);  /* Returns value from %v0 */
+      }
+      #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
+    #endif /* Switch(Compiler) */
+  #endif /* ILP32 vs LP64 */
 #elif defined(_POWER) || defined(__PPC__) || defined(__ppc__) || defined(__ppc64__)
   #if (SIZEOF_VOID_P == 4)
     /* Default is suitable on all ILP32 PPC platforms w/ native atomics */
