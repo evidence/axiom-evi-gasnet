@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2006/04/18 04:37:14 $
- * $Revision: 1.106 $
+ * $Date: 2006/04/26 21:35:54 $
+ * $Revision: 1.107 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -777,7 +777,7 @@ static void gasnetc_exit_sighandler(int sig) {
   #if GASNET_DEBUG
   /* note - can't call trace macros here, or even sprintf */
   if (sig == SIGALRM) {
-    static const char msg1[] = "gasnet_exit(): ERROR: timeout during exit... goodbye\n";
+    static const char msg1[] = "gasnet_exit(): WARNING: timeout during exit... goodbye\n";
     write(STDERR_FILENO, msg1, sizeof(msg1) - 1);
   } else {
     static const char msg1[] = "gasnet_exit(): ERROR: signal ";

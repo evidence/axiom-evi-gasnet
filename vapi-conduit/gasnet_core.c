@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/04/21 23:34:21 $
- * $Revision: 1.166 $
+ *     $Date: 2006/04/26 21:35:56 $
+ * $Revision: 1.167 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1791,7 +1791,7 @@ static void gasnetc_exit_sighandler(int sig) {
   #if GASNET_DEBUG
   /* note - can't call trace macros here, or even sprintf */
   if (sig == SIGALRM) {
-    static const char msg[] = "gasnet_exit(): ERROR: timeout during exit... goodbye.  [";
+    static const char msg[] = "gasnet_exit(): WARNING: timeout during exit... goodbye.  [";
     const char * state = gasnetc_exit_state;
     write(STDERR_FILENO, msg, sizeof(msg) - 1);
     write(STDERR_FILENO, state, strlen(state));
