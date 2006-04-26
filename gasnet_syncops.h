@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/26 03:03:50 $
- * $Revision: 1.30 $
+ *     $Date: 2006/04/26 15:48:27 $
+ * $Revision: 1.31 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -771,7 +771,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 
       GASNETI_INLINE(_gasneti_atomic_ptr_cas)
       int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *p, uintptr_t oldval, uintptr_t newval) {
-        return asm("1:	ldd_l	%v0,(%a0);"	/* Load-linked of current value to %v0 */
+        return asm("1:	ldq_l	%v0,(%a0);"	/* Load-linked of current value to %v0 */
 		   "	cmpeq	%v0,%a1,%v0;"	/* compare %v0 to oldval w/ result to %v0 */
 		   "	beq	%v0,2f;"	/* done/fail on mismatch (success/fail in %v0) */
 		   "	mov	%a2,%v0;"	/* copy newval to %v0 */
