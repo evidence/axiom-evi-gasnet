@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/26 15:48:27 $
- * $Revision: 1.31 $
+ *     $Date: 2006/04/26 19:04:12 $
+ * $Revision: 1.32 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -775,7 +775,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 		   "	cmpeq	%v0,%a1,%v0;"	/* compare %v0 to oldval w/ result to %v0 */
 		   "	beq	%v0,2f;"	/* done/fail on mismatch (success/fail in %v0) */
 		   "	mov	%a2,%v0;"	/* copy newval to %v0 */
-		   "	std_c	%v0,(%a0);"	/* Store-conditional of newval (success/fail in %v0) */
+		   "	stq_c	%v0,(%a0);"	/* Store-conditional of newval (success/fail in %v0) */
 		   "	beq	%v0,1b;"	/* Retry on std_c failure */
 		   "2:	", p, oldval, newval);  /* Returns value from %v0 */
       }
