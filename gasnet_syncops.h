@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/26 01:47:21 $
- * $Revision: 1.28 $
+ *     $Date: 2006/04/26 02:15:50 $
+ * $Revision: 1.29 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -630,7 +630,29 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       #endif /* __GNUC__ */
     #endif /* 64-bit CPU */
   #elif (SIZEOF_VOID_P == 8)
-    /* TO DO: LP64 support yet */
+    #if defined(__GNUC__)
+      typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
+      #define _gasneti_atomic_read(p)      ((p)->ctr)
+      #define _gasneti_atomic_set(p,v)     do { (p)->ctr = (v); } while(0)
+      #define _gasneti_atomic_init(v)      { (v) }
+
+      GASNETI_INLINE(_gasneti_atomic_ptr_cas)
+      int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *v, uintptr_t oldval, uintptr_t newval) {
+	uint64_t temp;
+	int retval = 0;
+        __asm__ __volatile__ (
+		  "1:			\n\t"
+		  "lld	%1,%5		\n\t"	/* Load from *v */
+		  "bne	%1,%3,2f	\n\t"	/* Break loop on mismatch */
+		  "move	%0,%4		\n\t"	/* Copy newval to retval */
+		  "scd	%0,%2		\n\t"	/* Try SC to store retval */
+		  "beqz	%0,1b		\n"	/* Retry on contention */
+		  "2:			"
+		  : "+r" (retval), "=&r" (temp), "=m" (*v)
+		  : "r" (oldval), "r" (newval), "R" (*v) );
+	return retval;
+      }
+    #endif /* __GNUC__ */
   #endif /* ILP32 vs LP64 */
 #elif defined(__sparc) || defined(__sparc__)
   #if (SIZEOF_VOID_P == 4)
@@ -677,7 +699,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       #endif
     #endif /* V9 or V8plus */
   #elif (SIZEOF_VOID_P == 8)
-    /* TO DO: No LP64 support yet */
+    /* TO DO: No SPARC LP64 support yet */
   #endif /* ILP32 vs LP64 */
 #elif defined(__alpha__) || defined(__alpha) /* DEC Alpha */
   #if (SIZEOF_VOID_P == 4)
