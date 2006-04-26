@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/26 02:15:50 $
- * $Revision: 1.29 $
+ *     $Date: 2006/04/26 03:03:50 $
+ * $Revision: 1.30 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,13 +63,13 @@ GASNETI_BEGIN_EXTERNC
  */
 
 #if defined(GASNETI_FORCE_GENERIC_SEMAPHORES) || /* for debugging */ \
-    defined(GASNETI_USING_GENERIC_ATOMICOPS)  || /* avoids double locking */ \
+    defined(GASNETI_USE_GENERIC_ATOMICOPS)    || /* avoids double locking */ \
     !GASNETI_THREADS                          || /* avoids complexity of atomic algorithms */ \
     !(defined(GASNETI_HAVE_ATOMIC_CAS) || defined(GASNETI_HAVE_ATOMIC_ADD_SUB)) /* lack needed ops */
-  #define GASNETI_USING_GENERIC_SEMAPHORES 1
+  #define GASNETI_USE_GENERIC_SEMAPHORES 1
 #endif
 
-#if defined(GASNETI_USING_GENERIC_SEMAPHORES) 
+#if defined(GASNETI_USE_GENERIC_SEMAPHORES) 
   /* Generic mutex-based implementation */
   typedef struct {
     gasneti_mutex_t		lock;
@@ -273,7 +273,7 @@ GASNETI_BEGIN_EXTERNC
   }
 #endif
 
-#if defined(GASNETI_USING_GENERIC_SEMAPHORES) || defined(GASNETI_ATOMICOPS_NOT_SIGNALSAFE)
+#if defined(GASNETI_USE_GENERIC_SEMAPHORES) || defined(GASNETI_ATOMICOPS_NOT_SIGNALSAFE)
   #define GASNETI_SEMAPHORES_NOT_SIGNALSAFE 1
 #endif
 
@@ -527,8 +527,10 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
  * C compiler.  However, it is possible to implement "special atomic" versions for
  * compilers with limited asm support (PGI < 6.1 and SunPro)
  */
-#if defined(GASNETI_USING_GENERIC_ATOMICOPS) || defined(GASNETI_USING_OS_ATOMICOPS)
+#if defined(GASNETI_USE_GENERIC_ATOMICOPS) || defined(GASNETI_FORCE_OS_ATOMICOPS) || \
+	(defined(GASNETI_USE_OS_ATOMICOPS) && !defined(_SGI_COMPILER_VERSION))
   /* If not using inline asm in gasnet_atomicops.h, then don't try to here either. */
+  /* However, we make an exception for the MIPSPro compiler unless forced. */
 #elif defined(__i386__) || defined(__i386) || defined(i386) || \
       defined(__i486__) || defined(__i486) || defined(i486) || \
       defined(__i586__) || defined(__i586) || defined(i586) || \
@@ -627,14 +629,35 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
           return retval;
 	}
 	#define GASNETI_HAVE_ATOMIC_DBLPTR_CAS 1
-      #endif /* __GNUC__ */
+      #elif defined(_SGI_COMPILER_VERSION)
+	/* NOTE: The compiler intrinsic is polymorphic */
+        typedef union {
+          struct { volatile uintptr_t hi_ptr, lo_ptr; } ctr;	/* must be first for initializer */
+          uint64_t u64;	/* For alignment */
+        } gasneti_atomic_dblptr_t;
+
+        #define gasneti_atomic_dblptr_init(hi,lo)     { { (uintptr_t)(hi), (uintptr_t)(lo) } }
+        #define gasneti_atomic_dblptr_set(p,hi,lo)    do { (p)->ctr.hi_ptr = (uintptr_t)(hi); \
+                                                           (p)->ctr.lo_ptr = (uintptr_t)(lo); \
+                                                      } while (0)
+        #define gasneti_atomic_dblptr_read_lo(p)      ((p)->ctr.lo_ptr)
+        #define gasneti_atomic_dblptr_read_hi(p)      ((p)->ctr.hi_ptr)
+	
+        GASNETI_INLINE(_gasneti_atomic_dblptr_cas2)
+        int _gasneti_atomic_dblptr_cas2(gasneti_atomic_dblptr_t *v, uintptr_t oldhi, uintptr_t oldlo, uintptr_t newhi, uintptr_t newlo) {
+          uint64_t oldval = ((uint64_t)oldhi << 32) | oldlo;
+          uint64_t newval = ((uint64_t)newhi << 32) | newlo;
+	  return __compare_and_swap(&v->u64, oldval, newval);
+	}
+	#define GASNETI_HAVE_ATOMIC_DBLPTR_CAS 1
+      #endif /* __GNUC__ vs _SGI_COMPILER_VERSION*/
     #endif /* 64-bit CPU */
   #elif (SIZEOF_VOID_P == 8)
     #if defined(__GNUC__)
       typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
-      #define _gasneti_atomic_read(p)      ((p)->ctr)
-      #define _gasneti_atomic_set(p,v)     do { (p)->ctr = (v); } while(0)
-      #define _gasneti_atomic_init(v)      { (v) }
+      #define _gasneti_atomic_ptr_read(p)      ((p)->ctr)
+      #define _gasneti_atomic_ptr_set(p,v)     do { (p)->ctr = (v); } while(0)
+      #define _gasneti_atomic_ptr_init(v)      { (v) }
 
       GASNETI_INLINE(_gasneti_atomic_ptr_cas)
       int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *v, uintptr_t oldval, uintptr_t newval) {
@@ -652,7 +675,19 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 		  : "r" (oldval), "r" (newval), "R" (*v) );
 	return retval;
       }
-    #endif /* __GNUC__ */
+    #elif defined(_SGI_COMPILER_VERSION)
+      /* NOTE: The compiler intrinsic is polymorphic */
+      typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
+      #define _gasneti_atomic_ptr_read(p)      ((p)->ctr)
+      #define _gasneti_atomic_ptr_set(p,v)     do { (p)->ctr = (v); } while(0)
+      #define _gasneti_atomic_ptr_init(v)      { (v) }
+
+      GASNETI_INLINE(_gasneti_atomic_ptr_cas)
+      int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *v, uintptr_t oldval, uintptr_t newval) {
+        return __compare_and_swap(&v->ctr, oldval, newval);
+      }
+      #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
+    #endif /* __GNUC__ vs _SGI_COMPILER_VERSION*/
   #endif /* ILP32 vs LP64 */
 #elif defined(__sparc) || defined(__sparc__)
   #if (SIZEOF_VOID_P == 4)
@@ -707,9 +742,9 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
   #elif (SIZEOF_VOID_P == 8)
     #if defined(__GNUC__)
       typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
-      #define _gasneti_atomic_read(p)      ((p)->ctr)
-      #define _gasneti_atomic_set(p,v)     do { (p)->ctr = (v); } while(0)
-      #define _gasneti_atomic_init(v)      { (v) }
+      #define _gasneti_atomic_ptr_read(p)      ((p)->ctr)
+      #define _gasneti_atomic_ptr_set(p,v)     do { (p)->ctr = (v); } while(0)
+      #define _gasneti_atomic_ptr_init(v)      { (v) }
 
       GASNETI_INLINE(_gasneti_atomic_ptr_cas)
       int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *p, uintptr_t oldval, uintptr_t newval) {
@@ -730,9 +765,9 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
     #elif defined(__DECC) && defined(__osf__)
       typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
-      #define _gasneti_atomic_read(p)      ((p)->ctr)
-      #define _gasneti_atomic_set(p,v)     do { (p)->ctr = (v); } while(0)
-      #define _gasneti_atomic_init(v)      { (v) }
+      #define _gasneti_atomic_ptr_read(p)      ((p)->ctr)
+      #define _gasneti_atomic_ptr_set(p,v)     do { (p)->ctr = (v); } while(0)
+      #define _gasneti_atomic_ptr_init(v)      { (v) }
 
       GASNETI_INLINE(_gasneti_atomic_ptr_cas)
       int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *p, uintptr_t oldval, uintptr_t newval) {
@@ -950,7 +985,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
 /* Optional arch-specific code */
 #if !GASNETI_THREADS
   /* No threads, so we use the mutex code that compiles away. */
-#elif defined(GASNETI_USING_GENERIC_ATOMICOPS) || defined(GASNETI_USING_OS_ATOMICOPS)
+#elif defined(GASNETI_USE_GENERIC_ATOMICOPS) || defined(GASNETI_USE_OS_ATOMICOPS)
   /* If not using inline asm in gasnet_atomicops.h, then don't try to here either. */
 #elif defined(_POWER) || defined(__PPC__) || defined(__ppc__) || defined(__ppc64__)
   /* PowerPPC ids:
