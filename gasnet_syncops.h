@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/04/26 01:07:19 $
- * $Revision: 1.26 $
+ *     $Date: 2006/04/26 01:43:11 $
+ * $Revision: 1.27 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -722,6 +722,52 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
       #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
     #endif /* __GNUC__ vs _xlC_ */
   #endif /* ILP32 vs LP64 */
+#elif defined(__ia64__) || defined(__ia64) /* Itanium */
+  #if (SIZEOF_VOID_P == 4)
+    /* This should not happen */
+  #elif defined(__INTEL_COMPILER)
+    /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
+    #include <ia64intrin.h>
+    typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
+    #define _gasneti_atomic_ptr_read(p)      ((p)->ctr)
+    #define _gasneti_atomic_ptr_set(p,v)     do { (p)->ctr = (v); } while (0)
+    #define _gasneti_atomic_ptr_init(v)      { (v) }
+
+    #define _gasneti_atomic_ptr_cas(p,oval,nval) \
+		(_InterlockedCompareExchange64_acq(&((p)->ctr),nval,oval) == (oval))
+    #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
+  #elif defined(__GNUC__)
+    typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
+    #define _gasneti_atomic_ptr_read(p)      ((p)->ctr)
+    #define _gasneti_atomic_ptr_set(p,v)     do { (p)->ctr = (v); } while (0)
+    #define _gasneti_atomic_ptr_init(v)      { (v) }
+
+    GASNETI_INLINE(_gasneti_atomic_ptr_cas)
+    int _gasneti_atomic_ptr_cas(gasneti_atomic_ptr_t *p, uintptr_t oldval, uintptr_t newval) {
+      uintptr_t tmp;
+      __asm__ __volatile__ ("mov ar.ccv=%0;;" :: "rO"(oldval));
+      __asm__ __volatile__ ("cmpxchg8.acq %0=[%1],%2,ar.ccv"
+                                : "=r"(tmp) : "r"(p), "r"(newval) );
+      return (tmp == oldval);
+    }
+    #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
+  #elif defined(__HP_cc) /* HP C Itanium intrinsics */
+    #include <machine/sys/inline.h>
+    typedef struct { volatile uintptr_t ctr; } gasneti_atomic_ptr_t;
+    #define _gasneti_atomic_ptr_read(p)      ((p)->ctr)
+    #define _gasneti_atomic_ptr_set(p,v)     do { (p)->ctr = (v); } while (0)
+    #define _gasneti_atomic_ptr_init(v)      { (v) }
+
+    GASNETI_INLINE(_gasneti_atomic_ptr_cas)
+    int _gasneti_atomic_ptr_cas(volatile uintptr_t *ptr, uintptr_t oldval, uintptr_t newval) {
+      register uintptr_t tmp;
+      _Asm_mov_to_ar(_AREG_CCV, oldval);
+      tmp = _Asm_cmpxchg(_SZ_D, _SEM_ACQ, ptr, newval, 
+                         _LDHINT_NONE, (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE));
+      return (tmp == oldval);
+    }
+    #define GASNETI_HAVE_ATOMIC_PTR_CAS 1
+  #endif /* Switch(Compiler) */
 #endif
 
 /* Fences and default implementations: */
