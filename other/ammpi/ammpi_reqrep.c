@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2006/04/10 04:20:10 $
- * $Revision: 1.30 $
+ *     $Date: 2006/04/26 05:43:50 $
+ * $Revision: 1.31 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -118,6 +118,25 @@ static int sendPacket(ep_t ep, ammpi_virtual_network_t *activeNet, void *packet,
      AMMPI_RETURN_ERRFR(RESOURCE, sendPacket, MPI_ErrorName(retval));        
 
   ep->stats.TotalBytesSent += packetlength;
+
+  #if AMMPI_RECV_REPOST_SLACK
+    /* use the send delay slot to catch up on deferred recv buffer reposting work */ 
+    if_pt (mpihandle) { 
+      /* toggle active net */
+      if (activeNet == &(ep->Req)) activeNet = &(ep->Rep);
+      else activeNet = &(ep->Req);
+      while (activeNet->rxPostSlack > 0) {
+        int activeidx = activeNet->rxCurr - activeNet->rxPostSlack;
+        if (activeidx < 0) activeidx += activeNet->rxNumBufs;
+        AMMPI_assert(activeidx >= 0 && activeidx < activeNet->rxNumBufs && activeidx != activeNet->rxCurr);
+        if (AMMPI_PostRecvBuffer(&activeNet->rxBuf[activeidx],
+                                 &activeNet->rxHandle[activeidx],
+                                 activeNet->mpicomm)) AMMPI_RETURN_ERR(RESOURCE); 
+        activeNet->rxPostSlack--;
+      }
+    }
+  #endif
+
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -621,13 +640,23 @@ extern int _AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int rep
       donewithmessage: ; /* message handled - continue to next one */
       #if AMMPI_PREPOST_RECVS
         /* repost the recv */
-        AMMPI_assert(activeNet->rxHandle[activeidx] == MPI_REQUEST_NULL);
-        AMMPI_assert(((uintptr_t)&activeNet->rxBuf[activeidx]) % AMMPI_BUF_ALIGN == 0);
-        MPI_SAFE(MPI_Irecv(&activeNet->rxBuf[activeidx], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
-                           MPI_ANY_SOURCE, MPI_ANY_TAG, *activeNet->mpicomm, 
-                           &activeNet->rxHandle[activeidx]));
-        AMMPI_assert(activeNet->rxHandle[activeidx] != MPI_REQUEST_NULL);
         AMMPI_assert(activeidx == activeNet->rxCurr);
+        #if AMMPI_RECV_REPOST_SLACK
+          /* postpone it until later if possible, to maximize overlap */
+          if (activeNet->rxPostSlack < activeNet->rxPostSlackMax) activeNet->rxPostSlack++;
+          else { /* too far behind, repost oldest now */
+            int oldestidx = activeNet->rxCurr - activeNet->rxPostSlack;
+            if (oldestidx < 0) oldestidx += activeNet->rxNumBufs;
+            AMMPI_assert(oldestidx >= 0 && oldestidx < activeNet->rxNumBufs);
+            if (AMMPI_PostRecvBuffer(&activeNet->rxBuf[oldestidx],
+                                    &activeNet->rxHandle[oldestidx],
+                                    activeNet->mpicomm)) AMMPI_RETURN_ERR(RESOURCE); 
+          }
+        #else
+          if (AMMPI_PostRecvBuffer(&activeNet->rxBuf[activeidx],
+                                  &activeNet->rxHandle[activeidx],
+                                  activeNet->mpicomm)) AMMPI_RETURN_ERR(RESOURCE); 
+        #endif
         activeidx++;
         if (activeidx >= activeNet->rxNumBufs) activeidx = 0;
         activeNet->rxCurr = activeidx;

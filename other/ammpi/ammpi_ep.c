@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/04/25 20:06:22 $
- * $Revision: 1.36 $
+ *     $Date: 2006/04/26 05:43:50 $
+ * $Revision: 1.37 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -161,17 +161,17 @@ static int AMMPI_AllocateEndpointBuffers(ep_t ep) {
         ep->Rep.rxHandle[i] = MPI_REQUEST_NULL;
       }
       for(i=0;i<numBufs;i++) {
-        retval &= MPI_SAFE_NORETURN(MPI_Irecv(&ep->Req.rxBuf[i], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
-                           MPI_ANY_SOURCE, MPI_ANY_TAG, *ep->Req.mpicomm, 
-                           &ep->Req.rxHandle[i]));
-        AMMPI_assert(ep->Req.rxHandle[i] != MPI_REQUEST_NULL);
-        retval &= MPI_SAFE_NORETURN(MPI_Irecv(&ep->Rep.rxBuf[i], AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
-                           MPI_ANY_SOURCE, MPI_ANY_TAG, *ep->Rep.mpicomm, 
-                           &ep->Rep.rxHandle[i]));
-        AMMPI_assert(ep->Rep.rxHandle[i] != MPI_REQUEST_NULL);
+        retval &= !AMMPI_PostRecvBuffer(&ep->Req.rxBuf[i],&ep->Req.rxHandle[i],ep->Req.mpicomm);
+        retval &= !AMMPI_PostRecvBuffer(&ep->Rep.rxBuf[i],&ep->Rep.rxHandle[i],ep->Rep.mpicomm);
       }
       ep->Req.rxCurr = 0; /* oldest recv */
       ep->Rep.rxCurr = 0;
+      #if AMMPI_RECV_REPOST_SLACK
+        ep->Req.rxPostSlack = 0;
+        ep->Rep.rxPostSlack = 0;
+        ep->Req.rxPostSlackMax = MIN(numBufs-1,AMMPI_RECV_REPOST_SLACK);
+        ep->Rep.rxPostSlackMax = MIN(numBufs-1,AMMPI_RECV_REPOST_SLACK);
+      #endif
     }
   #endif
 
@@ -246,6 +246,20 @@ static int AMMPI_FreeEndpointBuffers(ep_t ep) {
 
   return retval;
 }
+/*------------------------------------------------------------------------------------
+ * non-blocking recv buffer management
+ *------------------------------------------------------------------------------------ */
+#if AMMPI_PREPOST_RECVS
+extern int AMMPI_PostRecvBuffer(ammpi_buf_t *rxBuf, MPI_Request *prxHandle, MPI_Comm *pmpicomm) { 
+  AMMPI_assert(*prxHandle == MPI_REQUEST_NULL);
+  AMMPI_assert(((uintptr_t)rxBuf) % AMMPI_BUF_ALIGN == 0);
+  MPI_SAFE(MPI_Irecv(rxBuf, AMMPI_MAX_NETWORK_MSG, MPI_BYTE, 
+                     MPI_ANY_SOURCE, MPI_ANY_TAG, *pmpicomm, 
+                     prxHandle));
+  AMMPI_assert(*prxHandle != MPI_REQUEST_NULL);
+  return AM_OK;
+}
+#endif
 /*------------------------------------------------------------------------------------
  * non-blocking send buffer management
  *------------------------------------------------------------------------------------ */

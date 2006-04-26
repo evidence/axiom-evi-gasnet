@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2006/04/10 04:20:10 $
- * $Revision: 1.33 $
+ *     $Date: 2006/04/26 05:43:50 $
+ * $Revision: 1.34 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -23,6 +23,9 @@
 #ifndef AMMPI_PREPOST_RECVS
 #define AMMPI_PREPOST_RECVS         1   /* pre-post non-blocking MPI recv's */
 #endif
+#ifndef AMMPI_RECV_REPOST_SLACK
+#define AMMPI_RECV_REPOST_SLACK     1   /* number of recv operations to lazily re-post */
+#endif
 #ifndef AMMPI_SEPARATE_TEST
 #define AMMPI_SEPARATE_TEST         1   /* issue separate MPI_Test calls in the common case, instead of a single MPI_TestAny */
 #endif
@@ -40,6 +43,11 @@
   #else
     #define AMMPI_MPIIRECV_ORDERING_BUGCHECK 0
   #endif
+#endif
+#if AMMPI_MPIIRECV_ORDERING_BUGCHECK && AMMPI_RECV_REPOST_SLACK
+  /* AMMPI_RECV_REPOST_SLACK incompatible with AMMPI_MPIIRECV_ORDERING_BUGCHECK */
+  #undef AMMPI_RECV_REPOST_SLACK
+  #define AMMPI_RECV_REPOST_SLACK 0
 #endif
 #if AMMPI_NONBLOCKING_SENDS
 #define AMMPI_SENDBUFFER_SZ         2*AMMPI_MAX_NETWORK_MSG /* size of MPI send buffer (used for rejections) */
@@ -296,7 +304,10 @@ typedef struct {
   ammpi_buf_t* rxBuf;     /* recv buffers (aligned) */
   uint32_t rxNumBufs;     /* number of recv buffers in each pool */
   int rxCurr;             /* the oldest recv buffer index */
-
+  #if AMMPI_RECV_REPOST_SLACK
+    int rxPostSlack;      /* number of recv reposts lazily delayed */
+    int rxPostSlackMax;   /* max number of recv reposts lazily delayed */
+  #endif
 } ammpi_virtual_network_t;
 
 /* Endpoint bundle object */
@@ -688,7 +699,9 @@ extern int AMMPI_ReleaseSendBuffers(ep_t ep);
 extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest, 
                             ammpi_buf_t** pbuf, MPI_Request** pHandle);
 #endif
-
+#if AMMPI_PREPOST_RECVS
+extern int AMMPI_PostRecvBuffer(ammpi_buf_t *rxBuf, MPI_Request *prxHandle, MPI_Comm *pmpicomm);
+#endif
 /* ------------------------------------------------------------------------------------ */
 /* AMMPI_IDENT() takes a unique identifier and a textual string and embeds the textual
    string in the executable file
