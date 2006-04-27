@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2006/04/26 05:43:50 $
- * $Revision: 1.34 $
+ *     $Date: 2006/04/27 04:16:56 $
+ * $Revision: 1.35 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -34,6 +34,12 @@
 #endif
 #ifndef AMMPI_NONBLOCKING_SENDS
 #define AMMPI_NONBLOCKING_SENDS     1   /* use non-blocking MPI send's */
+#endif
+#ifndef AMMPI_SEND_EARLYCOMPLETE
+#define AMMPI_SEND_EARLYCOMPLETE    2   /* num outstanding send ops that initiates early completion attempt (0==never) */
+#endif
+#ifndef AMMPI_LINEAR_SEND_COMPLETE
+#define AMMPI_LINEAR_SEND_COMPLETE  0   /* use linear algorithm to complete sends */
 #endif
 #ifndef AMMPI_MPIIRECV_ORDERING_BUGCHECK
   #ifdef _AIX
@@ -256,6 +262,8 @@ typedef struct ammpi_buf {
 #define AMMPI_MIN_NETWORK_MSG ((int)(uintptr_t)&((ammpi_buf_t *)NULL)->_Data[0])
 #define AMMPI_MAX_SMALL_NETWORK_MSG ((int)(uintptr_t)&((ammpi_buf_t *)NULL)->_Data[(4*AMMPI_MAX_SHORT)])
 #define AMMPI_MAX_NETWORK_MSG ((int)(uintptr_t)&((ammpi_buf_t *)NULL)->_Data[(4*AMMPI_MAX_SHORT)+AMMPI_MAX_LONG])
+
+#define AMMPI_SMALL_SENDBUF_SZ AMMPI_ALIGNUP(AMMPI_MAX_SMALL_NETWORK_MSG, AMMPI_BUF_ALIGN)
 
 /* ------------------------------------------------------------------------------------ */
 /* Complex user-visible types */
@@ -698,6 +706,8 @@ extern int AMMPI_AllocateSendBuffers(ep_t ep);
 extern int AMMPI_ReleaseSendBuffers(ep_t ep);
 extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest, 
                             ammpi_buf_t** pbuf, MPI_Request** pHandle);
+extern int AMMPI_ReapSendCompletions(ammpi_sendbuffer_pool_t* pool);
+extern int AMMPI_GrowReplyPool(ammpi_sendbuffer_pool_t* pool);
 #endif
 #if AMMPI_PREPOST_RECVS
 extern int AMMPI_PostRecvBuffer(ammpi_buf_t *rxBuf, MPI_Request *prxHandle, MPI_Comm *pmpicomm);

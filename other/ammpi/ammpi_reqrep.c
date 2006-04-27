@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2006/04/26 05:43:50 $
- * $Revision: 1.31 $
+ *     $Date: 2006/04/27 04:16:56 $
+ * $Revision: 1.32 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -119,23 +119,35 @@ static int sendPacket(ep_t ep, ammpi_virtual_network_t *activeNet, void *packet,
 
   ep->stats.TotalBytesSent += packetlength;
 
-  #if AMMPI_RECV_REPOST_SLACK
-    /* use the send delay slot to catch up on deferred recv buffer reposting work */ 
-    if_pt (mpihandle) { 
-      /* toggle active net */
-      if (activeNet == &(ep->Req)) activeNet = &(ep->Rep);
-      else activeNet = &(ep->Req);
-      while (activeNet->rxPostSlack > 0) {
-        int activeidx = activeNet->rxCurr - activeNet->rxPostSlack;
-        if (activeidx < 0) activeidx += activeNet->rxNumBufs;
-        AMMPI_assert(activeidx >= 0 && activeidx < activeNet->rxNumBufs && activeidx != activeNet->rxCurr);
-        if (AMMPI_PostRecvBuffer(&activeNet->rxBuf[activeidx],
-                                 &activeNet->rxHandle[activeidx],
-                                 activeNet->mpicomm)) AMMPI_RETURN_ERR(RESOURCE); 
-        activeNet->rxPostSlack--;
+  if_pt (mpihandle) { 
+    #if AMMPI_RECV_REPOST_SLACK
+    { /* use the send delay slot to catch up on deferred recv buffer reposting work */ 
+      /* check the opposite net, because a reply send means we just got a request,
+         and a request send means we're likely to have recently received a reply */
+      ammpi_virtual_network_t * const altNet = ( (activeNet == &(ep->Req)) ? &(ep->Rep) : &(ep->Req) );
+      while (altNet->rxPostSlack > 0) {
+        int altidx = altNet->rxCurr - altNet->rxPostSlack;
+        if (altidx < 0) altidx += altNet->rxNumBufs;
+        AMMPI_assert(altidx >= 0 && altidx < altNet->rxNumBufs && altidx != altNet->rxCurr);
+        if (AMMPI_PostRecvBuffer(&altNet->rxBuf[altidx],
+                                 &altNet->rxHandle[altidx],
+                                 altNet->mpicomm)) AMMPI_RETURN_ERR(RESOURCE); 
+        altNet->rxPostSlack--;
       }
     }
-  #endif
+    #endif
+    #if AMMPI_SEND_EARLYCOMPLETE
+    { /* use the send delay slot to catch up on send completion work */ 
+      ammpi_sendbuffer_pool_t * const pool = 
+        ( (packetlength <= AMMPI_SMALL_SENDBUF_SZ) ? 
+          &activeNet->sendPool_small : &activeNet->sendPool_large );
+      if (pool->numActive >= AMMPI_SEND_EARLYCOMPLETE) {
+        int retval = AMMPI_ReapSendCompletions(pool);
+        if_pf (retval != AM_OK) AMMPI_RETURN(retval);
+      }
+    }
+    #endif
+  }
 
   return AM_OK;
 }

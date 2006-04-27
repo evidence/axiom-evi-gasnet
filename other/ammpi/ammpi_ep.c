@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/04/26 05:43:50 $
- * $Revision: 1.37 $
+ *     $Date: 2006/04/27 04:16:56 $
+ * $Revision: 1.38 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -399,6 +399,77 @@ extern int AMMPI_ReleaseSendBuffers(ep_t ep) {
   return retval;
 }
 /* ------------------------------------------------------------------------------------ */
+extern int AMMPI_ReapSendCompletions(ammpi_sendbuffer_pool_t* pool) {
+  int numcompleted = 0;
+  int i;
+  MPI_SAFE(MPI_Testsome(pool->numActive, pool->txHandle, &numcompleted,
+                        pool->tmpIndexArray, pool->tmpStatusArray));
+
+  AMMPI_assert(numcompleted >= 0 && numcompleted <= pool->numActive);
+
+#if AMMPI_LINEAR_SEND_COMPLETE
+  /* this algorithm is linear in the number of handles (as is MPI_Testsome), 
+     but relies on a spec-compliant MPI_Testsome. Appears to be slightly
+     slower for most platforms with a small number of completions or deep queue.
+  */
+  { int numActive = pool->numActive;
+    MPI_Request * const txHandle = pool->txHandle;
+    for (i = numActive-1; i >= 0; i--) {
+      if (txHandle[i] == MPI_REQUEST_NULL) {
+        numActive--;
+        if (i != numActive) { /* swap a still-active buffer into this place */
+          ammpi_buf_t** const txBuf = pool->txBuf;
+          ammpi_buf_t* const tmp = txBuf[i];
+          AMMPI_assert(txHandle[numActive] != MPI_REQUEST_NULL);
+          txHandle[i] = txHandle[numActive];
+          txBuf[i] = txBuf[numActive];
+          txHandle[numActive] = MPI_REQUEST_NULL;
+          txBuf[numActive] = tmp;
+        }
+      }
+    }
+    pool->numActive = numActive;
+  }
+#else /* this algorithm is quadratic in the number of completed operations, 
+         but tolerates buggy MPI_Testsome */
+  /* sort the completions in ascending order (simple insertion sort) */
+  for (i=1; i < numcompleted; i++) {
+    int x = pool->tmpIndexArray[i];
+    int j;
+    for (j = i; j > 0 && pool->tmpIndexArray[j-1] > x; j--) 
+      pool->tmpIndexArray[j] = pool->tmpIndexArray[j-1];
+    pool->tmpIndexArray[j] = x;
+  }
+
+  /* collect completed buffers - maintain invariant that active buffers are all at front */
+  for (i=numcompleted-1; i >= 0; i--) {
+    int doneidx = pool->tmpIndexArray[i];
+    int activeidx = pool->numActive-1;
+    AMMPI_assert(doneidx >= 0 && doneidx < pool->numActive);
+    #ifdef _AIX
+      /* Some versions of IBM MPI fail to set MPI_REQUEST_NULL as required by MPI_Testsome,
+         and also apparently fail to reclaim the resources associated with the request */
+      if (pool->txHandle[doneidx] != MPI_REQUEST_NULL) {
+        MPI_Status s;
+        MPI_SAFE(MPI_Wait(&(pool->txHandle[doneidx]),&s));
+      }
+    #endif
+    AMMPI_assert(pool->txHandle[doneidx] == MPI_REQUEST_NULL); 
+    if (doneidx != activeidx) {
+      /* swap a still-active buffer into this place */
+      ammpi_buf_t* tmp = pool->txBuf[doneidx];
+      AMMPI_assert(pool->txHandle[activeidx] != MPI_REQUEST_NULL);
+      pool->txHandle[doneidx] = pool->txHandle[activeidx];
+      pool->txBuf[doneidx] = pool->txBuf[activeidx];
+      pool->txHandle[activeidx] = MPI_REQUEST_NULL;
+      pool->txBuf[activeidx] = tmp;
+    }
+    pool->numActive--;
+  }
+#endif
+  return AM_OK;
+}
+/* ------------------------------------------------------------------------------------ */
 /* acquire a buffer of at least the given size numBytes associated with ep, 
  * to be used in a subsequent non-blocking MPI send operation
  * return a pointer to the buffer and the location that should be used to store the MPI
@@ -410,14 +481,14 @@ extern int AMMPI_ReleaseSendBuffers(ep_t ep) {
  */
 extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest, 
                             ammpi_buf_t** pbuf, MPI_Request** pHandle) {
-  ammpi_sendbuffer_pool_t* pool = NULL;
+  ammpi_sendbuffer_pool_t* pool;
   AMMPI_assert(ep);
   AMMPI_assert(pbuf);
   AMMPI_assert(pHandle);
   AMMPI_assert(numBytes >= AMMPI_MIN_NETWORK_MSG && numBytes <= AMMPI_MAX_NETWORK_MSG);
 
   /* select the appropriate pool */
-  if (numBytes <= AMMPI_ALIGNUP(AMMPI_MAX_SMALL_NETWORK_MSG, AMMPI_BUF_ALIGN)) 
+  if (numBytes <= AMMPI_SMALL_SENDBUF_SZ) 
     pool = (isrequest ? &ep->Req.sendPool_small : &ep->Rep.sendPool_small);
   else 
     pool = (isrequest ? &ep->Req.sendPool_large : &ep->Rep.sendPool_large);
@@ -434,67 +505,37 @@ extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest,
     return AM_OK;
   }
 
- while (1) {
-  /* reap any pending pool completions */
-  if (pool->numActive > 0) {
-    int numcompleted = 0;
-    int i;
-    MPI_SAFE(MPI_Testsome(pool->numActive, pool->txHandle, &numcompleted,
-                          pool->tmpIndexArray, pool->tmpStatusArray));
-
-    AMMPI_assert(numcompleted >= 0 && numcompleted <= pool->numActive);
-
-    /* sort the completions in ascending order (simple insertion sort) */
-    for (i=1; i < numcompleted; i++) {
-      int x = pool->tmpIndexArray[i];
-      int j;
-      for (j = i; j > 0 && pool->tmpIndexArray[j-1] > x; j--) 
-        pool->tmpIndexArray[j] = pool->tmpIndexArray[j-1];
-      pool->tmpIndexArray[j] = x;
+  while (1) {
+    if (pool->numActive > 0) { /* reap any pending pool completions */
+      int retval = AMMPI_ReapSendCompletions(pool);
+      if_pf (retval != AM_OK) AMMPI_RETURN(retval);
+      if (pool->numActive < pool->numBufs) goto tryagain; /* should now succeed */
     }
 
-    /* collect completed buffers - maintain invariant that active buffers are all at front */
-    for (i=numcompleted-1; i >= 0; i--) {
-      int doneidx = pool->tmpIndexArray[i];
-      int activeidx = pool->numActive-1;
-      AMMPI_assert(doneidx >= 0 && doneidx < pool->numActive);
-      #ifdef _AIX
-        /* Some versions of IBM MPI fail to set MPI_REQUEST_NULL as required by MPI_Testsome,
-           and also apparently fail to reclaim the resources associated with the request */
-        if (pool->txHandle[doneidx] != MPI_REQUEST_NULL) {
-          MPI_Status s;
-          MPI_SAFE(MPI_Wait(&(pool->txHandle[doneidx]),&s));
-        }
+    /* nothing immediately available */
+    if (isrequest) { /* poll until something available */
+      int retval;
+      AMMPI_BACKPRESSURE_WARNING("Out of request send buffers");
+      retval = AMMPI_ServiceIncomingMessages(ep, FALSE, FALSE); /* NOTE this may actually cause reentrancy to this fn on reply pool */
+      if_pf (retval != AM_OK) AMMPI_RETURN(retval);
+    } else { 
+      #if 1 /* poll the reply network only */
+        int retval;
+        AMMPI_BACKPRESSURE_WARNING("Out of reply send buffers");
+        retval = AMMPI_ServiceIncomingMessages(ep, FALSE, TRUE); 
+        if_pf (retval != AM_OK) AMMPI_RETURN(retval);
+      #else /* UNSAFE - do not use: can lead to unbounded buffer growth */
+        int retval = AMMPI_GrowReplyPool(pool);
+        if_pf (retval != AM_OK) AMMPI_RETURN(retval);
       #endif
-      AMMPI_assert(pool->txHandle[doneidx] == MPI_REQUEST_NULL); 
-      if (doneidx != activeidx) {
-        /* swap a still-active buffer into this place */
-        ammpi_buf_t* tmp = pool->txBuf[doneidx];
-        AMMPI_assert(pool->txHandle[activeidx] != MPI_REQUEST_NULL);
-        pool->txHandle[doneidx] = pool->txHandle[activeidx];
-        pool->txBuf[doneidx] = pool->txBuf[activeidx];
-        pool->txHandle[activeidx] = MPI_REQUEST_NULL;
-        pool->txBuf[activeidx] = tmp;
-      }
-      pool->numActive--;
     }
-    if (numcompleted) goto tryagain; /* should now succeed */
-    else AMMPI_assert(pool->numActive == pool->numBufs);
   }
-
-  /* nothing immediately available */
-  if (isrequest) { /* poll until something available */
-    int retval;
-    AMMPI_BACKPRESSURE_WARNING("Out of request send buffers");
-    retval = AMMPI_ServiceIncomingMessages(ep, FALSE, FALSE); /* NOTE this may actually cause reentrancy to this fn on reply pool */
-    if_pf (retval != AM_OK) AMMPI_RETURN(retval);
-  } else { 
-   #if 1 /* poll the reply network only */
-    int retval;
-    AMMPI_BACKPRESSURE_WARNING("Out of reply send buffers");
-    retval = AMMPI_ServiceIncomingMessages(ep, FALSE, TRUE); 
-    if_pf (retval != AM_OK) AMMPI_RETURN(retval);
-   #else /* old code to grow the reply pool instead of polling -- can lead to unbounded buffer growth */
+  abort();
+  return AM_OK;
+}
+/* ------------------------------------------------------------------------------------ */
+/* old code to grow the reply pool instead of polling -- can lead to unbounded buffer growth */
+extern int AMMPI_GrowReplyPool(ammpi_sendbuffer_pool_t* pool) {
     int newnumBufs = pool->numBufs + (int)(pool->numBufs * (AMMPI_REPLYBUF_POOL_GROWTHFACTOR-1));
     MPI_Request *newtxHandle = (MPI_Request *)AMMPI_malloc(newnumBufs*sizeof(MPI_Request));
     ammpi_buf_t**newtxBuf = (ammpi_buf_t**)AMMPI_malloc(newnumBufs*sizeof(ammpi_buf_t*));
@@ -542,14 +583,8 @@ extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest,
     pool->numBlocks++;
     pool->numBufs = newnumBufs;
 
-   #endif
-   }
-  }
-
-  abort();
-  return AM_OK;
+    return AM_OK;
 }
-/* ------------------------------------------------------------------------------------ */
 #endif
 /*------------------------------------------------------------------------------------
  * System initialization/termination
