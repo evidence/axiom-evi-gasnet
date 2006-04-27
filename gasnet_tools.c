@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/04/26 09:32:12 $
- * $Revision: 1.158 $
+ *     $Date: 2006/04/27 20:14:27 $
+ * $Revision: 1.159 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -69,65 +69,40 @@
 /* ------------------------------------------------------------------------------------ */
 /* call-based atomic support for C compilers with limited inline assembly */
 
-#if defined(GASNETI_ATOMIC_SET_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_set,
-  extern void _gasneti_special_atomic_set()) {
-    GASNETI_ATOMIC_SET_BODY
-  }
+#ifdef GASNETI_ATOMIC_SET_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_set, GASNETI_ATOMIC_SET_BODY)
 #endif
-#if defined(GASNETI_ATOMIC_READ_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_read,
-  extern void _gasneti_special_atomic_read()) {
-    GASNETI_ATOMIC_READ_BODY
-  }
+#ifdef GASNETI_ATOMIC_READ_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_read, GASNETI_ATOMIC_READ_BODY)
 #endif
-#if defined(GASNETI_ATOMIC_INCREMENT_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_increment,
-  extern void _gasneti_special_atomic_increment()) {
-    GASNETI_ATOMIC_INCREMENT_BODY
-  }
+#ifdef GASNETI_ATOMIC_INCREMENT_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_increment, GASNETI_ATOMIC_INCREMENT_BODY)
 #endif
-#if defined(GASNETI_ATOMIC_DECREMENT_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_decrement,
-  extern void _gasneti_special_atomic_decrement()) {
-    GASNETI_ATOMIC_DECREMENT_BODY
-  }
+#ifdef GASNETI_ATOMIC_DECREMENT_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_decrement, GASNETI_ATOMIC_DECREMENT_BODY)
 #endif
-#if defined(GASNETI_ATOMIC_DECREMENT_AND_TEST_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_decrement_and_test,
-  extern void _gasneti_special_atomic_decrement_and_test()) {
-    GASNETI_ATOMIC_DECREMENT_AND_TEST_BODY
-  }
+#ifdef GASNETI_ATOMIC_DECREMENT_AND_TEST_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_decrement_and_test, GASNETI_ATOMIC_DECREMENT_AND_TEST_BODY)
 #endif
-#if defined(GASNETI_ATOMIC_COMPARE_AND_SWAP_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_compare_and_swap,
-  extern void _gasneti_special_atomic_compare_and_swap()) {
-    GASNETI_ATOMIC_COMPARE_AND_SWAP_BODY
-  }
+#ifdef GASNETI_ATOMIC_COMPARE_AND_SWAP_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_compare_and_swap, GASNETI_ATOMIC_COMPARE_AND_SWAP_BODY)
 #endif
-#if defined(GASNETI_ATOMIC_ADD_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_add,
-  extern void _gasneti_special_atomic_add()) {
-    GASNETI_ATOMIC_ADD_BODY
-  }
+#ifdef GASNETI_ATOMIC_ADD_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_add, GASNETI_ATOMIC_ADD_BODY)
 #endif
-#if defined(GASNETI_ATOMIC_SUBTRACT_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_subtract,
-  extern void _gasneti_special_atomic_subtract()) {
-    GASNETI_ATOMIC_SUBTRACT_BODY
-  }
+#ifdef GASNETI_ATOMIC_SUBTRACT_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_subtract, GASNETI_ATOMIC_SUBTRACT_BODY)
 #endif
-#if defined(GASNETI_ATOMIC_FETCHADD_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_fetchadd,
-  extern void _gasneti_special_atomic_fetchadd()) {
-    GASNETI_ATOMIC_FETCHADD_BODY
-  }
+#ifdef GASNETI_ATOMIC_FETCHADD_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_fetchadd, GASNETI_ATOMIC_FETCHADD_BODY)
 #endif
-#if defined(GASNETI_ATOMIC_ADDFETCH_BODY)
-  GASNETI_NEVER_INLINE(_gasneti_special_atomic_addfetch,
-  extern void _gasneti_special_atomic_addfetch()) {
-    GASNETI_ATOMIC_ADDFETCH_BODY
-  }
+#ifdef GASNETI_ATOMIC_ADDFETCH_BODY
+  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic_addfetch, GASNETI_ATOMIC_ADDFETCH_BODY)
+#endif
+
+#ifdef GASNETI_ATOMIC_EXTRA_SPECIAL
+  /* Catch-all for platform-specific support routines. */
+  GASNETI_ATOMIC_EXTRA_SPECIAL
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -138,11 +113,8 @@
 #error gasnet_tools.c must be compiled with support for inline assembly
 #endif
 
-#if defined(GASNETI_TICKS_NOW_BODY)
-  GASNETI_NEVER_INLINE(gasneti_slow_ticks_now,
-  extern void gasneti_slow_ticks_now()) {
-    GASNETI_TICKS_NOW_BODY
-  }
+#ifdef GASNETI_TICKS_NOW_BODY
+  GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_ticks_now, GASNETI_TICKS_NOW_BODY)
 #else
   extern gasneti_tick_t gasneti_slow_ticks_now() {
     return gasneti_ticks_now();
