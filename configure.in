@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/04/22 09:36:29 $
-# $Revision: 1.347 $
+#     $Date: 2006/04/27 23:34:46 $
+# $Revision: 1.348 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.347 $)
+AC_REVISION($Revision: 1.348 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -842,7 +842,7 @@ fi
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -D_IN_CONFIGURE")
 AC_MSG_CHECKING(for x86 pause instruction)
 AC_TRY_COMPILE([
-  #include "gasnet_membar.h" /* For GASNET_ASM() only */
+  #include "gasnet_asm.h"
 ], [
   #if defined(__i386__) || defined(__x86_64__)
     GASNETI_ASM("pause");
@@ -855,7 +855,7 @@ AC_TRY_COMPILE([
 ## Disabled ia64 pause hint until we see an actual need for it -PHH 2006.01.09
 #AC_MSG_CHECKING(for ia64 pause hint)
 #AC_TRY_COMPILE([
-#  #include "gasnet_membar.h" /* For GASNET_ASM() only */
+#  #include "gasnet_asm.h"
 #], [
 #  #if defined(__ia64__)
 #    GASNETI_ASM("hint @pause");
