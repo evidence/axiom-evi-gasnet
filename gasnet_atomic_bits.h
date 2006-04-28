@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/27 23:59:51 $
- * $Revision: 1.165 $
+ *     $Date: 2006/04/28 00:03:41 $
+ * $Revision: 1.166 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,18 +14,23 @@
 #define _GASNET_ATOMIC_BITS_H
 
 /* ------------------------------------------------------------------------------------ */
-/* Identify special cases lacking direct support */
+/* Identify special cases lacking native support */
 
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS) || /* for debugging */          \
     defined(CRAYT3E)   || /* T3E seems to have no atomic ops */              \
     defined(_SX)       || /* NEC SX-6 atomics not available to user code? */ \
     defined(__MICROBLAZE__) /* no atomic instructions */
   #define GASNETI_USE_GENERIC_ATOMICOPS
-  #define GASNETI_ATOMIC_CONFIG   atomics_mutex
 #elif defined(GASNETI_FORCE_OS_ATOMICOPS) || /* for debugging */          \
     defined(MTA)   ||  \
     defined(_SGI_COMPILER_VERSION)
   #define GASNETI_USE_OS_ATOMICOPS
+#else
+#endif
+
+#if defined(GASNETI_USE_GENERIC_ATOMICOPS)
+  #define GASNETI_ATOMIC_CONFIG   atomics_mutex
+#elif defined(GASNETI_USE_OS_ATOMICOPS
   #define GASNETI_ATOMIC_CONFIG   atomics_os
 #else
   #define GASNETI_ATOMIC_CONFIG   atomics_native
