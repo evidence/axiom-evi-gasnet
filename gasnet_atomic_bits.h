@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/04/28 00:17:07 $
- * $Revision: 1.167 $
+ *     $Date: 2006/04/28 00:26:54 $
+ * $Revision: 1.168 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,7 +25,6 @@
     defined(MTA)   ||  \
     defined(_SGI_COMPILER_VERSION)
   #define GASNETI_USE_OS_ATOMICOPS
-#else
 #endif
 
 #if defined(GASNETI_USE_GENERIC_ATOMICOPS)
