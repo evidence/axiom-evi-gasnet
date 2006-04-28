@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/04/27 23:59:51 $
- * $Revision: 1.165 $
+ *     $Date: 2006/04/28 00:22:36 $
+ * $Revision: 1.166 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -157,23 +157,23 @@
 /* ------------------------------------------------------------------------------------ */
 /* Atomic range and signed treatment (default values if not platform-specific). */
 
-#ifndef GASNETI_ATOMIC_MAX
-  #define GASNETI_ATOMIC_MAX		((uint32_t)0xFFFFFFFFU)
-#endif
-#ifndef GASNETI_ATOMIC_SIGNED_MIN
-  #define GASNETI_ATOMIC_SIGNED_MIN	((int32_t)0x80000000)
-#endif
-#ifndef GASNETI_ATOMIC_SIGNED_MAX
-  #define GASNETI_ATOMIC_SIGNED_MAX	((int32_t)0x7FFFFFFF)
-#endif
-#ifndef gasneti_atomic_signed
-  #define gasneti_atomic_signed(val)	((int32_t)(val))
-#endif
 #ifndef gasneti_atomic_val_t
   typedef uint32_t gasneti_atomic_val_t;
 #endif
 #ifndef gasneti_atomic_sval_t
   typedef int32_t gasneti_atomic_sval_t;
+#endif
+#ifndef GASNETI_ATOMIC_MAX
+  #define GASNETI_ATOMIC_MAX		((gasneti_atomic_val_t)0xFFFFFFFFU)
+#endif
+#ifndef GASNETI_ATOMIC_SIGNED_MIN
+  #define GASNETI_ATOMIC_SIGNED_MIN	((gasneti_atomic_sval_t)0x80000000)
+#endif
+#ifndef GASNETI_ATOMIC_SIGNED_MAX
+  #define GASNETI_ATOMIC_SIGNED_MAX	((gasneti_atomic_sval_t)0x7FFFFFFF)
+#endif
+#ifndef gasneti_atomic_signed
+  #define gasneti_atomic_signed(val)	((gasneti_atomic_sval_t)(val))
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -197,16 +197,16 @@
   #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
     /* NOTE: _gasneti_atomic_{add,subtract} are only called w/ args free of side-effects.
      * So, these macros can safely expand the arguments multiple times. */
-    #define _gasneti_atomic_add(p,op)		((uint32_t)(_gasneti_atomic_fetchadd(p,op) + op))
-    #define _gasneti_atomic_subtract(p,op)	((uint32_t)(_gasneti_atomic_fetchadd(p,-op) - op))
+    #define _gasneti_atomic_add(p,op)		((gasneti_atomic_val_t)(_gasneti_atomic_fetchadd(p,op) + op))
+    #define _gasneti_atomic_subtract(p,op)	((gasneti_atomic_val_t)(_gasneti_atomic_fetchadd(p,-op) - op))
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   #endif
 #elif defined(_gasneti_atomic_addfetch) || defined (GASNETI_HAVE_ATOMIC_CAS)
   #if !defined(_gasneti_atomic_addfetch)
     /* If needed, build addfetch from compare-and-swap. */
     GASNETI_INLINE(gasneti_atomic_addfetch)
-    uint32_t gasneti_atomic_addfetch(gasneti_atomic_t *p, int32_t op) {
-      uint32_t _old, _new;
+    gasneti_atomic_val_t gasneti_atomic_addfetch(gasneti_atomic_t *p, gasneti_atomic_sval_t op) {
+      gasneti_atomic_val_t _old, _new;
       do {
         _new = (_old = _gasneti_atomic_read(p)) + op;
       } while (!_gasneti_atomic_compare_and_swap(p, _old, _new));
@@ -226,8 +226,8 @@
 						(_gasneti_atomic_addfetch((p),-1) == 0)
   #endif
   #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
-    #define _gasneti_atomic_add(p,op)		((uint32_t)_gasneti_atomic_addfetch(p,op))
-    #define _gasneti_atomic_subtract(p,op)	((uint32_t)_gasneti_atomic_addfetch(p,-op))
+    #define _gasneti_atomic_add(p,op)		((gasneti_atomic_val_t)_gasneti_atomic_addfetch(p,op))
+    #define _gasneti_atomic_subtract(p,op)	((gasneti_atomic_val_t)_gasneti_atomic_addfetch(p,-op))
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   #endif
 #endif
@@ -540,9 +540,9 @@
 #endif
 #ifndef gasneti_atomic_read
   GASNETI_INLINE(gasneti_atomic_read)
-  uint32_t gasneti_atomic_read(gasneti_atomic_t *p, const int flags) {
+  gasneti_atomic_val_t gasneti_atomic_read(gasneti_atomic_t *p, const int flags) {
     _gasneti_atomic_fence_before_read(flags)  /* no semi */
-    { const uint32_t retval = _gasneti_atomic_read(p);
+    { const gasneti_atomic_val_t retval = _gasneti_atomic_read(p);
       _gasneti_atomic_fence_after_read(flags)  /* no semi */
       return retval;
     }
@@ -576,7 +576,7 @@
 #endif
 #if defined(GASNETI_HAVE_ATOMIC_CAS) && !defined(gasneti_atomic_compare_and_swap)
   GASNETI_INLINE(gasneti_atomic_compare_and_swap)
-  int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval, const int flags) {
+  int gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, gasneti_atomic_val_t oldval, gasneti_atomic_val_t newval, const int flags) {
     _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
     { const int retval = _gasneti_atomic_compare_and_swap(p,oldval,newval);
       _gasneti_atomic_fence_after_bool(flags, retval) /* no semi */
@@ -587,10 +587,10 @@
 #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
   #ifndef gasneti_atomic_add
     GASNETI_INLINE(gasneti_atomic_add)
-    uint32_t gasneti_atomic_add(gasneti_atomic_t *p, uint32_t op, const int flags) {
-      gasneti_assert((int32_t)op >= 0); /* TODO: prohibit zero as well? */
+    gasneti_atomic_val_t gasneti_atomic_add(gasneti_atomic_t *p, gasneti_atomic_val_t op, const int flags) {
+      gasneti_assert((gasneti_atomic_sval_t)op >= 0); /* TODO: prohibit zero as well? */
       _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
-      { const uint32_t retval = _gasneti_atomic_add(p, op);
+      { const gasneti_atomic_val_t retval = _gasneti_atomic_add(p, op);
         _gasneti_atomic_fence_after_rmw(flags) /* no semi */
         return retval;
       }
@@ -598,10 +598,10 @@
   #endif
   #ifndef gasneti_atomic_subtract
     GASNETI_INLINE(gasneti_atomic_subtract)
-    uint32_t gasneti_atomic_subtract(gasneti_atomic_t *p, uint32_t op, const int flags) {
-      gasneti_assert((int32_t)op >= 0); /* TODO: prohibit zero as well? */
+    gasneti_atomic_val_t gasneti_atomic_subtract(gasneti_atomic_t *p, gasneti_atomic_val_t op, const int flags) {
+      gasneti_assert((gasneti_atomic_sval_t)op >= 0); /* TODO: prohibit zero as well? */
       _gasneti_atomic_fence_before_rmw(flags)  /* no semi */
-      { const uint32_t retval = _gasneti_atomic_subtract(p, op);
+      { const gasneti_atomic_val_t retval = _gasneti_atomic_subtract(p, op);
         _gasneti_atomic_fence_after_rmw(flags) /* no semi */
         return retval;
       }
@@ -639,7 +639,7 @@
      the caller has requested, since any memory in the gasnet segment "protected" by a
      fenced atomic may be written by a network adapter.
    */
-  typedef volatile uint32_t gasneti_weakatomic_t;
+  typedef volatile gasneti_atomic_val_t gasneti_weakatomic_t;
   #define gasneti_weakatomic_init(v)                  (v)
   #define gasneti_weakatomic_set(p,v,f) do {                 \
     const int __flags = (f);                                 \
@@ -677,26 +677,26 @@
   }
   #define GASNETI_HAVE_WEAKATOMIC_CAS 1
   GASNETI_INLINE(gasneti_weakatomic_compare_and_swap)
-  int gasneti_weakatomic_compare_and_swap(gasneti_weakatomic_t *p, uint32_t oldval, uint32_t newval, const int flags) {
+  int gasneti_weakatomic_compare_and_swap(gasneti_weakatomic_t *p, gasneti_atomic_val_t oldval, gasneti_atomic_val_t newval, const int flags) {
     _gasneti_weakatomic_fence_before(flags)  /* no semi */
-    { const int retval = (((uint32_t)*p == oldval) ? (*p = newval, 1) : 0);
+    { const int retval = (((gasneti_atomic_val_t)*p == oldval) ? (*p = newval, 1) : 0);
       _gasneti_weakatomic_fence_after_bool(flags, retval)  /* no semi */
       return retval;
     }
   }
   #define GASNETI_HAVE_WEAKATOMIC_ADD_SUB 1
   GASNETI_INLINE(gasneti_weakatomic_add)
-  uint32_t gasneti_weakatomic_add(gasneti_weakatomic_t *p, int32_t op, const int flags) {
+  gasneti_atomic_val_t gasneti_weakatomic_add(gasneti_weakatomic_t *p, gasneti_atomic_sval_t op, const int flags) {
     _gasneti_weakatomic_fence_before(flags)  /* no semi */
-    { const uint32_t retval = *(uint32_t *)(p) += (op);
+    { const gasneti_atomic_val_t retval = *(gasneti_atomic_val_t *)(p) += (op);
       _gasneti_weakatomic_fence_after(flags)  /* no semi */
       return retval;
     }
   }
   GASNETI_INLINE(gasneti_weakatomic_subtract)
-  uint32_t gasneti_weakatomic_subtract(gasneti_weakatomic_t *p, int32_t op, const int flags) {
+  gasneti_atomic_val_t gasneti_weakatomic_subtract(gasneti_weakatomic_t *p, gasneti_atomic_sval_t op, const int flags) {
     _gasneti_weakatomic_fence_before(flags)  /* no semi */
-    { const uint32_t retval = *(uint32_t *)(p) -= (op);
+    { const gasneti_atomic_val_t retval = *(gasneti_atomic_val_t *)(p) -= (op);
       _gasneti_weakatomic_fence_after(flags)  /* no semi */
       return retval;
     }
