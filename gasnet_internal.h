@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/04/21 00:39:22 $
- * $Revision: 1.100 $
+ *     $Date: 2006/04/29 10:20:52 $
+ * $Revision: 1.101 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -344,17 +344,19 @@ void gasneti_auxseg_attach();
 #if GASNETI_HAVE_EOP_INTERFACE
 /* GASNET-Internal OP Interface - provides a mechanism for conduit-independent services (like VIS)
    to expose non-blocking operations that utilize the regular GASNet op sync mechanisms
-   Conduits provide two opaque types: gasneti_eop_t and gasneti_iop_t
+   Conduits provide two opaque scalar types: gasneti_eop_t and gasneti_iop_t
    and the following manipulator functions
  */
 #ifndef _GASNETI_EOP_T
 #define _GASNETI_EOP_T
-typedef const void *gasneti_eop_t;
+struct _gasneti_eop_S;
+typedef const struct _gasneti_eop_S gasneti_eop_t;
 #endif
 
 #ifndef _GASNETI_IOP_T
 #define _GASNETI_IOP_T
-typedef const void *gasneti_iop_t;
+struct _gasneti_iop_S;
+typedef const struct _gasneti_iop_S gasneti_iop_t;
 #endif
 
 /* create a new explicit-handle NB operation

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/04/15 00:15:48 $
- * $Revision: 1.36 $
+ *     $Date: 2006/04/29 10:20:56 $
+ * $Revision: 1.37 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -265,6 +265,7 @@ typedef union {
   #define GASNETE_THREAD_GET          , GASNETE_THREAD_GET_ALONE
   #define GASNETE_THREAD_PASS_ALONE   (_threadinfo)
   #define GASNETE_THREAD_PASS         , GASNETE_THREAD_PASS_ALONE
+  #define GASNETE_THREAD_LOOKUP       GASNETE_THREAD_FARG_ALONE = GASNETE_THREAD_GET_ALONE;
   #define GASNETE_THREAD_SWALLOW(x)
   #define GASNETE_TISTARTOFBITS(ptr,nbytes,ti) GASNETE_STARTOFBITS(ptr,nbytes)
   #define GASNETE_MYTHREAD            ((gasnete_threaddata_t *)_threadinfo)
@@ -275,6 +276,7 @@ typedef union {
   #define GASNETE_THREAD_GET         
   #define GASNETE_THREAD_PASS_ALONE   
   #define GASNETE_THREAD_PASS         
+  #define GASNETE_THREAD_LOOKUP
   #define GASNETE_THREAD_SWALLOW(x)
   #define GASNETE_TISTARTOFBITS       GASNETE_STARTOFBITS
   #define GASNETE_MYTHREAD            (gasnete_mythread())

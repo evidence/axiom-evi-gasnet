@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/04/20 23:06:29 $
- * $Revision: 1.19 $
+ *     $Date: 2006/04/29 10:20:52 $
+ * $Revision: 1.20 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -675,7 +675,7 @@ static void op_test(int id) {
   TEST_HEADER("internal op interface test"); else return;
   for (iter=0; iter < iters0; iter++) {
     int i;
-    static void **share = NULL;
+    static const void **share = NULL;
     int peerid = ( id + 1 ) % num_threads;
 
     PTHREAD_BARRIER(num_threads);
@@ -699,6 +699,7 @@ static void op_test(int id) {
     PTHREAD_BARRIER(num_threads);
     { /* inc the get and put counts on my iop */
       gasneti_iop_t *iop = gasneti_iop_register(1, 0 GASNETE_THREAD_GET);
+        assert_always(iop);
         assert_always(gasnet_try_syncnbi_puts() == GASNET_ERR_NOT_READY);
         assert_always(gasnet_try_syncnbi_gets() == GASNET_OK);
         assert_always(gasnet_try_syncnbi_all() == GASNET_ERR_NOT_READY);
@@ -742,6 +743,7 @@ static void op_test(int id) {
         gasneti_iop_t *peer_iop1, *peer_iop2;
         ASSERT_NBI_SYNCED();
         iop1 = gasneti_iop_register(5, isget GASNETE_THREAD_GET); /* iop1 = 5 */
+        assert_always(iop1);
         ASSERT_NBI_NOTSYNCED();
         PTHREAD_BARRIER(num_threads);
         share[id] = iop1; /* hand-off iop1 to neighbor thread */
@@ -758,6 +760,7 @@ static void op_test(int id) {
 
           gasnet_begin_nbi_accessregion();
           iop2 = gasneti_iop_register(1, isget GASNETE_THREAD_GET); /* iop2 = 1 */
+          assert_always(iop2);
           assert_always(iop2 != iop1);
           PTHREAD_BARRIER(num_threads);
           share[id] = iop2; /* hand-off iop2 to neighbor thread */
