@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
- *     $Date: 2006/04/24 09:25:05 $
- * $Revision: 1.14 $
+ *     $Date: 2006/04/30 02:03:33 $
+ * $Revision: 1.15 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,11 +26,13 @@ gasneti_memveclist_stats_t gasnete_memveclist_stats(size_t count, gasnet_memvec_
   for (i = 0; i < count; i++) {
     size_t const len = list[i].len;
     char * const addr = (char *)list[i].addr;
-    if (len < minsz) minsz = len;
-    if (len > maxsz) maxsz = len;
-    if (addr < minaddr) minaddr = addr;
-    if (addr + len - 1 > maxaddr) maxaddr = addr + len - 1;
-    totalsz += len;
+    if (len > 0) {
+      if (len < minsz) minsz = len;
+      if (len > maxsz) maxsz = len;
+      if (addr < minaddr) minaddr = addr;
+      if (addr + len - 1 > maxaddr) maxaddr = addr + len - 1;
+      totalsz += len;
+    }
   }
   retval.minsz = minsz;
   retval.maxsz = maxsz;

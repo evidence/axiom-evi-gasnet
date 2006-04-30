@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/04/18 13:11:05 $
- * $Revision: 1.88 $
+ *     $Date: 2006/04/30 02:03:35 $
+ * $Revision: 1.89 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -510,6 +510,20 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
     }                                                               \
   } while (0)
 #endif
+
+static int test_collinit = 0;
+#define TEST_COLL_INIT() do {          \
+    if (!test_collinit) {              \
+      gasnet_coll_init(0, 0, 0, 0, 0); \
+      test_collinit = 1;               \
+    }                                  \
+  } while(0)
+/* cheap and simple broadcast operation */
+#define TEST_BCAST(dst, rootid, src, sz) do {                         \
+  TEST_COLL_INIT();                                                   \
+  gasnet_coll_broadcast(0, (dst), (rootid), (src), (sz),              \
+   GASNET_COLL_LOCAL|GASNET_COLL_IN_ALLSYNC|GASNET_COLL_OUT_ALLSYNC); \
+} while (0)
 
 /* ------------------------------------------------------------------------------------ */
 /* standard messages */
