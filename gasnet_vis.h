@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_vis.h,v $
- *     $Date: 2006/04/30 02:03:33 $
- * $Revision: 1.15 $
+ *     $Date: 2006/04/30 08:53:16 $
+ * $Revision: 1.16 $
  * Description: GASNet Extended API Vector, Indexed & Strided declarations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -150,7 +150,7 @@ size_t gasnete_strided_contiguity(size_t const *strides, size_t const *count, si
   gasneti_assert(!gasnete_strided_empty(count,stridelevels)); 
 
   while (limit && count[limit] == 1) limit--; /* ignore null dimensions */
-  if (limit == 0) return stridelevels; /* trivially fully contiguous */
+  if_pf (limit == 0) return stridelevels; /* trivially fully contiguous */
 
   if (strides[0] > count[0]) return 0;
   gasneti_assert(strides[0] == count[0]);
@@ -176,7 +176,7 @@ size_t gasnete_strided_dualcontiguity(size_t const *strides1, size_t const *stri
   gasneti_assert(!gasnete_strided_empty(count,stridelevels)); 
 
   while (limit && count[limit] == 1) limit--; /* ignore null dimensions */
-  if (limit == 0) return stridelevels; /* trivially fully contiguous */
+  if_pf (limit == 0) return stridelevels; /* trivially fully contiguous */
 
   temp = (strides1[0]+strides2[0]);
   if (temp > (count[0]<<1)) {
@@ -246,7 +246,7 @@ GASNETI_INLINE(gasnete_strided_stats)
 void gasnete_strided_stats(gasnete_strided_stats_t *result, 
                            size_t const *dststrides, size_t const *srcstrides, 
                            size_t const *count, size_t stridelevels) {
-  if (stridelevels == 0 && count[0] != 0) {
+  if_pf (stridelevels == 0 && count[0] != 0) {
     size_t const sz = count[0];
     gasneti_assert(!gasnete_strided_empty(count, stridelevels));
     result->srcextent = sz;
