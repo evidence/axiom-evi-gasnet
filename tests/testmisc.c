@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2006/03/31 07:20:09 $
- * $Revision: 1.33 $
+ *     $Date: 2006/04/30 02:24:01 $
+ * $Revision: 1.34 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -397,7 +397,7 @@ void doit7() { GASNET_BEGIN_FUNCTION();
       { gasnet_wait_syncnb(GASNET_INVALID_HANDLE);  });
 
     TIME_OPERATION("do-nothing gasnet_try_syncnb()",
-      { gasnet_try_syncnb(GASNET_INVALID_HANDLE); });
+      { int junk = gasnet_try_syncnb(GASNET_INVALID_HANDLE); });
 
     TIME_OPERATION("do-nothing gasnet_wait_syncnb_all() (8 handles)",
       { gasnet_wait_syncnb_all(handles, 8); });
@@ -421,13 +421,13 @@ void doit7() { GASNET_BEGIN_FUNCTION();
       { gasnet_wait_syncnbi_gets(); });
 
     TIME_OPERATION("do-nothing gasnet_try_syncnbi_all()",
-      { gasnet_try_syncnbi_all(); });
+      { int junk = gasnet_try_syncnbi_all(); });
 
     TIME_OPERATION("do-nothing gasnet_try_syncnbi_puts()",
-      { gasnet_try_syncnbi_puts(); });
+      { int junk = gasnet_try_syncnbi_puts(); });
 
     TIME_OPERATION("do-nothing gasnet_try_syncnbi_gets()",
-      { gasnet_try_syncnbi_gets(); });
+      { int junk = gasnet_try_syncnbi_gets(); });
 
     TIME_OPERATION("do-nothing begin/end nbi accessregion",
       { gasnet_begin_nbi_accessregion();

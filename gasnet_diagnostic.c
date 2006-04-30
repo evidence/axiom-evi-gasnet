@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_diagnostic.c,v $
- *     $Date: 2006/04/29 10:20:52 $
- * $Revision: 1.20 $
+ *     $Date: 2006/04/30 02:23:59 $
+ * $Revision: 1.21 $
  * Description: GASNet internal diagnostics
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -588,7 +588,7 @@ static void progressfn_tester(int *counter) {
       gasnet_put_nbi_bulk(peer, peerseg, myseg, sz);
       gasnet_get_nbi_bulk(myseg, peer, peerseg, sz);
     }
-    gasnet_try_syncnbi_all();
+    sz = gasnet_try_syncnbi_all();
     if (gasneti_diag_havehandlers) {
       for (sz = 1; sz <= MIN(gasnet_AMMaxMedium(),MIN(64*1024,TEST_SEGSZ)); sz = (sz < 64?sz*2:sz*8)) {
         gasnet_AMRequestMedium0(peer, gasneti_diag_hidx_base + 0, myseg, sz);
