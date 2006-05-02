@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 19:03:24 $
- * $Revision: 1.177 $
+ *     $Date: 2006/05/02 19:10:06 $
+ * $Revision: 1.178 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1354,8 +1354,7 @@
               gasneti_local_rmb();                      \
               } while (0)
       GASNETI_INLINE(gasneti_checkout_32)
-      uint32_t gasneti_checkout_32(gasneti_atomic_t *p) {
-        volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+      uint32_t gasneti_checkout_32(gasneti_atomic_t *p,  volatile uint32_t * pctr) {
 	uint32_t retval;
         gasneti_assert(p->initflag == GASNETI_ATOMIC_INIT_MAGIC);
         gasneti_local_wmb();
@@ -1365,8 +1364,8 @@
       }
       GASNETI_INLINE(gasneti_atomic_fetchandadd_32)
       uint32_t gasneti_atomic_fetchandadd_32(gasneti_atomic_t *p, int32_t op) {
-        const uint32_t tmp = gasneti_checkout_32(p);
         volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+        const uint32_t tmp = gasneti_checkout_32(p, pctr);
         *pctr = (GASNETI_ATOMIC_PRESENT | (tmp + op));
         return (tmp & ~GASNETI_ATOMIC_PRESENT);
       }
@@ -1389,7 +1388,7 @@
             gasneti_local_wmb();
             p->initflag = GASNETI_ATOMIC_INIT_MAGIC;
           } else {
-	    (void)gasneti_checkout_32(p);
+	    (void)gasneti_checkout_32(p, pctr);
             *pctr = (GASNETI_ATOMIC_PRESENT | val);
           }
         }
@@ -1409,9 +1408,9 @@
 
       GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
       int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval) {
-        uint32_t tmp = gasneti_checkout_32(p);
-        const int retval = (tmp == (GASNETI_ATOMIC_PRESENT | oldval));
         volatile uint32_t * const pctr = GASNETI_ATOMIC_CTR(p);
+        uint32_t tmp = gasneti_checkout_32(p, pctr);
+        const int retval = (tmp == (GASNETI_ATOMIC_PRESENT | oldval));
         if_pt (retval) {
           tmp = (GASNETI_ATOMIC_PRESENT | newval);
         }
