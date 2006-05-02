@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 02:53:24 $
- * $Revision: 1.174 $
+ *     $Date: 2006/05/02 02:57:25 $
+ * $Revision: 1.175 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -352,7 +352,7 @@
             return __compare_and_swap(&v->ctr, oldval, newval); /* Polymorphic */
           }
         #else
-	  /* TODO: No "other" complier support yet */
+	  /* TODO: No "other" compiler support yet */
         #endif
       #endif /* 64-bit available */
       
@@ -402,7 +402,7 @@
 	   (InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (oval))
       #define _gasneti_atomic32_fetchadd(p, op) InterlockedExchangeAdd((LONG *)&((p)->ctr), op)
 
-      #if (SIZEOF_VOID_P == 8) /* TODO: configure-time probe for these */
+      #if (SIZEOF_VOID_P == 8) /* TODO: Identify ILP32 running on 64-bit CPU */
         #define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_increment(p) InterlockedIncrement64((LONGLONG *)&((p)->ctr))
@@ -1074,8 +1074,8 @@
            * This is more complex than one might expect, because the ILP32 ABI puts 64-bit
            * types in 2 adjacent regs while the casx instruction needs them in a single register.
            * TODO: There should be a way to avoid needing 2 pairs of 32-bits regs, if only we
-           * had a way to reference the upper and lower halfs of oldval and newval such that
-           * gcc just used the registers already holding them.
+           * had a way to reference the upper and lower halves of oldval and newval such that
+           * gcc just used the registers already holding them (even if not in a "U" pair).
            */
           GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
           int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *v, uint64_t oldval, uint64_t newval) {
