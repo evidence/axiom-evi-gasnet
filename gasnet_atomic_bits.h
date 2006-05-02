@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 19:41:17 $
- * $Revision: 1.179 $
+ *     $Date: 2006/05/02 21:02:04 $
+ * $Revision: 1.180 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1596,7 +1596,7 @@
 	"7ca32b78"	/*    mr	r3,r5		*/ \
 	/* RETURN in r3 = result after addition */ \
       }
-      #pragma reg_killed_by _gasneti_atomic32_addfetch cr0, gr5
+      #pragma reg_killed_by _gasneti_atomic32_addfetch cr0, gr4, gr5
       #define _gasneti_atomic32_addfetch _gasneti_atomic32_addfetch
 
       #if (SIZEOF_VOID_P == 8) /* TODO: Identify ILP32 running on 64-bit CPU */
