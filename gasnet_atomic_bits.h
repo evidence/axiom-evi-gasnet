@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 02:40:55 $
- * $Revision: 1.173 $
+ *     $Date: 2006/05/02 02:53:24 $
+ * $Revision: 1.174 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1073,26 +1073,25 @@
           /* ILP32 on a 64-bit CPU.
            * This is more complex than one might expect, because the ILP32 ABI puts 64-bit
            * types in 2 adjacent regs while the casx instruction needs them in a single register.
+           * TODO: There should be a way to avoid needing 2 pairs of 32-bits regs, if only we
+           * had a way to reference the upper and lower halfs of oldval and newval such that
+           * gcc just used the registers already holding them.
            */
           GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
           int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *v, uint64_t oldval, uint64_t newval) {
             register volatile uint64_t * addr = (volatile uint64_t *)&(v->ctr);
-            register uint32_t oldlo = (uint32_t)oldval;
-            register uint32_t oldhi = (uint32_t)(oldval >> 32);
-            register uint32_t newlo = (uint32_t)newval;
-            register uint32_t newhi = (uint32_t)(newval >> 32);
 	    register int retval, tmp;
             __asm__ __volatile__ ( 
-		"sllx	%0,32,%0	\n\t"	/* retval = newhi << 32 */
-		"sllx	%1,32,%1	\n\t"	/* tmp = oldhi << 32 */
-		"or	%0,%6,%0	\n\t"	/* retval |= newlo */
-		"or	%1,%8,%1	\n\t"	/* tmp |= oldlo */
+		"sllx	%H5,32,%0	\n\t"	/* retval = HI(new) << 32 */
+		"sllx	%H6,32,%1	\n\t"	/* tmp = HI(old) << 32 */
+		"or	%0,%L5,%0	\n\t"	/* retval |= LO(new) */
+		"or	%1,%L6,%1	\n\t"	/* tmp |= LO(old) */
 		"casx	[%3],%1,%0	\n\t"	/* atomic CAS, with read value -> retval */
 		"xor	%1,%0,%1	\n\t"	/* tmp = 0 IFF retval == tmp */
 		"cmp	%%g0,%1		\n\t"	/* set/clear carry bit */
 		"subx	%%g0,-1,%0"		/* yield retval = 0 or 1 */
-		: "=h"(retval), "=h"(tmp), "=m"(*addr)
-		: "r"(addr), "m"(*addr), "0"(newhi), "r"(newlo), "1"(oldhi), "r"(oldlo) );
+		: "=h"(retval), "=h"(tmp), "=m"(*addr)			/* 'h' = 64bit 'o' or 'g' reg */
+		: "r"(addr), "m"(*addr), "U"(newval), "U"(oldval) );	/* 'U' = pair of 32-bit regs */
             return retval;
           }
 	#endif
@@ -1130,13 +1129,30 @@
 		/* Retval = oldval						*/	\
 		     "mov	%i5, %i0" )
 
-        #define GASNETI_ATOMIC_SPECIALS                                      \
+        #define GASNETI_HAVE_ATOMIC64_T 1
+	typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+	#define _gasneti_atomic64_init(v)      { (v) }
+        #define _gasneti_atomic64_read(p)      ((p)->ctr)
+        #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
+
+        #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY /* see gcc asm, above, for more detail */ \
+	    GASNETI_ASM(								\
+		     "sllx	%i3, 32, %o1		\n\t"				\
+		     "sllx	%i1, 32, %g1		\n\t"				\
+		     "or	%o1, %i4, %o1		\n\t"				\
+		     "or	%g1, %i2, %g1		\n\t"				\
+		     "casx	[%i0], %g1, %o1		\n\t"				\
+		     "xor	%g1, %o1, %g1		\n\t"				\
+		     "cmp	%g0, %g1		\n\t"				\
+		     "subc	%g0, -1, %i0" )
+
+        #define GASNETI_ATOMIC_SPECIALS                                        \
 	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_compare_and_swap, \
 				   GASNETI_ATOMIC32_COMPARE_AND_SWAP_BODY)     \
 	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_fetchadd,         \
-				   GASNETI_ATOMIC32_FETCHADD_BODY)
-
-	/* TODO: 64-bit support */
+				   GASNETI_ATOMIC32_FETCHADD_BODY)             \
+	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
+				   GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)     \
 
 	/* Using default fences, as our asm includes none */
       #else
