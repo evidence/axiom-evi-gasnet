@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 00:59:47 $
- * $Revision: 1.171 $
+ *     $Date: 2006/05/02 01:20:20 $
+ * $Revision: 1.172 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -586,7 +586,7 @@
       #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
 
       /* 64-bit differ between x86 and amd64: */
-      #if defined(__x86_64__) || defined(__amd64) || /* x86 and Athlon/Opteron */ \
+      #if defined(__x86_64__) || defined(__amd64) /* x86 and Athlon/Opteron */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
           register unsigned char retval;
