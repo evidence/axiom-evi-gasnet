@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 19:10:06 $
- * $Revision: 1.178 $
+ *     $Date: 2006/05/02 19:41:17 $
+ * $Revision: 1.179 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -582,11 +582,11 @@
       }
       #define _gasneti_atomic32_fetchadd gasneti_atomic32_fetchadd
 
-      #define _gasneti_atomic64_read(p)      ((p)->ctr)
-      #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
-
       /* 64-bit differ between x86 and amd64: */
       #if defined(__x86_64__) || defined(__amd64) /* x86 and Athlon/Opteron */
+        #define _gasneti_atomic64_read(p)      ((p)->ctr)
+        #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
+
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
           register unsigned char retval;
@@ -601,6 +601,11 @@
           return (int)retval;
         }
       #else
+	/* To perform read and set atomically on x86 requires use of the locked
+	 * 8-byte c-a-s instruction.  This is the only atomic 64-bit operation
+	 * available on this architecture.  Note that we need the lock prefix
+	 * even on a uniprocessor to ensure that we are signal safe.
+	 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
           register uint64_t readval;
@@ -614,6 +619,22 @@
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return retval;
         }
+	/* No current way to indicate that 64-bit read and set are fully fenced w/o also
+	 * implying that the 32-bit ones are.  So, we are defining the non _-prefix versions.
+	 */
+        GASNETI_INLINE(gasneti_atomic64_set)
+        void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
+	  uint64_t oldval;
+	  do { oldval = p->ctr; } while (!_gasneti_atomic64_compare_and_swap(p, oldval, v));
+	}
+	#define gasneti_atomic64_set gasneti_atomic64_set
+        GASNETI_INLINE(gasneti_atomic64_read)
+        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
+	  uint64_t retval;
+	  do { retval = p->ctr; } while (!_gasneti_atomic64_compare_and_swap(p, retval, retval));
+	  return retval;
+	}
+	#define gasneti_atomic64_read gasneti_atomic64_read
       #endif
 
       /* x86 and x86_64 include full memory fence in locked RMW insns */
