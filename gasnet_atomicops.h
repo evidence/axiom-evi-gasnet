@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/01 21:02:42 $
- * $Revision: 1.167 $
+ *     $Date: 2006/05/02 00:37:06 $
+ * $Revision: 1.168 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -689,7 +689,7 @@
   #ifndef gasneti_atomic32_read
     GASNETI_ATOMIC_FENCED_READ_DEFN(gasneti_atomic32_read,gasneti_atomic32_)
   #endif
-  #if defined(gasneti_atomic32_compare_and_swap)
+  #ifndef gasneti_atomic32_compare_and_swap
     GASNETI_ATOMIC_FENCED_CAS_DEFN(gasneti_atomic32_compare_and_swap,gasneti_atomic32_)
   #endif
 #endif
@@ -706,7 +706,7 @@
   #ifndef gasneti_atomic64_read
     GASNETI_ATOMIC_FENCED_READ_DEFN(gasneti_atomic64_read,gasneti_atomic64_)
   #endif
-  #if defined(gasneti_atomic64_compare_and_swap)
+  #ifndef gasneti_atomic64_compare_and_swap
     GASNETI_ATOMIC_FENCED_CAS_DEFN(gasneti_atomic64_compare_and_swap,gasneti_atomic64_)
   #endif
 #endif
