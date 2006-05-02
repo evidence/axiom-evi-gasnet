@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 02:57:25 $
- * $Revision: 1.175 $
+ *     $Date: 2006/05/02 18:48:07 $
+ * $Revision: 1.176 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -733,12 +733,12 @@
 
       #define GASNETI_HAVE_ATOMIC64_T
       typedef struct { volatile __int64 ctr; } gasneti_atomic64_t;
-      #define _gasneti_atomic32_increment(p) __fetchadd8_acq((unsigned int *)&((p)->ctr),1)
-      #define _gasneti_atomic32_decrement(p) __fetchadd8_acq((unsigned int *)&((p)->ctr),-1)
-      #define _gasneti_atomic32_read(p)      ((p)->ctr)
-      #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
-      #define _gasneti_atomic32_init(v)      { (v) }
-      #define _gasneti_atomic32_decrement_and_test(p) \
+      #define _gasneti_atomic64_increment(p) __fetchadd8_acq((unsigned int *)&((p)->ctr),1)
+      #define _gasneti_atomic64_decrement(p) __fetchadd8_acq((unsigned int *)&((p)->ctr),-1)
+      #define _gasneti_atomic64_read(p)      ((p)->ctr)
+      #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
+      #define _gasneti_atomic64_init(v)      { (v) }
+      #define _gasneti_atomic64_decrement_and_test(p) \
                     (__fetchadd8_acq((unsigned int *)&((p)->ctr),-1) == 1)
       #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
                     (_InterlockedCompareExchange64_acq((volatile __int64 *)&((p)->ctr),nval,oval) == (oval))
@@ -766,7 +766,7 @@
       }
 
       GASNETI_INLINE(gasneti_atomic64_cmpxchg)
-      uint64_t gasneti_cmpxchg(int64_t volatile *ptr, uint64_t oldval, uint64_t newval) {
+      uint64_t gasneti_atomic64_cmpxchg(int64_t volatile *ptr, uint64_t oldval, uint64_t newval) {
         uint64_t tmp = oldval;
         __asm__ __volatile__ ("mov ar.ccv=%0;;" :: "rO"(tmp));
         __asm__ __volatile__ ("cmpxchg8.acq %0=[%1],%2,ar.ccv" : "=r"(tmp) : "r"(ptr), "r"(newval) );
