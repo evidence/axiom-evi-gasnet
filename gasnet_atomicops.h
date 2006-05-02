@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/02 19:06:12 $
- * $Revision: 1.169 $
+ *     $Date: 2006/05/02 20:21:10 $
+ * $Revision: 1.170 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -799,6 +799,24 @@
     #define gasneti_weakatomic_add(p,op,f)            gasneti_atomic_add(p,op,f)
     #define gasneti_weakatomic_subtract(p,op,f)       gasneti_atomic_subtract(p,op,f)
   #endif
+  #ifdef GASNETI_HAVE_ATOMIC32_T
+    #define GASNETI_HAVE_WEAKATOMIC32_T 1
+    typedef gasneti_atomic32_t gasneti_weakatomic32_t;
+    #define gasneti_weakatomic32_init(v)              gasneti_atomic32_init(v)
+    #define gasneti_weakatomic32_set(p,v,f)           gasneti_atomic32_set(p,v,f)
+    #define gasneti_weakatomic32_read(p,f)            gasneti_atomic32_read(p,f)
+    #define gasneti_weakatomic32_compare_and_swap(p,oldval,newval,f)  \
+            gasneti_atomic32_compare_and_swap(p,oldval,newval,f)
+  #endif
+  #ifdef GASNETI_HAVE_ATOMIC64_T
+    #define GASNETI_HAVE_WEAKATOMIC64_T 1
+    typedef gasneti_atomic64_t gasneti_weakatomic64_t;
+    #define gasneti_weakatomic64_init(v)              gasneti_atomic64_init(v)
+    #define gasneti_weakatomic64_set(p,v,f)           gasneti_atomic64_set(p,v,f)
+    #define gasneti_weakatomic64_read(p,f)            gasneti_atomic64_read(p,f)
+    #define gasneti_weakatomic64_compare_and_swap(p,oldval,newval,f)  \
+            gasneti_atomic64_compare_and_swap(p,oldval,newval,f)
+  #endif
 #else
   /* May not need any exclusion mechanism, but we still want to include any fences that
      the caller has requested, since any memory in the gasnet segment "protected" by a
@@ -881,6 +899,61 @@
       return retval;
     }
   }
+
+  #define GASNETI_HAVE_WEAKATOMIC32_T 1
+  typedef volatile uint32_t gasneti_weakatomic32_t;
+  #define gasneti_weakatomic32_init(v)                  (v)
+  #define gasneti_weakatomic32_set(p,v,f) do {               \
+    const int __flags = (f);                                 \
+    _gasneti_weakatomic_fence_before(__flags)  /* no semi */ \
+    (*(p) = (v));                                            \
+    _gasneti_weakatomic_fence_after(__flags)  /* no semi */  \
+  } while (0)
+  GASNETI_INLINE(gasneti_weakatomic32_read)
+  int gasneti_weakatomic32_read(gasneti_weakatomic32_t *p, const int flags) {
+    _gasneti_weakatomic_fence_before(flags)  /* no semi */
+    { const int retval = *(p);
+      _gasneti_weakatomic_fence_after(flags)  /* no semi */
+      return retval;
+    }
+  }
+  GASNETI_INLINE(gasneti_weakatomic32_compare_and_swap)
+  int gasneti_weakatomic32_compare_and_swap(gasneti_weakatomic32_t *p, uint32_t oldval, uint32_t newval, const int flags) {
+    _gasneti_weakatomic_fence_before(flags)  /* no semi */
+    { const int retval = (((uint32_t)*p == oldval) ? (*p = newval, 1) : 0);
+      _gasneti_weakatomic_fence_after_bool(flags, retval)  /* no semi */
+      return retval;
+    }
+  }
+  
+  /* XXX: Fix this.  We need/want more info from gasnet_atomic_bits.h */
+  #if (SIZEOF_VOID_P == 8) /* !! Otherwise we can't know if 8-byte read/write are signal-safe */
+    #define GASNETI_HAVE_WEAKATOMIC64_T 1
+    typedef volatile uint64_t gasneti_weakatomic64_t;
+    #define gasneti_weakatomic64_init(v)                  (v)
+    #define gasneti_weakatomic64_set(p,v,f) do {               \
+      const int __flags = (f);                                 \
+      _gasneti_weakatomic_fence_before(__flags)  /* no semi */ \
+      (*(p) = (v));                                            \
+      _gasneti_weakatomic_fence_after(__flags)  /* no semi */  \
+    } while (0)
+    GASNETI_INLINE(gasneti_weakatomic64_read)
+    int gasneti_weakatomic64_read(gasneti_weakatomic64_t *p, const int flags) {
+      _gasneti_weakatomic_fence_before(flags)  /* no semi */
+      { const int retval = *(p);
+        _gasneti_weakatomic_fence_after(flags)  /* no semi */
+        return retval;
+      }
+    }
+    GASNETI_INLINE(gasneti_weakatomic64_compare_and_swap)
+    int gasneti_weakatomic64_compare_and_swap(gasneti_weakatomic64_t *p, uint64_t oldval, uint64_t newval, const int flags) {
+      _gasneti_weakatomic_fence_before(flags)  /* no semi */
+      { const int retval = (((uint64_t)*p == oldval) ? (*p = newval, 1) : 0);
+        _gasneti_weakatomic_fence_after_bool(flags, retval)  /* no semi */
+        return retval;
+      }
+    }
+  #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */
