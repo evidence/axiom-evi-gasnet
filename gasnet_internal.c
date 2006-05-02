@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/05/02 02:40:55 $
- * $Revision: 1.158 $
+ *     $Date: 2006/05/02 02:41:23 $
+ * $Revision: 1.159 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1479,6 +1479,3 @@ extern char *_gasneti_extern_strndup(const char *s, size_t n GASNETI_CURLOCFARG)
 #endif
 
 /* don't put anything here - malloc stuff must come last */
-extern int foo(gasneti_atomic64_t *p, uint64_t old, uint64_t new) {
-  return _gasneti_atomic64_compare_and_swap(p,old,new);
-}
