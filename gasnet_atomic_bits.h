@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 01:20:20 $
- * $Revision: 1.172 $
+ *     $Date: 2006/05/02 02:40:55 $
+ * $Revision: 1.173 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -603,20 +603,16 @@
       #else
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-           register uint32_t oldlo = (uint32_t)oldval;
-           register uint32_t oldhi = (uint32_t)(oldval >> 32);
-           register uint32_t newlo = (uint32_t)newval;
-           register uint32_t newhi = (uint32_t)(newval >> 32);
-           __asm__ __volatile__ (
+          register uint64_t readval;
+	  unsigned char retval;
+          __asm__ __volatile__ (
 		    GASNETI_X86_LOCK_PREFIX
 		    "cmpxchg8b	%0	\n\t"
-		    "sete		%b1	\n\t"
-		    "movzbl		%b1,%1"
-		    : "=m" (*p), "+a" (oldlo), "+d" (oldhi)
-		    : "b" (newlo), "c" (newhi), "m" (*p)
+		    "sete	%2	"
+		    : "=m" (*p), "=A" (readval), "=mq" (retval)
+		    : "A" (oldval), "b" ((uint32_t)newval), "c" ((uint32_t)(newval >> 32)), "m" (*p)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-           /* result in %eax (oldlo), for lack of available registers */
-           return (int)oldlo;
+          return retval;
         }
       #endif
 
