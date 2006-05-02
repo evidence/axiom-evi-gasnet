@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/02 00:37:06 $
- * $Revision: 1.168 $
+ *     $Date: 2006/05/02 19:06:12 $
+ * $Revision: 1.169 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -780,6 +780,8 @@
  */
 #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
   typedef gasneti_atomic_t gasneti_weakatomic_t;
+  typedef gasneti_atomic_val_t gasneti_weakatomic_val_t;
+  typedef gasneti_atomic_sval_t gasneti_weakatomic_sval_t;
   #define gasneti_weakatomic_init(v)                  gasneti_atomic_init(v)
   #define gasneti_weakatomic_signed(v)                gasneti_atomic_signed(v)
   #define gasneti_weakatomic_set(p,v,f)               gasneti_atomic_set(p,v,f)
@@ -802,7 +804,21 @@
      the caller has requested, since any memory in the gasnet segment "protected" by a
      fenced atomic may be written by a network adapter.
    */
-  typedef volatile gasneti_atomic_val_t gasneti_weakatomic_t;
+  #if defined(GASNETI_FORCE_64BIT_ATOMICOPS)
+    typedef volatile uint64_t gasneti_weakatomic_t;
+    typedef uint64_t gasneti_weakatomic_val_t;
+    typedef int64_t gasneti_weakatomic_sval_t;
+    #define GASNETI_WEAKATOMIC_MAX            ((gasneti_weakatomic_val_t)0xFFFFFFFFFFFFFFFFLLU)
+    #define GASNETI_WEAKATOMIC_SIGNED_MIN     ((gasneti_weakatomic_sval_t)0x8000000000000000LL)
+    #define GASNETI_WEAKATOMIC_SIGNED_MAX     ((gasneti_weakatomic_sval_t)0x7FFFFFFFFFFFFFFFLL)
+  #else
+    typedef volatile uint32_t gasneti_weakatomic_t;
+    typedef uint32_t gasneti_weakatomic_val_t;
+    typedef int32_t gasneti_weakatomic_sval_t;
+    #define GASNETI_WEAKATOMIC_MAX            ((gasneti_weakatomic_val_t)0xFFFFFFFFU)
+    #define GASNETI_WEAKATOMIC_SIGNED_MIN     ((gasneti_weakatomic_sval_t)0x80000000)
+    #define GASNETI_WEAKATOMIC_SIGNED_MAX     ((gasneti_weakatomic_sval_t)0x7FFFFFFF)
+  #endif
   #define gasneti_weakatomic_init(v)                  (v)
   #define gasneti_weakatomic_signed(v)                gasneti_atomic_signed(v)
   #define gasneti_weakatomic_set(p,v,f) do {                 \
@@ -841,26 +857,26 @@
   }
   #define GASNETI_HAVE_WEAKATOMIC_CAS 1
   GASNETI_INLINE(gasneti_weakatomic_compare_and_swap)
-  int gasneti_weakatomic_compare_and_swap(gasneti_weakatomic_t *p, gasneti_atomic_val_t oldval, gasneti_atomic_val_t newval, const int flags) {
+  int gasneti_weakatomic_compare_and_swap(gasneti_weakatomic_t *p, gasneti_weakatomic_val_t oldval, gasneti_weakatomic_val_t newval, const int flags) {
     _gasneti_weakatomic_fence_before(flags)  /* no semi */
-    { const int retval = (((gasneti_atomic_val_t)*p == oldval) ? (*p = newval, 1) : 0);
+    { const int retval = (((gasneti_weakatomic_val_t)*p == oldval) ? (*p = newval, 1) : 0);
       _gasneti_weakatomic_fence_after_bool(flags, retval)  /* no semi */
       return retval;
     }
   }
   #define GASNETI_HAVE_WEAKATOMIC_ADD_SUB 1
   GASNETI_INLINE(gasneti_weakatomic_add)
-  gasneti_atomic_val_t gasneti_weakatomic_add(gasneti_weakatomic_t *p, gasneti_atomic_sval_t op, const int flags) {
+  gasneti_weakatomic_val_t gasneti_weakatomic_add(gasneti_weakatomic_t *p, gasneti_weakatomic_sval_t op, const int flags) {
     _gasneti_weakatomic_fence_before(flags)  /* no semi */
-    { const gasneti_atomic_val_t retval = *(gasneti_atomic_val_t *)(p) += (op);
+    { const gasneti_weakatomic_val_t retval = *(gasneti_weakatomic_val_t *)(p) += (op);
       _gasneti_weakatomic_fence_after(flags)  /* no semi */
       return retval;
     }
   }
   GASNETI_INLINE(gasneti_weakatomic_subtract)
-  gasneti_atomic_val_t gasneti_weakatomic_subtract(gasneti_weakatomic_t *p, gasneti_atomic_sval_t op, const int flags) {
+  gasneti_weakatomic_val_t gasneti_weakatomic_subtract(gasneti_weakatomic_t *p, gasneti_weakatomic_sval_t op, const int flags) {
     _gasneti_weakatomic_fence_before(flags)  /* no semi */
-    { const gasneti_atomic_val_t retval = *(gasneti_atomic_val_t *)(p) -= (op);
+    { const gasneti_weakatomic_val_t retval = *(gasneti_weakatomic_val_t *)(p) -= (op);
       _gasneti_weakatomic_fence_after(flags)  /* no semi */
       return retval;
     }
