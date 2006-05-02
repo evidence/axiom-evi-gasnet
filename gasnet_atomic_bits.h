@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 18:48:07 $
- * $Revision: 1.176 $
+ *     $Date: 2006/05/02 19:03:24 $
+ * $Revision: 1.177 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -251,7 +251,7 @@
    * which should work regardless of the compiler's inline assembly support.
    * ------------------------------------------------------------------------------------ */
   #if defined(AIX)
-      #define GASNETI_HAVE_ATOMIC32_T
+      #define GASNETI_HAVE_ATOMIC32_T 1
       #include <sys/atomic_op.h>
       typedef struct { volatile unsigned int ctr; } gasneti_atomic32_t;
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
@@ -268,7 +268,7 @@
 
       /* No syncs in these calls, so use default fences */
   #elif defined(IRIX)
-      #define GASNETI_HAVE_ATOMIC32_T
+      #define GASNETI_HAVE_ATOMIC32_T 1
       #include <mutex.h>
       #include <ulocks.h>
       typedef __uint32_t gasneti_atomic32_t;
@@ -318,7 +318,7 @@
 
       #if (SIZEOF_VOID_P == 8) || (defined(_MIPS_ISA) && (_MIPS_ISA >= 3) /* 64-bit capable CPU */)
         #if defined(__GNUC__)
-          #define GASNETI_HAVE_ATOMIC64_T
+          #define GASNETI_HAVE_ATOMIC64_T 1
           typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
           #define _gasneti_atomic64_read(p)      ((p)->ctr)
           #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
@@ -341,7 +341,7 @@
 	    return retval;
           }
         #elif defined(_SGI_COMPILER_VERSION)
-          #define GASNETI_HAVE_ATOMIC64_T
+          #define GASNETI_HAVE_ATOMIC64_T 1
           typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
           #define _gasneti_atomic64_read(p)      ((p)->ctr)
           #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
@@ -493,11 +493,11 @@
       defined(__i586__) || defined(__i586) || defined(i586) || \
       defined(__i686__) || defined(__i686) || defined(i686)
     #if defined(__GNUC__) || defined(__INTEL_COMPILER) || defined(__PATHCC__) || defined(PGI_WITH_REAL_ASM)
-     #define GASNETI_HAVE_ATOMIC32_T
+     #define GASNETI_HAVE_ATOMIC32_T 1
      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
      #define _gasneti_atomic32_init(v)      { (v) }
 
-     #define GASNETI_HAVE_ATOMIC64_T
+     #define GASNETI_HAVE_ATOMIC64_T 1
      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
      #define _gasneti_atomic64_init(v)      { (v) }
 
@@ -633,7 +633,7 @@
 	#define _gasneti_atomic_load_arg2	"movl 16(%ebp), %edx	\n\t"
       #endif
 
-      #define GASNETI_HAVE_ATOMIC32_T
+      #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define _gasneti_atomic32_init(v)      { (v) }
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
@@ -719,7 +719,7 @@
       /* Intel compiler's inline assembly broken on Itanium (bug 384) - use intrinsics instead */
       #include <ia64intrin.h>
 
-      #define GASNETI_HAVE_ATOMIC32_T
+      #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define _gasneti_atomic32_increment(p) __fetchadd4_acq((unsigned int *)&((p)->ctr),1)
       #define _gasneti_atomic32_decrement(p) __fetchadd4_acq((unsigned int *)&((p)->ctr),-1)
@@ -731,7 +731,7 @@
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
                     (_InterlockedCompareExchange_acq((volatile unsigned int *)&((p)->ctr),nval,oval) == (oval))
 
-      #define GASNETI_HAVE_ATOMIC64_T
+      #define GASNETI_HAVE_ATOMIC64_T 1
       typedef struct { volatile __int64 ctr; } gasneti_atomic64_t;
       #define _gasneti_atomic64_increment(p) __fetchadd8_acq((unsigned int *)&((p)->ctr),1)
       #define _gasneti_atomic64_decrement(p) __fetchadd8_acq((unsigned int *)&((p)->ctr),-1)
@@ -785,7 +785,7 @@
         return result;
       }
 
-      #define GASNETI_HAVE_ATOMIC32_T
+      #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile int32_t ctr; } gasneti_atomic32_t;
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
@@ -796,7 +796,7 @@
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
         (gasneti_atomic32_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
 
-      #define GASNETI_HAVE_ATOMIC64_T
+      #define GASNETI_HAVE_ATOMIC64_T 1
       typedef struct { volatile int64_t ctr; } gasneti_atomic64_t;
       #define _gasneti_atomic64_read(p)      ((p)->ctr)
       #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
@@ -839,7 +839,7 @@
         return result;
       }
 
-      #define GASNETI_HAVE_ATOMIC32_T
+      #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
@@ -850,7 +850,7 @@
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
         (gasneti_atomic32_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
 
-      #define GASNETI_HAVE_ATOMIC64_T
+      #define GASNETI_HAVE_ATOMIC64_T 1
       typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
       #define _gasneti_atomic64_read(p)      ((p)->ctr)
       #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
@@ -1439,7 +1439,7 @@
     #define gasneti_atomic_presync()  ((void)0)
     #define gasneti_atomic_postsync()  _gsync(0x1)
 
-    #define GASNETI_HAVE_ATOMIC64_T
+    #define GASNETI_HAVE_ATOMIC64_T 1
     typedef volatile unsigned long gasneti_atomic64_t;
 
     #define _gasneti_atomic64_increment(p)	\
@@ -1676,7 +1676,7 @@
     #endif
   #elif defined(__mips__) || defined(__mips) || defined(mips) || defined(_MIPS_ISA)
     #if defined(__GNUC__)
-      #define GASNETI_HAVE_ATOMIC32_T
+      #define GASNETI_HAVE_ATOMIC32_T 1
       typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_init(v)      { (v) }
@@ -1741,7 +1741,7 @@
       }
 
       #if (SIZEOF_VOID_P == 8) || (defined(_MIPS_ISA) && (_MIPS_ISA >= 3) /* 64-bit capable CPU */)
-        #define GASNETI_HAVE_ATOMIC64_T
+        #define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_read(p)      ((p)->ctr)
         #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
