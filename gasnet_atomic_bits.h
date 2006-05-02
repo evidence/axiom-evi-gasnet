@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 00:37:06 $
- * $Revision: 1.170 $
+ *     $Date: 2006/05/02 00:59:47 $
+ * $Revision: 1.171 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -402,18 +402,20 @@
 	   (InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (oval))
       #define _gasneti_atomic32_fetchadd(p, op) InterlockedExchangeAdd((LONG *)&((p)->ctr), op)
 
-      #define GASNETI_HAVE_ATOMIC64_T 1
-      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
-      #define _gasneti_atomic64_increment(p) InterlockedIncrement64((LONGLONG *)&((p)->ctr))
-      #define _gasneti_atomic64_decrement(p) InterlockedDecrement64((LONGLONG *)&((p)->ctr))
-      #define _gasneti_atomic64_read(p)      ((p)->ctr)
-      #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
-      #define _gasneti_atomic64_init(v)      { (v) }
-      #define _gasneti_atomic64_decrement_and_test(p) \
+      #if (SIZEOF_VOID_P == 8) /* TODO: configure-time probe for these */
+        #define GASNETI_HAVE_ATOMIC64_T 1
+        typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+        #define _gasneti_atomic64_increment(p) InterlockedIncrement64((LONGLONG *)&((p)->ctr))
+        #define _gasneti_atomic64_decrement(p) InterlockedDecrement64((LONGLONG *)&((p)->ctr))
+        #define _gasneti_atomic64_read(p)      ((p)->ctr)
+        #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
+        #define _gasneti_atomic64_init(v)      { (v) }
+        #define _gasneti_atomic64_decrement_and_test(p) \
                                           (InterlockedDecrement64((LONGLONG *)&((p)->ctr)) == 0)
-      #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
-	   (InterlockedCompareExchange64((LONGLONG *)&((p)->ctr),nval,oval) == (oval))
-      #define _gasneti_atomic64_fetchadd(p, op) InterlockedExchangeAdd64((LONGLONG *)&((p)->ctr), op)
+        #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
+	     (InterlockedCompareExchange64((LONGLONG *)&((p)->ctr),nval,oval) == (oval))
+        #define _gasneti_atomic64_fetchadd(p, op) InterlockedExchangeAdd64((LONGLONG *)&((p)->ctr), op)
+      #endif
 
       /* MSDN docs ensure memory fence in these calls, even on ia64 */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
