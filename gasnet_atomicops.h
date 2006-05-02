@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/02 20:21:10 $
- * $Revision: 1.170 $
+ *     $Date: 2006/05/02 21:48:58 $
+ * $Revision: 1.171 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -170,27 +170,51 @@
   /* Required parts: */
   #define gasneti_atomic_t			gasneti_atomic32_t
   #define _gasneti_atomic_init			_gasneti_atomic32_init
-  #define _gasneti_atomic_set			_gasneti_atomic32_set
-  #define _gasneti_atomic_read			_gasneti_atomic32_read
-  #define _gasneti_atomic_compare_and_swap	_gasneti_atomic32_compare_and_swap
+  #ifdef gasneti_atomic32_set
+    #define gasneti_atomic_set			gasneti_atomic32_set
+  #else
+    #define _gasneti_atomic_set			_gasneti_atomic32_set
+  #endif
+  #ifdef gasneti_atomic32_read
+    #define gasneti_atomic_read			gasneti_atomic32_read
+  #else
+    #define _gasneti_atomic_read		_gasneti_atomic32_read
+  #endif
+  #ifdef gasneti_atomic32_compare_and_swap
+    #define gasneti_atomic_compare_and_swap	gasneti_atomic32_compare_and_swap
+  #else
+    #define _gasneti_atomic_compare_and_swap	_gasneti_atomic32_compare_and_swap
+  #endif
   #define GASNETI_HAVE_ATOMIC_CAS		1
 
   /* Optional parts: */
-  #ifdef _gasneti_atomic32_increment
+  #if defined(gasneti_atomic32_increment)
+    #define gasneti_atomic_increment		gasneti_atomic32_increment
+  #elif defined(_gasneti_atomic32_increment)
     #define _gasneti_atomic_increment		_gasneti_atomic32_increment
   #endif
-  #ifdef _gasneti_atomic32_decrement
+  #if defined(gasneti_atomic32_decrement)
+    #define gasneti_atomic_decrement		gasneti_atomic32_decrement
+  #elif defined(_gasneti_atomic32_decrement)
     #define _gasneti_atomic_decrement		_gasneti_atomic32_decrement
   #endif
-  #ifdef _gasneti_atomic32_decrement_and_test
+  #if defined(gasneti_atomic32_decrement_and_test)
+    #define gasneti_atomic_decrement_and_test	gasneti_atomic32_decrement_and_test
+  #elif defined(_gasneti_atomic32_decrement_and_test)
     #define _gasneti_atomic_decrement_and_test	_gasneti_atomic32_decrement_and_test
   #endif
-  #ifdef _gasneti_atomic32_add
+  #if defined(gasneti_atomic32_add)
+    #define gasneti_atomic_add			gasneti_atomic32_add
+  #elif defined(_gasneti_atomic32_add)
     #define _gasneti_atomic_add			_gasneti_atomic32_add
   #endif
-  #ifdef _gasneti_atomic32_subtract
+  #if defined(gasneti_atomic32_subtract)
+    #define gasneti_atomic_subtract		gasneti_atomic32_subtract
+  #elif defined(_gasneti_atomic32_subtract)
     #define _gasneti_atomic_subtract		_gasneti_atomic32_subtract
   #endif
+
+  /* Optional internal parts: */
   #ifdef _gasneti_atomic32_addfetch
     #define _gasneti_atomic_addfetch		_gasneti_atomic32_addfetch
   #endif
@@ -207,27 +231,51 @@
   /* Required parts: */
   #define gasneti_atomic_t			gasneti_atomic64_t
   #define _gasneti_atomic_init			_gasneti_atomic64_init
-  #define _gasneti_atomic_set			_gasneti_atomic64_set
-  #define _gasneti_atomic_read			_gasneti_atomic64_read
-  #define _gasneti_atomic_compare_and_swap	_gasneti_atomic64_compare_and_swap
+  #ifdef gasneti_atomic64_set
+    #define gasneti_atomic_set			gasneti_atomic64_set
+  #else
+    #define _gasneti_atomic_set			_gasneti_atomic64_set
+  #endif
+  #ifdef gasneti_atomic64_read
+    #define gasneti_atomic_read			gasneti_atomic64_read
+  #else
+    #define _gasneti_atomic_read		_gasneti_atomic64_read
+  #endif
+  #ifdef gasneti_atomic64_compare_and_swap
+    #define gasneti_atomic_compare_and_swap	gasneti_atomic64_compare_and_swap
+  #else
+    #define _gasneti_atomic_compare_and_swap	_gasneti_atomic64_compare_and_swap
+  #endif
   #define GASNETI_HAVE_ATOMIC_CAS		1
 
   /* Optional parts: */
-  #ifdef _gasneti_atomic64_increment
+  #if defined(gasneti_atomic64_increment)
+    #define gasneti_atomic_increment		gasneti_atomic64_increment
+  #elif defined(_gasneti_atomic64_increment)
     #define _gasneti_atomic_increment		_gasneti_atomic64_increment
   #endif
-  #ifdef _gasneti_atomic64_decrement
+  #if defined(gasneti_atomic64_decrement)
+    #define gasneti_atomic_decrement		gasneti_atomic64_decrement
+  #elif defined(_gasneti_atomic64_decrement)
     #define _gasneti_atomic_decrement		_gasneti_atomic64_decrement
   #endif
-  #ifdef _gasneti_atomic64_decrement_and_test
+  #if defined(gasneti_atomic64_decrement_and_test)
+    #define gasneti_atomic_decrement_and_test	gasneti_atomic64_decrement_and_test
+  #elif defined(_gasneti_atomic64_decrement_and_test)
     #define _gasneti_atomic_decrement_and_test	_gasneti_atomic64_decrement_and_test
   #endif
-  #ifdef _gasneti_atomic64_add
+  #if defined(gasneti_atomic64_add)
+    #define gasneti_atomic_add			gasneti_atomic64_add
+  #elif defined(_gasneti_atomic64_add)
     #define _gasneti_atomic_add			_gasneti_atomic64_add
   #endif
-  #ifdef _gasneti_atomic64_subtract
+  #if defined(gasneti_atomic64_subtract)
+    #define gasneti_atomic_subtract		gasneti_atomic64_subtract
+  #elif defined(_gasneti_atomic64_subtract)
     #define _gasneti_atomic_subtract		_gasneti_atomic64_subtract
   #endif
+
+  /* Optional internal parts: */
   #ifdef _gasneti_atomic64_addfetch
     #define _gasneti_atomic_addfetch		_gasneti_atomic64_addfetch
   #endif
