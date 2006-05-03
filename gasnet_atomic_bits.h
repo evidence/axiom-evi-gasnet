@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/02 21:02:04 $
- * $Revision: 1.180 $
+ *     $Date: 2006/05/03 01:39:28 $
+ * $Revision: 1.181 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1618,7 +1618,7 @@
         }
         #pragma reg_killed_by gasneti_atomic64_swap_not cr0, gr0
         #define _gasneti_atomic64_compare_and_swap(p, oldval, newval) \
-					(gasneti_atomic64_cas_not(p, oldval, newval) == 0)
+					(gasneti_atomic64_swap_not(p, oldval, newval) == 0)
       #endif
 
       /* Using default fences as we have none in our asms */
