@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/03 00:04:15 $
-# $Revision: 1.349 $
+#     $Date: 2006/05/03 21:54:52 $
+# $Revision: 1.350 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.349 $)
+AC_REVISION($Revision: 1.350 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -325,25 +325,27 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
 	  }
 	#endif
       ]])
-  if test "$GASNETI_PTR_BITS" = 32 -a "$DISABLE_PPC64" != 1 -a "$cross_compiling" != "yes"; then 
-    for flag in $2 ; do
-      ]GASNET_TRY_[$1]FLAG[([$flag],[ppc64_flag_worked=1])
-      if test "$ppc64_flag_worked" = 1; then
-        GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
-	AC_MSG_CHECKING(for working flag $flag)
-	AC_TRY_RUN(ppc64code [ int main() { double x; return testme(&x); } ],
-	           [ppc64_flag_worked=1], [ppc64_flag_worked=0], [ppc64_flag_worked=1])
-        GASNET_POPVAR([$1]FLAGS)
-	if test "$ppc64_flag_worked" = 1; then
-	  AC_MSG_RESULT(yes)
-      	  MISC_[$1]FLAGS="$flag"
-	  break
-	else
-	  AC_MSG_RESULT(no)
-	fi
-      fi
-    done
-  fi
+  m4_ifval([$2], [
+    if test "$GASNETI_PTR_BITS" = 32 -a "$DISABLE_PPC64" != 1 -a "$cross_compiling" != "yes"; then 
+      for flag in $2 ; do
+        ]GASNET_TRY_[$1]FLAG[([$flag],[ppc64_flag_worked=1])
+        if test "$ppc64_flag_worked" = 1; then
+          GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
+	  AC_MSG_CHECKING(for working flag $flag)
+	  AC_TRY_RUN(ppc64code [ int main() { double x; return testme(&x); } ],
+	             [ppc64_flag_worked=1], [ppc64_flag_worked=0], [ppc64_flag_worked=1])
+          GASNET_POPVAR([$1]FLAGS)
+	  if test "$ppc64_flag_worked" = 1; then
+	    AC_MSG_RESULT(yes)
+      	    MISC_[$1]FLAGS="$flag"
+	    break
+	  else
+	    AC_MSG_RESULT(no)
+	  fi
+        fi
+      done
+    fi
+  ])
   AC_MSG_CHECKING(for PPC64 instruction support)
   GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS")
   ]GASNET_TRY_[$1]COMPILE_WITHWARN[( [ ppc64code ] , [ ], 
