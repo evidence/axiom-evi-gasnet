@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/03 01:39:28 $
- * $Revision: 1.181 $
+ *     $Date: 2006/05/03 21:26:07 $
+ * $Revision: 1.182 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -611,8 +611,7 @@
           register uint64_t readval;
 	  unsigned char retval;
           __asm__ __volatile__ (
-		    GASNETI_X86_LOCK_PREFIX
-		    "cmpxchg8b	%0	\n\t"
+		    "lock; cmpxchg8b	%0	\n\t"
 		    "sete	%2	"
 		    : "=m" (*p), "=A" (readval), "=mq" (retval)
 		    : "A" (oldval), "b" ((uint32_t)newval), "c" ((uint32_t)(newval >> 32)), "m" (*p)
