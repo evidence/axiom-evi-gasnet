@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/04/18 21:31:58 $
- * $Revision: 1.54 $
+ *     $Date: 2006/05/04 21:09:05 $
+ * $Revision: 1.55 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -694,7 +694,7 @@ void * thread_fn(void *arg) {
       lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_RMB_PRE);
       if (lx < ly) ERR("pounding fenced dec/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
 
-      #if defined(GASNETT_HAVE_ATOMIC_COMPARE_AND_SWAP)
+      #if defined(GASNETT_HAVE_ATOMIC_CAS)
       {
 	uint32_t oldval;
 	do {
@@ -733,7 +733,7 @@ void * thread_fn(void *arg) {
       }
       #endif
 
-      #if defined(GASNETT_HAVE_ATOMIC_COMPARE_AND_SWAP)
+      #if defined(GASNETT_HAVE_ATOMIC_CAS)
       {
 	uint32_t oldval;
         valY[id]--;
@@ -775,7 +775,7 @@ void * thread_fn(void *arg) {
       lx = gasnett_atomic_read(&atomicX[partner], GASNETT_ATOMIC_MB_PRE);
       if (lx < ly) ERR("pounding fenced dec/read mismatch (mb/mb): lx=%i ly=%i", lx, ly);
 
-      #if defined(GASNETT_HAVE_ATOMIC_COMPARE_AND_SWAP)
+      #if defined(GASNETT_HAVE_ATOMIC_CAS)
       {
 	uint32_t oldval;
 	do {
@@ -814,7 +814,7 @@ void * thread_fn(void *arg) {
       }
       #endif
 
-      #if defined(GASNETT_HAVE_ATOMIC_COMPARE_AND_SWAP)
+      #if defined(GASNETT_HAVE_ATOMIC_CAS)
       {
 	uint32_t oldval;
         valY[id]--;
