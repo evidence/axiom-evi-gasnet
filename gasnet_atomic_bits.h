@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/03 21:26:07 $
- * $Revision: 1.182 $
+ *     $Date: 2006/05/04 00:05:57 $
+ * $Revision: 1.183 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -766,47 +766,47 @@
       /* See fence treatment after #endif */
     #elif defined(__GNUC__)
       GASNETI_INLINE(gasneti_atomic32_cmpxchg)
-      uint32_t gasneti_atomic32_cmpxchg(int32_t volatile *ptr, uint32_t oldval, uint32_t newval) {
+      uint32_t gasneti_atomic32_cmpxchg(uint32_t volatile *ptr, uint32_t oldval, uint32_t newval) {
         uint64_t tmp = oldval;
         __asm__ __volatile__ ("mov ar.ccv=%0;;" :: "rO"(tmp));
         __asm__ __volatile__ ("cmpxchg4.acq %0=[%1],%2,ar.ccv" : "=r"(tmp) : "r"(ptr), "r"(newval) );
         return (uint32_t) tmp;
       }
       GASNETI_INLINE(gasneti_atomic32_fetchandinc)
-      uint32_t gasneti_atomic32_fetchandinc(int32_t volatile *ptr) {
+      uint32_t gasneti_atomic32_fetchandinc(uint32_t volatile *ptr) {
         uint64_t result;
         asm volatile ("fetchadd4.acq %0=[%1],%2" : "=r"(result) : "r"(ptr), "i" (1) );
         return (uint32_t) result;
       }
       GASNETI_INLINE(gasneti_atomic32_fetchanddec)
-      uint32_t gasneti_atomic32_fetchanddec(int32_t volatile *ptr) {
+      uint32_t gasneti_atomic32_fetchanddec(uint32_t volatile *ptr) {
         uint64_t result;
         asm volatile ("fetchadd4.acq %0=[%1],%2" : "=r"(result) : "r"(ptr), "i" (-1) );
         return (uint32_t) result;
       }
 
       GASNETI_INLINE(gasneti_atomic64_cmpxchg)
-      uint64_t gasneti_atomic64_cmpxchg(int64_t volatile *ptr, uint64_t oldval, uint64_t newval) {
+      uint64_t gasneti_atomic64_cmpxchg(uint64_t volatile *ptr, uint64_t oldval, uint64_t newval) {
         uint64_t tmp = oldval;
         __asm__ __volatile__ ("mov ar.ccv=%0;;" :: "rO"(tmp));
         __asm__ __volatile__ ("cmpxchg8.acq %0=[%1],%2,ar.ccv" : "=r"(tmp) : "r"(ptr), "r"(newval) );
         return (uint64_t) tmp;
       }
       GASNETI_INLINE(gasneti_atomic64_fetchandinc)
-      uint64_t gasneti_atomic64_fetchandinc(int64_t volatile *ptr) {
+      uint64_t gasneti_atomic64_fetchandinc(uint64_t volatile *ptr) {
         uint64_t result;
         asm volatile ("fetchadd8.acq %0=[%1],%2" : "=r"(result) : "r"(ptr), "i" (1) );
         return result;
       }
       GASNETI_INLINE(gasneti_atomic64_fetchanddec)
-      uint64_t gasneti_atomic64_fetchanddec(int64_t volatile *ptr) {
+      uint64_t gasneti_atomic64_fetchanddec(uint64_t volatile *ptr) {
         uint64_t result;
         asm volatile ("fetchadd8.acq %0=[%1],%2" : "=r"(result) : "r"(ptr), "i" (-1) );
         return result;
       }
 
       #define GASNETI_HAVE_ATOMIC32_T 1
-      typedef struct { volatile int32_t ctr; } gasneti_atomic32_t;
+      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
       #define _gasneti_atomic32_init(v)      { (v) }
@@ -814,10 +814,10 @@
       #define _gasneti_atomic32_decrement(p) (gasneti_atomic32_fetchanddec(&((p)->ctr)))
       #define _gasneti_atomic32_decrement_and_test(p) (gasneti_atomic32_fetchanddec(&((p)->ctr)) == 1)
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
-        (gasneti_atomic32_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
+        (gasneti_atomic32_cmpxchg(&((p)->ctr),oval,nval) == (oval))
 
       #define GASNETI_HAVE_ATOMIC64_T 1
-      typedef struct { volatile int64_t ctr; } gasneti_atomic64_t;
+      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
       #define _gasneti_atomic64_read(p)      ((p)->ctr)
       #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
       #define _gasneti_atomic64_init(v)      { (v) }
@@ -825,7 +825,7 @@
       #define _gasneti_atomic64_decrement(p) (gasneti_atomic64_fetchanddec(&((p)->ctr)))
       #define _gasneti_atomic64_decrement_and_test(p) (gasneti_atomic64_fetchanddec(&((p)->ctr)) == 1)
       #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
-        (gasneti_atomic64_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
+        (gasneti_atomic64_cmpxchg(&((p)->ctr),oval,nval) == (oval))
 
       /* The default c-a-s based add and subtract are already the best we can do. */
 
