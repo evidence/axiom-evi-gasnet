@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/04 00:05:57 $
- * $Revision: 1.183 $
+ *     $Date: 2006/05/04 19:54:44 $
+ * $Revision: 1.184 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -752,16 +752,16 @@
                     (_InterlockedCompareExchange_acq((volatile unsigned int *)&((p)->ctr),nval,oval) == (oval))
 
       #define GASNETI_HAVE_ATOMIC64_T 1
-      typedef struct { volatile __int64 ctr; } gasneti_atomic64_t;
-      #define _gasneti_atomic64_increment(p) __fetchadd8_acq((unsigned int *)&((p)->ctr),1)
-      #define _gasneti_atomic64_decrement(p) __fetchadd8_acq((unsigned int *)&((p)->ctr),-1)
+      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+      #define _gasneti_atomic64_increment(p) __fetchadd8_acq((unsigned __int64 *)&((p)->ctr),1)
+      #define _gasneti_atomic64_decrement(p) __fetchadd8_acq((unsigned __int64 *)&((p)->ctr),-1)
       #define _gasneti_atomic64_read(p)      ((p)->ctr)
       #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
       #define _gasneti_atomic64_init(v)      { (v) }
       #define _gasneti_atomic64_decrement_and_test(p) \
-                    (__fetchadd8_acq((unsigned int *)&((p)->ctr),-1) == 1)
+                    (__fetchadd8_acq((unsigned __int64 *)&((p)->ctr),-1) == 1)
       #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
-                    (_InterlockedCompareExchange64_acq((volatile __int64 *)&((p)->ctr),nval,oval) == (oval))
+                    (_InterlockedCompareExchange64_acq((volatile unsigned __int64 *)&((p)->ctr),nval,oval) == (oval))
 
       /* See fence treatment after #endif */
     #elif defined(__GNUC__)
@@ -868,7 +868,7 @@
       #define _gasneti_atomic32_decrement(p) (gasneti_atomic32_addandfetch(&((p)->ctr),-1))
       #define _gasneti_atomic32_decrement_and_test(p) (gasneti_atomic32_addandfetch(&((p)->ctr),-1) == 1)
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
-        (gasneti_atomic32_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
+        (gasneti_atomic32_cmpxchg(&((p)->ctr),oval,nval) == (oval))
 
       #define GASNETI_HAVE_ATOMIC64_T 1
       typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
@@ -879,7 +879,7 @@
       #define _gasneti_atomic64_decrement(p) (gasneti_atomic64_addandfetch(&((p)->ctr),-1))
       #define _gasneti_atomic64_decrement_and_test(p) (gasneti_atomic64_addandfetch(&((p)->ctr),-1) == 1)
       #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
-        (gasneti_atomic64_cmpxchg((volatile int *)&((p)->ctr),oval,nval) == (oval))
+        (gasneti_atomic64_cmpxchg(&((p)->ctr),oval,nval) == (oval))
 
       /* The default c-a-s based add and subtract are already the best we can do. */
 
