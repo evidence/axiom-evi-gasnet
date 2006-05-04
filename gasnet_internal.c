@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/05/02 02:41:23 $
- * $Revision: 1.159 $
+ *     $Date: 2006/05/04 12:09:25 $
+ * $Revision: 1.160 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -282,6 +282,14 @@ extern void gasneti_freezeForDebugger() {
     fflush(stderr);
     _freezeForDebugger(0);
   }
+}
+/* ------------------------------------------------------------------------------------ */
+extern void gasneti_defaultAMHandler(gasnet_token_t token) {
+  gasnet_node_t srcnode = (gasnet_node_t)-1;
+  gasnetc_AMGetMsgSource(token, &srcnode);
+  gasneti_fatalerror("GASNet node %i/%i received an AM message from node %i for a handler index "
+                     "with no associated AM handler function registered", 
+                     gasnet_mynode(), gasnet_nodes(), srcnode);
 }
 /* ------------------------------------------------------------------------------------ */
 #define DEF_SIGNAL(name) { name, #name, NULL }

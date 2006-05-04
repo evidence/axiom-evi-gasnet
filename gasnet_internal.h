@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/05/01 21:02:42 $
- * $Revision: 1.102 $
+ *     $Date: 2006/05/04 12:09:25 $
+ * $Revision: 1.103 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -556,6 +556,9 @@ extern int gasneti_VerboseErrors;
 typedef void (*gasneti_HandlerShort) (gasnet_token_t token, ...);
 typedef void (*gasneti_HandlerMedium)(gasnet_token_t token, void *buf, size_t nbytes, ...);
 typedef void (*gasneti_HandlerLong)  (gasnet_token_t token, void *buf, size_t nbytes, ...);
+
+/* default AM handler for unregistered entries - prints a fatal error */
+extern void gasneti_defaultAMHandler(gasnet_token_t token);
 
 /* ------------------------------------------------------------------------------------ */
 #define GASNETI_RUN_HANDLER_SHORT(isReq, hid, phandlerfn, token, pArgs, numargs) do { \
