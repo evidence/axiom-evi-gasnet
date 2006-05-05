@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/05 00:25:22 $
- * $Revision: 1.56 $
+ *     $Date: 2006/05/05 19:40:04 $
+ * $Revision: 1.57 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -439,7 +439,7 @@ int main(int argc, char **argv) {
         gasnett_atomic64_set(&var64, 1<<i, 0);
 	tmp64 = gasnett_atomic64_read(&var64, 0);
 	if (tmp64 != (1<<i))
-          ERR("gasnett_atomic64_set/gasnett_atomic64_read got wrong valueon bit %i", i);
+          ERR("gasnett_atomic64_set/gasnett_atomic64_read got wrong value on bit %i", i);
       }
 
       gasnett_atomic64_set(&var64, 0, 0);
