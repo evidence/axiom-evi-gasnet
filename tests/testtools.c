@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/04 21:09:05 $
- * $Revision: 1.55 $
+ *     $Date: 2006/05/05 00:25:22 $
+ * $Revision: 1.56 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -385,6 +385,76 @@ int main(int argc, char **argv) {
       stemp = GASNETT_ATOMIC_SIGNED_MAX;
       if (!gasnett_atomic_compare_and_swap(&var, stemp + 1, 0, 0))
         ERR("gasnett_atomic_compare_and_swap failed signed wrap-around at oldval=SIGNED_MAX+1");
+    }
+    #endif
+
+    #ifdef GASNETT_HAVE_ATOMIC32_T
+    {
+      gasnett_atomic32_t var32 = gasnett_atomic32_init(~(uint32_t)0);
+      uint32_t tmp32;
+
+      if (!gasnett_atomic32_read(&var32,0) != 0)
+        ERR("gasnett_atomic32_init/gasnett_atomic32_read got wrong value");
+
+      gasnett_atomic32_set(&var32, 2*iters, 0);
+      if (gasnett_atomic32_read(&var32,0) != 2*iters)
+        ERR("gasnett_atomic32_set/gasnett_atomic32_read got wrong value");
+
+      for (i=0;i<=32;i++) {
+        gasnett_atomic32_set(&var32, 1<<i, 0);
+	tmp32 = gasnett_atomic32_read(&var32, 0);
+	if (tmp32 != (1<<i))
+          ERR("gasnett_atomic32_set/gasnett_atomic32_read got wrong value on bit %i", i);
+      }
+
+      gasnett_atomic32_set(&var32, 0, 0);
+      for (i=0;i<=iters;i++) {
+	if (gasnett_atomic32_compare_and_swap(&var32, i-1, i-2, 0))
+          ERR("gasnett_atomic32_compare_and_swap succeeded at i=%i when it should have failed", i);
+	if (gasnett_atomic32_compare_and_swap(&var32, i+1, i-2, 0))
+          ERR("gasnett_atomic32_compare_and_swap succeeded at i=%i when it should have failed", i);
+        if (gasnett_atomic32_read(&var32,0) != i)
+          ERR("gasnett_atomic32_compare_and_swap altered value when it should not have at i=%i", i);
+	if (!gasnett_atomic32_compare_and_swap(&var32, i, i+1, 0))
+          ERR("gasnett_atomic32_compare_and_swap failed at i=%i when it should have succeeded", i);
+        if (gasnett_atomic32_read(&var32,0) != i+1)
+          ERR("gasnett_atomic32_compare_and_swap set wrong updated value at i=%i", i);
+      }
+    }
+    #endif
+
+    #ifdef GASNETT_HAVE_ATOMIC64_T
+    {
+      gasnett_atomic64_t var64 = gasnett_atomic64_init(~(uint64_t)0);
+      uint64_t tmp64;
+
+      if (~gasnett_atomic64_read(&var64,0) != 0)
+        ERR("gasnett_atomic64_init/gasnett_atomic64_read got wrong value");
+
+      gasnett_atomic64_set(&var64, 2*iters, 0);
+      if (gasnett_atomic64_read(&var64,0) != 2*iters)
+        ERR("gasnett_atomic64_set/gasnett_atomic64_read got wrong value");
+
+      for (i=0;i<=64;i++) {
+        gasnett_atomic64_set(&var64, 1<<i, 0);
+	tmp64 = gasnett_atomic64_read(&var64, 0);
+	if (tmp64 != (1<<i))
+          ERR("gasnett_atomic64_set/gasnett_atomic64_read got wrong valueon bit %i", i);
+      }
+
+      gasnett_atomic64_set(&var64, 0, 0);
+      for (i=0;i<=iters;i++) {
+	if (gasnett_atomic64_compare_and_swap(&var64, i-1, i-2, 0))
+          ERR("gasnett_atomic64_compare_and_swap succeeded at i=%i when it should have failed", i);
+	if (gasnett_atomic64_compare_and_swap(&var64, i+1, i-2, 0))
+          ERR("gasnett_atomic64_compare_and_swap succeeded at i=%i when it should have failed", i);
+        if (gasnett_atomic64_read(&var64,0) != i)
+          ERR("gasnett_atomic64_compare_and_swap altered value when it should not have at i=%i", i);
+	if (!gasnett_atomic64_compare_and_swap(&var64, i, i+1, 0))
+          ERR("gasnett_atomic64_compare_and_swap failed at i=%i when it should have succeeded", i);
+        if (gasnett_atomic64_read(&var64,0) != i+1)
+          ERR("gasnett_atomic64_compare_and_swap set wrong updated value at i=%i", i);
+      }
     }
     #endif
   }
