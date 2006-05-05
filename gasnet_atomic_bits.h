@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/05 21:28:17 $
- * $Revision: 1.187 $
+ *     $Date: 2006/05/05 22:23:39 $
+ * $Revision: 1.188 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -215,14 +215,9 @@
     }
     #define _gasneti_atomic_addfetch gasneti_atomic_addfetch
 
-    #if (defined(__APPLE__) && defined(__MACH__))
-      /* OSX/Darwin tries to be too smart when only 1 thread is running, so use defaults */
-      /* XXX: determine what fence (if any) might still be present? */
-    #else
-      /* Using real mutexes which yeild an ACQ/RMB before and REL/WMB after the atomic */
-      #define GASNETI_ATOMIC_FENCE_SET (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
-      #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
-    #endif
+    /* Using real mutexes which yeild an ACQ/RMB before and REL/WMB after the atomic */
+    #define GASNETI_ATOMIC_FENCE_SET (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
+    #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
   #else
     /* only one thread - everything atomic by definition */
     /* attempt to generate a compile error if pthreads actually are in use */
