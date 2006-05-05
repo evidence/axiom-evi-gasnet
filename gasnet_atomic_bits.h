@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/05 00:20:14 $
- * $Revision: 1.185 $
+ *     $Date: 2006/05/05 19:37:38 $
+ * $Revision: 1.186 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1638,24 +1638,24 @@
           "78640020"  /* clrldi  r4,r3,32  */ \
           "78630022"  /* srdi    r3,r3,32  */ \
         }
-        static int gasneti_atomic64_swap_not(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval);
-        #pragma mc_func gasneti_atomic64_swap_not {\
+        static int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval);
+        #pragma mc_func _gasneti_atomic64_compare_and_swap {\
 	  /* ARGS: r3 = p, r5=oldhi32, r6=oldlo32, r7=newhi32, r8=newlo32 */ \
-          "78a507c6"  /*    sldi    r5,r5,32,31  */ \
+          "78a507c6"  /*    sldi    r5,r5,32     */ \
           "7ca53378"  /*    or      r5,r5,r6     */ \
-          "78e707c6"  /*    sldi    r7,r7,32,31  */ \
+          "78e707c6"  /*    sldi    r7,r7,32     */ \
           "7ce74378"  /*    or      r7,r7,r8     */ \
+          "39000000"  /*    li      r8,0         */ \
           "7cc018a8"  /* 0: ldarx   r6,0,r3      */ \
           "7cc62a79"  /*    xor.    r6,r6,r5     */ \
-          "4082000c"  /*    bne-    1f           */ \
+          "40820010"  /*    bne-    1f           */ \
           "7ce019ad"  /*    stdcx.  r7,0,r3      */ \
           "40a2fff0"  /*    bne-    0b           */ \
-          "7cc33378"  /* 1: mr      r3,r6        */ \
-	  /* RETURN in r3 = 0 iff swap took place */ \
+          "39000001"  /*    li      r8,1         */ \
+          "7d034378"  /* 1: mr      r3,r5        */ \
+	  /* RETURN in r3 = 1 iff swap took place */ \
         }
-        #pragma reg_killed_by gasneti_atomic64_swap_not cr0
-        #define _gasneti_atomic64_compare_and_swap(p, oldval, newval) \
-					(gasneti_atomic64_swap_not(p, oldval, newval) == 0)
+        #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0
       #endif
 
       /* Using default fences as we have none in our asms */
@@ -1752,18 +1752,19 @@
           register int result;
           __asm__ __volatile__ (
 		"sldi     %1,%1,32	\n\t"	/* shift hi32 half of oldval  */
-		"or       %1,%1,%L1	\n\t"   /*   and or in lo32 of oldval */
-		"sldi     %2,%2,32	\n\t"	/* shift hi32 half of newval  */
-		"or       %2,%2,%L2	\n\t"   /*   and or in lo32 of newval */
+		"or       %1,%1,%L1	\n\t"	/*   and or in lo32 of oldval */
+		"sldi     %2,%2,32      \n\t"	/* shift hi32 half of newval  */
+		"or       %2,%2,%L2     \n\t"	/*   and or in lo32 of newval */
+		"li	  %0,0		\n\t"	/* assume failure */
 		"Lga.0.%=:		\t"	/* AIX assembler doesn't grok "0:"-type local labels */
-		"ldarx    %0,0,%4	\n\t"	/* load to result */
-		"xor.     %0,%0,%1	\n\t"	/* compare result w/ oldval */
+		"ldarx    %L1,0,%4	\n\t"	/* load to temporary */
+		"xor.     %L1,%L1,%1	\n\t"	/* compare temporary w/ oldval */
 		"bne      Lga.1.%=	\n\t"	/* branch on mismatch */
 		"stdcx.   %2,0,%4	\n\t"	/* store newval */
 		"bne-     Lga.0.%=	\n\t"	/* retry on conflict */
+		"li	  %0,1		\n\t"	/* success */
 		"Lga.1.%=:		\n\t"
-		"subfic	  %1,%0,0	\n\t"	/* result = result ? */
-		"adde     %0,%1,%0	"	/*            1 : 0  */
+		"nop			"
 		: "=&b"(result), "+r"(oldval), "+r"(newval), "+m"(*p)
 		: "r" (p)
 		: "cr0");
