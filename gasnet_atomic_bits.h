@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/05 19:37:38 $
- * $Revision: 1.186 $
+ *     $Date: 2006/05/05 21:28:17 $
+ * $Revision: 1.187 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1624,38 +1624,64 @@
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
 
-        static void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t val);
-        #pragma mc_func _gasneti_atomic64_set { \
-          /* ARGS: r3 = p, r5 = hi32, r6 = lo32 */ \
-          "78a507c6"  /* sldi  r5,r5,32  */ \
-          "7ca53378"  /* or    r5,r5,r6  */ \
-          "f8a30000"  /* std   r5,0(r3)  */ \
-        }
         static uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p);
+        static void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t val);
+        static int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval);
         #pragma mc_func _gasneti_atomic64_read { \
           /* ARGS: r3 = p  RESULT: r3 = hi32, r4 = lo32 */ \
           "e8630000"  /* ld      r3,0(r3)  */ \
           "78640020"  /* clrldi  r4,r3,32  */ \
           "78630022"  /* srdi    r3,r3,32  */ \
         }
-        static int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval);
-        #pragma mc_func _gasneti_atomic64_compare_and_swap {\
-	  /* ARGS: r3 = p, r5=oldhi32, r6=oldlo32, r7=newhi32, r8=newlo32 */ \
-          "78a507c6"  /*    sldi    r5,r5,32     */ \
-          "7ca53378"  /*    or      r5,r5,r6     */ \
-          "78e707c6"  /*    sldi    r7,r7,32     */ \
-          "7ce74378"  /*    or      r7,r7,r8     */ \
-          "39000000"  /*    li      r8,0         */ \
-          "7cc018a8"  /* 0: ldarx   r6,0,r3      */ \
-          "7cc62a79"  /*    xor.    r6,r6,r5     */ \
-          "40820010"  /*    bne-    1f           */ \
-          "7ce019ad"  /*    stdcx.  r7,0,r3      */ \
-          "40a2fff0"  /*    bne-    0b           */ \
-          "39000001"  /*    li      r8,1         */ \
-          "7d034378"  /* 1: mr      r3,r5        */ \
-	  /* RETURN in r3 = 1 iff swap took place */ \
-        }
-        #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0
+	#if defined(__linux__) || defined(__blrts__)	/* ABI differs from Darwin and AIX */
+          #pragma mc_func _gasneti_atomic64_set { \
+            /* ARGS: r3 = p, r5 = hi32, r6 = lo32 */ \
+            "78a507c6"  /* sldi  r5,r5,32  */ \
+            "7ca53378"  /* or    r5,r5,r6  */ \
+            "f8a30000"  /* std   r5,0(r3)  */ \
+          }
+          #pragma mc_func _gasneti_atomic64_compare_and_swap {\
+	    /* ARGS: r3 = p, r5=oldhi32, r6=oldlo32, r7=newhi32, r8=newlo32 */ \
+            "78a507c6"  /*    sldi    r5,r5,32     */ \
+            "7ca53378"  /*    or      r5,r5,r6     */ \
+            "78e707c6"  /*    sldi    r7,r7,32     */ \
+            "7ce74378"  /*    or      r7,r7,r8     */ \
+            "39000000"  /*    li      r8,0         */ \
+            "7cc018a8"  /* 0: ldarx   r6,0,r3      */ \
+            "7cc62a79"  /*    xor.    r6,r6,r5     */ \
+            "40820010"  /*    bne-    1f           */ \
+            "7ce019ad"  /*    stdcx.  r7,0,r3      */ \
+            "40a2fff0"  /*    bne-    0b           */ \
+            "39000001"  /*    li      r8,1         */ \
+            "7d034378"  /* 1: mr      r3,r8        */ \
+	    /* RETURN in r3 = 1 iff swap took place */ \
+          }
+          #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0
+        #else
+          #pragma mc_func _gasneti_atomic64_set { \
+            /* ARGS: r3 = p, r4 = hi32, r5 = lo32 */ \
+            "788407c6"  /* sldi  r4,r4,32  */ \
+            "7c842b78"  /* or    r4,r4,r5  */ \
+            "f8830000"  /* std   r4,0(r3)  */ \
+          }
+          #pragma mc_func _gasneti_atomic64_compare_and_swap {\
+	    /* ARGS: r3 = p, r4=oldhi32, r5=oldlo32, r6=newhi32, r7=newlo32 */ \
+            "788407c6"  /*    sldi    r4,r4,32     */ \
+            "7c842b78"  /*    or      r4,r4,r5     */ \
+            "78c607c6"  /*    sldi    r6,r6,32     */ \
+            "7cc63b78"  /*    or      r6,r6,r7     */ \
+            "38e00000"  /*    li      r7,0         */ \
+            "7ca018a8"  /* 0: ldarx   r5,r0,r3     */ \
+            "7ca52279"  /*    xor.    r5,r5,r4     */ \
+            "40820010"  /*    bne-    1f           */ \
+            "7cc019ad"  /*    stdcx.  r6,r0,r3     */ \
+            "40a2fff0"  /*    bne-    0b           */ \
+            "38e00001"  /*    li      r7,1         */ \
+            "7ce33b78"  /* 1: mr      r3,r7        */ \
+	    /* RETURN in r3 = 1 iff swap took place */ \
+          }
+          #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0
+	#endif
       #endif
 
       /* Using default fences as we have none in our asms */
