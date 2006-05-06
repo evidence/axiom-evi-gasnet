@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/03 21:54:52 $
-# $Revision: 1.350 $
+#     $Date: 2006/05/06 00:47:56 $
+# $Revision: 1.351 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.350 $)
+AC_REVISION($Revision: 1.351 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -325,9 +325,12 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
 	  }
 	#endif
       ]])
-  m4_ifval([$2], [
-    if test "$GASNETI_PTR_BITS" = 32 -a "$DISABLE_PPC64" != 1 -a "$cross_compiling" != "yes"; then 
-      for flag in $2 ; do
+  if test "$GASNETI_PTR_BITS" = 32 -a "$DISABLE_PPC64" != 1 -a "$cross_compiling" != "yes"; then 
+    # Bug 1587: "for flag in ; do" chokes the shell on Solaris
+    # Bug 1589: Use of m4_ifval([$2]) to avoid bug 1587 chokes autoconf 2.13
+    # So, we add a dummy element to keep the for-loop list non-empty, and then skip it.
+    for flag in $2 DUMMY ; do
+      if test "$flag" != DUMMY ; then
         ]GASNET_TRY_[$1]FLAG[([$flag],[ppc64_flag_worked=1])
         if test "$ppc64_flag_worked" = 1; then
           GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
@@ -343,9 +346,9 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
 	    AC_MSG_RESULT(no)
 	  fi
         fi
-      done
-    fi
-  ])
+      fi
+    done
+  fi
   AC_MSG_CHECKING(for PPC64 instruction support)
   GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS")
   ]GASNET_TRY_[$1]COMPILE_WITHWARN[( [ ppc64code ] , [ ], 
