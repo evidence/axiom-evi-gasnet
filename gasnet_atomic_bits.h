@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/05 22:23:39 $
- * $Revision: 1.188 $
+ *     $Date: 2006/05/06 00:54:05 $
+ * $Revision: 1.189 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -601,6 +601,7 @@
 	 * available on this architecture.  Note that we need the lock prefix
 	 * even on a uniprocessor to ensure that we are signal safe.
 	 */
+#if 1
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
           register uint64_t readval;
@@ -613,6 +614,27 @@
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return retval;
         }
+#else
+        GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
+        int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
+	  register unsigned char retval;
+          __asm__ __volatile__ (
+		    /* Note that we have no way to tell gcc exactly where to place 'newval'.
+		     * However, with the eax and edx already allocated to 'oldval', the only
+		     * possibilities are (ecx,ebx) and (ebx,ecx).  The 'xchgl' instruction
+		     * ensures we always end up with 'newval' in (ebx,ecx).
+		     */
+		    "xchgl	%3,%%ebx	\n\t"
+		    "lock;			"
+		    "cmpxchg8b	%0		\n\t"
+		    "xchgl	%3,%%ebx	\n\t"
+		    "sete	%b2		"
+		    : "+m" (*p), "+&A" (oldval), "=q" (retval)
+		    : "q" (newval)
+		    : "cc" );
+          return retval;
+        }
+#endif
 	/* No current way to indicate that 64-bit read and set are fully fenced w/o also
 	 * implying that the 32-bit ones are.  So, we are defining the non _-prefix versions.
 	 */
