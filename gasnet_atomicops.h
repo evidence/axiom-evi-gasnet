@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/09 04:25:37 $
- * $Revision: 1.175 $
+ *     $Date: 2006/05/09 05:51:48 $
+ * $Revision: 1.176 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -910,32 +910,32 @@
 #define GASNETI_ATOMIC_FENCED_SET(group,func,p,v,f)                 \
   do {                                                              \
     const int __flags = (f);                                        \
-    _CONCAT(_CONCAT(_gasneti_,group),_fence_before_set)(__flags)    \
+    _CONCAT3(_gasneti_,group,_fence_before_set)(__flags)            \
     _CONCAT(_,func)((p),(v));                                       \
-    _CONCAT(_CONCAT(_gasneti_,group),_fence_after_set)(__flags)     \
+    _CONCAT3(_gasneti_,group,_fence_after_set)(__flags)             \
   } while (0)
 #define GASNETI_ATOMIC_FENCED_READ_DEFN(group,func,stem)            \
   GASNETI_INLINE(func)                                              \
   _CONCAT(stem,val_t) func(_CONCAT(stem,t) *p, const int flags) {   \
-    _CONCAT(_CONCAT(_gasneti_,group),_fence_before_read)(flags)     \
+    _CONCAT3(_gasneti_,group,_fence_before_read)(flags)             \
     { const _CONCAT(stem,val_t) retval = _CONCAT(_,func)(p);        \
-      _CONCAT(_CONCAT(_gasneti_,group),_fence_after_read)(flags)    \
+      _CONCAT3(_gasneti_,group,_fence_after_read)(flags)            \
       return retval;                                                \
     }                                                               \
   }
 #define GASNETI_ATOMIC_FENCED_INCDEC(group,func,p,f)                \
   do {                                                              \
     const int __flags = (f);                                        \
-    _CONCAT(_CONCAT(_gasneti_,group),_fence_before_rmw)(__flags)    \
+    _CONCAT3(_gasneti_,group,_fence_before_rmw)(__flags)            \
     _CONCAT(_,func)(p);                                             \
-    _CONCAT(_CONCAT(_gasneti_,group),_fence_after_rmw)(__flags)     \
+    _CONCAT3(_gasneti_,group,_fence_after_rmw)(__flags)             \
   } while (0)
 #define GASNETI_ATOMIC_FENCED_DECTEST_DEFN(group,func,stem)         \
   GASNETI_INLINE(func)                                              \
   int func(_CONCAT(stem,t) *p, const int flags) {                   \
-    _CONCAT(_CONCAT(_gasneti_,group),_fence_before_rmw)(flags)      \
+    _CONCAT3(_gasneti_,group,_fence_before_rmw)(flags)              \
     { const int retval = _CONCAT(_,func)(p);                        \
-      _CONCAT(_CONCAT(_gasneti_,group),_fence_after_bool)(flags, retval) \
+      _CONCAT3(_gasneti_,group,_fence_after_bool)(flags, retval)    \
       return retval;                                                \
     }                                                               \
   }
@@ -943,25 +943,36 @@
   GASNETI_INLINE(func)                                              \
   int func(_CONCAT(stem,t) *p, _CONCAT(stem,val_t) oldval,          \
            _CONCAT(stem,val_t) newval, const int flags) {           \
-    _CONCAT(_CONCAT(_gasneti_,group),_fence_before_rmw)(flags)      \
+    _CONCAT3(_gasneti_,group,_fence_before_rmw)(flags)              \
     { const int retval = _CONCAT(_,func)(p,oldval,newval);          \
-      _CONCAT(_CONCAT(_gasneti_,group),_fence_after_bool)(flags, retval) \
+      _CONCAT3(_gasneti_,group,_fence_after_bool)(flags, retval)    \
       return retval;                                                \
     }                                                               \
   }
 #define GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(group,func,stem)          \
-    GASNETI_INLINE(func)                                            \
-    _CONCAT(stem,val_t) func(_CONCAT(stem,t) *p,                    \
-			     _CONCAT(stem,val_t) op,                \
-			     const int flags) {                     \
-      /* TODO: prohibit zero as well? */                            \
-      gasneti_assert((_CONCAT(stem,sval_t))op >= 0);                \
-      _CONCAT(_CONCAT(_gasneti_,group),_fence_before_rmw)(flags)    \
-      { const _CONCAT(stem,val_t) retval = _CONCAT(_,func)(p, op);  \
-        _CONCAT(_CONCAT(_gasneti_,group),_fence_after_rmw)(flags)   \
-        return retval;                                              \
-      }                                                             \
-    }
+  GASNETI_INLINE(func)                                              \
+  _CONCAT(stem,val_t) func(_CONCAT(stem,t) *p,                      \
+			   _CONCAT(stem,val_t) op,                  \
+			   const int flags) {                       \
+    /* TODO: prohibit zero as well? */                              \
+    gasneti_assert((_CONCAT(stem,sval_t))op >= 0);                  \
+    _CONCAT3(_gasneti_,group,_fence_before_rmw)(flags)              \
+    { const _CONCAT(stem,val_t) retval = _CONCAT(_,func)(p, op);    \
+      _CONCAT3(_gasneti_,group,_fence_after_rmw)(flags)             \
+      return retval;                                                \
+    }                                                               \
+  }
+#define GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(group,func,stem)        \
+  GASNETI_INLINE(func)                                              \
+  _CONCAT(stem,val_t) func(_CONCAT(stem,t) *p,                      \
+			   _CONCAT(stem,sval_t) op,                 \
+			   const int flags) {                       \
+    _CONCAT3(_gasneti_,group,_fence_before_rmw)(flags)              \
+    { const _CONCAT(stem,val_t) retval = _CONCAT(_,func)(p, op);    \
+      _CONCAT3(_gasneti_,group,_fence_after_rmw)(flags)             \
+      return retval;                                                \
+    }                                                               \
+  }
 
 /* ------------------------------------------------------------------------------------ */
 /* GASNet atomic ops, using per-platform defns and the macros of Part 4, above.
@@ -970,6 +981,7 @@
 #if !defined(GASNETI_USING_SLOW_ATOMICS)
   /* Fence the opqaue (non-arithmetic) 32-bit atomic type */
   typedef uint32_t gasneti_atomic32_val_t;	/* For consistency in macros */
+  typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in macros */
   #ifndef gasneti_atomic32_init
     #define gasneti_atomic32_init(v)	_gasneti_atomic32_init(v)
   #endif
@@ -985,6 +997,7 @@
 
   /* Fence the opqaue (non-arithmetic) 64-bit atomic type */
   typedef uint64_t gasneti_atomic64_val_t;	/* For consistency in macros */
+  typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in macros */
   #ifndef gasneti_atomic64_init
     #define gasneti_atomic64_init(v)	_gasneti_atomic64_init(v)
   #endif
@@ -1022,7 +1035,7 @@
     #define _gasneti_genatomic_fence_after_rmw(f)	_gasneti_atomic_mb_after(f)   \
 							_gasneti_atomic_rmb_after(f)
     #define _gasneti_genatomic_fence_after_bool(f,v)	_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f ) \
+							_gasneti_atomic_rmb_after(f)  \
 							_gasneti_atomic_rmb_bool(f,v)
     #define _gasneti_genatomic_fence_before_set		_gasneti_genatomic_fence_before_rmw
     #define _gasneti_genatomic_fence_after_set		_gasneti_genatomic_fence_after_rmw
@@ -1045,7 +1058,7 @@
     GASNETI_ATOMIC_FENCED_READ_DEFN(genatomic,gasneti_genatomic32_read,gasneti_atomic32_)
     GASNETI_ATOMIC_FENCED_DECTEST_DEFN(genatomic,gasneti_genatomic32_decrement_and_test,gasneti_atomic32_)
     GASNETI_ATOMIC_FENCED_CAS_DEFN(genatomic,gasneti_genatomic32_compare_and_swap,gasneti_atomic32_)
-    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(genatomic,gasneti_genatomic32_addfetch,gasneti_atomic32_)
+    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(genatomic,gasneti_genatomic32_addfetch,gasneti_atomic32_)
   #endif
 
   #if defined(GASNETI_USE_GENERIC_ATOMIC64)
@@ -1058,7 +1071,7 @@
     GASNETI_ATOMIC_FENCED_READ_DEFN(genatomic,gasneti_genatomic64_read,gasneti_atomic64_)
     GASNETI_ATOMIC_FENCED_DECTEST_DEFN(genatomic,gasneti_genatomic64_decrement_and_test,gasneti_atomic64_)
     GASNETI_ATOMIC_FENCED_CAS_DEFN(genatomic,gasneti_genatomic64_compare_and_swap,gasneti_atomic64_)
-    GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(genatomic,gasneti_genatomic64_addfetch,gasneti_atomic64_)
+    GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(genatomic,gasneti_genatomic64_addfetch,gasneti_atomic64_)
   #endif
 #endif
 
@@ -1154,7 +1167,6 @@
     #define gasneti_weakatomic_subtract(p,op,f)       gasneti_atomic_subtract(p,op,f)
   #endif
 
-  #define GASNETI_HAVE_WEAKATOMIC32_T 1
   typedef gasneti_atomic32_t gasneti_weakatomic32_t;
   #define gasneti_weakatomic32_init(v)              gasneti_atomic32_init(v)
   #define gasneti_weakatomic32_set(p,v,f)           gasneti_atomic32_set(p,v,f)
@@ -1162,7 +1174,6 @@
   #define gasneti_weakatomic32_compare_and_swap(p,oldval,newval,f)  \
             gasneti_atomic32_compare_and_swap(p,oldval,newval,f)
 
-  #define GASNETI_HAVE_WEAKATOMIC64_T 1
   typedef gasneti_atomic64_t gasneti_weakatomic64_t;
   #define gasneti_weakatomic64_init(v)              gasneti_atomic64_init(v)
   #define gasneti_weakatomic64_set(p,v,f)           gasneti_atomic64_set(p,v,f)
@@ -1252,7 +1263,6 @@
     }
   }
 
-  #define GASNETI_HAVE_WEAKATOMIC32_T 1
   typedef volatile uint32_t gasneti_weakatomic32_t;
   #define gasneti_weakatomic32_init(v)                  (v)
   #define gasneti_weakatomic32_set(p,v,f) do {               \
@@ -1278,7 +1288,6 @@
     }
   }
   
-  #define GASNETI_HAVE_WEAKATOMIC64_T 1
   typedef volatile uint64_t gasneti_weakatomic64_t;
   #define gasneti_weakatomic64_init(v)                  (v)
   #define gasneti_weakatomic64_set(p,v,f) do {               \
