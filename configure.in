@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/06 00:47:56 $
-# $Revision: 1.351 $
+#     $Date: 2006/05/09 05:50:01 $
+# $Revision: 1.352 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.351 $)
+AC_REVISION($Revision: 1.352 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1814,7 +1814,7 @@ if test $enabled_elan = yes; then
   if test "$elan_test_worked" = yes; then
     AC_MSG_RESULT(yes)
     AC_MSG_CHECKING(for libelan version)
-    if test -e ${ELAN_HEADERBASE}/elan/version.h; then
+    if test -r ${ELAN_HEADERBASE}/elan/version.h; then
       verstr=`grep QSNETLIBS_VERSION_STRING ${ELAN_HEADERBASE}/elan/version.h`
       [majorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $4 }'`]
       [minorver=`echo $verstr | $AWK -F'[ \t]*|\"|[.]' '{ print $5 }'`]
@@ -1922,9 +1922,9 @@ if test "$enabled_vapi" = yes; then
   AC_PATH_PROGS(vstat, vstat)
   if test -n "$vstat"; then
     vapi_guess=`dirname \`dirname $vstat\``
-  elif test -e /usr/local/ibgd/driver/infinihost; then
+  elif test -r /usr/local/ibgd/driver/infinihost; then
     vapi_guess=/usr/local/ibgd/driver/infinihost
-  elif test -e /usr/mellanox; then
+  elif test -r /usr/mellanox; then
     vapi_guess=/usr/mellanox
   else
     vapi_guess=/usr
@@ -1933,10 +1933,10 @@ if test "$enabled_vapi" = yes; then
 
   # MTHOME may point to either 'true' home, or to symlinked location
   AC_MSG_CHECKING(if $MTHOME is the VAPI install directory)
-  if test -e $MTHOME/include/vapi.h; then
+  if test -r $MTHOME/include/vapi.h; then
     # MTHOME looks OK
     AC_MSG_RESULT([yes])
-  elif test -e $MTHOME/bin/vstat; then
+  elif test -r $MTHOME/bin/vstat; then
     vstat=$MTHOME/bin/vstat
     GASNET_FOLLOWLINKS(vstat)
     MTHOME=`dirname \`dirname $vstat\``
@@ -2128,7 +2128,7 @@ if test $enabled_shmem = yes; then
       ;;
     # Linux shmem may mean Quadrics shmem or SGI shmem, but only SGI shmem is supported.
     linux*)
-      if test -e /dev/xpmem; then
+      if test -r /dev/xpmem; then
         # SGI Altix uhas xpmem device
 	SHMEM_FLAVOUR="SGI_SHMEM"
 	AC_MSG_RESULT(SGI/Altix)
