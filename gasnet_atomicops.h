@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/09 08:11:08 $
- * $Revision: 1.177 $
+ *     $Date: 2006/05/09 23:29:44 $
+ * $Revision: 1.178 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -216,18 +216,14 @@
 
 #if defined(GASNETI_USE_GENERIC_ATOMIC32) || defined(GASNETI_USE_GENERIC_ATOMIC64)
   #if defined(GASNETI_GENATOMIC_LOCK) /* Mutex-based (HSL or pthread mutex) versions */
-    #define _GASNETI_GENATOMIC_DECL(_sz)                                      \
-      typedef struct { volatile _CONCAT3(uint,_sz,_t) ctr; }                  \
-                                   _CONCAT3(gasneti_genatomic,_sz,_t);        \
-      extern int _CONCAT3(_gasneti_genatomic,_sz,_decrement_and_test)         \
-                                   (_CONCAT3(gasneti_genatomic,_sz,_t) *p);   \
-      extern int _CONCAT3(_gasneti_genatomic,_sz,_compare_and_swap)           \
-                                   (_CONCAT3(gasneti_genatomic,_sz,_t) *p,    \
-                                    _CONCAT3(uint,_sz,_t) oldval,             \
-                                    _CONCAT3(uint,_sz,_t) newval);            \
-      extern _CONCAT3(uint,_sz,_t) _CONCAT3(_gasneti_genatomic,_sz,_addfetch) \
-                                   (_CONCAT3(gasneti_genatomic,_sz,_t) *p,    \
-                                    _CONCAT3(int,_sz,_t op));
+    #define _GASNETI_GENATOMIC_DECL(_sz)                                                      \
+      typedef struct { volatile uint##_sz##_t ctr; }  gasneti_genatomic##_sz##_t;             \
+      extern int _gasneti_genatomic##_sz##_decrement_and_test(gasneti_genatomic##_sz##_t *p); \
+      extern int _gasneti_genatomic##_sz##_compare_and_swap(gasneti_genatomic##_sz##_t *p,    \
+                                                            uint##_sz##_t oldval,             \
+                                                            uint##_sz##_t newval);            \
+      extern uint##_sz##_t _gasneti_genatomic##_sz##_addfetch(gasneti_genatomic##_sz##_t *p,  \
+                                                              int##_sz##_t op);
     #define _GASNETI_GENATOMIC_INIT(v)      { (v) }
     #define _GASNETI_GENATOMIC_READ(p)      ((p)->ctr)
     #define _GASNETI_GENATOMIC_SET(p,v)     do { \
@@ -247,9 +243,8 @@
       } while (0)
     #define _GASNETI_GENATOMIC_DEFN(_sz)                                      \
       /* Decrement-and-test: */                                               \
-      int _CONCAT3(_gasneti_genatomic,_sz,_decrement_and_test)                \
-                                   (_CONCAT3(gasneti_genatomic,_sz,_t) *p) {  \
-        _CONCAT3(uint,_sz,_t) newval;                                         \
+      int _gasneti_genatomic##_sz##_decrement_and_test(gasneti_genatomic##_sz##_t *p) {  \
+        uint##_sz##_t newval;                                                 \
         GASNETI_GENATOMIC_LOCK();                                             \
         newval = p->ctr - 1;                                                  \
         p->ctr = newval;                                                      \
@@ -257,10 +252,9 @@
         return (newval == 0);                                                 \
       }                                                                       \
       /* Compare-and-swap: */                                                 \
-      int _CONCAT3(_gasneti_genatomic,_sz,_compare_and_swap)                  \
-                                   (_CONCAT3(gasneti_genatomic,_sz,_t) *p,    \
-                                    _CONCAT3(uint,_sz,_t) oldval,             \
-                                    _CONCAT3(uint,_sz,_t) newval) {           \
+      int _gasneti_genatomic##_sz##_compare_and_swap(gasneti_genatomic##_sz##_t *p, \
+                                                     uint##_sz##_t oldval,          \
+                                                     uint##_sz##_t newval) {        \
         int retval;                                                           \
         GASNETI_GENATOMIC_LOCK();                                             \
         retval = (p->ctr == oldval);                                          \
@@ -271,10 +265,9 @@
         return retval;                                                        \
       }                                                                       \
       /* Add-and-fetch: */                                                    \
-      _CONCAT3(uint,_sz,_t) _CONCAT3(_gasneti_genatomic,_sz,_addfetch)        \
-                                   (_CONCAT3(gasneti_genatomic,_sz,_t) *p,    \
-                                    _CONCAT3(int,_sz,_t) op) {                \
-        _CONCAT3(uint,_sz,_t) retval;                                         \
+      uint##_sz##_t _gasneti_genatomic##_sz##_addfetch(gasneti_genatomic##_sz##_t *p, \
+                                                       int##_sz##_t op) {             \
+        uint##_sz##_t retval;                                                 \
         GASNETI_GENATOMIC_LOCK();                                             \
         retval = (((p)->ctr) += (op));                                        \
         GASNETI_GENATOMIC_UNLOCK();                                           \
@@ -282,7 +275,7 @@
       }
   #else /* Fully serial version */
     #define _GASNETI_GENATOMIC_DECL(_sz)                                      \
-      typedef volatile _CONCAT3(uint,_sz,_t) _CONCAT3(gasneti_genatomic,_sz,_t);
+      typedef volatile uint##_sz##_t gasneti_genatomic##_sz##_t;
     #define _GASNETI_GENATOMIC_INIT             _gasneti_scalar_atomic_init
     #define _GASNETI_GENATOMIC_READ             _gasneti_scalar_atomic_read
     #define _GASNETI_GENATOMIC_SET              _gasneti_scalar_atomic_set
@@ -908,66 +901,62 @@
 #define GASNETI_ATOMIC_FENCED_SET(group,_func,p,v,f)                \
   do {                                                              \
     const int __flags = (f);                                        \
-    _CONCAT3(_gasneti_,group,_fence_before_set)(__flags)            \
+    _gasneti_##group##_fence_before_set(__flags)                    \
     _func((p),(v));                                                 \
-    _CONCAT3(_gasneti_,group,_fence_after_set)(__flags)             \
+    _gasneti_##group##_fence_after_set(__flags)                     \
   } while (0)
 #define GASNETI_ATOMIC_FENCED_READ_DEFN(group,func,_func,stem)      \
   GASNETI_INLINE(func)                                              \
-  _CONCAT(stem,val_t) func(_CONCAT(stem,t) *p, const int flags) {   \
-    _CONCAT3(_gasneti_,group,_fence_before_read)(flags)             \
-    { const _CONCAT(stem,val_t) retval = _func(p);                  \
-      _CONCAT3(_gasneti_,group,_fence_after_read)(flags)            \
+  stem##val_t func(stem##t *p, const int flags) {                   \
+    _gasneti_##group##_fence_before_read(flags)                     \
+    { const stem##val_t retval = _func(p);                          \
+      _gasneti_##group##_fence_after_read(flags)                    \
       return retval;                                                \
     }                                                               \
   }
 #define GASNETI_ATOMIC_FENCED_INCDEC(group,_func,p,f)               \
   do {                                                              \
     const int __flags = (f);                                        \
-    _CONCAT3(_gasneti_,group,_fence_before_rmw)(__flags)            \
+    _gasneti_##group##_fence_before_rmw(__flags)                    \
     _func(p);                                                       \
-    _CONCAT3(_gasneti_,group,_fence_after_rmw)(__flags)             \
+    _gasneti_##group##_fence_after_rmw(__flags)                     \
   } while (0)
 #define GASNETI_ATOMIC_FENCED_DECTEST_DEFN(group,func,_func,stem)   \
   GASNETI_INLINE(func)                                              \
-  int func(_CONCAT(stem,t) *p, const int flags) {                   \
-    _CONCAT3(_gasneti_,group,_fence_before_rmw)(flags)              \
+  int func(stem##t *p, const int flags) {                           \
+    _gasneti_##group##_fence_before_rmw(flags)                      \
     { const int retval = _func(p);                                  \
-      _CONCAT3(_gasneti_,group,_fence_after_bool)(flags, retval)    \
+      _gasneti_##group##_fence_after_bool(flags, retval)            \
       return retval;                                                \
     }                                                               \
   }
 #define GASNETI_ATOMIC_FENCED_CAS_DEFN(group,func,_func,stem)       \
   GASNETI_INLINE(func)                                              \
-  int func(_CONCAT(stem,t) *p, _CONCAT(stem,val_t) oldval,          \
-           _CONCAT(stem,val_t) newval, const int flags) {           \
-    _CONCAT3(_gasneti_,group,_fence_before_rmw)(flags)              \
+  int func(stem##t *p, stem##val_t oldval,                          \
+           stem##val_t newval, const int flags) {                   \
+    _gasneti_##group##_fence_before_rmw(flags)                      \
     { const int retval = _func(p,oldval,newval);                    \
-      _CONCAT3(_gasneti_,group,_fence_after_bool)(flags, retval)    \
+      _gasneti_##group##_fence_after_bool(flags, retval)            \
       return retval;                                                \
     }                                                               \
   }
 #define GASNETI_ATOMIC_FENCED_ADDSUB_DEFN(group,func,_func,stem)    \
   GASNETI_INLINE(func)                                              \
-  _CONCAT(stem,val_t) func(_CONCAT(stem,t) *p,                      \
-			   _CONCAT(stem,val_t) op,                  \
-			   const int flags) {                       \
+  stem##val_t func(stem##t *p, stem##val_t op, const int flags) {   \
     /* TODO: prohibit zero as well? */                              \
-    gasneti_assert((_CONCAT(stem,sval_t))op >= 0);                  \
-    _CONCAT3(_gasneti_,group,_fence_before_rmw)(flags)              \
-    { const _CONCAT(stem,val_t) retval = _func(p, op);              \
-      _CONCAT3(_gasneti_,group,_fence_after_rmw)(flags)             \
+    gasneti_assert((stem##sval_t)op >= 0);                          \
+    _gasneti_##group##_fence_before_rmw(flags)                      \
+    { const stem##val_t retval = _func(p, op);                      \
+      _gasneti_##group##_fence_after_rmw(flags)                     \
       return retval;                                                \
     }                                                               \
   }
 #define GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN(group,func,_func,stem)  \
   GASNETI_INLINE(func)                                              \
-  _CONCAT(stem,val_t) func(_CONCAT(stem,t) *p,                      \
-			   _CONCAT(stem,sval_t) op,                 \
-			   const int flags) {                       \
-    _CONCAT3(_gasneti_,group,_fence_before_rmw)(flags)              \
-    { const _CONCAT(stem,val_t) retval = _func(p, op);              \
-      _CONCAT3(_gasneti_,group,_fence_after_rmw)(flags)             \
+  stem##val_t func(stem##t *p, stem##sval_t op, const int flags) {  \
+    _gasneti_##group##_fence_before_rmw(flags)                      \
+    { const stem##val_t retval = _func(p, op);                      \
+      _gasneti_##group##_fence_after_rmw(flags)                     \
       return retval;                                                \
     }                                                               \
   }
@@ -1074,34 +1063,6 @@
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-/* Slow function-call based atomics
- * Used at client compile time for any compiler w/o inline asm support
- */
-
-#if defined(GASNETI_USING_SLOW_ATOMICS)
-  GASNETI_EXTERNC uint32_t gasneti_slow_atomic_read(gasneti_atomic_t *p, const int flags);
-  #define gasneti_atomic_read gasneti_slow_atomic_read
-  GASNETI_EXTERNC void gasneti_slow_atomic_set(gasneti_atomic_t *p, uint32_t v, const int flags);
-  #define gasneti_atomic_set gasneti_slow_atomic_set
-  GASNETI_EXTERNC void gasneti_slow_atomic_increment(gasneti_atomic_t *p, const int flags);
-  #define gasneti_atomic_increment gasneti_slow_atomic_increment
-  GASNETI_EXTERNC void gasneti_slow_atomic_decrement(gasneti_atomic_t *p, const int flags);
-  #define gasneti_atomic_decrement gasneti_slow_atomic_decrement
-  GASNETI_EXTERNC int gasneti_slow_atomic_decrement_and_test(gasneti_atomic_t *p, const int flags);
-  #define gasneti_atomic_decrement_and_test gasneti_slow_atomic_decrement_and_test
-  #if defined(GASNETI_HAVE_ATOMIC_CAS)
-    GASNETI_EXTERNC int gasneti_slow_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval, const int flags);
-    #define gasneti_atomic_compare_and_swap gasneti_slow_atomic_compare_and_swap
-  #endif
-  #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
-    GASNETI_EXTERNC uint32_t gasneti_slow_atomic_add(gasneti_atomic_t *p, uint32_t op, const int flags);
-    #define gasneti_atomic_add gasneti_slow_atomic_add
-    GASNETI_EXTERNC uint32_t gasneti_slow_atomic_subtract(gasneti_atomic_t *p, uint32_t op, const int flags);
-    #define gasneti_atomic_subtract gasneti_slow_atomic_subtract
-  #endif
-#endif
-
-/* ------------------------------------------------------------------------------------ */
 /* "Normal" fenced atomics
  */
 
@@ -1184,10 +1145,10 @@
      fenced atomic may be written by a network adapter.
    */
 
-  #define _GASNETI_WEAKATOMIC_DEFN(_type,_sz)                           \
-    typedef volatile _CONCAT3(uint,_sz,_t) _CONCAT3(gasneti_,_type,_t); \
-    typedef _CONCAT3(uint,_sz,_t) _CONCAT3(gasneti_,_type,_val_t);      \
-    typedef _CONCAT3(int,_sz,_t) _CONCAT3(gasneti_,_type,_sval_t);
+  #define _GASNETI_WEAKATOMIC_DEFN(_type,_sz)                   \
+    typedef volatile uint##_sz##_t gasneti_##_type##_t; \
+    typedef uint##_sz##_t gasneti_##_type##_val_t;      \
+    typedef int##_sz##_t gasneti_##_type##_sval_t;
 
   /* Build gasneti_weakatomic_t */
   #if defined(GASNETI_FORCE_64BIT_ATOMICOPS)

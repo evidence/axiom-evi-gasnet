@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/05/09 05:51:48 $
- * $Revision: 1.68 $
+ *     $Date: 2006/05/09 23:29:44 $
+ * $Revision: 1.69 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -58,11 +58,6 @@
 #ifndef _CONCAT
 #define _CONCAT_HELPER(a,b) a ## b
 #define _CONCAT(a,b) _CONCAT_HELPER(a,b)
-#endif
-
-#ifndef _CONCAT3
-#define _CONCAT3_HELPER(a,b,c) a ## b ## c
-#define _CONCAT3(a,b,c) _CONCAT3_HELPER(a,b,c)
 #endif
 
 #ifndef TRUE
