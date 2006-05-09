@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/09 04:14:20 $
- * $Revision: 1.174 $
+ *     $Date: 2006/05/09 04:25:37 $
+ * $Revision: 1.175 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1001,20 +1001,8 @@
 
 #if defined(GASNETI_USE_GENERIC_ATOMIC32) || defined(GASNETI_USE_GENERIC_ATOMIC64)
   /* Fences for the generics */
-  #if defined(GASNETI_GENATOMIC_SERIAL)
+  #ifndef GASNETI_GENATOMIC_LOCK
     /* Not locking, so use full fences */
-    #define _gasneti_genatomic_fence_before_read(f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_rmb_before(f) \
-							_gasneti_atomic_wmb_before(f)
-    #define _gasneti_genatomic_fence_after_read(f)	_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f)  \
-							_gasneti_atomic_wmb_after(f)
-    #define _gasneti_genatomic_fence_before_set(f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_rmb_before(f) \
-							_gasneti_atomic_wmb_before(f)
-    #define _gasneti_genatomic_fence_after_set(f)	_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f)  \
-							_gasneti_atomic_wmb_after(f)
     #define _gasneti_genatomic_fence_before_rmw(f)	_gasneti_atomic_mb_before(f)  \
 							_gasneti_atomic_rmb_before(f) \
 							_gasneti_atomic_wmb_before(f)
@@ -1025,19 +1013,10 @@
 							_gasneti_atomic_rmb_after(f)  \
 							_gasneti_atomic_wmb_after(f)  \
 							_gasneti_atomic_rmb_bool(f,v)
+    #define _gasneti_genatomic_fence_before_set		_gasneti_genatomic_fence_before_rmw
+    #define _gasneti_genatomic_fence_after_set		_gasneti_genatomic_fence_after_rmw
   #else
-    /* READ is currently always performed *without* the lock held */
-    #define _gasneti_genatomic_fence_before_read(f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_rmb_before(f) \
-							_gasneti_atomic_wmb_before(f)
-    #define _gasneti_genatomic_fence_after_read(f)	_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f)  \
-							_gasneti_atomic_wmb_after(f)
     /* The lock acquire includes RMB and release includes WMB */
-    #define _gasneti_genatomic_fence_before_set(f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_wmb_before(f)
-    #define _gasneti_genatomic_fence_after_set(f)	_gasneti_atomic_mb_after(f)   \
-							_gasneti_atomic_rmb_after(f)
     #define _gasneti_genatomic_fence_before_rmw(f)	_gasneti_atomic_mb_before(f)  \
 							_gasneti_atomic_wmb_before(f)
     #define _gasneti_genatomic_fence_after_rmw(f)	_gasneti_atomic_mb_after(f)   \
@@ -1045,7 +1024,16 @@
     #define _gasneti_genatomic_fence_after_bool(f,v)	_gasneti_atomic_mb_after(f)   \
 							_gasneti_atomic_rmb_after(f ) \
 							_gasneti_atomic_rmb_bool(f,v)
+    #define _gasneti_genatomic_fence_before_set		_gasneti_genatomic_fence_before_rmw
+    #define _gasneti_genatomic_fence_after_set		_gasneti_genatomic_fence_after_rmw
   #endif
+  /* READ is currently always performed *without* the lock (if any) held */
+  #define _gasneti_genatomic_fence_before_read(f)	_gasneti_atomic_mb_before(f)  \
+							_gasneti_atomic_rmb_before(f) \
+							_gasneti_atomic_wmb_before(f)
+  #define _gasneti_genatomic_fence_after_read(f)	_gasneti_atomic_mb_after(f)   \
+							_gasneti_atomic_rmb_after(f)  \
+							_gasneti_atomic_wmb_after(f)
 
   #if defined(GASNETI_USE_GENERIC_ATOMIC32)
     #define gasneti_genatomic32_set(p,v,f) \
