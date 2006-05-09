@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/05 19:40:04 $
- * $Revision: 1.57 $
+ *     $Date: 2006/05/09 05:28:59 $
+ * $Revision: 1.58 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -388,7 +388,6 @@ int main(int argc, char **argv) {
     }
     #endif
 
-    #ifdef GASNETT_HAVE_ATOMIC32_T
     {
       gasnett_atomic32_t var32 = gasnett_atomic32_init(~(uint32_t)0);
       uint32_t tmp32;
@@ -421,9 +420,7 @@ int main(int argc, char **argv) {
           ERR("gasnett_atomic32_compare_and_swap set wrong updated value at i=%i", i);
       }
     }
-    #endif
 
-    #ifdef GASNETT_HAVE_ATOMIC64_T
     {
       gasnett_atomic64_t var64 = gasnett_atomic64_init(~(uint64_t)0);
       uint64_t tmp64;
@@ -456,7 +453,6 @@ int main(int argc, char **argv) {
           ERR("gasnett_atomic64_compare_and_swap set wrong updated value at i=%i", i);
       }
     }
-    #endif
   }
 
 #ifdef HAVE_PTHREAD_H
