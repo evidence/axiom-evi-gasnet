@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/05/02 20:21:10 $
- * $Revision: 1.76 $
+ *     $Date: 2006/05/09 03:13:19 $
+ * $Revision: 1.77 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -106,25 +106,19 @@
     #define gasnett_atomic_subtract(p,op,f) gasneti_atomic_subtract(p,op,f)
   #endif
 
-  #ifdef GASNETI_HAVE_ATOMIC32_T
-    #define GASNETT_HAVE_ATOMIC32_T 1
-    #define gasnett_atomic32_t              gasneti_atomic32_t
-    #define gasnett_atomic32_read(p,f)      gasneti_atomic32_read(p,f)
-    #define gasnett_atomic32_init(v)        gasneti_atomic32_init(v)
-    #define gasnett_atomic32_set(p,v,f)     gasneti_atomic32_set(p,v,f)
-    #define gasnett_atomic32_compare_and_swap(p,oldval,newval,f)  \
-                                            gasneti_atomic32_compare_and_swap(p,oldval,newval,f)
-  #endif
+  #define gasnett_atomic32_t              gasneti_atomic32_t
+  #define gasnett_atomic32_read(p,f)      gasneti_atomic32_read(p,f)
+  #define gasnett_atomic32_init(v)        gasneti_atomic32_init(v)
+  #define gasnett_atomic32_set(p,v,f)     gasneti_atomic32_set(p,v,f)
+  #define gasnett_atomic32_compare_and_swap(p,oldval,newval,f)  \
+                                          gasneti_atomic32_compare_and_swap(p,oldval,newval,f)
 
-  #ifdef GASNETI_HAVE_ATOMIC64_T
-    #define GASNETT_HAVE_ATOMIC64_T 1
-    #define gasnett_atomic64_t              gasneti_atomic64_t
-    #define gasnett_atomic64_read(p,f)      gasneti_atomic64_read(p,f)
-    #define gasnett_atomic64_init(v)        gasneti_atomic64_init(v)
-    #define gasnett_atomic64_set(p,v,f)     gasneti_atomic64_set(p,v,f)
-    #define gasnett_atomic64_compare_and_swap(p,oldval,newval,f)  \
+  #define gasnett_atomic64_t              gasneti_atomic64_t
+  #define gasnett_atomic64_read(p,f)      gasneti_atomic64_read(p,f)
+  #define gasnett_atomic64_init(v)        gasneti_atomic64_init(v)
+  #define gasnett_atomic64_set(p,v,f)     gasneti_atomic64_set(p,v,f)
+  #define gasnett_atomic64_compare_and_swap(p,oldval,newval,f)  \
                                             gasneti_atomic64_compare_and_swap(p,oldval,newval,f)
-  #endif
 #else /* GASNET_SEQ and non-thread-safe tools clients */
   /* safe to use weak atomics here, because the client is single-threaded and 
      should only be modifying atomics from the host CPU (using these calls). 
@@ -150,25 +144,19 @@
     #define gasnett_atomic_subtract(p,op,f) gasneti_weakatomic_subtract(p,op,f)
   #endif
 
-  #ifdef GASNETI_HAVE_WEAKATOMIC32_T
-    #define GASNETT_HAVE_ATOMIC32_T 1
-    #define gasnett_atomic32_t              gasneti_weakatomic32_t
-    #define gasnett_atomic32_read(p,f)      gasneti_weakatomic32_read(p,f)
-    #define gasnett_atomic32_init(v)        gasneti_weakatomic32_init(v)
-    #define gasnett_atomic32_set(p,v,f)     gasneti_weakatomic32_set(p,v,f)
-    #define gasnett_atomic32_compare_and_swap(p,oldval,newval,f)  \
-                                            gasneti_weakatomic32_compare_and_swap(p,oldval,newval,f)
-  #endif
+  #define gasnett_atomic32_t              gasneti_weakatomic32_t
+  #define gasnett_atomic32_read(p,f)      gasneti_weakatomic32_read(p,f)
+  #define gasnett_atomic32_init(v)        gasneti_weakatomic32_init(v)
+  #define gasnett_atomic32_set(p,v,f)     gasneti_weakatomic32_set(p,v,f)
+  #define gasnett_atomic32_compare_and_swap(p,oldval,newval,f)  \
+                                          gasneti_weakatomic32_compare_and_swap(p,oldval,newval,f)
 
-  #ifdef GASNETI_HAVE_WEAKATOMIC64_T
-    #define GASNETT_HAVE_ATOMIC64_T 1
-    #define gasnett_atomic64_t              gasneti_weakatomic64_t
-    #define gasnett_atomic64_read(p,f)      gasneti_weakatomic64_read(p,f)
-    #define gasnett_atomic64_init(v)        gasneti_weakatomic64_init(v)
-    #define gasnett_atomic64_set(p,v,f)     gasneti_weakatomic64_set(p,v,f)
-    #define gasnett_atomic64_compare_and_swap(p,oldval,newval,f)  \
-                                            gasneti_weakatomic64_compare_and_swap(p,oldval,newval,f)
-  #endif
+  #define gasnett_atomic64_t              gasneti_weakatomic64_t
+  #define gasnett_atomic64_read(p,f)      gasneti_weakatomic64_read(p,f)
+  #define gasnett_atomic64_init(v)        gasneti_weakatomic64_init(v)
+  #define gasnett_atomic64_set(p,v,f)     gasneti_weakatomic64_set(p,v,f)
+  #define gasnett_atomic64_compare_and_swap(p,oldval,newval,f)  \
+                                          gasneti_weakatomic64_compare_and_swap(p,oldval,newval,f)
 #endif
 
 /* tight spin loop CPU hint */

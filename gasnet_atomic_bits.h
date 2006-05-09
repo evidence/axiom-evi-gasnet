@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/06 00:54:05 $
- * $Revision: 1.189 $
+ *     $Date: 2006/05/09 03:13:19 $
+ * $Revision: 1.190 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -60,186 +60,8 @@
 /* ------------------------------------------------------------------------------------ */
 
 #if defined(GASNETI_USE_GENERIC_ATOMICOPS)
-  /* a very slow but portable implementation of atomic ops using mutexes */
-  #if defined(GASNETI_FORCE_64BIT_ATOMICOPS)
-    typedef uint64_t                      gasneti_atomic_val_t;
-    typedef int64_t                       gasneti_atomic_sval_t;
-    #define GASNETI_ATOMIC_MAX            ((gasneti_atomic_val_t)0xFFFFFFFFFFFFFFFFLLU)
-    #define GASNETI_ATOMIC_SIGNED_MIN     ((gasneti_atomic_sval_t)0x8000000000000000LL)
-    #define GASNETI_ATOMIC_SIGNED_MAX     ((gasneti_atomic_sval_t)0x7FFFFFFFFFFFFFFFLL)
-  #else
-    typedef uint32_t                      gasneti_atomic_val_t;
-    typedef int32_t                       gasneti_atomic_sval_t;
-    #define GASNETI_ATOMIC_MAX            ((gasneti_atomic_val_t)0xFFFFFFFFU)
-    #define GASNETI_ATOMIC_SIGNED_MIN     ((gasneti_atomic_sval_t)0x80000000)
-    #define GASNETI_ATOMIC_SIGNED_MAX     ((gasneti_atomic_sval_t)0x7FFFFFFF)
-  #endif
-  #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1
-  #define GASNETI_HAVE_PRIVATE_ATOMIC_T 1
-  #ifdef _INCLUDED_GASNET_H
-    extern void *gasneti_patomicop_lock; /* bug 693: avoid header dependency cycle */
-    typedef struct { volatile gasneti_atomic_val_t ctr; } gasneti_atomic_t;
-    #define _gasneti_atomic_read(p)      ((p)->ctr)
-    #define _gasneti_atomic_init(v)      { (v) }
-    #define _gasneti_atomic_set(p,v) do {                         \
-        gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
-        (p)->ctr = (v);                                           \
-        gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock); \
-      } while (0)
-    #define _gasneti_atomic_increment(p) do {                     \
-        gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
-        ((p)->ctr)++;                                             \
-        gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock); \
-      } while (0)
-    #define _gasneti_atomic_decrement(p) do {                     \
-        gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
-        ((p)->ctr)--;                                             \
-        gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock); \
-      } while (0)
-    extern int _gasneti_atomic_decrement_and_test(gasneti_atomic_t *p);
-    #define GASNETI_GENERIC_DEC_AND_TEST_DEFN                     \
-    int _gasneti_atomic_decrement_and_test(gasneti_atomic_t *p) { \
-      gasneti_atomic_val_t newval;                                \
-      gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);     \
-      newval = p->ctr - 1;                                        \
-      p->ctr = newval;                                            \
-      gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock);   \
-      return (newval == 0);                                       \
-    }
-    #define _gasneti_atomic_decrement_and_test _gasneti_atomic_decrement_and_test
-
-    extern int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p,
-                                                gasneti_atomic_val_t oldval,
-                                                gasneti_atomic_val_t newval);
-    #define GASNETI_GENERIC_CAS_DEFN                                    \
-    int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p,           \
-                                         gasneti_atomic_val_t oldval,   \
-                                         gasneti_atomic_val_t newval) { \
-      int retval;                                                       \
-      gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);           \
-      retval = (p->ctr == oldval);                                      \
-      if_pt (retval) {                                                  \
-        p->ctr = newval;                                                \
-      }                                                                 \
-      gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock);         \
-      return retval;                                                    \
-    }
-    #define GASNETI_HAVE_ATOMIC_CAS 1
-
-    extern gasneti_atomic_val_t _gasneti_atomic_addfetch(gasneti_atomic_t *p,
-                                                         gasneti_atomic_sval_t op);
-    #define GASNETI_GENERIC_ADD_SUB_DEFN                                      \
-    gasneti_atomic_val_t _gasneti_atomic_addfetch(gasneti_atomic_t *p,        \
-                                                  gasneti_atomic_sval_t op) { \
-      gasneti_atomic_val_t retval;                                            \
-      gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock);                 \
-      retval = (((p)->ctr) += (op));                                          \
-      gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock);               \
-      return retval;                                                          \
-    }
-    #define _gasneti_atomic_addfetch _gasneti_atomic_addfetch
-
-    #if (GASNET_PAR || GASNETI_CONDUIT_THREADS)
-      /* Using real HSLs which yeild an ACQ/RMB before and REL/WMB after the atomic */
-      #define GASNETI_ATOMIC_FENCE_SET (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
-      #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
-    #else
-      /* HSLs compile away, so use defaults */
-    #endif
-
-    #define GASNETI_GENERIC_ATOMICS_DEFN  \
-	GASNETI_GENERIC_DEC_AND_TEST_DEFN \
-	GASNETI_GENERIC_CAS_DEFN \
-	GASNETI_GENERIC_ADD_SUB_DEFN
-  #elif defined(_REENTRANT) || defined(_THREAD_SAFE) || \
-        defined(PTHREAD_MUTEX_INITIALIZER) ||           \
-        defined(HAVE_PTHREAD) || defined(HAVE_PTHREAD_H)
-    /* a version for pthreads which is independent of GASNet HSL's */
-    #include <pthread.h>
-    extern pthread_mutex_t gasneti_atomicop_mutex; 
-    /* intentionally make these a different size than regular 
-       GASNet atomics, to cause a link error on attempts to mix them
-     */
-    typedef struct { volatile gasneti_atomic_val_t ctr; char _pad; } gasneti_atomic_t;
-    #define _gasneti_atomic_read(p)      ((p)->ctr)
-    #define _gasneti_atomic_init(v)      { (v) }
-    #define _gasneti_atomic_set(p,v) do {              \
-        pthread_mutex_lock(&gasneti_atomicop_mutex);   \
-        (p)->ctr = (v);                                \
-        pthread_mutex_unlock(&gasneti_atomicop_mutex); \
-      } while (0)
-    #define _gasneti_atomic_increment(p) do {          \
-        pthread_mutex_lock(&gasneti_atomicop_mutex);   \
-        ((p)->ctr)++;                                  \
-        pthread_mutex_unlock(&gasneti_atomicop_mutex); \
-      } while (0)
-    #define _gasneti_atomic_decrement(p) do {          \
-        pthread_mutex_lock(&gasneti_atomicop_mutex);   \
-        ((p)->ctr)--;                                  \
-        pthread_mutex_unlock(&gasneti_atomicop_mutex); \
-      } while (0)
-    GASNETI_INLINE(_gasneti_atomic_decrement_and_test)
-    int _gasneti_atomic_decrement_and_test(gasneti_atomic_t *p) {
-      gasneti_atomic_val_t newval;
-      pthread_mutex_lock(&gasneti_atomicop_mutex);
-      newval = p->ctr - 1;
-      p->ctr = newval;
-      pthread_mutex_unlock(&gasneti_atomicop_mutex);
-      return (newval == 0);
-    }
-    #define _gasneti_atomic_decrement_and_test _gasneti_atomic_decrement_and_test
-
-    GASNETI_INLINE(_gasneti_atomic_compare_and_swap)
-    int _gasneti_atomic_compare_and_swap(gasneti_atomic_t *p, 
-                                         gasneti_atomic_val_t oldval,
-                                         gasneti_atomic_val_t newval) {
-      int retval;
-      pthread_mutex_lock(&gasneti_atomicop_mutex);
-      retval = (p->ctr == oldval);
-      if_pt (retval) {
-        p->ctr = newval;
-      }
-      pthread_mutex_unlock(&gasneti_atomicop_mutex);
-      return retval;
-    }
-    #define GASNETI_HAVE_ATOMIC_CAS 1
-
-    GASNETI_INLINE(gasneti_atomic_addfetch)
-    gasneti_atomic_val_t gasneti_atomic_addfetch(gasneti_atomic_t *p,
-                                                 gasneti_atomic_sval_t op) {
-      gasneti_atomic_val_t retval;
-      pthread_mutex_lock(&gasneti_atomicop_mutex);
-      retval = (((p)->ctr) += op);
-      pthread_mutex_unlock(&gasneti_atomicop_mutex);
-      return retval;
-    }
-    #define _gasneti_atomic_addfetch gasneti_atomic_addfetch
-
-    /* Using real mutexes which yeild an ACQ/RMB before and REL/WMB after the atomic */
-    #define GASNETI_ATOMIC_FENCE_SET (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
-    #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_RMB_PRE | GASNETI_ATOMIC_WMB_POST)
-  #else
-    /* only one thread - everything atomic by definition */
-    /* attempt to generate a compile error if pthreads actually are in use */
-    #define PTHREAD_MUTEX_INITIALIZER ERROR_include_pthread_h_before_gasnet_tools_h
-    extern int pthread_mutex_lock; 
-
-    typedef volatile gasneti_atomic_val_t gasneti_atomic_t;
-    #define _gasneti_atomic_read(p)      (*(p))
-    #define _gasneti_atomic_init(v)      (v)
-    #define _gasneti_atomic_set(p,v)     (*(p) = (v))
-    #define _gasneti_atomic_increment(p) ((*(p))++)
-    #define _gasneti_atomic_decrement(p) ((*(p))--)
-    #define _gasneti_atomic_decrement_and_test(p) ((--(*(p))) == 0)
-
-    #define _gasneti_atomic_compare_and_swap(p,oldval,newval) \
-              (*(p) == (oldval) ? *(p) = (newval), 1 : 0)
-    #define GASNETI_HAVE_ATOMIC_CAS 1
-
-    #define _gasneti_atomic_addfetch(p,op)      ((*(p))+=(op))
-
-    /* Using default fences */
-  #endif
+  /* Use a very slow but portable implementation of atomic ops using mutexes */
+  /* This case exists only to prevent the following cases from matching. */
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
   /* ------------------------------------------------------------------------------------
    * Use OS-provided atomics, which should be CPU-independent and
@@ -1914,6 +1736,62 @@
     #endif
   #else
     #error Unrecognized platform - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
+  #endif
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Request build of generic atomics IFF required for the current platform */
+
+#ifndef GASNETI_HAVE_ATOMIC32_T
+  #define GASNETI_USE_GENERIC_ATOMIC32 1
+#endif
+#ifndef GASNETI_HAVE_ATOMIC64_T
+  #define GASNETI_USE_GENERIC_ATOMIC64 1
+#endif
+/* Not for use outside this file: */
+#undef GASNETI_HAVE_ATOMIC32_T
+#undef GASNETI_HAVE_ATOMIC64_T
+
+/* ------------------------------------------------------------------------------------ */
+/* Define configuration-dependent choice of locks for generic atomics (if any) */
+
+#if defined(GASNETI_USE_GENERIC_ATOMIC32) || defined(GASNETI_USE_GENERIC_ATOMIC64)
+  #if defined(_INCLUDED_GASNET_H) && (GASNET_PAR || GASNETI_CONDUIT_THREADS)
+    /* Case I: Real HSLs in a gasnet client */
+    extern void *gasneti_patomicop_lock; /* bug 693: avoid header dependency cycle */
+    #define GASNETI_GENATOMIC_LOCK()   gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock)
+    #define GASNETI_GENATOMIC_UNLOCK() gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock)
+
+    /* Name shift to avoid link conflicts between hsl and pthread versions */
+    #define _gasneti_genatomic32_decrement_and_test _gasneti_hsl_atomic32_decrement_and_test
+    #define _gasneti_genatomic32_compare_and_swap   _gasneti_hsl_atomic32_compare_and_swap
+    #define _gasneti_genatomic32_addfetch           _gasneti_hsl_atomic32_addfetch
+    #define _gasneti_genatomic64_decrement_and_test _gasneti_hsl_atomic64_decrement_and_test
+    #define _gasneti_genatomic64_compare_and_swap   _gasneti_hsl_atomic64_compare_and_swap
+    #define _gasneti_genatomic64_addfetch           _gasneti_hsl_atomic64_addfetch
+  #elif defined(_INCLUDED_GASNET_H)
+    /* Case II: Empty HSLs in a GASNET_SEQ or GASNET_PARSYNC client w/o conduit-internal threads */
+  #elif defined(_REENTRANT) || defined(_THREAD_SAFE) || \
+        defined(PTHREAD_MUTEX_INITIALIZER) ||           \
+        defined(HAVE_PTHREAD) || defined(HAVE_PTHREAD_H)
+    /* Case III: a version for pthreads which is independent of GASNet HSL's */
+    #include <pthread.h>
+    extern pthread_mutex_t gasneti_atomicop_mutex; 
+    #define GASNETI_GENATOMIC_LOCK()   pthread_mutex_lock(&gasneti_atomicop_mutex)
+    #define GASNETI_GENATOMIC_UNLOCK() pthread_mutex_unlock(&gasneti_atomicop_mutex)
+
+    /* Name shift to avoid link conflicts between hsl and pthread versions */
+    #define _gasneti_genatomic32_decrement_and_test _gasneti_pthread_atomic32_decrement_and_test
+    #define _gasneti_genatomic32_compare_and_swap   _gasneti_pthread_atomic32_compare_and_swap
+    #define _gasneti_genatomic32_addfetch           _gasneti_pthread_atomic32_addfetch
+    #define _gasneti_genatomic64_decrement_and_test _gasneti_pthread_atomic64_decrement_and_test
+    #define _gasneti_genatomic64_compare_and_swap   _gasneti_pthread_atomic64_compare_and_swap
+    #define _gasneti_genatomic64_addfetch           _gasneti_pthread_atomic64_addfetch
+  #else
+    /* Case IV: Serial gasnet tools client. */
+    /* attempt to generate a compile error if pthreads actually are in use */
+    #define PTHREAD_MUTEX_INITIALIZER ERROR_include_pthread_h_before_gasnet_tools_h
+    extern int pthread_mutex_lock; 
   #endif
 #endif
 

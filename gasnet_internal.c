@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/05/04 12:09:25 $
- * $Revision: 1.160 $
+ *     $Date: 2006/05/09 03:13:19 $
+ * $Revision: 1.161 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -33,10 +33,15 @@ int gasneti_VerboseErrors = 1;
 
 /* ------------------------------------------------------------------------------------ */
 /* generic atomics support */
-#ifdef GASNETI_USE_GENERIC_ATOMICOPS
+#if defined(GASNETI_USE_GENERIC_ATOMIC32) || defined(GASNETI_USE_GENERIC_ATOMIC64)
   gasnet_hsl_t gasneti_atomicop_lock = GASNET_HSL_INITIALIZER;
   void *gasneti_patomicop_lock = (void*)&gasneti_atomicop_lock;
-  GASNETI_GENERIC_ATOMICS_DEFN
+  #ifdef GASNETI_GENATOMIC32_DEFN
+    GASNETI_GENATOMIC32_DEFN
+  #endif
+  #ifdef GASNETI_GENATOMIC64_DEFN
+    GASNETI_GENATOMIC64_DEFN
+  #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */
