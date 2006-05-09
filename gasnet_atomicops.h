@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/09 04:02:55 $
- * $Revision: 1.173 $
+ *     $Date: 2006/05/09 04:14:20 $
+ * $Revision: 1.174 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1315,6 +1315,33 @@
       return retval;
     }
   }
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Configuration strings */
+
+#if defined(GASNETI_USE_GENERIC_ATOMICOPS)
+  #define GASNETI_ATOMIC_CONFIG   atomics_mutex
+#elif defined(GASNETI_USE_OS_ATOMICOPS)
+  #define GASNETI_ATOMIC_CONFIG   atomics_os
+#else
+  #define GASNETI_ATOMIC_CONFIG   atomics_native
+#endif
+
+#if defined(GASNETI_USE_GENERIC_ATOMIC32)
+  #define GASNETI_ATOMIC32_CONFIG   atomic32_mutex
+#elif defined(GASNETI_USE_OS_ATOMICOPS)
+  #define GASNETI_ATOMIC32_CONFIG   atomic32_os
+#else
+  #define GASNETI_ATOMIC32_CONFIG   atomic32_native
+#endif
+
+#if defined(GASNETI_USE_GENERIC_ATOMIC64)
+  #define GASNETI_ATOMIC64_CONFIG   atomic64_mutex
+#elif defined(GASNETI_USE_OS_ATOMICOPS)
+  #define GASNETI_ATOMIC64_CONFIG   atomic64_os
+#else
+  #define GASNETI_ATOMIC64_CONFIG   atomic64_native
 #endif
 
 /* ------------------------------------------------------------------------------------ */

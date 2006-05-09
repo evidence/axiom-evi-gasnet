@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/05/09 03:13:19 $
- * $Revision: 1.77 $
+ *     $Date: 2006/05/09 04:14:20 $
+ * $Revision: 1.78 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -166,12 +166,16 @@
 #define GASNETT_USING_GENERIC_ATOMICOPS
 #endif
 #define GASNETT_ATOMIC_CONFIG         GASNETI_ATOMIC_CONFIG
+#define GASNETT_ATOMIC32_CONFIG       GASNETI_ATOMIC32_CONFIG
+#define GASNETT_ATOMIC64_CONFIG       GASNETI_ATOMIC64_CONFIG
 #define GASNETT_CONFIG_STRING                    \
        "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) "," \
        _STRINGIFY(GASNETT_DEBUG_CONFIG) ","      \
        _STRINGIFY(GASNETT_THREAD_MODEL) ","      \
        _STRINGIFY(GASNETT_TIMER_CONFIG) ","      \
-       _STRINGIFY(GASNETT_ATOMIC_CONFIG)         
+       _STRINGIFY(GASNETT_ATOMIC_CONFIG) ","     \
+       _STRINGIFY(GASNETT_ATOMIC32_CONFIG) ","   \
+       _STRINGIFY(GASNETT_ATOMIC64_CONFIG)
 
 /* ------------------------------------------------------------------------------------ */
 /* portable high-performance, low-overhead timers */
@@ -370,6 +374,8 @@ extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_PTR_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG);
+extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC32_CONFIG);
+extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC64_CONFIG);
 static int *gasnett_linkconfig_idiotcheck();
 static int *(*_gasnett_linkconfig_idiotcheck)() = &gasnett_linkconfig_idiotcheck;
 static int *gasnett_linkconfig_idiotcheck() {
@@ -379,6 +385,8 @@ static int *gasnett_linkconfig_idiotcheck() {
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_PTR_CONFIG)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG)
+        + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC32_CONFIG)
+        + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC64_CONFIG)
         ;
   if (_gasnett_linkconfig_idiotcheck != gasnett_linkconfig_idiotcheck)
     val += *_gasnett_linkconfig_idiotcheck();
