@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/10 16:32:11 $
- * $Revision: 1.192 $
+ *     $Date: 2006/05/10 19:54:15 $
+ * $Revision: 1.193 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1770,12 +1770,12 @@
     #define GASNETI_GENATOMIC_UNLOCK() gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock)
 
     /* Name shift to avoid link conflicts between hsl and pthread versions */
-    #define _gasneti_genatomic32_decrement_and_test _gasneti_hsl_atomic32_decrement_and_test
-    #define _gasneti_genatomic32_compare_and_swap   _gasneti_hsl_atomic32_compare_and_swap
-    #define _gasneti_genatomic32_addfetch           _gasneti_hsl_atomic32_addfetch
-    #define _gasneti_genatomic64_decrement_and_test _gasneti_hsl_atomic64_decrement_and_test
-    #define _gasneti_genatomic64_compare_and_swap   _gasneti_hsl_atomic64_compare_and_swap
-    #define _gasneti_genatomic64_addfetch           _gasneti_hsl_atomic64_addfetch
+    #define gasneti_genatomic32_decrement_and_test gasneti_hsl_atomic32_decrement_and_test
+    #define gasneti_genatomic32_compare_and_swap   gasneti_hsl_atomic32_compare_and_swap
+    #define gasneti_genatomic32_addfetch           gasneti_hsl_atomic32_addfetch
+    #define gasneti_genatomic64_decrement_and_test gasneti_hsl_atomic64_decrement_and_test
+    #define gasneti_genatomic64_compare_and_swap   gasneti_hsl_atomic64_compare_and_swap
+    #define gasneti_genatomic64_addfetch           gasneti_hsl_atomic64_addfetch
   #elif defined(_INCLUDED_GASNET_H)
     /* Case II: Empty HSLs in a GASNET_SEQ or GASNET_PARSYNC client w/o conduit-internal threads */
   #elif defined(_REENTRANT) || defined(_THREAD_SAFE) || \
@@ -1788,12 +1788,12 @@
     #define GASNETI_GENATOMIC_UNLOCK() pthread_mutex_unlock(&gasneti_atomicop_mutex)
 
     /* Name shift to avoid link conflicts between hsl and pthread versions */
-    #define _gasneti_genatomic32_decrement_and_test _gasneti_pthread_atomic32_decrement_and_test
-    #define _gasneti_genatomic32_compare_and_swap   _gasneti_pthread_atomic32_compare_and_swap
-    #define _gasneti_genatomic32_addfetch           _gasneti_pthread_atomic32_addfetch
-    #define _gasneti_genatomic64_decrement_and_test _gasneti_pthread_atomic64_decrement_and_test
-    #define _gasneti_genatomic64_compare_and_swap   _gasneti_pthread_atomic64_compare_and_swap
-    #define _gasneti_genatomic64_addfetch           _gasneti_pthread_atomic64_addfetch
+    #define gasneti_genatomic32_decrement_and_test gasneti_pthread_atomic32_decrement_and_test
+    #define gasneti_genatomic32_compare_and_swap   gasneti_pthread_atomic32_compare_and_swap
+    #define gasneti_genatomic32_addfetch           gasneti_pthread_atomic32_addfetch
+    #define gasneti_genatomic64_decrement_and_test gasneti_pthread_atomic64_decrement_and_test
+    #define gasneti_genatomic64_compare_and_swap   gasneti_pthread_atomic64_compare_and_swap
+    #define gasneti_genatomic64_addfetch           gasneti_pthread_atomic64_addfetch
   #else
     /* Case IV: Serial gasnet tools client. */
     /* attempt to generate a compile error if pthreads actually are in use */
