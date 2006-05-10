@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2006/04/21 21:33:05 $
- * $Revision: 1.46 $
+ *     $Date: 2006/05/10 21:12:21 $
+ * $Revision: 1.47 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -553,4 +553,36 @@ void doit5(int partner, int *partnerseg) {
 
   BARRIER();
 
+  /* Invoke all the atomics, once each.
+   * This is a compile/link check, used to ensure that clients can link all the
+   * the atomics (especially from c++ when testgasnet is built as textcxx).
+   * This is distinct from testtools, which checks that these "do the right thing".
+   */
+  { gasneti_atomic_t val = gasneti_atomic_init(1);
+    gasneti_atomic_val_t utmp = gasneti_atomic_read(&val, 0);
+    gasneti_atomic_sval_t stmp = gasneti_atomic_signed(utmp);
+    gasneti_atomic_set(&val, stmp, 0);
+    gasneti_atomic_increment(&val, 0);
+    gasneti_atomic_decrement(&val, 0);
+    (void)gasneti_atomic_decrement_and_test(&val, 0);
+    #ifdef GASNETI_HAVE_ATOMIC_CAS
+      (void)gasneti_atomic_compare_and_swap(&val, 0, 1 ,0);
+    #endif
+    #ifdef GASNETI_HAVE_ATOMIC_ADDSUB
+      (void)gasneti_atomic_add(&val, 2 ,0);
+      (void)gasneti_atomic_sub(&val, 1 ,0);
+    #endif
+  }
+  { gasneti_atomic32_t val32 = gasneti_atomic32_init(1);
+    uint32_t tmp32 = gasneti_atomic32_read(&val32, 0);
+    gasneti_atomic32_set(&val32, tmp32, 0);
+    (void)gasneti_atomic32_compare_and_swap(&val32, 0, 1 ,0);
+  }
+  { gasneti_atomic64_t val64 = gasneti_atomic64_init(1);
+    uint64_t tmp64 = gasneti_atomic64_read(&val64, 0);
+    gasneti_atomic64_set(&val64, tmp64, 0);
+    (void)gasneti_atomic64_compare_and_swap(&val64, 0, 1 ,0);
+  }
+  
+  BARRIER();
 }

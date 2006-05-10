@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/05/09 04:14:20 $
- * $Revision: 1.163 $
+ *     $Date: 2006/05/10 21:12:19 $
+ * $Revision: 1.164 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -97,12 +97,12 @@ extern void gasneti_slow_local_mb() {
   gasneti_local_mb();
 }
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
-  /* We don't offer slow versions of generics  */
+  /* We don't need or want slow versions of generics (they use no ASM) */
 #else
-  extern uint32_t gasneti_slow_atomic_read(gasneti_atomic_t *p, const int flags) {
+  extern gasneti_atomic_val_t gasneti_slow_atomic_read(gasneti_atomic_t *p, const int flags) {
     return gasneti_atomic_read(p,flags);
   }
-  extern void gasneti_slow_atomic_set(gasneti_atomic_t *p, uint32_t v, const int flags) {
+  extern void gasneti_slow_atomic_set(gasneti_atomic_t *p, gasneti_atomic_val_t v, const int flags) {
     gasneti_atomic_set(p, v, flags);
   }
   extern void gasneti_slow_atomic_increment(gasneti_atomic_t *p, const int flags) {
@@ -115,19 +115,46 @@ extern void gasneti_slow_local_mb() {
     return gasneti_atomic_decrement_and_test(p, flags);
   }
   #if defined(GASNETI_HAVE_ATOMIC_CAS)
-    extern int gasneti_slow_atomic_compare_and_swap(gasneti_atomic_t *p, uint32_t oldval, uint32_t newval, const int flags) {
+    extern int gasneti_slow_atomic_compare_and_swap(gasneti_atomic_t *p, gasneti_atomic_val_t oldval, gasneti_atomic_val_t newval, const int flags) {
       return gasneti_atomic_compare_and_swap(p,oldval,newval,flags);
     }
   #endif
   #if defined(GASNETI_HAVE_ATOMIC_ADD_SUB)
-    extern uint32_t gasneti_slow_atomic_add(gasneti_atomic_t *p, uint32_t op, const int flags) {
+    extern gasneti_atomic_val_t gasneti_slow_atomic_add(gasneti_atomic_t *p, gasneti_atomic_val_t op, const int flags) {
       return gasneti_atomic_add(p,op,flags);
     }
-    extern uint32_t gasneti_slow_atomic_subtract(gasneti_atomic_t *p, uint32_t op, const int flags) {
+    extern gasneti_atomic_val_t gasneti_slow_atomic_subtract(gasneti_atomic_t *p, gasneti_atomic_val_t op, const int flags) {
       return gasneti_atomic_subtract(p,op,flags);
     }
   #endif
 #endif
+#ifdef GASNETI_USE_GENERIC_ATOMIC32
+  /* We don't need or want slow versions of generics (they use no ASM) */
+#else
+  extern uint32_t gasneti_slow_atomic32_read(gasneti_atomic32_t *p, const int flags) {
+    return gasneti_atomic32_read(p,flags);
+  }
+  extern void gasneti_slow_atomic32_set(gasneti_atomic32_t *p, uint32_t v, const int flags) {
+    gasneti_atomic32_set(p, v, flags);
+  }
+  extern int gasneti_slow_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval, const int flags) {
+    return gasneti_atomic32_compare_and_swap(p,oldval,newval,flags);
+  }
+#endif
+#ifdef GASNETI_USE_GENERIC_ATOMIC64
+  /* We don't need or want slow versions of generics (they use no ASM) */
+#else
+  extern uint64_t gasneti_slow_atomic64_read(gasneti_atomic64_t *p, const int flags) {
+    return gasneti_atomic64_read(p,flags);
+  }
+  extern void gasneti_slow_atomic64_set(gasneti_atomic64_t *p, uint64_t v, const int flags) {
+    gasneti_atomic64_set(p, v, flags);
+  }
+  extern int gasneti_slow_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval, const int flags) {
+    return gasneti_atomic64_compare_and_swap(p,oldval,newval,flags);
+  }
+#endif
+
 /* ------------------------------------------------------------------------------------ */
 /* ident strings and idiot checks */
 #define GASNETT_THREADMODEL_STR _STRINGIFY(GASNETT_THREAD_MODEL)
