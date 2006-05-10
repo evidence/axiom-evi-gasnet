@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/10 21:39:36 $
- * $Revision: 1.194 $
+ *     $Date: 2006/05/10 22:34:15 $
+ * $Revision: 1.195 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -547,7 +547,7 @@
       #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
 #endif
 
-      #define GASNETI_ATOMIC_SPECIALS                                          \
+      #define GASNETI_ATOMIC32_SPECIALS                                        \
 	GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_increment,          \
 				 GASNETI_ATOMIC32_INCREMENT_BODY)              \
 	GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_decrement,          \
@@ -558,6 +558,34 @@
 				 GASNETI_ATOMIC32_COMPARE_AND_SWAP_BODY)       \
 	GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_fetchadd,           \
 				 GASNETI_ATOMIC32_FETCHADD_BODY)
+
+      /* 64-bit differ between x86 and amd64: */
+      #if defined(__x86_64__) || defined(__amd64) /* x86 and Athlon/Opteron */
+        #define GASNETI_HAVE_ATOMIC64_T 1
+        typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+        #define _gasneti_atomic64_init(v)      { (v) }
+        #define _gasneti_atomic64_read(p)      ((p)->ctr)
+        #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
+
+        #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY			\
+	  GASNETI_ASM( _gasneti_atomic_load_arg0			\
+		       _gasneti_atomic_load_arg1			\
+		       _gasneti_atomic_load_arg2			\
+		       GASNETI_X86_LOCK_PREFIX				\
+		       "cmpxchgq %rdx, " _gasneti_atomic_addr		"\n\t" \
+		       "sete  %cl					\n\t" \
+		       "movzbl  %cl, %eax" )
+
+        #define GASNETI_ATOMIC64_SPECIALS                                        \
+	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap,   \
+				   GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
+      #else
+	/* TODO: Specials needed for 64-bit on x86 */
+        #define GASNETI_ATOMIC64_SPECIALS   /* Nothing, yet. */
+      #endif 
+
+      #define GASNETI_ATOMIC_SPECIALS   GASNETI_ATOMIC32_SPECIALS \
+                                        GASNETI_ATOMIC64_SPECIALS
 
       /* x86 and x86_64 include full memory fence in locked RMW insns */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
