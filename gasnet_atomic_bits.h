@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/10 22:34:15 $
- * $Revision: 1.195 $
+ *     $Date: 2006/05/10 23:30:39 $
+ * $Revision: 1.196 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -559,11 +559,12 @@
 	GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_fetchadd,           \
 				 GASNETI_ATOMIC32_FETCHADD_BODY)
 
+      #define GASNETI_HAVE_ATOMIC64_T 1
+      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+      #define _gasneti_atomic64_init(v)      { (v) }
+
       /* 64-bit differ between x86 and amd64: */
       #if defined(__x86_64__) || defined(__amd64) /* x86 and Athlon/Opteron */
-        #define GASNETI_HAVE_ATOMIC64_T 1
-        typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
-        #define _gasneti_atomic64_init(v)      { (v) }
         #define _gasneti_atomic64_read(p)      ((p)->ctr)
         #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
 
@@ -580,8 +581,58 @@
 	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap,   \
 				   GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
       #else
-	/* TODO: Specials needed for 64-bit on x86 */
-        #define GASNETI_ATOMIC64_SPECIALS   /* Nothing, yet. */
+        #define GASNETI_ATOMIC64_READ_BODY     				\
+	  GASNETI_ASM( "pushl     %edi					\n\t" \
+		       "movl      8(%ebp), %edi				\n\t" \
+		       "pushl     %ebx					\n" \
+		       "movl      0(%edi), %eax				\n\t" \
+		       "movl      4(%edi), %edx				\n\t" \
+		       "1:						\n\t" \
+		       "movl      %eax, %ebx				\n\t" \
+		       "movl      %edx, %ecx				\n\t" \
+		       GASNETI_X86_LOCK_PREFIX				\
+		       "cmpxchg8b (%edi)				\n\t" \
+		       "jnz       1b					\n\t" \
+		       "popl      %ebx					\n\t" \
+		       "popl      %edi" )
+
+        #define GASNETI_ATOMIC64_SET_BODY     				\
+	  GASNETI_ASM( "pushl     %edi					\n\t" \
+		       "movl      8(%ebp), %edi				\n\t" \
+		       "pushl     %ebx					\n" \
+		       "movl      0(%edi), %eax				\n\t" \
+		       "movl      4(%edi), %edx				\n\t" \
+		       "movl      12(%ebp), %ebx			\n\t" \
+		       "movl      16(%ebp), %ecx			\n\t" \
+		       "1:						\n\t" \
+		       GASNETI_X86_LOCK_PREFIX				\
+		       "cmpxchg8b (%edi)				\n\t" \
+		       "jnz       1b					\n\t" \
+		       "popl      %ebx					\n\t" \
+		       "popl      %edi" )
+
+        #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY			\
+	  GASNETI_ASM( "pushl     %edi					\n\t" \
+		       "movl      8(%ebp), %edi				\n\t" \
+		       "pushl     %ebx					\n" \
+		       "movl      12(%ebp), %eax			\n\t" \
+		       "movl      16(%ebp), %edx			\n\t" \
+		       "movl      20(%ebp), %ebx			\n\t" \
+		       "movl      24(%ebp), %ecx			\n\t" \
+		       GASNETI_X86_LOCK_PREFIX				\
+		       "cmpxchg8b (%edi)				\n\t" \
+		       "popl      %ebx					\n\t" \
+		       "sete      %cl					\n\t" \
+		       "popl      %edi					\n\t" \
+		       "movzbl    %cl, %eax" )
+
+        #define GASNETI_ATOMIC64_SPECIALS                                      \
+	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_read,             \
+				   GASNETI_ATOMIC64_READ_BODY)                 \
+	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_set,              \
+				   GASNETI_ATOMIC64_SET_BODY)                  \
+	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
+				   GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
       #endif 
 
       #define GASNETI_ATOMIC_SPECIALS   GASNETI_ATOMIC32_SPECIALS \
@@ -1839,7 +1890,7 @@
 #endif
 #ifdef GASNETI_ATOMIC32_SET_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic32_set);
-  #define _gasneti_atomic32_set (*(void (*)(gasneti_atomic32_t *p, uint32_t))(&_gasneti_special_atomic32_increment))
+  #define _gasneti_atomic32_set (*(void (*)(gasneti_atomic32_t *p, uint32_t))(&_gasneti_special_atomic32_set))
 #endif
 #ifdef GASNETI_ATOMIC32_INCREMENT_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic32_increment);
@@ -1880,7 +1931,7 @@
 #endif
 #ifdef GASNETI_ATOMIC64_SET_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic64_set);
-  #define _gasneti_atomic64_set (*(void (*)(gasneti_atomic64_t *p, uint64_t))(&_gasneti_special_atomic64_increment))
+  #define _gasneti_atomic64_set (*(void (*)(gasneti_atomic64_t *p, uint64_t))(&_gasneti_special_atomic64_set))
 #endif
 #ifdef GASNETI_ATOMIC64_INCREMENT_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic64_increment);
