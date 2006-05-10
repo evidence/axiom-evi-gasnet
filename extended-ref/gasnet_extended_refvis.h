@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refvis.h,v $
- *     $Date: 2006/05/10 13:10:13 $
- * $Revision: 1.1 $
+ *     $Date: 2006/05/10 13:33:07 $
+ * $Revision: 1.2 $
  * Description: GASNet Vector, Indexed & Strided conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,6 +8,8 @@
 
 #ifndef _GASNET_EXTENDED_REFVIS_H
 #define _GASNET_EXTENDED_REFVIS_H
+
+#include <gasnet_handler.h>
 
 /*---------------------------------------------------------------------------------*/
 /* ***  Parameters *** */
@@ -79,7 +81,7 @@
 
 #ifndef GASNETE_USE_AMPIPELINE
   #if GASNETI_HAVE_EOP_INTERFACE
-    #define GASNETE_USE_AMPIPELINE 0
+    #define GASNETE_USE_AMPIPELINE 1
   #else
     #define GASNETE_USE_AMPIPELINE 0
   #endif
@@ -107,6 +109,17 @@
 /*---------------------------------------------------------------------------------*/
 
 #if GASNETE_USE_AMPIPELINE
+  MEDIUM_HANDLER_DECL(gasnete_putv_AMPipeline_reqh,2,4);
+  SHORT_HANDLER_DECL(gasnete_putvis_AMPipeline_reph,1,2);
+  MEDIUM_HANDLER_DECL(gasnete_getv_AMPipeline_reqh,2,3);
+  MEDIUM_HANDLER_DECL(gasnete_getv_AMPipeline_reph,2,3);
+  MEDIUM_HANDLER_DECL(gasnete_puti_AMPipeline_reqh,5,6);
+  MEDIUM_HANDLER_DECL(gasnete_geti_AMPipeline_reqh,5,6);
+  MEDIUM_HANDLER_DECL(gasnete_geti_AMPipeline_reph,2,3);
+  MEDIUM_HANDLER_DECL(gasnete_puts_AMPipeline_reqh,5,7);
+  MEDIUM_HANDLER_DECL(gasnete_gets_AMPipeline_reqh,6,8);
+  MEDIUM_HANDLER_DECL(gasnete_gets_AMPipeline_reph,4,5);
+
   #define GASNETE_VIS_AMPIPELINE_HANDLERS()                               \
     gasneti_handler_tableentry_with_bits(gasnete_putv_AMPipeline_reqh),   \
     gasneti_handler_tableentry_with_bits(gasnete_putvis_AMPipeline_reph), \
@@ -117,7 +130,7 @@
     gasneti_handler_tableentry_with_bits(gasnete_geti_AMPipeline_reph),   \
     gasneti_handler_tableentry_with_bits(gasnete_puts_AMPipeline_reqh),   \
     gasneti_handler_tableentry_with_bits(gasnete_gets_AMPipeline_reqh),   \
-    gasneti_handler_tableentry_with_bits(gasnete_gets_AMPipeline_reph)     
+    gasneti_handler_tableentry_with_bits(gasnete_gets_AMPipeline_reph),     
 #else
   #define GASNETE_VIS_AMPIPELINE_HANDLERS()
 #endif
