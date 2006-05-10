@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_ref.c,v $
- * $Date: 2006/03/19 02:08:02 $
- * $Revision: 1.19 $
+ * $Date: 2006/05/10 13:10:18 $
+ * $Revision: 1.20 $
  * Description: GASNet GM conduit Extended API Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -397,9 +397,7 @@ void gasnete_extref_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
 */
 
 /* use reference implementation of scatter/gather and strided */
-#define GASNETI_GASNET_EXTENDED_VIS_C 1
-#include "gasnet_extended_refvis.c"
-#undef GASNETI_GASNET_EXTENDED_VIS_C
+#include "gasnet_extended_refvis.h"
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -422,7 +420,7 @@ static gasnet_handlerentry_t const gasnete_ref_handlers[] = {
     GASNETE_REFBARRIER_HANDLERS(),
   #endif
   #ifdef GASNETE_REFVIS_HANDLERS
-    GASNETE_REFVIS_HANDLERS(),
+    GASNETE_REFVIS_HANDLERS()
   #endif
   #ifdef GASNETE_REFCOLL_HANDLERS
     GASNETE_REFCOLL_HANDLERS(),

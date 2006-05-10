@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2006/05/03 09:44:37 $
- * $Revision: 1.58 $
+ *     $Date: 2006/05/10 13:10:13 $
+ * $Revision: 1.59 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,6 +11,7 @@
 #endif
 
 #include <gasnet_coll.h>
+#include <gasnet_vis.h>
 
 /*---------------------------------------------------------------------------------*/
 /* Forward decls and macros */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended_fwd.h,v $
- *     $Date: 2006/02/28 23:51:52 $
- * $Revision: 1.13 $
+ *     $Date: 2006/05/10 13:10:27 $
+ * $Revision: 1.14 $
  * Description: GASNet Extended API Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -50,5 +50,10 @@ typedef uintptr_t gasnet_register_value_t;
 #ifdef GASNETE_SHMEM_BARRIER
   #define GASNETE_BARRIER_PROGRESSFN(FN) 
 #endif
+
+#define _GASNETE_MYTHREAD
+struct _gasnete_threaddata_t;
+extern struct _gasnete_threaddata_t * const gasnete_threaddata_ptr;
+#define gasnete_mythread() (gasnete_threaddata_ptr)
 
 #endif

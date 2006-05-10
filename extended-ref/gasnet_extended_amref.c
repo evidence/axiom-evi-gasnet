@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_amref.c,v $
- *     $Date: 2006/04/05 23:13:23 $
- * $Revision: 1.52 $
+ *     $Date: 2006/05/10 13:10:13 $
+ * $Revision: 1.53 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GASNET_EXTENDED_VERSION_STR " $");
 GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " GASNET_EXTENDED_NAME_STR " $");
 
-static gasnete_threaddata_t *gasnete_threadtable[256] = { 0 };
+gasnete_threaddata_t *gasnete_threadtable[256] = { 0 };
 static int gasnete_numthreads = 0;
 static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
 #if GASNETI_CLIENT_THREADS
@@ -86,8 +86,6 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
     gasneti_threadkey_set(gasnete_threaddata, threaddata);
     return threaddata;
   }
-#else
-  #define gasnete_mythread() (gasnete_threadtable[0])
 #endif
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -949,9 +947,7 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
 */
 
 /* use reference implementation of scatter/gather and strided */
-#define GASNETI_GASNET_EXTENDED_VIS_C 1
-#include "gasnet_extended_refvis.c"
-#undef GASNETI_GASNET_EXTENDED_VIS_C
+#include "gasnet_extended_refvis.h"
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -974,7 +970,7 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
     GASNETE_REFBARRIER_HANDLERS(),
   #endif
   #ifdef GASNETE_REFVIS_HANDLERS
-    GASNETE_REFVIS_HANDLERS(),
+    GASNETE_REFVIS_HANDLERS()
   #endif
   #ifdef GASNETE_REFCOLL_HANDLERS
     GASNETE_REFCOLL_HANDLERS(),

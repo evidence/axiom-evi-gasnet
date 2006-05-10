@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/03/18 03:30:59 $
- * $Revision: 1.37 $
+ *     $Date: 2006/05/10 13:10:18 $
+ * $Revision: 1.38 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -95,8 +95,6 @@ gasnete_new_threaddata()
     gasneti_threadkey_set(gasnete_threaddata, threaddata);
     return threaddata;
   }
-#else
-  #define gasnete_mythread() (gasnete_threadtable[0])
 #endif
 /* ------------------------------------------------------------------------------------ */
 /*

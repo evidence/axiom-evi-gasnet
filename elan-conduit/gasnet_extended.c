@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/04/18 04:37:10 $
- * $Revision: 1.71 $
+ *     $Date: 2006/05/10 13:10:09 $
+ * $Revision: 1.72 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -12,7 +12,7 @@
 #include <gasnet_handler.h>
 #include <elan3/elan3.h> /* for ELAN_POLL_EVENT */
 
-static gasnete_threaddata_t *gasnete_threadtable[256] = { 0 };
+gasnete_threaddata_t *gasnete_threadtable[256] = { 0 };
 static int gasnete_numthreads = 0;
 static int gasnete_nbi_throttle = 0;
 static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
@@ -171,8 +171,6 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
     gasneti_threadkey_set(gasnete_threaddata, threaddata);
     return threaddata;
   }
-#else
-  #define gasnete_mythread() (gasnete_threadtable[0])
 #endif
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -1696,9 +1694,7 @@ extern int gasnete_barrier_try(int id, int flags) {
 */
 
 /* use reference implementation of scatter/gather and strided */
-#define GASNETI_GASNET_EXTENDED_VIS_C 1
-#include "gasnet_extended_refvis.c"
-#undef GASNETI_GASNET_EXTENDED_VIS_C
+#include "gasnet_extended_refvis.h"
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -1721,7 +1717,7 @@ static gasnet_handlerentry_t const gasnete_handlers[] = {
     GASNETE_REFBARRIER_HANDLERS(),
   #endif
   #ifdef GASNETE_REFVIS_HANDLERS
-    GASNETE_REFVIS_HANDLERS(),
+    GASNETE_REFVIS_HANDLERS()
   #endif
   #ifdef GASNETE_REFCOLL_HANDLERS
     GASNETE_REFCOLL_HANDLERS(),

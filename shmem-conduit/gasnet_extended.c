@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2006/04/18 04:37:22 $
- * $Revision: 1.16 $
+ *     $Date: 2006/05/10 13:10:27 $
+ * $Revision: 1.17 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,6 +25,8 @@ uintptr_t gasnete_addr_bits_mask = 0;
 #endif
 
 gasnete_threaddata_t	     gasnete_threaddata;
+gasnete_threaddata_t  * const gasnete_threaddata_ptr = &gasnete_threaddata;
+#undef gasnete_mythread()
 #define gasnete_mythread() (&gasnete_threaddata)
 
 extern void gasnete_init() {
@@ -396,9 +398,7 @@ gasnete_barrier_try(int id, int flags)
 */
 
 /* use reference implementation of scatter/gather and strided */
-#define GASNETI_GASNET_EXTENDED_VIS_C 1
-#include "gasnet_extended_refvis.c"
-#undef GASNETI_GASNET_EXTENDED_VIS_C
+#include "gasnet_extended_refvis.h"
 
 /* ------------------------------------------------------------------------------------ */
 /*
@@ -423,7 +423,7 @@ gasnete_handlers[] = {
     #endif
 
     #ifdef GASNETE_REFVIS_HANDLERS
-      GASNETE_REFVIS_HANDLERS(),
+      GASNETE_REFVIS_HANDLERS()
     #endif
 
     #ifdef GASNETE_REFCOLL_HANDLERS

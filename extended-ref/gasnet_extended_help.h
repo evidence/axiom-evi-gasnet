@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/04/29 10:20:56 $
- * $Revision: 1.37 $
+ *     $Date: 2006/05/10 13:10:13 $
+ * $Revision: 1.38 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,10 +19,15 @@ GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 
-#if GASNETI_CLIENT_THREADS
+#ifndef _GASNETE_MYTHREAD
   struct _gasnete_threaddata_t;
-  extern struct _gasnete_threaddata_t *gasnete_mythread() GASNETI_CONST;
-  GASNETI_CONSTP(gasnete_mythread)
+  #if GASNETI_CLIENT_THREADS
+    extern struct _gasnete_threaddata_t *gasnete_mythread() GASNETI_CONST;
+    GASNETI_CONSTP(gasnete_mythread)
+  #else
+    extern struct _gasnete_threaddata_t *gasnete_threadtable[256];
+    #define gasnete_mythread() (gasnete_threadtable[0])
+  #endif
 #endif
 
 /* gasnete_islocal() is used by put/get fns to decide whether shared memory on 
@@ -268,7 +273,7 @@ typedef union {
   #define GASNETE_THREAD_LOOKUP       GASNETE_THREAD_FARG_ALONE = GASNETE_THREAD_GET_ALONE;
   #define GASNETE_THREAD_SWALLOW(x)
   #define GASNETE_TISTARTOFBITS(ptr,nbytes,ti) GASNETE_STARTOFBITS(ptr,nbytes)
-  #define GASNETE_MYTHREAD            ((gasnete_threaddata_t *)_threadinfo)
+  #define GASNETE_MYTHREAD            ((struct _gasnete_threaddata_t *)_threadinfo)
 #else
   #define GASNETE_THREAD_FARG_ALONE   
   #define GASNETE_THREAD_FARG         
