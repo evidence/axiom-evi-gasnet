@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refvis.h,v $
- *     $Date: 2006/05/10 13:33:07 $
- * $Revision: 1.2 $
+ *     $Date: 2006/05/10 23:15:33 $
+ * $Revision: 1.3 $
  * Description: GASNet Vector, Indexed & Strided conduit header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -81,7 +81,7 @@
 
 #ifndef GASNETE_USE_AMPIPELINE
   #if GASNETI_HAVE_EOP_INTERFACE
-    #define GASNETE_USE_AMPIPELINE 1
+    #define GASNETE_USE_AMPIPELINE 0
   #else
     #define GASNETE_USE_AMPIPELINE 0
   #endif
