@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/09 04:14:20 $
- * $Revision: 1.191 $
+ *     $Date: 2006/05/10 16:32:11 $
+ * $Revision: 1.192 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -986,7 +986,21 @@
         #define _gasneti_atomic64_read(p)      ((p)->ctr)
         #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
 
-        #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY /* see gcc asm, above, for more detail */ \
+        #if (SIZEOF_VOID_P == 8)
+          #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY				\
+	    GASNETI_ASM(								\
+		/* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */	\
+		     "casx	[%i0], %i1, %i2		\n\t"				\
+		/* retval = (oldval == newval) ? 1 : 0				*/	\
+		     "xor	%i2, %i1, %g1		\n\t" /* g1 = 0 IFF old==new */ \
+		     "cmp	%g0, %g1		\n\t" /* Set/clear carry bit */	\
+		     "subx	%g0, -1, %i0 " )	      /* Subtract w/ carry */
+        #else
+          /* ILP32 on a 64-bit CPU.
+           * This is more complex than one might expect, because the ILP32 ABI puts 64-bit
+           * types in 2 adjacent regs while the casx instruction needs them in a single register.
+           */
+          #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY /* see gcc asm, above, for explanation */ \
 	    GASNETI_ASM(								\
 		     "sllx	%i3, 32, %o1		\n\t"				\
 		     "sllx	%i1, 32, %g1		\n\t"				\
@@ -996,6 +1010,7 @@
 		     "xor	%g1, %o1, %g1		\n\t"				\
 		     "cmp	%g0, %g1		\n\t"				\
 		     "subc	%g0, -1, %i0" )
+        #endif
 
         #define GASNETI_ATOMIC_SPECIALS                                        \
 	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_compare_and_swap, \
