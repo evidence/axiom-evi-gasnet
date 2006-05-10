@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/10 19:54:15 $
- * $Revision: 1.193 $
+ *     $Date: 2006/05/10 21:39:36 $
+ * $Revision: 1.194 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -352,8 +352,8 @@
           __asm__ __volatile__(
 	          GASNETI_X86_LOCK_PREFIX
 		  "decl %0		\n\t"
-		  "sete %1"
-	          : "=m" (v->ctr), "=mq" (retval)
+		  "sete %b1"
+	          : "=m" (v->ctr), "=qm" (retval)
 	          : "m" (v->ctr) 
                   : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return retval;
@@ -367,8 +367,8 @@
         __asm__ __volatile__ (
 		GASNETI_X86_LOCK_PREFIX
 		"cmpxchgl %3, %1	\n\t"
-		"sete %0"
-		: "=mq" (retval), "=m" (v->ctr), "=a" (readval)
+		"sete %b0"
+		: "=qm" (retval), "=m" (v->ctr), "=a" (readval)
 		: "r" (newval), "m" (v->ctr), "a" (oldval)
 		: "cc" GASNETI_ATOMIC_MEM_CLOBBER);
         return (int)retval;
@@ -403,8 +403,8 @@
           __asm__ __volatile__ (
 		    GASNETI_X86_LOCK_PREFIX
 		    "cmpxchgq %3, %1	\n\t"
-		    "sete %0"
-		    : "=mq" (retval), "=m" (p->ctr), "=a" (readval)
+		    "sete %b0"
+		    : "=q" (retval), "=m" (p->ctr), "=a" (readval)
 		    : "r" (newval), "m" (p->ctr), "a" (oldval)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return (int)retval;
@@ -422,8 +422,8 @@
 	  unsigned char retval;
           __asm__ __volatile__ (
 		    "lock; cmpxchg8b	%0	\n\t"
-		    "sete	%2	"
-		    : "=m" (*p), "=A" (readval), "=mq" (retval)
+		    "sete	%b2	"
+		    : "=m" (*p), "=A" (readval), "=qm" (retval)
 		    : "A" (oldval), "b" ((uint32_t)newval), "c" ((uint32_t)(newval >> 32)), "m" (*p)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return retval;
