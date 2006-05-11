@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2006/05/10 21:12:21 $
- * $Revision: 1.47 $
+ *     $Date: 2006/05/11 18:59:36 $
+ * $Revision: 1.48 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -570,7 +570,7 @@ void doit5(int partner, int *partnerseg) {
     #endif
     #ifdef GASNETI_HAVE_ATOMIC_ADDSUB
       (void)gasneti_atomic_add(&val, 2 ,0);
-      (void)gasneti_atomic_sub(&val, 1 ,0);
+      (void)gasneti_atomic_subtract(&val, 1 ,0);
     #endif
   }
   { gasneti_atomic32_t val32 = gasneti_atomic32_init(1);
