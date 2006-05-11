@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/10 21:12:19 $
- * $Revision: 1.180 $
+ *     $Date: 2006/05/11 19:11:12 $
+ * $Revision: 1.181 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -317,7 +317,7 @@
     #ifndef GASNETI_USE_GENERIC_ATOMICOPS
       #defined GASNETI_USE_GENERIC_ATOMICOPS 1
     #endif
-    #define GASNETI_HAVE_ATOMIC_ADDSUB 1
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
   #endif
   #ifdef GASNETI_ATOMIC32_NOT_SIGNALSAFE
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1
@@ -389,7 +389,7 @@
     #ifndef GASNETI_USE_GENERIC_ATOMICOPS
       #defined GASNETI_USE_GENERIC_ATOMICOPS 1
     #endif
-    #define GASNETI_HAVE_ATOMIC_ADDSUB 1
+    #define GASNETI_HAVE_ATOMIC_ADD_SUB 1
   #endif
   #ifdef GASNETI_ATOMIC64_NOT_SIGNALSAFE
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2006/05/11 18:59:36 $
- * $Revision: 1.48 $
+ *     $Date: 2006/05/11 19:11:14 $
+ * $Revision: 1.49 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -568,7 +568,7 @@ void doit5(int partner, int *partnerseg) {
     #ifdef GASNETI_HAVE_ATOMIC_CAS
       (void)gasneti_atomic_compare_and_swap(&val, 0, 1 ,0);
     #endif
-    #ifdef GASNETI_HAVE_ATOMIC_ADDSUB
+    #ifdef GASNETI_HAVE_ATOMIC_ADD_SUB
       (void)gasneti_atomic_add(&val, 2 ,0);
       (void)gasneti_atomic_subtract(&val, 1 ,0);
     #endif
