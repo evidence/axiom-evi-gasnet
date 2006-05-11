@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_help.h,v $
- *     $Date: 2006/04/11 17:58:00 $
- * $Revision: 1.25 $
+ *     $Date: 2006/05/11 11:59:11 $
+ * $Revision: 1.26 $
  * Description: GASNet lapi conduit core Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -41,7 +41,7 @@ GASNETI_BEGIN_EXTERNC
  * message.  Note that messages that fit into a single token
  * are optimized.
  */
-#define GASNETC_AM_MAX_MEDIUM 16384
+#define GASNETC_AM_MAX_MEDIUM 262144
 
 /* In 32 bit mode, this is 2^31 - 1 bytes.  */
 #define GASNETC_AM_MAX_LONG 2147483647
