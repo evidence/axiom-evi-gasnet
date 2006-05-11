@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/11 21:07:03 $
- * $Revision: 1.199 $
+ *     $Date: 2006/05/11 21:38:51 $
+ * $Revision: 1.200 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -39,6 +39,18 @@
   #else
     #define GASNETI_X86_LOCK_PREFIX "lock\n\t"
   #endif
+#endif
+
+#if GASNETI_ARCH_SGI_IP27
+  /* According to the Linux kernel source, there is an erratum for the R10k cpu
+   * (multi-processor only) in which ll/sc or lld/scd may not execute atomically!
+   * The work-around is to predict-taken the back-branch after the sc or scd.
+   * We must *not* use "beqzl" unconditionally, since the MIPS32 manual warns
+   * that the "branch likely" instructions will be removed in a future revision.
+   */
+  #define GASNETI_MIPS_BEQZ "beqzl "	/* 'l' = likely */
+#else
+  #define GASNETI_MIPS_BEQZ "beqz "
 #endif
 
 /* ------------------------------------------------------------------------------------ */
@@ -105,7 +117,7 @@
                 "bne       %1,%3,2f\n\t"       /* Break loop on mismatch */
                 "move      %0,%4\n\t"          /* Move newval to retval */
                 "sc        %0,%2\n\t"          /* Try SC to store retval */
-                "beqz      %0,1b\n"            /* Retry on contention */
+                GASNETI_MIPS_BEQZ "%0,1b\n"   /* Retry on contention */
                 "2:\n\t"
                 : "=&r" (retval), "=&r" (temp), "=m" (*p)
                 : "r" (oldval), "r" (newval), "m" (*p) );
@@ -139,14 +151,14 @@
 	    int retval = 0;
             __asm__ __volatile__ (
 		  "1:			\n\t"
-		  "lld	%1,%5		\n\t"	/* Load from *v */
+		  "lld	%1,%2		\n\t"	/* Load from *v */
 		  "bne	%1,%3,2f	\n\t"	/* Break loop on mismatch */
 		  "move	%0,%4		\n\t"	/* Copy newval to retval */
 		  "scd	%0,%2		\n\t"	/* Try SC to store retval */
-		  "beqz	%0,1b		\n"	/* Retry on contention */
+		  GASNETI_MIPS_BEQZ "%0,1b\n"	/* Retry on contention */
 		  "2:			"
-		  : "+r" (retval), "=&r" (temp), "=m" (*v)
-		  : "r" (oldval), "r" (newval), "R" (*v) );
+		  : "+&r" (retval), "=&r" (temp), "=m" (v->ctr)
+		  : "r" (oldval), "r" (newval), "m" (v->ctr) );
 	    return retval;
           }
         #elif defined(_SGI_COMPILER_VERSION)
@@ -1781,7 +1793,7 @@
 		"ll	%0,%1	\n\t"
 		"addu	%0,1	\n\t"
 		"sc	%0,%1	\n\t"
-		"beqz	%0,1b	"
+		GASNETI_MIPS_BEQZ "%0,1b"
 		: "=&r" (tmp), "=m" (p->ctr)
 		: "m" (p->ctr) );
       } 
@@ -1794,7 +1806,7 @@
 		"ll	%0,%1	\n\t"
 		"subu	%0,1 	\n\t"
 		"sc	%0,%1 	\n\t"
-		"beqz	%0,1b	"
+		GASNETI_MIPS_BEQZ "%0,1b"
 		: "=&r" (tmp), "=m" (p->ctr)
 		: "m" (p->ctr) );
       }
@@ -1808,7 +1820,7 @@
 		"ll	%0,%2		\n\t"
 		"addu	%1,%0,%3	\n\t"
 		"sc	%1,%2		\n\t"
-		"beqz	%1,1b		"
+		GASNETI_MIPS_BEQZ "%1,1b"
 		: "=&r" (retval), "=&r" (tmp), "=m" (p->ctr)
 		: "Ir" (op), "m" (p->ctr) );
 	return retval;
@@ -1821,14 +1833,14 @@
          int retval = 0;
          __asm__ __volatile__ (
 		"1:			\n\t"
-		"ll	%1,%5		\n\t"	/* Load from *p */
-		"bne	%1,%3,2f	\n\t"	/* Break loop on mismatch */
-		"move	%0,%4		\n\t"	/* Move newval to retval */
+		"ll	%1,%2		\n\t"	/* Load from *p */
+		"bne	%1,%z3,2f	\n\t"	/* Break loop on mismatch */
+		"move	%0,%z4		\n\t"	/* Move newval to retval */
 		"sc	%0,%2		\n\t"	/* Try SC to store retval */
-		"beqz	%0,1b		\n"	/* Retry on contention */
+		GASNETI_MIPS_BEQZ "%0,1b\n"	/* Retry on contention */
 		"2:			"
-                : "+r" (retval), "=&r" (temp), "=m" (p->ctr)
-                : "r" (oldval), "r" (newval), "m" (p->ctr) );
+                : "+&r" (retval), "=&r" (temp), "=m" (p->ctr)
+                : "Jr" (oldval), "Jr" (newval), "m" (p->ctr) );
         return retval;
       }
 
@@ -1840,19 +1852,19 @@
         #define _gasneti_atomic64_init(v)      { (v) }
 
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
-        int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *v, uint64_t oldval, uint64_t newval) {
+        int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
 	  uint64_t temp;
 	  int retval = 0;
           __asm__ __volatile__ (
 		  "1:			\n\t"
-		  "lld	%1,%5		\n\t"	/* Load from *v */
-		  "bne	%1,%3,2f	\n\t"	/* Break loop on mismatch */
-		  "move	%0,%4		\n\t"	/* Copy newval to retval */
+		  "lld	%1,%2		\n\t"	/* Load from *p */
+		  "bne	%1,%z3,2f	\n\t"	/* Break loop on mismatch */
+		  "move	%0,%z4		\n\t"	/* Copy newval to retval */
 		  "scd	%0,%2		\n\t"	/* Try SC to store retval */
-		  "beqz	%0,1b		\n"	/* Retry on contention */
+		  GASNETI_MIPS_BEQZ "%0,1b\n"	/* Retry on contention */
 		  "2:			"
-		  : "+r" (retval), "=&r" (temp), "=m" (*v)
-		  : "r" (oldval), "r" (newval), "R" (*v) );
+		  : "+&r" (retval), "=&r" (temp), "=m" (p->ctr)
+		  : "Jr" (oldval), "Jr" (newval), "m" (p->ctr) );
 	  return retval;
         }
       #endif

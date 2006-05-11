@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/05/03 00:04:15 $ */
-/*  $Revision: 1.92 $ */
+/*      $Date: 2006/05/11 21:38:51 $ */
+/*  $Revision: 1.93 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -150,6 +150,9 @@
 #undef DARWIN
 #undef ALTIX
 #undef CATAMOUNT
+
+/* have (potentially buggy) MIPS R10000 multiprocessor */
+#undef GASNETI_ARCH_SGI_IP27
 
 /* have working UltraSPARC ISA (lacks an associated builtin preprocessor macro) */
 #undef GASNETI_ARCH_ULTRASPARC

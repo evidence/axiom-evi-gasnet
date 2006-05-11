@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/09 05:50:01 $
-# $Revision: 1.352 $
+#     $Date: 2006/05/11 21:38:51 $
+# $Revision: 1.353 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.352 $)
+AC_REVISION($Revision: 1.353 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -916,6 +916,31 @@ if expr "$enabled_ppc970@$cross_compiling@$target_cpu" : "probe@no@powerpc" >/de
   else
     AC_MSG_RESULT(no)
   fi
+fi
+
+## Look for potentially buggy MIPS R10k systems
+# There is a processor erratum to work-around in our atomics :-(
+# The only SGI products w/ the bad cpus are the "IP27" platforms (Origin 200, Origin 2000, and Onyx 2)
+# XXX: We could refine this to check the reported cpu revision
+GASNET_IF_ENABLED_WITH_AUTO(arch-sgi-ip27, Enable/disable work-around for buggy SGI IP27 platforms (Onyx2, Origin200 and Origin2000) (auto-detected),
+  enabled_sgi_ip27=yes, enabled_sgi_ip27=no, enabled_sgi_ip27=unknown)
+if expr "$enabled_sgi_ip27@$cross_compiling@$target_cpu" : "unknown@no@mips" >/dev/null; then
+  AC_MSG_CHECKING(for potentially buggy MIPS R10K multiprocessor system)
+  case "$target_os" in
+    irix*) if test `uname -m` = "IP27" ; then
+             enabled_sgi_ip27=yes
+	   else
+             enabled_sgi_ip27=no
+	   fi ;;
+  esac
+  AC_MSG_RESULT($enabled_sgi_ip27)
+fi
+if expr "$enabled_sgi_ip27@$target_cpu" : "unknown@mips" >/dev/null; then
+  # Either cross compiling, or not on IRIX.
+  AC_MSG_ERROR([Do not know how to probe for an SGI IP27 system.  Please configure either with --enable-sgi-ip27 or --disable-sgi-ip27])
+fi
+if test "$enabled_sgi_ip27" = yes; then
+  AC_DEFINE(GASNETI_ARCH_SGI_IP27)
 fi
 
 ## Spinloop hints
