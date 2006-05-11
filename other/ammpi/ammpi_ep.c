@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/05/11 09:43:38 $
- * $Revision: 1.39 $
+ *     $Date: 2006/05/11 12:01:25 $
+ * $Revision: 1.40 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1239,6 +1239,12 @@ extern const char *AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int glob
 
   AMMPI_assert(ammpi_Initialized);
   AMMPI_assert(stats != NULL);
+
+  #if !AMMPI_COLLECT_STATS
+    sprintf(msg, "(AMMPI_COLLECT_STATS disabled)\n");
+    if (fp != NULL) fprintf(fp, "%s", msg);
+    return msg;
+  #endif
 
   for (category = 0; category < ammpi_NumCategories; category++) {
     requestsSent += stats->RequestsSent[category];

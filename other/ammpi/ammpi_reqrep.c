@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2006/05/11 09:43:38 $
- * $Revision: 1.33 $
+ *     $Date: 2006/05/11 12:01:25 $
+ * $Revision: 1.34 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -115,7 +115,7 @@ static int sendPacket(ep_t ep, ammpi_virtual_network_t *activeNet, void *packet,
   if_pf (retval != MPI_SUCCESS) 
      AMMPI_RETURN_ERRFR(RESOURCE, sendPacket, MPI_ErrorName(retval));        
 
-  ep->stats.TotalBytesSent += packetlength;
+  AMMPI_STATS(ep->stats.TotalBytesSent += packetlength);
 
   if_pt (mpihandle) { 
     #if AMMPI_RECV_REPOST_SLACK
@@ -311,13 +311,13 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
       AMMPI_assert(handlerfn);
       (*handlerfn)(msg->systemMessageArg, opcode, (void *)buf);
       status->handlerRunning = FALSE;
-      ep->stats.ReturnedMessages++;
+      AMMPI_STATS(ep->stats.ReturnedMessages++);
       return;
     }
   }
 
-  if (isrequest) ep->stats.RequestsReceived[cat]++;
-  else ep->stats.RepliesReceived[cat]++;
+  if (isrequest) AMMPI_STATS(ep->stats.RequestsReceived[cat]++);
+  else AMMPI_STATS(ep->stats.RepliesReceived[cat]++);
 
   if_pf (sourceId == (ammpi_node_t)-1) AMMPI_REFUSEMESSAGE(ep, buf, EBADENDPOINT);
 
@@ -352,7 +352,7 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
 
 
   /* --- message accepted --- */
-  #if AMMPI_COLLECT_LATENCY_STATS
+  #if AMMPI_COLLECT_LATENCY_STATS && AMMPI_COLLECT_STATS
     if (!isrequest && !isloopback) { 
       /* gather some latency statistics */
       uint64_t now = AMMPI_getMicrosecondTimeStamp();
@@ -822,8 +822,8 @@ static int AMMPI_RequestGeneric(ammpi_category_t category,
     #endif
   }
 
-  request_endpoint->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes;
-  request_endpoint->stats.RequestsSent[category]++;
+  AMMPI_STATS(request_endpoint->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes);
+  AMMPI_STATS(request_endpoint->stats.RequestsSent[category]++);
   return AM_OK;
  }
 }
@@ -931,8 +931,8 @@ static int AMMPI_ReplyGeneric(ammpi_category_t category,
   }
 
   requestbuf->status.replyIssued = TRUE;
-  ep->stats.RepliesSent[category]++;
-  ep->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes;
+  AMMPI_STATS(ep->stats.RepliesSent[category]++);
+  AMMPI_STATS(ep->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes);
   return AM_OK;
  }
 }

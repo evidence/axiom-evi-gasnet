@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2006/05/11 09:43:40 $
- * $Revision: 1.35 $
+ *     $Date: 2006/05/11 12:01:28 $
+ * $Revision: 1.36 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -94,7 +94,7 @@ static int sendPacket(ep_t ep, amudp_buf_t *packet, int packetlength, en_t desta
       success: ;
     }
   #endif
-  ep->stats.TotalBytesSent += packetlength;
+  AMUDP_STATS(ep->stats.TotalBytesSent += packetlength);
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -500,7 +500,7 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
           basicbuf->status.bulkBuffer = NULL;
         }
         ep->perProcInfo[destP].instanceHint = (uint16_t)instance;
-        ep->stats.ReturnedMessages++;
+        AMUDP_STATS(ep->stats.ReturnedMessages++);
       } else {
         retryCount++;
         outgoingdesc->retryCount = retryCount;
@@ -530,7 +530,7 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
             retval = sendPacket(ep, outgoingbuf, packetlength, destaddress, RETRANSMISSION_PACKET);
             if (retval != AM_OK) AMUDP_RETURN(retval);        
             outgoingdesc->transmitCount++;
-            ep->stats.RequestsRetransmitted[AMUDP_MSG_CATEGORY(&outgoingbuf->Msg)]++;
+            AMUDP_STATS(ep->stats.RequestsRetransmitted[AMUDP_MSG_CATEGORY(&outgoingbuf->Msg)]++);
           }
           outgoingdesc->timestamp = getCPUTicks() + timetowait;
         }
@@ -683,13 +683,13 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
         AMUDP_assert(handlerfn != NULL);
         (*handlerfn)(msg->systemMessageArg, opcode, (void *)basicbuf);
       status->handlerRunning = FALSE;
-      ep->stats.ReturnedMessages++;
+      AMUDP_STATS(ep->stats.ReturnedMessages++);
       return;
     }
   }
 
-  if (isrequest) ep->stats.RequestsReceived[cat]++;
-  else ep->stats.RepliesReceived[cat]++;
+  if (isrequest) AMUDP_STATS(ep->stats.RequestsReceived[cat]++);
+  else AMUDP_STATS(ep->stats.RepliesReceived[cat]++);
 
   /* perform acceptance checks */
 
@@ -757,7 +757,7 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
             ep->perProcInfo[sourceID].remoteName, RETRANSMISSION_PACKET);
           if (retval != AM_OK) AMUDP_Err("sendPacket failed while resending a reply");
           desc->transmitCount++;
-          ep->stats.RepliesRetransmitted[AMUDP_MSG_CATEGORY(&replybuf->Msg)]++;
+          AMUDP_STATS(ep->stats.RepliesRetransmitted[AMUDP_MSG_CATEGORY(&replybuf->Msg)]++);
           /*  ignore error return */
         }
         return;
@@ -786,7 +786,7 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
         }
         desc->seqNum = (uint8_t)!(desc->seqNum); 
         ep->perProcInfo[sourceID].instanceHint = instance;
-        #if AMUDP_COLLECT_LATENCY_STATS
+        #if AMUDP_COLLECT_LATENCY_STATS && AMUDP_COLLECT_STATS
           { /* gather some latency statistics */
             amudp_cputick_t now = getCPUTicks();
             amudp_cputick_t latency = (now - desc->firstSendTime);
@@ -1117,8 +1117,8 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
       /*  outgoing send FIFO - check if this is the case and cancel that message if so */
       int cancelled = ueth_cancel_send(basicbuf, basicbuf->bufhandle);
       if (cancelled) { /*  pretend it never happenned  */
-        request_endpoint->stats.RequestsRetransmitted[AMUDP_MSG_CATEGORY(&basicbuf->Msg)]--;
-        request_endpoint->stats.TotalBytesSent -= GET_PACKET_LENGTH(basicbuf);
+        AMUDP_STATS(request_endpoint->stats.RequestsRetransmitted[AMUDP_MSG_CATEGORY(&basicbuf->Msg)]--);
+        AMUDP_STATS(request_endpoint->stats.TotalBytesSent -= GET_PACKET_LENGTH(basicbuf));
       }
     }
   #endif
@@ -1225,8 +1225,8 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
     }
   }
 
-  request_endpoint->stats.RequestsSent[category]++;
-  request_endpoint->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes;
+  AMUDP_STATS(request_endpoint->stats.RequestsSent[category]++);
+  AMUDP_STATS(request_endpoint->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes);
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -1267,8 +1267,8 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
         /*  outgoing send FIFO - check if this is the case and cancel that message if so */
         int cancelled = ueth_cancel_send(basicbuf, basicbuf->bufhandle);
         if (cancelled) { /*  pretend it never happenned  */
-          ep->stats.RepliesRetransmitted[AMUDP_MSG_CATEGORY(&basicbuf->Msg)]--;
-          ep->stats.TotalBytesSent -= GET_PACKET_LENGTH(basicbuf);
+          AMUDP_STATS(ep->stats.RepliesRetransmitted[AMUDP_MSG_CATEGORY(&basicbuf->Msg)]--);
+          AMUDP_STATS(ep->stats.TotalBytesSent -= GET_PACKET_LENGTH(basicbuf));
         }
       }
     #endif
@@ -1347,8 +1347,8 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
   }
 
   requestbasicbuf->status.replyIssued = TRUE;
-  ep->stats.RepliesSent[category]++;
-  ep->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes;
+  AMUDP_STATS(ep->stats.RepliesSent[category]++);
+  AMUDP_STATS(ep->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes);
   return AM_OK;
 }
 

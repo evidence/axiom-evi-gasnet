@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2006/05/11 09:43:38 $
- * $Revision: 1.36 $
+ *     $Date: 2006/05/11 12:01:25 $
+ * $Revision: 1.37 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -87,6 +87,10 @@
 /* AMMPI-SPMD system configuration parameters */
 #ifndef AMMPI_BLOCKING_SPMD_BARRIER
 #define AMMPI_BLOCKING_SPMD_BARRIER   1   /* use blocking AM calls in SPMDBarrier() */
+#endif
+
+#ifndef AMMPI_COLLECT_STATS
+#define AMMPI_COLLECT_STATS           1 /* collect AM messaging layer statistics */
 #endif
 
 #ifndef AMMPI_COLLECT_LATENCY_STATS
@@ -195,6 +199,12 @@ __attribute__((__format__ (__printf__, 1, 2)))
 extern void AMMPI_FatalErr(const char *msg, ...);
 #ifdef GASNETT_NORETURNP
 GASNETT_NORETURNP(AMMPI_FatalErr)
+#endif
+
+#if AMMPI_COLLECT_STATS
+  #define AMMPI_STATS(stmt) stmt
+#else
+  #define AMMPI_STATS(stmt) 
 #endif
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2006/05/11 09:43:40 $
- * $Revision: 1.19 $
+ *     $Date: 2006/05/11 12:01:28 $
+ * $Revision: 1.20 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -957,6 +957,12 @@ extern const char *AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int glob
 
   AMUDP_assert(amudp_Initialized);
   AMUDP_assert(stats != NULL);
+
+  #if !AMUDP_COLLECT_STATS
+    sprintf(msg, "(AMUDP_COLLECT_STATS disabled)\n");
+    if (fp != NULL) fprintf(fp, "%s", msg);
+    return msg;
+  #endif
 
   for (category = 0; category < amudp_NumCategories; category++) {
     requestsSent += stats->RequestsSent[category];

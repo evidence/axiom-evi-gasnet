@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2006/05/11 09:43:40 $
- * $Revision: 1.30 $
+ *     $Date: 2006/05/11 12:01:28 $
+ * $Revision: 1.31 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -53,7 +53,12 @@
 #define AMUDP_MAX_NETWORKDEPTH     1024 /* max depth we ever allow user to ask for (constrained by instance bits) */
 #define AMUDP_MAX_SPMDPROCS        AMUDP_MAX_NUMTRANSLATIONS  /* max SPMD procs we support */
 
+#ifndef AMUDP_COLLECT_STATS
+#define AMUDP_COLLECT_STATS   1
+#endif
+#ifndef AMUDP_COLLECT_LATENCY_STATS
 #define AMUDP_COLLECT_LATENCY_STATS   1
+#endif
 /* ------------------------------------------------------------------------------------ */
 /* Simple user-visible types */
 

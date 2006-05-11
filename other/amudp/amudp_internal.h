@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2006/05/11 09:43:40 $
- * $Revision: 1.25 $
+ *     $Date: 2006/05/11 12:01:28 $
+ * $Revision: 1.26 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -271,6 +271,12 @@ static const char *AMUDP_ErrorDesc(int errval) {
   #else
     #define AMUDP_ENABLE_ERRCHECKS 0
   #endif
+#endif
+
+#if AMUDP_COLLECT_STATS
+  #define AMUDP_STATS(stmt) stmt
+#else
+  #define AMUDP_STATS(stmt) 
 #endif
 
 #if AMUDP_DEBUG || AMUDP_ENABLE_ERRCHECKS
