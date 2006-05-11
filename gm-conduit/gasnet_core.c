@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core.c,v $
- * $Date: 2006/05/04 12:09:29 $
- * $Revision: 1.108 $
+ * $Date: 2006/05/11 09:43:32 $
+ * $Revision: 1.109 $
  * Description: GASNet GM conduit Implementation
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -183,7 +183,7 @@ gasnetc_AM_SetHandlerAny(gasnet_handler_t *handler, gasnetc_handler_fn_t func)
 		GASNETI_RETURN_ERRR(BAD_ARG, "Invalid handler paramaters set");
 
 	for (i = 1; i < GASNETC_AM_MAX_HANDLERS; i++) {
-		if (_gmc.handlers[i] == abort) {
+		if (_gmc.handlers[i] == gasneti_defaultAMHandler) {
 			_gmc.handlers[i] = func;
 			*handler = i;
 			return GASNET_OK;
@@ -744,7 +744,7 @@ static void gasnetc_exit_now(int exitcode) {
   /* NOT REACHED */
 
   gasneti_reghandler(SIGABRT, SIG_DFL);
-  abort();
+  gasneti_fatalerror("gasnetc_exit_now aborting...");
   /* NOT REACHED */
 }
 
@@ -1061,7 +1061,7 @@ static void gasnetc_exit_body(void) {
 	#else
 	  /* We couldn't reach our peers, so hope the bootstrap code can kill the entire job */
 	  gasneti_reghandler(SIGABRT, SIG_DFL);
-	  abort();
+          gasneti_fatalerror("gasnetc_exit_body aborting...");
 	  /* NOT REACHED */
 	#endif
     }

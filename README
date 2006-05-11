@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.74 $
+$Revision: 1.75 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -669,7 +669,8 @@ All GASNet conduit code is required to meet the following coding standards:
   Instead, you should use the gasneti_* wrapper functions of the same name.
 
 * Use gasneti_fatalerror() to signal fatal errors - the arguments work
-  just like printf. NEVER use "assert(0)".
+  just like printf. NEVER use "assert(0)" (it will be compiled away), 
+  and gasneti_fatalerror() with a useful message is always preferable to abort().
 
 * Learn how to use the tracing macros and use them to trace interesting
   events in your conduit. They're invaluable for debugging mysterious behavior.

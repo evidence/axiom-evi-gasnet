@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core.c,v $
- *     $Date: 2006/05/04 12:09:36 $
- * $Revision: 1.28 $
+ *     $Date: 2006/05/11 09:43:50 $
+ * $Revision: 1.29 $
  * Description: GASNet shmem conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -608,7 +608,6 @@ extern void gasnetc_exit(int exitcode) {
   #endif
 
   gasneti_killmyprocess(exitcode);
-  abort();
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -671,9 +670,7 @@ gasnetc_AMProcess(gasnetc_am_header_t *hdr, uint32_t *args /* header */)
 					     pdata,nbytes);
 		}
 		break;
-	    default:
-		abort();
-		break;
+	    default: gasneti_fatalerror("bad am category");
 	}
 
 	return;

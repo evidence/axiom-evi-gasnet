@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/05/10 13:10:09 $
- * $Revision: 1.72 $
+ *     $Date: 2006/05/11 09:43:30 $
+ * $Revision: 1.73 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -443,7 +443,7 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
       case OPCAT_MEMSET:
       case OPCAT_OTHER:
         return FALSE;
-      default: abort();
+      default: gasneti_fatalerror("unrecognized op category");
     }
   } else {
     gasnete_iop_t *iop = (gasnete_iop_t*)op;

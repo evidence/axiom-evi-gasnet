@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2006/04/10 04:20:12 $
- * $Revision: 1.29 $
+ *     $Date: 2006/05/11 09:43:40 $
+ * $Revision: 1.30 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -360,6 +360,11 @@ extern int AMUDP_VerboseErrors; /* set to non-zero for verbose error reporting *
 extern int AMUDP_ExpectedBandwidth; /* expected half-duplex bandwidth in KBytes/sec */
 extern int AMUDP_SilentMode; /* set to non-zero to silence any non-error output */
 
+#ifdef __GNUC__
+__attribute__((__format__ (__printf__, 1, 2)))
+#endif
+extern void AMUDP_FatalErr(const char *msg, ...);
+
 /* set the UDP interface (local IP address) to be used for new endpoints -
  * it's necessary to call this on multi-homed hosts, otherwise endpoint creation will fail
  */
@@ -440,6 +445,7 @@ extern int AMUDP_SetHandlerCallbacks(ep_t ep, AMUDP_preHandlerCallback_t preHand
 #define AMX_initial_stats         AMUDP_initial_stats
 #define amx_stats_t               amudp_stats_t
 #define amx_handler_fn_t          amudp_handler_fn_t
+#define AMX_FatalErr            AMUDP_FatalErr
 
 #if !defined(AMUDP_DEBUG) && !defined(AMUDP_NDEBUG)
   #if defined(GASNET_DEBUG) || defined(AMX_DEBUG)

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2006/05/10 08:35:20 $
- * $Revision: 1.16 $
+ *     $Date: 2006/05/11 09:43:56 $
+ * $Revision: 1.17 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -99,18 +99,14 @@ typedef struct {
 
 void _verify_memvec_list(test_memvec_list *mv, const char *file, int line) {
   size_t i, sum;
-  if (mv->checksum != test_checksum(mv->list, mv->count*sizeof(gasnet_memvec_t))) {
-    MSG("Checksum mismatch in verify_memvec_list at %s:%i", file, line);
-    abort();
-  }
+  if (mv->checksum != test_checksum(mv->list, mv->count*sizeof(gasnet_memvec_t)))
+    FATALERR("Checksum mismatch in verify_memvec_list at %s:%i", file, line);
   sum = 0;
   for (i=0; i < mv->count; i++) {
     sum += mv->list[i].len;
   }
-  if (mv->totalsz != sum) {
-    MSG("totalsz mismatch in verify_memvec_list at %s:%i", file, line);
-    abort();
-  }
+  if (mv->totalsz != sum)
+    FATALERR("totalsz mismatch in verify_memvec_list at %s:%i", file, line);
 }
 #define verify_memvec_list(mv) _verify_memvec_list(mv, __FILE__, __LINE__)
 
@@ -237,15 +233,13 @@ void _verify_memvec_data_both(test_memvec_list *src, void *result,
         size_t offset = (VEC_T *)(src->list[i].addr) + j - areaptr;
         srcval = SEG_VALUE(nodeid, offset);
       }
-      if (srcval != resval) {
-        MSG("ERROR: mismatch at memvec segment %i, element %i\n"
+      if (srcval != resval)
+        FATALERR("ERROR: mismatch at memvec segment %i, element %i\n"
             "  expected val="VEC_FMT"\n"
             "    actual val="VEC_FMT"\n"
             "  at %s:%s:%i\n",
           (int)i, (int)j, VEC_STR(srcval), VEC_STR(resval),
           context, file, line);
-        abort();
-      }
       p++;
     }
   }
@@ -266,14 +260,10 @@ typedef struct {
 } test_addr_list;
 
 void _verify_addr_list(test_addr_list *al, const char *file, int line) {
-  if (al->totalsz != al->count*al->chunklen) {
-    MSG("Inconsistent totalsz in verify_addr_list at %s:%i", file, line);
-    abort();
-  }
-  if (al->checksum != test_checksum(al->list, al->count*sizeof(void *))) {
-    MSG("Checksum mismatch in verify_addr_list at %s:%i", file, line);
-    abort();
-  }
+  if (al->totalsz != al->count*al->chunklen)
+    FATALERR("Inconsistent totalsz in verify_addr_list at %s:%i", file, line);
+  if (al->checksum != test_checksum(al->list, al->count*sizeof(void *)))
+    FATALERR("Checksum mismatch in verify_addr_list at %s:%i", file, line);
 }
 #define verify_addr_list(al) _verify_addr_list(al, __FILE__, __LINE__)
 
@@ -300,7 +290,7 @@ void rand_chunkelem(size_t *one, size_t *two) {
       *two = factor * twomult;
       break;
     }
-    default: abort();
+    default: FATALERR("TEST_RAND failure");
   }
   assert(*one >= 1 && *one <= MAX_CHUNKSZ);
   assert(*two >= 1 && *two <= MAX_CHUNKSZ);
@@ -397,15 +387,13 @@ void _verify_addr_list_data_both(test_addr_list *src, void *result,
         size_t offset = ((VEC_T *)(src->list[i]))+j - areaptr;
         srcval = SEG_VALUE(nodeid, offset);
       }
-      if (srcval != resval) {
-        MSG("ERROR: mismatch at chunk %i, element %i\n"
+      if (srcval != resval)
+        FATALERR("ERROR: mismatch at chunk %i, element %i\n"
             "  expected val="VEC_FMT"\n"
             "    actual val="VEC_FMT"\n"
             "  at %s:%s:%i\n",
           (int)i, (int)j, VEC_STR(srcval), VEC_STR(resval),
           context, file, line);
-        abort();
-      }
       p++;
     }
   }
@@ -439,10 +427,8 @@ void _verify_strided_desc(test_strided_desc *sd, const char *file, int line) {
   size_t sz = 1;
   size_t srcvol = VEC_SZ;
   size_t dstvol = VEC_SZ;
-  if (sd->checksum != test_checksum(((uint64_t*)sd)+1, sd->_descsz-8)) {
-    MSG("Checksum mismatch in verify_strided_desc at %s:%i", file, line);
-    abort();
-  }
+  if (sd->checksum != test_checksum(((uint64_t*)sd)+1, sd->_descsz-8))
+    FATALERR("Checksum mismatch in verify_strided_desc at %s:%i", file, line);
   sz = 1;
   for (i=0; i < sd->stridelevels; i++) {
     sz *= sd->count[i];
@@ -600,13 +586,12 @@ void _verify_strided_desc_data_both(test_strided_desc *desc, void *result,
         if (i < dim-1) strcat(p, ", ");
         p+=strlen(p);
       }
-      MSG("ERROR: mismatch at location [%s]\n"
+      FATALERR("ERROR: mismatch at location [%s]\n"
           "  expected val="VEC_FMT"\n"
           "    actual val="VEC_FMT"\n"
           "  at %s:%s:%i\n",
           idxstr, VEC_STR(srcval), VEC_STR(resval),
         context, file, line);
-      abort();
     }
 
     /* increment */
@@ -659,14 +644,10 @@ void checkmem() {
   /* check for corruption of read-only memory segments */
   size_t i;
   for (i = 0; i < areasz; i++) {
-    if (my_seg_read_area[i] != SEG_VALUE(mynode, i)) { 
-      MSG("detected corruption in my_seg_read_area[%i]\n", (int)i);
-      abort();
-    }
-    if (my_heap_read_area[i] != HEAP_VALUE(mynode, i)) {
-      MSG("detected corruption in my_heap_read_area[%i]\n", (int)i);
-      abort();
-    }
+    if (my_seg_read_area[i] != SEG_VALUE(mynode, i))
+      FATALERR("detected corruption in my_seg_read_area[%i]\n", (int)i);
+    if (my_heap_read_area[i] != HEAP_VALUE(mynode, i))
+      FATALERR("detected corruption in my_heap_read_area[%i]\n", (int)i);
   }
 }
 

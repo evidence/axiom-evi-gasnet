@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testhsl.c,v $
- *     $Date: 2006/02/16 17:11:04 $
- * $Revision: 1.17 $
+ *     $Date: 2006/05/11 09:43:56 $
+ * $Revision: 1.18 $
  * Description: GASNet HSL correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -223,8 +223,7 @@ int main(int argc, char **argv) {
         ERR("bad err test num.");
         test_usage();
     }
-    MSG("ERROR: FAILED: err test failed.");
-    abort();
+    FATALERR("FAILED: err test failed.");
    } else {
   #if GASNET_PAR
     MSG0("Spawning pthreads...");

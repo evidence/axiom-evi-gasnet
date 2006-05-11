@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2006/04/25 09:50:00 $
- * $Revision: 1.68 $
+ *     $Date: 2006/05/11 09:43:36 $
+ * $Revision: 1.69 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -376,7 +376,7 @@ extern void gasnetc_fatalsignal_callback(int sig) {
      just die silently
    */
     #if 0
-      abort();
+      gasneti_fatalerror("gasnetc_fatalsignal_callback aborting...");
     #endif
     gasneti_killmyprocess(1);
   }
@@ -413,7 +413,7 @@ extern void gasnetc_exit(int exitcode) {
   }
 
   AMMPI_SPMDExit(exitcode);
-  abort();
+  gasneti_fatalerror("AMMPI_SPMDExit failed");
 }
 
 /* ------------------------------------------------------------------------------------ */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testam.c,v $
- *     $Date: 2006/04/11 03:23:45 $
- * $Revision: 1.12 $
+ *     $Date: 2006/05/11 09:43:42 $
+ * $Revision: 1.13 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,26 +78,16 @@ int main(int argc, char **argv) {
   }
 
 #if defined(AMUDP)
-  if (strcmp(AMX_SPMDgetenvMaster("A"),"A")) {
-    fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
-    abort();
-  }
-  if (strcmp(AMX_SPMDgetenvMaster("B"),"B")) {
-    fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
-    abort();
-  }
-  if (strcmp(AMX_SPMDgetenvMaster("C"),"C")) {
-    fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
-    abort();
-  }
-  if (strcmp(AMX_SPMDgetenvMaster("ABC"),"ABC")) {
-    fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
-    abort();
-  }
-  if (strcmp(AMX_SPMDgetenvMaster("AReallyLongEnvironmentName"),"A Really Long Environment Value")) {
-    fprintf(stderr, "Environment value mismatch on P%i\n", MYPROC);
-    abort();
-  }
+  if (strcmp(AMX_SPMDgetenvMaster("A"),"A")) 
+    FATALERR("Environment value mismatch on P%i\n", MYPROC);
+  if (strcmp(AMX_SPMDgetenvMaster("B"),"B")) 
+    FATALERR("Environment value mismatch on P%i\n", MYPROC);
+  if (strcmp(AMX_SPMDgetenvMaster("C"),"C"))
+    FATALERR("Environment value mismatch on P%i\n", MYPROC);
+  if (strcmp(AMX_SPMDgetenvMaster("ABC"),"ABC"))
+    FATALERR("Environment value mismatch on P%i\n", MYPROC);
+  if (strcmp(AMX_SPMDgetenvMaster("AReallyLongEnvironmentName"),"A Really Long Environment Value"))
+    FATALERR("Environment value mismatch on P%i\n", MYPROC);
 #endif
 
   /* barrier */

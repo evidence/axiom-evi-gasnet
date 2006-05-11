@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2006/04/10 04:20:12 $
- * $Revision: 1.24 $
+ *     $Date: 2006/05/11 09:43:40 $
+ * $Revision: 1.25 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -18,17 +18,10 @@
 #endif
 #include <sockutil.h> /* for SPMD TCP stuff */
 #include <amudp.h>
-#if defined(HAVE_GASNET_TOOLS) && \
-  (defined(__HP_aCC) || defined(__SUNPRO_CC))
-  /* C++ compilers that don't support inline assembly cannot use GASNet tools */
-  #undef HAVE_GASNET_TOOLS
-#endif
 #ifdef HAVE_GASNET_TOOLS 
   #include <gasnet_tools.h> /* must precede internal assert defs */
-#endif
-
-#if ! defined (__GNUC__) && ! defined (__attribute__)
-#define __attribute__(flags)
+#elif ! defined (__GNUC__) && ! defined (__attribute__)
+  #define __attribute__(flags)
 #endif
 
 /* AMUDP system configuration parameters */
@@ -139,7 +132,20 @@
 
 SOCK_BEGIN_EXTERNC
 
-static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf__, 1, 2)));
+__attribute__((__format__ (__printf__, 1, 2)))
+extern int AMUDP_Err(const char *msg, ...);
+
+__attribute__((__format__ (__printf__, 1, 2)))
+extern int AMUDP_Warn(const char *msg, ...);
+
+#ifdef GASNETT_NORETURN
+GASNETT_NORETURN
+#endif
+__attribute__((__format__ (__printf__, 1, 2)))
+extern void AMUDP_FatalErr(const char *msg, ...);
+#ifdef GASNETT_NORETURNP
+GASNETT_NORETURNP(AMUDP_FatalErr)
+#endif
 
 /* memory allocation */
 #if AMUDP_DEBUG
@@ -149,12 +155,12 @@ static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf_
   extern void (*gasnett_debug_free_fn)(void *ptr, const char *curloc);
   static void *_AMUDP_malloc(size_t sz, const char *curloc) {
     void *ret = malloc(sz);
-    if_pf(!ret) { ErrMessage("Failed to malloc(%lu) at %s", (unsigned long)sz, curloc); abort(); }
+    if_pf(!ret) AMUDP_FatalErr("Failed to malloc(%lu) at %s", (unsigned long)sz, curloc);
     return ret;
   }
   static void *_AMUDP_calloc(size_t N, size_t S, const char *curloc) {
     void *ret = calloc(N,S);
-    if_pf(!ret) { ErrMessage("Failed to calloc(%lu,%lu) at %s", (unsigned long)N, (unsigned long)S, curloc); abort(); }
+    if_pf(!ret) AMUDP_FatalErr("Failed to calloc(%lu,%lu) at %s", (unsigned long)N, (unsigned long)S, curloc);
     return ret;
   }
   static void _AMUDP_free(void *ptr, const char *curloc) {
@@ -283,52 +289,16 @@ static const char *AMUDP_ErrorDesc(int errval) {
   #define AMUDP_CHECK_ERRFR(errcond, type, fromfn, reason)  ((void)0)
 #endif
 
-static int ErrMessage(const char *msg, ...) {
-  static va_list argptr;
-  char *expandedmsg = (char *)AMUDP_malloc(strlen(msg)+50);
-  int retval;
-
-  va_start(argptr, msg); // pass in last argument
-  sprintf(expandedmsg, "*** AMUDP ERROR: %s\n", msg);
-  retval = vfprintf(stderr, expandedmsg, argptr);
-  fflush(stderr);
-  AMUDP_free(expandedmsg);
-
-  va_end(argptr);
-  return retval; // this MUST be only return in this function
-}
-
-static int WarnMessage(const char *msg, ...) __attribute__((__format__ (__printf__, 1, 2)));
-static int WarnMessage(const char *msg, ...) {
-  static va_list argptr;
-  char *expandedmsg = (char *)AMUDP_malloc(strlen(msg)+50);
-  int retval;
-
-  va_start(argptr, msg); // pass in last argument
-  sprintf(expandedmsg, "*** AMUDP WARNING: %s\n", msg);
-  retval = vfprintf(stderr, expandedmsg, argptr);
-  fflush(stderr);
-  AMUDP_free(expandedmsg);
-
-  va_end(argptr);
-  return retval; // this MUST be only return in this function
-}
-
 #include <assert.h>
 #undef assert
 #define assert(x) ERROR_use_AMUDP_assert
 #if AMUDP_NDEBUG
   #define AMUDP_assert(expr) ((void)0)
 #else
-  static void AMUDP_assertfail(const char *fn, const char *file, int line, const char *expr) {
-    fprintf(stderr, "Assertion failure at %s %s:%i: %s\n", fn, file, line, expr);
-    fflush(stderr);
-    abort();
-  }
-  #define AMUDP_assert(expr)                                     \
-    (PREDICT_TRUE(expr) ? (void)0 :                              \
-      AMUDP_assertfail((__CURR_FUNCTION ? __CURR_FUNCTION : ""), \
-                        __FILE__, __LINE__, #expr))
+  #define AMUDP_assert(expr)                                \
+    (PREDICT_TRUE(expr) ? (void)0 :                         \
+      AMUDP_FatalErr("Assertion failure at %s %s:%i: %s\n", \
+        (__CURR_FUNCTION ? __CURR_FUNCTION : ""), __FILE__, __LINE__, #expr))
 #endif
 
 extern const char *sockErrDesc();
@@ -503,9 +473,8 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
       int flags = fcntl(AMUDP_SPMDControlSocket, F_GETFL, 0);                    \
       if ((enabled && (flags & (O_ASYNC|O_NONBLOCK)) != (O_ASYNC|O_NONBLOCK)) || \
          (!enabled && (flags & (O_ASYNC|O_NONBLOCK)) != 0)) {                    \
-        ErrMessage("Failed to modify O_ASYNC|O_NONBLOCK flags in fcntl"          \
+        AMUDP_FatalErr("Failed to modify O_ASYNC|O_NONBLOCK flags in fcntl"      \
                    " - try disabling USE_ASYNC_TCP_CONTROL");                    \
-        abort();                                                                 \
       }                                                                          \
     } while (0)
   #else
@@ -514,21 +483,19 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
   #define ASYNC_TCP_ENABLE() do {                                                       \
       if (fcntl(AMUDP_SPMDControlSocket, F_SETFL, O_ASYNC|O_NONBLOCK)) {                \
         perror("fcntl(F_SETFL, O_ASYNC|O_NONBLOCK)");                                   \
-        ErrMessage("Failed to fcntl(F_SETFL, O_ASYNC|O_NONBLOCK) on TCP control socket" \
+        AMUDP_FatalErr("Failed to fcntl(F_SETFL, O_ASYNC|O_NONBLOCK) on TCP control socket" \
                    " - try disabling USE_ASYNC_TCP_CONTROL");                           \
-        abort();                                                                        \
       } else ASYNC_CHECK(1);                                                            \
       if (inputWaiting(AMUDP_SPMDControlSocket)) /* check for arrived messages */       \
         AMUDP_SPMDIsActiveControlSocket = 1;                                            \
     } while(0)
 
-  #define _ASYNC_TCP_DISABLE(ignoreerr)  do {                          \
-      if (fcntl(AMUDP_SPMDControlSocket, F_SETFL, 0) && !ignoreerr) {  \
-        perror("fcntl(F_SETFL, 0)");                                   \
-        ErrMessage("Failed to fcntl(F_SETFL, 0) on TCP control socket" \
-                   " - try disabling USE_ASYNC_TCP_CONTROL");          \
-        abort();                                                       \
-      } else if (!ignoreerr) ASYNC_CHECK(0);                           \
+  #define _ASYNC_TCP_DISABLE(ignoreerr)  do {                              \
+      if (fcntl(AMUDP_SPMDControlSocket, F_SETFL, 0) && !ignoreerr) {      \
+        perror("fcntl(F_SETFL, 0)");                                       \
+        AMUDP_FatalErr("Failed to fcntl(F_SETFL, 0) on TCP control socket" \
+                   " - try disabling USE_ASYNC_TCP_CONTROL");              \
+      } else if (!ignoreerr) ASYNC_CHECK(0);                               \
     } while(0)
   #define ASYNC_TCP_DISABLE()            _ASYNC_TCP_DISABLE(0)
   #define ASYNC_TCP_DISABLE_IGNOREERR()  _ASYNC_TCP_DISABLE(1)
@@ -588,10 +555,8 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
       int64_t retval;
       struct timeval tv;
       retry:
-      if (gettimeofday(&tv, NULL)) {
-        perror("gettimeofday");
-        abort();
-      }
+      if (gettimeofday(&tv, NULL))
+        AMUDP_FatalErr("gettimeofday failed: %s",strerror(errno));
       retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
       #ifdef __crayx1
         /* fix an empirically observed bug in UNICOS gettimeofday(),

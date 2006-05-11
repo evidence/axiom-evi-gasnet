@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/05/09 04:14:20 $
- * $Revision: 1.78 $
+ *     $Date: 2006/05/11 09:43:28 $
+ * $Revision: 1.79 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -319,7 +319,7 @@ GASNETI_BEGIN_EXTERNC
     extern void *gasneti_mmap(uintptr_t segsize);
     #define gasnett_mmap(sz) gasneti_mmap(sz)
   #else
-    #define gasnett_mmap(sz) abort()
+    #define gasnett_mmap(sz) gasnett_fatalerror("gasnett_mmap not available")
   #endif
   #define gasnett_print_backtrace gasneti_print_backtrace
   extern int gasneti_run_diagnostics(int iters, int threadcnt, 
@@ -355,15 +355,15 @@ GASNETI_BEGIN_EXTERNC
     #define gasnett_getheapstats(pstat)   gasneti_getheapstats(pstat)
   #endif
 #else
-  #define gasnett_mmap(sz)        abort()
+  #define gasnett_mmap(sz)        gasnett_fatalerror("gasnett_mmap not available")
 
   #define gasnett_threadkey_t           char
   #define GASNETT_THREADKEY_INITIALIZER 0
-  #define gasnett_threadkey_get(key)                abort()
-  #define gasnett_threadkey_set(key,newval)         abort()
-  #define gasnett_threadkey_init(pkey)              abort()
-  #define gasnett_threadkey_get_noinit(key)         abort()
-  #define gasnett_threadkey_set_noinit(key,newval)  abort()
+  #define gasnett_threadkey_get(key)                gasnett_fatalerror("gasnett_threadkey_* not available")
+  #define gasnett_threadkey_set(key,newval)         gasnett_fatalerror("gasnett_threadkey_* not available")
+  #define gasnett_threadkey_init(pkey)              gasnett_fatalerror("gasnett_threadkey_* not available")
+  #define gasnett_threadkey_get_noinit(key)         gasnett_fatalerror("gasnett_threadkey_* not available")
+  #define gasnett_threadkey_set_noinit(key,newval)  gasnett_fatalerror("gasnett_threadkey_* not available")
 #endif
 
 /* ------------------------------------------------------------------------------------ */

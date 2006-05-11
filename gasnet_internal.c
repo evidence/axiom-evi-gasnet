@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/05/09 04:14:20 $
- * $Revision: 1.162 $
+ *     $Date: 2006/05/11 09:43:28 $
+ * $Revision: 1.163 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -125,8 +125,11 @@ extern int gasneti_internal_idiotcheck(gasnet_handlerentry_t *table, int numentr
 #endif
 
 #if GASNET_DEBUG
-  void (*gasneti_debug_progressfn_bool)() = abort;
-  void (*gasneti_debug_progressfn_counted)() = abort;
+  static void gasneti_disabled_progressfn() {
+    gasneti_fatalerror("Called a disabled progress function");
+  }
+  void (*gasneti_debug_progressfn_bool)() = gasneti_disabled_progressfn;
+  void (*gasneti_debug_progressfn_counted)() = gasneti_disabled_progressfn;
 #endif
 
 #ifdef _GASNETI_SEGINFO_DEFAULT
@@ -293,7 +296,7 @@ extern void gasneti_freezeForDebugger() {
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_defaultAMHandler(gasnet_token_t token) {
   gasnet_node_t srcnode = (gasnet_node_t)-1;
-  gasnetc_AMGetMsgSource(token, &srcnode);
+  gasnet_AMGetMsgSource(token, &srcnode);
   gasneti_fatalerror("GASNet node %i/%i received an AM message from node %i for a handler index "
                      "with no associated AM handler function registered", 
                      gasnet_mynode(), gasnet_nodes(), srcnode);

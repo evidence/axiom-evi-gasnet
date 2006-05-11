@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/04/27 04:16:56 $
- * $Revision: 1.38 $
+ *     $Date: 2006/05/11 09:43:38 $
+ * $Revision: 1.39 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -13,7 +13,8 @@
 
 /* definitions for internal declarations */
 int ammpi_Initialized = 0;
-ammpi_handler_fn_t ammpi_unused_handler = (ammpi_handler_fn_t)&abort;
+static void AMMPI_defaultAMHandler(void *token);
+ammpi_handler_fn_t ammpi_unused_handler = (ammpi_handler_fn_t)&AMMPI_defaultAMHandler;
 ammpi_handler_fn_t ammpi_defaultreturnedmsg_handler = (ammpi_handler_fn_t)&AMMPI_DefaultReturnedMsg_Handler;
 int AMMPI_VerboseErrors = 0;
 int AMMPI_SilentMode = 0; 
@@ -27,6 +28,55 @@ const ammpi_stats_t AMMPI_initial_stats = /* the initial state for stats type */
           (uint64_t)-1, 0, 0,
           {0,0,0}, 0
         };
+/* ------------------------------------------------------------------------------------ */
+/* error handling */
+__attribute__((__format__ (__printf__, 2, 0)))
+static int AMMPI_Msg(const char *prefix, const char *msg, va_list argptr) {
+  char *expandedmsg = (char *)AMMPI_malloc(strlen(msg)+strlen(prefix)+50);
+  int retval;
+
+  sprintf(expandedmsg, "*** %s: %s\n", prefix, msg);
+  retval = vfprintf(stderr, expandedmsg, argptr);
+  fflush(stderr);
+  AMMPI_free(expandedmsg);
+
+  return retval; 
+}
+
+extern int AMMPI_Warn(const char *msg, ...) {
+  va_list argptr;
+  int retval;
+  va_start(argptr, msg); /* pass in last argument */
+    retval = AMMPI_Msg("AMMPI WARNING", msg, argptr);
+  va_end(argptr);
+  return retval;
+}
+
+extern int AMMPI_Err(const char *msg, ...) {
+  va_list argptr;
+  int retval;
+  va_start(argptr, msg); /* pass in last argument */
+    retval = AMMPI_Msg("AMMPI ERROR", msg, argptr);
+  va_end(argptr);
+  return retval;
+}
+
+extern void AMMPI_FatalErr(const char *msg, ...) {
+  va_list argptr;
+  int retval;
+  va_start(argptr, msg); /* pass in last argument */
+    retval = AMMPI_Msg("FATAL ERROR", msg, argptr);
+  va_end(argptr);
+  abort();
+}
+/* ------------------------------------------------------------------------------------ */
+static void AMMPI_defaultAMHandler(void *token) {
+  int srcnode = -1;
+  AMMPI_GetSourceId(token, &srcnode);
+  AMMPI_FatalErr("AMMPI received an AM message from node %i for a handler index "
+                     "with no associated AM handler function registered", 
+                     srcnode);
+}
 /* ------------------------------------------------------------------------------------ */
 extern int AMMPI_enEqual(en_t en1, en_t en2) {
   return (en1.mpirank == en2.mpirank && en1.mpitag == en2.mpitag);
@@ -72,7 +122,7 @@ static void AMMPI_RemoveEndpoint(eb_t eb, ep_t ep) {
         return;
       }
     }
-    abort();
+    AMMPI_FatalErr("AMMPI_RemoveEndpoint failed");
   }
 }
 /*------------------------------------------------------------------------------------
@@ -530,7 +580,7 @@ extern int AMMPI_AcquireSendBuffer(ep_t ep, int numBytes, int isrequest,
       #endif
     }
   }
-  abort();
+  AMMPI_FatalErr("AMMPI_AcquireSendBuffer failed");
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
@@ -1066,7 +1116,7 @@ extern int AM_WaitSema(eb_t eb) {
   AMMPI_CHECK_ERR((!eb),BAD_ARG);
   
   if (eb->event_mask == AM_NOEVENTS) 
-    abort(); /* it's an error to block when the mask is not set - will never return */
+    AMMPI_FatalErr("it's an error to block when the mask is not set - will never return");
 
   /* block here until a message arrives - this polls too */
   retval = AMMPI_Block(eb);

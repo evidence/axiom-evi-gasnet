@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.h,v $
- *     $Date: 2006/04/11 03:23:45 $
- * $Revision: 1.15 $
+ *     $Date: 2006/05/11 09:43:42 $
+ * $Revision: 1.16 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -65,7 +65,7 @@
   if ((fncall) != AM_OK) {                  \
     printf("Error calling: %s\n", #fncall); \
     AMX_SPMDExit(-1);                       \
-    abort();                                \
+    AMX_FatalErr("AMX_SPMDExit failed");    \
     }                                       \
   } while(0)
 

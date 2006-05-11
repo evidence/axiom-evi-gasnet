@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.c,v $
- *     $Date: 2006/04/10 04:20:14 $
- * $Revision: 1.14 $
+ *     $Date: 2006/05/11 09:43:42 $
+ * $Revision: 1.15 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -120,10 +120,8 @@ void printGlobalStats() {
   int64_t getCurrentTimeMicrosec() {
     int64_t retval;
     struct timeval tv;
-    if (gettimeofday(&tv, NULL)) {
-      perror("gettimeofday");
-      abort();
-    }
+    if (gettimeofday(&tv, NULL))
+      AMX_FatalErr("gettimeofday failed: %s",strerror(errno));
     retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
     return retval;
   }
@@ -155,12 +153,8 @@ extern void outputTimerStats() {
   }
 }
 /* ------------------------------------------------------------------------------------ */
-#define REQ_32BITPTRS() do {                                                  \
-  if (sizeof(void *) != 4) {                                                  \
-    fprintf(stderr,"This test not supported on 64-bit ptr architectures.\n"); \
-    fflush(stderr);                                                           \
-    abort();                                                                  \
-  }} while(0)
+#define REQ_32BITPTRS() \
+  if (sizeof(void *) != 4) AMX_FatalErr("This test not supported on 64-bit ptr architectures.")
 /* ------------------------------------------------------------------------------------ */
 #ifndef APPUTILS_OMIT_READWRITE
 /*  synchronous gets and puts */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/05/04 12:09:27 $
- * $Revision: 1.71 $
+ *     $Date: 2006/05/11 09:43:30 $
+ * $Revision: 1.72 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -869,7 +869,6 @@ static void gasnetc_atexit(void) {
     gasneti_sched_yield();
 
     gasneti_killmyprocess(exitcode); 
-    abort();
   }
   extern void gasnetc_fatalsignal_callback(int sig) {
     gasneti_local_rmb();
@@ -879,7 +878,7 @@ static void gasnetc_atexit(void) {
        just die silently
      */
       #if 0
-        abort();
+        gasneti_fatalerror("gasnetc_fatalsignal_callback aborting...");
       #endif
       gasneti_killmyprocess(1);
     }
@@ -893,7 +892,6 @@ static void gasnetc_atexit(void) {
     gasneti_trace_finish();
     gasneti_sched_yield();
     gasneti_killmyprocess(exitcode); 
-    abort();
   }
   extern void gasnetc_fatalsignal_callback(int sig) {}
 #endif

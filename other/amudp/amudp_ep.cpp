@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2006/04/20 02:02:23 $
- * $Revision: 1.18 $
+ *     $Date: 2006/05/11 09:43:40 $
+ * $Revision: 1.19 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -17,7 +17,8 @@
 
 /* definitions for internal declarations */
 int amudp_Initialized = 0;
-amudp_handler_fn_t amudp_unused_handler = (amudp_handler_fn_t)&abort;
+static void AMUDP_defaultAMHandler(void * token);
+amudp_handler_fn_t amudp_unused_handler = (amudp_handler_fn_t)&AMUDP_defaultAMHandler;
 amudp_handler_fn_t amudp_defaultreturnedmsg_handler = (amudp_handler_fn_t)&AMUDP_DefaultReturnedMsg_Handler;
 int AMUDP_VerboseErrors = 0;
 int AMUDP_ExpectedBandwidth = AMUDP_DEFAULT_EXPECTED_BANDWIDTH;
@@ -38,6 +39,55 @@ const amudp_stats_t AMUDP_initial_stats = /* the initial state for stats type */
           {0,0,0}, 0
         };
 
+/* ------------------------------------------------------------------------------------ */
+/* error handling */
+__attribute__((__format__ (__printf__, 2, 0)))
+static int AMUDP_Msg(const char *prefix, const char *msg, va_list argptr) {
+  char *expandedmsg = (char *)AMUDP_malloc(strlen(msg)+strlen(prefix)+50);
+  int retval;
+
+  sprintf(expandedmsg, "*** %s: %s\n", prefix, msg);
+  retval = vfprintf(stderr, expandedmsg, argptr);
+  fflush(stderr);
+  AMUDP_free(expandedmsg);
+
+  return retval; 
+}
+
+extern int AMUDP_Warn(const char *msg, ...) {
+  va_list argptr;
+  int retval;
+  va_start(argptr, msg); // pass in last argument
+    retval = AMUDP_Msg("AMUDP WARNING", msg, argptr);
+  va_end(argptr);
+  return retval;
+}
+
+extern int AMUDP_Err(const char *msg, ...) {
+  va_list argptr;
+  int retval;
+  va_start(argptr, msg); // pass in last argument
+    retval = AMUDP_Msg("AMUDP ERROR", msg, argptr);
+  va_end(argptr);
+  return retval;
+}
+
+extern void AMUDP_FatalErr(const char *msg, ...) {
+  va_list argptr;
+  int retval;
+  va_start(argptr, msg); // pass in last argument
+    retval = AMUDP_Msg("FATAL ERROR", msg, argptr);
+  va_end(argptr);
+  abort();
+}
+/* ------------------------------------------------------------------------------------ */
+static void AMUDP_defaultAMHandler(void *token) {
+  int srcnode = -1;
+  AMUDP_GetSourceId(token, &srcnode);
+  AMUDP_FatalErr("AMUDP received an AM message from node %i for a handler index "
+                     "with no associated AM handler function registered", 
+                     srcnode);
+}
 /*------------------------------------------------------------------------------------
  * Endpoint list handling for bundles
  *------------------------------------------------------------------------------------ */
@@ -78,7 +128,7 @@ static void AMUDP_RemoveEndpoint(eb_t eb, ep_t ep) {
         return;
       }
     }
-    abort();
+    AMUDP_FatalErr("failure in AMUDP_RemoveEndpoint");
   }
 }
 /*------------------------------------------------------------------------------------
@@ -116,8 +166,7 @@ extern void AMUDP_ReleaseBulkBuffer(ep_t ep, amudp_buf_t *buf) { // release a bu
       return;
     }
   }
-  ErrMessage("Internal error in AMUDP_ReleaseBulkBuffer()");
-  abort();
+  AMUDP_FatalErr("Internal error in AMUDP_ReleaseBulkBuffer()");
 }
 /* ------------------------------------------------------------------------------------ */
 static void AMUDP_FreeAllBulkBuffers(ep_t ep) {
@@ -151,7 +200,7 @@ extern void AMUDP_growSocketRecvBufferSize(ep_t ep, int targetsize) {
   GETSOCKOPT_LENGTH_T junk = sizeof(int);
   if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_RCVBUF, (char *)&initialsize, &junk) == SOCKET_ERROR) {
     #if AMUDP_DEBUG
-      WarnMessage("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed: %s",strerror(errno));
+      AMUDP_Warn("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed: %s",strerror(errno));
     #endif
     initialsize = 65535;
   }
@@ -167,7 +216,7 @@ extern void AMUDP_growSocketRecvBufferSize(ep_t ep, int targetsize) {
       if (_sysctl(&args)) {
         #if AMUDP_DEBUG
           perror("sysctl");
-          ErrMessage("sysctl() on UDP socket failed");
+          AMUDP_Err("sysctl() on UDP socket failed");
         #endif
       }
       size = MIN(size, maxsize);
@@ -181,14 +230,14 @@ extern void AMUDP_growSocketRecvBufferSize(ep_t ep, int targetsize) {
     int sz = targetsize; /* prevent OS from tampering */
     if (setsockopt(ep->s, SOL_SOCKET, SO_RCVBUF, (char *)&sz, sizeof(int)) == SOCKET_ERROR) {
       #if AMUDP_DEBUG
-        WarnMessage("setsockopt(SOL_SOCKET, SO_RCVBUF, %i) on UDP socket failed: %s", targetsize, strerror(errno));
+        AMUDP_Warn("setsockopt(SOL_SOCKET, SO_RCVBUF, %i) on UDP socket failed: %s", targetsize, strerror(errno));
       #endif
     } else {
       int temp = targetsize;
       junk = sizeof(int);
       if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_RCVBUF, (char *)&temp, &junk) == SOCKET_ERROR) {
         #if AMUDP_DEBUG
-          WarnMessage("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed: %s", strerror(errno));
+          AMUDP_Warn("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed: %s", strerror(errno));
         #endif
       }
       if (temp >= targetsize) {
@@ -254,11 +303,11 @@ static int AMUDP_AllocateEndpointResource(ep_t ep) {
       }
       /* can't determine interface address */
       if (ep->name.sin_addr.s_addr == INADDR_ANY) {
-        ErrMessage("AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface address");
+        AMUDP_Err("AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface address");
         return FALSE;
       }
       if (ep->name.sin_port == 0) {
-        ErrMessage("AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface port");
+        AMUDP_Err("AMUDP_AllocateEndpointResource failed to determine UDP endpoint interface port");
         return FALSE; 
       }
     }
@@ -790,7 +839,7 @@ extern int AM_WaitSema(eb_t eb) {
   AMUDP_CHECK_ERR((!eb),BAD_ARG);
   
   if (eb->event_mask == AM_NOEVENTS) 
-    abort(); /* it's an error to block when the mask is not set - will never return */
+    AMUDP_FatalErr("it's an error to block when the mask is not set - will never return");
 
   /* block here until a message arrives */
   retval = AMUDP_Block(eb);

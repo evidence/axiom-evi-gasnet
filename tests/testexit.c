@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2006/04/21 00:39:24 $
- * $Revision: 1.20 $
+ *     $Date: 2006/05/11 09:43:56 $
+ * $Revision: 1.21 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -134,13 +134,11 @@ void *workerthread(void *args) {
         }
       }
       break;
-    default:
-      abort();
+    default:FATALERR("bad test id");
   }
 
   /* if we ever reach here, something really bad happenned */
-  MSG("TEST FAILED!!");
-  abort();
+  FATALERR("TEST FAILED!!");
   return NULL;
 }
 #endif
@@ -148,8 +146,7 @@ void *workerthread(void *args) {
 typedef void (*test_sighandlerfn_t)(int);
 void testSignalHandler(int sig) {
   if (sig != SIGQUIT) {
-    MSG("ERROR! got an unexpected signal!");
-    abort();
+    FATALERR("got an unexpected signal!");
   } else {
     MSG("in SIGQUIT handler, calling gasnet_exit(4)...");
     gasnet_exit(4);
@@ -197,10 +194,10 @@ int main(int argc, char **argv) {
     sleep(1);
     if (testid == 6) {
       gasnet_exit(6);
-      abort();
+      FATALERR("gasnet_exit failed");
     } else if (testid == 7 && mynode == nodes - 1) {
       gasnet_exit(7);
-      abort();
+      FATALERR("gasnet_exit failed");
     }
   }
 
@@ -277,11 +274,9 @@ int main(int argc, char **argv) {
       break;
     }
   #endif
-    default:
-      abort();
+    default:FATALERR("bad testid");
   }
 
   /* if we ever reach here, something really bad happenned */
-  MSG("TEST FAILED!!");
-  abort();
+  FATALERR("TEST FAILED!!");
 }

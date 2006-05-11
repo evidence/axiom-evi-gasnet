@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/03/29 14:33:53 $
- * $Revision: 1.61 $
+ *     $Date: 2006/05/11 09:43:46 $
+ * $Revision: 1.62 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -437,7 +437,7 @@ static void do_abort(unsigned char exitcode) {
 
     /* paranoia... */
     gasneti_reghandler(SIGABRT, SIG_DFL);
-    abort();
+    gasneti_fatalerror("do_abort aborting...");
 
     /* NOT REACHED */
   }
@@ -1635,7 +1635,7 @@ void gasneti_bootstrapFini_ssh(void) {
 void gasneti_bootstrapAbort_ssh(int exitcode) {
   gasneti_assert(!is_master);
   do_abort((unsigned char)exitcode);
-  abort();
+  gasneti_fatalerror("do_abort failed.");
   /* NOT REACHED */
 }
 

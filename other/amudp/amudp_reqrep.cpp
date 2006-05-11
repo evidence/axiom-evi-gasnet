@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2006/04/10 04:20:12 $
- * $Revision: 1.34 $
+ *     $Date: 2006/05/11 09:43:40 $
+ * $Revision: 1.35 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -75,7 +75,7 @@ static int sendPacket(ep_t ep, amudp_buf_t *packet, int packetlength, en_t desta
           AMUDP_RETURN_ERRFR(RESOURCE, sendPacket, "ueth_send() failed");
         }
       break;
-      default: abort();
+      default: AMUDP_FatalErr("bad UETH packet type");
     }
   #else
     if (sendto(ep->s, (char *)packet, packetlength, /* Solaris requires cast to char* */
@@ -84,7 +84,7 @@ static int sendPacket(ep_t ep, amudp_buf_t *packet, int packetlength, en_t desta
          /* Linux intermittently gets EPERM failures here at startup for no apparent reason -
             so allow a retry */
         #if AMUDP_DEBUG_VERBOSE
-           WarnMessage("Got a '%s' on sendto(), retrying...\n", strerror(errno)); 
+           AMUDP_Warn("Got a '%s' on sendto(), retrying...\n", strerror(errno)); 
         #endif
         if (sendto(ep->s, (char *)packet, packetlength,
                0, (struct sockaddr *)&destaddress, sizeof(en_t)) != SOCKET_ERROR) goto success;
@@ -109,7 +109,7 @@ static int AMUDP_GetOpcode(int isrequest, amudp_category_t cat) {
     case amudp_Long:
       if (isrequest) return AM_REQUEST_XFER_M;
       else return AM_REPLY_XFER_M; 
-    default: abort();
+    default: AMUDP_FatalErr("bad AM category");
       return -1;
   }
 }
@@ -146,7 +146,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
       case 14: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
       case 15: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
       case 16: (*(AMUDP_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
-      default: abort();                                                                 \
+      default: AMUDP_FatalErr("bad AM arg count");                                                                 \
     }                                                                                   \
   }                                                                                     \
 } while (0)
@@ -173,7 +173,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
       case 14: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
       case 15: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
       case 16: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
-      default: abort();                                                                 \
+      default: AMUDP_FatalErr("bad AM arg count");                                                                 \
     }                                                                                   \
   }                                                                                     \
 } while (0)
@@ -294,7 +294,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         if (((ep->rxFreeIdx + 1) % ep->rxNumBufs) == ep->rxReadyIdx) { 
           /* out of buffers - postpone draining */
           #if AMUDP_DEBUG
-            WarnMessage("Receive buffer full - unable to drain network (this is usually caused by retransmissions)");
+            AMUDP_Warn("Receive buffer full - unable to drain network (this is usually caused by retransmissions)");
           #endif
           break;
         }
@@ -614,25 +614,25 @@ extern int AMUDP_Block(eb_t eb) {
 }
 /* ------------------------------------------------------------------------------------ */
 #if AMUDP_DEBUG
-  #define REFUSE_NOTICE(reason) ErrMessage("I just refused a message and returned to sender. Reason: %s", reason)
+  #define REFUSE_NOTICE(reason) AMUDP_Err("I just refused a message and returned to sender. Reason: %s", reason)
 #else
   #define REFUSE_NOTICE(reason) (void)0
 #endif
 
 /* this is a local-use-only macro for AMUDP_ServiceIncomingMessages */
-#define AMUDP_REFUSEMESSAGE(errcode) do {                                        \
-    buf->Msg.systemMessageType = (uint8_t)amudp_system_returnedmessage;          \
-    buf->Msg.systemMessageArg = (uint8_t)errcode;                                \
-    if (isloopback) {                                                            \
-      AMUDP_processPacket(buf, 1);                                               \
-    } else {                                                                     \
-      int retval = sendPacket(ep, buf, GET_PACKET_LENGTH(buf),                   \
-                        (basicbuf)->status.sourceAddr, REFUSAL_PACKET);          \
-       /* ignore errors sending this */                                          \
-      if (retval != AM_OK) ErrMessage("failed to sendPacket to refuse message"); \
-      else REFUSE_NOTICE(#errcode);                                              \
-    }                                                                            \
-    return;                                                                      \
+#define AMUDP_REFUSEMESSAGE(errcode) do {                                       \
+    buf->Msg.systemMessageType = (uint8_t)amudp_system_returnedmessage;         \
+    buf->Msg.systemMessageArg = (uint8_t)errcode;                               \
+    if (isloopback) {                                                           \
+      AMUDP_processPacket(buf, 1);                                              \
+    } else {                                                                    \
+      int retval = sendPacket(ep, buf, GET_PACKET_LENGTH(buf),                  \
+                        (basicbuf)->status.sourceAddr, REFUSAL_PACKET);         \
+       /* ignore errors sending this */                                         \
+      if (retval != AM_OK) AMUDP_Err("failed to sendPacket to refuse message"); \
+      else REFUSE_NOTICE(#errcode);                                             \
+    }                                                                           \
+    return;                                                                     \
   } while(0)
 
 void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
@@ -726,8 +726,7 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
       if_pf (msg->destOffset + msg->nBytes > ep->segLength)
         AMUDP_REFUSEMESSAGE(EBADLENGTH);
       break;
-    default:
-      abort();
+    default: AMUDP_FatalErr("bad AM category");
   }
 
   /*  check the source id */
@@ -752,11 +751,11 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
         #endif
         { int retval;
           #if AMUDP_DEBUG_VERBOSE
-            WarnMessage("Got a duplicate request - resending previous reply.");
+            AMUDP_Warn("Got a duplicate request - resending previous reply.");
           #endif
           retval = sendPacket(ep, replybuf, GET_PACKET_LENGTH(replybuf),
             ep->perProcInfo[sourceID].remoteName, RETRANSMISSION_PACKET);
-          if (retval != AM_OK) ErrMessage("sendPacket failed while resending a reply");
+          if (retval != AM_OK) AMUDP_Err("sendPacket failed while resending a reply");
           desc->transmitCount++;
           ep->stats.RepliesRetransmitted[AMUDP_MSG_CATEGORY(&replybuf->Msg)]++;
           /*  ignore error return */
@@ -767,7 +766,7 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
       amudp_bufdesc_t *desc = GET_REQ_DESC(ep, sourceID, instance);
       if (seqnum != desc->seqNum) { /*  duplicate reply, we already ran handler - ignore it */
         #if AMUDP_DEBUG_VERBOSE
-          WarnMessage("Ignoring a duplicate reply.");
+          AMUDP_Warn("Ignoring a duplicate reply.");
         #endif
         return;
       }
@@ -864,8 +863,7 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
             }
           }
           break;
-        default:
-          abort();
+        default: AMUDP_FatalErr("bad AM type");
       }
     } else { /* a user message */
       switch (cat) {
@@ -899,8 +897,7 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
           if (ep->postHandlerCallback) ep->postHandlerCallback(cat, isrequest);
           break;
         }
-        default:
-          abort();
+        default: AMUDP_FatalErr("bad AM category");
       }
     }
     status->handlerRunning = FALSE;
@@ -910,7 +907,7 @@ void AMUDP_processPacket(amudp_buf_t *basicbuf, int isloopback) {
         /*  user didn't reply, so issue an auto-reply */
         if (AMUDP_ReplyGeneric(amudp_Short, basicbuf, 0, 0, 0, 0, 0, va_dummy, amudp_system_autoreply, 0) 
             != AM_OK) /*  should never happen - don't return here to prevent leaking buffer */
-          ErrMessage("Failed to issue auto reply in AMUDP_ServiceIncomingMessages");
+          AMUDP_Err("Failed to issue auto reply in AMUDP_ServiceIncomingMessages");
       }
       if (isrequest) { /*  message was a request, alternate the reply sequence number so duplicates of this request get ignored */
         amudp_bufdesc_t *desc = GET_REP_DESC(ep, sourceID, instance);
@@ -1570,10 +1567,8 @@ extern int AMUDP_RequestXferVA(ep_t request_endpoint, int reply_endpoint, handle
                                       chunk_source_addr, chunk_nbytes, chunk_dest_offset,
                                       tmpnumargs, argptr,
                                       systype, (uint8_t)(numchunks-1));
-        if_pf (retval != AM_OK) { /*  recovery here would suck, so errors here are fatal */
-          ErrMessage("Network failure in the middle of a bulk transfer");
-          abort(); 
-          }
+        if_pf (retval != AM_OK) /*  recovery here would suck, so errors here are fatal */
+          AMUDP_FatalErr("Network failure in the middle of a bulk transfer");
         chunk_source_addr += chunk_nbytes;
         chunk_dest_offset += chunk_nbytes;
       }
@@ -1766,7 +1761,7 @@ extern void AMUDP_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
   }
   { char temp1[80];
     char temp2[80];
-    ErrMessage("An active message was returned to sender,\n"
+    AMUDP_FatalErr("An active message was returned to sender,\n"
              "    and trapped by the default returned message handler (handler 0):\n"
              "Error Code: %s\n"
              "Message type: %s\n"
@@ -1780,6 +1775,5 @@ extern void AMUDP_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
              msgbuf->Msg.handlerId, AMUDP_tagStr(msgbuf->Msg.tag, temp2),
              numArgs, argStr);
   }
-  abort();
 }
 /* ------------------------------------------------------------------------------------ */

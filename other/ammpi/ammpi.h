@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2006/04/10 04:20:10 $
- * $Revision: 1.36 $
+ *     $Date: 2006/05/11 09:43:38 $
+ * $Revision: 1.37 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -165,6 +165,11 @@ AMMPI_BEGIN_EXTERNC
 extern int AMMPI_VerboseErrors; /* set to non-zero for verbose error reporting */
 extern int AMMPI_SilentMode; /* set to non-zero to silence any non-error output */
 
+#ifdef __GNUC__
+__attribute__((__format__ (__printf__, 1, 2)))
+#endif
+extern void AMMPI_FatalErr(const char *msg, ...);
+
 /* define the communicator to be used as the basis for all
  * subsequent calls to AM_AllocateEndpoint(), which must be called 
  * collectively across the selected comm
@@ -250,6 +255,7 @@ extern const ammpi_stats_t AMMPI_initial_stats; /* the "empty" values for counte
 #define AMX_initial_stats         AMMPI_initial_stats
 #define amx_stats_t               ammpi_stats_t
 #define amx_handler_fn_t          ammpi_handler_fn_t
+#define AMX_FatalErr              AMMPI_FatalErr
 
 #if !defined(AMMPI_DEBUG) && !defined(AMMPI_NDEBUG)
   #if defined(GASNET_DEBUG) || defined(AMX_DEBUG)

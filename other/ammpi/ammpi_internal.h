@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2006/04/27 04:16:56 $
- * $Revision: 1.35 $
+ *     $Date: 2006/05/11 09:43:38 $
+ * $Revision: 1.36 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -149,12 +149,8 @@
     _tv.tv_sec  = _timeoutusec / 1000000;                                 \
     _tv.tv_usec = _timeoutusec % 1000000;                                 \
     if (select(1, NULL, NULL, NULL, &_tv) < 0) /* sleep a little while */ \
-       ErrMessage("failed to select(): %s(%i)", strerror(errno), errno);  \
+       AMMPI_Err("failed to select(): %s(%i)", strerror(errno), errno);   \
   } while (0)
-#endif
-
-#if ! defined (__GNUC__) && ! defined (__attribute__)
-#define __attribute__(flags)
 #endif
 
 #ifndef TRUE
@@ -175,16 +171,31 @@
   #define __CURR_FUNCTION ((const char *) 0) /* could use __func__ for C99 compilers.. */
 #endif
 
-#if ! defined (__GNUC__) && ! defined (__attribute__)
-  #define __attribute__(flags)
-#endif
-
 /* alignment macros */
 #define AMMPI_POWEROFTWO(P)    (((P)&((P)-1)) == 0)
 
 #define AMMPI_ALIGNDOWN(p,P)    (AMMPI_assert(AMMPI_POWEROFTWO(P)), \
                                    ((uintptr_t)(p))&~((uintptr_t)((P)-1)))
 #define AMMPI_ALIGNUP(p,P)     (AMMPI_ALIGNDOWN((uintptr_t)(p)+((uintptr_t)((P)-1)),P))
+
+#if ! defined (__GNUC__) && ! defined (__attribute__)
+#define __attribute__(flags)
+#endif
+
+__attribute__((__format__ (__printf__, 1, 2)))
+extern int AMMPI_Err(const char *msg, ...);
+
+__attribute__((__format__ (__printf__, 1, 2)))
+extern int AMMPI_Warn(const char *msg, ...);
+
+#ifdef GASNETT_NORETURN
+GASNETT_NORETURN
+#endif
+__attribute__((__format__ (__printf__, 1, 2)))
+extern void AMMPI_FatalErr(const char *msg, ...);
+#ifdef GASNETT_NORETURNP
+GASNETT_NORETURNP(AMMPI_FatalErr)
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 
@@ -396,8 +407,6 @@ struct ammpi_ep {
 
 AMMPI_BEGIN_EXTERNC
 
-static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf__, 1, 2)));
-
 /* memory allocation */
 #if AMMPI_DEBUG
   /* use the gasnet debug malloc functions if a debug libgasnet is linked */
@@ -406,12 +415,12 @@ static int ErrMessage(const char *msg, ...) __attribute__((__format__ (__printf_
   void (*gasnett_debug_free_fn)(void *ptr, const char *curloc);
   static void *_AMMPI_malloc(size_t sz, const char *curloc) {
     void *ret = malloc(sz);
-    if_pf(!ret) { ErrMessage("Failed to malloc(%lu) at %s", (unsigned long)sz, curloc); abort(); }
+    if_pf(!ret) AMMPI_FatalErr("Failed to malloc(%lu) at %s", (unsigned long)sz, curloc);
     return ret;
   }
   static void *_AMMPI_calloc(size_t N, size_t S, const char *curloc) {
     void *ret = calloc(N,S);
-    if_pf(!ret) { ErrMessage("Failed to calloc(%lu,%lu) at %s", (unsigned long)N, (unsigned long)S, curloc); abort(); }
+    if_pf(!ret) AMMPI_FatalErr("Failed to calloc(%lu,%lu) at %s", (unsigned long)N, (unsigned long)S, curloc);
     return ret;
   }
   static void _AMMPI_free(void *ptr, const char *curloc) {
@@ -607,36 +616,16 @@ static int AMMPI_checkMPIreturn(int retcode, const char *fncallstr,
     return val;                                                            \
   } while (0)
 
-static int ErrMessage(const char *msg, ...) {
-  static va_list argptr;
-  char *expandedmsg = (char *)AMMPI_malloc(strlen(msg)+50);
-  int retval;
-
-  va_start(argptr, msg); /*  pass in last argument */
-  sprintf(expandedmsg, "*** AMMPI ERROR: %s\n", msg);
-  retval = vfprintf(stderr, expandedmsg, argptr);
-  fflush(stderr);
-  AMMPI_free(expandedmsg);
-
-  va_end(argptr);
-  return retval; /*  this MUST be only return in this function */
-}
-
 #include <assert.h>
 #undef assert
 #define assert(x) ERROR_use_AMMPI_assert
 #if AMMPI_NDEBUG
   #define AMMPI_assert(expr) ((void)0)
 #else
-  static void AMMPI_assertfail(const char *fn, const char *file, int line, const char *expr) {
-    fprintf(stderr, "Assertion failure at %s %s:%i: %s\n", fn, file, line, expr);
-    fflush(stderr);
-    abort();
-  }
-  #define AMMPI_assert(expr)                                     \
-    (PREDICT_TRUE(expr) ? (void)0 :                              \
-      AMMPI_assertfail((__CURR_FUNCTION ? __CURR_FUNCTION : ""), \
-                        __FILE__, __LINE__, #expr))
+  #define AMMPI_assert(expr)                                \
+    (PREDICT_TRUE(expr) ? (void)0 :                         \
+      AMMPI_FatalErr("Assertion failure at %s %s:%i: %s\n", \
+        (__CURR_FUNCTION ? __CURR_FUNCTION : ""), __FILE__, __LINE__, #expr))
 #endif
 
 #ifdef AMMPI_HERE
@@ -687,7 +676,6 @@ extern int AMMPI_ServiceIncomingMessages(ep_t ep, int blockForActivity, int repl
 extern char *AMMPI_enStr(en_t en, char *buf);
 extern char *AMMPI_tagStr(tag_t tag, char *buf);
 
-void abort();
 extern ammpi_handler_fn_t ammpi_unused_handler;
 extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *token);
 

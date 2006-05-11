@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/template-conduit/gasnet_core.c,v $
- *     $Date: 2006/05/04 12:09:40 $
- * $Revision: 1.54 $
+ *     $Date: 2006/05/11 09:43:54 $
+ * $Revision: 1.55 $
  * Description: GASNet <conduitname> conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -326,7 +326,7 @@ extern void gasnetc_exit(int exitcode) {
            with gasneti_killmyprocess(exitcode) (not regular exit()), preferably
            after raising a SIGQUIT to inform the client of the exit
   */
-  abort();
+  gasneti_fatalerror("gasnetc_exit failed!");
 }
 
 /* ------------------------------------------------------------------------------------ */

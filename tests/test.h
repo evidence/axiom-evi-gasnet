@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/05/03 03:00:15 $
- * $Revision: 1.90 $
+ *     $Date: 2006/05/11 09:43:56 $
+ * $Revision: 1.91 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -222,10 +222,7 @@ static void *_test_malloc(size_t sz, const char *curloc) {
   test_hold_interrupts();
   ptr = malloc(sz);
   test_resume_interrupts();
-  if (ptr == NULL) {
-    fprintf(stderr,"*** ERROR: Failed to malloc(%i) bytes at %s\n",(int)sz,curloc);
-    abort();
-  }
+  if (ptr == NULL) FATALERR("Failed to malloc(%i) bytes at %s\n",(int)sz,curloc);
   return ptr;
 }
 static void *_test_calloc(size_t sz, const char *curloc) {
@@ -316,11 +313,9 @@ static int64_t test_calibrate_delay(int iters, int pollcnt, int64_t *time_p)
                 if (time == 0) ratio = 2.0;/* handle systems with very high granularity clocks */
                 else ratio = target / (float)time;
                 caliters++;
-                if (caliters > TEST_DELAY_CALIBRATION_LIMIT) {
-                  fprintf(stderr,"ERROR: test_calibrate_delay(%i,%i,%i) failed to converge after %i iterations.\n",
+                if (caliters > TEST_DELAY_CALIBRATION_LIMIT)
+                  FATALERR("test_calibrate_delay(%i,%i,%i) failed to converge after %i iterations.\n",
                           iters, pollcnt, (int)*time_p, iters);
-                  abort();
-                }
               #if 0
                 printf("loops=%llu\n",(unsigned long long)loops); fflush(stdout);
                 printf("ratio=%f target=%f time=%llu\n",ratio,target,(unsigned long long)time); fflush(stdout);
@@ -505,11 +500,9 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
     PTHREAD_LOCALBARRIER(local_pthread_count);      \
     BARRIER();                                      \
   } while (0)
-  #define PTHREAD_LOCALBARRIER(local_pthread_count) do {            \
-    if (local_pthread_count != 1) {                                 \
-      MSG("ERROR: cannot call PTHREAD_BARRIER in GASNET_SEQ mode"); \
-      abort();                                                      \
-    }                                                               \
+  #define PTHREAD_LOCALBARRIER(local_pthread_count) do {          \
+    if (local_pthread_count != 1)                                 \
+      FATALERR("cannot call PTHREAD_BARRIER in GASNET_SEQ mode"); \
   } while (0)
 #endif
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/smp-conduit/gasnet_core.c,v $
- *     $Date: 2006/05/04 12:09:38 $
- * $Revision: 1.42 $
+ *     $Date: 2006/05/11 09:43:52 $
+ * $Revision: 1.43 $
  * Description: GASNet smp conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -336,7 +336,6 @@ extern void gasnetc_exit(int exitcode) {
            after raising a SIGQUIT to inform the client of the exit
   */
   gasneti_killmyprocess(exitcode);
-  abort();
 }
 
 /* ------------------------------------------------------------------------------------ */
@@ -435,7 +434,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
         GASNETI_RUN_HANDLER_LONG(isReq,handler,gasnetc_handler[handler],desc,pargs,numargs,dest_ptr,nbytes);
       }
     break;
-    default: abort();
+    default: gasneti_fatalerror("bad AM category");
   }
   #if GASNET_DEBUG  
     desc->handlerRunning = 0;

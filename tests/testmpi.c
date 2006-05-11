@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmpi.c,v $
- *     $Date: 2006/01/27 05:25:45 $
- * $Revision: 1.10 $
+ *     $Date: 2006/05/11 09:43:56 $
+ * $Revision: 1.11 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -338,10 +338,8 @@ void test_mpi(threaddata_t *tdata) {
 
     /* verify */
     for (i=0; i < sz; i++) {
-      if (sendbuf[i] != recvbuf[i]) {
-        fprintf(stderr,"ERROR: mismatch at element %i in MPI test.", i);
-        abort();
-      }
+      if (sendbuf[i] != recvbuf[i])
+        FATALERR("mismatch at element %i in MPI test.", i);
     }
 
     test_free(sendbuf);

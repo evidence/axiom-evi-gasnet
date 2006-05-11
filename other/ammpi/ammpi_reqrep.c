@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2006/04/27 04:16:56 $
- * $Revision: 1.32 $
+ *     $Date: 2006/05/11 09:43:38 $
+ * $Revision: 1.33 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -70,10 +70,8 @@ static int intpow(int val, int exp) {
   extern int64_t AMMPI_getMicrosecondTimeStamp() {
     int64_t retval;
     struct timeval tv;
-    if (gettimeofday(&tv, NULL)) {
-      perror("gettimeofday");
-      abort();
-    }
+    if (gettimeofday(&tv, NULL))
+      AMMPI_FatalErr("gettimeofday failed: %s",strerror(errno));
     retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
     return retval;
   }
@@ -163,7 +161,7 @@ static int AMMPI_GetOpcode(int isrequest, ammpi_category_t cat) {
     case ammpi_Long:
       if (isrequest) return AM_REQUEST_XFER_M;
       else return AM_REPLY_XFER_M; 
-    default: abort();
+    default: AMMPI_FatalErr("unrecognized opcode in AMMPI_GetOpcode");
       return -1;
   }
 }
@@ -226,7 +224,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         case 14: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
         case 15: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
         case 16: (*(AMMPI_HandlerShort)phandlerfn)((void *)token, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
-        default: abort();                                                                 \
+        default: AMMPI_FatalErr("bad argument count");                                                                 \
       }                                                                                 \
     }                                                                                   \
   } while (0)
@@ -253,7 +251,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         case 14: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13]); break; \
         case 15: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14]); break; \
         case 16: (*phandlerfn)(token, pData, datalen, args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9], args[10], args[11], args[12], args[13], args[14], args[15]); break; \
-        default: abort();                                                                 \
+        default: AMMPI_FatalErr("bad argument count");                                                                 \
       }                                                                                 \
     }                                                                                   \
   } while (0)
@@ -268,21 +266,21 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   } while(0)
 /* ------------------------------------------------------------------------------------ */
 #if AMMPI_DEBUG
-  #define REFUSE_NOTICE(reason) ErrMessage("I just refused a message and returned to sender. Reason: %s", reason)
+  #define REFUSE_NOTICE(reason) AMMPI_Err("I just refused a message and returned to sender. Reason: %s", reason)
 #else
   #define REFUSE_NOTICE(reason) (void)0
 #endif
 
 /* this is a local-use-only macro for AMMPI_processPacket */
-#define AMMPI_REFUSEMESSAGE(ep, buf, errcode) do {                             \
-    int retval;                                                                \
-    buf->Msg.systemMessageType = (uint8_t)ammpi_system_returnedmessage;        \
-    buf->Msg.systemMessageArg = (uint8_t)errcode;                              \
-    retval = sendPacket(ep, &ep->Rep, buf, GET_PACKET_LENGTH(buf),             \
-                        (buf)->status.sourceAddr, NULL);                       \
-    if (retval != AM_OK) ErrMessage("failed to sendPacket to refuse message"); \
-    else REFUSE_NOTICE(#errcode);                                              \
-    return;                                                                    \
+#define AMMPI_REFUSEMESSAGE(ep, buf, errcode) do {                            \
+    int retval;                                                               \
+    buf->Msg.systemMessageType = (uint8_t)ammpi_system_returnedmessage;       \
+    buf->Msg.systemMessageArg = (uint8_t)errcode;                             \
+    retval = sendPacket(ep, &ep->Rep, buf, GET_PACKET_LENGTH(buf),            \
+                        (buf)->status.sourceAddr, NULL);                      \
+    if (retval != AM_OK) AMMPI_Err("failed to sendPacket to refuse message"); \
+    else REFUSE_NOTICE(#errcode);                                             \
+    return;                                                                   \
   } while(0)
 
 void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
@@ -349,7 +347,7 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
         AMMPI_REFUSEMESSAGE(ep, buf, EBADLENGTH);
       break;
     default:
-      abort();
+      AMMPI_FatalErr("bad AM category");
   }
 
 
@@ -382,14 +380,14 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
       case ammpi_system_controlmessage:
         /*  run a control handler */
         if (ep->controlMessageHandler == NULL || ep->controlMessageHandler == ammpi_unused_handler)
-          ErrMessage("got an AMMPI control message, but no controlMessageHandler is registered. Ignoring...");
+          AMMPI_Err("got an AMMPI control message, but no controlMessageHandler is registered. Ignoring...");
         else {
           RUN_HANDLER_SHORT(ep->controlMessageHandler, buf, 
                             GET_PACKET_ARGS(buf), numargs);
         }
         break;
       default:
-        abort();
+        AMMPI_FatalErr("bad AM type");
     }
   } else { /* a user message */
     #if AMMPI_FLOW_CONTROL
@@ -433,7 +431,7 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
         break;
         }
       default:
-        abort();
+        AMMPI_FatalErr("bad AM category");
     }
   }
   status->handlerRunning = FALSE;
@@ -445,7 +443,7 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
       /*  user didn't reply, so issue an auto-reply */
       if_pf (AMMPI_ReplyGeneric(ammpi_Short, buf, 0, 0, 0, 0, 0, va_dummy, 
                                 ammpi_system_autoreply, 0) != AM_OK) /*  should never happen */
-        ErrMessage("Failed to issue auto reply in AMMPI_ServiceIncomingMessages");
+        AMMPI_Err("Failed to issue auto reply in AMMPI_ServiceIncomingMessages");
     }
   #endif
 } 
@@ -712,8 +710,7 @@ extern int AMMPI_Block(eb_t eb) {
     /* we could implement this (at least for AMMPI_PREPOST_RECVS) by combining the handle vectors, 
      * but it doesn't seem worthwhile right now
      */
-    ErrMessage("unimplemented: tried to AMMPI_Block on an endpoint-bundle containing multiple endpoints...");
-    abort();
+    AMMPI_FatalErr("unimplemented: tried to AMMPI_Block on an endpoint-bundle containing multiple endpoints...");
   }
   return retval;
 }
@@ -1027,8 +1024,7 @@ extern int AMMPI_RequestXferVA(ep_t request_endpoint, ammpi_node_t reply_endpoin
     AM_Poll(request_endpoint->eb);
 
     /* too hard to compute whether this will block */
-    ErrMessage("unimplemented: AMMPI_RequestXferAsyncM not implemented - use AMMPI_RequestXferM");
-    abort();
+    AMMPI_FatalErr("unimplemented: AMMPI_RequestXferAsyncM not implemented - use AMMPI_RequestXferM");
   }
   /* perform the send */
   return AMMPI_RequestGeneric(ammpi_Long, 
@@ -1245,7 +1241,7 @@ extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
   }
   { char temp1[80];
     char temp2[80];
-  ErrMessage("An active message was returned to sender,\n"
+    AMMPI_FatalErr("An active message was returned to sender,\n"
              "    and trapped by the default returned message handler (handler 0):\n"
              "Error Code: %s\n"
              "Message type: %s\n"
@@ -1264,6 +1260,5 @@ extern void AMMPI_DefaultReturnedMsg_Handler(int status, op_t opcode, void *toke
              #endif
              numArgs, argStr);
   }
-  abort();
 }
 /* ------------------------------------------------------------------------------------ */

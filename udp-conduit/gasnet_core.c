@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2006/04/25 09:50:02 $
- * $Revision: 1.30 $
+ *     $Date: 2006/05/11 09:43:58 $
+ * $Revision: 1.31 $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -492,7 +492,7 @@ extern void gasnetc_fatalsignal_callback(int sig) {
      just die silently
    */
     #if 0
-      abort();
+      gasneti_fatalerror("gasnetc_fatalsignal_callback aborting...");
     #endif
     gasneti_killmyprocess(1);
   }
@@ -515,7 +515,7 @@ extern void gasnetc_exit(int exitcode) {
   gasneti_sched_yield();
 
   AMUDP_SPMDExit(exitcode);
-  abort();
+  gasneti_fatalerror("AMUDP_SPMDExit failed!");
 }
 
 /* ------------------------------------------------------------------------------------ */

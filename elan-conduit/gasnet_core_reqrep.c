@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_reqrep.c,v $
- *     $Date: 2006/03/19 02:07:58 $
- * $Revision: 1.30 $
+ *     $Date: 2006/05/11 09:43:30 $
+ * $Revision: 1.31 $
  * Description: GASNet elan conduit - AM request/reply implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -416,7 +416,7 @@ static void gasnetc_processPacket(gasnetc_bufdesc_t *desc) {
         GASNETI_RUN_HANDLER_LONG(GASNETC_MSG_ISREQUEST(msg),msg->handlerId,handler,desc,pargs,numargs,pdata,nbytes);
       }
     break;
-    default: abort();
+    default: gasneti_fatalerror("unrecognized msg category");
   }
   desc->handlerRunning = 0;
 }
@@ -533,7 +533,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, int isReq,
         msgsz = (uintptr_t)(pargs + numargs) - (uintptr_t)buf;
       }
     break;
-    default: abort();
+    default: gasneti_fatalerror("unrecognized msg category");
   }
   GASNETC_MSG_SETFLAGS(&(buf->msg), isReq, category, numargs);
   buf->msg.handlerId = handler;

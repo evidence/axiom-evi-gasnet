@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/05/04 12:09:34 $
- * $Revision: 1.21 $
+ *     $Date: 2006/05/11 09:43:48 $
+ * $Revision: 1.22 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -448,7 +448,6 @@ extern void gasnetc_exit(int exitcode) {
   done =1;
 
   gasneti_killmyprocess(exitcode);
-  abort();
 }
 
 /* ------------------------------------------------------------------------------------ */

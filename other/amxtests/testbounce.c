@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testbounce.c,v $
- *     $Date: 2006/04/11 03:23:45 $
- * $Revision: 1.9 $
+ *     $Date: 2006/05/11 09:43:42 $
+ * $Revision: 1.10 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,11 +37,8 @@ static void large_request_handler(void *token, void *buf, int nbytes, int arg) {
   /*  verify the result */
   { int i;
     for (i = 0; i < AM_MaxLong()/4; i++) {
-      if (recvdbuf[i] != (uint32_t)((count << 16) + i)) {
-        printf("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, (int)recvdbuf[i]);
-        fflush(stdout);
-        abort();
-      }
+      if (recvdbuf[i] != (uint32_t)((count << 16) + i))
+        AMX_FatalErr("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, (int)recvdbuf[i]);
     }
     count++;
     for (i = 0; i < AM_MaxLong()/4; i++) {
@@ -75,11 +72,8 @@ static void large_reply_handler(void *token, void *buf, int nbytes, int arg) {
   /*  verify the result */
   { int i;
     for (i = 0; i < AM_MaxLong()/4; i++) {
-      if (recvdbuf[i] != (uint32_t)((count << 16) + i)) {
-        printf("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, (int)recvdbuf[i]);
-        fflush(stdout);
-        abort();
-      }
+      if (recvdbuf[i] != (uint32_t)((count << 16) + i))
+        AMX_FatalErr("%i: ERROR: mismatched data recvdbuf[%i]=%i\n", myproc, i, (int)recvdbuf[i]);
     }
   }
   count++;

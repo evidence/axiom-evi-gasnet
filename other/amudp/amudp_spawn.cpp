@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spawn.cpp,v $
- *     $Date: 2006/04/10 04:20:12 $
- * $Revision: 1.13 $
+ *     $Date: 2006/05/11 09:43:40 $
+ * $Revision: 1.14 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -51,25 +51,21 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
   int i;
 
   if (!AMUDP_SPMDSpawnRunning) {
-    ErrMessage("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
+    AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
     return FALSE;
   }
 
   for (i = 0; i < nproc; i++) {
     #if defined(WIN32) && !defined(__CYGWIN__)
-      if (_spawnv(_P_NOWAIT, argv[0], argv) == -1) {
-        ErrMessage("failed _spawnv()");
-        exit(1);
-      }
+      if (_spawnv(_P_NOWAIT, argv[0], argv) == -1)
+        AMUDP_FatalErr("failed _spawnv()");
     #elif defined(CRAYX1)
       { char **nargv = (char **)AMUDP_malloc(sizeof(char *)*(argc+2));
         nargv[0] = argv[0];
         memcpy(nargv+1,argv,argc*sizeof(char *));
         nargv[argc+1] = NULL;
-        if (execsp(nargv, environ, NULL) == -1) {
-          ErrMessage("failed execsp()");
-          exit(1);
-        }
+        if (execsp(nargv, environ, NULL) == -1)
+          AMUDP_FatalErr("failed execsp()");
       }
     #else
       int forkRet = fork();
@@ -106,7 +102,7 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
     int forkRet;
 
     if (!AMUDP_SPMDSpawnRunning) {
-      ErrMessage("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
+      AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
       return FALSE;
     }
 
@@ -118,20 +114,17 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
       AMUDP_SPMDRedirectStdsockets = FALSE; /* GLUNIX has it's own console redirection facilities */
       return TRUE;  
     } else {  /*  this is the child - exec the new process */
-      if (!Glib_Initialize()) {
-        fprintf(stderr,"failed to Glib_Initialize()\n");
-        abort(); /* failed to init */
-      }
+      if (!Glib_Initialize())
+        AMUDP_FatalErr("failed to Glib_Initialize()")
       /*AMUDP_assert(Glib_AmIStartup() > 0);*/
       Glib_Spawn(nproc, argv[0], argv); /* should never return */
-      fprintf(stderr,"failed to Glib_Spawn()\n");
-      abort(); /* something went wrong */
+      AMUDP_FatalErr("failed to Glib_Spawn()")
       return FALSE;
     }
   }
 #else
   extern int AMUDP_SPMDGlunixSpawn(int nproc, int argc, char **argv) {
-    ErrMessage("AMUDP_SPMDGlunixSpawn() cannot be called because the AMUDP library was compiled without -DGLUNIX.\n"
+    AMUDP_Err("AMUDP_SPMDGlunixSpawn() cannot be called because the AMUDP library was compiled without -DGLUNIX.\n"
              "  Please recompile libAMUDP.a with -DGLUNIX, relink your application and try again.");
     return FALSE;
   }
@@ -161,7 +154,7 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
     int pid;
 
     if (!AMUDP_SPMDSpawnRunning) {
-      ErrMessage("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
+      AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
       return FALSE;
     }
 
@@ -202,11 +195,8 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
       } else {  /*  this is the child - exec the new process */
         if (!AMUDP_SilentMode) 
           printf("system(%s)\n", cmd2); fflush(stdout);
-        if (system(cmd2) == -1) {
-           printf("Failed to call system() to spawn rexec");
-           abort();
-           return FALSE;
-        }
+        if (system(cmd2) == -1)
+           AMUDP_FatalErr("Failed to call system() to spawn rexec");
         exit(0);
       }
     }
@@ -214,7 +204,7 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
 }
 #else
   extern int AMUDP_SPMDRexecSpawn(int nproc, int argc, char **argv) {
-    ErrMessage("AMUDP_SPMDRexecSpawn() cannot be called because the AMUDP library was compiled without -DREXEC.\n"
+    AMUDP_Err("AMUDP_SPMDRexecSpawn() cannot be called because the AMUDP library was compiled without -DREXEC.\n"
              "  Please recompile libAMUDP.a with -DREXEC, relink your application and try again.");
     return FALSE;
   }
@@ -256,7 +246,7 @@ int AMUDP_SPMDSshSpawn(int nproc, int argc, char **argv) {
   int pid;
 
   if (!AMUDP_SPMDSpawnRunning) {
-    ErrMessage("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
+    AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
     return FALSE;
   }
 
@@ -403,7 +393,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
   int pid;
 
   if (!AMUDP_SPMDSpawnRunning) {
-    ErrMessage("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
+    AMUDP_Err("Spawn functions should never be run directly - only passed to AMUDP_SPMDStartup()"); 
     return FALSE;
   }
 
@@ -411,7 +401,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
 
   spawn_cmd = AMUDP_getenv_prefixed_withdefault("CSPAWN_CMD","");
   if (!strlen(spawn_cmd)) {
-    ErrMessage("You must set the "AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD environment variable to use the custom spawn function"); 
+    AMUDP_Err("You must set the "AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD environment variable to use the custom spawn function"); 
     return FALSE;
   }
   spawn_servers = AMUDP_getenv_prefixed_withdefault("CSPAWN_SERVERS","");
@@ -477,7 +467,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
       switch (*(p+1)) {
         case 'M': case 'm': 
           if (!spawn_servers) { /* user failed to provide servers and now is asking for them */
-            ErrMessage("You must set the "AMUDP_ENV_PREFIX_STR"_CSPAWN_SERVERS environment "
+            AMUDP_Err("You must set the "AMUDP_ENV_PREFIX_STR"_CSPAWN_SERVERS environment "
                        "variable to use the %%M option in "AMUDP_ENV_PREFIX_STR"_CSPAWN_CMD");
           }
           replacement = workerservers; 
@@ -516,11 +506,8 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
     {  /*  this is the child - exec the new process */
       if (!AMUDP_SilentMode) 
         printf("system(%s)\n", cmd); fflush(stdout);
-      if (system(cmd) == -1) {
-         printf("Failed while calling system() with custom spawn command:\n%s", cmd);
-         abort();
-         return FALSE;
-      }
+      if (system(cmd) == -1)
+         AMUDP_FatalErr("Failed while calling system() with custom spawn command:\n%s", cmd);
       exit(0);
     }
   }

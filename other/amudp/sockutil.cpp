@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockutil.cpp,v $
-//     $Date: 2006/04/11 03:23:43 $
-// $Revision: 1.14 $
+//     $Date: 2006/05/11 09:43:40 $
+// $Revision: 1.15 $
 // Description: Simple sock utils
 // Copyright 1999, Dan Bonachea
 
@@ -491,10 +491,10 @@ bool waitForActivity(SOCKET s, struct timeval* tv) {
   int retval = select(s+1, &set, NULL, NULL, tv);
   if (retval < 0) {
     xsocket(s, "waitForActivity()");
-    }
+  }
   else if (retval == 1) return true;
   else if (retval == 0) return false;
-  else abort();
+  else { perror("select"); abort(); }
 
   return false; /* make compiler happy */
 }

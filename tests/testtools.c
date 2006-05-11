@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/09 05:28:59 $
- * $Revision: 1.58 $
+ *     $Date: 2006/05/11 09:43:56 $
+ * $Revision: 1.59 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -45,7 +45,7 @@ void test_dummy(void * GASNETT_RESTRICT p) {}
 
 void test_dummy2(void) GASNETT_NORETURN;
 GASNETT_NORETURNP(test_dummy2)
-void test_dummy2(void) { abort(); }
+void test_dummy2(void) { gasnett_fatalerror("test_dummy2"); }
 
 GASNETT_BEGIN_EXTERNC
 void *test_dummy3(void) GASNETT_MALLOC;
