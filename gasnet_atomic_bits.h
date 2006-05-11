@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/11 19:02:48 $
- * $Revision: 1.198 $
+ *     $Date: 2006/05/11 21:07:03 $
+ * $Revision: 1.199 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -971,8 +971,8 @@
             "cmp      %0, %1     \n\t" /* check if newval == oldval (swap succeeded) */
             "bne,a,pn %%icc, 0b  \n\t" /* otherwise, retry (,pn == predict not taken; ,a == annul) */
             "  mov    %1, %0     "     /* oldval = newval; (branch delay slot, annulled if not taken) */
-            : "=&r"(oldval), "=&r"(newval), "=m"(*addr)
-            : "rn"(op), "r"(addr) );
+            : "=&r"(oldval), "=&r"(newval), "=m"(v->ctr)
+            : "rn"(op), "r"(addr), "m"(v->ctr) );
           return oldval;
         }
         #define _gasneti_atomic32_fetchadd _gasneti_atomic32_fetchadd
@@ -982,35 +982,50 @@
           register volatile uint32_t * addr = (volatile uint32_t *)&(v->ctr);
           __asm__ __volatile__ ( 
               "cas      [%3],%2,%0"  /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
-              : "+r"(newval), "=m"(*addr)
-              : "r"(oldval), "r"(addr) );
+              : "+r"(newval), "=m"(v->ctr)
+              : "r"(oldval), "r"(addr), "m"(v->ctr) );
           return (int)(newval == oldval);
         }
 
         #define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
-        #define _gasneti_atomic64_read(p)      ((p)->ctr)
-        #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
         #define _gasneti_atomic64_init(v)      { (v) }
 
         #if (SIZEOF_VOID_P == 8)
+          #define _gasneti_atomic64_read(p)      ((p)->ctr)
+          #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
           GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
           int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *v, uint64_t oldval, uint64_t newval) {
             register volatile uint64_t * addr = (volatile uint64_t *)&(v->ctr);
             __asm__ __volatile__ ( 
 		"casx	[%3],%2,%0"  /* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */
-              : "+r"(newval), "=m"(*addr)
-              : "r"(oldval), "r"(addr) );
+              : "+r"(newval), "=m"(v->ctr)
+              : "r"(oldval), "r"(addr), "m"(v->ctr) );
             return (int)(newval == oldval);
           }
         #else
-          /* ILP32 on a 64-bit CPU.
-           * This is more complex than one might expect, because the ILP32 ABI puts 64-bit
-           * types in 2 adjacent regs while the casx instruction needs them in a single register.
-           * TODO: There should be a way to avoid needing 2 pairs of 32-bits regs, if only we
-           * had a way to reference the upper and lower halves of oldval and newval such that
-           * gcc just used the registers already holding them (even if not in a "U" pair).
-           */
+          /* ILP32 on a 64-bit CPU. */
+          GASNETI_INLINE(_gasneti_atomic64_set)
+          void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v) {
+	    register int tmp;
+            __asm__ __volatile__ ( 
+		"sllx	%H2,32,%0	\n\t"	/* tmp = HI(v) << 32 */
+		"or	%0,%L2,%0	\n\t"	/* tmp |= LO(v) */
+		"stx	%0, %1		"
+		: "=&h"(tmp), "=m"(p->ctr)			/* 'h' = 64bit 'o' or 'g' reg */
+		: "r"(v) );
+	  }
+          GASNETI_INLINE(_gasneti_atomic64_read)
+          uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p) {
+	    register uint64_t retval;
+            __asm__ __volatile__ ( 
+		"ldx	%1,%0		\n\t"	/* retval64 = *p */
+		"srl	%0,0,%L0	\n\t"	/* LO(retval) = retval64  */
+		"srlx	%0,32,%H0	"	/* HI(retval) = retval64 >> 32 */
+		: "=r"(retval)
+		: "m"(p->ctr) );
+	    return retval;
+	  }
           GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
           int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *v, uint64_t oldval, uint64_t newval) {
             register volatile uint64_t * addr = (volatile uint64_t *)&(v->ctr);
@@ -1024,8 +1039,8 @@
 		"xor	%1,%0,%1	\n\t"	/* tmp = 0 IFF retval == tmp */
 		"cmp	%%g0,%1		\n\t"	/* set/clear carry bit */
 		"subx	%%g0,-1,%0"		/* yield retval = 0 or 1 */
-		: "=h"(retval), "=h"(tmp), "=m"(*addr)			/* 'h' = 64bit 'o' or 'g' reg */
-		: "r"(addr), "m"(*addr), "U"(newval), "U"(oldval) );	/* 'U' = pair of 32-bit regs */
+		: "=&h"(retval), "=&h"(tmp), "=m"(v->ctr)		/* 'h' = 64bit 'o' or 'g' reg */
+		: "r"(addr), "m"(v->ctr), "r"(newval), "r"(oldval) );
             return retval;
           }
 	#endif
@@ -1063,13 +1078,21 @@
 		/* Retval = oldval						*/	\
 		     "mov	%i5, %i0" )
 
+        #define GASNETI_ATOMIC32_SPECIALS                                      \
+	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_compare_and_swap, \
+				   GASNETI_ATOMIC32_COMPARE_AND_SWAP_BODY)     \
+	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_fetchadd,         \
+				   GASNETI_ATOMIC32_FETCHADD_BODY)             \
+	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
+				   GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)     \
+
         #define GASNETI_HAVE_ATOMIC64_T 1
 	typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
 	#define _gasneti_atomic64_init(v)      { (v) }
-        #define _gasneti_atomic64_read(p)      ((p)->ctr)
-        #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
 
         #if (SIZEOF_VOID_P == 8)
+          #define _gasneti_atomic64_read(p)      ((p)->ctr)
+          #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
           #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY				\
 	    GASNETI_ASM(								\
 		/* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */	\
@@ -1078,11 +1101,20 @@
 		     "xor	%i2, %i1, %g1		\n\t" /* g1 = 0 IFF old==new */ \
 		     "cmp	%g0, %g1		\n\t" /* Set/clear carry bit */	\
 		     "subx	%g0, -1, %i0 " )	      /* Subtract w/ carry */
+          #define GASNETI_ATOMIC64_SPECIALS                                      \
+	    GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
+				     GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
         #else
-          /* ILP32 on a 64-bit CPU.
-           * This is more complex than one might expect, because the ILP32 ABI puts 64-bit
-           * types in 2 adjacent regs while the casx instruction needs them in a single register.
-           */
+          /* ILP32 on a 64-bit CPU. */
+          #define GASNETI_ATOMIC64_SET_BODY /* see gcc asm, above, for explanation */ \
+	    GASNETI_ASM(								\
+		     "sllx	%i1, 32, %g1		\n\t"				\
+		     "or	%g1, %i2, %g1		\n\t"				\
+		     "stx	%g1, [%i0]" )
+          #define GASNETI_ATOMIC64_READ_BODY /* see gcc asm, above, for explanation */ \
+		     "ldx	[%i0], %g1		\n\t"				\
+		     "srl	%g1, 0, %i1		\n\t"				\
+		     "srlx	%g1, 32, %i0" )
           #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY /* see gcc asm, above, for explanation */ \
 	    GASNETI_ASM(								\
 		     "sllx	%i3, 32, %o1		\n\t"				\
@@ -1093,15 +1125,17 @@
 		     "xor	%g1, %o1, %g1		\n\t"				\
 		     "cmp	%g0, %g1		\n\t"				\
 		     "subc	%g0, -1, %i0" )
+          #define GASNETI_ATOMIC64_SPECIALS                                      \
+	    GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_set,              \
+				     GASNETI_ATOMIC64_SET_BODY)                  \
+	    GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_read,             \
+				     GASNETI_ATOMIC64_READ_BODY)                 \
+	    GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
+				     GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
         #endif
 
-        #define GASNETI_ATOMIC_SPECIALS                                        \
-	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_compare_and_swap, \
-				   GASNETI_ATOMIC32_COMPARE_AND_SWAP_BODY)     \
-	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_fetchadd,         \
-				   GASNETI_ATOMIC32_FETCHADD_BODY)             \
-	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
-				   GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)     \
+        #define GASNETI_ATOMIC_SPECIALS   GASNETI_ATOMIC32_SPECIALS \
+                                          GASNETI_ATOMIC64_SPECIALS
 
 	/* Using default fences, as our asm includes none */
       #else
