@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/11 01:04:25 $
- * $Revision: 1.197 $
+ *     $Date: 2006/05/11 19:02:48 $
+ * $Revision: 1.198 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -417,7 +417,7 @@
 	 *
 	 * Note that we have no way to tell the compiler exactly where to place a second
 	 * uint64_t.  However, with the eax and edx already allocated, the only possibilities
-	 * left in class 'q' are (ecx,ebx) and (ebx,ecx).  The use of a 'xchgl' instruction
+	 * left in class 'q' are (ecx,ebx) and (ebx,ecx).  The use of an 'xchgl' instruction
 	 * ensures we always end up with the second 64-bit value in (ebx,ecx).
 	 * [ So far gcc has been observed to always use (ecx,ebx) and icc has been
 	 *   observed to always use (ebx,ecx).  Nothing documents either behavior, so we
@@ -432,8 +432,8 @@
 		    "cmpxchg8b	%0		\n\t"
 		    "sete	%b2		\n\t"
 		    "andl	$255, %k2"
-		    : "+m" (*p), "+&A" (oldval), "+q" (retval)
-		    : /* No inputs */
+		    : "=m" (p->ctr), "+&A" (oldval), "+&q" (retval)
+		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return retval;
         }
@@ -446,14 +446,15 @@
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
 		    "jnz	0b		"
-		    : "+m" (*p), "=&A" (oldval), "+q" (v)
-		    : /* No inputs */
+		    : "=m" (p->ctr), "+&A" (oldval), "+&q" (v)
+		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 	}
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
 	  uint64_t retval = p->ctr;
+	  uint64_t tmp;
           __asm__ __volatile__ (
 		    "0:				\n\t"
 		    "movl	%%eax, %%ebx	\n\t"
@@ -461,9 +462,9 @@
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
 		    "jnz	0b		"
-		    : "+m" (*p), "=&A" (retval)
-		    : /* No inputs */
-		    : "cc", "ebx", "ecx" GASNETI_ATOMIC_MEM_CLOBBER);
+		    : "=m" (p->ctr), "+&A" (retval), "=&q" (tmp) /* tmp allocates ebx and ecx */
+		    : "m" (p->ctr)
+		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 
 	  return retval;
 	}
@@ -1629,8 +1630,8 @@
           "add%I3   %0,%0,%3 \n\t"
           "stwcx.   %0,0,%2 \n\t"
           "bne-     Lga.0.%= \n\t" 
-          : "=&b"(result), "+m" (*v)	/* constraint b = "b"ase register (not r0) */
-          : "r" (v), "Ir"(op) 
+          : "=&b"(result), "=m" (v->ctr)	/* constraint b = "b"ase register (not r0) */
+          : "r" (v), "Ir"(op) , "m"(v->ctr)
           : "cr0");
         return result;
       }
@@ -1649,8 +1650,8 @@
 	  "stwcx.   %4,0,%2 \n\t"         /* store newval */
 	  "bne-     Lga.0.%= \n\t" 
 	  "Lga.1.%=:	"
-	  : "=&r"(result), "+m" (*p)
-	  : "r" (p), "r"(oldval), "r"(newval)
+	  : "=&r"(result), "=m"(p->ctr)
+	  : "r" (p), "r"(oldval), "r"(newval), "m"(p->ctr)
 	  : "cr0");
   
         return (result == 0);
@@ -1673,8 +1674,8 @@
 		"stdcx.   %4,0,%2 \n\t"         /* store newval */
 		"bne-     Lga.0.%= \n\t"        /* retry on conflict */
 		"Lga.1.%=:	"
-		: "=&b"(result), "+m" (*p)
-		: "r" (p), "r"(oldval), "r"(newval)
+		: "=&b"(result), "=m"(p->ctr)
+		: "r" (p), "r"(oldval), "r"(newval), "m"(p->ctr)
 		: "cr0");
           return (result == 0);
         } 
@@ -1688,7 +1689,8 @@
 		"sldi	%1,%1,32	\n\t"
 		"or	%1,%1,%L1	\n\t"
 		"std	%1,%0"
-		: "+m"(*p), "+r"(val) );
+		: "=m"(p->ctr), "+r"(val)
+		: "m"(p->ctr) );
         }
         GASNETI_INLINE(_gasneti_atomic64_read)
         uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p) {
@@ -1719,8 +1721,8 @@
 		"li	  %0,1		\n\t"	/* success */
 		"Lga.1.%=:		\n\t"
 		"nop			"
-		: "=&b"(result), "+r"(oldval), "+r"(newval), "+m"(*p)
-		: "r" (p)
+		: "=&b"(result), "+r"(oldval), "+r"(newval), "=m"(p->ctr)
+		: "r" (p), "m"(p->ctr)
 		: "cr0");
           return result;
         } 
