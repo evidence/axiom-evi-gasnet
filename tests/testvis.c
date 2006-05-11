@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2006/05/11 09:43:56 $
- * $Revision: 1.17 $
+ *     $Date: 2006/05/11 14:22:53 $
+ * $Revision: 1.18 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -233,13 +233,20 @@ void _verify_memvec_data_both(test_memvec_list *src, void *result,
         size_t offset = (VEC_T *)(src->list[i].addr) + j - areaptr;
         srcval = SEG_VALUE(nodeid, offset);
       }
-      if (srcval != resval)
-        FATALERR("ERROR: mismatch at memvec segment %i, element %i\n"
+      if (srcval != resval) {
+        ERR("ERROR: mismatch at memvec segment %i, element %i\n"
             "  expected val="VEC_FMT"\n"
             "    actual val="VEC_FMT"\n"
             "  at %s:%s:%i\n",
           (int)i, (int)j, VEC_STR(srcval), VEC_STR(resval),
           context, file, line);
+        { size_t sz = gasnett_format_memveclist_bufsz(src->count);
+          char *buf = test_malloc(sz);
+          gasnett_format_memveclist(buf, src->count, src->list);
+          ERR("memvec: %s\n", buf);
+        }
+        FATALERR("testvis failed.");
+      }
       p++;
     }
   }
@@ -387,13 +394,20 @@ void _verify_addr_list_data_both(test_addr_list *src, void *result,
         size_t offset = ((VEC_T *)(src->list[i]))+j - areaptr;
         srcval = SEG_VALUE(nodeid, offset);
       }
-      if (srcval != resval)
-        FATALERR("ERROR: mismatch at chunk %i, element %i\n"
+      if (srcval != resval) {
+        ERR("ERROR: mismatch at chunk %i, element %i\n"
             "  expected val="VEC_FMT"\n"
             "    actual val="VEC_FMT"\n"
             "  at %s:%s:%i\n",
           (int)i, (int)j, VEC_STR(srcval), VEC_STR(resval),
           context, file, line);
+        { size_t sz = gasnett_format_addrlist_bufsz(src->count);
+          char *buf = test_malloc(sz);
+          gasnett_format_addrlist(buf, src->count, src->list, src->chunklen);
+          ERR("addrlist: %s\n", buf);
+        }
+        FATALERR("testvis failed.");
+      }
       p++;
     }
   }
@@ -586,12 +600,21 @@ void _verify_strided_desc_data_both(test_strided_desc *desc, void *result,
         if (i < dim-1) strcat(p, ", ");
         p+=strlen(p);
       }
-      FATALERR("ERROR: mismatch at location [%s]\n"
+      ERR("mismatch at location [%s]\n"
           "  expected val="VEC_FMT"\n"
           "    actual val="VEC_FMT"\n"
           "  at %s:%s:%i\n",
           idxstr, VEC_STR(srcval), VEC_STR(resval),
         context, file, line);
+      { size_t sz = gasnett_format_putsgets_bufsz(desc->stridelevels);
+        char *buf = test_malloc(sz);
+        gasnett_format_putsgets(buf, NULL, nodeid,
+          desc->dstaddr, desc->dststrides,
+          desc->srcaddr, desc->srcstrides,
+          desc->count, desc->stridelevels);
+        ERR("strided desc: %s\n", buf);
+      }
+      FATALERR("testvis failed.");
     }
 
     /* increment */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2006/04/18 04:37:08 $
- * $Revision: 1.125 $
+ *     $Date: 2006/05/11 14:22:51 $
+ * $Revision: 1.126 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -86,8 +86,9 @@ static gasneti_tick_t starttime;
   #undef TMPBUFSZ
 #endif
 
-/* these are legal even without STATS/TRACE */
-extern int gasneti_format_memveclist_bufsz(size_t count) {
+/* ------------------------------------------------------------------------------------ */
+/* VIS trace formatting - these are legal even without STATS/TRACE */
+extern size_t gasneti_format_memveclist_bufsz(size_t count) {
   return 200+count*50;
 }
 extern gasneti_memveclist_stats_t gasneti_format_memveclist(char *buf, size_t count, gasnet_memvec_t const *list) {
@@ -116,7 +117,28 @@ extern gasneti_memveclist_stats_t gasneti_format_memveclist(char *buf, size_t co
   gasneti_assert(p-buf < bufsz);
   return stats;
 }
-extern int gasneti_format_addrlist_bufsz(size_t count) {
+extern size_t gasneti_format_putvgetv_bufsz(size_t dstcount, size_t srccount) {
+  return 200+dstcount*50+srccount*50;
+}
+extern size_t gasneti_format_putvgetv(char *buf, gasnet_node_t node, 
+                                    size_t dstcount, gasnet_memvec_t const dstlist[], 
+                                    size_t srccount, gasnet_memvec_t const srclist[]) {
+  const int bufsz = gasneti_format_putvgetv_bufsz(dstcount, srccount);
+  char * dstlist_str = (char *)gasneti_malloc(gasneti_format_memveclist_bufsz(dstcount));
+  char * srclist_str = (char *)gasneti_malloc(gasneti_format_memveclist_bufsz(srccount));
+  gasneti_memveclist_stats_t dststats = gasneti_format_memveclist(dstlist_str, dstcount, dstlist);
+  gasneti_memveclist_stats_t srcstats = gasneti_format_memveclist(srclist_str, srccount, srclist);
+  sprintf(buf,"(%i data bytes) node=%i\n"
+              "dst: %s\nsrc: %s",
+              (int)dststats.totalsz, (int)(node),
+              dstlist_str, srclist_str);    
+  gasneti_assert(strlen(buf) < bufsz);
+  gasneti_free(dstlist_str);
+  gasneti_free(srclist_str);
+  return dststats.totalsz;
+}
+
+extern size_t gasneti_format_addrlist_bufsz(size_t count) {
   return 200+count*25;
 }
 extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count, void * const *list, size_t len) {
@@ -144,6 +166,95 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
   gasneti_assert(p-buf < bufsz);
   return stats;
 }
+extern size_t gasneti_format_putigeti_bufsz(size_t dstcount, size_t srccount) {
+  return 500+dstcount*25+srccount*25;
+}
+extern size_t gasneti_format_putigeti(char *buf, gasnet_node_t node, 
+                                    size_t dstcount, void * const dstlist[], size_t dstlen,
+                                    size_t srccount, void * const srclist[], size_t srclen) {
+  const int bufsz = gasneti_format_putigeti_bufsz(dstcount, srccount);
+  char * dstlist_str = (char *)gasneti_malloc(gasneti_format_addrlist_bufsz(dstcount));
+  char * srclist_str = (char *)gasneti_malloc(gasneti_format_addrlist_bufsz(srccount));
+  gasneti_addrlist_stats_t dststats =
+          gasneti_format_addrlist(dstlist_str, dstcount, (void * const *)dstlist, dstlen);
+  gasneti_addrlist_stats_t srcstats =
+          gasneti_format_addrlist(srclist_str, srccount, (void * const *)srclist, srclen);
+  size_t totalsz = dstcount * dstlen;
+  sprintf(buf,"(%i data bytes) node=%i\n"
+              "dst: %s\nsrc: %s",
+              (int)totalsz, (int)node,
+              dstlist_str, srclist_str);    
+  gasneti_assert(strlen(buf) < bufsz);
+  gasneti_free(dstlist_str);
+  gasneti_free(srclist_str);
+  return totalsz;
+}
+
+extern size_t gasneti_format_strides_bufsz(size_t count) {
+  return count*30+10;
+}
+extern void gasneti_format_strides(char *buf, size_t count, const size_t *list) {
+  char * retval;
+  const int bufsz = gasneti_format_strides_bufsz(count);
+  char * p = buf;
+  int i;
+  strcpy(p,"["); p++;
+  for (i=0; i < count; i++) {
+    sprintf(p, "%lu", (unsigned long)list[i]);
+    if (i < count-1) strcat(p, ", ");
+    p += strlen(p);
+    gasneti_assert(p-buf < bufsz);
+  }
+  strcat(p,"]"); p++;
+  gasneti_assert(p-buf < bufsz);
+}
+
+extern size_t gasneti_format_putsgets_bufsz(size_t stridelevels) {
+  return 500+3*stridelevels*50;
+}
+extern size_t gasneti_format_putsgets(char *buf, void *_pstats, 
+                                    gasnet_node_t node, 
+                                    void *dstaddr, const size_t dststrides[],
+                                    void *srcaddr, const size_t srcstrides[],
+                                    const size_t count[], size_t stridelevels) {
+  gasnete_strided_stats_t *pstats = _pstats;
+  gasnete_strided_stats_t stats;
+  const int bufsz = gasneti_format_putsgets_bufsz(stridelevels);
+  char * srcstrides_str = (char *)gasneti_malloc(gasneti_format_strides_bufsz(stridelevels));
+  char * dststrides_str = (char *)gasneti_malloc(gasneti_format_strides_bufsz(stridelevels));
+  char * count_str = (char *)gasneti_malloc(gasneti_format_strides_bufsz(stridelevels+1));
+
+  if (!pstats) pstats = &stats;
+  gasnete_strided_stats(pstats, dststrides, srcstrides, count, stridelevels);
+  gasneti_format_strides(srcstrides_str, stridelevels, srcstrides);
+  gasneti_format_strides(dststrides_str, stridelevels, dststrides);
+  gasneti_format_strides(count_str, stridelevels+1, count);
+  sprintf(buf,"(%i data bytes) node=%i stridelevels=%i count=%s\n"
+              "dualcontiguity=%i nulldims=%i\n"
+              "dst: dstaddr="GASNETI_LADDRFMT" dststrides=%s\n"
+              "     extent=%i bounds=["GASNETI_LADDRFMT"..."GASNETI_LADDRFMT"]\n"
+              "     contiguity=%i contigsz=%i contigsegments=%i\n"
+              "src: srcaddr="GASNETI_LADDRFMT" srcstrides=%s\n"
+              "     extent=%i bounds=["GASNETI_LADDRFMT"..."GASNETI_LADDRFMT"]\n"
+              "     contiguity=%i contigsz=%i contigsegments=%i",
+              (int)pstats->totalsz, (int)(node), (int)(stridelevels), count_str,
+              (int)pstats->dualcontiguity, (int)pstats->nulldims,
+              GASNETI_LADDRSTR(dstaddr), dststrides_str, (int)pstats->dstextent,
+              GASNETI_LADDRSTR(dstaddr), GASNETI_LADDRSTR((((char *)dstaddr)+pstats->dstextent)),
+              (int)pstats->dstcontiguity, (int)pstats->dstcontigsz, (int)pstats->dstsegments,
+              GASNETI_LADDRSTR(srcaddr), srcstrides_str, (int)pstats->srcextent,
+              GASNETI_LADDRSTR(srcaddr), GASNETI_LADDRSTR((((char *)srcaddr)+pstats->srcextent)),
+              (int)pstats->srccontiguity, (int)pstats->srccontigsz, (int)pstats->srcsegments
+          );
+  gasneti_assert(strlen(buf) < bufsz);
+
+  gasneti_free(srcstrides_str);
+  gasneti_free(dststrides_str);
+  gasneti_free(count_str);
+  return pstats->totalsz;
+}
+
+/* ------------------------------------------------------------------------------------ */
 
 /* line number control */
 #if GASNET_SRCLINES
@@ -288,24 +399,6 @@ extern gasneti_addrlist_stats_t gasneti_format_addrlist(char *buf, size_t count,
       if (byteidx < nbytes) strcat(output, "         (output truncated)\n");
     }
     return output;
-  }
-
-  extern const char *gasneti_format_strides(size_t count, const size_t *list) {
-    char * retval;
-    const int bufsz = count*25+2;
-    char * temp = gasneti_malloc(bufsz);
-    char * p = temp;
-    int i;
-    p[0] = '\0';
-    for (i=0; i < count; i++) {
-      sprintf(p, "%lu", (unsigned long)list[i]);
-      if (i < count-1) strcat(p, ", ");
-      p += strlen(p);
-      gasneti_assert(p-temp < bufsz);
-    }
-    retval = gasneti_dynsprintf("[%s]", temp);
-    gasneti_free(temp);
-    return retval;
   }
 
   static int gasneti_autoflush = 0;

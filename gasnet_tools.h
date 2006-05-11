@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/05/11 09:43:28 $
- * $Revision: 1.79 $
+ *     $Date: 2006/05/11 14:22:51 $
+ * $Revision: 1.80 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -354,6 +354,21 @@ GASNETI_BEGIN_EXTERNC
     #define gasnett_heapstats_t           gasneti_heapstats_t
     #define gasnett_getheapstats(pstat)   gasneti_getheapstats(pstat)
   #endif
+
+  /* VIS string formatting */
+  #define gasnett_format_memveclist_bufsz gasneti_format_memveclist_bufsz 
+  #define gasnett_format_memveclist       gasneti_format_memveclist       
+  #define gasnett_format_putvgetv_bufsz   gasneti_format_putvgetv_bufsz   
+  #define gasnett_format_putvgetv         gasneti_format_putvgetv         
+  #define gasnett_format_addrlist_bufsz   gasneti_format_addrlist_bufsz   
+  #define gasnett_format_addrlist         gasneti_format_addrlist         
+  #define gasnett_format_putigeti_bufsz   gasneti_format_putigeti_bufsz   
+  #define gasnett_format_putigeti         gasneti_format_putigeti         
+  #define gasnett_format_strides_bufsz    gasneti_format_strides_bufsz    
+  #define gasnett_format_strides          gasneti_format_strides          
+  #define gasnett_format_putsgets_bufsz   gasneti_format_putsgets_bufsz   
+  #define gasnett_format_putsgets         gasneti_format_putsgets         
+
 #else
   #define gasnett_mmap(sz)        gasnett_fatalerror("gasnett_mmap not available")
 
