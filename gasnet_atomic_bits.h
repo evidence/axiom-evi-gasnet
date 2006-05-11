@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/10 23:30:39 $
- * $Revision: 1.196 $
+ *     $Date: 2006/05/11 01:04:25 $
+ * $Revision: 1.197 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -414,54 +414,57 @@
 	 * 8-byte c-a-s instruction.  This is the only atomic 64-bit operation
 	 * available on this architecture.  Note that we need the lock prefix
 	 * even on a uniprocessor to ensure that we are signal safe.
+	 *
+	 * Note that we have no way to tell the compiler exactly where to place a second
+	 * uint64_t.  However, with the eax and edx already allocated, the only possibilities
+	 * left in class 'q' are (ecx,ebx) and (ebx,ecx).  The use of a 'xchgl' instruction
+	 * ensures we always end up with the second 64-bit value in (ebx,ecx).
+	 * [ So far gcc has been observed to always use (ecx,ebx) and icc has been
+	 *   observed to always use (ebx,ecx).  Nothing documents either behavior, so we
+	 *   must use the 'xchgl' unconditionally. ]
 	 */
-#if 1
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-          register uint64_t readval;
-	  unsigned char retval;
+	  register uint64_t retval = newval;
           __asm__ __volatile__ (
-		    "lock; cmpxchg8b	%0	\n\t"
-		    "sete	%b2	"
-		    : "=m" (*p), "=A" (readval), "=qm" (retval)
-		    : "A" (oldval), "b" ((uint32_t)newval), "c" ((uint32_t)(newval >> 32)), "m" (*p)
+		    "xchgl	%2, %%ebx	\n\t"
+		    "lock;			"
+		    "cmpxchg8b	%0		\n\t"
+		    "sete	%b2		\n\t"
+		    "andl	$255, %k2"
+		    : "+m" (*p), "+&A" (oldval), "+q" (retval)
+		    : /* No inputs */
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
           return retval;
         }
-#else
-        GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
-        int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-	  register unsigned char retval;
-          __asm__ __volatile__ (
-		    /* Note that we have no way to tell gcc exactly where to place 'newval'.
-		     * However, with the eax and edx already allocated to 'oldval', the only
-		     * possibilities are (ecx,ebx) and (ebx,ecx).  The 'xchgl' instruction
-		     * ensures we always end up with 'newval' in (ebx,ecx).
-		     */
-		    "xchgl	%3,%%ebx	\n\t"
-		    "lock;			"
-		    "cmpxchg8b	%0		\n\t"
-		    "xchgl	%3,%%ebx	\n\t"
-		    "sete	%b2		"
-		    : "+m" (*p), "+&A" (oldval), "=q" (retval)
-		    : "q" (newval)
-		    : "cc" );
-          return retval;
-        }
-#endif
-	/* No current way to indicate that 64-bit read and set are fully fenced w/o also
-	 * implying that the 32-bit ones are.  So, we are defining the non _-prefix versions.
-	 */
         GASNETI_INLINE(gasneti_atomic64_set)
         void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
-	  uint64_t oldval;
-	  do { oldval = p->ctr; } while (!_gasneti_atomic64_compare_and_swap(p, oldval, v));
+	  uint64_t oldval = p->ctr;
+          __asm__ __volatile__ (
+		    "xchgl	%2,%%ebx	\n\t"
+		    "0:				\n\t"
+		    "lock;			"
+		    "cmpxchg8b	%0		\n\t"
+		    "jnz	0b		"
+		    : "+m" (*p), "=&A" (oldval), "+q" (v)
+		    : /* No inputs */
+		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 	}
 	#define gasneti_atomic64_set gasneti_atomic64_set
         GASNETI_INLINE(gasneti_atomic64_read)
         uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
-	  uint64_t retval;
-	  do { retval = p->ctr; } while (!_gasneti_atomic64_compare_and_swap(p, retval, retval));
+	  uint64_t retval = p->ctr;
+          __asm__ __volatile__ (
+		    "0:				\n\t"
+		    "movl	%%eax, %%ebx	\n\t"
+		    "movl	%%edx, %%ecx	\n\t"
+		    "lock;			"
+		    "cmpxchg8b	%0		\n\t"
+		    "jnz	0b		"
+		    : "+m" (*p), "=&A" (retval)
+		    : /* No inputs */
+		    : "cc", "ebx", "ecx" GASNETI_ATOMIC_MEM_CLOBBER);
+
 	  return retval;
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
