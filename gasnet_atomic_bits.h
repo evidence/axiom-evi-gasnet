@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/11 21:38:51 $
- * $Revision: 1.200 $
+ *     $Date: 2006/05/12 15:45:44 $
+ * $Revision: 1.201 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -426,6 +426,9 @@
 	 * 8-byte c-a-s instruction.  This is the only atomic 64-bit operation
 	 * available on this architecture.  Note that we need the lock prefix
 	 * even on a uniprocessor to ensure that we are signal safe.
+	 * Since we don't have separate GASNETI_ATOMIC_FENCE_* settings for the
+	 * 64-bit types, we define the fully-fenced (non _-prefixed) versions
+	 * of read and set here, to avoid having them double fenced.
 	 *
 	 * Note that we have no way to tell the compiler exactly where to place a second
 	 * uint64_t.  However, with the eax and edx already allocated, the only possibilities
@@ -477,7 +480,6 @@
 		    : "=m" (p->ctr), "+&A" (retval), "=&q" (tmp) /* tmp allocates ebx and ecx */
 		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-
 	  return retval;
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
