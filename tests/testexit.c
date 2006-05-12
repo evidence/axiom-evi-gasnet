@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2006/05/11 09:43:56 $
- * $Revision: 1.21 $
+ *     $Date: 2006/05/12 22:57:40 $
+ * $Revision: 1.22 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -279,4 +279,5 @@ int main(int argc, char **argv) {
 
   /* if we ever reach here, something really bad happenned */
   FATALERR("TEST FAILED!!");
+  return 0;
 }
