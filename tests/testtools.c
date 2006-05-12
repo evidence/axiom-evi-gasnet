@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/11 09:43:56 $
- * $Revision: 1.59 $
+ *     $Date: 2006/05/12 16:04:06 $
+ * $Revision: 1.60 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -648,10 +648,68 @@ void * thread_fn(void *arg) {
             ERR("observed word tearing on gasnett_atomic_set/gasnett_atomic_increment");
         v = gasnett_atomic_read(&x5,0); 
         v += NUM_THREADS;
-        /* bottom byte may have decreased by by  to NUM_THREADS, but high bytes must be same */
+        /* bottom byte may have decreased by up to NUM_THREADS, but high bytes must be same */
         if (((v >> 24) & 0xFF) != ((v >>  8) & 0xFF) ||
             ((v >> 16) & 0xFF) != ((v >>  8) & 0xFF)) 
             ERR("observed word tearing on gasnett_atomic_set/gasnett_atomic_decrement");
+      }
+    }
+
+    if (NUM_THREADS <= 100) {  /* need 2*NUM_THREADS + 1 < 255 to prevent byte overflow */
+      static gasnett_atomic32_t a1 = gasnett_atomic32_init(0);
+      static gasnett_atomic32_t a2 = gasnett_atomic32_init(0);
+      uint32_t x = id + 1;
+      uint32_t myval = (x << 24) | (x << 16) | (x << 8) | x;
+      for (i=0;i<iters2;i++) {
+        uint32_t v;
+        gasnett_atomic32_set(&a1, myval, 0);
+        gasnett_atomic32_set(&a2, myval, 0);
+	v = gasnett_atomic32_read(&a2,0);
+        gasnett_atomic32_compare_and_swap(&a2,v,v+1,0);
+        v = gasnett_atomic32_read(&a1,0);
+        if (((v >> 24) & 0xFF) != (v & 0xFF) ||
+            ((v >> 16) & 0xFF) != (v & 0xFF) ||
+            ((v >>  8) & 0xFF) != (v & 0xFF)) 
+            ERR("observed word tearing on gasnett_atomic32_set");
+        v = gasnett_atomic32_read(&a2,0); 
+        /* bottom byte may have increased by up to NUM_THREADS, but high bytes must be same */
+        if (((v >> 24) & 0xFF) != ((v >>  8) & 0xFF) ||
+            ((v >> 16) & 0xFF) != ((v >>  8) & 0xFF)) 
+            ERR("observed word tearing on gasnett_atomic32_set/gasnett_atomic32_compare_and_swap");
+      }
+    }
+
+    {  /* No overflow until we're into the tens of thousands of threads */
+      static gasnett_atomic64_t a1 = gasnett_atomic64_init(0);
+      static gasnett_atomic64_t a2 = gasnett_atomic64_init(0);
+      static struct { /* Try to trigger bad alignment if possible */
+        char               c;
+        gasnett_atomic64_t a;
+      } s = {0, gasnett_atomic64_init(0)};
+      uint64_t x = id + 1;
+      uint64_t myval = (x << 48) | (x << 32) | (x << 16) | x;
+      for (i=0;i<iters2;i++) {
+        uint64_t v;
+        gasnett_atomic64_set(&s.a, myval, 0);
+        gasnett_atomic64_set(&a1, myval, 0);
+        gasnett_atomic64_set(&a2, myval, 0);
+	v = gasnett_atomic64_read(&a2,0);
+        gasnett_atomic64_compare_and_swap(&a2,v,v+1,0);
+        v = gasnett_atomic64_read(&s.a,0);
+        if (((v >> 48) & 0xFFFF) != (v & 0xFFFF) ||
+            ((v >> 32) & 0xFFFF) != (v & 0xFFFF) ||
+            ((v >> 16) & 0xFFFF) != (v & 0xFFFF)) 
+            ERR("observed word tearing on gasnett_atomic64_set alignment test");
+        v = gasnett_atomic64_read(&a1,0);
+        if (((v >> 48) & 0xFFFF) != (v & 0xFFFF) ||
+            ((v >> 32) & 0xFFFF) != (v & 0xFFFF) ||
+            ((v >> 16) & 0xFFFF) != (v & 0xFFFF)) 
+            ERR("observed word tearing on gasnett_atomic64_set");
+        v = gasnett_atomic64_read(&a2,0); 
+        /* bottom byte may have increased by up to NUM_THREADS, but high bytes must be same */
+        if (((v >> 48) & 0xFFFF) != ((v >> 16) & 0xFFFF) ||
+            ((v >> 32) & 0xFFFF) != ((v >> 16) & 0xFFFF)) 
+            ERR("observed word tearing on gasnett_atomic64_set/gasnett_atomic64_compare_and_swap");
       }
     }
   }
@@ -688,8 +746,8 @@ void * thread_fn(void *arg) {
     }
   }
 
-  #if defined(GASNETT_HAVE_ATOMIC_CAS)
-    TEST_HEADER("parallel compare-and-swap test...") {
+  TEST_HEADER("parallel compare-and-swap test...") {
+    #if defined(GASNETT_HAVE_ATOMIC_CAS)
       static gasnett_atomic_t counter2 = gasnett_atomic_init(0);
       static uint32_t shared_counter = 0;
       uint32_t goal = (NUM_THREADS * iters);
@@ -734,8 +792,46 @@ void * thread_fn(void *arg) {
       THREAD_BARRIER();
       if (shared_counter != 0)
         ERR("failed compare-and-swap spinlock (mb/mb) test: counter=%i expecting=0", (int)shared_counter);
+    #endif
+
+    {
+      static gasnett_atomic32_t counter32 = gasnett_atomic32_init(0);
+      uint32_t goal = (NUM_THREADS * iters);
+      uint32_t woncnt = 0;
+      uint32_t oldval;
+
+      while (woncnt < iters && (oldval = gasnett_atomic32_read(&counter32,0)) != goal) {
+        if (gasnett_atomic32_compare_and_swap(&counter32, oldval, (oldval + 1), 0)) {
+           woncnt++;
+        }
+      }
+      THREAD_BARRIER();
+      oldval = gasnett_atomic32_read(&counter32,0);
+      if (oldval != goal) 
+        ERR("failed 32-bit compare-and-swap test: counter=%i expecting=%i", (int)oldval, (int)goal);
+      if (woncnt != iters) 
+        ERR("failed 32-bit compare-and-swap test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
     }
-  #endif
+
+    {
+      static gasnett_atomic64_t counter64 = gasnett_atomic64_init(0);
+      uint64_t goal = (NUM_THREADS * iters);
+      uint64_t woncnt = 0;
+      uint64_t oldval;
+
+      while (woncnt < iters && (oldval = gasnett_atomic64_read(&counter64,0)) != goal) {
+        if (gasnett_atomic64_compare_and_swap(&counter64, oldval, (oldval + 1), 0)) {
+           woncnt++;
+        }
+      }
+      THREAD_BARRIER();
+      oldval = gasnett_atomic64_read(&counter64,0);
+      if (oldval != goal) 
+        ERR("failed 64-bit compare-and-swap test: counter=%i expecting=%i", (int)oldval, (int)goal);
+      if (woncnt != iters) 
+        ERR("failed 64-bit compare-and-swap test: woncnt=%i iters=%i", (int)woncnt, (int)iters);
+    }
+  }
 
   TEST_HEADER("parallel atomic-op fence test...") {
     int partner = (id + 1) % NUM_THREADS;
