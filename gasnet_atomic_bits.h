@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/12 15:45:44 $
- * $Revision: 1.201 $
+ *     $Date: 2006/05/12 23:51:32 $
+ * $Revision: 1.202 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1096,9 +1096,7 @@
 	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_compare_and_swap, \
 				   GASNETI_ATOMIC32_COMPARE_AND_SWAP_BODY)     \
 	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic32_fetchadd,         \
-				   GASNETI_ATOMIC32_FETCHADD_BODY)             \
-	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
-				   GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)     \
+				   GASNETI_ATOMIC32_FETCHADD_BODY)
 
         #define GASNETI_HAVE_ATOMIC64_T 1
 	typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
@@ -1126,6 +1124,7 @@
 		     "or	%g1, %i2, %g1		\n\t"				\
 		     "stx	%g1, [%i0]" )
           #define GASNETI_ATOMIC64_READ_BODY /* see gcc asm, above, for explanation */ \
+	    GASNETI_ASM(								\
 		     "ldx	[%i0], %g1		\n\t"				\
 		     "srl	%g1, 0, %i1		\n\t"				\
 		     "srlx	%g1, 32, %i0" )
