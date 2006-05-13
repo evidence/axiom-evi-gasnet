@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2006/05/11 12:01:28 $
- * $Revision: 1.20 $
+ *     $Date: 2006/05/13 00:04:29 $
+ * $Revision: 1.21 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -195,12 +195,14 @@ extern int AMUDP_SetUDPInterface(uint32_t IPAddress) {
     #include <linux/sysctl.h>
   #endif
 #endif
-extern void AMUDP_growSocketRecvBufferSize(ep_t ep, int targetsize) {
+extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize, 
+                                       int szparam, const char *paramname) {
   int initialsize; /* original socket recv size */
+  int maxedout = 0;
   GETSOCKOPT_LENGTH_T junk = sizeof(int);
-  if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_RCVBUF, (char *)&initialsize, &junk) == SOCKET_ERROR) {
+  if (SOCK_getsockopt(ep->s, SOL_SOCKET, szparam, (char *)&initialsize, &junk) == SOCKET_ERROR) {
     #if AMUDP_DEBUG
-      AMUDP_Warn("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed: %s",strerror(errno));
+      AMUDP_Warn("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s",paramname,strerror(errno));
     #endif
     initialsize = 65535;
   }
@@ -225,32 +227,32 @@ extern void AMUDP_growSocketRecvBufferSize(ep_t ep, int targetsize) {
   }
   #endif
   /* now set it to the largest value it will take */
-  ep->socketRecvBufferMaxedOut = 0;
   while (targetsize > initialsize) {
     int sz = targetsize; /* prevent OS from tampering */
-    if (setsockopt(ep->s, SOL_SOCKET, SO_RCVBUF, (char *)&sz, sizeof(int)) == SOCKET_ERROR) {
+    if (setsockopt(ep->s, SOL_SOCKET, szparam, (char *)&sz, sizeof(int)) == SOCKET_ERROR) {
       #if AMUDP_DEBUG
-        AMUDP_Warn("setsockopt(SOL_SOCKET, SO_RCVBUF, %i) on UDP socket failed: %s", targetsize, strerror(errno));
+        AMUDP_Warn("setsockopt(SOL_SOCKET, %s, %i) on UDP socket failed: %s", paramname, targetsize, strerror(errno));
       #endif
     } else {
       int temp = targetsize;
       junk = sizeof(int);
-      if (SOCK_getsockopt(ep->s, SOL_SOCKET, SO_RCVBUF, (char *)&temp, &junk) == SOCKET_ERROR) {
+      if (SOCK_getsockopt(ep->s, SOL_SOCKET, szparam, (char *)&temp, &junk) == SOCKET_ERROR) {
         #if AMUDP_DEBUG
-          AMUDP_Warn("getsockopt(SOL_SOCKET, SO_RCVBUF) on UDP socket failed: %s", strerror(errno));
+          AMUDP_Warn("getsockopt(SOL_SOCKET, %s) on UDP socket failed: %s", paramname, strerror(errno));
         #endif
       }
       if (temp >= targetsize) {
         if (!AMUDP_SilentMode) {
-          fprintf(stderr, "UDP recv buffer successfully set to %i bytes\n", targetsize); fflush(stderr);
+          fprintf(stderr, "UDP %s buffer successfully set to %i bytes\n", paramname, targetsize); fflush(stderr);
         }
         ep->socketRecvBufferSize = temp;
         break; /* success */
       }
     }
     targetsize = (int)(0.9 * targetsize);
-    ep->socketRecvBufferMaxedOut = 1;
+    maxedout = 1;
   }
+  return maxedout;
 }
 #endif
 /* ------------------------------------------------------------------------------------ */
@@ -351,13 +353,16 @@ static int AMUDP_AllocateEndpointBuffers(ep_t ep) {
     ep->rxReadyIdx = 0;
     ep->temporaryBuf = &pool[4*PD+1];
   
-    #if USE_SOCKET_RECVBUFFER_GROW
     { int HPAMsize = 2*PD*AMUDP_MAX_NETWORK_MSG; /* theoretical max required by plain-vanilla HPAM */
       int padsize = 2*AMUDP_MAXBULK_NETWORK_MSG; /* some pad for non-HPAM true bulk xfers & retransmissions */
     
-      AMUDP_growSocketRecvBufferSize(ep, HPAMsize+padsize);
+      #if USE_SOCKET_RECVBUFFER_GROW
+          ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_RCVBUF, "SO_RCVBUF");
+      #endif
+      #if USE_SOCKET_SENDBUFFER_GROW
+          AMUDP_growSocketBufferSize(ep, HPAMsize+padsize, SO_SNDBUF, "SO_SNDBUF");
+      #endif
     }
-    #endif
 
   #endif
   ep->requestDesc = (amudp_bufdesc_t*)AMUDP_malloc(2 * PD * sizeof(amudp_bufdesc_t));

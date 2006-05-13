@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2006/05/11 12:01:28 $
- * $Revision: 1.36 $
+ *     $Date: 2006/05/13 00:04:29 $
+ * $Revision: 1.37 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -357,10 +357,11 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
           int sanitymax = AMUDP_RECVBUFFER_MAX;
 
           if (newsize > sanitymax) { /* create a semi-sane upper bound */
-            AMUDP_growSocketRecvBufferSize(ep, sanitymax);
+            AMUDP_growSocketBufferSize(ep, sanitymax, SO_RCVBUF, "SO_RCVBUF");
             ep->socketRecvBufferMaxedOut = 1;
+          } else { 
+            ep->socketRecvBufferMaxedOut = AMUDP_growSocketBufferSize(ep, newsize, SO_RCVBUF, "SO_RCVBUF");
           }
-          else AMUDP_growSocketRecvBufferSize(ep, newsize);
         }
       }
     #endif
