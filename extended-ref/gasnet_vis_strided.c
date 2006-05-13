@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_strided.c,v $
- *     $Date: 2006/05/13 08:19:25 $
- * $Revision: 1.18 $
+ *     $Date: 2006/05/13 09:45:30 $
+ * $Revision: 1.19 $
  * Description: GASNet Strided implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -454,14 +454,6 @@ void gasnete_strided_unpack_all(void *addr, const size_t strides[],
   if (update_addr_init) *addr = srcaddr;                                                             \
   return ploc;                                                                                       \
 }
-#if 0
-#define _GASNETE_STRIDED_PACKPARTIAL()                                                       \
-  _GASNETE_STRIDED_PACKPARTIAL_INNER(                                                        \
-     /*limit=*/ stridelevels - gasnete_strided_nulldims(count, stridelevels),                \
-     /*contiglevel=*/ gasnete_strided_contiguity(strides, count, stridelevels),              \
-     /*contigsz=*/ (contiglevel == 0 ? count[0] : count[contiglevel]*strides[contiglevel-1]) \
-  )
-#endif
 /* if addr_already_offset is nonzero, the code assumes srcaddr/dstaddr already reference the first chunk,
     otherwise, the srcaddr/dstaddr values are offset based on init to reach the first chunk
    iff update_addr_init is nonzero, then srcaddr/dstaddr/init are updated on exit to point to the next unused chunk
@@ -512,86 +504,91 @@ void *gasnete_foldedstrided_unpack_partial(void **addr, const size_t strides[],
 /* convert strided metadata to addrlist metadata for the equivalent operation */
 static void gasnete_convert_strided_to_addrlist(void * * srclist, void * * dstlist, 
                                     gasnete_strided_stats_t const *stats,
-                                    void *dstaddr, const size_t dststrides[],
-                                    void *srcaddr, const size_t srcstrides[],
+                                    void *_dstaddr, const size_t _dststrides[],
+                                    void *_srcaddr, const size_t _srcstrides[],
                                     const size_t count[], size_t stridelevels) {
   size_t const contiglevel = stats->dualcontiguity;
   size_t const limit = stridelevels - stats->nulldims;
   size_t const srccontigsz = stats->srccontigsz;
   size_t const dstcontigsz = stats->dstcontigsz;
-  void * * srcpos = srclist;
-  void * * dstpos = dstlist;
 
   gasneti_assert(srclist != NULL && dstlist != NULL && stats != NULL);
   gasneti_assert(!gasnete_strided_empty(count, stridelevels));
   gasneti_assert(limit > contiglevel);
 
   if (srccontigsz == dstcontigsz) {
+    void * * srcpos = srclist; void * * dstpos = dstlist;
+    void *srcaddr = _srcaddr; const size_t * const srcstrides = _srcstrides; 
+    void *dstaddr = _dstaddr; const size_t * const dststrides = _dststrides; 
     #define GASNETE_STRIDED_HELPER_LOOPBODY(psrc,pdst)  do { \
-      *(srcpos) = psrc;                                      \
-      srcpos++;                                              \
-      *(dstpos) = pdst;                                      \
-      dstpos++;                                              \
+      *(srcpos++) = psrc;                                    \
+      *(dstpos++) = pdst;                                    \
     } while(0)
     GASNETE_STRIDED_HELPER(limit,contiglevel);
     #undef GASNETE_STRIDED_HELPER_LOOPBODY
-  } else if (srccontigsz < dstcontigsz) {
-    size_t const looplim = dstcontigsz / srccontigsz;
-    size_t loopcnt = 0;
-    gasneti_assert(looplim*srccontigsz == dstcontigsz);
-    /* TODO: this loop could be made more efficient */
-    #define GASNETE_STRIDED_HELPER_LOOPBODY(psrc,pdst)  do { \
-      *(srcpos) = psrc;                                      \
-      srcpos++;                                              \
-      if (loopcnt == 0) {                                    \
-        *(dstpos) = pdst;                                    \
-        dstpos++;                                            \
-        loopcnt = looplim;                                   \
-      }                                                      \
-      loopcnt--;                                             \
-    } while(0)
-    GASNETE_STRIDED_HELPER(limit,contiglevel);
-    #undef GASNETE_STRIDED_HELPER_LOOPBODY
-  } else { /* srccontigsz > dstcontigsz */
-    size_t const looplim = srccontigsz / dstcontigsz;
-    size_t loopcnt = 0;
-    gasneti_assert(looplim*dstcontigsz == srccontigsz);
-    /* TODO: this loop could be made more efficient */
-    #define GASNETE_STRIDED_HELPER_LOOPBODY(psrc,pdst)  do { \
-      if (loopcnt == 0) {                                    \
-        *(srcpos) = psrc;                                    \
-        srcpos++;                                            \
-        loopcnt = looplim;                                   \
-      }                                                      \
-      loopcnt--;                                             \
-      *(dstpos) = pdst;                                      \
-      dstpos++;                                              \
-    } while(0)
-    GASNETE_STRIDED_HELPER(limit,contiglevel);
-    #undef GASNETE_STRIDED_HELPER_LOOPBODY
+    gasneti_assert(srcpos == srclist+stats->srcsegments);
+    gasneti_assert(dstpos == dstlist+stats->dstsegments);
+  } else {
+    size_t _looplim; 
+    void * * srcpos; void * * dstpos;
+    void *srcaddr; const size_t * __srcstrides; 
+    void *dstaddr; const size_t * __dststrides; 
+    if (srccontigsz < dstcontigsz) {
+      _looplim = dstcontigsz / srccontigsz;
+      gasneti_assert(_looplim*srccontigsz == dstcontigsz);
+      srcpos = srclist; dstpos = dstlist;
+      srcaddr = _srcaddr; dstaddr = _dstaddr;
+      __srcstrides = _srcstrides; __dststrides = _dststrides;
+    } else { /* dstcontigsz < srccontigsz : swap metadata to allow unified loop nest below */
+      _looplim = srccontigsz / dstcontigsz;
+      gasneti_assert(_looplim*dstcontigsz == srccontigsz);
+      srcpos = dstlist; dstpos = srclist;
+      srcaddr = _dstaddr; dstaddr = _srcaddr;
+      __srcstrides = _dststrides; __dststrides = _srcstrides;
+    }
+    { size_t const looplim = _looplim;
+      size_t loopcnt = 1;
+      const size_t * const srcstrides = __srcstrides; 
+      const size_t * const dststrides = __dststrides; 
+      #define GASNETE_STRIDED_HELPER_LOOPBODY(psrc,pdst)  do { \
+        *(srcpos++) = psrc;                                    \
+        if (--loopcnt == 0) {                                  \
+          *(dstpos++) = pdst;                                  \
+          loopcnt = looplim;                                   \
+        }                                                      \
+      } while(0)
+      GASNETE_STRIDED_HELPER(limit,contiglevel);
+      #undef GASNETE_STRIDED_HELPER_LOOPBODY
+    }
+    if (srccontigsz < dstcontigsz) {
+      gasneti_assert(srcpos == srclist+stats->srcsegments);
+      gasneti_assert(dstpos == dstlist+stats->dstsegments);
+    } else {
+      gasneti_assert(dstpos == srclist+stats->srcsegments);
+      gasneti_assert(srcpos == dstlist+stats->dstsegments);
+    }
   }
-  gasneti_assert(srcpos == srclist+stats->srcsegments);
-  gasneti_assert(dstpos == dstlist+stats->dstsegments);
 }
 /*---------------------------------------------------------------------------------*/
 /* convert strided metadata to memvec metadata for the equivalent operation */
 static void gasnete_convert_strided_to_memvec(gasnet_memvec_t *srclist, gasnet_memvec_t *dstlist, 
                                     gasnete_strided_stats_t const *stats,
-                                    void *dstaddr, const size_t dststrides[],
-                                    void *srcaddr, const size_t srcstrides[],
+                                    void *_dstaddr, const size_t _dststrides[],
+                                    void *_srcaddr, const size_t _srcstrides[],
                                     const size_t count[], size_t stridelevels) {
   size_t const contiglevel = stats->dualcontiguity;
   size_t const limit = stridelevels - stats->nulldims;
   size_t const srccontigsz = stats->srccontigsz;
   size_t const dstcontigsz = stats->dstcontigsz;
-  gasnet_memvec_t * srcpos = srclist;
-  gasnet_memvec_t * dstpos = dstlist;
 
   gasneti_assert(srclist != NULL && dstlist != NULL && stats != NULL);
   gasneti_assert(!gasnete_strided_empty(count, stridelevels));
   gasneti_assert(limit > contiglevel);
 
   if (srccontigsz == dstcontigsz) {
+    gasnet_memvec_t *srcpos = srclist; gasnet_memvec_t *dstpos = dstlist;
+    void *srcaddr = _srcaddr; const size_t * const srcstrides = _srcstrides; 
+    void *dstaddr = _dstaddr; const size_t * const dststrides = _dststrides; 
     #define GASNETE_STRIDED_HELPER_LOOPBODY(psrc,pdst)  do { \
       srcpos->addr = psrc;                                   \
       srcpos->len = srccontigsz;                             \
@@ -602,47 +599,55 @@ static void gasnete_convert_strided_to_memvec(gasnet_memvec_t *srclist, gasnet_m
     } while(0)
     GASNETE_STRIDED_HELPER(limit,contiglevel);
     #undef GASNETE_STRIDED_HELPER_LOOPBODY
-  } else if (srccontigsz < dstcontigsz) {
-    size_t const looplim = dstcontigsz / srccontigsz;
-    size_t loopcnt = 0;
-    gasneti_assert(looplim*srccontigsz == dstcontigsz);
-    /* TODO: this loop could be made more efficient */
-    #define GASNETE_STRIDED_HELPER_LOOPBODY(psrc,pdst)  do { \
-      srcpos->addr = psrc;                                   \
-      srcpos->len = srccontigsz;                             \
-      srcpos++;                                              \
-      if (loopcnt == 0) {                                    \
-        dstpos->addr = pdst;                                 \
-        dstpos->len = dstcontigsz;                           \
-        dstpos++;                                            \
-        loopcnt = looplim;                                   \
-      }                                                      \
-      loopcnt--;                                             \
-    } while(0)
-    GASNETE_STRIDED_HELPER(limit,contiglevel);
-    #undef GASNETE_STRIDED_HELPER_LOOPBODY
-  } else { /* srccontigsz > dstcontigsz */
-    size_t const looplim = srccontigsz / dstcontigsz;
-    size_t loopcnt = 0;
-    gasneti_assert(looplim*dstcontigsz == srccontigsz);
-    /* TODO: this loop could be made more efficient */
-    #define GASNETE_STRIDED_HELPER_LOOPBODY(psrc,pdst)  do { \
-      if (loopcnt == 0) {                                    \
-        srcpos->addr = psrc;                                 \
-        srcpos->len = srccontigsz;                           \
-        srcpos++;                                            \
-        loopcnt = looplim;                                   \
-      }                                                      \
-      loopcnt--;                                             \
-      dstpos->addr = pdst;                                   \
-      dstpos->len = dstcontigsz;                             \
-      dstpos++;                                              \
-    } while(0)
-    GASNETE_STRIDED_HELPER(limit,contiglevel);
-    #undef GASNETE_STRIDED_HELPER_LOOPBODY
+    gasneti_assert(srcpos == srclist+stats->srcsegments);
+    gasneti_assert(dstpos == dstlist+stats->dstsegments);
+  } else {
+    size_t _looplim; 
+    gasnet_memvec_t *srcpos; gasnet_memvec_t *dstpos;
+    size_t _srccontigsz; size_t _dstcontigsz;
+    void *srcaddr; const size_t * __srcstrides; 
+    void *dstaddr; const size_t * __dststrides; 
+    if (srccontigsz < dstcontigsz) {
+      _looplim = dstcontigsz / srccontigsz;
+      gasneti_assert(_looplim*srccontigsz == dstcontigsz);
+      srcpos = srclist; dstpos = dstlist;
+      srcaddr = _srcaddr; dstaddr = _dstaddr;
+      _srccontigsz = srccontigsz; _dstcontigsz = dstcontigsz;
+      __srcstrides = _srcstrides; __dststrides = _dststrides;
+    } else { /* dstcontigsz < srccontigsz : swap metadata to allow unified loop nest below */
+      _looplim = srccontigsz / dstcontigsz;
+      gasneti_assert(_looplim*dstcontigsz == srccontigsz);
+      srcpos = dstlist; dstpos = srclist;
+      srcaddr = _dstaddr; dstaddr = _srcaddr;
+      _srccontigsz = dstcontigsz; _dstcontigsz = srccontigsz;
+      __srcstrides = _dststrides; __dststrides = _srcstrides;
+    }
+    { size_t const looplim = _looplim;
+      size_t loopcnt = 1;
+      const size_t * const srcstrides = __srcstrides; 
+      const size_t * const dststrides = __dststrides; 
+      #define GASNETE_STRIDED_HELPER_LOOPBODY(psrc,pdst)  do { \
+        srcpos->addr = psrc;                                   \
+        srcpos->len = _srccontigsz;                            \
+        srcpos++;                                              \
+        if (--loopcnt == 0) {                                  \
+          dstpos->addr = pdst;                                 \
+          dstpos->len = _dstcontigsz;                          \
+          dstpos++;                                            \
+          loopcnt = looplim;                                   \
+        }                                                      \
+      } while(0)
+      GASNETE_STRIDED_HELPER(limit,contiglevel);
+      #undef GASNETE_STRIDED_HELPER_LOOPBODY
+    }
+    if (srccontigsz < dstcontigsz) {
+      gasneti_assert(srcpos == srclist+stats->srcsegments);
+      gasneti_assert(dstpos == dstlist+stats->dstsegments);
+    } else {
+      gasneti_assert(dstpos == srclist+stats->srcsegments);
+      gasneti_assert(srcpos == dstlist+stats->dstsegments);
+    }
   }
-  gasneti_assert(srcpos == srclist+stats->srcsegments);
-  gasneti_assert(dstpos == dstlist+stats->dstsegments);
 }
 /*---------------------------------------------------------------------------------*/
 /* simple gather put, remotely contiguous */
