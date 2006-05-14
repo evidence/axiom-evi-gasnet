@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_internal.h,v $
- *     $Date: 2006/04/30 02:03:33 $
- * $Revision: 1.47 $
+ *     $Date: 2006/05/14 04:00:04 $
+ * $Revision: 1.48 $
  * Description: GASNet Extended API Collective declarations
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -568,8 +568,8 @@ _gasnete_coll_get_threaddata(void *thread) {
 
 /* Used when thread data must already exist */
 #define GASNETE_COLL_MYTHREAD_NOALLOC \
-		(gasneti_assert(GASNETE_MYTHREAD->gasnete_coll_threaddata != NULL), \
-		 (gasnete_coll_threaddata_t *)GASNETE_MYTHREAD->gasnete_coll_threaddata)
+    (gasneti_assert(((void **)GASNETE_MYTHREAD)[1] != NULL), \
+     (gasnete_coll_threaddata_t *)(((void **)GASNETE_MYTHREAD)[1]))
 
 /*---------------------------------------------------------------------------------*/
 

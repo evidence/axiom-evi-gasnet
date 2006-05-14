@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_handler.h,v $
- *     $Date: 2006/05/10 13:33:04 $
- * $Revision: 1.7 $
+ *     $Date: 2006/05/14 04:00:04 $
+ * $Revision: 1.8 $
  * Description: GASNet Helpers for using bit-width-independent AM handlers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -156,7 +156,17 @@
       name ## _inner innerargs64 ;                                                         \
     } static int _dummy_##name = sizeof(_dummy_##name)
 #endif
-#define LONG_HANDLER MEDIUM_HANDLER
+
+/* convenience declarators for bit-width-independent handlers */
+#define SHORT_HANDLER_NOBITS_DECL(name, cnt) \
+  GASNETI_HANDLER_SCOPE void name(gasnet_token_t token ARGS ## cnt)
+#define MEDIUM_HANDLER_NOBITS_DECL(name, cnt) \
+  GASNETI_HANDLER_SCOPE void name(gasnet_token_t token, void *addr, size_t nbytes ARGS ## cnt)
+
+/* long and medium handlers have the same signature */
+#define LONG_HANDLER              MEDIUM_HANDLER
+#define LONG_HANDLER_DECL         MEDIUM_HANDLER_DECL
+#define LONG_HANDLER_NOBITS_DECL  MEDIUM_HANDLER_NOBITS_DECL
 
 typedef void (*gasneti_handler_fn_t)();  /* prototype for generic handler function */
 

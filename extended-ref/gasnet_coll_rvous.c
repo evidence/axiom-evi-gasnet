@@ -1,15 +1,13 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2006/05/10 13:10:13 $
- * $Revision: 1.59 $
+ *     $Date: 2006/05/14 04:00:08 $
+ * $Revision: 1.60 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
 
-#ifndef GASNETI_GASNET_EXTENDED_COLL_C
-  #error This file not meant to be compiled directly - included by gasnet_extended.c
-#endif
-
+#include <gasnet_internal.h>
+#include <gasnet_extended_refcoll.h>
 #include <gasnet_coll.h>
 #include <gasnet_vis.h>
 
@@ -1334,7 +1332,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
        offset: index of first state to update
        state: value to assign to states [offset, offset+count)
      */
-    static void gasnete_coll_p2p_long_reqh(gasnet_token_t token, void *buf, size_t nbytes,
+    extern void gasnete_coll_p2p_long_reqh(gasnet_token_t token, void *buf, size_t nbytes,
 					   gasnet_handlerarg_t team_id,
 					   gasnet_handlerarg_t sequence,
 					   gasnet_handlerarg_t count,
@@ -1358,7 +1356,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
        state: value to assign to states [offset, offset+count)
        size: eager element size; payload is copied to (p2p->data + offset*size)
      */
-    static void gasnete_coll_p2p_med_reqh(gasnet_token_t token, void *buf, size_t nbytes,
+    extern void gasnete_coll_p2p_med_reqh(gasnet_token_t token, void *buf, size_t nbytes,
 					  gasnet_handlerarg_t team_id,
 					  gasnet_handlerarg_t sequence,
 					  gasnet_handlerarg_t count,
@@ -1383,7 +1381,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
        offset: index of first state to update
        state: value to assign to states [offset, offset+count)
      */
-    static void gasnete_coll_p2p_short_reqh(gasnet_token_t token,
+    extern void gasnete_coll_p2p_short_reqh(gasnet_token_t token,
 						  gasnet_handlerarg_t team_id,
 						  gasnet_handlerarg_t sequence,
 						  gasnet_handlerarg_t count,
@@ -1417,12 +1415,6 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
     MEDIUM_HANDLER(gasnete_coll_p2p_memcpy_reqh,4,5,
                   (token,addr,nbytes, UNPACK(a0),      a1, a2, a3),
                   (token,addr,nbytes, UNPACK2(a0, a1), a2, a3, a4));
-
-    #define GASNETE_COLL_P2P_HANDLERS \
-	gasneti_handler_tableentry_with_bits(gasnete_coll_p2p_memcpy_reqh), \
-	gasneti_handler_tableentry_no_bits(gasnete_coll_p2p_short_reqh),    \
-	gasneti_handler_tableentry_no_bits(gasnete_coll_p2p_med_reqh),      \
-	gasneti_handler_tableentry_no_bits(gasnete_coll_p2p_long_reqh)
 
     /* Put up to gasnet_AMMaxLongRequest() bytes, signalling the recipient */
     /* Returns as soon as local buffer is reusable */
@@ -1562,6 +1554,10 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 
 /*---------------------------------------------------------------------------------*/
 /* functions for generic ops */
+
+#ifdef __DECC /* bug525 workaround - prevent inliner resource exhaustion with -inline all */
+  #pragma noinline (gasnete_coll_generic_alloc,gasnete_coll_generic_free,gasnete_coll_op_generic_init)
+#endif
 
 extern gasnete_coll_generic_data_t *gasnete_coll_generic_alloc(GASNETE_THREAD_FARG_ALONE) {
     gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD;
@@ -6067,14 +6063,6 @@ gasnete_coll_scanM_nb_default(gasnet_team_handle_t team,
   gasneti_fatalerror("%s UNIMPLEMENTED", GASNETI_CURRENT_FUNCTION);
   return GASNET_COLL_INVALID_HANDLE;
 }
-
-/*---------------------------------------------------------------------------------*/
-
-#ifndef GASNETE_COLL_P2P_HANDLERS
-  #define GASNETE_COLL_P2P_HANDLERS
-#endif
-#define GASNETE_REFCOLL_HANDLERS()                                 \
-  GASNETE_COLL_P2P_HANDLERS
 
 /*---------------------------------------------------------------------------------*/
 

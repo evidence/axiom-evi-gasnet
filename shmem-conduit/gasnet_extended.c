@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2006/05/10 13:10:27 $
- * $Revision: 1.17 $
+ *     $Date: 2006/05/14 04:00:16 $
+ * $Revision: 1.18 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -407,9 +407,7 @@ gasnete_barrier_try(int id, int flags)
 */
 
 /* use reference implementation of collectives */
-#define GASNETI_GASNET_EXTENDED_COLL_C 1
-#include "gasnet_extended_refcoll.c"
-#undef GASNETI_GASNET_EXTENDED_COLL_C
+#include "gasnet_extended_refcoll.h"
 
 /* ------------------------------------------------------------------------ */
 /*
@@ -427,7 +425,7 @@ gasnete_handlers[] = {
     #endif
 
     #ifdef GASNETE_REFCOLL_HANDLERS
-      GASNETE_REFCOLL_HANDLERS(),
+      GASNETE_REFCOLL_HANDLERS()
     #endif
 
     /* ptr-width independent handlers */

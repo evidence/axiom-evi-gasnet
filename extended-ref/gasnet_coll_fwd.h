@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_fwd.h,v $
- *     $Date: 2006/05/03 09:44:37 $
- * $Revision: 1.2 $
+ *     $Date: 2006/05/14 04:00:08 $
+ * $Revision: 1.3 $
  * Description: GASNet Collectives Header (forward decls)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -53,15 +53,5 @@
         VAL(W, COLL_SCAN_M, cnt)              \
         VAL(W, COLL_SCAN_M_NB, cnt)
 #endif
-
-/* conduits may override this to relocate the ref-coll handlers */
-#ifndef GASNETE_COLL_HANDLER_BASE
-#define GASNETE_COLL_HANDLER_BASE 124
-#endif
-
-#define _hidx_gasnete_coll_p2p_memcpy_reqh  (GASNETE_COLL_HANDLER_BASE+0)
-#define _hidx_gasnete_coll_p2p_short_reqh   (GASNETE_COLL_HANDLER_BASE+1)
-#define _hidx_gasnete_coll_p2p_med_reqh	    (GASNETE_COLL_HANDLER_BASE+2)
-#define _hidx_gasnete_coll_p2p_long_reqh    (GASNETE_COLL_HANDLER_BASE+3)
 
 #endif
