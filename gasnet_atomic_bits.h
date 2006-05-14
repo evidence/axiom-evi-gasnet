@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/12 23:51:32 $
- * $Revision: 1.202 $
+ *     $Date: 2006/05/14 07:23:22 $
+ * $Revision: 1.203 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1435,7 +1435,7 @@
     #define gasneti_atomic_postsync()  _gsync(0x1)
 
     #define GASNETI_HAVE_ATOMIC64_T 1
-    typedef volatile unsigned long gasneti_atomic64_t;
+    typedef volatile int64_t gasneti_atomic64_t;
 
     #define _gasneti_atomic64_increment(p)	\
       (gasneti_atomic_presync(),_amo_aadd((p),(long)1),gasneti_atomic_postsync())

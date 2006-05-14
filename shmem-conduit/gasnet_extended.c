@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2006/05/14 04:00:16 $
- * $Revision: 1.18 $
+ *     $Date: 2006/05/14 07:23:24 $
+ * $Revision: 1.19 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,7 +26,7 @@ uintptr_t gasnete_addr_bits_mask = 0;
 
 gasnete_threaddata_t	     gasnete_threaddata;
 gasnete_threaddata_t  * const gasnete_threaddata_ptr = &gasnete_threaddata;
-#undef gasnete_mythread()
+#undef gasnete_mythread
 #define gasnete_mythread() (&gasnete_threaddata)
 
 extern void gasnete_init() {
