@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/14 10:36:01 $
- * $Revision: 1.204 $
+ *     $Date: 2006/05/14 11:23:38 $
+ * $Revision: 1.205 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1599,9 +1599,9 @@
 	#define GASNETI_HAVE_ATOMIC64_T 1
 	#if defined(__APPLE__) && defined(__MACH__)
 	  /* The ABI under-aligns by default */
-          typedef union { volatile uint64_t ctr __attribute__((aligned(8))); } gasneti_atomic64_t;
+          typedef struct { volatile uint64_t ctr __attribute__((aligned(8))); } gasneti_atomic64_t;
 	#else
-          typedef union { volatile uint64_t ctr; } gasneti_atomic64_t;
+          typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
 	#endif
         #define _gasneti_atomic64_init(_v)	{ (_v) }
 
