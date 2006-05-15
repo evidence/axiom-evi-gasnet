@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/15 15:55:54 $
- * $Revision: 1.61 $
+ *     $Date: 2006/05/15 19:37:05 $
+ * $Revision: 1.62 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -390,6 +390,7 @@ int main(int argc, char **argv) {
 
     {
       gasnett_atomic32_t var32 = gasnett_atomic32_init(~(uint32_t)0);
+      const uint32_t one32 = 1;
       uint32_t tmp32;
 
       if (!gasnett_atomic32_read(&var32,0) != 0)
@@ -399,11 +400,29 @@ int main(int argc, char **argv) {
       if (gasnett_atomic32_read(&var32,0) != 2*iters)
         ERR("gasnett_atomic32_set/gasnett_atomic32_read got wrong value");
 
+      /* single bit-marching tests */
       for (i=0;i<32;i++) {
-        gasnett_atomic32_set(&var32, 1<<i, 0);
+        gasnett_atomic32_set(&var32, one32<<i, 0);
 	tmp32 = gasnett_atomic32_read(&var32, 0);
-	if (tmp32 != (1<<i))
+	if (tmp32 != (one32<<i))
           ERR("gasnett_atomic32_set/gasnett_atomic32_read got wrong value on bit %i", i);
+	if (gasnett_atomic32_compare_and_swap(&var32, 0, tmp32, 0))
+          ERR("gasnett_atomic32_compare_and_swap succeeded at bit %i when it should have failed", i);
+	if (!gasnett_atomic32_compare_and_swap(&var32, tmp32, 0, 0))
+          ERR("gasnett_atomic32_compare_and_swap failed at bit %i when it should have succeeded", i);
+      }
+
+      /* double bit-marching tests */
+      for (i=0;i<32;i++) {
+        int j;
+        for (j=0;j<32;j++) {
+          if (i == j) continue;
+          tmp32 = (one32<<i) | (one32<<j);
+          gasnett_atomic32_set(&var32, tmp32, 0);
+          if (gasnett_atomic32_compare_and_swap(&var32, (one32<<i), tmp32, 0) ||
+              gasnett_atomic32_compare_and_swap(&var32, (one32<<j), tmp32, 0))
+            ERR("gasnett_atomic32_compare_and_swap succeeded at bits %i and %i when it should have failed", i, j);
+        }
       }
 
       gasnett_atomic32_set(&var32, 0, 0);
@@ -423,6 +442,7 @@ int main(int argc, char **argv) {
 
     {
       gasnett_atomic64_t var64 = gasnett_atomic64_init(~(uint64_t)0);
+      const uint64_t one64 = 1;
       uint64_t tmp64;
 
       if (~gasnett_atomic64_read(&var64,0) != 0)
@@ -432,11 +452,29 @@ int main(int argc, char **argv) {
       if (gasnett_atomic64_read(&var64,0) != 2*iters)
         ERR("gasnett_atomic64_set/gasnett_atomic64_read got wrong value");
 
+      /* single bit-marching tests */
       for (i=0;i<64;i++) {
-        gasnett_atomic64_set(&var64, 1<<i, 0);
+        gasnett_atomic64_set(&var64, one64<<i, 0);
 	tmp64 = gasnett_atomic64_read(&var64, 0);
-	if (tmp64 != (1<<i))
+	if (tmp64 != (one64<<i))
           ERR("gasnett_atomic64_set/gasnett_atomic64_read got wrong value on bit %i", i);
+	if (gasnett_atomic64_compare_and_swap(&var64, 0, tmp64, 0))
+          ERR("gasnett_atomic64_compare_and_swap succeeded at bit %i when it should have failed", i);
+	if (!gasnett_atomic64_compare_and_swap(&var64, tmp64, 0, 0))
+          ERR("gasnett_atomic64_compare_and_swap failed at bit %i when it should have succeeded", i);
+      }
+
+      /* double bit-marching tests */
+      for (i=0;i<64;i++) {
+        int j;
+        for (j=0;j<64;j++) {
+          if (i == j) continue;
+          tmp64 = (one64<<i) | (one64<<j);
+          gasnett_atomic64_set(&var64, tmp64, 0);
+          if (gasnett_atomic64_compare_and_swap(&var64, (one64<<i), tmp64, 0) ||
+              gasnett_atomic64_compare_and_swap(&var64, (one64<<j), tmp64, 0))
+            ERR("gasnett_atomic64_compare_and_swap succeeded at bits %i and %i when it should have failed", i, j);
+        }
       }
 
       gasnett_atomic64_set(&var64, 0, 0);
