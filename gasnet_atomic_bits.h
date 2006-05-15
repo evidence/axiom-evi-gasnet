@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/15 03:40:28 $
- * $Revision: 1.206 $
+ *     $Date: 2006/05/15 17:45:18 $
+ * $Revision: 1.207 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1595,14 +1595,14 @@
         #pragma reg_killed_by gasneti_atomic64_swap_not cr0, gr0
         #define _gasneti_atomic64_compare_and_swap(p, oldval, newval) \
 					(gasneti_atomic64_swap_not(p, oldval, newval) == 0)
+      #elif defined(__APPLE__) && defined(__MACH__)
+	/* Apple's ILP32 ABI under-aligns 64-bit integers.
+	 * Since our "contract" with the developer says atomic64_t works on 64-bit types
+	 * w/o requiring extra alignment, We'll have use mutex-based atomics on OSX.
+	 */
       #elif defined(GASNETI_ARCH_PPC64) /* ILP32 on 64-bit CPU */
 	#define GASNETI_HAVE_ATOMIC64_T 1
-	#if defined(__APPLE__) && defined(__MACH__)
-	  /* The ABI under-aligns by default */
-          typedef struct { volatile uint64_t ctr __attribute__((aligned(8))); } gasneti_atomic64_t;
-	#else
-          typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
-	#endif
+        typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
 
         static uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p);
@@ -1912,6 +1912,11 @@
     #define gasneti_genatomic64_decrement_and_test gasneti_hsl_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_hsl_atomic64_compare_and_swap
     #define gasneti_genatomic64_addfetch           gasneti_hsl_atomic64_addfetch
+    #if (SIZEOF_VOID_P < 8)
+      /* Need mutex on 64-bit read() to avoid word tearing */
+      /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
+      #define gasneti_genatomic64_read             gasneti_hsl_atomic64_read
+    #endif
   #elif defined(_INCLUDED_GASNET_H)
     /* Case II: Empty HSLs in a GASNET_SEQ or GASNET_PARSYNC client w/o conduit-internal threads */
   #elif GASNETT_THREAD_SAFE
@@ -1928,6 +1933,11 @@
     #define gasneti_genatomic64_decrement_and_test gasneti_pthread_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_pthread_atomic64_compare_and_swap
     #define gasneti_genatomic64_addfetch           gasneti_pthread_atomic64_addfetch
+    #if (SIZEOF_VOID_P < 8)
+      /* Need mutex on 64-bit read() to avoid word tearing */
+      /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
+      #define gasneti_genatomic64_read             gasneti_pthread_atomic64_read
+    #endif
   #else
     /* Case IV: Serial gasnet tools client. */
     /* attempt to generate a compile error if pthreads actually are in use */
