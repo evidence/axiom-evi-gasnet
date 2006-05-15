@@ -1,6 +1,6 @@
 //   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/sockaddr.h,v $
-//     $Date: 2006/04/26 04:19:07 $
-// $Revision: 1.8 $
+//     $Date: 2006/05/15 04:03:24 $
+// $Revision: 1.9 $
 // Description: Objects for encapsulating and hashing SockAddr's
 // Copyright 1998, Dan Bonachea
 
@@ -47,7 +47,7 @@ class SockAddr {
       addr.sin_port = htons(portnum); // change to network format port
       #if 1
         addr.sin_addr.s_addr = inet_addr((char*)IPStr); // already in network format
-        if (addr.sin_addr.s_addr == (in_addr_t)-1) addr.sin_addr.s_addr = 0;
+        if (addr.sin_addr.s_addr + 1 == 0) addr.sin_addr.s_addr = 0; // portable test for -1
       #else
         /* newer/safer interface, but not as widely portable */
         if (!inet_aton((char*)IPStr, (in_addr*)&addr.sin_addr.s_addr)) addr.sin_addr.s_addr = 0;
