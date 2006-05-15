@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/11 19:11:12 $
- * $Revision: 1.181 $
+ *     $Date: 2006/05/15 05:05:17 $
+ * $Revision: 1.182 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -458,9 +458,13 @@
     #define gasneti_atomic_decrement_and_test(p,f) \
 						(gasneti_atomic_addfetch(((p),(f)),-1) == 0)
   #endif
-  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
+  #ifndef gasneti_atomic_add
     #define gasneti_atomic_add(p,op,f)		((gasneti_atomic_val_t)(gasneti_atomic_addfetch((p),(op),(f))))
+  #endif
+  #ifndef gasneti_atomic_subtract
     #define gasneti_atomic_subtract(p,op,f)	((gasneti_atomic_val_t)(gasneti_atomic_addfetch((p),-(op),(f))))
+  #endif
+  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   #endif
 #elif defined(_gasneti_atomic_fetchadd)	
@@ -474,11 +478,15 @@
     #define _gasneti_atomic_decrement_and_test(p) \
 						(_gasneti_atomic_fetchadd((p),-1) == 1)
   #endif
-  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
-    /* NOTE: _gasneti_atomic_{add,subtract} are only called w/ args free of side-effects.
-     * So, these macros can safely expand the arguments multiple times. */
+  /* NOTE: _gasneti_atomic_{add,subtract} are only called w/ args free of side-effects.
+   * So, these macros can safely expand the arguments multiple times. */
+  #ifndef _gasneti_atomic_add
     #define _gasneti_atomic_add(p,op)		((gasneti_atomic_val_t)(_gasneti_atomic_fetchadd(p,op) + op))
+  #endif
+  #ifndef _gasneti_atomic_subtract
     #define _gasneti_atomic_subtract(p,op)	((gasneti_atomic_val_t)(_gasneti_atomic_fetchadd(p,-op) - op))
+  #endif
+  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   #endif
 #elif defined(_gasneti_atomic_addfetch) || defined (GASNETI_HAVE_ATOMIC_CAS)
@@ -505,9 +513,13 @@
     #define _gasneti_atomic_decrement_and_test(p) \
 						(_gasneti_atomic_addfetch((p),-1) == 0)
   #endif
-  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
+  #ifndef _gasneti_atomic_add
     #define _gasneti_atomic_add(p,op)		((gasneti_atomic_val_t)_gasneti_atomic_addfetch(p,op))
+  #endif
+  #ifndef _gasneti_atomic_subtract
     #define _gasneti_atomic_subtract(p,op)	((gasneti_atomic_val_t)_gasneti_atomic_addfetch(p,-op))
+  #endif
+  #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   #endif
 #endif
