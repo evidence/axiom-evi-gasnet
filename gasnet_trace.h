@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2006/05/11 14:22:51 $
- * $Revision: 1.53 $
+ *     $Date: 2006/05/15 13:32:42 $
+ * $Revision: 1.54 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -159,8 +159,13 @@ GASNETI_BEGIN_EXTERNC
   #else
     #define GASNETI_SRCLINE_TRACKING() GASNETI_TRACE_ENABLED(N)
   #endif
-  #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) \
-      (GASNETI_SRCLINE_TRACKING() ? gasneti_trace_setsourceline(filename, linenum) : ((void)0))
+  #ifdef CRAYT3E /* workaround a compiler bug */
+    #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) \
+         gasneti_trace_setsourceline(filename, linenum) 
+  #else
+    #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) \
+      (GASNETI_SRCLINE_TRACKING() ? gasneti_trace_setsourceline((const char *)filename, (unsigned int)linenum) : ((void)0))
+  #endif
   #define GASNETI_TRACE_GETSOURCELINE(pfilename, plinenum) \
       (GASNETI_SRCLINE_TRACKING() ? gasneti_trace_getsourceline(pfilename, plinenum) : ((void)0))
   #define GASNETI_TRACE_FREEZESOURCELINE() \

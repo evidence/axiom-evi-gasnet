@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/04/23 10:32:38 $
-# $Revision: 1.46 $
+#     $Date: 2006/05/15 13:32:46 $
+# $Revision: 1.47 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -32,7 +32,7 @@ my @verbose_opt = ("-v");
 my $keep = 0;
 my $dryrun = 0;
 my $exename = undef;
-my $uname = `uname`;
+my $uname = `uname -a`;
 my $find_exe = 1;	# should we find full path of executable?
 my $env_before_exe = 1; # place env cmd before exe?
 my $extra_quote_argv = 0; # add extra quotes around each argument
@@ -65,6 +65,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_mpich    = ($mpirun_help =~ m|ch_p4|);
     my $is_mvich    = ($mpirun_help =~ m|MV(AP)?ICH|i);
     my $is_cray_mpi = ($mpirun_help =~ m|Psched|);
+    my $is_crayt3e_mpi = ($uname =~ m|cray t3e|i );
     my $is_irix_mpi = ($mpirun_help =~ m|\[-miser\]|);
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
@@ -136,6 +137,10 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	# however, the OS already propagates the environment for us automatically
 	%envfmt = ( 'noenv' => 1
                   );
+    } elsif ($is_crayt3e_mpi) {
+	$spawner_desc = "Cray T3E MPI";
+	# OS already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1);
     } elsif ($is_irix_mpi) {
 	$spawner_desc = "IRIX MPI";
 	# OS already propagates the environment for us automatically

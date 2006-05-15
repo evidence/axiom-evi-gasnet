@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2006/03/19 02:08:26 $
- * $Revision: 1.14 $
+ *     $Date: 2006/05/15 13:32:48 $
+ * $Revision: 1.15 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -208,7 +208,7 @@ LONG_HANDLER(ghostReqHandler,3,4,
 /*
  * This reply handler is currently unused.
  */
-GASNETT_INLINE(ghostReqHandler_inner)
+GASNETT_INLINE(ghostRepHandler_inner)
 void
 ghostRepHandler_inner(gasnet_token_t token, volatile int *flag)
 {

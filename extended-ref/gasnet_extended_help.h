@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/05/10 13:10:13 $
- * $Revision: 1.38 $
+ *     $Date: 2006/05/15 13:32:44 $
+ * $Revision: 1.39 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,6 +61,7 @@ typedef union {
   #endif
 } gasnete_anytype8_t;
 
+#ifndef INTTYPES_16BIT_MISSING
 typedef union {
   uint16_t u16; /* might be a compiler builtin type */
   gasnete_anytype8_t _at8; /* necessary for structs of two 8-bit types */
@@ -71,10 +72,13 @@ typedef union {
     int _i;
   #endif
 } gasnete_anytype16_t;
+#endif
 
 typedef union {
   uint32_t u32; /* might be a compiler builtin type */
-  gasnete_anytype16_t _at16; /* necessary for structs of two 16-bit types */
+  #ifndef INTTYPES_16BIT_MISSING
+    gasnete_anytype16_t _at16; /* necessary for structs of two 16-bit types */
+  #endif
   #if SIZEOF_SHORT == 4
     short _s;
   #endif
@@ -114,11 +118,21 @@ typedef union {
   #endif
 } gasnete_anytype64_t;
 
-#if SIZEOF_SHORT > 2  /* deal with Cray's crappy lack of 16-bit types on some platforms */
-  #define OMIT_WHEN_MISSING_16BIT(code) 
+#if INTTYPES_16BIT_MISSING  /* deal with Cray's crappy lack of 16-bit types on some platforms */
+  #define GASNETE_OMIT_WHEN_MISSING_16BIT(code) 
 #else
-  #define OMIT_WHEN_MISSING_16BIT(code) code
+  #define GASNETE_OMIT_WHEN_MISSING_16BIT(code) code
 #endif
+
+#ifdef CRAYT3E /* T3E ridiculously sets the sizes of all unions above to 8 bytes */
+  #define gasnete_anytype8_t  uint8_t
+  #define gasnete_anytype32_t uint32_t
+  #define gasnete_anytype64_t uint64_t
+  #define GASNETE_ANYTYPE_LVAL(ptr,bits) (*((gasnete_anytype##bits##_t *)(ptr)))
+#else
+  #define GASNETE_ANYTYPE_LVAL(ptr,bits) (((gasnete_anytype##bits##_t *)(ptr))->u##bits)
+#endif
+
 /*  undefined results if the regions are overlapping */
 #define GASNETE_FAST_ALIGNED_MEMCPY(dest, src, nbytes) do { \
   switch(nbytes) {                                          \
@@ -127,7 +141,7 @@ typedef union {
     case 1:  *((gasnete_anytype8_t *)(dest)) =              \
              *((gasnete_anytype8_t *)(src));                \
       break;                                                \
-  OMIT_WHEN_MISSING_16BIT(                                  \
+  GASNETE_OMIT_WHEN_MISSING_16BIT(                          \
     case 2:  *((gasnete_anytype16_t *)(dest)) =             \
              *((gasnete_anytype16_t *)(src));               \
       break;                                                \
@@ -158,42 +172,42 @@ typedef union {
    8*nbytes low-order bits of value, written with the endianness appropriate 
    for an nbytes integral value on the current architecture
    */
-#define GASNETE_VALUE_ASSIGN(dest, value, nbytes) do {                \
-  switch (nbytes) {                                                   \
-    case 0:                                                           \
-      break;                                                          \
-    case 1: ((gasnete_anytype8_t *)(dest))->u8 = (uint8_t)(value);    \
-      break;                                                          \
-  OMIT_WHEN_MISSING_16BIT(                                            \
-    case 2: ((gasnete_anytype16_t *)(dest))->u16 = (uint16_t)(value); \
-      break;                                                          \
-  )                                                                   \
-    case 4: ((gasnete_anytype32_t *)(dest))->u32 = (uint32_t)(value); \
-      break;                                                          \
-    case 8: ((gasnete_anytype64_t *)(dest))->u64 = (uint64_t)(value); \
-      break;                                                          \
-    default:  /* no such native nbytes integral type */               \
-      memcpy((dest), GASNETE_STARTOFBITS(&(value),nbytes), nbytes);   \
-  }                                                                   \
+#define GASNETE_VALUE_ASSIGN(dest, value, nbytes) do {              \
+  switch (nbytes) {                                                 \
+    case 0:                                                         \
+      break;                                                        \
+    case 1: GASNETE_ANYTYPE_LVAL(dest,8) = (uint8_t)(value);        \
+      break;                                                        \
+  GASNETE_OMIT_WHEN_MISSING_16BIT(                                  \
+    case 2: GASNETE_ANYTYPE_LVAL(dest,16) = (uint16_t)(value);      \
+      break;                                                        \
+  )                                                                 \
+    case 4: GASNETE_ANYTYPE_LVAL(dest,32) = (uint32_t)(value);      \
+      break;                                                        \
+    case 8: GASNETE_ANYTYPE_LVAL(dest,64) = (uint64_t)(value);      \
+      break;                                                        \
+    default:  /* no such native nbytes integral type */             \
+      memcpy((dest), GASNETE_STARTOFBITS(&(value),nbytes), nbytes); \
+  }                                                                 \
   } while (0)
 
 /* interpret *src as a ptr to an nbytes type,
    and return the value as a gasnet_register_value_t */
-#define GASNETE_VALUE_RETURN(src, nbytes) do {                                     \
-    gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t));       \
-    switch (nbytes) {                                                              \
-      case 1: return (gasnet_register_value_t)((gasnete_anytype8_t *)(src))->u8;   \
-    OMIT_WHEN_MISSING_16BIT(                                                       \
-      case 2: return (gasnet_register_value_t)((gasnete_anytype16_t *)(src))->u16; \
-    )                                                                              \
-      case 4: return (gasnet_register_value_t)((gasnete_anytype32_t *)(src))->u32; \
-      case 8: return (gasnet_register_value_t)((gasnete_anytype64_t *)(src))->u64; \
-      default: { /* no such native nbytes integral type */                         \
-          gasnet_register_value_t result = 0;                                      \
-          memcpy(GASNETE_STARTOFBITS(&result,nbytes), src, nbytes);                \
-          return result;                                                           \
-      }                                                                            \
-    }                                                                              \
+#define GASNETE_VALUE_RETURN(src, nbytes) do {                               \
+    gasneti_assert(nbytes > 0 && nbytes <= sizeof(gasnet_register_value_t)); \
+    switch (nbytes) {                                                        \
+      case 1: return (gasnet_register_value_t)GASNETE_ANYTYPE_LVAL(src,8);   \
+    GASNETE_OMIT_WHEN_MISSING_16BIT(                                         \
+      case 2: return (gasnet_register_value_t)GASNETE_ANYTYPE_LVAL(src,16);  \
+    )                                                                        \
+      case 4: return (gasnet_register_value_t)GASNETE_ANYTYPE_LVAL(src,32);  \
+      case 8: return (gasnet_register_value_t)GASNETE_ANYTYPE_LVAL(src,64);  \
+      default: { /* no such native nbytes integral type */                   \
+          gasnet_register_value_t result = 0;                                \
+          memcpy(GASNETE_STARTOFBITS(&result,nbytes), src, nbytes);          \
+          return result;                                                     \
+      }                                                                      \
+    }                                                                        \
   } while (0)
 
 
@@ -220,7 +234,7 @@ typedef union {
          */                                                                             \
         switch (nbytes) {                                                               \
           case 1: *(uint8_t *)p = 0; break;                                             \
-        OMIT_WHEN_MISSING_16BIT(                                                        \
+        GASNETE_OMIT_WHEN_MISSING_16BIT(                                                \
           case 2: *(uint16_t *)p = 0; break;                                            \
         )                                                                               \
           case 4: *(uint32_t *)p = 0; break;                                            \

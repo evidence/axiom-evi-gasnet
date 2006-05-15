@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/05/09 23:29:44 $
- * $Revision: 1.69 $
+ *     $Date: 2006/05/15 13:32:42 $
+ * $Revision: 1.70 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,10 +100,10 @@
        actual page size is set separately for each linker section, 
         ranging from 512KB(default) to 8MB
        Here we return 8 to reflect the lack of page alignment constraints
-       (for basic sanity, we want page alignment >= reqd double alignment)
+       (for basic sanity, we want page alignment >= MAX(cache line,reqd double alignment))
    */
 
-    #define GASNET_PAGESIZE 8
+    #define GASNET_PAGESIZE GASNETI_CACHE_LINE_BYTES
   #else
     #error GASNET_PAGESIZE unknown and not set by conduit
   #endif
@@ -220,7 +220,8 @@
 #if GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE
   /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
   #define _GASNETI_ALWAYS_INLINE(fnname) __attribute__((__always_inline__))
-#elif defined(_CRAYC) /* the only way to request inlining a particular fn in Cray C */
+#elif defined(_CRAYC) && !defined(__cplusplus)
+  /* the only way to request inlining a particular fn in Cray C */
   /* possibly should be using inline_always here */
   #define _GASNETI_ALWAYS_INLINE(fnname) GASNETI_PRAGMA(_CRI inline fnname)
 #elif defined(__MTA__)
