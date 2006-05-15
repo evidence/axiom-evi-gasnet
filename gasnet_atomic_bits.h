@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/15 17:45:18 $
- * $Revision: 1.207 $
+ *     $Date: 2006/05/15 19:34:04 $
+ * $Revision: 1.208 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1051,8 +1051,8 @@
 		"or	%1,%L6,%1	\n\t"	/* tmp |= LO(old) */
 		"casx	[%3],%1,%0	\n\t"	/* atomic CAS, with read value -> retval */
 		"xor	%1,%0,%1	\n\t"	/* tmp = 0 IFF retval == tmp */
-		"cmp	%%g0,%1		\n\t"	/* set/clear carry bit */
-		"subx	%%g0,-1,%0"		/* yield retval = 0 or 1 */
+		"clr	%0		\n\t"   /* retval = 0 */
+		"movrz	%1,1,%0"		/* retval = 1 IFF tmp == 0 */
 		: "=&h"(retval), "=&h"(tmp), "=m"(v->ctr)		/* 'h' = 64bit 'o' or 'g' reg */
 		: "r"(addr), "m"(v->ctr), "r"(newval), "r"(oldval) );
             return retval;
@@ -1111,8 +1111,8 @@
 		     "casx	[%i0], %i1, %i2		\n\t"				\
 		/* retval = (oldval == newval) ? 1 : 0				*/	\
 		     "xor	%i2, %i1, %g1		\n\t" /* g1 = 0 IFF old==new */ \
-		     "cmp	%g0, %g1		\n\t" /* Set/clear carry bit */	\
-		     "subx	%g0, -1, %i0 " )	      /* Subtract w/ carry */
+		     "clr	%i0			\n\t" /* retval = 0 */		\
+		     "movrz	%g1, 1, %i0 " )		      /* retval = 1 IFF g1 == 0 */
           #define GASNETI_ATOMIC64_SPECIALS                                      \
 	    GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
 				     GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
@@ -1136,8 +1136,8 @@
 		     "or	%g1, %i2, %g1		\n\t"				\
 		     "casx	[%i0], %g1, %o1		\n\t"				\
 		     "xor	%g1, %o1, %g1		\n\t"				\
-		     "cmp	%g0, %g1		\n\t"				\
-		     "subc	%g0, -1, %i0" )
+		     "clr	%i0			\n\t" /* retval = 0 */		\
+		     "movrz	%g1, 1, %i0 " )		      /* retval = 1 IFF g1 == 0 */
           #define GASNETI_ATOMIC64_SPECIALS                                      \
 	    GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_set,              \
 				     GASNETI_ATOMIC64_SET_BODY)                  \
