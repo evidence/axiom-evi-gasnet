@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/05/15 01:56:10 $
- * $Revision: 1.57 $
+ *     $Date: 2006/05/15 03:25:44 $
+ * $Revision: 1.58 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -67,28 +67,39 @@ GASNETI_BEGIN_EXTERNC
     return (((uint64_t)t.tb_high) * 1000000000) + t.tb_low;
   }
 #elif defined(CRAYT3E) || defined(CRAYX1)
-  extern long IRTC_RATE();
-  #if defined(CRAYT3E) 
-    #include <sys/machinfo.h>
-    /* 75 Mhz sys. clock, according to docs */
-    #define GASNETI_UNICOS_SYS_CLOCK 75000000
-  #elif defined(CRAYX1)
-    #include <intrinsics.h>
-    /* 100 or 113 Mhz sys. clock, depending on hardware */
-    long gasneti_rtc_rate;
-    #ifndef GASNETI_UNICOS_SYS_CLOCK
-    #define GASNETI_UNICOS_SYS_CLOCK (gasneti_rtc_rate?gasneti_rtc_rate:(gasneti_rtc_rate=IRTC_RATE()))
-    #endif
-  #endif
+  typedef uint64_t gasneti_tick_t;
   #ifdef __GNUC__
     #define _rtc rtclock
   #else
     extern long _rtc();
   #endif
 
-  typedef uint64_t gasneti_tick_t;
   #define gasneti_ticks_now()      (_rtc())
-  #define gasneti_ticks_to_ns(st)  ((gasneti_tick_t)((st) * (1000000000.0 / GASNETI_UNICOS_SYS_CLOCK)))
+
+  #if defined(CRAYT3E) || defined(GASNETI_UNICOS_SYS_CLOCK)
+    #include <sys/machinfo.h>
+    #ifndef GASNETI_UNICOS_SYS_CLOCK /* T3E has 75 Mhz sys. clock */
+    #define GASNETI_UNICOS_SYS_CLOCK 75000000
+    #endif
+    #define gasneti_ticks_to_ns(st)  ((gasneti_tick_t)((st) * (1000000000.0 / GASNETI_UNICOS_SYS_CLOCK)))
+  #elif defined(CRAYX1)
+    #include <intrinsics.h>
+    extern long IRTC_RATE();
+    /* 100 or 113 Mhz sys. clock, depending on hardware */
+    GASNETI_INLINE(gasneti_ticks_to_ns)
+    uint64_t gasneti_ticks_to_ns(gasneti_tick_t st) {
+      static int gasneti_rtc_rate_set = 0;
+      static double gasneti_rtc_rate;
+      if_pf (!gasneti_rtc_rate_set) {
+        long const rateval = IRTC_RATE();
+        gasneti_assert(rateval > 1E6 && rateval < 1E12); /* sanity check */
+        gasneti_rtc_rate = 1000000000.0 / rateval;
+        gasneti_local_wmb();
+        gasneti_rtc_rate_set = 1;
+      }
+      return st * gasneti_rtc_rate;
+    }
+  #endif
 #elif defined(IRIX)
   #include <time.h>
   #include <sys/ptimers.h>
