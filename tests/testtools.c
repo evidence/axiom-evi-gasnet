@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/12 16:04:06 $
- * $Revision: 1.60 $
+ *     $Date: 2006/05/15 15:55:54 $
+ * $Revision: 1.61 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -399,7 +399,7 @@ int main(int argc, char **argv) {
       if (gasnett_atomic32_read(&var32,0) != 2*iters)
         ERR("gasnett_atomic32_set/gasnett_atomic32_read got wrong value");
 
-      for (i=0;i<=32;i++) {
+      for (i=0;i<32;i++) {
         gasnett_atomic32_set(&var32, 1<<i, 0);
 	tmp32 = gasnett_atomic32_read(&var32, 0);
 	if (tmp32 != (1<<i))
@@ -432,7 +432,7 @@ int main(int argc, char **argv) {
       if (gasnett_atomic64_read(&var64,0) != 2*iters)
         ERR("gasnett_atomic64_set/gasnett_atomic64_read got wrong value");
 
-      for (i=0;i<=64;i++) {
+      for (i=0;i<64;i++) {
         gasnett_atomic64_set(&var64, 1<<i, 0);
 	tmp64 = gasnett_atomic64_read(&var64, 0);
 	if (tmp64 != (1<<i))
