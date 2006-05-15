@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/05/10 21:12:19 $
- * $Revision: 1.164 $
+ *     $Date: 2006/05/15 03:40:28 $
+ * $Revision: 1.165 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -49,9 +49,7 @@
 /* ------------------------------------------------------------------------------------ */
 /* generic atomics support */
 #if defined(GASNETI_USE_GENERIC_ATOMIC32) || defined(GASNETI_USE_GENERIC_ATOMIC64)
-  #if defined(_REENTRANT) || defined(_THREAD_SAFE) || \
-        defined(PTHREAD_MUTEX_INITIALIZER) ||           \
-        defined(HAVE_PTHREAD) || defined(HAVE_PTHREAD_H)
+  #if GASNETT_THREAD_SAFE
     pthread_mutex_t gasneti_atomicop_mutex = PTHREAD_MUTEX_INITIALIZER;
   #endif
   #ifdef GASNETI_GENATOMIC32_DEFN
@@ -430,7 +428,7 @@ extern char *gasneti_format_number(int64_t val, char *buf, size_t bufsz, int is_
 extern void gasneti_setenv(const char *key, const char *value) {
   /* both are POSIX - prefer setenv because it manages memory for us */
   #if HAVE_SETENV
-    int retval = setenv(key, value, 1);
+    int retval = setenv((char *)key, (char *)value, 1);
     if (retval) gasneti_fatalerror("Failed to setenv(\"%s\",\"%s\",1) in gasneti_setenv => %s(%i)",
                                      key, value, strerror(errno), errno);
   #elif HAVE_PUTENV 
@@ -462,7 +460,7 @@ extern void gasneti_unsetenv(const char *key) {
     /* check for a few error cases ourselves */
     if (!key || strlen(key)==0 || strchr(key,'=')) 
        gasneti_fatalerror("Bad key (\"%s\") passed to gasneti_unsetenv",key);
-    unsetenv(key);
+    unsetenv((char *)key);
    #endif
   #elif HAVE_PUTENV
     /* this relies on undocumented putenv behavior, and may or may not work */

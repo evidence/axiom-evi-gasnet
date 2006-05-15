@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/14 11:23:38 $
- * $Revision: 1.205 $
+ *     $Date: 2006/05/15 03:40:28 $
+ * $Revision: 1.206 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1914,9 +1914,7 @@
     #define gasneti_genatomic64_addfetch           gasneti_hsl_atomic64_addfetch
   #elif defined(_INCLUDED_GASNET_H)
     /* Case II: Empty HSLs in a GASNET_SEQ or GASNET_PARSYNC client w/o conduit-internal threads */
-  #elif defined(_REENTRANT) || defined(_THREAD_SAFE) || \
-        defined(PTHREAD_MUTEX_INITIALIZER) ||           \
-        defined(HAVE_PTHREAD) || defined(HAVE_PTHREAD_H)
+  #elif GASNETT_THREAD_SAFE
     /* Case III: a version for pthreads which is independent of GASNet HSL's */
     #include <pthread.h>
     extern pthread_mutex_t gasneti_atomicop_mutex; 

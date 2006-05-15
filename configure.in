@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/11 21:38:51 $
-# $Revision: 1.353 $
+#     $Date: 2006/05/15 03:40:28 $
+# $Revision: 1.354 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.353 $)
+AC_REVISION($Revision: 1.354 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1123,8 +1123,8 @@ if test $enabled_udp = yes; then
       ;; 
     Cray)
      case "$target_cpu" in
-       # Cray CC v3.3.0.2 fails to accept "-htaskprivate", but accepts "-htask private"
-      alphaev5) MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init -htask private $LIBCM" ;; # T3E
+       # Cray CC v3.3.0.2 fails to accept "-htaskprivate", but accepts "-htask private", v3.6.0.2 accepts neither
+      alphaev5) MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # T3E
       *)        MISC_CXXFLAGS="-hnomessage=236:611:997 -hexceptions -hnew_for_init $LIBCM" ;; # X1
      esac ;;
   esac  
@@ -1354,7 +1354,7 @@ if test $enabled_mpi = yes; then
       fprintf(stdout,"hi\n");
     }
 _GASNET_EOF
-    compile="$CC $CFLAGS $CPPFLAGS -c $MPIHELPER_SRC"
+    compile="$CC $CFLAGS $MISC_CFLAGS $CPPFLAGS -c $MPIHELPER_SRC"
     eval echo "$compile" >&5
     if eval $compile 2>&5 && test -s $MPIHELPER_OBJ ; then
 	AC_MSG_RESULT(ok)
