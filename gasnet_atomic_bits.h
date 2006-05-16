@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/16 02:34:16 $
- * $Revision: 1.212 $
+ *     $Date: 2006/05/16 04:30:01 $
+ * $Revision: 1.213 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1900,10 +1900,12 @@
 /* Request build of generic atomics IFF required for the current platform */
 
 #ifndef GASNETI_HAVE_ATOMIC32_T
-  #define GASNETI_USE_GENERIC_ATOMIC32 1
+  #define GASNETI_BUILD_GENERIC_ATOMIC32	1	/* Build the 32-bit generics */
+  #define GASNETI_USE_GENERIC_ATOMIC32		1	/* Use generics for gasneti_atomic32_t */
 #endif
 #ifndef GASNETI_HAVE_ATOMIC64_T
-  #define GASNETI_USE_GENERIC_ATOMIC64 1
+  #define GASNETI_BUILD_GENERIC_ATOMIC64	1	/* Build the 64-bit generics */
+  #define GASNETI_USE_GENERIC_ATOMIC64		1	/* Use generics for gasneti_atomic64_t */
 #endif
 /* Not for use outside this file: */
 #undef GASNETI_HAVE_ATOMIC32_T
@@ -1912,7 +1914,7 @@
 /* ------------------------------------------------------------------------------------ */
 /* Define configuration-dependent choice of locks for generic atomics (if any) */
 
-#if defined(GASNETI_USE_GENERIC_ATOMIC32) || defined(GASNETI_USE_GENERIC_ATOMIC64)
+#if defined(GASNETI_BUILD_GENERIC_ATOMIC32) || defined(GASNETI_BUILD_GENERIC_ATOMIC64)
   #if defined(_INCLUDED_GASNET_H) && (GASNET_PAR || GASNETI_CONDUIT_THREADS)
     /* Case I: Real HSLs in a gasnet client */
     extern void *gasneti_patomicop_lock; /* bug 693: avoid header dependency cycle */

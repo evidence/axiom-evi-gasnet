@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/15 17:45:18 $
- * $Revision: 1.183 $
+ *     $Date: 2006/05/16 04:30:01 $
+ * $Revision: 1.184 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -942,7 +942,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 /* Fenced generic atomics, if needed, using per-platform defns and the macros of Part 4, above.
  */
 
-#if defined(GASNETI_USE_GENERIC_ATOMIC32) || defined(GASNETI_USE_GENERIC_ATOMIC64)
+#if defined(GASNETI_BUILD_GENERIC_ATOMIC32) || defined(GASNETI_BUILD_GENERIC_ATOMIC64)
   /* Fences for the generics */
   #ifndef GASNETI_GENATOMIC_LOCK
     /* Not locking, so use full fences */
@@ -1023,7 +1023,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 							_gasneti_atomic_wmb_after(f)
 
   /* Build the 32-bit generics if needed */
-  #ifdef GASNETI_USE_GENERIC_ATOMIC32
+  #ifdef GASNETI_BUILD_GENERIC_ATOMIC32
     _GASNETI_GENATOMIC_DECL_AND_DEFN(32)
     #define _gasneti_genatomic32_init          _gasneti_scalar_atomic_init
     GASNETI_ATOMIC_FENCED_READ_DEFN(genatomic,gasneti_genatomic32_read,
@@ -1040,7 +1040,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #endif
 
   /* Build the 64-bit generics if needed */
-  #ifdef GASNETI_USE_GENERIC_ATOMIC64
+  #ifdef GASNETI_BUILD_GENERIC_ATOMIC64
     _GASNETI_GENATOMIC_DECL_AND_DEFN(64)
     #define _gasneti_genatomic64_init          _gasneti_scalar_atomic_init
     #ifdef gasneti_genatomic64_read
