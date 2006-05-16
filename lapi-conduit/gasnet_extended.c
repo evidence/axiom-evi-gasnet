@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/05/14 04:00:12 $
- * $Revision: 1.48 $
+ *     $Date: 2006/05/16 10:36:41 $
+ * $Revision: 1.49 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -754,7 +754,7 @@ extern void gasnete_wait_syncnb(gasnet_handle_t handle) {
 	}
         if (gasneti_weakatomic_read(&iop->get_aux_cntr, 0)) /* avoid extra rmb when possible */
           GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->get_aux_cntr, 0) == 0);
-        if (gasneti_weakatomic_read(&iop->put_aux_cntr), 0) /* avoid extra rmb when possible */
+        if (gasneti_weakatomic_read(&iop->put_aux_cntr, 0)) /* avoid extra rmb when possible */
           GASNET_BLOCKUNTIL(gasneti_weakatomic_read(&iop->put_aux_cntr, 0) == 0);
     }
     gasneti_sync_reads();
