@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/16 01:58:59 $
- * $Revision: 1.210 $
+ *     $Date: 2006/05/16 02:17:01 $
+ * $Revision: 1.211 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1570,7 +1570,15 @@
       #pragma reg_killed_by _gasneti_atomic32_addfetch cr0, gr4, gr5
       #define _gasneti_atomic32_addfetch _gasneti_atomic32_addfetch
 
-      #if (SIZEOF_VOID_P == 8)
+      #if defined(GASNETI_ARCH_PPC64) && ((defined(__APPLE__) && defined(__MACH__)) || defined(_AIX))
+	/* We are running on a 64-bit capable CPU, however...
+	 * Apple's ABI only guarantees 4-byte minimum aligment for 64-bit integers and doubles.
+	 * AIX's ABI only guarantees 4-byte minimum aligment for doubles.
+	 * Since our "contract" with the developer says atomic64_t works on 64-bit types without
+	 * any extra alignment, we need to use mutex-based atomics when not aligned to ensure atomicity.
+	 */
+	/* XXX:  BUG1595 NEED TO IMPLEMENT SOMETHING HERE - CURRENTLY WE PICKUP THE GENERICS */
+      #elif (SIZEOF_VOID_P == 8)
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
@@ -1591,11 +1599,6 @@
         #pragma reg_killed_by gasneti_atomic64_swap_not cr0, gr0
         #define _gasneti_atomic64_compare_and_swap(p, oldval, newval) \
 					(gasneti_atomic64_swap_not(p, oldval, newval) == 0)
-      #elif defined(__APPLE__) && defined(__MACH__)
-	/* Apple's ILP32 ABI under-aligns 64-bit integers.
-	 * Since our "contract" with the developer says atomic64_t works on 64-bit types
-	 * w/o requiring extra alignment, We'll have use mutex-based atomics on OSX.
-	 */
       #elif defined(GASNETI_ARCH_PPC64) /* ILP32 on 64-bit CPU */
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
@@ -1635,6 +1638,7 @@
           }
           #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0
         #else
+	  /* XXX: Currently unreachable, but BUG1595 fix will need this code */
           #pragma mc_func _gasneti_atomic64_set { \
             /* ARGS: r3 = p, r4 = hi32, r5 = lo32 */ \
             "788407c6"  /* sldi  r4,r4,32  */ \
@@ -1659,6 +1663,8 @@
           }
           #pragma reg_killed_by _gasneti_atomic64_compare_and_swap cr0
 	#endif
+      #else
+	/* 32-bit CPU - generics are the only option */
       #endif
 
       /* Using default fences as we have none in our asms */
@@ -1705,7 +1711,15 @@
         return (result == 0);
       } 
 
-      #if (SIZEOF_VOID_P == 8)
+      #if defined(GASNETI_ARCH_PPC64) && ((defined(__APPLE__) && defined(__MACH__)) || defined(_AIX))
+	/* We are running on a 64-bit capable CPU, however...
+	 * Apple's ABI only guarantees 4-byte minimum aligment for 64-bit integers and doubles.
+	 * AIX's ABI only guarantees 4-byte minimum aligment for doubles.
+	 * Since our "contract" with the developer says atomic64_t works on 64-bit types without
+	 * any extra alignment, we need to use mutex-based atomics when not aligned to ensure atomicity.
+	 */
+	/* XXX:  BUG1595 NEED TO IMPLEMENT SOMETHING HERE - CURRENTLY WE PICKUP THE GENERICS */
+      #elif (SIZEOF_VOID_P == 8)
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
@@ -1774,6 +1788,8 @@
 		: "cr0");
           return result;
         } 
+      #else
+	/* 32-bit CPU - generics are the only option */
       #endif
 
       /* Using default fences as we have none in our asms */
