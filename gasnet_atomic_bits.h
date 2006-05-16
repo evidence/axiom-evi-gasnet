@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/15 19:34:04 $
- * $Revision: 1.208 $
+ *     $Date: 2006/05/16 00:20:22 $
+ * $Revision: 1.209 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1019,25 +1019,17 @@
           }
         #else
           /* ILP32 on a 64-bit CPU. */
+          /* Note that the ldd/std instructions *are* atomic, even though they use 2 registers.
+           * We wouldn't need asm here if we could be sure the compiler always used ldd/std.
+           */
           GASNETI_INLINE(_gasneti_atomic64_set)
           void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v) {
-	    register int tmp;
-            __asm__ __volatile__ ( 
-		"sllx	%H2,32,%0	\n\t"	/* tmp = HI(v) << 32 */
-		"or	%0,%L2,%0	\n\t"	/* tmp |= LO(v) */
-		"stx	%0, %1		"
-		: "=&h"(tmp), "=m"(p->ctr)			/* 'h' = 64bit 'o' or 'g' reg */
-		: "r"(v) );
+            __asm__ __volatile__ ( "std	%1, %0" : "=m"(p->ctr) : "U"(v) );
 	  }
           GASNETI_INLINE(_gasneti_atomic64_read)
           uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p) {
 	    register uint64_t retval;
-            __asm__ __volatile__ ( 
-		"ldx	%1,%0		\n\t"	/* retval64 = *p */
-		"srl	%0,0,%L0	\n\t"	/* LO(retval) = retval64  */
-		"srlx	%0,32,%H0	"	/* HI(retval) = retval64 >> 32 */
-		: "=r"(retval)
-		: "m"(p->ctr) );
+            __asm__ __volatile__ ( "ldd	%1, %0" : "=U"(retval) : "m"(p->ctr) );
 	    return retval;
 	  }
           GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
@@ -1061,6 +1053,12 @@
 
 	/* Using default fences, as our asm includes none */
       #elif defined(__SUNPRO_C) || defined(__SUNPRO_CC)
+        #if 0 /* Sun compiler gets an assertion failure upon seeing movrz */
+          #define GASNETI_SPARC_MOVRZ_g1_1_i0		"movrz %g1, 1, $i0"
+        #else
+          #define GASNETI_SPARC_MOVRZ_g1_1_i0		".long 0xb1786401"
+        #endif
+
         #define GASNETI_HAVE_ATOMIC32_T 1
 	typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
 	#define _gasneti_atomic32_init(v)      { (v) }
@@ -1112,22 +1110,20 @@
 		/* retval = (oldval == newval) ? 1 : 0				*/	\
 		     "xor	%i2, %i1, %g1		\n\t" /* g1 = 0 IFF old==new */ \
 		     "clr	%i0			\n\t" /* retval = 0 */		\
-		     "movrz	%g1, 1, %i0 " )		      /* retval = 1 IFF g1 == 0 */
+		     GASNETI_SPARC_MOVRZ_g1_1_i0 )	      /* retval = 1 IFF g1 == 0 */
           #define GASNETI_ATOMIC64_SPECIALS                                      \
 	    GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
 				     GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
         #else
           /* ILP32 on a 64-bit CPU. */
-          #define GASNETI_ATOMIC64_SET_BODY /* see gcc asm, above, for explanation */ \
+          #define GASNETI_ATOMIC64_SET_BODY /* see gcc asm, above, for explanation */	\
 	    GASNETI_ASM(								\
-		     "sllx	%i1, 32, %g1		\n\t"				\
-		     "or	%g1, %i2, %g1		\n\t"				\
-		     "stx	%g1, [%i0]" )
-          #define GASNETI_ATOMIC64_READ_BODY /* see gcc asm, above, for explanation */ \
+		     "mov	%i1, %o2		\n\t"				\
+		     "mov	%i2, %o3		\n\t"				\
+		     "std	%o2, [%i0]" )
+          #define GASNETI_ATOMIC64_READ_BODY /* see gcc asm, above, for explanation */	\
 	    GASNETI_ASM(								\
-		     "ldx	[%i0], %g1		\n\t"				\
-		     "srl	%g1, 0, %i1		\n\t"				\
-		     "srlx	%g1, 32, %i0" )
+		     "ldd	[%i0], %i0 " );
           #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY /* see gcc asm, above, for explanation */ \
 	    GASNETI_ASM(								\
 		     "sllx	%i3, 32, %o1		\n\t"				\
@@ -1137,7 +1133,7 @@
 		     "casx	[%i0], %g1, %o1		\n\t"				\
 		     "xor	%g1, %o1, %g1		\n\t"				\
 		     "clr	%i0			\n\t" /* retval = 0 */		\
-		     "movrz	%g1, 1, %i0 " )		      /* retval = 1 IFF g1 == 0 */
+		     GASNETI_SPARC_MOVRZ_g1_1_i0 )	      /* retval = 1 IFF g1 == 0 */
           #define GASNETI_ATOMIC64_SPECIALS                                      \
 	    GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_set,              \
 				     GASNETI_ATOMIC64_SET_BODY)                  \
