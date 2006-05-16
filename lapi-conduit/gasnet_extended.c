@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/05/16 10:36:41 $
- * $Revision: 1.49 $
+ *     $Date: 2006/05/16 12:41:06 $
+ * $Revision: 1.50 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -310,7 +310,7 @@ void gasnete_op_markdone(gasnete_op_t *op, int isget) {
 	gasneti_assert(OPSTATE(eop) == OPSTATE_INFLIGHT);
         gasnete_eop_check(eop);
 	GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt));
-	SET_OPSTATE(eop, OPSTATE_COMPLETE);
+	/* SET_OPSTATE(eop, OPSTATE_COMPLETE); -- not used */
         gasnete_eop_check(eop);
     } else {
 	/* gasnete_iop_t *iop = (gasnete_iop_t *)op; */
@@ -386,13 +386,22 @@ gasneti_iop_t *gasneti_iop_register(unsigned int noperations, int isget GASNETE_
   gasnete_iop_check(op);
   return (gasneti_iop_t *)op;
 }
-void gasneti_eop_markdone(gasneti_eop_t *eop) {
-  gasnete_op_markdone((gasnete_op_t *)eop, 0);
+void gasneti_eop_markdone(gasneti_eop_t *_eop) {
+  /* cannot use gasnete_op_markdone here, because it's not AMSAFE - 
+     it creates races with the app thread when run on the completion thread */
+  gasnete_eop_t *eop = (gasnete_eop_t*)_eop;
+  gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);
+  gasnete_eop_check(eop);
+  GASNETC_LCHECK(LAPI_Setcntr(gasnetc_lapi_context,&eop->cntr,eop->initiated_cnt));
+  /* SET_OPSTATE(eop, OPSTATE_COMPLETE); -- not used */
 }
 void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isget) {
   gasnete_iop_t *op = (gasnete_iop_t *)iop;
   gasneti_weakatomic_t * const pctr = (isget ? &(op->get_aux_cntr) : &(op->put_aux_cntr));
-  gasnete_iop_check(op);
+  /* cannot use gasnete_iop_check here, because it's not AMSAFE - 
+     it creates races with the app thread when run on the completion thread */
+  gasneti_assert(gasneti_weakatomic_read(pctr, 0) > 0);
+  gasneti_assert(OPTYPE(op) == OPTYPE_IMPLICIT);
   if (noperations == 1) gasneti_weakatomic_decrement(pctr, 0);
   else {
     #if defined(GASNETI_HAVE_WEAKATOMIC_ADD_SUB)
@@ -404,7 +413,6 @@ void gasneti_iop_markdone(gasneti_iop_t *iop, unsigned int noperations, int isge
       }
     #endif
   }
-  gasnete_iop_check(op);
 }
 
 /* --------------------------------------------------------------------------
