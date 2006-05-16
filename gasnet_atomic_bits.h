@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/16 00:20:22 $
- * $Revision: 1.209 $
+ *     $Date: 2006/05/16 01:58:59 $
+ * $Revision: 1.210 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1577,7 +1577,7 @@
         #define _gasneti_atomic64_set(_p,_v)	do { (_p)->ctr = (_v); } while(0)
         #define _gasneti_atomic64_read(_p)	((_p)->ctr)
 
-        static int gasneti_atomic64_swap_not(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval);
+        static uint64_t gasneti_atomic64_swap_not(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval);
         #pragma mc_func gasneti_atomic64_swap_not {\
 	  /* ARGS: r3 = p, r4=oldval, r5=newval   LOCAL: r0 = tmp */ \
 	  "7c0018a8"	/* 0: ldarx   r0,0,r3	*/ \
