@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/15 19:37:05 $
- * $Revision: 1.62 $
+ *     $Date: 2006/05/16 01:54:55 $
+ * $Revision: 1.63 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -723,21 +723,33 @@ void * thread_fn(void *arg) {
       static struct { /* Try to trigger bad alignment if possible */
         char               c;
         gasnett_atomic64_t a;
-      } s = {0, gasnett_atomic64_init(0)};
+      } s1 = {0, gasnett_atomic64_init(0)};
+      static struct { /* Try to trigger bad alignment if possible */
+        char               c;
+        double             d;
+      } s2 = {0, -1.0};
       uint64_t x = id + 1;
       uint64_t myval = (x << 48) | (x << 32) | (x << 16) | x;
+
       for (i=0;i<iters2;i++) {
         uint64_t v;
-        gasnett_atomic64_set(&s.a, myval, 0);
+        gasnett_atomic64_set(&s1.a, myval, 0);
+        gasnett_atomic64_set((gasnett_atomic64_t *)&s2.d, myval, 0);
         gasnett_atomic64_set(&a1, myval, 0);
         gasnett_atomic64_set(&a2, myval, 0);
 	v = gasnett_atomic64_read(&a2,0);
         gasnett_atomic64_compare_and_swap(&a2,v,v+1,0);
-        v = gasnett_atomic64_read(&s.a,0);
+
+        v = gasnett_atomic64_read(&s1.a,0);
         if (((v >> 48) & 0xFFFF) != (v & 0xFFFF) ||
             ((v >> 32) & 0xFFFF) != (v & 0xFFFF) ||
             ((v >> 16) & 0xFFFF) != (v & 0xFFFF)) 
             ERR("observed word tearing on gasnett_atomic64_set alignment test");
+        v = gasnett_atomic64_read((gasnett_atomic64_t *)&s2.d,0);
+        if (((v >> 48) & 0xFFFF) != (v & 0xFFFF) ||
+            ((v >> 32) & 0xFFFF) != (v & 0xFFFF) ||
+            ((v >> 16) & 0xFFFF) != (v & 0xFFFF)) 
+            ERR("observed word tearing on gasnett_atomic64_set double alignment test");
         v = gasnett_atomic64_read(&a1,0);
         if (((v >> 48) & 0xFFFF) != (v & 0xFFFF) ||
             ((v >> 32) & 0xFFFF) != (v & 0xFFFF) ||
