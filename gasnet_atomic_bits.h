@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/16 02:17:01 $
- * $Revision: 1.211 $
+ *     $Date: 2006/05/16 02:34:16 $
+ * $Revision: 1.212 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1578,6 +1578,7 @@
 	 * any extra alignment, we need to use mutex-based atomics when not aligned to ensure atomicity.
 	 */
 	/* XXX:  BUG1595 NEED TO IMPLEMENT SOMETHING HERE - CURRENTLY WE PICKUP THE GENERICS */
+	#define GASNETI_ASM_UNDERALIGNED_64 1
       #elif (SIZEOF_VOID_P == 8)
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
@@ -1719,6 +1720,7 @@
 	 * any extra alignment, we need to use mutex-based atomics when not aligned to ensure atomicity.
 	 */
 	/* XXX:  BUG1595 NEED TO IMPLEMENT SOMETHING HERE - CURRENTLY WE PICKUP THE GENERICS */
+	#define GASNETI_ASM_UNDERALIGNED_64 1
       #elif (SIZEOF_VOID_P == 8)
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
@@ -1924,7 +1926,7 @@
     #define gasneti_genatomic64_decrement_and_test gasneti_hsl_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_hsl_atomic64_compare_and_swap
     #define gasneti_genatomic64_addfetch           gasneti_hsl_atomic64_addfetch
-    #if (SIZEOF_VOID_P < 8)
+    #if (SIZEOF_VOID_P < 8) || defined(GASNETI_ASM_UNDERALIGNED_64)
       /* Need mutex on 64-bit read() to avoid word tearing */
       /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
       #define gasneti_genatomic64_read             gasneti_hsl_atomic64_read
@@ -1945,7 +1947,7 @@
     #define gasneti_genatomic64_decrement_and_test gasneti_pthread_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_pthread_atomic64_compare_and_swap
     #define gasneti_genatomic64_addfetch           gasneti_pthread_atomic64_addfetch
-    #if (SIZEOF_VOID_P < 8)
+    #if (SIZEOF_VOID_P < 8) || defined(GASNETI_ASM_UNDERALIGNED_64)
       /* Need mutex on 64-bit read() to avoid word tearing */
       /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
       #define gasneti_genatomic64_read             gasneti_pthread_atomic64_read
