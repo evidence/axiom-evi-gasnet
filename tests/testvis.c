@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvis.c,v $
- *     $Date: 2006/05/14 11:33:06 $
- * $Revision: 1.19 $
+ *     $Date: 2006/05/16 09:07:28 $
+ * $Revision: 1.20 $
  * Description: GASNet Vector, Indexed & Strided correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -730,14 +730,14 @@ typedef struct {
     } while (0)
 #define TIMED_PUT(op,sz) _TIMED_OP(op,sz,put)
 #define TIMED_GET(op,sz) _TIMED_OP(op,sz,get)
-#define _TIME_OUTPUT(flavor,pg) do {                                     \
-    double _tickspersec = 1.0E18 / gasnett_ticks_to_ns(1000000000);      \
-    double _totaldata = ((double)pg##info.sumsz) / (1024*1024);          \
-    double _maxbw = pg##info.maxbw * _tickspersec / (1024*1024);         \
-    double _minbw = pg##info.minbw * _tickspersec / (1024*1024);         \
-    double _avgbw = (_totaldata / pg##info.sumtm) * _tickspersec;        \
-    MSG(#pg #flavor" bandwidth (MB/s): %8.6f avg, %8.6f max, %8.6f min", \
-        _avgbw, _maxbw, _minbw);                                         \
+#define _TIME_OUTPUT(flavor,pg) do {                                          \
+    double _tickspersec = 1.0E18 / gasnett_ticks_to_ns((uint64_t)1000000000); \
+    double _totaldata = ((double)pg##info.sumsz) / (1024*1024);               \
+    double _maxbw = pg##info.maxbw * _tickspersec / (1024*1024);              \
+    double _minbw = pg##info.minbw * _tickspersec / (1024*1024);              \
+    double _avgbw = (_totaldata / pg##info.sumtm) * _tickspersec;             \
+    MSG(#pg #flavor" bandwidth (MB/s): %8.6f avg, %8.6f max, %8.6f min",      \
+        _avgbw, _maxbw, _minbw);                                              \
 } while (0)
 
 #define TIME_OUTPUT(flavor) do {                                               \
