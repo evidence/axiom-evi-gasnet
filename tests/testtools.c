@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/16 01:54:55 $
- * $Revision: 1.63 $
+ *     $Date: 2006/05/17 03:42:35 $
+ * $Revision: 1.64 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -415,8 +415,7 @@ int main(int argc, char **argv) {
       /* double bit-marching tests */
       for (i=0;i<32;i++) {
         int j;
-        for (j=0;j<32;j++) {
-          if (i == j) continue;
+        for (j=0;j<i;j++) {
           tmp32 = (one32<<i) | (one32<<j);
           gasnett_atomic32_set(&var32, tmp32, 0);
           if (gasnett_atomic32_compare_and_swap(&var32, (one32<<i), tmp32, 0) ||
@@ -467,8 +466,7 @@ int main(int argc, char **argv) {
       /* double bit-marching tests */
       for (i=0;i<64;i++) {
         int j;
-        for (j=0;j<64;j++) {
-          if (i == j) continue;
+        for (j=0;j<i;j++) {
           tmp64 = (one64<<i) | (one64<<j);
           gasnett_atomic64_set(&var64, tmp64, 0);
           if (gasnett_atomic64_compare_and_swap(&var64, (one64<<i), tmp64, 0) ||
