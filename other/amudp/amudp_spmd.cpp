@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2006/05/11 09:43:40 $
- * $Revision: 1.30 $
+ *     $Date: 2006/05/17 12:11:00 $
+ * $Revision: 1.31 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -473,9 +473,8 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
 
     // find the master addr
     SockAddr masterAddr = getsockname(AMUDP_SPMDListenSocket);
-    { const char *masterIPstr = AMUDP_getenv_prefixed_withdefault("MASTERIP", "");
-      if (*masterIPstr) masterAddr = SockAddr(masterIPstr, masterAddr.port());
-    }
+    const char *masterIPstr = AMUDP_getenv_prefixed_withdefault("MASTERIP", "");
+    if (*masterIPstr) masterAddr = SockAddr(masterIPstr, masterAddr.port());
     if (masterAddr.IP() == 0) {
       try { /* requires master can resolve its own address */
         SockAddr dnsAddr = DNSLookup(getMyHostName());
@@ -493,13 +492,16 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     int slaveargc = (*argc)+2;
     slaveargv[0] = (*argv)[0];
     slaveargv[1] = (AMUDP_SilentMode?AMUDP_SPMDSLAVE_FLAG:AMUDP_SPMDSLAVE_FLAG_VERBOSE);
-    #if USE_NUMERIC_MASTER_ADDR
-      slaveargv[2] = masterAddr.FTPStr();
-    #else
-      char masteraddrstr[1024];
-      sprintf(masteraddrstr, "%s:%i", masterHostname, masterAddr.port());
-      slaveargv[2] = masteraddrstr;
-    #endif
+    if (*masterIPstr) slaveargv[2] = masterAddr.FTPStr();
+    else {
+      #if USE_NUMERIC_MASTER_ADDR
+        slaveargv[2] = masterAddr.FTPStr();
+      #else
+        char masteraddrstr[1024];
+        sprintf(masteraddrstr, "%s:%i", masterHostname, masterAddr.port());
+        slaveargv[2] = masteraddrstr;
+      #endif
+    }
     for (int k = 1; k < (*argc); k++) {
       slaveargv[k+2] = (*argv)[k];
     }
@@ -849,9 +851,9 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
     SockAddr masterAddr;
     if ((*argc) < 3) AMUDP_Err("Missing arguments to slave process");
     {
-      #if USE_NUMERIC_MASTER_ADDR
+      if (strchr((*argv)[2],',')) {
         masterAddr = SockAddr((*argv)[2]);
-      #else
+      } else {
         char *IPStr = (char *)AMUDP_malloc(strlen((*argv)[2])+10);
         strcpy(IPStr, (*argv)[2]);
         char *portStr = strchr(IPStr, ':');
@@ -871,7 +873,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
           AMUDP_RETURN_ERRFR(RESOURCE, "slave failed DNSLookup on master host name", exn.why());
         }
         AMUDP_free(IPStr);
-      #endif
+      }
       (*argv)[2] = (*argv)[0]; // strip off our special args
       (*argv) += 2;
       (*argc) -= 2;

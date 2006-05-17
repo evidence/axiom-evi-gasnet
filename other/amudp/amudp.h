@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2006/05/11 12:01:28 $
- * $Revision: 1.31 $
+ *     $Date: 2006/05/17 12:11:00 $
+ * $Revision: 1.32 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -362,6 +362,7 @@ SOCK_BEGIN_EXTERNC
 
 /* AMUDP-specific user entry points */
 extern int AMUDP_VerboseErrors; /* set to non-zero for verbose error reporting */
+extern int AMUDP_PoliteSync; /* set to non-zero for polite blocking while awaiting send resources */
 extern int AMUDP_ExpectedBandwidth; /* expected half-duplex bandwidth in KBytes/sec */
 extern int AMUDP_SilentMode; /* set to non-zero to silence any non-error output */
 

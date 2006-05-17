@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2006/05/11 09:43:58 $
- * $Revision: 1.31 $
+ *     $Date: 2006/05/17 12:11:02 $
+ * $Revision: 1.32 $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -240,6 +240,14 @@ extern int gasnet_init(int *argc, char ***argv) {
     gasneti_trace_init(argc, argv);
   #endif
   return GASNET_OK;
+}
+/* ------------------------------------------------------------------------------------ */
+extern void _gasnetc_set_waitmode(int wait_mode) {
+  if (wait_mode == GASNET_WAIT_BLOCK) {
+    AMUDP_PoliteSync = 1;
+  } else {
+    AMUDP_PoliteSync = 0;
+  }
 }
 /* ------------------------------------------------------------------------------------ */
 static char checkuniqhandler[256] = { 0 };

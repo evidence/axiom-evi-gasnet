@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/05/17 00:51:44 $
- * $Revision: 1.164 $
+ *     $Date: 2006/05/17 12:10:58 $
+ * $Revision: 1.165 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -403,6 +403,9 @@ extern int gasneti_set_waitmode(int wait_mode) {
       GASNETI_RETURN_ERRR(BAD_ARG, "illegal wait mode");
   }
   GASNETI_TRACE_PRINTF(I, ("gasnet_set_waitmode(%s)", desc));
+  #ifdef gasnetc_set_waitmode
+    gasnetc_set_waitmode(wait_mode);
+  #endif
   gasneti_wait_mode = wait_mode;
   return GASNET_OK;
 }

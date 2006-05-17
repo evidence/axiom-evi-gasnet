@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2006/05/13 00:04:29 $
- * $Revision: 1.37 $
+ *     $Date: 2006/05/17 12:11:00 $
+ * $Revision: 1.38 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -372,11 +372,6 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
      * return AM_OK for activity, AM_ERR_ for other error, -1 for timeout 
      * wakeupOnControlActivity controls whether we return on control socket activity (for blocking)
      */
-    struct timeval prvtv;
-    if (tv) { /* get our own private copy of tv we can modify */
-      memcpy(&prvtv, tv, sizeof(struct timeval));
-      tv = &prvtv;
-    }
 
     {/* drain network and see if some receive buffer already non-empty */
       int i;
@@ -396,7 +391,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
       fd_set* psockset = &sockset;
       int i;
       int maxfd = 0;
-      int64_t starttime, endtime;
+      amudp_cputick_t starttime, endtime;
 
       FD_ZERO(psockset);
       for (i = 0; i < eb->n_endpoints; i++) {
@@ -409,7 +404,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         if ((int)AMUDP_SPMDControlSocket > maxfd) maxfd = AMUDP_SPMDControlSocket;
       }
       /* wait for activity */
-      starttime = getMicrosecondTimeStamp();
+      starttime = getCPUTicks();
       { int retval = select(maxfd+1, psockset, NULL, NULL, tv);
         if (AMUDP_SPMDControlSocket != INVALID_SOCKET) ASYNC_TCP_ENABLE();
         if_pf (retval == SOCKET_ERROR) { 
@@ -417,20 +412,24 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
         }
         else if (retval == 0) return -1; /* time limit expired */
       }
-      endtime = getMicrosecondTimeStamp();
       if (FD_ISSET(AMUDP_SPMDControlSocket, psockset)) {
         AMUDP_SPMDIsActiveControlSocket = TRUE; /* we may have missed a signal */
         AMUDP_SPMDHandleControlTraffic(NULL);
         if (AMUDP_SPMDwakeupOnControlActivity) break;
       }
       else break; /* activity on some endpoint in bundle */
+      endtime = getCPUTicks();
 
       if (tv) { /* readjust remaining time */
-        int64_t remainingtime = ((int64_t)tv->tv_sec) * 1000000 + tv->tv_usec;
-        remainingtime = remainingtime - (endtime - starttime);
-        if (remainingtime < 0) return -1; /* time limit expired */
-        tv->tv_sec = (long)(remainingtime / 1000000);
-        tv->tv_usec = (long)(remainingtime % 1000000);
+        int64_t elapsedtime = ticks2us(endtime - starttime);
+        if (elapsedtime < tv->tv_usec) tv->tv_usec -= elapsedtime;
+        else {
+          int64_t remainingtime = ((int64_t)tv->tv_sec) * 1000000 + tv->tv_usec;
+          remainingtime -= elapsedtime;
+          if (remainingtime <= 0) return -1; /* time limit expired */
+          tv->tv_sec = (long)(remainingtime / 1000000);
+          tv->tv_usec = (long)(remainingtime % 1000000);
+        }
       }
     }
 
@@ -1083,22 +1082,24 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
         found = TRUE;
       } else { /*  hint is wrong */
         /*  search for a free instance */
-        instance = ((hint+1)==depth?0:hint+1);
-        for ( ; instance != hint; instance = (((instance+1)==depth)?0:(instance+1))) {
+        instance = hint;
+        do {
+          instance = ((instance+1)==depth?0:instance+1);
           if (!GET_REQ_DESC(request_endpoint, destP, instance)->inuse) {
             found = TRUE;
             break;
           }
-        }
+        } while (instance != hint);
         if (!found) { 
           /*  no buffers available - wait until one is open 
            *  (hint will point to a free buffer) 
-           *  TODO: we may consider some spin polling here
            */
           do {
             int retval;
-            retval = AMUDP_Block(request_endpoint->eb);
-            if (retval != AM_OK) AMUDP_RETURN(retval);
+            if (AMUDP_PoliteSync) {
+              retval = AMUDP_Block(request_endpoint->eb);
+              if (retval != AM_OK) AMUDP_RETURN(retval);
+            }
             retval = AM_Poll(request_endpoint->eb);
             if (retval != AM_OK) AMUDP_RETURN(retval);
             hint = request_endpoint->perProcInfo[destP].instanceHint;

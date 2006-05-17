@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2006/05/13 00:04:29 $
- * $Revision: 1.21 $
+ *     $Date: 2006/05/17 12:11:00 $
+ * $Revision: 1.22 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -21,6 +21,7 @@ static void AMUDP_defaultAMHandler(void * token);
 amudp_handler_fn_t amudp_unused_handler = (amudp_handler_fn_t)&AMUDP_defaultAMHandler;
 amudp_handler_fn_t amudp_defaultreturnedmsg_handler = (amudp_handler_fn_t)&AMUDP_DefaultReturnedMsg_Handler;
 int AMUDP_VerboseErrors = 0;
+int AMUDP_PoliteSync = 0;
 int AMUDP_ExpectedBandwidth = AMUDP_DEFAULT_EXPECTED_BANDWIDTH;
 int AMUDP_SilentMode = 0; 
 AMUDP_IDENT(AMUDP_IdentString_Version, "$AMUDPLibraryVersion: " AMUDP_LIBRARY_VERSION_STR " $");
