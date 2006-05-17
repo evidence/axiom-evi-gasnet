@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.75 $
+$Revision: 1.76 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -723,6 +723,8 @@ Required porting steps:
   gasnet_atomic_bits.h, or enable GASNETI_USE_GENERIC_ATOMICOPS if the CPU does
   not support atomic operations. Implement atomic compare-and-swap, if supported
   by the system.
+  For an outline of the yet-to-be-written "Atomic OPS HOWTO" see
+  http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=1607
 
 * For a new CPU, implement appropriate memory barriers in gasnet_membar.h:
   gasneti_local_wmb and gasneti_local_rmb (one or both may be no-ops, depending
