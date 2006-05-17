@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_vector.c,v $
- *     $Date: 2006/05/10 13:10:13 $
- * $Revision: 1.17 $
+ *     $Date: 2006/05/17 07:03:37 $
+ * $Revision: 1.18 $
  * Description: GASNet Vector implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -474,7 +474,8 @@ void gasnete_getv_AMPipeline_reph_inner(gasnet_token_t token,
   { uint8_t *end = gasnete_memvec_unpack(lnum, savedlst+lpacket->firstidx, addr, lpacket->firstoffset, lpacket->lastlen);
     gasneti_assert(end - (uint8_t *)addr == nbytes);
   }
-  if (gasneti_weakatomic_decrement_and_test(&(visop->packetcnt), GASNETI_ATOMIC_WMB_PRE)) {
+  if (gasneti_weakatomic_decrement_and_test(&(visop->packetcnt), 
+                                            GASNETI_ATOMIC_WMB_PRE|GASNETI_ATOMIC_WEAK_FENCE)) {
     /* last response packet completes operation and cleans up */
     GASNETE_VISOP_SIGNAL(visop, 1);
     gasneti_free(visop->addr); /* free localpt */
