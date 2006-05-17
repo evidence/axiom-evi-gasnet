@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/17 20:41:03 $
- * $Revision: 1.188 $
+ *     $Date: 2006/05/17 22:09:45 $
+ * $Revision: 1.189 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -964,8 +964,13 @@
                                           gasneti_genatomic##_sz##_)
   #else /* Mutex-based (HSL or pthread mutex) versions */
     /* The lock acquire includes RMB and release includes WMB */
-    #define _gasneti_genatomic_fence_before_rmw(f)	_gasneti_atomic_mb_before(f)  \
-							_gasneti_atomic_wmb_before(f) \
+    /* XXX: definition of _gasneti_genatomic_fence_before_rmw is dependent upon
+     * the pointer-to-atomic argument being named 'p'.  This is currently true in all
+     * the fencing templates, but is fragile.
+     */
+    #define _gasneti_genatomic_fence_before_rmw(f)	GASNETI_GENATOMIC_LOCK_DECLS(p); \
+      							_gasneti_atomic_mb_before(f)     \
+							_gasneti_atomic_wmb_before(f)    \
 							GASNETI_GENATOMIC_LOCK();
     #define _gasneti_genatomic_fence_after_rmw(f)	GASNETI_GENATOMIC_UNLOCK();   \
 							_gasneti_atomic_mb_after(f)   \

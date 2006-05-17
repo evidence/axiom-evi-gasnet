@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/17 00:51:44 $
- * $Revision: 1.214 $
+ *     $Date: 2006/05/17 22:09:45 $
+ * $Revision: 1.215 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1916,6 +1916,7 @@
   #if defined(_INCLUDED_GASNET_H) && (GASNET_PAR || GASNETI_CONDUIT_THREADS)
     /* Case I: Real HSLs in a gasnet client */
     extern void *gasneti_patomicop_lock; /* bug 693: avoid header dependency cycle */
+    #define GASNETI_GENATOMIC_LOCK_DECLS(ptr)	/* Hook for table of mutexes. */
     #define GASNETI_GENATOMIC_LOCK()   gasnet_hsl_lock((gasnet_hsl_t*)gasneti_patomicop_lock)
     #define GASNETI_GENATOMIC_UNLOCK() gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock)
 
@@ -1937,6 +1938,7 @@
     /* Case III: a version for pthreads which is independent of GASNet HSL's */
     #include <pthread.h>
     extern pthread_mutex_t gasneti_atomicop_mutex; 
+    #define GASNETI_GENATOMIC_LOCK_DECLS(ptr)	/* Hook for table of mutexes. */
     #define GASNETI_GENATOMIC_LOCK()   pthread_mutex_lock(&gasneti_atomicop_mutex)
     #define GASNETI_GENATOMIC_UNLOCK() pthread_mutex_unlock(&gasneti_atomicop_mutex)
 
