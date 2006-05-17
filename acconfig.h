@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/05/11 21:38:51 $ */
-/*  $Revision: 1.93 $ */
+/*      $Date: 2006/05/17 22:15:31 $ */
+/*  $Revision: 1.94 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -127,6 +127,7 @@
 
 /* auto-detected shared data cache line size */
 #undef GASNETI_CACHE_LINE_BYTES
+#undef GASNETI_CACHE_LINE_SHIFT
 
 /* udp-conduit default custom spawn command */
 #undef GASNET_CSPAWN_CMD
