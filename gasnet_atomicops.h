@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/17 04:31:27 $
- * $Revision: 1.187 $
+ *     $Date: 2006/05/17 20:41:03 $
+ * $Revision: 1.188 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1037,18 +1037,20 @@
   #ifdef GASNETI_BUILD_GENERIC_ATOMIC64
     _GASNETI_GENATOMIC_DECL_AND_DEFN(64)
     #define _gasneti_genatomic64_init          _gasneti_scalar_atomic_init
-    #ifdef gasneti_genatomic64_read
+    #ifdef gasneti_genatomic64_read	/* ILP32 or HYBRID for under-aligned ABIs */
       /* Mutex is needed in read to avoid word tearing.
        * Can't use the normal template w/o also forcing a mutex into the 32-bit generics.
+       * Note that we use the "rmw" fencing macros here, since the "read" fencing macros
+       * assume no lock is taken and thus would potentially double fence.
        */
       extern uint64_t gasneti_genatomic64_read(gasneti_genatomic64_t *p, int flags);
       #define _GASNETI_GENATOMIC64_DEFN_EXTRA \
 	uint64_t gasneti_genatomic64_read(gasneti_genatomic64_t *p, const int flags) { \
-	  _gasneti_genatomic_fence_before_read(flags)                               \
+	  _gasneti_genatomic_fence_before_rmw(flags)  /* rmw is NOT a typo here */  \
 	  GASNETI_GENATOMIC_LOCK();                                                 \
 	  { const uint64_t retval = _gasneti_scalar_atomic_read(p);                 \
 	    GASNETI_GENATOMIC_UNLOCK();                                             \
-	    _gasneti_genatomic_fence_after_read(flags)                              \
+	    _gasneti_genatomic_fence_after_rmw(flags) /* rmw is NOT a typo here */  \
 	    return retval;                                                          \
 	  }                                                                         \
 	}
