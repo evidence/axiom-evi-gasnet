@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/05/15 03:25:44 $
- * $Revision: 1.58 $
+ *     $Date: 2006/05/17 00:22:42 $
+ * $Revision: 1.59 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,8 +30,8 @@ GASNETI_BEGIN_EXTERNC
     gasneti_tick_t - timer datatype representing an integer number of "ticks"
       where a "tick" has a system-specific interpretation
       safe to be handled using integer operations (+,-,<,>,==)
-    gasneti_ticks_now() - returns the current tick count as a gasneti_tick_t
-    gasneti_ticks_to_ns(ticks) - convert ticks to nanoseconds as a uint64_t
+    gasneti_tick_t gasneti_ticks_now() - returns the current tick count 
+    gasneti_ticks_to_ns(gasneti_tick_t ticks) - convert ticks to nanoseconds as a uint64_t
     GASNETI_TICK_MIN - a value representing the minimum value storable in a gasneti_tick_t
     GASNETI_TICK_MAX - a value representing the maximum value storable in a gasneti_tick_t
 */
@@ -81,7 +81,7 @@ GASNETI_BEGIN_EXTERNC
     #ifndef GASNETI_UNICOS_SYS_CLOCK /* T3E has 75 Mhz sys. clock */
     #define GASNETI_UNICOS_SYS_CLOCK 75000000
     #endif
-    #define gasneti_ticks_to_ns(st)  ((gasneti_tick_t)((st) * (1000000000.0 / GASNETI_UNICOS_SYS_CLOCK)))
+    #define gasneti_ticks_to_ns(st)  ((gasneti_tick_t)(((gasneti_tick_t)(st)) * (1000000000.0 / GASNETI_UNICOS_SYS_CLOCK)))
   #elif defined(CRAYX1)
     #include <intrinsics.h>
     extern long IRTC_RATE();
@@ -438,7 +438,7 @@ extern uint64_t gasneti_gettimeofday_us(void);
   #undef gasneti_tick_t
   #define gasneti_tick_t _gasneti_tick_t
   #undef gasneti_ticks_to_ns
-  #define gasneti_ticks_to_ns(st)  ((st)*1000)
+  #define gasneti_ticks_to_ns(st)  (((gasneti_tick_t)(st))*1000)
   #undef gasneti_ticks_now
   #define gasneti_ticks_now()      ((gasneti_tick_t)gasneti_gettimeofday_us())
 #elif defined(GASNETI_FORCE_POSIX_REALTIME)
