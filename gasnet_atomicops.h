@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/17 00:51:44 $
- * $Revision: 1.185 $
+ *     $Date: 2006/05/17 03:55:30 $
+ * $Revision: 1.186 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -183,6 +183,9 @@
 #define GASNETI_ATOMIC_RMB_POST_IF_TRUE		0x10
 #define GASNETI_ATOMIC_RMB_POST_IF_FALSE	0x20
 
+/* OR into flags to make the weak atomics omit fences in a non-threaded build. */
+#define GASNETI_ATOMIC_WEAK_FENCE		0x80000000
+
 #define GASNETI_ATOMIC_MB_PRE		(GASNETI_ATOMIC_WMB_PRE | GASNETI_ATOMIC_RMB_PRE)
 #define GASNETI_ATOMIC_MB_POST		(GASNETI_ATOMIC_WMB_POST | GASNETI_ATOMIC_RMB_POST)
 
@@ -251,6 +254,12 @@
   /* Use platform-specific type, even though atomic32_t or atomic64_t might be present. */
 #elif !defined(GASNETI_FORCE_64BIT_ATOMICOPS) && /* Not forcing 64-bits */ \
       (!defined(GASNETI_USE_GENERIC_ATOMIC32) || defined(GASNETI_USE_GENERIC_ATOMIC64)) /* No worse than 64 bit */
+  #define GASNETI_USE_32BIT_ATOMICS
+#else
+  #define GASNETI_USE_64BIT_ATOMICS
+#endif
+
+#if defined(GASNETI_USE_32BIT_ATOMICS)
   typedef uint32_t				gasneti_atomic_val_t;
   typedef int32_t				gasneti_atomic_sval_t;
   #define GASNETI_ATOMIC_MAX			((gasneti_atomic_val_t)0xFFFFFFFFU)
@@ -322,7 +331,7 @@
   #ifdef GASNETI_ATOMIC32_NOT_SIGNALSAFE
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1
   #endif
-#else
+#elif defined(GASNETI_USE_64BIT_ATOMICS)
   typedef uint64_t			gasneti_atomic_val_t;
   typedef int64_t			gasneti_atomic_sval_t;
   #define GASNETI_ATOMIC_MAX		((gasneti_atomic_val_t)0xFFFFFFFFFFFFFFFFLLU)
@@ -489,15 +498,25 @@
   #ifndef GASNETI_HAVE_ATOMIC_ADD_SUB
     #define GASNETI_HAVE_ATOMIC_ADD_SUB 	1
   #endif
-#elif defined(_gasneti_atomic_addfetch) || defined (GASNETI_HAVE_ATOMIC_CAS)
+#elif defined(_gasneti_atomic_addfetch) || defined (GASNETI_HAVE_ATOMIC_CAS) \
+	|| defined(gasneti_atomic_compare_and_swap) || defined(_gasneti_atomic_compare_and_swap)
   #if !defined(_gasneti_atomic_addfetch)
     /* If needed, build addfetch from compare-and-swap. */
     GASNETI_INLINE(gasneti_atomic_addfetch)
     gasneti_atomic_val_t gasneti_atomic_addfetch(gasneti_atomic_t *p, gasneti_atomic_sval_t op) {
       gasneti_atomic_val_t _old, _new;
       do {
-        _new = (_old = _gasneti_atomic_read(p)) + op;
-      } while (!_gasneti_atomic_compare_and_swap(p, _old, _new));
+        #ifdef _gasneti_atomic_read
+          _new = (_old = _gasneti_atomic_read(p)) + op;
+        #else 
+          _new = (_old = gasneti_atomic_read(p,0)) + op;
+        #endif 
+      } while
+      #ifdef _gasneti_atomic_compare_and_swap
+         (!_gasneti_atomic_compare_and_swap(p, _old, _new));
+      #else
+         (!gasneti_atomic_compare_and_swap(p, _old, _new, 0));
+      #endif
       return _new;
     }
     #define _gasneti_atomic_addfetch gasneti_atomic_addfetch
@@ -669,17 +688,24 @@
       defined(_gasneti_weakatomic_fence_after_bool)
   #error "A platform must define either ALL or NONE of _gasneti_weakatomic_fence_{before,after,after_bool}"
 #else
-  #define _gasneti_weakatomic_fence_before(f)	_gasneti_atomic_mb_before(f)  \
+  #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+    #define _gasneti_weak_fence_check(f)	0
+  #else
+    #define _gasneti_weak_fence_check(f)	(f & GASNETI_ATOMIC_WEAK_FENCE)
+  #endif
+  #define _gasneti_weakatomic_fence_before(f)	\
+	   if (!_gasneti_weak_fence_check(f)) { _gasneti_atomic_mb_before(f)  \
 						_gasneti_atomic_rmb_before(f) \
-						_gasneti_atomic_wmb_before(f)
-  #define _gasneti_weakatomic_fence_after(f)	_gasneti_atomic_mb_after(f)  \
+						_gasneti_atomic_wmb_before(f) }
+  #define _gasneti_weakatomic_fence_after(f)	\
+	   if (!_gasneti_weak_fence_check(f)) { _gasneti_atomic_mb_after(f)  \
 						_gasneti_atomic_rmb_after(f) \
-						_gasneti_atomic_wmb_after(f)
+						_gasneti_atomic_wmb_after(f) }
   #define _gasneti_weakatomic_fence_after_bool(f,v) \
-						_gasneti_atomic_mb_after(f)  \
+	   if (!_gasneti_weak_fence_check(f)) { _gasneti_atomic_mb_after(f)  \
 						_gasneti_atomic_rmb_after(f) \
 						_gasneti_atomic_wmb_after(f) \
-						_gasneti_atomic_rmb_bool(f,v)
+						_gasneti_atomic_rmb_bool(f,v) }
 #endif
 #define _gasneti_weakatomic_fence_before_set  _gasneti_weakatomic_fence_before
 #define _gasneti_weakatomic_fence_after_set   _gasneti_weakatomic_fence_after
@@ -1213,7 +1239,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
     typedef int##_sz##_t gasneti_##_type##_sval_t;
 
   /* Build gasneti_weakatomic_t */
-  #if defined(GASNETI_FORCE_64BIT_ATOMICOPS)
+  #if defined(GASNETI_USE_64BIT_ATOMICS)
     _GASNETI_WEAKATOMIC_DEFN(weakatomic,64)
     #define GASNETI_WEAKATOMIC_MAX            ((gasneti_weakatomic_val_t)0xFFFFFFFFFFFFFFFFLLU)
     #define GASNETI_WEAKATOMIC_SIGNED_MIN     ((gasneti_weakatomic_sval_t)0x8000000000000000LL)
