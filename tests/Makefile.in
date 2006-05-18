@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/04/17 22:01:05 $
-# $Revision: 1.84 $
+#     $Date: 2006/05/18 20:35:10 $
+# $Revision: 1.85 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -305,6 +305,7 @@ do-run-testexit: force
 	@echo "Complete. Starting execution..."
 	@./$(TESTEXIT_SCRIPT)
 
+KEEPTMP_CFLAGS = $(patsubst %,@KEEPTMP_CFLAGS@,$(KEEPTMPS))
 
 # testtools is a special minimal case for an app that just uses GASNet tools
 @BUILDCONFIG_DEBUG_FALSE@ TESTTOOLS_DEBUGFLAGS = -DNDEBUG
@@ -316,9 +317,9 @@ do-run-testexit: force
 TOOLS_CPPFLAGS = $(TESTTOOLS_DEBUGFLAGS) $(TESTTOOLS_THREADFLAGS)
 testtools: force
 	@$(MAKE) -C .. lib$(TESTTOOLS_TOOLLIB_NAME).a
-	@CC@ @CFLAGS@ @MISC_CFLAGS@ @MISC_CPPFLAGS@ $(GASNET_INCLUDES) $(TOOLS_CPPFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
+	@CC@ @CFLAGS@ @MISC_CFLAGS@ @MISC_CPPFLAGS@ $(GASNET_INCLUDES) $(TOOLS_CPPFLAGS) $(KEEPTMP_CFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	@CC@ @CFLAGS@ @MISC_CFLAGS@ @LDFLAGS@ $(MANUAL_LDFLAGS) -o $@ $@.o $(TESTTOOLS_TOOLLIB) @LIBS@ @LIBM@ $(MANUAL_LIBS)
-	rm -f $@.o
+	test -n "$(KEEPTMPS)" || rm -f $@.o
 
 # some tests need delay.o
 testlogGP: delay.o
@@ -330,33 +331,33 @@ testbarrierlate_extraobjs = delay.o
 # need to deliberately exclude optimization for this object file to prevent breaking delay
 # some compilers implicitly enable optimization, so don't complain about that
 delay.o: force
-	$(GASNET_CC) $(GASNET_CPPFLAGS) $(GASNET_MISC_CFLAGS) $(MANUAL_CFLAGS) -DGASNET_ALLOW_OPTIMIZED_DEBUG -c -o $@ $(srcdir)/$*.c
+	$(GASNET_CC) $(GASNET_CPPFLAGS) $(GASNET_MISC_CFLAGS) $(KEEPTMP_CFLAGS) $(MANUAL_CFLAGS) -DGASNET_ALLOW_OPTIMIZED_DEBUG -c -o $@ $(srcdir)/$*.c
 
 # testmpi must be compiled like an MPI program with GASNet support
 testmpi: force
-	@MPI_CC@ -I$(srcdir) $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
+	@MPI_CC@ -I$(srcdir) $(GASNET_CPPFLAGS) @MPI_CFLAGS@ $(KEEPTMP_CFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ $(GASNET_LIBS)
-	rm -f $@.o	
+	test -n "$(KEEPTMPS)" || rm -f $@.o	
 
 # the following are just plain MPI programs
 # testmpinbr requires libm
 $(MPI_TESTS): force
-	@MPI_CC@ -I$(srcdir)/mpi -I@TOP_SRCDIR@/other @MPI_CFLAGS@ $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/mpi/$@.c
+	@MPI_CC@ -I$(srcdir)/mpi -I@TOP_SRCDIR@/other @MPI_CFLAGS@ $(KEEPTMP_CFLAGS) $(MANUAL_CFLAGS) -c -o $@.o $(srcdir)/mpi/$@.c
 	$(GASNET_MPI_LD) $(GASNET_LDFLAGS) @MPI_CFLAGS@ -o $@ $@.o @MPI_LIBS@ @LIBM@ $(MANUAL_LIBS)
-	rm -f $@.o	
+	test -n "$(KEEPTMPS)" || rm -f $@.o	
 
 # testcxx tests support for compiling a C++-based GASNet client 
 # this is unlikely to work on conduits requiring a special linker (eg mpi-conduit)
 testcxx: force
-	@CXX@ @CXXFLAGS@ @MISC_CXXFLAGS@ -I$(srcdir) $(GASNET_DEFINES) $(GASNET_INCLUDES) $(MANUAL_CXXFLAGS) -c -o $@.o $(srcdir)/$@.cc
+	@CXX@ @CXXFLAGS@ @MISC_CXXFLAGS@ -I$(srcdir) $(GASNET_DEFINES) $(GASNET_INCLUDES) $(KEEPTMP_CFLAGS) $(MANUAL_CXXFLAGS) -c -o $@.o $(srcdir)/$@.cc
 	@CXX@ @CXXFLAGS@ $(GASNET_LDFLAGS) -o $@ $@.o $($@_extraobjs) $(GASNET_LIBS)
-	rm -f $@.o
+	test -n "$(KEEPTMPS)" || rm -f $@.o
 
 # This is a model for how GASNet clients should be built:
 test% : force
-	$(GASNET_CC) -I$(srcdir) $(GASNET_CPPFLAGS) $(GASNET_CFLAGS) -c -o $@.o $(srcdir)/$@.c
+	$(GASNET_CC) -I$(srcdir) $(GASNET_CPPFLAGS) $(KEEPTMP_CFLAGS) $(GASNET_CFLAGS) -c -o $@.o $(srcdir)/$@.c
 	$(GASNET_LD) $(GASNET_LDFLAGS) -o $@ $@.o $($@_extraobjs) $(GASNET_LIBS)
-	rm -f $@.o
+	test -n "$(KEEPTMPS)" || rm -f $@.o
 
 force:
 	
