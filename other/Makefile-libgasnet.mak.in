@@ -28,6 +28,8 @@ LIBDEFINES =                        \
 	$(TOOLLIBDEFINES)	    \
         -DGASNET_$(THREAD_MODEL)    
 
+LIBKEEPTMPS = $(patsubst %,@KEEPTMP_CFLAGS@,$(KEEP_LIBTMPS))
+
 @BUILDCONFIG_DEBUG_FALSE@ TOOLLIB_DEBUGFLAGS = -DNDEBUG
 TOOLLIBCFLAGS =                   \
         @CFLAGS@                  \
@@ -35,6 +37,7 @@ TOOLLIBCFLAGS =                   \
         $(TOOLLIBDEFINES)         \
 	$(TOOLLIB_DEBUGFLAGS)     \
 	$(TOOLLIBINCLUDES)	  \
+	$(LIBKEEPTMPS)            \
 	$(MANUAL_LIBCFLAGS)
 
 LIBCFLAGS =                       \
@@ -43,6 +46,7 @@ LIBCFLAGS =                       \
         $(LIBDEFINES)             \
         $(CONDUIT_EXTRALIBCFLAGS) \
 	$(LIBINCLUDES)		  \
+	$(LIBKEEPTMPS)            \
 	$(MANUAL_LIBCFLAGS)
 
 libgasnet_tools_sources =           \
@@ -82,13 +86,13 @@ LIBGASNET_NAME=libgasnet-$(CONDUIT_NAME)
 do-libgasnet: $(CONDUIT_SPECIAL_OBJS)
 	@mkdir -p .$(THREAD_MODEL)
 	@libgasnet_objects="$(libgasnet_objects)" ; libgasnet_objects=`echo $$libgasnet_objects` ; \
-	pwd=`@PWD_PROG@` ; cmd="$(CC) $(LIBCFLAGS) -c $(libgasnet_sources) && \
+	pwd=`@PWD_PROG@`; cmd="$(CC) $(LIBCFLAGS) -c $(libgasnet_sources) && \
 	$(AR) cru $$pwd/$(LIBGASNET_NAME)-$(THREAD_MODEL_LC).a $$libgasnet_objects && \
 	$(RANLIB) $$pwd/$(LIBGASNET_NAME)-$(THREAD_MODEL_LC).a && \
-	rm -f $$libgasnet_objects" ; \
+	( test -n '$(KEEP_LIBTMPS)' || rm -f $$libgasnet_objects )"; \
 	echo " --- BUILDING $(LIBGASNET_NAME)-$(THREAD_MODEL_LC).a --- " ; \
         echo $$cmd ; cd .$(THREAD_MODEL) ; eval $$cmd
-	@rm -Rf .$(THREAD_MODEL)
+	@test -n "$(KEEP_LIBTMPS)" || rm -Rf .$(THREAD_MODEL)
 
 set_dirs = top_srcdir=`cd $(top_srcdir); @PWD_PROG@`         \
            top_builddir=`cd $(top_builddir); @PWD_PROG@`     \

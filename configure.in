@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/17 22:15:31 $
-# $Revision: 1.355 $
+#     $Date: 2006/05/18 01:44:39 $
+# $Revision: 1.356 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.355 $)
+AC_REVISION($Revision: 1.356 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -498,6 +498,12 @@ esac
 #AC_SUBST(CFLAGS)	      # opt/debug flags
 AC_SUBST(MISC_CFLAGS)	      # warning suppression and other misc C flags
 AC_SUBST(MISC_CPPFLAGS)	      # misc preprocessor flags
+
+case "$gasnet_cv_cc_family" in
+  GNU) KEEPTMP_CFLAGS="-save-temps" ;;
+  *) KEEPTMP_CFLAGS="" ;;
+esac
+AC_SUBST(KEEPTMP_CFLAGS)      # flags to preserve intermediate file (,i, .s, etc.)
 
 segconfig=""
 GASNET_IF_ENABLED(segment-fast, Build GASNet in the FAST shared segment configuration,
