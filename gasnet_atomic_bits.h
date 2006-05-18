@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/17 22:09:45 $
- * $Revision: 1.215 $
+ *     $Date: 2006/05/18 19:00:16 $
+ * $Revision: 1.216 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -187,6 +187,7 @@
       #define GASNETI_ATOMIC_MAX            ((gasneti_atomic_val_t)0xFFFFFFFFFFFFFFFFLLU)
       #define GASNETI_ATOMIC_SIGNED_MIN     ((gasneti_atomic_sval_t)0x8000000000000000LL)
       #define GASNETI_ATOMIC_SIGNED_MAX     ((gasneti_atomic_sval_t)0x7FFFFFFFFFFFFFFFLL)
+      #define gasneti_atomic_align          8
       typedef uint64_t gasneti_atomic_t;
       #define _gasneti_atomic_read(p)      ((uint64_t)*(volatile uint64_t*)(p))
       #define _gasneti_atomic_set(p,v)     ((*(volatile uint64_t*)(p)) = (v))
@@ -281,6 +282,7 @@
         #define GASNETI_ATOMIC_SIGNED_MAX     ((gasneti_atomic_sval_t)0x7FFFFFFF)
       #endif
       typedef atomic_t gasneti_atomic_t;
+      #define gasneti_atomic_align         4
 
       #define _gasneti_atomic_increment(p) atomic_inc(p)
       #define _gasneti_atomic_decrement(p) atomic_dec(p)
@@ -438,6 +440,7 @@
 	 *   observed to always use (ebx,ecx).  Nothing documents either behavior, so we
 	 *   must use the 'xchgl' unconditionally. ]
 	 */
+        #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
 	  register uint64_t retval = newval;
@@ -1154,6 +1157,7 @@
              all we get is atomic swap, but that's actually just barely enough  */
       #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
       #define GASNETI_HAVE_PRIVATE_ATOMIC_T 1
+      #define gasneti_atomic_align 4
       #if defined(__GNUC__) || defined(__SUNPRO_C) || defined(__SUNPRO_CC)
         /* Only 31 bits: */
         typedef uint32_t                        gasneti_atomic_val_t;
@@ -1287,6 +1291,7 @@
     /* all we get is atomic load-and-clear, but that's actually just barely enough  */
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
     #define GASNETI_HAVE_PRIVATE_ATOMIC_T 1
+    #define gasneti_atomic_align 8
     /* The load-and-clear requires 16-byte alignment.  Therefore the type (and its
      * initializer) replicate the value field 4 times.  The actual ops will only use
      * the one of them that turns out to be 16-byte aligned.
@@ -2086,6 +2091,25 @@
 #ifdef GASNETI_ATOMIC_ADDFETCH_BODY
   GASNETI_SPECIAL_ASM_DECL(_gasneti_special_atomic_addfetch);
   #define _gasneti_atomic_addfetch (*(gasneti_atomic_val_t (*)(gasneti_atomic_t *, gasneti_atomic_sval_t))(&_gasneti_special_atomic_addfetch))
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+
+#ifndef gasneti_atomic32_align
+  #define gasneti_atomic32_align 4
+#endif
+#ifndef gasneti_atomic64_align
+  #define gasneti_atomic64_align 8
+#endif
+#ifndef gasneti_genatomic32_align
+  #define gasneti_genatomic32_align 4
+#endif
+#ifndef gasneti_genatomic64_align
+  #ifdef GASNETI_HYBRID_ATOMIC64
+    #define gasneti_genatomic64_align 4
+  #else
+    #define gasneti_genatomic64_align 8
+  #endif
 #endif
 
 /* ------------------------------------------------------------------------------------ */

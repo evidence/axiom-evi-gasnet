@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/18 17:33:45 $
- * $Revision: 1.191 $
+ *     $Date: 2006/05/18 19:00:16 $
+ * $Revision: 1.192 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -265,6 +265,7 @@
   #define GASNETI_ATOMIC_MAX			((gasneti_atomic_val_t)0xFFFFFFFFU)
   #define GASNETI_ATOMIC_SIGNED_MIN		((gasneti_atomic_sval_t)0x80000000)
   #define GASNETI_ATOMIC_SIGNED_MAX		((gasneti_atomic_sval_t)0x7FFFFFFF)
+  #define gasneti_atomic_align			gasneti_atomic32_align
 
   /* Required parts: */
   #define gasneti_atomic_t			gasneti_atomic32_t
@@ -337,6 +338,7 @@
   #define GASNETI_ATOMIC_MAX		((gasneti_atomic_val_t)0xFFFFFFFFFFFFFFFFLLU)
   #define GASNETI_ATOMIC_SIGNED_MIN	((gasneti_atomic_sval_t)0x8000000000000000LL)
   #define GASNETI_ATOMIC_SIGNED_MAX	((gasneti_atomic_sval_t)0x7FFFFFFFFFFFFFFFLL)
+  #define gasneti_atomic_align		gasneti_atomic64_align
 
   /* Required parts: */
   #define gasneti_atomic_t			gasneti_atomic64_t
@@ -853,16 +855,21 @@
 /* Part 4.  Fenced atomic templates, using the fencing macros of Part 3, above.
  */
 
-#define GASNETI_ATOMIC_FENCED_SET(group,_func,p,v,f)                \
+#define GASNETI_ATOMIC_CHECKALIGN(stem,p)                           \
+  gasneti_assert(!stem##align || !(((uintptr_t)(p))&(stem##align-1)))
+
+#define GASNETI_ATOMIC_FENCED_SET(group,_func,stem,p,v,f)           \
   do {                                                              \
     const int __flags = (f);                                        \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
     _gasneti_##group##_fence_before_set(__flags)                    \
     _func((p),(v));                                                 \
     _gasneti_##group##_fence_after_set(__flags)                     \
   } while (0)
-#define GASNETI_ATOMIC_FENCED_INCDEC(group,_func,p,f)               \
+#define GASNETI_ATOMIC_FENCED_INCDEC(group,_func,stem,p,f)          \
   do {                                                              \
     const int __flags = (f);                                        \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
     _gasneti_##group##_fence_before_rmw(__flags)                    \
     _func(p);                                                       \
     _gasneti_##group##_fence_after_rmw(__flags)                     \
@@ -870,6 +877,7 @@
 
 #define GASNETI_ATOMIC_FENCED_READ_DEFN_NOT_INLINE(group,func,_func,stem) \
   stem##val_t func(stem##t *p, const int flags) {                   \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
     _gasneti_##group##_fence_before_read(flags)                     \
     { const stem##val_t retval = _func(p);                          \
       _gasneti_##group##_fence_after_read(flags)                    \
@@ -878,6 +886,7 @@
   }
 #define GASNETI_ATOMIC_FENCED_DECTEST_DEFN_NOT_INLINE(group,func,_func,stem) \
   int func(stem##t *p, const int flags) {                           \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
     _gasneti_##group##_fence_before_rmw(flags)                      \
     { const int retval = _func(p);                                  \
       _gasneti_##group##_fence_after_bool(flags, retval)            \
@@ -887,6 +896,7 @@
 #define GASNETI_ATOMIC_FENCED_CAS_DEFN_NOT_INLINE(group,func,_func,stem) \
   int func(stem##t *p, stem##val_t oldval,                          \
            stem##val_t newval, const int flags) {                   \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
     _gasneti_##group##_fence_before_rmw(flags)                      \
     { const int retval = _func(p,oldval,newval);                    \
       _gasneti_##group##_fence_after_bool(flags, retval)            \
@@ -896,6 +906,7 @@
 #define GASNETI_ATOMIC_FENCED_ADDSUB_DEFN_NOT_INLINE(group,func,_func,stem) \
   stem##val_t func(stem##t *p, stem##val_t op, const int flags) {   \
     /* TODO: prohibit zero as well? */                              \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
     gasneti_assert((stem##sval_t)op >= 0);                          \
     _gasneti_##group##_fence_before_rmw(flags)                      \
     { const stem##val_t retval = _func(p, op);                      \
@@ -905,6 +916,7 @@
   }
 #define GASNETI_ATOMIC_FENCED_ADDFETCH_DEFN_NOT_INLINE(group,func,_func,stem) \
   stem##val_t func(stem##t *p, stem##sval_t op, const int flags) {  \
+    GASNETI_ATOMIC_CHECKALIGN(stem,p);                              \
     _gasneti_##group##_fence_before_rmw(flags)                      \
     { const stem##val_t retval = _func(p, op);                      \
       _gasneti_##group##_fence_after_rmw(flags)                     \
@@ -1028,11 +1040,11 @@
     GASNETI_ATOMIC_FENCED_READ_DEFN(genatomic,gasneti_genatomic32_read,
                                     _gasneti_scalar_atomic_read,gasneti_genatomic32_)
     #define gasneti_genatomic32_set(p,v,f)     \
-				GASNETI_ATOMIC_FENCED_SET(genatomic,_gasneti_scalar_atomic_set,p,v,f)
+				GASNETI_ATOMIC_FENCED_SET(genatomic,_gasneti_scalar_atomic_set,gasneti_genatomic32_,p,v,f)
     #define gasneti_genatomic32_increment(p,f) \
-				GASNETI_ATOMIC_FENCED_INCDEC(genatomic,_gasneti_scalar_atomic_increment,p,f)
+				GASNETI_ATOMIC_FENCED_INCDEC(genatomic,_gasneti_scalar_atomic_increment,gasneti_genatomic32_,p,f)
     #define gasneti_genatomic32_decrement(p,f) \
-				GASNETI_ATOMIC_FENCED_INCDEC(genatomic,_gasneti_scalar_atomic_decrement,p,f)
+				GASNETI_ATOMIC_FENCED_INCDEC(genatomic,_gasneti_scalar_atomic_decrement,gasneti_genatomic32_,p,f)
     #ifdef _GASNETI_GENATOMIC_DEFN
       #define GASNETI_GENATOMIC32_DEFN        _GASNETI_GENATOMIC_DEFN(32)
     #endif
@@ -1064,11 +1076,11 @@
       #define _GASNETI_GENATOMIC64_DEFN_EXTRA /* Empty */
     #endif
     #define gasneti_genatomic64_set(p,v,f)     \
-				GASNETI_ATOMIC_FENCED_SET(genatomic,_gasneti_scalar_atomic_set,p,v,f)
+				GASNETI_ATOMIC_FENCED_SET(genatomic,_gasneti_scalar_atomic_set,gasneti_genatomic64_,p,v,f)
     #define gasneti_genatomic64_increment(p,f) \
-				GASNETI_ATOMIC_FENCED_INCDEC(genatomic,_gasneti_scalar_atomic_increment,p,f)
+				GASNETI_ATOMIC_FENCED_INCDEC(genatomic,_gasneti_scalar_atomic_increment,gasneti_genatomic64_,p,f)
     #define gasneti_genatomic64_decrement(p,f) \
-				GASNETI_ATOMIC_FENCED_INCDEC(genatomic,_gasneti_scalar_atomic_decrement,p,f)
+				GASNETI_ATOMIC_FENCED_INCDEC(genatomic,_gasneti_scalar_atomic_decrement,gasneti_genatomic64_,p,f)
     #ifndef _GASNETI_GENATOMIC_DEFN
       #define _GASNETI_GENATOMIC_DEFN(_sz) /* Empty */
     #endif
@@ -1088,7 +1100,7 @@ typedef int32_t gasneti_atomic32_sval_t;	/* For consistency in fencing macros */
   #define gasneti_atomic32_init(v)	_gasneti_atomic32_init(v)
 #endif
 #ifndef gasneti_atomic32_set
-  #define gasneti_atomic32_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic32_set,p,v,f)
+  #define gasneti_atomic32_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic32_set,gasneti_atomic32_,p,v,f)
 #endif
 #ifndef gasneti_atomic32_read
   GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic32_read,_gasneti_atomic32_read,gasneti_atomic32_)
@@ -1145,7 +1157,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
     #define gasneti_atomic64_init(v)	_gasneti_atomic64_init(v)
   #endif
   #ifndef gasneti_atomic64_set
-    #define gasneti_atomic64_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic64_set,p,v,f)
+    #define gasneti_atomic64_set(p,v,f)	GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic64_set,gasneti_atomic64_,p,v,f)
   #endif
   #ifndef gasneti_atomic64_read
     GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic64_read,_gasneti_atomic64_read,gasneti_atomic64_)
@@ -1163,13 +1175,13 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #define gasneti_atomic_init(v)         _gasneti_atomic_init(v)
 #endif
 #ifndef gasneti_atomic_set
-  #define gasneti_atomic_set(p,v,f)      GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic_set,p,v,f)
+  #define gasneti_atomic_set(p,v,f)      GASNETI_ATOMIC_FENCED_SET(atomic,_gasneti_atomic_set,gasneti_atomic_,p,v,f)
 #endif
 #ifndef gasneti_atomic_increment
-  #define gasneti_atomic_increment(p,f)  GASNETI_ATOMIC_FENCED_INCDEC(atomic,_gasneti_atomic_increment,p,f)
+  #define gasneti_atomic_increment(p,f)  GASNETI_ATOMIC_FENCED_INCDEC(atomic,_gasneti_atomic_increment,gasneti_atomic_,p,f)
 #endif
 #ifndef gasneti_atomic_decrement
-  #define gasneti_atomic_decrement(p,f)  GASNETI_ATOMIC_FENCED_INCDEC(atomic,_gasneti_atomic_decrement,p,f)
+  #define gasneti_atomic_decrement(p,f)  GASNETI_ATOMIC_FENCED_INCDEC(atomic,_gasneti_atomic_decrement,gasneti_atomic_,p,f)
 #endif
 #ifndef gasneti_atomic_read
   GASNETI_ATOMIC_FENCED_READ_DEFN(atomic,gasneti_atomic_read,_gasneti_atomic_read,gasneti_atomic_)
@@ -1197,6 +1209,15 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
     thereby saving the overhead of unnecessary atomic-memory CPU instructions.
    Otherwise, they expand to regular gasneti_atomic_t's
  */
+#ifndef gasneti_weakatomic_align
+  #define gasneti_weakatomic_align       gasneti_atomic_align
+#endif
+#ifndef gasneti_weakatomic32_align
+  #define gasneti_weakatomic32_align     gasneti_atomic32_align
+#endif
+#ifndef gasneti_weakatomic64_align
+  #define gasneti_weakatomic64_align     gasneti_atomic64_align
+#endif
 #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
   typedef gasneti_atomic_t gasneti_weakatomic_t;
   typedef gasneti_atomic_val_t gasneti_weakatomic_val_t;
@@ -1257,9 +1278,9 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   #endif
   #define gasneti_weakatomic_init            _gasneti_scalar_atomic_init
   #define gasneti_weakatomic_signed(v)       gasneti_atomic_signed(v)
-  #define gasneti_weakatomic_set(p,v,f)      GASNETI_ATOMIC_FENCED_SET(weakatomic,_gasneti_scalar_atomic_set,p,v,f)
-  #define gasneti_weakatomic_increment(p,f)  GASNETI_ATOMIC_FENCED_INCDEC(weakatomic,_gasneti_scalar_atomic_increment,p,f)
-  #define gasneti_weakatomic_decrement(p,f)  GASNETI_ATOMIC_FENCED_INCDEC(weakatomic,_gasneti_scalar_atomic_decrement,p,f)
+  #define gasneti_weakatomic_set(p,v,f)      GASNETI_ATOMIC_FENCED_SET(weakatomic,_gasneti_scalar_atomic_set,gasneti_weakatomic_,p,v,f)
+  #define gasneti_weakatomic_increment(p,f)  GASNETI_ATOMIC_FENCED_INCDEC(weakatomic,_gasneti_scalar_atomic_increment,gasneti_weakatomic_,p,f)
+  #define gasneti_weakatomic_decrement(p,f)  GASNETI_ATOMIC_FENCED_INCDEC(weakatomic,_gasneti_scalar_atomic_decrement,gasneti_weakatomic_,p,f)
   GASNETI_ATOMIC_FENCED_READ_DEFN(weakatomic,gasneti_weakatomic_read,_gasneti_scalar_atomic_read,gasneti_weakatomic_)
   GASNETI_ATOMIC_FENCED_DECTEST_DEFN(weakatomic,gasneti_weakatomic_decrement_and_test,_gasneti_scalar_atomic_decrement_and_test,gasneti_weakatomic_)
   GASNETI_ATOMIC_FENCED_CAS_DEFN(weakatomic,gasneti_weakatomic_compare_and_swap,_gasneti_scalar_atomic_compare_and_swap,gasneti_weakatomic_)
@@ -1271,14 +1292,14 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   /* Build gasneti_weakatomic32_t */
   _GASNETI_WEAKATOMIC_DEFN(weakatomic32,32)
   #define gasneti_weakatomic32_init        _gasneti_scalar_atomic_init
-  #define gasneti_weakatomic32_set(p,v,f)  GASNETI_ATOMIC_FENCED_SET(weakatomic,_gasneti_scalar_atomic_set,p,v,f)
+  #define gasneti_weakatomic32_set(p,v,f)  GASNETI_ATOMIC_FENCED_SET(weakatomic,_gasneti_scalar_atomic_set,gasneti_weakatomic32_,p,v,f)
   GASNETI_ATOMIC_FENCED_READ_DEFN(weakatomic,gasneti_weakatomic32_read,_gasneti_scalar_atomic_read,gasneti_weakatomic32_)
   GASNETI_ATOMIC_FENCED_CAS_DEFN(weakatomic,gasneti_weakatomic32_compare_and_swap,_gasneti_scalar_atomic_compare_and_swap,gasneti_weakatomic32_)
 
   /* Build gasneti_weakatomic64_t */
   _GASNETI_WEAKATOMIC_DEFN(weakatomic64,64)
   #define gasneti_weakatomic64_init        _gasneti_scalar_atomic_init
-  #define gasneti_weakatomic64_set(p,v,f)  GASNETI_ATOMIC_FENCED_SET(weakatomic,_gasneti_scalar_atomic_set,p,v,f)
+  #define gasneti_weakatomic64_set(p,v,f)  GASNETI_ATOMIC_FENCED_SET(weakatomic,_gasneti_scalar_atomic_set,gasneti_weakatomic64_,p,v,f)
   GASNETI_ATOMIC_FENCED_READ_DEFN(weakatomic,gasneti_weakatomic64_read,_gasneti_scalar_atomic_read,gasneti_weakatomic64_)
   GASNETI_ATOMIC_FENCED_CAS_DEFN(weakatomic,gasneti_weakatomic64_compare_and_swap,_gasneti_scalar_atomic_compare_and_swap,gasneti_weakatomic64_)
 #endif
