@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/17 22:17:10 $
- * $Revision: 1.190 $
+ *     $Date: 2006/05/18 17:33:45 $
+ * $Revision: 1.191 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1052,9 +1052,7 @@
       #define _GASNETI_GENATOMIC64_DEFN_EXTRA \
 	uint64_t gasneti_genatomic64_read(gasneti_genatomic64_t *p, const int flags) { \
 	  _gasneti_genatomic_fence_before_rmw(flags)  /* rmw is NOT a typo here */  \
-	  GASNETI_GENATOMIC_LOCK();                                                 \
 	  { const uint64_t retval = _gasneti_scalar_atomic_read(p);                 \
-	    GASNETI_GENATOMIC_UNLOCK();                                             \
 	    _gasneti_genatomic_fence_after_rmw(flags) /* rmw is NOT a typo here */  \
 	    return retval;                                                          \
 	  }                                                                         \
