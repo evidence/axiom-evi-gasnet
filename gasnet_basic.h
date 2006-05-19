@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/05/16 01:01:34 $
- * $Revision: 1.71 $
+ *     $Date: 2006/05/19 04:09:56 $
+ * $Revision: 1.72 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -89,6 +89,16 @@
 
 #define GASNETI_PAGE_ALIGNDOWN(p) (GASNETI_ALIGNDOWN(p,GASNET_PAGESIZE))
 #define GASNETI_PAGE_ALIGNUP(p)   (GASNETI_ALIGNUP(p,GASNET_PAGESIZE))
+
+/* GASNETI_CACHE_PAD() is distinct because we can't assert in a type definition */
+#if 0
+  /* This version can yield 0-byte padding, which upsets some compilers */
+  /* Read as GASNETI_ALIGNUP(SZ,GASNETI_CACHE_LINE_BYTES) - SZ */
+  #define GASNETI_CACHE_PAD(SZ) (((SZ+GASNETI_CACHE_LINE_BYTES-1)&~(GASNETI_CACHE_LINE_BYTES-1))-(SZ))
+#else
+  /* Read as GASNETI_ALIGNUP(SZ+1,GASNETI_CACHE_LINE_BYTES) - SZ */
+  #define GASNETI_CACHE_PAD(SZ) (((SZ+GASNETI_CACHE_LINE_BYTES)&~(GASNETI_CACHE_LINE_BYTES-1))-(SZ))
+#endif
 
 #ifndef GASNET_PAGESIZE
   #ifdef GASNETI_PAGESIZE
