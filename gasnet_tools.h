@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/05/19 05:46:58 $
- * $Revision: 1.81 $
+ *     $Date: 2006/05/19 06:32:54 $
+ * $Revision: 1.82 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -165,6 +165,7 @@
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
 #define GASNETT_USING_GENERIC_ATOMICOPS
 #endif
+#define GASNETT_PTR_CONFIG            GASNETI_PTR_CONFIG
 #define GASNETT_ATOMIC_CONFIG         GASNETI_ATOMIC_CONFIG
 #define GASNETT_ATOMIC32_CONFIG       GASNETI_ATOMIC32_CONFIG
 #define GASNETT_ATOMIC64_CONFIG       GASNETI_ATOMIC64_CONFIG
