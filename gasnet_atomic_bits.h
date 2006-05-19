@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/18 19:00:16 $
- * $Revision: 1.216 $
+ *     $Date: 2006/05/19 02:36:12 $
+ * $Revision: 1.217 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1926,9 +1926,15 @@
     #define GASNETI_GENATOMIC_UNLOCK() gasnet_hsl_unlock((gasnet_hsl_t*)gasneti_patomicop_lock)
 
     /* Name shift to avoid link conflicts between hsl and pthread versions */
+    #define gasneti_genatomic32_set                gasneti_hsl_atomic32_set
+    #define gasneti_genatomic32_increment          gasneti_hsl_atomic32_increment
+    #define gasneti_genatomic32_decrement          gasneti_hsl_atomic32_decrement
     #define gasneti_genatomic32_decrement_and_test gasneti_hsl_atomic32_decrement_and_test
     #define gasneti_genatomic32_compare_and_swap   gasneti_hsl_atomic32_compare_and_swap
     #define gasneti_genatomic32_addfetch           gasneti_hsl_atomic32_addfetch
+    #define gasneti_genatomic64_set                gasneti_hsl_atomic64_set
+    #define gasneti_genatomic64_increment          gasneti_hsl_atomic64_increment
+    #define gasneti_genatomic64_decrement          gasneti_hsl_atomic64_decrement
     #define gasneti_genatomic64_decrement_and_test gasneti_hsl_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_hsl_atomic64_compare_and_swap
     #define gasneti_genatomic64_addfetch           gasneti_hsl_atomic64_addfetch
@@ -1948,9 +1954,15 @@
     #define GASNETI_GENATOMIC_UNLOCK() pthread_mutex_unlock(&gasneti_atomicop_mutex)
 
     /* Name shift to avoid link conflicts between hsl and pthread versions */
+    #define gasneti_genatomic32_set                gasneti_pthread_atomic32_set
+    #define gasneti_genatomic32_increment          gasneti_pthread_atomic32_increment
+    #define gasneti_genatomic32_decrement          gasneti_pthread_atomic32_decrement
     #define gasneti_genatomic32_decrement_and_test gasneti_pthread_atomic32_decrement_and_test
     #define gasneti_genatomic32_compare_and_swap   gasneti_pthread_atomic32_compare_and_swap
     #define gasneti_genatomic32_addfetch           gasneti_pthread_atomic32_addfetch
+    #define gasneti_genatomic64_set                gasneti_pthread_atomic64_set
+    #define gasneti_genatomic64_increment          gasneti_pthread_atomic64_increment
+    #define gasneti_genatomic64_decrement          gasneti_pthread_atomic64_decrement
     #define gasneti_genatomic64_decrement_and_test gasneti_pthread_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_pthread_atomic64_compare_and_swap
     #define gasneti_genatomic64_addfetch           gasneti_pthread_atomic64_addfetch
