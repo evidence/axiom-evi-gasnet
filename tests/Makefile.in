@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/05/18 20:35:10 $
-# $Revision: 1.85 $
+#     $Date: 2006/05/19 00:44:09 $
+# $Revision: 1.86 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -305,7 +305,7 @@ do-run-testexit: force
 	@echo "Complete. Starting execution..."
 	@./$(TESTEXIT_SCRIPT)
 
-KEEPTMP_CFLAGS = $(patsubst %,@KEEPTMP_CFLAGS@,$(KEEPTMPS))
+KEEPTMP_CFLAGS = `test -n '$(KEEPTMPS)' && echo @KEEPTMP_CFLAGS@`
 
 # testtools is a special minimal case for an app that just uses GASNet tools
 @BUILDCONFIG_DEBUG_FALSE@ TESTTOOLS_DEBUGFLAGS = -DNDEBUG
