@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/19 22:25:21 $
- * $Revision: 1.65 $
+ *     $Date: 2006/05/19 22:29:16 $
+ * $Revision: 1.66 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1012,6 +1012,15 @@ void * thread_fn(void *arg) {
       ly = valY[partner];
       if (lx < ly) ERR("pounding fenced set/read mismatch (rmb/wmb): lx=%i ly=%i", lx, ly);
     }
+
+    THREAD_BARRIER();
+
+    gasnett_atomic_set(&atomicX[id], 0, 0);
+    gasnett_atomic32_set(&atomicX32[id], 0, 0);
+    gasnett_atomic64_set(&atomicX64[id], 0, 0);
+    valY[id] = 0;
+    valY32[id] = 0;
+    valY64[id] = 0;
 
     THREAD_BARRIER();
 
