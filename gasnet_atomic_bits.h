@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/19 05:46:58 $
- * $Revision: 1.218 $
+ *     $Date: 2006/05/19 17:14:13 $
+ * $Revision: 1.219 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -503,6 +503,7 @@
         #define _gasneti_atomic_load_arg0	"movl 8(%ebp), %ecx	\n\t"
         #define _gasneti_atomic_load_arg1	"movl 12(%ebp), %eax	\n\t"
 	#define _gasneti_atomic_load_arg2	"movl 16(%ebp), %edx	\n\t"
+        #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
       #endif
 
       #define GASNETI_HAVE_ATOMIC32_T 1
@@ -1942,6 +1943,7 @@
       /* Need mutex on 64-bit read() to avoid word tearing */
       /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
       #define gasneti_genatomic64_read             gasneti_hsl_atomic64_read
+      #define gasneti_genatomic64_align 4 /* only need 4-byte alignment, not the default 8 */
     #endif
   #elif defined(_INCLUDED_GASNET_H)
     /* Case II: Empty HSLs in a GASNET_SEQ or GASNET_PARSYNC client w/o conduit-internal threads */
@@ -1970,6 +1972,7 @@
       /* Need mutex on 64-bit read() to avoid word tearing */
       /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
       #define gasneti_genatomic64_read             gasneti_pthread_atomic64_read
+      #define gasneti_genatomic64_align 4 /* only need 4-byte alignment, not the default 8 */
     #endif
   #else
     /* Case IV: Serial gasnet tools client. */
@@ -2177,11 +2180,7 @@
   #define gasneti_genatomic32_align 4
 #endif
 #ifndef gasneti_genatomic64_align
-  #ifdef GASNETI_HYBRID_ATOMIC64
-    #define gasneti_genatomic64_align 4
-  #else
-    #define gasneti_genatomic64_align 8
-  #endif
+  #define gasneti_genatomic64_align 8
 #endif
 
 /* ------------------------------------------------------------------------------------ */
