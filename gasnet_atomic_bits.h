@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/19 17:14:13 $
- * $Revision: 1.219 $
+ *     $Date: 2006/05/19 22:55:21 $
+ * $Revision: 1.220 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -823,11 +823,11 @@
     /* Since all 3 compilers are generating r-m-w with .acq variants, we can customize
      * the atomic fencing implementation by noting that "mf;; foo.acq" is a full memory
      * barrier both before and after. */
-    #define _gasneti_atomic_fence_before_rmw(flags) \
+    #define _gasneti_atomic_fence_before_rmw(p, flags) \
 	if (flags & (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)) gasneti_local_mb();
-    #define _gasneti_atomic_fence_after_rmw(flags) \
+    #define _gasneti_atomic_fence_after_rmw(p, flags) \
 	/* Nothing */
-    #define _gasneti_atomic_fence_after_bool(flags, val) \
+    #define _gasneti_atomic_fence_after_bool(p, flags, val) \
 	if (!(flags & (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST))) \
 	  { _gasneti_atomic_rmb_bool(flags, val) } 
   /* ------------------------------------------------------------------------------------ */
