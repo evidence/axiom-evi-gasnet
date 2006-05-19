@@ -140,8 +140,11 @@ do-pthreads-error:
 	@echo "       try re-running configure with --enable-pthreads"
 	@exit 1
 
+# bug1613: avoid automake infinite recursion here, because top-level Makefile includes this
+# fragment and also provides the rules for rebuilding config.status
+#$(MAKE) -C $(top_builddir)/other Makefile-libgasnet.mak
 $(top_builddir)/other/Makefile-libgasnet.mak: $(top_srcdir)/other/Makefile-libgasnet.mak.in
-	$(MAKE) -C $(top_builddir)/other Makefile-libgasnet.mak
+	cd $(top_builddir) && CONFIG_FILES=other/Makefile-libgasnet.mak CONFIG_HEADERS= ./config.status
 
 @GNU_NM_TRUE@check-exports: $(libraries)
 @GNU_NM_TRUE@	@echo Checking libgasnet exports...
