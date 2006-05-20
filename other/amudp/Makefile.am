@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.am,v $
-#     $Date: 2006/05/19 06:27:37 $
-# $Revision: 1.37 $
+#     $Date: 2006/05/20 06:34:33 $
+# $Revision: 1.38 $
 # Description: Makefile for AMUDP/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -127,7 +127,7 @@ amudprun$(EXEEXT): amudprun.o $(headers) libamudp.a
 	$(cxxcompile) -o $@ -c $<
 
 $(top_builddir)/libgasnet_tools-seq.a: force
-	@$(MAKE) -C $(top_builddir) libgasnet_tools-seq.a
+	@cd $(top_builddir) && $(MAKE) libgasnet_tools-seq.a
 
 if USE_UDP_CONDUIT
 if GNU_NM

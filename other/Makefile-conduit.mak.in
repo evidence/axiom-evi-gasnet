@@ -30,7 +30,7 @@ seq par parsync: force
 	@$(MAKE) $(CONDUIT_NAME)-$@.mak libgasnet-$(CONDUIT_NAME)-$@.a
 	@for dir in $(SUBDIRS) ; do 		\
 	  if test "$$dir" != "." ; then 	\
-	    $(MAKE) -C $$dir all || exit 1 ; 	\
+	    ( cd $$dir && $(MAKE) all ) || exit 1 ; 	\
 	  fi ;					\
 	 done
 
@@ -214,16 +214,16 @@ do-error:
 	@exit 1
 
 $(top_builddir)/other/Makefile-conduit.mak: $(top_srcdir)/other/Makefile-conduit.mak.in
-	$(MAKE) -C $(top_builddir)/other Makefile-conduit.mak
+	cd $(top_builddir)/other && $(MAKE) Makefile-conduit.mak
 
 $(top_builddir)/other/fragment-body.mak: $(top_srcdir)/other/fragment-body.mak.in
-	$(MAKE) -C $(top_builddir)/other fragment-body.mak
+	cd $(top_builddir)/other && $(MAKE) fragment-body.mak
 
 $(top_builddir)/other/fragment-head.mak: $(top_srcdir)/other/fragment-head.mak.in
-	$(MAKE) -C $(top_builddir)/other fragment-head.mak
+	cd $(top_builddir)/other && $(MAKE) fragment-head.mak
 
 $(top_builddir)/tests/Makefile: $(top_srcdir)/tests/Makefile.in
-	$(MAKE) -C $(top_builddir)/tests Makefile
+	cd $(top_builddir)/tests && $(MAKE) Makefile
 
 Makefile: $(srcdir)/Makefile.am 			\
           $(top_builddir)/other/Makefile-conduit.mak 	\

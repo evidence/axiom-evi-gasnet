@@ -141,7 +141,7 @@ do-pthreads-error:
 
 # bug1613: avoid automake infinite recursion here, because top-level Makefile includes this
 # fragment and also provides the rules for rebuilding config.status
-#$(MAKE) -C $(top_builddir)/other Makefile-libgasnet.mak
+#cd $(top_builddir)/other && $(MAKE) Makefile-libgasnet.mak
 $(top_builddir)/other/Makefile-libgasnet.mak: $(top_srcdir)/other/Makefile-libgasnet.mak.in
 	cd $(top_builddir) && CONFIG_FILES=other/Makefile-libgasnet.mak CONFIG_HEADERS= ./config.status
 
