@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2006/04/18 13:10:59 $
- * $Revision: 1.42 $
+ *     $Date: 2006/05/20 13:23:37 $
+ * $Revision: 1.43 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,7 +18,11 @@
 #include <sys/mman.h>
 
 #if defined(IRIX)
-  #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_SGI_ANYADDR | MAP_AUTORESRV)
+  #ifdef MAP_SGI_ANYADDR /* allow mmap to use 'reserved' 256MB region on O2k */
+    #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_SGI_ANYADDR | MAP_AUTORESRV)
+  #else
+    #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
+  #endif
   #define GASNETI_MMAP_FILE "/dev/zero"
 #elif defined(__crayx1)
   #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
