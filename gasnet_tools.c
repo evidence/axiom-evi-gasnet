@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/05/19 05:46:58 $
- * $Revision: 1.167 $
+ *     $Date: 2006/05/21 10:32:23 $
+ * $Revision: 1.168 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,6 +177,8 @@ GASNETI_IDENT(gasnett_IdentString_SystemTuple,
              "$GASNetSystemTuple: " GASNETI_SYSTEM_TUPLE " $");
 GASNETI_IDENT(gasnett_IdentString_SystemName, 
              "$GASNetSystemName: " GASNETI_SYSTEM_NAME " $");
+GASNETI_IDENT(gasnett_IdentString_CompilerID, 
+             "$GASNetCompilerID: " PLATFORM_COMPILER_IDSTR " $");
 
 int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREADMODEL) = 1;
 int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG) = 1;

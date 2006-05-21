@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/05/19 04:09:56 $
- * $Revision: 1.72 $
+ *     $Date: 2006/05/21 10:32:23 $
+ * $Revision: 1.73 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,6 +16,7 @@
 /* ------------------------------------------------------------------------------------ */
 /* must precede everything else to ensure correct operation */
 #include "portable_inttypes.h"
+#include "portable_platform.h"
 
 /* include files that may conflict with macros defined later */
 #ifdef HAVE_SYS_PARAM_H
