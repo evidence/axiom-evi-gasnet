@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/19 22:55:21 $
- * $Revision: 1.220 $
+ *     $Date: 2006/05/22 17:46:31 $
+ * $Revision: 1.221 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -366,7 +366,7 @@
           __asm__ __volatile__(
 	          GASNETI_X86_LOCK_PREFIX
 		  "decl %0		\n\t"
-		  "sete %b1"
+		  "sete %1"
 	          : "=m" (v->ctr), "=qm" (retval)
 	          : "m" (v->ctr) 
                   : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
@@ -381,7 +381,7 @@
         __asm__ __volatile__ (
 		GASNETI_X86_LOCK_PREFIX
 		"cmpxchgl %3, %1	\n\t"
-		"sete %b0"
+		"sete %0"
 		: "=qm" (retval), "=m" (v->ctr), "=a" (readval)
 		: "r" (newval), "m" (v->ctr), "a" (oldval)
 		: "cc" GASNETI_ATOMIC_MEM_CLOBBER);
@@ -417,7 +417,7 @@
           __asm__ __volatile__ (
 		    GASNETI_X86_LOCK_PREFIX
 		    "cmpxchgq %3, %1	\n\t"
-		    "sete %b0"
+		    "sete %0"
 		    : "=q" (retval), "=m" (p->ctr), "=a" (readval)
 		    : "r" (newval), "m" (p->ctr), "a" (oldval)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
@@ -448,7 +448,7 @@
 		    "xchgl	%2, %%ebx	\n\t"
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
-		    "sete	%b2		\n\t"
+		    "sete	%2		\n\t"
 		    "andl	$255, %k2"
 		    : "=m" (p->ctr), "+&A" (oldval), "+&q" (retval)
 		    : "m" (p->ctr)
@@ -496,7 +496,7 @@
       #if defined(__x86_64__) || defined(__amd64)
         #define _gasneti_atomic_addr		"(%rdi)"
         #define _gasneti_atomic_load_arg0	""	/* arg0 in rdi */
-        #define _gasneti_atomic_load_arg1	"movl %esi, %eax	\n\t"
+        #define _gasneti_atomic_load_arg1	"movq %rsi, %rax	\n\t"
 	#define _gasneti_atomic_load_arg2	""	/* arg2 in rdx */
       #else
         #define _gasneti_atomic_addr		"(%ecx)"
