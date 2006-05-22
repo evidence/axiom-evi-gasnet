@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/22 18:50:11 $
- * $Revision: 1.222 $
+ *     $Date: 2006/05/22 21:33:42 $
+ * $Revision: 1.223 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -453,7 +453,7 @@
 		    "xchgl	%2, %%ebx	\n\t"
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
-		    "sete " GASNETI_X86_LO(2)
+		    "sete " GASNETI_X86_LO(2)	"\n\t"
 		    "andl	$255, %k2"
 		    : "=m" (p->ctr), "+&A" (oldval), "+&q" (retval)
 		    : "m" (p->ctr)
@@ -2019,19 +2019,24 @@
         }                                                                 \
         GASNETI_CONSTP(stem##hash_lookup)
     #define GASNETI_ATOMIC_LOCK_TBL_DEFNS(stem,type)                      \
-        /* XXX: We'd like the tbl size to be overridable via env var. */  \
-        /*      Ideally we'd use gasneti_getenv_int_withdefault().    */  \
-        /*      However, we don't have that in tools clients.         */  \
         uintptr_t stem##tbl_mask = 0;                                     \
         stem##tbl_t *stem##tbl = NULL;                                    \
         GASNETI_NEVER_INLINE(stem##tbl_init,                              \
                              extern void stem##tbl_init(void)) {          \
           static type##t stem##tbl_lock = _gasneti_atomic_lock_initializer; \
-          static int stem##tbl_size = 256; /* XXX: see note above */      \
+          static int stem##tbl_size = 256; /* default value */            \
           type##lock(&stem##tbl_lock);                                    \
           if (stem##tbl_mask == 0) {                                      \
             int i;                                                        \
-            gasneti_assert_always(GASNETI_POWEROFTWO(stem##tbl_size));    \
+            /* Ideally we'd use gasneti_getenv_int_withdefault().    */   \
+            /* However, we don't have that in tools clients.         */   \
+            const char * s =                                              \
+                _gasneti_atomic_lock_getenv("GASNET_ATOMIC_LOCK_TBLSZ");  \
+	    if (s != NULL) {                                              \
+               stem##tbl_size = atoi(s);                                  \
+	       if (!stem##tbl_size || !GASNETI_POWEROFTWO(stem##tbl_size))\
+		 gasneti_fatalerror("GASNET_ATOMIC_LOCK_TBLSZ='%s' is not a positive power of 2", s);\
+	    }                                                             \
             /* Over allocate to leave at least a cache line before and after */ \
             stem##tbl = _gasneti_atomic_lock_malloc((2 + stem##tbl_size)  \
                                                     * sizeof(stem##tbl_t)); \
