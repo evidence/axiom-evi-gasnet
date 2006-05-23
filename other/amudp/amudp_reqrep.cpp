@@ -1,24 +1,21 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2006/05/17 12:11:00 $
- * $Revision: 1.38 $
+ *     $Date: 2006/05/23 12:42:29 $
+ * $Revision: 1.39 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <portable_inttypes.h>
+#include <amudp_internal.h>
+
 #include <errno.h>
 #include <stdarg.h>
 #include <math.h>
 #include <time.h>
-#ifdef UNIX
+#if !PLATFORM_OS_MSWINDOWS
   #include <sys/time.h>
   #include <unistd.h>
   #include <fcntl.h>
 #endif
-
-#include <amudp.h>
-#include <amudp_internal.h>
-#include "socket.h"
 
 /* forward decls */
 static int AMUDP_RequestGeneric(amudp_category_t category, 
@@ -233,13 +230,14 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
  * the size of the next message waiting, not the total data
  * available on the socket. We need this to decide whether 
  * or not we have an incoming bulk message next on the queue
- * This works on Linux, but Win2K seems to fuck it up (despite the 
+ * This works on Linux, but Win2K seems to botch it (despite the 
  * fact their own Winsock spec says it returns the next message size)
  */
-#if defined(WIN32) || defined(CYGWIN)
+#if PLATFORM_OS_MSWINDOWS || PLATFORM_OS_CYGWIN
   #define BROKEN_IOCTL 1
-#elif defined(AIX) || defined(IRIX) || defined(FREEBSD) || defined(HPUX) || defined(MTA) || \
-      defined(OSF) || defined(DARWIN) || defined(MACOSX) || defined(SUPERUX) || defined(NETBSD) || defined(UNICOS)
+#elif PLATFORM_OS_AIX || PLATFORM_OS_IRIX || PLATFORM_OS_HPUX || PLATFORM_OS_MTA || \
+      PLATFORM_OS_TRU64 || PLATFORM_OS_DARWIN || PLATFORM_OS_SUPERUX || \
+      PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_UNICOS
   #define BROKEN_IOCTL 1 /*  seems these are broken too...  */
 #else 
   #define BROKEN_IOCTL 0 /*  at least Linux and Solaris work as documented */

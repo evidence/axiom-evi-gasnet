@@ -1,3 +1,10 @@
+/*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudprun.c,v $
+ *     $Date: 2006/05/23 12:42:29 $
+ * $Revision: 1.2 $
+ * Description: Stand-alone AMUDP job launcher
+ * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
+ */
+
 #include <amudp.h>
 #include <amudp_spmd.h>
 

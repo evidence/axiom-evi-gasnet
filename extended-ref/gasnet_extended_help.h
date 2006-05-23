@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/05/15 13:32:44 $
- * $Revision: 1.39 $
+ *     $Date: 2006/05/23 12:42:19 $
+ * $Revision: 1.40 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -118,13 +118,13 @@ typedef union {
   #endif
 } gasnete_anytype64_t;
 
-#if INTTYPES_16BIT_MISSING  /* deal with Cray's crappy lack of 16-bit types on some platforms */
+#if INTTYPES_16BIT_MISSING  /* deal with Cray's annoying lack of 16-bit types on some platforms */
   #define GASNETE_OMIT_WHEN_MISSING_16BIT(code) 
 #else
   #define GASNETE_OMIT_WHEN_MISSING_16BIT(code) code
 #endif
 
-#ifdef CRAYT3E /* T3E ridiculously sets the sizes of all unions above to 8 bytes */
+#if PLATFORM_ARCH_CRAYT3E /* T3E ridiculously sets the sizes of all unions above to 8 bytes */
   #define gasnete_anytype8_t  uint8_t
   #define gasnete_anytype32_t uint32_t
   #define gasnete_anytype64_t uint64_t

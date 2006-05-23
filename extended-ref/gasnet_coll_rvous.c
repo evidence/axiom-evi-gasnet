@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_coll_rvous.c,v $
- *     $Date: 2006/05/14 04:00:08 $
- * $Revision: 1.60 $
+ *     $Date: 2006/05/23 12:42:19 $
+ * $Revision: 1.61 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1555,7 +1555,7 @@ extern void gasnete_coll_init(const gasnet_image_t images[], gasnet_image_t my_i
 /*---------------------------------------------------------------------------------*/
 /* functions for generic ops */
 
-#ifdef __DECC /* bug525 workaround - prevent inliner resource exhaustion with -inline all */
+#if PLATFORM_COMPILER_COMPAQ_C /* bug525 workaround - prevent inliner resource exhaustion with -inline all */
   #pragma noinline (gasnete_coll_generic_alloc,gasnete_coll_generic_free,gasnete_coll_op_generic_init)
 #endif
 

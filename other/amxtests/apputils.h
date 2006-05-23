@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.h,v $
- *     $Date: 2006/05/11 09:43:42 $
- * $Revision: 1.16 $
+ *     $Date: 2006/05/23 12:42:31 $
+ * $Revision: 1.17 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -52,7 +52,7 @@
 #define FALSE 0
 #endif
 
-#ifdef _MSC_VER
+#if PLATFORM_COMPILER_MICROSOFT
   #pragma warning(disable: 4127)
 #endif
 

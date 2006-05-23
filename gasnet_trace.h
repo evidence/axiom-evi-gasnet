@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.h,v $
- *     $Date: 2006/05/15 13:32:42 $
- * $Revision: 1.54 $
+ *     $Date: 2006/05/23 12:42:14 $
+ * $Revision: 1.55 $
  * Description: GASNet Tracing Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -159,7 +159,7 @@ GASNETI_BEGIN_EXTERNC
   #else
     #define GASNETI_SRCLINE_TRACKING() GASNETI_TRACE_ENABLED(N)
   #endif
-  #ifdef CRAYT3E /* workaround a compiler bug */
+  #if PLATFORM_ARCH_CRAYT3E /* workaround a compiler bug */
     #define GASNETI_TRACE_SETSOURCELINE(filename, linenum) \
          gasneti_trace_setsourceline(filename, linenum) 
   #else
@@ -181,7 +181,7 @@ GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /* misc helpers for specific tracing scenarios */
-#ifdef GASNETI_PTR32 
+#if PLATFORM_ARCH_32 
   #define GASNETI_LADDRFMT "0x%08x"
   #define GASNETI_LADDRSTR(ptr) ((unsigned int)(uintptr_t)(ptr))
   #define GASNETI_RADDRFMT "(%i,0x%08x)"

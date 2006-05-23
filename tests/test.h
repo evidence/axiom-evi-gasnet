@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/05/11 09:43:56 $
- * $Revision: 1.91 $
+ *     $Date: 2006/05/23 12:42:39 $
+ * $Revision: 1.92 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -353,7 +353,7 @@ GASNETT_IDENT(GASNetT_IdentString_link_compiletime,
 GASNETT_IDENT(GASNetT_IdentString_HeapSz, 
  "$UPCRDefaultHeapSizes: UPC_SHARED_HEAP_OFFSET=0 UPC_SHARED_HEAP_SIZE=0 $");
 GASNETT_IDENT(GASNetT_IdentString_PthCnt, "$UPCRDefaultPthreadCount: 1 $");
-#ifdef GASNETI_PTR32
+#if PLATFORM_ARCH_32
   GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=( $");
 #else
   GASNETT_IDENT(GASNetT_IdentString_PtrSz, "$UPCRSizeof: void_ptr=, $");
@@ -434,7 +434,7 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
 
 #if defined(GASNET_PAR) || defined(GASNET_PARSYNC)
   /* Cheap (but functional!) pthread + gasnet barrier */
-  #if defined(__crayx1) || defined(__CYGWIN__)
+  #if PLATFORM_ARCH_CRAYX1 || PLATFORM_OS_CYGWIN
     /* pthread_cond is unreliable on some versions of these OS's - use semaphores */
     #include <semaphore.h>
     static void test_pthread_barrier(unsigned int local_pthread_count, int doGASNetbarrier) {
@@ -733,7 +733,7 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
 #endif /* TEST_GASNET_H */
 /* ------------------------------------------------------------------------------------ */
 /* test initialization boilerplate */
-#if defined(__alpha) || defined(_CRAYT3E)
+#if PLATFORM_ARCH_ALPHA || PLATFORM_ARCH_CRAYT3E
   #define TEST_SIG_INIT() gasnett_reghandler(SIGFPE, SIG_IGN)
 #else
   #define TEST_SIG_INIT()

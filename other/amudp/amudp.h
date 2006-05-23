@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2006/05/17 12:11:00 $
- * $Revision: 1.32 $
+ *     $Date: 2006/05/23 12:42:29 $
+ * $Revision: 1.33 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -8,7 +8,8 @@
 #ifndef __AMUDP_H
 #define __AMUDP_H
 
-#include "portable_inttypes.h"
+#include <portable_inttypes.h>
+#include <portable_platform.h>
 
 #ifdef UETH
   #include <ueth.h>
@@ -16,8 +17,8 @@
   #include <socket.h>
 #endif
 
-#include <stdio.h> /* FILE* */
 #include <stdarg.h>
+#include <stddef.h>
 
 /* miscellaneous macro helpers */
 #define _STRINGIFY_HELPER(x) #x
@@ -37,9 +38,10 @@
 #define AMUDP_MAX_MEDIUM   512   /* max. data transmission unit for medium messages, >= 512 */
 #ifdef UETH
   #define AMUDP_MAX_LONG     (AMUDP_MAX_MEDIUM*256)  /* max. data size for xfer and get operations >= 8192 */
-#elif defined(__sgi) || defined(__sgi__)
+#elif PLATFORM_OS_IRIX
   #define AMUDP_MAX_LONG     61000  /* max. UDP datagram on IRIX is apparently 61412 */
-#elif defined(__osf__) || defined(__FreeBSD__) || defined(DARWIN) || defined(MACOSX) || defined(_AIX) || defined(__NetBSD__)
+#elif PLATFORM_OS_TRU64 || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || \
+      PLATFORM_OS_DARWIN || PLATFORM_OS_AIX
   #define AMUDP_MAX_LONG     9000   /* max UDP datagram on OSF/FREEBSD/DARWIN is apparently 9196 */
 #else
   #define AMUDP_MAX_LONG     65000  /* default max. UDP datagram */
@@ -380,8 +382,8 @@ extern int AMUDP_SetUDPInterface(uint32_t IPAddress);
 extern int AMUDP_GetEndpointStatistics(ep_t ep, amudp_stats_t *stats); /* get ep counters */
 extern int AMUDP_ResetEndpointStatistics(ep_t ep); /* reset ep counters */
 extern int AMUDP_AggregateStatistics(amudp_stats_t *runningsum, amudp_stats_t *newvalues); 
-  /* aggregate statistics - augment running sum with the given values */
-extern const char *AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int globalAnalysis); 
+  /* aggregate statistics - augment running sum with the given values (fp is a FILE *) */
+extern const char *AMUDP_DumpStatistics(void *fp, amudp_stats_t *stats, int globalAnalysis); 
   /* output stats to fp (if non-null) in human-readable form.
    * return a pointer to the same output in an internal static buffer (rewritten on each call)
    * pass globalAnalysis non-zero if stats is a global agreggation across all nodes

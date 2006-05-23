@@ -1,15 +1,14 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/05/11 12:01:25 $
- * $Revision: 1.40 $
+ *     $Date: 2006/05/23 12:42:27 $
+ * $Revision: 1.41 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <portable_inttypes.h>
+#include <ammpi_internal.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <ammpi_internal.h>
 
 /* definitions for internal declarations */
 int ammpi_Initialized = 0;
@@ -262,13 +261,13 @@ static int AMMPI_FreeEndpointBuffers(ep_t ep) {
           if (*rxh != MPI_REQUEST_NULL) {
             MPI_Status mpistatus;
             retval &= MPI_SAFE_NORETURN(MPI_Cancel(rxh));
-            #ifdef CRAYT3E
+            #if PLATFORM_ARCH_CRAYT3E
               /* Cray MPI implementation sometimes hangs forever if you cancel-wait */
               retval &= MPI_SAFE_NORETURN(MPI_Request_free(rxh));
-            #elif defined(__LIBCATAMOUNT__) && MPI_VERSION == 1
+            #elif PLATFORM_OS_CATAMOUNT && MPI_VERSION == 1
               /* Sandia MPI implementation hangs on cancel-wait */
               retval &= MPI_SAFE_NORETURN(MPI_Request_free(rxh));
-            #elif defined(_AIX)
+            #elif PLATFORM_OS_AIX
               /* AIX 5.2 32-bit MPI implementation is unreliable for cancel-wait
                  (frequent crashes observed for Titanium shutdown on 
                   MPI-over-LAPI 3.5.0.15, for 2 or more nodes) */
@@ -378,7 +377,7 @@ static int AMMPI_freeSendBufferPool(ammpi_sendbuffer_pool_t* pool) {
            * implementations screw this up
            */
           retval &= MPI_SAFE_NORETURN(MPI_Cancel(&pool->txHandle[i]));
-          #ifdef CRAYT3E
+          #if PLATFORM_ARCH_CRAYT3E
             /* Cray MPI implementation sometimes hangs forever if you cancel-wait */
             retval &= MPI_SAFE_NORETURN(MPI_Request_free(&pool->txHandle[i]));
           #else
@@ -496,7 +495,7 @@ extern int AMMPI_ReapSendCompletions(ammpi_sendbuffer_pool_t* pool) {
     int doneidx = pool->tmpIndexArray[i];
     int activeidx = pool->numActive-1;
     AMMPI_assert(doneidx >= 0 && doneidx < pool->numActive);
-    #ifdef _AIX
+    #if PLATFORM_OS_AIX
       /* Some versions of IBM MPI fail to set MPI_REQUEST_NULL as required by MPI_Testsome,
          and also apparently fail to reclaim the resources associated with the request */
       if (pool->txHandle[doneidx] != MPI_REQUEST_NULL) {
@@ -1227,7 +1226,8 @@ extern int AMMPI_AggregateStatistics(ammpi_stats_t *runningsum, ammpi_stats_t *n
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
-extern const char *AMMPI_DumpStatistics(FILE *fp, ammpi_stats_t *stats, int globalAnalysis) {
+extern const char *AMMPI_DumpStatistics(void *_fp, ammpi_stats_t *stats, int globalAnalysis) {
+  FILE *fp = (FILE *)_fp;
   static char msg[4096];
   int64_t packetssent; 
   int64_t requestsSent = 0; 

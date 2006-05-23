@@ -1,26 +1,29 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2006/05/17 12:11:00 $
- * $Revision: 1.31 $
+ *     $Date: 2006/05/23 12:42:29 $
+ * $Revision: 1.32 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <portable_inttypes.h>
+#include <amudp_internal.h>
+#include <amudp_spmd.h>
+
 #include <errno.h>
 #include <stdio.h>
-#if defined(WIN32) && !defined(UNIX)
+#if PLATFORM_OS_MSWINDOWS
   #define sched_yield() Sleep(0)
   #define sleep(x) Sleep(x*1000)
   #include <process.h>
 #else
   #include <unistd.h>
-  #if defined(_CRAYT3E) || defined(_SX) || defined(NETBSD) || defined(__MTA__) || defined(__blrts__)
-    /* these both implement sched_yield() in libpthread only, which we may not want */
+  #if PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
+      PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT
+    /* these implement sched_yield() in libpthread only, which we may not want */
     #define sched_yield() sleep(0)
   #else
     #include <sched.h>
   #endif
-  #if defined(LINUX) && !defined(__USE_GNU)
+  #if PLATFORM_OS_LINUX && !defined(__USE_GNU)
     /* some Linuxes need this to pull in F_SETSIG */
     #define __USE_GNU
     #include <fcntl.h>
@@ -32,9 +35,6 @@
 
 extern char **environ; 
 
-#include <amudp.h>
-#include <amudp_spmd.h>
-#include <amudp_internal.h>
 #include "sockutil.h"
 #include "socklist.h"
 #include "sig.h"
@@ -991,7 +991,7 @@ extern int AMUDP_SPMDStartup(int *argc, char ***argv,
               setvbuf(stdout, NULL, _IONBF, 0);
               setvbuf(stderr, NULL, _IONBF, 0);
             #endif
-            #if defined(WIN32) && !defined(UNIX)
+            #if PLATFORM_OS_MSWINDOWS
               #if 0
               // not sure how to do this on Win32 yet - maybe use _fdopen() and/or _fileno()
               { FILE* newf;

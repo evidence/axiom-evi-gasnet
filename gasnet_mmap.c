@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2006/05/20 13:23:37 $
- * $Revision: 1.43 $
+ *     $Date: 2006/05/23 12:42:14 $
+ * $Revision: 1.44 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,21 +17,21 @@
 #ifdef HAVE_MMAP
 #include <sys/mman.h>
 
-#if defined(IRIX)
+#if PLATFORM_OS_IRIX
   #ifdef MAP_SGI_ANYADDR /* allow mmap to use 'reserved' 256MB region on O2k */
     #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_SGI_ANYADDR | MAP_AUTORESRV)
   #else
     #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
   #endif
   #define GASNETI_MMAP_FILE "/dev/zero"
-#elif defined(__crayx1)
+#elif PLATFORM_ARCH_CRAYX1
   #define GASNETI_MMAP_FLAGS (MAP_PRIVATE | MAP_AUTORESRV)
   #define GASNETI_MMAP_FILE "/dev/zero"
-#elif defined(_CRAYT3E)
+#elif PLATFORM_ARCH_CRAYT3E
   #error mmap not supported on Cray-T3E
-#elif defined(CYGWIN)
+#elif PLATFORM_OS_CYGWIN
   #error mmap not supported on Cygwin - it doesnt work properly
-#elif defined(HPUX)
+#elif PLATFORM_OS_HPUX
   #define GASNETI_MMAP_FLAGS (MAP_ANONYMOUS | MAP_NORESERVE | MAP_PRIVATE)
   #define GASNETI_MMAP_NOTFIXED_FLAG MAP_VARIABLE
 #endif
@@ -84,9 +84,9 @@ static void *gasneti_mmap_internal(void *segbase, uintptr_t segsize) {
         (ptr == MAP_FAILED?strerror(errno):"")));
 
   if (ptr == MAP_FAILED && errno != ENOMEM) {
-    #if defined(CYGWIN)
+    #if PLATFORM_OS_CYGWIN
       if (errno != EACCES) /* Cygwin stupidly returns EACCES for insuff mem */
-    #elif defined(SOLARIS)
+    #elif PLATFORM_OS_SOLARIS
       if (errno != EAGAIN) /* Solaris stupidly returns EAGAIN for insuff mem */
     #endif
     gasneti_fatalerror("unexpected error in mmap%s for size %lu: %s\n", 
@@ -115,7 +115,7 @@ extern void gasneti_munmap(void *segbase, uintptr_t segsize) {
   gasneti_tick_t t1, t2;
   gasneti_assert(segsize > 0);
   t1 = gasneti_ticks_now();
-    #if 0 && defined(OSF) /* doesn't seem to help */
+    #if 0 && PLATFORM_OS_TRU64 /* doesn't seem to help */
       /* invalidate the pages before unmap to avoid write-back penalty */
       if (madvise(segbase, segsize, MADV_DONTNEED))
         gasneti_fatalerror("madvise("GASNETI_LADDRFMT",%lu) failed: %s\n",
@@ -213,7 +213,7 @@ extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz) {
     si.size = maxsz;
     mmaped = 1;
   } else { /* use a search to find largest possible */
-    #if defined(OSF)
+    #if PLATFORM_OS_TRU64
       /* linear descending search best on systems with 
          fast mmap-failed and very slow unmap and/or mmap-succeed */
       si = gasneti_mmap_lineardesc_segsrch(maxsz);
@@ -274,7 +274,7 @@ uintptr_t _gasneti_max_segsize(uint64_t configure_val) {
     { const char *envstr = gasneti_getenv("GASNET_MAX_SEGSIZE");
       if (envstr) { tmp = gasneti_parse_int(envstr, 1); is_dflt = 0; }
     }
-    #ifdef GASNETI_PTR32
+    #if PLATFORM_ARCH_32
       /* need to be careful about 32-bit overflow: hard limit is 2^32 - pagesz */
       result = MIN(tmp,(uint32_t)-1);
     #else

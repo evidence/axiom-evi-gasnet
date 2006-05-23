@@ -1,12 +1,15 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_internal.h,v $
- *     $Date: 2006/05/11 12:01:25 $
- * $Revision: 1.37 $
+ *     $Date: 2006/05/23 12:42:27 $
+ * $Revision: 1.38 $
  * Description: AMMPI internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
 #ifndef _AMMPI_INTERNAL_H
 #define _AMMPI_INTERNAL_H
+
+#include <portable_inttypes.h>
+#include <portable_platform.h>
 
 /* ------------------------------------------------------------------------------------ */
 /* AMMPI system configuration parameters */
@@ -42,7 +45,7 @@
 #define AMMPI_LINEAR_SEND_COMPLETE  0   /* use linear algorithm to complete sends */
 #endif
 #ifndef AMMPI_MPIIRECV_ORDERING_BUGCHECK
-  #ifdef _AIX
+  #if PLATFORM_OS_AIX
     /* some MPI implementations intermittently fail to correctly maintain irecv ordering required by MPI spec
        number is how often to check for this bug */
     #define AMMPI_MPIIRECV_ORDERING_BUGCHECK 100
@@ -114,13 +117,10 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-
-#ifdef UNIX
-  #include <unistd.h>
-  #include <errno.h>
-  #include <time.h>
-  #include <sys/time.h>
-#endif
+#include <unistd.h>
+#include <errno.h>
+#include <time.h>
+#include <sys/time.h>
 
 #ifdef __AMMPI_H
 #error AMMPI library files should not include ammpi.h directly
@@ -128,10 +128,11 @@
 #include <ammpi.h>
 #include <mpi.h>
 
-#ifdef WIN32
+#if PLATFORM_OS_MSWINDOWS
   #define ammpi_sched_yield() Sleep(0)
   #define ammpi_usleep(x) Sleep(x)
-#elif defined(_CRAYT3E) || defined(_SX) || defined(__MTA__) || defined(__blrts__) || defined(__LIBCATAMOUNT__)
+#elif PLATFORM_ARCH_CRAYT3E || PLATFORM_OS_SUPERUX || PLATFORM_OS_NETBSD || \
+    PLATFORM_OS_MTA || PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT
   /* these implement sched_yield() in libpthread only, which we may not want */
   #include <unistd.h>
   #define ammpi_sched_yield() sleep(0)
@@ -141,7 +142,7 @@
   #define ammpi_sched_yield() sched_yield()
 #endif
 
-#if defined(__blrts__) || defined(__LIBCATAMOUNT__)
+#if PLATFORM_OS_BLRTS || PLATFORM_OS_CATAMOUNT
   /* lack working select */
   #define ammpi_usleep(timeoutusec) sleep(timeoutusec/1000000)
 #endif
@@ -465,10 +466,10 @@ AMMPI_BEGIN_EXTERNC
 /*------------------------------------------------------------------------------------
  * Error reporting
  *------------------------------------------------------------------------------------ */
-#ifdef _MSC_VER
+#if PLATFORM_COMPILER_MICROSOFT
   #pragma warning(disable: 4127)
 #endif
-#ifdef __SUNPRO_C
+#if PLATFORM_COMPILER_SUN
   #pragma error_messages(off, E_END_OF_LOOP_CODE_NOT_REACHED)
 #endif
 static const char *AMMPI_ErrorName(int errval) {
@@ -720,11 +721,11 @@ extern int AMMPI_PostRecvBuffer(ammpi_buf_t *rxBuf, MPI_Request *prxHandle, MPI_
   char volatile identName[] = identText;    \
   extern char *_##identName##_identfn() { return (char*)identName; } \
   static int _dummy_##identName = sizeof(_dummy_##identName)
-#if defined(_CRAYC)
+#if PLATFORM_COMPILER_CRAY
   #define AMMPI_IDENT(identName, identText) \
     AMMPI_PRAGMA(_CRI ident identText);     \
     _AMMPI_IDENT(identName, identText)
-#elif defined(__xlC__)
+#elif PLATFORM_COMPILER_XLC
     /* #pragma comment(user,"text...") 
          or
        _Pragma ( "comment (user,\"text...\")" );

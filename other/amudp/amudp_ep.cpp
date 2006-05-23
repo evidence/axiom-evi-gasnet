@@ -1,19 +1,17 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2006/05/17 12:11:00 $
- * $Revision: 1.22 $
+ *     $Date: 2006/05/23 12:42:29 $
+ * $Revision: 1.23 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <portable_inttypes.h>
+#include <amudp_internal.h>
+
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <signal.h>
-
-#include <amudp.h>
-#include <amudp_internal.h>
 
 /* definitions for internal declarations */
 int amudp_Initialized = 0;
@@ -191,7 +189,7 @@ extern int AMUDP_SetUDPInterface(uint32_t IPAddress) {
 /* ------------------------------------------------------------------------------------ */
 #if !defined(UETH) && USE_SOCKET_RECVBUFFER_GROW
   #if 0
-  #ifdef LINUX 
+  #if PLATFORM_OS_LINUX
     #include <linux/unistd.h>
     #include <linux/sysctl.h>
   #endif
@@ -212,7 +210,7 @@ extern int AMUDP_growSocketBufferSize(ep_t ep, int targetsize,
 
   #if 0 /* it appears this max means nothing */
   { int maxsize;
-    #ifdef LINUX 
+    #if PLATFORM_OS_LINUX
     { /*  try to determine the max we can use (reading /proc/sys/net/core/rmem_max may be more reliable) */
       int rmem_max[1] = { NET_CORE_RMEM_MAX };
       struct __sysctl_args args={&rmem_max,sizeof(rmem_max),&maxsize,sizeof(int),0,0};
@@ -948,7 +946,8 @@ extern int AMUDP_AggregateStatistics(amudp_stats_t *runningsum, amudp_stats_t *n
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
-extern const char *AMUDP_DumpStatistics(FILE *fp, amudp_stats_t *stats, int globalAnalysis) {
+extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int globalAnalysis) {
+  FILE *fp = (FILE *)_fp;
   static char msg[4096];
   int64_t packetssent; 
   int64_t requestsSent = 0; 

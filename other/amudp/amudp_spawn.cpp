@@ -1,13 +1,15 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spawn.cpp,v $
- *     $Date: 2006/05/11 09:43:40 $
- * $Revision: 1.14 $
+ *     $Date: 2006/05/23 12:42:29 $
+ * $Revision: 1.15 $
  * Description: AMUDP Implementations of SPMD spawn functions for various environments
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
 
-#include <portable_inttypes.h>
+#include <amudp_internal.h>
+#include <amudp_spmd.h>
+
 #include <errno.h>
-#if defined(WIN32) && !defined(UNIX)
+#if PLATFORM_OS_MSWINDOWS
   #include <winsock2.h>
   #include <windows.h>  
   #define sleep(x) Sleep(1000*x)
@@ -15,15 +17,11 @@
   #include <io.h>
   #include <direct.h>
 #endif
-#if defined(CRAYX1)
+#if PLATFORM_ARCH_CRAYX1
   #include <unistd.h>
   #include <sys/prctl.h>
   extern char **environ; 
 #endif
-
-#include <amudp_spmd.h>
-#include <amudp_internal.h>
-
 
 amudp_spawnfn_desc_t const AMUDP_Spawnfn_Desc[] = {
   { 'S',  "Spawn jobs using ssh remote shells", 
@@ -56,10 +54,10 @@ extern int AMUDP_SPMDLocalSpawn(int nproc, int argc, char **argv) {
   }
 
   for (i = 0; i < nproc; i++) {
-    #if defined(WIN32) && !defined(__CYGWIN__)
+    #if PLATFORM_OS_MSWINDOWS && !PLATFORM_OS_CYGWIN
       if (_spawnv(_P_NOWAIT, argv[0], argv) == -1)
         AMUDP_FatalErr("failed _spawnv()");
-    #elif defined(CRAYX1)
+    #elif PLATFORM_ARCH_CRAYX1
       { char **nargv = (char **)AMUDP_malloc(sizeof(char *)*(argc+2));
         nargv[0] = argv[0];
         memcpy(nargv+1,argv,argc*sizeof(char *));
@@ -490,7 +488,7 @@ int AMUDP_SPMDCustomSpawn(int nproc, int argc, char **argv) {
   AMUDP_SPMDRedirectStdsockets = spawn_route_output; 
 
   {
-  #ifdef UNIX
+  #if !PLATFORM_OS_MSWINDOWS
     int forkRet;
     forkRet = fork(); /* fork a new process to hold cmd master */
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2006/05/13 00:04:29 $
- * $Revision: 1.27 $
+ *     $Date: 2006/05/23 12:42:29 $
+ * $Revision: 1.28 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -8,11 +8,14 @@
 #ifndef _AMUDP_INTERNAL_H
 #define _AMUDP_INTERNAL_H
 
+#include <portable_inttypes.h>
+#include <portable_platform.h>
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
 
-#ifdef UNIX
+#if !PLATFORM_OS_MSWINDOWS
   #include <unistd.h>
   #include <errno.h>
 #endif
@@ -25,7 +28,7 @@
 #endif
 
 /* AMUDP system configuration parameters */
-#if defined(SUPERUX) || defined(HPUX)
+#if PLATFORM_OS_SUPERUX || PLATFORM_OS_HPUX
   /* broken on SuperUX due to a bad FIONREAD implementation, which causes numBytesWaiting to fail
      also seems to possibly be some issue with a redirected stdout always triggering select, even when
      no output is waiting
@@ -196,7 +199,7 @@ GASNETT_NORETURNP(AMUDP_FatalErr)
 /*------------------------------------------------------------------------------------
  * Error reporting
  *------------------------------------------------------------------------------------ */
-#ifdef _MSC_VER
+#if PLATFORM_COMPILER_MICROSOFT
   #pragma warning(disable: 4127)
 #endif
 static const char *AMUDP_ErrorName(int errval) {
@@ -408,11 +411,11 @@ extern volatile int AMUDP_SPMDIsActiveControlSocket;
   extern char volatile identName[];         \
   char volatile identName[] = identText;    \
   extern char *_##identName##_identfn() { return (char*)identName; } 
-#if defined(_CRAYC)
+#if PLATFORM_COMPILER_CRAY
   #define AMUDP_IDENT(identName, identText) \
     AMUDP_PRAGMA(_CRI ident identText);     \
     _AMUDP_IDENT(identName, identText)
-#elif defined(__xlC__)
+#elif PLATFORM_COMPILER_XLC
     /* #pragma comment(user,"text...") 
          or
        _Pragma ( "comment (user,\"text...\")" );
@@ -529,7 +532,7 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
   #define us2ticks(us)              ((amudp_cputick_t)(ueth_us_to_ticks(us)))
   #define tickspersec               ueth_ticks_per_second
 #else
-  #ifdef WIN32
+  #if PLATFORM_OS_MSWINDOWS
     static int64_t getMicrosecondTimeStamp() {
       static int status = -1;
       static double multiplier;
@@ -550,7 +553,7 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
         return (GetTickCount() * 1000);
       }
     }
-  /* #elif defined(__I386__) 
+  /* #elif PLATFORM_ARCH_X86
    * TODO: it would be nice to take advantage of the Pentium's "rdtsc" instruction,
    * which reads a fast counter incremented on each cycle. Unfortunately, that
    * requires a way to convert cycles to microseconds, and there doesn't appear to 
@@ -565,7 +568,7 @@ extern int myrecvfrom(SOCKET s, char * buf, int len, int flags,
       if (gettimeofday(&tv, NULL))
         AMUDP_FatalErr("gettimeofday failed: %s",strerror(errno));
       retval = ((int64_t)tv.tv_sec) * 1000000 + tv.tv_usec;
-      #ifdef __crayx1
+      #if PLATFORM_OS_UNICOS
         /* fix an empirically observed bug in UNICOS gettimeofday(),
            which occasionally returns ridiculously incorrect values
          */
