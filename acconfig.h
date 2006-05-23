@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/05/23 12:42:14 $ */
-/*  $Revision: 1.95 $ */
+/*      $Date: 2006/05/23 21:41:15 $ */
+/*  $Revision: 1.96 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -97,9 +97,6 @@
 
 /* has __func__ function name defined */
 #undef HAVE_FUNC
-
-/* PGI compiler, with full asm support */
-#undef PGI_WITH_REAL_ASM
 
 /* portable inttypes support */
 #undef HAVE_INTTYPES_H

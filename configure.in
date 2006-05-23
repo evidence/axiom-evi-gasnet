@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/23 12:42:14 $
-# $Revision: 1.359 $
+#     $Date: 2006/05/23 21:41:15 $
+# $Revision: 1.360 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.359 $)
+AC_REVISION($Revision: 1.360 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -390,29 +390,7 @@ case "$gasnet_cv_cc_family" in
                           [MISC_CFLAGS="$MISC_CFLAGS -wd1572"])
          ;;
   NEC) MISC_CFLAGS="-woff=68:111:174:177:236:301:550:940" ;; 
-  PGI) MISC_CFLAGS="-Masmkeyword -c9x" # get inline assembly and restrict
-       GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CFLAGS")
-       AC_MSG_CHECKING(for PGI true inline assembly support)
-       GASNET_TRY_CCOMPILE_WITHWARN([
-         #include <stdint.h>
-         uint64_t foo (void) {
-           uint64_t ret;
-           #if defined(__i386__)
-             __asm__ __volatile__("rdtsc" : "=A" (ret) : /* no inputs */); 
-           #elif defined(__x86_64__)
-             uint32_t lo, hi;
-             __asm__ __volatile__("rdtsc" : "=a" (lo), "=d" (hi) : /* no inputs */); 
-             ret = ((uint64_t)lo) | (((uint64_t)hi)<<32);
-           #else
-              #error unknown processor
-           #endif
-	   return ret;
-        }
-       ], [ ], [ AC_MSG_RESULT(yes) 
-                 AC_DEFINE(PGI_WITH_REAL_ASM)
-       ], [ AC_MSG_RESULT(no/warning) ], [ AC_MSG_RESULT(no/error)])
-       GASNET_POPVAR(CFLAGS)
-       ;;
+  PGI) MISC_CFLAGS="-Masmkeyword -c9x";; # get inline assembly and restrict
   MTA) MISC_CFLAGS="-display_error_number -WS 111,174,238" ;;
   Sun) if test "$target_cpu" = "sparc"; then 
          GASNET_GET_ULTRASPARC_FLAGS(C,["-xarch=v8plusb" "-xarch=v8plusa" "-xarch=v8plus"])
