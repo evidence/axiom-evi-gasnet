@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/05/23 12:42:14 $
- * $Revision: 1.36 $
+ *     $Date: 2006/05/24 18:37:51 $
+ * $Revision: 1.37 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -636,7 +636,7 @@ gasneti_atomic_val_t gasneti_semaphore_trydown_partial(gasneti_semaphore_t *s, g
   /* No threads, so we use the mutex code that compiles away. */
 #elif defined(GASNETI_USE_GENERIC_ATOMICOPS)
   /* If using mutexes, then just use the mutex code */
-#elif PLATFORM_ARCH_POWERPC
+#elif PLATFORM_ARCH_POWERPC && GASNETI_HAVE_ATOMIC_PTR_CAS
   /* Among the platforms we currently support, PPC is unique in having an LL/SC
    * construct which allows a load between the LL and the SC.
    */
