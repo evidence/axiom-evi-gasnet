@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/05/23 12:42:14 $
- * $Revision: 1.83 $
+ *     $Date: 2006/05/24 04:01:48 $
+ * $Revision: 1.84 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,23 +16,45 @@
          _both_ headers in ALL files that need either header  
 #endif
 
-/* GASNETT_THREAD_SAFE may be defined by client to enable thread-safety */
-#ifdef GASNETT_THREAD_SAFE
+/* Recognized definitions:
+   GASNETT_THREAD_SAFE - may be defined by client to enable thread-safety. Thread-safety is also
+      auto-enabled by _REENTRANT, _THREAD_SAFE and pthread.h
+   GASNETT_LITE_MODE - tools-lite mode, for tools-only clients that want threading neutrality
+      only provides the timer and membar interfaces
+*/
+#ifdef GASNETT_LITE_MODE
+  #undef GASNETT_LITE_MODE
+  #define GASNETT_LITE_MODE 1
+  #undef GASNETT_THREAD_SAFE
+  #define GASNETT_THREAD_MODEL LITE
+  #ifdef _INCLUDED_GASNET_H
+    #error GASNETT_LITE_MODE not supported for libgasnet clients
+  #endif
+#elif defined(GASNETT_THREAD_SAFE)
   #undef GASNETT_THREAD_SAFE
   #define GASNETT_THREAD_SAFE 1
   #define GASNETT_THREAD_MODEL PAR
-#elif defined(GASNET_PARSYNC) || defined(GASNET_PAR) || \
-      defined(_REENTRANT) || defined(_THREAD_SAFE) || \
-      defined(PTHREAD_MUTEX_INITIALIZER)
+#elif defined(GASNET_PARSYNC) || defined(GASNET_PAR) ||           \
+      (!defined(GASNET_SEQ) && !defined(GASNETI_THREAD_SINGLE) && \
+       (defined(_REENTRANT) || defined(_THREAD_SAFE) ||           \
+        defined(PTHREAD_MUTEX_INITIALIZER)))
   #define GASNETT_THREAD_SAFE 1
   #define GASNETT_THREAD_MODEL PAR
 #else
+  #undef GASNETT_THREAD_SAFE
   #define GASNETT_THREAD_MODEL SEQ
 #endif
 
 #include <gasnet_config.h>
 #include <gasnet_basic.h>
 #include <gasnet_toolhelp.h>
+
+/* following preserves include ordering of gasnet_help.h */
+#include <gasnet_membar.h>
+#if !GASNETT_LITE_MODE
+#include <gasnet_atomicops.h>
+#endif
+#include <gasnet_timer.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,15 +64,50 @@
 #include GASNETI_TOOLS_HELPER
 #endif
 
-#if defined(GASNET_NDEBUG)
-  #define GASNETT_DEBUG_CONFIG nodebug
-#else
-  #define GASNETT_DEBUG_CONFIG debug
+GASNETI_BEGIN_EXTERNC
+
+/* ------------------------------------------------------------------------------------ */
+/* basic purely syntactic features */
+#define GASNETT_IDENT(identName, identText) GASNETI_IDENT(identName, identText)
+
+#if defined(GASNET_PAGESIZE)
+  #define GASNETT_PAGESIZE GASNET_PAGESIZE
+#elif defined(GASNETI_PAGESIZE)
+  #define GASNETT_PAGESIZE GASNETI_PAGESIZE
 #endif
+
+#if defined(GASNETI_PAGESHIFT)
+  #define GASNETT_PAGESHIFT GASNETI_PAGESHIFT
+#endif
+
+#define GASNETT_CACHE_LINE_BYTES GASNETI_CACHE_LINE_BYTES
+#define GASNETT_SYSTEM_TUPLE     GASNETI_SYSTEM_TUPLE
+#define GASNETT_CONFIGURE_ARGS   GASNETI_CONFIGURE_ARGS
+
+/* various configure-detected C compiler features available in only some compilers */
+#define GASNETT_INLINE                  GASNETI_INLINE
+#define GASNETT_ALWAYS_INLINE           GASNETI_ALWAYS_INLINE
+#define GASNETT_PLEASE_INLINE           GASNETI_PLEASE_INLINE
+#define GASNETT_NEVER_INLINE            GASNETI_NEVER_INLINE
+#define GASNETT_RESTRICT                GASNETI_RESTRICT
+#define GASNETT_NORETURN                GASNETI_NORETURN
+#define GASNETT_NORETURNP               GASNETI_NORETURNP
+#define GASNETT_MALLOC                  GASNETI_MALLOC
+#define GASNETT_MALLOCP                 GASNETI_MALLOCP
+#define GASNETT_PURE                    GASNETI_PURE
+#define GASNETT_PUREP                   GASNETI_PUREP
+#define GASNETT_CONST                   GASNETI_CONST
+#define GASNETT_CONSTP                  GASNETI_CONSTP
+#define GASNETT_WARN_UNUSED_RESULT      GASNETI_WARN_UNUSED_RESULT
+#define GASNETT_FORMAT_PRINTF           GASNETI_FORMAT_PRINTF
+
+#define GASNETT_CURRENT_FUNCTION        GASNETI_CURRENT_FUNCTION
+
+#define GASNETT_BEGIN_EXTERNC           GASNETI_BEGIN_EXTERNC
+#define GASNETT_END_EXTERNC             GASNETI_END_EXTERNC
+#define GASNETT_EXTERNC                 GASNETI_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 /* portable memory barriers */
-
-#include <gasnet_membar.h>
 
 #define gasnett_local_wmb()          gasneti_local_wmb()
 #define gasnett_local_rmb()          gasneti_local_rmb()
@@ -58,9 +115,25 @@
 #define gasnett_compiler_fence()     gasneti_compiler_fence()
 
 /* ------------------------------------------------------------------------------------ */
-/* portable atomic increment/decrement */
+/* portable high-performance, low-overhead timers */
 
-#include <gasnet_atomicops.h>
+#define gasnett_tick_t               gasneti_tick_t
+#define GASNETT_TICK_MIN             GASNETI_TICK_MIN
+#define GASNETT_TICK_MAX             GASNETI_TICK_MAX
+#define gasnett_ticks_to_us(ticks)  (gasneti_ticks_to_ns(ticks)/1000)
+#define gasnett_ticks_to_ns(ticks)   gasneti_ticks_to_ns(ticks)
+#define gasnett_ticks_now()          gasneti_ticks_now()
+#define gasnett_tick_granularityus() gasneti_tick_granularity()
+#define gasnett_tick_overheadus()    gasneti_tick_overhead()
+#define GASNETT_TIMER_CONFIG         GASNETI_TIMER_CONFIG
+#define gasnett_gettimeofday_us()    gasneti_gettimeofday_us()
+#ifdef GASNETI_USING_GETTIMEOFDAY
+#define GASNETT_USING_GETTIMEOFDAY 1
+#endif
+
+#if !GASNETT_LITE_MODE
+/* ------------------------------------------------------------------------------------ */
+/* portable atomic increment/decrement */
 
 #define GASNETT_ATOMIC_NONE			GASNETI_ATOMIC_NONE
 #define GASNETT_ATOMIC_RMB_PRE			GASNETI_ATOMIC_RMB_PRE
@@ -159,47 +232,16 @@
                                           gasneti_weakatomic64_compare_and_swap(p,oldval,newval,f)
 #endif
 
-/* tight spin loop CPU hint */
-#define gasnett_spinloop_hint()      gasneti_spinloop_hint() 
-
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
 #define GASNETT_USING_GENERIC_ATOMICOPS
 #endif
-#define GASNETT_PTR_CONFIG            GASNETI_PTR_CONFIG
 #define GASNETT_ATOMIC_CONFIG         GASNETI_ATOMIC_CONFIG
 #define GASNETT_ATOMIC32_CONFIG       GASNETI_ATOMIC32_CONFIG
 #define GASNETT_ATOMIC64_CONFIG       GASNETI_ATOMIC64_CONFIG
-#define GASNETT_CONFIG_STRING                    \
-       "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) "," \
-       _STRINGIFY(GASNETT_DEBUG_CONFIG) ","      \
-       _STRINGIFY(GASNETT_THREAD_MODEL) ","      \
-       _STRINGIFY(GASNETT_TIMER_CONFIG) ","      \
-       _STRINGIFY(GASNETT_ATOMIC_CONFIG) ","     \
-       _STRINGIFY(GASNETT_ATOMIC32_CONFIG) ","   \
-       _STRINGIFY(GASNETT_ATOMIC64_CONFIG)
 
 /* ------------------------------------------------------------------------------------ */
-/* portable high-performance, low-overhead timers */
+/* misc tools utilities */
 
-#include <gasnet_timer.h>
-
-#define gasnett_tick_t               gasneti_tick_t
-#define GASNETT_TICK_MIN             GASNETI_TICK_MIN
-#define GASNETT_TICK_MAX             GASNETI_TICK_MAX
-#define gasnett_ticks_to_us(ticks)  (gasneti_ticks_to_ns(ticks)/1000)
-#define gasnett_ticks_to_ns(ticks)   gasneti_ticks_to_ns(ticks)
-#define gasnett_ticks_now()          gasneti_ticks_now()
-#define gasnett_tick_granularityus() gasneti_tick_granularity()
-#define gasnett_tick_overheadus()    gasneti_tick_overhead()
-#define GASNETT_TIMER_CONFIG         GASNETI_TIMER_CONFIG
-#define gasnett_gettimeofday_us()    gasneti_gettimeofday_us()
-#ifdef GASNETI_USING_GETTIMEOFDAY
-#define GASNETT_USING_GETTIMEOFDAY 1
-#endif
-
-/* ------------------------------------------------------------------------------------ */
-
-/* misc */
 #define gasnett_sched_yield     gasneti_sched_yield 
 #define gasnett_cpu_count       gasneti_cpu_count
 #define gasnett_flush_streams   gasneti_flush_streams
@@ -215,47 +257,10 @@
 #define gasnett_parse_int       gasneti_parse_int
 #define gasneti_isLittleEndian  gasneti_isLittleEndian
 #define gasnett_set_affinity    gasneti_set_affinity
+#define gasnett_spinloop_hint   gasneti_spinloop_hint
 
-#define GASNETT_IDENT(identName, identText) GASNETI_IDENT(identName, identText)
-
-#if defined(GASNET_PAGESIZE)
-  #define GASNETT_PAGESIZE GASNET_PAGESIZE
-#elif defined(GASNETI_PAGESIZE)
-  #define GASNETT_PAGESIZE GASNETI_PAGESIZE
-#endif
-
-#if defined(GASNETI_PAGESHIFT)
-  #define GASNETT_PAGESHIFT GASNETI_PAGESHIFT
-#endif
-
-#define GASNETT_CACHE_LINE_BYTES GASNETI_CACHE_LINE_BYTES
-
-/* various configure-detected C compiler features available in only some compilers */
-#define GASNETT_INLINE                  GASNETI_INLINE
-#define GASNETT_ALWAYS_INLINE           GASNETI_ALWAYS_INLINE
-#define GASNETT_PLEASE_INLINE           GASNETI_PLEASE_INLINE
-#define GASNETT_NEVER_INLINE            GASNETI_NEVER_INLINE
-#define GASNETT_RESTRICT                GASNETI_RESTRICT
-#define GASNETT_NORETURN                GASNETI_NORETURN
-#define GASNETT_NORETURNP               GASNETI_NORETURNP
-#define GASNETT_MALLOC                  GASNETI_MALLOC
-#define GASNETT_MALLOCP                 GASNETI_MALLOCP
-#define GASNETT_PURE                    GASNETI_PURE
-#define GASNETT_PUREP                   GASNETI_PUREP
-#define GASNETT_CONST                   GASNETI_CONST
-#define GASNETT_CONSTP                  GASNETI_CONSTP
-#define GASNETT_WARN_UNUSED_RESULT      GASNETI_WARN_UNUSED_RESULT
-#define GASNETT_FORMAT_PRINTF           GASNETI_FORMAT_PRINTF
-
-#define GASNETT_CURRENT_FUNCTION        GASNETI_CURRENT_FUNCTION
-
-#define GASNETT_BEGIN_EXTERNC           GASNETI_BEGIN_EXTERNC
-#define GASNETT_END_EXTERNC             GASNETI_END_EXTERNC
-#define GASNETT_EXTERNC                 GASNETI_EXTERNC
 /* ------------------------------------------------------------------------------------ */
-
-/* misc internal GASNet things we wish to expose when available */
-GASNETI_BEGIN_EXTERNC
+/* GASNet tracing/stats support (automatically stubbed out when libgasnet absent) */
 
 #if defined(_INCLUDED_GASNET_H) && defined(GASNET_SRCLINES)
   #define GASNETT_TRACE_SETSOURCELINE      GASNETI_TRACE_SETSOURCELINE
@@ -314,6 +319,8 @@ GASNETI_BEGIN_EXTERNC
   #define GASNETT_STATS_SETMASK(mask) ((void)0)
 #endif
 
+/* ------------------------------------------------------------------------------------ */
+/* misc internal libgasnet-specific features we wish to expose when available */
 #if defined(_INCLUDED_GASNET_H) 
   /* these tools ONLY available when linking a libgasnet.a */
   #ifdef HAVE_MMAP
@@ -389,27 +396,55 @@ GASNETI_BEGIN_EXTERNC
   #endif
 #endif
 
+#endif /* !GASNETT_LITE_MODE */
 /* ------------------------------------------------------------------------------------ */
 /* Build config sanity checking */
+#if defined(GASNET_NDEBUG)
+  #define GASNETT_DEBUG_CONFIG nodebug
+#else
+  #define GASNETT_DEBUG_CONFIG debug
+#endif
+#define GASNETT_PTR_CONFIG            GASNETI_PTR_CONFIG
+
+#define _GASNETT_LITE_CONFIG_STRING              \
+       "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) "," \
+       _STRINGIFY(GASNETT_DEBUG_CONFIG) ","      \
+       _STRINGIFY(GASNETT_THREAD_MODEL) ","      \
+       _STRINGIFY(GASNETT_TIMER_CONFIG)
+#if GASNETT_LITE_MODE
+  #define GASNETT_CONFIG_STRING _GASNETT_LITE_CONFIG_STRING
+#else
+  #define GASNETT_CONFIG_STRING                \
+       _GASNETT_LITE_CONFIG_STRING ","         \
+       _STRINGIFY(GASNETT_ATOMIC_CONFIG) ","   \
+       _STRINGIFY(GASNETT_ATOMIC32_CONFIG) "," \
+       _STRINGIFY(GASNETT_ATOMIC64_CONFIG)
+
+#endif
+
 #define GASNETT_LINKCONFIG_IDIOTCHECK(name) _CONCAT(gasnett_linkconfig_idiotcheck_,name)
-extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREADMODEL);
+extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREAD_MODEL);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_PTR_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG);
+#if !GASNETT_LITE_MODE
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC32_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC64_CONFIG);
+#endif
 static int *gasnett_linkconfig_idiotcheck();
 static int *(*_gasnett_linkconfig_idiotcheck)() = &gasnett_linkconfig_idiotcheck;
 static int *gasnett_linkconfig_idiotcheck() {
   static int val;
-  val +=  GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREADMODEL)
+  val +=  GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREAD_MODEL)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_PTR_CONFIG)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG)
+      #if !GASNETT_LITE_MODE
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC32_CONFIG)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC64_CONFIG)
+      #endif
         ;
   if (_gasnett_linkconfig_idiotcheck != gasnett_linkconfig_idiotcheck)
     val += *_gasnett_linkconfig_idiotcheck();

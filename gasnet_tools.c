@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/05/23 12:42:14 $
- * $Revision: 1.169 $
+ *     $Date: 2006/05/24 04:01:48 $
+ * $Revision: 1.170 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,6 +8,8 @@
 
 #if defined(GASNET_PARSYNC) || defined(GASNET_PAR) 
   #define GASNETT_THREAD_SAFE 1
+#elif defined(GASNET_SEQ)
+  #define GASNETI_THREAD_SINGLE 1
 #endif
 #undef GASNET_SEQ
 #undef GASNET_PAR
@@ -161,8 +163,8 @@ extern void gasneti_slow_local_mb() {
 
 /* ------------------------------------------------------------------------------------ */
 /* ident strings and idiot checks */
-#define GASNETT_THREADMODEL_STR _STRINGIFY(GASNETT_THREAD_MODEL)
-GASNETI_IDENT(gasnett_IdentString_ThreadModel, "$GASNetToolsThreadModel: " GASNETT_THREADMODEL_STR " $");
+#define GASNETT_THREAD_MODEL_STR _STRINGIFY(GASNETT_THREAD_MODEL)
+GASNETI_IDENT(gasnett_IdentString_ThreadModel, "$GASNetToolsThreadModel: " GASNETT_THREAD_MODEL_STR " $");
 
 GASNETI_IDENT(gasnett_IdentString_Config, "$GASNetToolsConfig: " GASNETT_CONFIG_STRING " $");
 
@@ -180,7 +182,8 @@ GASNETI_IDENT(gasnett_IdentString_SystemName,
 GASNETI_IDENT(gasnett_IdentString_CompilerID, 
              "$GASNetCompilerID: " PLATFORM_COMPILER_IDSTR " $");
 
-int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREADMODEL) = 1;
+int GASNETT_LINKCONFIG_IDIOTCHECK(LITE) = 1;
+int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREAD_MODEL) = 1;
 int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG) = 1;
 int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_PTR_CONFIG) = 1;
 int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG) = 1;

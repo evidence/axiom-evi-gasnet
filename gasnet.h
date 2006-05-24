@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/05/09 04:14:20 $
- * $Revision: 1.47 $
+ *     $Date: 2006/05/24 04:01:48 $
+ * $Revision: 1.48 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -32,15 +32,15 @@
 #if defined(GASNET_SEQ) && !defined(GASNET_PARSYNC) && !defined(GASNET_PAR)
   #undef GASNET_SEQ
   #define GASNET_SEQ 1
-  #define GASNETI_THREADMODEL SEQ
+  #define GASNETI_THREAD_MODEL SEQ
 #elif !defined(GASNET_SEQ) && defined(GASNET_PARSYNC) && !defined(GASNET_PAR)
   #undef GASNET_PARSYNC
   #define GASNET_PARSYNC 1
-  #define GASNETI_THREADMODEL PARSYNC
+  #define GASNETI_THREAD_MODEL PARSYNC
 #elif !defined(GASNET_SEQ) && !defined(GASNET_PARSYNC) && defined(GASNET_PAR)
   #undef GASNET_PAR
   #define GASNET_PAR 1
-  #define GASNETI_THREADMODEL PAR
+  #define GASNETI_THREAD_MODEL PAR
 #else
   #error Client code must #define exactly one of (GASNET_PAR, GASNET_PARSYNC, GASNET_SEQ) before #including gasnet.h
 #endif
@@ -124,7 +124,7 @@
 /* additional safety check, in case a very smart linker removes all of the checks at the end of this file */
 #define gasnet_init _CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT(_CONCAT( \
                     gasnet_init_GASNET_,                             \
-                    GASNETI_THREADMODEL),                            \
+                    GASNETI_THREAD_MODEL),                           \
                     GASNETI_SEGMENT_CONFIG),                         \
                     GASNETI_DEBUG_CONFIG),                           \
                     GASNETI_TRACE_CONFIG),                           \
@@ -328,7 +328,7 @@ GASNETI_END_EXTERNC
              "CONDUIT="                                                   \
              GASNET_CORE_NAME_STR "-" GASNET_CORE_VERSION_STR "/"         \
              GASNET_EXTENDED_NAME_STR "-" GASNET_EXTENDED_VERSION_STR "," \
-             "THREADMODEL=" _STRINGIFY(GASNETI_THREADMODEL) ","           \
+             "THREADMODEL=" _STRINGIFY(GASNETI_THREAD_MODEL) ","          \
              "SEGMENT=" _STRINGIFY(GASNETI_SEGMENT_CONFIG) ","            \
              "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) ","                    \
              _STRINGIFY(GASNETI_ALIGN_CONFIG) ","                         \
@@ -350,7 +350,7 @@ GASNETI_END_EXTERNC
  * often in very subtle and confusing ways (eg GASNet mutexes, threadinfo, etc.)
  */
 #define GASNETI_LINKCONFIG_IDIOTCHECK(name) _CONCAT(gasneti_linkconfig_idiotcheck_,name)
-extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREADMODEL);
+extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREAD_MODEL);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SEGMENT_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_DEBUG_CONFIG);
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG);
@@ -369,7 +369,7 @@ static int *gasneti_linkconfig_idiotcheck();
 static int *(*_gasneti_linkconfig_idiotcheck)() = &gasneti_linkconfig_idiotcheck;
 static int *gasneti_linkconfig_idiotcheck() {
   static int val;
-  val +=  GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREADMODEL)
+  val +=  GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREAD_MODEL)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_SEGMENT_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_DEBUG_CONFIG)
         + GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_TRACE_CONFIG)

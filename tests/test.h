@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/05/23 12:42:39 $
- * $Revision: 1.92 $
+ *     $Date: 2006/05/24 04:01:52 $
+ * $Revision: 1.93 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -826,8 +826,10 @@ static void _test_init(const char *testname, int reports_performance, int early,
       MSG0("WARNING: GASNET_TEST_POLITE_SYNC is set - enabling  \"polite\", low-performance synchronization algorithms");
       gasnet_set_waitmode(GASNET_WAIT_BLOCK);
     }
-    MSG0("=====> %s nprocs=%d config=%s",
-        testname, (int)gasnet_nodes(), GASNET_CONFIG_STRING);
+    MSG0("=====> %s nprocs=%d config=%s compiler=%s/%s sys=%s",
+        testname, (int)gasnet_nodes(), GASNET_CONFIG_STRING,
+        _STRINGIFY(PLATFORM_COMPILER_FAMILYNAME), PLATFORM_COMPILER_VERSION_STR,
+        GASNETT_SYSTEM_TUPLE);
     if (!early) {
       char hostname[255];
       TEST_SEG(gasnet_mynode()); /* ensure we got the segment requested */
@@ -839,8 +841,16 @@ static void _test_init(const char *testname, int reports_performance, int early,
       }
     }
   #else
-    MSG0("=====> %s config=%s",
-        testname, GASNETT_CONFIG_STRING);
+    { char hostname[255];
+      MSG0("=====> %s config=%s compiler=%s/%s sys=%s",
+          testname, GASNETT_CONFIG_STRING,
+          _STRINGIFY(PLATFORM_COMPILER_FAMILYNAME), PLATFORM_COMPILER_VERSION_STR,
+          GASNETT_SYSTEM_TUPLE);
+      if (!gethostname(hostname,255)) {
+        MSG("hostname is: %s (pid=%i)", hostname, (int)getpid());
+        fflush(NULL);
+      }
+    }
   #endif
   if (test_getenv_yesno("GASNET_VERBOSEENV",0)) MSG("%s running...", testname);
 }
