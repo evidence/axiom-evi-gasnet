@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/22 17:29:25 $
- * $Revision: 1.195 $
+ *     $Date: 2006/05/24 03:24:43 $
+ * $Revision: 1.196 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1162,7 +1162,7 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
   uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, const int flags) {
     if_pt (!((uintptr_t)p & 0x7)) {
       _gasneti_atomic_fence_before_read(p, flags)
-      { const uint64_t retval = _gasneti_atomic_read(p);
+      { const uint64_t retval = _gasneti_atomic64_read(p);
         _gasneti_atomic_fence_after_read(p, flags)
         return retval;
       }
