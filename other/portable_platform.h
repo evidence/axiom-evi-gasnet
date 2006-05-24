@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2006/05/23 12:42:25 $
- * $Revision: 1.3 $
+ *     $Date: 2006/05/24 01:23:23 $
+ * $Revision: 1.4 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -481,21 +481,25 @@
 
 #if defined(__ppc64) || defined(__ppc64__) || \
     defined(__PPC64) || defined(__PPC64__) || \
-    defined(__powerpc64) || defined(__powerpc64__) || \
-    defined(_ARCH_PPC64)
+    defined(__powerpc64) || defined(__powerpc64__) 
   #define PLATFORM_ARCH_POWERPC 1
   #define PLATFORM_ARCH_FAMILYNAME POWERPC
-  #define PLATFORM_ARCH_64 1
+  #define _PLATFORM_ARCH_64 1
   #define PLATFORM_ARCH_BIG_ENDIAN 1
 
-#elif defined(_POWER) || defined(_ARCH_PPC) || \
+#elif defined(_POWER) || \
       defined(__PPC)  || defined(__PPC__) || \
       defined(__powerpc) || defined(__powerpc__) || \
       defined(__ppc) || defined(__ppc__) || \
       defined(__POWERPC__)
   #define PLATFORM_ARCH_POWERPC 1
   #define PLATFORM_ARCH_FAMILYNAME POWERPC
-  #define PLATFORM_ARCH_32 1
+  #define _PLATFORM_ARCH_32 1
+  #define PLATFORM_ARCH_BIG_ENDIAN 1
+
+#elif defined(_ARCH_PPC) || defined(_ARCH_PPC64)
+  #define PLATFORM_ARCH_POWERPC 1
+  #define PLATFORM_ARCH_FAMILYNAME POWERPC
   #define PLATFORM_ARCH_BIG_ENDIAN 1
 
 #elif defined(__x86_64) || defined(__x86_64__) || \
@@ -503,13 +507,13 @@
     defined(__amd64)  || defined(__amd64__)
   #define PLATFORM_ARCH_X86_64 1
   #define PLATFORM_ARCH_FAMILYNAME X86_64
-  #define PLATFORM_ARCH_64 1
+  #define _PLATFORM_ARCH_64 1
   #define PLATFORM_ARCH_LITTLE_ENDIAN 1
 
 #elif defined(__ia64__) || defined(__ia64)
   #define PLATFORM_ARCH_IA64 1
   #define PLATFORM_ARCH_FAMILYNAME IA64
-  #define PLATFORM_ARCH_64 1
+  #define _PLATFORM_ARCH_64 1
   #define PLATFORM_ARCH_LITTLE_ENDIAN 1
 
 #elif defined(__i386__) || defined(__i386) || \
@@ -519,13 +523,13 @@
       defined(__pentiumpro) || defined(__pentiumpro__)
   #define PLATFORM_ARCH_X86 1
   #define PLATFORM_ARCH_FAMILYNAME X86
-  #define PLATFORM_ARCH_32 1
+  #define _PLATFORM_ARCH_32 1
   #define PLATFORM_ARCH_LITTLE_ENDIAN 1
 
 #elif defined(__alpha) || defined(__alpha__)
   #define PLATFORM_ARCH_ALPHA 1
   #define PLATFORM_ARCH_FAMILYNAME ALPHA
-  #define PLATFORM_ARCH_64 1
+  #define _PLATFORM_ARCH_64 1
   #define PLATFORM_ARCH_LITTLE_ENDIAN 1
 
 #elif defined(_mips) || defined(__mips) || defined(__mips__) || \
@@ -553,13 +557,13 @@
   #define PLATFORM_ARCH_CRAYX1 1
   #define PLATFORM_ARCH_FAMILYNAME CRAYX1
   #define PLATFORM_ARCH_BIG_ENDIAN 1
-  #define PLATFORM_ARCH_64 1
+  #define _PLATFORM_ARCH_64 1
 
 #elif defined(_CRAYT3E)
   #define PLATFORM_ARCH_CRAYT3E 1
   #define PLATFORM_ARCH_FAMILYNAME CRAYT3E
   #define PLATFORM_ARCH_BIG_ENDIAN 1
-  #define PLATFORM_ARCH_64 1
+  #define _PLATFORM_ARCH_64 1
 
 #elif defined(__MTA__)
   #define PLATFORM_ARCH_MTA 1
@@ -573,7 +577,7 @@
   #define PLATFORM_ARCH_MICROBLAZE 1
   #define PLATFORM_ARCH_FAMILYNAME MICROBLAZE
   #define PLATFORM_ARCH_BIG_ENDIAN 1
-  #define PLATFORM_ARCH_32 1
+  #define _PLATFORM_ARCH_32 1
 
 #else /* unknown CPU */
   #define PLATFORM_ARCH_UNKNOWN 1
@@ -592,18 +596,29 @@
   #error conflicting endianness information
 #endif
 
-#if !defined(PLATFORM_ARCH_32) && !defined(PLATFORM_ARCH_64)
-  #if defined(_LP64) || defined(__LP64__) || \
-      defined(__arch64__) || defined(__64BIT__) || \
-      (defined(SIZEOF_VOID_P) && SIZEOF_VOID_P == 8)
-    #define PLATFORM_ARCH_64 1
-  #endif
+/* PLATFORM_ARCH_{32,64}: 
+    first trust SIZEOF_VOID_P, which is most likely to be accurate
+    next, detect common 32/64 preprocessor defines
+    finally default to any arch-specific value provided
+ */
+#if defined(PLATFORM_ARCH_64) || defined(PLATFORM_ARCH_32)
+  #error internal error in bit width configuration
+#endif
 
-  #if defined(_ILP32) || defined(__ILP32__) || \
-      defined(__arch32__) || defined(__32BIT__) || \
-      (defined(SIZEOF_VOID_P) && SIZEOF_VOID_P == 4)
-    #define PLATFORM_ARCH_32 1
-  #endif
+#if SIZEOF_VOID_P == 8
+  #define PLATFORM_ARCH_64 1
+#elif SIZEOF_VOID_P == 4
+  #define PLATFORM_ARCH_32 1
+#elif defined(_LP64) || defined(__LP64__) || \
+      defined(__arch64__) || defined(__64BIT__)
+  #define PLATFORM_ARCH_64 1
+#elif defined(_ILP32) || defined(__ILP32__) || \
+      defined(__arch32__) || defined(__32BIT__)
+  #define PLATFORM_ARCH_32 1
+#elif _PLATFORM_ARCH_64
+  #define PLATFORM_ARCH_64 1
+#elif _PLATFORM_ARCH_32
+  #define PLATFORM_ARCH_32 1
 #endif
 
 #if defined(PLATFORM_ARCH_64) && defined(PLATFORM_ARCH_32)

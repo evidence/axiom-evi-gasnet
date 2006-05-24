@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/23 20:39:44 $
- * $Revision: 1.228 $
+ *     $Date: 2006/05/24 01:23:21 $
+ * $Revision: 1.229 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -134,9 +134,6 @@
       #endif
 
       #if PLATFORM_ARCH_64 || (defined(_MIPS_ISA) && (_MIPS_ISA >= 3) /* 64-bit capable CPU */)
-	#if !(SIZEOF_VOID_P == 8)
-	  #error "Inconsitent configuration (PLATFORM_ARCH_64 && !(SIZEOF_VOID_P == 8))"
-	#endif
         #if PLATFORM_COMPILER_GNU
           #define GASNETI_HAVE_ATOMIC64_T 1
           typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
@@ -227,9 +224,6 @@
       #define _gasneti_atomic32_fetchadd(p, op) InterlockedExchangeAdd((LONG *)&((p)->ctr), op)
 
       #if PLATFORM_ARCH_64 /* TODO: Identify ILP32 running on 64-bit CPU */
-	#if !(SIZEOF_VOID_P == 8)
-	  #error "Inconsitent configuration (PLATFORM_ARCH_64 && !(SIZEOF_VOID_P == 8))"
-	#endif
         #define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_increment(p) InterlockedIncrement64((LONGLONG *)&((p)->ctr))
@@ -1019,9 +1013,6 @@
         #define _gasneti_atomic64_init(v)      { (v) }
 
         #if PLATFORM_ARCH_64
-	  #if !(SIZEOF_VOID_P == 8)
-	    #error "Inconsitent configuration (PLATFORM_ARCH_64 && !(SIZEOF_VOID_P == 8))"
-	  #endif
           #define _gasneti_atomic64_read(p)      ((p)->ctr)
           #define _gasneti_atomic64_set(p,v)     do { (p)->ctr = (v); } while(0)
           GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
@@ -1038,9 +1029,6 @@
           /* Note that the ldd/std instructions *are* atomic, even though they use 2 registers.
            * We wouldn't need asm here if we could be sure the compiler always used ldd/std.
            */
-	  #if (SIZEOF_VOID_P == 8)
-	    #error "Inconsitent configuration (!PLATFORM_ARCH_64 && (SIZEOF_VOID_P == 8))"
-	  #endif
           GASNETI_INLINE(_gasneti_atomic64_set)
           void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v) {
             __asm__ __volatile__ ( "std	%1, %0" : "=m"(p->ctr) : "U"(v) );
@@ -1120,9 +1108,6 @@
 	#define _gasneti_atomic64_init(v)      { (v) }
 
         #if PLATFORM_ARCH_64
-	  #if !(SIZEOF_VOID_P == 8)
-	    #error "Inconsitent configuration (PLATFORM_ARCH_64 && !(SIZEOF_VOID_P == 8))"
-	  #endif
           #define _gasneti_atomic64_read(p)      ((p)->ctr)
           #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
           #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY				\
@@ -1138,9 +1123,6 @@
 				     GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
         #else
           /* ILP32 on a 64-bit CPU. */
-	  #if (SIZEOF_VOID_P == 8)
-	    #error "Inconsitent configuration (!PLATFORM_ARCH_64 && (SIZEOF_VOID_P == 8))"
-	  #endif
           #define GASNETI_ATOMIC64_SET_BODY /* see gcc asm, above, for explanation */	\
 	    GASNETI_ASM(								\
 		     "mov	%i1, %o2		\n\t"				\
@@ -1593,9 +1575,6 @@
       #define _gasneti_atomic32_addfetch _gasneti_atomic32_addfetch
 
       #if PLATFORM_ARCH_64
-	#if !(SIZEOF_VOID_P == 8)
-	  #error "Inconsitent configuration (PLATFORM_ARCH_64 && !(SIZEOF_VOID_P == 8))"
-	#endif
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
@@ -1617,9 +1596,6 @@
         #define _gasneti_atomic64_compare_and_swap(p, oldval, newval) \
 					(gasneti_atomic64_swap_not(p, oldval, newval) == 0)
       #elif defined(GASNETI_ARCH_PPC64) /* ILP32 on 64-bit CPU */
-	#if (SIZEOF_VOID_P == 8)
-	  #error "Inconsitent configuration (!PLATFORM_ARCH_64 && (SIZEOF_VOID_P == 8))"
-	#endif
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
@@ -1731,9 +1707,6 @@
       } 
 
       #if PLATFORM_ARCH_64
-	#if !(SIZEOF_VOID_P == 8)
-	  #error "Inconsitent configuration (PLATFORM_ARCH_64 && !(SIZEOF_VOID_P == 8))"
-	#endif
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
@@ -1756,9 +1729,6 @@
           return (result == 0);
         } 
       #elif defined(GASNETI_ARCH_PPC64) /* ILP32 on 64-bit CPU */
-	#if (SIZEOF_VOID_P == 8)
-	  #error "Inconsitent configuration (!PLATFORM_ARCH_64 && (SIZEOF_VOID_P == 8))"
-	#endif
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
@@ -1893,9 +1863,6 @@
       }
 
       #if PLATFORM_ARCH_64 || (defined(_MIPS_ISA) && (_MIPS_ISA >= 3) /* 64-bit capable CPU */)
-	#if !(SIZEOF_VOID_P == 8)
-	  #error "Inconsitent configuration (PLATFORM_ARCH_64 && !(SIZEOF_VOID_P == 8))"
-	#endif
         #define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_read(p)      ((p)->ctr)

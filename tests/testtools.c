@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/24 01:03:48 $
- * $Revision: 1.67 $
+ *     $Date: 2006/05/24 01:23:25 $
+ * $Revision: 1.68 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -85,6 +85,14 @@ int main(int argc, char **argv) {
     MSG("Running testtools with %i iterations and %i threads", iters, NUM_THREADS);
   #else
     MSG("Running testtools with %i iterations", iters);
+  #endif
+
+  #if    PLATFORM_ARCH_32 && !PLATFORM_ARCH_64
+    assert_always(sizeof(void*) == 4);
+  #elif !PLATFORM_ARCH_32 &&  PLATFORM_ARCH_64
+    assert_always(sizeof(void*) == 8);
+  #else
+    #error must #define exactly one of PLATFORM_ARCH_32 or PLATFORM_ARCH_64
   #endif
 
   #if defined(GASNETT_PAGESIZE) && defined(GASNETT_PAGESHIFT)
