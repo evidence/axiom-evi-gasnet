@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/05/19 22:29:16 $
- * $Revision: 1.66 $
+ *     $Date: 2006/05/24 01:03:48 $
+ * $Revision: 1.67 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -824,7 +824,7 @@ void * thread_fn(void *arg) {
       /* Now try spinlock construct */
       THREAD_BARRIER();
       for (i=0;i<iters;i++) {
-	while (!gasnett_atomic_compare_and_swap(&counter2, oldval, 12345, 0)) {};
+	while (!gasnett_atomic_compare_and_swap(&counter2, oldval, ~oldval, 0)) {};
         gasnett_local_rmb(); /* Acquire */
 	shared_counter ++;
         gasnett_local_wmb(); /* Release */
@@ -837,7 +837,7 @@ void * thread_fn(void *arg) {
       /* Now try spinlock construct using mb() */
       THREAD_BARRIER();
       for (i=0;i<iters;i++) {
-	while (!gasnett_atomic_compare_and_swap(&counter2, oldval, 12345, 0)) {};
+	while (!gasnett_atomic_compare_and_swap(&counter2, oldval, ~oldval, 0)) {};
         gasnett_local_mb(); /* Acquire */
 	shared_counter --;
         gasnett_local_mb(); /* Release */
