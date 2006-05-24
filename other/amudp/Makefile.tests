@@ -12,7 +12,7 @@ TEST_RUNCMD= ; $(AMUDP_RUNCMD_EXP) ; 				\
             echo "  **** $$testname **** "; 	                \
             echo $$TEST_DOIT ; 					\
             ( eval $$TEST_DOIT || echo "ERROR: Test exited with failure code=$$?" 2>&1 ) | tee .test-output ; \
-            failure=`@PERL@ -ne 'print if (/ERROR/ || /fatal signal/);' .test-output` ; \
+            failure=`$(PERL) -ne 'print if (/ERROR/ || /fatal signal/);' .test-output` ; \
             if test "$$failure" != "" ; then                                            \
                echo " " >> $(TESTLOG) ;                                                 \
                echo " *-* $$faildesc *-*" >> $(TESTLOG) ;                               \
@@ -50,3 +50,20 @@ run-tests: tests
 	@TEST_RUN="./testreadwrite $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS)" $(TEST_RUNCMD)
 	@echo TESTS COMPLETE
 
+# make a distribution
+amxdist:
+	@bash -x -c ' \
+         VERSION=`grep "#define AMUDP_LIBRARY_VERSION" $(srcdir)/amudp.h | head -1 | awk '"'"'{ print $$3 }'"'"'` \
+         export VERSION ; \
+         echo "+++ Building distribution for AMUDP version $${VERSION} +++" && \
+	 rm -Rf amudp$${VERSION}.tar.gz amudp$${VERSION} && \
+         mkdir amudp$${VERSION} && \
+         cp $(srcdir)/Makefile* $(srcdir)/*.txt $(srcdir)/*.cpp $(srcdir)/*.c $(srcdir)/*.h $(testdir)/*.[ch]* \
+	    $(altincdir)/portable_inttypes.h $(altincdir)/portable_platform.h \
+	    amudp$${VERSION} && \
+         rm -f amudp$${VERSION}/Makefile.in amudp$${VERSION}/Makefile.titanium && \
+         mv amudp$${VERSION}/Makefile.standalone amudp$${VERSION}/Makefile && \
+         tar -cvhf amudp$${VERSION}.tar amudp$${VERSION} && gzip -9 amudp$${VERSION}.tar && \
+         rm -Rf amudp$${VERSION} && \
+         echo "+++ amudp$${VERSION}.tar.gz is ready for distribution +++" \
+        '

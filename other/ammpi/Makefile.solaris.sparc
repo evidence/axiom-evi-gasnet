@@ -1,16 +1,14 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Attic/Makefile.solaris.sparc,v $
-#     $Date: 2004/08/26 04:53:48 $
-# $Revision: 1.5 $
+#     $Date: 2006/05/24 08:54:29 $
+# $Revision: 1.6 $
 # Description: Solaris Makefile fragment
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
 # Get default settings for everything
 include Makefile.common
 
-# additional defines
-# must include, minimally, a define to identify the platform
-platform_defines = -DUNIX -DSOLARIS -DSPARC \
-  -DAMMPI_COEXIST_WITH_AM \
+# additional defines required to build on this platform
+platform_defines = -DAMMPI_COEXIST_WITH_AM \
   -I/usr/now/am2/include -I/usr/now/include -I/usr/now/mpi/mpich/include
 
 # ------- optional, changed from template ---------

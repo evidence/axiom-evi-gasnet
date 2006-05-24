@@ -1,15 +1,14 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.unicosmk.cray_t3e,v $
-#     $Date: 2004/08/26 04:53:50 $
-# $Revision: 1.5 $
+#     $Date: 2006/05/24 08:54:31 $
+# $Revision: 1.6 $
 # Description: Cray-T3E Makefile fragment
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
 # Get default settings for everything
 include Makefile.common
 
-# additional defines
-# must include, minimally, a define to identify the platform
-platform_defines = -DUNIX -DUNICOS -DCRAYT3E -DCRAY -D_CRAY
+# additional defines required to build on this platform
+platform_defines = 
 
 # disable ILP32 tests
 testprograms_ILP32only =

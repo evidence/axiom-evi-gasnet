@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.standalone,v $
-#     $Date: 2006/05/23 12:42:29 $
-# $Revision: 1.23 $
+#     $Date: 2006/05/24 08:54:31 $
+# $Revision: 1.24 $
 # Description: Makefile for AMUDP
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -94,24 +94,6 @@ veryclean: clean
 	@csh -c 'if ("`hostname`" == "whomp") \
     eval "echo removing whomp-shared binaries... ; cd /export/home/$(USER) ; rm -f $(testprograms)"'
 	@echo Done verycleaning.
-
-# make a distribution
-amxdist:
-	@bash -x -c ' \
-         VERSION=`grep "#define AMUDP_LIBRARY_VERSION" $(srcdir)/amudp.h | head -1 | awk '"'"'{ print $$3 }'"'"'` \
-         export VERSION ; \
-         echo "+++ Building distribution for AMUDP version $${VERSION} +++" && \
-	 rm -Rf amudp$${VERSION}.tar.gz amudp$${VERSION} && \
-         mkdir amudp$${VERSION} && \
-         cp $(srcdir)/Makefile* $(srcdir)/*.txt $(srcdir)/*.cpp $(srcdir)/*.c $(srcdir)/*.h $(testdir)/*.[ch]* \
-	    $(altincdir)/portable_inttypes.h $(altincdir)/portable_platform.h \
-	    amudp$${VERSION} && \
-         rm -f amudp$${VERSION}/Makefile.in amudp$${VERSION}/Makefile.titanium && \
-         mv amudp$${VERSION}/Makefile.standalone amudp$${VERSION}/Makefile && \
-         tar -cvhf amudp$${VERSION}.tar amudp$${VERSION} && gzip -9 amudp$${VERSION}.tar && \
-         rm -Rf amudp$${VERSION} && \
-         echo "+++ amudp$${VERSION}.tar.gz is ready for distribution +++" \
-        '
 
 # ---------- test programs -------------
 test% : test%.o apputils.o libamudp.a $(ueth_libraries)
