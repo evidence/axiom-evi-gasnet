@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/24 18:31:47 $
- * $Revision: 1.230 $
+ *     $Date: 2006/05/24 20:34:26 $
+ * $Revision: 1.231 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -878,9 +878,10 @@
 
       GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
       int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval) {
+        const int64_t s_oldval = (int64_t)(int32_t)oldval; /* Force sign extension */
         unsigned long ret;
         __asm__ __volatile__ (
-		"1:	ldl_l	%0,%1\n"	/* Load-linked of current value */
+		"1:	ldl_l	%0,%1\n"	/* Load-linked of current value (w/ sign extension) */
 		"	cmpeq	%0,%2,%0\n"	/* compare to oldval */
 		"	beq	%0,2f\n"	/* done/fail on mismatch (success/fail in ret) */
 		"	mov	%3,%0\n"	/* copy newval to ret */
@@ -888,7 +889,7 @@
 		"	beq	%0,1b\n"	/* Retry on stl_c failure */
 		"2:	"
        		: "=&r"(ret), "=m"(*p)
-		: "r"(oldval), "r"(newval)
+		: "r" (s_oldval), "r"(newval)
 		: "cc");
         return ret;
       }
@@ -936,13 +937,14 @@
        */
        GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
        int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, uint32_t oldval, uint32_t newval) {
+         const int64_t s_oldval = (int64_t)(int32_t)oldval; /* Force sign extension */
          return asm("1:	ldl_l	%v0,(%a0);"	/* Load-linked of current value to %v0 */
 		    "	cmpeq	%v0,%a1,%v0;"	/* compare %v0 to oldval w/ result to %v0 */
 		    "	beq	%v0,2f;"	/* done/fail on mismatch (success/fail in %v0) */
 		    "	mov	%a2,%v0;"	/* copy newval to %v0 */
 		    "	stl_c	%v0,(%a0);"	/* Store-conditional of newval (success/fail in %v0) */
 		    "	beq	%v0,1b;"	/* Retry on stl_c failure */
-		    "2:	", p, oldval, newval);  /* Returns value from %v0 */
+		    "2:	", p, s_oldval, newval);  /* Returns value from %v0 */
        }
 
        #define _gasneti_atomic32_fetchadd(p, op) __ATOMIC_ADD_LONG(&((p)->ctr), op)
