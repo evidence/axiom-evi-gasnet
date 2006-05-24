@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/24 01:23:21 $
- * $Revision: 1.229 $
+ *     $Date: 2006/05/24 18:31:47 $
+ * $Revision: 1.230 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -78,9 +78,12 @@
       #define _gasneti_atomic32_fetchadd(p,op) fetch_and_add((atomic_p)&((p)->ctr), op)
 
       GASNETI_INLINE(_gasneti_atomic32_compare_and_swap)
-      int _gasneti_atomic32_compare_and_swap(gasneti_atomic_t *p, int oldval, int newval) {
+      int _gasneti_atomic32_compare_and_swap(gasneti_atomic32_t *p, int oldval, int newval) {
         return compare_and_swap( (atomic_p)p, &oldval, newval );
       } 
+
+      /* ABI doesn't ensure 8-byte alignment */
+      #define GASNETI_UNALIGNED_ATOMIC64 4
 
       /* No syncs in these calls, so use default fences */
   /* ------------------------------------------------------------------------------------ */
@@ -1939,7 +1942,7 @@
     #define gasneti_genatomic64_decrement_and_test gasneti_hsl_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_hsl_atomic64_compare_and_swap
     #define gasneti_genatomic64_addfetch           gasneti_hsl_atomic64_addfetch
-    #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64)
+    #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64) || defined(GASNETI_UNALIGNED_ATOMIC64)
       /* Need mutex on 64-bit read() to avoid word tearing */
       /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
       #define gasneti_genatomic64_read             gasneti_hsl_atomic64_read
@@ -1968,7 +1971,7 @@
     #define gasneti_genatomic64_decrement_and_test gasneti_pthread_atomic64_decrement_and_test
     #define gasneti_genatomic64_compare_and_swap   gasneti_pthread_atomic64_compare_and_swap
     #define gasneti_genatomic64_addfetch           gasneti_pthread_atomic64_addfetch
-    #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64)
+    #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64) || defined(GASNETI_UNALIGNED_ATOMIC64)
       /* Need mutex on 64-bit read() to avoid word tearing */
       /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
       #define gasneti_genatomic64_read             gasneti_pthread_atomic64_read
