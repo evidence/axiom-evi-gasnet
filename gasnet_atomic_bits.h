@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/24 20:34:26 $
- * $Revision: 1.231 $
+ *     $Date: 2006/05/26 06:21:40 $
+ * $Revision: 1.232 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -416,19 +416,33 @@
         #define _gasneti_atomic64_read(p)      ((p)->ctr)
         #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
 
-        GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
-        int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-          register unsigned char retval;
-          register uint64_t readval;
-          __asm__ __volatile__ (
+        #if PLATFORM_COMPILER_VERSION_LT(2,3,0)
+	  /* A "dirty hack" for bug 1620 because pathcc < 2.3 botches the 64-bit asm */
+          #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY\
+	    GASNETI_ASM( "movq     %rsi, %rax		\n\t" \
+		         GASNETI_X86_LOCK_PREFIX	\
+		         "cmpxchgq %rdx, (%rdi)		\n\t" \
+		         "sete     %cl			\n\t" \
+		         "movzbl   %cl, %eax" )
+
+          #define GASNETI_ATOMIC_SPECIALS                                        \
+	    GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap, \
+				     GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
+        #else
+          GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
+          int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
+            register unsigned char retval;
+            register uint64_t readval = oldval;
+            __asm__ __volatile__ (
 		    GASNETI_X86_LOCK_PREFIX
 		    "cmpxchgq %3, %1	\n\t"
 		    "sete " GASNETI_X86_LO(0)
 		    : "=q" (retval), "=m" (p->ctr), "=a" (readval)
 		    : "r" (newval), "m" (p->ctr), "a" (oldval)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-          return (int)retval;
-        }
+            return (int)retval;
+          }
+        #endif
       #else
 	/* To perform read and set atomically on x86 requires use of the locked
 	 * 8-byte c-a-s instruction.  This is the only atomic 64-bit operation
