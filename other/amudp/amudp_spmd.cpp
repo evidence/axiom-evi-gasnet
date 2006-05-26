@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_spmd.cpp,v $
- *     $Date: 2006/05/23 12:42:29 $
- * $Revision: 1.32 $
+ *     $Date: 2006/05/26 14:18:17 $
+ * $Revision: 1.33 $
  * Description: AMUDP Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -46,7 +46,7 @@ extern char **environ;
 #ifndef FREEZE_SLAVE
 #define FREEZE_SLAVE  0
 #endif
-static volatile bool amudp_frozen = true;
+volatile bool amudp_frozen = true;
 /*  all this to make sure we get a full stack frame for debugger */
 static void _freezeForDebugger(int depth) {
   if (!depth) _freezeForDebugger(1);
