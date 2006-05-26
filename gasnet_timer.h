@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/05/23 20:45:34 $
- * $Revision: 1.61 $
+ *     $Date: 2006/05/26 11:16:34 $
+ * $Revision: 1.62 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -31,6 +31,11 @@ GASNETI_BEGIN_EXTERNC
       where a "tick" has a system-specific interpretation
       safe to be handled using integer operations (+,-,<,>,==)
     gasneti_tick_t gasneti_ticks_now() - returns the current tick count 
+      note that tick values are THREAD-specific, and do NOT represent a globally-synchronized timer.
+      In specific, tick values are very likely to have a different base value across nodes, and 
+      might even advance at substantially different rates on different nodes.
+      Therefore tick values and tick intervals from different threads should never be directly compared or 
+      arithmetically combined, without first converting the relevant tick intervals to wall time intervals.
     gasneti_ticks_to_ns(gasneti_tick_t ticks) - convert ticks to nanoseconds as a uint64_t
     GASNETI_TICK_MIN - a value representing the minimum value storable in a gasneti_tick_t
     GASNETI_TICK_MAX - a value representing the maximum value storable in a gasneti_tick_t
