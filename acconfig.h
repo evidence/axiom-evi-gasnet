@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/05/26 20:54:58 $ */
-/*  $Revision: 1.97 $ */
+/*      $Date: 2006/05/26 21:33:45 $ */
+/*  $Revision: 1.98 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -114,6 +114,7 @@
 #undef GASNETI_FORCE_OS_ATOMICOPS
 #undef GASNETI_FORCE_TRUE_WEAKATOMICS
 #undef GASNETI_FORCE_GENERIC_SEMAPHORES
+#undef GASNETI_FORCE_YIELD_MEMBARS
 
 /* forcing UP build, even if build platform is a multi-processor */
 #undef GASNETI_UNI_BUILD

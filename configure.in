@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/26 20:54:58 $
-# $Revision: 1.361 $
+#     $Date: 2006/05/26 21:33:45 $
+# $Revision: 1.362 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.361 $)
+AC_REVISION($Revision: 1.362 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1016,6 +1016,8 @@ GASNET_IF_ENABLED(true-weakatomics, Use real atomic operations in sequential cod
 		  [ AC_DEFINE(GASNETI_FORCE_TRUE_WEAKATOMICS) ] )
 GASNET_IF_ENABLED(generic-semaphores, Build GASNet with mutex-based semaphores (default is platform specific),
 		  [ AC_DEFINE(GASNETI_FORCE_GENERIC_SEMAPHORES) ] )
+GASNET_IF_ENABLED(yield-membars, Build GASNet with sched_yield()-based memory barriers (default is no),
+		  [ AC_DEFINE(GASNETI_FORCE_YIELD_MEMBARS) ] )
 
 #---------------------------------------------------------------------------------------------------------------
 # CONDUIT CONFIGURATIONS

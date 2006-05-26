@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/05/26 04:37:51 $
- * $Revision: 1.106 $
+ *     $Date: 2006/05/26 21:33:45 $
+ * $Revision: 1.107 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -66,7 +66,13 @@
  */
 #include <gasnet_asm.h>
 
-#if PLATFORM_COMPILER_SUN_CXX || \
+#ifdef GASNETI_FORCE_YIELD_MEMBARS
+  /* Big hammer - indended for debugging only */
+  #define gasneti_compiler_fence()  gasneti_sched_yield()
+  #define gasneti_local_wmb()       gasneti_sched_yield()
+  #define gasneti_local_rmb()       gasneti_sched_yield()
+  #define gasneti_local_mb()        gasneti_sched_yield()
+#elif PLATFORM_COMPILER_SUN_CXX || \
    (PLATFORM_COMPILER_HP_CXX && PLATFORM_ARCH_PARISC) || \
    (PLATFORM_COMPILER_PGI_CXX && PGI_WITH_REAL_ASM)
   /* no inline assembly in these C++ compilers, so pay a function call overhead */
