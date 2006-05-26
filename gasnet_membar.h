@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/05/23 12:42:14 $
- * $Revision: 1.105 $
+ *     $Date: 2006/05/26 04:37:51 $
+ * $Revision: 1.106 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -166,6 +166,12 @@
    }
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_X86_64 /* Athlon/Opteron */
+ #if PLATFORM_COMPILER_PATHSCALE /* See bug 1620 */
+   #define GASNETI_COMPILER_FENCE_BODY	0
+   #define GASNETI_LOCAL_WMB_BODY	GASNETI_ASM("sfence")
+   #define GASNETI_LOCAL_RMB_BODY	GASNETI_ASM("lfence")
+   #define GASNETI_LOCAL_MB_BODY	GASNETI_ASM("mfence")
+ #else
    GASNETI_INLINE(gasneti_local_wmb)
    void gasneti_local_wmb(void) {
      GASNETI_ASM("sfence");
@@ -180,6 +186,7 @@
      GASNETI_ASM("mfence");
    }
    #define gasneti_local_mb() _gasneti_local_mb()
+ #endif
 /* ------------------------------------------------------------------------------------ */
 #elif PLATFORM_ARCH_IA64 /* Itanium */
     /* Empirically observed that IA64 requires a full "mf" for both wmb and rmb (see bug 1000).
@@ -398,16 +405,22 @@
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif
 
-#if GASNETI_USING_SLOW_MEMBARS
-  #ifndef __cplusplus
-    #error Slow membars are only a hack-around for C++ compilers lacking inline assembly support
-  #endif
+#if GASNETI_USING_SLOW_MEMBARS && !defined(__cplusplus)
+  #error Slow membars are only a hack-around for C++ compilers lacking inline assembly support
+#endif
+#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_WMB_BODY)
   GASNETI_EXTERNC void gasneti_slow_local_wmb();
   #define gasneti_local_wmb() gasneti_slow_local_wmb()
+#endif
+#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_RMB_BODY)
   GASNETI_EXTERNC void gasneti_slow_local_rmb();
   #define gasneti_local_rmb() gasneti_slow_local_rmb()
+#endif
+#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_MB_BODY)
   GASNETI_EXTERNC void gasneti_slow_local_mb();
   #define gasneti_local_mb() gasneti_slow_local_mb()
+#endif
+#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_COMPILER_FENCE_BODY)
   GASNETI_EXTERNC void gasneti_slow_compiler_fence();
   #define gasneti_compiler_fence() gasneti_slow_compiler_fence()
 #endif

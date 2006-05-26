@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/05/24 04:01:48 $
- * $Revision: 1.170 $
+ *     $Date: 2006/05/26 04:37:51 $
+ * $Revision: 1.171 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -90,18 +90,35 @@
     return gasneti_ticks_now();
   }
 #endif
-extern void gasneti_slow_compiler_fence() {
-  gasneti_compiler_fence();
-}
-extern void gasneti_slow_local_wmb() {
-  gasneti_local_wmb();
-}
-extern void gasneti_slow_local_rmb() {
-  gasneti_local_rmb();
-}
-extern void gasneti_slow_local_mb() {
-  gasneti_local_mb();
-}
+#ifdef GASNETI_COMPILER_FENCE_BODY
+  GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_compiler_fence, GASNETI_COMPILER_FENCE_BODY)
+#else
+  extern void gasneti_slow_compiler_fence() {
+    gasneti_compiler_fence();
+  }
+#endif
+#ifdef GASNETI_LOCAL_WMB_BODY
+  GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_local_wmb, GASNETI_LOCAL_WMB_BODY)
+#else
+  extern void gasneti_slow_local_wmb() {
+    gasneti_local_wmb();
+  }
+#endif
+#ifdef GASNETI_LOCAL_RMB_BODY
+  GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_local_rmb, GASNETI_LOCAL_RMB_BODY)
+#else
+  extern void gasneti_slow_local_rmb() {
+    gasneti_local_rmb();
+  }
+#endif
+#ifdef GASNETI_LOCAL_MB_BODY
+  GASNETI_SPECIAL_ASM_DEFN(gasneti_slow_local_mb, GASNETI_LOCAL_MB_BODY)
+#else
+  extern void gasneti_slow_local_mb() {
+    gasneti_local_mb();
+  }
+#endif
+
 #ifdef GASNETI_USE_GENERIC_ATOMICOPS
   /* We don't need or want slow versions of generics (they use no ASM) */
 #else
