@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/05/20 06:34:35 $
-# $Revision: 1.89 $
+#     $Date: 2006/05/26 01:58:24 $
+# $Revision: 1.90 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -349,6 +349,10 @@ $(MPI_TESTS): force
 # testcxx tests support for compiling a C++-based GASNet client 
 # this is unlikely to work on conduits requiring a special linker (eg mpi-conduit)
 testcxx: force
+	@if test -z "@CXX@"; then \
+		echo "ERROR: testcxx target requested, but no c++ compiler is configured"; \
+		exit 1; \
+	 fi
 	@CXX@ @CXXFLAGS@ @MISC_CXXFLAGS@ -I$(srcdir) $(GASNET_DEFINES) $(GASNET_INCLUDES) $(KEEPTMP_CFLAGS) $(MANUAL_CXXFLAGS) -c -o $@.o $(srcdir)/$@.cc
 	@CXX@ @CXXFLAGS@ $(GASNET_LDFLAGS) -o $@ $@.o $($@_extraobjs) $(GASNET_LIBS)
 	@test -n '$(KEEPTMPS)' || ( cmd="rm -f $@.o"; echo "$$cmd"; eval "$$cmd" )
