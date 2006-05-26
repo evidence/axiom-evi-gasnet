@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/05/23 21:41:15 $ */
-/*  $Revision: 1.96 $ */
+/*      $Date: 2006/05/26 20:54:58 $ */
+/*  $Revision: 1.97 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -108,6 +108,12 @@
 
 /* Linux PR_SET_PDEATHSIG support */
 #undef HAVE_PR_SET_PDEATHSIG
+
+/* forcing use of "non-native" implementations: */
+#undef GASNETI_FORCE_GENERIC_ATOMICOPS
+#undef GASNETI_FORCE_OS_ATOMICOPS
+#undef GASNETI_FORCE_TRUE_WEAKATOMICS
+#undef GASNETI_FORCE_GENERIC_SEMAPHORES
 
 /* forcing UP build, even if build platform is a multi-processor */
 #undef GASNETI_UNI_BUILD

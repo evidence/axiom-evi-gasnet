@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/23 21:41:15 $
-# $Revision: 1.360 $
+#     $Date: 2006/05/26 20:54:58 $
+# $Revision: 1.361 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.360 $)
+AC_REVISION($Revision: 1.361 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1000,6 +1000,23 @@ GASNET_IF_ENABLED(loopback-memsync, Force memory barriers for GASNet local (loop
   [AC_DEFINE(GASNETI_MEMSYNC_ON_LOOPBACK)])
 GASNET_IF_ENABLED(throttle-poll, throttle polling threads in multi-threaded configurations to reduce contention,
   [AC_DEFINE(GASNETI_THROTTLE_FEATURE_ENABLED)])
+
+GASNET_IF_ENABLED(generic-atomicops, Build GASNet with mutex-based atomic ops (default is platform specific),
+		  [ enabled_generic_atomicops=yes ])
+GASNET_IF_ENABLED(os-atomicops, Build GASNet with os-provided atomic ops (default is platform specific),
+		  [ enabled_os_atomicops=yes ])
+if test "$enabled_generic_atomicops$enabled_os_atomicops" = yesyes; then
+  AC_MSG_ERROR([You cannot request both --enable-generic-atomicops and --enable-os-atomicops])
+elif test -n "$enabled_generic_atomicops" ; then
+  AC_DEFINE(GASNETI_FORCE_GENERIC_ATOMICOPS)
+elif test -n "$enabled_os_atomicops"; then
+  AC_DEFINE(GASNETI_FORCE_OS_ATOMICOPS)
+fi
+GASNET_IF_ENABLED(true-weakatomics, Use real atomic operations in sequential code (disabled by default),
+		  [ AC_DEFINE(GASNETI_FORCE_TRUE_WEAKATOMICS) ] )
+GASNET_IF_ENABLED(generic-semaphores, Build GASNet with mutex-based semaphores (default is platform specific),
+		  [ AC_DEFINE(GASNETI_FORCE_GENERIC_SEMAPHORES) ] )
+
 #---------------------------------------------------------------------------------------------------------------
 # CONDUIT CONFIGURATIONS
 #---------------------------------------------------------------------------------------------------------------
