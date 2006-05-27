@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/05/24 04:01:52 $
- * $Revision: 1.93 $
+ *     $Date: 2006/05/27 00:42:16 $
+ * $Revision: 1.94 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -527,6 +527,7 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
     const char *debug = "";
     const char *trace = "";
     const char *stats = "";
+    const char *membars = "";
     #ifdef GASNET_DEBUG
       debug = "debugging ";
     #endif
@@ -536,14 +537,17 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
     #ifdef GASNET_STATS
       stats = "statistical collection ";
     #endif
-    if (*debug || *trace || *stats) {
+    #ifdef GASNETI_FORCE_YIELD_MEMBARS
+      membars = "debug-membars ";
+    #endif
+    if (*debug || *trace || *stats || *membars) {
       fflush(NULL);
       fprintf(stdout,
         "-----------------------------------------------------------------------\n"
         " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
         "\n"
         " GASNet was configured and built with these optional features enabled:\n"
-        "        %s%s%senabled\n"
+        "        %s%s%s%senabled\n"
         " This usually has a SERIOUS impact on performance, so you should NOT\n"
         " trust any performance numbers reported in this run!!!\n"
         " You should configure and build from scratch without the configure\n"
@@ -551,7 +555,7 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
         "\n"
         " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
         "-----------------------------------------------------------------------\n"
-        ,debug,trace,stats);
+        ,debug,trace,stats,membars);
       fflush(NULL);
     }
   }

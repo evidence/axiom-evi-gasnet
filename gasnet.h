@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/05/24 04:01:48 $
- * $Revision: 1.48 $
+ *     $Date: 2006/05/27 00:42:14 $
+ * $Revision: 1.49 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -339,7 +339,8 @@ GASNETI_END_EXTERNC
              _STRINGIFY(GASNETI_TIMER_CONFIG) ","                         \
              _STRINGIFY(GASNETI_ATOMIC_CONFIG) ","                        \
              _STRINGIFY(GASNETI_ATOMIC32_CONFIG) ","                      \
-             _STRINGIFY(GASNETI_ATOMIC64_CONFIG)                          \
+             _STRINGIFY(GASNETI_ATOMIC64_CONFIG) ","                      \
+             _STRINGIFY(GASNETI_MEMBAR_CONFIG)                            \
              GASNETC_EXTRA_CONFIG_INFO                                    \
              GASNETE_EXTRA_CONFIG_INFO                                    
 #endif
