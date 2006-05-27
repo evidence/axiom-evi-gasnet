@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/05/26 11:16:34 $
- * $Revision: 1.62 $
+ *     $Date: 2006/05/27 01:04:27 $
+ * $Revision: 1.63 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -440,7 +440,7 @@ GASNETI_BEGIN_EXTERNC
 #elif defined(_POSIX_TIMERS) && 0
   /* POSIX realtime support - disabled for now because haven't found anywhere that it 
      outperforms gettimeofday, and it usually requires an additional library */
-  #define GASNETI_FORCE_POSIX_TIMERS 1
+  #define GASNETI_FORCE_POSIX_REALTIME 1
 /* ------------------------------------------------------------------------------------ */
 #else /* use slow, portable timers */
   #define GASNETI_FORCE_GETTIMEOFDAY 1
