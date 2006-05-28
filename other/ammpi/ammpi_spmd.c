@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2006/05/26 14:18:15 $
- * $Revision: 1.35 $
+ *     $Date: 2006/05/28 02:28:00 $
+ * $Revision: 1.36 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -31,6 +31,7 @@
 #ifndef FREEZE_SLAVE
   #define FREEZE_SLAVE  0
 #endif
+/* non-static to prevent a SunC problem (bug1626) */
 volatile int ammpi_frozen = TRUE;
 /*  all this to make sure we get a full stack frame for debugger */
 static void _freezeForDebugger(int depth) {

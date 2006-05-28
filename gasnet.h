@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/05/27 00:42:14 $
- * $Revision: 1.49 $
+ *     $Date: 2006/05/28 02:27:54 $
+ * $Revision: 1.50 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -367,7 +367,8 @@ extern int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME));
 extern int GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME));
 
 static int *gasneti_linkconfig_idiotcheck();
-static int *(*_gasneti_linkconfig_idiotcheck)() = &gasneti_linkconfig_idiotcheck;
+/* use of void* here avoids a tinyc bug */
+static void *_gasneti_linkconfig_idiotcheck = (void *)&gasneti_linkconfig_idiotcheck;
 static int *gasneti_linkconfig_idiotcheck() {
   static int val;
   val +=  GASNETI_LINKCONFIG_IDIOTCHECK(GASNETI_THREAD_MODEL)
@@ -386,7 +387,7 @@ static int *gasneti_linkconfig_idiotcheck() {
         + GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME))
         ;
   if (_gasneti_linkconfig_idiotcheck != gasneti_linkconfig_idiotcheck)
-    val += *_gasneti_linkconfig_idiotcheck();
+    val += ((int(*)())_gasneti_linkconfig_idiotcheck)();
   return &val;
 }
 extern int gasneti_internal_idiotcheck(gasnet_handlerentry_t *table, int numentries,

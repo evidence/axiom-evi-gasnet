@@ -86,7 +86,12 @@ do-libgasnet: $(CONDUIT_SPECIAL_OBJS)
 	@libgasnet_objects="$(libgasnet_objects)" ; libgasnet_objects=`echo $$libgasnet_objects` ; \
 	pwd=`@PWD_PROG@`; keeptmps='$(KEEPTMPS)'; \
 	if test -z '$(KEEPTMPS)'; then rmcmd="&& rm -f $$libgasnet_objects"; fi; \
-	cmd="$(CC) $(LIBCFLAGS) -c $(libgasnet_sources) && \
+	if test -z '$(SEPARATE_CC)'; then \
+	  compcmd="$(CC) $(LIBCFLAGS) -c $(libgasnet_sources)" ; \
+	else \
+	  compcmd="for file in $(libgasnet_sources) ; do $(CC) $(LIBCFLAGS) -c "'$$file'" || exit "'$$?'" ; done" ; \
+	fi ; \
+	cmd="$$compcmd && \
 	$(AR) cru $$pwd/$(LIBGASNET_NAME)-$(THREAD_MODEL_LC).a $$libgasnet_objects && \
 	$(RANLIB) $$pwd/$(LIBGASNET_NAME)-$(THREAD_MODEL_LC).a $$rmcmd"; \
 	echo " --- BUILDING $(LIBGASNET_NAME)-$(THREAD_MODEL_LC).a --- " ; \

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_strided.c,v $
- *     $Date: 2006/05/17 07:03:37 $
- * $Revision: 1.20 $
+ *     $Date: 2006/05/28 02:27:56 $
+ * $Revision: 1.21 $
  * Description: GASNet Strided implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -149,8 +149,9 @@ static int32_t const _gasnete_strided_update_addr_init = (int32_t)sizeof(_gasnet
 static int32_t const _gasnete_strided_helper_havepartial = (int32_t)sizeof(_gasnete_strided_helper_havepartial);
 #define GASNETE_STRIDED_HELPER_HAVEPARTIAL (sizeof(_gasnete_strided_helper_havepartial) == 1)
 
-#define _GASNETE_STRIDED_LABEL(idx,name) \
-        _CONCAT(_GASNETE_STRIDED_LABEL_##name##_##idx,_CONCAT(_,__LINE__))
+#define _GASNETE_STRIDED_LABELHLP2(idx,name,line) _GASNETE_STRIDED_LABEL_##name##_##idx##_##line
+#define _GASNETE_STRIDED_LABELHLP(idx,name,line)  _GASNETE_STRIDED_LABELHLP2(idx,name,line)
+#define _GASNETE_STRIDED_LABEL(idx,name) _GASNETE_STRIDED_LABELHLP(idx,name,__LINE__)
 
 #define GASNETE_STRIDED_HELPER_SETUP_BASE()                                                  \
     size_t const _count0 = count[contiglevel+1];                                             \

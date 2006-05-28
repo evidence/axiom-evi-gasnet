@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/05/27 01:04:27 $
- * $Revision: 1.63 $
+ *     $Date: 2006/05/28 02:27:54 $
+ * $Revision: 1.64 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -176,7 +176,7 @@ GASNETI_BEGIN_EXTERNC
 /* ------------------------------------------------------------------------------------ */
 #elif (PLATFORM_OS_LINUX || PLATFORM_OS_CATAMOUNT) && \
      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
-      PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI) && \
+      PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_TINY) && \
      (PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_IA64)
   #if PLATFORM_ARCH_IA64 && PLATFORM_COMPILER_INTEL
     #include <ia64intrin.h>
@@ -212,9 +212,13 @@ GASNETI_BEGIN_EXTERNC
                            : /* no inputs */); 
       ret = ((uint64_t)lo) | (((uint64_t)hi)<<32);
     #elif PLATFORM_ARCH_X86
+      #if PLATFORM_COMPILER_TINY
+      __asm__ __volatile__("rdtsc" : "=A" (ret)); 
+      #else
       __asm__ __volatile__("rdtsc"
                            : "=A" (ret)
                            : /* no inputs */); 
+      #endif
     #elif PLATFORM_ARCH_IA64 && PLATFORM_COMPILER_INTEL
       ret = (uint64_t)__getReg(_IA64_REG_AR_ITC);
     #elif PLATFORM_ARCH_IA64

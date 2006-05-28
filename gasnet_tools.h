@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/05/27 00:42:14 $
- * $Revision: 1.86 $
+ *     $Date: 2006/05/28 02:27:54 $
+ * $Revision: 1.87 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -435,7 +435,7 @@ extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC32_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC64_CONFIG);
 #endif
 static int *gasnett_linkconfig_idiotcheck();
-static int *(*_gasnett_linkconfig_idiotcheck)() = &gasnett_linkconfig_idiotcheck;
+static void *_gasnett_linkconfig_idiotcheck = (void *)&gasnett_linkconfig_idiotcheck;
 static int *gasnett_linkconfig_idiotcheck() {
   static int val;
   val +=  GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREAD_MODEL)
@@ -449,7 +449,7 @@ static int *gasnett_linkconfig_idiotcheck() {
       #endif
         ;
   if (_gasnett_linkconfig_idiotcheck != gasnett_linkconfig_idiotcheck)
-    val += *_gasnett_linkconfig_idiotcheck();
+    val += ((int(*)())_gasnett_linkconfig_idiotcheck)();
   return &val;
 }
 
