@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/05/23 12:42:27 $
- * $Revision: 1.41 $
+ *     $Date: 2006/05/28 12:28:12 $
+ * $Revision: 1.42 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -62,9 +62,8 @@ extern int AMMPI_Err(const char *msg, ...) {
 
 extern void AMMPI_FatalErr(const char *msg, ...) {
   va_list argptr;
-  int retval;
   va_start(argptr, msg); /* pass in last argument */
-    retval = AMMPI_Msg("FATAL ERROR", msg, argptr);
+    AMMPI_Msg("FATAL ERROR", msg, argptr);
   va_end(argptr);
   abort();
 }
