@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_dump.c,v $
- *     $Date: 2006/02/23 12:22:11 $
- * $Revision: 1.18 $
+ *     $Date: 2006/05/28 08:32:21 $
+ * $Revision: 1.19 $
  * Description: GASNet elan conduit - elan informational dumps
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -249,7 +249,11 @@ extern void gasnetc_dump_envvars() {
     "LIBELAN_SHM_ENABLE",
     "LIBELAN_SHM_FRAGSIZE",
     "LIBELAN_SHM_FIFODEPTH",
+    "LIBELAN_SHM_BIGMSG",
     "LIBELAN_EVICT_CACHE",
+    "LIBELAN_TOUCHBUF",
+    "LIBELAN4_TOUCH_MALLOC",
+    "LIBELAN4_MMAP_MALLOC",
     "LIBELAN_DEBUGDUMP",
     "LIBELAN_DEBUGFLAGS",
     "LIBELAN_DEBUGFILE",
