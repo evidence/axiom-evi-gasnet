@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/27 00:42:14 $
-# $Revision: 1.363 $
+#     $Date: 2006/05/28 06:50:47 $
+# $Revision: 1.364 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.363 $)
+AC_REVISION($Revision: 1.364 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -191,8 +191,12 @@ case "$gasnet_cv_cc_family" in
   Intel) CCOPTFLAGS="-O3" ;;
   MTA) CCOPTFLAGS="-O3" ;; # MTA C actually ignores -O, optimization controlled by presence/absence of -g
   PGI) CCOPTFLAGS="-O2" ;;
+  TINY) CCOPTFLAGS="" # optimization not supported
+        SEPARATE_CC=1 # force separate compilation - multiple -c compilation not supported
+  ;;
   *)    CCOPTFLAGS="-O" ;;
 esac
+AC_SUBST(SEPARATE_CC)
 
 dnl GASNET_GET_GNUWARNINGFLAGS(type)  type=C or CXX
 AC_DEFUN([GASNET_GET_GNUWARNINGFLAGS],[

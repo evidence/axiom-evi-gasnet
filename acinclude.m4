@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/05/22 10:05:10 $
-dnl $Revision: 1.100 $
+dnl     $Date: 2006/05/28 06:50:47 $
+dnl $Revision: 1.101 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1565,58 +1565,85 @@ AC_DEFUN([GASNET_PROG_PERL],[
   GASNET_FUN_END([$0])
 ])
 
+dnl GASNET_IFDEF(preprocsymbol[, action-if-defined, action-if-notdefined, forcecompile]) 
+dnl test whether preprocsymbol is defined and execute appropriate action
+dnl forcecompile forces a full compile, otherwise just use preprocessor
 AC_DEFUN([GASNET_IFDEF],[
-GASNET_FUN_BEGIN([$0($1)])
+GASNET_FUN_BEGIN([$0($1,...,$4)])
+if test -z "$4" ; then
 AC_TRY_CPP([
 #ifndef $1
 # error
 #endif], [$2], [$3])
-GASNET_FUN_END([$0($1)])
+else
+AC_TRY_COMPILE([
+#ifndef $1
+# error
+#endif], [ ], [$2], [$3])
+fi
+GASNET_FUN_END([$0($1,...,$4)])
 ])
 
-
+dnl GASNET_FAMILY_CACHE_CHECK(lang-display-name, (CC|CXX), family_output_var)
 AC_DEFUN([GASNET_FAMILY_CACHE_CHECK],[
-GASNET_FUN_BEGIN([$0])
+GASNET_FUN_BEGIN([$0($1,$2,$3)])
 AC_REQUIRE_CPP
 AC_CACHE_CHECK(for $1 compiler family, $3, [
+  if test "$2" = "CC" ; then
+    _GASNET_FAMILY_CACHE_CHECK_PREPROC="$CPP"
+  else
+    _GASNET_FAMILY_CACHE_CHECK_PREPROC="$CXXCPP"
+  fi
+  if test "`echo '$_GASNET_FAMILY_CACHE_CHECK_PREPROC' | grep '[$]$1'`" = "" ; then
+    # preprocessor may differ from true compiler, so force full compilation testing
+    _force_compile=1
+  else
+    _force_compile=
+  fi
   $3=unknown
 
   dnl start with compilers having very slow preprocessors
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(__xlC__, $3=XLC)
+    GASNET_IFDEF(__xlC__, $3=XLC, [], $_force_compile)
   fi
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(_CRAYC, $3=Cray)
+    GASNET_IFDEF(_CRAYC, $3=Cray, [], $_force_compile)
   fi
   dnl gcc-like compilers, which may define __GNUC__ - order matters here
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(__GNUC__, $3=GNU) 
+    GASNET_IFDEF(__GNUC__, $3=GNU, [], $_force_compile) 
     dnl Note GNUC one above must precede many of those below
-    GASNET_IFDEF(__PATHCC__, $3=Pathscale)
-    GASNET_IFDEF(__PGI, $3=PGI)
-    GASNET_IFDEF(__INTEL_COMPILER, $3=Intel)
+    GASNET_IFDEF(__PATHCC__, $3=Pathscale, [], $_force_compile)
+    GASNET_IFDEF(__PGI, $3=PGI, [], $_force_compile)
+    GASNET_IFDEF(__INTEL_COMPILER, $3=Intel, [], $_force_compile)
   fi
   dnl other vendor compilers
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(__DECC, $3=Compaq) # Compaq C
-    GASNET_IFDEF(__DECCXX, $3=Compaq) # Compaq C++
+    GASNET_IFDEF(__DECC, $3=Compaq, [], $_force_compile) # Compaq C
+    GASNET_IFDEF(__DECCXX, $3=Compaq, [], $_force_compile) # Compaq C++
   fi
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(__SUNPRO_C, $3=Sun)  # Sun C
-    GASNET_IFDEF(__SUNPRO_CC, $3=Sun) # Sun C++
+    GASNET_IFDEF(__SUNPRO_C, $3=Sun, [], $_force_compile)  # Sun C
+    GASNET_IFDEF(__SUNPRO_CC, $3=Sun, [], $_force_compile) # Sun C++
   fi
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(__HP_cc, $3=HP)  # HP C
-    GASNET_IFDEF(__HP_aCC, $3=HP) # HP aCC (C++)
+    GASNET_IFDEF(__HP_cc, $3=HP, [], $_force_compile)  # HP C
+    GASNET_IFDEF(__HP_aCC, $3=HP, [], $_force_compile) # HP aCC (C++)
   fi
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(_SGI_COMPILER_VERSION, $3=MIPS)
+    GASNET_IFDEF(_SGI_COMPILER_VERSION, $3=MIPS, [], $_force_compile)
   fi
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(__MTA__, $3=MTA)
+    GASNET_IFDEF(__MTA__, $3=MTA, [], $_force_compile)
   fi
   if test "$$3" = "unknown"; then
-    GASNET_IFDEF(__KCC, $3=KAI)
+    GASNET_IFDEF(__KCC, $3=KAI, [], $_force_compile)
+  fi
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__TINYC__, $3=TINY, [], $_force_compile)
+  fi
+  if test "$$3" = "unknown"; then
+    GASNET_IFDEF(__LCC__, $3=LCC, [], $_force_compile)
   fi
 
   dnl compilers lacking specific identifying marks - identify by platform
@@ -1647,7 +1674,7 @@ AC_SUBST($2_FAMILY)
 AC_SUBST($2_UNWRAPPED)
 AC_SUBST($2_WRAPPED)
 GASNET_SUBST_FILE(cc_wrapper_mk, cc-wrapper.mk)
-GASNET_FUN_END([$0])
+GASNET_FUN_END([$0($1,$2,$3)])
 ])
 
 
