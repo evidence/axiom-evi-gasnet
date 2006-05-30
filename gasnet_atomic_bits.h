@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/28 02:27:54 $
- * $Revision: 1.233 $
+ *     $Date: 2006/05/30 20:00:25 $
+ * $Revision: 1.234 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1965,7 +1965,6 @@
       /* Need mutex on 64-bit read() to avoid word tearing */
       /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
       #define gasneti_genatomic64_read             gasneti_hsl_atomic64_read
-      #define gasneti_genatomic64_align 4 /* only need 4-byte alignment, not the default 8 */
     #endif
   #elif defined(_INCLUDED_GASNET_H)
     /* Case II: Empty HSLs in a GASNET_SEQ or GASNET_PARSYNC client w/o conduit-internal threads */
@@ -1994,13 +1993,15 @@
       /* Need mutex on 64-bit read() to avoid word tearing */
       /* NOTE: defining gasneti_genatomic_read triggers matching behavior in gasnet_atomicops.h */
       #define gasneti_genatomic64_read             gasneti_pthread_atomic64_read
-      #define gasneti_genatomic64_align 4 /* only need 4-byte alignment, not the default 8 */
     #endif
   #else
     /* Case IV: Serial gasnet tools client. */
     /* attempt to generate a compile error if pthreads actually are in use */
     #define PTHREAD_MUTEX_INITIALIZER ERROR_include_pthread_h_before_gasnet_tools_h
     extern int pthread_mutex_lock; 
+  #endif
+  #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64) || defined(GASNETI_UNALIGNED_ATOMIC64)
+    #define gasneti_genatomic64_align 4 /* only need 4-byte alignment, not the default 8 */
   #endif
 
   #ifdef GASNETI_GENATOMIC_LOCK
