@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/30 20:11:31 $
- * $Revision: 1.235 $
+ *     $Date: 2006/05/30 20:58:09 $
+ * $Revision: 1.236 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2006,7 +2006,7 @@
     #define gasneti_genatomic64_align GASNETI_UNALIGNED_ATOMIC64
   #elif PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64)
     #define gasneti_genatomic64_align 4
-  #else gasneti_genatomic64_align
+  #else
     #define gasneti_genatomic64_align 8
   #endif
 
