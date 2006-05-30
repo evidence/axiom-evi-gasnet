@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/05/27 00:42:16 $
- * $Revision: 1.94 $
+ *     $Date: 2006/05/30 21:04:05 $
+ * $Revision: 1.95 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -527,7 +527,11 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
     const char *debug = "";
     const char *trace = "";
     const char *stats = "";
-    const char *membars = "";
+    const char *gen_atomics = "";
+    const char *os_atomics = "";
+    const char *true_weak = "";
+    const char *gen_sema = "";
+    const char *debug_membars = "";
     #ifdef GASNET_DEBUG
       debug = "debugging ";
     #endif
@@ -537,25 +541,45 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
     #ifdef GASNET_STATS
       stats = "statistical collection ";
     #endif
-    #ifdef GASNETI_FORCE_YIELD_MEMBARS
-      membars = "debug-membars ";
+    #ifdef GASNETI_FORCE_GENERIC_ATOMICOPS
+      gen_atomics = "        FORCED mutex-based atomicops\n";
     #endif
-    if (*debug || *trace || *stats || *membars) {
+    #ifdef GASNETI_FORCE_OS_ATOMICOPS
+      os_atomics = "        FORCED os-provided atomicops\n";
+    #endif
+    #ifdef GASNETI_FORCE_TRUE_WEAKATOMICS
+      true_weak = "        FORCED atomics in sequential code\n";
+    #endif
+    #ifdef GASNETI_FORCE_GENERIC_SEMAPHORES
+      gen_sema = "        FORCED mutex-based semaphores\n";
+    #endif
+    #ifdef GASNETI_FORCE_YIELD_MEMBARS
+      debug_membars = "        FORCED debugging membars\n";
+    #endif
+    if (*debug || *trace || *stats ||
+        *gen_atomics || *os_atomics || *gen_sema || *true_weak || *debug_membars) {
       fflush(NULL);
       fprintf(stdout,
         "-----------------------------------------------------------------------\n"
         " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
         "\n"
-        " GASNet was configured and built with these optional features enabled:\n"
-        "        %s%s%s%senabled\n"
+        " GASNet was configured and built with these optional features enabled:\n");
+      if (*debug || *trace || *stats) {
+        fprintf(stdout, "        %s%s%senabled\n" ,debug,trace,stats);
+      }
+      if (*gen_atomics) fprintf(stdout, gen_atomics);
+      if (*os_atomics) fprintf(stdout, os_atomics);
+      if (*true_weak) fprintf(stdout, true_weak);
+      if (*gen_sema) fprintf(stdout, gen_sema);
+      if (*debug_membars) fprintf(stdout, debug_membars);
+      fprintf(stdout,
         " This usually has a SERIOUS impact on performance, so you should NOT\n"
         " trust any performance numbers reported in this run!!!\n"
         " You should configure and build from scratch without the configure\n"
         " flags that enable the optional additional checking/reporting.\n"
         "\n"
         " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING\n"
-        "-----------------------------------------------------------------------\n"
-        ,debug,trace,stats,membars);
+        "-----------------------------------------------------------------------\n");
       fflush(NULL);
     }
   }
