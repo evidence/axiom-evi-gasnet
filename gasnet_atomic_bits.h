@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/30 20:00:25 $
- * $Revision: 1.234 $
+ *     $Date: 2006/05/30 20:11:31 $
+ * $Revision: 1.235 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2000,8 +2000,14 @@
     #define PTHREAD_MUTEX_INITIALIZER ERROR_include_pthread_h_before_gasnet_tools_h
     extern int pthread_mutex_lock; 
   #endif
-  #if PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64) || defined(GASNETI_UNALIGNED_ATOMIC64)
-    #define gasneti_genatomic64_align 4 /* only need 4-byte alignment, not the default 8 */
+
+  #define gasneti_genatomic32_align 4
+  #if defined(GASNETI_UNALIGNED_ATOMIC64)
+    #define gasneti_genatomic64_align GASNETI_UNALIGNED_ATOMIC64
+  #elif PLATFORM_ARCH_32 || defined(GASNETI_HYBRID_ATOMIC64)
+    #define gasneti_genatomic64_align 4
+  #else gasneti_genatomic64_align
+    #define gasneti_genatomic64_align 8
   #endif
 
   #ifdef GASNETI_GENATOMIC_LOCK
@@ -2198,12 +2204,6 @@
 #endif
 #ifndef gasneti_atomic64_align
   #define gasneti_atomic64_align 8
-#endif
-#ifndef gasneti_genatomic32_align
-  #define gasneti_genatomic32_align 4
-#endif
-#ifndef gasneti_genatomic64_align
-  #define gasneti_genatomic64_align 8
 #endif
 
 /* ------------------------------------------------------------------------------------ */
