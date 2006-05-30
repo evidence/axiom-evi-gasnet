@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/05/28 02:27:54 $
- * $Revision: 1.50 $
+ *     $Date: 2006/05/30 22:30:29 $
+ * $Revision: 1.51 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -386,7 +386,7 @@ static int *gasneti_linkconfig_idiotcheck() {
         + GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(CORE_,GASNET_CORE_NAME))
         + GASNETI_LINKCONFIG_IDIOTCHECK(_CONCAT(EXTENDED_,GASNET_EXTENDED_NAME))
         ;
-  if (_gasneti_linkconfig_idiotcheck != gasneti_linkconfig_idiotcheck)
+  if (_gasneti_linkconfig_idiotcheck != (void*)&gasneti_linkconfig_idiotcheck)
     val += ((int(*)())_gasneti_linkconfig_idiotcheck)();
   return &val;
 }
