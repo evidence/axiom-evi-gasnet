@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/05/14 04:00:06 $
- * $Revision: 1.74 $
+ *     $Date: 2006/05/30 22:31:26 $
+ * $Revision: 1.75 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -410,7 +410,7 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
     gasnete_eop_check((gasnete_eop_t *)op);
     if (OPSTATE(op) == OPSTATE_COMPLETE) {
       gasneti_sync_reads();
-      return TRUE;
+      return 1;
     }
     cat = OPCAT(op);
     switch (cat) {
@@ -442,7 +442,7 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
       case OPCAT_AMPUT:
       case OPCAT_MEMSET:
       case OPCAT_OTHER:
-        return FALSE;
+        return 0;
       default: gasneti_fatalerror("unrecognized op category");
     }
   } else {
@@ -450,8 +450,8 @@ int gasnete_op_isdone(gasnete_op_t *op, int have_elanLock) {
     gasnete_iop_check(iop);
     if (gasnete_iop_gets_done(iop) && gasnete_iop_puts_done(iop)) {
       gasneti_sync_reads();
-      return TRUE;
-    } else return FALSE;
+      return 1;
+    } else return 0;
   }
 }
 
@@ -858,7 +858,7 @@ int gasnete_try_syncnb_inner(gasnet_handle_t handle) {
   ASSERT_ELAN_UNLOCKED();
   if (GASNETE_HANDLE_IS_OP(handle)) {
     gasnete_op_t *op = GASNETE_HANDLE_TO_OP(handle);
-    if (gasnete_op_isdone(op, FALSE)) {
+    if (gasnete_op_isdone(op, 0)) {
       gasnete_op_free(op);
       return GASNET_OK;
     }
@@ -1004,7 +1004,7 @@ static gasnete_eop_t * gasnete_putgetbblist_pending(gasnete_eop_t *eoplist) {
     gasneti_assert(OPCAT(op) == OPCAT_ELANGETBB || OPCAT(op) == OPCAT_ELANPUTBB);
     gasneti_assert(eoplist->bouncebuf);
     next = eoplist->bouncebuf->next;
-    if (gasnete_op_isdone(op, TRUE)) {
+    if (gasnete_op_isdone(op, 1)) {
       gasnete_op_free(op);
     }
     else 
@@ -1296,7 +1296,7 @@ extern void gasnete_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
 static int gasnete_iop_gets_done(gasnete_iop_t *iop) {
   ASSERT_ELAN_UNLOCKED();
   if (gasneti_weakatomic_read(&(iop->completed_get_cnt), 0) == iop->initiated_get_cnt) {
-    int retval = TRUE;
+    int retval = 1;
     if_pf (iop->initiated_get_cnt > 65000) { /* make sure we don't overflow the counters */
       gasneti_weakatomic_set(&(iop->completed_get_cnt), 0, 0);
       iop->initiated_get_cnt = 0;
@@ -1304,19 +1304,19 @@ static int gasnete_iop_gets_done(gasnete_iop_t *iop) {
     if (iop->getbin.evt_cnt || iop->elan_getbb_list) {
         LOCK_ELAN_WEAK();
           if (!gasnete_evtbin_done(&(iop->getbin))) 
-            retval = FALSE;
+            retval = 0;
           if ((iop->elan_getbb_list = gasnete_putgetbblist_pending(iop->elan_getbb_list)) != NULL) 
-            retval = FALSE;
+            retval = 0;
         UNLOCK_ELAN_WEAK();
     }
     return retval;
   }
-  return FALSE;
+  return 0;
 }
 static int gasnete_iop_puts_done(gasnete_iop_t *iop) {
   ASSERT_ELAN_UNLOCKED();
   if (gasneti_weakatomic_read(&(iop->completed_put_cnt), 0) == iop->initiated_put_cnt) {
-    int retval = TRUE;
+    int retval = 1;
     if_pf (iop->initiated_put_cnt > 65000) { /* make sure we don't overflow the counters */
       gasneti_weakatomic_set(&(iop->completed_put_cnt), 0, 0);
       iop->initiated_put_cnt = 0;
@@ -1324,14 +1324,14 @@ static int gasnete_iop_puts_done(gasnete_iop_t *iop) {
     if (iop->putbin.evt_cnt || iop->elan_putbb_list) {
         LOCK_ELAN_WEAK();
           if (!gasnete_evtbin_done(&(iop->putbin))) 
-            retval = FALSE;
+            retval = 0;
           if ((iop->elan_putbb_list = gasnete_putgetbblist_pending(iop->elan_putbb_list)) != NULL) 
-            retval = FALSE;
+            retval = 0;
         UNLOCK_ELAN_WEAK();
     }
     return retval;
   }
-  return FALSE;
+  return 0;
 }
 
 extern int  gasnete_try_syncnbi_gets(GASNETE_THREAD_FARG_ALONE) {

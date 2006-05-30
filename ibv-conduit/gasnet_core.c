@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/05/23 12:42:43 $
- * $Revision: 1.170 $
+ *     $Date: 2006/05/30 22:31:28 $
+ * $Revision: 1.171 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1088,7 +1088,7 @@ static int gasnetc_init(int *argc, char ***argv) {
     QP_ATTR_MASK_SET(qp_mask, QP_ATTR_MIN_RNR_TIMER);
     qp_attr.qp_state         = VAPI_RTR;
     qp_attr.av.sl            = 0;
-    qp_attr.av.grh_flag      = FALSE;
+    qp_attr.av.grh_flag      = 0;
     qp_attr.av.static_rate   = GASNETC_QP_STATIC_RATE;
     qp_attr.av.src_path_bits = 0;
     qp_attr.min_rnr_timer    = GASNETC_QP_MIN_RNR_TIMER;

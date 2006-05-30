@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/05/24 04:01:48 $
- * $Revision: 1.168 $
+ *     $Date: 2006/05/30 22:31:24 $
+ * $Revision: 1.169 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -271,7 +271,7 @@ extern const char *gasnet_ErrorDesc(int errval) {
 #define GASNETI_UNFREEZE_SIGNAL_STR "SIGCONT"
 #endif
 
-static volatile int gasnet_frozen = TRUE;
+static volatile int gasnet_frozen = 1;
 static void gasneti_unfreezeHandler(int sig) {
   gasnet_frozen = 0;
 }

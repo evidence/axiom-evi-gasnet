@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/05/04 06:20:01 $
- * $Revision: 1.188 $
+ *     $Date: 2006/05/30 22:31:28 $
+ * $Revision: 1.189 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1211,8 +1211,8 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc, int 
   #endif
   sr_desc[0].id        = (uintptr_t)sreq;
   sr_desc[0].comp_type = VAPI_SIGNALED;
-  sr_desc[0].set_se    = FALSE;
-  sr_desc[0].fence     = FALSE;
+  sr_desc[0].set_se    = 0;
+  sr_desc[0].fence     = 0;
 
   if (is_inline) {
     GASNETC_STAT_EVENT(POST_INLINE_SR);
@@ -1290,13 +1290,13 @@ void gasnetc_snd_post_list_common(gasnetc_sreq_t *sreq, VAPI_sr_desc_t *sr_desc,
       sr_desc[i].id      = 0;
     #endif
     sr_desc[i].comp_type = VAPI_UNSIGNALED;
-    sr_desc[i].set_se    = FALSE;
-    sr_desc[i].fence     = FALSE;
+    sr_desc[i].set_se    = 0;
+    sr_desc[i].fence     = 0;
   }
   sr_desc[tmp].id        = (uintptr_t)sreq;
   sr_desc[tmp].comp_type = VAPI_SIGNALED;
-  sr_desc[tmp].set_se    = FALSE;
-  sr_desc[tmp].fence     = FALSE;
+  sr_desc[tmp].set_se    = 0;
+  sr_desc[tmp].fence     = 0;
 }
 
 /* Post multiple work requests to the send queue of the given endpoint */

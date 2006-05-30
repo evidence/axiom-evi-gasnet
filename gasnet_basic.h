@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/05/23 12:42:14 $
- * $Revision: 1.74 $
+ *     $Date: 2006/05/30 22:31:24 $
+ * $Revision: 1.75 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -59,12 +59,6 @@
 #define _CONCAT(a,b) _CONCAT_HELPER(a,b)
 #endif
 
-#ifndef TRUE
-#define TRUE 1
-#endif
-#ifndef FALSE
-#define FALSE 0
-#endif
 #ifndef MIN
 #define MIN(x,y)  ((x)<(y)?(x):(y))
 #endif
