@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/05/30 21:04:03 $
- * $Revision: 1.197 $
+ *     $Date: 2006/05/31 13:54:13 $
+ * $Revision: 1.198 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1340,6 +1340,8 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS)
   #define GASNETI_ATOMIC_CONFIG   atomics_forced_mutex
+#elif defined(GASNETI_FORCE_OS_ATOMICOPS)
+  #define GASNETI_ATOMIC_CONFIG   atomics_forced_os
 #elif defined(GASNETI_USE_GENERIC_ATOMICOPS)
   #define GASNETI_ATOMIC_CONFIG   atomics_mutex
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
@@ -1350,6 +1352,8 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS)
   #define GASNETI_ATOMIC32_CONFIG   atomic32_forced_mutex
+#elif defined(GASNETI_FORCE_OS_ATOMICOPS)
+  #define GASNETI_ATOMIC32_CONFIG   atomic32_forced_os
 #elif defined(GASNETI_USE_GENERIC_ATOMIC32)
   #define GASNETI_ATOMIC32_CONFIG   atomic32_mutex
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
@@ -1360,6 +1364,8 @@ typedef int64_t gasneti_atomic64_sval_t;	/* For consistency in fencing macros */
 
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS)
   #define GASNETI_ATOMIC64_CONFIG   atomic64_forced_mutex
+#elif defined(GASNETI_FORCE_OS_ATOMICOPS)
+  #define GASNETI_ATOMIC64_CONFIG   atomic64_forced_os
 #elif defined(GASNETI_USE_GENERIC_ATOMIC64)
   #define GASNETI_ATOMIC64_CONFIG   atomic64_mutex
 #elif defined(GASNETI_HYBRID_ATOMIC64)
