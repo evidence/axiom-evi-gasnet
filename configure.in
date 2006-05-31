@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/31 00:32:48 $
-# $Revision: 1.366 $
+#     $Date: 2006/05/31 12:20:32 $
+# $Revision: 1.367 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.366 $)
+AC_REVISION($Revision: 1.367 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -671,7 +671,9 @@ case "$target_os" in
   linux*) 
 	# Check for SGI Altix, using a device heuristic.  SGI has assured us
 	# that /dev/hw is specific (and standard) on their system
-	if test -d "/dev/hw/cpunum"; then
+	# DOB: as of 2.6.5-7.252-sn2 (possibly earlier) /dev/hw/cpunum no longer exists
+	# so now we use /dev/xpmem instead, which is not likely to disappear
+	if test -d "/dev/hw/cpunum" -o -c "/dev/xpmem"; then
 	  AC_DEFINE(GASNETI_ARCH_ALTIX)
 	fi
         case "$target" in

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/05/28 02:27:54 $
- * $Revision: 1.64 $
+ *     $Date: 2006/05/31 12:20:32 $
+ * $Revision: 1.65 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -177,7 +177,8 @@ GASNETI_BEGIN_EXTERNC
 #elif (PLATFORM_OS_LINUX || PLATFORM_OS_CATAMOUNT) && \
      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
       PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_TINY) && \
-     (PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_IA64)
+     (PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_IA64) && \
+      !GASNETI_ARCH_ALTIX /* bug 1622 */
   #if PLATFORM_ARCH_IA64 && PLATFORM_COMPILER_INTEL
     #include <ia64intrin.h>
   #endif
