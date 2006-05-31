@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/30 21:04:03 $
-# $Revision: 1.365 $
+#     $Date: 2006/05/31 00:32:48 $
+# $Revision: 1.366 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.365 $)
+AC_REVISION($Revision: 1.366 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1010,7 +1010,7 @@ GASNET_IF_ENABLED(force-generic-atomicops, Force mutex-based atomic ops (default
 GASNET_IF_ENABLED(force-os-atomicops, Force os-provided atomic ops (default is platform specific),
 		  [ enabled_os_atomicops=yes ])
 if test "$enabled_generic_atomicops$enabled_os_atomicops" = yesyes; then
-  AC_MSG_ERROR([You cannot request both --enable-generic-atomicops and --enable-os-atomicops])
+  AC_MSG_ERROR([You cannot request both --enable-force-generic-atomicops and --enable-force-os-atomicops])
 elif test -n "$enabled_generic_atomicops" ; then
   AC_DEFINE(GASNETI_FORCE_GENERIC_ATOMICOPS)
 elif test -n "$enabled_os_atomicops"; then
