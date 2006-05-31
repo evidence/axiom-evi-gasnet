@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/05/30 22:31:24 $
- * $Revision: 1.75 $
+ *     $Date: 2006/05/31 19:16:52 $
+ * $Revision: 1.76 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -220,7 +220,7 @@
   #define GASNETI_CONSTP(fnname) GASNETI_PUREP(fnname)
 #endif
 
-#if GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE
+#if GASNETI_HAVE_GCC_ATTRIBUTE_ALWAYSINLINE && !PLATFORM_COMPILER_PATHSCALE /* (see bug 1620) */
   /* bug1525: gcc's __always_inline__ attribute appears to be maximally aggressive */
   #define _GASNETI_ALWAYS_INLINE(fnname) __attribute__((__always_inline__))
 #elif PLATFORM_COMPILER_CRAY_C
