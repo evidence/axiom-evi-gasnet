@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_syncops.h,v $
- *     $Date: 2006/05/24 18:37:51 $
- * $Revision: 1.37 $
+ *     $Date: 2006/05/31 16:32:55 $
+ * $Revision: 1.38 $
  * Description: GASNet header for synchronization operations used in GASNet implementation
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -158,8 +158,9 @@ GASNETI_BEGIN_EXTERNC
     int retval = 0;
     do {
       const gasneti_atomic_val_t old = gasneti_weakatomic_read(s, 0);
-      if_pf (old == 0)
-        break;
+      if_pf (old == 0) {
+	return 0;	/* Note: "break" here generates infinite loop w/ pathcc 2.4 (bug 1620) */
+      }
       retval = gasneti_weakatomic_compare_and_swap(s, old, old - 1, GASNETI_ATOMIC_ACQ_IF_TRUE);
     } while (PREDICT_FALSE(!retval));
     return retval;
