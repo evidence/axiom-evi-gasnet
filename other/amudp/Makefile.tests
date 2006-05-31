@@ -37,7 +37,7 @@ run-tests: tests
 	@echo $(TEST_LINE)
 	@echo  Running AMUDP tests...
 	@echo  If this fails to spawn a job, you may need to re-run with a
-	@echo   command like: gmake run-tests AMUDP_SPAWNFN=S
+	@echo   command like: $(MAKE) run-tests AMUDP_SPAWNFN=S
 	@echo $(TEST_LINE)
 	@TEST_RUN="./testping $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
 	@TEST_RUN="./testlatency $(TEST_NODES) $(TEST_SPAWNFN)  $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)

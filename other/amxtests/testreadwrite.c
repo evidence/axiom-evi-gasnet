@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/testreadwrite.c,v $
- *     $Date: 2006/04/11 03:23:45 $
- * $Revision: 1.8 $
+ *     $Date: 2006/05/31 08:17:44 $
+ * $Revision: 1.9 $
  * Description: AMX test
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,6 +21,8 @@ int main(int argc, char **argv) {
   int iters = 0;
 
   TEST_STARTUP(argc, argv, networkpid, eb, ep, 1, 1, "iters");
+
+  TEST_32BIT_ONLY();
 
   /* setup handlers */
   setupUtilHandlers(ep, eb);

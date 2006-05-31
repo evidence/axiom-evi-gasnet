@@ -34,7 +34,7 @@ run-tests: tests
 	@echo $(TEST_LINE)
 	@echo  Running AMMPI tests...
 	@echo  If this fails to spawn a job, you may need to re-run with a
-	@echo   command like: gmake run-tests AMMPI_RUNCMD=\"$(AMMPI_RUNCMD)\"
+	@echo   command like: $(MAKE) run-tests AMMPI_RUNCMD=\"$(AMMPI_RUNCMD)\"
 	@echo $(TEST_LINE)
 	@TEST_RUN="./testping $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)
 	@TEST_RUN="./testlatency $(TEST_ITERS) $(TEST_MODE)" $(TEST_RUNCMD)

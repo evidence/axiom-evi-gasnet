@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2006/05/28 02:27:58 $
- * $Revision: 1.5 $
+ *     $Date: 2006/05/31 08:17:38 $
+ * $Revision: 1.6 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -540,7 +540,8 @@
       defined(__i486__) || defined(__i486) || \
       defined(__i586__) || defined(__i586) || \
       defined(__i686__) || defined(__i686) || \
-      defined(__pentiumpro) || defined(__pentiumpro__)
+      defined(__pentiumpro) || defined(__pentiumpro__) || \
+      defined(_M_IX86)
   #define PLATFORM_ARCH_X86 1
   #define PLATFORM_ARCH_FAMILYNAME X86
   #define _PLATFORM_ARCH_32 1

@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.common,v $
-#     $Date: 2006/04/01 05:18:12 $
-# $Revision: 1.9 $
+#     $Date: 2006/05/31 08:17:40 $
+# $Revision: 1.10 $
 # Description: Platform-independent variable init, overridden by pre-baked makefiles
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -12,7 +12,8 @@ testdir = $(srcdir)
 
 # compiler
 CC = mpicc
-ccdebugflags = -O0 -g3 -ansi -Wall -Wno-unused-variable -Wno-unused-function
+#ccdebugflags = -O0 -g3 -ansi -Wall -Wno-unused-variable -Wno-unused-function
+ccdebugflags = -g
 ccoptflags = -O3
 
 MPIRUN_CMD = mpirun -np %N %P %A
@@ -23,7 +24,7 @@ ar = ar
 PERL = perl
 
 # To be set by pre-baked makefiles:
-endianness = 
 platform_defines = 
 platform_ldflags =
 platform_libraries = 
+

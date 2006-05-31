@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/Makefile.common,v $
-#     $Date: 2006/04/01 05:18:14 $
-# $Revision: 1.6 $
+#     $Date: 2006/05/31 08:17:42 $
+# $Revision: 1.7 $
 # Description: Platform-independent variable init, overridden by pre-baked makefiles
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
@@ -47,4 +47,6 @@ ueth_libraries	 := $(shell csh -c 'if ("`hostname`" == "whomp") echo "$(uethlibn
 
 # To be set by pre-baked makefiles:
 platform_defines = 
+platform_ldflags =
 platform_libraries = 
+

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.h,v $
- *     $Date: 2006/05/23 12:42:31 $
- * $Revision: 1.17 $
+ *     $Date: 2006/05/31 08:17:44 $
+ * $Revision: 1.18 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -131,6 +131,17 @@ void readSync();
 
 void writeWord(int proc, void *addr, uint32_t val);
 void writeSync();
+
+#define TEST_32BIT_ONLY() do {                                         \
+    if (sizeof(void*) != 4) {                                          \
+      if (AMX_SPMDMyProc() == 0) {                                     \
+        printf("Test SKIPPED -- not implemented on 64-bit systems\n"); \
+        fflush(stdout);                                                \
+      }                                                                \
+      AM_Safe(AMX_SPMDBarrier());                                      \
+      AM_Safe(AMX_SPMDExit(0));                                        \
+    }                                                                  \
+  } while(0)
 #endif
 
 #ifdef __cplusplus

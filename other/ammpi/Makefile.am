@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.am,v $
-#     $Date: 2006/05/24 08:54:29 $
-# $Revision: 1.37 $
+#     $Date: 2006/05/31 08:17:40 $
+# $Revision: 1.38 $
 # Description: Makefile for AMMPI/GASNet 
 # Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -58,6 +58,7 @@ libammpi_a_DEPENDENCIES = $(libammpi_a_SOURCES:%.c=%.o)
 
 EXTRA_DIST = \
 	Makefile.common 	\
+	Makefile.generic 	\
 	Makefile.standalone 	\
 	Makefile.tests  	\
 	Makefile.titanium.in	\
