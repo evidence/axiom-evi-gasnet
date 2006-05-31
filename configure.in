@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/05/31 12:20:32 $
-# $Revision: 1.367 $
+#     $Date: 2006/05/31 14:22:15 $
+# $Revision: 1.368 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.367 $)
+AC_REVISION($Revision: 1.368 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1019,11 +1019,27 @@ elif test -n "$enabled_os_atomicops"; then
   AC_DEFINE(GASNETI_FORCE_OS_ATOMICOPS)
 fi
 GASNET_IF_ENABLED(force-true-weakatomics, Force use of real atomic operations in sequential code (disabled by default),
-		  [ AC_DEFINE(GASNETI_FORCE_TRUE_WEAKATOMICS) ] )
+		  [ enabled_true_weakatomics=yes
+		    AC_DEFINE(GASNETI_FORCE_TRUE_WEAKATOMICS) ] )
 GASNET_IF_ENABLED(force-generic-semaphores, Force mutex-based semaphores (default is platform specific),
-		  [ AC_DEFINE(GASNETI_FORCE_GENERIC_SEMAPHORES) ] )
-GASNET_IF_ENABLED(force-debug-membars, Force debugging memory barriers (disabled by default),
-		  [ AC_DEFINE(GASNETI_FORCE_DEBUG_MEMBARS) ] )
+		  [ enabled_true_generic_semaphores=yes
+		    AC_DEFINE(GASNETI_FORCE_GENERIC_SEMAPHORES) ] )
+GASNET_IF_ENABLED(force-yield-membars, Force memory barriers based on sched_yield() (disabled by default),
+		  [ enabled_yield_membars=yes
+		    AC_DEFINE(GASNETI_FORCE_YIELD_MEMBARS) ] )
+
+if test -n "$enabled_generic_atomicops$enabled_os_atomicops$enabled_true_weakatomics$enabled_true_generic_semaphores$enabled_yield_membars" ; then
+  echo '-----------------------------------------------------------------------'
+  echo ' WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING'
+  echo ''
+  echo ' You have configured with one or more --enable-force-* options'
+  echo ' This usually has a SERIOUS impact on performance, so you should NOT'
+  echo ' trust any performance numbers obtained from programs built'
+  echo ' using this GASNet installation!!!'
+  echo ''
+  echo ' WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING'
+  echo '-----------------------------------------------------------------------'
+fi
 
 #---------------------------------------------------------------------------------------------------------------
 # CONDUIT CONFIGURATIONS
