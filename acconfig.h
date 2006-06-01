@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/05/31 14:22:15 $ */
-/*  $Revision: 1.100 $ */
+/*      $Date: 2006/06/01 11:21:43 $ */
+/*  $Revision: 1.101 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -17,6 +17,9 @@
 #undef GASNETI_CONFIGURE_ARGS
 #undef GASNETI_SYSTEM_TUPLE
 #undef GASNETI_SYSTEM_NAME
+
+/* configure-detected conduits */
+#undef GASNETI_CONDUITS
 
 /* attributes support */
 #undef GASNETI_HAVE_GCC_ATTRIBUTE

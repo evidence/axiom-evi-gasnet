@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/05/30 22:31:24 $
- * $Revision: 1.169 $
+ *     $Date: 2006/06/01 11:21:43 $
+ * $Revision: 1.170 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,6 +17,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -205,6 +206,7 @@ extern void gasneti_check_config_preinit() {
   }
 }
 
+static void gasneti_check_portable_conduit();
 extern void gasneti_check_config_postattach() {
   gasneti_check_config_preinit();
 
@@ -231,6 +233,9 @@ extern void gasneti_check_config_postattach() {
             fprintf(stderr, "WARNING: GASNET_DISABLE_MUNMAP set on an unsupported platform\n");
         #endif
       }
+      #if GASNET_NDEBUG
+        gasneti_check_portable_conduit();
+      #endif
     }
   }
   gasneti_memcheck_all();
@@ -1074,6 +1079,91 @@ int _gasneti_print_backtrace(int fd) {
 
 int (* gasneti_print_backtrace)(int) = &_gasneti_print_backtrace;
 
+/* ------------------------------------------------------------------------------------ */
+static void gasneti_check_portable_conduit() { /* check for portable conduit abuse */
+  char myconduit[80];
+  char *m = myconduit;
+  strcpy(myconduit, GASNET_CORE_NAME_STR);
+  while (*m) { *m = tolower(*m); m++; }
+  #define GASNETI_PORTABLE_CONDUIT(name) (!strcmp(name,"mpi") || !strcmp(name,"udp"))
+  if (GASNETI_PORTABLE_CONDUIT(myconduit)) {
+    const char *p = GASNETI_CONDUITS;
+    char natives[255];
+    char reason[255];
+    natives[0] = 0;
+    reason[0] = 0;
+    while (*p) { /* look for configure-detected native conduits */
+      #define GASNETI_CONDUITS_DELIM " ,/;\t\n"
+      char name[80];
+      p += strspn(p,GASNETI_CONDUITS_DELIM);
+      if (*p) {
+        int len = strcspn(p,GASNETI_CONDUITS_DELIM);
+        strncpy(name, p, len);
+        name[len] = 0;
+        if (!GASNETI_PORTABLE_CONDUIT(name) && strcmp(name,"smp")) {
+          if (strlen(natives)) strcat(natives,", ");
+          strcat(natives,name);
+        }
+        p += len;
+        p += strspn(p,GASNETI_CONDUITS_DELIM);
+      }
+      #undef GASNETI_CONDUITS_DELIM
+    }
+    if (natives[0]) {
+      sprintf(reason, "WARNING: Support was detected for native GASNet conduits: %s",natives);
+    } else { /* look for hardware devices supported by native conduits */
+      struct { 
+        const char *filename;
+        mode_t filemode;
+        const char *desc;
+        int hwid;
+      } known_devs[] = {
+        #if PLATFORM_OS_LINUX && PLATFORM_ARCH_IA64
+          { "/dev/hw/cpunum",      S_IFDIR, "SGI Altix", 0 },
+          { "/dev/xpmem",          S_IFCHR, "SGI Altix", 0 },
+        #endif
+        #if PLATFORM_OS_AIX
+          { "/dev/nampd0",         S_IFCHR, "IBM LAPI", 1 }, /* could also run lslpp -l | grep lapi */
+        #endif
+        { "/dev/vipkl",          S_IFCHR, "InfiniBand", 2 },  /* Mellanox drivers */
+        { "/dev/ib_dsc",         S_IFCHR, "InfiniBand", 2 },  /* wotan - could also run system_profiler */
+        { "/dev/gm3",            S_IFCHR, "Myrinet", 3 }, /* could also look in /proc/devices and /proc/pci */
+        { "/dev/elan3/control0", S_IFCHR, "Quadrics QsNetI", 4 },
+        { "/dev/elan4/control0", S_IFCHR, "Quadrics QsNetII", 4 },
+        { "/proc/qsnet/version", S_IFREG, "Quadrics QsNet", 4 }
+      };
+      int i, lim = sizeof(known_devs)/sizeof(known_devs[0]);
+      for (i = 0; i < lim; i++) {
+        struct stat stat_buf;
+        if (!stat(known_devs[i].filename,&stat_buf) && 
+            (!known_devs[i].filemode || (known_devs[i].filemode & stat_buf.st_mode))) {
+            int hwid = known_devs[i].hwid;
+            if (strlen(natives)) strcat(natives,", ");
+            strcat(natives,known_devs[i].desc);
+            while (i < lim && hwid == known_devs[i].hwid) i++; /* don't report a network twice */
+        }
+      }
+      #if PLATFORM_ARCH_CRAYX1
+        if (strlen(natives)) strcat(natives,", ");
+        strcat(natives,"Cray X1");
+      #endif
+      if (natives[0]) {
+        sprintf(reason, "WARNING: This system appears to contain recognized network hardware: %s\n"
+                        "WARNING: which is supported by a GASNet native conduit, although\n"
+                        "WARNING: it was not detected at configure time (missing drivers?)",
+                        natives);
+      }
+    }
+    if (reason[0] && !gasneti_getenv_yesno_withdefault("GASNET_QUIET",0) && gasnet_mynode() == 0) {
+      fprintf(stderr,"WARNING: Using GASNet's %s-conduit, which exists for portability convenience.\n"
+                     "%s\n"
+                     "WARNING: You should *really* use the high-performance native GASNet conduit\n"
+                     "WARNING: if communication performance is at all important in this program run.\n",
+              myconduit, reason);
+      fflush(stderr);
+    }
+  }
+}
 /* ------------------------------------------------------------------------------------ */
 /* Debug memory management
    debug memory format:
