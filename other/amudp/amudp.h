@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp.h,v $
- *     $Date: 2006/05/23 12:42:29 $
- * $Revision: 1.33 $
+ *     $Date: 2006/06/03 06:51:02 $
+ * $Revision: 1.34 $
  * Description: AMUDP Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -194,18 +194,21 @@ typedef struct {
  *  changes here need to also be reflected in the initialization vector AMUDP_initial_stats
  */
 typedef struct {
-  uint32_t RequestsSent[amudp_NumCategories]; /* counts fragments for amudp_Long && !USE_TRUE_BULK_XFERS */
-  uint32_t RepliesSent[amudp_NumCategories];
-  uint32_t RequestsRetransmitted[amudp_NumCategories];
-  uint32_t RepliesRetransmitted[amudp_NumCategories];
-  uint32_t RequestsReceived[amudp_NumCategories];   /*  includes retransmits */
-  uint32_t RepliesReceived[amudp_NumCategories];    /*  includes retransmits */
-  uint32_t ReturnedMessages;
+  uint64_t RequestsSent[amudp_NumCategories]; /* counts fragments for amudp_Long && !USE_TRUE_BULK_XFERS */
+  uint64_t RepliesSent[amudp_NumCategories];
+  uint64_t RequestsRetransmitted[amudp_NumCategories];
+  uint64_t RepliesRetransmitted[amudp_NumCategories];
+  uint64_t RequestsReceived[amudp_NumCategories];   /*  includes retransmits */
+  uint64_t RepliesReceived[amudp_NumCategories];    /*  includes retransmits */
+  uint64_t ReturnedMessages;
   amudp_cputick_t RequestMinLatency;  /* in CPU ticks, only if AMUDP_COLLECT_LATENCY_STATS */
   amudp_cputick_t RequestMaxLatency;  /* in CPU ticks, only if AMUDP_COLLECT_LATENCY_STATS */
   amudp_cputick_t RequestSumLatency;  /* in CPU ticks, only if AMUDP_COLLECT_LATENCY_STATS */
-  uint64_t DataBytesSent[amudp_NumCategories];  /* total of args + data payload for all req/rep, not including retrans */
-  uint64_t TotalBytesSent; /* total user level packet sizes for all req/rep, including retrans */
+  uint64_t RequestDataBytesSent[amudp_NumCategories];  /* total of args + data payload */
+  uint64_t ReplyDataBytesSent[amudp_NumCategories];  /* total of args + data payload */
+  uint64_t RequestTotalBytesSent[amudp_NumCategories];  /* total of args + data payload */
+  uint64_t ReplyTotalBytesSent[amudp_NumCategories];  /* total of args,payload and overhead */
+  uint64_t TotalBytesSent; /* total user level packet sizes for all req/rep */
 } amudp_stats_t;
 
 typedef void (*amudp_handler_fn_t)();  /* prototype for handler function */

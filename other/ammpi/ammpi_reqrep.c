@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_reqrep.c,v $
- *     $Date: 2006/05/23 12:42:27 $
- * $Revision: 1.35 $
+ *     $Date: 2006/06/03 06:51:00 $
+ * $Revision: 1.36 $
  * Description: AMMPI Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -315,8 +315,10 @@ void AMMPI_processPacket(ammpi_buf_t *buf, int isloopback) {
     }
   }
 
-  if (isrequest) AMMPI_STATS(ep->stats.RequestsReceived[cat]++);
-  else AMMPI_STATS(ep->stats.RepliesReceived[cat]++);
+  if (!isloopback) {
+    if (isrequest) AMMPI_STATS(ep->stats.RequestsReceived[cat]++);
+    else AMMPI_STATS(ep->stats.RepliesReceived[cat]++);
+  }
 
   if_pf (sourceId == (ammpi_node_t)-1) AMMPI_REFUSEMESSAGE(ep, buf, EBADENDPOINT);
 
@@ -819,10 +821,11 @@ static int AMMPI_RequestGeneric(ammpi_category_t category,
         outgoingdesc->firstSendTime = now;
       }
     #endif
+    AMMPI_STATS(request_endpoint->stats.RequestsSent[category]++);
+    AMMPI_STATS(request_endpoint->stats.RequestDataBytesSent[category] += sizeof(int) * numargs + nbytes);
+    AMMPI_STATS(request_endpoint->stats.RequestTotalBytesSent[category] += packetlength);
   }
 
-  AMMPI_STATS(request_endpoint->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes);
-  AMMPI_STATS(request_endpoint->stats.RequestsSent[category]++);
   return AM_OK;
  }
 }
@@ -927,11 +930,12 @@ static int AMMPI_ReplyGeneric(ammpi_category_t category,
     #endif
     retval = sendPacket(ep, &ep->Rep, outgoingbuf, packetlength, destaddress, mpihandle);
     if_pf (retval != AM_OK) AMMPI_RETURN(retval);
+    AMMPI_STATS(ep->stats.RepliesSent[category]++);
+    AMMPI_STATS(ep->stats.ReplyDataBytesSent[category] += sizeof(int) * numargs + nbytes);
+    AMMPI_STATS(ep->stats.ReplyTotalBytesSent[category] += packetlength);
   }
 
   requestbuf->status.replyIssued = TRUE;
-  AMMPI_STATS(ep->stats.RepliesSent[category]++);
-  AMMPI_STATS(ep->stats.DataBytesSent[category] += sizeof(int) * numargs + nbytes);
   return AM_OK;
  }
 }

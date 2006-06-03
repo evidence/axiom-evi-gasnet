@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi.h,v $
- *     $Date: 2006/05/29 12:46:01 $
- * $Revision: 1.39 $
+ *     $Date: 2006/06/03 06:51:00 $
+ * $Revision: 1.40 $
  * Description: AMMPI Header
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -81,15 +81,18 @@ typedef void (*AMMPI_postHandlerCallback_t)(ammpi_category_t cat, int isReq);
  *  changes here need to also be reflected in the initialization vector AMMPI_initial_stats
  */
 typedef struct {
-  uint32_t RequestsSent[ammpi_NumCategories];
-  uint32_t RepliesSent[ammpi_NumCategories];
-  uint32_t RequestsReceived[ammpi_NumCategories];
-  uint32_t RepliesReceived[ammpi_NumCategories];
-  uint32_t ReturnedMessages;
+  uint64_t RequestsSent[ammpi_NumCategories];
+  uint64_t RepliesSent[ammpi_NumCategories];
+  uint64_t RequestsReceived[ammpi_NumCategories];
+  uint64_t RepliesReceived[ammpi_NumCategories];
+  uint64_t ReturnedMessages;
   uint64_t RequestMinLatency;  /* only if AMMPI_COLLECT_LATENCY_STATS */
   uint64_t RequestMaxLatency;  /* only if AMMPI_COLLECT_LATENCY_STATS */
   uint64_t RequestSumLatency;  /* only if AMMPI_COLLECT_LATENCY_STATS */
-  uint64_t DataBytesSent[ammpi_NumCategories];  /* total of args + data payload for all req/rep */
+  uint64_t RequestDataBytesSent[ammpi_NumCategories];  /* total of args + data payload */
+  uint64_t ReplyDataBytesSent[ammpi_NumCategories];  /* total of args + data payload */
+  uint64_t RequestTotalBytesSent[ammpi_NumCategories];  /* total of args + data payload */
+  uint64_t ReplyTotalBytesSent[ammpi_NumCategories];  /* total of args,payload and overhead */
   uint64_t TotalBytesSent; /* total user level packet sizes for all req/rep */
 } ammpi_stats_t;
 

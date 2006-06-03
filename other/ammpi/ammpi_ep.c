@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/05/28 12:28:12 $
- * $Revision: 1.42 $
+ *     $Date: 2006/06/03 06:51:00 $
+ * $Revision: 1.43 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -25,7 +25,9 @@ const ammpi_stats_t AMMPI_initial_stats = /* the initial state for stats type */
           {0,0,0}, {0,0,0},
           0,
           (uint64_t)-1, 0, 0,
-          {0,0,0}, 0
+          {0,0,0}, {0,0,0}, 
+          {0,0,0}, {0,0,0}, 
+          0
         };
 /* ------------------------------------------------------------------------------------ */
 /* error handling */
@@ -1209,7 +1211,10 @@ extern int AMMPI_AggregateStatistics(ammpi_stats_t *runningsum, ammpi_stats_t *n
     runningsum->RepliesSent[category] += newvalues->RepliesSent[category];
     runningsum->RepliesReceived[category] += newvalues->RepliesReceived[category];
 
-    runningsum->DataBytesSent[category] += newvalues->DataBytesSent[category];
+    runningsum->RequestDataBytesSent[category] += newvalues->RequestDataBytesSent[category];
+    runningsum->ReplyDataBytesSent[category] += newvalues->ReplyDataBytesSent[category];
+    runningsum->RequestTotalBytesSent[category] += newvalues->RequestTotalBytesSent[category];
+    runningsum->ReplyTotalBytesSent[category] += newvalues->ReplyTotalBytesSent[category];
   }
   runningsum->ReturnedMessages += newvalues->ReturnedMessages;
   #if AMMPI_COLLECT_LATENCY_STATS
@@ -1225,15 +1230,26 @@ extern int AMMPI_AggregateStatistics(ammpi_stats_t *runningsum, ammpi_stats_t *n
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+static int AMMPI_StatPrecision(double val) {
+    int prec = 3; 
+    while (val >= 10.0 && prec > 0) { val /= 10; prec -= 1; }
+    return prec;
+}
+/* ------------------------------------------------------------------------------------ */
 extern const char *AMMPI_DumpStatistics(void *_fp, ammpi_stats_t *stats, int globalAnalysis) {
   FILE *fp = (FILE *)_fp;
   static char msg[4096];
-  int64_t packetssent; 
   int64_t requestsSent = 0; 
   int64_t requestsReceived = 0; 
   int64_t repliesSent = 0; 
   int64_t repliesReceived = 0; 
-  int64_t dataBytesSent = 0; 
+  int64_t reqdataBytesSent = 0; 
+  int64_t repdataBytesSent = 0; 
+  int64_t reqTotalBytesSent = 0; 
+  int64_t repTotalBytesSent = 0; 
+  double reqavgpayload[ammpi_NumCategories];
+  double repavgpayload[ammpi_NumCategories];
+  double avgpayload[ammpi_NumCategories];
   int category;
 
   AMMPI_assert(ammpi_Initialized);
@@ -1251,16 +1267,53 @@ extern const char *AMMPI_DumpStatistics(void *_fp, ammpi_stats_t *stats, int glo
     repliesSent += stats->RepliesSent[category];
     repliesReceived += stats->RepliesReceived[category];
 
-    dataBytesSent += stats->DataBytesSent[category];
-  }
+    reqdataBytesSent += stats->RequestDataBytesSent[category];
+    repdataBytesSent += stats->ReplyDataBytesSent[category];
+    reqTotalBytesSent += stats->RequestTotalBytesSent[category];
+    repTotalBytesSent += stats->ReplyTotalBytesSent[category];
 
-  packetssent = (requestsSent + repliesSent);
+    if (stats->RequestsSent[category] == 0) 
+      reqavgpayload[category] = 0.0;
+    else 
+      reqavgpayload[category] = 
+        stats->RequestDataBytesSent[category] / (double)(stats->RequestsSent[category]);
+
+    if (stats->RepliesSent[category] == 0) 
+      repavgpayload[category] = 0.0;
+    else 
+      repavgpayload[category] = 
+        stats->ReplyDataBytesSent[category] / (double)(stats->RepliesSent[category]);
+
+    if (stats->RequestsSent[category] + stats->RepliesSent[category] == 0) 
+      avgpayload[category] = 0.0;
+    else 
+      avgpayload[category] = 
+        (stats->RequestDataBytesSent[category] + stats->ReplyDataBytesSent[category]) / 
+          (double)(stats->RequestsSent[category] + stats->RepliesSent[category]);
+  }
+ {
+  int64_t dataBytesSent = reqdataBytesSent + repdataBytesSent;
+  int64_t packetssent = (requestsSent + repliesSent);
+
+  double avgreqdata = (requestsSent > 0 ?  reqdataBytesSent / (double)requestsSent : 0.0);
+  double avgrepdata = (repliesSent  > 0 ?  repdataBytesSent / (double)repliesSent : 0.0);
+  double avgdata = (packetssent  > 0 ?  dataBytesSent    / (double)packetssent : 0.0);
+
+  double avgreqpacket = (requestsSent > 0 ?
+      ((double)(reqTotalBytesSent)) / ((double)requestsSent)
+      : 0.0);
+  double avgreppacket = (repliesSent > 0 ?
+      ((double)(repTotalBytesSent)) / ((double)repliesSent)
+      : 0.0);
+  double avgpacket =(packetssent > 0 ?
+      ((double)(stats->TotalBytesSent)) / ((double)packetssent)
+      : 0.0);
 
   /* batch lines together to improve chance of output together */
   sprintf(msg, 
-    " Requests: %8i sent, %8i received\n"
-    " Replies:  %8i sent, %8i received\n"
-    " Returned messages:%2i\n"
+    " Requests: %8lu sent, %8lu received\n"
+    " Replies:  %8lu sent, %8lu received\n"
+    " Returned messages:%2lu\n"
   #if AMMPI_COLLECT_LATENCY_STATS
     "Latency (request sent to reply received): \n"
     " min: %8i microseconds\n"
@@ -1268,20 +1321,20 @@ extern const char *AMMPI_DumpStatistics(void *_fp, ammpi_stats_t *stats, int glo
     " avg: %8i microseconds\n"
   #endif
 
-    "Message Breakdown:        Requests     Replies   Average data payload\n"
-    " Small  (<=%5i bytes)   %8i    %8i        %9.3f bytes\n"
-    " Medium (<=%5i bytes)   %8i    %8i        %9.3f bytes\n"
-    " Large  (<=%5i bytes)   %8i    %8i        %9.3f bytes\n"
-    " Total                                                %9.3f bytes\n"
+    "Message Breakdown:        Requests     Replies   Avg data sz (Req/Rep/Both)\n"
+    " Short  (<=%5i bytes)   %8lu    %8lu   %9.*f/%.*f/%.*f bytes\n"
+    " Medium (<=%5i bytes)   %8lu    %8lu   %9.*f/%.*f/%.*f bytes\n"
+    " Long   (<=%5i bytes)   %8lu    %8lu   %9.*f/%.*f/%.*f bytes\n"
+    " Total                                           %9.*f/%.*f/%.*f bytes\n"
 
-    "Data bytes sent:      %9i bytes\n"
-    "Total bytes sent:     %9i bytes (incl. AM overhead)\n"
-    "Bandwidth overhead:   %9.2f%%\n"        
-    "Average packet size:  %9.3f bytes (incl. AM overhead)\n"
+    "Data bytes sent:      %lu/%lu/%lu bytes\n"
+    "Total bytes sent:     %lu/%lu/%lu bytes (incl. AM overhead)\n"
+    "Bandwidth overhead:   %.2f%%/%.2f%%/%.2f%%\n"        
+    "Average packet size:  %.*f/%.*f/%.*f bytes (incl. AM overhead)\n"
     , 
-    (int)requestsSent, (int)requestsReceived,
-    (int)repliesSent, (int)repliesReceived,
-    (int)stats->ReturnedMessages,
+    (unsigned long)requestsSent, (unsigned long)requestsReceived,
+    (unsigned long)repliesSent, (unsigned long)repliesReceived,
+    (unsigned long)stats->ReturnedMessages,
   #if AMMPI_COLLECT_LATENCY_STATS
     (int)stats->RequestMinLatency,
     (int)stats->RequestMaxLatency,
@@ -1290,37 +1343,46 @@ extern const char *AMMPI_DumpStatistics(void *_fp, ammpi_stats_t *stats, int glo
 
     /* Message breakdown */
     (int)(AMMPI_MAX_SHORT*sizeof(int)),
-      (int)stats->RequestsSent[ammpi_Short], (int)stats->RepliesSent[ammpi_Short], 
-      (stats->RequestsSent[ammpi_Short]+stats->RepliesSent[ammpi_Short] > 0 ?
-        ((float)(int64_t)stats->DataBytesSent[ammpi_Short]) / 
-        ((float)(int64_t)(stats->RequestsSent[ammpi_Short]+stats->RepliesSent[ammpi_Short])) : 0.0),
+      (unsigned long)stats->RequestsSent[ammpi_Short], (unsigned long)stats->RepliesSent[ammpi_Short], 
+      AMMPI_StatPrecision(reqavgpayload[ammpi_Short]), reqavgpayload[ammpi_Short], 
+      AMMPI_StatPrecision(repavgpayload[ammpi_Short]), repavgpayload[ammpi_Short], 
+      AMMPI_StatPrecision(avgpayload[ammpi_Short]), avgpayload[ammpi_Short], 
     (int)(AMMPI_MAX_SHORT*sizeof(int) + AMMPI_MAX_MEDIUM),
-      (int)stats->RequestsSent[ammpi_Medium], (int)stats->RepliesSent[ammpi_Medium], 
-      (stats->RequestsSent[ammpi_Medium]+stats->RepliesSent[ammpi_Medium] > 0 ?
-        ((float)(int64_t)stats->DataBytesSent[ammpi_Medium]) / 
-        ((float)(int64_t)(stats->RequestsSent[ammpi_Medium]+stats->RepliesSent[ammpi_Medium])) : 0.0),
+      (unsigned long)stats->RequestsSent[ammpi_Medium], (unsigned long)stats->RepliesSent[ammpi_Medium], 
+      AMMPI_StatPrecision(reqavgpayload[ammpi_Medium]), reqavgpayload[ammpi_Medium], 
+      AMMPI_StatPrecision(repavgpayload[ammpi_Medium]), repavgpayload[ammpi_Medium], 
+      AMMPI_StatPrecision(avgpayload[ammpi_Medium]), avgpayload[ammpi_Medium], 
     (int)(AMMPI_MAX_SHORT*sizeof(int) + AMMPI_MAX_LONG),
-      (int)stats->RequestsSent[ammpi_Long], (int)stats->RepliesSent[ammpi_Long], 
-      (stats->RequestsSent[ammpi_Long]+stats->RepliesSent[ammpi_Long] > 0 ?
-        ((float)(int64_t)stats->DataBytesSent[ammpi_Long]) / 
-        ((float)(int64_t)(stats->RequestsSent[ammpi_Long]+stats->RepliesSent[ammpi_Long])) : 0.0),
+      (unsigned long)stats->RequestsSent[ammpi_Long], (unsigned long)stats->RepliesSent[ammpi_Long], 
+      AMMPI_StatPrecision(reqavgpayload[ammpi_Long]), reqavgpayload[ammpi_Long], 
+      AMMPI_StatPrecision(repavgpayload[ammpi_Long]), repavgpayload[ammpi_Long], 
+      AMMPI_StatPrecision(avgpayload[ammpi_Long]), avgpayload[ammpi_Long], 
 
     /* avg data payload */
-    (requestsSent+repliesSent > 0 ?
-      ((float)(int64_t)dataBytesSent) / ((float)(int64_t)(requestsSent+repliesSent))
-      : 0.0),
+    AMMPI_StatPrecision(avgreqdata), avgreqdata,
+    AMMPI_StatPrecision(avgrepdata), avgrepdata,
+    AMMPI_StatPrecision(avgdata), avgdata,
 
-    (int)dataBytesSent,
-    (int)(stats->TotalBytesSent),
+    (unsigned long)reqdataBytesSent, (unsigned long)repdataBytesSent, (unsigned long)dataBytesSent,
+
+    (unsigned long)reqTotalBytesSent, (unsigned long)repTotalBytesSent, (unsigned long)stats->TotalBytesSent,
     /* bandwidth overhead */
+    (reqTotalBytesSent > 0 ?
+      100.0*((double)(reqTotalBytesSent - reqdataBytesSent)) / 
+      ((double)reqTotalBytesSent) 
+      : 0.0),
+    (repTotalBytesSent > 0 ?
+      100.0*((double)(repTotalBytesSent - repdataBytesSent)) / 
+      ((double)repTotalBytesSent) 
+      : 0.0),
     (stats->TotalBytesSent > 0 ?
-      100.0*((float)(int64_t)(stats->TotalBytesSent - dataBytesSent)) / 
-      ((float)(int64_t)stats->TotalBytesSent) 
+      100.0*((double)(stats->TotalBytesSent - dataBytesSent)) / 
+      ((double)stats->TotalBytesSent) 
       : 0.0),
     /* avg packet size */
-    (packetssent > 0 ?
-      ((float)((int64_t)stats->TotalBytesSent)) / ((float)(int64_t)packetssent)
-      : 0.0)
+    AMMPI_StatPrecision(avgreqpacket), avgreqpacket,
+    AMMPI_StatPrecision(avgreppacket), avgreppacket,
+    AMMPI_StatPrecision(avgpacket), avgpacket
     );
 
   if (globalAnalysis) {
@@ -1335,6 +1397,7 @@ extern const char *AMMPI_DumpStatistics(void *_fp, ammpi_stats_t *stats, int glo
 
   if (fp != NULL) fprintf(fp, "%s", msg);
   return msg;
+ }
 }
 /* ------------------------------------------------------------------------------------ */
 

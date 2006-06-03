@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2006/05/23 12:42:29 $
- * $Revision: 1.23 $
+ *     $Date: 2006/06/03 06:51:02 $
+ * $Revision: 1.24 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -31,11 +31,13 @@ double AMUDP_FaultInjectionRate = 0.0;
 double AMUDP_FaultInjectionEnabled = 0;
 
 const amudp_stats_t AMUDP_initial_stats = /* the initial state for stats type */
-        { {0,0,0}, {0,0,0}, {0,0,0}, {0,0,0}, 
-              {0,0,0}, {0,0,0},
+        { {0,0,0}, {0,0,0}, {0,0,0}, 
+          {0,0,0}, {0,0,0}, {0,0,0}, 
           0,
           (amudp_cputick_t)-1, 0, 0,
-          {0,0,0}, 0
+          {0,0,0}, {0,0,0}, 
+          {0,0,0}, {0,0,0}, 
+          0
         };
 
 /* ------------------------------------------------------------------------------------ */
@@ -930,7 +932,10 @@ extern int AMUDP_AggregateStatistics(amudp_stats_t *runningsum, amudp_stats_t *n
     runningsum->RepliesRetransmitted[category] += newvalues->RepliesRetransmitted[category];
     runningsum->RepliesReceived[category] += newvalues->RepliesReceived[category];
 
-    runningsum->DataBytesSent[category] += newvalues->DataBytesSent[category];
+    runningsum->RequestDataBytesSent[category] += newvalues->RequestDataBytesSent[category];
+    runningsum->ReplyDataBytesSent[category] += newvalues->ReplyDataBytesSent[category];
+    runningsum->RequestTotalBytesSent[category] += newvalues->RequestTotalBytesSent[category];
+    runningsum->ReplyTotalBytesSent[category] += newvalues->ReplyTotalBytesSent[category];
   }
   runningsum->ReturnedMessages += newvalues->ReturnedMessages;
   #if AMUDP_COLLECT_LATENCY_STATS
@@ -946,18 +951,29 @@ extern int AMUDP_AggregateStatistics(amudp_stats_t *runningsum, amudp_stats_t *n
   return AM_OK;
 }
 /* ------------------------------------------------------------------------------------ */
+static int AMUDP_StatPrecision(double val) {
+    int prec = 3; 
+    while (val >= 10.0 && prec > 0) { val /= 10; prec -= 1; }
+    return prec;
+}
+/* ------------------------------------------------------------------------------------ */
 extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int globalAnalysis) {
   FILE *fp = (FILE *)_fp;
   static char msg[4096];
-  int64_t packetssent; 
   int64_t requestsSent = 0; 
   int64_t requestsRetransmitted = 0; 
   int64_t requestsReceived = 0; 
   int64_t repliesSent = 0; 
   int64_t repliesRetransmitted = 0; 
   int64_t repliesReceived = 0; 
-  int64_t dataBytesSent = 0; 
-  int64_t UDPIPheaderbytes; 
+  int64_t reqdataBytesSent = 0; 
+  int64_t repdataBytesSent = 0; 
+  int64_t reqTotalBytesSent = 0; 
+  int64_t repTotalBytesSent = 0; 
+  double reqavgpayload[amudp_NumCategories];
+  double repavgpayload[amudp_NumCategories];
+  double avgpayload[amudp_NumCategories];
+  int64_t reqUDPIPheaderbytes, repUDPIPheaderbytes; 
   int category;
 
   AMUDP_assert(amudp_Initialized);
@@ -976,24 +992,66 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
     repliesSent += stats->RepliesSent[category];
     repliesRetransmitted += stats->RepliesRetransmitted[category];
     repliesReceived += stats->RepliesReceived[category];
+    reqdataBytesSent += stats->RequestDataBytesSent[category];
+    repdataBytesSent += stats->ReplyDataBytesSent[category];
+    reqTotalBytesSent += stats->RequestTotalBytesSent[category];
+    repTotalBytesSent += stats->ReplyTotalBytesSent[category];
+    if (stats->RequestsSent[category] == 0) 
+      reqavgpayload[category] = 0.0;
+    else 
+      reqavgpayload[category] = 
+        stats->RequestDataBytesSent[category] / (double)(stats->RequestsSent[category]);
 
-    dataBytesSent += stats->DataBytesSent[category];
+    if (stats->RepliesSent[category] == 0) 
+      repavgpayload[category] = 0.0;
+    else 
+      repavgpayload[category] = 
+        stats->ReplyDataBytesSent[category] / (double)(stats->RepliesSent[category]);
+
+    if (stats->RequestsSent[category] + stats->RepliesSent[category] == 0) 
+      avgpayload[category] = 0.0;
+    else 
+      avgpayload[category] = 
+        (stats->RequestDataBytesSent[category] + stats->ReplyDataBytesSent[category]) / 
+          (double)(stats->RequestsSent[category] + stats->RepliesSent[category]);
   }
+ {
+  int64_t dataBytesSent = reqdataBytesSent + repdataBytesSent;
+  int64_t packetssent = (requestsSent + requestsRetransmitted + 
+                         repliesSent  + repliesRetransmitted);
 
-  packetssent = (requestsSent + requestsRetransmitted + 
-                 repliesSent  + repliesRetransmitted);
+  double avgreqdata = (requestsSent > 0 ?  reqdataBytesSent / (double)requestsSent : 0.0);
+  double avgrepdata = (repliesSent  > 0 ?  repdataBytesSent / (double)repliesSent : 0.0);
+  double avgdata = (packetssent  > 0 ?  dataBytesSent    / (double)packetssent : 0.0);
+
+  double avgreqpacket = (requestsSent > 0 ?
+      ((double)(reqTotalBytesSent)) / ((double)requestsSent + requestsRetransmitted)
+      : 0.0);
+  double avgreppacket = (repliesSent > 0 ?
+      ((double)(repTotalBytesSent)) / ((double)repliesSent + repliesRetransmitted)
+      : 0.0);
+  double avgpacket =(packetssent > 0 ?
+      ((double)(stats->TotalBytesSent)) / ((double)packetssent)
+      : 0.0);
 
   #ifdef UETH 
-    UDPIPheaderbytes = 0; /* n/a- all headers already included */
+    reqUDPIPheaderbytes = 0; /* n/a- all headers already included */
+    repUDPIPheaderbytes = 0; /* n/a- all headers already included */
   #else
-    UDPIPheaderbytes = packetssent * (20 /* IP header */ + 8  /* UDP header*/);
+    { int packetoverhead = (20 /* IP header */ + 8  /* UDP header*/);
+      reqUDPIPheaderbytes = (requestsSent + requestsRetransmitted) * packetoverhead;
+      repUDPIPheaderbytes = (repliesSent + repliesRetransmitted) * packetoverhead;
+      avgreqpacket += packetoverhead;
+      avgreppacket += packetoverhead;
+      avgpacket += packetoverhead;
+    }
   #endif
 
   /* batch lines together to improve chance of output together */
   sprintf(msg, 
-    " Requests: %8i sent, %4i retransmitted, %8i received\n"
-    " Replies:  %8i sent, %4i retransmitted, %8i received\n"
-    " Returned messages:  %8i\n"
+    " Requests: %8lu sent, %4lu retransmitted, %8lu received\n"
+    " Replies:  %8lu sent, %4lu retransmitted, %8lu received\n"
+    " Returned messages:  %8lu\n"
   #if AMUDP_COLLECT_LATENCY_STATS
     "Latency (request sent to reply received): \n"
     " min: %8i microseconds\n"
@@ -1001,23 +1059,24 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
     " avg: %8i microseconds\n"
   #endif
 
-    "Message Breakdown:        Requests     Replies   Average data payload\n"
-    " Small  (<=%5i bytes)   %8i    %8i        %9.3f bytes\n"
-    " Medium (<=%5i bytes)   %8i    %8i        %9.3f bytes\n"
-    " Large  (<=%5i bytes)   %8i    %8i        %9.3f bytes\n"
+    "Message Breakdown:        Requests     Replies   Avg data sz (Req/Rep/Both)\n"
+    " Small  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
+    " Medium (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
+    " Large  (<=%5i bytes)   %8lu    %8lu  %9.*f/%.*f/%.*f bytes\n"
+
   #if !USE_TRUE_BULK_XFERS
     " ^^^^^ (Statistics for Large refer to internal fragments)\n"
   #endif
-    " Total                                                %9.3f bytes\n"
+    " Total                                          %9.*f/%.*f/%.*f bytes\n"
 
-    "Data bytes sent:      %9i bytes\n"
-    "Total bytes sent:     %9i bytes (incl. AM overhead)\n"
-    "Bandwidth overhead:   %9.2f%%\n"        
-    "Average packet size:  %9.3f bytes (incl. AM & transport-layer overhead)\n"
+    "Data bytes sent:      %lu/%lu/%lu bytes\n"
+    "Total bytes sent:     %lu/%lu/%lu bytes (incl. AM overhead)\n"
+    "Bandwidth overhead:   %.2f%%/%.2f%%/%.2f%%\n"        
+    "Average packet size:  %.*f/%.*f/%.*f bytes (incl. AM & transport-layer overhead)\n"
     , 
-    (int)requestsSent, (int)requestsRetransmitted, (int)requestsReceived,
-    (int)repliesSent, (int)repliesRetransmitted, (int)repliesReceived,
-    (int)stats->ReturnedMessages,
+    (unsigned long)requestsSent, (unsigned long)requestsRetransmitted, (unsigned long)requestsReceived,
+    (unsigned long)repliesSent, (unsigned long)repliesRetransmitted, (unsigned long)repliesReceived,
+    (unsigned long)stats->ReturnedMessages,
   #if AMUDP_COLLECT_LATENCY_STATS
     (stats->RequestMinLatency == (amudp_cputick_t)-1?(int)-1:(int)ticks2us(stats->RequestMinLatency)),
     (int)ticks2us(stats->RequestMaxLatency),
@@ -1026,41 +1085,50 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
 
     /* Message breakdown */
     (int)(AMUDP_MAX_SHORT*sizeof(int)),
-      (int)stats->RequestsSent[amudp_Short], (int)stats->RepliesSent[amudp_Short], 
-      (stats->RequestsSent[amudp_Short]+stats->RepliesSent[amudp_Short] > 0 ?
-        ((float)(int64_t)stats->DataBytesSent[amudp_Short]) / 
-        ((float)(int64_t)(stats->RequestsSent[amudp_Short]+stats->RepliesSent[amudp_Short])) : 0.0),
+      (unsigned long)stats->RequestsSent[amudp_Short], (unsigned long)stats->RepliesSent[amudp_Short], 
+      AMUDP_StatPrecision(reqavgpayload[amudp_Short]), reqavgpayload[amudp_Short], 
+      AMUDP_StatPrecision(repavgpayload[amudp_Short]), repavgpayload[amudp_Short], 
+      AMUDP_StatPrecision(avgpayload[amudp_Short]), avgpayload[amudp_Short], 
     (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM),
-      (int)stats->RequestsSent[amudp_Medium], (int)stats->RepliesSent[amudp_Medium], 
-      (stats->RequestsSent[amudp_Medium]+stats->RepliesSent[amudp_Medium] > 0 ?
-        ((float)(int64_t)stats->DataBytesSent[amudp_Medium]) / 
-        ((float)(int64_t)(stats->RequestsSent[amudp_Medium]+stats->RepliesSent[amudp_Medium])) : 0.0),
+      (unsigned long)stats->RequestsSent[amudp_Medium], (unsigned long)stats->RepliesSent[amudp_Medium], 
+      AMUDP_StatPrecision(reqavgpayload[amudp_Medium]), reqavgpayload[amudp_Medium], 
+      AMUDP_StatPrecision(repavgpayload[amudp_Medium]), repavgpayload[amudp_Medium], 
+      AMUDP_StatPrecision(avgpayload[amudp_Medium]), avgpayload[amudp_Medium], 
   #if USE_TRUE_BULK_XFERS
     (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_LONG),
   #else
     (int)(AMUDP_MAX_SHORT*sizeof(int) + AMUDP_MAX_MEDIUM),
   #endif
-      (int)stats->RequestsSent[amudp_Long], (int)stats->RepliesSent[amudp_Long], 
-      (stats->RequestsSent[amudp_Long]+stats->RepliesSent[amudp_Long] > 0 ?
-        ((float)(int64_t)stats->DataBytesSent[amudp_Long]) / 
-        ((float)(int64_t)(stats->RequestsSent[amudp_Long]+stats->RepliesSent[amudp_Long])) : 0.0),
+      (unsigned long)stats->RequestsSent[amudp_Long], (unsigned long)stats->RepliesSent[amudp_Long], 
+      AMUDP_StatPrecision(reqavgpayload[amudp_Long]), reqavgpayload[amudp_Long], 
+      AMUDP_StatPrecision(repavgpayload[amudp_Long]), repavgpayload[amudp_Long], 
+      AMUDP_StatPrecision(avgpayload[amudp_Long]), avgpayload[amudp_Long], 
 
     /* avg data payload */
-    (requestsSent+repliesSent > 0 ?
-      ((float)(int64_t)dataBytesSent) / ((float)(int64_t)(requestsSent+repliesSent))
-      : 0.0),
+    AMUDP_StatPrecision(avgreqdata), avgreqdata,
+    AMUDP_StatPrecision(avgrepdata), avgrepdata,
+    AMUDP_StatPrecision(avgdata), avgdata,
 
-    (int)dataBytesSent,
-    (int)(stats->TotalBytesSent+UDPIPheaderbytes),
+    (unsigned long)reqdataBytesSent, (unsigned long)repdataBytesSent, (unsigned long)dataBytesSent,
+
+    (unsigned long)reqTotalBytesSent, (unsigned long)repTotalBytesSent, (unsigned long)stats->TotalBytesSent,
     /* bandwidth overhead */
+    (reqTotalBytesSent > 0 ?
+      100.0*((double)(reqTotalBytesSent + reqUDPIPheaderbytes - reqdataBytesSent)) / 
+      ((double)reqTotalBytesSent + reqUDPIPheaderbytes) 
+      : 0.0),
+    (repTotalBytesSent > 0 ?
+      100.0*((double)(repTotalBytesSent + repUDPIPheaderbytes - repdataBytesSent)) / 
+      ((double)repTotalBytesSent + repUDPIPheaderbytes) 
+      : 0.0),
     (stats->TotalBytesSent > 0 ?
-      100.0*((float)(int64_t)(stats->TotalBytesSent + UDPIPheaderbytes - dataBytesSent)) / 
-      ((float)(int64_t)stats->TotalBytesSent+UDPIPheaderbytes) 
+      100.0*((double)(stats->TotalBytesSent + reqUDPIPheaderbytes + repUDPIPheaderbytes - dataBytesSent)) / 
+      ((double)stats->TotalBytesSent + reqUDPIPheaderbytes + repUDPIPheaderbytes) 
       : 0.0),
     /* avg packet size */
-    (packetssent > 0 ?
-      ((float)((int64_t)stats->TotalBytesSent+UDPIPheaderbytes)) / ((float)(int64_t)packetssent)
-      : 0.0)
+    AMUDP_StatPrecision(avgreqpacket), avgreqpacket,
+    AMUDP_StatPrecision(avgreppacket), avgreppacket,
+    AMUDP_StatPrecision(avgpacket), avgpacket
   );
 
   if (globalAnalysis) {
@@ -1085,6 +1153,7 @@ extern const char *AMUDP_DumpStatistics(void *_fp, amudp_stats_t *stats, int glo
 
   if (fp != NULL) fprintf(fp, "%s", msg);
   return msg;
+ }
 }
 /* ------------------------------------------------------------------------------------ */
 
