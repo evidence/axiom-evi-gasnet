@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/05/31 12:20:32 $
- * $Revision: 1.65 $
+ *     $Date: 2006/06/05 18:34:06 $
+ * $Revision: 1.66 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -502,9 +502,17 @@ extern uint64_t gasneti_gettimeofday_us(void);
 #endif
 
 #if GASNETI_USING_GETTIMEOFDAY
-  #define GASNETI_TIMER_CONFIG   timers_os
+  #if defined(GASNETI_FORCE_GETTIMEOFDAY)
+    #define GASNETI_TIMER_CONFIG   timers_forced_os
+  #else
+    #define GASNETI_TIMER_CONFIG   timers_os
+  #endif
 #elif GASNETI_USING_POSIX_REALTIME
-  #define GASNETI_TIMER_CONFIG   timers_posixrt
+  #if defined(GASNETI_FORCE_GETTIMEOFDAY)
+    #define GASNETI_TIMER_CONFIG   timers_forced_posixrt
+  #else
+    #define GASNETI_TIMER_CONFIG   timers_posixrt
+  #endif
 #else
   #define GASNETI_TIMER_CONFIG   timers_native
 #endif

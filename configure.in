@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/06/01 11:21:43 $
-# $Revision: 1.369 $
+#     $Date: 2006/06/05 18:34:06 $
+# $Revision: 1.370 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.369 $)
+AC_REVISION($Revision: 1.370 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1007,28 +1007,52 @@ GASNET_IF_ENABLED(loopback-memsync, Force memory barriers for GASNet local (loop
 GASNET_IF_ENABLED(throttle-poll, throttle polling threads in multi-threaded configurations to reduce contention,
   [AC_DEFINE(GASNETI_THROTTLE_FEATURE_ENABLED)])
 
-GASNET_IF_ENABLED(force-generic-atomicops, Force mutex-based atomic ops (default is platform specific),
-		  [ enabled_generic_atomicops=yes ])
-GASNET_IF_ENABLED(force-os-atomicops, Force os-provided atomic ops (default is platform specific),
-		  [ enabled_os_atomicops=yes ])
-if test "$enabled_generic_atomicops$enabled_os_atomicops" = yesyes; then
-  AC_MSG_ERROR([You cannot request both --enable-force-generic-atomicops and --enable-force-os-atomicops])
-elif test -n "$enabled_generic_atomicops" ; then
-  AC_DEFINE(GASNETI_FORCE_GENERIC_ATOMICOPS)
-elif test -n "$enabled_os_atomicops"; then
-  AC_DEFINE(GASNETI_FORCE_OS_ATOMICOPS)
-fi
-GASNET_IF_ENABLED(force-true-weakatomics, Force use of real atomic operations in sequential code (disabled by default),
-		  [ enabled_true_weakatomics=yes
-		    AC_DEFINE(GASNETI_FORCE_TRUE_WEAKATOMICS) ] )
-GASNET_IF_ENABLED(force-generic-semaphores, Force mutex-based semaphores (default is platform specific),
-		  [ enabled_true_generic_semaphores=yes
-		    AC_DEFINE(GASNETI_FORCE_GENERIC_SEMAPHORES) ] )
-GASNET_IF_ENABLED(force-yield-membars, Force memory barriers based on sched_yield() (disabled by default),
-		  [ enabled_yield_membars=yes
-		    AC_DEFINE(GASNETI_FORCE_YIELD_MEMBARS) ] )
+# FORCED non-default implementations - used mainly for debugging
+#
+# NOTE: If adding an "--enable-forced-*" option here, please:
+# 1) Set enabled_force=yes to trigger the warning below
+# 2) Add to the "don't trust performance" warning in tests/test.h
+# 3) If applicable, the corresponding portion of the GASNet config string should
+#    distinguish forced behaviors from default ones.
+# 4) You probably want a "LINKCONFIG_IDIOTCHECK" as well (might be covered by #3)
 
-if test -n "$enabled_generic_atomicops$enabled_os_atomicops$enabled_true_weakatomics$enabled_true_generic_semaphores$enabled_yield_membars" ; then
+GASNET_IF_ENABLED(force-generic-atomicops,
+		  [Force mutex-based atomic ops (default is platform specific)],
+		  [enabled_force=yes; enabled_generic_atomicops=yes])
+GASNET_IF_ENABLED(force-os-atomicops,
+		  [Force os-provided atomic ops (default is platform specific)],
+		  [enabled_force=yes; enabled_os_atomicops=yes])
+  if test "$enabled_generic_atomicops$enabled_os_atomicops" = yesyes; then
+    AC_MSG_ERROR([You cannot request both --enable-force-generic-atomicops and --enable-force-os-atomicops])
+  elif test -n "$enabled_generic_atomicops" ; then
+    AC_DEFINE(GASNETI_FORCE_GENERIC_ATOMICOPS)
+  elif test -n "$enabled_os_atomicops"; then
+    AC_DEFINE(GASNETI_FORCE_OS_ATOMICOPS)
+  fi
+GASNET_IF_ENABLED(force-gettimeofday,
+		  [Force use of gettimeofday() for timers (default is platform-specific)],
+		  [enabled_force=yes; enabled_gettimeofday=yes])
+GASNET_IF_ENABLED(force-posix-realtime,
+		  [Force use of clock_gettime() for timers (default is platform-specific)],
+		  [enabled_force=yes; enabled_posix_realtime=yes])
+  if test "$enabled_gettimeofday$enabled_posix_realtime" = yesyes; then
+    AC_MSG_ERROR([You cannot request both --enable-force-gettimeofday and --enable-force-posix-realtime])
+  elif test -n "$enabled_gettimeofday" ; then
+    AC_DEFINE(GASNETI_FORCE_GETTIMEOFDAY)
+  elif test -n "$enabled_posix_realtime"; then
+    AC_DEFINE(GASNETI_FORCE_POSIX_REALTIME)
+  fi
+GASNET_IF_ENABLED(force-true-weakatomics,
+		  [Force use of real atomic operations in sequential code (disabled by default)],
+		  [enabled_force=yes; AC_DEFINE(GASNETI_FORCE_TRUE_WEAKATOMICS)] )
+GASNET_IF_ENABLED(force-generic-semaphores,
+		  [Force mutex-based semaphores (default is platform specific)],
+		  [enabled_force=yes; AC_DEFINE(GASNETI_FORCE_GENERIC_SEMAPHORES)] )
+GASNET_IF_ENABLED(force-yield-membars,
+		  [Force memory barriers based on sched_yield() (disabled by default)],
+		  [enabled_force=yes; AC_DEFINE(GASNETI_FORCE_YIELD_MEMBARS)] )
+
+if test "$enabled_force" = yes; then
   echo '-----------------------------------------------------------------------'
   echo ' WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING'
   echo ''
