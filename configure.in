@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/06/05 18:34:06 $
-# $Revision: 1.370 $
+#     $Date: 2006/06/05 22:39:03 $
+# $Revision: 1.371 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.370 $)
+AC_REVISION($Revision: 1.371 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -58,7 +58,7 @@ if $GMAKE --version | grep GNU ; then
 else
 # We don't actually require GNU Make at the moment
 #  AC_MSG_ERROR(cannot find a version of GNU make - please install GNU make and/or set \$GMAKE to indicate where it's located)
-  AC_MSG_WARN([cannot find a version of GNU make - if you encounter make problems, install GNU make and/or set \$GMAKE to indicate where it's located])
+  GASNET_MSG_WARN([cannot find a version of GNU make - if you encounter make problems, install GNU make and/or set \$GMAKE to indicate where it's located])
 fi
 AC_SUBST(GMAKE)
 
@@ -421,16 +421,18 @@ case "$gasnet_cv_cc_family" in
 esac
 
 GASNET_IF_ENABLED(debug, Build GASNet in a debugging mode, 
-  [ echo "-----------------------------------------------------------------------"
-    echo " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING"
-    echo ""
-    echo " Configuring the system for global, forced debugging mode. "
-    echo " This usually has a SERIOUS impact on performance, so you should NOT"
-    echo " trust any performance numbers obtained from programs built"
-    echo " using this GASNet installation!!!"
-    echo ""
-    echo " WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING"
-    echo "-----------------------------------------------------------------------" 
+  [ 
+GASNET_MSG_WARN([
+-----------------------------------------------------------------------
+ WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+
+ Configuring the system for global, forced debugging mode. 
+ This usually has a SERIOUS impact on performance, so you should NOT
+ trust any performance numbers obtained from programs built
+ using this GASNet installation!!!
+
+ WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+-----------------------------------------------------------------------])
     CFLAGS="$CCDEBUGFLAGS"
     AC_DEFINE(GASNET_DEBUG)
     BUILDCONFIG="debug"
@@ -749,7 +751,7 @@ case "$target_os" in
           ])
         ;;
   *)
-        AC_MSG_WARN(unknown OS - you may need to update the configure script)
+        GASNET_MSG_WARN(unknown OS - you may need to update the configure script)
         ;;
 esac
 
@@ -790,7 +792,7 @@ if test "$use_pthreads$have_pthread" = "yesno" ; then
   AC_MSG_ERROR([--enable-pthreads passed but no working pthreads support found])
 fi
 if test "$use_pthreads$have_pthread" = "tryno" ; then
-  AC_MSG_WARN([No working pthreads support found - disabling pthreads support])
+  GASNET_MSG_WARN([No working pthreads support found - disabling pthreads support])
   pthread_reason="appear to be missing or broken"
 fi
 
@@ -835,7 +837,7 @@ else
 fi
 if test "$GASNETI_CACHE_LINE_BYTES" = "" ; then
   GASNETI_CACHE_LINE_BYTES=128
-  AC_MSG_WARN([Unable to automatically detect a shared data cache line size (either system load too high, pthreads is broken or this is not a cache-coherent SMP).  Using a safe default size of $GASNETI_CACHE_LINE_BYTES])
+  GASNET_MSG_WARN([Unable to automatically detect a shared data cache line size (either system load too high, pthreads is broken or this is not a cache-coherent SMP).  Using a safe default size of $GASNETI_CACHE_LINE_BYTES])
 fi
 AC_DEFINE_UNQUOTED(GASNETI_CACHE_LINE_BYTES,$GASNETI_CACHE_LINE_BYTES)
 case "$GASNETI_CACHE_LINE_BYTES" in
@@ -1053,16 +1055,17 @@ GASNET_IF_ENABLED(force-yield-membars,
 		  [enabled_force=yes; AC_DEFINE(GASNETI_FORCE_YIELD_MEMBARS)] )
 
 if test "$enabled_force" = yes; then
-  echo '-----------------------------------------------------------------------'
-  echo ' WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING'
-  echo ''
-  echo ' You have configured with one or more --enable-force-* options'
-  echo ' This usually has a SERIOUS impact on performance, so you should NOT'
-  echo ' trust any performance numbers obtained from programs built'
-  echo ' using this GASNet installation!!!'
-  echo ''
-  echo ' WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING'
-  echo '-----------------------------------------------------------------------'
+GASNET_MSG_WARN([
+-----------------------------------------------------------------------
+ WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+
+ You have configured with one or more --enable-force-* options
+ This usually has a SERIOUS impact on performance, so you should NOT
+ trust any performance numbers obtained from programs built
+ using this GASNet installation!!!
+
+ WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING
+-----------------------------------------------------------------------])
 fi
 
 #---------------------------------------------------------------------------------------------------------------
@@ -1210,7 +1213,7 @@ if test $enabled_udp = yes; then
 	    AC_MSG_RESULT(yes)
 	else
 	    AC_MSG_RESULT(no)
-	    AC_MSG_WARN(build test failed: I don't know how to build UDP programs on your system)
+	    GASNET_MSG_WARN(build test failed: I don't know how to build UDP programs on your system)
 	    have_udp=no
 	fi
       fi
@@ -1348,8 +1351,7 @@ if test $enabled_mpi = yes; then
       GASNET_ENV_DEFAULT(MPI_LIBS, )
       GASNET_ENV_DEFAULT(MPIRUN_CMD, mpirun -np %N %C)
       if test "$MPI_CC" = ""; then
-        AC_MSG_WARN(I don't know how to build MPI programs on your system)
-        AC_MSG_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi-* backends)
+        GASNET_MSG_WARN([I don't know how to build MPI programs on your system: consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi-* backends])
 	MPI_CC=$CC
         have_mpi=no
       fi 
@@ -1427,8 +1429,7 @@ _GASNET_EOF
       ])
   else
       AC_MSG_RESULT(no)
-      AC_MSG_WARN(build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details)
-      AC_MSG_WARN(consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit)
+      GASNET_MSG_WARN([build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details: consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit])
       have_mpi=no
   fi
   if test "$force_mpi$have_mpi" = yesno ; then
@@ -1586,23 +1587,24 @@ if test $enabled_gm = yes; then
 	[force_enable_gm_mpi_compat=yes; enabled_gm_mpi_compat=yes], 
 	 enabled_gm_mpi_compat=no, enabled_gm_mpi_compat=yes)
 
+      GM_MPI_COMPAT='no'
       if test "$enabled_gm_mpi_compat" = yes; then
         if test "$have_mpi" = yes; then
+          AC_MSG_RESULT(yes)
+          GM_MPI_COMPAT='yes'
 	  AC_DEFINE(GASNETC_GM_MPI_COMPAT)
-	  GM_MPI_COMPAT='yes'
 	else
-	  GM_MPI_COMPAT='no'
+          AC_MSG_RESULT(no)
 	  if test "$force_enable_gm_mpi_compat" = yes; then
 	    AC_MSG_ERROR([GM requires a working MPI for interoperability.  Install MPI \
 	                  and fix detection OR rerun configure with --disable-gm-mpi-compat])
 	  else
-	    AC_MSG_WARN([GM requires MPI for interoperability and MPI $mpi_reason - disabling feature])
+	    GASNET_MSG_WARN([GM requires MPI for interoperability and MPI $mpi_reason - disabling feature])
 	  fi
 	fi
       else
-	GM_MPI_COMPAT='no'
+        AC_MSG_RESULT(no)
       fi
-      AC_MSG_RESULT($GM_MPI_COMPAT)
     fi
   fi
   if test "$force_gm$have_gm" = yesno ; then
@@ -1641,7 +1643,7 @@ if test "$force_lapi$have_pthread" = yesno; then
 fi
 if test "$enabled_lapi$have_pthread" = yesno; then
   enabled_lapi=no
-  AC_MSG_WARN([lapi-conduit requires pthread support but pthreads $pthread_reason - disabling lapi])
+  GASNET_MSG_WARN([lapi-conduit requires pthread support but pthreads $pthread_reason - disabling lapi])
 fi
 if test "$enabled_lapi" = yes; then
   AC_MSG_CHECKING(for working LAPI configuration)
@@ -1685,14 +1687,14 @@ if test "$enabled_lapi" = yes; then
 	 AC_MSG_RESULT([$have_col])
 	 lapi_how="found"])
     if test "${have_fed}${have_col}" = "yesyes"; then
-      AC_MSG_WARN([Both Federation and Colony Switch hardware $lapi_how - disabling lapi.  Pass exactly one of --with-lapi-type=colony or --with-lapi-type=federation to select one.])
+      GASNET_MSG_WARN([Both Federation and Colony Switch hardware $lapi_how - disabling lapi.  Pass exactly one of --with-lapi-type=colony or --with-lapi-type=federation to select one.])
       have_lapi="no"
     elif test "${have_fed}" = "yes"; then
       AC_DEFINE(GASNETC_LAPI_FEDERATION)
 	AC_MSG_CHECKING([For LAPI Federation Version])
         LAPI_VER=`lslpp -l | grep rsct.lapi.rte 2>/dev/null | tail -1 | $AWK '{print $2}'`
         if test -z "$LAPI_VER" ; then
-           AC_MSG_WARN([Could not detect LAPI version number with lslpp. ])
+           GASNET_MSG_WARN([Could not detect LAPI version number with lslpp. ])
         else
            LAPI_VER_NUM1=`echo $LAPI_VER | cut -d\. -f 1`
            AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_A,$LAPI_VER_NUM1)
@@ -1709,7 +1711,7 @@ if test "$enabled_lapi" = yes; then
 	AC_MSG_CHECKING([For LAPI Colony Version])
         LAPI_VER=`lslpp -l | grep ssp.css.lapi 2>/dev/null | tail -1 | $AWK '{print $2}'`
         if test -z "$LAPI_VER" ; then
-           AC_MSG_WARN([Could not detect LAPI version number with lslpp. ])
+           GASNET_MSG_WARN([Could not detect LAPI version number with lslpp. ])
         else
            LAPI_VER_NUM1=`echo $LAPI_VER | cut -d\. -f 1`
            AC_DEFINE_UNQUOTED(GASNETC_LAPI_VERSION_A,$LAPI_VER_NUM1)
@@ -1722,7 +1724,7 @@ if test "$enabled_lapi" = yes; then
         fi
         AC_MSG_RESULT([$LAPI_VER])
     else
-      AC_MSG_WARN([No IBM SP Switch hardware $lapi_how - disabling lapi. If your system has LAPI hardware, please select the hardware type using configure switch --with-lapi-type=federation or --with-lapi-type=colony])
+      GASNET_MSG_WARN([No IBM SP Switch hardware $lapi_how - disabling lapi. If your system has LAPI hardware, please select the hardware type using configure switch --with-lapi-type=federation or --with-lapi-type=colony])
       have_lapi="no"
     fi
   fi
@@ -1919,7 +1921,7 @@ Use of GASNet with the patch-free kernel drivers is HIGHLY discouraged, \
 and will very likely induce both serious performance degradation \
 and significant application runtime stability problems."
         GASNET_IF_ENABLED(allow-elan4-patchfree, Allow the use of the problematic elan4 patch-free drivers, [
-  	  AC_MSG_WARN([$badkernelmsg])
+  	  GASNET_MSG_WARN([$badkernelmsg])
   	],[
   	  AC_MSG_ERROR([$badkernelmsg \
 If you're REALLY sure you know what you're doing, you may enable the use of these \
@@ -1962,14 +1964,14 @@ if test "$force_vapi$have_pthread" = yesno; then
 fi
 if test "$enabled_vapi$have_pthread" = yesno; then
   enabled_vapi=no
-  AC_MSG_WARN([vapi-conduit requires pthread support but pthreads $pthread_reason - disabling vapi])
+  GASNET_MSG_WARN([vapi-conduit requires pthread support but pthreads $pthread_reason - disabling vapi])
 fi
 if test "$force_vapi$have_mpi$have_fork" = yesnono; then
-  AC_MSG_ERROR([vapi-conduit requires either MPI ($mpi_reason) or fork() ($fork_reason) for startup]);
+  AC_MSG_ERROR([vapi-conduit requires either MPI ($mpi_reason) or fork() ($fork_reason) for startup])
 fi
 if test "$enabled_vapi$have_mpi$have_fork" = yesnono; then
   enabled_vapi=no
-  AC_MSG_WARN([vapi-conduit requires either MPI ($mpi_reason) or fork() ($fork_reason) for startup - disabling vapi]);
+  GASNET_MSG_WARN([vapi-conduit requires either MPI ($mpi_reason) or fork() ($fork_reason) for startup - disabling vapi])
 fi
 if test "$enabled_vapi" = yes; then
   # Start by assuming we do have VAPI
@@ -2119,10 +2121,10 @@ if test "$enabled_vapi" = yes; then
         fi])
     AC_SUBST(GASNET_VAPI_SPAWNER_CONF)
     if test "$GASNET_VAPI_SPAWNER_CONF$have_mpi" = mpino; then
-      AC_MSG_ERROR([--with-vapi-spawner=mpi requires MPI support which $mpi_reason]);
+      AC_MSG_ERROR([--with-vapi-spawner=mpi requires MPI support which $mpi_reason])
     fi
     if test "$GASNET_VAPI_SPAWNER_CONF$have_fork" = sshno; then
-      AC_MSG_ERROR([--with-vapi-spawner=ssh requires fork() support which $fork_reason]);
+      AC_MSG_ERROR([--with-vapi-spawner=ssh requires fork() support which $fork_reason])
     fi
 
     gasnetc_vapi_max_hcas=2
@@ -2180,7 +2182,7 @@ if test $enabled_shmem = yes; then
       SHMEM_FLAVOUR="CRAY_SHMEM"
       ;;
     irix*)
-      AC_MSG_WARN(Currently no access to shmem on IRIX)
+      GASNET_MSG_WARN(Currently no access to shmem on IRIX)
       have_shmem=no
       ;;
     # Linux shmem may mean Quadrics shmem or SGI shmem, but only SGI shmem is supported.
@@ -2230,7 +2232,7 @@ if test $enabled_shmem = yes; then
       SHMEM_FLAGS="-D${SHMEM_FLAVOUR} "
     else
       AC_MSG_RESULT(no)
-      AC_MSG_WARN(build test failed: I don't know how to build SHMEM programs on your system)
+      GASNET_MSG_WARN(build test failed: I don't know how to build SHMEM programs on your system)
       have_shmem=no
     fi
   fi
@@ -2813,6 +2815,7 @@ config-aux/Makefile
 , 
 GASNET_FIX_EXEC_OUTPUT()
 [ 
+GASNET_MSG_WARN_FINISH()
 CONDUIT_LIST=.gasnet-conduit-list.tmp
 if test -f "$CONDUIT_LIST" ; then
   echo "----------------------------------------------------------------------"

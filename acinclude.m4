@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/05/28 06:50:47 $
-dnl $Revision: 1.101 $
+dnl     $Date: 2006/06/05 22:39:03 $
+dnl $Revision: 1.102 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -45,7 +45,7 @@ It is not an official GNU release and has many serious known bugs, especially \
 in the optimizer, which may lead to bad code and incorrect runtime behavior. \
 Consider using \$[$1] to select a different compiler."
 GASNET_IF_ENABLED(allow-gcc296, Allow the use of the broken gcc/g++ 2.96 compiler, [
-  AC_MSG_WARN([$badgccmsg])
+  GASNET_MSG_WARN([$badgccmsg])
   ],[
   AC_MSG_ERROR([$badgccmsg \
   You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc296 flag.])
@@ -62,7 +62,7 @@ This version has a serious known bug in the optimizer regarding structure copyin
 which may lead to bad code and incorrect runtime behavior when optimization is enabled. \
 Consider using \$[$1] to select a different compiler."
 GASNET_IF_ENABLED(allow-gcc32, Allow the use of the known broken gcc/g++ 3.2.0-2 compiler, [
-  AC_MSG_WARN([$badgccmsg])
+  GASNET_MSG_WARN([$badgccmsg])
   ],[
   AC_MSG_ERROR([$badgccmsg \
   You may enable use of this broken compiler at your own risk by passing the --enable-allow-gcc32 flag.])
@@ -118,7 +118,7 @@ if test "$ac_cv_header_[]lowername" = "yes"; then
   fi
   if test -z "$header_pathname"; then
     AC_MSG_RESULT(unknown)
-    AC_MSG_WARN(Unable to detect pathname of lowername - pretending it doesn't exist)
+    GASNET_MSG_WARN(Unable to detect pathname of lowername - pretending it doesn't exist)
     have=0
   else
     AC_MSG_RESULT($header_pathname)
@@ -516,6 +516,7 @@ AC_DEFUN([GASNET_ENV_DEFAULT],[
 dnl $1 = optional env variables to restore
 AC_DEFUN([GASNET_START_CONFIGURE],[
   GASNET_FUN_BEGIN([$0($1)])
+  rm -f .[]cv_prefix[]configure_warnings.tmp
   GASNET_PATH_PROGS(PWD_PROG, pwd, pwd)
 
   dnl Save and display useful info about the configure environment
@@ -527,7 +528,7 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
   AC_MSG_RESULT( configure args: $CONFIGURE_ARGS)
   dnl ensure the cache is used in all reconfigures
   if test "$cache_file" = "/dev/null" ; then
-    echo WARNING: configure cache_file setting got lost - you may need to run a fresh ./Bootstrap
+    GASNET_MSG_WARN([configure cache_file setting got lost - you may need to run a fresh ./Bootstrap])
     cache_file=config.cache
   fi
   ac_configure_args="$ac_configure_args --cache-file=$cache_file"
@@ -1026,7 +1027,7 @@ else
   GASNET_PUSHVAR(CC,"$[$1]")
   GASNET_PUSHVAR(CFLAGS,"")
     GASNET_TRY_CFLAG([$[$2]], [], [
-	AC_MSG_WARN([Unable to use default $2="$[$2]" so using "$4" instead. Consider manually seting $2])
+	GASNET_MSG_WARN([Unable to use default $2="$[$2]" so using "$4" instead. Consider manually seting $2])
         $2="$4"
     ])
   GASNET_POPVAR(CC)
@@ -1114,8 +1115,9 @@ dnl Output compilation error information, if available and do a AC_MSG_ERROR
 dnl should be used within the failed branch of the compile macro, otherwise
 dnl use GASNET_ERR_SAVE() in the failed branch to save the error info
 AC_DEFUN([GASNET_MSG_ERROR],[
+pushdef([usermsg],[patsubst([$1],["],[\\"])])
 echo
-echo "configure error: $1"
+echo "configure error: usermsg"
 if test "" ; then
 if test -f "conftest.$ac_ext" ; then
   errfile=conftest.$ac_ext
@@ -1143,6 +1145,7 @@ fi
 echo
 CONFIG_FILE=`pwd`/config.log
 AC_MSG_ERROR(See $CONFIG_FILE for details.)
+popdef([usermsg])
 ])
 
 AC_DEFUN([GASNET_ERR_SAVE],[
@@ -1156,6 +1159,32 @@ fi
 
 AC_DEFUN([GASNET_ERR_CLEANUP],[
   rm -f gasnet_errsave_file gasnet_errsave_err
+])
+
+dnl Output a warning, and also save it to the warning list for summary display
+AC_DEFUN([GASNET_MSG_WARN],[
+  pushdef([usermsg],[patsubst([$1],["],[\\"])])
+  GASNET_FUN_BEGIN([$0()])
+  AC_MSG_WARN([$1])
+  echo "usermsg" >> .[]cv_prefix[]configure_warnings.tmp
+  echo " " >> .[]cv_prefix[]configure_warnings.tmp
+  GASNET_FUN_END([$0()])
+  popdef([usermsg])
+])
+
+dnl Display the warning summary
+AC_DEFUN([GASNET_MSG_WARN_FINISH],[
+  if test -f .[]cv_prefix[]configure_warnings.tmp ; then
+    echo "--------------------------------------------------------------------" >&2
+    echo "--------------------------------------------------------------------" >&5
+    echo "configure warning summary:" >&2
+    echo "configure warning summary:" >&5
+    echo " " >&2
+    echo " " >&5
+    cat .[]cv_prefix[]configure_warnings.tmp >&2
+    cat .[]cv_prefix[]configure_warnings.tmp >&5
+    rm -f .[]cv_prefix[]configure_warnings.tmp
+  fi
 ])
 
 dnl compile a program for a success/failure
@@ -1284,7 +1313,7 @@ AC_DEFUN([GASNET_PROG_CPP], [
   if test "$CPP" = "/lib/cpp" ; then
     badlibcppmsg="Autoconf detected your preprocessor to be '/lib/cpp' instead of '$CC -E'. This is almost always a mistake, resulting from either a broken C compiler or an outdated version of autoconf. Proceeding is very likely to result in incorrect configure decisions."
     GASNET_IF_ENABLED(allow-libcpp, Allow the use of /lib/cpp for preprocessing, [
-      AC_MSG_WARN([$badlibcppmsg])
+      GASNET_MSG_WARN([$badlibcppmsg])
     ],[
       AC_MSG_ERROR([$badlibcppmsg \
         You may enable use of this preprocessor at your own risk by passing the --enable-allow-libcpp flag.])
