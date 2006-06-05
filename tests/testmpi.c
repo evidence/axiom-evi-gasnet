@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmpi.c,v $
- *     $Date: 2006/05/11 09:43:56 $
- * $Revision: 1.11 $
+ *     $Date: 2006/06/05 22:22:12 $
+ * $Revision: 1.12 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,7 +9,6 @@
 #include <mpi.h>
 
 #define TEST_MPI 1
-#define HAVE_MPI 1  /* required for using mpi.h w/ mpi-conduit/AMMPI */
 #include "testthreads.c"
 
 static char *MPI_ErrorName(int errval) {
