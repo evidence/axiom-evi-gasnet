@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/06/05 18:34:08 $
- * $Revision: 1.96 $
+ *     $Date: 2006/06/05 22:43:52 $
+ * $Revision: 1.97 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -552,8 +552,10 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
     #ifdef GASNETI_FORCE_GENERIC_SEMAPHORES
       semas = "        FORCED mutex-based semaphores\n";
     #endif
-    #ifdef GASNETI_FORCE_YIELD_MEMBARS
-      membars = "        FORCED debugging membars\n";
+    #if defined(GASNETI_FORCE_YIELD_MEMBARS)
+      membars = "        FORCED sched_yield() in memory barriers\n";
+    #elif defined(GASNETI_FORCE_SLOW_MEMBARS)
+      membars = "        FORCED non-inlined memory barriers\n";
     #endif
     #if defined(GASNETI_FORCE_GETTIMEOFDAY)
       timers = "        FORCED timers using gettimeofday()\n";

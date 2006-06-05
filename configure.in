@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/06/05 22:39:03 $
-# $Revision: 1.371 $
+#     $Date: 2006/06/05 22:43:50 $
+# $Revision: 1.372 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.371 $)
+AC_REVISION($Revision: 1.372 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1044,15 +1044,25 @@ GASNET_IF_ENABLED(force-posix-realtime,
   elif test -n "$enabled_posix_realtime"; then
     AC_DEFINE(GASNETI_FORCE_POSIX_REALTIME)
   fi
+GASNET_IF_ENABLED(force-yield-membars,
+		  [Force a sched_yield() call in memory barriers (disabled by default)],
+		  [enabled_force=yes; enabled_yield_membars=yes])
+GASNET_IF_ENABLED(force-slow-membars,
+		  [Force function call based (non-inline) memory barriers (disabled by default)],
+		  [enabled_force=yes; enabled_slow_membars=yes])
+  if test "$enabled_yield_membars$enabled_slow_membars" = yesyes; then
+    AC_MSG_ERROR([You cannot request both --enable-force-yield-membars and --enable-force-slow-membars])
+  elif test -n "$enabled_yield_membars" ; then
+    AC_DEFINE(GASNETI_FORCE_YIELD_MEMBARS)
+  elif test -n "$enabled_slow_membars" ; then
+    AC_DEFINE(GASNETI_FORCE_SLOW_MEMBARS)
+  fi
 GASNET_IF_ENABLED(force-true-weakatomics,
 		  [Force use of real atomic operations in sequential code (disabled by default)],
 		  [enabled_force=yes; AC_DEFINE(GASNETI_FORCE_TRUE_WEAKATOMICS)] )
 GASNET_IF_ENABLED(force-generic-semaphores,
 		  [Force mutex-based semaphores (default is platform specific)],
 		  [enabled_force=yes; AC_DEFINE(GASNETI_FORCE_GENERIC_SEMAPHORES)] )
-GASNET_IF_ENABLED(force-yield-membars,
-		  [Force memory barriers based on sched_yield() (disabled by default)],
-		  [enabled_force=yes; AC_DEFINE(GASNETI_FORCE_YIELD_MEMBARS)] )
 
 if test "$enabled_force" = yes; then
 GASNET_MSG_WARN([

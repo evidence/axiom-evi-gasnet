@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/05/30 22:30:29 $
- * $Revision: 1.88 $
+ *     $Date: 2006/06/05 22:43:50 $
+ * $Revision: 1.89 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -113,6 +113,7 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_local_rmb()          gasneti_local_rmb()
 #define gasnett_local_mb()           gasneti_local_mb()
 #define gasnett_compiler_fence()     gasneti_compiler_fence()
+#define GASNETT_MEMBAR_CONFIG        GASNETI_MEMBAR_CONFIG
 
 /* ------------------------------------------------------------------------------------ */
 /* portable high-performance, low-overhead timers */
@@ -238,7 +239,6 @@ GASNETI_BEGIN_EXTERNC
 #define GASNETT_ATOMIC_CONFIG         GASNETI_ATOMIC_CONFIG
 #define GASNETT_ATOMIC32_CONFIG       GASNETI_ATOMIC32_CONFIG
 #define GASNETT_ATOMIC64_CONFIG       GASNETI_ATOMIC64_CONFIG
-#define GASNETT_MEMBAR_CONFIG         GASNETI_MEMBAR_CONFIG
 
 /* ------------------------------------------------------------------------------------ */
 /* misc tools utilities */
@@ -411,7 +411,8 @@ GASNETI_BEGIN_EXTERNC
        "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) "," \
        _STRINGIFY(GASNETT_DEBUG_CONFIG) ","      \
        _STRINGIFY(GASNETT_THREAD_MODEL) ","      \
-       _STRINGIFY(GASNETT_TIMER_CONFIG)
+       _STRINGIFY(GASNETT_TIMER_CONFIG) ","      \
+       _STRINGIFY(GASNETT_MEMBAR_CONFIG)
 #if GASNETT_LITE_MODE
   #define GASNETT_CONFIG_STRING _GASNETT_LITE_CONFIG_STRING
 #else
@@ -420,7 +421,6 @@ GASNETI_BEGIN_EXTERNC
        _STRINGIFY(GASNETT_ATOMIC_CONFIG) ","   \
        _STRINGIFY(GASNETT_ATOMIC32_CONFIG) "," \
        _STRINGIFY(GASNETT_ATOMIC64_CONFIG) "," \
-       _STRINGIFY(GASNETT_MEMBAR_CONFIG)
 
 #endif
 
@@ -429,6 +429,7 @@ extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_THREAD_MODEL);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_PTR_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG);
+extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_MEMBAR_CONFIG);
 #if !GASNETT_LITE_MODE
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG);
 extern int GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC32_CONFIG);
@@ -442,6 +443,7 @@ static int *gasnett_linkconfig_idiotcheck() {
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_DEBUG_CONFIG)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_PTR_CONFIG)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_TIMER_CONFIG)
+        + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_MEMBAR_CONFIG)
       #if !GASNETT_LITE_MODE
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC_CONFIG)
         + GASNETT_LINKCONFIG_IDIOTCHECK(GASNETT_ATOMIC32_CONFIG)

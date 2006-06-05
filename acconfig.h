@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/06/05 18:34:06 $ */
-/*  $Revision: 1.102 $ */
+/*      $Date: 2006/06/05 22:43:50 $ */
+/*  $Revision: 1.103 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -118,6 +118,7 @@
 #undef GASNETI_FORCE_TRUE_WEAKATOMICS
 #undef GASNETI_FORCE_GENERIC_SEMAPHORES
 #undef GASNETI_FORCE_YIELD_MEMBARS
+#undef GASNETI_FORCE_SLOW_MEMBARS
 #undef GASNETI_FORCE_GETTIMEOFDAY
 #undef GASNETI_FORCE_POSIX_REALTIME
 

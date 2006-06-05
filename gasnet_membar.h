@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/05/31 14:22:15 $
- * $Revision: 1.109 $
+ *     $Date: 2006/06/05 22:43:50 $
+ * $Revision: 1.110 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -66,13 +66,7 @@
  */
 #include <gasnet_asm.h>
 
-#ifdef GASNETI_FORCE_YIELD_MEMBARS
-  /* Big hammer - indended for debugging only */
-  #define gasneti_compiler_fence()  gasneti_sched_yield()
-  #define gasneti_local_wmb()       gasneti_sched_yield()
-  #define gasneti_local_rmb()       gasneti_sched_yield()
-  #define gasneti_local_mb()        gasneti_sched_yield()
-#elif PLATFORM_COMPILER_SUN_CXX || \
+#if PLATFORM_COMPILER_SUN_CXX || \
    (PLATFORM_COMPILER_HP_CXX && PLATFORM_ARCH_PARISC) || \
    (PLATFORM_COMPILER_PGI_CXX && PGI_WITH_REAL_ASM)
   /* no inline assembly in these C++ compilers, so pay a function call overhead */
@@ -411,26 +405,6 @@
  #error unknown CPU - dont know how to do a local memory barrier for your CPU/OS
 #endif
 
-#if GASNETI_USING_SLOW_MEMBARS && !defined(__cplusplus)
-  #error Slow membars are only a hack-around for C++ compilers lacking inline assembly support
-#endif
-#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_WMB_BODY)
-  GASNETI_EXTERNC void gasneti_slow_local_wmb();
-  #define gasneti_local_wmb() gasneti_slow_local_wmb()
-#endif
-#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_RMB_BODY)
-  GASNETI_EXTERNC void gasneti_slow_local_rmb();
-  #define gasneti_local_rmb() gasneti_slow_local_rmb()
-#endif
-#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_MB_BODY)
-  GASNETI_EXTERNC void gasneti_slow_local_mb();
-  #define gasneti_local_mb() gasneti_slow_local_mb()
-#endif
-#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_COMPILER_FENCE_BODY)
-  GASNETI_EXTERNC void gasneti_slow_compiler_fence();
-  #define gasneti_compiler_fence() gasneti_slow_compiler_fence()
-#endif
-
 /* ------------------------------------------------------------------------------------ */
 /* Default gasneti_compiler_fence() */
 #ifndef gasneti_compiler_fence
@@ -451,6 +425,66 @@
   #define GASNETI_MB_IS_DEFAULT 1
 #endif
 
+/* ------------------------------------------------------------------------------------ */
+/* Special membar wrappers */
+
+#if defined(GASNETI_FORCE_YIELD_MEMBARS) || defined(GASNETI_FORCE_SLOW_MEMBARS)
+  /* Step 1: capture existing definitions: */
+  GASNETI_INLINE(_gasneti_inline_compiler_fence)
+  void _gasneti_inline_compiler_fence(void) { gasneti_compiler_fence(); }
+  GASNETI_INLINE(_gasneti_inline_local_wmb)
+  void _gasneti_inline_local_wmb(void) { gasneti_local_wmb(); }
+  GASNETI_INLINE(_gasneti_inline_local_rmb)
+  void _gasneti_inline_local_rmb(void) { gasneti_local_rmb(); }
+  GASNETI_INLINE(_gasneti_inline_local_mb)
+  void _gasneti_inline_local_mb(void) { gasneti_local_mb(); }
+  /* Step 2: remove any macro definitions */
+  #undef gasneti_compiler_fence
+  #undef gasneti_local_wmb
+  #undef gasneti_local_rmb
+  #undef gasneti_local_mb
+  /* Step 3: define wrapers */
+  #if defined(GASNETI_FORCE_YIELD_MEMBARS)
+    /* 3a: These defines force a gasneti_sched_yield() ahead of the actual call: */
+    #define gasneti_compiler_fence() do {gasneti_sched_yield(); _gasneti_inline_compiler_fence(); } while(0)
+    #define gasneti_local_wmb()      do {gasneti_sched_yield(); _gasneti_inline_local_wmb(); } while(0)
+    #define gasneti_local_rmb()      do {gasneti_sched_yield(); _gasneti_inline_local_rmb(); } while(0)
+    #define gasneti_local_mb()       do {gasneti_sched_yield(); _gasneti_inline_local_mb(); } while(0)
+  #elif defined(GASNETI_FORCE_SLOW_MEMBARS)
+    /* 3b: These defines trigger the "slow membars" code below */
+    #define GASNETI_COMPILER_FENCE_BODY _gasneti_inline_compiler_fence()
+    #define GASNETI_LOCAL_WMB_BODY      _gasneti_inline_local_wmb()
+    #define GASNETI_LOCAL_RMB_BODY      _gasneti_inline_local_rmb()
+    #define GASNETI_LOCAL_MB_BODY       _gasneti_inline_local_mb()
+  #else
+    #error "Unreachable"
+  #endif
+#endif
+
+/* ------------------------------------------------------------------------------------ */
+/* Slow membars for C++ compilers w/o inline assembly supprt
+ * or any compiler without an effective inline compiler fence.
+ */
+ 
+#if GASNETI_USING_SLOW_MEMBARS && !defined(__cplusplus)
+  #error Slow membars are only a hack-around for C++ compilers lacking inline assembly support
+#endif
+#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_WMB_BODY)
+  GASNETI_EXTERNC void gasneti_slow_local_wmb();
+  #define gasneti_local_wmb() gasneti_slow_local_wmb()
+#endif
+#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_RMB_BODY)
+  GASNETI_EXTERNC void gasneti_slow_local_rmb();
+  #define gasneti_local_rmb() gasneti_slow_local_rmb()
+#endif
+#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_MB_BODY)
+  GASNETI_EXTERNC void gasneti_slow_local_mb();
+  #define gasneti_local_mb() gasneti_slow_local_mb()
+#endif
+#if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_COMPILER_FENCE_BODY)
+  GASNETI_EXTERNC void gasneti_slow_compiler_fence();
+  #define gasneti_compiler_fence() gasneti_slow_compiler_fence()
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* Properties of the memory barriers (as boolean preprocessor tokens)
@@ -562,8 +596,10 @@
 
 /* ------------------------------------------------------------------------------------ */
 
-#ifdef GASNETI_FORCE_YIELD_MEMBARS
-  #define GASNETI_MEMBAR_CONFIG membars_yield
+#if defined(GASNETI_FORCE_YIELD_MEMBARS)
+  #define GASNETI_MEMBAR_CONFIG membars_forced_yield
+#elif defined(GASNETI_FORCE_SLOW_MEMBARS)
+  #define GASNETI_MEMBAR_CONFIG membars_forced_slow
 #else
   #define GASNETI_MEMBAR_CONFIG membars_native
 #endif
