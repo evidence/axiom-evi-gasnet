@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/05/30 20:58:09 $
- * $Revision: 1.236 $
+ *     $Date: 2006/06/06 00:15:14 $
+ * $Revision: 1.237 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -322,11 +322,9 @@
      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
      #define _gasneti_atomic32_init(v)      { (v) }
 
-     #if !PLATFORM_COMPILER_TINY
      #define GASNETI_HAVE_ATOMIC64_T 1
      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
      #define _gasneti_atomic64_init(v)      { (v) }
-     #endif
 
      #if PLATFORM_COMPILER_PGI_CXX && PGI_WITH_REAL_ASM /* PGI C++ lacks inline assembly */
         #define GASNETI_HAVE_ATOMIC_CAS 1	/* Explicit */
@@ -462,6 +460,9 @@
 	 * [ So far gcc has been observed to always use (ecx,ebx) and icc has been
 	 *   observed to always use (ebx,ecx).  Nothing documents either behavior, so we
 	 *   must use the 'xchgl' unconditionally. ]
+	 *
+	 * For compilers like tinyC that don't deal well w/ 64-bit arguments to asms
+	 * see the #else clause below.
 	 */
         #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
@@ -507,6 +508,66 @@
 		    : "m" (p->ctr)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 	  return retval;
+	}
+	#define gasneti_atomic64_read gasneti_atomic64_read
+      #else /* Tiny CC */
+	/* Everything here works like the case above, except that we break everything
+	 * down in to nice bite-sized (4-bytes actually) chunks and explictly assign
+	 * them to registers A through D.
+	 */
+        #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
+        GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
+        int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
+	  register uint64_t retval = newval;
+	  register uint32_t oldlo = (uint32_t)(oldval & 0xFFFFFFFF);
+	  register uint32_t oldhi = (uint32_t)(oldval >> 32);
+	  register uint32_t newlo = (uint32_t)(newval & 0xFFFFFFFF);
+	  register uint32_t newhi = (uint32_t)(newval >> 32);
+          __asm__ __volatile__ (
+		    "lock;			"
+		    "cmpxchg8b	%0		\n\t"
+		    "sete " GASNETI_X86_LO(1)	"\n\t"
+		    "andl	$255, %1"
+		    : "=m" (p->ctr), "+&a" (oldlo), "+&d" (oldhi)
+		    : "m" (p->ctr), "b" (newlo), "c" (newhi)
+		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+          return oldlo;
+        }
+        GASNETI_INLINE(gasneti_atomic64_set)
+        void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
+	  uint64_t oldval = p->ctr;
+	  register uint32_t oldlo = (uint32_t)(oldval & 0xFFFFFFFF);
+	  register uint32_t oldhi = (uint32_t)(oldval >> 32);
+	  register uint32_t newlo = (uint32_t)(v & 0xFFFFFFFF);
+	  register uint32_t newhi = (uint32_t)(v >> 32);
+          __asm__ __volatile__ (
+		    "0:				\n\t"
+		    "lock;			"
+		    "cmpxchg8b	%0		\n\t"
+		    "jnz	0b		"
+		    : "=m" (p->ctr), "+&a" (oldlo),  "+&d" (oldhi)
+		    : "b" (newlo), "c" (newhi)
+		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+	}
+	#define gasneti_atomic64_set gasneti_atomic64_set
+        GASNETI_INLINE(gasneti_atomic64_read)
+        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
+	  uint64_t retval = p->ctr;
+	  register uint32_t retlo = (uint32_t)(retval & 0xFFFFFFFF);
+	  register uint32_t rethi = (uint32_t)(retval >> 32);
+	  register uint32_t tmplo, tmphi;
+	  uint64_t tmp;
+          __asm__ __volatile__ (
+		    "0:				\n\t"
+		    "movl	%%eax, %%ebx	\n\t"
+		    "movl	%%edx, %%ecx	\n\t"
+		    "lock;			"
+		    "cmpxchg8b	%0		\n\t"
+		    "jnz	0b		"
+		    : "=m" (p->ctr), "+&a" (retlo),  "+&d" (rethi), "&b" (tmplo), "&c" (tmphi)
+		    : /* no inputs */
+		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
+	  return ((uint64_t)rethi << 32) | ((uint64_t)retlo);
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
       #endif
