@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/06/05 22:39:03 $
-dnl $Revision: 1.102 $
+dnl     $Date: 2006/06/06 16:03:24 $
+dnl $Revision: 1.103 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1729,6 +1729,126 @@ dnl pass $1 to all subconfigures invoked recursively from this configure script
 AC_DEFUN([GASNET_SUBCONFIGURE_ARG],[
 GASNET_FUN_BEGIN([$0($1)])
 ac_configure_args="$ac_configure_args $1"
+GASNET_FUN_END([$0($1)])
+])
+
+dnl GASNET_SUBCONFIGURE_INVOKE(subdirname, [shared_cache:0/1])
+dnl recursively invoke a subconfigure in $1
+AC_DEFUN([GASNET_SUBCONFIGURE_INVOKE],[
+GASNET_FUN_BEGIN([$0($1)])
+ if test "$no_recursion" != yes; then
+  ac_config_dir="$1"
+  if test ! -f $srcdir/$ac_config_dir/configure; then
+     AC_MSG_ERROR(failed to invoke sub-configure in $ac_config_dir - file not found)
+  fi
+
+  # Remove --cache-file, --srcdir and --prefix arguments so they do not pile up.
+  ac_sub_configure_args=
+  ac_prev=
+  for ac_arg in $ac_configure_args; do
+    if test -n "$ac_prev"; then
+      ac_prev=
+      continue
+    fi
+    case "$ac_arg" in
+    -cache-file | --cache-file | --cache-fil | --cache-fi \
+    | --cache-f | --cache- | --cache | --cach | --cac | --ca | --c)
+      ac_prev=cache_file ;;
+    -cache-file=* | --cache-file=* | --cache-fil=* | --cache-fi=* \
+    | --cache-f=* | --cache-=* | --cache=* | --cach=* | --cac=* | --ca=* | --c=*)
+      ;;
+    -srcdir | --srcdir | --srcdi | --srcd | --src | --sr)
+      ac_prev=srcdir ;;
+    -srcdir=* | --srcdir=* | --srcdi=* | --srcd=* | --src=* | --sr=*)
+      ;;
+    -prefix | --prefix | --prefi | --pref | --pre)
+      ac_prev=prefix ;;
+    -prefix=* | --prefix=* | --prefi=* | --pref=* | --pre=*)
+      ;;
+    *) ac_sub_configure_args="$ac_sub_configure_args $ac_arg" ;;
+    esac
+  done
+
+  # Always prepend --prefix to ensure using the same prefix in sub-configs
+  ac_sub_configure_args="--prefix=$prefix $ac_sub_configure_args"
+
+  echo configuring in $ac_config_dir
+
+  case "$srcdir" in
+  .) ;;
+  *)
+    if test -d ./$ac_config_dir || mkdir -p ./$ac_config_dir; then :;
+    else
+     AC_MSG_ERROR(failed to create `pwd`/$ac_config_dir)
+    fi
+    ;;
+  esac
+
+  ac_popdir=`pwd`
+  cd $ac_config_dir
+
+  # A "../" for each directory in /$ac_config_dir.
+  ac_dots=`echo $ac_config_dir|sed -e 's%^\./%%' -e 's%[[^/]]$%&/%' -e 's%[[^/]]*/%../%g'`
+
+  case "$srcdir" in
+  .) # No --srcdir option.  We are building in place.
+    ac_sub_srcdir=$srcdir ;;
+  /*) # Absolute path.
+    ac_sub_srcdir=$srcdir/$ac_config_dir ;;
+  *) # Relative path.
+    ac_sub_srcdir=$ac_dots$srcdir/$ac_config_dir ;;
+  esac
+
+  ac_sub_configure="$ac_sub_srcdir/configure"
+ 
+  ac_sub_cache_file=
+  if test "$2" = "1"; then
+    # Make the cache file name correct relative to the subdirectory.
+    case "$cache_file" in
+    /*) ac_sub_cache_file=--cache-file=$cache_file ;;
+    *) # Relative path.
+      ac_sub_cache_file="--cache-file=$ac_dots$cache_file" ;;
+    esac
+  fi
+  case "$ac_given_INSTALL" in
+    [/$]*) INSTALL="$ac_given_INSTALL" ;;
+    *) INSTALL="$ac_dots$ac_given_INSTALL" ;;
+  esac
+
+  echo "running ${CONFIG_SHELL-/bin/sh} $ac_sub_configure $ac_sub_configure_args" \
+       " $ac_sub_cache_file --srcdir=$ac_sub_srcdir"
+  # The eval makes quoting arguments work.
+  if eval ${CONFIG_SHELL-/bin/sh} $ac_sub_configure $ac_sub_configure_args \
+          $ac_sub_cache_file --srcdir=$ac_sub_srcdir
+  then :
+  else
+     AC_MSG_ERROR(sub-configure failed for $ac_config_dir)
+  fi
+
+  cd "$ac_popdir"
+ fi
+GASNET_FUN_END([$0($1)])
+])
+
+dnl GASNET_SUBCONFIGURE_EXTRACT(subdirname, varname)
+dnl extract an AC_SUBST variable result from a recursively invoked subconfigure
+dnl and set it in the current scope
+AC_DEFUN([GASNET_SUBCONFIGURE_EXTRACT],[
+GASNET_FUN_BEGIN([$0($1)])
+  AC_REQUIRE([GASNET_PROG_PERL])
+  AC_MSG_CHECKING([for $2 in $1])
+  _subconfig_extract_file="$1/config.status"
+  if test ! -f $_subconfig_extract_file; then
+     AC_MSG_ERROR([failed to open $_subconfig_extract_file - file not found])
+  fi
+  _subconfig_extract_result=`$PERL -ne 'if (m/^s(.)\@('$2')\@\1([[^\1]]*)\1/) { print "[$]2='"'"'[$]3'"'"'"; }' $_subconfig_extract_file`
+  if test -n "$_subconfig_extract_result" ; then
+    eval $_subconfig_extract_result
+    AC_MSG_RESULT($[$2])
+  else
+    AC_MSG_RESULT(failed)
+    AC_MSG_ERROR([failed to extract $2 variable value from $_subconfig_extract_file])
+  fi
 GASNET_FUN_END([$0($1)])
 ])
 

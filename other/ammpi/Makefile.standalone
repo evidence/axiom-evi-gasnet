@@ -1,9 +1,10 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.standalone,v $
-#     $Date: 2006/05/31 08:17:40 $
-# $Revision: 1.24 $
+#     $Date: 2006/06/06 16:03:27 $
+# $Revision: 1.25 $
 # Description: Makefile for AMMPI
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
-include Makefile.common # leave this line alone
+srcdir = .
+include $(srcdir)/Makefile.common # leave this line alone
 
 # Uncomment one of the two lines below to get debug or release configuration 
 #ccflags = $(set_debug_ccflags)

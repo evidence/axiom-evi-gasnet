@@ -1,12 +1,11 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/Makefile.titanium.in,v $
-#     $Date: 2006/05/31 08:17:40 $
-# $Revision: 1.13 $
+#     $Date: 2006/06/06 16:03:27 $
+# $Revision: 1.14 $
 # Description: setup necessary variables needed by Makefile
 # Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
 
 # variables added here should also go in Makefile.common, and vice-versa
 
-srcdir = . # passed in on command-line
 altincdir = $(srcdir)/..
 testdir = $(srcdir)/../amxtests
 

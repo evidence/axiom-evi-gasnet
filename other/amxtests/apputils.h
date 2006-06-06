@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amxtests/apputils.h,v $
- *     $Date: 2006/05/31 08:17:44 $
- * $Revision: 1.18 $
+ *     $Date: 2006/06/06 16:03:32 $
+ * $Revision: 1.19 $
  * Description: AMX Application utilities
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -122,16 +122,6 @@ void printGlobalStats();
 #endif
 extern void outputTimerStats();
 
-#ifndef APPUTILS_OMIT_READWRITE
-uint32_t getWord(int proc, void *addr);
-void putWord(int proc, void *addr, uint32_t val);
-
-void readWord(void *destaddr, int proc, void *addr);
-void readSync();
-
-void writeWord(int proc, void *addr, uint32_t val);
-void writeSync();
-
 #define TEST_32BIT_ONLY() do {                                         \
     if (sizeof(void*) != 4) {                                          \
       if (AMX_SPMDMyProc() == 0) {                                     \
@@ -142,6 +132,23 @@ void writeSync();
       AM_Safe(AMX_SPMDExit(0));                                        \
     }                                                                  \
   } while(0)
+
+#ifndef APPUTILS_OMIT_READWRITE
+uint32_t getWord(int proc, void *addr);
+void putWord(int proc, void *addr, uint32_t val);
+
+void readWord(void *destaddr, int proc, void *addr);
+void readSync();
+
+void writeWord(int proc, void *addr, uint32_t val);
+void writeSync();
+#else
+  #define getWord(a,b)     (AMX_FatalErr("APPUTILS_OMIT_READWRITE violation"),0)
+  #define putWord(a,b,c)   AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
+  #define readWord(a,b,c)  AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
+  #define readSync()       AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
+  #define writeWord(a,b,c) AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
+  #define writeSync()      AMX_FatalErr("APPUTILS_OMIT_READWRITE violation")
 #endif
 
 #ifdef __cplusplus
