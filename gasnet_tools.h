@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/06/05 22:43:50 $
- * $Revision: 1.89 $
+ *     $Date: 2006/06/06 00:33:24 $
+ * $Revision: 1.90 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -420,8 +420,7 @@ GASNETI_BEGIN_EXTERNC
        _GASNETT_LITE_CONFIG_STRING ","         \
        _STRINGIFY(GASNETT_ATOMIC_CONFIG) ","   \
        _STRINGIFY(GASNETT_ATOMIC32_CONFIG) "," \
-       _STRINGIFY(GASNETT_ATOMIC64_CONFIG) "," \
-
+       _STRINGIFY(GASNETT_ATOMIC64_CONFIG)
 #endif
 
 #define GASNETT_LINKCONFIG_IDIOTCHECK(name) _CONCAT(gasnett_linkconfig_idiotcheck_,name)
