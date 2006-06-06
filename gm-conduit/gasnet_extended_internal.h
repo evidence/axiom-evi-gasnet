@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2006/05/23 12:42:21 $
- * $Revision: 1.31 $
+ *     $Date: 2006/06/06 18:28:42 $
+ * $Revision: 1.32 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -213,7 +213,7 @@ void		gasnete_op_free(gasnete_op_t *op);
 /* -------------------------------------------------------------------------- */
 /* Extended threads support */
 extern const gasnete_eopaddr_t	EOPADDR_NIL;
-extern gasnete_threaddata_t	*gasnete_threadtable[256];
+extern gasnete_threaddata_t	*gasnete_threadtable[GASNETI_MAX_THREADS];
 #if GASNETI_CLIENT_THREADS
 extern gasnete_threaddata_t * gasnete_mythread();
 #else

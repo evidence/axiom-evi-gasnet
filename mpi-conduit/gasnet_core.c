@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2006/05/11 09:43:36 $
- * $Revision: 1.69 $
+ *     $Date: 2006/06/06 18:28:46 $
+ * $Revision: 1.70 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -625,13 +625,13 @@ extern int gasnetc_AMReplyLongM(
       { int retval;
         /* it's unsafe to call malloc or gasneti_malloc here,
            because we may be within a hold_interrupts call - MUST use static allocation */
-        static gasnetc_hsl_errcheckinfo_t hsl_errcheck_table[256];
+        static gasnetc_hsl_errcheckinfo_t hsl_errcheck_table[GASNETI_MAX_THREADS];
         static int hsl_errcheck_cnt = 0;
         static gasneti_mutex_t hsl_errcheck_tablelock = GASNETI_MUTEX_INITIALIZER;
         int idx;
         gasneti_mutex_lock(&hsl_errcheck_tablelock);
-          if (hsl_errcheck_cnt >= 256) 
-            gasneti_fatalerror("gasnet-mpi HSL errcheck system: Too many local client threads (limit=256)");
+          if (hsl_errcheck_cnt >= GASNETI_MAX_THREADS) 
+            gasneti_fatalerror("gasnet-mpi HSL errcheck system: Too many local client threads (limit=%i)",GASNETI_MAX_THREADS);
           info = &(hsl_errcheck_table[hsl_errcheck_cnt]);
           hsl_errcheck_cnt++;
         gasneti_mutex_unlock(&hsl_errcheck_tablelock);

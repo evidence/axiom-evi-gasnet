@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/05/30 22:31:26 $
- * $Revision: 1.75 $
+ *     $Date: 2006/06/06 18:28:38 $
+ * $Revision: 1.76 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -12,7 +12,7 @@
 #include <gasnet_handler.h>
 #include <elan3/elan3.h> /* for ELAN_POLL_EVENT */
 
-gasnete_threaddata_t *gasnete_threadtable[256] = { 0 };
+gasnete_threaddata_t *gasnete_threadtable[GASNETI_MAX_THREADS] = { 0 };
 static int gasnete_numthreads = 0;
 static int gasnete_nbi_throttle = 0;
 static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
@@ -135,8 +135,10 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
     idx = gasnete_numthreads;
     gasnete_numthreads++;
   gasnet_hsl_unlock(&threadtable_lock);
+  gasneti_assert(GASNETI_MAX_THREADS <= 256);
   #if GASNETI_CLIENT_THREADS
-    if (idx >= 256) gasneti_fatalerror("GASNet Extended API: Too many local client threads (limit=256)");
+    if (idx >= GASNETI_MAX_THREADS) 
+      gasneti_fatalerror("GASNet Extended API: Too many local client threads (limit=%i)",GASNETI_MAX_THREADS);
   #else
     gasneti_assert(idx == 0);
   #endif

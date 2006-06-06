@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/05/23 12:42:19 $
- * $Revision: 1.40 $
+ *     $Date: 2006/06/06 18:28:40 $
+ * $Revision: 1.41 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,10 @@ GASNETI_BEGIN_EXTERNC
 #include <gasnet_help.h>
 
 /* ------------------------------------------------------------------------------------ */
+#ifndef GASNETI_MAX_THREADS
+/* cannot exceed 256, but some conduits may set it to less */
+#define GASNETI_MAX_THREADS 256
+#endif
 
 #ifndef _GASNETE_MYTHREAD
   struct _gasnete_threaddata_t;
@@ -25,7 +29,7 @@ GASNETI_BEGIN_EXTERNC
     extern struct _gasnete_threaddata_t *gasnete_mythread() GASNETI_CONST;
     GASNETI_CONSTP(gasnete_mythread)
   #else
-    extern struct _gasnete_threaddata_t *gasnete_threadtable[256];
+    extern struct _gasnete_threaddata_t *gasnete_threadtable[GASNETI_MAX_THREADS];
     #define gasnete_mythread() (gasnete_threadtable[0])
   #endif
 #endif

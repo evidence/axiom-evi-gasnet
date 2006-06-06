@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/05/16 12:41:06 $
- * $Revision: 1.50 $
+ *     $Date: 2006/06/06 18:28:44 $
+ * $Revision: 1.51 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -13,7 +13,7 @@
 GASNETI_IDENT(gasnete_IdentString_Version, "$GASNetExtendedLibraryVersion: " GASNET_EXTENDED_VERSION_STR " $");
 GASNETI_IDENT(gasnete_IdentString_ExtendedName, "$GASNetExtendedLibraryName: " GASNET_EXTENDED_NAME_STR " $");
 
-gasnete_threaddata_t *gasnete_threadtable[256] = { 0 };
+gasnete_threaddata_t *gasnete_threadtable[GASNETI_MAX_THREADS] = { 0 };
 static int gasnete_numthreads = 0;
 static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
 #if GASNETI_CLIENT_THREADS
@@ -51,11 +51,13 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
     idx = gasnete_numthreads;
     gasnete_numthreads++;
     gasnet_hsl_unlock(&threadtable_lock);
-#if GASNETI_CLIENT_THREADS
-    if (idx >= 256) gasneti_fatalerror("GASNet Extended API: Too many local client threads (limit=256)");
-#else
-    gasneti_assert(idx == 0);
-#endif
+    gasneti_assert(GASNETI_MAX_THREADS <= 256);
+    #if GASNETI_CLIENT_THREADS
+      if (idx >= GASNETI_MAX_THREADS) 
+        gasneti_fatalerror("GASNet Extended API: Too many local client threads (limit=%i)",GASNETI_MAX_THREADS);
+    #else
+      gasneti_assert(idx == 0);
+    #endif
     gasneti_assert(gasnete_threadtable[idx] == NULL);
 
     threaddata = (gasnete_threaddata_t *)gasneti_calloc(1,sizeof(gasnete_threaddata_t));
