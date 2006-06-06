@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/06/06 00:15:14 $
- * $Revision: 1.237 $
+ *     $Date: 2006/06/06 00:43:57 $
+ * $Revision: 1.238 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -336,13 +336,8 @@
            unless we include an extraneous full memory clobber 
          */
         #define GASNETI_ATOMIC_MEM_CLOBBER ,"memory"
-	/* Bug 1616 Pathscale compler dislikes "b" modifier on arguments.
-	   However, PGI 6.1 requires it, and gcc and icc are fine w/ or w/o.
-	 */
-	#define GASNETI_X86_LO(x)		"%" #x
       #else
         #define GASNETI_ATOMIC_MEM_CLOBBER
-	#define GASNETI_X86_LO(x)		"%b" #x
       #endif
       #define _gasneti_atomic32_read(p)      ((p)->ctr)
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
@@ -373,7 +368,7 @@
           __asm__ __volatile__(
 	          GASNETI_X86_LOCK_PREFIX
 		  "decl %0		\n\t"
-		  "sete " GASNETI_X86_LO(1)
+		  "sete %1"
 	          : "=m" (v->ctr), "=qm" (retval)
 	          : "m" (v->ctr) 
                   : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
@@ -388,7 +383,7 @@
         __asm__ __volatile__ (
 		GASNETI_X86_LOCK_PREFIX
 		"cmpxchgl %3, %1	\n\t"
-		"sete " GASNETI_X86_LO(0)
+		"sete %0"
 		: "=qm" (retval), "=m" (v->ctr), "=a" (readval)
 		: "r" (newval), "m" (v->ctr), "a" (oldval)
 		: "cc" GASNETI_ATOMIC_MEM_CLOBBER);
@@ -437,7 +432,7 @@
             __asm__ __volatile__ (
 		    GASNETI_X86_LOCK_PREFIX
 		    "cmpxchgq %3, %1	\n\t"
-		    "sete " GASNETI_X86_LO(0)
+		    "sete %0"
 		    : "=q" (retval), "=m" (p->ctr), "=a" (readval)
 		    : "r" (newval), "m" (p->ctr), "a" (oldval)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
@@ -472,7 +467,7 @@
 		    "xchgl	%2, %%ebx	\n\t"
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
-		    "sete " GASNETI_X86_LO(2)	"\n\t"
+		    "sete	%b2		\n\t"
 		    "andl	$255, %k2"
 		    : "=m" (p->ctr), "+&A" (oldval), "+&q" (retval)
 		    : "m" (p->ctr)
@@ -526,7 +521,7 @@
           __asm__ __volatile__ (
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
-		    "sete " GASNETI_X86_LO(1)	"\n\t"
+		    "sete	%b1		\n\t"
 		    "andl	$255, %1"
 		    : "=m" (p->ctr), "+&a" (oldlo), "+&d" (oldhi)
 		    : "m" (p->ctr), "b" (newlo), "c" (newhi)
