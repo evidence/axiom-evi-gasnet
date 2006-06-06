@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/06/05 22:43:50 $
- * $Revision: 1.110 $
+ *     $Date: 2006/06/06 00:28:07 $
+ * $Revision: 1.111 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -471,18 +471,22 @@
 #endif
 #if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_WMB_BODY)
   GASNETI_EXTERNC void gasneti_slow_local_wmb();
+  #undef gasneti_local_wmb
   #define gasneti_local_wmb() gasneti_slow_local_wmb()
 #endif
 #if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_RMB_BODY)
   GASNETI_EXTERNC void gasneti_slow_local_rmb();
+  #undef gasneti_local_rmb
   #define gasneti_local_rmb() gasneti_slow_local_rmb()
 #endif
 #if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_LOCAL_MB_BODY)
   GASNETI_EXTERNC void gasneti_slow_local_mb();
+  #undef gasneti_local_mb
   #define gasneti_local_mb() gasneti_slow_local_mb()
 #endif
 #if GASNETI_USING_SLOW_MEMBARS || defined(GASNETI_COMPILER_FENCE_BODY)
   GASNETI_EXTERNC void gasneti_slow_compiler_fence();
+  #undef gasneti_compiler_fence
   #define gasneti_compiler_fence() gasneti_slow_compiler_fence()
 #endif
 
