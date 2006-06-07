@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/06/06 00:33:24 $
- * $Revision: 1.90 $
+ *     $Date: 2006/06/07 20:33:18 $
+ * $Revision: 1.91 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -51,7 +51,7 @@
 
 /* allow conduit-specific tool helpers (eg elan timers) */
 #ifdef GASNETI_TOOLS_HELPER
-#include GASNETI_TOOLS_HELPER
+#include _STRINGIFY(GASNETI_TOOLS_HELPER)
 #endif
 
 /* following preserves include ordering of gasnet_help.h */
