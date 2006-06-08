@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/06/05 22:43:50 $
-# $Revision: 1.372 $
+#     $Date: 2006/06/08 18:31:57 $
+# $Revision: 1.373 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.372 $)
+AC_REVISION($Revision: 1.373 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1185,7 +1185,16 @@ if test $enabled_udp = yes; then
       GASNET_CHECK_OPTIMIZEDDEBUG(CXX,CXXFLAGS,[$CXXCPPFLAGS $MISC_CXXFLAGS],[])
     ;;
   esac
+
+  GASNET_ENV_DEFAULT(cxxLIBS, )             # C++ LIBS for any C++ link
+  GASNET_ENV_DEFAULT(cxxLDFLAGS, )          # C++ LDFLAGS for any C++ link
+  GASNET_UDP_LIBS="$GASNET_UDP_LIBS $cxxLIBS"
+  AC_SUBST(cxxLIBS)
+  AC_SUBST(cxxLDFLAGS)
+
   GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS $CXXCPPFLAGS $MISC_CXXFLAGS")
+  GASNET_PUSHVAR(LDFLAGS,"$LDFLAGS $cxxLDFLAGS")
+  GASNET_PUSHVAR(LIBS,"$LIBS $cxxLIBS")
   GASNET_TRY_CACHE_VERIFY_RUN( [for working C++ exceptions], cxx_exceptions, [ ], [
      try {
        int *p = new int[[10]];
@@ -1197,6 +1206,8 @@ if test $enabled_udp = yes; then
      }
   ], [ "I can\'t figure out how to build and run a program that uses C++ exceptions" ] )  
   GASNET_POPVAR(CXXFLAGS)
+  GASNET_POPVAR(LDFLAGS)
+  GASNET_POPVAR(LIBS)
   AC_SUBST(MISC_CXXFLAGS)
 
   AC_LANG_RESTORE
