@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/06/05 18:34:06 $
- * $Revision: 1.66 $
+ *     $Date: 2006/06/09 02:51:38 $
+ * $Revision: 1.67 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -445,17 +445,18 @@ GASNETI_BEGIN_EXTERNC
 #elif defined(_POSIX_TIMERS) && 0
   /* POSIX realtime support - disabled for now because haven't found anywhere that it 
      outperforms gettimeofday, and it usually requires an additional library */
-  #define GASNETI_FORCE_POSIX_REALTIME 1
+  #define GASNETI_USING_POSIX_REALTIME 1
 /* ------------------------------------------------------------------------------------ */
 #else /* use slow, portable timers */
-  #define GASNETI_FORCE_GETTIMEOFDAY 1
+  #define GASNETI_USING_GETTIMEOFDAY 1
 #endif
 /* ------------------------------------------------------------------------------------ */
 /* completely portable (low-performance) microsecond granularity wall-clock time */
 extern uint64_t gasneti_gettimeofday_us(void);
 
 /* portable implementations */
-#if defined(GASNETI_FORCE_GETTIMEOFDAY)
+#if defined(GASNETI_FORCE_GETTIMEOFDAY) || defined(GASNETI_USING_GETTIMEOFDAY)
+  #undef GASNETI_USING_GETTIMEOFDAY
   #define GASNETI_USING_GETTIMEOFDAY 1
   /* portable microsecond granularity wall-clock timer */
   typedef uint64_t _gasneti_tick_t;
@@ -465,8 +466,9 @@ extern uint64_t gasneti_gettimeofday_us(void);
   #define gasneti_ticks_to_ns(st)  (((gasneti_tick_t)(st))*1000)
   #undef gasneti_ticks_now
   #define gasneti_ticks_now()      ((gasneti_tick_t)gasneti_gettimeofday_us())
-#elif defined(GASNETI_FORCE_POSIX_REALTIME)
+#elif defined(GASNETI_FORCE_POSIX_REALTIME) || defined(GASNETI_USING_POSIX_REALTIME)
   #include <time.h>
+  #undef GASNETI_USING_POSIX_REALTIME 
   #define GASNETI_USING_POSIX_REALTIME 1
   typedef uint64_t _gasneti_tick_t;
   #undef gasneti_tick_t
