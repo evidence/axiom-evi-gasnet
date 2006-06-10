@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_ep.c,v $
- *     $Date: 2006/06/10 23:23:41 $
- * $Revision: 1.44 $
+ *     $Date: 2006/06/10 23:26:26 $
+ * $Revision: 1.45 $
  * Description: AMMPI Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -46,6 +46,7 @@ AMMPI_IDENT(AMMPI_IdentString_MPIVersion, "$MPIVersion: " \
             AMMPI_MPI_VERSION_STR_3 \
             AMMPI_MPI_VERSION_STR_4 \
             "| $");
+AMMPI_IDENT(AMMPI_IdentString_MPICCVersion, "$MPICompiler: " PLATFORM_COMPILER_IDSTR " $");
 
 const ammpi_stats_t AMMPI_initial_stats = /* the initial state for stats type */
         { {0,0,0}, {0,0,0}, 
