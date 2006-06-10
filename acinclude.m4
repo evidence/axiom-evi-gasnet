@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/06/10 05:27:16 $
-dnl $Revision: 1.105 $
+dnl     $Date: 2006/06/10 09:08:41 $
+dnl $Revision: 1.106 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1814,10 +1814,6 @@ GASNET_FUN_BEGIN([$0($1)])
       ac_sub_cache_file="--cache-file=$ac_dots$cache_file" ;;
     esac
   fi
-  case "$ac_given_INSTALL" in
-    [/$]*) INSTALL="$ac_given_INSTALL" ;;
-    *) INSTALL="$ac_dots$ac_given_INSTALL" ;;
-  esac
 
   echo "running ${CONFIG_SHELL-/bin/sh} $ac_sub_configure $ac_sub_configure_args" \
        " $ac_sub_cache_file --srcdir=$ac_sub_srcdir"
