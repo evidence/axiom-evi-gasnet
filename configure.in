@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/06/08 18:31:57 $
-# $Revision: 1.373 $
+#     $Date: 2006/06/10 02:33:46 $
+# $Revision: 1.374 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.373 $)
+AC_REVISION($Revision: 1.374 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -569,6 +569,19 @@ GASNET_CHECK_GCC_ATTRIBUTE([__pure__],
             [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
 GASNET_CHECK_GCC_ATTRIBUTE([__format__],
             [__attribute__((__format__ (__printf__, 1, 2))) void dummy(const char *fmt,...) { }])
+
+GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS -I$TOP_SRCDIR/other")
+GASNET_TRY_CACHE_EXTRACT_STR(PLATFORM_COMPILER_IDSTR, PLATFORM_COMPILER_IDSTR,
+  [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_IDSTR ], GASNETI_PLATFORM_COMPILER_IDSTR)
+AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_IDSTR,$GASNETI_PLATFORM_COMPILER_IDSTR)
+GASNET_TRY_CACHE_EXTRACT_EXPR(PLATFORM_COMPILER_ID, PLATFORM_COMPILER_ID,
+  [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_ID ], GASNETI_PLATFORM_COMPILER_ID)
+AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_ID,$GASNETI_PLATFORM_COMPILER_ID)
+GASNET_TRY_CACHE_EXTRACT_EXPR(PLATFORM_COMPILER_VERSION, PLATFORM_COMPILER_VERSION,
+  [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_VERSION ], GASNETI_PLATFORM_COMPILER_VERSION)
+AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_VERSION,$GASNETI_PLATFORM_COMPILER_VERSION)
+GASNET_POPVAR(CPPFLAGS)
+
 GASNET_POPVAR(CFLAGS)
 
 ########################################################################

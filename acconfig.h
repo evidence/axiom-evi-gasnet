@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/06/05 22:43:50 $ */
-/*  $Revision: 1.103 $ */
+/*      $Date: 2006/06/10 02:33:46 $ */
+/*  $Revision: 1.104 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -31,6 +31,11 @@
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_PURE
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_CONST
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT
+
+/* identification of the compiler used at configure time */
+#undef GASNETI_PLATFORM_COMPILER_IDSTR
+#undef GASNETI_PLATFORM_COMPILER_ID
+#undef GASNETI_PLATFORM_COMPILER_VERSION
 
 /* Defined to be the inline function modifier supported by the C compiler (if supported) */
 #undef CC_INLINE_MODIFIER
