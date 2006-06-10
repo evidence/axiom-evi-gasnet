@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/06/10 02:33:46 $
-dnl $Revision: 1.104 $
+dnl     $Date: 2006/06/10 05:27:16 $
+dnl $Revision: 1.105 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -146,7 +146,11 @@ AC_DEFUN([GASNET_CHECK_SIZEOF],[
   pushdef([uppername],translit($2[]barename,'a-z','A-Z'))
 
   if test "$cross_compiling" = "yes" ; then
-    GASNET_CROSS_VAR(uppername,uppername)
+    uppername=
+    GASNET_TRY_CACHE_EXTRACT_EXPR([sizeof($1) (binary probe)],uppername,[],[sizeof($1)],uppername)
+    if test -z "$uppername" ; then # last resort is to use CROSS var
+      GASNET_CROSS_VAR(uppername,uppername)
+    fi
     ac_cv_[]lowername=$uppername
   fi
   dnl use bare AC_CHECK_SIZEOF here to get correct .h behavior & avoid duplicate defs
@@ -1873,7 +1877,10 @@ dnl query the numerical value of a system signal and AC_SUBST it
 AC_DEFUN([GASNET_GET_SIG], [
   GASNET_FUN_BEGIN([$0])
   if test "$cross_compiling" = "yes" ; then
-    GASNET_CROSS_VAR(SIG$1,SIG$1)
+    GASNET_TRY_CACHE_EXTRACT_EXPR([value of SIG$1 (binary probe)],SIG$1,[#include <signal.h>],[SIG$1],SIG$1)
+    if test -z "$SIG$1" ; then # last resort is to use CROSS var
+      GASNET_CROSS_VAR(SIG$1,SIG$1)
+    fi
   else 
     GASNET_TRY_CACHE_RUN_EXPR([value of SIG$1], SIG$1, [#include <signal.h>], [val = (int)SIG$1;], SIG$1)
   fi
@@ -1968,6 +1975,7 @@ dnl else, run action-failure
 AC_DEFUN([GASNET_COMPILE_EXAMINE], [
 GASNET_FUN_BEGIN([$0(...)])
   cat >conftest.$ac_ext <<"EOF"
+#include "confdefs.h"
 $1
   int main() { 
 $2
@@ -2002,6 +2010,7 @@ dnl else, run action-failure
 AC_DEFUN([GASNET_LINK_EXAMINE], [
 GASNET_FUN_BEGIN([$0(...)])
   cat >conftest.$ac_ext <<"EOF"
+#include "confdefs.h"
 $1
   int main() { 
 $2
@@ -2081,7 +2090,7 @@ pushdef([embedcode],[
              ' ','$','\0'};
 ])
 pushdef([unpackcode],[
-   _extract_prog='BEGIN{$/="\$";} if (m/^gasnetextractexpr: ([[ -]]) (.+?) \$/) { map($val=($val<<4)+($_-0x40),unpack("C8",[$]2)); print "[$]1$val";}' 
+   _extract_prog='BEGIN{$/="\$";} if (m/^gasnetextractexpr: ([[ -]]) (.+?) \$/) { map($val=($val<<4)+($_-0x40),unpack("C8",[$]2)); print "-" if ([$]1 eq "-"); print $val;}' 
    cv_prefix[]$2=`$PERL -ne "$_extract_prog" $GASNET_EXAMINE_BIN`
 ])
  GASNET_COMPILE_EXAMINE([$3
