@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_indexed.c,v $
- *     $Date: 2006/05/17 07:03:37 $
- * $Revision: 1.18 $
+ *     $Date: 2006/06/12 09:55:48 $
+ * $Revision: 1.19 $
  * Description: GASNet Indexed implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -645,6 +645,7 @@ extern gasnet_handle_t gasnete_puti(gasnete_synctype_t synctype,
                                    gasnet_node_t dstnode, 
                                    size_t dstcount, void * const dstlist[], size_t dstlen,
                                    size_t srccount, void * const srclist[], size_t srclen GASNETE_THREAD_FARG) {
+  gasneti_assert(gasnete_vis_isinit);
   /* catch silly degenerate cases */
   if_pf (dstcount + srccount <= 2 ||  /* empty or fully contiguous */
          dstnode == gasneti_mynode) { /* purely local */ 
@@ -684,6 +685,7 @@ extern gasnet_handle_t gasnete_geti(gasnete_synctype_t synctype,
                                    size_t dstcount, void * const dstlist[], size_t dstlen,
                                    gasnet_node_t srcnode,
                                    size_t srccount, void * const srclist[], size_t srclen GASNETE_THREAD_FARG) {
+  gasneti_assert(gasnete_vis_isinit);
   /* catch silly degenerate cases */
   if_pf (dstcount + srccount <= 2 ||  /* empty or fully contiguous */
          srcnode == gasneti_mynode) { /* purely local */ 

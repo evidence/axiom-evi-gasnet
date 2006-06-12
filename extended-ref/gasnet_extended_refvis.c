@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refvis.c,v $
- *     $Date: 2006/05/10 13:10:13 $
- * $Revision: 1.17 $
+ *     $Date: 2006/06/12 09:55:48 $
+ * $Revision: 1.18 $
  * Description: Reference implementation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -10,6 +10,15 @@
 
 #include <gasnet_extended_refvis.h>
 
+/*---------------------------------------------------------------------------------*/
+/* *** VIS Init *** */
+/*---------------------------------------------------------------------------------*/
+static int gasnete_vis_isinit = 0;
+extern void gasnete_vis_init() {
+  gasneti_assert(!gasnete_vis_isinit);
+  gasnete_vis_isinit = 1;
+  GASNETI_TRACE_PRINTF(C,("gasnete_vis_init()"));
+}
 /*---------------------------------------------------------------------------------*/
 
 #define GASNETI_GASNET_EXTENDED_REFVIS_C 1

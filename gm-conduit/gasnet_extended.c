@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/06/06 18:28:42 $
- * $Revision: 1.39 $
+ *     $Date: 2006/06/12 09:55:50 $
+ * $Revision: 1.40 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -136,8 +136,11 @@ extern void gasnete_init() {
 		gasnete_op_free((gasnete_op_t *)eop);
 	}
  
-	/* Initialize barrier resources */
-	gasnete_barrier_init();
+  /* Initialize barrier resources */
+  gasnete_barrier_init();
+
+  /* Initialize VIS subsystem */
+  gasnete_vis_init();
 }
 /* ------------------------------------------------------------------------------------ */
 /*

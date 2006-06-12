@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_strided.c,v $
- *     $Date: 2006/05/28 02:27:56 $
- * $Revision: 1.21 $
+ *     $Date: 2006/06/12 09:55:48 $
+ * $Revision: 1.22 $
  * Description: GASNet Strided implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1131,6 +1131,7 @@ extern gasnet_handle_t gasnete_puts(gasnete_synctype_t synctype,
                                    void *srcaddr, const size_t srcstrides[],
                                    const size_t count[], size_t stridelevels GASNETE_THREAD_FARG) {
   gasnete_strided_stats_t stats;
+  gasneti_assert(gasnete_vis_isinit);
   gasnete_strided_stats(&stats, dststrides, srcstrides, count, stridelevels);
 
   /* catch silly degenerate cases */
@@ -1177,6 +1178,7 @@ extern gasnet_handle_t gasnete_gets(gasnete_synctype_t synctype,
                                    void *srcaddr, const size_t srcstrides[],
                                    const size_t count[], size_t stridelevels GASNETE_THREAD_FARG) {
   gasnete_strided_stats_t stats;
+  gasneti_assert(gasnete_vis_isinit);
   gasnete_strided_stats(&stats, dststrides, srcstrides, count, stridelevels);
   /* catch silly degenerate cases */
   if_pf (stats.totalsz == 0) /* empty */
