@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/06/05 22:43:52 $
- * $Revision: 1.97 $
+ *     $Date: 2006/06/12 09:18:42 $
+ * $Revision: 1.98 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -158,6 +158,7 @@ static void _test_makeErrMsg(const char *format, ...)) {
 #define PAGESZ GASNETT_PAGESIZE
 #define alignup(a,b) ((((a)+(b)-1)/(b))*(b))
 #define alignup_ptr(a,b) ((void *)(((((uintptr_t)(a))+(b)-1)/(b))*(b)))
+#define aligndown(a,b) (((a)/(b))*(b))
 
 static int _test_rand(int low, int high) {
   int result;
