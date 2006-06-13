@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/06/12 09:55:46 $
- * $Revision: 1.77 $
+ *     $Date: 2006/06/13 09:29:26 $
+ * $Revision: 1.78 $
  * Description: GASNet Extended API ELAN Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -294,6 +294,7 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t cons
     if (bufidx == 256) gasneti_fatalerror("GASNet Extended API: Ran out of explicit handles (limit=65535)");
     thread->eop_num_bufs++;
     buf = (gasnete_eop_t *)gasneti_calloc(256,sizeof(gasnete_eop_t));
+    GASNETE_ASSERT_ALIGNED(buf);
     for (i=0; i < 256; i++) {
       gasnete_eopaddr_t addr;
       addr.bufferidx = bufidx;
@@ -349,7 +350,8 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread, uint8_t cons
       for (i=0;i<(bufidx==255?255:256);i++) {                                   
         gasnete_eop_t *eop;                                   
         gasneti_assert(!gasnete_eopaddr_isnil(addr));                 
-        eop = GASNETE_EOPADDR_TO_PTR(thread,addr);            
+        eop = GASNETE_EOPADDR_TO_PTR(thread,addr);           
+        GASNETE_ASSERT_ALIGNED(eop);
         gasneti_assert(OPTYPE(eop) == OPTYPE_EXPLICIT);               
         gasneti_assert(OPSTATE(eop) == OPSTATE_FREE);                 
         gasneti_assert(eop->threadidx == threadidx);                  
