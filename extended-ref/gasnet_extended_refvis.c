@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refvis.c,v $
- *     $Date: 2006/06/12 09:55:48 $
- * $Revision: 1.18 $
+ *     $Date: 2006/06/13 10:26:17 $
+ * $Revision: 1.19 $
  * Description: Reference implementation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,10 +14,29 @@
 /* *** VIS Init *** */
 /*---------------------------------------------------------------------------------*/
 static int gasnete_vis_isinit = 0;
+
+#if GASNETE_USE_AMPIPELINE
+static int gasnete_vis_use_ampipe;
+#endif
+#if GASNETE_USE_REMOTECONTIG_GATHER_SCATTER
+static int gasnete_vis_use_remotecontig;
+#endif
+
 extern void gasnete_vis_init() {
   gasneti_assert(!gasnete_vis_isinit);
   gasnete_vis_isinit = 1;
   GASNETI_TRACE_PRINTF(C,("gasnete_vis_init()"));
+
+  #define GASNETE_VIS_ENV_YN(varname, envname, enabler) do {                                                    \
+    if (enabler) {                                                                                              \
+      varname = gasneti_getenv_yesno_withdefault(#envname, enabler##_DEFAULT);                                  \
+    } else if (!gasnet_mynode() && gasneti_getenv(#envname) && gasneti_getenv_yesno_withdefault(#envname, 0)) { \
+      fprintf(stderr, "WARNING: %s is set in environment, but %s support is compiled out - setting ignored",    \
+                      #envname, #enabler);                                                                      \
+    }                                                                                                           \
+  } while (0)
+  GASNETE_VIS_ENV_YN(gasnete_vis_use_ampipe,GASNET_VIS_AMPIPE, GASNETE_USE_AMPIPELINE);
+  GASNETE_VIS_ENV_YN(gasnete_vis_use_remotecontig,GASNET_VIS_REMOTECONTIG, GASNETE_USE_REMOTECONTIG_GATHER_SCATTER);
 }
 /*---------------------------------------------------------------------------------*/
 
