@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvisperf.c,v $
- *     $Date: 2006/06/13 11:00:13 $
- * $Revision: 1.1 $
+ *     $Date: 2006/06/18 01:10:52 $
+ * $Revision: 1.2 $
  * Description: GASNet VIS performance test
  * Copyright 2006 Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,9 +15,9 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
-int maxsz = 0;
+uintptr_t maxsz = 0;
 #ifndef TEST_SEGSZ
-  #define TEST_SEGSZ_EXPR ((uintptr_t)maxsz)
+  #define TEST_SEGSZ_EXPR (maxsz)
 #endif
 #include "test.h"
 
@@ -160,8 +160,8 @@ int main(int argc, char **argv) {
   #else
     maxsz = 16*1024*1024;
   #endif
-  max_payload = MIN(maxsz, max_payload);
-  maxsz = MIN(max_payload * densitysteps,maxsz);
+  max_payload = (int)MIN(maxsz, max_payload);
+  maxsz = MIN(((uint64_t)max_payload) * densitysteps,maxsz);
   if (!min_contig) min_contig = 8;
   if (!max_contig) max_contig = MIN(256*1024,max_payload);
   if (!min_payload) min_payload = min_contig;
