@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/06/10 02:33:46 $
-# $Revision: 1.374 $
+#     $Date: 2006/06/26 08:31:45 $
+# $Revision: 1.375 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.374 $)
+AC_REVISION($Revision: 1.375 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1276,13 +1276,21 @@ fi
 
 #---------------------------------------------------------------------------------------------------------------
 # MPI/AMMPI Configuration
-# (In the future it would be nice to try and discover MPI setup automatically)
+
+# --enable-mpi-compat controls MPI compatibility in all conduits
+GASNET_IF_ENABLED_WITH_AUTO(mpi-compat, Enable/disable MPI compatibility (auto-detected),
+  [enabled_mpi_compat=yes;force_mpi_compat=yes],
+  enabled_mpi_compat=no,
+  enabled_mpi_compat=yes)
+
+# --enable-mpi controls mpi-conduit
 pushdef([CONDUIT_DESC],[portable MPI-1.1/2.x network conduit (mpi)])
 GASNET_IF_ENABLED_WITH_AUTO(mpi, Enable/disable the CONDUIT_DESC (auto-detected),
   [enabled_mpi=yes;force_mpi=yes],
   enabled_mpi=no,
   enabled_mpi=yes)
-if test $enabled_mpi = yes; then
+
+if test $enabled_mpi = yes || test $enabled_mpi_compat = yes; then
   # user can explicitly configure MPI by setting MPI_CC, MPI_CFLAGS and MPI_LIBS
   have_mpi=yes # start by assuming they have it
   if test "$BUILDCONFIG" = "debug" ; then
@@ -1466,6 +1474,9 @@ _GASNET_EOF
       GASNET_MSG_WARN([build test failed: I don't know how to build MPI programs on your system -- see $TOP_BUILDDIR/config.log for details: consider using \$MPI_CC \$MPI_CFLAGS and \$MPI_LIBS to configure MPI support for your site if you want the mpi conduit])
       have_mpi=no
   fi
+  if test "$force_mpi_compat$have_mpi" = yesno ; then
+    GASNET_MSG_ERROR(User requested --enable-mpi-compat but I don't know how to build MPI programs for your system)
+  fi
   if test "$force_mpi$have_mpi" = yesno ; then
     GASNET_MSG_ERROR(User requested --enable-mpi but I don't know how to build MPI programs for your system)
   fi
@@ -1489,6 +1500,14 @@ else
   CONDUIT_REPORT(OFF)
 fi
 popdef([CONDUIT_DESC])
+if test "$enabled_mpi_compat$have_mpi" = yesyes ; then
+  have_mpi_compat=yes
+else
+  have_mpi_compat=no
+fi
+AM_CONDITIONAL(USE_MPI_COMPAT, test "$have_mpi_compat" = yes)
+# USE_MPI == MPI-compatbility or MPI-conduit
+AM_CONDITIONAL(USE_MPI, test "$have_mpi" = yes)
 
 #-----------------------------------------------------------------------------------------------
 # SMP configuration
@@ -1615,29 +1634,18 @@ if test $enabled_gm = yes; then
       GASNET_POPVAR(LIBS)
 
       force_enable_gm_mpi_compat=no
-      AC_MSG_CHECKING(for GM interoperability with MPI)
       GASNET_IF_ENABLED_WITH_AUTO(gm-mpi-compat, 
         Enable/disable GM interoperability with MPI (enabled if MPI detected),
 	[force_enable_gm_mpi_compat=yes; enabled_gm_mpi_compat=yes], 
 	 enabled_gm_mpi_compat=no, enabled_gm_mpi_compat=yes)
 
-      GM_MPI_COMPAT='no'
-      if test "$enabled_gm_mpi_compat" = yes; then
-        if test "$have_mpi" = yes; then
-          AC_MSG_RESULT(yes)
-          GM_MPI_COMPAT='yes'
+      AC_MSG_CHECKING(for GM interoperability with MPI)
+      GM_MPI_COMPAT=$have_mpi_compat
+      AC_MSG_RESULT($GM_MPI_COMPAT)
+      if test "$GM_MPI_COMPAT" = yes; then
 	  AC_DEFINE(GASNETC_GM_MPI_COMPAT)
-	else
-          AC_MSG_RESULT(no)
-	  if test "$force_enable_gm_mpi_compat" = yes; then
-	    AC_MSG_ERROR([GM requires a working MPI for interoperability.  Install MPI \
-	                  and fix detection OR rerun configure with --disable-gm-mpi-compat])
-	  else
-	    GASNET_MSG_WARN([GM requires MPI for interoperability and MPI $mpi_reason - disabling feature])
-	  fi
-	fi
       else
-        AC_MSG_RESULT(no)
+	  GASNET_MSG_WARN([GM requires MPI for interoperability and MPI $mpi_reason - disabling feature])
       fi
     fi
   fi
@@ -2000,12 +2008,12 @@ if test "$enabled_vapi$have_pthread" = yesno; then
   enabled_vapi=no
   GASNET_MSG_WARN([vapi-conduit requires pthread support but pthreads $pthread_reason - disabling vapi])
 fi
-if test "$force_vapi$have_mpi$have_fork" = yesnono; then
-  AC_MSG_ERROR([vapi-conduit requires either MPI ($mpi_reason) or fork() ($fork_reason) for startup])
+if test "$force_vapi$have_mpi_compat$have_fork" = yesnono; then
+  AC_MSG_ERROR([vapi-conduit requires either MPI compatibility ($mpi_reason) or fork() ($fork_reason) for startup])
 fi
-if test "$enabled_vapi$have_mpi$have_fork" = yesnono; then
+if test "$enabled_vapi$have_mpi_compat$have_fork" = yesnono; then
   enabled_vapi=no
-  GASNET_MSG_WARN([vapi-conduit requires either MPI ($mpi_reason) or fork() ($fork_reason) for startup - disabling vapi])
+  GASNET_MSG_WARN([vapi-conduit requires either MPI compatibility ($mpi_reason) or fork() ($fork_reason) for startup - disabling vapi])
 fi
 if test "$enabled_vapi" = yes; then
   # Start by assuming we do have VAPI
@@ -2148,14 +2156,14 @@ if test "$enabled_vapi" = yes; then
 	       ;;
         esac],
        [AC_MSG_ERROR([--with-vapi-spawner argument must be "ssh" or "mpi"])],
-       [if test "$have_mpi" = yes; then
+       [if test "$have_mpi_compat" = yes; then
           GASNET_VAPI_SPAWNER_CONF=mpi
         else
           GASNET_VAPI_SPAWNER_CONF=ssh
         fi])
     AC_SUBST(GASNET_VAPI_SPAWNER_CONF)
-    if test "$GASNET_VAPI_SPAWNER_CONF$have_mpi" = mpino; then
-      AC_MSG_ERROR([--with-vapi-spawner=mpi requires MPI support which $mpi_reason])
+    if test "$GASNET_VAPI_SPAWNER_CONF$have_mpi_compat" = mpino; then
+      AC_MSG_ERROR([--with-vapi-spawner=mpi requires MPI compatibility support which $mpi_reason])
     fi
     if test "$GASNET_VAPI_SPAWNER_CONF$have_fork" = sshno; then
       AC_MSG_ERROR([--with-vapi-spawner=ssh requires fork() support which $fork_reason])
@@ -2183,7 +2191,7 @@ AC_SUBST(VAPI_LIBS)
 AC_SUBST(VAPI_LIBCFLAGS)
 AC_SUBST(VAPI_NO_ALIAS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
-AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI, test "$have_mpi" = yes)	# Option to omit MPI support?
+AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
 AM_CONDITIONAL(VAPI_RCV_THREAD,test "$enabled_vapi_rcv_thread" = yes)
 if test "$have_vapi" = yes ; then
   CONDUITS="$CONDUITS vapi"
@@ -2793,6 +2801,19 @@ GASNET_FIX_EXEC(sci-conduit/contrib/gasnetrun_sci)
 GASNET_FIX_EXEC(vapi-conduit/contrib/gasnetrun_vapi)
 GASNET_FIX_EXEC(other/contrib/gasnet_trace)
 
+cat >>$CONDUIT_LIST <<EOF
+
+ Some conduits require --enable-XXX configure flags and/or additional
+ variables providing the install location of vendor drivers.
+ See the GASNet documentation for details.
+
+ Misc Settings
+ -------------
+  MPI compatibility:      $have_mpi_compat
+  Pthreads support:       $have_pthread
+  Segment config:         $segconfig
+EOF
+
 # Files added here should also be added to ./unBootstrap
 GASNET_END_CONFIGURE()
 AC_OUTPUT(
@@ -2855,10 +2876,6 @@ if test -f "$CONDUIT_LIST" ; then
   echo "----------------------------------------------------------------------"
   echo "GASNet conduit configuration: $CONDUITS"
   cat $CONDUIT_LIST
-  echo " "
-  echo " Some conduits require --enable-XXX configure flags and/or additional"
-  echo " variables providing the install location of vendor drivers."
-  echo " See the GASNet documentation for details."
   echo "----------------------------------------------------------------------"
   rm -f $CONDUIT_LIST
 fi
