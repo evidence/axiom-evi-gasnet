@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/05/23 12:42:14 $
- * $Revision: 1.91 $
+ *     $Date: 2006/06/27 23:56:06 $
+ * $Revision: 1.92 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,54 +27,6 @@
 GASNETI_BEGIN_EXTERNC
 
 extern int (*gasneti_print_backtrace)(int);
-
-/* internal GASNet environment query function
- * uses the gasneti_globalEnv if available or regular getenv otherwise
- * legal to call before gasnet_init, but may malfunction if
- * the conduit has not yet established the contents of the environment
- */
-extern char *gasneti_getenv(const char *keyname);
-
-/* Conduit-specific supplement to gasneti_getenv
- * If non-NULL this has precedence over gasneti_globalEnv.
- */
-typedef char *(gasneti_getenv_fn_t)(const char *keyname);
-extern gasneti_getenv_fn_t *gasneti_conduit_getenv;
-
-/* internal conduit query for a system string parameter
-   if user has set value the return value indicates their selection
-   if value is not set, the provided default value is returned
-   call is reported to the console in verbose-environment mode,
-   so this function should never be called more than once per key
-   legal to call before gasnet_init, but may malfunction if
-   the conduit has not yet established the contents of the environment
- */
-extern char *gasneti_getenv_withdefault(const char *keyname, const char *defaultval);
-
-/* internal conduit query for a system yes/no parameter
-   if user has set value to 'Y|YES|y|yes|1' or 'N|n|NO|no|0', 
-   the return value indicates their selection
-   if value is not set, the provided default value is returned
-   same restrictions on gasneti_getenv_withdefault also apply
- */
-extern int gasneti_getenv_yesno_withdefault(const char *keyname, int defaultval);
-
-/* internal conduit query for a system integral parameter
-   if mem_size_multiplier non-zero, expect a (possibly fractional) memory size with suffix (B|KB|MB|GB|TB)
-     and the default multiplier is mem_size_multiplier (eg 1024 for KB)
-   otherwise, expect a positive or negative integer in decimal or hex ("0x" prefix)
-   the return value indicates their selection
-   if value is not set, the provided default value is returned
-   same restrictions on gasneti_getenv_withdefault also apply
- */
-extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defaultval, uint64_t mem_size_multiplier);
-
-/* return true iff GASNET_VERBOSEENV reporting is enabled on this node */
-extern int gasneti_verboseenv();
-
-/* display an integral/string environment setting iff gasneti_verboseenv() */
-extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size);
-extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt);
 
 typedef struct { 
   uint64_t allocated_bytes;   /* num bytes ever allocated */

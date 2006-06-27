@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/06/07 20:33:18 $
- * $Revision: 1.91 $
+ *     $Date: 2006/06/27 23:56:06 $
+ * $Revision: 1.92 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -241,6 +241,21 @@ GASNETI_BEGIN_EXTERNC
 #define GASNETT_ATOMIC64_CONFIG       GASNETI_ATOMIC64_CONFIG
 
 /* ------------------------------------------------------------------------------------ */
+/* environment utilities */
+
+#define gasnett_format_number             gasneti_format_number
+#define gasnett_parse_int                 gasneti_parse_int
+#define gasnett_setenv                    gasneti_setenv
+#define gasnett_unsetenv                  gasneti_unsetenv
+#define gasnett_getenv                    gasneti_getenv
+#define gasnett_getenv_withdefault        gasneti_getenv_withdefault
+#define gasnett_getenv_yesno_withdefault  gasneti_getenv_yesno_withdefault
+#define gasnett_getenv_int_withdefault    gasneti_getenv_int_withdefault
+#define gasnett_verboseenv                gasneti_verboseenv
+#define gasnett_envstr_display            gasneti_envstr_display
+#define gasnett_envint_display            gasneti_envint_display
+
+/* ------------------------------------------------------------------------------------ */
 /* misc tools utilities */
 
 #define gasnett_sched_yield     gasneti_sched_yield 
@@ -254,8 +269,6 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_sighandlerfn_t  gasneti_sighandlerfn_t
 #define gasnett_reghandler      gasneti_reghandler
 #define gasnett_checksum        gasneti_checksum
-#define gasnett_format_number   gasneti_format_number
-#define gasnett_parse_int       gasneti_parse_int
 #define gasneti_isLittleEndian  gasneti_isLittleEndian
 #define gasnett_set_affinity    gasneti_set_affinity
 #define gasnett_spinloop_hint   gasneti_spinloop_hint

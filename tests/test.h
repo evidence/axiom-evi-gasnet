@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/06/12 09:18:42 $
- * $Revision: 1.98 $
+ *     $Date: 2006/06/27 23:56:08 $
+ * $Revision: 1.99 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -769,18 +769,6 @@ static void TEST_DEBUGPERFORMANCE_WARNING() {
   #define TEST_SIG_INIT()
 #endif
 
-static int test_getenv_yesno(const char *key, int deflt) {
-  #ifdef TEST_GASNET_H
-    const char *p = gasnet_getenv(key);
-  #else
-    const char *p = getenv(key);
-  #endif
-  if (!p) return deflt;
-  if (!*p) return 1; /* empty == yes */
-  if (*p == 'Y' || *p == 'y' || atoi(p)) return 1;
-  return 0;
-}
-
 static void TEST_GENERICS_WARNING() {
   #ifdef TEST_GASNET_H
     if (gasnet_mynode() == 0)
@@ -852,7 +840,7 @@ static void _test_init(const char *testname, int reports_performance, int early,
                        gasnett_tick_granularityus(), gasnett_tick_overheadus());
       fflush(NULL);
     }
-    if (test_getenv_yesno("GASNET_TEST_POLITE_SYNC",0)) {
+    if (gasnett_getenv_yesno_withdefault("GASNET_TEST_POLITE_SYNC",0)) {
       MSG0("WARNING: GASNET_TEST_POLITE_SYNC is set - enabling  \"polite\", low-performance synchronization algorithms");
       gasnet_set_waitmode(GASNET_WAIT_BLOCK);
     }
@@ -882,7 +870,7 @@ static void _test_init(const char *testname, int reports_performance, int early,
       }
     }
   #endif
-  if (test_getenv_yesno("GASNET_VERBOSEENV",0)) MSG("%s running...", testname);
+  if (gasnett_verboseenv()) MSG("%s running...", testname);
 }
 #define test_init(testname, reports_performance, usagestr) \
        _test_init(testname, reports_performance, 0, argc, (const char * const *)argv, usagestr)
