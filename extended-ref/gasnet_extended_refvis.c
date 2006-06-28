@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refvis.c,v $
- *     $Date: 2006/06/13 10:26:17 $
- * $Revision: 1.19 $
+ *     $Date: 2006/06/28 02:45:17 $
+ * $Revision: 1.20 $
  * Description: Reference implementation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -35,8 +35,12 @@ extern void gasnete_vis_init() {
                       #envname, #enabler);                                                                      \
     }                                                                                                           \
   } while (0)
+  #if GASNETE_USE_AMPIPELINE
   GASNETE_VIS_ENV_YN(gasnete_vis_use_ampipe,GASNET_VIS_AMPIPE, GASNETE_USE_AMPIPELINE);
+  #endif
+  #if GASNETE_USE_REMOTECONTIG_GATHER_SCATTER
   GASNETE_VIS_ENV_YN(gasnete_vis_use_remotecontig,GASNET_VIS_REMOTECONTIG, GASNETE_USE_REMOTECONTIG_GATHER_SCATTER);
+  #endif
 }
 /*---------------------------------------------------------------------------------*/
 

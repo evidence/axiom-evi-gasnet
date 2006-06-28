@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_extended.c,v $
- *     $Date: 2006/05/23 12:42:37 $
- * $Revision: 1.20 $
+ *     $Date: 2006/06/28 02:45:19 $
+ * $Revision: 1.21 $
  * Description: GASNet Extended API SHMEM Implementation
  * Copyright 2003, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,6 +38,9 @@ extern void gasnete_init() {
 
     gasneti_assert(gasneti_nodes >= 1 && gasneti_mynode < gasneti_nodes);
     gasnete_segment_base = (intptr_t) gasneti_seginfo[gasneti_mynode].addr;
+
+  /* Initialize VIS subsystem */
+  gasnete_vis_init();
 }
 
 #ifdef GASNETE_GLOBAL_ADDRESS
