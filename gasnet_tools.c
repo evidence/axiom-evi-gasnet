@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/06/27 23:56:06 $
- * $Revision: 1.173 $
+ *     $Date: 2006/06/28 11:10:16 $
+ * $Revision: 1.174 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -557,24 +557,28 @@ extern int gasneti_verboseenv() {
 /* display an integral/string environment setting iff gasneti_verboseenv() */
 extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt) {
   const char *dflt = (is_dflt?"   (default)":"");
+  const char *displayval = val;
+  if (!val) displayval = "*not set*";
+  else if (strlen(val) == 0) displayval = "*empty*";
   if (gasneti_verboseenv()) {
-    const char *displayval = val;
-    int width;
-    if (strlen(val) == 0) displayval = "*empty*";
-    width = MAX(10,55 - strlen(key) - strlen(displayval));
+    int width = MAX(10,55 - strlen(key) - strlen(displayval));
     fprintf(stderr, "ENV parameter: %s = %s%*s\n", key, displayval, width, dflt);
     fflush(stderr);
   }
-  GASNETT_TRACE_PRINTF("ENV parameter: %s = %s%s", key, val, dflt);
+  GASNETT_TRACE_PRINTF("ENV parameter: %s = %s%s", key, displayval, dflt);
 }
 extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size) {
   char valstr[80];
   char displayval[80];
+  const char *rawval;
   if (!gasneti_verboseenv() && !GASNETT_TRACE_ENABLED) return;
 
   gasneti_format_number(val, valstr, 80, is_mem_size);
+  rawval = gasneti_getenv(key);
 
   if (is_dflt) { /* Use the numerical value */
+    strcpy(displayval, valstr);
+  } else if (!strcmp(rawval,valstr)) {
     strcpy(displayval, valstr);
   } else { /* Use the environment string and numerical value */
     snprintf(displayval, sizeof(displayval), "%s (%s)", gasneti_getenv(key), valstr);
@@ -585,7 +589,6 @@ extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, in
 static char *_gasneti_getenv_withdefault(const char *keyname, const char *defaultval, int valmode, int64_t *val) {
   const char * retval = NULL;
   int is_dflt = 0;
-  gasneti_assert(defaultval != NULL);
   retval = gasneti_getenv(keyname);
   if (retval == NULL) { retval = defaultval; is_dflt = 1; }
 
