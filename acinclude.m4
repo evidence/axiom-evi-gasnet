@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/06/10 09:08:41 $
-dnl $Revision: 1.106 $
+dnl     $Date: 2006/06/30 07:24:45 $
+dnl $Revision: 1.107 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -427,6 +427,17 @@ GASNET_FUN_BEGIN([$0])
    esac
   done
 GASNET_FUN_END([$0])
+]])
+
+dnl bug1657: remove the autoconf-generated PACKAGE_* macros from config.h file
+AC_DEFUN([GASNET_SANITIZE_PACKAGE],[[
+GASNET_FUN_BEGIN([$0($1)])
+  if test -f '$1' -a -n "`grep PACKAGE_NAME '$1'`" ; then
+    mv '$1' '$1.dirty'
+    cat '$1.dirty' | grep -v '#define PACKAGE_' > '$1'
+    rm -f '$1.dirty'
+  fi
+GASNET_FUN_END([$0($1)])
 ]])
 
 AC_DEFUN([GASNET_LIBGCC],[
