@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/06/09 02:51:38 $
- * $Revision: 1.67 $
+ *     $Date: 2006/07/04 02:07:29 $
+ * $Revision: 1.68 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -174,6 +174,77 @@ GASNETI_BEGIN_EXTERNC
   #define gasneti_ticks_to_ns(st)  (st)
   #define gasneti_ticks_now()      ((gasneti_tick_t)(dclock()*1E9))
 /* ------------------------------------------------------------------------------------ */
+#elif GASNETI_ARCH_ALTIX
+  /* use IA-PC HPET (High Precision Event Timers) */
+  #define GASNETI_HPET_MMAP 1
+  #include <sys/ioctl.h>
+  #include <sys/types.h>
+  #include <sys/stat.h>
+  #include <sys/mman.h>
+  #include <fcntl.h>
+  #include <unistd.h>
+  #include <sn/mmtimer.h> 
+  typedef uint64_t gasneti_tick_t;
+  double gasneti_timer_tick; /* tick conversion factor */
+  int gasneti_timer_fd; /* HPET device file descriptor */
+  volatile uint64_t *gasneti_tick_p; /* pointer to mapped counter, and init flag */
+  GASNETI_NEVER_INLINE(gasneti_timer_init,
+  static volatile uint64_t *gasneti_timer_init()) {
+    if_pf (!gasneti_tick_p) {
+      int result;
+      uint64_t val = 0;
+      if ((gasneti_timer_fd = open(MMTIMER_FULLNAME, O_RDONLY)) == -1) 
+         gasneti_fatalerror("failed to open %s", MMTIMER_FULLNAME);
+      if ((result = ioctl(gasneti_timer_fd, MMTIMER_GETFREQ, &val)) == -ENOSYS) 
+         gasneti_fatalerror("failed to MMTIMER_GETFREQ");
+      gasneti_assert(val >= 10000000); /* 10 MHz min reqd by spec */
+      gasneti_timer_tick = 1.0E9 / val;
+      gasneti_assert(gasneti_timer_tick != 0.0);
+      #if GASNETI_HPET_MMAP
+      { void *loc;
+        int offset; 
+        gasneti_assert_always(ioctl(gasneti_timer_fd, MMTIMER_MMAPAVAIL, 0) == 1);
+        offset = ioctl(gasneti_timer_fd, MMTIMER_GETOFFSET, 0); /* fetch offset of counter in mmap page */
+        gasneti_assert_always(offset >= 0 && offset < GASNETI_PAGESIZE-8);
+        loc = mmap(NULL, GASNETI_PAGESIZE, PROT_READ, MAP_PRIVATE, gasneti_timer_fd, 0);
+        if (loc == NULL || loc == MAP_FAILED) 
+          gasneti_fatalerror("failed to mmap MMTIMER: %s",strerror(errno));
+        close(gasneti_timer_fd); /* fd is no longer required */
+        gasneti_timer_fd = -1;
+        gasneti_sync_writes();
+        gasneti_tick_p = (uint64_t *)(((char*)loc) + offset);
+      }
+      #else
+        gasneti_sync_writes();
+        gasneti_tick_p = (volatile uint64_t *)1;
+      #endif
+    } else gasneti_sync_reads();
+    return gasneti_tick_p;
+  }
+  GASNETI_INLINE(gasneti_ticks_now)
+  gasneti_tick_t gasneti_ticks_now() {
+    volatile uint64_t *ptr = gasneti_tick_p; 
+    if_pf (!ptr) ptr = gasneti_timer_init();
+    #if GASNETI_HPET_MMAP
+      return *ptr;
+    #else /* use ioctl - this works, but is actually slower than gettimeofday */
+    { uint64_t val = 0;
+      int result;
+      #if GASNET_DEBUG
+        result = ioctl(gasneti_timer_fd, MMTIMER_GETCOUNTER, &val);
+        if_pf (result == -ENOSYS) gasneti_fatalerror("failed to MMTIMER_GETCOUNTER: %i %s", result, strerror(result));
+      #else
+        ioctl(gasneti_timer_fd, MMTIMER_GETCOUNTER, &val); 
+      #endif
+      return (gasneti_tick_t)val;
+    }
+    #endif
+  }
+  GASNETI_INLINE(gasneti_ticks_to_ns)
+  uint64_t gasneti_ticks_to_ns(gasneti_tick_t st) {
+    gasneti_assert(gasneti_tick_p);
+    return (uint64_t)(st * gasneti_timer_tick);
+  }
 #elif (PLATFORM_OS_LINUX || PLATFORM_OS_CATAMOUNT) && \
      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
       PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_TINY) && \
