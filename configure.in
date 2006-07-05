@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/06/30 07:24:45 $
-# $Revision: 1.376 $
+#     $Date: 2006/07/05 21:42:17 $
+# $Revision: 1.377 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.376 $)
+AC_REVISION($Revision: 1.377 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -111,6 +111,10 @@ case "$gasnet_cv_cc_family" in
   MTA)  # override target_os for MTA, which may be wrong if cross-compiling
         target_os="mtx"   ;;
 esac
+
+if test "$cross_compiling" = "yes" ; then
+  AC_DEFINE(GASNETI_CROSS_COMPILING)
+fi
 
 ## discover bit width
 
