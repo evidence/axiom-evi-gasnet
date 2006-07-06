@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/06/27 23:56:06 $
- * $Revision: 1.92 $
+ *     $Date: 2006/07/06 20:57:11 $
+ * $Revision: 1.93 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -604,6 +604,7 @@ typedef void (*gasneti_progressfn_t)();
    FN(token subsysname, flavor [COUNTED|BOOLEAN], gasneti_progressfn_t progressfn)
  */
 
+/* conduit-specific core plug-in */
 #ifndef GASNETC_PROGRESSFNS_LIST
 #define GASNETC_PROGRESSFNS_LIST(FN)
 #endif
@@ -615,7 +616,13 @@ typedef void (*gasneti_progressfn_t)();
       FN(gasneti_pf_barrier, BOOLEAN, gasnete_ambarrier_kick) 
   #endif
 
+  /* conduit-specific extended plug-in */
+  #ifndef GASNETE_PROGRESSFN_EXTRA
+  #define GASNETE_PROGRESSFN_EXTRA(FN) 
+  #endif
+
   #define GASNETE_PROGRESSFNS_LIST(FN) \
+    GASNETE_PROGRESSFN_EXTRA(FN) \
     GASNETE_BARRIER_PROGRESSFN(FN)     
 #endif
 
