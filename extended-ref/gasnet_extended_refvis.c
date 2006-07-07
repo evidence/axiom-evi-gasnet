@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refvis.c,v $
- *     $Date: 2006/06/28 02:45:17 $
- * $Revision: 1.20 $
+ *     $Date: 2006/07/07 22:03:57 $
+ * $Revision: 1.21 $
  * Description: Reference implementation of GASNet Vector, Indexed & Strided
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,6 +17,7 @@ static int gasnete_vis_isinit = 0;
 
 #if GASNETE_USE_AMPIPELINE
 static int gasnete_vis_use_ampipe;
+static size_t gasnete_vis_maxchunk;
 #endif
 #if GASNETE_USE_REMOTECONTIG_GATHER_SCATTER
 static int gasnete_vis_use_remotecontig;
@@ -37,6 +38,7 @@ extern void gasnete_vis_init() {
   } while (0)
   #if GASNETE_USE_AMPIPELINE
   GASNETE_VIS_ENV_YN(gasnete_vis_use_ampipe,GASNET_VIS_AMPIPE, GASNETE_USE_AMPIPELINE);
+  gasnete_vis_maxchunk = gasneti_getenv_int_withdefault("GASNET_VIS_MAXCHUNK", gasnet_AMMaxMedium()-2*sizeof(void*),1);
   #endif
   #if GASNETE_USE_REMOTECONTIG_GATHER_SCATTER
   GASNETE_VIS_ENV_YN(gasnete_vis_use_remotecontig,GASNET_VIS_REMOTECONTIG, GASNETE_USE_REMOTECONTIG_GATHER_SCATTER);

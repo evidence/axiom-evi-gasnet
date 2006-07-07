@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvisperf.c,v $
- *     $Date: 2006/06/18 01:10:52 $
- * $Revision: 1.2 $
+ *     $Date: 2006/07/07 22:03:59 $
+ * $Revision: 1.3 $
  * Description: GASNet VIS performance test
  * Copyright 2006 Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
              "  -a        enables full-duplex mode, where all nodes send.\n"
              "  -c        enables cross-machine pairing, default is nearest neighbor.\n"
              "  -f        enables 'first/last' mode, where the first/last\n"
-             "   nodes communicate with each other, while all other nodes sit idle.");
+             "            nodes communicate with each other, while all other nodes sit idle.");
   if (help || argc > arg) test_usage();
 
   /* get SPMD info */

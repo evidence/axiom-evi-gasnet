@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_indexed.c,v $
- *     $Date: 2006/06/13 10:26:17 $
- * $Revision: 1.20 $
+ *     $Date: 2006/07/07 22:03:57 $
+ * $Revision: 1.21 $
  * Description: GASNet Indexed implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -311,7 +311,8 @@ gasnet_handle_t gasnete_puti_AMPipeline(gasnete_synctype_t synctype,
   }
 }
   #define GASNETE_PUTI_AMPIPELINE_SELECTOR(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen) \
-    if (gasnete_vis_use_ampipe && dstcount > 1 && dstlen == (uint32_t)(dstlen))                              \
+    if (gasnete_vis_use_ampipe && dstcount > 1 && dstlen == (uint32_t)(dstlen) &&                            \
+        (srclen <= gasnete_vis_maxchunk || dstlen <= gasnete_vis_maxchunk))                                  \
       return gasnete_puti_AMPipeline(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen GASNETE_THREAD_PASS)
 #else
   #define GASNETE_PUTI_AMPIPELINE_SELECTOR(synctype,dstnode,dstcount,dstlist,dstlen,srccount,srclist,srclen) ((void)0)
@@ -390,7 +391,8 @@ gasnet_handle_t gasnete_geti_AMPipeline(gasnete_synctype_t synctype,
   }
 }
   #define GASNETE_GETI_AMPIPELINE_SELECTOR(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen) \
-    if (gasnete_vis_use_ampipe && srccount > 1)                                                              \
+    if (gasnete_vis_use_ampipe && srccount > 1 &&                                                            \
+        (srclen <= gasnete_vis_maxchunk || dstlen <= gasnete_vis_maxchunk))                                  \
       return gasnete_geti_AMPipeline(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen GASNETE_THREAD_PASS)
 #else
   #define GASNETE_GETI_AMPIPELINE_SELECTOR(synctype,dstcount,dstlist,dstlen,srcnode,srccount,srclist,srclen) ((void)0)

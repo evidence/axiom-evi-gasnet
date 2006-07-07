@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_vis_strided.c,v $
- *     $Date: 2006/06/27 03:03:05 $
- * $Revision: 1.24 $
+ *     $Date: 2006/07/07 22:03:57 $
+ * $Revision: 1.25 $
  * Description: GASNet Strided implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -800,7 +800,9 @@ gasnet_handle_t gasnete_puts_AMPipeline(gasnete_strided_stats_t const *stats, ga
 }
   #define GASNETE_PUTS_AMPIPELINE_SELECTOR(stats,synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels) \
     if (gasnete_vis_use_ampipe &&                                                                                           \
-        (stats)->dstsegments > 1 && (stats)->dualcontigsz <= GASNETE_PUTS_AMPIPELINE_MAXPAYLOAD(stridelevels))              \
+        (stats)->dstsegments > 1 &&                                                                                         \
+        (stats)->dualcontigsz <= gasnete_vis_maxchunk &&                                                                    \
+        (stats)->dualcontigsz <= GASNETE_PUTS_AMPIPELINE_MAXPAYLOAD(stridelevels))                                          \
       return gasnete_puts_AMPipeline(stats,synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS)
 #else
   #define GASNETE_PUTS_AMPIPELINE_SELECTOR(stats,synctype,dstnode,dstaddr,dststrides,srcaddr,srcstrides,count,stridelevels) ((void)0)
@@ -911,7 +913,9 @@ gasnet_handle_t gasnete_gets_AMPipeline(gasnete_strided_stats_t const *stats, ga
 }
   #define GASNETE_GETS_AMPIPELINE_SELECTOR(stats,synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels) \
     if (gasnete_vis_use_ampipe &&                                                                                           \
-        (stats)->srcsegments > 1 && (stats)->dualcontigsz <= gasnet_AMMaxMedium())                                          \
+        (stats)->srcsegments > 1 &&                                                                                         \
+        (stats)->dualcontigsz <= gasnete_vis_maxchunk &&                                                                    \
+        (stats)->dualcontigsz <= gasnet_AMMaxMedium())                                                                      \
       return gasnete_gets_AMPipeline(stats,synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels GASNETE_THREAD_PASS)
 #else
   #define GASNETE_GETS_AMPIPELINE_SELECTOR(stats,synctype,dstaddr,dststrides,srcnode,srcaddr,srcstrides,count,stridelevels) ((void)0)
