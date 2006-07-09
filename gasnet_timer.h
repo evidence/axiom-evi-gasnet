@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/07/04 02:07:29 $
- * $Revision: 1.68 $
+ *     $Date: 2006/07/09 23:03:17 $
+ * $Revision: 1.69 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -185,9 +185,10 @@ GASNETI_BEGIN_EXTERNC
   #include <unistd.h>
   #include <sn/mmtimer.h> 
   typedef uint64_t gasneti_tick_t;
-  double gasneti_timer_tick; /* tick conversion factor */
-  int gasneti_timer_fd; /* HPET device file descriptor */
-  volatile uint64_t *gasneti_tick_p; /* pointer to mapped counter, and init flag */
+  /* EXTERNC here fixes a mysterious C++ linkage error on davinci */
+  GASNETI_EXTERNC double gasneti_timer_tick; /* tick conversion factor */
+  GASNETI_EXTERNC int gasneti_timer_fd; /* HPET device file descriptor */
+  GASNETI_EXTERNC volatile uint64_t *gasneti_tick_p; /* pointer to mapped counter, and init flag */
   GASNETI_NEVER_INLINE(gasneti_timer_init,
   static volatile uint64_t *gasneti_timer_init()) {
     if_pf (!gasneti_tick_p) {
