@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/07/05 21:42:17 $
-# $Revision: 1.377 $
+#     $Date: 2006/07/10 05:56:19 $
+# $Revision: 1.378 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.377 $)
+AC_REVISION($Revision: 1.378 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -537,20 +537,6 @@ GASNET_WITH(segment-mmap-max,
         ;;
       *) AC_MSG_ERROR(Illegal value for --with-segment-mmap-max=$withval) ;;
     esac])
-
-pushdef([BARRIERVALS],[permitted values are AMDISSEM or AMCENTRAL])
-GASNET_WITH(barrier,
-   [Default barrier implementation to use for reference extended implementation, BARRIERVALS],
-   [case "$withval" in
-      AMDISSEM) AC_DEFINE(GASNETE_USE_AMDISSEMINATION_REFBARRIER)
-        ;;
-      AMCENTRAL) 
-        ;;
-      *) AC_MSG_ERROR(Illegal value for --with-barrier: BARRIERVALS) ;;
-    esac], [ AC_MSG_ERROR(Illegal value for --with-barrier: BARRIERVALS) ],
-   [ # default is AMDISSEM
-     AC_DEFINE(GASNETE_USE_AMDISSEMINATION_REFBARRIER) ])
-popdef([BARRIERVALS])
 
 GASNET_LIBGCC
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS")

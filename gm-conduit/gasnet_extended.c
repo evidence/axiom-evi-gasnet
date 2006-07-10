@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/06/12 09:55:50 $
- * $Revision: 1.40 $
+ *     $Date: 2006/07/10 05:56:25 $
+ * $Revision: 1.41 $
  * Description: GASNet Extended API GM Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -357,23 +357,6 @@ extern gasnet_register_value_t gasnete_wait_syncnb_valget(gasnet_valget_handle_t
   gasnete_wait_syncnb(handle->handle);
   val = handle->val;
   return val;
-}
-
-extern void
-gasnete_barrier_notify(int id, int flags) 
-{
-	gasnete_extref_barrier_notify(id,flags);
-	return;
-}
-extern int 
-gasnete_barrier_wait(int id, int flags)
-{
-	return gasnete_extref_barrier_wait(id,flags);
-}
-extern int 
-gasnete_barrier_try(int id, int flags)
-{
-	return gasnete_extref_barrier_try(id,flags);
 }
 
 extern gasnet_handle_t 

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_extended_ref.c,v $
- * $Date: 2006/05/14 04:00:10 $
- * $Revision: 1.21 $
+ * $Date: 2006/07/10 05:56:25 $
+ * $Revision: 1.22 $
  * Description: GASNet GM conduit Extended API Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -383,10 +383,6 @@ void gasnete_extref_memset_nbi   (gasnet_node_t node, void *dest, int val, size_
 */
 /* reference implementation of barrier */
 #define GASNETI_GASNET_EXTENDED_REFBARRIER_C 1
-#define gasnete_refbarrier_init    gasnete_barrier_init
-#define gasnete_refbarrier_notify  gasnete_extref_barrier_notify
-#define gasnete_refbarrier_wait    gasnete_extref_barrier_wait
-#define gasnete_refbarrier_try     gasnete_extref_barrier_try
 #include "gasnet_extended_refbarrier.c"
 #undef GASNETI_GASNET_EXTENDED_REFBARRIER_C
 
