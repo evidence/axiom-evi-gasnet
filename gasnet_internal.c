@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/06/27 23:56:06 $
- * $Revision: 1.173 $
+ *     $Date: 2006/07/11 00:55:07 $
+ * $Revision: 1.174 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -978,8 +978,10 @@ static void gasneti_check_portable_conduit() { /* check for portable conduit abu
   char myconduit[80];
   char *m = myconduit;
   strcpy(myconduit, GASNET_CORE_NAME_STR);
+  strcat(myconduit, "/");
+  strcat(myconduit, GASNET_EXTENDED_NAME_STR);
   while (*m) { *m = tolower(*m); m++; }
-  #define GASNETI_PORTABLE_CONDUIT(name) (!strcmp(name,"mpi") || !strcmp(name,"udp"))
+  #define GASNETI_PORTABLE_CONDUIT(name) (!strcmp(name,"mpi/reference") || !strcmp(name,"udp/reference"))
   if (GASNETI_PORTABLE_CONDUIT(myconduit)) {
     const char *p = GASNETI_CONDUITS;
     char natives[255];
@@ -1049,6 +1051,8 @@ static void gasneti_check_portable_conduit() { /* check for portable conduit abu
       }
     }
     if (reason[0] && !gasneti_getenv_yesno_withdefault("GASNET_QUIET",0) && gasnet_mynode() == 0) {
+      char *p = strchr(myconduit,'/');
+      if (p) *p = 0;
       fprintf(stderr,"WARNING: Using GASNet's %s-conduit, which exists for portability convenience.\n"
                      "%s\n"
                      "WARNING: You should *really* use the high-performance native GASNet conduit\n"

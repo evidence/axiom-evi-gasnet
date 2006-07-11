@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/gasnet_core.c,v $
- *     $Date: 2006/06/06 18:28:46 $
- * $Revision: 1.70 $
+ *     $Date: 2006/07/11 00:55:09 $
+ * $Revision: 1.71 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -393,6 +393,14 @@ extern void gasnetc_exit(int exitcode) {
   }
 
   GASNETI_TRACE_PRINTF(C,("gasnet_exit(%i)\n", exitcode));
+
+  #ifdef GASNETE_EXIT_CALLBACK
+    /* callback for native conduits using an mpi-conduit core 
+       this should cleanup extended API resources (only) 
+       and then return so that MPI can be shutdown properly
+     */
+    GASNETE_EXIT_CALLBACK(exitcode);
+  #endif
 
   gasneti_flush_streams();
   gasneti_trace_finish();
