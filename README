@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.79 $
+$Revision: 1.80 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -669,7 +669,7 @@ All GASNet conduit code is required to meet the following coding standards:
 
 * GASNet conduit code should never call any of the following functions 
   directly:
-   malloc, calloc, free, str(n)dup, assert, sched_yield, 
+   malloc, calloc, realloc, free, str(n)dup, assert, sched_yield, 
    getenv, (un)setenv, mmap, pthread_*
   Instead, you should use the gasneti_* wrapper functions of the same name.
 
