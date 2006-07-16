@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/06/05 22:43:50 $
- * $Revision: 1.52 $
+ *     $Date: 2006/07/16 20:53:10 $
+ * $Revision: 1.53 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,7 +100,6 @@
 
 /* basic utilities used in the headers */
 #include <gasnet_basic.h>
-#include <gasnet_toolhelp.h>
 
 /* ------------------------------------------------------------------------------------ */
 /* check segment configuration */
@@ -150,6 +149,15 @@
 #elif defined(GASNETI_THREADS)
   #error bad defn of GASNETI_THREADS
 #endif
+
+/* basic utilities used in the headers, which may require GASNETI_THREADS */
+#include <gasnet_toolhelp.h>
+
+/* GASNet memory barriers */
+#include <gasnet_membar.h>
+
+/* GASNet atomic memory operations */
+#include <gasnet_atomicops.h>
 
 /* ------------------------------------------------------------------------------------ */
 /* constants */

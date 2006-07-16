@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core.c,v $
- *     $Date: 2006/05/17 12:11:02 $
- * $Revision: 1.32 $
+ *     $Date: 2006/07/16 20:53:20 $
+ * $Revision: 1.33 $
  * Description: GASNet UDP conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -102,6 +102,10 @@ static int gasnetc_init(int *argc, char ***argv) {
     int i;
     char spawnfn;
     amudp_spawnfn_t fp = (amudp_spawnfn_t)NULL;
+
+    /* pretend we're node 0, for purposes of verbose env reporting */
+    gasneti_init_done = 1;
+    gasneti_mynode = 0;
 
     #if defined(GASNET_CSPAWN_CMD)
     { /* set configure default cspawn cmd */

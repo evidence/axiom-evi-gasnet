@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/07/11 00:55:07 $
- * $Revision: 1.174 $
+ *     $Date: 2006/07/16 20:53:10 $
+ * $Revision: 1.175 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -575,7 +575,7 @@ static const char *gasneti_decode_envval(const char *val) {
   static int decodeenv = 1;
   if (firsttime) {
     decodeenv = !gasneti_getenv("GASNET_DISABLE_ENVDECODE");
-    if (gasneti_init_done) {
+    if (gasneti_init_done && gasneti_mynode != (gasnet_node_t)-1) {
       gasneti_envstr_display("GASNET_DISABLE_ENVDECODE",(decodeenv?"NO":"YES"),decodeenv);
       gasneti_sync_writes();
       firsttime = 0;
@@ -615,21 +615,19 @@ const char * (*gasnett_decode_envval_fn)(const char *) = &gasneti_decode_envval;
 
 /* expression that defines whether the given process should report to the console
    on env queries - needs to work before gasnet_init
+   1 = yes, 0 = no, -1 = not yet / don't know
  */
-#define GASNETI_ENV_OUTPUT_NODE() \
-        (gasneti_mynode == 0 || gasneti_mynode == (gasnet_node_t)-1)
+#define GASNETI_ENV_OUTPUT_NODE()  (gasneti_mynode == 0)
 extern int _gasneti_verboseenv_fn() {
-  static int firsttime = 1;
-  static int verboseenv = 0;
-  if (firsttime) {
-    #if GASNET_DEBUG_VERBOSE
-      verboseenv = GASNETI_ENV_OUTPUT_NODE();
-    #else
-      verboseenv = !!gasneti_getenv("GASNET_VERBOSEENV") && GASNETI_ENV_OUTPUT_NODE();
-    #endif
-    gasneti_sync_writes();
+  static int verboseenv = -1;
+  if (verboseenv == -1) {
     if (gasneti_init_done && gasneti_mynode != (gasnet_node_t)-1) {
-      firsttime = 0;
+      #if GASNET_DEBUG_VERBOSE
+        verboseenv = GASNETI_ENV_OUTPUT_NODE();
+      #else
+        verboseenv = !!gasneti_getenv("GASNET_VERBOSEENV") && GASNETI_ENV_OUTPUT_NODE();
+      #endif
+      gasneti_sync_writes();
     }
   } else gasneti_sync_reads();
   return verboseenv;
