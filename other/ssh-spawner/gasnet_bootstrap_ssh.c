@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ssh-spawner/gasnet_bootstrap_ssh.c,v $
- *     $Date: 2006/07/17 22:54:17 $
- * $Revision: 1.63 $
+ *     $Date: 2006/07/18 03:56:28 $
+ * $Revision: 1.64 $
  * Description: GASNet conduit-independent ssh-based spawner
  * Copyright 2005, The Regents of the University of California
  * Terms of use are as specified in license.txt
@@ -1190,20 +1190,6 @@ static void do_kill(int argc, char **argv) {
 }
 
 extern int (*gasneti_verboseenv_fn)(void);
-static int verboseenv_fn(void) {
-  #if GASNET_DEBUG_VERBOSE
-    return 1;
-  #else
-    static int verboseenv = -1;
-    if (verboseenv == -1) {
-      verboseenv = !!gasneti_getenv("GASNET_VERBOSEENV");
-      gasneti_sync_writes();
-    } else {
-      gasneti_sync_reads();
-    }
-    return verboseenv;
-  #endif
-}
 
 static void do_master(int argc, char **argv) GASNETI_NORETURN;
 static void do_master(int argc, char **argv) {
@@ -1248,7 +1234,7 @@ static void do_master(int argc, char **argv) {
   }
 
   /* Enable VERBOSEENV */
-  gasneti_verboseenv_fn = &verboseenv_fn;
+  gasneti_verboseenv_fn = NULL;
 
   configure_ssh();
   build_nodelist();
