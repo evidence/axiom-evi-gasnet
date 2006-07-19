@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/07/16 20:53:10 $
- * $Revision: 1.175 $
+ *     $Date: 2006/07/19 01:47:51 $
+ * $Revision: 1.176 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1344,12 +1344,13 @@ static void gasneti_check_portable_conduit() { /* check for portable conduit abu
     if_pf (ret == NULL) {
       if (allowfail) {
         if_pt (gasneti_attach_done) gasnet_resume_interrupts();
-        GASNETI_TRACE_PRINTF(I,("Warning: returning NULL for a failed gasneti_malloc(%i): %s",
-                                (int)nbytes, (curloc == NULL ? (const char *)"" : curloc)));
+        GASNETI_TRACE_PRINTF(I,("Warning: returning NULL for a failed gasneti_malloc(%lu): %s",
+                                (unsigned long)nbytes, (curloc == NULL ? (const char *)"" : curloc)));
         return NULL;
       }
-      gasneti_fatalerror("Debug malloc(%d) failed (%lu bytes in use, in %lu objects): %s", 
-        (int)nbytes, (unsigned long)(gasneti_memalloc_allocatedbytes - gasneti_memalloc_freedbytes),
+      gasneti_fatalerror("Debug malloc(%lu) failed (%lu bytes in use, in %lu objects): %s", 
+                     (unsigned long)nbytes, 
+                     (unsigned long)(gasneti_memalloc_allocatedbytes - gasneti_memalloc_freedbytes),
                      (unsigned long)(gasneti_memalloc_allocatedobjects - gasneti_memalloc_freedobjects),
                      (curloc == NULL ? (const char *)"" : curloc));
     } else {
