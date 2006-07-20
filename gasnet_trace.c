@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2006/05/23 12:42:14 $
- * $Revision: 1.127 $
+ *     $Date: 2006/07/20 02:33:14 $
+ * $Revision: 1.128 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -925,7 +925,8 @@ extern void gasneti_trace_finish() {
     }
     #endif
 
-    GASNETC_TRACE_FINISH(); /* allow for final output of conduit-specific statistics */
+    GASNETC_TRACE_FINISH(); /* allow for final output of conduit-core specific statistics */
+    GASNETE_TRACE_FINISH(); /* allow for final output of conduit-extended specific statistics */
     fflush(NULL);
 
     gasneti_mutex_lock(&gasneti_tracelock);
