@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/07/10 05:56:19 $
-# $Revision: 1.378 $
+#     $Date: 2006/07/26 22:45:29 $
+# $Revision: 1.379 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.378 $)
+AC_REVISION($Revision: 1.379 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -381,7 +381,7 @@ case "$gasnet_cv_cc_family" in
   GNU)
     case "$target_cpu" in
       sparc) GASNET_GET_ULTRASPARC_FLAGS(C,["-mcpu=ultrasparc3 -mtune=ultrasparc3" "-mcpu=ultrasparc -mtune=ultrasparc"]);;
-      powerpc*) GASNET_GET_PPC64_FLAGS(C,["-force_cpusubtype_ALL"]);;
+      powerpc*) GASNET_GET_PPC64_FLAGS(C,["-force_cpusubtype_ALL" "-Wa,-mppc64"]);;
     esac ;;
   Cray) 
     case "$target_cpu" in
@@ -1132,7 +1132,7 @@ if test $enabled_udp = yes; then
        GASNET_GCC_VERSION_CHECK(CXX)
        case "$target_cpu" in
          sparc) GASNET_GET_ULTRASPARC_FLAGS(CXX,["-mcpu=ultrasparc3 -mtune=ultrasparc3" "-mcpu=ultrasparc -mtune=ultrasparc"]);;
-         powerpc*) GASNET_GET_PPC64_FLAGS(CXX,["-force_cpusubtype_ALL"]);;
+         powerpc*) GASNET_GET_PPC64_FLAGS(CXX,["-force_cpusubtype_ALL" "-Wa,-mppc64"]);;
        esac
        GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS")
        GASNET_GET_GNUWARNINGFLAGS(CXX)
