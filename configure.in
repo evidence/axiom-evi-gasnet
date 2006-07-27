@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/07/26 22:45:29 $
-# $Revision: 1.379 $
+#     $Date: 2006/07/27 00:24:08 $
+# $Revision: 1.380 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.379 $)
+AC_REVISION($Revision: 1.380 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -274,7 +274,7 @@ AC_DEFUN([GASNET_GET_ULTRASPARC_FLAGS],[
          ])
   if test "$GASNETI_PTR_BITS" = 32 -a "$DISABLE_ULTRASPARC" != 1; then 
     for flag in $2 ; do
-      ]GASNET_TRY_[$1]FLAG[([$flag],[ultrasparc_flag_worked=1])
+      ]GASNET_TRY_[$1]FLAG[([$flag],[ultrasparc_flag_worked=1],[ultrasparc_flag_worked=0])
       if test "$ultrasparc_flag_worked" = 1; then
         GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
 	AC_MSG_CHECKING(for working flag $flag)
@@ -339,7 +339,7 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
     # So, we add a dummy element to keep the for-loop list non-empty, and then skip it.
     for flag in $2 DUMMY ; do
       if test "$flag" != DUMMY ; then
-        ]GASNET_TRY_[$1]FLAG[([$flag],[ppc64_flag_worked=1])
+        ]GASNET_TRY_[$1]FLAG[([$flag],[ppc64_flag_worked=1],[ppc64_flag_worked=0])
         if test "$ppc64_flag_worked" = 1; then
           GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
 	  AC_MSG_CHECKING(for working flag $flag)
