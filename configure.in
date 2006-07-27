@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/07/27 00:24:08 $
-# $Revision: 1.380 $
+#     $Date: 2006/07/27 19:25:04 $
+# $Revision: 1.381 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.380 $)
+AC_REVISION($Revision: 1.381 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2405,6 +2405,11 @@ AC_CHECK_FUNCS(fopen64)
 AC_CHECK_HEADERS(execinfo.h)
 if test "$ac_cv_header_execinfo_h" = "yes" ; then
   AC_CHECK_FUNCS(backtrace backtrace_symbols)
+fi
+
+AC_CHECK_HEADERS(ucontext.h)
+if test "$ac_cv_header_ucontext_h" = "yes" ; then
+  AC_CHECK_FUNCS(printstack)
 fi
 
 

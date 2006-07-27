@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/07/19 01:47:51 $
- * $Revision: 1.176 $
+ *     $Date: 2006/07/27 19:25:04 $
+ * $Revision: 1.177 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -27,6 +27,9 @@
 #endif
 #if HAVE_EXECINFO_H
   #include <execinfo.h>
+#endif
+#ifdef HAVE_UCONTEXT_H
+  #include <ucontext.h>
 #endif
 
 /* set to non-zero for verbose error reporting */
@@ -688,12 +691,19 @@ extern void gasneti_decode_args(int *argc, char ***argv) {
 /* ------------------------------------------------------------------------------------ */
 /* Dynamic backtrace support */
 
-/* Logic to pick which backtrace functions to try.
- * Two cases to allow for debuggers that might not dump the proper thread
-*/
-#if GASNETI_THREADS && HAVE_BACKTRACE
-  /* Since we have libc support, only enable debuggers that do OK w/ threads. */
+/* We always enable libc support when available. */
+#if HAVE_BACKTRACE
   #define GASNETI_BT_EXECINFO	&gasneti_bt_execinfo
+#endif
+#if HAVE_PRINTSTACK
+  #define GASNETI_BT_PRINTSTACK	&printstack
+#endif
+
+/* If running w/ threads, we try to avoid external debuggers which might not dump
+ * the proper thread, unless they are all we have.
+ */
+#if GASNETI_THREADS && (HAVE_BACKTRACE || HAVE_PRINTSTACK)
+  /* Since we have libc support, only enable debuggers that do OK w/ threads. */
   #if defined(GDB_PATH) && !GASNETI_NO_FORK
     #define GASNETI_BT_GDB	&gasneti_bt_gdb
   #endif
@@ -702,9 +712,6 @@ extern void gasneti_decode_args(int *argc, char ***argv) {
   #endif
 #else
   /* Either no threads or no libc support, enable any debugger we might have. */
-  #if HAVE_BACKTRACE
-    #define GASNETI_BT_EXECINFO	&gasneti_bt_execinfo
-  #endif
   #if defined(GDB_PATH) && !GASNETI_NO_FORK
     #define GASNETI_BT_GDB	&gasneti_bt_gdb
   #endif
@@ -881,6 +888,9 @@ int _gasneti_print_backtrace(int fd) {
     #endif
     #ifdef GASNETI_BT_EXECINFO
       GASNETI_BT_EXECINFO,
+    #endif
+    #ifdef GASNETI_BT_PRINTSTACK
+      GASNETI_BT_PRINTSTACK,
     #endif
     NULL	/* Avoids empty initializer and trailing commas */
   };
