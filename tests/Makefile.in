@@ -1,6 +1,6 @@
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/Makefile.in,v $
-#     $Date: 2006/08/02 23:10:50 $
-# $Revision: 1.93 $
+#     $Date: 2006/08/02 23:49:02 $
+# $Revision: 1.94 $
 # Description: Makefile for GASNet tests
 # @configure_input@
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -26,6 +26,9 @@ Makefile: @TOP_SRCDIR@/tests/Makefile.in
 # GASNet-related MPI tests
 @USE_MPI_COMPAT_TRUE@ MPI_TESTS_SEQ = 
 @USE_MPI_COMPAT_TRUE@ MPI_TESTS_PAR = testmpi
+
+# C++ tests
+CXX_TESTS = testcxx testtoolscxx
 
 # non-GASNet plain MPI tests
 MPI1_TESTS = 			\
@@ -86,7 +89,7 @@ testprograms_par =  \
 	testcontend \
 	$(MPI_TESTS_PAR)
 
-testprograms = $(testprograms_seq) $(testprograms_parsync) $(testprograms_par) $(MPI_TESTS)
+testprograms = $(testprograms_seq) $(testprograms_parsync) $(testprograms_par) $(MPI_TESTS) $(CXX_TESTS)
 
 tests-seq: clean $(testprograms_seq)
 	
