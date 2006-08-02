@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/07/16 20:53:10 $
- * $Revision: 1.7 $
+ *     $Date: 2006/08/02 10:45:23 $
+ * $Revision: 1.8 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,7 +37,9 @@ GASNETI_BEGIN_EXTERNC
 #endif
 #define gasneti_sched_yield() gasneti_assert_zeroret(_gasneti_sched_yield())
 
-#if defined(__GNUC__) || defined(__FUNCTION__)
+#if PLATFORM_COMPILER_GNU_CXX /* bug 1681 */
+  #define GASNETI_CURRENT_FUNCTION __PRETTY_FUNCTION__
+#elif defined(__GNUC__) || defined(__FUNCTION__)
   #define GASNETI_CURRENT_FUNCTION __FUNCTION__
 #elif defined(HAVE_FUNC) && !defined(__cplusplus)
   /* __func__ should also work for ISO C99 compilers */
