@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/08/02 23:29:58 $
- * $Revision: 1.69 $
+ *     $Date: 2006/08/03 20:44:53 $
+ * $Revision: 1.70 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -191,12 +191,12 @@ int main(int argc, char **argv) {
         ERR("timer and reference differ by more than 0.01sec:\n"
                "\ttime=%i  timeref=%i\n",time,timeref);
 
-      if (abs( (gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start)) - 
-               gasnett_ticks_to_us(end - start) ) > 1)
+      if (abs( (int)((gasnett_ticks_to_us(end) - gasnett_ticks_to_us(start)) - 
+                      gasnett_ticks_to_us(end - start)) ) > 1)
         ERR("ticks_to_us(A) - ticks_to_us(B) != ticks_to_us(A-B)");
 
-      if (abs( gasnett_ticks_to_ns(end - start)/1000 - 
-               gasnett_ticks_to_us(end - start) ) > 1)
+      if (abs( (int)(gasnett_ticks_to_ns(end - start)/1000 - 
+                     gasnett_ticks_to_us(end - start)) ) > 1)
         ERR("ticks_to_ns(A)/1000 != ticks_to_us(A)");
 
     }
