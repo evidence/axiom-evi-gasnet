@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/07/27 19:25:04 $
-# $Revision: 1.381 $
+#     $Date: 2006/08/03 23:22:26 $
+# $Revision: 1.382 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.381 $)
+AC_REVISION($Revision: 1.382 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -813,6 +813,16 @@ else
   # look for optional pthreads entry points and features
   AC_SEARCH_LIBS(pthread_setconcurrency, pthread pthreads c_r, AC_DEFINE(HAVE_PTHREAD_SETCONCURRENCY))
   AC_SEARCH_LIBS(pthread_kill_other_threads_np, pthread pthreads, AC_DEFINE(HAVE_PTHREAD_KILL_OTHER_THREADS_NP))
+
+  GASNET_IF_ENABLED_WITH_AUTO(tls, Enable/disable use of thread-local storage extensions (ie __thread) (auto-detected),
+    enabled_tls=yes, enabled_tls=no, enabled_tls=probe)
+  if test "$enabled_tls" != "no" ; then
+    GASNET_CHECK_TLS_SUPPORT([ AC_DEFINE(GASNETI_HAVE_TLS_SUPPORT, 1) ],[
+      if test "$enabled_tls" != "yes"; then
+        GASNET_MSG_ERROR([--enable-tls passed but no working tls support found])
+      fi
+    ]) 
+  fi
 
  if test "$cross_compiling" = "no"; then
   case "$target_os" in

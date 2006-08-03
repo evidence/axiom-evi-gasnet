@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/08/02 10:45:23 $
- * $Revision: 1.8 $
+ *     $Date: 2006/08/03 23:22:26 $
+ * $Revision: 1.9 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -260,17 +260,22 @@ extern uint64_t gasneti_checksum(void *p, int numbytes);
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-/* Wrappers for pthread getspecific data 
+/* Wrappers for thread-local data storage
+   In threaded configurations, uses the fastest-available target-specific mechanisms 
+    for access to thread-local storage (eg __thread), or pthread_getspecific() for 
+    generic platforms. Automatically handles the hassle of pthread key creation as required.
+   In non-threaded configurations, expands to simple process-global storage. 
 
   Must be declared as:
-    gasneti_threadkey_t mykey = GASNETI_THREADKEY_INITIALIZER;
+    GASNETI_THREADKEY_DEFINE(mykey); - must be defined in exactly one C file at global scope
+    GASNETI_THREADKEY_DECLARE(mykey); - optional, use in headers to reference externally-defined key
   and then can be used as:
     void *val = gasneti_threadkey_get(mykey);
     gasneti_threadkey_set(mykey,val);
   no initialization is required (happens automatically on first access).
 
   Initialization can optionally be performed using:
-    gasneti_threadkey_init(&mykey);
+    gasneti_threadkey_init(mykey);
   which then allows subsequent calls to:
     void *val = gasneti_threadkey_get_noinit(mykey);
     gasneti_threadkey_set_noinit(mykey,val);
@@ -278,32 +283,53 @@ extern uint64_t gasneti_checksum(void *p, int numbytes);
   gasneti_threadkey_init is permitted to be called multiple times and
   from multiple threads - calls after the first one will be ignored.
 */
-#define GASNETI_THREADKEY_MAGIC 0xFF00ABCDEF573921ULL
+#define _GASNETI_THREADKEY_MAGIC 0xFF00ABCDEF573921ULL
+
+#if GASNETI_THREADS || GASNETT_THREAD_SAFE
+  #if GASNETI_HAVE_TLS_SUPPORT /* use __thread, if available */ \
+     && !PLATFORM_COMPILER_SUN /* causes sunC 5.7 for x86 to crash on libgasnet-par */
+    #define _GASNETI_THREADKEY_USES_TLS 1
+  #else
+    #define _GASNETI_THREADKEY_USES_PTHREAD_GETSPECIFIC 1
+  #endif
+#else /* no threads */
+    #define _GASNETI_THREADKEY_USES_NOOP 1
+#endif
 
 typedef struct { 
   #if GASNET_DEBUG
     uint64_t magic;
-    #define GASNETI_THREADKEY_MAGIC_INIT GASNETI_THREADKEY_MAGIC,
+    #define _GASNETI_THREADKEY_MAGIC_INIT _GASNETI_THREADKEY_MAGIC,
   #else
-    #define GASNETI_THREADKEY_MAGIC_INIT
+    #define _GASNETI_THREADKEY_MAGIC_INIT
   #endif
-  #if GASNETI_THREADS || GASNETT_THREAD_SAFE
+  #if _GASNETI_THREADKEY_USES_PTHREAD_GETSPECIFIC
     gasneti_mutex_t initmutex;
     volatile int isinit;
     pthread_key_t value;
-    #define GASNETI_THREADKEY_REST_INIT GASNETI_MUTEX_INITIALIZER, 0 /* value field left NULL */
+    #define _GASNETI_THREADKEY_REST_INIT GASNETI_MUTEX_INITIALIZER, 0 /* value field left NULL */
   #else
     void *value;
-    #define GASNETI_THREADKEY_REST_INIT 0
+    #define _GASNETI_THREADKEY_REST_INIT 0
   #endif
-} gasneti_threadkey_t;
+} _gasneti_threadkey_t;
 
-#define GASNETI_THREADKEY_INITIALIZER \
-  { GASNETI_THREADKEY_MAGIC_INIT GASNETI_THREADKEY_REST_INIT }
+#define _GASNETI_THREADKEY_INITIALIZER \
+  { _GASNETI_THREADKEY_MAGIC_INIT _GASNETI_THREADKEY_REST_INIT }
 
-#if GASNETI_THREADS || GASNETT_THREAD_SAFE
+#if _GASNETI_THREADKEY_USES_TLS
+  #define _GASNETI_THREADKEY_STORAGE __thread
+#else
+  #define _GASNETI_THREADKEY_STORAGE 
+#endif
+#define GASNETI_THREADKEY_DECLARE(keyname) \
+  extern _GASNETI_THREADKEY_STORAGE _gasneti_threadkey_t keyname
+#define GASNETI_THREADKEY_DEFINE(keyname) \
+  _GASNETI_THREADKEY_STORAGE _gasneti_threadkey_t keyname = _GASNETI_THREADKEY_INITIALIZER
+
+#if _GASNETI_THREADKEY_USES_PTHREAD_GETSPECIFIC
   #define _gasneti_threadkey_check(key, requireinit)         \
-   ( gasneti_assert((key).magic == GASNETI_THREADKEY_MAGIC), \
+   ( gasneti_assert((key).magic == _GASNETI_THREADKEY_MAGIC), \
      (requireinit ? gasneti_assert((key).isinit) : ((void)0)))
   #define gasneti_threadkey_get_noinit(key) \
     ( _gasneti_threadkey_check((key), 1),   \
@@ -312,8 +338,8 @@ typedef struct {
     _gasneti_threadkey_check((key), 1);                                   \
     gasneti_assert_zeroret(pthread_setspecific((key).value, (newvalue))); \
   } while (0)
-  GASNETI_NEVER_INLINE(gasneti_threadkey_init, /* avoid inserting overhead for an uncommon path */
-  static void gasneti_threadkey_init(gasneti_threadkey_t *pkey)) {
+  GASNETI_NEVER_INLINE(_gasneti_threadkey_init, /* avoid inserting overhead for an uncommon path */
+  static void _gasneti_threadkey_init(_gasneti_threadkey_t *pkey)) {
     _gasneti_threadkey_check(*pkey, 0);
     gasneti_mutex_lock(&(pkey->initmutex));
       if (pkey->isinit == 0) {
@@ -327,23 +353,24 @@ typedef struct {
     gasneti_mutex_unlock(&(pkey->initmutex));
     _gasneti_threadkey_check(*pkey, 1);
   }
+  #define gasneti_threadkey_init(key) _gasneti_threadkey_init(&(key))
   #define gasneti_threadkey_get(key)       \
     ( _gasneti_threadkey_check(key, 0),    \
       ( PREDICT_FALSE((key).isinit == 0) ? \
-        gasneti_threadkey_init(&(key)) :   \
+        gasneti_threadkey_init(key) :      \
         ((void)0) ),                       \
       gasneti_threadkey_get_noinit(key) )
 
   #define gasneti_threadkey_set(key,newvalue) do { \
       _gasneti_threadkey_check(key, 0);            \
       if_pf((key).isinit == 0)                     \
-        gasneti_threadkey_init(&(key));            \
+        gasneti_threadkey_init(key);               \
       gasneti_threadkey_set_noinit(key, newvalue); \
     } while (0)
 #else
-  #define gasneti_threadkey_init(pkey) ((void)0)
   #define _gasneti_threadkey_check(key)         \
-          gasneti_assert((key).magic == GASNETI_THREADKEY_MAGIC)
+          gasneti_assert((key).magic == _GASNETI_THREADKEY_MAGIC)
+  #define gasneti_threadkey_init(key) _gasneti_threadkey_check(key)
   #define gasneti_threadkey_get_noinit(key) \
     (_gasneti_threadkey_check(key), (key).value)
   #define gasneti_threadkey_set_noinit(key, newvalue) do { \

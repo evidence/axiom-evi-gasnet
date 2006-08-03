@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/07/16 20:53:10 $
- * $Revision: 1.93 $
+ *     $Date: 2006/08/03 23:22:26 $
+ * $Revision: 1.94 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -273,11 +273,11 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_set_affinity    gasneti_set_affinity
 #define gasnett_spinloop_hint   gasneti_spinloop_hint
 
-#define gasnett_threadkey_t                       gasneti_threadkey_t
-#define GASNETT_THREADKEY_INITIALIZER             GASNETI_THREADKEY_INITIALIZER
+#define GASNETT_THREADKEY_DECLARE                 GASNETI_THREADKEY_DECLARE
+#define GASNETT_THREADKEY_DEFINE                  GASNETI_THREADKEY_DEFINE
 #define gasnett_threadkey_get(key)                gasneti_threadkey_get(key)
 #define gasnett_threadkey_set(key,newval)         gasneti_threadkey_set(key,newval)
-#define gasnett_threadkey_init(pkey)              gasneti_threadkey_init(pkey)
+#define gasnett_threadkey_init(key)               gasneti_threadkey_init(key)
 #define gasnett_threadkey_get_noinit(key)         gasneti_threadkey_get_noinit(key)
 #define gasnett_threadkey_set_noinit(key,newval)  gasneti_threadkey_set_noinit(key,newval)
 

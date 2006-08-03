@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/07/27 19:25:04 $ */
-/*  $Revision: 1.106 $ */
+/*      $Date: 2006/08/03 23:22:26 $ */
+/*  $Revision: 1.107 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -95,6 +95,9 @@
 
 /* has pthread_kill_other_threads_np() */
 #undef HAVE_PTHREAD_KILL_OTHER_THREADS_NP
+
+/* has __thread thread-local-storage support */
+#undef GASNETI_HAVE_TLS_SUPPORT
 
 /* pause instruction, if any */
 #undef GASNETI_PAUSE_INSTRUCTION

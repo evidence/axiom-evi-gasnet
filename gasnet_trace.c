@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2006/07/20 02:33:14 $
- * $Revision: 1.128 $
+ *     $Date: 2006/08/03 23:22:26 $
+ * $Revision: 1.129 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -259,7 +259,7 @@ extern size_t gasneti_format_putsgets(char *buf, void *_pstats,
 /* line number control */
 #if GASNET_SRCLINES
   #if GASNETI_CLIENT_THREADS
-    gasneti_threadkey_t gasneti_srclineinfo_key = GASNETI_THREADKEY_INITIALIZER;
+    GASNETI_THREADKEY_DEFINE(gasneti_srclineinfo_key);
     typedef struct {
       const char *filename;
       unsigned int linenum;

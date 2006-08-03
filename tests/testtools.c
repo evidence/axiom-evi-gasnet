@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/08/03 20:44:53 $
- * $Revision: 1.70 $
+ *     $Date: 2006/08/03 23:22:38 $
+ * $Revision: 1.71 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -63,6 +63,29 @@ double volatile d_junk = 0;
 
 GASNETT_EXTERNC
 void test_dummy5(void) { }
+
+GASNETT_THREADKEY_DECLARE(sertest_key1);
+GASNETT_THREADKEY_DEFINE(sertest_key1);
+GASNETT_THREADKEY_DEFINE(sertest_key2);
+GASNETT_THREADKEY_DEFINE(partest_key1);
+GASNETT_THREADKEY_DEFINE(partest_key2);
+#define test_threadkeys(key1,key2) do {            \
+  void *val = gasnett_threadkey_get(key1);         \
+  assert_always(val == NULL);                      \
+  gasnett_threadkey_set(key1,(void *)&val);        \
+  val = gasnett_threadkey_get(key1);               \
+  assert_always(val == &val);                      \
+                                                   \
+  gasnett_threadkey_init(key2);                    \
+  val = gasnett_threadkey_get_noinit(key2);        \
+  assert_always(val == NULL);                      \
+  gasnett_threadkey_set_noinit(key2,(void *)&val); \
+  val = gasnett_threadkey_get_noinit(key2);        \
+  assert_always(val == &val);                      \
+  gasnett_threadkey_init(key2);                    \
+  val = gasnett_threadkey_get_noinit(key2);        \
+  assert_always(val == &val);                      \
+} while (0)
 
 int main(int argc, char **argv) {
 
@@ -233,6 +256,11 @@ int main(int argc, char **argv) {
     for (i=0;i<iters;i++) {
       gasnett_local_rmb();
     }
+  }
+
+  TEST_HEADER("Testing threadkey (sequential)...")
+  { /* serial threadkey test */
+    test_threadkeys(sertest_key1,sertest_key2);
   }
 
   TEST_HEADER("Testing atomic ops (sequential)...")
@@ -592,6 +620,11 @@ void * thread_fn(void *arg) {
       if (tmp != 0)
         ERR("count-down post-barrier read: %i != 0", tmp);
     }
+  }
+
+  TEST_HEADER("parallel threadkey test...")
+  { /* parallel threadkey test */
+    test_threadkeys(partest_key1,partest_key2);
   }
 
   TEST_HEADER("parallel atomic-op pounding test...") {

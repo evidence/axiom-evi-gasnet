@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/07/27 19:25:04 $
- * $Revision: 1.177 $
+ *     $Date: 2006/08/03 23:22:26 $
+ * $Revision: 1.178 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,10 +61,8 @@ int gasneti_VerboseErrors = 1;
   gasneti_atomic_t gasneti_throttle_haveusefulwork = gasneti_atomic_init(0);
   gasneti_mutex_t gasneti_throttle_spinpoller = GASNETI_MUTEX_INITIALIZER;
 #endif
-#if GASNET_DEBUG && GASNETI_THREADS
-  gasneti_threadkey_t gasneti_throttledebug_key = GASNETI_THREADKEY_INITIALIZER;
-#elif GASNET_DEBUG
-  int gasneti_throttledebug_cnt = 0;
+#if GASNET_DEBUG
+  GASNETI_THREADKEY_DEFINE(gasneti_throttledebug_key);
 #endif
 
 #define GASNET_VERSION_STR  _STRINGIFY(GASNET_VERSION)
@@ -203,7 +201,7 @@ extern void gasneti_check_config_preinit() {
     if (firstcall) { /* miscellaneous conduit-independent initializations */
       firstcall = 0;
       #if GASNET_DEBUG && GASNETI_THREADS
-        gasneti_threadkey_init(&gasneti_throttledebug_key);
+        gasneti_threadkey_init(gasneti_throttledebug_key);
       #endif
       gasneti_memcheck_all();
     }
