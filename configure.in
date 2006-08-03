@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/03 23:22:26 $
-# $Revision: 1.382 $
+#     $Date: 2006/08/03 23:49:38 $
+# $Revision: 1.383 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.382 $)
+AC_REVISION($Revision: 1.383 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -818,7 +818,7 @@ else
     enabled_tls=yes, enabled_tls=no, enabled_tls=probe)
   if test "$enabled_tls" != "no" ; then
     GASNET_CHECK_TLS_SUPPORT([ AC_DEFINE(GASNETI_HAVE_TLS_SUPPORT, 1) ],[
-      if test "$enabled_tls" != "yes"; then
+      if test "$enabled_tls" = "yes"; then
         GASNET_MSG_ERROR([--enable-tls passed but no working tls support found])
       fi
     ]) 
