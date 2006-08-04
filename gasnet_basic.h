@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/05/31 19:16:52 $
- * $Revision: 1.76 $
+ *     $Date: 2006/08/04 08:17:20 $
+ * $Revision: 1.77 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,6 +17,15 @@
 /* must precede everything else to ensure correct operation */
 #include "portable_inttypes.h"
 #include "portable_platform.h"
+
+#if PLATFORM_COMPILER_ID != GASNETI_PLATFORM_COMPILER_ID || \
+    PLATFORM_COMPILER_VERSION != GASNETI_PLATFORM_COMPILER_VERSION
+  /* detect when the compiler in use differs from the one tested by configure,
+     indicating some of the configure-detected results may be invalid for this compilation
+     this is permitted in certain VERY limited contexts, and activates conservative assumptions
+   */
+  #define GASNETI_CONFIGURE_MISMATCH 1
+#endif
 
 /* include files that may conflict with macros defined later */
 #ifdef HAVE_SYS_PARAM_H
