@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2006/08/04 10:07:06 $
- * $Revision: 1.7 $
+ *     $Date: 2006/08/05 11:22:26 $
+ * $Revision: 1.8 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -652,5 +652,31 @@
   #error missing bit width information
 #endif
 
+/* ------------------------------------------------------------------------------------ */
+/* handy test code that can be parsed after preprocess or executed to show platform results */
+#ifdef PLATFORM_SHOW
+const char *
+COMPILER_FAMILYNAME = _STRINGIFY(PLATFORM_COMPILER_FAMILYNAME)
+, *
+COMPILER_FAMILYID = _STRINGIFY(PLATFORM_COMPILER_FAMILYID)
+, *
+COMPILER_VERSION_STR = PLATFORM_COMPILER_VERSION_STR
+, *
+COMPILER_IDSTR = PLATFORM_COMPILER_IDSTR
+, *
+OS_FAMILYNAME = _STRINGIFY(PLATFORM_OS_FAMILYNAME)
+, *
+ARCH_FAMILYNAME = _STRINGIFY(PLATFORM_ARCH_FAMILYNAME)
+;
+int main() {
+  #define PLATFORM_DISP(x) printf("PLATFORM_"#x"=%s\n",x)
+  PLATFORM_DISP(COMPILER_FAMILYNAME);
+  PLATFORM_DISP(COMPILER_FAMILYID);
+  PLATFORM_DISP(COMPILER_VERSION_STR);
+  PLATFORM_DISP(COMPILER_IDSTR);
+  PLATFORM_DISP(OS_FAMILYNAME);
+  PLATFORM_DISP(ARCH_FAMILYNAME);
+}
+#endif
 /* ------------------------------------------------------------------------------------ */
 #endif
