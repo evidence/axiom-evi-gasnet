@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_internal.h,v $
- *     $Date: 2006/05/24 04:01:50 $
- * $Revision: 1.29 $
+ *     $Date: 2006/08/05 06:26:33 $
+ * $Revision: 1.30 $
  * Description: AMUDP internal header file
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -39,8 +39,12 @@
 #else
   #define DISABLE_STDSOCKET_REDIRECT  0   /* disable redirection of slave stdin/stdout/stderr to master */
 #endif
+#ifndef USE_SOCKET_RECVBUFFER_GROW
 #define USE_SOCKET_RECVBUFFER_GROW  1   /* grow RCVBUF on UDP sockets */
+#endif
+#ifndef USE_SOCKET_SENDBUFFER_GROW
 #define USE_SOCKET_SENDBUFFER_GROW  1   /* grow SNDBUF on UDP sockets */
+#endif
 #define AMUDP_RECVBUFFER_MAX  4194304   /* never exceed 4 MB (huge) */
 #ifdef UETH
   #define USE_TRUE_BULK_XFERS       0   /* bulk xfers use long packets rather than segmentation */
