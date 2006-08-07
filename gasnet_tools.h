@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/08/07 18:18:13 $
- * $Revision: 1.97 $
+ *     $Date: 2006/08/07 19:36:39 $
+ * $Revision: 1.98 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -100,6 +100,7 @@ GASNETI_BEGIN_EXTERNC
 #define GASNETT_CONSTP                  GASNETI_CONSTP
 #define GASNETT_WARN_UNUSED_RESULT      GASNETI_WARN_UNUSED_RESULT
 #define GASNETT_FORMAT_PRINTF           GASNETI_FORMAT_PRINTF
+#define GASNETT_FORMAT_PRINTF_FUNCPTR   GASNETI_FORMAT_PRINTF_FUNCPTR
 
 #define GASNETT_CURRENT_FUNCTION        GASNETI_CURRENT_FUNCTION
 
@@ -311,9 +312,9 @@ static void _gasnett_trace_printf_noop(const char *_format, ...)) {
   return; 
 }
 #ifdef GASNET_TRACE
-  GASNETI_FORMAT_PRINTF(_gasnett_trace_printf,1,2,
+  GASNETT_FORMAT_PRINTF_FUNCPTR(_gasnett_trace_printf,1,2,
   GASNETT_TENTATIVE_EXTERN void (*_gasnett_trace_printf)(const char *format, ...));
-  GASNETI_FORMAT_PRINTF(_gasnett_trace_printf_force,1,2,
+  GASNETT_FORMAT_PRINTF_FUNCPTR(_gasnett_trace_printf_force,1,2,
   GASNETT_TENTATIVE_EXTERN void (*_gasnett_trace_printf_force)(const char *format, ...));
   #define GASNETT_TRACE_PRINTF \
           (*(_gasnett_trace_printf?_gasnett_trace_printf:&_gasnett_trace_printf_noop))

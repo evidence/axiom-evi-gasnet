@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/08/07 00:21:32 $
- * $Revision: 1.78 $
+ *     $Date: 2006/08/07 19:36:39 $
+ * $Revision: 1.79 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -301,13 +301,17 @@
 #if GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT
   #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) \
           __attribute__((__format__ (__printf__, fmtarg, firstvararg))) declarator
+  /* gcc allows format attribute on a pointer-to-function */
+  #define GASNETI_FORMAT_PRINTF_FUNCPTR GASNETI_FORMAT_PRINTF
 #elif PLATFORM_COMPILER_COMPAQ_C /* not Compaq C++ */
   #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator)  \
           declarator; /* declaration required before pragma */ \
           GASNETI_PRAGMA(assert func_attrs(fnname) format (printf,fmtarg,firstvararg)) \
           declarator
+  #define GASNETI_FORMAT_PRINTF_FUNCPTR(fnpname,fmtarg,firstvararg,declarator) declarator
 #else
   #define GASNETI_FORMAT_PRINTF(fnname,fmtarg,firstvararg,declarator) declarator
+  #define GASNETI_FORMAT_PRINTF_FUNCPTR(fnpname,fmtarg,firstvararg,declarator) declarator
 #endif
 
 /* ------------------------------------------------------------------------------------ */
