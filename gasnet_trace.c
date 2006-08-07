@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_trace.c,v $
- *     $Date: 2006/08/03 23:22:26 $
- * $Revision: 1.129 $
+ *     $Date: 2006/08/07 00:21:32 $
+ * $Revision: 1.130 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,6 +61,12 @@ static gasneti_tick_t starttime;
   gasnett_stats_callback_t gasnett_stats_callback = NULL;
 #endif
 
+
+static int _gasnett_trace_enabled_body(char tracecat) {
+  return GASNETI_TRACE_ENABLED(tracecat);
+}
+int (*_gasnett_trace_enabled)(char tracecat) = &_gasnett_trace_enabled_body;
+
 #if GASNET_TRACE
   #define TMPBUFSZ 1024
   #define _GASNETT_TRACE_PRINTF_DOIT(cat) do {                                 \
@@ -76,12 +82,16 @@ static gasneti_tick_t starttime;
     }                                                                          \
   } while (0)
 
-  extern void _gasnett_trace_printf(const char *format, ...) {
+  GASNETI_FORMAT_PRINTF(_gasnett_trace_printf_body,1,2,
+  static void _gasnett_trace_printf_body(const char *format, ...)) {
     _GASNETT_TRACE_PRINTF_DOIT(H);
   }
-  extern void _gasnett_trace_printf_force(const char *format, ...) {
+  GASNETI_FORMAT_PRINTF(_gasnett_trace_printf_force_body,1,2,
+  static void _gasnett_trace_printf_force_body(const char *format, ...)) {
     _GASNETT_TRACE_PRINTF_DOIT(U);
   }
+  void (*_gasnett_trace_printf)(const char *format, ...) = _gasnett_trace_printf_body;
+  void (*_gasnett_trace_printf_force)(const char *format, ...) = _gasnett_trace_printf_force_body;
   #undef _GASNETT_TRACE_PRINTF_DOIT
   #undef TMPBUFSZ
 #endif

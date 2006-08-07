@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/08/04 08:17:20 $
- * $Revision: 1.10 $
+ *     $Date: 2006/08/07 00:21:32 $
+ * $Revision: 1.11 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -16,11 +16,22 @@
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 #if GASNETI_THREADS || GASNETT_THREAD_SAFE
   #if PLATFORM_OS_LINUX
    struct timespec; /* avoid an annoying warning on Linux */
   #endif
   #include <pthread.h>
+#endif
+
+#ifndef STDIN_FILENO
+  #define STDIN_FILENO 0
+#endif
+#ifndef STDOUT_FILENO
+  #define STDOUT_FILENO 1
+#endif
+#ifndef STDERR_FILENO
+  #define STDERR_FILENO 2
 #endif
 
 GASNETI_BEGIN_EXTERNC
@@ -32,7 +43,6 @@ GASNETI_BEGIN_EXTERNC
    #include <sched.h>
    #define _gasneti_sched_yield() sched_yield()
 #else
-   #include <unistd.h>
    #define _gasneti_sched_yield() (sleep(0),0)
 #endif
 #define gasneti_sched_yield() gasneti_assert_zeroret(_gasneti_sched_yield())
@@ -100,6 +110,11 @@ GASNETI_NORETURNP(gasneti_fatalerror)
 
 extern void gasneti_killmyprocess(int exitcode) GASNETI_NORETURN;
 GASNETI_NORETURNP(gasneti_killmyprocess)
+
+extern void gasneti_freezeForDebuggerNow();
+extern void gasneti_backtrace_init(const char *exename);
+extern int gasneti_print_backtrace_ifenabled(int fd);
+extern int gasneti_print_backtrace(int fd);
 
 extern void gasneti_flush_streams(); /* flush all open streams */
 extern void gasneti_close_streams(); /* close standard streams (for shutdown) */

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_help.h,v $
- *     $Date: 2006/08/03 23:22:26 $
- * $Revision: 1.96 $
+ *     $Date: 2006/08/07 00:21:32 $
+ * $Revision: 1.97 $
  * Description: GASNet Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,8 +14,6 @@
 #define _GASNET_HELP_H
 
 GASNETI_BEGIN_EXTERNC
-
-extern int (*gasneti_print_backtrace)(int);
 
 typedef struct { 
   uint64_t allocated_bytes;   /* num bytes ever allocated */

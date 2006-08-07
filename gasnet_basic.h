@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/08/04 08:17:20 $
- * $Revision: 1.77 $
+ *     $Date: 2006/08/07 00:21:32 $
+ * $Revision: 1.78 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -45,10 +45,12 @@
   #define GASNETI_BEGIN_EXTERNC extern "C" {
   #define GASNETI_EXTERNC       extern "C" 
   #define GASNETI_END_EXTERNC   }
+  #define GASNETI_TENTATIVE_EXTERN extern
 #else
   #define GASNETI_BEGIN_EXTERNC 
   #define GASNETI_EXTERNC       
   #define GASNETI_END_EXTERNC 
+  #define GASNETI_TENTATIVE_EXTERN 
 #endif
 
 #if defined(__cplusplus)
