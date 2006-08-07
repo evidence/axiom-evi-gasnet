@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/07 00:21:32 $
- * $Revision: 1.176 $
+ *     $Date: 2006/08/07 18:18:13 $
+ * $Revision: 1.177 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -269,6 +269,7 @@ extern double gasneti_tick_metric(int idx) {
   return _gasneti_tick_metric[idx];
 }
 /* ------------------------------------------------------------------------------------ */
+volatile int gasnet_frozen = 0;
 extern void gasneti_fatalerror(const char *msg, ...) {
   va_list argptr;
   char expandedmsg[255];
@@ -283,7 +284,7 @@ extern void gasneti_fatalerror(const char *msg, ...) {
 
   /* allow freeze */
   if (gasneti_getenv_yesno_withdefault("GASNET_FREEZE_ON_ERROR",0))
-    gasneti_freezeForDebuggerNow();
+    gasneti_freezeForDebuggerNow(&gasnet_frozen,"gasnet_frozen");
 
   /* try to get a pre-signal backtrace, which may be more precise */
   if (!gasneti_print_backtrace_ifenabled(STDERR_FILENO)) 
@@ -348,11 +349,10 @@ extern gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighand
 #define GASNETI_UNFREEZE_SIGNAL SIGCONT
 #define GASNETI_UNFREEZE_SIGNAL_STR "SIGCONT"
 #endif
-
-extern volatile int gasnet_frozen; /* export to simplify debugger restart */ 
-volatile int gasnet_frozen;
+static volatile int * volatile _gasneti_freeze_flag = NULL;
 static void gasneti_unfreezeHandler(int sig) {
-  gasnet_frozen = 0;
+  gasneti_assert(_gasneti_freeze_flag);
+  *_gasneti_freeze_flag = 0;
 }
 /*  all this to make sure we get a full stack frame for debugger */
 static void _freezeForDebugger(int depth) {
@@ -360,22 +360,24 @@ static void _freezeForDebugger(int depth) {
   else {
     volatile int i=0;
     gasneti_sighandlerfn_t old = gasneti_reghandler(GASNETI_UNFREEZE_SIGNAL, gasneti_unfreezeHandler);
-    while (gasnet_frozen) {
+    while (*_gasneti_freeze_flag) {
       i++;
       sleep(1);
     }
     gasneti_reghandler(GASNETI_UNFREEZE_SIGNAL, old);
   }
 }
-extern void gasneti_freezeForDebuggerNow() {
+extern void gasneti_freezeForDebuggerNow(volatile int *flag, const char *flagsymname) {
   char name[255];
   gethostname(name, 255);
   fprintf(stderr,"Process frozen for debugger: host=%s  pid=%i\n"
-                 "To unfreeze, attach a debugger and set 'gasnet_frozen' to 0, or send a "
+                 "To unfreeze, attach a debugger and set '%s' to 0, or send a "
                  GASNETI_UNFREEZE_SIGNAL_STR "\n", 
-                 name, (int)getpid()); 
+                 name, (int)getpid(), flagsymname); 
   fflush(stderr);
-  gasnet_frozen = 1;
+  _gasneti_freeze_flag = flag;
+  *_gasneti_freeze_flag = 1;
+  gasneti_local_wmb();
   _freezeForDebugger(0);
 }
 /* ------------------------------------------------------------------------------------ */
@@ -693,7 +695,7 @@ extern int gasneti_print_backtrace(int fd) {
   return retval;
 }
 /* ------------------------------------------------------------------------------------ */
-extern int gasneti_print_backtrace_ifenabled(int fd) {
+static int _gasneti_print_backtrace_ifenabled(int fd) {
   static int noticeshown = 0;
   if (!gasneti_backtrace_isinit) {
     fprintf(stderr,"WARNING: Ignoring call to gasneti_print_backtrace_ifenabled before gasneti_backtrace_init\n");
@@ -711,6 +713,7 @@ extern int gasneti_print_backtrace_ifenabled(int fd) {
     return 1; /* We don't support any backtrace methods, so avoid false advertising. */
   }
 }
+int (*gasneti_print_backtrace_ifenabled)(int fd) = &_gasneti_print_backtrace_ifenabled;
 /* ------------------------------------------------------------------------------------ */
 extern uint64_t gasneti_checksum(void *p, int numbytes) {
  uint8_t *buf = (uint8_t *)p;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/08/07 00:21:32 $
- * $Revision: 1.179 $
+ *     $Date: 2006/08/07 18:18:13 $
+ * $Revision: 1.180 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -268,7 +268,7 @@ extern const char *gasnet_ErrorDesc(int errval) {
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_freezeForDebugger() {
   if (gasneti_getenv_yesno_withdefault("GASNET_FREEZE",0)) {
-    gasneti_freezeForDebuggerNow();
+    gasneti_freezeForDebuggerNow(&gasnet_frozen,"gasnet_frozen");
   }
 }
 /* ------------------------------------------------------------------------------------ */
@@ -332,7 +332,7 @@ void gasneti_defaultSignalHandler(int sig) {
       fflush(stderr);
 
       if (gasneti_getenv_yesno_withdefault("GASNET_FREEZE_ON_ERROR",0))
-        gasneti_freezeForDebuggerNow(); /* allow user freeze */
+        gasneti_freezeForDebuggerNow(&gasnet_frozen,"gasnet_frozen"); /* allow user freeze */
 
       gasneti_print_backtrace_ifenabled(STDERR_FILENO); /* try to print backtrace */
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/08/07 00:54:18 $
- * $Revision: 1.96 $
+ *     $Date: 2006/08/07 18:18:13 $
+ * $Revision: 1.97 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -276,6 +276,9 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_set_affinity    gasneti_set_affinity
 #define gasnett_spinloop_hint   gasneti_spinloop_hint
 #define gasnett_freezeForDebuggerNow gasneti_freezeForDebuggerNow
+#define gasnett_backtrace_init gasneti_backtrace_init
+#define gasnett_print_backtrace gasneti_print_backtrace
+#define gasnett_print_backtrace_ifenabled gasneti_print_backtrace_ifenabled
 
 #define GASNETT_THREADKEY_DECLARE                 GASNETI_THREADKEY_DECLARE
 #define GASNETT_THREADKEY_DEFINE                  GASNETI_THREADKEY_DEFINE
@@ -366,9 +369,6 @@ static void _gasnett_trace_printf_noop(const char *_format, ...)) {
   #else
     #define gasnett_mmap(sz) gasnett_fatalerror("gasnett_mmap not available")
   #endif
-  #define gasnett_backtrace_init gasneti_backtrace_init
-  #define gasnett_print_backtrace gasneti_print_backtrace
-  #define gasnett_print_backtrace_ifenabled gasneti_print_backtrace_ifenabled
   extern int gasneti_run_diagnostics(int iters, int threadcnt, 
                                      const char *testsections, gasnet_seginfo_t const *seginfo);
   extern void gasneti_diagnostic_gethandlers(gasnet_handlerentry_t **htable, int *htable_cnt);
