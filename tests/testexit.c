@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2006/08/07 00:21:35 $
- * $Revision: 1.23 $
+ *     $Date: 2006/08/07 19:26:00 $
+ * $Revision: 1.24 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -180,7 +180,7 @@ int main(int argc, char **argv) {
 
   GASNET_Safe(gasnet_init(&argc, &argv));
   { int i;
-    sprintf(usagestr,"(exittestnum:1..%i | crashtestnum:100..%i)", (int)NUMTEST, (int)100+NUMCRASHTEST-1);
+    sprintf(usagestr,"(exittestnum:1..%i | crashtestnum:100..%i)", (int)NUMTEST, (int)(100+NUMCRASHTEST-1));
     #ifdef GASNET_PAR
       strcat(usagestr, " (num_pthreads)");
     #endif
