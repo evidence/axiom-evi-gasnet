@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/08/07 02:55:31 $
-dnl $Revision: 1.109 $
+dnl     $Date: 2006/08/08 10:01:25 $
+dnl $Revision: 1.110 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1141,8 +1141,14 @@ AC_DEFUN([GASNET_CHECK_TLS_SUPPORT],[
 pthread_t p[[NTHREADS]];
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 extern __thread long tlocal;
-int foo() { tlocal = 4; } /* extern + use + definition crashes gcc-3.3/ia64 */
+void foo() { tlocal = 4; } /* extern + use + definition crashes gcc-3.3/ia64 */
 __thread long tlocal = 0;
+
+/* trigger a bug on gcc-3.4/solaris/SPARC - misalignment during compilation with -g leads to 
+   a link error: relocation error: R_SPARC_TLS_DTPOFF32 .. symbol misc2: offset 0xff351dd1 is non-aligned
+*/
+__thread int  misc  = 0;
+__thread long misc2 = 0;
 
 void * thread_start (void *arg) {
   int id = *((int *)arg);
