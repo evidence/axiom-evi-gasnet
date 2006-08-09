@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/08/07 18:18:13 $
- * $Revision: 1.12 $
+ *     $Date: 2006/08/09 10:11:33 $
+ * $Revision: 1.13 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -311,35 +311,40 @@ extern uint64_t gasneti_checksum(void *p, int numbytes);
     #define _GASNETI_THREADKEY_USES_NOOP 1
 #endif
 
-typedef struct { 
-  #if GASNET_DEBUG
-    uint64_t magic;
-    #define _GASNETI_THREADKEY_MAGIC_INIT _GASNETI_THREADKEY_MAGIC,
-  #else
-    #define _GASNETI_THREADKEY_MAGIC_INIT
-  #endif
-  #if _GASNETI_THREADKEY_USES_PTHREAD_GETSPECIFIC
-    gasneti_mutex_t initmutex;
-    volatile int isinit;
-    pthread_key_t value;
-    #define _GASNETI_THREADKEY_REST_INIT GASNETI_MUTEX_INITIALIZER, 0 /* value field left NULL */
-  #else
-    void *value;
-    #define _GASNETI_THREADKEY_REST_INIT 0
-  #endif
-} _gasneti_threadkey_t;
+#if _GASNETI_THREADKEY_USES_PTHREAD_GETSPECIFIC
+  typedef struct { 
+    #if GASNET_DEBUG
+      uint64_t magic;
+      #define _GASNETI_THREADKEY_MAGIC_INIT _GASNETI_THREADKEY_MAGIC,
+    #else
+      #define _GASNETI_THREADKEY_MAGIC_INIT
+    #endif
+      gasneti_mutex_t initmutex;
+      volatile int isinit;
+      pthread_key_t value;
+  } _gasneti_threadkey_t;
+  #define _GASNETI_THREADKEY_INITIALIZER \
+    { _GASNETI_THREADKEY_MAGIC_INIT      \
+      GASNETI_MUTEX_INITIALIZER,         \
+      0 /* value field left NULL */ }
+#else
+  typedef void *_gasneti_threadkey_t;
+  #define _GASNETI_THREADKEY_INITIALIZER NULL
+#endif
 
-#define _GASNETI_THREADKEY_INITIALIZER \
-  { _GASNETI_THREADKEY_MAGIC_INIT _GASNETI_THREADKEY_REST_INIT }
-
-#if _GASNETI_THREADKEY_USES_TLS
+#if _GASNETI_THREADKEY_USES_PTHREAD_GETSPECIFIC
+  #define GASNETI_THREADKEY_DECLARE(key) \
+    extern _gasneti_threadkey_t key
+  #define GASNETI_THREADKEY_DEFINE(key) \
+    _gasneti_threadkey_t key = _GASNETI_THREADKEY_INITIALIZER
+#elif _GASNETI_THREADKEY_USES_TLS
   #if GASNETI_CONFIGURE_MISMATCH
     #define GASNETI_THREADKEY_DECLARE(key)         \
       extern void *_gasneti_threadkey_get_##key(); \
       extern void _gasneti_threadkey_set_##key(void *_val)
   #else
     #define GASNETI_THREADKEY_DECLARE(key) \
-      extern __thread _gasneti_threadkey_t key
+      extern __thread _gasneti_threadkey_t _gasneti_threadkey_val_##key
   #endif
   #define GASNETI_THREADKEY_DEFINE(key)                    \
     GASNETI_THREADKEY_DECLARE(key);                        \
@@ -349,15 +354,16 @@ typedef struct {
     extern void _gasneti_threadkey_set_##key(void *_val) { \
       gasneti_threadkey_set(key, _val);                    \
     }                                                      \
-    __thread _gasneti_threadkey_t key = _GASNETI_THREADKEY_INITIALIZER
-#else
+    __thread _gasneti_threadkey_t _gasneti_threadkey_val_##key = _GASNETI_THREADKEY_INITIALIZER
+#else /* _GASNETI_THREADKEY_USES_NOOP */
   #define GASNETI_THREADKEY_DECLARE(key) \
-    extern _gasneti_threadkey_t key
+    extern _gasneti_threadkey_t _gasneti_threadkey_val_##key
   #define GASNETI_THREADKEY_DEFINE(key) \
-    _gasneti_threadkey_t key = _GASNETI_THREADKEY_INITIALIZER
+    _gasneti_threadkey_t _gasneti_threadkey_val_##key = _GASNETI_THREADKEY_INITIALIZER
 #endif
 
 #if _GASNETI_THREADKEY_USES_PTHREAD_GETSPECIFIC
+  /* struct prevents accidental direct access, magic provides extra safety checks */
   #define _gasneti_threadkey_check(key, requireinit)         \
    ( gasneti_assert((key).magic == _GASNETI_THREADKEY_MAGIC), \
      (requireinit ? gasneti_assert((key).isinit) : ((void)0)))
@@ -397,10 +403,9 @@ typedef struct {
         gasneti_threadkey_init(key);               \
       gasneti_threadkey_set_noinit(key, newvalue); \
     } while (0)
-#else
-  #define _gasneti_threadkey_check(key)         \
-          gasneti_assert((key).magic == _GASNETI_THREADKEY_MAGIC)
-  #define gasneti_threadkey_init(key) _gasneti_threadkey_check(key)
+#else /* _GASNETI_THREADKEY_USES_TLS, _GASNETI_THREADKEY_USES_NOOP */
+  /* name shift to _gasneti_threadkey_val_##key prevents accidental direct access */
+  #define gasneti_threadkey_init(key) ((void)0)
   #if _GASNETI_THREADKEY_USES_TLS && GASNETI_CONFIGURE_MISMATCH
     /* defined as __thread data storage, but current compiler doesn't support TLS 
        use an extern function call as conservative fall-back position
@@ -411,11 +416,9 @@ typedef struct {
           (_gasneti_threadkey_set_##key(newvalue))
   #else
     #define gasneti_threadkey_get_noinit(key) \
-      (_gasneti_threadkey_check(key), (key).value)
-    #define gasneti_threadkey_set_noinit(key, newvalue) do { \
-      _gasneti_threadkey_check(key);                         \
-      (key).value = (newvalue);                              \
-      } while (0)
+          (_gasneti_threadkey_val_##key)
+    #define gasneti_threadkey_set_noinit(key, newvalue) \
+         ((_gasneti_threadkey_val_##key) = (newvalue))
   #endif
   #define gasneti_threadkey_get gasneti_threadkey_get_noinit
   #define gasneti_threadkey_set gasneti_threadkey_set_noinit
