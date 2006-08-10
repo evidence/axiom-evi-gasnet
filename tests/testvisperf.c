@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testvisperf.c,v $
- *     $Date: 2006/07/07 22:03:59 $
- * $Revision: 1.3 $
+ *     $Date: 2006/08/10 07:37:26 $
+ * $Revision: 1.4 $
  * Description: GASNet VIS performance test
  * Copyright 2006 Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -9,12 +9,6 @@
 #include "gasnet.h"
 #include "gasnet_vis.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <fcntl.h>
 uintptr_t maxsz = 0;
 #ifndef TEST_SEGSZ
   #define TEST_SEGSZ_EXPR (maxsz)

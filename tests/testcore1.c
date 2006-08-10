@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcore1.c,v $
- * $Date: 2006/03/18 03:31:07 $
- * $Revision: 1.20 $
+ * $Date: 2006/08/10 07:37:26 $
+ * $Revision: 1.21 $
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  *
@@ -20,14 +20,6 @@
  * Steps 2 and 3 are puts for each other node.
  */
 
-#include <gasnet.h>
-#include <gasnet_tools.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include "test.h"
 
 #define DEBUG_TRACE
@@ -103,7 +95,7 @@ monoseed_init(int num)
 
 	if (myproc % 2 == 0) {
 		_mseed = (monoseed_t *) test_malloc(sizeof(monoseed_t) * num);
-		srand(time(0));
+	        srand((int)TIME());
 
 		for (i = 0; i < num; i++) {
 			_mseed[i].seed = (int) rand() + 1;

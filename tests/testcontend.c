@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcontend.c,v $
- *     $Date: 2006/03/18 03:31:07 $
- * $Revision: 1.13 $
+ *     $Date: 2006/08/10 07:37:26 $
+ * $Revision: 1.14 $
  *
  * Description: GASNet threaded contention tester.
  *   The test initializes GASNet and forks off up to 256 threads.  
@@ -10,13 +10,6 @@
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
  */
-
-#include "gasnet.h"
-#include "gasnet_tools.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <pthread.h>
 
 #include "test.h"
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testmisc.c,v $
- *     $Date: 2006/08/03 23:22:38 $
- * $Revision: 1.35 $
+ *     $Date: 2006/08/10 07:37:26 $
+ * $Revision: 1.36 $
  * Description: GASNet misc performance test
  *   Measures the overhead associated with a number of purely local 
  *   operations that involve no communication. 
@@ -8,14 +8,7 @@
  * Terms of use are as specified in license.txt
  */
 
-#include <gasnet.h>
-#include <gasnet_tools.h>
-
 #include <test.h>
-
-#if defined(GASNET_PAR) || defined (GASNET_PARSYNC)
-  #include <pthread.h>
-#endif
 
 int mynode = 0;
 int iters=0;

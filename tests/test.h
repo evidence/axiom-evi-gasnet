@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/07/05 21:42:20 $
- * $Revision: 1.100 $
+ *     $Date: 2006/08/10 07:37:26 $
+ * $Revision: 1.101 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,8 +23,6 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
-#include <sys/time.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2006/03/18 03:31:07 $
- * $Revision: 1.10 $
+ *     $Date: 2006/08/10 07:37:26 $
+ * $Revision: 1.11 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -11,10 +11,6 @@
  */
 
 #include "gasnet.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
 int maxsz = 0;
 #ifndef TEST_SEGSZ
   #define TEST_SEGSZ_EXPR ((uintptr_t)maxsz)

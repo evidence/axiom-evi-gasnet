@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testcoll.c,v $
- *     $Date: 2006/04/21 00:14:44 $
- * $Revision: 1.33 $
+ *     $Date: 2006/08/10 07:37:26 $
+ * $Revision: 1.34 $
  * Description: GASNet collectives test
  * Copyright 2002-2004, Jaein Jeong and Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -8,12 +8,6 @@
 
 #include "gasnet.h"
 #include "gasnet_coll.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <sys/time.h>
-#include <unistd.h>
-#include <fcntl.h>
 
 #if GASNET_PAR
   #define DEFAULT_THREADS 2
