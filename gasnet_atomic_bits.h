@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/07/26 22:44:13 $
- * $Revision: 1.240 $
+ *     $Date: 2006/08/11 20:03:24 $
+ * $Revision: 1.241 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -224,7 +224,7 @@
       #define _gasneti_atomic32_decrement_and_test(p) \
                                           (InterlockedDecrement((LONG *)&((p)->ctr)) == 0)
       #define _gasneti_atomic32_compare_and_swap(p,oval,nval) \
-	   (InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (oval))
+	   (InterlockedCompareExchange((LONG *)&((p)->ctr),nval,oval) == (LONG)(oval))
       #define _gasneti_atomic32_fetchadd(p, op) InterlockedExchangeAdd((LONG *)&((p)->ctr), op)
 
       #if PLATFORM_ARCH_64 /* TODO: Identify ILP32 running on 64-bit CPU */
@@ -238,7 +238,7 @@
         #define _gasneti_atomic64_decrement_and_test(p) \
                                           (InterlockedDecrement64((LONGLONG *)&((p)->ctr)) == 0)
         #define _gasneti_atomic64_compare_and_swap(p,oval,nval) \
-	     (InterlockedCompareExchange64((LONGLONG *)&((p)->ctr),nval,oval) == (oval))
+	     (InterlockedCompareExchange64((LONGLONG *)&((p)->ctr),nval,oval) == (LONGLONG)(oval))
         #define _gasneti_atomic64_fetchadd(p, op) InterlockedExchangeAdd64((LONGLONG *)&((p)->ctr), op)
       #endif
 

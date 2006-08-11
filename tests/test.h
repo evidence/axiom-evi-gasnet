@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/08/10 07:37:26 $
- * $Revision: 1.101 $
+ *     $Date: 2006/08/11 20:03:26 $
+ * $Revision: 1.102 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -465,7 +465,7 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
           barrier_count = 0;
           phase = !phase;
           check_zeroret(pthread_mutex_unlock(&barrier_mutex));
-          for (i=0; i < local_pthread_count-1; i++) {
+          for (i=0; i < (int)(local_pthread_count-1); i++) {
             check_zeroret(sem_post(&sem[myphase]));
           }
         }
