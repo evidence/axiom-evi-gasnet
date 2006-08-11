@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/08/07 18:18:13 $
- * $Revision: 1.180 $
+ *     $Date: 2006/08/11 19:04:50 $
+ * $Revision: 1.181 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -277,7 +277,7 @@ extern void gasneti_defaultAMHandler(gasnet_token_t token) {
   gasnet_AMGetMsgSource(token, &srcnode);
   gasneti_fatalerror("GASNet node %i/%i received an AM message from node %i for a handler index "
                      "with no associated AM handler function registered", 
-                     gasnet_mynode(), gasnet_nodes(), srcnode);
+                     (int)gasnet_mynode(), (int)gasnet_nodes(), (int)srcnode);
 }
 /* ------------------------------------------------------------------------------------ */
 #define DEF_SIGNAL(name) { name, #name, NULL }
@@ -606,7 +606,7 @@ int (*gasneti_verboseenv_fn)(void) = &_gasneti_verboseenv_fn;
 
 extern const char * _gasneti_backtraceid_fn() {
   static char myid[255];
-  sprintf(myid, "[%i] ", gasneti_mynode);
+  sprintf(myid, "[%i] ", (int)gasneti_mynode);
   return myid;
 }
 const char *(*gasneti_backtraceid_fn)(void) = &_gasneti_backtraceid_fn;
