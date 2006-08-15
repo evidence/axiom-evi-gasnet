@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/07 00:21:32 $
-# $Revision: 1.385 $
+#     $Date: 2006/08/15 22:39:19 $
+# $Revision: 1.386 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.385 $)
+AC_REVISION($Revision: 1.386 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1346,7 +1346,7 @@ if test $enabled_mpi = yes || test $enabled_mpi_compat = yes; then
 	fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
     	GASNET_ENV_DEFAULT(MPI_LIBS, [-Wl,-bbigtoc])
-	GASNET_ENV_DEFAULT(MPIRUN_CMD, poe %C -nodes %N -tasks_per_node 1 -rmpool 1 -euilib us -retry 1 -retrycount 10000 -msg_api mpi)
+	GASNET_ENV_DEFAULT(MPIRUN_CMD, poe %C -procs %N -nodes %M -rmpool 1 -euilib us -retry 1 -retrycount 10000 -msg_api mpi)
         ;;
     osf*)
 	GASNET_ENV_DEFAULT(MPI_CC, cc)
@@ -1358,7 +1358,7 @@ if test $enabled_mpi = yes || test $enabled_mpi_compat = yes; then
         fi
         GASNET_SET_CHECKED_CFLAGS(MPI_CC, MPI_CFLAGS, $BASIC_MPI_CFLAGS, $SAFE_MPI_CFLAGS)
         GASNET_ENV_DEFAULT(MPI_LIBS, -lmpi -lelan -lrt)
-        GASNET_ENV_DEFAULT(MPIRUN_CMD, prun -N %N %C)
+        GASNET_ENV_DEFAULT(MPIRUN_CMD, prun -n %N -N %M %C)
         ;;
     unicos*)
         # Cray cc - need to enable private global vars and disable a silly warning

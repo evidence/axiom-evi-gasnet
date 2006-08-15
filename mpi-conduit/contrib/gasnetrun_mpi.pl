@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/05/15 13:32:46 $
-# $Revision: 1.47 $
+#     $Date: 2006/08/15 22:39:21 $
+# $Revision: 1.48 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -296,7 +296,7 @@ sub expand {
     }
 
 # Validate -N as needed
-    if (defined($numnode) && !$is_lam) {
+    if (defined($numnode) && !$is_lam && !($spawncmd =~ m/%M/)) {
 	warn "WARNING: Don't know how to control process->node layout with your mpirun\n";
 	warn "WARNING: PROCESS LAYOUT MIGHT NOT MATCH YOUR REQUEST\n";
     }
@@ -477,6 +477,8 @@ EOF
 			      } else {
 				  $numproc;
 			      }
+			  } elsif ($_ eq '%M') {
+			    $numnode || $numproc;
 			  } elsif ($_ eq '%H') {
                               $nodefile or die "gasnetrun: %H appears in MPIRUN_CMD, but GASNET_NODEFILE is not set in the environment\n";
 			  } elsif ($_ eq '%P') {
