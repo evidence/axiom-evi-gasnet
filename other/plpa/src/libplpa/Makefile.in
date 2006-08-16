@@ -488,6 +488,7 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+@PLPA_BUILD_STANDALONE_FALSE@install-data-hook:
 clean: clean-am
 
 clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
@@ -564,14 +565,14 @@ uninstall-am: uninstall-includeHEADERS uninstall-info-am \
 # off) into PLPA_PACKAGE_* in order to make <plpa.h> safe to include
 # with other files.
 
-install-data-hook:
-	sed -e 's/define PACKAGE/define PLPA_PACKAGE/' \
-		$(DESTDIR)$(includedir)/plpa.h \
-		> $(DESTDIR)$(includedir)/plpa.h.install
-	cp $(DESTDIR)$(includedir)/plpa.h.install \
-		$(DESTDIR)$(includedir)/plpa.h
-	rm -f $(DESTDIR)$(includedir)/plpa.h.install
-	chmod 0644 $(DESTDIR)$(includedir)/plpa.h
+@PLPA_BUILD_STANDALONE_TRUE@install-data-hook:
+@PLPA_BUILD_STANDALONE_TRUE@	sed -e 's/define PACKAGE/define PLPA_PACKAGE/' \
+@PLPA_BUILD_STANDALONE_TRUE@		$(DESTDIR)$(includedir)/plpa.h \
+@PLPA_BUILD_STANDALONE_TRUE@		> $(DESTDIR)$(includedir)/plpa.h.install
+@PLPA_BUILD_STANDALONE_TRUE@	cp $(DESTDIR)$(includedir)/plpa.h.install \
+@PLPA_BUILD_STANDALONE_TRUE@		$(DESTDIR)$(includedir)/plpa.h
+@PLPA_BUILD_STANDALONE_TRUE@	rm -f $(DESTDIR)$(includedir)/plpa.h.install
+@PLPA_BUILD_STANDALONE_TRUE@	chmod 0644 $(DESTDIR)$(includedir)/plpa.h
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
