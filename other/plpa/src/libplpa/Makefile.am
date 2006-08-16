@@ -49,6 +49,7 @@ libplpa_included_la_SOURCES = $(plpa_sources)
 # off) into PLPA_PACKAGE_* in order to make <plpa.h> safe to include
 # with other files.
 
+if PLPA_BUILD_STANDALONE
 install-data-hook:
 	sed -e 's/define PACKAGE/define PLPA_PACKAGE/' \
 		$(DESTDIR)$(includedir)/plpa.h \
@@ -57,3 +58,4 @@ install-data-hook:
 		$(DESTDIR)$(includedir)/plpa.h
 	rm -f $(DESTDIR)$(includedir)/plpa.h.install
 	chmod 0644 $(DESTDIR)$(includedir)/plpa.h
+endif
