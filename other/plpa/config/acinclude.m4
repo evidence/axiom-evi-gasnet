@@ -11,6 +11,8 @@
 # 
 # $HEADER$
 #
+# This file is a clone of plpa.m4, with GASNet-specific modifications.
+#
 # ChangeLog for GASNet-specific modifications:
 # * 2006.08.17: Paul Hargrove <PHHargrove@lbl.gov>
 #   + Disable AC_ARG_* calls - we don't need them and don't want their
