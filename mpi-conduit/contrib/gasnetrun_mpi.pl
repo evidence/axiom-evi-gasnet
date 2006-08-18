@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/08/15 22:39:21 $
-# $Revision: 1.48 $
+#     $Date: 2006/08/18 03:35:16 $
+# $Revision: 1.49 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -51,6 +51,8 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my %envfmt = ();
 
 # Probe for which MPI is running
+# mpi-conduit/contrib/mpirun_h contains a database of recognized mpirun -h output strings
+# if you add a line below, please also add an entry to that directory
     my $mpirun_cmd  = $spawncmd;
        $mpirun_cmd  =~ s/\s-.*/ -h/; # poe hangs on -help, so use -h
        $mpirun_cmd  =~ s/\s%[A-Za-z]+//g; # required for Cray MPI
@@ -71,7 +73,8 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi  = ($mpirun_help =~ m| BG/L |);
     my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|);
-    my $is_elan_mpi  = ($mpirun_help =~ m|ELAN|);
+    my $is_hp_mpi  = ($mpirun_help =~ m|-universe_size|);
+    my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
     my $is_jacquard = ($mpirun_help =~ m| \[-noenv\] |) && !$is_elan_mpi;
     my $envprog = $ENV{'ENVCMD'};
     if (! -x $envprog) { # SuperUX has broken "which" implementation, so avoid if possible
@@ -124,6 +127,13 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	# pass env as "/usr/bin/env 'A=1' 'B=2' 'C=3'"
 	%envfmt = ( 'pre' => $envprog,
 		    'val' => "'"
+		  );
+    } elsif ($is_hp_mpi) {
+	$spawner_desc = "HP MPI";
+	# HP mpirun is a wrapper around many different backend-specific spawners, all with different behavior
+	# Use a safe default
+	%envfmt = ( 'pre' => $envprog,
+		    'val' => ''
 		  );
     } elsif ($is_elan_mpi) {
 	$spawner_desc = "Quadrics/ELAN MPI";
