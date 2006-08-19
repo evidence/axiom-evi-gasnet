@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/08/19 00:03:19 $ */
-/*  $Revision: 1.108 $ */
+/*      $Date: 2006/08/19 00:10:40 $ */
+/*  $Revision: 1.109 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -70,9 +70,6 @@
 
 /* has Portable Linux Processor Affinity */
 #undef HAVE_PLPA
-
-/* Which args to sched_setaffinity()? */
-#undef GASNET_SCHED_SETAFFINITY_ARGS
 
 /* have ptmalloc's mallopt() options */
 #undef HAVE_PTMALLOC
