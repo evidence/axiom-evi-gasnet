@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/19 00:03:19 $
- * $Revision: 1.178 $
+ *     $Date: 2006/08/19 10:48:54 $
+ * $Revision: 1.179 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -368,12 +368,10 @@ static void _freezeForDebugger(int depth) {
   }
 }
 extern void gasneti_freezeForDebuggerNow(volatile int *flag, const char *flagsymname) {
-  char name[255];
-  gethostname(name, 255);
   fprintf(stderr,"Process frozen for debugger: host=%s  pid=%i\n"
                  "To unfreeze, attach a debugger and set '%s' to 0, or send a "
                  GASNETI_UNFREEZE_SIGNAL_STR "\n", 
-                 name, (int)getpid(), flagsymname); 
+                 gasnett_gethostname(), (int)getpid(), flagsymname); 
   fflush(stderr);
   _gasneti_freeze_flag = flag;
   *_gasneti_freeze_flag = 1;
@@ -715,8 +713,8 @@ static int _gasneti_print_backtrace_ifenabled(int fd) {
 }
 int (*gasneti_print_backtrace_ifenabled)(int fd) = &_gasneti_print_backtrace_ifenabled;
 /* ------------------------------------------------------------------------------------ */
-extern uint64_t gasneti_checksum(void *p, int numbytes) {
- uint8_t *buf = (uint8_t *)p;
+extern uint64_t gasneti_checksum(const void *p, int numbytes) {
+ uint8_t const *buf = p;
  uint64_t result = 0;
  int i;
  for (i=0;i<numbytes;i++) {
@@ -1224,5 +1222,34 @@ void gasneti_set_affinity_default(int rank) {
 void gasneti_set_affinity(int rank) {
   GASNETT_TRACE_PRINTF("gasnett_set_affinity(%d)", rank);
   GASNETC_SET_AFFINITY(rank);
+}
+/* ------------------------------------------------------------------------------------ */
+/* hostname query */
+/* get MAXHOSTNAMELEN */ 
+#if PLATFORM_OS_SOLARIS 
+#include <netdb.h>
+#else
+#include <sys/param.h>
+#endif 
+#ifndef MAXHOSTNAMELEN
+  #ifdef HOST_NAME_MAX
+    #define MAXHOSTNAMELEN HOST_NAME_MAX
+  #else
+    #define MAXHOSTNAMELEN 1024 /* give up */
+  #endif
+#endif
+const char *gasneti_gethostname() {
+  static gasneti_mutex_t hnmutex = GASNETI_MUTEX_INITIALIZER;
+  static int firsttime = 1;
+  static char hostname[MAXHOSTNAMELEN];
+  gasneti_mutex_lock(&hnmutex);
+    if (firsttime) {
+      if (gethostname(hostname, MAXHOSTNAMELEN))
+        gasnett_fatalerror("gasneti_gethostname() failed to get hostname: aborting");
+      hostname[MAXHOSTNAMELEN - 1] = '\0';
+      firsttime = 0;
+    }
+  gasneti_mutex_unlock(&hnmutex);
+  return hostname;
 }
 /* ------------------------------------------------------------------------------------ */

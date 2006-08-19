@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/08/07 19:36:39 $
- * $Revision: 1.98 $
+ *     $Date: 2006/08/19 10:48:54 $
+ * $Revision: 1.99 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -275,6 +275,7 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_checksum        gasneti_checksum
 #define gasnett_isLittleEndian  gasneti_isLittleEndian
 #define gasnett_set_affinity    gasneti_set_affinity
+#define gasnett_gethostname     gasneti_gethostname
 #define gasnett_spinloop_hint   gasneti_spinloop_hint
 #define gasnett_freezeForDebuggerNow gasneti_freezeForDebuggerNow
 #define gasnett_backtrace_init gasneti_backtrace_init
