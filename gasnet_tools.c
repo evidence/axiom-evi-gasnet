@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/19 10:48:54 $
- * $Revision: 1.179 $
+ *     $Date: 2006/08/21 20:33:10 $
+ * $Revision: 1.180 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1191,6 +1191,7 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
 void gasneti_set_affinity_default(int rank) {
   #if HAVE_PLPA
     int cpus = gasneti_cpu_count();
+    gasneti_plpa_cpu_set_t mask;
 
     if_pf (cpus == 0) {
       static int once = 1;
@@ -1200,11 +1201,19 @@ void gasneti_set_affinity_default(int rank) {
         fflush(stderr);
       }
       /* becomes a NO-OP */
-    } else if (cpus == 1) {
+      return;
+    }
+    
+    /* Try a GET first to check for support */
+    if_pf (ENOSYS == gasneti_plpa_sched_getaffinity(0, sizeof(mask), &mask)) {
+      /* becomes a NO-OP */
+      return;
+    }
+    
+    if (cpus == 1) {
       /* NO-OP on single-processor platform */
     } else {
       int local_rank = rank % cpus;
-      gasneti_plpa_cpu_set_t mask;
       PLPA_CPU_ZERO(&mask);
       PLPA_CPU_SET(local_rank, &mask);
       gasneti_assert_zeroret(gasneti_plpa_sched_setaffinity(0, sizeof(mask), &mask));
