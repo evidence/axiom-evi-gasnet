@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/08/22 23:42:47 $
- * $Revision: 1.182 $
+ *     $Date: 2006/08/23 02:35:09 $
+ * $Revision: 1.183 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -331,8 +331,7 @@ void gasneti_defaultSignalHandler(int sig) {
         signame, sig, (int)gasnet_mynode(), (int)gasnet_nodes()); 
       fflush(stderr);
 
-      if (gasneti_getenv_yesno_withdefault("GASNET_FREEZE_ON_ERROR",0))
-        gasneti_freezeForDebuggerNow(&gasnet_frozen,"gasnet_frozen"); /* allow user freeze */
+      gasnett_freezeForDebuggerErr(); /* allow freeze */
 
       gasneti_print_backtrace_ifenabled(STDERR_FILENO); /* try to print backtrace */
 

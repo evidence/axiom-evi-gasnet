@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/21 20:33:10 $
- * $Revision: 1.180 $
+ *     $Date: 2006/08/23 02:35:09 $
+ * $Revision: 1.181 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -282,9 +282,7 @@ extern void gasneti_fatalerror(const char *msg, ...) {
     fflush(stderr);
   va_end(argptr);
 
-  /* allow freeze */
-  if (gasneti_getenv_yesno_withdefault("GASNET_FREEZE_ON_ERROR",0))
-    gasneti_freezeForDebuggerNow(&gasnet_frozen,"gasnet_frozen");
+  gasnett_freezeForDebuggerErr(); /* allow freeze */
 
   /* try to get a pre-signal backtrace, which may be more precise */
   if (!gasneti_print_backtrace_ifenabled(STDERR_FILENO)) 
@@ -377,6 +375,20 @@ extern void gasneti_freezeForDebuggerNow(volatile int *flag, const char *flagsym
   *_gasneti_freeze_flag = 1;
   gasneti_local_wmb();
   _freezeForDebugger(0);
+}
+
+static int gasneti_freezeonerr_isinit = 0;
+static int gasneti_freezeonerr_userenabled = 0;
+static void gasneti_freezeForDebuggerErr_init() {
+  gasneti_freezeonerr_userenabled = gasneti_getenv_yesno_withdefault("GASNET_FREEZE_ON_ERROR",0);
+  gasneti_local_wmb();
+  gasneti_freezeonerr_isinit = 1;
+}
+extern void gasneti_freezeForDebuggerErr() {
+  if (!gasneti_freezeonerr_isinit) gasneti_freezeForDebuggerErr_init();
+  else gasneti_local_rmb();
+  if (gasneti_freezeonerr_userenabled)
+    gasneti_freezeForDebuggerNow(&gasnet_frozen,"gasnet_frozen"); /* allow user freeze */
 }
 /* ------------------------------------------------------------------------------------ */
 /* Dynamic backtrace support */
@@ -603,6 +615,7 @@ extern void gasneti_backtrace_init(const char *exename) {
   }
 
   gasneti_backtrace_isinit = 1;
+  gasneti_freezeForDebuggerErr_init();
 }
 
 /* "best effort" to produce a backtrace

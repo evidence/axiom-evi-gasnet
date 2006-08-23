@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/08/19 10:48:54 $
- * $Revision: 1.14 $
+ *     $Date: 2006/08/23 02:35:09 $
+ * $Revision: 1.15 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -111,6 +111,7 @@ GASNETI_NORETURNP(gasneti_fatalerror)
 extern void gasneti_killmyprocess(int exitcode) GASNETI_NORETURN;
 GASNETI_NORETURNP(gasneti_killmyprocess)
 
+extern void gasneti_freezeForDebuggerErr(); /* freeze iff user enabled error freezing */
 extern void gasneti_freezeForDebuggerNow(volatile int *flag, const char *flagsymname);
 extern volatile int gasnet_frozen; /* export to simplify debugger restart */ 
 extern void gasneti_backtrace_init(const char *exename);

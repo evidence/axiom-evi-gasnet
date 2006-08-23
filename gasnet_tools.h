@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/08/22 03:32:16 $
- * $Revision: 1.100 $
+ *     $Date: 2006/08/23 02:35:09 $
+ * $Revision: 1.101 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -278,6 +278,7 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_gethostname     gasneti_gethostname
 #define gasnett_spinloop_hint   gasneti_spinloop_hint
 #define gasnett_freezeForDebuggerNow gasneti_freezeForDebuggerNow
+#define gasnett_freezeForDebuggerErr gasneti_freezeForDebuggerErr
 #define gasnett_backtrace_init gasneti_backtrace_init
 #define gasnett_print_backtrace gasneti_print_backtrace
 #define gasnett_print_backtrace_ifenabled gasneti_print_backtrace_ifenabled
