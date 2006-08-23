@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/23 02:35:09 $
- * $Revision: 1.181 $
+ *     $Date: 2006/08/23 13:15:21 $
+ * $Revision: 1.182 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -409,6 +409,9 @@ extern void gasneti_freezeForDebuggerErr() {
 #if defined(DBX_PATH) && !GASNETI_NO_FORK
   #define GASNETI_BT_DBX	&gasneti_bt_dbx
 #endif
+#if defined(IDB_PATH) && !GASNETI_NO_FORK
+  #define GASNETI_BT_IDB	&gasneti_bt_idb
+#endif
 
 #if !GASNETI_NO_FORK
 /* Execute system w/ stdout redirected to 'fd' and std{in,err} to /dev/null */
@@ -460,6 +463,21 @@ static char gasneti_exename_bt[255];
     static char cmd[1024];
     const char *dbx = (access(DBX_PATH, X_OK) ? "dbx" : DBX_PATH);
     int rc = sprintf(cmd, fmt, (int)getpid(), dbx, gasneti_exename_bt);
+    if (rc < 0) return -1;
+    return gasneti_system_redirected(cmd, fd);
+  }
+#endif
+
+#ifdef GASNETI_BT_IDB
+  static int gasneti_bt_idb(int fd) {
+    #if GASNETI_THREADS
+      const char fmt[] = "echo 'set $stoponattach; attach %d; where thread all; quit' | %s -dbx -quiet '%s'"; 
+    #else
+      const char fmt[] = "echo 'set $stoponattach; attach %d; where; quit' | %s -dbx -quiet '%s'"; 
+    #endif
+    static char cmd[1024];
+    const char *idb = (access(IDB_PATH, X_OK) ? "idb" : IDB_PATH);
+    int rc = sprintf(cmd, fmt, (int)getpid(), idb, gasneti_exename_bt);
     if (rc < 0) return -1;
     return gasneti_system_redirected(cmd, fd);
   }
@@ -574,6 +592,9 @@ static struct {
   #endif
   #ifdef GASNETI_BT_PRINTSTACK
   { "PRINTSTACK", GASNETI_BT_PRINTSTACK, 1 },
+  #endif
+  #ifdef GASNETI_BT_IDB
+  { "IDB", GASNETI_BT_IDB, 1 },
   #endif
   { NULL, NULL, 0 } /* Avoids empty initializer and trailing commas */
 };
