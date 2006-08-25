@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/23 13:15:21 $
-# $Revision: 1.390 $
+#     $Date: 2006/08/25 22:09:05 $
+# $Revision: 1.391 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.390 $)
+AC_REVISION($Revision: 1.391 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2212,6 +2212,26 @@ else
 fi
 popdef([CONDUIT_DESC])
 #--------------------------------------------------------------------------------------------------------
+# Portals Conduit
+
+pushdef([CONDUIT_DESC],[Portals network conduit (portals)])
+GASNET_IF_ENABLED(portals,Enable the portals conduit (forced),enabled_portals=yes,enabled_protals=no)
+AM_CONDITIONAL(USE_PORTALS_CONDUIT, test "$enabled_portals" = yes)
+AC_SUBST(MPI_CC) # compiler to be used to build AMMPI, and linker for AMMPI-based backends
+AC_SUBST(MPI_CFLAGS) # compiler flags (optimization, includes, etc) to be used with above compiler when building AMMPI
+AC_SUBST(MPI_LIBS) # libs and ldflags that must be used when linking AMMPI-based backend
+AC_SUBST(MPI_DEFINES) # preprocessor defs to be used for all client code that includes ammpi.h (not including AMMPI library itself)
+AC_SUBST(MPIRUN_CMD) # prototype command used by tcrun to run MPI programs
+
+if test "$enabled_portals" = yes ; then
+   CONDUITS="$CONDUITS portals"
+   CONDUIT_REPORT(ON)
+else
+   CONDUIT_REPORT(OFF)
+fi
+popdef([CONDUIT_DESC])
+
+#--------------------------------------------------------------------------------------------------------
 # SHMEM configuration
 
 pushdef([CONDUIT_DESC],[Shmem network conduit (shmem)])
@@ -2897,6 +2917,9 @@ vapi-conduit/contrib/gasnetrun_vapi
 
 shmem-conduit/Makefile
 shmem-conduit/conduit.mak
+
+portals-conduit/Makefile
+portals-conduit/conduit.mak
 
 other/Makefile
 other/Makefile-conduit.mak

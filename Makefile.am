@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2006/08/19 00:03:19 $
-# $Revision: 1.64 $
+#     $Date: 2006/08/25 22:09:05 $
+# $Revision: 1.65 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -24,7 +24,8 @@ CONDUIT_DIRS =       \
 	shmem-conduit  \
 	smp-conduit  \
 	udp-conduit  \
-	vapi-conduit
+	vapi-conduit \
+	portals-conduit
 
 DIST_SUBDIRS = $(SUBDIRS) $(CONDUIT_DIRS)
 
