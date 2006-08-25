@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/08/23 13:15:21 $ */
-/*  $Revision: 1.110 $ */
+/*      $Date: 2006/08/25 22:31:02 $ */
+/*  $Revision: 1.111 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -149,6 +149,9 @@
 
 /* udp-conduit default custom spawn command */
 #undef GASNET_CSPAWN_CMD
+
+/* platform is an x86 w/ the ebx register allocated to the GOT */
+#undef GASNETI_ARCH_X86_PIC
 
 /* platform is an SGI Altix multiprocessor */
 #undef GASNETI_ARCH_ALTIX

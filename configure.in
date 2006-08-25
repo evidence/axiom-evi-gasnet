@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/25 22:09:05 $
-# $Revision: 1.391 $
+#     $Date: 2006/08/25 22:31:02 $
+# $Revision: 1.392 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.391 $)
+AC_REVISION($Revision: 1.392 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -942,13 +942,40 @@ if test "$enabled_sgi_ip27" = yes; then
   AC_DEFINE(GASNETI_ARCH_SGI_IP27)
 fi
 
+
+## x86 -fPIC (which steals the B register)
+## XXX: Test currently only correctly identifies PIC mode with using a
+## compiler which accepts GNU-style asm - but that is the only
+## case where we *currently* care.  Test may need some additional
+## cases for other compilers in the future.
+GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -I$TOP_SRCDIR/other -D_IN_CONFIGURE")
+AC_MSG_CHECKING(for x86 PIC mode)
+AC_TRY_COMPILE([
+  #include "gasnet_asm.h" /* For PGI_WITH_REAL_ASM and PLATFORM_COMPILER_* */
+], [
+  /* This test is designed to FAIL if the ebx register is reserved */
+  #if PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_X86 
+    #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
+        PLATFORM_COMPILER_PATHSCALE || PGI_WITH_REAL_ASM || PLATFORM_COMPILER_TINY
+      __asm__ __volatile__ ("pushl %0" : : "b" (0));
+    #else
+	/* Don't know, but fortunately don't currently care */
+    #endif
+  #else
+    /* N/A */
+  #endif
+], [AC_MSG_RESULT(no)
+], [AC_DEFINE(GASNETI_ARCH_X86_PIC)
+    AC_MSG_RESULT(yes)])
+GASNET_POPVAR(CFLAGS)
+
 ## Spinloop hints
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -I$TOP_SRCDIR/other -D_IN_CONFIGURE")
 AC_MSG_CHECKING(for x86 pause instruction)
 AC_TRY_COMPILE([
-  #include "gasnet_asm.h"
+  #include "gasnet_asm.h" /* Includes portable_platform.h */
 ], [
-  #if defined(__i386__) || defined(__x86_64__)
+  #if PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_X86
     GASNETI_ASM("pause");
   #else
     #error wrong CPU architecture
