@@ -927,7 +927,7 @@ extern void gasnetc_portals_init(void)
   eq_len += 100;
 
   GASNETI_TRACE_PRINTF(C,("Constructing EQ with %d entries",eq_len));
-#if 1
+#if 0
   if (gasneti_mynode == 0) {
     printf("MAX_POLL_EVENTS = %i\n",gasnetc_max_poll_events);
     printf("PUTGET_MAXPOLL  = %i\n",gasnete_putget_poll);
