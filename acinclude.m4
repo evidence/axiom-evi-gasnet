@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/08/26 08:13:08 $
-dnl $Revision: 1.112 $
+dnl     $Date: 2006/08/26 09:41:42 $
+dnl $Revision: 1.113 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -580,12 +580,19 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
      _GASNET_GCCISAPPLE=`echo "$_GASNET_GCCVER" | grep 'gcc version' | grep 'Apple Computer'`
      _GASNET_GCCTARGET=`echo "$_GASNET_GCCVER" | /usr/bin/perl -ne 'print \[$]1 if (m/--target=(\S+)/);'`
      _GASNET_GCCCPU=`echo "$_GASNET_GCCVER" | /usr/bin/perl -ne 'print \[$]1 if (m/--target=([[^-]]+)/);'`
-     if test "$_GASNET_GCCISAPPLE" -a "$_GASNET_GCCTARGET" -a "$_GASNET_GCCCPU" -a \
-             "$_GASNET_GCCTARGET" != "$target"; then
-       GASNET_MSG_WARN([Apple gcc is cross-compiling for $_GASNET_GCCTARGET, readjusting configure target])
-       target="$_GASNET_GCCTARGET" 
-       target_cpu="$_GASNET_GCCCPU" 
+     if test "$_GASNET_GCCISAPPLE" -a "$_GASNET_GCCTARGET" -a "$_GASNET_GCCCPU" ; then
+        case "$target" in
+         $_GASNET_GCCCPU-*) ;; 
+         *) 
+         GASNET_MSG_WARN([Apple gcc is cross-compiling for $_GASNET_GCCTARGET, readjusting configure target])
+         target="$_GASNET_GCCTARGET" 
+         target_alias="$target" 
+         ac_cv_target="$target" 
+         ac_cv_target_alias="$target" 
+         target_cpu="$_GASNET_GCCCPU" 
+        esac
      fi
+     ;;
   esac
   SYSTEM_TUPLE="$target"
   AC_SUBST(SYSTEM_TUPLE)
