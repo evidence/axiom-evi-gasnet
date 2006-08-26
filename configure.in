@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/25 23:32:54 $
-# $Revision: 1.393 $
+#     $Date: 2006/08/26 13:13:12 $
+# $Revision: 1.394 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.393 $)
+AC_REVISION($Revision: 1.394 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2215,15 +2215,63 @@ popdef([CONDUIT_DESC])
 # Portals Conduit
 
 pushdef([CONDUIT_DESC],[Portals network conduit (portals)])
-GASNET_IF_ENABLED(portals,Enable the portals conduit (forced),enabled_portals=yes,enabled_protals=no)
-AM_CONDITIONAL(USE_PORTALS_CONDUIT, test "$enabled_portals" = yes)
-AC_SUBST(MPI_CC) # compiler to be used to build AMMPI, and linker for AMMPI-based backends
-AC_SUBST(MPI_CFLAGS) # compiler flags (optimization, includes, etc) to be used with above compiler when building AMMPI
-AC_SUBST(MPI_LIBS) # libs and ldflags that must be used when linking AMMPI-based backend
-AC_SUBST(MPI_DEFINES) # preprocessor defs to be used for all client code that includes ammpi.h (not including AMMPI library itself)
-AC_SUBST(MPIRUN_CMD) # prototype command used by tcrun to run MPI programs
+case "$target" in
+  *-catamount-*) enabled_portals=yes ;; # enable by default only on catamount
+  *) enabled_portals=no ;;
+esac
+GASNET_IF_ENABLED_WITH_AUTO(portals, Enable/disable the CONDUIT_DESC (auto-detected),
+  [enabled_portals=yes;force_portals=yes],
+  enabled_portals=no,
+  [])
 
-if test "$enabled_portals" = yes ; then
+if test "$enabled_portals" = yes; then
+  have_portals=yes # start by assuming we have it
+  GASNET_ENV_DEFAULT(PE_DIR, /opt/xt-pe/default)
+  GASNET_ENV_DEFAULT(PORTALS_INCLUDE, $PE_DIR/include)
+  GASNET_ENV_DEFAULT(CATAMOUNT_DIR, /opt/xt-catamount/default)
+  GASNET_ENV_DEFAULT(CATAMOUNT_INCLUDE, $CATAMOUNT_DIR/catamount/linux/include)
+  if test "$have_mpi_compat" != yes; then
+    GASNET_MSG_WARN([portals-conduit requires MPI compatibility support which $mpi_reason])
+    have_portals=no
+  fi
+  if test "$gasnet_cv_cc_family" != GNU; then
+    GASNET_MSG_WARN([portals-conduit currently requires the GNU GCC compiler (PrgEnv-gnu))])
+    have_portals=no
+  fi
+  if test $have_portals = yes; then
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I${PORTALS_INCLUDE} -I${CATAMOUNT_INCLUDE}")
+  
+    AC_MSG_CHECKING(for working Portals configuration)
+    AC_TRY_LINK( [
+       #include <portals/portals3.h>
+       #include <catamount/cnos_mpi_os.h>
+    ], [{
+       static ptl_handle_ni_t ptl_ni_h;
+       static ptl_interface_t ptl_iface;
+       int my_rank = cnos_get_rank();
+       int my_size = cnos_get_size();
+       PtlNIInit(ptl_iface, PTL_PID_ANY, NULL, NULL, &ptl_ni_h);
+    }], [ portals_test_worked=yes ], [ portals_test_worked=no GASNET_ERR_SAVE() ] )
+    GASNET_POPVAR(CFLAGS)
+  
+    if test "$portals_test_worked" = yes; then
+      AC_MSG_RESULT(yes)
+    else
+      AC_MSG_RESULT(no)
+      GASNET_MSG_WARN(build test failed: I don't know how to build Portals programs on your system)
+      have_portals=no
+    fi
+  fi
+  # Check for conflict
+  if test "$force_portals$have_portals" = yesno; then
+    GASNET_MSG_ERROR([User requested --enable-portals but I don't know how to build Portals programs for your system.])
+  fi
+  AC_SUBST(PORTALS_INCLUDE)
+  AC_SUBST(CATAMOUNT_INCLUDE)
+fi
+
+AM_CONDITIONAL(USE_PORTALS_CONDUIT, test "$have_portals" = yes)
+if test "$have_portals" = yes ; then
    CONDUITS="$CONDUITS portals"
    CONDUIT_REPORT(ON)
 else

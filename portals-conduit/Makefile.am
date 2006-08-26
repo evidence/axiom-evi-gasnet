@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/Makefile.am,v $
-#     $Date: 2006/08/24 18:20:21 $
-# $Revision: 1.2 $
+#     $Date: 2006/08/26 13:13:15 $
+# $Revision: 1.3 $
 # Description: Makefile for GASNet portals conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -9,9 +9,6 @@
 AUTOMAKE_OPTIONS = foreign 1.4
 
 CONDUIT_NAME=portals
-
-PORTALS_INC_DIR=/opt/xt-pe/default/include
-CATAMOUNT_INC_DIR=/opt/xt-catamount/default/catamount/linux/include
 
 # any conduit-specific subdirectories containing Makefile.am's
 SUBDIRS = .
@@ -40,7 +37,7 @@ CONDUIT_SOURCELIST =          \
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I$(top_srcdir)/other/ammpi -I$(PORTALS_INC_DIR) -I$(CATAMOUNT_INC_DIR)
+CONDUIT_EXTRALIBCFLAGS = -I$(top_srcdir)/other/ammpi -I@PORTALS_INCLUDE@ -I@CATAMOUNT_INCLUDE@
 
 # additional conduit header files to install from external, non-standard directories
 CONDUIT_EXTRAHEADERS = $(top_srcdir)/other/ammpi/*.h 

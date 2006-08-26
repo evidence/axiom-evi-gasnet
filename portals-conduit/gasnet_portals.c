@@ -706,7 +706,7 @@ extern int gasnetc_chunk_alloc(gasnetc_chunkalloc_t *allocator, size_t nbytes, p
 #if GASNETI_STATS_OR_TRACE
     allocator->inuse++;
     if (allocator->inuse > allocator->hwm) allocator->hwm = allocator->inuse;
-    GASNETI_TRACE_PRINTF(C,("CHUNK_ALLOC: name %s, inuse = %d, hwm = %d, offset=%ul",allocator->name,allocator->inuse,allocator->hwm,(unsigned long)*offset));
+    GASNETI_TRACE_PRINTF(C,("CHUNK_ALLOC: name %s, inuse = %d, hwm = %d, offset=%lu",allocator->name,allocator->inuse,allocator->hwm,(unsigned long)*offset));
     GASNETI_TRACE_EVENT(C, CHUNK_ALLOC);
 #endif
 
@@ -727,7 +727,7 @@ extern void gasnetc_chunk_free(gasnetc_chunkalloc_t *allocator, ptl_size_t offse
     allocator->freelist = p;
 #if GASNETI_STATS_OR_TRACE
     allocator->inuse--;
-    GASNETI_TRACE_PRINTF(C,("CHUNK_FREE: name %s, inuse = %d, hwm = %d, offset=%ul",allocator->name,allocator->inuse,allocator->hwm,(unsigned long)offset));
+    GASNETI_TRACE_PRINTF(C,("CHUNK_FREE: name %s, inuse = %d, hwm = %d, offset=%lu",allocator->name,allocator->inuse,allocator->hwm,(unsigned long)offset));
     GASNETI_TRACE_EVENT(C, CHUNK_FREE);
 #endif
 }
