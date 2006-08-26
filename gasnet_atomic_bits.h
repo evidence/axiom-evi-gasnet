@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/08/15 02:06:23 $
- * $Revision: 1.242 $
+ *     $Date: 2006/08/26 00:54:38 $
+ * $Revision: 1.243 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -439,8 +439,10 @@
             return (int)retval;
           }
         #endif
-      #elif !PLATFORM_COMPILER_TINY
-	/* To perform read and set atomically on x86 requires use of the locked
+      #elif !PLATFORM_COMPILER_TINY && !__PIC__
+	/* "Normal" ILP32 case:
+	 *
+	 * To perform read and set atomically on x86 requires use of the locked
 	 * 8-byte c-a-s instruction.  This is the only atomic 64-bit operation
 	 * available on this architecture.  Note that we need the lock prefix
 	 * even on a uniprocessor to ensure that we are signal safe.
@@ -456,8 +458,7 @@
 	 *   observed to always use (ebx,ecx).  Nothing documents either behavior, so we
 	 *   must use the 'xchgl' unconditionally. ]
 	 *
-	 * For compilers like tinyC that don't deal well w/ 64-bit arguments to asms
-	 * see the #else clause below.
+	 * See the following #elif/#else clauses for slight variants.
 	 */
         #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
@@ -505,15 +506,81 @@
 	  return retval;
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
+      #elif __PIC__
+	/* Much the same as the "normal" ILP32 case, but w/ save and restore of EBX.
+	 * This is achieved by passing the "other" 64-bit value in ECX and a second
+ 	 * register of the compiler's choosing, which is then swapped w/ EBX.
+	 *
+	 * We also need to take care that the cmpxchg8b intruction won't get a
+	 * GOT-relative address argument - since EBX doesn't hold the GOT pointer
+	 * at the time it is executed.  This is done by loading the address into
+	 * a register rather than giving it as an "m".
+	 *
+	 * Alas, if we try to add an "m" output for the target location, gcc thinks
+	 * it needs to allocate another register for it.  Having none left, it gives
+	 * up at this point.  So, we need to list "memory" in the clobbers instead.
+	 */
+        #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
+        GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
+        int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
+	  register uint32_t newlo = (uint32_t)newval;
+	  register uint32_t newhi = (uint32_t)(newval >> 32);
+          __asm__ __volatile__ (
+		    "xchgl	%2, %%ebx	\n\t"
+		    "lock;			"
+		    "cmpxchg8b	(%3)		\n\t"
+		    "sete	%b1		\n\t"
+		    "andl	$255, %k1	\n\t"
+		    "movl	%2, %%ebx	"
+		    : "+&A" (oldval), "+&c" (newhi), "+&r" (newlo)
+		    : "r" (&p->ctr)
+		    : "cc", "memory");
+          return newhi;
+        }
+        GASNETI_INLINE(gasneti_atomic64_set)
+        void gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t v, int flags) {
+	  register uint64_t oldval = p->ctr;
+	  register uint32_t newlo = (uint32_t)v;
+	  register uint32_t newhi = (uint32_t)(v >> 32);
+          __asm__ __volatile__ (
+		    "xchgl	%1, %%ebx	\n\t"
+		    "0:				\n\t"
+		    "lock;			"
+		    "cmpxchg8b	(%3)		\n\t"
+		    "jnz	0b		\n\t"
+		    "movl	%1, %%ebx	"
+		    : "+&A" (oldval), "+&r" (newlo)
+		    : "c" (newhi), "r" (&p->ctr)
+		    : "cc", "memory");
+	}
+	#define gasneti_atomic64_set gasneti_atomic64_set
+        GASNETI_INLINE(gasneti_atomic64_read)
+        uint64_t gasneti_atomic64_read(gasneti_atomic64_t *p, int flags) {
+	  register uint64_t retval = p->ctr;
+	  register uint32_t save_ebx, ecx;
+          __asm__ __volatile__ (
+		    "movl	%%ebx, %2	\n\t"
+		    "0:				\n\t"
+		    "movl	%%eax, %%ebx	\n\t"
+		    "movl	%%edx, %%ecx	\n\t"
+		    "lock;			"
+		    "cmpxchg8b	(%3)		\n\t"
+		    "jnz	0b		\n\t"
+		    "movl	%2, %%ebx	"
+		    : "+&A" (retval), "=&c" (ecx), "=&r" (save_ebx)
+		    : "r" (&p->ctr)
+		    : "cc");
+	  return retval;
+	}
+	#define gasneti_atomic64_read gasneti_atomic64_read
       #else /* Tiny CC */
-	/* Everything here works like the case above, except that we break everything
+	/* Everything here works like the "normal" ILP32 case, except that we break everything
 	 * down in to nice bite-sized (4-bytes actually) chunks and explictly assign
 	 * them to registers A through D.
 	 */
         #define gasneti_atomic64_align 4 /* only need 4-byte alignment, not the default 8 */
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
-	  register uint64_t retval = newval;
 	  register uint32_t oldlo = (uint32_t)(oldval & 0xFFFFFFFF);
 	  register uint32_t oldhi = (uint32_t)(oldval >> 32);
 	  register uint32_t newlo = (uint32_t)(newval & 0xFFFFFFFF);
