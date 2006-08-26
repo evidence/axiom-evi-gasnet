@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/08/19 11:17:10 $
-dnl $Revision: 1.111 $
+dnl     $Date: 2006/08/26 08:13:08 $
+dnl $Revision: 1.112 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -572,6 +572,21 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
   AC_SUBST(BUILD_IS_SRC)
   SYSTEM_NAME="`hostname`"
   AC_SUBST(SYSTEM_NAME)
+  case "$target" in 
+   # Apple gcc has -arch options for cross-compilation, but target binaries may still work due to Rosetta (making our cross-compilation support unnecessary)
+   # ensure we report the correct target tuple
+   *-apple-darwin*)
+     _GASNET_GCCVER=`${CC:-gcc} -v 2>&1`
+     _GASNET_GCCISAPPLE=`echo "$_GASNET_GCCVER" | grep 'gcc version' | grep 'Apple Computer'`
+     _GASNET_GCCTARGET=`echo "$_GASNET_GCCVER" | /usr/bin/perl -ne 'print \[$]1 if (m/--target=(\S+)/);'`
+     _GASNET_GCCCPU=`echo "$_GASNET_GCCVER" | /usr/bin/perl -ne 'print \[$]1 if (m/--target=([[^-]]+)/);'`
+     if test "$_GASNET_GCCISAPPLE" -a "$_GASNET_GCCTARGET" -a "$_GASNET_GCCCPU" -a \
+             "$_GASNET_GCCTARGET" != "$target"; then
+       GASNET_MSG_WARN([Apple gcc is cross-compiling for $_GASNET_GCCTARGET, readjusting configure target])
+       target="$_GASNET_GCCTARGET" 
+       target_cpu="$_GASNET_GCCCPU" 
+     fi
+  esac
   SYSTEM_TUPLE="$target"
   AC_SUBST(SYSTEM_TUPLE)
   AC_MSG_RESULT( system info:      $SYSTEM_NAME $SYSTEM_TUPLE)
