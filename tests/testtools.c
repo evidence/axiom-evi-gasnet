@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/08/10 07:37:26 $
- * $Revision: 1.72 $
+ *     $Date: 2006/08/26 08:03:05 $
+ * $Revision: 1.73 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -171,8 +171,9 @@ int main(int argc, char **argv) {
   TEST_HEADER("Testing high-performance timers...")
   { /* high performance timers */
     int i;
-    gasnett_tick_t start, end;
-    uint64_t startref, endref;
+    gasnett_tick_t begin, start, end;
+    uint64_t beginref, startref, endref;
+    int timeiters = iters / 10;
     gasnett_tick_t ticktimemin = GASNETT_TICK_MIN;
     gasnett_tick_t ticktimemax = GASNETT_TICK_MAX;
 
@@ -180,14 +181,21 @@ int main(int argc, char **argv) {
     if (!(gasnett_ticks_now() > ticktimemin)) ERR("!(now > min)");
     if (!(gasnett_ticks_now() < ticktimemax)) ERR("!(now < max)");
 
-    for (i=0; i < iters/10; i++) {
+    begin = gasnett_ticks_now();  /* outer time point */
+    beginref = gasnett_gettimeofday_us();
+    for (i=0; i < timeiters; i++) {
       int time, timeref;
-      start = gasnett_ticks_now();
-      startref = gasnett_gettimeofday_us();
-      if (i % (iters/3) == 0) sleep(1); /* sleep wait */
-      else { /* busy wait */
-        gasnett_tick_t last = gasnett_ticks_now();
-        while (gasnett_ticks_to_us(last-start) < 100000) {
+      if (i == timeiters - 1) {
+        start = begin; /* use outer time point for base of last iteration */
+        startref = beginref;
+      } else {
+        start = gasnett_ticks_now(); /* inner time point */
+        startref = gasnett_gettimeofday_us();
+      }
+      if (i % (timeiters/3) == 0) sleep(1); /* sleep wait */
+      { /* busy wait */
+        gasnett_tick_t last = start;
+        do {
           gasnett_tick_t next = gasnett_ticks_now();
           if (next < last) 
             ERR("gasnett_ticks_to_us not monotonic! !(%llu <= %llu)",
@@ -200,7 +208,7 @@ int main(int argc, char **argv) {
                  (unsigned long long)next, (unsigned long long)GASNETT_TICK_MAX);
           d_junk *= 1.0001;
           last = next;
-        }
+        } while (gasnett_ticks_to_us(last-start) < 100000);
       }
       end = gasnett_ticks_now();
       endref = gasnett_gettimeofday_us();
