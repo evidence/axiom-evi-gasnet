@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/08/23 02:35:09 $
- * $Revision: 1.183 $
+ *     $Date: 2006/08/27 11:11:32 $
+ * $Revision: 1.184 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -70,6 +70,8 @@ GASNETI_IDENT(gasneti_IdentString_SegConfig, "$GASNetSegment: GASNET_SEGMENT_" G
 
 /* embed a string with complete configuration info to support versioning checks */
 GASNETI_IDENT(gasneti_IdentString_libraryConfig, "$GASNetConfig: (libgasnet.a) " GASNET_CONFIG_STRING " $");
+/* the canonical conduit name */
+GASNETI_IDENT(gasneti_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CONDUIT_NAME_STR " $");
 
 int gasneti_init_done = 0; /*  true after init */
 int gasneti_attach_done = 0; /*  true after attach */

@@ -1,6 +1,6 @@
 /* $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gm-conduit/Attic/gasnet_core_fwd.h,v $
- * $Date: 2005/08/20 10:52:56 $
- * $Revision: 1.28 $
+ * $Date: 2006/08/27 11:11:36 $
+ * $Revision: 1.29 $
  * Description: GASNet header for GM conduit core (forward definitions)
  * Copyright 2002, Christian Bell <csbell@cs.berkeley.edu>
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -18,6 +18,8 @@
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         GM
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
+#define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
+#define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
 #define GASNET_CONDUIT_GM        1
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */

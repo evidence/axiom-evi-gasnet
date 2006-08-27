@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2006/05/23 12:42:17 $
- * $Revision: 1.26 $
+ *     $Date: 2006/08/27 11:11:34 $
+ * $Revision: 1.27 $
  * Description: GASNet header for elan conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,6 +19,8 @@ GASNETI_BEGIN_EXTERNC
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         ELAN
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
+#define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
+#define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
 #define GASNET_CONDUIT_ELAN      1
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */

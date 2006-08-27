@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/shmem-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2006/05/23 12:42:37 $
- * $Revision: 1.12 $
+ *     $Date: 2006/08/27 11:11:46 $
+ * $Revision: 1.13 $
  * Description: GASNet header for shmem conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,6 +17,8 @@
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         SHMEM
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
+#define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
+#define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
 #define GASNET_CONDUIT_SHMEM 1
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */

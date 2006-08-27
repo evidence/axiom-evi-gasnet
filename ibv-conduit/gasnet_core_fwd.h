@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2006/05/23 12:42:43 $
- * $Revision: 1.34 $
+ *     $Date: 2006/08/27 11:11:56 $
+ * $Revision: 1.35 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,6 +26,8 @@
 #define GASNET_CORE_VERSION_STR  _STRINGIFY(GASNET_CORE_VERSION)
 #define GASNET_CORE_NAME         VAPI
 #define GASNET_CORE_NAME_STR     _STRINGIFY(GASNET_CORE_NAME)
+#define GASNET_CONDUIT_NAME      GASNET_CORE_NAME
+#define GASNET_CONDUIT_NAME_STR  _STRINGIFY(GASNET_CONDUIT_NAME)
 #define GASNET_CONDUIT_VAPI      1
 
 /* This is the limit on the LID space... */

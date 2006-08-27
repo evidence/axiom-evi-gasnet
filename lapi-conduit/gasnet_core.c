@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/05/11 09:43:34 $
- * $Revision: 1.82 $
+ *     $Date: 2006/08/27 11:11:38 $
+ * $Revision: 1.83 $
  * Description: GASNet lapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,7 +29,7 @@
 #endif
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
-GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
+GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
 

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/05/11 09:43:48 $
- * $Revision: 1.22 $
+ *     $Date: 2006/08/27 11:11:44 $
+ * $Revision: 1.23 $
  * Description: GASNet sci conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *				   Hung-Hsun Su <su@hcs.ufl.edu>
@@ -19,7 +19,7 @@
 #include <sched.h>
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
-GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
+GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
 

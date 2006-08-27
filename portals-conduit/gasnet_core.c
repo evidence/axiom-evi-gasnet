@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/08/24 18:20:21 $
- * $Revision: 1.2 $
+ *     $Date: 2006/08/27 11:11:42 $
+ * $Revision: 1.3 $
  * Description: GASNet MPI conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,7 +18,7 @@
 #include <signal.h>
 
 GASNETI_IDENT(gasnetc_IdentString_Version, "$GASNetCoreLibraryVersion: " GASNET_CORE_VERSION_STR " $");
-GASNETI_IDENT(gasnetc_IdentString_ConduitName, "$GASNetConduitName: " GASNET_CORE_NAME_STR " $");
+GASNETI_IDENT(gasnetc_IdentString_Name,    "$GASNetCoreLibraryName: " GASNET_CORE_NAME_STR " $");
 
 gasnet_handlerentry_t const *gasnetc_get_handlertable();
 static void gasnetc_atexit(void);

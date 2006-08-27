@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/07/16 20:53:10 $
- * $Revision: 1.53 $
+ *     $Date: 2006/08/27 11:11:32 $
+ * $Revision: 1.54 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -333,9 +333,9 @@ GASNETI_END_EXTERNC
   #define GASNET_CONFIG_STRING                                            \
              "RELEASE=" _STRINGIFY(GASNETI_RELEASE_VERSION) ","           \
              "SPEC=" _STRINGIFY(GASNET_VERSION) ","                       \
-             "CONDUIT="                                                   \
-             GASNET_CORE_NAME_STR "-" GASNET_CORE_VERSION_STR "/"         \
-             GASNET_EXTENDED_NAME_STR "-" GASNET_EXTENDED_VERSION_STR "," \
+             "CONDUIT=" GASNET_CONDUIT_NAME_STR "("                       \
+             GASNET_CORE_NAME_STR"-"GASNET_CORE_VERSION_STR "/"           \
+             GASNET_EXTENDED_NAME_STR"-"GASNET_EXTENDED_VERSION_STR "),"  \
              "THREADMODEL=" _STRINGIFY(GASNETI_THREAD_MODEL) ","          \
              "SEGMENT=" _STRINGIFY(GASNETI_SEGMENT_CONFIG) ","            \
              "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) ","                    \
