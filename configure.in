@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/26 13:13:12 $
-# $Revision: 1.394 $
+#     $Date: 2006/08/27 03:13:02 $
+# $Revision: 1.395 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.394 $)
+AC_REVISION($Revision: 1.395 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -945,7 +945,8 @@ fi
 ## Spinloop hints
 GASNET_PUSHVAR(CFLAGS,"$CFLAGS $MISC_CPPFLAGS $MISC_CFLAGS -I$TOP_SRCDIR -I$TOP_SRCDIR/other -D_IN_CONFIGURE")
 AC_MSG_CHECKING(for x86 pause instruction)
-AC_TRY_COMPILE([
+# need to run here because some OS's (Solaris/x86) forbid the pause instruction
+GASNET_TRY_CACHE_RUN_WITHCC(for x86 pause instruction,x86_pause_instruction, [
   #include "gasnet_asm.h" /* Includes portable_platform.h */
 ], [
   #if PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_X86
@@ -953,9 +954,7 @@ AC_TRY_COMPILE([
   #else
     #error wrong CPU architecture
   #endif
-], [AC_DEFINE(GASNETI_PAUSE_INSTRUCTION, "pause")
-    AC_MSG_RESULT(yes)
-], [AC_MSG_RESULT(no)])
+], [AC_DEFINE(GASNETI_PAUSE_INSTRUCTION, "pause")])
 ## Disabled ia64 pause hint until we see an actual need for it -PHH 2006.01.09
 #AC_MSG_CHECKING(for ia64 pause hint)
 #AC_TRY_COMPILE([
