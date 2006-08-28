@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/27 03:13:02 $
-# $Revision: 1.395 $
+#     $Date: 2006/08/28 14:22:37 $
+# $Revision: 1.396 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.395 $)
+AC_REVISION($Revision: 1.396 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1642,12 +1642,6 @@ if test $enabled_gm = yes; then
       fi
       GASNET_POPVAR(CFLAGS)
       GASNET_POPVAR(LIBS)
-
-      force_enable_gm_mpi_compat=no
-      GASNET_IF_ENABLED_WITH_AUTO(gm-mpi-compat, 
-        Enable/disable GM interoperability with MPI (enabled if MPI detected),
-	[force_enable_gm_mpi_compat=yes; enabled_gm_mpi_compat=yes], 
-	 enabled_gm_mpi_compat=no, enabled_gm_mpi_compat=yes)
 
       AC_MSG_CHECKING(for GM interoperability with MPI)
       GM_MPI_COMPAT=$have_mpi_compat
