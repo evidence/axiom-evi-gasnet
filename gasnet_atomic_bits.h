@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/08/26 00:54:38 $
- * $Revision: 1.243 $
+ *     $Date: 2006/08/28 18:04:13 $
+ * $Revision: 1.244 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -439,7 +439,7 @@
             return (int)retval;
           }
         #endif
-      #elif !PLATFORM_COMPILER_TINY && !__PIC__
+      #elif !PLATFORM_COMPILER_TINY && !(__PIC__ && PLATFORM_COMPILER_GNU)
 	/* "Normal" ILP32 case:
 	 *
 	 * To perform read and set atomically on x86 requires use of the locked
@@ -506,7 +506,7 @@
 	  return retval;
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
-      #elif __PIC__
+      #elif (__PIC__ && PLATFORM_COMPILER_GNU)
 	/* Much the same as the "normal" ILP32 case, but w/ save and restore of EBX.
 	 * This is achieved by passing the "other" 64-bit value in ECX and a second
  	 * register of the compiler's choosing, which is then swapped w/ EBX.
