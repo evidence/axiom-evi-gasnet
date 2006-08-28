@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2006/08/24 08:44:23 $
- * $Revision: 1.45 $
+ *     $Date: 2006/08/28 06:27:06 $
+ * $Revision: 1.46 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -257,6 +257,14 @@ extern gasnet_seginfo_t gasneti_mmap_segment_search(uintptr_t maxsz) {
 }
 /* ------------------------------------------------------------------------------------ */
 #endif /* HAVE_MMAP */
+
+#if defined(GASNETI_MMAP_MAX_SIZE)
+  GASNETI_IDENT(gasneti_IdentString_DefaultMaxSegsize, 
+                "$GASNetDefaultMaxSegsize: " _STRINGIFY(GASNETI_MMAP_MAX_SIZE) " $");
+#elif defined(GASNETI_MALLOCSEGMENT_MAX_SIZE)
+  GASNETI_IDENT(gasneti_IdentString_DefaultMaxSegsize, 
+                "$GASNetDefaultMaxSegsize: " _STRINGIFY(GASNETI_MALLOCSEGMENT_MAX_SIZE) " $");
+#endif
 
 /* return user-selected limit for the max segment size, as gleaned from several sources */
 uint64_t gasnet_max_segsize; /* intentional tentative definition, to allow client override */
