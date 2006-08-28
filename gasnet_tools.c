@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/23 13:15:21 $
- * $Revision: 1.182 $
+ *     $Date: 2006/08/28 01:14:03 $
+ * $Revision: 1.183 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1153,6 +1153,8 @@ extern int gasneti_cpu_count() {
 #if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD
   #include <sys/types.h>
   #include <sys/sysctl.h>
+#elif PLATFORM_OS_CATAMOUNT
+  #include <catamount/catmalloc.h>
 #endif
 extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
   uint64_t retval = _gasneti_getPhysMemSysconf();
@@ -1208,6 +1210,16 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
     { /* returns amount of real memory in kilobytes */
       long int val = sysconf(_SC_AIX_REALMEM);
       if (val > 0) retval = (1024 * (uint64_t)val);
+    }
+  #elif PLATFORM_OS_CATAMOUNT
+    { static uint64_t result = 0; /* call is expensive, so amortize */
+      if (!result) {
+        size_t fragments;
+        unsigned long total_free, largest_free, total_used;
+        gasneti_assert_zeroret(heap_info(&fragments, &total_free, &largest_free, &total_used));
+        result = total_free + total_used;
+     }
+     retval = result;
     }
   #else  /* unknown OS */
     { }
