@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/Makefile.am,v $
-#     $Date: 2006/08/26 13:13:15 $
-# $Revision: 1.3 $
+#     $Date: 2006/08/28 01:32:48 $
+# $Revision: 1.4 $
 # Description: Makefile for GASNet portals conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -61,7 +61,8 @@ CONDUIT_SPECIAL_OBJS =
 #   %N = requested node count
 #   %A = program arguments
 #CONDUIT_RUNCMD = mpirun -np %N %P %A
-CONDUIT_RUNCMD = @TOP_BUILDDIR@/mpi-conduit/contrib/gasnetrun_mpi -np %N %P %A
+#CONDUIT_RUNCMD = @TOP_BUILDDIR@/mpi-conduit/contrib/gasnetrun_mpi -np %N %P %A
+CONDUIT_RUNCMD = yod -np %N %P %A
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =
