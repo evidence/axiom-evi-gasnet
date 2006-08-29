@@ -61,7 +61,7 @@ gasneti_weakatomic_t gasnete_putget_poll_cnt;
  * and each Get also generates two (although only should generate one).
  */
 gasneti_weakatomic_t gasnete_putget_inflight;
-int gasnete_putget_limit = 500;
+int gasnete_putget_limit = 255;
 
 
 int gasnetc_max_poll_events = GASNETC_MAX_POLL_EVENTS;
