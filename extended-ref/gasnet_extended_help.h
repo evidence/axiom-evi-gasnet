@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/06/06 18:28:40 $
- * $Revision: 1.41 $
+ *     $Date: 2006/08/30 02:40:58 $
+ * $Revision: 1.42 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,7 +56,7 @@ GASNETI_BEGIN_EXTERNC
    first byte of the value as a (char *) (last is not guaranteed to work)
  */
 typedef union {
-  uint8_t u8; /* might be a compiler builtin type */
+  uint8_t _u8; /* might be a compiler builtin type */
   #if SIZEOF_CHAR == 1
     char _c;
   #endif
@@ -67,7 +67,7 @@ typedef union {
 
 #ifndef INTTYPES_16BIT_MISSING
 typedef union {
-  uint16_t u16; /* might be a compiler builtin type */
+  uint16_t _u16; /* might be a compiler builtin type */
   gasnete_anytype8_t _at8; /* necessary for structs of two 8-bit types */
   #if SIZEOF_SHORT == 2
     short _s;
@@ -79,7 +79,7 @@ typedef union {
 #endif
 
 typedef union {
-  uint32_t u32; /* might be a compiler builtin type */
+  uint32_t _u32; /* might be a compiler builtin type */
   #ifndef INTTYPES_16BIT_MISSING
     gasnete_anytype16_t _at16; /* necessary for structs of two 16-bit types */
   #endif
@@ -102,7 +102,7 @@ typedef union {
 } gasnete_anytype32_t;
 
 typedef union {
-  uint64_t u64; /* might be a compiler builtin type */
+  uint64_t _u64; /* might be a compiler builtin type */
   gasnete_anytype32_t _at32; /* necessary for structs of two 32-bit types */
   #if SIZEOF_INT == 8
     int _i;
