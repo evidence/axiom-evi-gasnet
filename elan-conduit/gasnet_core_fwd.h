@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2006/08/30 11:45:59 $
- * $Revision: 1.28 $
+ *     $Date: 2006/08/30 12:27:28 $
+ * $Revision: 1.29 $
  * Description: GASNet header for elan conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,8 +25,11 @@ GASNETI_BEGIN_EXTERNC
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
-/* XXX: GASNETI_DISABLE_ALIGNED_SEGMENTS currently ignored for this conduit */
-#define GASNET_ALIGNED_SEGMENTS   1 
+#if GASNETI_DISABLE_ALIGNED_SEGMENTS
+  #define GASNET_ALIGNED_SEGMENTS   0 /* user disabled segment alignment */
+#else
+  #define GASNET_ALIGNED_SEGMENTS   1 
+#endif
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */

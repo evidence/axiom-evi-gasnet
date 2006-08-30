@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/30 11:45:57 $
-# $Revision: 1.399 $
+#     $Date: 2006/08/30 12:27:26 $
+# $Revision: 1.400 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.399 $)
+AC_REVISION($Revision: 1.400 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2028,9 +2028,6 @@ AM_CONDITIONAL(USE_ELAN_CONDUIT, test "$enabled_elan$have_elan" = yesyes)
 if test "$enabled_elan$have_elan" = yesyes ; then
   CONDUITS="$CONDUITS elan"
   CONDUIT_REPORT(ON)
-  if test "$GASNETI_DISABLE_ALIGNED_SEGMENTS"="1" ; then
-    GASNET_MSG_WARN([ELAN conduit does not support --disable-aligned-segments - ignoring for that conduit..])
-  fi
 else
   CONDUIT_REPORT(OFF)
 fi
