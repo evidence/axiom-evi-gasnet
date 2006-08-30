@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/08/25 23:32:54 $ */
-/*  $Revision: 1.112 $ */
+/*      $Date: 2006/08/30 02:13:19 $ */
+/*  $Revision: 1.113 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -99,6 +99,9 @@
 
 /* pause instruction, if any */
 #undef GASNETI_PAUSE_INSTRUCTION
+
+/* has x86 EBX register (not reserved for GOT) */
+#undef GASNETI_HAVE_X86_EBX
 
 /* has __builtin_expect */
 #undef HAVE_BUILTIN_EXPECT
