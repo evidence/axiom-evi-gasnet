@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/sci-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2006/08/27 11:11:44 $
- * $Revision: 1.9 $
+ *     $Date: 2006/08/30 11:46:09 $
+ * $Revision: 1.10 $
  * Description: GASNet header for sci conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,6 +23,7 @@
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
+/* GASNETI_DISABLE_ALIGNED_SEGMENTS is trivially satisfied */
 #define GASNET_ALIGNED_SEGMENTS   0
 
   /* this can be used to add conduit-specific 

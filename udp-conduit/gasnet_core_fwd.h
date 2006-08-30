@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/udp-conduit/gasnet_core_fwd.h,v $
- *     $Date: 2006/08/27 11:11:54 $
- * $Revision: 1.15 $
+ *     $Date: 2006/08/30 11:46:17 $
+ * $Revision: 1.16 $
  * Description: GASNet header for UDP conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,7 +23,9 @@
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
-#ifndef GASNET_ALIGNED_SEGMENTS
+#if GASNETI_DISABLE_ALIGNED_SEGMENTS
+  #define GASNET_ALIGNED_SEGMENTS   0 /* user disabled segment alignment */
+#else
   /* udp-conduit supports both aligned and un-aligned */
   #if defined(HAVE_MMAP) && !PLATFORM_ARCH_CRAYX1
     #define GASNET_ALIGNED_SEGMENTS   1  

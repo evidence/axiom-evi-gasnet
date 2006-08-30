@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/30 02:13:19 $
-# $Revision: 1.398 $
+#     $Date: 2006/08/30 11:45:57 $
+# $Revision: 1.399 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.398 $)
+AC_REVISION($Revision: 1.399 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -519,6 +519,11 @@ esac
 AM_CONDITIONAL(GASNET_SEGMENT_FAST, test "$segconfig" = fast)
 AM_CONDITIONAL(GASNET_SEGMENT_LARGE, test "$segconfig" = large)
 AM_CONDITIONAL(GASNET_SEGMENT_EVERYTHING, test "$segconfig" = everything)
+
+GASNET_IF_DISABLED([aligned-segments],
+                   [Disable requirement to achieve aligned VM segments, for heterogeneous clusters],
+		   [GASNETI_DISABLE_ALIGNED_SEGMENTS=1
+		    AC_DEFINE(GASNETI_DISABLE_ALIGNED_SEGMENTS)])
 
 GASNET_WITH(segment-mmap-max,
    [Upper bound for mmap-based GASNet segments (ex: "2GB", "1045MB")],
@@ -1696,6 +1701,9 @@ AM_CONDITIONAL(GM_RODATA_WORKAROUND, test "$gm_rodata_workaround" = yes)
 if test "$enabled_gm$have_gm" = yesyes ; then
   CONDUITS="$CONDUITS gm"
   CONDUIT_REPORT(ON)
+  if test "$GASNETI_DISABLE_ALIGNED_SEGMENTS"="1" ; then
+    GASNET_MSG_WARN([GM conduit does not support --disable-aligned-segments - ignoring for that conduit..])
+  fi
 else
   CONDUIT_REPORT(OFF)
 fi
@@ -1827,6 +1835,9 @@ AM_CONDITIONAL(USE_LAPI_CONDUIT, test "$have_lapi" = yes)
 if test "$have_lapi" = yes ; then
   CONDUITS="$CONDUITS lapi"
   CONDUIT_REPORT(ON)
+  if test "$GASNETI_DISABLE_ALIGNED_SEGMENTS"="1" ; then
+    GASNET_MSG_WARN([LAPI conduit does not support --disable-aligned-segments - ignoring for that conduit..])
+  fi
 else
   CONDUIT_REPORT(OFF)
 fi
@@ -2017,6 +2028,9 @@ AM_CONDITIONAL(USE_ELAN_CONDUIT, test "$enabled_elan$have_elan" = yesyes)
 if test "$enabled_elan$have_elan" = yesyes ; then
   CONDUITS="$CONDUITS elan"
   CONDUIT_REPORT(ON)
+  if test "$GASNETI_DISABLE_ALIGNED_SEGMENTS"="1" ; then
+    GASNET_MSG_WARN([ELAN conduit does not support --disable-aligned-segments - ignoring for that conduit..])
+  fi
 else
   CONDUIT_REPORT(OFF)
 fi
@@ -2225,6 +2239,9 @@ AM_CONDITIONAL(VAPI_RCV_THREAD,test "$enabled_vapi_rcv_thread" = yes)
 if test "$have_vapi" = yes ; then
   CONDUITS="$CONDUITS vapi"
   CONDUIT_REPORT(ON)
+  if test "$GASNETI_DISABLE_ALIGNED_SEGMENTS"="1" ; then
+    GASNET_MSG_WARN([VAPI conduit does not support --disable-aligned-segments - ignoring for that conduit..])
+  fi
 else
   CONDUIT_REPORT(OFF)
 fi

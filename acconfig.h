@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/08/30 02:13:19 $ */
-/*  $Revision: 1.113 $ */
+/*      $Date: 2006/08/30 11:45:57 $ */
+/*  $Revision: 1.114 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -182,6 +182,9 @@
 #undef GASNET_SEGMENT_FAST
 #undef GASNET_SEGMENT_LARGE
 #undef GASNET_SEGMENT_EVERYTHING
+
+/* Override to disable default segment alignment */
+#undef GASNETI_DISABLE_ALIGNED_SEGMENTS
 
 /* GASNet ref-extended settings */
 #undef GASNETE_USE_AMDISSEMINATION_REFBARRIER

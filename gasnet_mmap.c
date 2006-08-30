@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2006/08/28 06:27:06 $
- * $Revision: 1.46 $
+ *     $Date: 2006/08/30 11:45:57 $
+ * $Revision: 1.47 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -443,6 +443,16 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
   gasneti_assert(gasneti_segexch);
   gasneti_memcheck(gasneti_segexch);
 
+  #ifndef GASNETI_SEGMENT_DISALIGN_BIAS
+    #if GASNET_DEBUG && !GASNET_ALIGNED_SEGMENTS
+      /* force segment disalignment for debugging purposes */
+      #define GASNETI_SEGMENT_DISALIGN_BIAS \
+            ((GASNET_PAGESIZE < 1024*1024)?(GASNET_PAGESIZE*(gasneti_mynode%2)):0)
+    #else
+      #define GASNETI_SEGMENT_DISALIGN_BIAS 0
+    #endif
+  #endif
+
   #ifdef HAVE_MMAP
   { /* TODO: this assumes heap grows up */
     uintptr_t topofheap;
@@ -480,9 +490,20 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
     #else
       topofheap = gasneti_myheapend;
       #if GASNETI_USE_HIGHSEGMENT
-        segbase = (void *)((uintptr_t)gasneti_segment.addr + gasneti_segment.size - segsize);
+        segbase = (void *)((uintptr_t)gasneti_segment.addr + 
+                           gasneti_segment.size - segsize);
+        if (gasneti_segment.size - segsize >= GASNETI_SEGMENT_DISALIGN_BIAS) {
+          segbase = (void *)((uintptr_t)segbase - GASNETI_SEGMENT_DISALIGN_BIAS);
+        } else {
+          segbase = (void *)((uintptr_t)segbase + GASNETI_SEGMENT_DISALIGN_BIAS);
+          segsize -= GASNETI_SEGMENT_DISALIGN_BIAS;
+        }
       #else
         segbase = gasneti_segment.addr;
+        if (gasneti_segment.size > GASNETI_SEGMENT_DISALIGN_BIAS) {
+          segbase = (void *)((uintptr_t)segbase + GASNETI_SEGMENT_DISALIGN_BIAS);
+          segsize = MIN(segsize,gasneti_segment.size - GASNETI_SEGMENT_DISALIGN_BIAS);
+        }
       #endif
     #endif
 
@@ -522,13 +543,16 @@ void gasneti_segmentAttach(uintptr_t segsize, uintptr_t minheapoffset,
   }
   #else /* !HAVE_MMAP */
     /* for the T3E, and other platforms which don't support mmap */
-    segbase = gasneti_malloc_allowfail(segsize + GASNET_PAGESIZE);
+    segbase = gasneti_malloc_allowfail(segsize + GASNET_PAGESIZE + GASNETI_SEGMENT_DISALIGN_BIAS);
     while (!segbase) {
       segsize = GASNETI_PAGE_ALIGNDOWN(segsize/2);
       if (segsize == 0) break; 
-      segbase = gasneti_malloc_allowfail(segsize + GASNET_PAGESIZE);
+      segbase = gasneti_malloc_allowfail(segsize + GASNET_PAGESIZE + GASNETI_SEGMENT_DISALIGN_BIAS);
     }
-    if (segbase) segbase = (void *)GASNETI_PAGE_ALIGNUP(segbase);
+    if (segbase) {
+      segbase = (void *)GASNETI_PAGE_ALIGNUP(segbase);
+      segbase = (void *)(((uintptr_t)segbase)+GASNETI_SEGMENT_DISALIGN_BIAS);
+    }
   #endif
   gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
   gasneti_assert(segsize % GASNET_PAGESIZE == 0);
