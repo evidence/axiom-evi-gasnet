@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_help.h,v $
- *     $Date: 2006/08/30 02:40:58 $
- * $Revision: 1.42 $
+ *     $Date: 2006/08/30 02:42:56 $
+ * $Revision: 1.43 $
  * Description: GASNet Extended API Header Helpers (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -134,7 +134,7 @@ typedef union {
   #define gasnete_anytype64_t uint64_t
   #define GASNETE_ANYTYPE_LVAL(ptr,bits) (*((gasnete_anytype##bits##_t *)(ptr)))
 #else
-  #define GASNETE_ANYTYPE_LVAL(ptr,bits) (((gasnete_anytype##bits##_t *)(ptr))->u##bits)
+  #define GASNETE_ANYTYPE_LVAL(ptr,bits) (((gasnete_anytype##bits##_t *)(ptr))->_u##bits)
 #endif
 
 /*  undefined results if the regions are overlapping */
