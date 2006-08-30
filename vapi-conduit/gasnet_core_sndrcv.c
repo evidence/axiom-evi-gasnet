@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/08/21 20:42:24 $
- * $Revision: 1.191 $
+ *     $Date: 2006/08/30 20:37:36 $
+ * $Revision: 1.192 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1681,7 +1681,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
  * ###############################################################
  */
 
-/* Test if a given (addr, len) is in the GASNet segment or not.
+/* Test if a given (addr, len) is in the local GASNet segment or not.
  * Returns non-zero if starting address is outside the segment
  * and adjusts len to describe a region that is fully out of segment.
  * Len is unchanged if start is in the segment.
@@ -1817,25 +1817,37 @@ size_t gasnetc_zerocp_common(gasnetc_epid_t epid, int rkey_index, uintptr_t loc_
   return len;
 }
 
-/* Relies on GASNET_ALIGNED_SEGMENTS to use a single global segment base here */
 GASNETI_INLINE(gasnetc_get_rkey_index)
-int gasnetc_get_rkey_index(uintptr_t start, size_t *len_p) {
+int gasnetc_get_rkey_index(const gasnetc_epid_t epid, uintptr_t start, size_t *len_p) {
+#if GASNET_ALIGNED_SEGMENTS
+  const uintptr_t segbase = gasnetc_seg_start;
+#else
+  const uintptr_t segbase = (uintptr_t)gasneti_seginfo[gasnetc_epid2node(epid)].addr;
+#endif
   size_t len = *len_p;
   uintptr_t end = start + (len - 1);
   uintptr_t tmp;
   int index;
 
-  gasneti_assert(start >= gasnetc_seg_start);
+  gasneti_assert(start >= segbase);
 
-  index = (start - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift;
+  /* Compute in which region of the segment the address lies */
+  index = (start - segbase) >> gasnetc_pin_maxsz_shift;
   gasneti_assert(index >= 0);
   gasneti_assert(index < gasnetc_seg_reg_count);
 
+  /* Now trim length to the end of the region */
+#if GASNET_ALIGNED_SEGMENTS
+  /* gasnetc_seg_ends values are absolute */
   tmp = gasnetc_seg_ends[index];
+#else
+  /* gasnetc_seg_ends values are relative */
+  tmp = gasnetc_seg_ends[index] + segbase;
+#endif
   if (end > tmp) {
     *len_p = (tmp - start) + 1;
   }
-  gasneti_assert(((start + (*len_p-1) - gasnetc_seg_start) >> gasnetc_pin_maxsz_shift) == index);
+  gasneti_assert(((start + (*len_p-1) - segbase) >> gasnetc_pin_maxsz_shift) == index);
 
   return index;
 }
@@ -2712,7 +2724,13 @@ extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
   if (node == gasneti_mynode) { /* Needed exactly once */
     gasnetc_seg_ends = gasneti_malloc(gasnetc_max_regs * sizeof(uintptr_t));
     for (i = 0; i < gasnetc_max_regs; ++i) {
+#if GASNET_ALIGNED_SEGMENTS
+      /* gasnetc_seg_ends values are absolute */
       gasnetc_seg_ends[i] = (gasnetc_seg_start - 1) + ((i+1) << gasnetc_pin_maxsz_shift);
+#else
+      /* gasnetc_seg_ends values are relative */
+      gasnetc_seg_ends[i] = ((i+1) << gasnetc_pin_maxsz_shift) - 1;
+#endif
     }
   }
 #else
@@ -2808,7 +2826,7 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
   do {
     /* Loop over contiguous pinned regions on remote end */
     size_t count = nbytes;
-    const int rkey_index = gasnetc_get_rkey_index(dst, &count);
+    const int rkey_index = gasnetc_get_rkey_index(epid, dst, &count);
 
     if (count <= gasnetc_inline_limit) {
       /* Use a short-cut for sends that are short enough.
@@ -2861,7 +2879,7 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
   do {
     /* Loop over contiguous pinned regions on remote end */
     size_t count = nbytes;
-    const int rkey_index = gasnetc_get_rkey_index(src, &count);
+    const int rkey_index = gasnetc_get_rkey_index(epid, src, &count);
 
 #if GASNET_DEBUG
     if_pf (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(dst, &count)) {

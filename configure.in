@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/30 13:00:55 $
-# $Revision: 1.401 $
+#     $Date: 2006/08/30 20:37:34 $
+# $Revision: 1.402 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.401 $)
+AC_REVISION($Revision: 1.402 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2236,9 +2236,6 @@ AM_CONDITIONAL(VAPI_RCV_THREAD,test "$enabled_vapi_rcv_thread" = yes)
 if test "$have_vapi" = yes ; then
   CONDUITS="$CONDUITS vapi"
   CONDUIT_REPORT(ON)
-  if test "$GASNETI_DISABLE_ALIGNED_SEGMENTS"="1" ; then
-    GASNET_MSG_WARN([VAPI conduit does not support --disable-aligned-segments - ignoring for that conduit..])
-  fi
 else
   CONDUIT_REPORT(OFF)
 fi

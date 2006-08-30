@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2006/08/30 11:46:19 $
- * $Revision: 1.36 $
+ *     $Date: 2006/08/30 20:37:36 $
+ * $Revision: 1.37 $
  * Description: GASNet header for vapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -41,8 +41,12 @@ typedef uint8_t gasnet_handler_t;
 
   /*  defined to be 1 if gasnet_init guarantees that the remote-access memory segment will be aligned  */
   /*  at the same virtual address on all nodes. defined to 0 otherwise */
-/* XXX: GASNETI_DISABLE_ALIGNED_SEGMENTS currently ignored for this conduit */
-#define GASNET_ALIGNED_SEGMENTS   1
+#if GASNETI_DISABLE_ALIGNED_SEGMENTS
+  #define GASNET_ALIGNED_SEGMENTS   0 /* user disabled segment alignment */
+#else
+  #define GASNET_ALIGNED_SEGMENTS   1 
+#endif
+
 
   /* this can be used to add conduit-specific 
      statistical collection values (see gasnet_trace.h) */
