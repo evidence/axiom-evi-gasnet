@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2006/08/30 11:55:49 $
- * $Revision: 1.5 $
+ *     $Date: 2006/08/30 22:03:24 $
+ * $Revision: 1.6 $
  * Description: GASNet header for MPI conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -34,8 +34,9 @@
   #endif
 #endif
 
-/* conduit allows internal GASNet fns to issue put/get for remote addrs out of segment */
-#define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET 1
+/* WARNING: Do not define GASNETI_SUPPORTS_OUTOFSEGMENT_PUTGET for this hybrid since
+ * Portals requires in-segment Put/Get
+ */
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
