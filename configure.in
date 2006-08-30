@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/30 12:27:26 $
-# $Revision: 1.400 $
+#     $Date: 2006/08/30 13:00:55 $
+# $Revision: 1.401 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.400 $)
+AC_REVISION($Revision: 1.401 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2550,6 +2550,17 @@ if test "$use_gdb" != no; then
     AC_DEFINE_UNQUOTED(GDB_PATH,"$GDB_PATH")
   elif test "$use_gdb" = yes; then
     AC_MSG_ERROR(User requested --enable-backtrace-gdb but gdb was not found.  Perhaps you need to set \$GDB?)
+  fi
+fi
+
+GASNET_IF_ENABLED_WITH_AUTO(backtrace-pgdbg, support backtrace via pgdbg (auto-detected),
+                 [use_pgdbg="yes"], [use_pgdbg="no"], [use_pgdbg="try"])
+if test "$use_pgdbg" != no; then
+  AC_PATH_PROGS(PGDBG_PATH, $PGDBG pgdbg, , /usr/bin:${PATH})
+  if test -n "$PGDBG_PATH"; then
+    AC_DEFINE_UNQUOTED(PGDBG_PATH,"$PGDBG_PATH")
+  elif test "$use_pgdbg" = yes; then
+    AC_MSG_ERROR(User requested --enable-backtrace-pgdbg but pgdbg was not found.  Perhaps you need to set \$PGDBG?)
   fi
 fi
 

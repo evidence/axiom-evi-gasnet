@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/28 04:48:46 $
- * $Revision: 1.184 $
+ *     $Date: 2006/08/30 13:00:55 $
+ * $Revision: 1.185 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -414,12 +414,18 @@ extern void gasneti_freezeForDebuggerErr() {
 #if defined(IDB_PATH) && !GASNETI_NO_FORK
   #define GASNETI_BT_IDB	&gasneti_bt_idb
 #endif
+#if defined(PGDBG_PATH) && !GASNETI_NO_FORK
+  #define GASNETI_BT_PGDBG	&gasneti_bt_pgdbg
+#endif
 
 #if !GASNETI_NO_FORK
 /* Execute system w/ stdout redirected to 'fd' and std{in,err} to /dev/null */
 static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
   int rc;
   int saved_stdin, saved_stdout, saved_stderr;
+
+  write(stdout_fd, cmd, strlen(cmd));
+  write(stdout_fd, "\n", 1);
 
   /* Redirect output to 'fd' and std{in,err} to /dev/null */
   saved_stdin = dup(STDIN_FILENO);
@@ -480,6 +486,21 @@ static char gasneti_exename_bt[255];
     static char cmd[1024];
     const char *idb = (access(IDB_PATH, X_OK) ? "idb" : IDB_PATH);
     int rc = sprintf(cmd, fmt, (int)getpid(), idb, gasneti_exename_bt);
+    if (rc < 0) return -1;
+    return gasneti_system_redirected(cmd, fd);
+  }
+#endif
+
+#ifdef GASNETI_BT_PGDBG
+  static int gasneti_bt_pgdbg(int fd) {
+    #if GASNETI_THREADS
+      const char fmt[] = "%s -text -c 'attach %i %s ; threads ; [all] where ; detach ; quit'";
+    #else
+      const char fmt[] = "%s -text -c 'attach %i %s ; where ; detach ; quit'";
+    #endif
+    static char cmd[1024];
+    const char *pgdbg = (access(PGDBG_PATH, X_OK) ? "pgdbg" : PGDBG_PATH);
+    int rc = sprintf(cmd, fmt, pgdbg, (int)getpid(), gasneti_exename_bt);
     if (rc < 0) return -1;
     return gasneti_system_redirected(cmd, fd);
   }
@@ -594,6 +615,9 @@ static struct {
   #endif
   #ifdef GASNETI_BT_PRINTSTACK
   { "PRINTSTACK", GASNETI_BT_PRINTSTACK, 1 },
+  #endif
+  #ifdef GASNETI_BT_PGDBG
+  { "PGDBG", GASNETI_BT_PGDBG, 1 },
   #endif
   #ifdef GASNETI_BT_IDB
   { "IDB", GASNETI_BT_IDB, 1 },
