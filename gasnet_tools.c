@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/31 04:57:15 $
- * $Revision: 1.187 $
+ *     $Date: 2006/08/31 09:56:56 $
+ * $Revision: 1.188 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -309,11 +309,7 @@ extern void gasneti_flush_streams() {
     gasneti_fatalerror("failed to flush stderr: %s", strerror(errno));
   fsync(STDOUT_FILENO); /* ignore errors for output is a console */
   fsync(STDERR_FILENO); /* ignore errors for output is a console */
-  #if PLATFORM_OS_MTA
-    mta_sync();
-  #elif !PLATFORM_OS_CATAMOUNT
-    sync();
-  #endif
+  gasneti_filesystem_sync();
   gasneti_sched_yield();
 }
 extern void gasneti_close_streams() {
@@ -480,14 +476,14 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
       if (retval) { /* system call failed - nuke the output */
         ftruncate(tmpfd, 0);
       } 
-      sync(); /* flush output */
+      gasneti_filesystem_sync(); /* flush output */
       kill(parentpid, GASNETI_UNFREEZE_SIGNAL); /* signal the parent of completion */
       gasneti_killmyprocess(0); /* die */
     } else { /* the parent - our debugger target */
       struct stat tmpstat;
       while (!gasneti_bt_complete_flag) {
         i++;
-        sched_yield(); /* sched_yield seems to be friendlier than sleep() for stack-walkers */
+        gasneti_sched_yield(); /* sched_yield seems to be friendlier than sleep() for stack-walkers */
       }
       /* awakened */
       gasneti_reghandler(GASNETI_UNFREEZE_SIGNAL, old_sigh);
