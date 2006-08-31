@@ -269,7 +269,7 @@ static void TMPMD_event(ptl_event_t *ev)
  * Handle events on one of the Request Send Buffer
  *  SEND_END => Put (and Get) local completion.
  *                - Ignore for AM Request sends
- *                - Ignore for Gets (Cray gens these in violation of spec)
+ *                - Ignore for Gets (Cray Portals gens these in violation of spec)
  *                - If non-bulk Put, increment local completion counter and free chunk.
  *       ACK => Put through bounce buffer completed.  
  *                - NOTE: AMs will not generate ACKs.
@@ -877,19 +877,8 @@ extern void gasnetc_portals_init(void)
   gasneti_assert_always(my_size == gasneti_nodes);
   
   /* get process to portals address mapping */
-  if (cnos_launcher() == CNOS_LAUNCHER_APRUN) {
-    short port = my_id.pid;
-    int   rc;
-    if((rc=cnos_register_ptlpid(port))) {
-      gasneti_fatalerror("cnos_register_ptlpid returned %d",rc);
-    }
-    cnos_get_nidpid_map(&cnos_map);
-  } else if (cnos_launcher() == CNOS_LAUNCHER_YOD) {
-    if (my_size != cnos_get_nidpid_map(&cnos_map)) {
-      gasneti_fatalerror("cnos_get_nidpid_map size != %d",my_size);
-    }
-  } else {
-    gasneti_fatalerror("Unknown Launcher = %d",cnos_launcher());
+  if (my_size != cnos_get_nidpid_map(&cnos_map)) {
+    gasneti_fatalerror("cnos_get_nidpid_map size != %d",my_size);
   }
   gasneti_assert_always(cnos_map[my_rank].nid == my_id.nid);
   gasneti_assert_always(cnos_map[my_rank].pid == my_id.pid);

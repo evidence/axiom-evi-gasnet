@@ -1,6 +1,6 @@
 GASNet Portals-conduit documentation
 Michael Welcome <mlwelcome@lbl.gov>
-$Revision: 1.2 $
+$Revision: 1.3 $
 
 User Information:
 -----------------
@@ -25,6 +25,31 @@ the seastar hardware will deliver it to the remote node and arrange for Events
 to be generated during various phases of the operation.  The client or GASNet runtime
 layer must actively poll the network to process these events, completing the 
 associated GASNet operations.
+
+* The current implementation is restricted to the GASNET_SEQ and GASNET_SEGMENT_FAST configuration.
+
+Some notes on building GASNet for the Cray XT3
+----------------------------------------------
+
+* * * IMPORTANT:  Use of this conduit REQUIRES the GNU programming environment.  
+      It will fail with the PGI programming environment.
+      Before configuring GASNet or UPCR, switch to the GNU environment by typing:
+       	   module switch PrgEnv-pgi PrgEnv-gnu
+
+* Since the XT3 requires using a cross-compiler, there is a special cross
+  configuration script located in $GASNET_SRC_DIR/other/contrib/cross-configure-crayxt3.
+  Instructions are:
+
+   cd $GASNET_SRC_DIR
+   ln -s cother/contrib/cross-configure-crayxt3 .
+   ./Bootstrap
+   ./cross-configure-crayxt3
+   make
+
+* The Pittsburd Supercomputer Center uses "pbsyod", rather than the "yod" command to 
+  launch jobs.
+  When configuring GASNet, edit the cross-configure-crayxt3 file and modify the
+  definition of MPIRUN_CMD to use "pbsyod" rather than "yod".
 
 Recognized environment variables:
 ---------------------------------
@@ -83,8 +108,10 @@ NOTE: the value of GASNET_PORTAL_PUTGET_LIMIT is generally less than this value
 and so it would be impossible (in the current implementation) for this value to
 be exceeded.
 
-See the README file for the MPI-Conduit for additional environment variables that 
-effect the GASNet Core API, which is (currently) implemented by the MPI-Conduit.
+* See the README file for the MPI-Conduit for additional environment variables that 
+  effect the GASNet Core API, which is (currently) implemented by the MPI-Conduit.
+
+* All the standard GASNet environment variables (see top-level README)
 
 
 Optional compile-time settings:
