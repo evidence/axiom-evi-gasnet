@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/07/09 23:03:17 $
- * $Revision: 1.69 $
+ *     $Date: 2006/08/31 17:32:26 $
+ * $Revision: 1.70 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <sys/stat.h>
 
 GASNETI_BEGIN_EXTERNC
 
@@ -179,7 +180,6 @@ GASNETI_BEGIN_EXTERNC
   #define GASNETI_HPET_MMAP 1
   #include <sys/ioctl.h>
   #include <sys/types.h>
-  #include <sys/stat.h>
   #include <sys/mman.h>
   #include <fcntl.h>
   #include <unistd.h>
