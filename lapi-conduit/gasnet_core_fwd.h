@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/lapi-conduit/Attic/gasnet_core_fwd.h,v $
- *     $Date: 2006/08/30 11:46:03 $
- * $Revision: 1.24 $
+ *     $Date: 2006/08/31 18:55:47 $
+ * $Revision: 1.25 $
  * Description: GASNet header for lapi conduit core (forward definitions)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -50,8 +50,12 @@
  * We should be able to guarantee aligned segments on SP.  Segmented
  * memory guarantees heap and mmaped regions don't overlap.
  */
-/* XXX: GASNETI_DISABLE_ALIGNED_SEGMENTS currently ignored for this conduit */
-#define GASNET_ALIGNED_SEGMENTS   1
+#if GASNETI_DISABLE_ALIGNED_SEGMENTS
+  #define GASNET_ALIGNED_SEGMENTS   0 /* user disabled segment alignment */
+#else
+  #define GASNET_ALIGNED_SEGMENTS   1 
+#endif
+
 
   /* conduits should define GASNETI_CONDUIT_THREADS to 1 if they have one or more 
      "private" threads which may be used to run AM handlers, even under GASNET_SEQ
