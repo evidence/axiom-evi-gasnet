@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2006/08/30 23:30:14 $
- * $Revision: 1.4 $
+ *     $Date: 2006/08/31 18:53:03 $
+ * $Revision: 1.5 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -21,7 +21,7 @@ static gasnet_hsl_t threadtable_lock = GASNET_HSL_INITIALIZER;
   /* pthread thread-specific ptr to our threaddata (or NULL for a thread never-seen before) */
   static gasneti_threadkey_t gasnete_threaddata = GASNETI_THREADKEY_INITIALIZER;
 #endif
-const gasnete_opaddr_t OPADDR_NIL = { { 0xFF, 0xFF } };
+const gasnete_opaddr_t GASNETE_OPADDR_NIL = { { 0xFF, 0xFF } };
 extern void _gasnete_iop_check(gasnete_iop_t *iop) { gasnete_iop_check(iop); }
 
 
@@ -80,7 +80,7 @@ static gasnete_threaddata_t * gasnete_new_threaddata() {
   GASNETI_TRACE_PRINTF(C,("gasnete_new_threaddata: idx=%i, numthreads=%i, threaddata=0x%lx",idx,gasnete_numthreads,(uintptr_t)threaddata));
 
   threaddata->threadidx = idx;
-  threaddata->eop_free = OPADDR_NIL;
+  threaddata->eop_free = GASNETE_OPADDR_NIL;
 #if GASNETI_STATS_OR_TRACE
   threaddata->eop_inuse = 0;
   threaddata->eop_hwm = 0;
@@ -123,7 +123,7 @@ static void gasnete_check_config() {
   gasneti_check_config_postattach();
 
   gasneti_assert_always(GASNETE_GETPUT_MEDIUM_LONG_THRESHOLD <= gasnet_AMMaxMedium());
-  gasneti_assert_always(gasnete_opaddr_isnil(OPADDR_NIL));
+  gasneti_assert_always(gasnete_opaddr_isnil(GASNETE_OPADDR_NIL));
 }
 
 
@@ -188,9 +188,9 @@ gasnete_eop_t *gasnete_eop_new(gasnete_threaddata_t * const thread) {
       #ifdef GASNETE_EOP_MOD
         buf[223].addr.opidx = 255; /* modular arithmetic messes up this one */
       #endif
-      buf[255].addr = OPADDR_NIL;
+      buf[255].addr = GASNETE_OPADDR_NIL;
     #else
-      buf[255].addr = OPADDR_NIL;
+      buf[255].addr = GASNETE_OPADDR_NIL;
     #endif
     thread->eop_bufs[bufidx] = buf;
     head.bufferidx = bufidx;

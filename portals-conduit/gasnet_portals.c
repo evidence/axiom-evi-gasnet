@@ -46,7 +46,7 @@ ptl_process_id_t *gasnetc_procid_map = NULL;
 
 gasnetc_conn_t *gasnetc_conn_state = NULL;
 
-int use_AM_portals = 0;
+int gasnetc_use_AM_portals = 0;
 
 /* ------------------------------------------------------------------------------------ */
 /* The number of GASNet Put or Get operations that can occur before a poll to the
@@ -834,7 +834,7 @@ extern void gasnetc_portals_init(void)
 				(int64_t)gasnete_putget_poll,0);
   gasnete_putget_limit = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_PUTGET_LIMIT",
 				(int64_t)gasnete_putget_limit,0);
-  use_AM_portals = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_DO_AM",(int64_t)use_AM_portals,0);
+  gasnetc_use_AM_portals = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_DO_AM",(int64_t)gasnetc_use_AM_portals,0);
 				
   GASNETI_TRACE_PRINTF(C,("Portals_Init: ReqRB_Pool_size = %d",gasnetc_ReqRB_pool_size));
   GASNETI_TRACE_PRINTF(C,("Portals_Init: ReqRB_numchunk  = %d",(int)gasnetc_ReqRB_numchunk));
@@ -844,7 +844,7 @@ extern void gasnetc_portals_init(void)
   GASNETI_TRACE_PRINTF(C,("Portals_Init: max_poll_events = %d",gasnetc_max_poll_events));
   GASNETI_TRACE_PRINTF(C,("Portals_Init: putget_per_poll = %d",gasnete_putget_poll));
   GASNETI_TRACE_PRINTF(C,("Portals_Init: putget_limit    = %d",gasnete_putget_limit));
-  GASNETI_TRACE_PRINTF(C,("Portals_Init: use_AM_portals  = %d",use_AM_portals));
+  GASNETI_TRACE_PRINTF(C,("Portals_Init: use_AM_portals  = %d",gasnetc_use_AM_portals));
 
   /* Init the temp md counter to zero */
   gasneti_weakatomic_set(&gasnetc_tmpmd_count, 0, 0);
@@ -908,7 +908,7 @@ extern void gasnetc_portals_init(void)
    * RARAM:         unknown ... scale with num procs? what scaling factor?
    * TMPMD:         2*max number of tmpmds
    */
-  if (use_AM_portals) {
+  if (gasnetc_use_AM_portals) {
     num_chunk = gasnetc_ReqSB_numchunk + gasnetc_RplSB_numchunk 
       + gasnetc_ReqRB_pool_size*gasnetc_ReqRB_numchunk;
   } else {
@@ -941,7 +941,7 @@ extern void gasnetc_portals_init(void)
   RAR_init();
   ReqSB_init();
 
-  if (use_AM_portals) {
+  if (gasnetc_use_AM_portals) {
     ReqRB_init();
     RplSB_init();
   }
@@ -962,7 +962,7 @@ extern void gasnetc_portals_init(void)
 extern void gasnetc_portals_exit()
 {
 
-  if (use_AM_portals) {
+  if (gasnetc_use_AM_portals) {
     RplSB_exit();
     ReqRB_exit();
   }
