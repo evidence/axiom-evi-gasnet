@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/31 09:56:56 $
- * $Revision: 1.188 $
+ *     $Date: 2006/08/31 18:47:38 $
+ * $Revision: 1.189 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <sys/stat.h> /* gasneti_system_redirected_coprocess */
 #include <fcntl.h>
 #include <time.h> /* gasneti_gettimeofday_us */
 #include <sys/time.h> /* gasneti_gettimeofday_us */
