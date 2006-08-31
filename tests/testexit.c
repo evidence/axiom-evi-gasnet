@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testexit.c,v $
- *     $Date: 2006/08/31 03:40:02 $
- * $Revision: 1.25 $
+ *     $Date: 2006/08/31 04:57:17 $
+ * $Revision: 1.26 $
  * Description: GASNet gasnet_exit correctness test
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -218,6 +218,7 @@ int main(int argc, char **argv) {
   #endif
   }
   test_init_early("testexit",0,usagestr);
+  MSG("hostname is: %s (pid=%i)", gasnett_gethostname(), (int)getpid());
 
   mynode = gasnet_mynode();
   nodes = gasnet_nodes();

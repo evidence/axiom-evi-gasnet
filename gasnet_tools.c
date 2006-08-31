@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/31 03:40:00 $
- * $Revision: 1.186 $
+ *     $Date: 2006/08/31 04:57:15 $
+ * $Revision: 1.187 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -423,9 +423,12 @@ extern void gasneti_freezeForDebuggerErr() {
 static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
   int rc;
   int saved_stdin, saved_stdout, saved_stderr;
+  off_t beginpos, endpos;
 
   write(stdout_fd, cmd, strlen(cmd));
   write(stdout_fd, "\n", 1);
+
+  beginpos = lseek(stdout_fd, 0, SEEK_CUR); /* fetch current position */
 
   /* Redirect output to 'fd' and std{in,err} to /dev/null */
   saved_stdin = dup(STDIN_FILENO);
@@ -438,10 +441,79 @@ static int gasneti_system_redirected(const char *cmd, int stdout_fd) {
   /* Run the command */
   rc = system(cmd);
 
+  endpos = lseek(stdout_fd, 0, SEEK_CUR); /* fetch current position */
+  if (beginpos > 0 && endpos > 0 && (beginpos == endpos)) {
+    rc = -1; /* command failed to generate output - consider it a failure */
+  }
+
   /* Restore I/O */
   dup2(saved_stdout, STDOUT_FILENO); close(saved_stdout);
   dup2(saved_stderr, STDERR_FILENO); close(saved_stderr);
   dup2(saved_stdin, STDIN_FILENO); close(saved_stdin);
+
+  return rc;
+}
+
+static volatile int gasneti_bt_complete_flag = 0;
+static void gasneti_bt_complete_handler(int sig) {
+  gasneti_bt_complete_flag = 1;
+}
+/* Fork a co-process to execute gasneti_system_redirected with the supplied arguments, 
+   and wait for completion in a manner which avoids placing the wait system call on the 
+   top of the target process's stack (because it confuses some stackwalkers) */
+static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
+  FILE *file;
+  int tmpfd;
+  int rc = 0;
+  pid_t parentpid = getpid();
+
+  /* Create a tmpfile to communicate with the child */
+  file = tmpfile();
+  if (!file) return -1;
+  tmpfd = fileno(file);
+
+  { /* setup the parent to sleep */
+    gasneti_sighandlerfn_t old_sigh = gasneti_reghandler(GASNETI_UNFREEZE_SIGNAL, gasneti_bt_complete_handler);
+    volatile int i=0;
+    if (!fork()) { /* the child - debugger co-process launcher */
+      int retval = gasneti_system_redirected(cmd, tmpfd);
+      if (retval) { /* system call failed - nuke the output */
+        ftruncate(tmpfd, 0);
+      } 
+      sync(); /* flush output */
+      kill(parentpid, GASNETI_UNFREEZE_SIGNAL); /* signal the parent of completion */
+      gasneti_killmyprocess(0); /* die */
+    } else { /* the parent - our debugger target */
+      struct stat tmpstat;
+      while (!gasneti_bt_complete_flag) {
+        i++;
+        sched_yield(); /* sched_yield seems to be friendlier than sleep() for stack-walkers */
+      }
+      /* awakened */
+      gasneti_reghandler(GASNETI_UNFREEZE_SIGNAL, old_sigh);
+      if (fstat(tmpfd, &tmpstat)) rc = -1; /* never happens? */
+      else if (tmpstat.st_size == 0) rc = -1; /* child process spawn failed */
+      else if (lseek(tmpfd, 0, SEEK_SET)) rc = -1;
+      else {
+        static char tmpbuf[255];
+        size_t bytes = tmpstat.st_size;
+        while ((bytes = read(tmpfd, &tmpbuf, sizeof(tmpbuf))) > 0 ||
+               (bytes == -1 && errno == EINTR)) {
+          if (bytes > 0) {
+            int retval;
+            tryagain:
+              retval = write(stdout_fd, tmpbuf, bytes);
+              if (retval == -1) {
+                if (errno == EINTR) goto tryagain;
+                else { rc = -1; break; } /* write error */
+              }
+          }
+        }
+        if (bytes == -1) rc = -1; /* read error occurred */
+      }
+    }
+  }
+  fclose(file); /* close and delete temp file */
   return rc;
 }
 #endif
@@ -487,7 +559,7 @@ static char gasneti_exename_bt[255];
     const char *idb = (access(IDB_PATH, X_OK) ? "idb" : IDB_PATH);
     int rc = sprintf(cmd, fmt, (int)getpid(), idb, gasneti_exename_bt);
     if (rc < 0) return -1;
-    return gasneti_system_redirected(cmd, fd);
+    return gasneti_system_redirected_coprocess(cmd, fd);
   }
 #endif
 
@@ -502,7 +574,7 @@ static char gasneti_exename_bt[255];
     const char *pgdbg = (access(PGDBG_PATH, X_OK) ? "pgdbg" : PGDBG_PATH);
     int rc = sprintf(cmd, fmt, pgdbg, (int)getpid(), gasneti_exename_bt);
     if (rc < 0) return -1;
-    return gasneti_system_redirected(cmd, fd);
+    return gasneti_system_redirected_coprocess(cmd, fd);
   }
 #endif
 
@@ -617,11 +689,11 @@ static struct {
   #ifdef GASNETI_BT_PRINTSTACK
   { "PRINTSTACK", GASNETI_BT_PRINTSTACK, 1 },
   #endif
-  #ifdef GASNETI_BT_PGDBG
-  { "PGDBG", GASNETI_BT_PGDBG, 1 },
-  #endif
   #ifdef GASNETI_BT_IDB
   { "IDB", GASNETI_BT_IDB, 1 },
+  #endif
+  #ifdef GASNETI_BT_PGDBG
+  { "PGDBG", GASNETI_BT_PGDBG, 1 },
   #endif
   { NULL, NULL, 0 } /* Avoids empty initializer and trailing commas */
 };
