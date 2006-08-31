@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/08/30 02:13:19 $
- * $Revision: 1.245 $
+ *     $Date: 2006/08/31 18:33:57 $
+ * $Revision: 1.246 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,7 +19,7 @@
 #if defined(GASNETI_FORCE_GENERIC_ATOMICOPS) || /* for debugging */                \
     PLATFORM_ARCH_CRAYT3E    || /* T3E seems to have no atomic ops */              \
     PLATFORM_ARCH_NECSX      || /* NEC SX-6 atomics not available to user code? */ \
-    PLATFORM_COMPILER_LCC    || /* not implemented - lacks 64-bit ints */          \
+    PLATFORM_COMPILER_LCC    || /* not implemented - lacks inline asm */           \
     PLATFORM_ARCH_MICROBLAZE   /* no atomic instructions */
   #define GASNETI_USE_GENERIC_ATOMICOPS
 #elif defined(GASNETI_FORCE_OS_ATOMICOPS) || /* for debugging */ \
