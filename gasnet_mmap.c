@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_mmap.c,v $
- *     $Date: 2006/08/30 11:45:57 $
- * $Revision: 1.47 $
+ *     $Date: 2006/09/01 04:43:51 $
+ * $Revision: 1.48 $
  * Description: GASNet memory-mapping utilities
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -385,7 +385,8 @@ void gasneti_segmentInit(uintptr_t localSegmentLimit,
       gasneti_maxbase = maxbase;
       #if GASNET_ALIGNED_SEGMENTS
         if (maxbase >= minend) { /* no overlap - maybe should be a fatal error... */
-          const char *wmsg = "WARNING: unable to locate overlapping mmap segments in gasneti_segmentInit()";
+          const char *wmsg = "WARNING: unable to locate overlapping mmap segments in gasneti_segmentInit()"
+            ": perhaps you need to re-configure with --disable-aligned-segments";
           GASNETI_TRACE_PRINTF(I, (wmsg));
           if (!gasneti_mynode && !gasneti_getenv_yesno_withdefault("GASNET_QUIET",0)) {
             fprintf(stderr, "%s\n%s\n", wmsg, segstats);
