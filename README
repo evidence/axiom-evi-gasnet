@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.85 $
+$Revision: 1.86 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -261,6 +261,23 @@ application-specific support.
  of environment variable values/command-line arguments. Some GASNet spawners 
  automatically encode shell meta-characters passing through non-GASNet spawn scripts, 
  in to order to ensure their safe delivery to the GASNet client program.
+
+* GASNET_BARRIER - select the communication algorithm for use in GASNet barriers.
+ Values AMDISSEM and AMCENTRAL are available on all conduits, and many conduits
+ have additional network-specific barrier algorithms documented in conduit READMEs.
+
+* GASNET_VIS_AMPIPE - set to 1 to enable packing of most non-contiguous
+ put/gets into AMMediums, with each packet of size approx MaxMedium (the only
+ exception being cases where both sides happen to be fully contiguous, in
+ which case we skip packing). This support is currently experimental, and thus
+ disabled by default.
+
+* GASNET_VIS_MAXCHUNK - limits the max size of a strided or indexed chunk which
+ will be packed by AM pipelining. Defaults to the size that will fit in one MaxMedium
+
+* GASNET_VIS_REMOTECONTIG - enables a pack & RDMA algorithm for gather puts and
+ scatter gets - ie cases that are locally non-contiguous but remotely
+ contiguous. Currently unsafe for use on gm and vapi conduits, thus disabled by default.
 
 * see conduit-specific documentation in conduit directories for more settings
 
