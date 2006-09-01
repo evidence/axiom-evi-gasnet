@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomicops.h,v $
- *     $Date: 2006/08/30 01:51:43 $
- * $Revision: 1.200 $
+ *     $Date: 2006/09/01 19:32:15 $
+ * $Revision: 1.201 $
  * Description: GASNet header for portable atomic memory operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -864,7 +864,7 @@
     const int __flags = (f);                                        \
     GASNETI_ATOMIC_CHECKALIGN(stem,__p);                            \
     _gasneti_##group##_fence_before_set(__p,__flags)                \
-    _func((p),(v));                                                 \
+    _func(__p,(v));                                                 \
     _gasneti_##group##_fence_after_set(__p,__flags)                 \
   } while (0)
 #define GASNETI_ATOMIC_FENCED_INCDEC(group,_func,stem,p,f)          \
@@ -873,7 +873,7 @@
     const int __flags = (f);                                        \
     GASNETI_ATOMIC_CHECKALIGN(stem,__p);                            \
     _gasneti_##group##_fence_before_rmw(__p,__flags)                \
-    _func(p);                                                       \
+    _func(__p);                                                     \
     _gasneti_##group##_fence_after_rmw(__p,__flags)                 \
   } while (0)
 
