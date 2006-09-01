@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2006/08/25 22:09:05 $
-# $Revision: 1.65 $
+#     $Date: 2006/09/01 22:19:52 $
+# $Revision: 1.66 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -167,6 +167,7 @@ CLEANFILES = $(TESTLOG)
 # Instead of automake's loop over subdir, we expand to one target per subdir.
 # Care is taken w/ the 'clean-local' rule in case distclean has wiped the 
 # local or conduit Makefiles (order depends on the version of automake).
+# The same goes for 'distclean-local' rule.
 # Note that if ($VAR:%=%FOO) doesn't work for a given make, then we are
 # reduced to using actual conduit names as PHONY targets, but the rule for
 # $(recurse_local) is tailored to work correctly regardless.
@@ -220,12 +221,14 @@ distclean-local:
 	     ( cd "$$dir" && $(MAKE) distclean ) || exit 1; \
 	   fi;                                              \
 	 done
-	@$(MAKE) recurse_special DO_WHAT=distclean
+	@if test -f Makefile; then                   \
+	  $(MAKE) recurse_special DO_WHAT=distclean; \
+	 fi
 
 .PHONY: force tests test do-begin-tests do-end-tests                  \
         other-tests other-run-tests tests-seq tests-par tests-parsync \
         run-tests-seq run-tests-par run-tests-parsync                 \
-	$(recurse_local)
+	recurse_special $(recurse_local)
 
 
 dist-hook:
