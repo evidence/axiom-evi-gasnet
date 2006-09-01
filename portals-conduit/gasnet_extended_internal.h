@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended_internal.h,v $
- *     $Date: 2006/08/31 18:53:03 $
- * $Revision: 1.3 $
+ *     $Date: 2006/09/01 19:37:19 $
+ * $Revision: 1.4 $
  * Description: GASNet header for internal definitions in Extended API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -36,9 +36,9 @@ typedef struct _gasnete_op_t {
   gasnete_opaddr_t addr;          /*  next cell while in free list, my own opaddr_t while in use */
 } gasnete_op_t;
 
-extern const gasnete_opaddr_t GASNETE_OPADDR_NIL;
+const gasnete_opaddr_t gasnete_opaddr_nil;
 #define gasnete_opaddr_equal(addr1,addr2) ((addr1).fulladdr == (addr2).fulladdr)
-#define gasnete_opaddr_isnil(addr) ((addr).fulladdr == GASNETE_OPADDR_NIL.fulladdr)
+#define gasnete_opaddr_isnil(addr) ((addr).fulladdr == gasnete_opaddr_nil.fulladdr)
 
 typedef struct _gasnete_eop_t {
   uint8_t flags;                  /*  state flags */
