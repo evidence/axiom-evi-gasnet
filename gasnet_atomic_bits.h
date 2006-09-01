@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/09/01 20:20:08 $
- * $Revision: 1.247 $
+ *     $Date: 2006/09/01 21:15:18 $
+ * $Revision: 1.248 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1440,7 +1440,11 @@
     /* all we get is atomic load-and-clear, but that's actually just barely enough  */
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
     #define GASNETI_HAVE_PRIVATE_ATOMIC_T 1
-    #define gasneti_atomic_align 8
+    #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+      #define gasneti_atomic_align 8
+    #else
+      #define gasneti_atomic_align 4
+    #endif
     /* The load-and-clear requires 16-byte alignment.  Therefore the type (and its
      * initializer) replicate the value field 4 times.  The actual ops will only use
      * the one of them that turns out to be 16-byte aligned.
