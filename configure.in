@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/09/05 20:26:19 $
-# $Revision: 1.404 $
+#     $Date: 2006/09/05 20:56:41 $
+# $Revision: 1.405 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.404 $)
+AC_REVISION($Revision: 1.405 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -966,7 +966,7 @@ AC_TRY_COMPILE([
 	/* Don't know, but fortunately don't currently care */
     #endif
   #else
-    /* N/A */
+    #error wrong CPU architecture
   #endif
 ], [AC_DEFINE(GASNETI_HAVE_X86_EBX)
     AC_MSG_RESULT(yes)
