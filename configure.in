@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/08/31 18:55:45 $
-# $Revision: 1.403 $
+#     $Date: 2006/09/05 20:26:19 $
+# $Revision: 1.404 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.403 $)
+AC_REVISION($Revision: 1.404 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1701,9 +1701,6 @@ AM_CONDITIONAL(GM_RODATA_WORKAROUND, test "$gm_rodata_workaround" = yes)
 if test "$enabled_gm$have_gm" = yesyes ; then
   CONDUITS="$CONDUITS gm"
   CONDUIT_REPORT(ON)
-  if test "$GASNETI_DISABLE_ALIGNED_SEGMENTS"="1" ; then
-    GASNET_MSG_WARN([GM conduit does not support --disable-aligned-segments - ignoring for that conduit..])
-  fi
 else
   CONDUIT_REPORT(OFF)
 fi
