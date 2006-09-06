@@ -1,7 +1,7 @@
 #!/bin/sh
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Bootstrap,v $
-#     $Date: 2006/09/06 22:12:09 $
-# $Revision: 1.21 $
+#     $Date: 2006/09/06 22:20:23 $
+# $Revision: 1.22 $
 # Description: GASNet developer Bootstrap script
 # Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -25,6 +25,7 @@ for arg in "$@"; do
     	echo " -t  time autotool commands"
     	echo " -y  force a Bootstrap, even if it looks unnecessary"
     	echo " -n  no checks for autotool presence and versions"
+	echo " -o  Bootstrap for tools-only distribution (default is conduit-mode)"
 	exit 1
     	;;
     -v) autofilter=cat ;;
@@ -118,9 +119,14 @@ set +x
       eval perl $srcdir/other/tools-toggle.pl -y $TOOLSONLYFILES
       touch "$TOOLSONLYFLAG"
     elif test "$TOOLSONLYMODE" = 0 -a -f "$TOOLSONLYFLAG" ; then
-      echo "+ Switching source archive back from GASNet tools-only mode to regular mode"
-      eval perl $srcdir/other/tools-toggle.pl -n $TOOLSONLYFILES
-      rm -f "$TOOLSONLYFLAG"
+      if test ! -d "$srcdir/template-conduit" ; then
+        echo "+ WARNING: Attempted a conduit-mode Bootstrap, but conduit sources appear to be missing."
+        echo "+ WARNING: Assuming you meant to include the -o option for a tools-only distribution."
+      else
+        echo "+ Switching source archive back from GASNet tools-only mode to regular mode"
+        eval perl $srcdir/other/tools-toggle.pl -n $TOOLSONLYFILES
+        rm -f "$TOOLSONLYFLAG"
+      fi
     fi
 
     CMD="aclocal -I other/plpa/config" ; eval $DOIT
