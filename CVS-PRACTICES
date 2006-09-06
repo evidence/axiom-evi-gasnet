@@ -35,6 +35,12 @@ Development practices that GASNet developers are expected to follow:
   before rolling back any non-trivial change, and whenever distributing a
   snapshot of the archive to any user or external party.
 
+* GASNet supports both a regular and tools-only (conduit-free) distribution.
+  The Bootstrap -o option activates tools-only mode for a given source tree
+  by MODIFYING several source files, but the CVS repo is always kept in regular
+  distribution mode. This means if you use tools-only mode, you MUST Bootstrap
+  back to regular mode (without -o) before committing any changes to the repo.
+
 * All GASNet developers are required to follow the GASNet coding standards outlined 
   in the top-level README.
 
