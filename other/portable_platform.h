@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2006/08/05 11:22:26 $
- * $Revision: 1.8 $
+ *     $Date: 2006/09/08 03:40:38 $
+ * $Revision: 1.9 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -298,8 +298,16 @@
     #else
       #define PLATFORM_COMPILER_GNU_C  1
     #endif
+   #if defined(__GNUC_MINOR__) && defined(__GNUC_PATCHLEVEL__)
     #define PLATFORM_COMPILER_VERSION \
             PLATFORM_COMPILER_VERSION_INT(__GNUC__,__GNUC_MINOR__,__GNUC_PATCHLEVEL__)
+   #elif defined(__GNUC_MINOR__) /* older versions of egcs lack __GNUC_PATCHLEVEL__ */
+    #define PLATFORM_COMPILER_VERSION \
+            PLATFORM_COMPILER_VERSION_INT(__GNUC__,__GNUC_MINOR__,0)
+   #else
+    #define PLATFORM_COMPILER_VERSION \
+            PLATFORM_COMPILER_VERSION_INT(__GNUC__,0,0)
+   #endif
     #define PLATFORM_COMPILER_VERSION_STR __PLATFORM_COMPILER_GNU_VERSION_STR
   #else
     #define _PLATFORM_COMPILER_GNU_VERSION_STR __PLATFORM_COMPILER_GNU_VERSION_STR
