@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/09/05 20:12:44 $
- * $Revision: 1.81 $
+ *     $Date: 2006/09/08 21:23:01 $
+ * $Revision: 1.82 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -406,8 +406,8 @@
    The macros may expand to nothing, so the argument must not have side effects.
  */
 #if HAVE_BUILTIN_PREFETCH
-  #define GASNETI_PREFETCH_READ_HINT(P) __builtin_prefetch((P),0)
-  #define GASNETI_PREFETCH_WRITE_HINT(P) __builtin_prefetch((P),1)
+  #define GASNETI_PREFETCH_READ_HINT(P) __builtin_prefetch((void *)(P),0)
+  #define GASNETI_PREFETCH_WRITE_HINT(P) __builtin_prefetch((void *)(P),1)
 #else
   #define GASNETI_PREFETCH_READ_HINT(P)
   #define GASNETI_PREFETCH_WRITE_HINT(P)
