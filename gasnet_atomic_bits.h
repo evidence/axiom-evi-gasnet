@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/09/08 17:21:33 $
- * $Revision: 1.250 $
+ *     $Date: 2006/09/08 18:36:14 $
+ * $Revision: 1.251 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1344,7 +1344,7 @@
       #define GASNETI_HAVE_PRIVATE_ATOMIC_T 1
       #define gasneti_atomic_align 4
       #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_SUN
-        #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+        #if GASNETI_THREADS || GASNETT_THREAD_SAFE || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
           /* Only 31 bits: */
           #define GASNETI_ATOMIC_MAX		((uint32_t)0x7FFFFFFFU)
           #define GASNETI_ATOMIC_SIGNED_MIN	((int32_t)0xC0000000)
@@ -1483,7 +1483,7 @@
     /* all we get is atomic load-and-clear, but that's actually just barely enough  */
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
     #define GASNETI_HAVE_PRIVATE_ATOMIC_T 1
-    #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+    #if GASNETI_THREADS || GASNETT_THREAD_SAFE || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
       /* Only 31 bits, w/ 8-byte alignment: */
       #define GASNETI_ATOMIC_MAX		((uint32_t)0x7FFFFFFFU)
       #define GASNETI_ATOMIC_SIGNED_MIN		((int32_t)0xC0000000)
