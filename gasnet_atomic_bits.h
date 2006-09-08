@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/09/08 18:36:14 $
- * $Revision: 1.251 $
+ *     $Date: 2006/09/08 22:24:48 $
+ * $Revision: 1.252 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1497,20 +1497,28 @@
       #define GASNETI_ATOMIC_SIGNED_MAX		((int32_t)0x7FFFFFFF)
       #define gasneti_atomic_align 4
     #endif
-    /* The load-and-clear requires 16-byte alignment.  Therefore the type (and its
-     * initializer) replicate the value field 4 times.  The actual ops will only use
-     * the one of them that turns out to be 16-byte aligned.
-     */
-    typedef struct { volatile uint64_t initflag; volatile uint32_t _ctr[4]; char _pad; } gasneti_atomic_t;
-    #define GASNETI_ATOMIC_PRESENT    ((uint32_t)0x80000000)
-    #define GASNETI_ATOMIC_INIT_MAGIC ((uint64_t)0x8BDEF66BAD1E3F3AULL)
-    #define _gasneti_atomic_init(v)      {    \
+    #ifndef _PA_RISC2_0
+      /* The load-and-clear requires 16-byte alignment.  Therefore the type (and its
+       * initializer) replicate the value field 4 times.  The actual ops will only use
+       * the one of them that turns out to be 16-byte aligned.
+       */
+      typedef struct { volatile uint64_t initflag; volatile uint32_t _ctr[4]; char _pad; } gasneti_atomic_t;
+      #define _gasneti_atomic_init(v)      {    \
             GASNETI_ATOMIC_INIT_MAGIC,       \
             { (GASNETI_ATOMIC_PRESENT|(v)),  \
               (GASNETI_ATOMIC_PRESENT|(v)),  \
               (GASNETI_ATOMIC_PRESENT|(v)),  \
               (GASNETI_ATOMIC_PRESENT|(v)) } \
             }
+      #define GASNETI_ATOMIC_CTR(p)     ((volatile uint32_t *)GASNETI_ALIGNUP(&(p->_ctr),16))
+    #else
+      /* The load-and-clear requires only 4-byte alignment for PA-RISC 2.0 */
+      typedef struct { volatile uint64_t initflag; volatile uint32_t _ctr; char _pad; } gasneti_atomic_t;
+      #define _gasneti_atomic_init(v)   { GASNETI_ATOMIC_INIT_MAGIC, (GASNETI_ATOMIC_PRESENT|(v)) } 
+      #define GASNETI_ATOMIC_CTR(p)     (&(p->_ctr))
+    #endif
+    #define GASNETI_ATOMIC_PRESENT    ((uint32_t)0x80000000)
+    #define GASNETI_ATOMIC_INIT_MAGIC ((uint64_t)0x8BDEF66BAD1E3F3AULL)
     typedef uint32_t gasneti_atomic_val_t;
     typedef int32_t gasneti_atomic_sval_t;
 
@@ -1523,20 +1531,24 @@
       uint32_t gasneti_loadandclear_32(uint32_t volatile *v) {
         register uint32_t volatile * addr = (uint32_t volatile *)v;
         register uint32_t val = 0;
-        gasneti_assert(!(((uintptr_t)addr) & 0xF)); /* ldcws requires 16-byte alignment */
+        #ifndef _PA_RISC2_0
+          gasneti_assert(!(((uintptr_t)addr) & 0xF)); /* ldcws requires 16-byte alignment */
+        #else
+          gasneti_assert(!(((uintptr_t)addr) & 0x3)); /* ldcws requires 4-byte alignment */
+        #endif
         *(volatile char *)(v+1) = 0; /* fetch this cache line as a dirty word - speeds up ldcw */
         #if PLATFORM_COMPILER_GNU
           __asm__ __volatile__ ( 
           #if 0
-            "ldcws %1, %0 \n"  
+            "ldcws 0(%2), %0 \n"  
             /* should be using "ldcws,co" here for better performance, 
                but GNU assembler rejects it (works with system assembler) 
              */
           #else
-            "ldcw,co %1, %0 \n"  
+            "ldcw,co 0(%2), %0 \n"  
             /* this alternate, undocumented pseudo-op instruction appears to do the right thing */
           #endif
-            : "=r"(val), "=m" (*addr) );
+            : "=r"(val), "=m" (*addr) : "r" (addr), "m" (*addr));
         #elif PLATFORM_COMPILER_HP_C
           _asm("LDCWS,CO",0,0,addr,val);
         #else
@@ -1544,7 +1556,6 @@
         #endif
         return val;
       }
-      #define GASNETI_ATOMIC_CTR(p)     ((volatile uint32_t *)GASNETI_ALIGNUP(&(p->_ctr),16))
       /* would like to use gasneti_waituntil here, but it requires libgasnet for waitmode */
       #define gasneti_atomic_spinuntil(cond) do {       \
               while (!(cond)) gasneti_compiler_fence(); \
