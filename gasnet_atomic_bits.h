@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/09/05 20:16:51 $
- * $Revision: 1.249 $
+ *     $Date: 2006/09/08 17:21:33 $
+ * $Revision: 1.250 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1344,13 +1344,20 @@
       #define GASNETI_HAVE_PRIVATE_ATOMIC_T 1
       #define gasneti_atomic_align 4
       #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_SUN
-        /* Only 31 bits: */
+        #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+          /* Only 31 bits: */
+          #define GASNETI_ATOMIC_MAX		((uint32_t)0x7FFFFFFFU)
+          #define GASNETI_ATOMIC_SIGNED_MIN	((int32_t)0xC0000000)
+          #define GASNETI_ATOMIC_SIGNED_MAX	((int32_t)0x3FFFFFFF)
+          #define gasneti_atomic_signed(val)	(((int32_t)((val)<<1))>>1)
+        #else
+          /* Full 32 bits: */
+          #define GASNETI_ATOMIC_MAX		((uint32_t)0xFFFFFFFFU)
+          #define GASNETI_ATOMIC_SIGNED_MIN	((int32_t)0x80000000)
+          #define GASNETI_ATOMIC_SIGNED_MAX	((int32_t)0x7FFFFFFF)
+        #endif
         typedef uint32_t                        gasneti_atomic_val_t;
         typedef int32_t                         gasneti_atomic_sval_t;
-        #define GASNETI_ATOMIC_MAX		((uint32_t)0x7FFFFFFFU)
-        #define GASNETI_ATOMIC_SIGNED_MIN	((int32_t)0xC0000000)
-        #define GASNETI_ATOMIC_SIGNED_MAX	((int32_t)0x3FFFFFFF)
-        #define gasneti_atomic_signed(val)	(((int32_t)((val)<<1))>>1)
 
         #define GASNETI_ATOMIC_PRESENT    ((uint32_t)0x80000000)
         #define GASNETI_ATOMIC_INIT_MAGIC ((uint64_t)0x8BDEF66BAD1E3F3AULL)
@@ -1477,8 +1484,17 @@
     #define GASNETI_ATOMICOPS_NOT_SIGNALSAFE 1 /* not signal-safe because of "checkout" semantics */
     #define GASNETI_HAVE_PRIVATE_ATOMIC_T 1
     #if GASNETI_THREADS || defined(GASNETI_FORCE_TRUE_WEAKATOMICS)
+      /* Only 31 bits, w/ 8-byte alignment: */
+      #define GASNETI_ATOMIC_MAX		((uint32_t)0x7FFFFFFFU)
+      #define GASNETI_ATOMIC_SIGNED_MIN		((int32_t)0xC0000000)
+      #define GASNETI_ATOMIC_SIGNED_MAX		((int32_t)0x3FFFFFFF)
+      #define gasneti_atomic_signed(val)	(((int32_t)((val)<<1))>>1)
       #define gasneti_atomic_align 8
     #else
+      /* Full 32 bits, w/ 4-byte alignment: */
+      #define GASNETI_ATOMIC_MAX		((uint32_t)0xFFFFFFFFU)
+      #define GASNETI_ATOMIC_SIGNED_MIN		((int32_t)0x80000000)
+      #define GASNETI_ATOMIC_SIGNED_MAX		((int32_t)0x7FFFFFFF)
       #define gasneti_atomic_align 4
     #endif
     /* The load-and-clear requires 16-byte alignment.  Therefore the type (and its
@@ -1495,13 +1511,8 @@
               (GASNETI_ATOMIC_PRESENT|(v)),  \
               (GASNETI_ATOMIC_PRESENT|(v)) } \
             }
-    /* Only 31 bits: */
     typedef uint32_t gasneti_atomic_val_t;
     typedef int32_t gasneti_atomic_sval_t;
-    #define GASNETI_ATOMIC_MAX		((uint32_t)0x7FFFFFFFU)
-    #define GASNETI_ATOMIC_SIGNED_MIN	((int32_t)0xC0000000)
-    #define GASNETI_ATOMIC_SIGNED_MAX	((int32_t)0x3FFFFFFF)
-    #define gasneti_atomic_signed(val)	(((int32_t)((val)<<1))>>1)
 
     #if PLATFORM_COMPILER_HP_CXX
       #define GASNETI_HAVE_ATOMIC_CAS 1		/* Explicit */
