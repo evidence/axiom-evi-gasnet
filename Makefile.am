@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2006/09/06 22:12:09 $
-# $Revision: 1.67 $
+#     $Date: 2006/09/09 06:56:58 $
+# $Revision: 1.68 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -18,7 +18,6 @@ SUBDIRS = .          \
 # CONDUITMODE_DIST_SUBDIRS = 
 # CONDUITMODE_headers = 
 # CONDUITMODE_EXTRA_DIST = 	\
-# 	README-tools 		\
 # 	.gasnet_toolsonly_mode 
 # GASNET_TOOLSONLY_TRUE_END
 # GASNET_TOOLSONLY_FALSE_BEGIN
@@ -42,7 +41,6 @@ CONDUITMODE_headers = 		\
 	gasnet_trace.h     	\
 	gasnet_vis.h      
 CONDUITMODE_EXTRA_DIST =    	\
-        README           	\
 	docs              	\
 	extended-ref      	\
 	template-conduit  	\
@@ -73,6 +71,8 @@ headers =                  	\
 	gasnet_toolhelp.h  	
 
 EXTRA_DIST =              		\
+	README				\
+ 	README-tools 			\
 	ChangeLog	  		\
 	license.txt       		\
 	.autom4te.cfg     		\

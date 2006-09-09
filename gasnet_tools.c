@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/08/31 18:47:38 $
- * $Revision: 1.189 $
+ *     $Date: 2006/09/09 06:56:58 $
+ * $Revision: 1.190 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -294,7 +294,7 @@ extern void gasneti_fatalerror(const char *msg, ...) {
 /* ------------------------------------------------------------------------------------ */
 extern void gasneti_killmyprocess(int exitcode) {
   /* wrapper for _exit() that does the "right thing" to immediately kill this process */
-  #if GASNETT_THREAD_SAFE && defined(HAVE_PTHREAD_KILL_OTHER_THREADS_NP)
+  #if GASNETI_THREADS && defined(HAVE_PTHREAD_KILL_OTHER_THREADS_NP)
     /* on LinuxThreads we need to explicitly kill other threads before calling _exit() */
     pthread_kill_other_threads_np();
   #endif
@@ -519,7 +519,7 @@ static char gasneti_exename_bt[255];
 
 #ifdef GASNETI_BT_LADEBUG
   static int gasneti_bt_ladebug(int fd) {
-    #if GASNETT_THREAD_SAFE
+    #if GASNETI_THREADS
       const char fmt[] = "echo 'set $stoponattach; attach %d; show thread *; where thread *; quit' | %s '%s'"; 
     #else
       const char fmt[] = "echo 'set $stoponattach; attach %d; where; quit' | %s '%s'"; 
@@ -547,7 +547,7 @@ static char gasneti_exename_bt[255];
 
 #ifdef GASNETI_BT_IDB
   static int gasneti_bt_idb(int fd) {
-    #if GASNETT_THREAD_SAFE
+    #if GASNETI_THREADS
       const char fmt[] = "echo 'set $stoponattach; attach %d; where thread all; quit' | %s -dbx -quiet '%s'"; 
     #else
       const char fmt[] = "echo 'set $stoponattach; attach %d; where; quit' | %s -dbx -quiet '%s'"; 
@@ -562,7 +562,7 @@ static char gasneti_exename_bt[255];
 
 #ifdef GASNETI_BT_PGDBG
   static int gasneti_bt_pgdbg(int fd) {
-    #if GASNETT_THREAD_SAFE
+    #if GASNETI_THREADS
       const char fmt[] = "%s -text -c 'attach %i %s ; threads ; [all] where ; detach ; quit'";
     #else
       const char fmt[] = "%s -text -c 'attach %i %s ; where ; detach ; quit'";
@@ -578,7 +578,7 @@ static char gasneti_exename_bt[255];
 #ifdef GASNETI_BT_GDB
   static int gasneti_bt_gdb(int fd) {
     /* Change "backtrace" to "backtrace full" to also see local vars from each frame */
-    #if GASNETT_THREAD_SAFE
+    #if GASNETI_THREADS
       const char commands[] = "info threads\nthread apply all backtrace 50\ndetach\nquit\n";
     #else
       const char commands[] = "backtrace 50\ndetach\nquit\n";
@@ -713,12 +713,12 @@ extern void gasneti_backtrace_init(const char *exename) {
   { static char btlist_def[255];
     int i, th;
     btlist_def[0] = '\0';
-    #if GASNETT_THREAD_SAFE
+    #if GASNETI_THREADS
       for (th = 1; th >= 0; th--) 
     #endif
       {
         for (i = 0; i < gasneti_backtrace_mechanism_count; ++i) {
-          #if GASNETT_THREAD_SAFE
+          #if GASNETI_THREADS
           if (th == gasneti_backtrace_mechanisms[i].threadsupport) 
           #endif
             {

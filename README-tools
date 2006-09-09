@@ -1,7 +1,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.2 $
+$Revision: 1.3 $
 
 The GASNet tools are a set of communication-independent utilities that are used
 to implement GASNet, and constitute a useful portability tool for GASNet
@@ -71,15 +71,20 @@ General Usage
 -------------
 
 * All clients of GASNet tools should #include <gasnet_tools.h> before any other header.
-  The only exception is programs that use both a GASNet conduit and GASNet
-  tools, which must include gasnet.h before gasnet_tools.h and must include
-  _both_ headers in any source files that need either header.
+  The only exception is source files that use both a GASNet conduit and GASNet
+  tools, which must include gasnet.h before gasnet_tools.h.
 
 * All of the supported public interfaces in GASNet tools are named using the
   'gasnett_' or 'GASNETT_' prefix. Clients of GASNet tools should *ONLY* invoke
   names with this prefix. Use of names with any other prefix (notably including
   'gasneti_') is totally unsupported and subject to change and breakage without
   notice.
+
+* Many of the 'functions' provided by GASNet tools are actually implemented as 
+  macros or inline functions for performance reasons. This distinction is explicitly
+  undocumented and open to change without notice, and may even differ across 
+  platforms in a given release. To ensure correctness, clients should never
+  attempt to take the address of a GASNet tool 'function' or #undef its name.
 
 * The GASNet tools have been ported to all the platforms listed in the main
   GASNet README. They may work on others as well. Please contact us if you have
@@ -91,6 +96,7 @@ General Usage
 
 Timers
 ------
+
 
 Memory barriers
 ---------------

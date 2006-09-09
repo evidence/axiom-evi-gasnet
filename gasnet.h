@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/08/27 11:11:32 $
- * $Revision: 1.54 $
+ *     $Date: 2006/09/09 06:56:58 $
+ * $Revision: 1.55 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -11,9 +11,8 @@
 #define _IN_GASNET_H
 #define _INCLUDED_GASNET_H
 #ifdef _INCLUDED_GASNET_TOOLS_H
-  #error Applications that use both GASNet and GASNet tools must   \
-         include gasnet.h before gasnet_tools.h and must include   \
-         _both_ headers in any files that need either header
+  #error Objects that use both GASNet and GASNet tools must   \
+         include gasnet.h before gasnet_tools.h 
 #endif
 #if defined(_INCLUDED_GASNET_INTERNAL_H) && !defined(_IN_GASNET_INTERNAL_H)
   #error Internal GASNet code should not directly include gasnet.h, just gasnet_internal.h
@@ -144,6 +143,9 @@
   #error bad defn of GASNETI_CONDUIT_THREADS
 #endif
 
+/* GASNETI_THREADS = Threads exist at conduit and/or client level, 
+                     and/or compiling for a tools-only client with thread-safety
+*/
 #if GASNETI_CLIENT_THREADS || GASNETI_CONDUIT_THREADS
   #define GASNETI_THREADS 1
 #elif defined(GASNETI_THREADS)

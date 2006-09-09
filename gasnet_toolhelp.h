@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/08/31 09:56:56 $
- * $Revision: 1.16 $
+ *     $Date: 2006/09/09 06:56:58 $
+ * $Revision: 1.17 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -17,7 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#if GASNETI_THREADS || GASNETT_THREAD_SAFE
+#if GASNETI_THREADS
   #if PLATFORM_OS_LINUX
    struct timespec; /* avoid an annoying warning on Linux */
   #endif
@@ -312,7 +312,7 @@ extern uint64_t gasneti_checksum(const void *p, int numbytes);
 */
 #define _GASNETI_THREADKEY_MAGIC 0xFF00ABCDEF573921ULL
 
-#if GASNETI_THREADS || GASNETT_THREAD_SAFE
+#if GASNETI_THREADS
   #if GASNETI_HAVE_TLS_SUPPORT /* use __thread, if available */
     #define _GASNETI_THREADKEY_USES_TLS 1
   #else
