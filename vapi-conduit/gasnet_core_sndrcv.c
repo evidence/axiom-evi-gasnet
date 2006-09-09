@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/09/08 23:24:54 $
- * $Revision: 1.193 $
+ *     $Date: 2006/09/09 02:19:53 $
+ * $Revision: 1.194 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1256,6 +1256,7 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, gasnetc_snd_wr_t *sr_desc, in
 #else
   {
     struct ibv_send_wr *bad_wr;
+    sr_desc->next = NULL;
     sr_desc->send_flags = is_inline ? (IBV_SEND_SIGNALED | IBV_SEND_INLINE) : IBV_SEND_SIGNALED;
     vstat = ibv_post_send(cep->qp_handle, sr_desc, &bad_wr);
   }
