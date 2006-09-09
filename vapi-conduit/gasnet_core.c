@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/09/08 23:24:54 $
- * $Revision: 1.174 $
+ *     $Date: 2006/09/09 01:22:27 $
+ * $Revision: 1.175 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -317,6 +317,7 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
       }
     }
   }
+  limit = GASNETI_PAGE_ALIGNDOWN(limit);
 
   if_pf (limit == 0) {
     gasneti_fatalerror("Failed to determine the available physical memory");
@@ -335,6 +336,7 @@ static void gasnetc_init_pin_info(int first_local, int num_local) {
     #if GASNETC_PIN_SEGMENT
       step = MAX(step, gasnetc_pin_maxsz);
     #endif
+    step = GASNETI_PAGE_ALIGNDOWN(step);
     if (gasneti_mynode == first_local) {
       uintptr_t size = gasnetc_trypin(limit, step);
       if_pf (!size) {
