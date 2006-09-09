@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/09/09 01:22:27 $
- * $Revision: 1.175 $
+ *     $Date: 2006/09/09 01:28:22 $
+ * $Revision: 1.176 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1232,7 +1232,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       GASNETC_VAPI_CHECK(vstat, "from VAPI_modify_qp(RTR)");
     }
 #else
-    qp_mask = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_RQ_PSN | IBV_QP_MAX_QP_RD_ATOMIC | IBV_QP_DEST_QPN | IBV_QP_MIN_RNR_TIMER;
+    qp_mask = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_DEST_QPN | IBV_QP_MIN_RNR_TIMER;
     qp_attr.qp_state         = IBV_QPS_RTR;
     qp_attr.ah_attr.sl            = 0;
     qp_attr.ah_attr.is_global     = 0;
@@ -1243,10 +1243,11 @@ static int gasnetc_init(int *argc, char ***argv) {
     for (i = 0; i < ceps; ++i) {
       if (i/gasnetc_num_qps == gasneti_mynode) continue;
 
-      qp_attr.max_rd_atomic = port_map[i]->rd_atom;
+      qp_attr.max_dest_rd_atomic = port_map[i]->rd_atom;
       qp_attr.path_mtu       = MIN(GASNETC_QP_PATH_MTU, port_map[i]->port.max_mtu);
       qp_attr.rq_psn         = i;
       qp_attr.ah_attr.dlid        = remote_addr[i].lid;
+      qp_attr.ah_attr.port_num = port_map[i]->port_num;
       qp_attr.dest_qp_num    = remote_addr[i].qp_num;
       rc = ibv_modify_qp(gasnetc_cep[i].qp_handle, &qp_attr, qp_mask);
       GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(RTR)");
@@ -1284,7 +1285,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       }
     }
 #else
-    qp_mask = IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_DEST_RD_ATOMIC;
+    qp_mask = IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC;
     qp_attr.qp_state         = IBV_QPS_RTS;
     qp_attr.timeout          = GASNETC_QP_TIMEOUT;
     qp_attr.retry_cnt        = GASNETC_QP_RETRY_COUNT;
@@ -1293,7 +1294,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       if (i/gasnetc_num_qps == gasneti_mynode) continue;
 
       qp_attr.sq_psn           = gasneti_mynode*gasnetc_num_qps + (i % gasnetc_num_qps);
-      qp_attr.max_dest_rd_atomic  = port_map[i]->rd_atom;
+      qp_attr.max_rd_atomic  = port_map[i]->rd_atom;
       rc = ibv_modify_qp(gasnetc_cep[i].qp_handle, &qp_attr, qp_mask);
       GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(RTS)");
       if (qp_attr.cap.max_inline_data < gasnetc_inline_limit) {

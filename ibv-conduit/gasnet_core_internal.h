@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/09/08 23:24:54 $
- * $Revision: 1.135 $
+ *     $Date: 2006/09/09 01:28:22 $
+ * $Revision: 1.136 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,6 +29,8 @@
   #include <evapi.h>
   #include <vapi_common.h>
 #else
+  #undef GASNETC_VAPI_RCV_THREAD
+  #define GASNETC_VAPI_RCV_THREAD 0
   #include <infiniband/verbs.h>
 #endif
 
