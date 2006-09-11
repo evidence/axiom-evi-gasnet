@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/09/09 06:56:58 $
- * $Revision: 1.253 $
+ *     $Date: 2006/09/11 21:39:47 $
+ * $Revision: 1.254 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -439,7 +439,7 @@
             return (int)retval;
           }
         #endif
-      #elif !PLATFORM_COMPILER_TINY && GASNETI_HAVE_X86_EBX
+      #elif !(PLATFORM_COMPILER_TINY || PLATFORM_COMPILER_PGI) && GASNETI_HAVE_X86_EBX
 	/* "Normal" ILP32 case:
 	 *
 	 * To perform read and set atomically on x86 requires use of the locked
@@ -573,7 +573,7 @@
 	  return retval;
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
-      #else /* Tiny CC */
+      #else /* Tiny CC and PGI */
 	/* Everything here works like the "normal" ILP32 case, except that we break everything
 	 * down in to nice bite-sized (4-bytes actually) chunks and explictly assign
 	 * them to registers A through D.
@@ -626,7 +626,7 @@
 		    "lock;			"
 		    "cmpxchg8b	%0		\n\t"
 		    "jnz	0b		"
-		    : "=m" (p->ctr), "+&a" (retlo),  "+&d" (rethi), "&b" (tmplo), "&c" (tmphi)
+		    : "=m" (p->ctr), "+&a" (retlo),  "+&d" (rethi), "=&b" (tmplo), "=&c" (tmphi)
 		    : /* no inputs */
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
 	  return ((uint64_t)rethi << 32) | ((uint64_t)retlo);
