@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/08/31 18:47:38 $
- * $Revision: 1.71 $
+ *     $Date: 2006/09/11 07:26:06 $
+ * $Revision: 1.72 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,22 +23,7 @@ GASNETI_BEGIN_EXTERNC
 
 /* ------------------------------------------------------------------------------------ */
 /* High-performance system timer library 
-
-  Implements high-granularity, low-overhead timers using system-specific support, where available
-
-  Interface:
-    gasneti_tick_t - timer datatype representing an integer number of "ticks"
-      where a "tick" has a system-specific interpretation
-      safe to be handled using integer operations (+,-,<,>,==)
-    gasneti_tick_t gasneti_ticks_now() - returns the current tick count 
-      note that tick values are THREAD-specific, and do NOT represent a globally-synchronized timer.
-      In specific, tick values are very likely to have a different base value across nodes, and 
-      might even advance at substantially different rates on different nodes.
-      Therefore tick values and tick intervals from different threads should never be directly compared or 
-      arithmetically combined, without first converting the relevant tick intervals to wall time intervals.
-    gasneti_ticks_to_ns(gasneti_tick_t ticks) - convert ticks to nanoseconds as a uint64_t
-    GASNETI_TICK_MIN - a value representing the minimum value storable in a gasneti_tick_t
-    GASNETI_TICK_MAX - a value representing the maximum value storable in a gasneti_tick_t
+   see README-tools for usage information
 */
 
 #if defined(GASNETC_CONDUIT_SPECIFIC_TIMERS)

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/09/06 21:42:01 $
- * $Revision: 1.113 $
+ *     $Date: 2006/09/11 07:26:06 $
+ * $Revision: 1.114 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -14,55 +14,17 @@
 #define _GASNET_MEMBAR_H
 
 /* ------------------------------------------------------------------------------------ */
-/* portable memory barrier support */
-
-/*
- gasneti_local_wmb:
-   A local memory write barrier - ensure all stores to local mem from this thread are
-   globally completed across this SMP before issuing any subsequent loads or stores.
-   (i.e. all loads issued from any CPU subsequent to this call
-      returning will see the new value for any previously issued
-      stores from this proc, and any subsequent stores from this CPU
-      are guaranteed to become globally visible after all previously issued
-      stores from this CPU)
-   This must also include whatever is needed to prevent the compiler from reordering
-   loads and stores across this point.
-
- gasneti_local_rmb:
-   A local memory read barrier - ensure all subsequent loads from local mem from this thread
-   will observe previously issued stores from any CPU which have globally completed.  
-   For instance, on the Alpha this ensures
-   that queued cache invalidations are processed and on the PPC this discards any loads
-   that were executed speculatively.
-   This must also include whatever is needed to prevent the compiler from reordering
-   loads and stores across this point.
- 
- gasneti_local_mb:
-   A "full" local memory barrer.  This is equivalent to both a wmb() and rmb().
-   All oustanding loads and stores must be completed before any subsequent ones
-   may begin.
-
- gasneti_compiler_fence:
-   A barrier to compiler optimizations that would reorder any memory references across
-   this point in the code.
-
-  Note that for all four memory barriers, we require only that a given architecture's
-  "normal" loads and stores are ordered as required.  "Extended" instructions such as
-  MMX, SSE, SSE2, Altivec and vector ISAs on various other machines often bypass some
-  or all of the machine's memory hierarchy and therefore may not be ordered by the same
-  instructions.  Authors of MMX-based memcpy and similar code must therefore take care
-  to add appropriate flushes to their code.
+/* portable memory barrier support 
+   see README-tools for usage information
 
   To reduce duplicated assembly code and needless empty macros the following are the
   default behaviors unless a given arch/compiler defines something else.
-   + gasneti_compiler_fence() defaults to an empty "volatile" asm section
-   + gasneti_local_wmb() is implemented on all architectures
-   + gasneti_local_rmb() defaults to just a compiler fence, as only a few architectures
+   + gasnett_compiler_fence() defaults to an empty "volatile" asm section
+   + gasnett_local_wmb() is implemented on all architectures
+   + gasnett_local_rmb() defaults to just a compiler fence, as only a few architectures
        need more than this
-   + gasneti_local_mb() defaults to { gasneti_local_wmb(); gasneti_local_rmb(); }.
+   + gasnett_local_mb() defaults to { gasnett_local_wmb(); gasnett_local_rmb(); }.
        Only a few architectures (notable Alpha) can do this less expensively.
-
-  For more info on memory barriers: http://gee.cs.oswego.edu/dl/jmm/cookbook.html
  */
 #include <gasnet_asm.h>
 

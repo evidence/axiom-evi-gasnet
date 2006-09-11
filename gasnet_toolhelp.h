@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/09/09 06:56:58 $
- * $Revision: 1.17 $
+ *     $Date: 2006/09/11 07:26:06 $
+ * $Revision: 1.18 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -288,27 +288,7 @@ extern uint64_t gasneti_checksum(const void *p, int numbytes);
 
 /* ------------------------------------------------------------------------------------ */
 /* Wrappers for thread-local data storage
-   In threaded configurations, uses the fastest-available target-specific mechanisms 
-    for access to thread-local storage (eg __thread), or pthread_getspecific() for 
-    generic platforms. Automatically handles the hassle of pthread key creation as required.
-   In non-threaded configurations, expands to simple process-global storage. 
-
-  Must be declared as:
-    GASNETI_THREADKEY_DEFINE(mykey); - must be defined in exactly one C file at global scope
-    GASNETI_THREADKEY_DECLARE(mykey); - optional, use in headers to reference externally-defined key
-  and then can be used as:
-    void *val = gasneti_threadkey_get(mykey);
-    gasneti_threadkey_set(mykey,val);
-  no initialization is required (happens automatically on first access).
-
-  Initialization can optionally be performed using:
-    gasneti_threadkey_init(mykey);
-  which then allows subsequent calls to:
-    void *val = gasneti_threadkey_get_noinit(mykey);
-    gasneti_threadkey_set_noinit(mykey,val);
-  these save a branch by avoiding the initialization check.
-  gasneti_threadkey_init is permitted to be called multiple times and
-  from multiple threads - calls after the first one will be ignored.
+   See README-tools for usage information.
 */
 #define _GASNETI_THREADKEY_MAGIC 0xFF00ABCDEF573921ULL
 
@@ -436,69 +416,28 @@ extern uint64_t gasneti_checksum(const void *p, int numbytes);
 #endif
 
 /* ------------------------------------------------------------------------------------ */
-/* environment support */
+/* environment support 
+   see README-tools for usage information 
+ */
 
-/* format a integer value as a human-friendly string, with appropriate mem suffix */
 extern char *gasneti_format_number(int64_t val, char *buf, size_t bufsz, int is_mem_size);
-/* parse an integer value back out again
-  if mem_size_multiplier==0, it's a unitless quantity
-  otherwise, it's a memory size quantity, and mem_size_multiplier provides the 
-    default memory unit (ie 1024=1KB) if the string provides none  */
 extern int64_t gasneti_parse_int(const char *str, uint64_t mem_size_multiplier);
-
-/* set/unset an environment variable, for the local process ONLY */
 extern void gasneti_setenv(const char *key, const char *value);
 extern void gasneti_unsetenv(const char *key);
+
+extern char *gasneti_getenv(const char *keyname);
+extern char *gasneti_getenv_withdefault(const char *keyname, const char *defaultval);
+extern int gasneti_getenv_yesno_withdefault(const char *keyname, int defaultval);
+extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defaultval, uint64_t mem_size_multiplier);
+extern int gasneti_verboseenv();
+extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size);
+extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt);
 
 /* Conduit-specific supplement to gasneti_getenv
  * If set to non-NULL this has precedence over gasneti_globalEnv.
  */
 typedef char *(gasneti_getenv_fn_t)(const char *keyname);
 extern gasneti_getenv_fn_t *gasneti_conduit_getenv;
-
-/* GASNet environment query function
- * uses the gasneti_globalEnv if available or regular getenv otherwise
- * legal to call before gasnet_init, but may malfunction if
- * the conduit has not yet established the contents of the environment
- */
-extern char *gasneti_getenv(const char *keyname);
-
-/* GASNet environment query for a string parameter
-   if user has set value the return value indicates their selection
-   if value is not set, the provided default value is returned
-   call is reported to the console in verbose-environment mode,
-   so this function should never be called more than once per key
-   legal to call before gasnet_init, but may malfunction if
-   the conduit has not yet established the contents of the environment
- */
-extern char *gasneti_getenv_withdefault(const char *keyname, const char *defaultval);
-
-/* GASNet environment query for a yes/no parameter
-   if user has set value to 'Y|YES|y|yes|1' or 'N|n|NO|no|0', 
-   the return value indicates their selection
-   if value is not set, the provided default value is returned
-   same restrictions on gasneti_getenv_withdefault also apply
- */
-extern int gasneti_getenv_yesno_withdefault(const char *keyname, int defaultval);
-
-/* GASNet environment query for an integral parameter
-   if mem_size_multiplier non-zero, expect a (possibly fractional) memory size with suffix (B|KB|MB|GB|TB)
-     and the default multiplier is mem_size_multiplier (eg 1024 for KB)
-   otherwise, expect a positive or negative integer in decimal or hex ("0x" prefix)
-   the return value indicates their selection
-   if value is not set, the provided default value is returned
-   same restrictions on gasneti_getenv_withdefault also apply
- */
-extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defaultval, uint64_t mem_size_multiplier);
-
-/* gasneti_verboseenv() returns true iff GASNET_VERBOSEENV reporting is enabled on this node 
-   note the answer may change during initialization
- */
-extern int gasneti_verboseenv();
-
-/* display an integral/string environment setting iff gasneti_verboseenv() */
-extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size);
-extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt);
 /* ------------------------------------------------------------------------------------ */
 
 #if PLATFORM_OS_AIX
