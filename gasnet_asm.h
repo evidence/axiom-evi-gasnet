@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/09/12 01:09:17 $
- * $Revision: 1.113 $
+ *     $Date: 2006/09/12 21:34:27 $
+ * $Revision: 1.114 $
  * Description: GASNet header for semi-portable inline asm support
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,6 +25,7 @@
   #else /* note this requires compiler flag -Masmkeyword */
     #define GASNETI_ASM(mnemonic) asm(mnemonic)
   #endif
+  #define GASNETI_ASM_SPECIAL(mnemonic) asm(mnemonic)
 #elif PLATFORM_COMPILER_COMPAQ
   #include <c_asm.h>
   #define GASNETI_ASM(mnemonic) asm(mnemonic)
@@ -48,6 +49,10 @@
   #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL 
 #else
   #error "Don't know how to use inline assembly for your compiler"
+#endif
+
+#ifndef GASNETI_ASM_SPECIAL
+  #define GASNETI_ASM_SPECIAL GASNETI_ASM
 #endif
 
 #endif /* _GASNET_ASM_H */

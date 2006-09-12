@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/09/11 07:26:06 $
- * $Revision: 1.72 $
+ *     $Date: 2006/09/12 21:34:27 $
+ * $Revision: 1.73 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -245,17 +245,18 @@ GASNETI_BEGIN_EXTERNC
   typedef uint64_t gasneti_tick_t;
  #if PLATFORM_COMPILER_PGI && !PGI_WITH_REAL_ASM
    #if PLATFORM_ARCH_X86
-     #define GASNETI_TICKS_NOW_BODY GASNETI_ASM("rdtsc");
+     #define GASNETI_TICKS_NOW_BODY GASNETI_ASM_SPECIAL("rdtsc");
    #elif PLATFORM_ARCH_X86_64
      #define GASNETI_TICKS_NOW_BODY                   \
-		GASNETI_ASM( "xor %rax, %rax	\n\t" \
+		GASNETI_ASM_SPECIAL(                  \
+			     "xor %rax, %rax	\n\t" \
 			     "rdtsc		\n\t" \
 			     "shl $32, %rdx	\n\t" \
 			     "or %rdx, %rax" );
    #elif PLATFORM_ARCH_IA64
      /* For completeness. */
      #define GASNETI_TICKS_NOW_BODY \
-		GASNETI_ASM( "mov.m r8=ar.itc;" );
+		GASNETI_ASM_SPECIAL( "mov.m r8=ar.itc;" );
    #endif
  #elif PGI_WITH_REAL_ASM && defined(__cplusplus)
   #define GASNETI_USING_SLOW_TIMERS 1

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/09/12 01:09:17 $
- * $Revision: 1.255 $
+ *     $Date: 2006/09/12 21:34:27 $
+ * $Revision: 1.256 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -425,7 +425,8 @@
         #if PLATFORM_COMPILER_VERSION_LT(2,3,0)
 	  /* A "dirty hack" for bug 1620 because pathcc < 2.3 botches the 64-bit asm */
           #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY\
-	    GASNETI_ASM( "movq     %rsi, %rax		\n\t" \
+	    GASNETI_ASM_SPECIAL(                        \
+		         "movq     %rsi, %rax		\n\t" \
 		         GASNETI_X86_LOCK_PREFIX	\
 		         "cmpxchgq %rdx, (%rdi)		\n\t" \
 		         "sete     %cl			\n\t" \
@@ -668,24 +669,28 @@
       #define _gasneti_atomic32_set(p,v)     ((p)->ctr = (v))
 
       #define GASNETI_ATOMIC32_INCREMENT_BODY				\
-	  GASNETI_ASM( _gasneti_atomic_load_arg0			\
+	  GASNETI_ASM_SPECIAL(                                          \
+		       _gasneti_atomic_load_arg0			\
 		       GASNETI_X86_LOCK_PREFIX				\
 		       "incl " _gasneti_atomic_addr )
 
       #define GASNETI_ATOMIC32_DECREMENT_BODY				\
-	  GASNETI_ASM( _gasneti_atomic_load_arg0			\
+	  GASNETI_ASM_SPECIAL(                                          \
+		       _gasneti_atomic_load_arg0			\
 		       GASNETI_X86_LOCK_PREFIX				\
 		       "decl " _gasneti_atomic_addr )
 
       #define GASNETI_ATOMIC32_DECREMENT_AND_TEST_BODY			\
-	  GASNETI_ASM( _gasneti_atomic_load_arg0			\
+	  GASNETI_ASM_SPECIAL(                                          \
+		       _gasneti_atomic_load_arg0			\
 		       GASNETI_X86_LOCK_PREFIX				\
 		       "decl " _gasneti_atomic_addr			"\n\t" \
 		       "sete %cl					\n\t" \
 		       "movzbl %cl, %eax" )
 
       #define GASNETI_ATOMIC32_COMPARE_AND_SWAP_BODY			\
-	  GASNETI_ASM( _gasneti_atomic_load_arg0			\
+	  GASNETI_ASM_SPECIAL(                                          \
+		       _gasneti_atomic_load_arg0			\
 		       _gasneti_atomic_load_arg1			\
 		       _gasneti_atomic_load_arg2			\
 		       GASNETI_X86_LOCK_PREFIX				\
@@ -699,13 +704,15 @@
        * work is done in C code that the optimizer can discard.
        */
       #define GASNETI_ATOMIC32_FETCHADD_BODY				\
-	  GASNETI_ASM( _gasneti_atomic_load_arg0			\
+	  GASNETI_ASM_SPECIAL(                                          \
+		       _gasneti_atomic_load_arg0			\
 		       _gasneti_atomic_load_arg1			\
 		       GASNETI_X86_LOCK_PREFIX				\
 		       "xadd %eax, " _gasneti_atomic_addr	)
     #else
       #define GASNETI_ATOMIC32_ADD_BODY					\
-	  GASNETI_ASM( _gasneti_atomic_load_arg0			\
+	  GASNETI_ASM_SPECIAL(                                          \
+		       _gasneti_atomic_load_arg0			\
 		       _gasneti_atomic_load_arg1			\
 		       "movl %eax, %edx					\n\t" \
 		       GASNETI_X86_LOCK_PREFIX				\
@@ -713,7 +720,8 @@
 		       "addl %edx, %eax"	)
 
       #define GASNETI_ATOMIC32_SUBTRACT_BODY				\
-	  GASNETI_ASM( _gasneti_atomic_load_arg0			\
+	  GASNETI_ASM_SPECIAL(                                          \
+		       _gasneti_atomic_load_arg0			\
 		       _gasneti_atomic_load_arg1			\
 		       "movl %eax, %edx					\n\t" \
 		       "negl %eax					\n\t" \
@@ -746,7 +754,8 @@
         #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
 
         #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY			\
-	  GASNETI_ASM( _gasneti_atomic_load_arg0			\
+	  GASNETI_ASM_SPECIAL(                                          \
+		       _gasneti_atomic_load_arg0			\
 		       _gasneti_atomic_load_arg1			\
 		       _gasneti_atomic_load_arg2			\
 		       GASNETI_X86_LOCK_PREFIX				\
@@ -759,7 +768,8 @@
 				   GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
       #else
         #define GASNETI_ATOMIC64_READ_BODY     				\
-	  GASNETI_ASM( "pushl     %edi					\n\t" \
+	  GASNETI_ASM_SPECIAL(                                          \
+		       "pushl     %edi					\n\t" \
 		       "movl      8(%ebp), %edi				\n\t" \
 		       "pushl     %ebx					\n" \
 		       "movl      0(%edi), %eax				\n\t" \
@@ -774,7 +784,8 @@
 		       "popl      %edi" )
 
         #define GASNETI_ATOMIC64_SET_BODY     				\
-	  GASNETI_ASM( "pushl     %edi					\n\t" \
+	  GASNETI_ASM_SPECIAL(                                          \
+		       "pushl     %edi					\n\t" \
 		       "movl      8(%ebp), %edi				\n\t" \
 		       "pushl     %ebx					\n" \
 		       "movl      0(%edi), %eax				\n\t" \
@@ -789,7 +800,8 @@
 		       "popl      %edi" )
 
         #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY			\
-	  GASNETI_ASM( "pushl     %edi					\n\t" \
+	  GASNETI_ASM_SPECIAL(                                          \
+		       "pushl     %edi					\n\t" \
 		       "movl      8(%ebp), %edi				\n\t" \
 		       "pushl     %ebx					\n" \
 		       "movl      12(%ebp), %eax			\n\t" \
@@ -1265,7 +1277,7 @@
         /* Default impls of inc, dec, dec-and-test, add and sub */
 
         #define GASNETI_ATOMIC32_COMPARE_AND_SWAP_BODY					\
-	    GASNETI_ASM(								\
+	    GASNETI_ASM_SPECIAL(                        \
 		/* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */	\
 		     "cas	[%i0], %i1, %i2		\n\t"				\
 		/* retval = (oldval == newval) ? 1 : 0				*/	\
@@ -1274,7 +1286,7 @@
 		     "subx	%g0, -1, %i0 " )	      /* Subtract w/ carry */
 
         #define GASNETI_ATOMIC32_FETCHADD_BODY /* see gcc asm, above, for more detail */	\
-	    GASNETI_ASM(								\
+	    GASNETI_ASM_SPECIAL(                        \
 		/* oldval = *addr;						*/	\
 		     "ld	[%i0], %g1		\n"				\
 		/* while (!cas(addr, oldval, oldval + op)) { oldval = *addr; }	*/	\
@@ -1301,7 +1313,7 @@
           #define _gasneti_atomic64_read(p)      ((p)->ctr)
           #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
           #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY				\
-	    GASNETI_ASM(								\
+	    GASNETI_ASM_SPECIAL(							\
 		/* if (*addr == oldval) SWAP(*addr,newval); else newval = *addr; */	\
 		     "casx	[%i0], %i1, %i2		\n\t"				\
 		/* retval = (oldval == newval) ? 1 : 0				*/	\
@@ -1314,15 +1326,15 @@
         #else
           /* ILP32 on a 64-bit CPU. */
           #define GASNETI_ATOMIC64_SET_BODY /* see gcc asm, above, for explanation */	\
-	    GASNETI_ASM(								\
+	    GASNETI_ASM_SPECIAL(							\
 		     "mov	%i1, %o2		\n\t"				\
 		     "mov	%i2, %o3		\n\t"				\
 		     "std	%o2, [%i0]" )
           #define GASNETI_ATOMIC64_READ_BODY /* see gcc asm, above, for explanation */	\
-	    GASNETI_ASM(								\
+	    GASNETI_ASM_SPECIAL(							\
 		     "ldd	[%i0], %i0 " );
           #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY /* see gcc asm, above, for explanation */ \
-	    GASNETI_ASM(								\
+	    GASNETI_ASM_SPECIAL(							\
 		     "sllx	%i3, 32, %o1		\n\t"				\
 		     "sllx	%i1, 32, %g1		\n\t"				\
 		     "or	%o1, %i4, %o1		\n\t"				\
