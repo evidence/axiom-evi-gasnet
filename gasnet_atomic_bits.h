@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/09/11 21:39:47 $
- * $Revision: 1.254 $
+ *     $Date: 2006/09/12 01:09:17 $
+ * $Revision: 1.255 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -316,7 +316,22 @@
    * CPU and compiler support for inline assembly code
    * ------------------------------------------------------------------------------------ */
   #if PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 /* x86 and Athlon/Opteron */
-    #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
+    #if PLATFORM_COMPILER_PGI_CXX && !defined(__PGIC__)
+      /* pgCC w/o version info must use the slow atomics since we cannot know if the
+       * library has been built w/ native or "special" atomics support.
+       */
+      /* XXX: Only works because both possible library versions use these representations. */
+      #define GASNETI_HAVE_ATOMIC32_T 1
+      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
+      #define _gasneti_atomic32_init(v)      { (v) }
+      #define GASNETI_HAVE_ATOMIC64_T 1
+      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+      #define _gasneti_atomic64_init(v)      { (v) }
+
+      #define GASNETI_HAVE_ATOMIC_CAS 1	/* Explicit */
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1	/* Derived */
+      #define GASNETI_USING_SLOW_ATOMICS 1
+    #elif PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
         PLATFORM_COMPILER_PATHSCALE || PGI_WITH_REAL_ASM || PLATFORM_COMPILER_TINY
      #define GASNETI_HAVE_ATOMIC32_T 1
      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
@@ -326,11 +341,6 @@
      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
      #define _gasneti_atomic64_init(v)      { (v) }
 
-     #if PLATFORM_COMPILER_PGI_CXX && PGI_WITH_REAL_ASM /* PGI C++ lacks inline assembly */
-        #define GASNETI_HAVE_ATOMIC_CAS 1	/* Explicit */
-        #define GASNETI_HAVE_ATOMIC_ADD_SUB 1	/* Derived */
-        #define GASNETI_USING_SLOW_ATOMICS 1
-     #else
       #if PLATFORM_COMPILER_PATHSCALE
         /* Pathscale optimizer is buggy and fails to clobber memory output location correctly
            unless we include an extraneous full memory clobber 
@@ -636,7 +646,6 @@
 
       /* x86 and x86_64 include full memory fence in locked RMW insns */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
-     #endif /* !slow atomics */
     #elif PLATFORM_COMPILER_SUN || PLATFORM_COMPILER_PGI
       /* First, some macros to hide the x86 vs. x86-64 ABI differences */
       #if PLATFORM_ARCH_X86_64
