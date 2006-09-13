@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/09/12 21:34:27 $
- * $Revision: 1.73 $
+ *     $Date: 2006/09/13 00:52:21 $
+ * $Revision: 1.74 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -268,22 +268,18 @@ GASNETI_BEGIN_EXTERNC
       uint32_t lo, hi;
       __asm__ __volatile__("rdtsc"
                            : "=a" (lo), "=d" (hi)
-                           : /* no inputs */); 
+                           /* no inputs */); 
       ret = ((uint64_t)lo) | (((uint64_t)hi)<<32);
     #elif PLATFORM_ARCH_X86
-      #if PLATFORM_COMPILER_TINY
-      __asm__ __volatile__("rdtsc" : "=A" (ret)); 
-      #else
       __asm__ __volatile__("rdtsc"
                            : "=A" (ret)
-                           : /* no inputs */); 
-      #endif
+                           /* no inputs */); 
     #elif PLATFORM_ARCH_IA64 && PLATFORM_COMPILER_INTEL
       ret = (uint64_t)__getReg(_IA64_REG_AR_ITC);
     #elif PLATFORM_ARCH_IA64
       __asm__ __volatile__("mov %0=ar.itc" 
                            : "=r"(ret) 
-                           : /* no inputs */);
+                           /* no inputs */);
     #else
       #error "unsupported CPU"
     #endif
