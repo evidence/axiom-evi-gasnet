@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/09/13 19:15:36 $
- * $Revision: 1.195 $
+ *     $Date: 2006/09/13 23:40:33 $
+ * $Revision: 1.196 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2613,13 +2613,14 @@ extern int gasnetc_sndrcv_init(void) {
       gasneti_lifo_init(&hca->rbuf_freelist);
       rbuf = (gasnetc_rbuf_t *)GASNETC_ALIGNUP(hca->rbuf_alloc, GASNETI_CACHE_LINE_BYTES);
       for (i = 0; i < rcv_count; ++i) {
-        rbuf->rr_desc.next = NULL;
         rbuf->rr_desc.gasnetc_f_wr_num_sge = 1;
         rbuf->rr_desc.gasnetc_f_wr_sg_list = &rbuf->rr_sg;
         rbuf->rr_desc.gasnetc_f_wr_id      = (uintptr_t)rbuf;	/* CQE will point back to this request */
 #if GASNETC_IB_VAPI
         rbuf->rr_desc.opcode     = VAPI_RECEIVE;
         rbuf->rr_desc.comp_type  = VAPI_SIGNALED;
+#else
+        rbuf->rr_desc.next = NULL;
 #endif
         rbuf->rr_sg.gasnetc_f_sg_len = GASNETC_BUFSZ;
         rbuf->rr_sg.addr             = (uintptr_t)&buf[i];
