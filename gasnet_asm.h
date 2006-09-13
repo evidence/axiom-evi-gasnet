@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/09/13 01:40:22 $
- * $Revision: 1.115 $
+ *     $Date: 2006/09/13 18:51:31 $
+ * $Revision: 1.116 $
  * Description: GASNet header for semi-portable inline asm support
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -23,6 +23,9 @@
    *
    * GASNETI_PGI_ASM_GNU 
    *   Compiler accepts GNU-style asm() such as asm ("code" : "r" (out) : "r" (in) : "memory");
+   *   While pgcc 6.1-1 and pgCC 6.2-2 include full GNU-style asm() support, our inability to
+   *   reliably identify either of those version numbers leads to higher cut-offs (PGI 
+   *   "tpr 3791" and discussion thread http://www.pgroup.com/userforum/viewtopic.php?t=466)
    *   Implies PLATFORM_COMPILER_PGI
    *
    * GASNETI_PGI_ASM_THREADSAFE
@@ -38,8 +41,11 @@
    *
    * See GASNet bug 1621 (http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=1621) for more
    * info on the bugs indicated by GASNETI_PGI_ASM_THREADSAFE and GASNETI_PGI_ASM_X86_A.
+   *
+   * See GASNet bugs 1751 and 1753 for discussion related to the difficulty with versioning
+   * of the Portland Group compilers.
    */
-  #if (PLATFORM_COMPILER_PGI_C && PLATFORM_COMPILER_VERSION_GE(6,1,1)) || \
+  #if (PLATFORM_COMPILER_PGI_C && PLATFORM_COMPILER_VERSION_GE(6,1,5)) || \
       (PLATFORM_COMPILER_PGI_CXX && PLATFORM_COMPILER_VERSION_GE(6,2,2))
     #define GASNETI_PGI_ASM_GNU 1
     #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
