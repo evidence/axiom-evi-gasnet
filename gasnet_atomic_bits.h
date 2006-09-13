@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/09/12 21:34:27 $
- * $Revision: 1.256 $
+ *     $Date: 2006/09/13 01:40:22 $
+ * $Revision: 1.257 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -315,24 +315,9 @@
    * Not using GENERIC (mutex) or OS-provided atomics, so provide our own based on the
    * CPU and compiler support for inline assembly code
    * ------------------------------------------------------------------------------------ */
-  #if PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 /* x86 and Athlon/Opteron */
-    #if PLATFORM_COMPILER_PGI_CXX && !defined(__PGIC__)
-      /* pgCC w/o version info must use the slow atomics since we cannot know if the
-       * library has been built w/ native or "special" atomics support.
-       */
-      /* XXX: Only works because both possible library versions use these representations. */
-      #define GASNETI_HAVE_ATOMIC32_T 1
-      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
-      #define _gasneti_atomic32_init(v)      { (v) }
-      #define GASNETI_HAVE_ATOMIC64_T 1
-      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
-      #define _gasneti_atomic64_init(v)      { (v) }
-
-      #define GASNETI_HAVE_ATOMIC_CAS 1	/* Explicit */
-      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1	/* Derived */
-      #define GASNETI_USING_SLOW_ATOMICS 1
-    #elif PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
-        PLATFORM_COMPILER_PATHSCALE || PGI_WITH_REAL_ASM || PLATFORM_COMPILER_TINY
+  #if PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 /* x86 and Athlon64/Opteron */
+    #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
+        PLATFORM_COMPILER_PATHSCALE || GASNETI_PGI_ASM_THREADSAFE || PLATFORM_COMPILER_TINY
      #define GASNETI_HAVE_ATOMIC32_T 1
      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
      #define _gasneti_atomic32_init(v)      { (v) }
@@ -417,8 +402,8 @@
       }
       #define _gasneti_atomic32_fetchadd gasneti_atomic32_fetchadd
 
-      /* 64-bit differ between x86 and amd64: */
-      #if PLATFORM_ARCH_X86_64 /* x86 and Athlon/Opteron */
+      /* 64-bit differ between x86 and x86-64: */
+      #if PLATFORM_ARCH_X86_64 /* Athlon64/Opteron */
         #define _gasneti_atomic64_read(p)      ((p)->ctr)
         #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
 
@@ -647,7 +632,7 @@
 
       /* x86 and x86_64 include full memory fence in locked RMW insns */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
-    #elif PLATFORM_COMPILER_SUN || PLATFORM_COMPILER_PGI
+    #elif PLATFORM_COMPILER_SUN || PLATFORM_COMPILER_PGI_C
       /* First, some macros to hide the x86 vs. x86-64 ABI differences */
       #if PLATFORM_ARCH_X86_64
         #define _gasneti_atomic_addr		"(%rdi)"
@@ -748,8 +733,8 @@
       typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
       #define _gasneti_atomic64_init(v)      { (v) }
 
-      /* 64-bit differ between x86 and amd64: */
-      #if PLATFORM_ARCH_X86_64 /* x86 and Athlon/Opteron */
+      /* 64-bit differ between x86 and x86-64: */
+      #if PLATFORM_ARCH_X86_64 /* Athlon64/Opteron */
         #define _gasneti_atomic64_read(p)      ((p)->ctr)
         #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
 
@@ -766,7 +751,7 @@
         #define GASNETI_ATOMIC64_SPECIALS                                        \
 	  GASNETI_SPECIAL_ASM_DEFN(_gasneti_special_atomic64_compare_and_swap,   \
 				   GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY)
-      #else
+      #else /* x86 */
         #define GASNETI_ATOMIC64_READ_BODY     				\
 	  GASNETI_ASM_SPECIAL(                                          \
 		       "pushl     %edi					\n\t" \
@@ -829,6 +814,24 @@
 
       /* x86 and x86_64 include full memory fence in locked RMW insns */
       #define GASNETI_ATOMIC_FENCE_RMW (GASNETI_ATOMIC_MB_PRE | GASNETI_ATOMIC_MB_POST)
+    #elif PLATFORM_COMPILER_PGI_CXX
+      /* pgCC w/o threadsafe GNU-style asm():
+       * Here we must use the slow atomics since we don't know if the library has been
+       * built w/ native or "special" atomics support.
+       * See bug 1752 for discussion of how this might be avoided.
+       */
+      /* XXX: Only works because both possible library versions use these representations. */
+      #define GASNETI_HAVE_ATOMIC32_T 1
+      typedef struct { volatile uint32_t ctr; } gasneti_atomic32_t;
+      #define _gasneti_atomic32_init(v)      { (v) }
+
+      #define GASNETI_HAVE_ATOMIC64_T 1
+      typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
+      #define _gasneti_atomic64_init(v)      { (v) }
+
+      #define GASNETI_HAVE_ATOMIC_CAS 1	/* Explicit */
+      #define GASNETI_HAVE_ATOMIC_ADD_SUB 1	/* Derived */
+      #define GASNETI_USING_SLOW_ATOMICS 1
     #else
       #error unrecognized x86 compiler - need to implement GASNet atomics (or #define GASNETI_USE_GENERIC_ATOMICOPS)
     #endif

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_membar.h,v $
- *     $Date: 2006/09/12 21:34:27 $
- * $Revision: 1.115 $
+ *     $Date: 2006/09/13 01:40:22 $
+ * $Revision: 1.116 $
  * Description: GASNet header for portable memory barrier operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -30,7 +30,7 @@
 
 #if PLATFORM_COMPILER_SUN_CXX || \
    (PLATFORM_COMPILER_HP_CXX && PLATFORM_ARCH_PARISC) || \
-   (PLATFORM_COMPILER_PGI_CXX && PGI_WITH_REAL_ASM)
+   (PLATFORM_COMPILER_PGI_CXX && !GASNETI_PGI_ASM_GNU)
   /* no inline assembly in these C++ compilers, so pay a function call overhead */
   #define GASNETI_USING_SLOW_MEMBARS 1
 /* ------------------------------------------------------------------------------------ */
@@ -118,10 +118,9 @@
       * Unfortunately, all read-modify-write operations also set condition
       * codes.  So, we have an extra messy case for gcc, icc, etc.
       */
-     #if (PLATFORM_COMPILER_PGI && !PGI_WITH_REAL_ASM) || PLATFORM_COMPILER_SUN_C
+     #if (PLATFORM_COMPILER_PGI && !GASNETI_PGI_ASM_GNU) || PLATFORM_COMPILER_SUN_C
        GASNETI_ASM("lock; addl $0,0(%esp)");
-     #elif PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
-          (PLATFORM_COMPILER_PGI && PGI_WITH_REAL_ASM)
+     #elif PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || PLATFORM_COMPILER_PGI
        /* For gcc, icc and other gcc look-alikes */
        __asm__ __volatile__ ("lock; addl $0,0(%%esp)" : : : "memory", "cc");
      #else

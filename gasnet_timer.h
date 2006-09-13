@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/09/13 00:52:21 $
- * $Revision: 1.74 $
+ *     $Date: 2006/09/13 01:40:22 $
+ * $Revision: 1.75 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -153,7 +153,7 @@ GASNETI_BEGIN_EXTERNC
   #define GASNETI_TICK_MAX        ((gasneti_tick_t)(((uint64_t)-1)>>1))
 #endif
 /* ------------------------------------------------------------------------------------ */
-#elif PLATFORM_OS_CATAMOUNT && PLATFORM_COMPILER_PGI && !PGI_WITH_REAL_ASM && 0 /* DISABLED */
+#elif PLATFORM_OS_CATAMOUNT && PLATFORM_COMPILER_PGI && !GASNETI_PGI_ASM_GNU && 0 /* DISABLED */
   #include <catamount/dclock.h>
   typedef uint64_t gasneti_tick_t;
   #define gasneti_ticks_to_ns(st)  (st)
@@ -243,7 +243,20 @@ GASNETI_BEGIN_EXTERNC
     extern unsigned int __cpu_mhz; /* system provided */
   #endif
   typedef uint64_t gasneti_tick_t;
- #if PLATFORM_COMPILER_PGI && !PGI_WITH_REAL_ASM
+ #if PLATFORM_COMPILER_PGI && !GASNETI_PGI_ASM_GNU
+   /* The current compiler lacks full GNU-style asm() support.
+    *
+    * Defining GASNETI_TICKS_NOW_BODY at library build time will use the
+    * given asm() as the body of a function gasneti_slow_ticks_now() and
+    * replace calls to gasneti_ticks_now() with calls to the "special"
+    * gasneti_slow_ticks_now().
+    *
+    * Defining GASNETI_TICKS_NOW_BODY when compiling client code will only
+    * perform the gasneti_ticks_now()->gasneti_slow_ticks_now() redirection
+    * and the actual asm() here is ignored.  Since gasneti_slow_ticks_now()
+    * is always present in the library, this makes no assumption about
+    * what level of inline asm() support was present at library built time.
+    */
    #if PLATFORM_ARCH_X86
      #define GASNETI_TICKS_NOW_BODY GASNETI_ASM_SPECIAL("rdtsc");
    #elif PLATFORM_ARCH_X86_64
@@ -258,13 +271,15 @@ GASNETI_BEGIN_EXTERNC
      #define GASNETI_TICKS_NOW_BODY \
 		GASNETI_ASM_SPECIAL( "mov.m r8=ar.itc;" );
    #endif
- #elif PGI_WITH_REAL_ASM && defined(__cplusplus)
-  #define GASNETI_USING_SLOW_TIMERS 1
  #else
   GASNETI_INLINE(gasneti_ticks_now)
   uint64_t gasneti_ticks_now (void) {
     uint64_t ret;
-    #if PLATFORM_ARCH_X86_64 || (PLATFORM_ARCH_X86 && PGI_WITH_REAL_ASM)
+    #if PLATFORM_ARCH_X86_64 || \
+        (PLATFORM_COMPILER_PGI && PLATFORM_ARCH_X86 && !GASNETI_PGI_ASM_X86_A)
+      /* This asm() for x86-64 also works for x86 compilers w/o working support
+       * for the "A" constraint (currently only pgcc 6.1-x, which crashes).
+       */
       uint32_t lo, hi;
       __asm__ __volatile__("rdtsc"
                            : "=a" (lo), "=d" (hi)

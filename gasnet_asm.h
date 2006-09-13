@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/09/12 21:34:27 $
- * $Revision: 1.114 $
+ *     $Date: 2006/09/13 01:40:22 $
+ * $Revision: 1.115 $
  * Description: GASNet header for semi-portable inline asm support
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -19,11 +19,36 @@
     PLATFORM_COMPILER_TINY 
   #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
 #elif PLATFORM_COMPILER_PGI 
-  #if PLATFORM_COMPILER_VERSION_GE(6,2,2)
-    #define PGI_WITH_REAL_ASM 1
+  /* Some definitions:
+   *
+   * GASNETI_PGI_ASM_GNU 
+   *   Compiler accepts GNU-style asm() such as asm ("code" : "r" (out) : "r" (in) : "memory");
+   *   Implies PLATFORM_COMPILER_PGI
+   *
+   * GASNETI_PGI_ASM_THREADSAFE
+   *   Compiler does not suffer from "tpr 3852" in which "gratuitous" register reloads after
+   *   an inline asm() renders the GNU-style asm() support unsuitable for GASNet atomics.
+   *   Implies PLATFORM_COMPILER_PGI && GASNETI_PGI_ASM_GNU
+   *
+   * GASNETI_PGI_ASM_X86_A
+   *   Compiler does not suffer from "tpr 3843" in which use of the "A" constraint in a
+   *   GNU-style asm() would crash the compiler.  This is applicable only to 32-bit targets,
+   *   and the value of this symbol on 64-bit targets is undefined.
+   *   Implies PLATFORM_COMPILER_PGI && GASNETI_PGI_ASM_GNU
+   *
+   * See GASNet bug 1621 (http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=1621) for more
+   * info on the bugs indicated by GASNETI_PGI_ASM_THREADSAFE and GASNETI_PGI_ASM_X86_A.
+   */
+  #if (PLATFORM_COMPILER_PGI_C && PLATFORM_COMPILER_VERSION_GE(6,1,1)) || \
+      (PLATFORM_COMPILER_PGI_CXX && PLATFORM_COMPILER_VERSION_GE(6,2,2))
+    #define GASNETI_PGI_ASM_GNU 1
     #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
   #else /* note this requires compiler flag -Masmkeyword */
     #define GASNETI_ASM(mnemonic) asm(mnemonic)
+  #endif
+  #if PLATFORM_COMPILER_VERSION_GE(6,2,2)
+    #define GASNETI_PGI_ASM_THREADSAFE 1
+    #define GASNETI_PGI_ASM_X86_A 1
   #endif
   #define GASNETI_ASM_SPECIAL(mnemonic) asm(mnemonic)
 #elif PLATFORM_COMPILER_COMPAQ
