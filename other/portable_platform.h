@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2006/09/08 03:40:38 $
- * $Revision: 1.9 $
+ *     $Date: 2006/09/14 03:31:22 $
+ * $Revision: 1.10 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -109,7 +109,7 @@
       /* Include below might fail for ancient versions lacking this header, but testing shows it
          works back to at least 5.1-3 (Nov 2003), and based on docs probably back to 3.2 (Sep 2000) */
         #define PLATFORM_COMPILER_VERSION 0       
-    #else
+    #elif defined(__x86_64__) /* bug 1753 - 64-bit omp.h upgrade happenned in <6.0-8,6.1-1] */
       #include "omp.h"
       #if defined(_PGOMP_H)
         /* 6.1.1 or newer */
@@ -119,6 +119,17 @@
         /* 6.0.8 or older */
         #define PLATFORM_COMPILER_VERSION 0
         #define PLATFORM_COMPILER_VERSION_STR "<=6.0-8"
+      #endif
+    #else /* 32-bit omp.h upgrade happenned in <5.2-4,6.0-8] */
+      #include "omp.h"
+      #if defined(_PGOMP_H)
+        /* 6.0-8 or newer */
+        #define PLATFORM_COMPILER_VERSION 0x060008
+        #define PLATFORM_COMPILER_VERSION_STR ">=6.0-8"
+      #else
+        /* 5.2-4 or older */
+        #define PLATFORM_COMPILER_VERSION 0
+        #define PLATFORM_COMPILER_VERSION_STR "<=5.2-4"
       #endif
     #endif
   #endif
