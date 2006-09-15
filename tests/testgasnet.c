@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testgasnet.c,v $
- *     $Date: 2006/08/30 01:46:46 $
- * $Revision: 1.52 $
+ *     $Date: 2006/09/15 23:24:29 $
+ * $Revision: 1.53 $
  * Description: General GASNet correctness tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -199,6 +199,16 @@ int main(int argc, char **argv) {
 
 
   TEST_PRINT_CONDUITINFO();
+
+  { int smaj = GASNET_SPEC_VERSION_MAJOR;
+    int smin = GASNET_SPEC_VERSION_MINOR;
+    int rmaj = GASNET_RELEASE_VERSION_MAJOR;
+    int rmin = GASNET_RELEASE_VERSION_MINOR;
+    int rpat = GASNET_RELEASE_VERSION_PATCH;
+    int smaj2 = GASNET_VERSION;
+    assert_always(smaj > 0 && smin >= 0 && rmaj > 0 && rmin >= 0 && rpat >= 0);
+    assert_always(smaj == smaj2);
+  }
 
   { int i;
     printf("my args: argc=%i argv=[", argc);

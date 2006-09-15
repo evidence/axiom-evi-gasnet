@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/09/08 04:08:46 $
- * $Revision: 1.75 $
+ *     $Date: 2006/09/15 23:24:29 $
+ * $Revision: 1.76 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -85,7 +85,6 @@ GASNETT_THREADKEY_DEFINE(partest_key2);
 } while (0)
 
 int main(int argc, char **argv) {
-
   test_init("testtools", 0,"(iters) (num_threads) (tests_to_run)");
 
   if (argc > 1) iters = atoi(argv[1]);
@@ -114,6 +113,14 @@ int main(int argc, char **argv) {
   #else
     #error must #define exactly one of PLATFORM_ARCH_32 or PLATFORM_ARCH_64
   #endif
+
+  { int smaj = GASNETT_SPEC_VERSION_MAJOR;
+    int smin = GASNETT_SPEC_VERSION_MINOR;
+    int rmaj = GASNETT_RELEASE_VERSION_MAJOR;
+    int rmin = GASNETT_RELEASE_VERSION_MINOR;
+    int rpat = GASNETT_RELEASE_VERSION_PATCH;
+    assert_always(smaj > 0 && smin >= 0 && rmaj > 0 && rmin >= 0 && rpat >= 0);
+  }
 
   #if defined(GASNETT_PAGESIZE) && defined(GASNETT_PAGESHIFT)
     if (0x1 << GASNETT_PAGESHIFT != GASNETT_PAGESIZE)

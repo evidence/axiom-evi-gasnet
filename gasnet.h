@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet.h,v $
- *     $Date: 2006/09/09 06:56:58 $
- * $Revision: 1.55 $
+ *     $Date: 2006/09/15 23:24:25 $
+ * $Revision: 1.56 $
  * Description: GASNet Header
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -25,6 +25,13 @@
 
 /* autoconf-generated configuration header */
 #include <gasnet_config.h>
+
+/* public spec version numbers */
+#define GASNET_SPEC_VERSION_MAJOR GASNETI_SPEC_VERSION_MAJOR
+#define GASNET_SPEC_VERSION_MINOR GASNETI_SPEC_VERSION_MINOR
+
+/*  legacy name for major spec version number */
+#define GASNET_VERSION GASNET_SPEC_VERSION_MAJOR
 
 /* ------------------------------------------------------------------------------------ */
 /* check threading configuration */
@@ -163,15 +170,6 @@
 
 /* ------------------------------------------------------------------------------------ */
 /* constants */
-#ifndef GASNET_VERSION
-  /*  an integer representing the major version of the GASNet spec to which this implementation complies */
-  #define GASNET_VERSION 1
-#endif
-
-#ifndef GASNETI_RELEASE_VERSION
-  /* the public distribution release identifier */
-  #define GASNETI_RELEASE_VERSION 1.7
-#endif
 
 #ifndef GASNET_MAXNODES
   /*  an integer representing the maximum number of nodes supported in a single GASNet job */
@@ -334,7 +332,8 @@ GASNETI_END_EXTERNC
   #endif
   #define GASNET_CONFIG_STRING                                            \
              "RELEASE=" _STRINGIFY(GASNETI_RELEASE_VERSION) ","           \
-             "SPEC=" _STRINGIFY(GASNET_VERSION) ","                       \
+             "SPEC=" _STRINGIFY(GASNET_SPEC_VERSION_MAJOR) "."            \
+             _STRINGIFY(GASNET_SPEC_VERSION_MINOR) ","                    \
              "CONDUIT=" GASNET_CONDUIT_NAME_STR "("                       \
              GASNET_CORE_NAME_STR"-"GASNET_CORE_VERSION_STR "/"           \
              GASNET_EXTENDED_NAME_STR"-"GASNET_EXTENDED_VERSION_STR "),"  \

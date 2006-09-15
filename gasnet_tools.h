@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/09/09 06:56:58 $
- * $Revision: 1.102 $
+ *     $Date: 2006/09/15 23:24:25 $
+ * $Revision: 1.103 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -47,6 +47,14 @@
 #endif
 
 #include <gasnet_config.h>
+
+/* public spec version numbers */
+#define GASNETT_SPEC_VERSION_MAJOR GASNETIT_SPEC_VERSION_MAJOR
+#define GASNETT_SPEC_VERSION_MINOR GASNETIT_SPEC_VERSION_MINOR
+#define GASNETT_RELEASE_VERSION_MAJOR GASNET_RELEASE_VERSION_MAJOR
+#define GASNETT_RELEASE_VERSION_MINOR GASNET_RELEASE_VERSION_MINOR
+#define GASNETT_RELEASE_VERSION_PATCH GASNET_RELEASE_VERSION_PATCH
+
 #include <gasnet_basic.h>
 #include <gasnet_toolhelp.h>
 
@@ -441,6 +449,9 @@ static void _gasnett_trace_printf_noop(const char *_format, ...)) {
 #define GASNETT_PTR_CONFIG            GASNETI_PTR_CONFIG
 
 #define _GASNETT_LITE_CONFIG_STRING              \
+       "RELEASE=" _STRINGIFY(GASNETI_RELEASE_VERSION) "," \
+       "SPEC=" _STRINGIFY(GASNETT_SPEC_VERSION_MAJOR) "." \
+               _STRINGIFY(GASNETT_SPEC_VERSION_MINOR) "," \
        "PTR=" _STRINGIFY(GASNETI_PTR_CONFIG) "," \
        _STRINGIFY(GASNETT_DEBUG_CONFIG) ","      \
        _STRINGIFY(GASNETT_THREAD_MODEL) ","      \

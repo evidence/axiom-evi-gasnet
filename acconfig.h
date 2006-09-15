@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/08/30 13:00:55 $ */
-/*  $Revision: 1.115 $ */
+/*      $Date: 2006/09/15 23:24:25 $ */
+/*  $Revision: 1.116 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -18,6 +18,16 @@
 #undef GASNETI_SYSTEM_TUPLE
 #undef GASNETI_SYSTEM_NAME
 #undef GASNETI_CROSS_COMPILING
+
+/* version identifiers */
+#undef GASNET_RELEASE_VERSION_MAJOR
+#undef GASNET_RELEASE_VERSION_MINOR
+#undef GASNET_RELEASE_VERSION_PATCH
+#undef GASNETI_RELEASE_VERSION
+#undef GASNETI_SPEC_VERSION_MAJOR
+#undef GASNETI_SPEC_VERSION_MINOR
+#undef GASNETIT_SPEC_VERSION_MAJOR
+#undef GASNETIT_SPEC_VERSION_MINOR
 
 /* configure-detected conduits */
 #undef GASNETI_CONDUITS
