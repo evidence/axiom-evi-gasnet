@@ -2,7 +2,8 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.4 $
+$Revision: 1.5 $
+GASNet tools specification version: 1.0
 
 The GASNet tools are a set of communication-independent utilities that are used
 to implement GASNet, and constitute a useful portability tool for GASNet
@@ -181,6 +182,8 @@ programs with no concurrency.
 
 The atomics currently exposed by GASNet tools are *not* guaranteed to be atomic with respect 
 to signal handlers, and therefore should not be used for synchronizing with signal handlers.
+GASNet internally has signal-safe versions of the atomics on *most* platforms, and we might
+consider exposing those in a future version of the tools interface.
 
  * gasnett_atomic_t
 
@@ -659,6 +662,22 @@ int gasnett_isLittleEndian();
 -------------------
 Miscellaneous tools
 -------------------
+
+GASNETT_SPEC_VERSION_MAJOR
+GASNETT_SPEC_VERSION_MINOR
+
+  Integral values corresponding to the major and minor version numbers of the GASNet tools 
+  specification version adhered to by a particular implementation. The minor version is 
+  incremented whenever new functionality is added without breaking backward compatibility.
+  The major version is incremented whenever changes require breaking backward compatibility.
+  The specification version is provided at the top of this document.
+
+GASNETT_RELEASE_VERSION_MAJOR
+GASNETT_RELEASE_VERSION_MINOR
+GASNETT_RELEASE_VERSION_PATCH
+
+  Integral values corresponding to the major, minor and patch version numbers of the public release
+  identifiers corresponding the packaging on this implementation of GASNet/GASNet tools.
 
 GASNETT_IDENT(identName, identText);
 
