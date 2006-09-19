@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/Makefile.am,v $
-#     $Date: 2006/09/09 06:56:58 $
-# $Revision: 1.68 $
+#     $Date: 2006/09/19 03:49:00 $
+# $Revision: 1.69 $
 # Description: Makefile for GASNet 
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -121,7 +121,11 @@ libgasnet_tools-par.a: $(libgasnet_tools_dependencies)
 lib_LIBRARIES = $(libraries)
 #-------------------------------------------------------
 
-Makefile: $(srcdir)/Makefile.in $(top_builddir)/other/Makefile-libgasnet.mak
+# bug1758: cannot depend on $(top_builddir)/other/Makefile-libgasnet.mak here,
+#  as that will cause a failure during distclean on some make versions
+#  make should automatically introduce the desired dependency on Makefile-libgasnet.mak.in
+#  due to the include operation above
+Makefile: $(srcdir)/Makefile.in 
 	cd $(top_builddir) && CONFIG_FILES=$@ CONFIG_HEADERS= ./config.status
 
 # echo an arbitrary make/environment variable
