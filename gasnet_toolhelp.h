@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/09/20 17:27:17 $
- * $Revision: 1.21 $
+ *     $Date: 2006/09/20 17:40:13 $
+ * $Revision: 1.22 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -149,8 +149,7 @@ extern uint64_t gasneti_checksum(const void *p, int numbytes);
 extern size_t gasneti_count0s_copy(void * GASNETI_RESTRICT dst,
                                    const void * GASNETI_RESTRICT src,
                                    size_t len);
-extern size_t gasneti_count0s(const void * src, size_t len) GASNETI_PURE;
-GASNETI_PUREP(gasneti_count0s)
+extern size_t gasneti_count0s(const void * src, size_t len);
 
 /* ------------------------------------------------------------------------------------ */
 /* Error checking system mutexes -
