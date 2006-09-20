@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/09/20 16:36:31 $
- * $Revision: 1.19 $
+ *     $Date: 2006/09/20 17:13:15 $
+ * $Revision: 1.20 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -145,6 +145,7 @@ extern uint64_t gasneti_checksum(const void *p, int numbytes);
 
 /* ------------------------------------------------------------------------------------ */
 /* Count zero bytes in a region w/ or w/o a memcpy() */
+/* len must be non-zero */
 
 extern size_t gasneti_count0s_copy(void * GASNETI_RESTRICT dst,
                                    const void * GASNETI_RESTRICT src,
