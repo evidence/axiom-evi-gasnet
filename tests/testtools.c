@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/09/15 23:24:29 $
- * $Revision: 1.76 $
+ *     $Date: 2006/09/20 17:27:19 $
+ * $Revision: 1.77 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -244,6 +244,32 @@ int main(int argc, char **argv) {
         /*granularity < 0.5*overhead)*/
         ERR("nonsensical timer overhead/granularity measurements:\n"
              "  overhead: %.3fus  granularity: %.3fus\n",overhead, granularity);
+  }
+
+  TEST_HEADER("Testing zero-byte counting...")
+  { /* gasnett_count0s*() */
+    static const char src[24] = { '\0', '1',  '\0', '2', '\0', '3', '\0', '4',
+                                  '5',  '6',  '7',  '8', '\0', '9', '\0', 'a',
+                                  'b',  '\0', 'c',  'd', 'e',  'f', 'g',  'h' };
+    char dst_guarded[24+16];
+    char *dst = dst_guarded+8;
+    int l, i, j, k, z0, z1, z2;
+
+    for (i=0;i<8;++i) { /* src alignment */
+      for (j=0;j<8;++j) { /* dst alignment */
+        for (l=0;l<16;++l) { /* length */
+          memset(dst_guarded, 0, sizeof(dst_guarded));
+	  z0 = gasnett_count0s_copy(dst+j, src+i, l);
+	  if (memcmp(dst+j, src+i, l)) ERR("memory mismatch from gasnett_count0s_copy(dst+%i, src+%i, %i)",i,j,l);
+	  z1 = gasnett_count0s(dst+j, l);
+	  for (z2=0,k=0;k<l;++k) { z2 += !dst[j+k]; }
+	  if (z0 != z2) ERR("incorrect return value from gasnett_count0s_copy(dst+%i, src+%i, %i) (got %i want %i)",i,j,l,z0,z2);
+	  if (z1 != z2) ERR("incorrect return value from gasnett_count0s(dst+%i, %i) src+%i (got %i want %i)",j,l,i,z1,z0);
+	  if (dst[j-1] || dst[j+l])
+	    ERR("memory clobbered by gasnett_count0s_copy(dst+%i, src+%i, %i)",i,j,l);
+        }
+      }
+    }
   }
 
   TEST_HEADER("Testing local membar...")

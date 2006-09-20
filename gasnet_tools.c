@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/09/20 16:36:31 $
- * $Revision: 1.191 $
+ *     $Date: 2006/09/20 17:27:17 $
+ * $Revision: 1.192 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1478,7 +1478,6 @@ int gasneti_count0s_copy_bytes(void * GASNETI_RESTRICT dst, const void * GASNETI
   uint8_t *d = dst;
   const uint8_t *s = src;
   gasneti_assert(bytes < SIZEOF_VOID_P);
-  gasneti_assert(bytes);
 
   switch(bytes) {
   #if PLATFORM_ARCH_64
@@ -1635,20 +1634,27 @@ gasneti_count0s(const void * src, size_t bytes) {
   static const uintptr_t keep_lsb[4] = {0x00000000UL, 0x000000ffUL, 0x0000ffffUL, 0x00ffffffUL};
   static const uintptr_t keep_msb[4] = {0x00000000UL, 0xff000000UL, 0xffff0000UL, 0xffffff00UL};
  #endif
-  const uintptr_t *s = (uintptr_t *)GASNETI_ALIGNUP(src, SIZEOF_VOID_P);
-  size_t zeros = bytes;
-  size_t tmp;
+  const uintptr_t *s;
+  size_t zeros, tmp;
+
+  /* Short cut on less than full word, simplifying the logic below */
+  if (bytes < SIZEOF_VOID_P) {
+    const uint8_t *s8 = src;
+    zeros = 0;
+    while (bytes--) { zeros += !*(s8++); }
+    return zeros;
+  }
+
+  s = (uintptr_t *)GASNETI_ALIGNUP(src, SIZEOF_VOID_P);
+  zeros = bytes;
 
   /* Count partial leading word (if any) */
   tmp = (uintptr_t)s - (uintptr_t)src;
   if (tmp) {
-    const uintptr_t *p = s - 1;
-    if (tmp > bytes) tmp = bytes;
-
     #if PLATFORM_ARCH_LITTLE_ENDIAN
-      zeros -= gasneti_count0s_nzs_word(*p & keep_msb[tmp]);
+      zeros -= gasneti_count0s_nzs_word(*(s-1) & keep_msb[tmp]);
     #else
-      zeros -= gasneti_count0s_nzs_word(*p & keep_lsb[tmp]);
+      zeros -= gasneti_count0s_nzs_word(*(s-1) & keep_lsb[tmp]);
     #endif
 
     bytes -= tmp;
