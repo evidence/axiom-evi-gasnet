@@ -2,7 +2,7 @@
 README file for GASNet tools
 ============================
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.5 $
+$Revision: 1.6 $
 GASNet tools specification version: 1.0
 
 The GASNet tools are a set of communication-independent utilities that are used
@@ -730,6 +730,27 @@ uint64_t gasnett_checksum(const void *p, int numbytes);
 
   Compute a very simplistic (insecure) but relatively efficient 64-bit checksum 
   from an untyped block of data [*p...*(p+numbytes-1)].
+
+int gasnett_count0s_uint32_t(uint32_t x);
+int gasnett_count0s_uint64_t(uint64_t x);
+int gasnett_count0s_uintptr_t(uintptr_t x);
+
+  Efficiently count the number of bytes with value 0 in the machine representation
+  of a value of type uint32_t, uint64_t or uintptr_t, respectively.
+
+size_t gasnett_count0s(const void *p, size_t numbytes);
+
+  Efficiently count the number of bytes with value 0 in an untyped block of data
+  [*p...*(p+numbytes-1)].
+
+size_t gasnett_count0s_copy(void * restrict dst, const void * restrict src, size_t numbytes);
+
+  Efficiently count the number of bytes with value 0 in an untyped block of data
+  [*src...*(src+numbytes-1)], while also copying from src to dst.
+  This function is equivalent (excluding any side-effects of evaluating numbytes) to
+  the following expression:
+      gasnett_count0s(memcpy(dst, src, numbytes), numbytes)
+  but is generally more efficient.
 
 gasnett_spinloop_hint()
 
