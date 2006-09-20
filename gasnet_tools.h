@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/09/15 23:24:25 $
- * $Revision: 1.103 $
+ *     $Date: 2006/09/20 16:36:31 $
+ * $Revision: 1.104 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -291,6 +291,8 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_backtrace_init gasneti_backtrace_init
 #define gasnett_print_backtrace gasneti_print_backtrace
 #define gasnett_print_backtrace_ifenabled gasneti_print_backtrace_ifenabled
+#define gasnett_count0s_copy    gasneti_count0s_copy
+#define gasnett_count0s         gasneti_count0s
 
 #define GASNETT_THREADKEY_DECLARE                 GASNETI_THREADKEY_DECLARE
 #define GASNETT_THREADKEY_DEFINE                  GASNETI_THREADKEY_DEFINE
