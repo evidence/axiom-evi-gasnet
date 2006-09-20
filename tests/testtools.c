@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testtools.c,v $
- *     $Date: 2006/09/20 17:27:19 $
- * $Revision: 1.77 $
+ *     $Date: 2006/09/20 18:12:53 $
+ * $Revision: 1.78 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -270,6 +270,30 @@ int main(int argc, char **argv) {
         }
       }
     }
+
+    for (i=0;i<8*sizeof(uintptr_t);++i) {
+      uintptr_t val = ((uintptr_t)1) << i;
+      if (gasnett_count0s_uintptr_t(val) != (sizeof(uintptr_t) - 1))
+        ERR("incorrect return from gasnett_count0s_uintptr_t(1<<%i)", i);
+    }
+    if (gasnett_count0s_uintptr_t(0) != sizeof(uintptr_t))
+      ERR("incorrect return from gasnett_count0s_uintptr_t(0)");
+
+    for (i=0;i<32;++i) {
+      uint32_t val = ((uint32_t)1) << i;
+      if (gasnett_count0s_uint32_t(val) != 3)
+        ERR("incorrect return from gasnett_count0s_uint32_t(1<<%i)", i);
+    }
+    if (gasnett_count0s_uint32_t(0) != 4)
+      ERR("incorrect return from gasnett_count0s_uint32_t(0)");
+
+    for (i=0;i<64;++i) {
+      uint64_t val = ((uint64_t)1) << i;
+      if (gasnett_count0s_uint64_t(val) != 7)
+        ERR("incorrect return from gasnett_count0s_uint64_t(1<<%i)", i);
+    }
+    if (gasnett_count0s_uint64_t(0) != 8)
+      ERR("incorrect return from gasnett_count0s_uint64_t(0)");
   }
 
   TEST_HEADER("Testing local membar...")

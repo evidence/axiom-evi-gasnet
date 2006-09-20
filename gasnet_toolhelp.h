@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/09/20 17:40:13 $
- * $Revision: 1.22 $
+ *     $Date: 2006/09/20 18:12:51 $
+ * $Revision: 1.23 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -144,12 +144,41 @@ gasneti_sighandlerfn_t gasneti_reghandler(int sigtocatch, gasneti_sighandlerfn_t
 extern uint64_t gasneti_checksum(const void *p, int numbytes);
 
 /* ------------------------------------------------------------------------------------ */
-/* Count zero bytes in a region w/ or w/o a memcpy() */
+/* Count zero bytes in a region w/ or w/o a memcpy(), or in a "register" */
 
 extern size_t gasneti_count0s_copy(void * GASNETI_RESTRICT dst,
                                    const void * GASNETI_RESTRICT src,
                                    size_t len);
 extern size_t gasneti_count0s(const void * src, size_t len);
+
+
+#if PLATFORM_ARCH_32
+  GASNETI_INLINE(gasneti_count0s_uint32_t) GASNETI_CONST
+  int gasneti_count0s_uint32_t(uint32_t x) {
+    x |= (x >> 4); x |= (x >> 2); x |= (x >> 1);
+    x &= 0x01010101UL;
+    x += (x >> 16); x += (x >> 8);
+    return sizeof(x) - (x & 0xf);
+  }
+  GASNETI_INLINE(gasneti_count0s_uint64_t) GASNETI_CONST
+  int gasneti_count0s_uint64_t(uint64_t x) {
+    return gasneti_count0s_uint32_t(GASNETI_LOWORD(x)) + 
+           gasneti_count0s_uint32_t(GASNETI_HIWORD(x));
+  }
+  #define gasneti_count0s_uintptr_t(x) gasneti_count0s_uint32_t(x)
+#elif PLATFORM_ARCH_64
+  GASNETI_INLINE(gasneti_count0s_uint64_t) GASNETI_CONST
+  int gasneti_count0s_uint64_t(uintptr_t x) {
+    x |= (x >> 4); x |= (x >> 2); x |= (x >> 1);
+    x &= 0x0101010101010101UL;
+    x += (x >> 32); x += (x >> 16); x += (x >> 8);
+    return sizeof(x) - (x & 0xf);
+  }
+  #define gasneti_count0s_uint32_t(x) gasneti_count0s_uint64_t((uint64_t)(x))
+  #define gasneti_count0s_uintptr_t(x) gasneti_count0s_uint64_t(x)
+#else
+  #error "Unknown word size"
+#endif
 
 /* ------------------------------------------------------------------------------------ */
 /* Error checking system mutexes -
