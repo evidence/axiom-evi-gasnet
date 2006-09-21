@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/09/20 17:27:17 $
- * $Revision: 1.192 $
+ *     $Date: 2006/09/21 00:12:31 $
+ * $Revision: 1.193 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1479,14 +1479,16 @@ int gasneti_count0s_copy_bytes(void * GASNETI_RESTRICT dst, const void * GASNETI
   const uint8_t *s = src;
   gasneti_assert(bytes < SIZEOF_VOID_P);
 
-  switch(bytes) {
+  switch (bytes) {
   #if PLATFORM_ARCH_64
-    case 7: non_zeros += !!(*(d++) = *(s++));
+    case 7: non_zeros  = !!(*(d++) = *(s++));
     case 6: non_zeros += !!(*(d++) = *(s++));
     case 5: non_zeros += !!(*(d++) = *(s++));
     case 4: non_zeros += !!(*(d++) = *(s++));
-  #endif
     case 3: non_zeros += !!(*(d++) = *(s++));
+  #else
+    case 3: non_zeros  = !!(*(d++) = *(s++));
+  #endif
     case 2: non_zeros += !!(*(d++) = *(s++));
     case 1: non_zeros += !!(*(d++) = *(s++));
   }
@@ -1542,6 +1544,10 @@ size_t gasneti_count0s_copy_dst_aligned(void * GASNETI_RESTRICT dst, const void 
   gasneti_assert(!((uintptr_t)dst & (SIZEOF_VOID_P - 1)));
   gasneti_assert(((uintptr_t)src & (SIZEOF_VOID_P - 1)));
 
+  /* XXX: consider an outer 3- or 7-way switch on alignment.
+   * Doing so would allow for fixed-count shifts which might be cheaper than variable count.
+   */
+
   w0 = *(s++);
   while (words & ~(gasneti_count0s_xform_limit - 1)) {
     uintptr_t partial = 0;
@@ -1575,16 +1581,18 @@ gasneti_count0s_copy(void * GASNETI_RESTRICT dst, const void * GASNETI_RESTRICT 
   while (bytes--) zeros += !(*(d++) = *(s++));
   return zeros;
 #else /* Carefully optimized (but still portable) word-oriented loop */
-  const uint8_t *s = (uint8_t *)src;
-  uint8_t *d = (uint8_t *)dst;
-  size_t remain = bytes;
-  size_t zeros = bytes;
-  size_t tmp;
+  size_t tmp, remain, zeros;
+  const uint8_t *s;
+  uint8_t *d;
   
   /* Short cut on less than full word, simplifying the logic below */
-  if (remain < SIZEOF_VOID_P) {
-    return (remain - gasneti_count0s_copy_bytes(dst, src, remain));
+  if (bytes < SIZEOF_VOID_P) {
+    return (bytes - gasneti_count0s_copy_bytes(dst, src, bytes));
   }
+
+  s = (uint8_t *)src;
+  d = (uint8_t *)dst;
+  remain = zeros = bytes;
 
   /* Copy by bytes until dst is aligned */
   tmp = ((uintptr_t)dst & (SIZEOF_VOID_P - 1));
@@ -1608,9 +1616,7 @@ gasneti_count0s_copy(void * GASNETI_RESTRICT dst, const void * GASNETI_RESTRICT 
  
   /* Copy any remainder by bytes until done */
   tmp = remain & (SIZEOF_VOID_P - 1);
-  if (tmp) {
-    zeros -= gasneti_count0s_copy_bytes(d, s, tmp); 
-  }
+  zeros -= gasneti_count0s_copy_bytes(d, s, tmp); 
 #endif
 
   return zeros;
