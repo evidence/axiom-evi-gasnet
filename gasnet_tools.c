@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/09/21 00:12:31 $
- * $Revision: 1.193 $
+ *     $Date: 2006/09/21 02:10:14 $
+ * $Revision: 1.194 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1544,8 +1544,21 @@ size_t gasneti_count0s_copy_dst_aligned(void * GASNETI_RESTRICT dst, const void 
   gasneti_assert(!((uintptr_t)dst & (SIZEOF_VOID_P - 1)));
   gasneti_assert(((uintptr_t)src & (SIZEOF_VOID_P - 1)));
 
-  /* XXX: consider an outer 3- or 7-way switch on alignment.
-   * Doing so would allow for fixed-count shifts which might be cheaper than variable count.
+  /* XXX: Options for reducing the bottle neck in GASNETI_MEMCPY0_MERGE()
+   *
+   * 1) Consider an outer 3- or 7-way switch on alignment.  Doing so would allow for
+   *    fixed-count shifts which might be cheaper than variable count.
+   *
+   * 2) Consider splitting _MERGE(), to perform the shift of w0 as soon as it is available.
+   *    Doing so would benefit x86, x86_64 and PA-RISC which must reload a fixed shift-count
+   *    register to perform a variable-count shift.  However, keeping the form with both of
+   *    the shifts and the OR together benefits machines w/ powerful extract/deposit/merge
+   *    instructions.  Use of macros could hide the differences.
+   *
+   * 3) Consider arch-specific asm().  For x86 and x86_64 the SHLD or SHRD instructions
+   *    would be appropriate.  Others have similar (or more powerful) merging operations
+   *    that have no C equivalents.
+   * 3.5) Search for compiler-specific C constructs that may generate the merge instructions.
    */
 
   w0 = *(s++);
