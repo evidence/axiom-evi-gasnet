@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2006/09/20 18:12:51 $
- * $Revision: 1.23 $
+ *     $Date: 2006/09/25 20:00:39 $
+ * $Revision: 1.24 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -152,14 +152,14 @@ extern size_t gasneti_count0s_copy(void * GASNETI_RESTRICT dst,
 extern size_t gasneti_count0s(const void * src, size_t len);
 
 
+GASNETI_INLINE(gasneti_count0s_uint32_t) GASNETI_CONST
+int gasneti_count0s_uint32_t(uint32_t x) {
+  x |= (x >> 4); x |= (x >> 2); x |= (x >> 1);
+  x &= 0x01010101UL;
+  x += (x >> 16); x += (x >> 8);
+  return sizeof(x) - (x & 0xf);
+}
 #if PLATFORM_ARCH_32
-  GASNETI_INLINE(gasneti_count0s_uint32_t) GASNETI_CONST
-  int gasneti_count0s_uint32_t(uint32_t x) {
-    x |= (x >> 4); x |= (x >> 2); x |= (x >> 1);
-    x &= 0x01010101UL;
-    x += (x >> 16); x += (x >> 8);
-    return sizeof(x) - (x & 0xf);
-  }
   GASNETI_INLINE(gasneti_count0s_uint64_t) GASNETI_CONST
   int gasneti_count0s_uint64_t(uint64_t x) {
     return gasneti_count0s_uint32_t(GASNETI_LOWORD(x)) + 
@@ -174,7 +174,6 @@ extern size_t gasneti_count0s(const void * src, size_t len);
     x += (x >> 32); x += (x >> 16); x += (x >> 8);
     return sizeof(x) - (x & 0xf);
   }
-  #define gasneti_count0s_uint32_t(x) gasneti_count0s_uint64_t((uint64_t)(x))
   #define gasneti_count0s_uintptr_t(x) gasneti_count0s_uint64_t(x)
 #else
   #error "Unknown word size"
