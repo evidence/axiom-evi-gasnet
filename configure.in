@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/09/26 10:49:57 $
-# $Revision: 1.410 $
+#     $Date: 2006/09/26 10:57:17 $
+# $Revision: 1.411 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.410 $)
+AC_REVISION($Revision: 1.411 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -435,7 +435,7 @@ case "$gasnet_cv_cc_family" in
                           [MISC_CFLAGS="$MISC_CFLAGS -wd1572"])
          ;;
   NEC) MISC_CFLAGS="-woff=68:111:174:177:236:301:550:940" ;; 
-  PGI) MISC_CFLAGS="-Masmkeyword -c9x -Msignextend";; # get inline assembly, restrict and sign-exteded narrowing
+  PGI) MISC_CFLAGS="-Masmkeyword -c9x -Msignextend";; # get inline assembly, restrict and sign-extended narrowing
   MTA) MISC_CFLAGS="-display_error_number -WS 111,174,238" ;;
   Sun) if test "$target_cpu" = "sparc"; then 
          GASNET_GET_ULTRASPARC_FLAGS(C,["-xarch=v8plusb" "-xarch=v8plusa" "-xarch=v8plus"])
