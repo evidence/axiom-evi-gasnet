@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_basic.h,v $
- *     $Date: 2006/09/08 21:23:01 $
- * $Revision: 1.82 $
+ *     $Date: 2006/09/27 01:14:36 $
+ * $Revision: 1.83 $
  * Description: GASNet basic header utils
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -127,6 +127,10 @@
 #endif
 
 /* special GCC features */
+#if PLATFORM_COMPILER_PGI && defined(__attribute__)
+#undef __attribute__ /* bug 1766: undo a stupid, gcc-centric definition from Linux sys/cdefs.h */
+#endif
+
 #if ( ! defined(GASNETI_HAVE_GCC_ATTRIBUTE) || defined(__cplusplus) ) && \
     ! defined (__GNUC__) && ! defined (__attribute__)
   #define __attribute__(flags)
