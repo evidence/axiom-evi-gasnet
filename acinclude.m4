@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/09/06 22:12:09 $
-dnl $Revision: 1.114 $
+dnl     $Date: 2006/09/28 00:31:53 $
+dnl $Revision: 1.115 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -2069,6 +2069,7 @@ dnl compile the program given by headers and body
 dnl if it suceeds, run action-success with $GASNET_EXAMINE_BIN set to filename of generated object
 dnl else, run action-failure
 AC_DEFUN([GASNET_COMPILE_EXAMINE], [
+AC_REQUIRE([AC_OBJEXT])
 GASNET_FUN_BEGIN([$0(...)])
   cat >conftest.$ac_ext <<"EOF"
 #include "confdefs.h"
@@ -2085,9 +2086,9 @@ EOF
        ac_status=$?
        echo "$as_me:$LINENO: \$? = $ac_status" >&5
        (exit $ac_status); } && \
-       test -f conftest.o ; then
-    GASNET_PUSHVAR(GASNET_EXAMINE_BIN,"gasnet-examine-bin-$LINENO.o")
-    mv conftest.o $GASNET_EXAMINE_BIN
+       test -f conftest.${ac_objext} ; then
+    GASNET_PUSHVAR(GASNET_EXAMINE_BIN,"gasnet-examine-bin-$LINENO.${ac_objext}")
+    mv conftest.${ac_objext} $GASNET_EXAMINE_BIN
     $3
     rm -f $GASNET_EXAMINE_BIN
     GASNET_POPVAR(GASNET_EXAMINE_BIN)
