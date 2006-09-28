@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/09/26 10:57:17 $
-# $Revision: 1.411 $
+#     $Date: 2006/09/28 00:59:28 $
+# $Revision: 1.412 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.411 $)
+AC_REVISION($Revision: 1.412 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1523,7 +1523,7 @@ if test "$enabled_mpi" = yes || test "$enabled_mpi_compat" = yes; then
       fprintf(stdout,"hi\n");
     }
 _GASNET_EOF
-    compile="$CC $CFLAGS $MISC_CFLAGS $CPPFLAGS -c $MPIHELPER_SRC"
+    compile="$CC $CFLAGS $MISC_CFLAGS $CPPFLAGS -c $MPIHELPER_SRC -o $MPIHELPER_OBJ"
     eval echo "$compile" >&5
     if eval $compile 2>&5 && test -s $MPIHELPER_OBJ ; then
 	AC_MSG_RESULT(ok)
