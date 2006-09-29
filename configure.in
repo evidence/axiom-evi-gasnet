@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/09/28 00:59:28 $
-# $Revision: 1.412 $
+#     $Date: 2006/09/29 09:02:11 $
+# $Revision: 1.413 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.412 $)
+AC_REVISION($Revision: 1.413 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1241,9 +1241,22 @@ if test $enabled_udp = yes; then
     CXXFLAGS="$TARGET_CXXFLAGS"
   fi
 
-  GASNET_PROG_CXX
-  have_cxx=1
+  if test "$with_cxx" = no; then
+    have_cxx=no
+    GASNET_MSG_WARN([C++ compiler disabled using --without-cxx. Disabling udp-conduit, which requires C++])
+  elif (
+    # bug 1725: Run GASNET_PROG_CXX with care (in a subshell), in case it drops dead (missing C++)
+    GASNET_PROG_CXX
+    ) ; then
+    have_cxx=yes
+    # now run it again for "real" in this shell
+    GASNET_PROG_CXX
+  else
+    have_cxx=no
+    GASNET_MSG_WARN([It appears you have no working C++ compiler. Disabling udp-conduit, which requires C++])
+  fi
 
+ if test "$have_cxx" = yes; then
   AC_LANG_CPLUSPLUS
   GASNET_FAMILY_CACHE_CHECK(C++, CXX, gasnet_cv_cxx_family)
   CXXDEBUGFLAGS="-g"
@@ -1334,9 +1347,11 @@ if test $enabled_udp = yes; then
   GASNET_POPVAR(LDFLAGS)
   GASNET_POPVAR(LIBS)
   AC_SUBST(MISC_CXXFLAGS)
+ fi
 
   AC_LANG_RESTORE
 
+ if test "$have_cxx" = yes; then
   # detect libraries necessary for udp-* backends
   GASNET_PUSHVAR(LIBS,"")
       AC_SEARCH_LIBS(socket, socket, have_udp=yes, have_udp=no)
@@ -1358,8 +1373,12 @@ if test $enabled_udp = yes; then
 	fi
     fi
   GASNET_POPVAR(LIBS)
+ else
+  have_udp=no
+  udp_reason="no C++ support detected"
+ fi
 fi
-AM_CONDITIONAL(HAVE_CXX, test "$have_cxx" = 1)
+AM_CONDITIONAL(HAVE_CXX, test "$have_cxx" = yes)
 AC_SUBST(GASNET_UDP_LIBS)
 AM_CONDITIONAL(USE_UDP_CONDUIT, test "$enabled_udp$have_udp" = yesyes)
 CONDUIT_END([test "$enabled_udp$have_udp" = yesyes])
