@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/09/29 19:37:48 $
- * $Revision: 1.259 $
+ *     $Date: 2006/10/02 19:46:54 $
+ * $Revision: 1.260 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2258,6 +2258,7 @@
           uintptr_t val = (uintptr_t)addr;                                \
           /* Step 0. Initialization check */                              \
           if_pf (!stem##tbl_mask) stem##tbl_init();                       \
+          else gasneti_local_rmb();                                       \
           /* Step 1.  Mask out the bits within a single cache line */     \
           val &= ~(((uintptr_t)1 << GASNETI_CACHE_LINE_SHIFT) - 1);       \
           /* Step 2. Fold with xor so all bits influence the lowest 8 */  \
