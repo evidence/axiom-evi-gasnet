@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testlockcontend.c,v $
- *     $Date: 2006/10/03 22:01:51 $
- * $Revision: 1.2 $
+ *     $Date: 2006/10/03 23:00:46 $
+ * $Revision: 1.3 $
  * Description: GASNet lock performance test
  *   Measures the overhead associated with contended locks
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
@@ -40,6 +40,7 @@ uint64_t tickcvt(gasnett_tick_t ticks) { return gasnett_ticks_to_ns(ticks); }
 void* thread_fn1(void*);
 void* thread_fn2(void*);
 void* thread_fn3(void*);
+void* thread_fn4(void*);
 
 /* ------------------------------------------------------------------------------------ */
 /* This tester measures the performance of contended HSLs and pthread mutexes.
@@ -74,18 +75,24 @@ int main(int argc, char **argv) {
     printf("Running locks performance test with 1..%i threads and %i iterations...\n",maxthreads,iters);
     fflush(stdout);
     MSG0("Spawning pthreads...");
-    threads = maxthreads;
-    test_createandjoin_pthreads(maxthreads, &thread_fn1, NULL, 0);
+    if (TEST_SECTION_BEGIN_ENABLED()) {
+      header("lock/unlock contended pthread mutex (others in thread barrier)");
+      test_createandjoin_pthreads(threads = maxthreads, &thread_fn1, NULL, 0);
+    }
+    if (TEST_SECTION_BEGIN_ENABLED()) {
+      header("lock/unlock contended HSL (others in thread barrier)");
+      test_createandjoin_pthreads(threads = maxthreads, &thread_fn2, NULL, 0);
+    }
     if (TEST_SECTION_BEGIN_ENABLED()) {
       header("lock/unlock contended pthread mutex (no other threads)");
       for (threads=1; threads<=maxthreads; ++threads) {
-	test_createandjoin_pthreads(threads, &thread_fn2, NULL, 0);
+	test_createandjoin_pthreads(threads, &thread_fn3, NULL, 0);
       }
     }
     if (TEST_SECTION_BEGIN_ENABLED()) {
       header("lock/unlock contended HSL (no other threads)");
       for (threads=1; threads<=maxthreads; ++threads) {
-	test_createandjoin_pthreads(threads, &thread_fn3, NULL, 0);
+	test_createandjoin_pthreads(threads, &thread_fn4, NULL, 0);
       }
     }
   }
@@ -107,14 +114,11 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 gasnet_hsl_t hsl = GASNET_HSL_INITIALIZER;
 
 /* ------------------------------------------------------------------------------------ */
-#define TIME_OPERATION_SOME(id, desc, op)                       \
+#define TIME_OPERATION_SOME(id, op)                             \
 do {                                                            \
-  if (!id) TEST_SECTION_BEGIN();                                \
   PTHREAD_LOCALBARRIER(threads);                                \
-  if (TEST_SECTION_ENABLED())                                   \
   { int i, _thr, _iters = iters, _warmupiters = MAX(1,iters/10);\
     gasnett_tick_t start,end;  /* use ticks interface */        \
-    if (!id) header(desc);                                      \
     for (i=0; i < _warmupiters; i++) { op; } /* warm-up */      \
     for (_thr = 1; _thr <= threads; ++_thr) {                   \
       PTHREAD_LOCALBARRIER(threads);                            \
@@ -130,13 +134,13 @@ do {                                                            \
 
 void * thread_fn1(void *arg) { GASNET_BEGIN_FUNCTION();
   int id = (int)(uintptr_t)arg;
- 
-  TIME_OPERATION_SOME(id, "lock/unlock contended pthread mutex (others in thread barrier)",
-		  { pthread_mutex_lock(&mutex); pthread_mutex_unlock(&mutex); });
+  TIME_OPERATION_SOME(id, { pthread_mutex_lock(&mutex); pthread_mutex_unlock(&mutex); });
+  return NULL;
+}
 
-  TIME_OPERATION_SOME(id, "lock/unlock contended HSL (others in thread barrier)",
-		  { gasnet_hsl_lock(&hsl); gasnet_hsl_unlock(&hsl); });
-
+void * thread_fn2(void *arg) { GASNET_BEGIN_FUNCTION();
+  int id = (int)(uintptr_t)arg;
+  TIME_OPERATION_SOME(id, { gasnet_hsl_lock(&hsl); gasnet_hsl_unlock(&hsl); });
   return NULL;
 }
 
@@ -157,13 +161,13 @@ do {                                                            \
   }                                                             \
 } while (0)
 
-void * thread_fn2(void *arg) { GASNET_BEGIN_FUNCTION();
+void * thread_fn3(void *arg) { GASNET_BEGIN_FUNCTION();
   int id = (int)(uintptr_t)arg;
   TIME_OPERATION_ALL(id, { pthread_mutex_lock(&mutex); pthread_mutex_unlock(&mutex); });
   return NULL;
 }
 
-void * thread_fn3(void *arg) { GASNET_BEGIN_FUNCTION();
+void * thread_fn4(void *arg) { GASNET_BEGIN_FUNCTION();
   int id = (int)(uintptr_t)arg;
   TIME_OPERATION_ALL(id, { gasnet_hsl_lock(&hsl); gasnet_hsl_unlock(&hsl); });
   return NULL;
