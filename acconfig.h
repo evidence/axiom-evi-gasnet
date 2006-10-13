@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/09/15 23:24:25 $ */
-/*  $Revision: 1.116 $ */
+/*      $Date: 2006/10/13 03:51:47 $ */
+/*  $Revision: 1.117 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -42,6 +42,7 @@
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_PURE
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_CONST
 #undef GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT
+#undef GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT_FUNCPTR
 
 /* identification of the compiler used at configure time */
 #undef GASNETI_PLATFORM_COMPILER_IDSTR

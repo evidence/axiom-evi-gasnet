@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/09/29 09:02:11 $
-# $Revision: 1.413 $
+#     $Date: 2006/10/13 03:51:47 $
+# $Revision: 1.414 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.413 $)
+AC_REVISION($Revision: 1.414 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -601,6 +601,15 @@ GASNET_CHECK_GCC_ATTRIBUTE([__pure__],
             [__attribute__((__pure__)) int dummy(int x) { return x+1; }])
 GASNET_CHECK_GCC_ATTRIBUTE([__format__],
             [__attribute__((__format__ (__printf__, 1, 2))) void dummy(const char *fmt,...) { }])
+
+AC_MSG_CHECKING(for __attribute__((__format__)) on function pointers)
+GASNET_TRY_CCOMPILE_WITHWARN([
+    __attribute__((__format__ (__printf__, 1, 2))) extern void (*dummy)(const char *fmt,...);
+    ], [], [
+      AC_MSG_RESULT(yes)
+      AC_DEFINE(GASNETI_HAVE_GCC_ATTRIBUTE_FORMAT_FUNCPTR)
+    ],[ AC_MSG_RESULT([no/warning]) ],[ AC_MSG_RESULT([no/error]) 
+])
 
 GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS -I$TOP_SRCDIR/other")
 GASNET_TRY_CACHE_EXTRACT_STR(PLATFORM_COMPILER_IDSTR, PLATFORM_COMPILER_IDSTR,
