@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/10/13 03:51:47 $
-# $Revision: 1.414 $
+#     $Date: 2006/10/13 06:27:17 $
+# $Revision: 1.415 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.414 $)
+AC_REVISION($Revision: 1.415 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -45,7 +45,7 @@ dnl GASNET_TOOLSONLY_TRUE_BEGIN
 dnl AM_INIT_AUTOMAKE(GASNet_Tools, GASNET_RELEASE_VERSION_D, no-define)
 dnl GASNET_TOOLSONLY_TRUE_END
 
-AC_PREFIX_DEFAULT(/usr/local)
+AC_PREFIX_DEFAULT(/usr/local/gasnet)
 AM_CONFIG_HEADER(gasnet_config.h)
 
 GASNET_START_CONFIGURE([AWK])
