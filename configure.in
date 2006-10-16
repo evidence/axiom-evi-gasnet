@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/10/13 06:27:17 $
-# $Revision: 1.415 $
+#     $Date: 2006/10/16 23:58:28 $
+# $Revision: 1.416 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.415 $)
+AC_REVISION($Revision: 1.416 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2759,6 +2759,16 @@ fi
 esac
 if test "$HAVE_MMAP" != "0" ; then
   AC_DEFINE(HAVE_MMAP)
+  # bug 1763: find the right mmap flags (which may be enum values or const vars)
+  GASNET_TRY_CACHE_LINK([for MAP_NORESERVE],map_noreserve,
+     [ #include <sys/mman.h> ],[ void *junk = mmap(0, 0, 0, MAP_NORESERVE, 0, 0); ],
+     [ AC_DEFINE(HAVE_MAP_NORESERVE) ] )
+  GASNET_TRY_CACHE_LINK([for MAP_ANONYMOUS],map_anonymous,
+     [ #include <sys/mman.h> ],[ void *junk = mmap(0, 0, 0, MAP_ANONYMOUS, 0, 0); ],
+     [ AC_DEFINE(HAVE_MAP_ANONYMOUS) ] )
+  GASNET_TRY_CACHE_LINK([for MAP_ANON],map_anon,
+     [ #include <sys/mman.h> ],[ void *junk = mmap(0, 0, 0, MAP_ANON, 0, 0); ],
+     [ AC_DEFINE(HAVE_MAP_ANON) ] )
 fi
 
 case "$target" in

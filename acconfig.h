@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/10/13 03:51:47 $ */
-/*  $Revision: 1.117 $ */
+/*      $Date: 2006/10/16 23:58:28 $ */
+/*  $Revision: 1.118 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -63,6 +63,11 @@
 
 /* have mmap() */
 #undef HAVE_MMAP
+
+/* mmap supporting flags */
+#undef HAVE_MAP_NORESERVE
+#undef HAVE_MAP_ANON
+#undef HAVE_MAP_ANONYMOUS
 
 /* --with-segment-mmap-max value (if given) */
 #undef GASNETI_MMAP_MAX_SIZE
