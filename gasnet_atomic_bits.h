@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/10/02 19:46:54 $
- * $Revision: 1.260 $
+ *     $Date: 2006/10/16 19:23:57 $
+ * $Revision: 1.261 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -415,7 +415,7 @@
         #define _gasneti_atomic64_read(p)      ((p)->ctr)
         #define _gasneti_atomic64_set(p,v)     ((p)->ctr = (v))
 
-        #if PLATFORM_COMPILER_VERSION_LT(2,3,0)
+        #if PLATFORM_COMPILER_PATHSCALE && PLATFORM_COMPILER_VERSION_LT(2,3,0)
 	  /* A "dirty hack" for bug 1620 because pathcc < 2.3 botches the 64-bit asm */
           #define GASNETI_ATOMIC64_COMPARE_AND_SWAP_BODY\
 	    GASNETI_ASM_SPECIAL(                        \
