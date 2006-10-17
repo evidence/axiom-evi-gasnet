@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/09/28 00:31:53 $
-dnl $Revision: 1.115 $
+dnl     $Date: 2006/10/17 09:14:45 $
+dnl $Revision: 1.116 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -572,6 +572,17 @@ AC_DEFUN([GASNET_START_CONFIGURE],[
     BUILD_IS_SRC=no
   fi
   AC_SUBST(BUILD_IS_SRC)
+
+  # Handle prefix defaulting with subconfigures
+  # When users pass --prefix on the command-line, this is automatically passed to subconfigures
+  #  and everything lives happily in the same tree
+  # Without --prefix, different packages may default to different directories
+  # (due to AC_PREFIX_DEFAULT), so ensure that all subconfigures 
+  # default to the same location (as determined by the outermost configure)
+  if test "$prefix" = "NONE" -a -n "$ac_default_prefix" ; then
+    GASNET_SUBCONFIGURE_ARG(--prefix="$ac_default_prefix")
+  fi
+
   SYSTEM_NAME="`hostname`"
   AC_SUBST(SYSTEM_NAME)
   case "$target" in 
@@ -1874,7 +1885,11 @@ GASNET_FUN_BEGIN([$0($1)])
   done
 
   # Always prepend --prefix to ensure using the same prefix in sub-configs
-  ac_sub_configure_args="--prefix=$prefix $ac_sub_configure_args"
+  if test "$prefix" = "NONE" -a -n "$ac_default_prefix" ; then
+    ac_sub_configure_args="--prefix=$ac_default_prefix $ac_sub_configure_args"
+  else
+    ac_sub_configure_args="--prefix=$prefix $ac_sub_configure_args"
+  fi
 
   echo configuring in $ac_config_dir
 
