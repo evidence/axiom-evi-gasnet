@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2006/05/23 12:42:19 $
- * $Revision: 1.61 $
+ *     $Date: 2006/10/17 18:34:09 $
+ * $Revision: 1.62 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2088,7 +2088,7 @@ static int gasnete_coll_pf_bcast_Get(gasnete_coll_op_t *op GASNETE_THREAD_FARG) 
 
     case 1:	/* Initiate data movement */
       if (gasneti_mynode == args->srcnode) {
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, args->src, args->nbytes);
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, args->src, args->nbytes);
       } else {
 	if (!GASNETE_COLL_MAY_INIT_FOR(op)) break;
 	data->handle = gasnete_get_nb_bulk(args->dst, args->srcnode, args->src,
@@ -2173,7 +2173,7 @@ static int gasnete_coll_pf_bcast_Put(gasnete_coll_op_t *op GASNETE_THREAD_FARG) 
 	gasnete_coll_save_handle(&data->handle GASNETE_THREAD_PASS);
 
 	/* Do local copy LAST, perhaps overlapping with communication */
-	GASNETE_FAST_UNALIGNED_MEMCPY(dst, src, nbytes);
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(dst, src, nbytes);
       }
       data->state = 2;
 
@@ -2230,7 +2230,7 @@ static int gasnete_coll_pf_bcast_Eager(gasnete_coll_op_t *op GASNETE_THREAD_FARG
     case 1:	/* Data movement */
       if (gasneti_mynode == args->srcnode) {
 	gasnete_coll_p2p_eager_put_all(op, args->src, args->nbytes, 0, 0, 1);	/* broadcast data */
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, args->src, args->nbytes);
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, args->src, args->nbytes);
       } else if (data->p2p->state[0]) {
 	gasneti_sync_reads();
 	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, data->p2p->data, args->nbytes);
@@ -2286,7 +2286,7 @@ static int gasnete_coll_pf_bcast_RVGet(gasnete_coll_op_t *op GASNETE_THREAD_FARG
     case 1:	/* Data movement */
       if (gasneti_mynode == args->srcnode) {
 	gasnete_coll_p2p_eager_addr_all(op, args->src, 0, 1);	/* broadcast src address */
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, args->src, args->nbytes);
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, args->src, args->nbytes);
       } else if (data->p2p->state[0]) {
 	if (!GASNETE_COLL_MAY_INIT_FOR(op)) break;
 	gasneti_sync_reads();
@@ -2351,7 +2351,7 @@ static int gasnete_coll_pf_bcast_RVous(gasnete_coll_op_t *op GASNETE_THREAD_FARG
 
     case 1:	/* Rendevous w/ root to pass addr */
       if (gasneti_mynode == args->srcnode) {
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, args->src, args->nbytes);
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, args->src, args->nbytes);
       } else {
 	/* Send our addr to root */
 	gasnete_coll_p2p_send_rtr(op, data->p2p, gasneti_mynode, args->dst, args->srcnode, args->nbytes);
@@ -2426,7 +2426,7 @@ static int gasnete_coll_pf_bcast_TreePut(gasnete_coll_op_t *op GASNETE_THREAD_FA
 	for (child = 0; child < tree->geom->child_count; child++) {
 	  gasnete_coll_p2p_signalling_put(op, tree->geom->child_list[child], args->dst, args->src, args->nbytes, 0, 1);
 	}
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, args->src, args->nbytes);
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, args->src, args->nbytes);
       } else if (data->p2p->state[0]) {
 	gasneti_sync_reads();
 	for (child = 0; child < tree->geom->child_count; child++) {
@@ -2502,7 +2502,7 @@ static int gasnete_coll_pf_bcast_TreeGet(gasnete_coll_op_t *op GASNETE_THREAD_FA
         for (child=0; child < tree->geom->child_count; child++) {
 	  gasnete_coll_p2p_eager_addr(op, tree->geom->child_list[child], args->dst, 0, 1);
         }
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, args->src, args->nbytes);
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, args->src, args->nbytes);
         data->state = 3;
 	break;	/* skip state 2 */
       } else if (data->p2p->state[0]){
@@ -2611,7 +2611,7 @@ static int gasnete_coll_pf_bcast_TreeEager(gasnete_coll_op_t *op GASNETE_THREAD_
 	for (child=0;child<tree->geom->child_count; child++){
 	  gasnete_coll_p2p_eager_put(op, tree->geom->child_list[child], args->src, args->nbytes, 0, 1);
 	}
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, args->src, args->nbytes);
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, args->src, args->nbytes);
       } else if (data->p2p->state[0]) {
 	gasneti_sync_reads();
 	for (child=0;child<tree->geom->child_count;child++) {
@@ -2694,7 +2694,7 @@ static int gasnete_coll_pf_bcast_sig_TreePutPipe(gasnete_coll_op_t *op GASNETE_T
 	    /*  printf(stderr, "%d sending to %d\n", gasneti_mynode, tree->geom->child_list[child]); */
 	    gasnete_coll_p2p_signalling_put(op, tree->geom->child_list[child], (char*)args->dst+i, (char*)args->src+i, msgsize, 0, i+msgsize);
 	  }
-	  GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, args->src, args->nbytes);
+	  GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, args->src, args->nbytes);
 	  tree->sent_bytes += msgsize;
 	}
 	data->state = 2;
@@ -2763,7 +2763,7 @@ static int gasnete_coll_pf_bcast_TreeGetPipe(gasnete_coll_op_t *op GASNETE_THREA
 	  gasnete_coll_p2p_eager_addr(op, tree->geom->child_list[child], args->src, 0, args->nbytes);
 	}
 
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, args->src, args->nbytes);
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, args->src, args->nbytes);
 
 	data->state = 3;
 	break;
@@ -3436,7 +3436,7 @@ static int gasnete_coll_pf_scat_Get(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
 
     case 1:	/* Initiate data movement */
       if (gasneti_mynode == args->srcnode) {
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst,
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst,
 				      gasnete_coll_scale_ptr(args->src, gasneti_mynode, args->nbytes),
 				      args->nbytes);
       } else {
@@ -3526,7 +3526,7 @@ static int gasnete_coll_pf_scat_Put(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
         gasnete_coll_save_handle(&data->handle GASNETE_THREAD_PASS);
 
 	/* Do local copy LAST, perhaps overlapping with communication */
-	GASNETE_FAST_UNALIGNED_MEMCPY(dst,
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(dst,
 				      gasnete_coll_scale_ptr(args->src, gasneti_mynode, nbytes),
 				      nbytes);
       }
@@ -3583,7 +3583,7 @@ static int gasnete_coll_pf_scat_Eager(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
     case 1:	/* Data movement */
       if (gasneti_mynode == args->srcnode) {
 	gasnete_coll_p2p_eager_put_all(op, args->src, args->nbytes, 1, 0, 1);	/* scatter data */
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst,
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst,
 				      gasnete_coll_scale_ptr(args->src, gasneti_mynode, args->nbytes),
 				      args->nbytes);
       } else if (data->p2p->state[0]) {
@@ -3640,7 +3640,7 @@ static int gasnete_coll_pf_scat_RVGet(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
     case 1:	/* Initiate data movement */
       if (gasneti_mynode == args->srcnode) {
 	gasnete_coll_p2p_eager_addr_all(op, args->src, 0, 1);	/* broadcast src address */
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, 
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, 
 				      gasnete_coll_scale_ptr(args->src, gasneti_mynode, args->nbytes),
 				      args->nbytes);
       } else if (data->p2p->state[0]) {
@@ -3706,7 +3706,7 @@ static int gasnete_coll_pf_scat_RVous(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
 
     case 1:	/* Rendevous w/ root to pass addr */
       if (gasneti_mynode == args->srcnode) {
-	GASNETE_FAST_UNALIGNED_MEMCPY(args->dst, 
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(args->dst, 
 				      gasnete_coll_scale_ptr(args->src, gasneti_mynode, args->nbytes),
 				      args->nbytes);
       } else {
@@ -4461,7 +4461,7 @@ static int gasnete_coll_pf_gath_Get(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
         gasnete_coll_save_handle(&data->handle GASNETE_THREAD_PASS);
 
 	/* Do local copy LAST, perhaps overlapping with communication */
-	GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
 				      args->src, args->nbytes);
       }
       data->state = 2;
@@ -4517,7 +4517,7 @@ static int gasnete_coll_pf_gath_Put(gasnete_coll_op_t *op GASNETE_THREAD_FARG) {
 
     case 1:	/* Initiate data movement */
       if (gasneti_mynode == args->dstnode) {
-	GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
 				      args->src, args->nbytes);
       } else {
 	if (!GASNETE_COLL_MAY_INIT_FOR(op)) break;
@@ -4580,7 +4580,7 @@ static int gasnete_coll_pf_gath_Eager(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
       if (gasneti_mynode != args->dstnode) {
 	gasnete_coll_p2p_eager_put(op, args->dstnode, args->src, args->nbytes, gasneti_mynode, 1);
       } else {
-	GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
 				      args->src, args->nbytes);
 	data->p2p->state[gasneti_mynode] = 2;
       }
@@ -4665,7 +4665,7 @@ static int gasnete_coll_pf_gath_RVPut(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
     case 1:	/* Initiate data movement */
       if (gasneti_mynode == args->dstnode) {
 	gasnete_coll_p2p_eager_addr_all(op, args->dst, 0, 1);	/* broadcast dst address */
-	GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
 				      args->src, args->nbytes);
       } else if (data->p2p->state[0]) {
 	if (!GASNETE_COLL_MAY_INIT_FOR(op)) break;
@@ -4737,7 +4737,7 @@ static int gasnete_coll_pf_gath_RVous(gasnete_coll_op_t *op GASNETE_THREAD_FARG)
 				    gasnete_coll_scale_ptr(args->dst, i, args->nbytes),
 				    i, args->nbytes);
 	}
-	GASNETE_FAST_UNALIGNED_MEMCPY(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
+	GASNETE_FAST_UNALIGNED_MEMCPY_CHECK(gasnete_coll_scale_ptr(args->dst, gasneti_mynode, args->nbytes),
 				      args->src, args->nbytes);
       }
       data->state = 2;
