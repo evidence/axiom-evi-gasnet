@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2006/08/05 06:26:33 $
- * $Revision: 1.41 $
+ *     $Date: 2006/10/17 13:19:10 $
+ * $Revision: 1.42 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -1168,6 +1168,9 @@ static int AMUDP_RequestGeneric(amudp_category_t category,
     for (i = 0; i < numargs; i++) {
       args[i] = (uint32_t)va_arg(argptr, int); /* must be int due to default argument promotion */
     }
+    #if USE_CLEAR_UNUSED_SPACE
+      if (i < AMUDP_MAX_SHORT) args[i] = 0;
+    #endif
   }
 
   if (isloopback) { /* run handler synchronously */
@@ -1326,9 +1329,7 @@ static int AMUDP_ReplyGeneric(amudp_category_t category,
       args[i] = (uint32_t)va_arg(argptr, int); /* must be int due to default argument promotion */
     }
     #if USE_CLEAR_UNUSED_SPACE
-      for ( ; i < AMUDP_MAX_SHORT; i++) {
-        args[i] = 0;
-      }
+      if (i < AMUDP_MAX_SHORT) args[i] = 0;
     #endif
   }
 
