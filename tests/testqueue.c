@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testqueue.c,v $
- *     $Date: 2006/08/10 07:37:26 $
- * $Revision: 1.11 $
+ *     $Date: 2006/10/18 02:43:13 $
+ * $Revision: 1.12 $
  * Description: GASNet put/get injection performance test
  *   measures the average non-blocking put/get injection time 
  *   for increasing number of back-to-back operations
@@ -231,7 +231,7 @@ int main(int argc, char **argv) {
     if (insegment) {
 	msgbuf = (void *) myseg;
     } else {
-	alloc = (void *) test_malloc(maxsz+PAGESZ);
+	alloc = (void *) test_calloc(maxsz+PAGESZ,1); /* use calloc to prevent valgrind warnings */
         msgbuf = (void *) alignup(((uintptr_t)alloc), PAGESZ); /* ensure page alignment of base */
     }
     assert(((uintptr_t)msgbuf) % PAGESZ == 0);

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testnbr.c,v $
- *     $Date: 2006/08/28 13:39:48 $
- * $Revision: 1.17 $
+ *     $Date: 2006/10/18 02:43:13 $
+ * $Revision: 1.18 $
  * Description: MG-like Neighbor exchange
  * Copyright 2005, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -229,6 +229,7 @@ void gam_amlong(nbr_t *nb, gasnet_node_t node, int axis,
 
 void _init_stat(nbr_t *nb, stat_struct_t *st, int axis, int dims, int sz)
 {
+        memset(st, 0, sizeof(*st)); /* prevent valgrind warnings about struct padding */
 	st->iters = 0;
 	st->dims = dims;
 	st->datasize = sz;

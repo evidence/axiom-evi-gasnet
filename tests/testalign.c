@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testalign.c,v $
- *     $Date: 2006/08/10 07:37:26 $
- * $Revision: 1.17 $
+ *     $Date: 2006/10/18 02:43:13 $
+ * $Revision: 1.18 $
  * Description: GASNet get/put alignment-sensitivity test
  *   measures flood throughput of GASNet gets and puts
  *   over varying payload alignments and fixed payload size
@@ -90,7 +90,7 @@ void oneway_test(int iters, int nbytes, int alignment)
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
 	
-	memset(locbuf, 1, nbytes);
+	memset(locbuf+pad, 1, nbytes);
 
 	BARRIER();
 	
@@ -140,7 +140,7 @@ void oneway_nbi_test(int iters, int nbytes, int alignment)
 	/* initialize statistics */
 	init_stat(&st, nbytes, alignment);
 	
-	memset(locbuf, 1, nbytes);
+	memset(locbuf+pad, 1, nbytes);
 
 	BARRIER();
 	
@@ -195,7 +195,7 @@ void oneway_nb_test(int iters, int nbytes, int alignment)
 	
 	handles = (gasnet_handle_t*) test_malloc(sizeof(gasnet_handle_t) * iters);
 	
-	memset(locbuf, 1, nbytes);
+	memset(locbuf+pad, 1, nbytes);
 
 	BARRIER();
 	
