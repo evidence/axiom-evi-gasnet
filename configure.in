@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/10/16 23:58:28 $
-# $Revision: 1.416 $
+#     $Date: 2006/10/20 04:54:34 $
+# $Revision: 1.417 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.416 $)
+AC_REVISION($Revision: 1.417 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -196,7 +196,7 @@ case "$gasnet_cv_cc_family" in
           ], [ AC_MSG_RESULT(ok) # keep -Winline
           ], [ AC_MSG_RESULT(buggy)
                CFLAGS="$noninlineCFLAGS" # remove -Winline
-          ], [ AC_MSG_ERROR(failure when detecting buggy -Winline)])
+          ], [ GASNET_MSG_ERROR(failure when detecting buggy -Winline)])
         ])
 
         CCOPTFLAGS="$CFLAGS"
@@ -612,15 +612,15 @@ GASNET_TRY_CCOMPILE_WITHWARN([
 ])
 
 GASNET_PUSHVAR(CPPFLAGS,"$CPPFLAGS -I$TOP_SRCDIR/other")
-GASNET_TRY_CACHE_EXTRACT_STR(PLATFORM_COMPILER_IDSTR, PLATFORM_COMPILER_IDSTR,
-  [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_IDSTR ], GASNETI_PLATFORM_COMPILER_IDSTR)
-AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_IDSTR,$GASNETI_PLATFORM_COMPILER_IDSTR)
-GASNET_TRY_CACHE_EXTRACT_EXPR(PLATFORM_COMPILER_ID, PLATFORM_COMPILER_ID,
-  [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_ID ], GASNETI_PLATFORM_COMPILER_ID)
-AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_ID,$GASNETI_PLATFORM_COMPILER_ID)
-GASNET_TRY_CACHE_EXTRACT_EXPR(PLATFORM_COMPILER_VERSION, PLATFORM_COMPILER_VERSION,
-  [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_VERSION ], GASNETI_PLATFORM_COMPILER_VERSION)
-AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_VERSION,$GASNETI_PLATFORM_COMPILER_VERSION)
+AC_DEFUN([GASNET_GET_PLATFORM_COMPILER], [
+  GASNET_TRY_CACHE_EXTRACT_$2(PLATFORM_COMPILER_$1, PLATFORM_COMPILER_$1,
+    [ #include "portable_platform.h" ], [ PLATFORM_COMPILER_$1 ], GASNETI_PLATFORM_COMPILER_$1)
+  AC_DEFINE_UNQUOTED(GASNETI_PLATFORM_COMPILER_$1,$GASNETI_PLATFORM_COMPILER_$1)
+])
+GASNET_GET_PLATFORM_COMPILER([IDSTR],[STR])
+GASNET_GET_PLATFORM_COMPILER([FAMILYID],[EXPR])
+GASNET_GET_PLATFORM_COMPILER([ID],[EXPR])
+GASNET_GET_PLATFORM_COMPILER([VERSION],[EXPR])
 GASNET_POPVAR(CPPFLAGS)
 
 GASNET_POPVAR(CFLAGS)
@@ -735,7 +735,7 @@ case "$target_os" in
         case "$target" in
           *-catamount-*) 
 	    GASNET_IFDEF(__LIBCATAMOUNT__,[],[
-	      AC_MSG_ERROR([Compiling for a catamount target, but __LIBCATAMOUNT__ is not predefined! Are you using the right compiler? (perhaps try mpicc)])
+	      GASNET_MSG_ERROR([Compiling for a catamount target, but __LIBCATAMOUNT__ is not predefined! Are you using the right compiler? (perhaps try mpicc)])
 	    ])
           ;;
         esac
@@ -1556,7 +1556,7 @@ _GASNET_EOF
     if eval $compile 2>&5 && test -s $MPIHELPER_OBJ ; then
 	AC_MSG_RESULT(ok)
     else
-	AC_MSG_ERROR(failed while building MPI helper object)
+	GASNET_MSG_ERROR(failed while building MPI helper object)
     fi
 
     AC_MSG_CHECKING(for working MPI configuration)
@@ -1994,7 +1994,7 @@ if test $enabled_elan = yes; then
     fi
     AC_MSG_RESULT("${majorver}.${minorver}.${subver}")
     if test "$majorver" = "" -o "$minorver" = "" -o "$subver" = "" ; then
-      AC_MSG_ERROR(["libelan present, but unable to determine libelan version"])
+      GASNET_MSG_ERROR(["libelan present, but unable to determine libelan version"])
     fi
     AC_DEFINE_UNQUOTED(ELAN_VERSION_MAJOR, $majorver)
     AC_DEFINE_UNQUOTED(ELAN_VERSION_MINOR, $minorver)
