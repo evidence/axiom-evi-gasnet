@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/10/20 04:54:34 $
-# $Revision: 1.417 $
+#     $Date: 2006/10/20 23:30:06 $
+# $Revision: 1.418 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.417 $)
+AC_REVISION($Revision: 1.418 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -456,7 +456,12 @@ case "$gasnet_cv_cc_family" in
   HP)  MISC_CPPFLAGS="+W67" ;; # unrecognized #pragma upc
   GNU)
     case "$target_os" in
-      darwin*) MISC_CPPFLAGS="-no-cpp-precomp -Wno-long-double" ;; 
+      darwin*) # add some options which are specific to the Apple Inc version of gcc
+        GASNET_TRY_CFLAG([-no-cpp-precomp],
+	                 [MISC_CPPFLAGS="$MISC_CPPFLAGS -no-cpp-precomp"])
+        GASNET_TRY_CFLAG([-Wno-long-double],
+	                 [MISC_CPPFLAGS="$MISC_CPPFLAGS -Wno-long-double"])
+      ;; 
     esac ;;
   *)  MISC_CPPFLAGS="" ;;
 esac
