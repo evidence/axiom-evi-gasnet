@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/10/20 04:54:34 $
-dnl $Revision: 1.117 $
+dnl     $Date: 2006/10/29 01:02:07 $
+dnl $Revision: 1.118 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -798,6 +798,9 @@ if test "$cv_prefix[]_gfp_disable" = ""; then
   gasnet_gfp_progargs=`echo "$$1" | $AWK -F' ' 'BEGIN { ORS=" "; } { for (i=2;i<=NF;i++) print $i; }'`
   gasnet_gfp_progname0=`echo "$gasnet_gfp_progname" | $AWK '{ print sub[]str([$]0,1,1) }'`
   if test "$gasnet_gfp_progname0" != "/" ; then
+    if test "`echo $gasnet_gfp_progname | grep '/'`" != "" ; then
+      AC_MSG_ERROR([$1 was set to a relative path: $gasnet_gfp_progname -- please use an absolute pathname])
+    fi
     # clear cached values, in case this is a pushed var
     unset cv_prefix[]_gfp_fullprogname_$1
     unset ac_cv_path_[]cv_prefix[]_gfp_fullprogname_$1
