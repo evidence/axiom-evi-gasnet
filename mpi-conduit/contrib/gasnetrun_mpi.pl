@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/08/18 03:35:16 $
-# $Revision: 1.49 $
+#     $Date: 2006/11/02 03:54:59 $
+# $Revision: 1.50 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -71,7 +71,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_irix_mpi = ($mpirun_help =~ m|\[-miser\]|);
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
-    my $is_bgl_mpi  = ($mpirun_help =~ m| BG/L |);
+    my $is_bgl_mpi  = ($mpirun_help =~ m|COprocessor or VirtualNode mode|);
     my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|);
     my $is_hp_mpi  = ($mpirun_help =~ m|-universe_size|);
     my $is_elan_mpi  = ($mpirun_help =~ m|MPIRUN_ELANIDMAP_FILE|);
