@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/11/02 03:54:59 $
-# $Revision: 1.50 $
+#     $Date: 2006/11/02 11:14:41 $
+# $Revision: 1.51 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -178,7 +178,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 		  );
 	$force_nonempty_argv = 1;
 	$group_join_argv = 1;
-	$env_before_exe = 0;
+	$env_before_exe = 1;
 	@verbose_opt = ("-verbose", "2");
     } elsif ($is_bgl_cqsub) {
 	$spawner_desc = "IBM BG/L cqsub";
