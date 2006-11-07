@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/10/18 21:57:58 $
- * $Revision: 1.108 $
+ *     $Date: 2006/11/07 20:28:31 $
+ * $Revision: 1.109 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
-#ifdef HAVE_MALLOC_H
+#if defined(HAVE_MALLOC_H) && !PLATFORM_OS_OPENBSD /* OpenBSD warns that malloc.h is obsolete */
 #include <malloc.h> /* prevent problems with redefinition of malloc on solaris */
 #endif
 

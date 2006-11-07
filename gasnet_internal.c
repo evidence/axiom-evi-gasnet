@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2006/08/28 02:16:43 $
- * $Revision: 1.185 $
+ *     $Date: 2006/11/07 20:28:31 $
+ * $Revision: 1.186 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -22,7 +22,7 @@
 #include <fcntl.h>
 #include <signal.h>
 
-#if HAVE_MALLOC_H
+#if HAVE_MALLOC_H && !PLATFORM_OS_OPENBSD /* OpenBSD warns that malloc.h is obsolete */
   #include <malloc.h>
 #endif
 

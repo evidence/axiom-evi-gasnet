@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/09/21 02:10:14 $
- * $Revision: 1.194 $
+ *     $Date: 2006/11/07 20:28:31 $
+ * $Revision: 1.195 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -515,7 +515,9 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
 }
 #endif
 
-static char gasneti_exename_bt[255];
+#define GASNETI_BT_PATHSZ 1024 /* OpenBSD warns if this is smaller than 1024 */
+
+static char gasneti_exename_bt[GASNETI_BT_PATHSZ];
 
 #ifdef GASNETI_BT_LADEBUG
   static int gasneti_bt_ladebug(int fd) {
@@ -524,7 +526,7 @@ static char gasneti_exename_bt[255];
     #else
       const char fmt[] = "echo 'set $stoponattach; attach %d; where; quit' | %s '%s'"; 
     #endif
-    static char cmd[1024];
+    static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
     /* Try to be smart if not in same place as at configure time */
     const char *ladebug = (access(LADEBUG_PATH, X_OK) ? "ladebug" : LADEBUG_PATH);
     int rc = sprintf(cmd, fmt, (int)getpid(), ladebug, gasneti_exename_bt);
@@ -537,7 +539,7 @@ static char gasneti_exename_bt[255];
   static int gasneti_bt_dbx(int fd) {
     /* dbx's thread support is poor and not easily scriptable */
     const char fmt[] = "echo 'attach %d; where; quit' | %s '%s'";  
-    static char cmd[1024];
+    static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
     const char *dbx = (access(DBX_PATH, X_OK) ? "dbx" : DBX_PATH);
     int rc = sprintf(cmd, fmt, (int)getpid(), dbx, gasneti_exename_bt);
     if (rc < 0) return -1;
@@ -552,7 +554,7 @@ static char gasneti_exename_bt[255];
     #else
       const char fmt[] = "echo 'set $stoponattach; attach %d; where; quit' | %s -dbx -quiet '%s'"; 
     #endif
-    static char cmd[1024];
+    static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
     const char *idb = (access(IDB_PATH, X_OK) ? "idb" : IDB_PATH);
     int rc = sprintf(cmd, fmt, (int)getpid(), idb, gasneti_exename_bt);
     if (rc < 0) return -1;
@@ -567,7 +569,7 @@ static char gasneti_exename_bt[255];
     #else
       const char fmt[] = "%s -text -c 'attach %i %s ; where ; detach ; quit'";
     #endif
-    static char cmd[1024];
+    static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
     const char *pgdbg = (access(PGDBG_PATH, X_OK) ? "pgdbg" : PGDBG_PATH);
     int rc = sprintf(cmd, fmt, pgdbg, (int)getpid(), gasneti_exename_bt);
     if (rc < 0) return -1;
@@ -584,8 +586,8 @@ static char gasneti_exename_bt[255];
       const char commands[] = "backtrace 50\ndetach\nquit\n";
     #endif
     const char fmt[] = "%s -nx -batch -x %s '%s' %d";
-    static char cmd[1024];
-    char filename[255];
+    static char cmd[sizeof(fmt) + 3*GASNETI_BT_PATHSZ];
+    char filename[GASNETI_BT_PATHSZ];
     const char *gdb = (access(GDB_PATH, X_OK) ? "gdb" : GDB_PATH);
     int rc;
 
@@ -638,8 +640,9 @@ static char gasneti_exename_bt[255];
       xlstr[0] = '\0';
       #if defined(ADDR2LINE_PATH) && !GASNETI_NO_FORK
         /* use addr2line when available to retrieve symbolic info */
-        { static char cmd[255];
-          sprintf(cmd,"%s -f -e '%s' %p", ADDR2LINE_PATH, gasneti_exename_bt, btaddrs[i]);
+        { const char fmt[] = "%s -f -e '%s' %p";
+          static char cmd[sizeof(fmt) + 2*GASNETI_BT_PATHSZ];
+          sprintf(cmd, fmt, ADDR2LINE_PATH, gasneti_exename_bt, btaddrs[i]);
           xlate = popen(cmd, "r");
           if (xlate) {
             char *p = xlstr;
@@ -702,7 +705,7 @@ static int gasneti_backtrace_userenabled = 0;
 static const char *gasneti_backtrace_list = 0;
 const char *(*gasneti_backtraceid_fn)(void); /* allow client override of backtrace line prefix */
 extern void gasneti_backtrace_init(const char *exename) {
-  char tmp[255];
+  char tmp[GASNETI_BT_PATHSZ];
   if (exename[0] == '/' || exename[0] == '\\') tmp[0] = '\0';
   else { getcwd(tmp, sizeof(tmp)); strcat(tmp,"/"); }
   strcat(tmp, exename);
@@ -1196,7 +1199,7 @@ extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defau
 #elif PLATFORM_OS_HPUX
 #include <sys/param.h>
 #include <sys/pstat.h>
-#elif PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD
+#elif PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
 #include <sys/param.h>
 #include <sys/sysctl.h>
 #endif
@@ -1206,7 +1209,7 @@ extern int gasneti_cpu_count() {
   static int hwprocs = -1;
   if (hwprocs >= 0) return hwprocs;
 
-  #if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD
+  #if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD
       {
         int mib[2];
         size_t len;
@@ -1246,7 +1249,7 @@ extern int gasneti_cpu_count() {
 #else
   #define _gasneti_getPhysMemSysconf() 0
 #endif
-#if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD
+#if PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_OPENBSD
   #include <sys/types.h>
   #include <sys/sysctl.h>
 #elif PLATFORM_OS_CATAMOUNT
@@ -1278,7 +1281,7 @@ extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
       fclose(fp);
     }
     #undef _BUFSZ
-  #elif PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD
+  #elif PLATFORM_OS_DARWIN || PLATFORM_OS_FREEBSD || PLATFORM_OS_OPENBSD
     { /* see "man 3 sysctl" */    
       int mib[2];
       size_t len = 0;

@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2006/10/17 13:19:10 $
- * $Revision: 1.42 $
+ *     $Date: 2006/11/07 20:28:36 $
+ * $Revision: 1.43 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -246,7 +246,7 @@ static int sourceAddrToId(ep_t ep, en_t sourceAddr) {
   #define BROKEN_IOCTL 1
 #elif PLATFORM_OS_AIX || PLATFORM_OS_IRIX || PLATFORM_OS_HPUX || PLATFORM_OS_MTA || \
       PLATFORM_OS_TRU64 || PLATFORM_OS_DARWIN || PLATFORM_OS_SUPERUX || \
-      PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_UNICOS
+      PLATFORM_OS_FREEBSD || PLATFORM_OS_NETBSD || PLATFORM_OS_OPENBSD || PLATFORM_OS_UNICOS
   #define BROKEN_IOCTL 1 /*  seems these are broken too...  */
 #else 
   #define BROKEN_IOCTL 0 /*  at least Linux and Solaris work as documented */

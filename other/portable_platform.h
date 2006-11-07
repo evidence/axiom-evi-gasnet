@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2006/11/07 20:21:09 $
- * $Revision: 1.12 $
+ *     $Date: 2006/11/07 20:28:34 $
+ * $Revision: 1.13 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -473,6 +473,10 @@
 #elif defined(__NetBSD) || defined(__NetBSD__)
   #define PLATFORM_OS_NETBSD 1
   #define PLATFORM_OS_FAMILYNAME NETBSD
+
+#elif defined(__OpenBSD__)
+  #define PLATFORM_OS_OPENBSD 1
+  #define PLATFORM_OS_FAMILYNAME OPENBSD
 
 #elif defined(__sun) || defined(__sun__)
   #define PLATFORM_OS_SOLARIS 1
