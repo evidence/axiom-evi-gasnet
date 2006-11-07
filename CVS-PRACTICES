@@ -77,6 +77,8 @@ GASNet Release Procedure
 * Review checkin messages and write a summary of user-visible changes and 
   bug fixes since last public release - add to ChangeLog
 
+* Update license.txt with any new authorship credits
+
 * ./Bootstrap the srcdir
 
 * From a separate builddir, do a configure, then gmake all distcheck to build 
