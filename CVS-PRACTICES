@@ -112,6 +112,6 @@ GASNet Release Procedure
 
 * CVS tag the archive as GASNET_V_v (for version V.v) and docs/gasnet.texi as GASNETSPEC_V_v
 
-* Increment overall public release version number: configure.in and GASNETI_RELEASE_VERSION
-   should be a odd minor version number for development versions
+* Increment overall public release version number in configure.in
+   should be a odd minor and patch version number for development versions
 
