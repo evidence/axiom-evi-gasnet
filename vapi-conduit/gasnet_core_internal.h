@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/09/09 01:28:22 $
- * $Revision: 1.136 $
+ *     $Date: 2006/11/09 00:51:30 $
+ * $Revision: 1.137 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -358,6 +358,31 @@ typedef struct {
   uintptr_t		end;	/* inclusive */
 } gasnetc_memreg_t;
 
+typedef struct {
+	/* Length excludes immediate data but zeros includes it */
+	int16_t		length;	
+	int16_t		length_again;
+	int16_t		zeros;
+	int16_t		zeros_again;
+	/* Immediate data that vapi would otherwise send in its own header */
+	uint32_t	immediate_data;
+} gasnetc_amrdma_hdr_t;
+
+#define GASNETC_AMRDMA_PAD	(GASNETC_ALIGNUP(sizeof(gasnetc_amrdma_hdr_t),8)-sizeof(gasnetc_amrdma_hdr_t))
+#define GASNETC_AMRDMA_HDRSZ    sizeof(gasnetc_amrdma_hdr_t)
+#define GASNETC_AMRDMA_SZ	4096 /* Keep to a power-of-2 */  /* XXX: should determine automatically */
+#define GASNETC_AMRDMA_SZ_LG2	12 /* log-base-2(GASNETC_AMRDMA_SZ) */
+#define GASNETC_AMRDMA_LIMIT_MAX (GASNETC_AMRDMA_SZ - GASNETC_AMRDMA_HDRSZ - GASNETC_AMRDMA_PAD)
+typedef char gasnetc_amrdma_buf_t[GASNETC_AMRDMA_SZ];
+
+#define GASNETC_DEFAULT_AMRDMA_MAX_PEERS 0	/* XXX: disabled by default */
+#define GASNETC_DEFAULT_AMRDMA_DEPTH	32	/* Power-of-2 */
+#define GASNETC_DEFAULT_AMRDMA_LIMIT	GASNETC_AMRDMA_LIMIT_MAX
+
+/* Forward decl */
+struct gasnetc_cep_t_;
+typedef struct gasnetc_cep_t_ gasnetc_cep_t;
+
 /* Structure for an HCA */
 typedef struct {
   gasnetc_hca_hndl_t	handle;
@@ -394,6 +419,14 @@ typedef struct {
 #else
   /* No progress thread under ibv */
 #endif
+
+  /* AM-over-RMDA */
+  gasnetc_memreg_t	amrdma_reg;
+  gasneti_lifo_head_t	amrdma_freelist;
+  struct {
+    gasnet_node_t	count;
+    gasnetc_cep_t	**cep;
+  }	  amrdma_rcv;
 } gasnetc_hca_t;
 
 /* Keys in a cep, all replicated from other data */
@@ -404,19 +437,30 @@ struct gasnetc_cep_keys_ {
 #endif
   gasnetc_lkey_t	rcv_lkey;
   gasnetc_lkey_t	snd_lkey;
+  gasnetc_rkey_t	amrdma_rkey;
 };
 
 /* Structure for a cep (connection end-point) */
-typedef struct {
+struct gasnetc_cep_t_ {
+  char			_pad0[GASNETI_CACHE_LINE_BYTES];
+
   /* Read/write fields */
   gasneti_semaphore_t	sq_sema;	/* control in-flight ops (send queue slots) */
-  gasneti_semaphore_t	am_sema;	/* control in-flight AM Requests (recv queue slots )*/
-  gasneti_semaphore_t	am_unrcvd;	/* ACK coalescing - unmatched rcv buffers */
+  gasneti_semaphore_t	am_rem;		/* control in-flight AM Requests (remote rcv queue slots)*/
+  gasneti_semaphore_t	am_loc;		/* control unmatched rcv buffers (local rcv queue slots) */
   gasneti_semaphore_t	*snd_cq_sema_p;	/* control in-flight ops (send completion queue slots) */
-  gasneti_weakatomic_t	am_unsent;	/* ACK coalescing - unsent credits */
-  char			_pad0[GASNETC_CACHE_PAD(3*sizeof(gasneti_semaphore_t)+
-						 sizeof(gasneti_semaphore_t*)+
-						 sizeof(gasneti_weakatomic_t))];
+  /* XXX: The atomics in the next 2 structs really should get padded to full cache lines */
+  struct {	/* AM flow control coallescing */
+  	gasneti_weakatomic_t	credit;
+	gasneti_weakatomic_t	ack;
+  } am_flow;
+  struct {	/* AM-over-RDMA local state */
+	gasneti_weakatomic_t	send_head, send_tail;
+        gasneti_weakatomic_t	recv_in_use; /* A weak spinlock */
+	gasneti_weakatomic_t	recv_count;
+  } amrdma;
+
+  char			_pad1[GASNETI_CACHE_LINE_BYTES];
 
   /* Read-only fields */
   struct gasnetc_cep_keys_ keys;
@@ -426,14 +470,11 @@ typedef struct {
   gasnetc_hca_hndl_t	hca_handle;
   int			hca_index;
   gasnetc_epid_t	epid;		/* == uint32_t */
-  char			_pad1[GASNETC_CACHE_PAD(sizeof(struct gasnetc_cep_keys_) +
-						sizeof(gasneti_lifo_head_t*)+
-						sizeof(gasnetc_hca_t*)+
-						sizeof(gasnetc_qp_hndl_t)+
-						sizeof(gasnetc_hca_hndl_t)+
-						sizeof(int)+
-						sizeof(gasnetc_epid_t))];
-} gasnetc_cep_t;
+  gasnetc_amrdma_buf_t	*amrdma_loc;	
+  uintptr_t		amrdma_rem;
+
+  char			_pad2[GASNETI_CACHE_LINE_BYTES];
+};
 
 /* Routines in gasnet_core_sndrcv.c */
 extern int gasnetc_sndrcv_init(void);
@@ -477,6 +518,10 @@ extern size_t		gasnetc_bounce_limit;
 #else
   #define GASNETC_USE_FIREHOSE	1
 #endif
+extern int		gasnetc_amrdma_max_peers;
+extern size_t		gasnetc_amrdma_limit;
+extern int		gasnetc_amrdma_depth;
+extern int		gasnetc_amrdma_slot_mask;
 
 /* Global variables */
 extern int		gasnetc_num_hcas;

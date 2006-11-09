@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/09/09 01:28:22 $
- * $Revision: 1.176 $
+ *     $Date: 2006/11/09 00:51:30 $
+ * $Revision: 1.177 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -400,6 +400,19 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_inline_limit, GASNET_INLINESEND_LIMIT, GASNETC_DEFAULT_INLINESEND_LIMIT, 0, 1);
   GASNETC_ENVINT(gasnetc_bounce_limit, GASNET_NONBULKPUT_BOUNCE_LIMIT, GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT, 0, 1);
   GASNETC_ENVINT(gasnetc_packedlong_limit, GASNET_PACKEDLONG_LIMIT, GASNETC_DEFAULT_PACKEDLONG_LIMIT, 0, 1);
+  GASNETC_ENVINT(gasnetc_amrdma_max_peers, GASNET_AMRDMA_MAX_PEERS, GASNETC_DEFAULT_AMRDMA_MAX_PEERS, 0, 0);
+  GASNETC_ENVINT(gasnetc_amrdma_limit, GASNET_AMRDMA_LIMIT, GASNETC_DEFAULT_AMRDMA_LIMIT, 0, 1);
+  if_pf (gasnetc_amrdma_limit > GASNETC_AMRDMA_LIMIT_MAX) {
+    fprintf(stderr,
+            "WARNING: GASNET_AMRDMA_LIMIT reduced to from the requested value, %d, to the maximum supported value, %d.)\n",
+            (int)gasnetc_amrdma_limit, (int)GASNETC_AMRDMA_LIMIT_MAX);
+    gasnetc_amrdma_limit = GASNETC_AMRDMA_LIMIT_MAX;
+  }
+  GASNETC_ENVINT(gasnetc_amrdma_depth, GASNET_AMRDMA_DEPTH, GASNETC_DEFAULT_AMRDMA_DEPTH, 0, 0);
+  if_pf (!GASNETI_POWEROFTWO(gasnetc_amrdma_depth)) {
+    gasneti_fatalerror("GASNET_AMRDMA_DEPTH (%d) is not a power of 2", gasnetc_amrdma_depth);
+  }
+  gasnetc_amrdma_slot_mask = (gasnetc_amrdma_depth - 1);
 
   #if GASNETC_PIN_SEGMENT
   { long tmp;
@@ -503,6 +516,9 @@ static int gasnetc_load_settings(void) {
 #if !GASNETC_PIN_SEGMENT
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_PUTINMOVE_LIMIT          = %u", (unsigned int)gasnetc_putinmove_limit));
 #endif
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_AMRDMA_MAX_PEERS         = %u", (unsigned int)gasnetc_amrdma_max_peers));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_AMRDMA_DEPTH             = %u", (unsigned int)gasnetc_amrdma_depth));
+  GASNETI_TRACE_PRINTF(C,  ("  GASNET_AMRDMA_LIMIT             = %u", (unsigned int)gasnetc_amrdma_limit));
 #if GASNETC_VAPI_RCV_THREAD
   GASNETI_TRACE_PRINTF(C,  ("  GASNET_RCV_THREAD               = %d (%sabled)", gasnetc_use_rcv_thread,
 				gasnetc_use_rcv_thread ? "en" : "dis"));
@@ -1718,6 +1734,9 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     gasnetc_fh_align_mask = gasnetc_fh_align - 1;
   }
 
+  /* exchange AM-over-RDMA data */
+  gasnetc_amrdma_init(gasneti_nodes, NULL);
+
   /* ------------------------------------------------------------------------------------ */
   /*  primary attach complete */
   gasneti_attach_done = 1;
@@ -2651,6 +2670,79 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
   }
 }
 #endif
+/* ------------------------------------------------------------------------------------ */
+/*
+  Misc: setup for AM-over-RDMA
+  ============================
+*/
+
+typedef struct { uintptr_t addr; VAPI_rkey_t rkey; } gasnetc_amrdma_exchg_t;
+
+static gasnetc_cep_t *
+gasnetc_amrdma_init_one(gasnet_node_t n, gasnetc_amrdma_exchg_t *in) {
+    const int index = n * gasnetc_num_qps;
+    gasnetc_cep_t *cep = &(gasnetc_cep[index]);
+    gasnetc_hca_t *hca = cep->hca;
+    int i;
+
+    if ((n == gasneti_mynode) || (cep->amrdma_loc != NULL)) return NULL;
+
+    cep->amrdma_loc = gasneti_lifo_pop(&hca->amrdma_freelist);
+    if (cep->amrdma_loc == NULL) return NULL; /* No more */
+
+    gasneti_assert(hca->amrdma_rcv.count < hca->total_qps);
+    gasneti_assert(hca->amrdma_rcv.count < gasnetc_amrdma_max_peers);
+    gasneti_assert(sizeof(gasnetc_amrdma_hdr_t) >= sizeof(void *)); /* nothing remains uninitialized */
+    for (i = 0; i < gasnetc_amrdma_depth; ++i) {
+      gasnetc_amrdma_hdr_t *hdr = (gasnetc_amrdma_hdr_t *)cep->amrdma_loc[i];
+      hdr->length       = hdr->zeros       = 0;
+      hdr->length_again = hdr->zeros_again = ~0;
+    }
+    gasneti_weakatomic_set(&cep->amrdma.recv_in_use, 0, 0);
+    hca->amrdma_rcv.cep[hca->amrdma_rcv.count++] = cep;
+    in[index].addr = (uintptr_t)cep->amrdma_loc;
+    in[index].rkey = hca->amrdma_reg.rkey;
+
+    return cep;
+}
+
+/* Passing NULL for the "peers" array yields the default dense case */
+extern void gasnetc_amrdma_init(int peer_count, const gasnet_node_t *peers) {
+  const int ceps = gasneti_nodes * gasnetc_num_qps;
+  gasnetc_amrdma_exchg_t *in = gasneti_calloc(ceps, sizeof(gasnetc_amrdma_exchg_t));
+  gasnetc_amrdma_exchg_t *out = gasneti_calloc(ceps, sizeof(gasnetc_amrdma_exchg_t));
+  int i;
+
+  /* Add the explictly requested peers */
+  for (i = 0; i < peer_count; ++i) {
+    gasnet_node_t n = peers ? peers[i] : i;
+    gasnetc_amrdma_init_one(n, in);
+  }
+
+  /* Now add the Barrier peers automagically if space allows */
+  for (i = 1; i < gasneti_nodes; i *= 2) {
+    gasnet_node_t n = (gasneti_mynode >= i) ? (gasneti_mynode - i)
+					    : (gasneti_mynode + (gasneti_nodes - i));
+    gasnetc_amrdma_init_one(n, in);
+  }
+  for (i = 1; i < gasneti_nodes; i *= 2) {
+    gasnet_node_t n = (gasneti_mynode < gasneti_nodes - i) ? (gasneti_mynode + i)
+							   : (gasneti_mynode - (gasneti_nodes - i));
+    gasnetc_amrdma_init_one(n, in);
+  }
+
+  /* Communicate info w/ peers */
+  gasneti_bootstrapAlltoall(in, gasnetc_num_qps*sizeof(gasnetc_amrdma_exchg_t), out);
+  for (i = 0; i < ceps; ++i) {
+    if (i/gasnetc_num_qps == gasneti_mynode) continue;
+    gasnetc_cep[i].amrdma_rem = out[i].addr;
+    gasnetc_cep[i].keys.amrdma_rkey = out[i].rkey;
+  }
+
+  gasneti_free(in);
+  gasneti_free(out);
+}
+
 /* ------------------------------------------------------------------------------------ */
 /*
   Private Handlers:

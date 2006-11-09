@@ -1,7 +1,7 @@
 README file for vapi-conduit
 ================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.42 $
+$Revision: 1.43 $
 
 @ TOC: @
 @ Section: Job Spawning @
@@ -415,6 +415,40 @@ $Revision: 1.42 $
     The suffixes "K", "M" and "G" are interpreted as Kilobytes, Megabytes
     and Gigabytes respectively.  The current default is 256K.
    
+  AMRDMA configuration:
+  The following environment variables control the AM-over-RDMA code in
+  vapi-conduit.  These parameters must be equal across all nodes, and
+  the behavior otherwise is undefined.
+
+  As an optimization, vapi-conduit can send Active Message (AM) traffic
+  using RDMA PUT operations to buffers reserved for this purpose.  This
+  leads to a reduction in the end-to-end latency of such AM traffic, but
+  at the cost of increased memory usage and in the cost of a polling for
+  AMs (as done explicity in gasnet_AMPoll(), and implicitly in many
+  GASNet calls).
+
+  + GASNET_AMRDMA_LIMIT
+    This environment variable controls the maximum size of an AM that may
+    be sent via the AMRDMA path.  The software overhead on both the sender
+    and receiver grow with the message size.  So, as the message size grows
+    the use of AMRDMA eventually costs more than the snd/rcv alternative.
+    The current default is 4K minus some overheads.
+
+  + GASNET_AMRDMA_DEPTH
+    This environment variable controls the number of buffers (currently 4K
+    each) that are allocated per peer for receiving AMRDMA traffic.  Larger
+    values may potentially allow for more AMs in-flight before flow control
+    throttles the sender, but at the cost of increased memory consumption.
+    The current default is 32.
+
+  + GASNET_AMRDMA_MAX_PEERS
+    This environment variable limits the number of peers from which AMs may
+    be received over RDMA.  Larger values may potentially allow for lower
+    cost AM traffic, but at the cost of increased memory consumption and
+    greater overhead each time that vapi-conduit polls for AM traffic.
+    The current default is 0 - which disables AMRDMA.
+    The current algorithm for selecting AMRDMA peers is very simplistic.
+
   Firehose configuration:
   These parameters must be equal across all nodes, and the behavior
   otherwise is undefined.
