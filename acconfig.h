@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/10/20 04:54:34 $ */
-/*  $Revision: 1.119 $ */
+/*      $Date: 2006/11/13 19:45:13 $ */
+/*  $Revision: 1.120 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -84,6 +84,9 @@
 
 /* has sched_yield() */
 #undef HAVE_SCHED_YIELD
+
+/* have sysctl machdep.tsc_freq */
+#undef GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ
 
 /* has Portable Linux Processor Affinity */
 #undef HAVE_PLPA

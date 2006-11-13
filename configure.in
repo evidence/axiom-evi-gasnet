@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/11/08 06:51:25 $
-# $Revision: 1.422 $
+#     $Date: 2006/11/13 19:45:13 $
+# $Revision: 1.423 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.422 $)
+AC_REVISION($Revision: 1.423 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2697,6 +2697,20 @@ GASNET_TRY_CACHE_CHECK(for sched_yield(), cc_has_sched_yield, [
   sched_yield();
 ],
   AC_SEARCH_LIBS(sched_yield, posix4, AC_DEFINE(HAVE_SCHED_YIELD), AC_MSG_RESULT(entry point not found - disabled)))
+
+# timer setup
+case "$target_os" in
+  freebsd*)  
+    AC_MSG_CHECKING(for sysctl machdep.tsc_freq)
+    res="`/sbin/sysctl -n machdep.tsc_freq 2> /dev/null`"
+    if test "$res" != "" ; then
+      AC_MSG_RESULT(yes: $res)
+      AC_DEFINE(GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ)
+    else
+      AC_MSG_RESULT(no)
+    fi
+  ;;
+esac
 
 if test "$cross_compiling" = "no" ; then
   case "$target_os" in

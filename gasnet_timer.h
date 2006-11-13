@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/09/13 01:40:22 $
- * $Revision: 1.75 $
+ *     $Date: 2006/11/13 19:45:13 $
+ * $Revision: 1.76 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -231,16 +231,18 @@ GASNETI_BEGIN_EXTERNC
     gasneti_assert(gasneti_tick_p);
     return (uint64_t)(st * gasneti_timer_tick);
   }
-#elif (PLATFORM_OS_LINUX || PLATFORM_OS_CATAMOUNT) && \
+#elif (PLATFORM_OS_LINUX || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD || \
+       (PLATFORM_OS_FREEBSD && GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ)) && \
      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
       PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_TINY) && \
      (PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_IA64) && \
       !GASNETI_ARCH_ALTIX /* bug 1622 */
   #if PLATFORM_ARCH_IA64 && PLATFORM_COMPILER_INTEL
     #include <ia64intrin.h>
-  #endif
-  #if PLATFORM_OS_CATAMOUNT
+  #elif PLATFORM_OS_CATAMOUNT
     extern unsigned int __cpu_mhz; /* system provided */
+  #elif PLATFORM_OS_FREEBSD || PLATFORM_OS_OPENBSD
+    #include <sys/sysctl.h> 
   #endif
   typedef uint64_t gasneti_tick_t;
  #if PLATFORM_COMPILER_PGI && !GASNETI_PGI_ASM_GNU
@@ -308,7 +310,24 @@ GASNETI_BEGIN_EXTERNC
     if_pf (firstTime) {
      #if PLATFORM_OS_CATAMOUNT /* lacks /proc filesystem */
         Tick = 1000.0 / __cpu_mhz;
-     #else
+     #elif PLATFORM_OS_FREEBSD
+        int64_t cpuspeed = 0;
+        int len = sizeof(cpuspeed);
+        if (sysctlbyname("machdep.tsc_freq", &cpuspeed, &len, NULL, 0) == -1) 
+          gasneti_fatalerror("*** ERROR: Failure in sysctlbyname('machdep.tsc_freq')=%s",strerror(errno));
+        gasneti_assert(cpuspeed > 1E6 && cpuspeed < 1E11); /* ensure it looks reasonable */
+        Tick = 1.0E9 / cpuspeed;
+     #elif PLATFORM_OS_OPENBSD
+        int MHz = 0;
+        int len = sizeof(MHz);
+        int mib[2];
+        mib[0] = CTL_HW;
+        mib[1] = HW_CPUSPEED;
+        if (sysctl(mib, 2, &MHz, &len, NULL, 0)) 
+          gasneti_fatalerror("*** ERROR: Failure in sysctl(CTL_HW.HW_CPUSPEED)=%s",strerror(errno));
+        gasneti_assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
+        Tick = 1000. / MHz;
+     #else /* PLATFORM_OS_LINUX */
       FILE *fp = fopen("/proc/cpuinfo","r");
       char input[255];
       if (!fp) gasneti_fatalerror("*** ERROR: Failure in fopen('/proc/cpuinfo','r')=%s",strerror(errno));
