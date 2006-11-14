@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/11/09 00:51:30 $
- * $Revision: 1.177 $
+ *     $Date: 2006/11/14 18:43:14 $
+ * $Revision: 1.178 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2679,13 +2679,13 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
 typedef struct { uintptr_t addr; VAPI_rkey_t rkey; } gasnetc_amrdma_exchg_t;
 
 static gasnetc_cep_t *
-gasnetc_amrdma_init_one(gasnet_node_t n, gasnetc_amrdma_exchg_t *in) {
-    const int index = n * gasnetc_num_qps;
+gasnetc_amrdma_init_one(gasnet_node_t node, int qpi, gasnetc_amrdma_exchg_t *in) {
+    const int index = node * gasnetc_num_qps + qpi;
     gasnetc_cep_t *cep = &(gasnetc_cep[index]);
     gasnetc_hca_t *hca = cep->hca;
     int i;
 
-    if ((n == gasneti_mynode) || (cep->amrdma_loc != NULL)) return NULL;
+    if ((node == gasneti_mynode) || (cep->amrdma_loc != NULL)) return NULL;
 
     cep->amrdma_loc = gasneti_lifo_pop(&hca->amrdma_freelist);
     if (cep->amrdma_loc == NULL) return NULL; /* No more */
@@ -2711,24 +2711,28 @@ extern void gasnetc_amrdma_init(int peer_count, const gasnet_node_t *peers) {
   const int ceps = gasneti_nodes * gasnetc_num_qps;
   gasnetc_amrdma_exchg_t *in = gasneti_calloc(ceps, sizeof(gasnetc_amrdma_exchg_t));
   gasnetc_amrdma_exchg_t *out = gasneti_calloc(ceps, sizeof(gasnetc_amrdma_exchg_t));
-  int i;
+  int i, j;
 
   /* Add the explictly requested peers */
-  for (i = 0; i < peer_count; ++i) {
-    gasnet_node_t n = peers ? peers[i] : i;
-    gasnetc_amrdma_init_one(n, in);
+  for (j = 0; j < gasnetc_num_qps; ++j) {
+    for (i = 0; i < peer_count; ++i) {
+      gasnet_node_t n = peers ? peers[i] : i;
+      gasnetc_amrdma_init_one(n, j, in);
+    }
   }
 
   /* Now add the Barrier peers automagically if space allows */
-  for (i = 1; i < gasneti_nodes; i *= 2) {
-    gasnet_node_t n = (gasneti_mynode >= i) ? (gasneti_mynode - i)
-					    : (gasneti_mynode + (gasneti_nodes - i));
-    gasnetc_amrdma_init_one(n, in);
-  }
-  for (i = 1; i < gasneti_nodes; i *= 2) {
-    gasnet_node_t n = (gasneti_mynode < gasneti_nodes - i) ? (gasneti_mynode + i)
-							   : (gasneti_mynode - (gasneti_nodes - i));
-    gasnetc_amrdma_init_one(n, in);
+  for (j = 0; j < gasnetc_num_qps; ++j) {
+    for (i = 1; i < gasneti_nodes; i *= 2) {
+      gasnet_node_t n = (gasneti_mynode >= i) ? (gasneti_mynode - i)
+					      : (gasneti_mynode + (gasneti_nodes - i));
+      gasnetc_amrdma_init_one(n, j, in);
+    }
+    for (i = 1; i < gasneti_nodes; i *= 2) {
+      gasnet_node_t n = (gasneti_mynode < gasneti_nodes - i) ? (gasneti_mynode + i)
+							     : (gasneti_mynode - (gasneti_nodes - i));
+      gasnetc_amrdma_init_one(n, j, in);
+    }
   }
 
   /* Communicate info w/ peers */
