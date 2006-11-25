@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/11/13 19:45:13 $
- * $Revision: 1.76 $
+ *     $Date: 2006/11/25 06:03:46 $
+ * $Revision: 1.77 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -233,7 +233,7 @@ GASNETI_BEGIN_EXTERNC
   }
 #elif (PLATFORM_OS_LINUX || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD || \
        (PLATFORM_OS_FREEBSD && GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ)) && \
-     (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || \
+     (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || PLATFORM_COMPILER_SUN || \
       PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_TINY) && \
      (PLATFORM_ARCH_X86 || PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_IA64) && \
       !GASNETI_ARCH_ALTIX /* bug 1622 */
@@ -245,7 +245,7 @@ GASNETI_BEGIN_EXTERNC
     #include <sys/sysctl.h> 
   #endif
   typedef uint64_t gasneti_tick_t;
- #if PLATFORM_COMPILER_PGI && !GASNETI_PGI_ASM_GNU
+ #if (PLATFORM_COMPILER_PGI && !GASNETI_PGI_ASM_GNU) || PLATFORM_COMPILER_SUN
    /* The current compiler lacks full GNU-style asm() support.
     *
     * Defining GASNETI_TICKS_NOW_BODY at library build time will use the
@@ -264,10 +264,10 @@ GASNETI_BEGIN_EXTERNC
    #elif PLATFORM_ARCH_X86_64
      #define GASNETI_TICKS_NOW_BODY                   \
 		GASNETI_ASM_SPECIAL(                  \
-			     "xor %rax, %rax	\n\t" \
-			     "rdtsc		\n\t" \
-			     "shl $32, %rdx	\n\t" \
-			     "or %rdx, %rax" );
+			     "\txorq %rax, %rax	\n" \
+			     "\trdtsc		\n" \
+			     "\tshlq $32, %rdx	\n" \
+			     "\torq %rdx, %rax" );
    #elif PLATFORM_ARCH_IA64
      /* For completeness. */
      #define GASNETI_TICKS_NOW_BODY \
