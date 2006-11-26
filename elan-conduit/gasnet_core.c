@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/elan-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/08/27 11:11:34 $
- * $Revision: 1.73 $
+ *     $Date: 2006/11/26 03:10:55 $
+ * $Revision: 1.74 $
  * Description: GASNet elan conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -940,7 +940,7 @@ extern int gasnetc_AMGetMsgSource(gasnet_token_t token, gasnet_node_t *srcindex)
   /* add code here to write the source index into sourceid */
   { gasnetc_bufdesc_t *desc = (gasnetc_bufdesc_t*)token;
     gasneti_assert(desc->handlerRunning);
-    sourceid = desc->buf->msg.sourceId;
+    sourceid = desc->buf->m.msg.sourceId;
   }
 
   gasneti_assert(sourceid < gasneti_nodes);

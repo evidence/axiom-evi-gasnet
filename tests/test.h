@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/11/02 04:48:30 $
- * $Revision: 1.105 $
+ *     $Date: 2006/11/26 03:10:57 $
+ * $Revision: 1.106 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,6 +38,11 @@
   #else
     #define NDEBUG 1
   #endif
+#endif
+
+#if PLATFORM_COMPILER_SUN_C
+  /* disable a harmless warning */
+  #pragma error_messages(off, E_STATEMENT_NOT_REACHED)
 #endif
 
 /* bug 1206: several systems (notably Compaq C++ and OSX gcc) have an assert.h header 

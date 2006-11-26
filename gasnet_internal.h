@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/11/07 20:28:31 $
- * $Revision: 1.109 $
+ *     $Date: 2006/11/26 03:10:52 $
+ * $Revision: 1.110 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -31,7 +31,9 @@
 GASNETI_BEGIN_EXTERNC
 
 #if PLATFORM_COMPILER_SUN_C
+  /* disable warnings triggerred by some macro idioms we use */
   #pragma error_messages(off, E_END_OF_LOOP_CODE_NOT_REACHED)
+  #pragma error_messages(off, E_STATEMENT_NOT_REACHED)
 #endif
 
 #if PLATFORM_OS_TRU64
