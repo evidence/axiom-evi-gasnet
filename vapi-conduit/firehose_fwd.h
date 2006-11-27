@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/firehose_fwd.h,v $
- *     $Date: 2006/09/08 23:24:54 $
- * $Revision: 1.11 $
+ *     $Date: 2006/11/27 22:10:41 $
+ * $Revision: 1.12 $
  * Description: Configuration of firehose code to fit vapi-conduit
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -23,7 +23,14 @@
 #endif
 
 #if GASNETC_IB_VAPI
+  #if PLATFORM_COMPILER_SUN_C
+    /* Supress warnings about out-of-range constants in an enum (an explict 0xFFFFFFFF) */
+    #pragma error_messages(off, E_ENUM_VAL_OVERFLOWS_INT_MAX)
+  #endif
   #include <vapi_types.h>
+  #if PLATFORM_COMPILER_SUN_C
+    #pragma error_messages(default, E_ENUM_VAL_OVERFLOWS_INT_MAX)
+  #endif
   #ifndef FIREHOSE_VAPI_USE_FMR
     /* Some versions of VAPI offer "Fast Memory Regions".
      * They really are faster, so we use them by default when available */
