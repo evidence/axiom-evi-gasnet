@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_internal.h,v $
- *     $Date: 2006/11/09 00:51:30 $
- * $Revision: 1.137 $
+ *     $Date: 2006/11/27 20:23:00 $
+ * $Revision: 1.138 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -42,6 +42,14 @@
 #define GASNETC_HSL_SPINLOCK 1
 
 #define GASNETC_CACHE_PAD(SZ) (GASNETC_ALIGNUP(SZ,GASNETI_CACHE_LINE_BYTES)-(SZ))
+
+/* GASNETC_FH_OPTIONAL: whether or not firehose can be switched OFF at runtime */
+/* Enabled by default for DEBUG builds.  For NDEBUG builds, can force at compile time. */
+#if defined(GASNETC_FH_OPTIONAL)
+  /* Leave as-is */
+#elif GASNET_DEBUG
+  #define GASNETC_FH_OPTIONAL 1
+#endif
 
 /* check (even in optimized build) for VAPI errors */
 #if GASNETC_IB_VAPI
@@ -512,7 +520,7 @@ extern size_t		gasnetc_bounce_limit;
 #if !GASNETC_PIN_SEGMENT
   extern size_t		gasnetc_putinmove_limit;
 #endif
-#if GASNET_DEBUG
+#if GASNETC_FH_OPTIONAL
   #define GASNETC_USE_FIREHOSE	gasnetc_use_firehose
   extern int		gasnetc_use_firehose;
 #else

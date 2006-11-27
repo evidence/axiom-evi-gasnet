@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/11/09 00:51:30 $
- * $Revision: 1.197 $
+ *     $Date: 2006/11/27 20:23:00 $
+ * $Revision: 1.198 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -61,7 +61,7 @@ size_t					gasnetc_packedlong_limit;
   size_t				gasnetc_putinmove_limit_adjusted;
 #endif
 int					gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
-#if GASNET_DEBUG
+#if GASNETC_FH_OPTIONAL
   int					gasnetc_use_firehose = 1;
 #endif
 int					gasnetc_am_credits_slack;
@@ -108,7 +108,7 @@ typedef enum {
 	GASNETC_OP_AM,
 	GASNETC_OP_AM_BLOCK,
 	GASNETC_OP_GET_ZEROCP,
-#if GASNETC_PIN_SEGMENT && GASNET_DEBUG
+#if GASNETC_PIN_SEGMENT && GASNETC_FH_OPTIONAL
 	GASNETC_OP_GET_BOUNCE,
 #endif
 	GASNETC_OP_PUT_INLINE,
@@ -714,7 +714,7 @@ static int gasnetc_snd_reap(int limit) {
 	  gasneti_semaphore_up(sreq->cep->snd_cq_sema_p);
 
 	  switch (sreq->opcode) {
-          #if GASNETC_PIN_SEGMENT && GASNET_DEBUG
+          #if GASNETC_PIN_SEGMENT && GASNETC_FH_OPTIONAL
 	  case GASNETC_OP_GET_BOUNCE:	/* Bounce-buffer GET */
 	    gasneti_assert(comp.opcode == GASNETC_WC_RDMA_READ);
 	    gasneti_assert(sreq->req_oust != NULL);
@@ -2220,7 +2220,7 @@ static void gasnetc_do_put_zerocp(const gasnetc_epid_t epid, int rkey_index,
   } while (nbytes);
 }
 
-#if GASNET_DEBUG /* Only available if Firehose has been disabled for debugging */
+#if GASNETC_FH_OPTIONAL /* Only available if Firehose has been disabled */
 /* Helper for rdma gets: bounce buffer case */
 static void gasnetc_do_get_bounce(const gasnetc_epid_t epid, int rkey_index,
                                   uintptr_t src, uintptr_t dst, size_t nbytes,
@@ -3167,7 +3167,7 @@ extern int gasnetc_rdma_put(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
        */
       gasnetc_do_put_inline(epid, rkey_index, src, dst, count, req_oust GASNETC_PERTHREAD_PASS);
     } else
-#if GASNET_DEBUG
+#if GASNETC_FH_OPTIONAL 
     if_pf (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(src, &count)) {
       /* Firehose disabled.  Use bounce buffers since src is out-of-segment */
       gasnetc_do_put_bounce(epid, rkey_index, src, dst, count, req_oust GASNETC_PERTHREAD_PASS);
@@ -3211,7 +3211,7 @@ extern int gasnetc_rdma_get(gasnetc_epid_t epid, void *src_ptr, void *dst_ptr, s
     size_t count = nbytes;
     const int rkey_index = gasnetc_get_rkey_index(epid, src, &count);
 
-#if GASNET_DEBUG
+#if GASNETC_FH_OPTIONAL 
     if_pf (!GASNETC_USE_FIREHOSE && gasnetc_unpinned(dst, &count)) {
       /* Firehose disabled.  Use bounce buffers since dst is out-of-segment */
       gasnetc_do_get_bounce(epid, rkey_index, src, dst, count, req_oust GASNETC_PERTHREAD_PASS);
