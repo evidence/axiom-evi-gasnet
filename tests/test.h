@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/11/26 03:10:57 $
- * $Revision: 1.106 $
+ *     $Date: 2006/11/28 02:55:16 $
+ * $Revision: 1.107 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -494,22 +494,22 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
       static pthread_mutex_t barrier_mutex[2] = 
         { PTHREAD_MUTEX_INITIALIZER, PTHREAD_MUTEX_INITIALIZER };
       static volatile unsigned int barrier_count = 0;
-      static int volatile phase = 0;
-      check_zeroret(pthread_mutex_lock(&barrier_mutex[phase]));
+      static volatile int phase = 0;
+      const int myphase = phase;
+      check_zeroret(pthread_mutex_lock(&barrier_mutex[myphase]));
       barrier_count++;
       if (barrier_count < local_pthread_count) {
-        int myphase = phase;
-        while (myphase == phase) {
-          check_zeroret(pthread_cond_wait(&barrier_cond[phase], &barrier_mutex[phase]));
-        }
+        do {
+          check_zeroret(pthread_cond_wait(&barrier_cond[myphase], &barrier_mutex[myphase]));
+        } while (myphase == phase);
       } else {  
         /* Now do the gasnet barrier */
         if (doGASNetbarrier) BARRIER();
         barrier_count = 0;
         phase = !phase;
-        check_zeroret(pthread_cond_broadcast(&barrier_cond[!phase]));
+        check_zeroret(pthread_cond_broadcast(&barrier_cond[myphase]));
       }       
-      check_zeroret(pthread_mutex_unlock(&barrier_mutex[!phase]));
+      check_zeroret(pthread_mutex_unlock(&barrier_mutex[myphase]));
     }
   #endif
   #define PTHREAD_BARRIER(local_pthread_count)      \
