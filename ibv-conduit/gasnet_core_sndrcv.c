@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/11/27 20:23:00 $
- * $Revision: 1.198 $
+ *     $Date: 2006/11/29 20:51:36 $
+ * $Revision: 1.199 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2966,15 +2966,6 @@ extern int gasnetc_sndrcv_init(void) {
     ++buf;
   }
 
-  /* Misc: */
-  gasnetc_am_inline_limit_sndrcv = MIN(gasnetc_inline_limit, sizeof(gasnetc_am_tmp_buf_t));
-  gasnetc_am_inline_limit_rdma = MAX(GASNETC_AMRDMA_HDRSZ, gasnetc_am_inline_limit_sndrcv) - GASNETC_AMRDMA_HDRSZ;
-#if !GASNETC_PIN_SEGMENT
-  gasnetc_putinmove_limit_adjusted = gasnetc_putinmove_limit
-	  				? (gasnetc_putinmove_limit + gasnetc_inline_limit)
-					: 0;
-#endif
-
   gasnetc_node2cep = (gasnetc_cep_t **)
 	  GASNETI_ALIGNUP(gasneti_malloc(gasneti_nodes*sizeof(gasnetc_cep_t *)
 				  	 + GASNETI_CACHE_LINE_BYTES - 1),
@@ -2994,6 +2985,17 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
   gasnetc_cep_t *cep;
   int i, j;
   
+  if (node == 0) {
+    /* Misc. to be done just once: */
+    gasnetc_am_inline_limit_sndrcv = MIN(gasnetc_inline_limit, sizeof(gasnetc_am_tmp_buf_t));
+    gasnetc_am_inline_limit_rdma = MAX(GASNETC_AMRDMA_HDRSZ, gasnetc_am_inline_limit_sndrcv) - GASNETC_AMRDMA_HDRSZ;
+#if !GASNETC_PIN_SEGMENT
+    gasnetc_putinmove_limit_adjusted = gasnetc_putinmove_limit
+	  				? (gasnetc_putinmove_limit + gasnetc_inline_limit)
+					: 0;
+#endif
+  }
+
   cep = gasnetc_node2cep[node] = &(gasnetc_cep[node * gasnetc_num_qps]);
 
   if (node != gasneti_mynode) {
