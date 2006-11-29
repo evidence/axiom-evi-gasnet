@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/11/27 20:23:00 $
- * $Revision: 1.138 $
+ *     $Date: 2006/11/29 21:57:05 $
+ * $Revision: 1.139 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -488,6 +488,7 @@ struct gasnetc_cep_t_ {
 extern int gasnetc_sndrcv_init(void);
 extern void gasnetc_sndrcv_fini(void);
 extern void gasnetc_sndrcv_init_peer(gasnet_node_t node);
+extern void gasnetc_sndrcv_init_misc(void);
 extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node);
 extern void gasnetc_sndrcv_fini_peer(gasnet_node_t node);
 extern void gasnetc_sndrcv_poll(void);

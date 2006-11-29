@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/11/29 21:12:10 $
- * $Revision: 1.200 $
+ *     $Date: 2006/11/29 21:57:05 $
+ * $Revision: 1.201 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -52,13 +52,13 @@
 size_t					gasnetc_fh_align;
 size_t					gasnetc_fh_align_mask;
 size_t                   		gasnetc_inline_limit;
-size_t                   		gasnetc_am_inline_limit_sndrcv;
-size_t                   		gasnetc_am_inline_limit_rdma;
+size_t                   		gasnetc_am_inline_limit_sndrcv = 0;
+size_t                   		gasnetc_am_inline_limit_rdma = 0;
 size_t                   		gasnetc_bounce_limit;
 size_t					gasnetc_packedlong_limit;
 #if !GASNETC_PIN_SEGMENT
   size_t				gasnetc_putinmove_limit;
-  size_t				gasnetc_putinmove_limit_adjusted;
+  size_t				gasnetc_putinmove_limit_adjusted = 0;
 #endif
 int					gasnetc_use_rcv_thread = GASNETC_VAPI_RCV_THREAD;
 #if GASNETC_FH_OPTIONAL
@@ -2985,17 +2985,6 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
   gasnetc_cep_t *cep;
   int i, j;
   
-  if (node == 0) {
-    /* Misc. to be done just once: */
-    gasnetc_am_inline_limit_sndrcv = MIN(gasnetc_inline_limit, sizeof(gasnetc_am_tmp_buf_t));
-    gasnetc_am_inline_limit_rdma = MAX(GASNETC_AMRDMA_HDRSZ, gasnetc_am_inline_limit_sndrcv) - GASNETC_AMRDMA_HDRSZ;
-#if !GASNETC_PIN_SEGMENT
-    gasnetc_putinmove_limit_adjusted = gasnetc_putinmove_limit
-	  				? (gasnetc_putinmove_limit + gasnetc_inline_limit)
-					: 0;
-#endif
-  }
-
   cep = gasnetc_node2cep[node] = &(gasnetc_cep[node * gasnetc_num_qps]);
 
   if (node != gasneti_mynode) {
@@ -3039,6 +3028,16 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       cep->amrdma_loc = NULL;
     }
   }
+}
+
+extern void gasnetc_sndrcv_init_misc(void) {
+  gasnetc_am_inline_limit_sndrcv = MIN(gasnetc_inline_limit, sizeof(gasnetc_am_tmp_buf_t));
+  gasnetc_am_inline_limit_rdma = MAX(GASNETC_AMRDMA_HDRSZ, gasnetc_am_inline_limit_sndrcv) - GASNETC_AMRDMA_HDRSZ;
+#if !GASNETC_PIN_SEGMENT
+  gasnetc_putinmove_limit_adjusted = gasnetc_putinmove_limit
+	  				? (gasnetc_putinmove_limit + gasnetc_inline_limit)
+					: 0;
+#endif
 }
 
 extern void gasnetc_sndrcv_attach_peer(gasnet_node_t node) {
