@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/11/29 20:51:36 $
- * $Revision: 1.199 $
+ *     $Date: 2006/11/29 21:12:10 $
+ * $Revision: 1.200 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1577,15 +1577,15 @@ int gasnetc_get_amrdma_slot(gasnetc_cep_t *cep, size_t msg_len) {
 }
 
 GASNETI_INLINE(gasnetc_encode_amrdma)
-size_t gasnetc_encode_amrdma(gasnetc_cep_t *cep, VAPI_sr_desc_t *sr_desc, int send_slot) {
-  const size_t msg_len = sr_desc->sg_lst_p[0].len;
+size_t gasnetc_encode_amrdma(gasnetc_cep_t *cep, gasnetc_snd_wr_t *sr_desc, int send_slot) {
+  const size_t msg_len = sr_desc->gasnetc_f_wr_sg_list[0].gasnetc_f_sg_len;
 
   gasneti_assert(send_slot >= 0);
   gasneti_assert(send_slot < gasnetc_amrdma_depth);
 
   /* Build header */
   { 
-    void * const data = (void *)(uintptr_t)sr_desc->sg_lst_p[0].addr;
+    void * const data = (void *)(uintptr_t)sr_desc->gasnetc_f_wr_sg_list[0].addr;
     gasnetc_amrdma_hdr_t * const hdr = (gasnetc_amrdma_hdr_t *)data - 1;
     const uint32_t flags = sr_desc->imm_data;
 
@@ -1596,11 +1596,11 @@ size_t gasnetc_encode_amrdma(gasnetc_cep_t *cep, VAPI_sr_desc_t *sr_desc, int se
 
   { /* Fix up the descriptor */
     const int new_len = msg_len + sizeof(gasnetc_amrdma_hdr_t);
-    sr_desc->sg_lst_p[0].addr -= sizeof(gasnetc_amrdma_hdr_t);
-    sr_desc->sg_lst_p[0].len = new_len;
-    sr_desc->opcode = VAPI_RDMA_WRITE;
-    sr_desc->remote_addr = cep->amrdma_rem + (send_slot << GASNETC_AMRDMA_SZ_LG2);
-    sr_desc->r_key = cep->keys.amrdma_rkey;
+    sr_desc->gasnetc_f_wr_sg_list[0].addr -= sizeof(gasnetc_amrdma_hdr_t);
+    sr_desc->gasnetc_f_wr_sg_list[0].gasnetc_f_sg_len = new_len;
+    sr_desc->opcode = GASNETC_WR_RDMA_WRITE;
+    sr_desc->gasnetc_f_wr_rem_addr = cep->amrdma_rem + (send_slot << GASNETC_AMRDMA_SZ_LG2);
+    sr_desc->gasnetc_f_wr_rkey = cep->keys.amrdma_rkey;
 
     gasneti_assert(new_len <= GASNETC_AMRDMA_SZ);
     return (size_t)new_len;
@@ -1712,7 +1712,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
       }
 #else
       { size_t rough_len = MIN(GASNETC_BUFSZ, 4*numargs + nbytes);
-        qpi = gasnetc_epid_select_qpi(cep, dest, VAPI_SEND_WITH_IMM, rough_len);
+        qpi = gasnetc_epid_select_qpi(cep, dest, GASNETC_WR_SEND_WITH_IMM, rough_len);
       }
 #endif
       epid = gasnetc_epid(dest, qpi);
@@ -2886,8 +2886,8 @@ extern int gasnetc_sndrcv_init(void) {
         if_pf (buf == MAP_FAILED) {
           buf = NULL;
         } else {
-          vstat = gasnetc_pin(hca, buf, alloc_size, VAPI_EN_LOCAL_WRITE | VAPI_EN_REMOTE_WRITE, &hca->amrdma_reg);
-          if (vstat != VAPI_OK) {
+          vstat = gasnetc_pin(hca, buf, alloc_size, GASNETC_ACL_LOC_WR | GASNETC_ACL_REM_WR, &hca->amrdma_reg);
+          if (vstat != 0) {
 	    gasneti_munmap(buf, size);
             buf = NULL;
           }
@@ -3090,7 +3090,7 @@ extern void gasnetc_sndrcv_fini(void) {
       gasneti_free(hca->rbuf_alloc);
     }
 
-#if 0 /* SEGVs seen here on lambda.hcs.ufl.edu (bug 1433) */
+#if 0 /* SEGVs seen here w/ VAPI on lambda.hcs.ufl.edu (bug 1433) */
     vstat = gasnetc_destroy_cq(hca->handle, hca->rcv_cq);
     GASNETC_VAPI_CHECK(vstat, "from gasnetc_destroy_cq(rcv_cq)");
     vstat = gasnetc_destroy_cq(hca->handle, hca->snd_cq);

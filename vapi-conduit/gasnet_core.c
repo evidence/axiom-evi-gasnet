@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/11/29 20:51:36 $
- * $Revision: 1.180 $
+ *     $Date: 2006/11/29 21:12:10 $
+ * $Revision: 1.181 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -61,7 +61,11 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
 #define GASNETC_DEFAULT_NUM_QPS			0	/* 0 = one per HCA */
 
 /* Protocol switch points */
-#define GASNETC_DEFAULT_INLINESEND_LIMIT	72
+#if GASNETC_IB_VAPI
+  #define GASNETC_DEFAULT_INLINESEND_LIMIT	72
+#else
+  #define GASNETC_DEFAULT_INLINESEND_LIMIT	42
+#endif
 #define GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT	(64*1024)
 #define GASNETC_DEFAULT_PACKEDLONG_LIMIT	GASNETC_MAX_PACKEDLONG
 #if !GASNETC_PIN_SEGMENT
@@ -2676,7 +2680,7 @@ extern int  gasnetc_hsl_trylock(gasnet_hsl_t *hsl) {
   ============================
 */
 
-typedef struct { uintptr_t addr; VAPI_rkey_t rkey; } gasnetc_amrdma_exchg_t;
+typedef struct { uintptr_t addr; gasnetc_rkey_t rkey; } gasnetc_amrdma_exchg_t;
 
 static gasnetc_cep_t *
 gasnetc_amrdma_init_one(gasnet_node_t node, int qpi, gasnetc_amrdma_exchg_t *in) {
