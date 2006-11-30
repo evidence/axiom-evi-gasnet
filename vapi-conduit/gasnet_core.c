@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/11/29 21:57:05 $
- * $Revision: 1.182 $
+ *     $Date: 2006/11/30 16:57:59 $
+ * $Revision: 1.183 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1969,6 +1969,20 @@ static void gasnetc_exit_tail(void) {
   /* NOT REACHED */
 }
 
+#if GASNET_DEBUG_VERBOSE
+  static const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
+  #define GASNETC_EXIT_STATE(st) do {                                    \
+	gasnetc_exit_state = st;                                         \
+	fprintf(stderr, "%d> EXIT STATE %s\n", (int)gasneti_mynode, st); \
+        fflush(NULL);                                                    \
+  } while (0)
+#elif GASNET_DEBUG
+  static const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
+  #define GASNETC_EXIT_STATE(st) gasnetc_exit_state = st
+#else
+  #define GASNETC_EXIT_STATE(st) do {} while (0)
+#endif
+
 /* gasnetc_exit_sighandler
  *
  * This signal handler is for a last-ditch exit when a signal arrives while
@@ -1978,12 +1992,6 @@ static void gasnetc_exit_tail(void) {
  *
  * DOES NOT RETURN
  */
-#if GASNET_DEBUG
-  static const char * volatile gasnetc_exit_state = "UNKNOWN STATE";
-  #define GASNETC_EXIT_STATE(st) gasnetc_exit_state = st
-#else
-  #define GASNETC_EXIT_STATE(st) do {} while (0)
-#endif
 static void gasnetc_exit_sighandler(int sig) {
   int exitcode = (int)gasneti_atomic_read(&gasnetc_exit_code, GASNETI_ATOMIC_RMB_PRE);
   static gasneti_atomic_t once = gasneti_atomic_init(1);
