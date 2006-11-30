@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/11/30 16:57:59 $
- * $Revision: 1.183 $
+ *     $Date: 2006/11/30 22:55:56 $
+ * $Revision: 1.184 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -64,7 +64,7 @@ GASNETI_IDENT(gasnetc_IdentString_HaveSSHSpawner, "$GASNetSSHSpawner: 1 $");
 #if GASNETC_IB_VAPI
   #define GASNETC_DEFAULT_INLINESEND_LIMIT	72
 #else
-  #define GASNETC_DEFAULT_INLINESEND_LIMIT	42
+  #define GASNETC_DEFAULT_INLINESEND_LIMIT	256
 #endif
 #define GASNETC_DEFAULT_NONBULKPUT_BOUNCE_LIMIT	(64*1024)
 #define GASNETC_DEFAULT_PACKEDLONG_LIMIT	GASNETC_MAX_PACKEDLONG
@@ -1148,6 +1148,8 @@ static int gasnetc_init(int *argc, char ***argv) {
     qp_init_attr.srq                 = NULL;
 
     for (i = 0; i < ceps; ++i) {
+      gasnetc_qp_hndl_t hndl;
+
       if (i/gasnetc_num_qps == gasneti_mynode) continue;
 
       hca = &gasnetc_hca[port_map[i]->hca_index];
@@ -1159,8 +1161,17 @@ static int gasnetc_init(int *argc, char ***argv) {
       /* create the QP */
       qp_init_attr.send_cq         = hca->snd_cq;
       qp_init_attr.recv_cq         = hca->rcv_cq;
-      cep[i].qp_handle = ibv_create_qp(hca->pd, &qp_init_attr);
-      GASNETC_VAPI_CHECK_PTR(cep[i].qp_handle, "from ibv_create_qp()");
+      while (1) {	/* No query for max_inline_data limit */
+        hndl = ibv_create_qp(hca->pd, &qp_init_attr);
+	if (hndl != NULL) break;
+	if ((errno != EINVAL) || (qp_init_attr.cap.max_inline_data == 0)) {
+          GASNETC_VAPI_CHECK_PTR(hndl, "from ibv_create_qp()");
+	  /* NOT REACHED */
+        }
+	qp_init_attr.cap.max_inline_data = MIN(1024, qp_init_attr.cap.max_inline_data - 1);
+	/* Try again */
+      }
+      cep[i].qp_handle = hndl;
   #if 0	/* XXX: Bring back these checks */
       gasneti_assert(qp_prop.cap.max_oust_wr_rq >= gasnetc_am_oust_pp * 2);
       gasneti_assert(qp_prop.cap.max_oust_wr_sq >= gasnetc_op_oust_pp);
@@ -1317,11 +1328,17 @@ static int gasnetc_init(int *argc, char ***argv) {
       qp_attr.max_rd_atomic  = port_map[i]->rd_atom;
       rc = ibv_modify_qp(gasnetc_cep[i].qp_handle, &qp_attr, qp_mask);
       GASNETC_VAPI_CHECK(rc, "from ibv_modify_qp(RTS)");
-      if (qp_attr.cap.max_inline_data < gasnetc_inline_limit) {
-	fprintf(stderr,
+      {
+        struct ibv_qp_attr qp_attr2;
+        struct ibv_qp_init_attr qp_init_attr;
+        rc = ibv_query_qp(gasnetc_cep[i].qp_handle, &qp_attr2, IBV_QP_CAP, &qp_init_attr);
+        GASNETC_VAPI_CHECK(rc, "from ibv_query_qp(RTS)");
+        if (qp_attr2.cap.max_inline_data < gasnetc_inline_limit) {
+	  fprintf(stderr,
 		"WARNING: Requested GASNET_INLINESEND_LIMIT %d reduced to HCA limit %d\n",
-		(int)gasnetc_inline_limit, (int)qp_attr.cap.max_inline_data);
-        gasnetc_inline_limit = qp_attr.cap.max_inline_data;
+		(int)gasnetc_inline_limit, (int)qp_attr2.cap.max_inline_data);
+          gasnetc_inline_limit = qp_attr2.cap.max_inline_data;
+        }
       }
     }
 #endif
