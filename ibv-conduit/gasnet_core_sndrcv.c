@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/11/29 21:57:05 $
- * $Revision: 1.201 $
+ *     $Date: 2006/11/30 17:17:49 $
+ * $Revision: 1.202 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3089,7 +3089,7 @@ extern void gasnetc_sndrcv_fini(void) {
       gasneti_free(hca->rbuf_alloc);
     }
 
-#if 0 /* SEGVs seen here w/ VAPI on lambda.hcs.ufl.edu (bug 1433) */
+#if !GASNETC_IB_VAPI /* SEGVs seen here w/ VAPI on lambda.hcs.ufl.edu (bug 1433) */
     vstat = gasnetc_destroy_cq(hca->handle, hca->rcv_cq);
     GASNETC_VAPI_CHECK(vstat, "from gasnetc_destroy_cq(rcv_cq)");
     vstat = gasnetc_destroy_cq(hca->handle, hca->snd_cq);

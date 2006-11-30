@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/11/29 21:57:05 $
- * $Revision: 1.139 $
+ *     $Date: 2006/11/30 17:17:49 $
+ * $Revision: 1.140 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -282,6 +282,12 @@ extern const gasnetc_sys_handler_fn_t gasnetc_sys_handler[GASNETC_MAX_NUMHANDLER
   #define gasnetc_destroy_qp(_hca,_qp)		ibv_destroy_qp(_qp)
   #define gasnetc_dereg_mr(_hca,_mr)		ibv_dereg_mr(_mr)
   #define gasnetc_query_port(_hca,_num,_port_p)	ibv_query_port((_hca),(_num),(_port_p))
+
+  /* Work-around bug 1861: node death on exit: */
+  #undef gasnetc_close_hca
+  #define gasnetc_close_hca(_hca)		((void)0)
+  #undef gasnetc_dealloc_pd
+  #define gasnetc_dealloc_pd(_hca,_pd)		((void)0)
 #endif
 
 /* Constants */
