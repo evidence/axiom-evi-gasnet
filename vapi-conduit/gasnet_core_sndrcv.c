@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/11/30 17:17:49 $
- * $Revision: 1.202 $
+ *     $Date: 2006/11/30 22:28:22 $
+ * $Revision: 1.203 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -2413,7 +2413,7 @@ void gasnetc_fh_post(gasnetc_sreq_t *sreq, gasnetc_wr_opcode_t op) {
     gasneti_assert(nbytes > 0);
 
     sg_entry->addr = loc_addr;
-    sg_entry->len  = nbytes;
+    sg_entry->gasnetc_f_sg_len = nbytes;
     sg_entry->lkey = GASNETC_FH_LKEY(cep, fh_req);
 
     ++sg_entry;
