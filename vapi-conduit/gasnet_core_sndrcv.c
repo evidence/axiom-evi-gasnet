@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/11/30 22:28:22 $
- * $Revision: 1.203 $
+ *     $Date: 2006/12/01 01:37:14 $
+ * $Revision: 1.204 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -3089,7 +3089,9 @@ extern void gasnetc_sndrcv_fini(void) {
       gasneti_free(hca->rbuf_alloc);
     }
 
-#if !GASNETC_IB_VAPI /* SEGVs seen here w/ VAPI on lambda.hcs.ufl.edu (bug 1433) */
+#if 0
+    /* SEGVs seen here w/ VAPI on lambda.hcs.ufl.edu (bug 1433) and w/ OpenIB on Jacqaurd-dev.
+     * We probably need to drain the queues completely before destroying them. */
     vstat = gasnetc_destroy_cq(hca->handle, hca->rcv_cq);
     GASNETC_VAPI_CHECK(vstat, "from gasnetc_destroy_cq(rcv_cq)");
     vstat = gasnetc_destroy_cq(hca->handle, hca->snd_cq);
