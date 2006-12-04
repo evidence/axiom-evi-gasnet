@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/firehose_fwd.h,v $
- *     $Date: 2006/11/27 22:10:41 $
- * $Revision: 1.12 $
+ *     $Date: 2006/12/04 17:18:02 $
+ * $Revision: 1.13 $
  * Description: Configuration of firehose code to fit vapi-conduit
  * Copyright 2003, E. O. Lawrence Berekely National Laboratory
  * Terms of use are as specified in license.txt
@@ -9,9 +9,6 @@
 #ifndef _VAPI_FIREHOSE_FWD_H
 #define _VAPI_FIREHOSE_FWD_H
 
-#if !defined(GASNETC_IB_VAPI) && !defined(GASNETC_IB_VERBS)
-  #define GASNETC_IB_VAPI       /* Default */
-#endif
 #if defined(GASNETC_IB_VAPI) && !defined(GASNETC_IB_VERBS)
   #undef GASNETC_IB_VAPI
   #define GASNETC_IB_VAPI 1
@@ -19,7 +16,7 @@
   #undef GASNETC_IB_VERBS
   #define GASNETC_IB_VERBS 1
 #else
-  #error "Only one of GASNETC_IB_VAPI or GASNETC_IB_VERBS may be defined"
+  #error "Exactly one of GASNETC_IB_VAPI or GASNETC_IB_VERBS must be defined"
 #endif
 
 #if GASNETC_IB_VAPI
