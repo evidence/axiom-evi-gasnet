@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/12/04 17:18:00 $
-# $Revision: 1.424 $
+#     $Date: 2006/12/04 18:00:01 $
+# $Revision: 1.425 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.424 $)
+AC_REVISION($Revision: 1.425 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2220,11 +2220,31 @@ if test "$enabled_vapi" = yes; then
   fi
  fi
 
-  if test "$have_ib_vapi$have_ib_verbs" = yesyes ; then
-    AC_MSG_ERROR([Both VAPI and IBVerbs libraries where found.  Please pass exactly one of --with-ib-api=vapi or --with-ib-api=ibverbs.]);
-  elif test "$have_ib_vapi$have_ib_verbs" = nono ; then
+  if test "$have_ib_vapi$have_ib_verbs" = nono ; then
     have_vapi=no
-  elif test "$have_ib_verbs" = yes ; then
+  elif test "$have_ib_vapi$have_ib_verbs" = yesyes ; then
+    # Try to disambiguate by looking for running drivers
+    vapi_driver=no
+    ibv_driver=no
+    if eval ${vstat:-$MTHOME/bin/vstat} >/dev/null 2>/dev/null; then
+      vapi_driver=yes
+    fi
+    if eval ${ibv_devinfo:-$IBVHOME/bin/ibv_devinfo} >/dev/null 2>/dev/null; then
+      ibv_driver=yes
+    fi
+    if test "$vapi_driver$ibv_driver" = yesno ; then
+      GASNET_MSG_WARN([Both VAPI and IBVerbs libraries where found, but VAPI was chosen based on running driver.  Pass --with-ib-api=ibverbs if you wish to override.])
+      have_ib_verbs=no
+    elif test "$vapi_driver$ibv_driver" = noyes ; then
+      GASNET_MSG_WARN([Both VAPI and IBVerbs libraries where found, but IBVerbs was chosen based on running driver.  Pass --with-ib-api=vapi if you wish to override.])
+      have_ib_vapi=no
+    else
+      # Either both or neither command ran OK
+      AC_MSG_ERROR([Both VAPI and IBVerbs libraries where found.  Please pass exactly one of --with-ib-api=vapi or --with-ib-api=ibverbs.]);
+    fi
+  fi
+
+  if test "$have_ib_verbs" = yes ; then
     # Shift names
     VAPI_INCLUDE="$IBV_INCLUDE"
     VAPI_LIBDIR="$IBV_LIBDIR"
