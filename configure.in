@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/12/04 18:00:01 $
-# $Revision: 1.425 $
+#     $Date: 2006/12/04 21:12:54 $
+# $Revision: 1.426 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.425 $)
+AC_REVISION($Revision: 1.426 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2074,10 +2074,6 @@ CONDUIT_END([test "$enabled_elan$have_elan" = yesyes])
 # VAPI configuration
 
 CONDUIT_BEGIN(vapi,[Mellanox InfiniBand/VAPI network conduit (vapi)])
-if test "$enabled_vapi$have_pthread" = yesno; then
-  enabled_vapi=no
-  GASNET_MSG_WARN([vapi-conduit requires pthread support but pthreads $pthread_reason - disabling vapi])
-fi
 if test "$enabled_vapi$have_mpi_compat$have_fork" = yesnono; then
   enabled_vapi=no
   GASNET_MSG_WARN([vapi-conduit requires either MPI compatibility ($mpi_reason) or fork() ($fork_reason) for startup - disabling vapi])
@@ -2321,8 +2317,13 @@ if test "$enabled_vapi" = yes; then
         AC_DEFINE(GASNETC_VAPI_POLL_LOCK)
       fi
 
-    GASNET_IF_ENABLED_WITH_AUTO(vapi-rcv-thread, [See vapi-conduit/README (enabled by default)], 
-      enabled_vapi_rcv_thread=yes, enabled_vapi_rcv_thread=no, enabled_vapi_rcv_thread=yes)
+    GASNET_IF_ENABLED_WITH_AUTO(vapi-rcv-thread, [See vapi-conduit/README (enabled by default if pthreads available)], 
+      [enabled_vapi_rcv_thread=yes
+       if test "$have_pthread" = no; then
+         AC_MSG_ERROR([--enable-vapi-rcv-thread requires pthread support but pthreads $pthread_reason])
+       fi],
+      [enabled_vapi_rcv_thread=no],
+      [enabled_vapi_rcv_thread=$have_pthread])
       if test "$enabled_vapi_rcv_thread" = yes; then
         AC_DEFINE(GASNETC_VAPI_RCV_THREAD)
       fi
