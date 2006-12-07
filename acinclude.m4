@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/10/29 01:02:07 $
-dnl $Revision: 1.118 $
+dnl     $Date: 2006/12/07 01:52:13 $
+dnl $Revision: 1.119 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -490,9 +490,12 @@ AC_DEFUN([GASNET_ENV_DEFAULT],[
   dnl create the help prompt just once, and only if not suppressed
   ifdef(with_expanded_[$1], [], [
    ifdef([GASNET_ENV_DEFAULT_SUPPRESSHELP], [], [
+    dnl don't advertise the autoconf vars, which we might not reliably catch
+    ifelse(index([ CC CFLAGS LDFLAGS CPPFLAGS CPP CXX CXXFLAGS CXXCPP ],[ $1 ]),[-1],[
     AC_ARG_WITH(lowerdashname, 
        GASNET_OPTION_HELP(with-[]lowerdashname[]=, value for [$1]), 
       [], [])
+    ], [])
    ])
   ])
   define(with_expanded_[$1], [set])
@@ -1580,10 +1583,12 @@ AC_DEFUN([GASNET_PROG_HOSTCC], [
 GASNET_FUN_BEGIN([$0])
 if test "$cross_compiling" = "yes" ; then
   HOST_MSG="When cross-compiling, \$HOST_CC or --with-host-cc= must be set to indicate a C compiler for the host machine (ie the machine running this configure script)"
+  pushdef([GASNET_ENV_DEFAULT_SUPPRESSHELP],1)
   GASNET_ENV_DEFAULT(HOST_CC, )
   GASNET_ENV_DEFAULT(HOST_CFLAGS, )
   GASNET_ENV_DEFAULT(HOST_LDFLAGS, )
   GASNET_ENV_DEFAULT(HOST_LIBS, )
+  popdef([GASNET_ENV_DEFAULT_SUPPRESSHELP])
   AC_SUBST(HOST_CC)
   AC_SUBST(HOST_CFLAGS)
   AC_SUBST(HOST_LDFLAGS)
@@ -1641,10 +1646,12 @@ AC_DEFUN([GASNET_PROG_HOSTCXX], [
 GASNET_FUN_BEGIN([$0])
 if test "$cross_compiling" = "yes" ; then
   HOST_MSG="When cross-compiling, \$HOST_CXX or --with-host-cxx= must be set to indicate a C++ compiler for the host machine (ie the machine running this configure script)"
+  pushdef([GASNET_ENV_DEFAULT_SUPPRESSHELP],1)
   GASNET_ENV_DEFAULT(HOST_CXX, )
   GASNET_ENV_DEFAULT(HOST_CXXFLAGS, )
   GASNET_ENV_DEFAULT(HOST_CXX_LDFLAGS, )
   GASNET_ENV_DEFAULT(HOST_CXX_LIBS, )
+  popdef([GASNET_ENV_DEFAULT_SUPPRESSHELP])
   AC_SUBST(HOST_CXX)
   AC_SUBST(HOST_CXXFLAGS)
   AC_SUBST(HOST_CXX_LDFLAGS)
@@ -1976,7 +1983,9 @@ AC_DEFUN([GASNET_CROSS_VAR],[
   GASNET_FUN_BEGIN([$0($1,$2)])
   pushdef([cross_varname],CROSS_$2)
   if test "$cross_compiling" = "yes" ; then
+    pushdef([GASNET_ENV_DEFAULT_SUPPRESSHELP],1)
     GASNET_ENV_DEFAULT(cross_varname,)
+    popdef([GASNET_ENV_DEFAULT_SUPPRESSHELP])
     if test "$cross_varname" = "" ; then
       AC_MSG_ERROR([This configure script requires \$cross_varname be set for cross-compilation])
     else 
