@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/12/07 05:35:44 $
- * $Revision: 1.206 $
+ *     $Date: 2006/12/07 16:58:51 $
+ * $Revision: 1.207 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1111,7 +1111,9 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
   hdr->zeros = 0;  hdr->zeros_again = -1;
   hdr->immediate_data = 0;
   memset(msg_in, 0, length);
+#if GASNETI_THREADS
   gasneti_weakatomic_set(slot_lock, 0, GASNETI_ATOMIC_REL);
+#endif
 
 #if GASNETI_THREADS
   /* We must gather acks to keep them in-order even when handler completions are not */
