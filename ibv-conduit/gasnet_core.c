@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/12/07 05:35:44 $
- * $Revision: 1.186 $
+ *     $Date: 2006/12/07 06:14:46 $
+ * $Revision: 1.187 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -408,13 +408,19 @@ static int gasnetc_load_settings(void) {
   GASNETC_ENVINT(gasnetc_amrdma_limit, GASNET_AMRDMA_LIMIT, GASNETC_DEFAULT_AMRDMA_LIMIT, 0, 1);
   if_pf (gasnetc_amrdma_limit > GASNETC_AMRDMA_LIMIT_MAX) {
     fprintf(stderr,
-            "WARNING: GASNET_AMRDMA_LIMIT reduced to from the requested value, %d, to the maximum supported value, %d.)\n",
+            "WARNING: GASNET_AMRDMA_LIMIT reduced from the requested value, %d, to the maximum supported value, %d.\n",
             (int)gasnetc_amrdma_limit, (int)GASNETC_AMRDMA_LIMIT_MAX);
     gasnetc_amrdma_limit = GASNETC_AMRDMA_LIMIT_MAX;
   }
   GASNETC_ENVINT(gasnetc_amrdma_depth, GASNET_AMRDMA_DEPTH, GASNETC_DEFAULT_AMRDMA_DEPTH, 0, 0);
   if_pf (!GASNETI_POWEROFTWO(gasnetc_amrdma_depth)) {
     gasneti_fatalerror("GASNET_AMRDMA_DEPTH (%d) is not a power of 2", gasnetc_amrdma_depth);
+  }
+  if_pf (gasnetc_amrdma_depth > GASNETC_AMRDMA_DEPTH_MAX) {
+    fprintf(stderr,
+            "WARNING: GASNET_AMRDMA_DEPTH reduced from the requested value, %d, to the maximum supported value, %d.\n",
+            (int)gasnetc_amrdma_depth, (int)GASNETC_AMRDMA_DEPTH_MAX);
+    gasnetc_amrdma_depth = GASNETC_AMRDMA_DEPTH_MAX;
   }
   gasnetc_amrdma_slot_mask = (gasnetc_amrdma_depth - 1);
 
