@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/11/30 17:17:49 $
- * $Revision: 1.140 $
+ *     $Date: 2006/12/07 01:15:39 $
+ * $Revision: 1.141 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -470,8 +470,13 @@ struct gasnetc_cep_t_ {
   } am_flow;
   struct {	/* AM-over-RDMA local state */
 	gasneti_weakatomic_t	send_head, send_tail;
+#if GASNETI_THREADS
         gasneti_weakatomic_t	recv_in_use; /* A weak spinlock */
+#endif
 	gasneti_weakatomic_t	recv_count;
+#if 0	/* XXX: Not yet implemented */
+	gasneti_weakatomic_t	eligable;
+#endif
   } amrdma;
 
   char			_pad1[GASNETI_CACHE_LINE_BYTES];

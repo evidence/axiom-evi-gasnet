@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/12/01 01:37:14 $
- * $Revision: 1.204 $
+ *     $Date: 2006/12/07 01:15:39 $
+ * $Revision: 1.205 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -934,6 +934,11 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
   gasnetc_rbuf_t *spare;
 
   GASNETC_STAT_EVENT(RCV_AM_SNDRCV);
+#if 0
+  if (comp->byte_len < gasnetc_amrdma_limit) {
+    gasneti_weakatomic_increment(&cep->amrdma.eligable, 0);
+  }
+#endif
 
   if (GASNETC_MSG_ISREPLY(flags)) {
 #if GASNETI_STATS_OR_TRACE
@@ -1046,51 +1051,57 @@ GASNETI_INLINE(gasnetc_rcv_amrdma)
 int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
   const int recv_count = gasneti_weakatomic_read(&cep->amrdma.recv_count, 0);
   const int recv_slot = recv_count & gasnetc_amrdma_slot_mask;
-  volatile gasnetc_amrdma_hdr_t *hdr = (volatile gasnetc_amrdma_hdr_t *)cep->amrdma_loc[recv_slot];
-  gasnetc_buffer_t * const msg_in = (gasnetc_buffer_t *)((uintptr_t)hdr + sizeof(*hdr));
+  volatile gasnetc_amrdma_hdr_t * hdr = (volatile gasnetc_amrdma_hdr_t *)cep->amrdma_loc[recv_slot];
+  gasnetc_buffer_t * msg_in;
   gasnetc_rbuf_t rbuf;
   uint32_t seq, flags, mask;
   int numargs;
   int i;
   int length, checksum;
 
+  gasneti_assert(cep != NULL);
+
+  /* XXX:
+   * Current code serializes reception of AMRDMA - THIS IS NOT GOOD.
+   * All that *needs* serialization is the advancing of recv_count (to avoid
+   * polling "behind" the current head position) and the incrementing of the
+   * ack counter (to avoid acking out of order).
+   * Both should be done w/o serializing the execution of handlers.
+   */
+
 #if GASNETI_THREADS
+  /* First try a non-atomic "peek" and then try to acquire the spinlock */
   if (gasneti_weakatomic_read(&cep->amrdma.recv_in_use, 0) ||
       (hdr->length != hdr->length_again) ||
       !gasneti_weakatomic_compare_and_swap(&cep->amrdma.recv_in_use, 0, 1, GASNETI_ATOMIC_ACQ)) {
     /* Another thread is working on this slot or no AM is waiting */
     return 0;
   }
-  /* Must recheck with lock bit held */
+
+  /* Must recheck recv_count with spinlock held */
+  if (recv_count != gasneti_weakatomic_read(&cep->amrdma.recv_count, 0)) {
+    gasneti_weakatomic_set(&cep->amrdma.recv_in_use, 0, 0); /* No _REL, since nothing was written */
+    return 0;
+  }
 #endif
   
   if_pf (((length = hdr->length) != hdr->length_again) ||
-         ((checksum = hdr->zeros) != hdr->zeros_again)) {
+         ((checksum = hdr->zeros) != hdr->zeros_again) ||
+         (checksum != gasneti_count0s((void *)(&hdr->immediate_data), length + 4))) {
 #if GASNETI_THREADS
-    /* Release our lock */
-    gasneti_weakatomic_set(&cep->amrdma.recv_in_use, 0, 0);
+    gasneti_weakatomic_set(&cep->amrdma.recv_in_use, 0, 0); /* No _REL, since nothing was written */
 #endif
     return 0;
   }
 
-  /* Extract flags */
-  flags = hdr->immediate_data;
-
-  /* Validate checksum */
-  { 
-    const int zeros = gasnetc_amrdma_zeros(flags, (void *)(&hdr->immediate_data + 1), length);
-    if (zeros != checksum) {
-      gasneti_assert(zeros > checksum); /* Too few zeros is impossible. */
-      /* Too many zeros = recv incomplete */
-#if GASNETI_THREADS
-      gasneti_weakatomic_set(&cep->amrdma.recv_in_use, 0, 0); /* Release our lock */
-#endif
-      return 0;
-    }
-  }
-
   gasneti_weakatomic_increment(&cep->amrdma.recv_count, 0);
+#if 0
+  gasneti_weakatomic_increment(&cep->amrdma.eligable, 0);
+#endif
   GASNETC_STAT_EVENT(RCV_AM_RDMA);
+
+  flags = hdr->immediate_data;
+  msg_in = (gasnetc_buffer_t *)((uintptr_t)hdr + sizeof(*hdr));
 
   rbuf.rr_sg.addr = (uintptr_t)msg_in;
   rbuf.cep = cep;
@@ -1123,19 +1134,33 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
 
 GASNETI_INLINE(gasnetc_poll_rcv_hca)
 void gasnetc_poll_rcv_hca(gasnetc_hca_t *hca, int limit) {
-  gasneti_assert(limit > 0);
-  { /* Poll for AM-over-RDMA */
-    /* BUG1652: full solution may require atomicity here */
-    gasnet_node_t i;
-    for (i = 0; i < hca->amrdma_rcv.count; ++i) {
-      if (gasnetc_rcv_amrdma(hca->amrdma_rcv.cep[i]) && (--limit == 0)) { return; }
-    }
-  }
-  { /* Poll for AM in recv CQ */
-    gasnetc_rbuf_t *spare = NULL;
-    (void)gasnetc_rcv_reap(hca, limit, &spare);
-    if (spare) {
-      gasneti_lifo_push(&hca->rbuf_freelist, spare);
+  static int prev = 0;	/* NOTE: bug 1586 work-around requires the volatile casts */
+  int count = hca->amrdma_rcv.count;
+  int limit2 = count + 1;
+
+  /* BUG1652: full solution may require more atomicity when the polling set is changing? */
+
+  /* Poll round-robin over the AMRDMA landing zones and the CQ */
+  while (limit && limit2--) {
+    int index = *(volatile int *)(&prev); /* The associated data race is harmless */
+    gasneti_assert(limit > 0);
+    gasneti_assert(limit2 >= 0);
+ 
+    if (index != count) {
+      /* Poll for AM-over-RDMA */
+      gasnetc_cep_t * cep;
+      *(volatile int *)(&prev) = index + 1;
+      /* cep = (gasnetc_cep_t *)gasneti_atomic_ptr_read(&hca->amrdma_rcv.cep[index]); */
+      cep = hca->amrdma_rcv.cep[index];
+      if (cep && gasnetc_rcv_amrdma(cep)) --limit;
+    } else {
+      /* Poll for AM in recv CQ */
+      gasnetc_rbuf_t *spare = NULL;
+      *(volatile int *)(&prev) = 0;
+      (void)gasnetc_rcv_reap(hca, limit, &spare);
+      if (spare) {
+        gasneti_lifo_push(&hca->rbuf_freelist, spare);
+      }
     }
   }
 }
@@ -1940,6 +1965,7 @@ int gasnetc_ReqRepGeneric(gasnetc_category_t category, gasnetc_rbuf_t *token,
 
       if (rdma_slot >= 0) {
         msg_len = gasnetc_encode_amrdma(sreq->cep, sr_desc, rdma_slot);
+        gasneti_assert((msg_len <= gasnetc_inline_limit) || (buf_alloc != NULL));
       }
 
       gasnetc_snd_post_common(sreq, sr_desc, (msg_len <= gasnetc_inline_limit));
@@ -3001,6 +3027,9 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       gasneti_weakatomic_set(&cep->amrdma.send_head, gasnetc_amrdma_depth, 0);
       gasneti_weakatomic_set(&cep->amrdma.send_tail, 0, 0);
       gasneti_weakatomic_set(&cep->amrdma.recv_count, 0, 0);
+#if 0
+      gasneti_weakatomic_set(&cep->amrdma.eligable, 0, 0);
+#endif
       cep->amrdma_loc = NULL;
 
       /* Prepost one rcv buffer for each possible incomming request */
