@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/12/07 16:58:51 $
- * $Revision: 1.207 $
+ *     $Date: 2006/12/07 18:10:40 $
+ * $Revision: 1.208 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -670,11 +670,10 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
 
 /* Try to pull completed entries (if any) from the send CQ(s). */
 static int gasnetc_snd_reap(int limit) {
-  int rc;
+  int rc, count;
   gasnetc_wc_t comp;
-  int fh_num = 0;
-  int i, count;
   #if GASNETC_SND_REAP_COLLECT
+    int i, fh_num = 0;
     void *bbuf_dummy;
     void *bbuf_tail = &bbuf_dummy;
     const firehose_request_t *fh_ptrs[GASNETC_SND_REAP_LIMIT * GASNETC_MAX_FH];
@@ -1117,7 +1116,7 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
 
 #if GASNETI_THREADS
   /* We must gather acks to keep them in-order even when handler completions are not */
-  /* XXX: could be done lockless via gasneti_atomic32_t? */
+  /* XXX: could be done lockless via recv_tail and ack_bits packed in gasneti_atomic64_t? */
   gasneti_mutex_lock(&cep->amrdma.ack_lock);
   { int count;
     const int recv_tail = cep->amrdma.recv_tail;
@@ -3044,10 +3043,10 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       gasneti_weakatomic_set(&cep->amrdma.send_head, gasnetc_amrdma_depth, 0);
       gasneti_weakatomic_set(&cep->amrdma.send_tail, 0, 0);
       gasneti_weakatomic_set(&cep->amrdma.recv_head, 0, 0);
-      cep->amrdma.recv_tail = 0;
 #if GASNETI_THREADS
       gasneti_mutex_init(&cep->amrdma.ack_lock);
       cep->amrdma.ack_bits = 0;
+      cep->amrdma.recv_tail = 0;
 #endif
 #if 0
       gasneti_weakatomic_set(&cep->amrdma.eligable, 0, 0);
