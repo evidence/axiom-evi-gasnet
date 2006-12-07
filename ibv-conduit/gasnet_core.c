@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core.c,v $
- *     $Date: 2006/12/07 01:15:39 $
- * $Revision: 1.185 $
+ *     $Date: 2006/12/07 05:35:44 $
+ * $Revision: 1.186 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -2728,10 +2728,10 @@ gasnetc_amrdma_init_one(gasnet_node_t node, int qpi, gasnetc_amrdma_exchg_t *in)
       gasnetc_amrdma_hdr_t *hdr = (gasnetc_amrdma_hdr_t *)cep->amrdma_loc[i];
       hdr->length       = hdr->zeros       = 0;
       hdr->length_again = hdr->zeros_again = ~0;
-    }
 #if GASNETI_THREADS
-    gasneti_weakatomic_set(&cep->amrdma.recv_in_use, 0, 0);
+      gasneti_weakatomic_set(&cep->amrdma.recv_busy[i].spinlock, 0, 0);
 #endif
+    }
     hca->amrdma_rcv.cep[hca->amrdma_rcv.count++] = cep;
     in[index].addr = (uintptr_t)cep->amrdma_loc;
     in[index].rkey = hca->amrdma_reg.rkey;

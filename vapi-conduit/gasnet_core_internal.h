@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_internal.h,v $
- *     $Date: 2006/12/07 01:15:39 $
- * $Revision: 1.141 $
+ *     $Date: 2006/12/07 05:35:44 $
+ * $Revision: 1.142 $
  * Description: GASNet vapi conduit header for internal definitions in Core API
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -390,7 +390,8 @@ typedef struct {
 typedef char gasnetc_amrdma_buf_t[GASNETC_AMRDMA_SZ];
 
 #define GASNETC_DEFAULT_AMRDMA_MAX_PEERS 0	/* XXX: disabled by default */
-#define GASNETC_DEFAULT_AMRDMA_DEPTH	32	/* Power-of-2 */
+#define GASNETC_AMRDMA_MAX_DEPTH	32	/* Power-of-2 */
+#define GASNETC_DEFAULT_AMRDMA_DEPTH	GASNETC_AMRDMA_MAX_DEPTH
 #define GASNETC_DEFAULT_AMRDMA_LIMIT	GASNETC_AMRDMA_LIMIT_MAX
 
 /* Forward decl */
@@ -470,10 +471,17 @@ struct gasnetc_cep_t_ {
   } am_flow;
   struct {	/* AM-over-RDMA local state */
 	gasneti_weakatomic_t	send_head, send_tail;
+	gasneti_weakatomic_t	recv_head;
+        gasneti_weakatomic_val_t recv_tail;
 #if GASNETI_THREADS
-        gasneti_weakatomic_t	recv_in_use; /* A weak spinlock */
+	gasneti_mutex_t		ack_lock;
+	uint32_t		ack_bits;
+	char			_pad[GASNETI_CACHE_LINE_BYTES];
+	union {
+          gasneti_weakatomic_t	    spinlock;
+	  char			    _pad[GASNETI_CACHE_LINE_BYTES];
+        }			recv_busy[GASNETC_AMRDMA_MAX_DEPTH]; /* A weak spinlock */
 #endif
-	gasneti_weakatomic_t	recv_count;
 #if 0	/* XXX: Not yet implemented */
 	gasneti_weakatomic_t	eligable;
 #endif

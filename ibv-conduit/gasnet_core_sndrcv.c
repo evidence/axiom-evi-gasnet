@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/12/07 01:15:39 $
- * $Revision: 1.205 $
+ *     $Date: 2006/12/07 05:35:44 $
+ * $Revision: 1.206 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1049,52 +1049,45 @@ int gasnetc_amrdma_zeros(uint32_t flags, const void *buf, unsigned int length) {
 
 GASNETI_INLINE(gasnetc_rcv_amrdma)
 int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
-  const int recv_count = gasneti_weakatomic_read(&cep->amrdma.recv_count, 0);
-  const int recv_slot = recv_count & gasnetc_amrdma_slot_mask;
+  const int recv_head = gasneti_weakatomic_read(&cep->amrdma.recv_head, 0);
+  const int recv_slot = recv_head & gasnetc_amrdma_slot_mask;
   volatile gasnetc_amrdma_hdr_t * hdr = (volatile gasnetc_amrdma_hdr_t *)cep->amrdma_loc[recv_slot];
   gasnetc_buffer_t * msg_in;
   gasnetc_rbuf_t rbuf;
-  uint32_t seq, flags, mask;
-  int numargs;
-  int i;
+  uint32_t flags;
   int length, checksum;
 
-  gasneti_assert(cep != NULL);
-
-  /* XXX:
-   * Current code serializes reception of AMRDMA - THIS IS NOT GOOD.
-   * All that *needs* serialization is the advancing of recv_count (to avoid
-   * polling "behind" the current head position) and the incrementing of the
-   * ack counter (to avoid acking out of order).
-   * Both should be done w/o serializing the execution of handlers.
-   */
-
 #if GASNETI_THREADS
+  gasneti_weakatomic_t *slot_lock = &cep->amrdma.recv_busy[recv_slot].spinlock;
+
   /* First try a non-atomic "peek" and then try to acquire the spinlock */
-  if (gasneti_weakatomic_read(&cep->amrdma.recv_in_use, 0) ||
+  if (gasneti_weakatomic_read(slot_lock, 0) ||
       (hdr->length != hdr->length_again) ||
-      !gasneti_weakatomic_compare_and_swap(&cep->amrdma.recv_in_use, 0, 1, GASNETI_ATOMIC_ACQ)) {
+      !gasneti_weakatomic_compare_and_swap(slot_lock, 0, 1, GASNETI_ATOMIC_ACQ)) {
     /* Another thread is working on this slot or no AM is waiting */
     return 0;
   }
-
-  /* Must recheck recv_count with spinlock held */
-  if (recv_count != gasneti_weakatomic_read(&cep->amrdma.recv_count, 0)) {
-    gasneti_weakatomic_set(&cep->amrdma.recv_in_use, 0, 0); /* No _REL, since nothing was written */
-    return 0;
-  }
 #endif
-  
+
   if_pf (((length = hdr->length) != hdr->length_again) ||
          ((checksum = hdr->zeros) != hdr->zeros_again) ||
          (checksum != gasneti_count0s((void *)(&hdr->immediate_data), length + 4))) {
 #if GASNETI_THREADS
-    gasneti_weakatomic_set(&cep->amrdma.recv_in_use, 0, 0); /* No _REL, since nothing was written */
+    gasneti_weakatomic_set(slot_lock, 0, 0); /* No _REL, since nothing was written */
 #endif
     return 0;
   }
 
-  gasneti_weakatomic_increment(&cep->amrdma.recv_count, 0);
+#if GASNETI_THREADS
+  if (!gasneti_weakatomic_compare_and_swap(&cep->amrdma.recv_head, recv_head, recv_head+1, 0)) {
+    /* If we get here then we've been left behind and are looking at the wrong slot */
+    gasneti_weakatomic_set(slot_lock, 0, 0); /* No _REL, since nothing was written */
+    return 0;
+  }
+#else
+  gasneti_weakatomic_increment(&cep->amrdma.recv_head, 0);
+#endif
+  
 #if 0
   gasneti_weakatomic_increment(&cep->amrdma.eligable, 0);
 #endif
@@ -1118,11 +1111,33 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
   hdr->zeros = 0;  hdr->zeros_again = -1;
   hdr->immediate_data = 0;
   memset(msg_in, 0, length);
+  gasneti_weakatomic_set(slot_lock, 0, GASNETI_ATOMIC_REL);
 
 #if GASNETI_THREADS
-  gasneti_weakatomic_set(&cep->amrdma.recv_in_use, 0, GASNETI_ATOMIC_REL);
-#endif
+  /* We must gather acks to keep them in-order even when handler completions are not */
+  /* XXX: could be done lockless via gasneti_atomic32_t? */
+  gasneti_mutex_lock(&cep->amrdma.ack_lock);
+  { int count;
+    const int recv_tail = cep->amrdma.recv_tail;
+    uint32_t bits = cep->amrdma.ack_bits | (1 << recv_head);
+
+    for (count = 0; count < gasnetc_amrdma_depth; ++count) {
+      const int slot = (recv_tail + count) & gasnetc_amrdma_slot_mask;
+      const uint32_t mask = (1 << slot);
+      if (!(bits & mask)) break;
+      bits ^= mask;
+    }
+    cep->amrdma.ack_bits = bits;
+    cep->amrdma.recv_tail += count;
+
+    if_pt (count) {
+      gasneti_weakatomic_add(&cep->am_flow.ack, count, 0);
+    }
+  }
+  gasneti_mutex_unlock(&cep->amrdma.ack_lock);
+#else
   gasneti_weakatomic_increment(&cep->am_flow.ack, 0);
+#endif
 
   /* Finalize flow control */
   if_pf (rbuf.rbuf_needReply) {
@@ -3026,7 +3041,12 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       /* Initialize local AM-over-RDMA info */
       gasneti_weakatomic_set(&cep->amrdma.send_head, gasnetc_amrdma_depth, 0);
       gasneti_weakatomic_set(&cep->amrdma.send_tail, 0, 0);
-      gasneti_weakatomic_set(&cep->amrdma.recv_count, 0, 0);
+      gasneti_weakatomic_set(&cep->amrdma.recv_head, 0, 0);
+      cep->amrdma.recv_tail = 0;
+#if GASNETI_THREADS
+      gasneti_mutex_init(&cep->amrdma.ack_lock);
+      cep->amrdma.ack_bits = 0;
+#endif
 #if 0
       gasneti_weakatomic_set(&cep->amrdma.eligable, 0, 0);
 #endif
