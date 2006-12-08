@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/12/07 18:10:40 $
- * $Revision: 1.208 $
+ *     $Date: 2006/12/08 07:12:57 $
+ * $Revision: 1.209 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1120,18 +1120,22 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
   gasneti_mutex_lock(&cep->amrdma.ack_lock);
   { int count;
     const int recv_tail = cep->amrdma.recv_tail;
-    uint32_t bits = cep->amrdma.ack_bits | (1 << recv_head);
+    uint32_t bits = cep->amrdma.ack_bits | (1 << (recv_head - recv_tail));
 
-    for (count = 0; count < gasnetc_amrdma_depth; ++count) {
-      const int slot = (recv_tail + count) & gasnetc_amrdma_slot_mask;
-      const uint32_t mask = (1 << slot);
-      if (!(bits & mask)) break;
-      bits ^= mask;
+    gasneti_assert(bits != 0);
+
+#if 1
+    for (count = 0; bits & 1; ++count) {
+      bits >>= 1;
     }
-    cep->amrdma.ack_bits = bits;
-    cep->amrdma.recv_tail += count;
+#else /* XXX: Use ffs() if/when we are sure it is faster (and available). */
+    count = ffs(~bits);
+    bits >>= count;
+#endif
 
+    cep->amrdma.ack_bits = bits;
     if_pt (count) {
+      cep->amrdma.recv_tail += count;
       gasneti_weakatomic_add(&cep->am_flow.ack, count, 0);
     }
   }
