@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/portable_platform.h,v $
- *     $Date: 2006/11/07 20:28:34 $
- * $Revision: 1.13 $
+ *     $Date: 2006/12/09 11:16:34 $
+ * $Revision: 1.14 $
  * Description: Portable platform detection header
  * Copyright 2006, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -433,6 +433,10 @@
 #if defined(__LIBCATAMOUNT__) || defined(__QK_USER__)
   #define PLATFORM_OS_CATAMOUNT 1
   #define PLATFORM_OS_FAMILYNAME CATAMOUNT
+
+#elif defined(__CRAYXT_COMPUTE_LINUX_TARGET)
+  #define PLATFORM_OS_CNL 1
+  #define PLATFORM_OS_FAMILYNAME CNL
 
 #elif defined(__blrts) || defined(__blrts__) || defined(__gnu_blrts__)
   #define PLATFORM_OS_BLRTS 1

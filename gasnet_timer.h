@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/11/25 06:03:46 $
- * $Revision: 1.77 $
+ *     $Date: 2006/12/09 11:16:32 $
+ * $Revision: 1.78 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -231,7 +231,7 @@ GASNETI_BEGIN_EXTERNC
     gasneti_assert(gasneti_tick_p);
     return (uint64_t)(st * gasneti_timer_tick);
   }
-#elif (PLATFORM_OS_LINUX || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD || \
+#elif (PLATFORM_OS_LINUX || PLATFORM_OS_CNL || PLATFORM_OS_CATAMOUNT || PLATFORM_OS_OPENBSD || \
        (PLATFORM_OS_FREEBSD && GASNETI_HAVE_SYSCTL_MACHDEP_TSC_FREQ)) && \
      (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || PLATFORM_COMPILER_SUN || \
       PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI || PLATFORM_COMPILER_TINY) && \
@@ -327,7 +327,7 @@ GASNETI_BEGIN_EXTERNC
           gasneti_fatalerror("*** ERROR: Failure in sysctl(CTL_HW.HW_CPUSPEED)=%s",strerror(errno));
         gasneti_assert(MHz > 1 && MHz < 100000); /* ensure it looks reasonable */
         Tick = 1000. / MHz;
-     #else /* PLATFORM_OS_LINUX */
+     #else /* PLATFORM_OS_LINUX || PLATFORM_OS_CNL */
       FILE *fp = fopen("/proc/cpuinfo","r");
       char input[255];
       if (!fp) gasneti_fatalerror("*** ERROR: Failure in fopen('/proc/cpuinfo','r')=%s",strerror(errno));
