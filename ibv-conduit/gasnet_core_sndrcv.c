@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/12/08 07:12:57 $
- * $Revision: 1.209 $
+ *     $Date: 2006/12/09 07:54:55 $
+ * $Revision: 1.210 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -934,7 +934,7 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
 
   GASNETC_STAT_EVENT(RCV_AM_SNDRCV);
 #if 0
-  if (comp->byte_len < gasnetc_amrdma_limit) {
+  if (comp->byte_len <= gasnetc_amrdma_limit) {
     gasneti_weakatomic_increment(&cep->amrdma.eligable, 0);
   }
 #endif
@@ -1054,48 +1054,62 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
   gasnetc_buffer_t * msg_in;
   gasnetc_rbuf_t rbuf;
   uint32_t flags;
-  int length, checksum;
+  int length, checksum, zeros;
 
 #if GASNETI_THREADS
   gasneti_weakatomic_t *slot_lock = &cep->amrdma.recv_busy[recv_slot].spinlock;
 
   /* First try a non-atomic "peek" and then try to acquire the spinlock */
   if (gasneti_weakatomic_read(slot_lock, 0) ||
-      (hdr->length != hdr->length_again) ||
+      ((length = hdr->length) != hdr->length_again) ||
+      ((checksum = hdr->zeros) != hdr->zeros_again) ||
       !gasneti_weakatomic_compare_and_swap(slot_lock, 0, 1, GASNETI_ATOMIC_ACQ)) {
     /* Another thread is working on this slot or no AM is waiting */
     return 0;
   }
-#endif
-
-  if_pf (((length = hdr->length) != hdr->length_again) ||
-         ((checksum = hdr->zeros) != hdr->zeros_again) ||
-         (checksum != gasneti_count0s((void *)(&hdr->immediate_data), length + 4))) {
-#if GASNETI_THREADS
-    gasneti_weakatomic_set(slot_lock, 0, 0); /* No _REL, since nothing was written */
-#endif
+#else
+  if (((length = hdr->length) != hdr->length_again) ||
+      ((checksum = hdr->zeros) != hdr->zeros_again) ||
+    /* no AM is waiting */
     return 0;
+  }
+#endif
+  gasneti_assert(length > 0);
+  gasneti_assert(length <= gasnetc_amrdma_limit);
+
+  flags = hdr->immediate_data;
+  zeros = gasneti_count0s_uint32_t(flags);
+  msg_in = (gasnetc_buffer_t *)(hdr + 1);
+  if (GASNETC_MSG_CATEGORY(flags) == gasnetc_Medium) {
+    /* Relocate the Medium to avoid problems w/ "late zeros" and provide 8-byte alignment */
+    /* Note: no harm here if flags is not correct, since length must by ok */
+    void *tmp = (void*)GASNETI_ALIGNUP(alloca(length + 8), 8);
+    zeros += gasneti_count0s_copy(tmp, msg_in, length);
+    rbuf.rr_sg.addr = (uintptr_t)tmp;
+  } else {
+    zeros += gasneti_count0s(msg_in, length);
+    rbuf.rr_sg.addr = (uintptr_t)msg_in;
   }
 
 #if GASNETI_THREADS
-  if (!gasneti_weakatomic_compare_and_swap(&cep->amrdma.recv_head, recv_head, recv_head+1, 0)) {
-    /* If we get here then we've been left behind and are looking at the wrong slot */
-    gasneti_weakatomic_set(slot_lock, 0, 0); /* No _REL, since nothing was written */
+  if ((zeros != checksum) ||
+      !gasneti_weakatomic_compare_and_swap(&cep->amrdma.recv_head, recv_head, recv_head+1, 0)) {
+    /* If CAS failed then we've been "left behind" and are looking at the wrong slot */
+    gasneti_weakatomic_set(slot_lock, 0, 0); /* No _REL, since nothing global was written */
     return 0;
   }
 #else
+  if (zeros != checksum) {
+    return 0;
+  }
   gasneti_weakatomic_increment(&cep->amrdma.recv_head, 0);
 #endif
-  
+
 #if 0
   gasneti_weakatomic_increment(&cep->amrdma.eligable, 0);
 #endif
   GASNETC_STAT_EVENT(RCV_AM_RDMA);
 
-  flags = hdr->immediate_data;
-  msg_in = (gasnetc_buffer_t *)((uintptr_t)hdr + sizeof(*hdr));
-
-  rbuf.rr_sg.addr = (uintptr_t)msg_in;
   rbuf.cep = cep;
   rbuf.rr_is_rdma = 1;
   gasnetc_processPacket(cep, &rbuf, flags);
@@ -1110,11 +1124,10 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
   hdr->zeros = 0;  hdr->zeros_again = -1;
   hdr->immediate_data = 0;
   memset(msg_in, 0, length);
-#if GASNETI_THREADS
-  gasneti_weakatomic_set(slot_lock, 0, GASNETI_ATOMIC_REL);
-#endif
 
 #if GASNETI_THREADS
+  gasneti_weakatomic_set(slot_lock, 0, GASNETI_ATOMIC_REL);
+
   /* We must gather acks to keep them in-order even when handler completions are not */
   /* XXX: could be done lockless via recv_tail and ack_bits packed in gasneti_atomic64_t? */
   gasneti_mutex_lock(&cep->amrdma.ack_lock);
@@ -1124,14 +1137,14 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
 
     gasneti_assert(bits != 0);
 
-#if 1
+  #if 1
     for (count = 0; bits & 1; ++count) {
       bits >>= 1;
     }
-#else /* XXX: Use ffs() if/when we are sure it is faster (and available). */
+  #else /* XXX: Use ffs() if/when we are sure it is faster (and available). */
     count = ffs(~bits);
     bits >>= count;
-#endif
+  #endif
 
     cep->amrdma.ack_bits = bits;
     if_pt (count) {
@@ -2942,7 +2955,6 @@ extern int gasnetc_sndrcv_init(void) {
 	  /* XXX: unwind here? */
 	  gasneti_fatalerror("Unable to allocate pinned memory for AM-over-RDMA");
         }
-	buf = (void *)((uintptr_t)buf + GASNETC_AMRDMA_PAD); /* offset base to get 8-byte alignment of msg */
 	for (i = 0; i < max_peers; ++i) {
 	  gasneti_lifo_push(&hca->amrdma_freelist, buf);
 	  buf = (void *)((uintptr_t)buf + (gasnetc_amrdma_depth << GASNETC_AMRDMA_SZ_LG2));
