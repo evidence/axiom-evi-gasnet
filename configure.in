@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/12/07 17:50:16 $
-# $Revision: 1.427 $
+#     $Date: 2006/12/10 04:03:57 $
+# $Revision: 1.428 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.427 $)
+AC_REVISION($Revision: 1.428 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2381,7 +2381,7 @@ CONDUIT_END([test "$have_vapi" = yes])
 
 CONDUIT_BEGIN(portals,[Portals network conduit (portals)])
 case "$target" in
-  *-catamount-*) ;; # enable by default only on catamount
+  *-catamount-*|*-cnl-*) ;; # enable by default only on Cray XT
   *) if test "$force_portals" != "yes"; then
        enabled_portals=no 
      fi
@@ -2392,8 +2392,15 @@ if test "$enabled_portals" = yes; then
   have_portals=yes # start by assuming we have it
   GASNET_ENV_DEFAULT(PE_DIR, /opt/xt-pe/default)
   GASNET_ENV_DEFAULT(PORTALS_INCLUDE, $PE_DIR/include)
-  GASNET_ENV_DEFAULT(CATAMOUNT_DIR, /opt/xt-catamount/default)
-  GASNET_ENV_DEFAULT(CATAMOUNT_INCLUDE, $CATAMOUNT_DIR/catamount/linux/include)
+  PORTALS_INCLUDES="-I${PORTALS_INCLUDE}"
+  case "$target" in
+    *-catamount-*) 
+      GASNET_ENV_DEFAULT(CATAMOUNT_DIR, /opt/xt-catamount/default)
+      GASNET_ENV_DEFAULT(CATAMOUNT_INCLUDE, $CATAMOUNT_DIR/catamount/linux/include)
+      PORTALS_INCLUDES="${PORTALS_INCLUDES} -I${CATAMOUNT_INCLUDE}"
+      ;;
+  esac
+
   if test "$have_mpi_compat" != yes; then
     GASNET_MSG_WARN([portals-conduit requires MPI compatibility support which $mpi_reason])
     have_portals=no
@@ -2403,12 +2410,16 @@ if test "$enabled_portals" = yes; then
     have_portals=no
   fi
   if test $have_portals = yes; then
-    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I${PORTALS_INCLUDE} -I${CATAMOUNT_INCLUDE}")
+    GASNET_PUSHVAR(CFLAGS,"$CFLAGS ${PORTALS_INCLUDES}")
   
     AC_MSG_CHECKING(for working Portals configuration)
     AC_TRY_LINK( [
        #include <portals/portals3.h>
+       #ifdef __LIBCATAMOUNT__
        #include <catamount/cnos_mpi_os.h>
+       #else /* CNL */
+       #include <pctmbox.h>
+       #endif
     ], [{
        static ptl_handle_ni_t ptl_ni_h;
        static ptl_interface_t ptl_iface;
@@ -2426,8 +2437,7 @@ if test "$enabled_portals" = yes; then
       have_portals=no
     fi
   fi
-  AC_SUBST(PORTALS_INCLUDE)
-  AC_SUBST(CATAMOUNT_INCLUDE)
+  AC_SUBST(PORTALS_INCLUDES)
 fi
 
 AM_CONDITIONAL(USE_PORTALS_CONDUIT, test "$have_portals" = yes)

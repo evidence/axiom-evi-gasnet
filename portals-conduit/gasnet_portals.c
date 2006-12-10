@@ -5,8 +5,14 @@
 #include <gasnet_handler.h>
 #include <gasnet_portals.h>
 
+#if PLATFORM_OS_CATAMOUNT
 /* Needed for bootstrap */
 #include <catamount/cnos_mpi_os.h>
+#elif PLATFORM_OS_CNL
+#include <pctmbox.h>
+#else
+#error Unknown Portals OS
+#endif
 
 /* We keep a pool of Request receive buffers on a linked match-list.
  * We maintain the set of handles and other vital data in an array of ReqRB_t objects.
@@ -332,7 +338,8 @@ static void ReqSB_event(ptl_event_t *ev)
     q = pdata - sizeof(void*);
     /* q points to location where real destination address is stored */
     dest = (void*)*(uintptr_t*)q;
-    GASNETI_TRACE_PRINTF(C,("EV_handler copying %i bytes from bb 0x%lx to 0x%lx",ev->mlength,(uintptr_t)pdata,(uintptr_t)dest));
+    GASNETI_TRACE_PRINTF(C,("EV_handler copying %i bytes from bb 0x%lx to 0x%lx",
+                            (int)ev->mlength,(uintptr_t)pdata,(uintptr_t)dest));
     memcpy(dest,pdata,ev->mlength);
     /* free the bounce buffer */
     offset -= sizeof(void*);
@@ -915,7 +922,7 @@ extern void gasnetc_portals_init(void)
   /* for good measure */
   eq_len += 100;
 
-  GASNETI_TRACE_PRINTF(C,("Constructing EQ with %d entries",eq_len));
+  GASNETI_TRACE_PRINTF(C,("Constructing EQ with %d entries",(int)eq_len));
 #if 0
   if (gasneti_mynode == 0) {
     printf("MAX_POLL_EVENTS = %i\n",gasnetc_max_poll_events);
