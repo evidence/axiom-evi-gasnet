@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/12/09 07:54:55 $
- * $Revision: 1.210 $
+ *     $Date: 2006/12/11 22:58:42 $
+ * $Revision: 1.211 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -1069,7 +1069,7 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
   }
 #else
   if (((length = hdr->length) != hdr->length_again) ||
-      ((checksum = hdr->zeros) != hdr->zeros_again) ||
+      ((checksum = hdr->zeros) != hdr->zeros_again)) {
     /* no AM is waiting */
     return 0;
   }
