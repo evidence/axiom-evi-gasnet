@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2006/11/02 11:14:41 $
-# $Revision: 1.51 $
+#     $Date: 2006/12/12 23:11:13 $
+# $Revision: 1.52 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -70,6 +70,7 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
     my $is_crayt3e_mpi = ($uname =~ m|cray t3e|i );
     my $is_irix_mpi = ($mpirun_help =~ m|\[-miser\]|);
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
+    my $is_aprun    = ($mpirun_help =~ m|rchitecture type.*?xt3|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi  = ($mpirun_help =~ m|COprocessor or VirtualNode mode|);
     my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|);
@@ -163,6 +164,11 @@ my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile"
 	%envfmt = ( 'noenv' => 1
                   );
         $extra_quote_argv = 1;
+    } elsif ($is_aprun) {
+	$spawner_desc = "Cray aprun";
+	# the OS already propagates the environment for us automatically
+	%envfmt = ( 'noenv' => 1
+                  );
     } elsif ($is_yod) {
 	$spawner_desc = "Catamount yod";
 	# the OS already propagates the environment for us automatically
