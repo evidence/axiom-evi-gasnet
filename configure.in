@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/12/10 08:33:57 $
-# $Revision: 1.429 $
+#     $Date: 2006/12/13 23:27:24 $
+# $Revision: 1.430 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.429 $)
+AC_REVISION($Revision: 1.430 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1715,12 +1715,7 @@ if test $enabled_gm = yes; then
     # altogether as the problem appears and disappears across gcc3 minor
     # versions.
     # This is a firehose problem, and bug #1052 showed xlc to be affected as well.
-    case "$gasnet_cv_cc_family" in
-      GNU) GM_NO_ALIAS="-fno-strict-aliasing";;
-      Pathscale) GM_NO_ALIAS="-fno-strict-aliasing";;
-      XLC) GM_NO_ALIAS="-qnoansialias -qalias=addr";;
-        *) GM_NO_ALIAS="";;
-    esac
+    GASNET_FH_NO_ALIAS
 
     # Only test if working GM config
     if test $have_gm = yes; then
@@ -1770,7 +1765,6 @@ fi
 
 AC_SUBST(GM_INCLUDE)
 AC_SUBST(GM_LIB)
-AC_SUBST(GM_NO_ALIAS)
 AC_SUBST(GM_MPI_COMPAT)
 AM_CONDITIONAL(USE_GM_CONDUIT, test "$enabled_gm$have_gm" = yesyes)
 AM_CONDITIONAL(GM_MPI_COMPAT, test "$GM_MPI_COMPAT" = yes)
@@ -2276,12 +2270,7 @@ if test "$enabled_vapi" = yes; then
   # See bug #350 for an example of why firehose needs this.
   # See bug #596 or #1031 for evidence that VAPI is affected by this.
   # See bug #1052 for evidence that xlc is affected.
-  case "$gasnet_cv_cc_family" in
-    GNU) VAPI_NO_ALIAS="-fno-strict-aliasing";;
-    Pathscale) VAPI_NO_ALIAS="-fno-strict-aliasing";;
-    XLC) VAPI_NO_ALIAS="-qnoansialias -qalias=addr";;
-      *) VAPI_NO_ALIAS="";;
-  esac
+  GASNET_FH_NO_ALIAS
 
   if test "$have_ib_vapi" = yes; then
     AC_MSG_CHECKING(for VAPI FMR support)
@@ -2371,7 +2360,6 @@ AC_SUBST(VAPI_INCLUDE)
 AC_SUBST(VAPI_LIBDIR)
 AC_SUBST(VAPI_LIBS)
 AC_SUBST(VAPI_LIBCFLAGS)
-AC_SUBST(VAPI_NO_ALIAS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
 AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
 AM_CONDITIONAL(VAPI_RCV_THREAD,test "$enabled_vapi_rcv_thread" = yes)
