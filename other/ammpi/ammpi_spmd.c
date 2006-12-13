@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2006/08/28 04:48:48 $
- * $Revision: 1.37 $
+ *     $Date: 2006/12/13 03:35:26 $
+ * $Revision: 1.38 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -341,6 +341,7 @@ static int AMMPI_SPMDShutdown(int exitcode) {
 
   flushStreams("AMMPI_SPMDExit");
 
+ #if !PLATFORM_OS_CNL /* multi-node CNL hangs on exit if you close the streams */
   if (fclose(stdin)) {
   #if AMMPI_DEBUG_VERBOSE
     AMMPI_Err("failed to fclose stdin in AMMPI_SPMDExit()"); 
@@ -359,6 +360,7 @@ static int AMMPI_SPMDShutdown(int exitcode) {
     perror("fclose");
   #endif
   }
+ #endif
 
   ammpi_sched_yield();
 
