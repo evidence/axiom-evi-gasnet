@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/Makefile.am,v $
-#     $Date: 2006/12/10 04:03:59 $
-# $Revision: 1.5 $
+#     $Date: 2006/12/13 01:14:31 $
+# $Revision: 1.6 $
 # Description: Makefile for GASNet portals conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -75,7 +75,8 @@ libgasnet_portals_parsync_a_SOURCES =
 threaded_libraries = libgasnet-portals-par.a libgasnet-portals-parsync.a
 endif
 libgasnet_portals_seq_a_SOURCES =
-libraries = libgasnet-portals-seq.a $(threaded_libraries)
+# DOB: uncomment the following line to build the threaded libraries (not yet supported - bug 1868)
+libraries = libgasnet-portals-seq.a #$(threaded_libraries)
 
 include $(top_builddir)/other/Makefile-conduit.mak
 
