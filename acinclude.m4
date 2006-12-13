@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/12/13 23:27:24 $
-dnl $Revision: 1.120 $
+dnl     $Date: 2006/12/13 23:33:02 $
+dnl $Revision: 1.121 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -2235,15 +2235,15 @@ GASNET_FUN_END([$0($1,$2,...)])
 ])
 
 dnl find proper CFLAGS for compiling firehose library
-AC_DEFUN([GASNET_FH_NO_ALIAS],[
+AC_DEFUN([GASNET_FH_CFLAGS],[
 GASNET_FUN_BEGIN([$0])
   case "$cv_prefix[]cc_family" in
-          GNU) fh_no_alias_default="-fno-strict-aliasing";;
-    Pathscale) fh_no_alias_default="-fno-strict-aliasing";;
-          XLC) fh_no_alias_default="-qnoansialias -qalias=addr";;
-            *) fh_no_alias_default="";;
+          GNU) fh_cflags_default="-fno-strict-aliasing";;
+    Pathscale) fh_cflags_default="-fno-strict-aliasing";;
+          XLC) fh_cflags_default="-qnoansialias -qalias=addr";;
+            *) fh_cflags_default="";;
   esac
-  GASNET_ENV_DEFAULT(FH_NO_ALIAS, [$fh_no_alias_default])
-  AC_SUBST(FH_NO_ALIAS)
+  GASNET_ENV_DEFAULT(FH_CFLAGS, [$fh_cflags_default])
+  AC_SUBST(FH_CFLAGS)
 GASNET_FUN_END([$0])
 ])

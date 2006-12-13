@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/12/13 23:27:24 $
-# $Revision: 1.430 $
+#     $Date: 2006/12/13 23:33:02 $
+# $Revision: 1.431 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.430 $)
+AC_REVISION($Revision: 1.431 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1715,7 +1715,7 @@ if test $enabled_gm = yes; then
     # altogether as the problem appears and disappears across gcc3 minor
     # versions.
     # This is a firehose problem, and bug #1052 showed xlc to be affected as well.
-    GASNET_FH_NO_ALIAS
+    GASNET_FH_CFLAGS
 
     # Only test if working GM config
     if test $have_gm = yes; then
@@ -2270,7 +2270,7 @@ if test "$enabled_vapi" = yes; then
   # See bug #350 for an example of why firehose needs this.
   # See bug #596 or #1031 for evidence that VAPI is affected by this.
   # See bug #1052 for evidence that xlc is affected.
-  GASNET_FH_NO_ALIAS
+  GASNET_FH_CFLAGS
 
   if test "$have_ib_vapi" = yes; then
     AC_MSG_CHECKING(for VAPI FMR support)
