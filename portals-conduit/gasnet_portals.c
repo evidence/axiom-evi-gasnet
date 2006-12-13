@@ -862,7 +862,11 @@ extern void gasnetc_portals_init(void)
 
   /* construct the interface */
   /* Hmm, how was it constructed for MPI? Will I get different ni? */
-  ptl_iface = IFACE_FROM_BRIDGE_AND_NALID(use_bridge,use_nal);
+  #if PLATFORM_OS_CNL
+    ptl_iface = CRAY_UK_SSNAL;
+  #else
+    ptl_iface = IFACE_FROM_BRIDGE_AND_NALID(use_bridge,use_nal);
+  #endif
 
   /* Get the network handle */
   rc = PtlNIInit(ptl_iface, PTL_PID_ANY, NULL, NULL, &gasnetc_ni_h);
