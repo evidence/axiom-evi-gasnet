@@ -1,14 +1,20 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
-#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2006/12/15 22:54:27 $
-# $Revision: 1.42 $
-# Description: Makefile for GASNet vapi conduit
+#   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/Makefile.am,v $
+#     $Date: 2006/12/15 22:54:23 $
+# $Revision: 1.2 $
+# Description: Makefile for GASNet ibv conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
 
 AUTOMAKE_OPTIONS = foreign 1.4
 
-CONDUIT_NAME=vapi
+CONDUIT_NAME=ibv
+
+##
+## vapi-conduit holds the actual sources
+##
+vapi_srcdir = $(top_srcdir)/vapi-conduit
+vapi_install_hdrs = $(vapi_srcdir)/*.h
 
 ##
 ## Firehose
@@ -22,9 +28,9 @@ fh_special_objs =                                 \
       $(builddir)/firehose_region-$(THREAD_MODEL).o
 fh_install_hdrs = $(fh_srcdir)/firehose_trace.h
 $(builddir)/firehose-$(THREAD_MODEL).o: force
-	@CC@ $(LIBCFLAGS) $(FH_CFLAGS) -o $@ -c $(fh_srcdir)/firehose.c
+	@CC@ $(LIBCFLAGS) $(FH_NO_ALIAS) -o $@ -c $(fh_srcdir)/firehose.c
 $(builddir)/firehose_region-$(THREAD_MODEL).o: force
-	@CC@ $(LIBCFLAGS) $(FH_CFLAGS) -o $@ -c $(fh_srcdir)/firehose_region.c
+	@CC@ $(LIBCFLAGS) $(FH_NO_ALIAS) -o $@ -c $(fh_srcdir)/firehose_region.c
 
 ##
 ## SSH bootstrap support
@@ -35,7 +41,7 @@ ssh_srcdir = $(top_srcdir)/other/ssh-spawner
 ## MPI bootstrap support (optional)
 ## XXX: should have a way to control this independent of MPI conduit
 ##
-if VAPI_BOOTSTRAP_MPI
+if IBV_BOOTSTRAP_MPI
 mpi_defines = -DHAVE_MPI_SPAWNER
 mpi_srcdir = $(top_srcdir)/other/mpi-spawner
 mpi_deps = $(mpi_srcdir)/*.h $(mpi_srcdir)/*.c
@@ -47,10 +53,10 @@ $(builddir)/gasnet_bootstrap_mpi-$(THREAD_MODEL).o: force
 endif
 
 ##
-## VAPI AM receiver thead support (optional)
+## IBV AM receiver thead support (optional)
 ##
-if VAPI_RCV_THREAD
-# VAPI conduit needs GASNET_THREAD_DEFINES even for SEQ mode
+if IBV_RCV_THREAD
+# IBV conduit needs GASNET_THREAD_DEFINES even for SEQ mode
 rcv_thread_defines = @GASNET_THREAD_DEFINES@
 endif
 
@@ -61,40 +67,31 @@ SUBDIRS = contrib
 # include all headers, documentation, etc. 
 # and any subdirectories not containing Makefile.am's
 CONDUIT_FILELIST =               \
-      gasnet_core.c              \
-      gasnet_core_sndrcv.c       \
-      gasnet_core.h              \
-      gasnet_core_fwd.h          \
-      gasnet_core_help.h         \
-      gasnet_core_internal.h     \
-      gasnet_extended.c          \
-      gasnet_extended_fwd.h      \
-      gasnet_extended_internal.h \
-      gasnet_firehose.c          \
-      firehose_fwd.h             \
+      gasnet_empty_internal.h    \
+      README                     \
       license.txt                
 
 # list of conduit core and extended .c source files 
 # to be compiled into libgasnet on the compiler command line
 CONDUIT_SOURCELIST =                 \
-      $(srcdir)/gasnet_core.c        \
-      $(srcdir)/gasnet_core_sndrcv.c \
-      $(srcdir)/gasnet_extended.c    \
-      $(srcdir)/gasnet_firehose.c    \
+      $(vapi_srcdir)/gasnet_core.c        \
+      $(vapi_srcdir)/gasnet_core_sndrcv.c \
+      $(vapi_srcdir)/gasnet_extended.c    \
+      $(vapi_srcdir)/gasnet_firehose.c    \
       $(fh_srcdir)/firehose_hash.c   \
       $(ssh_srcdir)/gasnet_bootstrap_ssh.c
 
 # additional -I or -D directives needed by this specific conduit
 # other than the standard GASNet includes and flags
-CONDUIT_EXTRALIBCFLAGS = -I@VAPI_INCLUDE@ -I$(fh_srcdir) $(mpi_defines)\
-			 @VAPI_LIBCFLAGS@ $(rcv_thread_defines) -DGASNET_CONDUIT_VAPI
+CONDUIT_EXTRALIBCFLAGS = -I@IBV_INCLUDE@ -I$(vapi_srcdir) -I$(fh_srcdir) $(mpi_defines)\
+			 @IBV_LIBCFLAGS@ $(rcv_thread_defines) -DGASNET_CONDUIT_IBV
 
 # additional conduit header files to install from external, non-standard directories
-CONDUIT_EXTRAHEADERS = $(fh_install_hdrs)
+CONDUIT_EXTRAHEADERS = $(vapi_install_hdrs) $(fh_install_hdrs)
 
 # additional file dependencies not mentioned elsewhere 
 # that should force libgasnet rebuild on update
-CONDUIT_EXTRADEPS = $(fh_srcdir)/*.[ch] $(ssh_srcdir)/*.h $(mpi_deps)
+CONDUIT_EXTRADEPS = $(vapi_srcdir)/*.[ch] $(fh_srcdir)/*.[ch] $(ssh_srcdir)/*.h $(mpi_deps)
 
 # additional object files to be included in libgasnet that need to be compiled 
 # using a special, conduit-specific command. These should also be included as
@@ -106,7 +103,7 @@ CONDUIT_SPECIAL_OBJS = $(mpi_special_objs) $(fh_special_objs)
 #   %P = program executable name
 #   %N = requested node count
 #   %A = program arguments
-CONDUIT_RUNCMD = @TOP_BUILDDIR@/vapi-conduit/contrib/gasnetrun_vapi -np %N %P %A
+CONDUIT_RUNCMD = @TOP_BUILDDIR@/ibv-conduit/contrib/gasnetrun_ibv -np %N %P %A
 
 # conduit-specific tests in ../tests directory
 CONDUIT_TESTS =
@@ -114,25 +111,25 @@ CONDUIT_TESTS =
 # -------- Do not modify anything below this line --------
 
 if HAVE_PTHREAD
-libgasnet_vapi_par_a_SOURCES =
-libgasnet_vapi_parsync_a_SOURCES =
-threaded_libraries = libgasnet-vapi-par.a libgasnet-vapi-parsync.a
+libgasnet_ibv_par_a_SOURCES =
+libgasnet_ibv_parsync_a_SOURCES =
+threaded_libraries = libgasnet-ibv-par.a libgasnet-ibv-parsync.a
 endif
-libgasnet_vapi_seq_a_SOURCES =
-libraries = libgasnet-vapi-seq.a $(threaded_libraries)
+libgasnet_ibv_seq_a_SOURCES =
+libraries = libgasnet-ibv-seq.a $(threaded_libraries)
 
 include $(top_builddir)/other/Makefile-conduit.mak
 
-libgasnet-vapi-seq.a: $(libgasnet_dependencies)
+libgasnet-ibv-seq.a: $(libgasnet_dependencies)
 	@$(MAKE) do-libgasnet-seq
 
-libgasnet-vapi-par.a: $(libgasnet_dependencies)
+libgasnet-ibv-par.a: $(libgasnet_dependencies)
 	@$(MAKE) do-libgasnet-par
 
-libgasnet-vapi-parsync.a: $(libgasnet_dependencies)
+libgasnet-ibv-parsync.a: $(libgasnet_dependencies)
 	@$(MAKE) do-libgasnet-parsync
 
-if USE_VAPI_CONDUIT  
+if USE_IBV_CONDUIT  
 lib_LIBRARIES = $(libraries) 
 all-local: $(lib_LIBRARIES) $(makefile_fragments)
 clean-local: do-clean-local
