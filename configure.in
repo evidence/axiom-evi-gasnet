@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/12/16 00:15:57 $
-# $Revision: 1.433 $
+#     $Date: 2006/12/16 07:51:56 $
+# $Revision: 1.434 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.433 $)
+AC_REVISION($Revision: 1.434 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2637,6 +2637,19 @@ AC_CHECK_FUNCS(fopen64)
 ########################################################################
 # BACKTRACE support
 
+GASNET_IF_ENABLED_WITH_AUTO(backtrace, [support backtrace, via any mechanism (auto-detected)],
+                 [use_backtrace="yes"], [use_backtrace="no"], [
+		 if test "$cross_compiling" = "yes" ; then
+		   # disable backtrace support by default when cross-compiling, 
+		   # because the debuggers on the host system running configure are usually not what we want for the target
+		   use_backtrace="no"
+		 else
+		   use_backtrace="yes"
+		 fi
+		 ])
+
+if test "$use_backtrace" = "yes" ; then
+
 GASNET_IF_ENABLED_WITH_AUTO(backtrace-execinfo, support backtrace via execinfo.h (auto-detected),
                  [use_execinfo="yes"], [use_execinfo="no"], [use_execinfo="try"])
 if test "$use_execinfo" != no; then
@@ -2719,6 +2732,7 @@ if test "$use_printstack" != no; then
   fi
 fi
 
+fi # use_backtrace
 
 ########################################################################
 # Try to discover the C compiler's inline modifier
