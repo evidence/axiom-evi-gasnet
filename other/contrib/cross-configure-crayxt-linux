@@ -9,8 +9,8 @@
 # NOTE: this relies on module-established PATH setting to automatically 
 # select the GCC or PGI-based MPI compilers, based on which PrgEnv is currently loaded
 # The same PrgEnv *must* be loaded when building and using the GASNet install
-CC='cc' ; export CC  # vanilla target C compiler
-CXX='CC' ; export CXX  # vanilla target C++ compiler
+CC='cc -target=linux' ; export CC  # vanilla target C compiler
+CXX='CC -target=linux' ; export CXX  # vanilla target C++ compiler
 
 # Host C compiler
 # NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/
