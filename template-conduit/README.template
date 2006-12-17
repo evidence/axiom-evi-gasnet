@@ -1,7 +1,7 @@
 README file for template-conduit
 ================================
 Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.11 $
+$Revision: 1.12 $
 
 This file contains a template to help implementors get started in implementing a
 GASNet conduit. It is not a functioning conduit - merely a "skeleton" with most
@@ -26,6 +26,10 @@ To use the template:
   your conduit to the CONDUITS variable in configure.in when it is enabled.
   Please refer to the configure.in checks for other conduits as a pattern 
   for how to structure your conduit checks.
+
+* Edit configure.in and update the AC_OUTPUT() call with entries for 
+  <conduitname>-conduit/Makefile, <conduitname>-conduit/conduit.mak,
+  and any other configure-generated files you create.
 
 * Any new files you add to the conduit must be placed in the 
   "CONDUIT_FILELIST" variable of <conduitname>-conduit/Makefile.am, 
