@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/ammpi/ammpi_spmd.c,v $
- *     $Date: 2006/12/13 03:35:26 $
- * $Revision: 1.38 $
+ *     $Date: 2006/12/17 01:26:24 $
+ * $Revision: 1.39 $
  * Description: AMMPI Implementations of SPMD operations (bootstrapping and parallel job control)
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -130,6 +130,36 @@ extern int AMMPI_SPMDMyProc() {
   }
   AMMPI_assert(AMMPI_SPMDMYPROC >= 0);
   return AMMPI_SPMDMYPROC;
+}
+/* ------------------------------------------------------------------------------------ */
+extern int AMMPI_SPMDSetThreadMode(int usingthreads, const char **provided_level, int *argc, char ***argv) {
+  if (AMMPI_SPMDStartupCalled) AMMPI_RETURN_ERR(RESOURCE);
+  #if MPI_VERSION >= 2 || (defined(MPI_THREAD_SINGLE) && defined(MPI_THREAD_SERIALIZED))
+    { /* init MPI and tell it to be thread-safe */
+      int required = (usingthreads ? MPI_THREAD_SERIALIZED : MPI_THREAD_SINGLE);
+      int provided = -1;
+      MPI_SAFE(MPI_Init_thread(argc, argv, required, &provided));
+      switch (provided) {
+      #ifdef MPI_THREAD_SINGLE
+        case MPI_THREAD_SINGLE: *provided_level = "MPI_THREAD_SINGLE"; break;
+      #endif
+      #ifdef MPI_THREAD_FUNNELED
+        case MPI_THREAD_FUNNELED: *provided_level = "MPI_THREAD_FUNNELED"; break;
+      #endif
+      #ifdef MPI_THREAD_SERIALIZED
+        case MPI_THREAD_SERIALIZED: *provided_level = "MPI_THREAD_SERIALIZED"; break;
+      #endif
+      #ifdef MPI_THREAD_MULTIPLE
+        case MPI_THREAD_MULTIPLE: *provided_level = "MPI_THREAD_MULTIPLE"; break;
+      #endif
+        default: *provided_level = "UNKNOWN VALUE";
+      }
+      return (provided >= required);
+    }
+  #else
+    *provided_level = "MPI-1 compatibility mode";
+    return 1;
+  #endif
 }
 /* ------------------------------------------------------------------------------------ */
 extern int AMMPI_SPMDStartup(int *argc, char ***argv,
