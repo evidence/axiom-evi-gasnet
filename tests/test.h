@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/test.h,v $
- *     $Date: 2006/11/28 02:55:16 $
- * $Revision: 1.107 $
+ *     $Date: 2006/12/18 21:22:44 $
+ * $Revision: 1.108 $
  * Description: helpers for GASNet tests
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -499,6 +499,10 @@ static void test_createandjoin_pthreads(int numthreads, void *(*start_routine)(v
       check_zeroret(pthread_mutex_lock(&barrier_mutex[myphase]));
       barrier_count++;
       if (barrier_count < local_pthread_count) {
+	/* CAUTION: changing the "do-while" to a "while" triggers a bug in the SunStudio 2006-08
+         * compiler for x86_64.  See http://upc-bugs.lbl.gov/bugzilla/show_bug.cgi?id=1858
+         * which includes a link to Sun's own database entry for this issue.
+         */
         do {
           check_zeroret(pthread_cond_wait(&barrier_cond[myphase], &barrier_mutex[myphase]));
         } while (myphase == phase);
