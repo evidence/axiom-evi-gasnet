@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/12/16 07:51:56 $
-# $Revision: 1.434 $
+#     $Date: 2006/12/19 04:05:06 $
+# $Revision: 1.435 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.434 $)
+AC_REVISION($Revision: 1.435 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2258,20 +2258,29 @@ if test "$enabled_vapi" = yes; then
   AC_MSG_RESULT($have_vapi)
 
   if test "$have_vapi" = yes; then
-    AC_MSG_CHECKING(for VAPI FMR support)
-    GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
-    GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
-    AC_TRY_LINK( [
-      #include <vapi.h>
-      #include <evapi.h>
-    ], [{
-      VAPI_hca_hndl_t my_hca;
-      EVAPI_fmr_hndl_t handles[1];
-      EVAPI_unmap_fmr(my_hca, 1, handles);
-    }], [ AC_DEFINE(HAVE_VAPI_FMR)
-          AC_MSG_RESULT(yes) ], [ AC_MSG_RESULT(no) ] )
-    GASNET_POPVAR(CFLAGS)
-    GASNET_POPVAR(LIBS)
+    GASNET_IF_ENABLED_WITH_AUTO(vapi-fmr, support/use VAPI Fast Memory Regions (default is to probe),
+                 [enabled_vapi_fmr="yes"], [enabled_vapi_fmr="no"], [enabled_vapi_fmr="try"])
+    if test "$enabled_vapi_fmr" != no; then
+      AC_MSG_CHECKING(for VAPI FMR support)
+      GASNET_PUSHVAR(CFLAGS,"$CFLAGS -I$VAPI_INCLUDE $GASNET_THREAD_DEFINES $VAPI_LIBCFLAGS")
+      GASNET_PUSHVAR(LIBS,"$LIBS -L$VAPI_LIBDIR $VAPI_LIBS $GASNET_THREAD_LIBS")
+      AC_TRY_LINK( [
+        #include <vapi.h>
+        #include <evapi.h>
+      ], [{
+        VAPI_hca_hndl_t my_hca;
+        EVAPI_fmr_hndl_t handles[1];
+        EVAPI_unmap_fmr(my_hca, 1, handles);
+      }], [ have_vapi_fmr="yes" ], [ have_vapi_fmr="no" ])
+      GASNET_POPVAR(CFLAGS)
+      GASNET_POPVAR(LIBS)
+      AC_MSG_RESULT($have_vapi_fmr)
+      if test "$have_vapi_fmr" = yes; then
+        AC_DEFINE(HAVE_VAPI_FMR)
+      elif test "$enabled_vapi_fmr" = yes; then
+        AC_MSG_ERROR(User requested --enable-vapi-fmr but support was not found.)
+      fi
+    fi
 
     # Collect IB-specifc configure options
     GASNET_IB_OPTIONS(VAPI)
