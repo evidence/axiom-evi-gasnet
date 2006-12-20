@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/contrib/Attic/gasnetrun_vapi.pl,v $
-#     $Date: 2006/12/15 22:54:29 $
-# $Revision: 1.6 $
+#     $Date: 2006/12/20 22:53:23 $
+# $Revision: 1.7 $
 # Description: GASNet VAPI and IBV spawner
 # Terms of use are as specified in license.txt
 
@@ -22,6 +22,7 @@ my $nodefile = $ENV{'GASNET_NODEFILE'} || $ENV{'PBS_NODEFILE'};
 my @tmpfiles = (defined($nodefile) && $ENV{'GASNET_RM_NODEFILE'}) ? ("$nodefile") : ();
 my $spawner = $ENV{'GASNET_IB_SPAWNER'};
 my $conduit = $ENV{'GASNET_IB_CONDUIT'};
+my $wrapper = undef;
 
 sub usage
 {
@@ -159,7 +160,10 @@ sub fullpath($)
 	if ($found) {
 	    if ($exeindex > 1) { # wrapper in use
 		$arg = $file;	# canonicalize (foreach is by reference)
-		print "gasnetrun: located GASNet executable '$file'\n" if ($verbose);
+		$wrapper = join ' ',
+				map { s/'/'\\''/g; "'".$_."'"; }
+				    splice @ARGV, 0, $exeindex-1;
+		print "gasnetrun: located GASNet executable '$file' (wrapper: $wrapper)\n" if ($verbose);
 	    }
 	    last;
 	} elsif ($is_gasnet) {
@@ -182,10 +186,11 @@ sub fullpath($)
     } elsif ($spawner eq 'SSH') {
 	my @extra_args = grep { defined($_); } ('-GASNET-SPAWN-master',
 						$verbose ? '-v' : undef,
+						$wrapper ? ('-W'.$wrapper) : undef,
 						"$numproc" . ($numnode ? ":$numnode" : ''),
 						'--');
 	my @cmd = @ARGV;
-	splice @cmd, $exeindex, 0, @extra_args;
+	splice @cmd, 1, 0, @extra_args;
 	print("gasnetrun: running: ", join(' ', @cmd), "\n") if ($verbose);
 	unless ($dryrun) { exec(@cmd) or die "failed to exec $exebase\n"; }
     } else {
