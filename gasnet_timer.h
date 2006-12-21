@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/12/09 11:16:32 $
- * $Revision: 1.78 $
+ *     $Date: 2006/12/21 21:17:44 $
+ * $Revision: 1.79 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -319,7 +319,7 @@ GASNETI_BEGIN_EXTERNC
         Tick = 1.0E9 / cpuspeed;
      #elif PLATFORM_OS_OPENBSD
         int MHz = 0;
-        int len = sizeof(MHz);
+        size_t len = sizeof(MHz);
         int mib[2];
         mib[0] = CTL_HW;
         mib[1] = HW_CPUSPEED;
