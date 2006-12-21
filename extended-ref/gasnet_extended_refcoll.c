@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/extended-ref/gasnet_extended_refcoll.c,v $
- *     $Date: 2006/11/28 01:59:55 $
- * $Revision: 1.63 $
+ *     $Date: 2006/12/21 00:25:52 $
+ * $Revision: 1.64 $
  * Description: Reference implemetation of GASNet Collectives
  * Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -261,6 +261,7 @@ void gasnete_coll_validate(gasnet_team_handle_t team,
     if_pf (GASNETE_COLL_HANDLE_DONE(handle)) {
       gasnete_coll_threaddata_t *td = GASNETE_COLL_MYTHREAD_NOALLOC;
       GASNETE_COLL_HANDLE_NEXT(handle) = td->handle_freelist;
+      td->handle_freelist = handle;
       result = 1;
     }
 
