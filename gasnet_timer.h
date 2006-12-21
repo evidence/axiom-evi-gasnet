@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_timer.h,v $
- *     $Date: 2006/12/21 21:17:44 $
- * $Revision: 1.79 $
+ *     $Date: 2006/12/21 21:40:58 $
+ * $Revision: 1.80 $
  * Description: GASNet Timer library (Internal code, not for client use)
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -312,7 +312,7 @@ GASNETI_BEGIN_EXTERNC
         Tick = 1000.0 / __cpu_mhz;
      #elif PLATFORM_OS_FREEBSD
         int64_t cpuspeed = 0;
-        int len = sizeof(cpuspeed);
+        size_t len = sizeof(cpuspeed);
         if (sysctlbyname("machdep.tsc_freq", &cpuspeed, &len, NULL, 0) == -1) 
           gasneti_fatalerror("*** ERROR: Failure in sysctlbyname('machdep.tsc_freq')=%s",strerror(errno));
         gasneti_assert(cpuspeed > 1E6 && cpuspeed < 1E11); /* ensure it looks reasonable */
