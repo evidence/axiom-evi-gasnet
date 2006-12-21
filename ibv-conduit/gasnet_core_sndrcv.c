@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/12/16 01:17:40 $
- * $Revision: 1.213 $
+ *     $Date: 2006/12/21 08:50:30 $
+ * $Revision: 1.214 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -70,6 +70,7 @@ int					gasnetc_amrdma_max_peers;
 size_t					gasnetc_amrdma_limit;
 int					gasnetc_amrdma_depth;
 int					gasnetc_amrdma_slot_mask;
+gasneti_weakatomic_val_t		gasnetc_amrdma_cycle;
 
 /* ------------------------------------------------------------------------------------ *
  *  File-scoped types                                                                   *
@@ -459,6 +460,151 @@ void gasnetc_rcv_post(gasnetc_cep_t *cep, gasnetc_rbuf_t *rbuf) {
   } else {
     /* unexpected error */
     GASNETC_VAPI_CHECK(vstat, "while posting a receive work request");
+  }
+}
+
+/* gasnetc_do_select
+ * See http://en.wikipedia.org/wiki/Selection_algorithm
+ * For an overview of algorithms for the Selection problem.
+ * Given that gasnetc_amrdma_max_peers is "small", we are ignoring all the good
+ * "order statistic" stuff and performing a simple in-place Shell sort under the
+ * assumption that the number of peers that passed the floor filter is small
+ * enough not to warrant anything more complex.
+ * For more on Shell sort see (http://en.wikipedia.org/wiki/Shell_sort) 
+ * XXX: for large enough 'size' we should switch algorithms
+ */
+static void gasnetc_shell_sort_inner(gasnetc_amrdma_balance_tbl_t *A, int size, int step) {
+  int i;
+
+  #define SORT_CMP(X,Y) ((X).count <= (Y).count)
+
+  for (i = step; i < size; ++i) {
+    gasnetc_amrdma_balance_tbl_t tmp = A[i];
+    int j;
+    for (j = i; ((j >= step) && SORT_CMP(A[j-step], tmp)); j -= step) {
+      A[j] = A[j - step];
+    }
+    A[j] = tmp;
+  }
+}
+static void gasnetc_do_select(gasnetc_hca_t *hca, int size) {
+  struct gasnetc_amrdma_balance_tbl_t_ *A = hca->amrdma_balance.table;
+  if (size >= 93) gasnetc_shell_sort_inner(A, size, 31);
+  if (size >= 51) gasnetc_shell_sort_inner(A, size, 17);
+  if (size >= 27) gasnetc_shell_sort_inner(A, size, 9);
+  if (size >= 15) gasnetc_shell_sort_inner(A, size, 5);
+  if (size >= 9) gasnetc_shell_sort_inner(A, size, 3);
+  gasnetc_shell_sort_inner(A, size, 1);
+}
+
+static void gasnetc_amrdma_grant(gasnetc_hca_t *hca, gasnetc_cep_t *cep) {
+  gasneti_assert(cep->amrdma_loc == NULL);
+
+  GASNETI_TRACE_PRINTF(C,("AMRDMA_GRANT_SND to node=%d qp=%d\n", (int)gasnetc_epid2node(cep->epid), (int)gasnetc_epid2qpi(cep->epid)-1));
+
+  cep->amrdma_loc = gasneti_lifo_pop(&hca->amrdma_freelist);
+  if (cep->amrdma_loc != NULL) {
+    int count;
+    int i;
+
+    for (i = 0; i < gasnetc_amrdma_depth; ++i) {
+      gasnetc_amrdma_hdr_t *hdr = (gasnetc_amrdma_hdr_t *)cep->amrdma_loc[i];
+      hdr->length       = hdr->zeros       = 0;
+      hdr->length_again = hdr->zeros_again = ~0;
+      gasneti_assert(gasneti_count0s(hdr, GASNETC_AMRDMA_SZ) == (GASNETC_AMRDMA_SZ - 4));
+#if GASNETI_THREADS
+      gasneti_weakatomic_set(&cep->amrdma.recv_busy[i].spinlock, 0, 0);
+#endif
+    }
+
+    count = gasneti_weakatomic_read(&hca->amrdma_rcv.count, 0);
+    gasneti_assert(count < hca->total_qps);
+    gasneti_assert(count < hca->amrdma_rcv.max_peers);
+    hca->amrdma_rcv.cep[count] = cep;
+    gasneti_weakatomic_set(&hca->amrdma_rcv.count, count+1, GASNETI_ATOMIC_REL);
+
+    GASNETI_SAFE(
+	SHORT_REQ(3,4,(gasnetc_epid2node(cep->epid), gasneti_handleridx(gasnetc_amrdma_grant_reqh),
+		       (gasnet_handlerarg_t)gasnetc_epid2qpi(cep->epid),
+		       (gasnet_handlerarg_t)hca->amrdma_reg.rkey,
+		       PACK(cep->amrdma_loc))));
+  }
+}
+
+void gasnetc_amrdma_eligable(gasnetc_cep_t *cep) {
+  gasnetc_hca_t * const hca = cep->hca;
+  gasneti_weakatomic_val_t interval = gasneti_weakatomic_add(&hca->amrdma_balance.count, 1, 0);
+
+  gasneti_weakatomic_increment(&cep->amrdma.eligable, 0);
+
+  if_pf (!(interval & hca->amrdma_balance.mask) && !gasneti_spinlock_trylock(&hca->amrdma_balance.lock)) {
+    /* GASNETC_AMRDMA_REDUCE(X) is amount by which ALL counts X are reduced each round */
+    #define GASNETC_AMRDMA_REDUCE(X)		((X)>>1)
+    /* GASNETC_AMRDMA_BOOST(FLOOR) is amount by which SELECTED counts X are boosted */
+    #define GASNETC_AMRDMA_BOOST(FLOOR)	((FLOOR)>>1)
+
+    gasnetc_amrdma_balance_tbl_t *tbl = hca->amrdma_balance.table;
+    int tbl_size = 0;
+    int i;
+
+    /* Pass 1: Collect all peers w/ counts >= floor, while also "decaying" the counters.
+     * This is the only part that should be O(gasnet_nodes) on average.
+     */
+    for (i = 0; i < hca->total_qps; ++i) {
+      gasneti_weakatomic_val_t x, y;
+
+      cep = hca->cep[i];
+      x = gasneti_weakatomic_read(&cep->amrdma.eligable, 0);
+      y = GASNETC_AMRDMA_REDUCE(x);
+      gasneti_weakatomic_subtract(&cep->amrdma.eligable, y, 0);
+
+      if (x >= hca->amrdma_balance.floor) {
+        tbl[tbl_size].count = x - y;
+        tbl[tbl_size].cep = cep;
+        tbl_size++;
+      }
+    }
+
+    /* Pass 2: "Select" the top hca->amrdma_rcv.max_peers peers and
+     * find the new floor (the min count from among the selected peers).
+     */
+    if (tbl_size > hca->amrdma_rcv.max_peers) {
+      gasnetc_do_select(hca, tbl_size);
+      tbl_size = hca->amrdma_rcv.max_peers;
+      /* XXX: we know the current selection mechanism will leave the table sorted. */
+      hca->amrdma_balance.floor = tbl[tbl_size-1].count + GASNETC_AMRDMA_BOOST(tbl[tbl_size-1].count);
+    } else if (tbl_size == hca->amrdma_rcv.max_peers) {
+      /* "select" the entire table, and find MIN for new floor */
+      gasneti_weakatomic_val_t new_floor = tbl[0].count;
+      for (i = 1; i < tbl_size; ++i) {
+        new_floor = MIN(new_floor, tbl[i].count);
+      }
+      hca->amrdma_balance.floor = new_floor + GASNETC_AMRDMA_BOOST(new_floor);
+    } else {
+      /* "select" the entire table, but leave the floor unchanged */
+    }
+
+    /* Pass 3:
+     * + Grant any newly selected peers
+     * + "Boost" the selected peers to encourage re-selection on the next pass
+     */
+    {
+      gasneti_weakatomic_val_t boost = GASNETC_AMRDMA_BOOST(hca->amrdma_balance.floor);
+      for (i = 0; i < tbl_size; ++i) {
+        cep = tbl[i].cep;
+        if (!cep->amrdma_loc) {
+          gasnetc_amrdma_grant(hca, cep);
+        }
+        gasneti_weakatomic_add(&cep->amrdma.eligable, boost, 0);
+      }
+    }
+
+    if (gasneti_weakatomic_read(&hca->amrdma_rcv.count, 0) == hca->amrdma_rcv.max_peers) {
+      /* Disable this logic if the limit has been reached (since we lack REVOKE)*/
+      return; /* YES - we really mean to return w/o unlocking */
+    }
+
+    gasneti_spinlock_unlock(&hca->amrdma_balance.lock);
   }
 }
 
@@ -941,11 +1087,6 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
   gasnetc_rbuf_t *spare;
 
   GASNETC_STAT_EVENT(RCV_AM_SNDRCV);
-#if 0
-  if (comp->byte_len <= gasnetc_amrdma_limit) {
-    gasneti_weakatomic_increment(&cep->amrdma.eligable, 0);
-  }
-#endif
 
   if (GASNETC_MSG_ISREPLY(flags)) {
 #if GASNETI_STATS_OR_TRACE
@@ -997,6 +1138,10 @@ void gasnetc_rcv_am(const gasnetc_wc_t *comp, gasnetc_rbuf_t **spare_p) {
     if_pf (!spare) {
       gasneti_free((void *)(uintptr_t)emergency_spare.rr_sg.addr);
     }
+  }
+
+  if ((comp->byte_len <= gasnetc_amrdma_limit) && gasneti_attach_done && gasnetc_amrdma_max_peers) {
+    gasnetc_amrdma_eligable(cep);
   }
 }
 
@@ -1113,9 +1258,6 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
   gasneti_weakatomic_increment(&cep->amrdma.recv_head, 0);
 #endif
 
-#if 0
-  gasneti_weakatomic_increment(&cep->amrdma.eligable, 0);
-#endif
   GASNETC_STAT_EVENT(RCV_AM_RDMA);
 
   rbuf.cep = cep;
@@ -1170,13 +1312,16 @@ int gasnetc_rcv_amrdma(gasnetc_cep_t *cep) {
     gasnetc_hidden_ack(&rbuf, cep);
   }
   
+  gasneti_assert(gasneti_attach_done && gasnetc_amrdma_max_peers);
+  gasnetc_amrdma_eligable(cep);
+
   return 1;
 }
 
 GASNETI_INLINE(gasnetc_poll_rcv_hca)
 void gasnetc_poll_rcv_hca(gasnetc_hca_t *hca, int limit) {
   static int prev = 0;	/* NOTE: bug 1586 work-around requires the volatile casts */
-  int count = hca->amrdma_rcv.count;
+  int count = gasneti_weakatomic_read(&hca->amrdma_rcv.count, 0);
   int limit2 = count + 1;
 
   /* BUG1652: full solution may require more atomicity when the polling set is changing? */
@@ -2944,9 +3089,9 @@ extern int gasnetc_sndrcv_init(void) {
 #endif
       
       /* Initialize resources for AM-over-RDMA */
-      hca->amrdma_rcv.count = 0;
+      gasneti_weakatomic_set(&hca->amrdma_rcv.count, 0, 0);
       if (gasnetc_amrdma_max_peers) {
-	const gasnet_node_t max_peers = MIN(hca->total_qps, gasnetc_amrdma_max_peers);
+	const int max_peers = hca->amrdma_rcv.max_peers;
 	size_t alloc_size = max_peers * (gasnetc_amrdma_depth << GASNETC_AMRDMA_SZ_LG2);
 	void *buf = gasneti_mmap(alloc_size);
 
@@ -2969,6 +3114,12 @@ extern int gasnetc_sndrcv_init(void) {
 	}
 
         hca->amrdma_rcv.cep = gasneti_calloc(max_peers, sizeof(gasnetc_cep_t *));
+
+        gasneti_weakatomic_set(&hca->amrdma_balance.count, 0, 0);
+        hca->amrdma_balance.mask = gasnetc_amrdma_cycle ? (gasnetc_amrdma_cycle - 1) : 0;
+        gasneti_spinlock_init(&hca->amrdma_balance.lock);
+        hca->amrdma_balance.floor = 1;
+        hca->amrdma_balance.table = gasneti_calloc(hca->total_qps, sizeof(gasnetc_amrdma_balance_tbl_t));
       }
     }
   }
@@ -3072,9 +3223,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       cep->amrdma.ack_bits = 0;
       cep->amrdma.recv_tail = 0;
 #endif
-#if 0
       gasneti_weakatomic_set(&cep->amrdma.eligable, 0, 0);
-#endif
       cep->amrdma_loc = NULL;
 
       /* Prepost one rcv buffer for each possible incomming request */
@@ -3099,6 +3248,7 @@ extern void gasnetc_sndrcv_init_peer(gasnet_node_t node) {
       gasneti_semaphore_init(&cep->am_loc, 0, 0);
       gasneti_weakatomic_set(&cep->am_flow.credit, 0, 0);
       gasneti_weakatomic_set(&cep->am_flow.ack, 0, 0);
+      gasneti_weakatomic_set(&cep->amrdma.eligable, 0, 0);
       cep->amrdma_loc = NULL;
     }
   }
