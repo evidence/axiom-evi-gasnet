@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_asm.h,v $
- *     $Date: 2006/09/14 15:50:33 $
- * $Revision: 1.117 $
+ *     $Date: 2006/12/30 10:18:39 $
+ * $Revision: 1.118 $
  * Description: GASNet header for semi-portable inline asm support
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -15,6 +15,7 @@
 
 #include "portable_platform.h"
 
+#define GASNETI_ASM_AVAILABLE 1
 #if PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_INTEL || PLATFORM_COMPILER_PATHSCALE || \
     PLATFORM_COMPILER_TINY 
   #define GASNETI_ASM(mnemonic) __asm__ __volatile__ (mnemonic : : : "memory")
@@ -67,6 +68,7 @@
       #define GASNETI_ASM(mnemonic)  asm(mnemonic)
     #else /* Sun C++ on Solaris lacks inline assembly support (man inline) */
       #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL /* not supported or used */
+      #undef GASNETI_ASM_AVAILABLE
     #endif
   #else /* Sun C */
     #define GASNETI_ASM(mnemonic)  __asm(mnemonic)
@@ -79,6 +81,7 @@
       PLATFORM_COMPILER_CRAY || PLATFORM_COMPILER_MTA || PLATFORM_COMPILER_LCC
   /* platforms where inline assembly not supported or used */
   #define GASNETI_ASM(mnemonic)  ERROR_NO_INLINE_ASSEMBLY_AVAIL 
+  #undef GASNETI_ASM_AVAILABLE
 #else
   #error "Don't know how to use inline assembly for your compiler"
 #endif
