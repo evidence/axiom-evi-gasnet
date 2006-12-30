@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2006/12/19 04:05:06 $
-# $Revision: 1.435 $
+#     $Date: 2006/12/30 10:17:01 $
+# $Revision: 1.436 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.435 $)
+AC_REVISION($Revision: 1.436 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2415,6 +2415,14 @@ if test "$enabled_portals" = yes; then
   fi
   if test "$gasnet_cv_cc_family" != GNU; then
     # bug 1584 - non-GNU compilers don't support portals until PE v1.5
+    if test -z "$XTOS_VERSION" ; then
+      for val in "$PE_DIR" "$PRGENV_DIR" "$OS_DIR" "$CATAMOUNT_DIR" ; do
+        XTOS_VERSION=`echo "$val" | $PERL -ne 'if (/([[0-9]]+\.[[0-9]]+(?:\.[[0-9]]+)?)/) { print \$1; }'`
+        if test -n "$XTOS_VERSION" ; then
+	  break
+        fi
+      done
+    fi
     if test `echo $XTOS_VERSION | awk -F. '{ if ($1 < 1 || ($1 == 1 && $2 < 5)) print "no"; else print "yes"; }'` = "no"; then
       GASNET_MSG_WARN([portals-conduit requires the GNU GCC compiler (PrgEnv-gnu) in PE versions prior to 1.5)])
       have_portals=no
