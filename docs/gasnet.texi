@@ -1,8 +1,8 @@
 \input texinfo   @c -*-texinfo-*-
 @c %**start of header
 @c   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/docs/gasnet.texi,v $
-@c     $Date: 2006/11/01 23:11:41 $
-@c $Revision: 1.41 $
+@c     $Date: 2007/01/05 22:35:06 $
+@c $Revision: 1.42 $
 @c Description: GASNet specification
 @c Copyright 2004, Dan Bonachea <bonachea@cs.berkeley.edu>
 @c Terms of use are as specified in license.txt
@@ -36,6 +36,14 @@
 \advance\leftskip by \defbodyindent
 \exdentamount=\defbodyindent
 \begingroup\obeylines\activeparens\spacesplit{#3{#4}}}
+
+% ensure we get correct paper size, despite screwy DVI distributions
+%\setlength{\paperwidth}{8.5in}
+%\setlength{\paperheight}{11in}
+\ifpdf
+\pdfpagewidth=8.5in
+\pdfpageheight=11in
+\fi
 
 \globaldefs = 0
 @end tex
@@ -164,9 +172,9 @@ Published by LBNL FTG and U.C. Berkeley
 @title GASNet Specification
 @subtitle Version @value{VERSION}
 @subtitle Released @value{RELEASEDATE}
-@subtitle $Date: 2006/11/01 23:11:41 $
+@subtitle $Date: 2007/01/05 22:35:06 $
 @subtitle Printed @today{}
-@subtitle $Revision: 1.41 $ 
+@subtitle $Revision: 1.42 $ 
 @author Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @uref{http://gasnet.cs.berkeley.edu/}
 
@@ -204,8 +212,8 @@ This the GASNet specification, version @value{VERSION}.
 @ifset HTMLORTEXT
 Version @value{VERSION}
 @*Released @value{RELEASEDATE}
-@*$Date: 2006/11/01 23:11:41 $
-@*$Revision: 1.41 $ 
+@*$Date: 2007/01/05 22:35:06 $
+@*$Revision: 1.42 $ 
 @ifnothtml
 @*Editor: Dan Bonachea @email{bonachea@@cs.berkeley.edu}
 @end ifnothtml
