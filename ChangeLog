@@ -1,6 +1,27 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.14 $
+$Revision: 1.15 $
+
+----------------------------------------------------------------------
+?-?-? : Release ?.?
+
+* New conduits added:
+  - ibv-conduit: High-performance conduit using the OpenIB communication
+    interface on InfiniBand hardware.
+
+* New platform support:
+  - New ports: CrayXT/Linux, K42/PPC64, OpenBSD/x86, SunC/Linux
+
+* Misc changes:  
+  - Many, many bug fixes, for both specific conduits and general platform
+    portability. See http://upc-bugs.lbl.gov for complete details.    
+
+* InfiniBand/VAPI:
+  - New AM-over-RDMA optimization significantly improves performance of small AMs
+
+* CrayXT/Portals:
+  - portals-conduit now works with PrgEnv-PGI, starting with Cray PE 1.5
+  - support has been added for compute-node Linux 
 
 ----------------------------------------------------------------------
 11-02-2006 : Release 1.8
