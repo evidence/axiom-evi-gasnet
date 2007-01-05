@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/Makefile.am,v $
-#     $Date: 2006/12/15 22:56:11 $
-# $Revision: 1.9 $
+#     $Date: 2007/01/05 10:40:28 $
+# $Revision: 1.10 $
 # Description: Makefile for GASNet portals conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -71,15 +71,24 @@ CONDUIT_TESTS =
 
 # -------- Do not modify anything below this line --------
 
-# DOB: uncomment the following lines to build the threaded libraries (not yet supported - bug 1868)
-threaded_libraries=
-#if HAVE_PTHREAD
-#libgasnet_portals_par_a_SOURCES =
-#libgasnet_portals_parsync_a_SOURCES =
-#threaded_libraries = libgasnet-portals-par.a libgasnet-portals-parsync.a
-#endif
+if BUILD_SEQ_LIBS
 libgasnet_portals_seq_a_SOURCES =
-libraries = libgasnet-portals-seq.a $(threaded_libraries)
+libraries_seq = libgasnet-portals-seq.a
+endif
+# DOB: change FALSE to TRUE to build the threaded libraries (not yet supported - bug 1868)
+if ALWAYS_FALSECOND
+if BUILD_PAR_LIBS
+libgasnet_portals_par_a_SOURCES =
+libraries_par = libgasnet-portals-par.a
+endif
+if BUILD_PARSYNC_LIBS
+libgasnet_portals_parsync_a_SOURCES =
+libraries_parsync = libgasnet-portals-parsync.a
+endif
+else
+CHECK_TEST_TARGET_OVERRIDE = tests-seq
+endif
+libraries = $(libraries_seq) $(libraries_par) $(libraries_parsync)
 
 include $(top_builddir)/other/Makefile-conduit.mak
 

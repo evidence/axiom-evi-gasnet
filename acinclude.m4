@@ -1,6 +1,6 @@
 dnl   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acinclude.m4,v $
-dnl     $Date: 2006/12/16 00:15:57 $
-dnl $Revision: 1.123 $
+dnl     $Date: 2007/01/05 10:40:06 $
+dnl $Revision: 1.124 $
 dnl Description: m4 macros
 dnl Copyright 2004,  Dan Bonachea <bonachea@cs.berkeley.edu>
 dnl Terms of use are as specified in license.txt
@@ -1966,7 +1966,7 @@ GASNET_FUN_BEGIN([$0($1)])
   if test ! -f $_subconfig_extract_file; then
      AC_MSG_ERROR([failed to open $_subconfig_extract_file - file not found])
   fi
-  _subconfig_extract_result=`$PERL -ne 'if (m/^s(.)\@('$2')\@\1([[^\1]]*)\1/) { print "[$]2='"'"'[$]3'"'"'"; }' $_subconfig_extract_file`
+  _subconfig_extract_result=`$PERL -ne 'if (m/^s(.)\@('$2')\@\1([[^\1]]*)\1/) { my ($var,$val) = ([$]2,[$]3); $val =~ s/\|#_!!_#\|//g; print "$var='"'"'$val'"'"'"; }' $_subconfig_extract_file`
   if test -n "$_subconfig_extract_result" ; then
     eval $_subconfig_extract_result
     AC_MSG_RESULT($[$2])

@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/Makefile.am,v $
-#     $Date: 2006/12/15 22:54:23 $
-# $Revision: 1.2 $
+#     $Date: 2007/01/05 10:40:17 $
+# $Revision: 1.3 $
 # Description: Makefile for GASNet ibv conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -110,13 +110,19 @@ CONDUIT_TESTS =
 
 # -------- Do not modify anything below this line --------
 
-if HAVE_PTHREAD
-libgasnet_ibv_par_a_SOURCES =
-libgasnet_ibv_parsync_a_SOURCES =
-threaded_libraries = libgasnet-ibv-par.a libgasnet-ibv-parsync.a
-endif
+if BUILD_SEQ_LIBS
 libgasnet_ibv_seq_a_SOURCES =
-libraries = libgasnet-ibv-seq.a $(threaded_libraries)
+libraries_seq = libgasnet-ibv-seq.a
+endif
+if BUILD_PAR_LIBS
+libgasnet_ibv_par_a_SOURCES =
+libraries_par = libgasnet-ibv-par.a
+endif
+if BUILD_PARSYNC_LIBS
+libgasnet_ibv_parsync_a_SOURCES =
+libraries_parsync = libgasnet-ibv-parsync.a
+endif
+libraries = $(libraries_seq) $(libraries_par) $(libraries_parsync)
 
 include $(top_builddir)/other/Makefile-conduit.mak
 

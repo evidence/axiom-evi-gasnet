@@ -1,7 +1,7 @@
 ## Process this file with automake to produce Makefile.in	-*- makefile -*-
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/Makefile.am,v $
-#     $Date: 2006/12/15 22:54:27 $
-# $Revision: 1.42 $
+#     $Date: 2007/01/05 10:40:40 $
+# $Revision: 1.43 $
 # Description: Makefile for GASNet vapi conduit
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Terms of use are as specified in license.txt
@@ -113,13 +113,19 @@ CONDUIT_TESTS =
 
 # -------- Do not modify anything below this line --------
 
-if HAVE_PTHREAD
-libgasnet_vapi_par_a_SOURCES =
-libgasnet_vapi_parsync_a_SOURCES =
-threaded_libraries = libgasnet-vapi-par.a libgasnet-vapi-parsync.a
-endif
+if BUILD_SEQ_LIBS
 libgasnet_vapi_seq_a_SOURCES =
-libraries = libgasnet-vapi-seq.a $(threaded_libraries)
+libraries_seq = libgasnet-vapi-seq.a
+endif
+if BUILD_PAR_LIBS
+libgasnet_vapi_par_a_SOURCES =
+libraries_par = libgasnet-vapi-par.a
+endif
+if BUILD_PARSYNC_LIBS
+libgasnet_vapi_parsync_a_SOURCES =
+libraries_parsync = libgasnet-vapi-parsync.a
+endif
+libraries = $(libraries_seq) $(libraries_par) $(libraries_parsync)
 
 include $(top_builddir)/other/Makefile-conduit.mak
 

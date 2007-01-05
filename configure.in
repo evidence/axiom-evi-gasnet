@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/01/05 08:09:35 $
-# $Revision: 1.437 $
+#     $Date: 2007/01/05 10:40:06 $
+# $Revision: 1.438 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.437 $)
+AC_REVISION($Revision: 1.438 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -50,6 +50,8 @@ AM_CONFIG_HEADER(gasnet_config.h)
 
 GASNET_START_CONFIGURE([AWK])
 GASNET_DEFINE_CONFIGURE_VARS([GASNETI])
+AM_CONDITIONAL(ALWAYS_TRUECOND, test -z "")
+AM_CONDITIONAL(ALWAYS_FALSECOND, test -n "")
 
 # Set gasnet_toolsonly_mode based on how we Bootstrapped
 gasnet_toolsonly_mode=no
@@ -78,7 +80,7 @@ AC_PROG_AWK
 #     default: support pthreads if library found
 #     --enable-pthreads: fail if pthreads lib not found 
 #     --disable-pthreads: don't even look for pthreads library 
-GASNET_IF_ENABLED_WITH_AUTO(pthreads, support pthreaded GASNet clients,
+GASNET_IF_ENABLED_WITH_AUTO(pthreads, [enable use of pthreads (required to support pthreaded GASNet clients)],
                  [use_pthreads="yes"], [use_pthreads="no"], [use_pthreads="try"])
 
 ########################################################################
@@ -691,31 +693,8 @@ if test "$GASNETI_PAGESIZE" != ""; then
   AC_DEFINE_UNQUOTED(GASNETI_PAGESHIFT,$GASNETI_PAGESHIFT)
 fi
 
-########################################################################
-##
-##  Cluster computing libraries
-##
-
 # -lm should only live in LIBM, and only if we have it (not in LIBS)
 GASNET_LIBM()
-
-GASNET_CHECK_LIB(ens, NameServer_Init, have_libens=yes, , -L/usr/lib ${with_ens:+-L$with_ens})
-AC_CHECK_LIB(glunix, Glib_Initialize, have_libglunix=yes, , -lsocket)
-
-AC_PATH_PROG(REXEC, $REXEC rexec, , $with_rexec:$PATH)
-
-AC_MSG_CHECKING(for Millennium rexec)
-# We're only interested in the Millennium version of rexec
-# the standard UNIX command 'rexec' has completely different behavior and is currently of no use to us
-if test -n "$REXEC" -a -n "`$REXEC 2> /dev/null | grep -- '-n #nodes'`"; then
-  have_rexec=yes
-  GASNET_REXEC_DEFINES="-DREXEC"
-  AC_MSG_RESULT(yes)
-else
-  have_rexec=no
-  GASNET_REXEC_DEFINES=""
-  AC_MSG_RESULT(no)
-fi
 
 #---------------------------------------------------------------------------------------------------------------
 # Machine defs
@@ -831,7 +810,6 @@ esac
 AC_SUBST(GASNET_MACHINE_DEFINES)
 AC_SUBST(GASNET_THREAD_DEFINES)
 AC_SUBST(GASNET_THREAD_LIBS)
-AC_SUBST(GASNET_REXEC_DEFINES)
 
 # Find the appropriate OS suffix for executables
 case "$target_os" in
@@ -868,6 +846,27 @@ if test "$use_pthreads$have_pthread" = "tryno" ; then
   GASNET_MSG_WARN([No working pthreads support found - disabling pthreads support])
   pthread_reason="appear to be missing or broken"
 fi
+GASNET_IF_ENABLED_WITH_AUTO(seq, [support SEQ-mode single=threaded GASNet clients],
+                 [build_seq_libs="yes"], [build_seq_libs="no"], [build_seq_libs="yes"])
+GASNET_IF_ENABLED_WITH_AUTO(par, [support PAR-mode pthreaded GASNet clients],
+                 [build_par_libs="yes"], [build_par_libs="no"], [build_par_libs="$have_pthread"])
+build_parsync_libs="no"
+dnl GASNET_TOOLSONLY_FALSE_BEGIN
+GASNET_IF_ENABLED_WITH_AUTO(parsync, [support PARSYNC-mode pthreaded GASNet clients],
+                 [build_parsync_libs="yes"], [build_parsync_libs="no"], [build_parsync_libs="$have_pthread"])
+dnl GASNET_TOOLSONLY_FALSE_END
+if test "$build_par_libs$have_pthread" = "yesno" ; then
+  AC_MSG_ERROR([--enable-par passed but no working pthreads support found])
+fi
+if test "$build_parsync_libs$have_pthread" = "yesno" ; then
+  AC_MSG_ERROR([--enable-parsync passed but no working pthreads support found])
+fi
+if test "$build_seq_libs$build_par_libs$build_parsync_libs" = "nonono" ; then
+  AC_MSG_ERROR([all libraries disabled by configure options!])
+fi
+AM_CONDITIONAL(BUILD_SEQ_LIBS, test "$build_seq_libs" = "yes")
+AM_CONDITIONAL(BUILD_PAR_LIBS, test "$build_par_libs" = "yes")
+AM_CONDITIONAL(BUILD_PARSYNC_LIBS, test "$build_parsync_libs" = "yes")
 
 GASNETI_CACHE_LINE_BYTES=""
 if test "$have_pthread" = no ; then
@@ -1207,8 +1206,18 @@ am__fastdepCXX_FALSE=
 CONDUITS=
 AC_SUBST(CONDUITS)
 # reporting file output at completion
-CONDUIT_LIST=.gasnet-conduit-list.tmp
+AC_DEFUN([CONDUIT_LIST_FILE], [
+  if test -n "$CONDUIT_LIST" ; then
+    CONDUIT_LIST_CLEAN=no
+  else
+    CONDUIT_LIST=.gasnet-conduit-list.tmp
+    CONDUIT_LIST_CLEAN=yes
+  fi
+])
+CONDUIT_LIST_FILE()
 echo > $CONDUIT_LIST
+echo "----------------------------------------------------------------------" >> $CONDUIT_LIST
+echo "GASNet configuration: " >> $CONDUIT_LIST
 dnl CONDUIT_BEGIN(lowername, desc)
 dnl sets enabled_<lowername> to yes or no for whether conduit should be enabled
 AC_DEFUN([CONDUIT_BEGIN],[
@@ -1511,9 +1520,11 @@ AC_SUBST(GASNET_UDP_LIBS)
 AM_CONDITIONAL(USE_UDP_CONDUIT, test "$enabled_udp$have_udp" = yesyes)
 CONDUIT_END([test "$enabled_udp$have_udp" = yesyes])
 
+if test "$have_udp" = yes ; then
 GASNET_ENV_DEFAULT(GASNET_CSPAWN_CMD, "$TI_CSPAWN_CMD")
 if test "$GASNET_CSPAWN_CMD" != "" ; then
   AC_DEFINE_UNQUOTED(GASNET_CSPAWN_CMD, "$GASNET_CSPAWN_CMD")
+fi
 fi
 
 #---------------------------------------------------------------------------------------------------------------
@@ -3148,6 +3159,7 @@ cat >>$CONDUIT_LIST <<EOF
   Pthreads support:       $have_pthread
 EOF
 fi
+echo "----------------------------------------------------------------------" >> $CONDUIT_LIST
 
 # Files added here should also be added to ./unBootstrap
 GASNET_END_CONFIGURE()
@@ -3219,12 +3231,14 @@ GASNET_SANITIZE_PACKAGE(gasnet_config.h)
 [ 
 GASNET_MSG_WARN_FINISH()
 CONDUIT_LIST=.gasnet-conduit-list.tmp
+CONDUIT_LIST_FILE()
 if test -f "$CONDUIT_LIST" ; then
-  echo "----------------------------------------------------------------------"
-  echo "GASNet configuration: "
-  cat $CONDUIT_LIST
-  echo "----------------------------------------------------------------------"
-  rm -f $CONDUIT_LIST
+  if test "$CONDUIT_LIST_SUPPRESS" != "yes" ; then
+    cat $CONDUIT_LIST
+  fi
+  if test "$CONDUIT_LIST_CLEAN" != "yes" ; then
+    rm -f $CONDUIT_LIST
+  fi
 fi
 ] , GASNET_FIX_EXEC_SETUP()
 )
