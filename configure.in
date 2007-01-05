@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/01/05 10:40:06 $
-# $Revision: 1.438 $
+#     $Date: 2007/01/05 11:14:51 $
+# $Revision: 1.439 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.438 $)
+AC_REVISION($Revision: 1.439 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1218,6 +1218,7 @@ CONDUIT_LIST_FILE()
 echo > $CONDUIT_LIST
 echo "----------------------------------------------------------------------" >> $CONDUIT_LIST
 echo "GASNet configuration: " >> $CONDUIT_LIST
+echo " " >> $CONDUIT_LIST
 dnl CONDUIT_BEGIN(lowername, desc)
 dnl sets enabled_<lowername> to yes or no for whether conduit should be enabled
 AC_DEFUN([CONDUIT_BEGIN],[
