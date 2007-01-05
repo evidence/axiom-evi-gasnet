@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/01/05 08:09:35 $
- * $Revision: 1.197 $
+ *     $Date: 2007/01/05 08:50:28 $
+ * $Revision: 1.198 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1227,9 +1227,17 @@ int gasnett_maximize_rlimits() {
 }
 int gasnett_maximize_rlimit(int res, const char *lim_desc) {
   int success = 0;
+  #ifdef __USE_GNU
+    /* workaround an annoying glibc header bug, which erroneously declares get/setrlimit to take 
+       the enum type __rlimit_resource_t, instead of int as required by POSIX */
+    #define RLIM_CALL(fnname,structname) (*((int (*)(int,structname*))&fnname))
+  #else
+    #define RLIM_CALL(fnname,structname) fnname
+  #endif
+
   #define SET_RLIMITS(structname, getrlimit, setrlimit) do {                                    \
     structname oldval,newval;                                                                   \
-    if (getrlimit(res, &oldval)) {                                                              \
+    if (RLIM_CALL(getrlimit,structname)(res, &oldval)) {                                        \
       GASNETT_TRACE_PRINTF("gasnett_maximize_rlimit: "#getrlimit"(%s) failed: %s",              \
                               lim_desc, strerror(errno));                                       \
     } else {                                                                                    \
@@ -1245,7 +1253,7 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
         sprintf(newvalstr, "%llu", (unsigned long long)newval.rlim_cur);                        \
       }                                                                                         \
       if (newval.rlim_cur != oldval.rlim_cur) {                                                 \
-        if (setrlimit(res, &newval)) {                                                          \
+        if (RLIM_CALL(setrlimit,structname)(res, &newval)) {                                    \
           GASNETT_TRACE_PRINTF("gasnett_maximize_rlimit:                                        \
             "#setrlimit"(%s, %s) failed: %s", lim_desc, newvalstr, strerror(errno));            \
         } else {                                                                                \
