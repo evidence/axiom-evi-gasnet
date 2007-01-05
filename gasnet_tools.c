@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2006/11/26 03:10:52 $
- * $Revision: 1.196 $
+ *     $Date: 2007/01/05 08:09:35 $
+ * $Revision: 1.197 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -37,6 +37,10 @@
 #endif
 #ifdef HAVE_UCONTEXT_H
   #include <ucontext.h>
+#endif
+
+#ifdef HAVE_SYS_RESOURCE_H
+#include <sys/resource.h>
 #endif
 
 #if PLATFORM_OS_IRIX
@@ -1191,6 +1195,76 @@ extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defau
   gasneti_format_number(defaultval, defstr, 80, mem_size_multiplier);
   _gasneti_getenv_withdefault(keyname, defstr, (mem_size_multiplier?3:2), &val);
   return val;
+}
+
+/* ------------------------------------------------------------------------------------ */
+/* Resource limit control */
+
+int gasnett_maximize_rlimits() {
+   int success = 1;
+   struct res_s { int res; const char *desc; } res[] = {
+    #ifdef RLIMIT_CPU
+      { RLIMIT_CPU, "RLIMIT_CPU" },
+    #endif
+    #ifdef RLIMIT_DATA
+      { RLIMIT_DATA, "RLIMIT_DATA" },
+    #endif
+    #ifdef RLIMIT_RSS
+      { RLIMIT_RSS, "RLIMIT_RSS" },
+    #endif
+    #ifdef RLIMIT_STACK
+      { RLIMIT_STACK, "RLIMIT_STACK" },
+    #endif
+    #ifdef RLIMIT_AS
+      { RLIMIT_AS, "RLIMIT_AS" },
+    #endif
+  };
+  size_t idx; 
+  for (idx = 0; idx < sizeof(res)/sizeof(struct res_s); idx++) {
+    success &= gasnett_maximize_rlimit(res[idx].res, res[idx].desc);
+  }
+  return success;
+}
+int gasnett_maximize_rlimit(int res, const char *lim_desc) {
+  int success = 0;
+  #define SET_RLIMITS(structname, getrlimit, setrlimit) do {                                    \
+    structname oldval,newval;                                                                   \
+    if (getrlimit(res, &oldval)) {                                                              \
+      GASNETT_TRACE_PRINTF("gasnett_maximize_rlimit: "#getrlimit"(%s) failed: %s",              \
+                              lim_desc, strerror(errno));                                       \
+    } else {                                                                                    \
+      char newvalstr[128];                                                                      \
+      newval = oldval;                                                                          \
+      if (newval.rlim_cur == RLIM_INFINITY ||                                                   \
+        newval.rlim_max == RLIM_INFINITY) {                                                     \
+        newval.rlim_cur = RLIM_INFINITY;                                                        \
+        strcpy(newvalstr, "RLIM_INFINITY");                                                     \
+      } else {                                                                                  \
+        gasneti_assert(newval.rlim_cur <= newval.rlim_max);                                     \
+        newval.rlim_cur = newval.rlim_max;                                                      \
+        sprintf(newvalstr, "%llu", (unsigned long long)newval.rlim_cur);                        \
+      }                                                                                         \
+      if (newval.rlim_cur != oldval.rlim_cur) {                                                 \
+        if (setrlimit(res, &newval)) {                                                          \
+          GASNETT_TRACE_PRINTF("gasnett_maximize_rlimit:                                        \
+            "#setrlimit"(%s, %s) failed: %s", lim_desc, newvalstr, strerror(errno));            \
+        } else {                                                                                \
+          GASNETT_TRACE_PRINTF("gasnett_maximize_rlimit:                                        \
+          "#setrlimit"(%s, %s) raised limit from %llu", lim_desc, newvalstr,                    \
+          (unsigned long long)oldval.rlim_cur);                                                 \
+          success = 1;                                                                          \
+        }                                                                                       \
+      }                                                                                         \
+    }                                                                                           \
+  } while (0)
+  #if defined(HAVE_GETRLIMIT) && defined(HAVE_SETRLIMIT)
+    SET_RLIMITS(struct rlimit, getrlimit, setrlimit);
+  #endif
+  /* do 64-bit second, to favor the potentially higher limits */
+  #if defined(HAVE_GETRLIMIT64) && defined(HAVE_SETRLIMIT64)
+    SET_RLIMITS(struct rlimit64, getrlimit64, setrlimit64);
+  #endif
+  return success;
 }
 
 /* ------------------------------------------------------------------------------------ */
