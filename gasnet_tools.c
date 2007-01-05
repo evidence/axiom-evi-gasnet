@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/01/05 08:50:28 $
- * $Revision: 1.198 $
+ *     $Date: 2007/01/05 09:01:15 $
+ * $Revision: 1.199 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1230,7 +1230,7 @@ int gasnett_maximize_rlimit(int res, const char *lim_desc) {
   #ifdef __USE_GNU
     /* workaround an annoying glibc header bug, which erroneously declares get/setrlimit to take 
        the enum type __rlimit_resource_t, instead of int as required by POSIX */
-    #define RLIM_CALL(fnname,structname) (*((int (*)(int,structname*))&fnname))
+    #define RLIM_CALL(fnname,structname) (*((int (*)(int,structname*))(void *)&fnname))
   #else
     #define RLIM_CALL(fnname,structname) fnname
   #endif
