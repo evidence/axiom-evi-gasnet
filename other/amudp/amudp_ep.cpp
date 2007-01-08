@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_ep.cpp,v $
- *     $Date: 2006/10/17 13:19:10 $
- * $Revision: 1.25 $
+ *     $Date: 2007/01/08 12:46:50 $
+ * $Revision: 1.26 $
  * Description: AMUDP Implementations of endpoint and bundle operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -20,7 +20,11 @@ amudp_handler_fn_t amudp_unused_handler = (amudp_handler_fn_t)&AMUDP_defaultAMHa
 amudp_handler_fn_t amudp_defaultreturnedmsg_handler = (amudp_handler_fn_t)&AMUDP_DefaultReturnedMsg_Handler;
 int AMUDP_VerboseErrors = 0;
 int AMUDP_PoliteSync = 0;
-int AMUDP_ExpectedBandwidth = AMUDP_DEFAULT_EXPECTED_BANDWIDTH;
+uint32_t AMUDP_ExpectedBandwidth = AMUDP_DEFAULT_EXPECTED_BANDWIDTH;
+uint32_t AMUDP_RequestTimeoutBackoff = AMUDP_REQUESTTIMEOUT_BACKOFF_MULTIPLIER;
+uint32_t AMUDP_MaxRequestTimeout_us = AMUDP_MAX_REQUESTTIMEOUT_MICROSEC;
+uint32_t AMUDP_InitialRequestTimeout_us = AMUDP_INITIAL_REQUESTTIMEOUT_MICROSEC;
+
 int AMUDP_SilentMode = 0; 
 AMUDP_IDENT(AMUDP_IdentString_Version, "$AMUDPLibraryVersion: " AMUDP_LIBRARY_VERSION_STR " $");
 #ifdef UETH
@@ -468,6 +472,7 @@ extern int AM_Init() {
         srand( (unsigned)time( NULL ) ); /* TODO: we should really be using a private rand num generator */
       }
     }
+
     #ifdef UETH
     { int retval = ueth_kill_link_on_signal(SIGUSR2);
       if (retval != UETH_OK)
@@ -754,6 +759,7 @@ extern int AM_GetTranslationName(ep_t ea, int i, en_t *gan) {
 }
 /* ------------------------------------------------------------------------------------ */
 extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_requests) {
+  static int firsttime = 1;
   AMUDP_CHECKINIT();
   if (!ea) AMUDP_RETURN_ERR(BAD_ARG);
   if (ea->depth != -1) AMUDP_RETURN_ERR(RESOURCE); /* it's an error to call AM_SetExpectedResources again */
@@ -795,6 +801,40 @@ extern int AM_SetExpectedResources(ep_t ea, int n_endpoints, int n_outstanding_r
   }
   #endif
 
+  if (firsttime) { /* set transfer parameters */
+    #define ENVINT_WITH_DEFAULT(var, name, validate) do { \
+        long val;                                         \
+        char defval[80];                                  \
+        const char *valstr;                               \
+        sprintf(defval, "%u", (unsigned int)var);         \
+        valstr = AMUDP_getenv_prefixed_withdefault(name,defval); \
+        if (valstr) {                                     \
+           val = atol(valstr);                            \
+           if ((int64_t)val != (int64_t)(int32_t)val)     \
+            AMUDP_FatalErr(name" setting too large!");    \
+           var = val;                                     \
+           validate;                                      \
+        }                                                 \
+      } while (0)
+
+    ENVINT_WITH_DEFAULT(AMUDP_MaxRequestTimeout_us, "REQUESTTIMEOUT_MAX",
+                        { if (val <= 0) AMUDP_MaxRequestTimeout_us = AMUDP_TIMEOUT_INFINITE; });
+    ENVINT_WITH_DEFAULT(AMUDP_InitialRequestTimeout_us, "REQUESTTIMEOUT_INITIAL",
+                        { if (val <= 0) AMUDP_InitialRequestTimeout_us = AMUDP_TIMEOUT_INFINITE; });
+    ENVINT_WITH_DEFAULT(AMUDP_RequestTimeoutBackoff, "REQUESTTIMEOUT_BACKOFF",
+                        { if (val <= 1) AMUDP_FatalErr("REQUESTTIMEOUT_BACKOFF must be > 1"); });
+    ENVINT_WITH_DEFAULT(AMUDP_ExpectedBandwidth, "EXPECTED_BANDWIDTH",
+                        { if (val < 1) AMUDP_FatalErr("EXPECTED_BANDWIDTH must be >= 1"); });
+    if (AMUDP_InitialRequestTimeout_us > AMUDP_MaxRequestTimeout_us) 
+       AMUDP_FatalErr("INITIAL_REQUESTTIMEOUT must not exceed MAX_REQUESTTIMEOUT");
+    #if 0
+      printf("AMUDP_MaxRequestTimeout_us=%08x\n",AMUDP_MaxRequestTimeout_us);
+      printf("AMUDP_InitialRequestTimeout_us=%08x\n",AMUDP_InitialRequestTimeout_us);
+      printf("AMUDP_RequestTimeoutBackoff=%08x\n",AMUDP_RequestTimeoutBackoff);
+      printf("AMUDP_ExpectedBandwidth=%08x\n",AMUDP_ExpectedBandwidth);
+    #endif
+    firsttime = 0;
+  }
   return AM_OK;
 }
 /*------------------------------------------------------------------------------------
