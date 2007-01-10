@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2007/01/10 11:32:48 $
- * $Revision: 1.107 $
+ *     $Date: 2007/01/10 22:54:46 $
+ * $Revision: 1.108 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -318,8 +318,8 @@ GASNETI_BEGIN_EXTERNC
 /* backtrace extensibility support */
 typedef struct {
   const char *name;        /* upper-case display name of backtrace function */
-  int (* const fnp)(int);   /* pointer to backtrace function */
-  const int threadsupport; /* does backtrace function handle threads correctly? 
+  int (* fnp)(int);   /* pointer to backtrace function */
+  int threadsupport; /* does backtrace function handle threads correctly? 
                               -ie backtrace the calling thread and optionally others as well */
 } gasnett_backtrace_type_t;
 gasnett_backtrace_type_t gasnett_backtrace_user;
