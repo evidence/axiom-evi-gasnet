@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/01/05 09:01:15 $
- * $Revision: 1.199 $
+ *     $Date: 2007/01/10 11:32:48 $
+ * $Revision: 1.200 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -675,12 +675,7 @@ static char gasneti_exename_bt[GASNETI_BT_PATHSZ];
 #endif
 
 /* table of known/detected backtrace mechanisms */
-static struct {
-  const char *name;        /* upper-case display name of backtrace function */
-  int (* const fnp)(int);   /* pointer to backtrace function */
-  const int threadsupport; /* does backtrace function handle threads correctly? 
-                              -ie backtrace the calling thread and optionally others as well */
-} gasneti_backtrace_mechanisms[] = {
+static gasnett_backtrace_type_t gasneti_backtrace_mechanisms[] = {
   #ifdef GASNETI_BT_LADEBUG
   { "LADEBUG", GASNETI_BT_LADEBUG, 1 },
   #endif
@@ -704,7 +699,7 @@ static struct {
   #endif
   { NULL, NULL, 0 } /* Avoids empty initializer and trailing commas */
 };
-static int const gasneti_backtrace_mechanism_count = /* excludes the NULL */
+static int gasneti_backtrace_mechanism_count = /* excludes the NULL */
    (sizeof(gasneti_backtrace_mechanisms)/sizeof(gasneti_backtrace_mechanisms[0])) - 1;
 
 static int gasneti_backtrace_isinit = 0;
@@ -719,6 +714,10 @@ extern void gasneti_backtrace_init(const char *exename) {
   strcpy(gasneti_exename_bt,tmp);
 
   gasneti_backtrace_userenabled = gasneti_getenv_yesno_withdefault("GASNET_BACKTRACE",0);
+
+  if (gasnett_backtrace_user.name && gasnett_backtrace_user.fnp) {
+    memcpy(&gasneti_backtrace_mechanisms[gasneti_backtrace_mechanism_count++], &gasnett_backtrace_user, sizeof(gasnett_backtrace_user));
+  }
 
   { static char btlist_def[255];
     int i, th;

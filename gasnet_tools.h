@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2006/10/30 04:48:38 $
- * $Revision: 1.106 $
+ *     $Date: 2007/01/10 11:32:48 $
+ * $Revision: 1.107 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -314,6 +314,15 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_threadkey_init(key)               gasneti_threadkey_init(key)
 #define gasnett_threadkey_get_noinit(key)         gasneti_threadkey_get_noinit(key)
 #define gasnett_threadkey_set_noinit(key,newval)  gasneti_threadkey_set_noinit(key,newval)
+
+/* backtrace extensibility support */
+typedef struct {
+  const char *name;        /* upper-case display name of backtrace function */
+  int (* const fnp)(int);   /* pointer to backtrace function */
+  const int threadsupport; /* does backtrace function handle threads correctly? 
+                              -ie backtrace the calling thread and optionally others as well */
+} gasnett_backtrace_type_t;
+gasnett_backtrace_type_t gasnett_backtrace_user;
 
 /* ------------------------------------------------------------------------------------ */
 /* GASNet tracing/stats support (automatically stubbed out when libgasnet absent) */
