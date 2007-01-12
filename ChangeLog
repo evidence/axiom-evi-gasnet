@@ -1,6 +1,6 @@
 GASNet ChangeLog 
 ----------------
-$Revision: 1.16 $
+$Revision: 1.17 $
 
 ----------------------------------------------------------------------
 ?-?-? : Release ?.?
@@ -14,6 +14,8 @@ $Revision: 1.16 $
 
 * Misc changes:  
   - Add backtrace extensibility to GASNet tools
+  - Add new features GASNET_FREEZE_SIGNAL and GASNET_BACKTRACE_SIGNAL
+    which allow a user to asynchronously freeze a process or print a backtrace
   - Many, many bug fixes, for both specific conduits and general platform
     portability. See http://upc-bugs.lbl.gov for complete details.    
 
