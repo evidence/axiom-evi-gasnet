@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/01/12 09:25:44 $
- * $Revision: 1.201 $
+ *     $Date: 2007/01/16 12:43:49 $
+ * $Revision: 1.202 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -467,7 +467,7 @@ static gasnett_siginfo_t gasneti_sigtable[] = {
     {SIGTHAW,    "SIGTHAW", "Check point Thaw", GASNETI_SV_OTHER},
   #endif
   #ifdef SIGCANCEL
-    {SIGCANCEL,  "SIGCANCEL", "Cancellation signal reserved by threads library", c},
+    {SIGCANCEL,  "SIGCANCEL", "Cancellation signal reserved by threads library", GASNETI_SV_OTHER},
   #endif
   {0, NULL, NULL, GASNETI_SV_OTHER}
 };
