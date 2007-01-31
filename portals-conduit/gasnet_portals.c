@@ -295,6 +295,7 @@ static void ReqSB_event(ptl_event_t *ev)
   gasnete_op_t *op;
   uint8_t *pdata, *q;
   void *dest;
+  ptl_size_t local_offset;
 
   msg_type = GASNETC_GET_MSG_TYPE(mbits);
   GASNETI_TRACE_PRINTF(C,("ReqSB event %s offset = %i, mbits = 0x%lx, msg_type = 0x%x",ptl_event_str[ev->type],(int)offset,(uint64_t)mbits,msg_type));
@@ -317,7 +318,8 @@ static void ReqSB_event(ptl_event_t *ev)
 	gasnete_threaddata_t *th = gasnete_threadtable[GASNETE_THREADID(threadid)];
 	gasneti_weakatomic_decrement(&(th->local_completion_count), 0);
       }
-      gasnetc_chunk_free(&gasnetc_ReqSB,offset);
+      local_offset = mbits>>32
+      gasnetc_chunk_free(&gasnetc_ReqSB,local_offset);
     }
 
     break;
@@ -334,7 +336,8 @@ static void ReqSB_event(ptl_event_t *ev)
     /* Get bouncing through ReqSB, copy to dest and complete */
     gasneti_assert(msg_type & GASNETC_PTL_MSG_GET);
     gasneti_weakatomic_decrement(&gasnete_putget_inflight, 0);
-    pdata = ((uint8_t*)ev->md.start + offset);
+    local_offset = (mbits >> 32);
+    pdata = ((uint8_t*)ev->md.start + local_offset);
     q = pdata - sizeof(void*);
     /* q points to location where real destination address is stored */
     dest = (void*)*(uintptr_t*)q;
@@ -342,8 +345,8 @@ static void ReqSB_event(ptl_event_t *ev)
                             (int)ev->mlength,(uintptr_t)pdata,(uintptr_t)dest));
     memcpy(dest,pdata,ev->mlength);
     /* free the bounce buffer */
-    offset -= sizeof(void*);
-    gasnetc_chunk_free(&gasnetc_ReqSB,offset);
+    local_offset -= sizeof(void*);
+    gasnetc_chunk_free(&gasnetc_ReqSB,local_offset);
     op = gasnete_opaddr_to_ptr(threadid, addr);
     /* mark the get (isget=1) operation complete */
     gasnete_op_markdone(op, 1);
