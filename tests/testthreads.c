@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/tests/testthreads.c,v $
- *     $Date: 2007/01/24 18:33:06 $
- * $Revision: 1.26 $
+ *     $Date: 2007/01/31 09:56:53 $
+ * $Revision: 1.27 $
  *
  * Description: GASNet threaded tester.
  *   The test initializes GASNet and forks off up to 256 threads.  Each of
@@ -183,13 +183,14 @@ main(int argc, char **argv)
         #else
           #define TEST_MPI_USAGE  ""
         #endif
-	test_init("testthreads",0, "[ -pgalvt ] [ -i <iters> ]"
-          #if GASNET_PAR
-            " [<threads_per_node>]\n\n"
+        #if GASNET_PAR
+          #define TEST_THREAD_USAGE " [<threads_per_node>]\n\n" \
 	    "<threads_per_node> must be between 1 and "_STRINGIFY(TEST_MAXTHREADS)"       \n"
-          #else
-            "\n\n"
-          #endif
+        #else
+          #define TEST_THREAD_USAGE  "\n\n"
+        #endif
+	test_init("testthreads",0, "[ -pgalvt ] [ -i <iters> ]"
+            TEST_THREAD_USAGE
 	    "no options means run all tests with "_STRINGIFY(DEFAULT_ITERS)" iterations\n"
 	    "options:                                      \n"
 	    "  -p  use puts                                   \n"
