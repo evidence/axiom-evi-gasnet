@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_extended.c,v $
- *     $Date: 2007/01/31 01:34:51 $
- * $Revision: 1.7 $
+ *     $Date: 2007/01/31 17:36:38 $
+ * $Revision: 1.8 $
  * Description: GASNet Extended API Reference Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -663,6 +663,7 @@ extern gasnet_handle_t gasnete_get_nb_bulk (void *dest, gasnet_node_t node, void
 
     /* encode gasnet handle into match bits, upper bits ignored */
     gasnete_set_mbits_lowbits(&match_bits, lbits, (gasnete_op_t*)op);
+    
     /* Determine destination MD for Ptl Get */
     if (gasnetc_in_local_rar(dest,nbytes)) {
       md_h = gasnetc_RARAM_md_h;
@@ -747,7 +748,6 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
       gasneti_weakatomic_increment(&gasnete_putget_inflight,0);
     }
 
-    gasnete_set_mbits_lowbits(&match_bits, lbits, (gasnete_op_t*)op);
 
     /* Determine destination MD for Ptl Put */
     if (gasnetc_in_local_rar(src,nbytes)) {
@@ -780,6 +780,8 @@ gasnet_handle_t gasnete_put_nb_inner(gasnet_node_t node, void *dest, void *src, 
       gasneti_weakatomic_increment(&(mythread->local_completion_count), 0);
       lbits |= GASNETC_PTL_MSG_DOLC;
     }
+
+    gasnete_set_mbits_lowbits(&match_bits, lbits, (gasnete_op_t*)op);
 
     /* encode gasnet handle into match bits, upper bits ignored */
     GASNETI_TRACE_PRINTF(C,("put_nb: match_bits = 0x%lx, locbuf = %s, local_off=%lld, remote_off=%lld, bytes=%i",(uint64_t)match_bits,locbuf_name[local_buf],(long long)local_offset,(long long)remote_offset,(int)nbytes));
@@ -1029,7 +1031,6 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
     }
 
     match_bits = 0ULL;
-    gasnete_set_mbits_lowbits(&match_bits, lbits, (gasnete_op_t*)op);
     /* Determine destination MD for Ptl Get */
     if (gasnetc_in_local_rar(src,toput)) {
       md_h = gasnetc_RARAM_md_h;
@@ -1065,6 +1066,8 @@ void gasnete_put_nbi_inner(gasnet_node_t node, void *dest, void *src, size_t nby
       GASNETI_TRACE_EVENT(C, PUT_NBI_TMPMD);
       SET_LOCBUF(local_buf,LOCBUF_TMP);
     }
+
+    gasnete_set_mbits_lowbits(&match_bits, lbits, (gasnete_op_t*)op);
 
     /* encode gasnet handle into match bits, upper bits ignored */
     GASNETI_TRACE_PRINTF(C,("put_nbi: match_bits = 0x%lx, locbuf = %s, local_off=%lld, remote_off=%lld, bytes=%i",(uint64_t)match_bits,locbuf_name[local_buf],(long long)local_offset,(long long)remote_offset,(int)nbytes));
