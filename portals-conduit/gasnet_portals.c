@@ -318,7 +318,7 @@ static void ReqSB_event(ptl_event_t *ev)
 	gasnete_threaddata_t *th = gasnete_threadtable[GASNETE_THREADID(threadid)];
 	gasneti_weakatomic_decrement(&(th->local_completion_count), 0);
       }
-      local_offset = mbits>>32
+      local_offset = mbits>>32;
       gasnetc_chunk_free(&gasnetc_ReqSB,local_offset);
     }
 
