@@ -12,6 +12,8 @@
 CC='cc -target=catamount' ; export CC  # vanilla target C compiler
 CXX='CC -target=catamount' ; export CXX  # vanilla target C++ compiler
 
+XTPE_INFO_MESSAGE_OFF=1 ; export XTPE_INFO_MESSAGE_OFF  # magic variable to disable Cray cc's target INFO warning
+
 # Host C compiler
 # NOTE: you may need to set GCC_EXEC_PREFIX=/usr/bin/ 
 # in your environment to get the correct assembler for gcc
