@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/01/31 04:35:20 $
-# $Revision: 1.440 $
+#     $Date: 2007/02/07 20:03:07 $
+# $Revision: 1.441 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.440 $)
+AC_REVISION($Revision: 1.441 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2443,19 +2443,26 @@ if test "$enabled_portals" = yes; then
   if test $have_portals = yes; then
     GASNET_PUSHVAR(CFLAGS,"$CFLAGS ${PORTALS_INCLUDES}")
   
+    AC_CHECK_HEADERS(pctmbox.h)
+
     AC_MSG_CHECKING(for working Portals configuration)
     AC_TRY_LINK( [
        #include <portals/portals3.h>
        #ifdef __LIBCATAMOUNT__
        #include <catamount/cnos_mpi_os.h>
-       #else /* CNL */
+       #elif HAVE_PCTMBOX_H /* old CNL */
        #include <pctmbox.h>
+       #else /* new CNL */
+         extern int cnos_get_rank();
+         extern int cnos_get_size();
+	 extern int cnos_get_nidpid_map(void *);
        #endif
     ], [{
        static ptl_handle_ni_t ptl_ni_h;
        static ptl_interface_t ptl_iface;
        int my_rank = cnos_get_rank();
        int my_size = cnos_get_size();
+       cnos_get_nidpid_map(NULL);
        PtlNIInit(ptl_iface, PTL_PID_ANY, NULL, NULL, &ptl_ni_h);
     }], [ portals_test_worked=yes ], [ portals_test_worked=no GASNET_ERR_SAVE() ] )
     GASNET_POPVAR(CFLAGS)

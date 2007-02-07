@@ -9,7 +9,21 @@
 /* Needed for bootstrap */
 #include <catamount/cnos_mpi_os.h>
 #elif PLATFORM_OS_CNL
-#include <pctmbox.h>
+   #if HAVE_PCTMBOX_H /* old CNL */
+      #include <pctmbox.h>
+   #else /* new CNL */
+     /* HACK: recreate the functions we need, as they've disappeared from the standard headers */
+     extern int cnos_get_rank();
+     extern int cnos_get_size();
+     extern int cnos_get_nidpid_map(void *);
+     typedef struct {
+         ptl_nid_t nid;
+         ptl_pid_t pid;
+         #ifdef STRIDER0
+           int port;
+         #endif
+     } cnos_nidpid_map_t;
+   #endif
 #else
 #error Unknown Portals OS
 #endif
