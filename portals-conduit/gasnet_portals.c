@@ -5,27 +5,23 @@
 #include <gasnet_handler.h>
 #include <gasnet_portals.h>
 
-#if PLATFORM_OS_CATAMOUNT
-/* Needed for bootstrap */
-#include <catamount/cnos_mpi_os.h>
-#elif PLATFORM_OS_CNL
-   #if HAVE_PCTMBOX_H /* old CNL */
-      #include <pctmbox.h>
-   #else /* new CNL */
-     /* HACK: recreate the functions we need, as they've disappeared from the standard headers */
-     extern int cnos_get_rank();
-     extern int cnos_get_size();
-     extern int cnos_get_nidpid_map(void *);
-     typedef struct {
-         ptl_nid_t nid;
-         ptl_pid_t pid;
-         #ifdef STRIDER0
-           int port;
-         #endif
-     } cnos_nidpid_map_t;
-   #endif
-#else
-#error Unknown Portals OS
+#if HAVE_CATAMOUNT_CNOS_MPI_OS_H /* catamount and new CNL */
+   #include <catamount/cnos_mpi_os.h>
+#elif HAVE_PCTMBOX_H /* old CNL */
+   #include <pctmbox.h>
+#else /* backup declarations, since these headers seem to be in flux */
+  extern int cnos_get_rank();
+  extern int cnos_get_size();
+  extern int cnos_get_nidpid_map(void *);
+  typedef struct {
+      ptl_nid_t nid;
+      ptl_pid_t pid;
+      #ifdef STRIDER0
+        int port;
+      #endif
+  } cnos_nidpid_map_t;
+  extern void cnos_barrier_init(ptl_handle_ni_t ni_handle); /* NOOP function on Catamount */
+  extern int cnos_barrier(void);
 #endif
 
 /* We keep a pool of Request receive buffers on a linked match-list.
