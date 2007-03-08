@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core_sndrcv.c,v $
- *     $Date: 2006/12/21 08:50:30 $
- * $Revision: 1.214 $
+ *     $Date: 2007/03/08 00:43:11 $
+ * $Revision: 1.215 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -797,7 +797,7 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
 		   : gasnetc_poll_snd_cq(hca, comp);
     CQ_UNLOCK;
     if (vstat != 0) {
-      comp->status = -1; /* last pass */
+      comp->status = (enum ibv_wc_status)(-1); /* invalid value to flag last pass */
     }
     if (comp->status == status) {
       ++count;
@@ -1601,7 +1601,8 @@ void gasnetc_snd_post_common(gasnetc_sreq_t *sreq, gasnetc_snd_wr_t *sr_desc, in
   {
     struct ibv_send_wr *bad_wr;
     sr_desc->next = NULL;
-    sr_desc->send_flags = is_inline ? (IBV_SEND_SIGNALED | IBV_SEND_INLINE) : IBV_SEND_SIGNALED;
+    sr_desc->send_flags = is_inline ? (enum ibv_send_flags)(IBV_SEND_SIGNALED | IBV_SEND_INLINE)
+                                    : IBV_SEND_SIGNALED;
     vstat = ibv_post_send(cep->qp_handle, sr_desc, &bad_wr);
   }
 #endif
@@ -3098,7 +3099,7 @@ extern int gasnetc_sndrcv_init(void) {
         if_pf (buf == MAP_FAILED) {
           buf = NULL;
         } else {
-          vstat = gasnetc_pin(hca, buf, alloc_size, GASNETC_ACL_LOC_WR | GASNETC_ACL_REM_WR, &hca->amrdma_reg);
+          vstat = gasnetc_pin(hca, buf, alloc_size, (gasnetc_acl_t)(GASNETC_ACL_LOC_WR | GASNETC_ACL_REM_WR), &hca->amrdma_reg);
           if (vstat != 0) {
 	    gasneti_munmap(buf, size);
             buf = NULL;

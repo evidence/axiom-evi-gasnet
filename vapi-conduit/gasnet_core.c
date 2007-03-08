@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2006/12/21 17:45:55 $
- * $Revision: 1.191 $
+ *     $Date: 2007/03/08 00:43:11 $
+ * $Revision: 1.192 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -225,7 +225,7 @@ static void *gasnetc_try_pin_inner(size_t size, gasnetc_memreg_t *reg) {
   if (addr != MAP_FAILED) {
     GASNETC_FOR_ALL_HCA_INDEX(h) {
       gasnetc_hca_t *hca = &gasnetc_hca[h];
-      vstat = gasnetc_pin(hca, addr, size, 0, &reg[h]);
+      vstat = gasnetc_pin(hca, addr, size, (gasnetc_acl_t)0, &reg[h]);
       if (vstat != 0) {
 	for (h -= 1; h >= 0; --h) {
           gasnetc_unpin(&gasnetc_hca[h], &reg[h]);
@@ -1267,7 +1267,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       GASNETC_VAPI_CHECK(vstat, "from VAPI_modify_qp(INIT)");
     }
 #else
-    qp_mask = IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS;
+    qp_mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_PKEY_INDEX | IBV_QP_PORT | IBV_QP_ACCESS_FLAGS);
     qp_attr.qp_state        = IBV_QPS_INIT;
     qp_attr.pkey_index      = 0;
     qp_attr.qp_access_flags = IBV_ACCESS_REMOTE_WRITE | IBV_ACCESS_REMOTE_READ;
@@ -1314,7 +1314,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       GASNETC_VAPI_CHECK(vstat, "from VAPI_modify_qp(RTR)");
     }
 #else
-    qp_mask = IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_DEST_QPN | IBV_QP_MIN_RNR_TIMER;
+    qp_mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_AV | IBV_QP_PATH_MTU | IBV_QP_RQ_PSN | IBV_QP_MAX_DEST_RD_ATOMIC | IBV_QP_DEST_QPN | IBV_QP_MIN_RNR_TIMER);
     qp_attr.qp_state         = IBV_QPS_RTR;
     qp_attr.ah_attr.sl            = 0;
     qp_attr.ah_attr.is_global     = 0;
@@ -1367,7 +1367,7 @@ static int gasnetc_init(int *argc, char ***argv) {
       }
     }
 #else
-    qp_mask = IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC;
+    qp_mask = (enum ibv_qp_attr_mask)(IBV_QP_STATE | IBV_QP_SQ_PSN | IBV_QP_TIMEOUT | IBV_QP_RETRY_CNT | IBV_QP_RNR_RETRY | IBV_QP_MAX_QP_RD_ATOMIC);
     qp_attr.qp_state         = IBV_QPS_RTS;
     qp_attr.timeout          = GASNETC_QP_TIMEOUT;
     qp_attr.retry_cnt        = GASNETC_QP_RETRY_COUNT;
@@ -1700,7 +1700,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
         for (j = 0, addr = gasnetc_seg_start, remain = segsize; remain != 0; ++j) {
 	  size_t len = MIN(remain, gasnetc_pin_maxsz);
           vstat = gasnetc_pin(hca, (void *)addr, len,
-			      GASNETC_ACL_LOC_WR | GASNETC_ACL_REM_WR | GASNETC_ACL_REM_RD,
+			      (gasnetc_acl_t)(GASNETC_ACL_LOC_WR | GASNETC_ACL_REM_WR | GASNETC_ACL_REM_RD),
 			      &hca->seg_reg[j]);
           GASNETC_VAPI_CHECK(vstat, "when registering the segment");
 	  my_rkeys[j] = hca->seg_reg[j].rkey;
