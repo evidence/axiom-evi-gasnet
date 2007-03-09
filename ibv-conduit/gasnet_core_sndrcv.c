@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/ibv-conduit/gasnet_core_sndrcv.c,v $
- *     $Date: 2007/03/08 00:43:11 $
- * $Revision: 1.215 $
+ *     $Date: 2007/03/09 00:04:19 $
+ * $Revision: 1.216 $
  * Description: GASNet vapi conduit implementation, transport send/receive logic
  * Copyright 2003, LBNL
  * Terms of use are as specified in license.txt
@@ -797,7 +797,12 @@ void gasnetc_dump_cqs(gasnetc_wc_t *comp, gasnetc_hca_t *hca, const int is_snd))
 		   : gasnetc_poll_snd_cq(hca, comp);
     CQ_UNLOCK;
     if (vstat != 0) {
-      comp->status = (enum ibv_wc_status)(-1); /* invalid value to flag last pass */
+      /* use an invalid value to ensure output is generated on the last pass */
+#if GASNET_CONDUIT_IBV
+      comp->status = (enum ibv_wc_status)(-1);
+#else
+      comp->status = -1;
+#endif
     }
     if (comp->status == status) {
       ++count;
