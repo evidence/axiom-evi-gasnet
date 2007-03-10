@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2007/01/11 10:55:44 $
-# $Revision: 1.53 $
+#     $Date: 2007/03/10 07:22:13 $
+# $Revision: 1.54 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -14,13 +14,19 @@ $spawncmd = stripouterquotes($spawncmd);
 $spawncmd =~ s/%C/%P %A/;	# deal with common alias
 
 # Validate the spawncmd
-unless (exists($ENV{'MPIRUN_CMD_OK'}) ||
+my $cmd_ok = exists($ENV{'MPIRUN_CMD_OK'});
+if ($spawncmd =~ m/MPIRUN_CMD_OK/) {
+  $spawncmd =~ s/\s*MPIRUN_CMD_OK//g;
+  $cmd_ok = 1;
+}
+unless ($cmd_ok ||
         (($spawncmd =~ m/%P/) && ($spawncmd =~ m/%A/) && ($spawncmd =~ m/%N/))) {
 	die("gasnetrun: ERROR: MPIRUN_CMD='$spawncmd'\n"
           . "The environment variable MPIRUN_CMD must contain the strings '%P' and '%A'\n"
 	  . "(or '%C' as an alias for '%P %A') for expansion into the program and its arguments;\n"
 	  . "and '%N' for expansion into the number of processes.\n"
-	  . "To disable this check, set MPIRUN_CMD_OK in your environment.\n");
+	  . "To disable this check, set MPIRUN_CMD_OK in your environment, \n"
+	  . "or append the string MPIRUN_CMD_OK to the command.\n");
 }
 
 # Globals
