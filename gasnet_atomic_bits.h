@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2006/10/17 18:15:23 $
- * $Revision: 1.262 $
+ *     $Date: 2007/03/12 23:45:04 $
+ * $Revision: 1.263 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -367,8 +367,8 @@
 	          : "=m" (v->ctr), "=qm" (retval)
 	          : "m" (v->ctr) 
                   : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-	#if PLATFORM_COMPILER_PGI
-          return retval & 0xFF;	/* Bug 1754 */
+	#if GASNETI_PGI_ASM_BUG1754
+          return retval & 0xFF;
 	#else
           return retval;
 	#endif
@@ -386,8 +386,8 @@
 		: "=qm" (retval), "=m" (v->ctr), "=a" (readval)
 		: "r" (newval), "m" (v->ctr), "a" (oldval)
 		: "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-	#if PLATFORM_COMPILER_PGI
-          return retval & 0xFF;	/* Bug 1754 */
+	#if GASNETI_PGI_ASM_BUG1754
+          return retval & 0xFF;
 	#else
           return retval;
 	#endif
@@ -440,8 +440,8 @@
 		    : "=q" (retval), "=m" (p->ctr), "=a" (readval)
 		    : "r" (newval), "m" (p->ctr), "a" (oldval)
 		    : "cc" GASNETI_ATOMIC_MEM_CLOBBER);
-	  #if PLATFORM_COMPILER_PGI
-            return retval & 0xFF;	/* Bug 1754 */
+	  #if GASNETI_PGI_ASM_BUG1754
+            return retval & 0xFF;
 	  #else
             return retval;
 	  #endif
