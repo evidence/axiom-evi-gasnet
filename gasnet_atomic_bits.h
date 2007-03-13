@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/03/13 04:09:42 $
- * $Revision: 1.264 $
+ *     $Date: 2007/03/13 17:16:48 $
+ * $Revision: 1.265 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -29,11 +29,25 @@
 #endif
 
 /* ------------------------------------------------------------------------------------ */
+/* Work-arounds and special cases for various platforms */
+
 #if PLATFORM_ARCH_X86_64 || PLATFORM_ARCH_X86
   #ifdef GASNETI_UNI_BUILD
     #define GASNETI_X86_LOCK_PREFIX ""
   #else
     #define GASNETI_X86_LOCK_PREFIX "lock\n\t"
+  #endif
+
+  /* Partial solution(s) to bug 1718 (-fPIC support).
+   * gcc: on most platforms (including Linux, Darwin and Solaris) sets __PIC__=1 when building
+   * position independent code (e.g. -fPIC or -fpic; not passed -mdynamic-no-pic on Darwin).
+   * icc: schedules %ebx so no work-around is needed
+   * pgcc: no distinguishing macro when passed -fPIC, so no automatic work-around available
+   * Sun cc: use of specials doesn't encounter the problem
+   */
+  #if (defined(__PIC__) && PLATFORM_COMPILER_GNU) || defined(GASNETI_FORCE_X86_PIC)
+    #undef GASNETI_HAVE_X86_EBX
+    #define GASNETI_HAVE_X86_EBX 0
   #endif
 #endif
 
