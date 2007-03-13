@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/03/13 17:16:48 $
- * $Revision: 1.265 $
+ *     $Date: 2007/03/13 18:59:22 $
+ * $Revision: 1.266 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,16 +38,30 @@
     #define GASNETI_X86_LOCK_PREFIX "lock\n\t"
   #endif
 
-  /* Partial solution(s) to bug 1718 (-fPIC support).
-   * gcc: on most platforms (including Linux, Darwin and Solaris) sets __PIC__=1 when building
-   * position independent code (e.g. -fPIC or -fpic; not passed -mdynamic-no-pic on Darwin).
-   * icc: schedules %ebx so no work-around is needed
-   * pgcc: no distinguishing macro when passed -fPIC, so no automatic work-around available
-   * Sun cc: use of specials doesn't encounter the problem
-   */
-  #if (defined(__PIC__) && PLATFORM_COMPILER_GNU) || defined(GASNETI_FORCE_X86_PIC)
-    #undef GASNETI_HAVE_X86_EBX
-    #define GASNETI_HAVE_X86_EBX 0
+  #if !GASNETI_HAVE_X86_EBX
+    /* We found %ebx to be unavailable at configure time */
+    #define GASNETI_USE_X86_EBX 0
+  #else
+    /* Partial solution(s) to bug 1718 (-fPIC support when configure-time check was non-PIC).
+     * WORK AROUND:
+     * + gcc: on most platforms (including Linux, Darwin and Solaris) defines __PIC__ when building
+     *      position independent code (e.g. -fPIC or -fpic; not passed -mdynamic-no-pic on Darwin).
+     * + pathcc: same as gcc
+     * JUST WORKS:
+     * + icc: mimics gcc, but is able to schedule %ebx so no work-around is needed
+     * + Sun cc: use of specials doesn't encounter the problem
+     * + tcc: N/A since no PIC support
+     * + lcc: N/A since no native atomic support
+     * DOESN'T WORK:
+     * + pgcc: no distinguishing macro when passed -fPIC, so no automatic work-around available
+     */
+    #if defined(GASNETI_FORCE_X86_PIC) || \
+	(defined(__PIC__) && (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_PATHSCALE))
+      #define GASNETI_USE_X86_EBX 0
+    #endif
+  #endif
+  #ifndef GASNETI_USE_X86_EBX
+    #define GASNETI_USE_X86_EBX 1
   #endif
 #endif
 
@@ -461,7 +475,7 @@
 	  #endif
           }
         #endif
-      #elif GASNETI_HAVE_X86_EBX && \
+      #elif GASNETI_USE_X86_EBX && \
             !PLATFORM_COMPILER_TINY && !PLATFORM_COMPILER_PGI && \
             !(PLATFORM_COMPILER_GNU && PLATFORM_COMPILER_VERSION_LT(3,0,0)) /* bug 1790 */
 	/* "Normal" ILP32 case:
@@ -530,7 +544,7 @@
 	  return retval;
 	}
 	#define gasneti_atomic64_read gasneti_atomic64_read
-      #elif !GASNETI_HAVE_X86_EBX
+      #elif !GASNETI_USE_X86_EBX
 	/* Much the same as the "normal" ILP32 case, but w/ save and restore of EBX.
 	 * This is achieved by passing the "other" 64-bit value in ECX and a second
  	 * register of the compiler's choosing, which is then swapped w/ EBX.
