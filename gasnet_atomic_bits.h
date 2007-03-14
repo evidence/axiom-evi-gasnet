@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/03/13 18:59:22 $
- * $Revision: 1.266 $
+ *     $Date: 2007/03/14 21:25:21 $
+ * $Revision: 1.267 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -38,30 +38,30 @@
     #define GASNETI_X86_LOCK_PREFIX "lock\n\t"
   #endif
 
-  #if !GASNETI_HAVE_X86_EBX
-    /* We found %ebx to be unavailable at configure time */
-    #define GASNETI_USE_X86_EBX 0
-  #else
-    /* Partial solution(s) to bug 1718 (-fPIC support when configure-time check was non-PIC).
-     * WORK AROUND:
+    /* Partial x86 solution(s) to bug 1718 (-fPIC support when configure-time check was non-PIC).
+     * AUTOMATIC WORK AROUND:
      * + gcc: on most platforms (including Linux, Darwin and Solaris) defines __PIC__ when building
      *      position independent code (e.g. -fPIC or -fpic; not passed -mdynamic-no-pic on Darwin).
      * + pathcc: same as gcc
+     * MANUAL WORK AROUND:
+     * + pgcc: no distinguishing macro when passed -fPIC, so no automatic work-around available
      * JUST WORKS:
      * + icc: mimics gcc, but is able to schedule %ebx so no work-around is needed
      * + Sun cc: use of specials doesn't encounter the problem
      * + tcc: N/A since no PIC support
      * + lcc: N/A since no native atomic support
-     * DOESN'T WORK:
-     * + pgcc: no distinguishing macro when passed -fPIC, so no automatic work-around available
+     *
+     * Bottom line is that we recommend YOUR_PIC_CFLAGS="-fPIC -DGASNETI_FORCE_PIC",
+     * replacing "-fPIC" with your compiler-specific flag(s) as needed.
      */
-    #if defined(GASNETI_FORCE_X86_PIC) || \
-	(defined(__PIC__) && (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_PATHSCALE))
+  #if (PLATFORM_COMPILER_GNU || PLATFORM_COMPILER_PATHSCALE || PLATFORM_COMPILER_PGI) && \
+	(defined(__PIC__) || defined(GASNETI_FORCE_PIC))
+      /* Disable use of %ebx when building PIC, but only on affected compilers. */
       #define GASNETI_USE_X86_EBX 0
-    #endif
   #endif
+  /* By default use the configure-probed result */
   #ifndef GASNETI_USE_X86_EBX
-    #define GASNETI_USE_X86_EBX 1
+    #define GASNETI_USE_X86_EBX GASNETI_HAVE_X86_EBX
   #endif
 #endif
 
