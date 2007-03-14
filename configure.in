@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/03/09 23:35:43 $
-# $Revision: 1.445 $
+#     $Date: 2007/03/14 20:55:48 $
+# $Revision: 1.446 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.445 $)
+AC_REVISION($Revision: 1.446 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1318,7 +1318,7 @@ AC_DEFUN([GASNET_IB_OPTIONS],[
         gasnet_ib_spawner_conf=ssh
       fi])
   if test "$gasnet_ib_spawner_conf$have_mpi_compat" = mpino; then
-    AC_MSG_ERROR([--with-[]lowername[]-spawner=mpi requires MPI compatibility support which $mpi_reason])
+    AC_MSG_ERROR([--with-[]lowername[]-spawner=mpi requires MPI compatibility support which $mpi_compat_reason])
   fi
   if test "$gasnet_ib_spawner_conf$have_fork" = sshno; then
     AC_MSG_ERROR([--with-[]lowername[]-spawner=ssh requires fork() support which $fork_reason])
@@ -1750,6 +1750,11 @@ if test "$enabled_mpi_compat$have_mpi" = yesyes ; then
   have_mpi_compat=yes
 else
   have_mpi_compat=no
+  if test "$have_mpi" = yes; then
+    mpi_compat_reason="was disabled"
+  else
+    mpi_compat_reason="$mpi_reason"
+  fi
 fi
 AM_CONDITIONAL(USE_MPI_COMPAT, test "$have_mpi_compat" = yes)
 # USE_MPI == MPI-compatbility or MPI-conduit
@@ -1871,7 +1876,7 @@ if test $enabled_gm = yes; then
       if test "$GM_MPI_COMPAT" = yes; then
 	  AC_DEFINE(GASNETC_GM_MPI_COMPAT)
       else
-	  GASNET_MSG_WARN([GM requires MPI for interoperability and MPI $mpi_reason - disabling feature])
+	  GASNET_MSG_WARN([disabling gm-conduit interoperability with MPI ($mpi_compat_reason)])
       fi
     fi
   fi
@@ -2184,7 +2189,7 @@ CONDUIT_END([test "$enabled_elan$have_elan" = yesyes])
 CONDUIT_BEGIN(vapi,[Mellanox InfiniBand/VAPI network conduit (vapi)])
 if test "$enabled_vapi$have_mpi_compat$have_fork" = yesnono; then
   enabled_vapi=no
-  GASNET_MSG_WARN([vapi-conduit requires either MPI compatibility ($mpi_reason) or fork() ($fork_reason) for startup - disabling vapi])
+  GASNET_MSG_WARN([vapi-conduit requires either MPI compatibility ($mpi_compat_reason) or fork() ($fork_reason) for startup - disabling vapi])
 fi
 if test "$enabled_vapi" = yes; then
   # Start by assuming we do have VAPI
@@ -2306,6 +2311,7 @@ AC_SUBST(VAPI_LIBDIR)
 AC_SUBST(VAPI_LIBS)
 AC_SUBST(VAPI_LIBCFLAGS)
 AM_CONDITIONAL(USE_VAPI_CONDUIT, test "$have_vapi" = yes)
+AM_CONDITIONAL(VAPI_BOOTSTRAP_SSH, test "$have_fork" = yes)
 AM_CONDITIONAL(VAPI_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
 AM_CONDITIONAL(VAPI_RCV_THREAD,test "$enabled_vapi_rcv_thread" = yes)
 CONDUIT_END([test "$have_vapi" = yes])
@@ -2316,7 +2322,7 @@ CONDUIT_END([test "$have_vapi" = yes])
 CONDUIT_BEGIN(ibv,[OpenIB/OpenFabrics IB Verbs network conduit (ibv)])
 if test "$enabled_ibv$have_mpi_compat$have_fork" = yesnono; then
   enabled_ibv=no
-  GASNET_MSG_WARN([ibv-conduit requires either MPI compatibility ($mpi_reason) or fork() ($fork_reason) for startup - disabling ibv])
+  GASNET_MSG_WARN([ibv-conduit requires either MPI compatibility ($mpi_compat_reason) or fork() ($fork_reason) for startup - disabling ibv])
 fi
 if test "$enabled_ibv" = yes; then
   # Start by assuming we do have IBV
@@ -2395,6 +2401,7 @@ AC_SUBST(IBV_LIBDIR)
 AC_SUBST(IBV_LIBS)
 AC_SUBST(IBV_LIBCFLAGS)
 AM_CONDITIONAL(USE_IBV_CONDUIT, test "$have_ibv" = yes)
+AM_CONDITIONAL(IBV_BOOTSTRAP_SSH, test "$have_fork" = yes)
 AM_CONDITIONAL(IBV_BOOTSTRAP_MPI, test "$have_mpi_compat" = yes)	# Option to omit MPI support?
 AM_CONDITIONAL(IBV_RCV_THREAD,test "$enabled_ibv_rcv_thread" = yes)
 CONDUIT_END([test "$have_ibv" = yes])
@@ -2425,7 +2432,7 @@ if test "$enabled_portals" = yes; then
   esac
 
   if test "$have_mpi_compat" != yes; then
-    GASNET_MSG_WARN([portals-conduit requires MPI compatibility support which $mpi_reason])
+    GASNET_MSG_WARN([portals-conduit requires MPI compatibility support which $mpi_compat_reason])
     have_portals=no
   fi
   if test "$gasnet_cv_cc_family" != GNU; then

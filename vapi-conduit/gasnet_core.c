@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/03/08 00:43:11 $
- * $Revision: 1.192 $
+ *     $Date: 2007/03/14 20:55:52 $
+ * $Revision: 1.193 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -571,18 +571,11 @@ static int gasnetc_load_settings(void) {
 
 static void gasneti_bootstrapInit(int *argc_p, char ***argv_p,
 				  gasnet_node_t *nodes_p, gasnet_node_t *mynode_p) {
-#if HAVE_MPI_SPAWNER
-  if ((*argc_p < 2) || strncmp((*argv_p)[1], "-GASNET-SPAWN-", 14)) {
-    gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
-    gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_mpi;
-    gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_mpi;
-    gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_mpi;
-    gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
-    gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
-    gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
-  } else
-#endif
-  {
+  char *spawner = gasneti_getenv_withdefault("GASNET_IB_SPAWNER", "(not set)");
+
+  if (!strcmp(spawner, "ssh") ||
+      ((*argc_p >= 2) && !strncmp((*argv_p)[1], "-GASNET-SPAWN-", 14))) {
+#if HAVE_SSH_SPAWNER
     gasneti_bootstrapInit_ssh(argc_p, argv_p, nodes_p, mynode_p);
     gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_ssh;
     gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_ssh;
@@ -590,7 +583,26 @@ static void gasneti_bootstrapInit(int *argc_p, char ***argv_p,
     gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_ssh;
     gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_ssh;
     gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_ssh;
-  }
+#else
+    gasneti_fatalerror("Requested ssh-spawner is not supported in this build");
+#endif
+  } else {
+#if HAVE_MPI_SPAWNER
+    gasneti_bootstrapInit_mpi(argc_p, argv_p, nodes_p, mynode_p);
+    gasneti_bootstrapFini_p	= &gasneti_bootstrapFini_mpi;
+    gasneti_bootstrapAbort_p	= &gasneti_bootstrapAbort_mpi;
+    gasneti_bootstrapBarrier_p	= &gasneti_bootstrapBarrier_mpi;
+    gasneti_bootstrapExchange_p	= &gasneti_bootstrapExchange_mpi;
+    gasneti_bootstrapAlltoall_p	= &gasneti_bootstrapAlltoall_mpi;
+    gasneti_bootstrapBroadcast_p= &gasneti_bootstrapBroadcast_mpi;
+#else
+    if (!strcmp(spawner, "mpi")) {
+      gasneti_fatalerror("Requested mpi-spawner is not supported in this build");
+    } else {
+      gasneti_fatalerror("Requested spawner \"%s\" is unknown", spawner);
+    }
+#endif
+  } 
 }
 
 /* Info used while probing for HCAs/ports */
