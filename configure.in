@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/03/14 20:55:48 $
-# $Revision: 1.446 $
+#     $Date: 2007/03/17 23:17:15 $
+# $Revision: 1.447 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.446 $)
+AC_REVISION($Revision: 1.447 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -1224,6 +1224,8 @@ dnl sets enabled_<lowername> to yes or no for whether conduit should be enabled
 AC_DEFUN([CONDUIT_BEGIN],[
  pushdef([CONDUIT_NAME],[$1])
  pushdef([CONDUIT_DESC],[$2])
+ # bug 1946: prevent confusing cross-conduit error messages
+ GASNET_ERR_CLEANUP
  enabled_[]$1=no
 dnl GASNET_TOOLSONLY_FALSE_BEGIN
  GASNET_IF_ENABLED_WITH_AUTO($1, Enable/disable the CONDUIT_DESC (auto-detected),
