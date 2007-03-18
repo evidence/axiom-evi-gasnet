@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/amudp/amudp_reqrep.cpp,v $
- *     $Date: 2007/01/08 12:46:50 $
- * $Revision: 1.44 $
+ *     $Date: 2007/03/18 01:10:42 $
+ * $Revision: 1.45 $
  * Description: AMUDP Implementations of request/reply operations
  * Copyright 2000, Dan Bonachea <bonachea@cs.berkeley.edu>
  */
@@ -495,7 +495,7 @@ static int AMUDP_HandleRequestTimeouts(ep_t ep, int numtocheck) {
          * although it doesn't really matter because the AM2 spec is too vague
          * about the argblock returned message argument for it to be of any use to anyone
          */
-        outgoingstatus->sourceId = (uint8_t)destP; 
+        outgoingstatus->sourceId = (uint16_t)destP; 
         outgoingstatus->sourceAddr = ep->perProcInfo[destP].remoteName;
         outgoingstatus->dest = ep;
 
@@ -994,7 +994,7 @@ static int AMUDP_ServiceIncomingMessages(ep_t ep) {
     #endif
 
       status->dest = ep; /* remember which ep recvd this message */
-      status->sourceId = (uint8_t)sourceAddrToId(ep, status->sourceAddr);
+      status->sourceId = (uint16_t)sourceAddrToId(ep, status->sourceAddr);
 
       if (AMUDP_FaultInjectionEnabled) { /* allow fault injection to drop some revcd messages */
         double randval = rand() / (double)RAND_MAX;
