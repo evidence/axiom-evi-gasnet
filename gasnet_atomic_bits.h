@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/03/15 23:04:38 $
- * $Revision: 1.269 $
+ *     $Date: 2007/03/19 19:07:47 $
+ * $Revision: 1.270 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -90,7 +90,6 @@
 #if defined(GASNETI_USE_GENERIC_ATOMICOPS)
   /* Use a very slow but portable implementation of atomic ops using mutexes */
   /* This case exists only to prevent the following cases from matching. */
-  #define gasneti_atomic_align 0
 #elif defined(GASNETI_USE_OS_ATOMICOPS)
   /* ------------------------------------------------------------------------------------
    * Use OS-provided atomics, which should be CPU-independent and
@@ -2191,11 +2190,9 @@
 
 #if defined(GASNETI_USE_GENERIC_ATOMIC32)
   #define GASNETI_BUILD_GENERIC_ATOMIC32	1	/* Build the 32-bit generics */
-  #define gasneti_atomic32_align 0
 #endif
 #if defined(GASNETI_USE_GENERIC_ATOMIC64) || defined(GASNETI_HYBRID_ATOMIC64)
   #define GASNETI_BUILD_GENERIC_ATOMIC64	1	/* Build the 64-bit generics */
-  #define gasneti_atomic64_align 0
 #endif
 
 /* ------------------------------------------------------------------------------------ */
