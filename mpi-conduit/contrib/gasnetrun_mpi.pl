@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2007/03/10 07:22:13 $
-# $Revision: 1.54 $
+#     $Date: 2007/03/30 02:35:41 $
+# $Revision: 1.55 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -522,6 +522,23 @@ EOF
 	$ENV{PATH} = "$tmpdir:$ENV{PATH}";
 	@envargs = ();
      }
+
+# Process LSF host list to ensure it is not over-sized.
+# XXX: Should also implement $numnode support here.
+if (exists($ENV{'LSB_MCPU_HOSTS'})) {
+  my $np = 0;
+  my @tmp_in = split(" ", $ENV{'LSB_MCPU_HOSTS'});
+  my @tmp_out = ();
+  while (@tmp_in && ($np != $numproc)) {
+    my $h = shift @tmp_in; # Host
+    my $n = shift @tmp_in; # Numcpus
+    if ($np + $n > $numproc) {
+      $n = $numproc - $np;
+    }
+    push @tmp_out, ($h, $n)
+  }
+  $ENV{'LSB_MCPU_HOSTS'} = join(' ', @tmp_out);
+}
     
 # Exec it
     my $cwd = `pwd`;
