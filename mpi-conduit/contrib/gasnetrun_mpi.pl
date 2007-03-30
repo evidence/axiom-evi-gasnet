@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2007/03/30 03:19:55 $
-# $Revision: 1.56 $
+#     $Date: 2007/03/30 16:30:24 $
+# $Revision: 1.57 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -534,7 +534,6 @@ if (exists($ENV{'LSB_MCPU_HOSTS'})) {
     $tmp{$h} += $n;
   }
   # Ensure a dense sub-allocation
-  my @tmp_out = ();
   my $np = 0;
   @tmp = ();
   foreach my $h (sort keys %tmp) {
