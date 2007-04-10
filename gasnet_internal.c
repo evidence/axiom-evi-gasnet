@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2007/01/12 09:25:44 $
- * $Revision: 1.189 $
+ *     $Date: 2007/04/10 01:21:11 $
+ * $Revision: 1.190 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -204,7 +204,7 @@ extern void gasneti_check_config_preinit() {
   }
 }
 
-static void gasneti_check_portable_conduit();
+static void gasneti_check_portable_conduit(void);
 extern void gasneti_check_config_postattach() {
   gasneti_check_config_preinit();
 

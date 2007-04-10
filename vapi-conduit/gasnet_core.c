@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/vapi-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/04/09 21:17:47 $
- * $Revision: 1.194 $
+ *     $Date: 2007/04/10 01:21:31 $
+ * $Revision: 1.195 $
  * Description: GASNet vapi conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -122,7 +122,7 @@ typedef struct _gasnetc_addr_t {
   GASNETC_IB_CHOOSE(IB_lid_t,      uint16_t)	lid;
 } gasnetc_addr_t;
 
-gasnet_handlerentry_t const *gasnetc_get_handlertable();
+gasnet_handlerentry_t const *gasnetc_get_handlertable(void);
 
 int		gasnetc_op_oust_limit;
 int		gasnetc_op_oust_pp;
