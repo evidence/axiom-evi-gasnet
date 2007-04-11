@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2006/04/18 18:27:55 $
- * $Revision: 1.33 $
+ *     $Date: 2007/04/11 23:10:55 $
+ * $Revision: 1.34 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -1009,7 +1009,6 @@ fh_acquire_remote_region(firehose_request_t *req,
     node = req->node;
 
     FH_TABLE_ASSERT_LOCKED;
-#define FH_MAXGC 3
 
     priv = fhi_find_priv(node, req->addr, req->len);
     if_pf (priv == NULL) {
