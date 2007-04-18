@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2006/11/28 03:42:17 $
- * $Revision: 1.29 $
+ *     $Date: 2007/04/18 19:35:37 $
+ * $Revision: 1.30 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1225,7 +1225,7 @@ fh_am_move_reqh_inner(gasnet_token_t token, void *addr, size_t nbytes,
 		rc->flags |= FH_CALLBACK_TYPE_REMOTE;
 	    }
 
-	    #if FIREHOSE_SMP
+	    #if defined(FIREHOSE_PAGE) && FIREHOSE_SMP
 	    if (hit_pending) {
 		  rc->flags |= FH_CALLBACK_TYPE_PENDING;
 		  FH_POLLQ_LOCK;
