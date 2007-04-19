@@ -29,7 +29,7 @@ HOST_CXXFLAGS='' ; export HOST_CXXFLAGS
 MPI_CC="$CC" ; export MPI_CC     # MPI-enabled C compiler
 #MPI_CFLAGS='' ; export MPI_CFLAGS  # flags for MPI_CC
 MPI_LIBS='' ; export MPI_LIBS      # libs for linking with MPI_CC
-MPIRUN_CMD='aprun -n %N %C' ; export MPIRUN_CMD  # launch command for MPI jobs
+MPIRUN_CMD='aprun -n %N -N %M %C' ; export MPIRUN_CMD  # launch command for MPI jobs
 EXTRA_CONFIGURE_ARGS='--enable-mpi --disable-udp --disable-amudp'
 
 # 2. Fill in the canonical target machine type. You can usually obtain this
