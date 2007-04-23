@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose.c,v $
- *     $Date: 2007/04/18 19:35:37 $
- * $Revision: 1.30 $
+ *     $Date: 2007/04/23 03:29:43 $
+ * $Revision: 1.31 $
  * Description: 
  * Copyright 2004, Christian Bell <csbell@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -939,6 +939,9 @@ fh_WaitLocalFirehoses(int count, firehose_region_t *region)
 	gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL >= 0);
 	b_avail = MIN(count, FHC_MAXVICTIM_BUCKETS_AVAIL);
 	fhc_LocalOnlyBucketsPinned += b_avail;
+#ifdef DEBUG_LOCAL_TABLE
+	fhc_LocalReserved += b_avail;
+#endif  
 
 	b_remain = count - b_avail;
 
@@ -970,6 +973,9 @@ fh_WaitLocalFirehoses(int count, firehose_region_t *region)
 			b_remain -= b_avail;
 		}
 
+#ifdef DEBUG_LOCAL_TABLE
+		fhc_LocalReserved += b_avail;
+#endif  
 	}
 
 	gasneti_assert(FHC_MAXVICTIM_BUCKETS_AVAIL >= 0);
