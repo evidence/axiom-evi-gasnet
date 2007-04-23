@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/other/firehose/firehose_region.c,v $
- *     $Date: 2007/04/11 23:10:55 $
- * $Revision: 1.34 $
+ *     $Date: 2007/04/23 03:21:44 $
+ * $Revision: 1.35 $
  * Description: 
  * Copyright 2004, Paul Hargrove <PHHargrove@lbl.gov>
  * Terms of use are as specified in license.txt
@@ -359,6 +359,7 @@ GASNETI_INLINE(fh_clean_covered_local)
 int fh_clean_covered_local(int limit, firehose_region_t *reg) {
   int count = fh_clean_covered(limit, reg, &fh_LocalFifo);
   fhc_LocalVictimFifoBuckets -= count;
+  fhc_LocalOnlyBucketsPinned -= count;
   return count;
 }
 
