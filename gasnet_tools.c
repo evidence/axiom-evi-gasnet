@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/01/16 12:43:49 $
- * $Revision: 1.202 $
+ *     $Date: 2007/06/11 20:00:22 $
+ * $Revision: 1.203 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1538,7 +1538,7 @@ extern int gasneti_cpu_count() {
 extern uint64_t gasneti_getPhysMemSz(int failureIsFatal) {
   uint64_t retval = _gasneti_getPhysMemSysconf();
   if (retval) return retval;
-  #if PLATFORM_OS_LINUX
+  #if PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX
     #define _BUFSZ        120
     { FILE *fp;
       char line[_BUFSZ+1];

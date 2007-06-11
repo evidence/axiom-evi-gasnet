@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2007/01/12 09:25:44 $
- * $Revision: 1.26 $
+ *     $Date: 2007/06/11 20:00:22 $
+ * $Revision: 1.27 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -18,7 +18,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #if GASNETI_THREADS
-  #if PLATFORM_OS_LINUX
+  #if PLATFORM_OS_LINUX || PLATFORM_OS_UCLINUX
    struct timespec; /* avoid an annoying warning on Linux */
   #endif
   #include <pthread.h>
