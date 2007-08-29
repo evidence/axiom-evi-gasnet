@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2007/08/27 10:27:33 $
- * $Revision: 1.28 $
+ *     $Date: 2007/08/29 16:13:53 $
+ * $Revision: 1.29 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -442,10 +442,10 @@ int gasneti_count0s_uint32_t(uint32_t x) {
     _gasneti_threadkey_check((key), 1);                                   \
     gasneti_assert_zeroret(pthread_setspecific((key).value, (newvalue))); \
   } while (0)
-  #define gasneti_threadkey_init(key) (_gasneti_threadkey_check((key), 0),          \
-                                       _gasneti_threadkey_init(&((key)->value),     \
-                                                               &((key)->initmutex), \
-                                                               &((key)->isinit)),   \
+  #define gasneti_threadkey_init(key) (_gasneti_threadkey_check((key), 0),         \
+                                       _gasneti_threadkey_init(&((key).value),     \
+                                                               &((key).initmutex), \
+                                                               &((key).isinit)),   \
                                        _gasneti_threadkey_check((key), 1))
   #define gasneti_threadkey_get(key)       \
     ( _gasneti_threadkey_check(key, 0),    \
