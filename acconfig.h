@@ -1,6 +1,6 @@
 /*    $Source: /Users/kamil/work/gasnet-cvs2/gasnet/acconfig.h,v $ */
-/*      $Date: 2006/12/15 22:54:21 $ */
-/*  $Revision: 1.122 $ */
+/*      $Date: 2007/09/06 14:53:32 $ */
+/*  $Revision: 1.123 $ */
 /*  Description: GASNet acconfig.h (or config.h)                             */
 /*  Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>                  */
 /* Terms of use are as specified in license.txt */
@@ -251,6 +251,9 @@
 #undef HAVE_ELAN_QUEUEMAXSLOTSIZE
 #undef HAVE_ELAN_DONE
 #undef HAVE_ELAN_QUEUETXINIT
+
+/* GASNet portals-conduit specific */
+#undef GASNETC_PORTALS_MISSING_EQ_HANDLER_T
 
 @BOTTOM@
 

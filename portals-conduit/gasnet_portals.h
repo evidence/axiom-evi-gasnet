@@ -110,6 +110,11 @@
   #define GASNETC_CALL_EQ_HANDLER(ev) (*(gasnetc_ptl_event_handler)(ev.md.user_ptr))(&(ev)) 
 #endif
 
+/* bug workaround for missing ptl_eq_handler_t typedef in some PE versions */
+#ifdef GASNETC_PORTALS_MISSING_EQ_HANDLER_T
+  typedef void (*ptl_eq_handler_t)( ptl_event_t *event );
+#endif
+
 /* Max transfer size SHOULD be defined by portals, but apparently is not */
 #ifdef PTL_MAX_TRANS_SZ
 #define GASNETC_PTL_MAX_TRANS_SZ PTL_MAX_TRANS_SZ

@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/08/26 06:28:18 $
-# $Revision: 1.453 $
+#     $Date: 2007/09/06 14:53:32 $
+# $Revision: 1.454 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.453 $)
+AC_REVISION($Revision: 1.454 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -2461,6 +2461,17 @@ if test "$enabled_portals" = yes; then
   
     AC_CHECK_HEADERS(pctmbox.h)
     AC_CHECK_HEADERS(catamount/cnos_mpi_os.h)
+
+    dnl Some PE versions lack a ptl_eq_handler_t definition in portals3.h
+    AC_MSG_CHECKING([for ptl_eq_handler_t in portals3.h])
+    AC_TRY_COMPILE([
+      #include <portals/portals3.h>
+    ], [ 
+      ptl_eq_handler_t x;
+    ], AC_MSG_RESULT(yes),
+    [ AC_MSG_RESULT(no)
+      AC_DEFINE(GASNETC_PORTALS_MISSING_EQ_HANDLER_T)])
+
 
     AC_MSG_CHECKING(for working Portals configuration)
     AC_TRY_LINK( [
