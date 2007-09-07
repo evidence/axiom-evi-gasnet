@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/09/07 00:50:15 $
- * $Revision: 1.205 $
+ *     $Date: 2007/09/07 04:04:58 $
+ * $Revision: 1.206 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1333,10 +1333,19 @@ extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt
   }
 }
 extern void gasneti_envdbl_display(const char *key, double val, int is_dflt) {
+  char valstr[80];
   char displayval[80];
+  const char *rawval;
   if (!gasneti_verboseenv() && !GASNETT_TRACE_ENABLED) return;
 
-  snprintf(displayval, sizeof(displayval), "%g", val);
+  snprintf(valstr, sizeof(valstr), "%g", val);
+  rawval = gasneti_getenv(key);
+
+  if (is_dflt || !strcmp(rawval,valstr)) { /* Use the numerical value */
+    strcpy(displayval, valstr);
+  } else { /* Use both the environment string and numerical value when they differ textually */
+    snprintf(displayval, sizeof(displayval), "%s (%s)", gasneti_getenv(key), valstr);
+  }
   gasneti_envstr_display(key, displayval, is_dflt);
 }
 extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size) {
@@ -1399,23 +1408,21 @@ extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defau
   return val;
 }
 extern double gasneti_getenv_dbl_withdefault(const char *keyname, double defaultval) {
-  char defstr[80];
-  const char *envval;
-  double retval;
+  double retval = defaultval;
+  int is_dflt = 1;
+  const char * envval = gasneti_getenv(keyname);
 
-  snprintf(defstr, sizeof(defstr)-1, "%g", defaultval);
-  envval = _gasneti_getenv_withdefault(keyname, defstr, 0, NULL);
-  if (envval == defstr) {
-    /* Avoid round-trip conversion */
-    retval = defaultval;
-  } else {
+  if (envval != NULL) {
     char *endptr;
     retval = strtod(envval, &endptr);
+    is_dflt = 0;
     if (endptr != envval) while (*endptr && isspace(*endptr)) endptr++; /* Skip trailing whitespace */
     if ((endptr == envval) || (*endptr != '\0')) { /* match was empty or has trailing non-whitespace */
       gasneti_fatalerror("If used, environment variable '%s' must be a valid floating point value", keyname);
     }
   }
+
+  gasneti_envdbl_display(keyname, retval, is_dflt);
   return retval;
 }
 
