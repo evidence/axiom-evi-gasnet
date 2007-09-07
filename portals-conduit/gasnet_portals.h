@@ -774,7 +774,7 @@ extern gasnetc_eq_t   *gasnetc_SAFE_EQ;           /* The SAFE Event Queue */
 extern gasnetc_PtlBuffer_t gasnetc_SYS_Send;       /* out-of-band message send buffer */
 extern gasnetc_PtlBuffer_t gasnetc_SYS_Recv;       /* out-of-band message recv buffer */
 extern gasnetc_eq_t *gasnetc_SYS_EQ;               /* out-of-band system Event Queue */
-extern int gasnetc_shutdown_seconds;               /* number of seconds to poll before forceful shutdown */
+extern double gasnetc_shutdown_seconds;            /* number of seconds to poll before forceful shutdown */
 extern int gasnetc_shutdownInProgress;             /* set upon entry to gasnetc_exit */
 typedef enum{GASNETC_SYS_SHUTDOWN_REQUEST=0,
 	     GASNETC_SYS_BARRIER_ARRIVE,

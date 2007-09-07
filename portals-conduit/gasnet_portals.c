@@ -77,9 +77,9 @@ gasnetc_PtlBuffer_t gasnetc_SYS_Recv;       /* out-of-band message recv buffer *
 gasnetc_eq_t *gasnetc_SYS_EQ = NULL;        /* out-of-band system Event Queue */
 /* a flag that is set to true after the network is initialized */
 static int portals_sysqueue_initialized = 0;
-int gasnetc_shutdown_seconds = 0;
+double gasnetc_shutdown_seconds = 0.;
 int gasnetc_shutdownInProgress = 0;
-static int shutdown_max = 360;  /* 3 minutes ... just a guess */
+static double shutdown_max = 360.;  /* 6 minutes ... just a guess */
 static gasneti_weakatomic_t sys_barrier_cnt;
 static gasneti_weakatomic_t sys_barrier_got;
 static gasneti_weakatomic_t sys_barrier_checkin;
@@ -2529,7 +2529,7 @@ extern void gasnetc_init_portals_network(void)
   /* set the number of seconds we poll until forceful shutdown.  May be over-ridden
    * by env-var when they are processed as part of gasnetc_attach
    */
-  gasnetc_shutdown_seconds = 3 + gasneti_nodes/8;
+  gasnetc_shutdown_seconds = 3. + gasneti_nodes/8.;
   gasnetc_shutdown_seconds = (gasnetc_shutdown_seconds > shutdown_max ? shutdown_max : gasnetc_shutdown_seconds);
 
   /* setup system SYS Send/Recv resources */
@@ -3342,8 +3342,7 @@ extern void gasnetc_init_portals_resources(void)
   val = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_SYS_LIMIT",
 					    (int64_t)gasnetc_sys_poll_limit,0);
   if (val >= 0) gasnetc_sys_poll_limit = val;
-  gasnetc_shutdown_seconds = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_SHUTDOWN_SECONDS",
-				 (int64_t)gasnetc_shutdown_seconds,0);
+  gasnetc_shutdown_seconds = gasneti_get_exittimeout(shutdown_max, 3., 0.125, 0.);
 
 #if GASNETC_CREDIT_TESTING
   gasnetc_debug_node = (int)gasneti_getenv_int_withdefault("GASNET_PORTAL_DEBUG_NODE",

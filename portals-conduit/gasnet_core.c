@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/08/26 06:01:24 $
- * $Revision: 1.7 $
+ *     $Date: 2007/09/07 18:43:24 $
+ * $Revision: 1.8 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -381,7 +381,7 @@ extern void gasnetc_exit(int exitcode) {
     int cnt = 0;
     uint64_t starttime = GASNETC_CURRENT_TIME();  /* in nanoseconds */
     uint64_t stoptime= starttime;
-    uint64_t shutdowntime = 1000000000UL * gasnetc_shutdown_seconds;
+    uint64_t shutdowntime = 1e9 * gasnetc_shutdown_seconds;
     while (( cnt < gasneti_nodes) && (stoptime-starttime<shutdowntime)) {
       cnt = 0;
       for (node = 0; node < gasneti_nodes; node++) cnt += (gasnetc_conn_state[node].flags & GASNETC_SYS_GOT_SHUTDOWN_MSG ? 1 : 0);
