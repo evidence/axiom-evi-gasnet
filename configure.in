@@ -1,14 +1,14 @@
 dnl -*- m4 -*-
 
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/configure.in,v $
-#     $Date: 2007/09/06 14:53:32 $
-# $Revision: 1.454 $
+#     $Date: 2007/09/07 22:14:22 $
+# $Revision: 1.455 $
 # Description: GASNet configure script
 # Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
 # Based in part on the Titanium project configure script
 # Terms of use are as specified in license.txt
 AC_DEFUN([cv_prefix],[gasnet_cv_])
-AC_REVISION($Revision: 1.454 $)
+AC_REVISION($Revision: 1.455 $)
 
 # the "new" way
 # AC_INIT(GASNet, 0.2)
@@ -417,12 +417,52 @@ AC_DEFUN([GASNET_GET_PPC64_FLAGS],[
   popdef([ppc64code])
 ])
 
+dnl GASNET_GET_HPUX_FLAGS(type, flags)  type=C or CXX
+# find the proper MISC_CFLAGS/MISC_CPPFLAGS required to work around a known
+# gcc+hp/ux problem (http://gcc.gnu.org/ml/gcc-bugs/1999-09n/msg00676.html)
+AC_DEFUN([GASNET_GET_HPUX_FLAGS],[
+  pushdef([hpuxcode],[[
+	#define _LARGEFILE64_SOURCE 1
+	#include <errno.h> /* Many other headers possible here */
+	int main() { return 0; }]])
+  AC_MSG_CHECKING(for Large File support by default)
+  AC_TRY_RUN(hpuxcode, [hpux_flag_worked=1], [hpux_flag_worked=0])
+  if test "$hpux_flag_worked" = 1; then
+    AC_MSG_RESULT([yes])
+  else
+    AC_MSG_RESULT([no])
+    for flag in $2 ; do
+      ]GASNET_TRY_[$1]FLAG[([$flag],[hpux_flag_worked=1],[hpux_flag_worked=0])
+      if test "$hpux_flag_worked" = 1; then
+        GASNET_PUSHVAR([$1]FLAGS,"$[$1]FLAGS $MISC_[$1]FLAGS $flag")
+        AC_TRY_RUN(hpuxcode, [hpux_flag_worked=1], [hpux_flag_worked=0])
+        GASNET_POPVAR([$1]FLAGS)
+        if test "$hpux_flag_worked" = 1; then
+          AC_MSG_CHECKING(for flags required for Large File support)
+          AC_MSG_RESULT($flag)
+          MISC_[$1]FLAGS="$flag"
+          break;
+        fi
+      fi
+    done
+    if test "$hpux_flag_worked" = 0; then
+      AC_MSG_ERROR([no flags found to allow Large File support])
+    fi
+  fi
+  popdef([hpuxcode])
+])
+
+
 case "$gasnet_cv_cc_family" in
   GNU)
     case "$target_cpu" in
       sparc) GASNET_GET_ULTRASPARC_FLAGS(C,["-mcpu=ultrasparc3 -mtune=ultrasparc3" "-mcpu=ultrasparc -mtune=ultrasparc"]);;
       powerpc*) GASNET_GET_PPC64_FLAGS(C,["-force_cpusubtype_ALL" "-Wa,-mppc64"]);;
-    esac ;;
+    esac
+    case "$target_os" in
+      hpux*) GASNET_GET_HPUX_FLAGS(C,["-D__STDC_EXT__=1"]);;
+    esac
+    ;;
   Cray) 
     case "$target_cpu" in
       alphaev5) MISC_CFLAGS="-hnomessage=236 -htaskprivate $LIBCM" ;; # T3E
@@ -1410,6 +1450,9 @@ if test $enabled_udp = yes; then
        case "$target_cpu" in
          sparc) GASNET_GET_ULTRASPARC_FLAGS(CXX,["-mcpu=ultrasparc3 -mtune=ultrasparc3" "-mcpu=ultrasparc -mtune=ultrasparc"]);;
          powerpc*) GASNET_GET_PPC64_FLAGS(CXX,["-force_cpusubtype_ALL" "-Wa,-mppc64"]);;
+       esac
+       case "$target_os" in
+         hpux*) GASNET_GET_HPUX_FLAGS(CXX,["-D__STDC_EXT__=1"]);;
        esac
        GASNET_PUSHVAR(CXXFLAGS,"$CXXFLAGS")
        GASNET_GET_GNUWARNINGFLAGS(CXX)
