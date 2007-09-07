@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/03/20 01:39:59 $
- * $Revision: 1.272 $
+ *     $Date: 2007/09/07 23:02:03 $
+ * $Revision: 1.273 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1607,7 +1607,7 @@
         *(volatile char *)(v+1) = 0; /* fetch this cache line as a dirty word - speeds up ldcw */
         #if PLATFORM_COMPILER_GNU
           __asm__ __volatile__ ( 
-          #if 0
+          #if !GASNET_HAVE_PARISC_LDCW_CO
             "ldcws 0(%2), %0 \n"  
             /* should be using "ldcws,co" here for better performance, 
                but GNU assembler rejects it (works with system assembler) 
