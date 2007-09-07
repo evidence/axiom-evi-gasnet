@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/09/07 00:22:38 $
- * $Revision: 1.204 $
+ *     $Date: 2007/09/07 00:50:15 $
+ * $Revision: 1.205 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1284,7 +1284,7 @@ typedef struct gasneti_verboseenv_S {
   const char *displaystr;
 } gasneti_verboseenv_t;
 
-/* display an integral/string environment setting iff gasneti_verboseenv() */
+/* display an integral/string/double environment setting iff gasneti_verboseenv() */
 extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt) {
   const char *dflt = (is_dflt?"   (default)":"");
   const char *displayval = val;
@@ -1331,6 +1331,13 @@ extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt
       }
     gasneti_mutex_unlock(&envmutex);
   }
+}
+extern void gasneti_envdbl_display(const char *key, double val, int is_dflt) {
+  char displayval[80];
+  if (!gasneti_verboseenv() && !GASNETT_TRACE_ENABLED) return;
+
+  snprintf(displayval, sizeof(displayval), "%g", val);
+  gasneti_envstr_display(key, displayval, is_dflt);
 }
 extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size) {
   char valstr[80];

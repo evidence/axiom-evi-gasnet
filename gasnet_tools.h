@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.h,v $
- *     $Date: 2007/09/07 00:22:38 $
- * $Revision: 1.110 $
+ *     $Date: 2007/09/07 00:50:15 $
+ * $Revision: 1.111 $
  * Description: GASNet Tools library 
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -278,6 +278,7 @@ GASNETI_BEGIN_EXTERNC
 #define gasnett_verboseenv                gasneti_verboseenv
 #define gasnett_envstr_display            gasneti_envstr_display
 #define gasnett_envint_display            gasneti_envint_display
+#define gasnett_envdbl_display            gasneti_envdbl_display
 
 /* ------------------------------------------------------------------------------------ */
 /* misc tools utilities */
