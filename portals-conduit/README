@@ -1,6 +1,6 @@
 GASNet Portals-conduit documentation
 Michael Welcome <mlwelcome@lbl.gov>
-$Revision: 1.5 $
+$Revision: 1.6 $
 
 User Information:
 -----------------
@@ -63,7 +63,6 @@ GASNET_PORTAL_MAX_CRED_PER_NODE
 GASNET_PORTAL_SAFE_LIMIT
 GASNET_PORTAL_AM_LIMIT
 GASNET_PORTAL_SYS_LIMIT
-GASNET_PORTAL_SHUTDOWN_SECONDS
 GASNET_PORTAL_DEBUG_MODE=  /* if built with --enable-debug */
 GASNET_PORTAL_CRED_PER_NODE=
 GASNET_PORTAL_BANKED_CREDITS
@@ -130,6 +129,8 @@ be exceeded.
   effect the GASNet Core API, which is (currently) implemented by the MPI-Conduit.
 
 * All the standard GASNet environment variables (see top-level README)
+
+* The GASNET_EXITTIMEOUT family of environment variables (see top-level README)
 
 
 Optional compile-time settings:

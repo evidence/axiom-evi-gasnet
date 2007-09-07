@@ -1,6 +1,6 @@
 README file for GASNet
 by: Dan Bonachea <bonachea@cs.berkeley.edu>
-$Revision: 1.94 $
+$Revision: 1.95 $
 
 This is a combination user manual and design document for GASNet. Anyone
 planning on using, modifying or adding to the GASNet code base should read this
@@ -288,6 +288,21 @@ application-specific support.
 * GASNET_VIS_REMOTECONTIG - enables a pack & RDMA algorithm for gather puts and
  scatter gets - ie cases that are locally non-contiguous but remotely
  contiguous. Currently unsafe for use on gm and vapi conduits, thus disabled by default.
+
+* OPTIONAL: GASNET_EXITTIMEOUT, GASNET_EXITTIMEOUT_MAX, GASNET_EXITTIMEOUT_MIN, and
+ GASNET_EXITTIMEOUT_FACTOR - control exit-coordination timeout.  Some conduits use a
+ timeout to distinugish orderly job exit from uncoordinated failure of one or more
+ nodes.  This is important to help avoid leaving "orphan" processes on the nodes.
+ These environment variables allow the user to adjust the length of time that the
+ conduit will wait to establish contact among all nodes before deciding that an exit
+ is uncoordinated.  By default, the timeout is computed as
+   GASNET_EXITTIMEOUT = min(GASNET_EXITTIMEOUT_MAX,
+                            GASNET_EXITTIMEOUT_MIN + nodes * GASNET_EXITTIMEOUT_FACTOR)
+ Setting GASNET_EXITTIMEOUT provides a specific value, ignoring this formula.
+ Setting one or more of the others will compute a value for GASNET_EXITTIMEOUT using
+ the formula above (and defaults for any variables not set in the environment).
+ Currently vapi-, ibv-, gm- and portals-conduits honor these settings.
+ Default values differ among these conduits.
 
 * see conduit-specific documentation in conduit directories for more settings
 

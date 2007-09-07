@@ -1,7 +1,7 @@
 README file for vapi-conduit and ibv-conduit
 ============================================
 Paul H. Hargrove <PHHargrove@lbl.gov>
-$Revision: 1.46 $
+$Revision: 1.47 $
 
 @ TOC: @
 @ Section: VAPI vs IBV @
@@ -158,6 +158,11 @@ $Revision: 1.46 $
 
   There are a number of parameters in vapi-conduit which can be tuned
   at runtime via environment variables.
+
+  General settings:
+  Vapi-conduit supports all of the standard GASNet environment variables
+  and the optional GASNET_EXITTIMEOUT family of environment variables.
+  See GASNet's top-level README for documentation.
 
   Connection settings:
   Under normal conditions, Host Channel Adapters and Ports will be
