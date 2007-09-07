@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/09/07 04:38:10 $
- * $Revision: 1.207 $
+ *     $Date: 2007/09/07 23:53:29 $
+ * $Revision: 1.208 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -696,7 +696,7 @@ static int gasneti_system_redirected_coprocess(const char *cmd, int stdout_fd) {
       else if (lseek(tmpfd, 0, SEEK_SET)) rc = -1;
       else {
         static char tmpbuf[255];
-        size_t bytes = tmpstat.st_size;
+        ssize_t bytes = tmpstat.st_size;
         while ((bytes = read(tmpfd, &tmpbuf, sizeof(tmpbuf))) > 0 ||
                (bytes == -1 && errno == EINTR)) {
           if (bytes > 0) {
