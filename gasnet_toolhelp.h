@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_toolhelp.h,v $
- *     $Date: 2007/08/29 16:13:53 $
- * $Revision: 1.29 $
+ *     $Date: 2007/09/07 00:22:38 $
+ * $Revision: 1.30 $
  * Description: misc declarations needed by both gasnet_tools and libgasnet
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -495,6 +495,7 @@ extern char *gasneti_getenv(const char *keyname);
 extern char *gasneti_getenv_withdefault(const char *keyname, const char *defaultval);
 extern int gasneti_getenv_yesno_withdefault(const char *keyname, int defaultval);
 extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defaultval, uint64_t mem_size_multiplier);
+extern double gasneti_getenv_dbl_withdefault(const char *keyname, double defaultval);
 extern int gasneti_verboseenv();
 extern void gasneti_envint_display(const char *key, int64_t val, int is_dflt, int is_mem_size);
 extern void gasneti_envstr_display(const char *key, const char *val, int is_dflt);

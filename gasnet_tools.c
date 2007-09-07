@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/06/11 20:00:22 $
- * $Revision: 1.203 $
+ *     $Date: 2007/09/07 00:22:38 $
+ * $Revision: 1.204 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1390,6 +1390,26 @@ extern int64_t gasneti_getenv_int_withdefault(const char *keyname, int64_t defau
   gasneti_format_number(defaultval, defstr, 80, mem_size_multiplier);
   _gasneti_getenv_withdefault(keyname, defstr, (mem_size_multiplier?3:2), &val);
   return val;
+}
+extern double gasneti_getenv_dbl_withdefault(const char *keyname, double defaultval) {
+  char defstr[80];
+  const char *envval;
+  double retval;
+
+  snprintf(defstr, sizeof(defstr)-1, "%g", defaultval);
+  envval = _gasneti_getenv_withdefault(keyname, defstr, 0, NULL);
+  if (envval == defstr) {
+    /* Avoid round-trip conversion */
+    retval = defaultval;
+  } else {
+    char *endptr;
+    retval = strtod(envval, &endptr);
+    if (endptr != envval) while (*endptr && isspace(*endptr)) endptr++; /* Skip trailing whitespace */
+    if ((endptr == envval) || (*endptr != '\0')) { /* match was empty or has trailing non-whitespace */
+      gasneti_fatalerror("If used, environment variable '%s' must be a valid floating point value", keyname);
+    }
+  }
+  return retval;
 }
 
 /* ------------------------------------------------------------------------------------ */
