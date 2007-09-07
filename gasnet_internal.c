@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2007/09/07 01:21:51 $
- * $Revision: 1.193 $
+ *     $Date: 2007/09/07 03:30:49 $
+ * $Revision: 1.194 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -658,38 +658,19 @@ extern void gasneti_decode_args(int *argc, char ***argv) {
  */
 extern double gasneti_get_exittimeout(double dflt_max, double dflt_min, double dflt_factor, double lower_bound)
 {
-  double defval = MIN(dflt_max, dflt_min + dflt_factor * gasneti_nodes);
   double my_max = gasneti_getenv_dbl_withdefault("GASNET_EXITTIMEOUT_MAX", dflt_max);
   double my_min = gasneti_getenv_dbl_withdefault("GASNET_EXITTIMEOUT_MIN", dflt_min);
   double my_factor = gasneti_getenv_dbl_withdefault("GASNET_EXITTIMEOUT_FACTOR", dflt_factor);
-  double result;
+  double result = gasneti_getenv_dbl_withdefault("GASNET_EXITTIMEOUT",
+						 MIN(my_max, my_min + my_factor * gasneti_nodes));
 
-  if (defval < lower_bound) {
-    gasneti_fatalerror("internal error calling gasneti_get_exittimeout()");
-  } else if (gasneti_getenv("GASNET_EXITTIMEOUT")) {
-    result = gasneti_getenv_dbl_withdefault("GASNET_EXITTIMEOUT", defval);
-    if (result < lower_bound) {
+  if (result < lower_bound) {
+    gasneti_assert(MIN(dflt_max, dflt_min + dflt_factor * gasneti_nodes) >= lower_bound);
+    if (gasneti_getenv("GASNET_EXITTIMEOUT")) {
       gasneti_fatalerror("If used, environment variable GASNET_EXITTIMEOUT must be set to a value no less than %g", lower_bound);
-    }
-  } else {
-    int is_dflt;
-
-    if (gasneti_getenv("GASNET_EXITTIMEOUT_MAX") ||
-	gasneti_getenv("GASNET_EXITTIMEOUT_MIN") ||
-	gasneti_getenv("GASNET_EXITTIMEOUT_FACTOR")) {
-      is_dflt = 0;
-      result = MIN(my_max, my_min + my_factor * gasneti_nodes);
     } else {
-      is_dflt = 1;
-      result = defval;
+      gasneti_fatalerror("Environment variables GASNET_EXITTIMEOUT_{MAX,MIN,FACTOR} yield a timeout less than %g seconds", lower_bound);
     }
-
-    if (result < lower_bound) {
-      if (is_dflt) /* bad arguments! */
-        gasneti_fatalerror("internal error calling gasneti_get_exittimeout()");
-      gasneti_fatalerror("Environment variables GASNET_EXITTIMEOUT_MAX, GASNET_EXITTIMEOUT_MIN, and GASNET_EXITTIMEOUT_FACTOR yield a timeout less than %g second", lower_bound);
-    }
-    gasneti_envdbl_display("GASNET_EXITTIMEOUT", result, is_dflt);
   }
 
   return result;
