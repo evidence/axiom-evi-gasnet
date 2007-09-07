@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.h,v $
- *     $Date: 2006/11/26 03:10:52 $
- * $Revision: 1.110 $
+ *     $Date: 2007/09/07 01:07:18 $
+ * $Revision: 1.111 $
  * Description: GASNet header for internal definitions used in GASNet implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -56,6 +56,9 @@ extern void gasneti_check_config_postattach();
 
 /* decode the command-line arguments */
 extern void gasneti_decode_args(int *argc, char ***argv);
+
+/* extract exit coordination timeout from environment vars (with defaults) */
+extern double gasneti_get_exittimeout(double dflt_max, double dflt_min, double dflt_factor, double lower_bound);
 
 /* Safe memory allocation/deallocation 
    Beware - in debug mode, gasneti_malloc/gasneti_calloc/gasneti_free are NOT
