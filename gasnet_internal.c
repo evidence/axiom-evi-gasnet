@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2007/09/07 01:07:18 $
- * $Revision: 1.192 $
+ *     $Date: 2007/09/07 01:21:51 $
+ * $Revision: 1.193 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -651,7 +651,7 @@ extern void gasneti_decode_args(int *argc, char ***argv) {
 
 /* Process environment for exittimeout.
  * If (GASNET_EXITTIMEOUT is set), it is returned
- * else return = max(GASNET_EXITTIMEOUT_MAX,
+ * else return = min(GASNET_EXITTIMEOUT_MAX,
  *                   GASNET_EXITTIMEOUT_MIN + gasneti_nodes * GASNET_EXITTIMEOUT_FACTOR)
  * Where all the GASNET_EXITTIMEOUT* tokens above are env vars.
  * The arguments are defaults for MAX, MIN and FACTOR, and the lowest value to allow.
