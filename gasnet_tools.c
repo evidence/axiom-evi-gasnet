@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/09/07 04:04:58 $
- * $Revision: 1.206 $
+ *     $Date: 2007/09/07 04:38:10 $
+ * $Revision: 1.207 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1416,9 +1416,21 @@ extern double gasneti_getenv_dbl_withdefault(const char *keyname, double default
     char *endptr;
     retval = strtod(envval, &endptr);
     is_dflt = 0;
-    if (endptr != envval) while (*endptr && isspace(*endptr)) endptr++; /* Skip trailing whitespace */
+    if (endptr != envval) {
+      while (*endptr && isspace(*endptr)) endptr++; /* Skip whitespace */
+      if (*endptr == '/') {
+        char *endptr2;
+        double denom = strtod(1+endptr, &endptr2);
+        if ((denom != 0) && (endptr2 != (1+endptr))) {
+          for (endptr = endptr2; *endptr && isspace(*endptr); endptr++) {/* Skip whitespace */}
+          retval /= denom;
+        } else {
+          /* endptr is left pointing at '/', triggering rejection below */
+        }
+      }
+    }
     if ((endptr == envval) || (*endptr != '\0')) { /* match was empty or has trailing non-whitespace */
-      gasneti_fatalerror("If used, environment variable '%s' must be a valid floating point value", keyname);
+      gasneti_fatalerror("If used, environment variable '%s' must be a valid floating point value or fraction", keyname);
     }
   }
 
