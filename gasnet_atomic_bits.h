@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/09/07 23:02:03 $
- * $Revision: 1.273 $
+ *     $Date: 2007/09/08 00:36:10 $
+ * $Revision: 1.274 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1023,7 +1023,7 @@
       uint32_t gasneti_atomic32_cmpxchg(uint32_t volatile *ptr, uint32_t oldval, uint32_t newval) {
         register uint64_t result;
         _Asm_mov_to_ar(_AREG_CCV, (int64_t)oldval);
-        result = _Asm_cmpxchg(_SZ_D, _SEM_ACQ, ptr, newval, 
+        result = _Asm_cmpxchg(_SZ_W, _SEM_ACQ, ptr, newval, 
                            _LDHINT_NONE, (_Asm_fence)(_UP_MEM_FENCE | _DOWN_MEM_FENCE));
         return (uint32_t) result;
       }
