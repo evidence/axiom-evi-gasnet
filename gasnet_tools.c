@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_tools.c,v $
- *     $Date: 2007/09/07 23:53:29 $
- * $Revision: 1.208 $
+ *     $Date: 2007/09/08 01:12:04 $
+ * $Revision: 1.209 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1857,7 +1857,7 @@ size_t gasneti_count0s_copy_dstsrc_aligned(void * GASNETI_RESTRICT dst, const vo
 /* Copy and count non-zero bytes w/ dst word-aligned, but not src */
 GASNETI_ALWAYS_INLINE(gasneti_count0s_copy_dst_aligned)
 size_t gasneti_count0s_copy_dst_aligned(void * GASNETI_RESTRICT dst, const void * GASNETI_RESTRICT src, size_t words) {
-  #if PLATFORM_ARCH_LITTLE_ENDIAN
+  #if !WORDS_BIGENDIAN
     #define GASNETI_MEMCPY0_MERGE(w0,s0,w1,s1) (((w0)>>(s0)) | ((w1)<<(s1)))
   #else
     #define GASNETI_MEMCPY0_MERGE(w0,s0,w1,s1) (((w0)<<(s0)) | ((w1)>>(s1)))
@@ -1999,7 +1999,7 @@ gasneti_count0s(const void * src, size_t bytes) {
   /* Count partial leading word (if any) */
   tmp = (uintptr_t)s - (uintptr_t)src;
   if (tmp) {
-    #if PLATFORM_ARCH_LITTLE_ENDIAN
+    #if !WORDS_BIGENDIAN
       zeros -= gasneti_count0s_nzs_word(*(s-1) & keep_msb[tmp]);
     #else
       zeros -= gasneti_count0s_nzs_word(*(s-1) & keep_lsb[tmp]);
@@ -2015,7 +2015,7 @@ gasneti_count0s(const void * src, size_t bytes) {
  
   /* Count partial trailing word (if any) */
   tmp = bytes & (SIZEOF_VOID_P - 1);
-  #if PLATFORM_ARCH_LITTLE_ENDIAN
+  #if !WORDS_BIGENDIAN
     zeros -= gasneti_count0s_nzs_word(*s & keep_lsb[tmp]);
   #else
     zeros -= gasneti_count0s_nzs_word(*s & keep_msb[tmp]);
