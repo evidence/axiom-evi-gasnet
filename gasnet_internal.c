@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_internal.c,v $
- *     $Date: 2007/09/07 03:30:49 $
- * $Revision: 1.194 $
+ *     $Date: 2007/09/08 17:54:59 $
+ * $Revision: 1.195 $
  * Description: GASNet implementation of internal helpers
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -166,8 +166,14 @@ extern void gasneti_check_config_preinit() {
   gasneti_assert_always(sizeof(uintptr_t) >= sizeof(void *));
 
   #if WORDS_BIGENDIAN
+    #if PLATFORM_ARCH_LITTLE_ENDIAN
+      #error endianness disagreement: PLATFORM_ARCH_LITTLE_ENDIAN and WORDS_BIGENDIAN are both set
+    #endif
     gasneti_assert_always(!gasneti_isLittleEndian());
   #else
+    #if PLATFORM_ARCH_BIG_ENDIAN
+      #error endianness disagreement: PLATFORM_ARCH_BIG_ENDIAN and !WORDS_BIGENDIAN
+    #endif
     gasneti_assert_always(gasneti_isLittleEndian());
   #endif
 
