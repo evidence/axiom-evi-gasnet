@@ -3616,7 +3616,7 @@ extern void gasnetc_init_portals_resources(void)
     fprintf(fh,"Epoch Lender Limit  = %d\n", gasnetc_lender_limit);
     fprintf(fh,"Epoch Revoke Limit  = %d\n", gasnetc_revoke_limit);
     fprintf(fh,"Allow Packed AMLong = %d\n", gasnetc_allow_packed_long);
-    fprintf(fh,"Shutdown Seconds    = %d\n", gasnetc_shutdown_seconds);
+    fprintf(fh,"Shutdown Seconds    = %f\n", gasnetc_shutdown_seconds);
     fclose(fh);
   }
 #endif
@@ -3639,7 +3639,7 @@ extern void gasnetc_init_portals_resources(void)
   GASNETI_TRACE_PRINTF(C,("Portals_Init: credits_per_node= %d",cred_per_node));
   GASNETI_TRACE_PRINTF(C,("Portals_Init: lender_limit    = %d",gasnetc_lender_limit));
   GASNETI_TRACE_PRINTF(C,("Portals_Init: revoke_limit    = %d",gasnetc_revoke_limit));
-  GASNETI_TRACE_PRINTF(C,("Portals_Init: shutdown seconds= %d",gasnetc_shutdown_seconds));
+  GASNETI_TRACE_PRINTF(C,("Portals_Init: shutdown seconds= %f",gasnetc_shutdown_seconds));
 #if GASNETC_USE_SANDIA_ACCEL
   GASNETI_TRACE_PRINTF(C,("Portals_Init: use_accelerated = %d",gasnetc_use_accel));
 #endif
