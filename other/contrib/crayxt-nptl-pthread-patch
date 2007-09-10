@@ -5,7 +5,7 @@
  /* Mutex initializers.  */
  #define PTHREAD_MUTEX_INITIALIZER \
 -  { }
-+  { 0 }
++  { { 0 } }
  #ifdef __USE_GNU
  # if __WORDSIZE == 64
  #  define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP \
@@ -14,7 +14,7 @@
  
  /* Conditional variable handling.  */
 -#define PTHREAD_COND_INITIALIZER { }
-+#define PTHREAD_COND_INITIALIZER { 0 }
++#define PTHREAD_COND_INITIALIZER { { 0 } }
  
  
  /* Cleanup buffers */
