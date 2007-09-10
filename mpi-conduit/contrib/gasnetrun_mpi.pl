@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2007/05/31 21:58:02 $
-# $Revision: 1.59 $
+#     $Date: 2007/09/10 21:51:22 $
+# $Revision: 1.60 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -567,6 +567,26 @@ if ($is_lam && $numnode) {
   @numprocargs = ($numproc, 'n' . join(',', @tmp));
 }
     
+if ($numnode && ($is_aprun || $is_yod)) { 
+  my $ppn = int( ( $numproc + $numnode - 1 ) / $numnode );
+  if ($ppn * $numnode != $numproc) {
+	warn "WARNING: aprun does not fully support non-uniform process distribution\n";
+	warn "WARNING: PROCESS LAYOUT MIGHT NOT MATCH YOUR REQUEST\n";
+  }
+  if ($is_aprun) { # aprun requires -N ppn
+    @numprocargs = ($numproc, '-N', $ppn);
+  } else { # yod requires -SN or -VN
+    if ($ppn == 1) {
+      @numprocargs = ($numproc, '-SN');
+    } elsif ($ppn == 2) {
+      @numprocargs = ($numproc, '-VN');
+    } else {
+      die "yod does not support more than 2 processes per node.\n";
+    }
+  }
+  $dashN_ok = 1;
+}
+
 # Validate -N as needed
     if (defined($numnode) && !(($spawncmd =~ m/%M/) || $dashN_ok)) {
 	warn "WARNING: Don't know how to control process->node layout with your mpirun\n";
