@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 #   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/mpi-conduit/contrib/gasnetrun_mpi.pl,v $
-#     $Date: 2007/09/10 21:51:22 $
-# $Revision: 1.60 $
+#     $Date: 2007/09/11 05:50:13 $
+# $Revision: 1.61 $
 # Description: GASNet MPI spawner
 # Terms of use are as specified in license.txt
 
@@ -95,7 +95,7 @@ sub gasnet_encode($) {
     my $is_crayt3e_mpi = ($uname =~ m|cray t3e|i );
     my $is_irix_mpi = ($mpirun_help =~ m|\[-miser\]|);
     my $is_poe      = ($mpirun_help =~ m|Parallel Operating Environment|);
-    my $is_aprun    = ($mpirun_help =~ m|rchitecture type.*?xt3|);
+    my $is_aprun    = ($mpirun_help =~ m|rchitecture type.*?xt|);
     my $is_yod      = ($mpirun_help =~ m| yod |);
     my $is_bgl_mpi  = ($mpirun_help =~ m|COprocessor or VirtualNode mode|);
     my $is_bgl_cqsub = ($mpirun_help =~ m| cqsub .*?co/vn|);
