@@ -132,13 +132,6 @@ int gasnetc_debug_node = -1;                  /* used in debugging */
 
 gasnetc_conn_t *gasnetc_conn_state = NULL;
 
-/* if this is set to a positive value it will hardwire the max segment size */
-#if PLATFORM_OS_CNL
-#define GASNETC_DEFAULT_SEGSIZE 256
-#else
-#define GASNETC_DEFAULT_SEGSIZE 0
-#endif
-static long gasnetc_static_segsize = GASNETC_DEFAULT_SEGSIZE * 1024 * 1024;
 
 /* ------------------------------------------------------------------------------------ */
 /* The number of available send tickets and the message limit.
@@ -2894,18 +2887,21 @@ extern uintptr_t gasnetc_portalsMaxPinMem(void)
 #define MBYTE 1048576ULL
   uint64_t granularity = 16ULL * MBYTE;
   uint64_t low = granularity;
-  uint64_t high = 16ULL * 1024ULL * MBYTE;
+  uint64_t high;
+  uint64_t limit = 16ULL * 1024ULL * MBYTE;
   uint64_t prev;
   void *mem = NULL;
-
-  if (gasnetc_static_segsize > 0) {
-    low = gasnetc_static_segsize;
-    if (!try_pin(low)) {
-      gasneti_fatalerror("CNL Unable to alloc and pin static segsize of %ld bytes",low);
-    }
-    return low;
-  }
 #undef MBYTE
+
+#if PLATFORM_OS_CNL
+  /* On CNL, if we try to pin beyond what the OS will allow, the job is killed.
+   * So, there is really no way (that we know of) to determine the maximum
+   * pinnable memory under CNL without dire consequences.
+   * For this platform, we will simply return a large value and if the user
+   * requests a value larger than what can be pinned, the job will be killed.
+   */
+  return (uintptr_t)-1;
+#endif
 
   /* make sure we can pin at least the initial low watermark of memory */
   if (! try_pin(low)) {
@@ -2918,7 +2914,11 @@ extern uintptr_t gasnetc_portalsMaxPinMem(void)
   high = prev*2;
   while (try_pin(high)) {
     prev = high;
+    if (high >= limit) {
+	break;
+    }
     high *= 2;
+    if (high > limit) high = limit;
   }
   low = prev;
 

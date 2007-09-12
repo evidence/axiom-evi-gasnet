@@ -1,6 +1,6 @@
 GASNet Portals-conduit documentation
 Michael Welcome <mlwelcome@lbl.gov>
-$Revision: 1.6 $
+$Revision: 1.7 $
 
 User Information:
 -----------------
@@ -42,91 +42,121 @@ Some notes on building GASNet for the Cray XT3/XT4
 
    Instructions for building gasnet are:
    cd $GASNET_SRC_DIR
-   cp cother/contrib/cross-configure-crayxt3-<OS> .
+   cp other/contrib/cross-configure-crayxt3-<OS> .
    ./Bootstrap
    vi ./cross-configure-crayxt3-<OS>
       to modify any of the configure-time options, such as turning on DEBUG or TRACE mode.
+   ./cross-configure-crayxt3-<OS>
    make
+
+* Special notes on configuring for GASNET-PAR under CNL
+  You must be sure to use the correct version of the pthreads, one that works
+  with Portals.  At the time of this writing, 09/01/2007, this library is located
+  in /usr/lib64/nptl.  The header files are in /usr/include/nptl.
+  Unfortunately, the pthread.h header file in /usr/include/nptl is buggy and needs
+  to be modified.  The easiest thing to do is copy the /usr/include/nptl directory
+  to a local location, say $HOME/nptl.  Modify the pthread.h file as follows:
+
+  Change:
+	extern int __sigsetjmp (struct __jmp_buf_tag __env[1], int __savemask) __THROW;
+  To:
+	extern int __sigsetjmp (struct __jmp_buf_tag *__env, int __savemask) __THROW;
+  Change:
+  #define PTHREAD_MUTEX_INITIALIZER {}
+  #define PTHREAD_COND_INITIALIZER {}
+  To:
+  #define PTHREAD_MUTEX_INITIALIZER { 0 }
+  #define PTHREAD_COND_INITIALIZER { 0 }
+
+  Finally, add the following to EXTRA_CONFIGUER_ARGS in cross-configure-crayxt3-linux:
+    --with-pthreads-include=$HOME/nptl --with-pthreads-lib=/usr/lib64/nptl 
 
 Recognized environment variables:
 ---------------------------------
-GASNET_PORTAL_STATS=
-GASNET_PORTAL_SB_CHUNKS=
-GASNET_PORTAL_RPL_CHUNKS=
-GASNET_PORTAL_NUM_TMPMD=
-GASNET_PORTAL_MSG_LIMIT=
-GASNET_PORTAL_PACKED_LONG=   /* MLW should this be on by default? */
+GASNET_PORTAL_CREDIT_STATS=1 
+  will write credit stats to a file.  This allows a developer to get a sense of
+  how the flow-control credits are distributed.
+
+GASNET_PORTAL_SB_CHUNKS=N
+  Specifies to allocate this number of memory chunks to the Request Send Buffer
+  memory descriptor.  Each active message request must allocate a chunk for its
+  use.  The chunk is held until the corresponding AM Reply arrives.
+  These chunks are also used as bounce buffers for small Put and Get operations.
+
+GASNET_PORTAL_RPL_CHUNKS=N
+  Specifies to allocate this number of memory chunks to the Request Reply Buffer
+  memory descriptor.  Each active message reply must allocate a chunk for its use.
+  The chunk is freed when the AM Reply is known to have been sent off-node.
+
+GASNET_PORTAL_NUM_TMPMD=N
+  Specifies the number of temporary memory descriptors that can be allocated
+  at any time.  The default value is 1024.
+  Temporary MDs are allocated when a Put or Get operation is initiated, the
+  message is larger than what would fit into a Request chunk (bounce buffer)
+  and the memory for the source of the Put or dest of the Get is not already
+  pinned (eg. if it were in the local segment).
+
+GASNET_PORTAL_MSG_LIMIT=N
+  This value limits the total number of messages in-flight from this node.
+  Given that the Cray seastar has 256 available slots in the DMA engine, any more
+  in-flight messages requires a more expensive reliability algorithm to be
+  used at the low levels.  This value only limits the number of INITIATED
+  messages, there is no control over the number of incoming messages, which
+  also consume DMA slots.  Earlier tests showed that performance would drop
+  if this value got much larger than about 300.  The default value is 250.
+
+GASNET_PORTAL_PACKED_LONG=N
+  If N=0, this turns off the ability to pack short-payload AM Long messages
+  into a Request Send Buffer chunk.  A normal AM Long request or reply will
+  send two messages, a header and a data put.  For small AM Long messages,
+  using PACKED longs has better performance.
+  The default value is N=1, allowing PACKED AM Longs.
+
 GASNET_PORTAL_EPOCH_DURATION=
-GASNET_PORTAL_FLOW_CONTROL=   /* MLW: why are they defaulting to zero? */
-GASNET_PORTAL_DYNAMIC_CREDITS
-GASNET_PORTAL_MAX_CRED_PER_NODE
-GASNET_PORTAL_SAFE_LIMIT
-GASNET_PORTAL_AM_LIMIT
-GASNET_PORTAL_SYS_LIMIT
-GASNET_PORTAL_DEBUG_MODE=  /* if built with --enable-debug */
+
+GASNET_PORTAL_FLOW_CONTROL=N
+  if N=1, then active message flow control is enabled.  This is the default.
+  N=0 disables flow control, but the application may fail if a node receives too
+  many AM requests such that its receive buffer overflows.
+
+GASNET_PORTAL_DYNAMIC_CREDITS=N
+  If N=1, then dynamic credit management is enabled.  This is the default.
+  With dynamic credit management, a node dynamically distributes its credits to
+  the nodes it has been communicating with recently.  
+  N=0 disables this feature.
+
+GASNET_PORTAL_MAX_CRED_PER_NODE=N
+  This value limits the total number of credits that can be allocated to a 
+  remote node.
+  The default value is 400.
+
+GASNET_PORTAL_SAFE_LIMIT=N
+  This value defines the maximum number of events that are allowed to be processed
+  on the SAVE event queue, per polling call.  
+  The default value is 12.
+
+GASNET_PORTAL_AM_LIMIT=N
+  This value defines the maximum number of events that are allowed to be processed
+  on the AM event queue, per polling call.  
+  The default value is 8.
+
+GASNET_PORTAL_SYS_LIMIT=N
+  This value defines the maximum number of events that are allowed to be processed
+  on the AM event queue, per polling call.  
+  The default value is 0, meaning there is no limit.  That is, all events are 
+  processed per polling call.
+
 GASNET_PORTAL_CRED_PER_NODE=
 GASNET_PORTAL_BANKED_CREDITS
 GASNET_PORTAL_AMRECV_SPACE
-GASNET_PORTAL_ACCEL=      /* if built with -DGASNETC_USE_SANDIA_ACCEL */
 
-
-GASNET_PORTAL_MAX_POLL_EVENTS=Num
-This value specified the maximum number of Portals Events that will
-be processed whenever the conduit Polls the network.  
-The default value is 40.  
-Increasing the value may increase the time spent processing events when Polling.  
-Decreasing the value may cause events to build-up if the runtime is unable to 
-poll the network frequently enough.
-NOTE:  Setting GASNET_PORTAL_MAX_POLL_EVENTS=0 has the effect of setting
-it to infinity.  That is, GASNet will process all outstanding Portals 
-events on each Poll of the network.
-
-GASNET_PORTAL_PUTGET_POLL=Num
-This value specifies the number of GASNet Put/Get operations that may
-execute before a call to poll the network is forced.  
-The default value is 6.
-An internal counter records the number of Put/Get calls that have been made 
-and if, during a Put/Get call, the counter exceeds this value, a call to poll 
-the network is made.  The counter is reset to zero whenever GASNet polls the network.
-Increasing this value may increase latency of GASNet operations during periods
-of heavy Put/Get usage (without intermediate polling) as operations are not
-marked complete until the corresponding Portals events are processed.
-Decreasing the value may reduce performance by forcing excessive calls to poll
-the network, although the effect is probably minor.
-
-GASNET_PORTAL_PUTGET_LIMIT=Num
-This value specified the maximum number of Put/Get operations that may be
-"in-flight" at any one time.  
-The default value is 255.
-An operation is in-flight during the time period from when it is issued until 
-it has been completed (by the receipt and processing of the corresponding Portals events).
-An internal counter records the number of in-flight Put/Get operations.  When
-this value is exceeded, any additional Put or Get operations are delayed until
-a previous operation has completed.  The network is continually polled during the 
-delay.  This value should probably not be increased, as having too many outstanding
-Portals operations may cause inefficiencies for the Portals implementation.
-This value may be reduced to force fewer in-flight operations.
-
-GASNET_PORTAL_NUM_TMPMD=Num
-Portals Put and Get operations are RDMA operations between a local and remote
-"Memory Descriptor".  Think of a Memory Descriptor (MD) as pinned and registered
-memory.  In GASNet the destination of a Put operation and the source of a Get
-operation is the shared memory segment on the target node, which is already covered
-by an MD (In GASNET_FAST mode).  However, the source memory of a Put or destination
-memory of a Get may not be covered.  Small Put and Get operations are usually 
-copied through a pre-pinned bounce buffer but for larger Put and Get operations,
-the source of the Put or destination of the Get must have a temporary MD constructed
-for it.  This environment variable limits the total number of temporary MD's allowed
-to be in use at any time.
-The default value is 1024.  
-If a Put or Get operation requires a temporary MD and the number in use exceeds this value, 
-the operation will poll the network until one is available.  
-NOTE: the value of GASNET_PORTAL_PUTGET_LIMIT is generally less than this value
-and so it would be impossible (in the current implementation) for this value to
-be exceeded.
-
-* See the README file for the MPI-Conduit for additional environment variables that 
-  effect the GASNet Core API, which is (currently) implemented by the MPI-Conduit.
+GASNET_PORTAL_ACCEL=N      /* if built with -DGASNETC_USE_SANDIA_ACCEL */
+  This value can only be used on a Sandia based Catamount system with
+  accelerated portals.  In this environment, the majority of the portals
+  processing is done on the seastar chip, rather than on the opteron.
+  If N=1, (and GASNet is built with the -DGASNETC_USE_SANDIA_ACCEL flag)
+  then accelerated mode is enabled.
+  The default is N=0.
 
 * All the standard GASNet environment variables (see top-level README)
 
@@ -143,16 +173,10 @@ Known problems:
 
 * See the Berkeley UPC Bugzilla server for details on known bugs.
 
-Future work:
-------------
-In the next few months, the entire GASNet API will be implemented using only
-Portals.  Primarily, this will mean implementing GASNet Short, Medium and 
-Long active message Request and Reply operations using Portals RDMA operations.
-
 ==============================================================================
 
-Design Overview:
-----------------
+A Brief Overview of Portals:
+---------------------------
 At this point, the implementation is relatively straight-forward.   GASNet Put
 and Get operations are implemented in terms of Portals PtlPutRegion and PtlGetRegion
 operations.  
@@ -188,6 +212,27 @@ PTL_EVENT_ACK        - a locally initiated Put operation has reached its remote 
 PTL_EVENT_PUT_END    - a remotely initiated Put operation has completed on a local MD
 PTL_EVENT_GET_END    - a remotely initiated Get operation has completed on a local MD
 PTL_EVENT_REPLY_END  - a locally initiated Get operation has completed on a local MD
+
+Memory Descriptors uses in the GASNet Implementation
+----------------------------------------------------
+RAR
+RARSRC
+RARAM
+ReqSB
+RplSB
+ReqRB
+CB
+TMPMD
+
+Event Queues used in the GASNet Implementation
+----------------------------------------------
+SAFE_EQ
+AM_EQ
+SYS_EQ
+TMP_EQ
+
+The Implemention of GASNet Put and Get Operations
+-------------------------------------------------
 
 At startup the local shared memory segment (Remote Access Region or RAR) is allocated and
 covered by two Portals Memory Descriptors: RAR_MD and RARAM_MD.
@@ -273,6 +318,11 @@ gasnet_try_syncnb() with this handle, the handle is freed and the operation is c
 GASNet Get operations are handled in a similar manner.  
 All blocking operation poll the network until the desired operation is complete.
 
+The Implemention of GASNet Active Messages
+------------------------------------------
+
+Credit Management for GASNet Active Messages
+--------------------------------------------
 
 
 
