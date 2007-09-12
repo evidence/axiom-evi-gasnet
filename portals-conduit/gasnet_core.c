@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/09/12 00:35:56 $
- * $Revision: 1.9 $
+ *     $Date: 2007/09/12 00:46:45 $
+ * $Revision: 1.10 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -296,6 +296,7 @@ extern int gasnetc_attach(gasnet_handlerentry_t *table, int numentries,
     else {
       gasneti_segmentAttach(segsize, minheapoffset, gasneti_seginfo, &gasnetc_bootstrapExchange);
       segbase = gasneti_seginfo[gasneti_mynode].addr;
+      segsize = gasneti_seginfo[gasneti_mynode].size;
       gasneti_assert(((uintptr_t)segbase) % GASNET_PAGESIZE == 0);
       gasneti_assert(segsize % GASNET_PAGESIZE == 0);
     }
