@@ -1,6 +1,6 @@
 GASNet Portals-conduit documentation
 Michael Welcome <mlwelcome@lbl.gov>
-$Revision: 1.7 $
+$Revision: 1.8 $
 
 User Information:
 -----------------
@@ -35,23 +35,24 @@ Some notes on building GASNet for the Cray XT3/XT4
 
 * Since the XT3/XT4 requires using a cross-compiler, there is a special cross
   configuration script located in 
-      $GASNET_SRC_DIR/other/contrib/cross-configure-crayxt3-catamount
+      $GASNET_SRC_DIR/other/contrib/cross-configure-crayxt-catamount
   for a Catamount system OR
-      $GASNET_SRC_DIR/other/contrib/cross-configure-crayxt3-linus
+      $GASNET_SRC_DIR/other/contrib/cross-configure-crayxt-linux
   for CNL.
 
    Instructions for building gasnet are:
    cd $GASNET_SRC_DIR
-   cp other/contrib/cross-configure-crayxt3-<OS> .
+   cp other/contrib/cross-configure-crayxt-<OS> .
    ./Bootstrap
-   vi ./cross-configure-crayxt3-<OS>
+   vi ./cross-configure-crayxt-<OS>
       to modify any of the configure-time options, such as turning on DEBUG or TRACE mode.
-   ./cross-configure-crayxt3-<OS>
+   ./cross-configure-crayxt-<OS>
    make
 
 * Special notes on configuring for GASNET-PAR under CNL
   You must be sure to use the correct version of the pthreads, one that works
-  with Portals.  At the time of this writing, 09/01/2007, this library is located
+  with Portals.  At the time of this writing, 09/01/2007, the only Portals-compatible
+  pthreads library available on CNL is NPTL, which is located
   in /usr/lib64/nptl.  The header files are in /usr/include/nptl.
   Unfortunately, the pthread.h header file in /usr/include/nptl is buggy and needs
   to be modified.  The easiest thing to do is copy the /usr/include/nptl directory
@@ -65,11 +66,17 @@ Some notes on building GASNet for the Cray XT3/XT4
   #define PTHREAD_MUTEX_INITIALIZER {}
   #define PTHREAD_COND_INITIALIZER {}
   To:
-  #define PTHREAD_MUTEX_INITIALIZER { 0 }
-  #define PTHREAD_COND_INITIALIZER { 0 }
+  #define PTHREAD_MUTEX_INITIALIZER { { 0 } }
+  #define PTHREAD_COND_INITIALIZER { { 0 } }
 
-  Finally, add the following to EXTRA_CONFIGUER_ARGS in cross-configure-crayxt3-linux:
-    --with-pthreads-include=$HOME/nptl --with-pthreads-lib=/usr/lib64/nptl 
+  Assuming no significant changes to pthread.h, this patching can be done automatically
+  (and non-destructively) during configure by using the configure argument: 
+    --with-pthreads-patch=other/contrib/crayxt-nptl-pthread-patch
+
+  Finally, the following to EXTRA_CONFIGURE_ARGS in cross-configure-crayxt-linux ensure
+  the use of NPTL libraries and headers:
+    --with-pthreads-include=/usr/include/nptl --with-pthreads-lib=/usr/lib64/nptl 
+  these settings are on by default in cross-configure-crayxt-linux.
 
 Recognized environment variables:
 ---------------------------------
@@ -172,6 +179,26 @@ Known problems:
 ---------------
 
 * See the Berkeley UPC Bugzilla server for details on known bugs.
+
+*  On CNL, if we try to pin more memory than the OS will allow, the job is killed.
+   Therefore there is really no way (that we know of) to determine the maximum
+   pinnable memory (and therefore maximal GASNET_SEGMENT_FAST segment size)
+   under CNL without dire consequences - furthermore the maximal value appears
+   to be site-specific. Currently portals-conduit leaves this quantity
+   unlimited (subject only to GASNET_MAX_SEGSIZE, which determines the maximal
+   mmap) and jobs requesting too large a GASNet segment will be killed by the
+   kernel with an error message like:
+
+     [NID 18]Apid 49229: initiated application termination
+     Application 49229 exit signals: Killed
+
+   Programs encountering this error are recommended to reduce their GASNet
+   segment size demands, either at the GASNet client level (eg
+   UPC_SHARED_HEAP_SIZE), or by setting environment variable GASNET_MAX_SEGSIZE
+   to a smaller value to impose a segment limit.  The default value for
+   GASNET_MAX_SEGSIZE can be established at configure time using:
+   --with-segment-mmap-max=XGB
+
 
 ==============================================================================
 
