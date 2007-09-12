@@ -824,7 +824,7 @@ extern int gasnetc_chunk_alloc_withpoll(gasnetc_PtlBuffer_t *buf, size_t nbytes,
 extern void gasnetc_chunk_free(gasnetc_PtlBuffer_t *buf, ptl_size_t offset);
 extern ptl_handle_md_t gasnetc_alloc_tmpmd(void* dest, size_t nbytes, ptl_handle_eq_t eq_h);
 extern void gasnetc_free_tmpmd(ptl_handle_md_t md_h);
-extern void gasnetc_init_portals_network(void);
+extern void gasnetc_init_portals_network(int *argc, char ***argv);
 extern uintptr_t gasnetc_portalsMaxPinMem(void);
 extern void gasnetc_bootstrapBarrier(void);
 extern void gasnetc_bootstrapBroadcast(void *src, size_t len, void *dest, int rootnode);

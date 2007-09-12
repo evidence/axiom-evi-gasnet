@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/portals-conduit/Attic/gasnet_core.c,v $
- *     $Date: 2007/09/07 18:43:24 $
- * $Revision: 1.8 $
+ *     $Date: 2007/09/12 00:35:56 $
+ * $Revision: 1.9 $
  * Description: GASNet portals conduit Implementation
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  *                 Michael Welcome <mlwelcome@lbl.gov>
@@ -58,6 +58,7 @@ static int gasnetc_init(int *argc, char ***argv) {
 
   if (gasneti_init_done) 
     GASNETI_RETURN_ERRR(NOT_INIT, "GASNet already initialized");
+  gasneti_init_done = 1; /* enable early to allow tracing */
 
   gasneti_freezeForDebugger();
 
@@ -67,7 +68,7 @@ static int gasnetc_init(int *argc, char ***argv) {
   #endif
 
     /* setup portals network */
-  gasnetc_init_portals_network();
+  gasnetc_init_portals_network(argc,argv);
 
   #if GASNET_DEBUG_VERBOSE
     fprintf(stderr,"gasnetc_init(): spawn successful - node %i/%i starting...\n", 
@@ -118,8 +119,6 @@ static int gasnetc_init(int *argc, char ***argv) {
                                    &gasnetc_bootstrapExchange, &gasnetc_bootstrapBroadcast);
   #endif
 
-  gasneti_init_done = 1;
-
   gasneti_auxseg_init(); /* adjust max seg values based on auxseg */
 
 #if GASNETC_DEBUG
@@ -137,7 +136,10 @@ extern int gasnet_init(int *argc, char ***argv) {
 #endif
   retval = gasnetc_init(argc, argv);
   if (retval != GASNET_OK) GASNETI_RETURN(retval);
-  gasneti_trace_init(argc, argv);
+  #if 0
+    /* called within gasnet_init to allow init tracing */
+    gasneti_trace_init(argc, argv);
+  #endif
   return GASNET_OK;
 }
 /* ------------------------------------------------------------------------------------ */

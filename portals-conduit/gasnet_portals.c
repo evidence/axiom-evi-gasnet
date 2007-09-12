@@ -2380,7 +2380,7 @@ extern void gasnetc_sys_barrier(void)
  * --------------------------------------------------------------------------------- */
 static char* gasnetc_flush_buf = NULL;
 int gasnetc_io_buffer_size = 0;  /* was 1024 */
-extern void gasnetc_init_portals_network(void)
+extern void gasnetc_init_portals_network(int *argc, char ***argv)
 {
   ptl_interface_t   ptl_iface;
 #if PLATFORM_OS_CNL
@@ -2398,6 +2398,9 @@ extern void gasnetc_init_portals_network(void)
  
   gasneti_mynode = cnos_get_rank();
   gasneti_nodes = cnos_get_size();
+
+  /* init tracing as early as possible */
+  gasneti_trace_init(argc, argv);
 
   if (gasneti_nodes >= maxnodes) {
     gasneti_fatalerror("GASNet Portals conduit designed to work for up to %d nodes,"
