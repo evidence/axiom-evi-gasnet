@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/09/08 00:36:10 $
- * $Revision: 1.274 $
+ *     $Date: 2007/10/05 05:08:10 $
+ * $Revision: 1.275 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1777,19 +1777,23 @@
    #endif
   /* ------------------------------------------------------------------------------------ */
   #elif PLATFORM_ARCH_POWERPC
-    /* Possibly enable "hybrid" 64-bit atomics for MacOSX and AIX: */
-    #if (PLATFORM_OS_DARWIN && defined(GASNETI_ARCH_PPC64)) || \
-	(PLATFORM_OS_AIX && PLATFORM_ARCH_64)
-      /* We are running on a 64-bit capable CPU/OS, however...
-       * + Apple's ABI only guarantees 4-byte minimum aligment for 64-bit integers and doubles.
-       * + AIX's ABI only guarantees 4-byte minimum aligment for doubles.
-       * Our "contract" with the developer says atomic64_t works on 64-bit types without any
-       * extra alignment.  So, we need to use mutex-based atomics when not aligned.
-       *
-       * See bug 1595 for more info.
-       * See also bug 1619 for why we can't use hybrid atomics with PLATFORM_ARCH_32+PLATFORM_OS_AIX.
+    #if defined(GASNETI_ARCH_PPC64)
+      /* We are running on a 64-bit capable CPU/OS, but can't use native atomics
+         on improperly aligned data.  Since our "contract" with the developer says
+         atomic64_t works on 64-bit types without any extra alignment, we may need
+         to use mutex-based atomics when not aligned.  See bug 1595 for more info.
        */
-      #define GASNETI_HYBRID_ATOMIC64	1
+      #if (PLATFORM_OS_DARWIN || PLATFORM_OS_AIX)
+        /* + Apple's ABI only guarantees 4-byte minimum aligment for 64-bit integers and doubles.
+         * + AIX's ABI only guarantees 4-byte minimum aligment for doubles.
+         */
+        #define GASNETI_HYBRID_ATOMIC64	1
+      #endif
+
+      /* Can we use native 64-bit atomics on ILP32? */
+      #if (PLATFORM_OS_DARWIN || PLATFORM_OS_AIX || PLATFORM_OS_LINUX) && PLATFORM_COMPILER_GNU
+        #define GASNETI_PPC64_ILP32_NATIVE_ATOMICS 1
+      #endif
     #endif
 
     #if PLATFORM_COMPILER_XLC
@@ -1885,7 +1889,7 @@
         #pragma reg_killed_by gasneti_atomic64_swap_not cr0, gr0
         #define _gasneti_atomic64_compare_and_swap(p, oldval, newval) \
 					(gasneti_atomic64_swap_not(p, oldval, newval) == 0)
-      #elif defined(GASNETI_HYBRID_ATOMIC64) /* ILP32 on 64-bit CPU */
+      #elif defined(GASNETI_PPC64_ILP32_NATIVE_ATOMICS) /* ILP32 on 64-bit CPU */
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
@@ -2020,50 +2024,81 @@
 		: "cr0");
           return (result == 0);
         } 
-      #elif defined(GASNETI_HYBRID_ATOMIC64) /* ILP32 on 64-bit CPU */
+      #elif defined(GASNETI_PPC64_ILP32_NATIVE_ATOMICS) /* ILP32 on 64-bit CPU */
 	#define GASNETI_HAVE_ATOMIC64_T 1
         typedef struct { volatile uint64_t ctr; } gasneti_atomic64_t;
         #define _gasneti_atomic64_init(_v)	{ (_v) }
         GASNETI_INLINE(_gasneti_atomic64_set)
         void _gasneti_atomic64_set(gasneti_atomic64_t *p, uint64_t val) {
+          uint32_t tmp;
+	  /* We are using the ll/sc reservation as a "canary" that will ensure we
+	     don't write to memory a value that was clobbered by an interruption
+	     (context switch, signal handler, etc.). */
           __asm__ __volatile__ (
-		"sldi	%1,%1,32	\n\t"
-		"or	%1,%1,%L1	\n\t"
-		"std	%1,%0"
-		: "=m"(p->ctr), "+r"(val)
-		: "m"(p->ctr) );
+		"clrldi	%L2,%L2,32	\n\t"	/* Zap undefined top half of val */
+		"Lga.0.%=:		\t"	/* AIX assembler doesn't grok "0:"-type local labels */
+		"ldarx	%1,0,%3		\n\t"	/* establish reservation */
+		"sldi	%1,%2,32	\n\t"	/* construct 64-bit...   */
+		"or	%1,%1,%L2	\n\t"	/* ... value in tmp register */
+		"stdcx.	%1,0,%3		\n\t"	/* store val */
+		"bne-	Lga.0.%=	"	/* retry on loss of reservation */
+		: "=m"(p->ctr), "=&b"(tmp)
+		: "r"(val), "r"(p), "m"(p->ctr)
+		: "cr0" );
         }
         GASNETI_INLINE(_gasneti_atomic64_read)
         uint64_t _gasneti_atomic64_read(gasneti_atomic64_t *p) {
-          uint64_t retval;
+          uint64_t retval;	/* gcc allocates a pair of regs for this */
+          uint32_t tmp;
+	  /* We are using an extra register with a non-zero upper half as a "canary"
+	     to detect when an interruption (context switch, signal handler, etc.) has
+	     clobbered the upper halves of the register set.  We pick a value that is
+	     zero in the lower half to be insensitive to whether the "clobber" does
+	     sign extension or zero extension. */ 
           __asm__ __volatile__ (
-		"ld	%0,%1		\n\t"
-		"clrldi	%L0,%0,32	\n\t"
-		"srdi	%0,%0,32	"
-		: "=r"(retval)
-		: "m"(*p) );
+		"Lga.0.%=:\t"                   /* AIX assembler doesn't grok "0:"-type local labels */
+		"li	%1,0x7fff	\n\t"	/* Canary value in tmp ... */
+		"sldi	%1,%1,32	\n\t"   /*  ... = 0x00007FFF.00000000 */
+		"ld	%0,%2		\n\t"	/* 64-bit load into "hi" reg of pair */
+		"clrldi	%L0,%0,32	\n\t"	/* "lo" reg of pair gets 32 low bits */
+		"srdi	%0,%0,32	\n\t"	/* "hi" reg of pair gets 32 high bits */
+		"srdi	%1,%1,32	\n\t"	/* Check thar upper half of canary... */
+		"cmpdi	%1,0x7fff	\n\t"	/*  ... is still 0x00007FFF */
+		"bne-	Lga.0.%=	"	/* retry on canary changed */
+		: "=r"(retval), "=r"(tmp)
+		: "m"(p->ctr)
+		: "cr0" );
           return retval;
         }
         GASNETI_INLINE(_gasneti_atomic64_compare_and_swap)
         int _gasneti_atomic64_compare_and_swap(gasneti_atomic64_t *p, uint64_t oldval, uint64_t newval) {
           register int result;
+	  register uint32_t tmp;
+	  /* We are using the ll/sc reservation as a "canary" that will ensure we
+	     don't trust registers clobbered by an interruption (context switch,
+	     signal handler, etc.).  To make this work correctly we need to perform
+	     the "swap" even on a failed "compare" (in case the clobber is the only
+	     reason the compare failed).  If that is the case, then we swap in the
+	     original value, knowing that the normal ll/sc rules will not let us
+	     overwrite the value if it changed since we read it. */
           __asm__ __volatile__ (
-		"sldi     %1,%1,32	\n\t"	/* shift hi32 half of oldval  */
-		"or       %1,%1,%L1	\n\t"	/*   and or in lo32 of oldval */
-		"sldi     %2,%2,32      \n\t"	/* shift hi32 half of newval  */
-		"or       %2,%2,%L2     \n\t"	/*   and or in lo32 of newval */
-		"li	  %0,0		\n\t"	/* assume failure */
+		"clrldi   %L5,%L5,32	\n\t"	/* Zap undefined top half of oldval */
+		"clrldi   %L6,%L6,32	\n\t"	/* Zap undefined top half of newval */
 		"Lga.0.%=:		\t"	/* AIX assembler doesn't grok "0:"-type local labels */
-		"ldarx    %L1,0,%4	\n\t"	/* load to temporary */
-		"cmpd     0,%L1,%1	\n\t"	/* compare temporary w/ oldval */
-		"bne      Lga.1.%=	\n\t"	/* branch on mismatch */
-		"stdcx.   %2,0,%4	\n\t"	/* store newval */
-		"bne-     Lga.0.%=	\n\t"	/* retry on conflict */
+		"ldarx    %1,0,%3	\n\t"	/* load memory to tmp */
+		"sldi     %0,%5,32	\n\t"	/* shift hi32 half of oldval to result */
+		"or       %0,%0,%L5	\n\t"	/*   and or in lo32 of oldval to result */
+		"cmpd     0,%0,%1	\n\t"	/* compare memory (tmp) w/ oldval (result) */
+		"li	  %0,0		\n\t"	/* assume failure */
+		"bne      Lga.1.%=	\n\t"	/* branch to stdcx. on mismatch */
 		"li	  %0,1		\n\t"	/* success */
-		"Lga.1.%=:		\n\t"
-		"nop			"
-		: "=&b"(result), "+r"(oldval), "+r"(newval), "=m"(p->ctr)
-		: "r" (p), "m"(p->ctr)
+		"sldi     %1,%6,32      \n\t"	/* shift hi32 half of newval to tmp  */
+		"or       %1,%1,%L6     \n\t"	/*   and or in lo32 of newval to tmp */
+		"Lga.1.%=:		\t"
+		"stdcx.   %1,0,%3	\n\t"	/* try to store tmp (may be newval or read value) */
+		"bne-     Lga.0.%=	"	/* retry on loss of reservation */
+		: "=&r"(result), "=&r"(tmp), "=m"(p->ctr)
+		: "r" (p), "m"(p->ctr), "r"(oldval), "r"(newval)
 		: "cr0");
           return result;
         } 
