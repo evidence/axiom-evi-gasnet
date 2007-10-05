@@ -1,6 +1,6 @@
 /*   $Source: /Users/kamil/work/gasnet-cvs2/gasnet/gasnet_atomic_bits.h,v $
- *     $Date: 2007/10/05 05:08:10 $
- * $Revision: 1.275 $
+ *     $Date: 2007/10/05 05:22:01 $
+ * $Revision: 1.276 $
  * Description: GASNet header for platform-specific parts of atomic operations
  * Copyright 2002, Dan Bonachea <bonachea@cs.berkeley.edu>
  * Terms of use are as specified in license.txt
@@ -1791,9 +1791,14 @@
       #endif
 
       /* Can we use native 64-bit atomics on ILP32? */
-      #if (PLATFORM_OS_DARWIN || PLATFORM_OS_AIX || PLATFORM_OS_LINUX) && PLATFORM_COMPILER_GNU
+      #if (PLATFORM_OS_DARWIN || PLATFORM_OS_AIX || PLATFORM_OS_LINUX)
         #define GASNETI_PPC64_ILP32_NATIVE_ATOMICS 1
       #endif
+    #endif
+    #if PLATFORM_COMPILER_XLC && PLATFORM_ARCH_32
+      /* Disabled: */
+      #undef GASNETI_HYBRID_ATOMIC64
+      #undef GASNETI_PPC64_ILP32_NATIVE_ATOMICS
     #endif
 
     #if PLATFORM_COMPILER_XLC
